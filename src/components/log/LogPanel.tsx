@@ -6,7 +6,6 @@
 // ============================================================
 
 import { useState, useRef, useEffect } from 'react'
-import type { ViewTab } from '../../types'
 import { Home, Activity, Search, ChevronDown, ChevronUp, Copy, Check, Download, RefreshCw, Trash } from '../icons'
 
 interface LogEntry {
@@ -364,7 +363,6 @@ function FilterPill({ level, active, onToggle }: { level: string; active: boolea
           border: `1px solid ${color}`,
           color: active ? 'var(--q-bg)' : color,
           fontSize: '12px', fontFamily: 'var(--font-interface)', fontWeight: 500,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
           transition: 'background-color 0.1s ease, color 0.1s ease',
         }}
       >

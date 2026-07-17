@@ -83,7 +83,7 @@ export function ChatArea(props: ChatAreaProps) {
             isStreaming={props.streaming} statusLabel={props.statusLabel} statusKind={props.statusKind}
             onSend={props.onSend} onStop={props.onStop}
             onModelChange={props.onModelSelect} onModeChange={props.onModeChange}
-            onThinkingChange={props.onThinkingChange} welcomeMode={true}
+            onThinkingChange={(level: string) => props.onThinkingChange(level as any)} welcomeMode={true}
           />
         </div>
       ) : (
@@ -114,7 +114,7 @@ export function ChatArea(props: ChatAreaProps) {
               isStreaming={props.streaming} statusLabel={props.statusLabel} statusKind={props.statusKind}
               onSend={props.onSend} onStop={props.onStop}
               onModelChange={props.onModelSelect} onModeChange={props.onModeChange}
-              onThinkingChange={props.onThinkingChange} welcomeMode={false}
+              onThinkingChange={(level: string) => props.onThinkingChange(level as any)} welcomeMode={false}
             />
           </div>
         </>

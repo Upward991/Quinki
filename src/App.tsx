@@ -11,7 +11,7 @@ import { SettingsPanel } from './components/settings/SettingsPanel'
 import { LogPanel } from './components/log/LogPanel'
 import { GlobalContextMenu } from './components/shared/GlobalContextMenu'
 import { mockMessages, mockSessions, mockAgents, mockProviders, mockThemes } from './design/mock-data'
-import type { ViewTab, ChatMode, ThinkingLevel } from './types'
+import type { ChatMode, ThinkingLevel } from './types'
 
 type SidebarMode = 'pinned' | 'hidden' | 'peek'
 
