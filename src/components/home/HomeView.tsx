@@ -20,7 +20,7 @@ const cards = [
   { id: 'settings', icon: Settings, label: 'Settings', color: 'var(--q-accent-secondary)', panel: 'settings', doubleBot: false },
 ]
 
-export function HomeView({ onSelectPanel }: HomeViewProps) {
+export function HomeView({ activePanel, onSelectPanel }: HomeViewProps) {
   return (
     <div className="h-full flex items-center justify-center" style={{ backgroundColor: 'var(--q-bg)' }}>
       <div style={{ maxWidth: '600px', padding: '32px' }}>

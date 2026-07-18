@@ -23,12 +23,13 @@ export const MessageBubble = memo(function MessageBubble({ message, onCopy }: Me
 
 // ── User message ──
 function UserMessage({ message, onCopy }: { message: Message; onCopy?: (t: string) => void }) {
+  const [copied, setCopied] = useState(false)
   return (
     <div style={{ width: '100%', padding: '8px 16px', backgroundColor: 'var(--q-bubble-user)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)' }}>
       <div style={{ color: 'var(--q-bubble-user-text)', fontSize: '14px', lineHeight: 1.5, fontFamily: 'var(--font-interface)', fontWeight: 500, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-        {message.content || ''}
+        {message.content}
       </div>
-      <Footer content={message.content || ''} timestamp={message.timestamp} onCopy={onCopy} />
+      <Footer content={message.content} timestamp={message.timestamp} onCopy={onCopy} />
     </div>
   )
 }
@@ -49,20 +50,20 @@ function MessageBlocks({ thinking, toolCalls, toolResults, compaction, delegatio
   return (
     <>
       {/* Thinking */}
-      {thinking?.map((t, i) => <ThinkingToggle key={`t-${i}`} content={t.content || ''} />)}
+      {thinking?.map((t, i) => <ThinkingToggle key={`t-${i}`} content={t.content} />)}
 
       {/* Tool calls */}
-      {toolCalls?.map((tc, i) => <ToolToggle key={`tc-${i}`} label="Tool call" toolName={tc.name} body={tc.input || ''} isError={false} />)}
+      {toolCalls?.map((tc, i) => <ToolToggle key={`tc-${i}`} label="Tool call" toolName={tc.name} body={tc.input} isError={false} />)}
 
       {/* Tool results (error + success) */}
-      {toolResults?.map((tr, i) => <ToolToggle key={`tr-${i}`} label={tr.isError ? 'Tool error' : 'Tool result'} toolName={tr.name} body={tr.output || ''} isError={tr.isError} />)}
+      {toolResults?.map((tr, i) => <ToolToggle key={`tr-${i}`} label={tr.isError ? 'Tool error' : 'Tool result'} toolName={tr.name} body={tr.output} isError={tr.isError} />)}
 
       {/* Text content with markdown + code blocks */}
       <MarkdownContent text={content} isError={isError} />
 
       {/* Compaction toggles (blue + orange, in order) */}
       {compaction?.map((comp, i) => (
-        <CompactionToggle key={`comp-${i}`} content={comp.content || ''} isNoop={comp.isNoop} />
+        <CompactionToggle key={`comp-${i}`} content={comp.content} isNoop={comp.isNoop} />
       ))}
 
       {/* Delegation */}
@@ -78,9 +79,9 @@ function AssistantMessage({ message, onCopy }: { message: Message; onCopy?: (t: 
   return (
     <div style={{ maxWidth: 'var(--spacing-chat-max)', minWidth: 0 }}>
       {/* Thinking, tool calls, tool results — NO footer after these */}
-      {message.thinking?.map((t, i) => <ThinkingToggle key={`t-${i}`} content={t.content || ''} />)}
-      {message.toolCalls?.map((tc, i) => <ToolToggle key={`tc-${i}`} label="Tool call" toolName={tc.name} body={tc.input || ''} isError={false} />)}
-      {message.toolResults?.map((tr, i) => <ToolToggle key={`tr-${i}`} label={tr.isError ? 'Tool error' : 'Tool result'} toolName={tr.name} body={tr.output || ''} isError={tr.isError} />)}
+      {message.thinking?.map((t, i) => <ThinkingToggle key={`t-${i}`} content={t.content} />)}
+      {message.toolCalls?.map((tc, i) => <ToolToggle key={`tc-${i}`} label="Tool call" toolName={tc.name} body={tc.input} isError={false} />)}
+      {message.toolResults?.map((tr, i) => <ToolToggle key={`tr-${i}`} label={tr.isError ? 'Tool error' : 'Tool result'} toolName={tr.name} body={tr.output} isError={tr.isError} />)}
 
       {/* Error message — same as normal text but in red, no border/box */}
       {message.isError && message.errorContent && (
@@ -91,7 +92,7 @@ function AssistantMessage({ message, onCopy }: { message: Message; onCopy?: (t: 
             </div>
           </div>
           <Footer
-            content={message.errorContent || ''}
+            content={message.errorContent}
             timestamp={message.timestamp}
             agentName={message.agentName}
             agentModel={message.agentModel}
@@ -105,11 +106,11 @@ function AssistantMessage({ message, onCopy }: { message: Message; onCopy?: (t: 
       {message.content && !message.isError && (
         <div>
           <div style={{ padding: '4px 0' }}>
-            <MarkdownContent text={message.content || ''} isError={isError} />
+            <MarkdownContent text={message.content} isError={isError} />
 
           </div>
           <Footer
-            content={message.content || ''}
+            content={message.content}
             timestamp={message.timestamp}
             agentName={message.agentName}
             agentModel={message.agentModel}
@@ -121,7 +122,7 @@ function AssistantMessage({ message, onCopy }: { message: Message; onCopy?: (t: 
 
       {/* Compaction + delegation — AFTER text+footer, NO footer */}
       {message.compaction?.map((comp, i) => (
-        <CompactionToggle key={`comp-${i}`} content={comp.content || ''} isNoop={comp.isNoop} />
+        <CompactionToggle key={`comp-${i}`} content={comp.content} isNoop={comp.isNoop} />
       ))}
       {message.delegations?.map((d, i) => <DelegationBlockView key={`d-${i}`} delegation={d} timestamp={message.timestamp} />)}
     </div>
@@ -129,7 +130,7 @@ function AssistantMessage({ message, onCopy }: { message: Message; onCopy?: (t: 
 }
 
 // ── Markdown content with code blocks (copy + syntax highlighting) ──
-function MarkdownContent({ text, isError }: { text?: string; isError?: boolean }) {
+function MarkdownContent({ text, isError }: { text: string; isError?: boolean }) {
   return (
     <div style={{ padding: '4px 0' }}>
       <ReactMarkdown
@@ -346,7 +347,7 @@ function DelegationBlockView({ delegation, timestamp }: { delegation: Delegation
 
 // ── SHARED Footer — used by user, assistant, AND delegation ──
 function Footer({ content, timestamp, agentName, agentModel, thinkingLevel, onCopy }: {
-  content?: string; timestamp: string; agentName?: string; agentModel?: string; thinkingLevel?: string; onCopy?: (t: string) => void
+  content: string; timestamp: string; agentName?: string; agentModel?: string; thinkingLevel?: string; onCopy?: (t: string) => void
 }) {
   const [copied, setCopied] = useState(false)
   const [infoOpen, setInfoOpen] = useState(false)
@@ -360,7 +361,7 @@ function Footer({ content, timestamp, agentName, agentModel, thinkingLevel, onCo
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0', lineHeight: '1' }}>
       <button
-        onClick={() => { onCopy?.(content || ''); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
+        onClick={() => { onCopy?.(content); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
         title="Copy"
         onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)'; e.currentTarget.style.borderRadius = '4px' }}
         onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
@@ -388,6 +389,18 @@ function Footer({ content, timestamp, agentName, agentModel, thinkingLevel, onCo
         </span>
       )}
     </div>
+  )
+}
+
+// ── Old CopyBtn (kept for compat) — 16px icon, no padding, aligns with text ──
+function CopyBtn({ text, copied, setCopied, onCopy }: { text: string; copied: boolean; setCopied: (v: boolean) => void; onCopy?: (t: string) => void }) {
+  const [hovered, setHovered] = useState(false)
+  return (
+    <button onClick={() => { onCopy?.(text); setCopied(true); setTimeout(() => setCopied(false), 2000) }} title="Copy"
+      onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+      style={{ background: 'none', border: 'none', cursor: 'pointer', color: hovered ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      {copied ? <Check size={16} style={{ color: 'var(--q-accent-success)' }} /> : <Copy size={16} />}
+    </button>
   )
 }
 

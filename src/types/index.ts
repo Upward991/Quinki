@@ -19,7 +19,7 @@ export interface ToolResult {
 
 export interface ThinkingBlock {
   level: string  // 'on' | 'xhigh' | etc.
-  content?: string
+  content: string
 }
 
 export interface DelegationBlock {
@@ -39,14 +39,14 @@ export interface DelegationBlock {
 }
 
 export interface CompactionInfo {
-  content?: string
+  content: string
   isNoop: boolean
 }
 
 export interface Message {
   id: string
   role: MessageRole
-  content?: string
+  content: string
   agentName?: string
   agentModel?: string
   timestamp: string  // ISO string

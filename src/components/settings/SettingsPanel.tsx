@@ -7,7 +7,7 @@
 // ============================================================
 
 import { useState, useRef, useEffect } from 'react'
-import type { ThemePreset, Provider } from '../../types'
+import type { ViewTab, ThemePreset, Provider } from '../../types'
 import { Home, Settings, Plug, Archive, Palette, Info, Search, ChevronDown, ChevronRight, ChevronUp, Save, Power, Plus, Check, Trash, RefreshCw } from '../icons'
 
 interface SettingsPanelProps {
@@ -30,7 +30,7 @@ const sections = [
 const thinkingLevels = ['off', 'low', 'medium', 'high', 'xhigh']
 
 export function SettingsPanel(props: SettingsPanelProps) {
-  
+  const [activeSection, setActiveSection] = useState('settings-providers')
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -46,6 +46,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
   }, [])
 
   const scrollToSection = (id: string) => {
+    setActiveSection(id)
     const el = document.getElementById(id)
     if (el && bodyRef.current) {
       const containerTop = bodyRef.current.getBoundingClientRect().top

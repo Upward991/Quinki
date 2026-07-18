@@ -1,308 +1,233 @@
 /* ============================================================
-   Quinki — Design System CSS
-   All design tokens as CSS Variables.
-   Tailwind v4 @theme maps these to utility classes.
-   Theme switching = override 4 variables via [data-theme].
+   Quinki — "Deep Cosmos" Design System CSS
+   Deep space aesthetic — warm but mysterious.
+   Muted lavender violet accent. Inner glow shadows.
+   Aurora atmosphere + noise overlay.
    ============================================================ */
 
 @import "tailwindcss";
 
 /* ──────────────────────────────────────────────────────────
    TAILWIND THEME — design tokens → utility classes
-   bg-bg, bg-bg-panel, text-text, text-text-secondary, etc.
-   These reference CSS variables, so [data-theme] overrides work.
    ────────────────────────────────────────────────────────── */
 @theme {
-  /* Backgrounds */
   --color-bg: var(--q-bg);
   --color-bg-elevated: var(--q-bg-elevated);
   --color-bg-panel: var(--q-bg-panel);
   --color-bg-code: var(--q-bg-code);
   --color-bubble-user: var(--q-bubble-user);
   --color-bubble-user-text: var(--q-bubble-user-text);
-  --color-overlay: var(--q-overlay);
-
-  /* Text */
   --color-text: var(--q-text);
   --color-text-secondary: var(--q-text-secondary);
   --color-text-tertiary: var(--q-text-tertiary);
-
-  /* Accent (fixed across all themes) */
-  --color-accent-primary: var(--q-accent-primary);
-  --color-accent-secondary: var(--q-accent-secondary);
-  --color-accent-danger: var(--q-accent-danger);
-  --color-accent-warning: var(--q-accent-warning);
-  --color-accent-success: var(--q-accent-success);
-  --color-accent-info: var(--q-accent-info);
-  --color-accent-info-bright: var(--q-accent-info-bright);
-  --color-accent-folder-open: var(--q-accent-folder-open);
-  --color-accent-orange: var(--q-accent-orange);
-
-  /* Toggle colors */
-  --color-thinking: var(--q-thinking);
-  --color-tool-call: var(--q-tool-call);
-  --color-tool-result: var(--q-tool-result);
-  --color-delegation: var(--q-delegation);
-
-  /* Borders & hover */
   --color-border-soft: var(--q-border-soft);
-  --color-border: var(--q-border);
-  --color-border-strong: var(--q-border-strong);
   --color-hover: var(--q-hover);
   --color-active: var(--q-active);
-
-  /* Radius */
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
-  --radius-xl: 12px;
-
-  /* Fonts */
-  --font-interface: 'IBM Plex Sans', system-ui, sans-serif;
-  --font-code: 'IBM Plex Mono', 'Menlo', monospace;
-
-  /* Shadows */
-  --shadow-floating: 0 0 0 1px var(--q-border), 0 4px 16px rgba(0,0,0,0.3);
-  --shadow-modal: 0 16px 48px rgba(0,0,0,0.5);
-
-  /* Layout dimensions */
+  --font-interface: "Geist", sans-serif;
+  --font-code: "Geist Mono", monospace;
+  --shadow-floating: 0 0 0 1px var(--q-border), inset 0 1px 0 #ffffff05;
+  --shadow-modal: 0 0 0 1px var(--q-border), 0 8px 32px #0006, inset 0 1px 0 #ffffff05;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
   --spacing-titlebar: 28px;
   --spacing-header-min: 48px;
-  --spacing-btn: 32px;
-  --spacing-sidebar: 284px;
+  --spacing-sidebar: 260px;
   --spacing-chat-max: 1000px;
-  --spacing-composer-min: 40px;
-  --spacing-composer-max: 280px;
 }
 
 /* ──────────────────────────────────────────────────────────
-   BASE THEME — "Vision Comfort Neutral" (DEFAULT)
-   4 variables that CHANGE between themes + all fixed tokens
+   DESIGN TOKENS — "Deep Cosmos" base (:root)
    ────────────────────────────────────────────────────────── */
 :root {
-  /* === Theme-variant colors (change per theme) === */
-  --q-bg: #121212;
-  --q-bg-panel: #1F1F1F;
-  --q-bubble-user: #383838;
-  --q-bubble-user-text: #EAEAEA;
-  --q-overlay: rgba(20, 20, 20, 0.78);
-
-  /* === Fixed colors (same in all themes) === */
-  --q-bg-elevated: #1d1d1d;
-  --q-bg-code: #000000;
-  --q-text: #EAEAEA;
-  --q-text-secondary: #9c9c9c;
-  --q-text-tertiary: #6e6e6e;
-
-  /* Accent */
-  --q-accent-primary: #ec885f;
-  --q-accent-secondary: #c47fd4;
+  --q-bg: #08080b;
+  --q-bg-panel: #0f0f13;
+  --q-bg-elevated: #16161b;
+  --q-bg-code: #040406;
+  --q-bubble-user: #1a1a20;
+  --q-bubble-user-text: #e8e8ec;
+  --q-overlay: #06060ad1;
+  --q-text: #e8e8ec;
+  --q-text-secondary: #888892;
+  --q-text-tertiary: #585860;
+  --q-border-soft: #ffffff08;
+  --q-border: #ffffff0f;
+  --q-border-strong: #ffffff1a;
+  --q-hover: #ffffff0a;
+  --q-active: #ffffff12;
+  --q-accent-primary: #9d8bd9;
+  --q-accent-secondary: #c97084;
   --q-accent-danger: #d96b6b;
-  --q-accent-warning: #d7be66;
-  --q-accent-success: #9bbf7a;
-  --q-accent-info: #7a8aa0;
-  --q-accent-info-bright: #b5c7e0;
-  --q-accent-folder-open: #fcc998;
-  --q-accent-orange: #e8975a;
-
-  /* Toggle */
-  --q-thinking: #a888c0;
-  --q-tool-call: #d7be66;
-  --q-tool-result: #9bbf7a;
-  --q-delegation: #c46a7e;
-
-  /* Status pill colors */
-  --q-status-thinking: #a888c0;
-  --q-status-writing: #e6e6e6;
-  --q-status-tool-call: #d7be66;
-  --q-status-tool-result: #9bbf7a;
+  --q-accent-warning: #d29922;
+  --q-accent-success: #6bc46d;
+  --q-accent-info: #7aa2f7;
+  --q-accent-info-bright: #89b4fa;
+  --q-accent-folder-open: #d9a066;
+  --q-accent-orange: #d9a066;
+  --q-accent-folder-open-soft: #d9a0661f;
+  --q-accent-folder-open-border: #d9a06680;
+  --q-mode-plan: #9d8bd9;
+  --q-mode-build: #d9a066;
+  --q-directory-btn: #16161b;
+  --q-directory-btn-hover: #9d8bd9;
+  --q-accent-primary-soft: #9d8bd91a;
+  --q-accent-danger-soft: #d96b6b1a;
+  --q-accent-danger-border: #d96b6b40;
+  --q-thinking: #9d8bd9;
+  --q-tool-call: #d29922;
+  --q-tool-result: #6bc46d;
+  --q-delegation: #c97084;
+  --q-status-thinking: #9d8bd9;
+  --q-status-writing: #e8e8ec;
+  --q-status-tool-call: #d29922;
+  --q-status-tool-result: #6bc46d;
   --q-status-tool-error: #d96b6b;
-  --q-status-compacting: #6ab0e0;
-  --q-status-retrying: #d7be66;
+  --q-status-compacting: #7aa2f7;
+  --q-status-retrying: #d29922;
   --q-status-failed: #d96b6b;
-  --q-status-running: #5ec4a8;
-
-  /* Borders & hover */
-  --q-border-soft: rgba(234, 234, 234, 0.04);
-  --q-border: rgba(234, 234, 234, 0.08);
-  --q-border-strong: rgba(234, 234, 234, 0.12);
-  --q-hover: rgba(234, 234, 234, 0.08);
-  --q-active: rgba(234, 234, 234, 0.12);
-
-  /* Font sizes */
+  --q-status-running: #5a8c9e;
+  --q-log-error-bg: #d96b6b0f;
+  --q-log-error-text: #f0a0a0;
+  --q-log-error-tag: #d96b6b;
+  --q-log-warn-bg: #d299220f;
+  --q-log-warn-text: #e0c890;
+  --q-log-warn-tag: #d29922;
+  --q-log-ui-bg: #7aa2f70f;
+  --q-log-ui-text: #a0b8d0;
+  --q-log-ui-tag: #7aa2f7;
+  --q-log-success-bg: #6bc46d0f;
+  --q-log-success-text: #90d090;
+  --q-log-success-tag: #6bc46d;
+  --q-log-bridge-bg: #ffffff08;
+  --q-log-bridge-text: var(--q-text);
+  --q-log-bridge-tag: var(--q-text);
+  --q-log-renderer-bg: #ffffff05;
+  --q-log-renderer-text: var(--q-text-secondary);
+  --q-log-renderer-tag: var(--q-text-secondary);
+  --q-log-info-bg: #ffffff05;
+  --q-log-info-text: var(--q-text-tertiary);
+  --q-log-info-tag: var(--q-text-tertiary);
+  --fs-11: 11px;
+  --fs-13: 13px;
   font-size: 15px;
 }
 
 /* ──────────────────────────────────────────────────────────
-   17 BUILT-IN THEMES — each overrides only 4 variables
+   7 THEMES — each overrides atmospheric variables
    ────────────────────────────────────────────────────────── */
-[data-theme="antracite-notturna"] {
-  --q-bg: #161616; --q-bg-panel: #232323; --q-bubble-user: #232323; --q-bubble-user-text: #e6e6e6;
-  --q-text: #e6e6e6; --q-overlay: rgba(20, 20, 20, 0.78);
-  --q-border: rgba(230, 230, 230, 0.08); --q-border-strong: rgba(230, 230, 230, 0.12);
-  --q-border-soft: rgba(230, 230, 230, 0.04); --q-hover: rgba(230, 230, 230, 0.08); --q-active: rgba(230, 230, 230, 0.12);
-}
-
-[data-theme="ossidiana-nera"] {
-  --q-bg: #0a0a0a; --q-bg-panel: #1e1e1e; --q-bubble-user: #141414; --q-bubble-user-text: #e6e6e6;
-  --q-text: #e6e6e6; --q-overlay: rgba(10, 10, 10, 0.78);
-  --q-border: rgba(230, 230, 230, 0.08); --q-border-strong: rgba(230, 230, 230, 0.12);
-  --q-border-soft: rgba(230, 230, 230, 0.04); --q-hover: rgba(230, 230, 230, 0.08); --q-active: rgba(230, 230, 230, 0.12);
-}
-
-[data-theme="amber-void-harmony"] {
-  --q-bg: #0B0E1A; --q-bg-panel: #1A1F1A; --q-bubble-user: #3A2A12; --q-bubble-user-text: #e6e6e6;
-  --q-text: #e6e6e6; --q-overlay: rgba(11, 14, 26, 0.78);
-  --q-border: rgba(230, 230, 230, 0.08); --q-border-strong: rgba(230, 230, 230, 0.12);
-  --q-border-soft: rgba(230, 230, 230, 0.04); --q-hover: rgba(230, 230, 230, 0.08); --q-active: rgba(230, 230, 230, 0.12);
-}
-
-[data-theme="arctic-plum-ocean"] {
-  --q-bg: #070C18; --q-bg-panel: #241A2E; --q-bubble-user: #0F3B3C; --q-bubble-user-text: #e6e6e6;
-  --q-text: #e6e6e6; --q-overlay: rgba(7, 12, 24, 0.78);
-  --q-border: rgba(230, 230, 230, 0.08); --q-border-strong: rgba(230, 230, 230, 0.12);
-  --q-border-soft: rgba(230, 230, 230, 0.04); --q-hover: rgba(230, 230, 230, 0.08); --q-active: rgba(230, 230, 230, 0.12);
-}
-
-[data-theme="earth-neon-calm"] {
-  --q-bg: #07140F; --q-bg-panel: #2A1B14; --q-bubble-user: #3B3A1A; --q-bubble-user-text: #e6e6e6;
-  --q-text: #e6e6e6; --q-overlay: rgba(7, 20, 15, 0.78);
-  --q-border: rgba(230, 230, 230, 0.08); --q-border-strong: rgba(230, 230, 230, 0.12);
-  --q-border-soft: rgba(230, 230, 230, 0.04); --q-hover: rgba(230, 230, 230, 0.08); --q-active: rgba(230, 230, 230, 0.12);
-}
-
-[data-theme="nordic-calm"] {
-  --q-bg: #0A0F1C; --q-bg-panel: #14222A; --q-bubble-user: #2B4A66; --q-bubble-user-text: #e6e6e6;
-  --q-text: #e6e6e6; --q-overlay: rgba(10, 15, 28, 0.78);
-  --q-border: rgba(230, 230, 230, 0.08); --q-border-strong: rgba(230, 230, 230, 0.12);
-  --q-border-soft: rgba(230, 230, 230, 0.04); --q-hover: rgba(230, 230, 230, 0.08); --q-active: rgba(230, 230, 230, 0.12);
-}
-
-[data-theme="muted-nature"] {
-  --q-bg: #0C1410; --q-bg-panel: #1A2A24; --q-bubble-user: #2F5C55; --q-bubble-user-text: #e6e6e6;
-  --q-text: #e6e6e6; --q-overlay: rgba(12, 20, 16, 0.78);
-  --q-border: rgba(230, 230, 230, 0.08); --q-border-strong: rgba(230, 230, 230, 0.12);
-  --q-border-soft: rgba(230, 230, 230, 0.04); --q-hover: rgba(230, 230, 230, 0.08); --q-active: rgba(230, 230, 230, 0.12);
-}
-
-[data-theme="deep-aurora"] {
-  --q-bg: #070A12; --q-bg-panel: #0B1020; --q-bubble-user: #0C1A1F; --q-bubble-user-text: #e6e6e6;
-  --q-text: #e6e6e6; --q-overlay: rgba(7, 10, 18, 0.78);
-  --q-border: rgba(230, 230, 230, 0.08); --q-border-strong: rgba(230, 230, 230, 0.12);
-  --q-border-soft: rgba(230, 230, 230, 0.04); --q-hover: rgba(230, 230, 230, 0.08); --q-active: rgba(230, 230, 230, 0.12);
-}
-
-[data-theme="forest-earth-low"] {
-  --q-bg: #070D0A; --q-bg-panel: #0E1410; --q-bubble-user: #120F0B; --q-bubble-user-text: #e6e6e6;
-  --q-text: #e6e6e6; --q-overlay: rgba(7, 13, 10, 0.78);
-  --q-border: rgba(230, 230, 230, 0.08); --q-border-strong: rgba(230, 230, 230, 0.12);
-  --q-border-soft: rgba(230, 230, 230, 0.04); --q-hover: rgba(230, 230, 230, 0.08); --q-active: rgba(230, 230, 230, 0.12);
-}
-
-[data-theme="absolute-dark"] {
-  --q-bg: #000000; --q-bg-panel: #0A0B10; --q-bubble-user: #12070B; --q-bubble-user-text: #e6e6e6;
-  --q-text: #e6e6e6; --q-overlay: rgba(0, 0, 0, 0.78);
-  --q-border: rgba(230, 230, 230, 0.08); --q-border-strong: rgba(230, 230, 230, 0.12);
-  --q-border-soft: rgba(230, 230, 230, 0.04); --q-hover: rgba(230, 230, 230, 0.08); --q-active: rgba(230, 230, 230, 0.12);
-}
-
-[data-theme="midnight-indigo"] {
-  --q-bg: #0B0F1A; --q-bg-panel: #161B2C; --q-bubble-user: #253A5A; --q-bubble-user-text: #e6e6e6;
-  --q-text: #e6e6e6; --q-overlay: rgba(11, 15, 26, 0.78);
-  --q-border: rgba(230, 230, 230, 0.08); --q-border-strong: rgba(230, 230, 230, 0.12);
-  --q-border-soft: rgba(230, 230, 230, 0.04); --q-hover: rgba(230, 230, 230, 0.08); --q-active: rgba(230, 230, 230, 0.12);
-}
-
-[data-theme="deep-forest"] {
-  --q-bg: #0A0F0D; --q-bg-panel: #141C18; --q-bubble-user: #1F3A2E; --q-bubble-user-text: #e6e6e6;
-  --q-text: #e6e6e6; --q-overlay: rgba(10, 15, 13, 0.78);
-  --q-border: rgba(230, 230, 230, 0.08); --q-border-strong: rgba(230, 230, 230, 0.12);
-  --q-border-soft: rgba(230, 230, 230, 0.04); --q-hover: rgba(230, 230, 230, 0.08); --q-active: rgba(230, 230, 230, 0.12);
-}
-
-[data-theme="ocean-glass"] {
-  --q-bg: #07151A; --q-bg-panel: #10242C; --q-bubble-user: #1F4D5A; --q-bubble-user-text: #e6e6e6;
-  --q-text: #e6e6e6; --q-overlay: rgba(7, 21, 26, 0.78);
-  --q-border: rgba(230, 230, 230, 0.08); --q-border-strong: rgba(230, 230, 230, 0.12);
-  --q-border-soft: rgba(230, 230, 230, 0.04); --q-hover: rgba(230, 230, 230, 0.08); --q-active: rgba(230, 230, 230, 0.12);
-}
-
-[data-theme="royal-violet"] {
-  --q-bg: #0D0B14; --q-bg-panel: #1A1626; --q-bubble-user: #32214A; --q-bubble-user-text: #e6e6e6;
-  --q-text: #e6e6e6; --q-overlay: rgba(13, 11, 20, 0.78);
-  --q-border: rgba(230, 230, 230, 0.08); --q-border-strong: rgba(230, 230, 230, 0.12);
-  --q-border-soft: rgba(230, 230, 230, 0.04); --q-hover: rgba(230, 230, 230, 0.08); --q-active: rgba(230, 230, 230, 0.12);
-}
-
-[data-theme="neo-minimal-slate"] {
-  --q-bg: #0F1115; --q-bg-panel: #1A1E26; --q-bubble-user: #2A3442; --q-bubble-user-text: #e6e6e6;
-  --q-text: #e6e6e6; --q-overlay: rgba(15, 17, 21, 0.78);
-  --q-border: rgba(230, 230, 230, 0.08); --q-border-strong: rgba(230, 230, 230, 0.12);
-  --q-border-soft: rgba(230, 230, 230, 0.04); --q-hover: rgba(230, 230, 230, 0.08); --q-active: rgba(230, 230, 230, 0.12);
-}
-
-[data-theme="vision-comfort-ibm"] {
-  --q-bg: #10131A; --q-bg-panel: #1A1E27; --q-bubble-user: #2C374A; --q-bubble-user-text: #E8EAF0;
-  --q-text: #E8EAF0; --q-overlay: rgba(16, 19, 26, 0.78);
-  --q-border: rgba(232, 234, 240, 0.08); --q-border-strong: rgba(232, 234, 240, 0.12);
-  --q-border-soft: rgba(232, 234, 240, 0.04); --q-hover: rgba(232, 234, 240, 0.08); --q-active: rgba(232, 234, 240, 0.12);
-}
-
-[data-theme="vision-comfort-neutral"] {
-  --q-bg: #121212; --q-bg-panel: #1F1F1F; --q-bubble-user: #383838; --q-bubble-user-text: #EAEAEA;
-  --q-text: #EAEAEA; --q-overlay: rgba(18, 18, 18, 0.78);
-  --q-border: rgba(234, 234, 234, 0.08); --q-border-strong: rgba(234, 234, 234, 0.12);
-  --q-border-soft: rgba(234, 234, 234, 0.04); --q-hover: rgba(234, 234, 234, 0.08); --q-active: rgba(234, 234, 234, 0.12);
-}
+[data-theme="comfort"] { --q-bg: #08080b; --q-bg-panel: #0f0f13; --q-bg-elevated: #16161b; --q-bg-code: #040406; --q-bubble-user: #1a1a20; --q-bubble-user-text: #e8e8ec; --q-overlay: #06060ad1; --q-text: #e8e8ec; --q-text-secondary: #888892; --q-text-tertiary: #585860; }
+[data-theme="midnight"] { --q-bg: #060608; --q-bg-panel: #0c0c10; --q-bg-elevated: #121216; --q-bg-code: #020204; --q-bubble-user: #16161a; --q-bubble-user-text: #e8e8ec; --q-overlay: #040406d6; --q-text: #e8e8ec; --q-text-secondary: #888892; --q-text-tertiary: #585860; }
+[data-theme="forest"] { --q-bg: #08080a; --q-bg-panel: #0e0e10; --q-bg-elevated: #141416; --q-bg-code: #040406; --q-bubble-user: #18181a; --q-bubble-user-text: #e8e8ec; --q-overlay: #060608d1; --q-text: #e8e8ec; --q-text-secondary: #888892; --q-text-tertiary: #585860; }
+[data-theme="warm"] { --q-bg: #0a0a0a; --q-bg-panel: #101010; --q-bg-elevated: #161616; --q-bg-code: #060606; --q-bubble-user: #1a1a1a; --q-bubble-user-text: #e8e8ec; --q-overlay: #080808d1; --q-text: #e8e8ec; --q-text-secondary: #888892; --q-text-tertiary: #585860; }
+[data-theme="eclipse"] { --q-bg: #040406; --q-bg-panel: #0a0a0c; --q-bg-elevated: #101012; --q-bg-code: #000000; --q-bubble-user: #141416; --q-bubble-user-text: #e8e8ec; --q-overlay: #020204db; --q-text: #e8e8ec; --q-text-secondary: #888892; --q-text-tertiary: #585860; }
+[data-theme="graphite"] { --q-bg: #0c0c0e; --q-bg-panel: #121214; --q-bg-elevated: #18181a; --q-bg-code: #060608; --q-bubble-user: #1e1e20; --q-bubble-user-text: #e8e8ec; --q-overlay: #0a0a0ccc; --q-text: #e8e8ec; --q-text-secondary: #888892; --q-text-tertiary: #585860; }
+[data-theme="mist"] { --q-bg: #141416; --q-bg-panel: #1a1a1c; --q-bg-elevated: #202022; --q-bg-code: #0c0c0e; --q-bubble-user: #262628; --q-bubble-user-text: #e8e8ec; --q-overlay: #121214c7; --q-text: #e8e8ec; --q-text-secondary: #888892; --q-text-tertiary: #585860; }
 
 /* ──────────────────────────────────────────────────────────
-   GLOBAL STYLES
+   BASE RESET + GLOBAL STYLES
    ────────────────────────────────────────────────────────── */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-html, body, #root {
-  height: 100%;
-  overflow: hidden;
-}
-
-
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, #root { height: 100%; overflow: hidden; }
 body {
   font-family: var(--font-interface);
-  font-size: 15px;
   background-color: var(--q-bg);
   color: var(--q-text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-user-select: none;
   user-select: none;
+  font-size: 15px;
 }
 
-/* Scrollbar styling */
-::-webkit-scrollbar { width: 0px; height: 0px; }
+/* Aurora background — subtle radial gradients */
+body:before {
+  content: "";
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(60% 40% at 20% 0%, #9d8bd906, transparent 60%), radial-gradient(50% 40% at 80% 100%, #7aa2f705, transparent 60%);
+  position: fixed;
+  inset: 0;
+}
+
+/* Noise overlay — fractal turbulence at 2.5% opacity */
+body:after {
+  content: "";
+  opacity: 0.025;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  z-index: 9999;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E");
+  position: fixed;
+  inset: 0;
+}
+
+/* Scrollbars — hidden for clean look */
+* { scrollbar-width: none; }
+::-webkit-scrollbar { width: 0; height: 0; display: none; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: transparent; }
+::-webkit-scrollbar-corner { background: transparent; }
+* { -ms-overflow-style: none; }
+html { scrollbar-gutter: stable; }
 
-/* Firefox */
-html { scrollbar-width: none; }
-
-/* Code blocks */
-code, pre {
-  font-family: var(--font-code);
-  font-size: 13px;
-}
-
-/* Links */
+/* Code + links */
+code, pre { font-family: var(--font-code); font-size: var(--fs-13); }
 a { color: var(--q-accent-info-bright); text-decoration: none; }
 a:hover { text-decoration: underline; }
+h1, h2, h3, h4, h5, h6 { letter-spacing: -0.01em; }
 
-/* Transitions for theme switching */
-* {
-  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+/* Focus — no outline, clean */
+input:focus, textarea:focus, button:focus { box-shadow: none; outline: none; }
+
+/* Global transition for smooth theme switching */
+* { transition: background-color 0.12s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.12s, color 0.12s; }
+
+/* ──────────────────────────────────────────────────────────
+   ANIMATIONS — "Deep Cosmos" motion design
+   ────────────────────────────────────────────────────────── */
+@keyframes materialize {
+  0% { opacity: 0; filter: blur(4px); transform: translateY(8px); }
+  100% { opacity: 1; filter: blur(0); transform: translateY(0); }
 }
+@keyframes breathe {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.9; transform: scale(1.1); }
+}
+@keyframes modalEnter {
+  0% { opacity: 0; transform: scale(0.97) translateY(6px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes staggerIn {
+  0% { opacity: 0; transform: translateY(6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes msgSent {
+  0% { opacity: 0; transform: translateY(16px) scale(0.97); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes sendReadyPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
+
+/* Animation utility classes */
+.q-modal-enter { animation: 0.25s cubic-bezier(0.16, 1, 0.3, 1) modalEnter; }
+.q-msg-sent { animation: 0.3s cubic-bezier(0.16, 1, 0.3, 1) msgSent; }
+.q-send-pulse { animation: 0.3s cubic-bezier(0.16, 1, 0.3, 1) sendReadyPulse; }
+.q-press:active { transform: scale(0.97) !important; }
+
+/* Text selection — enabled in chat content */
+.user-message-content, .assistant-content, .toggle-content, .markdown-content {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* ──────────────────────────────────────────────────────────
+   HIGHLIGHT.JS — code syntax highlighting
+   ────────────────────────────────────────────────────────── */
 .hljs { background: transparent !important; padding: 0 !important; }
-
-
-@keyframes spin { to { transform: rotate(360deg); } }
