@@ -96,11 +96,11 @@ export function AgentsPanel(props: AgentsPanelProps) {
             <span style={{ flex: 1 }} />
             {saveMessage && (<><span style={{ color: 'var(--q-accent-success)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>{saveMessage}</span><div style={{ width: '16px', flexShrink: 0 }} /></>)}
             {dirty && (<><span style={{ color: 'var(--q-accent-warning)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>Unsaved</span><div style={{ width: '8px', flexShrink: 0 }} /></>)}
-            <button onClick={() => { setDirty(false); setSaveMessage('Settings saved.'); setTimeout(() => setSaveMessage(null), 5000) }} style={{ height: '32px', padding: '0 16px', borderRadius: '6px', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', flexShrink: 0 }}>
+            <button onClick={() => { setDirty(false); setSaveMessage('Settings saved.'); setTimeout(() => setSaveMessage(null), 5000) }} style={{ height: '32px', padding: '0 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', flexShrink: 0 }}>
               <Save size={16} /> Save
             </button>
             <div style={{ width: '8px', flexShrink: 0 }} />
-            <button onClick={() => { setDirty(false); setSaveMessage('Saved. Restarting...'); setTimeout(() => setSaveMessage(null), 5000) }} style={{ height: '32px', padding: '0 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-danger)', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--q-bg)', fontSize: '14px', fontWeight: 500, fontFamily: 'var(--font-interface)', flexShrink: 0 }}>
+            <button onClick={() => { setDirty(false); setSaveMessage('Saved. Restarting...'); setTimeout(() => setSaveMessage(null), 5000) }} style={{ height: '32px', padding: '0 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-danger)', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--q-bg)', fontSize: '14px', fontWeight: 500, fontFamily: 'var(--font-interface)', flexShrink: 0 }}>
               <Power size={16} /> Save and restart
             </button>
           </div>
@@ -212,7 +212,7 @@ export function AgentsPanel(props: AgentsPanelProps) {
       {/* Create agent modal */}
       {showCreateAgent && (
         <Modal onClose={() => setShowCreateAgent(false)} title="New agent">
-          <input type="text" placeholder="Agent name..." autoFocus style={{ width: '100%', height: '36px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: '8px', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none', marginBottom: '16px' }} onKeyDown={e => { if (e.key === 'Enter') setShowCreateAgent(false) }} />
+          <input type="text" placeholder="Agent name..." autoFocus style={{ width: '100%', height: '36px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none', marginBottom: '16px' }} onKeyDown={e => { if (e.key === 'Enter') setShowCreateAgent(false) }} />
           <ModalActions onCancel={() => setShowCreateAgent(false)} onConfirm={() => setShowCreateAgent(false)} confirmLabel="Create" />
         </Modal>
       )}
@@ -222,10 +222,10 @@ export function AgentsPanel(props: AgentsPanelProps) {
         <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowCreateSkill(false)}>
           <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '520px', width: '90%', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
             <div style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '16px' }}>Create new skill</div>
-            <input type="text" placeholder="Skill name (e.g. code-review)" autoFocus style={{ width: '100%', height: '36px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: '8px', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none', marginBottom: '8px' }} />
-            <input type="text" placeholder="Short description" style={{ width: '100%', height: '36px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: '8px', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none', marginBottom: '8px' }} />
+            <input type="text" placeholder="Skill name (e.g. code-review)" autoFocus style={{ width: '100%', height: '36px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none', marginBottom: '8px' }} />
+            <input type="text" placeholder="Short description" style={{ width: '100%', height: '36px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none', marginBottom: '8px' }} />
             <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginBottom: '4px' }}>SKILL.md content</div>
-            <textarea placeholder="Write skill instructions here..." style={{ width: '100%', flex: 1, minHeight: '120px', maxHeight: '250px', backgroundColor: 'var(--q-bg-code)', border: '1px solid var(--q-border)', borderRadius: '8px', color: 'var(--q-text)', fontSize: '13px', fontFamily: 'monospace', lineHeight: '1.5', padding: '8px 12px', outline: 'none', resize: 'none', marginBottom: '16px' }} />
+            <textarea placeholder="Write skill instructions here..." style={{ width: '100%', flex: 1, minHeight: '120px', maxHeight: '250px', backgroundColor: 'var(--q-bg-code)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', color: 'var(--q-text)', fontSize: '13px', fontFamily: 'monospace', lineHeight: '1.5', padding: '8px 12px', outline: 'none', resize: 'none', marginBottom: '16px' }} />
             <ModalActions onCancel={() => setShowCreateSkill(false)} onConfirm={() => setShowCreateSkill(false)} confirmLabel="Create" />
           </div>
         </div>
@@ -235,7 +235,7 @@ export function AgentsPanel(props: AgentsPanelProps) {
       {showInstallSkill && (
         <Modal onClose={() => setShowInstallSkill(false)} title="Install skill from internet">
           <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginBottom: '8px' }}>GitHub repo (e.g. openai/skills). Will clone and copy SKILL.md</div>
-          <input type="text" placeholder="user/repo (e.g. openai/skills)" autoFocus style={{ width: '100%', height: '36px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: '8px', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none', marginBottom: '16px' }} />
+          <input type="text" placeholder="user/repo (e.g. openai/skills)" autoFocus style={{ width: '100%', height: '36px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none', marginBottom: '16px' }} />
           <ModalActions onCancel={() => setShowInstallSkill(false)} onConfirm={() => { setShowInstallSkill(false); setInstalling(true); setTimeout(() => { setInstalling(false); setShowSuccess('Skill installed successfully: user/repo'); }, 2000) }} confirmLabel="Install skill" />
         </Modal>
       )}
@@ -277,11 +277,11 @@ export function AgentsPanel(props: AgentsPanelProps) {
               <div style={{ color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{showError}</div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px' }}>
-              <button onClick={() => { navigator.clipboard.writeText(showError); }} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '6px', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>
+              <button onClick={() => { navigator.clipboard.writeText(showError); }} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>
                 Copy
               </button>
-              <button onClick={() => setShowError(null)} style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-danger)', color: 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)' }}>Close</button>
+              <button onClick={() => setShowError(null)} style={{ padding: '8px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-danger)', color: 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)' }}>Close</button>
             </div>
           </div>
         </div>
@@ -307,7 +307,7 @@ export function AgentsPanel(props: AgentsPanelProps) {
             </div>
             <div style={{ color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', marginBottom: '16px' }}>{showSuccess}</div>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <button onClick={() => setShowSuccess(null)} style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-danger)', color: 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)' }}>OK</button>
+              <button onClick={() => setShowSuccess(null)} style={{ padding: '8px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-danger)', color: 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)' }}>OK</button>
             </div>
           </div>
         </div>
@@ -324,7 +324,7 @@ export function AgentsPanel(props: AgentsPanelProps) {
       {/* Create file modal */}
       {showCreateFile && (
         <Modal onClose={() => setShowCreateFile(null)} title="New file">
-          <input type="text" placeholder="File name (e.g. NOTES.md)" autoFocus style={{ width: '100%', height: '36px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: '8px', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none', marginBottom: '16px' }} onKeyDown={e => { if (e.key === 'Enter') setShowCreateFile(null) }} />
+          <input type="text" placeholder="File name (e.g. NOTES.md)" autoFocus style={{ width: '100%', height: '36px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none', marginBottom: '16px' }} onKeyDown={e => { if (e.key === 'Enter') setShowCreateFile(null) }} />
           <ModalActions onCancel={() => setShowCreateFile(null)} onConfirm={() => setShowCreateFile(null)} confirmLabel="Create" />
         </Modal>
       )}
@@ -349,7 +349,7 @@ function Section({ icon: Icon, title, children }: { icon: React.FC<{ size?: numb
 // ── Search field ──
 function SearchField({ placeholder, value, onChange }: { placeholder: string; value: string; onChange: (v: string) => void }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: '6px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-md)' }}>
       <Search size={16} style={{ color: 'var(--q-text-tertiary)', flexShrink: 0 }} />
       <input type="text" placeholder={placeholder} value={value} onChange={e => onChange(e.target.value)} style={{ flex: 1, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }} />
       {value && <button onClick={() => onChange('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-tertiary)', fontSize: '14px' }}>✕</button>}
@@ -360,7 +360,7 @@ function SearchField({ placeholder, value, onChange }: { placeholder: string; va
 // ── Add button (large) ──
 function AddButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
-    <button onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '6px', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent' }}>
+    <button onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent' }}>
       <Plus size={16} style={{ color: 'var(--q-text-secondary)' }} />
       <span style={{ color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>{label}</span>
     </button>
@@ -370,7 +370,7 @@ function AddButton({ label, onClick }: { label: string; onClick: () => void }) {
 // ── Add button (small) ──
 function AddBtn({ label, onClick }: { label: string; onClick: () => void }) {
   return (
-    <button onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 8px', borderRadius: '6px', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent' }}>
+    <button onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 8px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent' }}>
       <Plus size={14} style={{ color: 'var(--q-text-tertiary)' }} />
       <span style={{ color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>{label}</span>
     </button>
@@ -380,7 +380,7 @@ function AddBtn({ label, onClick }: { label: string; onClick: () => void }) {
 // ── Tag (plan mode chips, agent tags) ──
 function Tag({ icon: Icon, label, onRemove }: { icon: React.FC<{ size?: number; style?: React.CSSProperties }>; label: string; onRemove?: () => void }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 8px', borderRadius: '6px', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-panel)' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 8px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-panel)' }}>
       <Icon size={14} style={{ color: 'var(--q-text-secondary)' }} />
       <span style={{ color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>{label}</span>
       {onRemove && (
@@ -443,7 +443,7 @@ function AgentToggle({ agent, isExpanded, isRenaming, onToggle, onStartRename, o
           ) : (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '16px' }}>
               {agent.files.map(f => (
-                <div key={f} onClick={() => onOpenFile(f)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 8px', borderRadius: '6px', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-panel)', cursor: 'pointer' }}>
+                <div key={f} onClick={() => onOpenFile(f)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 8px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-panel)', cursor: 'pointer' }}>
                   <FileText size={14} style={{ color: 'var(--q-text-secondary)' }} />
                   <span style={{ color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>{f}</span>
                   <button onClick={(e) => { e.stopPropagation(); onRemoveTag('file', f) }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex' }}>
@@ -546,7 +546,7 @@ function ResourceRow({ icon: Icon, name, description, agentsUsing, badge, badgeC
           )}
           {/* SKILL.md chip — same style as agent file chips, click to open editor */}
           {onEdit && (
-            <div onClick={onEdit} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 8px', borderRadius: '6px', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-panel)', cursor: 'pointer', marginBottom: '8px' }}>
+            <div onClick={onEdit} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 8px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-panel)', cursor: 'pointer', marginBottom: '8px' }}>
               <FileText size={14} style={{ color: 'var(--q-text-secondary)' }} />
               <span style={{ color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>SKILL.md</span>
             </div>
@@ -567,7 +567,7 @@ function ResourceRow({ icon: Icon, name, description, agentsUsing, badge, badgeC
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                 {agentsUsing.map(a => (
-                  <div key={a} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-panel)' }}>
+                  <div key={a} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-panel)' }}>
                     <Bot size={16} style={{ color: 'var(--q-accent-danger)' }} />
                     <span style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>{a}</span>
                     <button onClick={() => onRemoveAgent(a)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -641,7 +641,7 @@ function FileEditorModal({ fileName, onClose }: { fileName: string; onClose: () 
           {dirty && <span style={{ color: 'var(--q-accent-warning)', fontSize: '11px', fontFamily: 'var(--font-interface)', marginRight: '8px' }}>Unsaved</span>}
           {/* Save button */}
           <button onClick={() => { setSaving(true); setTimeout(() => { setSaving(false); setDirty(false); onClose() }, 500) }} disabled={saving}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '6px', border: '1px solid var(--q-border)', cursor: saving ? 'default' : 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', cursor: saving ? 'default' : 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>
             <Save size={16} /> Save
           </button>
           <div style={{ width: '8px', flexShrink: 0 }} />
@@ -690,7 +690,7 @@ function PickerModal({ title, items, onClose }: { title: string; items: { name: 
         </div>
         {/* Search */}
         <div style={{ padding: '8px 16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', paddingLeft: '10px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: '6px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', paddingLeft: '10px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-md)' }}>
             <Search size={14} style={{ color: 'var(--q-text-tertiary)', flexShrink: 0 }} />
             <div style={{ width: '8px', flexShrink: 0 }} />
             <input type="text" placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '8px 0' }} />
@@ -722,7 +722,7 @@ function PickerModal({ title, items, onClose }: { title: string; items: { name: 
           <span style={{ flex: 1 }} />
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-secondary)', fontSize: '15px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }}>Cancel</button>
           <div style={{ width: '8px' }} />
-          <button onClick={onClose} disabled={selected.size === 0} style={{ padding: '4px 16px', borderRadius: '6px', border: 'none', cursor: selected.size === 0 ? 'default' : 'pointer', backgroundColor: selected.size === 0 ? 'transparent' : 'var(--q-accent-danger)', color: selected.size === 0 ? 'var(--q-text-tertiary)' : 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)', opacity: selected.size === 0 ? 0.5 : 1 }}>Add ({selected.size})</button>
+          <button onClick={onClose} disabled={selected.size === 0} style={{ padding: '4px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: selected.size === 0 ? 'default' : 'pointer', backgroundColor: selected.size === 0 ? 'transparent' : 'var(--q-accent-danger)', color: selected.size === 0 ? 'var(--q-text-tertiary)' : 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)', opacity: selected.size === 0 ? 0.5 : 1 }}>Add ({selected.size})</button>
         </div>
       </div>
     </div>
@@ -745,9 +745,9 @@ function Modal({ onClose, title, children }: { onClose: () => void; title: strin
 function ModalActions({ onCancel, onConfirm, confirmLabel }: { onCancel: () => void; onConfirm: () => void; confirmLabel: string }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
-      <button onClick={onCancel} style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: '15px', fontFamily: 'var(--font-interface)' }}>Cancel</button>
+      <button onClick={onCancel} style={{ padding: '8px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: '15px', fontFamily: 'var(--font-interface)' }}>Cancel</button>
       <div style={{ width: '8px' }} />
-      <button onClick={onConfirm} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-danger)', color: 'var(--q-bg)', fontSize: '15px', fontWeight: 500, fontFamily: 'var(--font-interface)' }}>{confirmLabel}</button>
+      <button onClick={onConfirm} style={{ padding: '8px 16px', borderRadius: 'var(--radius-lg)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-danger)', color: 'var(--q-bg)', fontSize: '15px', fontWeight: 500, fontFamily: 'var(--font-interface)' }}>{confirmLabel}</button>
     </div>
   )
 }
@@ -756,7 +756,7 @@ function ModalActions({ onCancel, onConfirm, confirmLabel }: { onCancel: () => v
 function IconBtn({ icon: Icon, onClick, title }: { icon: React.FC<{ size?: number; style?: React.CSSProperties }>; onClick: () => void; title?: string }) {
   const [hovered, setHovered] = useState(false)
   return (
-    <button onClick={onClick} title={title} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: hovered ? 'var(--q-hover)' : 'transparent', color: hovered ? 'var(--q-text)' : 'var(--q-text-secondary)', flexShrink: 0, padding: '0', transition: 'background-color 0.15s ease, color 0.15s ease' }}>
+    <button onClick={onClick} title={title} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: hovered ? 'var(--q-hover)' : 'transparent', color: hovered ? 'var(--q-text)' : 'var(--q-text-secondary)', flexShrink: 0, padding: '0', transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms cubic-bezier(0.16, 1, 0.3, 1)' }}>
       <Icon size={20} />
     </button>
   )

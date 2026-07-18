@@ -23,13 +23,13 @@ export const MessageBubble = memo(function MessageBubble({ message, onCopy }: Me
 
 // ── User message ──
 function UserMessage({ message, onCopy }: { message: Message; onCopy?: (t: string) => void }) {
-  const [copied, setCopied] = useState(false)
+  // state removed
   return (
-    <div style={{ width: '100%', padding: '8px 16px', backgroundColor: 'var(--q-bubble-user)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)' }}>
-      <div style={{ color: 'var(--q-bubble-user-text)', fontSize: '14px', lineHeight: 1.5, fontFamily: 'var(--font-interface)', fontWeight: 500, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+    <div className="user-message-content" style={{ width: '100%', padding: '10px 16px', backgroundColor: 'var(--q-bubble-user)', borderRadius: '12px', boxShadow: '0 0 0 1px var(--q-border), inset 0 1px 0 rgba(255,255,255,0.02)', border: 'none', animation: 'msgSent 300ms cubic-bezier(0.16, 1, 0.3, 1)' }}>
+      <div style={{ color: 'var(--q-bubble-user-text)', fontSize: '14px', lineHeight: 1.5, fontFamily: 'var(--font-interface)', fontWeight: 500, whiteSpace: 'pre-wrap', wordBreak: 'break-word', userSelect: 'text', WebkitUserSelect: 'text' }}>
         {message.content}
       </div>
-      <Footer content={message.content} timestamp={message.timestamp} onCopy={onCopy} />
+      <Footer content={message.content || ""} timestamp={message.timestamp} onCopy={onCopy} />
     </div>
   )
 }
@@ -50,7 +50,7 @@ function MessageBlocks({ thinking, toolCalls, toolResults, compaction, delegatio
   return (
     <>
       {/* Thinking */}
-      {thinking?.map((t, i) => <ThinkingToggle key={`t-${i}`} content={t.content} />)}
+      {thinking?.map((t, i) => <ThinkingToggle key={`t-${i}`} content={t.content || ""} />)}
 
       {/* Tool calls */}
       {toolCalls?.map((tc, i) => <ToolToggle key={`tc-${i}`} label="Tool call" toolName={tc.name} body={tc.input} isError={false} />)}
@@ -63,7 +63,7 @@ function MessageBlocks({ thinking, toolCalls, toolResults, compaction, delegatio
 
       {/* Compaction toggles (blue + orange, in order) */}
       {compaction?.map((comp, i) => (
-        <CompactionToggle key={`comp-${i}`} content={comp.content} isNoop={comp.isNoop} />
+        <CompactionToggle key={`comp-${i}`} content={comp.content || ""} isNoop={comp.isNoop} />
       ))}
 
       {/* Delegation */}
@@ -77,9 +77,9 @@ function AssistantMessage({ message, onCopy }: { message: Message; onCopy?: (t: 
   const isError = message.isError
 
   return (
-    <div style={{ maxWidth: 'var(--spacing-chat-max)', minWidth: 0 }}>
+    <div className="assistant-content" style={{ maxWidth: 'var(--spacing-chat-max)', minWidth: 0, animation: 'materialize 400ms cubic-bezier(0.16, 1, 0.3, 1)', userSelect: 'text', WebkitUserSelect: 'text' }}>
       {/* Thinking, tool calls, tool results — NO footer after these */}
-      {message.thinking?.map((t, i) => <ThinkingToggle key={`t-${i}`} content={t.content} />)}
+      {message.thinking?.map((t, i) => <ThinkingToggle key={`t-${i}`} content={t.content || ""} />)}
       {message.toolCalls?.map((tc, i) => <ToolToggle key={`tc-${i}`} label="Tool call" toolName={tc.name} body={tc.input} isError={false} />)}
       {message.toolResults?.map((tr, i) => <ToolToggle key={`tr-${i}`} label={tr.isError ? 'Tool error' : 'Tool result'} toolName={tr.name} body={tr.output} isError={tr.isError} />)}
 
@@ -122,7 +122,7 @@ function AssistantMessage({ message, onCopy }: { message: Message; onCopy?: (t: 
 
       {/* Compaction + delegation — AFTER text+footer, NO footer */}
       {message.compaction?.map((comp, i) => (
-        <CompactionToggle key={`comp-${i}`} content={comp.content} isNoop={comp.isNoop} />
+        <CompactionToggle key={`comp-${i}`} content={comp.content || ""} isNoop={comp.isNoop} />
       ))}
       {message.delegations?.map((d, i) => <DelegationBlockView key={`d-${i}`} delegation={d} timestamp={message.timestamp} />)}
     </div>
@@ -132,7 +132,7 @@ function AssistantMessage({ message, onCopy }: { message: Message; onCopy?: (t: 
 // ── Markdown content with code blocks (copy + syntax highlighting) ──
 function MarkdownContent({ text, isError }: { text: string; isError?: boolean }) {
   return (
-    <div style={{ padding: '4px 0' }}>
+    <div className="markdown-content" style={{ padding: '4px 0', userSelect: 'text', WebkitUserSelect: 'text' }}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeHighlight]}
@@ -253,7 +253,7 @@ function GenericToggle({ label, content, baseColor, baseColorRgb, isItalic, bold
         </div>
       </div>
       {!collapsed && (
-        <div style={{ marginTop: '4px', padding: '8px 8px 8px 16px', fontFamily: 'var(--font-code)', fontSize: '13px', lineHeight: 1.6, color: baseColor, fontStyle: isItalic ? 'italic' : 'normal', borderLeft: `2px solid ${baseColor}`, borderRadius: '0 var(--radius-sm) var(--radius-sm) 0', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+        <div className="toggle-content" style={{ marginTop: '4px', padding: '8px 8px 8px 16px', fontFamily: 'var(--font-code)', fontSize: '13px', lineHeight: 1.6, color: baseColor, fontStyle: isItalic ? 'italic' : 'normal', borderLeft: `2px solid ${baseColor}`, borderRadius: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', userSelect: 'text', WebkitUserSelect: 'text', animation: 'materialize 300ms cubic-bezier(0.16, 1, 0.3, 1)' }}>
           {content}
         </div>
       )}
@@ -310,9 +310,9 @@ function DelegationBlockView({ delegation, timestamp }: { delegation: Delegation
       </div>
 
       {!collapsed && (
-        <div style={{ marginTop: '4px', padding: '8px 8px 8px 16px', borderLeft: `2px solid ${baseColor}` }}>
+        <div className="toggle-content" style={{ marginTop: '4px', padding: '8px 8px 8px 16px', borderLeft: `2px solid ${baseColor}`, userSelect: 'text', WebkitUserSelect: 'text', animation: 'materialize 300ms cubic-bezier(0.16, 1, 0.3, 1)' }}>
           {/* User message (task) */}
-          <div style={{ width: '100%', marginBottom: '8px', padding: '8px 16px', backgroundColor: 'var(--q-bubble-user)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)' }}>
+          <div style={{ width: '100%', marginBottom: '8px', padding: '10px 16px', backgroundColor: 'var(--q-bubble-user)', borderRadius: '12px', boxShadow: '0 0 0 1px var(--q-border), inset 0 1px 0 rgba(255,255,255,0.02)', border: 'none' }}>
             <div style={{ color: 'var(--q-bubble-user-text)', fontSize: '14px', lineHeight: 1.5, fontFamily: 'var(--font-interface)' }}>{delegation.taskContent}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
               <Copy size={16} style={{ color: 'var(--q-text-tertiary)' }} />
@@ -392,17 +392,7 @@ function Footer({ content, timestamp, agentName, agentModel, thinkingLevel, onCo
   )
 }
 
-// ── Old CopyBtn (kept for compat) — 16px icon, no padding, aligns with text ──
-function CopyBtn({ text, copied, setCopied, onCopy }: { text: string; copied: boolean; setCopied: (v: boolean) => void; onCopy?: (t: string) => void }) {
-  const [hovered, setHovered] = useState(false)
-  return (
-    <button onClick={() => { onCopy?.(text); setCopied(true); setTimeout(() => setCopied(false), 2000) }} title="Copy"
-      onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-      style={{ background: 'none', border: 'none', cursor: 'pointer', color: hovered ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      {copied ? <Check size={16} style={{ color: 'var(--q-accent-success)' }} /> : <Copy size={16} />}
-    </button>
-  )
-}
+// CopyBtn removed — unused
 
 function fmtTime(timestamp: string): string {
   const d = new Date(timestamp)

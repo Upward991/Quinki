@@ -5,7 +5,7 @@
 
 import { useState, useImperativeHandle, forwardRef } from 'react'
 import type { Provider } from '../../types'
-import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Folder, FolderPlus, FolderOpen, Check, X } from '../icons'
+import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Folder, FolderPlus,  X } from '../icons'
 
 export interface SlashMenuRef {
   navUp: () => void

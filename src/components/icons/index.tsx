@@ -5,11 +5,11 @@
 
 import { Icon } from '@iconify/react'
 
-type IconProps = { size?: number; style?: React.CSSProperties; className?: string; onClick?: () => void; title?: string }
+type IconProps = { size?: number; style?: React.CSSProperties; className?: string; onClick?: () => void; title?: string; color?: string }
 
 function makeIcon(iconName: string) {
-  return ({ size = 18, style, className }: IconProps) => (
-    <Icon icon={iconName} width={size} height={size} style={{ ...style, display: 'flex', flexShrink: 0 }} className={className} />
+  return ({ size = 20, style, className, onClick, color }: IconProps) => (
+    <Icon icon={iconName} width={size} height={size} style={{ ...style, color: color || style?.color, display: 'flex', flexShrink: 0 }} className={className} onClick={onClick} />
   )
 }
 
@@ -33,7 +33,7 @@ export const Wrench = makeIcon('material-symbols:build-rounded')
 export const Trash = makeIcon('material-symbols:delete-rounded')
 export const FileText = makeIcon('material-symbols:description-rounded')
 export const ArrowDown = makeIcon('material-symbols:arrow-downward-rounded')
-export const PanelLeft = makeIcon('material-symbols:layout-left-fill')
+export const PanelLeft = makeIcon('ri:layout-left-fill')
 export const MessageSquare = makeIcon('material-symbols:chat-rounded')
 export const MessageSquarePlus = makeIcon('material-symbols:add-comment-rounded')
 export const Download = makeIcon('material-symbols:download-rounded')
@@ -49,7 +49,7 @@ export const Check = makeIcon('material-symbols:check-rounded')
 export const Info = makeIcon('material-symbols:info-rounded')
 export const Folder = makeIcon('material-symbols:folder-rounded')
 export const FolderOpen = makeIcon('material-symbols:folder-open-rounded')
-export const FolderPlus = makeIcon('material-symbols:folder-add-fill')
+export const FolderPlus = makeIcon('ri:folder-add-fill')
 export const Activity = makeIcon('material-symbols:monitoring-rounded')
 export const Archive = makeIcon('material-symbols:archive-rounded')
 export const Palette = makeIcon('material-symbols:palette')

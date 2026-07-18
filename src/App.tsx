@@ -11,7 +11,7 @@ import { SettingsPanel } from './components/settings/SettingsPanel'
 import { LogPanel } from './components/log/LogPanel'
 import { GlobalContextMenu } from './components/shared/GlobalContextMenu'
 import { mockMessages, mockSessions, mockAgents, mockProviders, mockThemes } from './design/mock-data'
-import type { ViewTab, ChatMode, ThinkingLevel } from './types'
+import type { ChatMode, ThinkingLevel } from './types'
 
 type SidebarMode = 'pinned' | 'hidden' | 'peek'
 
@@ -26,14 +26,14 @@ const sessionCtx: Record<string, number> = {
 export default function App() {
   const [activePanel, setActivePanel] = useState<string>('home')
   const [sidebarMode, setSidebarMode] = useState<SidebarMode>('pinned')
-  const [sidebarWidth] = useState(284)
+  const [sidebarWidth] = useState(260)
   const [activeSessionId, setActiveSessionId] = useState('s0a')
   const [selectedAgentIds, setSelectedAgentIds] = useState<string[]>(['quinki-expert', 'orchestrator'])
   const [chatAgentIds, setChatAgentIds] = useState<string[]>([])
   const [selectedModel, setSelectedModel] = useState('glm-4.5')
   const [mode, setMode] = useState<ChatMode>('build')
   const [thinking, setThinking] = useState<ThinkingLevel>('on')
-  const [themeId, setThemeId] = useState('vision-comfort-neutral')
+  const [themeId, setThemeId] = useState('comfort')
   const [isStreaming, setIsStreaming] = useState(false)
   const [messages, setMessages] = useState(mockMessages)
   const [sessions, setSessions] = useState(mockSessions)
@@ -296,6 +296,7 @@ export default function App() {
                 onNewSession={handleNewSession}
                 onToggleFolder={handleToggleFolder}
                 onReorder={setSessions}
+                welcomeMode={welcomeMode}
               />
             </div>
           </div>

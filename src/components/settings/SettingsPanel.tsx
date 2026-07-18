@@ -7,7 +7,7 @@
 // ============================================================
 
 import { useState, useRef, useEffect } from 'react'
-import type { ViewTab, ThemePreset, Provider } from '../../types'
+import type { ThemePreset, Provider } from '../../types'
 import { Home, Settings, Plug, Archive, Palette, Info, Search, ChevronDown, ChevronRight, ChevronUp, Save, Power, Plus, Check, Trash, RefreshCw } from '../icons'
 
 interface SettingsPanelProps {
@@ -30,7 +30,7 @@ const sections = [
 const thinkingLevels = ['off', 'low', 'medium', 'high', 'xhigh']
 
 export function SettingsPanel(props: SettingsPanelProps) {
-  const [activeSection, setActiveSection] = useState('settings-providers')
+  const [_activeSection, setActiveSection] = useState('settings-providers')
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -114,7 +114,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
               )}
               <button
                 onClick={() => saving ? undefined : handleSave()}
-                style={{ height: '32px', padding: '1px 16px 0 16px', borderRadius: '6px', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', flexShrink: 0 }}
+                style={{ height: '32px', padding: '1px 16px 0 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', flexShrink: 0 }}
               >
                 <Save size={16} />
                 Save
@@ -122,7 +122,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
               <div style={{ width: '8px', flexShrink: 0 }} />
               <button
                 onClick={() => handleSave()}
-                style={{ height: '32px', padding: '1px 16px 0 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-secondary)', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--q-bg)', fontSize: '14px', fontWeight: 500, fontFamily: 'var(--font-interface)', flexShrink: 0 }}
+                style={{ height: '32px', padding: '1px 16px 0 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-secondary)', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--q-bg)', fontSize: '14px', fontWeight: 500, fontFamily: 'var(--font-interface)', flexShrink: 0 }}
               >
                 <Power size={16} />
                 Save and restart
@@ -139,9 +139,9 @@ export function SettingsPanel(props: SettingsPanelProps) {
               ))}
               <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
                 <input type="text" placeholder="provider name (e.g. anthropic)"
-                  style={{ flex: 1, height: '32px', backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: '6px', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none' }}
+                  style={{ flex: 1, height: '32px', backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-md)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none' }}
                 />
-                <button style={{ height: '32px', padding: '1px 16px 0 16px', borderRadius: '6px', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', flexShrink: 0 }}>
+                <button style={{ height: '32px', padding: '1px 16px 0 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', flexShrink: 0 }}>
                   <Plus size={16} style={{ flexShrink: 0 }} />
                   <span>Add</span>
                 </button>
@@ -219,7 +219,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
               <div style={{ height: '12px' }} />
               <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>User bubble preview:</span>
               <div style={{ height: '4px' }} />
-              <div style={{ padding: '8px 16px', borderRadius: '8px', backgroundColor: '#383838', color: '#EAEAEA', fontSize: '14px', fontFamily: 'var(--font-interface)', display: 'inline-block' }}>This is a test user message</div>
+              <div style={{ padding: '8px 16px', borderRadius: 'var(--radius-lg)', backgroundColor: '#383838', color: '#EAEAEA', fontSize: '14px', fontFamily: 'var(--font-interface)', display: 'inline-block' }}>This is a test user message</div>
             </Section>
 
             {/* Versions */}
@@ -228,7 +228,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
               <div style={{ height: '4px' }} />
               <VersionRow label="Pi Agent SDK" value="v0.4.2" />
               <div style={{ height: '8px' }} />
-              <button onClick={() => setShowUpdate(true)} style={{ padding: '8px 12px', borderRadius: '4px', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>Check for updates</button>
+              <button onClick={() => setShowUpdate(true)} style={{ padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>Check for updates</button>
             </Section>
 
             <div style={{ height: '8px' }} />
@@ -262,11 +262,11 @@ export function SettingsPanel(props: SettingsPanelProps) {
               <div style={{ color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{showError}</div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px' }}>
-              <button onClick={() => { navigator.clipboard.writeText(showError); }} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '6px', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>
+              <button onClick={() => { navigator.clipboard.writeText(showError); }} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>
                 Copy
               </button>
-              <button onClick={() => setShowError(null)} style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-secondary)', color: 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)' }}>Close</button>
+              <button onClick={() => setShowError(null)} style={{ padding: '8px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-secondary)', color: 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)' }}>Close</button>
             </div>
           </div>
         </div>
@@ -279,7 +279,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
             <div style={{ color: 'var(--q-text)', fontSize: '15px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '12px' }}>Pi is up to date</div>
             <div style={{ color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', marginBottom: '20px' }}>Pi is already at the latest version (v0.4.2).</div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
-              <button onClick={() => setShowUpdate(false)} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-secondary)', color: 'var(--q-bg)', fontSize: '15px', fontWeight: 500, fontFamily: 'var(--font-interface)' }}>OK</button>
+              <button onClick={() => setShowUpdate(false)} style={{ padding: '8px 16px', borderRadius: 'var(--radius-lg)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-secondary)', color: 'var(--q-bg)', fontSize: '15px', fontWeight: 500, fontFamily: 'var(--font-interface)' }}>OK</button>
             </div>
           </div>
         </div>
@@ -292,7 +292,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
 function TocItem({ icon: Icon, label, onTap }: { icon: React.FC<{ size?: number; style?: React.CSSProperties }>; label: string; onTap: () => void }) {
   const [hovered, setHovered] = useState(false)
   return (
-    <div onClick={onTap} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} style={{ padding: '8px 12px', marginBottom: '2px', borderRadius: '6px', cursor: 'pointer', backgroundColor: hovered ? 'var(--q-hover)' : 'transparent', display: 'flex', alignItems: 'center', gap: '8px', transition: 'background-color 0.1s ease' }}>
+    <div onClick={onTap} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} style={{ padding: '8px 12px', marginBottom: '2px', borderRadius: 'var(--radius-md)', cursor: 'pointer', backgroundColor: hovered ? 'var(--q-hover)' : 'transparent', display: 'flex', alignItems: 'center', gap: '8px', transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1)' }}>
       <Icon size={20} style={{ color: hovered ? 'var(--q-text)' : 'var(--q-text-secondary)', flexShrink: 0 }} />
       <span style={{ color: hovered ? 'var(--q-text)' : 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
     </div>
@@ -347,7 +347,7 @@ function ProviderRow({ name, provider }: { name: string; provider: Provider }) {
   }
 
   return (
-    <div style={{ marginBottom: '8px', backgroundColor: 'var(--q-bg-panel)', borderRadius: '8px', boxShadow: 'var(--shadow-floating)', overflow: 'hidden' }}>
+    <div style={{ marginBottom: '8px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)', overflow: 'hidden' }}>
       {/* Header */}
       <div style={{ padding: '8px 12px', display: 'flex', alignItems: 'center' }}>
         {/* Drag handle (6 dots) */}
@@ -386,17 +386,17 @@ function ProviderRow({ name, provider }: { name: string; provider: Provider }) {
         <div style={{ padding: '0 16px 16px 16px' }}>
           <span style={{ color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>Base URL</span>
           <div style={{ height: '8px' }} />
-          <input type="text" defaultValue={provider.type === 'ollama' ? 'http://localhost:11434/v1' : provider.type === 'openrouter' ? 'https://openrouter.ai/api/v1' : ''} placeholder="https://api.example.com/v1" style={{ width: '100%', height: '36px', backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: '6px', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none' }} />
+          <input type="text" defaultValue={provider.type === 'ollama' ? 'http://localhost:11434/v1' : provider.type === 'openrouter' ? 'https://openrouter.ai/api/v1' : ''} placeholder="https://api.example.com/v1" style={{ width: '100%', height: '36px', backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-md)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none' }} />
           <div style={{ height: '8px' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>API Key</span>
             {provider.apiKeyStatus === 'configured' && (<><div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--q-accent-success)' }} /><span style={{ color: 'var(--q-accent-success)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>saved</span></>)}
           </div>
           <div style={{ height: '8px' }} />
-          <input type="password" placeholder={provider.apiKeyStatus === 'configured' ? '•••••••• (leave empty to keep)' : 'api key'} style={{ width: '100%', height: '36px', backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: '6px', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none' }} />
+          <input type="password" placeholder={provider.apiKeyStatus === 'configured' ? '•••••••• (leave empty to keep)' : 'api key'} style={{ width: '100%', height: '36px', backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-md)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none' }} />
           <div style={{ height: '8px' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <button onClick={() => { setTesting(true); setTimeout(() => { setTesting(false); if (provider.apiKeyStatus === 'configured') { setTestResult({ success: true, count: provider.models.length }) } else { setTestResult({ success: false, error: 'Connection failed: API key not configured.\n\nProvider: ' + displayName + '\n\nError: 401 Unauthorized — Invalid API key.' }) } }, 1000) }} disabled={testing} style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid var(--q-border)', cursor: testing ? 'default' : 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>{testing ? '...' : 'Test connection'}</button>
+            <button onClick={() => { setTesting(true); setTimeout(() => { setTesting(false); if (provider.apiKeyStatus === 'configured') { setTestResult({ success: true, count: provider.models.length }) } else { setTestResult({ success: false, error: 'Connection failed: API key not configured.\n\nProvider: ' + displayName + '\n\nError: 401 Unauthorized — Invalid API key.' }) } }, 1000) }} disabled={testing} style={{ padding: '8px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', cursor: testing ? 'default' : 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>{testing ? '...' : 'Test connection'}</button>
             <RefreshCw size={20} style={{ color: 'var(--q-text-tertiary)', cursor: 'pointer', padding: '8px', boxSizing: 'content-box' }} />
             {testResult && testResult.success && (<><Check size={16} style={{ color: 'var(--q-accent-success)' }} /><span style={{ color: 'var(--q-accent-success)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>{testResult.count} models</span></>)}
             {testResult && !testResult.success && (<><span style={{ color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>Connection failed</span></>)}
@@ -407,12 +407,12 @@ function ProviderRow({ name, provider }: { name: string; provider: Provider }) {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>Available models ({filteredModels.length}{modelSearch && filteredModels.length !== provider.models.length ? ` of ${provider.models.length}` : ''}{enabledModels.size > 0 ? ` · ${enabledModels.size} active` : ''})</span>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <button onClick={() => setEnabledModels(new Set(provider.models.map(m => m.id)))} style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>Enable all</button>
-                  <button onClick={() => setEnabledModels(new Set())} style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>Disable all</button>
+                  <button onClick={() => setEnabledModels(new Set(provider.models.map(m => m.id)))} style={{ padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>Enable all</button>
+                  <button onClick={() => setEnabledModels(new Set())} style={{ padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>Disable all</button>
                 </div>
               </div>
               <div style={{ height: '8px' }} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: '6px', marginBottom: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-md)', marginBottom: '8px' }}>
                 <Search size={16} style={{ color: 'var(--q-text-tertiary)', flexShrink: 0 }} />
                 <input type="text" placeholder="Filter models..." value={modelSearch} onChange={e => setModelSearch(e.target.value)} style={{ flex: 1, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }} />
                 {modelSearch && <button onClick={() => setModelSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-tertiary)', fontSize: '14px' }}>✕</button>}
@@ -435,9 +435,9 @@ function ProviderRow({ name, provider }: { name: string; provider: Provider }) {
             <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', marginBottom: '8px' }}>Delete provider "{displayName}"?</div>
             <div style={{ color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)', marginBottom: '20px' }}>{enabledModels.size} models will be removed. Saved API keys will be lost.</div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
-              <button onClick={() => setShowDelete(false)} style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: '15px', fontFamily: 'var(--font-interface)' }}>Cancel</button>
+              <button onClick={() => setShowDelete(false)} style={{ padding: '8px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: '15px', fontFamily: 'var(--font-interface)' }}>Cancel</button>
               <div style={{ width: '8px' }} />
-              <button style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-secondary)', color: 'var(--q-bg)', fontSize: '15px', fontWeight: 500, fontFamily: 'var(--font-interface)' }}>Delete</button>
+              <button style={{ padding: '8px 16px', borderRadius: 'var(--radius-lg)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-secondary)', color: 'var(--q-bg)', fontSize: '15px', fontWeight: 500, fontFamily: 'var(--font-interface)' }}>Delete</button>
             </div>
           </div>
         </div>
@@ -459,7 +459,7 @@ function SubLabel({ children }: { children: React.ReactNode }) {
 // ── Pill ──
 function Pill({ label, selected, color = 'var(--q-accent-secondary)', onClick }: { label: string; selected: boolean; color?: string; onClick?: () => void }) {
   return (
-    <div onClick={onClick} style={{ padding: '8px 12px', minWidth: '60px', maxWidth: '80px', borderRadius: '4px', backgroundColor: selected ? color : 'transparent', border: `1px solid ${selected ? 'transparent' : 'var(--q-border)'}`, color: selected ? 'var(--q-bg)' : 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', textAlign: 'center', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background-color 0.1s ease' }}>{label}</div>
+    <div onClick={onClick} style={{ padding: '8px 12px', minWidth: '60px', maxWidth: '80px', borderRadius: 'var(--radius-sm)', backgroundColor: selected ? color : 'transparent', border: `1px solid ${selected ? 'transparent' : 'var(--q-border)'}`, color: selected ? 'var(--q-bg)' : 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', textAlign: 'center', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1)' }}>{label}</div>
   )
 }
 
@@ -516,7 +516,7 @@ function DropdownItem({ label, sublabel, isSelected, onTap }: { label: string; s
 function ColorPickerRow({ label, value }: { label: string; value: string }) {
   return (
     <div style={{ padding: '6px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-      <div style={{ width: '40px', height: '32px', borderRadius: '4px', backgroundColor: value, border: '1px solid var(--q-border)', cursor: 'pointer' }} />
+      <div style={{ width: '40px', height: '32px', borderRadius: 'var(--radius-sm)', backgroundColor: value, border: '1px solid var(--q-border)', cursor: 'pointer' }} />
       <span style={{ flex: 1, color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>{label}</span>
       <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-code)' }}>{value.toUpperCase()}</span>
     </div>
@@ -547,7 +547,7 @@ function NavArrow({ icon: Icon, disabled }: { icon: React.FC<{ size?: number; st
 function IconBtn({ icon: Icon, onClick, title }: { icon: React.FC<{ size?: number; style?: React.CSSProperties }>; onClick: () => void; title?: string }) {
   const [hovered, setHovered] = useState(false)
   return (
-    <button onClick={onClick} title={title} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: hovered ? 'var(--q-hover)' : 'transparent', color: hovered ? 'var(--q-text)' : 'var(--q-text-secondary)', flexShrink: 0, padding: '0', transition: 'background-color 0.15s ease, color 0.15s ease' }}>
+    <button onClick={onClick} title={title} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: hovered ? 'var(--q-hover)' : 'transparent', color: hovered ? 'var(--q-text)' : 'var(--q-text-secondary)', flexShrink: 0, padding: '0', transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms cubic-bezier(0.16, 1, 0.3, 1)' }}>
       <Icon size={20} />
     </button>
   )

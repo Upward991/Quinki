@@ -18,6 +18,7 @@ interface SidebarProps {
   onNewSession: () => void
   onToggleFolder: (id: string) => void
   onReorder?: (sessions: Session[]) => void
+  welcomeMode?: boolean
 }
 
 type DropZone = 'before' | 'after' | 'into'
@@ -27,7 +28,7 @@ interface DragItem {
   kind: 'chat' | 'folder'
 }
 
-export function Sidebar({ sessions, activeSessionId, onSelectSession, onNewSession, onToggleFolder, onReorder }: SidebarProps) {
+export function Sidebar({ sessions, activeSessionId, onSelectSession, onNewSession, onToggleFolder, onReorder, welcomeMode }: SidebarProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [hoverNewChat, setHoverNewChat] = useState(false)
   const [hoverNewFolder, setHoverNewFolder] = useState(false)
@@ -154,10 +155,10 @@ export function Sidebar({ sessions, activeSessionId, onSelectSession, onNewSessi
             onMouseLeave={() => setHoverNewChat(false)}
             style={{
               flex: 1, height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              borderRadius: '6px', border: 'none', cursor: 'pointer',
-              backgroundColor: hoverNewChat ? 'var(--q-hover)' : 'transparent',
-              color: flashNewChat ? 'var(--q-accent-info-bright)' : (hoverNewChat ? 'var(--q-text)' : 'var(--q-text-secondary)'),
-              padding: '0', transition: 'background-color 0.15s ease, color 0.15s ease',
+              borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer',
+              backgroundColor: welcomeMode || hoverNewChat ? 'var(--q-hover)' : 'transparent',
+              color: welcomeMode ? 'var(--q-accent-info)' : flashNewChat ? 'var(--q-accent-primary)' : hoverNewChat ? 'var(--q-text)' : 'var(--q-text-secondary)',
+              padding: '0', transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms ease',
             }}
           >
             <MessageSquarePlus size={20} />
@@ -168,10 +169,12 @@ export function Sidebar({ sessions, activeSessionId, onSelectSession, onNewSessi
             onMouseLeave={() => setHoverNewFolder(false)}
             style={{
               width: '40px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              borderRadius: '6px', border: 'none', cursor: 'pointer',
+              borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer',
               backgroundColor: hoverNewFolder ? 'var(--q-hover)' : 'transparent',
-              color: flashNewFolder ? 'var(--q-accent-folder-open)' : (hoverNewFolder ? 'var(--q-text)' : 'var(--q-text-secondary)'),
-              padding: '0', flexShrink: 0, transition: 'background-color 0.15s ease, color 0.15s ease',
+              color: flashNewFolder ? 'var(--q-accent-folder-open)' : hoverNewFolder ? 'var(--q-text)' : 'var(--q-text-secondary)',
+              padding: '0', flexShrink: 0,
+              transform: hoverNewFolder ? 'scale(1.02)' : 'scale(1)',
+              transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms ease, transform 120ms ease',
             }}
           >
             <FolderPlus size={20} />
@@ -286,12 +289,12 @@ export function Sidebar({ sessions, activeSessionId, onSelectSession, onNewSessi
                       paddingTop: '4px',
                       paddingBottom: '4px',
                       minHeight: '32px',
-                      borderRadius: '6px',
+                      borderRadius: 'var(--radius-md)',
                       backgroundColor: currentDropZone === 'into'
-                        ? 'rgba(252, 201, 152, 0.15)'  // accentFolderOpen with alpha
+                        ? 'var(--q-accent-folder-open-soft)'
                         : bgColor,
                       border: currentDropZone === 'into'
-                        ? '2px solid rgba(252, 201, 152, 0.7)'  // accentFolderOpen border
+                        ? '2px solid var(--q-accent-folder-open-border)'
                         : 'none',
                       cursor: 'pointer',
                       display: 'flex',
@@ -299,7 +302,7 @@ export function Sidebar({ sessions, activeSessionId, onSelectSession, onNewSessi
                       gap: '8px',
                       opacity: isDragging ? 0.15 : 1,
                       boxSizing: 'border-box',
-                      transition: 'background-color 0.1s ease, opacity 0.1s ease',
+                      transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), opacity 120ms cubic-bezier(0.16, 1, 0.3, 1)',
                     }}
                   >
                     {isFolder ? (

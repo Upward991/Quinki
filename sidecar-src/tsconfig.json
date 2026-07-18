@@ -1,0 +1,49 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "outDir": "./out",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "*"
+      ],
+      "@main/*": [
+        "*"
+      ],
+      "@earendil-works/pi-coding-agent": [
+        "vendor/@earendil-works/pi-coding-agent/dist/index.js"
+      ],
+      "@earendil-works/pi-coding-agent/*": [
+        "vendor/@earendil-works/pi-coding-agent/dist/*"
+      ],
+      "@earendil-works/pi-agent-core": [
+        "vendor/@earendil-works/pi-agent-core/dist/index.js"
+      ],
+      "@earendil-works/pi-agent-core/*": [
+        "vendor/@earendil-works/pi-agent-core/dist/*"
+      ],
+      "@earendil-works/pi-ai": [
+        "vendor/@earendil-works/pi-ai/dist/index.js"
+      ],
+      "@earendil-works/pi-ai/*": [
+        "vendor/@earendil-works/pi-ai/dist/*"
+      ],
+      "@earendil-works/pi-tui": [
+        "vendor/@earendil-works/pi-tui/dist/index.js"
+      ],
+      "@earendil-works/pi-tui/*": [
+        "vendor/@earendil-works/pi-tui/dist/*"
+      ]
+    }
+  },
+  "include": [
+    "*.ts"
+  ]
+}

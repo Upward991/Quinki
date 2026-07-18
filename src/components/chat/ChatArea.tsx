@@ -71,6 +71,7 @@ export function ChatArea(props: ChatAreaProps) {
           contextWindow={props.contextWindow}
           providers={props.providers}
           onExport={props.onExport}
+          welcomeMode={props.welcomeMode}
         />
       </div>
 
@@ -83,17 +84,18 @@ export function ChatArea(props: ChatAreaProps) {
             isStreaming={props.streaming} statusLabel={props.statusLabel} statusKind={props.statusKind}
             onSend={props.onSend} onStop={props.onStop}
             onModelChange={props.onModelSelect} onModeChange={props.onModeChange}
-            onThinkingChange={props.onThinkingChange} welcomeMode={true}
+            onThinkingChange={t => props.onThinkingChange(t)} welcomeMode={true}
+            agents={props.agents}
           />
         </div>
       ) : (
         <>
           {/* Messages */}
           <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-            <div ref={scrollRef} style={{ height: '100%', overflowY: 'auto', padding: '0 16px' }}
+            <div ref={scrollRef} style={{ height: '100%', overflowY: 'auto', padding: '1px 16px 0 16px', scrollbarGutter: 'stable' }}
               onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100) }}>
               {props.messages.map(msg => (
-                <div key={msg.id} style={{ marginBottom: '8px' }}>
+                <div key={msg.id} style={{ marginBottom: '12px' }}>
                   <MessageBubble message={msg} onCopy={() => {}} />
                 </div>
               ))}
@@ -114,7 +116,8 @@ export function ChatArea(props: ChatAreaProps) {
               isStreaming={props.streaming} statusLabel={props.statusLabel} statusKind={props.statusKind}
               onSend={props.onSend} onStop={props.onStop}
               onModelChange={props.onModelSelect} onModeChange={props.onModeChange}
-              onThinkingChange={props.onThinkingChange} welcomeMode={false}
+              onThinkingChange={t => props.onThinkingChange(t)} welcomeMode={false}
+              agents={props.agents}
             />
           </div>
         </>

@@ -374,21 +374,11 @@ export const mockProviders: Provider[] = [
 // THEMES — 17 built-in presets
 // ──────────────────────────────────────────────────────────
 export const mockThemes: ThemePreset[] = [
-  { id: 'antracite-notturna', name: 'Antracite Notturna', bg: '#161616', bgPanel: '#232323', bgBubbleUser: '#232323', text: '#e6e6e6' },
-  { id: 'ossidiana-nera', name: 'Ossidiana Nera', bg: '#0a0a0a', bgPanel: '#1e1e1e', bgBubbleUser: '#141414', text: '#e6e6e6' },
-  { id: 'amber-void-harmony', name: 'Amber Void Harmony', bg: '#0B0E1A', bgPanel: '#1A1F1A', bgBubbleUser: '#3A2A12', text: '#e6e6e6' },
-  { id: 'arctic-plum-ocean', name: 'Arctic Plum Ocean', bg: '#070C18', bgPanel: '#241A2E', bgBubbleUser: '#0F3B3C', text: '#e6e6e6' },
-  { id: 'earth-neon-calm', name: 'Earth Neon Calm', bg: '#07140F', bgPanel: '#2A1B14', bgBubbleUser: '#3B3A1A', text: '#e6e6e6' },
-  { id: 'nordic-calm', name: 'Nordic Calm Interface', bg: '#0A0F1C', bgPanel: '#14222A', bgBubbleUser: '#2B4A66', text: '#e6e6e6' },
-  { id: 'muted-nature', name: 'Muted Nature Balance', bg: '#0C1410', bgPanel: '#1A2A24', bgBubbleUser: '#2F5C55', text: '#e6e6e6' },
-  { id: 'deep-aurora', name: 'Deep Aurora Contrast', bg: '#070A12', bgPanel: '#0B1020', bgBubbleUser: '#0C1A1F', text: '#e6e6e6' },
-  { id: 'forest-earth-low', name: 'Forest Earth Low-Light', bg: '#070D0A', bgPanel: '#0E1410', bgBubbleUser: '#120F0B', text: '#e6e6e6' },
-  { id: 'absolute-dark', name: 'Absolute Dark System', bg: '#000000', bgPanel: '#0A0B10', bgBubbleUser: '#12070B', text: '#e6e6e6' },
-  { id: 'midnight-indigo', name: 'Midnight Indigo Calm', bg: '#0B0F1A', bgPanel: '#161B2C', bgBubbleUser: '#253A5A', text: '#e6e6e6' },
-  { id: 'deep-forest', name: 'Deep Forest Tech', bg: '#0A0F0D', bgPanel: '#141C18', bgBubbleUser: '#1F3A2E', text: '#e6e6e6' },
-  { id: 'ocean-glass', name: 'Ocean Glass UI', bg: '#07151A', bgPanel: '#10242C', bgBubbleUser: '#1F4D5A', text: '#e6e6e6' },
-  { id: 'royal-violet', name: 'Royal Violet Night', bg: '#0D0B14', bgPanel: '#1A1626', bgBubbleUser: '#32214A', text: '#e6e6e6' },
-  { id: 'neo-minimal-slate', name: 'Neo Minimal Slate', bg: '#0F1115', bgPanel: '#1A1E26', bgBubbleUser: '#2A3442', text: '#e6e6e6' },
-  { id: 'vision-comfort-ibm', name: 'Vision Comfort (IBM Carbon)', bg: '#10131A', bgPanel: '#1A1E27', bgBubbleUser: '#2C374A', text: '#E8EAF0' },
-  { id: 'vision-comfort-neutral', name: 'Vision Comfort (Neutral Black)', bg: '#121212', bgPanel: '#1F1F1F', bgBubbleUser: '#383838', text: '#EAEAEA' },
+  { id: 'comfort', name: 'Comfort', bg: '#08080B', bgPanel: '#0F0F13', bgBubbleUser: '#1A1A20', text: '#E8E8EC' },
+  { id: 'midnight', name: 'Midnight', bg: '#060608', bgPanel: '#0C0C10', bgBubbleUser: '#16161A', text: '#E8E8EC' },
+  { id: 'forest', name: 'Forest', bg: '#08080A', bgPanel: '#0E0E10', bgBubbleUser: '#18181A', text: '#E8E8EC' },
+  { id: 'warm', name: 'Warm', bg: '#0A0A0A', bgPanel: '#101010', bgBubbleUser: '#1A1A1A', text: '#E8E8EC' },
+  { id: 'eclipse', name: 'Eclipse', bg: '#040406', bgPanel: '#0A0A0C', bgBubbleUser: '#141416', text: '#E8E8EC' },
+  { id: 'graphite', name: 'Graphite', bg: '#0C0C0E', bgPanel: '#121214', bgBubbleUser: '#1E1E20', text: '#E8E8EC' },
+  { id: 'mist', name: 'Mist', bg: '#141416', bgPanel: '#1A1A1C', bgBubbleUser: '#262628', text: '#E8E8EC' },
 ]
