@@ -21,27 +21,28 @@ import {
   type FetchedModel,
 } from "./providers";
 
-// Backward compat: use quinki-sessions.json, fall back to dashboard-sessions.json
-const SESSION_FILE = fs.existsSync(path.join(homedir(), ".pi", "agent", "quinki-sessions.json"))
-  ? path.join(homedir(), ".pi", "agent", "quinki-sessions.json")
-  : path.join(homedir(), ".pi", "agent", "dashboard-sessions.json");
-const FOLDERS_FILE = fs.existsSync(path.join(homedir(), ".pi", "agent", "quinki-folders.json"))
-  ? path.join(homedir(), ".pi", "agent", "quinki-folders.json")
+// Use agentDir from env, fall back to default
+const _agentDir = process.env.QUINKI_AGENT_DIR || path.join(homedir(), ".pi", "agent");
+const SESSION_FILE = fs.existsSync(path.join(_agentDir, "quinki-sessions.json"))
+  ? path.join(_agentDir, "quinki-sessions.json")
+  : path.join(_agentDir, "dashboard-sessions.json");
+const FOLDERS_FILE = fs.existsSync(path.join(_agentDir, "quinki-folders.json"))
+  ? path.join(_agentDir, "quinki-folders.json")
   : path.join(homedir(), ".pi", "agent", "dashboard-folders.json");
-const SETTINGS_FILE = fs.existsSync(path.join(homedir(), ".pi", "agent", "quinki-settings.json"))
-  ? path.join(homedir(), ".pi", "agent", "quinki-settings.json")
+const SETTINGS_FILE = fs.existsSync(path.join(_agentDir, "quinki-settings.json"))
+  ? path.join(_agentDir, "quinki-settings.json")
   : path.join(homedir(), ".pi", "agent", "dashboard-settings.json");
-const CONTEXT_USAGE_FILE = fs.existsSync(path.join(homedir(), ".pi", "agent", "quinki-context-usage.json"))
-  ? path.join(homedir(), ".pi", "agent", "quinki-context-usage.json")
+const CONTEXT_USAGE_FILE = fs.existsSync(path.join(_agentDir, "quinki-context-usage.json"))
+  ? path.join(_agentDir, "quinki-context-usage.json")
   : path.join(homedir(), ".pi", "agent", "dashboard-context-usage.json");
-const DELEGATIONS_FILE = fs.existsSync(path.join(homedir(), ".pi", "agent", "quinki-delegations.json"))
-  ? path.join(homedir(), ".pi", "agent", "quinki-delegations.json")
+const DELEGATIONS_FILE = fs.existsSync(path.join(_agentDir, "quinki-delegations.json"))
+  ? path.join(_agentDir, "quinki-delegations.json")
   : path.join(homedir(), ".pi", "agent", "dashboard-delegations.json");
-const DEBUG_LOG_FILE = path.join(homedir(), ".pi", "agent", "quinki-debug.log");
+const DEBUG_LOG_FILE = path.join(_agentDir, "quinki-debug.log");
 const DEBUG_LOG_MAX = 50000;
 const SESSION_BASE = fs.existsSync(path.join(homedir(), ".pi", "agent", "sessions", "quinki"))
   ? path.join(homedir(), ".pi", "agent", "sessions", "quinki")
-  : path.join(homedir(), ".pi", "agent", "sessions", "dashboard");
+  : path.join(_agentDir, "sessions", "quinki");
 
 function makeBackup() {
   try {

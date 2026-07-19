@@ -172,6 +172,7 @@ function piCheckAndNotify() {
 
 // === Request handlers ===
 const handlers: Record<string, (params: any) => Promise<any>> = {
+  listSessions: async () => ({ sessions: piBridge ? piBridge.getSessionsWithFolder() : [] }),
   getFullState: async () => ({
     sessions: piBridge ? piBridge.getSessionsWithFolder() : [],
     models: getModelsList(),
@@ -314,6 +315,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   getHistory: async (p) => ({ sessionKey: p.sessionKey, messages: piBridge!.getHistory(String(p.sessionKey)) }),
   get_history: async (p) => handlers.getHistory(p),
 
+  stopStream: async (p) => { if (piBridge && p?.sessionKey) piBridge.abort(p.sessionKey); return { success: true }; },
   sendMessage: async (p) => {
     const sk = String(p.sessionKey);
     const mid = p.messageId || `u-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
