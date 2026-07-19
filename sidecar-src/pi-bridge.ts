@@ -196,7 +196,7 @@ class PiBridge {
 
   #loadOllamaBaseUrl() {
     try {
-      const modelsPath = path.join(homedir(), ".pi", "agent", "models.json");
+      const modelsPath = path.join(_agentDir, "models.json");
       if (fs.existsSync(modelsPath)) {
         const data = JSON.parse(fs.readFileSync(modelsPath, "utf8"));
         // Find Ollama by base URL (works after rename)
@@ -1725,7 +1725,7 @@ class PiBridge {
     note: string;
   } | null {
     try {
-      const modelsPath = path.join(homedir(), ".pi", "agent", "models.json");
+      const modelsPath = path.join(_agentDir, "models.json");
       if (!fs.existsSync(modelsPath)) return null;
       const data = JSON.parse(fs.readFileSync(modelsPath, "utf8"));
       const providers = data.providers || {};
@@ -4336,7 +4336,7 @@ function pickDefaultThinkingLevel(): string {
 
 function pickDefaultModelHasReasoning(): boolean {
   try {
-    const modelsPath = path.join(homedir(), ".pi", "agent", "models.json");
+    const modelsPath = path.join(_agentDir, "models.json");
     if (!fs.existsSync(modelsPath)) return false;
     const data = JSON.parse(fs.readFileSync(modelsPath, "utf8"));
     const dm = pickDefaultModel();
@@ -4358,7 +4358,7 @@ function pickDefaultModelHasReasoning(): boolean {
 
 function pickDefaultThinkingLevelForModel(modelId: string): string {
   try {
-    const modelsPath = path.join(homedir(), ".pi", "agent", "models.json");
+    const modelsPath = path.join(_agentDir, "models.json");
     if (fs.existsSync(modelsPath)) {
       const data = JSON.parse(fs.readFileSync(modelsPath, "utf8"));
       for (const pdata of Object.values(data.providers || {})) {

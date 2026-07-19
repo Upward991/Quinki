@@ -546,7 +546,7 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
       if (!sessionKey) return { success: false };
       const errorFile = fs.existsSync(path.join(agentDir, "quinki-chat-errors.json"))
   ? path.join(agentDir, "quinki-chat-errors.json")
-  : path.join(agentDir, "dashboard-chat-errors.json");
+  : path.join(agentDir, "quinki-chat-errors.json");
       let errors: Record<string, any[]> = {};
       try { errors = JSON.parse(fs.readFileSync(errorFile, "utf8")); } catch {}
       if (!errors[sessionKey]) errors[sessionKey] = [];
@@ -563,7 +563,7 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
       if (!sessionKey) return { errors: [] };
       const errorFile = fs.existsSync(path.join(agentDir, "quinki-chat-errors.json"))
   ? path.join(agentDir, "quinki-chat-errors.json")
-  : path.join(agentDir, "dashboard-chat-errors.json");
+  : path.join(agentDir, "quinki-chat-errors.json");
       try {
         const errors = JSON.parse(fs.readFileSync(errorFile, "utf8"));
         return { errors: errors[sessionKey] || [] };
