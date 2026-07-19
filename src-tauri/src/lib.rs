@@ -10,7 +10,6 @@ pub fn run() {
       #[cfg(not(target_os = "windows"))]
       {
         use tauri_plugin_shell::ShellExt;
-        use tauri_plugin_shell::process::CommandEvent;
         
         let home = std::env::var("HOME").unwrap_or_else(|_| "/Users/andreamaddalena".to_string());
         let agent_dir = format!("{}/.pi/agent-quinki-dev", home);
@@ -24,11 +23,13 @@ pub fn run() {
           .env("QUINKI_AGENT_DIR", &agent_dir);
         
         match cmd.spawn() {
-          Ok(mut child) => {
-            log::info!("Sidecar started (PID: {})", child.pid());
-            // Detach — let it run in background
+          Ok((mut rx, _child)) => {
+            log::info!("Sidecar started");
+            // Spawn thread to consume events (keeps process alive)
             std::thread::spawn(move || {
-              let _ = child.recv();
+              while let Some(_event) = rx.blocking_recv() {
+                // Consume events
+              }
             });
           }
           Err(e) => {
