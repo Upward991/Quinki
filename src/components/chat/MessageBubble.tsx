@@ -9,7 +9,7 @@ import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
 import 'highlight.js/styles/github-dark.css'
 import type { Message, DelegationBlock, ThinkingBlock, ToolCall, ToolResult, CompactionInfo } from '../../types'
-import { Copy, Check, Info } from '../icons'
+import { Copy, Check, Info, ChevronRight } from '../icons'
 
 interface MessageBubbleProps {
   message: Message
@@ -231,29 +231,28 @@ function GenericToggle({ label, content, baseColor, baseColorRgb, isItalic, bold
   const [copyHovered, setCopyHovered] = useState(false)
   const [copied, setCopied] = useState(false)
 
-  const color = collapsed ? (hovered ? `rgba(${baseColorRgb}, 0.55)` : `rgba(${baseColorRgb}, 0.40)`) : baseColor
-  const opacity = collapsed ? (hovered ? 0.95 : 0.85) : 1.0
-  const bg = hovered ? `rgba(${baseColorRgb}, 0.06)` : 'transparent'
+  const color = collapsed ? (hovered ? `rgba(${baseColorRgb}, 0.70)` : `rgba(${baseColorRgb}, 0.50)`) : baseColor
+  const bg = hovered ? `rgba(${baseColorRgb}, 0.04)` : 'transparent'
   const preview = collapsed ? content.split('\n')[0]?.substring(0, 80) : null
 
   return (
-    <div style={{ opacity, transition: 'opacity 150ms ease', marginTop: '4px' }}>
+    <div style={{ marginTop: '4px' }}>
       <div onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} onClick={() => setCollapsed(!collapsed)}
-        style={{ cursor: 'pointer', backgroundColor: bg, borderRadius: 'var(--radius-md)', padding: '8px', transition: 'background-color 150ms ease' }}>
+        style={{ cursor: 'pointer', backgroundColor: bg, borderRadius: 'var(--radius-md)', padding: '8px', transform: hovered ? 'translateX(2px)' : 'translateX(0)', transition: 'background-color 120ms ease, transform 120ms ease' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '10px', color, lineHeight: 1 }}>{collapsed ? '▶' : '▼'}</span>
+          <ChevronRight size={14} style={{ color, flexShrink: 0, transform: collapsed ? 'rotate(0deg)' : 'rotate(90deg)', transition: 'transform 200ms cubic-bezier(0.16, 1, 0.3, 1)' }} />
           <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color }}>{label}{boldLabel && <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', fontWeight: 600, color }}>{' '}{boldLabel}</span>}</span>
           {preview && <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color: 'var(--q-text-tertiary)', opacity: 0.6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{preview}</span>}
           {!preview && <span style={{ flex: 1 }} />}
           <button onClick={(e) => { e.stopPropagation(); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
             onMouseEnter={() => setCopyHovered(true)} onMouseLeave={() => setCopyHovered(false)}
-            style={{ opacity: hovered ? 1 : 0, background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: 'var(--radius-sm)', backgroundColor: copyHovered ? 'rgba(255,255,255,0.06)' : 'transparent', color, transition: 'opacity 150ms ease' }}>
+            style={{ opacity: hovered ? 1 : 0, background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: 'var(--radius-sm)', backgroundColor: copyHovered ? 'var(--q-hover)' : 'transparent', color, transition: 'opacity 120ms ease' }}>
             {copied ? <Check size={14} /> : <Copy size={14} />}
           </button>
         </div>
       </div>
       {!collapsed && (
-        <div className="toggle-content" style={{ marginTop: '4px', padding: '8px 8px 8px 16px', fontFamily: 'var(--font-code)', fontSize: '13px', lineHeight: 1.6, color: baseColor, fontStyle: isItalic ? 'italic' : 'normal', borderLeft: `2px solid ${baseColor}`, borderRadius: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', userSelect: 'text', WebkitUserSelect: 'text', animation: 'materialize 300ms cubic-bezier(0.16, 1, 0.3, 1)' }}>
+        <div className="toggle-content" style={{ marginTop: '4px', padding: '8px 8px 8px 16px', borderLeft: `2px solid ${baseColor}`, fontFamily: 'var(--font-code)', fontSize: '13px', lineHeight: 1.6, color: baseColor, fontStyle: isItalic ? 'italic' : 'normal', borderRadius: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', userSelect: 'text', WebkitUserSelect: 'text', animation: 'materialize 300ms cubic-bezier(0.16, 1, 0.3, 1)' }}>
           {content}
         </div>
       )}
@@ -262,48 +261,47 @@ function GenericToggle({ label, content, baseColor, baseColorRgb, isItalic, bold
 }
 
 function ThinkingToggle({ content }: { content: string }) {
-  return <GenericToggle label="Thinking" content={content} baseColor="var(--q-thinking)" baseColorRgb="168, 136, 192" isItalic />
+  return <GenericToggle label="Thinking" content={content} baseColor="var(--q-thinking)" baseColorRgb="157, 139, 217" isItalic />
 }
 
 function ToolToggle({ label, toolName, body, isError }: { label: string; toolName: string; body: string; isError: boolean }) {
   const baseColor = isError ? 'var(--q-accent-danger)' : label === 'Tool call' ? 'var(--q-tool-call)' : 'var(--q-tool-result)'
-  const baseColorRgb = isError ? '217, 107, 107' : label === 'Tool call' ? '215, 190, 102' : '155, 191, 122'
+  const baseColorRgb = isError ? '217, 107, 107' : label === 'Tool call' ? '210, 153, 34' : '107, 196, 109'
   return <GenericToggle label={label} boldLabel={toolName} content={body} baseColor={baseColor} baseColorRgb={baseColorRgb} />
 }
 
 function CompactionToggle({ content, isNoop }: { content: string; isNoop: boolean }) {
   const baseColor = isNoop ? 'var(--q-accent-orange)' : 'var(--q-accent-info)'
-  const baseColorRgb = isNoop ? '232, 151, 90' : '122, 138, 160'
+  const baseColorRgb = isNoop ? '217, 160, 102' : '122, 162, 247'
   return <GenericToggle label='Compaction' boldLabel={isNoop ? 'ineffective' : 'effective'} content={content} baseColor={baseColor} baseColorRgb={baseColorRgb} />
 }
 
 // ── Delegation block (full chat structure inside) ──
 function DelegationBlockView({ delegation, timestamp }: { delegation: DelegationBlock; timestamp: string }) {
   const [collapsed, setCollapsed] = useState(true)
-    const [hovered, setHovered] = useState(false)
+  const [hovered, setHovered] = useState(false)
   const [copyHovered, setCopyHovered] = useState(false)
   const [copied, setCopied] = useState(false)
 
   const baseColor = 'var(--q-delegation)'
-  const baseColorRgb = '196, 106, 126'
-  const color = collapsed ? (hovered ? `rgba(${baseColorRgb}, 0.55)` : `rgba(${baseColorRgb}, 0.40)`) : baseColor
-  const opacity = collapsed ? (hovered ? 0.95 : 0.85) : 1.0
-  const bg = hovered ? `rgba(${baseColorRgb}, 0.06)` : 'transparent'
+  const baseColorRgb = '201, 112, 132'
+  const color = collapsed ? (hovered ? `rgba(${baseColorRgb}, 0.70)` : `rgba(${baseColorRgb}, 0.50)`) : baseColor
+  const bg = hovered ? `rgba(${baseColorRgb}, 0.04)` : 'transparent'
   const preview = collapsed ? delegation.response.split('\n')[0]?.substring(0, 80) : null
 
   return (
-    <div style={{ opacity, transition: 'opacity 150ms ease', marginTop: '4px' }}>
+    <div style={{ marginTop: '4px' }}>
       <div onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} onClick={() => setCollapsed(!collapsed)}
-        style={{ cursor: 'pointer', backgroundColor: bg, borderRadius: 'var(--radius-md)', padding: '8px', transition: 'background-color 150ms ease' }}>
+        style={{ cursor: 'pointer', backgroundColor: bg, borderRadius: 'var(--radius-md)', padding: '8px', transform: hovered ? 'translateX(2px)' : 'translateX(0)', transition: 'background-color 120ms ease, transform 120ms ease' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '10px', color, lineHeight: 1 }}>{collapsed ? '▶' : '▼'}</span>
+          <ChevronRight size={14} style={{ color, flexShrink: 0, transform: collapsed ? 'rotate(0deg)' : 'rotate(90deg)', transition: 'transform 200ms cubic-bezier(0.16, 1, 0.3, 1)' }} />
           <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color }}>Delegated to</span>
           <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', fontWeight: 600, color }}>{delegation.agentName}</span>
           {preview && <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color: 'var(--q-text-tertiary)', opacity: 0.6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{preview}</span>}
           {!preview && <span style={{ flex: 1 }} />}
           <button onClick={(e) => { e.stopPropagation(); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
             onMouseEnter={() => setCopyHovered(true)} onMouseLeave={() => setCopyHovered(false)}
-            style={{ opacity: hovered ? 1 : 0, background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: 'var(--radius-sm)', backgroundColor: copyHovered ? 'rgba(255,255,255,0.06)' : 'transparent', color, transition: 'opacity 150ms ease' }}>
+            style={{ opacity: hovered ? 1 : 0, background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: 'var(--radius-sm)', backgroundColor: copyHovered ? 'var(--q-hover)' : 'transparent', color, transition: 'opacity 120ms ease' }}>
             {copied ? <Check size={14} /> : <Copy size={14} />}
           </button>
         </div>

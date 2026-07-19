@@ -206,7 +206,7 @@ export function Sidebar({ sessions, activeSessionId, onSelectSession, onNewSessi
               const iconColor = isFolder
                 ? (folderExpanded ? folderColor : isHovered ? 'var(--q-text)' : 'var(--q-text-tertiary)')
                 : (isSelected ? 'var(--q-accent-danger)' : isActive ? 'var(--q-accent-info-bright)' : isHovered ? 'var(--q-text)' : 'var(--q-text-tertiary)')
-              const bgColor = isHovered ? 'var(--q-hover)' : 'transparent'
+              const bgColor = isHovered && !isActive ? 'var(--q-hover)' : 'transparent'
 
               return (
                 <div
@@ -219,7 +219,7 @@ export function Sidebar({ sessions, activeSessionId, onSelectSession, onNewSessi
                   {currentDropZone === 'before' && (
                     <div style={{
                       position: 'absolute', top: '-1px', left: `${8 + depth * 12}px`, right: '8px',
-                      height: '3px', backgroundColor: 'var(--q-accent-info-bright)', borderRadius: '1.5px',
+                      height: '2px', backgroundColor: 'var(--q-accent-primary)', borderRadius: '1px',
                       zIndex: 10, pointerEvents: 'none',
                     }} />
                   )}
@@ -228,7 +228,7 @@ export function Sidebar({ sessions, activeSessionId, onSelectSession, onNewSessi
                   {currentDropZone === 'after' && (
                     <div style={{
                       position: 'absolute', bottom: '1px', left: `${8 + depth * 12}px`, right: '8px',
-                      height: '3px', backgroundColor: 'var(--q-accent-info-bright)', borderRadius: '1.5px',
+                      height: '2px', backgroundColor: 'var(--q-accent-primary)', borderRadius: '1px',
                       zIndex: 10, pointerEvents: 'none',
                     }} />
                   )}
@@ -349,7 +349,7 @@ export function Sidebar({ sessions, activeSessionId, onSelectSession, onNewSessi
             >
               {bottomDropActive && (
                 <div style={{
-                  height: '3px', backgroundColor: 'var(--q-accent-info-bright)', borderRadius: '1.5px',
+                  height: '2px', backgroundColor: 'var(--q-accent-primary)', borderRadius: '1px',
                   margin: '0 8px',
                 }} />
               )}

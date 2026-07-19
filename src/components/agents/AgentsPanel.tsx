@@ -90,7 +90,7 @@ export function AgentsPanel(props: AgentsPanelProps) {
           <div style={{ width: '8px', flexShrink: 0 }} />
           <div style={{ ...panelStyle, flex: 1 }}>
             <div style={{ width: '8px', flexShrink: 0 }} />
-            <DoubleBotIcon size={18} color="var(--q-text-secondary)" />
+            <Bot size={18} style={{ color: 'var(--q-accent-secondary)', flexShrink: 0 }} />
             <div style={{ width: '16px', flexShrink: 0 }} />
             <span style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>Agents</span>
             <span style={{ flex: 1 }} />
@@ -591,26 +591,6 @@ function ResourceRow({ icon: Icon, name, description, agentsUsing, badge, badgeC
     </div>
   )
 }
-
-// ── DoubleBotIcon — 3 bot in piramide (1 sopra, 2 sotto) — same as HomeView ──
-function DoubleBotIcon({ size = 18, color = 'currentColor' }: { size?: number; color?: string }) {
-  const small = size * 0.65
-  return (
-    <div style={{ position: 'relative', width: small * 2 + 4, height: small * 2 + 2, flexShrink: 0 }}>
-      <div style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)' }}>
-        <Bot size={small} style={{ color, opacity: 0.85 }} />
-      </div>
-      <div style={{ position: 'absolute', bottom: 0, left: 0 }}>
-        <Bot size={small} style={{ color, opacity: 0.85 }} />
-      </div>
-      <div style={{ position: 'absolute', bottom: 0, right: 0 }}>
-        <Bot size={small} style={{ color, opacity: 0.85 }} />
-      </div>
-    </div>
-  )
-}
-
-
 
 // ── File editor modal — exact Flutter _FileEditorDialog copy (720x600) ──
 function FileEditorModal({ fileName, onClose }: { fileName: string; onClose: () => void }) {

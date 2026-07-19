@@ -43,6 +43,11 @@ export function HomeView({ onSelectPanel }: HomeViewProps) {
   )
 }
 
+// ── DoubleBotIcon — renders a single Bot icon (matches Deep Cosmos build) ──
+function DoubleBotIcon({ size = 28, color }: { size?: number; color?: string }) {
+  return <Bot size={size} style={{ color }} />
+}
+
 // ── HomeNavCard — individual card with hover effects ──
 function HomeNavCard({ card, idx, onSelectPanel }: { card: CardDef; idx: number; onSelectPanel: (panel: string) => void }) {
   const [hovered, setHovered] = useState(false)
@@ -92,7 +97,10 @@ function HomeNavCard({ card, idx, onSelectPanel }: { card: CardDef; idx: number;
         transform: hovered ? 'scale(1.05)' : 'scale(1)',
         transition: 'transform 120ms cubic-bezier(0.16, 1, 0.3, 1)',
       }}>
-        <Icon size={28} style={{ color: card.color }} />
+        {card.doubleBot
+          ? <DoubleBotIcon size={28} color={card.color} />
+          : <Icon size={28} style={{ color: card.color }} />
+        }
       </div>
 
       <div style={{ height: '10px' }} />
