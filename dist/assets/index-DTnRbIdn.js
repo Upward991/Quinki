@@ -708,7 +708,7 @@ https://github.com/highlightjs/highlight.js/issues/2277`),i=e,r=t),n===void 0&&(
 							background: "none",
 							border: "none",
 							cursor: "pointer",
-							padding: "8px",
+							padding: "0px",
 							color: searchMatches.length > 0 ? "var(--q-text-secondary)" : "var(--q-text-tertiary)",
 							opacity: searchMatches.length > 0 ? 1 : .3,
 							display: "flex"
@@ -721,7 +721,7 @@ https://github.com/highlightjs/highlight.js/issues/2277`),i=e,r=t),n===void 0&&(
 							background: "none",
 							border: "none",
 							cursor: "pointer",
-							padding: "8px",
+							padding: "0px",
 							color: searchMatches.length > 0 ? "var(--q-text-secondary)" : "var(--q-text-tertiary)",
 							opacity: searchMatches.length > 0 ? 1 : .3,
 							display: "flex"
