@@ -7,19 +7,21 @@
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5176",
     "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": ""
+    "beforeBuildCommand": "npm run build"
   },
   "app": {
     "windows": [
       {
-        "title": "Quinki",
+        "title": "",
         "width": 1200,
         "height": 800,
         "minWidth": 800,
         "minHeight": 600,
         "resizable": true,
         "fullscreen": false,
-        "decorations": true
+        "decorations": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true
       }
     ],
     "security": {

@@ -13,28 +13,10 @@ interface AgentsPanelProps {
   activePanel: string
   onSelectPanel: (panel: string) => void
   agents: Agent[]
+  call?: (method: string, params?: any) => Promise<any>
 }
 
-// Mock skills and tools
-const mockSkills = [
-  { name: 'quinki-expert', description: 'Quinki Expert core skill for managing and monitoring dashboards', source: 'local' },
-  { name: 'find-skills', description: 'Search and discover skills from pi.dev registry', source: 'pi.dev' },
-  { name: 'ddg-search', description: 'DuckDuckGo web search skill', source: 'pi.dev' },
-  { name: 'ponytail', description: 'Ponytail CSS framework skill', source: 'pi.dev' },
-  { name: 'notion-api', description: 'Notion API integration skill', source: 'pi.dev' },
-]
-
-const mockTools = [
-  { name: 'read', description: 'Read file contents', readOnly: true },
-  { name: 'write', description: 'Write file contents', readOnly: false },
-  { name: 'edit', description: 'Edit file with find/replace', readOnly: false },
-  { name: 'bash', description: 'Execute bash commands', readOnly: false },
-  { name: 'grep', description: 'Search file contents with regex', readOnly: true },
-  { name: 'find', description: 'Find files by name or pattern', readOnly: true },
-  { name: 'ls', description: 'List directory contents', readOnly: true },
-  { name: 'skill', description: 'Execute a skill', readOnly: false },
-  { name: 'delegate_to_agent', description: 'Delegate task to another agent', readOnly: false },
-]
+// Skills and tools loaded from sidecar via listSkills/listTools RPCs
 
 const planModeTools = ['read', 'grep', 'find', 'ls']
 
@@ -54,20 +36,34 @@ export function AgentsPanel(props: AgentsPanelProps) {
   const [showDeleteAgent, setShowDeleteAgent] = useState<string | null>(null)
   const [showRemoveAll, setShowRemoveAll] = useState<{ type: string; agentName: string } | null>(null)
   const [showPicker, setShowPicker] = useState<{ title: string; items: { name: string; description: string }[] } | null>(null)
-  const [showFileEditor, setShowFileEditor] = useState<string | null>(null)
+  const [showFileEditor, setShowFileEditor] = useState<{ agentId: string; fileName: string } | null>(null)
   const [showCreateFile, setShowCreateFile] = useState<string | null>(null)
   const [showRemoveOne, setShowRemoveOne] = useState<{ type: string; name: string; agent: string } | null>(null)
   const [showError, setShowError] = useState<string | null>(null)
   const [installing, setInstalling] = useState(false)
   const [showSuccess, setShowSuccess] = useState<string | null>(null)
+  const [skills, setSkills] = useState<any[]>([])
+  const [tools, setTools] = useState<any[]>([])
 
+  // Load skills and tools from sidecar
   useEffect(() => {
-    setShowError('Failed to load agents.\n\nError: ECONNREFUSED 127.0.0.1:0\n    at Object.call (sidecar_service.dart:142)\n    at AgentsPanel.load (agents_panel.dart:55)\n\nVerify that the sidecar is active and that the Pi Agent SDK is installed.')
-  }, [])
+    if (!props.call) return
+    const loadData = async () => {
+      try {
+        const skillsResult = await props.call!('listSkills', {})
+        if (skillsResult?.skills) setSkills(skillsResult.skills)
+      } catch {}
+      try {
+        const toolsResult = await props.call!('listTools', {})
+        if (toolsResult?.tools) setTools(toolsResult.tools)
+      } catch {}
+    }
+    loadData()
+  }, [props.call, props.agents.length])
 
   const filteredAgents = props.agents.filter(a => a.name.toLowerCase().includes(agentSearch.toLowerCase()))
-  const filteredSkills = mockSkills.filter(s => s.name.toLowerCase().includes(skillSearch.toLowerCase()) || s.description.toLowerCase().includes(skillSearch.toLowerCase()))
-  const filteredTools = mockTools.filter(t => t.name.toLowerCase().includes(toolSearch.toLowerCase()))
+  const filteredSkills = skills.filter(s => s.name.toLowerCase().includes(skillSearch.toLowerCase()) || s.description.toLowerCase().includes(skillSearch.toLowerCase()))
+  const filteredTools = tools.filter(t => t.name.toLowerCase().includes(toolSearch.toLowerCase()))
 
   const panelStyle: React.CSSProperties = {
     backgroundColor: 'var(--q-bg-panel)',
@@ -124,13 +120,13 @@ export function AgentsPanel(props: AgentsPanelProps) {
                   onToggle={() => setExpandedAgentId(expandedAgentId === agent.id ? null : agent.id)}
                   onStartRename={() => setRenamingAgent(agent.id)}
                   onCommitRename={() => setRenamingAgent(null)}
-                  skills={mockSkills}
-                  tools={mockTools}
+                  skills={skills}
+                  tools={tools}
                   onShowDelete={() => setShowDeleteAgent(agent.name)}
                   onAddFile={() => setShowCreateFile(agent.name)}
-                  onAddSkill={() => setShowPicker({ title: 'Add skill', items: mockSkills.map(s => ({ name: s.name, description: s.description })) })}
-                  onAddTool={() => setShowPicker({ title: 'Add tool', items: mockTools.map(t => ({ name: t.name, description: t.description })) })}
-                  onOpenFile={(name) => setShowFileEditor(name)}
+                  onAddSkill={() => setShowPicker({ title: 'Add skill', items: skills.map(s => ({ name: s.name, description: s.description })) })}
+                  onAddTool={() => setShowPicker({ title: 'Add tool', items: tools.map(t => ({ name: t.name, description: t.description })) })}
+                  onOpenFile={(name) => setShowFileEditor({ agentId: agent.id, fileName: name })}
                   onRemoveTag={(type, name) => setShowRemoveOne({ type, name, agent: agent.name })}
                   onRemoveAll={(type) => setShowRemoveAll({ type, agentName: agent.name })}
                 />
@@ -141,7 +137,7 @@ export function AgentsPanel(props: AgentsPanelProps) {
           {/* Section: Installed resources */}
           <Section icon={Package} title="Installed resources">
             {/* Skills container */}
-            <ResourceContainer title={`Skill (${mockSkills.length})`} action={<><AddBtn label="Create skill" onClick={() => setShowCreateSkill(true)} /><AddBtn label="Install skill" onClick={() => setShowInstallSkill(true)} /></>}>
+            <ResourceContainer title={`Skill (${skills.length})`} action={<><AddBtn label="Create skill" onClick={() => setShowCreateSkill(true)} /><AddBtn label="Install skill" onClick={() => setShowInstallSkill(true)} /></>}>
               <SearchField placeholder="Search skill..." value={skillSearch} onChange={setSkillSearch} />
               <div style={{ height: '8px' }} />
               <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
@@ -155,7 +151,7 @@ export function AgentsPanel(props: AgentsPanelProps) {
                       agentsUsing={agentsUsing.map(a => a.name)}
                       isExpanded={expandedResource === s.name}
                       onToggle={() => setExpandedResource(expandedResource === s.name ? null : s.name)}
-                      onEdit={() => setShowFileEditor('SKILL.md')}
+                      onEdit={() => setShowFileEditor({ agentId: s.name, fileName: 'SKILL.md' })}
                       onDeleteSkill={() => setShowRemoveOne({ type: 'skill', name: s.name, agent: '' })}
                       onAddAgent={() => setShowPicker({ title: 'Add agent to ' + s.name, items: props.agents.map(a => ({ name: a.name, description: a.id })) })}
                       onRemoveAgent={(agent) => setShowRemoveOne({ type: 'agent', name: agent, agent: s.name })}
@@ -169,7 +165,7 @@ export function AgentsPanel(props: AgentsPanelProps) {
             <div style={{ height: '8px' }} />
 
             {/* Tools container */}
-            <ResourceContainer title={`Tool (${mockTools.length})`} action={<AddBtn label="Add tool" onClick={() => setShowPicker({ title: 'Add tool', items: mockTools.map(t => ({ name: t.name, description: t.description })) })} />}>
+            <ResourceContainer title={`Tool (${tools.length})`} action={<AddBtn label="Add tool" onClick={() => setShowPicker({ title: 'Add tool', items: tools.map(t => ({ name: t.name, description: t.description })) })} />}>
               <SearchField placeholder="Search tool..." value={toolSearch} onChange={setToolSearch} />
               <div style={{ height: '8px' }} />
               <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
@@ -201,7 +197,7 @@ export function AgentsPanel(props: AgentsPanelProps) {
               {planModeTools.map(name => (
                 <Tag key={name} icon={Wrench} label={name} onRemove={() => setShowRemoveOne({ type: 'plan mode tool', name, agent: 'Plan mode' })} />
               ))}
-              <AddBtn label="Add tool" onClick={() => setShowPicker({ title: 'Enable tool in Plan mode', items: mockTools.filter(t => !planModeTools.includes(t.name)).map(t => ({ name: t.name, description: t.description })) })} />
+              <AddBtn label="Add tool" onClick={() => setShowPicker({ title: 'Enable tool in Plan mode', items: tools.filter(t => !planModeTools.includes(t.name)).map(t => ({ name: t.name, description: t.description })) })} />
             </div>
           </Section>
 
@@ -318,8 +314,8 @@ export function AgentsPanel(props: AgentsPanelProps) {
         <PickerModal title={showPicker.title} items={showPicker.items} onClose={() => setShowPicker(null)} />
       )}
 
-      {/* File editor modal — exact Flutter _FileEditorDialog copy */}
-      {showFileEditor && <FileEditorModal fileName={showFileEditor} onClose={() => setShowFileEditor(null)} />}
+      {/* File editor modal */}
+      {showFileEditor && <FileEditorModal agentId={showFileEditor.agentId} fileName={showFileEditor.fileName} call={props.call} onClose={() => setShowFileEditor(null)} />}
 
       {/* Create file modal */}
       {showCreateFile && (
@@ -395,7 +391,7 @@ function Tag({ icon: Icon, label, onRemove }: { icon: React.FC<{ size?: number; 
 // ── Agent toggle ──
 function AgentToggle({ agent, isExpanded, isRenaming, onToggle, onStartRename, onCommitRename, skills, tools, onShowDelete, onAddFile, onAddSkill, onAddTool, onOpenFile, onRemoveTag, onRemoveAll }: {
   agent: Agent; isExpanded: boolean; isRenaming: boolean; onToggle: () => void; onStartRename: () => void; onCommitRename: () => void
-  skills: typeof mockSkills; tools: typeof mockTools; onShowDelete: () => void
+  skills: any[]; tools: any[]; onShowDelete: () => void
   onAddFile: () => void; onAddSkill: () => void; onAddTool: () => void; onOpenFile: (name: string) => void; onRemoveTag: (type: string, name: string) => void; onRemoveAll: (type: string) => void
 }) {
   const agentSkills = skills.filter(s => agent.skills.some(sk => sk.name === s.name))
@@ -592,15 +588,34 @@ function ResourceRow({ icon: Icon, name, description, agentsUsing, badge, badgeC
   )
 }
 
-// ── File editor modal — exact Flutter _FileEditorDialog copy (720x600) ──
-function FileEditorModal({ fileName, onClose }: { fileName: string; onClose: () => void }) {
+// ── File editor modal — loads/saves real agent files from sidecar ──
+function FileEditorModal({ agentId, fileName, call, onClose }: { agentId: string; fileName: string; call?: (method: string, params?: any) => Promise<any>; onClose: () => void }) {
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
-  const mockContent = fileName === 'PROMPT.md' 
-    ? 'You are Quinki Expert, a helpful coding assistant.\nYou have access to file system tools and can search the web.\nAlways be precise and concise.'
-    : fileName === 'SKILL.md'
-    ? '# Quinki Expert Skill\n\n## Description\nCore skill for managing dashboards.\n\n## Instructions\n1. Read the project structure\n2. Identify key files\n3. Suggest improvements'
-    : `# ${fileName}\n\nFile content for ${fileName}.\nEdit this file as needed.`
+  const [content, setContent] = useState('')
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    if (!call || !agentId) return
+    const loadFile = async () => {
+      try {
+        const result = await call('readAgentFile', { id: agentId, filePath: fileName })
+        if (result?.content) { setContent(result.content); setLoaded(true) }
+        else { setContent(''); setLoaded(true) }
+      } catch { setContent(''); setLoaded(true) }
+    }
+    loadFile()
+  }, [call, agentId, fileName])
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      if (call) await call('writeAgentFile', { id: agentId, filePath: fileName, content })
+    } catch {}
+    setSaving(false)
+    setDirty(false)
+    onClose()
+  }
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
@@ -620,9 +635,9 @@ function FileEditorModal({ fileName, onClose }: { fileName: string; onClose: () 
           <span style={{ flex: 1 }} />
           {dirty && <span style={{ color: 'var(--q-accent-warning)', fontSize: '11px', fontFamily: 'var(--font-interface)', marginRight: '8px' }}>Unsaved</span>}
           {/* Save button */}
-          <button onClick={() => { setSaving(true); setTimeout(() => { setSaving(false); setDirty(false); onClose() }, 500) }} disabled={saving}
+          <button onClick={handleSave} disabled={saving}
             style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', cursor: saving ? 'default' : 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>
-            <Save size={16} /> Save
+            <Save size={16} /> {saving ? 'Saving...' : 'Save'}
           </button>
           <div style={{ width: '8px', flexShrink: 0 }} />
           {/* X close */}
@@ -632,8 +647,9 @@ function FileEditorModal({ fileName, onClose }: { fileName: string; onClose: () 
         </div>
         {/* Editor — bgCode, fills remaining space */}
         <textarea
-          defaultValue={mockContent}
-          onChange={() => { if (!dirty) setDirty(true) }}
+          value={content}
+          onChange={e => { setContent(e.target.value); if (!dirty) setDirty(true) }}
+          placeholder={loaded ? '' : 'Loading...'}
           style={{
             flex: 1, width: '100%', backgroundColor: 'var(--q-bg-code)',
             border: 'none', outline: 'none', color: 'var(--q-text)',

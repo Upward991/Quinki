@@ -1,7 +1,5 @@
 // ============================================================
-// LogPanel — Deep Cosmos redesign
-// Simple flat list with dot indicators, expand/collapse,
-// search filter, auto-scroll, export & clear
+// LogPanel — Real sidecar logs
 // ============================================================
 
 import { useState, useRef, useEffect } from 'react'
@@ -16,6 +14,9 @@ interface LogEntry {
 interface LogPanelProps {
   activePanel?: string
   onSelectPanel: (panel: string) => void
+  logs?: any[]
+  onLoadLog?: () => Promise<void>
+  onClearLog?: () => Promise<void>
 }
 
 // ── Format helpers ──
@@ -52,8 +53,18 @@ const levelColors: Record<string, { pill: string; text: string }> = {
   debug:  { pill: 'var(--q-text-tertiary)',   text: 'var(--q-text-tertiary)' },
 }
 
-export function LogPanel({ onSelectPanel }: LogPanelProps) {
-  const [entries, setEntries] = useState<LogEntry[]>([])
+// ── Map sidecar log entries to LogEntry ──
+function mapLogs(raw: any[]): LogEntry[] {
+  return raw.map((entry) => {
+    // Sidecar log format: { tag, data, timestamp } or { tag, data, ts } or { tag, message }
+    const ts = entry.timestamp || entry.ts || entry.time || Date.now()
+    const tag = entry.tag || entry.level || entry.type || 'info'
+    const data = entry.data || entry.message || entry.content || ''
+    return { ts: typeof ts === 'number' ? ts : new Date(ts).getTime(), tag, data }
+  })
+}
+
+export function LogPanel({ onSelectPanel, logs = [], onLoadLog, onClearLog }: LogPanelProps) {
   const [searchFilter, setSearchFilter] = useState('')
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
   const [autoScroll, setAutoScroll] = useState(true)
@@ -61,11 +72,18 @@ export function LogPanel({ onSelectPanel }: LogPanelProps) {
   const [copied, setCopied] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
+  // Load full log on mount
+  useEffect(() => {
+    onLoadLog?.()
+  }, [onLoadLog])
+
+  const entries = mapLogs(logs)
+
   useEffect(() => {
     if (autoScroll && scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
-  }, [entries, autoScroll])
+  }, [entries.length, autoScroll])
 
   const filtered = searchFilter
     ? entries.filter(e =>
@@ -82,7 +100,6 @@ export function LogPanel({ onSelectPanel }: LogPanelProps) {
         padding: '8px 12px', backgroundColor: 'var(--q-bg-panel)',
         borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)',
       }}>
-        {/* Home button */}
         <button onClick={() => onSelectPanel('home')}
           style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex', color: 'var(--q-text-secondary)' }}>
           <Home size={20} />
@@ -95,7 +112,6 @@ export function LogPanel({ onSelectPanel }: LogPanelProps) {
           {filtered.length} entries
         </span>
 
-        {/* Export button */}
         {copied ? (
           <>
             <Check size={16} style={{ color: 'var(--q-accent-success)' }} />
@@ -172,27 +188,21 @@ export function LogPanel({ onSelectPanel }: LogPanelProps) {
                 style={{ borderBottom: '1px solid var(--q-border)', padding: '8px 12px', cursor: 'pointer' }}
                 onClick={() => setExpandedIdx(isExpanded ? null : i)}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  {/* Level dot */}
                   <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: colors.pill, flexShrink: 0 }} />
-                  {/* Time */}
                   <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-code)', flexShrink: 0 }}>
                     {formatTime(entry.ts)}
                   </span>
-                  {/* Tag */}
                   <span style={{ color: colors.text, fontSize: '12px', fontFamily: 'var(--font-code)', flexShrink: 0 }}>
                     {entry.tag}
                   </span>
-                  {/* Preview */}
                   <span style={{
                     flex: 1, color: 'var(--q-text-secondary)', fontSize: '12px', fontFamily: 'var(--font-code)',
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   }}>
                     {typeof entry.data === 'string' ? entry.data.substring(0, 100) : JSON.stringify(entry.data).substring(0, 100)}
                   </span>
-                  {/* Expand/collapse icon */}
                   {isExpanded ? <ChevronUp size={14} style={{ color: 'var(--q-text-tertiary)' }} /> : <ChevronDown size={14} style={{ color: 'var(--q-text-tertiary)' }} />}
                 </div>
-                {/* Expanded payload */}
                 {isExpanded && (
                   <div style={{ marginTop: '8px', padding: '8px', backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-md)', overflow: 'auto' }}>
                     <pre style={{ margin: 0, color: 'var(--q-text-secondary)', fontSize: '12px', fontFamily: 'var(--font-code)', whiteSpace: 'pre-wrap' }}>
@@ -221,7 +231,7 @@ export function LogPanel({ onSelectPanel }: LogPanelProps) {
               Clear all log entries?
             </div>
             <div style={{ color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)', marginBottom: '20px' }}>
-              {entries.length} entries will be removed.
+              {entries.length} entries will be removed from the debug log file.
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
               <button className="q-press" onClick={() => setShowClearModal(false)}
@@ -230,7 +240,7 @@ export function LogPanel({ onSelectPanel }: LogPanelProps) {
                   backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '15px', fontFamily: 'var(--font-interface)',
                 }}>Cancel</button>
               <div style={{ width: '8px' }} />
-              <button className="q-press" onClick={() => { setEntries([]); setShowClearModal(false) }}
+              <button className="q-press" onClick={async () => { await onClearLog?.(); setShowClearModal(false) }}
                 style={{
                   padding: '8px 16px', borderRadius: 'var(--radius-lg)', border: 'none', cursor: 'pointer',
                   backgroundColor: 'var(--q-accent-success)', color: 'var(--q-bg)', fontSize: '15px', fontWeight: 500, fontFamily: 'var(--font-interface)',

@@ -17,6 +17,7 @@ interface SettingsPanelProps {
   activeThemeId: string
   onThemeChange: (id: string) => void
   providers: Provider[]
+  call?: (method: string, params?: any) => Promise<any>
 }
 
 const sections = [
@@ -41,9 +42,14 @@ export function SettingsPanel(props: SettingsPanelProps) {
   const [showUpdate, setShowUpdate] = useState(false)
   const [showError, setShowError] = useState<string | null>(null)
 
+  // Load app version from sidecar
+  const [appVersion, setAppVersion] = useState('v1.0.0')
   useEffect(() => {
-    setShowError('Failed to load providers configuration.\n\nError: ECONNREFUSED 127.0.0.1:0\n    at Object.call (sidecar_service.dart:142)\n    at SettingsPanel.load (settings_panel.dart:118)\n\nVerify that the sidecar is active and that the project exists in ~/Projects/Quinki.')
-  }, [])
+    if (!props.call) return
+    props.call('getAppVersion', {}).then((r: any) => {
+      if (r?.version) setAppVersion(r.version)
+    }).catch(() => {})
+  }, [props.call])
 
   const scrollToSection = (id: string) => {
     setActiveSection(id)
@@ -56,13 +62,21 @@ export function SettingsPanel(props: SettingsPanelProps) {
     }
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setSaving(true)
-    setTimeout(() => {
-      setSaving(false)
-      setSaveMessage('Settings saved.')
-      setTimeout(() => setSaveMessage(null), 5000)
-    }, 500)
+    try {
+      if (props.call) {
+        // Save provider config
+        const config: any = {}
+        for (const p of props.providers) {
+          config[p.id] = { api: p.type, enabled: p.enabled, apiKey: p.apiKeyStatus === 'configured' ? 'set' : '' }
+        }
+        await props.call('setProvidersConfig', { providers: config })
+      }
+    } catch {}
+    setSaving(false)
+    setSaveMessage('Settings saved.')
+    setTimeout(() => setSaveMessage(null), 5000)
   }
 
   const panelStyle: React.CSSProperties = {
@@ -224,7 +238,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
 
             {/* Versions */}
             <Section id="settings-versions" icon={Info} title="Versions">
-              <VersionRow label="Quinki" value="v1.0.0" />
+              <VersionRow label="Quinki" value={appVersion} />
               <div style={{ height: '4px' }} />
               <VersionRow label="Pi Agent SDK" value="v0.4.2" />
               <div style={{ height: '8px' }} />

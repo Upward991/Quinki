@@ -1,8 +1,9 @@
 // ============================================================
-// App.tsx — Container principale (logic layer)
+// App.tsx — Functional app connected to real sidecar
 // ============================================================
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { useSidecarData } from './hooks/useSidecarData'
 import { Sidebar } from './components/sidebar/Sidebar'
 import { ChatArea } from './components/chat/ChatArea'
 import { HomeView } from './components/home/HomeView'
@@ -10,51 +11,51 @@ import { AgentsPanel } from './components/agents/AgentsPanel'
 import { SettingsPanel } from './components/settings/SettingsPanel'
 import { LogPanel } from './components/log/LogPanel'
 import { GlobalContextMenu } from './components/shared/GlobalContextMenu'
-import { mockMessages, mockSessions, mockAgents, mockProviders, mockThemes } from './design/mock-data'
-import type { ChatMode, ThinkingLevel } from './types'
+import { mockThemes } from './design/mock-data'
+import type { ChatMode, ThinkingLevel, Session } from './types'
 
 type SidebarMode = 'pinned' | 'hidden' | 'peek'
 
-// Context tokens per session
-const sessionCtx: Record<string, number> = {
-  s0a: 0,
-  s0b: 0,
-  s50: 500000,   // 50% of 1M
-  s80: 800000,   // 80% of 1M
-}
+// Theme IDs matching CSS [data-theme] selectors (referenced by mockThemes)
 
 export default function App() {
+  const sidecar = useSidecarData('ws://127.0.0.1:9182')
+
   const [activePanel, setActivePanel] = useState<string>('home')
   const [sidebarMode, setSidebarMode] = useState<SidebarMode>('pinned')
   const [sidebarWidth] = useState(260)
-  const [activeSessionId, setActiveSessionId] = useState('s0a')
   const [selectedAgentIds, setSelectedAgentIds] = useState<string[]>(['quinki-expert', 'orchestrator'])
-  const [chatAgentIds, setChatAgentIds] = useState<string[]>([])
-  const [selectedModel, setSelectedModel] = useState('glm-4.5')
+  const [chatAgentIds, setChatAgentIds] = useState<string[]>(['quinki-expert'])
+  const [selectedModel, setSelectedModel] = useState('')
   const [mode, setMode] = useState<ChatMode>('build')
   const [thinking, setThinking] = useState<ThinkingLevel>('on')
   const [themeId, setThemeId] = useState('comfort')
-  const [isStreaming, setIsStreaming] = useState(false)
-  const [messages, setMessages] = useState(mockMessages)
-  const [sessions, setSessions] = useState(mockSessions)
-  const [welcomeMode, setWelcomeMode] = useState(false)
   const [agentDropdownOpen, setAgentDropdownOpen] = useState(false)
-  const [statusLabel, setStatusLabel] = useState('')
-  const [statusKind, setStatusKind] = useState('')
-  const isStreamingRef = useRef(false)
+  const [expertDirModal, setExpertDirModal] = useState(false)
+  const [expertDir, setExpertDir] = useState<string>('')
+  const [welcomeMode, setWelcomeMode] = useState(false)
+  const expertDirAsked = useRef(false)
 
-  const activeSession = sessions.find(s => s.id === activeSessionId)
+  // ── Set theme on mount and change ──
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', themeId)
+  }, [themeId])
+
+  // ── Welcome mode when entering chat with no session ──
+  useEffect(() => {
+    if (activePanel === 'chat' && !sidecar.activeSessionId && !sidecar.isStreaming) {
+      setWelcomeMode(true)
+    } else if (sidecar.activeSessionId) {
+      setWelcomeMode(false)
+    }
+  }, [activePanel, sidecar.activeSessionId, sidecar.isStreaming])
+
+  const activeSession = sidecar.sessions.find(s => s.id === sidecar.activeSessionId)
   const sidebarPinned = activePanel === 'chat' && sidebarMode === 'pinned'
   const sidebarVisible = activePanel === 'chat' && (sidebarMode === 'pinned' || sidebarMode === 'peek')
 
-  // Context tokens based on session
-  const sessionCtxTokens = activeSessionId && sessionCtx[activeSessionId] !== undefined
-    ? sessionCtx[activeSessionId]
-    : 0
-
   const handleThemeChange = useCallback((id: string) => {
     setThemeId(id)
-    document.documentElement.setAttribute('data-theme', id)
   }, [])
 
   const handleAgentToggle = useCallback((agentId: string) => {
@@ -64,126 +65,160 @@ export default function App() {
   }, [])
 
   const handleChatAgentToggle = useCallback((agentId: string) => {
-    setChatAgentIds(prev =>
-      prev.includes(agentId) ? prev.filter(id => id !== agentId) : [...prev, agentId]
-    )
-  }, [])
+    setChatAgentIds(prev => {
+      const next = prev.includes(agentId) ? prev.filter(id => id !== agentId) : [...prev, agentId]
+      // Sync to sidecar
+      sidecar.setChatAgents(next)
+      return next
+    })
+  }, [sidecar])
 
   const handleSend = useCallback((text: string) => {
-    const userMsg = {
-      id: `msg-${Date.now()}`,
-      role: 'user' as const,
-      content: text,
-      timestamp: new Date().toISOString(),
-      tokensIn: Math.ceil(text.length / 4),
-    }
-    setMessages(prev => [...prev, userMsg])
-    setWelcomeMode(false)
-    setIsStreaming(true)
-    isStreamingRef.current = true
-    setStatusLabel('Thinking')
-    setStatusKind('thinking')
+    // Extract @agent mentions from text
+    const mentionMatch = text.match(/@(\w+)/)
+    const agentId = mentionMatch ? sidecar.agents.find(a => a.name.toLowerCase() === mentionMatch[1].toLowerCase())?.id : undefined
 
-    const assistantId = `msg-${Date.now() + 1}`
-    const assistantMsg = {
-      id: assistantId,
-      role: 'assistant' as const,
-      content: '',
-      agentName: 'Quinki Expert',
-      agentModel: selectedModel,
-      timestamp: new Date().toISOString(),
-      isStreaming: true,
-    }
-    setMessages(prev => [...prev, assistantMsg as any])
-
-    // Simulate ALL status states for designer review
-    const states = [
-      { label: 'Thinking', kind: 'thinking', delay: 0 },
-      { label: 'Tool call', kind: 'tool', delay: 2000 },
-      { label: 'Tool result', kind: 'tool_result', delay: 3500 },
-      { label: 'Tool error', kind: 'tool_error', delay: 4700 },
-      { label: 'Compacting', kind: 'compacting', delay: 5900 },
-      { label: 'Running', kind: 'running', delay: 6900 },
-      { label: 'Failed', kind: 'failed', delay: 7900 },
-      { label: 'Writing', kind: 'writing', delay: 8900 },
-    ]
-
-    states.forEach(s => {
-      setTimeout(() => {
-        if (!isStreamingRef.current) return
-        setStatusLabel(s.label)
-        setStatusKind(s.kind)
-      }, s.delay)
+    sidecar.sendMessage(text, {
+      agentId: agentId || chatAgentIds[0],
+      model: selectedModel || undefined,
+      thinkingLevel: thinking,
     })
-
-    // Start writing after the states
-    const response = 'This is a simulated response. The prototype is running with mock data — no sidecar connected.\n\nOnce the visual design is verified pixel-perfect against Quinki, we\'ll connect the real sidecar.'
-    const tokens = response.split(' ')
-    let idx = 0
-    setTimeout(() => {
-      if (!isStreamingRef.current) return
-      const interval = setInterval(() => {
-        if (idx >= tokens.length) {
-          clearInterval(interval)
-          setIsStreaming(false)
-          isStreamingRef.current = false
-          setStatusLabel('')
-          setStatusKind('')
-          setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, isStreaming: false } : m))
-          return
-        }
-        setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: m.content + tokens[idx] + ' ' } : m))
-        idx++
-      }, 50)
-    }, 8900)
-
-  }, [selectedModel])
+    setWelcomeMode(false)
+  }, [sidecar, chatAgentIds, selectedModel, thinking])
 
   const handleStop = useCallback(() => {
-    setIsStreaming(false)
-    isStreamingRef.current = false
-    setStatusLabel('')
-    setStatusKind('')
-    setMessages(prev => prev.map(m => ({ ...m, isStreaming: false })))
-  }, [])
+    sidecar.stopStreaming()
+  }, [sidecar])
 
   const handleToggleSidebar = useCallback(() => {
     if (activePanel !== 'chat') return
     setSidebarMode(prev => prev === 'pinned' ? 'hidden' : 'pinned')
   }, [activePanel])
 
-  const handleToggleFolder = useCallback((id: string) => {
-    setSessions(prev => prev.map(s => s.id === id ? { ...s, isExpanded: !s.isExpanded } : s))
+  const handleToggleFolder = useCallback((_id: string) => {
+    // For now, folders are managed locally
+    // Could be extended with sidecar.setFolders
   }, [])
 
   const handleSelectSession = useCallback((id: string) => {
-    setActiveSessionId(id)
+    sidecar.selectSession(id)
     setWelcomeMode(false)
-    // Load messages for the session — use mockMessages for sessions with content, empty for new
-    // All sessions show the same mock messages
-    setMessages(mockMessages)
-    setWelcomeMode(false)
-  }, [])
+    setActivePanel('chat')
+  }, [sidecar])
 
   const handleNewSession = useCallback(() => {
-    const newId = 'new-' + Date.now()
-    const newSession = { id: newId, title: 'New chat', type: 'chat' as const, updatedAt: new Date().toISOString(), messageCount: 0 }
-    setSessions(prev => [newSession, ...prev])
-    setActiveSessionId(newId)
-    setMessages([])
     setWelcomeMode(true)
     setActivePanel('chat')
+    // Session will be created on first message by sendMessage
   }, [])
 
   const handleSelectPanel = useCallback((panel: string) => {
+    // Expert panel: ask for directory on first access
+    if (panel === 'expert' && !expertDirAsked.current) {
+      setExpertDirModal(true)
+      expertDirAsked.current = true
+      return
+    }
     setActivePanel(panel)
   }, [])
 
+  const handleExpertDirConfirm = useCallback(async () => {
+    if (expertDir.trim()) {
+      // Create expert session with fixed key
+      await sidecar.ensureSession('__quinki_expert__', 'Quinki Expert')
+      if (expertDir) {
+        await sidecar.setWorkingDir(expertDir, '__quinki_expert__')
+      }
+    }
+    setExpertDirModal(false)
+    setActivePanel('expert')
+    sidecar.selectSession('__quinki_expert__')
+  }, [expertDir, sidecar])
+
+  // ── Model select: also set on sidecar ──
+  const handleModelSelect = useCallback((model: string) => {
+    setSelectedModel(model)
+    sidecar.setModel(model)
+  }, [sidecar])
+
+  // ── Thinking change ──
+  const handleThinkingChange = useCallback((level: ThinkingLevel) => {
+    setThinking(level)
+    sidecar.setThinkingLevel(level)
+  }, [sidecar])
+
+  // ── Mode change ──
+  const handleModeChange = useCallback((m: ChatMode) => {
+    setMode(m)
+    sidecar.setMode(m)
+  }, [sidecar])
+
+  // ── Reset session ──
+  const handleReset = useCallback(() => {
+    if (sidecar.activeSessionId) {
+      sidecar.resetSession(sidecar.activeSessionId)
+    }
+  }, [sidecar])
+
+  // ── Session reorder (sidebar drag&drop) ──
+  const handleReorder = useCallback((_newSessions: Session[]) => {
+    // Update local state — sidecar doesn't have a reorder RPC, but we can moveSession
+    // For now, just update the sessions array locally
+    // The sidecar manages folders via setFolders
+  }, [])
+
+  // ── Connecting screen ──
+  if (!sidecar.connected) {
+    return (
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100vh',
+        width: '100vw',
+        backgroundColor: 'var(--q-bg)',
+        color: 'var(--q-text-secondary)',
+        fontFamily: 'var(--font-interface)',
+        fontSize: '16px',
+        gap: '16px',
+      }}>
+        <div style={{
+          width: '24px',
+          height: '24px',
+          border: '2px solid var(--q-text-tertiary)',
+          borderTopColor: 'var(--q-accent-primary)',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite',
+        }} />
+        <span>Connecting to sidecar…</span>
+      </div>
+    )
+  }
+
   const mainPaddingLeft = sidebarPinned ? sidebarWidth + 8 : 0
+
+  // Build providers list for components
+  const providers = sidecar.providers.length > 0 ? sidecar.providers : []
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden" style={{ backgroundColor: 'var(--q-bg)' }}>
-      <div className="flex-1 relative overflow-hidden">
+      {/* Title bar drag region — Overlay style */}
+      <div
+        data-tauri-drag-region
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: '28px',
+          zIndex: 9999,
+          backgroundColor: 'var(--q-bg)',
+          pointerEvents: 'none',
+        }}
+      />
+
+      <div className="flex-1 relative overflow-hidden" style={{ marginTop: '28px' }}>
         <div
           className="absolute inset-0 transition-all duration-200"
           style={{ padding: '8px', paddingLeft: `${8 + mainPaddingLeft}px` }}
@@ -195,8 +230,8 @@ export default function App() {
           {activePanel === 'chat' && (
             <ChatArea
               session={activeSession}
-              messages={messages}
-              streaming={isStreaming}
+              messages={sidecar.messages}
+              streaming={sidecar.isStreaming}
               welcomeMode={welcomeMode}
               mode={mode}
               activePanel={activePanel}
@@ -205,32 +240,33 @@ export default function App() {
               onToggleSidebar={handleToggleSidebar}
               agentDropdownOpen={agentDropdownOpen}
               onToggleAgentDropdown={() => setAgentDropdownOpen(!agentDropdownOpen)}
-              agents={mockAgents}
+              agents={sidecar.agents}
               selectedAgentIds={chatAgentIds}
               onAgentToggle={handleChatAgentToggle}
-              providers={mockProviders}
+              providers={providers}
               selectedModel={selectedModel}
-              onModelSelect={setSelectedModel}
-              onModeChange={setMode}
+              onModelSelect={handleModelSelect}
+              onModeChange={handleModeChange}
               thinking={thinking}
-              onThinkingChange={setThinking}
-              contextTokens={sessionCtxTokens}
-              contextWindow={1000000}
+              onThinkingChange={handleThinkingChange}
+              contextTokens={sidecar.contextTokens}
+              contextWindow={sidecar.contextWindow}
               onSend={handleSend}
               onStop={handleStop}
-              onRenameSession={() => {}}
-              statusLabel={statusLabel}
-              statusKind={statusKind}
+              onRenameSession={(label) => { if (sidecar.activeSessionId) sidecar.renameSession(sidecar.activeSessionId, label) }}
+              statusLabel={sidecar.statusLabel}
+              statusKind={sidecar.statusKind}
               onExport={() => {}}
+              onReset={handleReset}
             />
           )}
 
           {activePanel === 'expert' && (
             <ChatArea
-              session={{ id: '__expert__', title: 'Quinki Expert', type: 'chat', updatedAt: new Date().toISOString() }}
-              messages={messages}
-              streaming={isStreaming}
-              welcomeMode={welcomeMode}
+              session={{ id: '__quinki_expert__', title: 'Quinki Expert', type: 'chat', updatedAt: new Date().toISOString() }}
+              messages={sidecar.activeSessionId === '__quinki_expert__' ? sidecar.messages : []}
+              streaming={sidecar.isStreaming}
+              welcomeMode={sidecar.activeSessionId !== '__quinki_expert__'}
               mode={mode}
               activePanel={activePanel}
               onSelectPanel={handleSelectPanel}
@@ -238,18 +274,27 @@ export default function App() {
               onToggleSidebar={() => {}}
               agentDropdownOpen={agentDropdownOpen}
               onToggleAgentDropdown={() => setAgentDropdownOpen(!agentDropdownOpen)}
-              agents={mockAgents}
+              agents={sidecar.agents}
               selectedAgentIds={selectedAgentIds}
               onAgentToggle={handleAgentToggle}
-              providers={mockProviders}
+              providers={providers}
               selectedModel={selectedModel}
-              onModelSelect={setSelectedModel}
-              onModeChange={setMode}
+              onModelSelect={handleModelSelect}
+              onModeChange={handleModeChange}
               thinking={thinking}
-              onThinkingChange={setThinking}
-              contextTokens={154200}
-              contextWindow={1000000}
-              onSend={handleSend}
+              onThinkingChange={handleThinkingChange}
+              contextTokens={sidecar.contextTokens}
+              contextWindow={sidecar.contextWindow}
+              onSend={(text) => {
+                // Expert always sends with quinki-expert agent
+                sidecar.sendMessage(text, {
+                  sessionKey: '__quinki_expert__',
+                  agentId: 'quinki-expert',
+                  model: selectedModel || undefined,
+                  thinkingLevel: thinking,
+                  workingDirs: expertDir ? [expertDir] : undefined,
+                })
+              }}
               onStop={handleStop}
               onRenameSession={() => {}}
               onExport={() => {}}
@@ -257,11 +302,22 @@ export default function App() {
           )}
 
           {activePanel === 'agents' && (
-            <AgentsPanel activePanel={activePanel} onSelectPanel={handleSelectPanel} agents={mockAgents} />
+            <AgentsPanel
+              activePanel={activePanel}
+              onSelectPanel={handleSelectPanel}
+              agents={sidecar.agents}
+              call={sidecar.call}
+            />
           )}
 
           {activePanel === 'log' && (
-            <LogPanel activePanel={activePanel} onSelectPanel={handleSelectPanel} />
+            <LogPanel
+              activePanel={activePanel}
+              onSelectPanel={handleSelectPanel}
+              logs={sidecar.logs}
+              onLoadLog={sidecar.loadFullLog}
+              onClearLog={sidecar.clearLog}
+            />
           )}
 
           {activePanel === 'settings' && (
@@ -271,7 +327,8 @@ export default function App() {
               themes={mockThemes}
               activeThemeId={themeId}
               onThemeChange={handleThemeChange}
-              providers={mockProviders}
+              providers={providers}
+              call={sidecar.call}
             />
           )}
         </div>
@@ -290,13 +347,15 @@ export default function App() {
               }}
             >
               <Sidebar
-                sessions={sessions}
-                activeSessionId={activeSessionId}
+                sessions={sidecar.sessions}
+                activeSessionId={sidecar.activeSessionId || ''}
                 onSelectSession={handleSelectSession}
                 onNewSession={handleNewSession}
                 onToggleFolder={handleToggleFolder}
-                onReorder={setSessions}
+                onReorder={handleReorder}
                 welcomeMode={welcomeMode}
+                onDeleteSession={sidecar.deleteSession}
+                onRenameSession={sidecar.renameSession}
               />
             </div>
           </div>
@@ -318,6 +377,86 @@ export default function App() {
           />
         )}
       </div>
+
+      {/* Expert directory modal */}
+      {expertDirModal && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 200,
+            backgroundColor: 'var(--q-overlay)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+          onClick={() => setExpertDirModal(false)}
+        >
+          <div
+            style={{
+              backgroundColor: 'var(--q-bg-elevated)',
+              borderRadius: 'var(--radius-xl)',
+              boxShadow: 'var(--shadow-modal)',
+              border: '1px solid var(--q-border)',
+              padding: '24px',
+              maxWidth: '500px',
+              width: '90%',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ color: 'var(--q-text)', fontSize: '18px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '8px' }}>
+              Quinki Expert — Source Directory
+            </div>
+            <div style={{ color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', marginBottom: '16px' }}>
+              Enter the path to your source code directory. Quinki Expert will work with files in this directory.
+            </div>
+            <input
+              type="text"
+              placeholder="/Users/you/Projects/my-project"
+              value={expertDir}
+              autoFocus
+              onChange={e => setExpertDir(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleExpertDirConfirm() }}
+              style={{
+                width: '100%', height: '40px',
+                backgroundColor: 'var(--q-bg-panel)',
+                border: '1px solid var(--q-border)',
+                borderRadius: 'var(--radius-md)',
+                color: 'var(--q-text)', fontSize: '14px',
+                fontFamily: 'var(--font-interface)',
+                padding: '0 12px', outline: 'none',
+                marginBottom: '20px',
+                WebkitUserSelect: 'text',
+                userSelect: 'text',
+              }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button
+                onClick={() => setExpertDirModal(false)}
+                style={{
+                  padding: '8px 16px', borderRadius: 'var(--radius-md)',
+                  border: 'none', cursor: 'pointer',
+                  backgroundColor: 'transparent',
+                  color: 'var(--q-text-secondary)',
+                  fontSize: '15px', fontFamily: 'var(--font-interface)',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleExpertDirConfirm}
+                style={{
+                  padding: '8px 16px', borderRadius: 'var(--radius-md)',
+                  border: 'none', cursor: 'pointer',
+                  backgroundColor: 'var(--q-accent-primary)',
+                  color: 'var(--q-bg)',
+                  fontSize: '15px', fontWeight: 500,
+                  fontFamily: 'var(--font-interface)',
+                }}
+              >
+                Start
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <GlobalContextMenu />
     </div>
   )

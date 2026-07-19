@@ -26,6 +26,7 @@ interface ComposerProps {
   onThinkingChange: (level: ThinkingLevel) => void
   welcomeMode?: boolean
   agents?: Agent[]
+  onReset?: () => void
 }
 
 export function Composer(props: ComposerProps) {
@@ -118,7 +119,7 @@ export function Composer(props: ComposerProps) {
           thinking={props.thinking}
           onSelectModel={(m) => { props.onModelChange(m); setSlashMenuOpen(false); setText('') }}
           onSelectThinking={(t) => { props.onThinkingChange(t as ThinkingLevel); setSlashMenuOpen(false); setText('') }}
-          onReset={() => { setSlashMenuOpen(false); setText('') }}
+          onReset={() => { props.onReset?.(); setSlashMenuOpen(false); setText('') }}
           onClose={() => { setSlashMenuOpen(false); setText('') }}
         />
       )}

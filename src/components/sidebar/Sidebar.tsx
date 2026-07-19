@@ -19,6 +19,8 @@ interface SidebarProps {
   onToggleFolder: (id: string) => void
   onReorder?: (sessions: Session[]) => void
   welcomeMode?: boolean
+  onDeleteSession?: (id: string) => void
+  onRenameSession?: (id: string, label: string) => void
 }
 
 type DropZone = 'before' | 'after' | 'into'
@@ -28,7 +30,7 @@ interface DragItem {
   kind: 'chat' | 'folder'
 }
 
-export function Sidebar({ sessions, activeSessionId, onSelectSession, onNewSession, onToggleFolder, onReorder, welcomeMode }: SidebarProps) {
+export function Sidebar({ sessions, activeSessionId, onSelectSession, onNewSession, onToggleFolder, onReorder, welcomeMode, onDeleteSession, onRenameSession }: SidebarProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [hoverNewChat, setHoverNewChat] = useState(false)
   const [hoverNewFolder, setHoverNewFolder] = useState(false)
@@ -363,13 +365,18 @@ export function Sidebar({ sessions, activeSessionId, onSelectSession, onNewSessi
         <SidebarContextMenu
           x={ctxMenu.x} y={ctxMenu.y} item={ctxMenu.item}
           onClose={() => setCtxMenu(null)}
-          onRename={() => {}}
+          onRename={() => {
+            const newLabel = prompt('Rename session:', ctxMenu.item.title)
+            if (newLabel && newLabel.trim()) {
+              onRenameSession?.(ctxMenu.item.id, newLabel.trim())
+            }
+          }}
           onOpenWindow={() => {}}
           onDelete={() => {
             if (ctxMenu.item.type === 'folder') {
               onReorder?.(sessions.filter(s => s.id !== ctxMenu.item.id && s.parentId !== ctxMenu.item.id))
             } else {
-              onReorder?.(sessions.filter(s => s.id !== ctxMenu.item.id))
+              onDeleteSession?.(ctxMenu.item.id)
             }
           }}
           multiSelect={multiSelect}

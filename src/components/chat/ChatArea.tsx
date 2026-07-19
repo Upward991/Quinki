@@ -38,6 +38,7 @@ interface ChatAreaProps {
   onStop: () => void
   onRenameSession: (label: string) => void
   onExport: () => void
+  onReset?: () => void
 }
 
 export function ChatArea(props: ChatAreaProps) {
@@ -86,6 +87,7 @@ export function ChatArea(props: ChatAreaProps) {
             onModelChange={props.onModelSelect} onModeChange={props.onModeChange}
             onThinkingChange={t => props.onThinkingChange(t)} welcomeMode={true}
             agents={props.agents}
+            onReset={props.onReset}
           />
         </div>
       ) : (
@@ -117,6 +119,7 @@ export function ChatArea(props: ChatAreaProps) {
               onSend={props.onSend} onStop={props.onStop}
               onModelChange={props.onModelSelect} onModeChange={props.onModeChange}
               onThinkingChange={t => props.onThinkingChange(t)} welcomeMode={false}
+            onReset={props.onReset}
               agents={props.agents}
             />
           </div>
