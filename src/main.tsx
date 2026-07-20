@@ -1495,8 +1495,8 @@ function dg(sidecarUrl = "ws://127.0.0.1:9182") {
 			sk = sk || activeSessionId || "";
 			if (!sk) try {
 				const createResult = await call("createSession", { label: "New chat" });
-				if (createResult?.sessionKey) {
-					sk = createResult.sessionKey;
+				if (createResult?.sessionKey || createResult?.key) {
+					sk = createResult.sessionKey || createResult.key;
 					setActiveSessionId(sk);
 					try {
 						const r = await call("getFullState", {});
@@ -1554,7 +1554,7 @@ function dg(sidecarUrl = "ws://127.0.0.1:9182") {
 			if (opts?.thinkingLevel) params.thinkingLevel = opts.thinkingLevel;
 			if (opts?.agentId) params.agentId = opts.agentId;
 			const r = await call("createSession", params);
-			if (r?.sessionKey) {
+			if (r?.sessionKey || r?.key) {
 				try {
 					const fs = await call("getFullState", {});
 					if (fs?.sessions) setSessions(mapSessions(fs.sessions));
