@@ -4387,7 +4387,7 @@ function writeSettings(settings: any) {
     fs.mkdirSync(path.dirname(SETTINGS_FILE), { recursive: true });
     fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2), "utf8");
   } catch (e) {
-    process.stderr.write(`[settings] write failed: ${(e as Error}`).message);
+    process.stderr.write(`[settings] write failed: ${(e as Error).message}`);
   }
 }
 
