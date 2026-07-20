@@ -10,29 +10,18 @@ pub fn run() {
       #[cfg(not(target_os = "windows"))]
       {
         use tauri_plugin_shell::ShellExt;
-        use std::process::Command;
         
         let home = std::env::var("HOME").unwrap_or_else(|_| "/Users/andreamaddalena".to_string());
-        let agent_dir = format!("{}/.pi/agent-quinki-dev", home);
-        let project_dir = format!("{}/Projects/Quinki", home);
-        let sidecar_dir = format!("{}/sidecar-src", project_dir);
+        let sidecar_dir = format!("{}/Projects/Quinki/sidecar-src", home);
+        let start_script = format!("{}/start.sh", sidecar_dir);
         
-        // Kill any existing process on port 9182
-        let _ = Command::new("sh")
-          .args(["-c", "lsof -ti:9182 | xargs kill -9 2>/dev/null; pkill -f 'ws-bridge' 2>/dev/null; sleep 1"])
-          .output();
-        
-        log::info!("Killed old sidecar processes");
-        
-        // Spawn ws-bridge.ts
-        let cmd = app.shell().command("npx")
-          .args(["tsx", "ws-bridge.ts"])
-          .current_dir(&sidecar_dir)
-          .env("QUINKI_AGENT_DIR", &agent_dir);
+        // Use sh to run start.sh — this kills old sidecar and starts new one
+        let cmd = app.shell().command("sh")
+          .args(["-c", &format!("bash '{}' &", start_script)]);
         
         match cmd.spawn() {
           Ok((mut rx, _child)) => {
-            log::info!("Sidecar started");
+            log::info!("Sidecar start script launched");
             std::thread::spawn(move || {
               while let Some(_event) = rx.blocking_recv() {}
             });
