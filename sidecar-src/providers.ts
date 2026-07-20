@@ -44,14 +44,7 @@ export interface FetchedModel {
 }
 
 const DEFAULT_CONFIG: ProvidersConfig = {
-  providers: {
-    ollama: {
-      enabled: true,
-      baseUrl: "http://localhost:11434/v1",
-      apiKey: "ollama",
-      enabledModels: [],
-    },
-  },
+  providers: {},
   defaultModel: "",
   defaultThinking: "xhigh",
 };
