@@ -231,3 +231,10 @@ input:focus, textarea:focus, button:focus { box-shadow: none; outline: none; }
    HIGHLIGHT.JS — code syntax highlighting
    ────────────────────────────────────────────────────────── */
 .hljs { background: transparent !important; padding: 0 !important; }
+
+input[type="checkbox"] {
+  width: 18px !important;
+  height: 18px !important;
+  margin-right: 8px !important;
+  cursor: pointer;
+}
