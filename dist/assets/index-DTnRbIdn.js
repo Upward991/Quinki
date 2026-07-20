@@ -984,12 +984,26 @@ function dg(sidecarUrl = "ws://127.0.0.1:9182") {
 	const [agents, setAgents] = (0, v.useState)([]);
 	const [providers, setProviders] = (0, v.useState)([]);
 	const [messages, setMessages] = (0, v.useState)([]);
+	const [folders, setFolders] = (0, v.useState)([]);
+	const [models, setModels] = (0, v.useState)([]);
 	const [activeSessionId, setActiveSessionId] = (0, v.useState)(null);
 	const [isStreaming, setIsStreaming] = (0, v.useState)(false);
 	const [statusLabel, setStatusLabel] = (0, v.useState)("");
 	const [statusKind, setStatusKind] = (0, v.useState)("");
 	const [contextTokens, setContextTokens] = (0, v.useState)(0);
 	const [contextWindow, setContextWindow] = (0, v.useState)(1e6);
+	const [thinkingLevels, setThinkingLevels] = (0, v.useState)([
+		"off",
+		"low",
+		"medium",
+		"high",
+		"xhigh"
+	]);
+	const [agentStatus, setAgentStatus] = (0, v.useState)(null);
+	const [compactingSessions, setCompactingSessions] = (0, v.useState)(/* @__PURE__ */ new Set());
+	const [sessionTokens, setSessionTokens] = (0, v.useState)({});
+	const [debugLog, setDebugLog] = (0, v.useState)([]);
+	const [piConfigNeeded, setPiConfigNeeded] = (0, v.useState)(false);
 	(0, v.useEffect)(() => {
 		if (!ready) return;
 		let cancelled = false;
@@ -998,55 +1012,55 @@ function dg(sidecarUrl = "ws://127.0.0.1:9182") {
 				const agentsResult = await call("listAgents", {});
 				if (!cancelled && agentsResult?.agents) {
 					const agentsWithFiles = await Promise.all(agentsResult.agents.map(async (a) => {
+						const agent = mapAgent(a);
 						let files = [];
 						try {
 							const filesResult = await call("listAgentFiles", { id: a.id });
 							if (filesResult?.files) files = filesResult.files.map((f) => f.name || f.path || f);
 						} catch {}
 						return {
-							id: a.id,
-							name: a.name,
-							systemPrompt: a.prompt || "",
-							model: a.model || "",
-							thinking: a.thinking || "off",
-							skills: (a.skills || []).map((s) => ({
-								name: s,
-								source: "local",
-								installed: true
-							})),
-							tools: (a.tools || []).map((t) => ({
-								name: t,
-								enabled: true
-							})),
-							files,
-							isDeletable: a.id !== "orchestrator"
+							...agent,
+							files
 						};
 					}));
 					setAgents(agentsWithFiles);
 				}
 				try {
-					const sessionsResult = await call("listSessions", {});
-					if (!cancelled && sessionsResult?.sessions) setSessions(sessionsResult.sessions.map((s) => ({
-						id: s.sessionKey || s.id || s.key,
-						title: s.label || s.title || "Untitled",
-						type: "chat",
-						updatedAt: new Date(s.lastActivity || Date.now()).toISOString(),
-						messageCount: s.messageCount || 0,
-						agents: s.agents || []
-					})));
+					let sessionsList = [];
+					try {
+						const fullState = await call("getFullState", {});
+						if (fullState?.sessions) sessionsList = fullState.sessions;
+					} catch {
+						const r = await call("listSessions", {});
+						if (r?.sessions) sessionsList = r.sessions;
+					}
+					if (!cancelled) setSessions(mapSessions(sessionsList));
+				} catch {}
+				try {
+					const foldersResult = await call("getFolders", {});
+					if (!cancelled && foldersResult?.folders) setFolders(foldersResult.folders);
 				} catch {}
 				try {
 					const [providersResult, modelsResult] = await Promise.all([call("getProvidersConfig", {}), call("getModels", {})]);
 					if (!cancelled) {
 						const modelsByProvider = {};
-						if (modelsResult?.models) for (const m of modelsResult.models) {
-							const p = m.provider || "unknown";
-							if (!modelsByProvider[p]) modelsByProvider[p] = [];
-							modelsByProvider[p].push({
-								id: m.id,
-								name: m.name || m.id,
-								contextWindow: m.contextWindow
+						if (modelsResult?.models) {
+							const allModels = modelsResult.models.map((m) => {
+								const p = m.provider || "unknown";
+								if (!modelsByProvider[p]) modelsByProvider[p] = [];
+								modelsByProvider[p].push({
+									id: m.id,
+									name: m.name || m.id,
+									contextWindow: m.contextWindow
+								});
+								return {
+									id: m.id,
+									name: m.name || m.id,
+									provider: p,
+									contextWindow: m.contextWindow
+								};
 							});
+							setModels(allModels);
 						}
 						const providerList = [];
 						if (providersResult?.providers) for (const [id, p] of Object.entries(providersResult.providers)) providerList.push({
@@ -1055,18 +1069,24 @@ function dg(sidecarUrl = "ws://127.0.0.1:9182") {
 							type: p.api || "ollama",
 							apiKeyStatus: p.apiKey || p.apiKeySet ? "configured" : "missing",
 							models: modelsByProvider[id] || [],
-							enabled: p.enabled !== false
+							enabled: p.enabled !== false,
+							baseUrl: p.baseUrl || ""
 						});
-						for (const [id, models] of Object.entries(modelsByProvider)) if (!providerList.find((p) => p.id === id)) providerList.push({
+						for (const [id, mods] of Object.entries(modelsByProvider)) if (!providerList.find((p) => p.id === id)) providerList.push({
 							id,
 							name: id,
 							type: "unknown",
 							apiKeyStatus: "missing",
-							models,
-							enabled: true
+							models: mods,
+							enabled: true,
+							baseUrl: ""
 						});
 						setProviders(providerList);
 					}
+				} catch {}
+				try {
+					const allCtx = await call("getAllContextUsage", {});
+					if (!cancelled && allCtx?.usage) {}
 				} catch {}
 				setLoading(false);
 			} catch (e) {
@@ -1080,8 +1100,8 @@ function dg(sidecarUrl = "ws://127.0.0.1:9182") {
 	}, [ready, call]);
 	(0, v.useEffect)(() => {
 		if (!ready) return;
-		const unsubStream = subscribe("stream_event", (params) => {
-			const { type, content, messageId } = params;
+		const unsubStream = subscribe("stream_event", (p) => {
+			const { type, content, messageId } = p;
 			if (type === "text" || type === "text_delta") {
 				setMessages((prev) => {
 					const last = prev[prev.length - 1];
@@ -1102,10 +1122,18 @@ function dg(sidecarUrl = "ws://127.0.0.1:9182") {
 			} else if (type === "thinking" || type === "thinking_delta") {
 				setStatusLabel("Thinking");
 				setStatusKind("thinking");
-			} else if (type === "toolCall" || type === "toolcall_start") {
+				if (content) setMessages((prev) => {
+					const last = prev[prev.length - 1];
+					if (last && last.role === "assistant" && last.isStreaming) return [...prev.slice(0, -1), {
+						...last,
+						thinking: (last.thinking || "") + content
+					}];
+					return prev;
+				});
+			} else if (type === "tool_call" || type === "toolcall_start") {
 				setStatusLabel("Tool call");
 				setStatusKind("tool_call");
-			} else if (type === "toolResult" || type === "toolcall_end") {
+			} else if (type === "tool_result" || type === "toolcall_end") {
 				setStatusLabel("Tool result");
 				setStatusKind("tool_result");
 			} else if (type === "delegation_start") {
@@ -1126,183 +1154,26 @@ function dg(sidecarUrl = "ws://127.0.0.1:9182") {
 					...m,
 					isStreaming: false
 				} : m));
-			}
-		});
-		const unsubContext = subscribe("context_update", (params) => {
-			if (params.tokens !== void 0) setContextTokens(params.tokens);
-			if (params.window !== void 0) setContextWindow(params.window);
-		});
-		const unsubCompaction = subscribe("compaction", () => {
-			setStatusLabel("Compacting");
-			setStatusKind("compacting");
-		});
-		const unsubSessionUpdate = subscribe("session_updated", (params) => {
-			call("listSessions", {}).then((r) => {
-				if (r?.sessions) setSessions(r.sessions.map((s) => ({
-					id: s.sessionKey || s.id || s.key,
-					title: s.label || s.title || "Untitled",
-					type: "chat",
-					updatedAt: new Date(s.lastActivity || Date.now()).toISOString(),
-					messageCount: s.messageCount || 0,
-					agents: s.agents || []
-				})));
-			}).catch(() => {});
-		});
-		subscribe("debug_log", (params) => {
-			if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("quinki-log", { detail: params }));
-		});
-		return () => {
-			unsubStream();
-			unsubContext();
-			unsubCompaction();
-			unsubSessionUpdate();
-		};
-	}, [
-		ready,
-		subscribe,
-		call
-	]);
-	return {
-		connected: ready,
-		loading,
-		sessions,
-		agents,
-		providers,
-		messages,
-		activeSessionId,
-		isStreaming,
-		statusLabel,
-		statusKind,
-		contextTokens,
-		contextWindow,
-		selectSession: (0, v.useCallback)(async (sessionKey) => {
-			if (!ready) return;
-			setActiveSessionId(sessionKey);
-			setMessages([]);
-			setIsStreaming(false);
-			setStatusLabel("");
-			setStatusKind("");
-			try {
-				const history = await call("getHistory", { sessionKey });
-				if (history?.messages) setMessages(history.messages.map((m) => ({
-					id: m.id || `msg-${Math.random()}`,
-					role: m.role,
-					content: m.content || "",
-					timestamp: m.timestamp || (/* @__PURE__ */ new Date()).toISOString(),
-					thinking: m.thinking,
-					toolCalls: m.toolCalls,
-					toolResults: m.toolResults,
-					agentName: m.agentName,
-					agentModel: m.agentModel,
-					tokensIn: m.tokensIn,
-					tokensOut: m.tokensOut,
-					isCompacted: m.isCompacted,
-					isError: m.isError,
-					errorType: m.errorType,
-					errorContent: m.errorContent
-				})));
-				try {
-					const ctx = await call("getContextUsage", { sessionKey });
-					if (ctx) {
-						setContextTokens(ctx.tokens || 0);
-						setContextWindow(ctx.window || 1e6);
+				if (p.usage) {
+					const sk = p.sessionKey;
+					if (sk) {
+						const input = p.usage.input_tokens || p.usage.prompt_tokens || p.usage.input || 0;
+						const output = p.usage.output_tokens || p.usage.completion_tokens || p.usage.output || 0;
+						if (input > 0 || output > 0) setSessionTokens((prev) => ({
+							...prev,
+							[sk]: {
+								input: (prev[sk]?.input || 0) + input,
+								output: (prev[sk]?.output || 0) + output
+							}
+						}));
 					}
-				} catch {}
-			} catch (e) {
-				console.error("Failed to load session:", e);
-			}
-		}, [ready, call]),
-		sendMessage: (0, v.useCallback)(async (text, sessionKey, agents) => {
-			if (!ready) return;
-			if (!providers.some((p) => p.models && p.models.length > 0)) {
-				setMessages((prev) => [
-					...prev,
-					{
-						id: `msg-${Date.now()}`,
-						role: "user",
-						content: text,
-						timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-						tokensIn: Math.ceil(text.length / 4)
-					},
-					{
-						id: `err-${Date.now()}`,
-						role: "assistant",
-						content: "No model configured. Add a provider in Settings first.",
-						timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-						isError: true
-					}
-				]);
-				return;
-			}
-			const userMsg = {
-				id: `msg-${Date.now()}`,
-				role: "user",
-				content: text,
-				timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-				tokensIn: Math.ceil(text.length / 4)
-			};
-			setMessages((prev) => [...prev, userMsg]);
-			setIsStreaming(true);
-			setStatusLabel("Thinking");
-			setStatusKind("thinking");
-			try {
-				let sk = sessionKey || activeSessionId || "";
-				if (!sk) try {
-					const createResult = await call("createSession", { label: "New chat" });
-					if (createResult?.sessionKey) {
-						sk = createResult.sessionKey;
-						setActiveSessionId(sk);
-						try {
-							const sessionsResult = await call("listSessions", {});
-							if (sessionsResult?.sessions) setSessions(sessionsResult.sessions.map((s) => ({
-								id: s.sessionKey || s.id || s.key,
-								title: s.label || s.title || "Untitled",
-								type: "chat",
-								updatedAt: new Date(s.lastActivity || Date.now()).toISOString(),
-								messageCount: s.messageCount || 0,
-								agents: s.agents || []
-							})));
-						} catch {}
-					}
-				} catch (e) {
-					console.error("Failed to create session:", e);
-					setIsStreaming(false);
-					setStatusLabel("Failed");
-					setStatusKind("failed");
-					return;
 				}
-				const result = await call("sendMessage", {
-					sessionKey: sk,
-					text,
-					agents: agents || []
-				});
-				if (result?.sessionKey && !activeSessionId) setActiveSessionId(result.sessionKey);
-				try {
-					const sessionsResult = await call("listSessions", {});
-					if (sessionsResult?.sessions) setSessions(sessionsResult.sessions.map((s) => ({
-						id: s.sessionKey || s.id || s.key,
-						title: s.label || s.title || "Untitled",
-						type: "chat",
-						updatedAt: new Date(s.lastActivity || Date.now()).toISOString(),
-						messageCount: s.messageCount || 0,
-						agents: s.agents || []
-					})));
-				} catch {}
-			} catch (e) {
-				console.error("Failed to send message:", e);
-				setIsStreaming(false);
-				setStatusLabel("Failed");
-				setStatusKind("failed");
 			}
-		}, [
-			ready,
-			call,
-			activeSessionId,
-			providers
-		]),
-		stopStreaming: (0, v.useCallback)(() => {
-			if (!ready) return;
-			notify("stopStream", { sessionKey: activeSessionId });
+		});
+		const unsubStreamStart = subscribe("streaming_started", () => {
+			setIsStreaming(true);
+		});
+		const unsubStreamStop = subscribe("streaming_stopped", () => {
 			setIsStreaming(false);
 			setStatusLabel("");
 			setStatusKind("");
@@ -1310,76 +1181,782 @@ function dg(sidecarUrl = "ws://127.0.0.1:9182") {
 				...m,
 				isStreaming: false
 			} : m));
-		}, [
-			ready,
-			notify,
-			activeSessionId
-		]),
-		call,
-		notify,
-		setChatAgents: (0, v.useCallback)(async (sessionKey, agentIds) => {
-			if (!ready) return;
-			try {
-				await call("setChatAgents", {
-					sessionKey,
-					agents: agentIds
-				});
-			} catch (e) {
-				console.error("setChatAgents:", e);
-			}
-		}, [ready, call]),
-		setModel: (0, v.useCallback)(async (sessionKey, model) => {
-			if (!ready) return;
-			try {
-				await call("setModel", {
-					sessionKey,
-					model
-				});
-			} catch (e) {
-				console.error("setModel:", e);
-			}
-		}, [ready, call]),
-		setThinkingLevel: (0, v.useCallback)(async (sessionKey, level) => {
-			if (!ready) return;
-			try {
-				await call("setThinkingLevel", {
-					sessionKey,
-					thinkingLevel: level
-				});
-			} catch (e) {
-				console.error("setThinkingLevel:", e);
-			}
-		}, [ready, call]),
-		deleteSession: (0, v.useCallback)(async (sessionKey) => {
-			if (!ready) return;
-			try {
-				await call("deleteSession", { sessionKey });
-				setSessions((prev) => prev.filter((s) => s.id !== sessionKey));
-				if (activeSessionId === sessionKey) {
+		});
+		const unsubSessCreated = subscribe("session_created", () => {
+			call("getFullState", {}).then((r) => {
+				if (r?.sessions) setSessions(mapSessions(r.sessions));
+			}).catch(() => {});
+		});
+		const unsubSessUpdated = subscribe("session_updated", (p) => {
+			if (p?.sessionKey) setSessions((prev) => prev.map((s) => s.id === p.sessionKey ? {
+				...s,
+				title: p.label || s.title,
+				model: p.model ?? s.model,
+				thinkingLevel: p.thinkingLevel ?? s.thinkingLevel,
+				mode: p.mode ?? s.mode
+			} : s));
+			else call("getFullState", {}).then((r) => {
+				if (r?.sessions) setSessions(mapSessions(r.sessions));
+			}).catch(() => {});
+		});
+		const unsubSessDeleted = subscribe("session_deleted", (p) => {
+			if (p?.sessionKey) {
+				setSessions((prev) => prev.filter((s) => s.id !== p.sessionKey));
+				if (activeSessionId === p.sessionKey) {
 					setActiveSessionId(null);
 					setMessages([]);
 				}
-			} catch (e) {
-				console.error("deleteSession:", e);
 			}
-		}, [
-			ready,
-			call,
-			activeSessionId
-		]),
-		renameSession: (0, v.useCallback)(async (sessionKey, title) => {
+		});
+		const unsubModelUpdate = subscribe("model_updated", (p) => {
+			if (p?.sessionKey) setSessions((prev) => prev.map((s) => s.id === p.sessionKey ? {
+				...s,
+				model: p.model
+			} : s));
+		});
+		const unsubThinkUpdate = subscribe("thinking_updated", (p) => {
+			if (p?.sessionKey && p.accepted !== false) setSessions((prev) => prev.map((s) => s.id === p.sessionKey ? {
+				...s,
+				thinkingLevel: p.level || "off"
+			} : s));
+		});
+		const unsubThinkLevels = subscribe("thinking_levels", (p) => {
+			if (p?.levels) setThinkingLevels(p.levels);
+		});
+		const unsubSessMeta = subscribe("session_meta", (p) => {
+			if (p?.sessionKey) {
+				setSessions((prev) => prev.map((s) => s.id === p.sessionKey ? {
+					...s,
+					model: p.model ?? s.model,
+					thinkingLevel: p.thinkingLevel ?? s.thinkingLevel,
+					mode: p.mode ?? s.mode
+				} : s));
+				if (p.availableThinkingLevels) setThinkingLevels(p.availableThinkingLevels);
+			}
+		});
+		const unsubAgentStatus = subscribe("agent_status", (p) => {
+			if (p?.sessionKey) setAgentStatus(p);
+		});
+		const unsubCtxUsage = subscribe("context_usage", (p) => {
+			if (p?.sessionKey && p.usage) {
+				if (p.sessionKey === activeSessionId) {
+					setContextTokens(p.usage.tokens || p.usage.used || 0);
+					setContextWindow(p.usage.window || p.usage.total || 1e6);
+				}
+			}
+		});
+		const unsubAllCtx = subscribe("all_context_usage", (p) => {
+			if (p?.usage) {
+				const sk = activeSessionId;
+				if (sk && p.usage[sk]) {
+					setContextTokens(p.usage[sk].tokens || p.usage[sk].used || 0);
+					setContextWindow(p.usage[sk].window || p.usage[sk].total || 1e6);
+				}
+			}
+		});
+		const unsubModelCtx = subscribe("model_context", (p) => {
+			if (p?.modelId) {}
+		});
+		const unsubDebugLog = subscribe("debug_log", (p) => {
+			if (p?.log) setDebugLog(p.log);
+		});
+		const unsubCompaction = subscribe("compaction_status", (p) => {
+			const sk = p?.sessionKey;
+			const status = p?.status;
+			if (sk && status) {
+				if (status === "start") {
+					setCompactingSessions((prev) => new Set(prev).add(sk));
+					setStatusLabel("Compacting");
+					setStatusKind("compacting");
+				} else if (status === "end" || status === "error" || status === "noop") {
+					setCompactingSessions((prev) => {
+						const n = new Set(prev);
+						n.delete(sk);
+						return n;
+					});
+					if (activeSessionId === sk) {
+						setStatusLabel("");
+						setStatusKind("");
+					}
+					if (status === "end" && p.summary) setMessages((prev) => [...prev, {
+						id: `compact-${Date.now()}`,
+						role: "assistant",
+						content: p.summary,
+						timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+						isCompactionSummary: true
+					}]);
+				}
+			}
+		});
+		const unsubHistory = subscribe("history", (p) => {
+			if (p?.sessionKey && p.sessionKey === activeSessionId && p.messages) setMessages(p.messages.map((m) => ({
+				id: m.id || `msg-${Math.random()}`,
+				role: m.role,
+				content: m.content || "",
+				timestamp: m.timestamp || (/* @__PURE__ */ new Date()).toISOString(),
+				thinking: m.reasoning || m.thinking,
+				toolCalls: m.toolCalls,
+				toolResults: m.toolResults,
+				agentName: m.agentName,
+				agentModel: m.model,
+				tokensIn: m.tokensIn,
+				tokensOut: m.tokensOut,
+				isCompacted: m.isCompacted,
+				isError: m.isError
+			})));
+		});
+		const unsubPiNeeded = subscribe("pi_config_needed", () => setPiConfigNeeded(true));
+		const unsubPiOk = subscribe("pi_config_ok", () => setPiConfigNeeded(false));
+		const unsubPiCreated = subscribe("pi_config_created", () => {
+			setPiConfigNeeded(false);
+			call("getFullState", {}).then((r) => {
+				if (r?.sessions) setSessions(mapSessions(r.sessions));
+			}).catch(() => {});
+		});
+		const unsubModelsList = subscribe("models_list", (p) => {
+			if (p?.models) setModels(p.models);
+		});
+		const unsubThinkStart = subscribe("thinking_start", () => {
+			setStatusLabel("Thinking");
+			setStatusKind("thinking");
+		});
+		const unsubThinkEnd = subscribe("thinking_end", () => {
+			setStatusLabel("Writing");
+			setStatusKind("writing");
+		});
+		const unsubProgress = subscribe("progress_start", (p) => {
+			if (p?.sessionKey) {
+				setStatusLabel("Thinking");
+				setStatusKind("thinking");
+			}
+		});
+		return () => {
+			unsubStream();
+			unsubStreamStart();
+			unsubStreamStop();
+			unsubSessCreated();
+			unsubSessUpdated();
+			unsubSessDeleted();
+			unsubModelUpdate();
+			unsubThinkUpdate();
+			unsubThinkLevels();
+			unsubSessMeta();
+			unsubAgentStatus();
+			unsubCtxUsage();
+			unsubAllCtx();
+			unsubModelCtx();
+			unsubDebugLog();
+			unsubCompaction();
+			unsubHistory();
+			unsubPiNeeded();
+			unsubPiOk();
+			unsubPiCreated();
+			unsubModelsList();
+			unsubThinkStart();
+			unsubThinkEnd();
+			unsubProgress();
+		};
+	}, [
+		ready,
+		subscribe,
+		call,
+		activeSessionId
+	]);
+	const selectSession = (0, v.useCallback)(async (sessionKey) => {
+		if (!ready) return;
+		setActiveSessionId(sessionKey);
+		setMessages([]);
+		setIsStreaming(false);
+		setStatusLabel("");
+		setStatusKind("");
+		try {
+			const history = await call("getHistory", { sessionKey });
+			if (history?.messages) setMessages(history.messages.map((m) => ({
+				id: m.id || `msg-${Math.random()}`,
+				role: m.role,
+				content: m.content || "",
+				timestamp: m.timestamp || (/* @__PURE__ */ new Date()).toISOString(),
+				thinking: m.reasoning || m.thinking,
+				toolCalls: m.toolCalls,
+				toolResults: m.toolResults,
+				agentName: m.agentName,
+				agentModel: m.model,
+				tokensIn: m.tokensIn,
+				tokensOut: m.tokensOut,
+				isCompacted: m.isCompacted,
+				isError: m.isError,
+				errorType: m.errorType,
+				errorContent: m.errorContent
+			})));
+			try {
+				const ctx = await call("getContextUsage", { sessionKey });
+				if (ctx) {
+					setContextTokens(ctx.tokens || ctx.used || 0);
+					setContextWindow(ctx.window || ctx.total || 1e6);
+				}
+			} catch {}
+			try {
+				const meta = await call("getSessionMeta", { sessionKey });
+				if (meta) {
+					setSessions((prev) => prev.map((s) => s.id === sessionKey ? {
+						...s,
+						model: meta.model ?? s.model,
+						thinkingLevel: meta.thinkingLevel ?? s.thinkingLevel,
+						mode: meta.mode ?? s.mode
+					} : s));
+					if (meta.availableThinkingLevels) setThinkingLevels(meta.availableThinkingLevels);
+				}
+			} catch {}
+			try {
+				const tl = await call("getThinkingLevels", { sessionKey });
+				if (tl?.levels) setThinkingLevels(tl.levels);
+			} catch {}
+		} catch (e) {
+			console.error("Failed to load session:", e);
+		}
+	}, [ready, call]);
+	const sendMessage = (0, v.useCallback)(async (text, sessionKeyOrOpts, agents) => {
+		let sk;
+		let ag;
+		if (typeof sessionKeyOrOpts === "string") {
+			sk = sessionKeyOrOpts;
+			ag = agents;
+		} else if (sessionKeyOrOpts && typeof sessionKeyOrOpts === "object") {
+			sk = activeSessionId || void 0;
+			ag = sessionKeyOrOpts.agentId ? [sessionKeyOrOpts.agentId] : void 0;
+		}
+		if (!ready) return;
+		if (!providers.some((p) => p.models && p.models.length > 0)) {
+			setMessages((prev) => [
+				...prev,
+				{
+					id: `msg-${Date.now()}`,
+					role: "user",
+					content: text,
+					timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+					tokensIn: Math.ceil(text.length / 4)
+				},
+				{
+					id: `err-${Date.now()}`,
+					role: "assistant",
+					content: "No model configured. Add a provider in Settings first.",
+					timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+					isError: true
+				}
+			]);
+			return;
+		}
+		const userMsg = {
+			id: `msg-${Date.now()}`,
+			role: "user",
+			content: text,
+			timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+			tokensIn: Math.ceil(text.length / 4)
+		};
+		setMessages((prev) => [...prev, userMsg]);
+		setIsStreaming(true);
+		setStatusLabel("Thinking");
+		setStatusKind("thinking");
+		try {
+			sk = sk || activeSessionId || "";
+			if (!sk) try {
+				const createResult = await call("createSession", { label: "New chat" });
+				if (createResult?.sessionKey) {
+					sk = createResult.sessionKey;
+					setActiveSessionId(sk);
+					try {
+						const r = await call("getFullState", {});
+						if (r?.sessions) setSessions(mapSessions(r.sessions));
+					} catch {}
+				}
+			} catch (e) {
+				console.error("Failed to create session:", e);
+				setIsStreaming(false);
+				setStatusLabel("Failed");
+				setStatusKind("failed");
+				return;
+			}
+			await call("sendMessage", {
+				sessionKey: sk,
+				text,
+				agents: ag || []
+			});
+			try {
+				const r = await call("getFullState", {});
+				if (r?.sessions) setSessions(mapSessions(r.sessions));
+			} catch {}
+		} catch (e) {
+			console.error("Failed to send message:", e);
+			setIsStreaming(false);
+			setStatusLabel("Failed");
+			setStatusKind("failed");
+		}
+	}, [
+		ready,
+		call,
+		activeSessionId,
+		providers
+	]);
+	const stopStreaming = (0, v.useCallback)(() => {
+		if (!ready) return;
+		call("abort", { sessionKey: activeSessionId }).catch(() => {});
+		setIsStreaming(false);
+		setStatusLabel("");
+		setStatusKind("");
+		setMessages((prev) => prev.map((m) => m.isStreaming ? {
+			...m,
+			isStreaming: false
+		} : m));
+	}, [
+		ready,
+		call,
+		activeSessionId
+	]);
+	const createSession = (0, v.useCallback)(async (label, opts) => {
+		if (!ready) return null;
+		try {
+			const params = { label: label || "New chat" };
+			if (opts?.model) params.model = opts.model;
+			if (opts?.thinkingLevel) params.thinkingLevel = opts.thinkingLevel;
+			if (opts?.agentId) params.agentId = opts.agentId;
+			const r = await call("createSession", params);
+			if (r?.sessionKey) {
+				try {
+					const fs = await call("getFullState", {});
+					if (fs?.sessions) setSessions(mapSessions(fs.sessions));
+				} catch {}
+				return r;
+			}
+		} catch (e) {
+			console.error("createSession:", e);
+		}
+		return null;
+	}, [ready, call]);
+	const deleteSession = (0, v.useCallback)(async (sessionKey) => {
+		if (!ready) return;
+		try {
+			notify("deleteSession", { sessionKey });
+			setSessions((prev) => prev.filter((s) => s.id !== sessionKey));
+			if (activeSessionId === sessionKey) {
+				setActiveSessionId(null);
+				setMessages([]);
+			}
+		} catch (e) {
+			console.error("deleteSession:", e);
+		}
+	}, [
+		ready,
+		notify,
+		activeSessionId
+	]);
+	const renameSession = (0, v.useCallback)(async (sessionKey, title) => {
+		if (!ready) return;
+		try {
+			await call("renameSession", {
+				sessionKey,
+				label: title
+			});
+			setSessions((prev) => prev.map((s) => s.id === sessionKey ? {
+				...s,
+				title
+			} : s));
+		} catch (e) {
+			console.error("renameSession:", e);
+		}
+	}, [ready, call]);
+	const resetSession = (0, v.useCallback)(async (sessionKey) => {
+		if (!ready) return;
+		try {
+			await call("resetSession", { sessionKey });
+		} catch (e) {
+			console.error("resetSession:", e);
+		}
+	}, [ready, call]);
+	const reloadSession = (0, v.useCallback)(async (sessionKey) => {
+		if (!ready) return;
+		try {
+			notify("reloadSession", { sessionKey });
+			const history = await call("getHistory", { sessionKey });
+			if (history?.messages && sessionKey === activeSessionId) setMessages(history.messages.map((m) => ({
+				id: m.id || `msg-${Math.random()}`,
+				role: m.role,
+				content: m.content || "",
+				timestamp: m.timestamp || (/* @__PURE__ */ new Date()).toISOString(),
+				thinking: m.reasoning,
+				toolCalls: m.toolCalls,
+				toolResults: m.toolResults,
+				agentName: m.agentName,
+				agentModel: m.model
+			})));
+		} catch (e) {
+			console.error("reloadSession:", e);
+		}
+	}, [
+		ready,
+		call,
+		notify,
+		activeSessionId
+	]);
+	const moveSession = (0, v.useCallback)((sessionKey, folderId, order) => {
+		if (!ready) return;
+		notify("moveSession", {
+			sessionKey,
+			folderId,
+			order
+		});
+	}, [ready, notify]);
+	const compactSession = (0, v.useCallback)(async (sessionKey) => {
+		if (!ready) return;
+		try {
+			await call("compactSession", { sessionKey });
+		} catch (e) {
+			console.error("compactSession:", e);
+		}
+	}, [ready, call]);
+	const setChatAgents = (0, v.useCallback)(async (sessionKeyOrIds, agentIds) => {
+		let sk, ids;
+		if (Array.isArray(sessionKeyOrIds)) {
+			sk = activeSessionId || "";
+			ids = sessionKeyOrIds;
+		} else {
+			sk = sessionKeyOrIds;
+			ids = agentIds || [];
+		}
+		try {
+			await call("setChatAgents", {
+				sessionKey: sk,
+				agents: ids
+			});
+		} catch (e) {
+			console.error("setChatAgents:", e);
+		}
+		if (!ready) return;
+	}, [
+		ready,
+		call,
+		activeSessionId
+	]);
+	const setModel = (0, v.useCallback)(async (sessionKeyOrModel, model) => {
+		if (!ready) return;
+		let sk, m;
+		if (model !== void 0) {
+			sk = sessionKeyOrModel;
+			m = model;
+		} else {
+			sk = activeSessionId || "";
+			m = sessionKeyOrModel;
+		}
+		notify("setModel", {
+			sessionKey: sk,
+			model: m
+		});
+		setSessions((prev) => prev.map((s) => s.id === sk ? {
+			...s,
+			model: m
+		} : s));
+	}, [
+		ready,
+		notify,
+		activeSessionId
+	]);
+	const setThinkingLevel = (0, v.useCallback)(async (sessionKeyOrLevel, level) => {
+		if (!ready) return;
+		let sk, l;
+		if (level !== void 0) {
+			sk = sessionKeyOrLevel;
+			l = level;
+		} else {
+			sk = activeSessionId || "";
+			l = sessionKeyOrLevel;
+		}
+		notify("setThinking", {
+			sessionKey: sk,
+			thinkingLevel: l
+		});
+		setSessions((prev) => prev.map((s) => s.id === sk ? {
+			...s,
+			thinkingLevel: l
+		} : s));
+	}, [
+		ready,
+		notify,
+		activeSessionId
+	]);
+	const setMode = (0, v.useCallback)((sessionKeyOrMode, mode) => {
+		if (!ready) return;
+		let sk, m;
+		if (mode !== void 0) {
+			sk = sessionKeyOrMode;
+			m = mode;
+		} else {
+			sk = activeSessionId || "";
+			m = sessionKeyOrMode;
+		}
+		notify("setMode", {
+			sessionKey: sk,
+			mode: m
+		});
+		setSessions((prev) => prev.map((s) => s.id === sk ? {
+			...s,
+			mode: m
+		} : s));
+	}, [
+		ready,
+		notify,
+		activeSessionId
+	]);
+	const setSessionCompaction = (0, v.useCallback)((sessionKey, auto, threshold) => {
+		if (!ready) return;
+		notify("setSessionCompaction", {
+			sessionKey,
+			auto,
+			threshold
+		});
+	}, [ready, notify]);
+	const setWorkingDir = (0, v.useCallback)(async (arg1, arg2) => {
+		if (!ready) return;
+		let sk, dir;
+		if (arg1.startsWith("/") || arg1.startsWith("~") || arg1.includes("/")) {
+			dir = arg1;
+			sk = arg2;
+		} else {
+			sk = arg1;
+			dir = arg2;
+		}
+		notify("setWorkingDir", {
+			sessionKey: sk,
+			workingDir: dir
+		});
+	}, [ready, notify]);
+	return {
+		connected: ready,
+		loading,
+		sessions,
+		agents,
+		providers,
+		messages,
+		folders,
+		models,
+		activeSessionId,
+		isStreaming,
+		statusLabel,
+		statusKind,
+		contextTokens,
+		contextWindow,
+		thinkingLevels,
+		agentStatus,
+		compactingSessions,
+		sessionTokens,
+		debugLog,
+		piConfigNeeded,
+		selectSession,
+		sendMessage,
+		stopStreaming,
+		createSession,
+		deleteSession,
+		renameSession,
+		resetSession,
+		reloadSession,
+		moveSession,
+		compactSession,
+		ensureSession: (0, v.useCallback)(async (sessionKey, label) => {
 			if (!ready) return;
 			try {
-				await call("renameSession", {
+				await call("ensureSession", {
 					sessionKey,
-					label: title
+					label
 				});
-				setSessions((prev) => prev.map((s) => s.id === sessionKey ? {
-					...s,
-					title
-				} : s));
 			} catch (e) {
-				console.error("renameSession:", e);
+				console.error("ensureSession:", e);
+			}
+		}, [ready, call]),
+		setChatAgents,
+		setModel,
+		setThinkingLevel,
+		setMode,
+		setSessionCompaction,
+		setWorkingDir,
+		updateFolders: (0, v.useCallback)((newFolders) => {
+			if (!ready) return;
+			notify("setFolders", { folders: newFolders });
+			setFolders(newFolders);
+		}, [ready, notify]),
+		createAgent: (0, v.useCallback)(async (agentId, name, config) => {
+			if (!ready) return;
+			try {
+				await call("createAgent", {
+					agentId,
+					name,
+					...config
+				});
+				const r = await call("listAgents", {});
+				if (r?.agents) setAgents(r.agents.map(mapAgent));
+			} catch (e) {
+				console.error("createAgent:", e);
+			}
+		}, [ready, call]),
+		updateAgent: (0, v.useCallback)(async (agentId, config) => {
+			if (!ready) return;
+			try {
+				await call("updateAgent", {
+					agentId,
+					...config
+				});
+				const r = await call("listAgents", {});
+				if (r?.agents) setAgents(r.agents.map(mapAgent));
+			} catch (e) {
+				console.error("updateAgent:", e);
+			}
+		}, [ready, call]),
+		deleteAgent: (0, v.useCallback)(async (agentId) => {
+			if (!ready) return;
+			try {
+				await call("deleteAgent", { agentId });
+				setAgents((prev) => prev.filter((a) => a.id !== agentId));
+			} catch (e) {
+				console.error("deleteAgent:", e);
+			}
+		}, [ready, call]),
+		setAgent: (0, v.useCallback)(async (agentId, config) => {
+			if (!ready) return;
+			try {
+				await call("setAgent", {
+					agentId,
+					...config
+				});
+			} catch (e) {
+				console.error("setAgent:", e);
+			}
+		}, [ready, call]),
+		setAgentOverride: (0, v.useCallback)(async (sessionKey, agentId, overrides) => {
+			if (!ready) return;
+			try {
+				await call("setAgentOverride", {
+					sessionKey,
+					agentId,
+					...overrides
+				});
+			} catch (e) {
+				console.error("setAgentOverride:", e);
+			}
+		}, [ready, call]),
+		getAgentOverrides: (0, v.useCallback)(async (sessionKey) => {
+			if (!ready) return {};
+			try {
+				return await call("getAgentOverrides", { sessionKey });
+			} catch (e) {
+				return {};
+			}
+		}, [ready, call]),
+		readAgentFile: (0, v.useCallback)(async (agentId, path) => {
+			if (!ready) return "";
+			try {
+				const r = await call("readAgentFile", {
+					agentId,
+					path
+				});
+				return r?.content || r || "";
+			} catch (e) {
+				console.error("readAgentFile:", e);
+				return "";
+			}
+		}, [ready, call]),
+		writeAgentFile: (0, v.useCallback)(async (agentId, path, content) => {
+			if (!ready) return;
+			try {
+				await call("writeAgentFile", {
+					agentId,
+					path,
+					content
+				});
+			} catch (e) {
+				console.error("writeAgentFile:", e);
+			}
+		}, [ready, call]),
+		createAgentFile: (0, v.useCallback)(async (agentId, path) => {
+			if (!ready) return;
+			try {
+				await call("createAgentFile", {
+					agentId,
+					path
+				});
+			} catch (e) {
+				console.error("createAgentFile:", e);
+			}
+		}, [ready, call]),
+		listSkills: (0, v.useCallback)(async () => {
+			if (!ready) return [];
+			try {
+				return (await call("listSkills", {}))?.skills || [];
+			} catch (e) {
+				return [];
+			}
+		}, [ready, call]),
+		installSkill: (0, v.useCallback)(async (skillId) => {
+			if (!ready) return;
+			try {
+				await call("installSkill", { skillId });
+			} catch (e) {
+				console.error("installSkill:", e);
+			}
+		}, [ready, call]),
+		createSkill: (0, v.useCallback)(async (skillId, name, content) => {
+			if (!ready) return;
+			try {
+				await call("createSkill", {
+					skillId,
+					name,
+					content
+				});
+			} catch (e) {
+				console.error("createSkill:", e);
+			}
+		}, [ready, call]),
+		deleteSkill: (0, v.useCallback)(async (skillId) => {
+			if (!ready) return;
+			try {
+				await call("deleteSkill", { skillId });
+			} catch (e) {
+				console.error("deleteSkill:", e);
+			}
+		}, [ready, call]),
+		readSkillFile: (0, v.useCallback)(async (skillId, path) => {
+			if (!ready) return "";
+			try {
+				return (await call("readSkillFile", {
+					skillId,
+					path
+				}))?.content || "";
+			} catch (e) {
+				return "";
+			}
+		}, [ready, call]),
+		writeSkillFile: (0, v.useCallback)(async (skillId, path, content) => {
+			if (!ready) return;
+			try {
+				await call("writeSkillFile", {
+					skillId,
+					path,
+					content
+				});
+			} catch (e) {
+				console.error("writeSkillFile:", e);
+			}
+		}, [ready, call]),
+		listTools: (0, v.useCallback)(async () => {
+			if (!ready) return [];
+			try {
+				return (await call("listTools", {}))?.tools || [];
+			} catch (e) {
+				return [];
+			}
+		}, [ready, call]),
+		getCommands: (0, v.useCallback)(async () => {
+			if (!ready) return [];
+			try {
+				return (await call("getCommands", {}))?.commands || [];
+			} catch (e) {
+				return [];
 			}
 		}, [ready, call]),
 		setProvidersConfig: (0, v.useCallback)(async (config) => {
@@ -1432,6 +2009,137 @@ function dg(sidecarUrl = "ws://127.0.0.1:9182") {
 				console.error("storeApiKey:", e);
 			}
 		}, [ready, call]),
+		deleteApiKey: (0, v.useCallback)(async (service) => {
+			if (!ready) return;
+			try {
+				await call("deleteApiKey", { service });
+			} catch (e) {
+				console.error("deleteApiKey:", e);
+			}
+		}, [ready, call]),
+		hasApiKey: (0, v.useCallback)(async (service) => {
+			if (!ready) return false;
+			try {
+				return (await call("hasApiKey", { service }))?.hasKey || false;
+			} catch (e) {
+				return false;
+			}
+		}, [ready, call]),
+		renameProvider: (0, v.useCallback)(async (oldName, newName) => {
+			if (!ready) return;
+			try {
+				await call("renameProvider", {
+					oldName,
+					newName
+				});
+			} catch (e) {
+				console.error("renameProvider:", e);
+			}
+		}, [ready, call]),
+		getModelContext: (0, v.useCallback)(async (modelId) => {
+			if (!ready) return null;
+			try {
+				return await call("getModelContext", { modelId });
+			} catch (e) {
+				return null;
+			}
+		}, [ready, call]),
+		getContextUsage: (0, v.useCallback)(async (sessionKey) => {
+			if (!ready) return null;
+			try {
+				return await call("getContextUsage", { sessionKey });
+			} catch (e) {
+				return null;
+			}
+		}, [ready, call]),
+		getAllContextUsage: (0, v.useCallback)(async () => {
+			if (!ready) return {};
+			try {
+				return await call("getAllContextUsage", {});
+			} catch (e) {
+				return {};
+			}
+		}, [ready, call]),
+		getChatErrors: (0, v.useCallback)(async (sessionKey) => {
+			if (!ready) return [];
+			try {
+				return (await call("getChatErrors", { sessionKey }))?.errors || [];
+			} catch (e) {
+				return [];
+			}
+		}, [ready, call]),
+		getDelegations: (0, v.useCallback)(async (sessionKey) => {
+			if (!ready) return [];
+			try {
+				return (await call("getDelegations", { sessionKey }))?.delegations || [];
+			} catch (e) {
+				return [];
+			}
+		}, [ready, call]),
+		getSystemPrompt: (0, v.useCallback)(async (agentId) => {
+			if (!ready) return "";
+			try {
+				return (await call("getSystemPrompt", { agentId }))?.prompt || "";
+			} catch (e) {
+				return "";
+			}
+		}, [ready, call]),
+		getStreamingStatus: (0, v.useCallback)(async (sessionKey) => {
+			if (!ready) return false;
+			try {
+				return (await call("getStreamingStatus", { sessionKey }))?.streaming || false;
+			} catch (e) {
+				return false;
+			}
+		}, [ready, call]),
+		getStreamingMessage: (0, v.useCallback)(async (sessionKey) => {
+			if (!ready) return null;
+			try {
+				return await call("getStreamingMessage", { sessionKey });
+			} catch (e) {
+				return null;
+			}
+		}, [ready, call]),
+		getSettings: (0, v.useCallback)(async () => {
+			if (!ready) return {};
+			try {
+				return await call("getSettings", {});
+			} catch (e) {
+				return {};
+			}
+		}, [ready, call]),
+		saveSettings: (0, v.useCallback)(async (settings) => {
+			if (!ready) return;
+			try {
+				await call("saveSettings", settings);
+			} catch (e) {
+				console.error("saveSettings:", e);
+			}
+		}, [ready, call]),
+		getGlobalConfig: (0, v.useCallback)(async () => {
+			if (!ready) return {};
+			try {
+				return await call("getGlobalConfig", {});
+			} catch (e) {
+				return {};
+			}
+		}, [ready, call]),
+		updateGlobalConfig: (0, v.useCallback)(async (config) => {
+			if (!ready) return;
+			try {
+				await call("updateGlobalConfig", config);
+			} catch (e) {
+				console.error("updateGlobalConfig:", e);
+			}
+		}, [ready, call]),
+		checkForPiUpdate: (0, v.useCallback)(async () => {
+			if (!ready) return null;
+			try {
+				return await call("checkForPiUpdate", {});
+			} catch (e) {
+				return null;
+			}
+		}, [ready, call]),
 		clearLogs: (0, v.useCallback)(async () => {
 			if (!ready) return;
 			try {
@@ -1447,7 +2155,34 @@ function dg(sidecarUrl = "ws://127.0.0.1:9182") {
 			} catch (e) {
 				return [];
 			}
-		}, [ready, call])
+		}, [ready, call]),
+		saveAttachments: (0, v.useCallback)((sessionKey, attachments) => {
+			if (!ready) return;
+			notify("saveAttachments", {
+				sessionKey,
+				attachments
+			});
+		}, [ready, notify]),
+		loadAttachments: (0, v.useCallback)(async (sessionKey) => {
+			if (!ready) return {};
+			try {
+				return await call("loadAttachments", { sessionKey });
+			} catch (e) {
+				return {};
+			}
+		}, [ready, call]),
+		steer: (0, v.useCallback)((sessionKey, text) => {
+			if (!ready) return;
+			notify("steer", {
+				sessionKey,
+				text
+			});
+		}, [ready, notify]),
+		call,
+		notify
 	};
-}function fg(){let e=dg(),[t,n]=(0,v.useState)(`home`),[r,i]=(0,v.useState)(`pinned`),[a]=(0,v.useState)(260),[o,s]=(0,v.useState)(``),[c,l]=(0,v.useState)([]),[u,d]=(0,v.useState)(``),[f,p]=(0,v.useState)(`build`),[m,h]=(0,v.useState)(`on`),[g,_]=(0,v.useState)(`comfort`),[y,b]=(0,v.useState)(!1),[x,S]=(0,v.useState)(!1);(0,v.useEffect)(()=>{document.documentElement.setAttribute(`data-theme`,g)},[]),(0,v.useEffect)(()=>{e.activeSessionId&&s(e.activeSessionId)},[e.activeSessionId]),(0,v.useEffect)(()=>{e.activeSessionId?b(!1):(t===`chat`&&b(!0))},[e.activeSessionId,t]);let C=(0,v.useCallback)(e=>{_(e),document.documentElement.setAttribute(`data-theme`,e)},[]),w=(0,v.useCallback)(t=>{l(n=>{let r=n.includes(t)?n.filter(e=>e!==t):[...n,t],sk=o||e.activeSessionId||``;return sk&&e.setChatAgents(sk,r),r})},[e,o]),T=(0,v.useCallback)(()=>{t===`chat`&&i(e=>e===`pinned`?`hidden`:`pinned`)},[t]),E=(0,v.useCallback)(()=>{},[]),D=(0,v.useCallback)(t=>{s(t),b(!1),e.selectSession(t)},[e]),O=(0,v.useCallback)(()=>{s(``),b(!0),n(`chat`)},[]),k=(0,v.useCallback)(K=>{let sk=o||e.activeSessionId||``,agents=t===`expert`?[`quinki-expert`]:c;e.sendMessage(K,sk,agents),b(!1)},[e,o,c,t]),A=(0,v.useCallback)(()=>{e.stopStreaming()},[e]),j=(0,v.useCallback)(e=>{n(e)},[]),oe=(0,v.useCallback)(newSessions=>{let oldIds=new Set(e.sessions.map(s=>s.id)),newIds=new Set(newSessions.map(s=>s.id));for(let id of oldIds){if(!newIds.has(id))e.deleteSession(id)}},[e]);if(!e.connected)return(0,z.jsxs)(`div`,{style:{display:`flex`,alignItems:`center`,justifyContent:`center`,height:`100vh`,backgroundColor:`var(--q-bg)`,flexDirection:`column`,gap:`16px`},children:[(0,z.jsx)(`div`,{style:{fontSize:`18px`,fontFamily:`var(--font-interface)`,color:`var(--q-text-secondary)`},children:`Connecting to sidecar…`}),(0,z.jsx)(`div`,{style:{fontSize:`13px`,fontFamily:`var(--font-code)`,color:`var(--q-text-tertiary)`},children:`ws://127.0.0.1:9182`}),(0,z.jsx)(`div`,{style:{width:`200px`,height:`2px`,backgroundColor:`var(--q-border)`,borderRadius:`1px`,overflow:`hidden`},children:(0,z.jsx)(`div`,{style:{width:`40%`,height:`100%`,backgroundColor:`var(--q-accent-primary)`,borderRadius:`1px`,animation:`breathe 1.5s ease-in-out infinite`}})}),e.error&&(0,z.jsx)(`div`,{style:{fontSize:`12px`,fontFamily:`var(--font-code)`,color:`var(--q-accent-danger)`,marginTop:`8px`},children:e.error}),(0,z.jsxs)(`div`,{style:{fontSize:`12px`,fontFamily:`var(--font-interface)`,color:`var(--q-text-tertiary)`,marginTop:`16px`,textAlign:`center`,maxWidth:`400px`,lineHeight:`1.6`},children:[`Start the sidecar with:`,(0,z.jsx)(`br`,{}),(0,z.jsx)(`code`,{style:{color:`var(--q-text-secondary)`,fontFamily:`var(--font-code)`},children:`cd ~/Projects/Quinki/sidecar-src && npx tsx ws-bridge.ts`})]})]});let M=e.sessions,N=e.agents,P=e.providers,F=e.messages,I=e.isStreaming,L=e.statusLabel,ee=e.statusKind,te=e.contextTokens,ne=e.contextWindow,se=M.find(e=>e.id===o),ie=t===`chat`&&r===`pinned`,R=t===`chat`&&(r===`pinned`||r===`peek`),ae=ie?a+8:0;return(0,z.jsx)(yh.Provider,{value:{call:e.call,notify:e.notify,connected:e.connected},children:(0,z.jsxs)(`div`,{className:`flex flex-col h-screen w-screen overflow-hidden`,style:{backgroundColor:`var(--q-bg)`},children:[(0,z.jsxs)(`div`,{className:`flex-1 relative overflow-hidden`,children:[(0,z.jsxs)(`div`,{className:`absolute inset-0 transition-all duration-200`,style:{padding:`8px`,paddingLeft:`${8+ae}px`},children:[t===`home`&&(0,z.jsx)(gh,{activePanel:t,onSelectPanel:j}),t===`chat`&&(0,z.jsx)(mh,{session:se,messages:F,streaming:I,welcomeMode:y,mode:f,activePanel:t,onSelectPanel:j,sidebarOpen:r===`pinned`,onToggleSidebar:T,agentDropdownOpen:x,onToggleAgentDropdown:()=>S(!x),agents:N,selectedAgentIds:c,onAgentToggle:w,providers:P,selectedModel:u,onModelSelect:t=>{d(t);let sk=o||e.activeSessionId||``;sk&&e.setModel(sk,t)},onModeChange:p,thinking:m,onThinkingChange:t=>{h(t);let sk=o||e.activeSessionId||``;sk&&e.setThinkingLevel(sk,t)},contextTokens:te,contextWindow:ne,onSend:k,onStop:A,onExport:()=>{},statusLabel:L,statusKind:ee}),t===`expert`&&(0,z.jsx)(mh,{session:void 0,messages:F,streaming:I,welcomeMode:y,mode:f,activePanel:t,onSelectPanel:j,sidebarOpen:!1,onToggleSidebar:()=>{},agentDropdownOpen:x,onToggleAgentDropdown:()=>S(!x),agents:N,selectedAgentIds:[`quinki-expert`],onAgentToggle:w,providers:P,selectedModel:u,onModelSelect:t=>{d(t);let sk=o||e.activeSessionId||``;sk&&e.setModel(sk,t)},onModeChange:p,thinking:m,onThinkingChange:t=>{h(t);let sk=o||e.activeSessionId||``;sk&&e.setThinkingLevel(sk,t)},contextTokens:te,contextWindow:ne,onSend:k,onStop:A,onExport:()=>{},statusLabel:L,statusKind:ee}),t===`agents`&&(0,z.jsx)(Sh,{activePanel:t,onSelectPanel:j,agents:N}),t===`log`&&(0,z.jsx)(rg,{activePanel:t,onSelectPanel:j,logs:[]}),t===`settings`&&(0,z.jsx)(Rh,{activePanel:t,onSelectPanel:j,themes:cg,activeThemeId:g,onThemeChange:C,providers:P})]}),R&&(0,z.jsx)(`div`,{className:`absolute top-2 bottom-2 transition-all duration-200`,style:{left:`8px`,width:`${a}px`},children:(0,z.jsx)(`div`,{className:`h-full overflow-hidden`,style:{backgroundColor:`var(--q-bg-panel)`,borderRadius:`var(--radius-lg)`,boxShadow:`var(--shadow-floating)`},children:(0,z.jsx)(mn,{sessions:M,activeSessionId:o||e.activeSessionId||"",onSelectSession:D,onNewSession:O,onToggleFolder:E,onReorder:oe,welcomeMode:y})})}),t===`chat`&&r===`hidden`&&(0,z.jsx)(`div`,{className:`absolute top-2 bottom-2 left-0`,style:{width:`12px`},onMouseEnter:()=>i(`peek`)}),r===`peek`&&(0,z.jsx)(`div`,{className:`absolute inset-0`,style:{width:`${a+20}px`},onMouseLeave:()=>i(`hidden`)})]}),(0,z.jsx)(ig,{})]})})}var pg=class extends v.Component{state={error:null};static getDerivedStateFromError(e){return{error:e.message+`
+}
+//#endregion
+
+function fg(){let e=dg(),[t,n]=(0,v.useState)(`home`),[r,i]=(0,v.useState)(`pinned`),[a]=(0,v.useState)(260),[o,s]=(0,v.useState)(``),[c,l]=(0,v.useState)([]),[u,d]=(0,v.useState)(``),[f,p]=(0,v.useState)(`build`),[m,h]=(0,v.useState)(`on`),[g,_]=(0,v.useState)(`comfort`),[y,b]=(0,v.useState)(!1),[x,S]=(0,v.useState)(!1);(0,v.useEffect)(()=>{document.documentElement.setAttribute(`data-theme`,g)},[]),(0,v.useEffect)(()=>{e.activeSessionId&&s(e.activeSessionId)},[e.activeSessionId]),(0,v.useEffect)(()=>{e.activeSessionId?b(!1):(t===`chat`&&b(!0))},[e.activeSessionId,t]);let C=(0,v.useCallback)(e=>{_(e),document.documentElement.setAttribute(`data-theme`,e)},[]),w=(0,v.useCallback)(t=>{l(n=>{let r=n.includes(t)?n.filter(e=>e!==t):[...n,t],sk=o||e.activeSessionId||``;return sk&&e.setChatAgents(sk,r),r})},[e,o]),T=(0,v.useCallback)(()=>{t===`chat`&&i(e=>e===`pinned`?`hidden`:`pinned`)},[t]),E=(0,v.useCallback)(()=>{},[]),D=(0,v.useCallback)(t=>{s(t),b(!1),e.selectSession(t)},[e]),O=(0,v.useCallback)(()=>{s(``),b(!0),n(`chat`)},[]),k=(0,v.useCallback)(K=>{let sk=o||e.activeSessionId||``,agents=t===`expert`?[`quinki-expert`]:c;e.sendMessage(K,sk,agents),b(!1)},[e,o,c,t]),A=(0,v.useCallback)(()=>{e.stopStreaming()},[e]),j=(0,v.useCallback)(e=>{n(e)},[]),oe=(0,v.useCallback)(newSessions=>{let oldIds=new Set(e.sessions.map(s=>s.id)),newIds=new Set(newSessions.map(s=>s.id));for(let id of oldIds){if(!newIds.has(id))e.deleteSession(id)}},[e]);if(!e.connected)return(0,z.jsxs)(`div`,{style:{display:`flex`,alignItems:`center`,justifyContent:`center`,height:`100vh`,backgroundColor:`var(--q-bg)`,flexDirection:`column`,gap:`16px`},children:[(0,z.jsx)(`div`,{style:{fontSize:`18px`,fontFamily:`var(--font-interface)`,color:`var(--q-text-secondary)`},children:`Connecting to sidecar…`}),(0,z.jsx)(`div`,{style:{fontSize:`13px`,fontFamily:`var(--font-code)`,color:`var(--q-text-tertiary)`},children:`ws://127.0.0.1:9182`}),(0,z.jsx)(`div`,{style:{width:`200px`,height:`2px`,backgroundColor:`var(--q-border)`,borderRadius:`1px`,overflow:`hidden`},children:(0,z.jsx)(`div`,{style:{width:`40%`,height:`100%`,backgroundColor:`var(--q-accent-primary)`,borderRadius:`1px`,animation:`breathe 1.5s ease-in-out infinite`}})}),e.error&&(0,z.jsx)(`div`,{style:{fontSize:`12px`,fontFamily:`var(--font-code)`,color:`var(--q-accent-danger)`,marginTop:`8px`},children:e.error}),(0,z.jsxs)(`div`,{style:{fontSize:`12px`,fontFamily:`var(--font-interface)`,color:`var(--q-text-tertiary)`,marginTop:`16px`,textAlign:`center`,maxWidth:`400px`,lineHeight:`1.6`},children:[`Start the sidecar with:`,(0,z.jsx)(`br`,{}),(0,z.jsx)(`code`,{style:{color:`var(--q-text-secondary)`,fontFamily:`var(--font-code)`},children:`cd ~/Projects/Quinki/sidecar-src && npx tsx ws-bridge.ts`})]})]});let M=e.sessions,N=e.agents,P=e.providers,F=e.messages,I=e.isStreaming,L=e.statusLabel,ee=e.statusKind,te=e.contextTokens,ne=e.contextWindow,se=M.find(e=>e.id===o),ie=t===`chat`&&r===`pinned`,R=t===`chat`&&(r===`pinned`||r===`peek`),ae=ie?a+8:0;return(0,z.jsx)(yh.Provider,{value:{call:e.call,notify:e.notify,connected:e.connected},children:(0,z.jsxs)(`div`,{className:`flex flex-col h-screen w-screen overflow-hidden`,style:{backgroundColor:`var(--q-bg)`},children:[(0,z.jsxs)(`div`,{className:`flex-1 relative overflow-hidden`,children:[(0,z.jsxs)(`div`,{className:`absolute inset-0 transition-all duration-200`,style:{padding:`8px`,paddingLeft:`${8+ae}px`},children:[t===`home`&&(0,z.jsx)(gh,{activePanel:t,onSelectPanel:j}),t===`chat`&&(0,z.jsx)(mh,{session:se,messages:F,streaming:I,welcomeMode:y,mode:f,activePanel:t,onSelectPanel:j,sidebarOpen:r===`pinned`,onToggleSidebar:T,agentDropdownOpen:x,onToggleAgentDropdown:()=>S(!x),agents:N,selectedAgentIds:c,onAgentToggle:w,providers:P,selectedModel:u,onModelSelect:t=>{d(t);let sk=o||e.activeSessionId||``;sk&&e.setModel(sk,t)},onModeChange:p,thinking:m,onThinkingChange:t=>{h(t);let sk=o||e.activeSessionId||``;sk&&e.setThinkingLevel(sk,t)},contextTokens:te,contextWindow:ne,onSend:k,onStop:A,onExport:()=>{},statusLabel:L,statusKind:ee}),t===`expert`&&(0,z.jsx)(mh,{session:void 0,messages:F,streaming:I,welcomeMode:y,mode:f,activePanel:t,onSelectPanel:j,sidebarOpen:!1,onToggleSidebar:()=>{},agentDropdownOpen:x,onToggleAgentDropdown:()=>S(!x),agents:N,selectedAgentIds:[`quinki-expert`],onAgentToggle:w,providers:P,selectedModel:u,onModelSelect:t=>{d(t);let sk=o||e.activeSessionId||``;sk&&e.setModel(sk,t)},onModeChange:p,thinking:m,onThinkingChange:t=>{h(t);let sk=o||e.activeSessionId||``;sk&&e.setThinkingLevel(sk,t)},contextTokens:te,contextWindow:ne,onSend:k,onStop:A,onExport:()=>{},statusLabel:L,statusKind:ee}),t===`agents`&&(0,z.jsx)(Sh,{activePanel:t,onSelectPanel:j,agents:N}),t===`log`&&(0,z.jsx)(rg,{activePanel:t,onSelectPanel:j,logs:[]}),t===`settings`&&(0,z.jsx)(Rh,{activePanel:t,onSelectPanel:j,themes:cg,activeThemeId:g,onThemeChange:C,providers:P})]}),R&&(0,z.jsx)(`div`,{className:`absolute top-2 bottom-2 transition-all duration-200`,style:{left:`8px`,width:`${a}px`},children:(0,z.jsx)(`div`,{className:`h-full overflow-hidden`,style:{backgroundColor:`var(--q-bg-panel)`,borderRadius:`var(--radius-lg)`,boxShadow:`var(--shadow-floating)`},children:(0,z.jsx)(mn,{sessions:M,activeSessionId:o||e.activeSessionId||"",onSelectSession:D,onNewSession:O,onToggleFolder:E,onReorder:oe,welcomeMode:y})})}),t===`chat`&&r===`hidden`&&(0,z.jsx)(`div`,{className:`absolute top-2 bottom-2 left-0`,style:{width:`12px`},onMouseEnter:()=>i(`peek`)}),r===`peek`&&(0,z.jsx)(`div`,{className:`absolute inset-0`,style:{width:`${a+20}px`},onMouseLeave:()=>i(`hidden`)})]}),(0,z.jsx)(ig,{})]})})}var pg=class extends v.Component{state={error:null};static getDerivedStateFromError(e){return{error:e.message+`
 `+(e.stack||``)}}render(){return this.state.error?(0,z.jsxs)(`div`,{style:{padding:`20px`,color:`red`,fontFamily:`monospace`,fontSize:`14px`,whiteSpace:`pre-wrap`,background:`white`,minHeight:`100vh`},children:[`ERROR: `,this.state.error]}):this.props.children}};(0,y.createRoot)(document.getElementById(`root`)).render((0,z.jsx)(v.StrictMode,{children:(0,z.jsx)(pg,{children:(0,z.jsx)(fg,{})})}));
