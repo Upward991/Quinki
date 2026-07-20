@@ -978,6 +978,39 @@ https://github.com/highlightjs/highlight.js/issues/2277`),i=e,r=t),n===void 0&&(
 		}, [])
 	};
 }
+
+function mapSession(s) {
+  return {
+    id: s.sessionKey || s.id || s.key,
+    title: s.label || s.title || 'Untitled',
+    type: 'chat',
+    updatedAt: new Date(s.lastActivity || Date.now()).toISOString(),
+    messageCount: s.messageCount || 0,
+    agents: s.agents || [],
+    model: s.model,
+    thinkingLevel: s.thinkingLevel,
+    mode: s.mode || 'plan',
+    folderId: s.folderId || null,
+    compactionAuto: s.compactionAuto ?? true,
+    compactionThreshold: s.compactionThreshold ?? 80,
+    agentId: s.agentId,
+  };
+}
+function mapSessions(arr) { return arr.map(mapSession); }
+function mapAgent(a) {
+  return {
+    id: a.id,
+    name: a.name,
+    systemPrompt: a.prompt || '',
+    model: a.model || '',
+    thinking: a.thinking || 'off',
+    skills: (a.skills || []).map((s) => ({ name: s, source: 'local', installed: true })),
+    tools: (a.tools || []).map((t) => ({ name: t, enabled: true })),
+    directory: a.directory || '',
+    isDeletable: a.id !== 'orchestrator',
+  };
+}
+
 function dg(sidecarUrl = "ws://127.0.0.1:9182") {
 	const { call, notify, ready, subscribe } = ug(sidecarUrl);
 	const [loading, setLoading] = (0, v.useState)(true);
