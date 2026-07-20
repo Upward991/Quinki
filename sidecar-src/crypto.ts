@@ -1,6 +1,7 @@
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync, createHash } from "node:crypto";
 import { hostname, userInfo, homedir } from "node:os";
 import { platform, arch, cpus, totalmem } from "node:os";
+import * as fs from "node:fs";
 
 const ALGO = "aes-256-gcm";
 const KEY_LEN = 32;
@@ -28,8 +29,8 @@ function getMachineFingerprint(): string {
 }
 
 function getOrCreateSalt(): Buffer {
-  const saltPath = `${homedir()}/.pi/agent/.quinki-salt`;
-  const fs = require("fs");
+  const saltPath = `${process.env.QUINKI_AGENT_DIR || homedir() + "/.pi/agent"}/.quinki-salt`;
+  // fs already imported at top
   if (fs.existsSync(saltPath)) {
     // === SICUREZZA: verifica integrità salt ===
     const existing = fs.readFileSync(saltPath);
@@ -43,7 +44,7 @@ function getOrCreateSalt(): Buffer {
   const salt = randomBytes(SALT_LEN);
   fs.mkdirSync(require("path").dirname(saltPath), { recursive: true });
   fs.writeFileSync(saltPath, salt, { mode: 0o600 });
-  try { require("fs").chmodSync(saltPath, 0o600); } catch {}
+  try { fs.chmodSync(saltPath, 0o600); } catch {}
   return salt;
 }
 
