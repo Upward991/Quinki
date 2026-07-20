@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 import { encryptString, decryptString, isEncrypted } from "./crypto";
 
-const agentDir = join(homedir(), ".pi", "agent");
+const agentDir = process.env.QUINKI_AGENT_DIR || join(homedir(), ".pi", "agent");
 const providersPath = join(agentDir, "quinki-providers.json");
 const modelsPath = join(agentDir, "models.json");
 const settingsPath = join(agentDir, "settings.json");

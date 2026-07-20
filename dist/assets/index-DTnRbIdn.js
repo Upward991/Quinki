@@ -1269,7 +1269,138 @@ function dg(sidecarUrl = "ws://127.0.0.1:9182") {
 			activeSessionId
 		]),
 		call,
-		notify
+		notify,
+		setChatAgents: (0, v.useCallback)(async (sessionKey, agentIds) => {
+			if (!ready) return;
+			try {
+				await call("setChatAgents", {
+					sessionKey,
+					agents: agentIds
+				});
+			} catch (e) {
+				console.error("setChatAgents:", e);
+			}
+		}, [ready, call]),
+		setModel: (0, v.useCallback)(async (sessionKey, model) => {
+			if (!ready) return;
+			try {
+				await call("setModel", {
+					sessionKey,
+					model
+				});
+			} catch (e) {
+				console.error("setModel:", e);
+			}
+		}, [ready, call]),
+		setThinkingLevel: (0, v.useCallback)(async (sessionKey, level) => {
+			if (!ready) return;
+			try {
+				await call("setThinkingLevel", {
+					sessionKey,
+					thinkingLevel: level
+				});
+			} catch (e) {
+				console.error("setThinkingLevel:", e);
+			}
+		}, [ready, call]),
+		deleteSession: (0, v.useCallback)(async (sessionKey) => {
+			if (!ready) return;
+			try {
+				await call("deleteSession", { sessionKey });
+				setSessions((prev) => prev.filter((s) => s.id !== sessionKey));
+				if (activeSessionId === sessionKey) {
+					setActiveSessionId(null);
+					setMessages([]);
+				}
+			} catch (e) {
+				console.error("deleteSession:", e);
+			}
+		}, [
+			ready,
+			call,
+			activeSessionId
+		]),
+		renameSession: (0, v.useCallback)(async (sessionKey, title) => {
+			if (!ready) return;
+			try {
+				await call("renameSession", {
+					sessionKey,
+					label: title
+				});
+				setSessions((prev) => prev.map((s) => s.id === sessionKey ? {
+					...s,
+					title
+				} : s));
+			} catch (e) {
+				console.error("renameSession:", e);
+			}
+		}, [ready, call]),
+		setProvidersConfig: (0, v.useCallback)(async (config) => {
+			if (!ready) return;
+			try {
+				await call("setProvidersConfig", config);
+			} catch (e) {
+				console.error("setProvidersConfig:", e);
+			}
+		}, [ready, call]),
+		fetchProviderModels: (0, v.useCallback)(async (providerName, baseUrl, apiKey) => {
+			if (!ready) return [];
+			try {
+				return await call("fetchProviderModels", {
+					providerName,
+					baseUrl,
+					apiKey
+				});
+			} catch (e) {
+				console.error("fetchProviderModels:", e);
+				return [];
+			}
+		}, [ready, call]),
+		testProviderConnection: (0, v.useCallback)(async (providerName, baseUrl, apiKey) => {
+			if (!ready) return {
+				success: false,
+				error: "Not connected"
+			};
+			try {
+				return await call("testProviderConnection", {
+					providerName,
+					baseUrl,
+					apiKey
+				});
+			} catch (e) {
+				return {
+					success: false,
+					error: String(e)
+				};
+			}
+		}, [ready, call]),
+		storeApiKey: (0, v.useCallback)(async (service, key) => {
+			if (!ready) return;
+			try {
+				await call("storeApiKey", {
+					service,
+					key
+				});
+			} catch (e) {
+				console.error("storeApiKey:", e);
+			}
+		}, [ready, call]),
+		clearLogs: (0, v.useCallback)(async () => {
+			if (!ready) return;
+			try {
+				await call("clearDebugLogFile", {});
+			} catch (e) {
+				console.error("clearLogs:", e);
+			}
+		}, [ready, call]),
+		loadLogs: (0, v.useCallback)(async () => {
+			if (!ready) return [];
+			try {
+				return (await call("getFullDebugLog", {}))?.log || [];
+			} catch (e) {
+				return [];
+			}
+		}, [ready, call])
 	};
-}function fg(){let e=dg(),[t,n]=(0,v.useState)(`home`),[r,i]=(0,v.useState)(`pinned`),[a]=(0,v.useState)(260),[o,s]=(0,v.useState)(``),[c,l]=(0,v.useState)([`quinki-expert`]),[u,d]=(0,v.useState)(`glm-4.5`),[f,p]=(0,v.useState)(`build`),[m,h]=(0,v.useState)(`on`),[g,_]=(0,v.useState)(`comfort`),[y,b]=(0,v.useState)(!1),[x,S]=(0,v.useState)(!1);(0,v.useEffect)(()=>{document.documentElement.setAttribute(`data-theme`,g)},[]),(0,v.useEffect)(()=>{e.activeSessionId&&s(e.activeSessionId)},[e.activeSessionId]),(0,v.useEffect)(()=>{e.activeSessionId?b(!1):(t===`chat`&&b(!0))},[e.activeSessionId,t]);let C=(0,v.useCallback)(e=>{_(e),document.documentElement.setAttribute(`data-theme`,e)},[]),w=(0,v.useCallback)(t=>{l(n=>{let r=n.includes(t)?n.filter(e=>e!==t):[...n,t];return e.setChatAgents(r),r})},[e]),T=(0,v.useCallback)(()=>{t===`chat`&&i(e=>e===`pinned`?`hidden`:`pinned`)},[t]),E=(0,v.useCallback)(e=>{},[]),D=(0,v.useCallback)(t=>{s(t),b(!1),e.selectSession(t)},[e]),O=(0,v.useCallback)(()=>{s(``),b(!0),n(`chat`)},[]),k=(0,v.useCallback)(t=>{e.sendMessage(t,{agentId:c[0],model:u||void 0,thinkingLevel:m}),b(!1)},[e,c]),A=(0,v.useCallback)(()=>{e.stopStreaming()},[e]),j=(0,v.useCallback)(e=>{n(e)},[]);if(!e.connected)return(0,z.jsxs)(`div`,{style:{display:`flex`,alignItems:`center`,justifyContent:`center`,height:`100vh`,backgroundColor:`var(--q-bg)`,flexDirection:`column`,gap:`16px`},children:[(0,z.jsx)(`div`,{style:{fontSize:`18px`,fontFamily:`var(--font-interface)`,color:`var(--q-text-secondary)`},children:`Connecting to sidecar…`}),(0,z.jsx)(`div`,{style:{fontSize:`13px`,fontFamily:`var(--font-code)`,color:`var(--q-text-tertiary)`},children:`ws://127.0.0.1:9182`}),(0,z.jsx)(`div`,{style:{width:`200px`,height:`2px`,backgroundColor:`var(--q-border)`,borderRadius:`1px`,overflow:`hidden`},children:(0,z.jsx)(`div`,{style:{width:`40%`,height:`100%`,backgroundColor:`var(--q-accent-primary)`,borderRadius:`1px`,animation:`breathe 1.5s ease-in-out infinite`}})}),e.error&&(0,z.jsx)(`div`,{style:{fontSize:`12px`,fontFamily:`var(--font-code)`,color:`var(--q-accent-danger)`,marginTop:`8px`},children:e.error}),(0,z.jsxs)(`div`,{style:{fontSize:`12px`,fontFamily:`var(--font-interface)`,color:`var(--q-text-tertiary)`,marginTop:`16px`,textAlign:`center`,maxWidth:`400px`,lineHeight:`1.6`},children:[`Start the sidecar with:`,(0,z.jsx)(`br`,{}),(0,z.jsx)(`code`,{style:{color:`var(--q-text-secondary)`,fontFamily:`var(--font-code)`},children:`cd ~/Projects/Quinki/sidecar-src && npx tsx ws-bridge.ts`})]})]});let M=e.sessions,N=e.agents,P=e.providers,F=e.messages,I=e.isStreaming,L=e.statusLabel,ee=e.statusKind,te=e.contextTokens,ne=e.contextWindow,re=M.find(e=>e.id===o),ie=t===`chat`&&r===`pinned`,R=t===`chat`&&(r===`pinned`||r===`peek`),ae=ie?a+8:0;return(0,z.jsx)(yh.Provider,{value:{call:e.call,notify:e.notify,connected:e.connected},children:(0,z.jsxs)(`div`,{className:`flex flex-col h-screen w-screen overflow-hidden`,style:{backgroundColor:`var(--q-bg)`},children:[(0,z.jsxs)(`div`,{className:`flex-1 relative overflow-hidden`,children:[(0,z.jsxs)(`div`,{className:`absolute inset-0 transition-all duration-200`,style:{padding:`8px`,paddingLeft:`${8+ae}px`},children:[t===`home`&&(0,z.jsx)(gh,{activePanel:t,onSelectPanel:j}),t===`chat`&&(0,z.jsx)(mh,{session:re,messages:F,streaming:I,welcomeMode:y,mode:f,activePanel:t,onSelectPanel:j,sidebarOpen:r===`pinned`,onToggleSidebar:T,agentDropdownOpen:x,onToggleAgentDropdown:()=>S(!x),agents:N,selectedAgentIds:c,onAgentToggle:w,providers:P,selectedModel:u,onModelSelect:t=>{d(t),e.setModel(t)},onModeChange:p,thinking:m,onThinkingChange:t=>{h(t),e.setThinkingLevel(t)},contextTokens:te,contextWindow:ne,onSend:k,onStop:A,onRenameSession:()=>{},statusLabel:L,statusKind:ee,onExport:()=>{}}),t===`expert`&&(0,z.jsx)(mh,{session:void 0,messages:F,streaming:I,welcomeMode:y,mode:f,activePanel:t,onSelectPanel:j,sidebarOpen:!1,onToggleSidebar:()=>{},agentDropdownOpen:x,onToggleAgentDropdown:()=>S(!x),agents:N,selectedAgentIds:[`quinki-expert`],onAgentToggle:w,providers:P,selectedModel:u,onModelSelect:t=>{d(t),e.setModel(t)},onModeChange:p,thinking:m,onThinkingChange:t=>{h(t),e.setThinkingLevel(t)},contextTokens:te,contextWindow:ne,onSend:k,onStop:A,onRenameSession:()=>{},statusLabel:L,statusKind:ee,onExport:()=>{}}),t===`agents`&&(0,z.jsx)(Sh,{activePanel:t,onSelectPanel:j,agents:N}),t===`log`&&(0,z.jsx)(rg,{activePanel:t,onSelectPanel:j,logs:e.logs,onLoadLog:e.loadFullLog,onClearLog:e.clearLog}),t===`settings`&&(0,z.jsx)(Rh,{activePanel:t,onSelectPanel:j,themes:cg,activeThemeId:g,onThemeChange:C,providers:P})]}),R&&(0,z.jsx)(`div`,{className:`absolute top-2 bottom-2 transition-all duration-200`,style:{left:`8px`,width:`${a}px`},children:(0,z.jsx)(`div`,{className:`h-full overflow-hidden`,style:{backgroundColor:`var(--q-bg-panel)`,borderRadius:`var(--radius-lg)`,boxShadow:`var(--shadow-floating)`},children:(0,z.jsx)(mn,{sessions:M,activeSessionId:o||e.activeSessionId||"",onSelectSession:D,onNewSession:O,onToggleFolder:E,onReorder:()=>{},welcomeMode:y,onDeleteSession:e.deleteSession,onRenameSession:e.renameSession})})}),t===`chat`&&r===`hidden`&&(0,z.jsx)(`div`,{className:`absolute top-2 bottom-2 left-0`,style:{width:`12px`},onMouseEnter:()=>i(`peek`)}),r===`peek`&&(0,z.jsx)(`div`,{className:`absolute inset-0`,style:{width:`${a+20}px`},onMouseLeave:()=>i(`hidden`)})]}),(0,z.jsx)(ig,{})]})})}var pg=class extends v.Component{state={error:null};static getDerivedStateFromError(e){return{error:e.message+`
+}function fg(){let e=dg(),[t,n]=(0,v.useState)(`home`),[r,i]=(0,v.useState)(`pinned`),[a]=(0,v.useState)(260),[o,s]=(0,v.useState)(``),[c,l]=(0,v.useState)([]),[u,d]=(0,v.useState)(`glm-4.5`),[f,p]=(0,v.useState)(`build`),[m,h]=(0,v.useState)(`on`),[g,_]=(0,v.useState)(`comfort`),[y,b]=(0,v.useState)(!1),[x,S]=(0,v.useState)(!1);(0,v.useEffect)(()=>{document.documentElement.setAttribute(`data-theme`,g)},[]),(0,v.useEffect)(()=>{e.activeSessionId&&s(e.activeSessionId)},[e.activeSessionId]),(0,v.useEffect)(()=>{e.activeSessionId?b(!1):(t===`chat`&&b(!0))},[e.activeSessionId,t]);let C=(0,v.useCallback)(e=>{_(e),document.documentElement.setAttribute(`data-theme`,e)},[]),w=(0,v.useCallback)(t=>{l(n=>{let r=n.includes(t)?n.filter(e=>e!==t):[...n,t];return e.setChatAgents(r),r})},[e]),T=(0,v.useCallback)(()=>{t===`chat`&&i(e=>e===`pinned`?`hidden`:`pinned`)},[t]),E=(0,v.useCallback)(e=>{},[]),D=(0,v.useCallback)(t=>{s(t),b(!1),e.selectSession(t)},[e]),O=(0,v.useCallback)(()=>{s(``),b(!0),n(`chat`)},[]),k=(0,v.useCallback)(t=>{e.sendMessage(t,{agentId:c[0],model:u||void 0,thinkingLevel:m}),b(!1)},[e,c]),A=(0,v.useCallback)(()=>{e.stopStreaming()},[e]),j=(0,v.useCallback)(e=>{n(e)},[]);if(!e.connected)return(0,z.jsxs)(`div`,{style:{display:`flex`,alignItems:`center`,justifyContent:`center`,height:`100vh`,backgroundColor:`var(--q-bg)`,flexDirection:`column`,gap:`16px`},children:[(0,z.jsx)(`div`,{style:{fontSize:`18px`,fontFamily:`var(--font-interface)`,color:`var(--q-text-secondary)`},children:`Connecting to sidecar…`}),(0,z.jsx)(`div`,{style:{fontSize:`13px`,fontFamily:`var(--font-code)`,color:`var(--q-text-tertiary)`},children:`ws://127.0.0.1:9182`}),(0,z.jsx)(`div`,{style:{width:`200px`,height:`2px`,backgroundColor:`var(--q-border)`,borderRadius:`1px`,overflow:`hidden`},children:(0,z.jsx)(`div`,{style:{width:`40%`,height:`100%`,backgroundColor:`var(--q-accent-primary)`,borderRadius:`1px`,animation:`breathe 1.5s ease-in-out infinite`}})}),e.error&&(0,z.jsx)(`div`,{style:{fontSize:`12px`,fontFamily:`var(--font-code)`,color:`var(--q-accent-danger)`,marginTop:`8px`},children:e.error}),(0,z.jsxs)(`div`,{style:{fontSize:`12px`,fontFamily:`var(--font-interface)`,color:`var(--q-text-tertiary)`,marginTop:`16px`,textAlign:`center`,maxWidth:`400px`,lineHeight:`1.6`},children:[`Start the sidecar with:`,(0,z.jsx)(`br`,{}),(0,z.jsx)(`code`,{style:{color:`var(--q-text-secondary)`,fontFamily:`var(--font-code)`},children:`cd ~/Projects/Quinki/sidecar-src && npx tsx ws-bridge.ts`})]})]});let M=e.sessions,N=e.agents,P=e.providers,F=e.messages,I=e.isStreaming,L=e.statusLabel,ee=e.statusKind,te=e.contextTokens,ne=e.contextWindow,re=M.find(e=>e.id===o),ie=t===`chat`&&r===`pinned`,R=t===`chat`&&(r===`pinned`||r===`peek`),ae=ie?a+8:0;return(0,z.jsx)(yh.Provider,{value:{call:e.call,notify:e.notify,connected:e.connected},children:(0,z.jsxs)(`div`,{className:`flex flex-col h-screen w-screen overflow-hidden`,style:{backgroundColor:`var(--q-bg)`},children:[(0,z.jsxs)(`div`,{className:`flex-1 relative overflow-hidden`,children:[(0,z.jsxs)(`div`,{className:`absolute inset-0 transition-all duration-200`,style:{padding:`8px`,paddingLeft:`${8+ae}px`},children:[t===`home`&&(0,z.jsx)(gh,{activePanel:t,onSelectPanel:j}),t===`chat`&&(0,z.jsx)(mh,{session:re,messages:F,streaming:I,welcomeMode:y,mode:f,activePanel:t,onSelectPanel:j,sidebarOpen:r===`pinned`,onToggleSidebar:T,agentDropdownOpen:x,onToggleAgentDropdown:()=>S(!x),agents:N,selectedAgentIds:c,onAgentToggle:w,providers:P,selectedModel:u,onModelSelect:t=>{d(t),e.setModel(t)},onModeChange:p,thinking:m,onThinkingChange:t=>{h(t),e.setThinkingLevel(t)},contextTokens:te,contextWindow:ne,onSend:k,onStop:A,onRenameSession:()=>{},statusLabel:L,statusKind:ee,onExport:()=>{}}),t===`expert`&&(0,z.jsx)(mh,{session:void 0,messages:F,streaming:I,welcomeMode:y,mode:f,activePanel:t,onSelectPanel:j,sidebarOpen:!1,onToggleSidebar:()=>{},agentDropdownOpen:x,onToggleAgentDropdown:()=>S(!x),agents:N,selectedAgentIds:[`quinki-expert`],onAgentToggle:w,providers:P,selectedModel:u,onModelSelect:t=>{d(t),e.setModel(t)},onModeChange:p,thinking:m,onThinkingChange:t=>{h(t),e.setThinkingLevel(t)},contextTokens:te,contextWindow:ne,onSend:k,onStop:A,onRenameSession:()=>{},statusLabel:L,statusKind:ee,onExport:()=>{}}),t===`agents`&&(0,z.jsx)(Sh,{activePanel:t,onSelectPanel:j,agents:N}),t===`log`&&(0,z.jsx)(rg,{activePanel:t,onSelectPanel:j,logs:e.logs,onLoadLog:e.loadFullLog,onClearLog:e.clearLog}),t===`settings`&&(0,z.jsx)(Rh,{activePanel:t,onSelectPanel:j,themes:cg,activeThemeId:g,onThemeChange:C,providers:P})]}),R&&(0,z.jsx)(`div`,{className:`absolute top-2 bottom-2 transition-all duration-200`,style:{left:`8px`,width:`${a}px`},children:(0,z.jsx)(`div`,{className:`h-full overflow-hidden`,style:{backgroundColor:`var(--q-bg-panel)`,borderRadius:`var(--radius-lg)`,boxShadow:`var(--shadow-floating)`},children:(0,z.jsx)(mn,{sessions:M,activeSessionId:o||e.activeSessionId||"",onSelectSession:D,onNewSession:O,onToggleFolder:E,onReorder:()=>{},welcomeMode:y,onDeleteSession:e.deleteSession,onRenameSession:e.renameSession})})}),t===`chat`&&r===`hidden`&&(0,z.jsx)(`div`,{className:`absolute top-2 bottom-2 left-0`,style:{width:`12px`},onMouseEnter:()=>i(`peek`)}),r===`peek`&&(0,z.jsx)(`div`,{className:`absolute inset-0`,style:{width:`${a+20}px`},onMouseLeave:()=>i(`hidden`)})]}),(0,z.jsx)(ig,{})]})})}var pg=class extends v.Component{state={error:null};static getDerivedStateFromError(e){return{error:e.message+`
 `+(e.stack||``)}}render(){return this.state.error?(0,z.jsxs)(`div`,{style:{padding:`20px`,color:`red`,fontFamily:`monospace`,fontSize:`14px`,whiteSpace:`pre-wrap`,background:`white`,minHeight:`100vh`},children:[`ERROR: `,this.state.error]}):this.props.children}};(0,y.createRoot)(document.getElementById(`root`)).render((0,z.jsx)(v.StrictMode,{children:(0,z.jsx)(pg,{children:(0,z.jsx)(fg,{})})}));
