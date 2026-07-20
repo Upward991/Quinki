@@ -2,6 +2,7 @@ import { createCipheriv, createDecipheriv, randomBytes, scryptSync, createHash }
 import { hostname, userInfo, homedir } from "node:os";
 import { platform, arch, cpus, totalmem } from "node:os";
 import * as fs from "node:fs";
+import * as path from "node:path";
 
 const ALGO = "aes-256-gcm";
 const KEY_LEN = 32;
@@ -42,7 +43,7 @@ function getOrCreateSalt(): Buffer {
     }
   }
   const salt = randomBytes(SALT_LEN);
-  fs.mkdirSync(require("path").dirname(saltPath), { recursive: true });
+  fs.mkdirSync(path.dirname(saltPath), { recursive: true });
   fs.writeFileSync(saltPath, salt, { mode: 0o600 });
   try { fs.chmodSync(saltPath, 0o600); } catch {}
   return salt;
