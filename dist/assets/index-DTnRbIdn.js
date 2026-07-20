@@ -1179,6 +1179,9 @@ function dg(sidecarUrl = "ws://127.0.0.1:9182") {
 			if (!ready) return;
 			setActiveSessionId(sessionKey);
 			setMessages([]);
+			setIsStreaming(false);
+			setStatusLabel("");
+			setStatusKind("");
 			try {
 				const history = await call("getHistory", { sessionKey });
 				if (history?.messages) setMessages(history.messages.map((m) => ({
@@ -1190,21 +1193,47 @@ function dg(sidecarUrl = "ws://127.0.0.1:9182") {
 					toolCalls: m.toolCalls,
 					toolResults: m.toolResults,
 					agentName: m.agentName,
+					agentModel: m.agentModel,
 					tokensIn: m.tokensIn,
 					tokensOut: m.tokensOut,
-					isCompacted: m.isCompacted
+					isCompacted: m.isCompacted,
+					isError: m.isError,
+					errorType: m.errorType,
+					errorContent: m.errorContent
 				})));
-				const ctx = await call("getContextUsage", { sessionKey });
-				if (ctx) {
-					setContextTokens(ctx.tokens || 0);
-					setContextWindow(ctx.window || 1e6);
-				}
+				try {
+					const ctx = await call("getContextUsage", { sessionKey });
+					if (ctx) {
+						setContextTokens(ctx.tokens || 0);
+						setContextWindow(ctx.window || 1e6);
+					}
+				} catch {}
 			} catch (e) {
 				console.error("Failed to load session:", e);
 			}
 		}, [ready, call]),
 		sendMessage: (0, v.useCallback)(async (text, sessionKey, agents) => {
 			if (!ready) return;
+			if (!providers.some((p) => p.models && p.models.length > 0)) {
+				setMessages((prev) => [
+					...prev,
+					{
+						id: `msg-${Date.now()}`,
+						role: "user",
+						content: text,
+						timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+						tokensIn: Math.ceil(text.length / 4)
+					},
+					{
+						id: `err-${Date.now()}`,
+						role: "assistant",
+						content: "No model configured. Add a provider in Settings first.",
+						timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+						isError: true
+					}
+				]);
+				return;
+			}
 			const userMsg = {
 				id: `msg-${Date.now()}`,
 				role: "user",
@@ -1223,18 +1252,24 @@ function dg(sidecarUrl = "ws://127.0.0.1:9182") {
 					if (createResult?.sessionKey) {
 						sk = createResult.sessionKey;
 						setActiveSessionId(sk);
-						const sessionsResult = await call("listSessions", {});
-						if (sessionsResult?.sessions) setSessions(sessionsResult.sessions.map((s) => ({
-							id: s.sessionKey || s.id || s.key,
-							title: s.label || s.title || "Untitled",
-							type: "chat",
-							updatedAt: new Date(s.lastActivity || Date.now()).toISOString(),
-							messageCount: s.messageCount || 0,
-							agents: s.agents || []
-						})));
+						try {
+							const sessionsResult = await call("listSessions", {});
+							if (sessionsResult?.sessions) setSessions(sessionsResult.sessions.map((s) => ({
+								id: s.sessionKey || s.id || s.key,
+								title: s.label || s.title || "Untitled",
+								type: "chat",
+								updatedAt: new Date(s.lastActivity || Date.now()).toISOString(),
+								messageCount: s.messageCount || 0,
+								agents: s.agents || []
+							})));
+						} catch {}
 					}
 				} catch (e) {
 					console.error("Failed to create session:", e);
+					setIsStreaming(false);
+					setStatusLabel("Failed");
+					setStatusKind("failed");
+					return;
 				}
 				const result = await call("sendMessage", {
 					sessionKey: sk,
@@ -1242,6 +1277,17 @@ function dg(sidecarUrl = "ws://127.0.0.1:9182") {
 					agents: agents || []
 				});
 				if (result?.sessionKey && !activeSessionId) setActiveSessionId(result.sessionKey);
+				try {
+					const sessionsResult = await call("listSessions", {});
+					if (sessionsResult?.sessions) setSessions(sessionsResult.sessions.map((s) => ({
+						id: s.sessionKey || s.id || s.key,
+						title: s.label || s.title || "Untitled",
+						type: "chat",
+						updatedAt: new Date(s.lastActivity || Date.now()).toISOString(),
+						messageCount: s.messageCount || 0,
+						agents: s.agents || []
+					})));
+				} catch {}
 			} catch (e) {
 				console.error("Failed to send message:", e);
 				setIsStreaming(false);
@@ -1251,7 +1297,8 @@ function dg(sidecarUrl = "ws://127.0.0.1:9182") {
 		}, [
 			ready,
 			call,
-			activeSessionId
+			activeSessionId,
+			providers
 		]),
 		stopStreaming: (0, v.useCallback)(() => {
 			if (!ready) return;
