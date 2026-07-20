@@ -187,7 +187,7 @@ export default function App() {
           width: '24px',
           height: '24px',
           border: '2px solid var(--q-text-tertiary)',
-          borderTopColor: 'var(--q-accent-primary)',
+          borderTopColor: 'var(--q-accent-secondary)',
           borderRadius: '50%',
           animation: 'spin 1s linear infinite',
         }} />

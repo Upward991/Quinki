@@ -287,7 +287,7 @@ export function AgentsPanel(props: AgentsPanelProps) {
       {installing && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '400px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ width: '20px', height: '20px', border: '2px solid var(--q-text-tertiary)', borderTopColor: 'var(--q-accent-danger)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+            <div style={{ width: '20px', height: '20px', border: '2px solid var(--q-text-tertiary)', borderTopColor: 'var(--q-accent-secondary)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
             <span style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Installing skill...</span>
           </div>
         </div>

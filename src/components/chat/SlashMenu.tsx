@@ -300,7 +300,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
               style={{
                 display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
                 padding: '10px 20px', borderRadius: 'var(--radius-sm)', border: 'none', cursor: 'pointer',
-                backgroundColor: focusAdd ? '#8a6aba' : '#4a3a6a',
+                backgroundColor: focusAdd ? 'var(--q-accent-primary)' : 'var(--q-accent-primary-soft)',
                 color: focusAdd ? 'var(--q-bg)' : 'var(--q-text)',
                 fontSize: '16px', fontFamily: 'var(--font-interface)',
                 transition: 'background-color 0.15s ease, color 0.15s ease',
@@ -332,7 +332,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
             <HoverTextBtn
               label="Cancel"
               onClick={() => setMode('main')}
-              borderColor="var(--q-text-secondary)"
+              
               textColor="var(--q-text-secondary)"
               hoverTextColor="var(--q-text)"
               hoverBg="rgba(255,255,255,0.06)"
@@ -429,7 +429,7 @@ function NavBar({ focusConfirm, onUp, onDown, onLeft, onRight, onConfirm, onClos
       <HoverTextBtn
         label="Cancel"
         onClick={onClose}
-        borderColor="var(--q-text-secondary)"
+        
         textColor="var(--q-text-secondary)"
         hoverTextColor="var(--q-text)"
         hoverBg="rgba(255,255,255,0.06)"
@@ -473,7 +473,7 @@ function ArrowBtn({ icon: Icon, onClick }: { icon: React.FC<{ size?: number; sty
 // ── Hover text button: border + text, bg fills on hover/highlight ──
 function HoverTextBtn({ label, highlighted, onClick, borderColor, textColor, hoverTextColor, hoverBg, fontWeight }: {
   label: string; highlighted?: boolean; onClick: () => void
-  borderColor: string; textColor: string; hoverTextColor: string; hoverBg: string; fontWeight?: number
+  borderColor?: string; textColor: string; hoverTextColor: string; hoverBg: string; fontWeight?: number
 }) {
   const [hovered, setHovered] = useState(false)
   const active = hovered || highlighted
@@ -484,7 +484,7 @@ function HoverTextBtn({ label, highlighted, onClick, borderColor, textColor, hov
       onMouseLeave={() => setHovered(false)}
       style={{
         padding: '7px 16px', borderRadius: 'var(--radius-sm)', cursor: 'pointer',
-        border: `1px solid ${borderColor}`,
+        border: `1px solid ${borderColor || 'var(--q-border)'}`,
         backgroundColor: active ? hoverBg : 'transparent',
         color: active ? hoverTextColor : textColor,
         fontSize: '13px', fontFamily: 'var(--font-interface)', fontWeight: fontWeight || 400,

@@ -13,7 +13,7 @@ class ErrorBoundary extends Component<{children: React.ReactNode}, {error: strin
   render() {
     if (this.state.error) {
       return (
-        <div style={{ padding: '20px', color: '#ff6666', fontFamily: 'monospace', fontSize: '14px', whiteSpace: 'pre-wrap' }}>
+        <div style={{ padding: '20px', color: 'red', fontFamily: 'monospace', fontSize: '14px', whiteSpace: 'pre-wrap' }}>
           {this.state.error}
         </div>
       )
