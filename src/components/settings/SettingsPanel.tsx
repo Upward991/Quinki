@@ -233,7 +233,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
               <div style={{ height: '12px' }} />
               <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>User bubble preview:</span>
               <div style={{ height: '4px' }} />
-              <div style={{ padding: '8px 16px', borderRadius: 'var(--radius-lg)', backgroundColor: '#1A1A20', color: '#E8E8EC', fontSize: '14px', fontFamily: 'var(--font-interface)', display: 'inline-block' }}>This is a test user message</div>
+              <div style={{ padding: '8px 16px', borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--q-bubble-user)', color: 'var(--q-bubble-user-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', display: 'inline-block' }}>This is a test user message</div>
             </Section>
 
             {/* Versions */}

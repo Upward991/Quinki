@@ -324,7 +324,7 @@ export function Sidebar({ sessions, activeSessionId, onSelectSession, onNewSessi
                     </span>
                     {item.unread && !isActive && (
                       <span style={{
-                        backgroundColor: 'var(--q-text)', color: 'var(--q-bg)',
+                        backgroundColor: 'var(--q-accent-secondary)', color: 'var(--q-bg)',
                         fontSize: '12px', fontWeight: 600, fontFamily: 'var(--font-interface)',
                         borderRadius: '999px', padding: '4px 8px', minWidth: '18px',
                         textAlign: 'center', flexShrink: 0, lineHeight: '1',

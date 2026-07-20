@@ -96,7 +96,7 @@ export function AgentsPanel(props: AgentsPanelProps) {
               <Save size={16} /> Save
             </button>
             <div style={{ width: '8px', flexShrink: 0 }} />
-            <button onClick={() => { setDirty(false); setSaveMessage('Saved. Restarting...'); setTimeout(() => setSaveMessage(null), 5000) }} style={{ height: '32px', padding: '0 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-danger)', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--q-bg)', fontSize: '14px', fontWeight: 500, fontFamily: 'var(--font-interface)', flexShrink: 0 }}>
+            <button onClick={() => { setDirty(false); setSaveMessage('Saved. Restarting...'); setTimeout(() => setSaveMessage(null), 5000) }} style={{ height: '32px', padding: '0 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-secondary)', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--q-bg)', fontSize: '14px', fontWeight: 500, fontFamily: 'var(--font-interface)', flexShrink: 0 }}>
               <Power size={16} /> Save and restart
             </button>
           </div>
@@ -277,7 +277,7 @@ export function AgentsPanel(props: AgentsPanelProps) {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>
                 Copy
               </button>
-              <button onClick={() => setShowError(null)} style={{ padding: '8px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-danger)', color: 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)' }}>Close</button>
+              <button onClick={() => setShowError(null)} style={{ padding: '8px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-secondary)', color: 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)' }}>Close</button>
             </div>
           </div>
         </div>
@@ -303,7 +303,7 @@ export function AgentsPanel(props: AgentsPanelProps) {
             </div>
             <div style={{ color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', marginBottom: '16px' }}>{showSuccess}</div>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <button onClick={() => setShowSuccess(null)} style={{ padding: '8px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-danger)', color: 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)' }}>OK</button>
+              <button onClick={() => setShowSuccess(null)} style={{ padding: '8px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-secondary)', color: 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)' }}>OK</button>
             </div>
           </div>
         </div>
@@ -526,7 +526,7 @@ function ResourceRow({ icon: Icon, name, description, agentsUsing, badge, badgeC
         <span style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', flex: 1 }}>{name}</span>
         {badge && badgeColor && (
           <>
-            <span style={{ padding: '2px 6px', borderRadius: '3px', backgroundColor: `${badgeColor}26`, color: badgeColor, fontSize: '11px', fontFamily: 'var(--font-interface)' }}>{badge}</span>
+            <span style={{ padding: '2px 6px', borderRadius: '3px', backgroundColor: `color-mix(in srgb, ${badgeColor} 15%, transparent)`, color: badgeColor, fontSize: '11px', fontFamily: 'var(--font-interface)' }}>{badge}</span>
             <div style={{ width: '8px', flexShrink: 0 }} />
           </>
         )}
@@ -618,7 +618,7 @@ function FileEditorModal({ agentId, fileName, call, onClose }: { agentId: string
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
       <div style={{
         backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)',
         borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '720px', height: '80vh', maxHeight: '600px',
@@ -743,7 +743,7 @@ function ModalActions({ onCancel, onConfirm, confirmLabel }: { onCancel: () => v
     <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
       <button onClick={onCancel} style={{ padding: '8px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: '15px', fontFamily: 'var(--font-interface)' }}>Cancel</button>
       <div style={{ width: '8px' }} />
-      <button onClick={onConfirm} style={{ padding: '8px 16px', borderRadius: 'var(--radius-lg)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-danger)', color: 'var(--q-bg)', fontSize: '15px', fontWeight: 500, fontFamily: 'var(--font-interface)' }}>{confirmLabel}</button>
+      <button onClick={onConfirm} style={{ padding: '8px 16px', borderRadius: 'var(--radius-lg)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-secondary)', color: 'var(--q-bg)', fontSize: '15px', fontWeight: 500, fontFamily: 'var(--font-interface)' }}>{confirmLabel}</button>
     </div>
   )
 }

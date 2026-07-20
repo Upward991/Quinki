@@ -159,7 +159,7 @@ export function ChatHeader(props: ChatHeaderProps) {
       )}
 
       {confirmDelete && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setConfirmDelete(null)}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setConfirmDelete(null)}>
           <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '400px', width: '90%' }} onClick={e => e.stopPropagation()}>
             <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', marginBottom: '20px' }}>{confirmDelete === 'selected' ? `Remove ${selectedForRemoval.size} selected agents?` : 'Remove agent from chat?'}</div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
@@ -171,7 +171,7 @@ export function ChatHeader(props: ChatHeaderProps) {
                 else { props.onAgentToggle(confirmDelete) }
                 setConfirmDelete(null)
               }}
-                style={{ padding: '8px 16px', borderRadius: 'var(--radius-lg)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-danger)', color: 'var(--q-bg)', fontSize: '15px', fontWeight: 500, fontFamily: 'var(--font-interface)' }}>
+                style={{ padding: '8px 16px', borderRadius: 'var(--radius-lg)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-secondary)', color: 'var(--q-bg)', fontSize: '15px', fontWeight: 500, fontFamily: 'var(--font-interface)' }}>
                 Remove
               </button>
             </div>
@@ -287,7 +287,7 @@ export function ChatHeader(props: ChatHeaderProps) {
                           onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}>
                           {/* Agent name */}
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Bot size={16} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-danger)' : 'var(--q-text-tertiary)', display: 'flex', flexShrink: 0 }} />
+                            <Bot size={16} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', display: 'flex', flexShrink: 0 }} />
                             <span style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-danger)' : 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', flex: 1, lineHeight: '16px' }}>{agent.name}</span>
                           </div>
                           {/* Model + Thinking (not for orchestrator) */}
@@ -297,15 +297,15 @@ export function ChatHeader(props: ChatHeaderProps) {
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '24px', cursor: multiSelect && selectedForRemoval.has(agent.id) ? 'default' : 'pointer' }}
                                 onMouseEnter={e => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.currentTarget.querySelectorAll('span,svg').forEach((el: any) => el.style.color = 'var(--q-text)') } }}
                                 onMouseLeave={e => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.currentTarget.querySelectorAll('span,svg').forEach((el: any) => el.style.color = 'var(--q-text-tertiary)') } }}>
-                                <Cpu size={14} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-danger)' : 'var(--q-text-tertiary)', display: 'flex', flexShrink: 0 }} />
-                                <span onClick={(e) => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.stopPropagation(); setModelPickerFor(agent.id) } }} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-danger)' : 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', lineHeight: '14px', cursor: multiSelect && selectedForRemoval.has(agent.id) ? 'default' : 'pointer' }}>{agent.model}</span>
+                                <Cpu size={14} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', display: 'flex', flexShrink: 0 }} />
+                                <span onClick={(e) => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.stopPropagation(); setModelPickerFor(agent.id) } }} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', lineHeight: '14px', cursor: multiSelect && selectedForRemoval.has(agent.id) ? 'default' : 'pointer' }}>{agent.model}</span>
                               </div>
                               <div style={{ height: '4px' }} />
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '24px', cursor: multiSelect && selectedForRemoval.has(agent.id) ? 'default' : 'pointer' }}
                                 onMouseEnter={e => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.currentTarget.querySelectorAll('span,svg').forEach((el: any) => el.style.color = 'var(--q-text)') } }}
                                 onMouseLeave={e => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.currentTarget.querySelectorAll('span,svg').forEach((el: any) => el.style.color = 'var(--q-text-tertiary)') } }}>
-                                <Brain size={14} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-danger)' : 'var(--q-text-tertiary)', display: 'flex', flexShrink: 0 }} />
-                                <span onClick={(e) => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.stopPropagation(); setThinkingPickerFor(agent.id) } }} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-danger)' : 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', lineHeight: '14px', cursor: multiSelect && selectedForRemoval.has(agent.id) ? 'default' : 'pointer' }}>
+                                <Brain size={14} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', display: 'flex', flexShrink: 0 }} />
+                                <span onClick={(e) => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.stopPropagation(); setThinkingPickerFor(agent.id) } }} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', lineHeight: '14px', cursor: multiSelect && selectedForRemoval.has(agent.id) ? 'default' : 'pointer' }}>
                                   {agent.thinking === 'off' ? 'Off' : `On (${agent.thinking})`}
                                 </span>
                               </div>
@@ -325,7 +325,7 @@ export function ChatHeader(props: ChatHeaderProps) {
 
       {/* Export modal — Flutter AlertDialog: bgElevated, radiusXl, NO border, all TextButtons coral */}
       {exportOpen && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setExportOpen(false)}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setExportOpen(false)}>
           <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
             {/* Title — 24px top, 24px left/right, 0 bottom (Material 3 titlePadding) */}
             <div style={{ color: 'var(--q-text)', fontSize: '24px', fontFamily: 'var(--font-interface)', padding: '24px 24px 0 24px' }}>Export chat</div>
@@ -415,7 +415,7 @@ function ModelPickerModal({ currentModel, models, onClose }: {
   const fmtCtx = (cw?: number) => { if (!cw || cw === 0) return '—'; if (cw >= 1000000) { const m = cw / 1000000; return m % 1 === 0 ? `${m}M` : `${m.toFixed(1)}M` }; if (cw >= 1000) return `${Math.floor(cw / 1000)}K`; return `${cw}` }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
       <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '480px', height: '80vh', maxHeight: '500px', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
         <div style={{ padding: '12px 16px', backgroundColor: 'var(--q-bg-panel)', borderBottom: '1px solid var(--q-border)', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
           <Cpu size={18} style={{ color: 'var(--q-accent-danger)', flexShrink: 0 }} />
@@ -433,7 +433,7 @@ function ModelPickerModal({ currentModel, models, onClose }: {
         </div>
         <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
           <div onClick={() => setSelected(null)} style={{ padding: '8px 16px', cursor: 'pointer', backgroundColor: selected === null ? 'rgba(217,107,107,0.1)' : 'transparent', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ width: '14px', height: '14px', borderRadius: '50%', border: '2px solid ' + (selected === null ? 'var(--q-accent-danger)' : 'var(--q-text-tertiary)'), backgroundColor: selected === null ? 'var(--q-accent-danger)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{selected === null && <div style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: 'var(--q-bg)' }} />}</div>
+            <div style={{ width: '14px', height: '14px', borderRadius: '50%', border: '2px solid ' + (selected === null ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)'), backgroundColor: selected === null ? 'var(--q-accent-secondary)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{selected === null && <div style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: 'var(--q-bg)' }} />}</div>
             <span style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', flex: 1 }}>Chat default</span>
             <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>Use chat default model</span>
           </div>
@@ -442,7 +442,7 @@ function ModelPickerModal({ currentModel, models, onClose }: {
               <div style={{ padding: '8px 16px 4px 16px', color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>{provider}</div>
               {pModels.map(m => (
                 <div key={m.id} onClick={() => setSelected(m.id)} style={{ padding: '8px 16px', cursor: 'pointer', backgroundColor: selected === m.id ? 'rgba(217,107,107,0.1)' : 'transparent', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ width: '14px', height: '14px', borderRadius: '50%', border: '2px solid ' + (selected === m.id ? 'var(--q-accent-danger)' : 'var(--q-text-tertiary)'), backgroundColor: selected === m.id ? 'var(--q-accent-danger)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{selected === m.id && <div style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: 'var(--q-bg)' }} />}</div>
+                  <div style={{ width: '14px', height: '14px', borderRadius: '50%', border: '2px solid ' + (selected === m.id ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)'), backgroundColor: selected === m.id ? 'var(--q-accent-secondary)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{selected === m.id && <div style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: 'var(--q-bg)' }} />}</div>
                   <span style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name || m.id}</span>
                   <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', flexShrink: 0 }}>{fmtCtx(m.contextWindow)} ctx</span>
                 </div>
@@ -455,7 +455,7 @@ function ModelPickerModal({ currentModel, models, onClose }: {
           <span style={{ flex: 1 }} />
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-secondary)', fontSize: '15px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }}>Cancel</button>
           <div style={{ width: '8px' }} />
-          <button onClick={onClose} style={{ padding: '4px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-danger)', color: 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)' }}>Confirm</button>
+          <button onClick={onClose} style={{ padding: '4px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-secondary)', color: 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)' }}>Confirm</button>
         </div>
       </div>
     </div>
@@ -467,7 +467,7 @@ function ThinkingPickerModal({ currentThinking, onClose }: { currentThinking: st
   const [selected, setSelected] = useState<string | null>(currentThinking || null)
   const options: { value: string | null; label: string }[] = [{ value: null, label: 'Chat default' }, { value: 'on', label: 'On (xhigh)' }, { value: 'off', label: 'Off' }]
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
       <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '380px', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
         <div style={{ padding: '12px 16px', backgroundColor: 'var(--q-bg-panel)', borderBottom: '1px solid var(--q-border)', display: 'flex', alignItems: 'center' }}>
           <Brain size={18} style={{ color: 'var(--q-accent-danger)', flexShrink: 0 }} />
@@ -481,7 +481,7 @@ function ThinkingPickerModal({ currentThinking, onClose }: { currentThinking: st
             const isSelected = selected === opt.value
             return (
               <div key={opt.label} onClick={() => setSelected(opt.value)} style={{ padding: '10px 16px', cursor: 'pointer', backgroundColor: isSelected ? 'rgba(217,107,107,0.1)' : 'transparent', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: '14px', height: '14px', borderRadius: '50%', border: '2px solid ' + (isSelected ? 'var(--q-accent-danger)' : 'var(--q-text-tertiary)'), backgroundColor: isSelected ? 'var(--q-accent-danger)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{isSelected && <div style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: 'var(--q-bg)' }} />}</div>
+                <div style={{ width: '14px', height: '14px', borderRadius: '50%', border: '2px solid ' + (isSelected ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)'), backgroundColor: isSelected ? 'var(--q-accent-secondary)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{isSelected && <div style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: 'var(--q-bg)' }} />}</div>
                 <span style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>{opt.label}</span>
               </div>
             )
@@ -491,7 +491,7 @@ function ThinkingPickerModal({ currentThinking, onClose }: { currentThinking: st
           <span style={{ flex: 1 }} />
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-secondary)', fontSize: '15px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }}>Cancel</button>
           <div style={{ width: '8px' }} />
-          <button onClick={onClose} style={{ padding: '4px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-danger)', color: 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)' }}>Confirm</button>
+          <button onClick={onClose} style={{ padding: '4px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-secondary)', color: 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)' }}>Confirm</button>
         </div>
       </div>
     </div>
