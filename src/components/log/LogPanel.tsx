@@ -150,7 +150,7 @@ export function LogPanel({ onSelectPanel, logs = [], onLoadLog, onClearLog }: Lo
         padding: '8px 12px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)',
       }}>
         <Search size={16} style={{ color: 'var(--q-text-tertiary)' }} />
-        <input type="text" placeholder="Search logs..." value={searchFilter}
+        <input type="text" placeholder="Search in logs..." value={searchFilter}
           onChange={e => setSearchFilter(e.target.value)}
           style={{
             flex: 1, backgroundColor: 'transparent', border: 'none', outline: 'none',

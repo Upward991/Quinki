@@ -314,9 +314,9 @@ export default function App() {
             <LogPanel
               activePanel={activePanel}
               onSelectPanel={handleSelectPanel}
-              logs={sidecar.logs}
-              onLoadLog={sidecar.loadFullLog}
-              onClearLog={sidecar.clearLog}
+              
+              
+              
             />
           )}
 

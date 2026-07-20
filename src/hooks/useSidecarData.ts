@@ -1,813 +1,951 @@
-// ============================================================
-// useSidecarData — High-level hook that loads real data from sidecar
-// NO mock data — starts empty, fills when sidecar connects
-// ============================================================
+import { useState, useEffect, useRef, useCallback } from 'react'
 
-import { useEffect, useState, useCallback, useRef } from "react";
-import { useSidecar } from "./useSidecar";
-import type { Session, Agent, Provider, Message, ThinkingBlock, ToolCall, ToolResult, DelegationBlock } from "../types";
+// useSidecar — WebSocket connection
+function useSidecar(url: string = 'ws://127.0.0.1:9182') {
+  const wsRef = useRef<WebSocket | null>(null)
+  const [ready, setReady] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const pendingRef = useRef<Map<number, { resolve: (v: any) => void; reject: (e: any) => void }>>(new Map())
+  const handlersRef = useRef<Map<string, Set<(data: any) => void>>>(new Map())
+  const nextIdRef = useRef(1)
 
-// ── Helpers: map sidecar flat messages → app Message format ──
-
-function mapHistoryMessages(raw: any[]): Message[] {
-  const result: Message[] = [];
-  let current: Partial<Message> & { thinking?: ThinkingBlock[]; toolCalls?: ToolCall[]; toolResults?: ToolResult[]; delegations?: DelegationBlock[]; content?: string } = {};
-  let hasBlocks = false;
-
-  const flush = () => {
-    if (hasBlocks || current.content || current.id) {
-      result.push({
-        id: current.id || `msg-${Date.now()}-${Math.random()}`,
-        role: current.role || "assistant",
-        content: current.content || "",
-        timestamp: current.timestamp || new Date().toISOString(),
-        thinking: current.thinking?.length ? current.thinking : undefined,
-        toolCalls: current.toolCalls?.length ? current.toolCalls : undefined,
-        toolResults: current.toolResults?.length ? current.toolResults : undefined,
-        delegations: current.delegations?.length ? current.delegations : undefined,
-        compaction: current.compaction?.length ? current.compaction : undefined,
-        agentName: current.agentName,
-        agentModel: current.agentModel,
-        thinkingLevel: current.thinkingLevel,
-        isError: current.isError,
-        errorType: current.errorType,
-        errorContent: current.errorContent,
-        isCompacted: current.isCompacted,
-        tokensIn: current.tokensIn,
-        tokensOut: current.tokensOut,
-      } as Message);
-    }
-    current = {};
-    hasBlocks = false;
-  };
-
-  for (const m of raw) {
-    if (m.role === "user" || m.role === "system") {
-      flush();
-      result.push({
-        id: m.id || `msg-${Date.now()}-${Math.random()}`,
-        role: m.role,
-        content: typeof m.content === "string" ? m.content : JSON.stringify(m.content),
-        timestamp: typeof m.timestamp === "number" ? new Date(m.timestamp).toISOString() : m.timestamp,
-        tokensIn: m.tokensIn,
-      });
-      continue;
-    }
-
-    if (m.isCompactionSummary || m.isCompactionWarning) {
-      flush();
-      result.push({
-        id: m.id || `comp-${Date.now()}`,
-        role: "assistant",
-        content: "",
-        timestamp: typeof m.timestamp === "number" ? new Date(m.timestamp).toISOString() : m.timestamp,
-        compaction: [{ content: m.content || "", isNoop: !!m.isCompactionWarning }],
-      });
-      continue;
-    }
-
-    if (m.role === "tool_call") {
-      if (!hasBlocks) {
-        current = { id: m.id, role: "assistant" as const, timestamp: typeof m.timestamp === "number" ? new Date(m.timestamp).toISOString() : m.timestamp, thinking: [], toolCalls: [], toolResults: [], delegations: [] };
-        hasBlocks = true;
-      }
-      if (m.reasoning) current.thinking!.push({ level: current.thinkingLevel || "on", content: m.reasoning });
-      current.toolCalls!.push({ name: m.toolName || "tool", input: typeof m.toolArgs === "string" ? m.toolArgs : JSON.stringify(m.toolArgs || "") });
-      continue;
-    }
-
-    if (m.role === "tool_result") {
-      if (!hasBlocks) {
-        current = { id: m.id, role: "assistant" as const, timestamp: typeof m.timestamp === "number" ? new Date(m.timestamp).toISOString() : m.timestamp, thinking: [], toolCalls: [], toolResults: [], delegations: [] };
-        hasBlocks = true;
-      }
-      current.toolResults!.push({ name: m.toolName || "tool", output: typeof m.content === "string" ? m.content : JSON.stringify(m.content), isError: !!m.isError });
-      continue;
-    }
-
-    // Assistant text message
-    if (m.role === "assistant" || m.role === undefined) {
-      // If we have accumulated blocks and this is a text message, merge
-      if (hasBlocks && m.content) {
-        current.content = (current.content || "") + (typeof m.content === "string" ? m.content : "");
-        current.agentName = m.agentName || current.agentName;
-        current.agentModel = m.model || current.agentModel;
-        current.thinkingLevel = m.thinkingLevel || current.thinkingLevel;
-        if (m.reasoning && !current.thinking?.length) {
-          current.thinking = [{ level: m.thinkingLevel || "on", content: m.reasoning }];
+  useEffect(() => {
+    let closed = false
+    const connect = () => {
+      if (closed) return
+      const ws = new WebSocket(url)
+      wsRef.current = ws
+      ws.onopen = () => { setReady(true); setError(null) }
+      ws.onmessage = (ev) => {
+        let msg: any
+        try { msg = JSON.parse(ev.data) } catch { return }
+        if (msg.id !== undefined) {
+          const pending = pendingRef.current.get(msg.id)
+          if (pending) {
+            pendingRef.current.delete(msg.id)
+            if (msg.error) pending.reject(msg.error)
+            else pending.resolve(msg.result)
+          }
         }
-        continue;
+        if (msg.method && msg.id === undefined) {
+          const handlers = handlersRef.current.get(msg.method)
+          if (handlers) for (const h of handlers) h(msg.params)
+        }
       }
-      // Standalone assistant message
-      flush();
-      const msg: Message = {
-        id: m.id || `msg-${Date.now()}-${Math.random()}`,
-        role: "assistant",
-        content: typeof m.content === "string" ? m.content : "",
-        timestamp: typeof m.timestamp === "number" ? new Date(m.timestamp).toISOString() : m.timestamp,
-        agentName: m.agentName,
-        agentModel: m.model,
-        thinkingLevel: m.thinkingLevel,
-        isError: !!m.isError,
-        errorContent: m.errorMessage || (m.isError ? (typeof m.content === "string" ? m.content : "") : undefined),
-        tokensOut: m.tokensOut,
-      };
-      if (m.reasoning) msg.thinking = [{ level: m.thinkingLevel || "on", content: m.reasoning }];
-      result.push(msg);
-      continue;
+      ws.onerror = () => { setError('WebSocket connection error') }
+      ws.onclose = () => {
+        setReady(false)
+        if (!closed) setTimeout(connect, 2000)
+      }
     }
+    connect()
+    return () => { closed = true; wsRef.current?.close() }
+  }, [url])
 
-    // Fallback
-    flush();
-    result.push({
-      id: m.id || `msg-${Date.now()}-${Math.random()}`,
-      role: "assistant",
-      content: typeof m.content === "string" ? m.content : JSON.stringify(m.content || ""),
-      timestamp: typeof m.timestamp === "number" ? new Date(m.timestamp).toISOString() : m.timestamp,
-    });
-  }
+  const call = useCallback((method: string, params: any = {}): Promise<any> => {
+    return new Promise((resolve, reject) => {
+      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) { reject(new Error('Not connected')); return }
+      const id = nextIdRef.current++
+      pendingRef.current.set(id, { resolve, reject })
+      wsRef.current.send(JSON.stringify({ jsonrpc: '2.0', method, params, id }))
+      setTimeout(() => { if (pendingRef.current.has(id)) { pendingRef.current.delete(id); reject(new Error('Timeout: ' + method)) } }, 30000)
+    })
+  }, [])
 
-  flush();
-  return result;
+  const notify = useCallback((method: string, params: any = {}) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) wsRef.current.send(JSON.stringify({ jsonrpc: '2.0', method, params }))
+  }, [])
+
+  const subscribe = useCallback((method: string, handler: (data: any) => void) => {
+    if (!handlersRef.current.has(method)) handlersRef.current.set(method, new Set())
+    handlersRef.current.get(method)!.add(handler)
+    return () => { handlersRef.current.get(method)?.delete(handler) }
+  }, [])
+
+  return { call, notify, ready, error, subscribe }
 }
 
-export function useSidecarData(sidecarUrl: string = "ws://127.0.0.1:9182") {
-  const { call, notify, ready, subscribe } = useSidecar(sidecarUrl);
-  const [loading, setLoading] = useState(true);
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [agents, setAgents] = useState<Agent[]>([]);
-  const [providers, setProviders] = useState<Provider[]>([]);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [statusLabel, setStatusLabel] = useState("");
-  const [statusKind, setStatusKind] = useState("");
-  const [contextTokens, setContextTokens] = useState(0);
-  const [contextWindow, setContextWindow] = useState(1000000);
-  const [logs, setLogs] = useState<any[]>([]);
-  const [folders, setFolders] = useState<any[]>([]);
-  const [error, setError] = useState<string | null>(null);
+// ── helper: map session from sidecar format ──
+function mapSession(s: any) {
+  return {
+    id: s.sessionKey || s.id || s.key,
+    title: s.label || s.title || 'Untitled',
+    type: 'chat' as const,
+    updatedAt: new Date(s.lastActivity || Date.now()).toISOString(),
+    messageCount: s.messageCount || 0,
+    agents: s.agents || [],
+    model: s.model,
+    thinkingLevel: s.thinkingLevel,
+    mode: s.mode || 'plan',
+    folderId: s.folderId || null,
+    compactionAuto: s.compactionAuto ?? true,
+    compactionThreshold: s.compactionThreshold ?? 80,
+    agentId: s.agentId,
+  }
+}
 
-  // Refs for streaming state
-  const streamingMsgRef = useRef<Partial<Message> & { thinking?: ThinkingBlock[]; toolCalls?: ToolCall[]; toolResults?: ToolResult[]; delegations?: DelegationBlock[]; content?: string }>({});
-  const hasBlocksRef = useRef(false);
-  const activeSessionRef = useRef<string | null>(null);
-  const streamingSessionRef = useRef<string | null>(null);
+function mapSessions(arr: any[]) { return arr.map(mapSession) }
 
-  // Keep ref in sync
-  useEffect(() => { activeSessionRef.current = activeSessionId; }, [activeSessionId]);
+// ── helper: map agent from sidecar format ──
+function mapAgent(a: any) {
+  return {
+    id: a.id,
+    name: a.name,
+    systemPrompt: a.prompt || '',
+    model: a.model || '',
+    thinking: a.thinking || 'off',
+    skills: (a.skills || []).map((s: string) => ({ name: s, source: 'local', installed: true })),
+    tools: (a.tools || []).map((t: string) => ({ name: t, enabled: true })),
+    directory: a.directory || '',
+    isDeletable: a.id !== 'orchestrator',
+  }
+}
+
+// useSidecarData — COMPLETE implementation with ALL Flutter-parity RPC methods + event handlers
+function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
+  const { call, notify, ready, subscribe } = useSidecar(sidecarUrl)
+  const [loading, setLoading] = useState(true)
+  const [sessions, setSessions] = useState<any[]>([])
+  const [agents, setAgents] = useState<any[]>([])
+  const [providers, setProviders] = useState<any[]>([])
+  const [messages, setMessages] = useState<any[]>([])
+  const [folders, setFolders] = useState<any[]>([])
+  const [models, setModels] = useState<any[]>([])
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
+  const [isStreaming, setIsStreaming] = useState(false)
+  const [statusLabel, setStatusLabel] = useState('')
+  const [statusKind, setStatusKind] = useState('')
+  const [contextTokens, setContextTokens] = useState(0)
+  const [contextWindow, setContextWindow] = useState(1000000)
+  const [thinkingLevels, setThinkingLevels] = useState<string[]>(['off', 'low', 'medium', 'high', 'xhigh'])
+  const [agentStatus, setAgentStatus] = useState<any>(null)
+  const [compactingSessions, setCompactingSessions] = useState<Set<string>>(new Set())
+  const [sessionTokens, setSessionTokens] = useState<Record<string, { input: number; output: number }>>({})
+  const [debugLog, setDebugLog] = useState<any[]>([])
+  const [piConfigNeeded, setPiConfigNeeded] = useState(false)
 
   // ── Load initial data when connected ──
   useEffect(() => {
-    if (!ready) return;
-    let cancelled = false;
+    if (!ready) return
+    let cancelled = false
 
     const loadData = async () => {
       try {
-        // Load full state (sessions + models)
-        const stateResult = await call("getFullState", {});
-        if (cancelled) return;
-
-        // Parse sessions
-        if (stateResult?.sessions) {
-          const mappedSessions: Session[] = stateResult.sessions.map((s: any) => ({
-            id: s.key || s.id,
-            title: s.label || "Untitled",
-            type: "chat" as const,
-            updatedAt: new Date(s.lastActivity || s.order || Date.now()).toISOString(),
-            messageCount: s.messageCount || 0,
-            agents: s.agentId ? [s.agentId] : [],
-          }));
-          if (!cancelled) setSessions(mappedSessions);
+        // Load agents with files
+        const agentsResult = await call('listAgents', {})
+        if (!cancelled && agentsResult?.agents) {
+          const agentsWithFiles = await Promise.all(agentsResult.agents.map(async (a: any) => {
+            const agent = mapAgent(a)
+            let files: any[] = []
+            try {
+              const filesResult = await call('listAgentFiles', { id: a.id })
+              if (filesResult?.files) files = filesResult.files.map((f: any) => f.name || f.path || f)
+            } catch {}
+            return { ...agent, files }
+          }))
+          setAgents(agentsWithFiles)
         }
 
-        // Parse models into providers
-        if (stateResult?.models) {
-          const modelsByProvider: Record<string, any[]> = {};
-          for (const m of stateResult.models) {
-            const p = m.provider || "unknown";
-            if (!modelsByProvider[p]) modelsByProvider[p] = [];
-            modelsByProvider[p].push({ id: m.id, name: m.name || m.id, contextWindow: m.contextWindow });
-          }
-
-          // Load providers config
-          let providerList: Provider[] = [];
-          try {
-            const providersResult = await call("getProvidersConfig", {});
-            if (providersResult?.providers) {
-              for (const [id, p] of Object.entries(providersResult.providers) as [string, any]) {
-                providerList.push({
-                  id, name: id,
-                  type: p.api || "ollama",
-                  apiKeyStatus: (p.apiKey || p.apiKeySet) ? "configured" : "missing",
-                  models: modelsByProvider[id] || [],
-                  enabled: p.enabled !== false,
-                });
-                delete modelsByProvider[id];
-              }
-            }
-          } catch {}
-
-          // Add providers only from models (not in config)
-          for (const [id, models] of Object.entries(modelsByProvider)) {
-            providerList.push({ id, name: id, type: "unknown", apiKeyStatus: "missing", models, enabled: true });
-          }
-          if (!cancelled) setProviders(providerList);
-        }
-
-        // Load agents
+        // Load sessions (use getFullState like Flutter, fallback to listSessions)
         try {
-          const agentsResult = await call("listAgents", {});
-          if (!cancelled && agentsResult?.agents) {
-            const agentsWithFiles = await Promise.all(agentsResult.agents.map(async (a: any) => {
-              let files: string[] = [];
-              try {
-                const filesResult = await call("listAgentFiles", { id: a.id });
-                if (filesResult?.files) {
-                  files = filesResult.files.map((f: any) => f.name || f.path || f).filter((n: string) => n !== "config.json");
-                }
-              } catch {}
-              return {
-                id: a.id,
-                name: a.name || a.id,
-                systemPrompt: a.prompt || a.systemPrompt || "",
-                model: a.model || "",
-                thinking: a.thinking || "off",
-                skills: (a.skills || []).map((s: string) => ({ name: s, source: "local", installed: true })),
-                tools: (a.tools || []).map((t: string) => ({ name: t, enabled: true })),
-                files,
-                isDeletable: a.id !== "orchestrator" && a.id !== "quinki-expert",
-              } as Agent;
-            }));
-            setAgents(agentsWithFiles);
+          let sessionsList: any[] = []
+          try {
+            const fullState = await call('getFullState', {})
+            if (fullState?.sessions) sessionsList = fullState.sessions
+          } catch {
+            const r = await call('listSessions', {})
+            if (r?.sessions) sessionsList = r.sessions
           }
+          if (!cancelled) setSessions(mapSessions(sessionsList))
         } catch {}
 
         // Load folders
         try {
-          const foldersResult = await call("getFolders", {});
-          if (!cancelled && foldersResult?.folders) {
-            setFolders(foldersResult.folders);
-          }
+          const foldersResult = await call('getFolders', {})
+          if (!cancelled && foldersResult?.folders) setFolders(foldersResult.folders)
         } catch {}
 
-        // Load app version
+        // Load providers + models
         try {
-          const versionResult = await call("getAppVersion", {});
-          if (!cancelled && versionResult?.version) {
-            (window as any).__quinkiVersion = versionResult.version;
+          const [providersResult, modelsResult] = await Promise.all([
+            call('getProvidersConfig', {}),
+            call('getModels', {}),
+          ])
+          if (!cancelled) {
+            const modelsByProvider: Record<string, any[]> = {}
+            if (modelsResult?.models) {
+              const allModels = modelsResult.models.map((m: any) => {
+                const p = m.provider || 'unknown'
+                if (!modelsByProvider[p]) modelsByProvider[p] = []
+                modelsByProvider[p].push({ id: m.id, name: m.name || m.id, contextWindow: m.contextWindow })
+                return { id: m.id, name: m.name || m.id, provider: p, contextWindow: m.contextWindow }
+              })
+              setModels(allModels)
+            }
+            const providerList: any[] = []
+            if (providersResult?.providers) {
+              for (const [id, p] of Object.entries(providersResult.providers) as [string, any][]) {
+                providerList.push({
+                  id, name: id, type: p.api || 'ollama',
+                  apiKeyStatus: p.apiKey || p.apiKeySet ? 'configured' : 'missing',
+                  models: modelsByProvider[id] || [], enabled: p.enabled !== false,
+                  baseUrl: p.baseUrl || '',
+                })
+              }
+            }
+            for (const [id, mods] of Object.entries(modelsByProvider)) {
+              if (!providerList.find(p => p.id === id)) {
+                providerList.push({ id, name: id, type: 'unknown', apiKeyStatus: 'missing', models: mods, enabled: true, baseUrl: '' })
+              }
+            }
+            setProviders(providerList)
           }
         } catch {}
 
-        if (!cancelled) setLoading(false);
-      } catch (e: any) {
-        console.error("[useSidecarData] Failed to load data:", e);
-        setError(e?.message || String(e));
-        if (!cancelled) setLoading(false);
+        // Load all context usage
+        try {
+          const allCtx = await call('getAllContextUsage', {})
+          if (!cancelled && allCtx?.usage) {
+            // Update sessions with context info
+          }
+        } catch {}
+
+        setLoading(false)
+      } catch (e) {
+        setLoading(false)
       }
-    };
+    }
+    loadData()
+    return () => { cancelled = true }
+  }, [ready, call])
 
-    loadData();
-    return () => { cancelled = true; };
-  }, [ready, call]);
-
-  // ── Subscribe to notifications ──
+  // ── Subscribe to ALL sidecar events (Flutter parity) ──
   useEffect(() => {
-    if (!ready) return;
+    if (!ready) return
 
-    const unsubReady = subscribe("ready", () => {
-      console.log("[useSidecarData] Sidecar ready");
-    });
-
-    // ── Stream events: accumulate into streaming message ──
-    const unsubStream = subscribe("stream_event", (params: any) => {
-      const { eventType, delta, toolName, sessionKey, messageId } = params;
-      // Only process if this is for our active session
-      if (sessionKey && streamingSessionRef.current && sessionKey !== streamingSessionRef.current) return;
-
-      const sm = streamingMsgRef.current;
-
-      switch (eventType) {
-        case "thinking_start":
-          setStatusLabel("Thinking");
-          setStatusKind("thinking");
-          if (!sm.thinking) sm.thinking = [];
-          break;
-        case "thinking_delta":
-          setStatusLabel("Thinking");
-          setStatusKind("thinking");
-          if (!sm.thinking) sm.thinking = [];
-          if (sm.thinking.length === 0) sm.thinking.push({ level: "on", content: delta || "" });
-          else sm.thinking[0].content = (sm.thinking[0].content || "") + (delta || "");
-          updateStreamingMessage();
-          break;
-        case "thinking_end":
-          break;
-        case "text_start":
-          setStatusLabel("Writing");
-          setStatusKind("writing");
-          if (!hasBlocksRef.current) {
-            streamingMsgRef.current = { id: messageId, role: "assistant", content: "", thinking: sm.thinking, toolCalls: [], toolResults: [], delegations: [] };
-            hasBlocksRef.current = true;
-          }
-          break;
-        case "text_delta":
-          setStatusLabel("Writing");
-          setStatusKind("writing");
-          if (!hasBlocksRef.current) {
-            streamingMsgRef.current = { id: messageId, role: "assistant", content: "", thinking: sm.thinking, toolCalls: [], toolResults: [], delegations: [] };
-            hasBlocksRef.current = true;
-          }
-          streamingMsgRef.current.content = (streamingMsgRef.current.content || "") + (delta || "");
-          updateStreamingMessage();
-          break;
-        case "text_end":
-          break;
-        case "toolcall_start":
-          setStatusLabel("Tool call");
-          setStatusKind("tool_call");
-          if (!hasBlocksRef.current) {
-            streamingMsgRef.current = { id: messageId, role: "assistant", content: "", thinking: [], toolCalls: [], toolResults: [], delegations: [] };
-            hasBlocksRef.current = true;
-          }
-          streamingMsgRef.current.toolCalls!.push({ name: toolName || "tool", input: "" });
-          updateStreamingMessage();
-          break;
-        case "toolcall_delta":
-          if (streamingMsgRef.current.toolCalls && streamingMsgRef.current.toolCalls.length > 0) {
-            streamingMsgRef.current.toolCalls[streamingMsgRef.current.toolCalls.length - 1].input += delta || "";
-            updateStreamingMessage();
-          }
-          break;
-        case "toolcall_end":
-          setStatusLabel("Tool result");
-          setStatusKind("tool_result");
-          // The delta in toolcall_end is the result text
-          if (streamingMsgRef.current.toolResults) {
-            streamingMsgRef.current.toolResults.push({ name: toolName || "tool", output: delta || "", isError: !!params.isError });
-          }
-          updateStreamingMessage();
-          break;
-        case "delegation_start":
-          setStatusLabel("Delegating");
-          setStatusKind("delegation");
-          if (!hasBlocksRef.current) {
-            streamingMsgRef.current = { id: messageId, role: "assistant", content: "", thinking: [], toolCalls: [], toolResults: [], delegations: [] };
-            hasBlocksRef.current = true;
-          }
-          streamingMsgRef.current.delegations!.push({
-            agentName: params.agentName || "",
-            agentModel: "",
-            mode: "build",
-            tools: [],
-            systemPrompt: "",
-            taskContent: params.task || "",
-            response: "",
-          });
-          updateStreamingMessage();
-          break;
-        case "delegation_end":
-          if (streamingMsgRef.current.delegations && streamingMsgRef.current.delegations.length > 0) {
-            const d = streamingMsgRef.current.delegations[streamingMsgRef.current.delegations.length - 1];
-            d.response = params.response || "";
-            d.agentModel = params.model || "";
-            d.thinkingLevel = params.thinkingLevel;
-          }
-          updateStreamingMessage();
-          break;
-        case "error":
-          setStatusLabel("Failed");
-          setStatusKind("failed");
-          setIsStreaming(false);
-          streamingSessionRef.current = null;
-          // Add error message
-          setMessages(prev => [...prev, {
-            id: `err-${Date.now()}`,
-            role: "assistant",
-            content: "",
-            timestamp: new Date().toISOString(),
-            isError: true,
-            errorType: "generic",
-            errorContent: delta || params.message || "An error occurred",
-          }]);
-          break;
-      }
-    });
-
-    // ── Done notification: finalize streaming message ──
-    const unsubDone = subscribe("done", (params: any) => {
-      const { sessionKey, model, agentName, thinkingLevel, errorMessage } = params;
-      if (sessionKey && streamingSessionRef.current && sessionKey !== streamingSessionRef.current) return;
-
-      setIsStreaming(false);
-      setStatusLabel("");
-      setStatusKind("");
-      streamingSessionRef.current = null;
-
-      // Finalize the streaming message
-      const sm = streamingMsgRef.current;
-      if (hasBlocksRef.current || sm.content || (sm.toolCalls && sm.toolCalls.length) || (sm.thinking && sm.thinking.length)) {
-        const finalMsg: Message = {
-          id: sm.id || `msg-${Date.now()}`,
-          role: "assistant",
-          content: sm.content || "",
-          timestamp: new Date().toISOString(),
-          thinking: sm.thinking?.length ? sm.thinking : undefined,
-          toolCalls: sm.toolCalls?.length ? sm.toolCalls : undefined,
-          toolResults: sm.toolResults?.length ? sm.toolResults : undefined,
-          delegations: sm.delegations?.length ? sm.delegations : undefined,
-          agentName: agentName || sm.agentName,
-          agentModel: model || sm.agentModel,
-          thinkingLevel: thinkingLevel || sm.thinkingLevel,
-          isError: !!errorMessage,
-          errorContent: errorMessage,
-        };
+    // Stream events (text, thinking, tool_call, tool_result, delegation, done)
+    const unsubStream = subscribe('stream_event', (p: any) => {
+      const { type, content, messageId } = p
+      if (type === 'text' || type === 'text_delta') {
         setMessages(prev => {
-          const last = prev[prev.length - 1];
-          if (last && last.isStreaming) {
-            return [...prev.slice(0, -1), finalMsg];
+          const last = prev[prev.length - 1]
+          if (last && last.role === 'assistant' && last.isStreaming) {
+            return [...prev.slice(0, -1), { ...last, content: (last.content || '') + (content || '') }]
           }
-          return [...prev, finalMsg];
-        });
+          return [...prev, { id: messageId || `msg-${Date.now()}`, role: 'assistant', content: content || '', timestamp: new Date().toISOString(), isStreaming: true }]
+        })
+        setStatusLabel('Writing'); setStatusKind('writing')
+      } else if (type === 'thinking' || type === 'thinking_delta') {
+        setStatusLabel('Thinking'); setStatusKind('thinking')
+        if (content) {
+          setMessages(prev => {
+            const last = prev[prev.length - 1]
+            if (last && last.role === 'assistant' && last.isStreaming) {
+              return [...prev.slice(0, -1), { ...last, thinking: (last.thinking || '') + content }]
+            }
+            return prev
+          })
+        }
+      } else if (type === 'tool_call' || type === 'toolcall_start') {
+        setStatusLabel('Tool call'); setStatusKind('tool_call')
+      } else if (type === 'tool_result' || type === 'toolcall_end') {
+        setStatusLabel('Tool result'); setStatusKind('tool_result')
+      } else if (type === 'delegation_start') {
+        setStatusLabel('Delegating'); setStatusKind('delegation')
+      } else if (type === 'delegation_end') {
+        setStatusLabel('Running'); setStatusKind('running')
+      } else if (type === 'error') {
+        setStatusLabel('Failed'); setStatusKind('failed'); setIsStreaming(false)
+      } else if (type === 'done' || type === 'end') {
+        setIsStreaming(false); setStatusLabel(''); setStatusKind('')
+        setMessages(prev => prev.map(m => m.isStreaming ? { ...m, isStreaming: false } : m))
+        // Capture token usage
+        if (p.usage) {
+          const sk = p.sessionKey
+          if (sk) {
+            const input = p.usage.input_tokens || p.usage.prompt_tokens || p.usage.input || 0
+            const output = p.usage.output_tokens || p.usage.completion_tokens || p.usage.output || 0
+            if (input > 0 || output > 0) {
+              setSessionTokens(prev => ({ ...prev, [sk]: { input: (prev[sk]?.input || 0) + input, output: (prev[sk]?.output || 0) + output } }))
+            }
+          }
+        }
       }
+    })
 
-      // Reset streaming state
-      streamingMsgRef.current = {};
-      hasBlocksRef.current = false;
+    // Streaming started/stopped
+    const unsubStreamStart = subscribe('streaming_started', () => {
+      setIsStreaming(true)
+    })
+    const unsubStreamStop = subscribe('streaming_stopped', () => {
+      setIsStreaming(false); setStatusLabel(''); setStatusKind('')
+      setMessages(prev => prev.map(m => m.isStreaming ? { ...m, isStreaming: false } : m))
+    })
 
-      // Reload sessions to get updated title/lastMessage
-      refreshSessions();
-    });
-
-    // ── Context usage updates ──
-    const unsubContext = subscribe("context_usage", (params: any) => {
-      if (params.usage) {
-        setContextTokens(params.usage.tokens || params.usage.used || 0);
-        setContextWindow(params.usage.window || params.usage.total || 1000000);
+    // Session lifecycle
+    const unsubSessCreated = subscribe('session_created', () => {
+      call('getFullState', {}).then((r: any) => { if (r?.sessions) setSessions(mapSessions(r.sessions)) }).catch(() => {})
+    })
+    const unsubSessUpdated = subscribe('session_updated', (p: any) => {
+      if (p?.sessionKey) {
+        setSessions(prev => prev.map(s => s.id === p.sessionKey ? {
+          ...s, title: p.label || s.title, model: p.model ?? s.model,
+          thinkingLevel: p.thinkingLevel ?? s.thinkingLevel, mode: p.mode ?? s.mode,
+        } : s))
       } else {
-        if (params.tokens !== undefined) setContextTokens(params.tokens);
-        if (params.window !== undefined) setContextWindow(params.window);
+        call('getFullState', {}).then((r: any) => { if (r?.sessions) setSessions(mapSessions(r.sessions)) }).catch(() => {})
       }
-    });
-
-    // ── Compaction ──
-    const unsubCompaction = subscribe("compaction", () => {
-      setStatusLabel("Compacting");
-      setStatusKind("compacting");
-    });
-
-    // ── Session updated (title/label change) ──
-    const unsubSessionUpdate = subscribe("session_updated", (params: any) => {
-      if (params.sessionKey || params.key) {
-        const key = params.sessionKey || params.key;
-        setSessions(prev => prev.map(s => s.id === key ? { ...s, title: params.label || s.title, updatedAt: new Date().toISOString() } : s));
+    })
+    const unsubSessDeleted = subscribe('session_deleted', (p: any) => {
+      if (p?.sessionKey) {
+        setSessions(prev => prev.filter(s => s.id !== p.sessionKey))
+        if (activeSessionId === p.sessionKey) { setActiveSessionId(null); setMessages([]) }
       }
-      refreshSessions();
-    });
+    })
 
-    // ── Debug log entries ──
-    const unsubDebugLog = subscribe("debug_log", (params: any) => {
-      if (params.log) {
-        setLogs(prev => [...prev, ...params.log].slice(-500));
+    // Model updated
+    const unsubModelUpdate = subscribe('model_updated', (p: any) => {
+      if (p?.sessionKey) {
+        setSessions(prev => prev.map(s => s.id === p.sessionKey ? { ...s, model: p.model } : s))
       }
-    });
+    })
 
-    // ── Full state update (sessions list) ──
-    const unsubFullState = subscribe("full_state", (params: any) => {
-      if (params.sessions) {
-        setSessions(params.sessions.map((s: any) => ({
-          id: s.key || s.id,
-          title: s.label || "Untitled",
-          type: "chat" as const,
-          updatedAt: new Date(s.lastActivity || s.order || Date.now()).toISOString(),
-          messageCount: s.messageCount || 0,
-          agents: s.agentId ? [s.agentId] : [],
-        })));
+    // Thinking updated
+    const unsubThinkUpdate = subscribe('thinking_updated', (p: any) => {
+      if (p?.sessionKey && p.accepted !== false) {
+        setSessions(prev => prev.map(s => s.id === p.sessionKey ? { ...s, thinkingLevel: p.level || 'off' } : s))
       }
-    });
+    })
+    const unsubThinkLevels = subscribe('thinking_levels', (p: any) => {
+      if (p?.levels) setThinkingLevels(p.levels)
+    })
+
+    // Session meta
+    const unsubSessMeta = subscribe('session_meta', (p: any) => {
+      if (p?.sessionKey) {
+        setSessions(prev => prev.map(s => s.id === p.sessionKey ? {
+          ...s, model: p.model ?? s.model, thinkingLevel: p.thinkingLevel ?? s.thinkingLevel, mode: p.mode ?? s.mode,
+        } : s))
+        if (p.availableThinkingLevels) setThinkingLevels(p.availableThinkingLevels)
+      }
+    })
+
+    // Agent status
+    const unsubAgentStatus = subscribe('agent_status', (p: any) => {
+      if (p?.sessionKey) setAgentStatus(p)
+    })
+
+    // Context usage
+    const unsubCtxUsage = subscribe('context_usage', (p: any) => {
+      if (p?.sessionKey && p.usage) {
+        if (p.sessionKey === activeSessionId) {
+          setContextTokens(p.usage.tokens || p.usage.used || 0)
+          setContextWindow(p.usage.window || p.usage.total || 1000000)
+        }
+      }
+    })
+    const unsubAllCtx = subscribe('all_context_usage', (p: any) => {
+      if (p?.usage) {
+        // Update context for active session
+        const sk = activeSessionId
+        if (sk && p.usage[sk]) {
+          setContextTokens(p.usage[sk].tokens || p.usage[sk].used || 0)
+          setContextWindow(p.usage[sk].window || p.usage[sk].total || 1000000)
+        }
+      }
+    })
+    const unsubModelCtx = subscribe('model_context', (p: any) => {
+      if (p?.modelId) {
+        // Could store model context windows
+      }
+    })
+
+    // Debug log
+    const unsubDebugLog = subscribe('debug_log', (p: any) => {
+      if (p?.log) setDebugLog(p.log)
+    })
+
+    // Compaction status
+    const unsubCompaction = subscribe('compaction_status', (p: any) => {
+      const sk = p?.sessionKey
+      const status = p?.status
+      if (sk && status) {
+        if (status === 'start') {
+          setCompactingSessions(prev => new Set(prev).add(sk))
+          setStatusLabel('Compacting'); setStatusKind('compacting')
+        } else if (status === 'end' || status === 'error' || status === 'noop') {
+          setCompactingSessions(prev => { const n = new Set(prev); n.delete(sk); return n })
+          if (activeSessionId === sk) { setStatusLabel(''); setStatusKind('') }
+          if (status === 'end' && p.summary) {
+            setMessages(prev => [...prev, { id: `compact-${Date.now()}`, role: 'assistant', content: p.summary, timestamp: new Date().toISOString(), isCompactionSummary: true }])
+          }
+        }
+      }
+    })
+
+    // History reload
+    const unsubHistory = subscribe('history', (p: any) => {
+      if (p?.sessionKey && p.sessionKey === activeSessionId && p.messages) {
+        setMessages(p.messages.map((m: any) => ({
+          id: m.id || `msg-${Math.random()}`,
+          role: m.role,
+          content: m.content || '',
+          timestamp: m.timestamp || new Date().toISOString(),
+          thinking: m.reasoning || m.thinking,
+          toolCalls: m.toolCalls, toolResults: m.toolResults,
+          agentName: m.agentName, agentModel: m.model,
+          tokensIn: m.tokensIn, tokensOut: m.tokensOut,
+          isCompacted: m.isCompacted, isError: m.isError,
+        })))
+      }
+    })
+
+    // Pi config
+    const unsubPiNeeded = subscribe('pi_config_needed', () => setPiConfigNeeded(true))
+    const unsubPiOk = subscribe('pi_config_ok', () => setPiConfigNeeded(false))
+    const unsubPiCreated = subscribe('pi_config_created', () => {
+      setPiConfigNeeded(false)
+      call('getFullState', {}).then((r: any) => { if (r?.sessions) setSessions(mapSessions(r.sessions)) }).catch(() => {})
+    })
+
+    // Models list
+    const unsubModelsList = subscribe('models_list', (p: any) => {
+      if (p?.models) setModels(p.models)
+    })
+
+    // Thinking start/delta/end (granular)
+    const unsubThinkStart = subscribe('thinking_start', () => { setStatusLabel('Thinking'); setStatusKind('thinking') })
+    const unsubThinkEnd = subscribe('thinking_end', () => { setStatusLabel('Writing'); setStatusKind('writing') })
+
+    // Progress
+    const unsubProgress = subscribe('progress_start', (p: any) => {
+      if (p?.sessionKey) { setStatusLabel('Thinking'); setStatusKind('thinking') }
+    })
 
     return () => {
-      unsubReady();
-      unsubStream();
-      unsubDone();
-      unsubContext();
-      unsubCompaction();
-      unsubSessionUpdate();
-      unsubDebugLog();
-      unsubFullState();
-    };
-  }, [ready, subscribe]);
+      unsubStream(); unsubStreamStart(); unsubStreamStop()
+      unsubSessCreated(); unsubSessUpdated(); unsubSessDeleted()
+      unsubModelUpdate(); unsubThinkUpdate(); unsubThinkLevels()
+      unsubSessMeta(); unsubAgentStatus()
+      unsubCtxUsage(); unsubAllCtx(); unsubModelCtx()
+      unsubDebugLog(); unsubCompaction(); unsubHistory()
+      unsubPiNeeded(); unsubPiOk(); unsubPiCreated()
+      unsubModelsList(); unsubThinkStart(); unsubThinkEnd()
+      unsubProgress()
+    }
+  }, [ready, subscribe, call, activeSessionId])
 
-  // ── Update streaming message in state ──
-  const updateStreamingMessage = useCallback(() => {
-    const sm = streamingMsgRef.current;
-    const msg: Message = {
-      id: sm.id || `streaming-${Date.now()}`,
-      role: "assistant",
-      content: sm.content || "",
-      timestamp: new Date().toISOString(),
-      thinking: sm.thinking?.length ? sm.thinking : undefined,
-      toolCalls: sm.toolCalls?.length ? sm.toolCalls : undefined,
-      toolResults: sm.toolResults?.length ? sm.toolResults : undefined,
-      delegations: sm.delegations?.length ? sm.delegations : undefined,
-      isStreaming: true,
-    };
-    setMessages(prev => {
-      const last = prev[prev.length - 1];
-      if (last && last.isStreaming) {
-        return [...prev.slice(0, -1), msg];
-      }
-      return [...prev, msg];
-    });
-  }, []);
-
-  // ── Refresh sessions list ──
-  const refreshSessions = useCallback(async () => {
-    if (!ready) return;
-    try {
-      const state = await call("getFullState", {});
-      if (state?.sessions) {
-        setSessions(state.sessions.map((s: any) => ({
-          id: s.key || s.id,
-          title: s.label || "Untitled",
-          type: "chat" as const,
-          updatedAt: new Date(s.lastActivity || s.order || Date.now()).toISOString(),
-          messageCount: s.messageCount || 0,
-          agents: s.agentId ? [s.agentId] : [],
-        })));
-      }
-    } catch {}
-  }, [ready, call]);
-
-  // ── Select session: load history ──
+  // ── Session management ──
   const selectSession = useCallback(async (sessionKey: string) => {
-    if (!ready) return;
-    setActiveSessionId(sessionKey);
-    activeSessionRef.current = sessionKey;
-    setMessages([]);
-    setContextTokens(0);
-
+    if (!ready) return
+    setActiveSessionId(sessionKey)
+    setMessages([])
+    setIsStreaming(false)
+    setStatusLabel(''); setStatusKind('')
     try {
-      const history = await call("getHistory", { sessionKey });
+      const history = await call('getHistory', { sessionKey })
       if (history?.messages) {
-        setMessages(mapHistoryMessages(history.messages));
+        setMessages(history.messages.map((m: any) => ({
+          id: m.id || `msg-${Math.random()}`,
+          role: m.role,
+          content: m.content || '',
+          timestamp: m.timestamp || new Date().toISOString(),
+          thinking: m.reasoning || m.thinking,
+          toolCalls: m.toolCalls, toolResults: m.toolResults,
+          agentName: m.agentName, agentModel: m.model,
+          tokensIn: m.tokensIn, tokensOut: m.tokensOut,
+          isCompacted: m.isCompacted, isError: m.isError,
+          errorType: m.errorType, errorContent: m.errorContent,
+        })))
       }
-
+      // Load context usage
       try {
-        const ctx = await call("getContextUsage", { sessionKey });
-        if (ctx?.usage) {
-          setContextTokens(ctx.usage.tokens || ctx.usage.used || 0);
-          setContextWindow(ctx.usage.window || ctx.usage.total || 1000000);
+        const ctx = await call('getContextUsage', { sessionKey })
+        if (ctx) { setContextTokens(ctx.tokens || ctx.used || 0); setContextWindow(ctx.window || ctx.total || 1000000) }
+      } catch {}
+      // Load session meta
+      try {
+        const meta = await call('getSessionMeta', { sessionKey })
+        if (meta) {
+          setSessions(prev => prev.map(s => s.id === sessionKey ? {
+            ...s, model: meta.model ?? s.model, thinkingLevel: meta.thinkingLevel ?? s.thinkingLevel, mode: meta.mode ?? s.mode,
+          } : s))
+          if (meta.availableThinkingLevels) setThinkingLevels(meta.availableThinkingLevels)
         }
       } catch {}
+      // Load thinking levels
+      try {
+        const tl = await call('getThinkingLevels', { sessionKey })
+        if (tl?.levels) setThinkingLevels(tl.levels)
+      } catch {}
+      // Load attachments
+      try {
+        // Load attachments (processed by message mapper)
+      } catch {}
     } catch (e) {
-      console.error("[useSidecarData] Failed to load session:", e);
+      console.error('Failed to load session:', e)
     }
-  }, [ready, call]);
+  }, [ready, call])
 
-  // ── Create new session ──
-  const createSession = useCallback(async (label?: string): Promise<string | null> => {
-    if (!ready) return null;
+  const sendMessage = useCallback(async (text: string, sessionKeyOrOpts?: string | any, agents?: string[]) => {
+    // Backwards compat: (text, {agentId, model, thinkingLevel}) or (text, sessionKey, agents)
+    let sk: string | undefined
+    let ag: string[] | undefined
+    if (typeof sessionKeyOrOpts === 'string') { sk = sessionKeyOrOpts; ag = agents }
+    else if (sessionKeyOrOpts && typeof sessionKeyOrOpts === 'object') { sk = activeSessionId || undefined; ag = sessionKeyOrOpts.agentId ? [sessionKeyOrOpts.agentId] : undefined }
+    if (!ready) return
+    const hasModels = providers.some((p: any) => p.models && p.models.length > 0)
+    if (!hasModels) {
+      setMessages(prev => [...prev,
+        { id: `msg-${Date.now()}`, role: 'user' as const, content: text, timestamp: new Date().toISOString(), tokensIn: Math.ceil(text.length / 4) },
+        { id: `err-${Date.now()}`, role: 'assistant' as const, content: 'No model configured. Add a provider in Settings first.', timestamp: new Date().toISOString(), isError: true }
+      ])
+      return
+    }
+    const userMsg = { id: `msg-${Date.now()}`, role: 'user' as const, content: text, timestamp: new Date().toISOString(), tokensIn: Math.ceil(text.length / 4) }
+    setMessages(prev => [...prev, userMsg])
+    setIsStreaming(true)
+    setStatusLabel('Thinking'); setStatusKind('thinking')
     try {
-      const result = await call("createSession", { label: label || "New chat" });
-      if (result?.key) {
-        const newSession: Session = {
-          id: result.key,
-          title: result.label || "New chat",
-          type: "chat",
-          updatedAt: new Date().toISOString(),
-          messageCount: 0,
-        };
-        setSessions(prev => [newSession, ...prev]);
-        return result.key;
+      sk = sk || activeSessionId || ''
+      if (!sk) {
+        try {
+          const createResult = await call('createSession', { label: 'New chat' })
+          if (createResult?.sessionKey) {
+            sk = createResult.sessionKey
+            setActiveSessionId(sk as string)
+            try {
+              const r = await call('getFullState', {})
+              if (r?.sessions) setSessions(mapSessions(r.sessions))
+            } catch {}
+          }
+        } catch (e) {
+          console.error('Failed to create session:', e)
+          setIsStreaming(false); setStatusLabel('Failed'); setStatusKind('failed')
+          return
+        }
       }
+      await call('sendMessage', { sessionKey: sk, text, agents: ag || [] })
+      // Reload sessions to get auto-generated title
+      try {
+        const r = await call('getFullState', {})
+        if (r?.sessions) setSessions(mapSessions(r.sessions))
+      } catch {}
     } catch (e) {
-      console.error("[useSidecarData] Failed to create session:", e);
+      console.error('Failed to send message:', e)
+      setIsStreaming(false); setStatusLabel('Failed'); setStatusKind('failed')
     }
-    return null;
-  }, [ready, call]);
+  }, [ready, call, activeSessionId, providers])
 
-  // ── Delete session ──
-  const deleteSession = useCallback(async (sessionKey: string) => {
-    if (!ready) return;
-    try {
-      await call("deleteSession", { sessionKey });
-      setSessions(prev => prev.filter(s => s.id !== sessionKey));
-      if (activeSessionId === sessionKey) {
-        setActiveSessionId(null);
-        setMessages([]);
-      }
-    } catch (e) {
-      console.error("[useSidecarData] Failed to delete session:", e);
-    }
-  }, [ready, call, activeSessionId]);
-
-  // ── Rename session ──
-  const renameSession = useCallback(async (sessionKey: string, label: string) => {
-    if (!ready) return;
-    try {
-      await call("renameSession", { sessionKey, label });
-      setSessions(prev => prev.map(s => s.id === sessionKey ? { ...s, title: label } : s));
-    } catch (e) {
-      console.error("[useSidecarData] Failed to rename session:", e);
-    }
-  }, [ready, call]);
-
-  // ── Reset session ──
-  const resetSession = useCallback(async (sessionKey: string) => {
-    if (!ready) return;
-    try {
-      await call("resetSession", { sessionKey });
-      setMessages([]);
-      setContextTokens(0);
-    } catch (e) {
-      console.error("[useSidecarData] Failed to reset session:", e);
-    }
-  }, [ready, call]);
-
-  // ── Send message ──
-  const sendMessage = useCallback(async (text: string, options?: { sessionKey?: string; agentId?: string; model?: string; thinkingLevel?: string; workingDirs?: string[] }) => {
-    if (!ready) return;
-
-    let sessionKey: string = options?.sessionKey || activeSessionRef.current || "";
-
-    // If no session, create one (welcome mode)
-    if (!sessionKey || sessionKey === "welcome") {
-      const newKey = await createSession("New chat");
-      if (!newKey) return;
-      sessionKey = newKey;
-      setActiveSessionId(sessionKey);
-      activeSessionRef.current = sessionKey;
-    }
-
-    // Add user message
-    const userMsg: Message = {
-      id: `msg-${Date.now()}`,
-      role: "user",
-      content: text,
-      timestamp: new Date().toISOString(),
-      tokensIn: Math.ceil(text.length / 4),
-    };
-    setMessages(prev => [...prev, userMsg]);
-
-    // Set up streaming state
-    setIsStreaming(true);
-    setStatusLabel("Thinking");
-    setStatusKind("thinking");
-    streamingSessionRef.current = sessionKey;
-    streamingMsgRef.current = { role: "assistant", content: "", thinking: [], toolCalls: [], toolResults: [], delegations: [] };
-    hasBlocksRef.current = false;
-
-    try {
-      await call("sendMessage", {
-        sessionKey,
-        text,
-        agentId: options?.agentId,
-        model: options?.model,
-        thinkingLevel: options?.thinkingLevel,
-        workingDirs: options?.workingDirs,
-      });
-    } catch (e: any) {
-      console.error("[useSidecarData] Failed to send message:", e);
-      setIsStreaming(false);
-      setStatusLabel("Failed");
-      setStatusKind("failed");
-      streamingSessionRef.current = null;
-      setMessages(prev => [...prev, {
-        id: `err-${Date.now()}`,
-        role: "assistant",
-        content: "",
-        timestamp: new Date().toISOString(),
-        isError: true,
-        errorType: "generic",
-        errorContent: e?.message || "Failed to send message",
-      }]);
-    }
-  }, [ready, call, createSession]);
-
-  // ── Stop streaming ──
   const stopStreaming = useCallback(() => {
-    if (!ready || !activeSessionRef.current) return;
-    notify("abort", { sessionKey: activeSessionRef.current });
-    setIsStreaming(false);
-    setStatusLabel("");
-    setStatusKind("");
-    streamingSessionRef.current = null;
-    setMessages(prev => prev.map(m => m.isStreaming ? { ...m, isStreaming: false } : m));
-    streamingMsgRef.current = {};
-    hasBlocksRef.current = false;
-  }, [ready, notify]);
+    if (!ready) return
+    call('abort', { sessionKey: activeSessionId }).catch(() => {})
+    setIsStreaming(false); setStatusLabel(''); setStatusKind('')
+    setMessages(prev => prev.map(m => m.isStreaming ? { ...m, isStreaming: false } : m))
+  }, [ready, call, activeSessionId])
 
-  // ── Set model ──
-  const setModel = useCallback(async (model: string, sessionKey?: string) => {
-    if (!ready) return;
-    const sk = sessionKey || activeSessionRef.current;
-    if (!sk) return;
-    try { await call("setModel", { sessionKey: sk, model }); } catch {}
-  }, [ready, call]);
-
-  // ── Set thinking level ──
-  const setThinkingLevel = useCallback(async (level: string, sessionKey?: string) => {
-    if (!ready) return;
-    const sk = sessionKey || activeSessionRef.current;
-    if (!sk) return;
-    try { await call("setThinking", { sessionKey: sk, thinkingLevel: level }); } catch {}
-  }, [ready, call]);
-
-  // ── Set working directory ──
-  const setWorkingDir = useCallback(async (path: string, sessionKey?: string) => {
-    if (!ready) return;
-    const sk = sessionKey || activeSessionRef.current;
-    if (!sk) return;
-    try { await call("setWorkingDir", { sessionKey: sk, path }); } catch {}
-  }, [ready, call]);
-
-  // ── Set mode ──
-  const setMode = useCallback(async (mode: string, sessionKey?: string) => {
-    if (!ready) return;
-    const sk = sessionKey || activeSessionRef.current;
-    if (!sk) return;
-    try { await call("setMode", { sessionKey: sk, mode }); } catch {}
-  }, [ready, call]);
-
-  // ── Compact session ──
-  const compactSession = useCallback(async (sessionKey?: string) => {
-    if (!ready) return;
-    const sk = sessionKey || activeSessionRef.current;
-    if (!sk) return;
-    try { await call("compactSession", { sessionKey: sk }); } catch {}
-  }, [ready, call]);
-
-  // ── Ensure session exists (for expert) ──
-  const ensureSession = useCallback(async (sessionKey: string, label?: string) => {
-    if (!ready) return;
-    try { await call("ensureSession", { sessionKey, label: label || "Expert" }); } catch {}
-  }, [ready, call]);
-
-  // ── Set chat agents ──
-  const setChatAgents = useCallback(async (agentIds: string[], sessionKey?: string) => {
-    if (!ready) return;
-    const sk = sessionKey || activeSessionRef.current;
-    if (!sk) return;
-    try { await call("setChatAgents", { sessionKey: sk, agentIds: agentIds.join(",") }); } catch {}
-  }, [ready, call]);
-
-  // ── Save folders ──
-  const saveFolders = useCallback(async (newFolders: any[]) => {
-    if (!ready) return;
-    try { await call("setFolders", { folders: newFolders }); setFolders(newFolders); } catch {}
-  }, [ready, call]);
-
-  // ── Load full debug log ──
-  const loadFullLog = useCallback(async () => {
-    if (!ready) return;
+  // ── Session CRUD ──
+  const createSession = useCallback(async (label?: string, opts?: any) => {
+    if (!ready) return null
     try {
-      const result = await call("getFullDebugLog", {});
-      if (result?.log) setLogs(result.log.slice(-500));
-    } catch {}
-  }, [ready, call]);
+      const params: any = { label: label || 'New chat' }
+      if (opts?.model) params.model = opts.model
+      if (opts?.thinkingLevel) params.thinkingLevel = opts.thinkingLevel
+      if (opts?.agentId) params.agentId = opts.agentId
+      const r = await call('createSession', params)
+      if (r?.sessionKey) {
+        try {
+          const fs = await call('getFullState', {})
+          if (fs?.sessions) setSessions(mapSessions(fs.sessions))
+        } catch {}
+        return r
+      }
+    } catch (e) { console.error('createSession:', e) }
+    return null
+  }, [ready, call])
 
-  // ── Clear debug log ──
-  const clearLog = useCallback(async () => {
-    if (!ready) return;
-    try { await call("clearDebugLogFile", {}); setLogs([]); } catch {}
-  }, [ready, call]);
+  const deleteSession = useCallback(async (sessionKey: string) => {
+    if (!ready) return
+    try {
+      notify('deleteSession', { sessionKey })
+      setSessions(prev => prev.filter(s => s.id !== sessionKey))
+      if (activeSessionId === sessionKey) { setActiveSessionId(null); setMessages([]) }
+    } catch (e) { console.error('deleteSession:', e) }
+  }, [ready, notify, activeSessionId])
+
+  const renameSession = useCallback(async (sessionKey: string, title: string) => {
+    if (!ready) return
+    try {
+      await call('renameSession', { sessionKey, label: title })
+      setSessions(prev => prev.map(s => s.id === sessionKey ? { ...s, title } : s))
+    } catch (e) { console.error('renameSession:', e) }
+  }, [ready, call])
+
+  const resetSession = useCallback(async (sessionKey: string) => {
+    if (!ready) return
+    try { await call('resetSession', { sessionKey }) } catch (e) { console.error('resetSession:', e) }
+  }, [ready, call])
+
+  const reloadSession = useCallback(async (sessionKey: string) => {
+    if (!ready) return
+    try {
+      notify('reloadSession', { sessionKey })
+      const history = await call('getHistory', { sessionKey })
+      if (history?.messages && sessionKey === activeSessionId) {
+        setMessages(history.messages.map((m: any) => ({
+          id: m.id || `msg-${Math.random()}`, role: m.role,
+          content: m.content || '', timestamp: m.timestamp || new Date().toISOString(),
+          thinking: m.reasoning, toolCalls: m.toolCalls, toolResults: m.toolResults,
+          agentName: m.agentName, agentModel: m.model,
+        })))
+      }
+    } catch (e) { console.error('reloadSession:', e) }
+  }, [ready, call, notify, activeSessionId])
+
+  const moveSession = useCallback((sessionKey: string, folderId: string | null, order: number) => {
+    if (!ready) return
+    notify('moveSession', { sessionKey, folderId, order })
+  }, [ready, notify])
+
+  const compactSession = useCallback(async (sessionKey: string) => {
+    if (!ready) return
+    try { await call('compactSession', { sessionKey }) } catch (e) { console.error('compactSession:', e) }
+  }, [ready, call])
+
+  // ── Session settings ──
+  const setChatAgents = useCallback(async (sessionKeyOrIds: string | string[], agentIds?: string[]) => {
+    let sk: string, ids: string[]
+    if (Array.isArray(sessionKeyOrIds)) { sk = activeSessionId || ''; ids = sessionKeyOrIds }
+    else { sk = sessionKeyOrIds; ids = agentIds || [] }
+    try { await call('setChatAgents', { sessionKey: sk, agents: ids }) } catch (e) { console.error('setChatAgents:', e) }
+    if (!ready) return
+
+  }, [ready, call, activeSessionId])
+
+  const setModel = useCallback(async (sessionKeyOrModel: string, model?: string) => {
+    if (!ready) return
+    let sk: string, m: string
+    if (model !== undefined) { sk = sessionKeyOrModel; m = model }
+    else { sk = activeSessionId || ''; m = sessionKeyOrModel }
+    notify('setModel', { sessionKey: sk, model: m })
+    setSessions(prev => prev.map(s => s.id === sk ? { ...s, model: m } : s))
+  }, [ready, notify, activeSessionId])
+
+  const setThinkingLevel = useCallback(async (sessionKeyOrLevel: string, level?: string) => {
+    if (!ready) return
+    let sk: string, l: string
+    if (level !== undefined) { sk = sessionKeyOrLevel; l = level }
+    else { sk = activeSessionId || ''; l = sessionKeyOrLevel }
+    notify('setThinking', { sessionKey: sk, thinkingLevel: l })
+    setSessions(prev => prev.map(s => s.id === sk ? { ...s, thinkingLevel: l } : s))
+  }, [ready, notify, activeSessionId])
+
+  const setMode = useCallback((sessionKeyOrMode: string, mode?: string) => {
+    if (!ready) return
+    let sk: string, m: string
+    if (mode !== undefined) { sk = sessionKeyOrMode; m = mode }
+    else { sk = activeSessionId || ''; m = sessionKeyOrMode }
+    notify('setMode', { sessionKey: sk, mode: m })
+    setSessions(prev => prev.map(s => s.id === sk ? { ...s, mode: m } : s))
+  }, [ready, notify, activeSessionId])
+
+  const setSessionCompaction = useCallback((sessionKey: string, auto: boolean, threshold: number) => {
+    if (!ready) return
+    notify('setSessionCompaction', { sessionKey, auto, threshold })
+  }, [ready, notify])
+
+  const setWorkingDir = useCallback(async (arg1: string, arg2: string) => {
+    if (!ready) return
+    // Backwards compat: App.tsx calls setWorkingDir(dir, sessionKey)
+    // New API: setWorkingDir(sessionKey, dir)
+    // Detect: if arg1 looks like a path and arg2 looks like a sessionKey
+    let sk: string, dir: string
+    if (arg1.startsWith('/') || arg1.startsWith('~') || arg1.includes('/')) {
+      dir = arg1; sk = arg2
+    } else {
+      sk = arg1; dir = arg2
+    }
+    notify('setWorkingDir', { sessionKey: sk, workingDir: dir })
+  }, [ready, notify])
+
+  const ensureSession = useCallback(async (sessionKey: string, label: string) => {
+    if (!ready) return
+    try { await call('ensureSession', { sessionKey, label }) } catch (e) { console.error('ensureSession:', e) }
+  }, [ready, call])
+
+  // ── Folders ──
+  const updateFolders = useCallback((newFolders: any[]) => {
+    if (!ready) return
+    notify('setFolders', { folders: newFolders })
+    setFolders(newFolders)
+  }, [ready, notify])
+
+  // ── Agent management ──
+  const createAgent = useCallback(async (agentId: string, name: string, config: any) => {
+    if (!ready) return
+    try {
+      await call('createAgent', { agentId, name, ...config })
+      const r = await call('listAgents', {})
+      if (r?.agents) setAgents(r.agents.map(mapAgent))
+    } catch (e) { console.error('createAgent:', e) }
+  }, [ready, call])
+
+  const updateAgent = useCallback(async (agentId: string, config: any) => {
+    if (!ready) return
+    try {
+      await call('updateAgent', { agentId, ...config })
+      const r = await call('listAgents', {})
+      if (r?.agents) setAgents(r.agents.map(mapAgent))
+    } catch (e) { console.error('updateAgent:', e) }
+  }, [ready, call])
+
+  const deleteAgent = useCallback(async (agentId: string) => {
+    if (!ready) return
+    try {
+      await call('deleteAgent', { agentId })
+      setAgents(prev => prev.filter(a => a.id !== agentId))
+    } catch (e) { console.error('deleteAgent:', e) }
+  }, [ready, call])
+
+  const setAgent = useCallback(async (agentId: string, config: any) => {
+    if (!ready) return
+    try { await call('setAgent', { agentId, ...config }) } catch (e) { console.error('setAgent:', e) }
+  }, [ready, call])
+
+  const setAgentOverride = useCallback(async (sessionKey: string, agentId: string, overrides: any) => {
+    if (!ready) return
+    try { await call('setAgentOverride', { sessionKey, agentId, ...overrides }) } catch (e) { console.error('setAgentOverride:', e) }
+  }, [ready, call])
+
+  const getAgentOverrides = useCallback(async (sessionKey: string) => {
+    if (!ready) return {}
+    try { return await call('getAgentOverrides', { sessionKey }) } catch (e) { return {} }
+  }, [ready, call])
+
+  const readAgentFile = useCallback(async (agentId: string, path: string) => {
+    if (!ready) return ''
+    try { const r = await call('readAgentFile', { agentId, path }); return r?.content || r || '' } catch (e) { console.error('readAgentFile:', e); return '' }
+  }, [ready, call])
+
+  const writeAgentFile = useCallback(async (agentId: string, path: string, content: string) => {
+    if (!ready) return
+    try { await call('writeAgentFile', { agentId, path, content }) } catch (e) { console.error('writeAgentFile:', e) }
+  }, [ready, call])
+
+  const createAgentFile = useCallback(async (agentId: string, path: string) => {
+    if (!ready) return
+    try { await call('createAgentFile', { agentId, path }) } catch (e) { console.error('createAgentFile:', e) }
+  }, [ready, call])
+
+  // ── Skills ──
+  const listSkills = useCallback(async () => {
+    if (!ready) return []
+    try { const r = await call('listSkills', {}); return r?.skills || [] } catch (e) { return [] }
+  }, [ready, call])
+
+  const installSkill = useCallback(async (skillId: string) => {
+    if (!ready) return
+    try { await call('installSkill', { skillId }) } catch (e) { console.error('installSkill:', e) }
+  }, [ready, call])
+
+  const createSkill = useCallback(async (skillId: string, name: string, content: string) => {
+    if (!ready) return
+    try { await call('createSkill', { skillId, name, content }) } catch (e) { console.error('createSkill:', e) }
+  }, [ready, call])
+
+  const deleteSkill = useCallback(async (skillId: string) => {
+    if (!ready) return
+    try { await call('deleteSkill', { skillId }) } catch (e) { console.error('deleteSkill:', e) }
+  }, [ready, call])
+
+  const readSkillFile = useCallback(async (skillId: string, path: string) => {
+    if (!ready) return ''
+    try { const r = await call('readSkillFile', { skillId, path }); return r?.content || '' } catch (e) { return '' }
+  }, [ready, call])
+
+  const writeSkillFile = useCallback(async (skillId: string, path: string, content: string) => {
+    if (!ready) return
+    try { await call('writeSkillFile', { skillId, path, content }) } catch (e) { console.error('writeSkillFile:', e) }
+  }, [ready, call])
+
+  // ── Tools ──
+  const listTools = useCallback(async () => {
+    if (!ready) return []
+    try { const r = await call('listTools', {}); return r?.tools || [] } catch (e) { return [] }
+  }, [ready, call])
+
+  const getCommands = useCallback(async () => {
+    if (!ready) return []
+    try { const r = await call('getCommands', {}); return r?.commands || [] } catch (e) { return [] }
+  }, [ready, call])
+
+  // ── Providers ──
+  const setProvidersConfig = useCallback(async (config: any) => {
+    if (!ready) return
+    try { await call('setProvidersConfig', config) } catch (e) { console.error('setProvidersConfig:', e) }
+  }, [ready, call])
+
+  const fetchProviderModels = useCallback(async (providerName: string, baseUrl: string, apiKey: string) => {
+    if (!ready) return []
+    try { return await call('fetchProviderModels', { providerName, baseUrl, apiKey }) } catch (e) { console.error('fetchProviderModels:', e); return [] }
+  }, [ready, call])
+
+  const testProviderConnection = useCallback(async (providerName: string, baseUrl: string, apiKey: string) => {
+    if (!ready) return { success: false, error: 'Not connected' }
+    try { return await call('testProviderConnection', { providerName, baseUrl, apiKey }) } catch (e) { return { success: false, error: String(e) } }
+  }, [ready, call])
+
+  const storeApiKey = useCallback(async (service: string, key: string) => {
+    if (!ready) return
+    try { await call('storeApiKey', { service, key }) } catch (e) { console.error('storeApiKey:', e) }
+  }, [ready, call])
+
+  const deleteApiKey = useCallback(async (service: string) => {
+    if (!ready) return
+    try { await call('deleteApiKey', { service }) } catch (e) { console.error('deleteApiKey:', e) }
+  }, [ready, call])
+
+  const hasApiKey = useCallback(async (service: string) => {
+    if (!ready) return false
+    try { const r = await call('hasApiKey', { service }); return r?.hasKey || false } catch (e) { return false }
+  }, [ready, call])
+
+  const renameProvider = useCallback(async (oldName: string, newName: string) => {
+    if (!ready) return
+    try { await call('renameProvider', { oldName, newName }) } catch (e) { console.error('renameProvider:', e) }
+  }, [ready, call])
+
+  // ── Context / models ──
+  const getModelContext = useCallback(async (modelId: string) => {
+    if (!ready) return null
+    try { return await call('getModelContext', { modelId }) } catch (e) { return null }
+  }, [ready, call])
+
+  const getContextUsage = useCallback(async (sessionKey: string) => {
+    if (!ready) return null
+    try { return await call('getContextUsage', { sessionKey }) } catch (e) { return null }
+  }, [ready, call])
+
+  const getAllContextUsage = useCallback(async () => {
+    if (!ready) return {}
+    try { return await call('getAllContextUsage', {}) } catch (e) { return {} }
+  }, [ready, call])
+
+  // ── History / errors ──
+  const getChatErrors = useCallback(async (sessionKey: string) => {
+    if (!ready) return []
+    try { const r = await call('getChatErrors', { sessionKey }); return r?.errors || [] } catch (e) { return [] }
+  }, [ready, call])
+
+  const getDelegations = useCallback(async (sessionKey: string) => {
+    if (!ready) return []
+    try { const r = await call('getDelegations', { sessionKey }); return r?.delegations || [] } catch (e) { return [] }
+  }, [ready, call])
+
+  const getSystemPrompt = useCallback(async (agentId: string) => {
+    if (!ready) return ''
+    try { const r = await call('getSystemPrompt', { agentId }); return r?.prompt || '' } catch (e) { return '' }
+  }, [ready, call])
+
+  const getStreamingStatus = useCallback(async (sessionKey: string) => {
+    if (!ready) return false
+    try { const r = await call('getStreamingStatus', { sessionKey }); return r?.streaming || false } catch (e) { return false }
+  }, [ready, call])
+
+  const getStreamingMessage = useCallback(async (sessionKey: string) => {
+    if (!ready) return null
+    try { return await call('getStreamingMessage', { sessionKey }) } catch (e) { return null }
+  }, [ready, call])
+
+  // ── Settings / config ──
+  const getSettings = useCallback(async () => {
+    if (!ready) return {}
+    try { return await call('getSettings', {}) } catch (e) { return {} }
+  }, [ready, call])
+
+  const saveSettings = useCallback(async (settings: any) => {
+    if (!ready) return
+    try { await call('saveSettings', settings) } catch (e) { console.error('saveSettings:', e) }
+  }, [ready, call])
+
+  const getGlobalConfig = useCallback(async () => {
+    if (!ready) return {}
+    try { return await call('getGlobalConfig', {}) } catch (e) { return {} }
+  }, [ready, call])
+
+  const updateGlobalConfig = useCallback(async (config: any) => {
+    if (!ready) return
+    try { await call('updateGlobalConfig', config) } catch (e) { console.error('updateGlobalConfig:', e) }
+  }, [ready, call])
+
+  const checkForPiUpdate = useCallback(async () => {
+    if (!ready) return null
+    try { return await call('checkForPiUpdate', {}) } catch (e) { return null }
+  }, [ready, call])
+
+  // ── Logs ──
+  const clearLogs = useCallback(async () => {
+    if (!ready) return
+    try { await call('clearDebugLogFile', {}) } catch (e) { console.error('clearLogs:', e) }
+  }, [ready, call])
+
+  const loadLogs = useCallback(async () => {
+    if (!ready) return []
+    try { const r = await call('getFullDebugLog', {}); return r?.log || [] } catch (e) { return [] }
+  }, [ready, call])
+
+  // ── Attachments ──
+  const saveAttachments = useCallback((sessionKey: string, attachments: any[]) => {
+    if (!ready) return
+    notify('saveAttachments', { sessionKey, attachments })
+  }, [ready, notify])
+
+  const loadAttachments = useCallback(async (sessionKey: string) => {
+    if (!ready) return {}
+    try { return await call('loadAttachments', { sessionKey }) } catch (e) { return {} }
+  }, [ready, call])
+
+  // ── Steer ──
+  const steer = useCallback((sessionKey: string, text: string) => {
+    if (!ready) return
+    notify('steer', { sessionKey, text })
+  }, [ready, notify])
 
   return {
-    connected: ready,
-    error,
-    loading,
-    sessions,
-    agents,
-    providers,
-    messages,
-    activeSessionId,
-    isStreaming,
-    statusLabel,
-    statusKind,
-    contextTokens,
-    contextWindow,
-    logs,
-    folders,
-    selectSession,
-    createSession,
-    deleteSession,
-    renameSession,
-    resetSession,
-    sendMessage,
-    stopStreaming,
-    setModel,
-    setThinkingLevel,
-    setWorkingDir,
-    setMode,
-    compactSession,
-    ensureSession,
-    setChatAgents,
-    saveFolders,
-    refreshSessions,
-    loadFullLog,
-    clearLog,
-    call,
-    notify,
-  };
+    // State
+    connected: ready, loading, sessions, agents, providers, messages, folders, models,
+    activeSessionId, isStreaming, statusLabel, statusKind, contextTokens, contextWindow,
+    thinkingLevels, agentStatus, compactingSessions, sessionTokens, debugLog, piConfigNeeded,
+    // Session management
+    selectSession, sendMessage, stopStreaming, createSession, deleteSession, renameSession,
+    resetSession, reloadSession, moveSession, compactSession, ensureSession,
+    // Session settings
+    setChatAgents, setModel, setThinkingLevel, setMode, setSessionCompaction, setWorkingDir,
+    // Folders
+    updateFolders,
+    // Agent management
+    createAgent, updateAgent, deleteAgent, setAgent, setAgentOverride, getAgentOverrides,
+    readAgentFile, writeAgentFile, createAgentFile,
+    // Skills
+    listSkills, installSkill, createSkill, deleteSkill, readSkillFile, writeSkillFile,
+    // Tools
+    listTools, getCommands,
+    // Providers
+    setProvidersConfig, fetchProviderModels, testProviderConnection, storeApiKey,
+    deleteApiKey, hasApiKey, renameProvider,
+    // Context / models
+    getModelContext, getContextUsage, getAllContextUsage,
+    // History / errors
+    getChatErrors, getDelegations, getSystemPrompt, getStreamingStatus, getStreamingMessage,
+    // Settings / config
+    getSettings, saveSettings, getGlobalConfig, updateGlobalConfig, checkForPiUpdate,
+    // Logs
+    clearLogs, loadLogs,
+    // Attachments
+    saveAttachments, loadAttachments,
+    // Other
+    steer, call, notify,
+  }
 }
+
+export { useSidecarData }

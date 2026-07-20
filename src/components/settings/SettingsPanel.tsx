@@ -167,7 +167,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
               <Label>Default model for new chats</Label>
               <SubLabel>Used when opening a new chat. Existing chats keep their model.</SubLabel>
               <div style={{ height: '8px' }} />
-              <Dropdown label="glm-4.5" items={props.providers.flatMap(p => p.models.map(m => ({ value: m.id, label: m.id, sublabel: p.name })))} currentValue="glm-4.5" />
+              <Dropdown label="No models configured" items={props.providers.flatMap(p => p.models.map(m => ({ value: m.id, label: m.id, sublabel: p.name })))} currentValue="" />
               <div style={{ height: '16px' }} />
               <Label>Default thinking</Label>
               <SubLabel>Reasoning effort. xhigh uses the maximum supported by each model.</SubLabel>
@@ -187,15 +187,15 @@ export function SettingsPanel(props: SettingsPanelProps) {
               <SubLabel>Plan = explore and plan without modifying (safe). Build = executes changes. Used for new chats.</SubLabel>
               <div style={{ height: '8px' }} />
               <div style={{ display: 'flex', gap: '6px' }}>
-                <Pill label="Plan" selected={mode === 'plan'} color="#F4A6BD" onClick={() => setMode('plan')} />
-                <Pill label="Build" selected={mode === 'build'} color="#F2A65E" onClick={() => setMode('build')} />
+                <Pill label="Plan" selected={mode === 'plan'} color="var(--q-mode-plan)" onClick={() => setMode('plan')} />
+                <Pill label="Build" selected={mode === 'build'} color="var(--q-mode-build)" onClick={() => setMode('build')} />
               </div>
               <div style={{ height: '24px' }} />
               <Label>Start at boot</Label>
               <SubLabel>Open Quinki automatically at system startup/login (stays in background in the menu bar/tray).</SubLabel>
               <div style={{ height: '8px' }} />
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <input type="checkbox" defaultChecked style={{ accentColor: 'var(--q-accent-secondary)' }} />
+                <input type="checkbox" defaultChecked style={{ accentColor: 'var(--q-accent-info)' }} />
                 <span style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Launch at login</span>
               </div>
             </Section>
@@ -207,7 +207,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
               <span style={{ color: 'var(--q-accent-warning)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>Some changes require an app restart to be fully applied.</span>
               <div style={{ height: '8px' }} />
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <input type="checkbox" defaultChecked style={{ accentColor: 'var(--q-accent-secondary)' }} />
+                <input type="checkbox" defaultChecked style={{ accentColor: 'var(--q-accent-primary)' }} />
                 <span style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Auto-compaction for new chats</span>
               </div>
               <div style={{ height: '4px' }} />
@@ -226,14 +226,14 @@ export function SettingsPanel(props: SettingsPanelProps) {
               <Label>Colors</Label>
               <SubLabel>Customize the 3 structural colors of the UI. Changes are live: click "Save" above to make them permanent.</SubLabel>
               <div style={{ height: '8px' }} />
-              <ColorPickerRow label="UI background" value="#121212" />
-              <ColorPickerRow label="Floating panel" value="#1F1F1F" />
-              <ColorPickerRow label="User bubble" value="#383838" />
-              <ColorPickerRow label="Bubble text" value="#EAEAEA" />
+              <ColorPickerRow label="UI background" value="#08080B" />
+              <ColorPickerRow label="Floating panel" value="#0F0F13" />
+              <ColorPickerRow label="User bubble" value="#1A1A20" />
+              <ColorPickerRow label="Bubble text" value="#E8E8EC" />
               <div style={{ height: '12px' }} />
               <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>User bubble preview:</span>
               <div style={{ height: '4px' }} />
-              <div style={{ padding: '8px 16px', borderRadius: 'var(--radius-lg)', backgroundColor: '#383838', color: '#EAEAEA', fontSize: '14px', fontFamily: 'var(--font-interface)', display: 'inline-block' }}>This is a test user message</div>
+              <div style={{ padding: '8px 16px', borderRadius: 'var(--radius-lg)', backgroundColor: '#1A1A20', color: '#E8E8EC', fontSize: '14px', fontFamily: 'var(--font-interface)', display: 'inline-block' }}>This is a test user message</div>
             </Section>
 
             {/* Versions */}
@@ -389,7 +389,7 @@ function ProviderRow({ name, provider }: { name: string; provider: Provider }) {
         <div style={{ width: '8px', flexShrink: 0 }} />
         <span style={{ color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>({enabledModels.size} models)</span>
         <span style={{ flex: 1 }} />
-        <input type="checkbox" checked={enabled} onChange={e => setEnabled(e.target.checked)} style={{ accentColor: 'var(--q-accent-secondary)' }} />
+        <input type="checkbox" checked={enabled} onChange={e => setEnabled(e.target.checked)} style={{ accentColor: 'var(--q-accent-primary)' }} />
         <div style={{ width: '8px', flexShrink: 0 }} />
         <span style={{ color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>enabled</span>
         <div style={{ width: '8px', flexShrink: 0 }} />
@@ -433,7 +433,7 @@ function ProviderRow({ name, provider }: { name: string; provider: Provider }) {
               </div>
               {filteredModels.map(m => (
                 <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px' }}>
-                  <input type="checkbox" checked={enabledModels.has(m.id)} onChange={() => toggleModel(m.id)} style={{ accentColor: 'var(--q-accent-secondary)' }} />
+                  <input type="checkbox" checked={enabledModels.has(m.id)} onChange={() => toggleModel(m.id)} style={{ accentColor: 'var(--q-accent-primary)' }} />
                   <span style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', flex: 1 }}>{m.id}</span>
                   <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-code)' }}>{fmtCtx(m.contextWindow)} ctx</span>
                 </div>
@@ -551,7 +551,7 @@ function VersionRow({ label, value }: { label: string; value: string }) {
 function NavArrow({ icon: Icon, disabled }: { icon: React.FC<{ size?: number; style?: React.CSSProperties }>; disabled: boolean }) {
   const [hovered, setHovered] = useState(false)
   return (
-    <button onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} style={{ padding: '2px', border: 'none', cursor: disabled ? 'default' : 'pointer', backgroundColor: 'transparent', display: 'flex', color: disabled ? 'var(--q-text-tertiary)' : (hovered ? 'var(--q-text)' : 'var(--q-text-secondary)'), opacity: disabled ? 0.3 : 1 }}>
+    <button onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} style={{ padding: '0px', border: 'none', cursor: disabled ? 'default' : 'pointer', backgroundColor: 'transparent', display: 'flex', color: disabled ? 'var(--q-text-tertiary)' : (hovered ? 'var(--q-text)' : 'var(--q-text-secondary)'), opacity: disabled ? 0.3 : 1 }}>
       <Icon size={16} />
     </button>
   )
