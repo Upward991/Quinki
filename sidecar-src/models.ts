@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 
-const agentDir = join(homedir(), ".pi", "agent");
+const agentDir = process.env.QUINKI_AGENT_DIR || join(homedir(), ".pi", "agent");
 const modelsPath = join(agentDir, "models.json");
 
 export interface ModelInfo {
