@@ -7,15 +7,22 @@ pub fn run() {
       .level(log::LevelFilter::Info)
       .build())
     .setup(|app| {
-      // Auto-start sidecar (ws-bridge + sidecar.ts)
       #[cfg(not(target_os = "windows"))]
       {
         use tauri_plugin_shell::ShellExt;
+        use std::process::Command;
         
         let home = std::env::var("HOME").unwrap_or_else(|_| "/Users/andreamaddalena".to_string());
         let agent_dir = format!("{}/.pi/agent-quinki-dev", home);
         let project_dir = format!("{}/Projects/Quinki", home);
         let sidecar_dir = format!("{}/sidecar-src", project_dir);
+        
+        // Kill any existing process on port 9182
+        let _ = Command::new("sh")
+          .args(["-c", "lsof -ti:9182 | xargs kill -9 2>/dev/null; pkill -f 'ws-bridge' 2>/dev/null; sleep 1"])
+          .output();
+        
+        log::info!("Killed old sidecar processes");
         
         // Spawn ws-bridge.ts
         let cmd = app.shell().command("npx")
@@ -26,11 +33,8 @@ pub fn run() {
         match cmd.spawn() {
           Ok((mut rx, _child)) => {
             log::info!("Sidecar started");
-            // Spawn thread to consume events (keeps process alive)
             std::thread::spawn(move || {
-              while let Some(_event) = rx.blocking_recv() {
-                // Consume events
-              }
+              while let Some(_event) = rx.blocking_recv() {}
             });
           }
           Err(e) => {
