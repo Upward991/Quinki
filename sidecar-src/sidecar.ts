@@ -197,9 +197,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   createConfig: async () => {
     fs.mkdirSync(agentDir, { recursive: true });
     fs.writeFileSync(authPath, "{}", "utf8");
-    fs.writeFileSync(modelsPath, JSON.stringify({
-      providers: { ollama: { baseUrl: "http://localhost:11434/v1", api: "openai-completions", apiKey: "ollama", models: [] } }
-    }, null, 2), "utf8");
+    fs.writeFileSync(modelsPath, JSON.stringify({ providers: {} }, null, 2), "utf8");
     sendNotification("pi_config_created", {});
     return { created: true };
   },
