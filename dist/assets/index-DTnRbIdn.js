@@ -871,5 +871,372 @@ https://github.com/highlightjs/highlight.js/issues/2277`),i=e,r=t),n===void 0&&(
 			})
 		]
 	});
-}function ig(){let[e,t]=(0,v.useState)(null);if((0,v.useEffect)(()=>{let e=e=>{let n=e.target;(n.tagName===`INPUT`||n.tagName===`TEXTAREA`||n.isContentEditable)&&(e.preventDefault(),t({x:e.clientX,y:e.clientY,target:e.target}))};return document.addEventListener(`contextmenu`,e),()=>document.removeEventListener(`contextmenu`,e)},[]),!e)return null;let n=Math.min(e.x,window.innerWidth-160),r=Math.min(e.y,window.innerHeight-140);return(0,z.jsxs)(z.Fragment,{children:[(0,z.jsx)(`div`,{style:{position:`fixed`,inset:0,zIndex:9998,backgroundColor:`transparent`},onClick:()=>t(null),onContextMenu:e=>{e.preventDefault(),t(null)}}),(0,z.jsxs)(`div`,{style:{position:`fixed`,left:n,top:r,zIndex:9999,backgroundColor:`var(--q-bg-panel)`,borderRadius:`var(--radius-md)`,boxShadow:`var(--shadow-modal)`,animation:`modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)`,border:`1px solid var(--q-border)`,padding:`4px 0`,minWidth:`140px`},children:[(0,z.jsx)(ag,{label:`Copy`,onClick:()=>{document.execCommand(`copy`),t(null)}}),(0,z.jsx)(ag,{label:`Paste`,onClick:()=>{navigator.clipboard.readText().then(n=>{let r=e.target;if(r&&`value`in r){let e=r.selectionStart||0,t=r.selectionEnd||0;r.value=r.value.substring(0,e)+n+r.value.substring(t),r.setSelectionRange(e+n.length,e+n.length),r.dispatchEvent(new Event(`input`,{bubbles:!0}))}t(null)}).catch(()=>t(null))}}),(0,z.jsx)(ag,{label:`Cut`,onClick:()=>{document.execCommand(`cut`),t(null)}})]})]})}function ag({label:e,onClick:t}){let[n,r]=(0,v.useState)(!1);return(0,z.jsx)(`button`,{onClick:t,onMouseEnter:()=>r(!0),onMouseLeave:()=>r(!1),style:{display:`flex`,alignItems:`center`,width:`100%`,padding:`8px 12px`,border:`none`,cursor:`pointer`,backgroundColor:n?`var(--q-hover)`:`transparent`,color:`var(--q-text)`,fontSize:`14px`,fontFamily:`var(--font-interface)`,textAlign:`left`,transform:n?`scale(1.02)`:`scale(1)`,transition:`transform 120ms cubic-bezier(0.16, 1, 0.3, 1)`},children:e})}var og=new Date,sg=e=>new Date(og.getTime()-e*6e4).toISOString();sg(45),sg(44),sg(40),sg(39),sg(35),sg(34),sg(30),sg(29),sg(25),sg(24),sg(20),sg(19),sg(15),sg(14),sg(10),sg(9),sg(5),sg(60),sg(60),sg(120),sg(120),sg(600);var cg=[{id:`comfort`,name:`Comfort`,bg:`#08080B`,bgPanel:`#0F0F13`,bgBubbleUser:`#1A1A20`,text:`#E8E8EC`},{id:`midnight`,name:`Midnight`,bg:`#060608`,bgPanel:`#0C0C10`,bgBubbleUser:`#16161A`,text:`#E8E8EC`},{id:`forest`,name:`Forest`,bg:`#08080A`,bgPanel:`#0E0E10`,bgBubbleUser:`#18181A`,text:`#E8E8EC`},{id:`warm`,name:`Warm`,bg:`#0A0A0A`,bgPanel:`#101010`,bgBubbleUser:`#1A1A1A`,text:`#E8E8EC`},{id:`eclipse`,name:`Eclipse`,bg:`#040406`,bgPanel:`#0A0A0C`,bgBubbleUser:`#141416`,text:`#E8E8EC`},{id:`graphite`,name:`Graphite`,bg:`#0C0C0E`,bgPanel:`#121214`,bgBubbleUser:`#1E1E20`,text:`#E8E8EC`},{id:`mist`,name:`Mist`,bg:`#141416`,bgPanel:`#1A1A1C`,bgBubbleUser:`#262628`,text:`#E8E8EC`}],lg=1;function ug(e=`ws://127.0.0.1:9182`){let t=(0,v.useRef)(null),[n,r]=(0,v.useState)(!1),[i,a]=(0,v.useState)(null),o=(0,v.useRef)(new Map),s=(0,v.useRef)(new Map),[c,l]=(0,v.useState)([]);return(0,v.useEffect)(()=>{let n,i,c=!1,u=()=>{c||(n=new WebSocket(e),t.current=n,n.onopen=()=>{r(!0),a(null)},n.onmessage=e=>{let t;try{t=JSON.parse(e.data)}catch{return}if(t.id!==void 0){let e=o.current.get(t.id);e&&(o.current.delete(t.id),t.error?e.reject(t.error):e.resolve(t.result))}if(t.method&&t.id===void 0){let e=s.current.get(t.method);if(e)for(let n of e)n(t.params);l(e=>[...e.slice(-99),t])}},n.onerror=()=>{a(`WebSocket connection error`)},n.onclose=()=>{r(!1),c||(i=setTimeout(u,2e3))})};return u(),()=>{c=!0,clearTimeout(i),n&&n.close()}},[e]),{call:(0,v.useCallback)((e,n={})=>new Promise((r,i)=>{if(!t.current||t.current.readyState!==WebSocket.OPEN){i(Error(`WebSocket not connected`));return}let a=lg++;o.current.set(a,{resolve:r,reject:i}),t.current.send(JSON.stringify({jsonrpc:`2.0`,method:e,params:n,id:a})),setTimeout(()=>{o.current.has(a)&&(o.current.delete(a),i(Error(`RPC timeout: ${e}`)))},3e4)}),[]),notify:(0,v.useCallback)((e,n={})=>{t.current&&t.current.readyState===WebSocket.OPEN&&t.current.send(JSON.stringify({jsonrpc:`2.0`,method:e,params:n}))},[]),ready:n,error:i,events:c,subscribe:(0,v.useCallback)((e,t)=>(s.current.has(e)||s.current.set(e,new Set),s.current.get(e).add(t),()=>{s.current.get(e)?.delete(t)}),[])}}function dg(e=`ws://127.0.0.1:9182`){let{call:t,notify:n,ready:r,subscribe:i}=ug(e),[a,o]=(0,v.useState)(!0),[s,c]=(0,v.useState)([]),[l,u]=(0,v.useState)([]),[d,f]=(0,v.useState)([]),[p,m]=(0,v.useState)([]),[h,g]=(0,v.useState)(null),[_,y]=(0,v.useState)(!1),[b,x]=(0,v.useState)(``),[S,C]=(0,v.useState)(``),[w,T]=(0,v.useState)(0),[E,D]=(0,v.useState)(1e6),[O]=(0,v.useState)(null);return(0,v.useEffect)(()=>{if(!r)return;let e=!1;return console.log(`[useSidecarData] Sidecar connected, loading data...`),(async()=>{try{let n=await t(`listAgents`,{});if(!e&&n?.agents){console.log(`[useSidecarData] Got agents:`,n.agents.map(e=>e.name));let e=await Promise.all(n.agents.map(async e=>{let n=[];try{let r=await t(`listAgentFiles`,{id:e.id});r?.files&&(n=r.files.map(e=>e.name||e.path||e))}catch{console.log(`[useSidecarData] No files for`,e.id)}return{id:e.id,name:e.name,systemPrompt:e.prompt||``,model:e.model||``,thinking:e.thinking||`off`,skills:(e.skills||[]).map(e=>({name:e,source:`local`,installed:!0})),tools:(e.tools||[]).map(e=>({name:e,enabled:!0})),files:n,isDeletable:e.id!==`orchestrator`}}));u(e)}try{let n=await t(`listSessions`,{});!e&&n?.sessions&&(console.log(`[useSidecarData] Got sessions:`,n.sessions.length),c(n.sessions.map(e=>({id:e.sessionKey||e.id,title:e.title||`Untitled`,type:`chat`,updatedAt:e.updatedAt||new Date().toISOString(),messageCount:e.messageCount||0,agents:e.agents||[],unread:e.unread||!1}))))}catch{console.log(`[useSidecarData] No sessions loaded (might be empty)`)}try{let e=await t(`getModels`,{}),n=await t(`getProvidersConfig`,{}),r={};if(e?.models)for(let t of e.models){let e=t.provider||`unknown`;r[e]||(r[e]=[]),r[e].push({id:t.id,name:t.name||t.id,contextWindow:t.contextWindow})}let i=[];if(n?.providers)for(let[e,t]of Object.entries(n.providers))i.push({id:e,name:e,type:t.api||`ollama`,apiKeyStatus:t.apiKey||t.apiKeySet?`configured`:`missing`,models:r[e]||[],enabled:t.enabled!==!1}),delete r[e];for(let[e,t]of Object.entries(r))i.push({id:e,name:e,type:`unknown`,apiKeyStatus:`missing`,models:t,enabled:!0});console.log(`[useSidecarData] Got providers:`,i.length,`with`,i.reduce((e,t)=>e+t.models.length,0),`models`),f(i)}catch(e){console.log(`[useSidecarData] No providers loaded:`,e)}o(!1),console.log(`[useSidecarData] Data loaded successfully`)}catch(e){console.error(`[useSidecarData] Failed to load data:`,e),o(!1)}})(),()=>{e=!0}},[r,t]),(0,v.useEffect)(()=>{if(!r)return;let e=i(`ready`,()=>{console.log(`[useSidecarData] Sidecar ready notification`)}),t=i(`stream_event`,e=>{let{type:t,content:n,messageId:r}=e;console.log(`[useSidecarData] Stream event:`,t),t===`text`?(m(e=>{let t=e[e.length-1];return t&&t.role===`assistant`&&t.isStreaming?[...e.slice(0,-1),{...t,content:(t.content||``)+n}]:[...e,{id:r||`msg-${Date.now()}`,role:`assistant`,content:n,timestamp:new Date().toISOString(),isStreaming:!0}]}),x(`Writing`),C(`writing`)):t===`thinking`?(x(`Thinking`),C(`thinking`)):t===`toolCall`?(x(`Tool call`),C(`tool_call`)):t===`toolResult`?(x(`Tool result`),C(`tool_result`)):t===`delegation_start`?(x(`Delegating`),C(`delegation`)):t===`delegation_end`?(x(`Running`),C(`running`)):t===`error`?(x(`Failed`),C(`failed`),y(!1)):(t===`done`||t===`end`)&&(y(!1),x(``),C(``),m(e=>e.map(e=>e.isStreaming?{...e,isStreaming:!1}:e)))}),n=i(`compaction`,()=>{x(`Compacting`),C(`compacting`)}),a=i(`context_update`,e=>{e.tokens!==void 0&&T(e.tokens),e.window!==void 0&&D(e.window)});return()=>{e(),t(),n(),a()}},[r,i]),{connected:r,error:O,loading:a,sessions:s,agents:l,providers:d,messages:p,activeSessionId:h,isStreaming:_,statusLabel:b,statusKind:S,contextTokens:w,contextWindow:E,selectSession:(0,v.useCallback)(async e=>{if(r){g(e),m([]);try{let n=await t(`getHistory`,{sessionKey:e});n?.messages&&m(n.messages.map(e=>({id:e.id||`msg-${Math.random()}`,role:e.role,content:e.content,timestamp:e.timestamp||new Date().toISOString(),thinking:e.thinking,toolCalls:e.toolCalls,toolResults:e.toolResults,agentName:e.agentName,tokensIn:e.tokensIn,tokensOut:e.tokensOut,isCompacted:e.isCompacted})));let r=await t(`getContextUsage`,{sessionKey:e});r&&(T(r.tokens||0),D(r.window||1e6))}catch(e){console.error(`[useSidecarData] Failed to load session:`,e)}}},[r,t]),sendMessage:(0,v.useCallback)(async(e,n,i)=>{if(!r)return;let a={id:`msg-${Date.now()}`,role:`user`,content:e,timestamp:new Date().toISOString(),tokensIn:Math.ceil(e.length/4)};m(e=>[...e,a]),y(!0),x(`Thinking`),C(`thinking`);try{let r=await t(`sendMessage`,{sessionKey:n||h||``,text:e,agents:i||[]});r?.sessionKey&&!h&&g(r.sessionKey)}catch(e){console.error(`[useSidecarData] Failed to send message:`,e),y(!1),x(`Failed`),C(`failed`)}},[r,t,h]),stopStreaming:(0,v.useCallback)(()=>{r&&(n(`stopStream`,{sessionKey:h}),y(!1),x(``),C(``))},[r,n,h]),call:t,notify:n}}function fg(){let e=dg(),[t,n]=(0,v.useState)(`home`),[r,i]=(0,v.useState)(`pinned`),[a]=(0,v.useState)(260),[o,s]=(0,v.useState)(``),[c,l]=(0,v.useState)([]),[u,d]=(0,v.useState)(`glm-4.5`),[f,p]=(0,v.useState)(`build`),[m,h]=(0,v.useState)(`on`),[g,_]=(0,v.useState)(`comfort`),[y,b]=(0,v.useState)(!1),[x,S]=(0,v.useState)(!1);(0,v.useEffect)(()=>{document.documentElement.setAttribute(`data-theme`,g)},[]);let C=(0,v.useCallback)(e=>{_(e),document.documentElement.setAttribute(`data-theme`,e)},[]),w=(0,v.useCallback)(e=>{l(t=>t.includes(e)?t.filter(t=>t!==e):[...t,e])},[]),T=(0,v.useCallback)(()=>{t===`chat`&&i(e=>e===`pinned`?`hidden`:`pinned`)},[t]),E=(0,v.useCallback)(e=>{},[]),D=(0,v.useCallback)(t=>{s(t),b(!1),e.selectSession(t)},[e]),O=(0,v.useCallback)(()=>{s(``),b(!0),n(`chat`)},[]),k=(0,v.useCallback)(t=>{e.sendMessage(t,e.activeSessionId||void 0,c),b(!1)},[e,c]),A=(0,v.useCallback)(()=>{e.stopStreaming()},[e]),j=(0,v.useCallback)(e=>{n(e)},[]);if(!e.connected)return(0,z.jsxs)(`div`,{style:{display:`flex`,alignItems:`center`,justifyContent:`center`,height:`100vh`,backgroundColor:`var(--q-bg)`,flexDirection:`column`,gap:`16px`},children:[(0,z.jsx)(`div`,{style:{fontSize:`18px`,fontFamily:`var(--font-interface)`,color:`var(--q-text-secondary)`},children:`Connecting to sidecar…`}),(0,z.jsx)(`div`,{style:{fontSize:`13px`,fontFamily:`var(--font-code)`,color:`var(--q-text-tertiary)`},children:`ws://127.0.0.1:9182`}),(0,z.jsx)(`div`,{style:{width:`200px`,height:`2px`,backgroundColor:`var(--q-border)`,borderRadius:`1px`,overflow:`hidden`},children:(0,z.jsx)(`div`,{style:{width:`40%`,height:`100%`,backgroundColor:`var(--q-accent-primary)`,borderRadius:`1px`,animation:`breathe 1.5s ease-in-out infinite`}})}),e.error&&(0,z.jsx)(`div`,{style:{fontSize:`12px`,fontFamily:`var(--font-code)`,color:`var(--q-accent-danger)`,marginTop:`8px`},children:e.error}),(0,z.jsxs)(`div`,{style:{fontSize:`12px`,fontFamily:`var(--font-interface)`,color:`var(--q-text-tertiary)`,marginTop:`16px`,textAlign:`center`,maxWidth:`400px`,lineHeight:`1.6`},children:[`Start the sidecar with:`,(0,z.jsx)(`br`,{}),(0,z.jsx)(`code`,{style:{color:`var(--q-text-secondary)`,fontFamily:`var(--font-code)`},children:`cd ~/Projects/Quinki/sidecar-src && npx tsx ws-bridge.ts`})]})]});let M=e.sessions,N=e.agents,P=e.providers,F=e.messages,I=e.isStreaming,L=e.statusLabel,ee=e.statusKind,te=e.contextTokens,ne=e.contextWindow,re=M.find(e=>e.id===o),ie=t===`chat`&&r===`pinned`,R=t===`chat`&&(r===`pinned`||r===`peek`),ae=ie?a+8:0;return(0,z.jsx)(yh.Provider,{value:{call:e.call,notify:e.notify,connected:e.connected},children:(0,z.jsxs)(`div`,{className:`flex flex-col h-screen w-screen overflow-hidden`,style:{backgroundColor:`var(--q-bg)`},children:[(0,z.jsxs)(`div`,{className:`flex-1 relative overflow-hidden`,children:[(0,z.jsxs)(`div`,{className:`absolute inset-0 transition-all duration-200`,style:{padding:`8px`,paddingLeft:`${8+ae}px`},children:[t===`home`&&(0,z.jsx)(gh,{activePanel:t,onSelectPanel:j}),t===`chat`&&(0,z.jsx)(mh,{session:re,messages:F,streaming:I,welcomeMode:y,mode:f,activePanel:t,onSelectPanel:j,sidebarOpen:r===`pinned`,onToggleSidebar:T,agentDropdownOpen:x,onToggleAgentDropdown:()=>S(!x),agents:N,selectedAgentIds:c,onAgentToggle:w,providers:P,selectedModel:u,onModelSelect:d,onModeChange:p,thinking:m,onThinkingChange:h,contextTokens:te,contextWindow:ne,onSend:k,onStop:A,onRenameSession:()=>{},statusLabel:L,statusKind:ee,onExport:()=>{}}),t===`expert`&&(0,z.jsx)(mh,{session:void 0,messages:F,streaming:I,welcomeMode:y,mode:f,activePanel:t,onSelectPanel:j,sidebarOpen:!1,onToggleSidebar:()=>{},agentDropdownOpen:x,onToggleAgentDropdown:()=>S(!x),agents:N,selectedAgentIds:[`quinki-expert`],onAgentToggle:w,providers:P,selectedModel:u,onModelSelect:d,onModeChange:p,thinking:m,onThinkingChange:h,contextTokens:te,contextWindow:ne,onSend:k,onStop:A,onRenameSession:()=>{},statusLabel:L,statusKind:ee,onExport:()=>{}}),t===`agents`&&(0,z.jsx)(Sh,{activePanel:t,onSelectPanel:j,agents:N}),t===`log`&&(0,z.jsx)(rg,{activePanel:t,onSelectPanel:j}),t===`settings`&&(0,z.jsx)(Rh,{activePanel:t,onSelectPanel:j,themes:cg,activeThemeId:g,onThemeChange:C,providers:P})]}),R&&(0,z.jsx)(`div`,{className:`absolute top-2 bottom-2 transition-all duration-200`,style:{left:`8px`,width:`${a}px`},children:(0,z.jsx)(`div`,{className:`h-full overflow-hidden`,style:{backgroundColor:`var(--q-bg-panel)`,borderRadius:`var(--radius-lg)`,boxShadow:`var(--shadow-floating)`},children:(0,z.jsx)(mn,{sessions:M,activeSessionId:o,onSelectSession:D,onNewSession:O,onToggleFolder:E,onReorder:()=>{},welcomeMode:y})})}),t===`chat`&&r===`hidden`&&(0,z.jsx)(`div`,{className:`absolute top-2 bottom-2 left-0`,style:{width:`12px`},onMouseEnter:()=>i(`peek`)}),r===`peek`&&(0,z.jsx)(`div`,{className:`absolute inset-0`,style:{width:`${a+20}px`},onMouseLeave:()=>i(`hidden`)})]}),(0,z.jsx)(ig,{})]})})}var pg=class extends v.Component{state={error:null};static getDerivedStateFromError(e){return{error:e.message+`
+}function ig(){let[e,t]=(0,v.useState)(null);if((0,v.useEffect)(()=>{let e=e=>{let n=e.target;(n.tagName===`INPUT`||n.tagName===`TEXTAREA`||n.isContentEditable)&&(e.preventDefault(),t({x:e.clientX,y:e.clientY,target:e.target}))};return document.addEventListener(`contextmenu`,e),()=>document.removeEventListener(`contextmenu`,e)},[]),!e)return null;let n=Math.min(e.x,window.innerWidth-160),r=Math.min(e.y,window.innerHeight-140);return(0,z.jsxs)(z.Fragment,{children:[(0,z.jsx)(`div`,{style:{position:`fixed`,inset:0,zIndex:9998,backgroundColor:`transparent`},onClick:()=>t(null),onContextMenu:e=>{e.preventDefault(),t(null)}}),(0,z.jsxs)(`div`,{style:{position:`fixed`,left:n,top:r,zIndex:9999,backgroundColor:`var(--q-bg-panel)`,borderRadius:`var(--radius-md)`,boxShadow:`var(--shadow-modal)`,animation:`modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)`,border:`1px solid var(--q-border)`,padding:`4px 0`,minWidth:`140px`},children:[(0,z.jsx)(ag,{label:`Copy`,onClick:()=>{document.execCommand(`copy`),t(null)}}),(0,z.jsx)(ag,{label:`Paste`,onClick:()=>{navigator.clipboard.readText().then(n=>{let r=e.target;if(r&&`value`in r){let e=r.selectionStart||0,t=r.selectionEnd||0;r.value=r.value.substring(0,e)+n+r.value.substring(t),r.setSelectionRange(e+n.length,e+n.length),r.dispatchEvent(new Event(`input`,{bubbles:!0}))}t(null)}).catch(()=>t(null))}}),(0,z.jsx)(ag,{label:`Cut`,onClick:()=>{document.execCommand(`cut`),t(null)}})]})]})}function ag({label:e,onClick:t}){let[n,r]=(0,v.useState)(!1);return(0,z.jsx)(`button`,{onClick:t,onMouseEnter:()=>r(!0),onMouseLeave:()=>r(!1),style:{display:`flex`,alignItems:`center`,width:`100%`,padding:`8px 12px`,border:`none`,cursor:`pointer`,backgroundColor:n?`var(--q-hover)`:`transparent`,color:`var(--q-text)`,fontSize:`14px`,fontFamily:`var(--font-interface)`,textAlign:`left`,transform:n?`scale(1.02)`:`scale(1)`,transition:`transform 120ms cubic-bezier(0.16, 1, 0.3, 1)`},children:e})}var og=new Date,sg=e=>new Date(og.getTime()-e*6e4).toISOString();sg(45),sg(44),sg(40),sg(39),sg(35),sg(34),sg(30),sg(29),sg(25),sg(24),sg(20),sg(19),sg(15),sg(14),sg(10),sg(9),sg(5),sg(60),sg(60),sg(120),sg(120),sg(600);var cg=[{id:`comfort`,name:`Comfort`,bg:`#08080B`,bgPanel:`#0F0F13`,bgBubbleUser:`#1A1A20`,text:`#E8E8EC`},{id:`midnight`,name:`Midnight`,bg:`#060608`,bgPanel:`#0C0C10`,bgBubbleUser:`#16161A`,text:`#E8E8EC`},{id:`forest`,name:`Forest`,bg:`#08080A`,bgPanel:`#0E0E10`,bgBubbleUser:`#18181A`,text:`#E8E8EC`},{id:`warm`,name:`Warm`,bg:`#0A0A0A`,bgPanel:`#101010`,bgBubbleUser:`#1A1A1A`,text:`#E8E8EC`},{id:`eclipse`,name:`Eclipse`,bg:`#040406`,bgPanel:`#0A0A0C`,bgBubbleUser:`#141416`,text:`#E8E8EC`},{id:`graphite`,name:`Graphite`,bg:`#0C0C0E`,bgPanel:`#121214`,bgBubbleUser:`#1E1E20`,text:`#E8E8EC`},{id:`mist`,name:`Mist`,bg:`#141416`,bgPanel:`#1A1A1C`,bgBubbleUser:`#262628`,text:`#E8E8EC`}],lg=1;function ug(url = "ws://127.0.0.1:9182") {
+	const wsRef = (0, import_react.useRef)(null);
+	const [ready, setReady] = (0, import_react.useState)(false);
+	const [error, setError] = (0, import_react.useState)(null);
+	const pendingRef = (0, import_react.useRef)(/* @__PURE__ */ new Map());
+	const handlersRef = (0, import_react.useRef)(/* @__PURE__ */ new Map());
+	let nextId = 1;
+	(0, import_react.useEffect)(() => {
+		let closed = false;
+		const connect = () => {
+			if (closed) return;
+			const ws = new WebSocket(url);
+			wsRef.current = ws;
+			ws.onopen = () => {
+				setReady(true);
+				setError(null);
+			};
+			ws.onmessage = (ev) => {
+				let msg;
+				try {
+					msg = JSON.parse(ev.data);
+				} catch {
+					return;
+				}
+				if (msg.id !== void 0) {
+					const pending = pendingRef.current.get(msg.id);
+					if (pending) {
+						pendingRef.current.delete(msg.id);
+						if (msg.error) pending.reject(msg.error);
+						else pending.resolve(msg.result);
+					}
+				}
+				if (msg.method && msg.id === void 0) {
+					const handlers = handlersRef.current.get(msg.method);
+					if (handlers) for (const h of handlers) h(msg.params);
+				}
+			};
+			ws.onerror = () => {
+				setError("WebSocket connection error");
+			};
+			ws.onclose = () => {
+				setReady(false);
+				if (!closed) setTimeout(connect, 2e3);
+			};
+		};
+		connect();
+		return () => {
+			closed = true;
+			wsRef.current?.close();
+		};
+	}, [url]);
+	return {
+		call: (0, import_react.useCallback)((method, params = {}) => {
+			return new Promise((resolve, reject) => {
+				if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+					reject(/* @__PURE__ */ new Error("Not connected"));
+					return;
+				}
+				const id = nextId++;
+				pendingRef.current.set(id, {
+					resolve,
+					reject
+				});
+				wsRef.current.send(JSON.stringify({
+					jsonrpc: "2.0",
+					method,
+					params,
+					id
+				}));
+				setTimeout(() => {
+					if (pendingRef.current.has(id)) {
+						pendingRef.current.delete(id);
+						reject(/* @__PURE__ */ new Error("Timeout: " + method));
+					}
+				}, 3e4);
+			});
+		}, []),
+		notify: (0, import_react.useCallback)((method, params = {}) => {
+			if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) wsRef.current.send(JSON.stringify({
+				jsonrpc: "2.0",
+				method,
+				params
+			}));
+		}, []),
+		ready,
+		error,
+		subscribe: (0, import_react.useCallback)((method, handler) => {
+			if (!handlersRef.current.has(method)) handlersRef.current.set(method, /* @__PURE__ */ new Set());
+			handlersRef.current.get(method).add(handler);
+			return () => {
+				handlersRef.current.get(method)?.delete(handler);
+			};
+		}, [])
+	};
+}
+function dg(sidecarUrl = "ws://127.0.0.1:9182") {
+	const { call, notify, ready, subscribe } = useSidecar(sidecarUrl);
+	const [loading, setLoading] = (0, import_react.useState)(true);
+	const [sessions, setSessions] = (0, import_react.useState)([]);
+	const [agents, setAgents] = (0, import_react.useState)([]);
+	const [providers, setProviders] = (0, import_react.useState)([]);
+	const [messages, setMessages] = (0, import_react.useState)([]);
+	const [activeSessionId, setActiveSessionId] = (0, import_react.useState)(null);
+	const [isStreaming, setIsStreaming] = (0, import_react.useState)(false);
+	const [statusLabel, setStatusLabel] = (0, import_react.useState)("");
+	const [statusKind, setStatusKind] = (0, import_react.useState)("");
+	const [contextTokens, setContextTokens] = (0, import_react.useState)(0);
+	const [contextWindow, setContextWindow] = (0, import_react.useState)(1e6);
+	(0, import_react.useEffect)(() => {
+		if (!ready) return;
+		let cancelled = false;
+		const loadData = async () => {
+			try {
+				const agentsResult = await call("listAgents", {});
+				if (!cancelled && agentsResult?.agents) {
+					const agentsWithFiles = await Promise.all(agentsResult.agents.map(async (a) => {
+						let files = [];
+						try {
+							const filesResult = await call("listAgentFiles", { id: a.id });
+							if (filesResult?.files) files = filesResult.files.map((f) => f.name || f.path || f);
+						} catch {}
+						return {
+							id: a.id,
+							name: a.name,
+							systemPrompt: a.prompt || "",
+							model: a.model || "",
+							thinking: a.thinking || "off",
+							skills: (a.skills || []).map((s) => ({
+								name: s,
+								source: "local",
+								installed: true
+							})),
+							tools: (a.tools || []).map((t) => ({
+								name: t,
+								enabled: true
+							})),
+							files,
+							isDeletable: a.id !== "orchestrator"
+						};
+					}));
+					setAgents(agentsWithFiles);
+				}
+				try {
+					const sessionsResult = await call("listSessions", {});
+					if (!cancelled && sessionsResult?.sessions) setSessions(sessionsResult.sessions.map((s) => ({
+						id: s.sessionKey || s.id || s.key,
+						title: s.label || s.title || "Untitled",
+						type: "chat",
+						updatedAt: new Date(s.lastActivity || Date.now()).toISOString(),
+						messageCount: s.messageCount || 0,
+						agents: s.agents || []
+					})));
+				} catch {}
+				try {
+					const [providersResult, modelsResult] = await Promise.all([call("getProvidersConfig", {}), call("getModels", {})]);
+					if (!cancelled) {
+						const modelsByProvider = {};
+						if (modelsResult?.models) for (const m of modelsResult.models) {
+							const p = m.provider || "unknown";
+							if (!modelsByProvider[p]) modelsByProvider[p] = [];
+							modelsByProvider[p].push({
+								id: m.id,
+								name: m.name || m.id,
+								contextWindow: m.contextWindow
+							});
+						}
+						const providerList = [];
+						if (providersResult?.providers) for (const [id, p] of Object.entries(providersResult.providers)) providerList.push({
+							id,
+							name: id,
+							type: p.api || "ollama",
+							apiKeyStatus: p.apiKey || p.apiKeySet ? "configured" : "missing",
+							models: modelsByProvider[id] || [],
+							enabled: p.enabled !== false
+						});
+						for (const [id, models] of Object.entries(modelsByProvider)) if (!providerList.find((p) => p.id === id)) providerList.push({
+							id,
+							name: id,
+							type: "unknown",
+							apiKeyStatus: "missing",
+							models,
+							enabled: true
+						});
+						setProviders(providerList);
+					}
+				} catch {}
+				setLoading(false);
+			} catch (e) {
+				setLoading(false);
+			}
+		};
+		loadData();
+		return () => {
+			cancelled = true;
+		};
+	}, [ready, call]);
+	(0, import_react.useEffect)(() => {
+		if (!ready) return;
+		const unsubStream = subscribe("stream_event", (params) => {
+			const { type, content, messageId } = params;
+			if (type === "text" || type === "text_delta") {
+				setMessages((prev) => {
+					const last = prev[prev.length - 1];
+					if (last && last.role === "assistant" && last.isStreaming) return [...prev.slice(0, -1), {
+						...last,
+						content: (last.content || "") + (content || "")
+					}];
+					return [...prev, {
+						id: messageId || `msg-${Date.now()}`,
+						role: "assistant",
+						content: content || "",
+						timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+						isStreaming: true
+					}];
+				});
+				setStatusLabel("Writing");
+				setStatusKind("writing");
+			} else if (type === "thinking" || type === "thinking_delta") {
+				setStatusLabel("Thinking");
+				setStatusKind("thinking");
+			} else if (type === "toolCall" || type === "toolcall_start") {
+				setStatusLabel("Tool call");
+				setStatusKind("tool_call");
+			} else if (type === "toolResult" || type === "toolcall_end") {
+				setStatusLabel("Tool result");
+				setStatusKind("tool_result");
+			} else if (type === "delegation_start") {
+				setStatusLabel("Delegating");
+				setStatusKind("delegation");
+			} else if (type === "delegation_end") {
+				setStatusLabel("Running");
+				setStatusKind("running");
+			} else if (type === "error") {
+				setStatusLabel("Failed");
+				setStatusKind("failed");
+				setIsStreaming(false);
+			} else if (type === "done" || type === "end") {
+				setIsStreaming(false);
+				setStatusLabel("");
+				setStatusKind("");
+				setMessages((prev) => prev.map((m) => m.isStreaming ? {
+					...m,
+					isStreaming: false
+				} : m));
+			}
+		});
+		const unsubContext = subscribe("context_update", (params) => {
+			if (params.tokens !== void 0) setContextTokens(params.tokens);
+			if (params.window !== void 0) setContextWindow(params.window);
+		});
+		const unsubCompaction = subscribe("compaction", () => {
+			setStatusLabel("Compacting");
+			setStatusKind("compacting");
+		});
+		const unsubSessionUpdate = subscribe("session_updated", (params) => {
+			call("listSessions", {}).then((r) => {
+				if (r?.sessions) setSessions(r.sessions.map((s) => ({
+					id: s.sessionKey || s.id || s.key,
+					title: s.label || s.title || "Untitled",
+					type: "chat",
+					updatedAt: new Date(s.lastActivity || Date.now()).toISOString(),
+					messageCount: s.messageCount || 0,
+					agents: s.agents || []
+				})));
+			}).catch(() => {});
+		});
+		return () => {
+			unsubStream();
+			unsubContext();
+			unsubCompaction();
+			unsubSessionUpdate();
+		};
+	}, [
+		ready,
+		subscribe,
+		call
+	]);
+	return {
+		connected: ready,
+		loading,
+		sessions,
+		agents,
+		providers,
+		messages,
+		activeSessionId,
+		isStreaming,
+		statusLabel,
+		statusKind,
+		contextTokens,
+		contextWindow,
+		selectSession: (0, import_react.useCallback)(async (sessionKey) => {
+			if (!ready) return;
+			setActiveSessionId(sessionKey);
+			setMessages([]);
+			try {
+				const history = await call("getHistory", { sessionKey });
+				if (history?.messages) setMessages(history.messages.map((m) => ({
+					id: m.id || `msg-${Math.random()}`,
+					role: m.role,
+					content: m.content || "",
+					timestamp: m.timestamp || (/* @__PURE__ */ new Date()).toISOString(),
+					thinking: m.thinking,
+					toolCalls: m.toolCalls,
+					toolResults: m.toolResults,
+					agentName: m.agentName,
+					tokensIn: m.tokensIn,
+					tokensOut: m.tokensOut,
+					isCompacted: m.isCompacted
+				})));
+				const ctx = await call("getContextUsage", { sessionKey });
+				if (ctx) {
+					setContextTokens(ctx.tokens || 0);
+					setContextWindow(ctx.window || 1e6);
+				}
+			} catch (e) {
+				console.error("Failed to load session:", e);
+			}
+		}, [ready, call]),
+		sendMessage: (0, import_react.useCallback)(async (text, sessionKey, agents) => {
+			if (!ready) return;
+			const userMsg = {
+				id: `msg-${Date.now()}`,
+				role: "user",
+				content: text,
+				timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+				tokensIn: Math.ceil(text.length / 4)
+			};
+			setMessages((prev) => [...prev, userMsg]);
+			setIsStreaming(true);
+			setStatusLabel("Thinking");
+			setStatusKind("thinking");
+			try {
+				const result = await call("sendMessage", {
+					sessionKey: sessionKey || activeSessionId || "",
+					text,
+					agents: agents || []
+				});
+				if (result?.sessionKey && !activeSessionId) setActiveSessionId(result.sessionKey);
+			} catch (e) {
+				console.error("Failed to send message:", e);
+				setIsStreaming(false);
+				setStatusLabel("Failed");
+				setStatusKind("failed");
+			}
+		}, [
+			ready,
+			call,
+			activeSessionId
+		]),
+		stopStreaming: (0, import_react.useCallback)(() => {
+			if (!ready) return;
+			notify("stopStream", { sessionKey: activeSessionId });
+			setIsStreaming(false);
+			setStatusLabel("");
+			setStatusKind("");
+			setMessages((prev) => prev.map((m) => m.isStreaming ? {
+				...m,
+				isStreaming: false
+			} : m));
+		}, [
+			ready,
+			notify,
+			activeSessionId
+		]),
+		call,
+		notify
+	};
+}function fg(){let e=dg(),[t,n]=(0,v.useState)(`home`),[r,i]=(0,v.useState)(`pinned`),[a]=(0,v.useState)(260),[o,s]=(0,v.useState)(``),[c,l]=(0,v.useState)([]),[u,d]=(0,v.useState)(`glm-4.5`),[f,p]=(0,v.useState)(`build`),[m,h]=(0,v.useState)(`on`),[g,_]=(0,v.useState)(`comfort`),[y,b]=(0,v.useState)(!1),[x,S]=(0,v.useState)(!1);(0,v.useEffect)(()=>{document.documentElement.setAttribute(`data-theme`,g)},[]);let C=(0,v.useCallback)(e=>{_(e),document.documentElement.setAttribute(`data-theme`,e)},[]),w=(0,v.useCallback)(e=>{l(t=>t.includes(e)?t.filter(t=>t!==e):[...t,e])},[]),T=(0,v.useCallback)(()=>{t===`chat`&&i(e=>e===`pinned`?`hidden`:`pinned`)},[t]),E=(0,v.useCallback)(e=>{},[]),D=(0,v.useCallback)(t=>{s(t),b(!1),e.selectSession(t)},[e]),O=(0,v.useCallback)(()=>{s(``),b(!0),n(`chat`)},[]),k=(0,v.useCallback)(t=>{e.sendMessage(t,e.activeSessionId||void 0,c),b(!1)},[e,c]),A=(0,v.useCallback)(()=>{e.stopStreaming()},[e]),j=(0,v.useCallback)(e=>{n(e)},[]);if(!e.connected)return(0,z.jsxs)(`div`,{style:{display:`flex`,alignItems:`center`,justifyContent:`center`,height:`100vh`,backgroundColor:`var(--q-bg)`,flexDirection:`column`,gap:`16px`},children:[(0,z.jsx)(`div`,{style:{fontSize:`18px`,fontFamily:`var(--font-interface)`,color:`var(--q-text-secondary)`},children:`Connecting to sidecar…`}),(0,z.jsx)(`div`,{style:{fontSize:`13px`,fontFamily:`var(--font-code)`,color:`var(--q-text-tertiary)`},children:`ws://127.0.0.1:9182`}),(0,z.jsx)(`div`,{style:{width:`200px`,height:`2px`,backgroundColor:`var(--q-border)`,borderRadius:`1px`,overflow:`hidden`},children:(0,z.jsx)(`div`,{style:{width:`40%`,height:`100%`,backgroundColor:`var(--q-accent-primary)`,borderRadius:`1px`,animation:`breathe 1.5s ease-in-out infinite`}})}),e.error&&(0,z.jsx)(`div`,{style:{fontSize:`12px`,fontFamily:`var(--font-code)`,color:`var(--q-accent-danger)`,marginTop:`8px`},children:e.error}),(0,z.jsxs)(`div`,{style:{fontSize:`12px`,fontFamily:`var(--font-interface)`,color:`var(--q-text-tertiary)`,marginTop:`16px`,textAlign:`center`,maxWidth:`400px`,lineHeight:`1.6`},children:[`Start the sidecar with:`,(0,z.jsx)(`br`,{}),(0,z.jsx)(`code`,{style:{color:`var(--q-text-secondary)`,fontFamily:`var(--font-code)`},children:`cd ~/Projects/Quinki/sidecar-src && npx tsx ws-bridge.ts`})]})]});let M=e.sessions,N=e.agents,P=e.providers,F=e.messages,I=e.isStreaming,L=e.statusLabel,ee=e.statusKind,te=e.contextTokens,ne=e.contextWindow,re=M.find(e=>e.id===o),ie=t===`chat`&&r===`pinned`,R=t===`chat`&&(r===`pinned`||r===`peek`),ae=ie?a+8:0;return(0,z.jsx)(yh.Provider,{value:{call:e.call,notify:e.notify,connected:e.connected},children:(0,z.jsxs)(`div`,{className:`flex flex-col h-screen w-screen overflow-hidden`,style:{backgroundColor:`var(--q-bg)`},children:[(0,z.jsxs)(`div`,{className:`flex-1 relative overflow-hidden`,children:[(0,z.jsxs)(`div`,{className:`absolute inset-0 transition-all duration-200`,style:{padding:`8px`,paddingLeft:`${8+ae}px`},children:[t===`home`&&(0,z.jsx)(gh,{activePanel:t,onSelectPanel:j}),t===`chat`&&(0,z.jsx)(mh,{session:re,messages:F,streaming:I,welcomeMode:y,mode:f,activePanel:t,onSelectPanel:j,sidebarOpen:r===`pinned`,onToggleSidebar:T,agentDropdownOpen:x,onToggleAgentDropdown:()=>S(!x),agents:N,selectedAgentIds:c,onAgentToggle:w,providers:P,selectedModel:u,onModelSelect:d,onModeChange:p,thinking:m,onThinkingChange:h,contextTokens:te,contextWindow:ne,onSend:k,onStop:A,onRenameSession:()=>{},statusLabel:L,statusKind:ee,onExport:()=>{}}),t===`expert`&&(0,z.jsx)(mh,{session:void 0,messages:F,streaming:I,welcomeMode:y,mode:f,activePanel:t,onSelectPanel:j,sidebarOpen:!1,onToggleSidebar:()=>{},agentDropdownOpen:x,onToggleAgentDropdown:()=>S(!x),agents:N,selectedAgentIds:[`quinki-expert`],onAgentToggle:w,providers:P,selectedModel:u,onModelSelect:d,onModeChange:p,thinking:m,onThinkingChange:h,contextTokens:te,contextWindow:ne,onSend:k,onStop:A,onRenameSession:()=>{},statusLabel:L,statusKind:ee,onExport:()=>{}}),t===`agents`&&(0,z.jsx)(Sh,{activePanel:t,onSelectPanel:j,agents:N}),t===`log`&&(0,z.jsx)(rg,{activePanel:t,onSelectPanel:j}),t===`settings`&&(0,z.jsx)(Rh,{activePanel:t,onSelectPanel:j,themes:cg,activeThemeId:g,onThemeChange:C,providers:P})]}),R&&(0,z.jsx)(`div`,{className:`absolute top-2 bottom-2 transition-all duration-200`,style:{left:`8px`,width:`${a}px`},children:(0,z.jsx)(`div`,{className:`h-full overflow-hidden`,style:{backgroundColor:`var(--q-bg-panel)`,borderRadius:`var(--radius-lg)`,boxShadow:`var(--shadow-floating)`},children:(0,z.jsx)(mn,{sessions:M,activeSessionId:o,onSelectSession:D,onNewSession:O,onToggleFolder:E,onReorder:()=>{},welcomeMode:y})})}),t===`chat`&&r===`hidden`&&(0,z.jsx)(`div`,{className:`absolute top-2 bottom-2 left-0`,style:{width:`12px`},onMouseEnter:()=>i(`peek`)}),r===`peek`&&(0,z.jsx)(`div`,{className:`absolute inset-0`,style:{width:`${a+20}px`},onMouseLeave:()=>i(`hidden`)})]}),(0,z.jsx)(ig,{})]})})}var pg=class extends v.Component{state={error:null};static getDerivedStateFromError(e){return{error:e.message+`
 `+(e.stack||``)}}render(){return this.state.error?(0,z.jsxs)(`div`,{style:{padding:`20px`,color:`red`,fontFamily:`monospace`,fontSize:`14px`,whiteSpace:`pre-wrap`,background:`white`,minHeight:`100vh`},children:[`ERROR: `,this.state.error]}):this.props.children}};(0,y.createRoot)(document.getElementById(`root`)).render((0,z.jsx)(v.StrictMode,{children:(0,z.jsx)(pg,{children:(0,z.jsx)(fg,{})})}));
