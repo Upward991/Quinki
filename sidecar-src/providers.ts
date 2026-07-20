@@ -92,7 +92,7 @@ export function readProvidersConfig(): ProvidersConfig {
       defaultThinking: json.defaultThinking || "xhigh",
     };
   } catch (e) {
-    process.stderr.write("[providers] readProvidersConfig error:", e);
+    process.stderr.write(`[providers] readProvidersConfig error: ${e}`);
     return structuredClone(DEFAULT_CONFIG);
   }
 }
@@ -125,7 +125,7 @@ export function writeProvidersConfig(config: ProvidersConfig): void {
     }));
     process.stderr.write(`[security-audit] writeProvidersConfig: ${JSON.stringify(summary)}`);
   } catch (e) {
-    process.stderr.write("[providers] writeProvidersConfig error:", e);
+    process.stderr.write(`[providers] writeProvidersConfig error: ${e}`);
   }
 }
 
@@ -178,8 +178,8 @@ export async function fetchProviderModels(
                   model_info?: Record<string, any>;
                   capabilities?: string[];
                 };
-                process.stderr.write(`[providers] ollama ${m.name}: /api/show keys:`, Object.keys(showData));
-                process.stderr.write(`[providers] ollama ${m.name}: /api/show model_info:`, showData.model_info);
+                process.stderr.write(`[providers] ollama ${m.name}: /api/show keys: ${Object.keys(showData).join(",")}`);
+                process.stderr.write(`[providers] ollama ${m.name}: /api/show model_info: ${JSON.stringify(showData.model_info).substring(0, 200)}`);
                 if (showData.capabilities) {
                   reasoning = showData.capabilities.includes("thinking");
                 }
@@ -200,7 +200,7 @@ export async function fetchProviderModels(
                 process.stderr.write(`[providers] ollama ${m.name}: /api/show responded ${showRes.status}: ${errText.substring(0, 200)}`);
               }
             } catch (e: any) {
-              process.stderr.write(`[providers] ollama ${m.name}: /api/show error:`, e.message);
+              process.stderr.write(`[providers] ollama ${m.name}: /api/show error: ${e.message}`);
             }
           } else {
             process.stderr.write(`[providers] ollama ${m.name}: context_length=${contextWindow} from /api/tags details`);
@@ -254,7 +254,7 @@ export async function fetchProviderModels(
     process.stderr.write(`[providers] fetchProviderModels: ${providerName} returned ${models.length} models`);
     return models;
   } catch (e) {
-    process.stderr.write(`[providers] fetchProviderModels error for ${providerName}:`, e);
+    process.stderr.write(`[providers] fetchProviderModels error for ${providerName}: ${e}`);
     return [];
   }
 }

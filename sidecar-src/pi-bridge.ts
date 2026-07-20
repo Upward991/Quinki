@@ -4387,7 +4387,7 @@ function writeSettings(settings: any) {
     fs.mkdirSync(path.dirname(SETTINGS_FILE), { recursive: true });
     fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2), "utf8");
   } catch (e) {
-    process.stderr.write("[settings] write failed:", (e as Error).message);
+    process.stderr.write(`[settings] write failed: ${(e as Error}`).message);
   }
 }
 
@@ -4418,7 +4418,7 @@ export function getFolders(): any[] {
     if (json && Array.isArray(json.folders)) return json.folders;
     return [];
   } catch (e) {
-    process.stderr.write("[pi-bridge] getFolders error:", e);
+    process.stderr.write(`[pi-bridge] getFolders error: ${e}`);
     return [];
   }
 }
@@ -4484,7 +4484,7 @@ export function getSessionsFromFile(): any[] {
     if (data && Array.isArray(data.sessions)) return data.sessions;
     return [];
   } catch (e) {
-    process.stderr.write("[pi-bridge] getSessionsFromFile error:", e);
+    process.stderr.write(`[pi-bridge] getSessionsFromFile error: ${e}`);
     return [];
   }
 }
@@ -4775,7 +4775,7 @@ export function getFullDebugLog(): { ts: number; tag: string; data: any }[] {
       } catch {}
     }
   } catch (e) {
-    process.stderr.write("[pi-bridge] getFullDebugLog error:", e);
+    process.stderr.write(`[pi-bridge] getFullDebugLog error: ${e}`);
   }
   return out;
 }
