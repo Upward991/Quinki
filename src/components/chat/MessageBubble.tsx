@@ -363,7 +363,7 @@ function Footer({ content, timestamp, agentName, agentModel, thinkingLevel, onCo
         title="Copy"
         onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)'; e.currentTarget.style.borderRadius = '4px' }}
         onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
-        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', lineHeight: '1', color: 'var(--q-text-tertiary)', borderRadius: '4px', transition: 'background-color 0.15s ease' }}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', lineHeight: '1', color: 'var(--q-text-tertiary)', borderRadius: '6px', transition: 'background-color 0.15s ease' }}
       >
         {copied ? <Check size={16} style={{ color: 'var(--q-accent-success)' }} /> : <Copy size={16} />}
       </button>
@@ -376,7 +376,7 @@ function Footer({ content, timestamp, agentName, agentModel, thinkingLevel, onCo
           title="Info"
           onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)'; e.currentTarget.style.borderRadius = '4px' }}
           onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', lineHeight: '1', color: 'var(--q-text-tertiary)', borderRadius: '4px', transition: 'background-color 0.15s ease' }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', lineHeight: '1', color: 'var(--q-text-tertiary)', borderRadius: '6px', transition: 'background-color 0.15s ease' }}
         >
           <Info size={16} />
         </button>

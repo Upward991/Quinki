@@ -127,7 +127,7 @@ export function ChatHeader(props: ChatHeaderProps) {
                   <CtxRow label="Percent" value={`${((props.contextTokens / props.contextWindow) * 100).toFixed(1)}%`} />
                   <div style={{ height: '14px' }} />
                   <div style={{ textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: '10px', fontWeight: 600, letterSpacing: '0.8px', fontFamily: 'var(--font-code)', marginBottom: '6px' }}>COMPACTION</div>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '2px', cursor: 'pointer', marginBottom: '8px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', marginBottom: '8px' }}>
                     <input type="checkbox" defaultChecked style={{ accentColor: 'var(--q-accent-info)' }} />
                     <span style={{ color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>Auto-compaction (80%)</span>
                   </label>
@@ -190,7 +190,7 @@ export function ChatHeader(props: ChatHeaderProps) {
             {searchOpen && (
               <>
                 <div style={overlayStyle} onClick={() => setSearchOpen(false)} />
-                <div style={{ ...popupStyle, width: '280px', padding: '10px' }}>
+                <div style={{ ...popupStyle, width: '320px', padding: '10px' }}>
                   {/* Row 1 */}
                   <div style={{ display: 'flex', alignItems: 'center', height: '24px' }}>
                     <Search size={16} style={{ color: 'var(--q-text-tertiary)', flexShrink: 0 }} />
@@ -328,11 +328,11 @@ export function ChatHeader(props: ChatHeaderProps) {
         <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setExportOpen(false)}>
           <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
             {/* Title — 24px top, 24px left/right, 0 bottom (Material 3 titlePadding) */}
-            <div style={{ color: 'var(--q-text)', fontSize: '24px', fontFamily: 'var(--font-interface)', padding: '24px 24px 0 24px' }}>Export chat</div>
+            <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', padding: '14px 18px' }}>Export chat</div>
             {/* Content — 16px top, 24px left/right, 0 bottom (Material 3 contentPadding) */}
-            <div style={{ color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', lineHeight: 1.4, padding: '16px 24px 24px 24px' }}>Choose export format:</div>
+            <div style={{ color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', lineHeight: 1.4, padding: '14px 18px' }}>Choose export format:</div>
             {/* Actions — 8px bottom, 16px right (Material 3 actionsPadding) */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '0 16px 8px 16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '0 16px 12px 16px' }}>
               <ExportBtn label="Markdown (.md)" color="var(--q-accent-info-bright)" hoverRgb="181,199,224" onClick={() => setExportOpen(false)} />
               <ExportBtn label="HTML (.html)" color="var(--q-accent-info-bright)" hoverRgb="181,199,224" onClick={() => setExportOpen(false)} />
               <ExportBtn label="Cancel" color="var(--q-accent-danger)" hoverRgb="217,107,107" onClick={() => setExportOpen(false)} />
@@ -365,7 +365,7 @@ function ExportBtn({ label, color, hoverRgb, onClick }: { label: string; color: 
   const [hovered, setHovered] = useState(false)
   return (
     <button onClick={onClick} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-      style={{ padding: '8px 24px', border: 'none', cursor: 'pointer', backgroundColor: hovered ? `rgba(${hoverRgb},0.08)` : 'transparent', color, fontSize: '14px', fontFamily: 'var(--font-interface)', fontWeight: 500, borderRadius: 'var(--radius-md)', transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1)' }}>
+      style={{ padding: '10px 12px', border: 'none', cursor: 'pointer', backgroundColor: hovered ? `rgba(${hoverRgb},0.08)` : 'transparent', color, fontSize: '14px', fontFamily: 'var(--font-interface)', fontWeight: 500, borderRadius: 'var(--radius-md)', transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1)' }}>
       {label}
     </button>
   )

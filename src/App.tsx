@@ -176,7 +176,7 @@ export default function App() {
         alignItems: 'center',
         justifyContent: 'center',
         height: '100vh',
-        width: '100vw',
+        width: '40%',
         backgroundColor: 'var(--q-bg)',
         color: 'var(--q-text-secondary)',
         fontFamily: 'var(--font-interface)',
@@ -203,22 +203,8 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden" style={{ backgroundColor: 'var(--q-bg)' }}>
-      {/* Title bar drag region — Overlay style */}
-      <div
-        data-tauri-drag-region
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: '28px',
-          zIndex: 9999,
-          backgroundColor: 'var(--q-bg)',
-          pointerEvents: 'none',
-        }}
-      />
 
-      <div className="flex-1 relative overflow-hidden" style={{ marginTop: '28px' }}>
+      <div className="flex-1 relative overflow-hidden" style={{ minHeight: '100vh' }}>
         <div
           className="absolute inset-0 transition-all duration-200"
           style={{ padding: '8px', paddingLeft: `${8 + mainPaddingLeft}px` }}
@@ -414,7 +400,7 @@ export default function App() {
               onChange={e => setExpertDir(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') handleExpertDirConfirm() }}
               style={{
-                width: '100%', height: '40px',
+                width: '100%', height: '36px',
                 backgroundColor: 'var(--q-bg-panel)',
                 border: '1px solid var(--q-border)',
                 borderRadius: 'var(--radius-md)',

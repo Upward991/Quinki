@@ -290,7 +290,7 @@ export function Sidebar({ sessions, activeSessionId, onSelectSession, onNewSessi
                       paddingRight: '8px',
                       paddingTop: '4px',
                       paddingBottom: '4px',
-                      minHeight: '32px',
+                      minHeight: '36px',
                       borderRadius: 'var(--radius-md)',
                       backgroundColor: currentDropZone === 'into'
                         ? 'var(--q-accent-folder-open-soft)'

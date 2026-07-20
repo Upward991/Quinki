@@ -422,7 +422,7 @@ function AgentToggle({ agent, isExpanded, isRenaming, onToggle, onStartRename, o
       </div>
       {/* Expanded body — File, Skill, Tool, Delete (no model/thinking/system prompt) */}
       {isExpanded && (
-        <div style={{ padding: '0 12px 12px 12px' }}>
+        <div style={{ padding: '0 12px 12px 14px' }}>
           {/* File */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
             <span style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>File ({agent.files.length})</span>
@@ -526,7 +526,7 @@ function ResourceRow({ icon: Icon, name, description, agentsUsing, badge, badgeC
         <span style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', flex: 1 }}>{name}</span>
         {badge && badgeColor && (
           <>
-            <span style={{ padding: '2px 6px', borderRadius: '3px', backgroundColor: `color-mix(in srgb, ${badgeColor} 15%, transparent)`, color: badgeColor, fontSize: '11px', fontFamily: 'var(--font-interface)' }}>{badge}</span>
+            <span style={{ padding: '2px 6px', borderRadius: '6px', backgroundColor: `color-mix(in srgb, ${badgeColor} 15%, transparent)`, color: badgeColor, fontSize: 'var(--fs-11)', fontFamily: 'var(--font-interface)' }}>{badge}</span>
             <div style={{ width: '8px', flexShrink: 0 }} />
           </>
         )}
@@ -535,7 +535,7 @@ function ResourceRow({ icon: Icon, name, description, agentsUsing, badge, badgeC
         {isExpanded ? <ChevronUp size={16} style={{ color: 'var(--q-text-tertiary)' }} /> : <ChevronDown size={16} style={{ color: 'var(--q-text-tertiary)' }} />}
       </div>
       {isExpanded && (
-        <div style={{ padding: '0 12px 12px 12px' }}>
+        <div style={{ padding: '0 12px 12px 14px' }}>
           <div style={{ height: '1px', backgroundColor: 'var(--q-border)', marginBottom: '8px' }} />
           {description && (
             <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginBottom: '8px', lineHeight: 1.5 }}>{description}</div>
@@ -633,7 +633,7 @@ function FileEditorModal({ agentId, fileName, call, onClose }: { agentId: string
           <div style={{ width: '8px', flexShrink: 0 }} />
           <span style={{ color: 'var(--q-text)', fontSize: '14px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>{fileName}</span>
           <span style={{ flex: 1 }} />
-          {dirty && <span style={{ color: 'var(--q-accent-warning)', fontSize: '11px', fontFamily: 'var(--font-interface)', marginRight: '8px' }}>Unsaved</span>}
+          {dirty && <span style={{ color: 'var(--q-accent-warning)', fontSize: 'var(--fs-11)', fontFamily: 'var(--font-interface)', marginRight: '8px' }}>Unsaved</span>}
           {/* Save button */}
           <button onClick={handleSave} disabled={saving}
             style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', cursor: saving ? 'default' : 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>

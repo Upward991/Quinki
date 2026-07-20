@@ -282,7 +282,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
                     <Folder size={16} style={{ color: 'var(--q-text-secondary)', flexShrink: 0 }} />
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                       <span style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dirName}</span>
-                      <span style={{ color: 'var(--q-text-tertiary)', fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dir}</span>
+                      <span style={{ color: 'var(--q-text-tertiary)', fontSize: 'var(--fs-11)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dir}</span>
                     </div>
                     <button onClick={() => setDirectories(d => d.filter(d2 => d2 !== dir))} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: 'var(--q-text-tertiary)', display: 'flex', flexShrink: 0 }}>
                       <X size={16} />

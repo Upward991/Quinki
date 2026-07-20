@@ -213,7 +213,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
               <div style={{ height: '4px' }} />
               <span style={{ color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>Fixed threshold: 80% of context window for all chats.</span>
               <div style={{ height: '4px' }} />
-              <span style={{ color: 'var(--q-text-tertiary)', fontSize: '11px', fontFamily: 'var(--font-interface)' }}>When the context percentage exceeds 80%, compaction starts automatically (on the next message).</span>
+              <span style={{ color: 'var(--q-text-tertiary)', fontSize: 'var(--fs-11)', fontFamily: 'var(--font-interface)' }}>When the context percentage exceeds 80%, compaction starts automatically (on the next message).</span>
             </Section>
 
             {/* Theme */}
