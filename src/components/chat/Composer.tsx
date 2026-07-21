@@ -150,7 +150,7 @@ export function Composer(props: ComposerProps) {
               setSlashMenuOpen(false); setSlashFilter('')
             }
             // @mention detection
-            if (val.startsWith('@') && !val.includes(' ') && !val.includes('\n')) {
+            if (val.startsWith('@') && !val.includes(' ') && !val.includes(`\n`)) {
               setMentionOpen(true); setMentionFilter(val.slice(1)); setSlashMenuOpen(false)
             } else if (!val.startsWith('@')) {
               setMentionOpen(false); setMentionFilter('')
