@@ -198,7 +198,7 @@ export function LogPanel(props: LogPanelProps) {
   }
 
   return (
-    <div className="h-full flex flex-col" style={{ maxWidth: 'var(--spacing-chat-max)', margin: '0 auto', width: '100%' }}>
+    <div className="h-full flex flex-col" style={{ maxWidth: 'var(--spacing-chat-max)', margin: '0 auto', width: '100%', position: 'relative' }}>
       {/* Header */}
       <div style={{ marginBottom: '8px', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
         <div style={panelStyle}>
@@ -346,31 +346,33 @@ export function LogPanel(props: LogPanelProps) {
             )
           })
         )}
-        {showScrollBtn && (
-          <button
-            onClick={() => { if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight }}
-            style={{
-              position: 'absolute',
-              bottom: '0',
-              right: '0',
-              width: '32px',
-              height: '32px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: 'var(--radius-md)',
-              backgroundColor: 'var(--q-bg-panel)',
-              color: 'var(--q-text-secondary)',
-              border: 'none',
-              cursor: 'pointer',
-              boxShadow: 'var(--shadow-floating)',
-            }}
-          >
-            <ArrowDown size={20} />
-          </button>
-        )}
+
       </div>
 
+      {showScrollBtn && (
+        <button
+          onClick={() => { if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight }}
+          style={{
+            position: 'absolute',
+            bottom: '60px',
+            right: '0',
+            width: '32px',
+            height: '32px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: 'var(--radius-md)',
+            backgroundColor: 'var(--q-bg-panel)',
+            color: 'var(--q-text-secondary)',
+            border: 'none',
+            cursor: 'pointer',
+            boxShadow: 'var(--shadow-floating)',
+            zIndex: 10,
+          }}
+        >
+          <ArrowDown size={20} />
+        </button>
+      )}
       {/* Search bar */}
       <div style={{ marginTop: '8px', flexShrink: 0, ...panelStyle }}>
         <div style={{ width: '12px', flexShrink: 0 }} />
