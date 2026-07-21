@@ -2,13 +2,13 @@ import React from 'react'
 import { useState, useRef, useEffect, useCallback } from 'react'
 
 export function useSidecar(url = "ws://127.0.0.1:9182") {
-	const wsRef = (0, useRef)(null);
-	const [ready, setReady] = (0, useState)(false);
-	const [error, setError] = (0, useState)(null);
-	const pendingRef = (0, useRef)(/* @__PURE__ */ new Map());
-	const handlersRef = (0, useRef)(/* @__PURE__ */ new Map());
+	const wsRef = useRef(null);
+	const [ready, setReady] = useState(false);
+	const [error, setError] = useState(null);
+	const pendingRef = useRef(/* @__PURE__ */ new Map());
+	const handlersRef = useRef(/* @__PURE__ */ new Map());
 	let nextId = 1;
-	(0, useEffect)(() => {
+	useEffect(() => {
 		let closed = false;
 		const connect = () => {
 			if (closed) return;
@@ -53,7 +53,7 @@ export function useSidecar(url = "ws://127.0.0.1:9182") {
 		};
 	}, [url]);
 	return {
-		call: (0, useCallback)((method, params = {}) => {
+		call: useCallback((method, params = {}) => {
 			return new Promise((resolve, reject) => {
 				if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
 					reject(/* @__PURE__ */ new Error("Not connected"));
@@ -78,7 +78,7 @@ export function useSidecar(url = "ws://127.0.0.1:9182") {
 				}, 3e4);
 			});
 		}, []),
-		notify: (0, useCallback)((method, params = {}) => {
+		notify: useCallback((method, params = {}) => {
 			if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) wsRef.current.send(JSON.stringify({
 				jsonrpc: "2.0",
 				method,
@@ -87,7 +87,7 @@ export function useSidecar(url = "ws://127.0.0.1:9182") {
 		}, []),
 		ready,
 		error,
-		subscribe: (0, useCallback)((method, handler) => {
+		subscribe: useCallback((method, handler) => {
 			if (!handlersRef.current.has(method)) handlersRef.current.set(method, /* @__PURE__ */ new Set());
 			handlersRef.current.get(method).add(handler);
 			return () => {
