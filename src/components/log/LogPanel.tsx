@@ -24,6 +24,7 @@ export function LogPanel(props: LogPanelProps) {
   const [showExport, setShowExport] = useState(false)
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null)
   const [autoScroll, setAutoScroll] = useState(true)
+  const [showScrollBtn, setShowScrollBtn] = useState(false)
   const [currentMatch, setCurrentMatch] = useState(0)
   const bodyRef = useRef<HTMLDivElement>(null)
   const { call, notify, connected } = useSidecarContext()
@@ -291,7 +292,25 @@ export function LogPanel(props: LogPanelProps) {
       </div>
 
       {/* Log body */}
-      <div ref={bodyRef} style={{ flex: 1, overflowY: 'auto', padding: '1px 16px 8px 16px' }}>
+      <div ref={bodyRef}
+        style={{ flex: 1, overflowY: 'auto', padding: '1px 16px 8px 16px', position: 'relative' }}
+        onScroll={(e) => {
+          const el = e.currentTarget
+          setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100)
+        }} style={{ flex: 1, overflowY: 'auto', padding: '1px 16px 8px 16px' }}>
+        {showScrollBtn && (
+          <button
+            onClick={() => { if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight }}
+            style={{
+              position: 'absolute', bottom: 0, right: 0, width: '32px', height: '32px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              borderRadius: 'var(--radius-md)', backgroundColor: 'var(--q-bg-panel)',
+              color: 'var(--q-text-secondary)', border: 'none', cursor: 'pointer',
+            }}
+          >
+            <ArrowDown size={20} />
+          </button>
+        )}
         {filtered.length === 0 ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--q-text-tertiary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>
             log vuoto
