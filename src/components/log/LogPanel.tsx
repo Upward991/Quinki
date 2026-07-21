@@ -354,7 +354,7 @@ export function LogPanel(props: LogPanelProps) {
           onClick={() => { if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight }}
           style={{
             position: 'absolute',
-            bottom: 'calc(var(--spacing-header-min) + 8px + 8px)',
+            bottom: '56px',
             right: '0',
             width: '32px',
             height: '32px',
