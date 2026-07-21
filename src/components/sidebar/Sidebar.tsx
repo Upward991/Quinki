@@ -304,7 +304,7 @@ export function Sidebar({ sessions, activeSessionId, onSelectSession, onNewSessi
                       gap: '8px',
                       opacity: isDragging ? 0.15 : 1,
                       boxSizing: 'border-box',
-                      transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), opacity 120ms cubic-bezier(0.16, 1, 0.3, 1)',
+                      transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), opacity 120ms ease',
                     }}
                   >
                     {isFolder ? (

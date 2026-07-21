@@ -303,7 +303,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
                 backgroundColor: focusAdd ? 'var(--q-accent-primary)' : 'var(--q-accent-primary-soft)',
                 color: focusAdd ? 'var(--q-bg)' : 'var(--q-text)',
                 fontSize: '16px', fontFamily: 'var(--font-interface)',
-                transition: 'background-color 0.15s ease, color 0.15s ease',
+                transition: 'background-color 120ms ease, color 120ms ease',
               }}
             >
               <FolderPlus size={14} />
@@ -372,7 +372,7 @@ function MainMenuItem({ label, description, isSelected, onHover, onTap }: {
         cursor: 'pointer',
         display: 'flex',
         alignItems: 'center',
-        transition: 'background-color 0.1s ease',
+        transition: 'background-color 120ms ease',
       }}
     >
       <span style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)' }}>{label}</span>
@@ -400,7 +400,7 @@ function MenuItem({ label, isSelected, isChecked, trailing, onHover, onTap }: {
         cursor: 'pointer',
         display: 'flex',
         alignItems: 'center',
-        transition: 'background-color 0.1s ease',
+        transition: 'background-color 120ms ease',
       }}
     >
       <span style={{ color: isChecked ? 'var(--q-accent-info)' : 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
@@ -462,7 +462,7 @@ function ArrowBtn({ icon: Icon, onClick }: { icon: React.FC<{ size?: number; sty
         backgroundColor: hovered ? 'rgba(255,255,255,0.06)' : 'transparent',
         color: hovered ? 'var(--q-text)' : 'var(--q-text-secondary)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        transition: 'background-color 0.1s ease, color 0.1s ease',
+        transition: 'background-color 120ms ease, color 120ms ease',
       }}
     >
       <Icon size={14} />
@@ -488,7 +488,7 @@ function HoverTextBtn({ label, highlighted, onClick, borderColor, textColor, hov
         backgroundColor: active ? hoverBg : 'transparent',
         color: active ? hoverTextColor : textColor,
         fontSize: '13px', fontFamily: 'var(--font-interface)', fontWeight: fontWeight || 400,
-        transition: 'background-color 0.1s ease, color 0.1s ease',
+        transition: 'background-color 120ms ease, color 120ms ease',
       }}
     >
       {label}

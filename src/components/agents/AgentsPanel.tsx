@@ -536,7 +536,7 @@ function ResourceRow({ icon: Icon, name, description, agentsUsing, badge, badgeC
       </div>
       {isExpanded && (
         <div style={{ padding: '0 12px 12px 14px' }}>
-          <div style={{ height: '1px', backgroundColor: 'var(--q-border)', marginBottom: '8px' }} />
+          <div style={{ height: '2px', backgroundColor: 'var(--q-border)', marginBottom: '8px' }} />
           {description && (
             <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginBottom: '8px', lineHeight: 1.5 }}>{description}</div>
           )}
@@ -622,7 +622,7 @@ function FileEditorModal({ agentId, fileName, call, onClose }: { agentId: string
       <div style={{
         backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)',
         borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '720px', height: '80vh', maxHeight: '600px',
-        display: 'flex', flexDirection: 'column', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', overflow: 'hidden',
+        display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-modal)', overflow: 'hidden',
       }} onClick={e => e.stopPropagation()}>
         {/* Header — bgPanel with bottom border */}
         <div style={{
