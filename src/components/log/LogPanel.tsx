@@ -198,7 +198,7 @@ export function LogPanel(props: LogPanelProps) {
   }
 
   return (
-    <div className="h-full flex flex-col" style={{ maxWidth: 'var(--spacing-chat-max)', margin: '0 auto', width: '100%' }}>
+    <div className="h-full flex flex-col" style={{ maxWidth: 'var(--spacing-chat-max)', margin: '0 auto', width: '100%', position: 'relative' }}>
       {/* Header */}
       <div style={{ marginBottom: '8px', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
         <div style={panelStyle}>
@@ -298,20 +298,7 @@ export function LogPanel(props: LogPanelProps) {
           const el = e.currentTarget
           setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100)
         }} style={{ flex: 1, overflowY: 'auto', padding: '1px 16px 8px 16px' }}>
-        {showScrollBtn && (
-          <button
-            onClick={() => { if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight }}
-            style={{
-              position: 'absolute', bottom: '8px', right: '0', width: '32px', height: '32px',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              borderRadius: 'var(--radius-md)', backgroundColor: 'var(--q-bg-panel)',
-              color: 'var(--q-text-secondary)', border: 'none', cursor: 'pointer',
-              boxShadow: 'var(--shadow-floating)',
-            }}
-          >
-            <ArrowDown size={20} />
-          </button>
-        )}
+        
         {filtered.length === 0 ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--q-text-tertiary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>
             log vuoto
@@ -361,6 +348,31 @@ export function LogPanel(props: LogPanelProps) {
         )}
       </div>
 
+      {/* Auto-scroll button — above search bar, right-aligned, 8px gap */}
+      {showScrollBtn && (
+        <button
+          onClick={() => { if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight }}
+          style={{
+            position: 'absolute',
+            bottom: 'calc(var(--spacing-header-min) + 8px + 8px)',
+            right: '0',
+            width: '32px',
+            height: '32px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: 'var(--radius-md)',
+            backgroundColor: 'var(--q-bg-panel)',
+            color: 'var(--q-text-secondary)',
+            border: 'none',
+            cursor: 'pointer',
+            boxShadow: 'var(--shadow-floating)',
+            zIndex: 10,
+          }}
+        >
+          <ArrowDown size={20} />
+        </button>
+      )}
       {/* Search bar */}
       <div style={{ marginTop: '8px', flexShrink: 0, ...panelStyle }}>
         <div style={{ width: '12px', flexShrink: 0 }} />
