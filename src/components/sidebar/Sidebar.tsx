@@ -1,5 +1,392 @@
-import React from 'react'
 import { useState } from 'react'
-import { Folder, FolderOpen, MessageSquare, MessageSquarePlus, FolderAdd} from '../icons'
+import { Folder, FolderOpen, MessageSquare, MessageSquarePlus, FolderAdd } from '../icons'
 
-export function Sidebar({sessions:e,activeSessionId:t,onSelectSession:n,onNewSession:r,onToggleFolder:i,onReorder:a,welcomeMode:o}){let[s,c]=useState(null),[l,u]=useState(!1),[d,f]=useState(!1),[p,m]=useState(!1),[h,g]=useState(!1),[_,y]=useState(null),[b,x]=useState(null),[S,C]=useState(null),[w,T]=useState(!1),[E,D]=useState(new Set),[O,k]=useState(!1),A=[],j=e.filter(e=>!e.parentId);for(let t of j)if(t.type===`folder`){if(A.push({item:t,depth:0}),t.isExpanded){let n=e.filter(e=>e.parentId===t.id);for(let t of n)if(t.type===`folder`){if(A.push({item:t,depth:1}),t.isExpanded){let n=e.filter(e=>e.parentId===t.id);for(let e of n)A.push({item:e,depth:2})}}else A.push({item:t,depth:1})}}else A.push({item:t,depth:0});let M=(t,n)=>{let r=e.filter(e=>e.parentId===n);for(let e of r)if(e.id===t||e.type===`folder`&&M(t,e.id))return!0;return!1},N=(e,t)=>!(e.id===t||e.kind===`folder`&&M(t,e.id)),P=(e,t,n)=>n?e<t*.15?`before`:e>t*.85?`after`:`into`:e<t*.5?`before`:`after`,F=(t,n)=>{if(!_)return;let r=e.find(e=>e.id===t);if(!r||!N(_,t))return;let i=[...e],o=i.findIndex(e=>e.id===_.id);if(o===-1)return;let[s]=i.splice(o,1);if(n===`into`&&r.type===`folder`){s.parentId=t;let e=i.findIndex(e=>e.id===t)+1;for(;e<i.length&&i[e].parentId===t;)e++;i.splice(e,0,s)}else if(n===`before`){s.parentId=r.parentId;let e=i.findIndex(e=>e.id===t);i.splice(e,0,s)}else if(n===`after`){s.parentId=r.parentId;let e=i.findIndex(e=>e.id===t);i.splice(e+1,0,s)}a?.(i),y(null),x(null)},I=()=>{if(!_)return;let t=[...e],n=t.findIndex(e=>e.id===_.id);if(n===-1)return;let[r]=t.splice(n,1);r.parentId=void 0,t.push(r),a?.(t),y(null),x(null)};return React.createElement(`div`,{style:{display:`flex`,flexDirection:`column`,height:`100%`},children:[React.createElement(`div`,{style:{padding:`8px`},children:React.createElement(`div`,{style:{display:`flex`,alignItems:`center`,gap:`8px`},children:[React.createElement(`button`,{onClick:()=>{r(),m(!0),setTimeout(()=>m(!1),600)},onMouseEnter:()=>u(!0),onMouseLeave:()=>u(!1),style:{flex:1,height:`32px`,display:`flex`,alignItems:`center`,justifyContent:`center`,borderRadius:`var(--radius-md)`,border:`none`,cursor:`pointer`,backgroundColor:o||l?`var(--q-hover)`:`transparent`,color:o?`var(--q-accent-info)`:p?`var(--q-accent-primary)`:l?`var(--q-text)`:`var(--q-text-secondary)`,padding:`0`,transition:`background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms ease`},children:React.createElement(MessageSquarePlus,{size:20})}),React.createElement(`button`,{onClick:()=>{g(!0),setTimeout(()=>g(!1),600)},onMouseEnter:()=>f(!0),onMouseLeave:()=>f(!1),style:{width:`40px`,height:`32px`,display:`flex`,alignItems:`center`,justifyContent:`center`,borderRadius:`var(--radius-md)`,border:`none`,cursor:`pointer`,backgroundColor:d?`var(--q-hover)`:`transparent`,color:h?`var(--q-accent-folder-open)`:d?`var(--q-text)`:`var(--q-text-secondary)`,padding:`0`,flexShrink:0,transform:d?`scale(1.02)`:`scale(1)`,transition:`background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms ease, transform 120ms ease`},children:React.createElement(FolderAdd,{size:20})})]})}),React.createElement(`div`,{style:{flex:1,overflowY:`auto`},children:A.length===0?React.createElement(`div`,{style:{padding:`24px 8px`,textAlign:`center`,color:`var(--q-text-tertiary)`,fontSize:`14px`,fontFamily:`var(--font-interface)`},children:`No chats`}):React.createElement(React.Fragment,{children:[A.map(({item:e,depth:r})=>{let a=e.id===t,o=s===e.id,l=e.type===`folder`,u=l&&e.isExpanded,d=_?.id===e.id,f=w&&E.has(e.id),p=b?.id===e.id?b.zone:null,m=`var(--q-accent-folder-open)`,h=l?u?m:o?`var(--q-text)`:`var(--q-text-secondary)`:f?`var(--q-accent-danger)`:a?`var(--q-accent-info)`:o?`var(--q-text)`:`var(--q-text-secondary)`,g=l?u?m:o?`var(--q-text)`:`var(--q-text-tertiary)`:f?`var(--q-accent-danger)`:a?`var(--q-accent-info)`:o?`var(--q-text)`:`var(--q-text-tertiary)`,v=o&&!a?`var(--q-hover)`:`transparent`;return React.createElement(`div`,{style:{paddingLeft:`8px`,paddingRight:`8px`,paddingBottom:`4px`,position:`relative`},onMouseEnter:()=>c(e.id),onMouseLeave:()=>c(null),children:[p===`before`&&React.createElement(`div`,{style:{position:`absolute`,top:`-1px`,left:`${8+r*12}px`,right:`8px`,height:`2px`,backgroundColor:`var(--q-accent-primary)`,borderRadius:`1px`,zIndex:10,pointerEvents:`none`}}),p===`after`&&React.createElement(`div`,{style:{position:`absolute`,bottom:`1px`,left:`${8+r*12}px`,right:`8px`,height:`2px`,backgroundColor:`var(--q-accent-primary)`,borderRadius:`1px`,zIndex:10,pointerEvents:`none`}}),React.createElement(`div`,{draggable:!0,onDragStart:t=>{y({id:e.id,kind:l?`folder`:`chat`}),t.dataTransfer.effectAllowed=`move`;try{let e=new Image;e.src=`data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7`,t.dataTransfer.setDragImage(e,0,0)}catch{}},onDragEnd:()=>{y(null),x(null),k(!1)},onDragOver:t=>{if(!_||!N(_,e.id))return;t.preventDefault(),t.dataTransfer.dropEffect=`move`;let n=t.currentTarget.getBoundingClientRect(),r=t.clientY-n.top,i=P(r,n.height,l);(b?.id!==e.id||b?.zone!==i)&&x({id:e.id,zone:i})},onDragLeave:t=>{let n=t.currentTarget.getBoundingClientRect(),r=t.clientX,i=t.clientY;(r<n.left||r>n.right||i<n.top||i>n.bottom)&&b?.id===e.id&&x(null)},onDrop:t=>{if(t.preventDefault(),!_)return;let n=t.currentTarget.getBoundingClientRect(),r=t.clientY-n.top,i=P(r,n.height,l);F(e.id,i)},onClick:()=>{if(w&&!l){let t=new Set(E);t.has(e.id)?t.delete(e.id):t.add(e.id),D(t)}else l?i(e.id):n(e.id)},onContextMenu:t=>{t.preventDefault(),t.stopPropagation(),C({x:t.clientX,y:t.clientY,item:e})},style:{paddingLeft:`${r*12+10}px`,paddingRight:`8px`,paddingTop:`6px`,paddingBottom:`6px`,minHeight:`36px`,borderRadius:`var(--radius-md)`,backgroundColor:p===`into`?`var(--q-accent-folder-open-soft)`:v,border:p===`into`?`2px solid var(--q-accent-folder-open-border)`:`none`,boxShadow:`none`,cursor:`pointer`,display:`flex`,alignItems:`center`,gap:`8px`,opacity:d?.15:1,boxSizing:`border-box`,transition:`background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), opacity 120ms ease`},children:[l?u?React.createElement(FolderOpen,{size:20,style:{color:g,flexShrink:0,transform:o?`translateX(2px)`:`translateX(0)`,transition:`transform 120ms ease`}}):React.createElement(Folder,{size:20,style:{color:g,flexShrink:0,transform:o?`translateX(2px)`:`translateX(0)`,transition:`transform 120ms ease`}}):React.createElement(MessageSquare,{size:20,style:{color:g,flexShrink:0,transform:o?`translateX(2px)`:`translateX(0)`,transition:`transform 120ms ease`}}),React.createElement(`span`,{style:{color:h,fontSize:`14px`,fontFamily:`var(--font-interface)`,flex:1,overflow:`hidden`,textOverflow:`ellipsis`,whiteSpace:`nowrap`,lineHeight:`20px`},children:e.title||`Chat`}),e.unread&&!a&&React.createElement(`span`,{style:{backgroundColor:`var(--q-accent-primary)`,color:`var(--q-bg)`,fontSize:`12px`,fontWeight:600,fontFamily:`var(--font-interface)`,borderRadius:`999px`,padding:`4px 8px`,minWidth:`18px`,textAlign:`center`,flexShrink:0,lineHeight:`1`},children:e.messageCount||0})]})]},e.id)}),React.createElement(`div`,{style:{height:`20px`,padding:`0 8px`},onDragOver:e=>{_&&(e.preventDefault(),e.dataTransfer.dropEffect=`move`,k(!0))},onDragLeave:()=>k(!1),onDrop:e=>{e.preventDefault(),I()},children:O&&React.createElement(`div`,{style:{height:`2px`,backgroundColor:`var(--q-accent-primary)`,borderRadius:`1px`,margin:`0 8px`}})})]})}),S&&React.createElement(hn,{x:S.x,y:S.y,item:S.item,onClose:()=>C(null),onRename:()=>{},onOpenWindow:()=>{},onDelete:()=>{S.item.type===`folder`?a?.(e.filter(e=>e.id!==S.item.id&&e.parentId!==S.item.id)):a?.(e.filter(e=>e.id!==S.item.id))},multiSelect:w,selectedForRemoval:E,setMultiSelect:T,setSelectedForRemoval:D,onReorder:a,sessions:e})]})}function hn({x:e,y:t,item:n,onClose:r,onRename:i,onOpenWindow:a,onDelete:o,multiSelect:s,selectedForRemoval:c,setMultiSelect:l,setSelectedForRemoval:u,onReorder:d,sessions:f}){let p=n.type===`folder`;return React.createElement(React.Fragment,{children:[React.createElement(`div`,{style:{position:`fixed`,inset:0,zIndex:200},onClick:r,onContextMenu:e=>{e.preventDefault(),r()}}),React.createElement(`div`,{style:{position:`fixed`,left:Math.min(e,window.innerWidth-200),top:Math.min(t,window.innerHeight-250),zIndex:210,backgroundColor:`var(--q-bg-panel)`,borderRadius:`var(--radius-md)`,boxShadow:`var(--shadow-modal)`,border:`1px solid var(--q-border)`,padding:`4px 0`,minWidth:`180px`},children:s?React.createElement(React.Fragment,{children:[React.createElement(gn,{label:`Deselect all`,onClick:()=>{l(!1),u(new Set),r()}}),c.size>0&&React.createElement(gn,{label:`Delete ${c.size} chat${c.size>1?`es`:``}`,color:`var(--q-accent-danger)`,onClick:()=>{d?.(f.filter(e=>!c.has(e.id))),l(!1),u(new Set),r()}})]}):React.createElement(React.Fragment,{children:[React.createElement(gn,{label:`Rename`,onClick:()=>{i(),r()}}),!p&&React.createElement(gn,{label:`Select chat`,onClick:()=>{l(!0),u(new Set([n.id])),r()}}),!p&&React.createElement(gn,{label:`Open in separate window`,onClick:()=>{a(),r()}}),p&&React.createElement(gn,{label:`New subfolder`,onClick:()=>{r()}}),React.createElement(gn,{label:p?`Delete folder`:`Delete chat`,color:`var(--q-accent-danger)`,onClick:()=>{o(),r()}}),p&&React.createElement(gn,{label:`Delete folder with contents`,color:`var(--q-accent-danger)`,onClick:()=>{let e=new Set([n.id]),t=!0;for(;t;){t=!1;for(let n of f)n.parentId&&e.has(n.parentId)&&!e.has(n.id)&&(e.add(n.id),t=!0)}d?.(f.filter(t=>!e.has(t.id))),r()}})]})})]})}function gn({label:e,color:t,onClick:n}){let[r,i]=useState(!1);return React.createElement(`button`,{onClick:n,onMouseEnter:()=>i(!0),onMouseLeave:()=>i(!1),style:{display:`flex`,alignItems:`center`,width:`100%`,padding:`8px 12px`,border:`none`,cursor:`pointer`,backgroundColor:r?`var(--q-hover)`:`transparent`,color:t||`var(--q-text)`,fontSize:`14px`,fontFamily:`var(--font-interface)`,textAlign:`left`},children:e})}function _n(e,t){let n=t||{};return(e[e.length-1]===``?[...e,``]:e).join((n.padRight?` `:``)+`,`+(n.padLeft===!1?``:` `)).trim()}var vn=/^[$_\p{ID_Start}][$_\u{200C}\u{200D}\p{ID_Continue}]*$/u,yn=/^[$_\p{ID_Start}][-$_\u{200C}\u{200D}\p{ID_Continue}]*$/u,bn={};function xn(e,t){return((t||bn).jsx?yn:vn).test(e)}var Sn=/[ \t\n\f\r]/g;function Cn(e){return typeof e==`object`?e.type===`text`&&wn(e.value):wn(e)}function wn(e){return e.replace(Sn,``)===``}var Tn=class{constructor(e,t,n){this.normal=t,this.property=e,n&&(this.space=n)}};Tn.prototype.normal={},Tn.prototype.property={},Tn.prototype.space=void 0;function En(e,t){let n={},r={};for(let t of e)Object.assign(n,t.property),Object.assign(r,t.normal);return new Tn(n,r,t)}function Dn(e){return e.toLowerCase()}var On=class{constructor(e,t){this.attribute=t,this.property=e}};On.prototype.attribute=``,On.prototype.booleanish=!1,On
+interface Session {
+  id: string
+  title?: string
+  type?: string
+  parentId?: string
+  isExpanded?: boolean
+  unread?: boolean
+  messageCount?: number
+  kind?: string
+}
+
+interface SidebarProps {
+  sessions: Session[]
+  activeSessionId: string
+  onSelectSession: (id: string) => void
+  onNewSession: () => void
+  onToggleFolder: (id: string) => void
+  onReorder: (sessions: Session[]) => void
+  welcomeMode?: boolean
+}
+
+export function Sidebar({ sessions, activeSessionId, onSelectSession, onNewSession, onToggleFolder, onReorder, welcomeMode }: SidebarProps) {
+  const [hoveredId, setHoveredId] = useState<string | null>(null)
+  const [newChatHover, setNewChatHover] = useState(false)
+  const [newFolderHover, setNewFolderHover] = useState(false)
+  const [newChatPulse, setNewChatPulse] = useState(false)
+  const [newFolderPulse, setNewFolderPulse] = useState(false)
+  const [dragItem, setDragItem] = useState<any>(null)
+  const [dropZone, setDropZone] = useState<{ id: string; zone: string } | null>(null)
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; item: Session } | null>(null)
+  const [multiSelect, setMultiSelect] = useState(false)
+  const [selectedForRemoval, setSelectedForRemoval] = useState<Set<string>>(new Set())
+  const [showDropZone, setShowDropZone] = useState(false)
+
+  // Build flat list with depth
+  const flatList: { item: Session; depth: number }[] = []
+  const topLevel = sessions.filter(s => !s.parentId)
+  for (const item of topLevel) {
+    if (item.type === 'folder') {
+      flatList.push({ item, depth: 0 })
+      if (item.isExpanded) {
+        const children = sessions.filter(s => s.parentId === item.id)
+        for (const child of children) {
+          if (child.type === 'folder') {
+            flatList.push({ item: child, depth: 1 })
+            if (child.isExpanded) {
+              const grandchildren = sessions.filter(s => s.parentId === child.id)
+              for (const gc of grandchildren) flatList.push({ item: gc, depth: 2 })
+            }
+          } else {
+            flatList.push({ item: child, depth: 1 })
+          }
+        }
+      }
+    } else {
+      flatList.push({ item, depth: 0 })
+    }
+  }
+
+  const isDescendant = (id: string, parentId: string): boolean => {
+    const children = sessions.filter(s => s.parentId === parentId)
+    for (const child of children) {
+      if (child.id === id || (child.type === 'folder' && isDescendant(id, child.id))) return true
+    }
+    return false
+  }
+
+  const canDrop = (drag: any, targetId: string): boolean => {
+    return !(drag.id === targetId || (drag.kind === 'folder' && isDescendant(targetId, drag.id)))
+  }
+
+  const getDropZone = (offset: number, height: number, isFolder: boolean): string => {
+    if (isFolder) return offset < height * 0.15 ? 'before' : offset > height * 0.85 ? 'after' : 'into'
+    return offset < height * 0.5 ? 'before' : 'after'
+  }
+
+  const handleDrop = (targetId: string, zone: string) => {
+    if (!dragItem) return
+    const target = sessions.find(s => s.id === targetId)
+    if (!target || !canDrop(dragItem, targetId)) return
+    const arr = [...sessions]
+    const dragIdx = arr.findIndex(s => s.id === dragItem.id)
+    if (dragIdx === -1) return
+    const [dragged] = arr.splice(dragIdx, 1)
+    if (zone === 'into' && target.type === 'folder') {
+      dragged.parentId = targetId
+      let insertIdx = arr.findIndex(s => s.id === targetId) + 1
+      while (insertIdx < arr.length && arr[insertIdx].parentId === targetId) insertIdx++
+      arr.splice(insertIdx, 0, dragged)
+    } else if (zone === 'before') {
+      dragged.parentId = target.parentId
+      arr.splice(arr.findIndex(s => s.id === targetId), 0, dragged)
+    } else if (zone === 'after') {
+      dragged.parentId = target.parentId
+      arr.splice(arr.findIndex(s => s.id === targetId) + 1, 0, dragged)
+    }
+    onReorder?.(arr)
+    setDragItem(null)
+    setDropZone(null)
+  }
+
+  const handleDropToEnd = () => {
+    if (!dragItem) return
+    const arr = [...sessions]
+    const idx = arr.findIndex(s => s.id === dragItem.id)
+    if (idx === -1) return
+    const [dragged] = arr.splice(idx, 1)
+    dragged.parentId = undefined
+    arr.push(dragged)
+    onReorder?.(arr)
+    setDragItem(null)
+    setDropZone(null)
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* New chat / folder buttons */}
+      <div className="p-2">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => { onNewSession(); setNewChatPulse(true); setTimeout(() => setNewChatPulse(false), 600) }}
+            onMouseEnter={() => setNewChatHover(true)}
+            onMouseLeave={() => setNewChatHover(false)}
+            className="flex-1 h-8 flex items-center justify-center rounded-md border-none cursor-pointer p-0"
+            style={{
+              backgroundColor: welcomeMode || newChatHover ? 'var(--q-hover)' : 'transparent',
+              color: welcomeMode ? 'var(--q-accent-info)' : newChatPulse ? 'var(--q-accent-primary)' : newChatHover ? 'var(--q-text)' : 'var(--q-text-secondary)',
+              transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms ease',
+            }}
+          >
+            <MessageSquarePlus size={20} />
+          </button>
+          <button
+            onClick={() => { setNewFolderPulse(true); setTimeout(() => setNewFolderPulse(false), 600) }}
+            onMouseEnter={() => setNewFolderHover(true)}
+            onMouseLeave={() => setNewFolderHover(false)}
+            className="w-10 h-8 flex items-center justify-center rounded-md border-none cursor-pointer p-0 shrink-0"
+            style={{
+              backgroundColor: newFolderHover ? 'var(--q-hover)' : 'transparent',
+              color: newFolderPulse ? 'var(--q-accent-folder-open)' : newFolderHover ? 'var(--q-text)' : 'var(--q-text-secondary)',
+              transform: newFolderHover ? 'scale(1.02)' : 'scale(1)',
+              transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms ease, transform 120ms ease',
+            }}
+          >
+            <FolderAdd size={20} />
+          </button>
+        </div>
+      </div>
+
+      {/* Session list */}
+      <div className="flex-1 overflow-y-auto">
+        {flatList.length === 0 ? (
+          <div className="px-2 py-6 text-center text-text-tertiary text-14 font-interface">No chats</div>
+        ) : (
+          <>
+            {flatList.map(({ item, depth }) => {
+              const isActive = item.id === activeSessionId
+              const isHovered = hoveredId === item.id
+              const isFolder = item.type === 'folder'
+              const isExpanded = isFolder && item.isExpanded
+              const isDragging = dragItem?.id === item.id
+              const isSelectedRemoval = multiSelect && selectedForRemoval.has(item.id)
+              const zone = dropZone?.id === item.id ? dropZone.zone : null
+              const folderColor = 'var(--q-accent-folder-open)'
+              const iconColor = isFolder
+                ? isExpanded ? folderColor : isActive ? 'var(--q-text)' : 'var(--q-text-tertiary)'
+                : isSelectedRemoval ? 'var(--q-accent-danger)' : isActive ? 'var(--q-accent-info)' : isHovered ? 'var(--q-text)' : 'var(--q-text-tertiary)'
+              const textColor = isFolder
+                ? isExpanded ? folderColor : isActive ? 'var(--q-text)' : 'var(--q-text-secondary)'
+                : isSelectedRemoval ? 'var(--q-accent-danger)' : isActive ? 'var(--q-accent-info)' : isHovered ? 'var(--q-text)' : 'var(--q-text-secondary)'
+              const bgColor = isHovered && !isActive ? 'var(--q-hover)' : 'transparent'
+
+              return (
+                <div
+                  key={item.id}
+                  className="pl-2 pr-2 pb-1 relative"
+                  onMouseEnter={() => setHoveredId(item.id)}
+                  onMouseLeave={() => setHoveredId(null)}
+                >
+                  {zone === 'before' && (
+                    <div
+                      className="absolute -top-px h-0.5 bg-accent-primary rounded-sm pointer-events-none z-10"
+                      style={{ left: `${8 + depth * 12}px`, right: '8px' }}
+                    />
+                  )}
+                  {zone === 'after' && (
+                    <div
+                      className="absolute bottom-px h-0.5 bg-accent-primary rounded-sm pointer-events-none z-10"
+                      style={{ left: `${8 + depth * 12}px`, right: '8px' }}
+                    />
+                  )}
+                  <div
+                    draggable
+                    onDragStart={(e) => {
+                      setDragItem({ id: item.id, kind: isFolder ? 'folder' : 'chat' })
+                      e.dataTransfer.effectAllowed = 'move'
+                      try {
+                        const img = new Image()
+                        img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
+                        e.dataTransfer.setDragImage(img, 0, 0)
+                      } catch {}
+                    }}
+                    onDragEnd={() => { setDragItem(null); setDropZone(null); setShowDropZone(false) }}
+                    onDragOver={(e) => {
+                      if (!dragItem || !canDrop(dragItem, item.id)) return
+                      e.preventDefault()
+                      e.dataTransfer.dropEffect = 'move'
+                      const rect = e.currentTarget.getBoundingClientRect()
+                      const offset = e.clientY - rect.top
+                      const z = getDropZone(offset, rect.height, isFolder)
+                      if (dropZone?.id !== item.id || dropZone?.zone !== z) setDropZone({ id: item.id, zone: z })
+                    }}
+                    onDragLeave={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect()
+                      const x = e.clientX, y = e.clientY
+                      if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+                        if (dropZone?.id === item.id) setDropZone(null)
+                      }
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault()
+                      if (!dragItem) return
+                      const rect = e.currentTarget.getBoundingClientRect()
+                      const offset = e.clientY - rect.top
+                      const z = getDropZone(offset, rect.height, isFolder)
+                      handleDrop(item.id, z)
+                    }}
+                    onClick={() => {
+                      if (multiSelect && !isFolder) {
+                        const set = new Set(selectedForRemoval)
+                        if (set.has(item.id)) set.delete(item.id)
+                        else set.add(item.id)
+                        setSelectedForRemoval(set)
+                      } else {
+                        isFolder ? onToggleFolder(item.id) : onSelectSession(item.id)
+                      }
+                    }}
+                    onContextMenu={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setCtxMenu({ x: e.clientX, y: e.clientY, item })
+                    }}
+                    className="rounded-md cursor-pointer flex items-center gap-2 box-border"
+                    style={{
+                      paddingLeft: `${depth * 12 + 10}px`,
+                      paddingRight: '8px',
+                      paddingTop: '6px',
+                      paddingBottom: '6px',
+                      minHeight: '36px',
+                      backgroundColor: zone === 'into' ? 'var(--q-accent-folder-open-soft)' : bgColor,
+                      border: zone === 'into' ? '2px solid var(--q-accent-folder-open-border)' : 'none',
+                      boxShadow: 'none',
+                      opacity: isDragging ? 0.15 : 1,
+                      transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), opacity 120ms ease',
+                    }}
+                  >
+                    {isFolder
+                      ? isExpanded
+                        ? <FolderOpen size={20} className="shrink-0" style={{ color: iconColor, transform: isHovered ? 'translateX(2px)' : 'translateX(0)', transition: 'transform 120ms ease' }} />
+                        : <Folder size={20} className="shrink-0" style={{ color: iconColor, transform: isHovered ? 'translateX(2px)' : 'translateX(0)', transition: 'transform 120ms ease' }} />
+                      : <MessageSquare size={20} className="shrink-0" style={{ color: iconColor, transform: isHovered ? 'translateX(2px)' : 'translateX(0)', transition: 'transform 120ms ease' }} />
+                    }
+                    <span
+                      className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-14 font-interface"
+                      style={{ color: textColor, lineHeight: '20px' }}
+                    >
+                      {item.title || 'Chat'}
+                    </span>
+                    {item.unread && !isActive && (
+                      <span
+                        className="bg-accent-primary text-bg text-12 font-semibold font-interface rounded-full px-2 min-w-[18px] text-center shrink-0 leading-none"
+                        style={{ color: 'var(--q-bg)' }}
+                      >
+                        {item.messageCount || 0}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+            {/* Drop zone at end */}
+            <div
+              className="h-5 px-2"
+              onDragOver={(e) => {
+                if (dragItem) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setShowDropZone(true) }
+              }}
+              onDragLeave={() => setShowDropZone(false)}
+              onDrop={(e) => { e.preventDefault(); handleDropToEnd() }}
+            >
+              {showDropZone && <div className="h-0.5 bg-accent-primary rounded-sm mx-2" />}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Context menu */}
+      {ctxMenu && (
+        <SidebarContextMenu
+          x={ctxMenu.x}
+          y={ctxMenu.y}
+          item={ctxMenu.item}
+          onClose={() => setCtxMenu(null)}
+          onRename={() => {}}
+          onOpenWindow={() => {}}
+          onDelete={() => {
+            if (ctxMenu.item.type === 'folder') {
+              onReorder?.(sessions.filter(s => s.id !== ctxMenu.item.id && s.parentId !== ctxMenu.item.id))
+            } else {
+              onReorder?.(sessions.filter(s => s.id !== ctxMenu.item.id))
+            }
+          }}
+          multiSelect={multiSelect}
+          selectedForRemoval={selectedForRemoval}
+          setMultiSelect={setMultiSelect}
+          setSelectedForRemoval={setSelectedForRemoval}
+          onReorder={onReorder}
+          sessions={sessions}
+        />
+      )}
+    </div>
+  )
+}
+
+function SidebarContextMenu({ x, y, item, onClose, onRename, onOpenWindow, onDelete, multiSelect, selectedForRemoval, setMultiSelect, setSelectedForRemoval, onReorder, sessions }: any) {
+  const isFolder = item.type === 'folder'
+  return (
+    <>
+      <div className="fixed inset-0" style={{ zIndex: 200 }} onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose() }} />
+      <div
+        className="fixed bg-bg-panel rounded-md shadow-modal border border-border py-1 min-w-[180px] q-modal-enter"
+        style={{ left: Math.min(x, window.innerWidth - 200), top: Math.min(y, window.innerHeight - 250), zIndex: 210 }}
+      >
+        {multiSelect ? (
+          <>
+            <ContextMenuItem label="Deselect all" onClick={() => { setMultiSelect(false); setSelectedForRemoval(new Set()); onClose() }} />
+            {selectedForRemoval.size > 0 && (
+              <ContextMenuItem label={`Delete ${selectedForRemoval.size} chat${selectedForRemoval.size > 1 ? 'es' : ''}`} color="var(--q-accent-danger)" onClick={() => {
+                onReorder?.(sessions.filter((s: Session) => !selectedForRemoval.has(s.id)))
+                setMultiSelect(false)
+                setSelectedForRemoval(new Set())
+                onClose()
+              }} />
+            )}
+          </>
+        ) : (
+          <>
+            <ContextMenuItem label="Rename" onClick={() => { onRename(); onClose() }} />
+            {!isFolder && <ContextMenuItem label="Select chat" onClick={() => { setMultiSelect(true); setSelectedForRemoval(new Set([item.id])); onClose() }} />}
+            {!isFolder && <ContextMenuItem label="Open in separate window" onClick={() => { onOpenWindow(); onClose() }} />}
+            {isFolder && <ContextMenuItem label="New subfolder" onClick={() => { onClose() }} />}
+            <ContextMenuItem label={isFolder ? 'Delete folder' : 'Delete chat'} color="var(--q-accent-danger)" onClick={() => { onDelete(); onClose() }} />
+            {isFolder && (
+              <ContextMenuItem label="Delete folder with contents" color="var(--q-accent-danger)" onClick={() => {
+                const ids = new Set([item.id])
+                let found = true
+                while (found) {
+                  found = false
+                  for (const s of sessions) {
+                    if (s.parentId && ids.has(s.parentId) && !ids.has(s.id)) { ids.add(s.id); found = true }
+                  }
+                }
+                onReorder?.(sessions.filter((s: Session) => !ids.has(s.id)))
+                onClose()
+              }} />
+            )}
+          </>
+        )}
+      </div>
+    </>
+  )
+}
+
+function ContextMenuItem({ label, color, onClick }: { label: string; color?: string; onClick: () => void }) {
+  const [hovered, setHovered] = useState(false)
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="flex items-center w-full px-3 py-2 border-none cursor-pointer text-14 font-interface text-left"
+      style={{
+        backgroundColor: hovered ? 'var(--q-hover)' : 'transparent',
+        color: color || 'var(--q-text)',
+      }}
+    >
+      {label}
+    </button>
+  )
+}

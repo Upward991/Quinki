@@ -11,30 +11,128 @@
    TAILWIND THEME — design tokens → utility classes
    ────────────────────────────────────────────────────────── */
 @theme {
+  /* Backgrounds */
   --color-bg: var(--q-bg);
   --color-bg-elevated: var(--q-bg-elevated);
   --color-bg-panel: var(--q-bg-panel);
   --color-bg-code: var(--q-bg-code);
   --color-bubble-user: var(--q-bubble-user);
   --color-bubble-user-text: var(--q-bubble-user-text);
+  --color-overlay: var(--q-overlay);
+
+  /* Text */
   --color-text: var(--q-text);
   --color-text-secondary: var(--q-text-secondary);
   --color-text-tertiary: var(--q-text-tertiary);
+
+  /* Borders */
   --color-border-soft: var(--q-border-soft);
+  --color-border: var(--q-border);
+  --color-border-strong: var(--q-border-strong);
+
+  /* States */
   --color-hover: var(--q-hover);
   --color-active: var(--q-active);
+
+  /* Accents */
+  --color-accent-primary: var(--q-accent-primary);
+  --color-accent-secondary: var(--q-accent-secondary);
+  --color-accent-danger: var(--q-accent-danger);
+  --color-accent-warning: var(--q-accent-warning);
+  --color-accent-success: var(--q-accent-success);
+  --color-accent-info: var(--q-accent-info);
+  --color-accent-info-bright: var(--q-accent-info-bright);
+  --color-accent-folder-open: var(--q-accent-folder-open);
+  --color-accent-orange: var(--q-accent-orange);
+
+  /* Accent soft variants */
+  --color-accent-primary-soft: var(--q-accent-primary-soft);
+  --color-accent-danger-soft: var(--q-accent-danger-soft);
+  --color-accent-danger-border: var(--q-accent-danger-border);
+  --color-accent-folder-open-soft: var(--q-accent-folder-open-soft);
+  --color-accent-folder-open-border: var(--q-accent-folder-open-border);
+
+  /* Mode */
+  --color-mode-plan: var(--q-mode-plan);
+  --color-mode-build: var(--q-mode-build);
+
+  /* Semantic */
+  --color-thinking: var(--q-thinking);
+  --color-tool-call: var(--q-tool-call);
+  --color-tool-result: var(--q-tool-result);
+  --color-delegation: var(--q-delegation);
+
+  /* Status */
+  --color-status-thinking: var(--q-status-thinking);
+  --color-status-writing: var(--q-status-writing);
+  --color-status-tool-call: var(--q-status-tool-call);
+  --color-status-tool-result: var(--q-status-tool-result);
+  --color-status-tool-error: var(--q-status-tool-error);
+  --color-status-compacting: var(--q-status-compacting);
+  --color-status-retrying: var(--q-status-retrying);
+  --color-status-failed: var(--q-status-failed);
+  --color-status-running: var(--q-status-running);
+
+  /* Log levels — bg, text, tag */
+  --color-log-error-bg: var(--q-log-error-bg);
+  --color-log-error-text: var(--q-log-error-text);
+  --color-log-error-tag: var(--q-log-error-tag);
+  --color-log-warn-bg: var(--q-log-warn-bg);
+  --color-log-warn-text: var(--q-log-warn-text);
+  --color-log-warn-tag: var(--q-log-warn-tag);
+  --color-log-ui-bg: var(--q-log-ui-bg);
+  --color-log-ui-text: var(--q-log-ui-text);
+  --color-log-ui-tag: var(--q-log-ui-tag);
+  --color-log-success-bg: var(--q-log-success-bg);
+  --color-log-success-text: var(--q-log-success-text);
+  --color-log-success-tag: var(--q-log-success-tag);
+  --color-log-bridge-bg: var(--q-log-bridge-bg);
+  --color-log-bridge-text: var(--q-log-bridge-text);
+  --color-log-bridge-tag: var(--q-log-bridge-tag);
+  --color-log-renderer-bg: var(--q-log-renderer-bg);
+  --color-log-renderer-text: var(--q-log-renderer-text);
+  --color-log-renderer-tag: var(--q-log-renderer-tag);
+  --color-log-info-bg: var(--q-log-info-bg);
+  --color-log-info-text: var(--q-log-info-text);
+  --color-log-info-tag: var(--q-log-info-tag);
+
+  /* Directory */
+  --color-directory-btn: var(--q-directory-btn);
+  --color-directory-btn-hover: var(--q-directory-btn-hover);
+
+  /* Fonts */
   --font-interface: "Geist", sans-serif;
   --font-code: "Geist Mono", monospace;
+
+  /* Shadows */
   --shadow-floating: 0 0 0 1px var(--q-border), inset 0 1px 0 #ffffff05;
   --shadow-modal: 0 0 0 1px var(--q-border), 0 8px 32px #0006, inset 0 1px 0 #ffffff05;
+
+  /* Radius */
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 12px;
   --radius-xl: 16px;
+
+  /* Spacing — base unit 4px so p-1=4px, p-2=8px, p-3=12px, p-4=16px */
+  --spacing: 4px;
   --spacing-titlebar: 28px;
   --spacing-header-min: 48px;
   --spacing-sidebar: 260px;
   --spacing-chat-max: 1000px;
+
+  /* Font sizes */
+  --text-11: 11px;
+  --text-12: 12px;
+  --text-13: 13px;
+  --text-14: 14px;
+  --text-15: 15px;
+  --text-16: 16px;
+
+  /* Z-index */
+  --z-overlay: 40;
+  --z-dropdown: 50;
+  --z-modal: 100;
 }
 
 /* ──────────────────────────────────────────────────────────

@@ -1,5 +1,136 @@
-import React from 'react'
-import { useState, useRef, useEffect, useCallback } from 'react'
-import { Search } from '../icons'
+import { useState } from 'react'
+import { Search, X } from '../icons'
 
-export function AddItemsModal({title:e,items:t,onClose:n}){let[r,i]=useState(''),[a,o]=useState(new Set),s=t.filter(e=>e.name.toLowerCase().includes(r.toLowerCase())),c=e=>{o(t=>{let n=new Set(t);return n.has(e)?n.delete(e):n.add(e),n})};return React.createElement('div',{style:{position:'fixed',inset:0,zIndex:100,backgroundColor:'var(--q-overlay)',display:'flex',alignItems:'center',justifyContent:'center'},onClick:n,children:React.createElement('div',{style:{backgroundColor:'var(--q-bg-elevated)',border:'1px solid var(--q-border)',borderRadius:'var(--radius-lg)',maxWidth:'500px',maxHeight:'500px',width:'90%',display:'flex',flexDirection:'column',boxShadow:'var(--shadow-modal)',animation:'modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)'},onClick:e=>e.stopPropagation(),children:[React.createElement('div',{style:{padding:'16px',borderBottom:'1px solid var(--q-border)',display:'flex',alignItems:'center'},children:[React.createElement('span',{style:{color:'var(--q-text)',fontSize:'16px',fontWeight:600,fontFamily:'var(--font-interface)'},children:e}),React.createElement('span',{style:{flex:1}}),React.createElement('button',{onClick:n,style:{background:'none',border:'none',cursor:'pointer',padding:'0',display:'flex'},children:React.createElement(zt,{size:18,style:{color:'var(--q-text-secondary)'}})})]}),React.createElement('div',{style:{padding:'8px 16px'},children:React.createElement('div',{style:{display:'flex',alignItems:'center',paddingLeft:'10px',backgroundColor:'var(--q-bg-panel)',border:'1px solid var(--q-border)',borderRadius:'var(--radius-md)'},children:[React.createElement(Search,{size:14,style:{color:'var(--q-text-tertiary)',flexShrink:0}}),React.createElement('div',{style:{width:'8px',flexShrink:0}}),React.createElement('input',{type:'text',placeholder:'Search...',value:r,onChange:e=>i(e.target.value),style:{flex:1,backgroundColor:'transparent',border:'none',outline:'none',color:'var(--q-text)',fontSize:'14px',fontFamily:'var(--font-interface)',padding:'8px 0'}})]})}),React.createElement('div',{style:{flex:1,overflowY:'auto'},children:s.sort((e,t)=>!a.has(e.name)-+!a.has(t.name)).map(e=>{let t=a.has(e.name);return React.createElement('div',{onClick:()=>c(e.name),style:{padding:'4px 16px',display:'flex',alignItems:'center',cursor:'pointer'},onMouseEnter:e=>{e.currentTarget.style.backgroundColor='rgba(255,255,255,0.04)'},onMouseLeave:e=>{e.currentTarget.style.backgroundColor='transparent'},children:[React.createElement('div',{style:{flex:1,minWidth:0},children:[React.createElement('div',{style:{color:'var(--q-text)',fontSize:'14px',fontFamily:'var(--font-interface)'},children:e.name}),e.description&&React.createElement('div',{style:{color:'var(--q-text-tertiary)',fontSize:'12px',fontFamily:'var(--font-interface)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'},children:e.description})]}),React.createElement('input',{type:'checkbox',checked:t,onChange:()=>c(e.name),style:{accentColor:'var(--q-accent-secondary)',flexShrink:0,marginLeft:'8px'}})]},e.name)})}),React.createElement('div',{style:{padding:'8px 16px',display:'flex',alignItems:'center',borderTop:'1px solid var(--q-border)'},children:[React.createElement('button',{className:'q-press',onClick:()=>{o(new Set(s.map(e=>e.name)))},disabled:s.length===0,style:{background:'none',border:'none',cursor:s.length===0?'default':'pointer',color:s.length===0?'var(--q-text-tertiary)':'var(--q-text-secondary)',fontSize:'13px',fontFamily:'var(--font-interface)',padding:'4px 8px'},children:'Select all'}),React.createElement('button',{className:'q-press',onClick:()=>{o(new Set)},disabled:a.size===0,style:{background:'none',border:'none',cursor:a.size===0?'default':'pointer',color:a.size===0?'var(--q-text-tertiary)':'var(--q-text-secondary)',fontSize:'13px',fontFamily:'var(--font-interface)',padding:'4px 8px'},children:'Deselect'}),React.createElement('span',{style:{flex:1}}),React.createElement('button',{className:'q-press',onClick:n,style:{background:'none',border:'none',cursor:'pointer',color:'var(--q-accent-danger)',fontSize:'15px',fontFamily:'var(--font-interface)',padding:'4px 8px'},children:'Cancel'}),React.createElement('div',{style:{width:'8px'}}),React.createElement('button',{className:'q-press',onClick:n,disabled:a.size===0,style:{padding:'4px 16px',borderRadius:'var(--radius-md)',border:'none',cursor:a.size===0?'default':'pointer',backgroundColor:a.size===0?'transparent':'var(--q-accent-secondary)',color:a.size===0?'var(--q-text-tertiary)':'var(--q-bg)',fontSize:'15px',fontFamily:'var(--font-interface)',opacity:a.size===0?.5:1},children:['Add (',a.size,')']})]})]})})}
+interface AddItemsModalProps {
+  title: string
+  items: { name: string; description?: string }[]
+  onClose: () => void
+}
+
+export function AddItemsModal({ title, items, onClose }: AddItemsModalProps) {
+  const [search, setSearch] = useState('')
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+
+  const filtered = items.filter(item => item.name.toLowerCase().includes(search.toLowerCase()))
+
+  const toggle = (name: string) => {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name)
+      else next.add(name)
+      return next
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 z-modal bg-overlay flex items-center justify-center" onClick={onClose}>
+      <div
+        className="bg-bg-elevated border border-border rounded-lg max-w-[500px] max-h-[500px] w-[90%] flex flex-col shadow-modal q-modal-enter"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="p-4 border-b border-border flex items-center">
+          <span className="text-text text-16 font-semibold font-interface">{title}</span>
+          <span className="flex-1" />
+          <button onClick={onClose} className="bg-none border-none cursor-pointer p-0 flex">
+            <X size={18} className="text-text-secondary" />
+          </button>
+        </div>
+
+        {/* Search */}
+        <div className="p-2 px-4">
+          <div className="flex items-center pl-2.5 bg-bg-panel border border-border rounded-md">
+            <Search size={14} className="text-text-tertiary shrink-0" />
+            <div className="w-2 shrink-0" />
+            <input
+              type="text"
+              placeholder="Search..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="flex-1 bg-transparent border-none outline-none text-text text-14 font-interface py-2"
+            />
+          </div>
+        </div>
+
+        {/* Items list */}
+        <div className="flex-1 overflow-y-auto">
+          {filtered.sort((a, b) => Number(!selected.has(a.name)) - Number(!selected.has(b.name))).map(item => {
+            const isSelected = selected.has(item.name)
+            return (
+              <div
+                key={item.name}
+                onClick={() => toggle(item.name)}
+                className="px-4 py-1 flex items-center cursor-pointer"
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.04)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="text-text text-14 font-interface">{item.name}</div>
+                  {item.description && (
+                    <div className="text-text-tertiary text-12 font-interface overflow-hidden text-ellipsis whitespace-nowrap">
+                      {item.description}
+                    </div>
+                  )}
+                </div>
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={() => toggle(item.name)}
+                  className="shrink-0 ml-2"
+                  style={{ accentColor: 'var(--q-accent-secondary)' }}
+                />
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Footer */}
+        <div className="p-2 px-4 flex items-center border-t border-border">
+          <button
+            className="q-press bg-none border-none text-13 font-interface p-1 px-2"
+            onClick={() => setSelected(new Set(filtered.map(i => i.name)))}
+            disabled={filtered.length === 0}
+            style={{
+              cursor: filtered.length === 0 ? 'default' : 'pointer',
+              color: filtered.length === 0 ? 'var(--q-text-tertiary)' : 'var(--q-text-secondary)',
+            }}
+          >
+            Select all
+          </button>
+          <button
+            className="q-press bg-none border-none text-13 font-interface p-1 px-2"
+            onClick={() => setSelected(new Set())}
+            disabled={selected.size === 0}
+            style={{
+              cursor: selected.size === 0 ? 'default' : 'pointer',
+              color: selected.size === 0 ? 'var(--q-text-tertiary)' : 'var(--q-text-secondary)',
+            }}
+          >
+            Deselect
+          </button>
+          <span className="flex-1" />
+          <button
+            className="q-press bg-none border-none cursor-pointer text-accent-danger text-15 font-interface p-1 px-2"
+            onClick={onClose}
+          >
+            Cancel
+          </button>
+          <div className="w-2" />
+          <button
+            className="q-press rounded-md border-none text-15 font-interface p-1 px-4"
+            onClick={onClose}
+            disabled={selected.size === 0}
+            style={{
+              cursor: selected.size === 0 ? 'default' : 'pointer',
+              backgroundColor: selected.size === 0 ? 'transparent' : 'var(--q-accent-secondary)',
+              color: selected.size === 0 ? 'var(--q-text-tertiary)' : 'var(--q-bg)',
+              opacity: selected.size === 0 ? 0.5 : 1,
+            }}
+          >
+            Add ({selected.size})
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
