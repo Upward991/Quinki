@@ -4,7 +4,7 @@ import { Settings } from '../components/icons'
 import { useSidecar } from './useSidecar'
 
 export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
-	const { call, notify, ready, subscribe } = ug(sidecarUrl);
+	const { call, notify, ready, subscribe } = useSidecar(sidecarUrl);
 	const [loading, setLoading] = (0, useState)(true);
 	const [sessions, setSessions] = (0, useState)([]);
 	const [agents, setAgents] = (0, useState)([]);
