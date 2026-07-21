@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useSidecarContext } from '../shared/AppShell'
-import { Home, Terminal, Search, ChevronDown, ChevronUp, Download, Copy, RefreshCw, Trash } from '../icons'
+import { Home, Terminal, Search, ChevronDown, ChevronUp, Download, Copy, RefreshCw, Trash, ArrowDown } from '../icons'
 
 interface LogEntry {
   ts: number
