@@ -5,18 +5,18 @@ import { useSidecar } from './useSidecar'
 
 export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 	const { call, notify, ready, subscribe } = useSidecar(sidecarUrl);
-	const [loading, setLoading] = (0, useState)(true);
-	const [sessions, setSessions] = (0, useState)([]);
-	const [agents, setAgents] = (0, useState)([]);
-	const [providers, setProviders] = (0, useState)([]);
-	const [messages, setMessages] = (0, useState)([]);
-	const [activeSessionId, setActiveSessionId] = (0, useState)(null);
-	const [isStreaming, setIsStreaming] = (0, useState)(false);
-	const [statusLabel, setStatusLabel] = (0, useState)("");
-	const [statusKind, setStatusKind] = (0, useState)("");
-	const [contextTokens, setContextTokens] = (0, useState)(0);
-	const [contextWindow, setContextWindow] = (0, useState)(1e6);
-	(0, useEffect)(() => {
+	const [loading, setLoading] = useState(true);
+	const [sessions, setSessions] = useState([]);
+	const [agents, setAgents] = useState([]);
+	const [providers, setProviders] = useState([]);
+	const [messages, setMessages] = useState([]);
+	const [activeSessionId, setActiveSessionId] = useState(null);
+	const [isStreaming, setIsStreaming] = useState(false);
+	const [statusLabel, setStatusLabel] = useState("");
+	const [statusKind, setStatusKind] = useState("");
+	const [contextTokens, setContextTokens] = useState(0);
+	const [contextWindow, setContextWindow] = useState(1e6);
+	useEffect(() => {
 		if (!ready) return;
 		let cancelled = false;
 		const loadData = async () => {
@@ -104,7 +104,7 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 			cancelled = true;
 		};
 	}, [ready, call]);
-	(0, useEffect)(() => {
+	useEffect(() => {
 		if (!ready) return;
 		const unsubStream = subscribe("stream_event", (params) => {
 			const { type, content, messageId } = params;
@@ -201,7 +201,7 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 		statusKind,
 		contextTokens,
 		contextWindow,
-		selectSession: (0, useCallback)(async (sessionKey) => {
+		selectSession: useCallback(async (sessionKey) => {
 			if (!ready) return;
 			setActiveSessionId(sessionKey);
 			setMessages([]);
@@ -238,7 +238,7 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 				console.error("Failed to load session:", e);
 			}
 		}, [ready, call]),
-		sendMessage: (0, useCallback)(async (text, sessionKey, agents) => {
+		sendMessage: useCallback(async (text, sessionKey, agents) => {
 			if (!ready) return;
 			if (!providers.some((p) => p.models && p.models.length > 0)) {
 				setMessages((prev) => [
@@ -326,7 +326,7 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 			activeSessionId,
 			providers
 		]),
-		stopStreaming: (0, useCallback)(() => {
+		stopStreaming: useCallback(() => {
 			if (!ready) return;
 			notify("stopStream", { sessionKey: activeSessionId });
 			setIsStreaming(false);
@@ -343,7 +343,7 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 		]),
 		call,
 		notify,
-		setChatAgents: (0, useCallback)(async (sessionKey, agentIds) => {
+		setChatAgents: useCallback(async (sessionKey, agentIds) => {
 			if (!ready) return;
 			try {
 				await call("setChatAgents", {
@@ -354,7 +354,7 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 				console.error("setChatAgents:", e);
 			}
 		}, [ready, call]),
-		setModel: (0, useCallback)(async (sessionKey, model) => {
+		setModel: useCallback(async (sessionKey, model) => {
 			if (!ready) return;
 			try {
 				await call("setModel", {
@@ -365,7 +365,7 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 				console.error("setModel:", e);
 			}
 		}, [ready, call]),
-		setThinkingLevel: (0, useCallback)(async (sessionKey, level) => {
+		setThinkingLevel: useCallback(async (sessionKey, level) => {
 			if (!ready) return;
 			try {
 				await call("setThinkingLevel", {
@@ -376,7 +376,7 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 				console.error("setThinkingLevel:", e);
 			}
 		}, [ready, call]),
-		deleteSession: (0, useCallback)(async (sessionKey) => {
+		deleteSession: useCallback(async (sessionKey) => {
 			if (!ready) return;
 			try {
 				await call("deleteSession", { sessionKey });
@@ -393,7 +393,7 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 			call,
 			activeSessionId
 		]),
-		renameSession: (0, useCallback)(async (sessionKey, title) => {
+		renameSession: useCallback(async (sessionKey, title) => {
 			if (!ready) return;
 			try {
 				await call("renameSession", {
@@ -408,7 +408,7 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 				console.error("renameSession:", e);
 			}
 		}, [ready, call]),
-		setProvidersConfig: (0, useCallback)(async (config) => {
+		setProvidersConfig: useCallback(async (config) => {
 			if (!ready) return;
 			try {
 				await call("setProvidersConfig", config);
@@ -416,7 +416,7 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 				console.error("setProvidersConfig:", e);
 			}
 		}, [ready, call]),
-		fetchProviderModels: (0, useCallback)(async (providerName, baseUrl, apiKey) => {
+		fetchProviderModels: useCallback(async (providerName, baseUrl, apiKey) => {
 			if (!ready) return [];
 			try {
 				return await call("fetchProviderModels", {
@@ -429,7 +429,7 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 				return [];
 			}
 		}, [ready, call]),
-		testProviderConnection: (0, useCallback)(async (providerName, baseUrl, apiKey) => {
+		testProviderConnection: useCallback(async (providerName, baseUrl, apiKey) => {
 			if (!ready) return {
 				success: false,
 				error: "Not connected"
@@ -447,7 +447,7 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 				};
 			}
 		}, [ready, call]),
-		storeApiKey: (0, useCallback)(async (service, key) => {
+		storeApiKey: useCallback(async (service, key) => {
 			if (!ready) return;
 			try {
 				await call("storeApiKey", {
@@ -458,7 +458,7 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 				console.error("storeApiKey:", e);
 			}
 		}, [ready, call]),
-		clearLogs: (0, useCallback)(async () => {
+		clearLogs: useCallback(async () => {
 			if (!ready) return;
 			try {
 				await call("clearDebugLogFile", {});
@@ -466,7 +466,7 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 				console.error("clearLogs:", e);
 			}
 		}, [ready, call]),
-		loadLogs: (0, useCallback)(async () => {
+		loadLogs: useCallback(async () => {
 			if (!ready) return [];
 			try {
 				return (await call("getFullDebugLog", {}))?.log || [];
