@@ -302,10 +302,11 @@ export function LogPanel(props: LogPanelProps) {
           <button
             onClick={() => { if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight }}
             style={{
-              position: 'absolute', bottom: 0, right: 0, width: '32px', height: '32px',
+              position: 'absolute', bottom: '8px', right: '0', width: '32px', height: '32px',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               borderRadius: 'var(--radius-md)', backgroundColor: 'var(--q-bg-panel)',
               color: 'var(--q-text-secondary)', border: 'none', cursor: 'pointer',
+              boxShadow: 'var(--shadow-floating)',
             }}
           >
             <ArrowDown size={20} />
