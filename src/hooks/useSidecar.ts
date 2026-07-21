@@ -1,5 +1,5 @@
+import React from 'react'
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from 'react/jsx-runtime'
 
 export function useSidecar(url = "ws://127.0.0.1:9182") {
 	const wsRef = (0, useRef)(null);

@@ -1,5 +1,5 @@
+import React from 'react'
 import { useState, useEffect, useCallback } from 'react'
-import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from 'react/jsx-runtime'
 import { Settings } from '../components/icons'
 import { useSidecar } from './useSidecar'
 
