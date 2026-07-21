@@ -6,7 +6,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import type { Provider, Agent, ChatMode, ThinkingLevel } from '../../types'
-import { Paperclip, ChevronUp, ChevronDown, Bot } from '../icons'
+import { Paperclip, ChevronUp, ChevronDown, Bot, ArrowDown} from '../icons'
 import { SlashMenu, type SlashMenuRef } from './SlashMenu'
 
 interface ComposerProps {

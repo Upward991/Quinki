@@ -1,5 +1,6 @@
 import React from 'react'
 import { useState, useRef, useEffect } from 'react'
+import { Bot, Terminal, MessageSquare, Settings, Brain, ArrowDown } from '../icons'
 import { ChatHeader } from './ChatHeader'
 import { SlashMenu } from './SlashMenu'
 import { MessageBubble } from './MessageBubble'
