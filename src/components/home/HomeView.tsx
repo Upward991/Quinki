@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Bot, Terminal, MessageSquare, Settings, Brain } from '../icons'
 
 const tabs = [
-  {id:'expert', icon:Brain, label:'Quinki Expert', color:'var(--q-accent-orange)', panel:'expert', doubleBot:false},
+  {id:'expert', icon:Bot, label:'Quinki Expert', color:'var(--q-accent-orange)', panel:'expert', doubleBot:false},
   {id:'chat', icon:MessageSquare, label:'Chat', color:'var(--q-accent-info)', panel:'chat', doubleBot:false},
   {id:'log', icon:Terminal, label:'Log', color:'var(--q-accent-success)', panel:'log', doubleBot:false},
   {id:'agents', icon:Bot, label:'Agents', color:'var(--q-accent-secondary)', panel:'agents', doubleBot:true},
