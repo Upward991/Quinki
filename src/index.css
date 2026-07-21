@@ -238,3 +238,10 @@ input[type="checkbox"] {
   margin-right: 8px !important;
   cursor: pointer;
 }
+
+input[type="checkbox"] {
+  width: 18px !important;
+  height: 18px !important;
+  margin-right: 8px !important;
+  cursor: pointer;
+}

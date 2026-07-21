@@ -149,7 +149,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
             {/* Providers & models */}
             <Section id="settings-providers" icon={Plug} title="Providers & models">
               {props.providers.map(p => (
-                <ProviderRow key={p.id} name={p.name} provider={p} />
+                <ProviderRow key={p.id} name={p.name} provider={p} call={props.call} />
               ))}
               <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
                 <input type="text" placeholder="provider name (e.g. anthropic)"
@@ -327,11 +327,11 @@ function Section({ id, icon: Icon, title, children }: { id: string; icon: React.
 }
 
 // ── Provider row — exact Flutter copy ──
-function ProviderRow({ name, provider }: { name: string; provider: Provider }) {
+function ProviderRow({ name, provider, call }: { name: string; provider: Provider; call?: (method: string, params?: any) => Promise<any> }) {
   const [expanded, setExpanded] = useState(false)
   const [enabled, setEnabled] = useState(provider.enabled)
   const [modelSearch, setModelSearch] = useState('')
-  const [enabledModels, setEnabledModels] = useState<Set<string>>(new Set(provider.models.map(m => m.id)))
+  const [enabledModels, setEnabledModels] = useState<Set<string>>(new Set())
   const [showDelete, setShowDelete] = useState(false)
   const [editingName, setEditingName] = useState(false)
   const [testing, setTesting] = useState(false)
@@ -400,7 +400,7 @@ function ProviderRow({ name, provider }: { name: string; provider: Provider }) {
         <div style={{ padding: '0 16px 16px 16px' }}>
           <span style={{ color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>Base URL</span>
           <div style={{ height: '8px' }} />
-          <input type="text" defaultValue={provider.type === 'ollama' ? 'http://localhost:11434/v1' : provider.type === 'openrouter' ? 'https://openrouter.ai/api/v1' : ''} placeholder="https://api.example.com/v1" style={{ width: '100%', height: '36px', backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-md)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none' }} />
+          <input type="text" defaultValue={provider.baseUrl || (provider.type === 'ollama' ? 'http://localhost:11434/v1' : '')} onChange={e => { provider.baseUrl = e.target.value }} placeholder="https://api.example.com/v1" style={{ width: '100%', height: '36px', backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-md)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none' }} />
           <div style={{ height: '8px' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>API Key</span>
@@ -410,7 +410,7 @@ function ProviderRow({ name, provider }: { name: string; provider: Provider }) {
           <input type="password" placeholder={provider.apiKeyStatus === 'configured' ? '•••••••• (leave empty to keep)' : 'api key'} style={{ width: '100%', height: '36px', backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-md)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none' }} />
           <div style={{ height: '8px' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <button onClick={() => { setTesting(true); setTimeout(() => { setTesting(false); if (provider.apiKeyStatus === 'configured') { setTestResult({ success: true, count: provider.models.length }) } else { setTestResult({ success: false, error: 'Connection failed: API key not configured.\n\nProvider: ' + displayName + '\n\nError: 401 Unauthorized — Invalid API key.' }) } }, 1000) }} disabled={testing} style={{ padding: '8px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', cursor: testing ? 'default' : 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>{testing ? '...' : 'Test connection'}</button>
+            <button onClick={async () => { setTesting(true); setTestResult(null); try { const pn = name.toLowerCase(); const bk = pn === 'ollama' ? 'ollama' : ''; const bu = provider.baseUrl || (pn === 'ollama' ? 'http://localhost:11434/v1' : ''); const r = await props.call?.('testProviderConnection', { providerName: name, baseUrl: bu, apiKey: bk }); if (r?.success === false) { setTestResult({ success: false, error: r?.error || 'Connection failed' }); } else { try { const fm = await props.call?.('fetchProviderModels', { providerName: name, baseUrl: bu, apiKey: bk }); if (fm && Array.isArray(fm)) { provider.models = fm.map((m: any) => ({ id: typeof m === 'string' ? m : (m.id || m.name || m), name: typeof m === 'string' ? m : (m.name || m.id || m), contextWindow: m.contextWindow })); } else if (fm && fm.models) { provider.models = fm.models.map((m: any) => ({ id: m.id || m.name || m, name: m.name || m.id || m, contextWindow: m.contextWindow })); } } catch (e) { console.error('fetchModels:', e); } setTestResult({ success: true, count: provider.models.length }); } } catch (e: any) { setTestResult({ success: false, error: e?.message || 'Connection failed' }); } setTesting(false); }} disabled={testing} style={{ padding: '8px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', cursor: testing ? 'default' : 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>{testing ? '...' : 'Test connection'}</button>
             <RefreshCw size={20} style={{ color: 'var(--q-text-tertiary)', cursor: 'pointer', padding: '8px', boxSizing: 'content-box' }} />
             {testResult && testResult.success && (<><Check size={16} style={{ color: 'var(--q-accent-success)' }} /><span style={{ color: 'var(--q-accent-success)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>{testResult.count} models</span></>)}
             {testResult && !testResult.success && (<><span style={{ color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>Connection failed</span></>)}

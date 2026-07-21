@@ -215,7 +215,7 @@ export function AgentsPanel(props: AgentsPanelProps) {
 
       {/* Create skill modal — name + description + SKILL.md content */}
       {showCreateSkill && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowCreateSkill(false)}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowCreateSkill(false)}>
           <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '520px', width: '90%', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
             <div style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '16px' }}>Create new skill</div>
             <input type="text" placeholder="Skill name (e.g. code-review)" autoFocus style={{ width: '100%', height: '36px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none', marginBottom: '8px' }} />
@@ -263,7 +263,7 @@ export function AgentsPanel(props: AgentsPanelProps) {
 
       {/* Error modal — with Copy button */}
       {showError && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowError(null)}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowError(null)}>
           <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '500px', width: '90%' }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--q-accent-danger)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
@@ -285,7 +285,7 @@ export function AgentsPanel(props: AgentsPanelProps) {
 
       {/* Loading modal — installing skill */}
       {installing && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '400px', display: 'flex', alignItems: 'center', gap: '16px' }}>
             <div style={{ width: '20px', height: '20px', border: '2px solid var(--q-text-tertiary)', borderTopColor: 'var(--q-accent-secondary)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
             <span style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Installing skill...</span>
@@ -295,7 +295,7 @@ export function AgentsPanel(props: AgentsPanelProps) {
 
       {/* Success modal */}
       {showSuccess && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowSuccess(null)}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowSuccess(null)}>
           <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '500px', width: '90%' }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--q-accent-success)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><path d="m9 11 3 3L22 4" /></svg>
@@ -674,7 +674,7 @@ function PickerModal({ title, items, onClose }: { title: string; items: { name: 
   const deselectAll = () => { setSelected(new Set()) }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
       <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', maxWidth: '500px', maxHeight: '500px', width: '90%', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
         {/* Header — title + X close */}
         <div style={{ padding: '16px', borderBottom: '1px solid var(--q-border)', display: 'flex', alignItems: 'center' }}>
@@ -728,7 +728,7 @@ function PickerModal({ title, items, onClose }: { title: string; items: { name: 
 // ── Modal ──
 function Modal({ onClose, title, children }: { onClose: () => void; title: string; children: React.ReactNode }) {
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
       <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '420px', width: '90%' }} onClick={e => e.stopPropagation()}>
         <div style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '16px' }}>{title}</div>
         {children}

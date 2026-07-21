@@ -89,6 +89,7 @@ export interface SkillInfo {
 export interface ToolInfo {
   name: string
   enabled: boolean
+  baseUrl?: string
 }
 
 export interface Agent {
@@ -117,6 +118,7 @@ export interface Provider {
   apiKeyStatus: 'configured' | 'missing' | 'invalid'
   models: ProviderModel[]
   enabled: boolean
+  baseUrl?: string
 }
 
 export type ViewTab = 'chat' | 'home' | 'agents' | 'settings'
