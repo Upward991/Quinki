@@ -122,8 +122,15 @@ export function LogPanel(props: LogPanelProps) {
     })
   }
 
-  // Shared className for panel bars
-  const panelClass = "bg-bg-panel rounded-lg shadow-floating p-2 min-h-header-min flex items-center"
+  const panelStyle: React.CSSProperties = {
+    backgroundColor: 'var(--q-bg-panel)',
+    borderRadius: 'var(--radius-lg)',
+    boxShadow: 'var(--shadow-floating)',
+    padding: '8px',
+    minHeight: 'var(--spacing-header-min)',
+    display: 'flex',
+    alignItems: 'center',
+  }
 
   function IconBtn({ icon: Icon, onClick }: { icon: React.FC<{ size?: number; style?: React.CSSProperties }>; onClick: () => void }) {
     const [hovered, setHovered] = useState(false)
@@ -132,10 +139,12 @@ export function LogPanel(props: LogPanelProps) {
         onClick={onClick}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        className="w-8 h-8 flex items-center justify-center rounded-md border-none cursor-pointer shrink-0 p-0"
         style={{
+          width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer',
           backgroundColor: hovered ? 'var(--q-hover)' : 'transparent',
           color: hovered ? 'var(--q-text)' : 'var(--q-text-secondary)',
+          flexShrink: 0, padding: '0',
           transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms cubic-bezier(0.16, 1, 0.3, 1)',
         }}
       >
@@ -150,11 +159,12 @@ export function LogPanel(props: LogPanelProps) {
     return (
       <button
         onClick={() => toggleFilter(level)}
-        className="h-8 px-2 min-w-[45px] rounded-md cursor-pointer border text-12 font-interface font-medium flex items-center justify-center"
         style={{
-          backgroundColor: isActive ? color : 'transparent',
-          borderColor: color,
-          color: isActive ? 'var(--q-bg)' : color,
+          height: '32px', padding: '0 8px', minWidth: '45px', borderRadius: 'var(--radius-md)',
+          cursor: 'pointer', backgroundColor: isActive ? color : 'transparent',
+          border: `1px solid ${color}`, color: isActive ? 'var(--q-bg)' : color,
+          fontSize: '12px', fontFamily: 'var(--font-interface)', fontWeight: 500,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
           transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms ease',
         }}
       >
@@ -171,10 +181,13 @@ export function LogPanel(props: LogPanelProps) {
         onClick={onClick}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        className="flex items-center gap-1.5 px-2 h-8 rounded-md border cursor-pointer bg-transparent text-12 font-interface"
         style={{
-          borderColor: isGreen ? 'var(--q-accent-success)' : 'var(--q-border)',
+          display: 'flex', alignItems: 'center', gap: '6px', padding: '0 8px', height: '32px',
+          borderRadius: 'var(--radius-md)',
+          border: `1px solid ${isGreen ? 'var(--q-accent-success)' : 'var(--q-border)'}`,
+          cursor: 'pointer', backgroundColor: 'transparent',
           color: isGreen ? 'var(--q-accent-success)' : 'var(--q-text-secondary)',
+          fontSize: '12px', fontFamily: 'var(--font-interface)',
           transition: 'border-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms ease',
         }}
       >
@@ -185,29 +198,29 @@ export function LogPanel(props: LogPanelProps) {
   }
 
   return (
-    <div className="h-full flex flex-col max-w-chat-max mx-auto w-full relative">
+    <div className="h-full flex flex-col" style={{ maxWidth: 'var(--spacing-chat-max)', margin: '0 auto', width: '100%', position: 'relative' }}>
       {/* Header */}
-      <div className="mb-2 shrink-0 flex items-center">
-        <div className={panelClass}>
+      <div style={{ marginBottom: '8px', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+        <div style={panelStyle}>
           <IconBtn icon={Home} onClick={() => props.onSelectPanel('home')} />
         </div>
-        <div className="w-2 shrink-0" />
-        <div className={panelClass + " flex-1"}>
-          <div className="w-2 shrink-0" />
-          <Terminal size={18} className="text-text-secondary shrink-0" />
-          <div className="w-3 shrink-0" />
-          <span className="text-text text-16 font-semibold font-interface">Log</span>
-          <div className="w-2 shrink-0" />
-          <span className="text-text-tertiary text-12 font-interface">({filtered.length})</span>
-          <div className="w-2 shrink-0" />
+        <div style={{ width: '8px', flexShrink: 0 }} />
+        <div style={{ ...panelStyle, flex: 1 }}>
+          <div style={{ width: '8px', flexShrink: 0 }} />
+          <Terminal size={18} style={{ color: 'var(--q-text-secondary)', flexShrink: 0 }} />
+          <div style={{ width: '12px', flexShrink: 0 }} />
+          <span style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>Log</span>
+          <div style={{ width: '8px', flexShrink: 0 }} />
+          <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>({filtered.length})</span>
+          <div style={{ width: '8px', flexShrink: 0 }} />
           <FilterPill level="error" />
-          <div className="w-2 shrink-0" />
+          <div style={{ width: '8px', flexShrink: 0 }} />
           <FilterPill level="warn" />
-          <div className="w-2 shrink-0" />
+          <div style={{ width: '8px', flexShrink: 0 }} />
           <FilterPill level="ui" />
-          <div className="w-2 shrink-0" />
+          <div style={{ width: '8px', flexShrink: 0 }} />
           {/* More filters dropdown */}
-          <div className="relative flex items-center">
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
             <button
               onClick={(e) => {
                 const btn = e.currentTarget
@@ -227,15 +240,20 @@ export function LogPanel(props: LogPanelProps) {
                 btn.style.borderColor = isOpen ? 'var(--q-accent-success)' : 'var(--q-border)'
                 btn.style.color = isOpen ? 'var(--q-accent-success)' : 'var(--q-text-secondary)'
               }}
-              className="flex items-center gap-1.5 px-2 h-8 rounded-md border border-border cursor-pointer bg-transparent text-text-secondary text-12 font-interface"
-              style={{ transition: 'border-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms ease' }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px', padding: '0 8px', height: '32px',
+                borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)',
+                cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)',
+                fontSize: '12px', fontFamily: 'var(--font-interface)',
+                transition: 'border-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms ease',
+              }}
             >
               <ChevronDown size={14} style={{ transition: 'transform 120ms ease' }} />
               More
             </button>
             <div
               ref={overlayRef}
-              className="fixed inset-0 z-overlay bg-transparent hidden"
+              style={{ position: 'fixed', inset: 0, zIndex: 40, backgroundColor: 'transparent', display: 'none' }}
               onClick={() => {
                 if (dropdownRef.current) dropdownRef.current.style.display = 'none'
                 if (overlayRef.current) overlayRef.current.style.display = 'none'
@@ -251,33 +269,38 @@ export function LogPanel(props: LogPanelProps) {
             />
             <div
               ref={dropdownRef}
-              className="absolute top-[calc(100%+8px)] left-0 z-dropdown bg-bg-panel rounded-md shadow-modal border border-border p-1 hidden flex-col gap-1"
+              style={{
+                position: 'absolute', top: 'calc(100% + 8px)', left: '0', zIndex: 50,
+                backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)',
+                boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)',
+                padding: '4px', display: 'none', flexDirection: 'column', gap: '4px',
+              }}
             >
               {moreFilters.map((level) => <FilterPill key={level} level={level} />)}
             </div>
           </div>
-          <div className="w-2 shrink-0" />
-          <span className="flex-1" />
+          <div style={{ width: '8px', flexShrink: 0 }} />
+          <span style={{ flex: 1 }} />
           <HeaderBtn label="export all" icon={<Download size={14} />} onClick={() => setShowExport(true)} />
-          <div className="w-1 shrink-0" />
+          <div style={{ width: '4px', flexShrink: 0 }} />
           <HeaderBtn label="copy" icon={<Copy size={14} />} onClick={() => {}} />
-          <div className="w-1 shrink-0" />
+          <div style={{ width: '4px', flexShrink: 0 }} />
           <HeaderBtn label="refresh" icon={<RefreshCw size={14} />} onClick={() => {}} />
-          <div className="w-1 shrink-0" />
+          <div style={{ width: '4px', flexShrink: 0 }} />
           <HeaderBtn label="clear" icon={<Trash size={14} />} onClick={() => setShowClear(true)} />
         </div>
       </div>
 
       {/* Log body */}
       <div ref={bodyRef}
-        className="flex-1 overflow-y-auto pt-px pr-4 pb-2 pl-4 relative"
+        style={{ flex: 1, overflowY: 'auto', padding: '1px 16px 8px 16px', position: 'relative' }}
         onScroll={(e) => {
           const el = e.currentTarget
           setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100)
-        }}>
+        }} style={{ flex: 1, overflowY: 'auto', padding: '1px 16px 8px 16px' }}>
         
         {filtered.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-text-tertiary text-14 font-interface">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--q-text-tertiary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>
             log vuoto
           </div>
         ) : (
@@ -291,26 +314,31 @@ export function LogPanel(props: LogPanelProps) {
                 key={i}
                 onMouseEnter={() => setHoveredIdx(i)}
                 onMouseLeave={() => setHoveredIdx(null)}
-                className="w-full p-4 mb-2 rounded-lg shadow-floating relative"
-                style={{ backgroundColor: colors.bg }}
+                style={{
+                  width: '100%', padding: '16px', marginBottom: '8px', borderRadius: 'var(--radius-lg)',
+                  backgroundColor: colors.bg, boxShadow: 'var(--shadow-floating)', position: 'relative',
+                }}
               >
-                <div className="flex items-center gap-2">
-                  <span className="text-text-tertiary text-12 font-code shrink-0">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-code)', flexShrink: 0 }}>
                     {fmtTimestampFull(e.ts)}
                   </span>
-                  <span className="text-12 font-code font-semibold shrink-0" style={{ color: colors.tag }}>
+                  <span style={{ color: colors.tag, fontSize: '12px', fontFamily: 'var(--font-code)', fontWeight: 600, flexShrink: 0 }}>
                     [{e.tag}]
                   </span>
                 </div>
                 {payload ? (
-                  <div className="mt-1 text-14 font-interface leading-relaxed whitespace-pre-wrap break-words" style={{ color: colors.text }}>
+                  <div style={{ marginTop: '4px', color: colors.text, fontSize: '14px', fontFamily: 'var(--font-interface)', lineHeight: 1.65, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
                     {payload}
                   </div>
                 ) : null}
                 <button
                   onClick={(ev) => { ev.stopPropagation(); navigator.clipboard.writeText(formatPayload(e.data)) }}
-                  className="absolute top-2 right-2 bg-none border-none cursor-pointer p-1.5 rounded-md text-text flex"
-                  style={{ opacity: isHovered ? 1 : 0, transition: 'opacity 150ms ease' }}
+                  style={{
+                    position: 'absolute', top: '8px', right: '8px', background: 'none', border: 'none',
+                    cursor: 'pointer', padding: '6px', borderRadius: 'var(--radius-md)', color: 'var(--q-text)',
+                    display: 'flex', opacity: isHovered ? 1 : 0, transition: 'opacity 150ms ease',
+                  }}
                 >
                   <Copy size={16} />
                 </button>
@@ -324,55 +352,72 @@ export function LogPanel(props: LogPanelProps) {
       {showScrollBtn && (
         <button
           onClick={() => { if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight }}
-          className="absolute bottom-[60px] right-0 w-8 h-8 flex items-center justify-center rounded-md bg-bg-panel text-text-secondary border-none cursor-pointer shadow-floating z-10"
+          style={{
+            position: 'absolute',
+            bottom: '60px',
+            right: '0',
+            width: '32px',
+            height: '32px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: 'var(--radius-md)',
+            backgroundColor: 'var(--q-bg-panel)',
+            color: 'var(--q-text-secondary)',
+            border: 'none',
+            cursor: 'pointer',
+            boxShadow: 'var(--shadow-floating)',
+            zIndex: 10,
+          }}
         >
           <ArrowDown size={20} />
         </button>
       )}
       {/* Search bar */}
-      <div className={"mt-2 shrink-0 " + panelClass}>
-        <div className="w-3 shrink-0" />
-        <Search size={16} className="text-text-tertiary shrink-0" />
-        <div className="w-2 shrink-0" />
+      <div style={{ marginTop: '8px', flexShrink: 0, ...panelStyle }}>
+        <div style={{ width: '12px', flexShrink: 0 }} />
+        <Search size={16} style={{ color: 'var(--q-text-tertiary)', flexShrink: 0 }} />
+        <div style={{ width: '8px', flexShrink: 0 }} />
         <input
           type="text"
           placeholder="Search in logs..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 bg-transparent border-none outline-none text-text text-14 font-interface p-0 m-0"
+          style={{
+            flex: 1, backgroundColor: 'transparent', border: 'none', outline: 'none',
+            color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0', margin: '0',
+          }}
         />
         <button
           onClick={() => setSearch('')}
-          className="bg-none border-none p-2 text-14"
           style={{
-            cursor: search ? 'pointer' : 'default',
-            color: search ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)',
-            opacity: search ? 1 : 0.3,
+            background: 'none', border: 'none', cursor: search ? 'pointer' : 'default', padding: '8px',
+            color: search ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)', fontSize: '14px', opacity: search ? 1 : 0.3,
           }}
         >
           ✕
         </button>
-        <div className="w-2 shrink-0" />
-        <span className="text-text-tertiary text-12 font-code" style={{ opacity: !search || searchMatches.length === 0 ? 0.3 : 1 }}>
+        <div style={{ width: '8px', flexShrink: 0 }} />
+        <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-code)', opacity: !search || searchMatches.length === 0 ? 0.3 : 1 }}>
           {search ? (searchMatches.length === 0 ? '0/0' : `${currentMatch + 1}/${searchMatches.length}`) : '0/0'}
         </span>
-        <div className="w-2 shrink-0" />
+        <div style={{ width: '8px', flexShrink: 0 }} />
         <button
           onClick={() => searchMatches.length > 0 && setCurrentMatch((p) => (p - 1 + searchMatches.length) % searchMatches.length)}
-          className="bg-none border-none cursor-pointer p-0 flex"
           style={{
+            background: 'none', border: 'none', cursor: 'pointer', padding: '0px',
             color: searchMatches.length > 0 ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)',
-            opacity: searchMatches.length > 0 ? 1 : 0.3,
+            opacity: searchMatches.length > 0 ? 1 : 0.3, display: 'flex',
           }}
         >
           <ChevronUp size={16} />
         </button>
         <button
           onClick={() => searchMatches.length > 0 && setCurrentMatch((p) => (p + 1) % searchMatches.length)}
-          className="bg-none border-none cursor-pointer p-0 flex"
           style={{
+            background: 'none', border: 'none', cursor: 'pointer', padding: '0px',
             color: searchMatches.length > 0 ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)',
-            opacity: searchMatches.length > 0 ? 1 : 0.3,
+            opacity: searchMatches.length > 0 ? 1 : 0.3, display: 'flex',
           }}
         >
           <ChevronDown size={16} />
@@ -381,20 +426,20 @@ export function LogPanel(props: LogPanelProps) {
 
       {/* Export modal */}
       {showExport && (
-        <div className="fixed inset-0 z-modal bg-overlay flex items-center justify-center" onClick={() => setShowExport(false)}>
-          <div className="bg-bg-elevated rounded-xl shadow-modal q-modal-enter p-6 max-w-[400px] w-[90%]" onClick={(e) => e.stopPropagation()}>
-            <div className="text-text text-16 font-interface mb-2">Export log entries?</div>
-            <div className="text-text-tertiary text-13 font-interface mb-5">
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowExport(false)}>
+          <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', animation: 'modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)', padding: '24px', maxWidth: '400px', width: '90%' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', marginBottom: '8px' }}>Export log entries?</div>
+            <div style={{ color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)', marginBottom: '20px' }}>
               {filtered.length} entries will be exported to clipboard as markdown.
             </div>
-            <div className="flex justify-end items-center">
-              <button className="q-press px-4 py-2 rounded-md border-none cursor-pointer bg-transparent text-accent-danger text-15 font-interface" onClick={() => setShowExport(false)}>Cancel</button>
-              <div className="w-2" />
-              <button className="q-press px-4 py-2 rounded-lg border-none cursor-pointer bg-accent-success text-bg text-15 font-medium font-interface" onClick={() => {
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+              <button className="q-press" onClick={() => setShowExport(false)} style={{ padding: '8px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '15px', fontFamily: 'var(--font-interface)' }}>Cancel</button>
+              <div style={{ width: '8px' }} />
+              <button className="q-press" onClick={() => {
                 const md = filtered.map((e) => `### [${deriveLevel(e.tag)}] ${fmtTimestampFull(e.ts)}\n**Tag:** ${e.tag}\n\n${formatPayload(e.data)}\n`).join(`\n---\n\n`)
                 navigator.clipboard.writeText(md)
                 setShowExport(false)
-              }}>Export</button>
+              }} style={{ padding: '8px 16px', borderRadius: 'var(--radius-lg)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-success)', color: 'var(--q-bg)', fontSize: '15px', fontWeight: 500, fontFamily: 'var(--font-interface)' }}>Export</button>
             </div>
           </div>
         </div>
@@ -402,20 +447,20 @@ export function LogPanel(props: LogPanelProps) {
 
       {/* Clear modal */}
       {showClear && (
-        <div className="fixed inset-0 z-modal bg-overlay flex items-center justify-center" onClick={() => setShowClear(false)}>
-          <div className="bg-bg-elevated rounded-xl shadow-modal q-modal-enter p-6 max-w-[400px] w-[90%]" onClick={(e) => e.stopPropagation()}>
-            <div className="text-text text-16 font-interface mb-2">Clear all log entries?</div>
-            <div className="text-text-tertiary text-13 font-interface mb-5">
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowClear(false)}>
+          <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', animation: 'modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)', padding: '24px', maxWidth: '400px', width: '90%' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', marginBottom: '8px' }}>Clear all log entries?</div>
+            <div style={{ color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)', marginBottom: '20px' }}>
               {entries.length} entries will be removed.
             </div>
-            <div className="flex justify-end items-center">
-              <button className="q-press px-4 py-2 rounded-md border-none cursor-pointer bg-transparent text-accent-danger text-15 font-interface" onClick={() => setShowClear(false)}>Cancel</button>
-              <div className="w-2" />
-              <button className="q-press px-4 py-2 rounded-lg border-none cursor-pointer bg-accent-success text-bg text-15 font-medium font-interface" onClick={async () => {
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+              <button className="q-press" onClick={() => setShowClear(false)} style={{ padding: '8px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '15px', fontFamily: 'var(--font-interface)' }}>Cancel</button>
+              <div style={{ width: '8px' }} />
+              <button className="q-press" onClick={async () => {
                 if (call) { try { await call('clearDebugLogFile', {}) } catch (e) {} }
                 setEntries([])
                 setShowClear(false)
-              }}>Clear</button>
+              }} style={{ padding: '8px 16px', borderRadius: 'var(--radius-lg)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-success)', color: 'var(--q-bg)', fontSize: '15px', fontWeight: 500, fontFamily: 'var(--font-interface)' }}>Clear</button>
             </div>
           </div>
         </div>

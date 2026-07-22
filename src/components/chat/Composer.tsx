@@ -108,7 +108,7 @@ export function Composer(props: ComposerProps) {
     : `${fmt(total)} tokens`
 
   return (
-    <div className="w-full relative">
+    <div style={{ width: '100%', position: 'relative' }}>
       {/* Slash command menu */}
       {slashMenuOpen && (
         <SlashMenu
@@ -128,7 +128,14 @@ export function Composer(props: ComposerProps) {
         <MentionPicker agents={filteredAgents} selectedIdx={mentionIdx} onSelect={selectAgent} onClose={() => { setMentionOpen(false); setMentionFilter('') }} />
       )}
 
-      <div className="bg-bg-panel rounded-lg shadow-floating p-2 flex flex-col">
+      <div style={{
+        backgroundColor: 'var(--q-bg-panel)',
+        borderRadius: 'var(--radius-lg)',
+        boxShadow: 'var(--shadow-floating)',
+        padding: '8px',
+        display: 'flex',
+        flexDirection: 'column',
+      }}>
         {/* Textarea */}
         <textarea
           ref={textareaRef}
@@ -151,32 +158,37 @@ export function Composer(props: ComposerProps) {
           }}
           onKeyDown={handleKeyDown}
           placeholder="Write a message..."
-          className="w-full min-h-[40px] max-h-[280px] bg-transparent text-text text-16 font-interface resize-none outline-none border-none p-2"
-          style={{ caretColor: 'var(--q-accent-info)', lineHeight: '24px' }}
+          style={{
+            width: '100%', minHeight: '40px', maxHeight: '280px',
+            backgroundColor: 'transparent', color: 'var(--q-text)',
+            fontSize: '16px', lineHeight: '24px', fontFamily: 'var(--font-interface)',
+            resize: 'none', outline: 'none', border: 'none',
+            padding: '8px', caretColor: 'var(--q-accent-info)',
+          }}
           rows={1}
         />
 
         {/* Bottom bar */}
-        <div className="flex flex-row items-center h-8 mt-2">
+        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', height: '32px', marginTop: '8px' }}>
           <SlashBtn color="var(--q-accent-info)" onClick={() => { setSlashMenuOpen(true); setSlashFilter(''); setText('/'); textareaRef.current?.focus() }} />
-          <div className="w-1 shrink-0" />
+          <div style={{ width: '4px', flexShrink: 0 }} />
           <ModeButton mode={props.mode} onChange={props.onModeChange} />
-          <div className="w-2 shrink-0" />
-          <div className="h-8 flex items-center">
-            <span className="text-12 font-code leading-none whitespace-nowrap" style={{ color: counterColor }}>
+          <div style={{ width: '8px', flexShrink: 0 }} />
+          <div style={{ height: '32px', display: 'flex', alignItems: 'center' }}>
+            <span style={{ color: counterColor, fontSize: '12px', fontFamily: 'var(--font-code)', lineHeight: '1', whiteSpace: 'nowrap' }}>
               {counterText}
             </span>
           </div>
-          <div className="flex-1" />
+          <div style={{ flex: 1 }} />
           {props.isStreaming && props.statusLabel && (
-            <div className="h-8 flex items-center mr-2">
+            <div style={{ height: '32px', display: 'flex', alignItems: 'center', marginRight: '8px' }}>
               <StatusPill label={props.statusLabel} kind={props.statusKind || 'thinking'} />
             </div>
           )}
           <AttachBtn onClick={() => {}} title="Attach file"><Paperclip size={20} /></AttachBtn>
-          <div className="w-2 shrink-0" />
+          <div style={{ width: '8px', flexShrink: 0 }} />
           <StopBtn color="var(--q-accent-danger)" onClick={props.isStreaming ? props.onStop : () => {}} />
-          <div className="w-2 shrink-0" />
+          <div style={{ width: '8px', flexShrink: 0 }} />
           <SendButton enabled={canSend} onClick={handleSend} />
         </div>
       </div>
@@ -190,14 +202,19 @@ function MentionPicker({ agents, selectedIdx, onSelect, onClose }: {
 }) {
   return (
     <>
-      <div className="fixed inset-0 z-overlay" onClick={onClose} />
-      <div className="absolute bottom-[calc(100%+8px)] left-0 right-0 z-dropdown bg-bg-panel rounded-lg shadow-floating max-h-[250px] flex flex-col overflow-hidden">
-        <div className="flex-1 overflow-y-auto py-1">
+      <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={onClose} />
+      <div style={{
+        position: 'absolute', bottom: 'calc(100% + 8px)', left: '0', right: '0', zIndex: 50,
+        backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)',
+        boxShadow: 'var(--shadow-floating)', maxHeight: '250px',
+        display: 'flex', flexDirection: 'column', overflow: 'hidden',
+      }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
           {agents.map((agent, i) => (
             <MentionItem key={agent.id} agent={agent} isSelected={i === selectedIdx} onSelect={() => onSelect(agent)} />
           ))}
         </div>
-        <div className="px-4 pb-2.5 pt-2 flex items-center gap-1">
+        <div style={{ padding: '8px 16px 10px 16px', display: 'flex', alignItems: 'center', gap: '4px' }}>
           <SmallIconBtn><ChevronUp size={14} /></SmallIconBtn>
           <SmallIconBtn><ChevronDown size={14} /></SmallIconBtn>
         </div>
@@ -210,13 +227,13 @@ function MentionItem({ agent, isSelected, onSelect }: { agent: Agent; isSelected
   const [hovered, setHovered] = useState(false)
   return (
     <div onClick={onSelect} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-      className="px-4 py-2 rounded-sm cursor-pointer flex items-center gap-2"
       style={{
-        backgroundColor: hovered || isSelected ? 'var(--q-hover)' : 'transparent',
+        padding: '8px 16px', backgroundColor: hovered || isSelected ? 'var(--q-hover)' : 'transparent',
+        borderRadius: 'var(--radius-sm)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
         transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1)',
       }}>
-      <Bot size={16} className="text-text-secondary shrink-0" />
-      <span className="text-text text-14 font-interface">{agent.name}</span>
+      <Bot size={16} style={{ color: 'var(--q-text-secondary)', flexShrink: 0 }} />
+      <span style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>{agent.name}</span>
     </div>
   )
 }
@@ -226,10 +243,11 @@ function SmallIconBtn({ children }: { children: React.ReactNode }) {
   const [hovered, setHovered] = useState(false)
   return (
     <button onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-      className="p-1.5 border-none cursor-pointer rounded-sm flex items-center justify-center"
       style={{
+        padding: '6px', border: 'none', cursor: 'pointer', borderRadius: 'var(--radius-sm)',
         backgroundColor: hovered ? 'var(--q-hover)' : 'transparent',
         color: hovered ? 'var(--q-text)' : 'var(--q-text-secondary)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
         transform: hovered ? 'scale(1.02)' : 'scale(1)',
         transition: 'transform 120ms cubic-bezier(0.16, 1, 0.3, 1)',
       }}>
@@ -245,10 +263,12 @@ function SlashBtn({ color, onClick }: { color: string; onClick: () => void }) {
   const [hovered, setHovered] = useState(false)
   return (
     <button onClick={onClick} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-      className="w-8 h-8 flex items-center justify-center rounded-md border-none cursor-pointer shrink-0 p-0"
       style={{
-        transform: hovered ? 'scale(1.02)' : 'scale(1)',
+        width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        transform: hovered ? 'scale(1.02)' : 'scale(1)', borderRadius: 'var(--radius-md)',
+        border: 'none', cursor: 'pointer',
         backgroundColor: hovered ? 'var(--q-active)' : 'transparent',
+        flexShrink: 0, padding: '0',
         transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), transform 120ms cubic-bezier(0.16, 1, 0.3, 1)',
       }}>
       <svg width="22" height="22" viewBox="0 0 24 24" shapeRendering="geometricPrecision">
@@ -264,10 +284,12 @@ function StopBtn({ color, onClick }: { color: string; onClick: () => void }) {
   const [hovered, setHovered] = useState(false)
   return (
     <button onClick={onClick} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-      className="w-8 h-8 flex items-center justify-center rounded-lg border border-border cursor-pointer shrink-0 p-0"
       style={{
-        transform: hovered ? 'scale(1.05)' : 'scale(1)',
+        width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        transform: hovered ? 'scale(1.05)' : 'scale(1)', borderRadius: '8px',
+        border: '1px solid var(--q-border)', cursor: 'pointer',
         backgroundColor: hovered ? 'var(--q-hover)' : 'transparent',
+        flexShrink: 0, padding: '0',
         transition: 'background-color 180ms cubic-bezier(0.4, 0, 0.2, 1), transform 180ms cubic-bezier(0.4, 0, 0.2, 1)',
       }}>
       <svg width="12" height="12" viewBox="0 0 12 12" shapeRendering="geometricPrecision">
@@ -284,11 +306,14 @@ function ModeButton({ mode, onChange }: { mode: ChatMode; onChange: (m: ChatMode
   return (
     <button onClick={() => onChange(isPlan ? 'build' : 'plan')}
       onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-      className="w-12 h-8 flex items-center justify-center rounded-md border-none cursor-pointer font-bold text-14 font-interface leading-none shrink-0 p-0"
       style={{
-        transform: hovered ? 'scale(1.02)' : 'scale(1)',
+        width: '48px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        transform: hovered ? 'scale(1.02)' : 'scale(1)', borderRadius: 'var(--radius-md)',
+        border: 'none', cursor: 'pointer',
         backgroundColor: hovered ? 'var(--q-hover)' : 'transparent',
         color: isPlan ? 'var(--q-mode-plan)' : 'var(--q-mode-build)',
+        fontWeight: 700, fontSize: '14px', fontFamily: 'var(--font-interface)', lineHeight: '1',
+        flexShrink: 0, padding: '0',
         transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), transform 120ms cubic-bezier(0.16, 1, 0.3, 1)',
       }}>
       {isPlan ? 'Plan' : 'Build'}
@@ -301,11 +326,13 @@ function AttachBtn({ children, onClick, title }: { children: React.ReactNode; on
   const [hovered, setHovered] = useState(false)
   return (
     <button onClick={onClick} title={title} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-      className="w-8 h-8 flex items-center justify-center rounded-md border-none cursor-pointer shrink-0 p-0"
       style={{
-        transform: hovered ? 'scale(1.02)' : 'scale(1)',
+        width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        transform: hovered ? 'scale(1.02)' : 'scale(1)', borderRadius: 'var(--radius-md)',
+        border: 'none', cursor: 'pointer',
         backgroundColor: hovered ? 'var(--q-hover)' : 'transparent',
         color: hovered ? 'var(--q-text)' : 'var(--q-text-secondary)',
+        flexShrink: 0, padding: '0',
         transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms cubic-bezier(0.16, 1, 0.3, 1), transform 120ms cubic-bezier(0.16, 1, 0.3, 1)',
       }}>
       {children}
@@ -331,12 +358,13 @@ function SendButton({ enabled, onClick }: { enabled: boolean; onClick: () => voi
   return (
     <button ref={btnRef} onClick={onClick} disabled={!enabled}
       onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-      className="w-8 h-8 flex items-center justify-center rounded-lg border-none shrink-0 p-0"
       style={{
-        cursor: enabled ? 'pointer' : 'default',
-        transform: hovered && enabled ? 'scale(1.05)' : 'scale(1)',
+        width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        transform: hovered && enabled ? 'scale(1.05)' : 'scale(1)', borderRadius: '8px',
+        border: 'none', cursor: enabled ? 'pointer' : 'default',
         backgroundColor: enabled ? (hovered ? 'var(--q-accent-info-bright)' : 'var(--q-accent-info)') : 'var(--q-hover)',
         color: enabled ? '#FFFFFF' : 'var(--q-text-tertiary)',
+        flexShrink: 0, padding: '0',
         transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms cubic-bezier(0.16, 1, 0.3, 1), transform 120ms cubic-bezier(0.16, 1, 0.3, 1)',
       }}>
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
@@ -364,7 +392,7 @@ function StatusPill({ label, kind }: { label: string; kind: string }) {
   }
   const color = colorMap[kind] || 'var(--q-text)'
   return (
-    <span className="text-12 font-code leading-none whitespace-nowrap" style={{ color }}>
+    <span style={{ color, fontSize: '12px', fontFamily: 'var(--font-code)', lineHeight: '1', whiteSpace: 'nowrap' }}>
       {label}
     </span>
   )
