@@ -331,6 +331,8 @@ input:focus, textarea:focus, button:focus { box-shadow: none; outline: none; }
 .hljs { background: transparent !important; padding: 0 !important; }
 
 input[type="checkbox"] {
+  appearance: auto !important;
+  -webkit-appearance: auto !important;
   width: 18px !important;
   height: 18px !important;
   margin-right: 8px !important;
@@ -338,6 +340,8 @@ input[type="checkbox"] {
 }
 
 input[type="checkbox"] {
+  appearance: auto !important;
+  -webkit-appearance: auto !important;
   width: 18px !important;
   height: 18px !important;
   margin-right: 8px !important;
