@@ -2,6 +2,7 @@
 // Provides RPC handlers for agent CRUD, skill discovery, tool listing,
 // file management, and global config.
 
+import { execSync } from 'child_process';
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { homedir } from "node:os";
@@ -286,7 +287,7 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
       const pkg = String(p.package || "").trim();
       if (!pkg) return { success: false, error: "Nome pacchetto richiesto" };
       try {
-        const { execSync } = require("child_process");
+        // execSync imported at top
         let gitUrl = pkg.trim();
         // Estrai --skill flag (es. --skill web-search)
         let skillFlag = "";
@@ -476,7 +477,7 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
       try {
         if (process.platform === "darwin") {
           // macOS Keychain
-          const { execSync } = require("child_process");
+          // execSync imported at top
           execSync(`security add-generic-password -a "quinki" -s "${service}" -w "${key.replace(/"/g, '\\"')}" -U`, { stdio: "pipe" });
           return { success: true };
         } else {
@@ -497,7 +498,7 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
       if (!service) return { configured: false };
       try {
         if (process.platform === "darwin") {
-          const { execSync } = require("child_process");
+          // execSync imported at top
           execSync(`security find-generic-password -a "quinki" -s "${service}"`, { stdio: "pipe" });
           return { configured: true };
         } else {
@@ -511,7 +512,7 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
       if (!service) return { success: false, error: "Service required" };
       try {
         if (process.platform === "darwin") {
-          const { execSync } = require("child_process");
+          // execSync imported at top
           execSync(`security delete-generic-password -a "quinki" -s "${service}"`, { stdio: "pipe" });
           return { success: true };
         } else {
@@ -530,7 +531,7 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
       if (!service) return { key: null };
       try {
         if (process.platform === "darwin") {
-          const { execSync } = require("child_process");
+          // execSync imported at top
           const key = execSync(`security find-generic-password -a "quinki" -s "${service}" -w`, { stdio: "pipe", encoding: "utf8" }).trim();
           return { key };
         } else {
