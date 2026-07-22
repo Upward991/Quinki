@@ -2,8 +2,12 @@
 LOG="$HOME/.quinki-sidecar.log"
 echo "$(date): start.sh called" >> "$LOG"
 
-# Kill old processes
-lsof -ti:9182 | xargs kill -9 2>/dev/null
+# Only kill and restart if port 9182 is NOT in use
+if lsof -ti:9182 > /dev/null 2>&1; then
+  echo "$(date): port 9182 already in use, NOT killing" >> "$LOG"
+  exit 0
+fi
+
 pkill -f "ws-bridge" 2>/dev/null
 sleep 1
 
