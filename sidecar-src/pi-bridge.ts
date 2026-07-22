@@ -28,21 +28,19 @@ const SESSION_FILE = fs.existsSync(path.join(_agentDir, "quinki-sessions.json"))
   : path.join(_agentDir, "dashboard-sessions.json");
 const FOLDERS_FILE = fs.existsSync(path.join(_agentDir, "quinki-folders.json"))
   ? path.join(_agentDir, "quinki-folders.json")
-  : path.join(homedir(), ".pi", "agent", "dashboard-folders.json");
+  : path.join(_agentDir, "dashboard-folders.json");
 const SETTINGS_FILE = fs.existsSync(path.join(_agentDir, "quinki-settings.json"))
   ? path.join(_agentDir, "quinki-settings.json")
-  : path.join(homedir(), ".pi", "agent", "dashboard-settings.json");
+  : path.join(_agentDir, "dashboard-settings.json");
 const CONTEXT_USAGE_FILE = fs.existsSync(path.join(_agentDir, "quinki-context-usage.json"))
   ? path.join(_agentDir, "quinki-context-usage.json")
-  : path.join(homedir(), ".pi", "agent", "dashboard-context-usage.json");
+  : path.join(_agentDir, "dashboard-context-usage.json");
 const DELEGATIONS_FILE = fs.existsSync(path.join(_agentDir, "quinki-delegations.json"))
   ? path.join(_agentDir, "quinki-delegations.json")
-  : path.join(homedir(), ".pi", "agent", "dashboard-delegations.json");
+  : path.join(_agentDir, "dashboard-delegations.json");
 const DEBUG_LOG_FILE = path.join(_agentDir, "quinki-debug.log");
 const DEBUG_LOG_MAX = 50000;
-const SESSION_BASE = fs.existsSync(path.join(homedir(), ".pi", "agent", "sessions", "quinki"))
-  ? path.join(homedir(), ".pi", "agent", "sessions", "quinki")
-  : path.join(_agentDir, "sessions", "quinki");
+const SESSION_BASE = path.join(_agentDir, "sessions", "quinki");
 
 function makeBackup() {
   try {
