@@ -80,9 +80,30 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 							name: id,
 							type: p.api || "ollama",
 							apiKeyStatus: p.apiKey || p.apiKeySet ? "configured" : "missing",
+							baseUrl: p.baseUrl || "",
 							models: modelsByProvider[id] || [],
-							enabled: p.enabled !== false
+							enabled: p.enabled !== false,
+							enabledModels: p.enabledModels || []
 						});
+						// Auto-fetch models for enabled providers with no models loaded yet
+						for (const provider of providerList) {
+							if (provider.models.length === 0 && provider.enabled) {
+								try {
+									const fetched = await call("fetchProviderModels", {
+										providerName: provider.id,
+										baseUrl: provider.baseUrl || "",
+										apiKey: ""
+									});
+									if (fetched?.models && !cancelled) {
+										provider.models = fetched.models.map((m) => ({
+											id: m.id || m.name || m,
+											name: m.name || m.id || m,
+											contextWindow: m.contextWindow || (m.details && m.details.context_length) || 0
+										}));
+									}
+								} catch (e) { console.error("Auto-fetch models failed for", provider.id, e); }
+							}
+						}
 						for (const [id, models] of Object.entries(modelsByProvider)) if (!providerList.find((p) => p.id === id)) providerList.push({
 							id,
 							name: id,
@@ -91,7 +112,7 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 							models,
 							enabled: true
 						});
-						setProviders(providerList);
+						if (!cancelled) setProviders([...providerList]);
 					}
 				} catch {}
 				setLoading(false);
