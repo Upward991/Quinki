@@ -4670,11 +4670,9 @@ export async function testProviderConnectionIPC(
     }
     process.stderr.write(`[security-audit] testProviderConnectionIPC: provider=${providerName} resolvedKey=${actualKey || "NOT-FOUND"} recoveredKeyLen=${realApiKey.length} success=${realApiKey.length > 0}`);
   }
-  if (!realApiKey) {
-    process.stderr.write(`[security-audit] testProviderConnectionIPC: provider=${providerName} FAILED — no apiKey (masked and disk empty)`);
-    return { success: false, count: 0, error: "API key mancante" };
-  }
-  return await testProviderConnection(providerName, baseUrl, realApiKey);
+  // Try connection with whatever key we have (empty = no auth header)
+  // The test will fail naturally with 401 if the provider requires auth
+  return await testProviderConnection(providerName, baseUrl, realApiKey || "");
 }
 
 export function getProviderApiKeyIPC(providerName: string): string {
