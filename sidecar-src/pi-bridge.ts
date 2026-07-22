@@ -4670,9 +4670,21 @@ export async function testProviderConnectionIPC(
     }
     process.stderr.write(`[security-audit] testProviderConnectionIPC: provider=${providerName} resolvedKey=${actualKey || "NOT-FOUND"} recoveredKeyLen=${realApiKey.length} success=${realApiKey.length > 0}`);
   }
+  // Recover baseUrl from config if empty (same approach as apiKey)
+  let realBaseUrl = baseUrl;
+  if (!realBaseUrl) {
+    const full = readProvidersConfig();
+    const requestedLower = providerName.toLowerCase();
+    for (const k of Object.keys(full.providers)) {
+      if (k.toLowerCase() === requestedLower) {
+        realBaseUrl = full.providers[k]?.baseUrl || "";
+        break;
+      }
+    }
+  }
   // Try connection with whatever key we have (empty = no auth header)
   // The test will fail naturally with 401 if the provider requires auth
-  return await testProviderConnection(providerName, baseUrl, realApiKey || "");
+  return await testProviderConnection(providerName, realBaseUrl || baseUrl, realApiKey || "");
 }
 
 export function getProviderApiKeyIPC(providerName: string): string {
