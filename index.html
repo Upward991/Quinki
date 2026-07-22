@@ -18,34 +18,6 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-  <script>
-window.testConn = function(provider) {
-  // Find baseUrl from any input on the page that looks like a URL
-  var baseUrl = '';
-  var inputs = document.querySelectorAll('input[type=text]');
-  for (var i = 0; i < inputs.length; i++) {
-    var v = inputs[i].value || '';
-    if (v.indexOf('http') === 0) { baseUrl = v; break; }
-  }
-  if (!baseUrl) baseUrl = 'http://localhost:11434/v1';
-  if (!provider) provider = 'ollama';
   
-  alert('testConn called! provider=' + provider + ' baseUrl=' + baseUrl);
-  
-  var ws = new WebSocket('ws://127.0.0.1:9182');
-  ws.onopen = function() {
-    ws.send(JSON.stringify({jsonrpc:'2.0',method:'testProviderConnection',params:{providerName:provider,baseUrl:baseUrl,apiKey:''},id:1}));
-  };
-  ws.onmessage = function(e) {
-    var msg = JSON.parse(e.data);
-    if (msg.id === 1) {
-      alert('Result: ' + JSON.stringify(msg.result));
-      ws.close();
-    }
-  };
-  ws.onerror = function() { alert('WebSocket error'); };
-};
-</script>
-<div style="position:fixed;bottom:10px;left:10px;z-index:9999;background:#9d8bd9;color:#fff;padding:8px 16px;border-radius:8px;cursor:pointer;font-family:sans-serif;font-size:14px" onclick="testConn()">⚡ TEST CONN (outside React)</div>
 </body>
 </html>
