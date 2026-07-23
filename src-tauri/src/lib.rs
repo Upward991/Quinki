@@ -11,20 +11,19 @@ pub fn run() {
       {
         use tauri::Manager;
         let window = app.get_webview_window("main").unwrap();
-        use cocoa::appkit::{NSWindow, NSView, NSViewAutoresizingMask};
-        use cocoa::base::id;
-        use objc::msg_send;
-        use objc::sel;
-        use objc::sel_impl;
+        use objc::runtime::Object; type id = *mut Object;
+        use objc::{msg_send, sel, sel_impl};
         use objc::runtime::YES;
         let ns_window = window.ns_window().unwrap() as id;
         unsafe {
-            ns_window.setTitlebarAppearsTransparent_(YES);
-            let _: () = msg_send![ns_window, setOpaque: NO];
-            // Set background color to match theme (#08080b)
-            use cocoa::appkit::NSColor;
-            let bg_color = NSColor::colorWithDeviceWhite_red_green_blue_alpha(nil, 0.031, 0.031, 0.043, 1.0);
-            ns_window.setBackgroundColor_(bg_color);
+            // titlebar transparent
+            let _: () = msg_send![ns_window, setTitlebarAppearsTransparent: YES];
+            // non-opaque window
+            let _: () = msg_send![ns_window, setOpaque: objc::runtime::NO];
+            // bg color #08080b via colorWithSRGBRed:green:blue:alpha:
+            let ns_color_cls = objc::class!(NSColor);
+            let bg: id = msg_send![ns_color_cls, colorWithSRGBRed: 0.031f64 green: 0.031f64 blue: 0.043f64 alpha: 1.0f64];
+            let _: () = msg_send![ns_window, setBackgroundColor: bg];
         }
       }
       #[cfg(not(target_os = "windows"))]
@@ -41,7 +40,7 @@ pub fn run() {
         
         match cmd.spawn() {
           Ok((mut rx, _child)) => {
-            log::info!("Sidecar start script launched — rebuild v54 BUILDRS");
+            log::info!("Sidecar start script launched — rebuild v55 BUILDRS");
             std::thread::spawn(move || {
               while let Some(_event) = rx.blocking_recv() {}
             });
