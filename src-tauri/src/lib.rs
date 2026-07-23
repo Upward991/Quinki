@@ -6,7 +6,7 @@ fn __drag_window(window: tauri::WebviewWindow) {
 
 #[tauri::command]
 fn __toggle_maximize(window: tauri::WebviewWindow) {
-  let _ = window.toggle_maximize();
+  let _ = if window.is_maximized().unwrap_or(false) { window.unmaximize().ok() } else { window.maximize().ok() };
 }
 
 #[tauri::command]
@@ -53,7 +53,7 @@ pub fn run() {
         
         match cmd.spawn() {
           Ok((mut rx, _child)) => {
-            log::info!("Sidecar start script launched — rebuild v106 BUILDRS");
+            log::info!("Sidecar start script launched — rebuild v107 BUILDRS");
             std::thread::spawn(move || {
               while let Some(_event) = rx.blocking_recv() {}
             });
