@@ -396,7 +396,7 @@ export function AgentsPanel(props) {
       React.createElement('div', { style: { marginBottom: '8px', flexShrink: 0, display: 'flex', alignItems: 'center' }, children: [
         // Home button
         React.createElement('div', { style: headerStyle, children: 
-          IconButton({ icon: Home, onClick: () => onSelectPanel('home'), title: 'Home' })
+          React.createElement(IconButton, { icon: Home, onClick: () => onSelectPanel('home'), title: 'Home' })
         }),
         React.createElement('div', { style: { width: '8px', flexShrink: 0 } }),
         // Title bar
@@ -430,7 +430,7 @@ export function AgentsPanel(props) {
           SearchBar({ placeholder: 'Search agents...', value: searchAgents, onChange: setSearchAgents }),
           React.createElement('div', { style: { height: '8px' } }),
           React.createElement('div', { style: { maxHeight: '500px', overflowY: 'auto' }, children:
-            filteredAgents.map(agent => AgentRow({
+            filteredAgents.map(agent => React.createElement(AgentRow, {
               key: agent.id,
               agent,
               isExpanded: expandedAgentId === agent.id,
@@ -466,7 +466,7 @@ export function AgentsPanel(props) {
                 ? React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'No skill found.' })
                 : filteredSkills.map(skill => {
                     const usingAgents = agents.filter(a => a.skills.some(s => s.name === skill.name));
-                    return SkillRow({
+                    return React.createElement(SkillRow, {
                       key: skill.name,
                       icon: BookOpen,
                       name: skill.name,
@@ -493,7 +493,7 @@ export function AgentsPanel(props) {
             React.createElement('div', { style: { maxHeight: '300px', overflowY: 'auto' }, children:
               filteredTools.map(tool => {
                 const usingAgents = agents.filter(a => a.tools.some(t => t.name === tool.name));
-                return SkillRow({
+                return React.createElement(SkillRow, {
                   key: tool.name,
                   icon: Wrench,
                   name: tool.name,
@@ -532,20 +532,20 @@ export function AgentsPanel(props) {
 
     // New agent
     showNewAgent && Modal({ onClose: () => setShowNewAgent(false), title: 'New agent', children: [
-      NewAgentForm({ onCreate: doCreateAgent, onCancel: () => setShowNewAgent(false) })
+      React.createElement(NewAgentForm, { onCreate: doCreateAgent, onCancel: () => setShowNewAgent(false) })
     ]}),
 
     // Create skill
     showCreateSkill && React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: () => setShowCreateSkill(false), children:
       React.createElement('div', { style: { backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', animation: 'modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '520px', width: '90%', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }, onClick: e => e.stopPropagation(), children: [
         React.createElement('div', { style: { color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '16px' }, children: 'Create new skill' }),
-        CreateSkillForm({ onCreate: doCreateSkill, onCancel: () => setShowCreateSkill(false) })
+        React.createElement(CreateSkillForm, { onCreate: doCreateSkill, onCancel: () => setShowCreateSkill(false) })
       ]})
     }),
 
     // Install skill
     showInstallSkill && Modal({ onClose: () => setShowInstallSkill(false), title: 'Install skill from internet', children: [
-      InstallSkillForm({ onInstall: doInstallSkill, onCancel: () => setShowInstallSkill(false) })
+      React.createElement(InstallSkillForm, { onInstall: doInstallSkill, onCancel: () => setShowInstallSkill(false) })
     ]}),
 
     // Installing spinner
@@ -616,10 +616,10 @@ export function AgentsPanel(props) {
     ]}),
 
     // Add items modal
-    addItemsModal && AddItemsModal({ title: addItemsModal.title, items: addItemsModal.items, onClose: () => setAddItemsModal(null), onConfirm: (selected) => addItemsModal.onConfirm(selected) }),
+    addItemsModal && React.createElement(AddItemsModal, { title: addItemsModal.title, items: addItemsModal.items, onClose: () => setAddItemsModal(null), onConfirm: (selected) => addItemsModal.onConfirm(selected) }),
 
     // File editor
-    fileEditor && FileEditor({ 
+    fileEditor && React.createElement(FileEditor, { 
       agentId: fileEditor.agentId, 
       skillName: fileEditor.skillName,
       fileName: fileEditor.fileName, 
@@ -628,7 +628,7 @@ export function AgentsPanel(props) {
 
     // Add file modal
     addFileAgent && Modal({ onClose: () => setAddFileAgent(null), title: 'New file', children: [
-      NewFileForm({ onCreate: (fileName) => doCreateFile(addFileAgent, fileName), onCancel: () => setAddFileAgent(null) })
+      React.createElement(NewFileForm, { onCreate: (fileName) => doCreateFile(addFileAgent, fileName), onCancel: () => setAddFileAgent(null) })
     ]}),
 
     // Error modal

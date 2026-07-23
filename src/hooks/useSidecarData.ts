@@ -45,7 +45,7 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 								enabled: true
 							})),
 							files,
-							isDeletable: a.id !== "orchestrator"
+							isDeletable: a.id !== "orchestrator" && a.id !== "quinki-expert"
 						};
 					}));
 					setAgents(agentsWithFiles);
@@ -260,7 +260,7 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 						skills: (a.skills || []).map((s) => ({ name: s, source: "local", installed: true })),
 						tools: (a.tools || []).map((t) => ({ name: t, enabled: true })),
 						files,
-						isDeletable: a.id !== "orchestrator"
+						isDeletable: a.id !== "orchestrator" && a.id !== "quinki-expert"
 					};
 				}));
 				setAgents(agentsWithFiles);
