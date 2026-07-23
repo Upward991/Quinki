@@ -84,13 +84,13 @@ export function LogPanel(props: LogPanelProps) {
   }, [entries, autoScroll])
 
   const levelColors: Record<string, { bg: string; text: string; tag: string; pill: string }> = {
-    error:    { bg: 'var(--q-log-error-bg)',    text: 'var(--q-log-error-text)',    tag: 'var(--q-log-error-tag)',    pill: 'var(--q-accent-danger)' },
-    warn:     { bg: 'var(--q-log-warn-bg)',     text: 'var(--q-log-warn-text)',     tag: 'var(--q-log-warn-tag)',     pill: 'var(--q-accent-warning)' },
-    ui:       { bg: 'var(--q-log-ui-bg)',       text: 'var(--q-log-ui-text)',       tag: 'var(--q-log-ui-tag)',       pill: 'var(--q-accent-info)' },
-    success:  { bg: 'var(--q-log-success-bg)',  text: 'var(--q-log-success-text)',  tag: 'var(--q-log-success-tag)',  pill: 'var(--q-accent-success)' },
-    bridge:   { bg: 'var(--q-log-bridge-bg)',   text: 'var(--q-log-bridge-text)',   tag: 'var(--q-log-bridge-tag)',   pill: 'var(--q-text)' },
-    renderer: { bg: 'var(--q-log-renderer-bg)', text: 'var(--q-log-renderer-text)', tag: 'var(--q-log-renderer-tag)', pill: 'var(--q-text-secondary)' },
-    info:     { bg: 'var(--q-log-info-bg)',     text: 'var(--q-log-info-text)',     tag: 'var(--q-log-info-tag)',     pill: 'var(--q-text-tertiary)' },
+    error:    { bg: 'color-mix(in srgb, var(--q-accent-danger) 6%, transparent)', text: 'var(--q-accent-danger)', tag: 'var(--q-accent-danger)', pill: 'var(--q-accent-danger)' },
+    warn:     { bg: 'color-mix(in srgb, var(--q-accent-warning) 6%, transparent)', text: 'var(--q-accent-warning)', tag: 'var(--q-accent-warning)', pill: 'var(--q-accent-warning)' },
+    ui:       { bg: 'color-mix(in srgb, var(--q-accent-info) 6%, transparent)', text: 'var(--q-accent-info)', tag: 'var(--q-accent-info)', pill: 'var(--q-accent-info)' },
+    success:  { bg: 'color-mix(in srgb, var(--q-accent-success) 6%, transparent)', text: 'var(--q-accent-success)', tag: 'var(--q-accent-success)', pill: 'var(--q-accent-success)' },
+    bridge:   { bg: 'color-mix(in srgb, var(--q-text) 4%, transparent)', text: 'var(--q-text)', tag: 'var(--q-text)', pill: 'var(--q-text)' },
+    renderer: { bg: 'color-mix(in srgb, var(--q-text-secondary) 4%, transparent)', text: 'var(--q-text-secondary)', tag: 'var(--q-text-secondary)', pill: 'var(--q-text-secondary)' },
+    info:     { bg: 'color-mix(in srgb, var(--q-text-tertiary) 4%, transparent)', text: 'var(--q-text-tertiary)', tag: 'var(--q-text-tertiary)', pill: 'var(--q-text-tertiary)' },
   }
 
   const moreFilters = ['success', 'bridge', 'renderer', 'info']
@@ -98,12 +98,12 @@ export function LogPanel(props: LogPanelProps) {
   const months = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december']
 
   function deriveLevel(tag: string): string {
-    if (tag.startsWith('error') || tag.includes('error')) return 'error'
-    if (tag.startsWith('warn') || tag.startsWith('warning') || tag === 'retrying') return 'warn'
-    if (tag.startsWith('success')) return 'success'
+    if (tag.startsWith('error') || tag.includes('error') || tag.includes('Error') || tag.includes('failed') || tag.includes('failed-')) return 'error'
+    if (tag.startsWith('warn') || tag.startsWith('warning') || tag === 'retrying' || tag.includes('deprecat')) return 'warn'
+    if (tag.startsWith('success') || tag.includes('done') || tag.includes('loaded') || tag.includes('initialized')) return 'success'
     if (tag.startsWith('ui-') || tag.startsWith('ui:') || tag.includes('ui-click') || tag.includes('ui-nav') || tag.includes('ui-keyboard') || tag.includes('ui-panel')) return 'ui'
-    if (tag.startsWith('bridge:') || tag.startsWith('bridge-') || tag.startsWith('full-state-') || tag.startsWith('get_') || tag.startsWith('ws:') || tag.startsWith('send:') || tag.startsWith('stream:') || tag.startsWith('history:') || tag.startsWith('session:')) return 'bridge'
-    if (tag.startsWith('renderer:') || tag.startsWith('renderer-')) return 'renderer'
+    if (tag.startsWith('send-message') || tag.startsWith('set-agent') || tag.startsWith('stream') || tag.startsWith('session') || tag.startsWith('history') || tag.startsWith('bridge') || tag.startsWith('full-state') || tag.startsWith('get_') || tag.startsWith('ws:') || tag.startsWith('send:') || tag.startsWith('create') || tag.startsWith('delete') || tag.startsWith('update') || tag.startsWith('rename') || tag.startsWith('reload') || tag.startsWith('flush') || tag.startsWith('compact') || tag.startsWith('set-')) return 'bridge'
+    if (tag.startsWith('renderer') || tag.startsWith('sidecar-marker') || tag.startsWith('stdout')) return 'renderer'
     return 'info'
   }
 
