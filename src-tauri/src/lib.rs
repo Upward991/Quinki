@@ -6,8 +6,8 @@ fn set_window_bg_color(window: tauri::WebviewWindow, color: String) {
     use objc::runtime::Object; type id = *mut Object;
     use objc::{msg_send, sel, sel_impl};
     let ns_window = window.ns_window().unwrap() as id;
-    // Parse hex color #RRGGBB
-    let hex = color.trim_start_matches('#');
+    let hex = color.trim().trim_start_matches('#');
+    eprintln!("[QUINKI] set_window_bg_color called with: {}", color);
     if hex.len() == 6 {
       let r = u8::from_str_radix(&hex[0..2], 16).unwrap_or(8) as f64 / 255.0;
       let g = u8::from_str_radix(&hex[2..4], 16).unwrap_or(8) as f64 / 255.0;
@@ -16,7 +16,10 @@ fn set_window_bg_color(window: tauri::WebviewWindow, color: String) {
         let ns_color_cls = objc::class!(NSColor);
         let bg: id = msg_send![ns_color_cls, colorWithSRGBRed: r green: g blue: b alpha: 1.0f64];
         let _: () = msg_send![ns_window, setBackgroundColor: bg];
+        eprintln!("[QUINKI] NSWindow bg set to r={} g={} b={}", r, g, b);
       }
+    } else {
+      eprintln!("[QUINKI] Invalid hex color: {}", color);
     }
   }
 }
@@ -59,7 +62,7 @@ pub fn run() {
         
         match cmd.spawn() {
           Ok((mut rx, _child)) => {
-            log::info!("Sidecar start script launched — rebuild v73 BUILDRS");
+            log::info!("Sidecar start script launched — rebuild v75 BUILDRS");
             std::thread::spawn(move || {
               while let Some(_event) = rx.blocking_recv() {}
             });
