@@ -139,12 +139,12 @@
    DESIGN TOKENS — "Deep Cosmos" base (:root)
    ────────────────────────────────────────────────────────── */
 :root {
-  --q-bg: #08080b;
-  --q-bg-panel: #0f0f13;
-  --q-bg-elevated: #16161b;
-  --q-bg-code: #040406;
-  --q-bubble-user: #1a1a20;
-  --q-bubble-user-text: #e8e8ec;
+  --q-bg: #121212;
+  --q-bg-panel: #1F1F1F;
+  --q-bg-elevated: #1d1d1d;
+  --q-bg-code: #000000;
+  --q-bubble-user: #383838;
+  --q-bubble-user-text: #EAEAEA;
   --q-overlay: #06060ad1;
   --q-text: #e8e8ec;
   --q-text-secondary: #888892;
