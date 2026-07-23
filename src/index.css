@@ -239,7 +239,6 @@ body {
 }
 
 /* Aurora background — subtle radial gradients */
-/* AURORA DISABLED FOR TEST
 body:before {
   content: "";
   z-index: -1;
@@ -249,7 +248,7 @@ body:before {
   inset: 0;
 }
 
-/* Noise overlay — fractal turbulence at 2.5% opacity */
+/* Noise overlay — fractal turbulence at 2.5% opacity 
 body:after {
   content: "";
   opacity: 0.025;
