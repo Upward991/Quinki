@@ -737,10 +737,10 @@ function AgentRow({ agent, isExpanded, isRenaming, onToggle, onStartRename, onCo
     isExpanded && React.createElement('div', { style: { padding: '0 12px 12px 14px' }, children: [
       // Description — same style as skill/tool description
       agent.systemPrompt && (() => {
-        const lines = agent.systemPrompt.split('\n');
-        const desc = lines.find(l => l.trim() && !l.startsWith('#') && !l.startsWith('---')) || '';
-        if (!desc.trim()) return null;
-        return React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginBottom: '8px', lineHeight: 1.5 }, children: desc.replace(/\*\*/g, '').trim() });
+        const lines = agent.systemPrompt.split('\n').filter(l => l.trim() && !l.startsWith('#') && !l.startsWith('---'));
+        const desc = lines.slice(0, 3).join(' ').replace(/\*\*/g, '').trim();
+        if (!desc) return null;
+        return React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginBottom: '8px', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }, children: desc });
       })(),
       // Files
       React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }, children: [
