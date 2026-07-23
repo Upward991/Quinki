@@ -381,12 +381,4 @@ export const mockThemes: ThemePreset[] = [
   { id: 'eclipse', name: 'Eclipse', bg: '#040406', bgPanel: '#0A0A0C', bgBubbleUser: '#141416', text: '#E8E8EC' },
   { id: 'graphite', name: 'Graphite', bg: '#0C0C0E', bgPanel: '#121214', bgBubbleUser: '#1E1E20', text: '#E8E8EC' },
   { id: 'mist', name: 'Mist', bg: '#141416', bgPanel: '#1A1A1C', bgBubbleUser: '#262628', text: '#E8E8EC' },
-] = [
-  { id: 'comfort', name: 'Vision Comfort (Neutral)', bg: '#121212', bgPanel: '#1F1F1F', bgBubbleUser: '#383838', text: '#EAEAEA' },
-  { id: 'midnight', name: 'Antracite Notturna', bg: '#161616', bgPanel: '#232323', bgBubbleUser: '#232323', text: '#e6e6e6' },
-  { id: 'forest', name: 'Ossidiana Nera', bg: '#0a0a0a', bgPanel: '#1e1e1e', bgBubbleUser: '#141414', text: '#e6e6e6' },
-  { id: 'warm', name: 'Amber Void Harmony', bg: '#0B0E1A', bgPanel: '#1A1F1A', bgBubbleUser: '#3A2A12', text: '#e6e6e6' },
-  { id: 'eclipse', name: 'Arctic Plum Ocean', bg: '#070C18', bgPanel: '#241A2E', bgBubbleUser: '#0F3B3C', text: '#e6e6e6' },
-  { id: 'graphite', name: 'Earth Neon Calm', bg: '#07140F', bgPanel: '#2A1B14', bgBubbleUser: '#3B3A1A', text: '#e6e6e6' },
-  { id: 'mist', name: 'Nordic Calm', bg: '#0A0F1C', bgPanel: '#14222A', bgBubbleUser: '#2B4A66', text: '#e6e6e6' },
 ]
