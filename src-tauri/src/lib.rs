@@ -16,11 +16,17 @@ pub fn run() {
         use objc::runtime::YES;
         let ns_window = window.ns_window().unwrap() as id;
         unsafe {
-            // titlebar transparent
+            // Same approach as Flutter CatBoard:
+            // 1. fullSizeContentView — content extends behind titlebar (enables drag)
+            let style_mask: u64 = msg_send![ns_window, styleMask];
+            // NSFullSizeContentViewWindowMask = 1 << 15 = 32768
+            let new_mask = style_mask | 32768;
+            let _: () = msg_send![ns_window, setStyleMask: new_mask];
+            // 2. titlebar transparent
             let _: () = msg_send![ns_window, setTitlebarAppearsTransparent: YES];
-            // non-opaque window
-            let _: () = msg_send![ns_window, setOpaque: objc::runtime::NO];
-            // bg color #08080b via colorWithSRGBRed:green:blue:alpha:
+            // 3. opaque window with solid bg (like Flutter: isOpaque = true)
+            let _: () = msg_send![ns_window, setOpaque: YES];
+            // 4. bg color #08080b
             let ns_color_cls = objc::class!(NSColor);
             let bg: id = msg_send![ns_color_cls, colorWithSRGBRed: 0.031f64 green: 0.031f64 blue: 0.043f64 alpha: 1.0f64];
             let _: () = msg_send![ns_window, setBackgroundColor: bg];
@@ -40,7 +46,7 @@ pub fn run() {
         
         match cmd.spawn() {
           Ok((mut rx, _child)) => {
-            log::info!("Sidecar start script launched — rebuild v57 BUILDRS");
+            log::info!("Sidecar start script launched — rebuild v58 BUILDRS");
             std::thread::spawn(move || {
               while let Some(_event) = rx.blocking_recv() {}
             });
