@@ -209,6 +209,36 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 		subscribe,
 		call
 	]);
+	refreshProviders: useCallback(async () => {
+		if (!ready) return;
+		try {
+			const [providersResult, modelsResult] = await Promise.all([call("getProvidersConfig", {}), call("getModels", {})]);
+			const modelsByProvider = {};
+			if (modelsResult?.models) for (const m of modelsResult.models) {
+				const p = m.provider || "unknown";
+			if (!modelsByProvider[p]) modelsByProvider[p] = [];
+				modelsByProvider[p].push({ id: m.id, name: m.name || m.id, contextWindow: m.contextWindow });
+			}
+			const providerList = [];
+			if (providersResult?.providers) for (const [id, p] of Object.entries(providersResult.providers)) providerList.push({
+				id, name: id, type: p.api || "ollama",
+				apiKeyStatus: p.apiKey || p.apiKeySet ? "configured" : "missing",
+				baseUrl: p.baseUrl || "",
+				models: modelsByProvider[id] || [],
+				enabled: p.enabled !== false,
+				enabledModels: p.enabledModels || []
+			});
+			for (const provider of providerList) {
+				if (provider.models.length === 0 && provider.enabled) {
+					try {
+						const fetched = await call("fetchProviderModels", { providerName: provider.id, baseUrl: provider.baseUrl || "", apiKey: "" });
+						if (fetched?.models) provider.models = fetched.models.map((m) => ({ id: m.id || m.name || m, name: m.name || m.id || m, contextWindow: m.contextWindow || (m.details && m.details.context_length) || 0 }));
+					} catch {}
+				}
+			}
+			setProviders([...providerList]);
+		} catch (e) { console.error("refreshProviders:", e); }
+	}, [ready, call]),
 	return {
 		connected: ready,
 		loading,
