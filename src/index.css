@@ -272,7 +272,7 @@ h1, h2, h3, h4, h5, h6 { letter-spacing: -0.01em; }
 input:focus, textarea:focus, button:focus { box-shadow: none; outline: none; }
 
 /* Global transition for smooth theme switching */
-* { transition: background-color 0.12s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.12s, color 0.12s; }
+* { transition: border-color 0.12s, color 0.12s; }
 
 /* ──────────────────────────────────────────────────────────
    ANIMATIONS — "Deep Cosmos" motion design
