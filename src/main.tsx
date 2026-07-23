@@ -23,6 +23,11 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {error:
 }
 
 console.log('About to render App')
+// Color test: create a div with var(--q-bg) to compare with the actual UI bg
+const testDiv = document.createElement('div')
+testDiv.style.cssText = 'position:fixed;top:40px;right:8px;z-index:99999;width:80px;height:40px;border:2px solid white;background-color:var(--q-bg);'
+document.body.appendChild(testDiv)
+console.log('Color test div added')
 createRoot(document.getElementById('root')!).render(
   React.createElement(ErrorBoundary, null, React.createElement(App))
 )
