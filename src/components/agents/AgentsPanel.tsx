@@ -619,7 +619,7 @@ export function AgentsPanel(props) {
     ]}),
 
     // Add items modal
-    addItemsModal && React.createElement(AddItemsModal, { title: addItemsModal.title, items: addItemsModal.items, onClose: () => setAddItemsModal(null), onConfirm: (selected) => { addItemsModal.onConfirm(selected); } }),
+    addItemsModal && React.createElement(AddItemsModal, { title: addItemsModal.title, items: addItemsModal.items, onClose: () => setAddItemsModal(null), onConfirm: (selected) => { addItemsModal.onConfirm(selected); setAddItemsModal(null); } }),
 
     // File editor
     fileEditor && React.createElement(FileEditor, { 
@@ -951,7 +951,7 @@ function AddItemsModal({ title, items, onClose, onConfirm }) {
         React.createElement('span', { style: { flex: 1 } }),
         React.createElement('button', { className: 'q-press', onClick: onClose, style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-accent-danger)', fontSize: '15px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }, children: 'Cancel' }),
         React.createElement('div', { style: { width: '8px' } }),
-        React.createElement('button', { className: 'q-press', onClick: () => { onConfirm([...selected]); setSelected(new Set()); }, disabled: selected.size === 0, style: { padding: '4px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: selected.size === 0 ? 'default' : 'pointer', backgroundColor: selected.size === 0 ? 'transparent' : 'var(--q-accent-secondary)', color: selected.size === 0 ? 'var(--q-text-tertiary)' : 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)', opacity: selected.size === 0 ? 0.5 : 1 }, children: [`Add (`, selected.size, `)`] })
+        React.createElement('button', { className: 'q-press', onClick: () => onConfirm([...selected]), disabled: selected.size === 0, style: { padding: '4px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: selected.size === 0 ? 'default' : 'pointer', backgroundColor: selected.size === 0 ? 'transparent' : 'var(--q-accent-secondary)', color: selected.size === 0 ? 'var(--q-text-tertiary)' : 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)', opacity: selected.size === 0 ? 0.5 : 1 }, children: [`Add (`, selected.size, `)`] })
       ]})
     ]})
   });
