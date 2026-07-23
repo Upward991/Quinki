@@ -230,6 +230,8 @@ html, body, #root { height: 100%; overflow: hidden; }
 body {
   font-family: var(--font-interface);
   background-color: var(--q-bg);
+  background-image: radial-gradient(60% 40% at 20% 0%, #9d8bd906, transparent 60%), radial-gradient(50% 40% at 80% 100%, #7aa2f705, transparent 60%);
+  background-attachment: fixed;
   color: var(--q-text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -239,14 +241,7 @@ body {
 }
 
 /* Aurora background — subtle radial gradients */
-body:before {
-  content: "";
-  z-index: -1;
-  pointer-events: none;
-  background: radial-gradient(60% 40% at 20% 0%, #9d8bd906, transparent 60%), radial-gradient(50% 40% at 80% 100%, #7aa2f705, transparent 60%);
-  position: fixed;
-  inset: 0;
-}
+/* Aurora moved to body background-image */
 
 /* Noise overlay — fractal turbulence at 2.5% opacity 
 body:after {
