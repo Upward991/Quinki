@@ -229,7 +229,7 @@
 html, body, #root { height: 100vh; overflow: hidden; }
 body {
   font-family: var(--font-interface);
-  background-color: transparent;
+  background-color: var(--q-bg);
   color: var(--q-text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

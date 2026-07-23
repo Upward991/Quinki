@@ -1,6 +1,29 @@
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
+#[tauri::command]
+fn set_window_bg_color(window: tauri::WebviewWindow, color: String) {
+  #[cfg(target_os = "macos")]
+  {
+    use objc::runtime::Object; type id = *mut Object;
+    use objc::{msg_send, sel, sel_impl};
+    let ns_window = window.ns_window().unwrap() as id;
+    // Parse hex color #RRGGBB
+    let hex = color.trim_start_matches('#');
+    if hex.len() == 6 {
+      let r = u8::from_str_radix(&hex[0..2], 16).unwrap_or(8) as f64 / 255.0;
+      let g = u8::from_str_radix(&hex[2..4], 16).unwrap_or(8) as f64 / 255.0;
+      let b = u8::from_str_radix(&hex[4..6], 16).unwrap_or(11) as f64 / 255.0;
+      unsafe {
+        let ns_color_cls = objc::class!(NSColor);
+        let bg: id = msg_send![ns_color_cls, colorWithSRGBRed: r green: g blue: b alpha: 1.0f64];
+        let _: () = msg_send![ns_window, setBackgroundColor: bg];
+      }
+    }
+  }
+}
+
 pub fn run() {
   tauri::Builder::default()
+    .invoke_handler(tauri::generate_handler![set_window_bg_color])
     .plugin(tauri_plugin_shell::init())
     .plugin(tauri_plugin_window_state::Builder::default().build())
     .plugin(tauri_plugin_log::Builder::default()
@@ -36,7 +59,7 @@ pub fn run() {
         
         match cmd.spawn() {
           Ok((mut rx, _child)) => {
-            log::info!("Sidecar start script launched — rebuild v66 BUILDRS");
+            log::info!("Sidecar start script launched — rebuild v67 BUILDRS");
             std::thread::spawn(move || {
               while let Some(_event) = rx.blocking_recv() {}
             });
