@@ -134,16 +134,8 @@ export function LogPanel(props: LogPanelProps) {
     return true
   })
 
-  // Find which entries contain the search term (don't filter, just mark)
-  const searchMatches: number[] = []
-  if (search) {
-    const q = search.toLowerCase()
-    filtered.forEach((e, i) => {
-      const p = formatPayload(e.data)
-      const f = (fmtDateShort(e.ts) + ' ' + fmtTimeShort(e.ts) + ' ' + e.tag + ' ' + p).toLowerCase()
-      if (f.includes(q)) searchMatches.push(i)
-    })
-  }
+  // searchMatches is now a state, computed in onChange
+  // (removed the derived const to avoid duplicate declaration)
 
   function toggleFilter(level: string) {
     setActiveFilters((prev) => {
