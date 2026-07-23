@@ -92,24 +92,17 @@ export function LogPanel(props: LogPanelProps) {
   const filtered = entries.filter((e) => {
     const level = deriveLevel(e.tag)
     if (activeFilters.size > 0 && !activeFilters.has(level)) return false
-    if (search) {
-      const p = formatPayload(e.data)
-      if (!(fmtDateShort(e.ts) + ' ' + fmtTimeShort(e.ts) + ' ' + e.tag + ' ' + p).toLowerCase().includes(search.toLowerCase())) return false
-    }
     return true
   })
 
+  // Find which entries contain the search term (don't filter, just mark)
   const searchMatches: number[] = []
   if (search) {
     const q = search.toLowerCase()
     filtered.forEach((e, i) => {
       const p = formatPayload(e.data)
       const f = (fmtDateShort(e.ts) + ' ' + fmtTimeShort(e.ts) + ' ' + e.tag + ' ' + p).toLowerCase()
-      let idx = 0
-      while ((idx = f.indexOf(q, idx)) !== -1) {
-        searchMatches.push(i)
-        idx += q.length
-      }
+      if (f.includes(q)) searchMatches.push(i)
     })
   }
 
@@ -307,7 +300,7 @@ export function LogPanel(props: LogPanelProps) {
           setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100)
         }}>
         
-        {filtered.length === 0 ? (
+        {entries.length === 0 ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--q-text-tertiary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>
             log vuoto
           </div>
@@ -435,7 +428,7 @@ export function LogPanel(props: LogPanelProps) {
           ✕
         </button>
         <div style={{ width: '8px', flexShrink: 0 }} />
-        <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-code)', opacity: !search || searchMatches.length === 0 ? 0.3 : 1 }}>
+        <span style={{ color: !search || searchMatches.length === 0 ? 'var(--q-text-tertiary)' : 'var(--q-text-secondary)', fontSize: '12px', fontFamily: 'var(--font-code)', opacity: !search || searchMatches.length === 0 ? 0.3 : 1 }}>
           {search ? (searchMatches.length === 0 ? '0/0' : `${currentMatch + 1}/${searchMatches.length}`) : '0/0'}
         </span>
         <div style={{ width: '8px', flexShrink: 0 }} />
