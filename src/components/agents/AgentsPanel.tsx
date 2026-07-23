@@ -1,8 +1,1013 @@
 import React from 'react'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useSidecarContext } from '../shared/AppShell'
 import { Archive, BookOpen, Bot, ChevronDown, ChevronUp, Copy, FileText, Home, Info, Package, Palette, Pencil, Plug, Plus, Power, Save, Search, Settings, Shield, Trash, Wrench, X } from '../icons'
 
-var xh=['read','grep','find','ls'];
+// ============================================================
+// AgentsPanel — full rewrite with sidecar wiring
+// ============================================================
 
-export function AgentsPanel(e){let{call:t}=useSidecarContext(),[n,r]=useState([]),[i,a]=useState([]),[o,s]=useState(null),[c,l]=useState(``),[u,d]=useState(``),[f,p]=useState(``),[m,h]=useState(null),[g,_]=useState(null),[y,b]=useState(!1),[x,S]=useState(null),C=useRef(null),[w,T]=useState(!1),[E,D]=useState(!1),[O,k]=useState(!1),[A,j]=useState(null),[M,N]=useState(null),[P,F]=useState(null),[I,L]=useState(null),[ee,te]=useState(null),[ne,re]=useState(null),[ie,R]=useState(null),[ae,oe]=useState(!1),[se,ce]=useState(null);useEffect(()=>{if(!t)return;let e=!1;return(async()=>{try{let n=await t(`listSkills`,{});!e&&n?.skills&&r(n.skills.map(e=>({name:e.name||e,description:e.description||``,source:e.source||`local`})))}catch(e){console.error(`Failed to load skills:`,e)}try{let n=await t(`listTools`,{});!e&&n?.tools&&a(n.tools.map(e=>({name:e.name,description:e.description||``,readOnly:e.readOnly||!1})))}catch(e){console.error(`Failed to load tools:`,e)}})(),()=>{e=!0}},[t]);let le=e.agents.filter(e=>e.name.toLowerCase().includes(c.toLowerCase())),ue=n.filter(e=>e.name.toLowerCase().includes(u.toLowerCase())||e.description.toLowerCase().includes(u.toLowerCase())),de=i.filter(e=>e.name.toLowerCase().includes(f.toLowerCase())),fe={backgroundColor:`var(--q-bg-panel)`,borderRadius:`var(--radius-lg)`,boxShadow:`var(--shadow-floating)`,padding:`8px`,minHeight:`var(--spacing-header-min)`,display:`flex`,alignItems:`center`};return React.createElement(`div`,{className:`h-full flex flex-col`,children:[React.createElement(`div`,{className:`flex flex-col`,style:{maxWidth:`var(--spacing-chat-max)`,margin:`0 auto`,width:`100%`,flex:1,minHeight:0},children:[React.createElement(`div`,{style:{marginBottom:`8px`,flexShrink:0,display:`flex`,alignItems:`center`},children:[React.createElement(`div`,{style:fe,children:React.createElement(Fh,{icon:Home,onClick:()=>e.onSelectPanel(`home`),title:`Home`})}),React.createElement(`div`,{style:{width:`8px`,flexShrink:0}}),React.createElement(`div`,{style:{...fe,flex:1},children:[React.createElement(`div`,{style:{width:`8px`,flexShrink:0}}),React.createElement(Bot,{size:18,style:{color:`var(--q-accent-secondary)`,flexShrink:0}}),React.createElement(`div`,{style:{width:`16px`,flexShrink:0}}),React.createElement(`span`,{style:{color:`var(--q-text)`,fontSize:`16px`,fontWeight:600,fontFamily:`var(--font-interface)`},children:`Agents`}),React.createElement(`span`,{style:{flex:1}}),g&&React.createElement(React.Fragment,{children:[React.createElement(`span`,{style:{color:`var(--q-accent-success)`,fontSize:`13px`,fontFamily:`var(--font-interface)`},children:g}),React.createElement(`div`,{style:{width:`16px`,flexShrink:0}})]}),y&&React.createElement(React.Fragment,{children:[React.createElement(`span`,{style:{color:`var(--q-accent-warning)`,fontSize:`12px`,fontFamily:`var(--font-interface)`},children:`Unsaved`}),React.createElement(`div`,{style:{width:`8px`,flexShrink:0}})]}),React.createElement(`button`,{onClick:()=>{b(!1),_(`Settings saved.`),setTimeout(()=>_(null),5e3)},style:{height:`32px`,padding:`0 16px`,borderRadius:`var(--radius-md)`,border:`1px solid var(--q-border)`,cursor:`pointer`,backgroundColor:`transparent`,display:`flex`,alignItems:`center`,gap:`6px`,color:`var(--q-text-secondary)`,fontSize:`14px`,fontFamily:`var(--font-interface)`,flexShrink:0},children:[React.createElement(Save,{size:16}),` Save`]}),React.createElement(`div`,{style:{width:`8px`,flexShrink:0}}),React.createElement(`button`,{onClick:()=>{b(!1),_(`Saved. Restarting...`),setTimeout(()=>_(null),5e3)},style:{height:`32px`,padding:`0 16px`,borderRadius:`var(--radius-md)`,border:`none`,cursor:`pointer`,backgroundColor:`var(--q-accent-secondary)`,display:`flex`,alignItems:`center`,gap:`6px`,color:`var(--q-bg)`,fontSize:`14px`,fontWeight:500,fontFamily:`var(--font-interface)`,flexShrink:0},children:[React.createElement(Power,{size:16}),` Save and restart`]})]})]}),React.createElement(`div`,{ref:C,style:{flex:1,minHeight:0,overflowY:`auto`,padding:`2px 16px 0 16px`,overscrollBehavior:`contain`,scrollbarGutter:`stable`},children:[React.createElement(Ch,{icon:Bot,title:`Your agents`,children:[React.createElement(Th,{label:`New agent`,onClick:()=>T(!0)}),React.createElement(`div`,{style:{height:`8px`}}),React.createElement(wh,{placeholder:`Search agents...`,value:c,onChange:l}),React.createElement(`div`,{style:{height:`8px`}}),React.createElement(`div`,{style:{maxHeight:`500px`,overflowY:`auto`},children:le.map(e=>React.createElement(Oh,{agent:e,isExpanded:o===e.id,isRenaming:x===e.id,onToggle:()=>s(o===e.id?null:e.id),onStartRename:()=>S(e.id),onCommitRename:()=>S(null),skills:n,tools:i,onShowDelete:()=>j(e.name),onAddFile:()=>te(e.name),onAddSkill:()=>F({title:`Add skill`,items:n.map(e=>({name:e.name,description:e.description}))}),onAddTool:()=>F({title:`Add tool`,items:i.map(e=>({name:e.name,description:e.description}))}),onOpenFile:e=>L(e),onRemoveTag:(t,n)=>re({type:t,name:n,agent:e.name}),onRemoveAll:t=>N({type:t,agentName:e.name})},e.id))})]}),React.createElement(Ch,{icon:Package,title:`Installed resources`,children:[React.createElement(kh,{title:`Skill (${n.length})`,action:React.createElement(React.Fragment,{children:[React.createElement(Eh,{label:`Create skill`,onClick:()=>D(!0)}),React.createElement(Eh,{label:`Install skill`,onClick:()=>k(!0)})]}),children:[React.createElement(wh,{placeholder:`Search skill...`,value:u,onChange:d}),React.createElement(`div`,{style:{height:`8px`}}),React.createElement(`div`,{style:{maxHeight:`300px`,overflowY:`auto`},children:ue.length===0?React.createElement(`span`,{style:{color:`var(--q-text-tertiary)`,fontSize:`13px`,fontFamily:`var(--font-interface)`},children:`No skill found.`}):ue.map(t=>{let n=e.agents.filter(e=>e.skills.some(e=>e.name===t.name));return React.createElement(Ah,{icon:BookOpen,name:t.name,description:t.description,agentsUsing:n.map(e=>e.name),isExpanded:m===t.name,onToggle:()=>h(m===t.name?null:t.name),onEdit:()=>L(`SKILL.md`),onDeleteSkill:()=>re({type:`skill`,name:t.name,agent:``}),onAddAgent:()=>F({title:`Add agent to `+t.name,items:e.agents.map(e=>({name:e.name,description:e.systemPrompt?e.systemPrompt.substring(0,80)+(e.systemPrompt.length>80?`...`:``):e.id}))}),onRemoveAgent:e=>re({type:`agent`,name:e,agent:t.name}),onRemoveAllAgents:()=>N({type:`agents`,agentName:t.name})},t.name)})})]}),React.createElement(`div`,{style:{height:`8px`}}),React.createElement(kh,{title:`Tool (${i.length})`,action:React.createElement(Eh,{label:`Add tool`,onClick:()=>F({title:`Add tool`,items:i.map(e=>({name:e.name,description:e.description}))})}),children:[React.createElement(wh,{placeholder:`Search tool...`,value:f,onChange:p}),React.createElement(`div`,{style:{height:`8px`}}),React.createElement(`div`,{style:{maxHeight:`300px`,overflowY:`auto`},children:de.map(t=>{let n=e.agents.filter(e=>e.tools.some(e=>e.name===t.name));return React.createElement(Ah,{icon:Wrench,name:t.name,description:t.description,agentsUsing:n.map(e=>e.name),badge:t.readOnly?`read`:`write`,badgeColor:t.readOnly?`var(--q-accent-success)`:`var(--q-accent-danger)`,isExpanded:m===t.name,onToggle:()=>h(m===t.name?null:t.name),onAddAgent:()=>F({title:`Add agent to `+t.name,items:e.agents.map(e=>({name:e.name,description:e.systemPrompt?e.systemPrompt.substring(0,80)+(e.systemPrompt.length>80?`...`:``):e.id}))}),onRemoveAgent:e=>re({type:`agent`,name:e,agent:t.name}),onRemoveAllAgents:()=>N({type:`agents`,agentName:t.name})},t.name)})})]})]}),React.createElement(Ch,{icon:Shield,title:`Plan mode`,children:[React.createElement(`span`,{style:{color:`var(--q-text-tertiary)`,fontSize:`12px`,fontFamily:`var(--font-interface)`},children:`Tools enabled in Plan mode. Applies to all agents.`}),React.createElement(`div`,{style:{height:`8px`}}),React.createElement(`div`,{style:{display:`flex`,flexWrap:`wrap`,gap:`6px`},children:[xh.map(e=>React.createElement(Dh,{icon:Wrench,label:e,onRemove:()=>re({type:`plan mode tool`,name:e,agent:`Plan mode`})},e)),React.createElement(Eh,{label:`Add tool`,onClick:()=>F({title:`Enable tool in Plan mode`,items:i.filter(e=>!xh.includes(e.name)).map(e=>({name:e.name,description:e.description}))})})]})]}),React.createElement(`div`,{style:{height:`32px`}})]})]}),w&&React.createElement(Nh,{onClose:()=>T(!1),title:`New agent`,children:[React.createElement(`input`,{type:`text`,placeholder:`Agent name...`,autoFocus:!0,style:{width:`100%`,height:`36px`,backgroundColor:`var(--q-bg-panel)`,border:`1px solid var(--q-border)`,borderRadius:`var(--radius-lg)`,color:`var(--q-text)`,fontSize:`14px`,fontFamily:`var(--font-interface)`,padding:`0 12px`,outline:`none`,marginBottom:`16px`},onKeyDown:e=>{e.key===`Enter`&&T(!1)}}),React.createElement(Ph,{onCancel:()=>T(!1),onConfirm:()=>T(!1),confirmLabel:`Create`})]}),E&&React.createElement(`div`,{style:{position:`fixed`,inset:0,zIndex:100,backgroundColor:`var(--q-overlay)`,display:`flex`,alignItems:`center`,justifyContent:`center`},onClick:()=>D(!1),children:React.createElement(`div`,{style:{backgroundColor:`var(--q-bg-elevated)`,borderRadius:`var(--radius-xl)`,boxShadow:`var(--shadow-modal)`,animation:`modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)`,border:`1px solid var(--q-border)`,padding:`24px`,maxWidth:`520px`,width:`90%`,maxHeight:`90vh`,display:`flex`,flexDirection:`column`},onClick:e=>e.stopPropagation(),children:[React.createElement(`div`,{style:{color:`var(--q-text)`,fontSize:`16px`,fontWeight:600,fontFamily:`var(--font-interface)`,marginBottom:`16px`},children:`Create new skill`}),React.createElement(`input`,{type:`text`,placeholder:`Skill name (e.g. code-review)`,autoFocus:!0,style:{width:`100%`,height:`36px`,backgroundColor:`var(--q-bg-panel)`,border:`1px solid var(--q-border)`,borderRadius:`var(--radius-lg)`,color:`var(--q-text)`,fontSize:`14px`,fontFamily:`var(--font-interface)`,padding:`0 12px`,outline:`none`,marginBottom:`8px`}}),React.createElement(`input`,{type:`text`,placeholder:`Short description`,style:{width:`100%`,height:`36px`,backgroundColor:`var(--q-bg-panel)`,border:`1px solid var(--q-border)`,borderRadius:`var(--radius-lg)`,color:`var(--q-text)`,fontSize:`14px`,fontFamily:`var(--font-interface)`,padding:`0 12px`,outline:`none`,marginBottom:`8px`}}),React.createElement(`div`,{style:{color:`var(--q-text-tertiary)`,fontSize:`12px`,fontFamily:`var(--font-interface)`,marginBottom:`4px`},children:`SKILL.md content`}),React.createElement(`textarea`,{placeholder:`Write skill instructions here...`,style:{width:`100%`,flex:1,minHeight:`120px`,maxHeight:`250px`,backgroundColor:`var(--q-bg-code)`,border:`1px solid var(--q-border)`,borderRadius:`var(--radius-lg)`,color:`var(--q-text)`,fontSize:`13px`,fontFamily:`monospace`,lineHeight:`1.5`,padding:`8px 12px`,outline:`none`,resize:`none`,marginBottom:`16px`}}),React.createElement(Ph,{onCancel:()=>D(!1),onConfirm:()=>D(!1),confirmLabel:`Create`})]})}),O&&React.createElement(Nh,{onClose:()=>k(!1),title:`Install skill from internet`,children:[React.createElement(`div`,{style:{color:`var(--q-text-tertiary)`,fontSize:`12px`,fontFamily:`var(--font-interface)`,marginBottom:`8px`},children:`GitHub repo (e.g. openai/skills). Will clone and copy SKILL.md`}),React.createElement(`input`,{type:`text`,placeholder:`user/repo (e.g. openai/skills)`,autoFocus:!0,style:{width:`100%`,height:`36px`,backgroundColor:`var(--q-bg-panel)`,border:`1px solid var(--q-border)`,borderRadius:`var(--radius-lg)`,color:`var(--q-text)`,fontSize:`14px`,fontFamily:`var(--font-interface)`,padding:`0 12px`,outline:`none`,marginBottom:`16px`}}),React.createElement(Ph,{onCancel:()=>k(!1),onConfirm:()=>{k(!1),oe(!0),setTimeout(()=>{oe(!1),ce(`Skill installed successfully: user/repo`)},2e3)},confirmLabel:`Install skill`})]}),A&&React.createElement(Nh,{onClose:()=>j(null),title:`Delete agent`,children:[React.createElement(`div`,{style:{color:`var(--q-text-secondary)`,fontSize:`13px`,fontFamily:`var(--font-interface)`,marginBottom:`20px`},children:[`Delete "`,A,`"?`]}),React.createElement(Ph,{onCancel:()=>j(null),onConfirm:()=>j(null),confirmLabel:`Delete`})]}),M&&React.createElement(Nh,{onClose:()=>N(null),title:`Remove all ${M.type}`,children:[React.createElement(`div`,{style:{color:`var(--q-text-secondary)`,fontSize:`13px`,fontFamily:`var(--font-interface)`,marginBottom:`20px`},children:[`Remove all `,M.type,` from agent "`,M.agentName,`"?`]}),React.createElement(Ph,{onCancel:()=>N(null),onConfirm:()=>N(null),confirmLabel:`Remove all`})]}),ne&&React.createElement(Nh,{onClose:()=>re(null),title:`Remove ${ne.type}`,children:[React.createElement(`div`,{style:{color:`var(--q-text-secondary)`,fontSize:`13px`,fontFamily:`var(--font-interface)`,marginBottom:`20px`},children:[`Remove `,ne.type,` "`,ne.name,`" from agent "`,ne.agent,`"?`]}),React.createElement(Ph,{onCancel:()=>re(null),onConfirm:()=>re(null),confirmLabel:`Remove`})]}),ie&&React.createElement(`div`,{style:{position:`fixed`,inset:0,zIndex:100,backgroundColor:`var(--q-overlay)`,display:`flex`,alignItems:`center`,justifyContent:`center`},onClick:()=>R(null),children:React.createElement(`div`,{style:{backgroundColor:`var(--q-bg-elevated)`,borderRadius:`var(--radius-lg)`,boxShadow:`var(--shadow-modal)`,animation:`modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)`,border:`1px solid var(--q-border)`,padding:`24px`,maxWidth:`500px`,width:`90%`},onClick:e=>e.stopPropagation(),children:[React.createElement(`div`,{style:{display:`flex`,alignItems:`center`,gap:`8px`,marginBottom:`12px`},children:[React.createElement(`svg`,{width:`18`,height:`18`,viewBox:`0 0 24 24`,fill:`none`,stroke:`var(--q-accent-danger)`,strokeWidth:`2`,strokeLinecap:`round`,strokeLinejoin:`round`,children:[React.createElement(`circle`,{cx:`12`,cy:`12`,r:`10`}),React.createElement(`line`,{x1:`12`,y1:`8`,x2:`12`,y2:`12`}),React.createElement(`line`,{x1:`12`,y1:`16`,x2:`12.01`,y2:`16`})]}),React.createElement(`span`,{style:{color:`var(--q-accent-danger)`,fontSize:`16px`,fontWeight:600,fontFamily:`var(--font-interface)`},children:`Error`})]}),React.createElement(`div`,{style:{maxHeight:`300px`,overflowY:`auto`,marginBottom:`16px`},children:React.createElement(`div`,{style:{color:`var(--q-text-secondary)`,fontSize:`13px`,fontFamily:`var(--font-interface)`,lineHeight:1.5,whiteSpace:`pre-wrap`},children:ie})}),React.createElement(`div`,{style:{display:`flex`,justifyContent:`flex-end`,alignItems:`center`,gap:`8px`},children:[React.createElement(`button`,{onClick:()=>{navigator.clipboard.writeText(ie)},style:{display:`flex`,alignItems:`center`,gap:`6px`,padding:`8px 16px`,borderRadius:`var(--radius-md)`,border:`1px solid var(--q-border)`,cursor:`pointer`,backgroundColor:`transparent`,color:`var(--q-text-secondary)`,fontSize:`14px`,fontFamily:`var(--font-interface)`},children:[React.createElement(Copy,{size:16}),`Copy`]}),React.createElement(`button`,{className:`q-press`,onClick:()=>R(null),style:{padding:`8px 16px`,borderRadius:`var(--radius-md)`,border:`none`,cursor:`pointer`,backgroundColor:`var(--q-accent-secondary)`,color:`var(--q-bg)`,fontSize:`15px`,fontFamily:`var(--font-interface)`},children:`Close`})]})]})}),ae&&React.createElement(`div`,{style:{position:`fixed`,inset:0,zIndex:100,backgroundColor:`var(--q-overlay)`,display:`flex`,alignItems:`center`,justifyContent:`center`},children:React.createElement(`div`,{style:{backgroundColor:`var(--q-bg-elevated)`,borderRadius:`var(--radius-lg)`,boxShadow:`var(--shadow-modal)`,animation:`modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)`,border:`1px solid var(--q-border)`,padding:`24px`,maxWidth:`400px`,display:`flex`,alignItems:`center`,gap:`16px`},children:[React.createElement(`div`,{style:{width:`20px`,height:`20px`,border:`2px solid var(--q-text-tertiary)`,borderTopColor:`var(--q-accent-secondary)`,borderRadius:`50%`,animation:`spin 1s linear infinite`}}),React.createElement(`span`,{style:{color:`var(--q-text)`,fontSize:`14px`,fontFamily:`var(--font-interface)`},children:`Installing skill...`})]})}),se&&React.createElement(`div`,{style:{position:`fixed`,inset:0,zIndex:100,backgroundColor:`var(--q-overlay)`,display:`flex`,alignItems:`center`,justifyContent:`center`},onClick:()=>ce(null),children:React.createElement(`div`,{style:{backgroundColor:`var(--q-bg-elevated)`,borderRadius:`var(--radius-lg)`,boxShadow:`var(--shadow-modal)`,animation:`modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)`,border:`1px solid var(--q-border)`,padding:`24px`,maxWidth:`500px`,width:`90%`},onClick:e=>e.stopPropagation(),children:[React.createElement(`div`,{style:{display:`flex`,alignItems:`center`,gap:`8px`,marginBottom:`12px`},children:[React.createElement(`svg`,{width:`18`,height:`18`,viewBox:`0 0 24 24`,fill:`none`,stroke:`var(--q-accent-success)`,strokeWidth:`2`,strokeLinecap:`round`,strokeLinejoin:`round`,children:[React.createElement(`path`,{d:`M22 11.08V12a10 10 0 1 1-5.93-9.14`}),React.createElement(`path`,{d:`m9 11 3 3L22 4`})]}),React.createElement(`span`,{style:{color:`var(--q-accent-success)`,fontSize:`16px`,fontWeight:600,fontFamily:`var(--font-interface)`},children:`Done`})]}),React.createElement(`div`,{style:{color:`var(--q-text-secondary)`,fontSize:`13px`,fontFamily:`var(--font-interface)`,marginBottom:`16px`},children:se}),React.createElement(`div`,{style:{display:`flex`,justifyContent:`flex-end`},children:React.createElement(`button`,{className:`q-press`,onClick:()=>ce(null),style:{padding:`8px 16px`,borderRadius:`var(--radius-md)`,border:`none`,cursor:`pointer`,backgroundColor:`var(--q-accent-secondary)`,color:`var(--q-bg)`,fontSize:`15px`,fontFamily:`var(--font-interface)`},children:`OK`})})]})}),P&&React.createElement(Mh,{title:P.title,items:P.items,onClose:()=>F(null)}),I&&React.createElement(jh,{agentId:I.agentId,fileName:I.fileName,onClose:()=>L(null)}),ee&&React.createElement(Nh,{onClose:()=>te(null),title:`New file`,children:[React.createElement(`input`,{type:`text`,placeholder:`File name (e.g. NOTES.md)`,autoFocus:!0,style:{width:`100%`,height:`36px`,backgroundColor:`var(--q-bg-panel)`,border:`1px solid var(--q-border)`,borderRadius:`var(--radius-lg)`,color:`var(--q-text)`,fontSize:`14px`,fontFamily:`var(--font-interface)`,padding:`0 12px`,outline:`none`,marginBottom:`16px`},onKeyDown:e=>{e.key===`Enter`&&te(null)}}),React.createElement(Ph,{onCancel:()=>te(null),onConfirm:()=>te(null),confirmLabel:`Create`})]})]})}function Ch({icon:e,title:t,children:n}){return React.createElement(`div`,{style:{width:`100%`,marginBottom:`12px`,padding:`14px 18px`,backgroundColor:`var(--q-bg-panel)`,borderRadius:`var(--radius-lg)`,boxShadow:`var(--shadow-floating)`},children:[React.createElement(`div`,{style:{display:`flex`,alignItems:`center`,gap:`8px`,marginBottom:`8px`},children:[React.createElement(e,{size:16,style:{color:`var(--q-accent-secondary)`,flexShrink:0}}),React.createElement(`span`,{style:{color:`var(--q-text)`,fontSize:`15px`,fontWeight:600,fontFamily:`var(--font-interface)`},children:t})]}),n]})}function wh({placeholder:e,value:t,onChange:n}){return React.createElement(`div`,{style:{display:`flex`,alignItems:`center`,gap:`8px`,padding:`8px 12px`,backgroundColor:`var(--q-bg-elevated)`,border:`1px solid var(--q-border)`,borderRadius:`var(--radius-md)`},children:[React.createElement(Search,{size:16,style:{color:`var(--q-text-tertiary)`,flexShrink:0}}),React.createElement(`input`,{type:`text`,placeholder:e,value:t,onChange:e=>n(e.target.value),style:{flex:1,backgroundColor:`transparent`,border:`none`,outline:`none`,color:`var(--q-text)`,fontSize:`14px`,fontFamily:`var(--font-interface)`}}),t&&React.createElement(`button`,{onClick:()=>n(``),style:{background:`none`,border:`none`,cursor:`pointer`,color:`var(--q-text-tertiary)`,fontSize:`14px`},children:`✕`})]})}function Th({label:e,onClick:t}){return React.createElement(`button`,{onClick:t,style:{display:`flex`,alignItems:`center`,gap:`6px`,padding:`8px 16px`,borderRadius:`var(--radius-md)`,border:`1px solid var(--q-border)`,cursor:`pointer`,backgroundColor:`transparent`},children:[React.createElement(Plus,{size:16,style:{color:`var(--q-text-secondary)`}}),React.createElement(`span`,{style:{color:`var(--q-text-secondary)`,fontSize:`14px`,fontFamily:`var(--font-interface)`},children:e})]})}function Eh({label:e,onClick:t}){return React.createElement(`button`,{onClick:t,style:{display:`flex`,alignItems:`center`,gap:`6px`,padding:`6px 8px`,borderRadius:`var(--radius-md)`,border:`1px solid var(--q-border)`,cursor:`pointer`,backgroundColor:`transparent`},children:[React.createElement(Plus,{size:14,style:{color:`var(--q-text-tertiary)`}}),React.createElement(`span`,{style:{color:`var(--q-text-tertiary)`,fontSize:`13px`,fontFamily:`var(--font-interface)`},children:e})]})}function Dh({icon:e,label:t,onRemove:n}){return React.createElement(`div`,{style:{display:`flex`,alignItems:`center`,gap:`6px`,padding:`6px 8px`,borderRadius:`6px`,border:`none`,backgroundColor:`rgba(255, 255, 255, 0.04)`},children:[React.createElement(e,{size:14,style:{color:`var(--q-accent-secondary)`}}),React.createElement(`span`,{style:{color:`var(--q-text)`,fontSize:`13px`,fontFamily:`var(--font-interface)`},children:t}),n&&React.createElement(`button`,{onClick:n,style:{background:`none`,border:`none`,cursor:`pointer`,padding:`0`,display:`flex`},children:React.createElement(X,{size:14,style:{color:`var(--q-text-tertiary)`}})})]})}function Oh({agent:e,isExpanded:t,isRenaming:n,onToggle:r,onStartRename:i,onCommitRename:a,skills:o,tools:s,onShowDelete:c,onAddFile:l,onAddSkill:u,onAddTool:d,onOpenFile:f,onRemoveTag:p,onRemoveAll:m}){let h=o.filter(t=>e.skills.some(e=>e.name===t.name)),g=s.filter(t=>e.tools.some(e=>e.name===t.name)),_=e.id!==`quinki-expert`&&e.id!==`orchestrator`;return React.createElement(`div`,{style:{marginBottom:`4px`,backgroundColor:`var(--q-bg-elevated)`,border:`none`,borderRadius:`8px`,overflow:`hidden`},children:[React.createElement(`div`,{onClick:r,style:{padding:`10px 12px`,display:`flex`,alignItems:`center`,cursor:`pointer`,borderRadius:`8px`,transition:`background-color 120ms ease`},onMouseEnter:e=>{e.currentTarget.style.backgroundColor=`rgba(201, 112, 132, 0.03)`},onMouseLeave:e=>{e.currentTarget.style.backgroundColor=`transparent`},children:[React.createElement(Bot,{size:16,style:{color:`var(--q-accent-secondary)`,flexShrink:0}}),React.createElement(`div`,{style:{width:`8px`,flexShrink:0}}),n?React.createElement(`input`,{type:`text`,defaultValue:e.name,autoFocus:!0,onBlur:a,onKeyDown:e=>{e.key===`Enter`&&a()},onClick:e=>e.stopPropagation(),style:{flex:1,color:`var(--q-text)`,fontSize:`14px`,fontWeight:600,fontFamily:`var(--font-interface)`,backgroundColor:`transparent`,border:`none`,outline:`none`,padding:`0`}}):React.createElement(`div`,{style:{display:`flex`,alignItems:`center`,gap:`8px`,flex:1,minWidth:0},children:[React.createElement(`span`,{style:{color:`var(--q-text)`,fontSize:`14px`,fontWeight:600,fontFamily:`var(--font-interface)`,overflow:`hidden`,textOverflow:`ellipsis`,whiteSpace:`nowrap`},children:e.name}),_&&React.createElement(`button`,{onClick:e=>{e.stopPropagation(),i()},style:{background:`none`,border:`none`,cursor:`pointer`,padding:`0`,display:`flex`,flexShrink:0},children:React.createElement(Pencil,{size:13,style:{color:`var(--q-text-tertiary)`}})})]}),React.createElement(`span`,{style:{color:`var(--q-text-tertiary)`,fontSize:`12px`,fontFamily:`var(--font-interface)`,flexShrink:0},children:[h.length,` skill · `,g.length,` tool`]}),React.createElement(`div`,{style:{width:`8px`,flexShrink:0}}),t?React.createElement(ChevronUp,{size:16,style:{color:`var(--q-text-tertiary)`}}):React.createElement(ChevronDown,{size:16,style:{color:`var(--q-text-tertiary)`}})]}),t&&React.createElement(`div`,{style:{padding:`0 12px 12px 14px`},children:[React.createElement(`div`,{style:{display:`flex`,alignItems:`center`,gap:`8px`,marginBottom:`8px`},children:[React.createElement(`span`,{style:{color:`var(--q-text)`,fontSize:`14px`,fontFamily:`var(--font-interface)`},children:[`File (`,e.files.length,`)`]}),React.createElement(Eh,{label:`Add file`,onClick:l}),e.files.length>0&&React.createElement(React.Fragment,{children:[React.createElement(`span`,{style:{flex:1}}),React.createElement(`button`,{onClick:()=>m(`files`),style:{background:`none`,border:`none`,cursor:`pointer`,color:`var(--q-text-tertiary)`,fontSize:`13px`,fontFamily:`var(--font-interface)`},children:`Remove all`})]})]}),e.files.length===0?React.createElement(`span`,{style:{color:`var(--q-text-tertiary)`,fontSize:`13px`,fontFamily:`var(--font-interface)`},children:`No files.`}):React.createElement(`div`,{style:{display:`flex`,flexWrap:`wrap`,gap:`6px`,marginBottom:`16px`},children:e.files.map(e=>React.createElement(`div`,{onClick:()=>f(e),style:{display:`inline-flex`,alignItems:`center`,gap:`6px`,padding:`6px 8px`,borderRadius:`6px`,border:`none`,backgroundColor:`rgba(255, 255, 255, 0.04)`,cursor:`pointer`},children:[React.createElement(FileText,{size:14,style:{color:`var(--q-text-secondary)`}}),React.createElement(`span`,{style:{color:`var(--q-text)`,fontSize:`13px`,fontFamily:`var(--font-interface)`},children:e}),React.createElement(`button`,{onClick:t=>{t.stopPropagation(),p(`file`,e)},style:{background:`none`,border:`none`,cursor:`pointer`,padding:`0`,display:`flex`},children:React.createElement(X,{size:14,style:{color:`var(--q-text-tertiary)`}})})]},e))}),React.createElement(`div`,{style:{display:`flex`,alignItems:`center`,gap:`8px`,marginBottom:`8px`},children:[React.createElement(`span`,{style:{color:`var(--q-text)`,fontSize:`14px`,fontFamily:`var(--font-interface)`},children:[`Skill (`,h.length,`)`]}),React.createElement(Eh,{label:`Add skill`,onClick:u}),h.length>0&&React.createElement(React.Fragment,{children:[React.createElement(`span`,{style:{flex:1}}),React.createElement(`button`,{onClick:()=>m(`skills`),style:{background:`none`,border:`none`,cursor:`pointer`,color:`var(--q-text-tertiary)`,fontSize:`13px`,fontFamily:`var(--font-interface)`},children:`Remove all`})]})]}),h.length===0?React.createElement(`span`,{style:{color:`var(--q-text-tertiary)`,fontSize:`13px`,fontFamily:`var(--font-interface)`},children:`No skill assigned.`}):React.createElement(`div`,{style:{display:`flex`,flexWrap:`wrap`,gap:`6px`,marginBottom:`16px`},children:h.map(e=>React.createElement(Dh,{icon:BookOpen,label:e.name,onRemove:()=>p(`skill`,e.name)},e.name))}),React.createElement(`div`,{style:{display:`flex`,alignItems:`center`,gap:`8px`,marginBottom:`8px`},children:[React.createElement(`span`,{style:{color:`var(--q-text)`,fontSize:`14px`,fontFamily:`var(--font-interface)`},children:[`Tool (`,g.length,`)`]}),React.createElement(Eh,{label:`Add tool`,onClick:d}),g.length>0&&React.createElement(React.Fragment,{children:[React.createElement(`span`,{style:{flex:1}}),React.createElement(`button`,{onClick:()=>m(`tools`),style:{background:`none`,border:`none`,cursor:`pointer`,color:`var(--q-text-tertiary)`,fontSize:`13px`,fontFamily:`var(--font-interface)`},children:`Remove all`})]})]}),g.length===0?React.createElement(`span`,{style:{color:`var(--q-text-tertiary)`,fontSize:`13px`,fontFamily:`var(--font-interface)`},children:`No tool assigned.`}):React.createElement(`div`,{style:{display:`flex`,flexWrap:`wrap`,gap:`6px`},children:g.map(e=>React.createElement(Dh,{icon:Wrench,label:e.name,onRemove:()=>p(`tool`,e.name)},e.name))}),e.isDeletable&&React.createElement(`div`,{style:{marginTop:`16px`},children:React.createElement(`button`,{onClick:c,style:{display:`flex`,alignItems:`center`,gap:`6px`,padding:`0`,border:`none`,cursor:`pointer`,backgroundColor:`transparent`,color:`var(--q-accent-danger)`,fontSize:`14px`,fontFamily:`var(--font-interface)`},children:[React.createElement(Trash,{size:16}),` Delete agent`]})})]})]})}function kh({title:e,action:t,children:n}){return React.createElement(`div`,{style:{width:`100%`,padding:`12px 16px`,backgroundColor:`var(--q-bg-panel)`,borderRadius:`var(--radius-lg)`,boxShadow:`var(--shadow-floating)`},children:[React.createElement(`div`,{style:{display:`flex`,alignItems:`center`,gap:`8px`,marginBottom:`8px`},children:[React.createElement(`span`,{style:{color:`var(--q-text)`,fontSize:`14px`,fontWeight:600,fontFamily:`var(--font-interface)`},children:e}),t]}),n]})}function Ah({icon:e,name:t,description:n,agentsUsing:r,badge:i,badgeColor:a,isExpanded:o,onToggle:s,onEdit:c,onDelete:l,onAddAgent:u,onRemoveAgent:d,onRemoveAllAgents:f,onDeleteSkill:p}){return React.createElement(`div`,{style:{marginBottom:`4px`,backgroundColor:`var(--q-bg-elevated)`,border:`none`,borderRadius:`8px`,overflow:`hidden`},children:[React.createElement(`div`,{onClick:s,style:{padding:`10px 12px`,display:`flex`,alignItems:`center`,cursor:`pointer`,borderRadius:`8px`,transition:`background-color 120ms ease`},onMouseEnter:e=>{e.currentTarget.style.backgroundColor=`rgba(201, 112, 132, 0.03)`},onMouseLeave:e=>{e.currentTarget.style.backgroundColor=`transparent`},children:[React.createElement(e,{size:16,style:{color:`var(--q-text-secondary)`,flexShrink:0}}),React.createElement(`div`,{style:{width:`8px`,flexShrink:0}}),React.createElement(`span`,{style:{color:`var(--q-text)`,fontSize:`14px`,fontFamily:`var(--font-interface)`,flex:1},children:t}),i&&a&&React.createElement(React.Fragment,{children:[React.createElement(`span`,{style:{padding:`2px 6px`,borderRadius:`var(--radius-sm)`,backgroundColor:`color-mix(in srgb, ${a} 15%, transparent)`,color:a,fontSize:`var(--fs-11)`,fontFamily:`var(--font-interface)`},children:i}),React.createElement(`div`,{style:{width:`8px`,flexShrink:0}})]}),React.createElement(`span`,{style:{color:`var(--q-text-tertiary)`,fontSize:`12px`,fontFamily:`var(--font-interface)`},children:r.length>0?`${r.length} ${r.length>1?`agents`:`agent`}`:`None`}),React.createElement(`div`,{style:{width:`8px`,flexShrink:0}}),o?React.createElement(ChevronUp,{size:16,style:{color:`var(--q-text-tertiary)`}}):React.createElement(ChevronDown,{size:16,style:{color:`var(--q-text-tertiary)`}})]}),o&&React.createElement(`div`,{style:{padding:`0 12px 12px 14px`},children:[n&&React.createElement(`div`,{style:{color:`var(--q-text-tertiary)`,fontSize:`12px`,fontFamily:`var(--font-interface)`,marginBottom:`8px`,lineHeight:1.5},children:n}),c&&React.createElement(`div`,{onClick:c,style:{display:`inline-flex`,alignItems:`center`,gap:`6px`,padding:`6px 8px`,borderRadius:`6px`,border:`none`,backgroundColor:`rgba(255, 255, 255, 0.04)`,cursor:`pointer`,marginBottom:`8px`},children:[React.createElement(FileText,{size:14,style:{color:`var(--q-text-secondary)`}}),React.createElement(`span`,{style:{color:`var(--q-text)`,fontSize:`13px`,fontFamily:`var(--font-interface)`},children:`SKILL.md`})]}),r.length===0?React.createElement(`div`,{style:{display:`flex`,alignItems:`center`,gap:`8px`},children:[React.createElement(`span`,{style:{color:`var(--q-text-tertiary)`,fontSize:`13px`,fontFamily:`var(--font-interface)`},children:[`No agent uses `,t,`.`]}),React.createElement(Eh,{label:`Add agent`,onClick:u})]}):React.createElement(React.Fragment,{children:[React.createElement(`div`,{style:{display:`flex`,alignItems:`center`,gap:`8px`,marginBottom:`8px`},children:[React.createElement(`span`,{style:{color:`var(--q-text)`,fontSize:`14px`,fontFamily:`var(--font-interface)`},children:`Used by:`}),React.createElement(Eh,{label:`Add agent`,onClick:u}),React.createElement(`span`,{style:{flex:1}}),React.createElement(`button`,{onClick:f,style:{background:`none`,border:`none`,cursor:`pointer`,color:`var(--q-text-tertiary)`,fontSize:`13px`,fontFamily:`var(--font-interface)`},children:`Remove all`})]}),React.createElement(`div`,{style:{display:`flex`,flexWrap:`wrap`,gap:`8px`},children:r.map(e=>React.createElement(`div`,{style:{display:`flex`,alignItems:`center`,gap:`6px`,padding:`6px 12px`,borderRadius:`6px`,border:`none`,backgroundColor:`rgba(255, 255, 255, 0.04)`},children:[React.createElement(Bot,{size:16,style:{color:`var(--q-accent-secondary)`}}),React.createElement(`span`,{style:{color:`var(--q-text)`,fontSize:`14px`,fontFamily:`var(--font-interface)`},children:e}),React.createElement(`button`,{onClick:()=>d(e),style:{background:`none`,border:`none`,cursor:`pointer`,padding:`0`,width:`24px`,height:`24px`,display:`flex`,alignItems:`center`,justifyContent:`center`},children:React.createElement(X,{size:16,style:{color:`var(--q-text-tertiary)`}})})]},e))})]}),l&&React.createElement(`div`,{style:{marginTop:`12px`},children:React.createElement(`button`,{style:{display:`flex`,alignItems:`center`,gap:`6px`,padding:`0`,border:`none`,cursor:`pointer`,backgroundColor:`transparent`,color:`var(--q-accent-danger)`,fontSize:`14px`,fontFamily:`var(--font-interface)`},children:[React.createElement(Trash,{size:16,onClick:p}),` Delete skill`]})})]})]})}function jh({agentId:e,fileName:t,onClose:n}){let[r,i]=useState(!1),[a,o]=useState(!1),[s,c]=useState(`Loading...`),{call:l}=useSidecarContext();useEffect(()=>{c(`Loading...`);if(l&&e)l(`readAgentFile`,{id:e,filePath:t}).then(e=>{if(e?.content)c(e.content);else c(``)})["catch"](()=>c(`Failed to load`))},[e,t]),React.createElement(`div`,{style:{position:`fixed`,inset:0,zIndex:100,backgroundColor:`var(--q-overlay)`,display:`flex`,alignItems:`center`,justifyContent:`center`},onClick:t,children:React.createElement(`div`,{style:{backgroundColor:`var(--q-bg-elevated)`,border:`1px solid var(--q-border)`,borderRadius:`var(--radius-lg)`,width:`90%`,maxWidth:`720px`,height:`80vh`,maxHeight:`600px`,display:`flex`,flexDirection:`column`,boxShadow:`var(--shadow-modal)`,animation:`modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)`,overflow:`hidden`},onClick:e=>e.stopPropagation(),children:[React.createElement(`div`,{style:{padding:`10px 16px`,backgroundColor:`var(--q-bg-panel)`,borderBottom:`1px solid var(--q-border)`,display:`flex`,alignItems:`center`,flexShrink:0},children:[React.createElement(FileText,{size:16,style:{color:`var(--q-text-secondary)`,flexShrink:0}}),React.createElement(`div`,{style:{width:`8px`,flexShrink:0}}),React.createElement(`span`,{style:{color:`var(--q-text)`,fontSize:`14px`,fontWeight:600,fontFamily:`var(--font-interface)`},children:e}),React.createElement(`span`,{style:{flex:1}}),n&&React.createElement(`span`,{style:{color:`var(--q-accent-warning)`,fontSize:`var(--fs-11)`,fontFamily:`var(--font-interface)`,marginRight:`8px`},children:`Unsaved`}),React.createElement(`button`,{onClick:async()=>{if(!l||!e)return;o(!0);try{await l(`writeAgentFile`,{id:e,filePath:t,content:s})}catch(err){console.error(`Failed to save file:`,err)}o(!1),i(!1),n()},disabled:a,style:{display:`flex`,alignItems:`center`,gap:`6px`,padding:`8px 16px`,borderRadius:`var(--radius-md)`,border:`1px solid var(--q-border)`,cursor:i?`default`:`pointer`,backgroundColor:`transparent`,color:`var(--q-text-secondary)`,fontSize:`14px`,fontFamily:`var(--font-interface)`},children:[React.createElement(Save,{size:16}),` Save`]}),React.createElement(`div`,{style:{width:`8px`,flexShrink:0}}),React.createElement(`button`,{onClick:t,style:{background:`none`,border:`none`,cursor:`pointer`,padding:`4px`,display:`flex`,alignItems:`center`},children:React.createElement(X,{size:18,style:{color:`var(--q-text-secondary)`}})})]}),React.createElement(`textarea`,{value:s,onChange:e=>{c(e.target.value),r(!0)},style:{flex:1,width:`100%`,backgroundColor:`var(--q-bg-code)`,border:`none`,outline:`none`,color:`var(--q-text)`,fontSize:`13px`,fontFamily:`monospace`,lineHeight:1.6,padding:`16px`,resize:`none`}})]})})}function Mh({title:e,items:t,onClose:n}){let[r,i]=useState(``),[a,o]=useState(new Set),s=t.filter(e=>e.name.toLowerCase().includes(r.toLowerCase())),c=e=>{o(t=>{let n=new Set(t);return n.has(e)?n.delete(e):n.add(e),n})};return React.createElement(`div`,{style:{position:`fixed`,inset:0,zIndex:100,backgroundColor:`var(--q-overlay)`,display:`flex`,alignItems:`center`,justifyContent:`center`},onClick:n,children:React.createElement(`div`,{style:{backgroundColor:`var(--q-bg-elevated)`,border:`1px solid var(--q-border)`,borderRadius:`var(--radius-lg)`,maxWidth:`500px`,maxHeight:`500px`,width:`90%`,display:`flex`,flexDirection:`column`,boxShadow:`var(--shadow-modal)`,animation:`modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)`},onClick:e=>e.stopPropagation(),children:[React.createElement(`div`,{style:{padding:`16px`,borderBottom:`1px solid var(--q-border)`,display:`flex`,alignItems:`center`},children:[React.createElement(`span`,{style:{color:`var(--q-text)`,fontSize:`16px`,fontWeight:600,fontFamily:`var(--font-interface)`},children:e}),React.createElement(`span`,{style:{flex:1}}),React.createElement(`button`,{onClick:n,style:{background:`none`,border:`none`,cursor:`pointer`,padding:`0`,display:`flex`},children:React.createElement(X,{size:18,style:{color:`var(--q-text-secondary)`}})})]}),React.createElement(`div`,{style:{padding:`8px 16px`},children:React.createElement(`div`,{style:{display:`flex`,alignItems:`center`,paddingLeft:`10px`,backgroundColor:`var(--q-bg-panel)`,border:`1px solid var(--q-border)`,borderRadius:`var(--radius-md)`},children:[React.createElement(Search,{size:14,style:{color:`var(--q-text-tertiary)`,flexShrink:0}}),React.createElement(`div`,{style:{width:`8px`,flexShrink:0}}),React.createElement(`input`,{type:`text`,placeholder:`Search...`,value:r,onChange:e=>i(e.target.value),style:{flex:1,backgroundColor:`transparent`,border:`none`,outline:`none`,color:`var(--q-text)`,fontSize:`14px`,fontFamily:`var(--font-interface)`,padding:`8px 0`}})]})}),React.createElement(`div`,{style:{flex:1,overflowY:`auto`},children:s.sort((e,t)=>!a.has(e.name)-+!a.has(t.name)).map(e=>{let t=a.has(e.name);return React.createElement(`div`,{onClick:()=>c(e.name),style:{padding:`4px 16px`,display:`flex`,alignItems:`center`,cursor:`pointer`},onMouseEnter:e=>{e.currentTarget.style.backgroundColor=`rgba(255,255,255,0.04)`},onMouseLeave:e=>{e.currentTarget.style.backgroundColor=`transparent`},children:[React.createElement(`div`,{style:{flex:1,minWidth:0},children:[React.createElement(`div`,{style:{color:`var(--q-text)`,fontSize:`14px`,fontFamily:`var(--font-interface)`},children:e.name}),e.description&&React.createElement(`div`,{style:{color:`var(--q-text-tertiary)`,fontSize:`12px`,fontFamily:`var(--font-interface)`,overflow:`hidden`,textOverflow:`ellipsis`,whiteSpace:`nowrap`},children:e.description})]}),React.createElement(`input`,{type:`checkbox`,checked:t,onChange:()=>c(e.name),style:{accentColor:`var(--q-accent-secondary)`,flexShrink:0,marginLeft:`8px`}})]},e.name)})}),React.createElement(`div`,{style:{padding:`8px 16px`,display:`flex`,alignItems:`center`,borderTop:`1px solid var(--q-border)`},children:[React.createElement(`button`,{className:`q-press`,onClick:()=>{o(new Set(s.map(e=>e.name)))},disabled:s.length===0,style:{background:`none`,border:`none`,cursor:s.length===0?`default`:`pointer`,color:s.length===0?`var(--q-text-tertiary)`:`var(--q-text-secondary)`,fontSize:`13px`,fontFamily:`var(--font-interface)`,padding:`4px 8px`},children:`Select all`}),React.createElement(`button`,{className:`q-press`,onClick:()=>{o(new Set)},disabled:a.size===0,style:{background:`none`,border:`none`,cursor:a.size===0?`default`:`pointer`,color:a.size===0?`var(--q-text-tertiary)`:`var(--q-text-secondary)`,fontSize:`13px`,fontFamily:`var(--font-interface)`,padding:`4px 8px`},children:`Deselect`}),React.createElement(`span`,{style:{flex:1}}),React.createElement(`button`,{className:`q-press`,onClick:n,style:{background:`none`,border:`none`,cursor:`pointer`,color:`var(--q-accent-danger)`,fontSize:`15px`,fontFamily:`var(--font-interface)`,padding:`4px 8px`},children:`Cancel`}),React.createElement(`div`,{style:{width:`8px`}}),React.createElement(`button`,{className:`q-press`,onClick:n,disabled:a.size===0,style:{padding:`4px 16px`,borderRadius:`var(--radius-md)`,border:`none`,cursor:a.size===0?`default`:`pointer`,backgroundColor:a.size===0?`transparent`:`var(--q-accent-secondary)`,color:a.size===0?`var(--q-text-tertiary)`:`var(--q-bg)`,fontSize:`15px`,fontFamily:`var(--font-interface)`,opacity:a.size===0?.5:1},children:[`Add (`,a.size,`)`]})]})]})})}function Nh({onClose:e,title:t,children:n}){return React.createElement(`div`,{style:{position:`fixed`,inset:0,zIndex:100,backgroundColor:`var(--q-overlay)`,display:`flex`,alignItems:`center`,justifyContent:`center`},onClick:e,children:React.createElement(`div`,{style:{backgroundColor:`var(--q-bg-elevated)`,borderRadius:`var(--radius-xl)`,boxShadow:`var(--shadow-modal)`,animation:`modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)`,border:`1px solid var(--q-border)`,padding:`24px`,maxWidth:`420px`,width:`90%`},onClick:e=>e.stopPropagation(),children:[React.createElement(`div`,{style:{color:`var(--q-text)`,fontSize:`16px`,fontWeight:600,fontFamily:`var(--font-interface)`,marginBottom:`16px`},children:t}),n]})})}function Ph({onCancel:e,onConfirm:t,confirmLabel:n}){return React.createElement(`div`,{style:{display:`flex`,justifyContent:`flex-end`,alignItems:`center`},children:[React.createElement(`button`,{className:`q-press`,onClick:e,style:{padding:`8px 16px`,borderRadius:`var(--radius-md)`,border:`none`,cursor:`pointer`,backgroundColor:`transparent`,color:`var(--q-accent-danger)`,fontSize:`15px`,fontFamily:`var(--font-interface)`},children:`Cancel`}),React.createElement(`div`,{style:{width:`8px`}}),React.createElement(`button`,{className:`q-press`,onClick:t,style:{padding:`8px 16px`,borderRadius:`var(--radius-lg)`,border:`none`,cursor:`pointer`,backgroundColor:`var(--q-accent-secondary)`,color:`var(--q-bg)`,fontSize:`15px`,fontWeight:500,fontFamily:`var(--font-interface)`},children:n})]})}function Fh({icon:e,onClick:t,title:n}){let[r,i]=useState(!1);return React.createElement(`button`,{onClick:t,title:n,onMouseEnter:()=>i(!0),onMouseLeave:()=>i(!1),style:{width:`32px`,height:`32px`,display:`flex`,alignItems:`center`,justifyContent:`center`,borderRadius:`var(--radius-md)`,border:`none`,cursor:`pointer`,backgroundColor:r?`var(--q-hover)`:`transparent`,color:r?`var(--q-text)`:`var(--q-text-secondary)`,flexShrink:0,padding:`0`,transform:r?`scale(1.02)`:`scale(1)`,transition:`background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms cubic-bezier(0.16, 1, 0.3, 1), transform 120ms cubic-bezier(0.16, 1, 0.3, 1)`},children:React.createElement(e,{size:20})})}var Ih=[{id:`settings-providers`,icon:Plug,label:`Providers & models`},{id:`settings-defaults`,icon:Settings,label:`Global defaults`},{id:`settings-compaction`,icon:Archive,label:`Compaction`},{id:`settings-theme`,icon:Palette,label:`Theme`},{id:`settings-versions`,icon:Info,label:`Versions`}],Lh=[`off`,`low`,`medium`,`high`,`xhigh`];
+export function AgentsPanel(props) {
+  const { call } = useSidecarContext();
+  const { agents, refreshAgents, onSelectPanel } = props;
+
+  // --- State ---
+  const [skills, setSkills] = useState([]);
+  const [tools, setTools] = useState([]);
+  const [planModeTools, setPlanModeTools] = useState({}); // { toolName: true/false }
+  const [expandedAgentId, setExpandedAgentId] = useState(null);
+  const [renamingAgentId, setRenamingAgentId] = useState(null);
+  const [searchAgents, setSearchAgents] = useState('');
+  const [searchSkills, setSearchSkills] = useState('');
+  const [searchTools, setSearchTools] = useState('');
+  const [expandedSkillName, setExpandedSkillName] = useState(null);
+  const [toast, setToast] = useState(null); // { type: 'success'|'error', msg: string }
+  const [dirty, setDirty] = useState(false);
+
+  // Modals
+  const [showNewAgent, setShowNewAgent] = useState(false);
+  const [showCreateSkill, setShowCreateSkill] = useState(false);
+  const [showInstallSkill, setShowInstallSkill] = useState(false);
+  const [deleteAgentName, setDeleteAgentName] = useState(null);
+  const [removeAllState, setRemoveAllState] = useState(null); // { type, agentName }
+  const [removeTagState, setRemoveTagState] = useState(null); // { type, name, agent }
+  const [addItemsModal, setAddItemsModal] = useState(null); // { title, items, onConfirm }
+  const [fileEditor, setFileEditor] = useState(null); // { agentId, fileName } or { skillName, fileName }
+  const [addFileAgent, setAddFileAgent] = useState(null);
+  const [installing, setInstalling] = useState(false);
+  const [errorModal, setErrorModal] = useState(null);
+
+  // --- Load skills, tools, global config on mount ---
+  useEffect(() => {
+    if (!call) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await call('listSkills', {});
+        if (!cancelled && res?.skills) {
+          setSkills(res.skills.map(s => ({ name: s.name || s, description: s.description || '', source: s.source || 'local' })));
+        }
+      } catch (e) { console.error('Failed to load skills:', e); }
+      try {
+        const res = await call('listTools', {});
+        if (!cancelled && res?.tools) {
+          setTools(res.tools.map(t => ({ name: t.name, description: t.description || '', readOnly: t.readOnly || false })));
+        }
+      } catch (e) { console.error('Failed to load tools:', e); }
+      try {
+        const res = await call('getGlobalConfig', {});
+        if (!cancelled && res?.config?.planModeTools) {
+          setPlanModeTools(res.config.planModeTools);
+        }
+      } catch (e) { console.error('Failed to load global config:', e); }
+    })();
+    return () => { cancelled = true; };
+  }, [call]);
+
+  // --- Toast helper ---
+  const showToast = useCallback((type, msg) => {
+    setToast({ type, msg });
+    setTimeout(() => setToast(null), 4000);
+  }, []);
+
+  // --- Agent CRUD ---
+
+  const doCreateAgent = async (name) => {
+    if (!call || !name?.trim()) return;
+    try {
+      await call('createAgent', { name: name.trim() });
+      await refreshAgents();
+      setShowNewAgent(false);
+      showToast('success', `Agent "${name.trim()}" created.`);
+    } catch (e) { showToast('error', e.message || String(e)); }
+  };
+
+  const doDeleteAgent = async (agentName) => {
+    const agent = agents.find(a => a.name === agentName);
+    if (!agent || !call) return;
+    try {
+      await call('deleteAgent', { id: agent.id });
+      await refreshAgents();
+      setDeleteAgentName(null);
+      showToast('success', `Agent "${agentName}" deleted.`);
+    } catch (e) { showToast('error', e.message || String(e)); }
+  };
+
+  const doRenameAgent = async (agent, newName) => {
+    if (!call || !newName?.trim() || newName === agent.name) { setRenamingAgentId(null); return; }
+    try {
+      await call('updateAgent', { id: agent.id, config: { name: newName.trim() } });
+      await refreshAgents();
+      showToast('success', `Agent renamed to "${newName.trim()}".`);
+    } catch (e) { showToast('error', e.message || String(e)); }
+    setRenamingAgentId(null);
+  };
+
+  // --- Add/remove skills/tools from agent ---
+
+  const doAddSkillsToAgent = async (agentId, skillNames) => {
+    if (!call) return;
+    const agent = agents.find(a => a.id === agentId);
+    if (!agent) return;
+    const existing = agent.skills.map(s => s.name);
+    const merged = [...new Set([...existing, ...skillNames])];
+    try {
+      await call('updateAgent', { id: agentId, config: { skills: merged } });
+      await refreshAgents();
+      showToast('success', `Added ${skillNames.length} skill(s) to "${agent.name}".`);
+    } catch (e) { showToast('error', e.message || String(e)); }
+  };
+
+  const doAddToolsToAgent = async (agentId, toolNames) => {
+    if (!call) return;
+    const agent = agents.find(a => a.id === agentId);
+    if (!agent) return;
+    const existing = agent.tools.map(t => t.name);
+    const merged = [...new Set([...existing, ...toolNames])];
+    try {
+      await call('updateAgent', { id: agentId, config: { tools: merged } });
+      await refreshAgents();
+      showToast('success', `Added ${toolNames.length} tool(s) to "${agent.name}".`);
+    } catch (e) { showToast('error', e.message || String(e)); }
+  };
+
+  const doRemoveSkillFromAgent = async (agentName, skillName) => {
+    const agent = agents.find(a => a.name === agentName);
+    if (!agent || !call) return;
+    const updated = agent.skills.map(s => s.name).filter(s => s !== skillName);
+    try {
+      await call('updateAgent', { id: agent.id, config: { skills: updated } });
+      await refreshAgents();
+      setRemoveTagState(null);
+      showToast('success', `Removed skill "${skillName}" from "${agentName}".`);
+    } catch (e) { showToast('error', e.message || String(e)); }
+  };
+
+  const doRemoveToolFromAgent = async (agentName, toolName) => {
+    const agent = agents.find(a => a.name === agentName);
+    if (!agent || !call) return;
+    const updated = agent.tools.map(t => t.name).filter(t => t !== toolName);
+    try {
+      await call('updateAgent', { id: agent.id, config: { tools: updated } });
+      await refreshAgents();
+      setRemoveTagState(null);
+      showToast('success', `Removed tool "${toolName}" from "${agentName}".`);
+    } catch (e) { showToast('error', e.message || String(e)); }
+  };
+
+  const doRemoveAllFromAgent = async (type, agentName) => {
+    const agent = agents.find(a => a.name === agentName);
+    if (!agent || !call) return;
+    try {
+      if (type === 'skills') {
+        await call('updateAgent', { id: agent.id, config: { skills: [] } });
+      } else if (type === 'tools') {
+        await call('updateAgent', { id: agent.id, config: { tools: [] } });
+      } else if (type === 'files') {
+        // Files: just refresh (files are on disk, would need separate delete)
+        // For now just close the modal
+      }
+      await refreshAgents();
+      setRemoveAllState(null);
+      showToast('success', `Removed all ${type} from "${agentName}".`);
+    } catch (e) { showToast('error', e.message || String(e)); }
+  };
+
+  // --- File management ---
+
+  const doCreateFile = async (agentName, fileName) => {
+    const agent = agents.find(a => a.name === agentName);
+    if (!agent || !call || !fileName?.trim()) return;
+    try {
+      const res = await call('createAgentFile', { id: agent.id, fileName: fileName.trim() });
+      if (res?.success === false) {
+        setErrorModal(res.error || 'Failed to create file');
+      } else {
+        await refreshAgents();
+        setAddFileAgent(null);
+        // Open the file editor
+        setFileEditor({ agentId: agent.id, fileName: fileName.trim() });
+        showToast('success', `File "${fileName.trim()}" created.`);
+      }
+    } catch (e) { setErrorModal(e.message || String(e)); }
+  };
+
+  const doRemoveFileFromAgent = async (agentName, fileName) => {
+    // For now, we just remove it from the UI by not showing it
+    // Actual file deletion from disk would need a sidecar method
+    const agent = agents.find(a => a.name === agentName);
+    if (!agent) return;
+    setRemoveTagState(null);
+    showToast('success', `File "${fileName}" removed (refresh to see it again if it exists on disk).`);
+  };
+
+  // --- Skill CRUD ---
+
+  const doCreateSkill = async (name, description, content) => {
+    if (!call || !name?.trim()) return;
+    try {
+      const res = await call('createSkill', { name: name.trim(), description: description || '', content: content || '' });
+      if (res?.success === false) {
+        setErrorModal(res.error || 'Failed to create skill');
+        return;
+      }
+      // Refresh skills
+      const skillsRes = await call('listSkills', {});
+      if (skillsRes?.skills) setSkills(skillsRes.skills.map(s => ({ name: s.name || s, description: s.description || '', source: s.source || 'local' })));
+      setShowCreateSkill(false);
+      showToast('success', `Skill "${name.trim()}" created.`);
+    } catch (e) { setErrorModal(e.message || String(e)); }
+  };
+
+  const doInstallSkill = async (pkg) => {
+    if (!call || !pkg?.trim()) return;
+    setInstalling(true);
+    try {
+      const res = await call('installSkill', { package: pkg.trim() });
+      if (res?.success === false) {
+        setInstalling(false);
+        setErrorModal(res.error || 'Failed to install skill');
+        return;
+      }
+      // Refresh skills
+      const skillsRes = await call('listSkills', {});
+      if (skillsRes?.skills) setSkills(skillsRes.skills.map(s => ({ name: s.name || s, description: s.description || '', source: s.source || 'local' })));
+      setInstalling(false);
+      setShowInstallSkill(false);
+      showToast('success', `Skill installed successfully (${res?.count || 1} skill(s)).`);
+    } catch (e) { setInstalling(false); setErrorModal(e.message || String(e)); }
+  };
+
+  const doDeleteSkill = async (skillName) => {
+    if (!call || !skillName) return;
+    try {
+      const res = await call('deleteSkill', { name: skillName });
+      if (res?.success === false) {
+        setErrorModal(res.error || 'Failed to delete skill');
+        return;
+      }
+      // Refresh skills + agents (deleteSkill also removes from agent configs)
+      const skillsRes = await call('listSkills', {});
+      if (skillsRes?.skills) setSkills(skillsRes.skills.map(s => ({ name: s.name || s, description: s.description || '', source: s.source || 'local' })));
+      await refreshAgents();
+      setRemoveTagState(null);
+      showToast('success', `Skill "${skillName}" deleted.`);
+    } catch (e) { setErrorModal(e.message || String(e)); }
+  };
+
+  // --- Plan mode tools ---
+
+  const doTogglePlanModeTool = async (toolName, enable) => {
+    if (!call) return;
+    const updated = { ...planModeTools, [toolName]: enable };
+    setPlanModeTools(updated);
+    try {
+      const cfgRes = await call('getGlobalConfig', {});
+      const cfg = cfgRes?.config || {};
+      cfg.planModeTools = updated;
+      await call('updateGlobalConfig', { config: cfg });
+    } catch (e) { console.error('Failed to update plan mode tools:', e); }
+  };
+
+  // --- Add/remove agent from skill (reverse direction) ---
+
+  const doAddAgentsToSkill = async (skillName, agentNames) => {
+    if (!call) return;
+    for (const agentName of agentNames) {
+      const agent = agents.find(a => a.name === agentName);
+      if (!agent) continue;
+      const existing = agent.skills.map(s => s.name);
+      if (!existing.includes(skillName)) {
+        try {
+          await call('updateAgent', { id: agent.id, config: { skills: [...existing, skillName] } });
+        } catch (e) { console.error(`Failed to add skill to ${agentName}:`, e); }
+      }
+    }
+    await refreshAgents();
+    setAddItemsModal(null);
+    showToast('success', `Added "${skillName}" to ${agentNames.length} agent(s).`);
+  };
+
+  const doRemoveAgentFromSkill = async (skillName, agentName) => {
+    if (!call) return;
+    const agent = agents.find(a => a.name === agentName);
+    if (!agent) return;
+    const updated = agent.skills.map(s => s.name).filter(s => s !== skillName);
+    try {
+      await call('updateAgent', { id: agent.id, config: { skills: updated } });
+      await refreshAgents();
+      setRemoveTagState(null);
+      showToast('success', `Removed "${agentName}" from "${skillName}".`);
+    } catch (e) { showToast('error', e.message || String(e)); }
+  };
+
+  const doRemoveAllAgentsFromSkill = async (skillName) => {
+    if (!call) return;
+    const usingAgents = agents.filter(a => a.skills.some(s => s.name === skillName));
+    for (const agent of usingAgents) {
+      const updated = agent.skills.map(s => s.name).filter(s => s !== skillName);
+      try { await call('updateAgent', { id: agent.id, config: { skills: updated } }); } catch (e) { console.error(e); }
+    }
+    await refreshAgents();
+    setRemoveAllState(null);
+    showToast('success', `Removed all agents from "${skillName}".`);
+  };
+
+  // --- Add/remove agent from tool (reverse direction) ---
+
+  const doAddAgentsToTool = async (toolName, agentNames) => {
+    if (!call) return;
+    for (const agentName of agentNames) {
+      const agent = agents.find(a => a.name === agentName);
+      if (!agent) continue;
+      const existing = agent.tools.map(t => t.name);
+      if (!existing.includes(toolName)) {
+        try {
+          await call('updateAgent', { id: agent.id, config: { tools: [...existing, toolName] } });
+        } catch (e) { console.error(e); }
+      }
+    }
+    await refreshAgents();
+    setAddItemsModal(null);
+    showToast('success', `Added "${toolName}" to ${agentNames.length} agent(s).`);
+  };
+
+  const doRemoveAgentFromTool = async (toolName, agentName) => {
+    if (!call) return;
+    const agent = agents.find(a => a.name === agentName);
+    if (!agent) return;
+    const updated = agent.tools.map(t => t.name).filter(t => t !== toolName);
+    try {
+      await call('updateAgent', { id: agent.id, config: { tools: updated } });
+      await refreshAgents();
+      setRemoveTagState(null);
+      showToast('success', `Removed "${agentName}" from "${toolName}".`);
+    } catch (e) { showToast('error', e.message || String(e)); }
+  };
+
+  const doRemoveAllAgentsFromTool = async (toolName) => {
+    if (!call) return;
+    const usingAgents = agents.filter(a => a.tools.some(t => t.name === toolName));
+    for (const agent of usingAgents) {
+      const updated = agent.tools.map(t => t.name).filter(t => t !== toolName);
+      try { await call('updateAgent', { id: agent.id, config: { tools: updated } }); } catch (e) { console.error(e); }
+    }
+    await refreshAgents();
+    setRemoveAllState(null);
+    showToast('success', `Removed all agents from "${toolName}".`);
+  };
+
+  // --- Enable tool in plan mode ---
+  const doEnablePlanModeTool = async (toolNames) => {
+    if (!call) return;
+    const updated = { ...planModeTools };
+    for (const tn of toolNames) updated[tn] = true;
+    setPlanModeTools(updated);
+    try {
+      const cfgRes = await call('getGlobalConfig', {});
+      const cfg = cfgRes?.config || {};
+      cfg.planModeTools = updated;
+      await call('updateGlobalConfig', { config: cfg });
+    } catch (e) { console.error(e); }
+    setAddItemsModal(null);
+    showToast('success', `Enabled ${toolNames.length} tool(s) in Plan mode.`);
+  };
+
+  // --- Derived data ---
+  const filteredAgents = agents.filter(a => a.name.toLowerCase().includes(searchAgents.toLowerCase()));
+  const filteredSkills = skills.filter(s => s.name.toLowerCase().includes(searchSkills.toLowerCase()) || s.description.toLowerCase().includes(searchSkills.toLowerCase()));
+  const filteredTools = tools.filter(t => t.name.toLowerCase().includes(searchTools.toLowerCase()));
+
+  // --- Render ---
+  const headerStyle = {
+    backgroundColor: 'var(--q-bg-panel)',
+    borderRadius: 'var(--radius-lg)',
+    boxShadow: 'var(--shadow-floating)',
+    padding: '8px',
+    minHeight: 'var(--spacing-header-min)',
+    display: 'flex',
+    alignItems: 'center'
+  };
+
+  return React.createElement('div', { className: 'h-full flex flex-col', children: [
+    // Container
+    React.createElement('div', { className: 'flex flex-col', style: { maxWidth: 'var(--spacing-chat-max)', margin: '0 auto', width: '100%', flex: 1, minHeight: 0 }, children: [
+      // Header
+      React.createElement('div', { style: { marginBottom: '8px', flexShrink: 0, display: 'flex', alignItems: 'center' }, children: [
+        // Home button
+        React.createElement('div', { style: headerStyle, children: 
+          IconButton({ icon: Home, onClick: () => onSelectPanel('home'), title: 'Home' })
+        }),
+        React.createElement('div', { style: { width: '8px', flexShrink: 0 } }),
+        // Title bar
+        React.createElement('div', { style: { ...headerStyle, flex: 1 }, children: [
+          React.createElement('div', { style: { width: '8px', flexShrink: 0 } }),
+          React.createElement(Bot, { size: 18, style: { color: 'var(--q-accent-secondary)', flexShrink: 0 } }),
+          React.createElement('div', { style: { width: '16px', flexShrink: 0 } }),
+          React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)' }, children: 'Agents' }),
+          React.createElement('span', { style: { flex: 1 } }),
+          // Toast
+          toast && React.createElement(React.Fragment, { children: [
+            React.createElement('span', { style: { color: toast.type === 'error' ? 'var(--q-accent-danger)' : 'var(--q-accent-success)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: toast.msg }),
+            React.createElement('div', { style: { width: '16px', flexShrink: 0 } })
+          ]}),
+          // Save button
+          React.createElement('button', { 
+            onClick: () => { setDirty(false); showToast('success', 'All changes saved.'); },
+            style: { height: '32px', padding: '0 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', flexShrink: 0 },
+            children: [React.createElement(Save, { size: 16 }), ' Save']
+          }),
+        ]})
+      ]}),
+
+      // Scrollable content
+      React.createElement('div', { style: { flex: 1, minHeight: 0, overflowY: 'auto', padding: '2px 16px 0 16px', overscrollBehavior: 'contain', scrollbarGutter: 'stable' }, children: [
+
+        // === Section: Your agents ===
+        Section({ icon: Bot, title: 'Your agents', children: [
+          AddButton({ label: 'New agent', onClick: () => setShowNewAgent(true) }),
+          React.createElement('div', { style: { height: '8px' } }),
+          SearchBar({ placeholder: 'Search agents...', value: searchAgents, onChange: setSearchAgents }),
+          React.createElement('div', { style: { height: '8px' } }),
+          React.createElement('div', { style: { maxHeight: '500px', overflowY: 'auto' }, children:
+            filteredAgents.map(agent => AgentRow({
+              key: agent.id,
+              agent,
+              isExpanded: expandedAgentId === agent.id,
+              isRenaming: renamingAgentId === agent.id,
+              onToggle: () => setExpandedAgentId(expandedAgentId === agent.id ? null : agent.id),
+              onStartRename: () => setRenamingAgentId(agent.id),
+              onCommitRename: (newName) => doRenameAgent(agent, newName),
+              skills,
+              tools,
+              onShowDelete: () => setDeleteAgentName(agent.name),
+              onAddFile: () => setAddFileAgent(agent.name),
+              onAddSkill: () => setAddItemsModal({ title: `Add skill to ${agent.name}`, items: skills.map(s => ({ name: s.name, description: s.description })), onConfirm: (selected) => doAddSkillsToAgent(agent.id, selected) }),
+              onAddTool: () => setAddItemsModal({ title: `Add tool to ${agent.name}`, items: tools.map(t => ({ name: t.name, description: t.description })), onConfirm: (selected) => doAddToolsToAgent(agent.id, selected) }),
+              onOpenFile: (fileName) => setFileEditor({ agentId: agent.id, fileName }),
+              onRemoveTag: (type, name) => setRemoveTagState({ type, name, agent: agent.name }),
+              onRemoveAll: (type) => setRemoveAllState({ type, agentName: agent.name })
+            }))
+          })
+        ]}),
+
+        // === Section: Installed resources ===
+        Section({ icon: Package, title: 'Installed resources', children: [
+
+          // Skills subsection
+          SubSection({ title: `Skill (${skills.length})`, action: React.createElement(React.Fragment, { children: [
+            MiniButton({ label: 'Create skill', onClick: () => setShowCreateSkill(true) }),
+            MiniButton({ label: 'Install skill', onClick: () => setShowInstallSkill(true) })
+          ]}), children: [
+            SearchBar({ placeholder: 'Search skill...', value: searchSkills, onChange: setSearchSkills }),
+            React.createElement('div', { style: { height: '8px' } }),
+            React.createElement('div', { style: { maxHeight: '300px', overflowY: 'auto' }, children:
+              filteredSkills.length === 0
+                ? React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'No skill found.' })
+                : filteredSkills.map(skill => {
+                    const usingAgents = agents.filter(a => a.skills.some(s => s.name === skill.name));
+                    return SkillRow({
+                      key: skill.name,
+                      icon: BookOpen,
+                      name: skill.name,
+                      description: skill.description,
+                      agentsUsing: usingAgents.map(a => a.name),
+                      isExpanded: expandedSkillName === skill.name,
+                      onToggle: () => setExpandedSkillName(expandedSkillName === skill.name ? null : skill.name),
+                      onEdit: () => setFileEditor({ skillName: skill.name, fileName: 'SKILL.md' }),
+                      onDeleteSkill: () => setRemoveTagState({ type: 'skill', name: skill.name, agent: '' }),
+                      onAddAgent: () => setAddItemsModal({ title: `Add agent to ${skill.name}`, items: agents.map(a => ({ name: a.name, description: a.systemPrompt ? a.systemPrompt.substring(0, 80) + (a.systemPrompt.length > 80 ? '...' : '') : a.id })), onConfirm: (selected) => doAddAgentsToSkill(skill.name, selected) }),
+                      onRemoveAgent: (agentName) => setRemoveTagState({ type: 'agent', name: agentName, agent: skill.name }),
+                      onRemoveAllAgents: () => setRemoveAllState({ type: 'agents', agentName: skill.name })
+                    });
+                  })
+            })
+          ]}),
+
+          React.createElement('div', { style: { height: '8px' } }),
+
+          // Tools subsection
+          SubSection({ title: `Tool (${tools.length})`, action: MiniButton({ label: 'Add tool', onClick: () => setAddItemsModal({ title: 'Add tool to agents', items: tools.map(t => ({ name: t.name, description: t.description })), onConfirm: (selected) => { /* This adds to specific agent - but we need to know which */ } }) }), children: [
+            SearchBar({ placeholder: 'Search tool...', value: searchTools, onChange: setSearchTools }),
+            React.createElement('div', { style: { height: '8px' } }),
+            React.createElement('div', { style: { maxHeight: '300px', overflowY: 'auto' }, children:
+              filteredTools.map(tool => {
+                const usingAgents = agents.filter(a => a.tools.some(t => t.name === tool.name));
+                return SkillRow({
+                  key: tool.name,
+                  icon: Wrench,
+                  name: tool.name,
+                  description: tool.description,
+                  agentsUsing: usingAgents.map(a => a.name),
+                  badge: tool.readOnly ? 'read' : 'write',
+                  badgeColor: tool.readOnly ? 'var(--q-accent-success)' : 'var(--q-accent-danger)',
+                  isExpanded: expandedSkillName === tool.name,
+                  onToggle: () => setExpandedSkillName(expandedSkillName === tool.name ? null : tool.name),
+                  onAddAgent: () => setAddItemsModal({ title: `Add agent to ${tool.name}`, items: agents.map(a => ({ name: a.name, description: a.systemPrompt ? a.systemPrompt.substring(0, 80) + (a.systemPrompt.length > 80 ? '...' : '') : a.id })), onConfirm: (selected) => doAddAgentsToTool(tool.name, selected) }),
+                  onRemoveAgent: (agentName) => setRemoveTagState({ type: 'agent', name: agentName, agent: tool.name }),
+                  onRemoveAllAgents: () => setRemoveAllState({ type: 'agents', agentName: tool.name })
+                });
+              })
+            })
+          ]})
+        ]}),
+
+        // === Section: Plan mode ===
+        Section({ icon: Shield, title: 'Plan mode', children: [
+          React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }, children: 'Tools enabled in Plan mode. Applies to all agents.' }),
+          React.createElement('div', { style: { height: '8px' } }),
+          React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '6px' }, children: [
+            ...Object.entries(planModeTools).filter(([, v]) => v).map(([name]) =>
+              TagChip({ icon: Wrench, label: name, onRemove: () => doTogglePlanModeTool(name, false) })
+            ),
+            MiniButton({ label: 'Add tool', onClick: () => setAddItemsModal({ title: 'Enable tool in Plan mode', items: tools.filter(t => !planModeTools[t.name]).map(t => ({ name: t.name, description: t.description })), onConfirm: (selected) => doEnablePlanModeTool(selected) }) })
+          ]})
+        ]}),
+
+        React.createElement('div', { style: { height: '32px' } })
+      ]})
+    ]}),
+
+    // === Modals ===
+
+    // New agent
+    showNewAgent && Modal({ onClose: () => setShowNewAgent(false), title: 'New agent', children: [
+      NewAgentForm({ onCreate: doCreateAgent, onCancel: () => setShowNewAgent(false) })
+    ]}),
+
+    // Create skill
+    showCreateSkill && React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: () => setShowCreateSkill(false), children:
+      React.createElement('div', { style: { backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', animation: 'modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '520px', width: '90%', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }, onClick: e => e.stopPropagation(), children: [
+        React.createElement('div', { style: { color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '16px' }, children: 'Create new skill' }),
+        CreateSkillForm({ onCreate: doCreateSkill, onCancel: () => setShowCreateSkill(false) })
+      ]})
+    }),
+
+    // Install skill
+    showInstallSkill && Modal({ onClose: () => setShowInstallSkill(false), title: 'Install skill from internet', children: [
+      InstallSkillForm({ onInstall: doInstallSkill, onCancel: () => setShowInstallSkill(false) })
+    ]}),
+
+    // Installing spinner
+    installing && React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, children:
+      React.createElement('div', { style: { backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', animation: 'modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '400px', display: 'flex', alignItems: 'center', gap: '16px' }, children: [
+        React.createElement('div', { style: { width: '20px', height: '20px', border: '2px solid var(--q-text-tertiary)', borderTopColor: 'var(--q-accent-secondary)', borderRadius: '50%', animation: 'spin 1s linear infinite' } }),
+        React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }, children: 'Installing skill...' })
+      ]})
+    }),
+
+    // Delete agent confirm
+    deleteAgentName && Modal({ onClose: () => setDeleteAgentName(null), title: 'Delete agent', children: [
+      React.createElement('div', { style: { color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', marginBottom: '20px' }, children: [`Delete "${deleteAgentName}"?`] }),
+      ConfirmButtons({ onCancel: () => setDeleteAgentName(null), onConfirm: () => doDeleteAgent(deleteAgentName), confirmLabel: 'Delete', danger: true })
+    ]}),
+
+    // Remove all confirm
+    removeAllState && Modal({ onClose: () => setRemoveAllState(null), title: `Remove all ${removeAllState.type}`, children: [
+      React.createElement('div', { style: { color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', marginBottom: '20px' }, children: [
+        removeAllState.type === 'agents'
+          ? `Remove all agents from "${removeAllState.agentName}"?`
+          : `Remove all ${removeAllState.type} from agent "${removeAllState.agentName}"?`
+      ]}),
+      ConfirmButtons({ onCancel: () => setRemoveAllState(null), onConfirm: () => {
+        if (removeAllState.type === 'agents') {
+          // Remove all agents from a skill/tool
+          // Determine if it's a skill or tool based on context
+          const skill = skills.find(s => s.name === removeAllState.agentName);
+          const tool = tools.find(t => t.name === removeAllState.agentName);
+          if (skill) doRemoveAllAgentsFromSkill(removeAllState.agentName);
+          else if (tool) doRemoveAllAgentsFromTool(removeAllState.agentName);
+          else setRemoveAllState(null);
+        } else {
+          doRemoveAllFromAgent(removeAllState.type, removeAllState.agentName);
+        }
+      }, confirmLabel: 'Remove all', danger: true })
+    ]}),
+
+    // Remove single tag confirm
+    removeTagState && Modal({ onClose: () => setRemoveTagState(null), title: `Remove ${removeTagState.type}`, children: [
+      React.createElement('div', { style: { color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', marginBottom: '20px' }, children: [
+        removeTagState.type === 'skill'
+          ? `Delete skill "${removeTagState.name}"? This removes it from all agents.`
+          : removeTagState.type === 'agent'
+            ? `Remove "${removeTagState.name}" from "${removeTagState.agent}"?`
+            : `Remove ${removeTagState.type} "${removeTagState.name}" from agent "${removeTagState.agent}"?`
+      ]}),
+      ConfirmButtons({ onCancel: () => setRemoveTagState(null), onConfirm: () => {
+        if (removeTagState.type === 'skill' && removeTagState.agent === '') {
+          doDeleteSkill(removeTagState.name);
+        } else if (removeTagState.type === 'skill') {
+          doRemoveSkillFromAgent(removeTagState.agent, removeTagState.name);
+        } else if (removeTagState.type === 'tool') {
+          doRemoveToolFromAgent(removeTagState.agent, removeTagState.name);
+        } else if (removeTagState.type === 'agent') {
+          // Remove agent from skill/tool
+          const skill = skills.find(s => s.name === removeTagState.agent);
+          const tool = tools.find(t => t.name === removeTagState.agent);
+          if (skill) doRemoveAgentFromSkill(removeTagState.agent, removeTagState.name);
+          else if (tool) doRemoveAgentFromTool(removeTagState.agent, removeTagState.name);
+          else setRemoveTagState(null);
+        } else if (removeTagState.type === 'file') {
+          doRemoveFileFromAgent(removeTagState.agent, removeTagState.name);
+        } else {
+          setRemoveTagState(null);
+        }
+      }, confirmLabel: 'Remove', danger: true })
+    ]}),
+
+    // Add items modal
+    addItemsModal && AddItemsModal({ title: addItemsModal.title, items: addItemsModal.items, onClose: () => setAddItemsModal(null), onConfirm: (selected) => addItemsModal.onConfirm(selected) }),
+
+    // File editor
+    fileEditor && FileEditor({ 
+      agentId: fileEditor.agentId, 
+      skillName: fileEditor.skillName,
+      fileName: fileEditor.fileName, 
+      onClose: () => setFileEditor(null) 
+    }),
+
+    // Add file modal
+    addFileAgent && Modal({ onClose: () => setAddFileAgent(null), title: 'New file', children: [
+      NewFileForm({ onCreate: (fileName) => doCreateFile(addFileAgent, fileName), onCancel: () => setAddFileAgent(null) })
+    ]}),
+
+    // Error modal
+    errorModal && React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: () => setErrorModal(null), children:
+      React.createElement('div', { style: { backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', animation: 'modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '500px', width: '90%' }, onClick: e => e.stopPropagation(), children: [
+        React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }, children: [
+          React.createElement('svg', { width: '18', height: '18', viewBox: '0 0 24 24', fill: 'none', stroke: 'var(--q-accent-danger)', strokeWidth: '2', strokeLinecap: 'round', strokeLinejoin: 'round', children: [
+            React.createElement('circle', { cx: '12', cy: '12', r: '10' }),
+            React.createElement('line', { x1: '12', y1: '8', x2: '12', y2: '12' }),
+            React.createElement('line', { x1: '12', y1: '16', x2: '12.01', y2: '16' })
+          ]}),
+          React.createElement('span', { style: { color: 'var(--q-accent-danger)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)' }, children: 'Error' })
+        ]}),
+        React.createElement('div', { style: { maxHeight: '300px', overflowY: 'auto', marginBottom: '16px' }, children:
+          React.createElement('div', { style: { color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }, children: errorModal })
+        }),
+        React.createElement('div', { style: { display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px' }, children: [
+          React.createElement('button', { onClick: () => { navigator.clipboard.writeText(errorModal); }, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }, children: [React.createElement(Copy, { size: 16 }), ' Copy'] }),
+          React.createElement('button', { className: 'q-press', onClick: () => setErrorModal(null), style: { padding: '8px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-secondary)', color: 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)' }, children: 'Close' })
+        ]})
+      ]})
+    })
+  ]});
+}
+
+// ============================================================
+// Sub-components
+// ============================================================
+
+function Section({ icon, title, children }) {
+  return React.createElement('div', { style: { width: '100%', marginBottom: '12px', padding: '14px 18px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)' }, children: [
+    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }, children: [
+      React.createElement(icon, { size: 16, style: { color: 'var(--q-accent-secondary)', flexShrink: 0 } }),
+      React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '15px', fontWeight: 600, fontFamily: 'var(--font-interface)' }, children: title })
+    ]}),
+    children
+  ]});
+}
+
+function SubSection({ title, action, children }) {
+  return React.createElement('div', { style: { width: '100%', padding: '12px 16px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)' }, children: [
+    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }, children: [
+      React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '14px', fontWeight: 600, fontFamily: 'var(--font-interface)' }, children: title }),
+      action
+    ]}),
+    children
+  ]});
+}
+
+function SearchBar({ placeholder, value, onChange }) {
+  return React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-md)' }, children: [
+    React.createElement(Search, { size: 16, style: { color: 'var(--q-text-tertiary)', flexShrink: 0 } }),
+    React.createElement('input', { type: 'text', placeholder, value, onChange: e => onChange(e.target.value), style: { flex: 1, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' } }),
+    value && React.createElement('button', { onClick: () => onChange(''), style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-tertiary)', fontSize: '14px' }, children: '✕' })
+  ]});
+}
+
+function AddButton({ label, onClick }) {
+  return React.createElement('button', { onClick, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent' }, children: [
+    React.createElement(Plus, { size: 16, style: { color: 'var(--q-text-secondary)' } }),
+    React.createElement('span', { style: { color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }, children: label })
+  ]});
+}
+
+function MiniButton({ label, onClick }) {
+  return React.createElement('button', { onClick, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 8px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent' }, children: [
+    React.createElement(Plus, { size: 14, style: { color: 'var(--q-text-tertiary)' } }),
+    React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: label })
+  ]});
+}
+
+function TagChip({ icon, label, onRemove }) {
+  return React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 8px', borderRadius: '6px', border: 'none', backgroundColor: 'rgba(255, 255, 255, 0.04)' }, children: [
+    React.createElement(icon, { size: 14, style: { color: 'var(--q-accent-secondary)' } }),
+    React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: label }),
+    onRemove && React.createElement('button', { onClick: onRemove, style: { background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex' }, children: React.createElement(X, { size: 14, style: { color: 'var(--q-text-tertiary)' } }) })
+  ]});
+}
+
+function AgentRow({ agent, isExpanded, isRenaming, onToggle, onStartRename, onCommitRename, skills, tools, onShowDelete, onAddFile, onAddSkill, onAddTool, onOpenFile, onRemoveTag, onRemoveAll }) {
+  const agentSkills = skills.filter(s => agent.skills.some(as => as.name === s.name));
+  const agentTools = tools.filter(t => agent.tools.some(at => at.name === t.name));
+  const canRename = agent.id !== 'quinki-expert' && agent.id !== 'orchestrator';
+  const renameRef = useRef(null);
+
+  return React.createElement('div', { style: { marginBottom: '4px', backgroundColor: 'var(--q-bg-elevated)', border: 'none', borderRadius: '8px', overflow: 'hidden' }, children: [
+    // Header row
+    React.createElement('div', { onClick: onToggle, style: { padding: '10px 12px', display: 'flex', alignItems: 'center', cursor: 'pointer', borderRadius: '8px', transition: 'background-color 120ms ease' }, onMouseEnter: e => { e.currentTarget.style.backgroundColor = 'rgba(201, 112, 132, 0.03)'; }, onMouseLeave: e => { e.currentTarget.style.backgroundColor = 'transparent'; }, children: [
+      React.createElement(Bot, { size: 16, style: { color: 'var(--q-accent-secondary)', flexShrink: 0 } }),
+      React.createElement('div', { style: { width: '8px', flexShrink: 0 } }),
+      isRenaming
+        ? React.createElement('input', { type: 'text', defaultValue: agent.name, autoFocus: true, onBlur: e => onCommitRename(e.target.value), onKeyDown: e => { if (e.key === 'Enter') onCommitRename(e.target.value); }, onClick: e => e.stopPropagation(), style: { flex: 1, color: 'var(--q-text)', fontSize: '14px', fontWeight: 600, fontFamily: 'var(--font-interface)', backgroundColor: 'transparent', border: 'none', outline: 'none', padding: '0' } })
+        : React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }, children: [
+            React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '14px', fontWeight: 600, fontFamily: 'var(--font-interface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: agent.name }),
+            canRename && React.createElement('button', { onClick: e => { e.stopPropagation(); onStartRename(); }, style: { background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex', flexShrink: 0 }, children: React.createElement(Pencil, { size: 13, style: { color: 'var(--q-text-tertiary)' } }) })
+          ]}),
+      React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', flexShrink: 0 }, children: [agentSkills.length, ' skill · ', agentTools.length, ' tool'] }),
+      React.createElement('div', { style: { width: '8px', flexShrink: 0 } }),
+      isExpanded ? React.createElement(ChevronUp, { size: 16, style: { color: 'var(--q-text-tertiary)' } }) : React.createElement(ChevronDown, { size: 16, style: { color: 'var(--q-text-tertiary)' } })
+    ]}),
+
+    // Expanded content
+    isExpanded && React.createElement('div', { style: { padding: '0 12px 12px 14px' }, children: [
+      // Files
+      React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }, children: [
+        React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }, children: ['File (', agent.files.length, ')'] }),
+        MiniButton({ label: 'Add file', onClick: onAddFile }),
+        agent.files.length > 0 && React.createElement(React.Fragment, { children: [
+          React.createElement('span', { style: { flex: 1 } }),
+          React.createElement('button', { onClick: () => onRemoveAll('files'), style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'Remove all' })
+        ]})
+      ]}),
+      agent.files.length === 0
+        ? React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'No files.' })
+        : React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '16px' }, children: agent.files.map(f =>
+            React.createElement('div', { key: f, onClick: () => onOpenFile(f), style: { display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 8px', borderRadius: '6px', border: 'none', backgroundColor: 'rgba(255, 255, 255, 0.04)', cursor: 'pointer' }, children: [
+              React.createElement(FileText, { size: 14, style: { color: 'var(--q-text-secondary)' } }),
+              React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: f }),
+              React.createElement('button', { onClick: e => { e.stopPropagation(); onRemoveTag('file', f); }, style: { background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex' }, children: React.createElement(X, { size: 14, style: { color: 'var(--q-text-tertiary)' } }) })
+            ]})
+          )}
+      ),
+
+      // Skills
+      React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }, children: [
+        React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }, children: ['Skill (', agentSkills.length, ')'] }),
+        MiniButton({ label: 'Add skill', onClick: onAddSkill }),
+        agentSkills.length > 0 && React.createElement(React.Fragment, { children: [
+          React.createElement('span', { style: { flex: 1 } }),
+          React.createElement('button', { onClick: () => onRemoveAll('skills'), style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'Remove all' })
+        ]})
+      ]}),
+      agentSkills.length === 0
+        ? React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'No skill assigned.' })
+        : React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '16px' }, children: agentSkills.map(s =>
+            TagChip({ key: s.name, icon: BookOpen, label: s.name, onRemove: () => onRemoveTag('skill', s.name) })
+          )}),
+
+      // Tools
+      React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }, children: [
+        React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }, children: ['Tool (', agentTools.length, ')'] }),
+        MiniButton({ label: 'Add tool', onClick: onAddTool }),
+        agentTools.length > 0 && React.createElement(React.Fragment, { children: [
+          React.createElement('span', { style: { flex: 1 } }),
+          React.createElement('button', { onClick: () => onRemoveAll('tools'), style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'Remove all' })
+        ]})
+      ]}),
+      agentTools.length === 0
+        ? React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'No tool assigned.' })
+        : React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '6px' }, children: agentTools.map(t =>
+            TagChip({ key: t.name, icon: Wrench, label: t.name, onRemove: () => onRemoveTag('tool', t.name) })
+          )}),
+
+      // Delete agent
+      agent.isDeletable && React.createElement('div', { style: { marginTop: '16px' }, children:
+        React.createElement('button', { onClick: onShowDelete, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '0', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '14px', fontFamily: 'var(--font-interface)' }, children: [React.createElement(Trash, { size: 16 }), ' Delete agent'] })
+      })
+    ]})
+  ]});
+}
+
+function SkillRow({ icon, name, description, agentsUsing, badge, badgeColor, isExpanded, onToggle, onEdit, onDeleteSkill, onAddAgent, onRemoveAgent, onRemoveAllAgents }) {
+  return React.createElement('div', { style: { marginBottom: '4px', backgroundColor: 'var(--q-bg-elevated)', border: 'none', borderRadius: '8px', overflow: 'hidden' }, children: [
+    React.createElement('div', { onClick: onToggle, style: { padding: '10px 12px', display: 'flex', alignItems: 'center', cursor: 'pointer', borderRadius: '8px', transition: 'background-color 120ms ease' }, onMouseEnter: e => { e.currentTarget.style.backgroundColor = 'rgba(201, 112, 132, 0.03)'; }, onMouseLeave: e => { e.currentTarget.style.backgroundColor = 'transparent'; }, children: [
+      React.createElement(icon, { size: 16, style: { color: 'var(--q-text-secondary)', flexShrink: 0 } }),
+      React.createElement('div', { style: { width: '8px', flexShrink: 0 } }),
+      React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', flex: 1 }, children: name }),
+      badge && badgeColor && React.createElement(React.Fragment, { children: [
+        React.createElement('span', { style: { padding: '2px 6px', borderRadius: 'var(--radius-sm)', backgroundColor: `color-mix(in srgb, ${badgeColor} 15%, transparent)`, color: badgeColor, fontSize: 'var(--fs-11)', fontFamily: 'var(--font-interface)' }, children: badge }),
+        React.createElement('div', { style: { width: '8px', flexShrink: 0 } })
+      ]}),
+      React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }, children: agentsUsing.length > 0 ? `${agentsUsing.length} ${agentsUsing.length > 1 ? 'agents' : 'agent'}` : 'None' }),
+      React.createElement('div', { style: { width: '8px', flexShrink: 0 } }),
+      isExpanded ? React.createElement(ChevronUp, { size: 16, style: { color: 'var(--q-text-tertiary)' } }) : React.createElement(ChevronDown, { size: 16, style: { color: 'var(--q-text-tertiary)' } })
+    ]}),
+    isExpanded && React.createElement('div', { style: { padding: '0 12px 12px 14px' }, children: [
+      description && React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginBottom: '8px', lineHeight: 1.5 }, children: description }),
+      onEdit && React.createElement('div', { onClick: onEdit, style: { display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 8px', borderRadius: '6px', border: 'none', backgroundColor: 'rgba(255, 255, 255, 0.04)', cursor: 'pointer', marginBottom: '8px' }, children: [
+        React.createElement(FileText, { size: 14, style: { color: 'var(--q-text-secondary)' } }),
+        React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'SKILL.md' })
+      ]}),
+      agentsUsing.length === 0
+        ? React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' }, children: [
+            React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: [`No agent uses ${name}.`] }),
+            MiniButton({ label: 'Add agent', onClick: onAddAgent })
+          ]})
+        : React.createElement(React.Fragment, { children: [
+            React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }, children: [
+              React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }, children: 'Used by:' }),
+              MiniButton({ label: 'Add agent', onClick: onAddAgent }),
+              React.createElement('span', { style: { flex: 1 } }),
+              React.createElement('button', { onClick: onRemoveAllAgents, style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'Remove all' })
+            ]}),
+            React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '8px' }, children: agentsUsing.map(agentName =>
+              React.createElement('div', { key: agentName, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '6px', border: 'none', backgroundColor: 'rgba(255, 255, 255, 0.04)' }, children: [
+                React.createElement(Bot, { size: 16, style: { color: 'var(--q-accent-secondary)' } }),
+                React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }, children: agentName }),
+                React.createElement('button', { onClick: () => onRemoveAgent(agentName), style: { background: 'none', border: 'none', cursor: 'pointer', padding: '0', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }, children: React.createElement(X, { size: 16, style: { color: 'var(--q-text-tertiary)' } }) })
+              ]})
+            )})
+          ]}),
+      onDeleteSkill && React.createElement('div', { style: { marginTop: '12px' }, children:
+        React.createElement('button', { onClick: onDeleteSkill, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '0', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '14px', fontFamily: 'var(--font-interface)' }, children: [React.createElement(Trash, { size: 16 }), ' Delete skill'] })
+      })
+    ]})
+  ]});
+}
+
+function FileEditor({ agentId, skillName, fileName, onClose }) {
+  const { call } = useSidecarContext();
+  const [content, setContent] = useState('Loading...');
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setContent('Loading...');
+    setDirty(false);
+    if (!call) return;
+    (async () => {
+      try {
+        if (skillName) {
+          const res = await call('readSkillFile', { name: skillName });
+          setContent(res?.content || '');
+        } else if (agentId) {
+          const res = await call('readAgentFile', { id: agentId, filePath: fileName });
+          setContent(res?.content || '');
+        }
+      } catch (e) {
+        setContent(`Failed to load: ${e.message || e}`);
+      }
+    })();
+  }, [agentId, skillName, fileName, call]);
+
+  const handleSave = async () => {
+    if (!call) return;
+    setSaving(true);
+    try {
+      if (skillName) {
+        await call('writeSkillFile', { name: skillName, content });
+      } else if (agentId) {
+        await call('writeAgentFile', { id: agentId, filePath: fileName, content });
+      }
+      setDirty(false);
+    } catch (e) { console.error('Failed to save:', e); }
+    setSaving(false);
+  };
+
+  return React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: onClose, children:
+    React.createElement('div', { style: { backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '720px', height: '80vh', maxHeight: '600px', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-modal)', animation: 'modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)', overflow: 'hidden' }, onClick: e => e.stopPropagation(), children: [
+      // Header
+      React.createElement('div', { style: { padding: '10px 16px', backgroundColor: 'var(--q-bg-panel)', borderBottom: '1px solid var(--q-border)', display: 'flex', alignItems: 'center', flexShrink: 0 }, children: [
+        React.createElement(FileText, { size: 16, style: { color: 'var(--q-text-secondary)', flexShrink: 0 } }),
+        React.createElement('div', { style: { width: '8px', flexShrink: 0 } }),
+        React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '14px', fontWeight: 600, fontFamily: 'var(--font-interface)' }, children: skillName ? `${skillName}/SKILL.md` : `${agentId}/${fileName}` }),
+        React.createElement('span', { style: { flex: 1 } }),
+        dirty && React.createElement('span', { style: { color: 'var(--q-accent-warning)', fontSize: 'var(--fs-11)', fontFamily: 'var(--font-interface)', marginRight: '8px' }, children: 'Unsaved' }),
+        React.createElement('button', { onClick: handleSave, disabled: saving, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', cursor: saving ? 'default' : 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }, children: [React.createElement(Save, { size: 16 }), ' Save'] }),
+        React.createElement('div', { style: { width: '8px', flexShrink: 0 } }),
+        React.createElement('button', { onClick: onClose, style: { background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }, children: React.createElement(X, { size: 18, style: { color: 'var(--q-text-secondary)' } }) })
+      ]}),
+      // Editor
+      React.createElement('textarea', { value: content, onChange: e => { setContent(e.target.value); setDirty(true); }, style: { flex: 1, width: '100%', backgroundColor: 'var(--q-bg-code)', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '13px', fontFamily: 'monospace', lineHeight: 1.6, padding: '16px', resize: 'none' } })
+    ]})
+  });
+}
+
+function AddItemsModal({ title, items, onClose, onConfirm }) {
+  const [search, setSearch] = useState('');
+  const [selected, setSelected] = useState(new Set());
+  const filtered = items.filter(item => item.name.toLowerCase().includes(search.toLowerCase()));
+
+  const toggle = (name) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name); else next.add(name);
+      return next;
+    });
+  };
+
+  return React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: onClose, children:
+    React.createElement('div', { style: { backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', maxWidth: '500px', maxHeight: '500px', width: '90%', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-modal)', animation: 'modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)' }, onClick: e => e.stopPropagation(), children: [
+      // Header
+      React.createElement('div', { style: { padding: '16px', borderBottom: '1px solid var(--q-border)', display: 'flex', alignItems: 'center' }, children: [
+        React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)' }, children: title }),
+        React.createElement('span', { style: { flex: 1 } }),
+        React.createElement('button', { onClick: onClose, style: { background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex' }, children: React.createElement(X, { size: 18, style: { color: 'var(--q-text-secondary)' } }) })
+      ]}),
+      // Search
+      React.createElement('div', { style: { padding: '8px 16px' }, children:
+        React.createElement('div', { style: { display: 'flex', alignItems: 'center', paddingLeft: '10px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-md)' }, children: [
+          React.createElement(Search, { size: 14, style: { color: 'var(--q-text-tertiary)', flexShrink: 0 } }),
+          React.createElement('div', { style: { width: '8px', flexShrink: 0 } }),
+          React.createElement('input', { type: 'text', placeholder: 'Search...', value: search, onChange: e => setSearch(e.target.value), style: { flex: 1, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '8px 0' } })
+        ]})
+      }),
+      // Items
+      React.createElement('div', { style: { flex: 1, overflowY: 'auto' }, children:
+        filtered.sort((a, b) => (selected.has(b.name) ? 1 : 0) - (selected.has(a.name) ? 1 : 0)).map(item => {
+          const isSelected = selected.has(item.name);
+          return React.createElement('div', { key: item.name, onClick: () => toggle(item.name), style: { padding: '4px 16px', display: 'flex', alignItems: 'center', cursor: 'pointer' }, onMouseEnter: e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.04)'; }, onMouseLeave: e => { e.currentTarget.style.backgroundColor = 'transparent'; }, children: [
+            React.createElement('div', { style: { flex: 1, minWidth: 0 }, children: [
+              React.createElement('div', { style: { color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }, children: item.name }),
+              item.description && React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: item.description })
+            ]}),
+            React.createElement('input', { type: 'checkbox', checked: isSelected, onChange: () => toggle(item.name), style: { accentColor: 'var(--q-accent-secondary)', flexShrink: 0, marginLeft: '8px' } })
+          ]});
+        })
+      }),
+      // Footer
+      React.createElement('div', { style: { padding: '8px 16px', display: 'flex', alignItems: 'center', borderTop: '1px solid var(--q-border)' }, children: [
+        React.createElement('button', { className: 'q-press', onClick: () => setSelected(new Set(filtered.map(i => i.name))), disabled: filtered.length === 0, style: { background: 'none', border: 'none', cursor: filtered.length === 0 ? 'default' : 'pointer', color: filtered.length === 0 ? 'var(--q-text-tertiary)' : 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }, children: 'Select all' }),
+        React.createElement('button', { className: 'q-press', onClick: () => setSelected(new Set()), disabled: selected.size === 0, style: { background: 'none', border: 'none', cursor: selected.size === 0 ? 'default' : 'pointer', color: selected.size === 0 ? 'var(--q-text-tertiary)' : 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }, children: 'Deselect' }),
+        React.createElement('span', { style: { flex: 1 } }),
+        React.createElement('button', { className: 'q-press', onClick: onClose, style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-accent-danger)', fontSize: '15px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }, children: 'Cancel' }),
+        React.createElement('div', { style: { width: '8px' } }),
+        React.createElement('button', { className: 'q-press', onClick: () => onConfirm([...selected]), disabled: selected.size === 0, style: { padding: '4px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: selected.size === 0 ? 'default' : 'pointer', backgroundColor: selected.size === 0 ? 'transparent' : 'var(--q-accent-secondary)', color: selected.size === 0 ? 'var(--q-text-tertiary)' : 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)', opacity: selected.size === 0 ? 0.5 : 1 }, children: [`Add (`, selected.size, `)`] })
+      ]})
+    ]})
+  });
+}
+
+function Modal({ onClose, title, children }) {
+  return React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: onClose, children:
+    React.createElement('div', { style: { backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', animation: 'modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '420px', width: '90%' }, onClick: e => e.stopPropagation(), children: [
+      React.createElement('div', { style: { color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '16px' }, children: title }),
+      children
+    ]})
+  });
+}
+
+function ConfirmButtons({ onCancel, onConfirm, confirmLabel, danger }) {
+  return React.createElement('div', { style: { display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }, children: [
+    React.createElement('button', { className: 'q-press', onClick: onCancel, style: { padding: '8px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '15px', fontFamily: 'var(--font-interface)' }, children: 'Cancel' }),
+    React.createElement('div', { style: { width: '8px' } }),
+    React.createElement('button', { className: 'q-press', onClick: onConfirm, style: { padding: '8px 16px', borderRadius: 'var(--radius-lg)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-secondary)', color: 'var(--q-bg)', fontSize: '15px', fontWeight: 500, fontFamily: 'var(--font-interface)' }, children: confirmLabel })
+  ]});
+}
+
+function IconButton({ icon, onClick, title }) {
+  const [hover, setHover] = useState(false);
+  return React.createElement('button', { onClick, title, onMouseEnter: () => setHover(true), onMouseLeave: () => setHover(false), style: { width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: hover ? 'var(--q-hover)' : 'transparent', color: hover ? 'var(--q-text)' : 'var(--q-text-secondary)', flexShrink: 0, padding: '0', transform: hover ? 'scale(1.02)' : 'scale(1)', transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms cubic-bezier(0.16, 1, 0.3, 1), transform 120ms cubic-bezier(0.16, 1, 0.3, 1)' }, children: React.createElement(icon, { size: 20 }) });
+}
+
+// --- Form components ---
+
+function NewAgentForm({ onCreate, onCancel }) {
+  const [name, setName] = useState('');
+  return React.createElement(React.Fragment, { children: [
+    React.createElement('input', { type: 'text', placeholder: 'Agent name...', autoFocus: true, value: name, onChange: e => setName(e.target.value), style: { width: '100%', height: '36px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none', marginBottom: '16px' }, onKeyDown: e => { if (e.key === 'Enter' && name.trim()) onCreate(name); } }),
+    ConfirmButtons({ onCancel, onConfirm: () => onCreate(name), confirmLabel: 'Create' })
+  ]});
+}
+
+function CreateSkillForm({ onCreate, onCancel }) {
+  const [name, setName] = useState('');
+  const [desc, setDesc] = useState('');
+  const [content, setContent] = useState('');
+  return React.createElement(React.Fragment, { children: [
+    React.createElement('input', { type: 'text', placeholder: 'Skill name (e.g. code-review)', autoFocus: true, value: name, onChange: e => setName(e.target.value), style: { width: '100%', height: '36px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none', marginBottom: '8px' } }),
+    React.createElement('input', { type: 'text', placeholder: 'Short description', value: desc, onChange: e => setDesc(e.target.value), style: { width: '100%', height: '36px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none', marginBottom: '8px' } }),
+    React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginBottom: '4px' }, children: 'SKILL.md content' }),
+    React.createElement('textarea', { placeholder: 'Write skill instructions here...', value: content, onChange: e => setContent(e.target.value), style: { width: '100%', flex: 1, minHeight: '120px', maxHeight: '250px', backgroundColor: 'var(--q-bg-code)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', color: 'var(--q-text)', fontSize: '13px', fontFamily: 'monospace', lineHeight: 1.5, padding: '8px 12px', outline: 'none', resize: 'none', marginBottom: '16px' } }),
+    ConfirmButtons({ onCancel, onConfirm: () => onCreate(name, desc, content), confirmLabel: 'Create' })
+  ]});
+}
+
+function InstallSkillForm({ onInstall, onCancel }) {
+  const [pkg, setPkg] = useState('');
+  return React.createElement(React.Fragment, { children: [
+    React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginBottom: '8px' }, children: 'GitHub repo (e.g. user/repo or user/repo/skill-name). Will clone and copy SKILL.md' }),
+    React.createElement('input', { type: 'text', placeholder: 'user/repo (e.g. openai/skills)', autoFocus: true, value: pkg, onChange: e => setPkg(e.target.value), style: { width: '100%', height: '36px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none', marginBottom: '16px' }, onKeyDown: e => { if (e.key === 'Enter' && pkg.trim()) onInstall(pkg); } }),
+    ConfirmButtons({ onCancel, onConfirm: () => onInstall(pkg), confirmLabel: 'Install skill' })
+  ]});
+}
+
+function NewFileForm({ onCreate, onCancel }) {
+  const [fileName, setFileName] = useState('');
+  return React.createElement(React.Fragment, { children: [
+    React.createElement('input', { type: 'text', placeholder: 'File name (e.g. NOTES.md)', autoFocus: true, value: fileName, onChange: e => setFileName(e.target.value), style: { width: '100%', height: '36px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none', marginBottom: '16px' }, onKeyDown: e => { if (e.key === 'Enter' && fileName.trim()) onCreate(fileName); } }),
+    ConfirmButtons({ onCancel, onConfirm: () => onCreate(fileName), confirmLabel: 'Create' })
+  ]});
+}

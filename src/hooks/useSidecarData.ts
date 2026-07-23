@@ -240,11 +240,40 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 		} catch (e) { console.error("refreshProviders:", e); }
 	}, [ready, call]);
 
+	const refreshAgents = useCallback(async () => {
+		if (!ready) return;
+		try {
+			const agentsResult = await call("listAgents", {});
+			if (agentsResult?.agents) {
+				const agentsWithFiles = await Promise.all(agentsResult.agents.map(async (a) => {
+					let files = [];
+					try {
+						const filesResult = await call("listAgentFiles", { id: a.id });
+						if (filesResult?.files) files = filesResult.files.map((f) => f.name || f.path || f);
+					} catch {}
+					return {
+						id: a.id,
+						name: a.name,
+						systemPrompt: a.prompt || "",
+						model: a.model || "",
+						thinking: a.thinking || "off",
+						skills: (a.skills || []).map((s) => ({ name: s, source: "local", installed: true })),
+						tools: (a.tools || []).map((t) => ({ name: t, enabled: true })),
+						files,
+						isDeletable: a.id !== "orchestrator"
+					};
+				}));
+				setAgents(agentsWithFiles);
+			}
+		} catch (e) { console.error("refreshAgents:", e); }
+	}, [ready, call]);
+
 	return {
 		connected: ready,
 		loading,
 		sessions,
 		refreshProviders,
+		refreshAgents,
 		agents,
 		providers,
 		messages,
