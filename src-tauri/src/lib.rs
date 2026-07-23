@@ -1,5 +1,15 @@
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 #[tauri::command]
+fn __drag_window(window: tauri::WebviewWindow) {
+  let _ = window.start_dragging();
+}
+
+#[tauri::command]
+fn __toggle_maximize(window: tauri::WebviewWindow) {
+  let _ = window.toggle_maximize();
+}
+
+#[tauri::command]
 fn set_window_bg_color(_window: tauri::WebviewWindow, _color: String) {
   // No longer needed — titlebar is a CSS div with var(--q-bg)
   // Kept for compatibility with the JS invoke call
@@ -7,7 +17,7 @@ fn set_window_bg_color(_window: tauri::WebviewWindow, _color: String) {
 
 pub fn run() {
   tauri::Builder::default()
-    .invoke_handler(tauri::generate_handler![set_window_bg_color])
+    .invoke_handler(tauri::generate_handler![set_window_bg_color, __drag_window, __toggle_maximize])
     .plugin(tauri_plugin_shell::init())
     .plugin(tauri_plugin_window_state::Builder::default().build())
     .plugin(tauri_plugin_log::Builder::default()
@@ -43,7 +53,7 @@ pub fn run() {
         
         match cmd.spawn() {
           Ok((mut rx, _child)) => {
-            log::info!("Sidecar start script launched — rebuild v105 BUILDRS");
+            log::info!("Sidecar start script launched — rebuild v106 BUILDRS");
             std::thread::spawn(move || {
               while let Some(_event) = rx.blocking_recv() {}
             });
