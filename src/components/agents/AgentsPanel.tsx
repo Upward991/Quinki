@@ -743,7 +743,7 @@ function AgentRow({ agent, isExpanded, isRenaming, onToggle, onStartRename, onCo
 
     // Expanded content
     isExpanded && React.createElement('div', { style: { padding: '0 12px 12px 14px' }, children: [
-null      // Files
+      // Files
       React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }, children: [
         React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }, children: ['File (', agent.files.length, ')'] }),
         MiniButton({ label: 'Add file', onClick: onAddFile }),
