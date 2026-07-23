@@ -7,6 +7,19 @@ pub fn run() {
       .level(log::LevelFilter::Info)
       .build())
     .setup(|app| {
+      #[cfg(target_os = "macos")]
+      {
+        use tauri::Manager;
+        let window = app.get_webview_window("main").unwrap();
+        use objc::runtime::Object; type id = *mut Object;
+        use objc::{msg_send, sel, sel_impl};
+        let ns_window = window.ns_window().unwrap() as id;
+        unsafe {
+          let ns_color_cls = objc::class!(NSColor);
+          let bg: id = msg_send![ns_color_cls, colorWithSRGBRed: 0.031f64 green: 0.031f64 blue: 0.043f64 alpha: 1.0f64];
+          let _: () = msg_send![ns_window, setBackgroundColor: bg];
+        }
+      }
       #[cfg(not(target_os = "windows"))]
       {
         use tauri_plugin_shell::ShellExt;
@@ -21,7 +34,7 @@ pub fn run() {
         
         match cmd.spawn() {
           Ok((mut rx, _child)) => {
-            log::info!("Sidecar start script launched — rebuild v63 BUILDRS");
+            log::info!("Sidecar start script launched — rebuild v64 BUILDRS");
             std::thread::spawn(move || {
               while let Some(_event) = rx.blocking_recv() {}
             });
