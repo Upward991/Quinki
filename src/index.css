@@ -139,12 +139,12 @@
    DESIGN TOKENS — "Deep Cosmos" base (:root)
    ────────────────────────────────────────────────────────── */
 :root {
-  --q-bg: #121212;
-  --q-bg-panel: #1F1F1F;
-  --q-bg-elevated: #1d1d1d;
-  --q-bg-code: #000000;
-  --q-bubble-user: #383838;
-  --q-bubble-user-text: #EAEAEA;
+  --q-bg: #08080b;
+  --q-bg-panel: #0f0f13;
+  --q-bg-elevated: #16161b;
+  --q-bg-code: #040406;
+  --q-bubble-user: #1a1a20;
+  --q-bubble-user-text: #e8e8ec;
   --q-overlay: #06060ad1;
   --q-text: #e8e8ec;
   --q-text-secondary: #888892;
@@ -215,12 +215,12 @@
    7 THEMES — each overrides atmospheric variables
    ────────────────────────────────────────────────────────── */
 [data-theme="comfort"] { --q-bg: #08080b; --q-bg-panel: #0f0f13; --q-bg-elevated: #16161b; --q-bg-code: #040406; --q-bubble-user: #1a1a20; --q-bubble-user-text: #e8e8ec; --q-overlay: #06060ad1; --q-text: #e8e8ec; --q-text-secondary: #888892; --q-text-tertiary: #585860; }
-[data-theme="midnight"] { --q-bg: #060608; --q-bg-panel: #0c0c10; --q-bg-elevated: #121216; --q-bg-code: #020204; --q-bubble-user: #16161a; --q-bubble-user-text: #e8e8ec; --q-overlay: #040406d6; --q-text: #e8e8ec; --q-text-secondary: #888892; --q-text-tertiary: #585860; }
-[data-theme="forest"] { --q-bg: #08080a; --q-bg-panel: #0e0e10; --q-bg-elevated: #141416; --q-bg-code: #040406; --q-bubble-user: #18181a; --q-bubble-user-text: #e8e8ec; --q-overlay: #060608d1; --q-text: #e8e8ec; --q-text-secondary: #888892; --q-text-tertiary: #585860; }
-[data-theme="warm"] { --q-bg: #0a0a0a; --q-bg-panel: #101010; --q-bg-elevated: #161616; --q-bg-code: #060606; --q-bubble-user: #1a1a1a; --q-bubble-user-text: #e8e8ec; --q-overlay: #080808d1; --q-text: #e8e8ec; --q-text-secondary: #888892; --q-text-tertiary: #585860; }
-[data-theme="eclipse"] { --q-bg: #040406; --q-bg-panel: #0a0a0c; --q-bg-elevated: #101012; --q-bg-code: #000000; --q-bubble-user: #141416; --q-bubble-user-text: #e8e8ec; --q-overlay: #020204db; --q-text: #e8e8ec; --q-text-secondary: #888892; --q-text-tertiary: #585860; }
-[data-theme="graphite"] { --q-bg: #0c0c0e; --q-bg-panel: #121214; --q-bg-elevated: #18181a; --q-bg-code: #060608; --q-bubble-user: #1e1e20; --q-bubble-user-text: #e8e8ec; --q-overlay: #0a0a0ccc; --q-text: #e8e8ec; --q-text-secondary: #888892; --q-text-tertiary: #585860; }
-[data-theme="mist"] { --q-bg: #141416; --q-bg-panel: #1a1a1c; --q-bg-elevated: #202022; --q-bg-code: #0c0c0e; --q-bubble-user: #262628; --q-bubble-user-text: #e8e8ec; --q-overlay: #121214c7; --q-text: #e8e8ec; --q-text-secondary: #888892; --q-text-tertiary: #585860; }
+[data-theme="midnight"] { --q-bg: #060608; --q-bg-panel: #0c0c10; --q-bg-elevated: #121216; --q-bg-code: #020204; --q-bubble-user: #16161a; --q-bubble-user-text: #e8e8ec; --q-overlay: #06060ad1; --q-text: #e8e8ec; --q-text-secondary: #888892; --q-text-tertiary: #585860; }
+[data-theme="forest"] { --q-bg: #08080a; --q-bg-panel: #0e0e10; --q-bg-elevated: #141416; --q-bg-code: #040406; --q-bubble-user: #18181a; --q-bubble-user-text: #e8e8ec; --q-overlay: #06060ad1; --q-text: #e8e8ec; --q-text-secondary: #888892; --q-text-tertiary: #585860; }
+[data-theme="warm"] { --q-bg: #0a0a0a; --q-bg-panel: #101010; --q-bg-elevated: #161616; --q-bg-code: #060606; --q-bubble-user: #1a1a1a; --q-bubble-user-text: #e8e8ec; --q-overlay: #06060ad1; --q-text: #e8e8ec; --q-text-secondary: #888892; --q-text-tertiary: #585860; }
+[data-theme="eclipse"] { --q-bg: #040406; --q-bg-panel: #0a0a0c; --q-bg-elevated: #101012; --q-bg-code: #000000; --q-bubble-user: #141416; --q-bubble-user-text: #e8e8ec; --q-overlay: #06060ad1; --q-text: #e8e8ec; --q-text-secondary: #888892; --q-text-tertiary: #585860; }
+[data-theme="graphite"] { --q-bg: #0c0c0e; --q-bg-panel: #121214; --q-bg-elevated: #18181a; --q-bg-code: #060608; --q-bubble-user: #1e1e20; --q-bubble-user-text: #e8e8ec; --q-overlay: #06060ad1; --q-text: #e8e8ec; --q-text-secondary: #888892; --q-text-tertiary: #585860; }
+[data-theme="mist"] { --q-bg: #141416; --q-bg-panel: #1a1a1c; --q-bg-elevated: #202022; --q-bg-code: #0c0c0e; --q-bubble-user: #262628; --q-bubble-user-text: #e8e8ec; --q-overlay: #06060ad1; --q-text: #e8e8ec; --q-text-secondary: #888892; --q-text-tertiary: #585860; }
 
 /* ──────────────────────────────────────────────────────────
    BASE RESET + GLOBAL STYLES
