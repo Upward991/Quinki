@@ -1,24 +1,8 @@
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 #[tauri::command]
-fn set_window_bg_color(window: tauri::WebviewWindow, color: String) {
-  let hex = color.trim().trim_start_matches('#');
-  if hex.len() == 6 {
-    let r = u8::from_str_radix(&hex[0..2], 16).unwrap_or(8);
-    let g = u8::from_str_radix(&hex[2..4], 16).unwrap_or(8);
-    let b = u8::from_str_radix(&hex[4..6], 16).unwrap_or(11);
-    // Set NSWindow bg only — titlebar shows this
-    #[cfg(target_os = "macos")]
-    {
-      use objc::runtime::Object; type id = *mut Object;
-      use objc::{msg_send, sel, sel_impl};
-      let ns_window = window.ns_window().unwrap() as id;
-      unsafe {
-        let ns_color_cls = objc::class!(NSColor);
-        let bg: id = msg_send![ns_color_cls, colorWithSRGBRed: r as f64 / 255.0 green: g as f64 / 255.0 blue: b as f64 / 255.0 alpha: 1.0f64];
-        let _: () = msg_send![ns_window, setBackgroundColor: bg];
-      }
-    }
-  }
+fn set_window_bg_color(_window: tauri::WebviewWindow, _color: String) {
+  // No longer needed — titlebar is a CSS div with var(--q-bg)
+  // Kept for compatibility with the JS invoke call
 }
 
 pub fn run() {
@@ -59,7 +43,7 @@ pub fn run() {
         
         match cmd.spawn() {
           Ok((mut rx, _child)) => {
-            log::info!("Sidecar start script launched — rebuild v100 BUILDRS");
+            log::info!("Sidecar start script launched — rebuild v101 BUILDRS");
             std::thread::spawn(move || {
               while let Some(_event) = rx.blocking_recv() {}
             });
