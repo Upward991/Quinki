@@ -23,11 +23,6 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {error:
 }
 
 console.log('About to render App')
-// Full-screen background div — covers entire viewport including behind titlebar
-// This ensures the titlebar sees CSS var(--q-bg) not NSWindow bg
-const bgDiv = document.createElement('div')
-bgDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:-1;background-color:var(--q-bg);'
-document.body.appendChild(bgDiv)
 createRoot(document.getElementById('root')!).render(
   React.createElement(ErrorBoundary, null, React.createElement(App))
 )

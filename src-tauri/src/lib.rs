@@ -6,9 +6,7 @@ fn set_window_bg_color(window: tauri::WebviewWindow, color: String) {
     let r = u8::from_str_radix(&hex[0..2], 16).unwrap_or(8);
     let g = u8::from_str_radix(&hex[2..4], 16).unwrap_or(8);
     let b = u8::from_str_radix(&hex[4..6], 16).unwrap_or(11);
-    // Set underPageBackgroundColor (for the UI area)
-    let _ = window.set_background_color(Some(tauri::webview::Color(r, g, b, 255)));
-    // Set NSWindow bg (for the titlebar area)
+    // Set NSWindow bg only — titlebar shows this
     #[cfg(target_os = "macos")]
     {
       use objc::runtime::Object; type id = *mut Object;
@@ -61,7 +59,7 @@ pub fn run() {
         
         match cmd.spawn() {
           Ok((mut rx, _child)) => {
-            log::info!("Sidecar start script launched — rebuild v99 BUILDRS");
+            log::info!("Sidecar start script launched — rebuild v100 BUILDRS");
             std::thread::spawn(move || {
               while let Some(_event) = rx.blocking_recv() {}
             });
