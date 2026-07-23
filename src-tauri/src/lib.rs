@@ -7,19 +7,6 @@ pub fn run() {
       .level(log::LevelFilter::Info)
       .build())
     .setup(|app| {
-      // macOS: make titlebar transparent so it matches the UI background
-      #[cfg(target_os = "macos")]
-      {
-        use tauri::Manager;
-        let window = app.get_webview_window("main").unwrap();
-        use cocoa::appkit::{NSWindow, NSView};
-        use cocoa::base::{id, nil};
-        use objc::runtime::YES;
-        let ns_window = window.ns_window().unwrap() as id;
-        unsafe {
-            ns_window.setTitlebarAppearsTransparent_(YES);
-        }
-      }
       #[cfg(not(target_os = "windows"))]
       {
         use tauri_plugin_shell::ShellExt;
@@ -34,7 +21,7 @@ pub fn run() {
         
         match cmd.spawn() {
           Ok((mut rx, _child)) => {
-            log::info!("Sidecar start script launched — rebuild v47 BUILDRS");
+            log::info!("Sidecar start script launched — rebuild v48 BUILDRS");
             std::thread::spawn(move || {
               while let Some(_event) = rx.blocking_recv() {}
             });
