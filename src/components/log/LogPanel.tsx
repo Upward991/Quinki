@@ -26,8 +26,47 @@ export function LogPanel(props: LogPanelProps) {
   const [autoScroll, setAutoScroll] = useState(true)
   const [showScrollBtn, setShowScrollBtn] = useState(false)
   const [currentMatch, setCurrentMatch] = useState(0)
+  const [searchMatches, setSearchMatches] = useState<number[]>([])
   const bodyRef = useRef<HTMLDivElement>(null)
   const { call, notify, connected } = useSidecarContext()
+
+  // Highlight match in golden (same as Settings)
+  function hlLog(q: string, entryIdx: number) {
+    document.querySelectorAll('.search-highlight-mark').forEach((el) => {
+      const p = el.parentNode; if (p) { p.replaceChild(document.createTextNode(el.textContent || ''), el); p.normalize() }
+    })
+    if (!q.trim() || !bodyRef.current) return
+    const children = bodyRef.current.children
+    const el = children[entryIdx] as HTMLElement
+    if (!el) return
+    const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+    let node: Node | null
+    while ((node = w.nextNode())) {
+      const pn = (node as Text).parentElement
+      if (pn && pn.tagName !== 'SCRIPT' && pn.tagName !== 'STYLE') {
+        const t = (node as Text).textContent || '', l = t.toLowerCase(), ql = q.toLowerCase()
+        let i = 0
+        while ((i = l.indexOf(ql, i)) !== -1) {
+          const frag = document.createDocumentFragment()
+          if (i > 0) frag.appendChild(document.createTextNode(t.substring(0, i)))
+          const m = document.createElement('mark')
+          m.className = 'search-highlight-mark'
+          m.textContent = t.substring(i, i + q.length)
+          frag.appendChild(m)
+          if (i + q.length < t.length) frag.appendChild(document.createTextNode(t.substring(i + q.length)))
+          ;(node as Text).parentNode!.replaceChild(frag, node)
+          return
+        }
+      }
+    }
+  }
+
+  // Scroll to a log entry
+  function scrollToEntry(idx: number) {
+    if (!bodyRef.current) return
+    const el = bodyRef.current.children[idx] as HTMLElement
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
 
   useEffect(() => {
     if (!call) return
@@ -316,7 +355,7 @@ export function LogPanel(props: LogPanelProps) {
                 onMouseEnter={() => setHoveredIdx(i)}
                 onMouseLeave={() => setHoveredIdx(null)}
                 style={{
-                  width: '100%', padding: '16px', marginBottom: '8px', borderRadius: 'var(--radius-lg)',
+                  width: '100%', padding: '16px', marginBottom: '12px', borderRadius: 'var(--radius-lg)',
                   backgroundColor: colors.bg, boxShadow: 'var(--shadow-floating)', position: 'relative',
                 }}
               >
@@ -398,8 +437,10 @@ export function LogPanel(props: LogPanelProps) {
             setSearchMatches(matches)
             setCurrentMatch(0)
             if (matches.length > 0) {
-              scrollToEntry(matches[0])
-              setTimeout(() => hlLog(v, matches[0]), 50)
+              const lastIdx = matches.length - 1
+              setCurrentMatch(lastIdx)
+              scrollToEntry(matches[lastIdx])
+              setTimeout(() => hlLog(v, matches[lastIdx]), 100)
             } else {
               document.querySelectorAll('.search-highlight-mark').forEach((el) => {
                 const p = el.parentNode; if (p) { p.replaceChild(document.createTextNode(el.textContent || ''), el); p.normalize() }
@@ -438,7 +479,7 @@ export function LogPanel(props: LogPanelProps) {
               const ni = (currentMatch - 1 + searchMatches.length) % searchMatches.length
               setCurrentMatch(ni)
               scrollToEntry(searchMatches[ni])
-              setTimeout(() => hlLog(search, searchMatches[ni]), 50)
+              setTimeout(() => hlLog(search, searchMatches[ni]), 100)
             }
           }}
           style={{
@@ -455,7 +496,7 @@ export function LogPanel(props: LogPanelProps) {
               const ni = (currentMatch + 1) % searchMatches.length
               setCurrentMatch(ni)
               scrollToEntry(searchMatches[ni])
-              setTimeout(() => hlLog(search, searchMatches[ni]), 50)
+              setTimeout(() => hlLog(search, searchMatches[ni]), 100)
             }
           }}
           style={{
