@@ -200,7 +200,7 @@ export function LogPanel(props: LogPanelProps) {
   return (
     <div className="h-full flex flex-col" style={{ maxWidth: 'var(--spacing-chat-max)', margin: '0 auto', width: '100%', position: 'relative' }}>
       {/* Header */}
-      <div style={{ marginBottom: '8px', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+      <div style={{ marginBottom: '12px', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
         <div style={panelStyle}>
           <IconBtn icon={Home} onClick={() => props.onSelectPanel('home')} />
         </div>
@@ -283,9 +283,17 @@ export function LogPanel(props: LogPanelProps) {
           <span style={{ flex: 1 }} />
           <HeaderBtn label="export all" icon={<Download size={14} />} onClick={() => setShowExport(true)} />
           <div style={{ width: '4px', flexShrink: 0 }} />
-          <HeaderBtn label="copy" icon={<Copy size={14} />} onClick={() => {}} />
+          <HeaderBtn label="copy" icon={<Copy size={14} />} onClick={() => {
+            const md = filtered.map((e) => `### [${deriveLevel(e.tag)}] ${fmtTimestampFull(e.ts)}\n**Tag:** ${e.tag}\n\n${formatPayload(e.data)}\n`).join(`\n---\n\n`)
+            navigator.clipboard.writeText(md)
+          }} />
           <div style={{ width: '4px', flexShrink: 0 }} />
-          <HeaderBtn label="refresh" icon={<RefreshCw size={14} />} onClick={() => {}} />
+          <HeaderBtn label="refresh" icon={<RefreshCw size={14} />} onClick={() => {
+            if (!call) return
+            call('getFullDebugLog', {}).then((r: any) => {
+              if (r && r.log) setEntries(r.log.slice(-500))
+            }).catch(() => {})
+          }} />
           <div style={{ width: '4px', flexShrink: 0 }} />
           <HeaderBtn label="clear" icon={<Trash size={14} />} onClick={() => setShowClear(true)} />
         </div>
@@ -297,7 +305,7 @@ export function LogPanel(props: LogPanelProps) {
         onScroll={(e) => {
           const el = e.currentTarget
           setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100)
-        }} style={{ flex: 1, overflowY: 'auto', padding: '1px 16px 8px 16px' }}>
+        }}>
         
         {filtered.length === 0 ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--q-text-tertiary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>
