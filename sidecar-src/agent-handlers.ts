@@ -47,7 +47,10 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
         const dir = path.join(agentsDir, id);
         try {
           const cfg = JSON.parse(fs.readFileSync(path.join(dir, "config.json"), "utf8"));
-          return { ...cfg, directory: dir };
+          // Read PROMPT.md for description
+          let prompt = "";
+          try { prompt = fs.readFileSync(path.join(dir, "PROMPT.md"), "utf8"); } catch {}
+          return { ...cfg, prompt, directory: dir };
         } catch { return null; }
       }).filter(Boolean);
     } catch { return []; }
