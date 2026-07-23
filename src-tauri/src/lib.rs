@@ -21,7 +21,7 @@ pub fn run() {
         
         match cmd.spawn() {
           Ok((mut rx, _child)) => {
-            log::info!("Sidecar start script launched");
+            log::info!("Sidecar start script launched — rebuild v6");
             std::thread::spawn(move || {
               while let Some(_event) = rx.blocking_recv() {}
             });

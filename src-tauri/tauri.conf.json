@@ -4,10 +4,9 @@
   "version": "0.1.0",
   "identifier": "com.quinki.app",
   "build": {
-    "frontendDist": "../dist",
-    "devUrl": "http://localhost:5176",
+    "frontendDist": "/Users/andreamaddalena/Projects/Quinki/dist",
     "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": ""
+    "beforeBuildCommand": "npm run build"
   },
   "app": {
     "windows": [
