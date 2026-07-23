@@ -28,6 +28,3 @@ tauri-plugin-window-state = "2"
 
 
 
-
-[target.'cfg(target_os = "macos")'.dependencies]
-objc = "0.2"

@@ -19,7 +19,8 @@
         "resizable": true,
         "fullscreen": false,
         "decorations": true,
-        "backgroundColor": "#08080b"
+        "backgroundColor": "#08080b",
+        "titleBarStyle": "Transparent"
       }
     ],
     "security": {
