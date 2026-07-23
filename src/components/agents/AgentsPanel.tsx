@@ -414,7 +414,7 @@ export function AgentsPanel(props) {
           // Save button
           React.createElement('button', { 
             onClick: () => { setDirty(false); showToast('success', 'All changes saved.'); },
-            style: { height: '32px', padding: '0 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', flexShrink: 0 },
+            style: { height: '32px', padding: '0 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-primary)', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--q-bg)', fontSize: '14px', fontWeight: 500, fontFamily: 'var(--font-interface)', flexShrink: 0 },
             children: [React.createElement(Save, { size: 16 }), ' Save']
           }),
         ]})
@@ -998,8 +998,8 @@ function CreateSkillForm({ onCreate, onCancel }) {
 function InstallSkillForm({ onInstall, onCancel }) {
   const [pkg, setPkg] = useState('');
   return React.createElement(React.Fragment, { children: [
-    React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginBottom: '8px' }, children: 'GitHub repo (e.g. user/repo or user/repo/skill-name). Will clone and copy SKILL.md' }),
-    React.createElement('input', { type: 'text', placeholder: 'user/repo (e.g. openai/skills)', autoFocus: true, value: pkg, onChange: e => setPkg(e.target.value), style: { width: '100%', height: '36px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none', marginBottom: '16px' }, onKeyDown: e => { if (e.key === 'Enter' && pkg.trim()) onInstall(pkg); } }),
+    React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginBottom: '8px' }, children: 'Install a skill from any source: GitHub repo (user/repo), direct URL to a .md file, or git URL. Will clone and copy SKILL.md.' }),
+    React.createElement('input', { type: 'text', placeholder: 'user/repo, https://.../SKILL.md, or git URL', autoFocus: true, value: pkg, onChange: e => setPkg(e.target.value), style: { width: '100%', height: '36px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none', marginBottom: '16px' }, onKeyDown: e => { if (e.key === 'Enter' && pkg.trim()) onInstall(pkg); } }),
     ConfirmButtons({ onCancel, onConfirm: () => onInstall(pkg), confirmLabel: 'Install skill' })
   ]});
 }
