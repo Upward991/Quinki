@@ -285,7 +285,7 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
     },
     installSkill: async (p: any) => {
       const pkg = String(p.package || "").trim();
-      if (!pkg) return { success: false, error: "Nome pacchetto richiesto" };
+      if (!pkg) return { success: false, error: "Package name required" };
       try {
         // execSync imported at top
         let gitUrl = pkg.trim();
@@ -303,7 +303,7 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
           const curlCandidates = ["/opt/homebrew/bin/curl", "/usr/local/bin/curl", "/usr/bin/curl"];
           let curlPath = "";
           for (const c of curlCandidates) { try { if (fs.existsSync(c)) { curlPath = c; break; } } catch {} }
-          if (!curlPath) return { success: false, error: "curl non trovato" };
+          if (!curlPath) return { success: false, error: "curl not found" };
           const binDir = path.dirname(curlPath);
           const skillName = path.basename(gitUrl, ".md").replace(/[^a-zA-Z0-9_-]/g, "-").toLowerCase();
           const destDir = path.join(agentDir, "skills", skillName);
@@ -326,13 +326,13 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
           if (parts.length >= 2) {
             gitUrl = `https://github.com/${parts[0]}/${parts[1]}`;
             if (parts.length > 2 && !skillPath) skillPath = parts.slice(2).join("/");
-          } else { return { success: false, error: "Formato non valido. Usa: user/repo o user/repo/skill o --skill nome" }; }
+          } else { return { success: false, error: "Invalid format. Use: user/repo or user/repo/skill or --skill name" }; }
         }
         // Trova git
         const gitCandidates = ["/opt/homebrew/bin/git", "/usr/local/bin/git", "/usr/bin/git"];
         let gitPath = "";
         for (const c of gitCandidates) { try { if (fs.existsSync(c)) { gitPath = c; break; } } catch {} }
-        if (!gitPath) return { success: false, error: "git non trovato" };
+        if (!gitPath) return { success: false, error: "git not found" };
         const binDir = path.dirname(gitPath);
         const tmpDir = path.join(agentDir, "tmp-skill-install");
         if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -358,7 +358,7 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
         }
         if (skillFiles.length === 0) {
           fs.rmSync(tmpDir, { recursive: true, force: true });
-          return { success: false, error: `Nessun SKILL.md trovato${skillPath ? ` in ${skillPath}` : ""}` };
+          return { success: false, error: `No SKILL.md found${skillPath ? ` in ${skillPath}` : ""}` };
         }
         // Copia
         for (const skillFile of skillFiles) {
@@ -419,15 +419,15 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
     },
     listTools: async () => ({
       tools: [
-        { name: "read", description: "Leggi file", readOnly: true },
-        { name: "write", description: "Scrivi/crea file", readOnly: false },
-        { name: "edit", description: "Modifica file esistente", readOnly: false },
-        { name: "bash", description: "Esegui comandi shell", readOnly: false },
-        { name: "grep", description: "Cerca nel contenuto dei file", readOnly: true },
-        { name: "find", description: "Cerca file per nome/pattern", readOnly: true },
-        { name: "ls", description: "Lista directory", readOnly: true },
-        { name: "skill", description: "Carica skill on-demand", readOnly: true },
-        { name: "delegate_to_agent", description: "Delega un task a un altro agente nella chat (solo per orchestratori/coordinatori)", readOnly: true },
+        { name: "read", description: "Read files", readOnly: true },
+        { name: "write", description: "Write/create files", readOnly: false },
+        { name: "edit", description: "Edit existing files", readOnly: false },
+        { name: "bash", description: "Execute shell commands", readOnly: false },
+        { name: "grep", description: "Search file contents", readOnly: true },
+        { name: "find", description: "Find files by name/pattern", readOnly: true },
+        { name: "ls", description: "List directory contents", readOnly: true },
+        { name: "skill", description: "Load skills on-demand", readOnly: true },
+        { name: "delegate_to_agent", description: "Delegate a task to another agent in the chat (for orchestrators/coordinators only)", readOnly: true },
       ],
     }),
     getGlobalConfig: async () => ({ config: readGlobalConfig() }),

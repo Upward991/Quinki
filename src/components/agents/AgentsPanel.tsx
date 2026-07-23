@@ -733,17 +733,17 @@ function AgentRow({ agent, isExpanded, isRenaming, onToggle, onStartRename, onCo
       isExpanded ? React.createElement(ChevronUp, { size: 16, style: { color: 'var(--q-text-tertiary)' } }) : React.createElement(ChevronDown, { size: 16, style: { color: 'var(--q-text-tertiary)' } })
     ]}),
 
+    // Description — always visible (collapsed or expanded)
+    agent.systemPrompt && (() => {
+      const lines = agent.systemPrompt.split('\n');
+      const desc = lines.find(l => l.trim() && !l.startsWith('#') && !l.startsWith('---')) || '';
+      if (!desc.trim()) return null;
+      return React.createElement('div', { style: { padding: '0 12px 4px 38px', color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', lineHeight: 1.4 }, children: desc.replace(/\*\*/g, '').trim() });
+    })(),
+
     // Expanded content
     isExpanded && React.createElement('div', { style: { padding: '0 12px 12px 14px' }, children: [
-      // Description — skip title, show first real paragraph
-      agent.systemPrompt && (() => {
-        const lines = agent.systemPrompt.split('\n');
-        // Skip empty lines and markdown headers to find first real text
-        const desc = lines.find(l => l.trim() && !l.startsWith('#') && !l.startsWith('---')) || '';
-        if (!desc.trim()) return null;
-        return React.createElement('div', { style: { color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', lineHeight: 1.6, marginBottom: '12px', marginTop: '4px' }, children: desc.replace(/\*\*/g, '').trim() });
-      })(),
-      // Files
+null      // Files
       React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }, children: [
         React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }, children: ['File (', agent.files.length, ')'] }),
         MiniButton({ label: 'Add file', onClick: onAddFile }),

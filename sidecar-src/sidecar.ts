@@ -185,8 +185,8 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   getCommands: async () => ({ commands: [
     { name: "/model", desc: "Cambia modello" },
     { name: "/new", desc: "Nuova sessione" },
-    { name: "/name", desc: "Rinomina sessione" },
-    { name: "/help", desc: "Aiuto" },
+    { name: "/name", desc: "Rename session" },
+    { name: "/help", desc: "Help" },
   ] }),
 
   // === Onboarding Pi ===
@@ -238,7 +238,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
 
   setModel: async (p) => {
     const ok = await piBridge!.setModel(p.sessionKey, p.model);
-    if (!ok) throw new Error("Modello non trovato");
+    if (!ok) throw new Error("Model not found");
     return { model: p.model, sessionKey: p.sessionKey };
   },
 
