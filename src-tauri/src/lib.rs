@@ -7,6 +7,26 @@ pub fn run() {
       .level(log::LevelFilter::Info)
       .build())
     .setup(|app| {
+      #[cfg(target_os = "macos")]
+      {
+        use tauri::Manager;
+        let window = app.get_webview_window("main").unwrap();
+        use cocoa::appkit::{NSWindow, NSView, NSViewAutoresizingMask};
+        use cocoa::base::id;
+        use objc::msg_send;
+        use objc::sel;
+        use objc::sel_impl;
+        use objc::runtime::YES;
+        let ns_window = window.ns_window().unwrap() as id;
+        unsafe {
+            ns_window.setTitlebarAppearsTransparent_(YES);
+            let _: () = msg_send![ns_window, setOpaque: NO];
+            // Set background color to match theme (#08080b)
+            use cocoa::appkit::NSColor;
+            let bg_color = NSColor::colorWithDeviceWhite_red_green_blue_alpha(nil, 0.031, 0.031, 0.043, 1.0);
+            ns_window.setBackgroundColor_(bg_color);
+        }
+      }
       #[cfg(not(target_os = "windows"))]
       {
         use tauri_plugin_shell::ShellExt;
@@ -21,7 +41,7 @@ pub fn run() {
         
         match cmd.spawn() {
           Ok((mut rx, _child)) => {
-            log::info!("Sidecar start script launched — rebuild v53 BUILDRS");
+            log::info!("Sidecar start script launched — rebuild v54 BUILDRS");
             std::thread::spawn(move || {
               while let Some(_event) = rx.blocking_recv() {}
             });
