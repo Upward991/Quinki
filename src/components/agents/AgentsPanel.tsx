@@ -21,7 +21,7 @@ export function AgentsPanel(props) {
   const [searchSkills, setSearchSkills] = useState('');
   const [searchTools, setSearchTools] = useState('');
   const [expandedSkillName, setExpandedSkillName] = useState(null);
-  const [toast, setToast] = useState(null); // { type: 'success'|'error', msg: string }
+  const [savedMsg, setSavedMsg] = useState(null);
   const [dirty, setDirty] = useState(false);
 
   // Modals
@@ -64,10 +64,11 @@ export function AgentsPanel(props) {
     return () => { cancelled = true; };
   }, [call]);
 
-  // --- Toast helper ---
-  const showToast = useCallback((type, msg) => {
-    setToast({ type, msg });
-    setTimeout(() => setToast(null), 4000);
+  // --- No toasts in header — only dirty/saved indicator ---
+  const onSaved = useCallback(() => {
+    setDirty(false);
+    setSavedMsg('Saved.');
+    setTimeout(() => setSavedMsg(null), 4000);
   }, []);
 
   // --- Agent CRUD ---
@@ -78,8 +79,8 @@ export function AgentsPanel(props) {
       await call('createAgent', { name: name.trim() });
       await refreshAgents();
       setShowNewAgent(false);
-      showToast('success', `Agent "${name.trim()}" created.`);
-    } catch (e) { showToast('error', e.message || String(e)); }
+      setDirty(true);
+    } catch (e) { setErrorModal(e.message || String(e)); }
   };
 
   const doDeleteAgent = async (agentName) => {
@@ -89,8 +90,8 @@ export function AgentsPanel(props) {
       await call('deleteAgent', { id: agent.id });
       await refreshAgents();
       setDeleteAgentName(null);
-      showToast('success', `Agent "${agentName}" deleted.`);
-    } catch (e) { showToast('error', e.message || String(e)); }
+      setDirty(true);
+    } catch (e) { setErrorModal(e.message || String(e)); }
   };
 
   const doRenameAgent = async (agent, newName) => {
@@ -98,8 +99,8 @@ export function AgentsPanel(props) {
     try {
       await call('updateAgent', { id: agent.id, config: { name: newName.trim() } });
       await refreshAgents();
-      showToast('success', `Agent renamed to "${newName.trim()}".`);
-    } catch (e) { showToast('error', e.message || String(e)); }
+      setDirty(true);
+    } catch (e) { setErrorModal(e.message || String(e)); }
     setRenamingAgentId(null);
   };
 
@@ -114,8 +115,8 @@ export function AgentsPanel(props) {
     try {
       await call('updateAgent', { id: agentId, config: { skills: merged } });
       await refreshAgents();
-      showToast('success', `Added ${skillNames.length} skill(s) to "${agent.name}".`);
-    } catch (e) { showToast('error', e.message || String(e)); }
+      setDirty(true);
+    } catch (e) { setErrorModal(e.message || String(e)); }
   };
 
   const doAddToolsToAgent = async (agentId, toolNames) => {
@@ -127,8 +128,8 @@ export function AgentsPanel(props) {
     try {
       await call('updateAgent', { id: agentId, config: { tools: merged } });
       await refreshAgents();
-      showToast('success', `Added ${toolNames.length} tool(s) to "${agent.name}".`);
-    } catch (e) { showToast('error', e.message || String(e)); }
+      setDirty(true);
+    } catch (e) { setErrorModal(e.message || String(e)); }
   };
 
   const doRemoveSkillFromAgent = async (agentName, skillName) => {
@@ -139,8 +140,8 @@ export function AgentsPanel(props) {
       await call('updateAgent', { id: agent.id, config: { skills: updated } });
       await refreshAgents();
       setRemoveTagState(null);
-      showToast('success', `Removed skill "${skillName}" from "${agentName}".`);
-    } catch (e) { showToast('error', e.message || String(e)); }
+      setDirty(true);
+    } catch (e) { setErrorModal(e.message || String(e)); }
   };
 
   const doRemoveToolFromAgent = async (agentName, toolName) => {
@@ -151,8 +152,8 @@ export function AgentsPanel(props) {
       await call('updateAgent', { id: agent.id, config: { tools: updated } });
       await refreshAgents();
       setRemoveTagState(null);
-      showToast('success', `Removed tool "${toolName}" from "${agentName}".`);
-    } catch (e) { showToast('error', e.message || String(e)); }
+      setDirty(true);
+    } catch (e) { setErrorModal(e.message || String(e)); }
   };
 
   const doRemoveAllFromAgent = async (type, agentName) => {
@@ -169,8 +170,8 @@ export function AgentsPanel(props) {
       }
       await refreshAgents();
       setRemoveAllState(null);
-      showToast('success', `Removed all ${type} from "${agentName}".`);
-    } catch (e) { showToast('error', e.message || String(e)); }
+      setDirty(true);
+    } catch (e) { setErrorModal(e.message || String(e)); }
   };
 
   // --- File management ---
@@ -187,7 +188,7 @@ export function AgentsPanel(props) {
         setAddFileAgent(null);
         // Open the file editor
         setFileEditor({ agentId: agent.id, fileName: fileName.trim() });
-        showToast('success', `File "${fileName.trim()}" created.`);
+        setDirty(true);
       }
     } catch (e) { setErrorModal(e.message || String(e)); }
   };
@@ -198,7 +199,7 @@ export function AgentsPanel(props) {
     const agent = agents.find(a => a.name === agentName);
     if (!agent) return;
     setRemoveTagState(null);
-    showToast('success', `File "${fileName}" removed (refresh to see it again if it exists on disk).`);
+    setDirty(true);
   };
 
   // --- Skill CRUD ---
@@ -215,7 +216,7 @@ export function AgentsPanel(props) {
       const skillsRes = await call('listSkills', {});
       if (skillsRes?.skills) setSkills(skillsRes.skills.map(s => ({ name: s.name || s, description: s.description || '', source: s.source || 'local' })));
       setShowCreateSkill(false);
-      showToast('success', `Skill "${name.trim()}" created.`);
+      setDirty(true);
     } catch (e) { setErrorModal(e.message || String(e)); }
   };
 
@@ -234,7 +235,7 @@ export function AgentsPanel(props) {
       if (skillsRes?.skills) setSkills(skillsRes.skills.map(s => ({ name: s.name || s, description: s.description || '', source: s.source || 'local' })));
       setInstalling(false);
       setShowInstallSkill(false);
-      showToast('success', `Skill installed successfully (${res?.count || 1} skill(s)).`);
+      setDirty(true);
     } catch (e) { setInstalling(false); setErrorModal(e.message || String(e)); }
   };
 
@@ -251,7 +252,7 @@ export function AgentsPanel(props) {
       if (skillsRes?.skills) setSkills(skillsRes.skills.map(s => ({ name: s.name || s, description: s.description || '', source: s.source || 'local' })));
       await refreshAgents();
       setRemoveTagState(null);
-      showToast('success', `Skill "${skillName}" deleted.`);
+      setDirty(true);
     } catch (e) { setErrorModal(e.message || String(e)); }
   };
 
@@ -285,7 +286,7 @@ export function AgentsPanel(props) {
     }
     await refreshAgents();
     setAddItemsModal(null);
-    showToast('success', `Added "${skillName}" to ${agentNames.length} agent(s).`);
+    setDirty(true);
   };
 
   const doRemoveAgentFromSkill = async (skillName, agentName) => {
@@ -297,8 +298,8 @@ export function AgentsPanel(props) {
       await call('updateAgent', { id: agent.id, config: { skills: updated } });
       await refreshAgents();
       setRemoveTagState(null);
-      showToast('success', `Removed "${agentName}" from "${skillName}".`);
-    } catch (e) { showToast('error', e.message || String(e)); }
+      setDirty(true);
+    } catch (e) { setErrorModal(e.message || String(e)); }
   };
 
   const doRemoveAllAgentsFromSkill = async (skillName) => {
@@ -310,7 +311,7 @@ export function AgentsPanel(props) {
     }
     await refreshAgents();
     setRemoveAllState(null);
-    showToast('success', `Removed all agents from "${skillName}".`);
+    setDirty(true);
   };
 
   // --- Add/remove agent from tool (reverse direction) ---
@@ -329,7 +330,7 @@ export function AgentsPanel(props) {
     }
     await refreshAgents();
     setAddItemsModal(null);
-    showToast('success', `Added "${toolName}" to ${agentNames.length} agent(s).`);
+    setDirty(true);
   };
 
   const doRemoveAgentFromTool = async (toolName, agentName) => {
@@ -341,8 +342,8 @@ export function AgentsPanel(props) {
       await call('updateAgent', { id: agent.id, config: { tools: updated } });
       await refreshAgents();
       setRemoveTagState(null);
-      showToast('success', `Removed "${agentName}" from "${toolName}".`);
-    } catch (e) { showToast('error', e.message || String(e)); }
+      setDirty(true);
+    } catch (e) { setErrorModal(e.message || String(e)); }
   };
 
   const doRemoveAllAgentsFromTool = async (toolName) => {
@@ -354,7 +355,7 @@ export function AgentsPanel(props) {
     }
     await refreshAgents();
     setRemoveAllState(null);
-    showToast('success', `Removed all agents from "${toolName}".`);
+    setDirty(true);
   };
 
   // --- Enable tool in plan mode ---
@@ -370,7 +371,7 @@ export function AgentsPanel(props) {
       await call('updateGlobalConfig', { config: cfg });
     } catch (e) { console.error(e); }
     setAddItemsModal(null);
-    showToast('success', `Enabled ${toolNames.length} tool(s) in Plan mode.`);
+    setDirty(true);
   };
 
   // --- Derived data ---
@@ -407,14 +408,16 @@ export function AgentsPanel(props) {
           React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)' }, children: 'Agents' }),
           React.createElement('span', { style: { flex: 1 } }),
           // Toast
-          toast && React.createElement(React.Fragment, { children: [
-            React.createElement('span', { style: { color: toast.type === 'error' ? 'var(--q-accent-danger)' : 'var(--q-accent-success)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: toast.msg }),
-            React.createElement('div', { style: { width: '16px', flexShrink: 0 } })
-          ]}),
+          savedMsg
+            ? React.createElement('span', { style: { color: 'var(--q-accent-success)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: savedMsg })
+            : dirty
+              ? React.createElement('span', { style: { color: 'var(--q-accent-warning)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'Unsaved' })
+              : null,
+          (savedMsg || dirty) && React.createElement('div', { style: { width: '16px', flexShrink: 0 } }),
           // Save button
           React.createElement('button', { 
-            onClick: () => { setDirty(false); showToast('success', 'All changes saved.'); },
-            style: { height: '32px', padding: '0 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-primary)', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--q-bg)', fontSize: '14px', fontWeight: 500, fontFamily: 'var(--font-interface)', flexShrink: 0 },
+            onClick: () => onSaved(),
+            style: { height: '32px', padding: '0 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-secondary)', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--q-bg)', fontSize: '14px', fontWeight: 500, fontFamily: 'var(--font-interface)', flexShrink: 0 },
             children: [React.createElement(Save, { size: 16 }), ' Save']
           }),
         ]})
@@ -616,7 +619,7 @@ export function AgentsPanel(props) {
     ]}),
 
     // Add items modal
-    addItemsModal && React.createElement(AddItemsModal, { title: addItemsModal.title, items: addItemsModal.items, onClose: () => setAddItemsModal(null), onConfirm: (selected) => addItemsModal.onConfirm(selected) }),
+    addItemsModal && React.createElement(AddItemsModal, { title: addItemsModal.title, items: addItemsModal.items, onClose: () => setAddItemsModal(null), onConfirm: (selected) => { addItemsModal.onConfirm(selected); } }),
 
     // File editor
     fileEditor && React.createElement(FileEditor, { 
@@ -842,6 +845,7 @@ function FileEditor({ agentId, skillName, fileName, onClose }) {
   const [content, setContent] = useState('Loading...');
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [savedMsg, setSavedMsg] = useState(null);
 
   useEffect(() => {
     setContent('Loading...');
@@ -872,6 +876,8 @@ function FileEditor({ agentId, skillName, fileName, onClose }) {
         await call('writeAgentFile', { id: agentId, filePath: fileName, content });
       }
       setDirty(false);
+      setSavedMsg('Saved.');
+      setTimeout(() => setSavedMsg(null), 3000);
     } catch (e) { console.error('Failed to save:', e); }
     setSaving(false);
   };
@@ -885,7 +891,8 @@ function FileEditor({ agentId, skillName, fileName, onClose }) {
         React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '14px', fontWeight: 600, fontFamily: 'var(--font-interface)' }, children: skillName ? `${skillName}/SKILL.md` : `${agentId}/${fileName}` }),
         React.createElement('span', { style: { flex: 1 } }),
         dirty && React.createElement('span', { style: { color: 'var(--q-accent-warning)', fontSize: 'var(--fs-11)', fontFamily: 'var(--font-interface)', marginRight: '8px' }, children: 'Unsaved' }),
-        React.createElement('button', { onClick: handleSave, disabled: saving, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', cursor: saving ? 'default' : 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }, children: [React.createElement(Save, { size: 16 }), ' Save'] }),
+        savedMsg && React.createElement('span', { style: { color: 'var(--q-accent-success)', fontSize: 'var(--fs-11)', fontFamily: 'var(--font-interface)', marginRight: '8px' }, children: savedMsg }),
+        React.createElement('button', { onClick: handleSave, disabled: saving, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: saving ? 'default' : 'pointer', backgroundColor: 'var(--q-accent-secondary)', color: 'var(--q-bg)', fontSize: '14px', fontWeight: 500, fontFamily: 'var(--font-interface)' }, children: [React.createElement(Save, { size: 16 }), ' Save'] }),
         React.createElement('div', { style: { width: '8px', flexShrink: 0 } }),
         React.createElement('button', { onClick: onClose, style: { background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }, children: React.createElement(X, { size: 18, style: { color: 'var(--q-text-secondary)' } }) })
       ]}),
@@ -944,7 +951,7 @@ function AddItemsModal({ title, items, onClose, onConfirm }) {
         React.createElement('span', { style: { flex: 1 } }),
         React.createElement('button', { className: 'q-press', onClick: onClose, style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-accent-danger)', fontSize: '15px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }, children: 'Cancel' }),
         React.createElement('div', { style: { width: '8px' } }),
-        React.createElement('button', { className: 'q-press', onClick: () => onConfirm([...selected]), disabled: selected.size === 0, style: { padding: '4px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: selected.size === 0 ? 'default' : 'pointer', backgroundColor: selected.size === 0 ? 'transparent' : 'var(--q-accent-secondary)', color: selected.size === 0 ? 'var(--q-text-tertiary)' : 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)', opacity: selected.size === 0 ? 0.5 : 1 }, children: [`Add (`, selected.size, `)`] })
+        React.createElement('button', { className: 'q-press', onClick: () => { onConfirm([...selected]); setSelected(new Set()); }, disabled: selected.size === 0, style: { padding: '4px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: selected.size === 0 ? 'default' : 'pointer', backgroundColor: selected.size === 0 ? 'transparent' : 'var(--q-accent-secondary)', color: selected.size === 0 ? 'var(--q-text-tertiary)' : 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)', opacity: selected.size === 0 ? 0.5 : 1 }, children: [`Add (`, selected.size, `)`] })
       ]})
     ]})
   });
