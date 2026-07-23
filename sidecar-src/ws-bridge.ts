@@ -6,6 +6,7 @@ const __dirname = process.cwd();
 const PORT = parseInt(process.argv[2] || "9182", 10);
 
 const sidecar = spawn("npx", ["tsx", "sidecar.ts"], {
+  stdio: ["pipe", "pipe", "pipe"],
   cwd: __dirname,
   stdio: ["pipe", "pipe", "pipe"],
   env: { ...process.env },
@@ -26,7 +27,7 @@ sidecar.stdout.on("data", (chunk: Buffer) => {
   }
 });
 
-sidecar.stderr.on("data", () => {});
+sidecar.stderr.on("data", (d) => { process.stderr.write(d); });
 sidecar.on("exit", (code) => {
   console.log(`[ws-bridge] Sidecar exited with code ${code}`);
   process.exit(1);

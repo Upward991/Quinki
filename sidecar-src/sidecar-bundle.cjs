@@ -311874,13 +311874,13 @@ function syncSettingsJson(config2) {
 // pi-bridge.ts
 var _agentDir = process.env.QUINKI_AGENT_DIR || path16.join((0, import_node_os16.homedir)(), ".pi", "agent");
 var SESSION_FILE = fs13.existsSync(path16.join(_agentDir, "quinki-sessions.json")) ? path16.join(_agentDir, "quinki-sessions.json") : path16.join(_agentDir, "dashboard-sessions.json");
-var FOLDERS_FILE = fs13.existsSync(path16.join(_agentDir, "quinki-folders.json")) ? path16.join(_agentDir, "quinki-folders.json") : path16.join((0, import_node_os16.homedir)(), ".pi", "agent", "dashboard-folders.json");
-var SETTINGS_FILE = fs13.existsSync(path16.join(_agentDir, "quinki-settings.json")) ? path16.join(_agentDir, "quinki-settings.json") : path16.join((0, import_node_os16.homedir)(), ".pi", "agent", "dashboard-settings.json");
-var CONTEXT_USAGE_FILE = fs13.existsSync(path16.join(_agentDir, "quinki-context-usage.json")) ? path16.join(_agentDir, "quinki-context-usage.json") : path16.join((0, import_node_os16.homedir)(), ".pi", "agent", "dashboard-context-usage.json");
-var DELEGATIONS_FILE = fs13.existsSync(path16.join(_agentDir, "quinki-delegations.json")) ? path16.join(_agentDir, "quinki-delegations.json") : path16.join((0, import_node_os16.homedir)(), ".pi", "agent", "dashboard-delegations.json");
+var FOLDERS_FILE = fs13.existsSync(path16.join(_agentDir, "quinki-folders.json")) ? path16.join(_agentDir, "quinki-folders.json") : path16.join(_agentDir, "dashboard-folders.json");
+var SETTINGS_FILE = fs13.existsSync(path16.join(_agentDir, "quinki-settings.json")) ? path16.join(_agentDir, "quinki-settings.json") : path16.join(_agentDir, "dashboard-settings.json");
+var CONTEXT_USAGE_FILE = fs13.existsSync(path16.join(_agentDir, "quinki-context-usage.json")) ? path16.join(_agentDir, "quinki-context-usage.json") : path16.join(_agentDir, "dashboard-context-usage.json");
+var DELEGATIONS_FILE = fs13.existsSync(path16.join(_agentDir, "quinki-delegations.json")) ? path16.join(_agentDir, "quinki-delegations.json") : path16.join(_agentDir, "dashboard-delegations.json");
 var DEBUG_LOG_FILE = path16.join(_agentDir, "quinki-debug.log");
 var DEBUG_LOG_MAX = 5e4;
-var SESSION_BASE = fs13.existsSync(path16.join((0, import_node_os16.homedir)(), ".pi", "agent", "sessions", "quinki")) ? path16.join((0, import_node_os16.homedir)(), ".pi", "agent", "sessions", "quinki") : path16.join(_agentDir, "sessions", "quinki");
+var SESSION_BASE = path16.join(_agentDir, "sessions", "quinki");
 function makeBackup() {
   try {
     if (fs13.existsSync(SESSION_FILE)) {
@@ -314209,7 +314209,7 @@ Sei in MODALIT\xC0 BUILD. Tutti i tool sono disponibili. Esegui le modifiche nec
     this.#clearActiveApiKeys();
     if (!agentConfig?.skills?.length) return;
     try {
-      const { execSync: execSync4 } = require("child_process");
+      const { execSync: execSync5 } = require("child_process");
       for (const skillName of agentConfig.skills) {
         const skillPath = path16.join(this.#agentDir, "skills", skillName, "SKILL.md");
         if (!fs13.existsSync(skillPath)) continue;
@@ -314221,7 +314221,7 @@ Sei in MODALIT\xC0 BUILD. Tutti i tool sono disponibili. Esegui le modifiche nec
           if (this.#activeApiKeys.includes(v2)) continue;
           try {
             if (process.platform === "darwin") {
-              const key = execSync4(`security find-generic-password -a "quinki" -s "${v2}" -w`, { stdio: "pipe", encoding: "utf8" }).trim();
+              const key = execSync5(`security find-generic-password -a "quinki" -s "${v2}" -w`, { stdio: "pipe", encoding: "utf8" }).trim();
               if (key) {
                 process.env[v2] = key;
                 this.#activeApiKeys.push(v2);
@@ -314911,9 +314911,9 @@ Lavori nella directory: ${tempCwd2}
           self2.#clearActiveApiKeys();
           for (const v2 of savedKeys) {
             try {
-              const { execSync: execSync4 } = require("child_process");
+              const { execSync: execSync5 } = require("child_process");
               if (process.platform === "darwin") {
-                const key = execSync4(`security find-generic-password -a "quinki" -s "${v2}" -w`, { stdio: "pipe", encoding: "utf8" }).trim();
+                const key = execSync5(`security find-generic-password -a "quinki" -s "${v2}" -w`, { stdio: "pipe", encoding: "utf8" }).trim();
                 if (key) {
                   process.env[v2] = key;
                   self2.#activeApiKeys.push(v2);
@@ -316448,7 +316448,9 @@ async function fetchProviderModelsIPC(providerName, baseUrl, apiKey) {
     process.stderr.write(`[security-audit] fetchProviderModelsIPC: provider=${providerName} FAILED \u2014 no apiKey`);
     return [];
   }
-  return await fetchProviderModels(providerName, baseUrl, realApiKey || "");
+  const _models = await fetchProviderModels(providerName, baseUrl, realApiKey || "");
+  process.stderr.write(`[DEBUG fetchProviderModelsIPC] provider=${providerName} models=${_models.length} first=${JSON.stringify(_models[0])} hasCtx=${_models[0]?.contextWindow !== void 0} ctxVal=${_models[0]?.contextWindow}`);
+  return _models;
 }
 async function testProviderConnectionIPC(providerName, baseUrl, apiKey) {
   let realApiKey = apiKey;
@@ -316474,11 +316476,18 @@ async function testProviderConnectionIPC(providerName, baseUrl, apiKey) {
     }
     process.stderr.write(`[security-audit] testProviderConnectionIPC: provider=${providerName} resolvedKey=${actualKey || "NOT-FOUND"} recoveredKeyLen=${realApiKey.length} success=${realApiKey.length > 0}`);
   }
-  if (!realApiKey) {
-    process.stderr.write(`[security-audit] testProviderConnectionIPC: provider=${providerName} FAILED \u2014 no apiKey (masked and disk empty)`);
-    return { success: false, count: 0, error: "API key mancante" };
+  let realBaseUrl = baseUrl;
+  if (!realBaseUrl) {
+    const full = readProvidersConfig();
+    const requestedLower = providerName.toLowerCase();
+    for (const k2 of Object.keys(full.providers)) {
+      if (k2.toLowerCase() === requestedLower) {
+        realBaseUrl = full.providers[k2]?.baseUrl || "";
+        break;
+      }
+    }
   }
-  return await testProviderConnection(providerName, baseUrl, realApiKey);
+  return await testProviderConnection(providerName, realBaseUrl || baseUrl, realApiKey || "");
 }
 function getProviderApiKeyIPC(providerName) {
   if (typeof providerName !== "string" || !providerName || providerName.length > 64) {
@@ -316593,6 +316602,7 @@ function buildSidecarEntry(existing, messageId, files, contentKey) {
 }
 
 // agent-handlers.ts
+var import_child_process7 = require("child_process");
 var fs14 = __toESM(require("node:fs"), 1);
 var path17 = __toESM(require("node:path"), 1);
 var import_node_os17 = require("node:os");
@@ -316902,7 +316912,6 @@ ${body}`;
       const pkg2 = String(p.package || "").trim();
       if (!pkg2) return { success: false, error: "Nome pacchetto richiesto" };
       try {
-        const { execSync: execSync4 } = require("child_process");
         let gitUrl = pkg2.trim();
         let skillFlag = "";
         const skillMatch = pkg2.match(/--skill\s+(\S+)/);
@@ -316927,7 +316936,7 @@ ${body}`;
           const skillName = path17.basename(gitUrl, ".md").replace(/[^a-zA-Z0-9_-]/g, "-").toLowerCase();
           const destDir = path17.join(agentDir4, "skills", skillName);
           fs14.mkdirSync(destDir, { recursive: true });
-          execSync4(`export PATH="${binDir2}:$PATH"; "${curlPath}" -sL "${gitUrl}" -o "${path17.join(destDir, "SKILL.md")}"`, { stdio: "pipe", timeout: 3e4, shell: "/bin/bash" });
+          (0, import_child_process7.execSync)(`export PATH="${binDir2}:$PATH"; "${curlPath}" -sL "${gitUrl}" -o "${path17.join(destDir, "SKILL.md")}"`, { stdio: "pipe", timeout: 3e4, shell: "/bin/bash" });
           return { success: true, count: 1 };
         }
         if (gitUrl.startsWith("https://github.com/")) {
@@ -316963,7 +316972,7 @@ ${body}`;
         const binDir = path17.dirname(gitPath);
         const tmpDir = path17.join(agentDir4, "tmp-skill-install");
         if (fs14.existsSync(tmpDir)) fs14.rmSync(tmpDir, { recursive: true, force: true });
-        execSync4(`export PATH="${binDir}:$PATH"; "${gitPath}" clone --depth 1 "${gitUrl}" "${tmpDir}"`, { stdio: "pipe", timeout: 6e4, shell: "/bin/bash" });
+        (0, import_child_process7.execSync)(`export PATH="${binDir}:$PATH"; "${gitPath}" clone --depth 1 "${gitUrl}" "${tmpDir}"`, { stdio: "pipe", timeout: 6e4, shell: "/bin/bash" });
         const skillsDest = path17.join(agentDir4, "skills");
         fs14.mkdirSync(skillsDest, { recursive: true });
         const findSkillFiles = (dir) => {
@@ -317104,8 +317113,7 @@ ${body}`;
       if (!service || !key) return { success: false, error: "Service e key required" };
       try {
         if (process.platform === "darwin") {
-          const { execSync: execSync4 } = require("child_process");
-          execSync4(`security add-generic-password -a "quinki" -s "${service}" -w "${key.replace(/"/g, '\\"')}" -U`, { stdio: "pipe" });
+          (0, import_child_process7.execSync)(`security add-generic-password -a "quinki" -s "${service}" -w "${key.replace(/"/g, '\\"')}" -U`, { stdio: "pipe" });
           return { success: true };
         } else {
           const keyFile = path17.join(agentDir4, "api-keys.json");
@@ -317129,8 +317137,7 @@ ${body}`;
       if (!service) return { configured: false };
       try {
         if (process.platform === "darwin") {
-          const { execSync: execSync4 } = require("child_process");
-          execSync4(`security find-generic-password -a "quinki" -s "${service}"`, { stdio: "pipe" });
+          (0, import_child_process7.execSync)(`security find-generic-password -a "quinki" -s "${service}"`, { stdio: "pipe" });
           return { configured: true };
         } else {
           const keyFile = path17.join(agentDir4, "api-keys.json");
@@ -317150,8 +317157,7 @@ ${body}`;
       if (!service) return { success: false, error: "Service required" };
       try {
         if (process.platform === "darwin") {
-          const { execSync: execSync4 } = require("child_process");
-          execSync4(`security delete-generic-password -a "quinki" -s "${service}"`, { stdio: "pipe" });
+          (0, import_child_process7.execSync)(`security delete-generic-password -a "quinki" -s "${service}"`, { stdio: "pipe" });
           return { success: true };
         } else {
           const keyFile = path17.join(agentDir4, "api-keys.json");
@@ -317173,8 +317179,7 @@ ${body}`;
       if (!service) return { key: null };
       try {
         if (process.platform === "darwin") {
-          const { execSync: execSync4 } = require("child_process");
-          const key = execSync4(`security find-generic-password -a "quinki" -s "${service}" -w`, { stdio: "pipe", encoding: "utf8" }).trim();
+          const key = (0, import_child_process7.execSync)(`security find-generic-password -a "quinki" -s "${service}" -w`, { stdio: "pipe", encoding: "utf8" }).trim();
           return { key };
         } else {
           const keyFile = path17.join(agentDir4, "api-keys.json");

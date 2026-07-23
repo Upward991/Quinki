@@ -3645,6 +3645,7 @@ var import_websocket_server = __toESM(require_websocket_server(), 1);
 var __dirname = process.cwd();
 var PORT = parseInt(process.argv[2] || "9182", 10);
 var sidecar = (0, import_node_child_process.spawn)("npx", ["tsx", "sidecar.ts"], {
+  stdio: ["pipe", "pipe", "pipe"],
   cwd: __dirname,
   stdio: ["pipe", "pipe", "pipe"],
   env: { ...process.env }
@@ -3662,7 +3663,8 @@ sidecar.stdout.on("data", (chunk) => {
     }
   }
 });
-sidecar.stderr.on("data", () => {
+sidecar.stderr.on("data", (d) => {
+  process.stderr.write(d);
 });
 sidecar.on("exit", (code) => {
   console.log(`[ws-bridge] Sidecar exited with code ${code}`);
