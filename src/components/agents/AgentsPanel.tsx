@@ -394,7 +394,7 @@ export function AgentsPanel(props) {
     // Container
     React.createElement('div', { className: 'flex flex-col', style: { maxWidth: 'var(--spacing-chat-max)', margin: '0 auto', width: '100%', flex: 1, minHeight: 0 }, children: [
       // Header
-      React.createElement('div', { style: { marginBottom: '8px', flexShrink: 0, display: 'flex', alignItems: 'center' }, children: [
+      React.createElement('div', { style: { marginBottom: '12px', flexShrink: 0, display: 'flex', alignItems: 'center' }, children: [
         // Home button
         React.createElement('div', { style: headerStyle, children: 
           React.createElement(IconButton, { icon: Home, onClick: () => onSelectPanel('home'), title: 'Home' })
@@ -424,7 +424,7 @@ export function AgentsPanel(props) {
       ]}),
 
       // Scrollable content
-      React.createElement('div', { style: { flex: 1, minHeight: 0, overflowY: 'auto', padding: '2px 16px 0 16px', overscrollBehavior: 'contain', scrollbarGutter: 'stable' }, children: [
+      React.createElement('div', { style: { flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 16px', overscrollBehavior: 'contain', scrollbarGutter: 'stable' }, children: [
 
         // === Section: Your agents ===
         Section({ icon: Bot, title: 'Your agents', children: [
@@ -478,7 +478,7 @@ export function AgentsPanel(props) {
                       isExpanded: expandedSkillName === skill.name,
                       onToggle: () => setExpandedSkillName(expandedSkillName === skill.name ? null : skill.name),
                       onEdit: () => setFileEditor({ skillName: skill.name, fileName: 'SKILL.md' }),
-                      onDeleteSkill: () => setRemoveTagState({ type: 'skill', name: skill.name, agent: '' }),
+                      onDeleteSkill: skill.name === 'quinki-expert' ? null : () => setRemoveTagState({ type: 'skill', name: skill.name, agent: '' }),
                       onAddAgent: () => setAddItemsModal({ title: `Add agent to ${skill.name}`, items: agents.map(a => ({ name: a.name, description: a.systemPrompt ? a.systemPrompt.substring(0, 80) + (a.systemPrompt.length > 80 ? '...' : '') : a.id })), onConfirm: (selected) => doAddAgentsToSkill(skill.name, selected) }),
                       onRemoveAgent: (agentName) => setRemoveTagState({ type: 'agent', name: agentName, agent: skill.name }),
                       onRemoveAllAgents: () => setRemoveAllState({ type: 'agents', agentName: skill.name })
@@ -490,7 +490,7 @@ export function AgentsPanel(props) {
           React.createElement('div', { style: { height: '8px' } }),
 
           // Tools subsection
-          SubSection({ title: `Tool (${tools.length})`, action: MiniButton({ label: 'Add tool', onClick: () => setAddItemsModal({ title: 'Add tool to agents', items: tools.map(t => ({ name: t.name, description: t.description })), onConfirm: (selected) => { /* This adds to specific agent - but we need to know which */ } }) }), children: [
+          SubSection({ title: `Tool (${tools.length})`, children: [
             SearchBar({ placeholder: 'Search tool...', value: searchTools, onChange: setSearchTools }),
             React.createElement('div', { style: { height: '8px' } }),
             React.createElement('div', { style: { maxHeight: '300px', overflowY: 'auto' }, children:
@@ -649,7 +649,7 @@ export function AgentsPanel(props) {
           React.createElement('div', { style: { color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }, children: errorModal })
         }),
         React.createElement('div', { style: { display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px' }, children: [
-          React.createElement('button', { onClick: () => { navigator.clipboard.writeText(errorModal); }, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }, children: [React.createElement(Copy, { size: 16 }), ' Copy'] }),
+          React.createElement('button', { onClick: () => { navigator.clipboard.writeText(errorModal); }, className: 'q-hover-btn', style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', transition: 'background-color 120ms ease' }, children: [React.createElement(Copy, { size: 16 }), ' Copy'] }),
           React.createElement('button', { className: 'q-press', onClick: () => setErrorModal(null), style: { padding: '8px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-secondary)', color: 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)' }, children: 'Close' })
         ]})
       ]})
