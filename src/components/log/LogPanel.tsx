@@ -390,14 +390,43 @@ export function LogPanel(props: LogPanelProps) {
           type="text"
           placeholder="Search in logs..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            const v = e.target.value
+            setSearch(v)
+            const q = v.toLowerCase()
+            const matches: number[] = []
+            if (q) {
+              filtered.forEach((entry, i) => {
+                const p = formatPayload(entry.data)
+                const f = (fmtDateShort(entry.ts) + ' ' + fmtTimeShort(entry.ts) + ' ' + entry.tag + ' ' + p).toLowerCase()
+                if (f.includes(q)) matches.push(i)
+              })
+            }
+            setSearchMatches(matches)
+            setCurrentMatch(0)
+            if (matches.length > 0) {
+              scrollToEntry(matches[0])
+              setTimeout(() => hlLog(v, matches[0]), 50)
+            } else {
+              document.querySelectorAll('.search-highlight-mark').forEach((el) => {
+                const p = el.parentNode; if (p) { p.replaceChild(document.createTextNode(el.textContent || ''), el); p.normalize() }
+              })
+            }
+          }}
           style={{
             flex: 1, backgroundColor: 'transparent', border: 'none', outline: 'none',
             color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0', margin: '0',
           }}
         />
         <button
-          onClick={() => setSearch('')}
+          onClick={() => {
+            setSearch('')
+            setSearchMatches([])
+            setCurrentMatch(0)
+            document.querySelectorAll('.search-highlight-mark').forEach((el) => {
+              const p = el.parentNode; if (p) { p.replaceChild(document.createTextNode(el.textContent || ''), el); p.normalize() }
+            })
+          }}
           style={{
             background: 'none', border: 'none', cursor: search ? 'pointer' : 'default', padding: '8px',
             color: search ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)', fontSize: '14px', opacity: search ? 1 : 0.3,
@@ -411,7 +440,14 @@ export function LogPanel(props: LogPanelProps) {
         </span>
         <div style={{ width: '8px', flexShrink: 0 }} />
         <button
-          onClick={() => searchMatches.length > 0 && setCurrentMatch((p) => (p - 1 + searchMatches.length) % searchMatches.length)}
+          onClick={() => {
+            if (searchMatches.length > 0) {
+              const ni = (currentMatch - 1 + searchMatches.length) % searchMatches.length
+              setCurrentMatch(ni)
+              scrollToEntry(searchMatches[ni])
+              setTimeout(() => hlLog(search, searchMatches[ni]), 50)
+            }
+          }}
           style={{
             background: 'none', border: 'none', cursor: 'pointer', padding: '0px',
             color: searchMatches.length > 0 ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)',
@@ -421,7 +457,14 @@ export function LogPanel(props: LogPanelProps) {
           <ChevronUp size={16} />
         </button>
         <button
-          onClick={() => searchMatches.length > 0 && setCurrentMatch((p) => (p + 1) % searchMatches.length)}
+          onClick={() => {
+            if (searchMatches.length > 0) {
+              const ni = (currentMatch + 1) % searchMatches.length
+              setCurrentMatch(ni)
+              scrollToEntry(searchMatches[ni])
+              setTimeout(() => hlLog(search, searchMatches[ni]), 50)
+            }
+          }}
           style={{
             background: 'none', border: 'none', cursor: 'pointer', padding: '0px',
             color: searchMatches.length > 0 ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)',
