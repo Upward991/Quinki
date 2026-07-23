@@ -231,6 +231,7 @@ body {
   font-family: var(--font-interface);
   background-color: var(--q-bg);
   color: var(--q-text);
+  padding-top: 28px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-user-select: none;
