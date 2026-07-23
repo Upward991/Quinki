@@ -209,14 +209,14 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 		subscribe,
 		call
 	]);
-	refreshProviders: useCallback(async () => {
+	const refreshProviders = useCallback(async () => {
 		if (!ready) return;
 		try {
 			const [providersResult, modelsResult] = await Promise.all([call("getProvidersConfig", {}), call("getModels", {})]);
 			const modelsByProvider = {};
 			if (modelsResult?.models) for (const m of modelsResult.models) {
 				const p = m.provider || "unknown";
-			if (!modelsByProvider[p]) modelsByProvider[p] = [];
+				if (!modelsByProvider[p]) modelsByProvider[p] = [];
 				modelsByProvider[p].push({ id: m.id, name: m.name || m.id, contextWindow: m.contextWindow });
 			}
 			const providerList = [];
@@ -238,11 +238,13 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 			}
 			setProviders([...providerList]);
 		} catch (e) { console.error("refreshProviders:", e); }
-	}, [ready, call]),
+	}, [ready, call]);
+
 	return {
 		connected: ready,
 		loading,
 		sessions,
+		refreshProviders,
 		agents,
 		providers,
 		messages,
