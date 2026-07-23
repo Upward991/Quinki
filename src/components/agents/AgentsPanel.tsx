@@ -735,6 +735,8 @@ function AgentRow({ agent, isExpanded, isRenaming, onToggle, onStartRename, onCo
 
     // Expanded content
     isExpanded && React.createElement('div', { style: { padding: '0 12px 12px 14px' }, children: [
+      // Description
+      agent.systemPrompt && React.createElement('div', { style: { color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', lineHeight: 1.5, marginBottom: '12px', marginTop: '4px', padding: '8px 10px', backgroundColor: 'rgba(255, 255, 255, 0.03)', borderRadius: '6px' }, children: agent.systemPrompt.split('\n')[0].replace(/^#\s*/, '').trim() || agent.id }),
       // Files
       React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }, children: [
         React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }, children: ['File (', agent.files.length, ')'] }),
