@@ -154,69 +154,60 @@ export async function fetchProviderModels(
   apiKey: string
 ): Promise<FetchedModel[]> {
   try {
-    if (providerName === "ollama") {
-      const ollamaUrl = baseUrl.replace(/\/v1\/?$/, "");
-      const res = await fetch(`${ollamaUrl}/api/tags`);
-      if (!res.ok) throw new Error(`Ollama responded ${res.status}`);
-      const data = (await res.json()) as { models: Array<{ name: string; size?: number; details?: { parameter_size?: string; context_length?: number }; capabilities?: string[] }> };
+    // Detect Ollama (or any Ollama-compatible local server) by capability, not by name.
+    // Try /api/tags first — if it responds, we get context_window for free.
+    // Works regardless of provider name (user can rename "Ollama" to anything).
+    const ollamaUrl = baseUrl.replace(/\/v1\/?$/, "");
+    try {
+      const ollamaRes = await fetch(`${ollamaUrl}/api/tags`);
+      if (ollamaRes.ok) {
+        const data = (await ollamaRes.json()) as { models: Array<{ name: string; size?: number; details?: { parameter_size?: string; context_length?: number }; capabilities?: string[] }> };
 
-      const models = await Promise.all(
-        (data.models || []).map(async (m) => {
-          let contextWindow: number | undefined = m.details?.context_length;
-          let reasoning = (m.capabilities || []).includes("thinking");
+        const models = await Promise.all(
+          (data.models || []).map(async (m) => {
+            let contextWindow: number | undefined = m.details?.context_length;
+            let reasoning = (m.capabilities || []).includes("thinking");
 
-          if (!contextWindow) {
-            try {
-              process.stderr.write(`[providers] ollama ${m.name}: no details.context_length, trying /api/show...`);
-              const showRes = await fetch(`${ollamaUrl}/api/show`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name: m.name, verbose: true }),
-              });
-              if (showRes.ok) {
-                const showData = (await showRes.json()) as {
-                  model_info?: Record<string, any>;
-                  capabilities?: string[];
-                };
-                process.stderr.write(`[providers] ollama ${m.name}: /api/show keys: ${Object.keys(showData).join(",")}`);
-                process.stderr.write(`[providers] ollama ${m.name}: /api/show model_info: ${JSON.stringify(showData.model_info).substring(0, 200)}`);
-                if (showData.capabilities) {
-                  reasoning = showData.capabilities.includes("thinking");
-                }
-                if (showData.model_info) {
-                  for (const [key, val] of Object.entries(showData.model_info)) {
-                    if (key.endsWith(".context_length") && typeof val === "number") {
-                      contextWindow = val;
-                      process.stderr.write(`[providers] ollama ${m.name}: found context_length=${val} in ${key}`);
-                      break;
+            if (!contextWindow) {
+              try {
+                const showRes = await fetch(`${ollamaUrl}/api/show`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ name: m.name, verbose: true }),
+                });
+                if (showRes.ok) {
+                  const showData = (await showRes.json()) as {
+                    model_info?: Record<string, any>;
+                    capabilities?: string[];
+                  };
+                  if (showData.capabilities) {
+                    reasoning = showData.capabilities.includes("thinking");
+                  }
+                  if (showData.model_info) {
+                    for (const [key, val] of Object.entries(showData.model_info)) {
+                      if (key.endsWith(".context_length") && typeof val === "number") {
+                        contextWindow = val;
+                        break;
+                      }
                     }
                   }
                 }
-                if (!contextWindow) {
-                  process.stderr.write(`[providers] ollama ${m.name}: no context_length found in /api/show model_info`);
-                }
-              } else {
-                const errText = await showRes.text();
-                process.stderr.write(`[providers] ollama ${m.name}: /api/show responded ${showRes.status}: ${errText.substring(0, 200)}`);
-              }
-            } catch (e: any) {
-              process.stderr.write(`[providers] ollama ${m.name}: /api/show error: ${e.message}`);
+              } catch {}
             }
-          } else {
-            process.stderr.write(`[providers] ollama ${m.name}: context_length=${contextWindow} from /api/tags details`);
-          }
 
-          return {
-            id: m.name,
-            name: m.name,
-            contextWindow,
-            reasoning,
-          };
-        })
-      );
+            return {
+              id: m.name,
+              name: m.name,
+              contextWindow,
+              reasoning,
+            };
+          })
+        );
 
-      return models;
-    }
+        return models;
+      }
+    } catch {}
+    // Not Ollama (or /api/tags failed) — use standard OpenAI-compatible endpoint
 
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
