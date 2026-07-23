@@ -345,7 +345,11 @@ input[type="checkbox"] {
   background-color: var(--q-hover) !important;
 }
 
-::highlight(search-highlight) {
-  background-color: #d4a017;
-  color: #000;
+}
+
+mark.search-highlight-mark {
+  background-color: #d7be66;
+  color: #161616;
+  border-radius: 2px;
+  padding: 0 1px;
 }
