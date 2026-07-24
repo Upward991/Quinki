@@ -190,6 +190,31 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 				});
 			}
 		});
+		// === Tool call/result (separate notifications, not stream_event) ===
+		const unsubToolCall = subscribe("tool_call", (params) => {
+			setStatusLabel("Tool call"); setStatusKind("tool_call");
+			setMessages((prev) => {
+				const last = prev[prev.length - 1];
+				if (last && last.role === "assistant" && last.isStreaming) {
+					const toolCalls = last.toolCalls || [];
+					toolCalls.push({ name: params.toolName || "tool", input: params.toolArgs || "" });
+					return [...prev.slice(0, -1), { ...last, toolCalls }];
+				}
+				return [...prev, { id: `msg-${Date.now()}`, role: "assistant", content: "", toolCalls: [{ name: params.toolName || "tool", input: params.toolArgs || "" }], timestamp: new Date().toISOString(), isStreaming: true }];
+			});
+		});
+		const unsubToolResult = subscribe("tool_result", (params) => {
+			setStatusLabel("Tool result"); setStatusKind("tool_result");
+			setMessages((prev) => {
+				const last = prev[prev.length - 1];
+				if (last && last.role === "assistant" && last.isStreaming) {
+					const toolResults = last.toolResults || [];
+					toolResults.push({ name: params.toolName || "tool", output: params.output || "", isError: params.isError || false });
+					return [...prev.slice(0, -1), { ...last, toolResults }];
+				}
+				return prev;
+			});
+		});
 		// === Agent status: drives the status pill ===
 		const unsubAgentStatus = subscribe("agent_status", (params) => {
 			const status = params.status;
@@ -264,6 +289,8 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 		});
 		return () => {
 			unsubStream();
+			unsubToolCall();
+			unsubToolResult();
 			unsubAgentStatus();
 			unsubStreamStart();
 			unsubStreamStop();
