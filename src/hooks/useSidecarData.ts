@@ -53,7 +53,7 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 				try {
 					const sessionsResult = await call("listSessions", {});
 					if (!cancelled && sessionsResult?.sessions) setSessions(sessionsResult.sessions.map((s) => ({
-						id: s.sessionKey || s.id || s.key,
+						id: s.key || s.sessionKey || s.id,
 						title: s.label || s.title || "Untitled",
 						type: "chat",
 						updatedAt: new Date(s.lastActivity || Date.now()).toISOString(),
@@ -127,68 +127,100 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 	}, [ready, call]);
 	useEffect(() => {
 		if (!ready) return;
+		// === Stream events: content (text/thinking/toolcall) ===
 		const unsubStream = subscribe("stream_event", (params) => {
-			const { eventType, delta, messageId, toolName, response, isError, agentName, task } = params;
-			if (eventType === "text" || eventType === "text_delta" || eventType === "text_start" || eventType === "text_end") {
+			const { eventType, delta, messageId } = params;
+			const isDelegation = (messageId || "").startsWith("del-");
+			// Skip non-delegation toolcall events (handled separately)
+			if (eventType.startsWith("toolcall") && !isDelegation) return;
+			if (eventType === "delegation_start") {
+				setStatusLabel("Delegating"); setStatusKind("delegation");
+				return;
+			}
+			if (eventType === "delegation_end") {
+				setStatusLabel("Running"); setStatusKind("running");
+				return;
+			}
+			if (eventType === "text_delta" || eventType === "text_start") {
 				setMessages((prev) => {
 					const last = prev[prev.length - 1];
-					if (last && last.role === "assistant" && last.isStreaming) return [...prev.slice(0, -1), {
-						...last,
-						content: (last.content || "") + (delta || "")
-					}];
-					return [...prev, {
-						id: messageId || `msg-${Date.now()}`,
-						role: "assistant",
-						content: delta || "",
-						timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-						isStreaming: true
-					}];
+					if (last && last.role === "assistant" && last.isStreaming) {
+						return [...prev.slice(0, -1), { ...last, content: (last.content || "") + (delta || "") }];
+					}
+					return [...prev, { id: messageId || `msg-${Date.now()}`, role: "assistant", content: delta || "", timestamp: new Date().toISOString(), isStreaming: true }];
 				});
-				setStatusLabel("Writing");
-				setStatusKind("writing");
-			} else if (eventType === "thinking" || eventType === "thinking_delta" || eventType === "thinking_start" || eventType === "thinking_end") {
-				setStatusLabel("Thinking");
-				setStatusKind("thinking");
-			} else if (eventType === "toolcall_start" || eventType === "toolCall") {
-				setStatusLabel("Tool call");
-				setStatusKind("tool_call");
-			} else if (eventType === "toolcall_end" || eventType === "toolResult") {
-				setStatusLabel("Tool result");
-				setStatusKind("tool_result");
-			} else if (eventType === "delegation_start") {
-				setStatusLabel("Delegating");
-				setStatusKind("delegation");
-			} else if (eventType === "delegation_end") {
-				setStatusLabel("Running");
-				setStatusKind("running");
-			} else if (eventType === "error") {
-				setStatusLabel("Failed");
-				setStatusKind("failed");
-				setIsStreaming(false);
+			}
+			if (eventType === "thinking_delta" || eventType === "thinking_start") {
+				setMessages((prev) => {
+					const last = prev[prev.length - 1];
+					if (last && last.role === "assistant" && last.isStreaming) {
+						return [...prev.slice(0, -1), { ...last, thinking: (last.thinking || "") + (delta || "") }];
+					}
+					return [...prev, { id: messageId || `msg-${Date.now()}`, role: "assistant", content: "", thinking: delta || "", timestamp: new Date().toISOString(), isStreaming: true }];
+				});
 			}
 		});
-		const unsubStreamingStopped = subscribe("streaming_stopped", () => {
-			setIsStreaming(false);
-			setStatusLabel("");
-			setStatusKind("");
-			setMessages((prev) => prev.map((m) => m.isStreaming ? {
-				...m,
-				isStreaming: false
-			} : m));
+		// === Agent status: drives the status pill ===
+		const unsubAgentStatus = subscribe("agent_status", (params) => {
+			const status = params.status;
+			if (status === "thinking") { setStatusLabel("Thinking"); setStatusKind("thinking"); }
+			else if (status === "writing") { setStatusLabel("Writing"); setStatusKind("writing"); }
+			else if (status === "tool") { setStatusLabel("Tool call"); setStatusKind("tool_call"); }
+			else if (status === "retrying") { setStatusLabel(`Retrying ${params.attempt || 1}/${params.maxAttempts || 3}`); setStatusKind("retrying"); }
+			else if (status === "idle") { setStatusLabel(""); setStatusKind(""); }
+			else if (status) { setStatusLabel(status.charAt(0).toUpperCase() + status.slice(1)); setStatusKind(status); }
 		});
+		// === Streaming started/stopped ===
+		const unsubStreamStart = subscribe("streaming_started", () => {
+			setIsStreaming(true);
+		});
+		const unsubStreamStop = subscribe("streaming_stopped", () => {
+			setIsStreaming(false);
+			setStatusLabel(""); setStatusKind("");
+			setMessages((prev) => prev.map((m) => m.isStreaming ? { ...m, isStreaming: false } : m));
+		});
+		// === Done: finalize message with model/agent info ===
+		const unsubDone = subscribe("done", (params) => {
+			setIsStreaming(false);
+			setStatusLabel(""); setStatusKind("");
+			const { messageId, text, model, agentName, thinkingLevel, stopReason, errorMessage } = params;
+			if (stopReason === "error") {
+				setMessages((prev) => prev.map((m) =>
+					m.isStreaming ? { ...m, isStreaming: false, isError: true, errorContent: errorMessage || "Unknown error", content: "" } : m
+				));
+			} else {
+				setMessages((prev) => prev.map((m) =>
+					m.isStreaming ? { ...m, isStreaming: false, model, agentName, thinkingLevel, content: text || m.content } : m
+				));
+			}
+		});
+		// === Context usage ===
 		const unsubContext = subscribe("context_usage", (params) => {
 			const u = params.usage || params;
 			if (u && u.tokens !== void 0) setContextTokens(u.tokens);
 			if (u && u.window !== void 0) setContextWindow(u.window);
 		});
+		// === Compaction ===
 		const unsubCompaction = subscribe("compaction_status", () => {
-			setStatusLabel("Compacting");
-			setStatusKind("compacting");
+			setStatusLabel("Compacting"); setStatusKind("compacting");
 		});
-		const unsubSessionUpdate = subscribe("session_updated", (params) => {
+		// === Session events ===
+		const unsubSessionCreated = subscribe("session_created", () => {
 			call("listSessions", {}).then((r) => {
 				if (r?.sessions) setSessions(r.sessions.map((s) => ({
-					id: s.sessionKey || s.id || s.key,
+					id: s.key || s.sessionKey || s.id,
+					title: s.label || s.title || "Untitled",
+					type: "chat",
+					updatedAt: new Date(s.lastActivity || Date.now()).toISOString(),
+					messageCount: s.messageCount || 0,
+					agents: s.agents || []
+				})));
+			}).catch(() => {});
+		});
+		const unsubSessionUpdate = subscribe("session_updated", () => {
+			call("listSessions", {}).then((r) => {
+				if (r?.sessions) setSessions(r.sessions.map((s) => ({
+					id: s.key || s.sessionKey || s.id,
 					title: s.label || s.title || "Untitled",
 					type: "chat",
 					updatedAt: new Date(s.lastActivity || Date.now()).toISOString(),
@@ -202,9 +234,13 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 		});
 		return () => {
 			unsubStream();
-			unsubStreamingStopped();
+			unsubAgentStatus();
+			unsubStreamStart();
+			unsubStreamStop();
+			unsubDone();
 			unsubContext();
 			unsubCompaction();
+			unsubSessionCreated();
 			unsubSessionUpdate();
 		};
 	}, [
@@ -366,7 +402,7 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 						try {
 							const sessionsResult = await call("listSessions", {});
 							if (sessionsResult?.sessions) setSessions(sessionsResult.sessions.map((s) => ({
-								id: s.sessionKey || s.id || s.key,
+								id: s.key || s.sessionKey || s.id,
 								title: s.label || s.title || "Untitled",
 								type: "chat",
 								updatedAt: new Date(s.lastActivity || Date.now()).toISOString(),
@@ -391,7 +427,7 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 				try {
 					const sessionsResult = await call("listSessions", {});
 					if (sessionsResult?.sessions) setSessions(sessionsResult.sessions.map((s) => ({
-						id: s.sessionKey || s.id || s.key,
+						id: s.key || s.sessionKey || s.id,
 						title: s.label || s.title || "Untitled",
 						type: "chat",
 						updatedAt: new Date(s.lastActivity || Date.now()).toISOString(),
