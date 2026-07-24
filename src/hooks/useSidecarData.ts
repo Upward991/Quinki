@@ -128,58 +128,60 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 	useEffect(() => {
 		if (!ready) return;
 		const unsubStream = subscribe("stream_event", (params) => {
-			const { type, content, messageId } = params;
-			if (type === "text" || type === "text_delta") {
+			const { eventType, delta, messageId, toolName, response, isError, agentName, task } = params;
+			if (eventType === "text" || eventType === "text_delta" || eventType === "text_start" || eventType === "text_end") {
 				setMessages((prev) => {
 					const last = prev[prev.length - 1];
 					if (last && last.role === "assistant" && last.isStreaming) return [...prev.slice(0, -1), {
 						...last,
-						content: (last.content || "") + (content || "")
+						content: (last.content || "") + (delta || "")
 					}];
 					return [...prev, {
 						id: messageId || `msg-${Date.now()}`,
 						role: "assistant",
-						content: content || "",
+						content: delta || "",
 						timestamp: (/* @__PURE__ */ new Date()).toISOString(),
 						isStreaming: true
 					}];
 				});
 				setStatusLabel("Writing");
 				setStatusKind("writing");
-			} else if (type === "thinking" || type === "thinking_delta") {
+			} else if (eventType === "thinking" || eventType === "thinking_delta" || eventType === "thinking_start" || eventType === "thinking_end") {
 				setStatusLabel("Thinking");
 				setStatusKind("thinking");
-			} else if (type === "toolCall" || type === "toolcall_start") {
+			} else if (eventType === "toolcall_start" || eventType === "toolCall") {
 				setStatusLabel("Tool call");
 				setStatusKind("tool_call");
-			} else if (type === "toolResult" || type === "toolcall_end") {
+			} else if (eventType === "toolcall_end" || eventType === "toolResult") {
 				setStatusLabel("Tool result");
 				setStatusKind("tool_result");
-			} else if (type === "delegation_start") {
+			} else if (eventType === "delegation_start") {
 				setStatusLabel("Delegating");
 				setStatusKind("delegation");
-			} else if (type === "delegation_end") {
+			} else if (eventType === "delegation_end") {
 				setStatusLabel("Running");
 				setStatusKind("running");
-			} else if (type === "error") {
+			} else if (eventType === "error") {
 				setStatusLabel("Failed");
 				setStatusKind("failed");
 				setIsStreaming(false);
-			} else if (type === "done" || type === "end") {
-				setIsStreaming(false);
-				setStatusLabel("");
-				setStatusKind("");
-				setMessages((prev) => prev.map((m) => m.isStreaming ? {
-					...m,
-					isStreaming: false
-				} : m));
 			}
 		});
-		const unsubContext = subscribe("context_update", (params) => {
-			if (params.tokens !== void 0) setContextTokens(params.tokens);
-			if (params.window !== void 0) setContextWindow(params.window);
+		const unsubStreamingStopped = subscribe("streaming_stopped", () => {
+			setIsStreaming(false);
+			setStatusLabel("");
+			setStatusKind("");
+			setMessages((prev) => prev.map((m) => m.isStreaming ? {
+				...m,
+				isStreaming: false
+			} : m));
 		});
-		const unsubCompaction = subscribe("compaction", () => {
+		const unsubContext = subscribe("context_usage", (params) => {
+			const u = params.usage || params;
+			if (u && u.tokens !== void 0) setContextTokens(u.tokens);
+			if (u && u.window !== void 0) setContextWindow(u.window);
+		});
+		const unsubCompaction = subscribe("compaction_status", () => {
 			setStatusLabel("Compacting");
 			setStatusKind("compacting");
 		});
@@ -200,6 +202,7 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 		});
 		return () => {
 			unsubStream();
+			unsubStreamingStopped();
 			unsubContext();
 			unsubCompaction();
 			unsubSessionUpdate();
@@ -357,8 +360,8 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 				let sk = sessionKey || activeSessionId || "";
 				if (!sk) try {
 					const createResult = await call("createSession", { label: "New chat" });
-					if (createResult?.sessionKey) {
-						sk = createResult.sessionKey;
+					if (createResult?.key || createResult?.sessionKey) {
+						sk = createResult.key || createResult.sessionKey;
 						setActiveSessionId(sk);
 						try {
 							const sessionsResult = await call("listSessions", {});
@@ -382,7 +385,7 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 				const result = await call("sendMessage", {
 					sessionKey: sk,
 					text,
-					agents: agents || []
+					agentId: (agents && agents.length > 0) ? agents[0] : undefined
 				});
 				if (result?.sessionKey && !activeSessionId) setActiveSessionId(result.sessionKey);
 				try {
