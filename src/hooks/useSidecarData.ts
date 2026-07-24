@@ -149,6 +149,36 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 					}
 					return [...prev, { id: messageId || `msg-${Date.now()}`, role: "assistant", content: delta || "", timestamp: new Date().toISOString(), isStreaming: true }];
 				});
+			} else if (eventType === "toolcall_start") {
+				setMessages((prev) => {
+					const last = prev[prev.length - 1];
+					if (last && last.role === "assistant" && last.isStreaming) {
+						const toolCalls = last.toolCalls || [];
+						toolCalls.push({ name: delta || "tool", input: "" });
+						return [...prev.slice(0, -1), { ...last, toolCalls }];
+					}
+					return [...prev, { id: messageId || `msg-${Date.now()}`, role: "assistant", content: "", toolCalls: [{ name: delta || "tool", input: "" }], timestamp: new Date().toISOString(), isStreaming: true }];
+				});
+			} else if (eventType === "toolcall_delta") {
+				setMessages((prev) => {
+					const last = prev[prev.length - 1];
+					if (last && last.role === "assistant" && last.isStreaming && last.toolCalls && last.toolCalls.length > 0) {
+						const toolCalls = [...last.toolCalls];
+						toolCalls[toolCalls.length - 1] = { ...toolCalls[toolCalls.length - 1], input: (toolCalls[toolCalls.length - 1].input || "") + (delta || "") };
+						return [...prev.slice(0, -1), { ...last, toolCalls }];
+					}
+					return prev;
+				});
+			} else if (eventType === "toolcall_end") {
+				setMessages((prev) => {
+					const last = prev[prev.length - 1];
+					if (last && last.role === "assistant" && last.isStreaming) {
+						const toolResults = last.toolResults || [];
+						toolResults.push({ name: last.toolCalls?.[last.toolCalls.length - 1]?.name || "tool", output: delta || "", isError: params.isError || false });
+						return [...prev.slice(0, -1), { ...last, toolResults }];
+					}
+					return prev;
+				});
 			}
 			if (eventType === "thinking_delta" || eventType === "thinking_start") {
 				setMessages((prev) => {
