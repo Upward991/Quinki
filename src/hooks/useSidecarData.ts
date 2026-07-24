@@ -209,7 +209,7 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 				const last = prev[prev.length - 1];
 				if (last && last.role === "assistant" && last.isStreaming) {
 					const toolResults = last.toolResults || [];
-					toolResults.push({ name: params.toolName || "tool", output: params.output || "", isError: params.isError || false });
+					toolResults.push({ name: params.toolName || "tool", output: params.content || params.output || "", isError: params.isError || false });
 					return [...prev.slice(0, -1), { ...last, toolResults }];
 				}
 				return prev;
@@ -245,7 +245,7 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 				));
 			} else {
 				setMessages((prev) => prev.map((m) =>
-					m.isStreaming ? { ...m, isStreaming: false, model, agentName, thinkingLevel, content: text || m.content } : m
+					m.isStreaming ? { ...m, isStreaming: false, model, agentModel: model, agentName, thinkingLevel, content: text || m.content } : m
 				));
 			}
 		});
