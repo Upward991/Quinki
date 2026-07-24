@@ -197,10 +197,10 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 				const last = prev[prev.length - 1];
 				if (last && last.role === "assistant" && last.isStreaming) {
 					const toolCalls = last.toolCalls || [];
-					toolCalls.push({ name: params.toolName || "tool", input: params.toolArgs || "" });
+					toolCalls.push({ name: params.toolName || "tool", input: typeof params.toolArgs === 'string' ? params.toolArgs : JSON.stringify(params.toolArgs || '') });
 					return [...prev.slice(0, -1), { ...last, toolCalls }];
 				}
-				return [...prev, { id: `msg-${Date.now()}`, role: "assistant", content: "", toolCalls: [{ name: params.toolName || "tool", input: params.toolArgs || "" }], timestamp: new Date().toISOString(), isStreaming: true }];
+				return [...prev, { id: `msg-${Date.now()}`, role: "assistant", content: "", toolCalls: [{ name: params.toolName || "tool", input: typeof params.toolArgs === 'string' ? params.toolArgs : JSON.stringify(params.toolArgs || '') }], timestamp: new Date().toISOString(), isStreaming: true }];
 			});
 		});
 		const unsubToolResult = subscribe("tool_result", (params) => {
