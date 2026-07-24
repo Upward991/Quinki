@@ -98,11 +98,19 @@ export function LogPanel(props: LogPanelProps) {
   const months = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december']
 
   function deriveLevel(tag: string): string {
-    if (tag.startsWith('error') || tag.includes('error') || tag.includes('Error') || tag.includes('failed') || tag.includes('failed-')) return 'error'
+    // Hide verbose technical logs
+    if (tag.startsWith('ollama-probe-') || tag.startsWith('sync-') || tag.startsWith('model-registry') || tag.startsWith('ollama-info') || tag.startsWith('ollama-baseurl') || tag.startsWith('ollama-levels') || tag.startsWith('verify-thinking') || tag.startsWith('mapMessage')) return 'renderer'
+    // Errors
+    if (tag.startsWith('error') || tag.includes('error') || tag.includes('Error') || tag.includes('failed') || tag.includes('-error')) return 'error'
+    // Warnings
     if (tag.startsWith('warn') || tag.startsWith('warning') || tag === 'retrying' || tag.includes('deprecat')) return 'warn'
-    if (tag.startsWith('success') || tag.includes('done') || tag.includes('loaded') || tag.includes('initialized')) return 'success'
+    // Success/loaded/done
+    if (tag.startsWith('success') || tag.includes('done') || tag.includes('loaded') || tag.includes('initialized') || tag.includes('created') || tag.includes('renamed') || tag.includes('sent')) return 'success'
+    // UI actions
     if (tag.startsWith('ui-') || tag.startsWith('ui:') || tag.includes('ui-click') || tag.includes('ui-nav') || tag.includes('ui-keyboard') || tag.includes('ui-panel')) return 'ui'
-    if (tag.startsWith('send-message') || tag.startsWith('set-agent') || tag.startsWith('stream') || tag.startsWith('session') || tag.startsWith('history') || tag.startsWith('bridge') || tag.startsWith('full-state') || tag.startsWith('get_') || tag.startsWith('ws:') || tag.startsWith('send:') || tag.startsWith('create') || tag.startsWith('delete') || tag.startsWith('update') || tag.startsWith('rename') || tag.startsWith('reload') || tag.startsWith('flush') || tag.startsWith('compact') || tag.startsWith('set-')) return 'bridge'
+    // Bridge: session/agent/model/thinking/mode changes + send/receive
+    if (tag.startsWith('send-message') || tag.startsWith('set-agent') || tag.startsWith('set-mode') || tag.startsWith('set-thinking') || tag.startsWith('set-model') || tag.startsWith('chat-agents') || tag.startsWith('agent-changed') || tag.startsWith('model-changed') || tag.startsWith('thinking-changed') || tag.startsWith('mode-changed') || tag.startsWith('session-') || tag.startsWith('working-dir') || tag.startsWith('stream') || tag.startsWith('bridge') || tag.startsWith('full-state') || tag.startsWith('get_') || tag.startsWith('ws:') || tag.startsWith('send:') || tag.startsWith('create') || tag.startsWith('delete') || tag.startsWith('update') || tag.startsWith('rename') || tag.startsWith('reload') || tag.startsWith('flush') || tag.startsWith('compact') || tag.startsWith('set-')) return 'bridge'
+    // Renderer/sidecar internals
     if (tag.startsWith('renderer') || tag.startsWith('sidecar-marker') || tag.startsWith('stdout')) return 'renderer'
     return 'info'
   }
@@ -130,6 +138,8 @@ export function LogPanel(props: LogPanelProps) {
 
   const filtered = entries.filter((e) => {
     const level = deriveLevel(e.tag)
+    // Hide renderer (verbose technical logs) by default
+    if (level === 'renderer') return false
     if (activeFilters.size > 0 && !activeFilters.has(level)) return false
     return true
   })

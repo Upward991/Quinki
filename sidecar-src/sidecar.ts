@@ -216,6 +216,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
       piBridge!.setSessionCompaction(key, p.compactionAuto, typeof p.compactionThreshold === "number" ? p.compactionThreshold : 80);
     }
     const meta = piBridge!.getSessionMeta(key);
+    piBridge!.logDebug("session-created", { sessionKey: key, label: p.label, agentId: p.agentId || "pi", model: meta.model, thinkingLevel: meta.thinkingLevel, mode: meta.mode });
     return { key, label: s.label, agentId: p.agentId || "pi", model: meta.model, thinkingLevel: meta.thinkingLevel, compactionAuto: p.compactionAuto, compactionThreshold: p.compactionThreshold };
   },
   ensureSession: async (p) => {
@@ -228,36 +229,47 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
 
   renameSession: async (p) => {
     piBridge!.rename(p.sessionKey, p.label);
+    piBridge!.logDebug("session-renamed", { sessionKey: p.sessionKey, newLabel: p.label });
     return { sessionKey: p.sessionKey, label: p.label };
   },
 
   deleteSession: async (p) => {
     piBridge!.remove(p.sessionKey);
+    piBridge!.logDebug("session-deleted", { sessionKey: p.sessionKey });
     return { sessionKey: p.sessionKey };
   },
 
   setModel: async (p) => {
+    const oldMeta = piBridge!.getSessionMeta(p.sessionKey);
     const ok = await piBridge!.setModel(p.sessionKey, p.model);
     if (!ok) throw new Error("Model not found");
+    piBridge!.logDebug("model-changed", { sessionKey: p.sessionKey, oldModel: oldMeta.model, newModel: p.model });
     return { model: p.model, sessionKey: p.sessionKey };
   },
 
   setThinking: async (p) => {
     const lvl = p.thinkingLevel || p.level;
+    const oldMeta = piBridge!.getSessionMeta(p.sessionKey);
     piBridge!.setThinkingLevel(p.sessionKey, lvl);
+    piBridge!.logDebug("thinking-changed", { sessionKey: p.sessionKey, oldLevel: oldMeta.thinkingLevel, newLevel: lvl });
     return { level: lvl, sessionKey: p.sessionKey };
   },
   setMode: async (p) => {
     const mode = p.mode === "plan" ? "plan" : "build";
+    const oldMeta = piBridge!.getSessionMeta(String(p.sessionKey));
     piBridge!.setMode(String(p.sessionKey), mode);
+    piBridge!.logDebug("mode-changed", { sessionKey: p.sessionKey, oldMode: oldMeta.mode, newMode: mode });
     return { sessionKey: p.sessionKey, mode };
   },
   setAgent: async (p) => {
+    const oldMeta = piBridge!.getSessionMeta(String(p.sessionKey));
     piBridge!.setAgent(String(p.sessionKey), p.agentId ? String(p.agentId) : null);
+    piBridge!.logDebug("agent-changed", { sessionKey: p.sessionKey, oldAgent: oldMeta.agentId, newAgent: p.agentId ?? null });
     return { sessionKey: p.sessionKey, agentId: p.agentId ?? null };
   },
   setChatAgents: async (p) => {
     piBridge!.setChatAgents(String(p.sessionKey), String(p.agentIds || ''));
+    piBridge!.logDebug("chat-agents-changed", { sessionKey: p.sessionKey, agentIds: p.agentIds ?? '' });
     return { sessionKey: p.sessionKey, agentIds: p.agentIds ?? '' };
   },
   setAgentOverride: async (p) => {
@@ -271,14 +283,17 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   },
   reloadSession: async (p) => {
     piBridge!.reloadSession(String(p.sessionKey));
+    piBridge!.logDebug("session-reloaded", { sessionKey: p.sessionKey });
     return { sessionKey: p.sessionKey };
   },
   setWorkingDir: async (p) => {
     piBridge!.setWorkingDir(String(p.sessionKey), String(p.path));
+    piBridge!.logDebug("working-dir-changed", { sessionKey: p.sessionKey, path: p.path });
     return { sessionKey: p.sessionKey, path: p.path };
   },
   resetSession: async (p) => {
     piBridge!.resetSession(String(p.sessionKey));
+    piBridge!.logDebug("session-reset", { sessionKey: p.sessionKey });
     return { sessionKey: p.sessionKey };
   },
   setExpertEnv: async (p) => {
@@ -317,7 +332,15 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   sendMessage: async (p) => {
     const sk = String(p.sessionKey);
     const mid = p.messageId || `u-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-    piBridge!.logDebug("send-message-agent", { sessionKey: sk, agentId: p.agentId || "(none)", agentIdType: typeof p.agentId, text: (p.text || "").substring(0, 50) });
+    const meta = piBridge!.getSessionMeta(sk);
+    piBridge!.logDebug("send-message", {
+      sessionKey: sk,
+      agentId: p.agentId || meta.agentId || "(none)",
+      model: p.model || meta.model || "(default)",
+      thinking: p.thinkingLevel || meta.thinkingLevel || "off",
+      mode: meta.mode || "plan",
+      textPreview: (p.text || "").substring(0, 80)
+    });
     if (p.model) await piBridge!.setModel(sk, p.model);
     if (p.thinkingLevel) piBridge!.setThinkingLevel(sk, p.thinkingLevel);
     // === Set agent BEFORE send (single call, no race condition) ===
@@ -327,6 +350,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     piBridge!.addUserMsg(sk, p.text, mid);
     const fakeWs = new FakeWebSocket();
     await piBridge!.send(fakeWs, { sessionKey: sk, text: p.text, files: p.files, workingDirs: p.workingDirs });
+    piBridge!.logDebug("message-sent", { sessionKey: sk, messageId: mid, agent: p.agentId || meta.agentId, model: p.model || meta.model });
     return { messageId: mid, sessionKey: sk };
   },
 
@@ -336,6 +360,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   },
 
   compactSession: async (p) => {
+    piBridge!.logDebug("compact-session", { sessionKey: p.sessionKey });
     const fakeWs = new FakeWebSocket();
     return piBridge!.compact(String(p.sessionKey), fakeWs);
   },
