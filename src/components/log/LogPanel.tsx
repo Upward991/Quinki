@@ -234,7 +234,7 @@ export function LogPanel(props: LogPanelProps) {
   return (
     <div className="h-full flex flex-col" style={{ maxWidth: 'var(--spacing-chat-max)', margin: '0 auto', width: '100%', position: 'relative' }}>
       {/* Header */}
-      <div style={{ marginBottom: '12px', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+      <div style={{ marginBottom: '8px', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
         <div style={panelStyle}>
           <IconBtn icon={Home} onClick={() => props.onSelectPanel('home')} />
         </div>
@@ -357,7 +357,7 @@ export function LogPanel(props: LogPanelProps) {
                 onMouseEnter={() => setHoveredIdx(i)}
                 onMouseLeave={() => setHoveredIdx(null)}
                 style={{
-                  width: '100%', padding: '16px', marginBottom: '12px', borderRadius: 'var(--radius-lg)',
+                  width: '100%', padding: '16px', marginBottom: '8px', borderRadius: 'var(--radius-lg)',
                   backgroundColor: colors.bg, boxShadow: 'var(--shadow-floating)', position: 'relative',
                 }}
               >
