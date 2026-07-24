@@ -236,6 +236,7 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 		});
 		// === Done: finalize message with model/agent info ===
 		const unsubDone = subscribe("done", (params) => {
+			console.log("[DEBUG] done event params:", JSON.stringify(params));
 			setIsStreaming(false);
 			setStatusLabel(""); setStatusKind("");
 			const { messageId, text, model, agentName, thinkingLevel, stopReason, errorMessage } = params;
