@@ -453,7 +453,11 @@ export function useSidecarData(sidecarUrl = "ws://127.0.0.1:9182") {
 			try {
 				let sk = sessionKey || activeSessionId || "";
 				if (!sk) try {
-					const createResult = await call("createSession", { label: "New chat" });
+					const createResult = await call("createSession", { 
+						label: "New chat",
+						compactionAuto: (() => { try { let s = JSON.parse(localStorage.getItem('quinki-settings') || '{}'); return s.compaction !== false } catch { return true } })(),
+						mode: (() => { try { let s = JSON.parse(localStorage.getItem('quinki-settings') || '{}'); return s.defaultMode || 'build' } catch { return 'build' } })(),
+					});
 					if (createResult?.key || createResult?.sessionKey) {
 						sk = createResult.key || createResult.sessionKey;
 						setActiveSessionId(sk);
