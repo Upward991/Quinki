@@ -357,7 +357,7 @@ export function LogPanel(props: LogPanelProps) {
                 onMouseEnter={() => setHoveredIdx(i)}
                 onMouseLeave={() => setHoveredIdx(null)}
                 style={{
-                  width: '100%', padding: '16px', marginBottom: '8px', borderRadius: 'var(--radius-lg)',
+                  width: '100%', padding: '16px', marginBottom: '12px', borderRadius: 'var(--radius-lg)',
                   backgroundColor: colors.bg, boxShadow: 'var(--shadow-floating)', position: 'relative',
                 }}
               >
