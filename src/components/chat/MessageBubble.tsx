@@ -1,22 +1,400 @@
-import React from 'react'
-import { useState } from 'react'
+// ============================================================
+// MessageBubble — with markdown + syntax highlighting
+// Order: thinking → tool calls → tool results → text(markdown) → compaction → delegation
+// ============================================================
+
+import { useState, memo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import rehypeRaw from 'rehype-raw'
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
-import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
-import { BookOpen, Check, ChevronRight, Copy, Info } from '../icons'
+import rehypeHighlight from 'rehype-highlight'
+import 'highlight.js/styles/github-dark.css'
+import type { Message, DelegationBlock, ThinkingBlock, ToolCall, ToolResult, CompactionInfo } from '../../types'
+import { Copy, Check, Info, ChevronRight } from '../icons'
 
-const Kc = ReactMarkdown
-const Gd = remarkGfm
-const km = rehypeRaw
+interface MessageBubbleProps {
+  message: Message
+  onCopy?: (text: string) => void
+}
 
-export function MessageBubble({message:e,onCopy:t}){if(e.role===`assistant`||e.role===`tool_call`||e.role===`tool_result`||e.isError)return React.createElement(Pm,{message:e,onCopy:t});return React.createElement(`div`,{className:`user-message-content`,style:{width:`100%`,padding:`8px 16px`,backgroundColor:`var(--q-bubble-user)`,borderRadius:`12px`,boxShadow:`0 0 0 1px var(--q-border), inset 0 1px 0 rgba(255,255,255,0.02)`,border:`none`,animation:`msgSent 300ms cubic-bezier(0.16, 1, 0.3, 1)`},children:[React.createElement(`div`,{style:{color:`var(--q-bubble-user-text)`,fontSize:`14px`,lineHeight:1.5,fontFamily:`var(--font-interface)`,fontWeight:500,whiteSpace:`pre-wrap`,wordBreak:`break-word`,userSelect:`text`,WebkitUserSelect:`text`},children:e.content||``}),React.createElement(`div`,{style:{height:`8px`}}),React.createElement(Um,{content:e.content||``,timestamp:e.timestamp,onCopy:t})]})}function Nm({thinking:e,toolCalls:t,toolResults:n,compaction:r,delegations:i,content:a,isError:o,timestamp:s,messageId:mid}){return React.createElement(React.Fragment,{children:[(Array.isArray(e)?e:e?[e]:[])?.map((t,n)=>React.createElement(zm,{content:typeof t===`string`?t:t.content||``,messageId:e.id,toggleKey:`t-${n}`},`t-${n}`)),t?.map((e,t)=>React.createElement(Bm,{label:`Tool call`,toolName:e.name,body:e.input||``,isError:!1,messageId:_mid,toggleKey:`tc-${t}`},`tc-${t}`)),n?.map((e,t)=>React.createElement(Bm,{label:e.isError?`Tool error`:`Tool result`,toolName:e.name,body:e.output||``,isError:e.isError,messageId:_mid,toggleKey:`tr-${t}`},`tr-${t}`)),React.createElement(Fm,{text:a,isError:o}),r?.map((e,t)=>React.createElement(Vm,{content:e.content||``,isNoop:e.isNoop,messageId:_mid,toggleKey:`comp-${t}`},`comp-${t}`)),i?.map((e,t)=>React.createElement(Hm,{delegation:e,timestamp:s,messageId:mid},`d-${t}`))]})}function Pm({message:e,onCopy:t}){let n=e.isError,_mid=e.id;return React.createElement(`div`,{className:`assistant-content`,style:{maxWidth:`var(--spacing-chat-max)`,minWidth:0,overflow:`hidden`,animation:`materialize 400ms cubic-bezier(0.16, 1, 0.3, 1)`,userSelect:`text`,WebkitUserSelect:`text`},children:[(Array.isArray(e.thinking)?e.thinking:e.thinking?[e.thinking]:[])?.map((t,n)=>React.createElement(zm,{content:typeof t===`string`?t:t.content||``,messageId:_mid,toggleKey:`t-${n}`},`t-${n}`)),e.toolCalls?.map((e,t)=>React.createElement(Bm,{label:`Tool call`,toolName:e.name,body:e.input||``,isError:!1,messageId:_mid,toggleKey:`tc-${t}`},`tc-${t}`)),e.toolResults?.map((e,t)=>React.createElement(Bm,{label:e.isError?`Tool error`:`Tool result`,toolName:e.name,body:e.output||``,isError:e.isError,messageId:_mid,toggleKey:`tr-${t}`},`tr-${t}`)),e.isError&&e.errorContent&&React.createElement(`div`,{children:[React.createElement(`div`,{style:{padding:0},children:React.createElement(`div`,{style:{color:`var(--q-accent-danger)`,fontSize:`14px`,lineHeight:1.5,fontFamily:`var(--font-interface)`,fontWeight:500,whiteSpace:`pre-wrap`,wordBreak:`break-word`},children:e.errorContent})}),React.createElement(`div`,{style:{height:`8px`}}),React.createElement(Um,{content:e.errorContent||``,timestamp:e.timestamp,agentName:e.agentName,agentModel:e.agentModel,thinkingLevel:e.thinkingLevel,onCopy:t})]}),e.content&&!e.isError&&React.createElement(`div`,{children:[React.createElement(`div`,{style:{padding:`0`},children:React.createElement(Fm,{text:e.content||``,isError:n})}),React.createElement(`div`,{style:{height:`8px`}}),React.createElement(Um,{content:e.content||``,timestamp:e.timestamp,agentName:e.agentName,agentModel:e.agentModel,thinkingLevel:e.thinkingLevel,onCopy:t})]}),e.compaction?.map((e,t)=>React.createElement(Vm,{content:e.content||``,isNoop:e.isNoop,messageId:_mid,toggleKey:`comp-${t}`},`comp-${t}`)),e.delegations?.map((t,n)=>React.createElement(Hm,{delegation:t,timestamp:e.timestamp,messageId:_mid},`d-${n}`))]})}function Fm({text:e,isError:t}){return React.createElement(`div`,{className:`markdown-content`,style:{padding:`0`,userSelect:`text`,WebkitUserSelect:`text`,overflowWrap:`break-word`,wordBreak:`break-word`},children:React.createElement(Kc,{remarkPlugins:[Gd],rehypePlugins:[km],components:{pre:({children:e})=>React.createElement(Im,{children:e}),code:({children:e,className:t})=>{const lang=t?t.replace(/language-/,''):'text';if(t&&t.startsWith('language-')){return React.createElement(SyntaxHighlighter,{language:lang,style:oneDark,customStyle:{margin:0,backgroundColor:'var(--q-bg-code)',borderRadius:'8px',fontSize:'13px',fontFamily:'var(--font-code)'},codeTagProps:{style:{fontFamily:'var(--font-code)'}},children:String(e).replace(/\n$/,'')})}return React.createElement(`code`,{style:{backgroundColor:`var(--q-bg-code)`,padding:`2px 6px`,borderRadius:`var(--radius-sm)`,fontFamily:`var(--font-code)`,fontSize:`13px`,color:`var(--q-text)`},children:e})},p:({children:e})=>React.createElement(`p`,{style:{margin:`0 0 12px 0`,color:t?`var(--q-accent-danger)`:`var(--q-text)`,fontSize:`14px`,lineHeight:1.5,fontFamily:`var(--font-interface)`,fontWeight:500},children:e}),ul:({children:e})=>React.createElement(`ul`,{style:{margin:`0 0 12px 0`,color:`var(--q-text)`,fontSize:`14px`,lineHeight:1.5,paddingLeft:`20px`,listStyle:`none`},children:e}),ol:({children:e})=>React.createElement(`ol`,{style:{margin:`0 0 12px 0`,color:`var(--q-text)`,fontSize:`14px`,lineHeight:1.5,paddingLeft:`20px`},children:e}),li:({children:e,...t})=>React.createElement(`li`,{style:{marginBottom:`2px`,position:`relative`,paddingLeft:`4px`},children:[t.node?.parent?.tagName!==`ol`&&React.createElement(`span`,{style:{color:`var(--q-accent-info)`,position:`absolute`,left:`-14px`,fontSize:`8px`,display:`flex`,alignItems:`center`,height:`20px`},children:`●`}),e]}),strong:({children:e})=>React.createElement(`strong`,{style:{color:`var(--q-text)`,fontWeight:700},children:e}),a:({children:e,href:t})=>React.createElement(`a`,{href:t,style:{color:`var(--q-accent-info)`,textDecoration:`none`},target:`_blank`,rel:`noreferrer`,children:e}),h1:({children:e})=>React.createElement(`h1`,{style:{color:`var(--q-text)`,fontSize:`18px`,fontWeight:700,margin:`8px 0 4px`},children:e}),h2:({children:e})=>React.createElement(`h2`,{style:{color:`var(--q-text)`,fontSize:`16px`,fontWeight:700,margin:`8px 0 4px`},children:e}),h3:({children:e})=>React.createElement(`h3`,{style:{color:`var(--q-text)`,fontSize:`15px`,fontWeight:600,margin:`6px 0 4px`},children:e}),hr:()=>React.createElement(`hr`,{style:{border:`none`,borderTop:`1px solid var(--q-border)`,margin:`12px 0`}}),table:({children:e})=>React.createElement(`table`,{style:{borderCollapse:`collapse`,width:`100%`,margin:`0 0 12px 0`,fontSize:`14px`,fontFamily:`var(--font-interface)`},children:e}),
-thead:({children:e})=>React.createElement(`thead`,{style:{borderBottom:`1px solid var(--q-border)`},children:e}),
-tbody:({children:e})=>React.createElement(`tbody`,{children:e}),
-tr:({children:e})=>React.createElement(`tr`,{style:{borderBottom:`1px solid var(--q-border)`},children:e}),
-th:({children:e})=>React.createElement(`th`,{style:{padding:`8px 12px`,textAlign:`left`,color:`var(--q-text)`,fontWeight:700,boxShadow:`inset -1px 0 0 var(--q-border)`,borderBottom:`1px solid var(--q-border)`},children:e}),
-td:({children:e})=>React.createElement(`td`,{style:{padding:`8px 12px`,color:`var(--q-text)`,boxShadow:`inset -1px 0 0 var(--q-border)`},children:e}),
-blockquote:({children:e})=>React.createElement(`blockquote`,{style:{margin:`0 0 12px 0`,borderLeft:`2px solid var(--q-border)`,paddingLeft:`12px`,margin:`4px 0`,color:`var(--q-text-secondary)`},children:e})},children:e})})}function Im({children:e}){let[t,n]=useState(!1);return React.createElement(`div`,{style:{position:`relative`,backgroundColor:`var(--q-bg-code)`,borderRadius:`8px`,margin:`0 0 12px 0`,overflow:`hidden`,border:`1px solid var(--q-border)`},onMouseEnter:e=>{let b=e.currentTarget.querySelector(`.code-copy-btn`);if(b){b.style.opacity=`1`;b.style.color=`var(--q-text-secondary)`}},onMouseLeave:e=>{let b=e.currentTarget.querySelector(`.code-copy-btn`);if(b){b.style.opacity=`0`;b.style.color=`var(--q-text-tertiary)`}},children:[React.createElement(`button`,{className:`code-copy-btn`,onClick:()=>{let t=Lm(e);navigator.clipboard.writeText(t)},title:`Copy`,style:{position:`absolute`,top:`6px`,right:`6px`,zIndex:1,background:`none`,border:`none`,cursor:`pointer`,color:`var(--q-text-tertiary)`,padding:`4px`,display:`flex`,alignItems:`center`,borderRadius:`var(--radius-sm)`,opacity:0,transition:`opacity 200ms cubic-bezier(0.16, 1, 0.3, 1)`},children:React.createElement(Copy,{size:14})}),React.createElement(`pre`,{style:{padding:`16px`,overflow:`auto`,margin:0,backgroundColor:`transparent !important`},children:React.createElement(`code`,{style:{fontFamily:`var(--font-code)`,fontSize:`13px`,lineHeight:1.6,backgroundColor:`transparent !important`},children:e})})]})}function Lm(e){return typeof e==`string`?e:typeof e==`number`?String(e):Array.isArray(e)?e.map(Lm).join(``):e&&typeof e==`object`&&`props`in e?Lm(e.props?.children):``}function Rm({label:e,content:t,baseColor:n,baseColorRgb:r,isItalic:i,boldLabel:a,messageId:mid,toggleKey:tk}){t=String(t||``);let _tk=`toggle-${mid||'nomsg'}-${tk||e}`,_ts=typeof localStorage!==`undefined`?localStorage.getItem(_tk):null,[o,s]=useState(_ts===null?!0:_ts===`true`),[c,l]=useState(!1),[u,d]=useState(!1),[f,p]=useState(!1),_col=o?(c?n:`rgba(${r}, 0.35)`):n,h=c?`rgba(${r}, 0.06)`:`transparent`,g=o?String(t).split(`
-`)[0]?.substring(0,80):null;return React.createElement(`div`,{style:{marginBottom:`12px`},children:[React.createElement(`div`,{onMouseEnter:()=>l(!0),onMouseLeave:()=>l(!1),onClick:()=>{let nv=!o;s(nv);try{localStorage.setItem(_tk,String(nv))}catch(e){}},style:{cursor:`pointer`,backgroundColor:h,borderRadius:`var(--radius-md)`,padding:`8px`,transform:c?`translateX(2px)`:`translateX(0)`,transition:`background-color 120ms ease, transform 120ms ease`},children:React.createElement(`div`,{style:{display:`flex`,alignItems:`center`,gap:`8px`},children:[React.createElement(ChevronRight,{size:14,style:{color:_col,flexShrink:0,transform:o?`rotate(0deg)`:`rotate(90deg)`,transition:`transform 200ms cubic-bezier(0.16, 1, 0.3, 1)`}}),React.createElement(`span`,{style:{fontFamily:`var(--font-code)`,fontSize:`13px`,color:_col},children:[e,a&&React.createElement(`span`,{style:{fontFamily:`var(--font-code)`,fontSize:`13px`,fontWeight:600,color:_col},children:[` `,a]})]}),g&&React.createElement(`span`,{style:{fontFamily:`var(--font-code)`,fontSize:`13px`,color:`var(--q-text-tertiary)`,opacity:.6,overflow:`hidden`,textOverflow:`ellipsis`,whiteSpace:`nowrap`,flex:1},children:g}),!g&&React.createElement(`span`,{style:{flex:1}}),React.createElement(`button`,{onClick:e=>{e.stopPropagation()},onMouseEnter:()=>d(!0),onMouseLeave:()=>d(!1),style:{opacity:+!!c,background:`none`,border:`none`,cursor:`pointer`,padding:`4px`,borderRadius:`var(--radius-sm)`,backgroundColor:u?`var(--q-hover)`:`transparent`,color:_col,transition:`opacity 120ms ease`},children:React.createElement(Copy,{size:14})})]})}),!o&&React.createElement(`div`,{className:`toggle-content`,style:{marginTop:`12px`,padding:`8px 8px 8px 16px`,borderLeft:`2px solid ${n}`,overflow:`hidden`,maxWidth:`100%`,boxSizing:`border-box`,wordBreak:`break-word`,fontFamily:`var(--font-code)`,fontSize:`13px`,lineHeight:1.6,color:n,fontStyle:i?`italic`:`normal`,borderRadius:0,whiteSpace:`pre-wrap`,wordBreak:`break-word`,userSelect:`text`,WebkitUserSelect:`text`,animation:`materialize 300ms cubic-bezier(0.16, 1, 0.3, 1)`},children:t})]})}function zm({content:e,messageId:mid}){return React.createElement(Rm,{label:`Thinking`,content:e,baseColor:`var(--q-thinking)`,baseColorRgb:`157, 139, 217`,isItalic:!0,messageId:mid})}function Bm({label:e,toolName:t,body:n,isError:r,messageId:mid}){return React.createElement(Rm,{label:e,boldLabel:t,content:String(n||``),baseColor:r?`var(--q-accent-danger)`:e===`Tool call`?`var(--q-tool-call)`:`var(--q-tool-result)`,baseColorRgb:r?`217, 107, 107`:e===`Tool call`?`210, 153, 34`:`107, 196, 109`,messageId:mid})}function Vm({content:e,isNoop:t,messageId:mid}){return React.createElement(Rm,{label:`Compaction`,boldLabel:t?`ineffective`:`effective`,content:e,baseColor:t?`var(--q-accent-orange)`:`var(--q-accent-info)`,baseColorRgb:t?`217, 160, 102`:`122, 162, 247`,messageId:mid})}function Hm({delegation:e,timestamp:t,messageId:mid}){let _hk=`toggle-${mid||'nomsg'}-del`,_hs=typeof localStorage!==`undefined`?localStorage.getItem(_hk):null,[n,r]=useState(_hs===null?!0:_hs===`true`),[i,a]=useState(!1),[o,s]=useState(!1),[c,l]=useState(!1),u=`var(--q-delegation)`,d=`201, 112, 132`,f=n?(i?u:`rgba(${d}, 0.35)`):u,p=i?`rgba(${d}, 0.06)`:`transparent`,m=n?String(e.response||``).split(`
-`)[0]?.substring(0,80):null;return React.createElement(`div`,{style:{marginBottom:`12px`},children:[React.createElement(`div`,{onMouseEnter:()=>a(!0),onMouseLeave:()=>a(!1),onClick:()=>{let nv=!n;r(nv);try{localStorage.setItem(_hk,String(nv))}catch(e){}},style:{cursor:`pointer`,backgroundColor:p,borderRadius:`var(--radius-md)`,padding:`8px`,transform:i?`translateX(2px)`:`translateX(0)`,transition:`background-color 120ms ease, transform 120ms ease`},children:React.createElement(`div`,{style:{display:`flex`,alignItems:`center`,gap:`8px`},children:[React.createElement(ChevronRight,{size:14,style:{color:f,flexShrink:0,transform:n?`rotate(0deg)`:`rotate(90deg)`,transition:`transform 200ms cubic-bezier(0.16, 1, 0.3, 1)`}}),React.createElement(`span`,{style:{fontFamily:`var(--font-code)`,fontSize:`13px`,color:f},children:`Delegated to`}),React.createElement(`span`,{style:{fontFamily:`var(--font-code)`,fontSize:`13px`,fontWeight:600,color:f},children:e.agentName}),m&&React.createElement(`span`,{style:{fontFamily:`var(--font-code)`,fontSize:`13px`,color:`var(--q-text-tertiary)`,opacity:.6,overflow:`hidden`,textOverflow:`ellipsis`,whiteSpace:`nowrap`,flex:1},children:m}),!m&&React.createElement(`span`,{style:{flex:1}}),React.createElement(`button`,{onClick:e=>{e.stopPropagation(),l(!0),setTimeout(()=>l(!1),2e3)},onMouseEnter:()=>s(!0),onMouseLeave:()=>s(!1),style:{opacity:+!!i,background:`none`,border:`none`,cursor:`pointer`,padding:`4px`,borderRadius:`var(--radius-sm)`,backgroundColor:o?`var(--q-hover)`:`transparent`,color:f,transition:`opacity 120ms ease`},children:React.createElement(Copy,{size:14})})]})}),!n&&React.createElement(`div`,{className:`toggle-content`,style:{marginTop:`12px`,padding:`8px 8px 8px 16px`,borderLeft:`2px solid ${u}`,overflow:`hidden`,maxWidth:`100%`,boxSizing:`border-box`,userSelect:`text`,WebkitUserSelect:`text`,animation:`materialize 300ms cubic-bezier(0.16, 1, 0.3, 1)`},children:[React.createElement(`div`,{style:{width:`100%`,marginBottom:`8px`,padding:`8px 16px`,backgroundColor:`var(--q-bubble-user)`,borderRadius:`12px`,boxShadow:`0 0 0 1px var(--q-border), inset 0 1px 0 rgba(255,255,255,0.02)`,border:`none`},children:[React.createElement(`div`,{style:{color:`var(--q-bubble-user-text)`,fontSize:`14px`,lineHeight:1.5,fontFamily:`var(--font-interface)`},children:e.taskContent}),React.createElement(`div`,{style:{display:`flex`,alignItems:`center`,gap:`8px`,marginTop:`12px`},children:[React.createElement(Copy,{size:16,style:{color:`var(--q-text-tertiary)`}}),React.createElement(`span`,{style:{color:`var(--q-text-tertiary)`,fontSize:`12px`},children:Wm(t)})]})]}),React.createElement(Nm,{thinking:e.thinking,toolCalls:e.toolCalls,toolResults:e.toolResults,compaction:e.compaction,delegations:e.delegations,messageId:e.id,content:e.response,timestamp:t}),React.createElement(Um,{content:e.response,timestamp:t,agentName:e.agentName,agentModel:e.agentModel,thinkingLevel:e.thinkingLevel})]})]})}function Um({content:e,timestamp:t,agentName:n,agentModel:r,thinkingLevel:i,onCopy:a}){let[o,s]=useState(!1),[c,l]=useState(!1),[u,d]=useState(!1),[f,p]=useState(!1),m=[];n&&m.push(n),r&&m.push(r),i&&i!==`off`?m.push(`On (${i})`):i===`off`&&m.push(`Off`);return React.createElement(`div`,{style:{display:`flex`,alignItems:`center`,gap:`8px`,padding:`0`,lineHeight:`1`},children:[React.createElement(`button`,{onClick:()=>{navigator.clipboard.writeText(e||``)},title:`Copy`,onMouseEnter:()=>d(!0),onMouseLeave:()=>d(!1),style:{background:`none`,border:`none`,cursor:`pointer`,padding:`4px`,display:`flex`,alignItems:`center`,lineHeight:`1`,color:u?`var(--q-text-secondary)`:`var(--q-text-tertiary)`,borderRadius:`var(--radius-sm)`,transition:`color 120ms cubic-bezier(0.16, 1, 0.3, 1)`},children:React.createElement(Copy,{size:16})}),React.createElement(`span`,{style:{color:`var(--q-text-tertiary)`,fontSize:`12px`,fontFamily:`var(--font-interface)`,lineHeight:`16px`,display:`flex`,alignItems:`center`},children:Wm(t)}),(n||r||i)&&React.createElement(`button`,{onClick:()=>l(!c),title:`Info`,onMouseEnter:()=>p(!0),onMouseLeave:()=>p(!1),style:{background:`none`,border:`none`,cursor:`pointer`,padding:`4px`,display:`flex`,alignItems:`center`,lineHeight:`1`,color:f?`var(--q-text-secondary)`:`var(--q-text-tertiary)`,borderRadius:`var(--radius-sm)`,transition:`color 120ms cubic-bezier(0.16, 1, 0.3, 1)`},children:React.createElement(Info,{size:16})}),c&&m.length>0&&React.createElement(`span`,{style:{color:`var(--q-text-tertiary)`,fontSize:`12px`,fontFamily:`var(--font-interface)`,lineHeight:`16px`,display:`flex`,alignItems:`center`},children:m.join(`   ·   `)})]})}function Wm(e){let t=new Date(e),d=t.getDate(),mo=[`January`,`February`,`March`,`April`,`May`,`June`,`July`,`August`,`September`,`October`,`November`,`December`][t.getMonth()],y=t.getFullYear(),h=String(t.getHours()).padStart(2,`0`),mi=String(t.getMinutes()).padStart(2,`0`),s=String(t.getSeconds()).padStart(2,`0`);return d+` `+mo+` `+y+`, `+h+`:`+mi+`:`+s}
+export const MessageBubble = memo(function MessageBubble({ message, onCopy }: MessageBubbleProps) {
+  if (message.role === 'user') return <UserMessage message={message} onCopy={onCopy} />
+  return <AssistantMessage message={message} onCopy={onCopy} />
+})
+
+// ── User message ──
+function UserMessage({ message, onCopy }: { message: Message; onCopy?: (t: string) => void }) {
+  // state removed
+  return (
+    <div className="user-message-content" style={{ width: '100%', padding: '10px 16px', backgroundColor: 'var(--q-bubble-user)', borderRadius: '12px', boxShadow: '0 0 0 1px var(--q-border), inset 0 1px 0 rgba(255,255,255,0.02)', border: 'none', animation: 'msgSent 300ms cubic-bezier(0.16, 1, 0.3, 1)' }}>
+      <div style={{ color: 'var(--q-bubble-user-text)', fontSize: '14px', lineHeight: 1.5, fontFamily: 'var(--font-interface)', fontWeight: 500, whiteSpace: 'pre-wrap', wordBreak: 'break-word', userSelect: 'text', WebkitUserSelect: 'text' }}>
+        {message.content}
+      </div>
+      <Footer content={message.content || ""} timestamp={message.timestamp} onCopy={onCopy} />
+    </div>
+  )
+}
+
+// ── SHARED: MessageBlocks — renders thinking, tool calls, tool results, compaction, delegation, text
+// Used by BOTH AssistantMessage and DelegationBlockView
+// If a new block type is added here, it automatically works in both chat and delegation
+function MessageBlocks({ thinking, toolCalls, toolResults, compaction, delegations, content, isError, timestamp }: {
+  thinking?: ThinkingBlock[]
+  toolCalls?: ToolCall[]
+  toolResults?: ToolResult[]
+  compaction?: CompactionInfo[]
+  delegations?: DelegationBlock[]
+  content: string
+  isError?: boolean
+  timestamp: string
+}) {
+  return (
+    <>
+      {/* Thinking */}
+      {thinking?.map((t, i) => <ThinkingToggle key={`t-${i}`} content={t.content || ""} />)}
+
+      {/* Tool calls */}
+      {toolCalls?.map((tc, i) => <ToolToggle key={`tc-${i}`} label="Tool call" toolName={tc.name} body={tc.input} isError={false} />)}
+
+      {/* Tool results (error + success) */}
+      {toolResults?.map((tr, i) => <ToolToggle key={`tr-${i}`} label={tr.isError ? 'Tool error' : 'Tool result'} toolName={tr.name} body={tr.output} isError={tr.isError} />)}
+
+      {/* Text content with markdown + code blocks */}
+      <MarkdownContent text={content} isError={isError} />
+
+      {/* Compaction toggles (blue + orange, in order) */}
+      {compaction?.map((comp, i) => (
+        <CompactionToggle key={`comp-${i}`} content={comp.content || ""} isNoop={comp.isNoop} />
+      ))}
+
+      {/* Delegation */}
+      {delegations?.map((d, i) => <DelegationBlockView key={`d-${i}`} delegation={d} timestamp={timestamp} />)}
+    </>
+  )
+}
+
+// ── Assistant message ──
+function AssistantMessage({ message, onCopy }: { message: Message; onCopy?: (t: string) => void }) {
+  const isError = message.isError
+
+  return (
+    <div className="assistant-content" style={{ maxWidth: 'var(--spacing-chat-max)', minWidth: 0, animation: 'materialize 400ms cubic-bezier(0.16, 1, 0.3, 1)', userSelect: 'text', WebkitUserSelect: 'text' }}>
+      {/* Thinking, tool calls, tool results — NO footer after these */}
+      {message.thinking?.map((t, i) => <ThinkingToggle key={`t-${i}`} content={t.content || ""} />)}
+      {message.toolCalls?.map((tc, i) => <ToolToggle key={`tc-${i}`} label="Tool call" toolName={tc.name} body={tc.input} isError={false} />)}
+      {message.toolResults?.map((tr, i) => <ToolToggle key={`tr-${i}`} label={tr.isError ? 'Tool error' : 'Tool result'} toolName={tr.name} body={tr.output} isError={tr.isError} />)}
+
+      {/* Error message — same as normal text but in red, no border/box */}
+      {message.isError && message.errorContent && (
+        <div>
+          <div style={{ padding: '4px 0' }}>
+            <div style={{ color: 'var(--q-accent-danger)', fontSize: '14px', lineHeight: 1.5, fontFamily: 'var(--font-interface)', fontWeight: 500, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+              {message.errorContent}
+            </div>
+          </div>
+          <Footer
+            content={message.errorContent}
+            timestamp={message.timestamp}
+            agentName={message.agentName}
+            agentModel={message.agentModel}
+            thinkingLevel={message.thinkingLevel}
+            onCopy={onCopy}
+          />
+        </div>
+      )}
+
+      {/* Text content + footer TOGETHER — footer only after text, never after toggles */}
+      {message.content && !message.isError && (
+        <div>
+          <div style={{ padding: '4px 0' }}>
+            <MarkdownContent text={message.content} isError={isError} />
+
+          </div>
+          <Footer
+            content={message.content}
+            timestamp={message.timestamp}
+            agentName={message.agentName}
+            agentModel={message.agentModel}
+            thinkingLevel={message.thinkingLevel}
+            onCopy={onCopy}
+          />
+        </div>
+      )}
+
+      {/* Compaction + delegation — AFTER text+footer, NO footer */}
+      {message.compaction?.map((comp, i) => (
+        <CompactionToggle key={`comp-${i}`} content={comp.content || ""} isNoop={comp.isNoop} />
+      ))}
+      {message.delegations?.map((d, i) => <DelegationBlockView key={`d-${i}`} delegation={d} timestamp={message.timestamp} />)}
+    </div>
+  )
+}
+
+// ── Markdown content with code blocks (copy + syntax highlighting) ──
+function MarkdownContent({ text, isError }: { text: string; isError?: boolean }) {
+  return (
+    <div className="markdown-content" style={{ padding: '4px 0', userSelect: 'text', WebkitUserSelect: 'text' }}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeHighlight]}
+        components={{
+          // Code block (triple backtick)
+          pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
+          // Inline code
+          code: ({ children, className }) => {
+            // If has className (inside pre/code block), render the code text with highlight
+            if (className) {
+              return <code className={className} style={{ fontFamily: 'var(--font-code)', fontSize: '13px', lineHeight: 1.6 }}>{children}</code>
+            }
+            // Inline code
+            return <code style={{ backgroundColor: 'var(--q-bg-code)', padding: '2px 6px', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-code)', fontSize: '13px', color: 'var(--q-text)' }}>{children}</code>
+          },
+          p: ({ children }) => <p style={{ color: isError ? 'var(--q-accent-danger)' : 'var(--q-text)', fontSize: '14px', lineHeight: 1.5, fontFamily: 'var(--font-interface)', fontWeight: 500, margin: '4px 0' }}>{children}</p>,
+          ul: ({ children }) => <ul style={{ color: 'var(--q-text)', fontSize: '14px', lineHeight: 1.5, paddingLeft: '20px', margin: '4px 0', listStyle: 'none' }}>{children}</ul>,
+          ol: ({ children }) => <ol style={{ color: 'var(--q-text)', fontSize: '14px', lineHeight: 1.5, paddingLeft: '20px', margin: '4px 0' }}>{children}</ol>,
+          li: ({ children, ...props }) => {
+            const ordered = (props as any).node?.parent?.tagName === 'ol'
+            return (
+              <li style={{ marginBottom: '2px', position: 'relative', paddingLeft: '4px' }}>
+                {!ordered && <span style={{ color: 'var(--q-accent-primary)', position: 'absolute', left: '-14px' }}>•</span>}
+                {children}
+              </li>
+            )
+          },
+          strong: ({ children }) => <strong style={{ color: 'var(--q-text)', fontWeight: 700 }}>{children}</strong>,
+          a: ({ children, href }) => <a href={href} style={{ color: 'var(--q-accent-info-bright)', textDecoration: 'none' }} target="_blank" rel="noreferrer">{children}</a>,
+          h1: ({ children }) => <h1 style={{ color: 'var(--q-text)', fontSize: '18px', fontWeight: 700, margin: '8px 0 4px' }}>{children}</h1>,
+          h2: ({ children }) => <h2 style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 700, margin: '8px 0 4px' }}>{children}</h2>,
+          h3: ({ children }) => <h3 style={{ color: 'var(--q-text)', fontSize: '15px', fontWeight: 600, margin: '6px 0 4px' }}>{children}</h3>,
+          blockquote: ({ children }) => <blockquote style={{ borderLeft: '2px solid var(--q-border)', paddingLeft: '12px', margin: '4px 0', color: 'var(--q-text-secondary)' }}>{children}</blockquote>,
+        }}
+      >
+        {text}
+      </ReactMarkdown>
+    </div>
+  )
+}
+
+// ── Code block with copy button + syntax highlighting ──
+function CodeBlock({ children }: { children: React.ReactNode }) {
+  const [copied, setCopied] = useState(false)
+  const handleCopy = () => {
+    const text = extractText(children)
+    navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <div style={{ position: 'relative', backgroundColor: 'var(--q-bg-code)', borderRadius: 'var(--radius-md)', margin: '8px 0', overflow: 'hidden' }}>
+      {/* Copy button top right */}
+      <button
+        onClick={handleCopy}
+        title="Copy"
+        style={{
+          position: 'absolute', top: '6px', right: '6px', zIndex: 1,
+          background: 'none', border: 'none', cursor: 'pointer',
+          color: 'var(--q-text-tertiary)', padding: '4px',
+          display: 'flex', alignItems: 'center', borderRadius: 'var(--radius-sm)',
+          opacity: 0.6, transition: 'opacity 150ms ease',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.opacity = '1' }}
+        onMouseLeave={e => { e.currentTarget.style.opacity = '0.6' }}
+      >
+        {copied ? <Check size={14} style={{ color: 'var(--q-accent-success)' }} /> : <Copy size={14} />}
+      </button>
+      {/* Code content */}
+      <pre style={{ padding: '12px', overflow: 'auto', margin: 0, backgroundColor: 'transparent !important' }}>
+        <code style={{ fontFamily: 'var(--font-code)', fontSize: '13px', lineHeight: 1.6, backgroundColor: 'transparent !important' }}>
+          {children}
+        </code>
+      </pre>
+    </div>
+  )
+}
+
+function extractText(node: React.ReactNode): string {
+  if (typeof node === 'string') return node
+  if (typeof node === 'number') return String(node)
+  if (Array.isArray(node)) return node.map(extractText).join('')
+  if (node && typeof node === 'object' && 'props' in node) {
+    return extractText((node as any).props?.children)
+  }
+  return ''
+}
+
+// ── Generic toggle (thinking, tool, compaction — all same structure) ──
+function GenericToggle({ label, content, baseColor, baseColorRgb, isItalic, boldLabel }: {
+  label: string; content: string; baseColor: string; baseColorRgb: string; isItalic?: boolean; boldLabel?: string
+}) {
+  const [collapsed, setCollapsed] = useState(true)
+  const [hovered, setHovered] = useState(false)
+  const [copyHovered, setCopyHovered] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  const color = collapsed ? (hovered ? `rgba(${baseColorRgb}, 0.70)` : `rgba(${baseColorRgb}, 0.50)`) : baseColor
+  const bg = hovered ? `rgba(${baseColorRgb}, 0.04)` : 'transparent'
+  const preview = collapsed ? content.split('\n')[0]?.substring(0, 80) : null
+
+  return (
+    <div style={{ marginTop: '4px' }}>
+      <div onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} onClick={() => setCollapsed(!collapsed)}
+        style={{ cursor: 'pointer', backgroundColor: bg, borderRadius: 'var(--radius-md)', padding: '8px', transform: hovered ? 'translateX(2px)' : 'translateX(0)', transition: 'background-color 120ms ease, transform 120ms ease' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <ChevronRight size={14} style={{ color, flexShrink: 0, transform: collapsed ? 'rotate(0deg)' : 'rotate(90deg)', transition: 'transform 200ms cubic-bezier(0.16, 1, 0.3, 1)' }} />
+          <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color }}>{label}{boldLabel && <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', fontWeight: 600, color }}>{' '}{boldLabel}</span>}</span>
+          {preview && <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color: 'var(--q-text-tertiary)', opacity: 0.6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{preview}</span>}
+          {!preview && <span style={{ flex: 1 }} />}
+          <button onClick={(e) => { e.stopPropagation(); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
+            onMouseEnter={() => setCopyHovered(true)} onMouseLeave={() => setCopyHovered(false)}
+            style={{ opacity: hovered ? 1 : 0, background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: 'var(--radius-sm)', backgroundColor: copyHovered ? 'var(--q-hover)' : 'transparent', color, transition: 'opacity 120ms ease' }}>
+            {copied ? <Check size={14} /> : <Copy size={14} />}
+          </button>
+        </div>
+      </div>
+      {!collapsed && (
+        <div className="toggle-content" style={{ marginTop: '4px', padding: '8px 8px 8px 16px', borderLeft: `2px solid ${baseColor}`, fontFamily: 'var(--font-code)', fontSize: '13px', lineHeight: 1.6, color: baseColor, fontStyle: isItalic ? 'italic' : 'normal', borderRadius: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', userSelect: 'text', WebkitUserSelect: 'text', animation: 'materialize 300ms cubic-bezier(0.16, 1, 0.3, 1)' }}>
+          {content}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ThinkingToggle({ content }: { content: string }) {
+  return <GenericToggle label="Thinking" content={content} baseColor="var(--q-thinking)" baseColorRgb="157, 139, 217" isItalic />
+}
+
+function ToolToggle({ label, toolName, body, isError }: { label: string; toolName: string; body: string; isError: boolean }) {
+  const baseColor = isError ? 'var(--q-accent-danger)' : label === 'Tool call' ? 'var(--q-tool-call)' : 'var(--q-tool-result)'
+  const baseColorRgb = isError ? '217, 107, 107' : label === 'Tool call' ? '210, 153, 34' : '107, 196, 109'
+  return <GenericToggle label={label} boldLabel={toolName} content={body} baseColor={baseColor} baseColorRgb={baseColorRgb} />
+}
+
+function CompactionToggle({ content, isNoop }: { content: string; isNoop: boolean }) {
+  const baseColor = isNoop ? 'var(--q-accent-orange)' : 'var(--q-accent-info)'
+  const baseColorRgb = isNoop ? '217, 160, 102' : '122, 162, 247'
+  return <GenericToggle label='Compaction' boldLabel={isNoop ? 'ineffective' : 'effective'} content={content} baseColor={baseColor} baseColorRgb={baseColorRgb} />
+}
+
+// ── Delegation block (full chat structure inside) ──
+function DelegationBlockView({ delegation, timestamp }: { delegation: DelegationBlock; timestamp: string }) {
+  const [collapsed, setCollapsed] = useState(true)
+  const [hovered, setHovered] = useState(false)
+  const [copyHovered, setCopyHovered] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  const baseColor = 'var(--q-delegation)'
+  const baseColorRgb = '201, 112, 132'
+  const color = collapsed ? (hovered ? `rgba(${baseColorRgb}, 0.70)` : `rgba(${baseColorRgb}, 0.50)`) : baseColor
+  const bg = hovered ? `rgba(${baseColorRgb}, 0.04)` : 'transparent'
+  const preview = collapsed ? delegation.response.split('\n')[0]?.substring(0, 80) : null
+
+  return (
+    <div style={{ marginTop: '4px' }}>
+      <div onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} onClick={() => setCollapsed(!collapsed)}
+        style={{ cursor: 'pointer', backgroundColor: bg, borderRadius: 'var(--radius-md)', padding: '8px', transform: hovered ? 'translateX(2px)' : 'translateX(0)', transition: 'background-color 120ms ease, transform 120ms ease' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <ChevronRight size={14} style={{ color, flexShrink: 0, transform: collapsed ? 'rotate(0deg)' : 'rotate(90deg)', transition: 'transform 200ms cubic-bezier(0.16, 1, 0.3, 1)' }} />
+          <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color }}>Delegated to</span>
+          <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', fontWeight: 600, color }}>{delegation.agentName}</span>
+          {preview && <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color: 'var(--q-text-tertiary)', opacity: 0.6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{preview}</span>}
+          {!preview && <span style={{ flex: 1 }} />}
+          <button onClick={(e) => { e.stopPropagation(); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
+            onMouseEnter={() => setCopyHovered(true)} onMouseLeave={() => setCopyHovered(false)}
+            style={{ opacity: hovered ? 1 : 0, background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: 'var(--radius-sm)', backgroundColor: copyHovered ? 'var(--q-hover)' : 'transparent', color, transition: 'opacity 120ms ease' }}>
+            {copied ? <Check size={14} /> : <Copy size={14} />}
+          </button>
+        </div>
+      </div>
+
+      {!collapsed && (
+        <div className="toggle-content" style={{ marginTop: '4px', padding: '8px 8px 8px 16px', borderLeft: `2px solid ${baseColor}`, userSelect: 'text', WebkitUserSelect: 'text', animation: 'materialize 300ms cubic-bezier(0.16, 1, 0.3, 1)' }}>
+          {/* User message (task) */}
+          <div style={{ width: '100%', marginBottom: '8px', padding: '10px 16px', backgroundColor: 'var(--q-bubble-user)', borderRadius: '12px', boxShadow: '0 0 0 1px var(--q-border), inset 0 1px 0 rgba(255,255,255,0.02)', border: 'none' }}>
+            <div style={{ color: 'var(--q-bubble-user-text)', fontSize: '14px', lineHeight: 1.5, fontFamily: 'var(--font-interface)' }}>{delegation.taskContent}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+              <Copy size={16} style={{ color: 'var(--q-text-tertiary)' }} />
+              <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px' }}>{fmtTime(timestamp)}</span>
+            </div>
+          </div>
+
+          {/* ALL blocks via shared MessageBlocks — same as chat */}
+          <MessageBlocks
+            thinking={delegation.thinking}
+            toolCalls={delegation.toolCalls}
+            toolResults={delegation.toolResults}
+            compaction={delegation.compaction}
+            delegations={delegation.delegations}
+            content={delegation.response}
+            timestamp={timestamp}
+          />
+
+          <Footer
+            content={delegation.response}
+            timestamp={timestamp}
+            agentName={delegation.agentName}
+            agentModel={delegation.agentModel}
+            thinkingLevel={delegation.thinkingLevel}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+
+// ── SHARED Footer — used by user, assistant, AND delegation ──
+function Footer({ content, timestamp, agentName, agentModel, thinkingLevel, onCopy }: {
+  content: string; timestamp: string; agentName?: string; agentModel?: string; thinkingLevel?: string; onCopy?: (t: string) => void
+}) {
+  const [copied, setCopied] = useState(false)
+  const [infoOpen, setInfoOpen] = useState(false)
+
+  const infoParts: string[] = []
+  if (agentName) infoParts.push(agentName)
+  if (agentModel) infoParts.push(agentModel)
+  if (thinkingLevel && thinkingLevel !== 'off') infoParts.push(`On (${thinkingLevel})`)
+  else if (thinkingLevel === 'off') infoParts.push('Off')
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0', lineHeight: '1' }}>
+      <button
+        onClick={() => { onCopy?.(content); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
+        title="Copy"
+        onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)'; e.currentTarget.style.borderRadius = '4px' }}
+        onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', lineHeight: '1', color: 'var(--q-text-tertiary)', borderRadius: '6px', transition: 'background-color 0.15s ease' }}
+      >
+        {copied ? <Check size={16} style={{ color: 'var(--q-accent-success)' }} /> : <Copy size={16} />}
+      </button>
+      <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', lineHeight: '16px', display: 'flex', alignItems: 'center' }}>
+        {fmtTime(timestamp)}
+      </span>
+      {(agentName || agentModel || thinkingLevel) && (
+        <button
+          onClick={() => setInfoOpen(!infoOpen)}
+          title="Info"
+          onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)'; e.currentTarget.style.borderRadius = '4px' }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', lineHeight: '1', color: 'var(--q-text-tertiary)', borderRadius: '6px', transition: 'background-color 0.15s ease' }}
+        >
+          <Info size={16} />
+        </button>
+      )}
+      {infoOpen && infoParts.length > 0 && (
+        <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', lineHeight: '16px', display: 'flex', alignItems: 'center' }}>
+          {infoParts.join(' · ')}
+        </span>
+      )}
+    </div>
+  )
+}
+
+// CopyBtn removed — unused
+
+function fmtTime(timestamp: string): string {
+  const d = new Date(timestamp)
+  const date = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+  const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+  return date + ', ' + time
+}

@@ -6,7 +6,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import type { Provider, Agent, ChatMode, ThinkingLevel } from '../../types'
-import { Paperclip, ChevronUp, ChevronDown, Bot, ArrowDown} from '../icons'
+import { Paperclip, ChevronUp, ChevronDown, Bot } from '../icons'
 import { SlashMenu, type SlashMenuRef } from './SlashMenu'
 
 interface ComposerProps {
@@ -150,7 +150,7 @@ export function Composer(props: ComposerProps) {
               setSlashMenuOpen(false); setSlashFilter('')
             }
             // @mention detection
-            if (val.startsWith('@') && !val.includes(' ') && !val.includes(`\n`)) {
+            if (val.startsWith('@') && !val.includes(' ') && !val.includes('\n')) {
               setMentionOpen(true); setMentionFilter(val.slice(1)); setSlashMenuOpen(false)
             } else if (!val.startsWith('@')) {
               setMentionOpen(false); setMentionFilter('')
@@ -362,7 +362,7 @@ function SendButton({ enabled, onClick }: { enabled: boolean; onClick: () => voi
         width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
         transform: hovered && enabled ? 'scale(1.05)' : 'scale(1)', borderRadius: '8px',
         border: 'none', cursor: enabled ? 'pointer' : 'default',
-        backgroundColor: enabled ? (hovered ? 'var(--q-accent-info-darker)' : 'var(--q-accent-info-darker)') : 'var(--q-hover)',
+        backgroundColor: enabled ? (hovered ? 'var(--q-accent-info-bright)' : 'var(--q-accent-info)') : 'var(--q-hover)',
         color: enabled ? '#FFFFFF' : 'var(--q-text-tertiary)',
         flexShrink: 0, padding: '0',
         transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms cubic-bezier(0.16, 1, 0.3, 1), transform 120ms cubic-bezier(0.16, 1, 0.3, 1)',

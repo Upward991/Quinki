@@ -1,5 +1,499 @@
-import React from 'react'
-import { useState } from 'react'
-import { Bot, Brain, Calendar, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Clock, Cpu, Download, Folder, Home, MessageSquare, Network, RefreshCw, Search, Shield, X, PanelLeft, FolderAdd} from '../icons'
+// ============================================================
+// ChatHeader — all menus positioned relative to their own button
+// ============================================================
 
-export function ChatHeader(e){let t=e.welcomeMode??!1,n=e.activePanel===`expert`,[r,i]=useState(!1),[a,o]=useState(!1),[s,c]=useState(!1),[l,u]=useState(``),[d,f]=useState(``),[p,m]=useState(``),[h,g]=useState(null),[_,y]=useState(null),[b,x]=useState(!1),[S,C]=useState(new Set),[w,T]=useState(null),[E,D]=useState(null),[O,k]=useState(!1),A=e=>{if(e>=1e6){let t=e/1e6;return t%1==0?`${t}M`:`${t.toFixed(1)}M`}return e>=1e3?`${Math.floor(e/1e3)}K`:`${e}`},j=e.contextWindow>0?Math.floor(e.contextTokens/e.contextWindow*100):0,M=j>=80?`var(--q-accent-danger)`:j>=50?`var(--q-accent-warning)`:`var(--q-text)`,N={backgroundColor:`var(--q-bg-panel)`,borderRadius:`var(--radius-lg)`,boxShadow:`var(--shadow-floating)`,padding:`8px`,minHeight:`var(--spacing-header-min)`,display:`flex`,alignItems:`center`},P={position:`absolute`,top:`calc(100% + 8px)`,right:`0`,zIndex:50,backgroundColor:`var(--q-bg-panel)`,borderRadius:`var(--radius-lg)`,boxShadow:`var(--shadow-floating)`},F={position:`fixed`,inset:0,zIndex:40,backgroundColor:`transparent`},I={position:`fixed`,inset:0,zIndex:200,backgroundColor:`transparent`};return React.createElement(React.Fragment,{children:[React.createElement(`div`,{className:`flex items-center`,children:[React.createElement(`div`,{style:N,children:React.createElement(Ym,{icon:Home,onClick:()=>e.onSelectPanel(`home`),title:`Home`})}),React.createElement(`div`,{style:{width:`8px`,flexShrink:0}}),!n&&React.createElement(React.Fragment,{children:[React.createElement(`div`,{style:N,children:React.createElement(Ym,{icon:PanelLeft,onClick:e.onToggleSidebar,title:e.sidebarOpen?`Hide sidebar`:`Show sidebar`})}),React.createElement(`div`,{style:{width:`8px`,flexShrink:0}})]}),React.createElement(`div`,{style:{...N,flex:1},children:[React.createElement(`div`,{style:{width:`8px`,flexShrink:0}}),React.createElement(MessageSquare,{size:18,style:{color:`var(--q-text-secondary)`,flexShrink:0}}),React.createElement(`div`,{style:{width:`12px`,flexShrink:0}}),React.createElement(`span`,{style:{color:t?`var(--q-text-tertiary)`:`var(--q-text)`,fontSize:`16px`,fontWeight:t?400:600,fontStyle:t?`italic`:`normal`,fontFamily:`var(--font-interface)`,flex:1,overflow:`hidden`,textOverflow:`ellipsis`,whiteSpace:`nowrap`},children:t?`The chat title will be generated automatically`:e.session?.title??`Chat`}),React.createElement(`div`,{style:{position:`relative`},children:[React.createElement(`button`,{onClick:()=>c(!s),style:{color:M,fontFamily:`var(--font-code)`,fontSize:`13px`,padding:`4px 8px`,borderRadius:`var(--radius-md)`,border:`none`,cursor:`pointer`,backgroundColor:s?`var(--q-hover)`:`transparent`,whiteSpace:`nowrap`,flexShrink:0},children:e.contextTokens>0?`${A(e.contextTokens)}/${A(e.contextWindow)} (${j}%)`:`0/${A(e.contextWindow)} (0%)`}),s&&React.createElement(React.Fragment,{children:[React.createElement(`div`,{style:F,onClick:()=>c(!1)}),React.createElement(`div`,{style:{...P,minWidth:`260px`,maxWidth:`300px`,padding:`12px`},children:[React.createElement(`div`,{style:{textAlign:`center`,color:`var(--q-text-tertiary)`,fontSize:`10px`,fontWeight:600,letterSpacing:`0.8px`,fontFamily:`var(--font-code)`,marginBottom:`6px`},children:`CONTEXT`}),React.createElement(qm,{label:`Total`,value:A(e.contextWindow)}),React.createElement(qm,{label:`Input`,value:`0`}),React.createElement(qm,{label:`Output`,value:`0`}),React.createElement(qm,{label:`Used`,value:A(e.contextTokens)}),React.createElement(qm,{label:`Percent`,value:`${(e.contextTokens/e.contextWindow*100).toFixed(1)}%`}),React.createElement(`div`,{style:{height:`14px`}}),React.createElement(`div`,{style:{textAlign:`center`,color:`var(--q-text-tertiary)`,fontSize:`10px`,fontWeight:600,letterSpacing:`0.8px`,fontFamily:`var(--font-code)`,marginBottom:`6px`},children:`COMPACTION`}),React.createElement(`label`,{style:{display:`flex`,alignItems:`center`,gap:`8px`,cursor:`pointer`,marginBottom:`8px`},children:[React.createElement(`input`,{type:`checkbox`,defaultChecked:!0,style:{accentColor:`var(--q-accent-info)`}}),React.createElement(`span`,{style:{color:`var(--q-text)`,fontSize:`13px`,fontFamily:`var(--font-interface)`},children:`Auto-compaction (80%)`})]}),React.createElement(Jm,{})]})]})]}),h&&React.createElement(React.Fragment,{children:[React.createElement(`div`,{style:I,onClick:()=>{g(null)},onContextMenu:e=>{e.preventDefault(),g(null)}}),React.createElement(`div`,{style:{position:`fixed`,left:Math.min(h.x,window.innerWidth-180),top:Math.min(h.y,window.innerHeight-200),zIndex:210,backgroundColor:`var(--q-bg-panel)`,borderRadius:`var(--radius-md)`,boxShadow:`var(--shadow-modal)`,animation:`modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)`,border:`1px solid var(--q-border)`,padding:`4px 0`,minWidth:`160px`},children:[!b&&React.createElement(`button`,{onClick:()=>{x(!0),C(new Set([h.agentId])),g(null)},style:{display:`flex`,alignItems:`center`,gap:`8px`,width:`100%`,padding:`8px 12px`,border:`none`,cursor:`pointer`,backgroundColor:`transparent`,color:`var(--q-text)`,fontSize:`14px`,fontFamily:`var(--font-interface)`},onMouseEnter:e=>{e.currentTarget.style.backgroundColor=`var(--q-hover)`},onMouseLeave:e=>{e.currentTarget.style.backgroundColor=`transparent`},children:`Select`}),!b&&React.createElement(`button`,{onClick:()=>{y(h.agentId),g(null)},style:{display:`flex`,alignItems:`center`,gap:`8px`,width:`100%`,padding:`8px 12px`,border:`none`,cursor:`pointer`,backgroundColor:`transparent`,color:`var(--q-accent-danger)`,fontSize:`14px`,fontFamily:`var(--font-interface)`},onMouseEnter:e=>{e.currentTarget.style.backgroundColor=`var(--q-hover)`},onMouseLeave:e=>{e.currentTarget.style.backgroundColor=`transparent`},children:`Remove`}),b&&React.createElement(`button`,{onClick:()=>{x(!1),C(new Set),g(null)},style:{display:`flex`,alignItems:`center`,gap:`8px`,width:`100%`,padding:`8px 12px`,border:`none`,cursor:`pointer`,backgroundColor:`transparent`,color:`var(--q-text)`,fontSize:`14px`,fontFamily:`var(--font-interface)`},onMouseEnter:e=>{e.currentTarget.style.backgroundColor=`var(--q-hover)`},onMouseLeave:e=>{e.currentTarget.style.backgroundColor=`transparent`},children:`Deselect all`}),b&&S.size>0&&React.createElement(`button`,{onClick:()=>{y(`selected`),g(null)},style:{display:`flex`,alignItems:`center`,gap:`8px`,width:`100%`,padding:`8px 12px`,border:`none`,cursor:`pointer`,backgroundColor:`transparent`,color:`var(--q-accent-danger)`,fontSize:`14px`,fontFamily:`var(--font-interface)`},onMouseEnter:e=>{e.currentTarget.style.backgroundColor=`var(--q-hover)`},onMouseLeave:e=>{e.currentTarget.style.backgroundColor=`transparent`},children:[`Remove `,S.size,` agent`,S.size>1?`s`:``]})]})]}),_&&React.createElement(`div`,{style:{position:`fixed`,inset:0,zIndex:100,backgroundColor:`var(--q-overlay)`,display:`flex`,alignItems:`center`,justifyContent:`center`},onClick:()=>y(null),children:React.createElement(`div`,{style:{backgroundColor:`var(--q-bg-elevated)`,borderRadius:`var(--radius-xl)`,boxShadow:`var(--shadow-modal)`,animation:`modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)`,border:`1px solid var(--q-border)`,padding:`24px`,maxWidth:`400px`,width:`90%`},onClick:e=>e.stopPropagation(),children:[React.createElement(`div`,{style:{color:`var(--q-text)`,fontSize:`16px`,fontFamily:`var(--font-interface)`,marginBottom:`20px`},children:_===`selected`?`Remove ${S.size} selected agents?`:`Remove agent from chat?`}),React.createElement(`div`,{style:{display:`flex`,justifyContent:`flex-end`,alignItems:`center`},children:[React.createElement(Km,{label:`Cancel`,color:`var(--q-accent-danger)`,hoverRgb:`217,107,107`,onClick:()=>y(null)}),React.createElement(`div`,{style:{width:`8px`}}),React.createElement(`button`,{className:`q-press`,onClick:()=>{_===`selected`?(S.forEach(t=>e.onAgentToggle(t)),C(new Set),x(!1)):e.onAgentToggle(_),y(null)},style:{padding:`8px 16px`,borderRadius:`var(--radius-lg)`,border:`none`,cursor:`pointer`,backgroundColor:`var(--q-accent-info)`,color:`var(--q-bg)`,fontSize:`15px`,fontWeight:500,fontFamily:`var(--font-interface)`},children:`Remove`})]})]})}),React.createElement(`div`,{style:{width:`8px`,flexShrink:0}}),React.createElement(Ym,{icon:Download,onClick:()=>i(!0),title:`Export chat`}),React.createElement(`div`,{style:{width:`8px`,flexShrink:0}}),React.createElement(`div`,{style:{position:`relative`},children:[React.createElement(Ym,{icon:Search,onClick:()=>o(!a),title:`Search messages`,activeBg:a}),a&&React.createElement(React.Fragment,{children:[React.createElement(`div`,{style:F,onClick:()=>o(!1)}),React.createElement(`div`,{style:{...P,width:`360px`,padding:`10px`},children:[React.createElement(`div`,{style:{display:`flex`,alignItems:`center`,height:`24px`},children:[React.createElement(Search,{size:16,style:{color:`var(--q-text-tertiary)`,flexShrink:0}}),React.createElement(`div`,{style:{width:`10px`,flexShrink:0}}),React.createElement(`input`,{type:`text`,placeholder:`Search in messages...`,autoFocus:!0,value:l,onChange:e=>u(e.target.value),style:{flex:1,backgroundColor:`transparent`,border:`none`,outline:`none`,color:`var(--q-text)`,fontSize:`14px`,fontFamily:`var(--font-interface)`,padding:`0`,margin:`0`,lineHeight:`24px`,height:`24px`}}),React.createElement(`button`,{onClick:()=>{u(``),f(``),m(``)},style:{background:`none`,border:`none`,cursor:`pointer`,padding:`8px`,color:l?`var(--q-text-secondary)`:`var(--q-text-tertiary)`,fontSize:`14px`,opacity:l?1:.3,lineHeight:`1`,flexShrink:0},children:`✕`}),React.createElement(`div`,{style:{width:`10px`,flexShrink:0}}),React.createElement(`span`,{style:{color:`var(--q-text-tertiary)`,fontSize:`12px`,fontFamily:`var(--font-code)`,whiteSpace:`nowrap`,opacity:.3,flexShrink:0},children:`0/0`}),React.createElement(`div`,{style:{width:`8px`,flexShrink:0}}),React.createElement(`button`,{style:{background:`none`,border:`none`,cursor:`pointer`,padding:`0px`,color:`var(--q-text-tertiary)`,opacity:.3,lineHeight:`0`,flexShrink:0},children:React.createElement(ChevronDown,{size:16})}),React.createElement(`button`,{style:{background:`none`,border:`none`,cursor:`pointer`,padding:`0px`,color:`var(--q-text-tertiary)`,opacity:.3,lineHeight:`0`,flexShrink:0},children:React.createElement(ChevronUp,{size:16})})]}),React.createElement(`div`,{style:{height:`8px`}}),React.createElement(`div`,{style:{display:`flex`,alignItems:`center`,height:`24px`},children:[React.createElement(Calendar,{size:16,style:{color:`var(--q-text-tertiary)`,flexShrink:0}}),React.createElement(`div`,{style:{width:`10px`,flexShrink:0}}),React.createElement(`input`,{type:`text`,placeholder:`dd/mm/yyyy`,value:d,onChange:e=>f(e.target.value),style:{width:`90px`,backgroundColor:`transparent`,border:`none`,outline:`none`,color:`var(--q-text)`,fontSize:`13px`,fontFamily:`var(--font-interface)`,textAlign:`center`,padding:`0`,margin:`0`,lineHeight:`24px`,height:`24px`}}),React.createElement(`div`,{style:{width:`4px`,flexShrink:0}}),React.createElement(`button`,{onClick:()=>f(``),style:{background:`none`,border:`none`,cursor:`pointer`,padding:`4px`,color:`var(--q-text-tertiary)`,fontSize:`12px`,opacity:d?1:.3,lineHeight:`1`,flexShrink:0},children:`✕`}),React.createElement(`div`,{style:{width:`12px`,flexShrink:0}}),React.createElement(Clock,{size:16,style:{color:`var(--q-text-tertiary)`,flexShrink:0}}),React.createElement(`div`,{style:{width:`6px`,flexShrink:0}}),React.createElement(`input`,{type:`text`,placeholder:`hh:mm:ss`,value:p,onChange:e=>m(e.target.value),style:{width:`60px`,backgroundColor:`transparent`,border:`none`,outline:`none`,color:`var(--q-text)`,fontSize:`13px`,fontFamily:`var(--font-interface)`,textAlign:`center`,padding:`0`,margin:`0`,lineHeight:`24px`,height:`24px`}}),React.createElement(`div`,{style:{width:`4px`,flexShrink:0}}),React.createElement(`button`,{onClick:()=>m(``),style:{background:`none`,border:`none`,cursor:`pointer`,padding:`4px`,color:`var(--q-text-tertiary)`,fontSize:`12px`,opacity:p?1:.3,lineHeight:`1`,flexShrink:0},children:`✕`})]})]})]})]}),React.createElement(`div`,{style:{width:`8px`,flexShrink:0}}),React.createElement(Ym,{icon:RefreshCw,onClick:()=>{},title:`Reload chat`})]}),React.createElement(`div`,{style:{width:`8px`,flexShrink:0}}),React.createElement(`div`,{style:N,children:React.createElement(`div`,{style:{position:`relative`},children:[React.createElement(Ym,{icon:Bot,onClick:e.onToggleAgentDropdown,title:`Show agents`,activeBg:e.agentDropdownOpen}),e.agentDropdownOpen&&React.createElement(React.Fragment,{children:[React.createElement(`div`,{style:F,onClick:()=>{e.onToggleAgentDropdown(),x(!1),C(new Set)}}),React.createElement(`div`,{style:{...P,top:`calc(100% + 16px)`,right:`-8px`,minWidth:`260px`,maxWidth:`300px`,minHeight:`50vh`,maxHeight:`70vh`,border:`1px solid var(--q-border)`,overflow:`hidden`,display:`flex`,flexDirection:`column`},children:[React.createElement(`div`,{style:{padding:`8px`,display:`flex`,alignItems:`center`,gap:`4px`},children:[React.createElement(`button`,{onClick:()=>k(!0),className:`q-press`,style:{flex:1,height:`32px`,display:`flex`,alignItems:`center`,justifyContent:`center`,gap:`6px`,borderRadius:`var(--radius-md)`,border:`none`,cursor:`pointer`,backgroundColor:`transparent`,color:`var(--q-text-secondary)`,fontFamily:`var(--font-interface)`,fontSize:`13px`,transition:`background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms cubic-bezier(0.16, 1, 0.3, 1)`},onMouseEnter:e=>{e.currentTarget.style.backgroundColor=`var(--q-hover)`,e.currentTarget.style.color=`var(--q-text)`},onMouseLeave:e=>{e.currentTarget.style.backgroundColor=`transparent`,e.currentTarget.style.color=`var(--q-text-secondary)`},children:[React.createElement(Bot,{size:20,style:{display:`flex`,flexShrink:0}}),` `,React.createElement(`span`,{style:{lineHeight:`1`},children:`Add agent`})]}),React.createElement(`button`,{onClick:()=>{e.selectedAgentIds.includes(`orchestrator`)||e.onAgentToggle(`orchestrator`)},style:{width:`32px`,height:`32px`,display:`flex`,alignItems:`center`,justifyContent:`center`,borderRadius:`var(--radius-md)`,border:`none`,cursor:`pointer`,backgroundColor:`transparent`,color:e.selectedAgentIds.includes(`orchestrator`)?`var(--q-text-tertiary)`:`var(--q-text-secondary)`,opacity:e.selectedAgentIds.includes(`orchestrator`)?.4:1,transition:`background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms cubic-bezier(0.16, 1, 0.3, 1)`},onMouseEnter:t=>{e.selectedAgentIds.includes(`orchestrator`)||(t.currentTarget.style.backgroundColor=`var(--q-hover)`,t.currentTarget.style.color=`var(--q-text)`)},onMouseLeave:t=>{t.currentTarget.style.backgroundColor=`transparent`,t.currentTarget.style.color=e.selectedAgentIds.includes(`orchestrator`)?`var(--q-text-tertiary)`:`var(--q-text-secondary)`},children:React.createElement(Network,{size:20})})]}),React.createElement(`div`,{style:{padding:`4px 8px`},children:React.createElement(`div`,{style:{display:`flex`,alignItems:`center`,paddingLeft:`12px`,paddingRight:`8px`},children:[React.createElement(Search,{size:16,style:{color:`var(--q-text-tertiary)`,flexShrink:0}}),React.createElement(`div`,{style:{width:`8px`,flexShrink:0}}),React.createElement(`input`,{type:`text`,placeholder:`Search agent...`,style:{flex:1,backgroundColor:`transparent`,border:`none`,outline:`none`,color:`var(--q-text)`,fontSize:`14px`,fontFamily:`var(--font-interface)`,padding:`0`,margin:`0`}}),React.createElement(`div`,{style:{width:`4px`,flexShrink:0}}),React.createElement(`span`,{style:{color:`var(--q-text-tertiary)`,fontSize:`14px`,opacity:.3,cursor:`default`,padding:`4px`},children:`✕`})]})}),React.createElement(`div`,{style:{flex:1,overflowY:`auto`},children:(()=>{let t=e.agents.filter(t=>e.selectedAgentIds.includes(t.id)).sort((e,t)=>e.id===`orchestrator`?-1:+(t.id===`orchestrator`));return t.length===0?React.createElement(`div`,{style:{display:`flex`,alignItems:`center`,justifyContent:`center`,flex:1,minHeight:`200px`,padding:`24px 8px`,textAlign:`center`},children:React.createElement(`span`,{style:{color:`var(--q-text-tertiary)`,fontSize:`13px`,fontFamily:`var(--font-interface)`,lineHeight:`1.5`},children:[`No agents in chat.`,React.createElement(`br`,{}),`Click "Add agent" to add one.`]})}):t.map(e=>React.createElement(`div`,{style:{padding:`0 8px 8px 8px`},onContextMenu:t=>{t.preventDefault(),g({x:t.clientX,y:t.clientY,agentId:e.id})},children:React.createElement(`div`,{style:{padding:`8px 8px 8px 12px`,borderRadius:`var(--radius-md)`,minHeight:`40px`,cursor:`pointer`,display:`flex`,flexDirection:`column`,justifyContent:e.id===`orchestrator`?`center`:`flex-start`},onClick:()=>{if(b){let t=new Set(S);t.has(e.id)?t.delete(e.id):t.add(e.id),C(t)}},onMouseEnter:e=>{e.currentTarget.style.backgroundColor=`var(--q-hover)`},onMouseLeave:e=>{e.currentTarget.style.backgroundColor=`transparent`},children:[React.createElement(`div`,{style:{display:`flex`,alignItems:`center`,gap:`8px`},children:[React.createElement(Bot,{size:16,style:{color:b&&S.has(e.id)?`var(--q-accent-danger)`:`var(--q-text-tertiary)`,display:`flex`,flexShrink:0}}),React.createElement(`span`,{style:{color:b&&S.has(e.id)?`var(--q-accent-danger)`:`var(--q-text)`,fontSize:`14px`,fontFamily:`var(--font-interface)`,flex:1,lineHeight:`16px`},children:e.name})]}),e.id!==`orchestrator`&&React.createElement(React.Fragment,{children:[React.createElement(`div`,{style:{height:`6px`}}),React.createElement(`div`,{style:{display:`flex`,alignItems:`center`,gap:`8px`,paddingLeft:`24px`,cursor:b&&S.has(e.id)?`default`:`pointer`},onMouseEnter:t=>{b&&S.has(e.id)||t.currentTarget.querySelectorAll(`span,svg`).forEach(e=>{e.style.color=`var(--q-text)`})},onMouseLeave:t=>{b&&S.has(e.id)||t.currentTarget.querySelectorAll(`span,svg`).forEach(e=>{e.style.color=`var(--q-text-tertiary)`})},children:[React.createElement(Cpu,{size:14,style:{color:b&&S.has(e.id)?`var(--q-accent-danger)`:`var(--q-text-tertiary)`,display:`flex`,flexShrink:0}}),React.createElement(`span`,{onClick:t=>{b&&S.has(e.id)||(t.stopPropagation(),T(e.id))},style:{color:b&&S.has(e.id)?`var(--q-accent-danger)`:`var(--q-text-tertiary)`,fontSize:`12px`,fontFamily:`var(--font-interface)`,lineHeight:`14px`,cursor:b&&S.has(e.id)?`default`:`pointer`},children:e.model})]}),React.createElement(`div`,{style:{height:`4px`}}),React.createElement(`div`,{style:{display:`flex`,alignItems:`center`,gap:`8px`,paddingLeft:`24px`,cursor:b&&S.has(e.id)?`default`:`pointer`},onMouseEnter:t=>{b&&S.has(e.id)||t.currentTarget.querySelectorAll(`span,svg`).forEach(e=>{e.style.color=`var(--q-text)`})},onMouseLeave:t=>{b&&S.has(e.id)||t.currentTarget.querySelectorAll(`span,svg`).forEach(e=>{e.style.color=`var(--q-text-tertiary)`})},children:[React.createElement(Brain,{size:14,style:{color:b&&S.has(e.id)?`var(--q-accent-danger)`:`var(--q-text-tertiary)`,display:`flex`,flexShrink:0}}),React.createElement(`span`,{onClick:t=>{b&&S.has(e.id)||(t.stopPropagation(),D(e.id))},style:{color:b&&S.has(e.id)?`var(--q-accent-danger)`:`var(--q-text-tertiary)`,fontSize:`12px`,fontFamily:`var(--font-interface)`,lineHeight:`14px`,cursor:b&&S.has(e.id)?`default`:`pointer`},children:e.thinking===`off`?`Off`:`On (${e.thinking})`})]})]})]})},e.id))})()})]})]})]})})]}),r&&React.createElement(`div`,{style:{position:`fixed`,inset:0,zIndex:100,backgroundColor:`var(--q-overlay)`,display:`flex`,alignItems:`center`,justifyContent:`center`},onClick:()=>i(!1),children:React.createElement(`div`,{style:{backgroundColor:`var(--q-bg-elevated)`,borderRadius:`var(--radius-xl)`,boxShadow:`var(--shadow-modal)`,border:`1px solid var(--q-border)`,padding:`24px`,maxWidth:`420px`,width:`90%`,animation:`modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)`},onClick:e=>e.stopPropagation(),children:[React.createElement(`div`,{style:{color:`var(--q-text)`,fontSize:`16px`,fontWeight:600,fontFamily:`var(--font-interface)`,marginBottom:`16px`},children:`Export chat`}),React.createElement(`div`,{style:{color:`var(--q-text-secondary)`,fontSize:`14px`,fontFamily:`var(--font-interface)`,lineHeight:1.4,marginBottom:`20px`},children:`Choose export format:`}),React.createElement(`div`,{style:{display:`flex`,justifyContent:`flex-end`,alignItems:`center`,gap:`8px`},children:[React.createElement(Km,{label:`Markdown (.md)`,color:`var(--q-accent-info)`,hoverRgb:`122,162,247`,onClick:()=>i(!1)}),React.createElement(Km,{label:`HTML (.html)`,color:`var(--q-accent-info)`,hoverRgb:`122,162,247`,onClick:()=>i(!1)}),React.createElement(Km,{label:`Cancel`,color:`var(--q-accent-danger)`,hoverRgb:`217,107,107`,onClick:()=>i(!1)})]})]})}),O&&React.createElement(Qm,{agents:e.agents.filter(t=>!e.selectedAgentIds.includes(t.id)&&t.id!==`orchestrator`),onSelect:t=>{e.onAgentToggle(t),k(!1)},onClose:()=>k(!1)}),w&&React.createElement(Xm,{currentModel:e.agents.find(e=>e.id===w)?.model||``,models:e.providers?.flatMap(e=>e.models.map(t=>({id:t.id,name:t.name,contextWindow:t.contextWindow,provider:e.name})))||[],onClose:()=>T(null)}),E&&React.createElement(Zm,{currentThinking:e.agents.find(e=>e.id===E)?.thinking||``,onClose:()=>D(null)})]})}function Km({label:e,color:t,hoverRgb:n,onClick:r}){let[i,a]=useState(!1);return React.createElement(`button`,{className:`q-press`,onClick:r,onMouseEnter:()=>a(!0),onMouseLeave:()=>a(!1),style:{height:`36px`,padding:`8px 16px`,border:`1px solid ${t}`,borderRadius:`8px`,cursor:`pointer`,backgroundColor:i?`rgba(${n},0.10)`:`transparent`,color:t,fontSize:`14px`,fontFamily:`var(--font-interface)`,fontWeight:500,transition:`background-color 120ms cubic-bezier(0.16, 1, 0.3, 1)`},children:e})}function qm({label:e,value:t}){return React.createElement(`div`,{style:{display:`flex`,justifyContent:`space-between`,padding:`4px 0`},children:[React.createElement(`span`,{style:{color:`var(--q-text-tertiary)`,fontSize:`13px`,fontFamily:`var(--font-code)`},children:e}),React.createElement(`span`,{style:{color:`var(--q-text)`,fontSize:`13px`,fontFamily:`var(--font-code)`},children:t})]})}function Jm(){let[e,t]=useState(!1);return React.createElement(`button`,{style:{width:`100%`,padding:`8px`,borderRadius:`var(--radius-md)`,border:`none`,cursor:`pointer`,backgroundColor:e?`var(--q-hover)`:`var(--q-bg)`,color:`var(--q-text)`,fontSize:`13px`,fontFamily:`var(--font-interface)`,transform:e?`scale(1.02)`:`scale(1)`,transition:`background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), transform 120ms cubic-bezier(0.16, 1, 0.3, 1)`},onMouseEnter:()=>t(!0),onMouseLeave:()=>t(!1),children:`Compaction`})}function Ym({icon:e,onClick:t,title:n,activeBg:r}){let[i,a]=useState(!1);return React.createElement(`button`,{onClick:t,title:n,onMouseEnter:()=>a(!0),onMouseLeave:()=>a(!1),style:{width:`32px`,height:`32px`,display:`flex`,alignItems:`center`,justifyContent:`center`,borderRadius:`var(--radius-md)`,border:`none`,cursor:`pointer`,backgroundColor:r||i?`var(--q-hover)`:`transparent`,color:i?`var(--q-text)`:`var(--q-text-secondary)`,flexShrink:0,padding:`0`,transform:i?`scale(1.02)`:`scale(1)`,transition:`background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms cubic-bezier(0.16, 1, 0.3, 1), transform 120ms cubic-bezier(0.16, 1, 0.3, 1)`},children:React.createElement(e,{size:20})})}function Xm({currentModel:e,models:t,onClose:n}){let[r,i]=useState(``),[a,o]=useState(e||null),s=r?t.filter(e=>e.id.toLowerCase().includes(r.toLowerCase())||e.provider.toLowerCase().includes(r.toLowerCase())):t,c={};for(let e of s)c[e.provider]||(c[e.provider]=[]),c[e.provider].push(e);let l=e=>{if(!e||e===0)return`—`;if(e>=1e6){let t=e/1e6;return t%1==0?`${t}M`:`${t.toFixed(1)}M`}return e>=1e3?`${Math.floor(e/1e3)}K`:`${e}`};return React.createElement(`div`,{style:{position:`fixed`,inset:0,zIndex:200,backgroundColor:`var(--q-overlay)`,display:`flex`,alignItems:`center`,justifyContent:`center`},onClick:n,children:React.createElement(`div`,{style:{backgroundColor:`var(--q-bg-elevated)`,border:`1px solid var(--q-border)`,borderRadius:`var(--radius-lg)`,width:`90%`,maxWidth:`480px`,height:`80vh`,maxHeight:`500px`,display:`flex`,flexDirection:`column`,boxShadow:`var(--shadow-modal)`,animation:`modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)`,overflow:`hidden`},onClick:e=>e.stopPropagation(),children:[React.createElement(`div`,{style:{padding:`12px 16px`,backgroundColor:`var(--q-bg-panel)`,borderBottom:`1px solid var(--q-border)`,display:`flex`,alignItems:`center`,flexShrink:0},children:[React.createElement(Cpu,{size:18,style:{color:`var(--q-accent-info)`,flexShrink:0}}),React.createElement(`div`,{style:{width:`8px`,flexShrink:0}}),React.createElement(`span`,{style:{color:`var(--q-text)`,fontSize:`16px`,fontWeight:600,fontFamily:`var(--font-interface)`},children:`Agent model`}),React.createElement(`span`,{style:{flex:1}}),React.createElement(`button`,{onClick:n,style:{background:`none`,border:`none`,cursor:`pointer`,padding:`0`,display:`flex`},children:React.createElement(X,{size:18,style:{color:`var(--q-text-secondary)`}})})]}),React.createElement(`div`,{style:{padding:`8px 16px`,flexShrink:0},children:React.createElement(`div`,{style:{display:`flex`,alignItems:`center`,paddingLeft:`10px`,backgroundColor:`var(--q-bg-panel)`,border:`1px solid var(--q-border)`,borderRadius:`var(--radius-md)`},children:[React.createElement(Search,{size:14,style:{color:`var(--q-text-tertiary)`,flexShrink:0}}),React.createElement(`div`,{style:{width:`8px`,flexShrink:0}}),React.createElement(`input`,{type:`text`,placeholder:`Search model...`,value:r,onChange:e=>i(e.target.value),style:{flex:1,backgroundColor:`transparent`,border:`none`,outline:`none`,color:`var(--q-text)`,fontSize:`14px`,fontFamily:`var(--font-interface)`,padding:`8px 0`}})]})}),React.createElement(`div`,{style:{flex:1,overflowY:`auto`,padding:`4px 0`},children:[React.createElement(`div`,{onClick:()=>o(null),style:{padding:`8px 16px`,cursor:`pointer`,backgroundColor:a===null?`rgba(122, 162, 247, 0.10)`:`transparent`,display:`flex`,alignItems:`center`,gap:`8px`},children:[React.createElement(`div`,{style:{width:`14px`,height:`14px`,borderRadius:`50%`,border:`2px solid `+(a===null?`var(--q-accent-info)`:`var(--q-text-tertiary)`),backgroundColor:a===null?`var(--q-accent-info)`:`transparent`,display:`flex`,alignItems:`center`,justifyContent:`center`,flexShrink:0},children:a===null&&React.createElement(`div`,{style:{width:`5px`,height:`5px`,borderRadius:`50%`,backgroundColor:`var(--q-bg)`}})}),React.createElement(`span`,{style:{color:`var(--q-text)`,fontSize:`14px`,fontFamily:`var(--font-interface)`,flex:1},children:`Chat default`}),React.createElement(`span`,{style:{color:`var(--q-text-tertiary)`,fontSize:`12px`,fontFamily:`var(--font-interface)`},children:`Use chat default model`})]}),Object.entries(c).map(([e,t])=>React.createElement(`div`,{children:[React.createElement(`div`,{style:{padding:`8px 16px 4px 16px`,color:`var(--q-text-tertiary)`,fontSize:`12px`,fontFamily:`var(--font-interface)`},children:e}),t.map(e=>React.createElement(`div`,{onClick:()=>o(e.id),style:{padding:`8px 16px`,cursor:`pointer`,backgroundColor:a===e.id?`rgba(122, 162, 247, 0.10)`:`transparent`,display:`flex`,alignItems:`center`,gap:`8px`},children:[React.createElement(`div`,{style:{width:`14px`,height:`14px`,borderRadius:`50%`,border:`2px solid `+(a===e.id?`var(--q-accent-info)`:`var(--q-text-tertiary)`),backgroundColor:a===e.id?`var(--q-accent-info)`:`transparent`,display:`flex`,alignItems:`center`,justifyContent:`center`,flexShrink:0},children:a===e.id&&React.createElement(`div`,{style:{width:`5px`,height:`5px`,borderRadius:`50%`,backgroundColor:`var(--q-bg)`}})}),React.createElement(`span`,{style:{color:`var(--q-text)`,fontSize:`14px`,fontFamily:`var(--font-interface)`,flex:1,overflow:`hidden`,textOverflow:`ellipsis`,whiteSpace:`nowrap`},children:e.name||e.id}),React.createElement(`span`,{style:{color:`var(--q-text-tertiary)`,fontSize:`12px`,fontFamily:`var(--font-interface)`,flexShrink:0},children:[l(e.contextWindow),` ctx`]})]},e.id))]},e))]}),React.createElement(`div`,{style:{padding:`8px 16px`,display:`flex`,alignItems:`center`,flexShrink:0},children:[React.createElement(`span`,{style:{color:`var(--q-text-tertiary)`,fontSize:`13px`,fontFamily:`var(--font-interface)`},children:a===null?`Chat default`:a.length>30?a.substring(0,30)+`...`:a}),React.createElement(`span`,{style:{flex:1}}),React.createElement(`button`,{onClick:n,style:{background:`none`,border:`none`,cursor:`pointer`,color:`var(--q-accent-danger)`,fontSize:`15px`,fontFamily:`var(--font-interface)`,padding:`4px 8px`},children:`Cancel`}),React.createElement(`div`,{style:{width:`8px`}}),React.createElement(`button`,{className:`q-press`,onClick:n,style:{padding:`4px 16px`,borderRadius:`var(--radius-md)`,border:`none`,cursor:`pointer`,backgroundColor:`var(--q-accent-info)`,color:`var(--q-bg)`,fontSize:`15px`,fontFamily:`var(--font-interface)`},children:`Confirm`})]})]})})}function Zm({currentThinking:e,onClose:t}){let[n,r]=useState(e||null);return React.createElement(`div`,{style:{position:`fixed`,inset:0,zIndex:200,backgroundColor:`var(--q-overlay)`,display:`flex`,alignItems:`center`,justifyContent:`center`},onClick:t,children:React.createElement(`div`,{style:{backgroundColor:`var(--q-bg-elevated)`,border:`1px solid var(--q-border)`,borderRadius:`var(--radius-lg)`,width:`90%`,maxWidth:`380px`,display:`flex`,flexDirection:`column`,boxShadow:`var(--shadow-modal)`,animation:`modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)`,overflow:`hidden`},onClick:e=>e.stopPropagation(),children:[React.createElement(`div`,{style:{padding:`12px 16px`,backgroundColor:`var(--q-bg-panel)`,borderBottom:`1px solid var(--q-border)`,display:`flex`,alignItems:`center`},children:[React.createElement(Brain,{size:18,style:{color:`var(--q-accent-info)`,flexShrink:0}}),React.createElement(`div`,{style:{width:`8px`,flexShrink:0}}),React.createElement(`span`,{style:{color:`var(--q-text)`,fontSize:`16px`,fontWeight:600,fontFamily:`var(--font-interface)`},children:`Thinking`}),React.createElement(`span`,{style:{flex:1}}),React.createElement(`button`,{onClick:t,style:{background:`none`,border:`none`,cursor:`pointer`,padding:`0`,display:`flex`},children:React.createElement(X,{size:18,style:{color:`var(--q-text-secondary)`}})})]}),React.createElement(`div`,{style:{padding:`8px 0`},children:[{value:null,label:`Chat default`},{value:`on`,label:`On (xhigh)`},{value:`off`,label:`Off`}].map(e=>{let t=n===e.value;return React.createElement(`div`,{onClick:()=>r(e.value),style:{padding:`10px 16px`,cursor:`pointer`,backgroundColor:t?`rgba(122, 162, 247, 0.10)`:`transparent`,display:`flex`,alignItems:`center`,gap:`10px`},children:[React.createElement(`div`,{style:{width:`14px`,height:`14px`,borderRadius:`50%`,border:`2px solid `+(t?`var(--q-accent-info)`:`var(--q-text-tertiary)`),backgroundColor:t?`var(--q-accent-info)`:`transparent`,display:`flex`,alignItems:`center`,justifyContent:`center`,flexShrink:0},children:t&&React.createElement(`div`,{style:{width:`5px`,height:`5px`,borderRadius:`50%`,backgroundColor:`var(--q-bg)`}})}),React.createElement(`span`,{style:{color:`var(--q-text)`,fontSize:`14px`,fontFamily:`var(--font-interface)`},children:e.label})]},e.label)})}),React.createElement(`div`,{style:{padding:`8px 16px`,display:`flex`,alignItems:`center`},children:[React.createElement(`span`,{style:{flex:1}}),React.createElement(`button`,{onClick:t,style:{background:`none`,border:`none`,cursor:`pointer`,color:`var(--q-accent-danger)`,fontSize:`15px`,fontFamily:`var(--font-interface)`,padding:`4px 8px`},children:`Cancel`}),React.createElement(`div`,{style:{width:`8px`}}),React.createElement(`button`,{className:`q-press`,onClick:t,style:{padding:`4px 16px`,borderRadius:`var(--radius-md)`,border:`none`,cursor:`pointer`,backgroundColor:`var(--q-accent-info)`,color:`var(--q-bg)`,fontSize:`15px`,fontFamily:`var(--font-interface)`},children:`Confirm`})]})]})})}function Qm({agents:e,onSelect:t,onClose:n}){let[r,i]=useState(``),[a,o]=useState(new Set),s=r?e.filter(e=>e.name.toLowerCase().includes(r.toLowerCase())||e.id.toLowerCase().includes(r.toLowerCase())):e,c=e=>{o(t=>{let n=new Set(t);return n.has(e)?n.delete(e):n.add(e),n})};return React.createElement(`div`,{style:{position:`fixed`,inset:0,zIndex:200,backgroundColor:`rgba(0,0,0,0.6)`,display:`flex`,alignItems:`center`,justifyContent:`center`},onClick:n,children:React.createElement(`div`,{style:{backgroundColor:`var(--q-bg-elevated)`,border:`1px solid var(--q-border)`,borderRadius:`var(--radius-lg)`,width:`90%`,maxWidth:`450px`,maxHeight:`70vh`,display:`flex`,flexDirection:`column`,boxShadow:`var(--shadow-modal)`,animation:`modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)`},onClick:e=>e.stopPropagation(),children:[React.createElement(`div`,{style:{padding:`12px 16px`,color:`var(--q-text)`,fontSize:`16px`,fontWeight:600,fontFamily:`var(--font-interface)`},children:`Add agents to chat`}),React.createElement(`div`,{style:{padding:`0 16px 12px 16px`},children:React.createElement(`div`,{style:{display:`flex`,alignItems:`center`,paddingLeft:`10px`,backgroundColor:`var(--q-bg-panel)`,border:`1px solid var(--q-border)`,borderRadius:`var(--radius-md)`},children:[React.createElement(Search,{size:14,style:{color:`var(--q-text-tertiary)`,flexShrink:0}}),React.createElement(`div`,{style:{width:`8px`,flexShrink:0}}),React.createElement(`input`,{type:`text`,placeholder:`Search agent...`,autoFocus:!0,value:r,onChange:e=>i(e.target.value),style:{flex:1,backgroundColor:`transparent`,border:`none`,outline:`none`,color:`var(--q-text)`,fontSize:`14px`,fontFamily:`var(--font-interface)`,padding:`8px 0`}})]})}),React.createElement(`div`,{style:{flex:1,overflowY:`auto`,padding:`4px 0`},children:s.length===0?React.createElement(`div`,{style:{padding:`24px`,textAlign:`center`,color:`var(--q-text-tertiary)`,fontSize:`14px`,fontFamily:`var(--font-interface)`},children:`All agents are already in this chat.`}):s.sort((e,t)=>!a.has(e.id)-+!a.has(t.id)).map(e=>{let t=a.has(e.id);return React.createElement(`div`,{onClick:()=>c(e.id),style:{padding:`8px 16px`,cursor:`pointer`,display:`flex`,alignItems:`center`,gap:`8px`},onMouseEnter:e=>{e.currentTarget.style.backgroundColor=`rgba(255,255,255,0.04)`},onMouseLeave:e=>{e.currentTarget.style.backgroundColor=`transparent`},children:[React.createElement(Bot,{size:16,style:{color:`var(--q-text-secondary)`,flexShrink:0}}),React.createElement(`div`,{style:{flex:1,minWidth:0},children:[React.createElement(`div`,{style:{color:`var(--q-text)`,fontSize:`14px`,fontFamily:`var(--font-interface)`},children:e.name}),React.createElement(`div`,{style:{color:`var(--q-text-tertiary)`,fontSize:`12px`,fontFamily:`var(--font-interface)`,overflow:`hidden`,textOverflow:`ellipsis`,whiteSpace:`nowrap`},children:e.systemPrompt?e.systemPrompt.substring(0,80)+(e.systemPrompt.length>80?`...`:``):e.id})]}),React.createElement(`input`,{type:`checkbox`,checked:t,onChange:()=>c(e.id),style:{accentColor:`var(--q-accent-info)`,flexShrink:0}})]},e.id)})}),React.createElement(`div`,{style:{padding:`8px 16px 10px 16px`,borderTop:`1px solid var(--q-border)`,display:`flex`,alignItems:`center`,gap:`4px`},children:[React.createElement(`button`,{className:`q-press`,onClick:()=>{s.forEach(e=>a.add(e.id)),o(new Set(a))},disabled:s.length===0,style:{background:`none`,border:`none`,cursor:s.length===0?`default`:`pointer`,color:s.length===0?`var(--q-text-tertiary)`:`var(--q-text-secondary)`,fontSize:`13px`,fontFamily:`var(--font-interface)`,padding:`4px 8px`},children:`Select all`}),React.createElement(`button`,{className:`q-press`,onClick:()=>o(new Set),disabled:a.size===0,style:{background:`none`,border:`none`,cursor:a.size===0?`default`:`pointer`,color:a.size===0?`var(--q-text-tertiary)`:`var(--q-text-secondary)`,fontSize:`13px`,fontFamily:`var(--font-interface)`,padding:`4px 8px`},children:`Deselect`}),React.createElement(`span`,{style:{flex:1}}),React.createElement(`button`,{onClick:n,className:`q-press`,style:{background:`none`,border:`none`,cursor:`pointer`,color:`var(--q-accent-danger)`,fontSize:`15px`,fontFamily:`var(--font-interface)`,padding:`4px 8px`},children:`Cancel`}),React.createElement(`div`,{style:{width:`8px`}}),React.createElement(`button`,{onClick:()=>{a.forEach(e=>t(e)),n()},disabled:a.size===0,className:`q-press`,style:{padding:`4px 16px`,borderRadius:`var(--radius-md)`,border:`none`,cursor:a.size===0?`default`:`pointer`,backgroundColor:a.size===0?`transparent`:`var(--q-accent-info)`,color:a.size===0?`var(--q-text-tertiary)`:`var(--q-bg)`,fontSize:`15px`,fontFamily:`var(--font-interface)`,opacity:a.size===0?.5:1},children:[`Add (`,a.size,`)`]})]})]})})}var $m=React.forwardRef(function(e,t){let[n,r]=useState(`main`),[i,a]=useState(0),[o,s]=useState(!1),[c,l]=useState(!1),[u,d]=useState(e.selectedModel),[f,p]=useState(e.thinking),[m,h]=useState([`/Users/andreamaddalena/Projects/Dashboard`]),g=[{id:`model`,label:`/Model`,description:`Change model`},{id:`thinking`,label:`/Thinking`,description:`Change thinking`},{id:`directory`,label:`/Directory`,description:`Working directory`},{id:`reset`,label:`/Reset`,description:`Clear messages. Keeps model, directory and settings.`}].filter(t=>t.id.includes(e.filter.toLowerCase())),_=e.providers.flatMap(e=>e.models.map(t=>({id:t.id,name:t.name,contextWindow:t.contextWindow,provider:e.name}))),y=e.filter===``||n!==`model`?_:_.filter(t=>t.id.toLowerCase().includes(e.filter.toLowerCase())),b={};for(let e of y)b[e.provider]||(b[e.provider]=[]),b[e.provider].push(e);let x=Object.entries(b),S=x.flatMap(([,e])=>e.map(e=>e.id)),C=e=>{if(!e||e===0)return`—`;if(e>=1e6){let t=e/1e6;return t%1==0?`${t}M`:`${t.toFixed(1)}M`}return e>=1e3?`${Math.floor(e/1e3)}K`:`${e}`},w=e=>{r(e),a(0),s(!1),l(!1)},T=()=>{n===`model`?e.onSelectModel(u):n===`thinking`&&e.onSelectThinking(f),e.onClose()};return React.useImperativeHandle(t,()=>({navUp:()=>{n===`main`?a(e=>(e-1+g.length)%g.length):n===`model`?a(e=>(e-1+S.length)%S.length):n===`thinking`?a(e=>(e-1+2)%2):n===`reset_confirm`&&s(!1),s(!1)},navDown:()=>{n===`main`?a(e=>(e+1)%g.length):n===`model`?a(e=>(e+1)%S.length):n===`thinking`?a(e=>(e+1)%2):n===`directory`&&!c&&!o?l(!0):n===`directory`&&c&&(l(!1),s(!0)),s(!1)},navLeft:()=>{n===`reset_confirm`?r(`main`):o?s(!1):n!==`main`&&w(`main`)},navRight:()=>{if(n===`main`){let e=g[i];e?.id===`reset`?r(`reset_confirm`):e&&w(e.id)}else if(n===`model`){let e=S[i];e&&(d(e),s(!0))}else n===`thinking`?(p(i===0?`on`:`off`),s(!0)):n===`directory`?c?(l(!1),s(!0)):o||l(!0):n===`reset_confirm`&&(o||s(!0))},navEnter:()=>{if(n===`main`){let e=g[i];e?.id===`reset`?r(`reset_confirm`):e&&w(e.id)}else if(n===`model`)if(o)T();else{let e=S[i];e&&(d(e),s(!0))}else n===`thinking`?o?T():(p(i===0?`on`:`off`),s(!0)):n===`directory`?o?T():c||l(!0):n===`reset_confirm`&&(o?(e.onReset(),e.onClose()):s(!0))}})),React.createElement(`div`,{style:{position:`absolute`,bottom:`calc(100% + 8px)`,left:`0`,right:`0`,zIndex:50,backgroundColor:`var(--q-bg-panel)`,borderRadius:`var(--radius-lg)`,boxShadow:`var(--shadow-floating)`,maxHeight:`400px`,display:`flex`,flexDirection:`column`,overflow:`hidden`},children:[n===`main`&&React.createElement(React.Fragment,{children:[React.createElement(`div`,{style:{flex:1,overflowY:`auto`,padding:`4px 0`},children:g.map((e,t)=>React.createElement(eh,{label:e.label,description:e.description,isSelected:t===i,onHover:()=>a(t),onTap:()=>{e.id===`reset`?r(`reset_confirm`):w(e.id)}},e.id))}),React.createElement(nh,{focusConfirm:!1,onUp:()=>a(e=>(e-1+g.length)%g.length),onDown:()=>a(e=>(e+1)%g.length),onLeft:()=>{},onRight:()=>{let e=g[i];e?.id===`reset`?r(`reset_confirm`):e&&w(e.id)},onConfirm:T,onClose:e.onClose})]}),n===`model`&&React.createElement(React.Fragment,{children:[React.createElement(`div`,{style:{flex:1,overflowY:`auto`,padding:`4px 0`},children:x.map(([e,t])=>React.createElement(`div`,{children:[React.createElement(`div`,{style:{padding:`8px 16px 4px 16px`,color:`var(--q-text-tertiary)`,fontSize:`12px`,fontFamily:`var(--font-interface)`},children:e}),t.map(e=>{let t=S.indexOf(e.id);return React.createElement(th,{label:e.id,isSelected:t===i,isChecked:e.id===u,trailing:`${C(e.contextWindow)} ctx`,onHover:()=>a(t),onTap:()=>{d(e.id),s(!0)}},e.id)})]},e))}),React.createElement(nh,{focusConfirm:o,onUp:()=>{a(e=>(e-1+S.length)%S.length),s(!1)},onDown:()=>{a(e=>(e+1)%S.length),s(!1)},onLeft:()=>w(`main`),onRight:()=>{let e=S[i];e&&(d(e),s(!0))},onConfirm:T,onClose:e.onClose})]}),n===`thinking`&&React.createElement(React.Fragment,{children:[React.createElement(`div`,{style:{flex:1,overflowY:`auto`,padding:`4px 0`},children:[React.createElement(th,{label:`On (xhigh)`,isSelected:i===0,isChecked:f!==`off`,onHover:()=>a(0),onTap:()=>{p(`on`),s(!0)}}),React.createElement(th,{label:`Off`,isSelected:i===1,isChecked:f===`off`,onHover:()=>a(1),onTap:()=>{p(`off`),s(!0)}})]}),React.createElement(nh,{focusConfirm:o,onUp:()=>{a(e=>(e-1+2)%2),s(!1)},onDown:()=>{a(e=>(e+1)%2),s(!1)},onLeft:()=>w(`main`),onRight:()=>{p(i===0?`on`:`off`),s(!0)},onConfirm:T,onClose:e.onClose})]}),n===`directory`&&React.createElement(React.Fragment,{children:[React.createElement(`div`,{style:{height:`4px`}}),React.createElement(`div`,{style:{overflowY:`auto`},children:m.map(e=>{let t=e.split(`/`).pop()||e;return React.createElement(`div`,{style:{padding:`4px 16px`},children:React.createElement(`div`,{style:{padding:`8px 16px`,backgroundColor:`var(--q-bg)`,borderRadius:`var(--radius-sm)`,display:`flex`,alignItems:`center`,gap:`8px`},children:[React.createElement(Folder,{size:16,style:{color:`var(--q-text-secondary)`,flexShrink:0}}),React.createElement(`div`,{style:{flex:1,display:`flex`,flexDirection:`column`,minWidth:0},children:[React.createElement(`span`,{style:{color:`var(--q-text)`,fontSize:`16px`,fontFamily:`var(--font-interface)`,overflow:`hidden`,textOverflow:`ellipsis`,whiteSpace:`nowrap`},children:t}),React.createElement(`span`,{style:{color:`var(--q-text-tertiary)`,fontSize:`var(--fs-11)`,overflow:`hidden`,textOverflow:`ellipsis`,whiteSpace:`nowrap`},children:e})]}),React.createElement(`button`,{onClick:()=>h(t=>t.filter(t=>t!==e)),style:{background:`none`,border:`none`,cursor:`pointer`,padding:`4px`,color:`var(--q-text-tertiary)`,display:`flex`,flexShrink:0},children:React.createElement(X,{size:16})})]})},e)})}),React.createElement(`div`,{style:{padding:`4px 16px`},children:React.createElement(`button`,{onClick:()=>{},onMouseEnter:()=>l(!0),onMouseLeave:()=>l(!1),style:{display:`flex`,alignItems:`center`,gap:`8px`,width:`100%`,padding:`10px 20px`,borderRadius:`var(--radius-sm)`,border:`none`,cursor:`pointer`,backgroundColor:c?`var(--q-directory-btn-hover)`:`var(--q-directory-btn)`,color:c?`var(--q-bg)`:`var(--q-text)`,fontSize:`16px`,fontFamily:`var(--font-interface)`,transition:`background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms cubic-bezier(0.16, 1, 0.3, 1)`},children:[React.createElement(FolderAdd,{size:14}),m.length===0?`Add directory`:`Change directory`]})}),React.createElement(nh,{focusConfirm:o,onUp:()=>{s(!1),l(!1)},onDown:()=>{!c&&!o?l(!0):c&&(l(!1),s(!0))},onLeft:()=>w(`main`),onRight:()=>{c?(l(!1),s(!0)):o||l(!0)},onConfirm:T,onClose:e.onClose})]}),n===`reset_confirm`&&React.createElement(`div`,{style:{padding:`12px 16px`},children:[React.createElement(`div`,{style:{color:`var(--q-text)`,fontSize:`16px`,fontFamily:`var(--font-interface)`,marginBottom:`4px`},children:`Reset session? All messages will be deleted.`}),React.createElement(`div`,{style:{display:`flex`,justifyContent:`flex-end`,gap:`8px`,padding:`4px 0 10px 0`},children:[React.createElement(ih,{label:`Cancel`,onClick:()=>r(`main`),borderColor:`var(--q-accent-danger)`,textColor:`var(--q-accent-danger)`,hoverTextColor:`var(--q-bg)`,hoverBg:`var(--q-accent-danger)`}),React.createElement(ih,{label:`Reset`,highlighted:o,onClick:()=>{e.onReset(),e.onClose()},borderColor:`var(--q-accent-info)`,textColor:`var(--q-accent-info)`,hoverTextColor:`var(--q-bg)`,hoverBg:`var(--q-accent-info)`,fontWeight:600})]})]})]})});function eh({label:e,description:t,isSelected:n,onHover:r,onTap:i}){let[a,o]=useState(!1);return React.createElement(`div`,{onClick:i,onMouseEnter:()=>{o(!0),r()},onMouseLeave:()=>o(!1),style:{padding:`8px 16px`,backgroundColor:a||n?`var(--q-hover)`:`transparent`,borderRadius:`var(--radius-sm)`,cursor:`pointer`,display:`flex`,alignItems:`center`,transition:`background-color 120ms cubic-bezier(0.16, 1, 0.3, 1)`},children:[React.createElement(`span`,{style:{color:`var(--q-text)`,fontSize:`16px`,fontFamily:`var(--font-interface)`},children:e}),React.createElement(`span`,{style:{flex:1}}),React.createElement(`span`,{style:{color:`var(--q-text-tertiary)`,fontSize:`14px`,fontFamily:`var(--font-interface)`},children:t})]})}function th({label:e,isSelected:t,isChecked:n,trailing:r,onHover:i,onTap:a}){let[o,s]=useState(!1);return React.createElement(`div`,{onClick:a,onMouseEnter:()=>{s(!0),i()},onMouseLeave:()=>s(!1),style:{padding:`8px 16px`,backgroundColor:o||t?`var(--q-hover)`:`transparent`,borderRadius:`var(--radius-sm)`,cursor:`pointer`,display:`flex`,alignItems:`center`,transition:`background-color 120ms cubic-bezier(0.16, 1, 0.3, 1)`},children:[React.createElement(`span`,{style:{color:n?`var(--q-accent-info)`:`var(--q-text)`,fontSize:`16px`,fontFamily:`var(--font-interface)`,overflow:`hidden`,textOverflow:`ellipsis`,whiteSpace:`nowrap`,flex:1},children:e}),r&&React.createElement(`span`,{style:{color:`var(--q-text-tertiary)`,fontSize:`12px`,fontFamily:`var(--font-code)`,marginLeft:`8px`,flexShrink:0},children:r})]})}function nh({focusConfirm:e,onUp:t,onDown:n,onLeft:r,onRight:i,onConfirm:a,onClose:o}){return React.createElement(`div`,{style:{padding:`8px 16px 10px 16px`,display:`flex`,alignItems:`center`,gap:`4px`},children:[React.createElement(rh,{icon:ChevronUp,onClick:t}),React.createElement(rh,{icon:ChevronDown,onClick:n}),React.createElement(rh,{icon:ChevronLeft,onClick:r}),React.createElement(rh,{icon:ChevronRight,onClick:i}),React.createElement(`span`,{style:{flex:1}}),React.createElement(ih,{label:`Cancel`,onClick:o,borderColor:`var(--q-accent-danger)`,textColor:`var(--q-accent-danger)`,hoverTextColor:`var(--q-bg)`,hoverBg:`var(--q-accent-danger)`}),React.createElement(`div`,{style:{width:`8px`}}),React.createElement(ih,{label:`Confirm`,highlighted:e,onClick:a,borderColor:`var(--q-accent-info)`,textColor:`var(--q-accent-info)`,hoverTextColor:`var(--q-bg)`,hoverBg:`var(--q-accent-info)`,fontWeight:600})]})}function rh({icon:e,onClick:t}){let[n,r]=useState(!1);return React.createElement(`button`,{onClick:t,onMouseEnter:()=>r(!0),onMouseLeave:()=>r(!1),style:{padding:`6px`,border:`none`,cursor:`pointer`,borderRadius:`var(--radius-sm)`,backgroundColor:n?`var(--q-hover)`:`transparent`,color:n?`var(--q-text)`:`var(--q-text-secondary)`,display:`flex`,alignItems:`center`,justifyContent:`center`,transition:`background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms cubic-bezier(0.16, 1, 0.3, 1), transform 120ms cubic-bezier(0.16, 1, 0.3, 1)`},children:React.createElement(e,{size:14})})}function ih({label:e,highlighted:t,onClick:n,borderColor:r,textColor:i,hoverTextColor:a,hoverBg:o,fontWeight:s}){let[c,l]=useState(!1),u=c||t;return React.createElement(`button`,{onClick:n,onMouseEnter:()=>l(!0),onMouseLeave:()=>l(!1),style:{padding:`7px 16px`,borderRadius:`var(--radius-sm)`,cursor:`pointer`,border:`1px solid ${r}`,backgroundColor:u?o:`transparent`,color:u?a:i,fontSize:`13px`,fontFamily:`var(--font-interface)`,fontWeight:s||400,transition:`background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms cubic-bezier(0.16, 1, 0.3, 1), transform 120ms cubic-bezier(0.16, 1, 0.3, 1)`},children:e})}
+import { useState } from 'react'
+import type { Session, Agent } from '../../types'
+import { Home, PanelLeft, MessageSquare, Download, Search, RefreshCw, Bot, Calendar, Clock, ChevronDown, ChevronUp, Cpu, Brain, Network, X } from '../icons'
+
+interface ChatHeaderProps {
+  session?: Session
+  activePanel: string
+  onSelectPanel: (panel: string) => void
+  sidebarOpen: boolean
+  onToggleSidebar: () => void
+  agentDropdownOpen: boolean
+  onToggleAgentDropdown: () => void
+  agents: Agent[]
+  selectedAgentIds: string[]
+  onAgentToggle: (id: string) => void
+  contextTokens: number
+  contextWindow: number
+  providers: any[]
+  onExport: () => void
+  welcomeMode?: boolean
+}
+
+export function ChatHeader(props: ChatHeaderProps) {
+  const isExpert = props.activePanel === 'expert'
+  const [exportOpen, setExportOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [contextOpen, setContextOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchDate, setSearchDate] = useState('')
+  const [searchTime, setSearchTime] = useState('')
+  const [ctxMenu, setCtxMenu] = useState<{x: number, y: number, agentId: string} | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [multiSelect, setMultiSelect] = useState(false)
+  const [selectedForRemoval, setSelectedForRemoval] = useState<Set<string>>(new Set())
+  const [modelPickerFor, setModelPickerFor] = useState<string | null>(null)
+  const [thinkingPickerFor, setThinkingPickerFor] = useState<string | null>(null)
+
+  const fmt = (n: number) => {
+    if (n >= 1000000) {
+      const m = n / 1000000
+      return m % 1 === 0 ? `${m}M` : `${m.toFixed(1)}M`
+    }
+    if (n >= 1000) return `${Math.floor(n / 1000)}K`
+    return `${n}`
+  }
+  const ctxPercent = props.contextWindow > 0 ? Math.floor((props.contextTokens / props.contextWindow) * 100) : 0
+  const ctxColor = ctxPercent >= 80 ? 'var(--q-accent-danger)' : ctxPercent >= 50 ? 'var(--q-accent-warning)' : 'var(--q-text)'
+
+  const panelStyle: React.CSSProperties = {
+    backgroundColor: 'var(--q-bg-panel)',
+    borderRadius: 'var(--radius-lg)',
+    boxShadow: 'var(--shadow-floating)',
+    padding: '8px',
+    minHeight: 'var(--spacing-header-min)',
+    display: 'flex',
+    alignItems: 'center',
+  }
+  const popupStyle: React.CSSProperties = {
+    position: 'absolute',
+    top: 'calc(100% + 8px)',
+    right: '0',
+    zIndex: 50,
+    backgroundColor: 'var(--q-bg-panel)',
+    borderRadius: 'var(--radius-lg)',
+    boxShadow: 'var(--shadow-floating)',
+  }
+  const overlayStyle: React.CSSProperties = {
+    position: 'fixed',
+    inset: 0,
+    zIndex: 40,
+    backgroundColor: 'transparent',
+  }
+  const ctxOverlayStyle: React.CSSProperties = {
+    position: 'fixed',
+    inset: 0,
+    zIndex: 200,
+    backgroundColor: 'transparent',
+  }
+
+  return (
+    <>
+      <div className="flex items-center">
+        {/* Panel 1: Home */}
+        <div style={panelStyle}>
+          <IconBtn icon={Home} onClick={() => props.onSelectPanel('home')} title="Home" />
+        </div>
+        <div style={{ width: '8px', flexShrink: 0 }} />
+
+        {/* Panel 2: Sidebar toggle */}
+        {!isExpert && (
+          <>
+            <div style={panelStyle}>
+              <IconBtn icon={PanelLeft} onClick={props.onToggleSidebar} title={props.sidebarOpen ? 'Hide sidebar' : 'Show sidebar'} />
+            </div>
+            <div style={{ width: '8px', flexShrink: 0 }} />
+          </>
+        )}
+
+        {/* Panel 3: Expanded */}
+        <div style={{ ...panelStyle, flex: 1 }}>
+          <div style={{ width: '8px', flexShrink: 0 }} />
+          <MessageSquare size={18} style={{ color: 'var(--q-text-secondary)', flexShrink: 0 }} />
+          <div style={{ width: '12px', flexShrink: 0 }} />
+          <span style={{ color: props.welcomeMode ? 'var(--q-text-tertiary)' : 'var(--q-text)', fontSize: '16px', fontWeight: props.welcomeMode ? 400 : 600, fontStyle: props.welcomeMode ? 'italic' : 'normal', fontFamily: 'var(--font-interface)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {props.welcomeMode ? 'The chat title will be generated automatically' : (props.session?.title ?? 'Chat')}
+          </span>
+
+          {/* Context counter — inside its own position:relative wrapper */}
+          <div style={{ position: 'relative' }}>
+            <button onClick={() => setContextOpen(!contextOpen)}
+              style={{ color: ctxColor, fontFamily: 'var(--font-code)', fontSize: '13px', padding: '4px 8px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: contextOpen ? 'var(--q-hover)' : 'transparent', whiteSpace: 'nowrap', flexShrink: 0 }}>
+              {props.contextTokens > 0 ? `${fmt(props.contextTokens)}/${fmt(props.contextWindow)} (${ctxPercent}%)` : `0/${fmt(props.contextWindow)} (0%)`}
+            </button>
+            {contextOpen && (
+              <>
+                <div style={overlayStyle} onClick={() => setContextOpen(false)} />
+                <div style={{ ...popupStyle, minWidth: '260px', maxWidth: '300px', padding: '12px' }}>
+                  <div style={{ textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: '10px', fontWeight: 600, letterSpacing: '0.8px', fontFamily: 'var(--font-code)', marginBottom: '6px' }}>CONTEXT</div>
+                  <CtxRow label="Total" value={fmt(props.contextWindow)} />
+                  <CtxRow label="Input" value="0" />
+                  <CtxRow label="Output" value="0" />
+                  <CtxRow label="Used" value={fmt(props.contextTokens)} />
+                  <CtxRow label="Percent" value={`${((props.contextTokens / props.contextWindow) * 100).toFixed(1)}%`} />
+                  <div style={{ height: '14px' }} />
+                  <div style={{ textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: '10px', fontWeight: 600, letterSpacing: '0.8px', fontFamily: 'var(--font-code)', marginBottom: '6px' }}>COMPACTION</div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', marginBottom: '8px' }}>
+                    <input type="checkbox" defaultChecked style={{ accentColor: 'var(--q-accent-info)' }} />
+                    <span style={{ color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>Auto-compaction (80%)</span>
+                  </label>
+                  <CompactionBtn />
+                </div>
+              </>
+            )}
+          </div>
+
+                {/* Right-click context menu */}
+      {ctxMenu && (
+        <>
+          <div style={ctxOverlayStyle} onClick={() => { setCtxMenu(null) }} onContextMenu={e => { e.preventDefault(); setCtxMenu(null) }} />
+          <div style={{ position: 'fixed', left: Math.min(ctxMenu.x, window.innerWidth - 180), top: Math.min(ctxMenu.y, window.innerHeight - 200), zIndex: 210, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '4px 0', minWidth: '160px' }}>
+            {!multiSelect && (
+              <button onClick={() => { setMultiSelect(true); setSelectedForRemoval(new Set([ctxMenu.agentId])); setCtxMenu(null) }} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}>Select</button>
+            )}
+            {!multiSelect && (
+              <button onClick={() => { setConfirmDelete(ctxMenu.agentId); setCtxMenu(null) }} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '14px', fontFamily: 'var(--font-interface)' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}>Remove</button>
+            )}
+            {multiSelect && (
+              <button onClick={() => { setMultiSelect(false); setSelectedForRemoval(new Set()); setCtxMenu(null) }} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}>Deselect all</button>
+            )}
+            {multiSelect && selectedForRemoval.size > 0 && (
+              <button onClick={() => { setConfirmDelete('selected'); setCtxMenu(null) }} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '14px', fontFamily: 'var(--font-interface)' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}>Remove {selectedForRemoval.size} agent{selectedForRemoval.size > 1 ? 's' : ''}</button>
+            )}
+          </div>
+        </>
+      )}
+
+      {confirmDelete && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setConfirmDelete(null)}>
+          <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '400px', width: '90%' }} onClick={e => e.stopPropagation()}>
+            <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', marginBottom: '20px' }}>{confirmDelete === 'selected' ? `Remove ${selectedForRemoval.size} selected agents?` : 'Remove agent from chat?'}</div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+              <ExportBtn label="Cancel" color="var(--q-text-secondary)" hoverRgb="255,255,255" onClick={() => setConfirmDelete(null)} />
+              <div style={{ width: '8px' }} />
+              <button onClick={() => {
+                if (confirmDelete === 'selected') { selectedForRemoval.forEach(id => props.onAgentToggle(id)); setSelectedForRemoval(new Set()); setMultiSelect(false) }
+                
+                else { props.onAgentToggle(confirmDelete) }
+                setConfirmDelete(null)
+              }}
+                style={{ padding: '8px 16px', borderRadius: 'var(--radius-lg)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-secondary)', color: 'var(--q-bg)', fontSize: '15px', fontWeight: 500, fontFamily: 'var(--font-interface)' }}>
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+{/* Export */}
+          <div style={{ width: '8px', flexShrink: 0 }} />
+          <IconBtn icon={Download} onClick={() => setExportOpen(true)} title="Export chat" />
+
+          {/* Search — panel INSIDE the position:relative wrapper */}
+          <div style={{ width: '8px', flexShrink: 0 }} />
+          <div style={{ position: 'relative' }}>
+            <IconBtn icon={Search} onClick={() => setSearchOpen(!searchOpen)} title="Search messages" activeBg={searchOpen} />
+            {searchOpen && (
+              <>
+                <div style={overlayStyle} onClick={() => setSearchOpen(false)} />
+                <div style={{ ...popupStyle, width: '320px', padding: '10px' }}>
+                  {/* Row 1 */}
+                  <div style={{ display: 'flex', alignItems: 'center', height: '24px' }}>
+                    <Search size={16} style={{ color: 'var(--q-text-tertiary)', flexShrink: 0 }} />
+                    <div style={{ width: '10px', flexShrink: 0 }} />
+                    <input type="text" placeholder="Search in messages..." autoFocus value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                      style={{ flex: 1, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0', margin: '0', lineHeight: '24px', height: '24px' }} />
+                    <button onClick={() => { setSearchQuery(''); setSearchDate(''); setSearchTime('') }}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px', color: searchQuery ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)', fontSize: '14px', opacity: searchQuery ? 1 : 0.3, lineHeight: '1', flexShrink: 0 }}>✕</button>
+                    <div style={{ width: '10px', flexShrink: 0 }} />
+                    <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-code)', whiteSpace: 'nowrap', opacity: 0.3, flexShrink: 0 }}>0/0</span>
+                    <div style={{ width: '8px', flexShrink: 0 }} />
+                    <button style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: 'var(--q-text-tertiary)', opacity: 0.3, lineHeight: '0', flexShrink: 0 }}><ChevronDown size={16} /></button>
+                    <button style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: 'var(--q-text-tertiary)', opacity: 0.3, lineHeight: '0', flexShrink: 0 }}><ChevronUp size={16} /></button>
+                  </div>
+                  <div style={{ height: '8px' }} />
+                  {/* Row 2 */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '24px' }}>
+                    <Calendar size={16} style={{ color: 'var(--q-text-tertiary)', flexShrink: 0 }} />
+                    <div style={{ width: '6px', flexShrink: 0 }} />
+                    <input type="text" placeholder="dd/mm/yyyy" value={searchDate} onChange={e => setSearchDate(e.target.value)}
+                      style={{ width: '90px', backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', textAlign: 'center', padding: '0', margin: '0', lineHeight: '24px', height: '24px' }} />
+                    <div style={{ width: '4px', flexShrink: 0 }} />
+                    <button onClick={() => setSearchDate('')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: 'var(--q-text-tertiary)', fontSize: '12px', opacity: searchDate ? 1 : 0.3, lineHeight: '1', flexShrink: 0 }}>✕</button>
+                    <div style={{ width: '12px', flexShrink: 0 }} />
+                    <Clock size={16} style={{ color: 'var(--q-text-tertiary)', flexShrink: 0 }} />
+                    <div style={{ width: '6px', flexShrink: 0 }} />
+                    <input type="text" placeholder="hh:mm:ss" value={searchTime} onChange={e => setSearchTime(e.target.value)}
+                      style={{ width: '60px', backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', textAlign: 'center', padding: '0', margin: '0', lineHeight: '24px', height: '24px' }} />
+                    <div style={{ width: '4px', flexShrink: 0 }} />
+                    <button onClick={() => setSearchTime('')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: 'var(--q-text-tertiary)', fontSize: '12px', opacity: searchTime ? 1 : 0.3, lineHeight: '1', flexShrink: 0 }}>✕</button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Reload */}
+          <div style={{ width: '8px', flexShrink: 0 }} />
+          <IconBtn icon={RefreshCw} onClick={() => {}} title="Reload chat" />
+        </div>
+
+        {/* Panel 4: Agent dropdown */}
+        <div style={{ width: '8px', flexShrink: 0 }} />
+        <div style={panelStyle}>
+          <div style={{ position: 'relative' }}>
+            <IconBtn icon={Bot} onClick={props.onToggleAgentDropdown} title="Show agents" activeBg={props.agentDropdownOpen} />
+            {props.agentDropdownOpen && (
+              <>
+                <div style={overlayStyle} onClick={() => { props.onToggleAgentDropdown(); setMultiSelect(false); setSelectedForRemoval(new Set()) }} />
+                <div style={{ ...popupStyle, top: 'calc(100% + 16px)', right: '-8px', minWidth: '260px', maxWidth: '300px', minHeight: '50vh', maxHeight: '70vh', border: '1px solid var(--q-border)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                  {/* Add agent + Orchestrator */}
+                  <div style={{ padding: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <button style={{ flex: 1, height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: '13px', transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms cubic-bezier(0.16, 1, 0.3, 1)' }}
+                      onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)'; e.currentTarget.style.color = 'var(--q-text)' }}
+                      onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-text-secondary)' }}>
+                      <Bot size={20} style={{ display: 'flex', flexShrink: 0 }} /> <span style={{ lineHeight: '1' }}>Add agent</span>
+                    </button>
+                    <button onClick={() => { if (!props.selectedAgentIds.includes('orchestrator')) props.onAgentToggle('orchestrator') }} style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: props.selectedAgentIds.includes('orchestrator') ? 'var(--q-text-tertiary)' : 'var(--q-text-secondary)', opacity: props.selectedAgentIds.includes('orchestrator') ? 0.4 : 1, transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms cubic-bezier(0.16, 1, 0.3, 1)' }}
+                      onMouseEnter={e => { if (!props.selectedAgentIds.includes('orchestrator')) { e.currentTarget.style.backgroundColor = 'var(--q-hover)'; e.currentTarget.style.color = 'var(--q-text)' } }}
+                      onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = props.selectedAgentIds.includes('orchestrator') ? 'var(--q-text-tertiary)' : 'var(--q-text-secondary)' }}>
+                      <Network size={20} />
+                    </button>
+                  </div>
+                  {/* Search field */}
+                  <div style={{ padding: '4px 8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', paddingLeft: '12px', paddingRight: '8px' }}>
+                      <Search size={16} style={{ color: 'var(--q-text-tertiary)', flexShrink: 0 }} />
+                      <div style={{ width: '8px', flexShrink: 0 }} />
+                      <input type="text" placeholder="Search agent..." style={{ flex: 1, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0', margin: '0' }} />
+                      <div style={{ width: '4px', flexShrink: 0 }} />
+                      <span style={{ color: 'var(--q-text-tertiary)', fontSize: '14px', opacity: 0.3, cursor: 'default', padding: '4px' }}>✕</span>
+                    </div>
+                  </div>
+                  {/* Agent list */}
+                  <div style={{ flex: 1, overflowY: 'auto' }}>
+                    {(() => {
+                      const agents = props.agents
+                        .filter(a => props.selectedAgentIds.includes(a.id))
+                        .sort((a, b) => a.id === 'orchestrator' ? -1 : b.id === 'orchestrator' ? 1 : 0)
+                      if (agents.length === 0) {
+                        return (
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, minHeight: '200px', padding: '24px 8px', textAlign: 'center' }}>
+                            <span style={{ color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)', lineHeight: '1.5' }}>
+                              No agents in chat.<br />Click "Add agent" to add one.
+                            </span>
+                          </div>
+                        )
+                      }
+                      return agents.map(agent => (
+                      <div key={agent.id} style={{ padding: '0 8px 8px 8px' }} onContextMenu={e => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, agentId: agent.id }) }}>
+                        <div style={{ padding: '8px 8px 8px 12px', borderRadius: 'var(--radius-md)', minHeight: '40px', cursor: 'pointer', display: 'flex', flexDirection: 'column', justifyContent: agent.id === 'orchestrator' ? 'center' : 'flex-start' }}
+                          onClick={() => { if (multiSelect) { const s = new Set(selectedForRemoval); if (s.has(agent.id)) s.delete(agent.id); else s.add(agent.id); setSelectedForRemoval(s) } }}
+                          onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)' }}
+                          onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}>
+                          {/* Agent name */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Bot size={16} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', display: 'flex', flexShrink: 0 }} />
+                            <span style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-danger)' : 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', flex: 1, lineHeight: '16px' }}>{agent.name}</span>
+                          </div>
+                          {/* Model + Thinking (not for orchestrator) */}
+                          {agent.id !== 'orchestrator' && (
+                            <>
+                              <div style={{ height: '6px' }} />
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '24px', cursor: multiSelect && selectedForRemoval.has(agent.id) ? 'default' : 'pointer' }}
+                                onMouseEnter={e => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.currentTarget.querySelectorAll('span,svg').forEach((el: any) => el.style.color = 'var(--q-text)') } }}
+                                onMouseLeave={e => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.currentTarget.querySelectorAll('span,svg').forEach((el: any) => el.style.color = 'var(--q-text-tertiary)') } }}>
+                                <Cpu size={14} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', display: 'flex', flexShrink: 0 }} />
+                                <span onClick={(e) => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.stopPropagation(); setModelPickerFor(agent.id) } }} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', lineHeight: '14px', cursor: multiSelect && selectedForRemoval.has(agent.id) ? 'default' : 'pointer' }}>{agent.model}</span>
+                              </div>
+                              <div style={{ height: '4px' }} />
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '24px', cursor: multiSelect && selectedForRemoval.has(agent.id) ? 'default' : 'pointer' }}
+                                onMouseEnter={e => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.currentTarget.querySelectorAll('span,svg').forEach((el: any) => el.style.color = 'var(--q-text)') } }}
+                                onMouseLeave={e => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.currentTarget.querySelectorAll('span,svg').forEach((el: any) => el.style.color = 'var(--q-text-tertiary)') } }}>
+                                <Brain size={14} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', display: 'flex', flexShrink: 0 }} />
+                                <span onClick={(e) => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.stopPropagation(); setThinkingPickerFor(agent.id) } }} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', lineHeight: '14px', cursor: multiSelect && selectedForRemoval.has(agent.id) ? 'default' : 'pointer' }}>
+                                  {agent.thinking === 'off' ? 'Off' : `On (${agent.thinking})`}
+                                </span>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                    })()}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Export modal — Flutter AlertDialog: bgElevated, radiusXl, NO border, all TextButtons coral */}
+      {exportOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setExportOpen(false)}>
+          <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+            {/* Title — 24px top, 24px left/right, 0 bottom (Material 3 titlePadding) */}
+            <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', padding: '14px 18px' }}>Export chat</div>
+            {/* Content — 16px top, 24px left/right, 0 bottom (Material 3 contentPadding) */}
+            <div style={{ color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', lineHeight: 1.4, padding: '14px 18px' }}>Choose export format:</div>
+            {/* Actions — 8px bottom, 16px right (Material 3 actionsPadding) */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '0 16px 12px 16px' }}>
+              <ExportBtn label="Markdown (.md)" color="var(--q-accent-info-bright)" hoverRgb="181,199,224" onClick={() => setExportOpen(false)} />
+              <ExportBtn label="HTML (.html)" color="var(--q-accent-info-bright)" hoverRgb="181,199,224" onClick={() => setExportOpen(false)} />
+              <ExportBtn label="Cancel" color="var(--q-accent-danger)" hoverRgb="217,107,107" onClick={() => setExportOpen(false)} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Model picker modal */}
+      {modelPickerFor && (
+        <ModelPickerModal
+          currentModel={props.agents.find(a => a.id === modelPickerFor)?.model || ''}
+          models={props.providers?.flatMap((p: any) => p.models.map((m: any) => ({ id: m.id, name: m.name, contextWindow: m.contextWindow, provider: p.name }))) || []}
+          onClose={() => setModelPickerFor(null)}
+        />
+      )}
+
+      {/* Thinking picker modal */}
+      {thinkingPickerFor && (
+        <ThinkingPickerModal
+          currentThinking={props.agents.find(a => a.id === thinkingPickerFor)?.thinking || ''}
+          onClose={() => setThinkingPickerFor(null)}
+        />
+      )}
+    </>
+  )
+}
+
+function ExportBtn({ label, color, hoverRgb, onClick }: { label: string; color: string; hoverRgb: string; onClick: () => void }) {
+  const [hovered, setHovered] = useState(false)
+  return (
+    <button onClick={onClick} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+      style={{ padding: '10px 12px', border: 'none', cursor: 'pointer', backgroundColor: hovered ? `rgba(${hoverRgb},0.08)` : 'transparent', color, fontSize: '14px', fontFamily: 'var(--font-interface)', fontWeight: 500, borderRadius: 'var(--radius-md)', transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1)' }}>
+      {label}
+    </button>
+  )
+}
+
+function CtxRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
+      <span style={{ color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-code)' }}>{label}</span>
+      <span style={{ color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-code)' }}>{value}</span>
+    </div>
+  )
+}
+
+function CompactionBtn() {
+  const [hovered, setHovered] = useState(false)
+  return (
+    <button style={{ width: '100%', padding: '8px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: hovered ? 'var(--q-hover)' : 'var(--q-bg)', color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1)' }} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
+      Compaction
+    </button>
+  )
+}
+
+function IconBtn({ icon: Icon, onClick, title, activeBg }: { icon: React.FC<{ size?: number; style?: React.CSSProperties }>; onClick: () => void; title?: string; activeBg?: boolean }) {
+  const [hovered, setHovered] = useState(false)
+  const bg = activeBg ? 'var(--q-hover)' : hovered ? 'var(--q-hover)' : 'transparent'
+  const color = hovered ? 'var(--q-text)' : 'var(--q-text-secondary)'
+  return (
+    <button onClick={onClick} title={title} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+      style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: bg, color, flexShrink: 0, padding: '0', transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms cubic-bezier(0.16, 1, 0.3, 1)' }}>
+      <Icon size={20} />
+    </button>
+  )
+}
+
+// ── Model picker modal — exact Flutter _ModelPickerDialog copy ──
+function ModelPickerModal({ currentModel, models, onClose }: {
+  currentModel: string
+  models: { id: string; name: string; contextWindow?: number; provider: string }[]
+  onClose: () => void
+}) {
+  const [search, setSearch] = useState('')
+  const [selected, setSelected] = useState<string | null>(currentModel || null)
+  const filtered = search ? models.filter(m => m.id.toLowerCase().includes(search.toLowerCase()) || m.provider.toLowerCase().includes(search.toLowerCase())) : models
+  const byProvider: Record<string, typeof models> = {}
+  for (const m of filtered) { if (!byProvider[m.provider]) byProvider[m.provider] = []; byProvider[m.provider].push(m) }
+  const fmtCtx = (cw?: number) => { if (!cw || cw === 0) return '—'; if (cw >= 1000000) { const m = cw / 1000000; return m % 1 === 0 ? `${m}M` : `${m.toFixed(1)}M` }; if (cw >= 1000) return `${Math.floor(cw / 1000)}K`; return `${cw}` }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+      <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '480px', height: '80vh', maxHeight: '500px', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+        <div style={{ padding: '12px 16px', backgroundColor: 'var(--q-bg-panel)', borderBottom: '1px solid var(--q-border)', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+          <Cpu size={18} style={{ color: 'var(--q-accent-danger)', flexShrink: 0 }} />
+          <div style={{ width: '8px', flexShrink: 0 }} />
+          <span style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>Agent model</span>
+          <span style={{ flex: 1 }} />
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex' }}><X size={18} style={{ color: 'var(--q-text-secondary)' }} /></button>
+        </div>
+        <div style={{ padding: '8px 16px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', paddingLeft: '10px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-md)' }}>
+            <Search size={14} style={{ color: 'var(--q-text-tertiary)', flexShrink: 0 }} />
+            <div style={{ width: '8px', flexShrink: 0 }} />
+            <input type="text" placeholder="Search model..." value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '8px 0' }} />
+          </div>
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
+          <div onClick={() => setSelected(null)} style={{ padding: '8px 16px', cursor: 'pointer', backgroundColor: selected === null ? 'rgba(217,107,107,0.1)' : 'transparent', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ width: '14px', height: '14px', borderRadius: '50%', border: '2px solid ' + (selected === null ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)'), backgroundColor: selected === null ? 'var(--q-accent-secondary)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{selected === null && <div style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: 'var(--q-bg)' }} />}</div>
+            <span style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', flex: 1 }}>Chat default</span>
+            <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>Use chat default model</span>
+          </div>
+          {Object.entries(byProvider).map(([provider, pModels]) => (
+            <div key={provider}>
+              <div style={{ padding: '8px 16px 4px 16px', color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>{provider}</div>
+              {pModels.map(m => (
+                <div key={m.id} onClick={() => setSelected(m.id)} style={{ padding: '8px 16px', cursor: 'pointer', backgroundColor: selected === m.id ? 'rgba(217,107,107,0.1)' : 'transparent', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ width: '14px', height: '14px', borderRadius: '50%', border: '2px solid ' + (selected === m.id ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)'), backgroundColor: selected === m.id ? 'var(--q-accent-secondary)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{selected === m.id && <div style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: 'var(--q-bg)' }} />}</div>
+                  <span style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name || m.id}</span>
+                  <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', flexShrink: 0 }}>{fmtCtx(m.contextWindow)} ctx</span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+        <div style={{ padding: '8px 16px', borderTop: '1px solid var(--q-border)', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+          <span style={{ color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>{selected === null ? 'Chat default' : (selected.length > 30 ? selected.substring(0, 30) + '...' : selected)}</span>
+          <span style={{ flex: 1 }} />
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-secondary)', fontSize: '15px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }}>Cancel</button>
+          <div style={{ width: '8px' }} />
+          <button onClick={onClose} style={{ padding: '4px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-secondary)', color: 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)' }}>Confirm</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Thinking picker modal — exact Flutter _ThinkingPickerDialog copy ──
+function ThinkingPickerModal({ currentThinking, onClose }: { currentThinking: string; onClose: () => void }) {
+  const [selected, setSelected] = useState<string | null>(currentThinking || null)
+  const options: { value: string | null; label: string }[] = [{ value: null, label: 'Chat default' }, { value: 'on', label: 'On (xhigh)' }, { value: 'off', label: 'Off' }]
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+      <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '380px', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+        <div style={{ padding: '12px 16px', backgroundColor: 'var(--q-bg-panel)', borderBottom: '1px solid var(--q-border)', display: 'flex', alignItems: 'center' }}>
+          <Brain size={18} style={{ color: 'var(--q-accent-danger)', flexShrink: 0 }} />
+          <div style={{ width: '8px', flexShrink: 0 }} />
+          <span style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>Thinking</span>
+          <span style={{ flex: 1 }} />
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex' }}><X size={18} style={{ color: 'var(--q-text-secondary)' }} /></button>
+        </div>
+        <div style={{ padding: '8px 0' }}>
+          {options.map(opt => {
+            const isSelected = selected === opt.value
+            return (
+              <div key={opt.label} onClick={() => setSelected(opt.value)} style={{ padding: '10px 16px', cursor: 'pointer', backgroundColor: isSelected ? 'rgba(217,107,107,0.1)' : 'transparent', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '14px', height: '14px', borderRadius: '50%', border: '2px solid ' + (isSelected ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)'), backgroundColor: isSelected ? 'var(--q-accent-secondary)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{isSelected && <div style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: 'var(--q-bg)' }} />}</div>
+                <span style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>{opt.label}</span>
+              </div>
+            )
+          })}
+        </div>
+        <div style={{ padding: '8px 16px', borderTop: '1px solid var(--q-border)', display: 'flex', alignItems: 'center' }}>
+          <span style={{ flex: 1 }} />
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-secondary)', fontSize: '15px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }}>Cancel</button>
+          <div style={{ width: '8px' }} />
+          <button onClick={onClose} style={{ padding: '4px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-secondary)', color: 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)' }}>Confirm</button>
+        </div>
+      </div>
+    </div>
+  )
+}
