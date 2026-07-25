@@ -394,7 +394,7 @@ export function AgentsPanel(props) {
     // Container
     React.createElement('div', { className: 'flex flex-col', style: { maxWidth: 'var(--spacing-chat-max)', margin: '0 auto', width: '100%', flex: 1, minHeight: 0 }, children: [
       // Header
-      React.createElement('div', { style: { marginBottom: '12px', flexShrink: 0, display: 'flex', alignItems: 'center' }, children: [
+      React.createElement('div', { style: { marginBottom: '8px', flexShrink: 0, display: 'flex', alignItems: 'center' }, children: [
         // Home button
         React.createElement('div', { style: headerStyle, children: 
           React.createElement(IconButton, { icon: Home, onClick: () => onSelectPanel('home'), title: 'Home' })
@@ -424,7 +424,7 @@ export function AgentsPanel(props) {
       ]}),
 
       // Scrollable content
-      React.createElement('div', { style: { flex: 1, minHeight: 0, overflowY: 'auto', padding: '1px 16px 0 16px', overscrollBehavior: 'contain', scrollbarGutter: 'stable' }, children: [
+      React.createElement('div', { style: { flex: 1, minHeight: 0, overflowY: 'auto', padding: '8px 16px 0 16px', overscrollBehavior: 'contain', scrollbarGutter: 'stable' }, children: [
 
         // === Section: Your agents ===
         Section({ icon: Bot, title: 'Your agents', children: [
