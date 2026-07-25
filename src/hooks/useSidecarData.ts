@@ -225,38 +225,40 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
 
     // Stream events (text, thinking, tool_call, tool_result, delegation, done)
     const unsubStream = subscribe('stream_event', (p: any) => {
-      const { type, content, messageId } = p
-      if (type === 'text' || type === 'text_delta') {
+      const { type, eventType, delta, content, messageId } = p
+      const _type = eventType || type
+      const _content = delta || content
+      if (_type === 'text' || _type === 'text_delta' || _type === 'text_start') {
         setMessages(prev => {
           const last = prev[prev.length - 1]
           if (last && last.role === 'assistant' && last.isStreaming) {
-            return [...prev.slice(0, -1), { ...last, content: (last.content || '') + (content || '') }]
+            return [...prev.slice(0, -1), { ...last, content: (last.content || '') + (_content || '') }]
           }
-          return [...prev, { id: messageId || `msg-${Date.now()}`, role: 'assistant', content: content || '', timestamp: new Date().toISOString(), isStreaming: true }]
+          return [...prev, { id: messageId || `msg-${Date.now()}`, role: 'assistant', content: _content || '', timestamp: new Date().toISOString(), isStreaming: true }]
         })
         setStatusLabel('Writing'); setStatusKind('writing')
-      } else if (type === 'thinking' || type === 'thinking_delta') {
+      } else if (_type === 'thinking' || _type === 'thinking_delta' || _type === 'thinking_start') {
         setStatusLabel('Thinking'); setStatusKind('thinking')
-        if (content) {
+        if (_content) {
           setMessages(prev => {
             const last = prev[prev.length - 1]
             if (last && last.role === 'assistant' && last.isStreaming) {
-              return [...prev.slice(0, -1), { ...last, thinking: (last.thinking || '') + content }]
+              return [...prev.slice(0, -1), { ...last, thinking: (last.thinking || '') + _content }]
             }
             return prev
           })
         }
-      } else if (type === 'tool_call' || type === 'toolcall_start') {
+      } else if (_type === 'tool_call' || _type === 'toolcall_start') {
         setStatusLabel('Tool call'); setStatusKind('tool_call')
-      } else if (type === 'tool_result' || type === 'toolcall_end') {
+      } else if (_type === 'tool_result' || _type === 'toolcall_end') {
         setStatusLabel('Tool result'); setStatusKind('tool_result')
-      } else if (type === 'delegation_start') {
+      } else if (_type === 'delegation_start') {
         setStatusLabel('Delegating'); setStatusKind('delegation')
-      } else if (type === 'delegation_end') {
+      } else if (_type === 'delegation_end') {
         setStatusLabel('Running'); setStatusKind('running')
-      } else if (type === 'error') {
+      } else if (_type === 'error') {
         setStatusLabel('Failed'); setStatusKind('failed'); setIsStreaming(false)
-      } else if (type === 'done' || type === 'end') {
+      } else if (_type === 'done' || _type === 'end') {
         setIsStreaming(false); setStatusLabel(''); setStatusKind('')
         setMessages(prev => prev.map(m => m.isStreaming ? { ...m, isStreaming: false } : m))
         // Capture token usage
@@ -277,6 +279,17 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
     const unsubStreamStart = subscribe('streaming_started', () => {
       setIsStreaming(true)
     })
+    // Done event (sent as separate notification, not stream_event)
+    const unsubDone = subscribe('done', (p: any) => {
+      setIsStreaming(false); setStatusLabel(''); setStatusKind('')
+      const { text, model, agentName, thinkingLevel, stopReason, errorMessage } = p || {}
+      if (stopReason === 'error') {
+        setMessages(prev => prev.map(m => m.isStreaming ? { ...m, isStreaming: false, isError: true, content: errorMessage || 'Unknown error' } : m))
+      } else {
+        setMessages(prev => prev.map(m => m.isStreaming ? { ...m, isStreaming: false, model, agentName, thinkingLevel, content: text || m.content } : m))
+      }
+    })
+
     const unsubStreamStop = subscribe('streaming_stopped', () => {
       setIsStreaming(false); setStatusLabel(''); setStatusKind('')
       setMessages(prev => prev.map(m => m.isStreaming ? { ...m, isStreaming: false } : m))
@@ -423,7 +436,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
     })
 
     return () => {
-      unsubStream(); unsubStreamStart(); unsubStreamStop()
+      unsubStream(); unsubStreamStart(); unsubStreamStop(); unsubDone()
       unsubSessCreated(); unsubSessUpdated(); unsubSessDeleted()
       unsubModelUpdate(); unsubThinkUpdate(); unsubThinkLevels()
       unsubSessMeta(); unsubAgentStatus()
