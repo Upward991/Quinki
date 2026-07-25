@@ -2,7 +2,7 @@
  * Resolve configuration values that may be shell commands, environment variables, or literals.
  * Used by auth-storage.ts and model-registry.ts.
  */
-import { execSync, spawnSync } from "node:child_process";
+import { execSync, spawnSync } from "child_process";
 import { getShellConfig } from "../utils/shell.js";
 // Cache for shell command results (persists for process lifetime)
 const commandResultCache = new Map();

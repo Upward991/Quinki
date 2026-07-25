@@ -552,7 +552,11 @@ export class AgentSession {
         this.agent.state.tools = tools;
         // Rebuild base system prompt with new tool set
         this._baseSystemPrompt = this._rebuildSystemPrompt(validToolNames);
-        this.agent.state.systemPrompt = this._baseSystemPrompt;
+        // PATCH: Don't overwrite systemPrompt here — pi-bridge.ts manages it.
+        // Only set it if we don't have a custom override.
+        if (!this._customSystemPromptOverride) {
+            this.agent.state.systemPrompt = this._baseSystemPrompt;
+        }
     }
     /** Whether compaction or branch summarization is currently running */
     get isCompacting() {
@@ -619,35 +623,12 @@ export class AgentSession {
         return Array.from(unique);
     }
     _rebuildSystemPrompt(toolNames) {
-        const validToolNames = toolNames.filter((name) => this._toolRegistry.has(name));
-        const toolSnippets = {};
-        const promptGuidelines = [];
-        for (const name of validToolNames) {
-            const snippet = this._toolPromptSnippets.get(name);
-            if (snippet) {
-                toolSnippets[name] = snippet;
-            }
-            const toolGuidelines = this._toolPromptGuidelines.get(name);
-            if (toolGuidelines) {
-                promptGuidelines.push(...toolGuidelines);
-            }
+        // PATCH: We build our own system prompt in pi-bridge.ts.
+        // The SDK's buildSystemPrompt is NEVER used — always return our override or empty.
+        if (this._customSystemPromptOverride) {
+            return this._customSystemPromptOverride;
         }
-        const loaderSystemPrompt = this._resourceLoader.getSystemPrompt();
-        const loaderAppendSystemPrompt = this._resourceLoader.getAppendSystemPrompt();
-        const appendSystemPrompt = loaderAppendSystemPrompt.length > 0 ? loaderAppendSystemPrompt.join("\n\n") : undefined;
-        const loadedSkills = this._resourceLoader.getSkills().skills;
-        const loadedContextFiles = this._resourceLoader.getAgentsFiles().agentsFiles;
-        this._baseSystemPromptOptions = {
-            cwd: this._cwd,
-            skills: loadedSkills,
-            contextFiles: loadedContextFiles,
-            customPrompt: loaderSystemPrompt,
-            appendSystemPrompt,
-            selectedTools: validToolNames,
-            toolSnippets,
-            promptGuidelines,
-        };
-        return buildSystemPrompt(this._baseSystemPromptOptions);
+        return "";
     }
     // =========================================================================
     // Prompting
@@ -806,14 +787,13 @@ export class AgentSession {
                     });
                 }
             }
-            // Apply extension-modified system prompt, or reset to base
+            // PATCH: Don't overwrite systemPrompt if we have a custom override.
+            // Our code in pi-bridge.ts sets _baseSystemPrompt and _customSystemPromptOverride.
+            // The SDK should NOT reset it to _baseSystemPrompt here — just keep what we set.
             if (result?.systemPrompt) {
                 this.agent.state.systemPrompt = result.systemPrompt;
             }
-            else {
-                // Ensure we're using the base prompt (in case previous turn had modifications)
-                this.agent.state.systemPrompt = this._baseSystemPrompt;
-            }
+            // else: DO NOTHING — keep the systemPrompt that pi-bridge.ts already set,
         }
         catch (error) {
             preflightResult?.(false);
@@ -1591,7 +1571,10 @@ export class AgentSession {
         };
         this._resourceLoader.extendResources(extensionPaths);
         this._baseSystemPrompt = this._rebuildSystemPrompt(this.getActiveToolNames());
-        this.agent.state.systemPrompt = this._baseSystemPrompt;
+        // PATCH: Don't overwrite systemPrompt — pi-bridge.ts manages it.
+        if (!this._customSystemPromptOverride) {
+            this.agent.state.systemPrompt = this._baseSystemPrompt;
+        }
     }
     buildExtensionResourcePaths(entries) {
         return entries.map((entry) => {

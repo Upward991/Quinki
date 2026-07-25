@@ -1932,6 +1932,18 @@ class PiBridge {
 
     pi = result.session;
     try { pi.toolExecution = "sequential"; } catch {}
+    // Fallback: set runtime API key from models.json
+    try {
+      const _modelsJson = JSON.parse(fs.readFileSync(path.join(this.#agentDir, "models.json"), "utf-8"));
+      for (const [provName, pcfg] of Object.entries(_modelsJson.providers || {})) {
+        const key = (pcfg as any).apiKey;
+        if (key && key.length > 0) {
+          let realKey = key;
+          if (key.startsWith("enc:v1:")) { try { realKey = decryptString(key); } catch {} }
+          try { pi.modelRegistry?.authStorage?.setRuntimeApiKey?.(provName, realKey); } catch {}
+        }
+      }
+    } catch (e: any) { this.logDebug("fallback-apikey-error", { error: e?.message }); }
     this.#active.set(key, pi);
 
     // === D3 fix: leggi session entry per modello e thinking ===

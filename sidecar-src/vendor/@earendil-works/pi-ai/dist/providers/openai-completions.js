@@ -600,6 +600,9 @@ export function convertMessages(model, context, compat) {
         const useDeveloperRole = model.reasoning && compat.supportsDeveloperRole;
         const role = useDeveloperRole ? "developer" : "system";
         params.push({ role: role, content: sanitizeSurrogates(context.systemPrompt) });
+        console.error(`[LLM-CALL] systemPrompt sent to LLM: role=${role}, len=${context.systemPrompt.length}, first100=${context.systemPrompt.substring(0, 100)}`);
+    } else {
+        console.error(`[LLM-CALL] NO systemPrompt sent to LLM!`);
     }
     let lastRole = null;
     for (let i = 0; i < transformedMessages.length; i++) {
@@ -890,7 +893,10 @@ function detectCompat(model) {
         provider === "opencode" ||
         baseUrl.includes("opencode.ai") ||
         isCloudflareWorkersAI ||
-        isCloudflareAiGateway;
+        isCloudflareAiGateway ||
+        // PATCH: Ollama non supporta il ruolo "developer" — usa "system"
+        provider === "Ollama" ||
+        baseUrl.includes("localhost:11434");
     const useMaxTokens = baseUrl.includes("chutes.ai") || isMoonshot || isCloudflareAiGateway || isTogether;
     const isGrok = provider === "xai" || baseUrl.includes("api.x.ai");
     const isDeepSeek = provider === "deepseek" || baseUrl.includes("deepseek.com");
