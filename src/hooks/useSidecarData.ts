@@ -188,7 +188,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
                 providerList.push({
                   id, name: id, type: p.api || 'ollama',
                   apiKeyStatus: p.apiKey || p.apiKeySet ? 'configured' : 'missing',
-                  models: modelsByProvider[id] || [], enabled: p.enabled !== false,
+                  models: modelsByProvider[id] || [], enabled: p.enabled !== false, enabledModels: p.enabledModels || [],
                   baseUrl: p.baseUrl || '',
                 })
               }
