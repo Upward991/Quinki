@@ -524,8 +524,8 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
       if (!sk) {
         try {
           const createResult = await call('createSession', { label: 'New chat' })
-          if (createResult?.sessionKey) {
-            sk = createResult.sessionKey
+          if (createResult?.key || createResult?.sessionKey) {
+            sk = createResult.key || createResult.sessionKey
             setActiveSessionId(sk as string)
             try {
               const r = await call('getFullState', {})
@@ -538,7 +538,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
           return
         }
       }
-      await call('sendMessage', { sessionKey: sk, text, agents: ag || [] })
+      await call('sendMessage', { sessionKey: sk, text, agentId: ag && ag.length > 0 ? ag[0] : undefined })
       // Reload sessions to get auto-generated title
       try {
         const r = await call('getFullState', {})
