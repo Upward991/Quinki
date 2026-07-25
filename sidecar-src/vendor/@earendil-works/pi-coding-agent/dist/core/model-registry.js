@@ -414,7 +414,9 @@ export class ModelRegistry {
                     }
                 }
             }
-            return { models: this.parseModels(config), overrides, modelOverrides, error: undefined };
+            const _parsed = this.parseModels(config);
+            process.stderr.write(`[DEBUG] loadCustomModels: ${_parsed.length} models, providers=${Object.keys(config.providers).join(',')}\n`);
+            return { models: _parsed, overrides, modelOverrides, error: undefined };
         }
         catch (error) {
             if (error instanceof SyntaxError) {
