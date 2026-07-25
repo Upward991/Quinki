@@ -187,7 +187,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
               for (const [id, p] of Object.entries(providersResult.providers) as [string, any][]) {
                 providerList.push({
                   id, name: id, type: p.api || 'ollama',
-                  apiKeyStatus: p.apiKey || p.apiKeySet ? 'configured' : 'missing',
+                  apiKeyStatus: id.toLowerCase() === 'ollama' ? 'local' : (p.apiKey && p.apiKey !== '••••••••' && !p.apiKey.startsWith('•')) || p.apiKeySet ? 'configured' : 'missing',
                   models: modelsByProvider[id] || [], enabled: p.enabled !== false, enabledModels: p.enabledModels || [],
                   baseUrl: p.baseUrl || '',
                 })
@@ -196,6 +196,13 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
             for (const [id, mods] of Object.entries(modelsByProvider)) {
               if (!providerList.find(p => p.id === id)) {
                 providerList.push({ id, name: id, type: 'unknown', apiKeyStatus: 'missing', models: mods, enabled: true, baseUrl: '' })
+              }
+            }
+            // Also add enabledModels as model entries (for providers without full model data)
+            for (const p of providerList) {
+              const safeP = providersResult?.providers?.[p.id]
+              if (safeP?.enabledModels && p.models.length === 0) {
+                p.models = safeP.enabledModels.map((id: string) => ({ id, name: id, contextWindow: 0 }))
               }
             }
             setProviders(providerList)

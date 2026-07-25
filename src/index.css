@@ -1,3 +1,36 @@
+
+/* Custom checkbox — stays colored even when window is unfocused */
+input[type="checkbox"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--q-border);
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+input[type="checkbox"]:checked {
+  background: #9d8bd9;
+  border-color: #9d8bd9;
+}
+input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 5px;
+  height: 9px;
+  border: solid #08080b;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+input[type="checkbox"]:not(:checked) {
+  background: transparent;
+}
 /* ============================================================
    Quinki — "Deep Cosmos" Design System CSS
    Deep space aesthetic — warm but mysterious.
@@ -324,23 +357,9 @@ input:focus, textarea:focus, button:focus { box-shadow: none; outline: none; }
    ────────────────────────────────────────────────────────── */
 .hljs { background: transparent !important; padding: 0 !important; }
 
-input[type="checkbox"] {
-  appearance: auto !important;
-  -webkit-appearance: auto !important;
-  width: 18px !important;
-  height: 18px !important;
-  margin-right: 8px !important;
-  cursor: pointer;
-}
 
-input[type="checkbox"] {
-  appearance: auto !important;
-  -webkit-appearance: auto !important;
-  width: 18px !important;
-  height: 18px !important;
-  margin-right: 8px !important;
-  cursor: pointer;
-}
+
+
 
 .q-hover-btn:hover {
   background-color: var(--q-hover) !important;
