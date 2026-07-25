@@ -424,7 +424,7 @@ export function AgentsPanel(props) {
       ]}),
 
       // Scrollable content
-      React.createElement('div', { style: { flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 16px', overscrollBehavior: 'contain', scrollbarGutter: 'stable' }, children: [
+      React.createElement('div', { style: { flex: 1, minHeight: 0, overflowY: 'auto', padding: '1px 16px 0 16px', overscrollBehavior: 'contain', scrollbarGutter: 'stable' }, children: [
 
         // === Section: Your agents ===
         Section({ icon: Bot, title: 'Your agents', children: [
