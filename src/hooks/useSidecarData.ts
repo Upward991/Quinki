@@ -88,9 +88,12 @@ function mapSessions(arr: any[]) { return arr.map(mapSession) }
 
 // ── helper: map agent from sidecar format ──
 function mapAgent(a: any) {
+  // Descrizione: prime 3 righe non-vuote e non-header del PROMPT.md
+  const desc = (a.prompt || '').split('\n').map((l: string) => l.trim()).filter((l: string) => l && !l.startsWith('#')).slice(0, 3).join(' ').slice(0, 140)
   return {
     id: a.id,
     name: a.name,
+    description: desc,
     systemPrompt: a.prompt || '',
     model: a.model || '',
     thinking: a.thinking || 'off',
@@ -370,9 +373,12 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
     // Context usage
     const unsubCtxUsage = subscribe('context_usage', (p: any) => {
       if (p?.sessionKey && p.usage) {
+        if (typeof p.usage.input === 'number' || typeof p.usage.output === 'number') {
+          setSessionTokens(prev => ({ ...prev, [p.sessionKey]: { input: p.usage.input || 0, output: p.usage.output || 0 } }))
+        }
         if (p.sessionKey === activeSessionId) {
-          setContextTokens(p.usage.tokens || p.usage.used || 0)
-          setContextWindow(p.usage.window || p.usage.total || 1000000)
+          setContextTokens(p.usage.tokens ?? p.usage.used ?? 0)
+          if (p.usage.contextWindow || p.usage.window || p.usage.total) setContextWindow(p.usage.contextWindow ?? p.usage.window ?? p.usage.total)
         }
       }
     })
@@ -425,7 +431,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
           timestamp: m.timestamp || new Date().toISOString(),
           thinking: m.reasoning || m.thinking,
           toolCalls: m.toolCalls, toolResults: m.toolResults,
-          agentName: m.agentName, agentModel: m.model,
+          agentName: m.agentName, agentModel: m.model, thinkingLevel: m.thinkingLevel,
           tokensIn: m.tokensIn, tokensOut: m.tokensOut,
           isCompacted: m.isCompacted, isError: m.isError,
         })))
@@ -484,7 +490,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
           timestamp: m.timestamp || new Date().toISOString(),
           thinking: m.reasoning || m.thinking,
           toolCalls: m.toolCalls, toolResults: m.toolResults,
-          agentName: m.agentName, agentModel: m.model,
+          agentName: m.agentName, agentModel: m.model, thinkingLevel: m.thinkingLevel,
           tokensIn: m.tokensIn, tokensOut: m.tokensOut,
           isCompacted: m.isCompacted, isError: m.isError,
           errorType: m.errorType, errorContent: m.errorContent,
@@ -493,7 +499,14 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
       // Load context usage
       try {
         const ctx = await call('getContextUsage', { sessionKey })
-        if (ctx) { setContextTokens(ctx.tokens || ctx.used || 0); setContextWindow(ctx.window || ctx.total || 1000000) }
+        const u = ctx?.usage || ctx
+        if (u) {
+          setContextTokens(u.tokens ?? u.used ?? 0)
+          if (u.contextWindow || u.window || u.total) setContextWindow(u.contextWindow ?? u.window ?? u.total)
+          if (typeof u.input === 'number' || typeof u.output === 'number') {
+            setSessionTokens(prev => ({ ...prev, [sessionKey]: { input: u.input || 0, output: u.output || 0 } }))
+          }
+        }
       } catch {}
       // Load session meta
       try {
@@ -649,7 +662,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
           id: m.id || `msg-${Math.random()}`, role: m.role,
           content: m.content || '', timestamp: m.timestamp || new Date().toISOString(),
           thinking: m.reasoning, toolCalls: m.toolCalls, toolResults: m.toolResults,
-          agentName: m.agentName, agentModel: m.model,
+          agentName: m.agentName, agentModel: m.model, thinkingLevel: m.thinkingLevel,
         })))
       }
     } catch (e) { console.error('reloadSession:', e) }

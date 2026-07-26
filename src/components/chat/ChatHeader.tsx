@@ -19,6 +19,8 @@ interface ChatHeaderProps {
   onAgentToggle: (id: string) => void
   contextTokens: number
   contextWindow: number
+  contextInput?: number
+  contextOutput?: number
   providers: any[]
   onExport: () => void
   welcomeMode?: boolean
@@ -121,10 +123,10 @@ export function ChatHeader(props: ChatHeaderProps) {
                 <div style={overlayStyle} onClick={() => setContextOpen(false)} />
                 <div style={{ ...popupStyle, minWidth: '260px', maxWidth: '300px', padding: '12px' }}>
                   <div style={{ textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: '10px', fontWeight: 600, letterSpacing: '0.8px', fontFamily: 'var(--font-code)', marginBottom: '6px' }}>CONTEXT</div>
-                  <CtxRow label="Total" value={fmt(props.contextWindow)} />
-                  <CtxRow label="Input" value="0" />
-                  <CtxRow label="Output" value="0" />
-                  <CtxRow label="Used" value={fmt(props.contextTokens)} />
+                  <CtxRow label="Total" value={props.contextWindow.toLocaleString('en-US')} />
+                  <CtxRow label="Input" value={(props.contextInput || 0).toLocaleString('en-US')} />
+                  <CtxRow label="Output" value={(props.contextOutput || 0).toLocaleString('en-US')} />
+                  <CtxRow label="Used" value={props.contextTokens.toLocaleString('en-US')} />
                   <CtxRow label="Percent" value={`${((props.contextTokens / props.contextWindow) * 100).toFixed(1)}%`} />
                   <div style={{ height: '14px' }} />
                   <div style={{ textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: '10px', fontWeight: 600, letterSpacing: '0.8px', fontFamily: 'var(--font-code)', marginBottom: '6px' }}>COMPACTION</div>
@@ -406,7 +408,7 @@ function IconBtn({ icon: Icon, onClick, title, activeBg }: { icon: React.FC<{ si
   const bg = activeBg ? 'var(--q-hover)' : hovered ? 'var(--q-hover)' : 'transparent'
   const color = hovered ? 'var(--q-text)' : 'var(--q-text-secondary)'
   return (
-    <button onClick={onClick} title={title} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+    <button onClick={() => { setHovered(false); onClick() }} title={title} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
       style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: bg, color, flexShrink: 0, padding: '0', transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms cubic-bezier(0.16, 1, 0.3, 1)' }}>
       <Icon size={20} />
     </button>
@@ -428,7 +430,7 @@ function AgentPickerModal({ agents, onClose, onAdd }: {
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
       <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '500px', maxHeight: '500px', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
         {/* Header */}
-        <div style={{ padding: '16px', borderBottom: '1px solid var(--q-border)', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+        <div style={{ padding: '16px', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
           <span style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', flex: 1 }}>Add agents to chat</span>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex' }}><X size={18} style={{ color: 'var(--q-text-secondary)' }} /></button>
         </div>
@@ -448,17 +450,20 @@ function AgentPickerModal({ agents, onClose, onAdd }: {
           )}
           {filtered.map(agent => (
             <div key={agent.id} onClick={() => toggle(agent.id)}
-              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 16px', cursor: 'pointer' }}
+              style={{ display: 'flex', alignItems: 'center', padding: '4px 16px', cursor: 'pointer' }}
               onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)' }}
               onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{agent.name}</div>
+                {(agent as any).description && <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{(agent as any).description}</div>}
+              </div>
               <input type="checkbox" checked={selected.has(agent.id)} onChange={() => toggle(agent.id)} onClick={e => e.stopPropagation()}
-                style={{ accentColor: 'var(--q-accent-info)', width: '16px', height: '16px', cursor: 'pointer', flexShrink: 0 }} />
-              <span style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{agent.name}</span>
+                style={{ accentColor: 'var(--q-accent-info)', width: '16px', height: '16px', cursor: 'pointer', flexShrink: 0, marginLeft: '8px' }} />
             </div>
           ))}
         </div>
         {/* Footer */}
-        <div style={{ padding: '8px 16px', borderTop: '1px solid var(--q-border)', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+        <div style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
           <button onClick={() => setSelected(new Set(filtered.map(a => a.id)))} disabled={filtered.length === 0}
             style={{ background: 'none', border: 'none', cursor: filtered.length === 0 ? 'default' : 'pointer', color: filtered.length === 0 ? 'var(--q-text-tertiary)' : 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }}>Select all</button>
           <button onClick={() => setSelected(new Set())} disabled={selected.size === 0}
@@ -491,7 +496,7 @@ function ModelPickerModal({ currentModel, models, onClose, onConfirm }: {
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
       <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '480px', height: '80vh', maxHeight: '500px', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
-        <div style={{ padding: '12px 16px', backgroundColor: 'var(--q-bg-panel)', borderBottom: '1px solid var(--q-border)', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+        <div style={{ padding: '12px 16px', backgroundColor: 'var(--q-bg-panel)', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
           <Cpu size={18} style={{ color: 'var(--q-accent-info)', flexShrink: 0 }} />
           <div style={{ width: '8px', flexShrink: 0 }} />
           <span style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>Agent model</span>
@@ -524,7 +529,7 @@ function ModelPickerModal({ currentModel, models, onClose, onConfirm }: {
             </div>
           ))}
         </div>
-        <div style={{ padding: '8px 16px', borderTop: '1px solid var(--q-border)', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+        <div style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
           <span style={{ color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>{selected === null ? 'Chat default' : (selected.length > 30 ? selected.substring(0, 30) + '...' : selected)}</span>
           <span style={{ flex: 1 }} />
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-secondary)', fontSize: '15px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }}>Cancel</button>
@@ -543,7 +548,7 @@ function ThinkingPickerModal({ currentThinking, onClose, onConfirm }: { currentT
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
       <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '380px', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
-        <div style={{ padding: '12px 16px', backgroundColor: 'var(--q-bg-panel)', borderBottom: '1px solid var(--q-border)', display: 'flex', alignItems: 'center' }}>
+        <div style={{ padding: '12px 16px', backgroundColor: 'var(--q-bg-panel)', display: 'flex', alignItems: 'center' }}>
           <Brain size={18} style={{ color: 'var(--q-accent-info)', flexShrink: 0 }} />
           <div style={{ width: '8px', flexShrink: 0 }} />
           <span style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>Thinking</span>
@@ -561,7 +566,7 @@ function ThinkingPickerModal({ currentThinking, onClose, onConfirm }: { currentT
             )
           })}
         </div>
-        <div style={{ padding: '8px 16px', borderTop: '1px solid var(--q-border)', display: 'flex', alignItems: 'center' }}>
+        <div style={{ padding: '8px 16px', display: 'flex', alignItems: 'center' }}>
           <span style={{ flex: 1 }} />
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-secondary)', fontSize: '15px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }}>Cancel</button>
           <div style={{ width: '8px' }} />

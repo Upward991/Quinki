@@ -1133,7 +1133,8 @@ class PiBridge {
         const u = pi.getContextUsage?.();
         if (u && typeof u.contextWindow === "number" && u.contextWindow > 0) {
           const s = this.#entries.get(key);
-          const stored = { tokens: u.tokens ?? null, contextWindow: u.contextWindow ?? 0, percent: u.percent ?? null, model: s?.model, ts: Date.now() };
+          const prev = this.#contextUsage.get(key);
+          const stored = { tokens: u.tokens ?? null, contextWindow: u.contextWindow ?? 0, percent: u.percent ?? null, model: s?.model, input: prev?.input || 0, output: prev?.output || 0, ts: Date.now() };
           // === FASE 0+B16: log diagnostico per context usage ===
           this.logDebug("context-usage-computed", {
             sessionKey: key,
@@ -1145,7 +1146,7 @@ class PiBridge {
           });
           this.#contextUsage.set(key, stored);
           this.#saveContextUsage();
-          return { tokens: stored.tokens, contextWindow: stored.contextWindow, percent: stored.percent };
+          return { tokens: stored.tokens, contextWindow: stored.contextWindow, percent: stored.percent, input: stored.input, output: stored.output };
         }
       } catch {}
     }
@@ -1174,7 +1175,7 @@ class PiBridge {
     const cached = this.#contextUsage.get(key);
     if (cached && cached.contextWindow > 0) {
       this.logDebug("context-usage-computed", { sessionKey: key, modelId: cached.model, tokens: cached.tokens, contextWindow: cached.contextWindow, percent: cached.percent, source: "persisted" });
-      return { tokens: cached.tokens, contextWindow: cached.contextWindow, percent: cached.percent };
+      return { tokens: cached.tokens, contextWindow: cached.contextWindow, percent: cached.percent, input: (cached as any).input || 0, output: (cached as any).output || 0 };
     }
     return null;
   }
@@ -4076,6 +4077,19 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
               reasoning: reasoningContent,
               usage: (e.message as any)?.usage ?? undefined,
             }));
+            // Accumula input/output totali della sessione (persistiti)
+            try {
+              const mu: any = (e.message as any)?.usage;
+              if (mu) {
+                const prevU: any = this.#contextUsage.get(key) || {};
+                const inD = mu.input ?? mu.input_tokens ?? 0;
+                const outD = mu.output ?? mu.output_tokens ?? 0;
+                if (inD > 0 || outD > 0) {
+                  this.#contextUsage.set(key, { ...prevU, tokens: prevU.tokens ?? null, contextWindow: prevU.contextWindow ?? 0, percent: prevU.percent ?? null, input: (prevU.input || 0) + inD, output: (prevU.output || 0) + outD, model: prevU.model, ts: Date.now() } as any);
+                  this.#saveContextUsage();
+                }
+              }
+            } catch {}
             this.#captureSessionMeta(key);
             this.#emitContextUsage(ws, key, "ctx-post-done");
           }

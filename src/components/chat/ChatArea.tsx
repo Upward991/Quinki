@@ -34,6 +34,8 @@ interface ChatAreaProps {
   onThinkingChange: (level: ThinkingLevel) => void
   contextTokens: number
   contextWindow: number
+  contextInput?: number
+  contextOutput?: number
   statusLabel?: string
   statusKind?: string
   onSend: (text: string) => void
@@ -72,6 +74,8 @@ export function ChatArea(props: ChatAreaProps) {
           onAgentToggle={props.onAgentToggle}
           contextTokens={props.contextTokens}
           contextWindow={props.contextWindow}
+          contextInput={props.contextInput}
+          contextOutput={props.contextOutput}
           providers={props.providers}
           onExport={props.onExport}
           welcomeMode={props.welcomeMode}
