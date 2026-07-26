@@ -402,36 +402,6 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   fetchProviderModels: async (p) => fetchProviderModelsIPC(p.providerName, p.baseUrl, p.apiKey),
   testProviderConnection: async (p) => testProviderConnectionIPC(p.providerName, p.baseUrl, p.apiKey),
   getProviderApiKey: async (p) => ({ apiKey: getProviderApiKeyIPC(p.providerName) }),
-  storeApiKey: async (p) => {
-    try {
-      const { encryptString } = require("./crypto");
-      const encrypted = encryptString(p.key);
-      const cfg = readProvidersConfig();
-      let key = Object.keys(cfg.providers).find((k: string) => k.toLowerCase() === p.service.toLowerCase());
-      if (key) {
-        cfg.providers[key].apiKey = encrypted;
-        writeProvidersConfig(cfg);
-      }
-      process.stderr.write(`[storeApiKey] Saved encrypted key for ${p.service}\n`);
-      return { success: true };
-    } catch (e: any) {
-      process.stderr.write(`[storeApiKey] Error: ${e.message}\n`);
-      return { success: false, error: e.message };
-    }
-  },
-  deleteApiKey: async (p) => {
-    try {
-      const cfg = readProvidersConfig();
-      let key = Object.keys(cfg.providers).find((k: string) => k.toLowerCase() === p.service.toLowerCase());
-      if (key) {
-        cfg.providers[key].apiKey = "";
-        writeProvidersConfig(cfg);
-      }
-      return { success: true };
-    } catch (e: any) {
-      return { success: false, error: e.message };
-    }
-  },
 
   saveAttachments: async (p) => {
     try {
@@ -487,6 +457,38 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
 
   // === Agent management (Fase 1: tab Agenti) ===
   ...createAgentHandlers(agentDir, () => process.env.QUINKI_AGENT_CWD || path.join(homedir(), ".quinki", "workdir")),
+
+  // === OVERRIDE agent-handlers: save API key to providers config too ===
+  storeApiKey: async (p) => {
+    try {
+      const { encryptString } = await import("./crypto");
+      const encrypted = encryptString(p.key);
+      const cfg = readProvidersConfig();
+      let key = Object.keys(cfg.providers).find((k: string) => k.toLowerCase() === p.service.toLowerCase());
+      if (key) {
+        cfg.providers[key].apiKey = encrypted;
+        writeProvidersConfig(cfg);
+      }
+      process.stderr.write(`[storeApiKey] Saved encrypted key for ${p.service}\n`);
+      return { success: true };
+    } catch (e: any) {
+      process.stderr.write(`[storeApiKey] Error: ${e.message}\n`);
+      return { success: false, error: e.message };
+    }
+  },
+  deleteApiKey: async (p) => {
+    try {
+      const cfg = readProvidersConfig();
+      let key = Object.keys(cfg.providers).find((k: string) => k.toLowerCase() === p.service.toLowerCase());
+      if (key) {
+        cfg.providers[key].apiKey = "";
+        writeProvidersConfig(cfg);
+      }
+      return { success: true };
+    } catch (e: any) {
+      return { success: false, error: e.message };
+    }
+  },
 };
 
 // === NDJSON reader su stdin ===
