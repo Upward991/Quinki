@@ -213,6 +213,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     }
     if (p.model) await piBridge!.setModel(key, p.model);
     if (p.thinkingLevel) piBridge!.setThinkingLevel(key, p.thinkingLevel);
+    if (p.mode) piBridge!.setMode(key, String(p.mode));
     if (typeof p.compactionAuto === "boolean") {
       piBridge!.setSessionCompaction(key, p.compactionAuto, typeof p.compactionThreshold === "number" ? p.compactionThreshold : 80);
     }

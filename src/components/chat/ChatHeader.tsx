@@ -41,13 +41,10 @@ export function ChatHeader(props: ChatHeaderProps) {
   const [modelPickerFor, setModelPickerFor] = useState<string | null>(null)
   const [thinkingPickerFor, setThinkingPickerFor] = useState<string | null>(null)
   const [addAgentOpen, setAddAgentOpen] = useState(false)
-  const [addAgentQuery, setAddAgentQuery] = useState('')
+  const [agentQuery, setAgentQuery] = useState('')
 
   const fmt = (n: number) => {
-    if (n >= 1000000) {
-      const m = n / 1000000
-      return m % 1 === 0 ? `${m}M` : `${m.toFixed(1)}M`
-    }
+    if (n >= 1000000) { const m = Math.round(n / 100000) / 10; return m % 1 === 0 ? `${m}M` : `${m.toFixed(1)}M` }
     if (n >= 1000) return `${Math.floor(n / 1000)}K`
     return `${n}`
   }
@@ -247,7 +244,7 @@ export function ChatHeader(props: ChatHeaderProps) {
                 <div style={{ ...popupStyle, top: 'calc(100% + 16px)', right: '-8px', minWidth: '260px', maxWidth: '300px', minHeight: '50vh', maxHeight: '70vh', border: '1px solid var(--q-border)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                   {/* Add agent + Orchestrator */}
                   <div style={{ padding: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <button onClick={() => setAddAgentOpen(!addAgentOpen)} style={{ flex: 1, height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: addAgentOpen ? 'var(--q-hover)' : 'transparent', color: addAgentOpen ? 'var(--q-text)' : 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: '13px', transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms cubic-bezier(0.16, 1, 0.3, 1)' }}
+                    <button onClick={() => setAddAgentOpen(true)} style={{ flex: 1, height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: '13px', transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms cubic-bezier(0.16, 1, 0.3, 1)' }}
                       onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)'; e.currentTarget.style.color = 'var(--q-text)' }}
                       onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-text-secondary)' }}>
                       <Bot size={20} style={{ display: 'flex', flexShrink: 0 }} /> <span style={{ lineHeight: '1' }}>Add agent</span>
@@ -263,35 +260,16 @@ export function ChatHeader(props: ChatHeaderProps) {
                     <div style={{ display: 'flex', alignItems: 'center', paddingLeft: '12px', paddingRight: '8px' }}>
                       <Search size={16} style={{ color: 'var(--q-text-tertiary)', flexShrink: 0 }} />
                       <div style={{ width: '8px', flexShrink: 0 }} />
-                      <input type="text" placeholder="Search agent..." value={addAgentQuery} onChange={e => setAddAgentQuery(e.target.value)} style={{ flex: 1, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0', margin: '0' }} />
+                      <input type="text" placeholder="Search agent..." value={agentQuery} onChange={e => setAgentQuery(e.target.value)} style={{ flex: 1, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0', margin: '0' }} />
                       <div style={{ width: '4px', flexShrink: 0 }} />
-                      <span onClick={() => setAddAgentQuery('')} style={{ color: 'var(--q-text-tertiary)', fontSize: '14px', opacity: addAgentQuery ? 1 : 0.3, cursor: addAgentQuery ? 'pointer' : 'default', padding: '4px' }}>✕</span>
+                      <span onClick={() => setAgentQuery('')} style={{ color: 'var(--q-text-tertiary)', fontSize: '14px', opacity: agentQuery ? 1 : 0.3, cursor: agentQuery ? 'pointer' : 'default', padding: '4px' }}>✕</span>
                     </div>
                   </div>
-                  {/* Add-agent list: agenti NON in chat, filtrati dalla search */}
-                  {addAgentOpen && (
-                    <div style={{ maxHeight: '180px', overflowY: 'auto', borderTop: '1px solid var(--q-border)', borderBottom: '1px solid var(--q-border)', padding: '4px 8px' }}>
-                      {(() => {
-                        const avail = props.agents.filter(a => !props.selectedAgentIds.includes(a.id) && a.id !== 'orchestrator' && (!addAgentQuery || a.name.toLowerCase().includes(addAgentQuery.toLowerCase())))
-                        if (avail.length === 0) return <div style={{ padding: '12px', textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>No agents to add</div>
-                        return avail.map(a => (
-                          <div key={a.id} onClick={() => { props.onAgentToggle(a.id); setAddAgentQuery('') }}
-                            style={{ padding: '8px 12px', borderRadius: 'var(--radius-md)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
-                            onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)' }}
-                            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}>
-                            <Bot size={16} style={{ color: 'var(--q-accent-info)', flexShrink: 0 }} />
-                            <span style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', flex: 1 }}>{a.name}</span>
-                            <span style={{ color: 'var(--q-accent-info)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>Add</span>
-                          </div>
-                        ))
-                      })()}
-                    </div>
-                  )}
                   {/* Agent list */}
                   <div style={{ flex: 1, overflowY: 'auto' }}>
                     {(() => {
                       const agents = props.agents
-                        .filter(a => props.selectedAgentIds.includes(a.id))
+                        .filter(a => props.selectedAgentIds.includes(a.id) && (!agentQuery || a.name.toLowerCase().includes(agentQuery.toLowerCase())))
                         .sort((a, b) => a.id === 'orchestrator' ? -1 : b.id === 'orchestrator' ? 1 : 0)
                       if (agents.length === 0) {
                         return (
@@ -364,6 +342,15 @@ export function ChatHeader(props: ChatHeaderProps) {
         </div>
       )}
 
+      {/* Agent picker modal (Add agent) */}
+      {addAgentOpen && (
+        <AgentPickerModal
+          agents={props.agents.filter(a => !props.selectedAgentIds.includes(a.id) && a.id !== 'orchestrator')}
+          onClose={() => setAddAgentOpen(false)}
+          onAdd={(ids) => { ids.forEach(id => props.onAgentToggle(id)); setAddAgentOpen(false) }}
+        />
+      )}
+
       {/* Model picker modal */}
       {modelPickerFor && (
         <ModelPickerModal
@@ -426,6 +413,67 @@ function IconBtn({ icon: Icon, onClick, title, activeBg }: { icon: React.FC<{ si
   )
 }
 
+
+// ── Agent picker modal — fedele a _AgentPickerDialog Flutter: header, search, checkbox, footer ──
+function AgentPickerModal({ agents, onClose, onAdd }: {
+  agents: Agent[]
+  onClose: () => void
+  onAdd: (ids: string[]) => void
+}) {
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [query, setQuery] = useState('')
+  const filtered = agents.filter(a => a.name.toLowerCase().includes(query.toLowerCase()))
+  const toggle = (id: string) => setSelected(prev => { const s = new Set(prev); if (s.has(id)) s.delete(id); else s.add(id); return s })
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+      <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '500px', maxHeight: '500px', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div style={{ padding: '16px', borderBottom: '1px solid var(--q-border)', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+          <span style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', flex: 1 }}>Add agents to chat</span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex' }}><X size={18} style={{ color: 'var(--q-text-secondary)' }} /></button>
+        </div>
+        {/* Search */}
+        <div style={{ padding: '8px 16px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', paddingLeft: '10px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-md)' }}>
+            <Search size={14} style={{ color: 'var(--q-text-tertiary)', flexShrink: 0 }} />
+            <div style={{ width: '8px', flexShrink: 0 }} />
+            <input type="text" placeholder="Search..." value={query} onChange={e => setQuery(e.target.value)} autoFocus
+              style={{ flex: 1, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '8px 0' }} />
+          </div>
+        </div>
+        {/* List */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
+          {filtered.length === 0 && (
+            <div style={{ padding: '24px', textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>No agents found</div>
+          )}
+          {filtered.map(agent => (
+            <div key={agent.id} onClick={() => toggle(agent.id)}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 16px', cursor: 'pointer' }}
+              onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)' }}
+              onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}>
+              <input type="checkbox" checked={selected.has(agent.id)} onChange={() => toggle(agent.id)} onClick={e => e.stopPropagation()}
+                style={{ accentColor: 'var(--q-accent-info)', width: '16px', height: '16px', cursor: 'pointer', flexShrink: 0 }} />
+              <span style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{agent.name}</span>
+            </div>
+          ))}
+        </div>
+        {/* Footer */}
+        <div style={{ padding: '8px 16px', borderTop: '1px solid var(--q-border)', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+          <button onClick={() => setSelected(new Set(filtered.map(a => a.id)))} disabled={filtered.length === 0}
+            style={{ background: 'none', border: 'none', cursor: filtered.length === 0 ? 'default' : 'pointer', color: filtered.length === 0 ? 'var(--q-text-tertiary)' : 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }}>Select all</button>
+          <button onClick={() => setSelected(new Set())} disabled={selected.size === 0}
+            style={{ background: 'none', border: 'none', cursor: selected.size === 0 ? 'default' : 'pointer', color: selected.size === 0 ? 'var(--q-text-tertiary)' : 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }}>Deselect</button>
+          <span style={{ flex: 1 }} />
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-secondary)', fontSize: '15px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }}>Cancel</button>
+          <div style={{ width: '8px' }} />
+          <button onClick={() => onAdd([...selected])} disabled={selected.size === 0}
+            style={{ padding: '4px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: selected.size === 0 ? 'default' : 'pointer', backgroundColor: selected.size === 0 ? 'var(--q-hover)' : 'var(--q-accent-info)', color: selected.size === 0 ? 'var(--q-text-tertiary)' : 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)' }}>Add ({selected.size})</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Model picker modal — exact Flutter _ModelPickerDialog copy ──
 function ModelPickerModal({ currentModel, models, onClose, onConfirm }: {
   currentModel: string
@@ -438,7 +486,7 @@ function ModelPickerModal({ currentModel, models, onClose, onConfirm }: {
   const filtered = search ? models.filter(m => m.id.toLowerCase().includes(search.toLowerCase()) || m.provider.toLowerCase().includes(search.toLowerCase())) : models
   const byProvider: Record<string, typeof models> = {}
   for (const m of filtered) { if (!byProvider[m.provider]) byProvider[m.provider] = []; byProvider[m.provider].push(m) }
-  const fmtCtx = (cw?: number) => { if (!cw || cw === 0) return '—'; if (cw >= 1000000) { const m = cw / 1000000; return m % 1 === 0 ? `${m}M` : `${m.toFixed(1)}M` }; if (cw >= 1000) return `${Math.floor(cw / 1000)}K`; return `${cw}` }
+  const fmtCtx = (cw?: number) => { if (!cw || cw === 0) return '—'; if (cw >= 1000000) { const m = Math.round(cw / 100000) / 10; return m % 1 === 0 ? `${m}M` : `${m.toFixed(1)}M` }; if (cw >= 1000) return `${Math.floor(cw / 1000)}K`; return `${cw}` }
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>

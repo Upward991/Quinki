@@ -3247,7 +3247,12 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
   async send(ws: any, data: { sessionKey: string; text: string; files?: { name: string; type: string; path?: string; data?: string }[]; workingDirs?: string[] }) {
     const sk = data.sessionKey;
     const s = this.#entries.get(sk);
-    if (!s) return;
+    if (!s) {
+      // Sessione inesistente (es. eliminata ma il frontend ha continuato a mandare) → errore esplicito, MAI silenzio
+      this.logDebug("send-no-session", { sessionKey: sk });
+      try { ws.send(JSON.stringify({ type: "done", sessionKey: sk, stopReason: "error", errorMessage: "Session not found (deleted?). Start a new chat.", text: "" })); } catch {}
+      return;
+    }
 
     const effectiveCwd = this.#cwdOverride.get(sk) ?? ((data.workingDirs && data.workingDirs.length > 0) ? data.workingDirs[0] : this.#cwd);
     this.#lastEffectiveCwd.set(sk, effectiveCwd);

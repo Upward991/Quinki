@@ -44,8 +44,9 @@ export function readModelsFromDisk(): ModelInfo[] {
 
 export function getFirstAvailableModelId(): string {
   const models = readModelsFromDisk();
-  const preferred = models.find(m => m.id === "minimax-m3:cloud");
-  if (preferred) return preferred.id;
+  // Preferisci modelli locali (non :cloud) — sempre disponibili, niente rate limit settimanale
+  const local = models.find(m => !m.id.endsWith(":cloud"));
+  if (local) return local.id;
   if (models.length > 0) return models[0].id;
   return "";
 }

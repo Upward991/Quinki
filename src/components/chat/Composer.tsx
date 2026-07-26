@@ -97,7 +97,7 @@ export function Composer(props: ComposerProps) {
   }
 
   const fmt = (n: number) => {
-    if (n >= 1e6) { const m = n / 1e6; return m % 1 === 0 ? `${m}M` : `${m.toFixed(1)}M` }
+    if (n >= 1e6) { const m = Math.round(n / 1e5) / 10; return m % 1 === 0 ? `${m}M` : `${m.toFixed(1)}M` }
     if (n >= 1e3) return `${Math.floor(n / 1e3)}K`
     return `${n}`
   }

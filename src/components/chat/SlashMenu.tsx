@@ -41,7 +41,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
   const [focusAdd, setFocusAdd] = useState(false)
   const [pendingModel, setPendingModel] = useState(props.selectedModel)
   const [pendingThinking, setPendingThinking] = useState(props.thinking)
-  const [directories, setDirectories] = useState<string[]>(['/Users/andreamaddalena/Projects/Dashboard'])
+  const [directories, setDirectories] = useState<string[]>([])
 
   const commands: Command[] = [
     { id: 'model', label: '/Model', description: 'Change model' },

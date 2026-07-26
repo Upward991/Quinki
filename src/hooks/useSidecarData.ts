@@ -526,8 +526,10 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
     // Backwards compat: (text, {agentId, model, thinkingLevel}) or (text, sessionKey, agents)
     let sk: string | undefined
     let ag: string[] | undefined
+    let optsModel: string | undefined
+    let optsThinking: string | undefined
     if (typeof sessionKeyOrOpts === 'string') { sk = sessionKeyOrOpts; ag = agents }
-    else if (sessionKeyOrOpts && typeof sessionKeyOrOpts === 'object') { sk = activeSessionId || undefined; ag = sessionKeyOrOpts.agentId ? [sessionKeyOrOpts.agentId] : undefined }
+    else if (sessionKeyOrOpts && typeof sessionKeyOrOpts === 'object') { sk = activeSessionId || undefined; ag = sessionKeyOrOpts.agentId ? [sessionKeyOrOpts.agentId] : undefined; if (sessionKeyOrOpts.model) optsModel = sessionKeyOrOpts.model; if (sessionKeyOrOpts.thinkingLevel) optsThinking = sessionKeyOrOpts.thinkingLevel }
     if (!ready) return
     const hasModels = providers.some((p: any) => p.models && p.models.length > 0)
     if (!hasModels) {
@@ -549,8 +551,10 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
           let defs: any = {}
           try { defs = JSON.parse(localStorage.getItem('quinki-settings') || '{}') } catch {}
           const createParams: any = { label: 'New chat' }
-          if (defs.defaultModel) createParams.model = defs.defaultModel
-          if (defs.defaultThinking) createParams.thinkingLevel = defs.defaultThinking
+          const dm = optsModel || defs.defaultModel
+          const dt = optsThinking || defs.defaultThinking
+          if (dm) createParams.model = dm
+          if (dt) createParams.thinkingLevel = dt
           if (defs.defaultMode) createParams.mode = defs.defaultMode
           const createResult = await call('createSession', createParams)
           if (createResult?.key || createResult?.sessionKey) {
@@ -567,7 +571,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
           return
         }
       }
-      await call('sendMessage', { sessionKey: sk, text, agentId: ag && ag.length > 0 ? ag[0] : undefined }, 600000)
+      await call('sendMessage', { sessionKey: sk, text, agentId: ag && ag.length > 0 ? ag[0] : undefined, model: optsModel, thinkingLevel: optsThinking }, 600000)
       // Reload sessions to get auto-generated title
       try {
         const r = await call('getFullState', {})
@@ -578,6 +582,13 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
       setIsStreaming(false); setStatusLabel('Failed'); setStatusKind('failed')
     }
   }, [ready, call, activeSessionId, providers])
+
+  const deselectSession = useCallback(() => {
+    setActiveSessionId(null)
+    setMessages([])
+    setIsStreaming(false)
+    setStatusLabel(''); setStatusKind('')
+  }, [])
 
   const stopStreaming = useCallback(() => {
     if (!ready) return
@@ -975,7 +986,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
     thinkingLevels, agentStatus, compactingSessions, sessionTokens, debugLog, piConfigNeeded,
     chatAgentIds, agentOverrides,
     // Session management
-    selectSession, sendMessage, stopStreaming, createSession, deleteSession, renameSession,
+    selectSession, sendMessage, stopStreaming, createSession, deleteSession, renameSession, deselectSession,
     resetSession, reloadSession, moveSession, compactSession, ensureSession,
     // Session settings
     setChatAgents, setModel, setThinkingLevel, setMode, setSessionCompaction, setWorkingDir,
