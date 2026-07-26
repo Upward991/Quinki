@@ -987,6 +987,10 @@ class PiBridge {
     return this.#entries.get(key)?.model || null;
   }
 
+  refreshModelRegistry(): void {
+    try { this.#modelRegistry?.refresh?.(); } catch {}
+  }
+
   getThinkingLevel(key: string): string | null {
     const pi = this.#active.get(key);
     if (pi) {

@@ -275,6 +275,15 @@ export function syncModelsJson(config: ProvidersConfig): void {
     for (const [name, pcfg] of Object.entries(config.providers)) {
       if (!pcfg.enabled) continue;
 
+      // === FIX: provider non-Ollama senza apiKey → OMESSO da models.json ===
+      // Il Pi SDK rifiuta apiKey vuota (schema) e provider non-built-in senza chiave,
+      // invalidando TUTTO models.json (anche gli altri provider sani).
+      const isOllama = name.toLowerCase() === "ollama" || (pcfg.baseUrl || "").includes("11434");
+      if (!pcfg.apiKey && !isOllama) {
+        process.stderr.write(`[providers] syncModelsJson: skipping ${name} (no apiKey)`);
+        continue;
+      }
+
       const oldProvider = existing.providers?.[name] || {};
       const oldModels: any[] = oldProvider.models || [];
 
@@ -321,7 +330,8 @@ export function syncModelsJson(config: ProvidersConfig): void {
         baseUrl: pcfg.baseUrl,
         api: oldProvider.api || "openai-completions",
         // === Ollama locale non ha bisogno di API key, ma il Pi SDK la richiede non vuota ===
-        apiKey: pcfg.apiKey || (name.toLowerCase() === "ollama" ? "ollama" : ""),
+        // pcfg.apiKey qui è già DECIFRATA (readProvidersConfig decifra) — il SDK la legge in chiaro da models.json
+        apiKey: pcfg.apiKey || (isOllama ? "ollama" : ""),
         models: newModels,
       };
     }

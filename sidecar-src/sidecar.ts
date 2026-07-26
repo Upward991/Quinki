@@ -46,7 +46,7 @@ import {
   computePreflightStats,
 } from "./pi-bridge";
 import { readModelsFromDisk } from "./models";
-import { readProvidersConfig, writeProvidersConfig } from "./providers";
+import { readProvidersConfig, writeProvidersConfig, syncModelsJson } from "./providers";
 import { buildSidecarEntry } from "./sidecar-helper";
 import { createAgentHandlers } from "./agent-handlers";
 
@@ -461,15 +461,17 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   // === OVERRIDE agent-handlers: save API key to providers config too ===
   storeApiKey: async (p) => {
     try {
-      const { encryptString } = await import("./crypto");
-      const encrypted = encryptString(p.key);
+      // NON cifrare qui: writeProvidersConfig cifra. Doppia cifratura = chiave illeggibile.
       const cfg = readProvidersConfig();
       let key = Object.keys(cfg.providers).find((k: string) => k.toLowerCase() === p.service.toLowerCase());
       if (key) {
-        cfg.providers[key].apiKey = encrypted;
+        cfg.providers[key].apiKey = p.key;
         writeProvidersConfig(cfg);
+        // Propaga subito a models.json (il Pi SDK legge la chiave in chiaro da lì)
+        syncModelsJson(readProvidersConfig());
+        try { (piBridge as any)?.refreshModelRegistry?.(); } catch {}
       }
-      process.stderr.write(`[storeApiKey] Saved encrypted key for ${p.service}\n`);
+      process.stderr.write(`[storeApiKey] Saved key for ${p.service}\n`);
       return { success: true };
     } catch (e: any) {
       process.stderr.write(`[storeApiKey] Error: ${e.message}\n`);
@@ -483,6 +485,8 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
       if (key) {
         cfg.providers[key].apiKey = "";
         writeProvidersConfig(cfg);
+        syncModelsJson(readProvidersConfig());
+        try { (piBridge as any)?.refreshModelRegistry?.(); } catch {}
       }
       return { success: true };
     } catch (e: any) {

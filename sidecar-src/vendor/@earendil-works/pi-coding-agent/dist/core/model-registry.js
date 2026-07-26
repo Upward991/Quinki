@@ -415,7 +415,6 @@ export class ModelRegistry {
                 }
             }
             const _parsed = this.parseModels(config);
-            process.stderr.write(`[DEBUG] loadCustomModels: ${_parsed.length} models, providers=${Object.keys(config.providers).join(',')}\n`);
             return { models: _parsed, overrides, modelOverrides, error: undefined };
         }
         catch (error) {
