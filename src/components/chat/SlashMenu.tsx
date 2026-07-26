@@ -68,7 +68,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
 
   const fmtCtx = (cw?: number) => {
     if (!cw || cw === 0) return '—'
-    if (cw >= 1000000) { const m = cw / 1000000; return m % 1 === 0 ? `${m}M` : `${m.toFixed(1)}M` }
+    if (cw >= 1000000) { const m = Math.round(cw / 100000) / 10; return m % 1 === 0 ? `${m}M` : `${m.toFixed(1)}M` }
     if (cw >= 1000) return `${Math.floor(cw / 1000)}K`
     return `${cw}`
   }

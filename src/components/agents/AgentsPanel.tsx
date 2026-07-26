@@ -424,7 +424,7 @@ export function AgentsPanel(props) {
       ]}),
 
       // Scrollable content
-      React.createElement('div', { style: { flex: 1, minHeight: 0, overflowY: 'auto', padding: '8px 16px 0 16px', overscrollBehavior: 'contain', scrollbarGutter: 'stable' }, children: [
+      React.createElement('div', { style: { flex: 1, minHeight: 0, overflowY: 'auto', padding: '4px 16px 0 16px', overscrollBehavior: 'contain', scrollbarGutter: 'stable' }, children: [
 
         // === Section: Your agents ===
         Section({ icon: Bot, title: 'Your agents', children: [
@@ -942,12 +942,12 @@ function AddItemsModal({ title, items, onClose, onConfirm }) {
       React.createElement('div', { style: { flex: 1, overflowY: 'auto' }, children:
         filtered.sort((a, b) => (selected.has(b.name) ? 1 : 0) - (selected.has(a.name) ? 1 : 0)).map(item => {
           const isSelected = selected.has(item.name);
-          return React.createElement('div', { key: item.name, onClick: () => toggle(item.name), style: { padding: '4px 16px', display: 'flex', alignItems: 'center', cursor: 'pointer' }, onMouseEnter: e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.04)'; }, onMouseLeave: e => { e.currentTarget.style.backgroundColor = 'transparent'; }, children: [
+          return React.createElement('div', { key: item.name, onClick: () => toggle(item.name), style: { padding: '4px 16px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }, onMouseEnter: e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.04)'; }, onMouseLeave: e => { e.currentTarget.style.backgroundColor = 'transparent'; }, children: [
             React.createElement('div', { style: { flex: 1, minWidth: 0 }, children: [
               React.createElement('div', { style: { color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }, children: item.name }),
               item.description && React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: item.description })
             ]}),
-            React.createElement('input', { type: 'checkbox', checked: isSelected, onChange: () => toggle(item.name), style: { accentColor: 'var(--q-accent-secondary)', flexShrink: 0, marginLeft: '8px' } })
+            React.createElement('input', { type: 'checkbox', checked: isSelected, onChange: () => toggle(item.name), style: { accentColor: 'var(--q-accent-secondary)', flexShrink: 0 } })
           ]});
         })
       }),
