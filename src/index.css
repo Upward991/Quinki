@@ -347,3 +347,8 @@ mark.search-highlight-mark {
   border-radius: 2px;
   padding: 0 1px;
 }
+
+/* Primo elemento della risposta: niente margin-top (spacing 12 solo TRA blocchi) */
+.assistant-content > div:first-child { margin-top: 0 !important; }
+/* Numeri elenchi ordinati = accent tab */
+.markdown-content ol li::marker { color: var(--q-tab-accent); font-weight: 600; }

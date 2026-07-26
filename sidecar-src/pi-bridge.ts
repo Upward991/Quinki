@@ -1159,7 +1159,7 @@ class PiBridge {
         const tokens = cached?.tokens ?? null;
         const percent = tokens != null ? (tokens / info.contextLength) * 100 : null;
         this.logDebug("context-usage-computed", { sessionKey: key, modelId, tokens, contextWindow: info.contextLength, percent, source: "ollama-probe" });
-        return { tokens, contextWindow: info.contextLength, percent };
+        return { tokens, contextWindow: info.contextLength, percent, input: (cached as any)?.input || 0, output: (cached as any)?.output || 0 };
       }
       // Fallback: se Ollama non ha restituito context_length, usa models.json
       const models = readModelsFromDisk();
@@ -1169,7 +1169,7 @@ class PiBridge {
         const tokens = cached?.tokens ?? null;
         const percent = tokens != null ? (tokens / m.contextWindow) * 100 : null;
         this.logDebug("context-usage-computed", { sessionKey: key, modelId, tokens, contextWindow: m.contextWindow, percent, source: "models-json-fallback" });
-        return { tokens, contextWindow: m.contextWindow, percent };
+        return { tokens, contextWindow: m.contextWindow, percent, input: (cached as any)?.input || 0, output: (cached as any)?.output || 0 };
       }
     }
     const cached = this.#contextUsage.get(key);

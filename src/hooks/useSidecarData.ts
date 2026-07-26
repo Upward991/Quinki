@@ -276,7 +276,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
           return [...prev.slice(0, -1), { ...last, toolCalls: tcs }]
         })
       } else if (_type === 'toolcall_end' || _type === 'tool_result') {
-        setStatusLabel('Tool result'); setStatusKind(isError ? 'tool_error' : 'tool_result')
+        setStatusLabel(isError ? 'Tool error' : 'Tool result'); setStatusKind(isError ? 'tool_error' : 'tool_result')
         setMessages(prev => {
           const { arr, msg } = ensureStreamingMsg(prev, messageId)
           const tcs = [...(msg.toolCalls || [])]
@@ -323,7 +323,13 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
           return [...prev, { id: `err-${Date.now()}`, role: 'assistant' as const, content: errorMessage || 'Unknown error', timestamp: new Date().toISOString(), isError: true, model, agentName }]
         })
       } else {
-        setMessages(prev => prev.map(m => m.isStreaming ? { ...m, isStreaming: false, model, agentName, thinkingLevel, content: text || m.content } : m))
+        setMessages(prev => {
+          // Aggiorna l'ULTIMO messaggio assistant (streaming o no: streaming_stopped può arrivare prima di done)
+          let lastIdx = -1
+          for (let i = prev.length - 1; i >= 0; i--) { if (prev[i].role === 'assistant') { lastIdx = i; break } }
+          if (lastIdx < 0) return prev
+          return prev.map((m, i) => i === lastIdx ? { ...m, isStreaming: false, model: model || m.model, agentModel: model || m.agentModel, agentName: agentName || m.agentName, thinkingLevel: thinkingLevel || m.thinkingLevel, content: text || m.content } : m)
+        })
       }
     })
 
@@ -383,9 +389,9 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
     // Agent status
     const unsubAgentStatus = subscribe('agent_status', (p: any) => {
       if (p?.sessionKey) setAgentStatus(p)
-      // Status pill: traccia running/idle
+      // Status pill: traccia running. idle NON cancella: fra i turni tool il SDK emette idle a metà stream.
+      // La pill si cancella solo con done / streaming_stopped / error.
       if (p?.status === 'running') { setStatusLabel('Running'); setStatusKind('running') }
-      else if (p?.status === 'idle') { setStatusLabel(''); setStatusKind('') }
     })
 
     // Context usage

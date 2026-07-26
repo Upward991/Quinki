@@ -157,18 +157,25 @@ function MarkdownContent({ text, isError }: { text: string; isError?: boolean })
             // Inline code
             return <code style={{ backgroundColor: 'var(--q-bg-code)', padding: '2px 6px', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-code)', fontSize: '13px', color: 'var(--q-text)' }}>{children}</code>
           },
-          p: ({ children }) => <p style={{ color: isError ? 'var(--q-accent-danger)' : 'var(--q-text)', fontSize: '14px', lineHeight: 1.5, fontFamily: 'var(--font-interface)', fontWeight: 500, margin: '4px 0' }}>{children}</p>,
-          ul: ({ children }) => <ul style={{ color: 'var(--q-text)', fontSize: '14px', lineHeight: 1.5, paddingLeft: '20px', margin: '4px 0', listStyle: 'none' }}>{children}</ul>,
-          ol: ({ children }) => <ol style={{ color: 'var(--q-text)', fontSize: '14px', lineHeight: 1.5, paddingLeft: '20px', margin: '4px 0' }}>{children}</ol>,
+          p: ({ children }) => <p style={{ color: isError ? 'var(--q-accent-danger)' : 'var(--q-text)', fontSize: '14px', lineHeight: 1.5, fontFamily: 'var(--font-interface)', fontWeight: 500, margin: '0 0 12px 0' }}>{children}</p>,
+          ul: ({ children }) => <ul style={{ color: 'var(--q-text)', fontSize: '14px', lineHeight: 1.5, paddingLeft: '20px', margin: '0 0 12px 0', listStyle: 'none' }}>{children}</ul>,
+          ol: ({ children }) => <ol style={{ color: 'var(--q-text)', fontSize: '14px', lineHeight: 1.5, paddingLeft: '24px', margin: '0 0 12px 0' }}>{children}</ol>,
           li: ({ children, ...props }) => {
             const ordered = (props as any).node?.parent?.tagName === 'ol'
             return (
-              <li style={{ marginBottom: '2px', position: 'relative', paddingLeft: '4px' }}>
-                {!ordered && <span style={{ color: 'var(--q-accent-primary)', position: 'absolute', left: '-14px' }}>•</span>}
+              <li style={{ marginBottom: '4px', position: 'relative', paddingLeft: '4px' }}>
+                {!ordered && <span style={{ position: 'absolute', left: '-16px', top: '7px', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--q-tab-accent)', flexShrink: 0 }} />}
                 {children}
               </li>
             )
           },
+          table: ({ children }) => (
+            <div style={{ overflowX: 'auto', margin: '0 0 12px 0' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>{children}</table>
+            </div>
+          ),
+          th: ({ children }) => <th style={{ color: 'var(--q-text)', fontWeight: 700, textAlign: 'left', padding: '8px 12px', borderBottom: '1px solid var(--q-border-strong)', boxShadow: 'inset -1px 0 0 var(--q-border)' }}>{children}</th>,
+          td: ({ children }) => <td style={{ color: 'var(--q-text)', padding: '8px 12px', borderBottom: '1px solid var(--q-border)', boxShadow: 'inset -1px 0 0 var(--q-border)' }}>{children}</td>,
           strong: ({ children }) => <strong style={{ color: 'var(--q-text)', fontWeight: 700 }}>{children}</strong>,
           a: ({ children, href }) => <a href={href} style={{ color: 'var(--q-accent-info-bright)', textDecoration: 'none' }} target="_blank" rel="noreferrer">{children}</a>,
           h1: ({ children }) => <h1 style={{ color: 'var(--q-text)', fontSize: '18px', fontWeight: 700, margin: '8px 0 4px' }}>{children}</h1>,
@@ -250,7 +257,7 @@ function GenericToggle({ label, content, baseColor, baseColorRgb, isItalic, bold
   const preview = collapsed ? content.split('\n')[0]?.substring(0, 80) : null
 
   return (
-    <div style={{ marginTop: '4px' }}>
+    <div style={{ marginTop: '12px' }}>
       <div onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} onClick={() => setCollapsed(!collapsed)}
         style={{ cursor: 'pointer', backgroundColor: bg, borderRadius: 'var(--radius-md)', padding: '8px', transition: 'background-color 120ms ease' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -304,7 +311,7 @@ function DelegationBlockView({ delegation, timestamp }: { delegation: Delegation
   const preview = collapsed ? delegation.response.split('\n')[0]?.substring(0, 80) : null
 
   return (
-    <div style={{ marginTop: '4px' }}>
+    <div style={{ marginTop: '12px' }}>
       <div onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} onClick={() => setCollapsed(!collapsed)}
         style={{ cursor: 'pointer', backgroundColor: bg, borderRadius: 'var(--radius-md)', padding: '8px', transform: hovered ? 'translateX(2px)' : 'translateX(0)', transition: 'background-color 120ms ease, transform 120ms ease' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -361,7 +368,6 @@ function DelegationBlockView({ delegation, timestamp }: { delegation: Delegation
 function Footer({ content, timestamp, agentName, agentModel, thinkingLevel, onCopy }: {
   content: string; timestamp: string; agentName?: string; agentModel?: string; thinkingLevel?: string; onCopy?: (t: string) => void
 }) {
-  const [copied, setCopied] = useState(false)
   const [infoOpen, setInfoOpen] = useState(false)
 
   const infoParts: string[] = []
@@ -373,13 +379,13 @@ function Footer({ content, timestamp, agentName, agentModel, thinkingLevel, onCo
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0', lineHeight: '1' }}>
       <button
-        onClick={() => { onCopy?.(content); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
+        onClick={() => { try { navigator.clipboard.writeText(content) } catch {}; onCopy?.(content) }}
         title="Copy"
         onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)'; e.currentTarget.style.borderRadius = '4px' }}
         onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
         style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', lineHeight: '1', color: 'var(--q-text-tertiary)', borderRadius: '6px', transition: 'background-color 0.15s ease' }}
       >
-        {copied ? <Check size={16} style={{ color: 'var(--q-accent-success)' }} /> : <Copy size={16} />}
+        <Copy size={16} />
       </button>
       <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', lineHeight: '16px', display: 'flex', alignItems: 'center' }}>
         {fmtTime(timestamp)}

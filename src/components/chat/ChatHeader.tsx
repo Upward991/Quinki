@@ -205,11 +205,12 @@ export function ChatHeader(props: ChatHeaderProps) {
                       style={{ background: 'none', border: 'none', cursor: searchQuery ? 'pointer' : 'default', padding: '8px', color: searchQuery ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)', fontSize: '14px', opacity: searchQuery ? 1 : 0.3, lineHeight: '1', flexShrink: 0 }}>✕</button>
                     <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-code)', whiteSpace: 'nowrap', opacity: 0.3, flexShrink: 0 }}>0/0</span>
                     <div style={{ width: '8px', flexShrink: 0 }} />
-                    <button style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: 'var(--q-text-tertiary)', opacity: 0.3, lineHeight: '0', flexShrink: 0 }}><ChevronUp size={16} /></button>
-                    <button style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: 'var(--q-text-tertiary)', opacity: 0.3, lineHeight: '0', flexShrink: 0 }}><ChevronDown size={16} /></button>
+                    <button style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', color: 'var(--q-text-tertiary)', opacity: 0.3, lineHeight: '0', flexShrink: 0, display: 'flex' }}><ChevronUp size={16} /></button>
+                    <div style={{ width: '4px', flexShrink: 0 }} />
+                    <button style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', color: 'var(--q-text-tertiary)', opacity: 0.3, lineHeight: '0', flexShrink: 0, display: 'flex' }}><ChevronDown size={16} /></button>
                   </div>
                   <div style={{ height: '8px' }} />
-                  {/* Row 2 — icone ALLINEATE alla colonna dell'icona search sopra (4px + 16px + 8px) */}
+                  {/* Row 2 — data + orario AFFIANCATI, icone allineate alla colonna dell'icona search */}
                   <div style={{ display: 'flex', alignItems: 'center' }}>
                     <div style={{ width: '4px', flexShrink: 0 }} />
                     <Calendar size={16} style={{ color: 'var(--q-text-tertiary)', flexShrink: 0 }} />
@@ -217,11 +218,7 @@ export function ChatHeader(props: ChatHeaderProps) {
                     <input type="text" placeholder="dd/mm/yyyy" value={searchDate} onChange={e => setSearchDate(e.target.value)}
                       style={{ flex: 1, minWidth: 0, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', padding: '0', margin: '0' }} />
                     <button onClick={() => setSearchDate('')} style={{ background: 'none', border: 'none', cursor: searchDate ? 'pointer' : 'default', padding: '4px', color: 'var(--q-text-tertiary)', fontSize: '12px', opacity: searchDate ? 1 : 0.3, lineHeight: '1', flexShrink: 0 }}>✕</button>
-                  </div>
-                  <div style={{ height: '8px' }} />
-                  {/* Row 3 — orario, stessa colonna */}
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <div style={{ width: '4px', flexShrink: 0 }} />
+                    <div style={{ width: '8px', flexShrink: 0 }} />
                     <Clock size={16} style={{ color: 'var(--q-text-tertiary)', flexShrink: 0 }} />
                     <div style={{ width: '8px', flexShrink: 0 }} />
                     <input type="text" placeholder="hh:mm:ss" value={searchTime} onChange={e => setSearchTime(e.target.value)}
@@ -339,8 +336,8 @@ export function ChatHeader(props: ChatHeaderProps) {
             <div style={{ color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', lineHeight: 1.4, padding: '14px 18px' }}>Choose export format:</div>
             {/* Actions — 8px bottom, 16px right (Material 3 actionsPadding) */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '0 16px 12px 16px' }}>
-              <ExportBtn label="Markdown (.md)" color="var(--q-accent-info-bright)" hoverRgb="181,199,224" onClick={() => setExportOpen(false)} />
-              <ExportBtn label="HTML (.html)" color="var(--q-accent-info-bright)" hoverRgb="181,199,224" onClick={() => setExportOpen(false)} />
+              <ExportBtn label="Markdown (.md)" color="var(--q-tab-accent)" hoverRgb="181,199,224" onClick={() => setExportOpen(false)} />
+              <ExportBtn label="HTML (.html)" color="var(--q-tab-accent)" hoverRgb="181,199,224" onClick={() => setExportOpen(false)} />
               <ExportBtn label="Cancel" color="var(--q-accent-danger)" hoverRgb="217,107,107" onClick={() => setExportOpen(false)} />
             </div>
           </div>
