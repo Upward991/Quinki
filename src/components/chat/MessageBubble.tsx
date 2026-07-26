@@ -313,7 +313,7 @@ function DelegationBlockView({ delegation, timestamp }: { delegation: Delegation
   return (
     <div style={{ marginTop: '12px' }}>
       <div onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} onClick={() => setCollapsed(!collapsed)}
-        style={{ cursor: 'pointer', backgroundColor: bg, borderRadius: 'var(--radius-md)', padding: '8px', transform: hovered ? 'translateX(2px)' : 'translateX(0)', transition: 'background-color 120ms ease, transform 120ms ease' }}>
+        style={{ cursor: 'pointer', backgroundColor: bg, borderRadius: 'var(--radius-md)', padding: '8px', transition: 'background-color 120ms ease' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <ChevronRight size={14} style={{ color, flexShrink: 0, transform: collapsed ? 'rotate(0deg)' : 'rotate(90deg)', transition: 'transform 200ms cubic-bezier(0.16, 1, 0.3, 1)' }} />
           <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color }}>Delegated to</span>

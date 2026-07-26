@@ -235,6 +235,8 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
   useEffect(() => {
     if (!ready) return
 
+    // Deleghe attive (id) — per filtrare gli eventi nested dal flusso principale
+    const activeDelegationsRef = { current: new Set<string>() }
     // Stream events — costruisce i toggle LIVE durante lo streaming (thinking/tool/delega appaiono in tempo reale)
     const ensureStreamingMsg = (prev: any[], messageId?: string) => {
       const last = prev[prev.length - 1]
@@ -246,6 +248,8 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
       const { type, eventType, delta, content, messageId, toolName, isError } = p
       const _type = eventType || type
       const _content = delta || content || ''
+      // Eventi nested di una delega attiva: non vanno nel messaggio principale (restano dentro il toggle delega)
+      if (messageId && activeDelegationsRef.current.has(messageId) && _type !== 'delegation_end') return
       if (_type === 'text' || _type === 'text_delta' || _type === 'text_start') {
         setMessages(prev => {
           const { arr, msg } = ensureStreamingMsg(prev, messageId)
@@ -286,8 +290,20 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
         })
       } else if (_type === 'delegation_start') {
         setStatusLabel('Delegating'); setStatusKind('delegation')
+        activeDelegationsRef.current.add(messageId)
+        setMessages(prev => {
+          const { arr, msg } = ensureStreamingMsg(prev)
+          const ds = [...(msg.delegations || []), { id: messageId, agentName: p.agentName || 'agent', agentModel: '', mode: '', tools: [], systemPrompt: '', taskContent: p.task || '', response: '', thinkingLevel: '' }]
+          return [...arr, { ...msg, delegations: ds }]
+        })
       } else if (_type === 'delegation_end') {
         setStatusLabel('Running'); setStatusKind('running')
+        activeDelegationsRef.current.delete(messageId)
+        setMessages(prev => prev.map(m => {
+          if (!m.delegations?.length) return m
+          const ds = m.delegations.map((d: any) => d.id === messageId ? { ...d, response: p.response || d.response, agentModel: p.model || d.agentModel, thinkingLevel: p.thinkingLevel || d.thinkingLevel } : d)
+          return { ...m, delegations: ds }
+        }))
       } else if (_type === 'error') {
         setStatusLabel('Failed'); setStatusKind('failed'); setIsStreaming(false)
       } else if (_type === 'done' || _type === 'end') {
@@ -386,12 +402,20 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
       }
     })
 
-    // Agent status
+    // Agent status — TUTTI gli stati tracciati (parity Flutter _statusLabel)
     const unsubAgentStatus = subscribe('agent_status', (p: any) => {
       if (p?.sessionKey) setAgentStatus(p)
-      // Status pill: traccia running. idle NON cancella: fra i turni tool il SDK emette idle a metà stream.
+      // idle NON cancella: fra i turni tool il SDK emette idle a metà stream.
       // La pill si cancella solo con done / streaming_stopped / error.
-      if (p?.status === 'running') { setStatusLabel('Running'); setStatusKind('running') }
+      switch (p?.status) {
+        case 'running': setStatusLabel('Running'); setStatusKind('running'); break
+        case 'thinking': setStatusLabel('Thinking'); setStatusKind('thinking'); break
+        case 'writing': setStatusLabel('Writing'); setStatusKind('writing'); break
+        case 'tool': setStatusLabel(p.detail ? `Tool: ${p.detail}` : 'Tool call'); setStatusKind('tool_call'); break
+        case 'compacting': setStatusLabel('Compacting'); setStatusKind('compacting'); break
+        case 'retrying': setStatusLabel(`Retrying ${p.attempt || 1}/${p.maxAttempts || 3}`); setStatusKind('retrying'); break
+        case 'failed': setStatusLabel('Failed'); setStatusKind('failed'); setIsStreaming(false); break
+      }
     })
 
     // Context usage
@@ -531,10 +555,28 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
             let last = merged[merged.length - 1]
             if (!last || last.role !== 'assistant') { last = { id: `tr-parent-${m.id}`, role: 'assistant', content: '', timestamp: base.timestamp }; merged.push(last) }
             last.toolResults = [...(last.toolResults || []), { name: m.toolName || 'tool', output: String(m.content || ''), isError: !!m.isError }]
+          } else if (m.isCompactionSummary || m.isCompactionWarning) {
+            // Compaction toggle (blu = summary, arancione = noop warning)
+            merged.push({ id: base.id, role: 'assistant', content: '', timestamp: base.timestamp, compaction: [{ content: m.content || '', isNoop: !!m.isCompactionWarning }] })
           } else {
             merged.push(base)
           }
         }
+        // === Deleghe persistite: attach ai messaggi assistant per timestamp ===
+        try {
+          const dels = await call('getDelegations', { sessionKey })
+          const delList = dels?.delegations || dels || []
+          if (Array.isArray(delList) && delList.length > 0) {
+            for (const d of delList) {
+              const block = { id: d.id, agentName: d.agentName || 'agent', agentModel: d.model || '', mode: d.mode || '', tools: d.tools || [], systemPrompt: '', taskContent: d.delegatedMessage || '', response: typeof d.content === 'string' ? d.content : (Array.isArray(d.content) ? d.content.filter((b: any) => b?.type === 'text').map((b: any) => b.text || '').join('') : ''), thinkingLevel: d.thinkingLevel || '' }
+              // Attach al primo assistant con timestamp >= delega, altrimenti all'ultimo
+              let target = -1
+              for (let i = 0; i < merged.length; i++) { if (merged[i].role === 'assistant' && new Date(merged[i].timestamp).getTime() >= (d.timestamp || 0)) { target = i; break } }
+              if (target < 0) { for (let i = merged.length - 1; i >= 0; i--) { if (merged[i].role === 'assistant') { target = i; break } } }
+              if (target >= 0) merged[target].delegations = [...(merged[target].delegations || []), block]
+            }
+          }
+        } catch {}
         setMessages(merged)
       }
       // Load context usage
