@@ -312,14 +312,28 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
       }
     })
 
+    // Tool result arriva come notifica SEPARATA (type: "tool_result", non stream_event)
+    const unsubToolResult = subscribe('tool_result', (p: any) => {
+      setStatusLabel(p?.isError ? 'Tool error' : 'Tool result'); setStatusKind(p?.isError ? 'tool_error' : 'tool_result')
+      setMessages(prev => {
+        const last = prev[prev.length - 1]
+        if (!last || last.role !== 'assistant' || !last.isStreaming) return prev
+        const trs = [...(last.toolResults || []), { name: p?.toolName || 'tool', output: String(p?.content || ''), isError: !!p?.isError }]
+        return [...prev.slice(0, -1), { ...last, toolResults: trs }]
+      })
+    })
+
     // Streaming started/stopped
     const unsubStreamStart = subscribe('streaming_started', () => {
       setIsStreaming(true)
     })
     // Done event (sent as separate notification, not stream_event)
     const unsubDone = subscribe('done', (p: any) => {
-      setIsStreaming(false); setStatusLabel(''); setStatusKind('')
       const { text, model, agentName, thinkingLevel, stopReason, errorMessage } = p || {}
+      // stopReason "toolUse" = turno intermedio (l'assistant ha chiamato un tool, la risposta continua).
+      // NON finalizzare: la fine vera arriva con stop/length/error/aborted + streaming_stopped.
+      if (stopReason === 'toolUse') return
+      setIsStreaming(false); setStatusLabel(''); setStatusKind('')
       // Accumula input/output totali sessione (mai resettati dalle risposte; solo reset sessione)
       const u: any = p?.usage
       if (u && p?.sessionKey) {
@@ -333,10 +347,10 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
         setMessages(prev => {
           const hasStreaming = prev.some(m => m.isStreaming)
           if (hasStreaming) {
-            return prev.map(m => m.isStreaming ? { ...m, isStreaming: false, isError: true, content: errorMessage || 'Unknown error' } : m)
+            return prev.map(m => m.isStreaming ? { ...m, isStreaming: false, isError: true, content: '', errorContent: errorMessage || 'Unknown error' } : m)
           }
           // Nessun messaggio in streaming (errore prima del primo delta) → aggiungi messaggio errore
-          return [...prev, { id: `err-${Date.now()}`, role: 'assistant' as const, content: errorMessage || 'Unknown error', timestamp: new Date().toISOString(), isError: true, model, agentName }]
+          return [...prev, { id: `err-${Date.now()}`, role: 'assistant' as const, content: '', errorContent: errorMessage || 'Unknown error', timestamp: new Date().toISOString(), isError: true, model, agentName }]
         })
       } else {
         setMessages(prev => {
@@ -509,7 +523,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
     })
 
     return () => {
-      unsubStream(); unsubStreamStart(); unsubStreamStop(); unsubDone()
+      unsubStream(); unsubStreamStart(); unsubStreamStop(); unsubDone(); unsubToolResult()
       unsubSessCreated(); unsubSessUpdated(); unsubSessDeleted()
       unsubModelUpdate(); unsubThinkUpdate(); unsubThinkLevels()
       unsubSessMeta(); unsubAgentStatus()
@@ -656,6 +670,10 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
           if (createResult?.key || createResult?.sessionKey) {
             sk = createResult.key || createResult.sessionKey
             setActiveSessionId(sk as string)
+            // Persisti gli agenti selezionati nella nuova sessione (orchestrator incluso)
+            if (ag && ag.length > 0) {
+              try { await call('setChatAgents', { sessionKey: sk, agentIds: ag.join(',') }) } catch {}
+            }
             try {
               const r = await call('getFullState', {})
               if (r?.sessions) setSessions(mapSessions(r.sessions))

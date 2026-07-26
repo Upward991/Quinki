@@ -4120,6 +4120,10 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
               }
             }
           } catch {}
+          // Errori: se il contenuto è vuoto, usa il messaggio d'errore dell'evento
+          if (!resultText && e.isError) {
+            try { resultText = String((e as any).error || (r as any)?.error || (r as any)?.message || 'Tool execution failed'); } catch { resultText = 'Tool execution failed'; }
+          }
           this.logDebug("tool-result", {
             sessionKey: key,
             toolName: e.toolName,

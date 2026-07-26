@@ -192,12 +192,9 @@ function MarkdownContent({ text, isError }: { text: string; isError?: boolean })
 
 // ── Code block with copy button + syntax highlighting ──
 function CodeBlock({ children }: { children: React.ReactNode }) {
-  const [copied, setCopied] = useState(false)
   const handleCopy = () => {
     const text = extractText(children)
-    navigator.clipboard.writeText(text)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    try { navigator.clipboard.writeText(text) } catch {}
   }
 
   return (
@@ -216,7 +213,7 @@ function CodeBlock({ children }: { children: React.ReactNode }) {
         onMouseEnter={e => { e.currentTarget.style.opacity = '1' }}
         onMouseLeave={e => { e.currentTarget.style.opacity = '0.6' }}
       >
-        {copied ? <Check size={14} style={{ color: 'var(--q-accent-success)' }} /> : <Copy size={14} />}
+        <Copy size={14} />
       </button>
       {/* Code content */}
       <pre style={{ padding: '12px', overflow: 'auto', margin: 0, backgroundColor: 'transparent !important' }}>

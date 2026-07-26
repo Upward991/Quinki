@@ -104,7 +104,7 @@ export function Composer(props: ComposerProps) {
   const typedTokens = Math.ceil(text.length / 4)
   const total = props.contextTokens + typedTokens
   const pct = props.contextWindow > 0 ? (total / props.contextWindow) * 100 : 0
-  const counterColor = pct >= 80 ? 'var(--q-accent-danger)' : pct >= 50 ? 'var(--q-accent-warning)' : 'var(--q-text)'
+  const counterColor = pct >= 80 ? 'var(--q-accent-danger)' : pct >= 50 ? 'var(--q-accent-warning)' : 'var(--q-text-tertiary)'
   const counterText = props.contextWindow > 0
     ? `${fmt(total)}/${fmt(props.contextWindow)} (${Math.floor(pct)}% ± ${Math.ceil(pct * 0.05 + 1)}%)`
     : `${fmt(total)} tokens`
@@ -267,11 +267,11 @@ function SlashBtn({ color, onClick }: { color: string; onClick: () => void }) {
     <button onClick={onClick} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
       style={{
         width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        transform: hovered ? 'scale(1.02)' : 'scale(1)', borderRadius: 'var(--radius-md)',
+        borderRadius: 'var(--radius-md)',
         border: 'none', cursor: 'pointer',
         backgroundColor: hovered ? 'var(--q-active)' : 'transparent',
         flexShrink: 0, padding: '0',
-        transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), transform 120ms cubic-bezier(0.16, 1, 0.3, 1)',
+        transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1)',
       }}>
       <svg width="22" height="22" viewBox="0 0 24 24" shapeRendering="geometricPrecision">
         <rect x="2" y="2" width="20" height="20" rx="2" fill={color} />
@@ -310,13 +310,13 @@ function ModeButton({ mode, onChange }: { mode: ChatMode; onChange: (m: ChatMode
       onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
       style={{
         width: '48px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        transform: hovered ? 'scale(1.02)' : 'scale(1)', borderRadius: 'var(--radius-md)',
+        borderRadius: 'var(--radius-md)',
         border: 'none', cursor: 'pointer',
         backgroundColor: hovered ? 'var(--q-hover)' : 'transparent',
         color: isPlan ? 'var(--q-mode-plan)' : 'var(--q-mode-build)',
         fontWeight: 700, fontSize: '14px', fontFamily: 'var(--font-interface)', lineHeight: '1',
         flexShrink: 0, padding: '0',
-        transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), transform 120ms cubic-bezier(0.16, 1, 0.3, 1)',
+        transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1)',
       }}>
       {isPlan ? 'Plan' : 'Build'}
     </button>
@@ -330,7 +330,7 @@ function AttachBtn({ children, onClick, title }: { children: React.ReactNode; on
     <button onClick={onClick} title={title} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
       style={{
         width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        transform: hovered ? 'scale(1.02)' : 'scale(1)', borderRadius: 'var(--radius-md)',
+        borderRadius: 'var(--radius-md)',
         border: 'none', cursor: 'pointer',
         backgroundColor: hovered ? 'var(--q-hover)' : 'transparent',
         color: hovered ? 'var(--q-text)' : 'var(--q-text-secondary)',
@@ -362,7 +362,7 @@ function SendButton({ enabled, onClick }: { enabled: boolean; onClick: () => voi
       onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
       style={{
         width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        transform: hovered && enabled ? 'scale(1.05)' : 'scale(1)', borderRadius: '8px',
+        borderRadius: '8px',
         border: 'none', cursor: enabled ? 'pointer' : 'default',
         backgroundColor: enabled ? (hovered ? 'var(--q-tab-accent)' : 'var(--q-tab-accent-darker)') : 'var(--q-hover)',
         color: enabled ? '#FFFFFF' : 'var(--q-text-tertiary)',

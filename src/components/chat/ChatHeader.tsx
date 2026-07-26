@@ -134,7 +134,7 @@ export function ChatHeader(props: ChatHeaderProps) {
                     <input type="checkbox" defaultChecked style={{ accentColor: 'var(--q-tab-accent)' }} />
                     <span style={{ color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>Auto-compaction (80%)</span>
                   </label>
-                  <CompactionBtn />
+                  <CompactionBtn onClick={() => { const sk = props.session?.id; if (sk) { try { (window as any).__sidecarCall?.('compactSession', { sessionKey: sk }) } catch {} } }} />
                 </div>
               </>
             )}
@@ -394,10 +394,10 @@ function CtxRow({ label, value }: { label: string; value: string }) {
   )
 }
 
-function CompactionBtn() {
+function CompactionBtn({ onClick }: { onClick?: () => void }) {
   const [hovered, setHovered] = useState(false)
   return (
-    <button style={{ width: '100%', padding: '8px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: hovered ? 'var(--q-hover)' : 'var(--q-bg)', color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1)' }} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
+    <button onClick={onClick} style={{ width: '100%', padding: '8px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: hovered ? 'var(--q-hover)' : 'var(--q-bg)', color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)' }} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
       Compaction
     </button>
   )

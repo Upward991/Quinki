@@ -376,10 +376,12 @@ export function LogPanel(props: LogPanelProps) {
                 ) : null}
                 <button
                   onClick={(ev) => { ev.stopPropagation(); navigator.clipboard.writeText(formatPayload(e.data)) }}
+                  onMouseEnter={(ev) => { (ev.currentTarget as HTMLElement).style.color = 'var(--q-text)' }}
+                  onMouseLeave={(ev) => { (ev.currentTarget as HTMLElement).style.color = 'var(--q-text-tertiary)' }}
                   style={{
                     position: 'absolute', top: '8px', right: '8px', background: 'none', border: 'none',
-                    cursor: 'pointer', padding: '6px', borderRadius: 'var(--radius-md)', color: 'var(--q-text)',
-                    display: 'flex', opacity: isHovered ? 1 : 0, transition: 'opacity 150ms ease',
+                    cursor: 'pointer', padding: '6px', borderRadius: 'var(--radius-md)', color: 'var(--q-text-tertiary)',
+                    display: 'flex', opacity: isHovered ? 1 : 0, transition: 'opacity 150ms ease, color 120ms ease',
                   }}
                 >
                   <Copy size={16} />
