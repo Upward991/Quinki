@@ -406,7 +406,7 @@ function MenuItem({ label, isSelected, isChecked, trailing, onHover, onTap }: {
         transition: 'background-color 0.1s ease',
       }}
     >
-      <span style={{ color: isChecked ? 'var(--q-accent-info)' : 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+      <span style={{ color: isChecked ? 'var(--q-tab-accent)' : 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
         {label}
       </span>
       {trailing && (

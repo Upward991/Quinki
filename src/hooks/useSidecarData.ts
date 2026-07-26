@@ -295,6 +295,15 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
     const unsubDone = subscribe('done', (p: any) => {
       setIsStreaming(false); setStatusLabel(''); setStatusKind('')
       const { text, model, agentName, thinkingLevel, stopReason, errorMessage } = p || {}
+      // Accumula input/output totali sessione (mai resettati dalle risposte; solo reset sessione)
+      const u: any = p?.usage
+      if (u && p?.sessionKey) {
+        const inp = u.input ?? u.input_tokens ?? 0
+        const outp = u.output ?? u.output_tokens ?? 0
+        if (inp > 0 || outp > 0) {
+          setSessionTokens(prev => ({ ...prev, [p.sessionKey]: { input: (prev[p.sessionKey]?.input || 0) + inp, output: (prev[p.sessionKey]?.output || 0) + outp } }))
+        }
+      }
       if (stopReason === 'error') {
         setMessages(prev => {
           const hasStreaming = prev.some(m => m.isStreaming)

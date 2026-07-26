@@ -165,7 +165,7 @@ export function Composer(props: ComposerProps) {
             backgroundColor: 'transparent', color: 'var(--q-text)',
             fontSize: '16px', lineHeight: '24px', fontFamily: 'var(--font-interface)',
             resize: 'none', outline: 'none', border: 'none',
-            padding: '8px', caretColor: 'var(--q-accent-info)',
+            padding: '8px', caretColor: 'var(--q-tab-accent)',
           }}
           rows={1}
         />
@@ -364,7 +364,7 @@ function SendButton({ enabled, onClick }: { enabled: boolean; onClick: () => voi
         width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
         transform: hovered && enabled ? 'scale(1.05)' : 'scale(1)', borderRadius: '8px',
         border: 'none', cursor: enabled ? 'pointer' : 'default',
-        backgroundColor: enabled ? (hovered ? 'var(--q-accent-info)' : 'var(--q-accent-info-darker)') : 'var(--q-hover)',
+        backgroundColor: enabled ? (hovered ? 'var(--q-tab-accent)' : 'var(--q-tab-accent-darker)') : 'var(--q-hover)',
         color: enabled ? '#FFFFFF' : 'var(--q-text-tertiary)',
         flexShrink: 0, padding: '0',
         transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms cubic-bezier(0.16, 1, 0.3, 1), transform 120ms cubic-bezier(0.16, 1, 0.3, 1)',

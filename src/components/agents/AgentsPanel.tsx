@@ -952,7 +952,7 @@ function AddItemsModal({ title, items, onClose, onConfirm }) {
         })
       }),
       // Footer
-      React.createElement('div', { style: { padding: '8px 16px', display: 'flex', alignItems: 'center', borderTop: '1px solid var(--q-border)' }, children: [
+      React.createElement('div', { style: { padding: '8px 16px', display: 'flex', alignItems: 'center', }, children: [
         React.createElement('button', { className: 'q-press', onClick: () => setSelected(new Set(filtered.map(i => i.name))), disabled: filtered.length === 0, style: { background: 'none', border: 'none', cursor: filtered.length === 0 ? 'default' : 'pointer', color: filtered.length === 0 ? 'var(--q-text-tertiary)' : 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }, children: 'Select all' }),
         React.createElement('button', { className: 'q-press', onClick: () => setSelected(new Set()), disabled: selected.size === 0, style: { background: 'none', border: 'none', cursor: selected.size === 0 ? 'default' : 'pointer', color: selected.size === 0 ? 'var(--q-text-tertiary)' : 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }, children: 'Deselect' }),
         React.createElement('span', { style: { flex: 1 } }),
