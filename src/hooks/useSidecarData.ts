@@ -119,6 +119,8 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
   const [contextWindow, setContextWindow] = useState(1000000)
   const [thinkingLevels, setThinkingLevels] = useState<string[]>(['off', 'low', 'medium', 'high', 'xhigh'])
   const [agentStatus, setAgentStatus] = useState<any>(null)
+  const [chatAgentIds, setChatAgentIds] = useState<string[]>([])
+  const [agentOverrides, setAgentOverrides] = useState<Record<string, { model?: string; thinkingLevel?: string }>>({})
   const [compactingSessions, setCompactingSessions] = useState<Set<string>>(new Set())
   const [sessionTokens, setSessionTokens] = useState<Record<string, { input: number; output: number }>>({})
   const [debugLog, setDebugLog] = useState<any[]>([])
@@ -291,7 +293,14 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
       setIsStreaming(false); setStatusLabel(''); setStatusKind('')
       const { text, model, agentName, thinkingLevel, stopReason, errorMessage } = p || {}
       if (stopReason === 'error') {
-        setMessages(prev => prev.map(m => m.isStreaming ? { ...m, isStreaming: false, isError: true, content: errorMessage || 'Unknown error' } : m))
+        setMessages(prev => {
+          const hasStreaming = prev.some(m => m.isStreaming)
+          if (hasStreaming) {
+            return prev.map(m => m.isStreaming ? { ...m, isStreaming: false, isError: true, content: errorMessage || 'Unknown error' } : m)
+          }
+          // Nessun messaggio in streaming (errore prima del primo delta) → aggiungi messaggio errore
+          return [...prev, { id: `err-${Date.now()}`, role: 'assistant' as const, content: errorMessage || 'Unknown error', timestamp: new Date().toISOString(), isError: true, model, agentName }]
+        })
       } else {
         setMessages(prev => prev.map(m => m.isStreaming ? { ...m, isStreaming: false, model, agentName, thinkingLevel, content: text || m.content } : m))
       }
@@ -353,6 +362,9 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
     // Agent status
     const unsubAgentStatus = subscribe('agent_status', (p: any) => {
       if (p?.sessionKey) setAgentStatus(p)
+      // Status pill: traccia running/idle
+      if (p?.status === 'running') { setStatusLabel('Running'); setStatusKind('running') }
+      else if (p?.status === 'idle') { setStatusLabel(''); setStatusKind('') }
     })
 
     // Context usage
@@ -491,6 +503,9 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
             ...s, model: meta.model ?? s.model, thinkingLevel: meta.thinkingLevel ?? s.thinkingLevel, mode: meta.mode ?? s.mode,
           } : s))
           if (meta.availableThinkingLevels) setThinkingLevels(meta.availableThinkingLevels)
+          // Agenti in chat + override per-agente (model/thinking)
+          setChatAgentIds(meta.agentId ? String(meta.agentId).split(',').filter(Boolean) : [])
+          setAgentOverrides(meta.agentOverrides || {})
         }
       } catch {}
       // Load thinking levels
@@ -530,7 +545,14 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
       sk = sk || activeSessionId || ''
       if (!sk) {
         try {
-          const createResult = await call('createSession', { label: 'New chat' })
+          // Applica i default delle impostazioni alla nuova chat (modello + thinking)
+          let defs: any = {}
+          try { defs = JSON.parse(localStorage.getItem('quinki-settings') || '{}') } catch {}
+          const createParams: any = { label: 'New chat' }
+          if (defs.defaultModel) createParams.model = defs.defaultModel
+          if (defs.defaultThinking) createParams.thinkingLevel = defs.defaultThinking
+          if (defs.defaultMode) createParams.mode = defs.defaultMode
+          const createResult = await call('createSession', createParams)
           if (createResult?.key || createResult?.sessionKey) {
             sk = createResult.key || createResult.sessionKey
             setActiveSessionId(sk as string)
@@ -545,7 +567,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
           return
         }
       }
-      await call('sendMessage', { sessionKey: sk, text, agentId: ag && ag.length > 0 ? ag[0] : undefined })
+      await call('sendMessage', { sessionKey: sk, text, agentId: ag && ag.length > 0 ? ag[0] : undefined }, 600000)
       // Reload sessions to get auto-generated title
       try {
         const r = await call('getFullState', {})
@@ -637,7 +659,9 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
     let sk: string, ids: string[]
     if (Array.isArray(sessionKeyOrIds)) { sk = activeSessionId || ''; ids = sessionKeyOrIds }
     else { sk = sessionKeyOrIds; ids = agentIds || [] }
-    try { await call('setChatAgents', { sessionKey: sk, agents: ids }) } catch (e) { console.error('setChatAgents:', e) }
+    // Il sidecar si aspetta agentIds come STRINGA comma-separated (non array `agents`)
+    try { await call('setChatAgents', { sessionKey: sk, agentIds: ids.join(',') }) } catch (e) { console.error('setChatAgents:', e) }
+    setChatAgentIds(ids)
     if (!ready) return
 
   }, [ready, call, activeSessionId])
@@ -649,7 +673,11 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
     else { sk = activeSessionId || ''; m = sessionKeyOrModel }
     notify('setModel', { sessionKey: sk, model: m })
     setSessions(prev => prev.map(s => s.id === sk ? { ...s, model: m } : s))
-  }, [ready, notify, activeSessionId])
+    // Aggiorna subito il contatore contesto (il sidecar resetta l'usage al cambio modello — B16)
+    const mi = models.find((x: any) => x.id === m)
+    if (mi?.contextWindow) setContextWindow(mi.contextWindow)
+    setContextTokens(0)
+  }, [ready, notify, activeSessionId, models])
 
   const setThinkingLevel = useCallback(async (sessionKeyOrLevel: string, level?: string) => {
     if (!ready) return
@@ -735,6 +763,15 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
   const setAgentOverride = useCallback(async (sessionKey: string, agentId: string, overrides: any) => {
     if (!ready) return
     try { await call('setAgentOverride', { sessionKey, agentId, ...overrides }) } catch (e) { console.error('setAgentOverride:', e) }
+    // Aggiorna lo stato locale (stessa semantica del sidecar: null = rimuovi campo)
+    setAgentOverrides(prev => {
+      const next = { ...prev }
+      const cur = { ...(next[agentId] || {}) }
+      if ('model' in overrides) { if (overrides.model == null) delete cur.model; else cur.model = overrides.model }
+      if ('thinkingLevel' in overrides) { if (overrides.thinkingLevel == null) delete cur.thinkingLevel; else cur.thinkingLevel = overrides.thinkingLevel }
+      if (Object.keys(cur).length === 0) delete next[agentId]; else next[agentId] = cur
+      return next
+    })
   }, [ready, call])
 
   const getAgentOverrides = useCallback(async (sessionKey: string) => {
@@ -936,6 +973,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
     connected: ready, loading, sessions, agents, providers, messages, folders, models,
     activeSessionId, isStreaming, statusLabel, statusKind, contextTokens, contextWindow,
     thinkingLevels, agentStatus, compactingSessions, sessionTokens, debugLog, piConfigNeeded,
+    chatAgentIds, agentOverrides,
     // Session management
     selectSession, sendMessage, stopStreaming, createSession, deleteSession, renameSession,
     resetSession, reloadSession, moveSession, compactSession, ensureSession,

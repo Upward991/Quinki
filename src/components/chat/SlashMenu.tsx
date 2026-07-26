@@ -3,7 +3,7 @@
 // Forwarded ref exposes: navUp, navDown, navLeft, navRight, navEnter
 // ============================================================
 
-import { useState, useImperativeHandle, forwardRef } from 'react'
+import { useState, useImperativeHandle, forwardRef, useRef, useEffect } from 'react'
 import type { Provider } from '../../types'
 import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Folder, FolderPlus,  X } from '../icons'
 
@@ -388,8 +388,11 @@ function MenuItem({ label, isSelected, isChecked, trailing, onHover, onTap }: {
 }) {
   const [hovered, setHovered] = useState(false)
   const showHighlight = hovered || isSelected
+  const itemRef = useRef<HTMLDivElement>(null)
+  useEffect(() => { if (isSelected && itemRef.current) itemRef.current.scrollIntoView({ block: 'nearest' }) }, [isSelected])
   return (
     <div
+      ref={itemRef}
       onClick={onTap}
       onMouseEnter={() => { setHovered(true); onHover() }}
       onMouseLeave={() => setHovered(false)}

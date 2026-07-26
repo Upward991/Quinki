@@ -999,7 +999,7 @@ class PiBridge {
     return this.#entries.get(key)?.thinkingLevel || null;
   }
 
-  getSessionMeta(key: string): { model?: string; thinkingLevel?: string; availableThinkingLevels: string[]; mode: string } {
+  getSessionMeta(key: string): { model?: string; thinkingLevel?: string; availableThinkingLevels: string[]; mode: string; agentId?: string; agentOverrides?: any } {
     const s = this.#entries.get(key);
     const pi = this.#active.get(key);
     let model: string | undefined;
@@ -1015,7 +1015,7 @@ class PiBridge {
       thinkingLevel = s?.thinkingLevel;
       availableThinkingLevels = ["off", "low", "medium", "high"];
     }
-    return { model, thinkingLevel, availableThinkingLevels, mode };
+    return { model, thinkingLevel, availableThinkingLevels, mode, agentId: (s as any)?.agentId, agentOverrides: (s as any)?.agentOverrides || {} };
   }
 
   getOllamaThinkingLevels(key: string): { piLevels: string[]; ollamaLevels: { pi: string; ollama: string }[] } {

@@ -22,6 +22,8 @@ interface ChatHeaderProps {
   providers: any[]
   onExport: () => void
   welcomeMode?: boolean
+  agentOverrides?: Record<string, { model?: string; thinkingLevel?: string }>
+  onSetAgentOverride?: (agentId: string, overrides: { model?: string | null; thinkingLevel?: string | null }) => void
 }
 
 export function ChatHeader(props: ChatHeaderProps) {
@@ -38,6 +40,8 @@ export function ChatHeader(props: ChatHeaderProps) {
   const [selectedForRemoval, setSelectedForRemoval] = useState<Set<string>>(new Set())
   const [modelPickerFor, setModelPickerFor] = useState<string | null>(null)
   const [thinkingPickerFor, setThinkingPickerFor] = useState<string | null>(null)
+  const [addAgentOpen, setAddAgentOpen] = useState(false)
+  const [addAgentQuery, setAddAgentQuery] = useState('')
 
   const fmt = (n: number) => {
     if (n >= 1000000) {
@@ -243,7 +247,7 @@ export function ChatHeader(props: ChatHeaderProps) {
                 <div style={{ ...popupStyle, top: 'calc(100% + 16px)', right: '-8px', minWidth: '260px', maxWidth: '300px', minHeight: '50vh', maxHeight: '70vh', border: '1px solid var(--q-border)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                   {/* Add agent + Orchestrator */}
                   <div style={{ padding: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <button style={{ flex: 1, height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: '13px', transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms cubic-bezier(0.16, 1, 0.3, 1)' }}
+                    <button onClick={() => setAddAgentOpen(!addAgentOpen)} style={{ flex: 1, height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: addAgentOpen ? 'var(--q-hover)' : 'transparent', color: addAgentOpen ? 'var(--q-text)' : 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: '13px', transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms cubic-bezier(0.16, 1, 0.3, 1)' }}
                       onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)'; e.currentTarget.style.color = 'var(--q-text)' }}
                       onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-text-secondary)' }}>
                       <Bot size={20} style={{ display: 'flex', flexShrink: 0 }} /> <span style={{ lineHeight: '1' }}>Add agent</span>
@@ -259,11 +263,30 @@ export function ChatHeader(props: ChatHeaderProps) {
                     <div style={{ display: 'flex', alignItems: 'center', paddingLeft: '12px', paddingRight: '8px' }}>
                       <Search size={16} style={{ color: 'var(--q-text-tertiary)', flexShrink: 0 }} />
                       <div style={{ width: '8px', flexShrink: 0 }} />
-                      <input type="text" placeholder="Search agent..." style={{ flex: 1, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0', margin: '0' }} />
+                      <input type="text" placeholder="Search agent..." value={addAgentQuery} onChange={e => setAddAgentQuery(e.target.value)} style={{ flex: 1, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0', margin: '0' }} />
                       <div style={{ width: '4px', flexShrink: 0 }} />
-                      <span style={{ color: 'var(--q-text-tertiary)', fontSize: '14px', opacity: 0.3, cursor: 'default', padding: '4px' }}>✕</span>
+                      <span onClick={() => setAddAgentQuery('')} style={{ color: 'var(--q-text-tertiary)', fontSize: '14px', opacity: addAgentQuery ? 1 : 0.3, cursor: addAgentQuery ? 'pointer' : 'default', padding: '4px' }}>✕</span>
                     </div>
                   </div>
+                  {/* Add-agent list: agenti NON in chat, filtrati dalla search */}
+                  {addAgentOpen && (
+                    <div style={{ maxHeight: '180px', overflowY: 'auto', borderTop: '1px solid var(--q-border)', borderBottom: '1px solid var(--q-border)', padding: '4px 8px' }}>
+                      {(() => {
+                        const avail = props.agents.filter(a => !props.selectedAgentIds.includes(a.id) && a.id !== 'orchestrator' && (!addAgentQuery || a.name.toLowerCase().includes(addAgentQuery.toLowerCase())))
+                        if (avail.length === 0) return <div style={{ padding: '12px', textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>No agents to add</div>
+                        return avail.map(a => (
+                          <div key={a.id} onClick={() => { props.onAgentToggle(a.id); setAddAgentQuery('') }}
+                            style={{ padding: '8px 12px', borderRadius: 'var(--radius-md)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+                            onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)' }}
+                            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}>
+                            <Bot size={16} style={{ color: 'var(--q-accent-info)', flexShrink: 0 }} />
+                            <span style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', flex: 1 }}>{a.name}</span>
+                            <span style={{ color: 'var(--q-accent-info)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>Add</span>
+                          </div>
+                        ))
+                      })()}
+                    </div>
+                  )}
                   {/* Agent list */}
                   <div style={{ flex: 1, overflowY: 'auto' }}>
                     {(() => {
@@ -298,7 +321,7 @@ export function ChatHeader(props: ChatHeaderProps) {
                                 onMouseEnter={e => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.currentTarget.querySelectorAll('span,svg').forEach((el: any) => el.style.color = 'var(--q-text)') } }}
                                 onMouseLeave={e => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.currentTarget.querySelectorAll('span,svg').forEach((el: any) => el.style.color = 'var(--q-text-tertiary)') } }}>
                                 <Cpu size={14} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', display: 'flex', flexShrink: 0 }} />
-                                <span onClick={(e) => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.stopPropagation(); setModelPickerFor(agent.id) } }} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', lineHeight: '14px', cursor: multiSelect && selectedForRemoval.has(agent.id) ? 'default' : 'pointer' }}>{agent.model}</span>
+                                <span onClick={(e) => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.stopPropagation(); setModelPickerFor(agent.id) } }} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', lineHeight: '14px', cursor: multiSelect && selectedForRemoval.has(agent.id) ? 'default' : 'pointer' }}>{props.agentOverrides?.[agent.id]?.model || 'Chat default'}</span>
                               </div>
                               <div style={{ height: '4px' }} />
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '24px', cursor: multiSelect && selectedForRemoval.has(agent.id) ? 'default' : 'pointer' }}
@@ -306,7 +329,7 @@ export function ChatHeader(props: ChatHeaderProps) {
                                 onMouseLeave={e => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.currentTarget.querySelectorAll('span,svg').forEach((el: any) => el.style.color = 'var(--q-text-tertiary)') } }}>
                                 <Brain size={14} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', display: 'flex', flexShrink: 0 }} />
                                 <span onClick={(e) => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.stopPropagation(); setThinkingPickerFor(agent.id) } }} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', lineHeight: '14px', cursor: multiSelect && selectedForRemoval.has(agent.id) ? 'default' : 'pointer' }}>
-                                  {agent.thinking === 'off' ? 'Off' : `On (${agent.thinking})`}
+                                  {props.agentOverrides?.[agent.id]?.thinkingLevel ? (props.agentOverrides[agent.id].thinkingLevel === 'off' ? 'Off' : `On (${props.agentOverrides[agent.id].thinkingLevel})`) : 'Chat default'}
                                 </span>
                               </div>
                             </>
@@ -344,17 +367,19 @@ export function ChatHeader(props: ChatHeaderProps) {
       {/* Model picker modal */}
       {modelPickerFor && (
         <ModelPickerModal
-          currentModel={props.agents.find(a => a.id === modelPickerFor)?.model || ''}
+          currentModel={props.agentOverrides?.[modelPickerFor]?.model || ''}
           models={props.providers?.flatMap((p: any) => p.models.map((m: any) => ({ id: m.id, name: m.name, contextWindow: m.contextWindow, provider: p.name }))) || []}
           onClose={() => setModelPickerFor(null)}
+          onConfirm={(model) => { props.onSetAgentOverride?.(modelPickerFor, { model, thinkingLevel: '__skip__' }); setModelPickerFor(null) }}
         />
       )}
 
       {/* Thinking picker modal */}
       {thinkingPickerFor && (
         <ThinkingPickerModal
-          currentThinking={props.agents.find(a => a.id === thinkingPickerFor)?.thinking || ''}
+          currentThinking={props.agentOverrides?.[thinkingPickerFor]?.thinkingLevel || ''}
           onClose={() => setThinkingPickerFor(null)}
+          onConfirm={(level) => { props.onSetAgentOverride?.(thinkingPickerFor, { thinkingLevel: level, model: '__skip__' }); setThinkingPickerFor(null) }}
         />
       )}
     </>
@@ -402,10 +427,11 @@ function IconBtn({ icon: Icon, onClick, title, activeBg }: { icon: React.FC<{ si
 }
 
 // ── Model picker modal — exact Flutter _ModelPickerDialog copy ──
-function ModelPickerModal({ currentModel, models, onClose }: {
+function ModelPickerModal({ currentModel, models, onClose, onConfirm }: {
   currentModel: string
   models: { id: string; name: string; contextWindow?: number; provider: string }[]
   onClose: () => void
+  onConfirm: (model: string | null) => void
 }) {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<string | null>(currentModel || null)
@@ -418,7 +444,7 @@ function ModelPickerModal({ currentModel, models, onClose }: {
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
       <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '480px', height: '80vh', maxHeight: '500px', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
         <div style={{ padding: '12px 16px', backgroundColor: 'var(--q-bg-panel)', borderBottom: '1px solid var(--q-border)', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-          <Cpu size={18} style={{ color: 'var(--q-accent-danger)', flexShrink: 0 }} />
+          <Cpu size={18} style={{ color: 'var(--q-accent-info)', flexShrink: 0 }} />
           <div style={{ width: '8px', flexShrink: 0 }} />
           <span style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>Agent model</span>
           <span style={{ flex: 1 }} />
@@ -432,8 +458,8 @@ function ModelPickerModal({ currentModel, models, onClose }: {
           </div>
         </div>
         <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
-          <div onClick={() => setSelected(null)} style={{ padding: '8px 16px', cursor: 'pointer', backgroundColor: selected === null ? 'rgba(217,107,107,0.1)' : 'transparent', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ width: '14px', height: '14px', borderRadius: '50%', border: '2px solid ' + (selected === null ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)'), backgroundColor: selected === null ? 'var(--q-accent-secondary)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{selected === null && <div style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: 'var(--q-bg)' }} />}</div>
+          <div onClick={() => setSelected(null)} style={{ padding: '8px 16px', cursor: 'pointer', backgroundColor: selected === null ? 'color-mix(in srgb, var(--q-accent-info) 12%, transparent)' : 'transparent', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ width: '14px', height: '14px', borderRadius: '50%', border: '2px solid ' + (selected === null ? 'var(--q-accent-info)' : 'var(--q-text-tertiary)'), backgroundColor: selected === null ? 'var(--q-accent-info)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{selected === null && <div style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: 'var(--q-bg)' }} />}</div>
             <span style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', flex: 1 }}>Chat default</span>
             <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>Use chat default model</span>
           </div>
@@ -441,8 +467,8 @@ function ModelPickerModal({ currentModel, models, onClose }: {
             <div key={provider}>
               <div style={{ padding: '8px 16px 4px 16px', color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>{provider}</div>
               {pModels.map(m => (
-                <div key={m.id} onClick={() => setSelected(m.id)} style={{ padding: '8px 16px', cursor: 'pointer', backgroundColor: selected === m.id ? 'rgba(217,107,107,0.1)' : 'transparent', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ width: '14px', height: '14px', borderRadius: '50%', border: '2px solid ' + (selected === m.id ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)'), backgroundColor: selected === m.id ? 'var(--q-accent-secondary)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{selected === m.id && <div style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: 'var(--q-bg)' }} />}</div>
+                <div key={m.id} onClick={() => setSelected(m.id)} style={{ padding: '8px 16px', cursor: 'pointer', backgroundColor: selected === m.id ? 'color-mix(in srgb, var(--q-accent-info) 12%, transparent)' : 'transparent', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ width: '14px', height: '14px', borderRadius: '50%', border: '2px solid ' + (selected === m.id ? 'var(--q-accent-info)' : 'var(--q-text-tertiary)'), backgroundColor: selected === m.id ? 'var(--q-accent-info)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{selected === m.id && <div style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: 'var(--q-bg)' }} />}</div>
                   <span style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name || m.id}</span>
                   <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', flexShrink: 0 }}>{fmtCtx(m.contextWindow)} ctx</span>
                 </div>
@@ -455,7 +481,7 @@ function ModelPickerModal({ currentModel, models, onClose }: {
           <span style={{ flex: 1 }} />
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-secondary)', fontSize: '15px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }}>Cancel</button>
           <div style={{ width: '8px' }} />
-          <button onClick={onClose} style={{ padding: '4px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-secondary)', color: 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)' }}>Confirm</button>
+          <button onClick={() => onConfirm(selected)} style={{ padding: '4px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-info)', color: 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)' }}>Confirm</button>
         </div>
       </div>
     </div>
@@ -463,14 +489,14 @@ function ModelPickerModal({ currentModel, models, onClose }: {
 }
 
 // ── Thinking picker modal — exact Flutter _ThinkingPickerDialog copy ──
-function ThinkingPickerModal({ currentThinking, onClose }: { currentThinking: string; onClose: () => void }) {
+function ThinkingPickerModal({ currentThinking, onClose, onConfirm }: { currentThinking: string; onClose: () => void; onConfirm: (level: string | null) => void }) {
   const [selected, setSelected] = useState<string | null>(currentThinking || null)
   const options: { value: string | null; label: string }[] = [{ value: null, label: 'Chat default' }, { value: 'on', label: 'On (xhigh)' }, { value: 'off', label: 'Off' }]
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
       <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '380px', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
         <div style={{ padding: '12px 16px', backgroundColor: 'var(--q-bg-panel)', borderBottom: '1px solid var(--q-border)', display: 'flex', alignItems: 'center' }}>
-          <Brain size={18} style={{ color: 'var(--q-accent-danger)', flexShrink: 0 }} />
+          <Brain size={18} style={{ color: 'var(--q-accent-info)', flexShrink: 0 }} />
           <div style={{ width: '8px', flexShrink: 0 }} />
           <span style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>Thinking</span>
           <span style={{ flex: 1 }} />
@@ -480,8 +506,8 @@ function ThinkingPickerModal({ currentThinking, onClose }: { currentThinking: st
           {options.map(opt => {
             const isSelected = selected === opt.value
             return (
-              <div key={opt.label} onClick={() => setSelected(opt.value)} style={{ padding: '10px 16px', cursor: 'pointer', backgroundColor: isSelected ? 'rgba(217,107,107,0.1)' : 'transparent', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: '14px', height: '14px', borderRadius: '50%', border: '2px solid ' + (isSelected ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)'), backgroundColor: isSelected ? 'var(--q-accent-secondary)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{isSelected && <div style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: 'var(--q-bg)' }} />}</div>
+              <div key={opt.label} onClick={() => setSelected(opt.value)} style={{ padding: '10px 16px', cursor: 'pointer', backgroundColor: isSelected ? 'color-mix(in srgb, var(--q-accent-info) 12%, transparent)' : 'transparent', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '14px', height: '14px', borderRadius: '50%', border: '2px solid ' + (isSelected ? 'var(--q-accent-info)' : 'var(--q-text-tertiary)'), backgroundColor: isSelected ? 'var(--q-accent-info)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{isSelected && <div style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: 'var(--q-bg)' }} />}</div>
                 <span style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>{opt.label}</span>
               </div>
             )
@@ -491,7 +517,7 @@ function ThinkingPickerModal({ currentThinking, onClose }: { currentThinking: st
           <span style={{ flex: 1 }} />
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-secondary)', fontSize: '15px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }}>Cancel</button>
           <div style={{ width: '8px' }} />
-          <button onClick={onClose} style={{ padding: '4px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-secondary)', color: 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)' }}>Confirm</button>
+          <button onClick={() => onConfirm(selected)} style={{ padding: '4px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-info)', color: 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)' }}>Confirm</button>
         </div>
       </div>
     </div>

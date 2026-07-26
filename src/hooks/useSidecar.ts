@@ -53,7 +53,7 @@ export function useSidecar(url = "ws://127.0.0.1:9182") {
 		};
 	}, [url]);
 	return {
-		call: useCallback((method, params = {}) => {
+		call: useCallback((method, params = {}, timeoutMs = 3e4) => {
 			return new Promise((resolve, reject) => {
 				if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
 					reject(/* @__PURE__ */ new Error("Not connected"));
@@ -75,7 +75,7 @@ export function useSidecar(url = "ws://127.0.0.1:9182") {
 						pendingRef.current.delete(id);
 						reject(/* @__PURE__ */ new Error("Timeout: " + method));
 					}
-				}, 3e4);
+				}, timeoutMs);
 			});
 		}, []),
 		notify: useCallback((method, params = {}) => {

@@ -27,6 +27,7 @@ interface ComposerProps {
   welcomeMode?: boolean
   agents?: Agent[]
   onReset?: () => void
+  onAgentToggle?: (id: string) => void
 }
 
 export function Composer(props: ComposerProps) {
@@ -60,6 +61,7 @@ export function Composer(props: ComposerProps) {
   }
 
   const selectAgent = (agent: Agent) => {
+    props.onAgentToggle?.(agent.id)
     const mention = `@${agent.name} `
     setText(mention)
     setMentionOpen(false)
@@ -362,7 +364,7 @@ function SendButton({ enabled, onClick }: { enabled: boolean; onClick: () => voi
         width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
         transform: hovered && enabled ? 'scale(1.05)' : 'scale(1)', borderRadius: '8px',
         border: 'none', cursor: enabled ? 'pointer' : 'default',
-        backgroundColor: enabled ? (hovered ? 'var(--q-accent-info-bright)' : 'var(--q-accent-info)') : 'var(--q-hover)',
+        backgroundColor: enabled ? (hovered ? 'var(--q-accent-info)' : 'var(--q-accent-info-darker)') : 'var(--q-hover)',
         color: enabled ? '#FFFFFF' : 'var(--q-text-tertiary)',
         flexShrink: 0, padding: '0',
         transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms cubic-bezier(0.16, 1, 0.3, 1), transform 120ms cubic-bezier(0.16, 1, 0.3, 1)',
