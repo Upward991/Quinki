@@ -46,6 +46,7 @@ import {
   computePreflightStats,
 } from "./pi-bridge";
 import { readModelsFromDisk } from "./models";
+import { readProvidersConfig, writeProvidersConfig } from "./providers";
 import { buildSidecarEntry } from "./sidecar-helper";
 import { createAgentHandlers } from "./agent-handlers";
 
