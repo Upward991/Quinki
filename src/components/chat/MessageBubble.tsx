@@ -34,6 +34,14 @@ function UserMessage({ message, onCopy }: { message: Message; onCopy?: (t: strin
   )
 }
 
+
+// ── Normalizza thinking: stringa (streaming) O array di blocchi (history) → sempre array ──
+function normalizeThinking(t: any): { content: string }[] | undefined {
+  if (!t) return undefined
+  if (Array.isArray(t)) return t.map(x => ({ content: String(x?.content ?? x ?? '') }))
+  return [{ content: String(t) }]
+}
+
 // ── SHARED: MessageBlocks — renders thinking, tool calls, tool results, compaction, delegation, text
 // Used by BOTH AssistantMessage and DelegationBlockView
 // If a new block type is added here, it automatically works in both chat and delegation
@@ -50,7 +58,7 @@ function MessageBlocks({ thinking, toolCalls, toolResults, compaction, delegatio
   return (
     <>
       {/* Thinking */}
-      {thinking?.map((t, i) => <ThinkingToggle key={`t-${i}`} content={t.content || ""} />)}
+      {normalizeThinking(thinking)?.map((t, i) => <ThinkingToggle key={`t-${i}`} content={t.content || ""} />)}
 
       {/* Tool calls */}
       {toolCalls?.map((tc, i) => <ToolToggle key={`tc-${i}`} label="Tool call" toolName={tc.name} body={tc.input} isError={false} />)}
@@ -79,7 +87,7 @@ function AssistantMessage({ message, onCopy }: { message: Message; onCopy?: (t: 
   return (
     <div className="assistant-content" style={{ maxWidth: 'var(--spacing-chat-max)', minWidth: 0, animation: 'materialize 400ms cubic-bezier(0.16, 1, 0.3, 1)', userSelect: 'text', WebkitUserSelect: 'text' }}>
       {/* Thinking, tool calls, tool results — NO footer after these */}
-      {message.thinking?.map((t, i) => <ThinkingToggle key={`t-${i}`} content={t.content || ""} />)}
+      {normalizeThinking(message.thinking)?.map((t, i) => <ThinkingToggle key={`t-${i}`} content={t.content || ""} />)}
       {message.toolCalls?.map((tc, i) => <ToolToggle key={`tc-${i}`} label="Tool call" toolName={tc.name} body={tc.input} isError={false} />)}
       {message.toolResults?.map((tr, i) => <ToolToggle key={`tr-${i}`} label={tr.isError ? 'Tool error' : 'Tool result'} toolName={tr.name} body={tr.output} isError={tr.isError} />)}
 
