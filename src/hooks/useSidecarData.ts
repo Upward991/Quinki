@@ -507,18 +507,35 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
     try {
       const history = await call('getHistory', { sessionKey })
       if (history?.messages) {
-        setMessages(history.messages.map((m: any) => ({
-          id: m.id || `msg-${Math.random()}`,
-          role: m.role,
-          content: m.content || '',
-          timestamp: m.timestamp || new Date().toISOString(),
-          thinking: m.reasoning || m.thinking,
-          toolCalls: m.toolCalls, toolResults: m.toolResults,
-          agentName: m.agentName, agentModel: m.model, thinkingLevel: m.thinkingLevel,
-          tokensIn: m.tokensIn, tokensOut: m.tokensOut,
-          isCompacted: m.isCompacted, isError: m.isError,
-          errorType: m.errorType, errorContent: m.errorContent,
-        })))
+        // La history ha tool_call/tool_result come messaggi SEPARATI (ordine cronologico).
+        // Il renderer li vuole DENTRO il messaggio assistant come array → merge cronologico.
+        const merged: any[] = []
+        for (const m of history.messages) {
+          const base: any = {
+            id: m.id || `msg-${Math.random()}`,
+            role: m.role,
+            content: m.content || '',
+            timestamp: m.timestamp || new Date().toISOString(),
+            thinking: m.reasoning || m.thinking,
+            agentName: m.agentName, agentModel: m.model, thinkingLevel: m.thinkingLevel,
+            tokensIn: m.tokensIn, tokensOut: m.tokensOut,
+            isCompacted: m.isCompacted, isError: m.isError,
+            errorType: m.errorType, errorContent: m.errorContent,
+          }
+          if (m.role === 'tool_call') {
+            let last = merged[merged.length - 1]
+            if (!last || last.role !== 'assistant') { last = { id: `tc-parent-${m.id}`, role: 'assistant', content: '', timestamp: base.timestamp }; merged.push(last) }
+            last.toolCalls = [...(last.toolCalls || []), { name: m.toolName || 'tool', input: typeof m.toolArgs === 'string' ? m.toolArgs : JSON.stringify(m.toolArgs ?? '') }]
+            if (m.reasoning && !last.thinking) last.thinking = m.reasoning
+          } else if (m.role === 'tool_result') {
+            let last = merged[merged.length - 1]
+            if (!last || last.role !== 'assistant') { last = { id: `tr-parent-${m.id}`, role: 'assistant', content: '', timestamp: base.timestamp }; merged.push(last) }
+            last.toolResults = [...(last.toolResults || []), { name: m.toolName || 'tool', output: String(m.content || ''), isError: !!m.isError }]
+          } else {
+            merged.push(base)
+          }
+        }
+        setMessages(merged)
       }
       // Load context usage
       try {
