@@ -3,7 +3,7 @@
 // Order: thinking → tool calls → tool results → text(markdown) → compaction → delegation
 // ============================================================
 
-import { useState, memo } from 'react'
+import { useState, useEffect, memo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
@@ -87,12 +87,12 @@ function AssistantMessage({ message, onCopy }: { message: Message; onCopy?: (t: 
   return (
     <div className="assistant-content" style={{ maxWidth: 'var(--spacing-chat-max)', minWidth: 0, animation: 'materialize 400ms cubic-bezier(0.16, 1, 0.3, 1)', userSelect: 'text', WebkitUserSelect: 'text' }}>
       {/* Thinking, tool calls, tool results — NO footer after these */}
-      {normalizeThinking(message.thinking)?.map((t, i) => <ThinkingToggle key={`t-${i}`} content={t.content || ""} />)}
+      {normalizeThinking(message.thinking)?.map((t, i) => <ThinkingToggle key={`t-${i}`} content={t.content || ""} streaming={message.isStreaming} />)}
       {message.toolCalls?.map((tc, i) => <ToolToggle key={`tc-${i}`} label="Tool call" toolName={tc.name} body={tc.input} isError={false} />)}
       {message.toolResults?.map((tr, i) => <ToolToggle key={`tr-${i}`} label={tr.isError ? 'Tool error' : 'Tool result'} toolName={tr.name} body={tr.output} isError={tr.isError} />)}
 
       {/* Error message — same as normal text but in red, no border/box */}
-      {message.isError && message.errorContent && (
+      {message.isError && message.errorContent && !message.isStreaming && (
         <div>
           <div style={{ padding: '4px 0' }}>
             <div style={{ color: 'var(--q-accent-danger)', fontSize: '14px', lineHeight: 1.5, fontFamily: 'var(--font-interface)', fontWeight: 500, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
@@ -110,21 +110,22 @@ function AssistantMessage({ message, onCopy }: { message: Message; onCopy?: (t: 
         </div>
       )}
 
-      {/* Text content + footer TOGETHER — footer only after text, never after toggles */}
+      {/* Text content — sempre visibile (anche in streaming). Footer SOLO a generazione finita */}
       {message.content && !message.isError && (
         <div>
           <div style={{ padding: '4px 0' }}>
             <MarkdownContent text={message.content} isError={isError} />
-
           </div>
-          <Footer
-            content={message.content}
-            timestamp={message.timestamp}
-            agentName={message.agentName}
-            agentModel={message.agentModel}
-            thinkingLevel={message.thinkingLevel}
-            onCopy={onCopy}
-          />
+          {!message.isStreaming && (
+            <Footer
+              content={message.content}
+              timestamp={message.timestamp}
+              agentName={message.agentName}
+              agentModel={message.agentModel}
+              thinkingLevel={message.thinkingLevel}
+              onCopy={onCopy}
+            />
+          )}
         </div>
       )}
 
@@ -231,13 +232,18 @@ function extractText(node: React.ReactNode): string {
 }
 
 // ── Generic toggle (thinking, tool, compaction — all same structure) ──
-function GenericToggle({ label, content, baseColor, baseColorRgb, isItalic, boldLabel }: {
-  label: string; content: string; baseColor: string; baseColorRgb: string; isItalic?: boolean; boldLabel?: string
+function GenericToggle({ label, content, baseColor, baseColorRgb, isItalic, boldLabel, streaming }: {
+  label: string; content: string; baseColor: string; baseColorRgb: string; isItalic?: boolean; boldLabel?: string; streaming?: boolean
 }) {
   const [collapsed, setCollapsed] = useState(true)
   const [hovered, setHovered] = useState(false)
   const [copyHovered, setCopyHovered] = useState(false)
-  const [copied, setCopied] = useState(false)
+
+  // Streaming: toggle aperto mentre genera, si chiude automaticamente alla fine
+  useEffect(() => {
+    if (streaming === true) setCollapsed(false)
+    else if (streaming === false) setCollapsed(true)
+  }, [streaming])
 
   const color = collapsed ? (hovered ? `rgba(${baseColorRgb}, 0.70)` : `rgba(${baseColorRgb}, 0.50)`) : baseColor
   const bg = hovered ? `rgba(${baseColorRgb}, 0.04)` : 'transparent'
@@ -246,16 +252,16 @@ function GenericToggle({ label, content, baseColor, baseColorRgb, isItalic, bold
   return (
     <div style={{ marginTop: '4px' }}>
       <div onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} onClick={() => setCollapsed(!collapsed)}
-        style={{ cursor: 'pointer', backgroundColor: bg, borderRadius: 'var(--radius-md)', padding: '8px', transform: hovered ? 'translateX(2px)' : 'translateX(0)', transition: 'background-color 120ms ease, transform 120ms ease' }}>
+        style={{ cursor: 'pointer', backgroundColor: bg, borderRadius: 'var(--radius-md)', padding: '8px', transition: 'background-color 120ms ease' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <ChevronRight size={14} style={{ color, flexShrink: 0, transform: collapsed ? 'rotate(0deg)' : 'rotate(90deg)', transition: 'transform 200ms cubic-bezier(0.16, 1, 0.3, 1)' }} />
           <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color }}>{label}{boldLabel && <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', fontWeight: 600, color }}>{' '}{boldLabel}</span>}</span>
           {preview && <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color: 'var(--q-text-tertiary)', opacity: 0.6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{preview}</span>}
           {!preview && <span style={{ flex: 1 }} />}
-          <button onClick={(e) => { e.stopPropagation(); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
+          <button onClick={(e) => { e.stopPropagation(); try { navigator.clipboard.writeText(content) } catch {} }}
             onMouseEnter={() => setCopyHovered(true)} onMouseLeave={() => setCopyHovered(false)}
             style={{ opacity: hovered ? 1 : 0, background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: 'var(--radius-sm)', backgroundColor: copyHovered ? 'var(--q-hover)' : 'transparent', color, transition: 'opacity 120ms ease' }}>
-            {copied ? <Check size={14} /> : <Copy size={14} />}
+            <Copy size={14} />
           </button>
         </div>
       </div>
@@ -268,8 +274,8 @@ function GenericToggle({ label, content, baseColor, baseColorRgb, isItalic, bold
   )
 }
 
-function ThinkingToggle({ content }: { content: string }) {
-  return <GenericToggle label="Thinking" content={content} baseColor="var(--q-thinking)" baseColorRgb="157, 139, 217" isItalic />
+function ThinkingToggle({ content, streaming }: { content: string; streaming?: boolean }) {
+  return <GenericToggle label="Thinking" content={content} baseColor="var(--q-thinking)" baseColorRgb="157, 139, 217" isItalic streaming={streaming} />
 }
 
 function ToolToggle({ label, toolName, body, isError }: { label: string; toolName: string; body: string; isError: boolean }) {

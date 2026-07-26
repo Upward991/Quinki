@@ -235,35 +235,55 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
   useEffect(() => {
     if (!ready) return
 
-    // Stream events (text, thinking, tool_call, tool_result, delegation, done)
+    // Stream events — costruisce i toggle LIVE durante lo streaming (thinking/tool/delega appaiono in tempo reale)
+    const ensureStreamingMsg = (prev: any[], messageId?: string) => {
+      const last = prev[prev.length - 1]
+      if (last && last.role === 'assistant' && last.isStreaming) return { arr: prev.slice(0, -1), msg: last }
+      const msg = { id: messageId || `msg-${Date.now()}`, role: 'assistant' as const, content: '', timestamp: new Date().toISOString(), isStreaming: true }
+      return { arr: prev, msg }
+    }
     const unsubStream = subscribe('stream_event', (p: any) => {
-      const { type, eventType, delta, content, messageId } = p
+      const { type, eventType, delta, content, messageId, toolName, isError } = p
       const _type = eventType || type
-      const _content = delta || content
+      const _content = delta || content || ''
       if (_type === 'text' || _type === 'text_delta' || _type === 'text_start') {
         setMessages(prev => {
-          const last = prev[prev.length - 1]
-          if (last && last.role === 'assistant' && last.isStreaming) {
-            return [...prev.slice(0, -1), { ...last, content: (last.content || '') + (_content || '') }]
-          }
-          return [...prev, { id: messageId || `msg-${Date.now()}`, role: 'assistant', content: _content || '', timestamp: new Date().toISOString(), isStreaming: true }]
+          const { arr, msg } = ensureStreamingMsg(prev, messageId)
+          return [...arr, { ...msg, content: (msg.content || '') + _content }]
         })
         setStatusLabel('Writing'); setStatusKind('writing')
       } else if (_type === 'thinking' || _type === 'thinking_delta' || _type === 'thinking_start') {
         setStatusLabel('Thinking'); setStatusKind('thinking')
         if (_content) {
           setMessages(prev => {
-            const last = prev[prev.length - 1]
-            if (last && last.role === 'assistant' && last.isStreaming) {
-              return [...prev.slice(0, -1), { ...last, thinking: (last.thinking || '') + _content }]
-            }
-            return prev
+            const { arr, msg } = ensureStreamingMsg(prev, messageId)
+            return [...arr, { ...msg, thinking: (msg.thinking || '') + _content }]
           })
         }
-      } else if (_type === 'tool_call' || _type === 'toolcall_start') {
+      } else if (_type === 'toolcall_start' || _type === 'tool_call') {
         setStatusLabel('Tool call'); setStatusKind('tool_call')
-      } else if (_type === 'tool_result' || _type === 'toolcall_end') {
-        setStatusLabel('Tool result'); setStatusKind('tool_result')
+        setMessages(prev => {
+          const { arr, msg } = ensureStreamingMsg(prev, messageId)
+          const tcs = [...(msg.toolCalls || []), { name: toolName || delta || 'tool', input: '' }]
+          return [...arr, { ...msg, toolCalls: tcs }]
+        })
+      } else if (_type === 'toolcall_delta') {
+        setMessages(prev => {
+          const last = prev[prev.length - 1]
+          if (!last || last.role !== 'assistant' || !last.isStreaming || !last.toolCalls?.length) return prev
+          const tcs = [...last.toolCalls]
+          tcs[tcs.length - 1] = { ...tcs[tcs.length - 1], input: (tcs[tcs.length - 1].input || '') + _content }
+          return [...prev.slice(0, -1), { ...last, toolCalls: tcs }]
+        })
+      } else if (_type === 'toolcall_end' || _type === 'tool_result') {
+        setStatusLabel('Tool result'); setStatusKind(isError ? 'tool_error' : 'tool_result')
+        setMessages(prev => {
+          const { arr, msg } = ensureStreamingMsg(prev, messageId)
+          const tcs = [...(msg.toolCalls || [])]
+          const lastName = tcs.length > 0 ? tcs[tcs.length - 1].name : (toolName || 'tool')
+          const trs = [...(msg.toolResults || []), { name: lastName, output: String(_content || ''), isError: !!isError }]
+          return [...arr, { ...msg, toolResults: trs }]
+        })
       } else if (_type === 'delegation_start') {
         setStatusLabel('Delegating'); setStatusKind('delegation')
       } else if (_type === 'delegation_end') {
@@ -273,17 +293,6 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
       } else if (_type === 'done' || _type === 'end') {
         setIsStreaming(false); setStatusLabel(''); setStatusKind('')
         setMessages(prev => prev.map(m => m.isStreaming ? { ...m, isStreaming: false } : m))
-        // Capture token usage
-        if (p.usage) {
-          const sk = p.sessionKey
-          if (sk) {
-            const input = p.usage.input_tokens || p.usage.prompt_tokens || p.usage.input || 0
-            const output = p.usage.output_tokens || p.usage.completion_tokens || p.usage.output || 0
-            if (input > 0 || output > 0) {
-              setSessionTokens(prev => ({ ...prev, [sk]: { input: (prev[sk]?.input || 0) + input, output: (prev[sk]?.output || 0) + output } }))
-            }
-          }
-        }
       }
     })
 

@@ -193,37 +193,40 @@ export function ChatHeader(props: ChatHeaderProps) {
             {searchOpen && (
               <>
                 <div style={overlayStyle} onClick={() => setSearchOpen(false)} />
-                <div style={{ ...popupStyle, width: '320px', padding: '10px' }}>
-                  {/* Row 1 */}
-                  <div style={{ display: 'flex', alignItems: 'center', height: '24px' }}>
+                <div style={{ ...popupStyle, width: '300px', padding: '8px' }}>
+                  {/* Row 1 — stesse metriche del search composer (icona 16, gap 8, input, ✕, counter, frecce) */}
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <div style={{ width: '4px', flexShrink: 0 }} />
                     <Search size={16} style={{ color: 'var(--q-text-tertiary)', flexShrink: 0 }} />
-                    <div style={{ width: '10px', flexShrink: 0 }} />
+                    <div style={{ width: '8px', flexShrink: 0 }} />
                     <input type="text" placeholder="Search in messages..." autoFocus value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-                      style={{ flex: 1, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0', margin: '0', lineHeight: '24px', height: '24px' }} />
+                      style={{ flex: 1, minWidth: 0, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0', margin: '0' }} />
                     <button onClick={() => { setSearchQuery(''); setSearchDate(''); setSearchTime('') }}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px', color: searchQuery ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)', fontSize: '14px', opacity: searchQuery ? 1 : 0.3, lineHeight: '1', flexShrink: 0 }}>✕</button>
-                    <div style={{ width: '10px', flexShrink: 0 }} />
+                      style={{ background: 'none', border: 'none', cursor: searchQuery ? 'pointer' : 'default', padding: '8px', color: searchQuery ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)', fontSize: '14px', opacity: searchQuery ? 1 : 0.3, lineHeight: '1', flexShrink: 0 }}>✕</button>
                     <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-code)', whiteSpace: 'nowrap', opacity: 0.3, flexShrink: 0 }}>0/0</span>
                     <div style={{ width: '8px', flexShrink: 0 }} />
-                    <button style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: 'var(--q-text-tertiary)', opacity: 0.3, lineHeight: '0', flexShrink: 0 }}><ChevronDown size={16} /></button>
                     <button style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: 'var(--q-text-tertiary)', opacity: 0.3, lineHeight: '0', flexShrink: 0 }}><ChevronUp size={16} /></button>
+                    <button style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: 'var(--q-text-tertiary)', opacity: 0.3, lineHeight: '0', flexShrink: 0 }}><ChevronDown size={16} /></button>
                   </div>
                   <div style={{ height: '8px' }} />
-                  {/* Row 2 */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '24px' }}>
+                  {/* Row 2 — icone ALLINEATE alla colonna dell'icona search sopra (4px + 16px + 8px) */}
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <div style={{ width: '4px', flexShrink: 0 }} />
                     <Calendar size={16} style={{ color: 'var(--q-text-tertiary)', flexShrink: 0 }} />
-                    <div style={{ width: '6px', flexShrink: 0 }} />
+                    <div style={{ width: '8px', flexShrink: 0 }} />
                     <input type="text" placeholder="dd/mm/yyyy" value={searchDate} onChange={e => setSearchDate(e.target.value)}
-                      style={{ width: '90px', backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', textAlign: 'center', padding: '0', margin: '0', lineHeight: '24px', height: '24px' }} />
+                      style={{ flex: 1, minWidth: 0, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', padding: '0', margin: '0' }} />
+                    <button onClick={() => setSearchDate('')} style={{ background: 'none', border: 'none', cursor: searchDate ? 'pointer' : 'default', padding: '4px', color: 'var(--q-text-tertiary)', fontSize: '12px', opacity: searchDate ? 1 : 0.3, lineHeight: '1', flexShrink: 0 }}>✕</button>
+                  </div>
+                  <div style={{ height: '8px' }} />
+                  {/* Row 3 — orario, stessa colonna */}
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
                     <div style={{ width: '4px', flexShrink: 0 }} />
-                    <button onClick={() => setSearchDate('')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: 'var(--q-text-tertiary)', fontSize: '12px', opacity: searchDate ? 1 : 0.3, lineHeight: '1', flexShrink: 0 }}>✕</button>
-                    <div style={{ width: '12px', flexShrink: 0 }} />
                     <Clock size={16} style={{ color: 'var(--q-text-tertiary)', flexShrink: 0 }} />
-                    <div style={{ width: '6px', flexShrink: 0 }} />
+                    <div style={{ width: '8px', flexShrink: 0 }} />
                     <input type="text" placeholder="hh:mm:ss" value={searchTime} onChange={e => setSearchTime(e.target.value)}
-                      style={{ width: '60px', backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', textAlign: 'center', padding: '0', margin: '0', lineHeight: '24px', height: '24px' }} />
-                    <div style={{ width: '4px', flexShrink: 0 }} />
-                    <button onClick={() => setSearchTime('')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: 'var(--q-text-tertiary)', fontSize: '12px', opacity: searchTime ? 1 : 0.3, lineHeight: '1', flexShrink: 0 }}>✕</button>
+                      style={{ flex: 1, minWidth: 0, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', padding: '0', margin: '0' }} />
+                    <button onClick={() => setSearchTime('')} style={{ background: 'none', border: 'none', cursor: searchTime ? 'pointer' : 'default', padding: '4px', color: 'var(--q-text-tertiary)', fontSize: '12px', opacity: searchTime ? 1 : 0.3, lineHeight: '1', flexShrink: 0 }}>✕</button>
                   </div>
                 </div>
               </>

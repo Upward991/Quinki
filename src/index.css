@@ -270,6 +270,9 @@ html { scrollbar-gutter: stable; }
 /* Code + links */
 code, pre { font-family: var(--font-code); font-size: var(--fs-13); }
 a { color: var(--q-accent-info-bright); text-decoration: none; }
+/* Caret (cursore testo) = accent della tab corrente, ovunque */
+input, textarea, [contenteditable] { caret-color: var(--q-tab-accent); }
+
 a:hover { text-decoration: underline; }
 h1, h2, h3, h4, h5, h6 { letter-spacing: -0.01em; }
 
