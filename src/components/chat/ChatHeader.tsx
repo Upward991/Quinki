@@ -2,7 +2,7 @@
 // ChatHeader — all menus positioned relative to their own button
 // ============================================================
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { Session, Agent } from '../../types'
 import { Home, PanelLeft, MessageSquare, Download, Search, RefreshCw, Bot, Calendar, Clock, ChevronDown, ChevronUp, Cpu, Brain, Network, X } from '../icons'
 
@@ -425,6 +425,7 @@ function AgentPickerModal({ agents, initialSelected, onClose, onAdd }: {
   onAdd: (ids: string[]) => void
 }) {
   const [selected, setSelected] = useState<Set<string>>(() => new Set(initialSelected || []))
+  useEffect(() => { setSelected(new Set(initialSelected || [])) }, [initialSelected])
   const [query, setQuery] = useState('')
   const filtered = agents.filter(a => a.name.toLowerCase().includes(query.toLowerCase())).sort((a, b) => (selected.has(a.id) ? 0 : 1) - (selected.has(b.id) ? 0 : 1))
   const toggle = (id: string) => setSelected(prev => { const s = new Set(prev); if (s.has(id)) s.delete(id); else s.add(id); return s })
