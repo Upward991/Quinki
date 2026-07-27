@@ -445,8 +445,8 @@ export function AgentsPanel(props) {
               tools,
               onShowDelete: () => setDeleteAgentName(agent.name),
               onAddFile: () => setAddFileAgent(agent.name),
-              onAddSkill: () => setAddItemsModal({ title: `Add skill to ${agent.name}`, items: skills.map(s => ({ name: s.name, description: s.description })), onConfirm: (selected) => doAddSkillsToAgent(agent.id, selected) }),
-              onAddTool: () => setAddItemsModal({ title: `Add tool to ${agent.name}`, items: tools.map(t => ({ name: t.name, description: t.description })), onConfirm: (selected) => doAddToolsToAgent(agent.id, selected) }),
+              onAddSkill: () => setAddItemsModal({ title: `Add skill to ${agent.name}`, items: skills.map(s => ({ name: s.name, description: s.description })), initialSelected: (agent.skills||[]).map(s=>s.name||s), onConfirm: (selected) => doAddSkillsToAgent(agent.id, selected) }),
+              onAddTool: () => setAddItemsModal({ title: `Add tool to ${agent.name}`, items: tools.map(t => ({ name: t.name, description: t.description })), initialSelected: (agent.tools||[]).map(t=>t.name||t), onConfirm: (selected) => doAddToolsToAgent(agent.id, selected) }),
               onOpenFile: (fileName) => setFileEditor({ agentId: agent.id, fileName }),
               onRemoveTag: (type, name) => setRemoveTagState({ type, name, agent: agent.name }),
               onRemoveAll: (type) => setRemoveAllState({ type, agentName: agent.name })
@@ -479,7 +479,7 @@ export function AgentsPanel(props) {
                       onToggle: () => setExpandedSkillName(expandedSkillName === skill.name ? null : skill.name),
                       onEdit: () => setFileEditor({ skillName: skill.name, fileName: 'SKILL.md' }),
                       onDeleteSkill: skill.name === 'quinki-expert' ? null : () => setRemoveTagState({ type: 'skill', name: skill.name, agent: '' }),
-                      onAddAgent: () => setAddItemsModal({ title: `Add agent to ${skill.name}`, items: agents.map(a => ({ name: a.name, description: a.systemPrompt ? a.systemPrompt.substring(0, 80) + (a.systemPrompt.length > 80 ? '...' : '') : a.id })), onConfirm: (selected) => doAddAgentsToSkill(skill.name, selected) }),
+                      onAddAgent: () => setAddItemsModal({ title: `Add agent to ${skill.name}`, items: agents.map(a => ({ name: a.name, description: a.systemPrompt ? a.systemPrompt.substring(0, 80) + (a.systemPrompt.length > 80 ? '...' : '') : a.id })), initialSelected: (skill.agents||[]).map(a=>typeof a==='string'?a:a.name), onConfirm: (selected) => doAddAgentsToSkill(skill.name, selected) }),
                       onRemoveAgent: (agentName) => setRemoveTagState({ type: 'agent', name: agentName, agent: skill.name }),
                       onRemoveAllAgents: () => setRemoveAllState({ type: 'agents', agentName: skill.name })
                     });

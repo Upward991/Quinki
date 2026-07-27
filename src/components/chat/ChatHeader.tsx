@@ -347,9 +347,10 @@ export function ChatHeader(props: ChatHeaderProps) {
       {/* Agent picker modal (Add agent) */}
       {addAgentOpen && (
         <AgentPickerModal
-          agents={props.agents.filter(a => !props.selectedAgentIds.includes(a.id) && a.id !== 'orchestrator')}
+          agents={props.agents.filter(a => a.id !== 'orchestrator')}
+          initialSelected={props.selectedAgentIds}
           onClose={() => setAddAgentOpen(false)}
-          onAdd={(ids) => { ids.forEach(id => props.onAgentToggle(id)); setAddAgentOpen(false) }}
+          onAdd={(ids) => { const current = new Set(props.selectedAgentIds); ids.forEach(id => { if (!current.has(id)) props.onAgentToggle(id) }); current.forEach(id => { if (!ids.includes(id)) props.onAgentToggle(id) }); setAddAgentOpen(false) }}
         />
       )}
 
@@ -417,12 +418,13 @@ function IconBtn({ icon: Icon, onClick, title, activeBg }: { icon: React.FC<{ si
 
 
 // ── Agent picker modal — fedele a _AgentPickerDialog Flutter: header, search, checkbox, footer ──
-function AgentPickerModal({ agents, onClose, onAdd }: {
+function AgentPickerModal({ agents, initialSelected, onClose, onAdd }: {
   agents: Agent[]
+  initialSelected?: string[]
   onClose: () => void
   onAdd: (ids: string[]) => void
 }) {
-  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [selected, setSelected] = useState<Set<string>>(() => new Set(initialSelected || []))
   const [query, setQuery] = useState('')
   const filtered = agents.filter(a => a.name.toLowerCase().includes(query.toLowerCase())).sort((a, b) => (selected.has(a.id) ? 0 : 1) - (selected.has(b.id) ? 0 : 1))
   const toggle = (id: string) => setSelected(prev => { const s = new Set(prev); if (s.has(id)) s.delete(id); else s.add(id); return s })

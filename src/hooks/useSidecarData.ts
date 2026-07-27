@@ -122,6 +122,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
   const [contextWindow, setContextWindow] = useState(1000000)
   const [thinkingLevels, setThinkingLevels] = useState<string[]>(['off', 'low', 'medium', 'high', 'xhigh'])
   const [agentStatus, setAgentStatus] = useState<any>(null)
+  const [isCompacting, setIsCompacting] = useState(false)
   const [chatAgentIds, setChatAgentIds] = useState<string[]>([])
   const [agentOverrides, setAgentOverrides] = useState<Record<string, { model?: string; thinkingLevel?: string }>>({})
   const [compactingSessions, setCompactingSessions] = useState<Set<string>>(new Set())
@@ -594,8 +595,14 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
             // Compaction toggle (blu = summary, arancione = noop warning)
             merged.push({ id: base.id, role: 'assistant', content: '', timestamp: base.timestamp, compaction: [{ content: m.content || '', isNoop: !!m.isCompactionWarning }] })
           } else {
-            if (base.role === 'assistant' && base.thinking) {
-              base.blocks = [...(base.blocks || []), { type: 'thinking', content: typeof base.thinking === 'string' ? base.thinking : (Array.isArray(base.thinking) ? base.thinking.map((x: any) => x?.content ?? x ?? '').join('') : String(base.thinking)) }]
+            if (base.role === 'assistant') {
+              if (base.thinking) {
+                base.blocks = [...(base.blocks || []), { type: 'thinking', content: typeof base.thinking === 'string' ? base.thinking : (Array.isArray(base.thinking) ? base.thinking.map((x: any) => x?.content ?? x ?? '').join('') : String(base.thinking)) }]
+              }
+              // Text come blocco (altrimenti il testo intermedio scompare nel render blocks)
+              if (base.content) {
+                base.blocks = [...(base.blocks || []), { type: 'text', content: base.content }]
+              }
             }
             merged.push(base)
           }
@@ -829,7 +836,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
 
   const compactSession = useCallback(async (sessionKey: string) => {
     if (!ready) return
-    setStatusLabel('Compacting'); setStatusKind('compacting')
+    setIsCompacting(true); setStatusLabel('Compacting'); setStatusKind('compacting')
     try {
       const r = await call('compactSession', { sessionKey }, 120000)
       // Ricarica per mostrare il toggle compaction
@@ -837,7 +844,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
         await selectSession(sessionKey)
       }
     } catch (e) { console.error('compactSession:', e) }
-    setStatusLabel(''); setStatusKind('')
+    setIsCompacting(false); setStatusLabel(''); setStatusKind('')
   }, [ready, call, activeSessionId, selectSession])
 
   // ── Session settings ──
@@ -1206,7 +1213,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
 
   return {
     // State
-    connected: ready, loading, sessions, agents, providers, messages, folders, models,
+    connected: ready, loading, sessions, agents, providers, messages, folders, models, isCompacting,
     activeSessionId, isStreaming, statusLabel, statusKind, contextTokens, contextWindow,
     thinkingLevels, agentStatus, compactingSessions, sessionTokens, debugLog, piConfigNeeded,
     chatAgentIds, agentOverrides,

@@ -13,6 +13,7 @@ interface ChatAreaProps {
   session?: Session
   messages: Message[]
   streaming: boolean
+  isCompacting?: boolean
   welcomeMode: boolean
   mode: ChatMode
   activePanel: string
@@ -101,7 +102,7 @@ export function ChatArea(props: ChatAreaProps) {
           <Composer
             providers={props.providers} selectedModel={props.selectedModel} mode={props.mode}
             thinking={props.thinking} contextTokens={props.contextTokens} contextWindow={props.contextWindow}
-            isStreaming={props.streaming} statusLabel={props.statusLabel} statusKind={props.statusKind}
+            isStreaming={props.streaming} isCompacting={props.isCompacting} statusLabel={props.statusLabel} statusKind={props.statusKind}
             onSend={props.onSend} onStop={props.onStop}
             onModelChange={props.onModelSelect} onModeChange={props.onModeChange}
             onThinkingChange={t => props.onThinkingChange(t)} welcomeMode={true}
@@ -126,7 +127,7 @@ export function ChatArea(props: ChatAreaProps) {
             </div>
             {showScrollBtn && (
               <button onClick={() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }}
-                style={{ position: 'absolute', bottom: '0px', right: '0px', zIndex: 10, width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--q-bg-panel)', color: 'var(--q-tab-accent)', border: 'none', boxShadow: 'var(--shadow-floating)', cursor: 'pointer' }}>
+                style={{ position: 'absolute', bottom: '0px', right: '0px', zIndex: 10, width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--q-tab-accent)', color: 'var(--q-bg)', border: 'none', boxShadow: 'var(--shadow-floating)', cursor: 'pointer' }}>
                 <ArrowDown size={20} />
               </button>
             )}
@@ -137,7 +138,7 @@ export function ChatArea(props: ChatAreaProps) {
             <Composer
               providers={props.providers} selectedModel={props.selectedModel} mode={props.mode}
               thinking={props.thinking} contextTokens={props.contextTokens} contextWindow={props.contextWindow}
-              isStreaming={props.streaming} statusLabel={props.statusLabel} statusKind={props.statusKind}
+              isStreaming={props.streaming} isCompacting={props.isCompacting} statusLabel={props.statusLabel} statusKind={props.statusKind}
               onSend={props.onSend} onStop={props.onStop}
               onModelChange={props.onModelSelect} onModeChange={props.onModeChange}
               onThinkingChange={t => props.onThinkingChange(t)} welcomeMode={false}

@@ -17,6 +17,7 @@ interface ComposerProps {
   contextTokens: number
   contextWindow: number
   isStreaming: boolean
+  isCompacting?: boolean
   statusLabel?: string
   statusKind?: string
   onSend: (text: string) => void
@@ -191,7 +192,7 @@ export function Composer(props: ComposerProps) {
             </span>
           </div>
           <div style={{ flex: 1 }} />
-          {props.isStreaming && props.statusLabel && (
+          {(props.isStreaming || (props as any).isCompacting) && props.statusLabel && (
             <div style={{ height: '32px', display: 'flex', alignItems: 'center', marginRight: '8px' }}>
               <StatusPill label={props.statusLabel} kind={props.statusKind || 'thinking'} />
             </div>
