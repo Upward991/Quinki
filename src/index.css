@@ -350,5 +350,9 @@ mark.search-highlight-mark {
 
 /* Primo elemento della risposta: niente margin-top (spacing 12 solo TRA blocchi) */
 .assistant-content > div:first-child { margin-top: 0 !important; }
-/* Numeri elenchi ordinati = accent tab */
+
+
+/* ul: pallino 8px tab-accent */
+.markdown-content ul li::marker { color: var(--q-tab-accent); font-size: 22px; }
+/* ol: numero tab-accent bold */
 .markdown-content ol li::marker { color: var(--q-tab-accent); font-weight: 600; }

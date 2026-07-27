@@ -28,6 +28,7 @@ interface ComposerProps {
   agents?: Agent[]
   onReset?: () => void
   onAgentToggle?: (id: string) => void
+  chatAgentIds?: string[]
 }
 
 export function Composer(props: ComposerProps) {
@@ -47,7 +48,12 @@ export function Composer(props: ComposerProps) {
     }
   }, [text])
 
-  const availableAgents = (props.agents || []).filter(a => a.id !== 'orchestrator')
+  // @mention: solo agenti NELLA CHAT (non tutti gli agenti configurati)
+  const availableAgents = (props.agents || []).filter(a => {
+    if (a.id === 'orchestrator') return false
+    if (!props.chatAgentIds || props.chatAgentIds.length === 0) return false
+    return props.chatAgentIds.includes(a.id)
+  })
   const filteredAgents = mentionFilter
     ? availableAgents.filter(a => a.name.toLowerCase().includes(mentionFilter.toLowerCase()))
     : availableAgents
@@ -313,7 +319,7 @@ function ModeButton({ mode, onChange }: { mode: ChatMode; onChange: (m: ChatMode
       onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
       style={{
         width: '48px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        borderRadius: 'var(--radius-md)',
+        transform: hovered ? 'scale(1.02)' : 'scale(1)', borderRadius: 'var(--radius-md)',
         border: 'none', cursor: 'pointer',
         backgroundColor: hovered ? 'var(--q-hover)' : 'transparent',
         color: isPlan ? 'var(--q-mode-plan)' : 'var(--q-mode-build)',

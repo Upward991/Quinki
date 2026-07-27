@@ -104,6 +104,7 @@ export function ChatArea(props: ChatAreaProps) {
             onModelChange={props.onModelSelect} onModeChange={props.onModeChange}
             onThinkingChange={t => props.onThinkingChange(t)} welcomeMode={true}
             agents={props.agents}
+            chatAgentIds={props.selectedAgentIds}
             onReset={props.onReset}
             onAgentToggle={props.onAgentToggle}
           />
@@ -111,7 +112,7 @@ export function ChatArea(props: ChatAreaProps) {
       ) : (
         <>
           {/* Messages */}
-          <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+          <div style={{ flex: 1, overflow: 'visible', position: 'relative' }}>
             <div ref={scrollRef} style={{ height: '100%', overflowY: 'auto', padding: '4px 16px 0 16px', scrollbarGutter: 'stable' }}
               onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100) }}>
               {props.messages.map(msg => (
@@ -139,6 +140,7 @@ export function ChatArea(props: ChatAreaProps) {
               onThinkingChange={t => props.onThinkingChange(t)} welcomeMode={false}
             onReset={props.onReset}
               agents={props.agents}
+              chatAgentIds={props.selectedAgentIds}
               onAgentToggle={props.onAgentToggle}
             />
           </div>

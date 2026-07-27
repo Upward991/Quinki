@@ -293,7 +293,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
         // toolcall_end nel stream_event = FINE ARGOMENTI del tool call, NON il risultato.
         // Il risultato vero arriva dalla notifica separata 'tool_result'. Qui NON si crea niente.
       } else if (_type === 'delegation_start') {
-        setStatusLabel('Delegating'); setStatusKind('delegation')
+        // NON mostrare "Delegating" nella pill — nel Flutter non esiste questo status
         activeDelegationsRef.current.add(messageId)
         setMessages(prev => {
           const { arr, msg } = ensureStreamingMsg(prev)
@@ -335,7 +335,8 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
       const { text, model, agentName, thinkingLevel, stopReason, errorMessage } = p || {}
       // stopReason "toolUse" = turno intermedio (l'assistant ha chiamato un tool, la risposta continua).
       // NON finalizzare: la fine vera arriva con stop/length/error/aborted + streaming_stopped.
-      if (stopReason === 'toolUse') return
+      // Finalizza SOLO per stop finali veri. toolUse = turno intermedio (ignora).
+      if (!stopReason || stopReason === 'toolUse') return
       setIsStreaming(false); setStatusLabel(''); setStatusKind('')
       // Accumula input/output totali sessione (mai resettati dalle risposte; solo reset sessione)
       const u: any = p?.usage
@@ -604,6 +605,29 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
         } catch {}
         setMessages(merged)
       }
+      // === Ripristino streaming: se la sessione sta ancora generando, recupera stato + buffer ===
+      try {
+        const ss = await call('getStreamingStatus', { sessionKey })
+        if (ss?.streaming) {
+          setIsStreaming(true)
+          setStatusLabel('Thinking'); setStatusKind('thinking')
+          const buf = await call('getStreamingMessage', { sessionKey })
+          if (buf?.streaming && (buf.streaming.text || buf.streaming.thinking || (buf.streaming.toolCalls || []).length > 0)) {
+            const sb = buf.streaming
+            const blocks: any[] = []
+            if (sb.thinking) blocks.push({ type: 'thinking', content: sb.thinking })
+            for (const tc of sb.toolCalls || []) blocks.push({ type: 'tool_call', name: tc.name || 'tool', input: tc.input || '' })
+            if (sb.text) blocks.push({ type: 'text', content: sb.text })
+            setMessages(prev => {
+              // Se l'ultimo messaggio è già l'assistant streaming, non duplicare
+              const last = prev[prev.length - 1]
+              if (last?.role === 'assistant' && last.isStreaming) return prev
+              return [...prev, { id: sb.messageId || `msg-restored-${Date.now()}`, role: 'assistant' as const, content: sb.text || '', blocks, timestamp: new Date().toISOString(), isStreaming: true }]
+            })
+          }
+        }
+      } catch {}
+
       // Load context usage
       try {
         const ctx = await call('getContextUsage', { sessionKey })
@@ -793,8 +817,16 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
 
   const compactSession = useCallback(async (sessionKey: string) => {
     if (!ready) return
-    try { await call('compactSession', { sessionKey }) } catch (e) { console.error('compactSession:', e) }
-  }, [ready, call])
+    setStatusLabel('Compacting'); setStatusKind('compacting')
+    try {
+      const r = await call('compactSession', { sessionKey }, 120000)
+      // Ricarica per mostrare il toggle compaction
+      if (sessionKey === activeSessionId) {
+        await selectSession(sessionKey)
+      }
+    } catch (e) { console.error('compactSession:', e) }
+    setStatusLabel(''); setStatusKind('')
+  }, [ready, call, activeSessionId, selectSession])
 
   // ── Session settings ──
   const setChatAgents = useCallback(async (sessionKeyOrIds: string | string[], agentIds?: string[]) => {
@@ -1056,6 +1088,45 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
     try { return await call('getStreamingMessage', { sessionKey }) } catch (e) { return null }
   }, [ready, call])
 
+  const refreshProviders = useCallback(async () => {
+    try {
+      const [providersResult, modelsResult] = await Promise.all([
+        call('getProvidersConfig', {}), call('getModels', {})
+      ])
+      if (providersResult?.providers) {
+        const providerList: any[] = []
+        const modelsByProvider: Record<string, any[]> = {}
+        if (modelsResult?.models) {
+          for (const m of modelsResult.models) {
+            const p = m.provider || 'unknown'
+            if (!modelsByProvider[p]) modelsByProvider[p] = []
+            modelsByProvider[p].push({ id: m.id, name: m.name || m.id, contextWindow: m.contextWindow })
+          }
+        }
+        for (const [id, p] of Object.entries(providersResult.providers) as [string, any][]) {
+          providerList.push({
+            id, name: id, type: p.api || 'ollama',
+            apiKeyStatus: id.toLowerCase() === 'ollama' ? 'local' : (p.apiKey && p.apiKey !== '••••••••' && !p.apiKey.startsWith('•')) || p.apiKeySet ? 'configured' : 'missing',
+            models: modelsByProvider[id] || [], enabled: p.enabled !== false, enabledModels: p.enabledModels || [],
+            baseUrl: p.baseUrl || '',
+          })
+        }
+        setProviders(providerList)
+      }
+    } catch {}
+  }, [call])
+
+  const refreshAgents = useCallback(async () => {
+    try {
+      const r = await call('listAgents', {})
+      if (r?.agents) setAgents(r.agents.map((a: any) => ({
+        id: a.id, name: a.name, description: (a.prompt || '').split('\n').map((l: string) => l.trim()).filter((l: string) => l && !l.startsWith('#')).slice(0, 3).join(' ').slice(0, 140),
+        model: a.model || '', thinking: a.thinking || 'off', skills: (a.skills || []).map((s: string) => ({ name: s, source: 'local', installed: true })),
+        tools: (a.tools || []).map((t: string) => ({ name: t, enabled: true })), directory: a.directory || '', isDeletable: a.id !== 'orchestrator',
+      })))
+    } catch {}
+  }, [call])
+
   // ── Settings / config ──
   const getSettings = useCallback(async () => {
     if (!ready) return {}
@@ -1132,7 +1203,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
     listTools, getCommands,
     // Providers
     setProvidersConfig, fetchProviderModels, testProviderConnection, storeApiKey,
-    deleteApiKey, hasApiKey, renameProvider,
+    deleteApiKey, hasApiKey, renameProvider, refreshProviders, refreshAgents,
     // Context / models
     getModelContext, getContextUsage, getAllContextUsage,
     // History / errors

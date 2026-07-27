@@ -206,7 +206,6 @@ export function ChatHeader(props: ChatHeaderProps) {
                     <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-code)', whiteSpace: 'nowrap', opacity: 0.3, flexShrink: 0 }}>0/0</span>
                     <div style={{ width: '8px', flexShrink: 0 }} />
                     <button style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', color: 'var(--q-text-tertiary)', opacity: 0.3, lineHeight: '0', flexShrink: 0, display: 'flex' }}><ChevronUp size={16} /></button>
-                    <div style={{ width: '4px', flexShrink: 0 }} />
                     <button style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', color: 'var(--q-text-tertiary)', opacity: 0.3, lineHeight: '0', flexShrink: 0, display: 'flex' }}><ChevronDown size={16} /></button>
                   </div>
                   <div style={{ height: '8px' }} />

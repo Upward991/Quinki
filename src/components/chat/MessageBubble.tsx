@@ -167,17 +167,9 @@ function MarkdownContent({ text, isError }: { text: string; isError?: boolean })
             return <code style={{ backgroundColor: 'var(--q-bg-code)', padding: '2px 6px', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-code)', fontSize: '13px', color: 'var(--q-text)' }}>{children}</code>
           },
           p: ({ children }) => <p style={{ color: isError ? 'var(--q-accent-danger)' : 'var(--q-text)', fontSize: '14px', lineHeight: 1.5, fontFamily: 'var(--font-interface)', fontWeight: 500, margin: '0 0 12px 0' }}>{children}</p>,
-          ul: ({ children }) => <ul style={{ color: 'var(--q-text)', fontSize: '14px', lineHeight: 1.5, paddingLeft: '20px', margin: '0 0 12px 0', listStyle: 'none' }}>{children}</ul>,
-          ol: ({ children }) => <ol style={{ color: 'var(--q-text)', fontSize: '14px', lineHeight: 1.5, paddingLeft: '24px', margin: '0 0 12px 0' }}>{children}</ol>,
-          li: ({ children, ...props }) => {
-            const ordered = (props as any).node?.parent?.tagName === 'ol'
-            return (
-              <li style={{ marginBottom: '4px', position: 'relative', paddingLeft: '4px' }}>
-                {!ordered && <span style={{ position: 'absolute', left: '-16px', top: '7px', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--q-tab-accent)', flexShrink: 0 }} />}
-                {children}
-              </li>
-            )
-          },
+          ul: ({ children }) => <ul style={{ color: 'var(--q-text)', fontSize: '14px', lineHeight: 1.5, margin: '0 0 12px 0', paddingLeft: '22px', listStyle: 'disc outside' }}>{children}</ul>,
+          ol: ({ children }) => <ol style={{ color: 'var(--q-text)', fontSize: '14px', lineHeight: 1.5, margin: '0 0 12px 0', paddingLeft: '26px' }}>{children}</ol>,
+          li: ({ children }) => <li style={{ marginBottom: '4px', color: 'var(--q-text)' }}>{children}</li>,
           table: ({ children }) => (
             <div style={{ overflowX: 'auto', margin: '0 0 12px 0' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>{children}</table>
@@ -201,27 +193,29 @@ function MarkdownContent({ text, isError }: { text: string; isError?: boolean })
 
 // ── Code block with copy button + syntax highlighting ──
 function CodeBlock({ children }: { children: React.ReactNode }) {
+  const [hovered, setHovered] = useState(false)
+  const [btnHovered, setBtnHovered] = useState(false)
   const handleCopy = () => {
     const text = extractText(children)
     try { navigator.clipboard.writeText(text) } catch {}
   }
 
   return (
-    <div style={{ position: 'relative', backgroundColor: 'var(--q-bg-code)', borderRadius: 'var(--radius-md)', margin: '8px 0', overflow: 'hidden' }}>
-      {/* Copy button top right */}
+    <div onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+      style={{ position: 'relative', backgroundColor: 'var(--q-bg-code)', borderRadius: 'var(--radius-md)', margin: '8px 0', overflow: 'hidden' }}>
+      {/* Copy button top right — visibile SOLO all'hover del code block, brighten su hover bottone */}
       <button
         onClick={handleCopy}
         title="Copy"
+        onMouseEnter={() => setBtnHovered(true)}
+        onMouseLeave={() => setBtnHovered(false)}
         style={{
           position: 'absolute', top: '6px', right: '6px', zIndex: 1,
           background: 'none', border: 'none', cursor: 'pointer',
-          color: 'var(--q-text-tertiary)', padding: '4px',
+          color: btnHovered ? 'var(--q-text)' : 'var(--q-text-tertiary)', padding: '4px',
           display: 'flex', alignItems: 'center', borderRadius: 'var(--radius-sm)',
-          opacity: 0.6, transition: 'opacity 150ms ease',
-        }}
-        onMouseEnter={e => { e.currentTarget.style.opacity = '1' }}
-        onMouseLeave={e => { e.currentTarget.style.opacity = '0.6' }}
-      >
+          opacity: hovered ? 1 : 0,
+        }}>
         <Copy size={14} />
       </button>
       {/* Code content */}
