@@ -112,7 +112,8 @@ export function ChatArea(props: ChatAreaProps) {
       ) : (
         <>
           {/* Messages */}
-          <div style={{ flex: 1, overflow: 'visible', position: 'relative' }}>
+          {/* minHeight:0 = flex shrink corretto (composer non spinto fuori); overflow visible = shadow auto-scroll non clippata */}
+          <div style={{ flex: 1, minHeight: 0, overflow: 'visible', position: 'relative' }}>
             <div ref={scrollRef} style={{ height: '100%', overflowY: 'auto', padding: '4px 16px 0 16px', scrollbarGutter: 'stable' }}
               onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100) }}>
               {props.messages.map(msg => (
