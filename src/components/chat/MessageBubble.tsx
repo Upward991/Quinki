@@ -86,12 +86,17 @@ function AssistantMessage({ message, onCopy }: { message: Message; onCopy?: (t: 
 
   return (
     <div className="assistant-content" style={{ maxWidth: 'var(--spacing-chat-max)', minWidth: 0, animation: 'materialize 400ms cubic-bezier(0.16, 1, 0.3, 1)', userSelect: 'text', WebkitUserSelect: 'text' }}>
-      {/* Blocchi cronologici (stream + history): thinking/tool nell'ORDINE reale — NO footer dopo i toggle */}
+      {/* Blocchi cronologici: toggles + testo nell'ORDINE reale */}
       {(message as any).blocks?.length > 0
         ? (message as any).blocks.map((b: any, i: number, arr: any[]) => {
             if (b.type === 'thinking') return <ThinkingToggle key={`b-${i}`} content={b.content || ""} streaming={message.isStreaming && i === arr.length - 1} />
             if (b.type === 'tool_call') return <ToolToggle key={`b-${i}`} label="Tool call" toolName={b.name} body={b.input || ''} isError={false} />
             if (b.type === 'tool_result') return <ToolToggle key={`b-${i}`} label={b.isError ? 'Tool error' : 'Tool result'} toolName={b.name} body={b.output || ''} isError={b.isError} />
+            if (b.type === 'text') return (
+              <div key={`b-${i}`} style={{ padding: '4px 0' }}>
+                <MarkdownContent text={b.content || ''} isError={isError} />
+              </div>
+            )
             return null
           })
         : <>
@@ -119,8 +124,8 @@ function AssistantMessage({ message, onCopy }: { message: Message; onCopy?: (t: 
         </div>
       )}
 
-      {/* Text content — sempre visibile (anche in streaming). Footer SOLO a generazione finita */}
-      {message.content && !message.isError && (
+      {/* Text legacy (senza blocks). Con blocks, il testo è dentro i blocchi. Footer SOLO a fine */}
+      {!(message as any).blocks?.length && message.content && !message.isError && (
         <div>
           <div style={{ padding: '4px 0' }}>
             <MarkdownContent text={message.content} isError={isError} />
@@ -136,6 +141,18 @@ function AssistantMessage({ message, onCopy }: { message: Message; onCopy?: (t: 
             />
           )}
         </div>
+      )}
+
+      {/* Footer per messaggi con blocks (dopo tutti i blocchi, SOLO a fine generazione) */}
+      {(message as any).blocks?.length > 0 && !message.isStreaming && (
+        <Footer
+          content={message.content || ''}
+          timestamp={message.timestamp}
+          agentName={message.agentName}
+          agentModel={message.agentModel}
+          thinkingLevel={message.thinkingLevel}
+          onCopy={onCopy}
+        />
       )}
 
       {/* Compaction + delegation — AFTER text+footer, NO footer */}

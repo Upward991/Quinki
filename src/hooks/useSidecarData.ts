@@ -244,6 +244,17 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
       const msg = { id: messageId || `msg-${Date.now()}`, role: 'assistant' as const, content: '', blocks: [], timestamp: new Date().toISOString(), isStreaming: true }
       return { arr: prev, msg }
     }
+    // Text come blocco cronologico (appare dopo i toggle precedenti)
+    const pushText = (msg: any, delta: string) => {
+      const blocks = [...(msg.blocks || [])]
+      const lastB = blocks[blocks.length - 1]
+      if (lastB?.type === 'text') {
+        blocks[blocks.length - 1] = { ...lastB, content: (lastB.content || '') + delta }
+      } else {
+        blocks.push({ type: 'text', content: delta })
+      }
+      return blocks
+    }
     // Blocchi cronologici: thinking N volte (una per turno), tool_call, tool_result — nell'ORDINE in cui arrivano
     const pushBlock = (msg: any, block: any) => {
       const blocks = [...(msg.blocks || [])]
@@ -266,7 +277,8 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
       if (_type === 'text' || _type === 'text_delta' || _type === 'text_start') {
         setMessages(prev => {
           const { arr, msg } = ensureStreamingMsg(prev, messageId)
-          return [...arr, { ...msg, content: (msg.content || '') + _content }]
+          // Blocchi cronologici (testo incluso) + content accumulato (per footer/persist)
+          return [...arr, { ...msg, blocks: pushText(msg, _content), content: (msg.content || '') + _content }]
         })
         setStatusLabel('Writing'); setStatusKind('writing')
       } else if (_type === 'thinking' || _type === 'thinking_delta' || _type === 'thinking_start') {
@@ -1119,11 +1131,22 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
   const refreshAgents = useCallback(async () => {
     try {
       const r = await call('listAgents', {})
-      if (r?.agents) setAgents(r.agents.map((a: any) => ({
-        id: a.id, name: a.name, description: (a.prompt || '').split('\n').map((l: string) => l.trim()).filter((l: string) => l && !l.startsWith('#')).slice(0, 3).join(' ').slice(0, 140),
-        model: a.model || '', thinking: a.thinking || 'off', skills: (a.skills || []).map((s: string) => ({ name: s, source: 'local', installed: true })),
-        tools: (a.tools || []).map((t: string) => ({ name: t, enabled: true })), directory: a.directory || '', isDeletable: a.id !== 'orchestrator',
-      })))
+      if (r?.agents) {
+        const agentsWithFiles = await Promise.all(r.agents.map(async (a: any) => {
+          let files: any[] = []
+          try {
+            const filesResult = await call('listAgentFiles', { id: a.id })
+            if (filesResult?.files) files = filesResult.files.map((f: any) => f.name || f.path || f)
+          } catch {}
+          return {
+            id: a.id, name: a.name, files,
+            description: (a.prompt || '').split('\n').map((l: string) => l.trim()).filter((l: string) => l && !l.startsWith('#')).slice(0, 3).join(' ').slice(0, 140),
+            model: a.model || '', thinking: a.thinking || 'off', skills: (a.skills || []).map((s: string) => ({ name: s, source: 'local', installed: true })),
+            tools: (a.tools || []).map((t: string) => ({ name: t, enabled: true })), directory: a.directory || '', isDeletable: a.id !== 'orchestrator',
+          }
+        }))
+        setAgents(agentsWithFiles)
+      }
     } catch {}
   }, [call])
 

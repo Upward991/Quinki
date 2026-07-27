@@ -136,6 +136,7 @@ class PiBridge {
   #pendingCompactionAuto = new Map<string, boolean>();
   // === Anti-loop: firstKeptEntryId dell'ultima compaction per sessione ===
   #prevCompactionFirstKept = new Map<string, string>();
+  #compactingSessions = new Set<string>();
   #contextUsage = new Map<string, { tokens: number | null; contextWindow: number; percent: number | null; model?: string; ts: number }>();
   #delegations = new Map<string, any[]>();
   #responseTimers = new Map<string, number>();
@@ -1159,7 +1160,10 @@ class PiBridge {
         if (u && typeof u.contextWindow === "number" && u.contextWindow > 0) {
           const s = this.#entries.get(key);
           const prev = this.#contextUsage.get(key);
-          const stored = { tokens: u.tokens ?? null, contextWindow: u.contextWindow ?? 0, percent: u.percent ?? null, model: s?.model, input: prev?.input || 0, output: prev?.output || 0, ts: Date.now() };
+          // Preserva l'ultimo tokens/percent REALE: il SDK a volte ritorna null (non sovrascrivere)
+          const realTokens = u.tokens ?? prev?.tokens ?? null;
+          const realPercent = u.percent ?? (realTokens != null && u.contextWindow > 0 ? (realTokens / u.contextWindow) * 100 : (prev?.percent ?? null));
+          const stored = { tokens: realTokens, contextWindow: u.contextWindow ?? 0, percent: realPercent, model: s?.model, input: prev?.input || 0, output: prev?.output || 0, ts: Date.now() };
           // === FASE 0+B16: log diagnostico per context usage ===
           this.logDebug("context-usage-computed", {
             sessionKey: key,
@@ -3755,6 +3759,8 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
   // === C: Compaction manuale ===
   async compact(key: string, ws?: any): Promise<{ ok: boolean; error?: string; noop?: boolean }> {
     this.logDebug("compact-request", { sessionKey: key });
+    // Sopprimi lo streaming del summary durante la compaction (non deve apparire come testo in chat)
+    this.#compactingSessions.add(key);
     try {
       // === Attiva la sessione se non è già attiva (come fa send()) ===
       let pi = await this.#ensureActive(key);
@@ -3815,6 +3821,8 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     } catch (e: any) {
       this.logDebug("compact-error", { sessionKey: key, error: e?.message || String(e) });
       return { ok: false, error: e?.message || String(e) };
+    } finally {
+      this.#compactingSessions.delete(key);
     }
   }
 
@@ -3860,6 +3868,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
           // System prompt già disabilitato alla radice via resourceLoader custom in createAgentSession
           break;
         case "message_update": {
+          if (this.#compactingSessions.has(key)) break; // sopprimi streaming compaction
           const ame = e.assistantMessageEvent;
           if (!ame) break;
           if (e.message?.role !== "assistant") break;

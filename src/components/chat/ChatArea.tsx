@@ -43,6 +43,7 @@ interface ChatAreaProps {
   onRenameSession: (label: string) => void
   onExport: () => void
   onReset?: () => void
+  onCompact?: () => void
 }
 
 export function ChatArea(props: ChatAreaProps) {
@@ -90,6 +91,7 @@ export function ChatArea(props: ChatAreaProps) {
           welcomeMode={props.welcomeMode}
           agentOverrides={props.agentOverrides}
           onSetAgentOverride={props.onSetAgentOverride}
+          onCompact={props.onCompact}
         />
       </div>
 
@@ -124,7 +126,7 @@ export function ChatArea(props: ChatAreaProps) {
             </div>
             {showScrollBtn && (
               <button onClick={() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }}
-                style={{ position: 'absolute', bottom: '0px', right: '0px', zIndex: 10, width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--q-bg-panel)', color: 'var(--q-text-secondary)', border: 'none', boxShadow: 'var(--shadow-floating)', cursor: 'pointer' }}>
+                style={{ position: 'absolute', bottom: '0px', right: '0px', zIndex: 10, width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--q-bg-panel)', color: 'var(--q-tab-accent)', border: 'none', boxShadow: 'var(--shadow-floating)', cursor: 'pointer' }}>
                 <ArrowDown size={20} />
               </button>
             )}

@@ -26,6 +26,7 @@ interface ChatHeaderProps {
   welcomeMode?: boolean
   agentOverrides?: Record<string, { model?: string; thinkingLevel?: string }>
   onSetAgentOverride?: (agentId: string, overrides: { model?: string | null; thinkingLevel?: string | null }) => void
+  onCompact?: () => void
 }
 
 export function ChatHeader(props: ChatHeaderProps) {
@@ -134,7 +135,7 @@ export function ChatHeader(props: ChatHeaderProps) {
                     <input type="checkbox" defaultChecked style={{ accentColor: 'var(--q-tab-accent)' }} />
                     <span style={{ color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>Auto-compaction (80%)</span>
                   </label>
-                  <CompactionBtn onClick={() => { const sk = props.session?.id; if (sk) { try { (window as any).__sidecarCall?.('compactSession', { sessionKey: sk }) } catch {} } }} />
+                  <CompactionBtn onClick={props.onCompact} />
                 </div>
               </>
             )}
