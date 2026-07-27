@@ -241,8 +241,21 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
     const ensureStreamingMsg = (prev: any[], messageId?: string) => {
       const last = prev[prev.length - 1]
       if (last && last.role === 'assistant' && last.isStreaming) return { arr: prev.slice(0, -1), msg: last }
-      const msg = { id: messageId || `msg-${Date.now()}`, role: 'assistant' as const, content: '', timestamp: new Date().toISOString(), isStreaming: true }
+      const msg = { id: messageId || `msg-${Date.now()}`, role: 'assistant' as const, content: '', blocks: [], timestamp: new Date().toISOString(), isStreaming: true }
       return { arr: prev, msg }
+    }
+    // Blocchi cronologici: thinking N volte (una per turno), tool_call, tool_result — nell'ORDINE in cui arrivano
+    const pushBlock = (msg: any, block: any) => {
+      const blocks = [...(msg.blocks || [])]
+      const lastB = blocks[blocks.length - 1]
+      if (block.type === 'thinking' && lastB?.type === 'thinking') {
+        blocks[blocks.length - 1] = { ...lastB, content: (lastB.content || '') + (block.content || '') }
+      } else if (block.type === 'tool_call_args' && lastB?.type === 'tool_call') {
+        blocks[blocks.length - 1] = { ...lastB, input: (lastB.input || '') + (block.input || '') }
+      } else if (block.type === 'thinking' || block.type === 'tool_call' || block.type === 'tool_result') {
+        blocks.push(block)
+      }
+      return blocks
     }
     const unsubStream = subscribe('stream_event', (p: any) => {
       const { type, eventType, delta, content, messageId, toolName, isError } = p
@@ -261,33 +274,24 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
         if (_content) {
           setMessages(prev => {
             const { arr, msg } = ensureStreamingMsg(prev, messageId)
-            return [...arr, { ...msg, thinking: (msg.thinking || '') + _content }]
+            return [...arr, { ...msg, blocks: pushBlock(msg, { type: 'thinking', content: _content }) }]
           })
         }
       } else if (_type === 'toolcall_start' || _type === 'tool_call') {
         setStatusLabel('Tool call'); setStatusKind('tool_call')
         setMessages(prev => {
           const { arr, msg } = ensureStreamingMsg(prev, messageId)
-          const tcs = [...(msg.toolCalls || []), { name: toolName || delta || 'tool', input: '' }]
-          return [...arr, { ...msg, toolCalls: tcs }]
+          return [...arr, { ...msg, blocks: pushBlock(msg, { type: 'tool_call', name: toolName || delta || 'tool', input: '' }) }]
         })
       } else if (_type === 'toolcall_delta') {
         setMessages(prev => {
           const last = prev[prev.length - 1]
-          if (!last || last.role !== 'assistant' || !last.isStreaming || !last.toolCalls?.length) return prev
-          const tcs = [...last.toolCalls]
-          tcs[tcs.length - 1] = { ...tcs[tcs.length - 1], input: (tcs[tcs.length - 1].input || '') + _content }
-          return [...prev.slice(0, -1), { ...last, toolCalls: tcs }]
+          if (!last || last.role !== 'assistant' || !last.isStreaming) return prev
+          return [...prev.slice(0, -1), { ...last, blocks: pushBlock(last, { type: 'tool_call_args', input: _content }) }]
         })
       } else if (_type === 'toolcall_end' || _type === 'tool_result') {
-        setStatusLabel(isError ? 'Tool error' : 'Tool result'); setStatusKind(isError ? 'tool_error' : 'tool_result')
-        setMessages(prev => {
-          const { arr, msg } = ensureStreamingMsg(prev, messageId)
-          const tcs = [...(msg.toolCalls || [])]
-          const lastName = tcs.length > 0 ? tcs[tcs.length - 1].name : (toolName || 'tool')
-          const trs = [...(msg.toolResults || []), { name: lastName, output: String(_content || ''), isError: !!isError }]
-          return [...arr, { ...msg, toolResults: trs }]
-        })
+        // toolcall_end nel stream_event = FINE ARGOMENTI del tool call, NON il risultato.
+        // Il risultato vero arriva dalla notifica separata 'tool_result'. Qui NON si crea niente.
       } else if (_type === 'delegation_start') {
         setStatusLabel('Delegating'); setStatusKind('delegation')
         activeDelegationsRef.current.add(messageId)
@@ -317,9 +321,8 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
       setStatusLabel(p?.isError ? 'Tool error' : 'Tool result'); setStatusKind(p?.isError ? 'tool_error' : 'tool_result')
       setMessages(prev => {
         const last = prev[prev.length - 1]
-        if (!last || last.role !== 'assistant' || !last.isStreaming) return prev
-        const trs = [...(last.toolResults || []), { name: p?.toolName || 'tool', output: String(p?.content || ''), isError: !!p?.isError }]
-        return [...prev.slice(0, -1), { ...last, toolResults: trs }]
+        if (!last || last.role !== 'assistant') return prev
+        return [...prev.slice(0, -1), { ...last, blocks: pushBlock(last, { type: 'tool_result', name: p?.toolName || 'tool', output: String(p?.content || ''), isError: !!p?.isError }) }]
       })
     })
 
@@ -562,17 +565,25 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
           }
           if (m.role === 'tool_call') {
             let last = merged[merged.length - 1]
-            if (!last || last.role !== 'assistant') { last = { id: `tc-parent-${m.id}`, role: 'assistant', content: '', timestamp: base.timestamp }; merged.push(last) }
-            last.toolCalls = [...(last.toolCalls || []), { name: m.toolName || 'tool', input: typeof m.toolArgs === 'string' ? m.toolArgs : JSON.stringify(m.toolArgs ?? '') }]
-            if (m.reasoning && !last.thinking) last.thinking = m.reasoning
+            if (!last || last.role !== 'assistant') { last = { id: `tc-parent-${m.id}`, role: 'assistant', content: '', blocks: [], timestamp: base.timestamp }; merged.push(last) }
+            const input = typeof m.toolArgs === 'string' ? m.toolArgs : JSON.stringify(m.toolArgs ?? '')
+            last.toolCalls = [...(last.toolCalls || []), { name: m.toolName || 'tool', input }]
+            last.blocks = [...(last.blocks || [])]
+            // Thinking PRIMA del tool call (reasoning attaccato al tool_call nel mapper)
+            if (m.reasoning) last.blocks.push({ type: 'thinking', content: m.reasoning })
+            last.blocks.push({ type: 'tool_call', name: m.toolName || 'tool', input })
           } else if (m.role === 'tool_result') {
             let last = merged[merged.length - 1]
-            if (!last || last.role !== 'assistant') { last = { id: `tr-parent-${m.id}`, role: 'assistant', content: '', timestamp: base.timestamp }; merged.push(last) }
+            if (!last || last.role !== 'assistant') { last = { id: `tr-parent-${m.id}`, role: 'assistant', content: '', blocks: [], timestamp: base.timestamp }; merged.push(last) }
             last.toolResults = [...(last.toolResults || []), { name: m.toolName || 'tool', output: String(m.content || ''), isError: !!m.isError }]
+            last.blocks = [...(last.blocks || []), { type: 'tool_result', name: m.toolName || 'tool', output: String(m.content || ''), isError: !!m.isError }]
           } else if (m.isCompactionSummary || m.isCompactionWarning) {
             // Compaction toggle (blu = summary, arancione = noop warning)
             merged.push({ id: base.id, role: 'assistant', content: '', timestamp: base.timestamp, compaction: [{ content: m.content || '', isNoop: !!m.isCompactionWarning }] })
           } else {
+            if (base.role === 'assistant' && base.thinking) {
+              base.blocks = [...(base.blocks || []), { type: 'thinking', content: typeof base.thinking === 'string' ? base.thinking : (Array.isArray(base.thinking) ? base.thinking.map((x: any) => x?.content ?? x ?? '').join('') : String(base.thinking)) }]
+            }
             merged.push(base)
           }
         }
@@ -614,7 +625,13 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
           } : s))
           if (meta.availableThinkingLevels) setThinkingLevels(meta.availableThinkingLevels)
           // Agenti in chat + override per-agente (model/thinking)
-          setChatAgentIds(meta.agentId ? String(meta.agentId).split(',').filter(Boolean) : [])
+          const ids = meta.agentId ? String(meta.agentId).split(',').filter(Boolean) : []
+          // Sessione Expert: quinki-expert SEMPRE presente di default (si possono AGGIUNGERE altri agenti)
+          if (sessionKey === '__quinki_expert__' && ids.length === 0) {
+            ids.push('quinki-expert')
+            try { await call('setChatAgents', { sessionKey, agentIds: 'quinki-expert' }) } catch {}
+          }
+          setChatAgentIds(ids)
           setAgentOverrides(meta.agentOverrides || {})
         }
       } catch {}

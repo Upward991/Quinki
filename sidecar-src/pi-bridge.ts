@@ -36,6 +36,7 @@ const CONTEXT_USAGE_FILE = fs.existsSync(path.join(_agentDir, "quinki-context-us
   ? path.join(_agentDir, "quinki-context-usage.json")
   : path.join(_agentDir, "dashboard-context-usage.json");
 const DELEGATIONS_FILE = fs.existsSync(path.join(_agentDir, "quinki-delegations.json"))
+const ERRORS_FILE = path.join(_agentDir, "quinki-errors.json");
   ? path.join(_agentDir, "quinki-delegations.json")
   : path.join(_agentDir, "dashboard-delegations.json");
 const DEBUG_LOG_FILE = path.join(_agentDir, "quinki-debug.log");
@@ -438,6 +439,12 @@ class PiBridge {
       }
     } catch {}
     this.#loadContextUsage();
+    try {
+      if (fs.existsSync(ERRORS_FILE)) {
+        const data = JSON.parse(fs.readFileSync(ERRORS_FILE, "utf8"));
+        for (const [k, v] of Object.entries(data)) this.#errors.set(k, v as any[]);
+      }
+    } catch {}
     this.#loadDelegations();
   }
 
@@ -498,6 +505,22 @@ class PiBridge {
         }
       }
     } catch {}
+  }
+
+  // === Errori chat persistenti (isError nel file, come gli altri store) ===
+  #errors = new Map<string, any[]>();
+  #saveError(sessionKey: string, err: any) {
+    try {
+      const existing = this.#errors.get(sessionKey) || [];
+      existing.push(err);
+      this.#errors.set(sessionKey, existing);
+      const data: Record<string, any> = {};
+      for (const [k, v] of this.#errors) data[k] = v;
+      fs.writeFileSync(ERRORS_FILE, JSON.stringify(data, null, 2), "utf8");
+    } catch {}
+  }
+  getErrors(sessionKey: string): any[] {
+    return this.#errors.get(sessionKey) || [];
   }
 
   #saveDelegation(sessionKey: string, delegation: any) {
@@ -872,7 +895,8 @@ class PiBridge {
           const prevCompactions = collectAllCompactionMessages(pi.sessionManager, noopTs);
           const mapped = mapWithNoop(ctx.messages, noopTs).filter((m: any) => !m.isCompactionSummary && !m.isCompactionWarning);
           // Prepend le compaction precedenti, ordinate per timestamp
-          return [...prevCompactions, ...mapped].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+          const errs = (this.#errors.get(key) || []).map((er: any, i: number) => ({ id: `err-${i}-${er.timestamp}`, role: "assistant", content: "", errorContent: er.errorMessage, isError: true, timestamp: er.timestamp, done: true, model: er.model, agentName: er.agentName, thinkingLevel: er.thinkingLevel }));
+          return [...prevCompactions, ...mapped, ...errs].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
         }
       } catch {}
     }
@@ -887,7 +911,8 @@ class PiBridge {
             const noopTs = detectNoopCompactions(sm);
             const prevCompactions = collectAllCompactionMessages(sm, noopTs);
             const mapped = mapWithNoop(ctx.messages, noopTs).filter((m: any) => !m.isCompactionSummary && !m.isCompactionWarning);
-            return [...prevCompactions, ...mapped].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+            const errs = (this.#errors.get(key) || []).map((er: any, i: number) => ({ id: `err-${i}-${er.timestamp}`, role: "assistant", content: "", errorContent: er.errorMessage, isError: true, timestamp: er.timestamp, done: true, model: er.model, agentName: er.agentName, thinkingLevel: er.thinkingLevel }));
+          return [...prevCompactions, ...mapped, ...errs].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
           }
         }
       }
@@ -4077,6 +4102,10 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
               reasoning: reasoningContent,
               usage: (e.message as any)?.usage ?? undefined,
             }));
+            // Persisti l'errore in chat (deve ricomparire al reload)
+            if (e.message?.stopReason === "error" && (e.message as any)?.errorMessage) {
+              this.#saveError(key, { timestamp: Date.now(), errorMessage: (e.message as any).errorMessage, model: actualModel, agentName: doneAgentName, thinkingLevel: actualThinking });
+            }
             // Accumula input/output totali della sessione (persistiti)
             try {
               const mu: any = (e.message as any)?.usage;

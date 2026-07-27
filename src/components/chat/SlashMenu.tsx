@@ -333,8 +333,8 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
               label="Cancel"
               onClick={() => setMode('main')}
               
-              textColor="var(--q-text-secondary)"
-              hoverTextColor="var(--q-text)"
+              textColor="var(--q-accent-danger)"
+              hoverTextColor="var(--q-accent-danger)"
               hoverBg="rgba(255,255,255,0.06)"
             />
             <HoverTextBtn
@@ -433,8 +433,8 @@ function NavBar({ focusConfirm, onUp, onDown, onLeft, onRight, onConfirm, onClos
         label="Cancel"
         onClick={onClose}
         
-        textColor="var(--q-text-secondary)"
-        hoverTextColor="var(--q-text)"
+        textColor="var(--q-accent-danger)"
+        hoverTextColor="var(--q-accent-danger)"
         hoverBg="rgba(255,255,255,0.06)"
       />
       <div style={{ width: '8px' }} />
@@ -442,10 +442,10 @@ function NavBar({ focusConfirm, onUp, onDown, onLeft, onRight, onConfirm, onClos
         label="Confirm"
         highlighted={focusConfirm}
         onClick={onConfirm}
-        borderColor="var(--q-accent-info)"
-        textColor="var(--q-accent-info)"
+        borderColor="var(--q-tab-accent)"
+        textColor="var(--q-tab-accent)"
         hoverTextColor="var(--q-bg)"
-        hoverBg="var(--q-accent-info)"
+        hoverBg="var(--q-tab-accent)"
         fontWeight={600}
       />
     </div>

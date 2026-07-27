@@ -189,7 +189,7 @@ export function ChatHeader(props: ChatHeaderProps) {
           {/* Search — panel INSIDE the position:relative wrapper */}
           <div style={{ width: '8px', flexShrink: 0 }} />
           <div style={{ position: 'relative' }}>
-            <IconBtn icon={Search} onClick={() => setSearchOpen(!searchOpen)} title="Search messages" activeBg={searchOpen} />
+            <IconBtn icon={Search} onClick={() => setSearchOpen(!searchOpen)} title="Search messages" />
             {searchOpen && (
               <>
                 <div style={overlayStyle} onClick={() => setSearchOpen(false)} />
@@ -239,19 +239,19 @@ export function ChatHeader(props: ChatHeaderProps) {
         <div style={{ width: '8px', flexShrink: 0 }} />
         <div style={panelStyle}>
           <div style={{ position: 'relative' }}>
-            <IconBtn icon={Bot} onClick={props.onToggleAgentDropdown} title="Show agents" activeBg={props.agentDropdownOpen} />
+            <IconBtn icon={Bot} onClick={props.onToggleAgentDropdown} title="Show agents" />
             {props.agentDropdownOpen && (
               <>
                 <div style={overlayStyle} onClick={() => { props.onToggleAgentDropdown(); setMultiSelect(false); setSelectedForRemoval(new Set()) }} />
                 <div style={{ ...popupStyle, top: 'calc(100% + 16px)', right: '-8px', minWidth: '260px', maxWidth: '300px', minHeight: '50vh', maxHeight: '70vh', border: '1px solid var(--q-border)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                   {/* Add agent + Orchestrator */}
                   <div style={{ padding: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <button onClick={() => setAddAgentOpen(true)} style={{ flex: 1, height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: '13px', transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms cubic-bezier(0.16, 1, 0.3, 1)' }}
+                    <button onClick={() => setAddAgentOpen(true)} style={{ flex: 1, height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: '13px', transition: 'none' }}
                       onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)'; e.currentTarget.style.color = 'var(--q-text)' }}
                       onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-text-secondary)' }}>
                       <Bot size={20} style={{ display: 'flex', flexShrink: 0 }} /> <span style={{ lineHeight: '1' }}>Add agent</span>
                     </button>
-                    <button onClick={() => { if (!props.selectedAgentIds.includes('orchestrator')) props.onAgentToggle('orchestrator') }} style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: props.selectedAgentIds.includes('orchestrator') ? 'var(--q-text-tertiary)' : 'var(--q-text-secondary)', opacity: props.selectedAgentIds.includes('orchestrator') ? 0.4 : 1, transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms cubic-bezier(0.16, 1, 0.3, 1)' }}
+                    <button onClick={() => { if (!props.selectedAgentIds.includes('orchestrator')) props.onAgentToggle('orchestrator') }} style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: props.selectedAgentIds.includes('orchestrator') ? 'var(--q-text-tertiary)' : 'var(--q-text-secondary)', opacity: props.selectedAgentIds.includes('orchestrator') ? 0.4 : 1, transition: 'none' }}
                       onMouseEnter={e => { if (!props.selectedAgentIds.includes('orchestrator')) { e.currentTarget.style.backgroundColor = 'var(--q-hover)'; e.currentTarget.style.color = 'var(--q-text)' } }}
                       onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = props.selectedAgentIds.includes('orchestrator') ? 'var(--q-text-tertiary)' : 'var(--q-text-secondary)' }}>
                       <Network size={20} />
@@ -379,7 +379,7 @@ function ExportBtn({ label, color, hoverRgb, onClick }: { label: string; color: 
   const [hovered, setHovered] = useState(false)
   return (
     <button onClick={onClick} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-      style={{ padding: '10px 12px', border: 'none', cursor: 'pointer', backgroundColor: hovered ? `rgba(${hoverRgb},0.08)` : 'transparent', color, fontSize: '14px', fontFamily: 'var(--font-interface)', fontWeight: 500, borderRadius: 'var(--radius-md)', transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1)' }}>
+      style={{ padding: '10px 12px', border: 'none', cursor: 'pointer', backgroundColor: hovered ? `rgba(${hoverRgb},0.08)` : 'transparent', color, fontSize: '14px', fontFamily: 'var(--font-interface)', fontWeight: 500, borderRadius: 'var(--radius-md)', transition: 'none' }}>
       {label}
     </button>
   )
@@ -409,7 +409,7 @@ function IconBtn({ icon: Icon, onClick, title, activeBg }: { icon: React.FC<{ si
   const color = hovered ? 'var(--q-text)' : 'var(--q-text-secondary)'
   return (
     <button onClick={() => { setHovered(false); onClick() }} title={title} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-      style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: bg, color, flexShrink: 0, padding: '0', transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms cubic-bezier(0.16, 1, 0.3, 1)' }}>
+      style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: bg, color, flexShrink: 0, padding: '0', transition: 'none' }}>
       <Icon size={20} />
     </button>
   )

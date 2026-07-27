@@ -52,9 +52,17 @@ export function ChatArea(props: ChatAreaProps) {
   const isEmpty = props.messages.length === 0 || props.welcomeMode
 
   useEffect(() => {
-    // Auto-scroll: segue SEMPRE la generazione verso il basso
+    // Auto-scroll: segue SEMPRE la generazione verso il basso.
+    // Doppio pass: immediato + dopo il render del markdown (altezza cambia).
     if (scrollRef.current && !isEmpty) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+      const raf = requestAnimationFrame(() => {
+        if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+      })
+      const t = setTimeout(() => {
+        if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+      }, 120)
+      return () => { cancelAnimationFrame(raf); clearTimeout(t) }
     }
   }, [props.messages, isEmpty, props.streaming])
 
@@ -114,7 +122,7 @@ export function ChatArea(props: ChatAreaProps) {
             </div>
             {showScrollBtn && (
               <button onClick={() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }}
-                style={{ position: 'absolute', bottom: '8px', right: '16px', zIndex: 10, width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--q-bg-panel)', color: 'var(--q-text-secondary)', border: 'none', boxShadow: 'var(--shadow-floating)', cursor: 'pointer' }}>
+                style={{ position: 'absolute', bottom: '0px', right: '0px', zIndex: 10, width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--q-bg-panel)', color: 'var(--q-text-secondary)', border: 'none', boxShadow: 'var(--shadow-floating)', cursor: 'pointer' }}>
                 <ArrowDown size={20} />
               </button>
             )}

@@ -93,7 +93,10 @@ export function Composer(props: ComposerProps) {
       if (e.key === 'Escape') { e.preventDefault(); setSlashMenuOpen(false); setText(''); return }
     }
     e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())
-    e.key === 'Escape' && (setSlashMenuOpen(false), setMentionOpen(false), setText(''))
+    // Esc: se sta generando → STOP (come il tasto stop). Altrimenti chiude menu/pulisce.
+    e.key === 'Escape' && (props.isStreaming ? (e.preventDefault(), props.onStop()) : (setSlashMenuOpen(false), setMentionOpen(false), setText('')))
+    // Tab: toggle Plan/Build (non inserire tab nel testo)
+    if (e.key === 'Tab') { e.preventDefault(); props.onModeChange(props.mode === 'plan' ? 'build' : 'plan') }
   }
 
   const fmt = (n: number) => {
@@ -172,7 +175,7 @@ export function Composer(props: ComposerProps) {
 
         {/* Bottom bar */}
         <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', height: '32px', marginTop: '8px' }}>
-          <SlashBtn color="var(--q-accent-info)" onClick={() => { setSlashMenuOpen(true); setSlashFilter(''); setText('/'); textareaRef.current?.focus() }} />
+          <SlashBtn color="var(--q-tab-accent)" onClick={() => { setSlashMenuOpen(true); setSlashFilter(''); setText('/'); textareaRef.current?.focus() }} />
           <div style={{ width: '4px', flexShrink: 0 }} />
           <ModeButton mode={props.mode} onChange={props.onModeChange} />
           <div style={{ width: '8px', flexShrink: 0 }} />
@@ -232,7 +235,7 @@ function MentionItem({ agent, isSelected, onSelect }: { agent: Agent; isSelected
       style={{
         padding: '8px 16px', backgroundColor: hovered || isSelected ? 'var(--q-hover)' : 'transparent',
         borderRadius: 'var(--radius-sm)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
-        transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1)',
+        transition: 'none',
       }}>
       <Bot size={16} style={{ color: 'var(--q-text-secondary)', flexShrink: 0 }} />
       <span style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>{agent.name}</span>
@@ -271,7 +274,7 @@ function SlashBtn({ color, onClick }: { color: string; onClick: () => void }) {
         border: 'none', cursor: 'pointer',
         backgroundColor: hovered ? 'var(--q-active)' : 'transparent',
         flexShrink: 0, padding: '0',
-        transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1)',
+        transition: 'none',
       }}>
       <svg width="22" height="22" viewBox="0 0 24 24" shapeRendering="geometricPrecision">
         <rect x="2" y="2" width="20" height="20" rx="2" fill={color} />
@@ -292,7 +295,7 @@ function StopBtn({ color, onClick }: { color: string; onClick: () => void }) {
         border: '1px solid var(--q-border)', cursor: 'pointer',
         backgroundColor: hovered ? 'var(--q-hover)' : 'transparent',
         flexShrink: 0, padding: '0',
-        transition: 'background-color 180ms cubic-bezier(0.4, 0, 0.2, 1), transform 180ms cubic-bezier(0.4, 0, 0.2, 1)',
+        transition: 'none',
       }}>
       <svg width="12" height="12" viewBox="0 0 12 12" shapeRendering="geometricPrecision">
         <rect width="12" height="12" rx="2" fill={color} />
@@ -316,7 +319,7 @@ function ModeButton({ mode, onChange }: { mode: ChatMode; onChange: (m: ChatMode
         color: isPlan ? 'var(--q-mode-plan)' : 'var(--q-mode-build)',
         fontWeight: 700, fontSize: '14px', fontFamily: 'var(--font-interface)', lineHeight: '1',
         flexShrink: 0, padding: '0',
-        transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1)',
+        transition: 'none',
       }}>
       {isPlan ? 'Plan' : 'Build'}
     </button>

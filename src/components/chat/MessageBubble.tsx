@@ -86,10 +86,19 @@ function AssistantMessage({ message, onCopy }: { message: Message; onCopy?: (t: 
 
   return (
     <div className="assistant-content" style={{ maxWidth: 'var(--spacing-chat-max)', minWidth: 0, animation: 'materialize 400ms cubic-bezier(0.16, 1, 0.3, 1)', userSelect: 'text', WebkitUserSelect: 'text' }}>
-      {/* Thinking, tool calls, tool results — NO footer after these */}
-      {normalizeThinking(message.thinking)?.map((t, i) => <ThinkingToggle key={`t-${i}`} content={t.content || ""} streaming={message.isStreaming} />)}
-      {message.toolCalls?.map((tc, i) => <ToolToggle key={`tc-${i}`} label="Tool call" toolName={tc.name} body={tc.input} isError={false} />)}
-      {message.toolResults?.map((tr, i) => <ToolToggle key={`tr-${i}`} label={tr.isError ? 'Tool error' : 'Tool result'} toolName={tr.name} body={tr.output} isError={tr.isError} />)}
+      {/* Blocchi cronologici (stream + history): thinking/tool nell'ORDINE reale — NO footer dopo i toggle */}
+      {(message as any).blocks?.length > 0
+        ? (message as any).blocks.map((b: any, i: number, arr: any[]) => {
+            if (b.type === 'thinking') return <ThinkingToggle key={`b-${i}`} content={b.content || ""} streaming={message.isStreaming && i === arr.length - 1} />
+            if (b.type === 'tool_call') return <ToolToggle key={`b-${i}`} label="Tool call" toolName={b.name} body={b.input || ''} isError={false} />
+            if (b.type === 'tool_result') return <ToolToggle key={`b-${i}`} label={b.isError ? 'Tool error' : 'Tool result'} toolName={b.name} body={b.output || ''} isError={b.isError} />
+            return null
+          })
+        : <>
+            {normalizeThinking(message.thinking)?.map((t, i) => <ThinkingToggle key={`t-${i}`} content={t.content || ""} streaming={message.isStreaming} />)}
+            {message.toolCalls?.map((tc, i) => <ToolToggle key={`tc-${i}`} label="Tool call" toolName={tc.name} body={tc.input} isError={false} />)}
+            {message.toolResults?.map((tr, i) => <ToolToggle key={`tr-${i}`} label={tr.isError ? 'Tool error' : 'Tool result'} toolName={tr.name} body={tr.output} isError={tr.isError} />)}
+          </>}
 
       {/* Error message — same as normal text but in red, no border/box */}
       {message.isError && message.errorContent && !message.isStreaming && (
@@ -256,7 +265,7 @@ function GenericToggle({ label, content, baseColor, baseColorRgb, isItalic, bold
   return (
     <div style={{ marginTop: '12px' }}>
       <div onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} onClick={() => setCollapsed(!collapsed)}
-        style={{ cursor: 'pointer', backgroundColor: bg, borderRadius: 'var(--radius-md)', padding: '8px', transition: 'background-color 120ms ease' }}>
+        style={{ cursor: 'pointer', backgroundColor: bg, borderRadius: 'var(--radius-md)', padding: '8px', transform: hovered ? 'translateX(2px)' : 'translateX(0)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <ChevronRight size={14} style={{ color, flexShrink: 0, transform: collapsed ? 'rotate(0deg)' : 'rotate(90deg)', transition: 'transform 200ms cubic-bezier(0.16, 1, 0.3, 1)' }} />
           <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color }}>{label}{boldLabel && <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', fontWeight: 600, color }}>{' '}{boldLabel}</span>}</span>
@@ -310,7 +319,7 @@ function DelegationBlockView({ delegation, timestamp }: { delegation: Delegation
   return (
     <div style={{ marginTop: '12px' }}>
       <div onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} onClick={() => setCollapsed(!collapsed)}
-        style={{ cursor: 'pointer', backgroundColor: bg, borderRadius: 'var(--radius-md)', padding: '8px', transition: 'background-color 120ms ease' }}>
+        style={{ cursor: 'pointer', backgroundColor: bg, borderRadius: 'var(--radius-md)', padding: '8px', transform: hovered ? 'translateX(2px)' : 'translateX(0)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <ChevronRight size={14} style={{ color, flexShrink: 0, transform: collapsed ? 'rotate(0deg)' : 'rotate(90deg)', transition: 'transform 200ms cubic-bezier(0.16, 1, 0.3, 1)' }} />
           <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color }}>Delegated to</span>
@@ -378,9 +387,9 @@ function Footer({ content, timestamp, agentName, agentModel, thinkingLevel, onCo
       <button
         onClick={() => { try { navigator.clipboard.writeText(content) } catch {}; onCopy?.(content) }}
         title="Copy"
-        onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)'; e.currentTarget.style.borderRadius = '4px' }}
-        onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
-        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', lineHeight: '1', color: 'var(--q-text-tertiary)', borderRadius: '6px', transition: 'background-color 0.15s ease' }}
+        onMouseEnter={e => { e.currentTarget.style.color = 'var(--q-text)' }}
+        onMouseLeave={e => { e.currentTarget.style.color = 'var(--q-text-tertiary)' }}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', lineHeight: '1', color: 'var(--q-text-tertiary)', borderRadius: '6px' }}
       >
         <Copy size={16} />
       </button>
@@ -391,9 +400,9 @@ function Footer({ content, timestamp, agentName, agentModel, thinkingLevel, onCo
         <button
           onClick={() => setInfoOpen(!infoOpen)}
           title="Info"
-          onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)'; e.currentTarget.style.borderRadius = '4px' }}
-          onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', lineHeight: '1', color: 'var(--q-text-tertiary)', borderRadius: '6px', transition: 'background-color 0.15s ease' }}
+          onMouseEnter={e => { e.currentTarget.style.color = 'var(--q-text)' }}
+          onMouseLeave={e => { e.currentTarget.style.color = 'var(--q-text-tertiary)' }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', lineHeight: '1', color: 'var(--q-text-tertiary)', borderRadius: '6px' }}
         >
           <Info size={16} />
         </button>
