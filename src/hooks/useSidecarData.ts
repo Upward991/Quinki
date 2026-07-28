@@ -264,7 +264,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
         blocks[blocks.length - 1] = { ...lastB, content: (lastB.content || '') + (block.content || '') }
       } else if (block.type === 'tool_call_args' && lastB?.type === 'tool_call') {
         blocks[blocks.length - 1] = { ...lastB, input: (lastB.input || '') + (block.input || '') }
-      } else if (block.type === 'thinking' || block.type === 'tool_call' || block.type === 'tool_result') {
+      } else if (block.type === 'thinking' || block.type === 'tool_call' || block.type === 'tool_result' || block.type === 'delegation') {
         blocks.push(block)
       }
       return blocks
@@ -273,8 +273,41 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
       const { type, eventType, delta, content, messageId, toolName, isError } = p
       const _type = eventType || type
       const _content = delta || content || ''
-      // Eventi nested di una delega attiva: non vanno nel messaggio principale (restano dentro il toggle delega)
-      if (messageId && activeDelegationsRef.current.has(messageId) && _type !== 'delegation_end') return
+      // Eventi nested di una delega attiva: vanno nel blocco delegation, NON nel messaggio principale
+      if (messageId && activeDelegationsRef.current.has(messageId) && _type !== 'delegation_end') {
+        const nestedBlock = (() => {
+          if (_type === 'thinking_delta' || _type === 'thinking' || _type === 'thinking_start') return { type: 'thinking', content: _content }
+          if (_type === 'text_delta' || _type === 'text' || _type === 'text_start') return { type: 'text', content: _content }
+          if (_type === 'toolcall_start') return { type: 'tool_call', name: toolName || delta || 'tool', input: '' }
+          if (_type === 'toolcall_delta') return { type: 'tool_call_args', input: _content }
+          if (_type === 'toolcall_end' || _type === 'tool_result') return { type: 'tool_result', name: toolName || 'tool', output: String(_content || ''), isError: !!isError }
+          return null
+        })()
+        if (nestedBlock) {
+          setMessages(prev => prev.map(m => {
+            const blocks = (m.blocks || []).map((b: any) => {
+              if (b.type === 'delegation' && b.id === messageId) {
+                const db = [...(b.blocks || [])]
+                // thinking: appendi all'ultimo blocco thinking se è lo stesso tipo
+                const lastB = db[db.length - 1]
+                if (nestedBlock.type === 'thinking' && lastB?.type === 'thinking') {
+                  db[db.length - 1] = { ...lastB, content: (lastB.content || '') + (nestedBlock.content || '') }
+                } else if (nestedBlock.type === 'text' && lastB?.type === 'text') {
+                  db[db.length - 1] = { ...lastB, content: (lastB.content || '') + (nestedBlock.content || '') }
+                } else if (nestedBlock.type === 'tool_call_args' && lastB?.type === 'tool_call') {
+                  db[db.length - 1] = { ...lastB, input: (lastB.input || '') + (nestedBlock.input || '') }
+                } else {
+                  db.push(nestedBlock)
+                }
+                return { ...b, blocks: db }
+              }
+              return b
+            })
+            return { ...m, blocks }
+          }))
+        }
+        return
+      }
       if (_type === 'text' || _type === 'text_delta' || _type === 'text_start') {
         setMessages(prev => {
           const { arr, msg } = ensureStreamingMsg(prev, messageId)
@@ -308,18 +341,20 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
       } else if (_type === 'delegation_start') {
         // NON mostrare "Delegating" nella pill — nel Flutter non esiste questo status
         activeDelegationsRef.current.add(messageId)
+        // Blocco delegation CRONOLOGICO (dopo il tool_call delegate_to_agent, prima del tool_result)
         setMessages(prev => {
-          const { arr, msg } = ensureStreamingMsg(prev)
-          const ds = [...(msg.delegations || []), { id: messageId, agentName: p.agentName || 'agent', agentModel: '', mode: '', tools: [], systemPrompt: '', taskContent: p.task || '', response: '', thinkingLevel: '' }]
-          return [...arr, { ...msg, delegations: ds }]
+          const last = prev[prev.length - 1]
+          if (!last || last.role !== 'assistant' || !last.isStreaming) return prev
+          return [...prev.slice(0, -1), { ...last, blocks: pushBlock(last, { type: 'delegation', id: messageId, agentName: p.agentName || 'agent', taskContent: p.task || '', blocks: [], streaming: true }) }]
         })
       } else if (_type === 'delegation_end') {
         setStatusLabel('Running'); setStatusKind('running')
         activeDelegationsRef.current.delete(messageId)
         setMessages(prev => prev.map(m => {
-          if (!m.delegations?.length) return m
-          const ds = m.delegations.map((d: any) => d.id === messageId ? { ...d, response: p.response || d.response, agentModel: p.model || d.agentModel, thinkingLevel: p.thinkingLevel || d.thinkingLevel } : d)
-          return { ...m, delegations: ds }
+          const blocks = (m.blocks || []).map((b: any) => b.type === 'delegation' && b.id === messageId
+            ? { ...b, streaming: false, response: p.response || b.response, agentModel: p.model || b.agentModel, thinkingLevel: p.thinkingLevel || b.thinkingLevel }
+            : b)
+          return { ...m, blocks }
         }))
       } else if (_type === 'error') {
         setStatusLabel('Failed'); setStatusKind('failed'); setIsStreaming(false)
@@ -442,7 +477,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
         case 'running': setStatusLabel('Running'); setStatusKind('running'); break
         case 'thinking': setStatusLabel('Thinking'); setStatusKind('thinking'); break
         case 'writing': setStatusLabel('Writing'); setStatusKind('writing'); break
-        case 'tool': setStatusLabel(p.detail ? `Tool: ${p.detail}` : 'Tool call'); setStatusKind('tool_call'); break
+        case 'tool': setStatusLabel('Tool call'); setStatusKind('tool_call'); break
         case 'compacting': setStatusLabel('Compacting'); setStatusKind('compacting'); break
         case 'retrying': setStatusLabel(`Retrying ${p.attempt || 1}/${p.maxAttempts || 3}`); setStatusKind('retrying'); break
         case 'failed': setStatusLabel('Failed'); setStatusKind('failed'); setIsStreaming(false); break
@@ -556,7 +591,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
   const selectSession = useCallback(async (sessionKey: string) => {
     if (!ready) return
     setActiveSessionId(sessionKey)
-    setMessages([])
+    // NON svuotare messages qui: evita il flash quando si ricarica la stessa chat (es. dopo compaction)
     setIsStreaming(false)
     setStatusLabel(''); setStatusKind('')
     try {

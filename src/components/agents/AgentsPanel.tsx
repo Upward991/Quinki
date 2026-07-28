@@ -619,7 +619,7 @@ export function AgentsPanel(props) {
     ]}),
 
     // Add items modal
-    addItemsModal && React.createElement(AddItemsModal, { title: addItemsModal.title, items: addItemsModal.items, onClose: () => setAddItemsModal(null), onConfirm: (selected) => { addItemsModal.onConfirm(selected); setAddItemsModal(null); } }),
+    addItemsModal && React.createElement(AddItemsModal, { title: addItemsModal.title, items: addItemsModal.items, initialSelected: addItemsModal.initialSelected || [], onClose: () => setAddItemsModal(null), onConfirm: (selected) => { addItemsModal.onConfirm(selected); setAddItemsModal(null); } }),
 
     // File editor
     fileEditor && React.createElement(FileEditor, { 

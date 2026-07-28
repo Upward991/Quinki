@@ -3,6 +3,7 @@
 // ============================================================
 
 import { useRef, useEffect, useState } from 'react'
+import { getContrastColor } from '../../utils/contrast'
 import { MessageBubble } from './MessageBubble'
 import { ChatHeader } from './ChatHeader'
 import { Composer } from './Composer'
@@ -127,7 +128,7 @@ export function ChatArea(props: ChatAreaProps) {
             </div>
             {showScrollBtn && (
               <button onClick={() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }}
-                style={{ position: 'absolute', bottom: '0px', right: '0px', zIndex: 10, width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--q-tab-accent)', color: 'var(--q-bg)', border: 'none', boxShadow: 'var(--shadow-floating)', cursor: 'pointer' }}>
+                style={{ position: 'absolute', bottom: '0px', right: '0px', zIndex: 10, width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--q-tab-accent)', color: getContrastColor('--q-tab-accent'), border: 'none', boxShadow: 'var(--shadow-floating)', cursor: 'pointer' }}>
                 <ArrowDown size={20} />
               </button>
             )}

@@ -5,6 +5,7 @@
 // ============================================================
 
 import { useState, useRef, useEffect } from 'react'
+import { getContrastColor } from '../../utils/contrast'
 import type { Provider, Agent, ChatMode, ThinkingLevel } from '../../types'
 import { Paperclip, ChevronUp, ChevronDown, Bot } from '../icons'
 import { SlashMenu, type SlashMenuRef } from './SlashMenu'
@@ -375,12 +376,12 @@ function SendButton({ enabled, onClick }: { enabled: boolean; onClick: () => voi
         borderRadius: '8px',
         border: 'none', cursor: enabled ? 'pointer' : 'default',
         backgroundColor: enabled ? (hovered ? 'var(--q-tab-accent)' : 'var(--q-tab-accent-darker)') : 'var(--q-hover)',
-        color: enabled ? '#FFFFFF' : 'var(--q-text-tertiary)',
+        color: enabled ? getContrastColor('--q-tab-accent') : 'var(--q-text-tertiary)',
         flexShrink: 0, padding: '0',
         transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms cubic-bezier(0.16, 1, 0.3, 1), transform 120ms cubic-bezier(0.16, 1, 0.3, 1)',
       }}>
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-        stroke={enabled ? '#FFFFFF' : 'var(--q-text-tertiary)'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        stroke={enabled ? getContrastColor('--q-tab-accent') : 'var(--q-text-tertiary)'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
         <path d="M12 19V5" />
         <path d="M5 12l7-7 7 7" />
       </svg>

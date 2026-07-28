@@ -80,25 +80,49 @@ function MessageBlocks({ thinking, toolCalls, toolResults, compaction, delegatio
   )
 }
 
+// ── Renderer blocchi condiviso: usato da chat + delegation (future-proof — nuovi tipi funzionano in entrambe) ──
+function renderBlocks(blocks: any[], opts: { isError?: boolean; isStreaming?: boolean; timestamp: string; agentName?: string; agentModel?: string; thinkingLevel?: string; onCopy?: (t: string) => void }) {
+  const { isError, isStreaming, timestamp, agentName, agentModel, thinkingLevel, onCopy } = opts
+  return blocks.map((b: any, i: number, arr: any[]) => {
+    if (b.type === 'thinking') return <ThinkingToggle key={`b-${i}`} content={b.content || ""} streaming={isStreaming && i === arr.length - 1} />
+    if (b.type === 'tool_call') return <ToolToggle key={`b-${i}`} label="Tool call" toolName={b.name} body={b.input || ''} isError={false} />
+    if (b.type === 'tool_result') return <ToolToggle key={`b-${i}`} label={b.isError ? 'Tool error' : 'Tool result'} toolName={b.name} body={b.output || ''} isError={b.isError} />
+    if (b.type === 'delegation') return <DelegationBlockView key={`b-${i}`} delegation={b} timestamp={timestamp} streaming={b.streaming} onCopy={onCopy} />
+    if (b.type === 'text') {
+      const isLastBlock = i === arr.length - 1
+      const nextIsText = !isLastBlock && arr[i + 1]?.type === 'text'
+      const showFooter = !nextIsText && (!isLastBlock || !isStreaming)
+      return (
+        <div key={`b-${i}`}>
+          <div style={{ padding: '4px 0' }}>
+            <MarkdownContent text={b.content || ''} isError={isError} />
+          </div>
+          {showFooter && (
+            <Footer
+              content={b.content || ''}
+              timestamp={timestamp}
+              agentName={agentName}
+              agentModel={agentModel}
+              thinkingLevel={thinkingLevel}
+              onCopy={onCopy}
+            />
+          )}
+        </div>
+      )
+    }
+    return null
+  })
+}
+
 // ── Assistant message ──
 function AssistantMessage({ message, onCopy }: { message: Message; onCopy?: (t: string) => void }) {
   const isError = message.isError
 
   return (
     <div className="assistant-content" style={{ maxWidth: 'var(--spacing-chat-max)', minWidth: 0, animation: 'materialize 400ms cubic-bezier(0.16, 1, 0.3, 1)', userSelect: 'text', WebkitUserSelect: 'text' }}>
-      {/* Blocchi cronologici: toggles + testo nell'ORDINE reale */}
+      {/* Blocchi cronologici: toggles + testo nell'ORDINE reale. Footer dopo OGNI turno testo completato */}
       {(message as any).blocks?.length > 0
-        ? (message as any).blocks.map((b: any, i: number, arr: any[]) => {
-            if (b.type === 'thinking') return <ThinkingToggle key={`b-${i}`} content={b.content || ""} streaming={message.isStreaming && i === arr.length - 1} />
-            if (b.type === 'tool_call') return <ToolToggle key={`b-${i}`} label="Tool call" toolName={b.name} body={b.input || ''} isError={false} />
-            if (b.type === 'tool_result') return <ToolToggle key={`b-${i}`} label={b.isError ? 'Tool error' : 'Tool result'} toolName={b.name} body={b.output || ''} isError={b.isError} />
-            if (b.type === 'text') return (
-              <div key={`b-${i}`} style={{ padding: '4px 0' }}>
-                <MarkdownContent text={b.content || ''} isError={isError} />
-              </div>
-            )
-            return null
-          })
+        ? renderBlocks((message as any).blocks, { isError, isStreaming: !!message.isStreaming, timestamp: message.timestamp, agentName: message.agentName, agentModel: message.agentModel, thinkingLevel: message.thinkingLevel, onCopy })
         : <>
             {normalizeThinking(message.thinking)?.map((t, i) => <ThinkingToggle key={`t-${i}`} content={t.content || ""} streaming={message.isStreaming} />)}
             {message.toolCalls?.map((tc, i) => <ToolToggle key={`tc-${i}`} label="Tool call" toolName={tc.name} body={tc.input} isError={false} />)}
@@ -189,7 +213,7 @@ function MarkdownContent({ text, isError }: { text: string; isError?: boolean })
           li: ({ children }) => <li style={{ marginBottom: '4px', color: 'var(--q-text)' }}>{children}</li>,
           table: ({ children }) => (
             <div style={{ overflowX: 'auto', margin: '0 0 12px 0' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>{children}</table>
+              <table style={{ width: 'auto', borderCollapse: 'collapse', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>{children}</table>
             </div>
           ),
           th: ({ children }) => <th style={{ color: 'var(--q-text)', fontWeight: 700, textAlign: 'left', padding: '8px 12px', borderBottom: '1px solid var(--q-border-strong)', boxShadow: 'inset -1px 0 0 var(--q-border)' }}>{children}</th>,
@@ -337,10 +361,10 @@ function DelegationBlockView({ delegation, timestamp }: { delegation: Delegation
           <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', fontWeight: 600, color }}>{delegation.agentName}</span>
           {preview && <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color: 'var(--q-text-tertiary)', opacity: 0.6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{preview}</span>}
           {!preview && <span style={{ flex: 1 }} />}
-          <button onClick={(e) => { e.stopPropagation(); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
+          <button onClick={(e) => { e.stopPropagation(); try { navigator.clipboard.writeText(delegation.response || delegation.taskContent || '') } catch {} }}
             onMouseEnter={() => setCopyHovered(true)} onMouseLeave={() => setCopyHovered(false)}
-            style={{ opacity: hovered ? 1 : 0, background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: 'var(--radius-sm)', backgroundColor: copyHovered ? 'var(--q-hover)' : 'transparent', color, transition: 'opacity 120ms ease' }}>
-            {copied ? <Check size={14} /> : <Copy size={14} />}
+            style={{ opacity: hovered ? 1 : 0, background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: 'var(--radius-sm)', color: copyHovered ? 'var(--q-text)' : color, transition: 'opacity 120ms ease' }}>
+            <Copy size={14} />
           </button>
         </div>
       </div>
@@ -356,16 +380,14 @@ function DelegationBlockView({ delegation, timestamp }: { delegation: Delegation
             </div>
           </div>
 
-          {/* ALL blocks via shared MessageBlocks — same as chat */}
-          <MessageBlocks
-            thinking={delegation.thinking}
-            toolCalls={delegation.toolCalls}
-            toolResults={delegation.toolResults}
-            compaction={delegation.compaction}
-            delegations={delegation.delegations}
-            content={delegation.response}
-            timestamp={timestamp}
-          />
+          {/* Blocchi nested della delega in ORDINE reale (thinking/tool/testo — stesso renderer della chat) */}
+          {delegation.blocks?.length > 0
+            ? renderBlocks(delegation.blocks, { isStreaming: !!streaming, timestamp, agentName: delegation.agentName, agentModel: delegation.agentModel, thinkingLevel: delegation.thinkingLevel, onCopy })
+            : delegation.response && (
+              <div style={{ padding: '4px 0' }}>
+                <MarkdownContent text={delegation.response} />
+              </div>
+            )}
 
           <Footer
             content={delegation.response}
