@@ -279,7 +279,8 @@ export function syncModelsJson(config: ProvidersConfig): void {
       // Il Pi SDK rifiuta apiKey vuota (schema) e provider non-built-in senza chiave,
       // invalidando TUTTO models.json (anche gli altri provider sani).
       const isOllama = name.toLowerCase() === "ollama" || (pcfg.baseUrl || "").includes("11434");
-      if (!pcfg.apiKey && !isOllama) {
+      const isLocal = (pcfg.baseUrl || "").includes("localhost") || (pcfg.baseUrl || "").includes("127.0.0.1") || isOllama;
+      if (!pcfg.apiKey && !isLocal) {
         process.stderr.write(`[providers] syncModelsJson: skipping ${name} (no apiKey)`);
         continue;
       }

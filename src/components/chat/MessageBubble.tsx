@@ -167,18 +167,6 @@ function AssistantMessage({ message, onCopy }: { message: Message; onCopy?: (t: 
         </div>
       )}
 
-      {/* Footer per messaggi con blocks (dopo tutti i blocchi, SOLO a fine generazione) */}
-      {(message as any).blocks?.length > 0 && !message.isStreaming && (
-        <Footer
-          content={message.content || ''}
-          timestamp={message.timestamp}
-          agentName={message.agentName}
-          agentModel={message.agentModel}
-          thinkingLevel={message.thinkingLevel}
-          onCopy={onCopy}
-        />
-      )}
-
       {/* Compaction + delegation — AFTER text+footer, NO footer */}
       {message.compaction?.map((comp, i) => (
         <CompactionToggle key={`comp-${i}`} content={comp.content || ""} isNoop={comp.isNoop} />
@@ -213,7 +201,7 @@ function MarkdownContent({ text, isError }: { text: string; isError?: boolean })
           li: ({ children }) => <li style={{ marginBottom: '4px', color: 'var(--q-text)' }}>{children}</li>,
           table: ({ children }) => (
             <div style={{ overflowX: 'auto', margin: '0 0 12px 0' }}>
-              <table style={{ width: 'auto', borderCollapse: 'collapse', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>{children}</table>
+              <table style={{ width: 'auto', borderCollapse: 'collapse', fontSize: '13px', fontFamily: 'var(--font-interface)', border: '1px solid var(--q-border)' }}>{children}</table>
             </div>
           ),
           th: ({ children }) => <th style={{ color: 'var(--q-text)', fontWeight: 700, textAlign: 'left', padding: '8px 12px', borderBottom: '1px solid var(--q-border-strong)', boxShadow: 'inset -1px 0 0 var(--q-border)' }}>{children}</th>,
