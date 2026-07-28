@@ -4712,8 +4712,9 @@ export async function fetchProviderModelsIPC(
     }
     process.stderr.write(`[security-audit] fetchProviderModelsIPC: provider=${providerName} resolvedKey=${actualKey || "NOT-FOUND"} recoveredKeyLen=${realApiKey.length} success=${realApiKey.length > 0}`);
   }
-  // === Ollama non ha bisogno di API key (locale) — non bloccare ===
-  if (!realApiKey && !(providerName.toLowerCase() === "ollama" || providerName.toLowerCase() === "openrouter" || baseUrl.includes("11434") || baseUrl.includes("openrouter.ai"))) {
+  // === Localhost/127.0.0.1 non richiede API key (server locale, qualsiasi porta) ===
+  const isLocal = baseUrl.includes("11434") || baseUrl.includes("localhost") || baseUrl.includes("127.0.0.1") || providerName.toLowerCase() === "ollama" || providerName.toLowerCase() === "openrouter" || baseUrl.includes("openrouter.ai");
+  if (!realApiKey && !isLocal) {
     process.stderr.write(`[security-audit] fetchProviderModelsIPC: provider=${providerName} FAILED — no apiKey`);
     return [];
   }
