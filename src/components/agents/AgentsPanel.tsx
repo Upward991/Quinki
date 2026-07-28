@@ -909,10 +909,11 @@ function FileEditor({ agentId, skillName, fileName, onClose }) {
   });
 }
 
-function AddItemsModal({ title, items, onClose, onConfirm }) {
+function AddItemsModal({ title, items, initialSelected, onClose, onConfirm }) {
   const [search, setSearch] = useState('');
-  const [selected, setSelected] = useState(new Set());
-  const filtered = items.filter(item => item.name.toLowerCase().includes(search.toLowerCase()));
+  const [selected, setSelected] = useState(() => new Set(initialSelected || []));
+  useEffect(() => { setSelected(new Set(initialSelected || [])) }, [initialSelected]);
+  const filtered = items.filter(item => item.name.toLowerCase().includes(search.toLowerCase())).sort((a, b) => (selected.has(a.name) ? 0 : 1) - (selected.has(b.name) ? 0 : 1));
 
   const toggle = (name) => {
     setSelected(prev => {

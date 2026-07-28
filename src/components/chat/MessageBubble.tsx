@@ -337,7 +337,7 @@ function DelegationBlockView({ delegation, timestamp }: { delegation: Delegation
   const baseColorRgb = '201, 112, 132'
   const color = collapsed ? (hovered ? `rgba(${baseColorRgb}, 0.70)` : `rgba(${baseColorRgb}, 0.50)`) : baseColor
   const bg = hovered ? `rgba(${baseColorRgb}, 0.04)` : 'transparent'
-  const preview = collapsed ? delegation.response.split('\n')[0]?.substring(0, 80) : null
+  const preview = collapsed ? (delegation.response || '').split('\n')[0]?.substring(0, 80) : null
 
   return (
     <div style={{ marginTop: '12px' }}>

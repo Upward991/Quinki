@@ -1,5 +1,78 @@
 import React from 'react'
-import { useState, useRef, useEffect, useCallback } from 'react'
-import { Search } from '../icons'
+import { useState, useEffect } from 'react'
+import { Search, X } from '../icons'
 
-export function AddItemsModal({title:e,items:t,initialSelected:initSel,onClose:n,onConfirm:onc}){let[r,i]=useState(''),[a,o]=useState(()=>new Set(initSel||[]));useEffect(()=>{o(new Set(initSel||[]))},[initSel]);let s=t.filter(e=>e.name.toLowerCase().includes(r.toLowerCase())).sort((e,t)=>{let n=a.has(e.name),r=a.has(t.name);return n&&!r?-1:!n&&r?1:0}),c=e=>{o(t=>{let n=new Set(t);return n.has(e)?n.delete(e):n.add(e),n})};return React.createElement('div',{style:{position:'fixed',inset:0,zIndex:100,backgroundColor:'var(--q-overlay)',display:'flex',alignItems:'center',justifyContent:'center'},onClick:n,children:React.createElement('div',{style:{backgroundColor:'var(--q-bg-elevated)',border:'1px solid var(--q-border)',borderRadius:'var(--radius-lg)',maxWidth:'500px',maxHeight:'500px',width:'90%',display:'flex',flexDirection:'column',boxShadow:'var(--shadow-modal)',animation:'modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)'},onClick:e=>e.stopPropagation(),children:[React.createElement('div',{style:{padding:'16px',display:'flex',alignItems:'center'},children:[React.createElement('span',{style:{color:'var(--q-text)',fontSize:'16px',fontWeight:600,fontFamily:'var(--font-interface)'},children:e}),React.createElement('span',{style:{flex:1}})]}),React.createElement('div',{style:{padding:'8px 16px'},children:React.createElement('div',{style:{display:'flex',alignItems:'center',paddingLeft:'10px',backgroundColor:'var(--q-bg-panel)',border:'1px solid var(--q-border)',borderRadius:'var(--radius-md)'},children:[React.createElement(Search,{size:14,style:{color:'var(--q-text-tertiary)',flexShrink:0}}),React.createElement('div',{style:{width:'8px',flexShrink:0}}),React.createElement('input',{type:'text',placeholder:'Search...',value:r,onChange:e=>i(e.target.value),style:{flex:1,backgroundColor:'transparent',border:'none',outline:'none',color:'var(--q-text)',fontSize:'14px',fontFamily:'var(--font-interface)',padding:'8px 0'}})]})}),React.createElement('div',{style:{flex:1,overflowY:'auto'},children:s.sort((e,t)=>!a.has(e.name)-+!a.has(t.name)).map(e=>{let t=a.has(e.name);return React.createElement('div',{onClick:()=>c(e.name),style:{padding:'4px 16px',display:'flex',alignItems:'center',cursor:'pointer'},onMouseEnter:e=>{e.currentTarget.style.backgroundColor='rgba(255,255,255,0.04)'},onMouseLeave:e=>{e.currentTarget.style.backgroundColor='transparent'},children:[React.createElement('div',{style:{flex:1,minWidth:0},children:[React.createElement('div',{style:{color:'var(--q-text)',fontSize:'14px',fontFamily:'var(--font-interface)'},children:e.name}),e.description&&React.createElement('div',{style:{color:'var(--q-text-tertiary)',fontSize:'12px',fontFamily:'var(--font-interface)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'},children:e.description})]}),React.createElement('input',{type:'checkbox',checked:t,onChange:()=>c(e.name),style:{accentColor:'var(--q-accent-secondary)',flexShrink:0,marginLeft:'8px'}})]},e.name)})}),React.createElement('div',{style:{padding:'8px 16px',display:'flex',alignItems:'center'},children:[React.createElement('button',{className:'q-press',onClick:()=>{o(new Set(s.map(e=>e.name)))},disabled:s.length===0,style:{background:'none',border:'none',cursor:s.length===0?'default':'pointer',color:s.length===0?'var(--q-text-tertiary)':'var(--q-text-secondary)',fontSize:'13px',fontFamily:'var(--font-interface)',padding:'4px 8px'},children:'Select all'}),React.createElement('button',{className:'q-press',onClick:()=>{o(new Set)},disabled:a.size===0,style:{background:'none',border:'none',cursor:a.size===0?'default':'pointer',color:a.size===0?'var(--q-text-tertiary)':'var(--q-text-secondary)',fontSize:'13px',fontFamily:'var(--font-interface)',padding:'4px 8px'},children:'Deselect'}),React.createElement('span',{style:{flex:1}}),React.createElement('button',{className:'q-press',onClick:n,style:{background:'none',border:'none',cursor:'pointer',color:'var(--q-accent-danger)',fontSize:'15px',fontFamily:'var(--font-interface)',padding:'4px 8px'},children:'Cancel'}),React.createElement('div',{style:{width:'8px'}}),React.createElement('button',{className:'q-press',onClick:()=>{onc([...a])},disabled:a.size===0,style:{padding:'4px 16px',borderRadius:'var(--radius-md)',border:'none',cursor:a.size===0?'default':'pointer',backgroundColor:a.size===0?'transparent':'var(--q-accent-secondary)',color:a.size===0?'var(--q-text-tertiary)':'var(--q-bg)',fontSize:'15px',fontFamily:'var(--font-interface)',opacity:a.size===0?.5:1},children:['Add (',a.size,')']})]})]})})}
+interface AddItemsModalProps {
+  title: string
+  items: { name: string; description?: string }[]
+  initialSelected?: string[]
+  onClose: () => void
+  onConfirm: (selected: string[]) => void
+}
+
+export function AddItemsModal({ title, items, initialSelected, onClose, onConfirm }: AddItemsModalProps) {
+  const [selected, setSelected] = useState<Set<string>>(() => new Set(initialSelected || []))
+  const [query, setQuery] = useState('')
+
+  useEffect(() => { setSelected(new Set(initialSelected || [])) }, [initialSelected])
+
+  const filtered = items
+    .filter(item => item.name.toLowerCase().includes(query.toLowerCase()))
+    .sort((a, b) => (selected.has(a.name) ? 0 : 1) - (selected.has(b.name) ? 0 : 1))
+
+  const toggle = (name: string) => setSelected(prev => {
+    const s = new Set(prev)
+    if (s.has(name)) s.delete(name); else s.add(name)
+    return s
+  })
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+      <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', maxWidth: '500px', maxHeight: '500px', width: '90%', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-modal)', animation: 'modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)' }} onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div style={{ padding: '16px', display: 'flex', alignItems: 'center' }}>
+          <span style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>{title}</span>
+          <span style={{ flex: 1 }} />
+        </div>
+        {/* Search */}
+        <div style={{ padding: '0 16px 8px 16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', paddingLeft: '10px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-md)' }}>
+            <Search size={14} style={{ color: 'var(--q-text-tertiary)', flexShrink: 0 }} />
+            <div style={{ width: '8px', flexShrink: 0 }} />
+            <input type="text" placeholder="Search..." value={query} onChange={e => setQuery(e.target.value)} autoFocus
+              style={{ flex: 1, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '8px 0' }} />
+          </div>
+        </div>
+        {/* List */}
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          {filtered.map(item => (
+            <div key={item.name} onClick={() => toggle(item.name)}
+              style={{ padding: '4px 16px', display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+              onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.04)' }}
+              onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>{item.name}</div>
+                {item.description && <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.description}</div>}
+              </div>
+              <input type="checkbox" checked={selected.has(item.name)} onChange={() => toggle(item.name)}
+                style={{ accentColor: 'var(--q-accent-secondary)', flexShrink: 0, marginLeft: '8px' }} />
+            </div>
+          ))}
+        </div>
+        {/* Footer */}
+        <div style={{ padding: '8px 16px', display: 'flex', alignItems: 'center' }}>
+          <button className="q-press" onClick={() => setSelected(new Set(filtered.map(i => i.name)))} disabled={filtered.length === 0}
+            style={{ background: 'none', border: 'none', cursor: filtered.length === 0 ? 'default' : 'pointer', color: filtered.length === 0 ? 'var(--q-text-tertiary)' : 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }}>Select all</button>
+          <button className="q-press" onClick={() => setSelected(new Set())} disabled={selected.size === 0}
+            style={{ background: 'none', border: 'none', cursor: selected.size === 0 ? 'default' : 'pointer', color: selected.size === 0 ? 'var(--q-text-tertiary)' : 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }}>Deselect</button>
+          <span style={{ flex: 1 }} />
+          <button className="q-press" onClick={onClose}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-accent-danger)', fontSize: '15px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }}>Cancel</button>
+          <div style={{ width: '8px' }} />
+          <button className="q-press" onClick={() => onConfirm([...selected])} disabled={selected.size === 0}
+            style={{ padding: '4px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: selected.size === 0 ? 'default' : 'pointer', backgroundColor: selected.size === 0 ? 'transparent' : 'var(--q-accent-secondary)', color: selected.size === 0 ? 'var(--q-text-tertiary)' : 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)', opacity: selected.size === 0 ? 0.5 : 1 }}>Add ({selected.size})</button>
+        </div>
+      </div>
+    </div>
+  )
+}

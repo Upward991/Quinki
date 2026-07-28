@@ -4183,6 +4183,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
           break;
         }
         case "agent_end":
+          if (this.#compactingSessions.has(key)) break; // sopprimi fine agente durante compaction
           ws.send(JSON.stringify({ type: "typing_stop_broadcast", sessionKey: key }));
           this.#captureSessionMeta(key);
           this.#emitContextUsage(ws, key, "ctx-post-agent-end");
