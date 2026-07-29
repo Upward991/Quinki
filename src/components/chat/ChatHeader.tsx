@@ -350,7 +350,7 @@ export function ChatHeader(props: ChatHeaderProps) {
           agents={props.agents.filter(a => a.id !== 'orchestrator')}
           initialSelected={props.selectedAgentIds.filter(id => id !== 'orchestrator')}
           onClose={() => setAddAgentOpen(false)}
-          onAdd={(ids) => { const current = new Set(props.selectedAgentIds); ids.forEach(id => { if (!current.has(id)) props.onAgentToggle(id) }); current.forEach(id => { if (!ids.includes(id)) props.onAgentToggle(id) }); setAddAgentOpen(false) }}
+          onAdd={(ids) => { ids.forEach(id => props.onAgentToggle(id)); setAddAgentOpen(false) }}
         />
       )}
 
@@ -424,10 +424,11 @@ function AgentPickerModal({ agents, initialSelected, onClose, onAdd }: {
   onClose: () => void
   onAdd: (ids: string[]) => void
 }) {
-  const [selected, setSelected] = useState<Set<string>>(() => new Set(initialSelected || []))
-  useEffect(() => { setSelected(new Set(initialSelected || [])) }, [initialSelected])
+  const [selected, setSelected] = useState<Set<string>>(new Set())
   const [query, setQuery] = useState('')
-  const filtered = agents.filter(a => a.name.toLowerCase().includes(query.toLowerCase())).sort((a, b) => (selected.has(a.id) ? 0 : 1) - (selected.has(b.id) ? 0 : 1))
+  // NASCONDI gli agenti già in chat
+  const available = agents.filter(a => !(initialSelected || []).includes(a.id))
+  const filtered = available.filter(a => a.name.toLowerCase().includes(query.toLowerCase()))
   const toggle = (id: string) => setSelected(prev => { const s = new Set(prev); if (s.has(id)) s.delete(id); else s.add(id); return s })
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>

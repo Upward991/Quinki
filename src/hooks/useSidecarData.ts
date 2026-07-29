@@ -642,18 +642,44 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
             merged.push(base)
           }
         }
-        // === Deleghe persistite: attach ai messaggi assistant per timestamp ===
+        // === Deleghe persistite: inserisci cronologicamente NEI blocks (tra tool_call e tool_result) ===
         try {
           const dels = await call('getDelegations', { sessionKey })
           const delList = dels?.delegations || dels || []
           if (Array.isArray(delList) && delList.length > 0) {
             for (const d of delList) {
-              const block = { id: d.id, agentName: d.agentName || 'agent', agentModel: d.model || '', mode: d.mode || '', tools: d.tools || [], systemPrompt: '', taskContent: d.delegatedMessage || '', response: typeof d.content === 'string' ? d.content : (Array.isArray(d.content) ? d.content.filter((b: any) => b?.type === 'text').map((b: any) => b.text || '').join('') : ''), thinkingLevel: d.thinkingLevel || '' }
-              // Attach al primo assistant con timestamp >= delega, altrimenti all'ultimo
+              // Converti il content salvato in blocks renderizzabili
+              const nestedBlocks: any[] = []
+              if (Array.isArray(d.content)) {
+                for (const b of d.content) {
+                  if (b?.type === 'thinking' || b?.type === 'thinking_start') nestedBlocks.push({ type: 'thinking', content: b.content || b.thinking || '' })
+                  else if (b?.type === 'toolCall' || b?.type === 'tool_call') nestedBlocks.push({ type: 'tool_call', name: b.name || b.text || 'tool', input: b.input || b.args || '' })
+                  else if (b?.type === 'toolResult' || b?.type === 'tool_result') nestedBlocks.push({ type: 'tool_result', name: b.name || b.text || 'tool', output: b.content || b.text || '', isError: !!b.isError })
+                  else if (b?.type === 'text') nestedBlocks.push({ type: 'text', content: b.text || b.content || '' })
+                }
+              }
+              const delBlock = { type: 'delegation', id: d.id, agentName: d.agentName || 'agent', agentModel: d.model || '', taskContent: d.delegatedMessage || '', response: typeof d.content === 'string' ? d.content : '', blocks: nestedBlocks, thinkingLevel: d.thinkingLevel || '', streaming: false }
+              // Trova il messaggio assistant che contiene un tool_call con timestamp <= delega
+              // e inserisci il delegation block DOPO l'ultimo tool_call nei blocks
               let target = -1
-              for (let i = 0; i < merged.length; i++) { if (merged[i].role === 'assistant' && new Date(merged[i].timestamp).getTime() >= (d.timestamp || 0)) { target = i; break } }
-              if (target < 0) { for (let i = merged.length - 1; i >= 0; i--) { if (merged[i].role === 'assistant') { target = i; break } } }
-              if (target >= 0) merged[target].delegations = [...(merged[target].delegations || []), block]
+              for (let i = merged.length - 1; i >= 0; i--) {
+                if (merged[i].role === 'assistant' && (merged[i].blocks || []).some((b: any) => b.type === 'tool_call')) {
+                  target = i; break
+                }
+              }
+              if (target >= 0) {
+                const blocks = [...(merged[target].blocks || [])]
+                // Inserisci dopo l'ultimo tool_call (prima del tool_result se c'è)
+                let lastToolCallIdx = -1
+                for (let i = blocks.length - 1; i >= 0; i--) { if (blocks[i].type === 'tool_call') { lastToolCallIdx = i; break } }
+                blocks.splice(lastToolCallIdx + 1, 0, delBlock)
+                merged[target].blocks = blocks
+              } else {
+                // Fallback: append all'ultimo assistant
+                let last = -1
+                for (let i = merged.length - 1; i >= 0; i--) { if (merged[i].role === 'assistant') { last = i; break } }
+                if (last >= 0) merged[last].blocks = [...(merged[last].blocks || []), delBlock]
+              }
             }
           }
         } catch {}

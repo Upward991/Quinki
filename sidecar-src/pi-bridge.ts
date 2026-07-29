@@ -3920,6 +3920,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
           break;
         }
         case "message_end": {
+          if (this.#compactingSessions.has(key)) break;
           if (e.message?.role === "assistant") {
             const currentThinking = (() => { try { return pi.thinkingLevel; } catch { return undefined; } })();
             const sessionEntry = this.#entries.get(key);

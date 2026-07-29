@@ -327,11 +327,11 @@ function CompactionToggle({ content, isNoop }: { content: string; isNoop: boolea
 }
 
 // ── Delegation block (full chat structure inside) ──
-function DelegationBlockView({ delegation, timestamp }: { delegation: DelegationBlock; timestamp: string }) {
+function DelegationBlockView({ delegation, timestamp, streaming, onCopy }: { delegation: any; timestamp: string; streaming?: boolean; onCopy?: (t: string) => void }) {
   const [collapsed, setCollapsed] = useState(true)
   const [hovered, setHovered] = useState(false)
   const [copyHovered, setCopyHovered] = useState(false)
-  const [copied, setCopied] = useState(false)
+  useEffect(() => { if (streaming === true) setCollapsed(false); else if (streaming === false) setCollapsed(true) }, [streaming])
 
   const baseColor = 'var(--q-delegation)'
   const baseColorRgb = '201, 112, 132'

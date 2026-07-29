@@ -907,9 +907,10 @@ function FileEditor({ agentId, skillName, fileName, onClose }) {
 
 function AddItemsModal({ title, items, initialSelected, onClose, onConfirm }) {
   const [search, setSearch] = useState('');
-  const [selected, setSelected] = useState(() => new Set(initialSelected || []));
-  useEffect(() => { setSelected(new Set(initialSelected || [])) }, [initialSelected]);
-  const filtered = items.filter(item => item.name.toLowerCase().includes(search.toLowerCase())).sort((a, b) => (selected.has(a.name) ? 0 : 1) - (selected.has(b.name) ? 0 : 1));
+  const [selected, setSelected] = useState(new Set());
+  // NASCONDI gli elementi già presenti (non mostrarli nella lista)
+  const available = items.filter(item => !(initialSelected || []).includes(item.name));
+  const filtered = available.filter(item => item.name.toLowerCase().includes(search.toLowerCase()));
 
   const toggle = (name) => {
     setSelected(prev => {
