@@ -659,7 +659,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
                 }
               }
               const delBlock = { type: 'delegation', id: d.id, agentName: d.agentName || 'agent', agentModel: d.model || '', taskContent: d.delegatedMessage || '', response: typeof d.content === 'string' ? d.content : '', blocks: nestedBlocks, thinkingLevel: d.thinkingLevel || '', streaming: false }
-              // Trova il PROSSIMO tool_call non ancora assegnato (in ordine cronologico)
+              // Trova il PROSSIMO tool_call delegate_to_agent non assegnato (in ordine cronologico)
               let found = false
               for (let mi = 0; mi < merged.length && !found; mi++) {
                 if (merged[mi].role !== 'assistant') continue
@@ -667,10 +667,8 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
                 for (let bi = 0; bi < blocks.length; bi++) {
                   if (blocks[bi].type === 'tool_call' && (blocks[bi].name === 'delegate_to_agent' || (blocks[bi].name || '').includes('delegate')) && !assignedToolCalls.has(mi * 1000 + bi)) {
                     assignedToolCalls.add(mi * 1000 + bi)
-                    // Inserisci il delegation block DOPO questo tool_call
-                    const newBlocks = [...blocks]
-                    newBlocks.splice(bi + 1, 0, delBlock)
-                    merged[mi].blocks = newBlocks
+                    // Aggiungi al delegations array del messaggio (rendering garantito da linea 174)
+                    merged[mi].delegations = [...(merged[mi].delegations || []), delBlock]
                     found = true
                     break
                   }
@@ -679,7 +677,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
               if (!found) {
                 let last = -1
                 for (let i = merged.length - 1; i >= 0; i--) { if (merged[i].role === 'assistant') { last = i; break } }
-                if (last >= 0) merged[last].blocks = [...(merged[last].blocks || []), delBlock]
+                if (last >= 0) merged[last].delegations = [...(merged[last].delegations || []), delBlock]
               }
             }
           }
