@@ -2755,9 +2755,32 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
 
     // Collect delegation content for persistence
     try {
-      const tempMsgs = (tempPi.agent?.state?.messages || []) as any[];
+      // Prova getEntries prima (più completo di buildSessionContext)
+      const tempSm = (tempPi as any)?.sessionManager || (tempPi as any)?.agent?.state?.sessionManager;
+      const tempEntries = tempSm?.getEntries?.() || [];
+      for (const ent of tempEntries) {
+        if (ent?.type === "message" && ent?.message?.role === "assistant") {
+          const blocks = Array.isArray(ent.message?.content) ? ent.message.content : [];
+          for (const b of blocks) {
+            if (b?.type === "thinking" && b.thinking) delegationContent.push({ type: "thinking", thinking: b.thinking, timestamp: Date.now() });
+            if (b?.type === "text" && b.text) delegationContent.push({ type: "text", text: b.text, timestamp: Date.now() });
+            if (b?.type === "toolCall") {
+              const argsStr = typeof b.arguments === "string" ? b.arguments : JSON.stringify(b.arguments || {}, null, 2);
+              delegationContent.push({ type: "toolCall", text: b.name || 'tool', thinking: argsStr, streaming: false, timestamp: Date.now() });
+            }
+          }
+        } else if (ent?.type === "message" && ent?.message?.role === "tool") {
+          const resultText = typeof ent.message?.content === 'string' ? ent.message.content : this.#parseContent(ent.message?.content);
+          delegationContent.push({ type: "toolResult", text: ent.message?.toolName || 'tool', thinking: resultText, streaming: false, isError: !!ent.message?.isError, timestamp: Date.now() });
+        }
+      }
       for (const m of tempMsgs) {
-        if (m?.role === "assistant") {
+        if (m?.role === "tool" || m?.role === "toolResult") {
+          // Messaggio tool result: content è stringa o array
+          const resultText = typeof m?.content === 'string' ? m.content : this.#parseContent(m?.content);
+          delegationContent.push({ type: "toolResult", text: m?.toolName || m?.name || 'tool', thinking: resultText, streaming: false, isError: !!m?.isError, timestamp: Date.now() });
+        } else {
+          // Messaggio assistant: blocks nell'array content
           const blocks = Array.isArray(m?.content) ? m.content : [];
           for (const b of blocks) {
             if (b?.type === "thinking" && b.thinking) delegationContent.push({ type: "thinking", thinking: b.thinking, timestamp: Date.now() });
@@ -2990,13 +3013,25 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
           self.#sendToWs(self.#wss.get(sessionKey), { type: "stream_event", sessionKey, eventType: "delegation_start", messageId: delegationId, agentName: agent_name, task: task });
           // Subscribe to temp session events → forward as delegation_stream
           let delegationContent: any[] = [];
+          // Helper: accumula blocchi cronologicamente (merge consecutive same-type)
+          const pushDel = (type: string, data: any) => {
+            const last = delegationContent[delegationContent.length - 1];
+            if (last && last.type === type) {
+              // Merge: appendi al contenuto dell'ultimo blocco
+              if (type === 'thinking') last.thinking = (last.thinking || '') + (data.thinking || '');
+              else if (type === 'text') last.text = (last.text || '') + (data.text || '');
+            } else {
+              delegationContent.push({ ...data, type, timestamp: Date.now() });
+            }
+          };
           const tempSub = tempPi.subscribe((e: any) => {
-            // Forward tool execution events (tool name + result) — same as #listen but as stream_event
             if (e.type === "tool_execution_start") {
               self.#sendToWs(self.#wss.get(sessionKey), { type: "stream_event", sessionKey, eventType: "toolcall_start", delta: e.toolName || "", messageId: delegationId });
               let argsStr = "";
               try { argsStr = typeof e.args === "string" ? e.args : JSON.stringify(e.args, null, 2); } catch {}
               if (argsStr) self.#sendToWs(self.#wss.get(sessionKey), { type: "stream_event", sessionKey, eventType: "toolcall_delta", delta: argsStr, messageId: delegationId });
+              // Accumula toolCall
+              delegationContent.push({ type: "toolCall", text: e.toolName || 'tool', thinking: argsStr, streaming: false, timestamp: Date.now() });
             } else if (e.type === "tool_execution_end") {
               let resultText = "";
               try {
@@ -3007,13 +3042,19 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
                   } else if (typeof r.content === "string") { resultText = r.content; }
                 }
               } catch {}
+              // Errori: se il contenuto è vuoto, usa il messaggio d'errore
+              if (!resultText && e.isError) { try { resultText = String((e as any).error || (r as any)?.error || 'Tool execution failed'); } catch { resultText = 'Tool execution failed'; } }
               self.#sendToWs(self.#wss.get(sessionKey), { type: "stream_event", sessionKey, eventType: "toolcall_end", delta: resultText, messageId: delegationId, isError: !!e.isError });
+              // Accumula toolResult
+              delegationContent.push({ type: "toolResult", text: e.toolName || 'tool', thinking: resultText, streaming: false, isError: !!e.isError, timestamp: Date.now() });
             } else if (e.type === "message_update" && e.assistantMessageEvent && e.message?.role === "assistant") {
               const ame = e.assistantMessageEvent;
-              // Skip toolcall from message_update — handled by tool_execution_start/end above
               if (ame.type === "toolcall_start" || ame.type === "toolcall_delta" || ame.type === "toolcall_end") return;
               // Forward thinking/text events
               self.#sendToWs(self.#wss.get(sessionKey), { type: "stream_event", sessionKey, eventType: ame.type, delta: ame.delta || "", messageId: delegationId });
+              // Accumula thinking/text
+              if (ame.type === "thinking_delta" || ame.type === "thinking_start") pushDel('thinking', { thinking: ame.delta || '' });
+              else if (ame.type === "text_delta" || ame.type === "text_start") pushDel('text', { text: ame.delta || '' });
             }
           });
           // === Set thinking level (last moment, after all system prompt work) ===
@@ -3061,12 +3102,14 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
           const delModel = (tempPi?.model?.id ?? '') || agentOverride.model || (mainSession?.model?.id ?? '') || '';
           const delThinking = tempPi?.thinkingLevel || agentOverride.thinkingLevel || mainSession?.thinkingLevel || '';
           self.#sendToWs(self.#wss.get(sessionKey), { type: "stream_event", sessionKey, eventType: "delegation_end", messageId: delegationId, agentName: agent_name, response: responseText, model: delModel, thinkingLevel: delThinking });
-          // Collect delegation content from temp session for persistence
+          // Collect delegation content from temp session entries (include tool results)
           try {
-            const tempMsgs = (tempPi.agent?.state?.messages || []) as any[];
-            for (const m of tempMsgs) {
-              if (m?.role === "assistant") {
-                const blocks = Array.isArray(m?.content) ? m.content : [];
+            const tempSm = (tempPi as any)?.sessionManager || (tempPi as any)?.agent?.state?.sessionManager;
+            const tempEntries = tempSm?.getEntries?.() || [];
+            self.logDebug("delegate-entries", { count: tempEntries.length, types: tempEntries.map((e: any) => e?.type) });
+            for (const ent of tempEntries) {
+              if (ent?.type === "message" && ent?.message?.role === "assistant") {
+                const blocks = Array.isArray(ent.message?.content) ? ent.message.content : [];
                 for (const b of blocks) {
                   if (b?.type === "thinking" && b.thinking) delegationContent.push({ type: "thinking", thinking: b.thinking, timestamp: Date.now() });
                   if (b?.type === "text" && b.text) delegationContent.push({ type: "text", text: b.text, timestamp: Date.now() });
@@ -3074,13 +3117,14 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
                     const argsStr = typeof b.arguments === "string" ? b.arguments : JSON.stringify(b.arguments || {}, null, 2);
                     delegationContent.push({ type: "toolCall", text: b.name || 'tool', thinking: argsStr, streaming: false, timestamp: Date.now() });
                   }
-                  if (b?.type === "toolResult") {
-                    delegationContent.push({ type: "toolResult", text: b.name || 'tool', thinking: self.#parseContent(b.content), streaming: false, isError: !!b.isError, timestamp: Date.now() });
-                  }
                 }
+              } else if (ent?.type === "message" && ent?.message?.role === "tool") {
+                // Tool result message
+                const resultText = typeof ent.message?.content === 'string' ? ent.message.content : self.#parseContent(ent.message?.content);
+                delegationContent.push({ type: "toolResult", text: ent.message?.toolName || 'tool', thinking: resultText, streaming: false, isError: !!ent.message?.isError, timestamp: Date.now() });
               }
             }
-          } catch {}
+          } catch (e2: any) { self.logDebug("delegate-entries-error", { error: e2?.message }); }
           // Save delegation for persistence
           self.#saveDelegation(sessionKey, { id: delegationId, agentName: agent_name, delegatedMessage: task, content: delegationContent, timestamp: Date.now(), model: delModel, thinkingLevel: delThinking });
           // Cleanup: dispose sessione temporanea + remove from #active
