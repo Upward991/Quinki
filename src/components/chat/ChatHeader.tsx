@@ -348,7 +348,7 @@ export function ChatHeader(props: ChatHeaderProps) {
       {addAgentOpen && (
         <AgentPickerModal
           agents={props.agents.filter(a => a.id !== 'orchestrator')}
-          initialSelected={props.selectedAgentIds}
+          initialSelected={props.selectedAgentIds.filter(id => id !== 'orchestrator')}
           onClose={() => setAddAgentOpen(false)}
           onAdd={(ids) => { const current = new Set(props.selectedAgentIds); ids.forEach(id => { if (!current.has(id)) props.onAgentToggle(id) }); current.forEach(id => { if (!ids.includes(id)) props.onAgentToggle(id) }); setAddAgentOpen(false) }}
         />

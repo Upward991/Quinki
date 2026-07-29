@@ -108,10 +108,8 @@ export function AgentsPanel(props) {
 
   const doAddSkillsToAgent = async (agentId, skillNames) => {
     if (!call) return;
-    const agent = agents.find(a => a.id === agentId);
-    if (!agent) return;
-    const existing = agent.skills.map(s => s.name);
-    const merged = [...new Set([...existing, ...skillNames])];
+    // SOSTITUISCI: il menu restituisce TUTTI i selezionati
+    const merged = skillNames;
     try {
       await call('updateAgent', { id: agentId, config: { skills: merged } });
       await refreshAgents();
@@ -121,10 +119,7 @@ export function AgentsPanel(props) {
 
   const doAddToolsToAgent = async (agentId, toolNames) => {
     if (!call) return;
-    const agent = agents.find(a => a.id === agentId);
-    if (!agent) return;
-    const existing = agent.tools.map(t => t.name);
-    const merged = [...new Set([...existing, ...toolNames])];
+    const merged = toolNames;
     try {
       await call('updateAgent', { id: agentId, config: { tools: merged } });
       await refreshAgents();
