@@ -296,7 +296,7 @@ function GenericToggle({ label, content, baseColor, baseColorRgb, isItalic, bold
           {!preview && <span style={{ flex: 1 }} />}
           <button onClick={(e) => { e.stopPropagation(); try { navigator.clipboard.writeText(content) } catch {} }}
             onMouseEnter={() => setCopyHovered(true)} onMouseLeave={() => setCopyHovered(false)}
-            style={{ opacity: hovered ? 1 : 0, background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: 'var(--radius-sm)', backgroundColor: copyHovered ? 'var(--q-hover)' : 'transparent', color, transition: 'opacity 120ms ease' }}>
+            style={{ opacity: hovered ? 1 : 0, background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: 'var(--radius-sm)', color: copyHovered ? color : `rgba(${baseColorRgb}, 0.60)` }}>
             <Copy size={14} />
           </button>
         </div>
@@ -337,7 +337,8 @@ function DelegationBlockView({ delegation, timestamp, streaming, onCopy }: { del
   const baseColorRgb = '201, 112, 132'
   const color = collapsed ? (hovered ? `rgba(${baseColorRgb}, 0.70)` : `rgba(${baseColorRgb}, 0.50)`) : baseColor
   const bg = hovered ? `rgba(${baseColorRgb}, 0.04)` : 'transparent'
-  const preview = collapsed ? (delegation.response || '').split('\n')[0]?.substring(0, 80) : null
+  const previewText = delegation.response || (delegation.blocks || []).filter((b: any) => b.type === 'text').map((b: any) => b.content || '').join(' ') || ''
+  const preview = collapsed ? previewText.split('\n')[0]?.substring(0, 80) : null
 
   return (
     <div style={{ marginTop: '12px' }}>
@@ -376,7 +377,12 @@ function DelegationBlockView({ delegation, timestamp, streaming, onCopy }: { del
           <div style={{ width: '100%', marginBottom: '8px', padding: '10px 16px', backgroundColor: 'var(--q-bubble-user)', borderRadius: '12px', boxShadow: '0 0 0 1px var(--q-border), inset 0 1px 0 rgba(255,255,255,0.02)', border: 'none' }}>
             <div style={{ color: 'var(--q-bubble-user-text)', fontSize: '14px', lineHeight: 1.5, fontFamily: 'var(--font-interface)' }}>{delegation.taskContent}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
-              <Copy size={16} style={{ color: 'var(--q-text-tertiary)' }} />
+              <button onClick={() => { try { navigator.clipboard.writeText(delegation.taskContent || '') } catch {} }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--q-text)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--q-text-tertiary)' }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex', color: 'var(--q-text-tertiary)' }}>
+                <Copy size={16} />
+              </button>
               <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px' }}>{fmtTime(timestamp)}</span>
             </div>
           </div>
