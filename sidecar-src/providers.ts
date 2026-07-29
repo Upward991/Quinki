@@ -332,7 +332,7 @@ export function syncModelsJson(config: ProvidersConfig): void {
         api: oldProvider.api || "openai-completions",
         // === Ollama locale non ha bisogno di API key, ma il Pi SDK la richiede non vuota ===
         // pcfg.apiKey qui è già DECIFRATA (readProvidersConfig decifra) — il SDK la legge in chiaro da models.json
-        apiKey: pcfg.apiKey || (isOllama ? "ollama" : ""),
+        apiKey: pcfg.apiKey || (isLocal ? "local" : ""),
         models: newModels,
       };
     }
