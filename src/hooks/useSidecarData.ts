@@ -665,7 +665,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
                 if (merged[mi].role !== 'assistant') continue
                 const blocks = merged[mi].blocks || []
                 for (let bi = 0; bi < blocks.length; bi++) {
-                  if (blocks[bi].type === 'tool_call' && !assignedToolCalls.has(mi * 1000 + bi)) {
+                  if (blocks[bi].type === 'tool_call' && (blocks[bi].name === 'delegate_to_agent' || (blocks[bi].name || '').includes('delegate')) && !assignedToolCalls.has(mi * 1000 + bi)) {
                     assignedToolCalls.add(mi * 1000 + bi)
                     // Inserisci il delegation block DOPO questo tool_call
                     const newBlocks = [...blocks]

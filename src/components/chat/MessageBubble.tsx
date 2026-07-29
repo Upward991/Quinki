@@ -349,9 +349,22 @@ function DelegationBlockView({ delegation, timestamp, streaming, onCopy }: { del
           <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', fontWeight: 600, color }}>{delegation.agentName}</span>
           {preview && <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color: 'var(--q-text-tertiary)', opacity: 0.6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{preview}</span>}
           {!preview && <span style={{ flex: 1 }} />}
-          <button onClick={(e) => { e.stopPropagation(); try { navigator.clipboard.writeText(delegation.response || delegation.taskContent || '') } catch {} }}
+          <button onClick={(e) => { e.stopPropagation(); try {
+            // Copia TUTTO il contenuto: task + response + blocchi nested
+            let fullText = (delegation.taskContent || '') + '\n'
+            if (delegation.blocks?.length) {
+              for (const b of delegation.blocks) {
+                if (b.type === 'thinking') fullText += '\n[Thinking]\n' + (b.content || '')
+                else if (b.type === 'tool_call') fullText += '\n[Tool call: ' + (b.name || '') + ']\n' + (b.input || '')
+                else if (b.type === 'tool_result') fullText += '\n[Tool result: ' + (b.name || '') + ']\n' + (b.output || '')
+                else if (b.type === 'text') fullText += '\n' + (b.content || '')
+              }
+            }
+            if (delegation.response) fullText += '\n' + delegation.response
+            navigator.clipboard.writeText(fullText)
+          } catch {} }}
             onMouseEnter={() => setCopyHovered(true)} onMouseLeave={() => setCopyHovered(false)}
-            style={{ opacity: hovered ? 1 : 0, background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: 'var(--radius-sm)', color: copyHovered ? 'var(--q-text)' : color, transition: 'opacity 120ms ease' }}>
+            style={{ opacity: hovered ? 1 : 0, background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: 'var(--radius-sm)', color: copyHovered ? color : `rgba(${baseColorRgb}, 0.60)` }}>
             <Copy size={14} />
           </button>
         </div>
