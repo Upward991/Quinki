@@ -535,22 +535,9 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
       }
     })
 
-    // History reload
-    const unsubHistory = subscribe('history', (p: any) => {
-      if (p?.sessionKey && p.sessionKey === activeSessionId && p.messages) {
-        setMessages(p.messages.map((m: any) => ({
-          id: m.id || `msg-${Math.random()}`,
-          role: m.role,
-          content: m.content || '',
-          timestamp: m.timestamp || new Date().toISOString(),
-          thinking: m.reasoning || m.thinking,
-          toolCalls: m.toolCalls, toolResults: m.toolResults,
-          agentName: m.agentName, agentModel: m.model, thinkingLevel: m.thinkingLevel,
-          tokensIn: m.tokensIn, tokensOut: m.tokensOut,
-          isCompacted: m.isCompacted, isError: m.isError,
-        })))
-      }
-    })
+    // History reload — RIMOSSO: selectSession gestisce il caricamento con merge completo (delegations, blocks, compaction)
+    // Questo handler sovrascriveva i messaggi SENZA delegations → toggle delega scompariva
+    const unsubHistory = () => {}
 
     // Pi config
     const unsubPiNeeded = subscribe('pi_config_needed', () => setPiConfigNeeded(true))
