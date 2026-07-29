@@ -642,10 +642,9 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
             merged.push(base)
           }
         }
-        // === Deleghe persistite: inserisci cronologicamente NEI blocks (tra tool_call e tool_result) ===
+        // === Deleghe persistite: usa history.delegations (incluso nella risposta getHistory) ===
         try {
-          const dels = await call('getDelegations', { sessionKey })
-          const delList = dels?.delegations || dels || []
+          const delList = (history as any).delegations || []
           if (Array.isArray(delList) && delList.length > 0) {
             const assignedToolCalls = new Set<number>() // track quali tool_call sono già assegnati
             for (const d of delList) {
@@ -681,7 +680,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
               }
             }
           }
-        } catch (e) { console.error('[selectSession] getDelegations error:', e) }
+        } catch {}
         setMessages(merged)
       }
       // === Ripristino streaming: se la sessione sta ancora generando, recupera stato + buffer ===
