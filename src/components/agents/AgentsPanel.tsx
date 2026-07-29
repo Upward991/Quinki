@@ -475,7 +475,7 @@ export function AgentsPanel(props) {
                       onToggle: () => setExpandedSkillName(expandedSkillName === skill.name ? null : skill.name),
                       onEdit: () => setFileEditor({ skillName: skill.name, fileName: 'SKILL.md' }),
                       onDeleteSkill: skill.name === 'quinki-expert' ? null : () => setRemoveTagState({ type: 'skill', name: skill.name, agent: '' }),
-                      onAddAgent: () => setAddItemsModal({ title: `Add agent to ${skill.name}`, items: agents.map(a => ({ name: a.name, description: a.systemPrompt ? a.systemPrompt.substring(0, 80) + (a.systemPrompt.length > 80 ? '...' : '') : a.id })), initialSelected: (skill.agents||[]).map(a=>typeof a==='string'?a:a.name), onConfirm: (selected) => doAddAgentsToSkill(skill.name, selected) }),
+                      onAddAgent: () => setAddItemsModal({ title: `Add agent to ${skill.name}`, items: agents.map(a => ({ name: a.name, description: a.systemPrompt ? a.systemPrompt.substring(0, 80) + (a.systemPrompt.length > 80 ? '...' : '') : a.id })), initialSelected: agents.filter(a => (a.skills||[]).some(s => (s.name||s) === skill.name)).map(a => a.name), onConfirm: (selected) => doAddAgentsToSkill(skill.name, selected) }),
                       onRemoveAgent: (agentName) => setRemoveTagState({ type: 'agent', name: agentName, agent: skill.name }),
                       onRemoveAllAgents: () => setRemoveAllState({ type: 'agents', agentName: skill.name })
                     });
@@ -502,7 +502,7 @@ export function AgentsPanel(props) {
                   badgeColor: tool.readOnly ? 'var(--q-accent-success)' : 'var(--q-accent-danger)',
                   isExpanded: expandedSkillName === tool.name,
                   onToggle: () => setExpandedSkillName(expandedSkillName === tool.name ? null : tool.name),
-                  onAddAgent: () => setAddItemsModal({ title: `Add agent to ${tool.name}`, items: agents.map(a => ({ name: a.name, description: a.systemPrompt ? a.systemPrompt.substring(0, 80) + (a.systemPrompt.length > 80 ? '...' : '') : a.id })), initialSelected: (tool.agents||[]).map(a=>typeof a==='string'?a:a.name), onConfirm: (selected) => doAddAgentsToTool(tool.name, selected) }),
+                  onAddAgent: () => setAddItemsModal({ title: `Add agent to ${tool.name}`, items: agents.map(a => ({ name: a.name, description: a.systemPrompt ? a.systemPrompt.substring(0, 80) + (a.systemPrompt.length > 80 ? '...' : '') : a.id })), initialSelected: agents.filter(a => (a.tools||[]).some(t => (t.name||t) === tool.name)).map(a => a.name), onConfirm: (selected) => doAddAgentsToTool(tool.name, selected) }),
                   onRemoveAgent: (agentName) => setRemoveTagState({ type: 'agent', name: agentName, agent: tool.name }),
                   onRemoveAllAgents: () => setRemoveAllState({ type: 'agents', agentName: tool.name })
                 });

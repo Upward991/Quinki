@@ -377,13 +377,16 @@ function DelegationBlockView({ delegation, timestamp, streaming, onCopy }: { del
               </div>
             )}
 
-          <Footer
-            content={delegation.response}
-            timestamp={timestamp}
-            agentName={delegation.agentName}
-            agentModel={delegation.agentModel}
-            thinkingLevel={delegation.thinkingLevel}
-          />
+          {/* Footer delega: SOLO se non ci sono blocks (con blocks, il footer è dentro renderBlocks) */}
+          {(!delegation.blocks || delegation.blocks.length === 0) && delegation.response && (
+            <Footer
+              content={delegation.response}
+              timestamp={timestamp}
+              agentName={delegation.agentName}
+              agentModel={delegation.agentModel}
+              thinkingLevel={delegation.thinkingLevel}
+            />
+          )}
         </div>
       )}
     </div>

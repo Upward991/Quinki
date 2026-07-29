@@ -647,35 +647,36 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
           const dels = await call('getDelegations', { sessionKey })
           const delList = dels?.delegations || dels || []
           if (Array.isArray(delList) && delList.length > 0) {
+            const assignedToolCalls = new Set<number>() // track quali tool_call sono già assegnati
             for (const d of delList) {
-              // Converti il content salvato in blocks renderizzabili
               const nestedBlocks: any[] = []
               if (Array.isArray(d.content)) {
                 for (const b of d.content) {
-                  if (b?.type === 'thinking' || b?.type === 'thinking_start') nestedBlocks.push({ type: 'thinking', content: b.content || b.thinking || '' })
-                  else if (b?.type === 'toolCall' || b?.type === 'tool_call') nestedBlocks.push({ type: 'tool_call', name: b.name || b.text || 'tool', input: b.input || b.args || '' })
-                  else if (b?.type === 'toolResult' || b?.type === 'tool_result') nestedBlocks.push({ type: 'tool_result', name: b.name || b.text || 'tool', output: b.content || b.text || '', isError: !!b.isError })
+                  if (b?.type === 'thinking') nestedBlocks.push({ type: 'thinking', content: b.thinking || b.content || '' })
+                  else if (b?.type === 'toolCall') nestedBlocks.push({ type: 'tool_call', name: b.text || b.name || 'tool', input: b.thinking || b.input || b.args || '' })
+                  else if (b?.type === 'toolResult') nestedBlocks.push({ type: 'tool_result', name: b.text || b.name || 'tool', output: b.thinking || b.content || '', isError: !!b.isError })
                   else if (b?.type === 'text') nestedBlocks.push({ type: 'text', content: b.text || b.content || '' })
                 }
               }
               const delBlock = { type: 'delegation', id: d.id, agentName: d.agentName || 'agent', agentModel: d.model || '', taskContent: d.delegatedMessage || '', response: typeof d.content === 'string' ? d.content : '', blocks: nestedBlocks, thinkingLevel: d.thinkingLevel || '', streaming: false }
-              // Trova il messaggio assistant che contiene un tool_call con timestamp <= delega
-              // e inserisci il delegation block DOPO l'ultimo tool_call nei blocks
-              let target = -1
-              for (let i = merged.length - 1; i >= 0; i--) {
-                if (merged[i].role === 'assistant' && (merged[i].blocks || []).some((b: any) => b.type === 'tool_call')) {
-                  target = i; break
+              // Trova il PROSSIMO tool_call non ancora assegnato (in ordine cronologico)
+              let found = false
+              for (let mi = 0; mi < merged.length && !found; mi++) {
+                if (merged[mi].role !== 'assistant') continue
+                const blocks = merged[mi].blocks || []
+                for (let bi = 0; bi < blocks.length; bi++) {
+                  if (blocks[bi].type === 'tool_call' && !assignedToolCalls.has(mi * 1000 + bi)) {
+                    assignedToolCalls.add(mi * 1000 + bi)
+                    // Inserisci il delegation block DOPO questo tool_call
+                    const newBlocks = [...blocks]
+                    newBlocks.splice(bi + 1, 0, delBlock)
+                    merged[mi].blocks = newBlocks
+                    found = true
+                    break
+                  }
                 }
               }
-              if (target >= 0) {
-                const blocks = [...(merged[target].blocks || [])]
-                // Inserisci dopo l'ultimo tool_call (prima del tool_result se c'è)
-                let lastToolCallIdx = -1
-                for (let i = blocks.length - 1; i >= 0; i--) { if (blocks[i].type === 'tool_call') { lastToolCallIdx = i; break } }
-                blocks.splice(lastToolCallIdx + 1, 0, delBlock)
-                merged[target].blocks = blocks
-              } else {
-                // Fallback: append all'ultimo assistant
+              if (!found) {
                 let last = -1
                 for (let i = merged.length - 1; i >= 0; i--) { if (merged[i].role === 'assistant') { last = i; break } }
                 if (last >= 0) merged[last].blocks = [...(merged[last].blocks || []), delBlock]
