@@ -327,7 +327,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
 
   getModelContext: async (p) => ({ modelId: p.modelId, ...await piBridge!.getModelContext(p.modelId) }),
 
-  getHistory: async (p) => ({ sessionKey: p.sessionKey, messages: piBridge!.getHistory(String(p.sessionKey)) }),
+  getHistory: async (p) => ({ sessionKey: p.sessionKey, messages: piBridge!.getHistory(String(p.sessionKey)), delegations: piBridge ? piBridge.getDelegations(String(p.sessionKey || "")) : [] }),
   get_history: async (p) => handlers.getHistory(p),
 
   stopStream: async (p) => { if (piBridge && p?.sessionKey) piBridge.abort(p.sessionKey); return { success: true }; },

@@ -681,7 +681,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
               }
             }
           }
-        } catch {}
+        } catch (e) { console.error('[selectSession] getDelegations error:', e) }
         setMessages(merged)
       }
       // === Ripristino streaming: se la sessione sta ancora generando, recupera stato + buffer ===
