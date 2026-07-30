@@ -629,39 +629,38 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
             merged.push(base)
           }
         }
-        // === Deleghe persistite: messaggi SEPARATI, inseriti DOPO il tool_call delegate_to_agent ===
+        // === Deleghe persistite: inserisci come BLOCK dentro assistant, TRA tool_call e tool_result ===
         try {
           const delList = (history as any).delegations || []
           if (Array.isArray(delList) && delList.length > 0) {
-            const assignedToolCalls = new Set<number>()
+            const assigned = new Set<string>()
             for (const d of delList) {
-              const nestedBlocks: any[] = []
+              const nb: any[] = []
               if (Array.isArray(d.content)) {
                 for (const b of d.content) {
-                  if (b?.type === 'thinking') nestedBlocks.push({ type: 'thinking', content: b.thinking || b.content || '' })
-                  else if (b?.type === 'toolCall') nestedBlocks.push({ type: 'tool_call', name: b.text || b.name || 'tool', input: b.thinking || b.input || b.args || '' })
-                  else if (b?.type === 'toolResult') nestedBlocks.push({ type: 'tool_result', name: b.text || b.name || 'tool', output: b.thinking || b.content || '', isError: !!b.isError })
-                  else if (b?.type === 'text') nestedBlocks.push({ type: 'text', content: b.text || b.content || '' })
+                  if (b?.type === 'thinking') nb.push({ type: 'thinking', content: b.thinking || b.content || '' })
+                  else if (b?.type === 'toolCall') nb.push({ type: 'tool_call', name: b.text || b.name || 'tool', input: b.thinking || b.input || b.args || '' })
+                  else if (b?.type === 'toolResult') nb.push({ type: 'tool_result', name: b.text || b.name || 'tool', output: b.thinking || b.content || '', isError: !!b.isError })
+                  else if (b?.type === 'text') nb.push({ type: 'text', content: b.text || b.content || '' })
                 }
               }
-              const delBlock = { id: d.id, agentName: d.agentName || 'agent', agentModel: d.model || '', taskContent: d.delegatedMessage || '', response: typeof d.content === 'string' ? d.content : '', blocks: nestedBlocks, thinkingLevel: d.thinkingLevel || '', streaming: false }
-              const delMsg = { id: `delmsg-${d.id}`, role: 'assistant', content: '', delegations: [delBlock], timestamp: new Date(d.timestamp || Date.now()).toISOString() }
-              // Trova il PROSSIMO tool_call delegate_to_agent NEI BLOCKS di un messaggio assistant
-              let insertIdx = -1
-              for (let i = 0; i < merged.length; i++) {
-                if (merged[i].role !== 'assistant' || !merged[i].blocks) continue
-                const blocks = merged[i].blocks
-                for (let bi = 0; bi < blocks.length; bi++) {
-                  if (blocks[bi].type === 'tool_call' && (blocks[bi].name === 'delegate_to_agent' || (blocks[bi].name || '').includes('delegate')) && !assignedToolCalls.has(i * 1000 + bi)) {
-                    assignedToolCalls.add(i * 1000 + bi)
-                    insertIdx = i + 1 // inserisci il messaggio delega DOPO questo messaggio assistant (che contiene il tool_call)
+              const del = { type: 'delegation', id: d.id, agentName: d.agentName || 'agent', agentModel: d.model || '', taskContent: d.delegatedMessage || '', response: typeof d.content === 'string' ? d.content : '', blocks: nb, thinkingLevel: d.thinkingLevel || '', streaming: false }
+              let inserted = false
+              for (let mi = 0; mi < merged.length && !inserted; mi++) {
+                if (merged[mi].role !== 'assistant' || !merged[mi].blocks) continue
+                const bl = merged[mi].blocks
+                for (let bi = 0; bi < bl.length; bi++) {
+                  const key = `${mi}:${bi}`
+                  if (bl[bi].type === 'tool_call' && (bl[bi].name === 'delegate_to_agent' || (bl[bi].name || '').includes('delegate')) && !assigned.has(key)) {
+                    assigned.add(key)
+                    merged[mi].blocks = [...bl.slice(0, bi + 1), del, ...bl.slice(bi + 1)]
+                    merged[mi].delegations = [...(merged[mi].delegations || []), del]
+                    inserted = true
                     break
                   }
                 }
-                if (insertIdx >= 0) break
               }
-              if (insertIdx < 0) insertIdx = merged.length // fallback: in fondo
-              merged.splice(insertIdx, 0, delMsg)
+              if (!inserted) merged.push({ id: `delmsg-${d.id}`, role: 'assistant', content: '', delegations: [del], timestamp: new Date(d.timestamp || Date.now()).toISOString() })
             }
           }
         } catch {}
