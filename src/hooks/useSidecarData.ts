@@ -629,11 +629,12 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
             merged.push(base)
           }
         }
-        // === Deleghe persistite: APPEND alla fine (massima semplicita, visibilita garantita) ===
+        // === Deleghe persistite: inserisci DOPO il tool_call delegate_to_agent (al contrario per evitare index shift) ===
         try {
           const delList = (history as any).delegations || []
           if (Array.isArray(delList) && delList.length > 0) {
-            for (const d of delList) {
+            // Crea i messaggi delega
+            const delMsgs = delList.map((d: any) => {
               const nb: any[] = []
               if (Array.isArray(d.content)) {
                 for (const b of d.content) {
@@ -644,8 +645,20 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
                 }
               }
               const delBlock = { id: d.id, agentName: d.agentName || 'agent', agentModel: d.model || '', taskContent: d.delegatedMessage || '', response: typeof d.content === 'string' ? d.content : '', blocks: nb, thinkingLevel: d.thinkingLevel || '' }
-              merged.push({ id: `delmsg-${d.id}`, role: 'assistant', content: '', delegations: [delBlock], timestamp: new Date(d.timestamp || Date.now()).toISOString() })
+              return { id: `delmsg-${d.id}`, role: 'assistant', content: '', delegations: [delBlock], timestamp: new Date(d.timestamp || Date.now()).toISOString() }
+            })
+            // Itera al contrario: inserisci ogni delega DOPO il suo delegate_to_agent
+            let delIdx = delMsgs.length - 1
+            for (let i = merged.length - 1; i >= 0 && delIdx >= 0; i--) {
+              if (merged[i].role === 'assistant') {
+                const blocks = (merged[i] as any).blocks || []
+                if (blocks.some((b: any) => b.type === 'tool_call' && (b.name === 'delegate_to_agent' || (b.name || '').includes('delegate')))) {
+                  merged.splice(i + 1, 0, delMsgs[delIdx--])
+                }
+              }
             }
+            // Deleghe rimanenti in fondo
+            while (delIdx >= 0) merged.push(delMsgs[delIdx--])
           }
         } catch (e) { console.error('[DELEGATIONS] merge error:', e) }
         setMessages(merged)
