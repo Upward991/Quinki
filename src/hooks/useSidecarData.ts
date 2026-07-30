@@ -646,14 +646,19 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
               }
               const delBlock = { id: d.id, agentName: d.agentName || 'agent', agentModel: d.model || '', taskContent: d.delegatedMessage || '', response: typeof d.content === 'string' ? d.content : '', blocks: nestedBlocks, thinkingLevel: d.thinkingLevel || '', streaming: false }
               const delMsg = { id: `delmsg-${d.id}`, role: 'assistant', content: '', delegations: [delBlock], timestamp: new Date(d.timestamp || Date.now()).toISOString() }
-              // Trova il PROSSIMO tool_call delegate_to_agent non assegnato, inserisci DOPO
+              // Trova il PROSSIMO tool_call delegate_to_agent NEI BLOCKS di un messaggio assistant
               let insertIdx = -1
               for (let i = 0; i < merged.length; i++) {
-                if (merged[i].role === 'tool_call' && (merged[i].toolName === 'delegate_to_agent' || (merged[i].toolName || '').includes('delegate')) && !assignedToolCalls.has(i)) {
-                  assignedToolCalls.add(i)
-                  insertIdx = i + 1 // DOPO il tool_call, PRIMA del tool_result
-                  break
+                if (merged[i].role !== 'assistant' || !merged[i].blocks) continue
+                const blocks = merged[i].blocks
+                for (let bi = 0; bi < blocks.length; bi++) {
+                  if (blocks[bi].type === 'tool_call' && (blocks[bi].name === 'delegate_to_agent' || (blocks[bi].name || '').includes('delegate')) && !assignedToolCalls.has(i * 1000 + bi)) {
+                    assignedToolCalls.add(i * 1000 + bi)
+                    insertIdx = i + 1 // inserisci il messaggio delega DOPO questo messaggio assistant (che contiene il tool_call)
+                    break
+                  }
                 }
+                if (insertIdx >= 0) break
               }
               if (insertIdx < 0) insertIdx = merged.length // fallback: in fondo
               merged.splice(insertIdx, 0, delMsg)
