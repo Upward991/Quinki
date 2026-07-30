@@ -171,7 +171,7 @@ function AssistantMessage({ message, onCopy }: { message: Message; onCopy?: (t: 
       {message.compaction?.map((comp, i) => (
         <CompactionToggle key={`comp-${i}`} content={comp.content || ""} isNoop={comp.isNoop} />
       ))}
-      {message.delegations?.map((d, i) => <DelegationBlockView key={`d-${i}`} delegation={d} timestamp={message.timestamp} />)}
+      {!(message as any).blocks?.length && message.delegations?.map((d, i) => <DelegationBlockView key={`d-${i}`} delegation={d} timestamp={message.timestamp} />)}
     </div>
   )
 }

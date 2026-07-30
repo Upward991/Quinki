@@ -654,7 +654,6 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
                   if (bl[bi].type === 'tool_call' && (bl[bi].name === 'delegate_to_agent' || (bl[bi].name || '').includes('delegate')) && !assigned.has(key)) {
                     assigned.add(key)
                     merged[mi].blocks = [...bl.slice(0, bi + 1), del, ...bl.slice(bi + 1)]
-                    merged[mi].delegations = [...(merged[mi].delegations || []), del]
                     inserted = true
                     break
                   }
