@@ -647,13 +647,23 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
               const delBlock = { id: d.id, agentName: d.agentName || 'agent', agentModel: d.model || '', taskContent: d.delegatedMessage || '', response: typeof d.content === 'string' ? d.content : '', blocks: nb, thinkingLevel: d.thinkingLevel || '' }
               return { id: `delmsg-${d.id}`, role: 'assistant', content: '', delegations: [delBlock], timestamp: new Date(d.timestamp || Date.now()).toISOString() }
             })
-            // Itera al contrario: inserisci ogni delega DOPO il suo delegate_to_agent
+            // Itera al contrario: SPLI il messaggio al tool_call delegate_to_agent, inserisci delega TRA tool_call e tool_result
             let delIdx = delMsgs.length - 1
             for (let i = merged.length - 1; i >= 0 && delIdx >= 0; i--) {
-              if (merged[i].role === 'assistant') {
-                const blocks = (merged[i] as any).blocks || []
-                if (blocks.some((b: any) => b.type === 'tool_call' && (b.name === 'delegate_to_agent' || (b.name || '').includes('delegate')))) {
-                  merged.splice(i + 1, 0, delMsgs[delIdx--])
+              if (merged[i].role !== 'assistant') continue
+              const blocks = (merged[i] as any).blocks || []
+              const tcIdx = blocks.findIndex((b: any) => b.type === 'tool_call' && (b.name === 'delegate_to_agent' || (b.name || '').includes('delegate')))
+              if (tcIdx >= 0) {
+                // Split: [thinking, tool_call] | [tool_result, text, ...]
+                const beforeBlocks = blocks.slice(0, tcIdx + 1)
+                const afterBlocks = blocks.slice(tcIdx + 1)
+                // Modifica il messaggio originale: tiene solo i blocchi prima+durante il tool_call
+                ;(merged[i] as any).blocks = beforeBlocks
+                // Inserisci la delega DOPO il tool_call
+                merged.splice(i + 1, 0, delMsgs[delIdx--])
+                // Inserisci i blocchi rimanenti (tool_result, text) come nuovo messaggio
+                if (afterBlocks.length > 0) {
+                  merged.splice(i + 2, 0, { id: `split-${i}-${Date.now()}`, role: 'assistant', content: '', blocks: afterBlocks, timestamp: merged[i].timestamp })
                 }
               }
             }
