@@ -856,19 +856,9 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
 
   const reloadSession = useCallback(async (sessionKey: string) => {
     if (!ready) return
-    try {
-      notify('reloadSession', { sessionKey })
-      const history = await call('getHistory', { sessionKey })
-      if (history?.messages && sessionKey === activeSessionId) {
-        setMessages(history.messages.map((m: any) => ({
-          id: m.id || `msg-${Math.random()}`, role: m.role,
-          content: m.content || '', timestamp: m.timestamp || new Date().toISOString(),
-          thinking: m.reasoning, toolCalls: m.toolCalls, toolResults: m.toolResults,
-          agentName: m.agentName, agentModel: m.model, thinkingLevel: m.thinkingLevel,
-        })))
-      }
-    } catch (e) { console.error('reloadSession:', e) }
-  }, [ready, call, notify, activeSessionId])
+    notify('reloadSession', { sessionKey })
+    await selectSession(sessionKey)
+  }, [ready, notify, selectSession])
 
   const moveSession = useCallback((sessionKey: string, folderId: string | null, order: number) => {
     if (!ready) return
