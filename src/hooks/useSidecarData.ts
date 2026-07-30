@@ -629,10 +629,11 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
             merged.push(base)
           }
         }
-        // === Deleghe persistite: crea messaggi SEPARATI (rendering garantito) ===
+        // === Deleghe persistite: messaggi SEPARATI, inseriti DOPO il tool_call delegate_to_agent ===
         try {
           const delList = (history as any).delegations || []
           if (Array.isArray(delList) && delList.length > 0) {
+            const assignedToolCalls = new Set<number>()
             for (const d of delList) {
               const nestedBlocks: any[] = []
               if (Array.isArray(d.content)) {
@@ -644,13 +645,17 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
                 }
               }
               const delBlock = { id: d.id, agentName: d.agentName || 'agent', agentModel: d.model || '', taskContent: d.delegatedMessage || '', response: typeof d.content === 'string' ? d.content : '', blocks: nestedBlocks, thinkingLevel: d.thinkingLevel || '', streaming: false }
-              // Crea un messaggio SEPARATO per ogni delega (inserito cronologicamente per timestamp)
               const delMsg = { id: `delmsg-${d.id}`, role: 'assistant', content: '', delegations: [delBlock], timestamp: new Date(d.timestamp || Date.now()).toISOString() }
-              // Inserisci nella posizione cronologica (prima del messaggio con timestamp >=)
-              let insertIdx = merged.length
+              // Trova il PROSSIMO tool_call delegate_to_agent non assegnato, inserisci DOPO
+              let insertIdx = -1
               for (let i = 0; i < merged.length; i++) {
-                if (new Date(merged[i].timestamp).getTime() >= (d.timestamp || 0)) { insertIdx = i; break }
+                if (merged[i].role === 'tool_call' && (merged[i].toolName === 'delegate_to_agent' || (merged[i].toolName || '').includes('delegate')) && !assignedToolCalls.has(i)) {
+                  assignedToolCalls.add(i)
+                  insertIdx = i + 1 // DOPO il tool_call, PRIMA del tool_result
+                  break
+                }
               }
+              if (insertIdx < 0) insertIdx = merged.length // fallback: in fondo
               merged.splice(insertIdx, 0, delMsg)
             }
           }
