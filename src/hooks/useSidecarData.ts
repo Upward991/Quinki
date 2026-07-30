@@ -629,12 +629,11 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
             merged.push(base)
           }
         }
-        // === Deleghe persistite: MESSAGGI SEPARATI con delegations array (rendering garantito da line 174) ===
+        // === Deleghe persistite: APPEND alla fine (massima semplicita, visibilita garantita) ===
         try {
           const delList = (history as any).delegations || []
           if (Array.isArray(delList) && delList.length > 0) {
-            // Costruisci nuovo array inserendo le deleghe DOPO il loro delegate_to_agent (in ordine)
-            const delMsgs = delList.map(d => {
+            for (const d of delList) {
               const nb: any[] = []
               if (Array.isArray(d.content)) {
                 for (const b of d.content) {
@@ -645,26 +644,10 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
                 }
               }
               const delBlock = { id: d.id, agentName: d.agentName || 'agent', agentModel: d.model || '', taskContent: d.delegatedMessage || '', response: typeof d.content === 'string' ? d.content : '', blocks: nb, thinkingLevel: d.thinkingLevel || '' }
-              return { id: `delmsg-${d.id}`, role: 'assistant', content: '', delegations: [delBlock], timestamp: new Date(d.timestamp || Date.now()).toISOString() }
-            })
-            let delIdx = 0
-            const newMerged: any[] = []
-            for (let i = 0; i < merged.length; i++) {
-              newMerged.push(merged[i])
-              // Se questo messaggio ha un delegate_to_agent tool_call, inserisci la prossima delega
-              if (merged[i].role === 'assistant') {
-                const blocks = (merged[i] as any).blocks || []
-                if (blocks.some((b: any) => b.type === 'tool_call' && (b.name === 'delegate_to_agent' || (b.name || '').includes('delegate'))) && delIdx < delMsgs.length) {
-                  newMerged.push(delMsgs[delIdx++])
-                }
-              }
+              merged.push({ id: `delmsg-${d.id}`, role: 'assistant', content: '', delegations: [delBlock], timestamp: new Date(d.timestamp || Date.now()).toISOString() })
             }
-            // Deleghe rimanenti (senza tool_call corrispondente) in fondo
-            while (delIdx < delMsgs.length) newMerged.push(delMsgs[delIdx++])
-            merged.length = 0
-            for (const m of newMerged) merged.push(m)
           }
-        } catch {}
+        } catch (e) { console.error('[DELEGATIONS] merge error:', e) }
         setMessages(merged)
       }
       // === Ripristino streaming: se la sessione sta ancora generando, recupera stato + buffer ===
