@@ -629,11 +629,10 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
             merged.push(base)
           }
         }
-        // === Deleghe persistite: usa history.delegations (incluso nella risposta getHistory) ===
+        // === Deleghe persistite: crea messaggi SEPARATI (rendering garantito) ===
         try {
           const delList = (history as any).delegations || []
           if (Array.isArray(delList) && delList.length > 0) {
-            const assignedToolCalls = new Set<number>() // track quali tool_call sono già assegnati
             for (const d of delList) {
               const nestedBlocks: any[] = []
               if (Array.isArray(d.content)) {
@@ -644,27 +643,15 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
                   else if (b?.type === 'text') nestedBlocks.push({ type: 'text', content: b.text || b.content || '' })
                 }
               }
-              const delBlock = { type: 'delegation', id: d.id, agentName: d.agentName || 'agent', agentModel: d.model || '', taskContent: d.delegatedMessage || '', response: typeof d.content === 'string' ? d.content : '', blocks: nestedBlocks, thinkingLevel: d.thinkingLevel || '', streaming: false }
-              // Trova il PROSSIMO tool_call delegate_to_agent non assegnato (in ordine cronologico)
-              let found = false
-              for (let mi = 0; mi < merged.length && !found; mi++) {
-                if (merged[mi].role !== 'assistant') continue
-                const blocks = merged[mi].blocks || []
-                for (let bi = 0; bi < blocks.length; bi++) {
-                  if (blocks[bi].type === 'tool_call' && (blocks[bi].name === 'delegate_to_agent' || (blocks[bi].name || '').includes('delegate')) && !assignedToolCalls.has(mi * 1000 + bi)) {
-                    assignedToolCalls.add(mi * 1000 + bi)
-                    // Aggiungi al delegations array del messaggio (rendering garantito da linea 174)
-                    merged[mi].delegations = [...(merged[mi].delegations || []), delBlock]
-                    found = true
-                    break
-                  }
-                }
+              const delBlock = { id: d.id, agentName: d.agentName || 'agent', agentModel: d.model || '', taskContent: d.delegatedMessage || '', response: typeof d.content === 'string' ? d.content : '', blocks: nestedBlocks, thinkingLevel: d.thinkingLevel || '', streaming: false }
+              // Crea un messaggio SEPARATO per ogni delega (inserito cronologicamente per timestamp)
+              const delMsg = { id: `delmsg-${d.id}`, role: 'assistant', content: '', delegations: [delBlock], timestamp: new Date(d.timestamp || Date.now()).toISOString() }
+              // Inserisci nella posizione cronologica (prima del messaggio con timestamp >=)
+              let insertIdx = merged.length
+              for (let i = 0; i < merged.length; i++) {
+                if (new Date(merged[i].timestamp).getTime() >= (d.timestamp || 0)) { insertIdx = i; break }
               }
-              if (!found) {
-                let last = -1
-                for (let i = merged.length - 1; i >= 0; i--) { if (merged[i].role === 'assistant') { last = i; break } }
-                if (last >= 0) merged[last].delegations = [...(merged[last].delegations || []), delBlock]
-              }
+              merged.splice(insertIdx, 0, delMsg)
             }
           }
         } catch {}
