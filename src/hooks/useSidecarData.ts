@@ -629,11 +629,10 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
             merged.push(base)
           }
         }
-        // === Deleghe persistite: inserisci come BLOCK dentro assistant, TRA tool_call e tool_result ===
+        // === Deleghe persistite: MESSAGGI SEPARATI con delegations array (rendering garantito da line 174) ===
         try {
           const delList = (history as any).delegations || []
           if (Array.isArray(delList) && delList.length > 0) {
-            const assigned = new Set<string>()
             for (const d of delList) {
               const nb: any[] = []
               if (Array.isArray(d.content)) {
@@ -644,22 +643,21 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
                   else if (b?.type === 'text') nb.push({ type: 'text', content: b.text || b.content || '' })
                 }
               }
-              const del = { type: 'delegation', id: d.id, agentName: d.agentName || 'agent', agentModel: d.model || '', taskContent: d.delegatedMessage || '', response: typeof d.content === 'string' ? d.content : '', blocks: nb, thinkingLevel: d.thinkingLevel || '', streaming: false }
-              let inserted = false
-              for (let mi = 0; mi < merged.length && !inserted; mi++) {
-                if (merged[mi].role !== 'assistant' || !merged[mi].blocks) continue
-                const bl = merged[mi].blocks
-                for (let bi = 0; bi < bl.length; bi++) {
-                  const key = `${mi}:${bi}`
-                  if (bl[bi].type === 'tool_call' && (bl[bi].name === 'delegate_to_agent' || (bl[bi].name || '').includes('delegate')) && !assigned.has(key)) {
-                    assigned.add(key)
-                    merged[mi].blocks = [...bl.slice(0, bi + 1), del, ...bl.slice(bi + 1)]
-                    inserted = true
+              const delBlock = { id: d.id, agentName: d.agentName || 'agent', agentModel: d.model || '', taskContent: d.delegatedMessage || '', response: typeof d.content === 'string' ? d.content : '', blocks: nb, thinkingLevel: d.thinkingLevel || '' }
+              // Crea messaggio separato con delegations array (rendering da message.delegations?.map)
+              const delMsg = { id: `delmsg-${d.id}`, role: 'assistant', content: '', delegations: [delBlock], timestamp: new Date(d.timestamp || Date.now()).toISOString() }
+              // Inserisci cronologicamente: dopo l'ultimo assistant con tool_call delegate_to_agent PRIMA di questo timestamp
+              let insertIdx = merged.length
+              for (let i = merged.length - 1; i >= 0; i--) {
+                if (merged[i].role === 'assistant') {
+                  const blocks = (merged[i] as any).blocks || []
+                  if (blocks.some((b: any) => b.type === 'tool_call' && (b.name === 'delegate_to_agent' || (b.name || '').includes('delegate')))) {
+                    insertIdx = i + 1
                     break
                   }
                 }
               }
-              if (!inserted) merged.push({ id: `delmsg-${d.id}`, role: 'assistant', content: '', delegations: [del], timestamp: new Date(d.timestamp || Date.now()).toISOString() })
+              merged.splice(insertIdx, 0, delMsg)
             }
           }
         } catch {}

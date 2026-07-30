@@ -286,7 +286,7 @@ function GenericToggle({ label, content, baseColor, baseColorRgb, isItalic, bold
   const preview = collapsed ? content.split('\n')[0]?.substring(0, 80) : null
 
   return (
-    <div style={{ marginTop: '12px' }}>
+    <div style={{ marginTop: '12px', border: '2px solid red', padding: '4px' }}>
       <div onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} onClick={() => setCollapsed(!collapsed)}
         style={{ cursor: 'pointer', backgroundColor: bg, borderRadius: 'var(--radius-md)', padding: '8px', transform: hovered ? 'translateX(2px)' : 'translateX(0)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -341,7 +341,7 @@ function DelegationBlockView({ delegation, timestamp, streaming, onCopy }: { del
   const preview = collapsed ? previewText.split('\n')[0]?.substring(0, 80) : null
 
   return (
-    <div style={{ marginTop: '12px' }}>
+    <div style={{ marginTop: '12px', border: '2px solid red', padding: '4px' }}>
       <div onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} onClick={() => setCollapsed(!collapsed)}
         style={{ cursor: 'pointer', backgroundColor: bg, borderRadius: 'var(--radius-md)', padding: '8px', transform: hovered ? 'translateX(2px)' : 'translateX(0)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
