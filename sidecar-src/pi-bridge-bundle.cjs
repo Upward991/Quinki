@@ -1,4 +1,3 @@
-const import_meta_url = 'file:///dummy/'
 "use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -9612,7 +9611,7 @@ function getSessionsDir() {
 function getDebugLogPath() {
   return (0, import_node_path2.join)(getAgentDir(), `${APP_NAME}-debug.log`);
 }
-var import_node_fs2, import_node_os3, import_node_path2, import_node_url2, __filename2, __dirname2, isBunBinary, isBunRuntime, pkg, piConfigName, PACKAGE_NAME, APP_NAME, APP_TITLE, CONFIG_DIR_NAME, VERSION, ENV_AGENT_DIR, ENV_SESSION_DIR, DEFAULT_SHARE_VIEWER_URL;
+var import_node_fs2, import_node_os3, import_node_path2, import_node_url2, import_meta, __filename2, __dirname2, isBunBinary, isBunRuntime, pkg, piConfigName, PACKAGE_NAME, APP_NAME, APP_TITLE, CONFIG_DIR_NAME, VERSION, ENV_AGENT_DIR, ENV_SESSION_DIR, DEFAULT_SHARE_VIEWER_URL;
 var init_config2 = __esm({
   "vendor/@earendil-works/pi-coding-agent/dist/config.js"() {
     "use strict";
@@ -9622,9 +9621,10 @@ var init_config2 = __esm({
     import_node_url2 = require("node:url");
     init_child_process();
     init_paths();
-    __filename2 = (0, import_node_url2.fileURLToPath)("file:///dummy");
+    import_meta = {};
+    __filename2 = (0, import_node_url2.fileURLToPath)(import_meta.url);
     __dirname2 = (0, import_node_path2.dirname)(__filename2);
-    isBunBinary = "file:///dummy".includes("$bunfs") || "file:///dummy".includes("~BUN") || "file:///dummy".includes("%7EBUN");
+    isBunBinary = import_meta.url.includes("$bunfs") || import_meta.url.includes("~BUN") || import_meta.url.includes("%7EBUN");
     isBunRuntime = !!process.versions.bun;
     pkg = JSON.parse((0, import_node_fs2.readFileSync)(getPackageJsonPath(), "utf-8"));
     piConfigName = pkg.piConfig?.name;
@@ -143897,12 +143897,13 @@ function resetApiProviders() {
   clearApiProviders();
   registerBuiltInApiProviders();
 }
-var __rewriteRelativeImportExtension3, importNodeOnlyProvider, anthropicProviderModulePromise, azureOpenAIResponsesProviderModulePromise, googleProviderModulePromise, googleVertexProviderModulePromise, mistralProviderModulePromise, openAICodexResponsesProviderModulePromise, openAICompletionsProviderModulePromise, openAIResponsesProviderModulePromise, bedrockProviderModuleOverride, bedrockProviderModulePromise, streamAnthropic2, streamSimpleAnthropic2, streamAzureOpenAIResponses2, streamSimpleAzureOpenAIResponses2, streamGoogle2, streamSimpleGoogle2, streamGoogleVertex2, streamSimpleGoogleVertex2, streamMistral2, streamSimpleMistral2, streamOpenAICodexResponses2, streamSimpleOpenAICodexResponses2, streamOpenAICompletions2, streamSimpleOpenAICompletions2, streamOpenAIResponses2, streamSimpleOpenAIResponses2, streamBedrockLazy, streamSimpleBedrockLazy;
+var import_meta2, __rewriteRelativeImportExtension3, importNodeOnlyProvider, anthropicProviderModulePromise, azureOpenAIResponsesProviderModulePromise, googleProviderModulePromise, googleVertexProviderModulePromise, mistralProviderModulePromise, openAICodexResponsesProviderModulePromise, openAICompletionsProviderModulePromise, openAIResponsesProviderModulePromise, bedrockProviderModuleOverride, bedrockProviderModulePromise, streamAnthropic2, streamSimpleAnthropic2, streamAzureOpenAIResponses2, streamSimpleAzureOpenAIResponses2, streamGoogle2, streamSimpleGoogle2, streamGoogleVertex2, streamSimpleGoogleVertex2, streamMistral2, streamSimpleMistral2, streamOpenAICodexResponses2, streamSimpleOpenAICodexResponses2, streamOpenAICompletions2, streamSimpleOpenAICompletions2, streamOpenAIResponses2, streamSimpleOpenAIResponses2, streamBedrockLazy, streamSimpleBedrockLazy;
 var init_register_builtins2 = __esm({
   "vendor/@earendil-works/pi-ai/dist/providers/register-builtins.js"() {
     "use strict";
     init_api_registry();
     init_event_stream();
+    import_meta2 = {};
     __rewriteRelativeImportExtension3 = function(path17, preserveJsx) {
       if (typeof path17 === "string" && /^\.\.?\//.test(path17)) {
         return path17.replace(/\.(tsx)$|((?:\.d)?)((?:\.[^./]+?)?)\.([cm]?)ts$/i, function(m2, tsx, d, ext2, cm) {
@@ -143912,7 +143913,7 @@ var init_register_builtins2 = __esm({
       return path17;
     };
     importNodeOnlyProvider = (specifier) => {
-      const runtimeSpecifier = "file:///dummy".endsWith(".js") ? specifier.replace(/\.ts$/, ".js") : specifier;
+      const runtimeSpecifier = import_meta2.url.endsWith(".js") ? specifier.replace(/\.ts$/, ".js") : specifier;
       return import(__rewriteRelativeImportExtension3(runtimeSpecifier));
     };
     streamAnthropic2 = createLazyStream(loadAnthropicProviderModule);
@@ -161379,7 +161380,7 @@ function loadNativeModifiersHelper() {
   const arch3 = process.arch;
   if (arch3 !== "x64" && arch3 !== "arm64")
     return void 0;
-  const moduleDir = path5.dirname((0, import_node_url4.fileURLToPath)("file:///dummy"));
+  const moduleDir = path5.dirname((0, import_node_url4.fileURLToPath)(import_meta3.url));
   const nativePath = path5.join("native", "darwin", "prebuilds", `darwin-${arch3}`, "darwin-modifiers.node");
   const candidates = [
     path5.join(moduleDir, "..", nativePath),
@@ -161408,14 +161409,15 @@ function isNativeModifierPressed(key) {
     return false;
   }
 }
-var import_node_module, path5, import_node_url4, cjsRequire, nativeModifiersHelper;
+var import_node_module, path5, import_node_url4, import_meta3, cjsRequire, nativeModifiersHelper;
 var init_native_modifiers = __esm({
   "vendor/@earendil-works/pi-tui/dist/native-modifiers.js"() {
     "use strict";
     import_node_module = require("node:module");
     path5 = __toESM(require("node:path"), 1);
     import_node_url4 = require("node:url");
-    cjsRequire = (0, import_node_module.createRequire)("file:///dummy");
+    import_meta3 = {};
+    cjsRequire = (0, import_node_module.createRequire)(import_meta3.url);
   }
 });
 
@@ -161441,7 +161443,7 @@ function normalizeAppleTerminalInput(data, isAppleTerminal, isShiftPressed) {
     return APPLE_TERMINAL_SHIFT_ENTER_SEQUENCE;
   return data;
 }
-var fs4, import_node_module2, path6, import_node_url5, cjsRequire2, TERMINAL_PROGRESS_KEEPALIVE_MS, TERMINAL_PROGRESS_ACTIVE_SEQUENCE, TERMINAL_PROGRESS_CLEAR_SEQUENCE, APPLE_TERMINAL_SHIFT_ENTER_SEQUENCE, DESIRED_KITTY_KEYBOARD_PROTOCOL_FLAGS, KITTY_KEYBOARD_PROTOCOL_FALLBACK_TIMEOUT_MS, KEYBOARD_PROTOCOL_RESPONSE_FRAGMENT_TIMEOUT_MS, KITTY_KEYBOARD_PROTOCOL_QUERY, ProcessTerminal;
+var fs4, import_node_module2, path6, import_node_url5, import_meta4, cjsRequire2, TERMINAL_PROGRESS_KEEPALIVE_MS, TERMINAL_PROGRESS_ACTIVE_SEQUENCE, TERMINAL_PROGRESS_CLEAR_SEQUENCE, APPLE_TERMINAL_SHIFT_ENTER_SEQUENCE, DESIRED_KITTY_KEYBOARD_PROTOCOL_FLAGS, KITTY_KEYBOARD_PROTOCOL_FALLBACK_TIMEOUT_MS, KEYBOARD_PROTOCOL_RESPONSE_FRAGMENT_TIMEOUT_MS, KITTY_KEYBOARD_PROTOCOL_QUERY, ProcessTerminal;
 var init_terminal = __esm({
   "vendor/@earendil-works/pi-tui/dist/terminal.js"() {
     "use strict";
@@ -161452,7 +161454,8 @@ var init_terminal = __esm({
     init_keys2();
     init_native_modifiers();
     init_stdin_buffer();
-    cjsRequire2 = (0, import_node_module2.createRequire)("file:///dummy");
+    import_meta4 = {};
+    cjsRequire2 = (0, import_node_module2.createRequire)(import_meta4.url);
     TERMINAL_PROGRESS_KEEPALIVE_MS = 1e3;
     TERMINAL_PROGRESS_ACTIVE_SEQUENCE = "\x1B]9;4;3\x07";
     TERMINAL_PROGRESS_CLEAR_SEQUENCE = "\x1B]9;4;0;\x07";
@@ -161690,7 +161693,7 @@ var init_terminal = __esm({
           const arch3 = process.arch;
           if (arch3 !== "x64" && arch3 !== "arm64")
             return;
-          const moduleDir = path6.dirname((0, import_node_url5.fileURLToPath)("file:///dummy"));
+          const moduleDir = path6.dirname((0, import_node_url5.fileURLToPath)(import_meta4.url));
           const nativePath = path6.join("native", "win32", "prebuilds", `win32-${arch3}`, "win32-console-mode.node");
           const candidates = [
             path6.join(moduleDir, "..", nativePath),
@@ -247746,7 +247749,7 @@ function onError2(err2) {
 }
 function lazyTransform(...args) {
   if (!_transform2) {
-    _transform2 = (0, import_node_module4.createRequire)("file:///dummy")("../dist/babel.cjs");
+    _transform2 = (0, import_node_module4.createRequire)(import_meta5.url)("../dist/babel.cjs");
   }
   return _transform2(...args);
 }
@@ -247760,11 +247763,12 @@ function createJiti2(id, opts = {}) {
     createRequire: import_node_module4.createRequire
   });
 }
-var import_node_module4, import_jiti2, nativeImport2, _transform2, jiti_default;
+var import_node_module4, import_jiti2, import_meta5, nativeImport2, _transform2, jiti_default;
 var init_jiti = __esm({
   "node_modules/jiti/lib/jiti.mjs"() {
     import_node_module4 = require("node:module");
     import_jiti2 = __toESM(require_jiti(), 1);
+    import_meta5 = {};
     nativeImport2 = (id) => import(id);
     jiti_default = createJiti2;
   }
@@ -247788,7 +247792,7 @@ async function ensureJiti() {
 function getAliases() {
   if (_aliases)
     return _aliases;
-  const __dirname3 = path8.dirname((0, import_node_url6.fileURLToPath)("file:///dummy"));
+  const __dirname3 = path8.dirname((0, import_node_url6.fileURLToPath)(import_meta6.url));
   const packageIndex = path8.resolve(__dirname3, "../..", "index.js");
   const typeboxEntry = require2.resolve("typebox");
   const typeboxCompileEntry = require2.resolve("typebox/compile");
@@ -247799,7 +247803,7 @@ function getAliases() {
     if (fs6.existsSync(workspacePath)) {
       return workspacePath;
     }
-    return (0, import_node_url6.fileURLToPath)(import_meta.resolve(specifier));
+    return (0, import_node_url6.fileURLToPath)(import_meta6.resolve(specifier));
   };
   const piCodingAgentEntry = packageIndex;
   const piAgentCoreEntry = resolveWorkspaceOrImport("agent/dist/index.js", "@earendil-works/pi-agent-core");
@@ -247991,7 +247995,7 @@ async function loadExtensionModule(extensionPath) {
   if (!createJiti3) {
     throw new Error("jiti not available");
   }
-  const jiti = createJiti3("file:///dummy", {
+  const jiti = createJiti3(import_meta6.url, {
     moduleCache: false,
     // In Bun binary: use virtualModules for bundled packages (no filesystem resolution)
     // Also disable tryNative so jiti handles ALL imports (not just the entry point)
@@ -248162,7 +248166,7 @@ async function discoverAndLoadExtensions(configuredPaths, cwd, agentDir3 = getAg
   }
   return loadExtensions(allPaths, resolvedCwd, eventBus);
 }
-var fs6, import_node_module5, path8, import_node_url6, import_meta, createJiti3, _jitiInitialized, VIRTUAL_MODULES, require2, _aliases;
+var fs6, import_node_module5, path8, import_node_url6, import_meta6, createJiti3, _jitiInitialized, VIRTUAL_MODULES, require2, _aliases;
 var init_loader2 = __esm({
   "vendor/@earendil-works/pi-coding-agent/dist/core/extensions/loader.js"() {
     "use strict";
@@ -248183,7 +248187,7 @@ var init_loader2 = __esm({
     init_event_bus();
     init_exec();
     init_source_info();
-    import_meta = {};
+    import_meta6 = {};
     createJiti3 = null;
     _jitiInitialized = false;
     VIRTUAL_MODULES = {
@@ -248204,7 +248208,7 @@ var init_loader2 = __esm({
       "@mariozechner/pi-ai/oauth": oauth_exports,
       "@mariozechner/pi-coding-agent": dist_exports4
     };
-    require2 = (0, import_node_module5.createRequire)("file:///dummy");
+    require2 = (0, import_node_module5.createRequire)(import_meta6.url);
     _aliases = null;
   }
 });
@@ -254197,14 +254201,15 @@ async function loadPhoton() {
   })();
   return loadPromise;
 }
-var import_module2, path11, import_node_url8, require3, fs7, WASM_FILENAME, photonModule, loadPromise;
+var import_module2, path11, import_node_url8, import_meta7, require3, fs7, WASM_FILENAME, photonModule, loadPromise;
 var init_photon = __esm({
   "vendor/@earendil-works/pi-coding-agent/dist/utils/photon.js"() {
     "use strict";
     import_module2 = require("module");
     path11 = __toESM(require("node:path"), 1);
     import_node_url8 = require("node:url");
-    require3 = (0, import_module2.createRequire)("file:///dummy");
+    import_meta7 = {};
+    require3 = (0, import_module2.createRequire)(import_meta7.url);
     fs7 = require3("node:fs");
     WASM_FILENAME = "photon_rs_bg.wasm";
     photonModule = null;
@@ -254381,8 +254386,8 @@ async function resizeImageInWorker(workerSpecifier, inputBytes, mimeType, option
   }
 }
 async function resizeImage(inputBytes, mimeType, options2) {
-  const isTypeScriptRuntime = "file:///dummy".endsWith(".ts");
-  const workerUrl = new URL(isTypeScriptRuntime ? "./image-resize-worker.ts" : "./image-resize-worker.js", "file:///dummy");
+  const isTypeScriptRuntime = import_meta8.url.endsWith(".ts");
+  const workerUrl = new URL(isTypeScriptRuntime ? "./image-resize-worker.ts" : "./image-resize-worker.js", import_meta8.url);
   if (typeof process.versions.bun === "string") {
     try {
       return await resizeImageInWorker("./src/utils/image-resize-worker.ts", inputBytes, mimeType, options2);
@@ -254402,12 +254407,13 @@ function formatDimensionNote(result) {
   const scale = result.originalWidth / result.width;
   return `[Image: original ${result.originalWidth}x${result.originalHeight}, displayed at ${result.width}x${result.height}. Multiply coordinates by ${scale.toFixed(2)} to map to original image.]`;
 }
-var import_node_worker_threads;
+var import_node_worker_threads, import_meta8;
 var init_image_resize = __esm({
   "vendor/@earendil-works/pi-coding-agent/dist/utils/image-resize.js"() {
     "use strict";
     import_node_worker_threads = require("node:worker_threads");
     init_image_resize_core();
+    import_meta8 = {};
   }
 });
 
@@ -298961,14 +298967,15 @@ function loadClipboardNative(requires = [moduleRequire, executableDirRequire]) {
   }
   return null;
 }
-var import_module3, import_node_path33, import_node_url11, moduleRequire, executableDirRequire, hasDisplay, clipboard;
+var import_module3, import_node_path33, import_node_url11, import_meta9, moduleRequire, executableDirRequire, hasDisplay, clipboard;
 var init_clipboard_native = __esm({
   "vendor/@earendil-works/pi-coding-agent/dist/utils/clipboard-native.js"() {
     "use strict";
     import_module3 = require("module");
     import_node_path33 = require("node:path");
     import_node_url11 = require("node:url");
-    moduleRequire = (0, import_module3.createRequire)("file:///dummy");
+    import_meta9 = {};
+    moduleRequire = (0, import_module3.createRequire)(import_meta9.url);
     executableDirRequire = (0, import_module3.createRequire)((0, import_node_url11.pathToFileURL)((0, import_node_path33.join)((0, import_node_path33.dirname)(process.execPath), "package.json")).href);
     hasDisplay = process.platform !== "linux" || Boolean(process.env.DISPLAY || process.env.WAYLAND_DISPLAY);
     clipboard = !process.env.TERMUX_VERSION && hasDisplay ? loadClipboardNative() : null;

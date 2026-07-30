@@ -503,10 +503,10 @@ process.stdin.setEncoding("utf8");
 // === Die with parent: quando l'app chiude stdin (muore/quit/SIGKILL), il sidecar esce.
 // Previene orphan sidecar che terrebbero il lock su ~/.pi/agent e bloccherebbero il
 // sidecar dell'app al riavvio (dopo "Salva e riavvia" o flutter run dell'Expert).
-process.stdin.on("end", () => { try { process.stderr.write("[sidecar] stdin EOF (app gone) → exit\\n"); } catch {} process.exit(0); });
+// stdin EOF: non uscire (modalita standalone)
 process.stdin.on("close", () => { try { process.exit(0); } catch {} });
 // Belt-and-suspenders: se stdin EOF non fire (edge case), monitora il parent PID ogni 5s.
-setInterval(() => { try { process.kill(process.ppid, 0); } catch { try { process.stderr.write("[sidecar] parent gone → exit\\n"); } catch {} process.exit(0); } }, 5000);
+// parent check: disattivato in modalita standalone
 process.stdin.on("data", (chunk) => {
   inputBuffer += chunk;
   let idx;
