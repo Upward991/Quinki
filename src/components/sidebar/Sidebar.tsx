@@ -83,26 +83,26 @@ export function Sidebar(props: SidebarProps) {
   }
   buildList(topItems, 0)
 
-  function handleDragStart(e: any) {
-    const item = flatList.find(f => f.item.id === e.active.id)
+  function handleDragStart(ev: any) {
+    const item = flatList.find(f => f.item.id === ev.active.id)
     if (item) {
-      dragRef.current = { id: e.active.id, kind: item.item.type === 'folder' ? 'folder' : 'chat' }
+      dragRef.current = { id: ev.active.id, kind: item.item.type === 'folder' ? 'folder' : 'chat' }
     }
   }
 
-  function handleDragMove(e: any) {
-    const over = e.over
+  function handleDragMove(ev: any) {
+    const over = ev.over
     if (!over || !dragRef.current) { setDropZone(null); return }
     const targetItem = e.find(s => s.id === over.id)
     if (!targetItem || !canAccept(e, dragRef.current, over.id)) { setDropZone(null); return }
     const isFolder = targetItem.type === 'folder'
     const rect = over.rect
-    const zone = computeZone(e.delta.y - rect.top + rect.height / 2, rect.height, isFolder)
+    const zone = computeZone(ev.delta.y - rect.top + rect.height / 2, rect.height, isFolder)
     setDropZone({ id: over.id, zone })
   }
 
-  function handleDragEnd(e: any) {
-    const { active, over } = e
+  function handleDragEnd(ev: any) {
+    const { active, over } = ev
     if (!over || !dragRef.current) { dragRef.current = null; setDropZone(null); return }
     const dragItem = e.find(s => s.id === active.id)
     const targetItem = e.find(s => s.id === over.id)
@@ -111,7 +111,7 @@ export function Sidebar(props: SidebarProps) {
     }
     const isFolder = targetItem.type === 'folder'
     const rect = over.rect
-    const zone = computeZone(e.delta.y - rect.top + rect.height / 2, rect.height, isFolder)
+    const zone = computeZone(ev.delta.y - rect.top + rect.height / 2, rect.height, isFolder)
 
     if (zone === 'into' && isFolder) {
       if (dragItem.type === 'folder') {
