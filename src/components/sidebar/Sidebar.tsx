@@ -45,7 +45,8 @@ function isDescendant(sessions: any[], targetId: string, dragId: string): boolea
 function canAccept(sessions: any[], dragItem: any, targetId: string): boolean {
   if (!dragItem) return false
   if (dragItem.id === targetId) return false
-  if (dragItem.kind === 'folder' && isDescendant(sessions, targetId, dragItem.id)) return false
+  // No subfolders: can't drop a folder into another folder
+  if (dragItem.kind === 'folder') return false
   return true
 }
 

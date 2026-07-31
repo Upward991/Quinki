@@ -961,6 +961,15 @@ class PiBridge {
     if (s) { s.label = label; this.#save(); }
   }
 
+  updateSessionEntry(key: string, updates: { folderId?: string | null; order?: number }) {
+    const s = this.#entries.get(key);
+    if (s) {
+      if (updates.folderId !== undefined) (s as any).folderId = updates.folderId;
+      if (updates.order !== undefined) (s as any).order = updates.order;
+      this.#save();
+    }
+  }
+
   // === B6: persisti override compaction per-sessione su disco ===
   setSessionCompaction(key: string, auto: boolean | undefined, threshold: number | undefined) {
     const s = this.#entries.get(key);

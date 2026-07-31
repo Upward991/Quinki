@@ -433,7 +433,14 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
 
   getFolders: async () => ({ folders: getFolders() }),
   setFolders: async (p) => setFolders(p.folders),
-  moveSession: async (p) => moveSessionIPC(p.sessionKey, p.folderId ?? null, p.order ?? Date.now()),
+  moveSession: async (p) => {
+    const result = moveSessionIPC(p.sessionKey, p.folderId ?? null, p.order ?? Date.now());
+    // Also update in-memory entries so getFullState returns correct data
+    if (result.success && piBridge) {
+      piBridge.updateSessionEntry(p.sessionKey, { folderId: p.folderId ?? null, order: p.order ?? Date.now() });
+    }
+    return result;
+  },
   deleteSessionsByFolderId: async (p) => deleteSessionsByFolderIdIPC(p.folderId),
   deleteSessionsByKeys: async (p) => deleteSessionsByKeysIPC(p.keys),
 
