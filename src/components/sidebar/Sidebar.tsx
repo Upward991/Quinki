@@ -67,6 +67,7 @@ export function Sidebar(props: SidebarProps) {
   const [dropZone, setDropZone] = useState<{ id: string; zone: string } | null>(null)
 
   const dragRef = useRef<any>(null)
+  const [activeDragItem, setActiveDragItem] = useState<any>(null)
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
   // Build flat display list
@@ -87,6 +88,7 @@ export function Sidebar(props: SidebarProps) {
     const item = flatList.find(f => f.item.id === ev.active.id)
     if (item) {
       dragRef.current = { id: ev.active.id, kind: item.item.type === 'folder' ? 'folder' : 'chat' }
+      setActiveDragItem(item.item)
     }
   }
 
@@ -96,8 +98,11 @@ export function Sidebar(props: SidebarProps) {
     const targetItem = e.find(s => s.id === over.id)
     if (!targetItem || !canAccept(e, dragRef.current, over.id)) { setDropZone(null); return }
     const isFolder = targetItem.type === 'folder'
-    const rect = over.rect
-    const zone = computeZone(ev.delta.y - rect.top + rect.height / 2, rect.height, isFolder)
+    const overRect = over.rect
+    const activeRect = ev.active.rect.current.translated || ev.active.rect.current.initial
+    const centerY = activeRect.top + activeRect.height / 2
+    const relY = centerY - overRect.top
+    const zone = computeZone(relY, overRect.height, isFolder)
     setDropZone({ id: over.id, zone })
   }
 
@@ -110,8 +115,11 @@ export function Sidebar(props: SidebarProps) {
       dragRef.current = null; setDropZone(null); return
     }
     const isFolder = targetItem.type === 'folder'
-    const rect = over.rect
-    const zone = computeZone(ev.delta.y - rect.top + rect.height / 2, rect.height, isFolder)
+    const overRect = over.rect
+    const activeRect = active.rect.current.translated || active.rect.current.initial
+    const centerY = activeRect.top + activeRect.height / 2
+    const relY = centerY - overRect.top
+    const zone = computeZone(relY, overRect.height, isFolder)
 
     if (zone === 'into' && isFolder) {
       if (dragItem.type === 'folder') {
@@ -136,6 +144,7 @@ export function Sidebar(props: SidebarProps) {
     }
     dragRef.current = null
     setDropZone(null)
+    setActiveDragItem(null)
   }
 
   function handleRename(id: string, kind: string) {
@@ -235,6 +244,22 @@ export function Sidebar(props: SidebarProps) {
                 onRenameCancel={() => setRenaming(null)}
               />
             ))}
+            <DragOverlay>
+              {activeDragItem && (
+                <div style={{
+                  backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)',
+                  boxShadow: '0 8px 16px rgba(0,0,0,0.5)', padding: '6px 16px',
+                  display: 'flex', alignItems: 'center', gap: '8px', opacity: 0.9, minWidth: '200px',
+                }}>
+                  {activeDragItem.type === 'folder'
+                    ? <FolderOpen size={20} style={{ color: 'var(--q-accent-folder-open)' }} />
+                    : <MessageSquare size={20} style={{ color: 'var(--q-accent-info)' }} />}
+                  <span style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>
+                    {activeDragItem.title || 'Chat'}
+                  </span>
+                </div>
+              )}
+            </DragOverlay>
           </DndContext>
         )}
       </div>
