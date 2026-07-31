@@ -96,13 +96,15 @@ export function Sidebar(props: SidebarProps) {
     if (!over || !dragRef.current) { setDropZone(null); return }
     const targetItem = e.find(s => s.id === over.id)
     if (!targetItem || !canAccept(e, dragRef.current, over.id)) { setDropZone(null); return }
-    const isFolder = targetItem.type === 'folder'
-    const overRect = over.rect
+    // Use DOM getBoundingClientRect for precise zone computation
+    const el = document.querySelector(`[data-row-id="${over.id}"]`)
+    if (!el) { setDropZone(null); return }
+    const rect = el.getBoundingClientRect()
     const pointerY = (ev.activatorEvent?.clientY || 0) + ev.delta.y
-    const relY = pointerY - overRect.top
-    // If dragging a folder, never show "into" zone (no subfolders)
+    const relY = pointerY - rect.top
+    const isFolder = targetItem.type === 'folder'
     const effectiveIsFolder = isFolder && dragRef.current.kind !== 'folder'
-    const zone = computeZone(relY, overRect.height, effectiveIsFolder)
+    const zone = computeZone(relY, rect.height, effectiveIsFolder)
     if (dropZone?.id !== over.id || dropZone?.zone !== zone) {
       setDropZone({ id: over.id, zone })
     }
@@ -117,10 +119,13 @@ export function Sidebar(props: SidebarProps) {
       dragRef.current = null; setDropZone(null); return
     }
     const isFolder = targetItem.type === 'folder'
-    const overRect = over.rect
+    const el = document.querySelector(`[data-row-id="${over.id}"]`)
+    if (!el) { dragRef.current = null; setDropZone(null); setActiveDragItem(null); return }
+    const rect = el.getBoundingClientRect()
     const pointerY = (ev.activatorEvent?.clientY || 0) + ev.delta.y
-    const relY = pointerY - overRect.top
-    const zone = computeZone(relY, overRect.height, isFolder)
+    const relY = pointerY - rect.top
+    const effectiveIsFolder = isFolder && dragRef.current.kind !== 'folder'
+    const zone = computeZone(relY, rect.height, effectiveIsFolder)
     console.log('[DnD] drop', { dragId: active.id, dragType: dragItem.type, targetId: over.id, targetIsFolder: isFolder, zone, relY, height: overRect.height, willMove: zone === 'into' && isFolder && dragItem.type !== 'folder' })
 
     if (zone === 'into' && isFolder && dragItem.type !== 'folder') {
@@ -321,6 +326,7 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
   return (
     <div
       ref={setDropRef}
+      data-row-id={item.id}
       style={{ paddingLeft: '8px', paddingRight: '8px', paddingBottom: '4px', position: 'relative' }}
       onMouseEnter={() => onHover(true)}
       onMouseLeave={() => onHover(false)}
