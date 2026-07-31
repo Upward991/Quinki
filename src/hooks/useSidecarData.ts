@@ -424,7 +424,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
 
     // Session lifecycle
     const unsubSessCreated = subscribe('session_created', () => {
-      call('getFullState', {}).then((r: any) => { console.log('[moveSession] getFullState sessions:', r?.sessions?.map((s:any)=>({key:s.key,folderId:s.folderId})) || 'none'); if (r?.sessions) setSessions(mapSessions(r.sessions)) }).catch(() => {})
+      call('getFullState', {}).then((r: any) => { if (r?.sessions) setSessions(mapSessions(r.sessions)) }).catch(() => {})
     })
     const unsubSessUpdated = subscribe('session_updated', (p: any) => {
       if (p?.sessionKey) {
@@ -875,11 +875,11 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
     await selectSession(sessionKey)
   }, [ready, notify, selectSession])
 
-  const moveSession = useCallback(async (sessionKey: string, folderId: string | null, order: number) => {
+  const moveSession = useCallback((sessionKey: string, folderId: string | null, order: number) => {
     if (!ready) return
-    try { await call('moveSession', { sessionKey, folderId, order }) } catch {}
-    call('getFullState', {}).then((r: any) => { if (r?.sessions) setSessions(mapSessions(r.sessions)) }).catch(() => {})
-  }, [ready, call])
+    setSessions(prev => prev.map(s => s.id === sessionKey ? { ...s, folderId, parentId: folderId, order } : s))
+    notify('moveSession', { sessionKey, folderId, order })
+  }, [ready, notify])
 
   const compactSession = useCallback(async (sessionKey: string) => {
     if (!ready) return
