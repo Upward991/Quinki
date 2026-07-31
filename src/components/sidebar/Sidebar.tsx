@@ -45,6 +45,8 @@ function isDescendant(sessions: any[], targetId: string, dragId: string): boolea
 function canAccept(sessions: any[], dragItem: any, targetId: string): boolean {
   if (!dragItem) return false
   if (dragItem.id === targetId) return false
+  // Anti-cycle: can't drop a folder into itself or its descendants
+  if (dragItem.kind === 'folder' && isDescendant(sessions, targetId, dragItem.id)) return false
   return true
 }
 
@@ -127,7 +129,7 @@ export function Sidebar(props: SidebarProps) {
     const effectiveIsFolder = isFolder && dragRef.current.kind !== 'folder'
     const zone = computeZone(relY, rect.height, effectiveIsFolder)
     
-    if (zone === 'into' && isFolder && dragItem.type !== 'folder') {
+    if (zone === 'into' && isFolder) {
       if (dragItem.type === 'folder') { props.onMoveFolder?.(dragItem.id, over.id, Date.now()) }
       else { props.onMoveSession?.(dragItem.id, over.id, Date.now()) }
     } else if (zone === 'before') {
@@ -403,7 +405,7 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
 }
 
 // === Context Menu ===
-function ContextMenu({ x, y, item, multiSelect, selectedCount, onClose, onRename, onSelect, onOpenWindow, onDelete, onDeleteFolder, onDeselectAll, onDeleteSelected }: any) {
+function ContextMenu({ x, y, item, multiSelect, selectedCount, onClose, onRename, onSelect, onOpenWindow, onDelete, onNewSubfolder, onDeleteFolder, onDeselectAll, onDeleteSelected }: any) {
   const isFolder = item.type === 'folder'
   return (
     <>
@@ -423,6 +425,7 @@ function ContextMenu({ x, y, item, multiSelect, selectedCount, onClose, onRename
             <MenuItem label="Rename" onClick={onRename} />
             {!isFolder && <MenuItem label="Select chat" onClick={onSelect} />}
             {!isFolder && <MenuItem label="Open in separate window" onClick={onOpenWindow} />}
+            {isFolder && <MenuItem label="New subfolder" onClick={onNewSubfolder} />}
             <MenuItem label={isFolder ? 'Delete folder' : 'Delete chat'} color="var(--q-accent-danger)" onClick={onDelete} />
             {isFolder && <MenuItem label="Delete folder with contents" color="var(--q-accent-danger)" onClick={() => onDeleteFolder(true)} />}
           </>
