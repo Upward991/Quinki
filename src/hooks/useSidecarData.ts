@@ -79,6 +79,7 @@ function mapSession(s: any) {
     thinkingLevel: s.thinkingLevel,
     mode: s.mode || 'plan',
     folderId: s.folderId || null,
+    parentId: s.folderId || null,
     compactionAuto: s.compactionAuto ?? true,
     compactionThreshold: s.compactionThreshold ?? 80,
     agentId: s.agentId,

@@ -45,8 +45,6 @@ function isDescendant(sessions: any[], targetId: string, dragId: string): boolea
 function canAccept(sessions: any[], dragItem: any, targetId: string): boolean {
   if (!dragItem) return false
   if (dragItem.id === targetId) return false
-  // No subfolders: can't drop a folder into another folder
-  if (dragItem.kind === 'folder') return false
   return true
 }
 
@@ -124,7 +122,7 @@ export function Sidebar(props: SidebarProps) {
     const zone = computeZone(relY, overRect.height, isFolder)
     console.log('[DnD] drop', { dragId: active.id, targetId: over.id, zone, isFolder, relY, height: overRect.height })
 
-    if (zone === 'into' && isFolder) {
+    if (zone === 'into' && isFolder && dragItem.type !== 'folder') {
       if (dragItem.type === 'folder') { console.log('[DnD] moveFolder into', dragItem.id, over.id); props.onMoveFolder?.(dragItem.id, over.id, Date.now()) }
       else { console.log('[DnD] moveSession into', dragItem.id, over.id); props.onMoveSession?.(dragItem.id, over.id, Date.now()) }
     } else if (zone === 'before') {
