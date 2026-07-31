@@ -99,11 +99,10 @@ export function Sidebar(props: SidebarProps) {
     if (!targetItem || !canAccept(e, dragRef.current, over.id)) { setDropZone(null); return }
     const isFolder = targetItem.type === 'folder'
     const overRect = over.rect
-    const activeRect = ev.active.rect.current.translated || ev.active.rect.current.initial
-    const centerY = activeRect.top + activeRect.height / 2
-    const relY = centerY - overRect.top
+    // Use ACTUAL POINTER position, not element center
+    const pointerY = (ev.activatorEvent?.clientY || 0) + ev.delta.y
+    const relY = pointerY - overRect.top
     const zone = computeZone(relY, overRect.height, isFolder)
-    // Hysteresis: only update if zone actually changed (prevent 1px flicker)
     if (dropZone?.id !== over.id || dropZone?.zone !== zone) {
       setDropZone({ id: over.id, zone })
     }
@@ -119,9 +118,8 @@ export function Sidebar(props: SidebarProps) {
     }
     const isFolder = targetItem.type === 'folder'
     const overRect = over.rect
-    const activeRect = active.rect.current.translated || active.rect.current.initial
-    const centerY = activeRect.top + activeRect.height / 2
-    const relY = centerY - overRect.top
+    const pointerY = (ev.activatorEvent?.clientY || 0) + ev.delta.y
+    const relY = pointerY - overRect.top
     const zone = computeZone(relY, overRect.height, isFolder)
     console.log('[DnD] drop', { dragId: active.id, targetId: over.id, zone, isFolder, relY, height: overRect.height })
 
@@ -329,7 +327,7 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
     >
       {/* Drop indicator: before */}
       {showDropIndicator && dropZone.zone === 'before' && (
-        <div style={{ position: 'absolute', top: '-1px', left: `${8 + depth * 12}px`, right: '8px', height: '2px', backgroundColor: 'var(--q-accent-primary)', borderRadius: '1px', zIndex: 10, pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: '0px', left: `${8 + depth * 12}px`, right: '8px', height: '2px', backgroundColor: 'var(--q-accent-primary)', borderRadius: '1px', zIndex: 10, pointerEvents: 'none' }} />
       )}
       {/* Drop indicator: after */}
       {showDropIndicator && dropZone.zone === 'after' && (
