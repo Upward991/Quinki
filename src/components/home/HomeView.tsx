@@ -42,11 +42,11 @@ function HomeCard({card, idx, onSelectPanel}: any) {
         cursor:'pointer', position:'relative', overflow:'hidden',
         animation:`staggerIn 300ms cubic-bezier(0.16, 1, 0.3, 1) ${idx*40}ms both`,
         transform: hovered ? 'translateY(-2px)' : 'translateY(0)',
-        transition:'transform 120ms cubic-bezier(0.16, 1, 0.3, 1), border-color 120ms ease, box-shadow 120ms ease'
+        transition: 'none'
       }
     },
-    React.createElement('div', {style:{position:'absolute', inset:0, background:`radial-gradient(ellipse 80% 60% at 50% 50%, ${card.color}, transparent 70%)`, opacity:hovered?0.06:0, transition:'opacity 120ms ease', pointerEvents:'none'}}),
-    React.createElement('div', {style:{display:'flex', alignItems:'center', justifyContent:'center', transform:hovered?'scale(1.05)':'scale(1)', transition:'transform 120ms cubic-bezier(0.16, 1, 0.3, 1)'}},
+    React.createElement('div', {style:{position:'absolute', inset:0, background:`radial-gradient(ellipse 80% 60% at 50% 50%, ${card.color}, transparent 70%)`, opacity:hovered?0.06:0, transition: 'none', pointerEvents:'none'}}),
+    React.createElement('div', {style:{display:'flex', alignItems:'center', justifyContent:'center', transform:hovered?'scale(1.05)':'scale(1)', transition: 'none'}},
       card.doubleBot ? React.createElement(Bot, {size:28, style:{color:card.color}}) : React.createElement(Icon, {size:28, style:{color:card.color}})
     ),
     React.createElement('div', {style:{height:'10px'}}),

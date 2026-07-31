@@ -262,7 +262,7 @@ function SmallIconBtn({ children }: { children: React.ReactNode }) {
         color: hovered ? 'var(--q-text)' : 'var(--q-text-secondary)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         transform: hovered ? 'scale(1.02)' : 'scale(1)',
-        transition: 'transform 120ms cubic-bezier(0.16, 1, 0.3, 1)',
+        transition: 'none',
       }}>
       {children}
     </button>
@@ -346,7 +346,7 @@ function AttachBtn({ children, onClick, title }: { children: React.ReactNode; on
         backgroundColor: hovered ? 'var(--q-hover)' : 'transparent',
         color: hovered ? 'var(--q-text)' : 'var(--q-text-secondary)',
         flexShrink: 0, padding: '0',
-        transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms cubic-bezier(0.16, 1, 0.3, 1), transform 120ms cubic-bezier(0.16, 1, 0.3, 1)',
+        transition: 'none',
       }}>
       {children}
     </button>
@@ -378,7 +378,7 @@ function SendButton({ enabled, onClick }: { enabled: boolean; onClick: () => voi
         backgroundColor: enabled ? (hovered ? 'var(--q-tab-accent)' : 'var(--q-tab-accent-darker)') : 'var(--q-hover)',
         color: enabled ? getContrastColor('--q-tab-accent') : 'var(--q-text-tertiary)',
         flexShrink: 0, padding: '0',
-        transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms cubic-bezier(0.16, 1, 0.3, 1), transform 120ms cubic-bezier(0.16, 1, 0.3, 1)',
+        transition: 'none',
       }}>
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
         stroke={enabled ? getContrastColor('--q-tab-accent') : 'var(--q-text-tertiary)'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

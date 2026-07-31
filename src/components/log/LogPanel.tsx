@@ -179,7 +179,7 @@ export function LogPanel(props: LogPanelProps) {
           backgroundColor: hovered ? 'var(--q-hover)' : 'transparent',
           color: hovered ? 'var(--q-text)' : 'var(--q-text-secondary)',
           flexShrink: 0, padding: '0',
-          transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms cubic-bezier(0.16, 1, 0.3, 1)',
+          transition: 'none',
         }}
       >
         <Icon size={20} />
@@ -199,7 +199,7 @@ export function LogPanel(props: LogPanelProps) {
           border: `1px solid ${color}`, color: isActive ? 'var(--q-bg)' : color,
           fontSize: '12px', fontFamily: 'var(--font-interface)', fontWeight: 500,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          transition: 'background-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms ease',
+          transition: 'none',
         }}
       >
         {level}
@@ -222,7 +222,7 @@ export function LogPanel(props: LogPanelProps) {
           cursor: 'pointer', backgroundColor: 'transparent',
           color: isGreen ? 'var(--q-accent-success)' : 'var(--q-text-secondary)',
           fontSize: '12px', fontFamily: 'var(--font-interface)',
-          transition: 'border-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms ease',
+          transition: 'none',
         }}
       >
         {icon}
@@ -279,10 +279,10 @@ export function LogPanel(props: LogPanelProps) {
                 borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)',
                 cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)',
                 fontSize: '12px', fontFamily: 'var(--font-interface)',
-                transition: 'border-color 120ms cubic-bezier(0.16, 1, 0.3, 1), color 120ms ease',
+                transition: 'none',
               }}
             >
-              <ChevronDown size={14} style={{ transition: 'transform 120ms ease' }} />
+              <ChevronDown size={14} style={{ transition: 'none' }} />
               More
             </button>
             <div
