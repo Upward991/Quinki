@@ -100,8 +100,9 @@ export function Sidebar(props: SidebarProps) {
     const overRect = over.rect
     const pointerY = (ev.activatorEvent?.clientY || 0) + ev.delta.y
     const relY = pointerY - overRect.top
-    const zone = computeZone(relY, overRect.height, isFolder)
-    // Only update if target changed OR zone changed (prevents 1px oscillation)
+    // If dragging a folder, never show "into" zone (no subfolders)
+    const effectiveIsFolder = isFolder && dragRef.current.kind !== 'folder'
+    const zone = computeZone(relY, overRect.height, effectiveIsFolder)
     if (dropZone?.id !== over.id || dropZone?.zone !== zone) {
       setDropZone({ id: over.id, zone })
     }
@@ -120,7 +121,7 @@ export function Sidebar(props: SidebarProps) {
     const pointerY = (ev.activatorEvent?.clientY || 0) + ev.delta.y
     const relY = pointerY - overRect.top
     const zone = computeZone(relY, overRect.height, isFolder)
-    console.log('[DnD] drop', { dragId: active.id, targetId: over.id, zone, isFolder, relY, height: overRect.height })
+    console.log('[DnD] drop', { dragId: active.id, dragType: dragItem.type, targetId: over.id, targetIsFolder: isFolder, zone, relY, height: overRect.height, willMove: zone === 'into' && isFolder && dragItem.type !== 'folder' })
 
     if (zone === 'into' && isFolder && dragItem.type !== 'folder') {
       if (dragItem.type === 'folder') { console.log('[DnD] moveFolder into', dragItem.id, over.id); props.onMoveFolder?.(dragItem.id, over.id, Date.now()) }
