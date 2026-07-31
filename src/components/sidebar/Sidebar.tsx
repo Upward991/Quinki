@@ -120,6 +120,7 @@ export function Sidebar(props: SidebarProps) {
     const centerY = activeRect.top + activeRect.height / 2
     const relY = centerY - overRect.top
     const zone = computeZone(relY, overRect.height, isFolder)
+    console.log('[DnD] drop', { dragId: active.id, targetId: over.id, zone, isFolder, relY, height: overRect.height })
 
     if (zone === 'into' && isFolder) {
       if (dragItem.type === 'folder') {
@@ -244,17 +245,21 @@ export function Sidebar(props: SidebarProps) {
                 onRenameCancel={() => setRenaming(null)}
               />
             ))}
-            <DragOverlay>
+            <DragOverlay dropAnimation={null}>
               {activeDragItem && (
                 <div style={{
                   backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)',
                   boxShadow: '0 8px 16px rgba(0,0,0,0.5)', padding: '6px 16px',
-                  display: 'flex', alignItems: 'center', gap: '8px', opacity: 0.9, minWidth: '200px',
+                  display: 'flex', alignItems: 'center', gap: '8px', opacity: 0.95, minWidth: '200px',
                 }}>
                   {activeDragItem.type === 'folder'
                     ? <FolderOpen size={20} style={{ color: 'var(--q-accent-folder-open)' }} />
-                    : <MessageSquare size={20} style={{ color: 'var(--q-accent-info)' }} />}
-                  <span style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>
+                    : <MessageSquare size={20} style={{ color: activeDragItem.id === t ? 'var(--q-accent-info)' : 'var(--q-text-secondary)' }} />}
+                  <span style={{
+                    color: activeDragItem.type === 'folder' ? 'var(--q-accent-folder-open)'
+                      : activeDragItem.id === t ? 'var(--q-accent-info)' : 'var(--q-text)',
+                    fontSize: '14px', fontFamily: 'var(--font-interface)',
+                  }}>
                     {activeDragItem.title || 'Chat'}
                   </span>
                 </div>
