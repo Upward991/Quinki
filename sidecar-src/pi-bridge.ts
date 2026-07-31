@@ -588,6 +588,77 @@ class PiBridge {
     return "Chat";
   }
 
+  // === Auto-title: chiede al modello di generare un titolo dalla conversazione ===
+  async #generateTitleFromModel(sessionKey: string, modelId: string): Promise<string | null> {
+    try {
+      if (!this.#modelRegistry) return null;
+      const model = this.#findModelInRegistry(this.#modelRegistry, modelId);
+      if (!model) return null;
+
+      // Leggi primo messaggio utente + prima risposta AI dal .jsonl
+      const sessionDir = path.join(SESSION_BASE, sessionKey);
+      if (!fs.existsSync(sessionDir)) return null;
+      const files = fs.readdirSync(sessionDir).filter((f: string) => f.endsWith(".jsonl"));
+      if (files.length === 0) return null;
+      const jsonlPath = path.join(sessionDir, files[files.length - 1]);
+      const lines = fs.readFileSync(jsonlPath, "utf8").trim().split("\n").filter((l: string) => l.trim());
+      let userText = "", aiText = "";
+      for (const line of lines) {
+        try {
+          const obj = JSON.parse(line);
+          if (obj.type !== "message") continue;
+          const role = obj.message?.role;
+          const content = obj.message?.content;
+          let text = "";
+          if (Array.isArray(content)) {
+            for (const block of content) { if (block?.type === "text" && block.text) { text = block.text; break; } }
+          } else if (typeof content === "string") { text = content; }
+          if (role === "user" && !userText) userText = text.slice(0, 500);
+          if (role === "assistant" && !aiText) aiText = text.slice(0, 500);
+          if (userText && aiText) break;
+        } catch {}
+      }
+      if (!userText) return null;
+
+      // Prepara la richiesta al modello
+      const authResult = await this.#modelRegistry.getApiKeyAndHeaders(model);
+      if (!authResult?.ok) return null;
+      const baseUrl = model.baseUrl || "";
+      const isOllama = baseUrl.includes("localhost") || baseUrl.includes("127.0.0.1");
+      const url = isOllama ? `${baseUrl}/api/chat` : `${baseUrl}/v1/chat/completions`;
+      const headers: any = { "Content-Type": "application/json" };
+      if (authResult.apiKey) headers["Authorization"] = `Bearer ${authResult.apiKey}`;
+      if (authResult.headers) Object.assign(headers, authResult.headers);
+
+      const body = isOllama ? {
+        model: modelId, stream: false,
+        messages: [
+          { role: "system", content: "Generate a concise title (max 40 chars) for this conversation. Reply with ONLY the title, no quotes, no punctuation at the end." },
+          { role: "user", content: `User: ${userText}\nAssistant: ${aiText || "(no response yet)"}` }
+        ]
+      } : {
+        model: modelId, stream: false, max_tokens: 60,
+        messages: [
+          { role: "system", content: "Generate a concise title (max 40 chars) for this conversation. Reply with ONLY the title, no quotes, no punctuation at the end." },
+          { role: "user", content: `User: ${userText}\nAssistant: ${aiText || "(no response yet)"}` }
+        ]
+      };
+
+      const resp = await fetch(url, { method: "POST", headers, body: JSON.stringify(body) });
+      if (!resp.ok) return null;
+      const data: any = await resp.json();
+      const title = isOllama ? (data?.message?.content || "") : (data?.choices?.[0]?.message?.content || "");
+      const cleaned = title.trim().replace(/^["'<>]+|["'<>.]+$/g, "").replace(/\s+/g, " ");
+      if (cleaned && cleaned.length > 0 && cleaned.length <= 50) {
+        return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+      }
+      return null;
+    } catch (e: any) {
+      this.logDebug("auto-title-error", { sessionKey, error: e?.message || String(e) });
+      return null;
+    }
+  }
+
   getSessions() {
     const out = [...this.#entries.values()].map((s: any) => ({
       key: s.key, label: s.label, agentId: s.agentId || "pi",
@@ -3331,18 +3402,6 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     const effectiveCwd = this.#cwdOverride.get(sk) ?? ((data.workingDirs && data.workingDirs.length > 0) ? data.workingDirs[0] : this.#cwd);
     this.#lastEffectiveCwd.set(sk, effectiveCwd);
 
-    // === Auto-title: se il label è ancora il default, generiamo dal primo messaggio utente ===
-    if ((s.label === 'Chat' || s.label === 'New chat' || s.label === 'New Chat') && data.text && data.text.trim().length > 0) {
-      const cleaned = data.text.trim().replace(/\s+/g, ' ');
-      const firstSentence = cleaned.split(new RegExp('[.!?\\n]')).map((x: string) => x.trim()).find((x: string) => x.length > 2) || cleaned;
-      const title = firstSentence.length > 40 ? firstSentence.substring(0, 37) + '...' : firstSentence;
-      if (title && title !== 'Chat') {
-        s.label = title.charAt(0).toUpperCase() + title.slice(1);
-        this.#save();
-        this.logDebug('auto-title', { sessionKey: sk, label: s.label });
-      }
-    }
-
     this.logDebug("msg-in", {
       effectiveCwd,
       workingDirs: data.workingDirs || [],
@@ -4187,6 +4246,23 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
             } catch {}
             this.#captureSessionMeta(key);
             this.#emitContextUsage(ws, key, "ctx-post-done");
+
+            // === Auto-title: se il label è ancora default, chiedi al modello di generarlo ===
+            const entry = this.#entries.get(key);
+            if (entry && (entry.label === 'Chat' || entry.label === 'New chat' || entry.label === 'New Chat') && actualModel && e.message?.stopReason !== 'error') {
+              this.#generateTitleFromModel(key, actualModel).then(title => {
+                if (title) {
+                  const s2 = this.#entries.get(key);
+                  if (s2 && (s2.label === 'Chat' || s2.label === 'New chat' || s2.label === 'New Chat')) {
+                    s2.label = title;
+                    this.#save();
+                    this.logDebug('auto-title-generated', { sessionKey: key, label: title });
+                    // Notifica il frontend di aggiornare le sessioni
+                    try { ws.send(JSON.stringify({ type: 'session_updated', sessionKey: key, label: title })); } catch {}
+                  }
+                }
+              }).catch(() => {});
+            }
           }
           break;
         }
