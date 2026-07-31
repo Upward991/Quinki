@@ -877,9 +877,11 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
 
   const moveSession = useCallback((sessionKey: string, folderId: string | null, order: number) => {
     if (!ready) return
+    // Optimistic: update UI immediately
     setSessions(prev => prev.map(s => s.id === sessionKey ? { ...s, folderId, parentId: folderId, order } : s))
-    notify('moveSession', { sessionKey, folderId, order })
-  }, [ready, notify])
+    // Persist: use call (waits for sidecar) with short timeout, don't block UI
+    call('moveSession', { sessionKey, folderId, order }, 2000).catch(() => {})
+  }, [ready, call])
 
   const compactSession = useCallback(async (sessionKey: string) => {
     if (!ready) return

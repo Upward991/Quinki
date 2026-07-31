@@ -143,6 +143,8 @@ export function Sidebar(props: SidebarProps) {
     dragRef.current = null
     setDropZone(null)
     setActiveDragItem(null)
+    // Force clear indicator after a frame
+    requestAnimationFrame(() => setDropZone(null))
   }
 
   function handleRename(id: string, kind: string) {
@@ -213,6 +215,7 @@ export function Sidebar(props: SidebarProps) {
             onDragStart={handleDragStart}
             onDragMove={handleDragMove}
             onDragEnd={handleDragEnd}
+            onDragCancel={() => { dragRef.current = null; setDropZone(null); setActiveDragItem(null) }}
           >
             {flatList.map(({ item, depth }) => (
               <SortableRow
@@ -333,11 +336,11 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
     >
       {/* Drop indicator: before */}
       {showDropIndicator && dropZone.zone === 'before' && (
-        <div style={{ position: 'absolute', top: '0px', left: `${8 + depth * 12}px`, right: '8px', height: '2px', backgroundColor: 'var(--q-accent-primary)', borderRadius: '1px', zIndex: 10, pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: '0px', left: `${8 + depth * 12}px`, right: '8px', height: '2px', backgroundColor: 'var(--q-tab-accent)', borderRadius: '1px', zIndex: 10, pointerEvents: 'none' }} />
       )}
       {/* Drop indicator: after */}
       {showDropIndicator && dropZone.zone === 'after' && (
-        <div style={{ position: 'absolute', bottom: '1px', left: `${8 + depth * 12}px`, right: '8px', height: '2px', backgroundColor: 'var(--q-accent-primary)', borderRadius: '1px', zIndex: 10, pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: '1px', left: `${8 + depth * 12}px`, right: '8px', height: '2px', backgroundColor: 'var(--q-tab-accent)', borderRadius: '1px', zIndex: 10, pointerEvents: 'none' }} />
       )}
 
       <div
