@@ -103,7 +103,10 @@ export function Sidebar(props: SidebarProps) {
     const centerY = activeRect.top + activeRect.height / 2
     const relY = centerY - overRect.top
     const zone = computeZone(relY, overRect.height, isFolder)
-    setDropZone({ id: over.id, zone })
+    // Hysteresis: only update if zone actually changed (prevent 1px flicker)
+    if (dropZone?.id !== over.id || dropZone?.zone !== zone) {
+      setDropZone({ id: over.id, zone })
+    }
   }
 
   function handleDragEnd(ev: any) {
@@ -123,25 +126,16 @@ export function Sidebar(props: SidebarProps) {
     console.log('[DnD] drop', { dragId: active.id, targetId: over.id, zone, isFolder, relY, height: overRect.height })
 
     if (zone === 'into' && isFolder) {
-      if (dragItem.type === 'folder') {
-        props.onMoveFolder?.(dragItem.id, over.id, Date.now())
-      } else {
-        props.onMoveSession?.(dragItem.id, over.id, Date.now())
-      }
+      if (dragItem.type === 'folder') { console.log('[DnD] moveFolder into', dragItem.id, over.id); props.onMoveFolder?.(dragItem.id, over.id, Date.now()) }
+      else { console.log('[DnD] moveSession into', dragItem.id, over.id); props.onMoveSession?.(dragItem.id, over.id, Date.now()) }
     } else if (zone === 'before') {
       const parentId = targetItem.parentId || null
-      if (dragItem.type === 'folder') {
-        props.onMoveFolder?.(dragItem.id, parentId, (targetItem.order || 0) + 1)
-      } else {
-        props.onMoveSession?.(dragItem.id, parentId, (targetItem.order || 0) + 1)
-      }
+      if (dragItem.type === 'folder') { console.log('[DnD] moveFolder before', dragItem.id, parentId); props.onMoveFolder?.(dragItem.id, parentId, (targetItem.order || 0) + 1) }
+      else { console.log('[DnD] moveSession before', dragItem.id, parentId); props.onMoveSession?.(dragItem.id, parentId, (targetItem.order || 0) + 1) }
     } else if (zone === 'after') {
       const parentId = targetItem.parentId || null
-      if (dragItem.type === 'folder') {
-        props.onMoveFolder?.(dragItem.id, parentId, (targetItem.order || 0) - 1)
-      } else {
-        props.onMoveSession?.(dragItem.id, parentId, (targetItem.order || 0) - 1)
-      }
+      if (dragItem.type === 'folder') { console.log('[DnD] moveFolder after', dragItem.id, parentId); props.onMoveFolder?.(dragItem.id, parentId, (targetItem.order || 0) - 1) }
+      else { console.log('[DnD] moveSession after', dragItem.id, parentId); props.onMoveSession?.(dragItem.id, parentId, (targetItem.order || 0) - 1) }
     }
     dragRef.current = null
     setDropZone(null)
@@ -246,24 +240,32 @@ export function Sidebar(props: SidebarProps) {
               />
             ))}
             <DragOverlay dropAnimation={null}>
-              {activeDragItem && (
-                <div style={{
-                  backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)',
-                  boxShadow: '0 8px 16px rgba(0,0,0,0.5)', padding: '6px 16px',
-                  display: 'flex', alignItems: 'center', gap: '8px', opacity: 0.95, minWidth: '200px',
-                }}>
-                  {activeDragItem.type === 'folder'
-                    ? <FolderOpen size={20} style={{ color: 'var(--q-accent-folder-open)' }} />
-                    : <MessageSquare size={20} style={{ color: activeDragItem.id === t ? 'var(--q-accent-info)' : 'var(--q-text-secondary)' }} />}
-                  <span style={{
-                    color: activeDragItem.type === 'folder' ? 'var(--q-accent-folder-open)'
-                      : activeDragItem.id === t ? 'var(--q-accent-info)' : 'var(--q-text)',
-                    fontSize: '14px', fontFamily: 'var(--font-interface)',
-                  }}>
-                    {activeDragItem.title || 'Chat'}
-                  </span>
-                </div>
-              )}
+              {activeDragItem && (() => {
+                const flat = flatList.find(f => f.item.id === activeDragItem.id)
+                if (!flat) return null
+                return (
+                  <div style={{ width: 260, opacity: 0.95 }}>
+                    <SortableRow
+                      item={activeDragItem}
+                      depth={flat.depth}
+                      isActive={activeDragItem.id === t}
+                      isHovered={false}
+                      isExpanded={expandedFolders.has(activeDragItem.id)}
+                      renaming={false}
+                      renameVal={''}
+                      dropZone={null}
+                      onSelect={() => {}}
+                      onHover={() => {}}
+                      onContextMenu={() => {}}
+                      onRenameStart={() => {}}
+                      onRenameChange={() => {}}
+                      onRenameCommit={() => {}}
+                      onRenameCancel={() => {}}
+                      isOverlay
+                    />
+                  </div>
+                )
+              })()}
             </DragOverlay>
           </DndContext>
         )}
@@ -302,9 +304,9 @@ export function Sidebar(props: SidebarProps) {
 }
 
 // === Sortable Row ===
-function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, renameVal, dropZone, onSelect, onHover, onContextMenu, onRenameStart, onRenameChange, onRenameCommit, onRenameCancel }: any) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: item.id })
-  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: item.id })
+function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, renameVal, dropZone, onSelect, onHover, onContextMenu, onRenameStart, onRenameChange, onRenameCommit, onRenameCancel, isOverlay }: any) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: item.id, disabled: !!isOverlay })
+  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: item.id, disabled: !!isOverlay })
 
   const isFolder = item.type === 'folder'
   const expanded = isExpanded
@@ -346,7 +348,8 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
           backgroundColor: showDropIndicator && dropZone.zone === 'into' ? 'var(--q-accent-folder-open-soft)' : bgColor,
           border: showDropIndicator && dropZone.zone === 'into' ? '2px solid var(--q-accent-folder-open-border)' : 'none',
           cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
-          opacity: isDragging ? 0.15 : 1, boxSizing: 'border-box',
+          opacity: isDragging && !isOverlay ? 0.15 : 1, boxSizing: 'border-box',
+          boxShadow: isOverlay ? '0 8px 16px rgba(0,0,0,0.5)' : 'none',
         }}
       >
         {/* Icon */}
