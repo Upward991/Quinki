@@ -859,8 +859,13 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
 
   const resetSession = useCallback(async (sessionKey: string) => {
     if (!ready) return
-    try { await call('resetSession', { sessionKey }) } catch (e) { console.error('resetSession:', e) }
-  }, [ready, call])
+    try {
+      await call('resetSession', { sessionKey })
+      // Ricarica la sessione: messaggi spariscono subito, mantieni model/thinking/mode/agents
+      notify('reloadSession', { sessionKey })
+      await selectSession(sessionKey)
+    } catch (e) { console.error('resetSession:', e) }
+  }, [ready, call, notify, selectSession])
 
   const reloadSession = useCallback(async (sessionKey: string) => {
     if (!ready) return
