@@ -126,19 +126,18 @@ export function Sidebar(props: SidebarProps) {
     const relY = pointerY - rect.top
     const effectiveIsFolder = isFolder && dragRef.current.kind !== 'folder'
     const zone = computeZone(relY, rect.height, effectiveIsFolder)
-    console.log('[DnD] drop', { dragId: active.id, dragType: dragItem.type, targetId: over.id, targetIsFolder: isFolder, zone, relY, height: overRect.height, willMove: zone === 'into' && isFolder && dragItem.type !== 'folder' })
-
+    
     if (zone === 'into' && isFolder && dragItem.type !== 'folder') {
-      if (dragItem.type === 'folder') { console.log('[DnD] moveFolder into', dragItem.id, over.id); props.onMoveFolder?.(dragItem.id, over.id, Date.now()) }
-      else { console.log('[DnD] moveSession into', dragItem.id, over.id); props.onMoveSession?.(dragItem.id, over.id, Date.now()) }
+      if (dragItem.type === 'folder') { props.onMoveFolder?.(dragItem.id, over.id, Date.now()) }
+      else { props.onMoveSession?.(dragItem.id, over.id, Date.now()) }
     } else if (zone === 'before') {
       const parentId = targetItem.parentId || null
-      if (dragItem.type === 'folder') { console.log('[DnD] moveFolder before', dragItem.id, parentId); props.onMoveFolder?.(dragItem.id, parentId, (targetItem.order || 0) + 1) }
-      else { console.log('[DnD] moveSession before', dragItem.id, parentId); props.onMoveSession?.(dragItem.id, parentId, (targetItem.order || 0) + 1) }
+      if (dragItem.type === 'folder') { props.onMoveFolder?.(dragItem.id, parentId, (targetItem.order || 0) + 1) }
+      else { props.onMoveSession?.(dragItem.id, parentId, (targetItem.order || 0) + 1) }
     } else if (zone === 'after') {
       const parentId = targetItem.parentId || null
-      if (dragItem.type === 'folder') { console.log('[DnD] moveFolder after', dragItem.id, parentId); props.onMoveFolder?.(dragItem.id, parentId, (targetItem.order || 0) - 1) }
-      else { console.log('[DnD] moveSession after', dragItem.id, parentId); props.onMoveSession?.(dragItem.id, parentId, (targetItem.order || 0) - 1) }
+      if (dragItem.type === 'folder') { props.onMoveFolder?.(dragItem.id, parentId, (targetItem.order || 0) - 1) }
+      else { props.onMoveSession?.(dragItem.id, parentId, (targetItem.order || 0) - 1) }
     }
     dragRef.current = null
     setDropZone(null)

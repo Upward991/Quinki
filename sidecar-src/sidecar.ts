@@ -434,6 +434,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   getFolders: async () => ({ folders: getFolders() }),
   setFolders: async (p) => setFolders(p.folders),
   moveSession: async (p) => {
+    process.stderr.write(`[moveSession] received: ${JSON.stringify(p)}\n`);
     const result = moveSessionIPC(p.sessionKey, p.folderId ?? null, p.order ?? Date.now());
     // Also update in-memory entries so getFullState returns correct data
     if (result.success && piBridge) {
