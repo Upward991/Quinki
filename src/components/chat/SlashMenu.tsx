@@ -341,10 +341,10 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
               label="Reset"
               highlighted={focusConfirm}
               onClick={() => { props.onReset(); props.onClose() }}
-              borderColor="var(--q-accent-danger)"
-              textColor="var(--q-accent-danger)"
+              borderColor="var(--q-tab-accent)"
+              textColor="var(--q-tab-accent)"
               hoverTextColor="var(--q-bg)"
-              hoverBg="var(--q-accent-danger)"
+              hoverBg="var(--q-tab-accent)"
               fontWeight={600}
             />
           </div>

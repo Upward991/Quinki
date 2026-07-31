@@ -27,6 +27,7 @@ interface ChatHeaderProps {
   agentOverrides?: Record<string, { model?: string; thinkingLevel?: string }>
   onSetAgentOverride?: (agentId: string, overrides: { model?: string | null; thinkingLevel?: string | null }) => void
   onCompact?: () => void
+  onReload?: () => void
 }
 
 export function ChatHeader(props: ChatHeaderProps) {
@@ -232,7 +233,7 @@ export function ChatHeader(props: ChatHeaderProps) {
 
           {/* Reload */}
           <div style={{ width: '8px', flexShrink: 0 }} />
-          <IconBtn icon={RefreshCw} onClick={() => {}} title="Reload chat" />
+          <IconBtn icon={RefreshCw} onClick={() => props.onReload?.()} title="Reload chat" />
         </div>
 
         {/* Panel 4: Agent dropdown */}

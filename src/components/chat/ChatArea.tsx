@@ -45,6 +45,7 @@ interface ChatAreaProps {
   onRenameSession: (label: string) => void
   onExport: () => void
   onReset?: () => void
+  onReload?: () => void
   onCompact?: () => void
 }
 
@@ -94,6 +95,7 @@ export function ChatArea(props: ChatAreaProps) {
           agentOverrides={props.agentOverrides}
           onSetAgentOverride={props.onSetAgentOverride}
           onCompact={props.onCompact}
+          onReload={props.onReload}
         />
       </div>
 
