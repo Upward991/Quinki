@@ -589,59 +589,6 @@ class PiBridge {
     return "Chat";
   }
 
-  // === Auto-title: chiede al modello di generare un titolo dalla conversazione ===
-  async #generateTitleFromModel(sessionKey: string, modelId: string, userText: string, aiText: string): Promise<string | null> {
-    try {
-      if (!this.#modelRegistry) { this.logDebug('auto-title-step', { step: 'no-registry' }); return null; }
-      const model = this.#findModelInRegistry(this.#modelRegistry, modelId);
-      if (!model) { this.logDebug('auto-title-step', { step: 'no-model', modelId }); return null; }
-      this.logDebug('auto-title-step', { step: 'model-found', modelId, baseUrl: model.baseUrl, provider: model.provider });
-      if (!userText) { this.logDebug('auto-title-step', { step: 'no-user-text' }); return null; }
-      this.logDebug('auto-title-step', { step: 'texts-ready', userLen: userText.length, aiLen: aiText.length });
-
-      // Prepara la richiesta al modello
-      const authResult = await this.#modelRegistry.getApiKeyAndHeaders(model);
-      if (!authResult?.ok) { this.logDebug('auto-title-step', { step: 'auth-failed', error: authResult?.error }); return null; }
-      const baseUrl = model.baseUrl || "";
-      const isOllama = baseUrl.includes("localhost") || baseUrl.includes("127.0.0.1");
-      const url = isOllama ? `${baseUrl}/chat/completions` : `${baseUrl}/v1/chat/completions`;
-      this.logDebug('auto-title-step', { step: 'fetch-start', url, isOllama, hasKey: !!authResult.apiKey });
-      const headers: any = { "Content-Type": "application/json" };
-      if (authResult.apiKey) headers["Authorization"] = `Bearer ${authResult.apiKey}`;
-      if (authResult.headers) Object.assign(headers, authResult.headers);
-
-      const body = {
-        model: modelId, stream: false, max_tokens: 60,
-        messages: [
-          { role: "system", content: "Generate a concise title (max 40 chars) for this conversation. Reply with ONLY the title, no quotes, no punctuation at the end." },
-          { role: "user", content: `User: ${userText}\nAssistant: ${aiText || "(no response yet)"}` }
-        ]
-      };
-
-      const resp = await fetch(url, { method: "POST", headers, body: JSON.stringify(body) });
-      this.logDebug('auto-title-step', { step: 'fetch-done', status: resp.status, ok: resp.ok });
-      if (!resp.ok) return null;
-      const data: any = await resp.json();
-      const title = data?.choices?.[0]?.message?.content || data?.message?.content || "";
-      this.logDebug('auto-title-step', { step: 'title-extracted', rawTitle: title });
-      const cleaned = title.trim().replace(/^["'<>]+|["'<>.]+$/g, "").replace(/\s+/g, " ");
-      if (cleaned && cleaned.length > 0 && cleaned.length <= 50) {
-        return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
-      }
-      // Fallback: se il modello non restituisce un titolo, usa il primo messaggio utente
-      if (userText) {
-        const cleaned2 = userText.trim().replace(/\s+/g, " ");
-        const first = cleaned2.split(new RegExp('[.!?\\n]')).map((x: string) => x.trim()).find((x: string) => x.length > 2) || cleaned2;
-        const title2 = first.length > 40 ? first.substring(0, 37) + '...' : first;
-        if (title2 && title2 !== 'Chat') return title2.charAt(0).toUpperCase() + title2.slice(1);
-      }
-      this.logDebug('auto-title-step', { step: 'title-empty-or-too-long', cleanedLen: cleaned.length });
-      return null;
-    } catch (e: any) {
-      this.logDebug("auto-title-error", { sessionKey, error: e?.message || String(e) });
-      return null;
-    }
-  }
 
   getSessions() {
     const out = [...this.#entries.values()].map((s: any) => ({
@@ -3389,6 +3336,23 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       this.#firstUserText.set(sk, data.text.slice(0, 500));
     }
 
+    // === Auto-title: se il label è ancora default, estrai dal primo messaggio (come Flutter _autoLabel) ===
+    if ((s.label === 'Chat' || s.label === 'New chat' || s.label === 'New Chat') && data.text && data.text.trim().length > 0) {
+      const t = data.text.trim();
+      const cleaned = t.replace(/\s+/g, ' ').replace(/^```[a-z]*\n?/, '').trim();
+      if (cleaned.length > 0) {
+        const first = cleaned.split(new RegExp('[.!?\\n]')).map((x: string) => x.trim()).find((x: string) => x.length > 2) || cleaned;
+        const title = first.length > 40 ? first.substring(0, 37) + '...' : first;
+        if (title && title !== 'Chat') {
+          s.label = title.charAt(0).toUpperCase() + title.slice(1);
+          this.#save();
+          this.logDebug('auto-title', { sessionKey: sk, label: s.label });
+          // Notifica il frontend
+          try { ws.send(JSON.stringify({ type: 'session_updated', sessionKey: sk, label: s.label })); } catch {}
+        }
+      }
+    }
+
     const effectiveCwd = this.#cwdOverride.get(sk) ?? ((data.workingDirs && data.workingDirs.length > 0) ? data.workingDirs[0] : this.#cwd);
     this.#lastEffectiveCwd.set(sk, effectiveCwd);
 
@@ -4236,25 +4200,6 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
             } catch {}
             this.#captureSessionMeta(key);
             this.#emitContextUsage(ws, key, "ctx-post-done");
-
-            // === Auto-title: se il label è ancora default, chiedi al modello di generarlo ===
-            const _entry = this.#entries.get(key);
-            this.logDebug('auto-title-check', { sessionKey: key, label: _entry?.label, actualModel, stopReason: e.message?.stopReason });
-            if (_entry && (_entry.label === 'Chat' || _entry.label === 'New chat' || _entry.label === 'New Chat') && actualModel && e.message?.stopReason !== 'error') {
-              const _userText = this.#firstUserText.get(key) || '';
-              this.#generateTitleFromModel(key, actualModel, _userText, textContent).then(title => {
-                if (title) {
-                  const s2 = this.#entries.get(key);
-                  if (s2 && (s2.label === 'Chat' || s2.label === 'New chat' || s2.label === 'New Chat')) {
-                    s2.label = title;
-                    this.#save();
-                    this.logDebug('auto-title-generated', { sessionKey: key, label: title });
-                    // Notifica il frontend di aggiornare le sessioni
-                    try { ws.send(JSON.stringify({ type: 'session_updated', sessionKey: key, label: title })); } catch {}
-                  }
-                }
-              }).catch(() => {});
-            }
           }
           break;
         }
