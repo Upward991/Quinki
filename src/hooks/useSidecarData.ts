@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 
 // useSidecar — WebSocket connection
 function useSidecar(url: string = 'ws://127.0.0.1:9182') {
@@ -1255,6 +1255,15 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
     if (!ready) return
     notify('steer', { sessionKey, text })
   }, [ready, notify])
+  // Merge sessions + folders into one list for sidebar (memoized — no flash on re-render)
+  const sidebarSessions = useMemo(() => {
+    const chats = sessions.filter(s => s.id !== '__quinki_expert__')
+    const folderItems = (folders || []).map(f => ({
+      id: f.id, title: f.title || f.name || 'Folder', type: 'folder' as const,
+      isExpanded: !!f.isExpanded, parentId: f.parentId || null, order: f.order || Date.now(),
+    }))
+    return [...chats, ...folderItems].sort((a, b) => (b.order || 0) - (a.order || 0))
+  }, [sessions, folders])
 
   return {
     // State
@@ -1262,6 +1271,8 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
     activeSessionId, isStreaming, statusLabel, statusKind, contextTokens, contextWindow,
     thinkingLevels, agentStatus, compactingSessions, sessionTokens, debugLog, piConfigNeeded,
     chatAgentIds, agentOverrides,
+    // Sidebar
+    sidebarSessions,
     // Session management
     selectSession, sendMessage, stopStreaming, createSession, deleteSession, renameSession, deselectSession,
     resetSession, reloadSession, moveSession, compactSession, ensureSession,
