@@ -966,7 +966,8 @@ class PiBridge {
     if (s) {
       if (updates.folderId !== undefined) (s as any).folderId = updates.folderId;
       if (updates.order !== undefined) (s as any).order = updates.order;
-      this.#save();
+      // Do NOT call #save() — it overwrites the file without folderId
+      // moveSessionIPC already wrote the file correctly
     }
   }
 
