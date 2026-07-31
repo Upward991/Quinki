@@ -119,6 +119,7 @@ export function computePreflightStats(
 class PiBridge {
   #sdk: any = null;
   #entries = new Map<string, SessionEntry>();
+  #firstUserText = new Map<string, string>(); // primo msg utente per auto-title
   #active = new Map<string, any>();
   #wss = new Map<string, any>();
   #unsubs = new Map<string, () => void>();
@@ -589,54 +590,27 @@ class PiBridge {
   }
 
   // === Auto-title: chiede al modello di generare un titolo dalla conversazione ===
-  async #generateTitleFromModel(sessionKey: string, modelId: string): Promise<string | null> {
+  async #generateTitleFromModel(sessionKey: string, modelId: string, userText: string, aiText: string): Promise<string | null> {
     try {
-      if (!this.#modelRegistry) return null;
+      if (!this.#modelRegistry) { this.logDebug('auto-title-step', { step: 'no-registry' }); return null; }
       const model = this.#findModelInRegistry(this.#modelRegistry, modelId);
-      if (!model) return null;
-
-      // Leggi primo messaggio utente + prima risposta AI dal .jsonl
-      const sessionDir = path.join(SESSION_BASE, sessionKey);
-      if (!fs.existsSync(sessionDir)) return null;
-      const files = fs.readdirSync(sessionDir).filter((f: string) => f.endsWith(".jsonl"));
-      if (files.length === 0) return null;
-      const jsonlPath = path.join(sessionDir, files[files.length - 1]);
-      const lines = fs.readFileSync(jsonlPath, "utf8").trim().split("\n").filter((l: string) => l.trim());
-      let userText = "", aiText = "";
-      for (const line of lines) {
-        try {
-          const obj = JSON.parse(line);
-          if (obj.type !== "message") continue;
-          const role = obj.message?.role;
-          const content = obj.message?.content;
-          let text = "";
-          if (Array.isArray(content)) {
-            for (const block of content) { if (block?.type === "text" && block.text) { text = block.text; break; } }
-          } else if (typeof content === "string") { text = content; }
-          if (role === "user" && !userText) userText = text.slice(0, 500);
-          if (role === "assistant" && !aiText) aiText = text.slice(0, 500);
-          if (userText && aiText) break;
-        } catch {}
-      }
-      if (!userText) return null;
+      if (!model) { this.logDebug('auto-title-step', { step: 'no-model', modelId }); return null; }
+      this.logDebug('auto-title-step', { step: 'model-found', modelId, baseUrl: model.baseUrl, provider: model.provider });
+      if (!userText) { this.logDebug('auto-title-step', { step: 'no-user-text' }); return null; }
+      this.logDebug('auto-title-step', { step: 'texts-ready', userLen: userText.length, aiLen: aiText.length });
 
       // Prepara la richiesta al modello
       const authResult = await this.#modelRegistry.getApiKeyAndHeaders(model);
-      if (!authResult?.ok) return null;
+      if (!authResult?.ok) { this.logDebug('auto-title-step', { step: 'auth-failed', error: authResult?.error }); return null; }
       const baseUrl = model.baseUrl || "";
       const isOllama = baseUrl.includes("localhost") || baseUrl.includes("127.0.0.1");
-      const url = isOllama ? `${baseUrl}/api/chat` : `${baseUrl}/v1/chat/completions`;
+      const url = isOllama ? `${baseUrl}/chat/completions` : `${baseUrl}/v1/chat/completions`;
+      this.logDebug('auto-title-step', { step: 'fetch-start', url, isOllama, hasKey: !!authResult.apiKey });
       const headers: any = { "Content-Type": "application/json" };
       if (authResult.apiKey) headers["Authorization"] = `Bearer ${authResult.apiKey}`;
       if (authResult.headers) Object.assign(headers, authResult.headers);
 
-      const body = isOllama ? {
-        model: modelId, stream: false,
-        messages: [
-          { role: "system", content: "Generate a concise title (max 40 chars) for this conversation. Reply with ONLY the title, no quotes, no punctuation at the end." },
-          { role: "user", content: `User: ${userText}\nAssistant: ${aiText || "(no response yet)"}` }
-        ]
-      } : {
+      const body = {
         model: modelId, stream: false, max_tokens: 60,
         messages: [
           { role: "system", content: "Generate a concise title (max 40 chars) for this conversation. Reply with ONLY the title, no quotes, no punctuation at the end." },
@@ -645,13 +619,23 @@ class PiBridge {
       };
 
       const resp = await fetch(url, { method: "POST", headers, body: JSON.stringify(body) });
+      this.logDebug('auto-title-step', { step: 'fetch-done', status: resp.status, ok: resp.ok });
       if (!resp.ok) return null;
       const data: any = await resp.json();
-      const title = isOllama ? (data?.message?.content || "") : (data?.choices?.[0]?.message?.content || "");
+      const title = data?.choices?.[0]?.message?.content || data?.message?.content || "";
+      this.logDebug('auto-title-step', { step: 'title-extracted', rawTitle: title });
       const cleaned = title.trim().replace(/^["'<>]+|["'<>.]+$/g, "").replace(/\s+/g, " ");
       if (cleaned && cleaned.length > 0 && cleaned.length <= 50) {
         return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
       }
+      // Fallback: se il modello non restituisce un titolo, usa il primo messaggio utente
+      if (userText) {
+        const cleaned2 = userText.trim().replace(/\s+/g, " ");
+        const first = cleaned2.split(new RegExp('[.!?\\n]')).map((x: string) => x.trim()).find((x: string) => x.length > 2) || cleaned2;
+        const title2 = first.length > 40 ? first.substring(0, 37) + '...' : first;
+        if (title2 && title2 !== 'Chat') return title2.charAt(0).toUpperCase() + title2.slice(1);
+      }
+      this.logDebug('auto-title-step', { step: 'title-empty-or-too-long', cleanedLen: cleaned.length });
       return null;
     } catch (e: any) {
       this.logDebug("auto-title-error", { sessionKey, error: e?.message || String(e) });
@@ -2318,6 +2302,7 @@ class PiBridge {
         }
       }
     } catch (e: any) { this.logDebug("reset-session-error", { sessionKey: key, error: e?.message }); }
+    this.#firstUserText.delete(key); // pulisci per auto-title dopo reset
     this.logDebug("reset-session", { sessionKey: key });
   }
 
@@ -3399,6 +3384,11 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       return;
     }
 
+    // Salva il primo messaggio utente per auto-title
+    if (!this.#firstUserText.has(sk) && data.text && data.text.trim().length > 0) {
+      this.#firstUserText.set(sk, data.text.slice(0, 500));
+    }
+
     const effectiveCwd = this.#cwdOverride.get(sk) ?? ((data.workingDirs && data.workingDirs.length > 0) ? data.workingDirs[0] : this.#cwd);
     this.#lastEffectiveCwd.set(sk, effectiveCwd);
 
@@ -4248,9 +4238,11 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
             this.#emitContextUsage(ws, key, "ctx-post-done");
 
             // === Auto-title: se il label è ancora default, chiedi al modello di generarlo ===
-            const entry = this.#entries.get(key);
-            if (entry && (entry.label === 'Chat' || entry.label === 'New chat' || entry.label === 'New Chat') && actualModel && e.message?.stopReason !== 'error') {
-              this.#generateTitleFromModel(key, actualModel).then(title => {
+            const _entry = this.#entries.get(key);
+            this.logDebug('auto-title-check', { sessionKey: key, label: _entry?.label, actualModel, stopReason: e.message?.stopReason });
+            if (_entry && (_entry.label === 'Chat' || _entry.label === 'New chat' || _entry.label === 'New Chat') && actualModel && e.message?.stopReason !== 'error') {
+              const _userText = this.#firstUserText.get(key) || '';
+              this.#generateTitleFromModel(key, actualModel, _userText, textContent).then(title => {
                 if (title) {
                   const s2 = this.#entries.get(key);
                   if (s2 && (s2.label === 'Chat' || s2.label === 'New chat' || s2.label === 'New Chat')) {
