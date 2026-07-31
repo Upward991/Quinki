@@ -874,11 +874,11 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
     await selectSession(sessionKey)
   }, [ready, notify, selectSession])
 
-  const moveSession = useCallback((sessionKey: string, folderId: string | null, order: number) => {
+  const moveSession = useCallback(async (sessionKey: string, folderId: string | null, order: number) => {
     if (!ready) return
-    notify('moveSession', { sessionKey, folderId, order })
+    try { await call('moveSession', { sessionKey, folderId, order }) } catch {}
     call('getFullState', {}).then((r: any) => { if (r?.sessions) setSessions(mapSessions(r.sessions)) }).catch(() => {})
-  }, [ready, notify, call])
+  }, [ready, call])
 
   const compactSession = useCallback(async (sessionKey: string) => {
     if (!ready) return
