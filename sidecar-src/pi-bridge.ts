@@ -3331,6 +3331,18 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     const effectiveCwd = this.#cwdOverride.get(sk) ?? ((data.workingDirs && data.workingDirs.length > 0) ? data.workingDirs[0] : this.#cwd);
     this.#lastEffectiveCwd.set(sk, effectiveCwd);
 
+    // === Auto-title: se il label è ancora il default, generiamo dal primo messaggio utente ===
+    if ((s.label === 'Chat' || s.label === 'New chat' || s.label === 'New Chat') && data.text && data.text.trim().length > 0) {
+      const cleaned = data.text.trim().replace(/\s+/g, ' ');
+      const firstSentence = cleaned.split(new RegExp('[.!?\\n]')).map((x: string) => x.trim()).find((x: string) => x.length > 2) || cleaned;
+      const title = firstSentence.length > 40 ? firstSentence.substring(0, 37) + '...' : firstSentence;
+      if (title && title !== 'Chat') {
+        s.label = title.charAt(0).toUpperCase() + title.slice(1);
+        this.#save();
+        this.logDebug('auto-title', { sessionKey: sk, label: s.label });
+      }
+    }
+
     this.logDebug("msg-in", {
       effectiveCwd,
       workingDirs: data.workingDirs || [],

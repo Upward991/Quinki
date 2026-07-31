@@ -11,8 +11,8 @@ React.createElement(`div`,{style:{position:`fixed`,left:`50%`,top:`50%`,transfor
 React.createElement(`div`,{style:{color:`var(--q-text)`,fontSize:`16px`,fontFamily:`var(--font-interface)`,marginBottom:`8px`},children:`Delete `+e.title+`?`}),
 React.createElement(`div`,{style:{color:`var(--q-text-secondary)`,fontSize:`14px`,fontFamily:`var(--font-interface)`,marginBottom:`16px`},children:(e.title||`Untitled`)+` will be permanently deleted.`}),
 React.createElement(`div`,{style:{display:`flex`,justifyContent:`flex-end`,gap:`8px`},children:[
-React.createElement(`button`,{onClick:n,style:{padding:`7px 16px`,borderRadius:`var(--radius-sm)`,border:`1px solid var(--q-accent-danger)`,backgroundColor:`transparent`,color:`var(--q-accent-danger)`,fontSize:`13px`,fontFamily:`var(--font-interface)`,cursor:`pointer`},children:`Cancel`}),
-React.createElement(`button`,{onClick:r,onMouseEnter:()=>i(!0),onMouseLeave:()=>i(!1),style:{padding:`7px 16px`,borderRadius:`var(--radius-sm)`,border:`1px solid var(--q-tab-accent)`,backgroundColor:t?`var(--q-tab-accent)`:`transparent`,color:t?String(getContrastColor('--q-tab-accent')):`var(--q-tab-accent)`,fontSize:`13px`,fontFamily:`var(--font-interface)`,fontWeight:600,cursor:`pointer`},children:`Delete`})
+React.createElement(`button`,{onClick:n,style:{padding:`7px 16px`,borderRadius:`var(--radius-sm)`,border:`1px solid var(--q-accent-danger)`,backgroundColor:`transparent`,color:`var(--q-accent-danger)`,fontSize:`13px`,fontFamily:`var(--font-interface)`,fontWeight:400,cursor:`pointer`},children:`Cancel`}),
+React.createElement(`button`,{onClick:r,onMouseEnter:e=>{e.currentTarget.style.backgroundColor=`var(--q-tab-accent)`;e.currentTarget.style.color=String(getContrastColor('--q-tab-accent'))},onMouseLeave:e=>{e.currentTarget.style.backgroundColor=`transparent`;e.currentTarget.style.color=`var(--q-tab-accent)`},style:{padding:`7px 16px`,borderRadius:`var(--radius-sm)`,border:`1px solid var(--q-tab-accent)`,backgroundColor:`transparent`,color:`var(--q-tab-accent)`,fontSize:`13px`,fontFamily:`var(--font-interface)`,fontWeight:600,cursor:`pointer`},children:`Delete`})
 ]})
 ]})
 ]})
