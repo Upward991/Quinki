@@ -72,6 +72,7 @@ function mapSession(s: any) {
     title: s.label || s.title || 'Untitled',
     type: 'chat' as const,
     updatedAt: new Date(s.lastActivity || Date.now()).toISOString(),
+    order: s.order || s.lastActivity || Date.now(),
     messageCount: s.messageCount || 0,
     agents: s.agents || [],
     model: s.model,
