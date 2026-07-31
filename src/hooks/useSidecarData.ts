@@ -423,7 +423,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
 
     // Session lifecycle
     const unsubSessCreated = subscribe('session_created', () => {
-      call('getFullState', {}).then((r: any) => { if (r?.sessions) setSessions(mapSessions(r.sessions)) }).catch(() => {})
+      call('getFullState', {}).then((r: any) => { console.log('[moveSession] getFullState sessions:', r?.sessions?.map((s:any)=>({key:s.key,folderId:s.folderId})) || 'none'); if (r?.sessions) setSessions(mapSessions(r.sessions)) }).catch(() => {})
     })
     const unsubSessUpdated = subscribe('session_updated', (p: any) => {
       if (p?.sessionKey) {

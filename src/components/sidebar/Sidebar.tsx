@@ -99,10 +99,10 @@ export function Sidebar(props: SidebarProps) {
     if (!targetItem || !canAccept(e, dragRef.current, over.id)) { setDropZone(null); return }
     const isFolder = targetItem.type === 'folder'
     const overRect = over.rect
-    // Use ACTUAL POINTER position, not element center
     const pointerY = (ev.activatorEvent?.clientY || 0) + ev.delta.y
     const relY = pointerY - overRect.top
     const zone = computeZone(relY, overRect.height, isFolder)
+    // Only update if target changed OR zone changed (prevents 1px oscillation)
     if (dropZone?.id !== over.id || dropZone?.zone !== zone) {
       setDropZone({ id: over.id, zone })
     }
