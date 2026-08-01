@@ -126,68 +126,99 @@ export function Sidebar(props: SidebarProps) {
   }
 
   function handleDragMove(ev: any) {
-    const over = ev.over
-    if (!over || !dragRef.current) { setDropZone(null); return }
-    // Transition zone: always show, no zone computation
-    if (over.id.startsWith('transition_')) {
-      const tItem = flatList.find(f => f.item.id === over.id)
-      if (tItem) { setDropZone({ id: over.id, zone: 'into' }); return }
-      setDropZone(null); return
-    }
-    const targetItem = e.find(s => s.id === over.id)
-    if (!targetItem || !canAccept(e, dragRef.current, over.id)) { setDropZone(null); return }
-    // Use FROZEN rects (recorded at dragStart) to avoid feedback loop
-    const rect = itemRects.current.get(over.id)
-    if (!rect) { setDropZone(null); return }
+    if (!dragRef.current) { setDropZone(null); return }
     const pointerY = (ev.activatorEvent?.clientY || 0) + ev.delta.y
-    const relY = pointerY - rect.top
-    const isFolder = targetItem.type === 'folder'
-    let zone = computeZone(relY, rect.height, isFolder)
-    // Open folder 'after' = 'into' (append at end of children)
-    if (isFolder && zone === 'after' && expandedFolders.has(targetItem.id)) {
-      zone = 'into'
+    // Find which item the pointer is over using FROZEN rects (not @dnd-kit's ev.over)
+    let bestId: string | null = null
+    let bestZone: string = 'before'
+    for (const entry of flatList) {
+      if (entry.isTransition) continue
+      const rect = itemRects.current.get(entry.item.id)
+      if (!rect) continue
+      if (pointerY >= rect.top && pointerY <= rect.bottom) {
+        if (!canAccept(e, dragRef.current, entry.item.id)) { setDropZone(null); return }
+        const relY = pointerY - rect.top
+        const isFolder = entry.item.type === 'folder'
+        let zone = computeZone(relY, rect.height, isFolder)
+        if (isFolder && zone === 'after' && expandedFolders.has(entry.item.id)) {
+          zone = 'into'
+        }
+        bestId = entry.item.id
+        bestZone = zone
+        break
+      }
     }
-    if (dropZone?.id !== over.id || dropZone?.zone !== zone) {
-      setDropZone({ id: over.id, zone })
+    // Check transition zones
+    if (!bestId) {
+      for (const entry of flatList) {
+        if (!entry.isTransition) continue
+        const rect = itemRects.current.get(entry.item.id)
+        if (!rect) continue
+        if (pointerY >= rect.top && pointerY <= rect.bottom) {
+          bestId = entry.item.id
+          bestZone = 'into'
+          break
+        }
+      }
+    }
+    if (bestId) {
+      if (dropZone?.id !== bestId || dropZone?.zone !== bestZone) {
+        setDropZone({ id: bestId, zone: bestZone })
+      }
+    } else {
+      setDropZone(null)
     }
   }
 
   function handleDragEnd(ev: any) {
-    const { active, over } = ev
-    if (!over || !dragRef.current) { dragRef.current = null; setDropZone(null); setActiveDragItem(null); return }
-    // Transition zone: move to transitionParentId
-    if (over.id.startsWith('transition_')) {
-      const tItem = flatList.find(f => f.item.id === over.id)
-      if (!tItem) { dragRef.current = null; setDropZone(null); setActiveDragItem(null); return }
-      const dragItem = e.find(s => s.id === active.id)
-      if (!dragItem) { dragRef.current = null; setDropZone(null); setActiveDragItem(null); return }
-      if (dragItem.type === 'folder') props.onMoveFolder?.(dragItem.id, tItem.transitionParentId, tItem.item.order)
-      else props.onMoveSession?.(dragItem.id, tItem.transitionParentId, tItem.item.order)
+    const { active } = ev
+    if (!dragRef.current) { dragRef.current = null; setDropZone(null); setActiveDragItem(null); return }
+    const dragItem = e.find(s => s.id === active.id)
+    if (!dragItem) { dragRef.current = null; setDropZone(null); setActiveDragItem(null); return }
+    const pointerY = (ev.activatorEvent?.clientY || 0) + ev.delta.y
+    // Find target using FROZEN rects (same as handleDragMove)
+    let targetId: string | null = null
+    let targetZone: string = 'before'
+    let targetTransition: any = null
+    for (const entry of flatList) {
+      const rect = itemRects.current.get(entry.item.id)
+      if (!rect) continue
+      if (pointerY >= rect.top && pointerY <= rect.bottom) {
+        if (entry.isTransition) {
+          targetTransition = entry
+          targetId = entry.item.id
+          targetZone = 'into'
+        } else if (canAccept(e, dragRef.current, entry.item.id)) {
+          const relY = pointerY - rect.top
+          const isFolder = entry.item.type === 'folder'
+          let zone = computeZone(relY, rect.height, isFolder)
+          if (isFolder && zone === 'after' && expandedFolders.has(entry.item.id)) {
+            zone = 'into'
+          }
+          targetId = entry.item.id
+          targetZone = zone
+        }
+        break
+      }
+    }
+    if (!targetId) { dragRef.current = null; setDropZone(null); setActiveDragItem(null); return }
+    // Transition zone drop
+    if (targetTransition) {
+      if (dragItem.type === 'folder') props.onMoveFolder?.(dragItem.id, targetTransition.transitionParentId, targetTransition.item.order)
+      else props.onMoveSession?.(dragItem.id, targetTransition.transitionParentId, targetTransition.item.order)
       dragRef.current = null; setDropZone(null); setActiveDragItem(null)
       requestAnimationFrame(() => setDropZone(null))
       return
     }
-    const dragItem = e.find(s => s.id === active.id)
-    const targetItem = e.find(s => s.id === over.id)
-    if (!dragItem || !targetItem || !canAccept(e, dragRef.current, over.id)) {
-      dragRef.current = null; setDropZone(null); setActiveDragItem(null); return
-    }
+    const targetItem = e.find(s => s.id === targetId)
+    if (!targetItem) { dragRef.current = null; setDropZone(null); setActiveDragItem(null); return }
     const isFolder = targetItem.type === 'folder'
-    const rect = itemRects.current.get(over.id)
-    if (!rect) { dragRef.current = null; setDropZone(null); setActiveDragItem(null); return }
-    const pointerY = (ev.activatorEvent?.clientY || 0) + ev.delta.y
-    const relY = pointerY - rect.top
-    let zone = computeZone(relY, rect.height, isFolder)
-    // Open folder 'after' = 'into' (append at end of children)
-    if (isFolder && zone === 'after' && expandedFolders.has(targetItem.id)) {
-      zone = 'into'
-    }
+    const zone = targetZone
     
     if (zone === 'into' && isFolder) {
-      // Put at TOP of folder's children
       const newOrder = (targetItem.order || 0) + 0.5
-      if (dragItem.type === 'folder') { props.onMoveFolder?.(dragItem.id, over.id, newOrder) }
-      else { props.onMoveSession?.(dragItem.id, over.id, newOrder) }
+      if (dragItem.type === 'folder') { props.onMoveFolder?.(dragItem.id, targetId, newOrder) }
+      else { props.onMoveSession?.(dragItem.id, targetId, newOrder) }
     } else if (zone === 'before') {
       const parentId = targetItem.parentId || null
       const siblings = e.filter(s => s.parentId === parentId && s.id !== dragItem.id)
@@ -208,7 +239,6 @@ export function Sidebar(props: SidebarProps) {
     dragRef.current = null
     setDropZone(null)
     setActiveDragItem(null)
-    // Force clear indicator after a frame
     requestAnimationFrame(() => setDropZone(null))
   }
 
