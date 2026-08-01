@@ -439,25 +439,25 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
       onMouseEnter={() => onHover(true)}
       onMouseLeave={() => onHover(false)}
     >
-      {/* Drop indicator: thin line + label (absolute, no layout shift) */}
-      {showDropIndicator && (dropZone.zone === 'before' || dropZone.zone === 'after') && (
+      {/* Drop indicator: text bar (absolute, no shift, bg covers content) */}
+      {showDropIndicator && dropZone.zone === 'before' && (
         <div style={{
-          position: 'absolute',
-          left: `${indent}px`, right: '8px',
-          top: dropZone.zone === 'before' ? '0px' : 'auto',
-          bottom: dropZone.zone === 'after' ? '2px' : 'auto',
-          height: '2px', backgroundColor: 'var(--q-tab-accent)', borderRadius: '1px',
-          zIndex: 10, pointerEvents: 'none',
-        }} />
+          position: 'absolute', top: '0px', left: `${indent}px`, right: '8px',
+          height: '20px', display: 'flex', alignItems: 'center',
+          color: 'var(--q-tab-accent)', fontSize: '13px', fontFamily: 'var(--font-interface)',
+          backgroundColor: 'var(--q-bg)', zIndex: 10, pointerEvents: 'none',
+          borderRadius: '2px',
+        }}>
+          {dropLabel || 'Drop here'}
+        </div>
       )}
-      {showDropIndicator && (dropZone.zone === 'before' || dropZone.zone === 'after') && (
+      {showDropIndicator && dropZone.zone === 'after' && (
         <div style={{
-          position: 'absolute',
-          left: `${indent + 8}px`,
-          top: dropZone.zone === 'before' ? '-16px' : 'auto',
-          bottom: dropZone.zone === 'after' ? '-16px' : 'auto',
-          color: 'var(--q-tab-accent)', fontSize: '12px', fontFamily: 'var(--font-interface)',
-          zIndex: 10, pointerEvents: 'none', whiteSpace: 'nowrap',
+          position: 'absolute', bottom: '2px', left: `${indent}px`, right: '8px',
+          height: '20px', display: 'flex', alignItems: 'center',
+          color: 'var(--q-tab-accent)', fontSize: '13px', fontFamily: 'var(--font-interface)',
+          backgroundColor: 'var(--q-bg)', zIndex: 10, pointerEvents: 'none',
+          borderRadius: '2px',
         }}>
           {dropLabel || 'Drop here'}
         </div>
