@@ -136,7 +136,11 @@ export function Sidebar(props: SidebarProps) {
     const relY = pointerY - rect.top
     const isFolder = targetItem.type === 'folder'
     const effectiveIsFolder = isFolder
-    const zone = computeZone(relY, rect.height, effectiveIsFolder)
+    let zone = computeZone(relY, rect.height, effectiveIsFolder)
+    // Open folder 'after' = 'into' (append at end of children)
+    if (isFolder && zone === 'after' && expandedFolders.has(targetItem.id)) {
+      zone = 'into'
+    }
     if (dropZone?.id !== over.id || dropZone?.zone !== zone) {
       setDropZone({ id: over.id, zone })
     }
@@ -169,10 +173,17 @@ export function Sidebar(props: SidebarProps) {
     const pointerY = (ev.activatorEvent?.clientY || 0) + ev.delta.y
     const relY = pointerY - rect.top
     const effectiveIsFolder = isFolder
-    const zone = computeZone(relY, rect.height, effectiveIsFolder)
+    let zone = computeZone(relY, rect.height, effectiveIsFolder)
+    // Open folder 'after' = 'into' (append at end of children)
+    if (isFolder && zone === 'after' && expandedFolders.has(targetItem.id)) {
+      zone = 'into'
+    }
     
     if (zone === 'into' && isFolder) {
-      const newOrder = (targetItem.order || 0) + 0.5
+      // Find lowest-order child to append at end, or use folder order - 0.1
+      const children = e.filter(s => s.parentId === over.id)
+      const minChildOrder = children.length > 0 ? Math.min(...children.map(c => c.order || 0)) : (targetItem.order || 0)
+      const newOrder = minChildOrder - 0.01
       if (dragItem.type === 'folder') { props.onMoveFolder?.(dragItem.id, over.id, newOrder) }
       else { props.onMoveSession?.(dragItem.id, over.id, newOrder) }
     } else if (zone === 'before') {
@@ -368,6 +379,16 @@ export function Sidebar(props: SidebarProps) {
           onConfirm={() => doDelete(delConfirm)}
         />
       )}
+      {/* After indicator */}
+      {showDropIndicator && dropZone.zone === 'after' && (
+        <div style={{
+          height: '20px', display: 'flex', alignItems: 'center',
+          color: 'var(--q-tab-accent)', fontSize: '13px', fontFamily: 'var(--font-interface)',
+          marginTop: '2px',
+        }}>
+          ↓ Drop here
+        </div>
+      )}
     </div>
   )
 }
@@ -416,22 +437,18 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
     <div
       ref={setDropRef}
       data-row-id={item.id}
-      style={{ paddingLeft: '8px', paddingRight: '8px', paddingBottom: '4px', position: 'relative' }}
+      style={{ paddingLeft: '8px', paddingRight: '8px', paddingTop: showDropIndicator && dropZone.zone === 'before' ? '22px' : '4px', paddingBottom: showDropIndicator && dropZone.zone === 'after' ? '22px' : '4px', position: 'relative' }}
       onMouseEnter={() => onHover(true)}
       onMouseLeave={() => onHover(false)}
     >
-      {/* Drop indicator: text label */}
-      {showDropIndicator && (dropZone.zone === 'before' || dropZone.zone === 'after') && (
+      {/* Drop indicator: text label (takes up space, no overlay) */}
+      {showDropIndicator && dropZone.zone === 'before' && (
         <div style={{
-          position: 'absolute',
-          left: `${8 + depth * 12}px`, right: '8px',
-          top: dropZone.zone === 'before' ? '0px' : 'auto',
-          bottom: dropZone.zone === 'after' ? '-10px' : 'auto',
           height: '20px', display: 'flex', alignItems: 'center',
           color: 'var(--q-tab-accent)', fontSize: '13px', fontFamily: 'var(--font-interface)',
-          zIndex: 10, pointerEvents: 'none',
+          marginBottom: '2px',
         }}>
-          {dropZone.zone === 'before' ? '↑ Drop here' : '↓ Drop here'}
+          ↑ Drop here
         </div>
       )}
 
