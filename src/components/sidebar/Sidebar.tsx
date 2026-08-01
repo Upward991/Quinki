@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react'
 import {
-  DndContext, closestCenter, PointerSensor, useSensor, useSensors,
+  DndContext, closestCenter, rectIntersection, PointerSensor, useSensor, useSensors,
   DragOverlay, useDroppable, useDraggable,
 } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
@@ -241,7 +241,7 @@ export function Sidebar(props: SidebarProps) {
         ) : (
           <DndContext
             sensors={sensors}
-            collisionDetection={closestCenter}
+            collisionDetection={rectIntersection}
             onDragStart={handleDragStart}
             onDragMove={handleDragMove}
             onDragEnd={handleDragEnd}
@@ -357,8 +357,8 @@ function TransitionZone({ entry, isActive }: any) {
       ref={setNodeRef}
       data-row-id={entry.item.id}
       style={{
-        height: isActive ? (isOver ? '36px' : '8px') : '0px',
-        margin: isActive ? '0 8px' : '0',
+        height: isActive ? (isOver ? '40px' : '12px') : '0px',
+        margin: isActive ? '4px 8px' : '0',
         paddingLeft: `${entry.depth * 12 + 10}px`,
         borderRadius: 'var(--radius-md)',
         backgroundColor: isOver ? 'var(--q-hover)' : 'transparent',
