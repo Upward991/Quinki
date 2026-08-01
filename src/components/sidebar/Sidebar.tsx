@@ -164,12 +164,13 @@ export function Sidebar(props: SidebarProps) {
       }
     }
     if (bestId) {
-      lastDropTarget.current = { id: bestId, zone: bestZone, transition: bestId.startsWith('transition_') ? flatList.find(f => f.item.id === bestId) : null }
-      if (dropZone?.id !== bestId || dropZone?.zone !== bestZone) {
+      const tr = bestId.startsWith('transition_') ? flatList.find(f => f.item.id === bestId) : null
+      lastDropTarget.current = { id: bestId, zone: bestZone, transition: tr }
+            if (dropZone?.id !== bestId || dropZone?.zone !== bestZone) {
         setDropZone({ id: bestId, zone: bestZone })
       }
     } else {
-      lastDropTarget.current = { id: null, zone: 'before', transition: null }
+      // Don't clear lastDropTarget — keep the last valid target for handleDragEnd
       setDropZone(null)
     }
   }
@@ -184,7 +185,7 @@ export function Sidebar(props: SidebarProps) {
     const { id: targetId, zone, transition: targetTransition } = lastDropTarget.current
     
     if (!targetId) { dragRef.current = null; setDropZone(null); setActiveDragItem(null); return }
-    
+        
     // Transition zone drop
     if (targetTransition) {
       if (dragItem.type === 'folder') props.onMoveFolder?.(dragItem.id, targetTransition.transitionParentId, targetTransition.item.order)
