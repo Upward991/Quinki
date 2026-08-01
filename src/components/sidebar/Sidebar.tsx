@@ -148,13 +148,14 @@ export function Sidebar(props: SidebarProps) {
         break
       }
     }
-    // Check transition zones
+    // Check transition zones (use proximity — they have height 0 in frozen rects)
     if (!bestId) {
       for (const entry of flatList) {
         if (!entry.isTransition) continue
         const rect = itemRects.current.get(entry.item.id)
         if (!rect) continue
-        if (pointerY >= rect.top && pointerY <= rect.bottom) {
+        // Transition zone is at rect.top with height 0 — check within 12px
+        if (pointerY >= rect.top - 2 && pointerY <= rect.top + 18) {
           bestId = entry.item.id
           bestZone = 'into'
           break
@@ -183,12 +184,17 @@ export function Sidebar(props: SidebarProps) {
     for (const entry of flatList) {
       const rect = itemRects.current.get(entry.item.id)
       if (!rect) continue
-      if (pointerY >= rect.top && pointerY <= rect.bottom) {
-        if (entry.isTransition) {
+      if (entry.isTransition) {
+        // Transition zone: use proximity (height 0 in frozen rects)
+        if (pointerY >= rect.top - 2 && pointerY <= rect.top + 18) {
           targetTransition = entry
           targetId = entry.item.id
           targetZone = 'into'
-        } else if (canAccept(e, dragRef.current, entry.item.id)) {
+        }
+        continue
+      }
+      if (pointerY >= rect.top && pointerY <= rect.bottom) {
+        if (canAccept(e, dragRef.current, entry.item.id)) {
           const relY = pointerY - rect.top
           const isFolder = entry.item.type === 'folder'
           let zone = computeZone(relY, rect.height, isFolder)
@@ -361,6 +367,7 @@ export function Sidebar(props: SidebarProps) {
                   isExpanded={expandedFolders.has(item.id)}
                   renaming={renaming === item.id}
                   renameVal={renameVal}
+                  dropZone={dropZone}
                 onSelect={() => {
                   if (multiSelect && item.type !== 'folder') {
                     setSelected(prev => { const n = new Set(prev); n.has(item.id) ? n.delete(item.id) : n.add(item.id); return n })
