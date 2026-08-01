@@ -355,27 +355,34 @@ export function Sidebar(props: SidebarProps) {
 // === Transition Zone (between nested levels) ===
 function TransitionZone({ entry, isActive }: any) {
   const { setNodeRef, isOver } = useDroppable({ id: entry.item.id })
+  if (!isActive) return <div ref={setNodeRef} data-row-id={entry.item.id} style={{ height: 0 }} />
   return (
     <div
       ref={setNodeRef}
       data-row-id={entry.item.id}
       style={{
-        height: isActive ? (isOver ? '44px' : '24px') : '0px',
-        margin: isActive ? '2px 8px' : '0',
+        height: isOver ? '32px' : '20px',
+        margin: '1px 8px',
         paddingLeft: `${entry.depth * 12 + 10}px`,
-        borderRadius: 'var(--radius-md)',
-        backgroundColor: isOver ? 'var(--q-hover)' : 'transparent',
-        border: isOver ? '2px dashed var(--q-tab-accent)' : 'none',
-        display: isActive ? 'flex' : 'none',
-        alignItems: 'center',
+        display: 'flex', alignItems: 'center',
         color: 'var(--q-tab-accent)', fontSize: '13px', fontFamily: 'var(--font-interface)',
+        opacity: isOver ? 1 : 0.4,
         overflow: 'hidden',
-        pointerEvents: isActive ? 'auto' : 'none',
       }}
     >
       {isOver ? entry.transitionLabel : ''}
     </div>
   )
+}
+
+// === Get drop label for an item ===
+function getDropLabel(item: any, sessions: any[], zone: string): string {
+  const parentId = item.parentId || null
+  if (parentId) {
+    const parent = sessions.find(s => s.id === parentId)
+    return parent ? `Drop in ${parent.title || 'Folder'}` : 'Drop in folder'
+  }
+  return 'Drop in Sidebar'
 }
 
 // === Sortable Row ===
@@ -403,13 +410,19 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
       onMouseEnter={() => onHover(true)}
       onMouseLeave={() => onHover(false)}
     >
-      {/* Drop indicator: before */}
-      {showDropIndicator && dropZone.zone === 'before' && (
-        <div style={{ position: 'absolute', top: '0px', left: `${8 + depth * 12}px`, right: '8px', height: '2px', backgroundColor: 'var(--q-tab-accent)', borderRadius: '1px', zIndex: 10, pointerEvents: 'none' }} />
-      )}
-      {/* Drop indicator: after */}
-      {showDropIndicator && dropZone.zone === 'after' && (
-        <div style={{ position: 'absolute', bottom: '1px', left: `${8 + depth * 12}px`, right: '8px', height: '2px', backgroundColor: 'var(--q-tab-accent)', borderRadius: '1px', zIndex: 10, pointerEvents: 'none' }} />
+      {/* Drop indicator: text label */}
+      {showDropIndicator && (dropZone.zone === 'before' || dropZone.zone === 'after') && (
+        <div style={{
+          position: 'absolute',
+          left: `${8 + depth * 12}px`, right: '8px',
+          top: dropZone.zone === 'before' ? '-10px' : 'auto',
+          bottom: dropZone.zone === 'after' ? '-10px' : 'auto',
+          height: '20px', display: 'flex', alignItems: 'center',
+          color: 'var(--q-tab-accent)', fontSize: '13px', fontFamily: 'var(--font-interface)',
+          zIndex: 10, pointerEvents: 'none',
+        }}>
+          {dropZone.zone === 'before' ? `↑ ${getDropLabel(item, e, 'before')}` : `↓ ${getDropLabel(item, e, 'after')}`}
+        </div>
       )}
 
       <div
@@ -421,8 +434,8 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
         style={{
           paddingLeft: `${depth * 12 + 10}px`, paddingRight: '8px', paddingTop: '6px', paddingBottom: '6px',
           minHeight: '36px', borderRadius: 'var(--radius-md)',
-          backgroundColor: showDropIndicator && dropZone.zone === 'into' ? 'var(--q-accent-folder-open-soft)' : bgColor,
-          border: showDropIndicator && dropZone.zone === 'into' ? '2px solid var(--q-accent-folder-open-border)' : 'none',
+          backgroundColor: showDropIndicator && dropZone.zone === 'into' ? 'var(--q-hover)' : bgColor,
+          border: 'none',
           cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
           opacity: isDragging && !isOverlay ? 0.15 : 1, boxSizing: 'border-box',
           boxShadow: isOverlay ? '0 8px 16px rgba(0,0,0,0.5)' : 'none',
