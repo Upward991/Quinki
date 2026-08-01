@@ -375,16 +375,6 @@ function TransitionZone({ entry, isActive }: any) {
   )
 }
 
-// === Get drop label for an item ===
-function getDropLabel(item: any, sessions: any[], zone: string): string {
-  const parentId = item.parentId || null
-  if (parentId) {
-    const parent = sessions.find(s => s.id === parentId)
-    return parent ? `Drop in ${parent.title || 'Folder'}` : 'Drop in folder'
-  }
-  return 'Drop in Sidebar'
-}
-
 // === Sortable Row ===
 function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, renameVal, dropZone, onSelect, onHover, onContextMenu, onRenameStart, onRenameChange, onRenameCommit, onRenameCancel, isOverlay }: any) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: item.id, disabled: !!isOverlay })
@@ -421,7 +411,7 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
           color: 'var(--q-tab-accent)', fontSize: '13px', fontFamily: 'var(--font-interface)',
           zIndex: 10, pointerEvents: 'none',
         }}>
-          {dropZone.zone === 'before' ? `↑ ${getDropLabel(item, e, 'before')}` : `↓ ${getDropLabel(item, e, 'after')}`}
+          {dropZone.zone === 'before' ? '↑ Drop here' : '↓ Drop here'}
         </div>
       )}
 
