@@ -25,8 +25,8 @@ interface SidebarProps {
 // === Drop zone computation (same as Flutter) ===
 function computeZone(y: number, h: number, isFolder: boolean): 'before' | 'after' | 'into' {
   if (isFolder) {
-    if (y < h * 0.15) return 'before'
-    if (y > h * 0.85) return 'after'
+    if (y < h * 0.20) return 'before'
+    if (y > h * 0.80) return 'after'
     return 'into'
   }
   return y < h * 0.5 ? 'before' : 'after'
@@ -274,6 +274,21 @@ export function Sidebar(props: SidebarProps) {
                 )
               })()}
             </DragOverlay>
+            
+            <BottomDropZone 
+              isActive={!!dragRef.current}
+              onDrop={() => {
+                if (!dragRef.current) return
+                const dragItem = e.find(s => s.id === dragRef.current.id)
+                if (!dragItem) { dragRef.current = null; return }
+                // Move to root level, at the bottom (lowest order)
+                if (dragItem.type === 'folder') props.onMoveFolder?.(dragItem.id, null, 0)
+                else props.onMoveSession?.(dragItem.id, null, 0)
+                dragRef.current = null
+                setDropZone(null)
+                setActiveDragItem(null)
+              }}
+            />
           </DndContext>
         )}
       </div>
@@ -450,6 +465,30 @@ function MenuItem({ label, color, onClick }: any) {
     >
       {label}
     </button>
+  )
+}
+
+// === Bottom Drop Zone ===
+function BottomDropZone({ isActive, onDrop }: any) {
+  const { setNodeRef, isOver } = useDroppable({ id: 'bottom-drop-zone' })
+  if (!isActive) return null
+  return (
+    <div
+      ref={setNodeRef}
+      onPointerUp={onDrop}
+      style={{
+        height: '40px',
+        margin: '0 8px',
+        borderRadius: 'var(--radius-md)',
+        backgroundColor: isOver ? 'var(--q-hover)' : 'transparent',
+        border: isOver ? '2px dashed var(--q-tab-accent)' : '2px dashed transparent',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)',
+        cursor: 'default',
+      }}
+    >
+      {isOver ? 'Drop here (root level)' : ''}
+    </div>
   )
 }
 
