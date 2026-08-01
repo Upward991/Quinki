@@ -475,7 +475,7 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
       {showDropIndicator && dropZone.zone === 'before' && (
         <div style={{
           position: 'absolute', top: '0px', left: `${indent}px`, right: '8px',
-          height: '14px', display: 'flex', alignItems: 'center',
+          height: '12px', display: 'flex', alignItems: 'center',
           color: 'var(--q-tab-accent)', fontSize: '11px', fontFamily: 'var(--font-interface)',
           zIndex: 10, pointerEvents: 'none', whiteSpace: 'nowrap',
         }}>
@@ -485,7 +485,7 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
       {showDropIndicator && dropZone.zone === 'after' && (
         <div style={{
           position: 'absolute', bottom: '0px', left: `${indent}px`, right: '8px',
-          height: '14px', display: 'flex', alignItems: 'center',
+          height: '12px', display: 'flex', alignItems: 'center',
           color: 'var(--q-tab-accent)', fontSize: '11px', fontFamily: 'var(--font-interface)',
           zIndex: 10, pointerEvents: 'none', whiteSpace: 'nowrap',
         }}>
@@ -500,7 +500,7 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
         onClick={onSelect}
         onContextMenu={(e: any) => { e.preventDefault(); e.stopPropagation(); onContextMenu(e.clientX, e.clientY) }}
         style={{
-          paddingLeft: `${depth * 12 + 10}px`, paddingRight: '8px', paddingTop: '6px', paddingBottom: '6px',
+          paddingLeft: `${depth * 12 + 10}px`, paddingRight: '8px', paddingTop: '12px', paddingBottom: '12px',
           minHeight: '36px', borderRadius: 'var(--radius-md)',
           backgroundColor: showDropIndicator && dropZone.zone === 'into' ? 'rgba(255,165,0,0.15)' : bgColor,
           border: 'none',
