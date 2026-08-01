@@ -298,6 +298,12 @@ export function Sidebar(props: SidebarProps) {
                 renaming={renaming === item.id}
                 renameVal={renameVal}
                 dropZone={dropZone}
+                dropLabel={(() => {
+                  const pid = item.parentId || null
+                  if (!pid) return 'Drop in Sidebar'
+                  const parent = e.find(s => s.id === pid)
+                  return parent ? `Drop in ${parent.title || 'Folder'}` : 'Drop in folder'
+                })()}
                 onSelect={() => {
                   if (multiSelect && item.type !== 'folder') {
                     setSelected(prev => { const n = new Set(prev); n.has(item.id) ? n.delete(item.id) : n.add(item.id); return n })
@@ -331,6 +337,7 @@ export function Sidebar(props: SidebarProps) {
                       renaming={false}
                       renameVal={''}
                       dropZone={null}
+                      dropLabel={''}
                       onSelect={() => {}}
                       onHover={() => {}}
                       onContextMenu={() => {}}
@@ -407,7 +414,7 @@ function TransitionZone({ entry, isActive }: any) {
 }
 
 // === Sortable Row ===
-function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, renameVal, dropZone, onSelect, onHover, onContextMenu, onRenameStart, onRenameChange, onRenameCommit, onRenameCancel, isOverlay }: any) {
+function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, renameVal, dropZone, dropLabel, onSelect, onHover, onContextMenu, onRenameStart, onRenameChange, onRenameCommit, onRenameCancel, isOverlay }: any) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: item.id, disabled: !!isOverlay })
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: item.id, disabled: !!isOverlay })
 
@@ -422,23 +429,37 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
     ? expanded ? 'var(--q-accent-folder-open)' : isHovered ? 'var(--q-text)' : 'var(--q-text-tertiary)'
     : isActive ? 'var(--q-accent-info)' : isHovered ? 'var(--q-text)' : 'var(--q-text-tertiary)'
   const bgColor = isHovered && !isActive ? 'var(--q-hover)' : 'transparent'
+  const indent = 8 + depth * 12
 
   return (
     <div
       ref={setDropRef}
       data-row-id={item.id}
-      style={{ paddingLeft: '8px', paddingRight: '8px', paddingTop: showDropIndicator && dropZone.zone === 'before' ? '22px' : '4px', paddingBottom: showDropIndicator && dropZone.zone === 'after' ? '22px' : '4px', position: 'relative' }}
+      style={{ paddingLeft: '8px', paddingRight: '8px', paddingBottom: '2px', position: 'relative' }}
       onMouseEnter={() => onHover(true)}
       onMouseLeave={() => onHover(false)}
     >
-      {/* Drop indicator: text label (takes up space, no overlay) */}
-      {showDropIndicator && dropZone.zone === 'before' && (
+      {/* Drop indicator: thin line + label (absolute, no layout shift) */}
+      {showDropIndicator && (dropZone.zone === 'before' || dropZone.zone === 'after') && (
         <div style={{
-          height: '20px', display: 'flex', alignItems: 'center',
-          color: 'var(--q-tab-accent)', fontSize: '13px', fontFamily: 'var(--font-interface)',
-          marginBottom: '2px',
+          position: 'absolute',
+          left: `${indent}px`, right: '8px',
+          top: dropZone.zone === 'before' ? '0px' : 'auto',
+          bottom: dropZone.zone === 'after' ? '2px' : 'auto',
+          height: '2px', backgroundColor: 'var(--q-tab-accent)', borderRadius: '1px',
+          zIndex: 10, pointerEvents: 'none',
+        }} />
+      )}
+      {showDropIndicator && (dropZone.zone === 'before' || dropZone.zone === 'after') && (
+        <div style={{
+          position: 'absolute',
+          left: `${indent + 8}px`,
+          top: dropZone.zone === 'before' ? '-16px' : 'auto',
+          bottom: dropZone.zone === 'after' ? '-16px' : 'auto',
+          color: 'var(--q-tab-accent)', fontSize: '12px', fontFamily: 'var(--font-interface)',
+          zIndex: 10, pointerEvents: 'none', whiteSpace: 'nowrap',
         }}>
-          ↑ Drop here
+          {dropLabel || 'Drop here'}
         </div>
       )}
 
@@ -498,16 +519,6 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
           </span>
         )}
       </div>
-      {/* After indicator */}
-      {showDropIndicator && dropZone.zone === 'after' && (
-        <div style={{
-          height: '20px', display: 'flex', alignItems: 'center',
-          color: 'var(--q-tab-accent)', fontSize: '13px', fontFamily: 'var(--font-interface)',
-          marginTop: '2px',
-        }}>
-          ↓ Drop here
-        </div>
-      )}
     </div>
   )
 }
