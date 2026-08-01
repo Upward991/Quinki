@@ -206,13 +206,6 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
                 providerList.push({ id, name: id, type: 'unknown', apiKeyStatus: 'missing', models: mods, enabled: true, baseUrl: '' })
               }
             }
-            // Also add enabledModels as model entries (for providers without full model data)
-            for (const p of providerList) {
-              const safeP = providersResult?.providers?.[p.id]
-              if (safeP?.enabledModels && p.models.length === 0) {
-                p.models = safeP.enabledModels.map((id: string) => ({ id, name: id, contextWindow: 0 }))
-              }
-            }
             setProviders(providerList)
           }
         } catch {}

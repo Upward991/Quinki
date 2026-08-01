@@ -13,6 +13,7 @@ export interface ProviderConfig {
   baseUrl: string;
   apiKey: string;
   enabledModels: string[];
+  modelData?: any[];
 }
 
 export interface SafeProviderConfig {
@@ -75,6 +76,7 @@ export function readProvidersConfig(): ProvidersConfig {
         baseUrl: pc.baseUrl || "",
         apiKey,
         enabledModels: Array.isArray(pc.enabledModels) ? pc.enabledModels : [],
+        modelData: Array.isArray(pc.modelData) ? pc.modelData : [],
       };
     }
     if (needsMigration) {

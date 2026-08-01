@@ -4745,6 +4745,7 @@ export function setProvidersConfig(config: any): { success: boolean; error?: str
         baseUrl: pc.baseUrl || "",
         apiKey,
         enabledModels: Array.isArray(pc.enabledModels) ? pc.enabledModels : [],
+        modelData: Array.isArray(pc.modelData) ? pc.modelData : [],
       };
     }
     writeProvidersConfig(fullConfig);
