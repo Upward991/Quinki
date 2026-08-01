@@ -80,13 +80,15 @@ export function Sidebar(props: SidebarProps) {
       if (item.type === 'folder' && expandedFolders.has(item.id)) {
         const children = e.filter(s => s.parentId === item.id)
         buildList(children, depth + 1)
-        // After last child of this expanded folder, add transition zone
+        // After last child of this expanded folder, add transition zone (only for nested folders)
+        if (depth > 0) {
         const parentFolder = item.parentId ? e.find(s => s.id === item.parentId) : null
         const label = parentFolder ? `Drop here in ${parentFolder.title || 'Folder'}` : 'Drop here in Sidebar'
         flatList.push({
           item: { id: `transition_${item.id}`, type: 'transition', parentId: item.parentId, order: (item.order || 0) - 0.5, title: label },
           depth, isTransition: true, transitionParentId: item.parentId, transitionLabel: label,
         })
+        } // end if depth > 0
       }
     }
   }
@@ -330,6 +332,7 @@ export function Sidebar(props: SidebarProps) {
           onSelect={() => { setMultiSelect(true); setSelected(new Set([contextMenu.item.id])); setContextMenu(null) }}
           onOpenWindow={() => {}}
           onDelete={() => { setDelConfirm(contextMenu.item); setContextMenu(null) }}
+          onNewSubfolder={() => { props.onCreateFolder?.(contextMenu.item.id); setContextMenu(null) }}
           onDeleteFolder={(withContents: boolean) => { props.onDeleteFolder?.(contextMenu.item.id, withContents); setContextMenu(null) }}
           onDeselectAll={() => { setMultiSelect(false); setSelected(new Set()); setContextMenu(null) }}
           onDeleteSelected={() => { a?.(e.filter(s => !selected.has(s.id))); setMultiSelect(false); setSelected(new Set()); setContextMenu(null) }}
