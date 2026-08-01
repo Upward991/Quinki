@@ -111,6 +111,7 @@ export function writeProvidersConfig(config: ProvidersConfig): void {
         baseUrl: pcfg.baseUrl,
         apiKey: apiKeyToStore,
         enabledModels: pcfg.enabledModels,
+        modelData: pcfg.modelData || [],
       };
     }
     writeFileSync(providersPath, JSON.stringify(toWrite, null, 2), "utf8");
@@ -290,11 +291,13 @@ export function syncModelsJson(config: ProvidersConfig): void {
 
       const newModels = pcfg.enabledModels.map((modelId) => {
         const old = oldModels.find((m: any) => m.id === modelId || m === modelId);
+        // Also check modelData from config (has fresh contextWindow from API)
+        const modelDataEntry = (pcfg as any).modelData?.find((m: any) => m.id === modelId);
         const modelInfo: any = {
           id: modelId,
           name: modelId,
           reasoning: true,
-          contextWindow: 32768,
+          contextWindow: modelDataEntry?.contextWindow || 32768,
           maxTokens: 32768,
         };
         if (old && typeof old === "object") {

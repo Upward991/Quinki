@@ -437,27 +437,25 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
     <div
       ref={setDropRef}
       data-row-id={item.id}
-      style={{ paddingLeft: '8px', paddingRight: '8px', paddingBottom: '2px', position: 'relative' }}
+      style={{ paddingLeft: '8px', paddingRight: '8px', paddingTop: showDropIndicator && dropZone.zone === 'before' ? '20px' : '4px', paddingBottom: showDropIndicator && dropZone.zone === 'after' ? '20px' : '4px', position: 'relative' }}
       onMouseEnter={() => onHover(true)}
       onMouseLeave={() => onHover(false)}
     >
-      {/* Drop indicator: arrows + level label (absolute inside row, no shift, no clip) */}
+      {/* Drop indicator: arrows + level label (makes space, no clipping) */}
       {showDropIndicator && dropZone.zone === 'before' && (
         <div style={{
-          position: 'absolute', top: '-1px', left: `${indent}px`, right: '8px',
           height: '16px', display: 'flex', alignItems: 'center',
           color: 'var(--q-tab-accent)', fontSize: '12px', fontFamily: 'var(--font-interface)',
-          zIndex: 10, pointerEvents: 'none', whiteSpace: 'nowrap', overflow: 'visible',
+          marginBottom: '2px',
         }}>
           ↑ {dropLabel || 'Drop here'}
         </div>
       )}
       {showDropIndicator && dropZone.zone === 'after' && (
         <div style={{
-          position: 'absolute', bottom: '-1px', left: `${indent}px`, right: '8px',
           height: '16px', display: 'flex', alignItems: 'center',
           color: 'var(--q-tab-accent)', fontSize: '12px', fontFamily: 'var(--font-interface)',
-          zIndex: 10, pointerEvents: 'none', whiteSpace: 'nowrap', overflow: 'visible',
+          marginTop: '2px',
         }}>
           ↓ {dropLabel || 'Drop here'}
         </div>
