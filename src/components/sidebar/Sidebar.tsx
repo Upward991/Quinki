@@ -72,6 +72,7 @@ export function Sidebar(props: SidebarProps) {
     return new Set()
   })
   const [dropZone, setDropZone] = useState<{ id: string; zone: string } | null>(null)
+  const itemRects = useRef<Map<string, DOMRect>>(new Map())
 
   // Persist expanded folders to localStorage
   React.useEffect(() => {
@@ -115,6 +116,12 @@ export function Sidebar(props: SidebarProps) {
     if (item) {
       dragRef.current = { id: ev.active.id, kind: item.item.type === 'folder' ? 'folder' : 'chat' }
       setActiveDragItem(item.item)
+      // Freeze all item positions
+      const rects = new Map()
+      document.querySelectorAll('[data-row-id]').forEach((el: any) => {
+        rects.set(el.dataset.rowId, el.getBoundingClientRect())
+      })
+      itemRects.current = rects
     }
   }
 
@@ -129,14 +136,13 @@ export function Sidebar(props: SidebarProps) {
     }
     const targetItem = e.find(s => s.id === over.id)
     if (!targetItem || !canAccept(e, dragRef.current, over.id)) { setDropZone(null); return }
-    const el = document.querySelector(`[data-row-id="${over.id}"]`)
-    if (!el) { setDropZone(null); return }
-    const rect = el.getBoundingClientRect()
+    // Use FROZEN rects (recorded at dragStart) to avoid feedback loop
+    const rect = itemRects.current.get(over.id)
+    if (!rect) { setDropZone(null); return }
     const pointerY = (ev.activatorEvent?.clientY || 0) + ev.delta.y
     const relY = pointerY - rect.top
     const isFolder = targetItem.type === 'folder'
-    const effectiveIsFolder = isFolder
-    let zone = computeZone(relY, rect.height, effectiveIsFolder)
+    let zone = computeZone(relY, rect.height, isFolder)
     // Open folder 'after' = 'into' (append at end of children)
     if (isFolder && zone === 'after' && expandedFolders.has(targetItem.id)) {
       zone = 'into'
@@ -167,13 +173,11 @@ export function Sidebar(props: SidebarProps) {
       dragRef.current = null; setDropZone(null); setActiveDragItem(null); return
     }
     const isFolder = targetItem.type === 'folder'
-    const el = document.querySelector(`[data-row-id="${over.id}"]`)
-    if (!el) { dragRef.current = null; setDropZone(null); setActiveDragItem(null); return }
-    const rect = el.getBoundingClientRect()
+    const rect = itemRects.current.get(over.id)
+    if (!rect) { dragRef.current = null; setDropZone(null); setActiveDragItem(null); return }
     const pointerY = (ev.activatorEvent?.clientY || 0) + ev.delta.y
     const relY = pointerY - rect.top
-    const effectiveIsFolder = isFolder
-    let zone = computeZone(relY, rect.height, effectiveIsFolder)
+    let zone = computeZone(relY, rect.height, isFolder)
     // Open folder 'after' = 'into' (append at end of children)
     if (isFolder && zone === 'after' && expandedFolders.has(targetItem.id)) {
       zone = 'into'
@@ -439,16 +443,15 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
       onMouseEnter={() => onHover(true)}
       onMouseLeave={() => onHover(false)}
     >
-      {/* Drop indicator: text bar (absolute, no shift, bg covers content) */}
+      {/* Drop indicator: arrows + level label (absolute, no shift) */}
       {showDropIndicator && dropZone.zone === 'before' && (
         <div style={{
           position: 'absolute', top: '0px', left: `${indent}px`, right: '8px',
           height: '20px', display: 'flex', alignItems: 'center',
           color: 'var(--q-tab-accent)', fontSize: '13px', fontFamily: 'var(--font-interface)',
-          backgroundColor: 'var(--q-bg)', zIndex: 10, pointerEvents: 'none',
-          borderRadius: '2px',
+          zIndex: 10, pointerEvents: 'none',
         }}>
-          {dropLabel || 'Drop here'}
+          ↑ {dropLabel || 'Drop here'}
         </div>
       )}
       {showDropIndicator && dropZone.zone === 'after' && (
@@ -456,10 +459,9 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
           position: 'absolute', bottom: '2px', left: `${indent}px`, right: '8px',
           height: '20px', display: 'flex', alignItems: 'center',
           color: 'var(--q-tab-accent)', fontSize: '13px', fontFamily: 'var(--font-interface)',
-          backgroundColor: 'var(--q-bg)', zIndex: 10, pointerEvents: 'none',
-          borderRadius: '2px',
+          zIndex: 10, pointerEvents: 'none',
         }}>
-          {dropLabel || 'Drop here'}
+          ↓ {dropLabel || 'Drop here'}
         </div>
       )}
 
