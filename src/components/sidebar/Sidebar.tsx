@@ -356,6 +356,11 @@ export function Sidebar(props: SidebarProps) {
                   key={item.id}
                   item={item}
                   depth={depth}
+                  isActive={item.id === t}
+                  isHovered={hovered === item.id}
+                  isExpanded={expandedFolders.has(item.id)}
+                  renaming={renaming === item.id}
+                  renameVal={renameVal}
                 onSelect={() => {
                   if (multiSelect && item.type !== 'folder') {
                     setSelected(prev => { const n = new Set(prev); n.has(item.id) ? n.delete(item.id) : n.add(item.id); return n })
