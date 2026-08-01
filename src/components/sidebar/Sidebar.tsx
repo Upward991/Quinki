@@ -64,8 +64,19 @@ export function Sidebar(props: SidebarProps) {
   const [delConfirm, setDelConfirm] = useState<any>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
   const [renameVal, setRenameVal] = useState('')
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem('quinki_expanded_folders')
+      if (saved) return new Set(JSON.parse(saved))
+    } catch {}
+    return new Set()
+  })
   const [dropZone, setDropZone] = useState<{ id: string; zone: string } | null>(null)
+
+  // Persist expanded folders to localStorage
+  React.useEffect(() => {
+    try { localStorage.setItem('quinki_expanded_folders', JSON.stringify([...expandedFolders])) } catch {}
+  }, [expandedFolders])
 
   const dragRef = useRef<any>(null)
   const [activeDragItem, setActiveDragItem] = useState<any>(null)
@@ -161,16 +172,25 @@ export function Sidebar(props: SidebarProps) {
     const zone = computeZone(relY, rect.height, effectiveIsFolder)
     
     if (zone === 'into' && isFolder) {
-      if (dragItem.type === 'folder') { props.onMoveFolder?.(dragItem.id, over.id, Date.now()) }
-      else { props.onMoveSession?.(dragItem.id, over.id, Date.now()) }
+      const newOrder = (targetItem.order || 0) + 0.5
+      if (dragItem.type === 'folder') { props.onMoveFolder?.(dragItem.id, over.id, newOrder) }
+      else { props.onMoveSession?.(dragItem.id, over.id, newOrder) }
     } else if (zone === 'before') {
       const parentId = targetItem.parentId || null
-      if (dragItem.type === 'folder') { props.onMoveFolder?.(dragItem.id, parentId, (targetItem.order || 0) + 1) }
-      else { props.onMoveSession?.(dragItem.id, parentId, (targetItem.order || 0) + 1) }
+      const siblings = e.filter(s => s.parentId === parentId && s.id !== dragItem.id)
+      const higher = siblings.filter(s => (s.order || 0) > (targetItem.order || 0)).sort((a,b) => (a.order||0) - (b.order||0))
+      const hi = higher.length > 0 ? higher[0].order : (targetItem.order || 0) + 1000
+      const newOrder = ((targetItem.order || 0) + hi) / 2
+      if (dragItem.type === 'folder') { props.onMoveFolder?.(dragItem.id, parentId, newOrder) }
+      else { props.onMoveSession?.(dragItem.id, parentId, newOrder) }
     } else if (zone === 'after') {
       const parentId = targetItem.parentId || null
-      if (dragItem.type === 'folder') { props.onMoveFolder?.(dragItem.id, parentId, (targetItem.order || 0) - 1) }
-      else { props.onMoveSession?.(dragItem.id, parentId, (targetItem.order || 0) - 1) }
+      const siblings = e.filter(s => s.parentId === parentId && s.id !== dragItem.id)
+      const lower = siblings.filter(s => (s.order || 0) < (targetItem.order || 0)).sort((a,b) => (b.order||0) - (a.order||0))
+      const lo = lower.length > 0 ? lower[0].order : (targetItem.order || 0) - 1000
+      const newOrder = ((targetItem.order || 0) + lo) / 2
+      if (dragItem.type === 'folder') { props.onMoveFolder?.(dragItem.id, parentId, newOrder) }
+      else { props.onMoveSession?.(dragItem.id, parentId, newOrder) }
     }
     dragRef.current = null
     setDropZone(null)
@@ -235,7 +255,7 @@ export function Sidebar(props: SidebarProps) {
       </div>
 
       {/* Session list with DnD */}
-      <div style={{ flex: 1, overflowY: 'auto' }}>
+      <div style={{ flex: 1, overflowY: 'auto', paddingTop: '12px' }}>
         {flatList.length === 0 ? (
           <div style={{ padding: '24px 8px', textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>
             No chats
@@ -405,7 +425,7 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
         <div style={{
           position: 'absolute',
           left: `${8 + depth * 12}px`, right: '8px',
-          top: dropZone.zone === 'before' ? '-10px' : 'auto',
+          top: dropZone.zone === 'before' ? '0px' : 'auto',
           bottom: dropZone.zone === 'after' ? '-10px' : 'auto',
           height: '20px', display: 'flex', alignItems: 'center',
           color: 'var(--q-tab-accent)', fontSize: '13px', fontFamily: 'var(--font-interface)',
@@ -424,7 +444,7 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
         style={{
           paddingLeft: `${depth * 12 + 10}px`, paddingRight: '8px', paddingTop: '6px', paddingBottom: '6px',
           minHeight: '36px', borderRadius: 'var(--radius-md)',
-          backgroundColor: showDropIndicator && dropZone.zone === 'into' ? 'var(--q-hover)' : bgColor,
+          backgroundColor: showDropIndicator && dropZone.zone === 'into' ? 'rgba(255,165,0,0.15)' : bgColor,
           border: 'none',
           cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
           opacity: isDragging && !isOverlay ? 0.15 : 1, boxSizing: 'border-box',
