@@ -296,56 +296,31 @@ export function Sidebar(props: SidebarProps) {
             onDragEnd={handleDragEnd}
             onDragCancel={() => { dragRef.current = null; setDropZone(null); setActiveDragItem(null) }}
           >
-            {(() => {
-              const renderList: any[] = []
-              for (const entry of flatList) {
-                if (entry.isTransition) {
-                  renderList.push({ type: 'transition', entry })
-                  continue
-                }
-                const { item, depth } = entry
-                const dropLabel = (() => {
-                  const pid = item.parentId || null
-                  if (!pid) return 'Drop in Sidebar'
-                  const parent = e.find(s => s.id === pid)
-                  return parent ? `Drop in ${parent.title || 'Folder'}` : 'Drop in folder'
-                })()
-                if (dropZone?.id === item.id && dropZone.zone === 'before') {
-                  renderList.push({ type: 'indicator', key: `ind_b_${item.id}`, arrow: '↑', label: dropLabel, depth })
-                }
-                renderList.push({ type: 'row', entry, dropLabel })
-                if (dropZone?.id === item.id && dropZone.zone === 'after') {
-                  renderList.push({ type: 'indicator', key: `ind_a_${item.id}`, arrow: '↓', label: dropLabel, depth })
-                }
-              }
-              return renderList.map((r: any) => {
-                if (r.type === 'transition') {
-                  return <TransitionZone key={r.entry.item.id} entry={r.entry} isActive={!!dragRef.current} />
-                }
-                if (r.type === 'indicator') {
-                  return (
-                    <div key={r.key} style={{
-                      paddingLeft: `${r.depth * 12 + 18}px`, paddingRight: '8px',
-                      height: '18px', display: 'flex', alignItems: 'center',
-                      color: 'var(--q-tab-accent)', fontSize: '12px', fontFamily: 'var(--font-interface)',
-                      whiteSpace: 'nowrap',
-                    }}>
-                      {r.arrow} {r.label}
-                    </div>
-                  )
-                }
-                const { item, depth } = r.entry
+            {flatList.map((entry, idx) => {
+              if (entry.isTransition) {
                 return (
-                <SortableRow
-                  key={item.id}
-                  item={item}
-                  depth={depth}
-                  isActive={item.id === t}
-                  isHovered={hovered === item.id}
-                  isExpanded={expandedFolders.has(item.id)}
-                  renaming={renaming === item.id}
-                  renameVal={renameVal}
-                  dropZone={dropZone}
+                  <TransitionZone key={entry.item.id} entry={entry} isActive={!!dragRef.current} />
+                )
+              }
+              const { item, depth } = entry
+              const dropLabel = (() => {
+                const pid = item.parentId || null
+                if (!pid) return 'Drop in Sidebar'
+                const parent = e.find(s => s.id === pid)
+                return parent ? `Drop in ${parent.title || 'Folder'}` : 'Drop in folder'
+              })()
+              return (
+              <SortableRow
+                key={item.id}
+                item={item}
+                depth={depth}
+                isActive={item.id === t}
+                isHovered={hovered === item.id}
+                isExpanded={expandedFolders.has(item.id)}
+                renaming={renaming === item.id}
+                renameVal={renameVal}
+                dropZone={dropZone}
+                dropLabel={dropLabel}
                 onSelect={() => {
                   if (multiSelect && item.type !== 'folder') {
                     setSelected(prev => { const n = new Set(prev); n.has(item.id) ? n.delete(item.id) : n.add(item.id); return n })
@@ -361,10 +336,9 @@ export function Sidebar(props: SidebarProps) {
                 onRenameChange={setRenameVal}
                 onRenameCommit={() => handleRename(item.id, item.type)}
                 onRenameCancel={() => setRenaming(null)}
-                />
-                )
-              })
-            })()}
+              />
+              )
+            })}
             <DragOverlay dropAnimation={null}>
               {activeDragItem && (() => {
                 const flat = flatList.find(f => f.item.id === activeDragItem.id)

@@ -366,6 +366,9 @@ class PiBridge {
             (existing as any).agentOverrides = s.agentOverrides;
             merged++;
           }
+          // Merge folderId and order from the file (not in session files, only in quinki-sessions.json)
+          if (s.folderId !== undefined) (existing as any).folderId = s.folderId;
+          if (typeof s.order === 'number') (existing as any).order = s.order;
         }
       }
       if (merged > 0) {
