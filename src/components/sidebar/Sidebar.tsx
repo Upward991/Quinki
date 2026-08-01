@@ -105,7 +105,7 @@ export function Sidebar(props: SidebarProps) {
     const pointerY = (ev.activatorEvent?.clientY || 0) + ev.delta.y
     const relY = pointerY - rect.top
     const isFolder = targetItem.type === 'folder'
-    const effectiveIsFolder = isFolder && dragRef.current.kind !== 'folder'
+    const effectiveIsFolder = isFolder
     const zone = computeZone(relY, rect.height, effectiveIsFolder)
     if (dropZone?.id !== over.id || dropZone?.zone !== zone) {
       setDropZone({ id: over.id, zone })
@@ -126,7 +126,7 @@ export function Sidebar(props: SidebarProps) {
     const rect = el.getBoundingClientRect()
     const pointerY = (ev.activatorEvent?.clientY || 0) + ev.delta.y
     const relY = pointerY - rect.top
-    const effectiveIsFolder = isFolder && dragRef.current.kind !== 'folder'
+    const effectiveIsFolder = isFolder
     const zone = computeZone(relY, rect.height, effectiveIsFolder)
     
     if (zone === 'into' && isFolder) {
