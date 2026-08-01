@@ -392,6 +392,7 @@ class PiBridge {
           createdAt: v.createdAt,
           lastActivity: v.lastActivity,
           order: v.order,
+          folderId: (v as any).folderId ?? null,
           compactionAuto: (v as any).compactionAuto,
           compactionThreshold: (v as any).compactionThreshold,
           model: v.model,
