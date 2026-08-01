@@ -298,7 +298,7 @@ export function Sidebar(props: SidebarProps) {
       </div>
 
       {/* Session list with DnD */}
-      <div style={{ flex: 1, overflowY: 'auto', paddingTop: '12px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', paddingTop: '16px', paddingBottom: '16px' }}>
         {flatList.length === 0 ? (
           <div style={{ padding: '24px 8px', textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>
             No chats
@@ -467,25 +467,27 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
     <div
       ref={setDropRef}
       data-row-id={item.id}
-      style={{ paddingLeft: '8px', paddingRight: '8px', paddingTop: showDropIndicator && dropZone.zone === 'before' ? '20px' : '4px', paddingBottom: showDropIndicator && dropZone.zone === 'after' ? '20px' : '4px', position: 'relative' }}
+      style={{ paddingLeft: '8px', paddingRight: '8px', paddingBottom: '2px', position: 'relative' }}
       onMouseEnter={() => onHover(true)}
       onMouseLeave={() => onHover(false)}
     >
-      {/* Drop indicator: arrows + level label (makes space, no clipping) */}
+      {/* Drop indicator: arrows + level label (absolute, inside row, no shift) */}
       {showDropIndicator && dropZone.zone === 'before' && (
         <div style={{
-          height: '16px', display: 'flex', alignItems: 'center',
-          color: 'var(--q-tab-accent)', fontSize: '12px', fontFamily: 'var(--font-interface)',
-          marginBottom: '2px',
+          position: 'absolute', top: '0px', left: `${indent}px`, right: '8px',
+          height: '14px', display: 'flex', alignItems: 'center',
+          color: 'var(--q-tab-accent)', fontSize: '11px', fontFamily: 'var(--font-interface)',
+          zIndex: 10, pointerEvents: 'none', whiteSpace: 'nowrap',
         }}>
           ↑ {dropLabel || 'Drop here'}
         </div>
       )}
       {showDropIndicator && dropZone.zone === 'after' && (
         <div style={{
-          height: '16px', display: 'flex', alignItems: 'center',
-          color: 'var(--q-tab-accent)', fontSize: '12px', fontFamily: 'var(--font-interface)',
-          marginTop: '2px',
+          position: 'absolute', bottom: '0px', left: `${indent}px`, right: '8px',
+          height: '14px', display: 'flex', alignItems: 'center',
+          color: 'var(--q-tab-accent)', fontSize: '11px', fontFamily: 'var(--font-interface)',
+          zIndex: 10, pointerEvents: 'none', whiteSpace: 'nowrap',
         }}>
           ↓ {dropLabel || 'Drop here'}
         </div>
