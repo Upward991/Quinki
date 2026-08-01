@@ -71,8 +71,8 @@ export function Sidebar(props: SidebarProps) {
   const [activeDragItem, setActiveDragItem] = useState<any>(null)
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
-  // Build flat display list
-  const flatList: { item: any; depth: number }[] = []
+  // Build flat display list with transition zones
+  const flatList: { item: any; depth: number; isTransition?: boolean; transitionParentId?: string | null; transitionLabel?: string }[] = []
   const topItems = e.filter(s => !s.parentId).sort((a, b) => (b.order || 0) - (a.order || 0))
   function buildList(items: any[], depth: number) {
     for (const item of items.sort((a, b) => (b.order || 0) - (a.order || 0))) {
@@ -80,10 +80,22 @@ export function Sidebar(props: SidebarProps) {
       if (item.type === 'folder' && expandedFolders.has(item.id)) {
         const children = e.filter(s => s.parentId === item.id)
         buildList(children, depth + 1)
+        // After last child of this expanded folder, add transition zone
+        const parentFolder = item.parentId ? e.find(s => s.id === item.parentId) : null
+        const label = parentFolder ? `Drop here in ${parentFolder.title || 'Folder'}` : 'Drop here in Sidebar'
+        flatList.push({
+          item: { id: `transition_${item.id}`, type: 'transition', parentId: item.parentId, order: (item.order || 0) - 0.5, title: label },
+          depth, isTransition: true, transitionParentId: item.parentId, transitionLabel: label,
+        })
       }
     }
   }
   buildList(topItems, 0)
+  // Add bottom transition zone for root level
+  flatList.push({
+    item: { id: 'transition_bottom', type: 'transition', parentId: null, order: -1, title: 'Drop here in Sidebar' },
+    depth: 0, isTransition: true, transitionParentId: null, transitionLabel: 'Drop here in Sidebar',
+  })
 
   function handleDragStart(ev: any) {
     const item = flatList.find(f => f.item.id === ev.active.id)
@@ -96,9 +108,14 @@ export function Sidebar(props: SidebarProps) {
   function handleDragMove(ev: any) {
     const over = ev.over
     if (!over || !dragRef.current) { setDropZone(null); return }
+    // Transition zone: always show, no zone computation
+    if (over.id.startsWith('transition_')) {
+      const tItem = flatList.find(f => f.item.id === over.id)
+      if (tItem) { setDropZone({ id: over.id, zone: 'into' }); return }
+      setDropZone(null); return
+    }
     const targetItem = e.find(s => s.id === over.id)
     if (!targetItem || !canAccept(e, dragRef.current, over.id)) { setDropZone(null); return }
-    // Use DOM getBoundingClientRect for precise zone computation
     const el = document.querySelector(`[data-row-id="${over.id}"]`)
     if (!el) { setDropZone(null); return }
     const rect = el.getBoundingClientRect()
@@ -114,11 +131,23 @@ export function Sidebar(props: SidebarProps) {
 
   function handleDragEnd(ev: any) {
     const { active, over } = ev
-    if (!over || !dragRef.current) { dragRef.current = null; setDropZone(null); return }
+    if (!over || !dragRef.current) { dragRef.current = null; setDropZone(null); setActiveDragItem(null); return }
+    // Transition zone: move to transitionParentId
+    if (over.id.startsWith('transition_')) {
+      const tItem = flatList.find(f => f.item.id === over.id)
+      if (!tItem) { dragRef.current = null; setDropZone(null); setActiveDragItem(null); return }
+      const dragItem = e.find(s => s.id === active.id)
+      if (!dragItem) { dragRef.current = null; setDropZone(null); setActiveDragItem(null); return }
+      if (dragItem.type === 'folder') props.onMoveFolder?.(dragItem.id, tItem.transitionParentId, tItem.item.order)
+      else props.onMoveSession?.(dragItem.id, tItem.transitionParentId, tItem.item.order)
+      dragRef.current = null; setDropZone(null); setActiveDragItem(null)
+      requestAnimationFrame(() => setDropZone(null))
+      return
+    }
     const dragItem = e.find(s => s.id === active.id)
     const targetItem = e.find(s => s.id === over.id)
     if (!dragItem || !targetItem || !canAccept(e, dragRef.current, over.id)) {
-      dragRef.current = null; setDropZone(null); return
+      dragRef.current = null; setDropZone(null); setActiveDragItem(null); return
     }
     const isFolder = targetItem.type === 'folder'
     const el = document.querySelector(`[data-row-id="${over.id}"]`)
@@ -218,7 +247,14 @@ export function Sidebar(props: SidebarProps) {
             onDragEnd={handleDragEnd}
             onDragCancel={() => { dragRef.current = null; setDropZone(null); setActiveDragItem(null) }}
           >
-            {flatList.map(({ item, depth }) => (
+            {flatList.map((entry, idx) => {
+              if (entry.isTransition) {
+                return (
+                  <TransitionZone key={entry.item.id} entry={entry} isActive={!!dragRef.current} />
+                )
+              }
+              const { item, depth } = entry
+              return (
               <SortableRow
                 key={item.id}
                 item={item}
@@ -245,7 +281,8 @@ export function Sidebar(props: SidebarProps) {
                 onRenameCommit={() => handleRename(item.id, item.type)}
                 onRenameCancel={() => setRenaming(null)}
               />
-            ))}
+              )
+            })}
             <DragOverlay dropAnimation={null}>
               {activeDragItem && (() => {
                 const flat = flatList.find(f => f.item.id === activeDragItem.id)
@@ -275,20 +312,7 @@ export function Sidebar(props: SidebarProps) {
               })()}
             </DragOverlay>
             
-            <BottomDropZone 
-              isActive={!!dragRef.current}
-              onDrop={() => {
-                if (!dragRef.current) return
-                const dragItem = e.find(s => s.id === dragRef.current.id)
-                if (!dragItem) { dragRef.current = null; return }
-                // Move to root level, at the bottom (lowest order)
-                if (dragItem.type === 'folder') props.onMoveFolder?.(dragItem.id, null, 0)
-                else props.onMoveSession?.(dragItem.id, null, 0)
-                dragRef.current = null
-                setDropZone(null)
-                setActiveDragItem(null)
-              }}
-            />
+
           </DndContext>
         )}
       </div>
@@ -321,6 +345,32 @@ export function Sidebar(props: SidebarProps) {
           onConfirm={() => doDelete(delConfirm)}
         />
       )}
+    </div>
+  )
+}
+
+// === Transition Zone (between nested levels) ===
+function TransitionZone({ entry, isActive }: any) {
+  const { setNodeRef, isOver } = useDroppable({ id: entry.item.id })
+  return (
+    <div
+      ref={setNodeRef}
+      data-row-id={entry.item.id}
+      style={{
+        height: isActive ? (isOver ? '36px' : '8px') : '0px',
+        margin: isActive ? '0 8px' : '0',
+        paddingLeft: `${entry.depth * 12 + 10}px`,
+        borderRadius: 'var(--radius-md)',
+        backgroundColor: isOver ? 'var(--q-hover)' : 'transparent',
+        border: isOver ? '2px dashed var(--q-tab-accent)' : 'none',
+        display: isActive ? 'flex' : 'none',
+        alignItems: 'center',
+        color: 'var(--q-tab-accent)', fontSize: '13px', fontFamily: 'var(--font-interface)',
+        overflow: 'hidden',
+        pointerEvents: isActive ? 'auto' : 'none',
+      }}
+    >
+      {isOver ? entry.transitionLabel : ''}
     </div>
   )
 }
@@ -465,30 +515,6 @@ function MenuItem({ label, color, onClick }: any) {
     >
       {label}
     </button>
-  )
-}
-
-// === Bottom Drop Zone ===
-function BottomDropZone({ isActive, onDrop }: any) {
-  const { setNodeRef, isOver } = useDroppable({ id: 'bottom-drop-zone' })
-  if (!isActive) return null
-  return (
-    <div
-      ref={setNodeRef}
-      onPointerUp={onDrop}
-      style={{
-        height: '40px',
-        margin: '0 8px',
-        borderRadius: 'var(--radius-md)',
-        backgroundColor: isOver ? 'var(--q-hover)' : 'transparent',
-        border: isOver ? '2px dashed var(--q-tab-accent)' : '2px dashed transparent',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)',
-        cursor: 'default',
-      }}
-    >
-      {isOver ? 'Drop here (root level)' : ''}
-    </div>
   )
 }
 
