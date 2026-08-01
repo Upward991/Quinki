@@ -508,6 +508,16 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
           </span>
         )}
       </div>
+      {/* After indicator */}
+      {showDropIndicator && dropZone.zone === 'after' && (
+        <div style={{
+          height: '20px', display: 'flex', alignItems: 'center',
+          color: 'var(--q-tab-accent)', fontSize: '13px', fontFamily: 'var(--font-interface)',
+          marginTop: '2px',
+        }}>
+          ↓ Drop here
+        </div>
+      )}
     </div>
   )
 }
