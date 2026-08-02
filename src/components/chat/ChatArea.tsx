@@ -207,7 +207,7 @@ export function ChatArea(props: ChatAreaProps) {
               onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100) }}>
               {props.messages.map((msg, mIdx) => (
                 <div key={msg.id} data-msg-idx={mIdx} style={{ marginBottom: '12px' }}>
-                  <MessageBubble message={msg} onCopy={() => {}} searchQuery={searchQuery} msgIndex={mIdx} activeMatchMsgIdx={activeMatchInfo?.msgIdx ?? -1} activeMatchOccurrence={activeMatchInfo?.occurrence ?? -1} />
+                  <MessageBubble message={msg} onCopy={() => {}} searchQuery={searchQuery} msgIndex={mIdx} activeMatchMsgIdx={activeMatchInfo?.msgIdx ?? -1} activeMatchOccurrence={activeMatchInfo?.occurrence ?? -1} isDateMatch={!!hasDateFilter && !searchQuery.trim() && mIdx === (activeMatchInfo?.msgIdx ?? -1)} />
                 </div>
               ))}
             </div>

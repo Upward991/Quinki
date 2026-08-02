@@ -52,13 +52,13 @@ interface MessageBubbleProps {
   onCopy?: (text: string) => void
 }
 
-export const MessageBubble = memo(function MessageBubble({ message, onCopy, searchQuery, msgIndex, activeMatchMsgIdx, activeMatchOccurrence }: MessageBubbleProps) {
-  if (message.role === 'user') return <UserMessage message={message} onCopy={onCopy} searchQuery={searchQuery} activeOcc={msgIndex === activeMatchMsgIdx ? activeMatchOccurrence : -1} />
-  return <AssistantMessage message={message} onCopy={onCopy} searchQuery={searchQuery} activeOcc={msgIndex === activeMatchMsgIdx ? activeMatchOccurrence : -1} />
+export const MessageBubble = memo(function MessageBubble({ message, onCopy, searchQuery, msgIndex, activeMatchMsgIdx, activeMatchOccurrence, isDateMatch }: MessageBubbleProps) {
+  if (message.role === 'user') return <UserMessage message={message} onCopy={onCopy} searchQuery={searchQuery} activeOcc={msgIndex === activeMatchMsgIdx ? activeMatchOccurrence : -1} isDateMatch={isDateMatch} />
+  return <AssistantMessage message={message} onCopy={onCopy} searchQuery={searchQuery} activeOcc={msgIndex === activeMatchMsgIdx ? activeMatchOccurrence : -1} isDateMatch={isDateMatch} />
 })
 
 // ── User message ──
-function UserMessage({ message, onCopy, searchQuery, activeOcc }: { message: Message; onCopy?: (t: string) => void; searchQuery?: string; activeOcc?: number }) {
+function UserMessage({ message, onCopy, searchQuery, activeOcc, isDateMatch }: { message: Message; onCopy?: (t: string) => void; searchQuery?: string; activeOcc?: number; isDateMatch?: boolean }) {
   // Simple highlight: split text and wrap Nth occurrence
   const content = message.content || ''
   let rendered: React.ReactNode = content
@@ -86,7 +86,7 @@ function UserMessage({ message, onCopy, searchQuery, activeOcc }: { message: Mes
     if (parts.length > 0) rendered = parts
   }
   return (
-    <div className="user-message-content" style={{ width: '100%', padding: '10px 16px', backgroundColor: 'var(--q-bubble-user)', borderRadius: '12px', boxShadow: '0 0 0 1px var(--q-border), inset 0 1px 0 rgba(255,255,255,0.02)', border: 'none', animation: 'msgSent 300ms cubic-bezier(0.16, 1, 0.3, 1)' }}>
+    <div className="user-message-content" style={{ width: '100%', padding: '10px 16px', backgroundColor: 'var(--q-bubble-user)', borderRadius: '12px', boxShadow: isDateMatch ? '0 0 0 2px var(--q-search-highlight-bg)' : '0 0 0 1px var(--q-border), inset 0 1px 0 rgba(255,255,255,0.02)', border: 'none', animation: 'msgSent 300ms cubic-bezier(0.16, 1, 0.3, 1)' }}>
       <div style={{ color: 'var(--q-bubble-user-text)', fontSize: '14px', lineHeight: 1.5, fontFamily: 'var(--font-interface)', fontWeight: 500, whiteSpace: 'pre-wrap', wordBreak: 'break-word', userSelect: 'text', WebkitUserSelect: 'text' }}>
         {rendered}
       </div>
@@ -178,7 +178,7 @@ function renderBlocks(blocks: any[], opts: { isError?: boolean; isStreaming?: bo
 }
 
 // ── Assistant message ──
-function AssistantMessage({ message, onCopy, searchQuery, activeOcc }: { message: Message; onCopy?: (t: string) => void; searchQuery?: string; activeOcc?: number }) {
+function AssistantMessage({ message, onCopy, searchQuery, activeOcc, isDateMatch }: { message: Message; onCopy?: (t: string) => void; searchQuery?: string; activeOcc?: number; isDateMatch?: boolean }) {
   const isError = message.isError
 
   return (
