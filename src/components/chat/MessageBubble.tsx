@@ -88,7 +88,7 @@ function MessageBlocks({ thinking, toolCalls, toolResults, compaction, delegatio
       {toolResults?.map((tr, i) => <ToolToggle key={`tr-${i}`} label={tr.isError ? 'Tool error' : 'Tool result'} toolName={tr.name} body={tr.output} isError={tr.isError} />)}
 
       {/* Text content with markdown + code blocks */}
-      <MarkdownContent text={content} isError={isError} />
+      <MarkdownContent text={content} isError={isError} searchQuery={searchQuery} />
 
       {/* Compaction toggles (blue + orange, in order) */}
       {compaction?.map((comp, i) => (
@@ -116,7 +116,7 @@ function renderBlocks(blocks: any[], opts: { isError?: boolean; isStreaming?: bo
       return (
         <div key={`b-${i}`}>
           <div style={{ padding: '4px 0' }}>
-            <MarkdownContent text={b.content || ''} isError={isError} />
+            <MarkdownContent text={b.content || ''} isError={isError} searchQuery={searchQuery} />
           </div>
           {showFooter && (
             <Footer
@@ -173,7 +173,7 @@ function AssistantMessage({ message, onCopy, searchQuery }: { message: Message; 
       {!(message as any).blocks?.length && message.content && !message.isError && (
         <div>
           <div style={{ padding: '4px 0' }}>
-            <MarkdownContent text={message.content} isError={isError} />
+            <MarkdownContent text={message.content} isError={isError} searchQuery={searchQuery} />
           </div>
           {!message.isStreaming && (
             <Footer
@@ -198,7 +198,15 @@ function AssistantMessage({ message, onCopy, searchQuery }: { message: Message; 
 }
 
 // ── Markdown content with code blocks (copy + syntax highlighting) ──
-function MarkdownContent({ text, isError }: { text: string; isError?: boolean }) {
+function MarkdownContent({ text, isError, searchQuery }: { text: string; isError?: boolean; searchQuery?: string }) {
+  // When searching, show plain text with highlight (not markdown)
+  if (searchQuery && searchQuery.trim()) {
+    return (
+      <div className="markdown-content" style={{ padding: '4px 0', userSelect: 'text', WebkitUserSelect: 'text', color: isError ? 'var(--q-accent-danger)' : 'var(--q-text)', fontSize: '14px', lineHeight: 1.5, fontFamily: 'var(--font-interface)', fontWeight: 500, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+        {highlightSearch(text || '', searchQuery)}
+      </div>
+    )
+  }
   return (
     <div className="markdown-content" style={{ padding: '4px 0', userSelect: 'text', WebkitUserSelect: 'text' }}>
       <ReactMarkdown
@@ -413,7 +421,7 @@ function DelegationBlockView({ delegation, timestamp, streaming, onCopy }: { del
             ? renderBlocks(delegation.blocks, { isStreaming: !!streaming, timestamp, agentName: delegation.agentName, agentModel: delegation.agentModel, thinkingLevel: delegation.thinkingLevel, onCopy })
             : delegation.response && (
               <div style={{ padding: '4px 0' }}>
-                <MarkdownContent text={delegation.response} />
+                <MarkdownContent text={delegation.response} searchQuery={searchQuery} />
               </div>
             )}
 

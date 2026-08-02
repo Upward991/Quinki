@@ -55,19 +55,27 @@ export function ChatArea(props: ChatAreaProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [currentMatch, setCurrentMatch] = useState(0)
 
-  // Compute matches
+  // Compute matches across ALL text content
   const matches = (() => {
     if (!searchQuery.trim()) return []
     const q = searchQuery.trim().toLowerCase()
     const out: { msgIdx: number, charIdx: number }[] = []
     props.messages.forEach((m, i) => {
       if (m.role !== 'user' && m.role !== 'assistant') return
-      const text = (m.content || '').toLowerCase()
+      // Collect ALL text from the message
+      const texts: string[] = []
+      if (m.content) texts.push(m.content)
+      if (m.thinking) for (const t of m.thinking) if (t.content) texts.push(t.content)
+      if (m.toolCalls) for (const tc of m.toolCalls) if (tc.input) texts.push(tc.input)
+      if (m.toolResults) for (const tr of m.toolResults) if (tr.output) texts.push(tr.output)
+      if (m.delegations) for (const d of m.delegations) {
+        if (d.response) texts.push(d.response)
+        if (d.taskContent) texts.push(d.taskContent)
+      }
+      const fullText = texts.join(' ').toLowerCase()
       let idx = 0
-      let localIdx = 0
-      while ((idx = text.indexOf(q, idx)) !== -1) {
+      while ((idx = fullText.indexOf(q, idx)) !== -1) {
         out.push({ msgIdx: i, charIdx: idx })
-        localIdx++
         idx += q.length
       }
     })
@@ -118,12 +126,13 @@ export function ChatArea(props: ChatAreaProps) {
           onCompact={props.onCompact}
           onReload={props.onReload}
           searchQuery={searchQuery}
-          onSearchQueryChange={(q) => { setSearchQuery(q); setCurrentMatch(0) }}
+          onSearchQueryChange={(q) => { setSearchQuery(q); setCurrentMatch(-1) }}
           matchCount={matches.length}
-          currentMatch={currentMatch}
+          currentMatch={currentMatch < 0 ? Math.max(0, matches.length - 1) : currentMatch}
           onMatchNavigate={(dir) => {
             if (matches.length === 0) return
-            const next = dir === 'next' ? (currentMatch + 1) % matches.length : (currentMatch - 1 + matches.length) % matches.length
+            const start = currentMatch < 0 ? matches.length - 1 : currentMatch
+            const next = dir === 'next' ? (start + 1) % matches.length : (start - 1 + matches.length) % matches.length
             setCurrentMatch(next)
             // Scroll to the matched message
             const match = matches[next]
