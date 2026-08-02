@@ -14,22 +14,17 @@ import { Copy, Check, Info, ChevronRight } from '../icons'
 // Highlight search matches in text
 function highlightSearch(text: string, query: string, activeOcc: number = -1): React.ReactNode {
   if (!query || !query.trim()) return text
+  if (activeOcc < 0) return text
   const q = query.trim()
   const lower = text.toLowerCase()
   const lowerQ = q.toLowerCase()
   const parts: React.ReactNode[] = []
   let lastIdx = 0
   let idx = lower.indexOf(lowerQ)
-  let occNum = 0
   let key = 0
   while (idx !== -1) {
     if (idx > lastIdx) parts.push(text.substring(lastIdx, idx))
-    if (occNum === activeOcc) {
-      parts.push(React.createElement('mark', { key: 'hl_' + key++, style: { backgroundColor: 'var(--q-search-highlight-bg)', color: 'var(--q-search-highlight-text)', borderRadius: '2px', padding: '0 2px' } }, text.substring(idx, idx + q.length)))
-    } else {
-      parts.push(text.substring(idx, idx + q.length))
-    }
-    occNum++
+    parts.push(React.createElement('mark', { key: 'hl_' + key++, style: { backgroundColor: 'var(--q-search-highlight-bg)', color: 'var(--q-search-highlight-text)', borderRadius: '2px', padding: '0 2px' } }, text.substring(idx, idx + q.length)))
     lastIdx = idx + q.length
     idx = lower.indexOf(lowerQ, lastIdx)
   }
