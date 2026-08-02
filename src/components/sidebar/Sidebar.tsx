@@ -144,13 +144,19 @@ export function Sidebar(props: SidebarProps) {
   }
 
   function findDropTarget(pointerY: number): { id: string | null; zone: string; transition: any } {
+    // Find dragged item's index and neighbors in flatList
+    const dragIdx = flatList.findIndex(f => f.item.id === dragRef.current?.id)
+    const itemAbove = dragIdx > 0 ? flatList[dragIdx - 1] : null
+    const itemBelow = dragIdx >= 0 && dragIdx < flatList.length - 1 ? flatList[dragIdx + 1] : null
+    const dragItem = dragIdx >= 0 ? flatList[dragIdx].item : null
+    const dragParentId = dragItem?.parentId || null
+
     // Simple iteration: find the first item where pointer <= item.bottom
     for (const entry of flatList) {
       const rect = itemRects.current.get(entry.item.id)
       if (!rect) continue
       if (!canAccept(e, dragRef.current, entry.item.id)) continue
       if (pointerY <= rect.bottom) {
-        // Pointer is at or above the bottom of this item
         const relY = pointerY - rect.top
         const isFolder = entry.item.type === 'folder'
         let zone: 'before' | 'after' | 'into'
@@ -158,10 +164,17 @@ export function Sidebar(props: SidebarProps) {
           zone = 'before'
         } else {
           zone = computeZone(relY, rect.height, isFolder)
-          // Open folder 'after' = 'into'
           if (isFolder && zone === 'after' && expandedFolders.has(entry.item.id)) {
             zone = 'into'
           }
+        }
+        // Skip useless indicators: "after item above" and "before item below" (same position)
+        const targetParentId = entry.item.parentId || null
+        if (zone === 'after' && itemAbove && entry.item.id === itemAbove.item.id && targetParentId === dragParentId) {
+          continue // Would leave item in same position
+        }
+        if (zone === 'before' && itemBelow && entry.item.id === itemBelow.item.id && targetParentId === dragParentId) {
+          continue // Would leave item in same position
         }
         return { id: entry.item.id, zone, transition: null }
       }
@@ -170,6 +183,11 @@ export function Sidebar(props: SidebarProps) {
     const items = flatList.filter(f => !f.isTransition)
     if (items.length > 0) {
       const last = items[items.length - 1]
+      // Skip if it's the item above the dragged item (same position)
+      const lastParentId = last.item.parentId || null
+      if (last.item.id === itemAbove?.item.id && lastParentId === dragParentId) {
+        return { id: null, zone: 'before', transition: null }
+      }
       return { id: last.item.id, zone: 'after', transition: null }
     }
     return { id: null, zone: 'before', transition: null }
@@ -313,26 +331,51 @@ export function Sidebar(props: SidebarProps) {
             onDragEnd={handleDragEnd}
             onDragCancel={() => { dragRef.current = null; setDropZone(null); setActiveDragItem(null) }}
           >
-            {flatList.map((entry, idx) => {
-              const { item, depth } = entry
-              const dropLabel = (() => {
-                const pid = item.parentId || null
-                if (!pid) return 'Drop in Sidebar'
-                const parent = e.find(s => s.id === pid)
-                return parent ? `Drop in ${parent.title || 'Folder'}` : 'Drop in folder'
-              })()
-              return (
-              <SortableRow
-                key={item.id}
-                item={item}
-                depth={depth}
-                isActive={item.id === t}
-                isHovered={hovered === item.id}
-                isExpanded={expandedFolders.has(item.id)}
-                renaming={renaming === item.id}
-                renameVal={renameVal}
-                dropZone={dropZone}
-                dropLabel={dropLabel}
+            {(() => {
+              const rows: any[] = []
+              for (const entry of flatList) {
+                const { item, depth } = entry
+                const dropLabel = (() => {
+                  const pid = item.parentId || null
+                  if (!pid) return 'Drop in Sidebar'
+                  const parent = e.find(s => s.id === pid)
+                  return parent ? `Drop in ${parent.title || 'Folder'}` : 'Drop in folder'
+                })()
+                if (dropZone?.id === item.id && dropZone.zone === 'before') {
+                  rows.push({ type: 'ind', key: `b_${item.id}`, label: dropLabel, depth })
+                }
+                rows.push({ type: 'row', item, depth, dropLabel })
+                if (dropZone?.id === item.id && dropZone.zone === 'after') {
+                  rows.push({ type: 'ind', key: `a_${item.id}`, label: dropLabel, depth })
+                }
+              }
+              return rows.map((r: any) => {
+                if (r.type === 'ind') {
+                  return (
+                    <div key={r.key} style={{
+                      display: 'flex', alignItems: 'center', gap: '6px',
+                      paddingLeft: `${r.depth * 12 + 12}px`, paddingRight: '12px',
+                      height: '18px',
+                    }}>
+                      <span style={{ flex: 1, height: '1px', backgroundColor: 'var(--q-tab-accent)' }} />
+                      <span style={{ color: 'var(--q-tab-accent)', fontSize: '11px', fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap' }}>{r.label}</span>
+                      <span style={{ flex: 1, height: '1px', backgroundColor: 'var(--q-tab-accent)' }} />
+                    </div>
+                  )
+                }
+                const { item, depth, dropLabel } = r
+                return (
+                <SortableRow
+                  key={item.id}
+                  item={item}
+                  depth={depth}
+                  isActive={item.id === t}
+                  isHovered={hovered === item.id}
+                  isExpanded={expandedFolders.has(item.id)}
+                  renaming={renaming === item.id}
+                  renameVal={renameVal}
+                  dropZone={dropZone}
+                  dropLabel={dropLabel}
                 onSelect={() => {
                   if (multiSelect && item.type !== 'folder') {
                     setSelected(prev => { const n = new Set(prev); n.has(item.id) ? n.delete(item.id) : n.add(item.id); return n })
@@ -348,9 +391,10 @@ export function Sidebar(props: SidebarProps) {
                 onRenameChange={setRenameVal}
                 onRenameCommit={() => handleRename(item.id, item.type)}
                 onRenameCancel={() => setRenaming(null)}
-              />
-              )
-            })}
+                />
+                )
+              })
+            })()}
             <DragOverlay dropAnimation={null}>
               {activeDragItem && (() => {
                 const flat = flatList.find(f => f.item.id === activeDragItem.id)
@@ -468,16 +512,6 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
       onMouseEnter={() => onHover(true)}
       onMouseLeave={() => onHover(false)}
     >
-      {showDropIndicator && dropZone.zone === 'before' && (
-        <div style={{ position: 'absolute', top: '0px', left: `${indent}px`, right: '8px', height: '14px', display: 'flex', alignItems: 'center', paddingLeft: '4px', color: 'var(--q-tab-accent)', fontSize: '12px', fontFamily: 'var(--font-interface)', zIndex: 10, pointerEvents: 'none', whiteSpace: 'nowrap' }}>
-          ↑ {dropLabel}
-        </div>
-      )}
-      {showDropIndicator && dropZone.zone === 'after' && (
-        <div style={{ position: 'absolute', bottom: '0px', left: `${indent}px`, right: '8px', height: '14px', display: 'flex', alignItems: 'center', paddingLeft: '4px', color: 'var(--q-tab-accent)', fontSize: '12px', fontFamily: 'var(--font-interface)', zIndex: 10, pointerEvents: 'none', whiteSpace: 'nowrap' }}>
-          ↓ {dropLabel}
-        </div>
-      )}
       <div
         ref={setNodeRef}
         {...attributes}
