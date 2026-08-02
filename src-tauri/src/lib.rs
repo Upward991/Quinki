@@ -15,9 +15,26 @@ fn set_window_bg_color(_window: tauri::WebviewWindow, _color: String) {
   // Kept for compatibility with the JS invoke call
 }
 
+#[tauri::command]
+fn export_chat_file(content: String, filename: String, extension: String) -> Result<String, String> {
+    use rfd::FileDialog;
+    let filter_name = if extension == "md" { "Markdown" } else { "HTML" };
+    let file = FileDialog::new()
+        .set_file_name(&filename)
+        .add_filter(filter_name, &[&extension])
+        .save_file();
+    match file {
+        Some(path) => {
+            std::fs::write(&path, &content).map_err(|e| e.to_string())?;
+            Ok(path.to_string_lossy().to_string())
+        }
+        None => Err("cancelled".to_string()),
+    }
+}
+
 pub fn run() {
   tauri::Builder::default()
-    .invoke_handler(tauri::generate_handler![set_window_bg_color, __drag_window, __toggle_maximize])
+    .invoke_handler(tauri::generate_handler![set_window_bg_color, __drag_window, __toggle_maximize, export_chat_file])
     .plugin(tauri_plugin_shell::init())
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_fs::init())
