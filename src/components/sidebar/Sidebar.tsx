@@ -144,6 +144,14 @@ export function Sidebar(props: SidebarProps) {
   }
 
   function findDropTarget(pointerY: number): { id: string | null; zone: string; transition: any } {
+    // If pointer is still on the dragged item (placeholder), no indicator
+    const dragId = dragRef.current?.id
+    if (dragId) {
+      const dragRect = itemRects.current.get(dragId)
+      if (dragRect && pointerY >= dragRect.top && pointerY <= dragRect.bottom) {
+        return { id: null, zone: 'before', transition: null }
+      }
+    }
     // Find dragged item's index and neighbors in flatList
     const dragIdx = flatList.findIndex(f => f.item.id === dragRef.current?.id)
     const itemAbove = dragIdx > 0 ? flatList[dragIdx - 1] : null
