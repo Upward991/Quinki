@@ -101,6 +101,16 @@ export function ChatArea(props: ChatAreaProps) {
     return { msgIdx: m.msgIdx, occurrence: contentOcc }
   })()
 
+  // Auto-scroll to active match when search changes
+  useEffect(() => {
+    if (matches.length === 0 || activeMatchIdx < 0) return
+    const match = matches[activeMatchIdx]
+    if (match) {
+      const msgEl = scrollRef.current?.querySelector(`[data-msg-idx="${match.msgIdx}"]`)
+      if (msgEl) msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [searchQuery, activeMatchIdx])
+
   const isEmpty = props.messages.length === 0 || props.welcomeMode
 
   // Auto-scroll on session change or new messages (NOT on search change)

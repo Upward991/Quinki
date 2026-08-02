@@ -12,30 +12,38 @@ import type { Message, DelegationBlock, ThinkingBlock, ToolCall, ToolResult, Com
 import { Copy, Check, Info, ChevronRight } from '../icons'
 
 // Highlight search matches in text
-function highlightSearch(text: string, query: string, activeOcc: number = -1): React.ReactNode {
-  if (!query || !query.trim()) return text
-  if (activeOcc < 0) return text
+// Highlight the Nth occurrence of query in React children (string parts only)
+function highlightChildren(children: React.ReactNode, query: string, activeOcc: number, occRef: React.MutableRefObject<number>): React.ReactNode {
+  if (!query || !query.trim() || activeOcc < 0) return children
   const q = query.trim()
-  const lower = text.toLowerCase()
   const lowerQ = q.toLowerCase()
-  const parts: React.ReactNode[] = []
-  let lastIdx = 0
-  let idx = lower.indexOf(lowerQ)
-  let occNum = 0
-  let key = 0
-  while (idx !== -1) {
-    if (idx > lastIdx) parts.push(text.substring(lastIdx, idx))
-    if (occNum === activeOcc) {
-      parts.push(React.createElement('mark', { key: 'hl_' + key++, style: { backgroundColor: 'var(--q-search-highlight-bg)', color: 'var(--q-search-highlight-text)', borderRadius: '2px', padding: '0 2px' } }, text.substring(idx, idx + q.length)))
+  const flat = React.Children.toArray(children)
+  const result: React.ReactNode[] = []
+  for (const child of flat) {
+    if (typeof child === 'string') {
+      const lower = child.toLowerCase()
+      let idx = lower.indexOf(lowerQ)
+      let lastIdx = 0
+      const parts: React.ReactNode[] = []
+      let key = 0
+      while (idx !== -1) {
+        if (idx > lastIdx) parts.push(child.substring(lastIdx, idx))
+        if (occRef.current === activeOcc) {
+          parts.push(React.createElement('mark', { key: 'hl_' + key++, style: { backgroundColor: 'var(--q-search-highlight-bg)', color: 'var(--q-search-highlight-text)', borderRadius: '2px', padding: '0 2px' } }, child.substring(idx, idx + q.length)))
+        } else {
+          parts.push(child.substring(idx, idx + q.length))
+        }
+        occRef.current++
+        lastIdx = idx + q.length
+        idx = lower.indexOf(lowerQ, lastIdx)
+      }
+      if (lastIdx < child.length) parts.push(child.substring(lastIdx))
+      result.push(parts.length > 1 ? parts : (parts.length === 1 ? parts[0] : child))
     } else {
-      parts.push(text.substring(idx, idx + q.length))
+      result.push(child)
     }
-    occNum++
-    lastIdx = idx + q.length
-    idx = lower.indexOf(lowerQ, lastIdx)
   }
-  if (lastIdx < text.length) parts.push(text.substring(lastIdx))
-  return parts.length > 0 ? parts : text
+  return result.length === 1 ? result[0] : result
 }
 
 
@@ -51,44 +59,12 @@ export const MessageBubble = memo(function MessageBubble({ message, onCopy, sear
 
 // ── User message ──
 function UserMessage({ message, onCopy, searchQuery, activeOcc }: { message: Message; onCopy?: (t: string) => void; searchQuery?: string; activeOcc?: number }) {
-  const userRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const el = userRef.current
-    if (!el) return
-    el.querySelectorAll('mark[data-search-hl]').forEach(m => {
-      const p = m.parentNode
-      if (p) { p.replaceChild(document.createTextNode(m.textContent || ''), m); p.normalize() }
-    })
-    if (!searchQuery || !searchQuery.trim() || (activeOcc ?? -1) < 0) return
-    const q = searchQuery.trim().toLowerCase()
-    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
-    let node: Node | null
-    let occNum = 0
-    while ((node = walker.nextNode())) {
-      const content = node.textContent || ''
-      const lower = content.toLowerCase()
-      let idx = lower.indexOf(q)
-      while (idx !== -1) {
-        if (occNum === activeOcc) {
-          const mark = document.createElement('mark')
-          mark.setAttribute('data-search-hl', '1')
-          mark.style.cssText = 'background-color:var(--q-search-highlight-bg);color:var(--q-search-highlight-text);border-radius:2px;padding:0 2px'
-          mark.textContent = content.substring(idx, idx + q.length)
-          const before = document.createTextNode(content.substring(0, idx))
-          const after = document.createTextNode(content.substring(idx + q.length))
-          const parent = node.parentNode
-          if (parent) { parent.insertBefore(before, node); parent.insertBefore(mark, node); parent.insertBefore(after, node); parent.removeChild(node) }
-          return
-        }
-        occNum++
-        idx = lower.indexOf(q, idx + q.length)
-      }
-    }
-  }, [searchQuery, activeOcc, message.content])
+  const userOccRef = useRef(0)
+  userOccRef.current = 0
   return (
     <div className="user-message-content" style={{ width: '100%', padding: '10px 16px', backgroundColor: 'var(--q-bubble-user)', borderRadius: '12px', boxShadow: '0 0 0 1px var(--q-border), inset 0 1px 0 rgba(255,255,255,0.02)', border: 'none', animation: 'msgSent 300ms cubic-bezier(0.16, 1, 0.3, 1)' }}>
-      <div ref={userRef} style={{ color: 'var(--q-bubble-user-text)', fontSize: '14px', lineHeight: 1.5, fontFamily: 'var(--font-interface)', fontWeight: 500, whiteSpace: 'pre-wrap', wordBreak: 'break-word', userSelect: 'text', WebkitUserSelect: 'text' }}>
-        {message.content}
+      <div style={{ color: 'var(--q-bubble-user-text)', fontSize: '14px', lineHeight: 1.5, fontFamily: 'var(--font-interface)', fontWeight: 500, whiteSpace: 'pre-wrap', wordBreak: 'break-word', userSelect: 'text', WebkitUserSelect: 'text' }}>
+        {searchQuery ? highlightChildren(message.content || '', searchQuery, activeOcc ?? -1, userOccRef) : message.content}
       </div>
       <Footer content={message.content || ""} timestamp={message.timestamp} onCopy={onCopy} />
     </div>
@@ -241,61 +217,11 @@ function AssistantMessage({ message, onCopy, searchQuery, activeOcc }: { message
 
 // ── Markdown content with code blocks (copy + syntax highlighting) ──
 function MarkdownContent({ text, isError, searchQuery, activeOcc }: { text: string; isError?: boolean; searchQuery?: string; activeOcc?: number }) {
-  const mdRef = useRef<HTMLDivElement>(null)
-
-  // Highlight search in the rendered DOM (after markdown render)
-  useEffect(() => {
-    const el = mdRef.current
-    if (!el) return
-    // 1. Remove existing highlights
-    el.querySelectorAll('mark[data-search-hl]').forEach(m => {
-      const parent = m.parentNode
-      if (parent) {
-        parent.replaceChild(document.createTextNode(m.textContent || ''), m)
-        parent.normalize()
-      }
-    })
-    // 2. Add new highlight if needed
-    if (!searchQuery || !searchQuery.trim() || (activeOcc ?? -1) < 0) return
-    const q = searchQuery.trim().toLowerCase()
-    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
-      acceptNode: (n) => {
-        const p = n.parentElement
-        if (!p || p.tagName === 'SCRIPT' || p.tagName === 'STYLE' || p.tagName === 'CODE' || p.tagName === 'PRE') return NodeFilter.FILTER_REJECT
-        return n.textContent && n.textContent.toLowerCase().includes(q) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT
-      }
-    })
-    let node: Node | null
-    let occNum = 0
-    while ((node = walker.nextNode())) {
-      const content = node.textContent || ''
-      const lower = content.toLowerCase()
-      let idx = lower.indexOf(q)
-      while (idx !== -1) {
-        if (occNum === activeOcc) {
-          const mark = document.createElement('mark')
-          mark.setAttribute('data-search-hl', '1')
-          mark.style.cssText = 'background-color:var(--q-search-highlight-bg);color:var(--q-search-highlight-text);border-radius:2px;padding:0 2px'
-          mark.textContent = content.substring(idx, idx + q.length)
-          const before = document.createTextNode(content.substring(0, idx))
-          const after = document.createTextNode(content.substring(idx + q.length))
-          const parent = node.parentNode
-          if (parent) {
-            parent.insertBefore(before, node)
-            parent.insertBefore(mark, node)
-            parent.insertBefore(after, node)
-            parent.removeChild(node)
-          }
-          return
-        }
-        occNum++
-        idx = lower.indexOf(q, idx + q.length)
-      }
-    }
-  }, [searchQuery, activeOcc, text])
-
+  const occRef = useRef(0)
+  occRef.current = 0
+  const hl = (children: React.ReactNode) => highlightChildren(children, searchQuery || '', activeOcc ?? -1, occRef)
   return (
-    <div ref={mdRef} className="markdown-content" style={{ padding: '4px 0', userSelect: 'text', WebkitUserSelect: 'text' }}>
+    <div className="markdown-content" style={{ padding: '4px 0', userSelect: 'text', WebkitUserSelect: 'text' }}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeHighlight]}
@@ -311,10 +237,10 @@ function MarkdownContent({ text, isError, searchQuery, activeOcc }: { text: stri
             // Inline code
             return <code style={{ backgroundColor: 'var(--q-bg-code)', padding: '2px 6px', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-code)', fontSize: '13px', color: 'var(--q-text)' }}>{children}</code>
           },
-          p: ({ children }) => <p style={{ color: isError ? 'var(--q-accent-danger)' : 'var(--q-text)', fontSize: '14px', lineHeight: 1.5, fontFamily: 'var(--font-interface)', fontWeight: 500, margin: '0 0 12px 0' }}>{children}</p>,
+          p: ({ children }) => <p style={{ color: isError ? 'var(--q-accent-danger)' : 'var(--q-text)', fontSize: '14px', lineHeight: 1.5, fontFamily: 'var(--font-interface)', fontWeight: 500, margin: '0 0 12px 0' }}>{hl(children)}</p>,
           ul: ({ children }) => <ul style={{ color: 'var(--q-text)', fontSize: '14px', lineHeight: 1.5, margin: '0 0 12px 0', paddingLeft: '22px', listStyle: 'disc outside' }}>{children}</ul>,
           ol: ({ children }) => <ol style={{ color: 'var(--q-text)', fontSize: '14px', lineHeight: 1.5, margin: '0 0 12px 0', paddingLeft: '26px' }}>{children}</ol>,
-          li: ({ children }) => <li style={{ marginBottom: '4px', color: 'var(--q-text)' }}>{children}</li>,
+          li: ({ children }) => <li style={{ marginBottom: '4px', color: 'var(--q-text)' }}>{hl(children)}</li>,
           table: ({ children }) => (
             <div style={{ overflowX: 'auto', margin: '0 0 12px 0' }}>
               <table style={{ width: 'auto', borderCollapse: 'collapse', fontSize: '13px', fontFamily: 'var(--font-interface)', border: '1px solid var(--q-border)' }}>{children}</table>
@@ -322,11 +248,11 @@ function MarkdownContent({ text, isError, searchQuery, activeOcc }: { text: stri
           ),
           th: ({ children }) => <th style={{ color: 'var(--q-text)', fontWeight: 700, textAlign: 'left', padding: '8px 12px', borderBottom: '1px solid var(--q-border-strong)', boxShadow: 'inset -1px 0 0 var(--q-border)' }}>{children}</th>,
           td: ({ children }) => <td style={{ color: 'var(--q-text)', padding: '8px 12px', borderBottom: '1px solid var(--q-border)', boxShadow: 'inset -1px 0 0 var(--q-border)' }}>{children}</td>,
-          strong: ({ children }) => <strong style={{ color: 'var(--q-text)', fontWeight: 700 }}>{children}</strong>,
-          a: ({ children, href }) => <a href={href} style={{ color: 'var(--q-accent-info-bright)', textDecoration: 'none' }} target="_blank" rel="noreferrer">{children}</a>,
-          h1: ({ children }) => <h1 style={{ color: 'var(--q-text)', fontSize: '18px', fontWeight: 700, margin: '8px 0 4px' }}>{children}</h1>,
-          h2: ({ children }) => <h2 style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 700, margin: '8px 0 4px' }}>{children}</h2>,
-          h3: ({ children }) => <h3 style={{ color: 'var(--q-text)', fontSize: '15px', fontWeight: 600, margin: '6px 0 4px' }}>{children}</h3>,
+          strong: ({ children }) => <strong style={{ color: 'var(--q-text)', fontWeight: 700 }}>{hl(children)}</strong>,
+          a: ({ children, href }) => <a href={href} style={{ color: 'var(--q-accent-info-bright)', textDecoration: 'none' }} target="_blank" rel="noreferrer">{hl(children)}</a>,
+          h1: ({ children }) => <h1 style={{ color: 'var(--q-text)', fontSize: '18px', fontWeight: 700, margin: '8px 0 4px' }}>{hl(children)}</h1>,
+          h2: ({ children }) => <h2 style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 700, margin: '8px 0 4px' }}>{hl(children)}</h2>,
+          h3: ({ children }) => <h3 style={{ color: 'var(--q-text)', fontSize: '15px', fontWeight: 600, margin: '6px 0 4px' }}>{hl(children)}</h3>,
           blockquote: ({ children }) => <blockquote style={{ borderLeft: '2px solid var(--q-border)', paddingLeft: '12px', margin: '4px 0', color: 'var(--q-text-secondary)' }}>{children}</blockquote>,
         }}
       >
