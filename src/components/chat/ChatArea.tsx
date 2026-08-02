@@ -55,14 +55,16 @@ export function ChatArea(props: ChatAreaProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [currentMatch, setCurrentMatch] = useState(0)
 
-  // Compute matches ONLY in message.content (user text + assistant text, NOT thinking/tools/delegations)
+  // Compute matches ONLY in plain text (not inside code blocks)
   const matches = (() => {
     if (!searchQuery.trim()) return []
     const q = searchQuery.trim().toLowerCase()
     const out: { msgIdx: number, charIdx: number }[] = []
     props.messages.forEach((m, i) => {
       if (m.role !== 'user' && m.role !== 'assistant') return
-      const text = (m.content || '').toLowerCase()
+      // Strip code blocks (```...``` and `...`) from content for search
+      let text = (m.content || '').replace(/```[\s\S]*?```/g, '').replace(/`[^`]*`/g, '')
+      text = text.toLowerCase()
       let idx = 0
       while ((idx = text.indexOf(q, idx)) !== -1) {
         out.push({ msgIdx: i, charIdx: idx })
