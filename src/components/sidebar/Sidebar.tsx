@@ -73,7 +73,15 @@ export function Sidebar(props: SidebarProps) {
   })
   const [dropZone, setDropZone] = useState<{ id: string; zone: string } | null>(null)
   const itemRects = useRef<Map<string, DOMRect>>(new Map())
+  const pointerYRef = useRef(0)
   const lastDropTarget = useRef<{ id: string | null; zone: string; transition: any }>({ id: null, zone: 'before', transition: null })
+
+  // Track pointer Y globally for DnD
+  React.useEffect(() => {
+    const onMove = (e: PointerEvent) => { pointerYRef.current = e.clientY }
+    window.addEventListener('pointermove', onMove)
+    return () => window.removeEventListener('pointermove', onMove)
+  }, [])
 
   // Persist expanded folders to localStorage
   React.useEffect(() => {
@@ -137,43 +145,61 @@ export function Sidebar(props: SidebarProps) {
     }
   }
 
-  function handleDragMove(ev: any) {
-    if (!dragRef.current) { setDropZone(null); return }
-    const pointerY = (ev.activatorEvent?.clientY || 0) + ev.delta.y
-    // Find which item the pointer is over using FROZEN rects (not @dnd-kit's ev.over)
+  function findDropTarget(pointerY: number): { id: string | null; zone: string; transition: any } {
     let bestId: string | null = null
     let bestZone: string = 'before'
+    let bestDist = Infinity
+    // Find CLOSEST item (not just containing — handles gaps between rects)
     for (const entry of flatList) {
       if (entry.isTransition) continue
       const rect = itemRects.current.get(entry.item.id)
       if (!rect) continue
-      if (pointerY >= rect.top && pointerY <= rect.bottom) {
-        if (!canAccept(e, dragRef.current, entry.item.id)) continue
-        const relY = pointerY - rect.top
-        const isFolder = entry.item.type === 'folder'
-        let zone = computeZone(relY, rect.height, isFolder)
-        if (isFolder && zone === 'after' && expandedFolders.has(entry.item.id)) {
-          zone = 'into'
-        }
-        bestId = entry.item.id
-        bestZone = zone
-        break
-      }
-    }
-    // Check transition zones (use proximity — they have height 0 in frozen rects)
-    if (!bestId) {
-      for (const entry of flatList) {
-        if (!entry.isTransition) continue
-        const rect = itemRects.current.get(entry.item.id)
-        if (!rect) continue
-        // Transition zone is at rect.top with height 0 — check within 12px
-        if (pointerY >= rect.top - 2 && pointerY <= rect.top + 18) {
+      if (!canAccept(e, dragRef.current, entry.item.id)) continue
+      const center = (rect.top + rect.bottom) / 2
+      const dist = Math.abs(pointerY - center)
+      if (dist < bestDist) {
+        bestDist = dist
+        // Compute zone from position relative to rect
+        if (pointerY < rect.top) {
           bestId = entry.item.id
-          bestZone = 'into'
-          break
+          bestZone = 'before'
+        } else if (pointerY > rect.bottom) {
+          bestId = entry.item.id
+          bestZone = 'after'
+          // Open folder 'after' = 'into'
+          if (entry.item.type === 'folder' && expandedFolders.has(entry.item.id)) {
+            bestZone = 'into'
+          }
+        } else {
+          const relY = pointerY - rect.top
+          const isFolder = entry.item.type === 'folder'
+          bestId = entry.item.id
+          bestZone = computeZone(relY, rect.height, isFolder)
+          if (isFolder && bestZone === 'after' && expandedFolders.has(entry.item.id)) {
+            bestZone = 'into'
+          }
         }
       }
     }
+    // Check transition zones
+    for (const entry of flatList) {
+      if (!entry.isTransition) continue
+      const rect = itemRects.current.get(entry.item.id)
+      if (!rect) continue
+      const dist = Math.abs(pointerY - rect.top)
+      if (dist < bestDist) {
+        bestDist = dist
+        bestId = entry.item.id
+        bestZone = 'into'
+      }
+    }
+    return { id: bestId, zone: bestZone, transition: bestId && bestId.startsWith('transition_') ? flatList.find(f => f.item.id === bestId) : null }
+  }
+
+  function handleDragMove(ev: any) {
+    if (!dragRef.current) { setDropZone(null); return }
+    const pointerY = pointerYRef.current
+    const { id: bestId, zone: bestZone, transition: tr } = findDropTarget(pointerY)
     if (bestId) {
       const tr = bestId.startsWith('transition_') ? flatList.find(f => f.item.id === bestId) : null
       lastDropTarget.current = { id: bestId, zone: bestZone, transition: tr }
