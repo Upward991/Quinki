@@ -507,7 +507,7 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
     <div
       ref={setDropRef}
       data-row-id={item.id}
-      style={{ paddingLeft: '8px', paddingRight: '8px', paddingBottom: '2px', position: 'relative' }}
+      style={{ paddingLeft: '8px', paddingRight: '8px', paddingBottom: '2px', position: 'relative', height: isDragging && !isOverlay ? 0 : undefined, overflow: 'hidden' }}
       onMouseEnter={() => onHover(true)}
       onMouseLeave={() => onHover(false)}
     >
@@ -523,7 +523,10 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
           backgroundColor: showDropIndicator && dropZone.zone === 'into' ? 'rgba(255,165,0,0.15)' : bgColor,
           border: 'none',
           cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
-          opacity: isDragging && !isOverlay ? 0.15 : 1, boxSizing: 'border-box',
+          opacity: isDragging && !isOverlay ? 0 : 1, boxSizing: 'border-box',
+          height: isDragging && !isOverlay ? 0 : undefined, overflow: isDragging && !isOverlay ? 'hidden' : 'visible',
+          paddingTop: isDragging && !isOverlay ? 0 : '6px', paddingBottom: isDragging && !isOverlay ? 0 : '6px',
+          minHeight: isDragging && !isOverlay ? 0 : '36px',
           boxShadow: isOverlay ? '0 8px 16px rgba(0,0,0,0.5)' : 'none',
         }}
       >
