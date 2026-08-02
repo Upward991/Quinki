@@ -62,7 +62,8 @@ export function ChatArea(props: ChatAreaProps) {
   const hasDateFilter = !!(searchDate.trim() || searchTime.trim())
   const dateFirstMatch = (() => {
     if (!hasDateFilter) return -1
-    for (let i = 0; i < props.messages.length; i++) {
+    // Search from NEWEST to OLDEST (most recent match first)
+    for (let i = props.messages.length - 1; i >= 0; i--) {
       const m = props.messages[i]
       if (m.role !== 'user' && m.role !== 'assistant') continue
       const ts = new Date(m.timestamp).getTime()
@@ -106,7 +107,14 @@ export function ChatArea(props: ChatAreaProps) {
   })()
 
   // Auto-scroll to active match when search changes
+  // BUT skip when clearing search (prevSearchRef check)
+  const prevSearchRef = useRef({ q: '', d: '', t: '' })
   useEffect(() => {
+    const prev = prevSearchRef.current
+    const isClearing = (prev.q && !searchQuery) || (prev.d && !searchDate) || (prev.t && !searchTime)
+    prevSearchRef.current = { q: searchQuery, d: searchDate, t: searchTime }
+    if (isClearing) return // Don't scroll when clearing
+
     // Text search: scroll to text match
     if (matches.length > 0 && activeMatchIdx >= 0) {
       const match = matches[activeMatchIdx]
@@ -126,13 +134,11 @@ export function ChatArea(props: ChatAreaProps) {
   // Auto-scroll on session change or new messages (NOT on search change)
   const sessionId = props.session?.id || ''
   const msgCount = props.messages.length
-  const prevSearchRef = useRef('')
+  const sessionId = props.session?.id || ''
+  const msgCount = props.messages.length
   useEffect(() => {
-    // Skip auto-scroll when search is being used or cleared
-    if (searchQuery !== prevSearchRef.current) {
-      prevSearchRef.current = searchQuery
-      return // Don't scroll when search changes
-    }
+    // Skip auto-scroll when search is active
+    if (searchQuery || searchDate || searchTime) return
     if (scrollRef.current && !isEmpty) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
       const raf1 = requestAnimationFrame(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight })
@@ -141,7 +147,7 @@ export function ChatArea(props: ChatAreaProps) {
       const t3 = setTimeout(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 500)
       return () => { cancelAnimationFrame(raf1); clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
     }
-  }, [sessionId, msgCount, isEmpty, props.streaming, searchQuery])
+  }, [sessionId, msgCount, isEmpty, props.streaming, searchQuery, searchDate, searchTime])
 
   return (
     <div className="h-full flex flex-col" style={{ maxWidth: 'var(--spacing-chat-max)', margin: '0 auto', width: '100%', position: 'relative' }}>
