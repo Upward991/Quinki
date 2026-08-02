@@ -58,17 +58,17 @@ export function ChatArea(props: ChatAreaProps) {
   const [searchTime, setSearchTime] = useState('')
   const [currentMatch, setCurrentMatch] = useState(0)
 
-  // Date/time filter: indices of messages that match
+  // Date/time filter: just find the FIRST matching message (for yellow border + scroll)
   const hasDateFilter = !!(searchDate.trim() || searchTime.trim())
-  const dateMatchIndices: number[] = (() => {
-    if (!hasDateFilter) return []
-    const out: number[] = []
-    props.messages.forEach((m, i) => {
-      if (m.role !== 'user' && m.role !== 'assistant') return
+  const dateFirstMatch = (() => {
+    if (!hasDateFilter) return -1
+    for (let i = 0; i < props.messages.length; i++) {
+      const m = props.messages[i]
+      if (m.role !== 'user' && m.role !== 'assistant') continue
       const ts = new Date(m.timestamp).getTime()
-      if (messageMatchesFilters(ts, searchDate, searchTime)) out.push(i)
-    })
-    return out
+      if (messageMatchesFilters(ts, searchDate, searchTime)) return i
+    }
+    return -1
   })()
 
   // Text matches: only when there's a text query (filtered by date/time if set)
@@ -78,7 +78,10 @@ export function ChatArea(props: ChatAreaProps) {
     const out: { msgIdx: number, charIdx: number }[] = []
     props.messages.forEach((m, i) => {
       if (m.role !== 'user' && m.role !== 'assistant') return
-      if (hasDateFilter && !dateMatchIndices.includes(i)) return
+      if (hasDateFilter) {
+        const ts = new Date(m.timestamp).getTime()
+        if (!messageMatchesFilters(ts, searchDate, searchTime)) return
+      }
       let text = (m.content || '').replace(/```[\s\S]*?```/g, '').replace(/`[^`]*`/g, '')
       text = text.toLowerCase()
       let idx = 0
@@ -90,40 +93,33 @@ export function ChatArea(props: ChatAreaProps) {
     return out
   })()
 
-  // Date-only navigation (when no text query but date filter active)
-  const dateMatchCount = dateMatchIndices.length
-  const [dateMatchIdx, setDateMatchIdx] = useState(-1)
-
-  // Active match: text match or date-only match
-  const isTextSearch = !!searchQuery.trim()
-  const activeMatchIdx = isTextSearch
-    ? (currentMatch < 0 ? matches.length - 1 : currentMatch)
-    : (dateMatchIdx < 0 ? dateMatchCount - 1 : dateMatchIdx)
+  // Active match: only for text search (date-only has no matches)
+  const activeMatchIdx = currentMatch < 0 ? matches.length - 1 : currentMatch
   const activeMatchInfo = (() => {
-    if (isTextSearch) {
-      if (matches.length === 0 || activeMatchIdx < 0) return null
-      const m = matches[activeMatchIdx]
-      let occ = 0
-      for (let i = 0; i < activeMatchIdx; i++) {
-        if (matches[i].msgIdx === m.msgIdx) occ++
-      }
-      return { msgIdx: m.msgIdx, occurrence: occ }
-    } else {
-      // Date-only: active message is the one at dateMatchIdx
-      if (dateMatchCount === 0 || activeMatchIdx < 0) return null
-      return { msgIdx: dateMatchIndices[activeMatchIdx], occurrence: -1 }
+    if (matches.length === 0 || activeMatchIdx < 0) return null
+    const m = matches[activeMatchIdx]
+    let occ = 0
+    for (let i = 0; i < activeMatchIdx; i++) {
+      if (matches[i].msgIdx === m.msgIdx) occ++
     }
+    return { msgIdx: m.msgIdx, occurrence: occ }
   })()
 
   // Auto-scroll to active match when search changes
   useEffect(() => {
-    if (matches.length === 0 || activeMatchIdx < 0) return
-    const match = matches[activeMatchIdx]
-    if (match) {
+    // Text search: scroll to text match
+    if (matches.length > 0 && activeMatchIdx >= 0) {
+      const match = matches[activeMatchIdx]
       const msgEl = scrollRef.current?.querySelector(`[data-msg-idx="${match.msgIdx}"]`)
       if (msgEl) msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      return
     }
-  }, [searchQuery, activeMatchIdx])
+    // Date-only: scroll to first matching message
+    if (!searchQuery.trim() && hasDateFilter && dateFirstMatch >= 0) {
+      const msgEl = scrollRef.current?.querySelector(`[data-msg-idx="${dateFirstMatch}"]`)
+      if (msgEl) msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [searchQuery, searchDate, searchTime, activeMatchIdx, dateFirstMatch])
 
   const isEmpty = props.messages.length === 0 || props.welcomeMode
 
@@ -174,13 +170,13 @@ export function ChatArea(props: ChatAreaProps) {
           onCompact={props.onCompact}
           onReload={props.onReload}
           searchQuery={searchQuery}
-          onSearchQueryChange={(q) => { setSearchQuery(q); setCurrentMatch(-1); setDateMatchIdx(-1) }}
+          onSearchQueryChange={(q) => { setSearchQuery(q); setCurrentMatch(-1) }}
           searchDate={searchDate}
-          onSearchDateChange={(d) => { setSearchDate(d); setCurrentMatch(-1); setDateMatchIdx(-1) }}
+          onSearchDateChange={(d) => { setSearchDate(d); setCurrentMatch(-1) }}
           searchTime={searchTime}
-          onSearchTimeChange={(t) => { setSearchTime(t); setCurrentMatch(-1); setDateMatchIdx(-1) }}
-          matchCount={isTextSearch ? matches.length : dateMatchCount}
-          currentMatch={isTextSearch ? (currentMatch < 0 ? Math.max(0, matches.length - 1) : currentMatch) : (dateMatchIdx < 0 ? Math.max(0, dateMatchCount - 1) : dateMatchIdx)}
+          onSearchTimeChange={(t) => { setSearchTime(t); setCurrentMatch(-1) }}
+          matchCount={matches.length}
+          currentMatch={currentMatch < 0 ? Math.max(0, matches.length - 1) : currentMatch}
           onMatchNavigate={(dir) => {
             if (isTextSearch) {
               if (matches.length === 0) return
@@ -233,7 +229,7 @@ export function ChatArea(props: ChatAreaProps) {
               onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100) }}>
               {props.messages.map((msg, mIdx) => (
                 <div key={msg.id} data-msg-idx={mIdx} style={{ marginBottom: '12px' }}>
-                  <MessageBubble message={msg} onCopy={() => {}} searchQuery={searchQuery} msgIndex={mIdx} activeMatchMsgIdx={activeMatchInfo?.msgIdx ?? -1} activeMatchOccurrence={activeMatchInfo?.occurrence ?? -1} isDateMatch={!isTextSearch && hasDateFilter && mIdx === (activeMatchInfo?.msgIdx ?? -1)} />
+                  <MessageBubble message={msg} onCopy={() => {}} searchQuery={searchQuery} msgIndex={mIdx} activeMatchMsgIdx={activeMatchInfo?.msgIdx ?? -1} activeMatchOccurrence={activeMatchInfo?.occurrence ?? -1} isDateMatch={!searchQuery.trim() && hasDateFilter && mIdx === dateFirstMatch} />
                 </div>
               ))}
             </div>
