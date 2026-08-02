@@ -3,7 +3,7 @@
 // Order: thinking → tool calls → tool results → text(markdown) → compaction → delegation
 // ============================================================
 
-import { useState, useEffect, memo } from 'react'
+import React, { useState, useEffect, memo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
