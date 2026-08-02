@@ -38,12 +38,12 @@ interface MessageBubbleProps {
 }
 
 export const MessageBubble = memo(function MessageBubble({ message, onCopy, searchQuery }: MessageBubbleProps) {
-  if (message.role === 'user') return <UserMessage message={message} onCopy={onCopy} />
-  return <AssistantMessage message={message} onCopy={onCopy} />
+  if (message.role === 'user') return <UserMessage message={message} onCopy={onCopy} searchQuery={searchQuery} />
+  return <AssistantMessage message={message} onCopy={onCopy} searchQuery={searchQuery} />
 })
 
 // ── User message ──
-function UserMessage({ message, onCopy }: { message: Message; onCopy?: (t: string) => void }) {
+function UserMessage({ message, onCopy, searchQuery }: { message: Message; onCopy?: (t: string) => void; searchQuery?: string }) {
   // state removed
   return (
     <div className="user-message-content" style={{ width: '100%', padding: '10px 16px', backgroundColor: 'var(--q-bubble-user)', borderRadius: '12px', boxShadow: '0 0 0 1px var(--q-border), inset 0 1px 0 rgba(255,255,255,0.02)', border: 'none', animation: 'msgSent 300ms cubic-bezier(0.16, 1, 0.3, 1)' }}>
@@ -136,7 +136,7 @@ function renderBlocks(blocks: any[], opts: { isError?: boolean; isStreaming?: bo
 }
 
 // ── Assistant message ──
-function AssistantMessage({ message, onCopy }: { message: Message; onCopy?: (t: string) => void }) {
+function AssistantMessage({ message, onCopy, searchQuery }: { message: Message; onCopy?: (t: string) => void; searchQuery?: string }) {
   const isError = message.isError
 
   return (
