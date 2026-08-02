@@ -30,6 +30,10 @@ interface ChatHeaderProps {
   onReload?: () => void
   searchQuery?: string
   onSearchQueryChange?: (q: string) => void
+  searchDate?: string
+  onSearchDateChange?: (d: string) => void
+  searchTime?: string
+  onSearchTimeChange?: (t: string) => void
   matchCount?: number
   currentMatch?: number
   onMatchNavigate?: (dir: 'prev' | 'next') => void
@@ -40,10 +44,12 @@ export function ChatHeader(props: ChatHeaderProps) {
   const [searchOpen, setSearchOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
   const [contextOpen, setContextOpen] = useState(false)
-  const [searchDate, setSearchDate] = useState('')
-  const [searchTime, setSearchTime] = useState('')
   const searchQuery = props.searchQuery || ''
   const setSearchQuery = props.onSearchQueryChange || (() => {})
+  const searchDate = props.searchDate || ''
+  const setSearchDate = props.onSearchDateChange || (() => {})
+  const searchTime = props.searchTime || ''
+  const setSearchTime = props.onSearchTimeChange || (() => {})
   const matchCount = props.matchCount || 0
   const currentMatch = props.currentMatch || 0
   const [ctxMenu, setCtxMenu] = useState<{x: number, y: number, agentId: string} | null>(null)

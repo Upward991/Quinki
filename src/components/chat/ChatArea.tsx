@@ -53,16 +53,30 @@ export function ChatArea(props: ChatAreaProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [showScrollBtn, setShowScrollBtn] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchDate, setSearchDate] = useState('')
+  const [searchTime, setSearchTime] = useState('')
   const [currentMatch, setCurrentMatch] = useState(0)
 
-  // Compute matches ONLY in plain text (not inside code blocks)
+  // Compute matches in plain text, filtered by date/time
+  const hasDateFilter = searchDate.trim() || searchTime.trim()
+  const lastTs = props.messages.length > 0 ? new Date(props.messages[props.messages.length - 1].timestamp).getTime() : undefined
   const matches = (() => {
-    if (!searchQuery.trim()) return []
+    if (!searchQuery.trim() && !hasDateFilter) return []
     const q = searchQuery.trim().toLowerCase()
     const out: { msgIdx: number, charIdx: number }[] = []
     props.messages.forEach((m, i) => {
       if (m.role !== 'user' && m.role !== 'assistant') return
-      // Strip code blocks (```...``` and `...`) from content for search
+      // Date/time filter
+      if (hasDateFilter) {
+        const ts = new Date(m.timestamp).getTime()
+        if (!messageMatchesFilters(ts, searchDate, searchTime, lastTs)) return
+      }
+      if (!q) {
+        // Date-only: match the whole message (no text highlight)
+        out.push({ msgIdx: i, charIdx: 0 })
+        return
+      }
+      // Text search: strip code blocks
       let text = (m.content || '').replace(/```[\s\S]*?```/g, '').replace(/`[^`]*`/g, '')
       text = text.toLowerCase()
       let idx = 0
@@ -147,6 +161,10 @@ export function ChatArea(props: ChatAreaProps) {
           onReload={props.onReload}
           searchQuery={searchQuery}
           onSearchQueryChange={(q) => { setSearchQuery(q); setCurrentMatch(-1) }}
+          searchDate={searchDate}
+          onSearchDateChange={(d) => { setSearchDate(d); setCurrentMatch(-1) }}
+          searchTime={searchTime}
+          onSearchTimeChange={(t) => { setSearchTime(t); setCurrentMatch(-1) }}
           matchCount={matches.length}
           currentMatch={currentMatch < 0 ? Math.max(0, matches.length - 1) : currentMatch}
           onMatchNavigate={(dir) => {
