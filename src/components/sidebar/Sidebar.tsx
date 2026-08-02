@@ -25,8 +25,8 @@ interface SidebarProps {
 // === Drop zone computation (same as Flutter) ===
 function computeZone(y: number, h: number, isFolder: boolean): 'before' | 'after' | 'into' {
   if (isFolder) {
-    if (y < h * 0.20) return 'before'
-    if (y > h * 0.80) return 'after'
+    if (y < h * 0.10) return 'before'
+    if (y > h * 0.90) return 'after'
     return 'into'
   }
   return y < h * 0.5 ? 'before' : 'after'
@@ -101,24 +101,10 @@ export function Sidebar(props: SidebarProps) {
       if (item.type === 'folder' && expandedFolders.has(item.id)) {
         const children = e.filter(s => s.parentId === item.id)
         buildList(children, depth + 1)
-        // After last child of this expanded folder, add transition zone (only for nested folders)
-        if (depth > 0) {
-        const parentFolder = item.parentId ? e.find(s => s.id === item.parentId) : null
-        const label = parentFolder ? `Drop here in ${parentFolder.title || 'Folder'}` : 'Drop here in Sidebar'
-        flatList.push({
-          item: { id: `transition_${item.id}`, type: 'transition', parentId: item.parentId, order: (item.order || 0) - 0.5, title: label },
-          depth, isTransition: true, transitionParentId: item.parentId, transitionLabel: label,
-        })
-        } // end if depth > 0
       }
     }
   }
   buildList(topItems, 0)
-  // Add bottom transition zone for root level
-  flatList.push({
-    item: { id: 'transition_bottom', type: 'transition', parentId: null, order: -1, title: 'Drop here in Sidebar' },
-    depth: 0, isTransition: true, transitionParentId: null, transitionLabel: 'Drop here in Sidebar',
-  })
 
   function handleDragStart(ev: any) {
     const item = flatList.find(f => f.item.id === ev.active.id)
@@ -181,19 +167,7 @@ export function Sidebar(props: SidebarProps) {
         }
       }
     }
-    // Check transition zones
-    for (const entry of flatList) {
-      if (!entry.isTransition) continue
-      const rect = itemRects.current.get(entry.item.id)
-      if (!rect) continue
-      const dist = Math.abs(pointerY - rect.top)
-      if (dist < bestDist) {
-        bestDist = dist
-        bestId = entry.item.id
-        bestZone = 'into'
-      }
-    }
-    return { id: bestId, zone: bestZone, transition: bestId && bestId.startsWith('transition_') ? flatList.find(f => f.item.id === bestId) : null }
+    return { id: bestId, zone: bestZone, transition: null }
   }
 
   function handleDragMove(ev: any) {
@@ -335,11 +309,6 @@ export function Sidebar(props: SidebarProps) {
             onDragCancel={() => { dragRef.current = null; setDropZone(null); setActiveDragItem(null) }}
           >
             {flatList.map((entry, idx) => {
-              if (entry.isTransition) {
-                return (
-                  <TransitionZone key={entry.item.id} entry={entry} isActive={!!dragRef.current} />
-                )
-              }
               const { item, depth } = entry
               const dropLabel = (() => {
                 const pid = item.parentId || null
