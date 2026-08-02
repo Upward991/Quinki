@@ -19,11 +19,11 @@ fn set_window_bg_color(_window: tauri::WebviewWindow, _color: String) {
 fn export_chat_file(window: tauri::WebviewWindow, content: String, filename: String, extension: String) -> Result<String, String> {
     use rfd::FileDialog;
     let filter_name = if extension == "md" { "Markdown" } else { "HTML" };
-    let mut dialog = FileDialog::new()
+    let dialog = FileDialog::new()
         .set_file_name(&filename)
         .add_filter(filter_name, &[&extension]);
     // Set parent window so dialog appears centered on app
-    let _ = dialog.set_parent(&window);
+    let dialog = dialog.set_parent(&window);
     let file = dialog.save_file();
     match file {
         Some(path) => {
