@@ -3,7 +3,7 @@
 // Order: thinking → tool calls → tool results → text(markdown) → compaction → delegation
 // ============================================================
 
-import React, { useState, useEffect, memo } from 'react'
+import React, { useState, useEffect, useRef, memo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
@@ -51,11 +51,44 @@ export const MessageBubble = memo(function MessageBubble({ message, onCopy, sear
 
 // ── User message ──
 function UserMessage({ message, onCopy, searchQuery, activeOcc }: { message: Message; onCopy?: (t: string) => void; searchQuery?: string; activeOcc?: number }) {
-  // state removed
+  const userRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = userRef.current
+    if (!el) return
+    el.querySelectorAll('mark[data-search-hl]').forEach(m => {
+      const p = m.parentNode
+      if (p) { p.replaceChild(document.createTextNode(m.textContent || ''), m); p.normalize() }
+    })
+    if (!searchQuery || !searchQuery.trim() || (activeOcc ?? -1) < 0) return
+    const q = searchQuery.trim().toLowerCase()
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+    let node: Node | null
+    let occNum = 0
+    while ((node = walker.nextNode())) {
+      const content = node.textContent || ''
+      const lower = content.toLowerCase()
+      let idx = lower.indexOf(q)
+      while (idx !== -1) {
+        if (occNum === activeOcc) {
+          const mark = document.createElement('mark')
+          mark.setAttribute('data-search-hl', '1')
+          mark.style.cssText = 'background-color:var(--q-search-highlight-bg);color:var(--q-search-highlight-text);border-radius:2px;padding:0 2px'
+          mark.textContent = content.substring(idx, idx + q.length)
+          const before = document.createTextNode(content.substring(0, idx))
+          const after = document.createTextNode(content.substring(idx + q.length))
+          const parent = node.parentNode
+          if (parent) { parent.insertBefore(before, node); parent.insertBefore(mark, node); parent.insertBefore(after, node); parent.removeChild(node) }
+          return
+        }
+        occNum++
+        idx = lower.indexOf(q, idx + q.length)
+      }
+    }
+  }, [searchQuery, activeOcc, message.content])
   return (
     <div className="user-message-content" style={{ width: '100%', padding: '10px 16px', backgroundColor: 'var(--q-bubble-user)', borderRadius: '12px', boxShadow: '0 0 0 1px var(--q-border), inset 0 1px 0 rgba(255,255,255,0.02)', border: 'none', animation: 'msgSent 300ms cubic-bezier(0.16, 1, 0.3, 1)' }}>
-      <div style={{ color: 'var(--q-bubble-user-text)', fontSize: '14px', lineHeight: 1.5, fontFamily: 'var(--font-interface)', fontWeight: 500, whiteSpace: 'pre-wrap', wordBreak: 'break-word', userSelect: 'text', WebkitUserSelect: 'text' }}>
-        {searchQuery ? highlightSearch(message.content || '', searchQuery, activeOcc ?? -1) : message.content}
+      <div ref={userRef} style={{ color: 'var(--q-bubble-user-text)', fontSize: '14px', lineHeight: 1.5, fontFamily: 'var(--font-interface)', fontWeight: 500, whiteSpace: 'pre-wrap', wordBreak: 'break-word', userSelect: 'text', WebkitUserSelect: 'text' }}>
+        {message.content}
       </div>
       <Footer content={message.content || ""} timestamp={message.timestamp} onCopy={onCopy} />
     </div>
@@ -208,16 +241,61 @@ function AssistantMessage({ message, onCopy, searchQuery, activeOcc }: { message
 
 // ── Markdown content with code blocks (copy + syntax highlighting) ──
 function MarkdownContent({ text, isError, searchQuery, activeOcc }: { text: string; isError?: boolean; searchQuery?: string; activeOcc?: number }) {
-  // When searching, show plain text with highlight (not markdown)
-  if (searchQuery && searchQuery.trim()) {
-    return (
-      <div className="markdown-content" style={{ padding: '4px 0', userSelect: 'text', WebkitUserSelect: 'text', color: isError ? 'var(--q-accent-danger)' : 'var(--q-text)', fontSize: '14px', lineHeight: 1.5, fontFamily: 'var(--font-interface)', fontWeight: 500, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-        {highlightSearch(text || '', searchQuery, activeOcc ?? -1)}
-      </div>
-    )
-  }
+  const mdRef = useRef<HTMLDivElement>(null)
+
+  // Highlight search in the rendered DOM (after markdown render)
+  useEffect(() => {
+    const el = mdRef.current
+    if (!el) return
+    // 1. Remove existing highlights
+    el.querySelectorAll('mark[data-search-hl]').forEach(m => {
+      const parent = m.parentNode
+      if (parent) {
+        parent.replaceChild(document.createTextNode(m.textContent || ''), m)
+        parent.normalize()
+      }
+    })
+    // 2. Add new highlight if needed
+    if (!searchQuery || !searchQuery.trim() || (activeOcc ?? -1) < 0) return
+    const q = searchQuery.trim().toLowerCase()
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
+      acceptNode: (n) => {
+        const p = n.parentElement
+        if (!p || p.tagName === 'SCRIPT' || p.tagName === 'STYLE' || p.tagName === 'CODE' || p.tagName === 'PRE') return NodeFilter.FILTER_REJECT
+        return n.textContent && n.textContent.toLowerCase().includes(q) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT
+      }
+    })
+    let node: Node | null
+    let occNum = 0
+    while ((node = walker.nextNode())) {
+      const content = node.textContent || ''
+      const lower = content.toLowerCase()
+      let idx = lower.indexOf(q)
+      while (idx !== -1) {
+        if (occNum === activeOcc) {
+          const mark = document.createElement('mark')
+          mark.setAttribute('data-search-hl', '1')
+          mark.style.cssText = 'background-color:var(--q-search-highlight-bg);color:var(--q-search-highlight-text);border-radius:2px;padding:0 2px'
+          mark.textContent = content.substring(idx, idx + q.length)
+          const before = document.createTextNode(content.substring(0, idx))
+          const after = document.createTextNode(content.substring(idx + q.length))
+          const parent = node.parentNode
+          if (parent) {
+            parent.insertBefore(before, node)
+            parent.insertBefore(mark, node)
+            parent.insertBefore(after, node)
+            parent.removeChild(node)
+          }
+          return
+        }
+        occNum++
+        idx = lower.indexOf(q, idx + q.length)
+      }
+    }
+  }, [searchQuery, activeOcc, text])
+
   return (
-    <div className="markdown-content" style={{ padding: '4px 0', userSelect: 'text', WebkitUserSelect: 'text' }}>
+    <div ref={mdRef} className="markdown-content" style={{ padding: '4px 0', userSelect: 'text', WebkitUserSelect: 'text' }}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeHighlight]}
