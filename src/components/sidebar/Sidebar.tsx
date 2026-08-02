@@ -25,8 +25,8 @@ interface SidebarProps {
 // === Drop zone computation (same as Flutter) ===
 function computeZone(y: number, h: number, isFolder: boolean): 'before' | 'after' | 'into' {
   if (isFolder) {
-    if (y < h * 0.10) return 'before'
-    if (y > h * 0.90) return 'after'
+    if (y < h * 0.05) return 'before'
+    if (y > h * 0.95) return 'after'
     return 'into'
   }
   return y < h * 0.5 ? 'before' : 'after'
@@ -155,42 +155,35 @@ export function Sidebar(props: SidebarProps) {
   }
 
   function findDropTarget(pointerY: number): { id: string | null; zone: string; transition: any } {
-    let bestId: string | null = null
-    let bestZone: string = 'before'
-    let bestDist = Infinity
-    // Find CLOSEST item (not just containing — handles gaps between rects)
+    // Simple iteration: find the first item where pointer <= item.bottom
     for (const entry of flatList) {
-      if (entry.isTransition) continue
       const rect = itemRects.current.get(entry.item.id)
       if (!rect) continue
       if (!canAccept(e, dragRef.current, entry.item.id)) continue
-      const center = (rect.top + rect.bottom) / 2
-      const dist = Math.abs(pointerY - center)
-      if (dist < bestDist) {
-        bestDist = dist
-        // Compute zone from position relative to rect
+      if (pointerY <= rect.bottom) {
+        // Pointer is at or above the bottom of this item
+        const relY = pointerY - rect.top
+        const isFolder = entry.item.type === 'folder'
+        let zone: 'before' | 'after' | 'into'
         if (pointerY < rect.top) {
-          bestId = entry.item.id
-          bestZone = 'before'
-        } else if (pointerY > rect.bottom) {
-          bestId = entry.item.id
-          bestZone = 'after'
-          // Open folder 'after' = 'into'
-          if (entry.item.type === 'folder' && expandedFolders.has(entry.item.id)) {
-            bestZone = 'into'
-          }
+          zone = 'before'
         } else {
-          const relY = pointerY - rect.top
-          const isFolder = entry.item.type === 'folder'
-          bestId = entry.item.id
-          bestZone = computeZone(relY, rect.height, isFolder)
-          if (isFolder && bestZone === 'after' && expandedFolders.has(entry.item.id)) {
-            bestZone = 'into'
+          zone = computeZone(relY, rect.height, isFolder)
+          // Open folder 'after' = 'into'
+          if (isFolder && zone === 'after' && expandedFolders.has(entry.item.id)) {
+            zone = 'into'
           }
         }
+        return { id: entry.item.id, zone, transition: null }
       }
     }
-    return { id: bestId, zone: bestZone, transition: null }
+    // Pointer below all items → after last item
+    const items = flatList.filter(f => !f.isTransition)
+    if (items.length > 0) {
+      const last = items[items.length - 1]
+      return { id: last.item.id, zone: 'after', transition: null }
+    }
+    return { id: null, zone: 'before', transition: null }
   }
 
   function handleDragMove(ev: any) {
