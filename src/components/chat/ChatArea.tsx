@@ -62,10 +62,11 @@ export function ChatArea(props: ChatAreaProps) {
   const hasDateFilter = !!(searchDate.trim() || searchTime.trim())
   const dateFirstMatch = (() => {
     if (!hasDateFilter) return -1
-    // Search from NEWEST to OLDEST (most recent match first)
-    for (let i = props.messages.length - 1; i >= 0; i--) {
+    // Search from OLDEST to NEWEST (chronological — earliest time first)
+    for (let i = 0; i < props.messages.length; i++) {
       const m = props.messages[i]
       if (m.role !== 'user' && m.role !== 'assistant') continue
+      if (!m.content && !m.errorContent) continue // skip empty messages
       const ts = new Date(m.timestamp).getTime()
       if (messageMatchesFilters(ts, searchDate, searchTime)) return i
     }
