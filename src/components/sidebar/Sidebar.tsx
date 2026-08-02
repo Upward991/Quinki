@@ -463,8 +463,16 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
       onMouseEnter={() => onHover(true)}
       onMouseLeave={() => onHover(false)}
     >
-
-
+      {showDropIndicator && dropZone.zone === 'before' && (
+        <div style={{ position: 'absolute', top: '0px', left: `${indent}px`, right: '8px', height: '14px', display: 'flex', alignItems: 'center', paddingLeft: '4px', color: 'var(--q-tab-accent)', fontSize: '11px', fontFamily: 'var(--font-interface)', zIndex: 10, pointerEvents: 'none', whiteSpace: 'nowrap' }}>
+          ↑ {dropLabel}
+        </div>
+      )}
+      {showDropIndicator && dropZone.zone === 'after' && (
+        <div style={{ position: 'absolute', bottom: '0px', left: `${indent}px`, right: '8px', height: '14px', display: 'flex', alignItems: 'center', paddingLeft: '4px', color: 'var(--q-tab-accent)', fontSize: '11px', fontFamily: 'var(--font-interface)', zIndex: 10, pointerEvents: 'none', whiteSpace: 'nowrap' }}>
+          ↓ {dropLabel}
+        </div>
+      )}
       <div
         ref={setNodeRef}
         {...attributes}
