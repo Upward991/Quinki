@@ -11,19 +11,24 @@ function fmtDate(ts: string): string {
   return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`
 }
 
-function esc(s: string): string {
+function esc(s: string | undefined | null): string {
+  if (!s) return ''
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
 function toggle(label: string, content: string): string {
+  if (!content) content = ''
   return `<details>\n<summary>${esc(label)}</summary>\n\n${content}\n\n</details>`
 }
 
 function codeBlock(lang: string, content: string): string {
+  if (!content) content = ''
   return '```' + lang + '\n' + content + '\n```'
 }
 
 function blockquote(header: string, content: string): string {
+  if (!content) content = ''
+  if (!header) header = ''
   const lines = content.split('\n')
   const out = [`> **${esc(header)}**`, '>']
   for (const line of lines) out.push(line ? '> ' + line : '>')
