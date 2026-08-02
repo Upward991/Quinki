@@ -134,7 +134,6 @@ export function ChatArea(props: ChatAreaProps) {
   // Auto-scroll on session change or new messages (NOT on search change)
   const sessionId = props.session?.id || ''
   const msgCount = props.messages.length
-  const msgCount = props.messages.length
   useEffect(() => {
     // Skip auto-scroll when search is active
     if (searchQuery || searchDate || searchTime) return
