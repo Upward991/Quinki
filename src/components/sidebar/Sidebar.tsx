@@ -293,7 +293,7 @@ export function Sidebar(props: SidebarProps) {
       </div>
 
       {/* Session list with DnD */}
-      <div style={{ flex: 1, overflowY: 'auto', paddingTop: '8px' }}>
+      <div data-sidebar-scroll style={{ flex: 1, overflowY: 'auto', paddingTop: '8px' }}>
         {flatList.length === 0 ? (
           <div style={{ padding: '24px 8px', textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>
             No chats
@@ -302,6 +302,7 @@ export function Sidebar(props: SidebarProps) {
           <DndContext
             sensors={sensors}
             collisionDetection={pointerWithin}
+            autoScroll={{ threshold: { x: 0, y: 0.1 }, canScroll: (el) => el === document.querySelector('[data-sidebar-scroll]') }}
             onDragStart={handleDragStart}
             onDragMove={handleDragMove}
             onDragEnd={handleDragEnd}
@@ -481,7 +482,7 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
           backgroundColor: showDropIndicator && dropZone.zone === 'into' ? 'rgba(255,165,0,0.15)' : bgColor,
           border: 'none',
           cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
-          opacity: isDragging && !isOverlay ? 0 : 1, boxSizing: 'border-box',
+          opacity: isDragging && !isOverlay ? 0.15 : 1, boxSizing: 'border-box',
           boxShadow: isOverlay ? '0 8px 16px rgba(0,0,0,0.5)' : 'none',
         }}
       >
