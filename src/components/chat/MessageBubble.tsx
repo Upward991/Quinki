@@ -23,7 +23,7 @@ function highlightSearch(text: string, query: string): React.ReactNode {
   let key = 0
   while (idx !== -1) {
     if (idx > lastIdx) parts.push(text.substring(lastIdx, idx))
-    parts.push(React.createElement('mark', { key: 'hl_' + key++, style: { backgroundColor: 'var(--q-tab-accent)', color: 'var(--q-bg)', borderRadius: '2px', padding: '0 1px' } }, text.substring(idx, idx + q.length)))
+    parts.push(React.createElement('mark', { key: 'hl_' + key++, style: { backgroundColor: 'var(--q-search-highlight-bg)', color: 'var(--q-search-highlight-text)', borderRadius: '2px', padding: '0 2px' } }, text.substring(idx, idx + q.length)))
     lastIdx = idx + q.length
     idx = lower.indexOf(lowerQ, lastIdx)
   }

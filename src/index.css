@@ -164,6 +164,8 @@
   /* Accent della tab corrente — impostato da App.tsx al cambio tab (expert=orange, chat=info, log=success, agents=secondary, settings=primary) */
   --q-tab-accent: var(--q-accent-info);
   --q-tab-accent-darker: color-mix(in srgb, var(--q-tab-accent) 82%, black);
+  --q-search-highlight-bg: #d7be66;
+  --q-search-highlight-text: #161616;
   --q-accent-info-darker: #5a8cd9;
   --q-accent-info-bright: #89b4fa;
   --q-accent-folder-open: #d9a066;
