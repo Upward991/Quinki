@@ -66,7 +66,7 @@ function normalizeThinking(t: any): { content: string }[] | undefined {
 // ── SHARED: MessageBlocks — renders thinking, tool calls, tool results, compaction, delegation, text
 // Used by BOTH AssistantMessage and DelegationBlockView
 // If a new block type is added here, it automatically works in both chat and delegation
-function MessageBlocks({ thinking, toolCalls, toolResults, compaction, delegations, content, isError, timestamp }: {
+function MessageBlocks({ thinking, toolCalls, toolResults, compaction, delegations, content, isError, timestamp, searchQuery }: {
   thinking?: ThinkingBlock[]
   toolCalls?: ToolCall[]
   toolResults?: ToolResult[]
@@ -75,6 +75,7 @@ function MessageBlocks({ thinking, toolCalls, toolResults, compaction, delegatio
   content: string
   isError?: boolean
   timestamp: string
+  searchQuery?: string
 }) {
   return (
     <>
@@ -102,8 +103,8 @@ function MessageBlocks({ thinking, toolCalls, toolResults, compaction, delegatio
 }
 
 // ── Renderer blocchi condiviso: usato da chat + delegation (future-proof — nuovi tipi funzionano in entrambe) ──
-function renderBlocks(blocks: any[], opts: { isError?: boolean; isStreaming?: boolean; timestamp: string; agentName?: string; agentModel?: string; thinkingLevel?: string; onCopy?: (t: string) => void }) {
-  const { isError, isStreaming, timestamp, agentName, agentModel, thinkingLevel, onCopy } = opts
+function renderBlocks(blocks: any[], opts: { isError?: boolean; isStreaming?: boolean; timestamp: string; agentName?: string; agentModel?: string; thinkingLevel?: string; onCopy?: (t: string) => void; searchQuery?: string }) {
+  const { isError, isStreaming, timestamp, agentName, agentModel, thinkingLevel, onCopy, searchQuery } = opts
   return blocks.map((b: any, i: number, arr: any[]) => {
     if (b.type === 'thinking') return <ThinkingToggle key={`b-${i}`} content={b.content || ""} streaming={isStreaming && i === arr.length - 1} />
     if (b.type === 'tool_call') return <ToolToggle key={`b-${i}`} label="Tool call" toolName={b.name} body={b.input || ''} isError={false} />
@@ -143,7 +144,7 @@ function AssistantMessage({ message, onCopy, searchQuery }: { message: Message; 
     <div className="assistant-content" style={{ maxWidth: 'var(--spacing-chat-max)', minWidth: 0, animation: 'materialize 400ms cubic-bezier(0.16, 1, 0.3, 1)', userSelect: 'text', WebkitUserSelect: 'text' }}>
       {/* Blocchi cronologici: toggles + testo nell'ORDINE reale. Footer dopo OGNI turno testo completato */}
       {(message as any).blocks?.length > 0
-        ? renderBlocks((message as any).blocks, { isError, isStreaming: !!message.isStreaming, timestamp: message.timestamp, agentName: message.agentName, agentModel: message.agentModel, thinkingLevel: message.thinkingLevel, onCopy })
+        ? renderBlocks((message as any).blocks, { isError, isStreaming: !!message.isStreaming, timestamp: message.timestamp, agentName: message.agentName, agentModel: message.agentModel, thinkingLevel: message.thinkingLevel, onCopy, searchQuery })
         : <>
             {normalizeThinking(message.thinking)?.map((t, i) => <ThinkingToggle key={`t-${i}`} content={t.content || ""} streaming={message.isStreaming} />)}
             {message.toolCalls?.map((tc, i) => <ToolToggle key={`tc-${i}`} label="Tool call" toolName={tc.name} body={tc.input} isError={false} />)}
@@ -418,7 +419,7 @@ function DelegationBlockView({ delegation, timestamp, streaming, onCopy, searchQ
 
           {/* Blocchi nested della delega in ORDINE reale (thinking/tool/testo — stesso renderer della chat) */}
           {delegation.blocks?.length > 0
-            ? renderBlocks(delegation.blocks, { isStreaming: !!streaming, timestamp, agentName: delegation.agentName, agentModel: delegation.agentModel, thinkingLevel: delegation.thinkingLevel, onCopy })
+            ? renderBlocks(delegation.blocks, { isStreaming: !!streaming, timestamp, agentName: delegation.agentName, agentModel: delegation.agentModel, thinkingLevel: delegation.thinkingLevel, onCopy, searchQuery })
             : delegation.response && (
               <div style={{ padding: '4px 0' }}>
                 <MarkdownContent text={delegation.response} searchQuery={searchQuery} />

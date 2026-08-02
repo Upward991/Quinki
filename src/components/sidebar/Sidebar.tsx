@@ -324,7 +324,7 @@ export function Sidebar(props: SidebarProps) {
       </div>
 
       {/* Session list with DnD */}
-      <div data-sidebar-scroll style={{ flex: 1, overflowY: 'auto', paddingTop: '20px', paddingBottom: '20px' }}>
+      <div data-sidebar-scroll style={{ flex: 1, overflowY: 'auto', paddingTop: '8px', paddingBottom: '12px' }}>
         {flatList.length === 0 ? (
           <div style={{ padding: '24px 8px', textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>
             No chats
