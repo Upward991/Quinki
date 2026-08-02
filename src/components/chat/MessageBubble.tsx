@@ -59,12 +59,36 @@ export const MessageBubble = memo(function MessageBubble({ message, onCopy, sear
 
 // ── User message ──
 function UserMessage({ message, onCopy, searchQuery, activeOcc }: { message: Message; onCopy?: (t: string) => void; searchQuery?: string; activeOcc?: number }) {
-  const userOccRef = useRef(0)
-  userOccRef.current = 0
+  // Simple highlight: split text and wrap Nth occurrence
+  const content = message.content || ''
+  let rendered: React.ReactNode = content
+  if (searchQuery && searchQuery.trim() && (activeOcc ?? -1) >= 0) {
+    const q = searchQuery.trim()
+    const lower = content.toLowerCase()
+    const lowerQ = q.toLowerCase()
+    const parts: React.ReactNode[] = []
+    let idx = lower.indexOf(lowerQ)
+    let lastIdx = 0
+    let occNum = 0
+    let key = 0
+    while (idx !== -1) {
+      if (idx > lastIdx) parts.push(content.substring(lastIdx, idx))
+      if (occNum === activeOcc) {
+        parts.push(React.createElement('mark', { key: 'hl' + key++, style: { backgroundColor: 'var(--q-search-highlight-bg)', color: 'var(--q-search-highlight-text)', borderRadius: '2px', padding: '0 2px' } }, content.substring(idx, idx + q.length)))
+      } else {
+        parts.push(content.substring(idx, idx + q.length))
+      }
+      occNum++
+      lastIdx = idx + q.length
+      idx = lower.indexOf(lowerQ, lastIdx)
+    }
+    if (lastIdx < content.length) parts.push(content.substring(lastIdx))
+    if (parts.length > 0) rendered = parts
+  }
   return (
     <div className="user-message-content" style={{ width: '100%', padding: '10px 16px', backgroundColor: 'var(--q-bubble-user)', borderRadius: '12px', boxShadow: '0 0 0 1px var(--q-border), inset 0 1px 0 rgba(255,255,255,0.02)', border: 'none', animation: 'msgSent 300ms cubic-bezier(0.16, 1, 0.3, 1)' }}>
       <div style={{ color: 'var(--q-bubble-user-text)', fontSize: '14px', lineHeight: 1.5, fontFamily: 'var(--font-interface)', fontWeight: 500, whiteSpace: 'pre-wrap', wordBreak: 'break-word', userSelect: 'text', WebkitUserSelect: 'text' }}>
-        {searchQuery ? highlightChildren(message.content || '', searchQuery, activeOcc ?? -1, userOccRef) : message.content}
+        {rendered}
       </div>
       <Footer content={message.content || ""} timestamp={message.timestamp} onCopy={onCopy} />
     </div>
@@ -219,7 +243,8 @@ function AssistantMessage({ message, onCopy, searchQuery, activeOcc }: { message
 function MarkdownContent({ text, isError, searchQuery, activeOcc }: { text: string; isError?: boolean; searchQuery?: string; activeOcc?: number }) {
   const occRef = useRef(0)
   occRef.current = 0
-  const hl = (children: React.ReactNode) => highlightChildren(children, searchQuery || '', activeOcc ?? -1, occRef)
+  const isHighlighting = searchQuery && searchQuery.trim() && (activeOcc ?? -1) >= 0
+  const hl = isHighlighting ? (children: React.ReactNode) => highlightChildren(children, searchQuery || '', activeOcc ?? -1, occRef) : (children: React.ReactNode) => children
   return (
     <div className="markdown-content" style={{ padding: '4px 0', userSelect: 'text', WebkitUserSelect: 'text' }}>
       <ReactMarkdown
