@@ -96,7 +96,7 @@ function MessageBlocks({ thinking, toolCalls, toolResults, compaction, delegatio
       ))}
 
       {/* Delegation */}
-      {delegations?.map((d, i) => <DelegationBlockView key={`d-${i}`} delegation={d} timestamp={timestamp} />)}
+      {delegations?.map((d, i) => <DelegationBlockView key={`d-${i}`} delegation={d} timestamp={timestamp} searchQuery={searchQuery} />)}
     </>
   )
 }
@@ -108,7 +108,7 @@ function renderBlocks(blocks: any[], opts: { isError?: boolean; isStreaming?: bo
     if (b.type === 'thinking') return <ThinkingToggle key={`b-${i}`} content={b.content || ""} streaming={isStreaming && i === arr.length - 1} />
     if (b.type === 'tool_call') return <ToolToggle key={`b-${i}`} label="Tool call" toolName={b.name} body={b.input || ''} isError={false} />
     if (b.type === 'tool_result') return <ToolToggle key={`b-${i}`} label={b.isError ? 'Tool error' : 'Tool result'} toolName={b.name} body={b.output || ''} isError={b.isError} />
-    if (b.type === 'delegation') return <DelegationBlockView key={`b-${i}`} delegation={b} timestamp={timestamp} streaming={b.streaming} onCopy={onCopy} />
+    if (b.type === 'delegation') return <DelegationBlockView key={`b-${i}`} delegation={b} timestamp={timestamp} streaming={b.streaming} onCopy={onCopy} searchQuery={searchQuery} />
     if (b.type === 'text') {
       const isLastBlock = i === arr.length - 1
       const nextIsText = !isLastBlock && arr[i + 1]?.type === 'text'
@@ -192,7 +192,7 @@ function AssistantMessage({ message, onCopy, searchQuery }: { message: Message; 
       {message.compaction?.map((comp, i) => (
         <CompactionToggle key={`comp-${i}`} content={comp.content || ""} isNoop={comp.isNoop} />
       ))}
-      {!(message as any).blocks?.length && message.delegations?.map((d, i) => <DelegationBlockView key={`d-${i}`} delegation={d} timestamp={message.timestamp} />)}
+      {!(message as any).blocks?.length && message.delegations?.map((d, i) => <DelegationBlockView key={`d-${i}`} delegation={d} timestamp={message.timestamp} searchQuery={searchQuery} />)}
     </div>
   )
 }
@@ -356,7 +356,7 @@ function CompactionToggle({ content, isNoop }: { content: string; isNoop: boolea
 }
 
 // ── Delegation block (full chat structure inside) ──
-function DelegationBlockView({ delegation, timestamp, streaming, onCopy }: { delegation: any; timestamp: string; streaming?: boolean; onCopy?: (t: string) => void }) {
+function DelegationBlockView({ delegation, timestamp, streaming, onCopy, searchQuery }: { delegation: any; timestamp: string; streaming?: boolean; onCopy?: (t: string) => void; searchQuery?: string }) {
   const [collapsed, setCollapsed] = useState(true)
   const [hovered, setHovered] = useState(false)
   const [copyHovered, setCopyHovered] = useState(false)
