@@ -178,11 +178,11 @@ export function Sidebar(props: SidebarProps) {
         }
         // Skip useless indicators: "after item above" and "before item below" (same position)
         const targetParentId = entry.item.parentId || null
-        if (zone === 'after' && itemAbove && entry.item.id === itemAbove.item.id && targetParentId === dragParentId) {
-          continue // Would leave item in same position
-        }
-        if (zone === 'before' && itemBelow && entry.item.id === itemBelow.item.id && targetParentId === dragParentId) {
-          continue // Would leave item in same position
+        const isUselessAfter = zone === 'after' && itemAbove && entry.item.id === itemAbove.item.id && targetParentId === dragParentId
+        const isUselessBefore = zone === 'before' && itemBelow && entry.item.id === itemBelow.item.id && targetParentId === dragParentId
+        if (isUselessAfter || isUselessBefore) {
+          // Pointer is within this item but the indicator is useless → no indicator
+          return { id: null, zone: 'before', transition: null }
         }
         return { id: entry.item.id, zone, transition: null }
       }
