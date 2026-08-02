@@ -134,22 +134,11 @@ export function Sidebar(props: SidebarProps) {
       setActiveDragItem(item.item)
       const scrollEl = document.querySelector('[data-sidebar-scroll]')
       if (scrollEl) scrollRef.current = scrollEl.scrollTop
-      // Freeze all item positions, then adjust for collapsed dragged item
+      // Freeze all item positions (dragged item is visible as placeholder but skipped in findDropTarget)
       const rects = new Map()
       document.querySelectorAll('[data-row-id]').forEach((el: any) => {
         rects.set(el.dataset.rowId, el.getBoundingClientRect())
       })
-      // Remove dragged item's rect and shift items below it up
-      const dragRect = rects.get(ev.active.id)
-      if (dragRect) {
-        const dragHeight = dragRect.bottom - dragRect.top
-        rects.delete(ev.active.id)
-        for (const [id, r] of rects) {
-          if (r.top >= dragRect.bottom) {
-            rects.set(id, new DOMRect(r.left, r.top - dragHeight, r.width, r.height))
-          }
-        }
-      }
       itemRects.current = rects
     }
   }
@@ -475,21 +464,19 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
     <div
       ref={setDropRef}
       data-row-id={item.id}
-      style={{ paddingLeft: '8px', paddingRight: '8px', paddingBottom: '2px', position: 'relative', height: isDragging && !isOverlay ? 0 : undefined, overflow: 'hidden' }}
+      style={{ paddingLeft: '8px', paddingRight: '8px', paddingBottom: '2px', position: 'relative' }}
       onMouseEnter={() => onHover(true)}
       onMouseLeave={() => onHover(false)}
     >
       {showDropIndicator && dropZone.zone === 'before' && (
-        <>
-        <div style={{ position: 'absolute', top: '0px', left: `${indent}px`, right: '8px', height: '2px', backgroundColor: 'var(--q-tab-accent)', borderRadius: '1px', zIndex: 10, pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', top: '-1px', left: `${indent + 4}px`, color: 'var(--q-tab-accent)', fontSize: '10px', fontFamily: 'var(--font-interface)', zIndex: 11, pointerEvents: 'none', whiteSpace: 'nowrap', backgroundColor: 'var(--q-bg)', padding: '0 2px', borderRadius: '2px' }}>↑ {dropLabel}</div>
-        </>
+        <div style={{ position: 'absolute', top: '0px', left: `${indent}px`, right: '8px', height: '14px', display: 'flex', alignItems: 'center', paddingLeft: '4px', color: 'var(--q-tab-accent)', fontSize: '12px', fontFamily: 'var(--font-interface)', zIndex: 10, pointerEvents: 'none', whiteSpace: 'nowrap' }}>
+          ↑ {dropLabel}
+        </div>
       )}
       {showDropIndicator && dropZone.zone === 'after' && (
-        <>
-        <div style={{ position: 'absolute', bottom: '0px', left: `${indent}px`, right: '8px', height: '2px', backgroundColor: 'var(--q-tab-accent)', borderRadius: '1px', zIndex: 10, pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', bottom: '-1px', left: `${indent + 4}px`, color: 'var(--q-tab-accent)', fontSize: '10px', fontFamily: 'var(--font-interface)', zIndex: 11, pointerEvents: 'none', whiteSpace: 'nowrap', backgroundColor: 'var(--q-bg)', padding: '0 2px', borderRadius: '2px' }}>↓ {dropLabel}</div>
-        </>
+        <div style={{ position: 'absolute', bottom: '0px', left: `${indent}px`, right: '8px', height: '14px', display: 'flex', alignItems: 'center', paddingLeft: '4px', color: 'var(--q-tab-accent)', fontSize: '12px', fontFamily: 'var(--font-interface)', zIndex: 10, pointerEvents: 'none', whiteSpace: 'nowrap' }}>
+          ↓ {dropLabel}
+        </div>
       )}
       <div
         ref={setNodeRef}
@@ -503,10 +490,7 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
           backgroundColor: showDropIndicator && dropZone.zone === 'into' ? 'rgba(255,165,0,0.15)' : bgColor,
           border: 'none',
           cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
-          opacity: isDragging && !isOverlay ? 0 : 1, boxSizing: 'border-box',
-          height: isDragging && !isOverlay ? 0 : undefined, overflow: isDragging && !isOverlay ? 'hidden' : 'visible',
-          paddingTop: isDragging && !isOverlay ? 0 : '6px', paddingBottom: isDragging && !isOverlay ? 0 : '6px',
-          minHeight: isDragging && !isOverlay ? 0 : '36px',
+          opacity: isDragging && !isOverlay ? 0.15 : 1, boxSizing: 'border-box',
           boxShadow: isOverlay ? '0 8px 16px rgba(0,0,0,0.5)' : 'none',
         }}
       >
