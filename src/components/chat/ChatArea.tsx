@@ -55,26 +55,16 @@ export function ChatArea(props: ChatAreaProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [currentMatch, setCurrentMatch] = useState(0)
 
-  // Compute matches across ALL text content
+  // Compute matches ONLY in message.content (user text + assistant text, NOT thinking/tools/delegations)
   const matches = (() => {
     if (!searchQuery.trim()) return []
     const q = searchQuery.trim().toLowerCase()
     const out: { msgIdx: number, charIdx: number }[] = []
     props.messages.forEach((m, i) => {
       if (m.role !== 'user' && m.role !== 'assistant') return
-      // Collect ALL text from the message
-      const texts: string[] = []
-      if (m.content) texts.push(m.content)
-      if (m.thinking) for (const t of m.thinking) if (t.content) texts.push(t.content)
-      if (m.toolCalls) for (const tc of m.toolCalls) if (tc.input) texts.push(tc.input)
-      if (m.toolResults) for (const tr of m.toolResults) if (tr.output) texts.push(tr.output)
-      if (m.delegations) for (const d of m.delegations) {
-        if (d.response) texts.push(d.response)
-        if (d.taskContent) texts.push(d.taskContent)
-      }
-      const fullText = texts.join(' ').toLowerCase()
+      const text = (m.content || '').toLowerCase()
       let idx = 0
-      while ((idx = fullText.indexOf(q, idx)) !== -1) {
+      while ((idx = text.indexOf(q, idx)) !== -1) {
         out.push({ msgIdx: i, charIdx: idx })
         idx += q.length
       }
@@ -87,18 +77,12 @@ export function ChatArea(props: ChatAreaProps) {
   const activeMatchInfo = (() => {
     if (matches.length === 0 || activeMatchIdx < 0) return null
     const m = matches[activeMatchIdx]
-    // Count how many matches in this message are in the content field (before the active one)
-    const msg = props.messages[m.msgIdx]
-    if (!msg) return null
-    const contentText = (msg.content || '').toLowerCase()
-    const contentLen = contentText.length
-    let contentOcc = -1
-    for (let i = 0; i <= activeMatchIdx; i++) {
-      if (matches[i].msgIdx === m.msgIdx && matches[i].charIdx < contentLen) {
-        contentOcc++
-      }
+    // Count occurrences in the same message before this one
+    let occ = 0
+    for (let i = 0; i < activeMatchIdx; i++) {
+      if (matches[i].msgIdx === m.msgIdx) occ++
     }
-    return { msgIdx: m.msgIdx, occurrence: contentOcc }
+    return { msgIdx: m.msgIdx, occurrence: occ }
   })()
 
   // Auto-scroll to active match when search changes
