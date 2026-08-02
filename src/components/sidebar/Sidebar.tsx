@@ -74,6 +74,7 @@ export function Sidebar(props: SidebarProps) {
   const [dropZone, setDropZone] = useState<{ id: string; zone: string } | null>(null)
   const itemRects = useRef<Map<string, DOMRect>>(new Map())
   const pointerYRef = useRef(0)
+  const hasValidTarget = useRef(false)
   const lastDropTarget = useRef<{ id: string | null; zone: string; transition: any }>({ id: null, zone: 'before', transition: null })
 
   // Track pointer Y globally for DnD
@@ -131,6 +132,7 @@ export function Sidebar(props: SidebarProps) {
     const item = flatList.find(f => f.item.id === ev.active.id)
     if (item) {
       dragRef.current = { id: ev.active.id, kind: item.item.type === 'folder' ? 'folder' : 'chat' }
+      hasValidTarget.current = false
       setActiveDragItem(item.item)
       const scrollEl = document.querySelector('[data-sidebar-scroll]')
       if (scrollEl) scrollRef.current = scrollEl.scrollTop
@@ -206,13 +208,14 @@ export function Sidebar(props: SidebarProps) {
     const pointerY = pointerYRef.current
     const { id: bestId, zone: bestZone, transition: tr } = findDropTarget(pointerY)
     if (bestId) {
+      hasValidTarget.current = true
       const tr = bestId.startsWith('transition_') ? flatList.find(f => f.item.id === bestId) : null
       lastDropTarget.current = { id: bestId, zone: bestZone, transition: tr }
             if (dropZone?.id !== bestId || dropZone?.zone !== bestZone) {
         setDropZone({ id: bestId, zone: bestZone })
       }
     } else {
-      // Don't clear lastDropTarget — keep the last valid target for handleDragEnd
+      hasValidTarget.current = false
       setDropZone(null)
     }
   }
@@ -226,7 +229,7 @@ export function Sidebar(props: SidebarProps) {
     // Use the LAST computed target from handleDragMove (which works correctly)
     const { id: targetId, zone, transition: targetTransition } = lastDropTarget.current
     
-    if (!targetId) { dragRef.current = null; setDropZone(null); setActiveDragItem(null); return }
+    if (!targetId || !hasValidTarget.current) { dragRef.current = null; setDropZone(null); setActiveDragItem(null); return }
         
     // Transition zone drop
     if (targetTransition) {

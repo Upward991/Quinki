@@ -97,12 +97,17 @@ export function ChatArea(props: ChatAreaProps) {
 
   const isEmpty = props.messages.length === 0 || props.welcomeMode
 
-  // Auto-scroll on session change or new messages
+  // Auto-scroll on session change or new messages (NOT on search change)
   const sessionId = props.session?.id || ''
   const msgCount = props.messages.length
+  const prevSearchRef = useRef('')
   useEffect(() => {
+    // Skip auto-scroll when search is being used or cleared
+    if (searchQuery !== prevSearchRef.current) {
+      prevSearchRef.current = searchQuery
+      return // Don't scroll when search changes
+    }
     if (scrollRef.current && !isEmpty) {
-      // Multiple passes for long chats with heavy markdown
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
       const raf1 = requestAnimationFrame(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight })
       const t1 = setTimeout(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 100)
@@ -110,7 +115,7 @@ export function ChatArea(props: ChatAreaProps) {
       const t3 = setTimeout(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 500)
       return () => { cancelAnimationFrame(raf1); clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
     }
-  }, [sessionId, msgCount, isEmpty, props.streaming])
+  }, [sessionId, msgCount, isEmpty, props.streaming, searchQuery])
 
   return (
     <div className="h-full flex flex-col" style={{ maxWidth: 'var(--spacing-chat-max)', margin: '0 auto', width: '100%', position: 'relative' }}>
