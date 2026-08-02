@@ -194,7 +194,7 @@ export function ChatHeader(props: ChatHeaderProps) {
 
 {/* Export */}
           <div style={{ width: '8px', flexShrink: 0 }} />
-          <IconBtn icon={Download} onClick={() => setExportOpen(true)} title="Export chat" />
+          <IconBtn icon={Download} onClick={() => {  setExportOpen(true) }} title="Export chat" />
 
           {/* Search — panel INSIDE the position:relative wrapper */}
           <div style={{ width: '8px', flexShrink: 0 }} />
@@ -346,8 +346,8 @@ export function ChatHeader(props: ChatHeaderProps) {
             <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '0 16px 12px 16px' }}>
               <ExportBtn label="Cancel" color="var(--q-accent-danger)" hoverRgb="217,107,107" onClick={() => setExportOpen(false)} />
               <div style={{ width: '8px', flexShrink: 0 }} />
-              <ExportBtn label="Markdown (.md)" color="var(--q-tab-accent)" hoverRgb="181,199,224" onClick={() => { setExportOpen(false); props.onExport('md') }} />
-              <ExportBtn label="HTML (.html)" color="var(--q-tab-accent)" hoverRgb="181,199,224" onClick={() => { setExportOpen(false); props.onExport('html') }} />
+              <ExportBtn label="Markdown (.md)" color="var(--q-tab-accent)" hoverRgb="181,199,224" onClick={() => {  setExportOpen(false); props.onExport('md') }} />
+              <ExportBtn label="HTML (.html)" color="var(--q-tab-accent)" hoverRgb="181,199,224" onClick={() => {  setExportOpen(false); props.onExport('html') }} />
             </div>
           </div>
         </div>
