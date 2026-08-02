@@ -117,20 +117,23 @@ export function Sidebar(props: SidebarProps) {
     if (item) {
       dragRef.current = { id: ev.active.id, kind: item.item.type === 'folder' ? 'folder' : 'chat' }
       setActiveDragItem(item.item)
-      // Freeze all item positions (initial)
+      // Freeze all item positions, then adjust for collapsed dragged item
       const rects = new Map()
       document.querySelectorAll('[data-row-id]').forEach((el: any) => {
         rects.set(el.dataset.rowId, el.getBoundingClientRect())
       })
+      // Remove dragged item's rect and shift items below it up
+      const dragRect = rects.get(ev.active.id)
+      if (dragRect) {
+        const dragHeight = dragRect.bottom - dragRect.top
+        rects.delete(ev.active.id)
+        for (const [id, r] of rects) {
+          if (r.top >= dragRect.bottom) {
+            rects.set(id, new DOMRect(r.left, r.top - dragHeight, r.width, r.height))
+          }
+        }
+      }
       itemRects.current = rects
-      // Re-record after a frame (the dragged item collapses, shifting items up)
-      requestAnimationFrame(() => {
-        const rects2 = new Map()
-        document.querySelectorAll('[data-row-id]').forEach((el: any) => {
-          rects2.set(el.dataset.rowId, el.getBoundingClientRect())
-        })
-        itemRects.current = rects2
-      })
     }
   }
 
@@ -460,7 +463,7 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
     <div
       ref={setDropRef}
       data-row-id={item.id}
-      style={{ paddingLeft: '8px', paddingRight: '8px', paddingBottom: '2px', position: 'relative', height: isDragging && !isOverlay ? 0 : undefined, overflow: 'hidden' }}
+      style={{ paddingLeft: '8px', paddingRight: '8px', paddingBottom: '2px', position: 'relative' }}
       onMouseEnter={() => onHover(true)}
       onMouseLeave={() => onHover(false)}
     >
@@ -479,10 +482,6 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
           border: 'none',
           cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
           opacity: isDragging && !isOverlay ? 0 : 1, boxSizing: 'border-box',
-          height: isDragging && !isOverlay ? 0 : undefined, overflow: isDragging && !isOverlay ? 'hidden' : 'visible',
-          paddingTop: isDragging && !isOverlay ? 0 : '6px', paddingBottom: isDragging && !isOverlay ? 0 : '6px',
-          marginTop: isDragging && !isOverlay ? 0 : undefined, marginBottom: isDragging && !isOverlay ? 0 : undefined,
-          minHeight: isDragging && !isOverlay ? 0 : '36px',
           boxShadow: isOverlay ? '0 8px 16px rgba(0,0,0,0.5)' : 'none',
         }}
       >
