@@ -1,8 +1,6 @@
 // Date/time parser — port from Flutter date_parser.dart
 
-const monthsIT = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre']
-const monthsEN = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december']
-const monthsAll = [...monthsIT, ...monthsEN]
+const monthsAll = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december']
 
 export function parseDateInput(input: string): number | null {
   const trimmed = input.trim().toLowerCase()
@@ -88,7 +86,7 @@ export function computeFilterRange(dateInput: string, timeInput: string, lastMsg
     const end = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999).getTime()
     return { start, end }
   } else if (timeObj) {
-    const ref = lastMsgTimestamp ? new Date(lastMsgTimestamp) : new Date()
+    const ref = new Date()
     const start = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate(), timeObj.hours, timeObj.minutes, timeObj.seconds, 0).getTime()
     return { start, end: Number.MAX_SAFE_INTEGER }
   }
