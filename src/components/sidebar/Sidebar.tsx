@@ -480,7 +480,8 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
           cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
           opacity: isDragging && !isOverlay ? 0 : 1, boxSizing: 'border-box',
           height: isDragging && !isOverlay ? 0 : undefined, overflow: isDragging && !isOverlay ? 'hidden' : 'visible',
-          padding: isDragging && !isOverlay ? 0 : undefined, margin: isDragging && !isOverlay ? 0 : undefined,
+          paddingTop: isDragging && !isOverlay ? 0 : '6px', paddingBottom: isDragging && !isOverlay ? 0 : '6px',
+          marginTop: isDragging && !isOverlay ? 0 : undefined, marginBottom: isDragging && !isOverlay ? 0 : undefined,
           minHeight: isDragging && !isOverlay ? 0 : '36px',
           boxShadow: isOverlay ? '0 8px 16px rgba(0,0,0,0.5)' : 'none',
         }}
