@@ -519,15 +519,14 @@ export function LogPanel(props: LogPanelProps) {
           <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', animation: 'modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)', padding: '24px', maxWidth: '400px', width: '90%' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', marginBottom: '8px' }}>Export log entries?</div>
             <div style={{ color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)', marginBottom: '20px' }}>
-              {filtered.length} entries will be exported to clipboard as markdown.
+              {filtered.length} entries will be exported as a markdown file.
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
               <button className="q-press" onClick={() => setShowExport(false)} style={{ padding: '8px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '15px', fontFamily: 'var(--font-interface)' }}>Cancel</button>
               <div style={{ width: '8px' }} />
               <button className="q-press" onClick={() => {
                 const md = filtered.map((e) => `### [${deriveLevel(e.tag)}] ${fmtTimestampFull(e.ts)}\n**Tag:** ${e.tag}\n\n${formatPayload(e.data)}\n`).join(`\n---\n\n`)
-                navigator.clipboard.writeText(md)
-                setShowExport(false)
+                invoke('export_chat_file', { content: md, filename: 'quinki-logs.md', extension: 'md' }).then(() => setShowExport(false)).catch(() => {})
               }} style={{ padding: '8px 16px', borderRadius: 'var(--radius-lg)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-success)', color: 'var(--q-bg)', fontSize: '15px', fontWeight: 500, fontFamily: 'var(--font-interface)' }}>Export</button>
             </div>
           </div>
