@@ -12,7 +12,7 @@ import type { Message, DelegationBlock, ThinkingBlock, ToolCall, ToolResult, Com
 import { Copy, Check, Info, ChevronRight } from '../icons'
 
 // Highlight search matches in text
-function highlightSearch(text: string, query: string): React.ReactNode {
+function highlightSearch(text: string, query: string, activeOcc: number = -1): React.ReactNode {
   if (!query || !query.trim()) return text
   const q = query.trim()
   const lower = text.toLowerCase()
@@ -20,10 +20,16 @@ function highlightSearch(text: string, query: string): React.ReactNode {
   const parts: React.ReactNode[] = []
   let lastIdx = 0
   let idx = lower.indexOf(lowerQ)
+  let occNum = 0
   let key = 0
   while (idx !== -1) {
     if (idx > lastIdx) parts.push(text.substring(lastIdx, idx))
-    parts.push(React.createElement('mark', { key: 'hl_' + key++, style: { backgroundColor: 'var(--q-search-highlight-bg)', color: 'var(--q-search-highlight-text)', borderRadius: '2px', padding: '0 2px' } }, text.substring(idx, idx + q.length)))
+    if (occNum === activeOcc) {
+      parts.push(React.createElement('mark', { key: 'hl_' + key++, style: { backgroundColor: 'var(--q-search-highlight-bg)', color: 'var(--q-search-highlight-text)', borderRadius: '2px', padding: '0 2px' } }, text.substring(idx, idx + q.length)))
+    } else {
+      parts.push(text.substring(idx, idx + q.length))
+    }
+    occNum++
     lastIdx = idx + q.length
     idx = lower.indexOf(lowerQ, lastIdx)
   }
@@ -37,18 +43,18 @@ interface MessageBubbleProps {
   onCopy?: (text: string) => void
 }
 
-export const MessageBubble = memo(function MessageBubble({ message, onCopy, searchQuery }: MessageBubbleProps) {
-  if (message.role === 'user') return <UserMessage message={message} onCopy={onCopy} searchQuery={searchQuery} />
-  return <AssistantMessage message={message} onCopy={onCopy} searchQuery={searchQuery} />
+export const MessageBubble = memo(function MessageBubble({ message, onCopy, searchQuery, msgIndex, activeMatchMsgIdx, activeMatchOccurrence }: MessageBubbleProps) {
+  if (message.role === 'user') return <UserMessage message={message} onCopy={onCopy} searchQuery={searchQuery} activeOcc={msgIndex === activeMatchMsgIdx ? activeMatchOccurrence : -1} />
+  return <AssistantMessage message={message} onCopy={onCopy} searchQuery={searchQuery} activeOcc={msgIndex === activeMatchMsgIdx ? activeMatchOccurrence : -1} />
 })
 
 // ── User message ──
-function UserMessage({ message, onCopy, searchQuery }: { message: Message; onCopy?: (t: string) => void; searchQuery?: string }) {
+function UserMessage({ message, onCopy, searchQuery, activeOcc }: { message: Message; onCopy?: (t: string) => void; searchQuery?: string; activeOcc?: number }) {
   // state removed
   return (
     <div className="user-message-content" style={{ width: '100%', padding: '10px 16px', backgroundColor: 'var(--q-bubble-user)', borderRadius: '12px', boxShadow: '0 0 0 1px var(--q-border), inset 0 1px 0 rgba(255,255,255,0.02)', border: 'none', animation: 'msgSent 300ms cubic-bezier(0.16, 1, 0.3, 1)' }}>
       <div style={{ color: 'var(--q-bubble-user-text)', fontSize: '14px', lineHeight: 1.5, fontFamily: 'var(--font-interface)', fontWeight: 500, whiteSpace: 'pre-wrap', wordBreak: 'break-word', userSelect: 'text', WebkitUserSelect: 'text' }}>
-        {searchQuery ? highlightSearch(message.content || '', searchQuery) : message.content}
+        {searchQuery ? highlightSearch(message.content || '', searchQuery, activeOcc ?? -1) : message.content}
       </div>
       <Footer content={message.content || ""} timestamp={message.timestamp} onCopy={onCopy} />
     </div>
@@ -66,7 +72,7 @@ function normalizeThinking(t: any): { content: string }[] | undefined {
 // ── SHARED: MessageBlocks — renders thinking, tool calls, tool results, compaction, delegation, text
 // Used by BOTH AssistantMessage and DelegationBlockView
 // If a new block type is added here, it automatically works in both chat and delegation
-function MessageBlocks({ thinking, toolCalls, toolResults, compaction, delegations, content, isError, timestamp, searchQuery }: {
+function MessageBlocks({ thinking, toolCalls, toolResults, compaction, delegations, content, isError, timestamp, searchQuery, activeOcc }: {
   thinking?: ThinkingBlock[]
   toolCalls?: ToolCall[]
   toolResults?: ToolResult[]
@@ -76,6 +82,7 @@ function MessageBlocks({ thinking, toolCalls, toolResults, compaction, delegatio
   isError?: boolean
   timestamp: string
   searchQuery?: string
+  activeOcc?: number
 }) {
   return (
     <>
@@ -89,7 +96,7 @@ function MessageBlocks({ thinking, toolCalls, toolResults, compaction, delegatio
       {toolResults?.map((tr, i) => <ToolToggle key={`tr-${i}`} label={tr.isError ? 'Tool error' : 'Tool result'} toolName={tr.name} body={tr.output} isError={tr.isError} />)}
 
       {/* Text content with markdown + code blocks */}
-      <MarkdownContent text={content} isError={isError} searchQuery={searchQuery} />
+      <MarkdownContent text={content} isError={isError} searchQuery={searchQuery} activeOcc={activeOcc} />
 
       {/* Compaction toggles (blue + orange, in order) */}
       {compaction?.map((comp, i) => (
@@ -97,19 +104,19 @@ function MessageBlocks({ thinking, toolCalls, toolResults, compaction, delegatio
       ))}
 
       {/* Delegation */}
-      {delegations?.map((d, i) => <DelegationBlockView key={`d-${i}`} delegation={d} timestamp={timestamp} searchQuery={searchQuery} />)}
+      {delegations?.map((d, i) => <DelegationBlockView key={`d-${i}`} delegation={d} timestamp={timestamp} searchQuery={searchQuery} activeOcc={activeOcc} />)}
     </>
   )
 }
 
 // ── Renderer blocchi condiviso: usato da chat + delegation (future-proof — nuovi tipi funzionano in entrambe) ──
-function renderBlocks(blocks: any[], opts: { isError?: boolean; isStreaming?: boolean; timestamp: string; agentName?: string; agentModel?: string; thinkingLevel?: string; onCopy?: (t: string) => void; searchQuery?: string }) {
-  const { isError, isStreaming, timestamp, agentName, agentModel, thinkingLevel, onCopy, searchQuery } = opts
+function renderBlocks(blocks: any[], opts: { isError?: boolean; isStreaming?: boolean; timestamp: string; agentName?: string; agentModel?: string; thinkingLevel?: string; onCopy?: (t: string) => void; searchQuery?: string; activeOcc?: number }) {
+  const { isError, isStreaming, timestamp, agentName, agentModel, thinkingLevel, onCopy, searchQuery, activeOcc } = opts
   return blocks.map((b: any, i: number, arr: any[]) => {
     if (b.type === 'thinking') return <ThinkingToggle key={`b-${i}`} content={b.content || ""} streaming={isStreaming && i === arr.length - 1} />
     if (b.type === 'tool_call') return <ToolToggle key={`b-${i}`} label="Tool call" toolName={b.name} body={b.input || ''} isError={false} />
     if (b.type === 'tool_result') return <ToolToggle key={`b-${i}`} label={b.isError ? 'Tool error' : 'Tool result'} toolName={b.name} body={b.output || ''} isError={b.isError} />
-    if (b.type === 'delegation') return <DelegationBlockView key={`b-${i}`} delegation={b} timestamp={timestamp} streaming={b.streaming} onCopy={onCopy} searchQuery={searchQuery} />
+    if (b.type === 'delegation') return <DelegationBlockView key={`b-${i}`} delegation={b} timestamp={timestamp} streaming={b.streaming} onCopy={onCopy} searchQuery={searchQuery} activeOcc={activeOcc} />
     if (b.type === 'text') {
       const isLastBlock = i === arr.length - 1
       const nextIsText = !isLastBlock && arr[i + 1]?.type === 'text'
@@ -117,7 +124,7 @@ function renderBlocks(blocks: any[], opts: { isError?: boolean; isStreaming?: bo
       return (
         <div key={`b-${i}`}>
           <div style={{ padding: '4px 0' }}>
-            <MarkdownContent text={b.content || ''} isError={isError} searchQuery={searchQuery} />
+            <MarkdownContent text={b.content || ''} isError={isError} searchQuery={searchQuery} activeOcc={activeOcc} />
           </div>
           {showFooter && (
             <Footer
@@ -137,14 +144,14 @@ function renderBlocks(blocks: any[], opts: { isError?: boolean; isStreaming?: bo
 }
 
 // ── Assistant message ──
-function AssistantMessage({ message, onCopy, searchQuery }: { message: Message; onCopy?: (t: string) => void; searchQuery?: string }) {
+function AssistantMessage({ message, onCopy, searchQuery, activeOcc }: { message: Message; onCopy?: (t: string) => void; searchQuery?: string; activeOcc?: number }) {
   const isError = message.isError
 
   return (
     <div className="assistant-content" style={{ maxWidth: 'var(--spacing-chat-max)', minWidth: 0, animation: 'materialize 400ms cubic-bezier(0.16, 1, 0.3, 1)', userSelect: 'text', WebkitUserSelect: 'text' }}>
       {/* Blocchi cronologici: toggles + testo nell'ORDINE reale. Footer dopo OGNI turno testo completato */}
       {(message as any).blocks?.length > 0
-        ? renderBlocks((message as any).blocks, { isError, isStreaming: !!message.isStreaming, timestamp: message.timestamp, agentName: message.agentName, agentModel: message.agentModel, thinkingLevel: message.thinkingLevel, onCopy, searchQuery })
+        ? renderBlocks((message as any).blocks, { isError, isStreaming: !!message.isStreaming, timestamp: message.timestamp, agentName: message.agentName, agentModel: message.agentModel, thinkingLevel: message.thinkingLevel, onCopy, searchQuery, activeOcc })
         : <>
             {normalizeThinking(message.thinking)?.map((t, i) => <ThinkingToggle key={`t-${i}`} content={t.content || ""} streaming={message.isStreaming} />)}
             {message.toolCalls?.map((tc, i) => <ToolToggle key={`tc-${i}`} label="Tool call" toolName={tc.name} body={tc.input} isError={false} />)}
@@ -174,7 +181,7 @@ function AssistantMessage({ message, onCopy, searchQuery }: { message: Message; 
       {!(message as any).blocks?.length && message.content && !message.isError && (
         <div>
           <div style={{ padding: '4px 0' }}>
-            <MarkdownContent text={message.content} isError={isError} searchQuery={searchQuery} />
+            <MarkdownContent text={message.content} isError={isError} searchQuery={searchQuery} activeOcc={activeOcc} />
           </div>
           {!message.isStreaming && (
             <Footer
@@ -193,18 +200,18 @@ function AssistantMessage({ message, onCopy, searchQuery }: { message: Message; 
       {message.compaction?.map((comp, i) => (
         <CompactionToggle key={`comp-${i}`} content={comp.content || ""} isNoop={comp.isNoop} />
       ))}
-      {!(message as any).blocks?.length && message.delegations?.map((d, i) => <DelegationBlockView key={`d-${i}`} delegation={d} timestamp={message.timestamp} searchQuery={searchQuery} />)}
+      {!(message as any).blocks?.length && message.delegations?.map((d, i) => <DelegationBlockView key={`d-${i}`} delegation={d} timestamp={message.timestamp} searchQuery={searchQuery} activeOcc={activeOcc} />)}
     </div>
   )
 }
 
 // ── Markdown content with code blocks (copy + syntax highlighting) ──
-function MarkdownContent({ text, isError, searchQuery }: { text: string; isError?: boolean; searchQuery?: string }) {
+function MarkdownContent({ text, isError, searchQuery, activeOcc }: { text: string; isError?: boolean; searchQuery?: string; activeOcc?: number }) {
   // When searching, show plain text with highlight (not markdown)
   if (searchQuery && searchQuery.trim()) {
     return (
       <div className="markdown-content" style={{ padding: '4px 0', userSelect: 'text', WebkitUserSelect: 'text', color: isError ? 'var(--q-accent-danger)' : 'var(--q-text)', fontSize: '14px', lineHeight: 1.5, fontFamily: 'var(--font-interface)', fontWeight: 500, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-        {highlightSearch(text || '', searchQuery)}
+        {highlightSearch(text || '', searchQuery, activeOcc ?? -1)}
       </div>
     )
   }
@@ -357,7 +364,7 @@ function CompactionToggle({ content, isNoop }: { content: string; isNoop: boolea
 }
 
 // ── Delegation block (full chat structure inside) ──
-function DelegationBlockView({ delegation, timestamp, streaming, onCopy, searchQuery }: { delegation: any; timestamp: string; streaming?: boolean; onCopy?: (t: string) => void; searchQuery?: string }) {
+function DelegationBlockView({ delegation, timestamp, streaming, onCopy, searchQuery, activeOcc }: { delegation: any; timestamp: string; streaming?: boolean; onCopy?: (t: string) => void; searchQuery?: string; activeOcc?: number }) {
   const [collapsed, setCollapsed] = useState(true)
   const [hovered, setHovered] = useState(false)
   const [copyHovered, setCopyHovered] = useState(false)
@@ -419,10 +426,10 @@ function DelegationBlockView({ delegation, timestamp, streaming, onCopy, searchQ
 
           {/* Blocchi nested della delega in ORDINE reale (thinking/tool/testo — stesso renderer della chat) */}
           {delegation.blocks?.length > 0
-            ? renderBlocks(delegation.blocks, { isStreaming: !!streaming, timestamp, agentName: delegation.agentName, agentModel: delegation.agentModel, thinkingLevel: delegation.thinkingLevel, onCopy, searchQuery })
+            ? renderBlocks(delegation.blocks, { isStreaming: !!streaming, timestamp, agentName: delegation.agentName, agentModel: delegation.agentModel, thinkingLevel: delegation.thinkingLevel, onCopy, searchQuery, activeOcc })
             : delegation.response && (
               <div style={{ padding: '4px 0' }}>
-                <MarkdownContent text={delegation.response} searchQuery={searchQuery} />
+                <MarkdownContent text={delegation.response} searchQuery={searchQuery} activeOcc={activeOcc} />
               </div>
             )}
 

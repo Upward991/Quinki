@@ -82,6 +82,19 @@ export function ChatArea(props: ChatAreaProps) {
     return out
   })()
 
+  // Active match: which message + which occurrence within that message
+  const activeMatchIdx = currentMatch < 0 ? matches.length - 1 : currentMatch
+  const activeMatchInfo = (() => {
+    if (matches.length === 0 || activeMatchIdx < 0) return null
+    const m = matches[activeMatchIdx]
+    // Count occurrences in the same message before this one
+    let occ = 0
+    for (let i = 0; i < activeMatchIdx; i++) {
+      if (matches[i].msgIdx === m.msgIdx) occ++
+    }
+    return { msgIdx: m.msgIdx, occurrence: occ }
+  })()
+
   const isEmpty = props.messages.length === 0 || props.welcomeMode
 
   // Auto-scroll on session change or new messages
@@ -169,7 +182,7 @@ export function ChatArea(props: ChatAreaProps) {
               onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100) }}>
               {props.messages.map((msg, mIdx) => (
                 <div key={msg.id} data-msg-idx={mIdx} style={{ marginBottom: '12px' }}>
-                  <MessageBubble message={msg} onCopy={() => {}} searchQuery={searchQuery} />
+                  <MessageBubble message={msg} onCopy={() => {}} searchQuery={searchQuery} msgIndex={mIdx} activeMatchMsgIdx={activeMatchInfo?.msgIdx ?? -1} activeMatchOccurrence={activeMatchInfo?.occurrence ?? -1} />
                 </div>
               ))}
             </div>
