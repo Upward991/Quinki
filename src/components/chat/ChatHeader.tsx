@@ -22,7 +22,7 @@ interface ChatHeaderProps {
   contextInput?: number
   contextOutput?: number
   providers: any[]
-  onExport: () => void
+  onExport: (format?: string) => void
   welcomeMode?: boolean
   agentOverrides?: Record<string, { model?: string; thinkingLevel?: string }>
   onSetAgentOverride?: (agentId: string, overrides: { model?: string | null; thinkingLevel?: string | null }) => void
@@ -38,6 +38,7 @@ interface ChatHeaderProps {
 export function ChatHeader(props: ChatHeaderProps) {
   const isExpert = props.activePanel === 'expert'
   const [searchOpen, setSearchOpen] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
   const [contextOpen, setContextOpen] = useState(false)
   const [searchDate, setSearchDate] = useState('')
   const [searchTime, setSearchTime] = useState('')
@@ -193,7 +194,7 @@ export function ChatHeader(props: ChatHeaderProps) {
 
 {/* Export */}
           <div style={{ width: '8px', flexShrink: 0 }} />
-          <IconBtn icon={Download} onClick={() => props.onExport()} title="Export chat" />
+          <IconBtn icon={Download} onClick={() => setExportOpen(true)} title="Export chat" />
 
           {/* Search — panel INSIDE the position:relative wrapper */}
           <div style={{ width: '8px', flexShrink: 0 }} />
@@ -337,6 +338,20 @@ export function ChatHeader(props: ChatHeaderProps) {
       {/* Export modal — Flutter AlertDialog: bgElevated, radiusXl, NO border, all TextButtons coral */}
 
 
+      {exportOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setExportOpen(false)}>
+          <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+            <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', padding: '14px 18px' }}>Export chat</div>
+            <div style={{ color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', lineHeight: 1.4, padding: '14px 18px' }}>Choose export format:</div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '0 16px 12px 16px' }}>
+              <ExportBtn label="Cancel" color="var(--q-accent-danger)" hoverRgb="217,107,107" onClick={() => setExportOpen(false)} />
+              <div style={{ width: '8px', flexShrink: 0 }} />
+              <ExportBtn label="Markdown (.md)" color="var(--q-tab-accent)" hoverRgb="181,199,224" onClick={() => { setExportOpen(false); props.onExport('md') }} />
+              <ExportBtn label="HTML (.html)" color="var(--q-tab-accent)" hoverRgb="181,199,224" onClick={() => { setExportOpen(false); props.onExport('html') }} />
+            </div>
+          </div>
+        </div>
+      )}
       {/* Agent picker modal (Add agent) */}
       {addAgentOpen && (
         <AgentPickerModal

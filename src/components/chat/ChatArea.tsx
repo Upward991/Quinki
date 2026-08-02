@@ -43,7 +43,7 @@ interface ChatAreaProps {
   onSend: (text: string) => void
   onStop: () => void
   onRenameSession: (label: string) => void
-  onExport: () => void
+  onExport: (format?: string) => void
   onReset?: () => void
   onReload?: () => void
   onCompact?: () => void
