@@ -59,8 +59,7 @@ export function ChatArea(props: ChatAreaProps) {
   const [currentMatch, setCurrentMatch] = useState(0)
 
   // Compute matches in plain text, filtered by date/time
-  const hasDateFilter = searchDate.trim() || searchTime.trim()
-  const lastTs = props.messages.length > 0 ? new Date(props.messages[props.messages.length - 1].timestamp).getTime() : undefined
+  const hasDateFilter = !!(searchDate.trim() || searchTime.trim())
   const matches = (() => {
     if (!searchQuery.trim() && !hasDateFilter) return []
     const q = searchQuery.trim().toLowerCase()
@@ -70,7 +69,7 @@ export function ChatArea(props: ChatAreaProps) {
       // Date/time filter
       if (hasDateFilter) {
         const ts = new Date(m.timestamp).getTime()
-        if (!messageMatchesFilters(ts, searchDate, searchTime, lastTs)) return
+        if (!messageMatchesFilters(ts, searchDate, searchTime)) return
       }
       if (!q) {
         // Date-only: match the whole message (no text highlight)

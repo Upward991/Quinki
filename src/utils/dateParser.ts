@@ -1,4 +1,4 @@
-// Date/time parser — port from Flutter date_parser.dart
+// Date/time parser — English only, time matches time-of-day (not range)
 
 const monthsAll = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december']
 
@@ -32,9 +32,8 @@ export function parseDateInput(input: string): number | null {
     const monthIdx = monthsAll.indexOf(m[2])
     const year = m[3] ? +m[3] : new Date().getFullYear()
     if (monthIdx !== -1) {
-      const realMonth = monthIdx % 12
-      const d = new Date(year, realMonth, day)
-      if (d.getFullYear() === year && d.getMonth() === realMonth && d.getDate() === day) return d.getTime()
+      const d = new Date(year, monthIdx, day)
+      if (d.getFullYear() === year && d.getMonth() === monthIdx && d.getDate() === day) return d.getTime()
     }
   }
 
@@ -51,52 +50,63 @@ export function parseDateInput(input: string): number | null {
   return null
 }
 
-export function parseTimeInput(input: string): { hours: number, minutes: number, seconds: number } | null {
+export type TimePrecision = 'hour' | 'minute' | 'second'
+export interface ParsedTime {
+  hours: number
+  minutes: number
+  seconds: number
+  precision: TimePrecision
+}
+
+export function parseTimeInput(input: string): ParsedTime | null {
   const trimmed = input.trim()
   if (!trimmed) return null
+  // hh:mm:ss
   let m = trimmed.match(/^(\d{1,2})[:\s](\d{2})[:\s](\d{2})$/)
   if (m) {
     const h = +m[1], min = +m[2], s = +m[3]
-    if (h >= 0 && h < 24 && min >= 0 && min < 60 && s >= 0 && s < 60) return { hours: h, minutes: min, seconds: s }
+    if (h >= 0 && h < 24 && min >= 0 && min < 60 && s >= 0 && s < 60) return { hours: h, minutes: min, seconds: s, precision: 'second' }
   }
+  // hh:mm
   m = trimmed.match(/^(\d{1,2})[:\s](\d{2})$/)
   if (m) {
     const h = +m[1], min = +m[2]
-    if (h >= 0 && h < 24 && min >= 0 && min < 60) return { hours: h, minutes: min, seconds: 0 }
+    if (h >= 0 && h < 24 && min >= 0 && min < 60) return { hours: h, minutes: min, seconds: 0, precision: 'minute' }
   }
+  // hh only
   m = trimmed.match(/^(\d{1,2})$/)
   if (m) {
     const h = +m[1]
-    if (h >= 0 && h < 24) return { hours: h, minutes: 0, seconds: 0 }
+    if (h >= 0 && h < 24) return { hours: h, minutes: 0, seconds: 0, precision: 'hour' }
   }
   return null
 }
 
-export function computeFilterRange(dateInput: string, timeInput: string, lastMsgTimestamp?: number): { start: number, end: number } | null {
-  const dateTs = dateInput ? parseDateInput(dateInput) : null
-  const timeObj = timeInput ? parseTimeInput(timeInput) : null
+// Check if a message timestamp matches date + time filters
+export function messageMatchesFilters(ts: number, dateInput: string, timeInput: string): boolean {
+  const dateTs = dateInput.trim() ? parseDateInput(dateInput) : null
+  const timeObj = timeInput.trim() ? parseTimeInput(timeInput) : null
 
-  if (dateTs != null && timeObj) {
-    const d = new Date(dateTs)
-    const start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), timeObj.hours, timeObj.minutes, timeObj.seconds, 0).getTime()
-    return { start, end: start }
-  } else if (dateTs != null) {
-    const d = new Date(dateTs)
-    const start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0).getTime()
-    const end = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999).getTime()
-    return { start, end }
-  } else if (timeObj) {
-    const ref = new Date()
-    const start = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate(), timeObj.hours, timeObj.minutes, timeObj.seconds, 0).getTime()
-    return { start, end: Number.MAX_SAFE_INTEGER }
+  if (!dateTs && !timeObj) return true // no filter → match all
+
+  const d = new Date(ts)
+
+  // Date filter: must match the exact day
+  if (dateTs) {
+    const dr = new Date(dateTs)
+    if (d.getFullYear() !== dr.getFullYear() || d.getMonth() !== dr.getMonth() || d.getDate() !== dr.getDate()) return false
   }
-  return null
-}
 
-export function messageMatchesFilters(ts: number, dateInput: string, timeInput: string, lastMsgTimestamp?: number): boolean {
-  const range = computeFilterRange(dateInput, timeInput, lastMsgTimestamp)
-  if (!range) return true
-  if (ts < range.start) return false
-  if (range.end !== Number.MAX_SAFE_INTEGER && ts > range.end) return false
+  // Time filter: match time-of-day components based on precision
+  if (timeObj) {
+    if (d.getHours() !== timeObj.hours) return false
+    if (timeObj.precision === 'minute' || timeObj.precision === 'second') {
+      if (d.getMinutes() !== timeObj.minutes) return false
+    }
+    if (timeObj.precision === 'second') {
+      if (d.getSeconds() !== timeObj.seconds) return false
+    }
+  }
+
   return true
 }
