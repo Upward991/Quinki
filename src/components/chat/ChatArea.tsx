@@ -3,6 +3,7 @@
 // ============================================================
 
 import { useRef, useEffect, useState } from 'react'
+import { messageMatchesFilters } from '../../utils/dateParser'
 import { getContrastColor } from '../../utils/contrast'
 import { MessageBubble } from './MessageBubble'
 import { ChatHeader } from './ChatHeader'
