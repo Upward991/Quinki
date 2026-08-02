@@ -78,16 +78,18 @@ export function ChatArea(props: ChatAreaProps) {
 
   // Auto-scroll on session change or new messages
   const sessionId = props.session?.id || ''
+  const msgCount = props.messages.length
   useEffect(() => {
     if (scrollRef.current && !isEmpty) {
-      // Multiple passes: immediate + rAF + 150ms + 300ms (for long chats with heavy markdown)
+      // Multiple passes for long chats with heavy markdown
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
       const raf1 = requestAnimationFrame(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight })
-      const t1 = setTimeout(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 150)
+      const t1 = setTimeout(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 100)
       const t2 = setTimeout(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 300)
-      return () => { cancelAnimationFrame(raf1); clearTimeout(t1); clearTimeout(t2) }
+      const t3 = setTimeout(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 500)
+      return () => { cancelAnimationFrame(raf1); clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
     }
-  }, [sessionId, props.messages, isEmpty, props.streaming])
+  }, [sessionId, msgCount, isEmpty, props.streaming])
 
   return (
     <div className="h-full flex flex-col" style={{ maxWidth: 'var(--spacing-chat-max)', margin: '0 auto', width: '100%', position: 'relative' }}>
