@@ -182,7 +182,7 @@ function AssistantMessage({ message, onCopy, searchQuery, activeOcc, isDateMatch
   const isError = message.isError
 
   return (
-    <div className="assistant-content" style={{ maxWidth: 'var(--spacing-chat-max)', minWidth: 0, animation: 'materialize 400ms cubic-bezier(0.16, 1, 0.3, 1)', userSelect: 'text', WebkitUserSelect: 'text' }}>
+    <div className="assistant-content" style={{ maxWidth: 'var(--spacing-chat-max)', minWidth: 0, animation: 'materialize 400ms cubic-bezier(0.16, 1, 0.3, 1)', userSelect: 'text', WebkitUserSelect: 'text', borderRadius: 'var(--radius-md)', boxShadow: isDateMatch ? '0 0 0 2px var(--q-search-highlight-bg)' : 'none', padding: isDateMatch ? '8px' : '0' }}>
       {/* Blocchi cronologici: toggles + testo nell'ORDINE reale. Footer dopo OGNI turno testo completato */}
       {(message as any).blocks?.length > 0
         ? renderBlocks((message as any).blocks, { isError, isStreaming: !!message.isStreaming, timestamp: message.timestamp, agentName: message.agentName, agentModel: message.agentModel, thinkingLevel: message.thinkingLevel, onCopy, searchQuery, activeOcc })
