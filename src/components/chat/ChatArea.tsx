@@ -66,7 +66,7 @@ export function ChatArea(props: ChatAreaProps) {
     for (let i = 0; i < props.messages.length; i++) {
       const m = props.messages[i]
       if (m.role !== 'user' && m.role !== 'assistant') continue
-      if (!m.content && !m.errorContent) continue // skip empty messages
+      if (!m.content && !m.errorContent && !(m as any).blocks?.length) continue // skip messages with no visible content
       const ts = new Date(m.timestamp).getTime()
       if (messageMatchesFilters(ts, searchDate, searchTime)) return i
     }

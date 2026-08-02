@@ -86,7 +86,7 @@ function UserMessage({ message, onCopy, searchQuery, activeOcc, isDateMatch }: {
     if (parts.length > 0) rendered = parts
   }
   return (
-    <div className="user-message-content" style={{ width: '100%', padding: '10px 16px', backgroundColor: 'var(--q-bubble-user)', borderRadius: '12px', boxShadow: isDateMatch ? '0 0 0 2px var(--q-search-highlight-bg)' : '0 0 0 1px var(--q-border), inset 0 1px 0 rgba(255,255,255,0.02)', border: 'none', animation: 'msgSent 300ms cubic-bezier(0.16, 1, 0.3, 1)' }}>
+    <div className="user-message-content" style={{ width: '100%', padding: '10px 16px', backgroundColor: 'var(--q-bubble-user)', borderRadius: '12px', boxShadow: isDateMatch ? 'none' : '0 0 0 1px var(--q-border), inset 0 1px 0 rgba(255,255,255,0.02)', border: isDateMatch ? '2px solid var(--q-search-highlight-bg)' : 'none', animation: 'msgSent 300ms cubic-bezier(0.16, 1, 0.3, 1)' }}>
       <div style={{ color: 'var(--q-bubble-user-text)', fontSize: '14px', lineHeight: 1.5, fontFamily: 'var(--font-interface)', fontWeight: 500, whiteSpace: 'pre-wrap', wordBreak: 'break-word', userSelect: 'text', WebkitUserSelect: 'text' }}>
         {rendered}
       </div>
@@ -182,7 +182,7 @@ function AssistantMessage({ message, onCopy, searchQuery, activeOcc, isDateMatch
   const isError = message.isError
 
   return (
-    <div className="assistant-content" style={{ maxWidth: 'var(--spacing-chat-max)', minWidth: 0, animation: 'materialize 400ms cubic-bezier(0.16, 1, 0.3, 1)', userSelect: 'text', WebkitUserSelect: 'text', borderRadius: 'var(--radius-md)', boxShadow: isDateMatch ? '0 0 0 2px var(--q-search-highlight-bg)' : 'none', padding: isDateMatch ? '8px' : '0' }}>
+    <div className="assistant-content" style={{ maxWidth: 'var(--spacing-chat-max)', minWidth: 0, animation: 'materialize 400ms cubic-bezier(0.16, 1, 0.3, 1)', userSelect: 'text', WebkitUserSelect: 'text', border: isDateMatch ? '2px solid var(--q-search-highlight-bg)' : 'none', borderRadius: isDateMatch ? 'var(--radius-md)' : '0', padding: isDateMatch ? '8px' : '0' }}>
       {/* Blocchi cronologici: toggles + testo nell'ORDINE reale. Footer dopo OGNI turno testo completato */}
       {(message as any).blocks?.length > 0
         ? renderBlocks((message as any).blocks, { isError, isStreaming: !!message.isStreaming, timestamp: message.timestamp, agentName: message.agentName, agentModel: message.agentModel, thinkingLevel: message.thinkingLevel, onCopy, searchQuery, activeOcc })
