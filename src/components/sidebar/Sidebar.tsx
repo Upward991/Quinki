@@ -117,12 +117,20 @@ export function Sidebar(props: SidebarProps) {
     if (item) {
       dragRef.current = { id: ev.active.id, kind: item.item.type === 'folder' ? 'folder' : 'chat' }
       setActiveDragItem(item.item)
-      // Freeze all item positions
+      // Freeze all item positions (initial)
       const rects = new Map()
       document.querySelectorAll('[data-row-id]').forEach((el: any) => {
         rects.set(el.dataset.rowId, el.getBoundingClientRect())
       })
       itemRects.current = rects
+      // Re-record after a frame (the dragged item collapses, shifting items up)
+      requestAnimationFrame(() => {
+        const rects2 = new Map()
+        document.querySelectorAll('[data-row-id]').forEach((el: any) => {
+          rects2.set(el.dataset.rowId, el.getBoundingClientRect())
+        })
+        itemRects.current = rects2
+      })
     }
   }
 
@@ -137,7 +145,7 @@ export function Sidebar(props: SidebarProps) {
       const rect = itemRects.current.get(entry.item.id)
       if (!rect) continue
       if (pointerY >= rect.top && pointerY <= rect.bottom) {
-        if (!canAccept(e, dragRef.current, entry.item.id)) { setDropZone(null); return }
+        if (!canAccept(e, dragRef.current, entry.item.id)) continue
         const relY = pointerY - rect.top
         const isFolder = entry.item.type === 'folder'
         let zone = computeZone(relY, rect.height, isFolder)
@@ -452,7 +460,7 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
     <div
       ref={setDropRef}
       data-row-id={item.id}
-      style={{ paddingLeft: '8px', paddingRight: '8px', paddingBottom: '2px', position: 'relative' }}
+      style={{ paddingLeft: '8px', paddingRight: '8px', paddingBottom: '2px', position: 'relative', height: isDragging && !isOverlay ? 0 : undefined, overflow: 'hidden' }}
       onMouseEnter={() => onHover(true)}
       onMouseLeave={() => onHover(false)}
     >
@@ -470,7 +478,10 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
           backgroundColor: showDropIndicator && dropZone.zone === 'into' ? 'rgba(255,165,0,0.15)' : bgColor,
           border: 'none',
           cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
-          opacity: isDragging && !isOverlay ? 0.15 : 1, boxSizing: 'border-box',
+          opacity: isDragging && !isOverlay ? 0 : 1, boxSizing: 'border-box',
+          height: isDragging && !isOverlay ? 0 : undefined, overflow: isDragging && !isOverlay ? 'hidden' : 'visible',
+          padding: isDragging && !isOverlay ? 0 : undefined, margin: isDragging && !isOverlay ? 0 : undefined,
+          minHeight: isDragging && !isOverlay ? 0 : '36px',
           boxShadow: isOverlay ? '0 8px 16px rgba(0,0,0,0.5)' : 'none',
         }}
       >
