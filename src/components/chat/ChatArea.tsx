@@ -76,20 +76,18 @@ export function ChatArea(props: ChatAreaProps) {
 
   const isEmpty = props.messages.length === 0 || props.welcomeMode
 
+  // Auto-scroll on session change or new messages
+  const sessionId = props.session?.id || ''
   useEffect(() => {
-    // Auto-scroll: segue SEMPRE la generazione verso il basso.
-    // Doppio pass: immediato + dopo il render del markdown (altezza cambia).
     if (scrollRef.current && !isEmpty) {
+      // Multiple passes: immediate + rAF + 150ms + 300ms (for long chats with heavy markdown)
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-      const raf = requestAnimationFrame(() => {
-        if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-      })
-      const t = setTimeout(() => {
-        if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-      }, 120)
-      return () => { cancelAnimationFrame(raf); clearTimeout(t) }
+      const raf1 = requestAnimationFrame(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight })
+      const t1 = setTimeout(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 150)
+      const t2 = setTimeout(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 300)
+      return () => { cancelAnimationFrame(raf1); clearTimeout(t1); clearTimeout(t2) }
     }
-  }, [props.messages, isEmpty, props.streaming])
+  }, [sessionId, props.messages, isEmpty, props.streaming])
 
   return (
     <div className="h-full flex flex-col" style={{ maxWidth: 'var(--spacing-chat-max)', margin: '0 auto', width: '100%', position: 'relative' }}>
