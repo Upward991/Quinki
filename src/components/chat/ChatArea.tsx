@@ -52,6 +52,27 @@ interface ChatAreaProps {
 export function ChatArea(props: ChatAreaProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [showScrollBtn, setShowScrollBtn] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [currentMatch, setCurrentMatch] = useState(0)
+
+  // Compute matches
+  const matches = (() => {
+    if (!searchQuery.trim()) return []
+    const q = searchQuery.trim().toLowerCase()
+    const out: { msgIdx: number, charIdx: number }[] = []
+    props.messages.forEach((m, i) => {
+      if (m.role !== 'user' && m.role !== 'assistant') return
+      const text = (m.content || '').toLowerCase()
+      let idx = 0
+      let localIdx = 0
+      while ((idx = text.indexOf(q, idx)) !== -1) {
+        out.push({ msgIdx: i, charIdx: idx })
+        localIdx++
+        idx += q.length
+      }
+    })
+    return out
+  })()
 
   const isEmpty = props.messages.length === 0 || props.welcomeMode
 
@@ -96,6 +117,21 @@ export function ChatArea(props: ChatAreaProps) {
           onSetAgentOverride={props.onSetAgentOverride}
           onCompact={props.onCompact}
           onReload={props.onReload}
+          searchQuery={searchQuery}
+          onSearchQueryChange={(q) => { setSearchQuery(q); setCurrentMatch(0) }}
+          matchCount={matches.length}
+          currentMatch={currentMatch}
+          onMatchNavigate={(dir) => {
+            if (matches.length === 0) return
+            const next = dir === 'next' ? (currentMatch + 1) % matches.length : (currentMatch - 1 + matches.length) % matches.length
+            setCurrentMatch(next)
+            // Scroll to the matched message
+            const match = matches[next]
+            if (match) {
+              const msgEl = scrollRef.current?.querySelector(`[data-msg-idx="${match.msgIdx}"]`)
+              if (msgEl) msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            }
+          }}
         />
       </div>
 
@@ -122,9 +158,9 @@ export function ChatArea(props: ChatAreaProps) {
           <div style={{ flex: 1, minHeight: 0, overflow: 'visible', position: 'relative' }}>
             <div ref={scrollRef} style={{ height: '100%', overflowY: 'auto', padding: '4px 16px 0 16px', scrollbarGutter: 'stable' }}
               onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100) }}>
-              {props.messages.map(msg => (
-                <div key={msg.id} style={{ marginBottom: '12px' }}>
-                  <MessageBubble message={msg} onCopy={() => {}} />
+              {props.messages.map((msg, mIdx) => (
+                <div key={msg.id} data-msg-idx={mIdx} style={{ marginBottom: '12px' }}>
+                  <MessageBubble message={msg} onCopy={() => {}} searchQuery={searchQuery} />
                 </div>
               ))}
             </div>

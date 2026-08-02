@@ -28,6 +28,11 @@ interface ChatHeaderProps {
   onSetAgentOverride?: (agentId: string, overrides: { model?: string | null; thinkingLevel?: string | null }) => void
   onCompact?: () => void
   onReload?: () => void
+  searchQuery?: string
+  onSearchQueryChange?: (q: string) => void
+  matchCount?: number
+  currentMatch?: number
+  onMatchNavigate?: (dir: 'prev' | 'next') => void
 }
 
 export function ChatHeader(props: ChatHeaderProps) {
@@ -35,9 +40,12 @@ export function ChatHeader(props: ChatHeaderProps) {
   const [exportOpen, setExportOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [contextOpen, setContextOpen] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
   const [searchDate, setSearchDate] = useState('')
   const [searchTime, setSearchTime] = useState('')
+  const searchQuery = props.searchQuery || ''
+  const setSearchQuery = props.onSearchQueryChange || (() => {})
+  const matchCount = props.matchCount || 0
+  const currentMatch = props.currentMatch || 0
   const [ctxMenu, setCtxMenu] = useState<{x: number, y: number, agentId: string} | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [multiSelect, setMultiSelect] = useState(false)
@@ -205,10 +213,10 @@ export function ChatHeader(props: ChatHeaderProps) {
                       style={{ flex: 1, minWidth: 0, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0', margin: '0' }} />
                     <button onClick={() => { setSearchQuery(''); setSearchDate(''); setSearchTime('') }}
                       style={{ background: 'none', border: 'none', cursor: searchQuery ? 'pointer' : 'default', padding: '8px', color: searchQuery ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)', fontSize: '14px', opacity: searchQuery ? 1 : 0.3, lineHeight: '1', flexShrink: 0 }}>✕</button>
-                    <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-code)', whiteSpace: 'nowrap', opacity: 0.3, flexShrink: 0 }}>0/0</span>
+                    <span style={{ color: matchCount > 0 ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-code)', whiteSpace: 'nowrap', opacity: matchCount > 0 ? 1 : 0.3, flexShrink: 0 }}>{matchCount > 0 ? (currentMatch + 1) + '/' + matchCount : '0/0'}</span>
                     <div style={{ width: '8px', flexShrink: 0 }} />
-                    <button style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', color: 'var(--q-text-tertiary)', opacity: 0.3, lineHeight: '0', flexShrink: 0, display: 'flex' }}><ChevronUp size={16} /></button>
-                    <button style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', color: 'var(--q-text-tertiary)', opacity: 0.3, lineHeight: '0', flexShrink: 0, display: 'flex' }}><ChevronDown size={16} /></button>
+                    <button onClick={() => props.onMatchNavigate?.('prev')} style={{ background: 'none', border: 'none', cursor: matchCount > 0 ? 'pointer' : 'default', padding: '0', color: matchCount > 0 ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)', opacity: matchCount > 0 ? 1 : 0.3, lineHeight: '0', flexShrink: 0, display: 'flex' }}><ChevronUp size={16} /></button>
+                    <button onClick={() => props.onMatchNavigate?.('next')} style={{ background: 'none', border: 'none', cursor: matchCount > 0 ? 'pointer' : 'default', padding: '0', color: matchCount > 0 ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)', opacity: matchCount > 0 ? 1 : 0.3, lineHeight: '0', flexShrink: 0, display: 'flex' }}><ChevronDown size={16} /></button>
                   </div>
                   <div style={{ height: '8px' }} />
                   {/* Row 2 — data + orario AFFIANCATI, icone allineate alla colonna dell'icona search */}

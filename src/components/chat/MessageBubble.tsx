@@ -11,12 +11,33 @@ import 'highlight.js/styles/github-dark.css'
 import type { Message, DelegationBlock, ThinkingBlock, ToolCall, ToolResult, CompactionInfo } from '../../types'
 import { Copy, Check, Info, ChevronRight } from '../icons'
 
+// Highlight search matches in text
+function highlightSearch(text: string, query: string): React.ReactNode {
+  if (!query || !query.trim()) return text
+  const q = query.trim()
+  const lower = text.toLowerCase()
+  const lowerQ = q.toLowerCase()
+  const parts: React.ReactNode[] = []
+  let lastIdx = 0
+  let idx = lower.indexOf(lowerQ)
+  let key = 0
+  while (idx !== -1) {
+    if (idx > lastIdx) parts.push(text.substring(lastIdx, idx))
+    parts.push(React.createElement('mark', { key: 'hl_' + key++, style: { backgroundColor: 'var(--q-tab-accent)', color: 'var(--q-bg)', borderRadius: '2px', padding: '0 1px' } }, text.substring(idx, idx + q.length)))
+    lastIdx = idx + q.length
+    idx = lower.indexOf(lowerQ, lastIdx)
+  }
+  if (lastIdx < text.length) parts.push(text.substring(lastIdx))
+  return parts.length > 0 ? parts : text
+}
+
+
 interface MessageBubbleProps {
   message: Message
   onCopy?: (text: string) => void
 }
 
-export const MessageBubble = memo(function MessageBubble({ message, onCopy }: MessageBubbleProps) {
+export const MessageBubble = memo(function MessageBubble({ message, onCopy, searchQuery }: MessageBubbleProps) {
   if (message.role === 'user') return <UserMessage message={message} onCopy={onCopy} />
   return <AssistantMessage message={message} onCopy={onCopy} />
 })
@@ -27,7 +48,7 @@ function UserMessage({ message, onCopy }: { message: Message; onCopy?: (t: strin
   return (
     <div className="user-message-content" style={{ width: '100%', padding: '10px 16px', backgroundColor: 'var(--q-bubble-user)', borderRadius: '12px', boxShadow: '0 0 0 1px var(--q-border), inset 0 1px 0 rgba(255,255,255,0.02)', border: 'none', animation: 'msgSent 300ms cubic-bezier(0.16, 1, 0.3, 1)' }}>
       <div style={{ color: 'var(--q-bubble-user-text)', fontSize: '14px', lineHeight: 1.5, fontFamily: 'var(--font-interface)', fontWeight: 500, whiteSpace: 'pre-wrap', wordBreak: 'break-word', userSelect: 'text', WebkitUserSelect: 'text' }}>
-        {message.content}
+        {searchQuery ? highlightSearch(message.content || '', searchQuery) : message.content}
       </div>
       <Footer content={message.content || ""} timestamp={message.timestamp} onCopy={onCopy} />
     </div>
