@@ -21,10 +21,16 @@ function highlightSearch(text: string, query: string, activeOcc: number = -1): R
   const parts: React.ReactNode[] = []
   let lastIdx = 0
   let idx = lower.indexOf(lowerQ)
+  let occNum = 0
   let key = 0
   while (idx !== -1) {
     if (idx > lastIdx) parts.push(text.substring(lastIdx, idx))
-    parts.push(React.createElement('mark', { key: 'hl_' + key++, style: { backgroundColor: 'var(--q-search-highlight-bg)', color: 'var(--q-search-highlight-text)', borderRadius: '2px', padding: '0 2px' } }, text.substring(idx, idx + q.length)))
+    if (occNum === activeOcc) {
+      parts.push(React.createElement('mark', { key: 'hl_' + key++, style: { backgroundColor: 'var(--q-search-highlight-bg)', color: 'var(--q-search-highlight-text)', borderRadius: '2px', padding: '0 2px' } }, text.substring(idx, idx + q.length)))
+    } else {
+      parts.push(text.substring(idx, idx + q.length))
+    }
+    occNum++
     lastIdx = idx + q.length
     idx = lower.indexOf(lowerQ, lastIdx)
   }

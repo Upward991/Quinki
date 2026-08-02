@@ -82,17 +82,23 @@ export function ChatArea(props: ChatAreaProps) {
     return out
   })()
 
-  // Active match: which message + which occurrence within that message
+  // Active match: which message + which occurrence in the content field
   const activeMatchIdx = currentMatch < 0 ? matches.length - 1 : currentMatch
   const activeMatchInfo = (() => {
     if (matches.length === 0 || activeMatchIdx < 0) return null
     const m = matches[activeMatchIdx]
-    // Count occurrences in the same message before this one
-    let occ = 0
-    for (let i = 0; i < activeMatchIdx; i++) {
-      if (matches[i].msgIdx === m.msgIdx) occ++
+    // Count how many matches in this message are in the content field (before the active one)
+    const msg = props.messages[m.msgIdx]
+    if (!msg) return null
+    const contentText = (msg.content || '').toLowerCase()
+    const contentLen = contentText.length
+    let contentOcc = -1
+    for (let i = 0; i <= activeMatchIdx; i++) {
+      if (matches[i].msgIdx === m.msgIdx && matches[i].charIdx < contentLen) {
+        contentOcc++
+      }
     }
-    return { msgIdx: m.msgIdx, occurrence: occ }
+    return { msgIdx: m.msgIdx, occurrence: contentOcc }
   })()
 
   const isEmpty = props.messages.length === 0 || props.welcomeMode
