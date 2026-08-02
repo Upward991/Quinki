@@ -301,8 +301,8 @@ export function Sidebar(props: SidebarProps) {
         ) : (
           <DndContext
             sensors={sensors}
-            collisionDetection={pointerWithin}
-            autoScroll={{ threshold: { x: 0, y: 0.1 }, canScroll: (el) => el === document.querySelector('[data-sidebar-scroll]') }}
+            collisionDetection={closestCenter}
+            autoScroll
             onDragStart={handleDragStart}
             onDragMove={handleDragMove}
             onDragEnd={handleDragEnd}

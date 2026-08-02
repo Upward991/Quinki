@@ -573,6 +573,7 @@ async function bootstrap() {
     piBridge = new PiBridge({ cwd: workdir, agentDir });
     setPiBridgeInstance(piBridge);
     await piBridge.init();
+    piBridge.reloadAndMerge();
     sendNotification("ready", { message: "PiBridge initialized" });
     // === NO periodic flush, NO SIGTERM handler ===
     // #save() è chiamato esplicitamente da create(), setModel(), setChatAgents(), rename(), etc.
