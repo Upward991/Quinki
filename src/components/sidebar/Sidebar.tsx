@@ -25,8 +25,8 @@ interface SidebarProps {
 // === Drop zone computation (same as Flutter) ===
 function computeZone(y: number, h: number, isFolder: boolean): 'before' | 'after' | 'into' {
   if (isFolder) {
-    if (y < h * 0.05) return 'before'
-    if (y > h * 0.95) return 'after'
+    if (y < h * 0.15) return 'before'
+    if (y > h * 0.85) return 'after'
     return 'into'
   }
   return y < h * 0.5 ? 'before' : 'after'
@@ -309,7 +309,7 @@ export function Sidebar(props: SidebarProps) {
       </div>
 
       {/* Session list with DnD */}
-      <div data-sidebar-scroll style={{ flex: 1, overflowY: 'auto', paddingTop: '8px' }}>
+      <div data-sidebar-scroll style={{ flex: 1, overflowY: 'auto', paddingTop: '20px', paddingBottom: '20px' }}>
         {flatList.length === 0 ? (
           <div style={{ padding: '24px 8px', textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>
             No chats
@@ -324,50 +324,26 @@ export function Sidebar(props: SidebarProps) {
             onDragEnd={handleDragEnd}
             onDragCancel={() => { dragRef.current = null; setDropZone(null); setActiveDragItem(null) }}
           >
-            {(() => {
-              const rows: any[] = []
-              for (const entry of flatList) {
-                const { item, depth } = entry
-                const dropLabel = (() => {
-                  const pid = item.parentId || null
-                  if (!pid) return 'Drop in Sidebar'
-                  const parent = e.find(s => s.id === pid)
-                  return parent ? `Drop in ${parent.title || 'Folder'}` : 'Drop in folder'
-                })()
-                if (dropZone?.id === item.id && dropZone.zone === 'before') {
-                  rows.push({ type: 'ind', key: `b_${item.id}`, arrow: '↑', label: dropLabel, depth })
-                }
-                rows.push({ type: 'row', item, depth, dropLabel })
-                if (dropZone?.id === item.id && dropZone.zone === 'after') {
-                  rows.push({ type: 'ind', key: `a_${item.id}`, arrow: '↓', label: dropLabel, depth })
-                }
-              }
-              return rows.map((r: any) => {
-                if (r.type === 'ind') {
-                  return (
-                    <div key={r.key} style={{
-                      paddingLeft: `${r.depth * 12 + 18}px`, paddingRight: '8px',
-                      height: '18px', display: 'flex', alignItems: 'center',
-                      color: 'var(--q-tab-accent)', fontSize: '12px', fontFamily: 'var(--font-interface)',
-                      whiteSpace: 'nowrap',
-                    }}>
-                      {r.arrow} {r.label}
-                    </div>
-                  )
-                }
-                const { item, depth, dropLabel } = r
-                return (
-                <SortableRow
-                  key={item.id}
-                  item={item}
-                  depth={depth}
-                  isActive={item.id === t}
-                  isHovered={hovered === item.id}
-                  isExpanded={expandedFolders.has(item.id)}
-                  renaming={renaming === item.id}
-                  renameVal={renameVal}
-                  dropZone={dropZone}
-                  dropLabel={dropLabel}
+            {flatList.map((entry, idx) => {
+              const { item, depth } = entry
+              const dropLabel = (() => {
+                const pid = item.parentId || null
+                if (!pid) return 'Drop in Sidebar'
+                const parent = e.find(s => s.id === pid)
+                return parent ? `Drop in ${parent.title || 'Folder'}` : 'Drop in folder'
+              })()
+              return (
+              <SortableRow
+                key={item.id}
+                item={item}
+                depth={depth}
+                isActive={item.id === t}
+                isHovered={hovered === item.id}
+                isExpanded={expandedFolders.has(item.id)}
+                renaming={renaming === item.id}
+                renameVal={renameVal}
+                dropZone={dropZone}
+                dropLabel={dropLabel}
                 onSelect={() => {
                   if (multiSelect && item.type !== 'folder') {
                     setSelected(prev => { const n = new Set(prev); n.has(item.id) ? n.delete(item.id) : n.add(item.id); return n })
@@ -383,10 +359,9 @@ export function Sidebar(props: SidebarProps) {
                 onRenameChange={setRenameVal}
                 onRenameCommit={() => handleRename(item.id, item.type)}
                 onRenameCancel={() => setRenaming(null)}
-                />
-                )
-              })
-            })()}
+              />
+              )
+            })}
             <DragOverlay dropAnimation={null}>
               {activeDragItem && (() => {
                 const flat = flatList.find(f => f.item.id === activeDragItem.id)
@@ -504,6 +479,18 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
       onMouseEnter={() => onHover(true)}
       onMouseLeave={() => onHover(false)}
     >
+      {showDropIndicator && dropZone.zone === 'before' && (
+        <>
+        <div style={{ position: 'absolute', top: '0px', left: `${indent}px`, right: '8px', height: '2px', backgroundColor: 'var(--q-tab-accent)', borderRadius: '1px', zIndex: 10, pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: '-1px', left: `${indent + 4}px`, color: 'var(--q-tab-accent)', fontSize: '10px', fontFamily: 'var(--font-interface)', zIndex: 11, pointerEvents: 'none', whiteSpace: 'nowrap', backgroundColor: 'var(--q-bg)', padding: '0 2px', borderRadius: '2px' }}>↑ {dropLabel}</div>
+        </>
+      )}
+      {showDropIndicator && dropZone.zone === 'after' && (
+        <>
+        <div style={{ position: 'absolute', bottom: '0px', left: `${indent}px`, right: '8px', height: '2px', backgroundColor: 'var(--q-tab-accent)', borderRadius: '1px', zIndex: 10, pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: '-1px', left: `${indent + 4}px`, color: 'var(--q-tab-accent)', fontSize: '10px', fontFamily: 'var(--font-interface)', zIndex: 11, pointerEvents: 'none', whiteSpace: 'nowrap', backgroundColor: 'var(--q-bg)', padding: '0 2px', borderRadius: '2px' }}>↓ {dropLabel}</div>
+        </>
+      )}
       <div
         ref={setNodeRef}
         {...attributes}
