@@ -37,6 +37,12 @@ export function parseDateInput(input: string): ParsedDate | null {
     const monthIdx = monthsAll.indexOf(m[2])
     if (monthIdx !== -1 && day >= 1 && day <= 31) return m[3] ? { day, month: monthIdx, year: +m[3] } : { day, month: monthIdx }
   }
+  // year only (e.g. "2025" → from Jan 1 of that year)
+  m = trimmed.match(/^(\d{4})$/)
+  if (m) {
+    const year = +m[1]
+    if (year >= 2000 && year <= 2099) return { year }
+  }
   // day only
   m = trimmed.match(/^(\d{1,2})$/)
   if (m) {
@@ -86,15 +92,19 @@ export function messageMatchesFilters(ts: number, dateInput: string, timeInput: 
   if (hasTimeInput && !timeObj) return false
   if (!dateObj && !timeObj) return true
 
-  // Determine the reference date: last message's date if no date specified, else today
-  const ref = (dateObj || timeObj) && !dateObj && lastMsgTimestamp
-    ? new Date(lastMsgTimestamp)
-    : new Date()
-  let year = ref.getFullYear(), month = ref.getMonth(), day = ref.getDate()
+  // Determine the reference date
+  const now = new Date()
+  let year = now.getFullYear(), month = now.getMonth(), day = now.getDate()
   if (dateObj) {
-    if (dateObj.day !== undefined) day = dateObj.day
-    if (dateObj.month !== undefined) month = dateObj.month
     if (dateObj.year !== undefined) year = dateObj.year
+    if (dateObj.month !== undefined) month = dateObj.month
+    if (dateObj.day !== undefined) day = dateObj.day
+    // If year specified but no month/day → January 1
+    if (dateObj.year !== undefined && dateObj.month === undefined) { month = 0; day = 1 }
+  } else if (timeObj && lastMsgTimestamp) {
+    // Time only, no date → use last message's date
+    const ref = new Date(lastMsgTimestamp)
+    year = ref.getFullYear(); month = ref.getMonth(); day = ref.getDate()
   }
 
   // Start: date at specified time (or 00:00:00)

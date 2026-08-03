@@ -108,14 +108,16 @@ export function ChatArea(props: ChatAreaProps) {
     return { msgIdx: m.msgIdx, occurrence: occ }
   })()
 
-  // Auto-scroll to active match when search changes
-  // BUT skip when clearing search (prevSearchRef check)
+  // Auto-scroll: only when search fields CHANGE (not on every render)
   const prevSearchRef = useRef({ q: '', d: '', t: '' })
   useEffect(() => {
     const prev = prevSearchRef.current
-    const isClearing = (prev.q && !searchQuery) || (prev.d && !searchDate) || (prev.t && !searchTime)
+    const qChanged = prev.q !== searchQuery
+    const dChanged = prev.d !== searchDate
+    const tChanged = prev.t !== searchTime
     prevSearchRef.current = { q: searchQuery, d: searchDate, t: searchTime }
-    if (isClearing) return // Don't scroll when clearing
+    // Only scroll when a search field actually changed
+    if (!qChanged && !dChanged && !tChanged) return
 
     // Text search: scroll to text match
     if (matches.length > 0 && activeMatchIdx >= 0) {
@@ -176,7 +178,7 @@ export function ChatArea(props: ChatAreaProps) {
           onCompact={props.onCompact}
           onReload={props.onReload}
           searchQuery={searchQuery}
-          onSearchQueryChange={(q) => { setSearchQuery(q); setCurrentMatch(-1) }}
+          onSearchQueryChange={(q) => { setSearchQuery(q); setCurrentMatch(q.trim() && hasDateFilter ? 0 : -1) }}
           searchDate={searchDate}
           onSearchDateChange={(d) => { setSearchDate(d); setCurrentMatch(-1) }}
           searchTime={searchTime}
