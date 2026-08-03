@@ -69,7 +69,10 @@ export function Composer(props: ComposerProps) {
   }
 
   const selectAgent = (agent: Agent) => {
-    props.onAgentToggle?.(agent.id)
+    // Only add agent to chat if not already there (don't toggle = remove)
+    if (!props.chatAgentIds?.includes(agent.id)) {
+      props.onAgentToggle?.(agent.id)
+    }
     const mention = `@${agent.name} `
     setText(mention)
     setMentionOpen(false)
