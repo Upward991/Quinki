@@ -24,7 +24,13 @@ export function parseDateInput(input: string): ParsedDate | null {
     if (month >= 0 && month < 12 && day >= 1 && day <= 31) return { day, month }
     return null
   }
-  // gg month [yyyy]
+  // gg mm (numeric month with space, e.g. "12 8" = 12 august)
+  m = trimmed.match(/^(\d{1,2})[\s\-]+(\d{1,2})(?:[\s\-]+(\d{4}))?$/)
+  if (m) {
+    const day = +m[1], month = +m[2] - 1
+    if (month >= 0 && month < 12 && day >= 1 && day <= 31) return m[3] ? { day, month, year: +m[3] } : { day, month }
+  }
+  // gg month [yyyy] (month name)
   m = trimmed.match(/^(\d{1,2})[\s\-]+(\w+)(?:[\s\-]+(\d{4}))?$/)
   if (m) {
     const day = +m[1]
@@ -97,8 +103,6 @@ export function messageMatchesFilters(ts: number, dateInput: string, timeInput: 
   const startSec = timeObj ? timeObj.seconds : 0
   const start = new Date(year, month, day, startHour, startMin, startSec, 0).getTime()
 
-  // End: end of that day (23:59:59.999)
-  const end = new Date(year, month, day, 23, 59, 59, 999).getTime()
-
-  return ts >= start && ts <= end
+  // End: end of chat (from start point onwards)
+  return ts >= start
 }
