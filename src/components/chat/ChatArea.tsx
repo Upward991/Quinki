@@ -62,18 +62,19 @@ export function ChatArea(props: ChatAreaProps) {
   // Date/time filter: just find the FIRST matching message (for yellow border + scroll)
   const hasDateFilter = !!(searchDate.trim() || searchTime.trim())
   const lastMsgTs = props.messages.length > 0 ? new Date(props.messages[props.messages.length - 1].timestamp).getTime() : undefined
-  const dateFirstMatch = (() => {
-    if (!hasDateFilter) return -1
-    // Search from OLDEST to NEWEST (chronological — earliest time first)
+  const dateMatchIndices: number[] = (() => {
+    if (!hasDateFilter) return []
+    const out: number[] = []
     for (let i = 0; i < props.messages.length; i++) {
       const m = props.messages[i]
       if (m.role !== 'user' && m.role !== 'assistant') continue
-      if (!m.content && !m.errorContent && !(m as any).blocks?.length) continue // skip messages with no visible content
+      if (!m.content && !m.errorContent && !(m as any).blocks?.length) continue
       const ts = new Date(m.timestamp).getTime()
-      if (messageMatchesFilters(ts, searchDate, searchTime, lastMsgTs)) return i
+      if (messageMatchesFilters(ts, searchDate, searchTime, lastMsgTs)) out.push(i)
     }
-    return -1
+    return out
   })()
+  const dateFirstMatch = dateMatchIndices.length > 0 ? dateMatchIndices[0] : -1
 
   // Text matches: only when there's a text query (filtered by date/time if set)
   const matches = (() => {
