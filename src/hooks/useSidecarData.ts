@@ -625,13 +625,13 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
             merged.push(base)
           }
         }
-        // === Deleghe: dal .jsonl (role=delegation) OPPURE vecchie da history.delegations ===
+        // === Deleghe: SPLIT message, insert delegation as separate message with delegations property ===
         try {
           const jsonlDels = ((history as any).messages || []).filter((m: any) => m.role === 'delegation')
-          // Se ci sono deleghe nel .jsonl, usa solo quelle. Altrimenti usa le vecchie.
           const delList = jsonlDels.length > 0 ? jsonlDels : ((history as any).delegations || [])
           if (Array.isArray(delList) && delList.length > 0) {
-            const delBlocks = delList.map((d: any) => {
+            // Create delegation messages (NO blocks, HAS delegations — legacy rendering path)
+            const delMsgs = delList.map((d: any) => {
               const nb: any[] = []
               if (Array.isArray(d.content)) {
                 for (const b of d.content) {
@@ -641,34 +641,31 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
                   else if (b?.type === 'text') nb.push({ type: 'text', content: b.text || b.content || '' })
                 }
               }
-              return { type: 'delegation', id: d.id, agentName: d.agentName || 'agent', agentModel: d.model || '', taskContent: d.delegatedMessage || '', response: typeof d.content === 'string' ? d.content : '', blocks: nb, thinkingLevel: d.thinkingLevel || '', streaming: false }
+              const delBlock = { id: d.id, agentName: d.agentName || 'agent', agentModel: d.model || '', taskContent: d.delegatedMessage || '', response: typeof d.content === 'string' ? d.content : '', blocks: nb, thinkingLevel: d.thinkingLevel || '' }
+              return { id: 'delmsg-' + d.id, role: 'assistant', content: '', delegations: [delBlock], timestamp: new Date(d.timestamp || Date.now()).toISOString() }
             })
-            console.log('[DELEG-FE] delBlocks:', delBlocks.length, 'merged:', merged.length, 'jsonlDels:', jsonlDels.length, 'oldDels:', ((history as any).delegations || []).length)
+            // Forward match: split at delegate_to_agent tool_call, insert delegation between
             let delIdx = 0
-            for (let i = 0; i < merged.length && delIdx < delBlocks.length; i++) {
+            for (let i = 0; i < merged.length && delIdx < delMsgs.length; i++) {
               if (merged[i].role !== 'assistant') continue
-              const oldBlocks = (merged[i] as any).blocks || []
-              let newBlocks = [...oldBlocks]
-              let changed = false
-              for (let bi = 0; bi < newBlocks.length && delIdx < delBlocks.length; bi++) {
-                if (newBlocks[bi].type === 'tool_call' && (newBlocks[bi].name === 'delegate_to_agent' || (newBlocks[bi].name || '').includes('delegate'))) {
-                  newBlocks.splice(bi + 1, 0, delBlocks[delIdx])
-                  delIdx++
-                  bi++
-                  changed = true
-                }
+              const blocks = (merged[i] as any).blocks || []
+              const tcIdx = blocks.findIndex((b: any) => b.type === 'tool_call' && (b.name === 'delegate_to_agent' || (b.name || '').includes('delegate')))
+              if (tcIdx >= 0) {
+                const beforeBlocks = blocks.slice(0, tcIdx + 1)
+                const afterBlocks = blocks.slice(tcIdx + 1)
+                merged[i] = { ...merged[i], blocks: beforeBlocks }
+                merged.splice(i + 1, 0, delMsgs[delIdx])
+                if (afterBlocks.length > 0) merged.splice(i + 2, 0, { id: 'split-' + i + '-' + delIdx, role: 'assistant', content: '', blocks: afterBlocks, timestamp: merged[i].timestamp })
+                delIdx++
+                i++ // skip inserted delegation
               }
-              if (changed) merged[i] = { ...merged[i], blocks: newBlocks }
             }
-            if (delIdx < delBlocks.length) {
-              const lastA = [...merged].reverse().find((m: any) => m.role === 'assistant')
-              if (lastA) merged[merged.indexOf(lastA)] = { ...lastA, blocks: [...(lastA.blocks || []), ...delBlocks.slice(delIdx)] }
-              else merged.push({ id: 'delmsg-' + Date.now(), role: 'assistant', content: '', blocks: delBlocks.slice(delIdx), timestamp: new Date().toISOString() })
-            }
+            while (delIdx < delMsgs.length) merged.push(delMsgs[delIdx++])
           }
         } catch (e) { console.error('[DELEGATIONS] merge error:', e) }
-        // Create COMPLETELY NEW array with new objects — forces React re-render
-        const finalMerged = merged.map(m => ({ ...m, blocks: m.blocks ? [...m.blocks] : undefined }))
+        const finalMerged = merged.map(m => ({ ...m }))
+        const delCount = finalMerged.filter((m: any) => m.delegations?.length > 0).length
+        console.log('[DELEG-FINAL] delegation messages:', delCount, 'total:', finalMerged.length)
         setMessages(finalMerged)
       }
       // === Ripristino streaming: se la sessione sta ancora generando, recupera stato + buffer ===
