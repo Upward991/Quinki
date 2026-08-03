@@ -189,7 +189,6 @@ export function ChatArea(props: ChatAreaProps) {
           matchCount={(searchQuery.trim() ? matches.length : 0)}
           currentMatch={currentMatch < 0 ? Math.max(0, matches.length - 1) : currentMatch}
           onMatchNavigate={(dir) => {
-            console.log('[ARROW] dir=', dir, 'hasText=', !!searchQuery.trim(), 'matches=', matches.length, 'currentMatch=', currentMatch)
             if (searchQuery.trim()) {
               if (matches.length === 0) return
               const start = currentMatch < 0 ? matches.length - 1 : currentMatch
