@@ -3134,6 +3134,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
           const delegationId = `del-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
           // === Reuse stream_event channel (proven to work) with del- prefix messageId ===
           self.#sendToWs(self.#wss.get(sessionKey), { type: "stream_event", sessionKey, eventType: "delegation_start", messageId: delegationId, agentName: agent_name, task: task });
+          await new Promise(r => setImmediate(r));
           // Subscribe to temp session events → forward as delegation_stream
           let delegationContent: any[] = [];
           // Helper: accumula blocchi cronologicamente (merge consecutive same-type)
@@ -3225,6 +3226,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
           const delModel = (tempPi?.model?.id ?? '') || agentOverride.model || (mainSession?.model?.id ?? '') || '';
           const delThinking = tempPi?.thinkingLevel || agentOverride.thinkingLevel || mainSession?.thinkingLevel || '';
           self.#sendToWs(self.#wss.get(sessionKey), { type: "stream_event", sessionKey, eventType: "delegation_end", messageId: delegationId, agentName: agent_name, response: responseText, model: delModel, thinkingLevel: delThinking });
+          await new Promise(r => setImmediate(r));
           // Collect delegation content from temp session entries (include tool results)
           try {
             const tempSm = (tempPi as any)?.sessionManager || (tempPi as any)?.agent?.state?.sessionManager;

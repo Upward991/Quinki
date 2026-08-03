@@ -645,37 +645,31 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
             })
             console.log('[DELEG-FE] delBlocks:', delBlocks.length, 'merged:', merged.length, 'jsonlDels:', jsonlDels.length, 'oldDels:', ((history as any).delegations || []).length)
             let delIdx = 0
-            let inserted = 0
             for (let i = 0; i < merged.length && delIdx < delBlocks.length; i++) {
               if (merged[i].role !== 'assistant') continue
               const oldBlocks = (merged[i] as any).blocks || []
-              let modified = false
-              for (let bi = 0; bi < oldBlocks.length && delIdx < delBlocks.length; bi++) {
-                if (oldBlocks[bi].type === 'tool_call' && (oldBlocks[bi].name === 'delegate_to_agent' || (oldBlocks[bi].name || '').includes('delegate'))) {
-                  // Create NEW array with delegation inserted (don't mutate in place — React won't detect change)
-                  const newBlocks = [...oldBlocks.slice(0, bi + 1), delBlocks[delIdx], ...oldBlocks.slice(bi + 1)]
-                  merged[i] = { ...merged[i], blocks: newBlocks }
+              let newBlocks = [...oldBlocks]
+              let changed = false
+              for (let bi = 0; bi < newBlocks.length && delIdx < delBlocks.length; bi++) {
+                if (newBlocks[bi].type === 'tool_call' && (newBlocks[bi].name === 'delegate_to_agent' || (newBlocks[bi].name || '').includes('delegate'))) {
+                  newBlocks.splice(bi + 1, 0, delBlocks[delIdx])
                   delIdx++
-                  inserted++
-                  modified = true
-                  break // restart inner loop with new blocks
+                  bi++
+                  changed = true
                 }
               }
-              if (modified) i-- // re-check same message for more tool_calls
+              if (changed) merged[i] = { ...merged[i], blocks: newBlocks }
             }
-            console.log('[DELEG-FE] inserted:', inserted, 'remaining:', delBlocks.length - delIdx)
             if (delIdx < delBlocks.length) {
               const lastA = [...merged].reverse().find((m: any) => m.role === 'assistant')
-              if (lastA) lastA.blocks = [...(lastA.blocks || []), ...delBlocks.slice(delIdx)]
+              if (lastA) merged[merged.indexOf(lastA)] = { ...lastA, blocks: [...(lastA.blocks || []), ...delBlocks.slice(delIdx)] }
               else merged.push({ id: 'delmsg-' + Date.now(), role: 'assistant', content: '', blocks: delBlocks.slice(delIdx), timestamp: new Date().toISOString() })
             }
           }
         } catch (e) { console.error('[DELEGATIONS] merge error:', e) }
-        // Debug: count delegation blocks in final messages
-        let delBlockCount = 0
-        for (const m of merged) { if ((m as any).blocks) for (const b of (m as any).blocks) { if (b.type === 'delegation') delBlockCount++ } }
-        console.log('[DELEG-FE] final: delegation blocks in messages:', delBlockCount, 'total messages:', merged.length)
-        setMessages(merged)
+        // Create COMPLETELY NEW array with new objects — forces React re-render
+        const finalMerged = merged.map(m => ({ ...m, blocks: m.blocks ? [...m.blocks] : undefined }))
+        setMessages(finalMerged)
       }
       // === Ripristino streaming: se la sessione sta ancora generando, recupera stato + buffer ===
       try {
