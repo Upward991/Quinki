@@ -14,5 +14,5 @@ export QUINKI_AGENT_DIR="$HOME/.pi/agent-quinki-dev"
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 
 cd "$(dirname "$0")"
-echo "$(date): starting tsx sidecar from $(pwd)" >> "$LOG"
-exec npx tsx sidecar.ts >> "$LOG" 2>&1
+echo "$(date): starting ws-bridge from $(pwd)" >> "$LOG"
+exec npx tsx ws-bridge.ts >> "$LOG" 2>&1

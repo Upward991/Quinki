@@ -283,6 +283,10 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     const overrides = piBridge!.getAgentOverrides(String(p.sessionKey));
     return { overrides };
   },
+  injectErrorExchange: async (p) => {
+    piBridge!.injectErrorExchange(String(p.sessionKey), String(p.userMessage || ''), String(p.errorContent || ''), p.timestamp || Date.now());
+    return {};
+  },
   reloadSession: async (p) => {
     piBridge!.reloadSession(String(p.sessionKey));
     piBridge!.logDebug("session-reloaded", { sessionKey: p.sessionKey });

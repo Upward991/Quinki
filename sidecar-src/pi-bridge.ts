@@ -2245,6 +2245,48 @@ class PiBridge {
     }
   }
 
+  // === Inject error exchange: scrive user msg + error msg nel .jsonl ===
+  // Per persistere errori UI (es: multi-agent senza @tag) cross-reload
+  injectErrorExchange(key: string, userMessage: string, errorContent: string, timestamp?: number) {
+    const ts = timestamp || Date.now();
+    const isoTs = new Date(ts).toISOString();
+    const sessionDir = this.#piSessionDir(key);
+    if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir, { recursive: true });
+    const files = fs.readdirSync(sessionDir).filter((f: string) => f.endsWith(".jsonl"));
+    if (files.length === 0) return; // no session file yet
+    const jsonlPath = path.join(sessionDir, files[0]);
+    const lines = fs.readFileSync(jsonlPath, "utf8").trim().split("\n").filter((l: string) => l.trim());
+    const lastLine = lines[lines.length - 1];
+    let parentId = null;
+    try { parentId = JSON.parse(lastLine).id || null; } catch {}
+
+    // User message
+    const userEntry = {
+      type: "message",
+      id: `inj-u-${ts}`,
+      parentId,
+      timestamp: isoTs,
+      message: { role: "user", content: [{ type: "text", text: userMessage }], timestamp: ts }
+    };
+    // Error (assistant) message
+    const errEntry = {
+      type: "message",
+      id: `inj-e-${ts + 1}`,
+      parentId: `inj-u-${ts}`,
+      timestamp: new Date(ts + 1).toISOString(),
+      message: { role: "assistant", content: [{ type: "text", text: errorContent }], isError: true, timestamp: ts + 1 }
+    };
+    fs.appendFileSync(jsonlPath, JSON.stringify(userEntry) + "\n" + JSON.stringify(errEntry) + "\n", "utf8");
+
+    // Also save to errors store
+    this.#saveError(key, { errorMessage: errorContent, timestamp: ts, model: undefined, agentName: undefined, thinkingLevel: undefined });
+
+    // Dispose active session so next send() reloads from .jsonl
+    const pi = this.#active.get(key);
+    if (pi) { try { (pi as any).dispose?.(); } catch {} this.#active.delete(key); }
+    this.logDebug("inject-error-exchange", { sessionKey: key, userLen: userMessage.length, errLen: errorContent.length });
+  }
+
   // === Reset sessione: azzera la conversazione (dispose Pi + elimina .jsonl) ===
   // Mantiene key/model/mode/cwd. Il prossimo send crea una sessione Fresca (nessuna history).
   // Risolve: /reset cancellava solo i messaggi Flutter, ma la sessione Pi conservava

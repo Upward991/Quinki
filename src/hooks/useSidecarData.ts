@@ -736,6 +736,13 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
     }
   }, [ready, call])
 
+  const injectErrorMessages = useCallback((userText: string, errorContent: string) => {
+    setMessages(prev => [...prev,
+      { id: `msg-${Date.now()}`, role: 'user' as const, content: userText, timestamp: new Date().toISOString(), tokensIn: Math.ceil(userText.length / 4) },
+      { id: `err-${Date.now() + 1}`, role: 'assistant' as const, content: '', errorContent, timestamp: new Date().toISOString(), isError: true }
+    ])
+  }, [])
+
   const sendMessage = useCallback(async (text: string, sessionKeyOrOpts?: string | any, agents?: string[]) => {
     // Backwards compat: (text, {agentId, model, thinkingLevel}) or (text, sessionKey, agents)
     let sk: string | undefined
@@ -1271,7 +1278,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
     // Sidebar
     sidebarSessions,
     // Session management
-    selectSession, sendMessage, stopStreaming, createSession, deleteSession, renameSession, deselectSession,
+    selectSession, sendMessage, injectErrorMessages, stopStreaming, createSession, deleteSession, renameSession, deselectSession,
     resetSession, reloadSession, moveSession, compactSession, ensureSession,
     // Session settings
     setChatAgents, setModel, setThinkingLevel, setMode, setSessionCompaction, setWorkingDir,
