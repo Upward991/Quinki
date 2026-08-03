@@ -57,6 +57,7 @@ export function ChatArea(props: ChatAreaProps) {
   const [searchDate, setSearchDate] = useState('')
   const [searchTime, setSearchTime] = useState('')
   const [currentMatch, setCurrentMatch] = useState(0)
+  const [dateMatchIdx, setDateMatchIdx] = useState(0)
 
   // Date/time filter: just find the FIRST matching message (for yellow border + scroll)
   const hasDateFilter = !!(searchDate.trim() || searchTime.trim())
@@ -127,11 +128,12 @@ export function ChatArea(props: ChatAreaProps) {
       return
     }
     // Date-only: scroll to first matching message
-    if (!searchQuery.trim() && hasDateFilter && dateFirstMatch >= 0) {
-      const msgEl = scrollRef.current?.querySelector(`[data-msg-idx="${dateFirstMatch}"]`)
+    if (!searchQuery.trim() && hasDateFilter && dateMatchIndices.length > 0) {
+      const mi = dateMatchIndices[Math.min(dateMatchIdx, dateMatchIndices.length - 1)]
+      const msgEl = scrollRef.current?.querySelector(`[data-msg-idx="${mi}"]`)
       if (msgEl) msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }
-  }, [searchQuery, searchDate, searchTime, activeMatchIdx, dateFirstMatch])
+  }, [searchQuery, searchDate, searchTime, activeMatchIdx, dateFirstMatch, dateMatchIdx])
 
   const isEmpty = props.messages.length === 0 || props.welcomeMode
 
@@ -180,11 +182,11 @@ export function ChatArea(props: ChatAreaProps) {
           searchQuery={searchQuery}
           onSearchQueryChange={(q) => { setSearchQuery(q); setCurrentMatch(q.trim() && hasDateFilter ? 0 : -1) }}
           searchDate={searchDate}
-          onSearchDateChange={(d) => { setSearchDate(d); setCurrentMatch(-1) }}
+          onSearchDateChange={(d) => { setSearchDate(d); setCurrentMatch(-1); setDateMatchIdx(0) }}
           searchTime={searchTime}
-          onSearchTimeChange={(t) => { setSearchTime(t); setCurrentMatch(-1) }}
-          matchCount={matches.length}
-          currentMatch={currentMatch < 0 ? Math.max(0, matches.length - 1) : currentMatch}
+          onSearchTimeChange={(t) => { setSearchTime(t); setCurrentMatch(-1); setDateMatchIdx(0) }}
+          matchCount={searchQuery.trim() ? matches.length : dateMatchIndices.length}
+          currentMatch={searchQuery.trim() ? (currentMatch < 0 ? Math.max(0, matches.length - 1) : currentMatch) : Math.min(dateMatchIdx, Math.max(0, dateMatchIndices.length - 1))}
           onMatchNavigate={(dir) => {
             if (isTextSearch) {
               if (matches.length === 0) return
@@ -237,7 +239,7 @@ export function ChatArea(props: ChatAreaProps) {
               onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100) }}>
               {props.messages.map((msg, mIdx) => (
                 <div key={msg.id} data-msg-idx={mIdx} style={{ marginBottom: '12px' }}>
-                  <MessageBubble message={msg} onCopy={() => {}} searchQuery={searchQuery} msgIndex={mIdx} activeMatchMsgIdx={activeMatchInfo?.msgIdx ?? -1} activeMatchOccurrence={activeMatchInfo?.occurrence ?? -1} isDateMatch={!searchQuery.trim() && hasDateFilter && mIdx === dateFirstMatch} />
+                  <MessageBubble message={msg} onCopy={() => {}} searchQuery={searchQuery} msgIndex={mIdx} activeMatchMsgIdx={activeMatchInfo?.msgIdx ?? -1} activeMatchOccurrence={activeMatchInfo?.occurrence ?? -1} isDateMatch={!searchQuery.trim() && hasDateFilter && dateMatchIndices.includes(mIdx) && mIdx === dateMatchIndices[Math.min(dateMatchIdx, dateMatchIndices.length - 1)]} />
                 </div>
               ))}
             </div>

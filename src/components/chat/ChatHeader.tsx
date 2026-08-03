@@ -217,7 +217,7 @@ export function ChatHeader(props: ChatHeaderProps) {
                     <div style={{ width: '8px', flexShrink: 0 }} />
                     <input type="text" placeholder="Search in messages..." autoFocus value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
                       style={{ flex: 1, minWidth: 0, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0', margin: '0' }} />
-                    <button onClick={() => { setSearchQuery(''); setSearchDate(''); setSearchTime('') }}
+                    <button onClick={() => setSearchQuery('')}
                       style={{ background: 'none', border: 'none', cursor: searchQuery ? 'pointer' : 'default', padding: '8px', color: searchQuery ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)', fontSize: '14px', opacity: searchQuery ? 1 : 0.3, lineHeight: '1', flexShrink: 0 }}>✕</button>
                     <span style={{ color: matchCount > 0 ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-code)', whiteSpace: 'nowrap', opacity: matchCount > 0 ? 1 : 0.3, flexShrink: 0 }}>{matchCount > 0 ? (currentMatch + 1) + '/' + matchCount : '0/0'}</span>
                     <div style={{ width: '8px', flexShrink: 0 }} />
@@ -232,13 +232,13 @@ export function ChatHeader(props: ChatHeaderProps) {
                     <div style={{ width: '8px', flexShrink: 0 }} />
                     <input type="text" placeholder="dd/mm/yyyy" value={searchDate} onChange={e => setSearchDate(e.target.value)}
                       style={{ flex: 1, minWidth: 0, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', padding: '0', margin: '0' }} />
-                    <button onClick={() => setSearchDate('')} style={{ background: 'none', border: 'none', cursor: searchDate ? 'pointer' : 'default', padding: '4px', color: 'var(--q-text-tertiary)', fontSize: '12px', opacity: searchDate ? 1 : 0.3, lineHeight: '1', flexShrink: 0 }}>✕</button>
+                    <button onClick={() => setSearchDate('')} style={{ background: 'none', border: 'none', cursor: searchDate ? 'pointer' : 'default', padding: '8px', color: searchDate ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)', fontSize: '14px', opacity: searchDate ? 1 : 0.3, lineHeight: '1', flexShrink: 0 }}>✕</button>
                     <div style={{ width: '8px', flexShrink: 0 }} />
                     <Clock size={16} style={{ color: 'var(--q-text-tertiary)', flexShrink: 0 }} />
                     <div style={{ width: '8px', flexShrink: 0 }} />
                     <input type="text" placeholder="hh:mm:ss" value={searchTime} onChange={e => setSearchTime(e.target.value)}
                       style={{ flex: 1, minWidth: 0, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', padding: '0', margin: '0' }} />
-                    <button onClick={() => setSearchTime('')} style={{ background: 'none', border: 'none', cursor: searchTime ? 'pointer' : 'default', padding: '4px', color: 'var(--q-text-tertiary)', fontSize: '12px', opacity: searchTime ? 1 : 0.3, lineHeight: '1', flexShrink: 0 }}>✕</button>
+                    <button onClick={() => setSearchTime('')} style={{ background: 'none', border: 'none', cursor: searchTime ? 'pointer' : 'default', padding: '8px', color: searchTime ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)', fontSize: '14px', opacity: searchTime ? 1 : 0.3, lineHeight: '1', flexShrink: 0 }}>✕</button>
                   </div>
                 </div>
               </>
