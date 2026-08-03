@@ -583,6 +583,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
         // Il renderer li vuole DENTRO il messaggio assistant come array → merge cronologico.
         const merged: any[] = []
         for (const m of history.messages) {
+          if (m.role === 'delegation') continue
           const base: any = {
             id: m.id || `msg-${Math.random()}`,
             role: m.role,
@@ -624,12 +625,13 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
             merged.push(base)
           }
         }
-        // === Deleghe persistite: inserisci DOPO il tool_call delegate_to_agent (al contrario per evitare index shift) ===
+        // === Deleghe: dal .jsonl (role=delegation) OPPURE vecchie da history.delegations ===
         try {
-          const delList = (history as any).delegations || []
+          const jsonlDels = ((history as any).messages || []).filter((m: any) => m.role === 'delegation')
+          // Se ci sono deleghe nel .jsonl, usa solo quelle. Altrimenti usa le vecchie.
+          const delList = jsonlDels.length > 0 ? jsonlDels : ((history as any).delegations || [])
           if (Array.isArray(delList) && delList.length > 0) {
-            // Crea i messaggi delega
-            const delMsgs = delList.map((d: any) => {
+            const delBlocks = delList.map((d: any) => {
               const nb: any[] = []
               if (Array.isArray(d.content)) {
                 for (const b of d.content) {
@@ -639,31 +641,25 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
                   else if (b?.type === 'text') nb.push({ type: 'text', content: b.text || b.content || '' })
                 }
               }
-              const delBlock = { id: d.id, agentName: d.agentName || 'agent', agentModel: d.model || '', taskContent: d.delegatedMessage || '', response: typeof d.content === 'string' ? d.content : '', blocks: nb, thinkingLevel: d.thinkingLevel || '' }
-              return { id: `delmsg-${d.id}`, role: 'assistant', content: '', delegations: [delBlock], timestamp: new Date(d.timestamp || Date.now()).toISOString() }
+              return { type: 'delegation', id: d.id, agentName: d.agentName || 'agent', agentModel: d.model || '', taskContent: d.delegatedMessage || '', response: typeof d.content === 'string' ? d.content : '', blocks: nb, thinkingLevel: d.thinkingLevel || '', streaming: false }
             })
-            // Itera al contrario: SPLI il messaggio al tool_call delegate_to_agent, inserisci delega TRA tool_call e tool_result
-            let delIdx = delMsgs.length - 1
-            for (let i = merged.length - 1; i >= 0 && delIdx >= 0; i--) {
+            let delIdx = 0
+            for (let i = 0; i < merged.length && delIdx < delBlocks.length; i++) {
               if (merged[i].role !== 'assistant') continue
               const blocks = (merged[i] as any).blocks || []
-              const tcIdx = blocks.findIndex((b: any) => b.type === 'tool_call' && (b.name === 'delegate_to_agent' || (b.name || '').includes('delegate')))
-              if (tcIdx >= 0) {
-                // Split: [thinking, tool_call] | [tool_result, text, ...]
-                const beforeBlocks = blocks.slice(0, tcIdx + 1)
-                const afterBlocks = blocks.slice(tcIdx + 1)
-                // Modifica il messaggio originale: tiene solo i blocchi prima+durante il tool_call
-                ;(merged[i] as any).blocks = beforeBlocks
-                // Inserisci la delega DOPO il tool_call
-                merged.splice(i + 1, 0, delMsgs[delIdx--])
-                // Inserisci i blocchi rimanenti (tool_result, text) come nuovo messaggio
-                if (afterBlocks.length > 0) {
-                  merged.splice(i + 2, 0, { id: `split-${i}-${Date.now()}`, role: 'assistant', content: '', blocks: afterBlocks, timestamp: merged[i].timestamp })
+              for (let bi = 0; bi < blocks.length && delIdx < delBlocks.length; bi++) {
+                if (blocks[bi].type === 'tool_call' && (blocks[bi].name === 'delegate_to_agent' || (blocks[bi].name || '').includes('delegate'))) {
+                  blocks.splice(bi + 1, 0, delBlocks[delIdx])
+                  delIdx++
+                  bi++
                 }
               }
             }
-            // Deleghe rimanenti in fondo
-            while (delIdx >= 0) merged.push(delMsgs[delIdx--])
+            if (delIdx < delBlocks.length) {
+              const lastA = [...merged].reverse().find((m: any) => m.role === 'assistant')
+              if (lastA) lastA.blocks = [...(lastA.blocks || []), ...delBlocks.slice(delIdx)]
+              else merged.push({ id: 'delmsg-' + Date.now(), role: 'assistant', content: '', blocks: delBlocks.slice(delIdx), timestamp: new Date().toISOString() })
+            }
           }
         } catch (e) { console.error('[DELEGATIONS] merge error:', e) }
         setMessages(merged)

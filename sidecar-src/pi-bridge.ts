@@ -529,6 +529,43 @@ class PiBridge {
     return this.#errors.get(sessionKey) || [];
   }
 
+  // Append delegation as custom entry to .jsonl — buildSessionContext skips unknown types
+  #appendDelegationToJsonl(sessionKey: string, delegation: any) {
+    console.error('[DELEG-APPEND] called: sk=' + sessionKey + ' id=' + delegation.id);
+    try {
+      // Also save to in-memory for getDelegations() during same session
+      const existing = this.#delegations.get(sessionKey) || [];
+      existing.push(delegation);
+      this.#delegations.set(sessionKey, existing);
+
+      const sessionDir = this.#piSessionDir(sessionKey);
+      console.error('[DELEG-APPEND] sessionDir=' + sessionDir + ' exists=' + fs.existsSync(sessionDir));
+      if (!fs.existsSync(sessionDir)) { this.#saveDelegation(sessionKey, delegation); return; }
+      const files = fs.readdirSync(sessionDir).filter((f: string) => f.endsWith(".jsonl"));
+      console.error('[DELEG-APPEND] jsonl files=' + files.length);
+      if (files.length === 0) { this.#saveDelegation(sessionKey, delegation); return; }
+      const jsonlPath = path.join(sessionDir, files[0]);
+      const entry = {
+        type: "delegation",
+        id: delegation.id,
+        parentId: null,
+        timestamp: new Date(delegation.timestamp || Date.now()).toISOString(),
+        delegationData: {
+          agentName: delegation.agentName,
+          delegatedMessage: delegation.delegatedMessage,
+          content: delegation.content,
+          model: delegation.model,
+          thinkingLevel: delegation.thinkingLevel,
+        },
+      };
+      fs.appendFileSync(jsonlPath, JSON.stringify(entry) + "\n", "utf8");
+      console.error('[DELEG-APPEND] SUCCESS: written to ' + jsonlPath);
+    } catch (e: any) {
+      console.error('[DELEG-APPEND] ERROR: ' + (e?.message || String(e)));
+      this.#saveDelegation(sessionKey, delegation);
+    }
+  }
+
   #saveDelegation(sessionKey: string, delegation: any) {
     try {
       const existing = this.#delegations.get(sessionKey) || [];
@@ -903,7 +940,8 @@ class PiBridge {
           const mapped = mapWithNoop(ctx.messages, noopTs).filter((m: any) => !m.isCompactionSummary && !m.isCompactionWarning);
           // Prepend le compaction precedenti, ordinate per timestamp
           const errs = (this.#errors.get(key) || []).map((er: any, i: number) => ({ id: `err-${i}-${er.timestamp}`, role: "assistant", content: "", errorContent: er.errorMessage, isError: true, timestamp: er.timestamp, done: true, model: er.model, agentName: er.agentName, thinkingLevel: er.thinkingLevel }));
-          return [...prevCompactions, ...mapped, ...errs].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+          const delEntries = this.#readDelegationEntries(pi.sessionManager);
+          return [...prevCompactions, ...mapped, ...errs, ...delEntries].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
         }
       } catch {}
     }
@@ -919,12 +957,28 @@ class PiBridge {
             const prevCompactions = collectAllCompactionMessages(sm, noopTs);
             const mapped = mapWithNoop(ctx.messages, noopTs).filter((m: any) => !m.isCompactionSummary && !m.isCompactionWarning);
             const errs = (this.#errors.get(key) || []).map((er: any, i: number) => ({ id: `err-${i}-${er.timestamp}`, role: "assistant", content: "", errorContent: er.errorMessage, isError: true, timestamp: er.timestamp, done: true, model: er.model, agentName: er.agentName, thinkingLevel: er.thinkingLevel }));
-          return [...prevCompactions, ...mapped, ...errs].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+            const delEntries2 = this.#readDelegationEntries(sm);
+            return [...prevCompactions, ...mapped, ...errs, ...delEntries2].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
           }
         }
       }
     } catch {}
     return [];
+  }
+
+  #readDelegationEntries(sm: any): any[] {
+    const out: any[] = [];
+    try {
+      const entries = sm?.getEntries?.() || [];
+      for (const e of entries) {
+        if (e.type === "delegation" && e.delegationData) {
+          const d = e.delegationData;
+          out.push({ id: e.id, role: "delegation", agentName: d.agentName || "agent", delegatedMessage: d.delegatedMessage || "", content: d.content || [], model: d.model || "", thinkingLevel: d.thinkingLevel || "", timestamp: new Date(e.timestamp || Date.now()).getTime(), done: true });
+        }
+      }
+    } catch (e2: any) { console.error('[DELEG-READ] error: ' + (e2?.message || String(e2))); }
+    console.error('[DELEG-READ] found ' + out.length + ' delegation entries');
+    return out;
   }
 
   create(key: string, label: string): SessionEntry {
@@ -2864,7 +2918,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     this.#sendToWs(ws, { type: "stream_event", sessionKey: sk, eventType: "delegation_end", messageId: delegationId, agentName, response: responseText, model: delModel, thinkingLevel: delThinking });
 
     // Save delegation for persistence
-    this.#saveDelegation(sk, { id: delegationId, agentName, delegatedMessage: data.text, content: delegationContent, timestamp: Date.now(), model: delModel, thinkingLevel: delThinking });
+    this.#appendDelegationToJsonl(sk, { id: delegationId, agentName, delegatedMessage: data.text, content: delegationContent, timestamp: Date.now(), model: delModel, thinkingLevel: delThinking });
 
     // Save agentName for this message
     try {
@@ -3185,7 +3239,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
             }
           } catch (e2: any) { self.logDebug("delegate-entries-error", { error: e2?.message }); }
           // Save delegation for persistence
-          self.#saveDelegation(sessionKey, { id: delegationId, agentName: agent_name, delegatedMessage: task, content: delegationContent, timestamp: Date.now(), model: delModel, thinkingLevel: delThinking });
+          self.#appendDelegationToJsonl(sessionKey, { id: delegationId, agentName: agent_name, delegatedMessage: task, content: delegationContent, timestamp: Date.now(), model: delModel, thinkingLevel: delThinking });
           // Cleanup: dispose sessione temporanea + remove from #active
           self.#active.delete(tempKey);
           try { (tempPi as any).dispose?.(); } catch {}
