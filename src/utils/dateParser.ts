@@ -69,8 +69,13 @@ export function parseTimeInput(input: string): ParsedTime | null {
 // Compute filter range: from specified date+time to end of that day
 // No date → today. No time → from 00:00:00.
 export function messageMatchesFilters(ts: number, dateInput: string, timeInput: string, lastMsgTimestamp?: number): boolean {
-  const dateObj = dateInput.trim() ? parseDateInput(dateInput) : null
-  const timeObj = timeInput.trim() ? parseTimeInput(timeInput) : null
+  const hasDateInput = dateInput.trim().length > 0
+  const hasTimeInput = timeInput.trim().length > 0
+  const dateObj = hasDateInput ? parseDateInput(dateInput) : null
+  const timeObj = hasTimeInput ? parseTimeInput(timeInput) : null
+  // Input present but can't be parsed → no match (don't treat as "no filter")
+  if (hasDateInput && !dateObj) return false
+  if (hasTimeInput && !timeObj) return false
   if (!dateObj && !timeObj) return true
 
   // Determine the reference date: last message's date if no date specified, else today
