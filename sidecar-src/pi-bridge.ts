@@ -966,18 +966,28 @@ class PiBridge {
     return [];
   }
 
-  #readDelegationEntries(sm: any): any[] {
+  #readDelegationEntries(sessionKey: string): any[] {
     const out: any[] = [];
     try {
-      const entries = sm?.getEntries?.() || [];
-      for (const e of entries) {
-        if (e.type === "delegation" && e.delegationData) {
-          const d = e.delegationData;
-          out.push({ id: e.id, role: "delegation", agentName: d.agentName || "agent", delegatedMessage: d.delegatedMessage || "", content: d.content || [], model: d.model || "", thinkingLevel: d.thinkingLevel || "", timestamp: new Date(e.timestamp || Date.now()).getTime(), done: true });
-        }
+      const sessionDir = this.#piSessionDir(sessionKey);
+      if (!fs.existsSync(sessionDir)) { console.error('[DELEG-READ] no sessionDir: ' + sessionDir); return out; }
+      const files = fs.readdirSync(sessionDir).filter((f: string) => f.endsWith(".jsonl"));
+      if (files.length === 0) { console.error('[DELEG-READ] no jsonl files in: ' + sessionDir); return out; }
+      const jsonlPath = path.join(sessionDir, files[0]);
+      const content = fs.readFileSync(jsonlPath, "utf8");
+      const lines = content.trim().split("\n");
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const e = JSON.parse(line);
+          if (e.type === "delegation" && e.delegationData) {
+            const d = e.delegationData;
+            out.push({ id: e.id, role: "delegation", agentName: d.agentName || "agent", delegatedMessage: d.delegatedMessage || "", content: d.content || [], model: d.model || "", thinkingLevel: d.thinkingLevel || "", timestamp: new Date(e.timestamp || Date.now()).getTime(), done: true });
+          }
+        } catch {}
       }
     } catch (e2: any) { console.error('[DELEG-READ] error: ' + (e2?.message || String(e2))); }
-    console.error('[DELEG-READ] found ' + out.length + ' delegation entries');
+    console.error('[DELEG-READ] found ' + out.length + ' delegation entries for ' + sessionKey);
     return out;
   }
 
