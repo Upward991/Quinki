@@ -186,10 +186,11 @@ export function ChatArea(props: ChatAreaProps) {
           onSearchDateChange={(d) => { setSearchDate(d); setCurrentMatch(-1); setDateMatchIdx(0) }}
           searchTime={searchTime}
           onSearchTimeChange={(t) => { setSearchTime(t); setCurrentMatch(-1); setDateMatchIdx(0) }}
-          matchCount={searchQuery.trim() ? matches.length : dateMatchIndices.length}
-          currentMatch={searchQuery.trim() ? (currentMatch < 0 ? Math.max(0, matches.length - 1) : currentMatch) : Math.min(dateMatchIdx, Math.max(0, dateMatchIndices.length - 1))}
+          matchCount={(searchQuery.trim() ? matches.length : 0)}
+          currentMatch={currentMatch < 0 ? Math.max(0, matches.length - 1) : currentMatch}
           onMatchNavigate={(dir) => {
-            if (isTextSearch) {
+            console.log('[ARROW] dir=', dir, 'hasText=', !!searchQuery.trim(), 'matches=', matches.length, 'currentMatch=', currentMatch)
+            if (searchQuery.trim()) {
               if (matches.length === 0) return
               const start = currentMatch < 0 ? matches.length - 1 : currentMatch
               const next = dir === 'next' ? (start + 1) % matches.length : (start - 1 + matches.length) % matches.length
