@@ -45,16 +45,18 @@ export interface ParsedTime { hours: number; minutes: number; seconds: number }
 export function parseTimeInput(input: string): ParsedTime | null {
   const trimmed = input.trim()
   if (!trimmed) return null
-  // hh:mm:ss or hh mm ss (spaces OR colons)
-  let m = trimmed.match(/^(\d{1,2})[:\s](\d{2})[:\s](\d{2})$/)
+  // Pad single digit with trailing 0: "1" → 10, "3" → 30
+  const pad = (s: string) => s.length === 1 ? s + '0' : s
+  // hh:mm:ss or hh mm ss (1-2 digits each, spaces OR colons)
+  let m = trimmed.match(/^(\d{1,2})[:\s](\d{1,2})[:\s](\d{1,2})$/)
   if (m) {
-    const h = +m[1], min = +m[2], s = +m[3]
+    const h = +m[1], min = +pad(m[2]), s = +pad(m[3])
     if (h >= 0 && h < 24 && min >= 0 && min < 60 && s >= 0 && s < 60) return { hours: h, minutes: min, seconds: s }
   }
-  // hh:mm or hh mm
-  m = trimmed.match(/^(\d{1,2})[:\s](\d{2})$/)
+  // hh:mm or hh mm (1-2 digits for minutes)
+  m = trimmed.match(/^(\d{1,2})[:\s](\d{1,2})$/)
   if (m) {
-    const h = +m[1], min = +m[2]
+    const h = +m[1], min = +pad(m[2])
     if (h >= 0 && h < 24 && min >= 0 && min < 60) return { hours: h, minutes: min, seconds: 0 }
   }
   // hh only
