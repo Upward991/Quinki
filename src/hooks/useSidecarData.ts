@@ -625,13 +625,12 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
             merged.push(base)
           }
         }
-        // === Deleghe: SPLIT message, insert delegation as separate message with delegations property ===
+        // === Deleghe: add delegations to message with delegate_to_agent tool_call ===
         try {
           const jsonlDels = ((history as any).messages || []).filter((m: any) => m.role === 'delegation')
           const delList = jsonlDels.length > 0 ? jsonlDels : ((history as any).delegations || [])
           if (Array.isArray(delList) && delList.length > 0) {
-            // Create delegation messages (NO blocks, HAS delegations — legacy rendering path)
-            const delMsgs = delList.map((d: any) => {
+            const delBlocks = delList.map((d: any) => {
               const nb: any[] = []
               if (Array.isArray(d.content)) {
                 for (const b of d.content) {
@@ -641,32 +640,26 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
                   else if (b?.type === 'text') nb.push({ type: 'text', content: b.text || b.content || '' })
                 }
               }
-              const delBlock = { id: d.id, agentName: d.agentName || 'agent', agentModel: d.model || '', taskContent: d.delegatedMessage || '', response: typeof d.content === 'string' ? d.content : '', blocks: nb, thinkingLevel: d.thinkingLevel || '' }
-              return { id: 'delmsg-' + d.id, role: 'assistant', content: '', delegations: [delBlock], timestamp: new Date(d.timestamp || Date.now()).toISOString() }
+              return { id: d.id, agentName: d.agentName || 'agent', agentModel: d.model || '', taskContent: d.delegatedMessage || '', response: typeof d.content === 'string' ? d.content : '', blocks: nb, thinkingLevel: d.thinkingLevel || '' }
             })
-            // Forward match: split at delegate_to_agent tool_call, insert delegation between
+            // Add delegations to the message that has the matching tool_call
             let delIdx = 0
-            for (let i = 0; i < merged.length && delIdx < delMsgs.length; i++) {
+            for (let i = 0; i < merged.length && delIdx < delBlocks.length; i++) {
               if (merged[i].role !== 'assistant') continue
               const blocks = (merged[i] as any).blocks || []
-              const tcIdx = blocks.findIndex((b: any) => b.type === 'tool_call' && (b.name === 'delegate_to_agent' || (b.name || '').includes('delegate')))
-              if (tcIdx >= 0) {
-                const beforeBlocks = blocks.slice(0, tcIdx + 1)
-                const afterBlocks = blocks.slice(tcIdx + 1)
-                merged[i] = { ...merged[i], blocks: beforeBlocks }
-                merged.splice(i + 1, 0, delMsgs[delIdx])
-                if (afterBlocks.length > 0) merged.splice(i + 2, 0, { id: 'split-' + i + '-' + delIdx, role: 'assistant', content: '', blocks: afterBlocks, timestamp: merged[i].timestamp })
+              if (blocks.some((b: any) => b.type === 'tool_call' && (b.name === 'delegate_to_agent' || (b.name || '').includes('delegate')))) {
+                merged[i] = { ...merged[i], delegations: [...(merged[i] as any).delegations || [], delBlocks[delIdx]] }
                 delIdx++
-                i++ // skip inserted delegation
               }
             }
-            while (delIdx < delMsgs.length) merged.push(delMsgs[delIdx++])
+            // Remaining: add to last assistant
+            if (delIdx < delBlocks.length) {
+              const lastA = [...merged].reverse().find((m: any) => m.role === 'assistant')
+              if (lastA) merged[merged.indexOf(lastA)] = { ...lastA, delegations: [...(lastA as any).delegations || [], ...delBlocks.slice(delIdx)] }
+            }
           }
         } catch (e) { console.error('[DELEGATIONS] merge error:', e) }
-        const finalMerged = merged.map(m => ({ ...m }))
-        const delCount = finalMerged.filter((m: any) => m.delegations?.length > 0).length
-        console.log('[DELEG-FINAL] delegation messages:', delCount, 'total:', finalMerged.length)
-        setMessages(finalMerged)
+        setMessages(merged.map(m => ({ ...m })))
       }
       // === Ripristino streaming: se la sessione sta ancora generando, recupera stato + buffer ===
       try {

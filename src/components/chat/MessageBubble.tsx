@@ -230,11 +230,11 @@ function AssistantMessage({ message, onCopy, searchQuery, activeOcc, isDateMatch
         </div>
       )}
 
-      {/* Compaction + delegation — AFTER text+footer, NO footer */}
+      {/* Compaction + delegation — AFTER blocks, NO footer */}
       {message.compaction?.map((comp, i) => (
         <CompactionToggle key={`comp-${i}`} content={comp.content || ""} isNoop={comp.isNoop} />
       ))}
-      {!(message as any).blocks?.length && message.delegations?.map((d, i) => <DelegationBlockView key={`d-${i}`} delegation={d} timestamp={message.timestamp} searchQuery={searchQuery} activeOcc={activeOcc} />)}
+      {message.delegations?.map((d, i) => <DelegationBlockView key={`d-${i}`} delegation={d} timestamp={message.timestamp} searchQuery={searchQuery} activeOcc={activeOcc} />)}
     </div>
   )
 }
