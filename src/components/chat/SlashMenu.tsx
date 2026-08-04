@@ -186,8 +186,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
       } else if (mode === 'thinking') {
         setPendingThinking(selectedIdx === 0 ? 'on' : 'off'); setFocusConfirm(true)
       } else if (mode === 'skill') {
-        if (focusConfirm) confirmSkill()
-        else { const flat = skillGroups.flatMap((g: any) => g.skills.map((s: any) => ({ ...s, agentId: g.agentId, agentName: g.agentName }))); const s = flat[selectedIdx]; if (s) selectSkill(s, s.agentId, s.agentName) }
+        if (!focusConfirm) { const flat = skillGroups.flatMap((g: any) => g.skills.map((s: any) => ({ ...s, agentId: g.agentId, agentName: g.agentName }))); const s = flat[selectedIdx]; if (s) selectSkill(s, s.agentId, s.agentName) }
       } else if (mode === 'directory') {
         if (focusAdd) { setFocusAdd(false); setFocusConfirm(true) }
         else if (!focusConfirm) setFocusAdd(true)

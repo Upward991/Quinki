@@ -116,7 +116,8 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
   const [messages, setMessages] = useState<any[]>([])
   const [folders, setFolders] = useState<any[]>([])
   const [models, setModels] = useState<any[]>([])
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
+const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
+  useEffect(() => { activeSessionIdRef.current = activeSessionId }, [activeSessionId])
   const [isStreaming, setIsStreaming] = useState(false)
   const [statusLabel, setStatusLabel] = useState('')
   const [statusKind, setStatusKind] = useState('')
@@ -127,6 +128,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
   const [isCompacting, setIsCompacting] = useState(false)
   const [chatAgentIds, setChatAgentIds] = useState<string[]>([])
   const sessionStreamingMap = useRef<Map<string, { isStreaming: boolean; statusLabel: string; statusKind: string }>>(new Map())
+  const activeSessionIdRef = useRef<string | null>(null)
   const setStreamingState = (sk: string, state: { isStreaming: boolean; statusLabel: string; statusKind: string }) => {
     sessionStreamingMap.current.set(sk, state)
     if (sk === activeSessionId) {

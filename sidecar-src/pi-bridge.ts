@@ -3578,6 +3578,8 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     });
 
     this.#wss.set(sk, ws);
+    process.stderr.write('[SKILL-DEBUG] send() called: data.skillNames=' + JSON.stringify(data.skillNames) + '
+');
 
     let pi = this.#active.get(sk);
     this.logDebug("send-resolved-agent", { sessionKey: sk, override: this.#agentOverride.get(sk), resolvedAgentId: this.#resolveAgentId(sk), hasActiveSession: !!pi });
