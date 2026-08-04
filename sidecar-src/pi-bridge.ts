@@ -2207,7 +2207,7 @@ class PiBridge {
   // Non chiama #applyMode. Solo persistenza per sopravvivere al riavvio.
   setChatAgents(key: string, agentIds: string) {
     const s = this.#entries.get(key);
-    if (s) { (s as any).agentId = agentIds || undefined; this.#save(); }
+    if (s) { (s as any).agentId = agentIds || undefined; this.#save(); process.stderr.write('[SKILL-DEBUG] setChatAgents: key=' + key + ', agentIds=' + agentIds + '\n'); }
     this.logDebug("set-chat-agents", { sessionKey: key, agentIds, hasEntry: !!this.#entries.get(key), savedAgentId: (this.#entries.get(key) as any)?.agentId });
   }
 
@@ -3435,6 +3435,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     if (agentId && (agentId === 'orchestrator' || agentId.includes('orchestrator'))) {
       const sessionEntry = this.#entries.get(key);
       const sessionAgents = (sessionEntry as any)?.agentId;
+      process.stderr.write('[SKILL-DEBUG] buildSystemPrompt orchestrator: agentId=' + agentId + ', sessionAgents=' + sessionAgents + '\n');
       this.logDebug("orchestrator-agents", { sessionKey: key, agentId: agentId, sessionAgents: sessionAgents, agentDir: this.#agentDir });
       if (sessionAgents && sessionAgents !== 'orchestrator') {
         const agentIds = String(sessionAgents).split(',').filter((id: string) => id && id !== 'orchestrator');
@@ -3861,16 +3862,16 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     } catch (overrideErr) {
       this.logDebug("system-prompt-update-error", { sessionKey: sk, error: (overrideErr as any)?.message || String(overrideErr) });
     }
-    // === Rebuild system prompt with skillNames RIGHT BEFORE sendUserMessage ===
-    if (data.skillNames && data.skillNames.length > 0) {
-      try {
-        const skillPrompt = this.#buildSystemPrompt(sk, effectiveCwd, data.workingDirs, undefined, data.skillNames);
-        try { (pi as any)._customSystemPromptOverride = true; } catch {}
-        try { (pi as any)._baseSystemPrompt = skillPrompt; } catch {}
-        pi.agent.state.systemPrompt = skillPrompt;
-        process.stderr.write('[SKILL-DEBUG] Rebuilt BEFORE sendUserMessage: len=' + skillPrompt.length + '\n');
-      } catch (e: any) { process.stderr.write('[SKILL-DEBUG] Rebuild ERROR: ' + (e?.message || String(e)) + '\n'); }
-    }
+    // === ALWAYS rebuild system prompt RIGHT BEFORE sendUserMessage ===
+    // This ensures skills are one-shot: present only for the message they're attached to
+    try {
+      const skillNames = (data.skillNames && data.skillNames.length > 0) ? data.skillNames : undefined;
+      const prompt = this.#buildSystemPrompt(sk, effectiveCwd, data.workingDirs, undefined, skillNames);
+      try { (pi as any)._customSystemPromptOverride = true; } catch {}
+      try { (pi as any)._baseSystemPrompt = prompt; } catch {}
+      pi.agent.state.systemPrompt = prompt;
+      process.stderr.write('[SKILL-DEBUG] Rebuilt BEFORE sendUserMessage: len=' + prompt.length + ', hasSkills=' + !!skillNames + '\n');
+    } catch (e: any) { process.stderr.write('[SKILL-DEBUG] Rebuild ERROR: ' + (e?.message || String(e)) + '\n'); }
     // Log system prompt BEFORE sendUserMessage
     try {
       const bspBefore = (pi as any)._baseSystemPrompt || "";

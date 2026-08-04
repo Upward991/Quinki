@@ -759,8 +759,9 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
     let optsModel: string | undefined
     let optsThinking: string | undefined
     let optsSkills: any[] | undefined
+    let optsChatAgents: string[] | undefined
     if (typeof sessionKeyOrOpts === 'string') { sk = sessionKeyOrOpts; ag = agents }
-    else if (sessionKeyOrOpts && typeof sessionKeyOrOpts === 'object') { sk = activeSessionId || undefined; ag = sessionKeyOrOpts.agentId ? [sessionKeyOrOpts.agentId] : undefined; if (sessionKeyOrOpts.model) optsModel = sessionKeyOrOpts.model; if (sessionKeyOrOpts.thinkingLevel) optsThinking = sessionKeyOrOpts.thinkingLevel; if (sessionKeyOrOpts.skillNames) optsSkills = sessionKeyOrOpts.skillNames }
+    else if (sessionKeyOrOpts && typeof sessionKeyOrOpts === 'object') { sk = activeSessionId || undefined; ag = sessionKeyOrOpts.agentId ? [sessionKeyOrOpts.agentId] : undefined; if (sessionKeyOrOpts.model) optsModel = sessionKeyOrOpts.model; if (sessionKeyOrOpts.thinkingLevel) optsThinking = sessionKeyOrOpts.thinkingLevel; if (sessionKeyOrOpts.skillNames) optsSkills = sessionKeyOrOpts.skillNames; if (sessionKeyOrOpts.chatAgentIds) optsChatAgents = sessionKeyOrOpts.chatAgentIds }
     if (!ready) return
     const hasModels = providers.some((p: any) => p.models && p.models.length > 0)
     if (!hasModels) {
@@ -792,8 +793,9 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
             sk = createResult.key || createResult.sessionKey
             setActiveSessionId(sk as string)
             // Persisti gli agenti selezionati nella nuova sessione (orchestrator incluso)
-            if (ag && ag.length > 0) {
-              try { await call('setChatAgents', { sessionKey: sk, agentIds: ag.join(',') }) } catch {}
+            const allAgents = (optsChatAgents && optsChatAgents.length > 0) ? optsChatAgents : (ag || []);
+            if (allAgents.length > 0) {
+              try { await call('setChatAgents', { sessionKey: sk, agentIds: allAgents.join(',') }) } catch {}
             }
             try {
               const r = await call('getFullState', {})
