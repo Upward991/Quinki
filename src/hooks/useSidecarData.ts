@@ -662,9 +662,6 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
             }
           }
         } catch (e) { console.error('[DELEGATIONS] merge error:', e) }
-        const msgsWithDel = merged.filter((m: any) => m.delegations?.length > 0)
-        console.log('[DELEG-CHECK] messages with delegations:', msgsWithDel.length, 'total:', merged.length)
-        if (msgsWithDel[0]) console.log('[DELEG-CHECK] first:', msgsWithDel[0].id, 'delCount:', msgsWithDel[0].delegations.length, 'agentName:', msgsWithDel[0].delegations[0].agentName, 'hasBlocks:', !!msgsWithDel[0].blocks, 'blocksLen:', msgsWithDel[0].blocks?.length)
         setMessages(merged.map(m => ({ ...m })))
       }
       // === Ripristino streaming: se la sessione sta ancora generando, recupera stato + buffer ===
