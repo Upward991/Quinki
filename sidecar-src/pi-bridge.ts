@@ -3760,7 +3760,8 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       try {
         process.stderr.write('[SKILL-DEBUG] Rebuilding system prompt with ' + data.skillNames.length + ' skills\n');
         const skillPrompt = this.#buildSystemPrompt(sk, effectiveCwd, data.workingDirs, undefined, data.skillNames);
-        // Set BOTH _baseSystemPrompt and systemPrompt — the vendor code overwrites systemPrompt with _baseSystemPrompt
+        // Set _customSystemPromptOverride flag so vendor code doesn't overwrite
+        try { (pi as any)._customSystemPromptOverride = true; } catch {}
         try { (pi as any)._baseSystemPrompt = skillPrompt; } catch {}
         pi.agent.state.systemPrompt = skillPrompt;
         process.stderr.write('[SKILL-DEBUG] System prompt rebuilt OK, len=' + (pi.agent.state.systemPrompt || '').length + '\n');
