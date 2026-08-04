@@ -340,7 +340,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     const sk = String(p.sessionKey);
     const mid = p.messageId || `u-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const meta = piBridge!.getSessionMeta(sk);
-    piBridge!.logDebug("send-message", {
+    piBridge!.logDebug("send-message", { skillNames: p.skillNames || "(none)",
       sessionKey: sk,
       agentId: p.agentId || meta.agentId || "(none)",
       model: p.model || meta.model || "(default)",

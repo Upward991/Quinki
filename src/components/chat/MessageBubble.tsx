@@ -90,9 +90,9 @@ function UserMessage({ message, onCopy, searchQuery, activeOcc, isDateMatch }: {
       {(message as any).skillNames && (message as any).skillNames.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
           {(message as any).skillNames.map((s: any, i: number) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '2px 8px 2px 10px', borderRadius: '100px', backgroundColor: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', fontSize: '11px', fontFamily: 'var(--font-interface)' }}>
-              <span style={{ color: 'var(--q-tab-accent)', fontWeight: 500 }}>{s.skillName}</span>
-              {s.agentName && <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '10px' }}>→ {s.agentName}</span>}
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 8px 3px 10px', borderRadius: '100px', backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid var(--q-border)', fontSize: '12px', fontFamily: 'var(--font-interface)', color: 'var(--q-text-secondary)' }}>
+              <span style={{ color: 'var(--q-text)', fontWeight: 500 }}>{s.skillName}</span>
+              {s.agentName && <span style={{ color: 'var(--q-text-tertiary)', fontSize: '11px' }}>→ {s.agentName}</span>}
             </div>
           ))}
         </div>
