@@ -35,8 +35,6 @@ const SETTINGS_FILE = fs.existsSync(path.join(_agentDir, "quinki-settings.json")
 const CONTEXT_USAGE_FILE = fs.existsSync(path.join(_agentDir, "quinki-context-usage.json"))
   ? path.join(_agentDir, "quinki-context-usage.json")
   : path.join(_agentDir, "dashboard-context-usage.json");
-  ? path.join(_agentDir, "quinki-delegations.json")
-  : path.join(_agentDir, "dashboard-delegations.json");
 const ERRORS_FILE = path.join(_agentDir, "quinki-errors.json");
 const DEBUG_LOG_FILE = path.join(_agentDir, "quinki-debug.log");
 const DEBUG_LOG_MAX = 50000;
