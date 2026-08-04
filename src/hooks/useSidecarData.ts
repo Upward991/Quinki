@@ -450,7 +450,7 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
     const unsubSessDeleted = subscribe('session_deleted', (p: any) => {
       if (p?.sessionKey) {
         setSessions(prev => prev.filter(s => s.id !== p.sessionKey))
-        if (activeSessionId === p.sessionKey) { setActiveSessionId(null); setMessages([]) }
+        if (activeSessionId === p.sessionKey) { setActiveSessionId(null); setMessages([]); setChatAgentIds([]); setAgentOverrides({}) }
       }
     })
 
@@ -859,7 +859,7 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
     try {
       notify('deleteSession', { sessionKey })
       setSessions(prev => prev.filter(s => s.id !== sessionKey))
-      if (activeSessionId === sessionKey) { setActiveSessionId(null); setMessages([]) }
+      if (activeSessionId === sessionKey) { setActiveSessionId(null); setMessages([]); setChatAgentIds([]); setAgentOverrides({}) }
     } catch (e) { console.error('deleteSession:', e) }
   }, [ready, notify, activeSessionId])
 
