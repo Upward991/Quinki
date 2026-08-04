@@ -526,6 +526,9 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
     })
 
     // Debug log
+    const unsubSysPrompt = subscribe('system_prompt_log', (p: any) => {
+      setDebugLog(prev => [...prev, { tag: 'system_prompt', timestamp: Date.now(), data: { sessionKey: p.sessionKey, prompt: p.prompt, hasSkills: p.hasSkills, skills: p.skills, len: p.prompt?.length || 0 } }])
+    })
     const unsubDebugLog = subscribe('debug_log', (p: any) => {
       if (p?.log) setDebugLog(p.log)
     })
@@ -579,7 +582,7 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
       unsubModelUpdate(); unsubThinkUpdate(); unsubThinkLevels()
       unsubSessMeta(); unsubAgentStatus()
       unsubCtxUsage(); unsubAllCtx(); unsubModelCtx()
-      unsubDebugLog(); unsubCompaction(); unsubHistory()
+      unsubSysPrompt(); unsubDebugLog(); unsubCompaction(); unsubHistory()
       unsubPiNeeded(); unsubPiOk(); unsubPiCreated()
       unsubModelsList()
       unsubProgress()

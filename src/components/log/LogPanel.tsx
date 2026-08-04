@@ -84,7 +84,8 @@ export function LogPanel(props: LogPanelProps) {
     if (autoScroll && bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight
   }, [entries, autoScroll])
 
-  const levelColors: Record<string, { bg: string; text: string; tag: string; pill: string }> = {
+  const levelColors: Record<string, {
+    system: { bg: 'rgba(115, 71, 189, 0.08)', tag: 'var(--q-accent-primary)', text: 'var(--q-text)' }, bg: string; text: string; tag: string; pill: string }> = {
     error:    { bg: 'color-mix(in srgb, var(--q-accent-danger) 6%, transparent)', text: 'var(--q-accent-danger)', tag: 'var(--q-accent-danger)', pill: 'var(--q-accent-danger)' },
     warn:     { bg: 'color-mix(in srgb, var(--q-accent-warning) 6%, transparent)', text: 'var(--q-accent-warning)', tag: 'var(--q-accent-warning)', pill: 'var(--q-accent-warning)' },
     ui:       { bg: 'color-mix(in srgb, var(--q-accent-info) 6%, transparent)', text: 'var(--q-accent-info)', tag: 'var(--q-accent-info)', pill: 'var(--q-accent-info)' },
@@ -112,6 +113,7 @@ export function LogPanel(props: LogPanelProps) {
     // Bridge: session/agent/model/thinking/mode changes + send/receive
     if (tag.startsWith('send-message') || tag.startsWith('set-agent') || tag.startsWith('set-mode') || tag.startsWith('set-thinking') || tag.startsWith('set-model') || tag.startsWith('chat-agents') || tag.startsWith('agent-changed') || tag.startsWith('model-changed') || tag.startsWith('thinking-changed') || tag.startsWith('mode-changed') || tag.startsWith('session-') || tag.startsWith('working-dir') || tag.startsWith('stream') || tag.startsWith('bridge') || tag.startsWith('full-state') || tag.startsWith('get_') || tag.startsWith('ws:') || tag.startsWith('send:') || tag.startsWith('create') || tag.startsWith('delete') || tag.startsWith('update') || tag.startsWith('rename') || tag.startsWith('reload') || tag.startsWith('flush') || tag.startsWith('compact') || tag.startsWith('set-')) return 'bridge'
     // Renderer/sidecar internals
+    if (tag === 'system_prompt') return 'system'
     if (tag.startsWith('renderer') || tag.startsWith('sidecar-marker') || tag.startsWith('stdout')) return 'renderer'
     return 'info'
   }
@@ -120,6 +122,11 @@ export function LogPanel(props: LogPanelProps) {
     if (data == null) return ''
     if (typeof data === 'string') return data
     if (typeof data !== 'object') return String(data)
+    // Special formatting for system_prompt logs
+    if (data && data.prompt !== undefined) {
+      const skills = data.skills && data.skills.length > 0 ? data.skills.join(', ') : 'none'
+      return `Session: ${data.sessionKey || '?'}\nLength: ${data.len} chars\nSkills: ${skills}\nHas Skills: ${data.hasSkills}\n\n--- SYSTEM PROMPT ---\n${data.prompt}`
+    }
     try { return JSON.stringify(data, null, 2) } catch { return String(data) }
   }
 

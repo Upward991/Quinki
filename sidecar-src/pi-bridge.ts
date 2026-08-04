@@ -3477,13 +3477,11 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
             const content = fs.readFileSync(skillPath, 'utf-8');
             const body = content.replace(/^---\n[\s\S]*?\n---\n?/, '');
             if (isOrchestrator) {
-              // Orchestrator: tell it which agent to pass the skill to
               const targetCfg = this.#readAgentConfig(targetAgentId);
               const targetName = targetCfg?.name || targetAgentId;
-              prompt += `\n\n--- Active Skill: ${skillName} (for agent: ${targetName}) ---\n${body}\n--- End Active Skill ---\n\nIMPORTANT: When you delegate to ${targetName}, include the skill instructions above in your delegation message so the agent follows them.`;
+              prompt += `\n\n=== USER ACTIVATED SKILL: ${skillName} ===\nTarget agent: ${targetName}\n\n${body}\n\n=== END USER ACTIVATED SKILL ===\n\nCRITICAL: The skill instructions above were explicitly activated by the user via /skill command. They are ALREADY in your system prompt — do NOT use the skill tool to verify them. Follow them directly. When you delegate to ${targetName}, you MUST include the full skill instructions above in your delegation message so ${targetName} follows them.`;
             } else {
-              // Direct agent: skill is for this agent
-              prompt += `\n\n--- Active Skill: ${skillName} ---\n${body}\n--- End Active Skill ---`;
+              prompt += `\n\n=== USER ACTIVATED SKILL: ${skillName} ===\n\n${body}\n\n=== END USER ACTIVATED SKILL ===\n\nCRITICAL: The skill instructions above were explicitly activated by the user via /skill command. They are ALREADY in your system prompt — do NOT use the skill tool to verify them. Follow them directly.`;
             }
             this.logDebug('skill-invoked', { sessionKey: key, skillName, targetAgentId, isOrchestrator, contentLen: body.length });
           }
@@ -3866,11 +3864,17 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     // This ensures skills are one-shot: present only for the message they're attached to
     try {
       const skillNames = (data.skillNames && data.skillNames.length > 0) ? data.skillNames : undefined;
-      const prompt = this.#buildSystemPrompt(sk, effectiveCwd, data.workingDirs, undefined, skillNames);
+      let prompt = this.#buildSystemPrompt(sk, effectiveCwd, data.workingDirs, undefined, skillNames);
+      // When NO skill is attached, add explicit note that previous skills are deactivated
+      if (!skillNames) {
+        prompt += '\n\nNOTE: Any skills activated in previous messages are NO LONGER ACTIVE. Do not follow instructions from previously activated skills. Only follow skill instructions if they appear in a "USER ACTIVATED SKILL" section in your current system prompt.';
+      }
       try { (pi as any)._customSystemPromptOverride = true; } catch {}
       try { (pi as any)._baseSystemPrompt = prompt; } catch {}
       pi.agent.state.systemPrompt = prompt;
       process.stderr.write('[SKILL-DEBUG] Rebuilt BEFORE sendUserMessage: len=' + prompt.length + ', hasSkills=' + !!skillNames + '\n');
+      // Emit system prompt to frontend for logging
+      try { ws.send(JSON.stringify({ type: 'system_prompt_log', sessionKey: sk, prompt: prompt, hasSkills: !!skillNames, skills: skillNames ? skillNames.map((s: any) => s.skillName) : [] })); } catch {}
     } catch (e: any) { process.stderr.write('[SKILL-DEBUG] Rebuild ERROR: ' + (e?.message || String(e)) + '\n'); }
     // Log system prompt BEFORE sendUserMessage
     try {
