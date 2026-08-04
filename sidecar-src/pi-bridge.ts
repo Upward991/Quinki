@@ -3064,7 +3064,6 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
           });
           const tempPi = tempResult.session;
           tempPiRef = tempPi;
-          const tempPi = tempResult.session;
           // Store in #active so abort() can stop it
           self.#active.set(tempKey, tempPi);
           // === Imposta system prompt dell'agente — NON sovrascrivere il prompt del resource loader (ha skills) ===
