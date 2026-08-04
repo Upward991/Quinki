@@ -383,7 +383,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
       // Don't clear pill here — done fires after each model response (including tool calls)
       // Only streaming_stopped (agent_end) clears the pill at the very end of the turn
       if (activeDelegationsRef.current.size > 0) return
-      setIsStreaming(false)
+      // NON setIsStreaming(false) qui — lo fa streaming_stopped (agent_end)
       // Accumula input/output totali sessione (mai resettati dalle risposte; solo reset sessione)
       const u: any = p?.usage
       if (u && p?.sessionKey) {
