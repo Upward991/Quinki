@@ -169,13 +169,13 @@ export function Composer(props: ComposerProps) {
             {pendingSkills.map((s, i) => (
               <div key={i} style={{
                 display: 'flex', alignItems: 'center', gap: '6px',
-                padding: '4px 10px', borderRadius: 'var(--radius-sm)',
-                backgroundColor: 'var(--q-accent-primary-soft)',
-                border: '1px solid var(--q-accent-primary)',
-                fontSize: '13px', fontFamily: 'var(--font-interface)',
-                color: 'var(--q-text)',
+                padding: '3px 8px 3px 10px', borderRadius: '100px',
+                backgroundColor: 'rgba(255,255,255,0.06)',
+                border: '1px solid var(--q-border)',
+                fontSize: '12px', fontFamily: 'var(--font-interface)',
+                color: 'var(--q-text-secondary)',
               }}>
-                <span style={{ color: 'var(--q-tab-accent)', fontWeight: 500 }}>{s.skillName}</span>
+                <span style={{ color: 'var(--q-text)', fontWeight: 500 }}>{s.skillName}</span>
                 <span style={{ color: 'var(--q-text-tertiary)', fontSize: '11px' }}>→ {s.agentName}</span>
                 <button onClick={() => setPendingSkills(prev => prev.filter((_, idx) => idx !== i))} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', color: 'var(--q-text-tertiary)', display: 'flex' }}>
                   <X size={14} />
