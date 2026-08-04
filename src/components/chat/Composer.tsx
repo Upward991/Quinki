@@ -68,7 +68,7 @@ export function Composer(props: ComposerProps) {
   const canSend = text.trim().length > 0 && !props.isStreaming
 
   const handleSend = () => {
-    if (canSend) { props.onSend(text.trim(), { skillNames: pendingSkills.length > 0 ? pendingSkills.map(s => ({ agentId: s.agentId, skillName: s.skillName })) : undefined }); setText(''); setSlashMenuOpen(false); setMentionOpen(false); setPendingSkill(null); setPendingSkills([]) }
+    if (canSend) { props.onSend(text.trim(), { skillNames: pendingSkills.length > 0 ? pendingSkills.map(s => ({ agentId: s.agentId, skillName: s.skillName, agentName: s.agentName })) : undefined }); setText(''); setSlashMenuOpen(false); setMentionOpen(false); setPendingSkill(null); setPendingSkills([]) }
   }
 
   const selectAgent = (agent: Agent) => {
@@ -175,7 +175,7 @@ export function Composer(props: ComposerProps) {
                 fontSize: '13px', fontFamily: 'var(--font-interface)',
                 color: 'var(--q-text)',
               }}>
-                <span>{s.skillName}</span>
+                <span style={{ color: 'var(--q-tab-accent)', fontWeight: 500 }}>{s.skillName}</span>
                 <span style={{ color: 'var(--q-text-tertiary)', fontSize: '11px' }}>→ {s.agentName}</span>
                 <button onClick={() => setPendingSkills(prev => prev.filter((_, idx) => idx !== i))} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', color: 'var(--q-text-tertiary)', display: 'flex' }}>
                   <X size={14} />
