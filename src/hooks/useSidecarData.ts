@@ -579,11 +579,30 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
     try {
       const history = await call('getHistory', { sessionKey })
       if (history?.messages) {
+        const delCount = (history.messages || []).filter((m: any) => m.role === 'delegation').length
+        console.log('[HIST-CHECK] total messages:', history.messages.length, 'delegations:', delCount, 'old delegations:', (history.delegations || []).length)
         // La history ha tool_call/tool_result come messaggi SEPARATI (ordine cronologico).
         // Il renderer li vuole DENTRO il messaggio assistant come array → merge cronologico.
         const merged: any[] = []
         for (const m of history.messages) {
-          if (m.role === 'delegation') continue
+          if (m.role === 'delegation') {
+            // Delegation from buildSessionContext — insert as block at current position
+            const nb: any[] = []
+            if (Array.isArray(m.content)) {
+              for (const b of m.content) {
+                if (b?.type === 'thinking') nb.push({ type: 'thinking', content: b.thinking || b.content || '' })
+                else if (b?.type === 'toolCall') nb.push({ type: 'tool_call', name: b.text || b.name || 'tool', input: b.thinking || b.input || b.args || '' })
+                else if (b?.type === 'toolResult') nb.push({ type: 'tool_result', name: b.text || b.name || 'tool', output: b.thinking || b.content || '', isError: !!b.isError })
+                else if (b?.type === 'text') nb.push({ type: 'text', content: b.text || b.content || '' })
+              }
+            }
+            const delBlock = { type: 'delegation', id: m.id, agentName: m.agentName || 'agent', agentModel: m.model || '', taskContent: m.delegatedMessage || '', response: typeof m.content === 'string' ? m.content : '', blocks: nb, thinkingLevel: m.thinkingLevel || '', streaming: false }
+            // Add to last assistant message's blocks (at current position)
+            let lastM = merged[merged.length - 1]
+            if (!lastM || lastM.role !== 'assistant') { lastM = { id: 'delmsg-' + m.id, role: 'assistant', content: '', blocks: [], timestamp: m.timestamp || new Date().toISOString() }; merged.push(lastM) }
+            lastM.blocks = [...(lastM.blocks || []), delBlock]
+            continue
+          }
           const base: any = {
             id: m.id || `msg-${Math.random()}`,
             role: m.role,
@@ -625,16 +644,13 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
             merged.push(base)
           }
         }
-        // === Deleghe: ora incluse automaticamente in history.messages (role: "delegation") ===
-        // buildSessionContext() le include in posizione corretta (dal .jsonl)
-        // Il frontend converte role: "delegation" in block type: "delegation"
+        // === Deleghe vecchie (da quinki-delegations.json) — insert after last tool_call ===
         try {
-          const delMsgs = (history as any).messages || []
-          const jsonlDels = delMsgs.filter((m: any) => m.role === 'delegation')
+          const jsonlDels = ((history as any).messages || []).filter((m: any) => m.role === 'delegation')
           const oldDels = ((history as any).delegations || [])
-          // Merge and deduplicate by ID
+          // Only process OLD delegations (new ones already handled in mapping loop above)
           const seenIds = new Set(jsonlDels.map((d: any) => d.id))
-          const delList = [...jsonlDels, ...oldDels.filter((d: any) => !seenIds.has(d.id))]
+          const delList = oldDels.filter((d: any) => !seenIds.has(d.id))
           if (Array.isArray(delList) && delList.length > 0) {
             const delBlocks = delList.map((d: any) => {
               const nb: any[] = []
@@ -675,6 +691,12 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
             }
           }
         } catch (e) { console.error('[DELEGATIONS] merge error:', e) }
+        // Debug: count delegation blocks in final messages
+        let delBlockCount = 0
+        for (const m of merged) { if ((m as any).blocks) for (const b of (m as any).blocks) { if (b.type === 'delegation') delBlockCount++ } }
+        let delPropCount = 0
+        for (const m of merged) { if ((m as any).delegations?.length) delPropCount += (m as any).delegations.length }
+        console.log('[FINAL-CHECK] delegation blocks:', delBlockCount, 'delegation props:', delPropCount, 'total msgs:', merged.length)
         setMessages(merged.map(m => ({ ...m })))
       }
       // === Ripristino streaming: se la sessione sta ancora generando, recupera stato + buffer ===

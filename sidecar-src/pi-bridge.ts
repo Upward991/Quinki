@@ -957,9 +957,13 @@ class PiBridge {
         if (ctx?.messages) {
           const noopTs = detectNoopCompactions(pi.sessionManager);
           const prevCompactions = collectAllCompactionMessages(pi.sessionManager, noopTs);
+          const delInCtx = ctx.messages.filter((m: any) => m.role === 'delegation');
+          try { fs.writeSync(2, '[GET-HIST] ctx.messages:', ctx.messages.length, ' delegations:', delInCtx.length, '\n'); } catch {}
           const mapped = mapWithNoop(ctx.messages, noopTs).filter((m: any) => !m.isCompactionSummary && !m.isCompactionWarning);
           // Prepend le compaction precedenti, ordinate per timestamp
           const errs = (this.#errors.get(key) || []).map((er: any, i: number) => ({ id: `err-${i}-${er.timestamp}`, role: "assistant", content: "", errorContent: er.errorMessage, isError: true, timestamp: er.timestamp, done: true, model: er.model, agentName: er.agentName, thinkingLevel: er.thinkingLevel }));
+          const delInMapped = mapped.filter((m: any) => m.role === 'delegation');
+          try { fs.writeSync(2, '[GET-HIST] mapped:', mapped.length, ' delegations in mapped:', delInMapped.length, '\n'); } catch {}
           return [...prevCompactions, ...mapped, ...errs].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
         }
       } catch {}
@@ -974,7 +978,12 @@ class PiBridge {
           if (ctx?.messages) {
             const noopTs = detectNoopCompactions(sm);
             const prevCompactions = collectAllCompactionMessages(sm, noopTs);
+            const delInCtx2 = ctx.messages.filter((m: any) => m.role === 'delegation');
+            try { fs.writeSync(2, '[GET-HIST2] ctx.messages:', ctx.messages.length, ' delegations:', delInCtx2.length, '\n'); } catch {}
             const mapped = mapWithNoop(ctx.messages, noopTs).filter((m: any) => !m.isCompactionSummary && !m.isCompactionWarning);
+            const delInMapped2 = mapped.filter((m: any) => m.role === 'delegation');
+            try { fs.writeSync(2, '[GET-HIST2] mapped:', mapped.length, ' delegations in mapped:', delInMapped2.length, '\n'); } catch {}
+            if (delInMapped2[0]) try { fs.writeSync(2, '[GET-HIST2] first del:', delInMapped2[0].id, ' ', delInMapped2[0].agentName, '\n'); } catch {}
             const errs = (this.#errors.get(key) || []).map((er: any, i: number) => ({ id: `err-${i}-${er.timestamp}`, role: "assistant", content: "", errorContent: er.errorMessage, isError: true, timestamp: er.timestamp, done: true, model: er.model, agentName: er.agentName, thinkingLevel: er.thinkingLevel }));
             return [...prevCompactions, ...mapped, ...errs].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
           }
