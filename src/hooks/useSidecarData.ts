@@ -645,23 +645,26 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
               }
               return { id: d.id, agentName: d.agentName || 'agent', agentModel: d.model || '', taskContent: d.delegatedMessage || '', response: typeof d.content === 'string' ? d.content : '', blocks: nb, thinkingLevel: d.thinkingLevel || '' }
             })
-            // Add delegations to messages with matching tool_calls (ALL per message, not just 1)
+            // Insert delegation blocks AFTER each delegate_to_agent tool_call (same position as streaming)
             let delIdx = 0
             for (let i = 0; i < merged.length && delIdx < delBlocks.length; i++) {
               if (merged[i].role !== 'assistant') continue
               const blocks = (merged[i] as any).blocks || []
-              // Count how many delegate_to_agent tool_calls are in this message
-              const delegateCount = blocks.filter((b: any) => b.type === 'tool_call' && (b.name === 'delegate_to_agent' || (b.name || '').includes('delegate'))).length
-              if (delegateCount > 0 && delIdx < delBlocks.length) {
-                const delsToAdd = delBlocks.slice(delIdx, delIdx + delegateCount)
-                merged[i] = { ...merged[i], delegations: [...((merged[i] as any).delegations || []), ...delsToAdd] }
-                delIdx += delegateCount
+              if (!blocks.some((b: any) => b.type === 'tool_call' && (b.name === 'delegate_to_agent' || (b.name || '').includes('delegate')))) continue
+              // Rebuild blocks: insert delegation block after each delegate_to_agent tool_call
+              const newBlocks: any[] = []
+              for (let bi = 0; bi < blocks.length; bi++) {
+                newBlocks.push(blocks[bi])
+                if (blocks[bi].type === 'tool_call' && (blocks[bi].name === 'delegate_to_agent' || (blocks[bi].name || '').includes('delegate')) && delIdx < delBlocks.length) {
+                  newBlocks.push(delBlocks[delIdx++])
+                }
               }
+              merged[i] = { ...merged[i], blocks: newBlocks }
             }
-            // Remaining: add to last assistant
+            // Remaining: add as delegations to last assistant (fallback)
             if (delIdx < delBlocks.length) {
               const lastA = [...merged].reverse().find((m: any) => m.role === 'assistant')
-              if (lastA) merged[merged.indexOf(lastA)] = { ...lastA, delegations: [...(lastA as any).delegations || [], ...delBlocks.slice(delIdx)] }
+              if (lastA) merged[merged.indexOf(lastA)] = { ...lastA, delegations: [...((lastA as any).delegations || []), ...delBlocks.slice(delIdx)] }
             }
           }
         } catch (e) { console.error('[DELEGATIONS] merge error:', e) }
