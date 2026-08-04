@@ -514,7 +514,7 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
   const iconColor = isFolder
     ? expanded ? 'var(--q-accent-folder-open)' : isHovered ? 'var(--q-text)' : 'var(--q-text-tertiary)'
     : isSelected ? 'var(--q-accent-danger)' : isActive ? 'var(--q-accent-info)' : isHovered ? 'var(--q-text)' : 'var(--q-text-tertiary)'
-  const bgColor = isSelected ? 'rgba(255,59,48,0.08)' : isHovered && !isActive ? 'var(--q-hover)' : 'transparent'
+  const bgColor = isHovered && !isActive ? 'var(--q-hover)' : 'transparent'
   const indent = 8 + depth * 12
 
   return (
