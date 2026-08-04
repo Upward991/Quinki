@@ -59,13 +59,12 @@ interface SessionEntry {
   model?: string;
   thinkingLevel?: string;
   mode?: string;
-  agentId?: string; // agente associato alla sessione (es: agent-1783343015806)
-  // === Fix 10: order e lastActivity per far apparire le nuove chat in cima ===
+  agentId?: string;
   lastActivity?: number;
   order?: number;
-  // === Fix 3/B5: compaction settings per-sessione ===
   compactionAuto?: boolean;
   compactionThreshold?: number;
+  workingDir?: string;
 }
 
 type ProbeResult = { levels: string[]; map: Record<string, string>; ollamaLevels: string[] };
@@ -365,6 +364,11 @@ class PiBridge {
           // Merge folderId and order from the file (not in session files, only in quinki-sessions.json)
           if (s.folderId !== undefined) (existing as any).folderId = s.folderId;
           if (typeof s.order === 'number') (existing as any).order = s.order;
+          // Restore workingDir from disk to cwdOverride
+          if (s.workingDir) {
+            this.#cwdOverride.set(s.key, s.workingDir);
+            (existing as any).workingDir = s.workingDir;
+          }
         }
       }
       if (merged > 0) {
@@ -401,6 +405,7 @@ class PiBridge {
           agentOverrides: (v as any).agentOverrides,
           messageAgents: (v as any).messageAgents,
           messageThinking: (v as any).messageThinking,
+          workingDir: (v as any).workingDir,
         });
       }
       fs.writeFileSync(SESSION_FILE, JSON.stringify(data, null, 2), "utf8");
@@ -2245,8 +2250,13 @@ class PiBridge {
     }
     if (newPath && newPath.length > 0) {
       this.#cwdOverride.set(key, newPath);
+      // Persist to session entry
+      const s = this.#entries.get(key);
+      if (s) { (s as any).workingDir = newPath; this.#save(); }
     } else {
-      this.#cwdOverride.delete(key);  // nessuna dir → riapre col cwd di default (#cwd)
+      this.#cwdOverride.delete(key);
+      const s = this.#entries.get(key);
+      if (s) { (s as any).workingDir = undefined; this.#save(); }
     }
     this.logDebug("set-working-dir", { sessionKey: key, newPath: newPath || "(default)" });
   }

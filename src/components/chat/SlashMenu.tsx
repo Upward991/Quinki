@@ -48,6 +48,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
   const [directories, setDirectories] = useState<string[]>([])
   const [skills, setSkills] = useState<any[]>([])
   const [skillsLoading, setSkillsLoading] = useState(false)
+  const [pendingSkill, setPendingSkill] = useState<string | null>(null)
 
   // Load current directory for this session from sidecar
   useEffect(() => {
@@ -139,7 +140,14 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
   }
 
   const selectSkill = (skillName: string) => {
-    props.onSkillSelected?.(skillName)
+    setPendingSkill(skillName)
+    setFocusConfirm(true)
+  }
+
+  const confirmSkill = () => {
+    if (pendingSkill) {
+      props.onSkillSelected?.(pendingSkill)
+    }
     props.onClose()
   }
 
@@ -178,8 +186,8 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
       } else if (mode === 'thinking') {
         setPendingThinking(selectedIdx === 0 ? 'on' : 'off'); setFocusConfirm(true)
       } else if (mode === 'skill') {
-        const s = skills[selectedIdx]
-        if (s) selectSkill(s.name)
+        if (focusConfirm) confirmSkill()
+        else { const s = skills[selectedIdx]; if (s) selectSkill(s.name) }
       } else if (mode === 'directory') {
         if (focusAdd) { setFocusAdd(false); setFocusConfirm(true) }
         else if (!focusConfirm) setFocusAdd(true)
@@ -199,8 +207,8 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
         if (focusConfirm) confirm()
         else { setPendingThinking(selectedIdx === 0 ? 'on' : 'off'); setFocusConfirm(true) }
       } else if (mode === 'skill') {
-        const s = skills[selectedIdx]
-        if (s) selectSkill(s.name)
+        if (focusConfirm) confirmSkill()
+        else { const s = skills[selectedIdx]; if (s) selectSkill(s.name) }
       } else if (mode === 'directory') {
         if (focusConfirm) confirm()
         else if (focusAdd) { pickDirectory() }
@@ -340,13 +348,14 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
               <div style={{ padding: '16px', color: 'var(--q-text-tertiary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Loading skills…</div>
             )}
             {!skillsLoading && skills.length === 0 && (
-              <div style={{ padding: '16px', color: 'var(--q-text-tertiary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>No skills found</div>
+              <div style={{ padding: '16px', color: 'var(--q-text-tertiary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>No skills available for the agents in this chat</div>
             )}
             {!skillsLoading && skills.map((skill, idx) => (
               <MenuItem
                 key={skill.name}
                 label={skill.name}
                 isSelected={idx === selectedIdx}
+                isChecked={skill.name === pendingSkill}
                 trailing={skill.description?.slice(0, 40)}
                 onHover={() => setSelectedIdx(idx)}
                 onTap={() => selectSkill(skill.name)}
@@ -354,12 +363,12 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
             ))}
           </div>
           <NavBar
-            focusConfirm={false}
-            onUp={() => { setSelectedIdx(i => (i - 1 + skills.length) % skills.length) }}
-            onDown={() => { setSelectedIdx(i => (i + 1) % skills.length) }}
+            focusConfirm={focusConfirm}
+            onUp={() => { setSelectedIdx(i => (i - 1 + skills.length) % skills.length); setFocusConfirm(false) }}
+            onDown={() => { setSelectedIdx(i => (i + 1) % skills.length); setFocusConfirm(false) }}
             onLeft={() => enterMode('main')}
             onRight={() => { const s = skills[selectedIdx]; if (s) selectSkill(s.name) }}
-            onConfirm={() => { const s = skills[selectedIdx]; if (s) selectSkill(s.name) }}
+            onConfirm={confirmSkill}
             onClose={props.onClose}
           />
         </>
