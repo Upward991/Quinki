@@ -135,6 +135,7 @@ export function Composer(props: ComposerProps) {
           selectedModel={props.selectedModel}
           thinking={props.thinking}
           sessionKey={props.sessionKey}
+          chatAgentIds={props.chatAgentIds}
           onSelectModel={(m) => { props.onModelChange(m); setSlashMenuOpen(false); setText('') }}
           onSelectThinking={(t) => { props.onThinkingChange(t as ThinkingLevel); setSlashMenuOpen(false); setText('') }}
           onReset={() => { props.onReset?.(); setSlashMenuOpen(false); setText('') }}

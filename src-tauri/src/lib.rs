@@ -84,9 +84,10 @@ pub fn run() {
 
       // === Tray icon === (character only, no background)
       let show_item = MenuItem::with_id(app, "show", "Show Quinki", true, None::<&str>)?;
-      let new_chat_item = MenuItem::with_id(app, "new_chat", "New Chat", true, None::<&str>)?;
+      let expert_item = MenuItem::with_id(app, "expert", "Open Quinki Expert", true, None::<&str>)?;
+      let restart_item = MenuItem::with_id(app, "restart", "Restart Quinki", true, None::<&str>)?;
       let quit_item = MenuItem::with_id(app, "quit", "Quit Quinki", true, None::<&str>)?;
-      let menu = Menu::with_items(app, &[&show_item, &new_chat_item, &quit_item])?;
+      let menu = Menu::with_items(app, &[&show_item, &expert_item, &restart_item, &quit_item])?;
 
       // Load tray icon (character only, transparent background)
       let tray_img = tauri::image::Image::from_bytes(include_bytes!("../icons/tray-icon.png"))
@@ -95,7 +96,7 @@ pub fn run() {
       let _tray = TrayIconBuilder::new()
         .menu(&menu)
         .icon(tray_img)
-        .icon_as_template(true)
+        .icon_as_template(false)
         .menu_on_left_click(false)
         .tooltip("Quinki")
         .on_menu_event(|app, event| {
@@ -106,14 +107,28 @@ pub fn run() {
                 let _ = window.set_focus();
               }
             }
-            "new_chat" => {
+            "expert" => {
               if let Some(window) = app.get_webview_window("main") {
                 let _ = window.show();
                 let _ = window.set_focus();
-                let _ = window.emit("tray-new-chat", ());
+                let _ = window.emit("tray-open-expert", ());
               }
             }
+            "restart" => {
+              // Kill sidecar processes
+              let _ = std::process::Command::new("sh").arg("-c").arg("pkill -f ws-bridge 2>/dev/null; pkill -f sidecar.ts 2>/dev/null; lsof -ti:9182 | xargs kill -9 2>/dev/null").spawn();
+              // Relaunch app after a short delay
+              let exe = std::env::current_exe().unwrap_or_default();
+              let app_path = exe.to_string_lossy().to_string();
+              std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_millis(300));
+                let _ = std::process::Command::new("sh").arg("-c").arg(format!("(sleep 0.5 && '{}') &", app_path)).spawn();
+              });
+              app.exit(0);
+            }
             "quit" => {
+              // Kill sidecar processes
+              let _ = std::process::Command::new("sh").arg("-c").arg("pkill -f ws-bridge 2>/dev/null; pkill -f sidecar.ts 2>/dev/null; lsof -ti:9182 | xargs kill -9 2>/dev/null").spawn();
               app.exit(0);
             }
             _ => {}

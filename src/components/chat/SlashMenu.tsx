@@ -22,6 +22,7 @@ interface SlashMenuProps {
   selectedModel: string
   thinking: string
   sessionKey?: string
+  chatAgentIds?: string[]
   onSelectModel: (model: string) => void
   onSelectThinking: (level: string) => void
   onReset: () => void
@@ -101,11 +102,9 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
     try {
       const call = (window as any).__sidecarCall
       if (call) {
-        const res = await call('listSkills', {})
-        // Only show skills that need user invocation (disable-model-invocation or user-invocable)
-        const allSkills = res?.skills || []
-        const userSkills = allSkills.filter((s: any) => s.disableModelInvocation || s.userInvocable)
-        setSkills(userSkills.length > 0 ? userSkills : allSkills)
+        // Use listChatSkills to get only skills for agents in this chat
+        const res = await call('listChatSkills', { agentIds: props.chatAgentIds || [] })
+        setSkills(res?.skills || [])
       }
     } catch (e) { console.error('Failed to fetch skills:', e) }
     setSkillsLoading(false)

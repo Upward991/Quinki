@@ -791,6 +791,8 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
     setMessages([])
     setIsStreaming(false)
     setStatusLabel(''); setStatusKind('')
+    setChatAgentIds([])
+    setAgentOverrides({})
   }, [])
 
   const stopStreaming = useCallback(() => {
