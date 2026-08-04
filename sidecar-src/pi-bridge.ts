@@ -529,39 +529,54 @@ class PiBridge {
     return this.#errors.get(sessionKey) || [];
   }
 
-  // Append delegation as custom entry to .jsonl — buildSessionContext skips unknown types
+  // Append delegation to .jsonl via SessionManager._appendEntry (puts it in the tree chain)
+  // buildSessionContext() walks leaf→root, so delegation must be IN the chain to be included
+  // agent-session.js filters role: "delegation" before LLM call → zero context cost
   #appendDelegationToJsonl(sessionKey: string, delegation: any) {
-    console.error('[DELEG-APPEND] called: sk=' + sessionKey + ' id=' + delegation.id);
     try {
-      // Also save to in-memory for getDelegations() during same session
+      // Save to in-memory for getDelegations() during same session
       const existing = this.#delegations.get(sessionKey) || [];
       existing.push(delegation);
       this.#delegations.set(sessionKey, existing);
 
-      const sessionDir = this.#piSessionDir(sessionKey);
-      console.error('[DELEG-APPEND] sessionDir=' + sessionDir + ' exists=' + fs.existsSync(sessionDir));
-      if (!fs.existsSync(sessionDir)) { this.#saveDelegation(sessionKey, delegation); return; }
-      const files = fs.readdirSync(sessionDir).filter((f: string) => f.endsWith(".jsonl"));
-      console.error('[DELEG-APPEND] jsonl files=' + files.length);
-      if (files.length === 0) { this.#saveDelegation(sessionKey, delegation); return; }
-      const jsonlPath = path.join(sessionDir, files[0]);
-      const entry = {
-        type: "delegation",
-        id: delegation.id,
-        parentId: null,
-        timestamp: new Date(delegation.timestamp || Date.now()).toISOString(),
-        delegationData: {
-          agentName: delegation.agentName,
-          delegatedMessage: delegation.delegatedMessage,
-          content: delegation.content,
-          model: delegation.model,
-          thinkingLevel: delegation.thinkingLevel,
-        },
-      };
-      fs.appendFileSync(jsonlPath, JSON.stringify(entry) + "\n", "utf8");
-      console.error('[DELEG-APPEND] SUCCESS: written to ' + jsonlPath);
+      // Use SessionManager._appendEntry to add delegation to the tree chain
+      const pi = this.#active.get(sessionKey);
+      if (pi?.sessionManager && typeof (pi.sessionManager as any)._appendEntry === 'function') {
+        const entry = {
+          type: "delegation",
+          id: delegation.id,
+          parentId: (pi.sessionManager as any).leafId, // link to current leaf
+          timestamp: new Date(delegation.timestamp || Date.now()).toISOString(),
+          delegationData: {
+            agentName: delegation.agentName,
+            delegatedMessage: delegation.delegatedMessage,
+            content: delegation.content,
+            model: delegation.model,
+            thinkingLevel: delegation.thinkingLevel,
+          },
+        };
+        (pi.sessionManager as any)._appendEntry(entry);
+        this.logDebug("delegation-appended-to-chain", { sessionKey, id: delegation.id, leafId: entry.parentId });
+      } else {
+        // Fallback: write to file directly (delegation will be orphan but readable by #readDelegationEntries)
+        const sessionDir = this.#piSessionDir(sessionKey);
+        if (fs.existsSync(sessionDir)) {
+          const files = fs.readdirSync(sessionDir).filter((f: string) => f.endsWith(".jsonl"));
+          if (files.length > 0) {
+            const entry = {
+              type: "delegation",
+              id: delegation.id,
+              parentId: null,
+              timestamp: new Date(delegation.timestamp || Date.now()).toISOString(),
+              delegationData: { agentName: delegation.agentName, delegatedMessage: delegation.delegatedMessage, content: delegation.content, model: delegation.model, thinkingLevel: delegation.thinkingLevel },
+            };
+            fs.appendFileSync(path.join(sessionDir, files[0]), JSON.stringify(entry) + "\n", "utf8");
+          }
+        }
+        this.#saveDelegation(sessionKey, delegation);
+      }
     } catch (e: any) {
-      console.error('[DELEG-APPEND] ERROR: ' + (e?.message || String(e)));
+      this.logDebug("delegation-append-error", { error: e?.message });
       this.#saveDelegation(sessionKey, delegation);
     }
   }
