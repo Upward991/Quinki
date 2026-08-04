@@ -3380,7 +3380,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     });
   }
 
-  #buildSystemPrompt(key: string, cwd: string, workingDirs?: string[], mode?: string): string {
+  #buildSystemPrompt(key: string, cwd: string, workingDirs?: string[], mode?: string, skillName?: string): string {
     const agentId = this.#resolveAgentId(key);
     const hasAgent = agentId !== null;
     let prompt = hasAgent ? this.#readAgentPrompt(agentId!, cwd) : "quinki";
@@ -3437,6 +3437,19 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
         }
       } catch {}
     }
+    // === User-invoked skill: load SKILL.md and add to system prompt ===
+    if (skillName) {
+      try {
+        const skillPath = this.#findSkillPath(skillName, cwd);
+        if (skillPath && fs.existsSync(skillPath)) {
+          const content = fs.readFileSync(skillPath, 'utf-8');
+          // Strip frontmatter
+          const body = content.replace(/^---\n[\s\S]*?\n---\n?/, '');
+          prompt += `\n\n--- Active Skill: ${skillName} ---\n${body}\n--- End Active Skill ---`;
+          this.logDebug('skill-invoked', { sessionKey: key, skillName, contentLen: body.length });
+        }
+      } catch (e: any) { this.logDebug('skill-invoke-error', { skillName, error: e?.message }); }
+    }
     return prompt;
   }
 
@@ -3467,7 +3480,21 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     return null;
   }
 
-  async send(ws: any, data: { sessionKey: string; text: string; files?: { name: string; type: string; path?: string; data?: string }[]; workingDirs?: string[] }) {
+  #findSkillPath(skillName: string, cwd: string): string | null {
+    // Search in: agentDir/skills, cwd/.pi/skills, cwd/.agents/skills
+    const searchDirs = [
+      path.join(this.#agentDir, "skills"),
+      path.join(cwd, ".pi", "skills"),
+      path.join(cwd, ".agents", "skills"),
+    ];
+    for (const dir of searchDirs) {
+      const skillPath = path.join(dir, skillName, "SKILL.md");
+      if (fs.existsSync(skillPath)) return skillPath;
+    }
+    return null;
+  }
+
+  async send(ws: any, data: { sessionKey: string; text: string; files?: { name: string; type: string; path?: string; data?: string }[]; workingDirs?: string[]; skillName?: string }) {
     const sk = data.sessionKey;
     const s = this.#entries.get(sk);
     if (!s) {
@@ -3601,7 +3628,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
             await pi.setModel(model);
             // === Fix 11: ripristinare system prompt minimale dopo setModel ===
             try {
-              pi.agent.state.systemPrompt = this.#buildSystemPrompt(sk, effectiveCwd, data.workingDirs);
+              pi.agent.state.systemPrompt = this.#buildSystemPrompt(sk, effectiveCwd, data.workingDirs, undefined, data.skillName);
             } catch {}
             const actualModel = (() => { try { return pi.model?.id; } catch { return pendingModel; } })();
             this.logDebug("pending-model-applied", { sessionKey: sk, requested: pendingModel, actual: actualModel, accepted: actualModel === pendingModel });

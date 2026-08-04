@@ -21,7 +21,7 @@ interface ComposerProps {
   isCompacting?: boolean
   statusLabel?: string
   statusKind?: string
-  onSend: (text: string) => void
+  onSend: (text: string, opts?: { skillName?: string }) => void
   onStop: () => void
   onModelChange: (model: string) => void
   onModeChange: (mode: ChatMode) => void
@@ -41,6 +41,7 @@ export function Composer(props: ComposerProps) {
   const [mentionOpen, setMentionOpen] = useState(false)
   const [mentionFilter, setMentionFilter] = useState('')
   const [mentionIdx, setMentionIdx] = useState(0)
+  const [pendingSkill, setPendingSkill] = useState<string | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const slashMenuRef = useRef<SlashMenuRef>(null)
 
@@ -66,7 +67,7 @@ export function Composer(props: ComposerProps) {
   const canSend = text.trim().length > 0 && !props.isStreaming
 
   const handleSend = () => {
-    if (canSend) { props.onSend(text.trim()); setText(''); setSlashMenuOpen(false); setMentionOpen(false) }
+    if (canSend) { props.onSend(text.trim(), { skillName: pendingSkill || undefined }); setText(''); setSlashMenuOpen(false); setMentionOpen(false); setPendingSkill(null) }
   }
 
   const selectAgent = (agent: Agent) => {
@@ -140,10 +141,9 @@ export function Composer(props: ComposerProps) {
           onSelectThinking={(t) => { props.onThinkingChange(t as ThinkingLevel); setSlashMenuOpen(false); setText('') }}
           onReset={() => { props.onReset?.(); setSlashMenuOpen(false); setText('') }}
           onClose={() => { setSlashMenuOpen(false); setText('') }}
-          onSkillSelected={(skillName, skillContent) => {
-            // Prepend skill instructions to the message
-            const enriched = `--- Skill: ${skillName} ---\nFollow these instructions from the '${skillName}' skill:\n\n${skillContent}\n--- End Skill ---\n\n${text.trim()}`
-            setText(enriched)
+          onSkillSelected={(skillName) => {
+            // Store skill name — will be passed to sendMessage
+            setPendingSkill(skillName)
             setSlashMenuOpen(false)
             setTimeout(() => textareaRef.current?.focus(), 0)
           }}

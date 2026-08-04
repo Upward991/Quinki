@@ -119,13 +119,12 @@ pub fn run() {
                 .arg("pkill -f ws-bridge 2>/dev/null; pkill -f sidecar.ts 2>/dev/null; lsof -ti:9182 | xargs kill -9 2>/dev/null")
                 .spawn();
               SHOULD_EXIT.store(true, Ordering::SeqCst);
-              // Relaunch app — use 'open' on the .app bundle, not the raw binary
-              std::thread::spawn(move || {
-                std::thread::sleep(std::time::Duration::from_millis(500));
-                let _ = std::process::Command::new("sh").arg("-c")
-                  .arg("open /Applications/Quinki.app")
-                  .spawn();
-              });
+              // Relaunch app — use nohup + detached process so it survives parent exit
+              let _ = std::process::Command::new("sh").arg("-c")
+                .arg("nohup sh -c 'sleep 1; open /Applications/Quinki.app' >/dev/null 2>&1 &")
+                .spawn();
+              // Give the detached process time to start before we exit
+              std::thread::sleep(std::time::Duration::from_millis(300));
               app.exit(0);
             }
             "quit" => {

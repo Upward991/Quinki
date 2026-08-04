@@ -27,7 +27,7 @@ interface SlashMenuProps {
   onSelectThinking: (level: string) => void
   onReset: () => void
   onClose: () => void
-  onSkillSelected?: (skillName: string, skillContent: string) => void
+  onSkillSelected?: (skillName: string) => void
 }
 
 interface Command {
@@ -138,17 +138,8 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
     } catch (e) { console.error('Directory picker error:', e) }
   }
 
-  const selectSkill = async (skillName: string) => {
-    try {
-      const call = (window as any).__sidecarCall
-      if (call) {
-        const res = await call('loadSkill', { name: skillName })
-        if (res?.content) {
-          props.onSkillSelected?.(skillName, res.content)
-          return  // onSkillSelected already closes the menu
-        }
-      }
-    } catch (e) { console.error('Load skill error:', e) }
+  const selectSkill = (skillName: string) => {
+    props.onSkillSelected?.(skillName)
     props.onClose()
   }
 
