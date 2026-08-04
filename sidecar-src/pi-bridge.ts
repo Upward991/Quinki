@@ -519,11 +519,6 @@ class PiBridge {
   // agent-session.js filters role: "delegation" before LLM call → zero context cost
   #appendDelegationToJsonl(sessionKey: string, delegation: any) {
     try {
-      // Save to in-memory for getDelegations() during same session
-      const existing = this.#delegations.get(sessionKey) || [];
-      existing.push(delegation);
-      this.#delegations.set(sessionKey, existing);
-
       // Use SessionManager._appendEntry to add delegation to the tree chain
       const pi = this.#active.get(sessionKey);
       if (pi?.sessionManager && typeof (pi.sessionManager as any)._appendEntry === 'function') {
@@ -558,7 +553,6 @@ class PiBridge {
             fs.appendFileSync(path.join(sessionDir, files[0]), JSON.stringify(entry) + "\n", "utf8");
           }
         }
-        // Fallback removed — delegations only go to .jsonl now
       }
     } catch (e: any) {
       this.logDebug("delegation-append-error", { error: e?.message });
