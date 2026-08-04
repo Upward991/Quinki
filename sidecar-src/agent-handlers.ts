@@ -223,7 +223,7 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
                     }
                   }
                 }
-                skills.push({ name: skillName, description: skillDesc, path: path.join(dir, e.name), directory: dir });
+                skills.push({ name: skillName, description: skillDesc, path: path.join(dir, e.name), directory: dir, disableModelInvocation: /^disable-model-invocation:\s*true/m.test(content), userInvocable: /^user-invocable:\s*true/m.test(content) });
               } catch {}
             }
           }

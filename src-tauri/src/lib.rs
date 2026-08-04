@@ -82,15 +82,21 @@ pub fn run() {
         }
       }
 
-      // === Tray icon ===
+      // === Tray icon === (character only, no background)
       let show_item = MenuItem::with_id(app, "show", "Show Quinki", true, None::<&str>)?;
       let new_chat_item = MenuItem::with_id(app, "new_chat", "New Chat", true, None::<&str>)?;
       let quit_item = MenuItem::with_id(app, "quit", "Quit Quinki", true, None::<&str>)?;
       let menu = Menu::with_items(app, &[&show_item, &new_chat_item, &quit_item])?;
 
+      // Load tray icon (character only, transparent background)
+      let tray_img = tauri::image::Image::from_bytes(include_bytes!("../icons/tray-icon.png"))
+          .unwrap_or_else(|_| app.default_window_icon().unwrap().clone());
+
       let _tray = TrayIconBuilder::new()
         .menu(&menu)
-        .icon(app.default_window_icon().unwrap().clone())
+        .icon(tray_img)
+        .icon_as_template(true)
+        .menu_on_left_click(false)
         .tooltip("Quinki")
         .on_menu_event(|app, event| {
           match event.id.as_ref() {

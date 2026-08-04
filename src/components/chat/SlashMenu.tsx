@@ -48,6 +48,12 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
   const [skills, setSkills] = useState<any[]>([])
   const [skillsLoading, setSkillsLoading] = useState(false)
 
+  // Load current directory from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('quinki-working-dir')
+    if (saved) setDirectories([saved])
+  }, [])
+
   const commands: Command[] = [
     { id: 'model', label: '/Model', description: 'Change model' },
     { id: 'thinking', label: '/Thinking', description: 'Change thinking' },
@@ -96,7 +102,10 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
       const call = (window as any).__sidecarCall
       if (call) {
         const res = await call('listSkills', {})
-        setSkills(res?.skills || [])
+        // Only show skills that need user invocation (disable-model-invocation or user-invocable)
+        const allSkills = res?.skills || []
+        const userSkills = allSkills.filter((s: any) => s.disableModelInvocation || s.userInvocable)
+        setSkills(userSkills.length > 0 ? userSkills : allSkills)
       }
     } catch (e) { console.error('Failed to fetch skills:', e) }
     setSkillsLoading(false)
@@ -107,6 +116,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
       const path = await invoke<string>('pick_directory')
       if (path && path !== 'cancelled') {
         setDirectories([path])
+        localStorage.setItem('quinki-working-dir', path)
         const call = (window as any).__sidecarCall
         const sk = props.sessionKey || ''
         if (call && sk) {
