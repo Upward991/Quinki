@@ -3578,8 +3578,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     });
 
     this.#wss.set(sk, ws);
-    process.stderr.write('[SKILL-DEBUG] send() called: data.skillNames=' + JSON.stringify(data.skillNames) + '
-');
+    process.stderr.write('[SKILL-DEBUG] send() called: data.skillNames=' + JSON.stringify(data.skillNames) + '\n');
 
     let pi = this.#active.get(sk);
     this.logDebug("send-resolved-agent", { sessionKey: sk, override: this.#agentOverride.get(sk), resolvedAgentId: this.#resolveAgentId(sk), hasActiveSession: !!pi });
@@ -3759,9 +3758,12 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     // === Rebuild system prompt with skillNames (if any) ===
     if (data.skillNames && data.skillNames.length > 0) {
       try {
+        process.stderr.write('[SKILL-DEBUG] Rebuilding system prompt with ' + data.skillNames.length + ' skills\n');
         pi.agent.state.systemPrompt = this.#buildSystemPrompt(sk, effectiveCwd, data.workingDirs, undefined, data.skillNames);
-        this.logDebug("skill-system-prompt-rebuilt", { sessionKey: sk, skillCount: data.skillNames.length, skills: data.skillNames.map((s: any) => s.skillName) });
-      } catch (e: any) { this.logDebug("skill-system-prompt-rebuild-error", { sessionKey: sk, error: e?.message }); }
+        process.stderr.write('[SKILL-DEBUG] System prompt rebuilt OK, len=' + (pi.agent.state.systemPrompt || '').length + '\n');
+      } catch (e: any) { process.stderr.write('[SKILL-DEBUG] Rebuild ERROR: ' + (e?.message || String(e)) + '\n'); }
+    } else {
+      process.stderr.write('[SKILL-DEBUG] No skillNames to rebuild (data.skillNames=' + JSON.stringify(data.skillNames) + ')\n');
     }
 
       this.#captureSessionMeta(sk);

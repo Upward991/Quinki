@@ -355,8 +355,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
       piBridge!.setAgent(sk, String(p.agentId));
     }
     piBridge!.addUserMsg(sk, p.text, mid);
-    process.stderr.write('[SKILL-DEBUG] sendMessage received: skillNames=' + JSON.stringify(p.skillNames) + '
-');
+    process.stderr.write('[SKILL-DEBUG] sendMessage received: skillNames=' + JSON.stringify(p.skillNames) + '\n');
     if (p.skillNames && p.skillNames.length > 0) {
       piBridge!.setMessageSkills(sk, mid, p.skillNames);
     }

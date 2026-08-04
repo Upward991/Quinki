@@ -372,6 +372,7 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
 
     // Tool result arriva come notifica SEPARATA (type: "tool_result", non stream_event)
     const unsubToolResult = subscribe('tool_result', (p: any) => {
+      if (p?.sessionKey && p.sessionKey !== activeSessionIdRef.current) return
       // Status pill handled by agent_status — don't set here
       setMessages(prev => {
         const last = prev[prev.length - 1]
@@ -386,6 +387,7 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
     })
     // Done event (sent as separate notification, not stream_event)
     const unsubDone = subscribe('done', (p: any) => {
+      if (p?.sessionKey && p.sessionKey !== activeSessionIdRef.current) return
       const { text, model, agentName, thinkingLevel, stopReason, errorMessage } = p || {}
       // stopReason "toolUse" = turno intermedio (l'assistant ha chiamato un tool, la risposta continua).
       // NON finalizzare: la fine vera arriva con stop/length/error/aborted + streaming_stopped.
@@ -425,6 +427,7 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
     })
 
     const unsubStreamStop = subscribe('streaming_stopped', (p: any) => {
+      if (p?.sessionKey && p.sessionKey !== activeSessionIdRef.current) return
       const sk = p?.sessionKey || activeSessionId || ''
       setStreamingState(sk, { isStreaming: false, statusLabel: '', statusKind: '' }); setStatusLabel(''); setStatusKind('')
       setMessages(prev => prev.map(m => m.isStreaming ? { ...m, isStreaming: false } : m))
