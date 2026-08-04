@@ -180,6 +180,11 @@ export function buildSessionContext(entries, leafId, byId) {
         else if (entry.type === "branch_summary" && entry.summary) {
             messages.push(createBranchSummaryMessage(entry.summary, entry.fromId, entry.timestamp));
         }
+        // QUINKI: include delegation entries in messages (position automatic from .jsonl)
+        // Filtered out before LLM call in agent-session.js — zero context cost
+        else if (entry.type === "delegation" && entry.delegationData) {
+            messages.push({ role: "delegation", id: entry.id, delegationData: entry.delegationData, timestamp: new Date(entry.timestamp || Date.now()).getTime() });
+        }
     };
     if (compaction) {
         // Emit summary first

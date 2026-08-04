@@ -1303,7 +1303,7 @@ export class AgentSession {
             this.sessionManager.appendCompaction(summary, firstKeptEntryId, tokensBefore, details, fromExtension);
             const newEntries = this.sessionManager.getEntries();
             const sessionContext = this.sessionManager.buildSessionContext();
-            this.agent.state.messages = sessionContext.messages;
+            this.agent.state.messages = sessionContext.messages.filter(function(m) { return m.role !== "delegation"; });
             // Get the saved compaction entry for the extension event
             const savedCompactionEntry = newEntries.find((e) => e.type === "compaction" && e.summary === summary);
             if (this._extensionRunner && savedCompactionEntry) {
@@ -1479,7 +1479,7 @@ export class AgentSession {
             this.sessionManager.appendCompaction(summary, firstKeptEntryId, tokensBefore, details, fromExtension);
             const newEntries = this.sessionManager.getEntries();
             const sessionContext = this.sessionManager.buildSessionContext();
-            this.agent.state.messages = sessionContext.messages;
+            this.agent.state.messages = sessionContext.messages.filter(function(m) { return m.role !== "delegation"; });
             // Get the saved compaction entry for the extension event
             const savedCompactionEntry = newEntries.find((e) => e.type === "compaction" && e.summary === summary);
             if (this._extensionRunner && savedCompactionEntry) {
@@ -2200,7 +2200,7 @@ export class AgentSession {
             }
             // Update agent state
             const sessionContext = this.sessionManager.buildSessionContext();
-            this.agent.state.messages = sessionContext.messages;
+            this.agent.state.messages = sessionContext.messages.filter(function(m) { return m.role !== "delegation"; });
             // Emit session_tree event
             await this._extensionRunner.emit({
                 type: "session_tree",

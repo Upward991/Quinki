@@ -625,11 +625,14 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
             merged.push(base)
           }
         }
-        // === Deleghe: add delegations to message with delegate_to_agent tool_call ===
+        // === Deleghe: ora incluse automaticamente in history.messages (role: "delegation") ===
+        // buildSessionContext() le include in posizione corretta (dal .jsonl)
+        // Il frontend converte role: "delegation" in block type: "delegation"
         try {
-          const jsonlDels = ((history as any).messages || []).filter((m: any) => m.role === 'delegation')
+          const delMsgs = (history as any).messages || []
+          const jsonlDels = delMsgs.filter((m: any) => m.role === 'delegation')
           const oldDels = ((history as any).delegations || [])
-          // Merge both sources, deduplicate by ID
+          // Merge and deduplicate by ID
           const seenIds = new Set(jsonlDels.map((d: any) => d.id))
           const delList = [...jsonlDels, ...oldDels.filter((d: any) => !seenIds.has(d.id))]
           if (Array.isArray(delList) && delList.length > 0) {
@@ -645,12 +648,11 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
               }
               return { type: 'delegation', id: d.id, agentName: d.agentName || 'agent', agentModel: d.model || '', taskContent: d.delegatedMessage || '', response: typeof d.content === 'string' ? d.content : '', blocks: nb, thinkingLevel: d.thinkingLevel || '', streaming: false }
             })
-            // Insert ALL delegation blocks AFTER the LAST delegate_to_agent tool_call (matches streaming order)
+            // Insert ALL delegations after the LAST delegate_to_agent tool_call in each message
             let delIdx = 0
             for (let i = 0; i < merged.length && delIdx < delBlocks.length; i++) {
               if (merged[i].role !== 'assistant') continue
               const blocks = (merged[i] as any).blocks || []
-              // Find the LAST delegate_to_agent tool_call index
               let lastTcIdx = -1
               let delegateCount = 0
               for (let bi = 0; bi < blocks.length; bi++) {
@@ -660,14 +662,13 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
                 }
               }
               if (lastTcIdx >= 0 && delIdx < delBlocks.length) {
-                // Insert ALL delegations after the last tool_call, before tool_result
                 const delsToAdd = delBlocks.slice(delIdx, delIdx + delegateCount)
                 const newBlocks = [...blocks.slice(0, lastTcIdx + 1), ...delsToAdd, ...blocks.slice(lastTcIdx + 1)]
                 merged[i] = { ...merged[i], blocks: newBlocks }
                 delIdx += delegateCount
               }
             }
-            // Remaining: add as delegations to last assistant (fallback)
+            // Remaining: add as delegations to last assistant
             if (delIdx < delBlocks.length) {
               const lastA = [...merged].reverse().find((m: any) => m.role === 'assistant')
               if (lastA) merged[merged.indexOf(lastA)] = { ...lastA, delegations: [...((lastA as any).delegations || []), ...delBlocks.slice(delIdx)] }

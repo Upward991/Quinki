@@ -788,6 +788,11 @@ class PiBridge {
       return [{ id: `${id}-tool`, role: "tool_result", content: text, toolName: m.toolName, isError: !!m.isError, timestamp: ts, done: true }];
     }
 
+    // QUINKI: delegation messages from buildSessionContext (with delegationData)
+    if (role === "delegation") {
+      const dd = (m as any).delegationData || {};
+      return [{ id, role: "delegation", agentName: dd.agentName || "agent", delegatedMessage: dd.delegatedMessage || "", content: dd.content || [], model: dd.model || "", thinkingLevel: dd.thinkingLevel || "", timestamp: ts, done: true }];
+    }
     if (role !== "assistant") {
       return [{ id, role, content: this.#parseContent(content), timestamp: ts, done: true }];
     }
@@ -940,8 +945,7 @@ class PiBridge {
           const mapped = mapWithNoop(ctx.messages, noopTs).filter((m: any) => !m.isCompactionSummary && !m.isCompactionWarning);
           // Prepend le compaction precedenti, ordinate per timestamp
           const errs = (this.#errors.get(key) || []).map((er: any, i: number) => ({ id: `err-${i}-${er.timestamp}`, role: "assistant", content: "", errorContent: er.errorMessage, isError: true, timestamp: er.timestamp, done: true, model: er.model, agentName: er.agentName, thinkingLevel: er.thinkingLevel }));
-          const delEntries = this.#readDelegationEntries(key);
-          return [...prevCompactions, ...mapped, ...errs, ...delEntries].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+          return [...prevCompactions, ...mapped, ...errs].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
         }
       } catch {}
     }
@@ -957,8 +961,7 @@ class PiBridge {
             const prevCompactions = collectAllCompactionMessages(sm, noopTs);
             const mapped = mapWithNoop(ctx.messages, noopTs).filter((m: any) => !m.isCompactionSummary && !m.isCompactionWarning);
             const errs = (this.#errors.get(key) || []).map((er: any, i: number) => ({ id: `err-${i}-${er.timestamp}`, role: "assistant", content: "", errorContent: er.errorMessage, isError: true, timestamp: er.timestamp, done: true, model: er.model, agentName: er.agentName, thinkingLevel: er.thinkingLevel }));
-            const delEntries2 = this.#readDelegationEntries(key);
-            return [...prevCompactions, ...mapped, ...errs, ...delEntries2].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+            return [...prevCompactions, ...mapped, ...errs].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
           }
         }
       }
