@@ -645,21 +645,27 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
               }
               return { type: 'delegation', id: d.id, agentName: d.agentName || 'agent', agentModel: d.model || '', taskContent: d.delegatedMessage || '', response: typeof d.content === 'string' ? d.content : '', blocks: nb, thinkingLevel: d.thinkingLevel || '', streaming: false }
             })
-            // Insert delegation blocks AFTER each delegate_to_agent tool_call (same position as streaming)
+            // Insert ALL delegation blocks AFTER the LAST delegate_to_agent tool_call (matches streaming order)
             let delIdx = 0
             for (let i = 0; i < merged.length && delIdx < delBlocks.length; i++) {
               if (merged[i].role !== 'assistant') continue
               const blocks = (merged[i] as any).blocks || []
-              if (!blocks.some((b: any) => b.type === 'tool_call' && (b.name === 'delegate_to_agent' || (b.name || '').includes('delegate')))) continue
-              // Rebuild blocks: insert delegation block after each delegate_to_agent tool_call
-              const newBlocks: any[] = []
+              // Find the LAST delegate_to_agent tool_call index
+              let lastTcIdx = -1
+              let delegateCount = 0
               for (let bi = 0; bi < blocks.length; bi++) {
-                newBlocks.push(blocks[bi])
-                if (blocks[bi].type === 'tool_call' && (blocks[bi].name === 'delegate_to_agent' || (blocks[bi].name || '').includes('delegate')) && delIdx < delBlocks.length) {
-                  newBlocks.push(delBlocks[delIdx++])
+                if (blocks[bi].type === 'tool_call' && (blocks[bi].name === 'delegate_to_agent' || (blocks[bi].name || '').includes('delegate'))) {
+                  lastTcIdx = bi
+                  delegateCount++
                 }
               }
-              merged[i] = { ...merged[i], blocks: newBlocks }
+              if (lastTcIdx >= 0 && delIdx < delBlocks.length) {
+                // Insert ALL delegations after the last tool_call, before tool_result
+                const delsToAdd = delBlocks.slice(delIdx, delIdx + delegateCount)
+                const newBlocks = [...blocks.slice(0, lastTcIdx + 1), ...delsToAdd, ...blocks.slice(lastTcIdx + 1)]
+                merged[i] = { ...merged[i], blocks: newBlocks }
+                delIdx += delegateCount
+              }
             }
             // Remaining: add as delegations to last assistant (fallback)
             if (delIdx < delBlocks.length) {
