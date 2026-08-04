@@ -336,7 +336,8 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
         // toolcall_end nel stream_event = FINE ARGOMENTI del tool call, NON il risultato.
         // Il risultato vero arriva dalla notifica separata 'tool_result'. Qui NON si crea niente.
       } else if (_type === 'delegation_start') {
-        // NON mostrare "Delegating" nella pill — nel Flutter non esiste questo status
+        // Status pill: "Tool call" (delegation is a long tool execution)
+        setStatusLabel('Tool call'); setStatusKind('tool_call')
         activeDelegationsRef.current.add(messageId)
         // Blocco delegation CRONOLOGICO (dopo il tool_call delegate_to_agent, prima del tool_result)
         setMessages(prev => {
