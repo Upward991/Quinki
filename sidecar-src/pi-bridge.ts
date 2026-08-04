@@ -3755,20 +3755,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       try { this.#applyMode(pi, sk, intendedMode, data.workingDirs, effectiveCwd); this.logDebug("mode-applied-send", { sessionKey: sk, mode: intendedMode }); }
       catch (e: any) { this.logDebug("mode-apply-error", { sessionKey: sk, error: e?.message }); }
 
-    // === Rebuild system prompt with skillNames (if any) ===
-    if (data.skillNames && data.skillNames.length > 0) {
-      try {
-        process.stderr.write('[SKILL-DEBUG] Rebuilding system prompt with ' + data.skillNames.length + ' skills\n');
-        const skillPrompt = this.#buildSystemPrompt(sk, effectiveCwd, data.workingDirs, undefined, data.skillNames);
-        // Set _customSystemPromptOverride flag so vendor code doesn't overwrite
-        try { (pi as any)._customSystemPromptOverride = true; } catch {}
-        try { (pi as any)._baseSystemPrompt = skillPrompt; } catch {}
-        pi.agent.state.systemPrompt = skillPrompt;
-        process.stderr.write('[SKILL-DEBUG] System prompt rebuilt OK, len=' + (pi.agent.state.systemPrompt || '').length + '\n');
-      } catch (e: any) { process.stderr.write('[SKILL-DEBUG] Rebuild ERROR: ' + (e?.message || String(e)) + '\n'); }
-    } else {
-      process.stderr.write('[SKILL-DEBUG] No skillNames to rebuild (data.skillNames=' + JSON.stringify(data.skillNames) + ')\n');
-    }
+    // (skill rebuild moved to right before sendUserMessage)
 
       this.#captureSessionMeta(sk);
 
@@ -3874,11 +3861,22 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     } catch (overrideErr) {
       this.logDebug("system-prompt-update-error", { sessionKey: sk, error: (overrideErr as any)?.message || String(overrideErr) });
     }
+    // === Rebuild system prompt with skillNames RIGHT BEFORE sendUserMessage ===
+    if (data.skillNames && data.skillNames.length > 0) {
+      try {
+        const skillPrompt = this.#buildSystemPrompt(sk, effectiveCwd, data.workingDirs, undefined, data.skillNames);
+        try { (pi as any)._customSystemPromptOverride = true; } catch {}
+        try { (pi as any)._baseSystemPrompt = skillPrompt; } catch {}
+        pi.agent.state.systemPrompt = skillPrompt;
+        process.stderr.write('[SKILL-DEBUG] Rebuilt BEFORE sendUserMessage: len=' + skillPrompt.length + '\n');
+      } catch (e: any) { process.stderr.write('[SKILL-DEBUG] Rebuild ERROR: ' + (e?.message || String(e)) + '\n'); }
+    }
     // Log system prompt BEFORE sendUserMessage
     try {
       const bspBefore = (pi as any)._baseSystemPrompt || "";
       const spBefore = pi.agent?.state?.systemPrompt || "";
-      this.logDebug("system-prompt-before-send", { sessionKey: sk, basePromptLen: bspBefore.length, statePromptLen: spBefore.length, baseHasSkills: bspBefore.includes("available_skills"), stateHasSkills: spBefore.includes("available_skills"), baseFirst200: bspBefore.substring(0, 200), stateFirst200: spBefore.substring(0, 200) });
+      process.stderr.write('[SKILL-DEBUG] BEFORE sendUserMessage: basePromptLen=' + bspBefore.length + ', statePromptLen=' + spBefore.length + '\n');
+      process.stderr.write('[SKILL-DEBUG] statePrompt has Active Skill: ' + spBefore.includes('Active Skill') + '\n');
     } catch {}
     const next = prev.then(() => pi.sendUserMessage(content, { deliverAs: "followUp" })).catch((err: Error) => {
       ws.send(JSON.stringify({ type: "error", message: err.message, sessionKey: sk }));
