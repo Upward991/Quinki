@@ -234,7 +234,7 @@ function AssistantMessage({ message, onCopy, searchQuery, activeOcc, isDateMatch
       {message.compaction?.map((comp, i) => (
         <CompactionToggle key={`comp-${i}`} content={comp.content || ""} isNoop={comp.isNoop} />
       ))}
-      {message.delegations?.map((d, i) => <DelegationErrorBoundary key={`d-eb-${i}`} agentName={d.agentName || 'agent'}><DelegationBlockView delegation={d} timestamp={message.timestamp} onCopy={onCopy} searchQuery={searchQuery} activeOcc={activeOcc} /></DelegationErrorBoundary>)}
+      {message.delegations?.map((d, i) => <DelegationBlockView key={`d-${i}`} delegation={d} timestamp={message.timestamp} onCopy={onCopy} searchQuery={searchQuery} activeOcc={activeOcc} />)}
     </div>
   )
 }
@@ -394,19 +394,6 @@ function CompactionToggle({ content, isNoop }: { content: string; isNoop: boolea
 }
 
 // ── Delegation block (full chat structure inside) ──
-// Error boundary for DelegationBlockView — catches rendering errors
-class DelegationErrorBoundary extends React.Component<{ children: React.ReactNode; agentName: string }, { hasError: boolean; error: any }> {
-  constructor(props: any) { super(props); this.state = { hasError: false, error: null } }
-  static getDerivedStateFromError(error: any) { return { hasError: true, error } }
-  componentDidCatch(error: any, info: any) { console.error('[DELEG-ERROR]', this.props.agentName, error?.message || String(error), info?.componentStack) }
-  render() {
-    if (this.state.hasError) {
-      return <div style={{ marginTop: '12px', padding: '8px', color: 'var(--q-accent-danger)', fontSize: '13px' }}>Delegated to {this.props.agentName} (render error: {String(this.state.error?.message || 'unknown')})</div>
-    }
-    return this.props.children as any
-  }
-}
-
 function DelegationBlockView({ delegation, timestamp, streaming, onCopy, searchQuery, activeOcc }: { delegation: any; timestamp: string; streaming?: boolean; onCopy?: (t: string) => void; searchQuery?: string; activeOcc?: number }) {
   const [collapsed, setCollapsed] = useState(true)
   const [hovered, setHovered] = useState(false)
