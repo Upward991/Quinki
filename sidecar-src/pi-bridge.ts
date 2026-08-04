@@ -2901,6 +2901,85 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     this.logDebug("send-direct-done", { sessionKey: sk, agentName, responseLen: responseText.length });
   }
 
+  #buildSkillTool(getPi: () => any): any {
+    const self = this;
+    return defineTool({
+      name: "skill",
+      label: "Skill",
+      description: "List, search, and load agent skills. Use command='list' to see all available skills, command='search' with a query to find relevant skills, or command='load' with a skill_name to load its full SKILL.md instructions. Always check available skills before answering — they may contain specialized knowledge for your task.",
+      promptSnippet: "skill: list, search, and load agent skills",
+      promptGuidelines: [
+        "Before answering any request, use the skill tool with command='list' to check if any skill is relevant to the task.",
+        "If a skill matches, use command='load' to read its full instructions, then follow them.",
+        "Skills contain specialized knowledge that can help you respond better — do not ignore them.",
+      ],
+      parameters: Type.Object({
+        command: Type.Union([Type.Literal("list"), Type.Literal("search"), Type.Literal("load")], { description: "Command: 'list' to see all skills, 'search' to find skills by query, 'load' to read a skill's full content" }),
+        query: Type.Optional(Type.String({ description: "Search query (for command='search'). Searches skill names and descriptions." })),
+        skill_name: Type.Optional(Type.String({ description: "Skill name to load (for command='load'). Use command='list' first to see available names." })),
+      }),
+      async execute(toolCallId: string, params: any, signal: any, onUpdate: any, ctx: any): Promise<any> {
+        const { command, query, skill_name } = params;
+        try {
+          const pi = getPi();
+          if (!pi?.resourceLoader) {
+            return { content: [{ type: "text", text: "No skills available (session not initialized)." }] };
+          }
+          const skillsResult = pi.resourceLoader.getSkills();
+          const skills = skillsResult?.skills || [];
+          if (skills.length === 0) {
+            return { content: [{ type: "text", text: "No skills installed." }] };
+          }
+          if (command === "list") {
+            const lines = ["Available skills:", ""];
+            for (const s of skills) {
+              lines.push(`- ${s.name}: ${s.description || "(no description)"}`);
+            }
+            lines.push("", `Total: ${skills.length} skill(s). Use command='load' with skill_name to read full instructions.`);
+            return { content: [{ type: "text", text: lines.join("\n") }] };
+          }
+          if (command === "search") {
+            if (!query) {
+              return { content: [{ type: "text", text: "Please provide a search query with the 'query' parameter." }] };
+            }
+            const q = query.toLowerCase();
+            const matches = skills.filter((s: any) =>
+              s.name?.toLowerCase().includes(q) || s.description?.toLowerCase().includes(q)
+            );
+            if (matches.length === 0) {
+              return { content: [{ type: "text", text: `No skills found matching '${query}'.` }] };
+            }
+            const lines = [`Skills matching '${query}':`, ""];
+            for (const s of matches) {
+              lines.push(`- ${s.name}: ${s.description || "(no description)"}`);
+            }
+            lines.push("", `Use command='load' with skill_name to read full instructions.`);
+            return { content: [{ type: "text", text: lines.join("\n") }] };
+          }
+          if (command === "load") {
+            if (!skill_name) {
+              return { content: [{ type: "text", text: "Please provide a skill_name with the 'skill_name' parameter." }] };
+            }
+            const skill = skills.find((s: any) => s.name === skill_name);
+            if (!skill) {
+              return { content: [{ type: "text", text: `Skill '${skill_name}' not found. Use command='list' to see available skills.` }], isError: true };
+            }
+            const fs = await import("node:fs");
+            const filePath = skill.filePath;
+            if (!filePath || !fs.existsSync(filePath)) {
+              return { content: [{ type: "text", text: `Skill file not found: ${filePath}` }], isError: true };
+            }
+            const content = fs.readFileSync(filePath, "utf-8");
+            return { content: [{ type: "text", text: content }] };
+          }
+          return { content: [{ type: "text", text: `Unknown command: ${command}. Use 'list', 'search', or 'load'.` }] };
+        } catch (e: any) {
+          return { content: [{ type: "text", text: `Skill tool error: ${e?.message || String(e)}` }], isError: true };
+        }
+      },
+    });
+  }
+
   #buildDelegateTool(sessionKey: string): any {
     const self = this;
     return defineTool({
@@ -2973,12 +3052,18 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
             tempSessionDir,
             self.#cwd
           );
+          // Build skill tool for temp session (so delegated agents can also use skills)
+          let tempPiRef: any = null;
+          const tempSkillTool = self.#buildSkillTool(() => tempPiRef);
           const tempResult = await self.#sdk.createAgentSession({
             cwd: tempCwd,
             agentDir: self.#agentDir,
             sessionManager: tempSm,
             resourceLoader: tempLoader,
+            customTools: tempSkillTool ? [tempSkillTool] : undefined,
           });
+          const tempPi = tempResult.session;
+          tempPiRef = tempPi;
           const tempPi = tempResult.session;
           // Store in #active so abort() can stop it
           self.#active.set(tempKey, tempPi);
@@ -3472,6 +3557,9 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       const resolvedAgentId = (data as any).agentId || this.#resolveAgentId(sk);
       if ((data as any).agentId) this.#agentOverride.set(sk, String((data as any).agentId));
       const customTools: any[] = [];
+      // Always register skill tool (so agents can list/search/load skills)
+      const skillTool = this.#buildSkillTool(() => this.#active.get(sk));
+      if (skillTool) customTools.push(skillTool);
       if (resolvedAgentId) {
         // Check if the agent has delegate_to_agent in its config tools
         const agentCfg = this.#readAgentConfigFile(resolvedAgentId);
