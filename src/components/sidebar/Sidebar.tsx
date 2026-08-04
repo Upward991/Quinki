@@ -391,7 +391,7 @@ export function Sidebar(props: SidebarProps) {
                   multiSelect={multiSelect}
                 onSelect={() => {
                   if (multiSelect && item.type !== 'folder') {
-                    setSelected(prev => { const n = new Set(prev); n.has(item.id) ? n.delete(item.id) : n.add(item.id); return n })
+                    setSelected(prev => { const n = new Set(prev); n.has(item.id) ? n.delete(item.id) : n.add(item.id); if (n.size === 0) setMultiSelect(false); return n })
                   } else if (item.type === 'folder') {
                     setExpandedFolders(prev => { const n = new Set(prev); n.has(item.id) ? n.delete(item.id) : n.add(item.id); return n })
                   } else {
