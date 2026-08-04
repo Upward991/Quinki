@@ -642,14 +642,17 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
               }
               return { id: d.id, agentName: d.agentName || 'agent', agentModel: d.model || '', taskContent: d.delegatedMessage || '', response: typeof d.content === 'string' ? d.content : '', blocks: nb, thinkingLevel: d.thinkingLevel || '' }
             })
-            // Add delegations to the message that has the matching tool_call
+            // Add delegations to messages with matching tool_calls (ALL per message, not just 1)
             let delIdx = 0
             for (let i = 0; i < merged.length && delIdx < delBlocks.length; i++) {
               if (merged[i].role !== 'assistant') continue
               const blocks = (merged[i] as any).blocks || []
-              if (blocks.some((b: any) => b.type === 'tool_call' && (b.name === 'delegate_to_agent' || (b.name || '').includes('delegate')))) {
-                merged[i] = { ...merged[i], delegations: [...(merged[i] as any).delegations || [], delBlocks[delIdx]] }
-                delIdx++
+              // Count how many delegate_to_agent tool_calls are in this message
+              const delegateCount = blocks.filter((b: any) => b.type === 'tool_call' && (b.name === 'delegate_to_agent' || (b.name || '').includes('delegate'))).length
+              if (delegateCount > 0 && delIdx < delBlocks.length) {
+                const delsToAdd = delBlocks.slice(delIdx, delIdx + delegateCount)
+                merged[i] = { ...merged[i], delegations: [...((merged[i] as any).delegations || []), ...delsToAdd] }
+                delIdx += delegateCount
               }
             }
             // Remaining: add to last assistant
@@ -659,6 +662,9 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
             }
           }
         } catch (e) { console.error('[DELEGATIONS] merge error:', e) }
+        const msgsWithDel = merged.filter((m: any) => m.delegations?.length > 0)
+        console.log('[DELEG-CHECK] messages with delegations:', msgsWithDel.length, 'total:', merged.length)
+        if (msgsWithDel[0]) console.log('[DELEG-CHECK] first:', msgsWithDel[0].id, 'delCount:', msgsWithDel[0].delegations.length, 'agentName:', msgsWithDel[0].delegations[0].agentName, 'hasBlocks:', !!msgsWithDel[0].blocks, 'blocksLen:', msgsWithDel[0].blocks?.length)
         setMessages(merged.map(m => ({ ...m })))
       }
       // === Ripristino streaming: se la sessione sta ancora generando, recupera stato + buffer ===
