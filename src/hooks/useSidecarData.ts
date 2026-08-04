@@ -270,8 +270,8 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
       const _content = delta || content || ''
       // Eventi nested di una delega attiva: vanno nel blocco delegation, NON nel messaggio principale
       if (messageId && activeDelegationsRef.current.has(messageId) && _type !== 'delegation_end') {
-        // Status pill stays on "Tool call" during delegation (it's a long tool execution)
-        if (statusLabel !== 'Tool call') { setStatusLabel('Tool call'); setStatusKind('tool_call') }
+        // Status pill stays on "Tool call" during delegation (always set, no stale check)
+        setStatusLabel('Tool call'); setStatusKind('tool_call')
         const nestedBlock = (() => {
           if (_type === 'thinking_delta' || _type === 'thinking' || _type === 'thinking_start') return { type: 'thinking', content: _content }
           if (_type === 'text_delta' || _type === 'text' || _type === 'text_start') return { type: 'text', content: _content }
@@ -346,6 +346,8 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
         })
       } else if (_type === 'delegation_end') {
         setStatusLabel('Running'); setStatusKind('running')
+        // Trigger scroll after delegation ends (toggles close, content may shift)
+        setTimeout(() => { const el = document.querySelector('[data-msg-scroll]'); if (el) el.scrollTop = el.scrollHeight }, 100)
         activeDelegationsRef.current.delete(messageId)
         setMessages(prev => prev.map(m => {
           const blocks = (m.blocks || []).map((b: any) => b.type === 'delegation' && b.id === messageId
