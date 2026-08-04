@@ -109,7 +109,7 @@ export function AgentsPanel(props) {
   const doAddSkillsToAgent = async (agentId, skillNames) => {
     if (!call) return;
     const agent = agents.find(a => a.id === agentId);
-    const existing = agent?.skills?.map(s => s.name) || [];
+    const existing = (agent?.skills||[]).map(s => typeof s === 'string' ? s : s.name) || [];
     const merged = [...new Set([...existing, ...skillNames])];
     try {
       await call('updateAgent', { id: agentId, config: { skills: merged } });
@@ -121,7 +121,7 @@ export function AgentsPanel(props) {
   const doAddToolsToAgent = async (agentId, toolNames) => {
     if (!call) return;
     const agent = agents.find(a => a.id === agentId);
-    const existing = agent?.tools?.map(t => t.name) || [];
+    const existing = (agent?.tools||[]).map(t => typeof t === 'string' ? t : t.name) || [];
     const merged = [...new Set([...existing, ...toolNames])];
     try {
       await call('updateAgent', { id: agentId, config: { tools: merged } });
@@ -426,7 +426,7 @@ export function AgentsPanel(props) {
       React.createElement('div', { style: { flex: 1, minHeight: 0, overflowY: 'auto', padding: '4px 16px 0 16px', overscrollBehavior: 'contain', scrollbarGutter: 'stable' }, children: [
 
         // === Section: Your agents ===
-        Section({ icon: Bot, title: 'Your agents', children: [
+        Section({ icon: Bot, title: `Your agents (${agents.length})`, children: [
           AddButton({ label: 'New agent', onClick: () => setShowNewAgent(true) }),
           React.createElement('div', { style: { height: '8px' } }),
           SearchBar({ placeholder: 'Search agents...', value: searchAgents, onChange: setSearchAgents }),
