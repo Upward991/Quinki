@@ -125,6 +125,18 @@ export function LogPanel(props: LogPanelProps) {
     // Special formatting for system_prompt logs
     if (data && data.prompt !== undefined) {
       const skills = data.skills && data.skills.length > 0 ? data.skills.join(', ') : 'none'
+      let info = 'Session: ' + (data.sessionKey || '?')
+      if (data.agentName) info += '\nAgent: ' + data.agentName
+      if (data.isDelegation) info += '\nType: DELEGATION (from ' + (data.delegatedBy || '?') + ')'
+      else if (data.agentName && data.agentName !== 'unknown') info += '\nType: DIRECT'
+      else info += '\nType: MAIN'
+      info += '\nLength: ' + data.len + ' chars'
+      info += '\nSkills: ' + skills
+      info += '\nHas Skills: ' + data.hasSkills
+      info += '\n\n--- SYSTEM PROMPT ---\n' + data.prompt
+      return info
+    }   if (data && data.prompt !== undefined) {
+      const skills = data.skills && data.skills.length > 0 ? data.skills.join(', ') : 'none'
       const agent = data.agentName ? '\nAgent: ' + data.agentName : ''
       const delegation = data.isDelegation ? '\nType: DELEGATION (from ' + (data.delegatedBy || '?') + ')' : '\nType: ' + (data.agentName && data.agentName !== 'unknown' ? 'DIRECT (@tag or resolved)' : 'MAIN'
       return 'Session: ' + (data.sessionKey || '?') + agent + delegation + '\nLength: ' + data.len + ' chars\nSkills: ' + skills + '\nHas Skills: ' + data.hasSkills + '\n\n--- SYSTEM PROMPT ---\n' + data.prompt
