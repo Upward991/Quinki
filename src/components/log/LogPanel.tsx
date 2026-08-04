@@ -128,8 +128,9 @@ export function LogPanel(props: LogPanelProps) {
       let info = 'Session: ' + (data.sessionKey || '?')
       if (data.agentName) info += '\nAgent: ' + data.agentName
       if (data.isDelegation) info += '\nType: DELEGATION (from ' + (data.delegatedBy || '?') + ')'
-      else if (data.agentName && data.agentName !== 'unknown') info += '\nType: DIRECT'
-      else info += '\nType: MAIN'
+      else if (data.isOrchestrator) info += '\nType: MAIN (orchestrator)'
+      else info += '\nType: DIRECT (@tag)'
+      if (data.messageText) info += '\nMessage: ' + data.messageText
       info += '\nLength: ' + data.len + ' chars'
       info += '\nSkills: ' + skills
       info += '\nHas Skills: ' + data.hasSkills

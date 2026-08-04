@@ -2762,7 +2762,8 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       }
       this.logDebug("send-direct-system-prompt", { sessionKey: sk, mode: mainModeSD, promptLen: base?.length || 0, hasSkills: base?.includes("available_skills"), hasModeNote: base?.includes("MODALITÀ") });
       // Log delegated agent system prompt for debugging
-      this.logDebug("system_prompt", { sessionKey: tempKey, len: base?.length || 0, hasSkills: false, skills: [], prompt: base || "", isDelegation: true, delegatedBy: sk });
+      const delegAgentCfg = this.#readAgentConfigFile(resolvedAgentId);
+      this.logDebug("system_prompt", { sessionKey: tempKey, len: base?.length || 0, hasSkills: false, skills: [], agentId: resolvedAgentId, agentName: delegAgentCfg?.name || resolvedAgentId || "unknown", isDelegation: true, isOrchestrator: false, delegatedBy: sk, messageText: (task || "").substring(0, 200), prompt: base || "" });
     } catch {}
 
     // Apply model: session override > agent config > main session
@@ -3877,7 +3878,8 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       // Log system prompt via logDebug (uses existing debug_log flow)
       const resolvedAgent = this.#resolveAgentId(sk);
       const agentCfg = resolvedAgent ? this.#readAgentConfig(resolvedAgent) : null;
-      this.logDebug("system_prompt", { sessionKey: sk, len: prompt.length, hasSkills: !!skillNames, skills: skillNames ? skillNames.map((s: any) => s.skillName) : [], agentId: resolvedAgent || "unknown", agentName: agentCfg?.name || resolvedAgent || "unknown", isDelegation: false, prompt: prompt });
+      const isOrchestrator = resolvedAgent === 'orchestrator' || (resolvedAgent && resolvedAgent.includes('orchestrator'));
+      this.logDebug("system_prompt", { sessionKey: sk, len: prompt.length, hasSkills: !!skillNames, skills: skillNames ? skillNames.map((s: any) => s.skillName) : [], agentId: resolvedAgent || "unknown", agentName: agentCfg?.name || resolvedAgent || "unknown", isDelegation: false, isOrchestrator, messageText: (data.text || "").substring(0, 200), prompt: prompt });
     } catch (e: any) { process.stderr.write('[SKILL-DEBUG] Rebuild ERROR: ' + (e?.message || String(e)) + '\n'); }
     // Log system prompt BEFORE sendUserMessage
     try {
