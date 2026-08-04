@@ -124,7 +124,8 @@ class PiBridge {
   #pendingModels = new Map<string, string>();
   #pendingThinking = new Map<string, string>();
   #pendingMode = new Map<string, string>();
-  #cwdOverride = new Map<string, string>();  // override cwd per cambio dir mid-sessione
+  #cwdOverride = new Map<string, string>();
+  #pendingDelegationSkills = new Map<string, { agentId: string; skillName: string }[]>();  // override cwd per cambio dir mid-sessione
   // === Multi-window streaming buffer: traccia il messaggio in streaming per sessione ===
   // Permette alle nuove finestre di recuperare il contenuto parziale quando aprono durante la generazione
   #streamingBuffers = new Map<string, { text: string; thinking: string; toolCalls: any[]; currentPhase: string | null; messageId: string | null; model: string | null; provider: string | null; stopReason: string | null; thinkingLevel: string | null; }>();
@@ -2762,8 +2763,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       }
       this.logDebug("send-direct-system-prompt", { sessionKey: sk, mode: mainModeSD, promptLen: base?.length || 0, hasSkills: base?.includes("available_skills"), hasModeNote: base?.includes("MODALITÀ") });
       // Log delegated agent system prompt for debugging
-      const delegAgentCfg = this.#readAgentConfigFile(resolvedAgentId);
-      this.logDebug("system_prompt", { sessionKey: tempKey, len: base?.length || 0, hasSkills: false, skills: [], agentId: targetId, agentName: agentName, isDelegation: true, isOrchestrator: false, delegatedBy: sk, messageText: (data.text || "").substring(0, 200), prompt: base || "" });
+      process.stderr.write("[DELEG-LOG] About to log system_prompt for delegation: agent=" + agentName + ", len=" + (base?.length || 0) + "\n"); this.logDebug("system_prompt", { sessionKey: tempKey, len: base?.length || 0, hasSkills: false, skills: [], agentId: targetId, agentName: agentName, isDelegation: true, isOrchestrator: false, delegatedBy: sk, messageText: (data.text || "").substring(0, 200), prompt: base || "" });
     } catch {}
 
     // Apply model: session override > agent config > main session
@@ -3185,7 +3185,27 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
                 (tempPi as any)._baseSystemPrompt = base;
                 tempPi.agent.state.systemPrompt = base;
               }
+              // Inject user-activated skills into the delegated agent's system prompt
+              const pendingSkills = self.#pendingDelegationSkills.get(sessionKey);
+              if (pendingSkills && pendingSkills.length > 0) {
+                for (const ps of pendingSkills) {
+                  if (ps.agentId === targetId) {
+                    try {
+                      const skillPath = self.#findSkillPath(ps.skillName, effectiveCwd);
+                      if (skillPath && fs.existsSync(skillPath)) {
+                        const skillContent = fs.readFileSync(skillPath, 'utf-8');
+                        const skillBody = skillContent.replace(/^---\n[\s\S]*?\n---\n?/, '');
+                        base = base + '\n\n=== USER ACTIVATED SKILL: ' + ps.skillName + ' ===\n\n' + skillBody + '\n\n=== END USER ACTIVATED SKILL ===\n\nCRITICAL: The skill instructions above were explicitly activated by the user via /skill command. They are ALREADY in your system prompt — do NOT use the skill tool to verify them. Follow them directly.';
+                        self.logDebug("delegate-skill-injected", { sessionKey, agentId: targetId, skillName: ps.skillName, skillLen: skillBody.length });
+                      }
+                    } catch (e: any) { self.logDebug("delegate-skill-inject-error", { sessionKey, skillName: ps.skillName, error: e?.message }); }
+                  }
+                }
+                (tempPi as any)._baseSystemPrompt = base;
+                tempPi.agent.state.systemPrompt = base;
+              }
               self.logDebug("delegate-system-prompt-built", { sessionKey, mode: mainMode, promptLen: base?.length || 0, hasModeNote: base?.includes("MODALITÀ"), hasSkills: base?.includes("available_skills"), hasAgentPrompt: (base?.length || 0) > 100 });
+              self.logDebug("system_prompt", { sessionKey: tempKey, len: base?.length || 0, hasSkills: (base?.includes("USER ACTIVATED SKILL") || false), skills: pendingSkills ? pendingSkills.filter((p: any) => p.agentId === targetId).map((p: any) => p.skillName) : [], agentId: targetId, agentName: agent_name, isDelegation: true, isOrchestrator: false, delegatedBy: sessionKey, messageText: (task || "").substring(0, 200), prompt: base || "" });
             } catch (e2: any) { self.logDebug("delegate-system-prompt-error", { sessionKey, error: e2?.message }); }
             self.logDebug("delegate-apply-mode", { sessionKey, mode: mainMode, agentId: targetId, toolCount: tempToolNames.length, tools: tempToolNames });
           } catch (e: any) { self.logDebug("delegate-apply-mode-error", { sessionKey, error: e?.message }); }
@@ -3880,6 +3900,12 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       const agentCfg = resolvedAgent ? this.#readAgentConfig(resolvedAgent) : null;
       const isOrchestrator = resolvedAgent === 'orchestrator' || (resolvedAgent && resolvedAgent.includes('orchestrator'));
       this.logDebug("system_prompt", { sessionKey: sk, len: prompt.length, hasSkills: !!skillNames, skills: skillNames ? skillNames.map((s: any) => s.skillName) : [], agentId: resolvedAgent || "unknown", agentName: agentCfg?.name || resolvedAgent || "unknown", isDelegation: false, isOrchestrator, messageText: (data.text || "").substring(0, 200), prompt: prompt });
+      // Store skills for delegation — #buildDelegateTool will inject them into the delegated agent's system prompt
+      if (skillNames && skillNames.length > 0) {
+        this.#pendingDelegationSkills.set(sk, skillNames);
+      } else {
+        this.#pendingDelegationSkills.delete(sk);
+      }
     } catch (e: any) { process.stderr.write('[SKILL-DEBUG] Rebuild ERROR: ' + (e?.message || String(e)) + '\n'); }
     // Log system prompt BEFORE sendUserMessage
     try {
