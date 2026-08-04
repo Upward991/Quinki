@@ -126,6 +126,15 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
   const [agentStatus, setAgentStatus] = useState<any>(null)
   const [isCompacting, setIsCompacting] = useState(false)
   const [chatAgentIds, setChatAgentIds] = useState<string[]>([])
+  const sessionStreamingMap = useRef<Map<string, { isStreaming: boolean; statusLabel: string; statusKind: string }>>(new Map())
+  const setStreamingState = (sk: string, state: { isStreaming: boolean; statusLabel: string; statusKind: string }) => {
+    sessionStreamingMap.current.set(sk, state)
+    if (sk === activeSessionId) {
+      setIsStreaming(state.isStreaming)
+      setStatusLabel(state.statusLabel)
+      setStatusKind(state.statusKind)
+    }
+  }
   const [agentOverrides, setAgentOverrides] = useState<Record<string, { model?: string; thinkingLevel?: string }>>({})
   const [compactingSessions, setCompactingSessions] = useState<Set<string>>(new Set())
   const [sessionTokens, setSessionTokens] = useState<Record<string, { input: number; output: number }>>({})
@@ -413,8 +422,9 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
       }
     })
 
-    const unsubStreamStop = subscribe('streaming_stopped', () => {
-      setIsStreaming(false); setStatusLabel(''); setStatusKind('')
+    const unsubStreamStop = subscribe('streaming_stopped', (p: any) => {
+      const sk = p?.sessionKey || activeSessionId || ''
+      setStreamingState(sk, { isStreaming: false, statusLabel: '', statusKind: '' }); setStatusLabel(''); setStatusKind('')
       setMessages(prev => prev.map(m => m.isStreaming ? { ...m, isStreaming: false } : m))
     })
 
@@ -576,8 +586,16 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
     if (!ready) return
     setActiveSessionId(sessionKey)
     // NON svuotare messages qui: evita il flash quando si ricarica la stessa chat (es. dopo compaction)
-    setIsStreaming(false)
-    setStatusLabel(''); setStatusKind('')
+    // Restore streaming state from per-session map
+    const saved = sessionStreamingMap.current.get(sessionKey)
+    if (saved) {
+      setIsStreaming(saved.isStreaming)
+      setStatusLabel(saved.statusLabel)
+      setStatusKind(saved.statusKind)
+    } else {
+      setIsStreaming(false)
+      setStatusLabel(''); setStatusKind('')
+    }
     try {
       const history = await call('getHistory', { sessionKey })
       if (history?.messages) {
@@ -779,7 +797,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
           }
         } catch (e) {
           console.error('Failed to create session:', e)
-          setIsStreaming(false); setStatusLabel('Failed'); setStatusKind('failed')
+          const sk = activeSessionId || ''; setStreamingState(sk, { isStreaming: false, statusLabel: 'Failed', statusKind: 'failed' })
           return
         }
       }
