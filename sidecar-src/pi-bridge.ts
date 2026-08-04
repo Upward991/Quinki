@@ -3874,7 +3874,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       pi.agent.state.systemPrompt = prompt;
       process.stderr.write('[SKILL-DEBUG] Rebuilt BEFORE sendUserMessage: len=' + prompt.length + ', hasSkills=' + !!skillNames + '\n');
       // Emit system prompt to frontend for logging
-      try { ws.send(JSON.stringify({ type: 'system_prompt_log', sessionKey: sk, prompt: prompt, hasSkills: !!skillNames, skills: skillNames ? skillNames.map((s: any) => s.skillName) : [] })); } catch {}
+      try { ws.send(JSON.stringify({ type: 'system_prompt_log', sessionKey: sk, prompt: prompt, hasSkills: !!skillNames, skills: skillNames ? skillNames.map((s: any) => s.skillName) : [] })); process.stderr.write('[SKILL-DEBUG] system_prompt_log emitted OK\n'); } catch (e: any) { process.stderr.write('[SKILL-DEBUG] system_prompt_log ERROR: ' + (e?.message || String(e)) + '\n'); }
     } catch (e: any) { process.stderr.write('[SKILL-DEBUG] Rebuild ERROR: ' + (e?.message || String(e)) + '\n'); }
     // Log system prompt BEFORE sendUserMessage
     try {
