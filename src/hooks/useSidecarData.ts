@@ -563,7 +563,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
       unsubCtxUsage(); unsubAllCtx(); unsubModelCtx()
       unsubDebugLog(); unsubCompaction(); unsubHistory()
       unsubPiNeeded(); unsubPiOk(); unsubPiCreated()
-      unsubModelsList(); unsubThinkStart(); unsubThinkEnd()
+      unsubModelsList()
       unsubProgress()
     }
   }, [ready, subscribe, call, activeSessionId])
