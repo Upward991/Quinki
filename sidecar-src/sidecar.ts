@@ -31,6 +31,7 @@ import {
   getAppVersion,
   getProvidersConfig,
   setProvidersConfig,
+  renameProvider,
   fetchProviderModelsIPC,
   testProviderConnectionIPC,
   getProviderApiKeyIPC,
@@ -404,6 +405,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
 
   getProvidersConfig: async () => getProvidersConfig(),
   setProvidersConfig: async (p) => setProvidersConfig(p),
+  renameProvider: async (p) => renameProvider(String(p.oldName), String(p.newName)),
   fetchProviderModels: async (p) => fetchProviderModelsIPC(p.providerName, p.baseUrl, p.apiKey),
   testProviderConnection: async (p) => testProviderConnectionIPC(p.providerName, p.baseUrl, p.apiKey),
   getProviderApiKey: async (p) => ({ apiKey: getProviderApiKeyIPC(p.providerName) }),
