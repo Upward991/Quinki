@@ -85,7 +85,7 @@ class FakeWebSocket {
       const obj = JSON.parse(data);
       if (obj && typeof obj === "object" && typeof obj.type === "string") {
         // WS-style event → JSON-RPC notification. params = whole event (contiains type + all fields).
-        try { fs.writeSync(1, JSON.stringify({ jsonrpc: "2.0", method: obj.type, params: obj }) + "\n"); } catch { process.stdout.write(JSON.stringify({ jsonrpc: "2.0", method: obj.type, params: obj }) + "\n"); }
+        process.stdout.write(JSON.stringify({ jsonrpc: "2.0", method: obj.type, params: obj }) + "\n", () => {});
         return;
       }
     } catch {
