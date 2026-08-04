@@ -643,7 +643,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
                   else if (b?.type === 'text') nb.push({ type: 'text', content: b.text || b.content || '' })
                 }
               }
-              return { id: d.id, agentName: d.agentName || 'agent', agentModel: d.model || '', taskContent: d.delegatedMessage || '', response: typeof d.content === 'string' ? d.content : '', blocks: nb, thinkingLevel: d.thinkingLevel || '' }
+              return { type: 'delegation', id: d.id, agentName: d.agentName || 'agent', agentModel: d.model || '', taskContent: d.delegatedMessage || '', response: typeof d.content === 'string' ? d.content : '', blocks: nb, thinkingLevel: d.thinkingLevel || '', streaming: false }
             })
             // Insert delegation blocks AFTER each delegate_to_agent tool_call (same position as streaming)
             let delIdx = 0
