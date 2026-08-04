@@ -95,7 +95,7 @@ pub fn run() {
       let _tray = TrayIconBuilder::new()
         .menu(&menu)
         .icon(tray_img)
-        .icon_as_template(false)
+        .icon_as_template(true)
         .menu_on_left_click(true)
         .tooltip("Quinki")
         .on_menu_event(|app, event| {
@@ -118,15 +118,12 @@ pub fn run() {
               let _ = std::process::Command::new("sh").arg("-c")
                 .arg("pkill -f ws-bridge 2>/dev/null; pkill -f sidecar.ts 2>/dev/null; lsof -ti:9182 | xargs kill -9 2>/dev/null")
                 .spawn();
-              // Set flag to allow exit
               SHOULD_EXIT.store(true, Ordering::SeqCst);
-              // Relaunch app after a short delay
-              let exe = std::env::current_exe().unwrap_or_default();
-              let app_path = exe.to_string_lossy().to_string();
+              // Relaunch app — use 'open' on the .app bundle, not the raw binary
               std::thread::spawn(move || {
                 std::thread::sleep(std::time::Duration::from_millis(500));
                 let _ = std::process::Command::new("sh").arg("-c")
-                  .arg(format!("(sleep 0.5 && '{}') &", app_path))
+                  .arg("open /Applications/Quinki.app")
                   .spawn();
               });
               app.exit(0);
@@ -142,14 +139,8 @@ pub fn run() {
             _ => {}
           }
         })
-        .on_tray_icon_event(|tray, event| {
-          if let tauri::tray::TrayIconEvent::Click { button: tauri::tray::MouseButton::Left, .. } = event {
-              let app = tray.app_handle();
-              if let Some(window) = app.get_webview_window("main") {
-                let _ = window.show();
-                let _ = window.set_focus();
-              }
-            }
+        .on_tray_icon_event(|_tray, _event| {
+          // Don't show window on click — only menu (menu_on_left_click handles it)
           })
         .build(app)?;
 
