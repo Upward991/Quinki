@@ -133,7 +133,7 @@ export function AgentsPanel(props) {
   const doRemoveSkillFromAgent = async (agentName, skillName) => {
     const agent = agents.find(a => a.name === agentName);
     if (!agent || !call) return;
-    const updated = agent.skills.map(s => s.name).filter(s => s !== skillName);
+    const updated = (agent.skills||[]).map(s => typeof s === 'string' ? s : s.name).filter(s => s !== skillName);
     try {
       await call('updateAgent', { id: agent.id, config: { skills: updated } });
       await refreshAgents();
@@ -145,7 +145,7 @@ export function AgentsPanel(props) {
   const doRemoveToolFromAgent = async (agentName, toolName) => {
     const agent = agents.find(a => a.name === agentName);
     if (!agent || !call) return;
-    const updated = agent.tools.map(t => t.name).filter(t => t !== toolName);
+    const updated = (agent.tools||[]).map(t => typeof t === 'string' ? t : t.name).filter(t => t !== toolName);
     try {
       await call('updateAgent', { id: agent.id, config: { tools: updated } });
       await refreshAgents();
@@ -274,7 +274,7 @@ export function AgentsPanel(props) {
     if (!call) return;
     // SOSTITUISCI: aggiungi ai selezionati, RIMUOVI dai deselezionati
     for (const agent of agents) {
-      const existing = agent.skills.map(s => s.name);
+      const existing = (agent.skills||[]).map(s => typeof s === 'string' ? s : s.name);
       const shouldHave = agentNames.includes(agent.name);
       const has = existing.includes(skillName);
       if (shouldHave && !has) {
@@ -292,7 +292,7 @@ export function AgentsPanel(props) {
     if (!call) return;
     const agent = agents.find(a => a.name === agentName);
     if (!agent) return;
-    const updated = agent.skills.map(s => s.name).filter(s => s !== skillName);
+    const updated = (agent.skills||[]).map(s => typeof s === 'string' ? s : s.name).filter(s => s !== skillName);
     try {
       await call('updateAgent', { id: agent.id, config: { skills: updated } });
       await refreshAgents();
@@ -305,7 +305,7 @@ export function AgentsPanel(props) {
     if (!call) return;
     const usingAgents = agents.filter(a => a.skills.some(s => s.name === skillName));
     for (const agent of usingAgents) {
-      const updated = agent.skills.map(s => s.name).filter(s => s !== skillName);
+      const updated = (agent.skills||[]).map(s => typeof s === 'string' ? s : s.name).filter(s => s !== skillName);
       try { await call('updateAgent', { id: agent.id, config: { skills: updated } }); } catch (e) { console.error(e); }
     }
     await refreshAgents();
@@ -318,7 +318,7 @@ export function AgentsPanel(props) {
   const doAddAgentsToTool = async (toolName, agentNames) => {
     if (!call) return;
     for (const agent of agents) {
-      const existing = agent.tools.map(t => t.name);
+      const existing = (agent.tools||[]).map(t => typeof t === 'string' ? t : t.name);
       const shouldHave = agentNames.includes(agent.name);
       const has = existing.includes(toolName);
       if (shouldHave && !has) {
@@ -336,7 +336,7 @@ export function AgentsPanel(props) {
     if (!call) return;
     const agent = agents.find(a => a.name === agentName);
     if (!agent) return;
-    const updated = agent.tools.map(t => t.name).filter(t => t !== toolName);
+    const updated = (agent.tools||[]).map(t => typeof t === 'string' ? t : t.name).filter(t => t !== toolName);
     try {
       await call('updateAgent', { id: agent.id, config: { tools: updated } });
       await refreshAgents();
@@ -349,7 +349,7 @@ export function AgentsPanel(props) {
     if (!call) return;
     const usingAgents = agents.filter(a => a.tools.some(t => t.name === toolName));
     for (const agent of usingAgents) {
-      const updated = agent.tools.map(t => t.name).filter(t => t !== toolName);
+      const updated = (agent.tools||[]).map(t => typeof t === 'string' ? t : t.name).filter(t => t !== toolName);
       try { await call('updateAgent', { id: agent.id, config: { tools: updated } }); } catch (e) { console.error(e); }
     }
     await refreshAgents();
