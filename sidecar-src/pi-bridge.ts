@@ -3759,7 +3759,10 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     if (data.skillNames && data.skillNames.length > 0) {
       try {
         process.stderr.write('[SKILL-DEBUG] Rebuilding system prompt with ' + data.skillNames.length + ' skills\n');
-        pi.agent.state.systemPrompt = this.#buildSystemPrompt(sk, effectiveCwd, data.workingDirs, undefined, data.skillNames);
+        const skillPrompt = this.#buildSystemPrompt(sk, effectiveCwd, data.workingDirs, undefined, data.skillNames);
+        // Set BOTH _baseSystemPrompt and systemPrompt — the vendor code overwrites systemPrompt with _baseSystemPrompt
+        try { (pi as any)._baseSystemPrompt = skillPrompt; } catch {}
+        pi.agent.state.systemPrompt = skillPrompt;
         process.stderr.write('[SKILL-DEBUG] System prompt rebuilt OK, len=' + (pi.agent.state.systemPrompt || '').length + '\n');
       } catch (e: any) { process.stderr.write('[SKILL-DEBUG] Rebuild ERROR: ' + (e?.message || String(e)) + '\n'); }
     } else {
