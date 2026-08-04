@@ -65,6 +65,7 @@ interface SessionEntry {
   compactionAuto?: boolean;
   compactionThreshold?: number;
   workingDir?: string;
+  messageSkills?: Record<string, { agentId: string; skillName: string; agentName?: string }[]>;
 }
 
 type ProbeResult = { levels: string[]; map: Record<string, string>; ollamaLevels: string[] };
@@ -368,6 +369,7 @@ class PiBridge {
           if (s.workingDir) {
             this.#cwdOverride.set(s.key, s.workingDir);
             (existing as any).workingDir = s.workingDir;
+            if (s.messageSkills) (existing as any).messageSkills = s.messageSkills;
           }
         }
       }
@@ -406,6 +408,7 @@ class PiBridge {
           messageAgents: (v as any).messageAgents,
           messageThinking: (v as any).messageThinking,
           workingDir: (v as any).workingDir,
+          messageSkills: (v as any).messageSkills,
         });
       }
       fs.writeFileSync(SESSION_FILE, JSON.stringify(data, null, 2), "utf8");
@@ -2259,6 +2262,21 @@ class PiBridge {
       if (s) { (s as any).workingDir = undefined; this.#save(); }
     }
     this.logDebug("set-working-dir", { sessionKey: key, newPath: newPath || "(default)" });
+  }
+
+  setMessageSkills(key: string, messageId: string, skills: any[]) {
+    const s = this.#entries.get(key);
+    if (s && skills && skills.length > 0) {
+      if (!(s as any).messageSkills) (s as any).messageSkills = {};
+      (s as any).messageSkills[messageId] = skills;
+      this.#save();
+      this.logDebug("set-message-skills", { sessionKey: key, messageId, skillCount: skills.length });
+    }
+  }
+
+  getMessageSkills(key: string): Record<string, any[]> {
+    const s = this.#entries.get(key);
+    return (s as any)?.messageSkills || {};
   }
 
   // === Reload session: dispose Pi + il prossimo send riapre rileggendo il .jsonl aggiornato ===

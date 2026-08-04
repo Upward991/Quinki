@@ -169,7 +169,7 @@ export function Composer(props: ComposerProps) {
             {pendingSkills.map((s, i) => (
               <div key={i} style={{
                 display: 'flex', alignItems: 'center', gap: '6px',
-                padding: '3px 8px 3px 10px', borderRadius: '100px',
+                padding: '3px 8px 3px 10px', borderRadius: 'var(--radius-sm)',
                 backgroundColor: 'rgba(255,255,255,0.06)',
                 border: '1px solid var(--q-border)',
                 fontSize: '12px', fontFamily: 'var(--font-interface)',

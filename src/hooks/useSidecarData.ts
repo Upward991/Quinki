@@ -644,7 +644,15 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
             merged.push(base)
           }
         }
-        setMessages(merged.map(m => ({ ...m })))
+        // Attach skill names from history
+        const msgSkills = history.messageSkills || {};
+        const mergedWithSkills = merged.map(m => {
+          if (m.role === 'user' && msgSkills[m.id]) {
+            return { ...m, skillNames: msgSkills[m.id] };
+          }
+          return m;
+        });
+        setMessages(mergedWithSkills)
       }
       // === Ripristino streaming: se la sessione sta ancora generando, recupera stato + buffer ===
       try {
