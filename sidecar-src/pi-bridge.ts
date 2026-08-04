@@ -139,7 +139,6 @@ class PiBridge {
   #prevCompactionFirstKept = new Map<string, string>();
   #compactingSessions = new Set<string>();
   #contextUsage = new Map<string, { tokens: number | null; contextWindow: number; percent: number | null; model?: string; ts: number }>();
-  #delegations = new Map<string, any[]>();
   #responseTimers = new Map<string, number>();
   #modelRegistry: any = null;
   #modelContextCache = new Map<string, { contextWindow: number; source: string; ts: number }>();
@@ -451,7 +450,6 @@ class PiBridge {
         for (const [k, v] of Object.entries(data)) this.#errors.set(k, v as any[]);
       }
     } catch {}
-    this.#loadDelegations();
   }
 
   // === Cleanup: remove temp delegation sessions from disk ===
@@ -497,19 +495,6 @@ class PiBridge {
       const data: Record<string, any> = {};
       for (const [k, v] of this.#contextUsage) data[k] = v;
       fs.writeFileSync(CONTEXT_USAGE_FILE, JSON.stringify(data, null, 2), "utf8");
-    } catch {}
-  }
-
-  #loadDelegations() {
-    try {
-      if (fs.existsSync(DELEGATIONS_FILE)) {
-        const data = JSON.parse(fs.readFileSync(DELEGATIONS_FILE, "utf8"));
-        if (data && typeof data === "object") {
-          for (const [k, v] of Object.entries(data)) {
-            if (Array.isArray(v)) this.#delegations.set(k, v);
-          }
-        }
-      }
     } catch {}
   }
 
@@ -573,27 +558,11 @@ class PiBridge {
             fs.appendFileSync(path.join(sessionDir, files[0]), JSON.stringify(entry) + "\n", "utf8");
           }
         }
-        this.#saveDelegation(sessionKey, delegation);
+        // Fallback removed — delegations only go to .jsonl now
       }
     } catch (e: any) {
       this.logDebug("delegation-append-error", { error: e?.message });
-      this.#saveDelegation(sessionKey, delegation);
     }
-  }
-
-  #saveDelegation(sessionKey: string, delegation: any) {
-    try {
-      const existing = this.#delegations.get(sessionKey) || [];
-      existing.push(delegation);
-      this.#delegations.set(sessionKey, existing);
-      const data: Record<string, any> = {};
-      for (const [k, v] of this.#delegations) data[k] = v;
-      fs.writeFileSync(DELEGATIONS_FILE, JSON.stringify(data, null, 2), "utf8");
-    } catch {}
-  }
-
-  getDelegations(sessionKey: string): any[] {
-    return this.#delegations.get(sessionKey) || [];
   }
 
   #findModelInRegistry(registry: any, modelId: string): any {
@@ -957,13 +926,9 @@ class PiBridge {
         if (ctx?.messages) {
           const noopTs = detectNoopCompactions(pi.sessionManager);
           const prevCompactions = collectAllCompactionMessages(pi.sessionManager, noopTs);
-          const delInCtx = ctx.messages.filter((m: any) => m.role === 'delegation');
-          try { fs.writeSync(2, '[GET-HIST] ctx.messages:', ctx.messages.length, ' delegations:', delInCtx.length, '\n'); } catch {}
-          const mapped = mapWithNoop(ctx.messages, noopTs).filter((m: any) => !m.isCompactionSummary && !m.isCompactionWarning);
+                              const mapped = mapWithNoop(ctx.messages, noopTs).filter((m: any) => !m.isCompactionSummary && !m.isCompactionWarning);
           // Prepend le compaction precedenti, ordinate per timestamp
           const errs = (this.#errors.get(key) || []).map((er: any, i: number) => ({ id: `err-${i}-${er.timestamp}`, role: "assistant", content: "", errorContent: er.errorMessage, isError: true, timestamp: er.timestamp, done: true, model: er.model, agentName: er.agentName, thinkingLevel: er.thinkingLevel }));
-          const delInMapped = mapped.filter((m: any) => m.role === 'delegation');
-          try { fs.writeSync(2, '[GET-HIST] mapped:', mapped.length, ' delegations in mapped:', delInMapped.length, '\n'); } catch {}
           return [...prevCompactions, ...mapped, ...errs].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
         }
       } catch {}
@@ -978,12 +943,7 @@ class PiBridge {
           if (ctx?.messages) {
             const noopTs = detectNoopCompactions(sm);
             const prevCompactions = collectAllCompactionMessages(sm, noopTs);
-            const delInCtx2 = ctx.messages.filter((m: any) => m.role === 'delegation');
-            try { fs.writeSync(2, '[GET-HIST2] ctx.messages:', ctx.messages.length, ' delegations:', delInCtx2.length, '\n'); } catch {}
-            const mapped = mapWithNoop(ctx.messages, noopTs).filter((m: any) => !m.isCompactionSummary && !m.isCompactionWarning);
-            const delInMapped2 = mapped.filter((m: any) => m.role === 'delegation');
-            try { fs.writeSync(2, '[GET-HIST2] mapped:', mapped.length, ' delegations in mapped:', delInMapped2.length, '\n'); } catch {}
-            if (delInMapped2[0]) try { fs.writeSync(2, '[GET-HIST2] first del:', delInMapped2[0].id, ' ', delInMapped2[0].agentName, '\n'); } catch {}
+                                    const mapped = mapWithNoop(ctx.messages, noopTs).filter((m: any) => !m.isCompactionSummary && !m.isCompactionWarning);
             const errs = (this.#errors.get(key) || []).map((er: any, i: number) => ({ id: `err-${i}-${er.timestamp}`, role: "assistant", content: "", errorContent: er.errorMessage, isError: true, timestamp: er.timestamp, done: true, model: er.model, agentName: er.agentName, thinkingLevel: er.thinkingLevel }));
             return [...prevCompactions, ...mapped, ...errs].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
           }
@@ -991,31 +951,6 @@ class PiBridge {
       }
     } catch {}
     return [];
-  }
-
-  #readDelegationEntries(sessionKey: string): any[] {
-    const out: any[] = [];
-    try {
-      const sessionDir = this.#piSessionDir(sessionKey);
-      if (!fs.existsSync(sessionDir)) { console.error('[DELEG-READ] no sessionDir: ' + sessionDir); return out; }
-      const files = fs.readdirSync(sessionDir).filter((f: string) => f.endsWith(".jsonl"));
-      if (files.length === 0) { console.error('[DELEG-READ] no jsonl files in: ' + sessionDir); return out; }
-      const jsonlPath = path.join(sessionDir, files[0]);
-      const content = fs.readFileSync(jsonlPath, "utf8");
-      const lines = content.trim().split("\n");
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        try {
-          const e = JSON.parse(line);
-          if (e.type === "delegation" && e.delegationData) {
-            const d = e.delegationData;
-            out.push({ id: e.id, role: "delegation", agentName: d.agentName || "agent", delegatedMessage: d.delegatedMessage || "", content: d.content || [], model: d.model || "", thinkingLevel: d.thinkingLevel || "", timestamp: new Date(e.timestamp || Date.now()).getTime(), done: true });
-          }
-        } catch {}
-      }
-    } catch (e2: any) { console.error('[DELEG-READ] error: ' + (e2?.message || String(e2))); }
-    console.error('[DELEG-READ] found ' + out.length + ' delegation entries for ' + sessionKey);
-    return out;
   }
 
   create(key: string, label: string): SessionEntry {
