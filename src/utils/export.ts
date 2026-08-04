@@ -77,8 +77,10 @@ function renderDelegationMd(d: DelegationBlock): string[] {
     out.push('> **Response:**')
     for (const line of d.response.split('\n')) out.push(line ? '> ' + line : '>')
   }
-  if (d.delegations?.length) {
-    for (const sub of d.delegations) {
+  // Delegations: from delegations property (old) or blocks array (new)
+  const allDelegations = [...(d.delegations || []), ...((d.blocks || []).filter((b: any) => b.type === 'delegation'))]
+  if (allDelegations.length) {
+    for (const sub of allDelegations) {
       out.push('>')
       out.push(...renderDelegationMd(sub))
     }
@@ -141,8 +143,9 @@ export function exportToMarkdown(messages: Message[], label: string): string {
       }
 
       // Delegations
-      if (m.delegations?.length) {
-        for (const d of m.delegations) {
+      const msgDelegations = [...(m.delegations || []), ...((m.blocks || []).filter((b: any) => b.type === 'delegation'))]
+      if (msgDelegations.length) {
+        for (const d of msgDelegations) {
           lines.push('---'); lines.push('')
           lines.push(...renderDelegationMd(d))
           lines.push('')
@@ -241,8 +244,9 @@ export function exportToHtml(messages: Message[], label: string): string {
           content += `<details class="${cls}"><summary>${tr.isError ? 'Tool error' : 'Tool result'}: ${esc(tr.name)}</summary><div class="detail-content"><pre><code>${esc(tr.output)}</code></pre></div></details>`
         }
       }
-      if (m.delegations?.length) {
-        for (const d of m.delegations) content += renderDelegationHtml(d)
+      const htmlDelegations = [...(m.delegations || []), ...((m.blocks || []).filter((b: any) => b.type === 'delegation'))]
+      if (htmlDelegations.length) {
+        for (const d of htmlDelegations) content += renderDelegationHtml(d)
       }
       if (m.compaction?.length) {
         for (const c of m.compaction) {

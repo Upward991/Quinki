@@ -2723,12 +2723,8 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       if (tempPi?.resourceLoader) {
         try {
           const skills = tempPi.resourceLoader.getSkills().skills;
-          if (skills && skills.length > 0 && typeof base === "string" && !base.includes("available_skills")) {
-            const skillsText = formatSkillsForPrompt(skills);
-            if (skillsText) {
-              base = base + skillsText;
-              base = base + "\n\n⚠️ **IMPORTANTE**: Prima di rispondere a qualsiasi richiesta, controlla se una o più delle tue skill sopra sono pertinenti. Se sì, carica il file SKILL.md con il tool read e seguine le istruzioni. Non ignorare le tue skill — sono risorse che possono aiutarti a rispondere meglio.";
-            }
+          if (skills && skills.length > 0 && typeof base === "string" && !base.includes("skill tool")) {
+            base = base + `\n\nYou have ${skills.length} skill(s) available. Use the skill tool with command='list' to see them, command='search' to find relevant ones, and command='load' to read full instructions. Always check your skills before answering.`;
           }
         } catch {}
       }
@@ -3061,16 +3057,12 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
                 else if (buildIdx >= 0) base = base.substring(0, buildIdx);
                 base = base + note;
               }
-              // Append <available_skills> from tempPi.resourceLoader (same as #buildSystemPrompt)
+              // Skill: short instruction instead of <available_skills> (skill tool handles it)
               if (tempPi?.resourceLoader) {
                 try {
                   const skills = tempPi.resourceLoader.getSkills().skills;
-                  if (skills && skills.length > 0 && typeof base === "string" && !base.includes("available_skills")) {
-                    const skillsText = formatSkillsForPrompt(skills);
-                    if (skillsText) {
-                      base = base + skillsText;
-                      base = base + "\n\n⚠️ **IMPORTANTE**: Prima di rispondere a qualsiasi richiesta, controlla se una o più delle tue skill sopra sono pertinenti. Se sì, carica il file SKILL.md con il tool read e seguine le istruzioni. Non ignorare le tue skill — sono risorse che possono aiutarti a rispondere meglio.";
-                    }
+                  if (skills && skills.length > 0 && typeof base === "string" && !base.includes("skill tool")) {
+                    base = base + `\n\nYou have ${skills.length} skill(s) available. Use the skill tool with command='list' to see them, command='search' to find relevant ones, and command='load' to read full instructions. Always check your skills before answering.`;
                   }
                 } catch {}
               }
@@ -3352,17 +3344,13 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
         }
       }
     }
-    // === Fix: appendi <available_skills> dal resourceLoader (skill visibili all'agente) ===
+    // === Skill: short instruction instead of <available_skills> ===
     const pi = this.#active.get(key);
     if (pi?.resourceLoader) {
       try {
         const skills = pi.resourceLoader.getSkills().skills;
         if (skills && skills.length > 0) {
-          const skillsText = formatSkillsForPrompt(skills);
-          if (skillsText) {
-            prompt += skillsText;
-            prompt += "\n\n⚠️ **IMPORTANTE**: Prima di rispondere a qualsiasi richiesta, controlla se una o più delle tue skill sopra sono pertinenti. Se sì, carica il file SKILL.md con il tool read e seguine le istruzioni. Non ignorare le tue skill — sono risorse che possono aiutarti a rispondere meglio.";
-          }
+          prompt += `\n\nYou have ${skills.length} skill(s) available. Use the skill tool with command='list' to see them, command='search' to find relevant ones, and command='load' to read full instructions. Always check your skills before answering.`;
         }
       } catch {}
     }
