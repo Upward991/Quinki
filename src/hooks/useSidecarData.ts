@@ -271,7 +271,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
       // Eventi nested di una delega attiva: vanno nel blocco delegation, NON nel messaggio principale
       if (messageId && activeDelegationsRef.current.has(messageId) && _type !== 'delegation_end') {
         // Status pill stays on "Tool call" during delegation (always set, no stale check)
-        setStatusLabel('Tool call'); setStatusKind('tool_call')
+        setTimeout(() => { setStatusLabel('Tool call'); setStatusKind('tool_call') }, 0)
         const nestedBlock = (() => {
           if (_type === 'thinking_delta' || _type === 'thinking' || _type === 'thinking_start') return { type: 'thinking', content: _content }
           if (_type === 'text_delta' || _type === 'text' || _type === 'text_start') return { type: 'text', content: _content }

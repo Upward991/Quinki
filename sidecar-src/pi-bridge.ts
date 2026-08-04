@@ -3163,7 +3163,6 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
           const delegationId = `del-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
           // === Reuse stream_event channel (proven to work) with del- prefix messageId ===
           self.#sendToWs(self.#wss.get(sessionKey), { type: "stream_event", sessionKey, eventType: "delegation_start", messageId: delegationId, agentName: agent_name, task: task });
-          await new Promise(r => setImmediate(r));
           // Subscribe to temp session events → forward as delegation_stream
           let delegationContent: any[] = [];
           // Helper: accumula blocchi cronologicamente (merge consecutive same-type)
@@ -3178,7 +3177,6 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
             }
           };
           const tempSub = tempPi.subscribe((e: any) => {
-            setImmediate(() => {
             if (e.type === "tool_execution_start") {
               self.#sendToWs(self.#wss.get(sessionKey), { type: "stream_event", sessionKey, eventType: "toolcall_start", delta: e.toolName || "", messageId: delegationId });
               let argsStr = "";
@@ -3210,7 +3208,6 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
               if (ame.type === "thinking_delta" || ame.type === "thinking_start") pushDel('thinking', { thinking: ame.delta || '' });
               else if (ame.type === "text_delta" || ame.type === "text_start") pushDel('text', { text: ame.delta || '' });
             }
-            }); // end setImmediate
           });
           // === Set thinking level (last moment, after all system prompt work) ===
           const agentThinking2 = agentOverride.thinkingLevel;
@@ -3257,7 +3254,6 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
           const delModel = (tempPi?.model?.id ?? '') || agentOverride.model || (mainSession?.model?.id ?? '') || '';
           const delThinking = tempPi?.thinkingLevel || agentOverride.thinkingLevel || mainSession?.thinkingLevel || '';
           self.#sendToWs(self.#wss.get(sessionKey), { type: "stream_event", sessionKey, eventType: "delegation_end", messageId: delegationId, agentName: agent_name, response: responseText, model: delModel, thinkingLevel: delThinking });
-          await new Promise(r => setImmediate(r));
           // Collect delegation content from temp session entries (include tool results)
           try {
             const tempSm = (tempPi as any)?.sessionManager || (tempPi as any)?.agent?.state?.sessionManager;
