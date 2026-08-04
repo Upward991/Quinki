@@ -42,13 +42,13 @@ function useSidecar(url: string = 'ws://127.0.0.1:9182') {
     return () => { closed = true; wsRef.current?.close() }
   }, [url])
 
-  const call = useCallback((method: string, params: any = {}): Promise<any> => {
+  const call = useCallback((method: string, params: any = {}, timeout: number = 30000): Promise<any> => {
     return new Promise((resolve, reject) => {
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) { reject(new Error('Not connected')); return }
       const id = nextIdRef.current++
       pendingRef.current.set(id, { resolve, reject })
       wsRef.current.send(JSON.stringify({ jsonrpc: '2.0', method, params, id }))
-      setTimeout(() => { if (pendingRef.current.has(id)) { pendingRef.current.delete(id); reject(new Error('Timeout: ' + method)) } }, 30000)
+      setTimeout(() => { if (pendingRef.current.has(id)) { pendingRef.current.delete(id); reject(new Error('Timeout: ' + method)) } }, timeout)
     })
   }, [])
 

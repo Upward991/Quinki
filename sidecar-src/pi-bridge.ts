@@ -3178,15 +3178,15 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
               delegationContent.push({ ...data, type, timestamp: Date.now() });
             }
           };
-          // Queue events and flush periodically — allows real-time streaming during delegation
-          const delEventQueue: any[] = [];
+          // Direct forwarding with fs.writeSync — no queue, no delay
           const tempSub = tempPi.subscribe((e: any) => {
-            // Queue events synchronously (no I/O — fast)
+            try { fs.writeSync(2, `[DELEG-EVT] ${Date.now()} type=${e.type} ame=${(e as any).assistantMessageEvent?.type || "?"}\n`); } catch {}
+            const fwdWs = self.#wss.get(sessionKey);
             if (e.type === "tool_execution_start") {
-              delEventQueue.push({ type: "stream_event", sessionKey, eventType: "toolcall_start", delta: e.toolName || "", messageId: delegationId });
+              self.#sendToWs(fwdWs, { type: "stream_event", sessionKey, eventType: "toolcall_start", delta: e.toolName || "", messageId: delegationId });
               let argsStr = "";
               try { argsStr = typeof e.args === "string" ? e.args : JSON.stringify(e.args, null, 2); } catch {}
-              if (argsStr) delEventQueue.push({ type: "stream_event", sessionKey, eventType: "toolcall_delta", delta: argsStr, messageId: delegationId });
+              if (argsStr) self.#sendToWs(fwdWs, { type: "stream_event", sessionKey, eventType: "toolcall_delta", delta: argsStr, messageId: delegationId });
               delegationContent.push({ type: "toolCall", text: e.toolName || 'tool', thinking: argsStr, streaming: false, timestamp: Date.now() });
             } else if (e.type === "tool_execution_end") {
               let resultText = "";
@@ -3199,24 +3199,17 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
                 }
               } catch {}
               if (!resultText && e.isError) { try { resultText = String((e as any).error || (r as any)?.error || 'Tool execution failed'); } catch { resultText = 'Tool execution failed'; } }
-              delEventQueue.push({ type: "stream_event", sessionKey, eventType: "toolcall_end", delta: resultText, messageId: delegationId, isError: !!e.isError });
+              self.#sendToWs(fwdWs, { type: "stream_event", sessionKey, eventType: "toolcall_end", delta: resultText, messageId: delegationId, isError: !!e.isError });
               delegationContent.push({ type: "toolResult", text: e.toolName || 'tool', thinking: resultText, streaming: false, isError: !!e.isError, timestamp: Date.now() });
             } else if (e.type === "message_update" && e.assistantMessageEvent && e.message?.role === "assistant") {
               const ame = e.assistantMessageEvent;
               if (ame.type === "toolcall_start" || ame.type === "toolcall_delta" || ame.type === "toolcall_end") return;
-              delEventQueue.push({ type: "stream_event", sessionKey, eventType: ame.type, delta: ame.delta || "", messageId: delegationId });
+              self.#sendToWs(fwdWs, { type: "stream_event", sessionKey, eventType: ame.type, delta: ame.delta || "", messageId: delegationId });
               if (ame.type === "thinking_delta" || ame.type === "thinking_start") pushDel('thinking', { thinking: ame.delta || '' });
               else if (ame.type === "text_delta" || ame.type === "text_start") pushDel('text', { text: ame.delta || '' });
             }
           });
-          // Flush queue every 10ms — fires between HTTP chunks when event loop yields
-          const flushTimer = setInterval(() => {
-            const ws = self.#wss.get(sessionKey);
-            if (!ws) return;
-            while (delEventQueue.length > 0) {
-              self.#sendToWs(ws, delEventQueue.shift());
-            }
-          }, 10);
+
           // === Set thinking level (last moment, after all system prompt work) ===
           const agentThinking2 = agentOverride.thinkingLevel;
           if (agentThinking2 === 'on') {
@@ -3233,10 +3226,6 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
           await tempPi.sendUserMessage(task, { deliverAs: "followUp" });
           // Cleanup subscription + flush timer
           try { tempSub(); } catch {}
-          clearInterval(flushTimer);
-          // Final flush
-          const finalWs = self.#wss.get(sessionKey);
-          if (finalWs) while (delEventQueue.length > 0) self.#sendToWs(finalWs, delEventQueue.shift());
           // === Raccogli la risposta dall'ultimo messaggio assistant ===
           let responseText = "";
           try {
