@@ -21,7 +21,7 @@ interface ComposerProps {
   isCompacting?: boolean
   statusLabel?: string
   statusKind?: string
-  onSend: (text: string, opts?: { skillName?: string }) => void
+  onSend: (text: string, opts?: { skillNames?: { agentId: string; skillName: string; agentName?: string }[] }) => void
   onStop: () => void
   onModelChange: (model: string) => void
   onModeChange: (mode: ChatMode) => void
@@ -138,10 +138,10 @@ export function Composer(props: ComposerProps) {
           thinking={props.thinking}
           sessionKey={props.sessionKey}
           chatAgentIds={props.chatAgentIds}
-          onSelectModel={(m) => { props.onModelChange(m); setSlashMenuOpen(false); setText('') }}
-          onSelectThinking={(t) => { props.onThinkingChange(t as ThinkingLevel); setSlashMenuOpen(false); setText('') }}
-          onReset={() => { props.onReset?.(); setSlashMenuOpen(false); setText('') }}
-          onClose={() => { setSlashMenuOpen(false); setText('') }}
+          onSelectModel={(m) => { props.onModelChange(m); setSlashMenuOpen(false); if (text.startsWith('/') && !text.includes(' ')) setText('') }}
+          onSelectThinking={(t) => { props.onThinkingChange(t as ThinkingLevel); setSlashMenuOpen(false); if (text.startsWith('/') && !text.includes(' ')) setText('') }}
+          onReset={() => { props.onReset?.(); setSlashMenuOpen(false); if (text.startsWith('/') && !text.includes(' ')) setText('') }}
+          onClose={() => { setSlashMenuOpen(false); if (text.startsWith('/') && !text.includes(' ')) setText('') }}
           onSkillSelected={(skill) => {
             // Add skill chip
             setPendingSkills(prev => [...prev, skill])

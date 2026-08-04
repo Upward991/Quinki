@@ -87,6 +87,16 @@ function UserMessage({ message, onCopy, searchQuery, activeOcc, isDateMatch }: {
   }
   return (
     <div className="user-message-content" style={{ width: '100%', padding: '10px 16px', backgroundColor: 'var(--q-bubble-user)', borderRadius: '12px', boxShadow: isDateMatch ? 'none' : '0 0 0 1px var(--q-border), inset 0 1px 0 rgba(255,255,255,0.02)', border: isDateMatch ? '2px solid var(--q-search-highlight-bg)' : 'none', animation: 'msgSent 300ms cubic-bezier(0.16, 1, 0.3, 1)' }}>
+      {(message as any).skillNames && (message as any).skillNames.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+          {(message as any).skillNames.map((s: any, i: number) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '3px 8px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--q-accent-primary-soft)', border: '1px solid var(--q-accent-primary)', fontSize: '12px', fontFamily: 'var(--font-interface)', color: 'var(--q-text)' }}>
+              <span>{s.skillName}</span>
+              {s.agentName && <span style={{ color: 'var(--q-text-tertiary)', fontSize: '10px' }}>→ {s.agentName}</span>}
+            </div>
+          ))}
+        </div>
+      )}
       <div style={{ color: 'var(--q-bubble-user-text)', fontSize: '14px', lineHeight: 1.5, fontFamily: 'var(--font-interface)', fontWeight: 500, whiteSpace: 'pre-wrap', wordBreak: 'break-word', userSelect: 'text', WebkitUserSelect: 'text' }}>
         {rendered}
       </div>

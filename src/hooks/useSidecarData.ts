@@ -739,7 +739,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
       ])
       return
     }
-    const userMsg = { id: `msg-${Date.now()}`, role: 'user' as const, content: text, timestamp: new Date().toISOString(), tokensIn: Math.ceil(text.length / 4) }
+    const userMsg = { id: `msg-${Date.now()}`, role: 'user' as const, content: text, timestamp: new Date().toISOString(), tokensIn: Math.ceil(text.length / 4), skillNames: optsSkills } as any
     setMessages(prev => [...prev, userMsg])
     setIsStreaming(true)
     setStatusLabel('Thinking'); setStatusKind('thinking')

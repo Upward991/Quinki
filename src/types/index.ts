@@ -63,6 +63,7 @@ export interface Message {
   tokensIn?: number
   tokensOut?: number
   isCompacted?: boolean
+  skillNames?: { agentId: string; skillName: string; agentName?: string }[]
 }
 
 export type SessionType = 'chat' | 'folder'
