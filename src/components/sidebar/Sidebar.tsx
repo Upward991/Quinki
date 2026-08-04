@@ -387,6 +387,8 @@ export function Sidebar(props: SidebarProps) {
                   renameVal={renameVal}
                   dropZone={dropZone}
                   dropLabel={dropLabel}
+                  isSelected={selected.has(item.id)}
+                  multiSelect={multiSelect}
                 onSelect={() => {
                   if (multiSelect && item.type !== 'folder') {
                     setSelected(prev => { const n = new Set(prev); n.has(item.id) ? n.delete(item.id) : n.add(item.id); return n })
@@ -498,7 +500,7 @@ function TransitionZone({ entry, isActive }: any) {
 }
 
 // === Sortable Row ===
-function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, renameVal, dropZone, dropLabel, onSelect, onHover, onContextMenu, onRenameStart, onRenameChange, onRenameCommit, onRenameCancel, isOverlay }: any) {
+function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, renameVal, dropZone, dropLabel, onSelect, onHover, onContextMenu, onRenameStart, onRenameChange, onRenameCommit, onRenameCancel, isOverlay, isSelected, multiSelect }: any) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: item.id, disabled: !!isOverlay })
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: item.id, disabled: !!isOverlay })
 
@@ -508,11 +510,11 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
 
   const textColor = isFolder
     ? expanded ? 'var(--q-accent-folder-open)' : isHovered ? 'var(--q-text)' : 'var(--q-text-secondary)'
-    : isActive ? 'var(--q-accent-info)' : isHovered ? 'var(--q-text)' : 'var(--q-text-secondary)'
+    : isSelected ? 'var(--q-accent-danger)' : isActive ? 'var(--q-accent-info)' : isHovered ? 'var(--q-text)' : 'var(--q-text-secondary)'
   const iconColor = isFolder
     ? expanded ? 'var(--q-accent-folder-open)' : isHovered ? 'var(--q-text)' : 'var(--q-text-tertiary)'
-    : isActive ? 'var(--q-accent-info)' : isHovered ? 'var(--q-text)' : 'var(--q-text-tertiary)'
-  const bgColor = isHovered && !isActive ? 'var(--q-hover)' : 'transparent'
+    : isSelected ? 'var(--q-accent-danger)' : isActive ? 'var(--q-accent-info)' : isHovered ? 'var(--q-text)' : 'var(--q-text-tertiary)'
+  const bgColor = isSelected ? 'rgba(255,59,48,0.08)' : isHovered && !isActive ? 'var(--q-hover)' : 'transparent'
   const indent = 8 + depth * 12
 
   return (
