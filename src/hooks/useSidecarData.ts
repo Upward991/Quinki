@@ -270,8 +270,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
       const _content = delta || content || ''
       // Eventi nested di una delega attiva: vanno nel blocco delegation, NON nel messaggio principale
       if (messageId && activeDelegationsRef.current.has(messageId) && _type !== 'delegation_end') {
-        // Status pill stays on "Tool call" during delegation (always set, no stale check)
-        setTimeout(() => { setStatusLabel('Tool call'); setStatusKind('tool_call') }, 0)
+        // DON'T touch status pill — delegation is a tool call, pill stays on "Tool call" from toolcall_start
         const nestedBlock = (() => {
           if (_type === 'thinking_delta' || _type === 'thinking' || _type === 'thinking_start') return { type: 'thinking', content: _content }
           if (_type === 'text_delta' || _type === 'text' || _type === 'text_start') return { type: 'text', content: _content }
@@ -336,8 +335,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
         // toolcall_end nel stream_event = FINE ARGOMENTI del tool call, NON il risultato.
         // Il risultato vero arriva dalla notifica separata 'tool_result'. Qui NON si crea niente.
       } else if (_type === 'delegation_start') {
-        // Status pill: "Tool call" (delegation is a long tool execution)
-        setStatusLabel('Tool call'); setStatusKind('tool_call')
+        // DON'T touch status pill — toolcall_start already set "Tool call"
         activeDelegationsRef.current.add(messageId)
         // Blocco delegation CRONOLOGICO (dopo il tool_call delegate_to_agent, prima del tool_result)
         setMessages(prev => {
@@ -346,9 +344,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
           return [...prev.slice(0, -1), { ...last, blocks: pushBlock(last, { type: 'delegation', id: messageId, agentName: p.agentName || 'agent', taskContent: p.task || '', blocks: [], streaming: true }) }]
         })
       } else if (_type === 'delegation_end') {
-        setStatusLabel('Running'); setStatusKind('running')
-        // Trigger scroll after delegation ends (toggles close, content may shift)
-        setTimeout(() => { const el = document.querySelector('[data-msg-scroll]'); if (el) el.scrollTop = el.scrollHeight }, 100)
+        // DON'T touch status pill — tool_result will set "Tool result" when the tool execution completes
         activeDelegationsRef.current.delete(messageId)
         setMessages(prev => prev.map(m => {
           const blocks = (m.blocks || []).map((b: any) => b.type === 'delegation' && b.id === messageId
