@@ -3187,18 +3187,22 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
               }
               // Inject user-activated skills into the delegated agent's system prompt
               const pendingSkills = self.#pendingDelegationSkills.get(sessionKey);
+                process.stderr.write('[DELEG-SKILL] pendingSkills for sessionKey=' + sessionKey + ': ' + JSON.stringify(pendingSkills) + ', targetId=' + targetId + '\n');
               if (pendingSkills && pendingSkills.length > 0) {
                 for (const ps of pendingSkills) {
+                  process.stderr.write('[DELEG-SKILL] checking: ps.agentId=' + ps.agentId + ', targetId=' + targetId + ', match=' + (ps.agentId === targetId) + '\n');
                   if (ps.agentId === targetId) {
                     try {
-                      const skillPath = self.#findSkillPath(ps.skillName, effectiveCwd);
+                      process.stderr.write('[DELEG-SKILL] about to call findSkillPath: ' + ps.skillName + '\n');
+                      const delegCwd = (typeof effectiveCwd !== "undefined" && effectiveCwd) || self.#cwd; const skillPath = self.#findSkillPath(ps.skillName, delegCwd);
+                      process.stderr.write('[DELEG-SKILL] findSkillPath: name=' + ps.skillName + ', cwd=' + delegCwd + ', found=' + !!skillPath + ', path=' + (skillPath || 'null') + '\n');
                       if (skillPath && fs.existsSync(skillPath)) {
                         const skillContent = fs.readFileSync(skillPath, 'utf-8');
                         const skillBody = skillContent.replace(/^---\n[\s\S]*?\n---\n?/, '');
                         base = base + '\n\n=== USER ACTIVATED SKILL: ' + ps.skillName + ' ===\n\n' + skillBody + '\n\n=== END USER ACTIVATED SKILL ===\n\nCRITICAL: The skill instructions above were explicitly activated by the user via /skill command. They are ALREADY in your system prompt — do NOT use the skill tool to verify them. Follow them directly.';
                         self.logDebug("delegate-skill-injected", { sessionKey, agentId: targetId, skillName: ps.skillName, skillLen: skillBody.length });
                       }
-                    } catch (e: any) { self.logDebug("delegate-skill-inject-error", { sessionKey, skillName: ps.skillName, error: e?.message }); }
+                    } catch (e: any) { process.stderr.write('[DELEG-SKILL] INJECTION ERROR: ' + (e?.message || String(e)) + '\n'); self.logDebug("delegate-skill-inject-error", { sessionKey, skillName: ps.skillName, error: e?.message }); }
                   }
                 }
                 (tempPi as any)._baseSystemPrompt = base;
@@ -3690,7 +3694,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
             await pi.setModel(model);
             // === Fix 11: ripristinare system prompt minimale dopo setModel ===
             try {
-              pi.agent.state.systemPrompt = this.#buildSystemPrompt(sk, effectiveCwd, data.workingDirs, undefined, data.skillNames);
+              pi.agent.state.systemPrompt = this.#buildSystemPrompt(sk, effectiveCwd, data.workingDirs, undefined, undefined);
             } catch {}
             const actualModel = (() => { try { return pi.model?.id; } catch { return pendingModel; } })();
             this.logDebug("pending-model-applied", { sessionKey: sk, requested: pendingModel, actual: actualModel, accepted: actualModel === pendingModel });
@@ -3887,7 +3891,15 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     // This ensures skills are one-shot: present only for the message they're attached to
     try {
       const skillNames = (data.skillNames && data.skillNames.length > 0) ? data.skillNames : undefined;
-      let prompt = this.#buildSystemPrompt(sk, effectiveCwd, data.workingDirs, undefined, skillNames);
+      const resolvedAgent = this.#resolveAgentId(sk);
+      const isOrchestrator = resolvedAgent === 'orchestrator' || (resolvedAgent && resolvedAgent.includes('orchestrator'));
+      const skillsForPrompt = skillNames ? skillNames.filter((s: any) => {
+        if (isOrchestrator) return s.agentId === 'orchestrator';
+        return true;
+      }) : undefined;
+      const agentCfg = resolvedAgent ? this.#readAgentConfig(resolvedAgent) : null;
+      process.stderr.write('[SKILL-DEBUG] skillsForPrompt: ' + JSON.stringify(skillsForPrompt) + ', isOrchestrator=' + isOrchestrator + '\n');
+      let prompt = this.#buildSystemPrompt(sk, effectiveCwd, data.workingDirs, undefined, skillsForPrompt);
       // When NO skill is attached, add explicit note that previous skills are deactivated
       if (!skillNames) {
       }
@@ -3896,9 +3908,6 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       pi.agent.state.systemPrompt = prompt;
       process.stderr.write('[SKILL-DEBUG] Rebuilt BEFORE sendUserMessage: len=' + prompt.length + ', hasSkills=' + !!skillNames + '\n');
       // Log system prompt via logDebug (uses existing debug_log flow)
-      const resolvedAgent = this.#resolveAgentId(sk);
-      const agentCfg = resolvedAgent ? this.#readAgentConfig(resolvedAgent) : null;
-      const isOrchestrator = resolvedAgent === 'orchestrator' || (resolvedAgent && resolvedAgent.includes('orchestrator'));
       this.logDebug("system_prompt", { sessionKey: sk, len: prompt.length, hasSkills: !!(skillsForPrompt && skillsForPrompt.length > 0), skills: skillsForPrompt ? skillsForPrompt.map((s: any) => s.skillName) : [], agentId: resolvedAgent || "unknown", agentName: agentCfg?.name || resolvedAgent || "unknown", isDelegation: false, isOrchestrator, messageText: (data.text || "").substring(0, 200), prompt: prompt });
       // Store skills for delegation — #buildDelegateTool will inject them into the delegated agent's system prompt
       if (skillNames && skillNames.length > 0) {
