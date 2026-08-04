@@ -125,7 +125,9 @@ export function LogPanel(props: LogPanelProps) {
     // Special formatting for system_prompt logs
     if (data && data.prompt !== undefined) {
       const skills = data.skills && data.skills.length > 0 ? data.skills.join(', ') : 'none'
-      return 'Session: ' + (data.sessionKey || '?') + '\nLength: ' + data.len + ' chars\nSkills: ' + skills + '\nHas Skills: ' + data.hasSkills + '\n\n--- SYSTEM PROMPT ---\n' + data.prompt
+      const agent = data.agentName ? '\nAgent: ' + data.agentName : ''
+      const delegation = data.isDelegation ? '\nType: DELEGATION (from ' + (data.delegatedBy || '?') + ')' : '\nType: ' + (data.agentName && data.agentName !== 'unknown' ? 'DIRECT (@tag or resolved)' : 'MAIN'
+      return 'Session: ' + (data.sessionKey || '?') + agent + delegation + '\nLength: ' + data.len + ' chars\nSkills: ' + skills + '\nHas Skills: ' + data.hasSkills + '\n\n--- SYSTEM PROMPT ---\n' + data.prompt
     }
     try { return JSON.stringify(data, null, 2) } catch { return String(data) }
   }

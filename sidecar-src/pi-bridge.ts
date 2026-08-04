@@ -2761,6 +2761,8 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
         tempPi.agent.state.systemPrompt = base;
       }
       this.logDebug("send-direct-system-prompt", { sessionKey: sk, mode: mainModeSD, promptLen: base?.length || 0, hasSkills: base?.includes("available_skills"), hasModeNote: base?.includes("MODALITÀ") });
+      // Log delegated agent system prompt for debugging
+      this.logDebug("system_prompt", { sessionKey: tempKey, len: base?.length || 0, hasSkills: false, skills: [], prompt: base || "", isDelegation: true, delegatedBy: sk });
     } catch {}
 
     // Apply model: session override > agent config > main session
@@ -3867,14 +3869,15 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       let prompt = this.#buildSystemPrompt(sk, effectiveCwd, data.workingDirs, undefined, skillNames);
       // When NO skill is attached, add explicit note that previous skills are deactivated
       if (!skillNames) {
-        prompt += '\n\nNOTE: Any skills activated in previous messages are NO LONGER ACTIVE. Do not follow instructions from previously activated skills. Only follow skill instructions if they appear in a "USER ACTIVATED SKILL" section in your current system prompt.';
       }
       try { (pi as any)._customSystemPromptOverride = true; } catch {}
       try { (pi as any)._baseSystemPrompt = prompt; } catch {}
       pi.agent.state.systemPrompt = prompt;
       process.stderr.write('[SKILL-DEBUG] Rebuilt BEFORE sendUserMessage: len=' + prompt.length + ', hasSkills=' + !!skillNames + '\n');
       // Log system prompt via logDebug (uses existing debug_log flow)
-      this.logDebug("system_prompt", { sessionKey: sk, len: prompt.length, hasSkills: !!skillNames, skills: skillNames ? skillNames.map((s: any) => s.skillName) : [], prompt: prompt });
+      const resolvedAgent = this.#resolveAgentId(sk);
+      const agentCfg = resolvedAgent ? this.#readAgentConfig(resolvedAgent) : null;
+      this.logDebug("system_prompt", { sessionKey: sk, len: prompt.length, hasSkills: !!skillNames, skills: skillNames ? skillNames.map((s: any) => s.skillName) : [], agentId: resolvedAgent || "unknown", agentName: agentCfg?.name || resolvedAgent || "unknown", isDelegation: false, prompt: prompt });
     } catch (e: any) { process.stderr.write('[SKILL-DEBUG] Rebuild ERROR: ' + (e?.message || String(e)) + '\n'); }
     // Log system prompt BEFORE sendUserMessage
     try {
