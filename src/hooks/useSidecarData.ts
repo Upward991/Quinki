@@ -628,7 +628,10 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
         // === Deleghe: add delegations to message with delegate_to_agent tool_call ===
         try {
           const jsonlDels = ((history as any).messages || []).filter((m: any) => m.role === 'delegation')
-          const delList = jsonlDels.length > 0 ? jsonlDels : ((history as any).delegations || [])
+          const oldDels = ((history as any).delegations || [])
+          // Merge both sources, deduplicate by ID
+          const seenIds = new Set(jsonlDels.map((d: any) => d.id))
+          const delList = [...jsonlDels, ...oldDels.filter((d: any) => !seenIds.has(d.id))]
           if (Array.isArray(delList) && delList.length > 0) {
             const delBlocks = delList.map((d: any) => {
               const nb: any[] = []
