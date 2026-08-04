@@ -31,6 +31,7 @@ interface ComposerProps {
   onReset?: () => void
   onAgentToggle?: (id: string) => void
   chatAgentIds?: string[]
+  sessionKey?: string
 }
 
 export function Composer(props: ComposerProps) {
@@ -133,10 +134,18 @@ export function Composer(props: ComposerProps) {
           providers={props.providers}
           selectedModel={props.selectedModel}
           thinking={props.thinking}
+          sessionKey={props.sessionKey}
           onSelectModel={(m) => { props.onModelChange(m); setSlashMenuOpen(false); setText('') }}
           onSelectThinking={(t) => { props.onThinkingChange(t as ThinkingLevel); setSlashMenuOpen(false); setText('') }}
           onReset={() => { props.onReset?.(); setSlashMenuOpen(false); setText('') }}
           onClose={() => { setSlashMenuOpen(false); setText('') }}
+          onSkillSelected={(skillName, skillContent) => {
+            // Prepend skill instructions to the message
+            const enriched = `--- Skill: ${skillName} ---\nFollow these instructions from the '${skillName}' skill:\n\n${skillContent}\n--- End Skill ---\n\n${text.trim()}`
+            setText(enriched)
+            setSlashMenuOpen(false)
+            setTimeout(() => textareaRef.current?.focus(), 0)
+          }}
         />
       )}
       {/* @mention agent picker */}

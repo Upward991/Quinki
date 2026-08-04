@@ -1,3 +1,9 @@
+use tauri::{
+    menu::{Menu, MenuItem},
+    tray::TrayIconBuilder,
+    Manager, WindowEvent, Emitter,
+};
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 #[tauri::command]
 fn __drag_window(window: tauri::WebviewWindow) {
@@ -22,7 +28,6 @@ fn export_chat_file(window: tauri::WebviewWindow, content: String, filename: Str
     let dialog = FileDialog::new()
         .set_file_name(&filename)
         .add_filter(filter_name, &[&extension]);
-    // Set parent window so dialog appears centered on app
     let dialog = dialog.set_parent(&window);
     let file = dialog.save_file();
     match file {
@@ -34,9 +39,27 @@ fn export_chat_file(window: tauri::WebviewWindow, content: String, filename: Str
     }
 }
 
+#[tauri::command]
+fn pick_directory(window: tauri::WebviewWindow) -> Result<String, String> {
+    use rfd::FileDialog;
+    let dialog = FileDialog::new()
+        .set_title("Select working directory");
+    let dialog = dialog.set_parent(&window);
+    match dialog.pick_folder() {
+        Some(path) => Ok(path.to_string_lossy().to_string()),
+        None => Err("cancelled".to_string()),
+    }
+}
+
 pub fn run() {
-  tauri::Builder::default()
-    .invoke_handler(tauri::generate_handler![set_window_bg_color, __drag_window, __toggle_maximize, export_chat_file])
+    let app = tauri::Builder::default()
+    .invoke_handler(tauri::generate_handler![
+        set_window_bg_color,
+        __drag_window,
+        __toggle_maximize,
+        export_chat_file,
+        pick_directory,
+    ])
     .plugin(tauri_plugin_shell::init())
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_fs::init())
@@ -47,7 +70,6 @@ pub fn run() {
     .setup(|app| {
       #[cfg(target_os = "macos")]
       {
-        use tauri::Manager;
         let window = app.get_webview_window("main").unwrap();
         eprintln!("[QUINKI] Setting NSWindow background color to #08080b");
         use objc::runtime::Object; type id = *mut Object;
@@ -57,9 +79,52 @@ pub fn run() {
           let ns_color_cls = objc::class!(NSColor);
           let bg: id = msg_send![ns_color_cls, colorWithDeviceRed: 0.031f64 green: 0.031f64 blue: 0.043f64 alpha: 1.0f64];
           let _: () = msg_send![ns_window, setBackgroundColor: bg];
-          eprintln!("[QUINKI] NSWindow background color set successfully");
         }
       }
+
+      // === Tray icon ===
+      let show_item = MenuItem::with_id(app, "show", "Show Quinki", true, None::<&str>)?;
+      let new_chat_item = MenuItem::with_id(app, "new_chat", "New Chat", true, None::<&str>)?;
+      let quit_item = MenuItem::with_id(app, "quit", "Quit Quinki", true, None::<&str>)?;
+      let menu = Menu::with_items(app, &[&show_item, &new_chat_item, &quit_item])?;
+
+      let _tray = TrayIconBuilder::new()
+        .menu(&menu)
+        .icon(app.default_window_icon().unwrap().clone())
+        .tooltip("Quinki")
+        .on_menu_event(|app, event| {
+          match event.id.as_ref() {
+            "show" => {
+              if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+              }
+            }
+            "new_chat" => {
+              if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+                let _ = window.emit("tray-new-chat", ());
+              }
+            }
+            "quit" => {
+              app.exit(0);
+            }
+            _ => {}
+          }
+        })
+        .on_tray_icon_event(|tray, event| {
+          if let tauri::tray::TrayIconEvent::Click { button: tauri::tray::MouseButton::Left, .. } = event {
+              let app = tray.app_handle();
+              if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+              }
+            }
+          })
+        .build(app)?;
+
+      // === Sidecar start ===
       #[cfg(not(target_os = "windows"))]
       {
         use tauri_plugin_shell::ShellExt;
@@ -68,13 +133,12 @@ pub fn run() {
         let sidecar_dir = format!("{}/Projects/Quinki/sidecar-src", home);
         let start_script = format!("{}/start.sh", sidecar_dir);
         
-        // Use sh to run start.sh — this kills old sidecar and starts new one
         let cmd = app.shell().command("sh")
           .args(["-c", &format!("bash '{}' &", start_script)]);
         
         match cmd.spawn() {
           Ok((mut rx, _child)) => {
-            log::info!("Sidecar start script launched — rebuild v111 BUILDRS");
+            log::info!("Sidecar start script launched");
             std::thread::spawn(move || {
               while let Some(_event) = rx.blocking_recv() {}
             });
@@ -87,6 +151,29 @@ pub fn run() {
       
       Ok(())
     })
-    .run(tauri::generate_context!())
-    .expect("error while running tauri application");
+    .on_window_event(|window, event| {
+      // Close-to-tray: hide window instead of closing
+      if let WindowEvent::CloseRequested { api, .. } = event {
+        #[cfg(target_os = "macos")]
+        {
+          use tauri::Manager;
+          if let Some(win) = window.app_handle().get_webview_window("main") {
+            let _ = win.hide();
+          }
+        }
+        api.prevent_close();
+      }
+    })
+    .build(tauri::generate_context!())
+    .expect("error while building tauri application");
+
+    app.run(|_app_handle, event| {
+      // Keep app running in background (for tray)
+      if let tauri::RunEvent::ExitRequested { api, .. } = event {
+        #[cfg(target_os = "macos")]
+        {
+          api.prevent_exit();
+        }
+      }
+    });
 }

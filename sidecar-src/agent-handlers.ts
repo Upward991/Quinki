@@ -272,6 +272,12 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
       } catch (e: any) { return { success: false, error: e?.message || String(e) }; }
     },
     listSkills: async () => ({ skills: scanSkills() }),
+    loadSkill: async (p: any) => {
+      const skills = scanSkills();
+      const skill = skills.find((s: any) => s.name === p.name);
+      if (!skill) return { error: 'Skill not found' };
+      try { return { content: fs.readFileSync(skill.path, 'utf-8') }; } catch { return { error: 'Skill file not found' }; }
+    },
     createSkill: async (p: any) => {
       // Create a new skill in the agentDir/skills/ directory
       const skillName = (p.name || "new-skill").replace(/[^a-zA-Z0-9_-]/g, "-").toLowerCase();

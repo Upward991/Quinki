@@ -4,8 +4,9 @@
 // ============================================================
 
 import { useState, useImperativeHandle, forwardRef, useRef, useEffect } from 'react'
+import { invoke } from '@tauri-apps/api/core'
 import type { Provider } from '../../types'
-import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Folder, FolderPlus,  X } from '../icons'
+import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Folder, FolderPlus, X, Sparkles } from '../icons'
 
 export interface SlashMenuRef {
   navUp: () => void
@@ -20,10 +21,12 @@ interface SlashMenuProps {
   providers: Provider[]
   selectedModel: string
   thinking: string
+  sessionKey?: string
   onSelectModel: (model: string) => void
   onSelectThinking: (level: string) => void
   onReset: () => void
   onClose: () => void
+  onSkillSelected?: (skillName: string, skillContent: string) => void
 }
 
 interface Command {
@@ -32,7 +35,7 @@ interface Command {
   description: string
 }
 
-type Mode = 'main' | 'model' | 'thinking' | 'directory' | 'reset_confirm'
+type Mode = 'main' | 'model' | 'thinking' | 'directory' | 'skill' | 'reset_confirm'
 
 export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function SlashMenu(props, ref) {
   const [mode, setMode] = useState<Mode>('main')
@@ -42,11 +45,14 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
   const [pendingModel, setPendingModel] = useState(props.selectedModel)
   const [pendingThinking, setPendingThinking] = useState(props.thinking)
   const [directories, setDirectories] = useState<string[]>([])
+  const [skills, setSkills] = useState<any[]>([])
+  const [skillsLoading, setSkillsLoading] = useState(false)
 
   const commands: Command[] = [
     { id: 'model', label: '/Model', description: 'Change model' },
     { id: 'thinking', label: '/Thinking', description: 'Change thinking' },
     { id: 'directory', label: '/Directory', description: 'Working directory' },
+    { id: 'skill', label: '/Skill', description: 'Activate a skill' },
     { id: 'reset', label: '/Reset', description: 'Clear messages. Keeps model, directory and settings.' },
   ]
 
@@ -75,11 +81,53 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
 
   const enterMode = (m: Mode) => {
     setMode(m); setSelectedIdx(0); setFocusConfirm(false); setFocusAdd(false)
+    if (m === 'skill') fetchSkills()
   }
 
   const confirm = () => {
     if (mode === 'model') props.onSelectModel(pendingModel)
     else if (mode === 'thinking') props.onSelectThinking(pendingThinking)
+    props.onClose()
+  }
+
+  const fetchSkills = async () => {
+    setSkillsLoading(true)
+    try {
+      const call = (window as any).__sidecarCall
+      if (call) {
+        const res = await call('listSkills', {})
+        setSkills(res?.skills || [])
+      }
+    } catch (e) { console.error('Failed to fetch skills:', e) }
+    setSkillsLoading(false)
+  }
+
+  const pickDirectory = async () => {
+    try {
+      const path = await invoke<string>('pick_directory')
+      if (path && path !== 'cancelled') {
+        setDirectories([path])
+        const call = (window as any).__sidecarCall
+        const sk = props.sessionKey || ''
+        if (call && sk) {
+          await call('setWorkingDir', { sessionKey: sk, path })
+        }
+        setFocusAdd(false)
+        setFocusConfirm(true)
+      }
+    } catch (e) { console.error('Directory picker error:', e) }
+  }
+
+  const selectSkill = async (skillName: string) => {
+    try {
+      const call = (window as any).__sidecarCall
+      if (call) {
+        const res = await call('loadSkill', { name: skillName })
+        if (res?.content) {
+          props.onSkillSelected?.(skillName, res.content)
+        }
+      }
+    } catch (e) { console.error('Load skill error:', e) }
     props.onClose()
   }
 
@@ -89,6 +137,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
       if (mode === 'main') setSelectedIdx(i => (i - 1 + filteredCommands.length) % filteredCommands.length)
       else if (mode === 'model') setSelectedIdx(i => (i - 1 + modelFlatIndex.length) % modelFlatIndex.length)
       else if (mode === 'thinking') setSelectedIdx(i => (i - 1 + 2) % 2)
+      else if (mode === 'skill') setSelectedIdx(i => (i - 1 + skills.length) % skills.length)
       else if (mode === 'reset_confirm') setFocusConfirm(false)
       setFocusConfirm(false)
     },
@@ -96,6 +145,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
       if (mode === 'main') setSelectedIdx(i => (i + 1) % filteredCommands.length)
       else if (mode === 'model') setSelectedIdx(i => (i + 1) % modelFlatIndex.length)
       else if (mode === 'thinking') setSelectedIdx(i => (i + 1) % 2)
+      else if (mode === 'skill') setSelectedIdx(i => (i + 1) % skills.length)
       else if (mode === 'directory' && !focusAdd && !focusConfirm) setFocusAdd(true)
       else if (mode === 'directory' && focusAdd) { setFocusAdd(false); setFocusConfirm(true) }
       setFocusConfirm(false)
@@ -115,6 +165,9 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
         if (m) { setPendingModel(m); setFocusConfirm(true) }
       } else if (mode === 'thinking') {
         setPendingThinking(selectedIdx === 0 ? 'on' : 'off'); setFocusConfirm(true)
+      } else if (mode === 'skill') {
+        const s = skills[selectedIdx]
+        if (s) selectSkill(s.name)
       } else if (mode === 'directory') {
         if (focusAdd) { setFocusAdd(false); setFocusConfirm(true) }
         else if (!focusConfirm) setFocusAdd(true)
@@ -133,9 +186,12 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
       } else if (mode === 'thinking') {
         if (focusConfirm) confirm()
         else { setPendingThinking(selectedIdx === 0 ? 'on' : 'off'); setFocusConfirm(true) }
+      } else if (mode === 'skill') {
+        const s = skills[selectedIdx]
+        if (s) selectSkill(s.name)
       } else if (mode === 'directory') {
         if (focusConfirm) confirm()
-        else if (focusAdd) { /* would open file picker */ }
+        else if (focusAdd) { pickDirectory() }
         else setFocusAdd(true)
       } else if (mode === 'reset_confirm') {
         if (focusConfirm) { props.onReset(); props.onClose() }
@@ -264,6 +320,39 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
         </>
       )}
 
+      {/* Skill mode */}
+      {mode === 'skill' && (
+        <>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
+            {skillsLoading && (
+              <div style={{ padding: '16px', color: 'var(--q-text-tertiary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Loading skills…</div>
+            )}
+            {!skillsLoading && skills.length === 0 && (
+              <div style={{ padding: '16px', color: 'var(--q-text-tertiary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>No skills found</div>
+            )}
+            {!skillsLoading && skills.map((skill, idx) => (
+              <MenuItem
+                key={skill.name}
+                label={skill.name}
+                isSelected={idx === selectedIdx}
+                trailing={skill.description?.slice(0, 40)}
+                onHover={() => setSelectedIdx(idx)}
+                onTap={() => selectSkill(skill.name)}
+              />
+            ))}
+          </div>
+          <NavBar
+            focusConfirm={false}
+            onUp={() => { setSelectedIdx(i => (i - 1 + skills.length) % skills.length) }}
+            onDown={() => { setSelectedIdx(i => (i + 1) % skills.length) }}
+            onLeft={() => enterMode('main')}
+            onRight={() => { const s = skills[selectedIdx]; if (s) selectSkill(s.name) }}
+            onConfirm={() => { const s = skills[selectedIdx]; if (s) selectSkill(s.name) }}
+            onClose={props.onClose}
+          />
+        </>
+      )}
+
       {/* Directory mode — exact Flutter layout */}
       {mode === 'directory' && (
         <>
@@ -294,7 +383,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
           </div>
           <div style={{ padding: '4px 16px' }}>
             <button
-              onClick={() => {}}
+              onClick={pickDirectory}
               onMouseEnter={() => setFocusAdd(true)}
               onMouseLeave={() => setFocusAdd(false)}
               style={{
@@ -315,7 +404,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
             onUp={() => { setFocusConfirm(false); setFocusAdd(false) }}
             onDown={() => { if (!focusAdd && !focusConfirm) setFocusAdd(true); else if (focusAdd) { setFocusAdd(false); setFocusConfirm(true) } }}
             onLeft={() => enterMode('main')}
-            onRight={() => { if (focusAdd) { setFocusAdd(false); setFocusConfirm(true) } else if (!focusConfirm) setFocusAdd(true) }}
+            onRight={() => { if (focusAdd) { pickDirectory() } else if (!focusConfirm) setFocusAdd(true) }}
             onConfirm={confirm}
             onClose={props.onClose}
           />
@@ -332,7 +421,6 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
             <HoverTextBtn
               label="Cancel"
               onClick={() => setMode('main')}
-              
               textColor="var(--q-accent-danger)"
               hoverTextColor="var(--q-accent-danger)"
               hoverBg="rgba(255,255,255,0.06)"
@@ -382,7 +470,7 @@ function MainMenuItem({ label, description, isSelected, onHover, onTap }: {
   )
 }
 
-// ── Model/thinking item: label left, trailing right ──
+// ── Model/thinking/skill item: label left, trailing right ──
 function MenuItem({ label, isSelected, isChecked, trailing, onHover, onTap }: {
   label: string; isSelected: boolean; isChecked?: boolean; trailing?: string; onHover: () => void; onTap: () => void
 }) {
@@ -410,7 +498,7 @@ function MenuItem({ label, isSelected, isChecked, trailing, onHover, onTap }: {
         {label}
       </span>
       {trailing && (
-        <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-code)', marginLeft: '8px', flexShrink: 0 }}>
+        <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-code)', marginLeft: '8px', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>
           {trailing}
         </span>
       )}
@@ -432,7 +520,6 @@ function NavBar({ focusConfirm, onUp, onDown, onLeft, onRight, onConfirm, onClos
       <HoverTextBtn
         label="Cancel"
         onClick={onClose}
-        
         textColor="var(--q-accent-danger)"
         hoverTextColor="var(--q-accent-danger)"
         hoverBg="rgba(255,255,255,0.06)"

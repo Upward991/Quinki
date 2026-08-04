@@ -265,6 +265,7 @@ export function ChatArea(props: ChatAreaProps) {
               agents={props.agents}
               chatAgentIds={props.selectedAgentIds}
               onAgentToggle={props.onAgentToggle}
+              sessionKey={props.session?.id || ''}
             />
           </div>
         </>
