@@ -3899,7 +3899,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       const resolvedAgent = this.#resolveAgentId(sk);
       const agentCfg = resolvedAgent ? this.#readAgentConfig(resolvedAgent) : null;
       const isOrchestrator = resolvedAgent === 'orchestrator' || (resolvedAgent && resolvedAgent.includes('orchestrator'));
-      this.logDebug("system_prompt", { sessionKey: sk, len: prompt.length, hasSkills: !!skillNames, skills: skillNames ? skillNames.map((s: any) => s.skillName) : [], agentId: resolvedAgent || "unknown", agentName: agentCfg?.name || resolvedAgent || "unknown", isDelegation: false, isOrchestrator, messageText: (data.text || "").substring(0, 200), prompt: prompt });
+      this.logDebug("system_prompt", { sessionKey: sk, len: prompt.length, hasSkills: !!(skillsForPrompt && skillsForPrompt.length > 0), skills: skillsForPrompt ? skillsForPrompt.map((s: any) => s.skillName) : [], agentId: resolvedAgent || "unknown", agentName: agentCfg?.name || resolvedAgent || "unknown", isDelegation: false, isOrchestrator, messageText: (data.text || "").substring(0, 200), prompt: prompt });
       // Store skills for delegation — #buildDelegateTool will inject them into the delegated agent's system prompt
       if (skillNames && skillNames.length > 0) {
         this.#pendingDelegationSkills.set(sk, skillNames);
