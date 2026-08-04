@@ -3178,6 +3178,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
             }
           };
           const tempSub = tempPi.subscribe((e: any) => {
+            setImmediate(() => {
             if (e.type === "tool_execution_start") {
               self.#sendToWs(self.#wss.get(sessionKey), { type: "stream_event", sessionKey, eventType: "toolcall_start", delta: e.toolName || "", messageId: delegationId });
               let argsStr = "";
@@ -3209,6 +3210,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
               if (ame.type === "thinking_delta" || ame.type === "thinking_start") pushDel('thinking', { thinking: ame.delta || '' });
               else if (ame.type === "text_delta" || ame.type === "text_start") pushDel('text', { text: ame.delta || '' });
             }
+            }); // end setImmediate
           });
           // === Set thinking level (last moment, after all system prompt work) ===
           const agentThinking2 = agentOverride.thinkingLevel;
