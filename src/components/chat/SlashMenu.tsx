@@ -49,11 +49,23 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
   const [skills, setSkills] = useState<any[]>([])
   const [skillsLoading, setSkillsLoading] = useState(false)
 
-  // Load current directory from localStorage on mount
+  // Load current directory for this session from sidecar
   useEffect(() => {
-    const saved = localStorage.getItem('quinki-working-dir')
-    if (saved) setDirectories([saved])
-  }, [])
+    if (props.sessionKey) {
+      const call = (window as any).__sidecarCall
+      if (call) {
+        call('getSessionMeta', { sessionKey: props.sessionKey }).then((meta: any) => {
+          if (meta?.workingDir) {
+            setDirectories([meta.workingDir])
+          } else {
+            setDirectories([])
+          }
+        }).catch(() => {})
+      }
+    } else {
+      setDirectories([])
+    }
+  }, [props.sessionKey])
 
   const commands: Command[] = [
     { id: 'model', label: '/Model', description: 'Change model' },
@@ -115,7 +127,6 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
       const path = await invoke<string>('pick_directory')
       if (path && path !== 'cancelled') {
         setDirectories([path])
-        localStorage.setItem('quinki-working-dir', path)
         const call = (window as any).__sidecarCall
         const sk = props.sessionKey || ''
         if (call && sk) {
@@ -134,6 +145,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
         const res = await call('loadSkill', { name: skillName })
         if (res?.content) {
           props.onSkillSelected?.(skillName, res.content)
+          return  // onSkillSelected already closes the menu
         }
       }
     } catch (e) { console.error('Load skill error:', e) }

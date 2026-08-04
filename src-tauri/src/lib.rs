@@ -1,8 +1,11 @@
+use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::TrayIconBuilder,
     Manager, WindowEvent, Emitter,
 };
+
+static SHOULD_EXIT: AtomicBool = AtomicBool::new(false);
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 #[tauri::command]
@@ -16,10 +19,7 @@ fn __toggle_maximize(window: tauri::WebviewWindow) {
 }
 
 #[tauri::command]
-fn set_window_bg_color(_window: tauri::WebviewWindow, _color: String) {
-  // No longer needed — titlebar is a CSS div with var(--q-bg)
-  // Kept for compatibility with the JS invoke call
-}
+fn set_window_bg_color(_window: tauri::WebviewWindow, _color: String) {}
 
 #[tauri::command]
 fn export_chat_file(window: tauri::WebviewWindow, content: String, filename: String, extension: String) -> Result<String, String> {
@@ -89,7 +89,6 @@ pub fn run() {
       let quit_item = MenuItem::with_id(app, "quit", "Quit Quinki", true, None::<&str>)?;
       let menu = Menu::with_items(app, &[&show_item, &expert_item, &restart_item, &quit_item])?;
 
-      // Load tray icon (character only, transparent background)
       let tray_img = tauri::image::Image::from_bytes(include_bytes!("../icons/tray-icon.png"))
           .unwrap_or_else(|_| app.default_window_icon().unwrap().clone());
 
@@ -97,7 +96,7 @@ pub fn run() {
         .menu(&menu)
         .icon(tray_img)
         .icon_as_template(false)
-        .menu_on_left_click(false)
+        .menu_on_left_click(true)
         .tooltip("Quinki")
         .on_menu_event(|app, event| {
           match event.id.as_ref() {
@@ -116,19 +115,28 @@ pub fn run() {
             }
             "restart" => {
               // Kill sidecar processes
-              let _ = std::process::Command::new("sh").arg("-c").arg("pkill -f ws-bridge 2>/dev/null; pkill -f sidecar.ts 2>/dev/null; lsof -ti:9182 | xargs kill -9 2>/dev/null").spawn();
+              let _ = std::process::Command::new("sh").arg("-c")
+                .arg("pkill -f ws-bridge 2>/dev/null; pkill -f sidecar.ts 2>/dev/null; lsof -ti:9182 | xargs kill -9 2>/dev/null")
+                .spawn();
+              // Set flag to allow exit
+              SHOULD_EXIT.store(true, Ordering::SeqCst);
               // Relaunch app after a short delay
               let exe = std::env::current_exe().unwrap_or_default();
               let app_path = exe.to_string_lossy().to_string();
               std::thread::spawn(move || {
-                std::thread::sleep(std::time::Duration::from_millis(300));
-                let _ = std::process::Command::new("sh").arg("-c").arg(format!("(sleep 0.5 && '{}') &", app_path)).spawn();
+                std::thread::sleep(std::time::Duration::from_millis(500));
+                let _ = std::process::Command::new("sh").arg("-c")
+                  .arg(format!("(sleep 0.5 && '{}') &", app_path))
+                  .spawn();
               });
               app.exit(0);
             }
             "quit" => {
               // Kill sidecar processes
-              let _ = std::process::Command::new("sh").arg("-c").arg("pkill -f ws-bridge 2>/dev/null; pkill -f sidecar.ts 2>/dev/null; lsof -ti:9182 | xargs kill -9 2>/dev/null").spawn();
+              let _ = std::process::Command::new("sh").arg("-c")
+                .arg("pkill -f ws-bridge 2>/dev/null; pkill -f sidecar.ts 2>/dev/null; lsof -ti:9182 | xargs kill -9 2>/dev/null")
+                .spawn();
+              SHOULD_EXIT.store(true, Ordering::SeqCst);
               app.exit(0);
             }
             _ => {}
@@ -173,26 +181,33 @@ pub fn run() {
       Ok(())
     })
     .on_window_event(|window, event| {
-      // Close-to-tray: hide window instead of closing
+      // Close-to-tray: hide window instead of closing (unless SHOULD_EXIT is set)
       if let WindowEvent::CloseRequested { api, .. } = event {
-        #[cfg(target_os = "macos")]
-        {
-          use tauri::Manager;
-          if let Some(win) = window.app_handle().get_webview_window("main") {
-            let _ = win.hide();
+        if !SHOULD_EXIT.load(Ordering::SeqCst) {
+          #[cfg(target_os = "macos")]
+          {
+            if let Some(win) = window.app_handle().get_webview_window("main") {
+              let _ = win.hide();
+            }
           }
+          api.prevent_close();
         }
-        api.prevent_close();
       }
     })
     .build(tauri::generate_context!())
     .expect("error while building tauri application");
 
     app.run(|_app_handle, event| {
-      // Keep app running in background (for tray)
+      // Dock click → show window (Reopen event)
+      if let tauri::RunEvent::Reopen { .. } = event {
+        if let Some(window) = _app_handle.get_webview_window("main") {
+          let _ = window.show();
+          let _ = window.set_focus();
+        }
+      }
+      // Prevent exit only if not explicitly requested
       if let tauri::RunEvent::ExitRequested { api, .. } = event {
-        #[cfg(target_os = "macos")]
-        {
+        if !SHOULD_EXIT.load(Ordering::SeqCst) {
           api.prevent_exit();
         }
       }
