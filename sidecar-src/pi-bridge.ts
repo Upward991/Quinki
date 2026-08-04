@@ -3390,7 +3390,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     });
   }
 
-  #buildSystemPrompt(key: string, cwd: string, workingDirs?: string[], mode?: string, skillName?: string): string {
+  #buildSystemPrompt(key: string, cwd: string, workingDirs?: string[], mode?: string, skillNames?: { agentId: string; skillName: string }[]): string {
     const agentId = this.#resolveAgentId(key);
     const hasAgent = agentId !== null;
     let prompt = hasAgent ? this.#readAgentPrompt(agentId!, cwd) : "quinki";
@@ -3447,18 +3447,29 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
         }
       } catch {}
     }
-    // === User-invoked skill: load SKILL.md and add to system prompt ===
-    if (skillName) {
-      try {
-        const skillPath = this.#findSkillPath(skillName, cwd);
-        if (skillPath && fs.existsSync(skillPath)) {
-          const content = fs.readFileSync(skillPath, 'utf-8');
-          // Strip frontmatter
-          const body = content.replace(/^---\n[\s\S]*?\n---\n?/, '');
-          prompt += `\n\n--- Active Skill: ${skillName} ---\n${body}\n--- End Active Skill ---`;
-          this.logDebug('skill-invoked', { sessionKey: key, skillName, contentLen: body.length });
-        }
-      } catch (e: any) { this.logDebug('skill-invoke-error', { skillName, error: e?.message }); }
+    // === User-invoked skills: load SKILL.md and add to system prompt ===
+    if (skillNames && skillNames.length > 0) {
+      const agentId = this.#resolveAgentId(key);
+      const isOrchestrator = agentId && (agentId === 'orchestrator' || agentId.includes('orchestrator'));
+      for (const { skillName, agentId: targetAgentId } of skillNames) {
+        try {
+          const skillPath = this.#findSkillPath(skillName, cwd);
+          if (skillPath && fs.existsSync(skillPath)) {
+            const content = fs.readFileSync(skillPath, 'utf-8');
+            const body = content.replace(/^---\n[\s\S]*?\n---\n?/, '');
+            if (isOrchestrator) {
+              // Orchestrator: tell it which agent to pass the skill to
+              const targetCfg = this.#readAgentConfig(targetAgentId);
+              const targetName = targetCfg?.name || targetAgentId;
+              prompt += `\n\n--- Active Skill: ${skillName} (for agent: ${targetName}) ---\n${body}\n--- End Active Skill ---\n\nIMPORTANT: When you delegate to ${targetName}, include the skill instructions above in your delegation message so the agent follows them.`;
+            } else {
+              // Direct agent: skill is for this agent
+              prompt += `\n\n--- Active Skill: ${skillName} ---\n${body}\n--- End Active Skill ---`;
+            }
+            this.logDebug('skill-invoked', { sessionKey: key, skillName, targetAgentId, isOrchestrator, contentLen: body.length });
+          }
+        } catch (e: any) { this.logDebug('skill-invoke-error', { skillName, error: e?.message }); }
+      }
     }
     return prompt;
   }
@@ -3504,7 +3515,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     return null;
   }
 
-  async send(ws: any, data: { sessionKey: string; text: string; files?: { name: string; type: string; path?: string; data?: string }[]; workingDirs?: string[]; skillName?: string }) {
+  async send(ws: any, data: { sessionKey: string; text: string; files?: { name: string; type: string; path?: string; data?: string }[]; workingDirs?: string[]; skillNames?: { agentId: string; skillName: string }[] }) {
     const sk = data.sessionKey;
     const s = this.#entries.get(sk);
     if (!s) {
@@ -3638,7 +3649,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
             await pi.setModel(model);
             // === Fix 11: ripristinare system prompt minimale dopo setModel ===
             try {
-              pi.agent.state.systemPrompt = this.#buildSystemPrompt(sk, effectiveCwd, data.workingDirs, undefined, data.skillName);
+              pi.agent.state.systemPrompt = this.#buildSystemPrompt(sk, effectiveCwd, data.workingDirs, undefined, data.skillNames);
             } catch {}
             const actualModel = (() => { try { return pi.model?.id; } catch { return pendingModel; } })();
             this.logDebug("pending-model-applied", { sessionKey: sk, requested: pendingModel, actual: actualModel, accepted: actualModel === pendingModel });

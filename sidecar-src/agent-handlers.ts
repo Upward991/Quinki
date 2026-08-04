@@ -279,25 +279,26 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
       try { return { content: fs.readFileSync(skill.path, 'utf-8') }; } catch { return { error: 'Skill file not found' }; }
     },
     listChatSkills: async (p: any) => {
-      // Returns only skills with disable-model-invocation or user-invocable,
-      // filtered to only skills assigned to the agents in the current chat
+      // Returns skills grouped by agent, filtered by disable-model-invocation or user-invocable
       const agentIds: string[] = p.agentIds || [];
-      if (agentIds.length === 0) return { skills: [] };
-      // Get skills configured for each agent
-      const agentSkillNames = new Set<string>();
+      if (agentIds.length === 0) return { groups: [] };
+      const allSkills = scanSkills();
+      const groups: any[] = [];
       for (const agentId of agentIds) {
         const cfg = readAgentConfig(agentId);
-        if (cfg?.skills && Array.isArray(cfg.skills)) {
-          for (const s of cfg.skills) agentSkillNames.add(s);
+        if (!cfg?.skills || !Array.isArray(cfg.skills) || cfg.skills.length === 0) continue;
+        const agentSkills = allSkills.filter((s: any) =>
+          cfg.skills.includes(s.name) && (s.disableModelInvocation || s.userInvocable)
+        );
+        if (agentSkills.length > 0) {
+          groups.push({
+            agentId,
+            agentName: cfg.name || agentId,
+            skills: agentSkills.map((s: any) => ({ name: s.name, description: s.description || '' }))
+          });
         }
       }
-      if (agentSkillNames.size === 0) return { skills: [] };
-      // Filter: only skills assigned to chat agents + disable-model-invocation/user-invocable
-      const allSkills = scanSkills();
-      const chatSkills = allSkills.filter((s: any) =>
-        agentSkillNames.has(s.name) && (s.disableModelInvocation || s.userInvocable)
-      );
-      return { skills: chatSkills };
+      return { groups };
     },
     createSkill: async (p: any) => {
       // Create a new skill in the agentDir/skills/ directory

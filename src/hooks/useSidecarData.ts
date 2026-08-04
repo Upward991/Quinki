@@ -727,9 +727,9 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
     let ag: string[] | undefined
     let optsModel: string | undefined
     let optsThinking: string | undefined
-    let optsSkill: string | undefined
+    let optsSkills: any[] | undefined
     if (typeof sessionKeyOrOpts === 'string') { sk = sessionKeyOrOpts; ag = agents }
-    else if (sessionKeyOrOpts && typeof sessionKeyOrOpts === 'object') { sk = activeSessionId || undefined; ag = sessionKeyOrOpts.agentId ? [sessionKeyOrOpts.agentId] : undefined; if (sessionKeyOrOpts.model) optsModel = sessionKeyOrOpts.model; if (sessionKeyOrOpts.thinkingLevel) optsThinking = sessionKeyOrOpts.thinkingLevel; if (sessionKeyOrOpts.skillName) optsSkill = sessionKeyOrOpts.skillName }
+    else if (sessionKeyOrOpts && typeof sessionKeyOrOpts === 'object') { sk = activeSessionId || undefined; ag = sessionKeyOrOpts.agentId ? [sessionKeyOrOpts.agentId] : undefined; if (sessionKeyOrOpts.model) optsModel = sessionKeyOrOpts.model; if (sessionKeyOrOpts.thinkingLevel) optsThinking = sessionKeyOrOpts.thinkingLevel; if (sessionKeyOrOpts.skillNames) optsSkills = sessionKeyOrOpts.skillNames }
     if (!ready) return
     const hasModels = providers.some((p: any) => p.models && p.models.length > 0)
     if (!hasModels) {
@@ -775,7 +775,7 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
           return
         }
       }
-      await call('sendMessage', { sessionKey: sk, text, agentId: ag && ag.length > 0 ? ag[0] : undefined, model: optsModel, thinkingLevel: optsThinking, skillName: optsSkill }, 600000)
+      await call('sendMessage', { sessionKey: sk, text, agentId: ag && ag.length > 0 ? ag[0] : undefined, model: optsModel, thinkingLevel: optsThinking, skillNames: optsSkills }, 600000)
       // Reload sessions to get auto-generated title
       try {
         const r = await call('getFullState', {})

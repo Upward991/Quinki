@@ -27,7 +27,7 @@ interface SlashMenuProps {
   onSelectThinking: (level: string) => void
   onReset: () => void
   onClose: () => void
-  onSkillSelected?: (skillName: string) => void
+  onSkillSelected?: (skill: { agentId: string; skillName: string; agentName: string }) => void
 }
 
 interface Command {
@@ -47,8 +47,9 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
   const [pendingThinking, setPendingThinking] = useState(props.thinking)
   const [directories, setDirectories] = useState<string[]>([])
   const [skills, setSkills] = useState<any[]>([])
+  const [skillGroups, setSkillGroups] = useState<any[]>([])
   const [skillsLoading, setSkillsLoading] = useState(false)
-  const [pendingSkill, setPendingSkill] = useState<string | null>(null)
+  const [pendingSkill, setPendingSkill] = useState<{ agentId: string; skillName: string; agentName: string } | null>(null)
 
   // Load current directory for this session from sidecar
   useEffect(() => {
@@ -115,9 +116,8 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
     try {
       const call = (window as any).__sidecarCall
       if (call) {
-        // Use listChatSkills to get only skills for agents in this chat
         const res = await call('listChatSkills', { agentIds: props.chatAgentIds || [] })
-        setSkills(res?.skills || [])
+        setSkillGroups(res?.groups || [])
       }
     } catch (e) { console.error('Failed to fetch skills:', e) }
     setSkillsLoading(false)
@@ -139,8 +139,8 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
     } catch (e) { console.error('Directory picker error:', e) }
   }
 
-  const selectSkill = (skillName: string) => {
-    setPendingSkill(skillName)
+  const selectSkill = (skill: any, agentId: string, agentName: string) => {
+    setPendingSkill({ agentId, skillName: skill.name, agentName })
     setFocusConfirm(true)
   }
 
@@ -157,7 +157,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
       if (mode === 'main') setSelectedIdx(i => (i - 1 + filteredCommands.length) % filteredCommands.length)
       else if (mode === 'model') setSelectedIdx(i => (i - 1 + modelFlatIndex.length) % modelFlatIndex.length)
       else if (mode === 'thinking') setSelectedIdx(i => (i - 1 + 2) % 2)
-      else if (mode === 'skill') setSelectedIdx(i => (i - 1 + skills.length) % skills.length)
+      else if (mode === 'skill') { const flat = skillGroups.flatMap((g: any) => g.skills.map((s: any) => ({ ...s, agentId: g.agentId, agentName: g.agentName }))); setSelectedIdx(i => (i - 1 + flat.length) % flat.length) }
       else if (mode === 'reset_confirm') setFocusConfirm(false)
       setFocusConfirm(false)
     },
@@ -165,7 +165,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
       if (mode === 'main') setSelectedIdx(i => (i + 1) % filteredCommands.length)
       else if (mode === 'model') setSelectedIdx(i => (i + 1) % modelFlatIndex.length)
       else if (mode === 'thinking') setSelectedIdx(i => (i + 1) % 2)
-      else if (mode === 'skill') setSelectedIdx(i => (i + 1) % skills.length)
+      else if (mode === 'skill') { const flat = skillGroups.flatMap((g: any) => g.skills.map((s: any) => ({ ...s, agentId: g.agentId, agentName: g.agentName }))); setSelectedIdx(i => (i + 1) % flat.length) }
       else if (mode === 'directory' && !focusAdd && !focusConfirm) setFocusAdd(true)
       else if (mode === 'directory' && focusAdd) { setFocusAdd(false); setFocusConfirm(true) }
       setFocusConfirm(false)
@@ -187,7 +187,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
         setPendingThinking(selectedIdx === 0 ? 'on' : 'off'); setFocusConfirm(true)
       } else if (mode === 'skill') {
         if (focusConfirm) confirmSkill()
-        else { const s = skills[selectedIdx]; if (s) selectSkill(s.name) }
+        else { const flat = skillGroups.flatMap((g: any) => g.skills.map((s: any) => ({ ...s, agentId: g.agentId, agentName: g.agentName }))); const s = flat[selectedIdx]; if (s) selectSkill(s, s.agentId, s.agentName) }
       } else if (mode === 'directory') {
         if (focusAdd) { setFocusAdd(false); setFocusConfirm(true) }
         else if (!focusConfirm) setFocusAdd(true)
@@ -208,7 +208,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
         else { setPendingThinking(selectedIdx === 0 ? 'on' : 'off'); setFocusConfirm(true) }
       } else if (mode === 'skill') {
         if (focusConfirm) confirmSkill()
-        else { const s = skills[selectedIdx]; if (s) selectSkill(s.name) }
+        else { const flat = skillGroups.flatMap((g: any) => g.skills.map((s: any) => ({ ...s, agentId: g.agentId, agentName: g.agentName }))); const s = flat[selectedIdx]; if (s) selectSkill(s, s.agentId, s.agentName) }
       } else if (mode === 'directory') {
         if (focusConfirm) confirm()
         else if (focusAdd) { pickDirectory() }
@@ -340,34 +340,47 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
         </>
       )}
 
-      {/* Skill mode */}
+      {/* Skill mode — grouped by agent */}
       {mode === 'skill' && (
         <>
           <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
             {skillsLoading && (
               <div style={{ padding: '16px', color: 'var(--q-text-tertiary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Loading skills…</div>
             )}
-            {!skillsLoading && skills.length === 0 && (
+            {!skillsLoading && skillGroups.length === 0 && (
               <div style={{ padding: '16px', color: 'var(--q-text-tertiary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>No skills available for the agents in this chat</div>
             )}
-            {!skillsLoading && skills.map((skill, idx) => (
-              <MenuItem
-                key={skill.name}
-                label={skill.name}
-                isSelected={idx === selectedIdx}
-                isChecked={skill.name === pendingSkill}
-                trailing={skill.description?.slice(0, 40)}
-                onHover={() => setSelectedIdx(idx)}
-                onTap={() => selectSkill(skill.name)}
-              />
-            ))}
+            {!skillsLoading && (() => {
+              let runningIdx = 0;
+              return skillGroups.map((group: any) => (
+                <div key={group.agentId}>
+                  <div style={{ padding: '8px 16px 4px 16px', color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>
+                    {group.agentName}
+                  </div>
+                  {group.skills.map((skill: any) => {
+                    const idx = runningIdx++;
+                    return (
+                      <MenuItem
+                        key={group.agentId + '-' + skill.name}
+                        label={skill.name}
+                        isSelected={idx === selectedIdx}
+                        isChecked={pendingSkill?.skillName === skill.name && pendingSkill?.agentId === group.agentId}
+                        trailing={skill.description?.slice(0, 40)}
+                        onHover={() => setSelectedIdx(idx)}
+                        onTap={() => selectSkill(skill, group.agentId, group.agentName)}
+                      />
+                    );
+                  })}
+                </div>
+              ));
+            })()}
           </div>
           <NavBar
             focusConfirm={focusConfirm}
-            onUp={() => { setSelectedIdx(i => (i - 1 + skills.length) % skills.length); setFocusConfirm(false) }}
-            onDown={() => { setSelectedIdx(i => (i + 1) % skills.length); setFocusConfirm(false) }}
+            onUp={() => { const flat = skillGroups.flatMap((g: any) => g.skills); setSelectedIdx(i => (i - 1 + flat.length) % flat.length); setFocusConfirm(false) }}
+            onDown={() => { const flat = skillGroups.flatMap((g: any) => g.skills); setSelectedIdx(i => (i + 1) % flat.length); setFocusConfirm(false) }}
             onLeft={() => enterMode('main')}
-            onRight={() => { const s = skills[selectedIdx]; if (s) selectSkill(s.name) }}
+            onRight={() => { const flat = skillGroups.flatMap((g: any) => g.skills.map((s: any) => ({ ...s, agentId: g.agentId, agentName: g.agentName }))); const s = flat[selectedIdx]; if (s) selectSkill(s, s.agentId, s.agentName) }}
             onConfirm={confirmSkill}
             onClose={props.onClose}
           />

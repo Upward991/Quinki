@@ -7,7 +7,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { getContrastColor } from '../../utils/contrast'
 import type { Provider, Agent, ChatMode, ThinkingLevel } from '../../types'
-import { Paperclip, ChevronUp, ChevronDown, Bot } from '../icons'
+import { Paperclip, ChevronUp, ChevronDown, Bot, X } from '../icons'
 import { SlashMenu, type SlashMenuRef } from './SlashMenu'
 
 interface ComposerProps {
@@ -42,6 +42,7 @@ export function Composer(props: ComposerProps) {
   const [mentionFilter, setMentionFilter] = useState('')
   const [mentionIdx, setMentionIdx] = useState(0)
   const [pendingSkill, setPendingSkill] = useState<string | null>(null)
+  const [pendingSkills, setPendingSkills] = useState<{ agentId: string; skillName: string; agentName: string }[]>([])
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const slashMenuRef = useRef<SlashMenuRef>(null)
 
@@ -67,7 +68,7 @@ export function Composer(props: ComposerProps) {
   const canSend = text.trim().length > 0 && !props.isStreaming
 
   const handleSend = () => {
-    if (canSend) { props.onSend(text.trim(), { skillName: pendingSkill || undefined }); setText(''); setSlashMenuOpen(false); setMentionOpen(false); setPendingSkill(null) }
+    if (canSend) { props.onSend(text.trim(), { skillNames: pendingSkills.length > 0 ? pendingSkills.map(s => ({ agentId: s.agentId, skillName: s.skillName })) : undefined }); setText(''); setSlashMenuOpen(false); setMentionOpen(false); setPendingSkill(null); setPendingSkills([]) }
   }
 
   const selectAgent = (agent: Agent) => {
@@ -141,9 +142,9 @@ export function Composer(props: ComposerProps) {
           onSelectThinking={(t) => { props.onThinkingChange(t as ThinkingLevel); setSlashMenuOpen(false); setText('') }}
           onReset={() => { props.onReset?.(); setSlashMenuOpen(false); setText('') }}
           onClose={() => { setSlashMenuOpen(false); setText('') }}
-          onSkillSelected={(skillName) => {
-            // Store skill name — will be passed to sendMessage
-            setPendingSkill(skillName)
+          onSkillSelected={(skill) => {
+            // Add skill chip
+            setPendingSkills(prev => [...prev, skill])
             setSlashMenuOpen(false)
             setTimeout(() => textareaRef.current?.focus(), 0)
           }}
@@ -162,6 +163,27 @@ export function Composer(props: ComposerProps) {
         display: 'flex',
         flexDirection: 'column',
       }}>
+        {/* Skill chips */}
+        {pendingSkills.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '6px' }}>
+            {pendingSkills.map((s, i) => (
+              <div key={i} style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '4px 10px', borderRadius: 'var(--radius-sm)',
+                backgroundColor: 'var(--q-accent-primary-soft)',
+                border: '1px solid var(--q-accent-primary)',
+                fontSize: '13px', fontFamily: 'var(--font-interface)',
+                color: 'var(--q-text)',
+              }}>
+                <span>{s.skillName}</span>
+                <span style={{ color: 'var(--q-text-tertiary)', fontSize: '11px' }}>→ {s.agentName}</span>
+                <button onClick={() => setPendingSkills(prev => prev.filter((_, idx) => idx !== i))} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', color: 'var(--q-text-tertiary)', display: 'flex' }}>
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
         {/* Textarea */}
         <textarea
           ref={textareaRef}
@@ -169,8 +191,10 @@ export function Composer(props: ComposerProps) {
           onChange={e => {
             const val = e.target.value
             setText(val)
-            // Slash menu detection
-            if (val.startsWith('/') && !val.includes(' ')) {
+            // Slash menu detection — only open if text starts with / AND text is just the slash command (no other text before it)
+            if (val.startsWith('/') && !val.includes(' ') && text === '') {
+              setSlashMenuOpen(true); setSlashFilter(val.slice(1)); setMentionOpen(false)
+            } else if (val.startsWith('/') && !val.includes(' ') && text.startsWith('/')) {
               setSlashMenuOpen(true); setSlashFilter(val.slice(1)); setMentionOpen(false)
             } else {
               setSlashMenuOpen(false); setSlashFilter('')
@@ -196,7 +220,7 @@ export function Composer(props: ComposerProps) {
 
         {/* Bottom bar */}
         <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', height: '32px', marginTop: '8px' }}>
-          <SlashBtn color="var(--q-tab-accent)" onClick={() => { setSlashMenuOpen(true); setSlashFilter(''); setText('/'); textareaRef.current?.focus() }} />
+          <SlashBtn color="var(--q-tab-accent)" onClick={() => { setSlashMenuOpen(true); setSlashFilter(''); if (!text.startsWith('/')) { /* don't clear text, just open menu */ } textareaRef.current?.focus() }} />
           <div style={{ width: '4px', flexShrink: 0 }} />
           <ModeButton mode={props.mode} onChange={props.onModeChange} />
           <div style={{ width: '8px', flexShrink: 0 }} />
