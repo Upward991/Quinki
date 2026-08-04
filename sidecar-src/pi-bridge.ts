@@ -2763,7 +2763,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       this.logDebug("send-direct-system-prompt", { sessionKey: sk, mode: mainModeSD, promptLen: base?.length || 0, hasSkills: base?.includes("available_skills"), hasModeNote: base?.includes("MODALITÀ") });
       // Log delegated agent system prompt for debugging
       const delegAgentCfg = this.#readAgentConfigFile(resolvedAgentId);
-      this.logDebug("system_prompt", { sessionKey: tempKey, len: base?.length || 0, hasSkills: false, skills: [], agentId: resolvedAgentId, agentName: delegAgentCfg?.name || resolvedAgentId || "unknown", isDelegation: true, isOrchestrator: false, delegatedBy: sk, messageText: (task || "").substring(0, 200), prompt: base || "" });
+      this.logDebug("system_prompt", { sessionKey: tempKey, len: base?.length || 0, hasSkills: false, skills: [], agentId: targetId, agentName: agentName, isDelegation: true, isOrchestrator: false, delegatedBy: sk, messageText: (data.text || "").substring(0, 200), prompt: base || "" });
     } catch {}
 
     // Apply model: session override > agent config > main session
