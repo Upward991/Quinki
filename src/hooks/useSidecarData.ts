@@ -310,9 +310,8 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
           // Blocchi cronologici (testo incluso) + content accumulato (per footer/persist)
           return [...arr, { ...msg, blocks: pushText(msg, _content), content: (msg.content || '') + _content }]
         })
-        setStatusLabel('Writing'); setStatusKind('writing')
+
       } else if (_type === 'thinking' || _type === 'thinking_delta' || _type === 'thinking_start') {
-        setStatusLabel('Thinking'); setStatusKind('thinking')
         if (_content) {
           setMessages(prev => {
             const { arr, msg } = ensureStreamingMsg(prev, messageId)
@@ -320,7 +319,6 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
           })
         }
       } else if (_type === 'toolcall_start' || _type === 'tool_call') {
-        setStatusLabel('Tool call'); setStatusKind('tool_call')
         setMessages(prev => {
           const { arr, msg } = ensureStreamingMsg(prev, messageId)
           return [...arr, { ...msg, blocks: pushBlock(msg, { type: 'tool_call', name: toolName || delta || 'tool', input: '' }) }]
@@ -355,14 +353,15 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
       } else if (_type === 'error') {
         setStatusLabel('Failed'); setStatusKind('failed'); setIsStreaming(false)
       } else if (_type === 'done' || _type === 'end') {
-        setIsStreaming(false); setStatusLabel(''); setStatusKind('')
+        // DON'T clear pill or isStreaming here — the 'done' NOTIFICATION handler checks stopReason
+        // If stopReason is 'toolUse', the turn continues with tool execution — pill must stay
         setMessages(prev => prev.map(m => m.isStreaming ? { ...m, isStreaming: false } : m))
       }
     })
 
     // Tool result arriva come notifica SEPARATA (type: "tool_result", non stream_event)
     const unsubToolResult = subscribe('tool_result', (p: any) => {
-      setStatusLabel(p?.isError ? 'Tool error' : 'Tool result'); setStatusKind(p?.isError ? 'tool_error' : 'tool_result')
+      // Status pill handled by agent_status — don't set here
       setMessages(prev => {
         const last = prev[prev.length - 1]
         if (!last || last.role !== 'assistant') return prev
@@ -549,12 +548,11 @@ function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
     })
 
     // Thinking start/delta/end (granular)
-    const unsubThinkStart = subscribe('thinking_start', () => { setStatusLabel('Thinking'); setStatusKind('thinking') })
-    const unsubThinkEnd = subscribe('thinking_end', () => { setStatusLabel('Writing'); setStatusKind('writing') })
+    // thinking_start/thinking_end removed — agent_status is the single source of truth for status pill
 
     // Progress
     const unsubProgress = subscribe('progress_start', (p: any) => {
-      if (p?.sessionKey) { setStatusLabel('Thinking'); setStatusKind('thinking') }
+      // progress_start: status pill handled by agent_status
     })
 
     return () => {
