@@ -141,7 +141,6 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const [compactingSessions, setCompactingSessions] = useState<Set<string>>(new Set())
   const [sessionTokens, setSessionTokens] = useState<Record<string, { input: number; output: number }>>({})
   const [debugLog, setDebugLog] = useState<any[]>([])
-  const [sysPromptLogs, setSysPromptLogs] = useState<any[]>([])
   const [piConfigNeeded, setPiConfigNeeded] = useState(false)
 
   // ── Load initial data when connected ──
@@ -527,10 +526,7 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
     })
 
     // Debug log
-    const unsubSysPrompt = subscribe('system_prompt_log', (p: any) => {
-      setSysPromptLogs(prev => [...prev, { ts: Date.now(), tag: 'system_prompt', data: { sessionKey: p.sessionKey, prompt: p.prompt, hasSkills: p.hasSkills, skills: p.skills, len: p.prompt?.length || 0 } }])
-    })
-    const unsubDebugLog = subscribe('debug_log', (p: any) => {
+const unsubDebugLog = subscribe('debug_log', (p: any) => {
       if (p?.log) setDebugLog(p.log)
     })
 
@@ -583,7 +579,7 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
       unsubModelUpdate(); unsubThinkUpdate(); unsubThinkLevels()
       unsubSessMeta(); unsubAgentStatus()
       unsubCtxUsage(); unsubAllCtx(); unsubModelCtx()
-      unsubSysPrompt(); unsubDebugLog(); unsubCompaction(); unsubHistory()
+      unsubDebugLog(); unsubCompaction(); unsubHistory()
       unsubPiNeeded(); unsubPiOk(); unsubPiCreated()
       unsubModelsList()
       unsubProgress()
@@ -1291,7 +1287,7 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
     // State
     connected: ready, loading, sessions, agents, providers, messages, folders, models, isCompacting,
     activeSessionId, isStreaming, statusLabel, statusKind, contextTokens, contextWindow,
-    thinkingLevels, agentStatus, compactingSessions, sessionTokens, debugLog: [...debugLog, ...sysPromptLogs], piConfigNeeded,
+    thinkingLevels, agentStatus, compactingSessions, sessionTokens, debugLog, piConfigNeeded,
     chatAgentIds, agentOverrides,
     // Sidebar
     sidebarSessions,

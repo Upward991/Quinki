@@ -84,8 +84,7 @@ export function LogPanel(props: LogPanelProps) {
     if (autoScroll && bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight
   }, [entries, autoScroll])
 
-  const levelColors: Record<string, {
-    system: { bg: 'rgba(115, 71, 189, 0.08)', tag: 'var(--q-accent-primary)', text: 'var(--q-text)' }, bg: string; text: string; tag: string; pill: string }> = {
+  const levelColors: Record<string, { bg: string; text: string; tag: string; pill: string }> = {
     error:    { bg: 'color-mix(in srgb, var(--q-accent-danger) 6%, transparent)', text: 'var(--q-accent-danger)', tag: 'var(--q-accent-danger)', pill: 'var(--q-accent-danger)' },
     warn:     { bg: 'color-mix(in srgb, var(--q-accent-warning) 6%, transparent)', text: 'var(--q-accent-warning)', tag: 'var(--q-accent-warning)', pill: 'var(--q-accent-warning)' },
     ui:       { bg: 'color-mix(in srgb, var(--q-accent-info) 6%, transparent)', text: 'var(--q-accent-info)', tag: 'var(--q-accent-info)', pill: 'var(--q-accent-info)' },
@@ -93,9 +92,10 @@ export function LogPanel(props: LogPanelProps) {
     bridge:   { bg: 'color-mix(in srgb, var(--q-text) 4%, transparent)', text: 'var(--q-text)', tag: 'var(--q-text)', pill: 'var(--q-text)' },
     renderer: { bg: 'color-mix(in srgb, var(--q-text-secondary) 4%, transparent)', text: 'var(--q-text-secondary)', tag: 'var(--q-text-secondary)', pill: 'var(--q-text-secondary)' },
     info:     { bg: 'color-mix(in srgb, var(--q-text-tertiary) 4%, transparent)', text: 'var(--q-text-tertiary)', tag: 'var(--q-text-tertiary)', pill: 'var(--q-text-tertiary)' },
+    system:   { bg: 'rgba(115, 71, 189, 0.08)', text: 'var(--q-text)', tag: 'var(--q-accent-primary)', pill: 'var(--q-accent-primary)' },
   }
 
-  const moreFilters = ['success', 'bridge', 'renderer', 'info']
+  const moreFilters = ['system', 'success', 'bridge', 'renderer', 'info']
 
   const months = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december']
 
@@ -125,7 +125,7 @@ export function LogPanel(props: LogPanelProps) {
     // Special formatting for system_prompt logs
     if (data && data.prompt !== undefined) {
       const skills = data.skills && data.skills.length > 0 ? data.skills.join(', ') : 'none'
-      return `Session: ${data.sessionKey || '?'}\nLength: ${data.len} chars\nSkills: ${skills}\nHas Skills: ${data.hasSkills}\n\n--- SYSTEM PROMPT ---\n${data.prompt}`
+      return 'Session: ' + (data.sessionKey || '?') + '\nLength: ' + data.len + ' chars\nSkills: ' + skills + '\nHas Skills: ' + data.hasSkills + '\n\n--- SYSTEM PROMPT ---\n' + data.prompt
     }
     try { return JSON.stringify(data, null, 2) } catch { return String(data) }
   }
