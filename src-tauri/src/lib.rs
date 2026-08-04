@@ -95,7 +95,7 @@ pub fn run() {
       let _tray = TrayIconBuilder::new()
         .menu(&menu)
         .icon(tray_img)
-        .icon_as_template(true)
+        .icon_as_template(false)
         .menu_on_left_click(true)
         .tooltip("Quinki")
         .on_menu_event(|app, event| {
