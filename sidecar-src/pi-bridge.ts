@@ -3736,6 +3736,14 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       try { this.#applyMode(pi, sk, intendedMode, data.workingDirs, effectiveCwd); this.logDebug("mode-applied-send", { sessionKey: sk, mode: intendedMode }); }
       catch (e: any) { this.logDebug("mode-apply-error", { sessionKey: sk, error: e?.message }); }
 
+    // === Rebuild system prompt with skillNames (if any) ===
+    if (data.skillNames && data.skillNames.length > 0) {
+      try {
+        pi.agent.state.systemPrompt = this.#buildSystemPrompt(sk, effectiveCwd, data.workingDirs, undefined, data.skillNames);
+        this.logDebug("skill-system-prompt-rebuilt", { sessionKey: sk, skillCount: data.skillNames.length, skills: data.skillNames.map((s: any) => s.skillName) });
+      } catch (e: any) { this.logDebug("skill-system-prompt-rebuild-error", { sessionKey: sk, error: e?.message }); }
+    }
+
       this.#captureSessionMeta(sk);
 
       // === Fix 3/B5+B3: applica pending compaction auto (o leggi da session) ===
