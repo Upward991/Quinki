@@ -49,7 +49,7 @@ export function ProviderDnDList(props: ProviderDnDListProps) {
       </SortableContext>
       <DragOverlay>
         {activeItem ? (
-          <div style={{ opacity: 0.9, boxShadow: 'var(--shadow-floating)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+          <div style={{ opacity: 0.9 }}>
             {props.renderItem(activeItem.item, activeItem.idx)}
           </div>
         ) : null}
