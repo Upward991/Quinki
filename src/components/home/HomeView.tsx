@@ -1,5 +1,6 @@
 import React from 'react'
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
+import { invoke } from '@tauri-apps/api/core'
 import { Bot, Terminal, MessageSquare, Settings, Brain } from '../icons'
 
 const tabs = [
@@ -11,6 +12,18 @@ const tabs = [
 ]
 
 export function HomeView({onSelectPanel}: {onSelectPanel: (panel: string) => void}) {
+  const [ctxMenu, setCtxMenu] = useState<{x: number, y: number, card: any} | null>(null)
+
+  // Prevent default context menu globally on home
+  const onContext = useCallback((e: React.MouseEvent, card: any) => {
+    // Only show custom menu for tabs that CAN be opened in new window
+    // (not chat, not expert — expert always opens in new window anyway)
+    if (card.id === 'chat' || card.id === 'expert') return
+    e.preventDefault()
+    e.stopPropagation()
+    setCtxMenu({x: e.clientX, y: e.clientY, card})
+  }, [])
+
   return React.createElement('div',
     {className:'h-full flex items-center justify-center', style:{backgroundColor:'var(--q-bg)'}},
     React.createElement('div',
@@ -18,19 +31,66 @@ export function HomeView({onSelectPanel}: {onSelectPanel: (panel: string) => voi
       React.createElement('div',
         {className:'flex flex-wrap', style:{gap:'10px'}},
         tabs.map((card, idx) => 
-          React.createElement(HomeCard, {key:card.id, card, idx, onSelectPanel}, card.id)
+          React.createElement(HomeCard, {key:card.id, card, idx, onSelectPanel, onContext}, card.id)
         )
+      )
+    ),
+    // Custom context menu
+    ctxMenu && React.createElement(React.Fragment, null,
+      React.createElement('div', {
+        style: {position:'fixed', inset:0, zIndex:9998, backgroundColor:'transparent'},
+        onClick: () => setCtxMenu(null),
+        onContextMenu: (e: any) => { e.preventDefault(); setCtxMenu(null) }
+      }),
+      React.createElement('div', {
+        style: {
+          position:'fixed', left: Math.min(ctxMenu.x, window.innerWidth - 180),
+          top: Math.min(ctxMenu.y, window.innerHeight - 50),
+          zIndex:9999, backgroundColor:'var(--q-bg-panel)',
+          borderRadius:'var(--radius-md)', boxShadow:'var(--shadow-modal)',
+          border:'1px solid var(--q-border)', padding:'4px 0', minWidth:'160px'
+        }
+      },
+        React.createElement(CtxItem, {
+          label: 'Open in new window',
+          icon: '↗',
+          onClick: () => {
+            invoke('open_in_new_window', {tab: ctxMenu.card.id}).catch(() => {})
+            setCtxMenu(null)
+          }
+        })
       )
     )
   )
 }
 
-function HomeCard({card, idx, onSelectPanel}: any) {
+function CtxItem({label, icon, onClick}: {label: string, icon?: string, onClick: () => void}) {
+  const [hovered, setHovered] = useState(false)
+  return React.createElement('button', {
+    onClick,
+    onMouseEnter: () => setHovered(true),
+    onMouseLeave: () => setHovered(false),
+    style: {
+      display:'flex', alignItems:'center', width:'100%', padding:'8px 12px',
+      border:'none', cursor:'pointer',
+      backgroundColor: hovered ? 'var(--q-hover)' : 'transparent',
+      color: hovered ? 'var(--q-text)' : 'var(--q-text-secondary)',
+      fontSize:'14px', fontFamily:'var(--font-interface)', textAlign:'left',
+      gap:'8px', transition:'none'
+    }
+  },
+    icon && React.createElement('span', {style:{fontSize:'14px', opacity:0.7}}, icon),
+    label
+  )
+}
+
+function HomeCard({card, idx, onSelectPanel, onContext}: any) {
   const [hovered, setHovered] = useState(false)
   const Icon = card.icon
   return React.createElement('button',
     {
       onClick: () => card.panel && onSelectPanel(card.panel),
+      onContextMenu: (e: any) => onContext(e, card),
       onMouseEnter: () => setHovered(true),
       onMouseLeave: () => setHovered(false),
       style: {
@@ -50,6 +110,8 @@ function HomeCard({card, idx, onSelectPanel}: any) {
       card.doubleBot ? React.createElement(Bot, {size:28, style:{color:card.color}}) : React.createElement(Icon, {size:28, style:{color:card.color}})
     ),
     React.createElement('div', {style:{height:'10px'}}),
-    React.createElement('span', {style:{fontSize:'14px', fontWeight:500, color:'var(--q-text)'}}, card.label)
+    React.createElement('span', {style:{color:'var(--q-text)', fontSize:'14px', fontWeight:500, fontFamily:'var(--font-interface)'}}, card.label),
+    React.createElement('div', {style:{height:'4px'}}),
+    React.createElement('span', {style:{color:'var(--q-text-tertiary)', fontSize:'11px', fontFamily:'var(--font-code)'}}, card.id === 'expert' ? 'always new window' : card.id === 'chat' ? 'main window' : 'right-click → new window')
   )
 }

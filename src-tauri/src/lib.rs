@@ -91,6 +91,67 @@ fn is_autostart_enabled(app: tauri::AppHandle) -> Result<bool, String> {
         .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn open_in_new_window(app: tauri::AppHandle, tab: String, session: Option<String>) -> Result<String, String> {
+    use tauri::WebviewWindowBuilder;
+    let label = format!("win-{}", tab);
+    
+    // Check if window already exists
+    if let Some(existing) = app.get_webview_window(&label) {
+        let _ = existing.show();
+        let _ = existing.set_focus();
+        return Ok(label);
+    }
+    
+    // Build URL with query params
+    let mut url = "index.html?tab=".to_string() + &tab;
+    if let Some(s) = &session {
+        url.push_str(&format!("&session={}", s));
+    }
+    
+    let title = match tab.as_str() {
+        "expert" => "Quinki Expert",
+        "log" => "Log",
+        "settings" => "Settings",
+        "agents" => "Agents",
+        "chat" => "Chat",
+        _ => "Quinki",
+    };
+    
+    let window = WebviewWindowBuilder::new(&app, &label, tauri::WebviewUrl::App(url.into()))
+        .title("")
+        .inner_size(1000.0, 700.0)
+        .min_inner_size(600.0, 400.0)
+        .decorations(false)
+        .build()
+        .map_err(|e| e.to_string())?;
+    
+    let _ = window;
+    Ok(label)
+}
+
+#[tauri::command]
+fn focus_window(app: tauri::AppHandle, label: String) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window(&label) {
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn close_window(app: tauri::AppHandle, label: String) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window(&label) {
+        let _ = window.close();
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn get_window_label(window: tauri::WebviewWindow) -> String {
+    window.label().to_string()
+}
+
 pub fn run() {
     let app = tauri::Builder::default()
     .invoke_handler(tauri::generate_handler![
@@ -103,6 +164,10 @@ pub fn run() {
         enable_autostart,
         disable_autostart,
         is_autostart_enabled,
+        open_in_new_window,
+        focus_window,
+        close_window,
+        get_window_label,
     ])
     .plugin(tauri_plugin_shell::init())
     .plugin(tauri_plugin_dialog::init())
