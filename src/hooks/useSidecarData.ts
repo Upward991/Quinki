@@ -842,6 +842,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     setStatusLabel(''); setStatusKind('')
     setChatAgentIds([])
     setAgentOverrides({})
+    setContextTokens(0)
   }, [])
 
   const stopStreaming = useCallback(() => {

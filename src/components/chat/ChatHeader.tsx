@@ -110,11 +110,11 @@ export function ChatHeader(props: ChatHeaderProps) {
         </div>
         <div style={{ width: '8px', flexShrink: 0 }} />
 
-        {/* Panel 2: Sidebar toggle */}
-        {!isExpert && (
+        {/* Panel 2: Sidebar toggle — hidden entirely in sub-windows */}
+        {!isExpert && !props.hideSidebarToggle && (
           <>
             <div style={panelStyle}>
-              {!props.hideSidebarToggle && <IconBtn icon={PanelLeft} onClick={props.onToggleSidebar} title={props.sidebarOpen ? 'Hide sidebar' : 'Show sidebar'} />}
+              <IconBtn icon={PanelLeft} onClick={props.onToggleSidebar} title={props.sidebarOpen ? 'Hide sidebar' : 'Show sidebar'} />
             </div>
             <div style={{ width: '8px', flexShrink: 0 }} />
           </>
