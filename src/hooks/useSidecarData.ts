@@ -384,8 +384,9 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
     })
 
     // Streaming started/stopped
-    const unsubStreamStart = subscribe('streaming_started', () => {
-      setIsStreaming(true)
+    const unsubStreamStart = subscribe('streaming_started', (p: any) => {
+      const sk = p?.sessionKey || activeSessionIdRef.current || ''
+      setStreamingState(sk, { isStreaming: true, statusLabel: 'Thinking', statusKind: 'thinking' })
     })
     // Done event (sent as separate notification, not stream_event)
     const unsubDone = subscribe('done', (p: any) => {
@@ -432,9 +433,10 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
     })
 
     const unsubStreamStop = subscribe('streaming_stopped', (p: any) => {
+      const sk = p?.sessionKey || activeSessionIdRef.current || ''
+      setStreamingState(sk, { isStreaming: false, statusLabel: '', statusKind: '' })
       if (p?.sessionKey && p.sessionKey !== activeSessionIdRef.current) return
-      const sk = p?.sessionKey || activeSessionId || ''
-      setStreamingState(sk, { isStreaming: false, statusLabel: '', statusKind: '' }); setStatusLabel(''); setStatusKind('')
+      setStatusLabel(''); setStatusKind('')
       setMessages(prev => prev.map(m => m.isStreaming ? { ...m, isStreaming: false } : m))
     })
 
