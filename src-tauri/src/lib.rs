@@ -52,29 +52,26 @@ fn pick_directory(window: tauri::WebviewWindow) -> Result<String, String> {
 }
 
 #[tauri::command]
-fn restart_app(app: tauri::AppHandle) {
+fn restart_app(_app: tauri::AppHandle) {
     use std::process::Command;
-    let app_path = std::env::current_exe()
-        .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or_default();
-    // If running from .app bundle, use open command
-    let home = std::env::var("HOME").unwrap_or_default();
-    let quinki_app = format!("{}/.cargo/bin:/usr/local/bin:/usr/bin:/bin", home);
-    let _ = quinki_app; // suppress unused warning
     
-    // Restart: spawn new process, then exit current
-    if app_path.contains("Quinki.app") {
-        let _ = Command::new("open").arg("/Applications/Quinki.app").spawn();
-    } else if !app_path.is_empty() {
-        let _ = Command::new(&app_path).spawn();
-    }
-    
-    // Kill sidecar before exiting
+    // Kill sidecar first
     let _ = Command::new("sh").arg("-c").arg("pkill -f ws-bridge 2>/dev/null; pkill -f sidecar 2>/dev/null; lsof -ti:9182 | xargs kill -9 2>/dev/null").spawn();
     
-    std::thread::sleep(std::time::Duration::from_millis(200));
+    // Wait for sidecar to die
+    std::thread::sleep(std::time::Duration::from_millis(500));
+    
+    // Launch new instance via open command (macOS)
+    let _ = Command::new("open").arg("-n").arg("/Applications/Quinki.app").spawn();
+    
+    // Give the new process time to start before we exit
+    std::thread::sleep(std::time::Duration::from_millis(500));
+    
+    // Allow exit (bypass close-to-tray)
     SHOULD_EXIT.store(true, Ordering::SeqCst);
-    app.exit(0);
+    
+    // Force exit
+    std::process::exit(0);
 }
 
 pub fn run() {
