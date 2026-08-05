@@ -450,7 +450,7 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
     const unsubSessDeleted = subscribe('session_deleted', (p: any) => {
       if (p?.sessionKey) {
         setSessions(prev => prev.filter(s => s.id !== p.sessionKey))
-        if (activeSessionId === p.sessionKey) { activeSessionIdRef.current = null; setActiveSessionId(null); setMessages([]); setChatAgentIds([]); setAgentOverrides({}) }
+        if (activeSessionIdRef.current === p.sessionKey) { activeSessionIdRef.current = null; setActiveSessionId(null); setMessages([]); setChatAgentIds([]); setAgentOverrides({}) }
       }
     })
 
@@ -540,7 +540,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
           setStatusLabel('Compacting'); setStatusKind('compacting')
         } else if (status === 'end' || status === 'error' || status === 'noop') {
           setCompactingSessions(prev => { const n = new Set(prev); n.delete(sk); return n })
-          if (activeSessionId === sk) { setStatusLabel(''); setStatusKind('') }
+          if (activeSessionIdRef.current === sk) { setStatusLabel(''); setStatusKind('') }
           if (status === 'end' && p.summary) {
             setMessages(prev => [...prev, { id: `compact-${Date.now()}`, role: 'assistant', content: p.summary, timestamp: new Date().toISOString(), isCompactionSummary: true }])
           }
@@ -811,7 +811,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
           }
         } catch (e) {
           console.error('Failed to create session:', e)
-          const sk = activeSessionId || ''; setStreamingState(sk, { isStreaming: false, statusLabel: 'Failed', statusKind: 'failed' })
+          const sk = activeSessionIdRef.current || ''; setStreamingState(sk, { isStreaming: false, statusLabel: 'Failed', statusKind: 'failed' })
           return
         }
       }
