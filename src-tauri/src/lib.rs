@@ -95,33 +95,30 @@ fn is_autostart_enabled(app: tauri::AppHandle) -> Result<bool, String> {
 fn open_in_new_window(app: tauri::AppHandle, tab: String, session: Option<String>) -> Result<String, String> {
     let label = format!("win-{}", tab);
     
-    // Try to show existing config-defined window first
+    // Show existing window if it exists (was hidden, not destroyed)
     if let Some(window) = app.get_webview_window(&label) {
         let _ = window.show();
         let _ = window.set_focus();
         return Ok(label);
     }
     
-    // Fallback: create window via builder (won't have Overlay styling)
-    use tauri::WebviewWindowBuilder;
-    let mut url = "index.html?tab=".to_string() + &tab;
-    if let Some(s) = &session {
-        url.push_str(&format!("&session={}", s));
+    // Window was closed/destroyed — recreate from config (same styling as main window)
+    let config = app.config();
+    let win_config = config.app.windows.iter().find(|w| {
+        w.label == label
+    });
+    
+    if let Some(wc) = win_config {
+        let builder = tauri::WebviewWindowBuilder::from_config(&app, wc)
+            .map_err(|e| e.to_string())?;
+        let window = builder.build()
+            .map_err(|e| e.to_string())?;
+        let _ = window.show();
+        let _ = window.set_focus();
+        return Ok(label);
     }
     
-    let window = WebviewWindowBuilder::new(&app, &label, tauri::WebviewUrl::App(url.into()))
-        .title("")
-        .inner_size(1000.0, 700.0)
-        .min_inner_size(600.0, 400.0)
-        .decorations(true)
-        .hidden_title(true)
-        .title_bar_style(tauri::TitleBarStyle::Overlay)
-        .build()
-        .map_err(|e| e.to_string())?;
-    
-    let _ = window.show();
-    let _ = window.set_focus();
-    Ok(label)
+    Err(format!("No window config for tab: {}", tab))
 }
 
 #[tauri::command]
