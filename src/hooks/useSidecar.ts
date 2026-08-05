@@ -43,7 +43,7 @@ export function useSidecar(url = "ws://127.0.0.1:9182") {
 			};
 			ws.onclose = () => {
 				setReady(false);
-				if (!closed) setTimeout(connect, 2e3);
+				if (!closed) setTimeout(connect, 300);
 			};
 		};
 		connect();
