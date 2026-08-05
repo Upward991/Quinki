@@ -3662,34 +3662,18 @@ var sidecar = useBundle ? (0, import_node_child_process.spawn)("node", [bundledP
 var buffer = "";
 var server = (0, import_node_http.createServer)();
 var wss = new import_websocket_server.default({ server });
-var clientCounter = 0;
-var clientMap = /* @__PURE__ */ new Map();
-var idToClient = /* @__PURE__ */ new Map();
+var activeClient = null;
 sidecar.stdout.on("data", (chunk) => {
   buffer += chunk.toString();
   const lines = buffer.split("\n");
   buffer = lines.pop() || "";
   for (const line of lines) {
     if (line.trim()) {
-      try {
-        const msg = JSON.parse(line);
-        if (msg.id !== void 0) {
-          const idStr = String(msg.id);
-          const client = idToClient.get(idStr);
-          if (client && client.readyState === client.OPEN) {
-            const originalId = idStr.includes("_") ? idStr.split("_").slice(1).join("_") : idStr;
-            const rewritten = line.replace(`"id":${JSON.stringify(msg.id)}`, `"id":${originalId}`);
-            client.send(rewritten);
-          }
-          idToClient.delete(idStr);
-        } else {
-          for (const ws of wss.clients) {
-            if (ws.readyState === ws.OPEN) ws.send(line);
-          }
-        }
-      } catch {
-        for (const ws of wss.clients) {
-          if (ws.readyState === ws.OPEN) ws.send(line);
+      for (const ws of wss.clients) {
+        if (ws.readyState === ws.OPEN) {
+          ws.send(line, (err) => {
+            if (err) console.error("[ws-bridge] send error:", err.message);
+          });
         }
       }
     }
@@ -3703,33 +3687,13 @@ sidecar.on("exit", (code) => {
   process.exit(1);
 });
 wss.on("connection", (ws) => {
-  clientCounter++;
-  const prefix = `ws${clientCounter}`;
-  clientMap.set(ws, prefix);
-  console.log(`[ws-bridge] Client ${prefix} connected`);
+  console.log("[ws-bridge] Client connected");
+  activeClient = ws;
   ws.on("message", (data) => {
-    if (!sidecar.stdin.writable) return;
-    try {
-      const msg = JSON.parse(data.toString());
-      if (msg.id !== void 0) {
-        const prefix2 = clientMap.get(ws);
-        const newId = `${prefix2}_${msg.id}`;
-        idToClient.set(newId, ws);
-        msg.id = newId;
-        sidecar.stdin.write(JSON.stringify(msg) + "\n");
-        return;
-      }
-    } catch {
-    }
-    sidecar.stdin.write(data.toString() + "\n");
+    if (sidecar.stdin.writable) sidecar.stdin.write(data.toString() + "\n");
   });
   ws.on("close", () => {
-    const prefix2 = clientMap.get(ws);
-    clientMap.delete(ws);
-    for (const [id, client] of idToClient) {
-      if (client === ws) idToClient.delete(id);
-    }
-    console.log(`[ws-bridge] Client ${prefix2} disconnected`);
+    if (activeClient === ws) activeClient = null;
   });
 });
 server.listen(PORT, () => {
