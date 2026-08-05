@@ -131,7 +131,7 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const activeSessionIdRef = useRef<string | null>(null)
   const setStreamingState = (sk: string, state: { isStreaming: boolean; statusLabel: string; statusKind: string }) => {
     sessionStreamingMap.current.set(sk, state)
-    if (sk === activeSessionId) {
+    if (sk === activeSessionIdRef.current) {
       setIsStreaming(state.isStreaming)
       setStatusLabel(state.statusLabel)
       setStatusKind(state.statusKind)
@@ -450,7 +450,7 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
     const unsubSessDeleted = subscribe('session_deleted', (p: any) => {
       if (p?.sessionKey) {
         setSessions(prev => prev.filter(s => s.id !== p.sessionKey))
-        if (activeSessionId === p.sessionKey) { setActiveSessionId(null); setMessages([]); setChatAgentIds([]); setAgentOverrides({}) }
+        if (activeSessionId === p.sessionKey) { activeSessionIdRef.current = null; setActiveSessionId(null); setMessages([]); setChatAgentIds([]); setAgentOverrides({}) }
       }
     })
 
@@ -589,6 +589,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
   // ── Session management ──
   const selectSession = useCallback(async (sessionKey: string) => {
     if (!ready) return
+    activeSessionIdRef.current = sessionKey
     setActiveSessionId(sessionKey)
     // NON svuotare messages qui: evita il flash quando si ricarica la stessa chat (es. dopo compaction)
     // Restore streaming state from per-session map
@@ -827,6 +828,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
   }, [ready, call, activeSessionId, providers])
 
   const deselectSession = useCallback(() => {
+    activeSessionIdRef.current = null
     setActiveSessionId(null)
     setMessages([])
     setIsStreaming(false)
@@ -867,7 +869,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     try {
       notify('deleteSession', { sessionKey })
       setSessions(prev => prev.filter(s => s.id !== sessionKey))
-      if (activeSessionId === sessionKey) { setActiveSessionId(null); setMessages([]); setChatAgentIds([]); setAgentOverrides({}) }
+      if (activeSessionId === sessionKey) { activeSessionIdRef.current = null; setActiveSessionId(null); setMessages([]); setChatAgentIds([]); setAgentOverrides({}) }
     } catch (e) { console.error('deleteSession:', e) }
   }, [ready, notify, activeSessionId])
 
