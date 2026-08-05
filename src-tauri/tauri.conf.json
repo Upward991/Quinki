@@ -96,7 +96,7 @@
         "decorations": true,
         "hiddenTitle": true,
         "titleBarStyle": "Overlay",
-        "visible": false
+        "create": false
       }
     ],
     "security": {
