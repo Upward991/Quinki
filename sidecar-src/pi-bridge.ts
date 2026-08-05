@@ -3503,10 +3503,14 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
           if (skillPath && fs.existsSync(skillPath)) {
             const content = fs.readFileSync(skillPath, 'utf-8');
             const body = content.replace(/^---\n[\s\S]*?\n---\n?/, '');
-            if (isOrchestrator) {
+            if (isOrchestrator && targetAgentId === 'orchestrator') {
+              // Orchestrator's OWN skill: follow directly, no delegation
+              prompt += `\n\n=== USER ACTIVATED SKILL: ${skillName} ===\n\n${body}\n\n=== END USER ACTIVATED SKILL ===\n\nCRITICAL: The skill instructions above were explicitly activated by the user via /skill command. They are ALREADY in your system prompt — do NOT use the skill tool to verify them. Follow them directly.`;
+            } else if (isOrchestrator) {
+              // Other agent's skill: delegate
               const targetCfg = this.#readAgentConfig(targetAgentId);
               const targetName = targetCfg?.name || targetAgentId;
-              prompt += `\n\n=== USER ACTIVATED SKILL: ${skillName} ===\nTarget agent: ${targetName}\n\n${body}\n\n=== END USER ACTIVATED SKILL ===\n\nCRITICAL: The skill instructions above were explicitly activated by the user via /skill command. They are ALREADY in your system prompt — do NOT use the skill tool to verify them. Follow them directly. When you delegate to ${targetName}, you MUST include the full skill instructions above in your delegation message so ${targetName} follows them.`;
+              prompt += `\n\n=== USER ACTIVATED SKILL: ${skillName} ===\nTarget agent: ${targetName}\n\n${body}\n\n=== END USER ACTIVATED SKILL ===\n\nCRITICAL: The skill instructions above were explicitly activated by the user via /skill command. They are ALREADY in your system prompt — do NOT use the skill tool to verify them. When you delegate to ${targetName}, you MUST include the full skill instructions above in your delegation message so ${targetName} follows them.`;
             } else {
               prompt += `\n\n=== USER ACTIVATED SKILL: ${skillName} ===\n\n${body}\n\n=== END USER ACTIVATED SKILL ===\n\nCRITICAL: The skill instructions above were explicitly activated by the user via /skill command. They are ALREADY in your system prompt — do NOT use the skill tool to verify them. Follow them directly.`;
             }
