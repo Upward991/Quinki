@@ -2208,7 +2208,6 @@ class PiBridge {
   // Non chiama #applyMode. Solo persistenza per sopravvivere al riavvio.
   setChatAgents(key: string, agentIds: string) {
     const s = this.#entries.get(key);
-    if (s) { (s as any).agentId = agentIds || undefined; this.#save(); process.stderr.write('[SKILL-DEBUG] setChatAgents: key=' + key + ', agentIds=' + agentIds + '\n'); }
     this.logDebug("set-chat-agents", { sessionKey: key, agentIds, hasEntry: !!this.#entries.get(key), savedAgentId: (this.#entries.get(key) as any)?.agentId });
   }
 
@@ -2765,7 +2764,6 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       }
       this.logDebug("send-direct-system-prompt", { sessionKey: sk, mode: mainModeSD, promptLen: base?.length || 0, hasSkills: base?.includes("available_skills"), hasModeNote: base?.includes("MODALITÀ") });
       // Log delegated agent system prompt for debugging
-      process.stderr.write("[DELEG-LOG] About to log system_prompt for delegation: agent=" + agentName + ", len=" + (base?.length || 0) + "\n"); this.logDebug("system_prompt", { sessionKey: tempKey, len: base?.length || 0, hasSkills: false, skills: [], agentId: targetId, agentName: agentName, isDelegation: true, isOrchestrator: false, delegatedBy: sk, messageText: (data.text || "").substring(0, 200), prompt: base || "" });
     } catch {}
 
     // Apply model: session override > agent config > main session
@@ -3189,22 +3187,17 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
               }
               // Inject user-activated skills into the delegated agent's system prompt
               const pendingSkills = self.#pendingDelegationSkills.get(sessionKey);
-                process.stderr.write('[DELEG-SKILL] pendingSkills for sessionKey=' + sessionKey + ': ' + JSON.stringify(pendingSkills) + ', targetId=' + targetId + '\n');
-              if (pendingSkills && pendingSkills.length > 0) {
+                              if (pendingSkills && pendingSkills.length > 0) {
                 for (const ps of pendingSkills) {
-                  process.stderr.write('[DELEG-SKILL] checking: ps.agentId=' + ps.agentId + ', targetId=' + targetId + ', match=' + (ps.agentId === targetId) + '\n');
-                  if (ps.agentId === targetId) {
+                                    if (ps.agentId === targetId) {
                     try {
-                      process.stderr.write('[DELEG-SKILL] about to call findSkillPath: ' + ps.skillName + '\n');
-                      const delegCwd = (typeof effectiveCwd !== "undefined" && effectiveCwd) || self.#cwd; const skillPath = self.#findSkillPath(ps.skillName, delegCwd);
-                      process.stderr.write('[DELEG-SKILL] findSkillPath: name=' + ps.skillName + ', cwd=' + delegCwd + ', found=' + !!skillPath + ', path=' + (skillPath || 'null') + '\n');
-                      if (skillPath && fs.existsSync(skillPath)) {
+                                            const delegCwd = (typeof effectiveCwd !== "undefined" && effectiveCwd) || self.#cwd; const skillPath = self.#findSkillPath(ps.skillName, delegCwd);
+                                            if (skillPath && fs.existsSync(skillPath)) {
                         const skillContent = fs.readFileSync(skillPath, 'utf-8');
                         const skillBody = skillContent.replace(/^---\n[\s\S]*?\n---\n?/, '');
                         base = base + '\n\n=== USER ACTIVATED SKILL: ' + ps.skillName + ' ===\n\n' + skillBody + '\n\n=== END USER ACTIVATED SKILL ===\n\nCRITICAL: The skill instructions above were explicitly activated by the user via /skill command. They are ALREADY in your system prompt — do NOT use the skill tool to verify them. Follow them directly.';
                         self.logDebug("delegate-skill-injected", { sessionKey, agentId: targetId, skillName: ps.skillName, skillLen: skillBody.length });
                       }
-                    } catch (e: any) { process.stderr.write('[DELEG-SKILL] INJECTION ERROR: ' + (e?.message || String(e)) + '\n'); self.logDebug("delegate-skill-inject-error", { sessionKey, skillName: ps.skillName, error: e?.message }); }
                   }
                 }
                 (tempPi as any)._baseSystemPrompt = base;
@@ -3237,7 +3230,6 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
           };
           // Direct forwarding with fs.writeSync — no queue, no delay
           const tempSub = tempPi.subscribe((e: any) => {
-            try { fs.writeSync(2, `[DELEG-EVT] ${Date.now()} type=${e.type} ame=${(e as any).assistantMessageEvent?.type || "?"}\n`); } catch {}
             const fwdWs = self.#wss.get(sessionKey);
             if (e.type === "tool_execution_start") {
               self.#sendToWs(fwdWs, { type: "stream_event", sessionKey, eventType: "toolcall_start", delta: e.toolName || "", messageId: delegationId });
@@ -3464,8 +3456,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     if (agentId && (agentId === 'orchestrator' || agentId.includes('orchestrator'))) {
       const sessionEntry = this.#entries.get(key);
       const sessionAgents = (sessionEntry as any)?.agentId;
-      process.stderr.write('[SKILL-DEBUG] buildSystemPrompt orchestrator: agentId=' + agentId + ', sessionAgents=' + sessionAgents + '\n');
-      this.logDebug("orchestrator-agents", { sessionKey: key, agentId: agentId, sessionAgents: sessionAgents, agentDir: this.#agentDir });
+            this.logDebug("orchestrator-agents", { sessionKey: key, agentId: agentId, sessionAgents: sessionAgents, agentDir: this.#agentDir });
       if (sessionAgents && sessionAgents !== 'orchestrator') {
         const agentIds = String(sessionAgents).split(',').filter((id: string) => id && id !== 'orchestrator');
         const agentNames: string[] = [];
@@ -3610,8 +3601,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     });
 
     this.#wss.set(sk, ws);
-    process.stderr.write('[SKILL-DEBUG] send() called: data.skillNames=' + JSON.stringify(data.skillNames) + '\n');
-
+    
     let pi = this.#active.get(sk);
     this.logDebug("send-resolved-agent", { sessionKey: sk, override: this.#agentOverride.get(sk), resolvedAgentId: this.#resolveAgentId(sk), hasActiveSession: !!pi });
     // === Auto-reload skill: se .pi/skills/ è cambiato da quando la sessione è stata creata,
@@ -3904,16 +3894,14 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
         return true;
       }) : undefined;
       const agentCfg = resolvedAgent ? this.#readAgentConfig(resolvedAgent) : null;
-      process.stderr.write('[SKILL-DEBUG] skillsForPrompt: ' + JSON.stringify(skillsForPrompt) + ', isOrchestrator=' + isOrchestrator + '\n');
-      let prompt = this.#buildSystemPrompt(sk, effectiveCwd, data.workingDirs, undefined, skillsForPrompt);
+            let prompt = this.#buildSystemPrompt(sk, effectiveCwd, data.workingDirs, undefined, skillsForPrompt);
       // When NO skill is attached, add explicit note that previous skills are deactivated
       if (!skillNames) {
       }
       try { (pi as any)._customSystemPromptOverride = true; } catch {}
       try { (pi as any)._baseSystemPrompt = prompt; } catch {}
       pi.agent.state.systemPrompt = prompt;
-      process.stderr.write('[SKILL-DEBUG] Rebuilt BEFORE sendUserMessage: len=' + prompt.length + ', hasSkills=' + !!skillNames + '\n');
-      // Log system prompt via logDebug (uses existing debug_log flow)
+            // Log system prompt via logDebug (uses existing debug_log flow)
       this.logDebug("system_prompt", { sessionKey: sk, len: prompt.length, hasSkills: !!(skillsForPrompt && skillsForPrompt.length > 0), skills: skillsForPrompt ? skillsForPrompt.map((s: any) => s.skillName) : [], agentId: resolvedAgent || "unknown", agentName: agentCfg?.name || resolvedAgent || "unknown", isDelegation: false, isOrchestrator, messageText: (data.text || "").substring(0, 200), prompt: prompt });
       // Store skills for delegation — #buildDelegateTool will inject them into the delegated agent's system prompt
       if (skillNames && skillNames.length > 0) {
@@ -3921,14 +3909,11 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       } else {
         this.#pendingDelegationSkills.delete(sk);
       }
-    } catch (e: any) { process.stderr.write('[SKILL-DEBUG] Rebuild ERROR: ' + (e?.message || String(e)) + '\n'); }
     // Log system prompt BEFORE sendUserMessage
     try {
       const bspBefore = (pi as any)._baseSystemPrompt || "";
       const spBefore = pi.agent?.state?.systemPrompt || "";
-      process.stderr.write('[SKILL-DEBUG] BEFORE sendUserMessage: basePromptLen=' + bspBefore.length + ', statePromptLen=' + spBefore.length + '\n');
-      process.stderr.write('[SKILL-DEBUG] statePrompt has Active Skill: ' + spBefore.includes('Active Skill') + '\n');
-    } catch {}
+                } catch {}
     const next = prev.then(() => pi.sendUserMessage(content, { deliverAs: "followUp" })).catch((err: Error) => {
       ws.send(JSON.stringify({ type: "error", message: err.message, sessionKey: sk }));
     });
