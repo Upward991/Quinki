@@ -118,6 +118,35 @@ fn open_in_new_window(app: tauri::AppHandle, tab: String, _session: Option<Strin
     
     Err(format!("No window config for: {}", label))
 }
+#[tauri::command]
+fn open_chat_in_window(app: tauri::AppHandle, session_key: String) -> Result<String, String> {
+    let label = "win-chat".to_string();
+    
+    // Show existing window or create from config
+    if let Some(window) = app.get_webview_window(&label) {
+        let _ = window.show();
+        let _ = window.set_focus();
+        let _ = window.emit("switch-session", &session_key);
+        return Ok(label);
+    }
+    
+    // Create from config
+    let config = app.config();
+    let win_config = config.app.windows.iter().find(|w| w.label == label);
+    
+    if let Some(wc) = win_config {
+        let builder = tauri::WebviewWindowBuilder::from_config(&app, wc)
+            .map_err(|e| e.to_string())?;
+        let window = builder.build()
+            .map_err(|e| e.to_string())?;
+        window.eval(&format!("window.__chatSessionKey = '{}';", session_key.replace("'", "\\'"))).ok();
+        let _ = window.show();
+        let _ = window.set_focus();
+        return Ok(label);
+    }
+    
+    Err("No window config for win-chat".to_string())
+}
 
 #[tauri::command]
 fn focus_window(app: tauri::AppHandle, label: String) -> Result<(), String> {
@@ -162,6 +191,7 @@ pub fn run() {
         disable_autostart,
         is_autostart_enabled,
         open_in_new_window,
+        open_chat_in_window,
         focus_window,
         close_window,
         hide_window,

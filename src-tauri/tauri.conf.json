@@ -82,6 +82,21 @@
         "hiddenTitle": true,
         "titleBarStyle": "Overlay",
         "visible": false
+      },
+      {
+        "label": "win-chat",
+        "url": "index.html?tab=chat",
+        "title": "",
+        "width": 1000,
+        "height": 700,
+        "minWidth": 600,
+        "minHeight": 400,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": true,
+        "hiddenTitle": true,
+        "titleBarStyle": "Overlay",
+        "visible": false
       }
     ],
     "security": {
