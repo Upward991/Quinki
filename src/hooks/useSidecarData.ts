@@ -276,6 +276,8 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
       return blocks
     }
     const unsubStream = subscribe('stream_event', (p: any) => {
+      if (!p) return
+      if (p.sessionKey && p.sessionKey !== activeSessionIdRef.current) return
       const { type, eventType, delta, content, messageId, toolName, isError } = p
       const _type = eventType || type
       const _content = delta || content || ''
