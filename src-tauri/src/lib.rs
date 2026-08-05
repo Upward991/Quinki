@@ -93,30 +93,21 @@ fn is_autostart_enabled(app: tauri::AppHandle) -> Result<bool, String> {
 
 #[tauri::command]
 fn open_in_new_window(app: tauri::AppHandle, tab: String, session: Option<String>) -> Result<String, String> {
-    use tauri::WebviewWindowBuilder;
     let label = format!("win-{}", tab);
     
-    // Check if window already exists
-    if let Some(existing) = app.get_webview_window(&label) {
-        let _ = existing.show();
-        let _ = existing.set_focus();
+    // Try to show existing config-defined window first
+    if let Some(window) = app.get_webview_window(&label) {
+        let _ = window.show();
+        let _ = window.set_focus();
         return Ok(label);
     }
     
-    // Build URL with query params
+    // Fallback: create window via builder (won't have Overlay styling)
+    use tauri::WebviewWindowBuilder;
     let mut url = "index.html?tab=".to_string() + &tab;
     if let Some(s) = &session {
         url.push_str(&format!("&session={}", s));
     }
-    
-    let title = match tab.as_str() {
-        "expert" => "Quinki Expert",
-        "log" => "Log",
-        "settings" => "Settings",
-        "agents" => "Agents",
-        "chat" => "Chat",
-        _ => "Quinki",
-    };
     
     let window = WebviewWindowBuilder::new(&app, &label, tauri::WebviewUrl::App(url.into()))
         .title("")
@@ -138,6 +129,14 @@ fn focus_window(app: tauri::AppHandle, label: String) -> Result<(), String> {
     if let Some(window) = app.get_webview_window(&label) {
         let _ = window.show();
         let _ = window.set_focus();
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn hide_window(app: tauri::AppHandle, label: String) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window(&label) {
+        let _ = window.hide();
     }
     Ok(())
 }
@@ -170,6 +169,7 @@ pub fn run() {
         open_in_new_window,
         focus_window,
         close_window,
+        hide_window,
         get_window_label,
     ])
     .plugin(tauri_plugin_shell::init())
