@@ -17,7 +17,7 @@ cd "$(dirname "$0")"
 
 # Use bundled ws-bridge.js (esbuild) — 20x faster than npx tsx
 # Fallback to tsx if bundle doesn't exist
-if false; then
+if [ -f "bundle/ws-bridge.cjs" ]; then
   echo "$(date): starting bundled ws-bridge.cjs from $(pwd)" >> "$LOG"
   exec node bundle/ws-bridge.cjs >> "$LOG" 2>&1
 else

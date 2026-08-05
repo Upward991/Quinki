@@ -591,7 +591,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
       unsubModelsList()
       unsubProgress()
     }
-  }, [ready, subscribe, call, activeSessionId])
+  }, [ready, subscribe, call])
 
   // ── Session management ──
   const selectSession = useCallback(async (sessionKey: string) => {
