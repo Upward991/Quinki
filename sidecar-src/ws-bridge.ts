@@ -1,15 +1,28 @@
 import { spawn } from "node:child_process";
 import { createServer } from "node:http";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { WebSocketServer, WebSocket } from "ws";
 
 const __dirname = process.cwd();
 const PORT = parseInt(process.argv[2] || "9182", 10);
 
-const sidecar = spawn("npx", ["tsx", "sidecar.ts"], {
-  stdio: ["pipe", "pipe", "pipe"],
-  cwd: __dirname,
-  env: { ...process.env },
-});
+// Use bundled sidecar.js (esbuild) — 20x faster than npx tsx
+// Fallback to tsx if bundle doesn't exist (dev mode)
+const bundledPath = join(__dirname, "bundle", "sidecar.cjs");
+const useBundle = existsSync(bundledPath);
+
+const sidecar = useBundle
+  ? spawn("node", [bundledPath], {
+      stdio: ["pipe", "pipe", "pipe"],
+      cwd: __dirname,
+      env: { ...process.env },
+    })
+  : spawn("npx", ["tsx", "sidecar.ts"], {
+      stdio: ["pipe", "pipe", "pipe"],
+      cwd: __dirname,
+      env: { ...process.env },
+    });
 
 let buffer = "";
 
@@ -54,5 +67,5 @@ wss.on("connection", (ws) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`[ws-bridge] WebSocket on ws://127.0.0.1:${PORT}`);
+  console.log(`[ws-bridge] WebSocket on ws://127.0.0.1:${PORT} (mode: ${useBundle ? "bundle" : "tsx"})`);
 });
