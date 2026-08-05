@@ -374,3 +374,10 @@ mark.search-highlight-mark {
   border-radius: 50%;
   background: var(--q-tab-accent);
 }
+
+/* === Fix: hover stuck when switching windows === */
+body:not(:focus-within) *:hover {
+  background-color: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
