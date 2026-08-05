@@ -272,15 +272,13 @@ export function AgentsPanel(props) {
 
   const doAddAgentsToSkill = async (skillName, agentNames) => {
     if (!call) return;
-    // SOSTITUISCI: aggiungi ai selezionati, RIMUOVI dai deselezionati
+    // ONLY ADD — never remove. Removal is done via the X button on each agent.
     for (const agent of agents) {
-      const existing = (agent.skills||[]).map(s => typeof s === 'string' ? s : s.name);
-      const shouldHave = agentNames.includes(agent.name);
-      const has = existing.includes(skillName);
-      if (shouldHave && !has) {
-        try { await call('updateAgent', { id: agent.id, config: { skills: [...existing, skillName] } }); } catch (e) { console.error(e); }
-      } else if (!shouldHave && has) {
-        try { await call('updateAgent', { id: agent.id, config: { skills: existing.filter(s => s !== skillName) } }); } catch (e) { console.error(e); }
+      if (agentNames.includes(agent.name)) {
+        const existing = (agent.skills||[]).map(s => typeof s === 'string' ? s : s.name);
+        if (!existing.includes(skillName)) {
+          try { await call('updateAgent', { id: agent.id, config: { skills: [...existing, skillName] } }); } catch (e) { console.error(e); }
+        }
       }
     }
     await refreshAgents();
@@ -317,14 +315,13 @@ export function AgentsPanel(props) {
 
   const doAddAgentsToTool = async (toolName, agentNames) => {
     if (!call) return;
+    // ONLY ADD — never remove. Removal is done via the X button on each agent.
     for (const agent of agents) {
-      const existing = (agent.tools||[]).map(t => typeof t === 'string' ? t : t.name);
-      const shouldHave = agentNames.includes(agent.name);
-      const has = existing.includes(toolName);
-      if (shouldHave && !has) {
-        try { await call('updateAgent', { id: agent.id, config: { tools: [...existing, toolName] } }); } catch (e) { console.error(e); }
-      } else if (!shouldHave && has) {
-        try { await call('updateAgent', { id: agent.id, config: { tools: existing.filter(t => t !== toolName) } }); } catch (e) { console.error(e); }
+      if (agentNames.includes(agent.name)) {
+        const existing = (agent.tools||[]).map(t => typeof t === 'string' ? t : t.name);
+        if (!existing.includes(toolName)) {
+          try { await call('updateAgent', { id: agent.id, config: { tools: [...existing, toolName] } }); } catch (e) { console.error(e); }
+        }
       }
     }
     await refreshAgents();
