@@ -3650,11 +3650,7 @@ var __dirname = process.cwd();
 var PORT = parseInt(process.argv[2] || "9182", 10);
 var bundledPath = (0, import_node_path.join)(__dirname, "bundle", "sidecar.cjs");
 var useBundle = (0, import_node_fs.existsSync)(bundledPath);
-var sidecar = useBundle ? (0, import_node_child_process.spawn)("node", [bundledPath], {
-  stdio: ["pipe", "pipe", "pipe"],
-  cwd: __dirname,
-  env: { ...process.env }
-}) : (0, import_node_child_process.spawn)("npx", ["tsx", "sidecar.ts"], {
+var sidecar = (0, import_node_child_process.spawn)("npx", ["tsx", "sidecar.ts"], {
   stdio: ["pipe", "pipe", "pipe"],
   cwd: __dirname,
   env: { ...process.env }

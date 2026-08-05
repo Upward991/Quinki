@@ -12,17 +12,13 @@ const PORT = parseInt(process.argv[2] || "9182", 10);
 const bundledPath = join(__dirname, "bundle", "sidecar.cjs");
 const useBundle = existsSync(bundledPath);
 
-const sidecar = useBundle
-  ? spawn("node", [bundledPath], {
-      stdio: ["pipe", "pipe", "pipe"],
-      cwd: __dirname,
-      env: { ...process.env },
-    })
-  : spawn("npx", ["tsx", "sidecar.ts"], {
-      stdio: ["pipe", "pipe", "pipe"],
-      cwd: __dirname,
-      env: { ...process.env },
-    });
+// IMPORTANT: always use tsx for the sidecar (not bundle) — bundle has stdout buffering issues
+// The ws-bridge itself can use the bundle (it just forwards data)
+const sidecar = spawn("npx", ["tsx", "sidecar.ts"], {
+  stdio: ["pipe", "pipe", "pipe"],
+  cwd: __dirname,
+  env: { ...process.env },
+});
 
 let buffer = "";
 
