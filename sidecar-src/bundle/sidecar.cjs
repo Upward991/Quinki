@@ -281568,6 +281568,13 @@ var PiBridge = class {
       this.logDebug("reset-session-error", { sessionKey: key, error: e2?.message });
     }
     this.#firstUserText.delete(key);
+    this.#errors.delete(key);
+    try {
+      const data = {};
+      for (const [k2, v2] of this.#errors) data[k2] = v2;
+      fs13.writeFileSync(ERRORS_FILE, JSON.stringify(data, null, 2), "utf8");
+    } catch {
+    }
     this.logDebug("reset-session", { sessionKey: key });
   }
   // Max mtime dei file in <cwd>/.pi/skills/ (per auto-reload skill quando l'Expert li edita).

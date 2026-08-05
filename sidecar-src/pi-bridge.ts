@@ -2353,6 +2353,13 @@ class PiBridge {
       }
     } catch (e: any) { this.logDebug("reset-session-error", { sessionKey: key, error: e?.message }); }
     this.#firstUserText.delete(key); // pulisci per auto-title dopo reset
+    // Clear errors for this session
+    this.#errors.delete(key);
+    try {
+      const data: Record<string, any> = {};
+      for (const [k, v] of this.#errors) data[k] = v;
+      fs.writeFileSync(ERRORS_FILE, JSON.stringify(data, null, 2), "utf8");
+    } catch {}
     this.logDebug("reset-session", { sessionKey: key });
   }
 
