@@ -8,6 +8,11 @@ import { completeSimple } from "@earendil-works/pi-ai";
 import { convertToLlm, createBranchSummaryMessage, createCompactionSummaryMessage, createCustomMessage, } from "../messages.js";
 import { buildSessionContext } from "../session-manager.js";
 import { computeFileLists, createFileOps, extractFileOpsFromMessage, formatFileOperations, SUMMARIZATION_SYSTEM_PROMPT, serializeConversation, } from "./utils.js";
+// BPE tokenizer (replaces chars/4 heuristic)
+let _encoder = null;
+function getEncoder() { if (!_encoder) { try { const m = require("gpt-tokenizer"); _encoder = m.encode; } catch { _encoder = null; } } return _encoder; }
+function bpeTokens(text) { const enc = getEncoder(); if (enc && typeof text === "string" && text.length > 0) return enc(text).length; return Math.ceil((text || "").length / 4); }
+
 /**
  * Extract file operations from messages and previous compaction entries.
  */
@@ -155,60 +160,60 @@ export function shouldCompact(contextTokens, contextWindow, settings) {
 // Cut point detection
 // ============================================================================
 const ESTIMATED_IMAGE_CHARS = 4800;
-function estimateTextAndImageContentChars(content) {
+function estimateTextAndImageContentTokens(content) {
     if (typeof content === "string") {
-        return content.length;
+        return bpeTokens(content);
     }
-    let chars = 0;
+    let tokens = 0;
     for (const block of content) {
         if (block.type === "text" && block.text) {
-            chars += block.text.length;
+            tokens += bpeTokens(block.text);
         }
         else if (block.type === "image") {
-            chars += ESTIMATED_IMAGE_CHARS;
+            tokens += Math.ceil(ESTIMATED_IMAGE_CHARS / 4);
         }
     }
-    return chars;
+    return tokens;
 }
 /**
  * Estimate token count for a message using chars/4 heuristic.
  * This is conservative (overestimates tokens).
  */
 export function estimateTokens(message) {
-    let chars = 0;
+    let tokens = 0;
     switch (message.role) {
         case "user": {
-            chars = estimateTextAndImageContentChars(message.content);
-            return Math.ceil(chars / 4);
+            tokens = estimateTextAndImageContentTokens(message.content);
+            return tokens;
         }
         case "assistant": {
             const assistant = message;
             for (const block of assistant.content) {
                 if (block.type === "text") {
-                    chars += block.text.length;
+                    tokens += bpeTokens(block.text);
                 }
                 else if (block.type === "thinking") {
-                    chars += block.thinking.length;
+                    tokens += bpeTokens(block.thinking);
                 }
                 else if (block.type === "toolCall") {
-                    chars += block.name.length + JSON.stringify(block.arguments).length;
+                    tokens += bpeTokens(block.name) + bpeTokens(JSON.stringify(block.arguments));
                 }
             }
-            return Math.ceil(chars / 4);
+            return tokens;
         }
         case "custom":
         case "toolResult": {
-            chars = estimateTextAndImageContentChars(message.content);
-            return Math.ceil(chars / 4);
+            tokens = estimateTextAndImageContentTokens(message.content);
+            return tokens;
         }
         case "bashExecution": {
-            chars = message.command.length + message.output.length;
-            return Math.ceil(chars / 4);
+            tokens = bpeTokens(message.command) + bpeTokens(message.output);
+            return tokens;
         }
         case "branchSummary":
         case "compactionSummary": {
-            chars = message.summary.length;
-            return Math.ceil(chars / 4);
+            tokens = bpeTokens(message.summary);
+            return tokens;
         }
     }
     return 0;
