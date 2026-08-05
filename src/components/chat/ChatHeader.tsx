@@ -12,6 +12,7 @@ interface ChatHeaderProps {
   onSelectPanel: (panel: string) => void
   sidebarOpen: boolean
   onToggleSidebar: () => void
+  hideSidebarToggle?: boolean
   agentDropdownOpen: boolean
   onToggleAgentDropdown: () => void
   agents: Agent[]
@@ -113,7 +114,7 @@ export function ChatHeader(props: ChatHeaderProps) {
         {!isExpert && (
           <>
             <div style={panelStyle}>
-              <IconBtn icon={PanelLeft} onClick={props.onToggleSidebar} title={props.sidebarOpen ? 'Hide sidebar' : 'Show sidebar'} />
+              {!props.hideSidebarToggle && <IconBtn icon={PanelLeft} onClick={props.onToggleSidebar} title={props.sidebarOpen ? 'Hide sidebar' : 'Show sidebar'} />}
             </div>
             <div style={{ width: '8px', flexShrink: 0 }} />
           </>

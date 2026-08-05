@@ -455,7 +455,7 @@ export function Sidebar(props: SidebarProps) {
           onClose={() => setContextMenu(null)}
           onRename={() => { setRenaming(contextMenu.item.id); setRenameVal(contextMenu.item.title || ''); setContextMenu(null) }}
           onSelect={() => { setMultiSelect(true); setSelected(new Set([contextMenu.item.id])); setContextMenu(null) }}
-          onOpenWindow={() => { if (contextMenu.item.type !== 'folder') { try { invoke('open_chat_in_window', { sessionKey: contextMenu.item.id }).catch(() => {}) } catch {} } setContextMenu(null) }}
+          onOpenWindow={() => { if (contextMenu.item.type !== 'folder') { const chatId = contextMenu.item.id; try { invoke('open_chat_in_window', { sessionKey: chatId }).catch(() => {}); if (chatId === props.activeSessionId) { props.onNewSession(); } } catch {} } setContextMenu(null) }}
           onDelete={() => { setDelConfirm(contextMenu.item); setContextMenu(null) }}
           onNewSubfolder={() => { props.onCreateFolder?.(contextMenu.item.id); setContextMenu(null) }}
           onDeleteFolder={(withContents: boolean) => { props.onDeleteFolder?.(contextMenu.item.id, withContents); setContextMenu(null) }}
