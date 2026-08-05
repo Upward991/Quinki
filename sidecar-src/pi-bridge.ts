@@ -2265,13 +2265,15 @@ class PiBridge {
     this.logDebug("set-working-dir", { sessionKey: key, newPath: newPath || "(default)" });
   }
 
-  setMessageSkills(key: string, messageId: string, skills: any[]) {
+  setMessageSkills(key: string, messageId: string, skills: any[], messageText?: string) {
     const s = this.#entries.get(key);
     if (s && skills && skills.length > 0) {
       if (!(s as any).messageSkills) (s as any).messageSkills = {};
-      (s as any).messageSkills[messageId] = skills;
+      // Use message text (first 200 chars) as key — message IDs from Pi SDK don't match our mid
+      const textKey = (messageText || messageId || '').substring(0, 200);
+      (s as any).messageSkills[textKey] = skills;
       this.#save();
-      this.logDebug("set-message-skills", { sessionKey: key, messageId, skillCount: skills.length });
+      this.logDebug("set-message-skills", { sessionKey: key, textKey, skillCount: skills.length });
     }
   }
 

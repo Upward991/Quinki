@@ -357,7 +357,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     piBridge!.addUserMsg(sk, p.text, mid);
     process.stderr.write('[SKILL-DEBUG] sendMessage received: skillNames=' + JSON.stringify(p.skillNames) + '\n');
     if (p.skillNames && p.skillNames.length > 0) {
-      piBridge!.setMessageSkills(sk, mid, p.skillNames);
+      piBridge!.setMessageSkills(sk, mid, p.skillNames, p.text);
     }
     const fakeWs = new FakeWebSocket();
     await piBridge!.send(fakeWs, { sessionKey: sk, text: p.text, files: p.files, workingDirs: p.workingDirs, skillNames: p.skillNames });
