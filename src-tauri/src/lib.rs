@@ -284,8 +284,13 @@ pub fn run() {
         if window.label() == "main" && !SHOULD_EXIT.load(Ordering::SeqCst) {
           let _ = window.hide();
           api.prevent_close();
+        } else if window.label() != "main" {
+          // Sub-window: hide FIRST, then save state (saves visible: false)
+          let _ = window.hide();
+          use tauri_plugin_window_state::AppHandleExt;
+          let _ = window.app_handle().save_window_state(tauri_plugin_window_state::StateFlags::all());
+          // Let the window close normally (no prevent_close)
         }
-        // Sub-windows: close normally — window-state plugin saves correct state
       }
     })
     .build(tauri::generate_context!())
