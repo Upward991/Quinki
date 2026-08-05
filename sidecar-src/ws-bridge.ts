@@ -7,8 +7,6 @@ import { WebSocketServer, WebSocket } from "ws";
 const __dirname = process.cwd();
 const PORT = parseInt(process.argv[2] || "9182", 10);
 
-// Use bundled sidecar.js (esbuild) — 20x faster than npx tsx
-// Fallback to tsx if bundle doesn't exist (dev mode)
 const bundledPath = join(__dirname, "bundle", "sidecar.cjs");
 const useBundle = existsSync(bundledPath);
 
@@ -25,14 +23,14 @@ const sidecar = useBundle
     });
 
 let buffer = "";
-
 const server = createServer();
 const wss = new WebSocketServer({ server });
 
-// Track which client sent which request ID — route responses correctly
-const requestIdToClient = new Map<number, WebSocket>();
-
-let activeClient: WebSocket | null = null;
+// Each client gets a unique prefix. Request IDs are rewritten:
+// client sends {id: 1} → sidecar gets {id: "ws1_1"} → response {id: "ws1_1"} → client gets {id: 1}
+let clientCounter = 0;
+const clientMap = new Map<WebSocket, string>(); // ws → prefix
+const idToClient = new Map<string, WebSocket>(); // "ws1_1" → ws
 
 sidecar.stdout.on("data", (chunk: Buffer) => {
   buffer += chunk.toString();
@@ -44,25 +42,24 @@ sidecar.stdout.on("data", (chunk: Buffer) => {
         const msg = JSON.parse(line);
         if (msg.id !== undefined) {
           // Response — route to the client that sent the request
-          const client = requestIdToClient.get(msg.id);
+          const idStr = String(msg.id);
+          const client = idToClient.get(idStr);
           if (client && client.readyState === client.OPEN) {
-            client.send(line);
+            // Restore original ID (strip prefix)
+            const originalId = idStr.includes("_") ? idStr.split("_").slice(1).join("_") : idStr;
+            const rewritten = line.replace(`"id":${JSON.stringify(msg.id)}`, `"id":${originalId}`);
+            client.send(rewritten);
           }
-          requestIdToClient.delete(msg.id);
+          idToClient.delete(idStr);
         } else {
-          // Notification (no id) — broadcast to all clients
+          // Notification — broadcast to all
           for (const ws of wss.clients) {
-            if (ws.readyState === ws.OPEN) {
-              ws.send(line);
-            }
+            if (ws.readyState === ws.OPEN) ws.send(line);
           }
         }
       } catch {
-        // Not valid JSON — broadcast to all
         for (const ws of wss.clients) {
-          if (ws.readyState === ws.OPEN) {
-            ws.send(line);
-          }
+          if (ws.readyState === ws.OPEN) ws.send(line);
         }
       }
     }
@@ -76,26 +73,35 @@ sidecar.on("exit", (code) => {
 });
 
 wss.on("connection", (ws) => {
-  console.log("[ws-bridge] Client connected");
-  activeClient = ws;
+  clientCounter++;
+  const prefix = `ws${clientCounter}`;
+  clientMap.set(ws, prefix);
+  console.log(`[ws-bridge] Client ${prefix} connected`);
+
   ws.on("message", (data) => {
-    if (sidecar.stdin.writable) {
-      try {
-        const msg = JSON.parse(data.toString());
-        // Track which client sent this request ID
-        if (msg.id !== undefined) {
-          requestIdToClient.set(msg.id, ws);
-        }
-      } catch {}
-      sidecar.stdin.write(data.toString() + "\n");
-    }
+    if (!sidecar.stdin.writable) return;
+    try {
+      const msg = JSON.parse(data.toString());
+      if (msg.id !== undefined) {
+        const prefix = clientMap.get(ws);
+        const newId = `${prefix}_${msg.id}`;
+        idToClient.set(newId, ws);
+        // Rewrite the ID in the message before sending to sidecar
+        msg.id = newId;
+        sidecar.stdin.write(JSON.stringify(msg) + "\n");
+        return;
+      }
+    } catch {}
+    sidecar.stdin.write(data.toString() + "\n");
   });
+
   ws.on("close", () => {
-    if (activeClient === ws) activeClient = null;
-    // Clean up request mappings for this client
-    for (const [id, client] of requestIdToClient) {
-      if (client === ws) requestIdToClient.delete(id);
+    const prefix = clientMap.get(ws);
+    clientMap.delete(ws);
+    for (const [id, client] of idToClient) {
+      if (client === ws) idToClient.delete(id);
     }
+    console.log(`[ws-bridge] Client ${prefix} disconnected`);
   });
 });
 
