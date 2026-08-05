@@ -1,13 +1,14 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "enables the default permissions",
+  "description": "enables the default permissions for all windows",
   "windows": [
-    "main",
-    "win-*"
+    "*"
   ],
   "permissions": [
     "core:default",
+    "core:window:default",
+    "core:webview:default",
     "core:webview:allow-create-webview-window",
     "core:webview:allow-set-webview-focus",
     "core:webview:allow-set-webview-size",
@@ -15,6 +16,7 @@
     "core:window:allow-create",
     "core:window:allow-close",
     "core:window:allow-show",
+    "core:window:allow-hide",
     "core:window:allow-set-focus",
     "core:window:allow-set-size",
     "core:window:allow-start-dragging",
@@ -22,6 +24,8 @@
     "core:window:allow-unmaximize",
     "core:window:allow-is-maximized",
     "core:window:allow-set-title",
+    "core:window:allow-set-title-bar-style",
+    "core:window:allow-set-decorations",
     "shell:allow-execute",
     "shell:allow-spawn",
     "shell:allow-stdin-write",
