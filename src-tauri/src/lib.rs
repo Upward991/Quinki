@@ -265,9 +265,7 @@ pub fn run() {
       Ok(())
     })
     .on_window_event(|window, event| {
-      // Close-to-tray for ALL windows: hide instead of destroy
-      // This preserves the window styling (semafori + rounded corners)
-      // Sub-windows can be reopened by clicking the tab again
+      // Hide ALL windows on close (preserve state + styling for window-state plugin)
       if let WindowEvent::CloseRequested { api, .. } = event {
         if !SHOULD_EXIT.load(Ordering::SeqCst) {
           let _ = window.hide();
