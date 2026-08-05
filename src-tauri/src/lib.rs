@@ -102,23 +102,27 @@ fn open_in_new_window(app: tauri::AppHandle, tab: String, session: Option<String
         return Ok(label);
     }
     
-    // Window was closed/destroyed — recreate from config (same styling as main window)
-    let config = app.config();
-    let win_config = config.app.windows.iter().find(|w| {
-        w.label == label
-    });
+    // Window doesn't exist — create with same macOS styling as main window
+    use tauri::WebviewWindowBuilder;
     
-    if let Some(wc) = win_config {
-        let builder = tauri::WebviewWindowBuilder::from_config(&app, wc)
-            .map_err(|e| e.to_string())?;
-        let window = builder.build()
-            .map_err(|e| e.to_string())?;
-        let _ = window.show();
-        let _ = window.set_focus();
-        return Ok(label);
+    let mut url = "index.html?tab=".to_string() + &tab;
+    if let Some(s) = &session {
+        url.push_str(&format!("&session={}", s));
     }
     
-    Err(format!("No window config for tab: {}", tab))
+    let window = WebviewWindowBuilder::new(&app, &label, tauri::WebviewUrl::App(url.into()))
+        .title("")
+        .inner_size(1000.0, 700.0)
+        .min_inner_size(600.0, 400.0)
+        .decorations(true)
+        .hidden_title(true)
+        .title_bar_style(tauri::TitleBarStyle::Overlay)
+        .build()
+        .map_err(|e| e.to_string())?;
+    
+    let _ = window.show();
+    let _ = window.set_focus();
+    Ok(label)
 }
 
 #[tauri::command]
@@ -281,9 +285,12 @@ pub fn run() {
       Ok(())
     })
     .on_window_event(|window, event| {
-      // Close-to-tray: hide window instead of closing (unless SHOULD_EXIT is set)
+      // Close-to-tray: ONLY for main window — hide instead of closing
+      // Sub-windows close normally
       if let WindowEvent::CloseRequested { api, .. } = event {
-        if !SHOULD_EXIT.load(Ordering::SeqCst) {
+        let label = window.app_handle().get_webview_window("main");
+        let is_main = window.label() == "main";
+        if is_main && !SHOULD_EXIT.load(Ordering::SeqCst) {
           #[cfg(target_os = "macos")]
           {
             if let Some(win) = window.app_handle().get_webview_window("main") {
@@ -292,6 +299,7 @@ pub fn run() {
           }
           api.prevent_close();
         }
+        // Sub-windows: let them close normally (no prevent_close)
       }
     })
     .build(tauri::generate_context!())
