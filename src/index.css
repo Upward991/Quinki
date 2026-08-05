@@ -376,8 +376,6 @@ mark.search-highlight-mark {
 }
 
 /* === Fix: hover stuck when switching windows === */
-body:not(:focus-within) *:hover {
-  background-color: transparent !important;
-  box-shadow: none !important;
-  transform: none !important;
+body.win-inactive * {
+  pointer-events: none !important;
 }
