@@ -111,7 +111,6 @@ function HomeCard({card, idx, onSelectPanel, onContext}: any) {
     ),
     React.createElement('div', {style:{height:'10px'}}),
     React.createElement('span', {style:{color:'var(--q-text)', fontSize:'14px', fontWeight:500, fontFamily:'var(--font-interface)'}}, card.label),
-    React.createElement('div', {style:{height:'4px'}}),
-    React.createElement('span', {style:{color:'var(--q-text-tertiary)', fontSize:'11px', fontFamily:'var(--font-code)'}}, card.id === 'expert' ? 'always new window' : card.id === 'chat' ? 'main window' : 'right-click → new window')
+
   )
 }
