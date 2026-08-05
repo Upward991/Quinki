@@ -181,16 +181,25 @@ export function ChatHeader(props: ChatHeaderProps) {
         <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setConfirmDelete(null)}>
           <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '400px', width: '90%' }} onClick={e => e.stopPropagation()}>
             <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', marginBottom: '20px' }}>{confirmDelete === 'selected' ? `Remove ${selectedForRemoval.size} selected agents?` : 'Remove agent from chat?'}</div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
-              <ExportBtn label="Cancel" color="var(--q-text-secondary)" hoverRgb="255,255,255" onClick={() => setConfirmDelete(null)} />
-              <div style={{ width: '8px' }} />
-              <button onClick={() => {
-                if (confirmDelete === 'selected') { selectedForRemoval.forEach(id => props.onAgentToggle(id)); setSelectedForRemoval(new Set()); setMultiSelect(false) }
-                
-                else { props.onAgentToggle(confirmDelete) }
-                setConfirmDelete(null)
-              }}
-                style={{ padding: '8px 16px', borderRadius: 'var(--radius-lg)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-secondary)', color: 'var(--q-bg)', fontSize: '15px', fontWeight: 500, fontFamily: 'var(--font-interface)' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px' }}>
+              <button
+                onClick={() => setConfirmDelete(null)}
+                onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }}
+                onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
+                style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', fontWeight: 400, cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (confirmDelete === 'selected') { selectedForRemoval.forEach(id => props.onAgentToggle(id)); setSelectedForRemoval(new Set()); setMultiSelect(false) }
+                  else { props.onAgentToggle(confirmDelete) }
+                  setConfirmDelete(null)
+                }}
+                onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }}
+                onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }}
+                style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '13px', fontFamily: 'var(--font-interface)', fontWeight: 600, cursor: 'pointer' }}
+              >
                 Remove
               </button>
             </div>
