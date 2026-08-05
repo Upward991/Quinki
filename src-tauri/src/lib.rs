@@ -95,28 +95,56 @@ fn is_autostart_enabled(app: tauri::AppHandle) -> Result<bool, String> {
 fn open_in_new_window(app: tauri::AppHandle, tab: String, session: Option<String>) -> Result<String, String> {
     let label = format!("win-{}", tab);
     
-    // Show existing window if it exists (was hidden, not destroyed)
+    // Show existing window if it exists
     if let Some(window) = app.get_webview_window(&label) {
         let _ = window.show();
         let _ = window.set_focus();
         return Ok(label);
     }
     
-    // Window doesn't exist — create with same macOS styling as main window
-    use tauri::WebviewWindowBuilder;
+    // Create WindowConfig programmatically — same settings as main window
+    use tauri::utils::config::{WindowConfig, WebviewUrl};
+    use tauri::utils::TitleBarStyle;
     
     let mut url = "index.html?tab=".to_string() + &tab;
     if let Some(s) = &session {
         url.push_str(&format!("&session={}", s));
     }
     
-    let window = WebviewWindowBuilder::new(&app, &label, tauri::WebviewUrl::App(url.into()))
-        .title("")
-        .inner_size(1000.0, 700.0)
-        .min_inner_size(600.0, 400.0)
-        .decorations(true)
-        .hidden_title(true)
-        .title_bar_style(tauri::TitleBarStyle::Overlay)
+    let config = WindowConfig {
+        label: label.clone(),
+        create: true,
+        url: WebviewUrl::App(url.into()),
+        user_agent: None,
+        drag_drop_enabled: true,
+        center: false,
+        x: None,
+        y: None,
+        width: 1000.0,
+        height: 700.0,
+        min_width: Some(600.0),
+        min_height: Some(400.0),
+        max_width: None,
+        max_height: None,
+        prevent_overflow: None,
+        resizable: true,
+        maximizable: true,
+        minimizable: true,
+        closable: true,
+        title: String::new(),
+        fullscreen: false,
+        focus: true,
+        transparent: false,
+        decorations: true,
+        visible_on_all_workspaces: false,
+        title_bar_style: TitleBarStyle::Overlay,
+        hidden_title: true,
+        maximized: false,
+        ..Default::default()
+    };
+    
+    let window = tauri::WebviewWindowBuilder::from_config(&app, &config)
+        .map_err(|e| e.to_string())?
         .build()
         .map_err(|e| e.to_string())?;
     
