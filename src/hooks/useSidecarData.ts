@@ -490,8 +490,6 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
 
     // Agent status — TUTTI gli stati tracciati (parity Flutter _statusLabel)
     const unsubAgentStatus = subscribe('agent_status', (p: any) => {
-      // Only process if this event is for the active session in THIS window
-      if (p?.sessionKey && p.sessionKey !== activeSessionIdRef.current) return
       if (p?.sessionKey) setAgentStatus(p)
       // idle NON cancella: fra i turni tool il SDK emette idle a metà stream.
       // La pill si cancella solo con done / streaming_stopped / error.

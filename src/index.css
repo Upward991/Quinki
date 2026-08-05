@@ -376,6 +376,6 @@ mark.search-highlight-mark {
 }
 
 /* === Fix: hover stuck when switching windows === */
-body.win-inactive * {
+body.win-inactive *:not(.sidebar-item):not(.sortable-row) {
   pointer-events: none !important;
 }
