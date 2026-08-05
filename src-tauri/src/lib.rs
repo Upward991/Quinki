@@ -95,14 +95,28 @@ fn is_autostart_enabled(app: tauri::AppHandle) -> Result<bool, String> {
 fn open_in_new_window(app: tauri::AppHandle, tab: String, _session: Option<String>) -> Result<String, String> {
     let label = format!("win-{}", tab);
     
-    // Show existing hidden window (created at startup from config with proper styling)
+    // Show existing window if it exists (was hidden, not destroyed)
     if let Some(window) = app.get_webview_window(&label) {
         let _ = window.show();
         let _ = window.set_focus();
         return Ok(label);
     }
     
-    Err(format!("Window not found: {}", label))
+    // Window was closed/destroyed — recreate from config (same styling)
+    let config = app.config();
+    let win_config = config.app.windows.iter().find(|w| w.label == label);
+    
+    if let Some(wc) = win_config {
+        let builder = tauri::WebviewWindowBuilder::from_config(&app, wc)
+            .map_err(|e| e.to_string())?;
+        let window = builder.build()
+            .map_err(|e| e.to_string())?;
+        let _ = window.show();
+        let _ = window.set_focus();
+        return Ok(label);
+    }
+    
+    Err(format!("No window config for: {}", label))
 }
 
 #[tauri::command]
@@ -265,12 +279,13 @@ pub fn run() {
       Ok(())
     })
     .on_window_event(|window, event| {
-      // Hide ALL windows on close (preserve state + styling for window-state plugin)
+      // Close-to-tray: ONLY main window hides. Sub-windows close normally.
       if let WindowEvent::CloseRequested { api, .. } = event {
-        if !SHOULD_EXIT.load(Ordering::SeqCst) {
+        if window.label() == "main" && !SHOULD_EXIT.load(Ordering::SeqCst) {
           let _ = window.hide();
           api.prevent_close();
         }
+        // Sub-windows: close normally — window-state plugin saves correct state
       }
     })
     .build(tauri::generate_context!())
