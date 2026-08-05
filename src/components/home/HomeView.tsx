@@ -1,6 +1,6 @@
 import React from 'react'
 import { useState, useCallback } from 'react'
-import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
+import { invoke } from '@tauri-apps/api/core'
 import { Bot, Terminal, MessageSquare, Settings, Brain } from '../icons'
 
 const tabs = [
@@ -55,19 +55,7 @@ export function HomeView({onSelectPanel}: {onSelectPanel: (panel: string) => voi
           label: 'Open in new window',
           icon: '↗',
           onClick: () => {
-            try {
-            const label = 'win-' + ctxMenu.card.id
-            WebviewWindow.getByLabel(label).then((existing: any) => {
-              if (existing) { existing.show(); existing.setFocus() }
-              else {
-                new WebviewWindow(label, {
-                  url: 'index.html?tab=' + ctxMenu.card.id,
-                  title: '', width: 1000, height: 700, minWidth: 600, minHeight: 400,
-                  decorations: true, hiddenTitle: true, titleBarStyle: 'Overlay',
-                })
-              }
-            }).catch(() => {})
-          } catch {}
+            invoke('open_in_new_window', {tab: ctxMenu.card.id}).catch(() => {})
             setCtxMenu(null)
           }
         })
