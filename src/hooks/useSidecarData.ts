@@ -389,6 +389,9 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
     })
     // Done event (sent as separate notification, not stream_event)
     const unsubDone = subscribe('done', (p: any) => {
+      const sk = p?.sessionKey || activeSessionIdRef.current || ''
+      const cur = sessionStreamingMap.current.get(sk) || { isStreaming: true, statusLabel: '', statusKind: '' }
+      setStreamingState(sk, { isStreaming: cur.isStreaming, statusLabel: '', statusKind: '' })
       if (p?.sessionKey && p.sessionKey !== activeSessionIdRef.current) return
       const { text, model, agentName, thinkingLevel, stopReason, errorMessage } = p || {}
       // stopReason "toolUse" = turno intermedio (l'assistant ha chiamato un tool, la risposta continua).
