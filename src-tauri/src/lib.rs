@@ -123,10 +123,13 @@ fn open_in_new_window(app: tauri::AppHandle, tab: String, session: Option<String
         .inner_size(1000.0, 700.0)
         .min_inner_size(600.0, 400.0)
         .decorations(true)
+        .hidden_title(true)
+        .title_bar_style(tauri::TitleBarStyle::Overlay)
         .build()
         .map_err(|e| e.to_string())?;
     
-    let _ = window;
+    let _ = window.show();
+    let _ = window.set_focus();
     Ok(label)
 }
 
