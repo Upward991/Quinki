@@ -281412,7 +281412,10 @@ var PiBridge = class {
   // Non chiama #applyMode. Solo persistenza per sopravvivere al riavvio.
   setChatAgents(key, agentIds) {
     const s2 = this.#entries.get(key);
-    this.logDebug("set-chat-agents", { sessionKey: key, agentIds, hasEntry: !!this.#entries.get(key), savedAgentId: this.#entries.get(key)?.agentId });
+    if (!s2) return;
+    s2.agentId = agentIds || "";
+    this.#save();
+    this.logDebug("set-chat-agents", { sessionKey: key, agentIds, saved: true });
   }
   // === Per-chat agent overrides (model + thinking per agent, scoped to this session) ===
   setAgentOverride(key, agentId, model, thinkingLevel) {

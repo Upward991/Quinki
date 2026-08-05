@@ -245,10 +245,28 @@ pub fn run() {
               }
             }
             "expert" => {
-              if let Some(window) = app.get_webview_window("main") {
+              // Open Expert in its own window (same as clicking the tab)
+              let _ = std::process::Command::new("sh")
+                .arg("-c")
+                .arg(format!("echo '{{\"jsonrpc\":\"2.0\",\"method\":\"open_in_new_window\",\"params\":{{\"tab\":\"expert\"}},\"id\":1}}' | nc 127.0.0.1 9182"))
+                .spawn();
+              // Also try via Tauri command
+              let label = "win-expert".to_string();
+              if let Some(window) = app.get_webview_window(&label) {
                 let _ = window.show();
                 let _ = window.set_focus();
-                let _ = window.emit("tray-open-expert", ());
+              } else {
+                // Window doesn't exist — create from config
+                let config = app.config();
+                let win_config = config.app.windows.iter().find(|w| w.label == label);
+                if let Some(wc) = win_config {
+                  if let Ok(builder) = tauri::WebviewWindowBuilder::from_config(app, wc) {
+                    if let Ok(window) = builder.build() {
+                      let _ = window.show();
+                      let _ = window.set_focus();
+                    }
+                  }
+                }
               }
             }
             "restart" => {
