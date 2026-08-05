@@ -94,29 +94,41 @@ fn is_autostart_enabled(app: tauri::AppHandle) -> Result<bool, String> {
 #[tauri::command]
 fn open_in_new_window(app: tauri::AppHandle, tab: String, _session: Option<String>) -> Result<String, String> {
     let label = format!("win-{}", tab);
+    eprintln!("[open_in_new_window] tab={}, label={}", tab, label);
     
-    // Show existing window if it exists (was hidden, not destroyed)
+    // Show existing window if it exists
     if let Some(window) = app.get_webview_window(&label) {
+        eprintln!("[open_in_new_window] showing existing window");
         let _ = window.show();
         let _ = window.set_focus();
         return Ok(label);
     }
     
-    // Window was closed/destroyed — recreate from config (same styling)
+    // Create from config
     let config = app.config();
     let win_config = config.app.windows.iter().find(|w| w.label == label);
     
-    if let Some(wc) = win_config {
-        let builder = tauri::WebviewWindowBuilder::from_config(&app, wc)
-            .map_err(|e| e.to_string())?;
-        let window = builder.build()
-            .map_err(|e| e.to_string())?;
-        let _ = window.show();
-        let _ = window.set_focus();
-        return Ok(label);
+    match win_config {
+        Some(wc) => {
+            eprintln!("[open_in_new_window] found config, creating from_config");
+            let builder = tauri::WebviewWindowBuilder::from_config(&app, wc)
+                .map_err(|e| { eprintln!("[open_in_new_window] from_config error: {}", e); e.to_string() })?;
+            let window = builder.build()
+                .map_err(|e| { eprintln!("[open_in_new_window] build error: {}", e); e.to_string() })?;
+            eprintln!("[open_in_new_window] window built, showing");
+            let _ = window.show();
+            let _ = window.set_focus();
+            Ok(label)
+        }
+        None => {
+            eprintln!("[open_in_new_window] no config found for label={}", label);
+            // Log all available window labels
+            for w in &config.app.windows {
+                eprintln!("[open_in_new_window] available: label={}", w.label);
+            }
+            Err(format!("No window config for: {}", label))
+        }
     }
-    
-    Err(format!("No window config for: {}", label))
 }
 #[tauri::command]
 fn open_chat_in_window(app: tauri::AppHandle, session_key: String) -> Result<String, String> {
