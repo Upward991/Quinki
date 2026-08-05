@@ -4,6 +4,7 @@ use tauri::{
     tray::TrayIconBuilder,
     Manager, WindowEvent, Emitter,
 };
+use tauri_plugin_autostart::ManagerExt as AutostartManagerExt;
 
 static SHOULD_EXIT: AtomicBool = AtomicBool::new(false);
 
@@ -67,6 +68,29 @@ fn restart_app(app: tauri::AppHandle) {
     app.exit(0);
 }
 
+#[tauri::command]
+fn enable_autostart(app: tauri::AppHandle) -> Result<(), String> {
+    let manager = app.autolaunch();
+    manager.enable()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn disable_autostart(app: tauri::AppHandle) -> Result<(), String> {
+    let manager = app.autolaunch();
+    manager.disable()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn is_autostart_enabled(app: tauri::AppHandle) -> Result<bool, String> {
+    let manager = app.autolaunch();
+    manager.is_enabled()
+        .map_err(|e| e.to_string())
+}
+
 pub fn run() {
     let app = tauri::Builder::default()
     .invoke_handler(tauri::generate_handler![
@@ -76,10 +100,14 @@ pub fn run() {
         export_chat_file,
         pick_directory,
         restart_app,
+        enable_autostart,
+        disable_autostart,
+        is_autostart_enabled,
     ])
     .plugin(tauri_plugin_shell::init())
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_fs::init())
+    .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
     .plugin(tauri_plugin_window_state::Builder::default().build())
     .plugin(tauri_plugin_log::Builder::default()
       .level(log::LevelFilter::Info)
