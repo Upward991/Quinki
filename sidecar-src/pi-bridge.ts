@@ -3198,6 +3198,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
                         base = base + '\n\n=== USER ACTIVATED SKILL: ' + ps.skillName + ' ===\n\n' + skillBody + '\n\n=== END USER ACTIVATED SKILL ===\n\nCRITICAL: The skill instructions above were explicitly activated by the user via /skill command. They are ALREADY in your system prompt — do NOT use the skill tool to verify them. Follow them directly.';
                         self.logDebug("delegate-skill-injected", { sessionKey, agentId: targetId, skillName: ps.skillName, skillLen: skillBody.length });
                       }
+                    } catch (e: any) { self.logDebug("delegate-skill-inject-error", { sessionKey, skillName: ps.skillName, error: e?.message }); }
                   }
                 }
                 (tempPi as any)._baseSystemPrompt = base;
@@ -3919,6 +3920,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     });
     this.#prompts.set(sk, next);
     await next;
+  }
   }
 
   // === D: Build user message con supporto completo file ===
