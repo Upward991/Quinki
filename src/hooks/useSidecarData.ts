@@ -671,7 +671,10 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
         const msgSkills = history.messageSkills || {};
         const mergedWithSkills = merged.map(m => {
           if (m.role === 'user') {
-            const textKey = (m.content || '').substring(0, 200);
+            // content might be a string or an array of content blocks
+            const text = typeof m.content === 'string' ? m.content :
+              (Array.isArray(m.content) ? m.content.map((b: any) => b?.text || '').join('') : '');
+            const textKey = text.substring(0, 200);
             if (msgSkills[textKey]) {
               return { ...m, skillNames: msgSkills[textKey] };
             }
