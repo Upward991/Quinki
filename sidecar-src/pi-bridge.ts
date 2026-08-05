@@ -3910,17 +3910,13 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       } else {
         this.#pendingDelegationSkills.delete(sk);
       }
-    // Log system prompt BEFORE sendUserMessage
-    try {
-      const bspBefore = (pi as any)._baseSystemPrompt || "";
-      const spBefore = pi.agent?.state?.systemPrompt || "";
-                } catch {}
+    } catch (e: any) { this.logDebug("skill-rebuild-error", { sessionKey: sk, error: e?.message }); }
+
     const next = prev.then(() => pi.sendUserMessage(content, { deliverAs: "followUp" })).catch((err: Error) => {
       ws.send(JSON.stringify({ type: "error", message: err.message, sessionKey: sk }));
     });
     this.#prompts.set(sk, next);
     await next;
-  }
   }
 
   // === D: Build user message con supporto completo file ===
