@@ -176,6 +176,36 @@ pub fn run() {
       .level(log::LevelFilter::Info)
       .build())
     .setup(|app| {
+      // === Window state fix: hide sub-windows that weren't visible ===
+      // The window-state plugin defaults to showing ALL windows (should_show = true)
+      // even when there's no saved state. We need to hide sub-windows that
+      // don't have visible: true in the saved state.
+      {
+        use std::collections::HashMap;
+        let app_dir = app.path().app_data_dir().unwrap_or_default();
+        let state_file = app_dir.join(".window-state.json");
+        let saved: HashMap<String, serde_json::Value> = if state_file.exists() {
+          std::fs::read_to_string(&state_file)
+            .ok()
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or_default()
+        } else {
+          HashMap::new()
+        };
+        
+        for window in app.webview_windows() {
+          let label = window.0.clone();
+          if label == "main" { continue; }
+          let should_show = saved.get(&label)
+            .and_then(|v| v.get("visible"))
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+          if !should_show {
+            let _ = window.1.hide();
+          }
+        }
+      }
+
       #[cfg(target_os = "macos")]
       {
         let window = app.get_webview_window("main").unwrap();
