@@ -52,26 +52,19 @@ fn pick_directory(window: tauri::WebviewWindow) -> Result<String, String> {
 }
 
 #[tauri::command]
-fn restart_app(_app: tauri::AppHandle) {
-    use std::process::Command;
-    
-    // Kill sidecar first
-    let _ = Command::new("sh").arg("-c").arg("pkill -f ws-bridge 2>/dev/null; pkill -f sidecar 2>/dev/null; lsof -ti:9182 | xargs kill -9 2>/dev/null").spawn();
-    
-    // Wait for sidecar to die
-    std::thread::sleep(std::time::Duration::from_millis(500));
-    
-    // Launch new instance via open command (macOS)
-    let _ = Command::new("open").arg("-n").arg("/Applications/Quinki.app").spawn();
-    
-    // Give the new process time to start before we exit
-    std::thread::sleep(std::time::Duration::from_millis(500));
-    
-    // Allow exit (bypass close-to-tray)
+fn restart_app(app: tauri::AppHandle) {
+    // Same logic as tray menu restart
+    let _ = std::process::Command::new("sh").arg("-c")
+      .arg("pkill -f ws-bridge 2>/dev/null; pkill -f sidecar.ts 2>/dev/null; lsof -ti:9182 | xargs kill -9 2>/dev/null")
+      .spawn();
     SHOULD_EXIT.store(true, Ordering::SeqCst);
-    
-    // Force exit
-    std::process::exit(0);
+    // Relaunch app — use nohup + detached process so it survives parent exit
+    let _ = std::process::Command::new("sh").arg("-c")
+      .arg("nohup sh -c 'sleep 1; open /Applications/Quinki.app' >/dev/null 2>&1 &")
+      .spawn();
+    // Give the detached process time to start before we exit
+    std::thread::sleep(std::time::Duration::from_millis(300));
+    app.exit(0);
 }
 
 pub fn run() {
