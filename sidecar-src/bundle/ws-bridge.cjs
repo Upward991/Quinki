@@ -3662,6 +3662,7 @@ var sidecar = useBundle ? (0, import_node_child_process.spawn)("node", [bundledP
 var buffer = "";
 var server = (0, import_node_http.createServer)();
 var wss = new import_websocket_server.default({ server });
+var requestIdToClient = /* @__PURE__ */ new Map();
 var activeClient = null;
 sidecar.stdout.on("data", (chunk) => {
   buffer += chunk.toString();
@@ -3669,11 +3670,26 @@ sidecar.stdout.on("data", (chunk) => {
   buffer = lines.pop() || "";
   for (const line of lines) {
     if (line.trim()) {
-      for (const ws of wss.clients) {
-        if (ws.readyState === ws.OPEN) {
-          ws.send(line, (err) => {
-            if (err) console.error("[ws-bridge] send error:", err.message);
-          });
+      try {
+        const msg = JSON.parse(line);
+        if (msg.id !== void 0) {
+          const client = requestIdToClient.get(msg.id);
+          if (client && client.readyState === client.OPEN) {
+            client.send(line);
+          }
+          requestIdToClient.delete(msg.id);
+        } else {
+          for (const ws of wss.clients) {
+            if (ws.readyState === ws.OPEN) {
+              ws.send(line);
+            }
+          }
+        }
+      } catch {
+        for (const ws of wss.clients) {
+          if (ws.readyState === ws.OPEN) {
+            ws.send(line);
+          }
         }
       }
     }
@@ -3690,10 +3706,22 @@ wss.on("connection", (ws) => {
   console.log("[ws-bridge] Client connected");
   activeClient = ws;
   ws.on("message", (data) => {
-    if (sidecar.stdin.writable) sidecar.stdin.write(data.toString() + "\n");
+    if (sidecar.stdin.writable) {
+      try {
+        const msg = JSON.parse(data.toString());
+        if (msg.id !== void 0) {
+          requestIdToClient.set(msg.id, ws);
+        }
+      } catch {
+      }
+      sidecar.stdin.write(data.toString() + "\n");
+    }
   });
   ws.on("close", () => {
     if (activeClient === ws) activeClient = null;
+    for (const [id, client] of requestIdToClient) {
+      if (client === ws) requestIdToClient.delete(id);
+    }
   });
 });
 server.listen(PORT, () => {

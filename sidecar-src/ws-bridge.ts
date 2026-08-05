@@ -29,6 +29,9 @@ let buffer = "";
 const server = createServer();
 const wss = new WebSocketServer({ server });
 
+// Track which client sent which request ID — route responses correctly
+const requestIdToClient = new Map<number, WebSocket>();
+
 let activeClient: WebSocket | null = null;
 
 sidecar.stdout.on("data", (chunk: Buffer) => {
@@ -37,12 +40,29 @@ sidecar.stdout.on("data", (chunk: Buffer) => {
   buffer = lines.pop() || "";
   for (const line of lines) {
     if (line.trim()) {
-      // Send to all WebSocket clients immediately
-      for (const ws of wss.clients) {
-        if (ws.readyState === ws.OPEN) {
-          ws.send(line, (err: any) => {
-            if (err) console.error("[ws-bridge] send error:", err.message);
-          });
+      try {
+        const msg = JSON.parse(line);
+        if (msg.id !== undefined) {
+          // Response — route to the client that sent the request
+          const client = requestIdToClient.get(msg.id);
+          if (client && client.readyState === client.OPEN) {
+            client.send(line);
+          }
+          requestIdToClient.delete(msg.id);
+        } else {
+          // Notification (no id) — broadcast to all clients
+          for (const ws of wss.clients) {
+            if (ws.readyState === ws.OPEN) {
+              ws.send(line);
+            }
+          }
+        }
+      } catch {
+        // Not valid JSON — broadcast to all
+        for (const ws of wss.clients) {
+          if (ws.readyState === ws.OPEN) {
+            ws.send(line);
+          }
         }
       }
     }
@@ -59,10 +79,23 @@ wss.on("connection", (ws) => {
   console.log("[ws-bridge] Client connected");
   activeClient = ws;
   ws.on("message", (data) => {
-    if (sidecar.stdin.writable) sidecar.stdin.write(data.toString() + "\n");
+    if (sidecar.stdin.writable) {
+      try {
+        const msg = JSON.parse(data.toString());
+        // Track which client sent this request ID
+        if (msg.id !== undefined) {
+          requestIdToClient.set(msg.id, ws);
+        }
+      } catch {}
+      sidecar.stdin.write(data.toString() + "\n");
+    }
   });
   ws.on("close", () => {
     if (activeClient === ws) activeClient = null;
+    // Clean up request mappings for this client
+    for (const [id, client] of requestIdToClient) {
+      if (client === ws) requestIdToClient.delete(id);
+    }
   });
 });
 
