@@ -220,10 +220,10 @@ pub fn run() {
       .level(log::LevelFilter::Info)
       .build())
     .setup(|app| {
-      // === Window state fix: hide sub-windows that weren't visible ===
-      // The window-state plugin defaults to showing ALL windows (should_show = true)
-      // even when there's no saved state. We need to hide sub-windows that
-      // don't have visible: true in the saved state.
+      // === Window state: restore sub-windows that were open ===
+      // With create:false, sub-windows are NOT created at startup.
+      // We need to create them if they were visible in the saved state.
+      // The window-state plugin will then restore their position/size.
       {
         use std::collections::HashMap;
         let app_dir = app.path().app_data_dir().unwrap_or_default();
@@ -237,15 +237,38 @@ pub fn run() {
           HashMap::new()
         };
         
-        for window in app.webview_windows() {
-          let label = window.0.clone();
-          if label == "main" { continue; }
-          let should_show = saved.get(&label)
+        // For each window in config that is NOT main and NOT already created:
+        // create it if it was visible in saved state
+        let config = app.config();
+        for wc in &config.app.windows {
+          if wc.label == "main" { continue; }
+          // Skip if window already exists (created at startup)
+          if app.get_webview_window(&wc.label).is_some() { 
+            // Window exists — hide if it shouldn't be visible
+            let should_show = saved.get(&wc.label)
+              .and_then(|v| v.get("visible"))
+              .and_then(|v| v.as_bool())
+              .unwrap_or(false);
+            if !should_show {
+              if let Some(w) = app.get_webview_window(&wc.label) {
+                let _ = w.hide();
+              }
+            }
+            continue;
+          }
+          // Window doesn't exist (create:false) — create if it was visible
+          let should_show = saved.get(&wc.label)
             .and_then(|v| v.get("visible"))
             .and_then(|v| v.as_bool())
             .unwrap_or(false);
-          if !should_show {
-            let _ = window.1.hide();
+          if should_show {
+            let handle = app.handle();
+            if let Ok(builder) = tauri::WebviewWindowBuilder::from_config(handle, wc) {
+              if let Ok(window) = builder.build() {
+                let _ = window.show();
+                let _ = window.set_focus();
+              }
+            }
           }
         }
       }

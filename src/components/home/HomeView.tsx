@@ -53,7 +53,6 @@ export function HomeView({onSelectPanel}: {onSelectPanel: (panel: string) => voi
       },
         React.createElement(CtxItem, {
           label: 'Open in new window',
-          icon: '↗',
           onClick: () => {
             invoke('open_in_new_window', {tab: ctxMenu.card.id}).catch(() => {})
             setCtxMenu(null)
@@ -64,7 +63,7 @@ export function HomeView({onSelectPanel}: {onSelectPanel: (panel: string) => voi
   )
 }
 
-function CtxItem({label, icon, onClick}: {label: string, icon?: string, onClick: () => void}) {
+function CtxItem({label, onClick}: {label: string, onClick: () => void}) {
   const [hovered, setHovered] = useState(false)
   return React.createElement('button', {
     onClick,
@@ -76,10 +75,9 @@ function CtxItem({label, icon, onClick}: {label: string, icon?: string, onClick:
       backgroundColor: hovered ? 'var(--q-hover)' : 'transparent',
       color: hovered ? 'var(--q-text)' : 'var(--q-text-secondary)',
       fontSize:'14px', fontFamily:'var(--font-interface)', textAlign:'left',
-      gap:'8px', transition:'none'
+      transition:'none'
     }
   },
-    icon && React.createElement('span', {style:{fontSize:'14px', opacity:0.7}}, icon),
     label
   )
 }
