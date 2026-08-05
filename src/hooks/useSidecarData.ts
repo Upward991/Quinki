@@ -597,7 +597,6 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
 
   // ── Session management ──
   const selectSession = useCallback(async (sessionKey: string) => {
-    if (!ready) return
     activeSessionIdRef.current = sessionKey
     setActiveSessionId(sessionKey)
     // NON svuotare messages qui: evita il flash quando si ricarica la stessa chat (es. dopo compaction)

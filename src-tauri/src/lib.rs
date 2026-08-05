@@ -153,8 +153,10 @@ fn focus_window(app: tauri::AppHandle, label: String) -> Result<(), String> {
     if let Some(window) = app.get_webview_window(&label) {
         let _ = window.show();
         let _ = window.set_focus();
+        Ok(())
+    } else {
+        Err("Window not found".to_string())
     }
-    Ok(())
 }
 
 #[tauri::command]
