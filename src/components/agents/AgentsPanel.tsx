@@ -696,7 +696,7 @@ export function TagChip({ icon, label, onRemove }) {
   return React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 8px', borderRadius: '6px', border: 'none', backgroundColor: 'rgba(255, 255, 255, 0.04)' }, children: [
     React.createElement(icon, { size: 14, style: { color: 'var(--q-tab-accent)' } }),
     React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: label }),
-    onRemove && React.createElement('button', { onClick: onRemove, style: { background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex' }, children: React.createElement(X, { size: 14, style: { color: 'var(--q-tab-accent)' } }) })
+    onRemove && React.createElement('button', { onClick: onRemove, style: { background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex' }, children: React.createElement(X, { size: 14, style: { color: 'var(--q-text-tertiary)' } }) })
   ]});
 }
 
@@ -746,7 +746,7 @@ export function AgentRow({ agent, isExpanded, isRenaming, onToggle, onStartRenam
             React.createElement('div', { key: f, onClick: () => onOpenFile(f), style: { display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 8px', borderRadius: '6px', border: 'none', backgroundColor: 'rgba(255, 255, 255, 0.04)', cursor: 'pointer' }, children: [
               React.createElement(FileText, { size: 14, style: { color: 'var(--q-tab-accent)' } }),
               React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: f }),
-              React.createElement('button', { onClick: e => { e.stopPropagation(); onRemoveTag('file', f); }, style: { background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex' }, children: React.createElement(X, { size: 14, style: { color: 'var(--q-tab-accent)' } }) })
+              React.createElement('button', { onClick: e => { e.stopPropagation(); onRemoveTag('file', f); }, style: { background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex' }, children: React.createElement(X, { size: 14, style: { color: 'var(--q-text-tertiary)' } }) })
             ]})
           )}
       ),
