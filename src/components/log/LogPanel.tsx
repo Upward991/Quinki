@@ -135,10 +135,10 @@ export function LogPanel(props: LogPanelProps) {
       info += '\n── Model ──'
       info += '\n  Used: ' + (data.model || '(default)')
       info += '\n  Chat default: ' + (data.chatModel || '(none)')
-      info += '\n  Agent override: ' + (data.agentOverrideModel || '(none)')
+      info += '\n  Agent override: ' + (data.agentOverrideModel || 'Chat default')
       info += '\n'
       info += '\n── Thinking ──'
-      const overrideThinkingLabel = data.agentOverrideThinking === 'on' ? `On (${data.thinkingLevel || 'xhigh'})` : data.agentOverrideThinking === 'off' ? 'Off' : (data.agentOverrideThinking || '(none)')
+      const overrideThinkingLabel = data.agentOverrideThinking === 'on' ? `On (${data.thinkingLevel || 'xhigh'})` : data.agentOverrideThinking === 'off' ? 'Off' : 'Chat default'
       info += '\n  Used: ' + (data.thinkingLevel || '(default)')
       info += '\n  Chat default: ' + (data.chatThinking || '(none)')
       info += '\n  Agent override: ' + overrideThinkingLabel
