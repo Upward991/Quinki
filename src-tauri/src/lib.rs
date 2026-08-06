@@ -169,6 +169,8 @@ fn list_attachments(session_key: String) -> Result<Vec<serde_json::Value>, Strin
             let path = entry.path();
             if path.is_file() {
                 let name = entry.file_name().to_string_lossy().to_string();
+                // Skip hidden files (e.g. .DS_Store)
+                if name.starts_with('.') { continue; }
                 let size = entry.metadata().map(|m| m.len()).unwrap_or(0);
                 // Extract original name by removing the uuid prefix (first 20+ chars before first '-')
                 let original_name = if let Some(idx) = name.find('-') {
