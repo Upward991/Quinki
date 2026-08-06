@@ -686,8 +686,8 @@ function AddButton({ label, onClick }) {
 
 function MiniButton({ label, onClick }) {
   return React.createElement('button', { onClick, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 8px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent' }, children: [
-    React.createElement(Plus, { size: 14, style: { color: 'var(--q-text-tertiary)' } }),
-    React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: label })
+    React.createElement(Plus, { size: 14, style: { color: 'var(--q-tab-accent)' } }),
+    React.createElement('span', { style: { color: 'var(--q-tab-accent)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: label })
   ]});
 }
 
@@ -707,8 +707,8 @@ function AgentRow({ agent, isExpanded, isRenaming, onToggle, onStartRename, onCo
 
   return React.createElement('div', { style: { marginBottom: '4px', backgroundColor: 'var(--q-bg-elevated)', border: 'none', borderRadius: '8px', overflow: 'hidden' }, children: [
     // Header row
-    React.createElement('div', { onClick: onToggle, style: { padding: '10px 12px', display: 'flex', alignItems: 'center', cursor: 'pointer', borderRadius: '8px', transition: 'none' }, onMouseEnter: e => { e.currentTarget.style.backgroundColor = 'rgba(201, 112, 132, 0.03)'; }, onMouseLeave: e => { e.currentTarget.style.backgroundColor = 'transparent'; }, children: [
-      React.createElement(Bot, { size: 16, style: { color: 'var(--q-accent-secondary)', flexShrink: 0 } }),
+    React.createElement('div', { onClick: onToggle, style: { padding: '10px 12px', display: 'flex', alignItems: 'center', cursor: 'pointer', borderRadius: '8px', transition: 'none' }, onMouseEnter: e => { e.currentTarget.style.backgroundColor = 'color-mix(in srgb, var(--q-tab-accent) 3%, transparent)'; }, onMouseLeave: e => { e.currentTarget.style.backgroundColor = 'transparent'; }, children: [
+      React.createElement(Bot, { size: 16, style: { color: 'var(--q-tab-accent)', flexShrink: 0 } }),
       React.createElement('div', { style: { width: '8px', flexShrink: 0 } }),
       isRenaming
         ? React.createElement('input', { type: 'text', defaultValue: agent.name, autoFocus: true, onBlur: e => onCommitRename(e.target.value), onKeyDown: e => { if (e.key === 'Enter') onCommitRename(e.target.value); }, onClick: e => e.stopPropagation(), style: { flex: 1, color: 'var(--q-text)', fontSize: '14px', fontWeight: 600, fontFamily: 'var(--font-interface)', backgroundColor: 'transparent', border: 'none', outline: 'none', padding: '0' } })
@@ -790,7 +790,7 @@ function AgentRow({ agent, isExpanded, isRenaming, onToggle, onStartRename, onCo
 
 function SkillRow({ icon, name, description, agentsUsing, badge, badgeColor, isExpanded, onToggle, onEdit, onDeleteSkill, onAddAgent, onRemoveAgent, onRemoveAllAgents }) {
   return React.createElement('div', { style: { marginBottom: '4px', backgroundColor: 'var(--q-bg-elevated)', border: 'none', borderRadius: '8px', overflow: 'hidden' }, children: [
-    React.createElement('div', { onClick: onToggle, style: { padding: '10px 12px', display: 'flex', alignItems: 'center', cursor: 'pointer', borderRadius: '8px', transition: 'none' }, onMouseEnter: e => { e.currentTarget.style.backgroundColor = 'rgba(201, 112, 132, 0.03)'; }, onMouseLeave: e => { e.currentTarget.style.backgroundColor = 'transparent'; }, children: [
+    React.createElement('div', { onClick: onToggle, style: { padding: '10px 12px', display: 'flex', alignItems: 'center', cursor: 'pointer', borderRadius: '8px', transition: 'none' }, onMouseEnter: e => { e.currentTarget.style.backgroundColor = 'color-mix(in srgb, var(--q-tab-accent) 3%, transparent)'; }, onMouseLeave: e => { e.currentTarget.style.backgroundColor = 'transparent'; }, children: [
       React.createElement(icon, { size: 16, style: { color: 'var(--q-text-secondary)', flexShrink: 0 } }),
       React.createElement('div', { style: { width: '8px', flexShrink: 0 } }),
       React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', flex: 1 }, children: name }),
@@ -822,7 +822,7 @@ function SkillRow({ icon, name, description, agentsUsing, badge, badgeColor, isE
             ]}),
             React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '8px' }, children: agentsUsing.map(agentName =>
               React.createElement('div', { key: agentName, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '6px', border: 'none', backgroundColor: 'rgba(255, 255, 255, 0.04)' }, children: [
-                React.createElement(Bot, { size: 16, style: { color: 'var(--q-accent-secondary)' } }),
+                React.createElement(Bot, { size: 16, style: { color: 'var(--q-tab-accent)' } }),
                 React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }, children: agentName }),
                 React.createElement('button', { onClick: () => onRemoveAgent(agentName), style: { background: 'none', border: 'none', cursor: 'pointer', padding: '0', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }, children: React.createElement(X, { size: 16, style: { color: 'var(--q-text-tertiary)' } }) })
               ]})
