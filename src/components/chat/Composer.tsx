@@ -172,8 +172,9 @@ export function Composer(props: ComposerProps) {
     setAttachMenuView('main')
   }
 
-  // Expose method for drag-drop from ChatArea
+  // Expose methods for drag-drop from ChatArea
   useEffect(() => {
+    // Path-based (from native file picker)
     (window as any).__quinkiAddAttachment = async (filePath: string) => {
       if (!props.sessionKey) return
       setCopyingFile(true)
@@ -189,6 +190,26 @@ export function Composer(props: ComposerProps) {
         }
       } catch (e: any) {
         console.error('drag-drop copy error:', e)
+      } finally {
+        setCopyingFile(false)
+      }
+    }
+    // Content-based (from HTML5 drag-drop — no file path available in WKWebView)
+    (window as any).__quinkiAddAttachmentFromContent = async (fileName: string, contentB64: string) => {
+      if (!props.sessionKey) return
+      setCopyingFile(true)
+      try {
+        const result = await invoke('save_attachment_content', { fileName, contentB64, sessionKey: props.sessionKey }) as any
+        if (result) {
+          setPendingAttachments(prev => [...prev, {
+            originalName: result.originalName,
+            path: result.path,
+            uuid: result.uuid,
+            size: result.size,
+          }])
+        }
+      } catch (e: any) {
+        console.error('drag-drop content error:', e)
       } finally {
         setCopyingFile(false)
       }

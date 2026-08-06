@@ -22,7 +22,7 @@
         "decorations": true,
         "hiddenTitle": true,
         "titleBarStyle": "Overlay",
-        "dragDropEnabled": true
+        "dragDropEnabled": false
       },
       {
         "label": "win-expert",
@@ -38,7 +38,7 @@
         "hiddenTitle": true,
         "titleBarStyle": "Overlay",
         "create": false,
-        "dragDropEnabled": true
+        "dragDropEnabled": false
       },
       {
         "label": "win-log",
@@ -54,7 +54,7 @@
         "hiddenTitle": true,
         "titleBarStyle": "Overlay",
         "create": false,
-        "dragDropEnabled": true
+        "dragDropEnabled": false
       },
       {
         "label": "win-agents",
@@ -70,7 +70,7 @@
         "hiddenTitle": true,
         "titleBarStyle": "Overlay",
         "create": false,
-        "dragDropEnabled": true
+        "dragDropEnabled": false
       },
       {
         "label": "win-settings",
@@ -86,7 +86,7 @@
         "hiddenTitle": true,
         "titleBarStyle": "Overlay",
         "create": false,
-        "dragDropEnabled": true
+        "dragDropEnabled": false
       },
       {
         "label": "win-chat",
@@ -102,7 +102,7 @@
         "hiddenTitle": true,
         "titleBarStyle": "Overlay",
         "create": false,
-        "dragDropEnabled": true
+        "dragDropEnabled": false
       }
     ],
     "security": {

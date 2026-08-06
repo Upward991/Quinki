@@ -106,6 +106,40 @@ fn copy_to_attachments(src_path: String, session_key: String) -> Result<serde_js
 }
 
 #[tauri::command]
+fn save_attachment_content(file_name: String, content_b64: String, session_key: String) -> Result<serde_json::Value, String> {
+    use std::fs;
+    use base64::Engine;
+
+    let home = std::env::var("HOME").unwrap_or_default();
+    let attachments_dir = format!("{}/.quinki/attachments/{}", home, session_key);
+    fs::create_dir_all(&attachments_dir).map_err(|e| e.to_string())?;
+
+    // Generate unique name
+    let uuid = {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default();
+        format!("{:x}{:x}", now.as_millis(), now.subsec_nanos())
+    };
+    let unique_name = format!("{}-{}", uuid, file_name);
+    let dest_path = format!("{}/{}", attachments_dir, unique_name);
+
+    // Decode base64 and write
+    let content = base64::engine::general_purpose::STANDARD.decode(&content_b64)
+        .map_err(|e| e.to_string())?;
+    fs::write(&dest_path, &content).map_err(|e| e.to_string())?;
+
+    let size = content.len();
+
+    Ok(serde_json::json!({
+        "path": dest_path,
+        "originalName": file_name,
+        "uniqueName": unique_name,
+        "uuid": uuid,
+        "size": size
+    }))
+}
+
+#[tauri::command]
 fn open_attachments_folder(session_key: String) -> Result<(), String> {
     let home = std::env::var("HOME").unwrap_or_default();
     let dir = format!("{}/.quinki/attachments/{}", home, session_key);
@@ -327,6 +361,7 @@ pub fn run() {
         pick_directory,
         pick_files,
         copy_to_attachments,
+        save_attachment_content,
         open_attachments_folder,
         list_attachments,
         restart_app,

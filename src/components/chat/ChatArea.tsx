@@ -3,8 +3,7 @@
 // ============================================================
 
 import { useRef, useEffect, useState } from 'react'
-import { getCurrentWebview } from '@tauri-apps/api/webview'
-import { listen } from '@tauri-apps/api/event'
+
 import { messageMatchesFilters } from '../../utils/dateParser'
 import { getContrastColor } from '../../utils/contrast'
 import { MessageBubble } from './MessageBubble'
@@ -63,37 +62,38 @@ export function ChatArea(props: ChatAreaProps) {
   const [dateMatchIdx, setDateMatchIdx] = useState(0)
   const [dragOver, setDragOver] = useState(false)
 
-  // === Drag-and-drop file support ===
-  useEffect(() => {
-    let unlisten1: (() => void) | undefined
-    let unlisten2: (() => void) | undefined
-    const handleDrop = (paths: string[]) => {
-      setDragOver(false)
-      for (const p of paths) {
-        if ((window as any).__quinkiAddAttachment) (window as any).__quinkiAddAttachment(p)
+  // === HTML5 Drag-and-drop file support ===
+  // dragDropEnabled: false in tauri.conf.json lets WKWebView handle HTML5 drag events
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'copy'
+    if (!dragOver) setDragOver(true)
+  }
+  const handleDragLeave = (e: React.DragEvent) => {
+    // Only hide if leaving the container (not entering a child)
+    if (e.currentTarget === e.target) setDragOver(false)
+  }
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault()
+    setDragOver(false)
+    const files = Array.from(e.dataTransfer.files || [])
+    for (const file of files) {
+      // Read file content as base64, send to Rust to save in attachments dir
+      try {
+        const arrayBuffer = await file.arrayBuffer()
+        const bytes = new Uint8Array(arrayBuffer)
+        // Convert to base64
+        let binary = ''
+        for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
+        const b64 = btoa(binary)
+        if ((window as any).__quinkiAddAttachmentFromContent) {
+          await (window as any).__quinkiAddAttachmentFromContent(file.name, b64)
+        }
+      } catch (err) {
+        console.error('[drag-drop] file read error:', err)
       }
     }
-    // Method 1: webview onDragDropEvent
-    getCurrentWebview().onDragDropEvent((event) => {
-      console.log('[drag-drop] webview event:', event.payload.type)
-      if (event.payload.type === 'over') {
-        setDragOver(true)
-      } else if (event.payload.type === 'drop') {
-        handleDrop(event.payload.paths || [])
-      } else if (event.payload.type === 'leave') {
-        setDragOver(false)
-      }
-    }).then((fn) => { unlisten1 = fn }).catch((e) => console.error('[drag-drop] webview error:', e))
-    // Method 2: Tauri event listener (fallback)
-    listen('tauri://drag-drop', (event) => {
-      console.log('[drag-drop] tauri event:', JSON.stringify(event.payload))
-      const p = event.payload as any
-      if (p.type === 'over') setDragOver(true)
-      else if (p.type === 'drop') handleDrop(p.paths || [])
-      else if (p.type === 'leave') setDragOver(false)
-    }).then((fn) => { unlisten2 = fn }).catch(() => {})
-    return () => { if (unlisten1) unlisten1(); if (unlisten2) unlisten2() }
-  }, [])
+  }
 
   // Date/time filter: just find the FIRST matching message (for yellow border + scroll)
   const hasDateFilter = !!(searchDate.trim() || searchTime.trim())
@@ -191,7 +191,7 @@ export function ChatArea(props: ChatAreaProps) {
   }, [sessionId, msgCount, isEmpty, props.streaming, searchQuery, searchDate, searchTime, props.messages])
 
   return (
-    <div className="h-full flex flex-col" style={{ maxWidth: 'var(--spacing-chat-max)', margin: '0 auto', width: '100%', position: 'relative' }}>
+    <div className="h-full flex flex-col" style={{ maxWidth: 'var(--spacing-chat-max)', margin: '0 auto', width: '100%', position: 'relative' }} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
       {/* Drag-drop overlay */}
       {dragOver && (
         <div style={{ position: 'absolute', inset: 0, zIndex: 90, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 'var(--radius-lg)', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
