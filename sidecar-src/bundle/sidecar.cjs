@@ -279573,9 +279573,9 @@ var PiBridge = class {
           if (s2.workingDir) {
             this.#cwdOverride.set(s2.key, s2.workingDir);
             existing.workingDir = s2.workingDir;
-            if (s2.messageSkills) existing.messageSkills = s2.messageSkills;
-            if (s2.messageAttachments) existing.messageAttachments = s2.messageAttachments;
           }
+          if (s2.messageSkills) existing.messageSkills = s2.messageSkills;
+          if (s2.messageAttachments) existing.messageAttachments = s2.messageAttachments;
         }
       }
       if (merged > 0) {
@@ -285728,6 +285728,7 @@ var handlers = {
     const meta3 = piBridge.getSessionMeta(sk);
     piBridge.logDebug("send-message", {
       skillNames: p.skillNames || "(none)",
+      attachments: p.attachments || "(none)",
       sessionKey: sk,
       agentId: p.agentId || meta3.agentId || "(none)",
       model: p.model || meta3.model || "(default)",
@@ -285741,7 +285742,7 @@ var handlers = {
       piBridge.setAgent(sk, String(p.agentId));
     }
     piBridge.addUserMsg(sk, p.text, mid);
-    process.stderr.write("[SKILL-DEBUG] sendMessage received: skillNames=" + JSON.stringify(p.skillNames) + "\n");
+    process.stderr.write("[SKILL-DEBUG] sendMessage received: skillNames=" + JSON.stringify(p.skillNames) + " attachments=" + JSON.stringify(p.attachments) + "\n");
     if (p.skillNames && p.skillNames.length > 0) {
       piBridge.setMessageSkills(sk, mid, p.skillNames, p.text);
     }

@@ -341,7 +341,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     const sk = String(p.sessionKey);
     const mid = p.messageId || `u-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const meta = piBridge!.getSessionMeta(sk);
-    piBridge!.logDebug("send-message", { skillNames: p.skillNames || "(none)",
+    piBridge!.logDebug("send-message", { skillNames: p.skillNames || "(none)", attachments: p.attachments || "(none)",
       sessionKey: sk,
       agentId: p.agentId || meta.agentId || "(none)",
       model: p.model || meta.model || "(default)",
@@ -356,7 +356,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
       piBridge!.setAgent(sk, String(p.agentId));
     }
     piBridge!.addUserMsg(sk, p.text, mid);
-    process.stderr.write('[SKILL-DEBUG] sendMessage received: skillNames=' + JSON.stringify(p.skillNames) + '\n');
+    process.stderr.write('[SKILL-DEBUG] sendMessage received: skillNames=' + JSON.stringify(p.skillNames) + ' attachments=' + JSON.stringify(p.attachments) + '\n');
     if (p.skillNames && p.skillNames.length > 0) {
       piBridge!.setMessageSkills(sk, mid, p.skillNames, p.text);
     }

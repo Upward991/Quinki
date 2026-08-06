@@ -372,9 +372,10 @@ class PiBridge {
           if (s.workingDir) {
             this.#cwdOverride.set(s.key, s.workingDir);
             (existing as any).workingDir = s.workingDir;
-            if (s.messageSkills) (existing as any).messageSkills = s.messageSkills;
-            if (s.messageAttachments) (existing as any).messageAttachments = s.messageAttachments;
           }
+          // Restore message skills and attachments (always, not just when workingDir exists)
+          if (s.messageSkills) (existing as any).messageSkills = s.messageSkills;
+          if (s.messageAttachments) (existing as any).messageAttachments = s.messageAttachments;
         }
       }
       if (merged > 0) {

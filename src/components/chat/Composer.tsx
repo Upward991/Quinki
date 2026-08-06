@@ -181,12 +181,10 @@ export function Composer(props: ComposerProps) {
       try {
         const result = await invoke('copy_to_attachments', { srcPath: filePath, sessionKey: props.sessionKey }) as any
         if (result) {
-          setPendingAttachments(prev => [...prev, {
-            originalName: result.originalName,
-            path: result.path,
-            uuid: result.uuid,
-            size: result.size,
-          }])
+          setPendingAttachments(prev => {
+            if (prev.some(a => a.originalName === result.originalName && a.size === result.size)) return prev
+            return [...prev, { originalName: result.originalName, path: result.path, uuid: result.uuid, size: result.size }]
+          })
         }
       } catch (e: any) {
         console.error('drag-drop copy error:', e)
@@ -201,12 +199,10 @@ export function Composer(props: ComposerProps) {
       try {
         const result = await invoke('save_attachment_content', { fileName, contentB64, sessionKey: props.sessionKey }) as any
         if (result) {
-          setPendingAttachments(prev => [...prev, {
-            originalName: result.originalName,
-            path: result.path,
-            uuid: result.uuid,
-            size: result.size,
-          }])
+          setPendingAttachments(prev => {
+            if (prev.some(a => a.originalName === result.originalName && a.size === result.size)) return prev
+            return [...prev, { originalName: result.originalName, path: result.path, uuid: result.uuid, size: result.size }]
+          })
         }
       } catch (e: any) {
         console.error('drag-drop content error:', e)
