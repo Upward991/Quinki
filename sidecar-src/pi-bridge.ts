@@ -3826,6 +3826,46 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       try { this.#applyMode(pi, sk, intendedMode, data.workingDirs, effectiveCwd); this.logDebug("mode-applied-send", { sessionKey: sk, mode: intendedMode }); }
       catch (e: any) { this.logDebug("mode-apply-error", { sessionKey: sk, error: e?.message }); }
 
+      // === Apply per-agent model/thinking override (for direct @tag — MAIN path) ===
+      // When the resolved agent is NOT the orchestrator and has an override, apply it.
+      // This covers @tag direct: the agent was set via setAgent() before send(),
+      // and the override model/thinking should take precedence over chat defaults.
+      const directAgentOverride = (s as any)?.agentOverrides?.[resolvedAgentId];
+      if (directAgentOverride && resolvedAgentId !== 'orchestrator' && !resolvedAgentId.includes('orchestrator')) {
+        this.logDebug("send-agent-override-check", { sessionKey: sk, agentId: resolvedAgentId, override: directAgentOverride });
+        // Apply model override
+        if (directAgentOverride.model) {
+          try {
+            const authPath = path.join(this.#agentDir, "auth.json");
+            const modelsPath = path.join(this.#agentDir, "models.json");
+            const authStorage = this.#sdk.AuthStorage.create(authPath);
+            const registry = this.#sdk.ModelRegistry.create(authStorage, modelsPath);
+            const overrideModel = this.#findModelInRegistry(registry, directAgentOverride.model);
+            if (overrideModel) {
+              await pi.setModel(overrideModel);
+              this.logDebug("send-agent-override-model", { sessionKey: sk, agentId: resolvedAgentId, model: directAgentOverride.model, applied: true });
+            } else {
+              this.logDebug("send-agent-override-model", { sessionKey: sk, agentId: resolvedAgentId, model: directAgentOverride.model, applied: false, reason: "not found in registry" });
+            }
+          } catch (e: any) { this.logDebug("send-agent-override-model-error", { sessionKey: sk, error: e?.message }); }
+        }
+        // Apply thinking override
+        if (directAgentOverride.thinkingLevel) {
+          const oThink = directAgentOverride.thinkingLevel;
+          let levelToApply2: string | undefined;
+          if (oThink === 'on') {
+            const sessionLevel = (() => { try { return pi.thinkingLevel; } catch { return undefined; } })();
+            levelToApply2 = (sessionLevel && sessionLevel !== 'off') ? sessionLevel : 'xhigh';
+          } else if (oThink === 'off') {
+            levelToApply2 = 'off';
+          }
+          if (levelToApply2) {
+            try { pi.setThinkingLevel(levelToApply2); this.logDebug("send-agent-override-thinking", { sessionKey: sk, agentId: resolvedAgentId, requested: oThink, applied: levelToApply2 }); }
+            catch (e: any) { this.logDebug("send-agent-override-thinking-error", { sessionKey: sk, error: e?.message }); }
+          }
+        }
+      }
+
     // (skill rebuild moved to right before sendUserMessage)
 
       this.#captureSessionMeta(sk);

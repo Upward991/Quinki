@@ -283178,6 +283178,51 @@ CRITICAL: The skill instructions above were explicitly activated by the user via
       } catch (e2) {
         this.logDebug("mode-apply-error", { sessionKey: sk, error: e2?.message });
       }
+      const directAgentOverride = s2?.agentOverrides?.[resolvedAgentId];
+      if (directAgentOverride && resolvedAgentId !== "orchestrator" && !resolvedAgentId.includes("orchestrator")) {
+        this.logDebug("send-agent-override-check", { sessionKey: sk, agentId: resolvedAgentId, override: directAgentOverride });
+        if (directAgentOverride.model) {
+          try {
+            const authPath2 = path16.join(this.#agentDir, "auth.json");
+            const modelsPath4 = path16.join(this.#agentDir, "models.json");
+            const authStorage = this.#sdk.AuthStorage.create(authPath2);
+            const registry2 = this.#sdk.ModelRegistry.create(authStorage, modelsPath4);
+            const overrideModel = this.#findModelInRegistry(registry2, directAgentOverride.model);
+            if (overrideModel) {
+              await pi2.setModel(overrideModel);
+              this.logDebug("send-agent-override-model", { sessionKey: sk, agentId: resolvedAgentId, model: directAgentOverride.model, applied: true });
+            } else {
+              this.logDebug("send-agent-override-model", { sessionKey: sk, agentId: resolvedAgentId, model: directAgentOverride.model, applied: false, reason: "not found in registry" });
+            }
+          } catch (e2) {
+            this.logDebug("send-agent-override-model-error", { sessionKey: sk, error: e2?.message });
+          }
+        }
+        if (directAgentOverride.thinkingLevel) {
+          const oThink = directAgentOverride.thinkingLevel;
+          let levelToApply2;
+          if (oThink === "on") {
+            const sessionLevel = (() => {
+              try {
+                return pi2.thinkingLevel;
+              } catch {
+                return void 0;
+              }
+            })();
+            levelToApply2 = sessionLevel && sessionLevel !== "off" ? sessionLevel : "xhigh";
+          } else if (oThink === "off") {
+            levelToApply2 = "off";
+          }
+          if (levelToApply2) {
+            try {
+              pi2.setThinkingLevel(levelToApply2);
+              this.logDebug("send-agent-override-thinking", { sessionKey: sk, agentId: resolvedAgentId, requested: oThink, applied: levelToApply2 });
+            } catch (e2) {
+              this.logDebug("send-agent-override-thinking-error", { sessionKey: sk, error: e2?.message });
+            }
+          }
+        }
+      }
       this.#captureSessionMeta(sk);
       const pendingCompactionAuto = this.#pendingCompactionAuto.get(sk);
       const sessionCompactionAuto = s2?.compactionAuto;
