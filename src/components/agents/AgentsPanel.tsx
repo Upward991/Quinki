@@ -446,7 +446,7 @@ export function AgentsPanel(props) {
         Section({ icon: Package, title: 'Installed resources', children: [
 
           // Skills subsection
-          SubSection({ title: `Skill (${skills.length})`, action: React.createElement(React.Fragment, { children: [
+          SubSection({ icon: BookOpen, title: `Skill (${skills.length})`, action: React.createElement(React.Fragment, { children: [
             MiniButton({ label: 'Create skill', onClick: () => setShowCreateSkill(true) }),
             MiniButton({ label: 'Install skill', onClick: () => setShowInstallSkill(true) })
           ]}), children: [
@@ -478,7 +478,7 @@ export function AgentsPanel(props) {
           React.createElement('div', { style: { height: '8px' } }),
 
           // Tools subsection
-          SubSection({ title: `Tool (${tools.length})`, children: [
+          SubSection({ icon: Wrench, title: `Tool (${tools.length})`, children: [
             SearchBar({ placeholder: 'Search tool...', value: searchTools, onChange: setSearchTools }),
             React.createElement('div', { style: { height: '8px' } }),
             React.createElement('div', { style: { maxHeight: '300px', overflowY: 'auto' }, children:
@@ -659,9 +659,10 @@ function Section({ icon, title, children }) {
   ]});
 }
 
-function SubSection({ title, action, children }) {
+function SubSection({ icon, title, action, children }) {
   return React.createElement('div', { style: { width: '100%', padding: '12px 16px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)' }, children: [
     React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }, children: [
+      icon ? React.createElement(icon, { size: 16, style: { color: 'var(--q-tab-accent)', flexShrink: 0 } }) : null,
       React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '14px', fontWeight: 600, fontFamily: 'var(--font-interface)' }, children: title }),
       action
     ]}),
@@ -695,7 +696,7 @@ function TagChip({ icon, label, onRemove }) {
   return React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 8px', borderRadius: '6px', border: 'none', backgroundColor: 'rgba(255, 255, 255, 0.04)' }, children: [
     React.createElement(icon, { size: 14, style: { color: 'var(--q-tab-accent)' } }),
     React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: label }),
-    onRemove && React.createElement('button', { onClick: onRemove, style: { background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex' }, children: React.createElement(X, { size: 14, style: { color: 'var(--q-text-tertiary)' } }) })
+    onRemove && React.createElement('button', { onClick: onRemove, style: { background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex' }, children: React.createElement(X, { size: 14, style: { color: 'var(--q-tab-accent)' } }) })
   ]});
 }
 
@@ -745,7 +746,7 @@ function AgentRow({ agent, isExpanded, isRenaming, onToggle, onStartRename, onCo
             React.createElement('div', { key: f, onClick: () => onOpenFile(f), style: { display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 8px', borderRadius: '6px', border: 'none', backgroundColor: 'rgba(255, 255, 255, 0.04)', cursor: 'pointer' }, children: [
               React.createElement(FileText, { size: 14, style: { color: 'var(--q-tab-accent)' } }),
               React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: f }),
-              React.createElement('button', { onClick: e => { e.stopPropagation(); onRemoveTag('file', f); }, style: { background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex' }, children: React.createElement(X, { size: 14, style: { color: 'var(--q-text-tertiary)' } }) })
+              React.createElement('button', { onClick: e => { e.stopPropagation(); onRemoveTag('file', f); }, style: { background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex' }, children: React.createElement(X, { size: 14, style: { color: 'var(--q-tab-accent)' } }) })
             ]})
           )}
       ),
@@ -782,7 +783,7 @@ function AgentRow({ agent, isExpanded, isRenaming, onToggle, onStartRename, onCo
 
       // Delete agent
       agent.isDeletable && React.createElement('div', { style: { marginTop: '16px' }, children:
-        React.createElement('button', { onClick: onShowDelete, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '0', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '14px', fontFamily: 'var(--font-interface)' }, children: [React.createElement(Trash, { size: 16 }), ' Delete agent'] })
+        React.createElement('button', { onClick: onShowDelete, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '0', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '14px', fontFamily: 'var(--font-interface)' }, children: [React.createElement(Trash, { size: 16 }), ' Delete agent'] })
       })
     ]})
   ]});

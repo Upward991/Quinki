@@ -170,7 +170,7 @@ export function AgentConfigModal({ agentId, agents, onClose }: { agentId: string
             <div style={{ color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', marginBottom: '20px' }}>Remove all {removeAllState.type} from agent "{removeAllState.agentName}"?</div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
               <button onClick={() => setRemoveAllState(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-accent-danger)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }}>Cancel</button>
-              <button onClick={() => { doRemoveAll(removeAllState.type); setRemoveAllState(null) }} style={{ padding: '4px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-danger)', color: 'var(--q-bg)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Remove</button>
+              <button onClick={() => { doRemoveAll(removeAllState.type); setRemoveAllState(null) }} style={{ padding: '4px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-tab-accent)', color: 'var(--q-bg)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Remove</button>
             </div>
           </div>
         </div>
@@ -182,7 +182,7 @@ export function AgentConfigModal({ agentId, agents, onClose }: { agentId: string
             <div style={{ color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', marginBottom: '20px' }}>Remove {removeTagState.type} "{removeTagState.name}" from agent "{removeTagState.agent}"?</div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
               <button onClick={() => setRemoveTagState(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-accent-danger)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }}>Cancel</button>
-              <button onClick={() => { doRemoveTag(removeTagState.type, removeTagState.name); setRemoveTagState(null) }} style={{ padding: '4px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-danger)', color: 'var(--q-bg)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Remove</button>
+              <button onClick={() => { doRemoveTag(removeTagState.type, removeTagState.name); setRemoveTagState(null) }} style={{ padding: '4px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-tab-accent)', color: 'var(--q-bg)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Remove</button>
             </div>
           </div>
         </div>
