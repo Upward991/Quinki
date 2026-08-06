@@ -792,7 +792,7 @@ function AgentRow({ agent, isExpanded, isRenaming, onToggle, onStartRename, onCo
 function SkillRow({ icon, name, description, agentsUsing, badge, badgeColor, isExpanded, onToggle, onEdit, onDeleteSkill, onAddAgent, onRemoveAgent, onRemoveAllAgents }) {
   return React.createElement('div', { style: { marginBottom: '4px', backgroundColor: 'var(--q-bg-elevated)', border: 'none', borderRadius: '8px', overflow: 'hidden' }, children: [
     React.createElement('div', { onClick: onToggle, style: { padding: '10px 12px', display: 'flex', alignItems: 'center', cursor: 'pointer', borderRadius: '8px', transition: 'none' }, onMouseEnter: e => { e.currentTarget.style.backgroundColor = 'rgba(201, 112, 132, 0.03)'; }, onMouseLeave: e => { e.currentTarget.style.backgroundColor = 'transparent'; }, children: [
-      React.createElement(icon, { size: 16, style: { color: 'var(--q-text-secondary)', flexShrink: 0 } }),
+      React.createElement(icon, { size: 16, style: { color: 'var(--q-tab-accent)', flexShrink: 0 } }),
       React.createElement('div', { style: { width: '8px', flexShrink: 0 } }),
       React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', flex: 1 }, children: name }),
       badge && badgeColor && React.createElement(React.Fragment, { children: [
@@ -830,7 +830,7 @@ function SkillRow({ icon, name, description, agentsUsing, badge, badgeColor, isE
             )})
           ]}),
       onDeleteSkill && React.createElement('div', { style: { marginTop: '12px' }, children:
-        React.createElement('button', { onClick: onDeleteSkill, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '0', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '14px', fontFamily: 'var(--font-interface)' }, children: [React.createElement(Trash, { size: 16 }), ' Delete skill'] })
+        React.createElement('button', { onClick: onDeleteSkill, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '0', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '14px', fontFamily: 'var(--font-interface)' }, children: [React.createElement(Trash, { size: 16 }), ' Delete skill'] })
       })
     ]})
   ]});
@@ -898,7 +898,7 @@ export function FileEditor({ agentId, skillName, fileName, onClose }) {
     React.createElement('div', { style: { backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '720px', height: '80vh', maxHeight: '600px', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-modal)', animation: 'modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)', overflow: 'hidden' }, onClick: e => e.stopPropagation(), children: [
       // Header
       React.createElement('div', { style: { padding: '10px 16px', backgroundColor: 'var(--q-bg-panel)', borderBottom: '1px solid var(--q-border)', display: 'flex', alignItems: 'center', flexShrink: 0 }, children: [
-        React.createElement(FileText, { size: 16, style: { color: 'var(--q-text-secondary)', flexShrink: 0 } }),
+        React.createElement(FileText, { size: 16, style: { color: 'var(--q-tab-accent)', flexShrink: 0 } }),
         React.createElement('div', { style: { width: '8px', flexShrink: 0 } }),
         React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '14px', fontWeight: 600, fontFamily: 'var(--font-interface)' }, children: skillName ? `${skillName}/SKILL.md` : `${agentId}/${fileName}` }),
         React.createElement('span', { style: { flex: 1 } }),
