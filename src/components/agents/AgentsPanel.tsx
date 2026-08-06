@@ -403,19 +403,11 @@ export function AgentsPanel(props) {
           React.createElement('div', { style: { width: '16px', flexShrink: 0 } }),
           React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)' }, children: 'Agents' }),
           React.createElement('span', { style: { flex: 1 } }),
-          // Toast
+          // Saved indicator (auto-saved, no button needed)
           savedMsg
             ? React.createElement('span', { style: { color: 'var(--q-accent-success)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: savedMsg })
-            : dirty
-              ? React.createElement('span', { style: { color: 'var(--q-accent-warning)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'Unsaved' })
-              : null,
-          (savedMsg || dirty) && React.createElement('div', { style: { width: '16px', flexShrink: 0 } }),
-          // Save button
-          React.createElement('button', { 
-            onClick: () => onSaved(),
-            style: { height: '32px', padding: '0 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-secondary)', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--q-bg)', fontSize: '14px', fontWeight: 500, fontFamily: 'var(--font-interface)', flexShrink: 0 },
-            children: [React.createElement(Save, { size: 16 }), ' Save']
-          }),
+            : null,
+          savedMsg && React.createElement('div', { style: { width: '16px', flexShrink: 0 } }),
         ]})
       ]}),
 
@@ -910,8 +902,8 @@ export function FileEditor({ agentId, skillName, fileName, onClose }) {
         React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '14px', fontWeight: 600, fontFamily: 'var(--font-interface)' }, children: skillName ? `${skillName}/SKILL.md` : `${agentId}/${fileName}` }),
         React.createElement('span', { style: { flex: 1 } }),
         dirty && React.createElement('span', { style: { color: 'var(--q-accent-warning)', fontSize: 'var(--fs-11)', fontFamily: 'var(--font-interface)', marginRight: '8px' }, children: 'Unsaved' }),
+        dirty && React.createElement('span', { style: { color: 'var(--q-accent-warning)', fontSize: 'var(--fs-11)', fontFamily: 'var(--font-interface)', marginRight: '8px' }, children: 'Saving...' }),
         savedMsg && React.createElement('span', { style: { color: 'var(--q-accent-success)', fontSize: 'var(--fs-11)', fontFamily: 'var(--font-interface)', marginRight: '8px' }, children: savedMsg }),
-        React.createElement('button', { onClick: handleSave, disabled: saving, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: saving ? 'default' : 'pointer', backgroundColor: 'var(--q-accent-secondary)', color: 'var(--q-bg)', fontSize: '14px', fontWeight: 500, fontFamily: 'var(--font-interface)' }, children: [React.createElement(Save, { size: 16 }), ' Save'] }),
         React.createElement('div', { style: { width: '8px', flexShrink: 0 } }),
         React.createElement('button', { onClick: handleClose, style: { background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }, children: React.createElement(X, { size: 18, style: { color: 'var(--q-text-secondary)' } }) })
       ]}),
