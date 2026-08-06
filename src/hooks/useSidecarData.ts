@@ -149,8 +149,29 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
     let cancelled = false
 
     const loadData = async () => {
+      // Load sessions FIRST — most important for sidebar
       try {
-        // Load agents with files
+        let sessionsList: any[] = []
+        try {
+          const fullState = await call('getFullState', {})
+          if (fullState?.sessions) sessionsList = fullState.sessions
+        } catch {
+          try {
+            const r = await call('listSessions', {})
+            if (r?.sessions) sessionsList = r.sessions
+          } catch {}
+        }
+        if (!cancelled) setSessions(mapSessions(sessionsList))
+      } catch {}
+
+      // Load folders
+      try {
+        const foldersResult = await call('getFolders', {})
+        if (!cancelled && foldersResult?.folders) setFolders(foldersResult.folders)
+      } catch {}
+
+      // Load agents with files (separate try — don't block sessions)
+      try {
         const agentsResult = await call('listAgents', {})
         if (!cancelled && agentsResult?.agents) {
           const agentsWithFiles = await Promise.all(agentsResult.agents.map(async (a: any) => {
@@ -162,77 +183,56 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
             } catch {}
             return { ...agent, files }
           }))
-          setAgents(agentsWithFiles)
+          if (!cancelled) setAgents(agentsWithFiles)
         }
+      } catch {}
 
-        // Load sessions (use getFullState like Flutter, fallback to listSessions)
-        try {
-          let sessionsList: any[] = []
-          try {
-            const fullState = await call('getFullState', {})
-            if (fullState?.sessions) sessionsList = fullState.sessions
-          } catch {
-            const r = await call('listSessions', {})
-            if (r?.sessions) sessionsList = r.sessions
+      // Load providers + models
+      try {
+        const [providersResult, modelsResult] = await Promise.all([
+          call('getProvidersConfig', {}),
+          call('getModels', {}),
+        ])
+        if (!cancelled) {
+          const modelsByProvider: Record<string, any[]> = {}
+          if (modelsResult?.models) {
+            const allModels = modelsResult.models.map((m: any) => {
+              const p = m.provider || 'unknown'
+              if (!modelsByProvider[p]) modelsByProvider[p] = []
+              modelsByProvider[p].push({ id: m.id, name: m.name || m.id, contextWindow: m.contextWindow })
+              return { id: m.id, name: m.name || m.id, provider: p, contextWindow: m.contextWindow }
+            })
+            setModels(allModels)
           }
-          if (!cancelled) setSessions(mapSessions(sessionsList))
-        } catch {}
-
-        // Load folders
-        try {
-          const foldersResult = await call('getFolders', {})
-          if (!cancelled && foldersResult?.folders) setFolders(foldersResult.folders)
-        } catch {}
-
-        // Load providers + models
-        try {
-          const [providersResult, modelsResult] = await Promise.all([
-            call('getProvidersConfig', {}),
-            call('getModels', {}),
-          ])
-          if (!cancelled) {
-            const modelsByProvider: Record<string, any[]> = {}
-            if (modelsResult?.models) {
-              const allModels = modelsResult.models.map((m: any) => {
-                const p = m.provider || 'unknown'
-                if (!modelsByProvider[p]) modelsByProvider[p] = []
-                modelsByProvider[p].push({ id: m.id, name: m.name || m.id, contextWindow: m.contextWindow })
-                return { id: m.id, name: m.name || m.id, provider: p, contextWindow: m.contextWindow }
+          const providerList: any[] = []
+          if (providersResult?.providers) {
+            for (const [id, p] of Object.entries(providersResult.providers) as [string, any][]) {
+              providerList.push({
+                id, name: id, type: p.api || 'ollama',
+                apiKeyStatus: id.toLowerCase() === 'ollama' ? 'local' : (p.apiKey && p.apiKey !== '••••••••' && !p.apiKey.startsWith('•')) || p.apiKeySet ? 'configured' : 'missing',
+                models: modelsByProvider[id] || [], enabled: p.enabled !== false, enabledModels: p.enabledModels || [],
+                baseUrl: p.baseUrl || '',
               })
-              setModels(allModels)
             }
-            const providerList: any[] = []
-            if (providersResult?.providers) {
-              for (const [id, p] of Object.entries(providersResult.providers) as [string, any][]) {
-                providerList.push({
-                  id, name: id, type: p.api || 'ollama',
-                  apiKeyStatus: id.toLowerCase() === 'ollama' ? 'local' : (p.apiKey && p.apiKey !== '••••••••' && !p.apiKey.startsWith('•')) || p.apiKeySet ? 'configured' : 'missing',
-                  models: modelsByProvider[id] || [], enabled: p.enabled !== false, enabledModels: p.enabledModels || [],
-                  baseUrl: p.baseUrl || '',
-                })
-              }
-            }
-            for (const [id, mods] of Object.entries(modelsByProvider)) {
-              if (!providerList.find(p => p.id === id)) {
-                providerList.push({ id, name: id, type: 'unknown', apiKeyStatus: 'missing', models: mods, enabled: true, baseUrl: '' })
-              }
-            }
-            setProviders(providerList)
           }
-        } catch {}
-
-        // Load all context usage
-        try {
-          const allCtx = await call('getAllContextUsage', {})
-          if (!cancelled && allCtx?.usage) {
-            // Update sessions with context info
+          for (const [id, mods] of Object.entries(modelsByProvider)) {
+            if (!providerList.find(p => p.id === id)) {
+              providerList.push({ id, name: id, type: 'unknown', apiKeyStatus: 'missing', models: mods, enabled: true, baseUrl: '' })
+            }
           }
-        } catch {}
+          setProviders(providerList)
+        }
+      } catch {}
 
-        setLoading(false)
-      } catch (e) {
-        setLoading(false)
-      }
+      // Load all context usage
+      try {
+        const allCtx = await call('getAllContextUsage', {})
+        if (!cancelled && allCtx?.usage) {
+          // Update sessions with context info
+        }
+      } catch {}
+
+      setLoading(false)
     }
     loadData()
     return () => { cancelled = true }
