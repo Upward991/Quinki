@@ -1,9 +1,9 @@
 import React from 'react'
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Bot, BookOpen, Brain, ChevronDown, ChevronUp, FileText, Trash, Pencil, Wrench, X } from '../icons'
+import { Bot, BookOpen, Brain, ChevronDown, ChevronUp, FileText, Plus, Trash, Pencil, Wrench, X } from '../icons'
 
 // MiniButton — small inline button
-const MiniButton = ({ label, onClick }) => React.createElement('button', { onClick, style: { display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: '4px', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, onMouseEnter: e => { e.currentTarget.style.color = 'var(--q-text)' }, onMouseLeave: e => { e.currentTarget.style.color = 'var(--q-text-tertiary)' } }, label)
+const MiniButton = ({ label, onClick }) => React.createElement('button', { onClick, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 8px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent' }, children: [React.createElement(Plus, { size: 14, style: { color: 'var(--q-text-tertiary)' } }), React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: label })] })
 
 // TagChip — chip with icon, label, and remove button
 const TagChip = ({ icon: Icon, label, onRemove }) => React.createElement('div', { style: { display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 8px', borderRadius: '6px', border: 'none', backgroundColor: 'rgba(255, 255, 255, 0.04)' } }, [React.createElement(Icon, { key: 'icon', size: 14, style: { color: 'var(--q-tab-accent)' } }), React.createElement('span', { key: 'label', style: { color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)' } }, label), React.createElement('button', { key: 'rm', onClick: onRemove, style: { background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex' } }, React.createElement(X, { size: 14, style: { color: 'var(--q-text-tertiary)' } }))])
