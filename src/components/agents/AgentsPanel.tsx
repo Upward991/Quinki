@@ -399,7 +399,7 @@ export function AgentsPanel(props) {
         // Title bar
         React.createElement('div', { style: { ...headerStyle, flex: 1 }, children: [
           React.createElement('div', { style: { width: '8px', flexShrink: 0 } }),
-          React.createElement(Bot, { size: 18, style: { color: 'var(--q-accent-secondary)', flexShrink: 0 } }),
+          React.createElement(Bot, { size: 18, style: { color: 'var(--q-tab-accent)', flexShrink: 0 } }),
           React.createElement('div', { style: { width: '16px', flexShrink: 0 } }),
           React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)' }, children: 'Agents' }),
           React.createElement('span', { style: { flex: 1 } }),
@@ -652,7 +652,7 @@ export function AgentsPanel(props) {
 function Section({ icon, title, children }) {
   return React.createElement('div', { style: { width: '100%', marginBottom: '12px', padding: '14px 18px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)' }, children: [
     React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }, children: [
-      React.createElement(icon, { size: 16, style: { color: 'var(--q-accent-secondary)', flexShrink: 0 } }),
+      React.createElement(icon, { size: 16, style: { color: 'var(--q-tab-accent)', flexShrink: 0 } }),
       React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '15px', fontWeight: 600, fontFamily: 'var(--font-interface)' }, children: title })
     ]}),
     children
@@ -693,7 +693,7 @@ function MiniButton({ label, onClick }) {
 
 function TagChip({ icon, label, onRemove }) {
   return React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 8px', borderRadius: '6px', border: 'none', backgroundColor: 'rgba(255, 255, 255, 0.04)' }, children: [
-    React.createElement(icon, { size: 14, style: { color: 'var(--q-accent-secondary)' } }),
+    React.createElement(icon, { size: 14, style: { color: 'var(--q-tab-accent)' } }),
     React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: label }),
     onRemove && React.createElement('button', { onClick: onRemove, style: { background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex' }, children: React.createElement(X, { size: 14, style: { color: 'var(--q-text-tertiary)' } }) })
   ]});
