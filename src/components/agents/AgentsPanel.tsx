@@ -686,8 +686,8 @@ function AddButton({ label, onClick }) {
 
 function MiniButton({ label, onClick }) {
   return React.createElement('button', { onClick, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 8px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent' }, children: [
-    React.createElement(Plus, { size: 14, style: { color: 'var(--q-tab-accent)' } }),
-    React.createElement('span', { style: { color: 'var(--q-tab-accent)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: label })
+    React.createElement(Plus, { size: 14, style: { color: 'var(--q-text-tertiary)' } }),
+    React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: label })
   ]});
 }
 
