@@ -398,7 +398,7 @@ export function Composer(props: ComposerProps) {
   )
 }
 
-// ── Attachment menu (3 options) ──
+// ── Attachment modal (centered) ──
 function AttachMenu({ view, existingFiles, onPickFiles, onOpenFolder, onShowExisting, onReAttach, onBack, onClose }: {
   view: 'main' | 'existing'
   existingFiles: any[]
@@ -411,42 +411,37 @@ function AttachMenu({ view, existingFiles, onPickFiles, onOpenFolder, onShowExis
 }) {
   const [hovered, setHovered] = useState<string | null>(null)
   return (
-    <>
-      <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={onClose} />
-      <div style={{
-        position: 'absolute', bottom: 'calc(100% + 8px)', right: '40px', zIndex: 50,
-        backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)',
-        boxShadow: 'var(--shadow-floating)', minWidth: '240px',
-        padding: '4px 0',
-        display: 'flex', flexDirection: 'column',
-      }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+      <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '440px', width: '90%' }} onClick={e => e.stopPropagation()}>
         {view === 'main' ? (
           <>
+            <div style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '16px' }}>Attachments</div>
             <AttachMenuItem label="Attach new file…" onClick={onPickFiles} hovered={hovered === 'new'} onHover={() => setHovered('new')} />
             <AttachMenuItem label="Previously sent…" onClick={onShowExisting} hovered={hovered === 'existing'} onHover={() => setHovered('existing')} />
             <AttachMenuItem label="Open attachments folder" onClick={onOpenFolder} hovered={hovered === 'folder'} onHover={() => setHovered('folder')} />
-            <div style={{ height: '1px', backgroundColor: 'var(--q-border)', margin: '4px 0' }} />
-            <AttachMenuItem label="Cancel" onClick={onClose} hovered={hovered === 'cancel'} onHover={() => setHovered('cancel')} danger />
+            <div style={{ height: '1px', backgroundColor: 'var(--q-border)', margin: '12px 0' }} />
+            <button onClick={onClose} style={{ width: '100%', padding: '10px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Cancel</button>
           </>
         ) : (
           <>
-            <div style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
               <button onClick={onBack} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', color: 'var(--q-text-tertiary)', display: 'flex' }}>
                 <ChevronUp size={14} style={{ transform: 'rotate(-90deg)' }} />
               </button>
-              <span style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', fontWeight: 600 }}>Previously sent</span>
+              <span style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>Previously sent</span>
             </div>
-            <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+            <div style={{ maxHeight: '260px', overflowY: 'auto' }}>
               {existingFiles.length === 0 ? (
-                <div style={{ padding: '12px 16px', color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>
+                <div style={{ padding: '20px', color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)', textAlign: 'center' }}>
                   No attachments in this chat yet.
                 </div>
               ) : (
                 existingFiles.map((f, i) => (
                   <div key={i} onClick={() => onReAttach(f)} onMouseEnter={() => setHovered(`f-${i}`)} onMouseLeave={() => setHovered(null)}
                     style={{
-                      padding: '8px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
+                      padding: '10px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
                       backgroundColor: hovered === `f-${i}` ? 'var(--q-hover)' : 'transparent',
+                      borderRadius: 'var(--radius-sm)',
                       transition: 'none',
                     }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--q-tab-accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
@@ -459,10 +454,12 @@ function AttachMenu({ view, existingFiles, onPickFiles, onOpenFolder, onShowExis
                 ))
               )}
             </div>
+            <div style={{ height: '1px', backgroundColor: 'var(--q-border)', margin: '12px 0' }} />
+            <button onClick={onBack} style={{ width: '100%', padding: '10px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-tertiary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Back</button>
           </>
         )}
       </div>
-    </>
+    </div>
   )
 }
 
@@ -470,11 +467,12 @@ function AttachMenuItem({ label, onClick, hovered, onHover, danger }: { label: s
   return (
     <div onClick={onClick} onMouseEnter={onHover} onMouseLeave={() => onHover(null)}
       style={{
-        padding: '8px 16px', cursor: 'pointer', fontSize: '14px', fontFamily: 'var(--font-interface)',
+        padding: '12px 16px', cursor: 'pointer', fontSize: '14px', fontFamily: 'var(--font-interface)',
         color: danger ? 'var(--q-accent-danger)' : hovered ? 'var(--q-text)' : 'var(--q-text-secondary)',
         backgroundColor: hovered ? 'var(--q-hover)' : 'transparent',
-        borderRadius: 'var(--radius-sm)', transition: 'none',
+        borderRadius: 'var(--radius-md)', transition: 'none', display: 'flex', alignItems: 'center', gap: '8px',
       }}>
+      <span style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: hovered ? 'var(--q-tab-accent)' : 'var(--q-text-tertiary)', flexShrink: 0 }} />
       {label}
     </div>
   )
