@@ -282100,6 +282100,32 @@ You have ${skills.length} skill(s) available. Use the skill tool with command='l
         this.#sendToWs(ws2, { type: "stream_event", sessionKey: sk, eventType: ame.type, delta: ame.delta || "", messageId: delegationId });
       }
     });
+    {
+      let actualModel = "";
+      try {
+        actualModel = tempPi.model?.id || "";
+      } catch {
+      }
+      let actualThinking = "";
+      try {
+        actualThinking = tempPi.thinkingLevel || "";
+      } catch {
+      }
+      const sEntry = this.#entries.get(sk);
+      this.logDebug("agent_llm_config", {
+        sessionKey: sk,
+        source: "direct",
+        agentId: targetId,
+        agentName,
+        model: actualModel,
+        thinkingLevel: actualThinking,
+        chatModel: sEntry?.model || "",
+        chatThinking: sEntry?.thinkingLevel || "",
+        agentOverrideModel: agentOverride.model || null,
+        agentOverrideThinking: agentOverride.thinkingLevel || null,
+        systemPromptLen: tempPi._baseSystemPrompt?.length || 0
+      });
+    }
     this.logDebug("send-direct-sending", { sessionKey: sk, agentName, text: data.text?.substring(0, 100) });
     const { content } = await this.#buildUserMessage(data.text, data.files);
     await tempPi.sendUserMessage(content, { deliverAs: "followUp" });
@@ -282564,6 +282590,32 @@ You have ${skills.length} skill(s) available. Use the skill tool with command='l
               tempPi.setThinkingLevel(mainSession.thinkingLevel);
             } catch {
             }
+          }
+          {
+            let actualModel = "";
+            try {
+              actualModel = tempPi.model?.id || "";
+            } catch {
+            }
+            let actualThinking = "";
+            try {
+              actualThinking = tempPi.thinkingLevel || "";
+            } catch {
+            }
+            const sEntry = self2.#entries.get(sessionKey);
+            self2.logDebug("agent_llm_config", {
+              sessionKey,
+              source: "delegation",
+              agentId: targetId,
+              agentName: agent_name,
+              model: actualModel,
+              thinkingLevel: actualThinking,
+              chatModel: sEntry?.model || "",
+              chatThinking: sEntry?.thinkingLevel || "",
+              agentOverrideModel: agentOverride.model || null,
+              agentOverrideThinking: agentOverride.thinkingLevel || null,
+              systemPromptLen: tempPi._baseSystemPrompt?.length || 0
+            });
           }
           self2.logDebug("delegate-sending-task", { sessionKey, agent_name, task: task?.substring(0, 100) });
           await tempPi.sendUserMessage(task, { deliverAs: "followUp" });
@@ -283223,14 +283275,14 @@ CRITICAL: The skill instructions above were explicitly activated by the user via
     });
     const prev = this.#prompts.get(sk) || Promise.resolve();
     try {
-      let builtPrompt;
+      let builtPrompt2;
       if (pi2.agent?.state) {
         const sessionMode = this.#entries.get(sk)?.mode || "plan";
-        builtPrompt = this.#buildSystemPrompt(sk, effectiveCwd2, data.workingDirs, sessionMode);
-        pi2.agent.state.systemPrompt = builtPrompt;
-        pi2._baseSystemPrompt = builtPrompt;
+        builtPrompt2 = this.#buildSystemPrompt(sk, effectiveCwd2, data.workingDirs, sessionMode);
+        pi2.agent.state.systemPrompt = builtPrompt2;
+        pi2._baseSystemPrompt = builtPrompt2;
       }
-      this.logDebug("system-prompt-updated", { sessionKey: sk, promptLen: builtPrompt?.length || 0, hasSkills: builtPrompt?.includes("available_skills") || false, hasModeNote: builtPrompt?.includes("MODALIT\xC0") || false, hasAgentPrompt: (builtPrompt?.length || 0) > 100 });
+      this.logDebug("system-prompt-updated", { sessionKey: sk, promptLen: builtPrompt2?.length || 0, hasSkills: builtPrompt2?.includes("available_skills") || false, hasModeNote: builtPrompt2?.includes("MODALIT\xC0") || false, hasAgentPrompt: (builtPrompt2?.length || 0) > 100 });
     } catch (overrideErr) {
       this.logDebug("system-prompt-update-error", { sessionKey: sk, error: overrideErr?.message || String(overrideErr) });
     }
@@ -283263,6 +283315,36 @@ CRITICAL: The skill instructions above were explicitly activated by the user via
       }
     } catch (e2) {
       this.logDebug("skill-rebuild-error", { sessionKey: sk, error: e2?.message });
+    }
+    {
+      const resolvedAgent = this.#resolveAgentId(sk);
+      const agentCfg = resolvedAgent ? this.#readAgentConfig(resolvedAgent) : null;
+      const agentName = agentCfg?.name || resolvedAgent || "unknown";
+      const sEntry = this.#entries.get(sk);
+      const overrides = sEntry?.agentOverrides?.[resolvedAgent] || {};
+      let actualModel = "";
+      try {
+        actualModel = pi2.model?.id || "";
+      } catch {
+      }
+      let actualThinking = "";
+      try {
+        actualThinking = pi2.thinkingLevel || "";
+      } catch {
+      }
+      this.logDebug("agent_llm_config", {
+        sessionKey: sk,
+        source: "main",
+        agentId: resolvedAgent || "unknown",
+        agentName,
+        model: actualModel,
+        thinkingLevel: actualThinking,
+        chatModel: sEntry?.model || "",
+        chatThinking: sEntry?.thinkingLevel || "",
+        agentOverrideModel: overrides.model || null,
+        agentOverrideThinking: overrides.thinkingLevel || null,
+        systemPromptLen: builtPrompt?.length || 0
+      });
     }
     const next = prev.then(() => pi2.sendUserMessage(content, { deliverAs: "followUp" })).catch((err2) => {
       ws2.send(JSON.stringify({ type: "error", message: err2.message, sessionKey: sk }));
