@@ -203,7 +203,7 @@ export function ChatArea(props: ChatAreaProps) {
       {/* Drag-drop overlay */}
       {dragOver && (
         <div style={{ position: 'absolute', inset: 0, zIndex: 90, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 'var(--radius-lg)', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', padding: '32px 48px', borderRadius: 'var(--radius-lg)', border: '2px dashed var(--q-tab-accent)', backgroundColor: 'var(--q-bg-panel)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', padding: '32px 48px', borderRadius: 'var(--radius-lg)', border: '2px solid var(--q-tab-accent)', backgroundColor: 'rgba(8,8,11,0.85)', boxShadow: 'inset 0 0 0 8px rgba(8,8,11,0.85), 0 0 40px rgba(0,0,0,0.3)' }}>
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--q-tab-accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
               <polyline points="14 2 14 8 20 8" />
