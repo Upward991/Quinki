@@ -9,8 +9,8 @@ fi
 
 pkill -f "ws-bridge" 2>/dev/null
 
-export QUINKI_AGENT_DIR="$HOME/.pi/agent-quinki-dev"
-export PI_CODING_AGENT_DIR="$HOME/.pi/agent-quinki-dev"
+export QUINKI_AGENT_DIR="$HOME/.quinki"
+export PI_CODING_AGENT_DIR="$HOME/.quinki"
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 
 cd "$(dirname "$0")"
