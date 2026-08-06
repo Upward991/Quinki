@@ -279342,6 +279342,7 @@ var PiBridge = class {
   #pendingMode = /* @__PURE__ */ new Map();
   #cwdOverride = /* @__PURE__ */ new Map();
   #pendingDelegationSkills = /* @__PURE__ */ new Map();
+  #pendingDelegationAttachments = /* @__PURE__ */ new Map();
   // override cwd per cambio dir mid-sessione
   // === Multi-window streaming buffer: traccia il messaggio in streaming per sessione ===
   // Permette alle nuove finestre di recuperare il contenuto parziale quando aprono durante la generazione
@@ -282544,10 +282545,25 @@ You have ${skills.length} skill(s) available. Use the skill tool with command='l
                 const home2 = process.env.HOME || process.env.USERPROFILE || "";
                 const attDir = `${home2}/.quinki/attachments/${sessionKey}`;
                 if (fs13.existsSync(attDir)) {
-                  base = (typeof base === "string" ? base : "") + `
+                  let attSection = `
 
 **Attachment directory:** ${attDir}
 You can use \`ls\` and \`read\` tools to access files the user has attached to this chat.`;
+                  const pendingAtts = self2.#pendingDelegationAttachments.get(sessionKey);
+                  if (pendingAtts && pendingAtts.length > 0) {
+                    attSection += `
+
+=== ATTACHED FILES ===
+The user attached the following file(s):`;
+                    for (const att of pendingAtts) {
+                      attSection += `
+- ${att.originalName} \u2192 ${att.path}`;
+                    }
+                    attSection += `
+Use the \`read\` tool to access these files. If a file is too large, use \`read\` with offset/limit.
+=== END ATTACHED FILES ===`;
+                  }
+                  base = (typeof base === "string" ? base : "") + attSection;
                   tempPi._baseSystemPrompt = base;
                   tempPi.agent.state.systemPrompt = base;
                 }
@@ -283440,6 +283456,11 @@ Use the \`read\` tool to access these files. If a file is too large, use \`read\
         this.#pendingDelegationSkills.set(sk, skillNames);
       } else {
         this.#pendingDelegationSkills.delete(sk);
+      }
+      if (data.attachments && data.attachments.length > 0) {
+        this.#pendingDelegationAttachments.set(sk, data.attachments);
+      } else {
+        this.#pendingDelegationAttachments.delete(sk);
       }
     } catch (e2) {
       this.logDebug("skill-rebuild-error", { sessionKey: sk, error: e2?.message });

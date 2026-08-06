@@ -442,7 +442,7 @@ function AttachMenu({ view, existingFiles, onPickFiles, onOpenFolder, onShowExis
               <AttachOptionRow icon={<Clock size={18} />} label="Previously sent" onClick={onShowExisting} />
               <AttachOptionRow icon={<Folder size={18} />} label="Open attachments folder" onClick={onOpenFolder} />
             </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '8px 16px 12px 16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '16px 16px 12px 16px' }}>
               <AttachModalBtn label="Cancel" onClick={onClose} danger />
             </div>
           </>
@@ -460,7 +460,7 @@ function AttachMenu({ view, existingFiles, onPickFiles, onOpenFolder, onShowExis
                 ))
               )}
             </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px', padding: '8px 16px 12px 16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px', padding: '16px 16px 12px 16px' }}>
               <AttachModalBtn label="Cancel" onClick={onClose} danger />
               <AttachModalBtn label="Back" onClick={onBack} />
             </div>
