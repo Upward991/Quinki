@@ -535,7 +535,7 @@ export function AgentsPanel(props) {
     ]}),
 
     // Create skill
-    showCreateSkill && React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: () => setShowCreateSkill(false), children:
+    showCreateSkill && React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 210, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: () => setShowCreateSkill(false), children:
       React.createElement('div', { style: { backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', animation: 'modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '520px', width: '90%', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }, onClick: e => e.stopPropagation(), children: [
         React.createElement('div', { style: { color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '16px' }, children: 'Create new skill' }),
         React.createElement(CreateSkillForm, { onCreate: doCreateSkill, onCancel: () => setShowCreateSkill(false) })
@@ -548,7 +548,7 @@ export function AgentsPanel(props) {
     ]}),
 
     // Installing spinner
-    installing && React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, children:
+    installing && React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 210, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, children:
       React.createElement('div', { style: { backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', animation: 'modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '400px', display: 'flex', alignItems: 'center', gap: '16px' }, children: [
         React.createElement('div', { style: { width: '20px', height: '20px', border: '2px solid var(--q-text-tertiary)', borderTopColor: 'var(--q-accent-secondary)', borderRadius: '50%', animation: 'spin 1s linear infinite' } }),
         React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }, children: 'Installing skill...' })
@@ -631,7 +631,7 @@ export function AgentsPanel(props) {
     ]}),
 
     // Error modal
-    errorModal && React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: () => setErrorModal(null), children:
+    errorModal && React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 210, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: () => setErrorModal(null), children:
       React.createElement('div', { style: { backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', animation: 'modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '500px', width: '90%' }, onClick: e => e.stopPropagation(), children: [
         React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }, children: [
           React.createElement('svg', { width: '18', height: '18', viewBox: '0 0 24 24', fill: 'none', stroke: 'var(--q-accent-danger)', strokeWidth: '2', strokeLinecap: 'round', strokeLinejoin: 'round', children: [
@@ -885,7 +885,7 @@ export function FileEditor({ agentId, skillName, fileName, onClose }) {
     setSaving(false);
   };
 
-  return React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: onClose, children:
+  return React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 210, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: onClose, children:
     React.createElement('div', { style: { backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '720px', height: '80vh', maxHeight: '600px', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-modal)', animation: 'modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)', overflow: 'hidden' }, onClick: e => e.stopPropagation(), children: [
       // Header
       React.createElement('div', { style: { padding: '10px 16px', backgroundColor: 'var(--q-bg-panel)', borderBottom: '1px solid var(--q-border)', display: 'flex', alignItems: 'center', flexShrink: 0 }, children: [
@@ -920,7 +920,7 @@ export function AddItemsModal({ title, items, initialSelected, onClose, onConfir
     });
   };
 
-  return React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: onClose, children:
+  return React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 210, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: onClose, children:
     React.createElement('div', { style: { backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', maxWidth: '500px', maxHeight: '500px', width: '90%', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-modal)', animation: 'modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)' }, onClick: e => e.stopPropagation(), children: [
       // Header
       React.createElement('div', { style: { padding: '16px', borderBottom: '1px solid var(--q-border)', display: 'flex', alignItems: 'center' }, children: [
@@ -963,7 +963,7 @@ export function AddItemsModal({ title, items, initialSelected, onClose, onConfir
 }
 
 function Modal({ onClose, title, children }) {
-  return React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: onClose, children:
+  return React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 210, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: onClose, children:
     React.createElement('div', { style: { backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', animation: 'modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '420px', width: '90%' }, onClick: e => e.stopPropagation(), children: [
       React.createElement('div', { style: { color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '16px' }, children: title }),
       children
