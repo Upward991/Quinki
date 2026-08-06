@@ -849,6 +849,7 @@ export function FileEditor({ agentId, skillName, fileName, onClose }) {
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState(null);
+  const saveTimer = useRef(null);
 
   useEffect(() => {
     setContent('Loading...');
@@ -885,7 +886,22 @@ export function FileEditor({ agentId, skillName, fileName, onClose }) {
     setSaving(false);
   };
 
-  return React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 210, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: onClose, children:
+  // Auto-save: debounced 1s after last change
+  const onContentChange = (val) => {
+    setContent(val);
+    setDirty(true);
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => { handleSave(); saveTimer.current = null; }, 1000);
+  };
+
+  // Save on close if dirty
+  const handleClose = () => {
+    if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
+    if (dirty) handleSave();
+    onClose();
+  };
+
+  return React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 210, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: handleClose, children:
     React.createElement('div', { style: { backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '720px', height: '80vh', maxHeight: '600px', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-modal)', animation: 'modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)', overflow: 'hidden' }, onClick: e => e.stopPropagation(), children: [
       // Header
       React.createElement('div', { style: { padding: '10px 16px', backgroundColor: 'var(--q-bg-panel)', borderBottom: '1px solid var(--q-border)', display: 'flex', alignItems: 'center', flexShrink: 0 }, children: [
@@ -897,10 +913,10 @@ export function FileEditor({ agentId, skillName, fileName, onClose }) {
         savedMsg && React.createElement('span', { style: { color: 'var(--q-accent-success)', fontSize: 'var(--fs-11)', fontFamily: 'var(--font-interface)', marginRight: '8px' }, children: savedMsg }),
         React.createElement('button', { onClick: handleSave, disabled: saving, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: saving ? 'default' : 'pointer', backgroundColor: 'var(--q-accent-secondary)', color: 'var(--q-bg)', fontSize: '14px', fontWeight: 500, fontFamily: 'var(--font-interface)' }, children: [React.createElement(Save, { size: 16 }), ' Save'] }),
         React.createElement('div', { style: { width: '8px', flexShrink: 0 } }),
-        React.createElement('button', { onClick: onClose, style: { background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }, children: React.createElement(X, { size: 18, style: { color: 'var(--q-text-secondary)' } }) })
+        React.createElement('button', { onClick: handleClose, style: { background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }, children: React.createElement(X, { size: 18, style: { color: 'var(--q-text-secondary)' } }) })
       ]}),
       // Editor
-      React.createElement('textarea', { value: content, onChange: e => { setContent(e.target.value); setDirty(true); }, style: { flex: 1, width: '100%', backgroundColor: 'var(--q-bg-code)', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '13px', fontFamily: 'monospace', lineHeight: 1.6, padding: '16px', resize: 'none' } })
+      React.createElement('textarea', { value: content, onChange: e => onContentChange(e.target.value), style: { flex: 1, width: '100%', backgroundColor: 'var(--q-bg-code)', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '13px', fontFamily: 'monospace', lineHeight: 1.6, padding: '16px', resize: 'none' } })
     ]})
   });
 }
