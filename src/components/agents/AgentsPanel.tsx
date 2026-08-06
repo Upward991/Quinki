@@ -843,7 +843,7 @@ function SkillRow({ icon, name, description, agentsUsing, badge, badgeColor, isE
   ]});
 }
 
-function FileEditor({ agentId, skillName, fileName, onClose }) {
+export function FileEditor({ agentId, skillName, fileName, onClose }) {
   const { call } = useSidecarContext();
   const [content, setContent] = useState('Loading...');
   const [dirty, setDirty] = useState(false);
@@ -905,7 +905,7 @@ function FileEditor({ agentId, skillName, fileName, onClose }) {
   });
 }
 
-function AddItemsModal({ title, items, initialSelected, onClose, onConfirm }) {
+export function AddItemsModal({ title, items, initialSelected, onClose, onConfirm }) {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(new Set());
   // NASCONDI gli elementi già presenti (non mostrarli nella lista)

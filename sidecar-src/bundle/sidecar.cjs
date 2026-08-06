@@ -284847,6 +284847,21 @@ Sei ${name}.
       return false;
     }
   }
+  function deleteAgentFile(id, filePath) {
+    const agentCfg = readAgentConfig(id);
+    const dir = path17.join(agentsDir2, id);
+    const fullPath = path17.join(dir, filePath);
+    if (!fullPath.startsWith(dir)) return false;
+    try {
+      if (fs14.existsSync(fullPath)) {
+        fs14.unlinkSync(fullPath);
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }
   function scanSkills() {
     const cwd = getCwd();
     const skills = [];
@@ -284952,6 +284967,7 @@ Sei ${name}.
         return { success: false, error: e2?.message || String(e2) };
       }
     },
+    deleteAgentFile: async (p) => ({ success: deleteAgentFile(p.id, p.fileName) }),
     listSkills: async () => ({ skills: scanSkills() }),
     loadSkill: async (p) => {
       const skills = scanSkills();

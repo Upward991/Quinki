@@ -162,6 +162,14 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
     try { fs.mkdirSync(path.dirname(fullPath), { recursive: true }); fs.writeFileSync(fullPath, content, "utf8"); return true; } catch { return false; }
   }
 
+  function deleteAgentFile(id: string, filePath: string): boolean {
+    const agentCfg = readAgentConfig(id);
+    const dir = path.join(agentsDir, id);
+    const fullPath = path.join(dir, filePath);
+    if (!fullPath.startsWith(dir)) return false;
+    try { if (fs.existsSync(fullPath)) { fs.unlinkSync(fullPath); return true; } return false; } catch { return false; }
+  }
+
   // === Skill discovery ===
 
   function scanSkills(): any[] {
@@ -271,6 +279,7 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
         return { success: true };
       } catch (e: any) { return { success: false, error: e?.message || String(e) }; }
     },
+    deleteAgentFile: async (p: any) => ({ success: deleteAgentFile(p.id, p.fileName) }),
     listSkills: async () => ({ skills: scanSkills() }),
     loadSkill: async (p: any) => {
       const skills = scanSkills();
