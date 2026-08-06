@@ -637,7 +637,7 @@ export function AgentsPanel(props) {
           React.createElement('div', { style: { color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }, children: errorModal })
         }),
         React.createElement('div', { style: { display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px' }, children: [
-          React.createElement('button', { onClick: () => { navigator.clipboard.writeText(errorModal); }, className: 'q-hover-btn', style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', transition: 'none' }, children: [React.createElement(Copy, { size: 16 }), ' Copy'] }),
+          React.createElement('button', { onClick: () => { navigator.clipboard.writeText(errorModal); }, className: 'q-hover-btn', style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', transition: 'none' }, children: [React.createElement(Copy, { size: 16, style: { color: 'var(--q-tab-accent)' } }), ' Copy'] }),
           React.createElement('button', { className: 'q-press', onClick: () => setErrorModal(null), style: { padding: '8px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-tab-accent)', color: 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)' }, children: 'Close' })
         ]})
       ]})
@@ -671,7 +671,7 @@ function SubSection({ title, action, children }) {
 
 function SearchBar({ placeholder, value, onChange }) {
   return React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-md)' }, children: [
-    React.createElement(Search, { size: 16, style: { color: 'var(--q-text-tertiary)', flexShrink: 0 } }),
+    React.createElement(Search, { size: 16, style: { color: 'var(--q-tab-accent)', flexShrink: 0 } }),
     React.createElement('input', { type: 'text', placeholder, value, onChange: e => onChange(e.target.value), style: { flex: 1, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' } }),
     value && React.createElement('button', { onClick: () => onChange(''), style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-tertiary)', fontSize: '14px' }, children: '✕' })
   ]});
@@ -679,14 +679,14 @@ function SearchBar({ placeholder, value, onChange }) {
 
 function AddButton({ label, onClick }) {
   return React.createElement('button', { onClick, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent' }, children: [
-    React.createElement(Plus, { size: 16, style: { color: 'var(--q-text-secondary)' } }),
+    React.createElement(Plus, { size: 16, style: { color: 'var(--q-tab-accent)' } }),
     React.createElement('span', { style: { color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }, children: label })
   ]});
 }
 
 function MiniButton({ label, onClick }) {
   return React.createElement('button', { onClick, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 8px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent' }, children: [
-    React.createElement(Plus, { size: 14, style: { color: 'var(--q-text-tertiary)' } }),
+    React.createElement(Plus, { size: 14, style: { color: 'var(--q-tab-accent)' } }),
     React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: label })
   ]});
 }
@@ -695,7 +695,7 @@ function TagChip({ icon, label, onRemove }) {
   return React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 8px', borderRadius: '6px', border: 'none', backgroundColor: 'rgba(255, 255, 255, 0.04)' }, children: [
     React.createElement(icon, { size: 14, style: { color: 'var(--q-tab-accent)' } }),
     React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: label }),
-    onRemove && React.createElement('button', { onClick: onRemove, style: { background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex' }, children: React.createElement(X, { size: 14, style: { color: 'var(--q-text-tertiary)' } }) })
+    onRemove && React.createElement('button', { onClick: onRemove, style: { background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex' }, children: React.createElement(X, { size: 14, style: { color: 'var(--q-tab-accent)' } }) })
   ]});
 }
 
@@ -714,11 +714,11 @@ function AgentRow({ agent, isExpanded, isRenaming, onToggle, onStartRename, onCo
         ? React.createElement('input', { type: 'text', defaultValue: agent.name, autoFocus: true, onBlur: e => onCommitRename(e.target.value), onKeyDown: e => { if (e.key === 'Enter') onCommitRename(e.target.value); }, onClick: e => e.stopPropagation(), style: { flex: 1, color: 'var(--q-text)', fontSize: '14px', fontWeight: 600, fontFamily: 'var(--font-interface)', backgroundColor: 'transparent', border: 'none', outline: 'none', padding: '0' } })
         : React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }, children: [
             React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '14px', fontWeight: 600, fontFamily: 'var(--font-interface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: agent.name }),
-            canRename && React.createElement('button', { onClick: e => { e.stopPropagation(); onStartRename(); }, style: { background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex', flexShrink: 0 }, children: React.createElement(Pencil, { size: 13, style: { color: 'var(--q-text-tertiary)' } }) })
+            canRename && React.createElement('button', { onClick: e => { e.stopPropagation(); onStartRename(); }, style: { background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex', flexShrink: 0 }, children: React.createElement(Pencil, { size: 13, style: { color: 'var(--q-tab-accent)' } }) })
           ]}),
       React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', flexShrink: 0 }, children: [agentSkills.length, ' skill · ', agentTools.length, ' tool'] }),
       React.createElement('div', { style: { width: '8px', flexShrink: 0 } }),
-      isExpanded ? React.createElement(ChevronUp, { size: 16, style: { color: 'var(--q-text-tertiary)' } }) : React.createElement(ChevronDown, { size: 16, style: { color: 'var(--q-text-tertiary)' } })
+      isExpanded ? React.createElement(ChevronUp, { size: 16, style: { color: 'var(--q-tab-accent)' } }) : React.createElement(ChevronDown, { size: 16, style: { color: 'var(--q-tab-accent)' } })
     ]}),
 
     // Expanded content
@@ -743,9 +743,9 @@ function AgentRow({ agent, isExpanded, isRenaming, onToggle, onStartRename, onCo
         ? React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'No files.' })
         : React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '16px' }, children: agent.files.map(f =>
             React.createElement('div', { key: f, onClick: () => onOpenFile(f), style: { display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 8px', borderRadius: '6px', border: 'none', backgroundColor: 'rgba(255, 255, 255, 0.04)', cursor: 'pointer' }, children: [
-              React.createElement(FileText, { size: 14, style: { color: 'var(--q-text-secondary)' } }),
+              React.createElement(FileText, { size: 14, style: { color: 'var(--q-tab-accent)' } }),
               React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: f }),
-              React.createElement('button', { onClick: e => { e.stopPropagation(); onRemoveTag('file', f); }, style: { background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex' }, children: React.createElement(X, { size: 14, style: { color: 'var(--q-text-tertiary)' } }) })
+              React.createElement('button', { onClick: e => { e.stopPropagation(); onRemoveTag('file', f); }, style: { background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex' }, children: React.createElement(X, { size: 14, style: { color: 'var(--q-tab-accent)' } }) })
             ]})
           )}
       ),
@@ -791,7 +791,7 @@ function AgentRow({ agent, isExpanded, isRenaming, onToggle, onStartRename, onCo
 function SkillRow({ icon, name, description, agentsUsing, badge, badgeColor, isExpanded, onToggle, onEdit, onDeleteSkill, onAddAgent, onRemoveAgent, onRemoveAllAgents }) {
   return React.createElement('div', { style: { marginBottom: '4px', backgroundColor: 'var(--q-bg-elevated)', border: 'none', borderRadius: '8px', overflow: 'hidden' }, children: [
     React.createElement('div', { onClick: onToggle, style: { padding: '10px 12px', display: 'flex', alignItems: 'center', cursor: 'pointer', borderRadius: '8px', transition: 'none' }, onMouseEnter: e => { e.currentTarget.style.backgroundColor = 'color-mix(in srgb, var(--q-tab-accent) 3%, transparent)'; }, onMouseLeave: e => { e.currentTarget.style.backgroundColor = 'transparent'; }, children: [
-      React.createElement(icon, { size: 16, style: { color: 'var(--q-text-secondary)', flexShrink: 0 } }),
+      React.createElement(icon, { size: 16, style: { color: 'var(--q-tab-accent)', flexShrink: 0 } }),
       React.createElement('div', { style: { width: '8px', flexShrink: 0 } }),
       React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', flex: 1 }, children: name }),
       badge && badgeColor && React.createElement(React.Fragment, { children: [
@@ -800,12 +800,12 @@ function SkillRow({ icon, name, description, agentsUsing, badge, badgeColor, isE
       ]}),
       React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }, children: agentsUsing.length > 0 ? `${agentsUsing.length} ${agentsUsing.length > 1 ? 'agents' : 'agent'}` : 'None' }),
       React.createElement('div', { style: { width: '8px', flexShrink: 0 } }),
-      isExpanded ? React.createElement(ChevronUp, { size: 16, style: { color: 'var(--q-text-tertiary)' } }) : React.createElement(ChevronDown, { size: 16, style: { color: 'var(--q-text-tertiary)' } })
+      isExpanded ? React.createElement(ChevronUp, { size: 16, style: { color: 'var(--q-tab-accent)' } }) : React.createElement(ChevronDown, { size: 16, style: { color: 'var(--q-tab-accent)' } })
     ]}),
     isExpanded && React.createElement('div', { style: { padding: '0 12px 12px 14px' }, children: [
       description && React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginBottom: '8px', lineHeight: 1.5 }, children: description }),
       onEdit && React.createElement('div', { onClick: onEdit, style: { display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 8px', borderRadius: '6px', border: 'none', backgroundColor: 'rgba(255, 255, 255, 0.04)', cursor: 'pointer', marginBottom: '8px' }, children: [
-        React.createElement(FileText, { size: 14, style: { color: 'var(--q-text-secondary)' } }),
+        React.createElement(FileText, { size: 14, style: { color: 'var(--q-tab-accent)' } }),
         React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'SKILL.md' })
       ]}),
       agentsUsing.length === 0
@@ -824,7 +824,7 @@ function SkillRow({ icon, name, description, agentsUsing, badge, badgeColor, isE
               React.createElement('div', { key: agentName, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '6px', border: 'none', backgroundColor: 'rgba(255, 255, 255, 0.04)' }, children: [
                 React.createElement(Bot, { size: 16, style: { color: 'var(--q-tab-accent)' } }),
                 React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }, children: agentName }),
-                React.createElement('button', { onClick: () => onRemoveAgent(agentName), style: { background: 'none', border: 'none', cursor: 'pointer', padding: '0', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }, children: React.createElement(X, { size: 16, style: { color: 'var(--q-text-tertiary)' } }) })
+                React.createElement('button', { onClick: () => onRemoveAgent(agentName), style: { background: 'none', border: 'none', cursor: 'pointer', padding: '0', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }, children: React.createElement(X, { size: 16, style: { color: 'var(--q-tab-accent)' } }) })
               ]})
             )})
           ]}),
@@ -897,7 +897,7 @@ export function FileEditor({ agentId, skillName, fileName, onClose }) {
     React.createElement('div', { style: { backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '720px', height: '80vh', maxHeight: '600px', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-modal)', animation: 'modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)', overflow: 'hidden' }, onClick: e => e.stopPropagation(), children: [
       // Header
       React.createElement('div', { style: { padding: '10px 16px', backgroundColor: 'var(--q-bg-panel)', borderBottom: '1px solid var(--q-border)', display: 'flex', alignItems: 'center', flexShrink: 0 }, children: [
-        React.createElement(FileText, { size: 16, style: { color: 'var(--q-text-secondary)', flexShrink: 0 } }),
+        React.createElement(FileText, { size: 16, style: { color: 'var(--q-tab-accent)', flexShrink: 0 } }),
         React.createElement('div', { style: { width: '8px', flexShrink: 0 } }),
         React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '14px', fontWeight: 600, fontFamily: 'var(--font-interface)' }, children: skillName ? `${skillName}/SKILL.md` : `${agentId}/${fileName}` }),
         React.createElement('span', { style: { flex: 1 } }),
@@ -905,7 +905,7 @@ export function FileEditor({ agentId, skillName, fileName, onClose }) {
         dirty && React.createElement('span', { style: { color: 'var(--q-accent-warning)', fontSize: 'var(--fs-11)', fontFamily: 'var(--font-interface)', marginRight: '8px' }, children: 'Saving...' }),
         savedMsg && React.createElement('span', { style: { color: 'var(--q-accent-success)', fontSize: 'var(--fs-11)', fontFamily: 'var(--font-interface)', marginRight: '8px' }, children: savedMsg }),
         React.createElement('div', { style: { width: '8px', flexShrink: 0 } }),
-        React.createElement('button', { onClick: handleClose, style: { background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }, children: React.createElement(X, { size: 18, style: { color: 'var(--q-text-secondary)' } }) })
+        React.createElement('button', { onClick: handleClose, style: { background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }, children: React.createElement(X, { size: 18, style: { color: 'var(--q-tab-accent)' } }) })
       ]}),
       // Editor
       React.createElement('textarea', { value: content, onChange: e => onContentChange(e.target.value), style: { flex: 1, width: '100%', backgroundColor: 'var(--q-bg-code)', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '13px', fontFamily: 'monospace', lineHeight: 1.6, padding: '16px', resize: 'none' } })
@@ -934,12 +934,12 @@ export function AddItemsModal({ title, items, initialSelected, onClose, onConfir
       React.createElement('div', { style: { padding: '16px', borderBottom: '1px solid var(--q-border)', display: 'flex', alignItems: 'center' }, children: [
         React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)' }, children: title }),
         React.createElement('span', { style: { flex: 1 } }),
-        React.createElement('button', { onClick: onClose, style: { background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex' }, children: React.createElement(X, { size: 18, style: { color: 'var(--q-text-secondary)' } }) })
+        React.createElement('button', { onClick: onClose, style: { background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex' }, children: React.createElement(X, { size: 18, style: { color: 'var(--q-tab-accent)' } }) })
       ]}),
       // Search
       React.createElement('div', { style: { padding: '8px 16px' }, children:
         React.createElement('div', { style: { display: 'flex', alignItems: 'center', paddingLeft: '10px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-md)' }, children: [
-          React.createElement(Search, { size: 14, style: { color: 'var(--q-text-tertiary)', flexShrink: 0 } }),
+          React.createElement(Search, { size: 14, style: { color: 'var(--q-tab-accent)', flexShrink: 0 } }),
           React.createElement('div', { style: { width: '8px', flexShrink: 0 } }),
           React.createElement('input', { type: 'text', placeholder: 'Search...', value: search, onChange: e => setSearch(e.target.value), style: { flex: 1, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '8px 0' } })
         ]})
