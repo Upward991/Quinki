@@ -152,6 +152,18 @@ fn open_attachments_folder(session_key: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn open_general_attachments_folder() -> Result<(), String> {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let dir = format!("{}/.quinki/attachments", home);
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    std::process::Command::new("open")
+        .arg(&dir)
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
 fn list_attachments(session_key: String) -> Result<Vec<serde_json::Value>, String> {
     use std::fs;
     use std::path::Path;
@@ -365,6 +377,7 @@ pub fn run() {
         copy_to_attachments,
         save_attachment_content,
         open_attachments_folder,
+        open_general_attachments_folder,
         list_attachments,
         restart_app,
         enable_autostart,
