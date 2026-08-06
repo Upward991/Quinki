@@ -133,6 +133,7 @@ export function AgentConfigModal({ agentId, agents, onClose }: { agentId: string
               isExpanded={true}
               isRenaming={false}
               hideHeader={true}
+              hideDelete={true}
               onToggle={() => {}}
               onStartRename={() => {}}
               onCommitRename={() => {}}
