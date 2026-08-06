@@ -127,7 +127,8 @@ class PiBridge {
   #pendingThinking = new Map<string, string>();
   #pendingMode = new Map<string, string>();
   #cwdOverride = new Map<string, string>();
-  #pendingDelegationSkills = new Map<string, { agentId: string; skillName: string }[]>();  // override cwd per cambio dir mid-sessione
+  #pendingDelegationSkills = new Map<string, { agentId: string; skillName: string }[]>();
+  #pendingDelegationAttachments = new Map<string, { originalName: string; path: string; uuid: string; size?: number }[]>();  // override cwd per cambio dir mid-sessione
   // === Multi-window streaming buffer: traccia il messaggio in streaming per sessione ===
   // Permette alle nuove finestre di recuperare il contenuto parziale quando aprono durante la generazione
   #streamingBuffers = new Map<string, { text: string; thinking: string; toolCalls: any[]; currentPhase: string | null; messageId: string | null; model: string | null; provider: string | null; stopReason: string | null; thinkingLevel: string | null; }>();
@@ -3267,12 +3268,22 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
                 (tempPi as any)._baseSystemPrompt = base;
                 tempPi.agent.state.systemPrompt = base;
               }
-              // === Attachment directory for delegated agent ===
+              // === Attachment directory + specific files for delegated agent ===
               try {
                 const home2 = process.env.HOME || process.env.USERPROFILE || '';
                 const attDir = `${home2}/.quinki/attachments/${sessionKey}`;
                 if (fs.existsSync(attDir)) {
-                  base = (typeof base === 'string' ? base : '') + `\n\n**Attachment directory:** ${attDir}\nYou can use \`ls\` and \`read\` tools to access files the user has attached to this chat.`;
+                  let attSection = `\n\n**Attachment directory:** ${attDir}\nYou can use \`ls\` and \`read\` tools to access files the user has attached to this chat.`;
+                  // Add specific files if available
+                  const pendingAtts = self.#pendingDelegationAttachments.get(sessionKey);
+                  if (pendingAtts && pendingAtts.length > 0) {
+                    attSection += `\n\n=== ATTACHED FILES ===\nThe user attached the following file(s):`;
+                    for (const att of pendingAtts) {
+                      attSection += `\n- ${att.originalName} → ${att.path}`;
+                    }
+                    attSection += `\nUse the \`read\` tool to access these files. If a file is too large, use \`read\` with offset/limit.\n=== END ATTACHED FILES ===`;
+                  }
+                  base = (typeof base === 'string' ? base : '') + attSection;
                   (tempPi as any)._baseSystemPrompt = base;
                   tempPi.agent.state.systemPrompt = base;
                 }
@@ -4070,6 +4081,12 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
         this.#pendingDelegationSkills.set(sk, skillNames);
       } else {
         this.#pendingDelegationSkills.delete(sk);
+      }
+      // Store attachments for delegation — #buildDelegateTool will inject them
+      if (data.attachments && data.attachments.length > 0) {
+        this.#pendingDelegationAttachments.set(sk, data.attachments);
+      } else {
+        this.#pendingDelegationAttachments.delete(sk);
       }
     } catch (e: any) { this.logDebug("skill-rebuild-error", { sessionKey: sk, error: e?.message }); }
 
