@@ -2841,6 +2841,26 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       }
     });
 
+    // === Unified agent_llm_config log: what the LLM actually receives ===
+    {
+      let actualModel = ""; try { actualModel = tempPi.model?.id || ""; } catch {}
+      let actualThinking = ""; try { actualThinking = tempPi.thinkingLevel || ""; } catch {}
+      const sEntry = this.#entries.get(sk);
+      this.logDebug("agent_llm_config", {
+        sessionKey: sk,
+        source: "direct",
+        agentId: targetId,
+        agentName,
+        model: actualModel,
+        thinkingLevel: actualThinking,
+        chatModel: sEntry?.model || "",
+        chatThinking: sEntry?.thinkingLevel || "",
+        agentOverrideModel: agentOverride.model || null,
+        agentOverrideThinking: agentOverride.thinkingLevel || null,
+        systemPromptLen: (tempPi as any)._baseSystemPrompt?.length || 0,
+      });
+    }
+
     // Send the user's message to the temp session
     this.logDebug("send-direct-sending", { sessionKey: sk, agentName, text: data.text?.substring(0, 100) });
     const { content } = await this.#buildUserMessage(data.text, data.files);
@@ -3280,6 +3300,25 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
             try { tempPi.setThinkingLevel('off'); } catch {}
           } else if (mainSession?.thinkingLevel) {
             try { tempPi.setThinkingLevel(mainSession.thinkingLevel); } catch {}
+          }
+          // === Unified agent_llm_config log: what the LLM actually receives ===
+          {
+            let actualModel = ""; try { actualModel = tempPi.model?.id || ""; } catch {}
+            let actualThinking = ""; try { actualThinking = tempPi.thinkingLevel || ""; } catch {}
+            const sEntry = self.#entries.get(sessionKey);
+            self.logDebug("agent_llm_config", {
+              sessionKey,
+              source: "delegation",
+              agentId: targetId,
+              agentName: agent_name,
+              model: actualModel,
+              thinkingLevel: actualThinking,
+              chatModel: sEntry?.model || "",
+              chatThinking: sEntry?.thinkingLevel || "",
+              agentOverrideModel: agentOverride.model || null,
+              agentOverrideThinking: agentOverride.thinkingLevel || null,
+              systemPromptLen: (tempPi as any)._baseSystemPrompt?.length || 0,
+            });
           }
           // === Invia il task e attendi il completamento (sendUserMessage risolve a turno finito) ===
           self.logDebug("delegate-sending-task", { sessionKey, agent_name, task: task?.substring(0, 100) });
@@ -3921,6 +3960,30 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
         this.#pendingDelegationSkills.delete(sk);
       }
     } catch (e: any) { this.logDebug("skill-rebuild-error", { sessionKey: sk, error: e?.message }); }
+
+    // === Unified agent_llm_config log: what the LLM actually receives ===
+    {
+      const resolvedAgent = this.#resolveAgentId(sk);
+      const agentCfg = resolvedAgent ? this.#readAgentConfig(resolvedAgent) : null;
+      const agentName = agentCfg?.name || resolvedAgent || "unknown";
+      const sEntry = this.#entries.get(sk);
+      const overrides = (sEntry as any)?.agentOverrides?.[resolvedAgent] || {};
+      let actualModel = ""; try { actualModel = pi.model?.id || ""; } catch {}
+      let actualThinking = ""; try { actualThinking = pi.thinkingLevel || ""; } catch {}
+      this.logDebug("agent_llm_config", {
+        sessionKey: sk,
+        source: "main",
+        agentId: resolvedAgent || "unknown",
+        agentName,
+        model: actualModel,
+        thinkingLevel: actualThinking,
+        chatModel: sEntry?.model || "",
+        chatThinking: sEntry?.thinkingLevel || "",
+        agentOverrideModel: overrides.model || null,
+        agentOverrideThinking: overrides.thinkingLevel || null,
+        systemPromptLen: builtPrompt?.length || 0,
+      });
+    }
 
     const next = prev.then(() => pi.sendUserMessage(content, { deliverAs: "followUp" })).catch((err: Error) => {
       ws.send(JSON.stringify({ type: "error", message: err.message, sessionKey: sk }));

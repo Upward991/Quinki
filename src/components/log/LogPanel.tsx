@@ -93,9 +93,10 @@ export function LogPanel(props: LogPanelProps) {
     renderer: { bg: 'color-mix(in srgb, var(--q-text-secondary) 4%, transparent)', text: 'var(--q-text-secondary)', tag: 'var(--q-text-secondary)', pill: 'var(--q-text-secondary)' },
     info:     { bg: 'color-mix(in srgb, var(--q-text-tertiary) 4%, transparent)', text: 'var(--q-text-tertiary)', tag: 'var(--q-text-tertiary)', pill: 'var(--q-text-tertiary)' },
     system:   { bg: 'rgba(115, 71, 189, 0.08)', text: 'var(--q-text)', tag: 'var(--q-accent-primary)', pill: 'var(--q-accent-primary)' },
+    llm:      { bg: 'color-mix(in srgb, #d7be66 8%, transparent)', text: 'var(--q-text)', tag: '#d7be66', pill: '#d7be66' },
   }
 
-  const moreFilters = ['system', 'success', 'bridge', 'renderer', 'info']
+  const moreFilters = ['system', 'llm', 'success', 'bridge', 'renderer', 'info']
 
   const months = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december']
 
@@ -113,6 +114,8 @@ export function LogPanel(props: LogPanelProps) {
     // Bridge: session/agent/model/thinking/mode changes + send/receive
     if (tag.startsWith('send-message') || tag.startsWith('set-agent') || tag.startsWith('set-mode') || tag.startsWith('set-thinking') || tag.startsWith('set-model') || tag.startsWith('chat-agents') || tag.startsWith('agent-changed') || tag.startsWith('model-changed') || tag.startsWith('thinking-changed') || tag.startsWith('mode-changed') || tag.startsWith('session-') || tag.startsWith('working-dir') || tag.startsWith('stream') || tag.startsWith('bridge') || tag.startsWith('full-state') || tag.startsWith('get_') || tag.startsWith('ws:') || tag.startsWith('send:') || tag.startsWith('create') || tag.startsWith('delete') || tag.startsWith('update') || tag.startsWith('rename') || tag.startsWith('reload') || tag.startsWith('flush') || tag.startsWith('compact') || tag.startsWith('set-')) return 'bridge'
     // Renderer/sidecar internals
+    // LLM config: model + thinking per agent
+    if (tag === 'agent_llm_config') return 'llm'
     if (tag === 'system_prompt') return 'system'
     if (tag.startsWith('renderer') || tag.startsWith('sidecar-marker') || tag.startsWith('stdout')) return 'renderer'
     return 'info'
@@ -122,6 +125,26 @@ export function LogPanel(props: LogPanelProps) {
     if (data == null) return ''
     if (typeof data === 'string') return data
     if (typeof data !== 'object') return String(data)
+    // Special formatting for agent_llm_config logs
+    if (data && data.source !== undefined && data.model !== undefined && data.agentId !== undefined && data.systemPromptLen !== undefined) {
+      const sourceLabel = data.source === 'main' ? 'MAIN (chat)' : data.source === 'direct' ? 'DIRECT (@tag)' : 'DELEGATION'
+      let info = 'Session: ' + (data.sessionKey || '?')
+      info += '\nAgent: ' + data.agentName + ' (' + data.agentId + ')'
+      info += '\nType: ' + sourceLabel
+      info += '\n'
+      info += '\n── Model ──'
+      info += '\n  Used: ' + (data.model || '(default)')
+      info += '\n  Chat default: ' + (data.chatModel || '(none)')
+      info += '\n  Agent override: ' + (data.agentOverrideModel || '(none)')
+      info += '\n'
+      info += '\n── Thinking ──'
+      info += '\n  Used: ' + (data.thinkingLevel || '(default)')
+      info += '\n  Chat default: ' + (data.chatThinking || '(none)')
+      info += '\n  Agent override: ' + (data.agentOverrideThinking || '(none)')
+      info += '\n'
+      info += '\nSystem prompt: ' + data.systemPromptLen + ' chars'
+      return info
+    }
     // Special formatting for system_prompt logs
     if (data && data.prompt !== undefined) {
       const skills = data.skills && data.skills.length > 0 ? data.skills.join(', ') : 'none'
