@@ -440,8 +440,8 @@ function AttachMenu({ view, existingFiles, onPickFiles, onOpenFolder, onShowExis
               )}
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px', padding: '8px 16px 12px 16px' }}>
-              <AttachModalBtn label="Back" onClick={onBack} />
               <AttachModalBtn label="Cancel" onClick={onClose} danger />
+              <AttachModalBtn label="Back" onClick={onBack} />
             </div>
           </>
         )}
