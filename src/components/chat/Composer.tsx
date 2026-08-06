@@ -195,12 +195,16 @@ export function Composer(props: ComposerProps) {
     // Content-based (from HTML5 drag-drop — no file path available in WKWebView)
     (window as any).__quinkiAddAttachmentFromContent = async (fileName: string, contentB64: string) => {
       if (!props.sessionKey) return
+      // Check for dup BEFORE copying
+      let isDup = false
+      setPendingAttachments(prev => { isDup = prev.some(a => a.originalName === fileName); return prev })
+      if (isDup) return
       setCopyingFile(true)
       try {
         const result = await invoke('save_attachment_content', { fileName, contentB64, sessionKey: props.sessionKey }) as any
         if (result) {
           setPendingAttachments(prev => {
-            if (prev.some(a => a.originalName === result.originalName && a.size === result.size)) return prev
+            if (prev.some(a => a.originalName === result.originalName)) return prev
             return [...prev, { originalName: result.originalName, path: result.path, uuid: result.uuid, size: result.size }]
           })
         }
