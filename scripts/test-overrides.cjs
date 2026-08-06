@@ -65,15 +65,15 @@ async function test() {
   // TEST 3: Orchestrator + 2 agents, delegation
   console.log('\n━━━ TEST 3: Orchestrator delegation ━━━');
   try {
-    const r = await call('createSession', { label: 'T3', model: modelA, thinkingLevel: 'medium' });
+    const r = await call('createSession', { label: 'T3', model: modelA, thinkingLevel: 'xhigh' });
     const sk = r.key || r.sessionKey;
     await call('setChatAgents', { sessionKey: sk, agentIds: 'orchestrator,agent-1783343015806,frontend-designer' });
     await call('setAgentOverride', { sessionKey: sk, agentId: 'agent-1783343015806', model: modelB, thinkingLevel: 'on' });
     await call('setAgentOverride', { sessionKey: sk, agentId: 'frontend-designer', model: modelB, thinkingLevel: 'off' });
     await call('sendMessage', { sessionKey: sk, text: 'Delega a Notion e Frontend Designer dicendo ciao.' });
     console.log('  ✅ Done.');
-    console.log('    Expected MAIN: orchestrator, model=' + modelA + ', thinking=medium');
-    console.log('    Expected DELEGATION notion: model=' + modelB + ', thinking=medium (On→medium)');
+    console.log('    Expected MAIN: orchestrator, model=' + modelA + ', thinking=xhigh');
+    console.log('    Expected DELEGATION notion: model=' + modelB + ', thinking=xhigh (On→xhigh)');
     console.log('    Expected DELEGATION frontend-designer: model=' + modelB + ', thinking=off (Off)');
   } catch(e) { console.log('  ❌ ' + e.message); }
 
