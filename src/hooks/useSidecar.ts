@@ -7,7 +7,7 @@ export function useSidecar(url = "ws://127.0.0.1:9182") {
 	const [error, setError] = useState(null);
 	const pendingRef = useRef(/* @__PURE__ */ new Map());
 	const handlersRef = useRef(/* @__PURE__ */ new Map());
-	let nextId = Math.floor(Math.random() * 100000) + 1;
+	let nextId = 1;
 	useEffect(() => {
 		let closed = false;
 		const connect = () => {

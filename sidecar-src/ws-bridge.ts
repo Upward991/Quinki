@@ -7,13 +7,10 @@ import { WebSocketServer, WebSocket } from "ws";
 const __dirname = process.cwd();
 const PORT = parseInt(process.argv[2] || "9182", 10);
 
-// Use bundled sidecar.js (esbuild) — 20x faster than npx tsx
-// Fallback to tsx if bundle doesn't exist (dev mode)
-const bundledPath = join(__dirname, "bundle", "sidecar.cjs");
+const bundledPath = join(__dirname, "bundle", "ws-bridge.cjs");
 const useBundle = existsSync(bundledPath);
 
-// IMPORTANT: always use tsx for the sidecar (not bundle) — bundle has stdout buffering issues
-// The ws-bridge itself can use the bundle (it just forwards data)
+// Always use tsx for the sidecar (bundle has stdout buffering issues)
 const sidecar = spawn("npx", ["tsx", "sidecar.ts"], {
   stdio: ["pipe", "pipe", "pipe"],
   cwd: __dirname,
@@ -21,26 +18,46 @@ const sidecar = spawn("npx", ["tsx", "sidecar.ts"], {
 });
 
 let buffer = "";
-
 const server = createServer();
 const wss = new WebSocketServer({ server });
 
-let activeClient: WebSocket | null = null;
+// Routing: each client gets unique ID prefixes
+// Client sends {id: 1} → sidecar gets {id: "ws1_1"} → response {id: "ws1_1"} → client gets {id: 1}
+let clientCounter = 0;
+const clientMap = new Map<WebSocket, string>(); // ws → prefix
+const idToClient = new Map<string, WebSocket>(); // "ws1_1" → ws
 
-// ORIGINAL APPROACH: broadcast ALL messages to ALL clients
-// ID collisions are handled by the frontend using random IDs
 sidecar.stdout.on("data", (chunk: Buffer) => {
   buffer += chunk.toString();
   const lines = buffer.split("\n");
   buffer = lines.pop() || "";
   for (const line of lines) {
     if (line.trim()) {
-      // Broadcast to ALL WebSocket clients (responses + notifications)
-      for (const ws of wss.clients) {
-        if (ws.readyState === ws.OPEN) {
-          ws.send(line, (err: any) => {
-            if (err) console.error("[ws-bridge] send error:", err.message);
-          });
+      try {
+        const msg = JSON.parse(line);
+        if (msg.id !== undefined) {
+          // Response — route to the specific client that sent the request
+          const idStr = String(msg.id);
+          const client = idToClient.get(idStr);
+          if (client && client.readyState === client.OPEN) {
+            // Rewrite ID back to original (strip prefix)
+            const originalId = idStr.includes("_") ? idStr.split("_").slice(1).join("_") : idStr;
+            const rewritten = line.replace(`"id":${JSON.stringify(msg.id)}`, `"id":${originalId}`);
+            client.send(rewritten);
+          }
+          idToClient.delete(idStr);
+        } else {
+          // Notification (streaming events, agent_status, etc.) — broadcast to ALL
+          for (const ws of wss.clients) {
+            if (ws.readyState === ws.OPEN) {
+              ws.send(line);
+            }
+          }
+        }
+      } catch {
+        // Not valid JSON — broadcast to all
+        for (const ws of wss.clients) {
+          if (ws.readyState === ws.OPEN) ws.send(line);
         }
       }
     }
@@ -54,16 +71,39 @@ sidecar.on("exit", (code) => {
 });
 
 wss.on("connection", (ws) => {
-  console.log("[ws-bridge] Client connected");
-  activeClient = ws;
+  clientCounter++;
+  const prefix = `ws${clientCounter}`;
+  clientMap.set(ws, prefix);
+  console.log(`[ws-bridge] Client ${prefix} connected`);
+
   ws.on("message", (data) => {
-    if (sidecar.stdin.writable) sidecar.stdin.write(data.toString() + "\n");
+    if (!sidecar.stdin.writable) return;
+    try {
+      const msg = JSON.parse(data.toString());
+      if (msg.id !== undefined) {
+        // Rewrite ID with client prefix before sending to sidecar
+        const prefix = clientMap.get(ws);
+        const newId = `${prefix}_${msg.id}`;
+        idToClient.set(newId, ws);
+        msg.id = newId;
+        sidecar.stdin.write(JSON.stringify(msg) + "\n");
+        return;
+      }
+    } catch {}
+    // Notification or unparseable — pass through as-is
+    sidecar.stdin.write(data.toString() + "\n");
   });
+
   ws.on("close", () => {
-    if (activeClient === ws) activeClient = null;
+    const prefix = clientMap.get(ws);
+    clientMap.delete(ws);
+    for (const [id, client] of idToClient) {
+      if (client === ws) idToClient.delete(id);
+    }
+    if (prefix) console.log(`[ws-bridge] Client ${prefix} disconnected`);
   });
 });
 
 server.listen(PORT, () => {
-  console.log(`[ws-bridge] WebSocket on ws://127.0.0.1:${PORT} (mode: ${useBundle ? "bundle" : "tsx"})`);
+  console.log(`[ws-bridge] WebSocket on ws://127.0.0.1:${PORT} (routing mode, sidecar: tsx)`);
 });
