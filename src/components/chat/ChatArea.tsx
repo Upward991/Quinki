@@ -64,25 +64,33 @@ export function ChatArea(props: ChatAreaProps) {
 
   // === HTML5 Drag-and-drop file support ===
   // dragDropEnabled: false in tauri.conf.json lets WKWebView handle HTML5 drag events
+  const dragCounter = useRef(0)
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault()
+    dragCounter.current++
+    setDragOver(true)
+  }
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
     e.dataTransfer.dropEffect = 'copy'
-    if (!dragOver) setDragOver(true)
   }
   const handleDragLeave = (e: React.DragEvent) => {
-    // Only hide if leaving the container (not entering a child)
-    if (e.currentTarget === e.target) setDragOver(false)
+    e.preventDefault()
+    dragCounter.current--
+    if (dragCounter.current <= 0) {
+      dragCounter.current = 0
+      setDragOver(false)
+    }
   }
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault()
+    dragCounter.current = 0
     setDragOver(false)
     const files = Array.from(e.dataTransfer.files || [])
     for (const file of files) {
-      // Read file content as base64, send to Rust to save in attachments dir
       try {
         const arrayBuffer = await file.arrayBuffer()
         const bytes = new Uint8Array(arrayBuffer)
-        // Convert to base64
         let binary = ''
         for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
         const b64 = btoa(binary)
@@ -191,7 +199,7 @@ export function ChatArea(props: ChatAreaProps) {
   }, [sessionId, msgCount, isEmpty, props.streaming, searchQuery, searchDate, searchTime, props.messages])
 
   return (
-    <div className="h-full flex flex-col" style={{ maxWidth: 'var(--spacing-chat-max)', margin: '0 auto', width: '100%', position: 'relative' }} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
+    <div className="h-full flex flex-col" style={{ maxWidth: 'var(--spacing-chat-max)', margin: '0 auto', width: '100%', position: 'relative' }} onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
       {/* Drag-drop overlay */}
       {dragOver && (
         <div style={{ position: 'absolute', inset: 0, zIndex: 90, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 'var(--radius-lg)', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
