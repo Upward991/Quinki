@@ -1,6 +1,7 @@
 import * as path from "node:path";
 import * as fs from "node:fs";
 import { homedir } from "node:os";
+import { execSync } from "node:child_process";
 import { Type } from "typebox";
 import { defineTool, formatSkillsForPrompt } from "./vendor/@earendil-works/pi-coding-agent/dist/index.js";
 import { getFirstAvailableModelId, readModelsFromDisk } from "./models";
@@ -2558,7 +2559,6 @@ class PiBridge {
     this.#clearActiveApiKeys();
     if (!agentConfig?.skills?.length) return;
     try {
-      const { execSync } = require("child_process");
       for (const skillName of agentConfig.skills) {
         const skillPath = path.join(this.#agentDir, "skills", skillName, "SKILL.md");
         if (!fs.existsSync(skillPath)) continue;
@@ -3393,7 +3393,6 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
           for (const v of savedKeys) {
             // Re-inject the saved key from Keychain
             try {
-              const { execSync } = require("child_process");
               if (process.platform === "darwin") {
                 const key = execSync(`security find-generic-password -a "quinki" -s "${v}" -w`, { stdio: "pipe", encoding: "utf8" }).trim();
                 if (key) { process.env[v] = key; self.#activeApiKeys.push(v); }

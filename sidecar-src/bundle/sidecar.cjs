@@ -278818,6 +278818,7 @@ var import_node_os18 = require("node:os");
 var path16 = __toESM(require("node:path"), 1);
 var fs13 = __toESM(require("node:fs"), 1);
 var import_node_os16 = require("node:os");
+var import_node_child_process18 = require("node:child_process");
 init_build();
 init_dist5();
 
@@ -281787,7 +281788,6 @@ Sei in MODALIT\xC0 BUILD. Tutti i tool sono disponibili. Esegui le modifiche nec
     this.#clearActiveApiKeys();
     if (!agentConfig?.skills?.length) return;
     try {
-      const { execSync: execSync5 } = require("child_process");
       for (const skillName of agentConfig.skills) {
         const skillPath = path16.join(this.#agentDir, "skills", skillName, "SKILL.md");
         if (!fs13.existsSync(skillPath)) continue;
@@ -281799,7 +281799,7 @@ Sei in MODALIT\xC0 BUILD. Tutti i tool sono disponibili. Esegui le modifiche nec
           if (this.#activeApiKeys.includes(v2)) continue;
           try {
             if (process.platform === "darwin") {
-              const key = execSync5(`security find-generic-password -a "quinki" -s "${v2}" -w`, { stdio: "pipe", encoding: "utf8" }).trim();
+              const key = (0, import_node_child_process18.execSync)(`security find-generic-password -a "quinki" -s "${v2}" -w`, { stdio: "pipe", encoding: "utf8" }).trim();
               if (key) {
                 process.env[v2] = key;
                 this.#activeApiKeys.push(v2);
@@ -282686,9 +282686,8 @@ You have ${skills.length} skill(s) available. Use the skill tool with command='l
           self2.#clearActiveApiKeys();
           for (const v2 of savedKeys) {
             try {
-              const { execSync: execSync5 } = require("child_process");
               if (process.platform === "darwin") {
-                const key = execSync5(`security find-generic-password -a "quinki" -s "${v2}" -w`, { stdio: "pipe", encoding: "utf8" }).trim();
+                const key = (0, import_node_child_process18.execSync)(`security find-generic-password -a "quinki" -s "${v2}" -w`, { stdio: "pipe", encoding: "utf8" }).trim();
                 if (key) {
                   process.env[v2] = key;
                   self2.#activeApiKeys.push(v2);
