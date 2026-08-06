@@ -67,6 +67,7 @@ interface SessionEntry {
   compactionThreshold?: number;
   workingDir?: string;
   messageSkills?: Record<string, { agentId: string; skillName: string; agentName?: string }[]>;
+  messageAttachments?: Record<string, { originalName: string; path: string; uuid: string; size?: number }[]>;
 }
 
 type ProbeResult = { levels: string[]; map: Record<string, string>; ollamaLevels: string[] };
@@ -372,6 +373,7 @@ class PiBridge {
             this.#cwdOverride.set(s.key, s.workingDir);
             (existing as any).workingDir = s.workingDir;
             if (s.messageSkills) (existing as any).messageSkills = s.messageSkills;
+            if (s.messageAttachments) (existing as any).messageAttachments = s.messageAttachments;
           }
         }
       }
@@ -411,6 +413,7 @@ class PiBridge {
           messageThinking: (v as any).messageThinking,
           workingDir: (v as any).workingDir,
           messageSkills: (v as any).messageSkills,
+          messageAttachments: (v as any).messageAttachments,
         });
       }
       fs.writeFileSync(SESSION_FILE, JSON.stringify(data, null, 2), "utf8");
@@ -2285,6 +2288,22 @@ class PiBridge {
     return (s as any)?.messageSkills || {};
   }
 
+  setMessageAttachments(key: string, messageId: string, attachments: any[], messageText?: string) {
+    const s = this.#entries.get(key);
+    if (s && attachments && attachments.length > 0) {
+      if (!(s as any).messageAttachments) (s as any).messageAttachments = {};
+      const textKey = (messageText || messageId || '').substring(0, 200);
+      (s as any).messageAttachments[textKey] = attachments;
+      this.#save();
+      this.logDebug("set-message-attachments", { sessionKey: key, textKey, attachmentCount: attachments.length });
+    }
+  }
+
+  getMessageAttachments(key: string): Record<string, any[]> {
+    const s = this.#entries.get(key);
+    return (s as any)?.messageAttachments || {};
+  }
+
   // === Reload session: dispose Pi + il prossimo send riapre rileggendo il .jsonl aggiornato ===
   // Usato dopo injectErrorExchange per far "vedere" al modello i messaggi iniettati.
   reloadSession(key: string) {
@@ -3247,6 +3266,16 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
                 (tempPi as any)._baseSystemPrompt = base;
                 tempPi.agent.state.systemPrompt = base;
               }
+              // === Attachment directory for delegated agent ===
+              try {
+                const home2 = process.env.HOME || process.env.USERPROFILE || '';
+                const attDir = `${home2}/.quinki/attachments/${sessionKey}`;
+                if (fs.existsSync(attDir)) {
+                  base = (typeof base === 'string' ? base : '') + `\n\n**Attachment directory:** ${attDir}\nYou can use \`ls\` and \`read\` tools to access files the user has attached to this chat.`;
+                  (tempPi as any)._baseSystemPrompt = base;
+                  tempPi.agent.state.systemPrompt = base;
+                }
+              } catch {}
               self.logDebug("delegate-system-prompt-built", { sessionKey, mode: mainMode, promptLen: base?.length || 0, hasModeNote: base?.includes("MODALITÀ"), hasSkills: base?.includes("available_skills"), hasAgentPrompt: (base?.length || 0) > 100 });
               self.logDebug("system_prompt", { sessionKey: tempKey, len: base?.length || 0, hasSkills: (base?.includes("USER ACTIVATED SKILL") || false), skills: pendingSkills ? pendingSkills.filter((p: any) => p.agentId === targetId).map((p: any) => p.skillName) : [], agentId: targetId, agentName: agent_name, isDelegation: true, isOrchestrator: false, delegatedBy: sessionKey, messageText: (task || "").substring(0, 200), prompt: base || "" });
             } catch (e2: any) { self.logDebug("delegate-system-prompt-error", { sessionKey, error: e2?.message }); }
@@ -3491,7 +3520,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     });
   }
 
-  #buildSystemPrompt(key: string, cwd: string, workingDirs?: string[], mode?: string, skillNames?: { agentId: string; skillName: string }[]): string {
+  #buildSystemPrompt(key: string, cwd: string, workingDirs?: string[], mode?: string, skillNames?: { agentId: string; skillName: string }[], attachments?: { originalName: string; path: string; uuid: string; size?: number }[]): string {
     const rawAgentId = this.#resolveAgentId(key);
     // If agentId is a comma-separated list (e.g. "orchestrator,notion,frontend-designer"),
     // extract the first valid agent for reading PROMPT.md
@@ -3583,6 +3612,20 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
         } catch (e: any) { this.logDebug('skill-invoke-error', { skillName, error: e?.message }); }
       }
     }
+    // === Attachment directory path (always present for this chat) ===
+    const home = process.env.HOME || process.env.USERPROFILE || '';
+    const attachmentDir = `${home}/.quinki/attachments/${key}`;
+    if (fs.existsSync(attachmentDir)) {
+      prompt += `\n\n**Attachment directory:** ${attachmentDir}\nYou can use \`ls\` and \`read\` tools to access files the user has attached to this chat.`;
+    }
+    // === Specific attachments for this message ===
+    if (attachments && attachments.length > 0) {
+      prompt += `\n\n=== ATTACHED FILES ===\nThe user attached the following file(s) in this message:`;
+      for (const att of attachments) {
+        prompt += `\n- ${att.originalName} → ${att.path}`;
+      }
+      prompt += `\nUse the \`read\` tool to access these files. If a file is too large, use \`read\` with offset/limit.\n=== END ATTACHED FILES ===`;
+    }
     return prompt;
   }
 
@@ -3627,7 +3670,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     return null;
   }
 
-  async send(ws: any, data: { sessionKey: string; text: string; files?: { name: string; type: string; path?: string; data?: string }[]; workingDirs?: string[]; skillNames?: { agentId: string; skillName: string }[] }) {
+  async send(ws: any, data: { sessionKey: string; text: string; files?: { name: string; type: string; path?: string; data?: string }[]; workingDirs?: string[]; skillNames?: { agentId: string; skillName: string }[]; attachments?: { originalName: string; path: string; uuid: string; size?: number }[] }) {
     const sk = data.sessionKey;
     const s = this.#entries.get(sk);
     if (!s) {
@@ -4012,7 +4055,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
         return true;
       }) : undefined;
       const agentCfg = resolvedAgent ? this.#readAgentConfig(resolvedAgent) : null;
-            let prompt = this.#buildSystemPrompt(sk, effectiveCwd, data.workingDirs, undefined, skillsForPrompt);
+            let prompt = this.#buildSystemPrompt(sk, effectiveCwd, data.workingDirs, undefined, skillsForPrompt, data.attachments);
       // When NO skill is attached, add explicit note that previous skills are deactivated
       if (!skillNames) {
       }

@@ -90,9 +90,22 @@ function UserMessage({ message, onCopy, searchQuery, activeOcc, isDateMatch }: {
       {(message as any).skillNames && (message as any).skillNames.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
           {(message as any).skillNames.map((s: any, i: number) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 8px 3px 10px', borderRadius: 'var(--radius-sm)', backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid var(--q-border)', fontSize: '12px', fontFamily: 'var(--font-interface)', color: 'var(--q-text-secondary)' }}>
+            <div key={`sk-${i}`} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 8px 3px 10px', borderRadius: 'var(--radius-sm)', backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid var(--q-border)', fontSize: '12px', fontFamily: 'var(--font-interface)', color: 'var(--q-text-secondary)' }}>
               <span style={{ color: 'var(--q-text)', fontWeight: 500 }}>{s.skillName}</span>
               {s.agentName && <span style={{ color: 'var(--q-text-tertiary)', fontSize: '11px' }}>→ {s.agentName}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+      {(message as any).attachments && (message as any).attachments.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+          {(message as any).attachments.map((a: any, i: number) => (
+            <div key={`att-${i}`} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 8px 3px 10px', borderRadius: 'var(--radius-sm)', backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid var(--q-border)', fontSize: '12px', fontFamily: 'var(--font-interface)', color: 'var(--q-text-secondary)' }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--q-tab-accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+              </svg>
+              <span style={{ color: 'var(--q-text)', fontWeight: 500 }}>{a.originalName}</span>
             </div>
           ))}
         </div>

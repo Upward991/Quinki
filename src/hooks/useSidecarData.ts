@@ -674,16 +674,19 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
             merged.push(base)
           }
         }
-        // Attach skill names from history
+        // Attach skill names and attachments from history
         const msgSkills = history.messageSkills || {};
+        const msgAttachments = history.messageAttachments || {};
         const mergedWithSkills = merged.map(m => {
           if (m.role === 'user') {
             // content might be a string or an array of content blocks
             const text = typeof m.content === 'string' ? m.content :
               (Array.isArray(m.content) ? m.content.map((b: any) => b?.text || '').join('') : '');
             const textKey = text.substring(0, 200);
-            if (msgSkills[textKey]) {
-              return { ...m, skillNames: msgSkills[textKey] };
+            const skills = msgSkills[textKey];
+            const atts = msgAttachments[textKey];
+            if (skills || atts) {
+              return { ...m, skillNames: skills, attachments: atts };
             }
           }
           return m;
@@ -772,9 +775,10 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     let optsModel: string | undefined
     let optsThinking: string | undefined
     let optsSkills: any[] | undefined
+    let optsAttachments: any[] | undefined
     let optsChatAgents: string[] | undefined
     if (typeof sessionKeyOrOpts === 'string') { sk = sessionKeyOrOpts; ag = agents }
-    else if (sessionKeyOrOpts && typeof sessionKeyOrOpts === 'object') { sk = activeSessionId || undefined; ag = sessionKeyOrOpts.agentId ? [sessionKeyOrOpts.agentId] : undefined; if (sessionKeyOrOpts.model) optsModel = sessionKeyOrOpts.model; if (sessionKeyOrOpts.thinkingLevel) optsThinking = sessionKeyOrOpts.thinkingLevel; if (sessionKeyOrOpts.skillNames) optsSkills = sessionKeyOrOpts.skillNames; if (sessionKeyOrOpts.chatAgentIds) optsChatAgents = sessionKeyOrOpts.chatAgentIds }
+    else if (sessionKeyOrOpts && typeof sessionKeyOrOpts === 'object') { sk = activeSessionId || undefined; ag = sessionKeyOrOpts.agentId ? [sessionKeyOrOpts.agentId] : undefined; if (sessionKeyOrOpts.model) optsModel = sessionKeyOrOpts.model; if (sessionKeyOrOpts.thinkingLevel) optsThinking = sessionKeyOrOpts.thinkingLevel; if (sessionKeyOrOpts.skillNames) optsSkills = sessionKeyOrOpts.skillNames; if (sessionKeyOrOpts.attachments) optsAttachments = sessionKeyOrOpts.attachments; if (sessionKeyOrOpts.chatAgentIds) optsChatAgents = sessionKeyOrOpts.chatAgentIds }
     if (!ready) return
     const hasModels = providers.some((p: any) => p.models && p.models.length > 0)
     if (!hasModels) {
@@ -784,7 +788,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
       ])
       return
     }
-    const userMsg = { id: `msg-${Date.now()}`, role: 'user' as const, content: text, timestamp: new Date().toISOString(), tokensIn: Math.ceil(text.length / 4), skillNames: optsSkills } as any
+    const userMsg = { id: `msg-${Date.now()}`, role: 'user' as const, content: text, timestamp: new Date().toISOString(), tokensIn: Math.ceil(text.length / 4), skillNames: optsSkills, attachments: optsAttachments } as any
     setMessages(prev => [...prev, userMsg])
     setIsStreaming(true)
     setStatusLabel('Thinking'); setStatusKind('thinking')
@@ -821,7 +825,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
           return
         }
       }
-      await call('sendMessage', { sessionKey: sk, text, agentId: ag && ag.length > 0 ? ag[0] : undefined, model: optsModel, thinkingLevel: optsThinking, skillNames: optsSkills }, 600000)
+      await call('sendMessage', { sessionKey: sk, text, agentId: ag && ag.length > 0 ? ag[0] : undefined, model: optsModel, thinkingLevel: optsThinking, skillNames: optsSkills, attachments: optsAttachments }, 600000)
       // Reload sessions to get auto-generated title
       try {
         const r = await call('getFullState', {})

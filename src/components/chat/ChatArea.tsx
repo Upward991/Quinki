@@ -3,6 +3,7 @@
 // ============================================================
 
 import { useRef, useEffect, useState } from 'react'
+import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { messageMatchesFilters } from '../../utils/dateParser'
 import { getContrastColor } from '../../utils/contrast'
 import { MessageBubble } from './MessageBubble'
@@ -59,6 +60,26 @@ export function ChatArea(props: ChatAreaProps) {
   const [searchTime, setSearchTime] = useState('')
   const [currentMatch, setCurrentMatch] = useState(0)
   const [dateMatchIdx, setDateMatchIdx] = useState(0)
+  const [dragOver, setDragOver] = useState(false)
+
+  // === Drag-and-drop file support ===
+  useEffect(() => {
+    let unlisten: (() => void) | undefined
+    getCurrentWebview().onDragDropEvent((event) => {
+      if (event.payload.type === 'over') {
+        setDragOver(true)
+      } else if (event.payload.type === 'drop') {
+        setDragOver(false)
+        const paths = event.payload.paths || []
+        for (const p of paths) {
+          if ((window as any).__quinkiAddAttachment) (window as any).__quinkiAddAttachment(p)
+        }
+      } else if (event.payload.type === 'leave') {
+        setDragOver(false)
+      }
+    }).then((fn) => { unlisten = fn })
+    return () => { if (unlisten) unlisten() }
+  }, [])
 
   // Date/time filter: just find the FIRST matching message (for yellow border + scroll)
   const hasDateFilter = !!(searchDate.trim() || searchTime.trim())
@@ -157,6 +178,18 @@ export function ChatArea(props: ChatAreaProps) {
 
   return (
     <div className="h-full flex flex-col" style={{ maxWidth: 'var(--spacing-chat-max)', margin: '0 auto', width: '100%', position: 'relative' }}>
+      {/* Drag-drop overlay */}
+      {dragOver && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 90, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 'var(--radius-lg)', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', padding: '32px 48px', borderRadius: 'var(--radius-lg)', border: '2px dashed var(--q-tab-accent)', backgroundColor: 'var(--q-bg-panel)' }}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--q-tab-accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+            </svg>
+            <span style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', fontWeight: 600 }}>Drop files to attach</span>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div style={{ marginBottom: '8px', flexShrink: 0 }}>
         <ChatHeader

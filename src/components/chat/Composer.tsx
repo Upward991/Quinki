@@ -1,14 +1,22 @@
 // ============================================================
 // Composer — Deep Cosmos redesign
 // @agent mention, /slash commands, mode toggle, context counter,
-// status pill, send button with pulse animation
+// status pill, send button with pulse animation, file attachments
 // ============================================================
 
 import { useState, useRef, useEffect } from 'react'
+import { invoke } from '@tauri-apps/api/core'
 import { getContrastColor } from '../../utils/contrast'
 import type { Provider, Agent, ChatMode, ThinkingLevel } from '../../types'
 import { Paperclip, ChevronUp, ChevronDown, Bot, X } from '../icons'
 import { SlashMenu, type SlashMenuRef } from './SlashMenu'
+
+export interface Attachment {
+  originalName: string
+  path: string
+  uuid: string
+  size?: number
+}
 
 interface ComposerProps {
   providers: Provider[]
@@ -21,7 +29,7 @@ interface ComposerProps {
   isCompacting?: boolean
   statusLabel?: string
   statusKind?: string
-  onSend: (text: string, opts?: { skillNames?: { agentId: string; skillName: string; agentName?: string }[] }) => void
+  onSend: (text: string, opts?: { skillNames?: { agentId: string; skillName: string; agentName?: string }[]; attachments?: Attachment[] }) => void
   onStop: () => void
   onModelChange: (model: string) => void
   onModeChange: (mode: ChatMode) => void
@@ -43,6 +51,11 @@ export function Composer(props: ComposerProps) {
   const [mentionIdx, setMentionIdx] = useState(0)
   const [pendingSkill, setPendingSkill] = useState<string | null>(null)
   const [pendingSkills, setPendingSkills] = useState<{ agentId: string; skillName: string; agentName: string }[]>([])
+  const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([])
+  const [attachMenuOpen, setAttachMenuOpen] = useState(false)
+  const [attachMenuView, setAttachMenuView] = useState<'main' | 'existing'>('main')
+  const [existingAttachments, setExistingAttachments] = useState<any[]>([])
+  const [copyingFile, setCopyingFile] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const slashMenuRef = useRef<SlashMenuRef>(null)
 
@@ -68,7 +81,18 @@ export function Composer(props: ComposerProps) {
   const canSend = text.trim().length > 0 && !props.isStreaming
 
   const handleSend = () => {
-    if (canSend) { props.onSend(text.trim(), { skillNames: pendingSkills.length > 0 ? pendingSkills.map(s => ({ agentId: s.agentId, skillName: s.skillName, agentName: s.agentName })) : undefined }); setText(''); setSlashMenuOpen(false); setMentionOpen(false); setPendingSkill(null); setPendingSkills([]) }
+    if (canSend) {
+      props.onSend(text.trim(), {
+        skillNames: pendingSkills.length > 0 ? pendingSkills.map(s => ({ agentId: s.agentId, skillName: s.skillName, agentName: s.agentName })) : undefined,
+        attachments: pendingAttachments.length > 0 ? pendingAttachments : undefined,
+      })
+      setText('')
+      setSlashMenuOpen(false)
+      setMentionOpen(false)
+      setPendingSkill(null)
+      setPendingSkills([])
+      setPendingAttachments([])
+    }
   }
 
   const selectAgent = (agent: Agent) => {
@@ -87,6 +111,89 @@ export function Composer(props: ComposerProps) {
       }
     }, 0)
   }
+
+  // === Attachment handling ===
+  const handlePickFiles = async () => {
+    setAttachMenuOpen(false)
+    if (!props.sessionKey) return
+    try {
+      const paths = await invoke('pick_files') as string[]
+      if (!paths || paths.length === 0) return
+      setCopyingFile(true)
+      for (const p of paths) {
+        const result = await invoke('copy_to_attachments', { srcPath: p, sessionKey: props.sessionKey }) as any
+        if (result) {
+          setPendingAttachments(prev => [...prev, {
+            originalName: result.originalName,
+            path: result.path,
+            uuid: result.uuid,
+            size: result.size,
+          }])
+        }
+      }
+    } catch (e: any) {
+      if (e !== 'cancelled') console.error('pick_files error:', e)
+    } finally {
+      setCopyingFile(false)
+    }
+  }
+
+  const handleOpenAttachmentsFolder = async () => {
+    setAttachMenuOpen(false)
+    if (!props.sessionKey) return
+    try {
+      await invoke('open_attachments_folder', { sessionKey: props.sessionKey })
+    } catch (e: any) {
+      console.error('open_attachments_folder error:', e)
+    }
+  }
+
+  const handleShowExisting = async () => {
+    if (!props.sessionKey) return
+    setAttachMenuView('existing')
+    try {
+      const files = await invoke('list_attachments', { sessionKey: props.sessionKey }) as any[]
+      setExistingAttachments(files || [])
+    } catch (e: any) {
+      console.error('list_attachments error:', e)
+      setExistingAttachments([])
+    }
+  }
+
+  const handleReAttach = (file: any) => {
+    // Re-attach existing file — no copy needed, just create chip
+    setPendingAttachments(prev => [...prev, {
+      originalName: file.originalName,
+      path: file.path,
+      uuid: file.name.split('-')[0] || '',
+      size: file.size,
+    }])
+    setAttachMenuOpen(false)
+    setAttachMenuView('main')
+  }
+
+  // Expose method for drag-drop from ChatArea
+  useEffect(() => {
+    (window as any).__quinkiAddAttachment = async (filePath: string) => {
+      if (!props.sessionKey) return
+      setCopyingFile(true)
+      try {
+        const result = await invoke('copy_to_attachments', { srcPath: filePath, sessionKey: props.sessionKey }) as any
+        if (result) {
+          setPendingAttachments(prev => [...prev, {
+            originalName: result.originalName,
+            path: result.path,
+            uuid: result.uuid,
+            size: result.size,
+          }])
+        }
+      } catch (e: any) {
+        console.error('drag-drop copy error:', e)
+      } finally {
+        setCopyingFile(false)
+      }
+    }
+  }, [props.sessionKey])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     // @mention navigation
@@ -108,7 +215,7 @@ export function Composer(props: ComposerProps) {
     }
     e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())
     // Esc: se sta generando → STOP (come il tasto stop). Altrimenti chiude menu/pulisce.
-    e.key === 'Escape' && (props.isStreaming ? (e.preventDefault(), props.onStop()) : (setSlashMenuOpen(false), setMentionOpen(false), setText('')))
+    e.key === 'Escape' && (props.isStreaming ? (e.preventDefault(), props.onStop()) : (setSlashMenuOpen(false), setMentionOpen(false), setAttachMenuOpen(false), setText('')))
     // Tab: toggle Plan/Build (non inserire tab nel testo)
     if (e.key === 'Tab') { e.preventDefault(); props.onModeChange(props.mode === 'plan' ? 'build' : 'plan') }
   }
@@ -154,6 +261,19 @@ export function Composer(props: ComposerProps) {
       {mentionOpen && filteredAgents.length > 0 && (
         <MentionPicker agents={filteredAgents} selectedIdx={mentionIdx} onSelect={selectAgent} onClose={() => { setMentionOpen(false); setMentionFilter('') }} />
       )}
+      {/* Attachment menu */}
+      {attachMenuOpen && (
+        <AttachMenu
+          view={attachMenuView}
+          existingFiles={existingAttachments}
+          onPickFiles={handlePickFiles}
+          onOpenFolder={handleOpenAttachmentsFolder}
+          onShowExisting={handleShowExisting}
+          onReAttach={handleReAttach}
+          onBack={() => setAttachMenuView('main')}
+          onClose={() => { setAttachMenuOpen(false); setAttachMenuView('main') }}
+        />
+      )}
 
       <div style={{
         backgroundColor: 'var(--q-bg-panel)',
@@ -163,11 +283,11 @@ export function Composer(props: ComposerProps) {
         display: 'flex',
         flexDirection: 'column',
       }}>
-        {/* Skill chips */}
-        {pendingSkills.length > 0 && (
+        {/* Skill + Attachment chips */}
+        {(pendingSkills.length > 0 || pendingAttachments.length > 0 || copyingFile) && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '6px' }}>
             {pendingSkills.map((s, i) => (
-              <div key={i} style={{
+              <div key={`sk-${i}`} style={{
                 display: 'flex', alignItems: 'center', gap: '6px',
                 padding: '3px 8px 3px 10px', borderRadius: 'var(--radius-sm)',
                 backgroundColor: 'rgba(255,255,255,0.06)',
@@ -182,6 +302,38 @@ export function Composer(props: ComposerProps) {
                 </button>
               </div>
             ))}
+            {pendingAttachments.map((a, i) => (
+              <div key={`att-${i}`} style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '3px 8px 3px 10px', borderRadius: 'var(--radius-sm)',
+                backgroundColor: 'rgba(255,255,255,0.06)',
+                border: '1px solid var(--q-border)',
+                fontSize: '12px', fontFamily: 'var(--font-interface)',
+                color: 'var(--q-text-secondary)',
+              }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--q-tab-accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                </svg>
+                <span style={{ color: 'var(--q-text)', fontWeight: 500 }}>{a.originalName}</span>
+                {a.size && <span style={{ color: 'var(--q-text-tertiary)', fontSize: '11px' }}>{fmt(a.size)}B</span>}
+                <button onClick={() => setPendingAttachments(prev => prev.filter((_, idx) => idx !== i))} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', color: 'var(--q-text-tertiary)', display: 'flex' }}>
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+            {copyingFile && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '3px 10px', borderRadius: 'var(--radius-sm)',
+                backgroundColor: 'rgba(255,255,255,0.06)',
+                border: '1px solid var(--q-border)',
+                fontSize: '12px', fontFamily: 'var(--font-interface)',
+                color: 'var(--q-text-tertiary)',
+              }}>
+                <span>Copying…</span>
+              </div>
+            )}
           </div>
         )}
         {/* Textarea */}
@@ -235,13 +387,95 @@ export function Composer(props: ComposerProps) {
               <StatusPill label={props.statusLabel} kind={props.statusKind || 'thinking'} />
             </div>
           )}
-          <AttachBtn onClick={() => {}} title="Attach file"><Paperclip size={20} /></AttachBtn>
+          <AttachBtn onClick={() => { setAttachMenuOpen(true); setAttachMenuView('main') }} title="Attach file"><Paperclip size={20} /></AttachBtn>
           <div style={{ width: '8px', flexShrink: 0 }} />
           <StopBtn color="var(--q-accent-danger)" onClick={props.isStreaming ? props.onStop : () => {}} />
           <div style={{ width: '8px', flexShrink: 0 }} />
           <SendButton enabled={canSend} onClick={handleSend} />
         </div>
       </div>
+    </div>
+  )
+}
+
+// ── Attachment menu (3 options) ──
+function AttachMenu({ view, existingFiles, onPickFiles, onOpenFolder, onShowExisting, onReAttach, onBack, onClose }: {
+  view: 'main' | 'existing'
+  existingFiles: any[]
+  onPickFiles: () => void
+  onOpenFolder: () => void
+  onShowExisting: () => void
+  onReAttach: (file: any) => void
+  onBack: () => void
+  onClose: () => void
+}) {
+  const [hovered, setHovered] = useState<string | null>(null)
+  return (
+    <>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={onClose} />
+      <div style={{
+        position: 'absolute', bottom: 'calc(100% + 8px)', right: '40px', zIndex: 50,
+        backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)',
+        boxShadow: 'var(--shadow-floating)', minWidth: '240px',
+        padding: '4px 0',
+        display: 'flex', flexDirection: 'column',
+      }}>
+        {view === 'main' ? (
+          <>
+            <AttachMenuItem label="Attach new file…" onClick={onPickFiles} hovered={hovered === 'new'} onHover={() => setHovered('new')} />
+            <AttachMenuItem label="Previously sent…" onClick={onShowExisting} hovered={hovered === 'existing'} onHover={() => setHovered('existing')} />
+            <AttachMenuItem label="Open attachments folder" onClick={onOpenFolder} hovered={hovered === 'folder'} onHover={() => setHovered('folder')} />
+            <div style={{ height: '1px', backgroundColor: 'var(--q-border)', margin: '4px 0' }} />
+            <AttachMenuItem label="Cancel" onClick={onClose} hovered={hovered === 'cancel'} onHover={() => setHovered('cancel')} danger />
+          </>
+        ) : (
+          <>
+            <div style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button onClick={onBack} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', color: 'var(--q-text-tertiary)', display: 'flex' }}>
+                <ChevronUp size={14} style={{ transform: 'rotate(-90deg)' }} />
+              </button>
+              <span style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', fontWeight: 600 }}>Previously sent</span>
+            </div>
+            <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+              {existingFiles.length === 0 ? (
+                <div style={{ padding: '12px 16px', color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>
+                  No attachments in this chat yet.
+                </div>
+              ) : (
+                existingFiles.map((f, i) => (
+                  <div key={i} onClick={() => onReAttach(f)} onMouseEnter={() => setHovered(`f-${i}`)} onMouseLeave={() => setHovered(null)}
+                    style={{
+                      padding: '8px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
+                      backgroundColor: hovered === `f-${i}` ? 'var(--q-hover)' : 'transparent',
+                      transition: 'none',
+                    }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--q-tab-accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                    </svg>
+                    <span style={{ color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.originalName}</span>
+                    {f.size && <span style={{ color: 'var(--q-text-tertiary)', fontSize: '11px', fontFamily: 'var(--font-code)' }}>{f.size > 1024 ? `${Math.floor(f.size / 1024)}KB` : `${f.size}B`}</span>}
+                  </div>
+                ))
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </>
+  )
+}
+
+function AttachMenuItem({ label, onClick, hovered, onHover, danger }: { label: string; onClick: () => void; hovered: boolean; onHover: () => void; danger?: boolean }) {
+  return (
+    <div onClick={onClick} onMouseEnter={onHover} onMouseLeave={() => onHover(null)}
+      style={{
+        padding: '8px 16px', cursor: 'pointer', fontSize: '14px', fontFamily: 'var(--font-interface)',
+        color: danger ? 'var(--q-accent-danger)' : hovered ? 'var(--q-text)' : 'var(--q-text-secondary)',
+        backgroundColor: hovered ? 'var(--q-hover)' : 'transparent',
+        borderRadius: 'var(--radius-sm)', transition: 'none',
+      }}>
+      {label}
     </div>
   )
 }

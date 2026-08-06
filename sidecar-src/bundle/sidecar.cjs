@@ -279574,6 +279574,7 @@ var PiBridge = class {
             this.#cwdOverride.set(s2.key, s2.workingDir);
             existing.workingDir = s2.workingDir;
             if (s2.messageSkills) existing.messageSkills = s2.messageSkills;
+            if (s2.messageAttachments) existing.messageAttachments = s2.messageAttachments;
           }
         }
       }
@@ -279611,7 +279612,8 @@ var PiBridge = class {
           messageAgents: v2.messageAgents,
           messageThinking: v2.messageThinking,
           workingDir: v2.workingDir,
-          messageSkills: v2.messageSkills
+          messageSkills: v2.messageSkills,
+          messageAttachments: v2.messageAttachments
         });
       }
       fs13.writeFileSync(SESSION_FILE, JSON.stringify(data, null, 2), "utf8");
@@ -281497,6 +281499,20 @@ var PiBridge = class {
     const s2 = this.#entries.get(key);
     return s2?.messageSkills || {};
   }
+  setMessageAttachments(key, messageId, attachments, messageText) {
+    const s2 = this.#entries.get(key);
+    if (s2 && attachments && attachments.length > 0) {
+      if (!s2.messageAttachments) s2.messageAttachments = {};
+      const textKey = (messageText || messageId || "").substring(0, 200);
+      s2.messageAttachments[textKey] = attachments;
+      this.#save();
+      this.logDebug("set-message-attachments", { sessionKey: key, textKey, attachmentCount: attachments.length });
+    }
+  }
+  getMessageAttachments(key) {
+    const s2 = this.#entries.get(key);
+    return s2?.messageAttachments || {};
+  }
   // === Reload session: dispose Pi + il prossimo send riapre rileggendo il .jsonl aggiornato ===
   // Usato dopo injectErrorExchange per far "vedere" al modello i messaggi iniettati.
   reloadSession(key) {
@@ -282524,6 +282540,19 @@ You have ${skills.length} skill(s) available. Use the skill tool with command='l
                 tempPi._baseSystemPrompt = base;
                 tempPi.agent.state.systemPrompt = base;
               }
+              try {
+                const home2 = process.env.HOME || process.env.USERPROFILE || "";
+                const attDir = `${home2}/.quinki/attachments/${sessionKey}`;
+                if (fs13.existsSync(attDir)) {
+                  base = (typeof base === "string" ? base : "") + `
+
+**Attachment directory:** ${attDir}
+You can use \`ls\` and \`read\` tools to access files the user has attached to this chat.`;
+                  tempPi._baseSystemPrompt = base;
+                  tempPi.agent.state.systemPrompt = base;
+                }
+              } catch {
+              }
               self2.logDebug("delegate-system-prompt-built", { sessionKey, mode: mainMode, promptLen: base?.length || 0, hasModeNote: base?.includes("MODALIT\xC0"), hasSkills: base?.includes("available_skills"), hasAgentPrompt: (base?.length || 0) > 100 });
               self2.logDebug("system_prompt", { sessionKey: tempKey, len: base?.length || 0, hasSkills: base?.includes("USER ACTIVATED SKILL") || false, skills: pendingSkills ? pendingSkills.filter((p) => p.agentId === targetId).map((p) => p.skillName) : [], agentId: targetId, agentName: agent_name, isDelegation: true, isOrchestrator: false, delegatedBy: sessionKey, messageText: (task || "").substring(0, 200), prompt: base || "" });
             } catch (e2) {
@@ -282800,7 +282829,7 @@ Quando l'utente fa una richiesta, analizza e delega all'agente pi\xF9 adatto. Se
       noContextFiles: true
     });
   }
-  #buildSystemPrompt(key, cwd, workingDirs, mode, skillNames) {
+  #buildSystemPrompt(key, cwd, workingDirs, mode, skillNames, attachments) {
     const rawAgentId = this.#resolveAgentId(key);
     let agentId = rawAgentId;
     if (agentId && agentId.includes(",")) {
@@ -282924,6 +282953,27 @@ CRITICAL: The skill instructions above were explicitly activated by the user via
           this.logDebug("skill-invoke-error", { skillName, error: e2?.message });
         }
       }
+    }
+    const home = process.env.HOME || process.env.USERPROFILE || "";
+    const attachmentDir = `${home}/.quinki/attachments/${key}`;
+    if (fs13.existsSync(attachmentDir)) {
+      prompt += `
+
+**Attachment directory:** ${attachmentDir}
+You can use \`ls\` and \`read\` tools to access files the user has attached to this chat.`;
+    }
+    if (attachments && attachments.length > 0) {
+      prompt += `
+
+=== ATTACHED FILES ===
+The user attached the following file(s) in this message:`;
+      for (const att of attachments) {
+        prompt += `
+- ${att.originalName} \u2192 ${att.path}`;
+      }
+      prompt += `
+Use the \`read\` tool to access these files. If a file is too large, use \`read\` with offset/limit.
+=== END ATTACHED FILES ===`;
     }
     return prompt;
   }
@@ -283373,7 +283423,7 @@ CRITICAL: The skill instructions above were explicitly activated by the user via
         return true;
       }) : void 0;
       const agentCfg = resolvedAgent ? this.#readAgentConfig(resolvedAgent) : null;
-      let prompt = this.#buildSystemPrompt(sk, effectiveCwd2, data.workingDirs, void 0, skillsForPrompt);
+      let prompt = this.#buildSystemPrompt(sk, effectiveCwd2, data.workingDirs, void 0, skillsForPrompt, data.attachments);
       if (!skillNames) {
       }
       try {
@@ -285666,7 +285716,7 @@ var handlers = {
   getContextUsage: async (p) => ({ sessionKey: p.sessionKey, usage: piBridge.getContextUsage(p.sessionKey) }),
   getAllContextUsage: async () => ({ usage: piBridge.getAllContextUsage() }),
   getModelContext: async (p) => ({ modelId: p.modelId, ...await piBridge.getModelContext(p.modelId) }),
-  getHistory: async (p) => ({ sessionKey: p.sessionKey, messages: piBridge.getHistory(String(p.sessionKey)), messageSkills: piBridge.getMessageSkills(String(p.sessionKey)) }),
+  getHistory: async (p) => ({ sessionKey: p.sessionKey, messages: piBridge.getHistory(String(p.sessionKey)), messageSkills: piBridge.getMessageSkills(String(p.sessionKey)), messageAttachments: piBridge.getMessageAttachments(String(p.sessionKey)) }),
   get_history: async (p) => handlers.getHistory(p),
   stopStream: async (p) => {
     if (piBridge && p?.sessionKey) piBridge.abort(p.sessionKey);
@@ -285695,8 +285745,11 @@ var handlers = {
     if (p.skillNames && p.skillNames.length > 0) {
       piBridge.setMessageSkills(sk, mid, p.skillNames, p.text);
     }
+    if (p.attachments && p.attachments.length > 0) {
+      piBridge.setMessageAttachments(sk, mid, p.attachments, p.text);
+    }
     const fakeWs = new FakeWebSocket();
-    await piBridge.send(fakeWs, { sessionKey: sk, text: p.text, files: p.files, workingDirs: p.workingDirs, skillNames: p.skillNames });
+    await piBridge.send(fakeWs, { sessionKey: sk, text: p.text, files: p.files, workingDirs: p.workingDirs, skillNames: p.skillNames, attachments: p.attachments });
     piBridge.logDebug("message-sent", { sessionKey: sk, messageId: mid, agent: p.agentId || meta3.agentId, model: p.model || meta3.model });
     return { messageId: mid, sessionKey: sk };
   },

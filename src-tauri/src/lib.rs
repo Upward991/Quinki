@@ -53,6 +53,112 @@ fn pick_directory(window: tauri::WebviewWindow) -> Result<String, String> {
 }
 
 #[tauri::command]
+fn pick_files(window: tauri::WebviewWindow) -> Result<Vec<String>, String> {
+    use rfd::FileDialog;
+    let dialog = FileDialog::new().set_title("Select files to attach");
+    let dialog = dialog.set_parent(&window);
+    match dialog.pick_files() {
+        Some(paths) => Ok(paths.iter().map(|p| p.to_string_lossy().to_string()).collect()),
+        None => Err("cancelled".to_string()),
+    }
+}
+
+#[tauri::command]
+fn copy_to_attachments(src_path: String, session_key: String) -> Result<serde_json::Value, String> {
+    use std::fs;
+    use std::path::Path;
+
+    let home = std::env::var("HOME").unwrap_or_default();
+    let attachments_dir = format!("{}/.quinki/attachments/{}", home, session_key);
+
+    // Create directory if it doesn't exist
+    fs::create_dir_all(&attachments_dir).map_err(|e| e.to_string())?;
+
+    let src = Path::new(&src_path);
+    let original_name = src.file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| "unknown".to_string());
+
+    // Generate unique name: <uuid>-<original-name>
+    let uuid = {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default();
+        format!("{:x}{:x}", now.as_millis(), now.subsec_nanos())
+    };
+    let unique_name = format!("{}-{}", uuid, original_name);
+    let dest_path = format!("{}/{}", attachments_dir, unique_name);
+
+    // Copy file
+    fs::copy(&src, &dest_path).map_err(|e| e.to_string())?;
+
+    // Get file size
+    let size = fs::metadata(&dest_path)
+        .map(|m| m.len())
+        .unwrap_or(0);
+
+    Ok(serde_json::json!({
+        "path": dest_path,
+        "originalName": original_name,
+        "uniqueName": unique_name,
+        "uuid": uuid,
+        "size": size
+    }))
+}
+
+#[tauri::command]
+fn open_attachments_folder(session_key: String) -> Result<(), String> {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let dir = format!("{}/.quinki/attachments/{}", home, session_key);
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    std::process::Command::new("open")
+        .arg(&dir)
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn list_attachments(session_key: String) -> Result<Vec<serde_json::Value>, String> {
+    use std::fs;
+    use std::path::Path;
+    let home = std::env::var("HOME").unwrap_or_default();
+    let dir = format!("{}/.quinki/attachments/{}", home, session_key);
+
+    if !Path::new(&dir).exists() {
+        return Ok(vec![]);
+    }
+
+    let mut files = vec![];
+    let entries = fs::read_dir(&dir).map_err(|e| e.to_string())?;
+    for entry in entries {
+        if let Ok(entry) = entry {
+            let path = entry.path();
+            if path.is_file() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                let size = entry.metadata().map(|m| m.len()).unwrap_or(0);
+                // Extract original name by removing the uuid prefix (first 20+ chars before first '-')
+                let original_name = if let Some(idx) = name.find('-') {
+                    name[idx+1..].to_string()
+                } else {
+                    name.clone()
+                };
+                files.push(serde_json::json!({
+                    "name": name,
+                    "originalName": original_name,
+                    "path": path.to_string_lossy().to_string(),
+                    "size": size
+                }));
+            }
+        }
+    }
+    // Sort by name
+    files.sort_by(|a, b| {
+        a["name"].as_str().unwrap_or("").cmp(b["name"].as_str().unwrap_or(""))
+    });
+    Ok(files)
+}
+
+#[tauri::command]
 fn restart_app(app: tauri::AppHandle) {
     // Same logic as tray menu restart
     let _ = std::process::Command::new("sh").arg("-c")
@@ -219,6 +325,10 @@ pub fn run() {
         __toggle_maximize,
         export_chat_file,
         pick_directory,
+        pick_files,
+        copy_to_attachments,
+        open_attachments_folder,
+        list_attachments,
         restart_app,
         enable_autostart,
         disable_autostart,
