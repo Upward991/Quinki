@@ -398,7 +398,7 @@ export function Composer(props: ComposerProps) {
   )
 }
 
-// ── Attachment modal (centered) ──
+// ── Attachment modal (centered — matches app modal style) ──
 function AttachMenu({ view, existingFiles, onPickFiles, onOpenFolder, onShowExisting, onReAttach, onBack, onClose }: {
   view: 'main' | 'existing'
   existingFiles: any[]
@@ -409,53 +409,44 @@ function AttachMenu({ view, existingFiles, onPickFiles, onOpenFolder, onShowExis
   onBack: () => void
   onClose: () => void
 }) {
-  const [hovered, setHovered] = useState<string | null>(null)
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
-      <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '440px', width: '90%' }} onClick={e => e.stopPropagation()}>
+      <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
         {view === 'main' ? (
           <>
-            <div style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '16px' }}>Attachments</div>
-            <AttachMenuItem label="Attach new file…" onClick={onPickFiles} hovered={hovered === 'new'} onHover={() => setHovered('new')} />
-            <AttachMenuItem label="Previously sent…" onClick={onShowExisting} hovered={hovered === 'existing'} onHover={() => setHovered('existing')} />
-            <AttachMenuItem label="Open attachments folder" onClick={onOpenFolder} hovered={hovered === 'folder'} onHover={() => setHovered('folder')} />
-            <div style={{ height: '1px', backgroundColor: 'var(--q-border)', margin: '12px 0' }} />
-            <button onClick={onClose} style={{ width: '100%', padding: '10px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Cancel</button>
+            <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', padding: '14px 18px' }}>Attachments</div>
+            <div style={{ color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 18px 14px 18px' }}>Choose an option:</div>
+            <div style={{ display: 'flex', flexDirection: 'column', padding: '0 16px 4px 16px', gap: '2px' }}>
+              <AttachModalBtn label="Attach new file…" onClick={onPickFiles} />
+              <AttachModalBtn label="Previously sent…" onClick={onShowExisting} />
+              <AttachModalBtn label="Open attachments folder" onClick={onOpenFolder} />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '8px 16px 12px 16px' }}>
+              <AttachModalBtn label="Cancel" onClick={onClose} danger />
+            </div>
           </>
         ) : (
           <>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-              <button onClick={onBack} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', color: 'var(--q-text-tertiary)', display: 'flex' }}>
-                <ChevronUp size={14} style={{ transform: 'rotate(-90deg)' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '14px 18px' }}>
+              <button onClick={onBack} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', color: 'var(--q-text-tertiary)', display: 'flex', alignItems: 'center' }}>
+                <ChevronUp size={16} style={{ transform: 'rotate(-90deg)' }} />
               </button>
-              <span style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>Previously sent</span>
+              <span style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)' }}>Previously sent</span>
             </div>
-            <div style={{ maxHeight: '260px', overflowY: 'auto' }}>
+            <div style={{ maxHeight: '260px', overflowY: 'auto', padding: '0 16px' }}>
               {existingFiles.length === 0 ? (
                 <div style={{ padding: '20px', color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)', textAlign: 'center' }}>
                   No attachments in this chat yet.
                 </div>
               ) : (
                 existingFiles.map((f, i) => (
-                  <div key={i} onClick={() => onReAttach(f)} onMouseEnter={() => setHovered(`f-${i}`)} onMouseLeave={() => setHovered(null)}
-                    style={{
-                      padding: '10px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
-                      backgroundColor: hovered === `f-${i}` ? 'var(--q-hover)' : 'transparent',
-                      borderRadius: 'var(--radius-sm)',
-                      transition: 'none',
-                    }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--q-tab-accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                      <polyline points="14 2 14 8 20 8" />
-                    </svg>
-                    <span style={{ color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.originalName}</span>
-                    {f.size && <span style={{ color: 'var(--q-text-tertiary)', fontSize: '11px', fontFamily: 'var(--font-code)' }}>{f.size > 1024 ? `${Math.floor(f.size / 1024)}KB` : `${f.size}B`}</span>}
-                  </div>
+                  <AttachFileRow key={i} file={f} onClick={() => onReAttach(f)} />
                 ))
               )}
             </div>
-            <div style={{ height: '1px', backgroundColor: 'var(--q-border)', margin: '12px 0' }} />
-            <button onClick={onBack} style={{ width: '100%', padding: '10px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-tertiary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Back</button>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '8px 16px 12px 16px' }}>
+              <AttachModalBtn label="Back" onClick={onBack} />
+            </div>
           </>
         )}
       </div>
@@ -463,17 +454,31 @@ function AttachMenu({ view, existingFiles, onPickFiles, onOpenFolder, onShowExis
   )
 }
 
-function AttachMenuItem({ label, onClick, hovered, onHover, danger }: { label: string; onClick: () => void; hovered: boolean; onHover: () => void; danger?: boolean }) {
+// ── Modal button (matches ExportBtn style) ──
+function AttachModalBtn({ label, onClick, danger }: { label: string; onClick: () => void; danger?: boolean }) {
+  const [hovered, setHovered] = useState(false)
+  const color = danger ? 'var(--q-accent-danger)' : 'var(--q-tab-accent)'
+  const hoverRgb = danger ? '217,107,107' : '181,199,224'
   return (
-    <div onClick={onClick} onMouseEnter={onHover} onMouseLeave={() => onHover(null)}
-      style={{
-        padding: '12px 16px', cursor: 'pointer', fontSize: '14px', fontFamily: 'var(--font-interface)',
-        color: danger ? 'var(--q-accent-danger)' : hovered ? 'var(--q-text)' : 'var(--q-text-secondary)',
-        backgroundColor: hovered ? 'var(--q-hover)' : 'transparent',
-        borderRadius: 'var(--radius-md)', transition: 'none', display: 'flex', alignItems: 'center', gap: '8px',
-      }}>
-      <span style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: hovered ? 'var(--q-tab-accent)' : 'var(--q-text-tertiary)', flexShrink: 0 }} />
+    <button onClick={onClick} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+      style={{ padding: '10px 12px', border: 'none', cursor: 'pointer', backgroundColor: hovered ? `rgba(${hoverRgb},0.08)` : 'transparent', color, fontSize: '14px', fontFamily: 'var(--font-interface)', fontWeight: 500, borderRadius: 'var(--radius-md)', transition: 'none', textAlign: 'left' }}>
       {label}
+    </button>
+  )
+}
+
+// ── File row in "Previously sent" list ──
+function AttachFileRow({ file, onClick }: { file: any; onClick: () => void }) {
+  const [hovered, setHovered] = useState(false)
+  return (
+    <div onClick={onClick} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+      style={{ padding: '10px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', borderRadius: 'var(--radius-md)', backgroundColor: hovered ? 'var(--q-hover)' : 'transparent', transition: 'none' }}>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--q-tab-accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+      </svg>
+      <span style={{ color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.originalName}</span>
+      {file.size != null && <span style={{ color: 'var(--q-text-tertiary)', fontSize: '11px', fontFamily: 'var(--font-code)' }}>{file.size > 1024 ? `${Math.floor(file.size / 1024)}KB` : `${file.size}B`}</span>}
     </div>
   )
 }
