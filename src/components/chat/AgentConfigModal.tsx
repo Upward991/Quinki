@@ -117,10 +117,10 @@ export function AgentConfigModal({ agentId, agents, onClose }: { agentId: string
       {/* Modal overlay */}
       <div style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
         {/* Modal container */}
-        <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '500px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-modal)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+        <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '600px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-modal)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
           {/* Header */}
           <div style={{ padding: '12px 16px', backgroundColor: 'var(--q-bg-panel)', borderBottom: '1px solid var(--q-border)', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-            <span style={{ color: 'var(--q-text)', fontSize: '15px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>{agent.name}</span>
+            <span style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>{agent.name}</span>
             <span style={{ flex: 1 }} />
             <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex', color: 'var(--q-text-secondary)' }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -131,10 +131,11 @@ export function AgentConfigModal({ agentId, agents, onClose }: { agentId: string
             <AgentRow
               agent={agent}
               isExpanded={true}
-              isRenaming={renaming}
+              isRenaming={false}
+              hideHeader={true}
               onToggle={() => {}}
-              onStartRename={() => setRenaming(true)}
-              onCommitRename={(newName: string) => doRenameAgent(agent, newName)}
+              onStartRename={() => {}}
+              onCommitRename={() => {}}
               skills={skills}
               tools={tools}
               onShowDelete={() => setDeleteAgentName(agent.name)}
