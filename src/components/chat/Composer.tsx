@@ -417,8 +417,8 @@ function AttachMenu({ view, existingFiles, onPickFiles, onOpenFolder, onShowExis
             <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', padding: '14px 18px' }}>Attachments</div>
             <div style={{ color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 18px 14px 18px' }}>Choose an option:</div>
             <div style={{ display: 'flex', flexDirection: 'column', padding: '0 16px 4px 16px', gap: '2px' }}>
-              <AttachModalBtn label="Attach new file…" onClick={onPickFiles} />
-              <AttachModalBtn label="Previously sent…" onClick={onShowExisting} />
+              <AttachModalBtn label="Attach new file" onClick={onPickFiles} />
+              <AttachModalBtn label="Previously sent" onClick={onShowExisting} />
               <AttachModalBtn label="Open attachments folder" onClick={onOpenFolder} />
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '8px 16px 12px 16px' }}>
@@ -427,12 +427,7 @@ function AttachMenu({ view, existingFiles, onPickFiles, onOpenFolder, onShowExis
           </>
         ) : (
           <>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '14px 18px' }}>
-              <button onClick={onBack} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', color: 'var(--q-text-tertiary)', display: 'flex', alignItems: 'center' }}>
-                <ChevronUp size={16} style={{ transform: 'rotate(-90deg)' }} />
-              </button>
-              <span style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)' }}>Previously sent</span>
-            </div>
+            <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', padding: '14px 18px' }}>Previously sent</div>
             <div style={{ maxHeight: '260px', overflowY: 'auto', padding: '0 16px' }}>
               {existingFiles.length === 0 ? (
                 <div style={{ padding: '20px', color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)', textAlign: 'center' }}>
@@ -444,8 +439,9 @@ function AttachMenu({ view, existingFiles, onPickFiles, onOpenFolder, onShowExis
                 ))
               )}
             </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '8px 16px 12px 16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px', padding: '8px 16px 12px 16px' }}>
               <AttachModalBtn label="Back" onClick={onBack} />
+              <AttachModalBtn label="Cancel" onClick={onClose} danger />
             </div>
           </>
         )}
