@@ -55,7 +55,7 @@ export function AddItemsModal({ title, items, initialSelected, onClose, onConfir
                 {item.description && <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.description}</div>}
               </div>
               <input type="checkbox" checked={selected.has(item.name)} onChange={() => toggle(item.name)}
-                style={{ accentColor: 'var(--q-accent-secondary)', flexShrink: 0, marginLeft: '8px' }} />
+                style={{ accentColor: 'var(--q-tab-accent)', flexShrink: 0, marginLeft: '8px' }} />
             </div>
           ))}
         </div>
@@ -70,7 +70,7 @@ export function AddItemsModal({ title, items, initialSelected, onClose, onConfir
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-accent-danger)', fontSize: '15px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }}>Cancel</button>
           <div style={{ width: '8px' }} />
           <button className="q-press" onClick={() => onConfirm([...selected])} disabled={selected.size === 0}
-            style={{ padding: '4px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: selected.size === 0 ? 'default' : 'pointer', backgroundColor: selected.size === 0 ? 'transparent' : 'var(--q-accent-secondary)', color: selected.size === 0 ? 'var(--q-text-tertiary)' : 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)', opacity: selected.size === 0 ? 0.5 : 1 }}>Add ({selected.size})</button>
+            style={{ padding: '4px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: selected.size === 0 ? 'default' : 'pointer', backgroundColor: selected.size === 0 ? 'transparent' : 'var(--q-tab-accent)', color: selected.size === 0 ? 'var(--q-text-tertiary)' : 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)', opacity: selected.size === 0 ? 0.5 : 1 }}>Add ({selected.size})</button>
         </div>
       </div>
     </div>

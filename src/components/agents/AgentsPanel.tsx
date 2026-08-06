@@ -542,7 +542,7 @@ export function AgentsPanel(props) {
     // Installing spinner
     installing && React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 210, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, children:
       React.createElement('div', { style: { backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', animation: 'modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '400px', display: 'flex', alignItems: 'center', gap: '16px' }, children: [
-        React.createElement('div', { style: { width: '20px', height: '20px', border: '2px solid var(--q-text-tertiary)', borderTopColor: 'var(--q-accent-secondary)', borderRadius: '50%', animation: 'spin 1s linear infinite' } }),
+        React.createElement('div', { style: { width: '20px', height: '20px', border: '2px solid var(--q-text-tertiary)', borderTopColor: 'var(--q-tab-accent)', borderRadius: '50%', animation: 'spin 1s linear infinite' } }),
         React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }, children: 'Installing skill...' })
       ]})
     }),
@@ -638,7 +638,7 @@ export function AgentsPanel(props) {
         }),
         React.createElement('div', { style: { display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px' }, children: [
           React.createElement('button', { onClick: () => { navigator.clipboard.writeText(errorModal); }, className: 'q-hover-btn', style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', transition: 'none' }, children: [React.createElement(Copy, { size: 16 }), ' Copy'] }),
-          React.createElement('button', { className: 'q-press', onClick: () => setErrorModal(null), style: { padding: '8px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-secondary)', color: 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)' }, children: 'Close' })
+          React.createElement('button', { className: 'q-press', onClick: () => setErrorModal(null), style: { padding: '8px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-tab-accent)', color: 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)' }, children: 'Close' })
         ]})
       ]})
     })
@@ -953,7 +953,7 @@ export function AddItemsModal({ title, items, initialSelected, onClose, onConfir
               React.createElement('div', { style: { color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }, children: item.name }),
               item.description && React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: item.description })
             ]}),
-            React.createElement('input', { type: 'checkbox', checked: isSelected, onChange: () => toggle(item.name), style: { accentColor: 'var(--q-accent-secondary)', flexShrink: 0 } })
+            React.createElement('input', { type: 'checkbox', checked: isSelected, onChange: () => toggle(item.name), style: { accentColor: 'var(--q-tab-accent)', flexShrink: 0 } })
           ]});
         })
       }),
@@ -964,7 +964,7 @@ export function AddItemsModal({ title, items, initialSelected, onClose, onConfir
         React.createElement('span', { style: { flex: 1 } }),
         React.createElement('button', { className: 'q-press', onClick: onClose, style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-accent-danger)', fontSize: '15px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }, children: 'Cancel' }),
         React.createElement('div', { style: { width: '8px' } }),
-        React.createElement('button', { className: 'q-press', onClick: () => onConfirm([...selected]), disabled: selected.size === 0, style: { padding: '4px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: selected.size === 0 ? 'default' : 'pointer', backgroundColor: selected.size === 0 ? 'transparent' : 'var(--q-accent-secondary)', color: selected.size === 0 ? 'var(--q-text-tertiary)' : 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)', opacity: selected.size === 0 ? 0.5 : 1 }, children: [`Add (`, selected.size, `)`] })
+        React.createElement('button', { className: 'q-press', onClick: () => onConfirm([...selected]), disabled: selected.size === 0, style: { padding: '4px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: selected.size === 0 ? 'default' : 'pointer', backgroundColor: selected.size === 0 ? 'transparent' : 'var(--q-tab-accent)', color: selected.size === 0 ? 'var(--q-text-tertiary)' : 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)', opacity: selected.size === 0 ? 0.5 : 1 }, children: [`Add (`, selected.size, `)`] })
       ]})
     ]})
   });
@@ -983,7 +983,7 @@ function ConfirmButtons({ onCancel, onConfirm, confirmLabel, danger }) {
   return React.createElement('div', { style: { display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }, children: [
     React.createElement('button', { className: 'q-press', onClick: onCancel, style: { padding: '8px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '15px', fontFamily: 'var(--font-interface)' }, children: 'Cancel' }),
     React.createElement('div', { style: { width: '8px' } }),
-    React.createElement('button', { className: 'q-press', onClick: onConfirm, style: { padding: '8px 16px', borderRadius: 'var(--radius-lg)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-secondary)', color: 'var(--q-bg)', fontSize: '15px', fontWeight: 500, fontFamily: 'var(--font-interface)' }, children: confirmLabel })
+    React.createElement('button', { className: 'q-press', onClick: onConfirm, style: { padding: '8px 16px', borderRadius: 'var(--radius-lg)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-tab-accent)', color: 'var(--q-bg)', fontSize: '15px', fontWeight: 500, fontFamily: 'var(--font-interface)' }, children: confirmLabel })
   ]});
 }
 
