@@ -283023,11 +283023,12 @@ CRITICAL: The skill instructions above were explicitly activated by the user via
       if (skillTool) customTools.push(skillTool);
       if (resolvedAgentId) {
         const agentCfg = this.#readAgentConfigFile(resolvedAgentId);
-        const hasDelegateTool = agentCfg?.tools?.includes("delegate_to_agent") || resolvedAgentId === "orchestrator";
+        const isOrchestrator = resolvedAgentId === "orchestrator" || typeof resolvedAgentId === "string" && resolvedAgentId.split(",").includes("orchestrator");
+        const hasDelegateTool = agentCfg?.tools?.includes("delegate_to_agent") || isOrchestrator;
         if (hasDelegateTool) {
           const delegateTool = this.#buildDelegateTool(sk);
           if (delegateTool) customTools.push(delegateTool);
-          this.logDebug("delegate-tool-registered", { sessionKey: sk, agentId: resolvedAgentId, isOrchestrator: resolvedAgentId === "orchestrator" });
+          this.logDebug("delegate-tool-registered", { sessionKey: sk, agentId: resolvedAgentId, isOrchestrator });
         }
       }
       this.logDebug("createAgentSession-customTools", { sessionKey: sk, resolvedAgentId, customToolsCount: customTools.length, toolNames: customTools.map((t2) => t2?.name || "?") });
