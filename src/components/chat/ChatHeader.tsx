@@ -334,7 +334,7 @@ export function ChatHeader(props: ChatHeaderProps) {
                                 onMouseLeave={e => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.currentTarget.querySelectorAll('span,svg').forEach((el: any) => el.style.color = 'var(--q-text-tertiary)') } }}>
                                 <Brain size={14} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', display: 'flex', flexShrink: 0 }} />
                                 <span onClick={(e) => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.stopPropagation(); setThinkingPickerFor(agent.id) } }} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', lineHeight: '14px', cursor: multiSelect && selectedForRemoval.has(agent.id) ? 'default' : 'pointer' }}>
-                                  {props.agentOverrides?.[agent.id]?.thinkingLevel ? (props.agentOverrides[agent.id].thinkingLevel === 'off' ? 'Off' : 'On') : 'Chat default'}
+                                  {props.agentOverrides?.[agent.id]?.thinkingLevel ? (props.agentOverrides[agent.id].thinkingLevel === 'off' ? 'Off' : `On (${props.session?.thinkingLevel && props.session.thinkingLevel !== 'off' ? props.session.thinkingLevel : 'xhigh'})`) : 'Chat default'}
                                 </span>
                               </div>
                             </>
@@ -392,6 +392,7 @@ export function ChatHeader(props: ChatHeaderProps) {
       {thinkingPickerFor && (
         <ThinkingPickerModal
           currentThinking={props.agentOverrides?.[thinkingPickerFor]?.thinkingLevel || ''}
+          chatThinkingLevel={props.session?.thinkingLevel || 'xhigh'}
           onClose={() => setThinkingPickerFor(null)}
           onConfirm={(level) => { props.onSetAgentOverride?.(thinkingPickerFor, { thinkingLevel: level }); setThinkingPickerFor(null) }}
         />
@@ -568,9 +569,10 @@ function ModelPickerModal({ currentModel, models, onClose, onConfirm }: {
 }
 
 // ── Thinking picker modal — exact Flutter _ThinkingPickerDialog copy ──
-function ThinkingPickerModal({ currentThinking, onClose, onConfirm }: { currentThinking: string; onClose: () => void; onConfirm: (level: string | null) => void }) {
+function ThinkingPickerModal({ currentThinking, chatThinkingLevel, onClose, onConfirm }: { currentThinking: string; chatThinkingLevel: string; onClose: () => void; onConfirm: (level: string | null) => void }) {
   const [selected, setSelected] = useState<string | null>(currentThinking || null)
-  const options: { value: string | null; label: string }[] = [{ value: null, label: 'Chat default' }, { value: 'on', label: 'On (xhigh)' }, { value: 'off', label: 'Off' }]
+  const effectiveLevel = chatThinkingLevel && chatThinkingLevel !== 'off' ? chatThinkingLevel : 'xhigh'
+  const options: { value: string | null; label: string }[] = [{ value: null, label: 'Chat default' }, { value: 'on', label: `On (${effectiveLevel})` }, { value: 'off', label: 'Off' }]
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
       <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '380px', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
