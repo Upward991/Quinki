@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { AgentRow } from '../agents/AgentRow'
+import { AgentRow } from '../agents/AgentsPanel'
 import { AddItemsModal, FileEditor } from '../agents/AgentsPanel'
 import { useSidecarContext } from '../shared/AppShell'
 import type { Agent } from '../../types'

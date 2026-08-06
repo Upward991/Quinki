@@ -685,14 +685,14 @@ function AddButton({ label, onClick }) {
   ]});
 }
 
-function MiniButton({ label, onClick }) {
+export function MiniButton({ label, onClick }) {
   return React.createElement('button', { onClick, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 8px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent' }, children: [
     React.createElement(Plus, { size: 14, style: { color: 'var(--q-text-tertiary)' } }),
     React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: label })
   ]});
 }
 
-function TagChip({ icon, label, onRemove }) {
+export function TagChip({ icon, label, onRemove }) {
   return React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 8px', borderRadius: '6px', border: 'none', backgroundColor: 'rgba(255, 255, 255, 0.04)' }, children: [
     React.createElement(icon, { size: 14, style: { color: 'var(--q-tab-accent)' } }),
     React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: label }),
@@ -700,14 +700,14 @@ function TagChip({ icon, label, onRemove }) {
   ]});
 }
 
-function AgentRow({ agent, isExpanded, isRenaming, onToggle, onStartRename, onCommitRename, skills, tools, onShowDelete, onAddFile, onAddSkill, onAddTool, onOpenFile, onRemoveTag, onRemoveAll }) {
+export function AgentRow({ agent, isExpanded, isRenaming, onToggle, onStartRename, onCommitRename, skills, tools, onShowDelete, onAddFile, onAddSkill, onAddTool, onOpenFile, onRemoveTag, onRemoveAll, hideHeader, hideDelete }) {
   const agentSkills = skills.filter(s => agent.skills.some(as => as.name === s.name));
   const agentTools = tools.filter(t => agent.tools.some(at => at.name === t.name));
   const canRename = agent.id !== 'quinki-expert' && agent.id !== 'orchestrator';
   const renameRef = useRef(null);
 
   return React.createElement('div', { style: { marginBottom: '4px', backgroundColor: 'var(--q-bg-elevated)', border: 'none', borderRadius: '8px', overflow: 'hidden' }, children: [
-    // Header row
+    !hideHeader &&
     React.createElement('div', { onClick: onToggle, style: { padding: '10px 12px', display: 'flex', alignItems: 'center', cursor: 'pointer', borderRadius: '8px', transition: 'none' }, onMouseEnter: e => { e.currentTarget.style.backgroundColor = 'rgba(201, 112, 132, 0.03)'; }, onMouseLeave: e => { e.currentTarget.style.backgroundColor = 'transparent'; }, children: [
       React.createElement(Bot, { size: 16, style: { color: 'var(--q-accent-secondary)', flexShrink: 0 } }),
       React.createElement('div', { style: { width: '8px', flexShrink: 0 } }),
@@ -782,7 +782,7 @@ function AgentRow({ agent, isExpanded, isRenaming, onToggle, onStartRename, onCo
           )}),
 
       // Delete agent
-      agent.isDeletable && React.createElement('div', { style: { marginTop: '16px' }, children:
+      agent.isDeletable && !hideDelete && React.createElement('div', { style: { marginTop: '16px' }, children:
         React.createElement('button', { onClick: onShowDelete, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '0', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '14px', fontFamily: 'var(--font-interface)' }, children: [React.createElement(Trash, { size: 16 }), ' Delete agent'] })
       })
     ]})
