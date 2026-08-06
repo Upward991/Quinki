@@ -4,6 +4,7 @@
 
 import { useRef, useEffect, useState } from 'react'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
+import { listen } from '@tauri-apps/api/event'
 import { messageMatchesFilters } from '../../utils/dateParser'
 import { getContrastColor } from '../../utils/contrast'
 import { MessageBubble } from './MessageBubble'
@@ -64,21 +65,34 @@ export function ChatArea(props: ChatAreaProps) {
 
   // === Drag-and-drop file support ===
   useEffect(() => {
-    let unlisten: (() => void) | undefined
+    let unlisten1: (() => void) | undefined
+    let unlisten2: (() => void) | undefined
+    const handleDrop = (paths: string[]) => {
+      setDragOver(false)
+      for (const p of paths) {
+        if ((window as any).__quinkiAddAttachment) (window as any).__quinkiAddAttachment(p)
+      }
+    }
+    // Method 1: webview onDragDropEvent
     getCurrentWebview().onDragDropEvent((event) => {
+      console.log('[drag-drop] webview event:', event.payload.type)
       if (event.payload.type === 'over') {
         setDragOver(true)
       } else if (event.payload.type === 'drop') {
-        setDragOver(false)
-        const paths = event.payload.paths || []
-        for (const p of paths) {
-          if ((window as any).__quinkiAddAttachment) (window as any).__quinkiAddAttachment(p)
-        }
+        handleDrop(event.payload.paths || [])
       } else if (event.payload.type === 'leave') {
         setDragOver(false)
       }
-    }).then((fn) => { unlisten = fn })
-    return () => { if (unlisten) unlisten() }
+    }).then((fn) => { unlisten1 = fn }).catch((e) => console.error('[drag-drop] webview error:', e))
+    // Method 2: Tauri event listener (fallback)
+    listen('tauri://drag-drop', (event) => {
+      console.log('[drag-drop] tauri event:', JSON.stringify(event.payload))
+      const p = event.payload as any
+      if (p.type === 'over') setDragOver(true)
+      else if (p.type === 'drop') handleDrop(p.paths || [])
+      else if (p.type === 'leave') setDragOver(false)
+    }).then((fn) => { unlisten2 = fn }).catch(() => {})
+    return () => { if (unlisten1) unlisten1(); if (unlisten2) unlisten2() }
   }, [])
 
   // Date/time filter: just find the FIRST matching message (for yellow border + scroll)
