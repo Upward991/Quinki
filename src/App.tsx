@@ -19,11 +19,7 @@ import { mockThemes } from './design/mock-data'
 export default function App(){let e=useSidecarData(),[t,n]=useState((()=>{try{let p=new URLSearchParams(window.location.search);let tp=p.get(`tab`);if(tp)return tp;let s=JSON.parse(localStorage.getItem(`quinki-settings`)||`{}`);return s.openingTab||`home`}catch{return `home`}})()),[windowLabel,setWindowLabel]=useState(`main`),[r,i]=useState(`pinned`),[a]=useState(260),[o,s]=useState(``),[c,l]=useState([]),[u,d]=useState((()=>{try{let s=JSON.parse(localStorage.getItem(`quinki-settings`)||`{}`);return s.defaultModel||``}catch{return ``}})()),[f,p]=useState((()=>{try{let s=JSON.parse(localStorage.getItem(`quinki-settings`)||`{}`);return s.defaultMode||`build`}catch{return `build`}})()),[m,h]=useState((()=>{try{let s=JSON.parse(localStorage.getItem(`quinki-settings`)||`{}`);return s.defaultThinking||`on`}catch{return `on`}})()),[g,_]=useState(`comfort`),[y,b]=useState(!1),[isFs,setIsFs]=useState(!1),[x,S]=useState(!1),[resetConfirm,setResetConfirm]=useState(!1);// Tray event listeners
   useEffect(() => {
     const unsubs: any[] = []
-    // Clear chat window session on close
-    const onUnload = () => { try { if (windowLabel === 'win-chat') localStorage.removeItem('quinki-chat-window-session') } catch {} }
-    window.addEventListener('beforeunload', onUnload)
-    unsubs.push(() => window.removeEventListener('beforeunload', onUnload))
-    listen('tray-open-expert', () => {
+listen('tray-open-expert', () => {
       j('expert')
     }).then((u: any) => unsubs.push(u))
     listen('switch-session', (event: any) => {
