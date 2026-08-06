@@ -193,6 +193,25 @@ fn get_window_label(window: tauri::WebviewWindow) -> String {
 }
 
 pub fn run() {
+    // === Single instance check ===
+    // If the app is already running, focus the existing window and exit
+    use std::fs;
+    use std::io::Write;
+    let pid_file = format!("{}/.quinki-app.pid", std::env::var("HOME").unwrap_or_default());
+    if let Ok(existing_pid) = fs::read_to_string(&pid_file) {
+        let pid: i32 = existing_pid.trim().parse().unwrap_or(0);
+        if pid > 0 {
+            // Check if the process is still running
+            let running = unsafe { libc::kill(pid, 0) == 0 };
+            if running {
+                // App is already running — exit silently
+                std::process::exit(0);
+            }
+        }
+    }
+    // Write our PID
+    let _ = fs::File::create(&pid_file).and_then(|mut f| f.write_all(std::process::id().to_string().as_bytes()));
+
     let app = tauri::Builder::default()
     .invoke_handler(tauri::generate_handler![
         set_window_bg_color,
@@ -423,6 +442,10 @@ pub fn run() {
       if let tauri::RunEvent::ExitRequested { api, .. } = event {
         if !SHOULD_EXIT.load(Ordering::SeqCst) {
           api.prevent_exit();
+        } else {
+          // Clean up PID file on exit
+          let pid_file = format!("{}/.quinki-app.pid", std::env::var("HOME").unwrap_or_default());
+          let _ = std::fs::remove_file(&pid_file);
         }
       }
     });

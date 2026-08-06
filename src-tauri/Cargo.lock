@@ -2486,6 +2486,7 @@ dependencies = [
 name = "quinki"
 version = "0.1.0"
 dependencies = [
+ "libc",
  "log",
  "objc",
  "rfd 0.17.2",
