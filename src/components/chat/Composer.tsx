@@ -450,14 +450,24 @@ function AttachMenu({ view, existingFiles, onPickFiles, onOpenFolder, onShowExis
   )
 }
 
-// ── Modal button (matches ExportBtn style) ──
+// ── Modal button (matches HoverTextBtn from SlashMenu) ──
 function AttachModalBtn({ label, onClick, danger }: { label: string; onClick: () => void; danger?: boolean }) {
   const [hovered, setHovered] = useState(false)
-  const color = danger ? 'var(--q-accent-danger)' : 'var(--q-tab-accent)'
-  const hoverRgb = danger ? '217,107,107' : '181,199,224'
+  const active = hovered
+  const borderColor = danger ? 'var(--q-border)' : 'var(--q-tab-accent)'
+  const textColor = danger ? 'var(--q-accent-danger)' : 'var(--q-tab-accent)'
+  const hoverTextColor = danger ? 'var(--q-accent-danger)' : 'var(--q-bg)'
+  const hoverBg = danger ? 'rgba(255,255,255,0.06)' : 'var(--q-tab-accent)'
+  const fontWeight = danger ? 400 : 600
   return (
     <button onClick={onClick} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-      style={{ padding: '10px 12px', border: 'none', cursor: 'pointer', backgroundColor: hovered ? `rgba(${hoverRgb},0.08)` : 'transparent', color, fontSize: '14px', fontFamily: 'var(--font-interface)', fontWeight: 500, borderRadius: 'var(--radius-md)', transition: 'none', textAlign: 'left' }}>
+      style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', cursor: 'pointer',
+        border: `1px solid ${borderColor}`,
+        backgroundColor: active ? hoverBg : 'transparent',
+        color: active ? hoverTextColor : textColor,
+        fontSize: '13px', fontFamily: 'var(--font-interface)', fontWeight,
+        transition: 'none',
+      }}>
       {label}
     </button>
   )
