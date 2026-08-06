@@ -334,7 +334,7 @@ export function ChatHeader(props: ChatHeaderProps) {
                                 onMouseLeave={e => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.currentTarget.querySelectorAll('span,svg').forEach((el: any) => el.style.color = 'var(--q-text-tertiary)') } }}>
                                 <Brain size={14} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', display: 'flex', flexShrink: 0 }} />
                                 <span onClick={(e) => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.stopPropagation(); setThinkingPickerFor(agent.id) } }} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', lineHeight: '14px', cursor: multiSelect && selectedForRemoval.has(agent.id) ? 'default' : 'pointer' }}>
-                                  {props.agentOverrides?.[agent.id]?.thinkingLevel ? (props.agentOverrides[agent.id].thinkingLevel === 'off' ? 'Off' : `On (${props.agentOverrides[agent.id].thinkingLevel})`) : 'Chat default'}
+                                  {props.agentOverrides?.[agent.id]?.thinkingLevel ? (props.agentOverrides[agent.id].thinkingLevel === 'off' ? 'Off' : 'On') : 'Chat default'}
                                 </span>
                               </div>
                             </>
@@ -384,7 +384,7 @@ export function ChatHeader(props: ChatHeaderProps) {
           currentModel={props.agentOverrides?.[modelPickerFor]?.model || ''}
           models={props.providers?.flatMap((p: any) => p.models.map((m: any) => ({ id: m.id, name: m.name, contextWindow: m.contextWindow, provider: p.name }))) || []}
           onClose={() => setModelPickerFor(null)}
-          onConfirm={(model) => { props.onSetAgentOverride?.(modelPickerFor, { model, thinkingLevel: '__skip__' }); setModelPickerFor(null) }}
+          onConfirm={(model) => { props.onSetAgentOverride?.(modelPickerFor, { model }); setModelPickerFor(null) }}
         />
       )}
 
@@ -393,7 +393,7 @@ export function ChatHeader(props: ChatHeaderProps) {
         <ThinkingPickerModal
           currentThinking={props.agentOverrides?.[thinkingPickerFor]?.thinkingLevel || ''}
           onClose={() => setThinkingPickerFor(null)}
-          onConfirm={(level) => { props.onSetAgentOverride?.(thinkingPickerFor, { thinkingLevel: level, model: '__skip__' }); setThinkingPickerFor(null) }}
+          onConfirm={(level) => { props.onSetAgentOverride?.(thinkingPickerFor, { thinkingLevel: level }); setThinkingPickerFor(null) }}
         />
       )}
     </>

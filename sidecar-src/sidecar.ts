@@ -277,7 +277,8 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   },
   setAgentOverride: async (p) => {
     piBridge!.logDebug('set-agent-override-rpc', { sessionKey: p.sessionKey, agentId: p.agentId, model: p.model, thinking: p.thinkingLevel });
-    piBridge!.setAgentOverride(String(p.sessionKey), String(p.agentId), p.model ?? null, p.thinkingLevel ?? null);
+    // undefined = skip (field not provided), null = clear, string = set
+    piBridge!.setAgentOverride(String(p.sessionKey), String(p.agentId), p.model === undefined ? '__skip__' : p.model, p.thinkingLevel === undefined ? '__skip__' : p.thinkingLevel);
     return { ok: true };
   },
   getAgentOverrides: async (p) => {

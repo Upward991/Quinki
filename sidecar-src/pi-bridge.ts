@@ -3981,7 +3981,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
         chatThinking: sEntry?.thinkingLevel || "",
         agentOverrideModel: overrides.model || null,
         agentOverrideThinking: overrides.thinkingLevel || null,
-        systemPromptLen: builtPrompt?.length || 0,
+        systemPromptLen: pi?.agent?.state?.systemPrompt?.length || 0,
       });
     }
 

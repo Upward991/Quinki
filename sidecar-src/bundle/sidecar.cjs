@@ -283275,14 +283275,14 @@ CRITICAL: The skill instructions above were explicitly activated by the user via
     });
     const prev = this.#prompts.get(sk) || Promise.resolve();
     try {
-      let builtPrompt2;
+      let builtPrompt;
       if (pi2.agent?.state) {
         const sessionMode = this.#entries.get(sk)?.mode || "plan";
-        builtPrompt2 = this.#buildSystemPrompt(sk, effectiveCwd2, data.workingDirs, sessionMode);
-        pi2.agent.state.systemPrompt = builtPrompt2;
-        pi2._baseSystemPrompt = builtPrompt2;
+        builtPrompt = this.#buildSystemPrompt(sk, effectiveCwd2, data.workingDirs, sessionMode);
+        pi2.agent.state.systemPrompt = builtPrompt;
+        pi2._baseSystemPrompt = builtPrompt;
       }
-      this.logDebug("system-prompt-updated", { sessionKey: sk, promptLen: builtPrompt2?.length || 0, hasSkills: builtPrompt2?.includes("available_skills") || false, hasModeNote: builtPrompt2?.includes("MODALIT\xC0") || false, hasAgentPrompt: (builtPrompt2?.length || 0) > 100 });
+      this.logDebug("system-prompt-updated", { sessionKey: sk, promptLen: builtPrompt?.length || 0, hasSkills: builtPrompt?.includes("available_skills") || false, hasModeNote: builtPrompt?.includes("MODALIT\xC0") || false, hasAgentPrompt: (builtPrompt?.length || 0) > 100 });
     } catch (overrideErr) {
       this.logDebug("system-prompt-update-error", { sessionKey: sk, error: overrideErr?.message || String(overrideErr) });
     }
@@ -283343,7 +283343,7 @@ CRITICAL: The skill instructions above were explicitly activated by the user via
         chatThinking: sEntry?.thinkingLevel || "",
         agentOverrideModel: overrides.model || null,
         agentOverrideThinking: overrides.thinkingLevel || null,
-        systemPromptLen: builtPrompt?.length || 0
+        systemPromptLen: pi2?.agent?.state?.systemPrompt?.length || 0
       });
     }
     const next = prev.then(() => pi2.sendUserMessage(content, { deliverAs: "followUp" })).catch((err2) => {
@@ -285520,7 +285520,7 @@ var handlers = {
   },
   setAgentOverride: async (p) => {
     piBridge.logDebug("set-agent-override-rpc", { sessionKey: p.sessionKey, agentId: p.agentId, model: p.model, thinking: p.thinkingLevel });
-    piBridge.setAgentOverride(String(p.sessionKey), String(p.agentId), p.model ?? null, p.thinkingLevel ?? null);
+    piBridge.setAgentOverride(String(p.sessionKey), String(p.agentId), p.model === void 0 ? "__skip__" : p.model, p.thinkingLevel === void 0 ? "__skip__" : p.thinkingLevel);
     return { ok: true };
   },
   getAgentOverrides: async (p) => {
