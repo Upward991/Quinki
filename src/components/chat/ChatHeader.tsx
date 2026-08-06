@@ -2,9 +2,10 @@
 // ChatHeader — all menus positioned relative to their own button
 // ============================================================
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import type { Session, Agent } from '../../types'
-import { Home, PanelLeft, MessageSquare, Download, Search, RefreshCw, Bot, Calendar, Clock, ChevronDown, ChevronUp, Cpu, Brain, Network, X } from '../icons'
+import { Home, PanelLeft, MessageSquare, Download, Search, RefreshCw, Bot, Calendar, Clock, ChevronDown, ChevronUp, Cpu, Brain, Network, X, Save, BookOpen, Wrench, FileText, Plus, Trash, Pencil } from '../icons'
+import { useSidecarContext } from '../shared/AppShell'
 
 interface ChatHeaderProps {
   session?: Session
@@ -54,6 +55,7 @@ export function ChatHeader(props: ChatHeaderProps) {
   const matchCount = props.matchCount || 0
   const currentMatch = props.currentMatch || 0
   const [ctxMenu, setCtxMenu] = useState<{x: number, y: number, agentId: string} | null>(null)
+  const [configModalAgent, setConfigModalAgent] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [multiSelect, setMultiSelect] = useState(false)
   const [selectedForRemoval, setSelectedForRemoval] = useState<Set<string>>(new Set())
@@ -161,7 +163,10 @@ export function ChatHeader(props: ChatHeaderProps) {
       {ctxMenu && (
         <>
           <div style={ctxOverlayStyle} onClick={() => { setCtxMenu(null) }} onContextMenu={e => { e.preventDefault(); setCtxMenu(null) }} />
-          <div style={{ position: 'fixed', left: Math.min(ctxMenu.x, window.innerWidth - 180), top: Math.min(ctxMenu.y, window.innerHeight - 200), zIndex: 210, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '4px 0', minWidth: '160px' }}>
+          <div style={{ position: 'fixed', left: Math.min(ctxMenu.x, window.innerWidth - 180), top: Math.min(ctxMenu.y, window.innerHeight - 240), zIndex: 210, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '4px 0', minWidth: '160px' }}>
+            {!multiSelect && (
+              <button onClick={() => { setConfigModalAgent(ctxMenu.agentId); setCtxMenu(null) }} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}>Configure</button>
+            )}
             {!multiSelect && (
               <button onClick={() => { setMultiSelect(true); setSelectedForRemoval(new Set([ctxMenu.agentId])); setCtxMenu(null) }} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}>Select</button>
             )}
@@ -397,6 +402,11 @@ export function ChatHeader(props: ChatHeaderProps) {
           onConfirm={(level) => { props.onSetAgentOverride?.(thinkingPickerFor, { thinkingLevel: level }); setThinkingPickerFor(null) }}
         />
       )}
+
+      {/* Agent config modal */}
+      {configModalAgent && (
+        <AgentConfigModal agentId={configModalAgent} agents={props.agents} onClose={() => setConfigModalAgent(null)} onSaved={() => { /* refresh not needed — sidecar reads config on next send */ }} />
+      )}
     </>
   )
 }
@@ -598,6 +608,257 @@ function ThinkingPickerModal({ currentThinking, chatThinkingLevel, onClose, onCo
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-accent-danger)', fontSize: '15px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }}>Cancel</button>
           <div style={{ width: '8px' }} />
           <button onClick={() => onConfirm(selected)} style={{ padding: '4px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-tab-accent)', color: 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)' }}>Confirm</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+// ── Agent Config Modal — edit PROMPT.md, skills, tools for a single agent ──
+function AgentConfigModal({ agentId, agents, onClose, onSaved }: { agentId: string; agents: Agent[]; onClose: () => void; onSaved: () => void }) {
+  const { call } = useSidecarContext()
+  const [agent, setAgent] = useState<Agent | null>(agents.find(a => a.id === agentId) || null)
+  const [prompt, setPrompt] = useState('')
+  const [skills, setSkills] = useState<any[]>([])
+  const [tools, setTools] = useState<any[]>([])
+  const [allSkills, setAllSkills] = useState<any[]>([])
+  const [allTools, setAllTools] = useState<any[]>([])
+  const [activeTab, setActiveTab] = useState<'prompt' | 'skills' | 'tools'>('prompt')
+  const [dirty, setDirty] = useState(false)
+  const [savedMsg, setSavedMsg] = useState<string | null>(null)
+  const [showAddSkills, setShowAddSkills] = useState(false)
+  const [showAddTools, setShowAddTools] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  // Load agent config
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        // Load PROMPT.md
+        const r = await call('readAgentFile', { id: agentId, filePath: 'PROMPT.md' })
+        if (!cancelled && r?.content !== undefined && r.content !== null) setPrompt(r.content)
+        else if (!cancelled && r?.content === null) setPrompt('')
+
+        // Load all skills
+        const sr = await call('listSkills', {})
+        if (!cancelled && sr?.skills) setAllSkills(sr.skills.map((s: any) => ({ name: s.name || s, description: s.description || '', source: s.source || 'local' })))
+
+        // Load all tools
+        const tr = await call('listTools', {})
+        if (!cancelled && tr?.tools) setAllTools(tr.tools.map((t: any) => ({ name: t.name, description: t.description || '', readOnly: t.readOnly || false })))
+      } catch (e) { console.error('AgentConfig load error:', e) }
+      if (!cancelled) setLoading(false)
+    })()
+    return () => { cancelled = true }
+  }, [agentId, call])
+
+  // Update local skills/tools from agent object
+  useEffect(() => {
+    if (agent?.skills) setSkills(agent.skills.map((s: any) => typeof s === 'string' ? { name: s, source: 'local', installed: true } : s))
+    if (agent?.tools) setTools(agent.tools.map((t: any) => typeof t === 'string' ? { name: t, enabled: true } : t))
+  }, [agent])
+
+  const doSavePrompt = useCallback(async () => {
+    try {
+      await call('writeAgentFile', { id: agentId, filePath: 'PROMPT.md', content: prompt })
+      setDirty(false)
+      setSavedMsg('Saved.')
+      setTimeout(() => setSavedMsg(null), 3000)
+      onSaved()
+    } catch (e) { console.error('Save PROMPT.md error:', e) }
+  }, [agentId, prompt, call, onSaved])
+
+  const doAddSkills = useCallback(async (skillNames: string[]) => {
+    const existing = skills.map(s => s.name)
+    const merged = [...new Set([...existing, ...skillNames])]
+    try {
+      const r = await call('updateAgent', { id: agentId, config: { skills: merged } })
+      if (r?.success) {
+        setSkills(merged.map(name => ({ name, source: 'local', installed: true })))
+        setAgent(prev => prev ? { ...prev, skills: merged } : prev)
+      }
+    } catch (e) { console.error('Add skills error:', e) }
+  }, [agentId, skills, call])
+
+  const doRemoveSkill = useCallback(async (skillName: string) => {
+    const remaining = skills.map(s => s.name).filter(n => n !== skillName)
+    try {
+      const r = await call('updateAgent', { id: agentId, config: { skills: remaining } })
+      if (r?.success) {
+        setSkills(remaining.map(name => ({ name, source: 'local', installed: true })))
+        setAgent(prev => prev ? { ...prev, skills: remaining } : prev)
+      }
+    } catch (e) { console.error('Remove skill error:', e) }
+  }, [agentId, skills, call])
+
+  const doAddTools = useCallback(async (toolNames: string[]) => {
+    const existing = tools.map(t => t.name)
+    const merged = [...new Set([...existing, ...toolNames])]
+    try {
+      const r = await call('updateAgent', { id: agentId, config: { tools: merged } })
+      if (r?.success) {
+        setTools(merged.map(name => ({ name, enabled: true })))
+        setAgent(prev => prev ? { ...prev, tools: merged } : prev)
+      }
+    } catch (e) { console.error('Add tools error:', e) }
+  }, [agentId, tools, call])
+
+  const doRemoveTool = useCallback(async (toolName: string) => {
+    const remaining = tools.map(t => t.name).filter(n => n !== toolName)
+    try {
+      const r = await call('updateAgent', { id: agentId, config: { tools: remaining } })
+      if (r?.success) {
+        setTools(remaining.map(name => ({ name, enabled: true })))
+        setAgent(prev => prev ? { ...prev, tools: remaining } : prev)
+      }
+    } catch (e) { console.error('Remove tool error:', e) }
+  }, [agentId, tools, call])
+
+  if (loading) return null
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+      <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '600px', height: '80vh', maxHeight: '600px', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-modal)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div style={{ padding: '12px 16px', backgroundColor: 'var(--q-bg-panel)', borderBottom: '1px solid var(--q-border)', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+          <Bot size={18} style={{ color: 'var(--q-tab-accent)', flexShrink: 0 }} />
+          <div style={{ width: '8px' }} />
+          <span style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>{agent?.name || agentId}</span>
+          <span style={{ flex: 1 }} />
+          {savedMsg && <span style={{ color: 'var(--q-accent-success)', fontSize: '13px', fontFamily: 'var(--font-interface)', marginRight: '8px' }}>{savedMsg}</span>}
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex' }}>
+            <X size={18} style={{ color: 'var(--q-text-secondary)' }} />
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--q-border)', flexShrink: 0 }}>
+          {(['prompt', 'skills', 'tools'] as const).map(tab => {
+            const label = tab === 'prompt' ? 'PROMPT.md' : tab === 'skills' ? `Skills (${skills.length})` : `Tools (${tools.length})`
+            return (
+              <button key={tab} onClick={() => setActiveTab(tab)} style={{ padding: '10px 16px', border: 'none', cursor: 'pointer', backgroundColor: activeTab === tab ? 'var(--q-hover)' : 'transparent', color: activeTab === tab ? 'var(--q-text)' : 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)', fontWeight: activeTab === tab ? 600 : 400, borderBottom: activeTab === tab ? '2px solid var(--q-tab-accent)' : '2px solid transparent', transition: 'none' }}>
+                {label}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Content */}
+        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          {/* PROMPT.md tab */}
+          {activeTab === 'prompt' && (
+            <>
+              <textarea value={prompt} onChange={e => { setPrompt(e.target.value); setDirty(true) }} style={{ flex: 1, padding: '12px 16px', backgroundColor: 'var(--q-bg)', color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-code)', border: 'none', outline: 'none', resize: 'none', lineHeight: '1.6' }} placeholder="Enter agent system prompt..." />
+              <div style={{ padding: '8px 16px', display: 'flex', justifyContent: 'flex-end', gap: '8px', borderTop: '1px solid var(--q-border)', flexShrink: 0 }}>
+                <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-accent-danger)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }}>Cancel</button>
+                <button onClick={doSavePrompt} disabled={!dirty} style={{ padding: '4px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: dirty ? 'pointer' : 'default', backgroundColor: dirty ? 'var(--q-tab-accent)' : 'transparent', color: dirty ? 'var(--q-bg)' : 'var(--q-text-tertiary)', fontSize: '14px', fontFamily: 'var(--font-interface)', opacity: dirty ? 1 : 0.5 }}>
+                  Save
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* Skills tab */}
+          {activeTab === 'skills' && (
+            <>
+              <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
+                {skills.length === 0 ? (
+                  <div style={{ padding: '24px', textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>No skills assigned to this agent.</div>
+                ) : skills.map(skill => (
+                  <div key={skill.name} style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '8px' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}>
+                    <BookOpen size={16} style={{ color: 'var(--q-text-tertiary)', flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>{skill.name}</div>
+                      {skill.description && <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{skill.description}</div>}
+                    </div>
+                    <button onClick={() => doRemoveSkill(skill.name)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: 'var(--q-text-tertiary)', display: 'flex' }} onMouseEnter={e => { e.currentTarget.style.color = 'var(--q-accent-danger)' }} onMouseLeave={e => { e.currentTarget.style.color = 'var(--q-text-tertiary)' }}>
+                      <X size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div style={{ padding: '8px 16px', borderTop: '1px solid var(--q-border)', flexShrink: 0 }}>
+                <button onClick={() => setShowAddSkills(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)'; e.currentTarget.style.color = 'var(--q-text)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-text-secondary)' }}>
+                  <Plus size={14} /> Add skill
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* Tools tab */}
+          {activeTab === 'tools' && (
+            <>
+              <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
+                {tools.length === 0 ? (
+                  <div style={{ padding: '24px', textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>No tools assigned to this agent.</div>
+                ) : tools.map(tool => (
+                  <div key={tool.name} style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '8px' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}>
+                    <Wrench size={16} style={{ color: 'var(--q-text-tertiary)', flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>{tool.name}</div>
+                    </div>
+                    <button onClick={() => doRemoveTool(tool.name)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: 'var(--q-text-tertiary)', display: 'flex' }} onMouseEnter={e => { e.currentTarget.style.color = 'var(--q-accent-danger)' }} onMouseLeave={e => { e.currentTarget.style.color = 'var(--q-text-tertiary)' }}>
+                      <X size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div style={{ padding: '8px 16px', borderTop: '1px solid var(--q-border)', flexShrink: 0 }}>
+                <button onClick={() => setShowAddTools(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)'; e.currentTarget.style.color = 'var(--q-text)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-text-secondary)' }}>
+                  <Plus size={14} /> Add tool
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Add skills modal */}
+        {showAddSkills && (
+          <AddItemsSubModal title="Add skills" items={allSkills.filter(s => !skills.some(es => es.name === s.name))} onClose={() => setShowAddSkills(false)} onConfirm={(names) => { doAddSkills(names); setShowAddSkills(false) }} />
+        )}
+
+        {/* Add tools modal */}
+        {showAddTools && (
+          <AddItemsSubModal title="Add tools" items={allTools.filter(t => !tools.some(et => et.name === t.name))} onClose={() => setShowAddTools(false)} onConfirm={(names) => { doAddTools(names); setShowAddTools(false) }} />
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Add items sub-modal (skills or tools) ──
+function AddItemsSubModal({ title, items, onClose, onConfirm }: { title: string; items: any[]; onClose: () => void; onConfirm: (names: string[]) => void }) {
+  const [selected, setSelected] = useState(new Set<string>())
+  const toggle = (name: string) => setSelected(prev => { const n = new Set(prev); if (n.has(name)) n.delete(name); else n.add(name); return n })
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 210, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+      <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '80%', maxWidth: '400px', maxHeight: '60vh', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-modal)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+        <div style={{ padding: '12px 16px', backgroundColor: 'var(--q-bg-panel)', borderBottom: '1px solid var(--q-border)', display: 'flex', alignItems: 'center' }}>
+          <span style={{ color: 'var(--q-text)', fontSize: '15px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>{title}</span>
+          <span style={{ flex: 1 }} />
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex' }}>
+            <X size={16} style={{ color: 'var(--q-text-secondary)' }} />
+          </button>
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
+          {items.length === 0 ? (
+            <div style={{ padding: '24px', textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Nothing to add.</div>
+          ) : items.map(item => {
+            const name = item.name || item
+            const isSel = selected.has(name)
+            return (
+              <div key={name} onClick={() => toggle(name)} style={{ padding: '8px 16px', cursor: 'pointer', backgroundColor: isSel ? 'color-mix(in srgb, var(--q-tab-accent) 12%, transparent)' : 'transparent', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '14px', height: '14px', borderRadius: '50%', border: '2px solid ' + (isSel ? 'var(--q-tab-accent)' : 'var(--q-text-tertiary)'), backgroundColor: isSel ? 'var(--q-tab-accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{isSel && <div style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: 'var(--q-bg)' }} />}</div>
+                <span style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>{name}</span>
+              </div>
+            )
+          })}
+        </div>
+        <div style={{ padding: '8px 16px', borderTop: '1px solid var(--q-border)', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-accent-danger)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }}>Cancel</button>
+          <button onClick={() => onConfirm([...selected])} disabled={selected.size === 0} style={{ padding: '4px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: selected.size > 0 ? 'pointer' : 'default', backgroundColor: selected.size > 0 ? 'var(--q-tab-accent)' : 'transparent', color: selected.size > 0 ? 'var(--q-bg)' : 'var(--q-text-tertiary)', fontSize: '14px', fontFamily: 'var(--font-interface)', opacity: selected.size > 0 ? 1 : 0.5 }}>
+            Add ({selected.size})
+          </button>
         </div>
       </div>
     </div>
