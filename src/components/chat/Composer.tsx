@@ -8,7 +8,7 @@ import { useState, useRef, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { getContrastColor } from '../../utils/contrast'
 import type { Provider, Agent, ChatMode, ThinkingLevel } from '../../types'
-import { Paperclip, ChevronUp, ChevronDown, Bot, X } from '../icons'
+import { Paperclip, ChevronUp, ChevronDown, Bot, X, Clock, Folder } from '../icons'
 import { SlashMenu, type SlashMenuRef } from './SlashMenu'
 
 export interface Attachment {
@@ -417,9 +417,9 @@ function AttachMenu({ view, existingFiles, onPickFiles, onOpenFolder, onShowExis
             <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', padding: '14px 18px' }}>Attachments</div>
             <div style={{ color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 18px 14px 18px' }}>Choose an option:</div>
             <div style={{ display: 'flex', flexDirection: 'column', padding: '0 16px 4px 16px', gap: '2px' }}>
-              <AttachModalBtn label="Attach new file" onClick={onPickFiles} />
-              <AttachModalBtn label="Previously sent" onClick={onShowExisting} />
-              <AttachModalBtn label="Open attachments folder" onClick={onOpenFolder} />
+              <AttachOptionRow icon={<Paperclip size={18} />} label="Attach new file" onClick={onPickFiles} />
+              <AttachOptionRow icon={<Clock size={18} />} label="Previously sent" onClick={onShowExisting} />
+              <AttachOptionRow icon={<Folder size={18} />} label="Open attachments folder" onClick={onOpenFolder} />
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '8px 16px 12px 16px' }}>
               <AttachModalBtn label="Cancel" onClick={onClose} danger />
@@ -446,6 +446,18 @@ function AttachMenu({ view, existingFiles, onPickFiles, onOpenFolder, onShowExis
           </>
         )}
       </div>
+    </div>
+  )
+}
+
+// ── Option row (icon + label, like menu items) ──
+function AttachOptionRow({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
+  const [hovered, setHovered] = useState(false)
+  return (
+    <div onClick={onClick} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+      style={{ padding: '10px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', borderRadius: 'var(--radius-md)', backgroundColor: hovered ? 'var(--q-hover)' : 'transparent', transition: 'none' }}>
+      <span style={{ color: 'var(--q-tab-accent)', display: 'flex', flexShrink: 0 }}>{icon}</span>
+      <span style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>{label}</span>
     </div>
   )
 }
