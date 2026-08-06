@@ -56,9 +56,9 @@ async function test() {
   try {
     const r = await call('createSession', { label: 'T2', model: modelA, thinkingLevel: 'xhigh' });
     const sk = r.key || r.sessionKey;
-    await call('setChatAgents', { sessionKey: sk, agentIds: 'notion,web-researcher' });
-    await call('setAgentOverride', { sessionKey: sk, agentId: 'notion', model: modelB, thinkingLevel: 'off' });
-    await call('sendMessage', { sessionKey: sk, text: '@notion ciao', agentId: 'notion' });
+    await call('setChatAgents', { sessionKey: sk, agentIds: 'agent-1783343015806,design-researcher' });
+    await call('setAgentOverride', { sessionKey: sk, agentId: 'agent-1783343015806', model: modelB, thinkingLevel: 'off' });
+    await call('sendMessage', { sessionKey: sk, text: '@Notion ciao', agentId: 'agent-1783343015806' });
     console.log('  ✅ Done. Expected: MAIN, agent=notion, model=' + modelB + ', thinking=off, override=Off');
   } catch(e) { console.log('  ❌ ' + e.message); }
 
@@ -67,10 +67,10 @@ async function test() {
   try {
     const r = await call('createSession', { label: 'T3', model: modelA, thinkingLevel: 'medium' });
     const sk = r.key || r.sessionKey;
-    await call('setChatAgents', { sessionKey: sk, agentIds: 'orchestrator,notion,frontend-designer' });
-    await call('setAgentOverride', { sessionKey: sk, agentId: 'notion', model: modelB, thinkingLevel: 'on' });
+    await call('setChatAgents', { sessionKey: sk, agentIds: 'orchestrator,agent-1783343015806,frontend-designer' });
+    await call('setAgentOverride', { sessionKey: sk, agentId: 'agent-1783343015806', model: modelB, thinkingLevel: 'on' });
     await call('setAgentOverride', { sessionKey: sk, agentId: 'frontend-designer', model: modelB, thinkingLevel: 'off' });
-    await call('sendMessage', { sessionKey: sk, text: 'Delega a notion e frontend-designer dicendo ciao.' });
+    await call('sendMessage', { sessionKey: sk, text: 'Delega a Notion e Frontend Designer dicendo ciao.' });
     console.log('  ✅ Done.');
     console.log('    Expected MAIN: orchestrator, model=' + modelA + ', thinking=medium');
     console.log('    Expected DELEGATION notion: model=' + modelB + ', thinking=medium (On→medium)');

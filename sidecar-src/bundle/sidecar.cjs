@@ -281160,7 +281160,14 @@ var PiBridge = class {
     } else {
       sm = this.#sdk.SessionManager.create(effectiveCwd2, sessionDir);
     }
-    const customResourceLoader = this.#buildResourceLoader(effectiveCwd2, this.#resolveAgentId(key));
+    const customResourceLoader = this.#buildResourceLoader(effectiveCwd2, (() => {
+      let a = this.#resolveAgentId(key);
+      if (a && typeof a === "string" && a.includes(",")) {
+        const ids = a.split(",").map((s2) => s2.trim()).filter(Boolean);
+        a = ids.find((id) => id === "orchestrator") || ids[0] || null;
+      }
+      return a;
+    })());
     await customResourceLoader.reload();
     const result = await this.#sdk.createAgentSession({
       cwd: effectiveCwd2,
@@ -281646,10 +281653,15 @@ var PiBridge = class {
     }
     return paths;
   }
-  #applyMode(pi2, key, mode, workingDirs, cwd) {
+  #applyMode(pi2, key, mode, workingDirs, cwd, hasDelegateTool = false) {
     const m2 = mode === "build" ? "build" : "plan";
     const globalConfig2 = this.#readGlobalConfig();
-    const agentId = this.#resolveAgentId(key);
+    const rawAgentId = this.#resolveAgentId(key);
+    let agentId = rawAgentId;
+    if (agentId && typeof agentId === "string" && agentId.includes(",")) {
+      const ids = agentId.split(",").map((s2) => s2.trim()).filter(Boolean);
+      agentId = ids.find((id) => id === "orchestrator") || ids[0] || null;
+    }
     let agentConfig = null;
     if (agentId) {
       agentConfig = this.#readAgentConfigFile(agentId);
@@ -281666,9 +281678,13 @@ var PiBridge = class {
     try {
       const all = (pi2.getAllTools?.() ?? []).map((t2) => t2.name);
       names = merged.filter((n7) => all.includes(n7));
+      const customToolNames = ["delegate_to_agent", "skill"];
+      for (const ct2 of customToolNames) {
+        if (merged.includes(ct2) && !names.includes(ct2)) names.push(ct2);
+      }
       if (m2 === "plan") {
         const planFlags = globalConfig2.planModeTools || {};
-        names = names.filter((n7) => planFlags[n7] !== false);
+        names = names.filter((n7) => planFlags[n7] !== false || customToolNames.includes(n7));
       }
     } catch {
     }
@@ -281678,11 +281694,10 @@ var PiBridge = class {
     }
     try {
       let base = pi2._baseSystemPrompt;
-      const note = this.#modeNote(m2);
-      const agentId2 = this.#resolveAgentId(key);
-      if (agentId2 && typeof base === "string" && !base.includes(agentConfig?.name || "\xA7\xA7")) {
+      const note = this.#modeNote(m2, hasDelegateTool);
+      if (agentId && typeof base === "string" && !base.includes(agentConfig?.name || "\xA7\xA7")) {
         const effCwd = cwd || workingDirs && workingDirs[0] || this.#cwd;
-        const agentPrompt = this.#readAgentPrompt(agentId2, effCwd);
+        const agentPrompt = this.#readAgentPrompt(agentId, effCwd);
         base = agentPrompt + `
 
 Lavori nella directory: ${effCwd}
@@ -281705,14 +281720,15 @@ Lavori nella directory: ${effCwd}
     }
     this.logDebug("apply-mode", { sessionKey: key, mode: m2, toolCount: names.length, tools: names });
   }
-  #modeNote(mode) {
+  #modeNote(mode, hasDelegateTool = false) {
     const m2 = mode === "build" ? "build" : "plan";
     if (m2 === "plan") {
       const cfg = this.#readGlobalConfig();
       const planTools = cfg.planModeTools || {};
       const allTools = ["read", "write", "edit", "bash", "grep", "find", "ls", "skill"];
-      const enabled = allTools.filter((t2) => planTools[t2] === true);
-      const disabled = allTools.filter((t2) => planTools[t2] !== true);
+      if (hasDelegateTool) allTools.push("delegate_to_agent");
+      const enabled = allTools.filter((t2) => planTools[t2] === true || t2 === "delegate_to_agent");
+      const disabled = allTools.filter((t2) => planTools[t2] !== true && t2 !== "delegate_to_agent");
       const enabledStr = enabled.length > 0 ? enabled.join(", ") : "nessuno";
       const disabledStr = disabled.length > 0 ? disabled.join(", ") : "nessuno";
       return `
@@ -282785,7 +282801,12 @@ Quando l'utente fa una richiesta, analizza e delega all'agente pi\xF9 adatto. Se
     });
   }
   #buildSystemPrompt(key, cwd, workingDirs, mode, skillNames) {
-    const agentId = this.#resolveAgentId(key);
+    const rawAgentId = this.#resolveAgentId(key);
+    let agentId = rawAgentId;
+    if (agentId && agentId.includes(",")) {
+      const ids = agentId.split(",").map((s2) => s2.trim()).filter(Boolean);
+      agentId = ids.find((id) => id === "orchestrator") || ids[0] || null;
+    }
     const hasAgent = agentId !== null;
     let prompt = hasAgent ? this.#readAgentPrompt(agentId, cwd) : "quinki";
     const lead = hasAgent ? "Lavori" : "Sei un assistente che lavora";
@@ -282811,7 +282832,8 @@ La directory principale (dove i comandi vengono eseguiti) \xE8: ${workingDirs[0]
 ${lead} nella directory: ${cwd}`;
     }
     const m2 = mode === "build" ? "build" : "plan";
-    prompt += this.#modeNote(m2);
+    const hasDelegate = !!(agentId && (agentId === "orchestrator" || this.#readAgentConfigFile(agentId)?.tools?.includes("delegate_to_agent")));
+    prompt += this.#modeNote(m2, hasDelegate);
     if (agentId && (agentId === "orchestrator" || agentId.includes("orchestrator"))) {
       const sessionEntry = this.#entries.get(key);
       const sessionAgents = sessionEntry?.agentId;
@@ -282855,8 +282877,7 @@ You have ${skills.length} skill(s) available. Use the skill tool with command='l
       }
     }
     if (skillNames && skillNames.length > 0) {
-      const agentId2 = this.#resolveAgentId(key);
-      const isOrchestrator = agentId2 && (agentId2 === "orchestrator" || agentId2.includes("orchestrator"));
+      const isOrchestrator = agentId && (agentId === "orchestrator" || agentId.includes("orchestrator"));
       for (const { skillName, agentId: targetAgentId } of skillNames) {
         try {
           const skillPath = this.#findSkillPath(skillName, cwd);
@@ -283014,16 +283035,28 @@ CRITICAL: The skill instructions above were explicitly activated by the user via
       } else {
         sm = this.#sdk.SessionManager.create(effectiveCwd2, sessionDir);
       }
-      const customResourceLoader = this.#buildResourceLoader(effectiveCwd2, this.#resolveAgentId(sk), sk);
+      const customResourceLoader = this.#buildResourceLoader(effectiveCwd2, (() => {
+        let a = this.#resolveAgentId(sk);
+        if (a && a.includes(",")) {
+          const ids = a.split(",").map((s3) => s3.trim()).filter(Boolean);
+          a = ids.find((id) => id === "orchestrator") || ids[0] || null;
+        }
+        return a;
+      })(), sk);
       await customResourceLoader.reload();
-      const resolvedAgentId = data.agentId || this.#resolveAgentId(sk);
+      const rawResolvedAgentId = data.agentId || this.#resolveAgentId(sk);
+      let resolvedAgentId = rawResolvedAgentId;
+      if (resolvedAgentId && typeof resolvedAgentId === "string" && resolvedAgentId.includes(",")) {
+        const ids = resolvedAgentId.split(",").map((s3) => s3.trim()).filter(Boolean);
+        resolvedAgentId = ids.find((id) => id === "orchestrator") || ids[0] || null;
+      }
       if (data.agentId) this.#agentOverride.set(sk, String(data.agentId));
       const customTools = [];
       const skillTool = this.#buildSkillTool(() => this.#active.get(sk));
       if (skillTool) customTools.push(skillTool);
       if (resolvedAgentId) {
         const agentCfg = this.#readAgentConfigFile(resolvedAgentId);
-        const isOrchestrator = resolvedAgentId === "orchestrator" || typeof resolvedAgentId === "string" && resolvedAgentId.split(",").includes("orchestrator");
+        const isOrchestrator = resolvedAgentId === "orchestrator";
         const hasDelegateTool = agentCfg?.tools?.includes("delegate_to_agent") || isOrchestrator;
         if (hasDelegateTool) {
           const delegateTool = this.#buildDelegateTool(sk);
@@ -283174,7 +283207,7 @@ CRITICAL: The skill instructions above were explicitly activated by the user via
       const intendedMode = pendingMode || (s2 ?? this.#entries.get(sk))?.mode || "plan";
       this.#pendingMode.delete(sk);
       try {
-        this.#applyMode(pi2, sk, intendedMode, data.workingDirs, effectiveCwd2);
+        this.#applyMode(pi2, sk, intendedMode, data.workingDirs, effectiveCwd2, !!(resolvedAgentId && (resolvedAgentId === "orchestrator" || this.#readAgentConfigFile(resolvedAgentId)?.tools?.includes("delegate_to_agent"))));
         this.logDebug("mode-applied-send", { sessionKey: sk, mode: intendedMode });
       } catch (e2) {
         this.logDebug("mode-apply-error", { sessionKey: sk, error: e2?.message });
@@ -283362,7 +283395,12 @@ CRITICAL: The skill instructions above were explicitly activated by the user via
       this.logDebug("skill-rebuild-error", { sessionKey: sk, error: e2?.message });
     }
     {
-      const resolvedAgent = this.#resolveAgentId(sk);
+      const rawAgent = this.#resolveAgentId(sk);
+      let resolvedAgent = rawAgent;
+      if (resolvedAgent && resolvedAgent.includes(",")) {
+        const ids = resolvedAgent.split(",").map((s3) => s3.trim()).filter(Boolean);
+        resolvedAgent = ids.find((id) => id === "orchestrator") || ids[0] || null;
+      }
       const agentCfg = resolvedAgent ? this.#readAgentConfig(resolvedAgent) : null;
       const agentName = agentCfg?.name || resolvedAgent || "unknown";
       const sEntry = this.#entries.get(sk);

@@ -1997,7 +1997,7 @@ class PiBridge {
     }
 
     // === Expert vs normale: loader diverso (#ensureActive usato da compact) ===
-    const customResourceLoader = this.#buildResourceLoader(effectiveCwd, this.#resolveAgentId(key));
+    const customResourceLoader = this.#buildResourceLoader(effectiveCwd, (() => { let a = this.#resolveAgentId(key); if (a && typeof a === 'string' && a.includes(',')) { const ids = a.split(',').map(s => s.trim()).filter(Boolean); a = ids.find(id => id === 'orchestrator') || ids[0] || null; } return a; })());
     await customResourceLoader.reload();
 
     const result = await this.#sdk.createAgentSession({
@@ -2422,12 +2422,18 @@ class PiBridge {
     return paths;
   }
 
-  #applyMode(pi: any, key: string, mode: string, workingDirs?: string[], cwd?: string) {
+  #applyMode(pi: any, key: string, mode: string, workingDirs?: string[], cwd?: string, hasDelegateTool = false) {
     const m = mode === "build" ? "build" : "plan";
     // Fase C: merge tool globali + agent, filtra per plan mode
     const globalConfig = this.#readGlobalConfig();
     // Generalizzato: carica config di qualsiasi agente
-    const agentId = this.#resolveAgentId(key);
+    const rawAgentId = this.#resolveAgentId(key);
+    // Extract single agent from comma-separated list (same logic as #buildSystemPrompt)
+    let agentId: string | null = rawAgentId;
+    if (agentId && typeof agentId === 'string' && agentId.includes(',')) {
+      const ids = agentId.split(',').map(s => s.trim()).filter(Boolean);
+      agentId = ids.find(id => id === 'orchestrator') || ids[0] || null;
+    }
     let agentConfig: any = null;
     if (agentId) {
       agentConfig = this.#readAgentConfigFile(agentId);
@@ -2447,10 +2453,16 @@ class PiBridge {
       const all = (pi.getAllTools?.() ?? []).map((t: any) => t.name) as string[];
       // Filter merged tools to only those available in Pi SDK
       names = merged.filter(n => all.includes(n));
-      // Plan mode: remove tools not allowed in plan
+      // Always include custom tools (delegate_to_agent, skill) even if not in getAllTools
+      // — they were registered via createAgentSession customTools
+      const customToolNames = ["delegate_to_agent", "skill"];
+      for (const ct of customToolNames) {
+        if (merged.includes(ct) && !names.includes(ct)) names.push(ct);
+      }
+      // Plan mode: remove tools not allowed in plan (but keep custom tools)
       if (m === "plan") {
         const planFlags = globalConfig.planModeTools || {};
-        names = names.filter(n => planFlags[n] !== false);
+        names = names.filter(n => planFlags[n] !== false || customToolNames.includes(n));
       }
     } catch {}
     try { pi.setActiveToolsByName?.(names); } catch {}
@@ -2459,9 +2471,9 @@ class PiBridge {
     // un set manuale). Per far sopravvivere la nota mode, la appendiamo a _baseSystemPrompt.
     try {
       let base = (pi as any)._baseSystemPrompt;
-      const note = this.#modeNote(m);
+      const note = this.#modeNote(m, hasDelegateTool);
       // Prepend la persona dell'agente (PROMPT.md) + cwd effettivo a _baseSystemPrompt
-      const agentId = this.#resolveAgentId(key);
+      // Use the already-extracted agentId (from comma-separated list)
       if (agentId && typeof base === "string" && !base.includes(agentConfig?.name || "§§")) {
         const effCwd = cwd || (workingDirs && workingDirs[0]) || this.#cwd;
         const agentPrompt = this.#readAgentPrompt(agentId, effCwd);
@@ -2483,14 +2495,15 @@ class PiBridge {
     this.logDebug("apply-mode", { sessionKey: key, mode: m, toolCount: names.length, tools: names });
   }
 
-  #modeNote(mode: string): string {
+  #modeNote(mode: string, hasDelegateTool = false): string {
     const m = mode === "build" ? "build" : "plan";
     if (m === "plan") {
       const cfg = this.#readGlobalConfig();
       const planTools = cfg.planModeTools || {};
       const allTools = ["read", "write", "edit", "bash", "grep", "find", "ls", "skill"];
-      const enabled = allTools.filter((t: string) => planTools[t] === true);
-      const disabled = allTools.filter((t: string) => planTools[t] !== true);
+      if (hasDelegateTool) allTools.push("delegate_to_agent");
+      const enabled = allTools.filter((t: string) => planTools[t] === true || t === "delegate_to_agent");
+      const disabled = allTools.filter((t: string) => planTools[t] !== true && t !== "delegate_to_agent");
       const enabledStr = enabled.length > 0 ? enabled.join(", ") : "nessuno";
       const disabledStr = disabled.length > 0 ? disabled.join(", ") : "nessuno";
       return `\n\nSei in MODALITÀ PIANO (Plan mode). Puoi esplorare liberamente per capire bene il problema. Tool disponibili: ${enabledStr}. Tool NON disponibili: ${disabledStr}. NON tentare di chiamare i tool non disponibili. Collabora con l'utente per creare un PIANO dettagliato e fattibile di come risolvere il problema. Se un'operazione richiede un tool non disponibile, AVVISA l'utente che, dopo aver approvato il piano, deve passare in MODALITÀ BUILD. In Plan mode l'utente vuole la certezza che non fai modifiche senza il suo permesso.`;
@@ -3479,7 +3492,15 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
   }
 
   #buildSystemPrompt(key: string, cwd: string, workingDirs?: string[], mode?: string, skillNames?: { agentId: string; skillName: string }[]): string {
-    const agentId = this.#resolveAgentId(key);
+    const rawAgentId = this.#resolveAgentId(key);
+    // If agentId is a comma-separated list (e.g. "orchestrator,notion,frontend-designer"),
+    // extract the first valid agent for reading PROMPT.md
+    let agentId: string | null = rawAgentId;
+    if (agentId && agentId.includes(',')) {
+      const ids = agentId.split(',').map(s => s.trim()).filter(Boolean);
+      // Prefer orchestrator if present
+      agentId = ids.find(id => id === 'orchestrator') || ids[0] || null;
+    }
     const hasAgent = agentId !== null;
     let prompt = hasAgent ? this.#readAgentPrompt(agentId!, cwd) : "quinki";
     const lead = hasAgent ? "Lavori" : "Sei un assistente che lavora";
@@ -3498,7 +3519,9 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     }
     // === Plan/Build mode: nota mode-aware (il modello sa in che mode è) ===
     const m = mode === "build" ? "build" : "plan";
-    prompt += this.#modeNote(m);
+    // Check if this agent has delegate_to_agent tool (orchestrator or agent with it in config)
+    const hasDelegate = !!(agentId && (agentId === 'orchestrator' || (this.#readAgentConfigFile(agentId)?.tools?.includes('delegate_to_agent'))));
+    prompt += this.#modeNote(m, hasDelegate);
     // === Orchestrator: aggiungi lista agenti disponibili nella chat ===
     // Check: agentId could be 'orchestrator' (from setAgent) OR contain it
     // (e.g. 'agent-123,orchestrator' from session entry, before setAgent is processed)
@@ -3537,7 +3560,6 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     }
     // === User-invoked skills: load SKILL.md and add to system prompt ===
     if (skillNames && skillNames.length > 0) {
-      const agentId = this.#resolveAgentId(key);
       const isOrchestrator = agentId && (agentId === 'orchestrator' || agentId.includes('orchestrator'));
       for (const { skillName, agentId: targetAgentId } of skillNames) {
         try {
@@ -3686,11 +3708,17 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       // Il vendor buildSystemPrompt restituisce solo date + cwd + tools list.
       // Passiamo customPrompt truthy per attivare il ramo personalizzato.
       // === Expert vs normale: loader diverso (Expert carica la skill + system prompt Expert) ===
-      const customResourceLoader = this.#buildResourceLoader(effectiveCwd, this.#resolveAgentId(sk), sk);
+      const customResourceLoader = this.#buildResourceLoader(effectiveCwd, (() => { let a = this.#resolveAgentId(sk); if (a && a.includes(',')) { const ids = a.split(',').map(s => s.trim()).filter(Boolean); a = ids.find(id => id === 'orchestrator') || ids[0] || null; } return a; })(), sk);
       await customResourceLoader.reload();
 
       // === Tool personalizzati: delegate_to_agent per agenti che lo hanno nel config ===
-      const resolvedAgentId = (data as any).agentId || this.#resolveAgentId(sk);
+      const rawResolvedAgentId = (data as any).agentId || this.#resolveAgentId(sk);
+      // Extract single agent from comma-separated list (same logic as #buildSystemPrompt)
+      let resolvedAgentId: string | null = rawResolvedAgentId;
+      if (resolvedAgentId && typeof resolvedAgentId === 'string' && resolvedAgentId.includes(',')) {
+        const ids = resolvedAgentId.split(',').map(s => s.trim()).filter(Boolean);
+        resolvedAgentId = ids.find(id => id === 'orchestrator') || ids[0] || null;
+      }
       if ((data as any).agentId) this.#agentOverride.set(sk, String((data as any).agentId));
       const customTools: any[] = [];
       // Always register skill tool (so agents can list/search/load skills)
@@ -3699,7 +3727,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       if (resolvedAgentId) {
         // Check if the agent has delegate_to_agent in its config tools
         const agentCfg = this.#readAgentConfigFile(resolvedAgentId);
-        const isOrchestrator = resolvedAgentId === 'orchestrator' || (typeof resolvedAgentId === 'string' && resolvedAgentId.split(',').includes('orchestrator'));
+        const isOrchestrator = resolvedAgentId === 'orchestrator';
         const hasDelegateTool = agentCfg?.tools?.includes('delegate_to_agent') || isOrchestrator;
         if (hasDelegateTool) {
           const delegateTool = this.#buildDelegateTool(sk);
@@ -3824,7 +3852,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       const pendingMode = this.#pendingMode.get(sk);
       const intendedMode = pendingMode || (s ?? this.#entries.get(sk))?.mode || "plan";
       this.#pendingMode.delete(sk);
-      try { this.#applyMode(pi, sk, intendedMode, data.workingDirs, effectiveCwd); this.logDebug("mode-applied-send", { sessionKey: sk, mode: intendedMode }); }
+      try { this.#applyMode(pi, sk, intendedMode, data.workingDirs, effectiveCwd, !!(resolvedAgentId && (resolvedAgentId === 'orchestrator' || this.#readAgentConfigFile(resolvedAgentId)?.tools?.includes('delegate_to_agent')))); this.logDebug("mode-applied-send", { sessionKey: sk, mode: intendedMode }); }
       catch (e: any) { this.logDebug("mode-apply-error", { sessionKey: sk, error: e?.message }); }
 
       // === Apply per-agent model/thinking override (for direct @tag — MAIN path) ===
@@ -4003,7 +4031,13 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
 
     // === Unified agent_llm_config log: what the LLM actually receives ===
     {
-      const resolvedAgent = this.#resolveAgentId(sk);
+      const rawAgent = this.#resolveAgentId(sk);
+      // Extract single agent from comma-separated list (same logic as #buildSystemPrompt)
+      let resolvedAgent: string | null = rawAgent;
+      if (resolvedAgent && resolvedAgent.includes(',')) {
+        const ids = resolvedAgent.split(',').map(s => s.trim()).filter(Boolean);
+        resolvedAgent = ids.find(id => id === 'orchestrator') || ids[0] || null;
+      }
       const agentCfg = resolvedAgent ? this.#readAgentConfig(resolvedAgent) : null;
       const agentName = agentCfg?.name || resolvedAgent || "unknown";
       const sEntry = this.#entries.get(sk);
