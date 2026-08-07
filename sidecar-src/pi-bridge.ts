@@ -1074,9 +1074,23 @@ class PiBridge {
   }
 
   getSessionMeta(key: string): { model?: string; thinkingLevel?: string; availableThinkingLevels: string[]; mode: string; agentId?: string; agentOverrides?: any } {
-    // Reload from disk to pick up changes from the other sidecar
-    try { this.reloadAndMerge(); } catch {}
-    const s = this.#entries.get(key);
+    // Read session entry directly from disk (sync between sidecars)
+    let s = this.#entries.get(key);
+    try {
+      const data = JSON.parse(fs.readFileSync(SESSION_FILE, "utf8"));
+      const diskEntry = (Array.isArray(data) ? data : []).find((e: any) => e.key === key);
+      if (diskEntry) {
+        // Force update in-memory entry from disk
+        if (s) {
+          if (diskEntry.model) s.model = diskEntry.model;
+          if (diskEntry.thinkingLevel) s.thinkingLevel = diskEntry.thinkingLevel;
+          if (diskEntry.mode) (s as any).mode = diskEntry.mode;
+          if (diskEntry.agentId) (s as any).agentId = diskEntry.agentId;
+          if (diskEntry.agentOverrides) (s as any).agentOverrides = diskEntry.agentOverrides;
+          if (diskEntry.workingDir) { (s as any).workingDir = diskEntry.workingDir; this.#cwdOverride.set(key, diskEntry.workingDir); }
+        }
+      }
+    } catch {}
     const pi = this.#active.get(key);
     let model: string | undefined;
     let thinkingLevel: string | undefined;

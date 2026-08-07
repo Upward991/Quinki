@@ -280269,11 +280269,25 @@ var PiBridge = class {
     return this.#entries.get(key)?.thinkingLevel || null;
   }
   getSessionMeta(key) {
+    let s2 = this.#entries.get(key);
     try {
-      this.reloadAndMerge();
+      const data = JSON.parse(fs13.readFileSync(SESSION_FILE, "utf8"));
+      const diskEntry = (Array.isArray(data) ? data : []).find((e2) => e2.key === key);
+      if (diskEntry) {
+        if (s2) {
+          if (diskEntry.model) s2.model = diskEntry.model;
+          if (diskEntry.thinkingLevel) s2.thinkingLevel = diskEntry.thinkingLevel;
+          if (diskEntry.mode) s2.mode = diskEntry.mode;
+          if (diskEntry.agentId) s2.agentId = diskEntry.agentId;
+          if (diskEntry.agentOverrides) s2.agentOverrides = diskEntry.agentOverrides;
+          if (diskEntry.workingDir) {
+            s2.workingDir = diskEntry.workingDir;
+            this.#cwdOverride.set(key, diskEntry.workingDir);
+          }
+        }
+      }
     } catch {
     }
-    const s2 = this.#entries.get(key);
     const pi2 = this.#active.get(key);
     let model;
     let thinkingLevel;
