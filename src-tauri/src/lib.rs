@@ -627,7 +627,7 @@ pub fn run() {
                 }
               }
               "sync_import" => {
-                // Import agents/skills from Main (~/.quinki/) to Expert (~/.quinki-expert/)
+                // Import agents/skills from Main to Expert (direct)
                 let home = std::env::var("HOME").unwrap_or_default();
                 let main_dir = format!("{}/.quinki", home);
                 let expert_dir = format!("{}/.quinki-expert", home);
@@ -642,7 +642,7 @@ pub fn run() {
                 log::info!("Expert: synced from Main");
               }
               "sync_export" => {
-                // Export agents/skills from Expert (~/.quinki-expert/) to Main (~/.quinki/)
+                // Export agents/skills from Expert to Main (direct)
                 let home = std::env::var("HOME").unwrap_or_default();
                 let main_dir = format!("{}/.quinki", home);
                 let expert_dir = format!("{}/.quinki-expert", home);
