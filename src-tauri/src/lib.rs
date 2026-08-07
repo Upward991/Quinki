@@ -604,7 +604,7 @@ pub fn run() {
       if is_expert_mode() {
         // Expert app: own tray icon (expert icon) with Expert-specific menu
         let show_item = MenuItem::with_id(app, "show", "Show Quinki Expert", true, None::<&str>)?;
-        let sync_import = MenuItem::with_id(app, "sync_import", "Sync from Main App", true, None::<&str>)?;
+        let sync_import = MenuItem::with_id(app, "sync_import", "Import from Main App", true, None::<&str>)?;
         let sync_export = MenuItem::with_id(app, "sync_export", "Export to Main App", true, None::<&str>)?;
         let quit_item = MenuItem::with_id(app, "quit", "Quit Quinki Expert", true, None::<&str>)?;
         let menu = Menu::with_items(app, &[&show_item, &sync_import, &sync_export, &quit_item])?;
