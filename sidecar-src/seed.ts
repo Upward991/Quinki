@@ -77,7 +77,7 @@ You are a developer agent that works on behalf of the user: you implement featur
 The complete codebase map is in the **quinki-expert** skill. Use the \`skill\` tool with \`command='list'\` to discover available skills, and \`command='load'\` with the skill name to read them. ALWAYS consult the quinki-expert skill before operating. For precise changes, read the actual files with the \`read\` tool.
 
 ## Architecture (summary)
-Quinki = desktop app built with **Tauri 2** (native shell, Rust) + **React 19 + TypeScript + Vite** (frontend, \`src/\`) + **Node.js sidecar** (\`sidecar-src/\`) that bridges the **Pi SDK** (\`@earendil-works/pi-coding-agent\`). Details in the quinki-expert skill.
+Quinki = desktop app built with **Tauri 2** (native shell, Rust) + **React 19 + TypeScript + Vite** (frontend, \`src/\`) + **single compiled sidecar binary** (\`sidecar-src/\`) that bridges the **Pi SDK** (\`@earendil-works/pi-coding-agent\`). Details in the quinki-expert skill.
 
 ## Two apps, shared data
 - **Quinki** (main app) — full UI: chat, sidebar, agents, settings, log.
@@ -85,6 +85,20 @@ Quinki = desktop app built with **Tauri 2** (native shell, Rust) + **React 19 + 
 - Both share the same data. Agents, skills, sessions, settings are synchronized automatically.
 - The Expert app bundle lives inside the main app bundle.
 - A watchdog process restarts the Expert sidecar if it dies.
+
+## Sidecar architecture (CRITICAL)
+The sidecar is a **single compiled binary** (\`quinki-sidecar-ws\`) built with \`bun build --compile\`. It includes:
+- A WebSocket server (handles connections from the frontend)
+- The sidecar logic (JSON-RPC handlers, Pi SDK bridge)
+- All dependencies bundled (no Node.js, no npx tsx, no external runtime required)
+
+The entry point is \`sidecar-src/sidecar-ws.ts\` which:
+1. Creates a WebSocket server on the configured port
+2. Monkey-patches \`process.stdout\` to capture JSON-RPC responses
+3. Imports \`sidecar.ts\` which sets up \`globalThis.__quinki_handleLine\`
+4. Routes WebSocket messages to \`handleLine\` directly (no stdin/stdout piping)
+
+The binary is bundled inside the app at \`Contents/Resources/resources/sidecar/quinki-sidecar-ws\`.
 
 ## Where you work
 You work in the **repo** — the Quinki source code directory, which is your working directory (set by the user at first launch). All changes happen here. The installed app runs a separate compiled binary — your code changes do NOT affect it until a new version is built and installed.
@@ -120,11 +134,16 @@ git add -A && git commit -m "<description of changes>"
 
 **NEVER install without explicit user permission.** The user must confirm before you install.
 
-## Sidecar rebuild
-When you modify \`sidecar-src/\`, the changes are picked up differently:
-- \`ws-bridge.ts\` — needs bundle rebuild via esbuild.
-- \`sidecar.ts\`, \`pi-bridge.ts\`, \`agent-handlers.ts\` — run via \`npx tsx\` at runtime, so changes are picked up on sidecar restart (no bundle needed).
-- After modifying sidecar code, kill old sidecar processes. The app auto-restarts the main sidecar; the Expert watchdog restarts the Expert sidecar.
+## Sidecar rebuild (CRITICAL)
+When you modify \`sidecar-src/\` files, you MUST recompile the sidecar binary:
+\`\`\`
+cd sidecar-src && bun build --compile --target=bun-darwin-arm64 sidecar-ws.ts --outfile quinki-sidecar-ws
+\`\`\`
+Then copy the binary to the Tauri resources:
+\`\`\`
+cp quinki-sidecar-ws ../src-tauri/resources/sidecar/
+\`\`\`
+The binary is bundled into the app during \`npx tauri build\`. Without recompiling, changes to \`sidecar.ts\`, \`pi-bridge.ts\`, \`agent-handlers.ts\`, or \`sidecar-ws.ts\` will NOT take effect.
 
 ## Data directory
 The Quinki data directory contains:
@@ -138,7 +157,7 @@ The Quinki data directory contains:
 - \`models.json\` — model definitions
 
 ## Tools
-read, grep, find, ls, write, edit, bash, skill, delegate_to_agent. Use \`bash\` for git, vite, tauri, and system commands.
+read, grep, find, ls, write, edit, bash, skill, delegate_to_agent. Use \`bash\` for git, vite, tauri, bun, and system commands.
 
 ## Rules
 - Work in the repo. Never install without explicit user permission.
@@ -174,20 +193,30 @@ description: Codebase map for the Quinki Expert agent. Consult before operating;
 > **Orientation guide.** For precise changes, **read the actual files** with the \`read\` tool: this is a map, not the source of truth. Update it when something fundamental changes.
 
 ## What it is
-Quinki = **AI chat desktop app** (currently macOS, built with **Tauri 2**) with a **React 19 + TypeScript + Vite** frontend and a **Node.js sidecar** that bridges the **Pi SDK** (\`@earendil-works/pi-coding-agent\`). Users chat with LLMs (Anthropic, OpenAI, Ollama, OpenRouter, ...) and can use tools (read/edit/write/bash/grep/find/ls), skills, agents, delegations, and file attachments.
+Quinki = **AI chat desktop app** (currently macOS, built with **Tauri 2**) with a **React 19 + TypeScript + Vite** frontend and a **single compiled sidecar binary** that bridges the **Pi SDK** (\`@earendil-works/pi-coding-agent\`). Users chat with LLMs (Anthropic, OpenAI, Ollama, OpenRouter, ...) and can use tools (read/edit/write/bash/grep/find/ls), skills, agents, delegations, and file attachments.
 
 ## Architecture — 3 layers
 \`\`\`
-React (src/)  ←──WebSocket/JSON-RPC──▶  sidecar (sidecar-src/)  ──API──▶  Pi SDK
-   UI + state (hooks)                       bridge Pi SDK              agent runtime
+React (src/)  ←──WebSocket/JSON-RPC──▶  sidecar binary (sidecar-src/)  ──API──▶  Pi SDK
+   UI + state (hooks)                       compiled bun binary              agent runtime
 \`\`\`
 1. **Frontend (\`src/\`)** — React 19 + TypeScript + Vite + Tailwind CSS v4. UI + state. Communicates with sidecar via WebSocket + JSON-RPC.
-2. **Tauri (\`src-tauri/\`)** — Native shell (Rust). Window management, tray icon, sidecar lifecycle, file dialogs, attachments. Embeds frontend at build time.
-3. **Sidecar (\`sidecar-src/\`)** — \`ws-bridge.ts\` (WebSocket server, multi-client routing) + \`sidecar.ts\` (JSON-RPC handlers) + \`pi-bridge.ts\` (Pi SDK sessions, system prompt, mode, delegations, skills, attachments) + \`agent-handlers.ts\` (agent/skill/tool/file CRUD).
+2. **Tauri (\`src-tauri/\`)** — Native shell (Rust). Window management, tray icon, sidecar lifecycle, file dialogs, attachments. Embeds frontend at build time. Bundles the sidecar binary in \`resources/sidecar/\`.
+3. **Sidecar (\`sidecar-src/\`)** — Single compiled binary (\`quinki-sidecar-ws\`) built with \`bun build --compile\`. Includes WebSocket server + JSON-RPC handlers + Pi SDK bridge. No external runtime required.
+
+## Sidecar architecture (CRITICAL)
+The sidecar is a **single compiled binary** — no ws-bridge, no child process spawning, no Node.js required.
+
+- **Entry point**: \`sidecar-src/sidecar-ws.ts\` — creates WebSocket server, monkey-patches \`process.stdout\`, imports \`sidecar.ts\` which sets up \`globalThis.__quinki_handleLine\`
+- **Message flow**: WebSocket message → \`handleLine(JSON.stringify(msg))\` → sidecar processes → \`process.stdout.write(JSON.stringify(response) + "\\n")\` → monkey-patched stdout → WebSocket send to client
+- **No ID rewriting**: the old ws-bridge prefixed IDs for multi-client routing. The new architecture uses a single client per binary instance, so no prefixing is needed.
+- **Compile command**: \`cd sidecar-src && bun build --compile --target=bun-darwin-arm64 sidecar-ws.ts --outfile quinki-sidecar-ws\`
+- **Bundle location**: \`src-tauri/resources/sidecar/quinki-sidecar-ws\` → installed at \`Quinki.app/Contents/Resources/resources/sidecar/\`
+- **start.sh**: sets env vars (\`QUINKI_AGENT_DIR\`, \`PI_CODING_AGENT_DIR\`, \`QUINKI_WS_PORT\`) and launches the binary directly
 
 ## Two apps
-- **Main app** (Quinki) — full UI: chat, sidebar, agents panel, settings, log, home. Tray icon with menu (Show / Open Expert / Restart / Quit).
-- **Expert app** (Quinki Expert) — minimal UI: chat only. Separate process with its own sidecar code copy. Watchdog restarts sidecar if it dies. Tray icon (bot). Close-to-tray.
+- **Main app** (Quinki) — sidecar port 9182. Full UI: chat, sidebar, agents panel, settings, log, home. Tray icon with menu (Show / Open Expert / Restart / Quit).
+- **Expert app** (Quinki Expert) — sidecar port 9183. Minimal UI: chat only. Separate process with its own sidecar binary copy. Watchdog restarts sidecar if it dies. Tray icon (bot). Close-to-tray.
 - Both share the same data. Cross-sidecar sync via \`getSessionMeta\` (force-reads from disk).
 - Expert app bundle lives inside the main app bundle. Built by \`scripts/build-expert-app.sh\`.
 - Expert mode detection: \`is_expert_mode()\` in \`lib.rs\` checks exe path or \`--expert\` arg.
@@ -221,19 +250,21 @@ React (src/)  ←──WebSocket/JSON-RPC──▶  sidecar (sidecar-src/)  ─�
 - \`utils/dateParser.ts\` — Date/time search parser.
 
 ## File map — Tauri (\`src-tauri/\`)
-- \`src/lib.rs\` — Main Rust entry. Window setup, multi-window, tray icons (main + expert), sidecar start, watchdog, close-to-tray, \`is_expert_mode()\`, single instance PID check, file dialogs, attachment commands, \`export_chat_file\`, \`restart_app\`, \`quit_expert_app\`, \`set_window_bg_color\`, launch at login.
-- \`tauri.conf.json\` — Tauri config. Windows (all \`create: false\` except main), \`dragDropEnabled: false\` (HTML5 native drag-drop), plugins (dialog, fs, autostart, window-state).
-- \`capabilities/default.json\` — Tauri ACL permissions.
+- \`src/lib.rs\` — Main Rust entry. Window setup, multi-window, tray icons (main + expert), sidecar start (launches \`quinki-sidecar-ws\` binary from \`resource_dir()/resources/sidecar/\`), watchdog, close-to-tray, \`is_expert_mode()\`, single instance PID check, file dialogs, attachment commands, \`export_chat_file\`, \`restart_app\`, \`quit_expert_app\`, \`set_window_bg_color\`, launch at login.
+- \`build.rs\` — Calls \`tauri_build::build()\` to generate ACL manifests. CRITICAL: without this, frontend events are blocked.
+- \`tauri.conf.json\` — Tauri config. Windows (all \`create: false\` except main), \`dragDropEnabled: false\` (HTML5 native drag-drop), resources (sidecar binary + start scripts), plugins (dialog, fs, autostart, window-state).
+- \`capabilities/default.json\` — Tauri ACL permissions. Includes \`core:event:allow-listen\`, \`core:event:allow-emit\`, \`shell:allow-spawn\`, \`fs:allow-mkdir\`, etc.
 - \`Cargo.toml\` — Rust dependencies (tauri, tray-icon, rfd, base64, libc, etc.).
+- \`resources/sidecar/\` — Bundled sidecar binary (\`quinki-sidecar-ws\`), start scripts, package.json.
 
 ## File map — Sidecar (\`sidecar-src/\`)
-- \`ws-bridge.ts\` — WebSocket server. Multi-client routing (responses to specific client via prefixes, notifications broadcast to all). Spawns sidecar via \`npx tsx\`. Uses esbuild bundle for fast startup.
-- \`sidecar.ts\` — JSON-RPC handlers. \`sendMessage\`, \`getHistory\`, \`listAgents\`, \`createAgent\`, \`updateAgent\`, \`deleteAgent\`, \`listSkills\`, \`createSkill\`, \`installSkill\`, \`setMode\`, \`setWorkingDir\`, \`setChatAgents\`, \`setAgentOverride\`, \`compactSession\`, \`resetSession\`, \`reloadSession\`, \`getSessionMeta\`, \`listChatSkills\`, \`loadSkill\`, \`getFullState\`, attachment handlers.
+- \`sidecar-ws.ts\` — Entry point for the compiled binary. Creates WebSocket server, monkey-patches \`process.stdout\`, imports \`sidecar.ts\`, routes WebSocket messages to \`handleLine\`. Sets \`globalThis.__quinki_combined = true\` to prevent stdin-close exit.
+- \`sidecar.ts\` — JSON-RPC handlers. \`sendMessage\`, \`getHistory\`, \`listAgents\`, \`createAgent\`, \`updateAgent\`, \`deleteAgent\`, \`listSkills\`, \`createSkill\`, \`installSkill\`, \`setMode\`, \`setWorkingDir\`, \`setChatAgents\`, \`setAgentOverride\`, \`compactSession\`, \`resetSession\`, \`reloadSession\`, \`getSessionMeta\`, \`listChatSkills\`, \`loadSkill\`, \`getFullState\`, attachment handlers. Exposes \`globalThis.__quinki_handleLine\` for the ws entry point. Uses \`QUINKI_AGENT_DIR\` and \`PI_CODING_AGENT_DIR\` env vars.
 - \`pi-bridge.ts\` — PiBridge class. Core LLM logic. Sessions, system prompt builder, plan/build mode, agent overrides (model/thinking per agent), delegations, skill tool, skill injection in system prompt, attachment system prompt, \`@tag\` agent parsing, \`agent_llm_config\` logging, \`getSessionMeta\` (force-reads from disk for cross-sidecar sync), streaming via \`fs.writeSync(1,...)\`.
 - \`agent-handlers.ts\` — Agent/skill/tool/file CRUD. \`scanSkills\` parses frontmatter (\`disable-model-invocation\`, \`user-invocable\`). \`mapAgent\` transforms config to frontend format.
 - \`providers.ts\` — Provider detection (by capability, not name). Tries \`/api/tags\` for Ollama-like providers.
-- \`start.sh\` — Main sidecar start script. Launches ws-bridge bundle → spawns sidecar via \`npx tsx\`.
-- \`start-expert.sh\` — Expert sidecar start script. Shared data.
+- \`start.sh\` — Main sidecar start script. Sets env vars, launches \`quinki-sidecar-ws\` binary.
+- \`start-expert.sh\` — Expert sidecar start script. Port 9183. Shared data.
 - \`expert-watchdog.sh\` — Restarts Expert sidecar if it dies. Checks every 1s.
 - \`vendor/\` — Pi SDK (modified):
   - \`session-manager.js\` — \`buildSessionContext()\` includes delegation entries (type: "delegation"). \`_appendEntry\` used for delegation .jsonl entries.
@@ -267,16 +298,13 @@ Files copied to \`attachments/<session-key>/<uuid>-<original-name>\`. HTML5 drag
 ### Status pill
 \`agent_status\` events = single source of truth. \`streaming_stopped\` (agent_end) = only handler that sets \`isStreaming = false\`. Per-session tracking via \`sessionStreamingMap\` ref. \`setStreamingState\` called BEFORE sessionKey filter.
 
-### Streaming filter
-\`stream_event\` handler filtered by \`activeSessionIdRef.current\`. Ref updated synchronously in \`selectSession\`. Event handlers NOT recreated on session change. Prevents streaming from appearing in wrong chat.
-
 ### Cross-sidecar sync
 \`getSessionMeta\` force-reads from disk → enables main ↔ expert sync. Expert app polls every 3s for model/thinking/mode/agent changes. Restart main only kills the main sidecar port (NOT \`pkill -f ws-bridge\` which would kill Expert sidecar too).
 
 ## Persistence
-- \`quinki-sessions.json\` — SessionEntry array (id, title, model, thinkingLevel, mode, agentId, workingDir, agentOverrides, messageSkills, messageAttachments, folderId, order).
+- \`quinki-sessions.json\` — SessionEntry array (key, label, createdAt, lastActivity, order, model, thinkingLevel, mode, agentId, workingDir, agentOverrides, messageSkills, messageAttachments, folderId).
 - \`sessions/<key>.jsonl\` — Message tree (role: user/assistant/delegation). Delegations are entries in the tree chain (parentId = leaf). Position automatic from .jsonl.
-- \`config.json\` — Providers, models, enabled models, context lengths, API keys (encrypted), default model, default thinking, default mode, compaction settings.
+- \`config.json\` / \`quinki-global.json\` — Providers, models, enabled models, context lengths, API keys (encrypted), default model, default thinking, default mode, compaction settings.
 - \`agents/<id>/\` — \`config.json\` (name, model, thinkingLevel, skills, tools, files) + \`PROMPT.md\`.
 - \`skills/<name>/\` — \`SKILL.md\` (with YAML frontmatter: name, description, disable-model-invocation, user-invocable).
 - \`auth.json\` — API keys (encrypted with OS keychain).
@@ -292,18 +320,19 @@ Files copied to \`attachments/<session-key>/<uuid>-<original-name>\`. HTML5 drag
 - Cancel buttons: \`var(--q-accent-danger)\` (red) text, \`var(--q-border)\` border, hover \`rgba(255,255,255,0.06)\`.
 - Remove buttons: text-only (no border, \`color: var(--q-text-tertiary)\`, \`background: none\`).
 - Tauri 2 \`invoke()\` for native operations. \`@tauri-apps/api/core\` import.
-- WebSocket + JSON-RPC for sidecar communication (not stdio).
+- WebSocket + JSON-RPC for sidecar communication.
 - Build: use \`ditto\` (not \`cp -R\`) on macOS for app bundles. \`rm -rf dist node_modules/.vite\` before frontend build. Clear webview caches after install.
-- Sidecar: ws-bridge uses esbuild bundle (fast startup), spawns sidecar via \`npx tsx\` (correct streaming — esbuild bundle has stdout buffering issues).
+- Sidecar: single compiled bun binary. Recompile with \`bun build --compile --target=bun-darwin-arm64 sidecar-ws.ts --outfile quinki-sidecar-ws\` after any sidecar code change.
 - Streaming: \`fs.writeSync(1, ...)\` in FakeWebSocket (bypasses Node.js stream buffering).
 - \`sendMessage\` timeout: 600000ms (10 min). \`call()\` accepts timeout as third parameter.
 
 ## Build / run / test
 - **Frontend**: \`rm -rf dist node_modules/.vite && npx vite build\`
+- **Sidecar binary**: \`cd sidecar-src && bun build --compile --target=bun-darwin-arm64 sidecar-ws.ts --outfile quinki-sidecar-ws\` then \`cp quinki-sidecar-ws ../src-tauri/resources/sidecar/\`
 - **Full build**: \`export PATH="$HOME/.cargo/bin:$PATH" && npx tauri build\`
 - **Expert app**: \`bash scripts/build-expert-app.sh\`
-- **Sidecar bundle** (ws-bridge only): \`cd sidecar-src && npx esbuild ws-bridge.ts --bundle --platform=node --outfile=ws-bridge-bundle.cjs --format=cjs\`
 - **Install (macOS)**: \`ditto\` the built app bundle to the system applications folder
+- **Clear caches**: \`rm -rf ~/Library/WebKit/com.quinki.app ~/Library/Caches/com.quinki.app\`
 - **Dev**: \`npx tauri dev\` (Vite dev server + Rust debug build)
 - **Test**: manual testing (no automated tests yet)
 

@@ -121,8 +121,7 @@
       "icons/icon.ico"
     ],
     "resources": [
-      "resources/sidecar/quinki-ws-bridge",
-      "resources/sidecar/quinki-sidecar-full",
+      "resources/sidecar/quinki-sidecar-ws",
       "resources/sidecar/start.sh",
       "resources/sidecar/start-expert.sh",
       "resources/sidecar/expert-watchdog.sh",

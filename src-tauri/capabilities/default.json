@@ -1,5 +1,4 @@
 {
-  "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "enables the default permissions for all windows",
   "windows": [
@@ -34,7 +33,7 @@
     "dialog:allow-save",
     "fs:allow-write-text-file",
     "fs:allow-write-file",
-    "fs:allow-create-dir",
+    "fs:allow-mkdir",
     "dialog:allow-message",
     "dialog:allow-ask",
     "autostart:default",
