@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { WebSocketServer, WebSocket } from "ws";
 
 const __dirname = process.cwd();
-const PORT = parseInt(process.argv[2] || "9182", 10);
+const PORT = parseInt(process.env.QUINKI_WS_PORT || process.argv[2] || "9182", 10);
 
 const bundledPath = join(__dirname, "bundle", "ws-bridge.cjs");
 const useBundle = existsSync(bundledPath);

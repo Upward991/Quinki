@@ -3647,7 +3647,7 @@ var import_websocket_server = __toESM(require_websocket_server(), 1);
 
 // sidecar-src/ws-bridge.ts
 var __dirname = process.cwd();
-var PORT = parseInt(process.argv[2] || "9182", 10);
+var PORT = parseInt(process.env.QUINKI_WS_PORT || process.argv[2] || "9182", 10);
 var bundledPath = (0, import_node_path.join)(__dirname, "bundle", "ws-bridge.cjs");
 var useBundle = (0, import_node_fs.existsSync)(bundledPath);
 var sidecar = (0, import_node_child_process.spawn)("npx", ["tsx", "sidecar.ts"], {

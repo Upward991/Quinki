@@ -8,6 +8,21 @@ use tauri_plugin_autostart::ManagerExt as AutostartManagerExt;
 
 static SHOULD_EXIT: AtomicBool = AtomicBool::new(false);
 
+// Detect if running as Quinki Expert (separate app)
+fn is_expert_mode() -> bool {
+    // Check if the executable path contains "Quinki Expert"
+    if let Ok(exe) = std::env::current_exe() {
+        if exe.to_string_lossy().contains("Quinki Expert") {
+            return true;
+        }
+    }
+    // Also check for --expert arg
+    if std::env::args().any(|a| a == "--expert") {
+        return true;
+    }
+    false
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 #[tauri::command]
 fn __drag_window(window: tauri::WebviewWindow) {
@@ -351,7 +366,11 @@ pub fn run() {
     // If the app is already running, focus the existing window and exit
     use std::fs;
     use std::io::Write;
-    let pid_file = format!("{}/.quinki-app.pid", std::env::var("HOME").unwrap_or_default());
+    let pid_file = if is_expert_mode() {
+        format!("{}/.quinki-expert-app.pid", std::env::var("HOME").unwrap_or_default())
+    } else {
+        format!("{}/.quinki-app.pid", std::env::var("HOME").unwrap_or_default())
+    };
     if let Ok(existing_pid) = fs::read_to_string(&pid_file) {
         let pid: i32 = existing_pid.trim().parse().unwrap_or(0);
         if pid > 0 {
@@ -466,6 +485,13 @@ pub fn run() {
         }
       }
 
+      // === Expert mode: redirect main window to expert URL ===
+      if is_expert_mode() {
+        if let Some(window) = app.get_webview_window("main") {
+          let _ = window.eval("if(!window.location.search.includes('expert=1')){window.location.replace('index.html?expert=1&tab=expert');}");
+        }
+      }
+
       // === Tray icon === (character only, no background)
       let show_item = MenuItem::with_id(app, "show", "Show Quinki", true, None::<&str>)?;
       let expert_item = MenuItem::with_id(app, "expert", "Open Quinki Expert", true, None::<&str>)?;
@@ -552,20 +578,34 @@ pub fn run() {
         
         let home = std::env::var("HOME").unwrap_or_else(|_| "/Users/andreamaddalena".to_string());
         let sidecar_dir = format!("{}/Projects/Quinki/sidecar-src", home);
-        let start_script = format!("{}/start.sh", sidecar_dir);
         
-        let cmd = app.shell().command("sh")
-          .args(["-c", &format!("bash '{}' &", start_script)]);
-        
-        match cmd.spawn() {
-          Ok((mut rx, _child)) => {
-            log::info!("Sidecar start script launched");
-            std::thread::spawn(move || {
-              while let Some(_event) = rx.blocking_recv() {}
-            });
-          }
-          Err(e) => {
-            log::error!("Failed to start sidecar: {}", e);
+        if is_expert_mode() {
+          // Expert mode: start expert sidecar on port 9183 + watchdog
+          let start_script = format!("{}/start-expert.sh", sidecar_dir);
+          let watchdog_script = format!("{}/expert-watchdog.sh", sidecar_dir);
+          let _ = app.shell().command("sh")
+            .args(["-c", &format!("bash '{}' &", start_script)])
+            .spawn();
+          // Start watchdog with nohup so it survives app exit
+          let _ = app.shell().command("sh")
+            .args(["-c", &format!("nohup bash '{}' >/dev/null 2>&1 &", watchdog_script)])
+            .spawn();
+          log::info!("Expert sidecar + watchdog launched (port 9183)");
+        } else {
+          // Normal mode: start main sidecar on port 9182
+          let start_script = format!("{}/start.sh", sidecar_dir);
+          let cmd = app.shell().command("sh")
+            .args(["-c", &format!("bash '{}' &", start_script)]);
+          match cmd.spawn() {
+            Ok((mut rx, _child)) => {
+              log::info!("Sidecar start script launched");
+              std::thread::spawn(move || {
+                while let Some(_event) = rx.blocking_recv() {}
+              });
+            }
+            Err(e) => {
+              log::error!("Failed to start sidecar: {}", e);
+            }
           }
         }
       }
@@ -575,7 +615,13 @@ pub fn run() {
     .on_window_event(|window, event| {
       // Close-to-tray: ONLY main window hides. Sub-windows close normally.
       if let WindowEvent::CloseRequested { api, .. } = event {
-        if window.label() == "main" && !SHOULD_EXIT.load(Ordering::SeqCst) {
+        if is_expert_mode() {
+          // Expert app: close normally (no close-to-tray), kill expert sidecar
+          let _ = std::process::Command::new("sh").arg("-c")
+            .arg("pkill -f 'start-expert.sh' 2>/dev/null; pkill -f expert-watchdog 2>/dev/null; lsof -ti:9183 | xargs kill -9 2>/dev/null")
+            .spawn();
+          SHOULD_EXIT.store(true, Ordering::SeqCst);
+        } else if window.label() == "main" && !SHOULD_EXIT.load(Ordering::SeqCst) {
           let _ = window.hide();
           api.prevent_close();
         } else if window.label() != "main" {
@@ -604,8 +650,13 @@ pub fn run() {
           api.prevent_exit();
         } else {
           // Clean up PID file on exit
-          let pid_file = format!("{}/.quinki-app.pid", std::env::var("HOME").unwrap_or_default());
+          let pid_file = if is_expert_mode() {
+        format!("{}/.quinki-expert-app.pid", std::env::var("HOME").unwrap_or_default())
+    } else {
+        format!("{}/.quinki-app.pid", std::env::var("HOME").unwrap_or_default())
+    };
           let _ = std::fs::remove_file(&pid_file);
+
         }
       }
     });
