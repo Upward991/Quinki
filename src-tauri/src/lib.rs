@@ -604,8 +604,9 @@ pub fn run() {
       if is_expert_mode() {
         // Expert app: own tray icon (expert icon) with Expert-specific menu
         let show_item = MenuItem::with_id(app, "show", "Show Quinki Expert", true, None::<&str>)?;
-                let quit_item = MenuItem::with_id(app, "quit", "Quit Quinki Expert", true, None::<&str>)?;
-        let menu = Menu::with_items(app, &[&show_item, &quit_item])?;
+        let open_main = MenuItem::with_id(app, "open_main", "Open Quinki App", true, None::<&str>)?;
+        let quit_item = MenuItem::with_id(app, "quit", "Quit Quinki Expert", true, None::<&str>)?;
+        let menu = Menu::with_items(app, &[&show_item, &open_main, &quit_item])?;
 
         let tray_img = tauri::image::Image::from_bytes(include_bytes!("../icons/expert-tray-icon.png"))
             .unwrap_or_else(|_| app.default_window_icon().unwrap().clone());
@@ -623,6 +624,11 @@ pub fn run() {
                   let _ = window.show();
                   let _ = window.set_focus();
                 }
+              }
+              "open_main" => {
+                let _ = std::process::Command::new("open")
+                  .arg("/Applications/Quinki.app")
+                  .spawn();
               }
               "open_main" => {
                 let _ = std::process::Command::new("open")
