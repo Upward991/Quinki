@@ -425,18 +425,15 @@ export function ChatHeader(props: ChatHeaderProps) {
         <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setSyncOpen(false)}>
           <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
             <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', padding: '14px 18px' }}>App Sync</div>
-            <div style={{ color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 18px 14px 18px' }}>Choose an option:</div>
-            <div style={{ display: 'flex', flexDirection: 'column', padding: '0 16px 4px 16px', gap: '2px' }}>
-              <div onClick={() => { setSyncConfirm('import'); setSyncOpen(false) }} onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--q-hover)'} onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'} style={{ padding: '10px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', borderRadius: 'var(--radius-md)', transition: 'none' }}>
-                <Sync size={18} style={{ color: '#9d8bd9', flexShrink: 0 }} />
-                <span style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Import from Main App</span>
-              </div>
-              <div onClick={() => { setSyncConfirm('export'); setSyncOpen(false) }} onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--q-hover)'} onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'} style={{ padding: '10px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', borderRadius: 'var(--radius-md)', transition: 'none' }}>
-                <Sync size={18} style={{ color: '#d9a066', flexShrink: 0 }} />
-                <span style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Export to Main App</span>
-              </div>
+            <div style={{ color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 18px 14px 18px' }}>Agents, skills, models and providers are stored separately. Chat sessions, attachments and auth are shared automatically.</div>
+            <div style={{ display: 'flex', gap: '8px', padding: '0 16px 12px 16px' }}>
+              <button onClick={() => { setSyncConfirm('export'); setSyncOpen(false) }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#d9a066'; e.currentTarget.style.color = 'var(--q-bg)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#d9a066' }} style={{ padding: '10px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid #d9a066', cursor: 'pointer', backgroundColor: 'transparent', color: '#d9a066', fontSize: '13px', fontFamily: 'var(--font-interface)', fontWeight: 600, flex: 1 }}>Export to Main App</button>
+              <button onClick={() => { setSyncConfirm('import'); setSyncOpen(false) }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#9d8bd9'; e.currentTarget.style.color = 'var(--q-bg)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#9d8bd9' }} style={{ padding: '10px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid #9d8bd9', cursor: 'pointer', backgroundColor: 'transparent', color: '#9d8bd9', fontSize: '13px', fontFamily: 'var(--font-interface)', fontWeight: 600, flex: 1 }}>Import from Main App</button>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '8px 16px 12px 16px' }}>
+            <div style={{ padding: '0 16px 8px 16px' }}>
+              <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>Export = replaces Main App's agents/skills with yours. Import = replaces your agents/skills with Main App's copy.</div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '0 16px 12px 16px' }}>
               <button onClick={() => setSyncOpen(false)} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }} style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>Cancel</button>
             </div>
           </div>
