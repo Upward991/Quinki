@@ -429,7 +429,7 @@ export function ChatHeader(props: ChatHeaderProps) {
               Agents, skills, models and providers are stored separately.<br/>
               Chat sessions, attachments and auth are shared automatically.
             </div>
-            <div style={{ display: 'flex', padding: '0 28px 12px 28px', display: 'flex', justifyContent: 'center', gap: '24px' }}>
+            <div style={{ display: 'flex', padding: '0 18px 12px 18px', display: 'flex', justifyContent: 'space-between' }}>
               <button onClick={() => { setSyncConfirm('import'); setSyncOpen(false) }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#9d8bd9'; e.currentTarget.style.color = 'var(--q-bg)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#9d8bd9' }} style={{ padding: '7px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid #9d8bd9', cursor: 'pointer', backgroundColor: 'transparent', color: '#9d8bd9', fontSize: '13px', fontFamily: 'var(--font-interface)', fontWeight: 600 }}>Import from Main App</button>
               <button onClick={() => { setSyncConfirm('export'); setSyncOpen(false) }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#d9a066'; e.currentTarget.style.color = 'var(--q-bg)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#d9a066' }} style={{ padding: '7px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid #d9a066', cursor: 'pointer', backgroundColor: 'transparent', color: '#d9a066', fontSize: '13px', fontFamily: 'var(--font-interface)', fontWeight: 600 }}>Export to Main App</button>
             </div>
