@@ -386,7 +386,7 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
     // Streaming started/stopped
     const unsubStreamStart = subscribe('streaming_started', (p: any) => {
       const sk = p?.sessionKey || activeSessionIdRef.current || ''
-      setStreamingState(sk, { isStreaming: true, statusLabel: 'Thinking', statusKind: 'thinking' })
+      setStreamingState(sk, { isStreaming: true, statusLabel: 'Running', statusKind: 'running' })
     })
     // Done event (sent as separate notification, not stream_event)
     const unsubDone = subscribe('done', (p: any) => {
@@ -495,7 +495,7 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
       // La pill si cancella solo con done / streaming_stopped / error.
       switch (p?.status) {
         case 'running': setStatusLabel('Running'); setStatusKind('running'); break
-        case 'thinking': setStatusLabel('Thinking'); setStatusKind('thinking'); break
+        // thinking handled by message bubble toggle, not status pill
         case 'writing': setStatusLabel('Writing'); setStatusKind('writing'); break
         case 'tool': setStatusLabel('Tool call'); setStatusKind('tool_call'); break
         case 'compacting': setStatusLabel('Compacting'); setStatusKind('compacting'); break
