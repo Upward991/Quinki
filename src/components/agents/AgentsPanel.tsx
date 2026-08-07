@@ -574,6 +574,11 @@ export function AgentsPanel(props) {
     ]}),
 
     // Remove all confirm
+    // Tool disable confirmation
+    toolDisableConfirm && Modal({ onClose: () => setToolDisableConfirm(null), title: 'Disable tool?', children: [
+      React.createElement('div', { style: { color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', marginBottom: '16px' }, children: 'Are you sure you want to disable "' + toolDisableConfirm + '" in plan mode?' }),
+      React.createElement(ConfirmButtons, { onCancel: () => setToolDisableConfirm(null), onConfirm: doConfirmToolDisable, confirmLabel: 'Disable', danger: true })
+    ]}),
     removeAllState && Modal({ onClose: () => setRemoveAllState(null), title: `Remove all ${removeAllState.type}`, children: [
       React.createElement('div', { style: { color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', marginBottom: '20px' }, children: [
         removeAllState.type === 'agents'
