@@ -79,12 +79,13 @@ The complete codebase map is in the **quinki-expert** skill. Use the \`skill\` t
 ## Architecture (summary)
 Quinki = desktop app built with **Tauri 2** (native shell, Rust) + **React 19 + TypeScript + Vite** (frontend, \`src/\`) + **single compiled sidecar binary** (\`sidecar-src/\`) that bridges the **Pi SDK** (\`@earendil-works/pi-coding-agent\`). Details in the quinki-expert skill.
 
-## Two apps, shared data
-- **Quinki** (main app) — full UI: chat, sidebar, agents, settings, log.
-- **Quinki Expert** (separate app) — minimal UI: chat only. Runs as an independent process.
-- Both share the same data. Agents, skills, sessions, settings are synchronized automatically.
-- The Expert app bundle lives inside the main app bundle.
+## Two separate apps, shared data
+- **Quinki** (main app) — installed at \`/Applications/Quinki.app\`. Full UI: chat, sidebar, agents, settings, log. Sidecar on port 9182.
+- **Quinki Expert** (separate app) — installed at \`/Applications/Quinki Expert.app\`. Minimal UI: chat only. Sidecar on port 9183. Runs as a **completely independent process**.
+- **The two apps are separate bundles** — they are NOT nested. Updating or replacing one does NOT affect the other.
+- Both share the same data directory. Agents, skills, sessions, settings are synchronized automatically.
 - A watchdog process restarts the Expert sidecar if it dies.
+- **CRITICAL**: The Expert app can safely rebuild and reinstall the main app (\`rm -rf /Applications/Quinki.app\` + \`ditto\`) without dying, because it lives in a separate bundle.
 
 ## Sidecar architecture (CRITICAL)
 The sidecar is a **single compiled binary** (\`quinki-sidecar-ws\`) built with \`bun build --compile\`. It includes:
@@ -122,15 +123,21 @@ git add -A && git commit -m "<description of changes>"
 5. **Build** (from the project root):
    - \`rm -rf dist node_modules/.vite && npx vite build\`
    - \`export PATH="$HOME/.cargo/bin:$PATH" && npx tauri build\`
-   - \`bash scripts/build-expert-app.sh\` (bundles the Expert app with its own sidecar copy)
+   - \`bash scripts/build-expert-app.sh\` (builds the Expert app as a separate bundle)
 6. **Ask the user**: "Build ready. Install now? Active chats will be interrupted (messages are saved)."
-7. **On user confirmation**, install with backup + rollback:
-   - Backup the current installed app bundle
-   - Install the new build (use \`ditto\` on macOS, not \`cp -R\`)
-   - Restart the main app process
+7. **On user confirmation**, install the MAIN app with backup + rollback:
+   - \`mv /Applications/Quinki.app /Applications/Quinki.app.bak\` (NEVER use \`rm -rf\` — use \`mv\`)
+   - \`ditto "src-tauri/target/release/bundle/macos/Quinki.app" /Applications/Quinki.app\`
+   - Kill the main sidecar (port 9182) and restart the main app: \`lsof -ti:9182 | xargs kill -9; open /Applications/Quinki.app\`
    - Clear webview caches
-8. **The user tests**. If broken → user says "rollback" → restore backup + restart. If OK → remove backup.
-9. **Expert app update**: the Expert app bundle is updated by the install step (it's inside the main bundle). To apply changes to the running Expert process, the user quits and reopens the Expert app.
+   - **The Expert app is NOT affected** — it lives in a separate bundle and keeps running.
+8. **The user tests**. If broken → user says "rollback" → \`mv /Applications/Quinki.app.bak /Applications/Quinki.app\` + restart. If OK → \`rm -rf /Applications/Quinki.app.bak\`.
+9. **Expert app update**: to update the Expert app, install it separately:
+   - \`mv "/Applications/Quinki Expert.app" "/Applications/Quinki Expert.app.bak"\`
+   - \`ditto "src-tauri/target/release/bundle/macos/Quinki Expert.app" "/Applications/Quinki Expert.app"\`
+   - Kill expert sidecar (port 9183): \`lsof -ti:9183 | xargs kill -9\`
+   - \`open "/Applications/Quinki Expert.app"\`
+   - The main app is NOT affected.
 
 **NEVER install without explicit user permission.** The user must confirm before you install.
 
@@ -214,12 +221,14 @@ The sidecar is a **single compiled binary** — no ws-bridge, no child process s
 - **Bundle location**: \`src-tauri/resources/sidecar/quinki-sidecar-ws\` → installed at \`Quinki.app/Contents/Resources/resources/sidecar/\`
 - **start.sh**: sets env vars (\`QUINKI_AGENT_DIR\`, \`PI_CODING_AGENT_DIR\`, \`QUINKI_WS_PORT\`) and launches the binary directly
 
-## Two apps
-- **Main app** (Quinki) — sidecar port 9182. Full UI: chat, sidebar, agents panel, settings, log, home. Tray icon with menu (Show / Open Expert / Restart / Quit).
-- **Expert app** (Quinki Expert) — sidecar port 9183. Minimal UI: chat only. Separate process with its own sidecar binary copy. Watchdog restarts sidecar if it dies. Tray icon (bot). Close-to-tray.
-- Both share the same data. Cross-sidecar sync via \`getSessionMeta\` (force-reads from disk).
-- Expert app bundle lives inside the main app bundle. Built by \`scripts/build-expert-app.sh\`.
-- Expert mode detection: \`is_expert_mode()\` in \`lib.rs\` checks exe path or \`--expert\` arg.
+## Two separate apps
+- **Main app** (Quinki) — installed separately. Sidecar port 9182. Full UI: chat, sidebar, agents panel, settings, log, home. Tray icon with menu (Show / Open Expert / Restart / Quit).
+- **Expert app** (Quinki Expert) — installed separately. Sidecar port 9183. Minimal UI: chat only. **Completely independent process and bundle** — not nested inside the main app. Watchdog restarts sidecar if it dies. Tray icon (bot). Close-to-tray.
+- **CRITICAL**: The two apps are separate \`.app\` bundles. Replacing or updating one does NOT affect the other. The Expert can safely \`rm -rf /Applications/Quinki.app\` + reinstall without dying.
+- Both share the same data directory. Cross-sidecar sync via \`getSessionMeta\` (force-reads from disk).
+- Expert app built by \`scripts/build-expert-app.sh\` as a separate bundle (copies main app, changes Info.plist name/ID/icon).
+- Expert mode detection: \`is_expert_mode()\` in \`lib.rs\` checks exe path for "Quinki Expert" or \`--expert\` arg.
+- \`open_expert_app\` Rust command looks for \`/Applications/Quinki Expert.app\` (not nested).
 
 ## File map — Frontend (\`src/\`)
 - \`main.tsx\` — React root, renders App.
