@@ -29,7 +29,8 @@ export function AgentsPanel(props) {
   const [showCreateSkill, setShowCreateSkill] = useState(false);
   const [showInstallSkill, setShowInstallSkill] = useState(false);
   const [deleteAgentName, setDeleteAgentName] = useState(null);
-  const [removeAllState, setRemoveAllState] = useState(null); // { type, agentName }
+  const [removeAllState, setRemoveAllState] = useState(null);
+  const [toolDisableConfirm, setToolDisableConfirm] = useState(null); // { type, agentName }
   const [removeTagState, setRemoveTagState] = useState(null); // { type, name, agent }
   const [addItemsModal, setAddItemsModal] = useState(null); // { title, items, onConfirm }
   const [fileEditor, setFileEditor] = useState(null); // { agentId, fileName } or { skillName, fileName }
@@ -258,6 +259,11 @@ export function AgentsPanel(props) {
 
   const doTogglePlanModeTool = async (toolName, enable) => {
     if (!call) return;
+    if (!enable) {
+      // Show confirmation when disabling a tool
+      setToolDisableConfirm(toolName);
+      return;
+    }
     const updated = { ...planModeTools, [toolName]: enable };
     setPlanModeTools(updated);
     try {
@@ -266,6 +272,20 @@ export function AgentsPanel(props) {
       cfg.planModeTools = updated;
       await call('updateGlobalConfig', { config: cfg });
     } catch (e) { console.error('Failed to update plan mode tools:', e); }
+  };
+
+  const doConfirmToolDisable = async () => {
+    if (!call || !toolDisableConfirm) return;
+    const toolName = toolDisableConfirm;
+    const updated = { ...planModeTools, [toolName]: false };
+    setPlanModeTools(updated);
+    try {
+      const cfgRes = await call('getGlobalConfig', {});
+      const cfg = cfgRes?.config || {};
+      cfg.planModeTools = updated;
+      await call('updateGlobalConfig', { config: cfg });
+    } catch (e) { console.error('Failed to update plan mode tools:', e); }
+    setToolDisableConfirm(null);
   };
 
   // --- Add/remove agent from skill (reverse direction) ---
@@ -963,7 +983,7 @@ export function AddItemsModal({ title, items, initialSelected, onClose, onConfir
         React.createElement('button', { className: 'q-press', onClick: () => setSelected(new Set(filtered.map(i => i.name))), disabled: filtered.length === 0, style: { background: 'none', border: 'none', cursor: filtered.length === 0 ? 'default' : 'pointer', color: filtered.length === 0 ? 'var(--q-text-tertiary)' : 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }, children: 'Select all' }),
         React.createElement('button', { className: 'q-press', onClick: () => setSelected(new Set()), disabled: selected.size === 0, style: { background: 'none', border: 'none', cursor: selected.size === 0 ? 'default' : 'pointer', color: selected.size === 0 ? 'var(--q-text-tertiary)' : 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }, children: 'Deselect' }),
         React.createElement('span', { style: { flex: 1 } }),
-        React.createElement('button', { className: 'q-press', onClick: onClose, style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-accent-danger)', fontSize: '15px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }, children: 'Cancel' }),
+        React.createElement('button', { onClick: onClose, onMouseEnter: e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }, onMouseLeave: e => { e.currentTarget.style.backgroundColor = 'transparent' }, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'Cancel' }),
         React.createElement('div', { style: { width: '8px' } }),
         React.createElement('button', { className: 'q-press', onClick: () => onConfirm([...selected]), disabled: selected.size === 0, style: { padding: '4px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: selected.size === 0 ? 'default' : 'pointer', backgroundColor: selected.size === 0 ? 'transparent' : 'var(--q-tab-accent)', color: selected.size === 0 ? 'var(--q-text-tertiary)' : 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)', opacity: selected.size === 0 ? 0.5 : 1 }, children: [`Add (`, selected.size, `)`] })
       ]})
@@ -982,7 +1002,7 @@ function Modal({ onClose, title, children }) {
 
 function ConfirmButtons({ onCancel, onConfirm, confirmLabel, danger }) {
   return React.createElement('div', { style: { display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }, children: [
-    React.createElement('button', { className: 'q-press', onClick: onCancel, style: { padding: '8px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '15px', fontFamily: 'var(--font-interface)' }, children: 'Cancel' }),
+    React.createElement('button', { onClick: onCancel, onMouseEnter: e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }, onMouseLeave: e => { e.currentTarget.style.backgroundColor = 'transparent' }, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'Cancel' }),
     React.createElement('div', { style: { width: '8px' } }),
     React.createElement('button', { className: 'q-press', onClick: onConfirm, style: { padding: '8px 16px', borderRadius: 'var(--radius-lg)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-secondary)', color: 'var(--q-bg)', fontSize: '15px', fontWeight: 500, fontFamily: 'var(--font-interface)' }, children: confirmLabel })
   ]});
