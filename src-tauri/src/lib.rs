@@ -284,6 +284,90 @@ fn restart_main_app() -> Result<String, String> {
 }
 
 #[tauri::command]
+fn install_expert_app() -> Result<String, String> {
+    // Copy the main app to /Applications/Quinki Expert.app with expert identity
+    let main_app = "/Applications/Quinki.app";
+    let expert_app = "/Applications/Quinki Expert.app";
+    
+    if !std::path::Path::new(main_app).exists() {
+        return Err("Quinki.app not found. Install Quinki first.".to_string());
+    }
+    
+    // Remove old Expert app if exists
+    let _ = std::fs::remove_dir_all(expert_app);
+    
+    // Copy main app as Expert app base
+    std::process::Command::new("ditto")
+        .args([main_app, expert_app])
+        .output()
+        .map_err(|e| format!("Copy failed: {}", e))?;
+    
+    // Modify Info.plist — separate app identity
+    let plist = format!("{}/Contents/Info.plist", expert_app);
+    let main_bundle_id = std::process::Command::new("/usr/libexec/PlistBuddy")
+        .args(["-c", "Print :CFBundleIdentifier", &plist])
+        .output()
+        .map_err(|e| e.to_string())?;
+    let bundle_id = String::from_utf8_lossy(&main_bundle_id.stdout).trim().to_string();
+    
+    let _ = std::process::Command::new("/usr/libexec/PlistBuddy")
+        .args(["-c", "Set :CFBundleName Quinki Expert", &plist])
+        .output();
+    let _ = std::process::Command::new("/usr/libexec/PlistBuddy")
+        .args(["-c", "Set :CFBundleDisplayName Quinki Expert", &plist])
+        .output();
+    let _ = std::process::Command::new("/usr/libexec/PlistBuddy")
+        .args(["-c", &format!("Set :CFBundleIdentifier {}.expert", bundle_id), &plist])
+        .output();
+    
+    // Copy expert icon if available
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
+    let expert_icon = format!("{}/Projects/Quinki/src-tauri/icons/expert-icon.icns", home);
+    if std::path::Path::new(&expert_icon).exists() {
+        let _ = std::fs::copy(&expert_icon, format!("{}/Contents/Resources/icon.icns", expert_app));
+        let _ = std::process::Command::new("/usr/libexec/PlistBuddy")
+            .args(["-c", "Set :CFBundleIconFile icon", &plist])
+            .output();
+    }
+    
+    // Refresh Dock
+    let _ = std::process::Command::new("killall").arg("Dock").output();
+    
+    Ok("Quinki Expert.app installed".to_string())
+}
+
+#[tauri::command]
+fn sync_expert_app() -> Result<String, String> {
+    // Copy binary + sidecar from main app to Expert app (sync new code)
+    let main_app = "/Applications/Quinki.app";
+    let expert_app = "/Applications/Quinki Expert.app";
+    
+    if !std::path::Path::new(main_app).exists() {
+        return Err("Quinki.app not found.".to_string());
+    }
+    if !std::path::Path::new(expert_app).exists() {
+        return Err("Quinki Expert.app not found. Install it first.".to_string());
+    }
+    
+    // Copy binary
+    let main_bin = format!("{}/Contents/MacOS/quinki", main_app);
+    let expert_bin = format!("{}/Contents/MacOS/quinki", expert_app);
+    std::fs::copy(&main_bin, &expert_bin).map_err(|e| format!("Binary copy failed: {}", e))?;
+    
+    // Copy sidecar resources
+    let main_sidecar = format!("{}/Contents/Resources/resources/sidecar", main_app);
+    let expert_sidecar = format!("{}/Contents/Resources/resources/sidecar", expert_app);
+    
+    let _ = std::fs::remove_dir_all(&expert_sidecar);
+    std::process::Command::new("ditto")
+        .args([&main_sidecar, &expert_sidecar])
+        .output()
+        .map_err(|e| format!("Sidecar copy failed: {}", e))?;
+    
+    Ok("Expert app synced. Restart Quinki Expert to apply.".to_string())
+}
+
+#[tauri::command]
 fn open_expert_app() -> Result<(), String> {
     // Look for Quinki Expert.app as a separate app in /Applications
     let expert_paths = [
@@ -579,6 +663,8 @@ pub fn run() {
         open_attachments_folder,
         open_general_attachments_folder,
         list_attachments,
+        install_expert_app,
+        sync_expert_app,
         open_expert_app,
         install_main_app,
         restart_main_app,

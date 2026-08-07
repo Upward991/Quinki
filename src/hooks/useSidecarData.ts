@@ -495,7 +495,7 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
       // La pill si cancella solo con done / streaming_stopped / error.
       switch (p?.status) {
         case 'running': setStatusLabel('Running'); setStatusKind('running'); break
-        // thinking handled by message bubble toggle, not status pill
+        case 'thinking': setStatusLabel('Thinking'); setStatusKind('thinking'); break
         case 'writing': setStatusLabel('Writing'); setStatusKind('writing'); break
         case 'tool': setStatusLabel('Tool call'); setStatusKind('tool_call'); break
         case 'compacting': setStatusLabel('Compacting'); setStatusKind('compacting'); break
