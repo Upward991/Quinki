@@ -627,14 +627,46 @@ pub fn run() {
                 }
               }
               "sync_import" => {
-                // Emit event to frontend — modal will ask for confirmation
-                if let Some(window) = app.get_webview_window("main") {
-                  let _ = window.emit("sync-request", "import");
+                // Native confirmation dialog
+                let result = rfd::MessageDialog::new()
+                  .set_title("Import from Main App")
+                  .set_description("This will REPLACE ALL agents and skills in the Expert App with the Main App's copy. This cannot be undone.\n\nDo you want to continue?")
+                  .set_buttons(rfd::MessageButtons::YesNo)
+                  .show();
+                if result == rfd::MessageDialogResult::Yes {
+                  let home = std::env::var("HOME").unwrap_or_default();
+                  let main_dir = format!("{}/.quinki", home);
+                  let expert_dir = format!("{}/.quinki-expert", home);
+                  if std::path::Path::new(&format!("{}/agents", main_dir)).exists() {
+                    let _ = std::fs::remove_dir_all(format!("{}/agents", expert_dir));
+                    let _ = copy_dir_recursive(&format!("{}/agents", main_dir), &format!("{}/agents", expert_dir));
+                  }
+                  if std::path::Path::new(&format!("{}/skills", main_dir)).exists() {
+                    let _ = std::fs::remove_dir_all(format!("{}/skills", expert_dir));
+                    let _ = copy_dir_recursive(&format!("{}/skills", main_dir), &format!("{}/skills", expert_dir));
+                  }
+                  log::info!("Expert: imported from Main (confirmed)");
                 }
               }
               "sync_export" => {
-                if let Some(window) = app.get_webview_window("main") {
-                  let _ = window.emit("sync-request", "export");
+                let result = rfd::MessageDialog::new()
+                  .set_title("Export to Main App")
+                  .set_description("This will REPLACE ALL agents and skills in the Main App with the Expert App's copy. This cannot be undone.\n\nDo you want to continue?")
+                  .set_buttons(rfd::MessageButtons::YesNo)
+                  .show();
+                if result == rfd::MessageDialogResult::Yes {
+                  let home = std::env::var("HOME").unwrap_or_default();
+                  let main_dir = format!("{}/.quinki", home);
+                  let expert_dir = format!("{}/.quinki-expert", home);
+                  if std::path::Path::new(&format!("{}/agents", expert_dir)).exists() {
+                    let _ = std::fs::remove_dir_all(format!("{}/agents", main_dir));
+                    let _ = copy_dir_recursive(&format!("{}/agents", expert_dir), &format!("{}/agents", main_dir));
+                  }
+                  if std::path::Path::new(&format!("{}/skills", expert_dir)).exists() {
+                    let _ = std::fs::remove_dir_all(format!("{}/skills", main_dir));
+                    let _ = copy_dir_recursive(&format!("{}/skills", expert_dir), &format!("{}/skills", main_dir));
+                  }
+                  log::info!("Expert: exported to Main (confirmed)");
                 }
               }
               "quit" => {
