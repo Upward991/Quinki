@@ -330,7 +330,7 @@ fn count_items(dir: &str) -> usize {
 fn restart_app(app: tauri::AppHandle) {
     // Same logic as tray menu restart
     let _ = std::process::Command::new("sh").arg("-c")
-      .arg("pkill -f ws-bridge 2>/dev/null; pkill -f sidecar.ts 2>/dev/null; lsof -ti:9182 | xargs kill -9 2>/dev/null")
+      .arg("lsof -ti:9182 | xargs kill -9 2>/dev/null; pkill -f 'start.sh' 2>/dev/null")
       .spawn();
     SHOULD_EXIT.store(true, Ordering::SeqCst);
     // Relaunch app — use nohup + detached process so it survives parent exit
@@ -624,10 +624,15 @@ pub fn run() {
                   let _ = window.set_focus();
                 }
               }
+              "open_main" => {
+                let _ = std::process::Command::new("open")
+                  .arg("/Applications/Quinki.app")
+                  .spawn();
+              }
               "quit" => {
                 // Kill expert sidecar + watchdog
                 let _ = std::process::Command::new("sh").arg("-c")
-                  .arg("pkill -f 'start-expert.sh' 2>/dev/null; pkill -f expert-watchdog 2>/dev/null; lsof -ti:9183 | xargs kill -9 2>/dev/null")
+                  .arg("lsof -ti:9183 | xargs kill -9 2>/dev/null; pkill -f 'start-expert.sh' 2>/dev/null; pkill -f expert-watchdog 2>/dev/null")
                   .spawn();
                 SHOULD_EXIT.store(true, Ordering::SeqCst);
                 app.exit(0);
@@ -677,7 +682,7 @@ pub fn run() {
             "restart" => {
               // Kill sidecar processes
               let _ = std::process::Command::new("sh").arg("-c")
-                .arg("pkill -f ws-bridge 2>/dev/null; pkill -f sidecar.ts 2>/dev/null; lsof -ti:9182 | xargs kill -9 2>/dev/null")
+                .arg("lsof -ti:9182 | xargs kill -9 2>/dev/null; pkill -f 'start.sh' 2>/dev/null")
                 .spawn();
               SHOULD_EXIT.store(true, Ordering::SeqCst);
               // Relaunch app — use nohup + detached process so it survives parent exit
@@ -691,7 +696,7 @@ pub fn run() {
             "quit" => {
               // Kill sidecar processes
               let _ = std::process::Command::new("sh").arg("-c")
-                .arg("pkill -f ws-bridge 2>/dev/null; pkill -f sidecar.ts 2>/dev/null; lsof -ti:9182 | xargs kill -9 2>/dev/null")
+                .arg("lsof -ti:9182 | xargs kill -9 2>/dev/null; pkill -f 'start.sh' 2>/dev/null")
                 .spawn();
               SHOULD_EXIT.store(true, Ordering::SeqCst);
               app.exit(0);
