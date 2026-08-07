@@ -327,6 +327,16 @@ fn count_items(dir: &str) -> usize {
 }
 
 #[tauri::command]
+fn quit_expert_app(app: tauri::AppHandle) {
+    // Kill expert sidecar + watchdog
+    let _ = std::process::Command::new("sh").arg("-c")
+      .arg("lsof -ti:9183 | xargs kill -9 2>/dev/null; pkill -f 'start-expert.sh' 2>/dev/null; pkill -f expert-watchdog 2>/dev/null")
+      .spawn();
+    SHOULD_EXIT.store(true, Ordering::SeqCst);
+    app.exit(0);
+}
+
+#[tauri::command]
 fn restart_app(app: tauri::AppHandle) {
     // Same logic as tray menu restart
     let _ = std::process::Command::new("sh").arg("-c")
@@ -504,6 +514,7 @@ pub fn run() {
         open_general_attachments_folder,
         list_attachments,
         open_expert_app,
+        quit_expert_app,
         restart_app,
         enable_autostart,
         disable_autostart,
