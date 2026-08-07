@@ -7,7 +7,6 @@ use tauri::{
 use tauri_plugin_autostart::ManagerExt as AutostartManagerExt;
 
 static SHOULD_EXIT: AtomicBool = AtomicBool::new(false);
-static PENDING_SYNC: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
 
 // Detect if running as Quinki Expert (separate app)
 fn is_expert_mode() -> bool {
@@ -220,14 +219,6 @@ fn list_attachments(session_key: String) -> Result<Vec<serde_json::Value>, Strin
         a["name"].as_str().unwrap_or("").cmp(b["name"].as_str().unwrap_or(""))
     });
     Ok(files)
-}
-
-#[tauri::command]
-fn get_pending_sync() -> Option<String> {
-    let mut pending = PENDING_SYNC.lock().unwrap();
-    let result = pending.clone();
-    *pending = None;
-    result
 }
 
 #[tauri::command]
@@ -513,7 +504,6 @@ pub fn run() {
         open_general_attachments_folder,
         list_attachments,
         open_expert_app,
-        get_pending_sync,
         sync_from_main,
         sync_from_expert,
         restart_app,
@@ -637,18 +627,34 @@ pub fn run() {
                 }
               }
               "sync_import" => {
-                // Store pending request — frontend will poll and show modal
-                let mut pending = PENDING_SYNC.lock().unwrap();
-                *pending = Some("import".to_string());
-                // Show the window if hidden
+                let home = std::env::var("HOME").unwrap_or_default();
+                let main_dir = format!("{}/.quinki", home);
+                let expert_dir = format!("{}/.quinki-expert", home);
+                if std::path::Path::new(&format!("{}/agents", main_dir)).exists() {
+                    let _ = std::fs::remove_dir_all(format!("{}/agents", expert_dir));
+                    let _ = copy_dir_recursive(&format!("{}/agents", main_dir), &format!("{}/agents", expert_dir));
+                }
+                if std::path::Path::new(&format!("{}/skills", main_dir)).exists() {
+                    let _ = std::fs::remove_dir_all(format!("{}/skills", expert_dir));
+                    let _ = copy_dir_recursive(&format!("{}/skills", main_dir), &format!("{}/skills", expert_dir));
+                }
                 if let Some(window) = app.get_webview_window("main") {
                   let _ = window.show();
                   let _ = window.set_focus();
                 }
               }
               "sync_export" => {
-                let mut pending = PENDING_SYNC.lock().unwrap();
-                *pending = Some("export".to_string());
+                let home = std::env::var("HOME").unwrap_or_default();
+                let main_dir = format!("{}/.quinki", home);
+                let expert_dir = format!("{}/.quinki-expert", home);
+                if std::path::Path::new(&format!("{}/agents", expert_dir)).exists() {
+                    let _ = std::fs::remove_dir_all(format!("{}/agents", main_dir));
+                    let _ = copy_dir_recursive(&format!("{}/agents", expert_dir), &format!("{}/agents", main_dir));
+                }
+                if std::path::Path::new(&format!("{}/skills", expert_dir)).exists() {
+                    let _ = std::fs::remove_dir_all(format!("{}/skills", main_dir));
+                    let _ = copy_dir_recursive(&format!("{}/skills", expert_dir), &format!("{}/skills", main_dir));
+                }
                 if let Some(window) = app.get_webview_window("main") {
                   let _ = window.show();
                   let _ = window.set_focus();
