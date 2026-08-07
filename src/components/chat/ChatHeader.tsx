@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react'
 import type { Session, Agent } from '../../types'
 import { invoke } from '@tauri-apps/api/core'
-import { Home, PanelLeft, MessageSquare, Download, Search, RefreshCw, Bot, Calendar, Clock, ChevronDown, ChevronUp, Cpu, Brain, Network, X } from '../icons'
+import { Home, PanelLeft, MessageSquare, Download, Search, RefreshCw, Sync, Bot, Calendar, Clock, ChevronDown, ChevronUp, Cpu, Brain, Network, X } from '../icons'
 import { AgentConfigModal } from './AgentConfigModal'
 
 interface ChatHeaderProps {
@@ -115,7 +115,7 @@ export function ChatHeader(props: ChatHeaderProps) {
         {props.isExpertApp ? (
           <>
             <div style={panelStyle}>
-              <IconBtn icon={RefreshCw} onClick={() => setSyncOpen(true)} title="Sync data" />
+              <IconBtn icon={Sync} onClick={() => setSyncOpen(true)} title="Sync data" />
             </div>
             <div style={{ width: '8px', flexShrink: 0 }} />
           </>
@@ -458,13 +458,7 @@ export function ChatHeader(props: ChatHeaderProps) {
       )}
       {/* Sync success */}
       {syncSuccess && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 300, backgroundColor: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '24px', minWidth: '320px', maxWidth: '400px', textAlign: 'center' }}>
-            <div style={{ color: 'var(--q-accent-success)', fontSize: '16px', marginBottom: '8px', fontFamily: 'var(--font-interface)', fontWeight: 600 }}>Success</div>
-            <div style={{ color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>{syncSuccess}</div>
-          </div>
-          {setTimeout(() => { setSyncConfirm(null); setSyncSuccess(null) }, 2000) && null}
-        </div>
+        <SyncSuccessModal message={syncSuccess} onDone={() => { setSyncConfirm(null); setSyncSuccess(null) }} />
       )}
     </>
   )
@@ -668,6 +662,22 @@ function ThinkingPickerModal({ currentThinking, chatThinkingLevel, onClose, onCo
           <div style={{ width: '8px' }} />
           <button onClick={() => onConfirm(selected)} style={{ padding: '4px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-tab-accent)', color: 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)' }}>Confirm</button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Sync Success Modal (auto-dismiss after 2s) ──
+function SyncSuccessModal({ message, onDone }: { message: string; onDone: () => void }) {
+  useEffect(() => {
+    const t = setTimeout(onDone, 2000)
+    return () => clearTimeout(t)
+  }, [])
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 300, backgroundColor: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '24px', minWidth: '320px', maxWidth: '400px', textAlign: 'center' }}>
+        <div style={{ color: 'var(--q-accent-success)', fontSize: '16px', marginBottom: '8px', fontFamily: 'var(--font-interface)', fontWeight: 600 }}>Success</div>
+        <div style={{ color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>{message}</div>
       </div>
     </div>
   )
