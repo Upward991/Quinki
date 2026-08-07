@@ -312,7 +312,7 @@ Update when something **fundamental** changes (architecture, main flows, convent
 };
 
 export const SEED_GLOBAL_CONFIG = JSON.stringify({
-  tools: ["read", "grep", "find", "ls", "skill"],
+  tools: ["read", "write", "edit", "bash", "grep", "find", "ls", "skill", "delegate_to_agent"],
   planModeTools: {
     read: true, grep: true, find: true, ls: true, skill: true,
     write: false, edit: false, bash: false, delegate_to_agent: true,

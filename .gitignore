@@ -24,3 +24,21 @@ dist-ssr
 *.sw?
 .vercel
 dist/assets/*.bak
+
+# Tauri
+src-tauri/target/
+src-tauri/gen/
+src-tauri/WixTools/
+
+# Build artifacts
+*.app
+*.dmg
+*.exe
+*.msi
+
+# Sidecar bundle
+sidecar-src/bundle/
+
+# OS files
+.DS_Store
+Thumbs.db
