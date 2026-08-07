@@ -514,7 +514,45 @@ pub fn run() {
         }
       }
 
-      // === Tray icon === (character only, no background)
+      // === Tray icon ===
+      if is_expert_mode() {
+        // Expert app: own tray icon (expert icon) with Expert-specific menu
+        let show_item = MenuItem::with_id(app, "show", "Show Quinki Expert", true, None::<&str>)?;
+        let quit_item = MenuItem::with_id(app, "quit", "Quit Quinki Expert", true, None::<&str>)?;
+        let menu = Menu::with_items(app, &[&show_item, &quit_item])?;
+
+        let tray_img = tauri::image::Image::from_bytes(include_bytes!("../icons/expert-icon.png"))
+            .unwrap_or_else(|_| app.default_window_icon().unwrap().clone());
+
+        let _tray = TrayIconBuilder::new()
+          .menu(&menu)
+          .icon(tray_img)
+          .icon_as_template(false)
+          .menu_on_left_click(true)
+          .tooltip("Quinki Expert")
+          .on_menu_event(|app, event| {
+            match event.id.as_ref() {
+              "show" => {
+                if let Some(window) = app.get_webview_window("main") {
+                  let _ = window.show();
+                  let _ = window.set_focus();
+                }
+              }
+              "quit" => {
+                // Kill expert sidecar + watchdog
+                let _ = std::process::Command::new("sh").arg("-c")
+                  .arg("pkill -f 'start-expert.sh' 2>/dev/null; pkill -f expert-watchdog 2>/dev/null; lsof -ti:9183 | xargs kill -9 2>/dev/null")
+                  .spawn();
+                SHOULD_EXIT.store(true, Ordering::SeqCst);
+                app.exit(0);
+              }
+              _ => {}
+            }
+          })
+          .on_tray_icon_event(|_tray, _event| {})
+          .build(app)?;
+      } else {
+        // Main app: normal tray icon
       let show_item = MenuItem::with_id(app, "show", "Show Quinki", true, None::<&str>)?;
       let expert_item = MenuItem::with_id(app, "expert", "Open Quinki Expert App", true, None::<&str>)?;
       let restart_item = MenuItem::with_id(app, "restart", "Restart Quinki", true, None::<&str>)?;
@@ -579,6 +617,7 @@ pub fn run() {
           // Don't show window on click — only menu (menu_on_left_click handles it)
           })
         .build(app)?;
+      } // end if !is_expert_mode()
 
       // === Sidecar start ===
       #[cfg(not(target_os = "windows"))]
@@ -625,11 +664,11 @@ pub fn run() {
       // Close-to-tray: ONLY main window hides. Sub-windows close normally.
       if let WindowEvent::CloseRequested { api, .. } = event {
         if is_expert_mode() {
-          // Expert app: close normally (no close-to-tray), kill expert sidecar
-          let _ = std::process::Command::new("sh").arg("-c")
-            .arg("pkill -f 'start-expert.sh' 2>/dev/null; pkill -f expert-watchdog 2>/dev/null; lsof -ti:9183 | xargs kill -9 2>/dev/null")
-            .spawn();
-          SHOULD_EXIT.store(true, Ordering::SeqCst);
+          // Expert app: close-to-tray (hide, don't quit)
+          if window.label() == "main" && !SHOULD_EXIT.load(Ordering::SeqCst) {
+            let _ = window.hide();
+            api.prevent_close();
+          }
         } else if window.label() == "main" && !SHOULD_EXIT.load(Ordering::SeqCst) {
           let _ = window.hide();
           api.prevent_close();
