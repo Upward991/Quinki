@@ -429,7 +429,7 @@ export function ChatHeader(props: ChatHeaderProps) {
               Agents, skills, models and providers are stored separately.<br/>
               Chat sessions, attachments and auth are shared automatically.
             </div>
-            <div style={{ display: 'flex', padding: '0 18px 12px 18px', display: 'flex', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', padding: '0 24px 12px 24px', display: 'flex', justifyContent: 'center', gap: '24px' }}>
               <button onClick={() => { setSyncConfirm('import'); setSyncOpen(false) }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#9d8bd9'; e.currentTarget.style.color = 'var(--q-bg)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#9d8bd9' }} style={{ padding: '7px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid #9d8bd9', cursor: 'pointer', backgroundColor: 'transparent', color: '#9d8bd9', fontSize: '13px', fontFamily: 'var(--font-interface)', fontWeight: 600 }}>Import from Main App</button>
               <button onClick={() => { setSyncConfirm('export'); setSyncOpen(false) }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#d9a066'; e.currentTarget.style.color = 'var(--q-bg)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#d9a066' }} style={{ padding: '7px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid #d9a066', cursor: 'pointer', backgroundColor: 'transparent', color: '#d9a066', fontSize: '13px', fontFamily: 'var(--font-interface)', fontWeight: 600 }}>Export to Main App</button>
             </div>
@@ -439,7 +439,7 @@ export function ChatHeader(props: ChatHeaderProps) {
                 Import = replaces yours with Main's copy.
               </div>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '0 18px 14px 18px' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0 18px 14px 18px' }}>
               <button onClick={() => setSyncOpen(false)} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }} style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>Cancel</button>
             </div>
           </div>
