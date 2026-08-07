@@ -422,18 +422,17 @@ export function ChatHeader(props: ChatHeaderProps) {
       )}
       {/* Sync modal — Expert app only */}
       {syncOpen && !syncConfirm && !syncSuccess && (
-        <>
-          <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)' }} onClick={() => setSyncOpen(false)} />
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setSyncOpen(false)}>
           <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
             <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', padding: '14px 18px' }}>App Sync</div>
             <div style={{ color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 18px 14px 18px' }}>Choose an option:</div>
             <div style={{ display: 'flex', flexDirection: 'column', padding: '0 16px 4px 16px', gap: '2px' }}>
               <div onClick={() => { setSyncConfirm('import'); setSyncOpen(false) }} onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--q-hover)'} onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'} style={{ padding: '10px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', borderRadius: 'var(--radius-md)', transition: 'none' }}>
-                <RefreshCw size={18} style={{ color: '#9d8bd9', flexShrink: 0 }} />
+                <Sync size={18} style={{ color: '#9d8bd9', flexShrink: 0 }} />
                 <span style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Import from Main App</span>
               </div>
               <div onClick={() => { setSyncConfirm('export'); setSyncOpen(false) }} onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--q-hover)'} onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'} style={{ padding: '10px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', borderRadius: 'var(--radius-md)', transition: 'none' }}>
-                <RefreshCw size={18} style={{ color: '#d9a066', flexShrink: 0 }} />
+                <Sync size={18} style={{ color: '#d9a066', flexShrink: 0 }} />
                 <span style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Export to Main App</span>
               </div>
             </div>
@@ -441,7 +440,7 @@ export function ChatHeader(props: ChatHeaderProps) {
               <button onClick={() => setSyncOpen(false)} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }} style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>Cancel</button>
             </div>
           </div>
-        </>
+        </div>
       )}
       {/* Sync confirmation modal */}
       {syncConfirm && !syncSuccess && (
