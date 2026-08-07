@@ -1,15 +1,28 @@
 import { useState, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
-import { listen } from '@tauri-apps/api/event'
+
+// Try global Tauri API first (bypasses ACL), fallback to regular imports
+const _invoke: any = (window as any).__TAURI__?.core?.invoke || invoke
+let _listen: any = (window as any).__TAURI__?.event?.listen
+if (!_listen) {
+  // Fallback: try dynamic import
+  _listen = (event: string, handler: (e: any) => void) => import('@tauri-apps/api/event').then(({listen}) => listen(event, handler))
+}
 
 export function SyncModal() {
   const [syncReq, setSyncReq] = useState<string | null>(null)
 
   useEffect(() => {
     let unlisten: (() => void) | undefined
-    listen('sync-request', (event: any) => {
-      setSyncReq(event.payload as string)
-    }).then((fn) => { unlisten = fn }).catch(() => {})
+    const setup = async () => {
+    try {
+      const unlistenFn = await _listen('sync-request', (event: any) => {
+        setSyncReq(event.payload as string)
+      })
+      unlisten = unlistenFn
+    } catch (e) { console.error('SyncModal listen error:', e) }
+    }
+    setup()
     return () => { if (unlisten) unlisten() }
   }, [])
 
@@ -35,7 +48,7 @@ export function SyncModal() {
           </button>
           <button onClick={async () => {
             try {
-              isImport ? await invoke('sync_from_main') : await invoke('sync_from_expert')
+              isImport ? await _invoke('sync_from_main') : await _invoke('sync_from_expert')
               setSyncReq(null)
             } catch (e) { setSyncReq(null) }
           }}
