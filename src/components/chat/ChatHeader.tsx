@@ -15,6 +15,7 @@ interface ChatHeaderProps {
   sidebarOpen: boolean
   onToggleSidebar: () => void
   hideSidebarToggle?: boolean
+  isExpertApp?: boolean
   agentDropdownOpen: boolean
   onToggleAgentDropdown: () => void
   agents: Agent[]
@@ -107,8 +108,8 @@ export function ChatHeader(props: ChatHeaderProps) {
   return (
     <>
       <div className="flex items-center">
-        {/* Panel 1: Home — hidden in expert mode */}
-        {!isExpert && (
+        {/* Panel 1: Home — hidden only in separate Expert app */}
+        {!props.isExpertApp && (
           <>
             <div style={panelStyle}>
               <IconBtn icon={Home} onClick={() => props.onSelectPanel('home')} title="Home" />

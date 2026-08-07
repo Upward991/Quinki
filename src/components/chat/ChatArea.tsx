@@ -24,6 +24,7 @@ interface ChatAreaProps {
   sidebarOpen: boolean
   onToggleSidebar: () => void
   hideSidebarToggle?: boolean
+  isExpertApp?: boolean
   agentDropdownOpen: boolean
   onToggleAgentDropdown: () => void
   agents: Agent[]
@@ -221,6 +222,7 @@ export function ChatArea(props: ChatAreaProps) {
           sidebarOpen={props.sidebarOpen}
           onToggleSidebar={props.onToggleSidebar}
           hideSidebarToggle={props.hideSidebarToggle}
+          isExpertApp={props.isExpertApp}
           agentDropdownOpen={props.agentDropdownOpen}
           onToggleAgentDropdown={props.onToggleAgentDropdown}
           agents={props.agents}
