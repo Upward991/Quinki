@@ -431,7 +431,7 @@ function ExportBtn({ label, color, hoverRgb, onClick }: { label: string; color: 
 
 function CtxRow({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-evenly', padding: '4px 0' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
       <span style={{ color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-code)' }}>{label}</span>
       <span style={{ color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-code)' }}>{value}</span>
     </div>
