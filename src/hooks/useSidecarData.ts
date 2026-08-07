@@ -698,7 +698,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
         const ss = await call('getStreamingStatus', { sessionKey })
         if (ss?.streaming) {
           setIsStreaming(true)
-          setStatusLabel('Thinking'); setStatusKind('thinking')
+          setStatusLabel('Running'); setStatusKind('running')
           const buf = await call('getStreamingMessage', { sessionKey })
           if (buf?.streaming && (buf.streaming.text || buf.streaming.thinking || (buf.streaming.toolCalls || []).length > 0)) {
             const sb = buf.streaming
@@ -791,7 +791,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     const userMsg = { id: `msg-${Date.now()}`, role: 'user' as const, content: text, timestamp: new Date().toISOString(), tokensIn: Math.ceil(text.length / 4), skillNames: optsSkills, attachments: optsAttachments } as any
     setMessages(prev => [...prev, userMsg])
     setIsStreaming(true)
-    setStatusLabel('Thinking'); setStatusKind('thinking')
+    setStatusLabel('Running'); setStatusKind('running')
     try {
       sk = sk || activeSessionId || ''
       if (!sk) {
