@@ -18,7 +18,7 @@ export function HomeView({onSelectPanel}: {onSelectPanel: (panel: string) => voi
   const onContext = useCallback((e: React.MouseEvent, card: any) => {
     // Only show custom menu for tabs that CAN be opened in new window
     // (not chat, not expert — expert always opens in new window anyway)
-    if (card.id === 'chat' || card.id === 'expert') return
+    if (card.id === 'chat') return
     e.preventDefault()
     e.stopPropagation()
     setCtxMenu({x: e.clientX, y: e.clientY, card})
