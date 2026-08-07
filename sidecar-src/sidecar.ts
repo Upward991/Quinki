@@ -86,7 +86,7 @@ class FakeWebSocket {
       const obj = JSON.parse(data);
       if (obj && typeof obj === "object" && typeof obj.type === "string") {
         // WS-style event → JSON-RPC notification. params = whole event (contiains type + all fields).
-        try { fs.writeSync(1, JSON.stringify({ jsonrpc: "2.0", method: obj.type, params: obj }) + "\n"); } catch {}
+        try { process.stdout.write(JSON.stringify({ jsonrpc: "2.0", method: obj.type, params: obj }) + "\n"); } catch {}
         return;
       }
     } catch {
@@ -526,7 +526,7 @@ process.stdin.setEncoding("utf8");
 // Previene orphan sidecar che terrebbero il lock su ~/.pi/agent e bloccherebbero il
 // sidecar dell'app al riavvio (dopo "Salva e riavvia" o flutter run dell'Expert).
 // stdin EOF: non uscire (modalita standalone)
-process.stdin.on("close", () => { try { process.exit(0); } catch {} });
+process.stdin.on("close", () => { if (!globalThis.__quinki_combined) { try { process.exit(0); } catch {} } });
 // Belt-and-suspenders: se stdin EOF non fire (edge case), monitora il parent PID ogni 5s.
 // parent check: disattivato in modalita standalone
 process.stdin.on("data", (chunk) => {
@@ -603,3 +603,9 @@ async function bootstrap() {
 }
 
 bootstrap();
+// Expose for combined entry mode
+if (typeof globalThis !== 'undefined') {
+  (globalThis as any).__quinki_handleLine = handleLine;
+  (globalThis as any).__quinki_sendError = sendError;
+  (globalThis as any).__quinki_send = (msg: any) => { process.stdout.write(JSON.stringify(msg) + "\n"); };
+}

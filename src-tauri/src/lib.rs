@@ -223,23 +223,27 @@ fn list_attachments(session_key: String) -> Result<Vec<serde_json::Value>, Strin
 
 #[tauri::command]
 fn open_expert_app() -> Result<(), String> {
-    // Find the Expert app inside the main app bundle
-    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-    let main_dir = exe.parent().ok_or("No parent dir")?;
-    // main_dir = Quinki.app/Contents/MacOS
-    // We need: Quinki.app/Contents/Resources/Quinki Expert.app
-    let resources_dir = main_dir.parent().ok_or("No parent")?.join("Resources");
-    let expert_app = resources_dir.join("Quinki Expert.app");
+    // Look for Quinki Expert.app as a separate app in /Applications
+    let expert_paths = [
+        "/Applications/Quinki Expert.app".to_string(),
+        {
+            let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
+            format!("{}/Applications/Quinki Expert.app", home)
+        },
+    ];
     
-    if expert_app.exists() {
-        std::process::Command::new("open")
-            .arg(&expert_app)
-            .spawn()
-            .map_err(|e| e.to_string())?;
-        Ok(())
-    } else {
-        Err("Quinki Expert.app not found in bundle".to_string())
+    for path in &expert_paths {
+        let expert_app = std::path::Path::new(path);
+        if expert_app.exists() {
+            std::process::Command::new("open")
+                .arg(expert_app)
+                .spawn()
+                .map_err(|e| e.to_string())?;
+            return Ok(());
+        }
     }
+    
+    Err("Quinki Expert.app not found. Install it separately.".to_string())
 }
 
 #[tauri::command]

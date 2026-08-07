@@ -935,7 +935,8 @@ class PiBridge {
                               const mapped = mapWithNoop(ctx.messages, noopTs).filter((m: any) => !m.isCompactionSummary && !m.isCompactionWarning);
           // Prepend le compaction precedenti, ordinate per timestamp
           const errs = (this.#errors.get(key) || []).map((er: any, i: number) => ({ id: `err-${i}-${er.timestamp}`, role: "assistant", content: "", errorContent: er.errorMessage, isError: true, timestamp: er.timestamp, done: true, model: er.model, agentName: er.agentName, thinkingLevel: er.thinkingLevel }));
-          return [...prevCompactions, ...mapped, ...errs].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+          const allSorted1 = [...prevCompactions, ...mapped, ...errs].sort((a: any, b: any) => (a.timestamp || 0) - (b.timestamp || 0));
+          return allSorted1.slice(-200);
         }
       } catch {}
     }
@@ -951,7 +952,8 @@ class PiBridge {
             const prevCompactions = collectAllCompactionMessages(sm, noopTs);
                                     const mapped = mapWithNoop(ctx.messages, noopTs).filter((m: any) => !m.isCompactionSummary && !m.isCompactionWarning);
             const errs = (this.#errors.get(key) || []).map((er: any, i: number) => ({ id: `err-${i}-${er.timestamp}`, role: "assistant", content: "", errorContent: er.errorMessage, isError: true, timestamp: er.timestamp, done: true, model: er.model, agentName: er.agentName, thinkingLevel: er.thinkingLevel }));
-            return [...prevCompactions, ...mapped, ...errs].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+            const allSorted2 = [...prevCompactions, ...mapped, ...errs].sort((a: any, b: any) => (a.timestamp || 0) - (b.timestamp || 0));
+            return allSorted2.slice(-200);
           }
         }
       }
