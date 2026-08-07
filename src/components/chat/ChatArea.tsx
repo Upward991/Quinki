@@ -10,6 +10,7 @@ import { MessageBubble } from './MessageBubble'
 import { ChatHeader } from './ChatHeader'
 import { Composer } from './Composer'
 import { ArrowDown } from '../icons'
+import { SyncModal } from '../shared/SyncModal'
 import type { Message, Session, Agent, Provider, ChatMode, ThinkingLevel } from '../../types'
 
 interface ChatAreaProps {
@@ -327,6 +328,7 @@ export function ChatArea(props: ChatAreaProps) {
           </div>
         </>
       )}
+    <SyncModal />
     </div>
   )
 }

@@ -13,7 +13,6 @@ import { SettingsPanel } from './components/settings/SettingsPanel'
 import { Sidebar } from './components/sidebar/Sidebar'
 import { GlobalContextMenu } from './components/shared/GlobalContextMenu'
 import { useSidecarData } from './hooks/useSidecarData'
-import { SyncModal } from './components/shared/SyncModal'
 import { getContrastColor } from './utils/contrast'
 import { mockThemes } from './design/mock-data'
 
