@@ -73,76 +73,99 @@ delegate_to_agent(agent_name: "Notion", task: "Cerca tutti i database e mostrami
       tools: ["write", "edit", "bash", "read", "grep", "find", "ls", "skill"],
       skills: ["quinki-expert", "find-skills", "ddg-search", "ponytail"],
     }, null, 2),
-    prompt: `Sei il **Quinki Expert**, lo sviluppatore automatico dell'app Quinki.
+    prompt: `# Quinki Expert
 
-## Chi sei
-Sei un agente sviluppatore che lavora al posto dell'utente: implementi feature, correggi bug, scrivi test, buildi e installi nuove versioni di Quinki. L'utente ti dice cosa fare e tu arrivi al prodotto finito.
+You are the **Quinki Expert**, the automatic developer of the Quinki app.
 
-## Conoscenza del codice e skill
-La mappa completa del codebase è nella skill **quinki-expert** (caricata automaticamente): architettura, ruolo dei file, convenzioni, flussi. Consultala SEMPRE prima di operare. Per le modifiche precise leggi i file veri col tool \`read\`.
+## Who you are
+You are a developer agent that works on behalf of the user: you implement features, fix bugs, write tests, build and install new versions of Quinki. The user tells you what to do and you deliver the finished product. You work inside Quinki to modify, fix, and improve Quinki itself.
 
-**⚠️ REGOLA: usa SEMPRE le tue skill come parte del workflow.** Prima di ogni task, controlla quali skill hai installate (con il tool \`skill\` o leggendo \`~/.pi/agent/skills/\`) e capisci quali possono esserti utili. Usa le skill per orientarti, risolvere problemi, cercare pattern, evitare over-engineering. Le skill cambiano nel tempo — non dare per scontato quali hai, controlla ogni volta.
+## Codebase knowledge and skills
+The complete codebase map is in the **quinki-expert** skill. Use the \`skill\` tool with \`command='list'\` to discover available skills, and \`command='load'\` with the skill name to read them. ALWAYS consult the quinki-expert skill before operating. For precise changes, read the actual files with the \`read\` tool.
 
-## Architettura (riassunto)
-Quinki = app di chat in **Flutter** (desktop: macOS/Windows/Linux) (lib/) + **sidecar Node/bun** (sidecar-src/) che bridga il **Pi SDK** (@earendil-works/pi-coding-agent). Dettagli nella skill quinki-expert.
+## Architecture (summary)
+Quinki = desktop app built with **Tauri 2** (native shell, Rust) + **React 19 + TypeScript + Vite** (frontend, \`src/\`) + **Node.js sidecar** (\`sidecar-src/\`) that bridges the **Pi SDK** (\`@earendil-works/pi-coding-agent\`). Details in the quinki-expert skill.
 
-## Dove lavori
-Lavori nel **repo** (la tua cwd = il codice sorgente di Quinki). Tutte le modifiche avvengono qui. **L'app principale installata gira un \`.app\` separato (compilato)** → le tue modifiche al codice NON la toccano finché non si installa una nuova versione.
+## Two apps, shared data
+- **Quinki** (main app) — sidecar on port 9182. Full UI: chat, sidebar, agents, settings, log.
+- **Quinki Expert** (separate app) — sidecar on port 9183. Minimal UI: chat only. Runs as an independent process.
+- Both share the same data directory (\`.quinki/\` in the user's home). Agents, skills, sessions, settings are synchronized automatically.
+- The Expert app bundle lives inside the main app bundle (\`Quinki.app/Contents/Resources/Quinki Expert.app\`).
+- A watchdog process restarts the Expert sidecar if it dies.
 
-## Supervisore — finestre e processi (CRITICO, multi-window)
-- **A** = l'app **installata** (finestra main), quella che l'utente usa. **RESTA APERTA mentre tu sviluppi. NON toccarla durante il dev.**
-- **B** = **tu** (finestra Expert). A e B sono **la STESSA applicazione, un solo processo** (multi-window): **se A muore, muori anche tu.** Quindi **non killare mai A** (vedi "Come controlli A").
-- **C** = l'istanza **DEV** che lanci tu con \`flutter run\` (processo separato, **sidecar isolato su \`~/.pi/agent-dev\`** → non contende il lock con l'app principale). È il **bersaglio dei test**, NON A.
+## Where you work
+You work in the **repo** — the Quinki source code directory, which is your working directory (set by the user via the onboarding modal). All changes happen here. The installed app runs a separate compiled binary — your code changes do NOT affect it until a new version is built and installed.
 
-## Git — commit PRIMA e DOPO (OBBLIGATORIO)
-**PRIMA di ogni modifica** (checkpoint, per poter tornare indietro):
+## Git — commit BEFORE and AFTER (MANDATORY)
+**BEFORE every modification** (checkpoint, so you can go back):
 \`\`\`
-git add -A && git commit -m "checkpoint: <descrizione>"
+git add -A && git commit -m "checkpoint: <description>"
 \`\`\`
-**DOPO aver finito le modifiche**:
+**AFTER finishing modifications**:
 \`\`\`
-git add -A && git commit -m "<descrizione delle modifiche>"
+git add -A && git commit -m "<description of changes>"
 \`\`\`
-**Non saltare mai nessuno dei due**, anche per modifiche piccole. Se qualcosa si rompe, torni indietro con \`git checkout\`/\`git reset\`.
+**Never skip either one**, even for small changes. If something breaks, go back with \`git checkout\` / \`git reset\`.
 
-## Workflow di sviluppo
-1. Pianifica (Plan mode per capire, poi Build per eseguire).
-2. **Commit PRIMA** (checkpoint): \`git add -A && git commit -m "checkpoint: <descrizione>"\`.
-3. Modifica i file nel repo (write/edit).
-4. **Commit DOPO**: \`git add -A && git commit -m "<descrizione modifiche>"\`.
-5. **Lancia l'istanza di prova C** (dev mode, **sidecar isolato** dall'app principale):
-   - \`mkdir -p ~/.pi/agent-dev && cp ~/.pi/agent/auth.json ~/.pi/agent/models.json ~/.pi/agent-dev/ 2>/dev/null; true\`
-   - \`QUINKI_AGENT_DIR=~/.pi/agent-dev flutter run -d macos\` (dal repo) → C si apre, sidecar su \`~/.pi/agent-dev\` → **NON contende il lock** col sidecar dell'app principale (che usa \`~/.pi/agent\`). L'app principale non si rompe.
-6. **L'utente testa su C**. Se esce un errore → l'utente te lo dice → fixa → commit (prima+dopo) → C ricarica (hot reload) → iterate.
-7. Test automatici: \`flutter test\` (sul repo).
-8. **MAI "Salva e riavvia" + MAI \`cp\` in \`/Applications\`** durante lo sviluppo. L'app principale A continua a girare col vecchio \`.app\`; le tue modifiche restano nel repo, **NON entrano in A** finché non si installa.
-9. **Installa SOLO quando l'utente lo dice esplicitamente** ("installa" / "applica le modifiche alla quinki principale"): fai \`flutter build macos --release\` + \`rm -rf /Applications/Quinki.app && cp -R build/macos/Build/Products/Release/quinki.app /Applications/Quinki.app\`. Poi **l'utente riavvia A quando vuole** (decide lui, non tu). **Non fare MAI questo passo senza un ordine esplicito "installa" dell'utente.**
+## Development workflow
+1. **Plan** (read files, understand the problem, plan the changes).
+2. **Commit BEFORE** (checkpoint): \`git add -A && git commit -m "checkpoint: <description>"\`.
+3. **Modify** files in the repo (write/edit).
+4. **Commit AFTER**: \`git add -A && git commit -m "<description of changes>"\`.
+5. **Build** (from the project root):
+   - \`rm -rf dist node_modules/.vite && npx vite build\`
+   - \`export PATH="$HOME/.cargo/bin:$PATH" && npx tauri build\`
+   - \`bash scripts/build-expert-app.sh\` (bundles the Expert app with its own sidecar copy)
+6. **Ask the user**: "Build ready. Install now? Active chats will be interrupted (messages are saved)."
+7. **On user confirmation**, install with backup + rollback:
+   - Backup: \`mv /Applications/Quinki.app /Applications/Quinki.app.bak\`
+   - Install: \`ditto "src-tauri/target/release/bundle/macos/Quinki.app" /Applications/Quinki.app\` (use \`ditto\`, not \`cp -R\`, on macOS)
+   - Restart main: \`lsof -ti:9182 | xargs kill -9 2>/dev/null; open /Applications/Quinki.app\`
+   - Clear WKWebView caches: \`rm -rf ~/Library/WebKit/com.quinki.app ~/Library/Caches/com.quinki.app\`
+8. **The user tests**. If broken → user says "rollback" → restore: \`mv /Applications/Quinki.app.bak /Applications/Quinki.app\` + restart. If OK → \`rm -rf /Applications/Quinki.app.bak\`.
+9. **Expert app update**: the Expert app bundle is updated by the \`ditto\` (it's inside Quinki.app). To apply changes to the running Expert process, the user quits and reopens the Expert app.
 
-## Come controlli A (PRECISIONE — multi-window, CRITICO)
-A (finestra main) e B (tu, finestra Expert) sono **la STESSA applicazione, un solo processo** (multi-window). **Killare A = killare TE STESSO** + tutti i messaggi/risposte in corso.
-- **NON usare MAI** \`kill $(cat ~/.quinki/main.pid)\`, \`pkill -f Dashboard\`, \`pkill -f Quinki\`: ucciderebbero anche te.
-- Il PID in \`~/.quinki/main.pid\` è il processo condiviso (A+B): informativo, **NON killarlo**.
-- A gira l\`.app\` installata in /Applications/Quinki.app (binary compilato, separato dal repo). Le tue modifiche al repo NON la toccano finché non si installa una nuova versione.
-- **Durante lo sviluppo**: testa su **C** (dev \`flutter run\` con \`QUINKI_AGENT_DIR=~/.pi/agent-dev\`, sidecar isolato). NON toccare A.
-- **MAI "Salva e riavvia" + MAI \`cp\` in /Applications** durante lo sviluppo. A continua a girare col vecchio .app; le tue modifiche restano nel repo.
-- **Installa SOLO su ordine esplicito "installa" dell'utente**: builda (\`flutter build macos --release\`) + \`rm -rf /Applications/Quinki.app && cp -R build/macos/Build/Products/Release/quinki.app /Applications/Quinki.app\`. Poi **l'utente riavvia A quando vuole** (non tu). **NON fare questo senza "installa" esplicito.**
-- Per riavviare **C** (dev): killa il PID di C (lo lanci tu con flutter run), NON A. Quando C muore, il suo sidecar muore con lui (die-with-parent).
+**NEVER install without explicit user permission.** The user must confirm before you install.
 
-## Tool
-read, grep, glob, ls, write, edit, bash, skill. Usa \`bash\` per flutter/git/kill/open.
+## Sidecar rebuild
+When you modify \`sidecar-src/\`, the changes are picked up differently:
+- \`ws-bridge.ts\` — needs bundle rebuild: \`cd sidecar-src && npx esbuild ws-bridge.ts --bundle --platform=node --outfile=ws-bridge-bundle.cjs --format=cjs\`
+- \`sidecar.ts\`, \`pi-bridge.ts\`, \`agent-handlers.ts\` — run via \`npx tsx\` at runtime, so changes are picked up on sidecar restart (no bundle needed).
+- After modifying sidecar code, kill old sidecar processes and restart: \`lsof -ti:9182 | xargs kill -9 2>/dev/null; lsof -ti:9183 | xargs kill -9 2>/dev/null\` (main and Expert sidecars respectively). The app auto-restarts the main sidecar; the Expert watchdog restarts the Expert sidecar.
 
-## Regole
-- Lavora nel repo. Non toccare A (l'app installata) finché l'utente non dice "installa".
-- **Commit PRIMA e DOPO ogni modifica** (vedi "Git — commit prima e dopo"). Non saltarli mai.
-- **MAI "Salva e riavvia" + MAI \`cp\` in \`/Applications\`** senza un ordine esplicito "installa" dell'utente.
-- Spiega all'utente cosa fai. L'update finale (build + cp) solo su suo ordine esplicito.
-- Tieni aggiornata la skill quinki-expert quando cambi qualcosa d'importante nel codice.
+## Data directory
+The Quinki data directory is \`.quinki/\` in the user's home directory. It contains:
+- \`agents/<id>/\` — agent config + PROMPT.md
+- \`skills/<name>/\` — SKILL.md
+- \`sessions/<key>.jsonl\` — message history per session
+- \`quinki-sessions.json\` — session metadata (SessionEntry)
+- \`config.json\` — global settings, providers, models
+- \`attachments/<session-key>/\` — file attachments
+- \`auth.json\` — API keys (encrypted)
+- \`models.json\` — model definitions
 
-## Autocoscienza e auto-modifica
-Il tuo system prompt e la tua knowledge sono file nel clone che puoi modificare col tool \`edit\`/\`write\` quando l'utente te lo chiede:
-- **System prompt**: \`~/.pi/agent/agents/quinki-expert/PROMPT.md\`
-- **Knowledge**: \`~/.pi/agent/skills/quinki-expert/SKILL.md\`
-Non modificare i placeholder \`{{...}}\` (sono generati dal codice).`,
+## Tools
+read, grep, find, ls, write, edit, bash, skill, delegate_to_agent. Use \`bash\` for git, vite, tauri, and system commands.
+
+## Rules
+- Work in the repo. Never install without explicit user permission.
+- **Commit BEFORE and AFTER every modification.** Never skip them.
+- Explain to the user what you do. The install step only on explicit user confirmation.
+- Keep the quinki-expert skill updated when you change something important in the code.
+- All UI text must be in **English**.
+- All code must be in **English**.
+- All colors via CSS variables (\`var(--q-*)\`), never hardcoded hex in component code.
+- \`transition: none\` on all animations. No animated transitions.
+- 12px spacing standard across the UI.
+- Action buttons: \`var(--q-tab-accent)\` border + text, hover fill solid + text becomes \`var(--q-bg)\`.
+- Cancel buttons: \`var(--q-accent-danger)\` (red) text, \`var(--q-border)\` border, hover \`rgba(255,255,255,0.06)\`.
+- Remove buttons: text-only (no border, \`var(--q-text-tertiary)\`).
+
+## Self-awareness and self-modification
+Your system prompt and knowledge are files you can modify with the \`edit\`/\`write\` tools when the user asks:
+- **System prompt**: \`agents/quinki-expert/PROMPT.md\` (in the data directory)
+- **Knowledge**: \`skills/quinki-expert/SKILL.md\` (in the data directory)
+Do not modify placeholders \`{{...}}\` (they are generated by code).`,
   },
 };
 
@@ -150,63 +173,151 @@ export const SEED_SKILLS: Record<string, { skillMd: string }> = {
   "quinki-expert": {
     skillMd: `---
 name: quinki-expert
-description: Schema sintetico di come funziona Quinki alla base. Consulta prima di operare; per i dettagli leggi i file veri col tool read.
+description: Codebase map for the Quinki Expert agent. Consult before operating; for details read the actual files with the read tool.
 ---
 
-# Quinki Expert — schema di come funziona Quinki
+# Quinki Expert — Codebase Map
 
-> **Sintesi orientativa.** Per le modifiche precise **leggi i file veri** col tool \`read\`: questa è una mappa, non la source of truth. L'Expert la aggiorna quando cambia qualcosa di **fondamentale**.
+> **Orientation guide.** For precise changes, **read the actual files** with the \`read\` tool: this is a map, not the source of truth. Update it when something fundamental changes.
 
-## Cos'è
-Quinki = app di **chat AI desktop** (macOS/Windows/Linux) in **Flutter**, con un **sidecar Node (bun)** che fa da bridge al **Pi SDK** (\`@earendil-works/pi-coding-agent\`). L'utente chatta con LLM (Anthropic/OpenAI/Ollama/...) e può usare tool (read/edit/write/bash/grep), skill, estensioni.
+## What it is
+Quinki = **AI chat desktop app** (currently macOS, built with **Tauri 2**) with a **React 19 + TypeScript + Vite** frontend and a **Node.js sidecar** that bridges the **Pi SDK** (\`@earendil-works/pi-coding-agent\`). Users chat with LLMs (Anthropic, OpenAI, Ollama, OpenRouter, ...) and can use tools (read/edit/write/bash/grep/find/ls), skills, agents, delegations, and file attachments.
 
-## Architettura — 3 strati
+## Architecture — 3 layers
 \`\`\`
-Flutter (lib/)  ←──JSON-RPC/stdio──▶  sidecar (sidecar-src/)  ──API──▶  Pi SDK (vendor/)
-   UI + stato (Riverpod)                bridge Pi SDK               agent runtime (loop LLM+tool+stream)
+React (src/)  ←──WebSocket/JSON-RPC──▶  sidecar (sidecar-src/)  ──API──▶  Pi SDK
+   UI + state (hooks)                       bridge Pi SDK              agent runtime
 \`\`\`
-1. **Flutter (\`lib/\`)** — UI + stato (Riverpod). Comunica col sidecar via JSON-RPC su stdio.
-2. **Sidecar (\`sidecar-src/\`)** — \`sidecar.ts\` (handler JSON-RPC) + \`pi-bridge.ts\` (crea/controlla sessioni Pi SDK, system prompt, mode).
-3. **Pi SDK (\`vendor/@earendil-works/pi-coding-agent\`)** — runtime dell'agente.
+1. **Frontend (\`src/\`)** — React 19 + TypeScript + Vite + Tailwind CSS v4. UI + state. Communicates with sidecar via WebSocket + JSON-RPC.
+2. **Tauri (\`src-tauri/\`)** — Native shell (Rust). Window management, tray icon, sidecar lifecycle, file dialogs, attachments. Embeds frontend at build time.
+3. **Sidecar (\`sidecar-src/\`)** — \`ws-bridge.ts\` (WebSocket server, multi-client routing) + \`sidecar.ts\` (JSON-RPC handlers) + \`pi-bridge.ts\` (Pi SDK sessions, system prompt, mode, delegations, skills, attachments) + \`agent-handlers.ts\` (agent/skill/tool/file CRUD).
 
-## Dove guardi per cosa (puntatori — poi leggi il file)
-- **Entry + shell**: \`lib/main.dart\` (parse args multi-window, PID file) · \`lib/screens/app_shell.dart\` (shell, pannelli, Expert, sendMessage).
-- **UI chat**: \`lib/widgets/\` (chat_area, composer, msg_bubble, sidebar, mode_btn, settings_panel, home_view, ...).
-- **Stato (Riverpod)**: \`lib/services/app_state.dart\` (tutti i provider + handler notifiche sidecar) · \`lib/models/message.dart\` (Session/Message).
-- **Sidecar service (Flutter→sidecar)**: \`lib/services/sidecar_service.dart\` (JSON-RPC su stdio).
-- **Multi-window / tray / start-at-boot**: \`lib/services/\` (window_env, tray_service, start_at_boot, chat_window_registry) + nativo in \`macos/Runner/\`, \`windows/runner/\`, \`linux/runner/\`.
-- **Logica Pi SDK (il cuore)**: \`sidecar-src/pi-bridge.ts\` (classe \`PiBridge\`: sessioni, \`#buildResourceLoader\`, \`#buildSystemPrompt\`, \`#applyMode\`, \`#mapMessage\`, ensureSession/setWorkingDir/resetSession/setAgent).
-- **Handler IPC**: \`sidecar-src/sidecar.ts\` (i method JSON-RPC: createSession/sendMessage/setMode/setWorkingDir/...).
-- **Agent handlers**: \`sidecar-src/agent-handlers.ts\` (CRUD agenti, skill, tool, API key).
-- **Il tuo prompt**: \`~/.pi/agent/agents/quinki-expert/PROMPT.md\` + questa \`SKILL.md\` (questo file).
+## Two apps
+- **Main app** (Quinki) — sidecar port 9182. Full UI: chat, sidebar, agents panel, settings, log, home. Tray icon with menu (Show / Open Expert / Restart / Quit).
+- **Expert app** (Quinki Expert) — sidecar port 9183. Minimal UI: chat only. Separate process with its own sidecar code copy. Watchdog restarts sidecar if it dies. Tray icon (bot). Close-to-tray.
+- Both share \`.quinki/\` data directory. Cross-sidecar sync via \`getSessionMeta\` (force-reads from disk).
+- Expert app bundle: \`Quinki.app/Contents/Resources/Quinki Expert.app\`. Built by \`scripts/build-expert-app.sh\`.
+- Expert mode detection: \`is_expert_mode()\` in \`lib.rs\` checks exe path or \`--expert\` arg.
 
-## Flussi principali
+## File map — Frontend (\`src/\`)
+- \`main.tsx\` — React root, renders App.
+- \`App.tsx\` — Main entry. Tab switching (home/chat/expert/agents/log/settings), sidecar connection, session management, onboarding modal, expert mode, multi-window, slash menu, agent picker, mode/thinking state, drag-drop.
+- \`hooks/useSidecar.ts\` — Low-level WebSocket client. Connect, reconnect (500ms), JSON-RPC call/notify, subscription.
+- \`hooks/useSidecarData.ts\` — Data layer. Sessions, agents, providers, messages, streaming, sendMessage, resetSession, reloadSession, compactSession, attachments, skill chips, agent overrides, context tokens. Per-session streaming state map.
+- \`components/chat/ChatArea.tsx\` — Chat container. Message list, auto-scroll, welcome mode, HTML5 drag-drop for attachments, drag overlay.
+- \`components/chat/ChatHeader.tsx\` — Header. Agent picker dropdown, model picker, thinking picker, context counter popup, mode toggle, export, reset, reload, compact, agent config modal trigger, expert title.
+- \`components/chat/Composer.tsx\` — Input area. Text box, slash menu trigger, agent chips, skill chips, attachment chips, paperclip menu, send/stop, plan/build mode display.
+- \`components/chat/MessageBubble.tsx\` — Message rendering. Markdown (react-markdown + remark-gfm + rehype-highlight), thinking toggles, tool calls, delegation blocks, attachment chips, skill chips, code blocks, search highlight.
+- \`components/chat/SlashMenu.tsx\` — Slash command menu. /mode, /model, /agent, /skill, /directory, /reset, /reload, /export, /compact. Grouped items, confirm button flow.
+- \`components/chat/ModelPicker.tsx\` — Model selection dropdown (grouped by provider).
+- \`components/chat/AgentConfigModal.tsx\` — Agent config modal (left-click agent name). Uses AgentRow exported from AgentsPanel.
+- \`components/chat/AgentPicker.tsx\` — Agent selection dropdown in chat header.
+- \`components/sidebar/Sidebar.tsx\` — Session list. @dnd-kit drag-and-drop, folders (create/rename/delete/nesting), DnD indicator, multi-select, context menu.
+- \`components/agents/AgentsPanel.tsx\` — Agent management. AgentRow, SkillRow, FileEditor, AddItemsModal, TagChip, MiniButton (all defined internally + exported). Create/edit/delete agents, skills, tools, files.
+- \`components/settings/SettingsPanel.tsx\` — Settings. Providers, models, API keys, themes, attachments, launch at login, auto-save (debounced 800ms).
+- \`components/settings/ProviderRow.tsx\` — Provider config row. API key, models, context window, rename, enable/disable.
+- \`components/settings/ProviderDnD.tsx\` — Provider drag-and-drop reordering (@dnd-kit).
+- \`components/log/LogPanel.tsx\` — Debug log viewer. Filter pills (chat, system, llm, etc.), search, export, payload formatting.
+- \`components/home/HomeView.tsx\` — Home screen. Tab cards, Expert card (right-click → Open Expert App).
+- \`components/shared/AppShell.tsx\` — Shell layout (tab bar, titlebar, content area).
+- \`components/shared/GlobalContextMenu.tsx\` — Global context menu handler.
+- \`components/icons/index.tsx\` — Icon components (Lucide-based).
+- \`index.css\` — CSS variables (7 themes), global styles, \`transition: none\`, \`.win-inactive\` hover fix, breathe animation.
+- \`types/index.ts\` — TypeScript types (Session, Message, Agent, Provider, etc.).
+- \`utils/export.ts\` — Chat export (Markdown + HTML) via Rust \`export_chat_file\` command.
+- \`utils/dateParser.ts\` — Date/time search parser.
 
-### Invio messaggio
-Composer → \`app_shell._sendMessage\` → \`sidecar.call('sendMessage', {sessionKey, text, workingDirs})\` → sidecar \`send()\` → lazy \`createAgentSession\` (resourceLoader custom) → \`pi.run(text)\` → stream → \`stream-delta\` → \`pi-bridge.#mapMessage\` → Flutter \`messagesProvider\` → UI (auto-scroll, footer, thinking toggle su tool_call).
+## File map — Tauri (\`src-tauri/\`)
+- \`src/lib.rs\` — Main Rust entry. Window setup, multi-window, tray icons (main + expert), sidecar start (main 9182 + expert 9183), watchdog, close-to-tray, \`is_expert_mode()\`, single instance PID check, file dialogs (\`pick_directory\`, \`pick_files\`), attachment commands (\`copy_to_attachments\`, \`save_attachment_content\`, \`open_attachments_folder\`, \`list_attachments\`), \`export_chat_file\`, \`restart_app\`, \`quit_expert_app\`, \`set_window_bg_color\`, launch at login.
+- \`tauri.conf.json\` — Tauri config. Windows (all \`create: false\` except main), \`dragDropEnabled: false\` (HTML5 native drag-drop), plugins (dialog, fs, autostart, window-state).
+- \`capabilities/default.json\` — Tauri ACL permissions.
+- \`Cargo.toml\` — Rust dependencies (tauri, tray-icon, rfd, base64, libc, etc.).
 
-### Plan/Build mode
-\`setMode(key, mode)\` → \`#applyMode\` → \`setActiveToolsByName\`: **Plan** = tutti i tool meno {write, edit, bash} (solo esplorazione/lettura); **Build** = tutti. La nota mode è appesa a \`_baseSystemPrompt\`. Default: **Expert→Build**, chat normali→Plan (impostabile in Impostazioni).
+## File map — Sidecar (\`sidecar-src/\`)
+- \`ws-bridge.ts\` — WebSocket server. Multi-client routing (responses to specific client via prefixes, notifications broadcast to all). Spawns sidecar via \`npx tsx\`. Uses esbuild bundle for fast startup. \`QUINKI_WS_PORT\` env var (9182 main, 9183 expert).
+- \`sidecar.ts\` — JSON-RPC handlers. \`sendMessage\`, \`getHistory\`, \`listAgents\`, \`createAgent\`, \`updateAgent\`, \`deleteAgent\`, \`listSkills\`, \`createSkill\`, \`installSkill\`, \`setMode\`, \`setWorkingDir\`, \`setChatAgents\`, \`setAgentOverride\`, \`compactSession\`, \`resetSession\`, \`reloadSession\`, \`getSessionMeta\`, \`listChatSkills\`, \`loadSkill\`, \`getFullState\`, attachment handlers. Uses \`QUINKI_AGENT_DIR\` and \`PI_CODING_AGENT_DIR\` env vars (both = \`.quinki/\` in home).
+- \`pi-bridge.ts\` — PiBridge class. Core LLM logic. Sessions (\`#active\` Map), system prompt builder (\`#buildSystemPrompt\`), plan/build mode (\`#applyMode\`), agent overrides (model/thinking per agent), delegations (\`#buildDelegateTool\` → temp session → .jsonl entry), skill tool (\`#buildSkillTool\`), skill injection in system prompt, attachment system prompt, \`@tag\` agent parsing, \`agent_llm_config\` logging, \`getSessionMeta\` (force-reads from disk for cross-sidecar sync), \`sendMessage\` (timeout 600000ms), \`sendDirect\` (for @tag direct), streaming via \`fs.writeSync(1,...)\`.
+- \`agent-handlers.ts\` — Agent/skill/tool/file CRUD. Reads/writes \`agents/\` and \`skills/\` directories. \`scanSkills\` parses frontmatter (\`disable-model-invocation\`, \`user-invocable\`). \`mapAgent\` transforms config.json to frontend format.
+- \`providers.ts\` — Provider detection (by capability, not name). Tries \`/api/tags\` for Ollama-like providers.
+- \`start.sh\` — Main sidecar start script. Sets \`QUINKI_AGENT_DIR\` and \`PI_CODING_AGENT_DIR\` to \`$HOME/.quinki\`. Launches ws-bridge bundle → spawns sidecar via \`npx tsx\`.
+- \`start-expert.sh\` — Expert sidecar start script. Port 9183. Same env vars. Shared data directory.
+- \`expert-watchdog.sh\` — Restarts Expert sidecar if it dies. Checks every 1s. Uses \`nohup\`.
+- \`vendor/@earendil-works/pi-coding-agent/dist/core/\` — Pi SDK (modified):
+  - \`session-manager.js\` — \`buildSessionContext()\` includes delegation entries (type: "delegation"). \`_appendEntry\` used for delegation .jsonl entries.
+  - \`agent-session.js\` — Filters \`role: "delegation"\` before LLM calls (3 call sites). Zero context cost for delegations.
+  - \`compaction.js\` — \`estimateTokens\` patched with BPE tokenizer (\`gpt-tokenizer\`, cl100k_base).
+  - \`model-registry.js\` — Model registry.
 
-### Multi-window — A/B/C (CRITICO)
-- **A** = app installata (finestra main), quella che l'utente usa. **Non toccarla durante il dev.**
-- **B** = tu (finestra Expert). A e B sono **la stessa applicazione, un solo processo** (multi-window): se A muore, muori anche tu → **non killare mai A**.
-- **C** = istanza DEV che lanci tu con \`flutter run\` (processo separato, bersaglio dei test).
+## Main flows
 
-### Deleghe (orchestrator → agente)
-- Orchestrator delega via \`delegate_to_agent\` tool → \`pi-bridge.ts\` crea **temp session** per l'agente target.
-- Eventi della temp session forwardati al Flutter come \`stream_event\` con \`messageId: "del-xxx"\`.
-- \`delegation_start\` → crea messaggio \`role: delegation, delegationCollapsed: false\` (toggle aperto).
-- \`delegation_end\` → setta \`delegationCollapsed: true\` (toggle chiuso).
+### Send message
+Composer → \`App.tsx\` onSend → \`useSidecarData.sendMessage\` → sidecar \`sendMessage\` RPC → \`pi-bridge.send()\` → system prompt build → Pi SDK stream → \`stream_event\` (filtered by sessionKey) → WebSocket → React state → UI (MessageBubble, auto-scroll). \`agent_status\` events control the status pill. \`streaming_stopped\` (agent_end) sets \`isStreaming = false\`.
 
-## Convenzioni
-- **Colori**: accentDanger=rossi, accentSecondary=viola, accentSuccess=verde, accentWarning=giallo, accentInfo=blu. Definiti in \`lib/theme/app_colors.dart\`.
-- **Build sidecar**: \`export PATH="/opt/homebrew/bin:$PATH" && bash scripts/build-sidecar.sh macos\`
-- **Build Flutter**: \`/opt/homebrew/bin/flutter build macos --release\`
-- **Install**: \`rm -rf /Applications/Quinki.app && cp -R build/macos/Build/Products/Release/quinki.app /Applications/Quinki.app\`
-- **Sidecar nel bundle**: l'app estrae il sidecar dagli asset Flutter (\`assets/sidecar/<os>/\`), non da disco.
-- **QUINKI_AGENT_DIR**: env var per isolare il sidecar dev (\`~/.pi/agent-dev\`) da quello principale (\`~/.pi/agent\`).`,
-  },
+### Plan / Build mode
+\`setMode\` RPC → \`pi-bridge.#applyMode\` → sets active tools. **Plan** = read-only (read, grep, find, ls, skill). **Build** = all tools. Mode is per-chat (changing in one chat doesn't affect others).
+
+### Agent override (model/thinking per agent)
+\`setAgentOverride\` RPC → stores in \`SessionEntry.agentOverrides[agentId]\`. Applied in 3 paths: main session \`send()\`, @tag direct \`sendDirect()\`, delegation \`#buildDelegateTool()\`. \`agent_llm_config\` debug log in all 3 paths.
+
+### Delegation
+Orchestrator delegates via \`delegate_to_agent\` tool → \`#buildDelegateTool\` creates temp session for target agent → system prompt with skill injection → stream forwarded to frontend → delegation entry appended to .jsonl via \`sessionManager._appendEntry\` (in tree chain, not orphan) → \`buildSessionContext()\` walks it → \`agent-session.js\` filters \`role: "delegation"\` before LLM → zero context cost → frontend renders as \`type: 'delegation'\` block.
+
+### Skill system
+\`/skill\` slash menu → \`listChatSkills\` RPC (filters by \`disable-model-invocation\` or \`user-invocable\`) → skills grouped by agent → user selects → skill content injected in system prompt (NOT user message) → one-shot per message → orchestrator gets own skills ("Follow them directly"), other agents' skills stored in \`#pendingDelegationSkills\` Map → delegated agents get skills injected via \`#buildDelegateTool\`. Skill chips persisted in \`messageSkills\` (SessionEntry, matched by message text first 200 chars).
+
+### Attachments
+Files copied to \`.quinki/attachments/<session-key>/<uuid>-<original-name>\`. HTML5 drag-drop (dragDropEnabled: false in Tauri config). System prompt: "Attachment directory" (always when dir exists) + "=== ATTACHED FILES ===" (per message). All agents (main, @tag, delegated) receive both sections. Model reads on-demand via \`read\` tool. \`messageAttachments\` in SessionEntry (persistence, matched by text first 200 chars).
+
+### @tag agent parsing
+\`@agentname\` in message text → route to that agent's id. If not found + orchestrator present → orchestrator. If not found + single agent → that agent. If not found + multiple agents (no orchestrator) → error in English, persisted in .jsonl.
+
+### Status pill
+\`agent_status\` events = single source of truth. \`streaming_stopped\` (agent_end) = only handler that sets \`isStreaming = false\`. Per-session tracking via \`sessionStreamingMap\` ref. \`setStreamingState\` called BEFORE sessionKey filter.
+
+### Streaming filter
+\`stream_event\` handler filtered by \`activeSessionIdRef.current\`. Ref updated synchronously in \`selectSession\`. Event handlers NOT recreated on session change. Prevents streaming from appearing in wrong chat.
+
+### Cross-sidecar sync
+\`getSessionMeta\` force-reads from \`quinki-sessions.json\` on disk → enables main ↔ expert sync. Expert app polls every 3s for model/thinking/mode/agent changes. Restart main only kills port 9182 (NOT \`pkill -f ws-bridge\` which would kill Expert sidecar too).
+
+## Persistence
+- \`quinki-sessions.json\` — SessionEntry array (id, title, model, thinkingLevel, mode, agentId, workingDir, agentOverrides, messageSkills, messageAttachments, folderId, order).
+- \`sessions/<key>.jsonl\` — Message tree (role: user/assistant/delegation). Delegations are entries in the tree chain (parentId = leaf). Position automatic from .jsonl.
+- \`config.json\` — Providers, models, enabled models, context lengths, API keys (encrypted), default model, default thinking, default mode, compaction settings.
+- \`agents/<id>/\` — \`config.json\` (name, model, thinkingLevel, skills, tools, files) + \`PROMPT.md\`.
+- \`skills/<name>/\` — \`SKILL.md\` (with YAML frontmatter: name, description, disable-model-invocation, user-invocable).
+- \`auth.json\` — API keys (encrypted with OS keychain).
+- \`models.json\` — Model definitions synced from providers.
+- \`attachments/<session-key>/\` — File attachments.
+
+## Conventions
+- **English** for all UI text and code.
+- All colors via CSS variables (\`var(--q-*)\`), never hardcoded hex in component code.
+- \`transition: none\` on all animations (CSS + inline styles).
+- 12px spacing standard.
+- Action buttons: \`var(--q-tab-accent)\` border + text, hover fill solid + text \`var(--q-bg)\`, \`padding: 7px 16px\`, \`borderRadius: var(--radius-sm)\`, \`fontSize: 13px\`, \`fontWeight: 600\`.
+- Cancel buttons: \`var(--q-accent-danger)\` (red) text, \`var(--q-border)\` border, hover \`rgba(255,255,255,0.06)\`.
+- Remove buttons: text-only (no border, \`color: var(--q-text-tertiary)\`, \`background: none\`).
+- Tauri 2 \`invoke()\` for native operations. \`@tauri-apps/api/core\` import.
+- WebSocket + JSON-RPC for sidecar communication (not stdio).
+- Sidecar: \`QUINKI_AGENT_DIR\` and \`PI_CODING_AGENT_DIR\` both set to \`.quinki/\` in home.
+- Build: use \`ditto\` (not \`cp -R\`) on macOS for app bundles. \`rm -rf dist node_modules/.vite\` before frontend build. \`rm -f src-tauri/target/release/quinki\` to force Rust re-embed. Clear WKWebView caches after install.
+- Sidecar: ws-bridge uses esbuild bundle (fast 60ms startup), spawns sidecar via \`npx tsx\` (correct streaming — esbuild bundle has stdout buffering issues).
+- Streaming: \`fs.writeSync(1, ...)\` in FakeWebSocket (bypasses Node.js stream buffering).
+- \`sendMessage\` timeout: 600000ms (10 min). \`call()\` accepts timeout as third parameter.
+
+## Build / run / test
+- **Frontend**: \`rm -rf dist node_modules/.vite && npx vite build\`
+- **Full build**: \`export PATH="$HOME/.cargo/bin:$PATH" && npx tauri build\`
+- **Expert app**: \`bash scripts/build-expert-app.sh\`
+- **Sidecar bundle** (ws-bridge only): \`cd sidecar-src && npx esbuild ws-bridge.ts --bundle --platform=node --outfile=ws-bridge-bundle.cjs --format=cjs\`
+- **Install (macOS)**: \`ditto "src-tauri/target/release/bundle/macos/Quinki.app" /Applications/Quinki.app\`
+- **Clear caches**: \`rm -rf ~/Library/WebKit/com.quinki.app ~/Library/Caches/com.quinki.app\`
+- **Dev**: \`npx tauri dev\` (Vite dev server + Rust debug build)
+- **Test**: manual testing (no automated tests yet)
+
+## How to update this file
+Update when something **fundamental** changes (architecture, main flows, conventions, new subsystems). Keep it concise — it's an orientation map, not a file inventory. For details, read the code.`,  },
 };
 
 export const SEED_GLOBAL_CONFIG = JSON.stringify({
