@@ -42,3 +42,4 @@ sidecar-src/bundle/
 # OS files
 .DS_Store
 Thumbs.db
+sidecar-src/node_modules
