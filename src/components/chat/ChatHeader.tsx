@@ -107,11 +107,15 @@ export function ChatHeader(props: ChatHeaderProps) {
   return (
     <>
       <div className="flex items-center">
-        {/* Panel 1: Home */}
-        <div style={panelStyle}>
-          <IconBtn icon={Home} onClick={() => props.onSelectPanel('home')} title="Home" />
-        </div>
-        <div style={{ width: '8px', flexShrink: 0 }} />
+        {/* Panel 1: Home — hidden in expert mode */}
+        {!isExpert && (
+          <>
+            <div style={panelStyle}>
+              <IconBtn icon={Home} onClick={() => props.onSelectPanel('home')} title="Home" />
+            </div>
+            <div style={{ width: '8px', flexShrink: 0 }} />
+          </>
+        )}
 
         {/* Panel 2: Sidebar toggle — hidden entirely in sub-windows */}
         {!isExpert && !props.hideSidebarToggle && (
