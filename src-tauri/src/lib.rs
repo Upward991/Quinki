@@ -330,7 +330,7 @@ fn count_items(dir: &str) -> usize {
 fn restart_app(app: tauri::AppHandle) {
     // Same logic as tray menu restart
     let _ = std::process::Command::new("sh").arg("-c")
-      .arg("lsof -ti:9182 | xargs kill -9 2>/dev/null; pkill -f 'start.sh' 2>/dev/null")
+      .arg("lsof -ti:9182 | xargs kill -9 2>/dev/null")
       .spawn();
     SHOULD_EXIT.store(true, Ordering::SeqCst);
     // Relaunch app — use nohup + detached process so it survives parent exit
@@ -504,8 +504,6 @@ pub fn run() {
         open_general_attachments_folder,
         list_attachments,
         open_expert_app,
-        sync_from_main,
-        sync_from_expert,
         restart_app,
         enable_autostart,
         disable_autostart,
@@ -688,7 +686,7 @@ pub fn run() {
             "restart" => {
               // Kill sidecar processes
               let _ = std::process::Command::new("sh").arg("-c")
-                .arg("lsof -ti:9182 | xargs kill -9 2>/dev/null; pkill -f 'start.sh' 2>/dev/null")
+                .arg("lsof -ti:9182 | xargs kill -9 2>/dev/null")
                 .spawn();
               SHOULD_EXIT.store(true, Ordering::SeqCst);
               // Relaunch app — use nohup + detached process so it survives parent exit
@@ -702,7 +700,7 @@ pub fn run() {
             "quit" => {
               // Kill sidecar processes
               let _ = std::process::Command::new("sh").arg("-c")
-                .arg("lsof -ti:9182 | xargs kill -9 2>/dev/null; pkill -f 'start.sh' 2>/dev/null")
+                .arg("lsof -ti:9182 | xargs kill -9 2>/dev/null")
                 .spawn();
               SHOULD_EXIT.store(true, Ordering::SeqCst);
               app.exit(0);

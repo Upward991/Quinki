@@ -4,8 +4,7 @@
 
 import { useState, useEffect } from 'react'
 import type { Session, Agent } from '../../types'
-import { invoke } from '@tauri-apps/api/core'
-import { Home, PanelLeft, MessageSquare, Download, Search, RefreshCw, Sync, Bot, Calendar, Clock, ChevronDown, ChevronUp, Cpu, Brain, Network, X } from '../icons'
+import { Home, PanelLeft, MessageSquare, Download, Search, RefreshCw, Bot, Calendar, Clock, ChevronDown, ChevronUp, Cpu, Brain, Network, X } from '../icons'
 import { AgentConfigModal } from './AgentConfigModal'
 
 interface ChatHeaderProps {
@@ -47,9 +46,6 @@ export function ChatHeader(props: ChatHeaderProps) {
   const isExpert = props.activePanel === 'expert'
   const [searchOpen, setSearchOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
-  const [syncOpen, setSyncOpen] = useState(false)
-  const [syncConfirm, setSyncConfirm] = useState<string | null>(null)
-  const [syncSuccess, setSyncSuccess] = useState<string | null>(null)
   const [contextOpen, setContextOpen] = useState(false)
   const searchQuery = props.searchQuery || ''
   const setSearchQuery = props.onSearchQueryChange || (() => {})
@@ -111,15 +107,8 @@ export function ChatHeader(props: ChatHeaderProps) {
   return (
     <>
       <div className="flex items-center">
-        {/* Panel 1: Home (main app) / Sync (Expert app) */}
-        {props.isExpertApp ? (
-          <>
-            <div style={panelStyle}>
-              <IconBtn icon={Sync} onClick={() => setSyncOpen(true)} title="Sync data" />
-            </div>
-            <div style={{ width: '8px', flexShrink: 0 }} />
-          </>
-        ) : (
+        {/* Panel 1: Home (hidden in Expert app) */}
+        {!props.isExpertApp && (
           <>
             <div style={panelStyle}>
               <IconBtn icon={Home} onClick={() => props.onSelectPanel('home')} title="Home" />
@@ -421,47 +410,11 @@ export function ChatHeader(props: ChatHeaderProps) {
         <AgentConfigModal agentId={configModalAgent} agents={props.agents} onClose={() => setConfigModalAgent(null)} />
       )}
       {/* Sync modal — Expert app only */}
-      {syncOpen && !syncConfirm && !syncSuccess && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setSyncOpen(false)}>
-          <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
-            <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', padding: '14px 18px' }}>App Sync</div>
-            <div style={{ color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', padding: '0 18px 12px 18px', lineHeight: 1.5 }}>
-              Agents, skills, models and providers are stored separately.<br/>
-              Chat sessions, attachments and auth are shared automatically.
-            </div>
-            <div style={{ display: 'flex', padding: '0 24px 12px 24px', display: 'flex', justifyContent: 'center', gap: '24px' }}>
-              <button onClick={() => { setSyncConfirm('import'); setSyncOpen(false) }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#9d8bd9'; e.currentTarget.style.color = 'var(--q-bg)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#9d8bd9' }} style={{ padding: '7px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid #9d8bd9', cursor: 'pointer', backgroundColor: 'transparent', color: '#9d8bd9', fontSize: '13px', fontFamily: 'var(--font-interface)', fontWeight: 600 }}>Import from Main App</button>
-              <button onClick={() => { setSyncConfirm('export'); setSyncOpen(false) }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#d9a066'; e.currentTarget.style.color = 'var(--q-bg)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#d9a066' }} style={{ padding: '7px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid #d9a066', cursor: 'pointer', backgroundColor: 'transparent', color: '#d9a066', fontSize: '13px', fontFamily: 'var(--font-interface)', fontWeight: 600 }}>Export to Main App</button>
-            </div>
-            <div style={{ padding: '0 18px 12px 18px' }}>
-              <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', lineHeight: 1.5 }}>
-                Export = replaces Main's data with yours.<br/>
-                Import = replaces yours with Main's copy.
-              </div>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0 18px 14px 18px' }}>
-              <button onClick={() => setSyncOpen(false)} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }} style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>Cancel</button>
-            </div>
-          </div>
-        </div>
-      )}
+      
       {/* Sync confirmation modal */}
-      {syncConfirm && !syncSuccess && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 300, backgroundColor: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setSyncConfirm(null)}>
-          <div style={{ backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '20px 24px', minWidth: '320px', maxWidth: '400px' }} onClick={e => e.stopPropagation()}>
-            <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', marginBottom: '8px' }}>{syncConfirm === 'import' ? 'Import from Main App?' : 'Export to Main App?'}</div>
-            <div style={{ color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', marginBottom: '16px', lineHeight: 1.5 }}>{syncConfirm === 'import' ? "This will REPLACE ALL agents and skills in the Expert App with the Main App's copy. The Expert App will lose any agents or skills it has that the Main App doesn't have. This cannot be undone." : "This will REPLACE ALL agents and skills in the Main App with the Expert App's copy. The Main App will lose any agents or skills it has that the Expert App doesn't have. This cannot be undone."}</div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              <button onClick={() => setSyncConfirm(null)} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }} style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>Cancel</button>
-              <button onClick={async () => { try { await invoke(syncConfirm === 'import' ? 'sync_from_main' : 'sync_from_expert'); setSyncSuccess(syncConfirm === 'import' ? 'Agents and skills imported from Main App.' : 'Agents and skills exported to Main App.') } catch (e) { setSyncConfirm(null) } }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = syncConfirm === 'import' ? '#9d8bd9' : '#d9a066'; e.currentTarget.style.color = 'var(--q-bg)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = syncConfirm === 'import' ? '#9d8bd9' : '#d9a066' }} style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: `1px solid ${syncConfirm === 'import' ? '#9d8bd9' : '#d9a066'}`, backgroundColor: 'transparent', color: syncConfirm === 'import' ? '#9d8bd9' : '#d9a066', fontSize: '13px', fontFamily: 'var(--font-interface)', fontWeight: 600, cursor: 'pointer' }}>{syncConfirm === 'import' ? 'Import' : 'Export'}</button>
-            </div>
-          </div>
-        </div>
-      )}
+      
       {/* Sync success */}
-      {syncSuccess && (
-        <SyncSuccessModal message={syncSuccess} onDone={() => { setSyncConfirm(null); setSyncSuccess(null) }} />
-      )}
+      
     </>
   )
 }
@@ -669,18 +622,4 @@ function ThinkingPickerModal({ currentThinking, chatThinkingLevel, onClose, onCo
   )
 }
 
-// ── Sync Success Modal (auto-dismiss after 2s) ──
-function SyncSuccessModal({ message, onDone }: { message: string; onDone: () => void }) {
-  useEffect(() => {
-    const t = setTimeout(onDone, 2000)
-    return () => clearTimeout(t)
-  }, [])
-  return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 300, backgroundColor: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '24px', minWidth: '320px', maxWidth: '400px', textAlign: 'center' }}>
-        <div style={{ color: 'var(--q-accent-success)', fontSize: '16px', marginBottom: '8px', fontFamily: 'var(--font-interface)', fontWeight: 600 }}>Success</div>
-        <div style={{ color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>{message}</div>
-      </div>
-    </div>
-  )
-}
+
