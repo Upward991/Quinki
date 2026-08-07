@@ -51,13 +51,21 @@ export function HomeView({onSelectPanel}: {onSelectPanel: (panel: string) => voi
           border:'1px solid var(--q-border)', padding:'4px 0', minWidth:'160px'
         }
       },
-        React.createElement(CtxItem, {
-          label: 'Open in new window',
-          onClick: () => {
-            invoke('open_in_new_window', {tab: ctxMenu.card.id}).catch(() => {})
-            setCtxMenu(null)
-          }
-        })
+        ctxMenu.card.id === 'expert' 
+          ? React.createElement(CtxItem, {
+              label: 'Open Quinki Expert',
+              onClick: () => {
+                invoke('open_expert_app').catch(() => {})
+                setCtxMenu(null)
+              }
+            })
+          : React.createElement(CtxItem, {
+              label: 'Open in new window',
+              onClick: () => {
+                invoke('open_in_new_window', {tab: ctxMenu.card.id}).catch(() => {})
+                setCtxMenu(null)
+              }
+            })
       )
     )
   )

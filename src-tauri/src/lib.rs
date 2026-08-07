@@ -222,6 +222,27 @@ fn list_attachments(session_key: String) -> Result<Vec<serde_json::Value>, Strin
 }
 
 #[tauri::command]
+fn open_expert_app() -> Result<(), String> {
+    // Find the Expert app inside the main app bundle
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    let main_dir = exe.parent().ok_or("No parent dir")?;
+    // main_dir = Quinki.app/Contents/MacOS
+    // We need: Quinki.app/Contents/Resources/Quinki Expert.app
+    let resources_dir = main_dir.parent().ok_or("No parent")?.join("Resources");
+    let expert_app = resources_dir.join("Quinki Expert.app");
+    
+    if expert_app.exists() {
+        std::process::Command::new("open")
+            .arg(&expert_app)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    } else {
+        Err("Quinki Expert.app not found in bundle".to_string())
+    }
+}
+
+#[tauri::command]
 fn restart_app(app: tauri::AppHandle) {
     // Same logic as tray menu restart
     let _ = std::process::Command::new("sh").arg("-c")
@@ -398,6 +419,7 @@ pub fn run() {
         open_attachments_folder,
         open_general_attachments_folder,
         list_attachments,
+        open_expert_app,
         restart_app,
         enable_autostart,
         disable_autostart,
