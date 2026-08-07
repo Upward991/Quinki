@@ -35,7 +35,7 @@ function useSidecar(url: string = 'ws://127.0.0.1:9182') {
       ws.onerror = () => { setError('WebSocket connection error') }
       ws.onclose = () => {
         setReady(false)
-        if (!closed) setTimeout(connect, 2000)
+        if (!closed) setTimeout(connect, 500)
       }
     }
     connect()

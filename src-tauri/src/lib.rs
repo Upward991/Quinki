@@ -727,7 +727,7 @@ pub fn run() {
           let start_script = format!("{}/start-expert.sh", sidecar_dir);
           let watchdog_script = format!("{}/expert-watchdog.sh", sidecar_dir);
           let _ = app.shell().command("sh")
-            .args(["-c", &format!("bash '{}' &", start_script)])
+            .args(["-c", &format!("setsid bash '{}' &", start_script)])
             .spawn();
           // Start watchdog with nohup so it survives app exit
           let _ = app.shell().command("sh")
