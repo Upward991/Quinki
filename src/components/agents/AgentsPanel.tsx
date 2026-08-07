@@ -757,7 +757,7 @@ export function AgentRow({ agent, isExpanded, isRenaming, onToggle, onStartRenam
         MiniButton({ label: 'Add file', onClick: onAddFile }),
         agent.files.length > 0 && React.createElement(React.Fragment, { children: [
           React.createElement('span', { style: { flex: 1 } }),
-          React.createElement('button', { onClick: () => onRemoveAll('files'), style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'Remove all' })
+          React.createElement('button', { onClick: () => onRemoveAll('files'), onMouseEnter: e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }, onMouseLeave: e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }, style: { padding: '4px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'Remove all' })
         ]})
       ]}),
       agent.files.length === 0
@@ -777,7 +777,7 @@ export function AgentRow({ agent, isExpanded, isRenaming, onToggle, onStartRenam
         MiniButton({ label: 'Add skill', onClick: onAddSkill }),
         agentSkills.length > 0 && React.createElement(React.Fragment, { children: [
           React.createElement('span', { style: { flex: 1 } }),
-          React.createElement('button', { onClick: () => onRemoveAll('skills'), style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'Remove all' })
+          React.createElement('button', { onClick: () => onRemoveAll('skills'), onMouseEnter: e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }, onMouseLeave: e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }, style: { padding: '4px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'Remove all' })
         ]})
       ]}),
       agentSkills.length === 0
@@ -792,7 +792,7 @@ export function AgentRow({ agent, isExpanded, isRenaming, onToggle, onStartRenam
         MiniButton({ label: 'Add tool', onClick: onAddTool }),
         agentTools.length > 0 && React.createElement(React.Fragment, { children: [
           React.createElement('span', { style: { flex: 1 } }),
-          React.createElement('button', { onClick: () => onRemoveAll('tools'), style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'Remove all' })
+          React.createElement('button', { onClick: () => onRemoveAll('tools'), onMouseEnter: e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }, onMouseLeave: e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }, style: { padding: '4px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'Remove all' })
         ]})
       ]}),
       agentTools.length === 0
