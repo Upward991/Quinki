@@ -243,6 +243,90 @@ fn open_expert_app() -> Result<(), String> {
 }
 
 #[tauri::command]
+fn sync_from_main() -> Result<String, String> {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let main_dir = format!("{}/.quinki", home);
+    let expert_dir = format!("{}/.quinki-expert", home);
+    if !std::path::Path::new(&main_dir).exists() { return Err("Main data directory not found".to_string()); }
+    std::fs::create_dir_all(&expert_dir).map_err(|e| e.to_string())?;
+    let mut copied = 0;
+    let main_agents = format!("{}/agents", main_dir);
+    let expert_agents = format!("{}/agents", expert_dir);
+    if std::path::Path::new(&main_agents).exists() {
+        let _ = std::fs::remove_dir_all(&expert_agents);
+        copy_dir_recursive(&main_agents, &expert_agents)?;
+        copied += count_items(&expert_agents);
+    }
+    let main_skills = format!("{}/skills", main_dir);
+    let expert_skills = format!("{}/skills", expert_dir);
+    if std::path::Path::new(&main_skills).exists() {
+        let _ = std::fs::remove_dir_all(&expert_skills);
+        copy_dir_recursive(&main_skills, &expert_skills)?;
+        copied += count_items(&expert_skills);
+    }
+    for f in &["quinki-providers.json", "dashboard-providers.json", "quinki-global.json", "dashboard-global.json"] {
+        let src = format!("{}/{}", main_dir, f);
+        let dst = format!("{}/{}", expert_dir, f);
+        if std::path::Path::new(&src).exists() && !std::path::Path::new(&dst).is_symlink() {
+            std::fs::copy(&src, &dst).map_err(|e| e.to_string())?;
+            copied += 1;
+        }
+    }
+    Ok(format!("Synced {} items from Main to Expert", copied))
+}
+
+#[tauri::command]
+fn sync_from_expert() -> Result<String, String> {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let main_dir = format!("{}/.quinki", home);
+    let expert_dir = format!("{}/.quinki-expert", home);
+    if !std::path::Path::new(&expert_dir).exists() { return Err("Expert data directory not found".to_string()); }
+    let mut copied = 0;
+    let main_agents = format!("{}/agents", main_dir);
+    let expert_agents = format!("{}/agents", expert_dir);
+    if std::path::Path::new(&expert_agents).exists() {
+        let _ = std::fs::remove_dir_all(&main_agents);
+        copy_dir_recursive(&expert_agents, &main_agents)?;
+        copied += count_items(&main_agents);
+    }
+    let main_skills = format!("{}/skills", main_dir);
+    let expert_skills = format!("{}/skills", expert_dir);
+    if std::path::Path::new(&expert_skills).exists() {
+        let _ = std::fs::remove_dir_all(&main_skills);
+        copy_dir_recursive(&expert_skills, &main_skills)?;
+        copied += count_items(&main_skills);
+    }
+    for f in &["quinki-providers.json", "dashboard-providers.json", "quinki-global.json", "dashboard-global.json"] {
+        let src = format!("{}/{}", expert_dir, f);
+        let dst = format!("{}/{}", main_dir, f);
+        if std::path::Path::new(&src).exists() && !std::path::Path::new(&dst).is_symlink() {
+            std::fs::copy(&src, &dst).map_err(|e| e.to_string())?;
+            copied += 1;
+        }
+    }
+    Ok(format!("Synced {} items from Expert to Main", copied))
+}
+
+fn copy_dir_recursive(src: &str, dst: &str) -> Result<(), String> {
+    std::fs::create_dir_all(dst).map_err(|e| e.to_string())?;
+    for entry in std::fs::read_dir(src).map_err(|e| e.to_string())? {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let src_path = entry.path();
+        let dst_path = std::path::Path::new(dst).join(entry.file_name());
+        if src_path.is_dir() {
+            copy_dir_recursive(src_path.to_str().unwrap_or(""), dst_path.to_str().unwrap_or(""))?;
+        } else {
+            std::fs::copy(&src_path, &dst_path).map_err(|e| e.to_string())?;
+        }
+    }
+    Ok(())
+}
+
+fn count_items(dir: &str) -> usize {
+    std::fs::read_dir(dir).map(|it| it.count()).unwrap_or(0)
+}
+
+#[tauri::command]
 fn restart_app(app: tauri::AppHandle) {
     // Same logic as tray menu restart
     let _ = std::process::Command::new("sh").arg("-c")
@@ -420,6 +504,8 @@ pub fn run() {
         open_general_attachments_folder,
         list_attachments,
         open_expert_app,
+        sync_from_main,
+        sync_from_expert,
         restart_app,
         enable_autostart,
         disable_autostart,

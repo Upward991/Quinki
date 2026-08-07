@@ -4,6 +4,7 @@
 
 import { useState, useEffect } from 'react'
 import type { Session, Agent } from '../../types'
+import { invoke } from '@tauri-apps/api/core'
 import { Home, PanelLeft, MessageSquare, Download, Search, RefreshCw, Bot, Calendar, Clock, ChevronDown, ChevronUp, Cpu, Brain, Network, X } from '../icons'
 import { AgentConfigModal } from './AgentConfigModal'
 
