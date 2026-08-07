@@ -53,7 +53,7 @@ export function HomeView({onSelectPanel}: {onSelectPanel: (panel: string) => voi
       },
         ctxMenu.card.id === 'expert' 
           ? React.createElement(CtxItem, {
-              label: 'Open Quinki Expert',
+              label: 'Open Quinki Expert App',
               onClick: () => {
                 invoke('open_expert_app').catch(() => {})
                 setCtxMenu(null)

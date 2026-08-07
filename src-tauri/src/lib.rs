@@ -516,7 +516,7 @@ pub fn run() {
 
       // === Tray icon === (character only, no background)
       let show_item = MenuItem::with_id(app, "show", "Show Quinki", true, None::<&str>)?;
-      let expert_item = MenuItem::with_id(app, "expert", "Open Quinki Expert", true, None::<&str>)?;
+      let expert_item = MenuItem::with_id(app, "expert", "Open Quinki Expert App", true, None::<&str>)?;
       let restart_item = MenuItem::with_id(app, "restart", "Restart Quinki", true, None::<&str>)?;
       let quit_item = MenuItem::with_id(app, "quit", "Quit Quinki", true, None::<&str>)?;
       let menu = Menu::with_items(app, &[&show_item, &expert_item, &restart_item, &quit_item])?;
