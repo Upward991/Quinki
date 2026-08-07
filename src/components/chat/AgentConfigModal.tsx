@@ -158,7 +158,7 @@ export function AgentConfigModal({ agentId, agents, onClose }: { agentId: string
             <div style={{ color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', marginBottom: '20px' }}>Delete "{deleteAgentName}"?</div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
               <button onClick={() => setDeleteAgentName(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-accent-danger)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }}>Cancel</button>
-              <button onClick={() => doDeleteAgent(deleteAgentName)} style={{ padding: '4px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-accent-danger)', color: 'var(--q-bg)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Delete</button>
+              <button onClick={() => doDeleteAgent(deleteAgentName)} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }} style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>Delete</button>
             </div>
           </div>
         </div>

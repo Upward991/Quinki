@@ -69,8 +69,7 @@ export function AddItemsModal({ title, items, initialSelected, onClose, onConfir
           <button className="q-press" onClick={onClose}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-accent-danger)', fontSize: '15px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }}>Cancel</button>
           <div style={{ width: '8px' }} />
-          <button className="q-press" onClick={() => onConfirm([...selected])} disabled={selected.size === 0}
-            style={{ padding: '4px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: selected.size === 0 ? 'default' : 'pointer', backgroundColor: selected.size === 0 ? 'transparent' : 'var(--q-accent-secondary)', color: selected.size === 0 ? 'var(--q-text-tertiary)' : 'var(--q-bg)', fontSize: '15px', fontFamily: 'var(--font-interface)', opacity: selected.size === 0 ? 0.5 : 1 }}>Add ({selected.size})</button>
+          <button onClick={() => onConfirm([...selected])} disabled={selected.size === 0} onMouseEnter={e => { if (!selected.size === 0) { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' } }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }} style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', cursor: selected.size === 0 ? 'default' : 'pointer', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)', opacity: selected.size === 0 ? 0.5 : 1 }}>Add ({selected.size})</button>
         </div>
       </div>
     </div>
