@@ -423,17 +423,23 @@ export function ChatHeader(props: ChatHeaderProps) {
       {/* Sync modal — Expert app only */}
       {syncOpen && !syncConfirm && !syncSuccess && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setSyncOpen(false)}>
-          <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', overflow: 'hidden', maxWidth: '380px' }} onClick={e => e.stopPropagation()}>
+          <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
             <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', padding: '14px 18px' }}>App Sync</div>
-            <div style={{ color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 18px 10px 18px', maxWidth: '380px' }}>Agents, skills, models and providers are stored separately. Chat sessions, attachments and auth are shared automatically.</div>
-            <div style={{ display: 'flex', gap: '8px', padding: '0 16px 8px 16px' }}>
+            <div style={{ color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', padding: '0 18px 12px 18px', lineHeight: 1.5 }}>
+              Agents, skills, models and providers are stored separately.<br/>
+              Chat sessions, attachments and auth are shared automatically.
+            </div>
+            <div style={{ display: 'flex', gap: '8px', padding: '0 18px 12px 18px', justifyContent: 'center' }}>
               <button onClick={() => { setSyncConfirm('import'); setSyncOpen(false) }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#9d8bd9'; e.currentTarget.style.color = 'var(--q-bg)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#9d8bd9' }} style={{ padding: '7px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid #9d8bd9', cursor: 'pointer', backgroundColor: 'transparent', color: '#9d8bd9', fontSize: '13px', fontFamily: 'var(--font-interface)', fontWeight: 600 }}>Import from Main App</button>
               <button onClick={() => { setSyncConfirm('export'); setSyncOpen(false) }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#d9a066'; e.currentTarget.style.color = 'var(--q-bg)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#d9a066' }} style={{ padding: '7px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid #d9a066', cursor: 'pointer', backgroundColor: 'transparent', color: '#d9a066', fontSize: '13px', fontFamily: 'var(--font-interface)', fontWeight: 600 }}>Export to Main App</button>
             </div>
-            <div style={{ padding: '0 16px 8px 16px' }}>
-              <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>Export = replaces Main's data with yours. Import = replaces yours with Main's copy.</div>
+            <div style={{ padding: '0 18px 12px 18px' }}>
+              <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', lineHeight: 1.5 }}>
+                Export = replaces Main's data with yours.<br/>
+                Import = replaces yours with Main's copy.
+              </div>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '0 16px 12px 16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '0 18px 14px 18px' }}>
               <button onClick={() => setSyncOpen(false)} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }} style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>Cancel</button>
             </div>
           </div>
