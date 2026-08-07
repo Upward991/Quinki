@@ -222,6 +222,68 @@ fn list_attachments(session_key: String) -> Result<Vec<serde_json::Value>, Strin
 }
 
 #[tauri::command]
+fn install_main_app(build_path: String) -> Result<String, String> {
+    // Safely install the main app WITHOUT touching the Expert app
+    // 1. Backup current main app
+    // 2. Install new build
+    // 3. Kill only the main sidecar (port 9182)
+    // 4. Restart main app
+    
+    let main_app = "/Applications/Quinki.app";
+    let backup = "/Applications/Quinki.app.bak";
+    
+    // Backup
+    if std::path::Path::new(main_app).exists() {
+        let _ = std::fs::remove_dir_all(backup);
+        std::fs::rename(main_app, backup).map_err(|e| format!("Backup failed: {}", e))?;
+    }
+    
+    // Install new build
+    std::process::Command::new("ditto")
+        .args([&build_path, main_app])
+        .output()
+        .map_err(|e| format!("Install failed: {}", e))?;
+    
+    // Kill main sidecar (ONLY port 9182, never 9183)
+    let _ = std::process::Command::new("sh")
+        .args(["-c", "lsof -ti:9182 | xargs kill -9 2>/dev/null"])
+        .output();
+    
+    // Clear webview caches
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
+    let _ = std::fs::remove_dir_all(format!("{}/Library/WebKit/com.quinki.app", home));
+    let _ = std::fs::remove_dir_all(format!("{}/Library/Caches/com.quinki.app", home));
+    
+    // Restart main app
+    std::thread::sleep(std::time::Duration::from_secs(1));
+    let _ = std::process::Command::new("open")
+        .arg(main_app)
+        .spawn();
+    
+    // Clean up backup
+    std::thread::sleep(std::time::Duration::from_secs(2));
+    let _ = std::fs::remove_dir_all(backup);
+    
+    Ok("Main app installed and restarted".to_string())
+}
+
+#[tauri::command]
+fn restart_main_app() -> Result<String, String> {
+    // Kill ONLY the main sidecar (port 9182) and restart the main app
+    let _ = std::process::Command::new("sh")
+        .args(["-c", "lsof -ti:9182 | xargs kill -9 2>/dev/null"])
+        .output();
+    
+    std::thread::sleep(std::time::Duration::from_secs(1));
+    
+    let _ = std::process::Command::new("open")
+        .arg("/Applications/Quinki.app")
+        .spawn();
+    
+    Ok("Main app restarted".to_string())
+}
+
+#[tauri::command]
 fn open_expert_app() -> Result<(), String> {
     // Look for Quinki Expert.app as a separate app in /Applications
     let expert_paths = [
@@ -518,6 +580,8 @@ pub fn run() {
         open_general_attachments_folder,
         list_attachments,
         open_expert_app,
+        install_main_app,
+        restart_main_app,
         quit_expert_app,
         restart_app,
         enable_autostart,
