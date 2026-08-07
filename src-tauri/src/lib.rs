@@ -604,8 +604,10 @@ pub fn run() {
       if is_expert_mode() {
         // Expert app: own tray icon (expert icon) with Expert-specific menu
         let show_item = MenuItem::with_id(app, "show", "Show Quinki Expert", true, None::<&str>)?;
+        let sync_import = MenuItem::with_id(app, "sync_import", "Sync from Main App", true, None::<&str>)?;
+        let sync_export = MenuItem::with_id(app, "sync_export", "Export to Main App", true, None::<&str>)?;
         let quit_item = MenuItem::with_id(app, "quit", "Quit Quinki Expert", true, None::<&str>)?;
-        let menu = Menu::with_items(app, &[&show_item, &quit_item])?;
+        let menu = Menu::with_items(app, &[&show_item, &sync_import, &sync_export, &quit_item])?;
 
         let tray_img = tauri::image::Image::from_bytes(include_bytes!("../icons/expert-tray-icon.png"))
             .unwrap_or_else(|_| app.default_window_icon().unwrap().clone());
@@ -623,6 +625,36 @@ pub fn run() {
                   let _ = window.show();
                   let _ = window.set_focus();
                 }
+              }
+              "sync_import" => {
+                // Import agents/skills from Main (~/.quinki/) to Expert (~/.quinki-expert/)
+                let home = std::env::var("HOME").unwrap_or_default();
+                let main_dir = format!("{}/.quinki", home);
+                let expert_dir = format!("{}/.quinki-expert", home);
+                if std::path::Path::new(&format!("{}/agents", main_dir)).exists() {
+                    let _ = std::fs::remove_dir_all(format!("{}/agents", expert_dir));
+                    let _ = copy_dir_recursive(&format!("{}/agents", main_dir), &format!("{}/agents", expert_dir));
+                }
+                if std::path::Path::new(&format!("{}/skills", main_dir)).exists() {
+                    let _ = std::fs::remove_dir_all(format!("{}/skills", expert_dir));
+                    let _ = copy_dir_recursive(&format!("{}/skills", main_dir), &format!("{}/skills", expert_dir));
+                }
+                log::info!("Expert: synced from Main");
+              }
+              "sync_export" => {
+                // Export agents/skills from Expert (~/.quinki-expert/) to Main (~/.quinki/)
+                let home = std::env::var("HOME").unwrap_or_default();
+                let main_dir = format!("{}/.quinki", home);
+                let expert_dir = format!("{}/.quinki-expert", home);
+                if std::path::Path::new(&format!("{}/agents", expert_dir)).exists() {
+                    let _ = std::fs::remove_dir_all(format!("{}/agents", main_dir));
+                    let _ = copy_dir_recursive(&format!("{}/agents", expert_dir), &format!("{}/agents", main_dir));
+                }
+                if std::path::Path::new(&format!("{}/skills", expert_dir)).exists() {
+                    let _ = std::fs::remove_dir_all(format!("{}/skills", main_dir));
+                    let _ = copy_dir_recursive(&format!("{}/skills", expert_dir), &format!("{}/skills", main_dir));
+                }
+                log::info!("Expert: exported to Main");
               }
               "quit" => {
                 // Kill expert sidecar + watchdog
