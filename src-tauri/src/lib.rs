@@ -730,8 +730,7 @@ pub fn run() {
       {
         use tauri_plugin_shell::ShellExt;
         
-        let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
-        let sidecar_dir = format!("{}/Projects/Quinki/sidecar-src", home);
+        let sidecar_dir = app.path().resource_dir().unwrap().join("resources").join("sidecar").to_string_lossy().to_string();
         
         if is_expert_mode() {
           // Expert mode: start expert sidecar on port 9183 + watchdog

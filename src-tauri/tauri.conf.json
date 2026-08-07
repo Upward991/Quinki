@@ -119,6 +119,14 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
+    ],
+    "resources": [
+      "resources/sidecar/quinki-ws-bridge",
+      "resources/sidecar/quinki-sidecar-full",
+      "resources/sidecar/start.sh",
+      "resources/sidecar/start-expert.sh",
+      "resources/sidecar/expert-watchdog.sh",
+      "resources/sidecar/package.json"
     ]
   }
 }

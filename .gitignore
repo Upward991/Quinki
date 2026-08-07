@@ -43,3 +43,11 @@ sidecar-src/bundle/
 .DS_Store
 Thumbs.db
 sidecar-src/node_modules
+
+# Sidecar compiled binaries (built by scripts/build-sidecar-binaries.sh)
+src-tauri/resources/sidecar/quinki-ws-bridge
+src-tauri/resources/sidecar/quinki-sidecar-full
+sidecar-src/quinki-ws-bridge
+sidecar-src/quinki-sidecar-full
+sidecar-src/quinki-sidecar
+sidecar-src/ws-bridge-standalone.ts
