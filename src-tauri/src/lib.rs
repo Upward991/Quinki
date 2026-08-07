@@ -539,28 +539,15 @@ pub fn run() {
               }
             }
             "expert" => {
-              // Open Expert in its own window (same as clicking the tab)
-              let _ = std::process::Command::new("sh")
-                .arg("-c")
-                .arg(format!("echo '{{\"jsonrpc\":\"2.0\",\"method\":\"open_in_new_window\",\"params\":{{\"tab\":\"expert\"}},\"id\":1}}' | nc 127.0.0.1 9182"))
-                .spawn();
-              // Also try via Tauri command
-              let label = "win-expert".to_string();
-              if let Some(window) = app.get_webview_window(&label) {
-                let _ = window.show();
-                let _ = window.set_focus();
-              } else {
-                // Window doesn't exist — create from config
-                let config = app.config();
-                let win_config = config.app.windows.iter().find(|w| w.label == label);
-                if let Some(wc) = win_config {
-                  if let Ok(builder) = tauri::WebviewWindowBuilder::from_config(app, wc) {
-                    if let Ok(window) = builder.build() {
-                      let _ = window.show();
-                      let _ = window.set_focus();
-                    }
-                  }
-                }
+              // Open the separate Quinki Expert App from the main app bundle
+              let exe = std::env::current_exe().unwrap_or_default();
+              let main_dir = exe.parent().unwrap_or(std::path::Path::new("/"));
+              let resources_dir = main_dir.parent().unwrap_or(std::path::Path::new("/")).join("Resources");
+              let expert_app = resources_dir.join("Quinki Expert.app");
+              if expert_app.exists() {
+                let _ = std::process::Command::new("open")
+                  .arg(&expert_app)
+                  .spawn();
               }
             }
             "restart" => {
