@@ -521,7 +521,7 @@ pub fn run() {
         let quit_item = MenuItem::with_id(app, "quit", "Quit Quinki Expert", true, None::<&str>)?;
         let menu = Menu::with_items(app, &[&show_item, &quit_item])?;
 
-        let tray_img = tauri::image::Image::from_bytes(include_bytes!("../icons/expert-icon.png"))
+        let tray_img = tauri::image::Image::from_bytes(include_bytes!("../icons/expert-tray-icon.png"))
             .unwrap_or_else(|_| app.default_window_icon().unwrap().clone());
 
         let _tray = TrayIconBuilder::new()
