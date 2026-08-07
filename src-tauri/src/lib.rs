@@ -730,7 +730,7 @@ pub fn run() {
       {
         use tauri_plugin_shell::ShellExt;
         
-        let home = std::env::var("HOME").unwrap_or_else(|_| "/Users/andreamaddalena".to_string());
+        let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
         let sidecar_dir = format!("{}/Projects/Quinki/sidecar-src", home);
         
         if is_expert_mode() {
