@@ -280269,6 +280269,10 @@ var PiBridge = class {
     return this.#entries.get(key)?.thinkingLevel || null;
   }
   getSessionMeta(key) {
+    try {
+      this.reloadAndMerge();
+    } catch {
+    }
     const s2 = this.#entries.get(key);
     const pi2 = this.#active.get(key);
     let model;

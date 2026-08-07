@@ -1074,6 +1074,8 @@ class PiBridge {
   }
 
   getSessionMeta(key: string): { model?: string; thinkingLevel?: string; availableThinkingLevels: string[]; mode: string; agentId?: string; agentOverrides?: any } {
+    // Reload from disk to pick up changes from the other sidecar
+    try { this.reloadAndMerge(); } catch {}
     const s = this.#entries.get(key);
     const pi = this.#active.get(key);
     let model: string | undefined;
