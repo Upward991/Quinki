@@ -284,6 +284,99 @@ fn restart_main_app() -> Result<String, String> {
 }
 
 #[tauri::command]
+fn apply_update(dmg_url: String, sync_expert: bool) -> Result<String, String> {
+    // Manual update from Settings → Versions. Downloads the released DMG from GitHub,
+    // installs the MAIN app (with backup), optionally syncs the App Expert,
+    // then restarts the main app. NEVER touches anything else.
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
+    let upd = format!("{}/.quinki/update", home);
+    let _ = std::fs::create_dir_all(&upd);
+    let dmg = format!("{}/Quinki-update.dmg", upd);
+    let _ = std::fs::remove_file(&dmg);
+
+    // 1) download the DMG
+    let st = std::process::Command::new("curl")
+        .args(["-L", "-s", "-o", &dmg, &dmg_url])
+        .status()
+        .map_err(|e| format!("download failed: {}", e))?;
+    if !st.success() {
+        return Err("download failed".to_string());
+    }
+
+    // 2) mount the DMG
+    let out = std::process::Command::new("hdiutil")
+        .args(["attach", "-nobrowse", &dmg])
+        .output()
+        .map_err(|e| format!("mount failed: {}", e))?;
+    if !out.status.success() {
+        return Err(".mount failed".to_string());
+    }
+    let text = String::from_utf8_lossy(&out.stdout).to_string();
+    let mount = text
+        .lines()
+        .last()
+        .and_then(|l| l.split_whitespace().last())
+        .unwrap_or("")
+        .to_string();
+    if mount.is_empty() {
+        return Err("could not find mount point".to_string());
+    }
+    let src = format!("{}/Quinki.app", mount);
+    if !std::path::Path::new(&src).exists() {
+        let _ = std::process::Command::new("hdiutil").args(["detach", &mount]).status();
+        return Err("Quinki.app not found in DMG".to_string());
+    }
+
+    // 3) install main (backup + ditto)
+    let main = "/Applications/Quinki.app";
+    if std::path::Path::new(main).exists() {
+        let _ = std::fs::remove_dir_all(format!("{}.bak", main));
+        std::fs::rename(main, format!("{}.bak", main)).map_err(|e| format!("backup failed: {}", e))?;
+    }
+    std::process::Command::new("ditto")
+        .args([&src, main])
+        .status()
+        .map_err(|e| format!("install failed: {}", e))?;
+
+    // 4) optional sync App Expert
+    if sync_expert {
+        let exp = "/Applications/App Expert.app";
+        if std::path::Path::new(exp).exists()
+            && std::path::Path::new("/Applications/Quinki.app/Contents/MacOS/quinki").exists()
+        {
+            let _ = std::fs::copy(
+                "/Applications/Quinki.app/Contents/MacOS/quinki",
+                format!("{}/Contents/MacOS/quinki", exp),
+            );
+            let _ = std::fs::remove_dir_all(format!("{}/Contents/Resources/resources/sidecar", exp));
+            let _ = std::process::Command::new("ditto")
+                .args([
+                    "/Applications/Quinki.app/Contents/Resources/resources/sidecar",
+                    &format!("{}/Contents/Resources/resources/sidecar", exp),
+                ])
+                .status();
+        }
+    }
+
+    // 5) unmount + cleanup (but keep the dmg for re-install if needed)
+    let _ = std::process::Command::new("hdiutil").args(["detach", &mount]).status();
+
+    // 6) detached restart: kill main sidecar + main process, then reopen
+    let _ = std::process::Command::new("nohup")
+        .args([
+            "sh", "-c",
+            &format!("sleep 1; lsof -ti:9182 | xargs kill -9 2>/dev/null; pkill -f \"/Applications/Quinki.app/Contents/MacOS/quinki\" 2>/dev/null; sleep 1; open /Applications/Quinki.app"),
+        ])
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .map_err(|e| format!("restart spawn failed: {}", e))?;
+
+    Ok("Update applied. Quinki is restarting.".to_string())
+}
+
+
+#[tauri::command]
 fn check_expert_installed() -> Result<bool, String> {
     Ok(std::path::Path::new("/Applications/App Expert.app").exists())
 }
@@ -735,6 +828,7 @@ pub fn run() {
         open_expert_app,
         install_main_app,
         restart_main_app,
+        apply_update,
         quit_expert_app,
         restart_app,
         enable_autostart,
