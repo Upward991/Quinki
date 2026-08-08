@@ -102,6 +102,7 @@ function mapAgent(a: any) {
     thinking: a.thinking || 'off',
     skills: (a.skills || []).map((s: string) => ({ name: s, source: 'local', installed: true })),
     tools: (a.tools || []).map((t: string) => ({ name: t, enabled: true })),
+    mcpServers: Array.isArray(a.mcpServers) ? a.mcpServers : [],
     directory: a.directory || '',
     isDeletable: a.id !== 'orchestrator' && a.id !== 'app-expert',
   }

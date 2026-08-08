@@ -20,6 +20,7 @@ export interface McpServerConfig {
   args: string[]; // extra launch arguments (e.g. paths for filesystem server)
   env: Record<string, string>;
   bin?: string; // discovered bin name inside node_modules/.bin (package)
+  description?: string; // breve descrizione di cosa fa il server (per package: dal registro npm)
   planSafe?: boolean; // true = i tool di questo server sono consentiti anche in Plan mode
   createdAt?: number;
 }

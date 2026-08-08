@@ -686,7 +686,7 @@ export function AgentsPanel(props) {
               const s = mcpServers.find(x => x.id === id);
               return TagChip({ key: id, icon: Plug, label: s ? s.name : id, onRemove: () => doTogglePlanModeMcp(id, false) });
             }),
-            MiniButton({ label: 'Add MCP', onClick: () => setAddItemsModal({ title: 'Enable MCP in Plan mode', items: mcpServers.filter(s => !planModeMcp[s.id]).map(s => ({ name: s.name, description: s.source })), onConfirm: (selected) => doEnablePlanModeMcp(selected.map(n => { const s = mcpServers.find(x => x.name === n); return s ? s.id : n; }).filter(Boolean)) }) })
+            MiniButton({ label: 'Add MCP', onClick: () => setAddItemsModal({ title: 'Enable MCP in Plan mode', items: mcpServers.filter(s => !planModeMcp[s.id]).map(s => ({ name: s.name, description: s.description || s.source })), onConfirm: (selected) => doEnablePlanModeMcp(selected.map(n => { const s = mcpServers.find(x => x.name === n); return s ? s.id : n; }).filter(Boolean)) }) })
           ]})
         ]}),
 
@@ -956,7 +956,7 @@ export function AgentRow({ agent, isExpanded, isRenaming, onToggle, onStartRenam
           )}),
 
       // MCP
-      React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', marginTop: '12px' }, children: [
+      React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }, children: [
         React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }, children: ['MCP (', agentMcps.length, ')'] }),
         MiniButton({ label: 'Add MCP', onClick: onAddMcp }),
         agentMcps.length > 0 && React.createElement(React.Fragment, { children: [

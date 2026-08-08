@@ -417,8 +417,26 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
       if (r.error) return { ok: false, error: r.error };
       bin = r.bin;
     }
+    // Descrizione: per package dal registro npm, per url/command generica
+    let description = '';
+    if (type === 'package') {
+      try {
+        const ctrl = new AbortController();
+        const to = setTimeout(() => ctrl.abort(), 8000);
+        const resp = await fetch('https://registry.npmjs.org/' + encodeURIComponent(source), { signal: ctrl.signal });
+        clearTimeout(to);
+        if (resp.ok) {
+          const meta = await resp.json();
+          if (meta && typeof meta.description === 'string') description = meta.description;
+        }
+      } catch {}
+    } else if (type === 'url') {
+      try { const u = new URL(source); description = 'Remote MCP server at ' + u.host; } catch {}
+    } else if (type === 'command') {
+      description = 'Custom MCP server (' + (command[0] || 'command') + ')';
+    }
     const servers = readMcpServers().filter((s) => s.id !== id);
-    const server = { id, name, type, source, command: type === 'command' ? command : undefined, args: Array.isArray(p?.args) ? p.args.map(String) : [], env: (p?.env && typeof p.env === 'object') ? p.env : {}, bin, planSafe: p?.planSafe === true, createdAt: Date.now() };
+    const server = { id, name, type, source, command: type === 'command' ? command : undefined, args: Array.isArray(p?.args) ? p.args.map(String) : [], env: (p?.env && typeof p.env === 'object') ? p.env : {}, bin, description, planSafe: p?.planSafe === true, createdAt: Date.now() };
     servers.push(server);
     saveMcpServers(servers);
     return { ok: true, server };
