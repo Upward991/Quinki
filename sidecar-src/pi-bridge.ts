@@ -132,6 +132,7 @@ class PiBridge {
   #firstUserText = new Map<string, string>(); // primo msg utente per auto-title
   #active = new Map<string, any>();
   #mcpClients = new Map<string, StdioMcpClient>();  // chiave `${sessionKey}:${serverId}`
+  #mcpToolNames = new Map<string, { name: string; planSafe: boolean }[]>();  // per sessione: tool MCP per applyMode (plan/build)
   #wss = new Map<string, any>();
   #unsubs = new Map<string, () => void>();
   #prompts = new Map<string, Promise<void>>();
@@ -2518,6 +2519,13 @@ class PiBridge {
         const planFlags = globalConfig.planModeTools || {};
         names = names.filter(n => planFlags[n] !== false || customToolNames.includes(n));
       }
+      // MCP: in Build mode tutti i tool dei server assegnati; in Plan mode solo i tool
+      // dei server contrassegnati plan-safe (toggle nella riga MCP delle risorse).
+      const mcpEntries = this.#mcpToolNames.get(key) || [];
+      for (const entry of mcpEntries) {
+        const ok = m === "plan" ? !!entry.planSafe : true;
+        if (ok && !names.includes(entry.name)) names.push(entry.name);
+      }
     } catch {}
     try { pi.setActiveToolsByName?.(names); } catch {}
     // setActiveToolsByName rebuilda _baseSystemPrompt (date+cwd+tools, SENZA nota mode).
@@ -3032,6 +3040,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
   async #buildMcpTools(sk: string, agentId: string | null): Promise<any[]> {
     const agentCfg = agentId ? this.#readAgentConfigFile(agentId) : null;
     const ids: string[] = Array.isArray(agentCfg?.mcpServers) ? agentCfg.mcpServers : [];
+    this.#mcpToolNames.delete(sk);
     if (ids.length === 0) return [];
     const self = this;
     const tools: any[] = [];
@@ -3083,7 +3092,14 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
             },
           }));
         }
-        this.logDebug("mcp-tools-registered", { sessionKey: sk, serverId: sid, toolCount: list.length });
+        // Registra i tool per sessione → applyMode li attiva (plan: solo da server plan-safe)
+        const prev = self.#mcpToolNames.get(sk) || [];
+        for (const t of list) {
+          const nm = typeof t?.name === 'string' && t.name ? t.name : '';
+          if (nm) prev.push({ name: nm, planSafe: !!server.planSafe });
+        }
+        self.#mcpToolNames.set(sk, prev);
+        this.logDebug("mcp-tools-registered", { sessionKey: sk, serverId: sid, toolCount: list.length, planSafe: !!server.planSafe });
       } catch (e: any) {
         this.logDebug("mcp-connect-error", { sessionKey: sk, serverId: sid, error: String(e?.message || e) });
       }

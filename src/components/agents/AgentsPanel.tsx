@@ -227,6 +227,16 @@ export function AgentsPanel(props) {
     setDirty(true);
   };
 
+  const doUpdateMcpPlanSafe = async (id, planSafe) => {
+    if (!call) return;
+    try {
+      await call('updateMcpServer', { id, planSafe });
+      const res = await call('listMcpServers', {});
+      if (res?.servers) setMcpServers(res.servers);
+      setDirty(true);
+    } catch (e) { setErrorModal(e.message || String(e)); }
+  };
+
   const doDeleteMcp = async (mcpId) => {
     if (!call) return;
     try {
@@ -604,7 +614,8 @@ export function AgentsPanel(props) {
                       onAddAgent: () => setAddItemsModal({ title: `Add agent to ${mcp.name}`, items: agents.map(a => ({ name: a.name, description: a.systemPrompt ? a.systemPrompt.substring(0, 80) + (a.systemPrompt.length > 80 ? '...' : '') : a.id })), initialSelected: agents.filter(a => (a.mcpServers || []).includes(mcp.id)).map(a => a.name), onConfirm: (selected) => doAddAgentsToMcp(mcp.id, selected) }),
                       onRemoveAgent: (agentName) => doRemoveAgentFromMcp(mcp.id, agentName),
                       onRemoveAllAgents: () => doRemoveAllAgentsFromMcp(mcp.id),
-                      onDeleteMcp: () => setRemoveTagState({ type: 'mcp-server', name: mcp.id, agent: mcp.name })
+                      onDeleteMcp: () => setRemoveTagState({ type: 'mcp-server', name: mcp.id, agent: mcp.name }),
+                      onPlanSafeChange: (v) => doUpdateMcpPlanSafe(mcp.id, v)
                     });
                   })
             })
@@ -1197,7 +1208,7 @@ function NewFileForm({ onCreate, onCancel }) {
   ]});
 }
 // ── McpRow: riga MCP nella sezione risorse (come SkillRow) ──
-export function McpRow({ mcp, agentsUsing, isExpanded, onToggle, onAddAgent, onRemoveAgent, onRemoveAllAgents, onDeleteMcp }) {
+export function McpRow({ mcp, agentsUsing, isExpanded, onToggle, onAddAgent, onRemoveAgent, onRemoveAllAgents, onDeleteMcp, onPlanSafeChange }) {
   const subtitle = mcp.type === 'url' ? 'URL' : mcp.type === 'command' ? 'Command' : 'Package';
   return React.createElement('div', { style: { marginBottom: '4px', backgroundColor: 'var(--q-bg-elevated)', border: 'none', borderRadius: '8px', overflow: 'hidden' }, children: [
     React.createElement('div', { onClick: onToggle, style: { padding: '10px 12px', display: 'flex', alignItems: 'center', cursor: 'pointer', borderRadius: '8px', transition: 'none' }, onMouseEnter: e => { e.currentTarget.style.backgroundColor = 'rgba(201, 112, 132, 0.03)'; }, onMouseLeave: e => { e.currentTarget.style.backgroundColor = 'transparent'; }, children: [
@@ -1228,6 +1239,10 @@ export function McpRow({ mcp, agentsUsing, isExpanded, onToggle, onAddAgent, onR
               TagChip({ key: a, icon: Bot, label: a, onRemove: () => onRemoveAgent(a) })
             )})
           ]}),
+      React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px' }, children: [
+        React.createElement('input', { type: 'checkbox', checked: !!mcp.planSafe, onChange: e => onPlanSafeChange(e.target.checked), style: { accentColor: 'var(--q-accent-primary)' } }),
+        React.createElement('span', { style: { color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'Allow in Plan mode (read-only only)' })
+      ]}),
       React.createElement('div', { style: { marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px' }, children: [
         React.createElement('button', { onClick: onDeleteMcp, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '0', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: [React.createElement(Trash, { size: 14 }), ' Uninstall'] })
       ]})

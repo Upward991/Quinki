@@ -418,10 +418,20 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
       bin = r.bin;
     }
     const servers = readMcpServers().filter((s) => s.id !== id);
-    const server = { id, name, type, source, command: type === 'command' ? command : undefined, args: Array.isArray(p?.args) ? p.args.map(String) : [], env: (p?.env && typeof p.env === 'object') ? p.env : {}, bin, createdAt: Date.now() };
+    const server = { id, name, type, source, command: type === 'command' ? command : undefined, args: Array.isArray(p?.args) ? p.args.map(String) : [], env: (p?.env && typeof p.env === 'object') ? p.env : {}, bin, planSafe: p?.planSafe === true, createdAt: Date.now() };
     servers.push(server);
     saveMcpServers(servers);
     return { ok: true, server };
+  },
+  updateMcpServer: async (p) => {
+    const id = String(p?.id || '').trim();
+    if (!id) return { ok: false, error: 'id is required.' };
+    const servers = readMcpServers();
+    const s = servers.find((x) => x.id === id);
+    if (!s) return { ok: false, error: 'MCP server not found.' };
+    if (typeof p?.planSafe === 'boolean') s.planSafe = p.planSafe;
+    saveMcpServers(servers);
+    return { ok: true, server: s };
   },
   removeMcpServer: async (p) => {
     const id = String(p?.id || '').trim();
