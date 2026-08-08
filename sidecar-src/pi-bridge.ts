@@ -2476,9 +2476,9 @@ class PiBridge {
     let agentConfig: any = null;
     if (agentId) {
       agentConfig = this.#readAgentConfigFile(agentId);
-      if (!agentConfig && agentId === "quinki-expert") {
+      if (!agentConfig && agentId === "app-expert") {
         // Fallback: Expert senza config.json
-        agentConfig = { id: "quinki-expert", name: "App Expert", tools: [], skills: ["app-expert"] };
+        agentConfig = { id: "app-expert", name: "App Expert", tools: [], skills: ["app-expert"] };
       }
     }
     // Inject API keys per-agent (solo le skill dell'agente attivo)
@@ -2551,12 +2551,12 @@ class PiBridge {
   }
 
   #isExpertKey(sk: string): boolean {
-    return sk === "__quinki_expert__";
+    return sk === "__app_expert__";
   }
 
-  // Estrae l'agent ID dalla session key (supporta __quinki_expert__ e __agent_<id>__)
+  // Estrae l'agent ID dalla session key (supporta __app_expert__ e __agent_<id>__)
   #getAgentIdFromKey(sk: string): string | null {
-    if (sk === "__quinki_expert__") return "quinki-expert";
+    if (sk === "__app_expert__") return "app-expert";
     const match = sk.match(/^__agent_(.+)$/);
     if (match) return match[1];
     return null;
@@ -2569,7 +2569,7 @@ class PiBridge {
       if (fs.existsSync(promptPath)) {
         let text = fs.readFileSync(promptPath, "utf8");
         // Sostituisci placeholder per l'Expert
-        if (agentId === "quinki-expert") {
+        if (agentId === "app-expert") {
           text = text.replaceAll("{{FLUTTER_RUN}}", this.#flutterRunCmd());
           text = text.replaceAll("{{FLUTTER_BUILD}}", this.#flutterBuildCmd());
           text = text.replaceAll("{{CONTROL_A}}", this.#expertControlASection());
@@ -2578,7 +2578,7 @@ class PiBridge {
       }
     } catch (e: any) { this.logDebug("agent-prompt-file-error", { agentId, error: e?.message }); }
     // Fallback hardcoded solo per Expert
-    if (agentId === "quinki-expert") return this.#expertSystemPromptFallback(cwd);
+    if (agentId === "app-expert") return this.#expertSystemPromptFallback(cwd);
     // Moderatore: prompt speciale di coordinamento
     if (agentId === "orchestrator") {
       return `Sei il **Moderatore**, il coordinatore degli agenti nella chat. L'utente parla direttamente con te.\n\n## Cosa fai\n- Analizzi la richiesta dell'utente\n- Decidi quale agente delegare per ogni task\n- Coordini gli agenti per risolvere il problema\n- Riporti i risultati all'utente\n\n## Regole\n- Non hai skill o tool diretti — solo coordinamento\n- Rispondi in italiano\n- Sii conciso: spiega cosa fai e chi deleghi`;  
@@ -2682,8 +2682,8 @@ A (finestra main) e B (tu, finestra Expert) sono **la STESSA applicazione, un so
   }
 
   #expertSystemPrompt(cwd?: string): string {
-    // Delega a #readAgentPrompt che legge da ~/.pi/agent/agents/quinki-expert/PROMPT.md
-    return this.#readAgentPrompt("quinki-expert", cwd);
+    // Delega a #readAgentPrompt che legge da ~/.pi/agent/agents/app-expert/PROMPT.md
+    return this.#readAgentPrompt("app-expert", cwd);
   }
 
   #expertSystemPromptFallback(cwd?: string): string {

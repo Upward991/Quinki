@@ -300,11 +300,11 @@ export const mockSessions: Session[] = [
 // ──────────────────────────────────────────────────────────
 export const mockAgents: Agent[] = [
   {
-    id: 'quinki-expert', name: 'App Expert',
+    id: 'app-expert', name: 'App Expert',
     systemPrompt: 'You are App Expert, a helpful coding assistant. You have access to file system tools and can search the web. Always be precise and concise.',
     model: 'glm-4.5', thinking: 'xhigh', isDeletable: false,
     skills: [
-      { name: 'quinki-expert', source: 'local', installed: true },
+      { name: 'app-expert', source: 'local', installed: true },
       { name: 'find-skills', source: 'pi.dev', installed: true },
       { name: 'ddg-search', source: 'pi.dev', installed: true },
       { name: 'ponytail', source: 'pi.dev', installed: true },

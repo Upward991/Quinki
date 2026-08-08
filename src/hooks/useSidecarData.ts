@@ -102,7 +102,7 @@ function mapAgent(a: any) {
     skills: (a.skills || []).map((s: string) => ({ name: s, source: 'local', installed: true })),
     tools: (a.tools || []).map((t: string) => ({ name: t, enabled: true })),
     directory: a.directory || '',
-    isDeletable: a.id !== 'orchestrator' && a.id !== 'quinki-expert',
+    isDeletable: a.id !== 'orchestrator' && a.id !== 'app-expert',
   }
 }
 
@@ -738,10 +738,10 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
           if (meta.availableThinkingLevels) setThinkingLevels(meta.availableThinkingLevels)
           // Agenti in chat + override per-agente (model/thinking)
           const ids = meta.agentId ? String(meta.agentId).split(',').filter(Boolean) : []
-          // Sessione Expert: quinki-expert SEMPRE presente di default (si possono AGGIUNGERE altri agenti)
-          if (sessionKey === '__quinki_expert__' && ids.length === 0) {
-            ids.push('quinki-expert')
-            try { await call('setChatAgents', { sessionKey, agentIds: 'quinki-expert' }) } catch {}
+          // Sessione Expert: app-expert SEMPRE presente di default (si possono AGGIUNGERE altri agenti)
+          if (sessionKey === '__app_expert__' && ids.length === 0) {
+            ids.push('app-expert')
+            try { await call('setChatAgents', { sessionKey, agentIds: 'app-expert' }) } catch {}
           }
           setChatAgentIds(ids)
           setAgentOverrides(meta.agentOverrides || {})
@@ -1231,7 +1231,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
             id: a.id, name: a.name, files,
             description: (a.prompt || '').split('\n').map((l: string) => l.trim()).filter((l: string) => l && !l.startsWith('#')).slice(0, 3).join(' ').slice(0, 140),
             model: a.model || '', thinking: a.thinking || 'off', skills: (a.skills || []).map((s: string) => ({ name: s, source: 'local', installed: true })),
-            tools: (a.tools || []).map((t: string) => ({ name: t, enabled: true })), directory: a.directory || '', isDeletable: a.id !== 'orchestrator' && a.id !== 'quinki-expert',
+            tools: (a.tools || []).map((t: string) => ({ name: t, enabled: true })), directory: a.directory || '', isDeletable: a.id !== 'orchestrator' && a.id !== 'app-expert',
           }
         }))
         setAgents(agentsWithFiles)
@@ -1294,7 +1294,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
   }, [ready, notify])
   // Merge sessions + folders into one list for sidebar (memoized — no flash on re-render)
   const sidebarSessions = useMemo(() => {
-    const chats = sessions.filter(s => s.id !== '__quinki_expert__')
+    const chats = sessions.filter(s => s.id !== '__app_expert__')
     const folderItems = (folders || []).map(f => ({
       id: f.id, title: f.title || f.name || 'Folder', type: 'folder' as const,
       isExpanded: !!f.isExpanded, parentId: f.parentId || null, order: f.order || Date.now(),

@@ -225,7 +225,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   },
   ensureSession: async (p) => {
     // Crea l'entry della sessione se non esiste (idempotente: se esiste già, ritorna quella).
-    // Usato dall'Expert (chiave fissa __quinki_expert__) che NON passa da createSession:
+    // Usato dall'Expert (chiave fissa __app_expert__) che NON passa da createSession:
     // senza entry, send() esce subito (no msg-in, nessuna risposta).
     const s = piBridge!.create(String(p.sessionKey), p.label || "Chat");
     return { sessionKey: p.sessionKey, label: s.label };
@@ -580,7 +580,7 @@ async function bootstrap() {
     // in standalone non c'è, quindi assicuriamo uno stub package.json.
     const workdir = process.env.QUINKI_AGENT_CWD || path.join(homedir(), ".quinki", "workdir");
     fs.mkdirSync(workdir, { recursive: true });
-    // === First-run seed: default agents (Orchestrator, Quinki Expert) + quinki-expert skill ===
+    // === First-run seed: default agents (Orchestrator, Quinki Expert) + app-expert skill ===
     try {
       seedDefaults(agentDir);
       process.stderr.write("[sidecar-marker] seed-defaults-ok\n");

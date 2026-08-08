@@ -728,7 +728,7 @@ export function TagChip({ icon, label, onRemove }) {
 export function AgentRow({ agent, isExpanded, isRenaming, onToggle, onStartRename, onCommitRename, skills, tools, onShowDelete, onAddFile, onAddSkill, onAddTool, onOpenFile, onRemoveTag, onRemoveAll, hideHeader, hideDelete }) {
   const agentSkills = skills.filter(s => agent.skills.some(as => as.name === s.name));
   const agentTools = tools.filter(t => agent.tools.some(at => at.name === t.name));
-  const canRename = agent.id !== 'quinki-expert' && agent.id !== 'orchestrator';
+  const canRename = agent.id !== 'app-expert' && agent.id !== 'orchestrator';
   const renameRef = useRef(null);
 
   return React.createElement('div', { style: { marginBottom: '4px', backgroundColor: 'var(--q-bg-elevated)', border: 'none', borderRadius: '8px', overflow: 'hidden' }, children: [
