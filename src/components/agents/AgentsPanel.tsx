@@ -650,7 +650,7 @@ export function AgentsPanel(props) {
                       isExpanded: expandedMcpId === mcp.id,
                       onToggle: () => setExpandedMcpId(expandedMcpId === mcp.id ? null : mcp.id),
                       onAddAgent: () => setAddItemsModal({ title: `Add agent to ${mcp.name}`, items: agents.map(a => ({ name: a.name, description: a.systemPrompt ? a.systemPrompt.substring(0, 80) + (a.systemPrompt.length > 80 ? '...' : '') : a.id })), initialSelected: agents.filter(a => (a.mcpServers || []).includes(mcp.id)).map(a => a.name), onConfirm: (selected) => doAddAgentsToMcp(mcp.id, selected) }),
-                      onRemoveAgent: (agentName) => doRemoveAgentFromMcp(mcp.id, agentName),
+                      onRemoveAgent: (agentName) => setRemoveTagState({ type: 'mcp-agent', name: agentName, agent: mcp.name }),
                       onRemoveAllAgents: () => doRemoveAllAgentsFromMcp(mcp.id),
                       onDeleteMcp: () => setRemoveTagState({ type: 'mcp-server', name: mcp.id, agent: mcp.name })
                     });
@@ -782,7 +782,9 @@ export function AgentsPanel(props) {
             ? `Delete MCP server "${removeTagState.name}"? It will be uninstalled and removed from all agents.`
             : removeTagState.type === 'agent'
               ? `Remove "${removeTagState.name}" from "${removeTagState.agent}"?`
-              : `Remove ${removeTagState.type} "${removeTagState.name}" from agent "${removeTagState.agent}"?`
+              : removeTagState.type === 'mcp-agent'
+                ? `Remove "${removeTagState.name}" from MCP server "${removeTagState.agent}"?`
+                : `Remove ${removeTagState.type} "${removeTagState.name}" from agent "${removeTagState.agent}"?`
       ]}),
       ConfirmButtons({ onCancel: () => setRemoveTagState(null), onConfirm: () => {
         if (removeTagState.type === 'skill' && removeTagState.agent === '') {
@@ -804,6 +806,9 @@ export function AgentsPanel(props) {
           doRemoveMcpFromAgent(removeTagState.agent, removeTagState.name);
         } else if (removeTagState.type === 'mcp-server') {
           doDeleteMcp(removeTagState.name);
+        } else if (removeTagState.type === 'mcp-agent') {
+          const mm = mcpServers.find(x => x.name === removeTagState.agent);
+          doRemoveAgentFromMcp(mm ? mm.id : removeTagState.agent, removeTagState.name);
         } else {
           setRemoveTagState(null);
         }
@@ -999,7 +1004,7 @@ export function AgentRow({ agent, isExpanded, isRenaming, onToggle, onStartRenam
       ]}),
       agentTools.length === 0
         ? React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)', marginBottom: '16px' }, children: 'No tool assigned.' })
-        : React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '6px' }, children: agentTools.map(t =>
+        : React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '16px' }, children: agentTools.map(t =>
             TagChip({ key: t.name, icon: Wrench, label: t.name, onRemove: () => onRemoveTag('tool', t.name) })
           )}),
 
@@ -1261,10 +1266,7 @@ export function McpRow({ mcp, agentsUsing, isExpanded, onToggle, onAddAgent, onR
     React.createElement('div', { onClick: onToggle, style: { padding: '10px 12px', display: 'flex', alignItems: 'center', cursor: 'pointer', borderRadius: '8px', transition: 'none' }, onMouseEnter: e => { e.currentTarget.style.backgroundColor = 'rgba(201, 112, 132, 0.03)'; }, onMouseLeave: e => { e.currentTarget.style.backgroundColor = 'transparent'; }, children: [
       React.createElement(Plug, { size: 16, style: { color: 'var(--q-tab-accent)', flexShrink: 0 } }),
       React.createElement('div', { style: { width: '8px', flexShrink: 0 } }),
-      React.createElement('div', { style: { flex: 1, minWidth: 0 }, children: [
-        React.createElement('div', { style: { color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }, children: mcp.name }),
-        mcp.description && React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: mcp.description })
-      ]}),
+      React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', flex: 1 }, children: mcp.name }),
       React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-code)', flexShrink: 0 }, children: subtitle }),
       React.createElement('div', { style: { width: '8px', flexShrink: 0 } }),
       React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }, children: agentsUsing.length > 0 ? `${agentsUsing.length} ${agentsUsing.length > 1 ? 'agents' : 'agent'}` : 'None' }),
@@ -1272,23 +1274,19 @@ export function McpRow({ mcp, agentsUsing, isExpanded, onToggle, onAddAgent, onR
       isExpanded ? React.createElement(ChevronUp, { size: 16, style: { color: 'var(--q-text-tertiary)' } }) : React.createElement(ChevronDown, { size: 16, style: { color: 'var(--q-text-tertiary)' } })
     ]}),
     isExpanded && React.createElement('div', { style: { padding: '0 12px 12px 14px' }, children: [
+      React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginBottom: '8px', lineHeight: 1.5, wordBreak: 'break-word' }, children: mcp.description || (subtitle + ': ' + mcp.source) }),
       React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginBottom: '8px', lineHeight: 1.5, wordBreak: 'break-all' }, children: [subtitle, ': ', mcp.source, mcp.args && mcp.args.length > 0 ? `  args: ${mcp.args.join(' ')}` : ''] }),
-      agentsUsing.length === 0
-        ? React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' }, children: [
-            React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: [`No agent uses ${mcp.name}.`] }),
-            MiniButton({ label: 'Add agent', onClick: onAddAgent })
-          ]})
-        : React.createElement(React.Fragment, { children: [
-            React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }, children: [
-              React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }, children: 'Used by:' }),
-              MiniButton({ label: 'Add agent', onClick: onAddAgent }),
-              React.createElement('span', { style: { flex: 1 } }),
-              React.createElement('button', { onClick: onRemoveAllAgents, style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'Remove all' })
-            ]}),
-            React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '6px' }, children: agentsUsing.map(a =>
-              TagChip({ key: a, icon: Bot, label: a, onRemove: () => onRemoveAgent(a) })
-            )})
-          ]}),
+      React.createElement(React.Fragment, { children: [
+        React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }, children: [
+          React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }, children: 'Used by:' }),
+          MiniButton({ label: 'Add agent', onClick: onAddAgent }),
+          React.createElement('span', { style: { flex: 1 } }),
+          agentsUsing.length > 0 && React.createElement('button', { onClick: onRemoveAllAgents, style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'Remove all' })
+        ]}),
+        React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '6px' }, children: agentsUsing.map(a =>
+          TagChip({ key: a, icon: Bot, label: a, onRemove: () => onRemoveAgent(a) })
+        )})
+      ]}),
       React.createElement('div', { style: { marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px' }, children: [
         React.createElement('button', { onClick: onDeleteMcp, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '0', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: [React.createElement(Trash, { size: 14 }), ' Uninstall'] })
       ]})
