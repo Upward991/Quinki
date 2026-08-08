@@ -102,7 +102,7 @@ function mapAgent(a: any) {
     skills: (a.skills || []).map((s: string) => ({ name: s, source: 'local', installed: true })),
     tools: (a.tools || []).map((t: string) => ({ name: t, enabled: true })),
     directory: a.directory || '',
-    isDeletable: a.id !== 'orchestrator',
+    isDeletable: a.id !== 'orchestrator' && a.id !== 'quinki-expert',
   }
 }
 
@@ -1231,7 +1231,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
             id: a.id, name: a.name, files,
             description: (a.prompt || '').split('\n').map((l: string) => l.trim()).filter((l: string) => l && !l.startsWith('#')).slice(0, 3).join(' ').slice(0, 140),
             model: a.model || '', thinking: a.thinking || 'off', skills: (a.skills || []).map((s: string) => ({ name: s, source: 'local', installed: true })),
-            tools: (a.tools || []).map((t: string) => ({ name: t, enabled: true })), directory: a.directory || '', isDeletable: a.id !== 'orchestrator',
+            tools: (a.tools || []).map((t: string) => ({ name: t, enabled: true })), directory: a.directory || '', isDeletable: a.id !== 'orchestrator' && a.id !== 'quinki-expert',
           }
         }))
         setAgents(agentsWithFiles)
