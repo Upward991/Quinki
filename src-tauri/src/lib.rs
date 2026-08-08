@@ -23,6 +23,34 @@ fn is_expert_mode() -> bool {
     false
 }
 
+// MD5 di un file (usa il tool di sistema macOS `md5 -q`)
+fn file_md5(path: &str) -> Option<String> {
+    let out = std::process::Command::new("md5").arg("-q").arg(path).output().ok()?;
+    if !out.status.success() { return None; }
+    let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    if s.is_empty() { None } else { Some(s) }
+}
+
+// Impronta di un'app bundle: (MD5 binario, MD5 sidecar)
+fn app_build_fingerprint(app_root: &str) -> Option<(String, String)> {
+    let bin = format!("{}/Contents/MacOS/quinki", app_root);
+    let sidecar = format!("{}/Contents/Resources/resources/sidecar/quinki-sidecar-ws", app_root);
+    let b = file_md5(&bin)?;
+    let s = file_md5(&sidecar)?;
+    Some((b, s))
+}
+
+// Registra l'MD5 del build che l'Expert STA ESEGUENDO (salvato all'avvio).
+// È la base del confronto: il badge appare solo se il build della main differisce
+// da questo (cioè il cambiamento non è stato ancora applicato a se stesso).
+fn record_running_build() {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
+    let path = format!("{}/.quinki/.expert-running-build.json", home);
+    if let Some((b, s)) = app_build_fingerprint("/Applications/App Expert.app") {
+        let _ = std::fs::write(&path, format!("{{\"binary\":\"{}\",\"sidecar\":\"{}\"}}", b, s));
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 #[tauri::command]
 fn __drag_window(window: tauri::WebviewWindow) {
@@ -524,8 +552,28 @@ fn restart_expert_app() -> Result<(), String> {
 #[tauri::command]
 fn check_expert_needs_restart() -> Result<bool, String> {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
-    let flag = format!("{}/.quinki/.expert-needs-restart", home);
-    Ok(std::path::Path::new(&flag).exists())
+    let stored_path = format!("{}/.quinki/.expert-running-build.json", home);
+
+    // Leggi l'MD5 del build che l'Expert stava eseguendo all'ultimo avvio
+    let stored = std::fs::read_to_string(&stored_path).ok();
+    let stored = stored.map(|t| {
+        let b = t.split("\"binary\":\"").nth(1).and_then(|r| r.split('"').next()).map(String::from);
+        let s = t.split("\"sidecar\":\"").nth(1).and_then(|r| r.split('"').next()).map(String::from);
+        (b, s)
+    });
+
+    let Some((Some(sb), Some(ss))) = stored else {
+        // Mai registrato: registra ora e non mostrare badge (evita falsi positivi al primo avvio)
+        record_running_build();
+        return Ok(false);
+    };
+
+    // Confronta con il build della MAIN: se differisce, la main ha qualcosa
+    // che l'Expert (in esecuzione) non ha applicato ancora → badge
+    let Some((mb, ms)) = app_build_fingerprint("/Applications/Quinki.app") else {
+        return Ok(false);
+    };
+    Ok(mb != sb || ms != ss)
 }
 
 #[tauri::command]
@@ -942,6 +990,8 @@ pub fn run() {
 
       // === Expert mode: redirect main window to expert URL ===
       if is_expert_mode() {
+        // Registra il build che l'Expert sta eseguendo (per il confronto badge)
+        record_running_build();
         if let Some(window) = app.get_webview_window("main") {
           let _ = window.eval("if(!window.location.search.includes('expert=1')){window.location.replace('index.html?expert=1&tab=expert');}");
         }
