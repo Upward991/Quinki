@@ -587,10 +587,7 @@ export function AgentsPanel(props) {
           React.createElement('div', { style: { height: '8px' } }),
 
           // MCP subsection
-          SubSection({ icon: Plug, title: `MCP (${mcpServers.length})`, action: React.createElement(React.Fragment, { children: [
-            MiniButton({ label: 'Create MCP', onClick: () => setMcpInstallModal({ mode: 'create' }) }),
-            MiniButton({ label: 'Install MCP', onClick: () => setMcpInstallModal({ mode: 'install' }) })
-          ]}), children: [
+          SubSection({ icon: Plug, title: `MCP (${mcpServers.length})`, action: MiniButton({ label: 'Install MCP', onClick: () => setMcpInstallModal({}) }), children: [
             SearchBar({ placeholder: 'Search MCP...', value: searchMcp, onChange: setSearchMcp }),
             React.createElement('div', { style: { height: '8px' } }),
             React.createElement('div', { style: { maxHeight: '300px', overflowY: 'auto' }, children:
@@ -758,7 +755,7 @@ export function AgentsPanel(props) {
     // Add items modal
     addItemsModal && React.createElement(AddItemsModal, { title: addItemsModal.title, items: addItemsModal.items, initialSelected: addItemsModal.initialSelected || [], onClose: () => setAddItemsModal(null), onConfirm: (selected) => { addItemsModal.onConfirm(selected); setAddItemsModal(null); } }),
 
-    mcpInstallModal && React.createElement(McpInstallModal, { mode: mcpInstallModal.mode, onClose: () => setMcpInstallModal(null), onInstalled: (list) => { setMcpServers(list); setDirty(true); } }),
+    mcpInstallModal && React.createElement(McpInstallModal, { onClose: () => setMcpInstallModal(null), onInstalled: (list) => { setMcpServers(list); setDirty(true); } }),
 
     // File editor
     fileEditor && React.createElement(FileEditor, { 
@@ -1239,26 +1236,40 @@ export function McpRow({ mcp, agentsUsing, isExpanded, onToggle, onAddAgent, onR
 }
 
 // ── McpInstallModal: installa / crea un MCP server (package o url) ──
-export function McpInstallModal({ mode, onClose, onInstalled }) {
+export function McpInstallModal({ onClose, onInstalled }) {
   const { call } = useSidecarContext();
-  const isCreate = mode === 'create';
-  const [type, setType] = useState(isCreate ? 'command' : 'package');
-  const [name, setName] = useState('');
+  const [type, setType] = useState('package');
   const [source, setSource] = useState('');
   const [cmd, setCmd] = useState('');
   const [args, setArgs] = useState('');
+  const [name, setName] = useState('');
+  const [nameTouched, setNameTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(null);
 
+  const deriveName = (src) => {
+    if (type === 'package') return (src.split('/').pop() || src).replace(/^server-/, '').replace(/^mcp-/, '');
+    if (type === 'url') { try { return new URL(src).hostname.replace(/^www\./, ''); } catch { return src; } }
+    if (type === 'command') return (src.trim().split(/\s+/)[0] || src).split('/').pop();
+    return src;
+  };
+  const autoName = () => {
+    const src = type === 'command' ? cmd : source;
+    return src.trim() ? deriveName(src) : '';
+  };
+  const handleSource = (v) => { setSource(v); if (!nameTouched) setName(deriveName(v)); };
+  const handleCmd = (v) => { setCmd(v); if (!nameTouched) setName(deriveName(v)); };
+  const switchType = (t) => { setType(t); setSource(''); setCmd(''); setArgs(''); setName(''); setNameTouched(false); };
+
   const doInstall = async () => {
-    if (!name.trim()) { setMsg('Name is required.'); return; }
-    if (!isCreate && !source.trim()) { setMsg('Source is required.'); return; }
-    if (isCreate && !cmd.trim()) { setMsg('Command is required.'); return; }
+    if (type === 'command' && !cmd.trim()) { setMsg('Command is required.'); return; }
+    if (type !== 'command' && !source.trim()) { setMsg('Source is required.'); return; }
     setBusy(true); setMsg(null);
     try {
-      const id = name.trim().toLowerCase().replace(/[^a-z0-9._-]+/g, '-');
-      const params = { id, name: name.trim() };
-      if (isCreate) {
+      const finalName = name.trim() || autoName() || 'mcp-' + Date.now();
+      const id = finalName.toLowerCase().replace(/[^a-z0-9._-]+/g, '-') || 'mcp-' + Date.now();
+      const params = { id, name: finalName };
+      if (type === 'command') {
         params.type = 'command';
         params.command = cmd.trim();
         if (args) params.args = args.split(',').map(x => x.trim()).filter(Boolean);
@@ -1275,20 +1286,24 @@ export function McpInstallModal({ mode, onClose, onInstalled }) {
     } catch (e) { setMsg('Error: ' + (e.message || e)); setBusy(false); }
   };
 
-  return Modal({ onClose, title: isCreate ? 'Create MCP server' : 'Install MCP server', children: [
+  return Modal({ onClose, title: 'Install MCP server', children: [
     msg && React.createElement('div', { style: { color: 'var(--q-accent-warning)', fontSize: '13px', fontFamily: 'var(--font-interface)', marginBottom: '12px' }, children: msg }),
-    !isCreate && React.createElement('div', { style: { display: 'flex', gap: '8px', marginBottom: '10px' }, children: [
-      React.createElement('button', { onClick: () => setType('package'), style: { flex: 1, padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid ' + (type === 'package' ? 'var(--q-tab-accent)' : 'var(--q-border)'), cursor: 'pointer', backgroundColor: type === 'package' ? 'var(--q-tab-accent)' : 'transparent', color: type === 'package' ? 'var(--q-bg)' : 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'Package (npm)' }),
-      React.createElement('button', { onClick: () => setType('url'), style: { flex: 1, padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid ' + (type === 'url' ? 'var(--q-tab-accent)' : 'var(--q-border)'), cursor: 'pointer', backgroundColor: type === 'url' ? 'var(--q-tab-accent)' : 'transparent', color: type === 'url' ? 'var(--q-bg)' : 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'URL (remote)' })
+    React.createElement('div', { style: { display: 'flex', gap: '8px', marginBottom: '10px' }, children: [
+      React.createElement('button', { onClick: () => switchType('package'), style: { flex: 1, padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid ' + (type === 'package' ? 'var(--q-tab-accent)' : 'var(--q-border)'), cursor: 'pointer', backgroundColor: type === 'package' ? 'var(--q-tab-accent)' : 'transparent', color: type === 'package' ? 'var(--q-bg)' : 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'Package (npm)' }),
+      React.createElement('button', { onClick: () => switchType('url'), style: { flex: 1, padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid ' + (type === 'url' ? 'var(--q-tab-accent)' : 'var(--q-border)'), cursor: 'pointer', backgroundColor: type === 'url' ? 'var(--q-tab-accent)' : 'transparent', color: type === 'url' ? 'var(--q-bg)' : 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'URL (remote)' }),
+      React.createElement('button', { onClick: () => switchType('command'), style: { flex: 1, padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid ' + (type === 'command' ? 'var(--q-tab-accent)' : 'var(--q-border)'), cursor: 'pointer', backgroundColor: type === 'command' ? 'var(--q-tab-accent)' : 'transparent', color: type === 'command' ? 'var(--q-bg)' : 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'Command' })
     ]}),
-    React.createElement(FieldInput, { placeholder: 'Name (e.g. Files)', value: name, onChange: setName, mb: true }),
-    isCreate
-      ? React.createElement(FieldInput, { placeholder: 'Command (e.g. bunx some-mcp-server)', value: cmd, onChange: setCmd, mb: true })
-      : React.createElement(FieldInput, { placeholder: type === 'url' ? 'https://example.com/mcp' : 'npm package (e.g. @modelcontextprotocol/server-filesystem)', value: source, onChange: setSource, mb: true }),
-    (isCreate || type === 'package') && React.createElement(FieldInput, { placeholder: 'Args (comma separated, e.g. /Users/andrea/Documents)', value: args, onChange: setArgs, mb: true }),
+    type === 'command'
+      ? React.createElement(FieldInput, { placeholder: 'Command (e.g. /usr/local/bin/mcp-server or bunx some-mcp-server)', value: cmd, onChange: handleCmd, mb: true })
+      : React.createElement(FieldInput, { placeholder: type === 'url' ? 'https://example.com/mcp' : 'npm package (e.g. @modelcontextprotocol/server-filesystem)', value: source, onChange: handleSource, mb: true }),
+    React.createElement('input', { type: 'text', placeholder: type === 'command' ? (autoName() || 'Name (auto from command)') : (autoName() || 'Name (auto)'), value: name, onChange: e => { setName(e.target.value); setNameTouched(true); }, onFocus: e => { if (!name.trim()) setName(autoName()); }, style: { width: '100%', height: '36px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-md)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none', marginBottom: '8px' } }),
+    (type !== 'url') && React.createElement(React.Fragment, { children: [
+      React.createElement(FieldInput, { placeholder: 'Args (optional, comma separated)', value: args, onChange: setArgs, mb: false }),
+      React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: '11px', fontFamily: 'var(--font-interface)', marginTop: '4px', marginBottom: '12px', lineHeight: 1.4 }, children: 'Args = extra parameters passed to the server when launched. E.g. for the Filesystem server this is the list of folders it can access, like /Users/andrea/Documents.' })
+    ]}),
     React.createElement('div', { style: { display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px', marginTop: '4px' }, children: [
       React.createElement('button', { onClick: onClose, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'Cancel' }),
-      React.createElement('button', { onClick: doInstall, disabled: busy, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)', opacity: busy ? 0.6 : 1 }, children: busy ? 'Working...' : (isCreate ? 'Create' : 'Install') })
+      React.createElement('button', { onClick: doInstall, disabled: busy, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)', opacity: busy ? 0.6 : 1 }, children: busy ? (type === 'package' ? 'Installing...' : 'Adding...') : 'Install' })
     ]})
   ]});
 }
