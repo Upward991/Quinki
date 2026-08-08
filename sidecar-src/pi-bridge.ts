@@ -4,6 +4,16 @@ import { homedir } from "node:os";
 import { execSync } from "node:child_process";
 import { Type } from "typebox";
 import { defineTool, formatSkillsForPrompt } from "./vendor/@earendil-works/pi-coding-agent/dist/index.js";
+import {
+  readMcpServers,
+  StdioMcpClient,
+  httpListTools,
+  httpCallTool,
+  mcpResultToText,
+  mcpSchemaToTypeBox,
+  mcpInstallDir,
+  findBunPath,
+} from "./mcp";
 import { getFirstAvailableModelId, readModelsFromDisk } from "./models";
 import { readProvidersConfig } from "./providers";
 import { decryptString } from "./crypto";
@@ -120,6 +130,7 @@ class PiBridge {
   #entries = new Map<string, SessionEntry>();
   #firstUserText = new Map<string, string>(); // primo msg utente per auto-title
   #active = new Map<string, any>();
+  #mcpClients = new Map<string, StdioMcpClient>();  // chiave `${sessionKey}:${serverId}`
   #wss = new Map<string, any>();
   #unsubs = new Map<string, () => void>();
   #prompts = new Map<string, Promise<void>>();
@@ -3017,6 +3028,86 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     this.logDebug("send-direct-done", { sessionKey: sk, agentName, responseLen: responseText.length });
   }
 
+  async #buildMcpTools(sk: string, agentId: string | null): Promise<any[]> {
+    const agentCfg = agentId ? this.#readAgentConfigFile(agentId) : null;
+    const ids: string[] = Array.isArray(agentCfg?.mcpServers) ? agentCfg.mcpServers : [];
+    if (ids.length === 0) return [];
+    const self = this;
+    const tools: any[] = [];
+    const used = new Set<string>(["skill", "delegate_to_agent"]);
+    for (const sid of ids) {
+      const server = readMcpServers().find((s: any) => s.id === sid);
+      if (!server) {
+        this.logDebug("mcp-server-missing", { sessionKey: sk, serverId: sid });
+        continue;
+      }
+      try {
+        let list: any[] = [];
+        if (server.type === "url") {
+          list = await httpListTools(server.source, server.env);
+        } else {
+          const client = this.#getMcpClient(sk, server);
+          list = await client.listTools();
+        }
+        if (!Array.isArray(list)) list = [];
+        for (const t of list) {
+          const rawName = typeof t?.name === "string" && t.name ? t.name : "";
+          if (!rawName) continue;
+          let name = rawName;
+          let i = 1;
+          while (used.has(name)) name = `${rawName}_${i++}`;
+          used.add(name);
+          const desc = `${t?.description || ""} (MCP server: ${server.name})`.trim();
+          const parameters = mcpSchemaToTypeBox(t?.inputSchema || {});
+          const serverRef = server;
+          tools.push(defineTool({
+            name,
+            label: server.name,
+            description: desc || `Tool from MCP server ${server.name}`,
+            promptSnippet: `${name}: MCP tool from server "${server.name}"`,
+            promptGuidelines: [`Tool provided by MCP server "${server.name}". Call it with the documented arguments.`],
+            parameters,
+            async execute(_toolCallId: string, params: any): Promise<any> {
+              try {
+                let res: any;
+                if (serverRef.type === "url") {
+                  res = await httpCallTool(serverRef.source, rawName, params || {}, serverRef.env);
+                } else {
+                  res = await self.#getMcpClient(sk, serverRef).callTool(rawName, params || {});
+                }
+                return { content: [{ type: "text", text: mcpResultToText(res) }] };
+              } catch (e: any) {
+                return { content: [{ type: "text", text: `MCP tool error (${serverRef.name} / ${rawName}): ${e?.message || e}` }], isError: true };
+              }
+            },
+          }));
+        }
+        this.logDebug("mcp-tools-registered", { sessionKey: sk, serverId: sid, toolCount: list.length });
+      } catch (e: any) {
+        this.logDebug("mcp-connect-error", { sessionKey: sk, serverId: sid, error: String(e?.message || e) });
+      }
+    }
+    return tools;
+  }
+
+  #getMcpClient(sk: string, server: any): StdioMcpClient {
+    const key = `${sk}:${server.id}`;
+    let c = this.#mcpClients.get(key);
+    if (!c) {
+      const bin = server.bin || "";
+      const bun = findBunPath();
+      const dir = mcpInstallDir(server.id);
+      const binPath = path.join(dir, "node_modules", ".bin", bin);
+      const launch: string[] = [];
+      if (bun) launch.push(bun, binPath, ...(server.args || []));
+      else launch.push(binPath, ...(server.args || []));
+      c = new StdioMcpClient(server.id, launch, dir, server.env);
+      this.#mcpClients.set(key, c);
+    }
+    return c;
+  }
+
+  // ── MCP custom tools (registrate in createAgentSession) ──
   #buildSkillTool(getPi: () => any): any {
     const self = this;
     return defineTool({
@@ -3810,6 +3901,13 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
           if (delegateTool) customTools.push(delegateTool);
           this.logDebug("delegate-tool-registered", { sessionKey: sk, agentId: resolvedAgentId, isOrchestrator });
         }
+      }
+      // MCP tools: server abilitati sull'agente (mcpServers nel config)
+      try {
+        const mcpTools = await this.#buildMcpTools(sk, resolvedAgentId);
+        if (mcpTools.length > 0) customTools.push(...mcpTools);
+      } catch (e: any) {
+        this.logDebug("mcp-tools-error", { sessionKey: sk, error: String(e?.message || e) });
       }
       this.logDebug("createAgentSession-customTools", { sessionKey: sk, resolvedAgentId, customToolsCount: customTools.length, toolNames: customTools.map((t: any) => t?.name || '?') });
       const result = await this.#sdk.createAgentSession({

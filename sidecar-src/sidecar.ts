@@ -23,6 +23,13 @@ import * as path from "node:path";
 import * as fs from "node:fs";
 import { homedir } from "node:os";
 import {
+  readMcpServers,
+  saveMcpServers,
+  installPackageServer,
+  mcpInstallDir,
+  killServerProcs,
+} from "./mcp";
+import {
   PiBridge,
   setPiBridgeInstance,
   getSystemPromptIPC,
@@ -391,6 +398,57 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   debugLog: async (p) => { if (piBridge && p && typeof p.tag === 'string') piBridge.logDebug(p.tag, p.data); return { ok: true }; },
   log_debug: async (p) => handlers.debugLog(p),
   clearDebugLog: async () => { piBridge!.clearDebugLog(); return { log: [] }; },
+
+  // === MCP (Model Context Protocol) ===
+  listMcpServers: async () => ({ servers: readMcpServers() }),
+  addMcpServer: async (p) => {
+    const id = String(p?.id || '').trim();
+    const name = String(p?.name || '').trim();
+    const type = p?.type === 'url' ? 'url' : 'package';
+    const source = String(p?.source || '').trim();
+    if (!id || !name || !source) return { ok: false, error: 'id, name and source are required.' };
+    if (!/^[a-zA-Z0-9._-]{1,64}$/.test(id)) return { ok: false, error: 'Invalid id: use letters, digits, . _ -' };
+    let bin: string | undefined;
+    if (type === 'package') {
+      const r = installPackageServer(id, source);
+      if (r.error) return { ok: false, error: r.error };
+      bin = r.bin;
+    }
+    const servers = readMcpServers().filter((s) => s.id !== id);
+    const server = { id, name, type, source, args: Array.isArray(p?.args) ? p.args.map(String) : [], env: (p?.env && typeof p.env === 'object') ? p.env : {}, bin, createdAt: Date.now() };
+    servers.push(server);
+    saveMcpServers(servers);
+    return { ok: true, server };
+  },
+  removeMcpServer: async (p) => {
+    const id = String(p?.id || '').trim();
+    if (!id) return { ok: false, error: 'id is required.' };
+    // Rimuovi dai config di tutti gli agenti
+    try {
+      const agentsDir = path.join(homedir(), '.quinki', 'agents');
+      if (fs.existsSync(agentsDir)) {
+        for (const dir of fs.readdirSync(agentsDir)) {
+          const cfgPath = path.join(agentsDir, dir, 'config.json');
+          if (!fs.existsSync(cfgPath)) continue;
+          try {
+            const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
+            if (Array.isArray(cfg.mcpServers) && cfg.mcpServers.includes(id)) {
+              cfg.mcpServers = cfg.mcpServers.filter((x) => x !== id);
+              fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
+            }
+          } catch {}
+        }
+      }
+    } catch {}
+    // Kill processi attivi e rimozione TOTALE della cartella installata
+    killServerProcs(id);
+    try { fs.rmSync(mcpInstallDir(id), { recursive: true, force: true }); } catch {}
+    // Rimuovi dal registro
+    const servers = readMcpServers().filter((s) => s.id !== id);
+    saveMcpServers(servers);
+    piBridge?.logDebug('mcp-removed', { id });
+    return { ok: true };
+  },
 
   // === P3: metodi IPC mancanti (settings/providers/attachments/folders/update/preflight) ===
   getSettings: async () => getSettings(),

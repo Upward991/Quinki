@@ -33,6 +33,8 @@ export function AgentsPanel(props) {
   const [toolDisableConfirm, setToolDisableConfirm] = useState(null); // { type, agentName }
   const [removeTagState, setRemoveTagState] = useState(null); // { type, name, agent }
   const [addItemsModal, setAddItemsModal] = useState(null); // { title, items, onConfirm }
+  const [mcpServers, setMcpServers] = useState([]);
+  const [mcpModalAgent, setMcpModalAgent] = useState(null);
   const [fileEditor, setFileEditor] = useState(null); // { agentId, fileName } or { skillName, fileName }
   const [addFileAgent, setAddFileAgent] = useState(null);
   const [installing, setInstalling] = useState(false);
@@ -61,6 +63,10 @@ export function AgentsPanel(props) {
           setPlanModeTools(res.config.planModeTools);
         }
       } catch (e) { console.error('Failed to load global config:', e); }
+      try {
+        const res = await call('listMcpServers', {});
+        if (!cancelled && res?.servers) setMcpServers(res.servers);
+      } catch (e) { console.error('Failed to load mcp servers:', e); }
     })();
     return () => { cancelled = true; };
   }, [call]);
@@ -155,6 +161,30 @@ export function AgentsPanel(props) {
     } catch (e) { setErrorModal(e.message || String(e)); }
   };
 
+  const doAddMcpToAgent = async (agentId, mcpIds) => {
+    if (!call) return;
+    const agent = agents.find(a => a.id === agentId);
+    const existing = (agent?.mcpServers || []).map(x => x);
+    const merged = [...new Set([...existing, ...mcpIds])];
+    try {
+      await call('updateAgent', { id: agentId, config: { mcpServers: merged } });
+      await refreshAgents();
+      setDirty(true);
+    } catch (e) { setErrorModal(e.message || String(e)); }
+  };
+
+  const doRemoveMcpFromAgent = async (agentName, mcpId) => {
+    const agent = agents.find(a => a.name === agentName);
+    if (!agent || !call) return;
+    const updated = (agent.mcpServers || []).filter(x => x !== mcpId);
+    try {
+      await call('updateAgent', { id: agent.id, config: { mcpServers: updated } });
+      await refreshAgents();
+      setRemoveTagState(null);
+      setDirty(true);
+    } catch (e) { setErrorModal(e.message || String(e)); }
+  };
+
   const doRemoveAllFromAgent = async (type, agentName) => {
     const agent = agents.find(a => a.name === agentName);
     if (!agent || !call) return;
@@ -166,6 +196,8 @@ export function AgentsPanel(props) {
       } else if (type === 'files') {
         // Files: just refresh (files are on disk, would need separate delete)
         // For now just close the modal
+      } else if (type === 'mcp') {
+        await call('updateAgent', { id: agent.id, config: { mcpServers: [] } });
       }
       await refreshAgents();
       setRemoveAllState(null);
@@ -455,6 +487,8 @@ export function AgentsPanel(props) {
               onAddFile: () => setAddFileAgent(agent.name),
               onAddSkill: () => setAddItemsModal({ title: `Add skill to ${agent.name}`, items: skills.map(s => ({ name: s.name, description: s.description })), initialSelected: (agent.skills||[]).map(s=>s.name||s), onConfirm: (selected) => doAddSkillsToAgent(agent.id, selected) }),
               onAddTool: () => setAddItemsModal({ title: `Add tool to ${agent.name}`, items: tools.map(t => ({ name: t.name, description: t.description })), initialSelected: (agent.tools||[]).map(t=>t.name||t), onConfirm: (selected) => doAddToolsToAgent(agent.id, selected) }),
+              mcpServers,
+              onAddMcp: () => setMcpModalAgent(agent),
               onOpenFile: (fileName) => setFileEditor({ agentId: agent.id, fileName }),
               onRemoveTag: (type, name) => setRemoveTagState({ type, name, agent: agent.name }),
               onRemoveAll: (type) => setRemoveAllState({ type, agentName: agent.name })
@@ -625,6 +659,8 @@ export function AgentsPanel(props) {
           else setRemoveTagState(null);
         } else if (removeTagState.type === 'file') {
           doRemoveFileFromAgent(removeTagState.agent, removeTagState.name);
+        } else if (removeTagState.type === 'mcp') {
+          doRemoveMcpFromAgent(removeTagState.agent, removeTagState.name);
         } else {
           setRemoveTagState(null);
         }
@@ -633,6 +669,7 @@ export function AgentsPanel(props) {
 
     // Add items modal
     addItemsModal && React.createElement(AddItemsModal, { title: addItemsModal.title, items: addItemsModal.items, initialSelected: addItemsModal.initialSelected || [], onClose: () => setAddItemsModal(null), onConfirm: (selected) => { addItemsModal.onConfirm(selected); setAddItemsModal(null); } }),
+    mcpModalAgent && React.createElement(McpModal, { agent: mcpModalAgent, mcpServers, onClose: () => setMcpModalAgent(null), onAddToAgent: doAddMcpToAgent, onServersChanged: setMcpServers }),
 
     // File editor
     fileEditor && React.createElement(FileEditor, { 
@@ -725,9 +762,10 @@ export function TagChip({ icon, label, onRemove }) {
   ]});
 }
 
-export function AgentRow({ agent, isExpanded, isRenaming, onToggle, onStartRename, onCommitRename, skills, tools, onShowDelete, onAddFile, onAddSkill, onAddTool, onOpenFile, onRemoveTag, onRemoveAll, hideHeader, hideDelete }) {
+export function AgentRow({ agent, isExpanded, isRenaming, onToggle, onStartRename, onCommitRename, skills, tools, mcpServers, onShowDelete, onAddFile, onAddSkill, onAddTool, onAddMcp, onOpenFile, onRemoveTag, onRemoveAll, hideHeader, hideDelete }) {
   const agentSkills = skills.filter(s => agent.skills.some(as => as.name === s.name));
   const agentTools = tools.filter(t => agent.tools.some(at => at.name === t.name));
+  const agentMcps = (mcpServers || []).filter(s => (agent.mcpServers || []).some(id => id === s.id));
   const canRename = agent.id !== 'app-expert' && agent.id !== 'orchestrator';
   const renameRef = useRef(null);
 
@@ -742,7 +780,7 @@ export function AgentRow({ agent, isExpanded, isRenaming, onToggle, onStartRenam
             React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '14px', fontWeight: 600, fontFamily: 'var(--font-interface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: agent.name }),
             canRename && React.createElement('button', { onClick: e => { e.stopPropagation(); onStartRename(); }, style: { background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex', flexShrink: 0 }, children: React.createElement(Pencil, { size: 13, style: { color: 'var(--q-text-tertiary)' } }) })
           ]}),
-      React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', flexShrink: 0 }, children: [agentSkills.length, ' skill · ', agentTools.length, ' tool'] }),
+      React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', flexShrink: 0 }, children: [agentSkills.length, ' skill · ', agentTools.length, ' tool · ', agentMcps.length, ' mcp'] }),
       React.createElement('div', { style: { width: '8px', flexShrink: 0 } }),
       isExpanded ? React.createElement(ChevronUp, { size: 16, style: { color: 'var(--q-text-tertiary)' } }) : React.createElement(ChevronDown, { size: 16, style: { color: 'var(--q-text-tertiary)' } })
     ]}),
@@ -804,6 +842,21 @@ export function AgentRow({ agent, isExpanded, isRenaming, onToggle, onStartRenam
         ? React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'No tool assigned.' })
         : React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '6px' }, children: agentTools.map(t =>
             TagChip({ key: t.name, icon: Wrench, label: t.name, onRemove: () => onRemoveTag('tool', t.name) })
+          )}),
+
+      // MCP
+      React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', marginTop: '12px' }, children: [
+        React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }, children: ['MCP (', agentMcps.length, ')'] }),
+        MiniButton({ label: 'Add MCP', onClick: onAddMcp }),
+        agentMcps.length > 0 && React.createElement(React.Fragment, { children: [
+          React.createElement('span', { style: { flex: 1 } }),
+          React.createElement('button', { onClick: () => onRemoveAll('mcp'), style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'Remove all' })
+        ]})
+      ]}),
+      agentMcps.length === 0
+        ? React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'No MCP server assigned.' })
+        : React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '16px' }, children: agentMcps.map(s =>
+            TagChip({ key: s.id, icon: Plug, label: s.name, onRemove: () => onRemoveTag('mcp', s.id) })
           )}),
 
       // Delete agent
@@ -1055,5 +1108,94 @@ function NewFileForm({ onCreate, onCancel }) {
   return React.createElement(React.Fragment, { children: [
     React.createElement('input', { type: 'text', placeholder: 'File name (e.g. NOTES.md)', autoFocus: true, value: fileName, onChange: e => setFileName(e.target.value), style: { width: '100%', height: '36px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none', marginBottom: '16px' }, onKeyDown: e => { if (e.key === 'Enter' && fileName.trim()) onCreate(fileName); } }),
     ConfirmButtons({ onCancel, onConfirm: () => onCreate(fileName), confirmLabel: 'Create' })
+  ]});
+}
+// ── MCP modal (install / manage / add to agent) ──
+export function McpModal({ agent, mcpServers, onClose, onAddToAgent, onServersChanged }) {
+  const { call } = useSidecarContext();
+  const [servers, setServers] = useState(mcpServers || []);
+  const [selected, setSelected] = useState(() => new Set((agent.mcpServers || []).filter(id => (mcpServers || []).some(s => s.id === id))));
+  const [showInstall, setShowInstall] = useState(false);
+  const [type, setType] = useState('package');
+  const [name, setName] = useState('');
+  const [source, setSource] = useState('');
+  const [args, setArgs] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
+  const [removeConfirmId, setRemoveConfirmId] = useState(null);
+
+  const refresh = async () => {
+    try {
+      const res = await call('listMcpServers', {});
+      const list = res?.servers || [];
+      setServers(list);
+      if (onServersChanged) onServersChanged(list);
+    } catch (e) {}
+  };
+
+  const doInstall = async () => {
+    if (!name.trim() || !source.trim()) { setMsg('Name and source are required.'); return; }
+    setBusy(true); setMsg(null);
+    try {
+      const id = name.trim().toLowerCase().replace(/[^a-z0-9._-]+/g, '-');
+      const res = await call('addMcpServer', { id, name: name.trim(), type, source: source.trim(), args: args ? args.split(',').map(x => x.trim()).filter(Boolean) : [] });
+      if (res?.ok === false) { setMsg('Install failed: ' + (res.error || 'unknown error')); setBusy(false); return; }
+      setMsg('Installed successfully.');
+      setName(''); setSource(''); setArgs(''); setShowInstall(false);
+      await refresh();
+    } catch (e) { setMsg('Install error: ' + (e.message || e)); }
+    setBusy(false);
+  };
+
+  const doRemove = async (id) => {
+    setBusy(true);
+    try {
+      await call('removeMcpServer', { id });
+      setRemoveConfirmId(null);
+      await refresh();
+    } catch (e) { setMsg('Remove error: ' + (e.message || e)); }
+    setBusy(false);
+  };
+
+  const toggleSel = (id) => setSelected(prev => {
+    const n = new Set(prev);
+    if (n.has(id)) n.delete(id); else n.add(id);
+    return n;
+  });
+
+  return Modal({ onClose, title: `MCP servers for ${agent.name}`, children: [
+    msg && React.createElement('div', { style: { color: 'var(--q-accent-warning)', fontSize: '13px', fontFamily: 'var(--font-interface)', marginBottom: '12px' }, children: msg }),
+    servers.length === 0
+      ? React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)', marginBottom: '12px' }, children: 'No MCP servers installed. Install one below.' })
+      : React.createElement('div', { style: { maxHeight: '220px', overflowY: 'auto', marginBottom: '12px' }, children: servers.map(s => React.createElement('div', { key: s.id, style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: 'var(--radius-md)', backgroundColor: selected.has(s.id) ? 'rgba(157,139,217,0.10)' : 'transparent', marginBottom: '4px' }, children: [
+            React.createElement('input', { type: 'checkbox', checked: selected.has(s.id), onChange: () => toggleSel(s.id), style: { accentColor: 'var(--q-accent-primary)' } }),
+            React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', flex: 1 }, children: s.name }),
+            React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-code)' }, children: s.type === 'url' ? 'url' : ('package' + (s.bin ? ' ✓' : '')) }),
+            React.createElement('button', { onClick: () => setRemoveConfirmId(s.id), style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'Uninstall' })
+          ]}))}),
+    React.createElement('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: '8px', marginBottom: '12px' }, children: [
+      MiniButton({ label: showInstall ? 'Close install form' : 'Install new MCP', onClick: () => setShowInstall(!showInstall) }),
+      React.createElement('button', { onClick: () => { onAddToAgent(agent.id, [...selected]); onClose(); }, onMouseEnter: e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }, onMouseLeave: e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)' }, children: 'Add to agent' })
+    ]}),
+    showInstall && React.createElement('div', { style: { borderTop: '1px solid var(--q-border)', paddingTop: '12px' }, children: [
+      React.createElement('div', { style: { color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', marginBottom: '8px' }, children: 'Install new MCP server' }),
+      React.createElement('div', { style: { display: 'flex', gap: '8px', marginBottom: '8px' }, children: [
+        React.createElement('button', { onClick: () => setType('package'), style: { flex: 1, padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid ' + (type === 'package' ? 'var(--q-tab-accent)' : 'var(--q-border)'), cursor: 'pointer', backgroundColor: type === 'package' ? 'var(--q-tab-accent)' : 'transparent', color: type === 'package' ? 'var(--q-bg)' : 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'Package (npm)' }),
+        React.createElement('button', { onClick: () => setType('url'), style: { flex: 1, padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid ' + (type === 'url' ? 'var(--q-tab-accent)' : 'var(--q-border)'), cursor: 'pointer', backgroundColor: type === 'url' ? 'var(--q-tab-accent)' : 'transparent', color: type === 'url' ? 'var(--q-bg)' : 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'URL (remote)' })
+      ]}),
+      React.createElement('input', { type: 'text', placeholder: 'Name (e.g. Files)', value: name, onChange: e => setName(e.target.value), style: { width: '100%', height: '36px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-md)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none', marginBottom: '8px' } }),
+      React.createElement('input', { type: 'text', placeholder: type === 'url' ? 'https://example.com/mcp' : 'npm package (e.g. @modelcontextprotocol/server-filesystem)', value: source, onChange: e => setSource(e.target.value), style: { width: '100%', height: '36px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-md)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none', marginBottom: '8px' } }),
+      type === 'package' && React.createElement('input', { type: 'text', placeholder: 'Args (comma separated, e.g. /Users/andrea/Documents)', value: args, onChange: e => setArgs(e.target.value), style: { width: '100%', height: '36px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-md)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none', marginBottom: '8px' } }),
+      React.createElement('div', { style: { display: 'flex', justifyContent: 'flex-end' }, children: [
+        React.createElement('button', { onClick: doInstall, disabled: busy, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)', opacity: busy ? 0.6 : 1 }, children: busy ? 'Installing...' : 'Install' })
+      ]})
+    ]}),
+    removeConfirmId && React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 220, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: () => setRemoveConfirmId(null), children:
+      React.createElement('div', { style: { backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '400px', width: '90%' }, onClick: e => e.stopPropagation(), children: [
+        React.createElement('div', { style: { color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '12px' }, children: 'Uninstall MCP server?' }),
+        React.createElement('div', { style: { color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', marginBottom: '20px' }, children: 'This removes the server entirely: installed files, config, and it is removed from all agents.' }),
+        ConfirmButtons({ onCancel: () => setRemoveConfirmId(null), onConfirm: () => doRemove(removeConfirmId), confirmLabel: 'Uninstall', danger: true })
+      ]})
+    })
   ]});
 }
