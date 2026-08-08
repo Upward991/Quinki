@@ -707,6 +707,12 @@ pub fn run() {
     // Write our PID
     let _ = fs::File::create(&pid_file).and_then(|mut f| f.write_all(std::process::id().to_string().as_bytes()));
 
+    // Window-state file must differ per app so main and App Expert keep independent size/position.
+    let window_state_filename = if is_expert_mode() {
+      ".expert-window-state.json".to_string()
+    } else {
+      ".window-state.json".to_string()
+    };
     let app = tauri::Builder::default()
     .invoke_handler(tauri::generate_handler![
         set_window_bg_color,
@@ -745,19 +751,22 @@ pub fn run() {
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_fs::init())
     .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
-    .plugin(tauri_plugin_window_state::Builder::default().build())
+    .plugin(tauri_plugin_window_state::Builder::default()
+      .with_state_flags(tauri_plugin_window_state::StateFlags::all())
+      .with_filename(window_state_filename.clone())
+      .build())
     .plugin(tauri_plugin_log::Builder::default()
       .level(log::LevelFilter::Info)
       .build())
-    .setup(|app| {
+    .setup(move |app| {
       // === Window state: restore sub-windows that were open ===
       // With create:false, sub-windows are NOT created at startup.
       // We need to create them if they were visible in the saved state.
       // The window-state plugin will then restore their position/size.
       {
         use std::collections::HashMap;
-        let app_dir = app.path().app_data_dir().unwrap_or_default();
-        let state_file = app_dir.join(".window-state.json");
+        let app_dir = app.path().app_config_dir().unwrap_or_default();
+        let state_file = app_dir.join(&window_state_filename);
         let saved: HashMap<String, serde_json::Value> = if state_file.exists() {
           std::fs::read_to_string(&state_file)
             .ok()
