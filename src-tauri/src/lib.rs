@@ -932,12 +932,17 @@ pub fn run() {
       // Close-to-tray: ONLY main window hides. Sub-windows close normally.
       if let WindowEvent::CloseRequested { api, .. } = event {
         if is_expert_mode() {
-          // Expert app: close-to-tray (hide, don't quit)
+          // Expert app: close-to-tray (hide, don't quit) — save window state first
           if window.label() == "main" && !SHOULD_EXIT.load(Ordering::SeqCst) {
+            use tauri_plugin_window_state::AppHandleExt;
+            let _ = window.app_handle().save_window_state(tauri_plugin_window_state::StateFlags::all());
             let _ = window.hide();
             api.prevent_close();
           }
         } else if window.label() == "main" && !SHOULD_EXIT.load(Ordering::SeqCst) {
+          // Main app: close-to-tray (hide, don't quit) — save window state first
+          use tauri_plugin_window_state::AppHandleExt;
+          let _ = window.app_handle().save_window_state(tauri_plugin_window_state::StateFlags::all());
           let _ = window.hide();
           api.prevent_close();
         } else if window.label() != "main" {
