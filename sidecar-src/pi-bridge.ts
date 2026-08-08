@@ -12,6 +12,7 @@ import {
   mcpResultToText,
   mcpSchemaToTypeBox,
   mcpInstallDir,
+  resolveCommandLaunch,
   findBunPath,
 } from "./mcp";
 import { getFirstAvailableModelId, readModelsFromDisk } from "./models";
@@ -3094,13 +3095,19 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     const key = `${sk}:${server.id}`;
     let c = this.#mcpClients.get(key);
     if (!c) {
-      const bin = server.bin || "";
-      const bun = findBunPath();
-      const dir = mcpInstallDir(server.id);
-      const binPath = path.join(dir, "node_modules", ".bin", bin);
-      const launch: string[] = [];
-      if (bun) launch.push(bun, binPath, ...(server.args || []));
-      else launch.push(binPath, ...(server.args || []));
+      let launch: string[] = [];
+      let dir: string | undefined;
+      if (server.type === "command") {
+        launch = resolveCommandLaunch(Array.isArray(server.command) ? server.command : []);
+        dir = undefined;
+      } else {
+        const bin = server.bin || "";
+        const bun = findBunPath();
+        dir = mcpInstallDir(server.id);
+        const binPath = path.join(dir, "node_modules", ".bin", bin);
+        if (bun) launch = [bun, binPath, ...(server.args || [])];
+        else launch = [binPath, ...(server.args || [])];
+      }
       c = new StdioMcpClient(server.id, launch, dir, server.env);
       this.#mcpClients.set(key, c);
     }

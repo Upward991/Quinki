@@ -14,7 +14,8 @@ import { Type } from "typebox";
 export interface McpServerConfig {
   id: string;
   name: string;
-  type: "package" | "url";
+  type: "package" | "url" | "command";
+  command?: string[]; // per type=command: comando custom da lanciare (es. ["bunx","some-pkg"])
   source: string; // npm package name (package) or URL (url)
   args: string[]; // extra launch arguments (e.g. paths for filesystem server)
   env: Record<string, string>;
@@ -44,6 +45,16 @@ export function saveMcpServers(servers: McpServerConfig[]): void {
     fs.mkdirSync(path.dirname(MCP_REGISTRY), { recursive: true });
     fs.writeFileSync(MCP_REGISTRY, JSON.stringify({ servers }, null, 2));
   } catch {}
+}
+
+// Risolve un comando custom: "bun x …", "bunx …", "npx …" vengono mappati sul Bun presente.
+export function resolveCommandLaunch(cmd: string[]): string[] {
+  if (!cmd || cmd.length === 0) return cmd || [];
+  const bun = findBunPath();
+  if (!bun) return cmd;
+  if (cmd[0] === "bun") return [bun, ...cmd.slice(1)];
+  if (cmd[0] === "bunx" || cmd[0] === "npx") return [bun, "x", ...cmd.slice(1)];
+  return cmd;
 }
 
 export function findBunPath(): string | null {

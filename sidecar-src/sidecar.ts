@@ -404,9 +404,12 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   addMcpServer: async (p) => {
     const id = String(p?.id || '').trim();
     const name = String(p?.name || '').trim();
-    const type = p?.type === 'url' ? 'url' : 'package';
+    const type = p?.type === 'url' ? 'url' : p?.type === 'command' ? 'command' : 'package';
     const source = String(p?.source || '').trim();
-    if (!id || !name || !source) return { ok: false, error: 'id, name and source are required.' };
+    const command: string[] = Array.isArray(p?.command) ? p.command.map(String) : (typeof p?.command === 'string' && p.command.trim() ? p.command.trim().split(/\s+/) : []);
+    if (!id || !name) return { ok: false, error: 'id and name are required.' };
+    if (type !== 'command' && !source) return { ok: false, error: 'Source is required.' };
+    if (type === 'command' && command.length === 0) return { ok: false, error: 'Command is required.' };
     if (!/^[a-zA-Z0-9._-]{1,64}$/.test(id)) return { ok: false, error: 'Invalid id: use letters, digits, . _ -' };
     let bin: string | undefined;
     if (type === 'package') {
@@ -415,7 +418,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
       bin = r.bin;
     }
     const servers = readMcpServers().filter((s) => s.id !== id);
-    const server = { id, name, type, source, args: Array.isArray(p?.args) ? p.args.map(String) : [], env: (p?.env && typeof p.env === 'object') ? p.env : {}, bin, createdAt: Date.now() };
+    const server = { id, name, type, source, command: type === 'command' ? command : undefined, args: Array.isArray(p?.args) ? p.args.map(String) : [], env: (p?.env && typeof p.env === 'object') ? p.env : {}, bin, createdAt: Date.now() };
     servers.push(server);
     saveMcpServers(servers);
     return { ok: true, server };
