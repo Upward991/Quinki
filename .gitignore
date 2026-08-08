@@ -59,3 +59,7 @@ sidecar-src/standalone-entry.ts
 sidecar-src/combined-entry.ts
 sidecar-src/ws-bridge-bundled.ts
 src-tauri/resources/sidecar/bun-runtime
+src-tauri/resources/sidecar/quinki-sidecar-ws
+src-tauri/resources/sidecar/ws-bridge-*.cjs
+src-tauri/resources/sidecar/ws-bridge-*.mjs
+src-tauri/resources/sidecar/ws-bridge-*.ts
