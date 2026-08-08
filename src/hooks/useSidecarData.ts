@@ -902,6 +902,26 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     } catch (e) { console.error('renameSession:', e) }
   }, [ready, call])
 
+  // Keep context usage LIVE in every app/view: poll the shared disk-backed source every 5s
+  // while a session is active, so main and App Expert converge even during someone else's streaming.
+  useEffect(() => {
+    if (!ready || !activeSessionId) return
+    const iv = setInterval(() => {
+      const sk = activeSessionIdRef.current
+      if (!sk) return
+      call('getContextUsage', { sessionKey: sk })
+        .then((cu: any) => {
+          const u = cu?.usage
+          if (!u) return
+          if (u.contextWindow) setContextWindow(u.contextWindow)
+          if (u.tokens != null) setContextTokens(u.tokens)
+          setSessionTokens((prev: any) => ({ ...prev, [sk]: { input: u.input || 0, output: u.output || 0 } }))
+        })
+        .catch(() => {})
+    }, 5000)
+    return () => clearInterval(iv)
+  }, [ready, activeSessionId, call])
+
   const resetSession = useCallback(async (sessionKey: string) => {
     if (!ready) return
     try {
