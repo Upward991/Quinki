@@ -56,6 +56,11 @@ interface ChatAreaProps {
 export function ChatArea(props: ChatAreaProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [showScrollBtn, setShowScrollBtn] = useState(false)
+  // Pinned-to-bottom: true finché l'utente è in fondo. Se l'utente sale durante lo
+  // streaming, il pin si scioglie e lo scroll automatico si ferma; rientrando in fondo
+  // il pin si rinsalda e lo scroll automatico riprende.
+  const pinnedRef = useRef(true)
+  const prevSessionIdRef = useRef('')
   const [searchQuery, setSearchQuery] = useState('')
   const [searchDate, setSearchDate] = useState('')
   const [searchTime, setSearchTime] = useState('')
@@ -189,14 +194,21 @@ export function ChatArea(props: ChatAreaProps) {
   useEffect(() => {
     // Skip auto-scroll when search is active
     if (searchQuery || searchDate || searchTime) return
-    if (scrollRef.current && !isEmpty) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-      const raf1 = requestAnimationFrame(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight })
-      const t1 = setTimeout(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 100)
-      const t2 = setTimeout(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 300)
-      const t3 = setTimeout(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 500)
-      return () => { cancelAnimationFrame(raf1); clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
+    // Cambio sessione: torna in fondo e rinsalda il pin
+    if (prevSessionIdRef.current !== sessionId) {
+      prevSessionIdRef.current = sessionId
+      pinnedRef.current = true
     }
+    if (!scrollRef.current || isEmpty) return
+    // Se l'utente è salito sopra, NON forzare lo scroll (può leggere i messaggi
+    // precedenti durante lo streaming). Rientrerà in automatico quando torna in fondo.
+    if (!pinnedRef.current) return
+    scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    const raf1 = requestAnimationFrame(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight })
+    const t1 = setTimeout(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 100)
+    const t2 = setTimeout(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 300)
+    const t3 = setTimeout(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 500)
+    return () => { cancelAnimationFrame(raf1); clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
   }, [sessionId, msgCount, isEmpty, props.streaming, searchQuery, searchDate, searchTime, props.messages])
 
   return (
@@ -296,7 +308,7 @@ export function ChatArea(props: ChatAreaProps) {
           {/* minHeight:0 = flex shrink corretto (composer non spinto fuori); overflow visible = shadow auto-scroll non clippata */}
           <div style={{ flex: 1, minHeight: 0, overflow: 'visible', position: 'relative' }}>
             <div ref={scrollRef} style={{ height: '100%', overflowY: 'auto', padding: '4px 16px 0 16px', scrollbarGutter: 'stable' }}
-              onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100) }}>
+              onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100); pinnedRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 60 }}>
               {props.messages.map((msg, mIdx) => (
                 <div key={msg.id} data-msg-idx={mIdx} style={{ marginBottom: '12px' }}>
                   <MessageBubble message={msg} onCopy={() => {}} searchQuery={searchQuery} msgIndex={mIdx} activeMatchMsgIdx={activeMatchInfo?.msgIdx ?? -1} activeMatchOccurrence={activeMatchInfo?.occurrence ?? -1} isDateMatch={!searchQuery.trim() && hasDateFilter && dateMatchIndices.includes(mIdx) && mIdx === dateMatchIndices[Math.min(dateMatchIdx, dateMatchIndices.length - 1)]} />
