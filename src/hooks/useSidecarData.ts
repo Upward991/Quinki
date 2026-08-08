@@ -1254,17 +1254,13 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
       const r = await call('listAgents', {})
       if (r?.agents) {
         const agentsWithFiles = await Promise.all(r.agents.map(async (a: any) => {
+          const agent = mapAgent(a)
           let files: any[] = []
           try {
             const filesResult = await call('listAgentFiles', { id: a.id })
             if (filesResult?.files) files = filesResult.files.map((f: any) => f.name || f.path || f)
           } catch {}
-          return {
-            id: a.id, name: a.name, files,
-            description: (a.prompt || '').split('\n').map((l: string) => l.trim()).filter((l: string) => l && !l.startsWith('#')).slice(0, 3).join(' ').slice(0, 140),
-            model: a.model || '', thinking: a.thinking || 'off', skills: (a.skills || []).map((s: string) => ({ name: s, source: 'local', installed: true })),
-            tools: (a.tools || []).map((t: string) => ({ name: t, enabled: true })), directory: a.directory || '', isDeletable: a.id !== 'orchestrator' && a.id !== 'app-expert',
-          }
+          return { ...agent, files }
         }))
         setAgents(agentsWithFiles)
       }
