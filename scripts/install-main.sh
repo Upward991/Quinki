@@ -46,7 +46,8 @@ fi
 ditto "$MAIN_BUNDLE" "$MAIN_APP"
 echo "[install-main] Installed $MAIN_APP"
 
-# 3) Kill ONLY the main sidecar (port 9182). Expert (9183) is untouched.
+# 3) Kill ONLY the main sidecar (port 9182) AND the main app process (by exact path).
+#    The App Expert process is NEVER matched (its path is /Applications/App Expert.app/...).
 if command -v lsof >/dev/null 2>&1; then
   pids=$(lsof -ti:9182 2>/dev/null || true)
   if [ -n "$pids" ]; then
@@ -55,6 +56,9 @@ if command -v lsof >/dev/null 2>&1; then
     echo "[install-main] Killed main sidecar (port 9182)."
   fi
 fi
+# Kill the running main app process by its exact path so the new bundle actually launches
+pkill -f "/Applications/Quinki.app/Contents/MacOS/quinki" 2>/dev/null || true
+sleep 1
 
 # 4) Clear main app webview caches only
 rm -rf "$HOME_DIR/Library/WebKit/com.quinki.app" \
