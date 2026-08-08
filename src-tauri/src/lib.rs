@@ -441,6 +441,8 @@ fn install_expert_app() -> Result<String, String> {
 #[tauri::command]
 fn sync_expert_app() -> Result<String, String> {
     // Copy binary + sidecar from main app to Expert app (sync new code)
+    // OGNI step è VERIFICATO: si dichiara "synced" SOLO se la copia è davvero
+    // avvenuta (binario presente/non vuoto, ditto riuscito, flag scritto).
     let main_app = "/Applications/Quinki.app";
     let expert_app = "/Applications/App Expert.app";
     
@@ -451,27 +453,41 @@ fn sync_expert_app() -> Result<String, String> {
         return Err("App Expert.app not found. Install it first.".to_string());
     }
     
-    // Copy binary
+    // Copy binary (fallisce subito se la copia non riesce)
     let main_bin = format!("{}/Contents/MacOS/quinki", main_app);
     let expert_bin = format!("{}/Contents/MacOS/quinki", expert_app);
     std::fs::copy(&main_bin, &expert_bin).map_err(|e| format!("Binary copy failed: {}", e))?;
     
-    // Copy sidecar resources
+    // Copy sidecar resources con controllo di successo (prima l'esito NON era
+    // controllato → il sync poteva dichiararsi completo anche se ditto falliva)
     let main_sidecar = format!("{}/Contents/Resources/resources/sidecar", main_app);
     let expert_sidecar = format!("{}/Contents/Resources/resources/sidecar", expert_app);
     
     let _ = std::fs::remove_dir_all(&expert_sidecar);
-    std::process::Command::new("ditto")
+    let ditto_st = std::process::Command::new("ditto")
         .args([&main_sidecar, &expert_sidecar])
-        .output()
+        .status()
         .map_err(|e| format!("Sidecar copy failed: {}", e))?;
+    if !ditto_st.success() {
+        return Err("Sidecar copy failed (ditto). Nothing was marked as synced.".to_string());
+    }
     
-    // Write flag file so the Expert app can detect it needs to restart
+    // Verifica reale che i file esistano e non siano vuoti
+    let bin_ok = std::fs::metadata(&expert_bin).map(|m| m.len() > 0).unwrap_or(false);
+    if !bin_ok {
+        return Err("Sync failed: Expert binary is missing or empty after copy.".to_string());
+    }
+    let sidecar_bin = format!("{}/quinki-sidecar-ws", expert_sidecar);
+    if !std::path::Path::new(&sidecar_bin).exists() {
+        return Err("Sync failed: Expert sidecar binary is missing after copy.".to_string());
+    }
+    
+    // Scrive il flag SOLO dopo la verifica: l'App Expert mostrerà il badge di riavvio
     let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
     let flag = format!("{}/.quinki/.expert-needs-restart", home);
-    let _ = std::fs::write(&flag, "1");
+    std::fs::write(&flag, "1").map_err(|e| format!("Flag write failed: {}", e))?;
     
-    Ok("Expert app synced. Restart App Expert to apply.".to_string())
+    Ok("Expert app synced and verified. Restart App Expert to apply.".to_string())
 }
 
 #[tauri::command]
