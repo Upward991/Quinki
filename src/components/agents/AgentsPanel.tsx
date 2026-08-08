@@ -680,6 +680,7 @@ export function AgentsPanel(props) {
           ]}),
           React.createElement('div', { style: { height: '8px' } }),
           React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }, children: 'MCP servers enabled in Plan mode. Applies to all agents.' }),
+          React.createElement('div', { style: { height: '8px' } }),
           React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '6px' }, children: [
             ...Object.entries(planModeMcp).filter(([, v]) => v).map(([id]) => {
               const s = mcpServers.find(x => x.id === id);
