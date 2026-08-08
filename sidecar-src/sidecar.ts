@@ -400,7 +400,27 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   clearDebugLog: async () => { piBridge!.clearDebugLog(); return { log: [] }; },
 
   // === MCP (Model Context Protocol) ===
-  listMcpServers: async () => ({ servers: readMcpServers() }),
+  listMcpServers: async () => {
+    // Backfill descrizioni per i server package installati prima della feature
+    let servers = readMcpServers();
+    let changed = false;
+    for (const s of servers) {
+      if (s.type === 'package' && !s.description) {
+        try {
+          const ctrl = new AbortController();
+          const to = setTimeout(() => ctrl.abort(), 8000);
+          const resp = await fetch('https://registry.npmjs.org/' + encodeURIComponent(s.source), { signal: ctrl.signal });
+          clearTimeout(to);
+          if (resp.ok) {
+            const meta = await resp.json();
+            if (meta && typeof meta.description === 'string') { s.description = meta.description; changed = true; }
+          }
+        } catch {}
+      }
+    }
+    if (changed) saveMcpServers(servers);
+    return { servers };
+  },
   addMcpServer: async (p) => {
     const id = String(p?.id || '').trim();
     const name = String(p?.name || '').trim();

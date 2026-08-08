@@ -173,7 +173,10 @@ export function AgentsPanel(props) {
     const existing = (agent?.mcpServers || []).map(x => x);
     const merged = [...new Set([...existing, ...mcpIds])];
     try {
-      await call('updateAgent', { id: agentId, config: { mcpServers: merged } });
+      const res = await call('updateAgent', { id: agentId, config: { mcpServers: merged } });
+      if (res?.success === false) { setErrorModal(res.error || 'updateAgent failed'); return; }
+      const lst = await call('listMcpServers', {});
+      if (lst?.servers) setMcpServers(lst.servers);
       await refreshAgents();
       setDirty(true);
     } catch (e) { setErrorModal(e.message || String(e)); }
@@ -197,10 +200,15 @@ export function AgentsPanel(props) {
       if (agentNames.includes(agent.name)) {
         const existing = agent.mcpServers || [];
         if (!existing.includes(mcpId)) {
-          try { await call('updateAgent', { id: agent.id, config: { mcpServers: [...existing, mcpId] } }); } catch (e) { console.error(e); }
+          try {
+            const res = await call('updateAgent', { id: agent.id, config: { mcpServers: [...existing, mcpId] } });
+            if (res?.success === false) { setErrorModal(res.error || 'updateAgent failed'); return; }
+          } catch (e) { setErrorModal(e.message || String(e)); return; }
         }
       }
     }
+    const lst = await call('listMcpServers', {});
+    if (lst?.servers) setMcpServers(lst.servers);
     await refreshAgents();
     setAddItemsModal(null);
     setDirty(true);
@@ -930,7 +938,7 @@ export function AgentRow({ agent, isExpanded, isRenaming, onToggle, onStartRenam
         ]})
       ]}),
       agent.files.length === 0
-        ? React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'No files.' })
+        ? React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)', marginBottom: '16px' }, children: 'No files.' })
         : React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '16px' }, children: agent.files.map(f =>
             React.createElement('div', { key: f, onClick: () => onOpenFile(f), style: { display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 8px', borderRadius: '6px', border: 'none', backgroundColor: 'rgba(255, 255, 255, 0.04)', cursor: 'pointer' }, children: [
               React.createElement(FileText, { size: 14, style: { color: 'var(--q-tab-accent)' } }),
@@ -950,7 +958,7 @@ export function AgentRow({ agent, isExpanded, isRenaming, onToggle, onStartRenam
         ]})
       ]}),
       agentSkills.length === 0
-        ? React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'No skill assigned.' })
+        ? React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)', marginBottom: '16px' }, children: 'No skill assigned.' })
         : React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '16px' }, children: agentSkills.map(s =>
             TagChip({ key: s.name, icon: BookOpen, label: s.name, onRemove: () => onRemoveTag('skill', s.name) })
           )}),
@@ -965,7 +973,7 @@ export function AgentRow({ agent, isExpanded, isRenaming, onToggle, onStartRenam
         ]})
       ]}),
       agentMcps.length === 0
-        ? React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'No MCP server assigned.' })
+        ? React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)', marginBottom: '16px' }, children: 'No MCP server assigned.' })
         : React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '16px' }, children: agentMcps.map(s =>
             TagChip({ key: s.id, icon: Plug, label: s.name, onRemove: () => onRemoveTag('mcp', s.id) })
           )}),
@@ -980,7 +988,7 @@ export function AgentRow({ agent, isExpanded, isRenaming, onToggle, onStartRenam
         ]})
       ]}),
       agentTools.length === 0
-        ? React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'No tool assigned.' })
+        ? React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)', marginBottom: '16px' }, children: 'No tool assigned.' })
         : React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '6px' }, children: agentTools.map(t =>
             TagChip({ key: t.name, icon: Wrench, label: t.name, onRemove: () => onRemoveTag('tool', t.name) })
           )}),
