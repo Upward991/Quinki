@@ -2,8 +2,8 @@
 # ============================================================================
 # install-main.sh — Install/update the QUINKI MAIN app only.
 #
-# This is the ONLY install command the Quinki Expert agent should use.
-# It is built so that it can NEVER touch the Quinki Expert app:
+# This is the ONLY install command the App Expert agent should use.
+# It is built so that it can NEVER touch the App Expert app:
 #   - backs up /Applications/Quinki.app (mv, not rm)
 #   - installs the new build (ditto)
 #   - kills ONLY port 9182 (the main sidecar) — never 9183
@@ -63,4 +63,4 @@ rm -rf "$HOME_DIR/Library/WebKit/com.quinki.app" \
 
 # 5) Reopen main app
 open "$MAIN_APP"
-echo "[install-main] Main app installed and reopened. The Quinki Expert app was NOT touched."
+echo "[install-main] Main app installed and reopened. The App Expert app was NOT touched."
