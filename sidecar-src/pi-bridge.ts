@@ -4355,11 +4355,9 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       const messagesBefore = entries.filter((e: any) => e?.type === "message").length;
 
       pi.setAutoCompactionEnabled(false);
-      // === M: timeout di sicurezza 60s per evitare che compaction blocchi tutto ===
-      const timeoutMs = 60000;
-      const compactPromise = pi.compact();
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Compaction timeout")), timeoutMs));
-      const result = await Promise.race([compactPromise, timeoutPromise]);
+      // === NO timeout interno: la compaction può impiegare anche molto tempo con sessioni grandi.
+      // Un timeout qui interrompeva compaction lunghe → la chat non compattava mai. ===
+      const result = await pi.compact();
 
       // === Noop detection intelligente ===
       const newFirstKept = (result as any)?.firstKeptEntryId;

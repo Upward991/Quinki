@@ -950,7 +950,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     if (!ready) return
     setIsCompacting(true); setStatusLabel('Compacting'); setStatusKind('compacting')
     try {
-      const r = await call('compactSession', { sessionKey }, 120000)
+      const r = await call('compactSession', { sessionKey }, 600000)
       // Ricarica per mostrare il toggle compaction
       if (sessionKey === activeSessionId) {
         await selectSession(sessionKey)
