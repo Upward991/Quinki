@@ -1219,6 +1219,9 @@ class PiBridge {
   }
 
   getContextUsage(key: string): { tokens: number | null; contextWindow: number; percent: number | null } | null {
+    // Cross-sidecar: rilegge il file condiviso (main ↔ App Expert) così i due processi
+    // mostrano lo STESSO contesto per la stessa sessione, non lo stato stale del proprio sidecar.
+    try { this.#loadContextUsage(); } catch {}
     const pi = this.#active.get(key);
     if (pi) {
       try {

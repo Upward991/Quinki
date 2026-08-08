@@ -608,6 +608,16 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
       setIsStreaming(false)
       setStatusLabel(''); setStatusKind('')
     }
+    // Cross-sidecar: refresh contesto dalla sorgente condivisa su disco (main ↔ App Expert)
+    try {
+      const cu = await call('getContextUsage', { sessionKey })
+      const u = cu?.usage
+      if (u) {
+        if (u.contextWindow) setContextWindow(u.contextWindow)
+        if (u.tokens != null) setContextTokens(u.tokens)
+        setSessionTokens(prev => ({ ...prev, [sessionKey]: { input: u.input || 0, output: u.output || 0 } }))
+      }
+    } catch {}
     try {
       const history = await call('getHistory', { sessionKey })
       if (history?.messages) {
