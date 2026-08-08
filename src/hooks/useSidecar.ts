@@ -70,12 +70,7 @@ export function useSidecar(url = "ws://127.0.0.1:9182") {
 					params,
 					id
 				}));
-				setTimeout(() => {
-					if (pendingRef.current.has(id)) {
-						pendingRef.current.delete(id);
-						reject(/* @__PURE__ */ new Error("Timeout: " + method));
-					}
-				}, timeoutMs);
+				// NO timeout: le operazioni lunghe non vanno scartate silenziosamente.
 			});
 		}, []),
 		notify: useCallback((method, params = {}) => {

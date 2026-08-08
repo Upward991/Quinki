@@ -181,7 +181,11 @@ function renderBlocks(blocks: any[], opts: { isError?: boolean; isStreaming?: bo
       return (
         <div key={`b-${i}`}>
           <div style={{ padding: '4px 0' }}>
-            <MarkdownContent text={b.content || ''} isError={isError} searchQuery={searchQuery} activeOcc={activeOcc} />
+            {/* isError NON viene passato: solo l'errorContent dedicato deve essere rosso.
+                Il contenuto accumulato (text block) di un messaggio in errore resta colore normale.
+                Prima, l'intero contenuto del messaggio diventava rosso (temporaneo) quando un errore
+                interrompeva lo streaming. */}
+            <MarkdownContent text={b.content || ''} isError={false} searchQuery={searchQuery} activeOcc={activeOcc} />
           </div>
           {showFooter && (
             <Footer

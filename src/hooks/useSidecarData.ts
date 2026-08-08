@@ -48,7 +48,8 @@ function useSidecar(url: string = 'ws://127.0.0.1:9182') {
       const id = nextIdRef.current++
       pendingRef.current.set(id, { resolve, reject })
       wsRef.current.send(JSON.stringify({ jsonrpc: '2.0', method, params, id }))
-      setTimeout(() => { if (pendingRef.current.has(id)) { pendingRef.current.delete(id); reject(new Error('Timeout: ' + method)) } }, timeout)
+      // NO timeout: le operazioni lunghe (compaction, sync, agent) devono completare;
+      // se un RPC resta appeso è un bug del sidecar da mostrare, non da scartare. 
     })
   }, [])
 

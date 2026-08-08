@@ -355,6 +355,10 @@ fn apply_update(dmg_url: String, sync_expert: bool) -> Result<String, String> {
                     &format!("{}/Contents/Resources/resources/sidecar", exp),
                 ])
                 .status();
+            // Scrivi il flag di riavvio: così l'App Expert mostra il badge
+            // "App synced. Restart to apply!" in alto a destra (vera conferma del sync).
+            let flag = format!("{}/.quinki/.expert-needs-restart", home);
+            let _ = std::fs::write(&flag, "1");
         }
     }
 
