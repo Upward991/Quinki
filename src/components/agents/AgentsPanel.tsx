@@ -179,6 +179,8 @@ export function AgentsPanel(props) {
       if (lst?.servers) setMcpServers(lst.servers);
       await refreshAgents();
       setDirty(true);
+      setSavedMsg('Saved.');
+      setTimeout(() => setSavedMsg(null), 3000);
     } catch (e) { setErrorModal(e.message || String(e)); }
   };
 
@@ -191,6 +193,8 @@ export function AgentsPanel(props) {
       await refreshAgents();
       setRemoveTagState(null);
       setDirty(true);
+      setSavedMsg('Saved.');
+      setTimeout(() => setSavedMsg(null), 3000);
     } catch (e) { setErrorModal(e.message || String(e)); }
   };
 
@@ -202,7 +206,9 @@ export function AgentsPanel(props) {
         if (!existing.includes(mcpId)) {
           try {
             const res = await call('updateAgent', { id: agent.id, config: { mcpServers: [...existing, mcpId] } });
-            if (res?.success === false) { setErrorModal(res.error || 'updateAgent failed'); return; }
+            if (res?.success === false) { setErrorModal(res.error || 'updateAgent failed'); return;
+      setSavedMsg('Saved.');
+      setTimeout(() => setSavedMsg(null), 3000); }
           } catch (e) { setErrorModal(e.message || String(e)); return; }
         }
       }
@@ -248,6 +254,8 @@ export function AgentsPanel(props) {
       if (res?.servers) setMcpServers(res.servers);
       await refreshAgents();
       setDirty(true);
+      setSavedMsg('Saved.');
+      setTimeout(() => setSavedMsg(null), 3000);
     } catch (e) { setErrorModal(e.message || String(e)); }
   };
 
@@ -396,6 +404,8 @@ export function AgentsPanel(props) {
       const cfg = cfgRes?.config || {};
       cfg.planModeMcp = updated;
       await call('updateGlobalConfig', { config: cfg });
+      setSavedMsg('Saved.');
+      setTimeout(() => setSavedMsg(null), 3000);
     } catch (e) { console.error('Failed to update plan mode mcp:', e); }
   };
 
