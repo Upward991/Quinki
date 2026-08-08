@@ -1272,7 +1272,7 @@ export function McpInstallModal({ onClose, onInstalled }) {
       if (type === 'command') {
         params.type = 'command';
         params.command = cmd.trim();
-        if (args) params.args = args.split(',').map(x => x.trim()).filter(Boolean);
+        if (args) params.args = args.split(/[\n,]/).map(x => x.trim()).filter(Boolean);
       } else {
         params.type = type;
         params.source = source.trim();
@@ -1298,8 +1298,8 @@ export function McpInstallModal({ onClose, onInstalled }) {
       : React.createElement(FieldInput, { placeholder: type === 'url' ? 'https://example.com/mcp' : 'npm package (e.g. @modelcontextprotocol/server-filesystem)', value: source, onChange: handleSource, mb: true }),
     React.createElement('input', { type: 'text', placeholder: type === 'command' ? (autoName() || 'Name (auto from command)') : (autoName() || 'Name (auto)'), value: name, onChange: e => { setName(e.target.value); setNameTouched(true); }, onFocus: e => { if (!name.trim()) setName(autoName()); }, style: { width: '100%', height: '36px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-md)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none', marginBottom: '8px' } }),
     (type !== 'url') && React.createElement(React.Fragment, { children: [
-      React.createElement(FieldInput, { placeholder: 'Args (optional, comma separated)', value: args, onChange: setArgs, mb: false }),
-      React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: '11px', fontFamily: 'var(--font-interface)', marginTop: '4px', marginBottom: '12px', lineHeight: 1.4 }, children: 'Args = extra parameters passed to the server when launched. E.g. for the Filesystem server this is the list of folders it can access, like /Users/andrea/Documents.' })
+      React.createElement(FieldTextarea, { placeholder: 'Args (optional)\nOne per line, or comma separated.\nExample for Filesystem:\n/Users/andrea/Documents\n/tmp', value: args, onChange: setArgs }),
+      React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: '11px', fontFamily: 'var(--font-interface)', marginTop: '4px', marginBottom: '12px', lineHeight: 1.4 }, children: 'Args = extra parameters passed to the server when launched. E.g. for the Filesystem server these are the folders it can access.' })
     ]}),
     React.createElement('div', { style: { display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px', marginTop: '4px' }, children: [
       React.createElement('button', { onClick: onClose, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'Cancel' }),
@@ -1310,4 +1310,8 @@ export function McpInstallModal({ onClose, onInstalled }) {
 
 function FieldInput({ placeholder, value, onChange, mb }) {
   return React.createElement('input', { type: 'text', placeholder, value, onChange: e => onChange(e.target.value), style: { width: '100%', height: '36px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-md)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none', marginBottom: mb ? '8px' : '0px' } });
+}
+
+function FieldTextarea({ placeholder, value, onChange }) {
+  return React.createElement('textarea', { placeholder, value, rows: 4, onChange: e => onChange(e.target.value), style: { width: '100%', minHeight: '88px', maxHeight: '200px', resize: 'vertical', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-md)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-code)', padding: '8px 12px', outline: 'none', marginBottom: '8px', lineHeight: 1.5, boxSizing: 'border-box' } });
 }
