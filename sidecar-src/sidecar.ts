@@ -50,6 +50,7 @@ import { readModelsFromDisk } from "./models";
 import { readProvidersConfig, writeProvidersConfig, syncModelsJson } from "./providers";
 import { buildSidecarEntry } from "./sidecar-helper";
 import { createAgentHandlers } from "./agent-handlers";
+import { seedDefaults } from "./seed-defaults";
 
 // === FORCE: stdout.write -> stderr.write TRANNE per messaggi JSON-RPC ===
 // Alcuni moduli (Bun runtime, vendor SDK) scrivono su stdout con process.stdout.write
@@ -579,6 +580,13 @@ async function bootstrap() {
     // in standalone non c'è, quindi assicuriamo uno stub package.json.
     const workdir = process.env.QUINKI_AGENT_CWD || path.join(homedir(), ".quinki", "workdir");
     fs.mkdirSync(workdir, { recursive: true });
+    // === First-run seed: default agents (Orchestrator, Quinki Expert) + quinki-expert skill ===
+    try {
+      seedDefaults(agentDir);
+      process.stderr.write("[sidecar-marker] seed-defaults-ok\n");
+    } catch (e: any) {
+      process.stderr.write(`[sidecar-marker] seed-defaults-error: ${e?.message || String(e)}\n`);
+    }
     // NON creiamo più uno stub package.json nel workdir. Il Pi SDK non lo richiede
     // (letto solo se esiste, guardato da existsSync/try-catch) — provato dal fatto che
     // chat su cartelle senza package.json (es. progetti Flutter) funzionano. Così il
