@@ -15,6 +15,7 @@ export function AgentsPanel(props) {
   const [skills, setSkills] = useState([]);
   const [tools, setTools] = useState([]);
   const [planModeTools, setPlanModeTools] = useState({}); // { toolName: true/false }
+  const [planModeMcp, setPlanModeMcp] = useState({}); // { mcpId: true/false }
   const [expandedAgentId, setExpandedAgentId] = useState(null);
   const [renamingAgentId, setRenamingAgentId] = useState(null);
   const [searchAgents, setSearchAgents] = useState('');
@@ -63,6 +64,9 @@ export function AgentsPanel(props) {
         const res = await call('getGlobalConfig', {});
         if (!cancelled && res?.config?.planModeTools) {
           setPlanModeTools(res.config.planModeTools);
+        }
+        if (!cancelled && res?.config?.planModeMcp) {
+          setPlanModeMcp(res.config.planModeMcp);
         }
       } catch (e) { console.error('Failed to load global config:', e); }
       try {
@@ -227,16 +231,6 @@ export function AgentsPanel(props) {
     setDirty(true);
   };
 
-  const doUpdateMcpPlanSafe = async (id, planSafe) => {
-    if (!call) return;
-    try {
-      await call('updateMcpServer', { id, planSafe });
-      const res = await call('listMcpServers', {});
-      if (res?.servers) setMcpServers(res.servers);
-      setDirty(true);
-    } catch (e) { setErrorModal(e.message || String(e)); }
-  };
-
   const doDeleteMcp = async (mcpId) => {
     if (!call) return;
     try {
@@ -382,6 +376,32 @@ export function AgentsPanel(props) {
       await call('updateGlobalConfig', { config: cfg });
     } catch (e) { console.error('Failed to update plan mode tools:', e); }
     setToolDisableConfirm(null);
+  };
+
+  // --- Plan mode MCP ---
+  const doTogglePlanModeMcp = async (id, enable) => {
+    if (!call) return;
+    const updated = { ...planModeMcp, [id]: enable };
+    setPlanModeMcp(updated);
+    try {
+      const cfgRes = await call('getGlobalConfig', {});
+      const cfg = cfgRes?.config || {};
+      cfg.planModeMcp = updated;
+      await call('updateGlobalConfig', { config: cfg });
+    } catch (e) { console.error('Failed to update plan mode mcp:', e); }
+  };
+
+  const doEnablePlanModeMcp = async (ids) => {
+    if (!call) return;
+    const updated = { ...planModeMcp };
+    for (const id of ids) updated[id] = true;
+    setPlanModeMcp(updated);
+    try {
+      const cfgRes = await call('getGlobalConfig', {});
+      const cfg = cfgRes?.config || {};
+      cfg.planModeMcp = updated;
+      await call('updateGlobalConfig', { config: cfg });
+    } catch (e) { console.error('Failed to update plan mode mcp:', e); }
   };
 
   // --- Add/remove agent from skill (reverse direction) ---
@@ -614,8 +634,7 @@ export function AgentsPanel(props) {
                       onAddAgent: () => setAddItemsModal({ title: `Add agent to ${mcp.name}`, items: agents.map(a => ({ name: a.name, description: a.systemPrompt ? a.systemPrompt.substring(0, 80) + (a.systemPrompt.length > 80 ? '...' : '') : a.id })), initialSelected: agents.filter(a => (a.mcpServers || []).includes(mcp.id)).map(a => a.name), onConfirm: (selected) => doAddAgentsToMcp(mcp.id, selected) }),
                       onRemoveAgent: (agentName) => doRemoveAgentFromMcp(mcp.id, agentName),
                       onRemoveAllAgents: () => doRemoveAllAgentsFromMcp(mcp.id),
-                      onDeleteMcp: () => setRemoveTagState({ type: 'mcp-server', name: mcp.id, agent: mcp.name }),
-                      onPlanSafeChange: (v) => doUpdateMcpPlanSafe(mcp.id, v)
+                      onDeleteMcp: () => setRemoveTagState({ type: 'mcp-server', name: mcp.id, agent: mcp.name })
                     });
                   })
             })
@@ -658,6 +677,15 @@ export function AgentsPanel(props) {
               TagChip({ icon: Wrench, label: name, onRemove: () => doTogglePlanModeTool(name, false) })
             ),
             MiniButton({ label: 'Add tool', onClick: () => setAddItemsModal({ title: 'Enable tool in Plan mode', items: tools.filter(t => !planModeTools[t.name]).map(t => ({ name: t.name, description: t.description })), onConfirm: (selected) => doEnablePlanModeTool(selected) }) })
+          ]}),
+          React.createElement('div', { style: { height: '8px' } }),
+          React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }, children: 'MCP servers enabled in Plan mode. Applies to all agents.' }),
+          React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '6px' }, children: [
+            ...Object.entries(planModeMcp).filter(([, v]) => v).map(([id]) => {
+              const s = mcpServers.find(x => x.id === id);
+              return TagChip({ key: id, icon: Plug, label: s ? s.name : id, onRemove: () => doTogglePlanModeMcp(id, false) });
+            }),
+            MiniButton({ label: 'Add MCP', onClick: () => setAddItemsModal({ title: 'Enable MCP in Plan mode', items: mcpServers.filter(s => !planModeMcp[s.id]).map(s => ({ name: s.name, description: s.source })), onConfirm: (selected) => doEnablePlanModeMcp(selected.map(n => { const s = mcpServers.find(x => x.name === n); return s ? s.id : n; }).filter(Boolean)) }) })
           ]})
         ]}),
 
@@ -1208,7 +1236,7 @@ function NewFileForm({ onCreate, onCancel }) {
   ]});
 }
 // ── McpRow: riga MCP nella sezione risorse (come SkillRow) ──
-export function McpRow({ mcp, agentsUsing, isExpanded, onToggle, onAddAgent, onRemoveAgent, onRemoveAllAgents, onDeleteMcp, onPlanSafeChange }) {
+export function McpRow({ mcp, agentsUsing, isExpanded, onToggle, onAddAgent, onRemoveAgent, onRemoveAllAgents, onDeleteMcp }) {
   const subtitle = mcp.type === 'url' ? 'URL' : mcp.type === 'command' ? 'Command' : 'Package';
   return React.createElement('div', { style: { marginBottom: '4px', backgroundColor: 'var(--q-bg-elevated)', border: 'none', borderRadius: '8px', overflow: 'hidden' }, children: [
     React.createElement('div', { onClick: onToggle, style: { padding: '10px 12px', display: 'flex', alignItems: 'center', cursor: 'pointer', borderRadius: '8px', transition: 'none' }, onMouseEnter: e => { e.currentTarget.style.backgroundColor = 'rgba(201, 112, 132, 0.03)'; }, onMouseLeave: e => { e.currentTarget.style.backgroundColor = 'transparent'; }, children: [
@@ -1239,10 +1267,6 @@ export function McpRow({ mcp, agentsUsing, isExpanded, onToggle, onAddAgent, onR
               TagChip({ key: a, icon: Bot, label: a, onRemove: () => onRemoveAgent(a) })
             )})
           ]}),
-      React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px' }, children: [
-        React.createElement('input', { type: 'checkbox', checked: !!mcp.planSafe, onChange: e => onPlanSafeChange(e.target.checked), style: { accentColor: 'var(--q-accent-primary)' } }),
-        React.createElement('span', { style: { color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'Allow in Plan mode (read-only only)' })
-      ]}),
       React.createElement('div', { style: { marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px' }, children: [
         React.createElement('button', { onClick: onDeleteMcp, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '0', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: [React.createElement(Trash, { size: 14 }), ' Uninstall'] })
       ]})

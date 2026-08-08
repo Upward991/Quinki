@@ -132,7 +132,7 @@ class PiBridge {
   #firstUserText = new Map<string, string>(); // primo msg utente per auto-title
   #active = new Map<string, any>();
   #mcpClients = new Map<string, StdioMcpClient>();  // chiave `${sessionKey}:${serverId}`
-  #mcpToolNames = new Map<string, { name: string; planSafe: boolean }[]>();  // per sessione: tool MCP per applyMode (plan/build)
+  #mcpToolNames = new Map<string, { name: string; serverId: string }[]>();  // per sessione: tool MCP per applyMode (plan/build)
   #wss = new Map<string, any>();
   #unsubs = new Map<string, () => void>();
   #prompts = new Map<string, Promise<void>>();
@@ -2520,10 +2520,11 @@ class PiBridge {
         names = names.filter(n => planFlags[n] !== false || customToolNames.includes(n));
       }
       // MCP: in Build mode tutti i tool dei server assegnati; in Plan mode solo i tool
-      // dei server contrassegnati plan-safe (toggle nella riga MCP delle risorse).
+      // dei server abilitati globalmente nella sezione Plan mode (planModeMcp, vale per tutti gli agenti).
       const mcpEntries = this.#mcpToolNames.get(key) || [];
+      const planMcp = globalConfig.planModeMcp || {};
       for (const entry of mcpEntries) {
-        const ok = m === "plan" ? !!entry.planSafe : true;
+        const ok = m === "plan" ? planMcp[entry.serverId] === true : true;
         if (ok && !names.includes(entry.name)) names.push(entry.name);
       }
     } catch {}
@@ -3092,14 +3093,14 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
             },
           }));
         }
-        // Registra i tool per sessione → applyMode li attiva (plan: solo da server plan-safe)
+        // Registra i tool per sessione → applyMode li attiva (plan: solo da server in planModeMcp)
         const prev = self.#mcpToolNames.get(sk) || [];
         for (const t of list) {
           const nm = typeof t?.name === 'string' && t.name ? t.name : '';
-          if (nm) prev.push({ name: nm, planSafe: !!server.planSafe });
+          if (nm) prev.push({ name: nm, serverId: sid });
         }
         self.#mcpToolNames.set(sk, prev);
-        this.logDebug("mcp-tools-registered", { sessionKey: sk, serverId: sid, toolCount: list.length, planSafe: !!server.planSafe });
+        this.logDebug("mcp-tools-registered", { sessionKey: sk, serverId: sid, toolCount: list.length });
       } catch (e: any) {
         this.logDebug("mcp-connect-error", { sessionKey: sk, serverId: sid, error: String(e?.message || e) });
       }
