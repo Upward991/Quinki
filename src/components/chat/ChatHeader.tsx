@@ -133,7 +133,7 @@ export function ChatHeader(props: ChatHeaderProps) {
           <MessageSquare size={18} style={{ color: 'var(--q-text-secondary)', flexShrink: 0 }} />
           <div style={{ width: '12px', flexShrink: 0 }} />
           <span style={{ color: props.welcomeMode ? 'var(--q-text-tertiary)' : 'var(--q-text)', fontSize: '16px', fontWeight: props.welcomeMode ? 400 : 600, fontStyle: props.welcomeMode ? 'italic' : 'normal', fontFamily: 'var(--font-interface)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {props.welcomeMode ? 'The chat title will be generated automatically' : (props.activePanel === 'expert' ? 'Quinki Expert' : (props.session?.title ?? 'Chat'))}
+            {props.welcomeMode ? 'The chat title will be generated automatically' : (props.activePanel === 'expert' ? 'App Expert' : (props.session?.title ?? 'Chat'))}
           </span>
 
           {/* Context counter — inside its own position:relative wrapper */}

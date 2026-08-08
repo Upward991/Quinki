@@ -8,7 +8,7 @@ const now = new Date()
 const minsAgo = (m: number) => new Date(now.getTime() - m * 60000).toISOString()
 
 // ──────────────────────────────────────────────────────────
-// MESSAGES — same as Quinki Expert, with errors added
+// MESSAGES — same as App Expert, with errors added
 // ──────────────────────────────────────────────────────────
 export const mockMessages: Message[] = [
   // 1. User message
@@ -24,7 +24,7 @@ export const mockMessages: Message[] = [
   {
     id: '2',
     role: 'assistant',
-    agentName: 'Quinki Expert',
+    agentName: 'App Expert',
     agentModel: 'qwen3:32b',
     thinkingLevel: 'xhigh',
     timestamp: minsAgo(44),
@@ -70,7 +70,7 @@ export const mockMessages: Message[] = [
   {
     id: '4',
     role: 'assistant',
-    agentName: 'Quinki Expert',
+    agentName: 'App Expert',
     agentModel: 'qwen3:32b',
     thinkingLevel: 'xhigh',
     timestamp: minsAgo(39),
@@ -128,7 +128,7 @@ export const mockMessages: Message[] = [
   {
     id: '6',
     role: 'assistant',
-    agentName: 'Quinki Expert',
+    agentName: 'App Expert',
     agentModel: 'qwen3:32b',
     thinkingLevel: 'xhigh',
     timestamp: minsAgo(34),
@@ -153,7 +153,7 @@ export const mockMessages: Message[] = [
   {
     id: '8',
     role: 'assistant',
-    agentName: 'Quinki Expert',
+    agentName: 'App Expert',
     agentModel: 'qwen3:32b',
     thinkingLevel: 'xhigh',
     timestamp: minsAgo(29),
@@ -178,7 +178,7 @@ export const mockMessages: Message[] = [
   {
     id: '10',
     role: 'assistant',
-    agentName: 'Quinki Expert',
+    agentName: 'App Expert',
     agentModel: 'qwen3:32b',
     thinkingLevel: 'xhigh',
     timestamp: minsAgo(24),
@@ -203,7 +203,7 @@ export const mockMessages: Message[] = [
   {
     id: '12',
     role: 'assistant',
-    agentName: 'Quinki Expert',
+    agentName: 'App Expert',
     agentModel: 'qwen3:32b',
     thinkingLevel: 'xhigh',
     timestamp: minsAgo(19),
@@ -228,7 +228,7 @@ export const mockMessages: Message[] = [
   {
     id: '14',
     role: 'assistant',
-    agentName: 'Quinki Expert',
+    agentName: 'App Expert',
     agentModel: 'qwen3:32b',
     thinkingLevel: 'xhigh',
     timestamp: minsAgo(14),
@@ -253,7 +253,7 @@ export const mockMessages: Message[] = [
   {
     id: '16',
     role: 'assistant',
-    agentName: 'Quinki Expert',
+    agentName: 'App Expert',
     agentModel: 'qwen3:32b',
     thinkingLevel: 'xhigh',
     timestamp: minsAgo(9),
@@ -266,7 +266,7 @@ export const mockMessages: Message[] = [
     ],
     compaction: [
       {
-        content: 'Conversation compacted:\n- Fixed init() null check error in main.ts\n- Created Notion documentation page\n- Encountered API connection error (Ollama not running)\n- Encountered rate limit (429)\n- Encountered context overflow (32K limit)\n- Encountered tool execution error (grep too many results)\n- Encountered permission denied error (system.log)\n\nKey files: main.ts\nKey agents: Quinki Expert, Notion',
+        content: 'Conversation compacted:\n- Fixed init() null check error in main.ts\n- Created Notion documentation page\n- Encountered API connection error (Ollama not running)\n- Encountered rate limit (429)\n- Encountered context overflow (32K limit)\n- Encountered tool execution error (grep too many results)\n- Encountered permission denied error (system.log)\n\nKey files: main.ts\nKey agents: App Expert, Notion',
         isNoop: false,
       },
     ],
@@ -285,11 +285,11 @@ export const mockSessions: Session[] = [
 
   // Folder with chat at 50% context
   { id: 'folder-1', title: 'Project Alpha', type: 'folder', updatedAt: minsAgo(60), isExpanded: true, messageCount: 0 },
-  { id: 's50', title: 'Debug session (50% ctx)', type: 'chat', parentId: 'folder-1', lastMessage: 'Found the issue in the parser...', updatedAt: minsAgo(60), agents: ['Quinki Expert'], messageCount: 12 },
+  { id: 's50', title: 'Debug session (50% ctx)', type: 'chat', parentId: 'folder-1', lastMessage: 'Found the issue in the parser...', updatedAt: minsAgo(60), agents: ['App Expert'], messageCount: 12 },
 
   // Subfolder inside folder-1 with chat at 80% context
   { id: 'folder-1-1', title: 'Critical bugs', type: 'folder', parentId: 'folder-1', updatedAt: minsAgo(120), isExpanded: false, messageCount: 0 },
-  { id: 's80', title: 'Memory leak (80% ctx)', type: 'chat', parentId: 'folder-1-1', lastMessage: 'The leak is in the event handler...', updatedAt: minsAgo(120), agents: ['Quinki Expert', 'Orchestrator'], messageCount: 8, unread: true },
+  { id: 's80', title: 'Memory leak (80% ctx)', type: 'chat', parentId: 'folder-1-1', lastMessage: 'The leak is in the event handler...', updatedAt: minsAgo(120), agents: ['App Expert', 'Orchestrator'], messageCount: 8, unread: true },
 
   // Chat at 0% context — outside all folders
   { id: 's0b', title: 'Quick question', type: 'chat', updatedAt: minsAgo(600), messageCount: 0 },
@@ -300,8 +300,8 @@ export const mockSessions: Session[] = [
 // ──────────────────────────────────────────────────────────
 export const mockAgents: Agent[] = [
   {
-    id: 'quinki-expert', name: 'Quinki Expert',
-    systemPrompt: 'You are Quinki Expert, a helpful coding assistant. You have access to file system tools and can search the web. Always be precise and concise.',
+    id: 'quinki-expert', name: 'App Expert',
+    systemPrompt: 'You are App Expert, a helpful coding assistant. You have access to file system tools and can search the web. Always be precise and concise.',
     model: 'glm-4.5', thinking: 'xhigh', isDeletable: false,
     skills: [
       { name: 'quinki-expert', source: 'local', installed: true },

@@ -8,11 +8,11 @@ use tauri_plugin_autostart::ManagerExt as AutostartManagerExt;
 
 static SHOULD_EXIT: AtomicBool = AtomicBool::new(false);
 
-// Detect if running as Quinki Expert (separate app)
+// Detect if running as App Expert (separate app)
 fn is_expert_mode() -> bool {
-    // Check if the executable path contains "Quinki Expert"
+    // Check if the executable path contains "App Expert"
     if let Ok(exe) = std::env::current_exe() {
-        if exe.to_string_lossy().contains("Quinki Expert") {
+        if exe.to_string_lossy().contains("App Expert") {
             return true;
         }
     }
@@ -285,14 +285,14 @@ fn restart_main_app() -> Result<String, String> {
 
 #[tauri::command]
 fn check_expert_installed() -> Result<bool, String> {
-    Ok(std::path::Path::new("/Applications/Quinki Expert.app").exists())
+    Ok(std::path::Path::new("/Applications/App Expert.app").exists())
 }
 
 #[tauri::command]
 fn install_expert_app() -> Result<String, String> {
-    // Copy the main app to /Applications/Quinki Expert.app with expert identity
+    // Copy the main app to /Applications/App Expert.app with expert identity
     let main_app = "/Applications/Quinki.app";
-    let expert_app = "/Applications/Quinki Expert.app";
+    let expert_app = "/Applications/App Expert.app";
     
     if !std::path::Path::new(main_app).exists() {
         return Err("Quinki.app not found. Install Quinki first.".to_string());
@@ -316,10 +316,10 @@ fn install_expert_app() -> Result<String, String> {
     let bundle_id = String::from_utf8_lossy(&main_bundle_id.stdout).trim().to_string();
     
     let _ = std::process::Command::new("/usr/libexec/PlistBuddy")
-        .args(["-c", "Set :CFBundleName Quinki Expert", &plist])
+        .args(["-c", "Set :CFBundleName App Expert", &plist])
         .output();
     let _ = std::process::Command::new("/usr/libexec/PlistBuddy")
-        .args(["-c", "Set :CFBundleDisplayName Quinki Expert", &plist])
+        .args(["-c", "Set :CFBundleDisplayName App Expert", &plist])
         .output();
     let _ = std::process::Command::new("/usr/libexec/PlistBuddy")
         .args(["-c", &format!("Set :CFBundleIdentifier {}.expert", bundle_id), &plist])
@@ -338,20 +338,20 @@ fn install_expert_app() -> Result<String, String> {
     // Refresh Dock
     let _ = std::process::Command::new("killall").arg("Dock").output();
     
-    Ok("Quinki Expert.app installed".to_string())
+    Ok("App Expert.app installed".to_string())
 }
 
 #[tauri::command]
 fn sync_expert_app() -> Result<String, String> {
     // Copy binary + sidecar from main app to Expert app (sync new code)
     let main_app = "/Applications/Quinki.app";
-    let expert_app = "/Applications/Quinki Expert.app";
+    let expert_app = "/Applications/App Expert.app";
     
     if !std::path::Path::new(main_app).exists() {
         return Err("Quinki.app not found.".to_string());
     }
     if !std::path::Path::new(expert_app).exists() {
-        return Err("Quinki Expert.app not found. Install it first.".to_string());
+        return Err("App Expert.app not found. Install it first.".to_string());
     }
     
     // Copy binary
@@ -374,7 +374,7 @@ fn sync_expert_app() -> Result<String, String> {
     let flag = format!("{}/.quinki/.expert-needs-restart", home);
     let _ = std::fs::write(&flag, "1");
     
-    Ok("Expert app synced. Restart Quinki Expert to apply.".to_string())
+    Ok("Expert app synced. Restart App Expert to apply.".to_string())
 }
 
 #[tauri::command]
@@ -386,7 +386,7 @@ fn restart_expert_app() -> Result<(), String> {
     
     // Kill the Expert app process
     let _ = std::process::Command::new("sh")
-        .args(["-c", "pkill -f 'Quinki Expert' 2>/dev/null"])
+        .args(["-c", "pkill -f 'App Expert' 2>/dev/null"])
         .output();
     
     std::thread::sleep(std::time::Duration::from_secs(1));
@@ -397,7 +397,7 @@ fn restart_expert_app() -> Result<(), String> {
     let _ = std::fs::remove_file(&flag);
     
     // Reopen the Expert app
-    let expert_app = "/Applications/Quinki Expert.app";
+    let expert_app = "/Applications/App Expert.app";
     if std::path::Path::new(expert_app).exists() {
         std::process::Command::new("open")
             .arg(expert_app)
@@ -426,12 +426,12 @@ fn check_expert_running() -> Result<bool, String> {
 
 #[tauri::command]
 fn open_expert_app() -> Result<(), String> {
-    // Look for Quinki Expert.app as a separate app in /Applications
+    // Look for App Expert.app as a separate app in /Applications
     let expert_paths = [
-        "/Applications/Quinki Expert.app".to_string(),
+        "/Applications/App Expert.app".to_string(),
         {
             let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
-            format!("{}/Applications/Quinki Expert.app", home)
+            format!("{}/Applications/App Expert.app", home)
         },
     ];
     
@@ -446,7 +446,7 @@ fn open_expert_app() -> Result<(), String> {
         }
     }
     
-    Err("Quinki Expert.app not found. Install it separately.".to_string())
+    Err("App Expert.app not found. Install it separately.".to_string())
 }
 
 #[tauri::command]
