@@ -280132,7 +280132,8 @@ var PiBridge = class {
           const prevCompactions = collectAllCompactionMessages(pi2.sessionManager, noopTs);
           const mapped = mapWithNoop(ctx.messages, noopTs).filter((m2) => !m2.isCompactionSummary && !m2.isCompactionWarning);
           const errs = (this.#errors.get(key) || []).map((er, i2) => ({ id: `err-${i2}-${er.timestamp}`, role: "assistant", content: "", errorContent: er.errorMessage, isError: true, timestamp: er.timestamp, done: true, model: er.model, agentName: er.agentName, thinkingLevel: er.thinkingLevel }));
-          return [...prevCompactions, ...mapped, ...errs].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+          const allSorted1 = [...prevCompactions, ...mapped, ...errs].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+          return allSorted1.slice(-200);
         }
       } catch {
       }
@@ -280149,7 +280150,8 @@ var PiBridge = class {
             const prevCompactions = collectAllCompactionMessages(sm, noopTs);
             const mapped = mapWithNoop(ctx.messages, noopTs).filter((m2) => !m2.isCompactionSummary && !m2.isCompactionWarning);
             const errs = (this.#errors.get(key) || []).map((er, i2) => ({ id: `err-${i2}-${er.timestamp}`, role: "assistant", content: "", errorContent: er.errorMessage, isError: true, timestamp: er.timestamp, done: true, model: er.model, agentName: er.agentName, thinkingLevel: er.thinkingLevel }));
-            return [...prevCompactions, ...mapped, ...errs].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+            const allSorted2 = [...prevCompactions, ...mapped, ...errs].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+            return allSorted2.slice(-200);
           }
         }
       }
@@ -285539,7 +285541,7 @@ var FakeWebSocket = class {
       const obj = JSON.parse(data);
       if (obj && typeof obj === "object" && typeof obj.type === "string") {
         try {
-          fs15.writeSync(1, JSON.stringify({ jsonrpc: "2.0", method: obj.type, params: obj }) + "\n");
+          process.stdout.write(JSON.stringify({ jsonrpc: "2.0", method: obj.type, params: obj }) + "\n");
         } catch {
         }
         return;
@@ -285952,9 +285954,11 @@ var handlers = {
 var inputBuffer = "";
 process.stdin.setEncoding("utf8");
 process.stdin.on("close", () => {
-  try {
-    process.exit(0);
-  } catch {
+  if (!globalThis.__quinki_combined) {
+    try {
+      process.exit(0);
+    } catch {
+    }
   }
 });
 process.stdin.on("data", (chunk) => {
@@ -286018,3 +286022,10 @@ ${err2.stack}
   }
 }
 bootstrap();
+if (typeof globalThis !== "undefined") {
+  globalThis.__quinki_handleLine = handleLine;
+  globalThis.__quinki_sendError = sendError;
+  globalThis.__quinki_send = (msg) => {
+    process.stdout.write(JSON.stringify(msg) + "\n");
+  };
+}

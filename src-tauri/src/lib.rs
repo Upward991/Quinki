@@ -284,6 +284,11 @@ fn restart_main_app() -> Result<String, String> {
 }
 
 #[tauri::command]
+fn check_expert_installed() -> Result<bool, String> {
+    Ok(std::path::Path::new("/Applications/Quinki Expert.app").exists())
+}
+
+#[tauri::command]
 fn install_expert_app() -> Result<String, String> {
     // Copy the main app to /Applications/Quinki Expert.app with expert identity
     let main_app = "/Applications/Quinki.app";
@@ -364,7 +369,59 @@ fn sync_expert_app() -> Result<String, String> {
         .output()
         .map_err(|e| format!("Sidecar copy failed: {}", e))?;
     
+    // Write flag file so the Expert app can detect it needs to restart
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
+    let flag = format!("{}/.quinki/.expert-needs-restart", home);
+    let _ = std::fs::write(&flag, "1");
+    
     Ok("Expert app synced. Restart Quinki Expert to apply.".to_string())
+}
+
+#[tauri::command]
+fn restart_expert_app() -> Result<(), String> {
+    // Kill the Expert app sidecar (port 9183)
+    let _ = std::process::Command::new("sh")
+        .args(["-c", "lsof -ti:9183 | xargs kill -9 2>/dev/null"])
+        .output();
+    
+    // Kill the Expert app process
+    let _ = std::process::Command::new("sh")
+        .args(["-c", "pkill -f 'Quinki Expert' 2>/dev/null"])
+        .output();
+    
+    std::thread::sleep(std::time::Duration::from_secs(1));
+    
+    // Remove the flag file
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
+    let flag = format!("{}/.quinki/.expert-needs-restart", home);
+    let _ = std::fs::remove_file(&flag);
+    
+    // Reopen the Expert app
+    let expert_app = "/Applications/Quinki Expert.app";
+    if std::path::Path::new(expert_app).exists() {
+        std::process::Command::new("open")
+            .arg(expert_app)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    
+    Ok(())
+}
+
+#[tauri::command]
+fn check_expert_needs_restart() -> Result<bool, String> {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
+    let flag = format!("{}/.quinki/.expert-needs-restart", home);
+    Ok(std::path::Path::new(&flag).exists())
+}
+
+#[tauri::command]
+fn check_expert_running() -> Result<bool, String> {
+    let output = std::process::Command::new("sh")
+        .args(["-c", "lsof -ti:9183 2>/dev/null"])
+        .output()
+        .map_err(|e| e.to_string())?;
+    Ok(!output.stdout.is_empty())
 }
 
 #[tauri::command]
@@ -663,8 +720,12 @@ pub fn run() {
         open_attachments_folder,
         open_general_attachments_folder,
         list_attachments,
+        check_expert_installed,
         install_expert_app,
         sync_expert_app,
+        restart_expert_app,
+        check_expert_needs_restart,
+        check_expert_running,
         open_expert_app,
         install_main_app,
         restart_main_app,
@@ -763,61 +824,12 @@ pub fn run() {
         }
       }
 
-      // === Tray icon ===
-      if is_expert_mode() {
-        // Expert app: own tray icon (expert icon) with Expert-specific menu
-        let show_item = MenuItem::with_id(app, "show", "Show Quinki Expert", true, None::<&str>)?;
-        let open_main = MenuItem::with_id(app, "open_main", "Open Quinki App", true, None::<&str>)?;
-        let quit_item = MenuItem::with_id(app, "quit", "Quit Quinki Expert", true, None::<&str>)?;
-        let menu = Menu::with_items(app, &[&show_item, &open_main, &quit_item])?;
-
-        let tray_img = tauri::image::Image::from_bytes(include_bytes!("../icons/expert-tray-icon.png"))
-            .unwrap_or_else(|_| app.default_window_icon().unwrap().clone());
-
-        let _tray = TrayIconBuilder::new()
-          .menu(&menu)
-          .icon(tray_img)
-          .icon_as_template(false)
-          .menu_on_left_click(true)
-          .tooltip("Quinki Expert")
-          .on_menu_event(|app, event| {
-            match event.id.as_ref() {
-              "show" => {
-                if let Some(window) = app.get_webview_window("main") {
-                  let _ = window.show();
-                  let _ = window.set_focus();
-                }
-              }
-              "open_main" => {
-                let _ = std::process::Command::new("open")
-                  .arg("/Applications/Quinki.app")
-                  .spawn();
-              }
-              "open_main" => {
-                let _ = std::process::Command::new("open")
-                  .arg("/Applications/Quinki.app")
-                  .spawn();
-              }
-              "quit" => {
-                // Kill expert sidecar + watchdog
-                let _ = std::process::Command::new("sh").arg("-c")
-                  .arg("lsof -ti:9183 | xargs kill -9 2>/dev/null; pkill -f 'start-expert.sh' 2>/dev/null; pkill -f expert-watchdog 2>/dev/null")
-                  .spawn();
-                SHOULD_EXIT.store(true, Ordering::SeqCst);
-                app.exit(0);
-              }
-              _ => {}
-            }
-          })
-          .on_tray_icon_event(|_tray, _event| {})
-          .build(app)?;
-      } else {
-        // Main app: normal tray icon
+      // === Tray icon (main app only — Expert app has no tray) ===
+      if !is_expert_mode() {
       let show_item = MenuItem::with_id(app, "show", "Show Quinki", true, None::<&str>)?;
-      let expert_item = MenuItem::with_id(app, "expert", "Open Quinki Expert App", true, None::<&str>)?;
       let restart_item = MenuItem::with_id(app, "restart", "Restart Quinki", true, None::<&str>)?;
       let quit_item = MenuItem::with_id(app, "quit", "Quit Quinki", true, None::<&str>)?;
-      let menu = Menu::with_items(app, &[&show_item, &expert_item, &restart_item, &quit_item])?;
+      let menu = Menu::with_items(app, &[&show_item, &restart_item, &quit_item])?;
 
       let tray_img = tauri::image::Image::from_bytes(include_bytes!("../icons/tray-icon.png"))
           .unwrap_or_else(|_| app.default_window_icon().unwrap().clone());
@@ -834,18 +846,6 @@ pub fn run() {
               if let Some(window) = app.get_webview_window("main") {
                 let _ = window.show();
                 let _ = window.set_focus();
-              }
-            }
-            "expert" => {
-              // Open the separate Quinki Expert App from the main app bundle
-              let exe = std::env::current_exe().unwrap_or_default();
-              let main_dir = exe.parent().unwrap_or(std::path::Path::new("/"));
-              let resources_dir = main_dir.parent().unwrap_or(std::path::Path::new("/")).join("Resources");
-              let expert_app = resources_dir.join("Quinki Expert.app");
-              if expert_app.exists() {
-                let _ = std::process::Command::new("open")
-                  .arg(&expert_app)
-                  .spawn();
               }
             }
             "restart" => {

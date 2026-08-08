@@ -51,3 +51,11 @@ sidecar-src/quinki-ws-bridge
 sidecar-src/quinki-sidecar-full
 sidecar-src/quinki-sidecar
 sidecar-src/ws-bridge-standalone.ts
+
+# Build artifacts
+sidecar-src/quinki-sidecar-ws
+sidecar-src/quinki-combined
+sidecar-src/standalone-entry.ts
+sidecar-src/combined-entry.ts
+sidecar-src/ws-bridge-bundled.ts
+src-tauri/resources/sidecar/bun-runtime

@@ -18,7 +18,7 @@ export function HomeView({onSelectPanel}: {onSelectPanel: (panel: string) => voi
   const onContext = useCallback((e: React.MouseEvent, card: any) => {
     // Only show custom menu for tabs that CAN be opened in new window
     // (not chat, not expert — expert always opens in new window anyway)
-    if (card.id === 'chat') return
+    if (card.id === 'chat' || card.id === 'expert') return
     e.preventDefault()
     e.stopPropagation()
     setCtxMenu({x: e.clientX, y: e.clientY, card})
@@ -51,14 +51,8 @@ export function HomeView({onSelectPanel}: {onSelectPanel: (panel: string) => voi
           border:'1px solid var(--q-border)', padding:'4px 0', minWidth:'160px'
         }
       },
-        ctxMenu.card.id === 'expert' 
-          ? React.createElement(CtxItem, {
-              label: 'Open Quinki Expert App',
-              onClick: () => {
-                invoke('open_expert_app').catch(() => {})
-                setCtxMenu(null)
-              }
-            })
+        ctxMenu.card.id === 'expert'
+          ? null
           : React.createElement(CtxItem, {
               label: 'Open in new window',
               onClick: () => {

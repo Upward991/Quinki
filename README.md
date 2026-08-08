@@ -18,35 +18,40 @@ Quinki is a desktop AI chat application that lets you converse with large langua
 - **File attachments** — drag and drop files into any chat; agents read them on-demand.
 - **Delegations** — the Orchestrator can delegate tasks to specialized agents, with full conversation tree persistence.
 - **Session management** — folders, drag-and-drop reordering, search, export (Markdown/HTML), and context window tracking.
-- **Quinki Expert** — a built-in agent that can modify, fix, and improve Quinki itself, running as a separate process with its own sidecar.
+- **Quinki Expert** — a built-in agent that can modify, fix, and improve Quinki itself, running as a separate app with its own sidecar.
 
 ## Architecture
 
 ```
-React (src/)  ←──WebSocket/JSON-RPC──▶  sidecar (sidecar-src/)  ──API──▶  Pi SDK
-   UI + state (hooks)                       bridge Pi SDK              agent runtime
+React (src/)  ←──WebSocket/JSON-RPC──▶  sidecar binary (sidecar-src/)  ──API──▶  Pi SDK
+   UI + state (hooks)                       compiled bun binary              agent runtime
 ```
 
 - **Frontend** — React 19 + TypeScript + Vite + Tailwind CSS v4. Handles all UI and state management.
-- **Tauri 2** — Native shell (Rust). Window management, tray icons, sidecar lifecycle, file dialogs, attachments.
-- **Sidecar** — Node.js process that bridges the [Pi SDK](https://github.com/earendil-works/pi-coding-agent). Handles sessions, system prompts, agent management, streaming, and delegations.
+- **Tauri 2** — Native shell (Rust). Window management, tray icon (main app), sidecar lifecycle, file dialogs, attachments, expert app install/sync.
+- **Sidecar** — Single compiled binary (`quinki-sidecar-ws`) built with `bun build --compile`. No Node.js or external runtime required. Includes WebSocket server + JSON-RPC handlers + Pi SDK bridge.
 
-### Two apps
+### Two separate apps
 
-Quinki ships as two interconnected apps:
+Quinki ships as two completely independent apps:
 
-1. **Quinki** (main app) — Full UI with chat, sidebar, agents panel, settings, and log viewer. Sidecar on port 9182.
-2. **Quinki Expert** (separate app) — Minimal chat-only UI for the built-in developer agent. Runs as an independent process with its own sidecar on port 9183. A watchdog restarts it if it crashes.
+1. **Quinki** (main app) — Full UI with chat, sidebar, agents panel, settings, log, and home. Sidecar on port 9182. Tray icon (Show / Restart / Quit).
+2. **Quinki Expert** (separate app) — Minimal chat-only UI for the built-in developer agent. Runs as a completely independent process and bundle with its own sidecar on port 9183. No tray icon. A watchdog restarts the sidecar if it crashes.
 
-Both apps share the same data directory, so agents, skills, sessions, and settings stay in sync automatically.
+Both apps share the same data directory (`~/.quinki/`), so agents, skills, sessions, and settings stay in sync automatically.
+
+### Expert app sync
+
+When Quinki is updated, the user syncs the Expert app from Settings → Quinki Expert → "Sync Expert App". This copies the new binary and sidecar to the Expert app. If the Expert app is running, a restart button appears. If it's closed, the new version is picked up next time it opens.
 
 ## Getting started
 
-### Prerequisites
+### Prerequisites (development only)
 
-- [Node.js](https://nodejs.org/) 18+
+- [Bun](https://bun.sh/) (for compiling the sidecar binary)
 - [Rust](https://www.rust-lang.org/) (stable toolchain)
 - [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/)
+- Node.js 18+ (for Vite frontend build only — not needed at runtime)
 
 ### Install dependencies
 
@@ -66,15 +71,18 @@ npx tauri dev
 # Build frontend
 rm -rf dist node_modules/.vite && npx vite build
 
+# Recompile sidecar (if sidecar code changed)
+cd sidecar-src && bun build --compile --target=bun-darwin-arm64 sidecar-ws.ts --outfile quinki-sidecar-ws
+cp quinki-sidecar-ws ../src-tauri/resources/sidecar/
+
 # Build native app
 export PATH="$HOME/.cargo/bin:$PATH"
 npx tauri build
-
-# Build Expert app (bundles sidecar copy)
-bash scripts/build-expert-app.sh
 ```
 
 ### Install (macOS)
+
+The app is self-contained — no Node.js, Bun, or external dependencies required at runtime. Only API keys need to be configured after install.
 
 ```bash
 ditto "src-tauri/target/release/bundle/macos/Quinki.app" /Applications/Quinki.app
@@ -85,7 +93,7 @@ ditto "src-tauri/target/release/bundle/macos/Quinki.app" /Applications/Quinki.ap
 Quinki seeds two default agents on first launch:
 
 - **Orchestrator** — Coordinates other agents. Delegates tasks via the `delegate_to_agent` tool. Talks directly to the user when no agent is tagged.
-- **Quinki Expert** — Automatic developer of the Quinki app. Can read, modify, build, and install new versions of Quinki from within itself.
+- **Quinki Expert** — Automatic developer of the Quinki app. Can read, modify, build, and install new versions of Quinki from within itself. Runs as a separate app to avoid self-destruction during updates.
 
 Custom agents can be created from the Agents panel. Each agent has its own PROMPT.md, config, skills, and tools.
 
@@ -103,14 +111,15 @@ Skills are installable knowledge modules (SKILL.md files with YAML frontmatter) 
 Quinki stores all user data in a `.quinki/` directory in the user's home:
 
 ```
-.quinki/
+~/.quinki/
 ├── agents/           # Agent configs + PROMPT.md
 ├── skills/           # SKILL.md files
 ├── sessions/         # .jsonl message history
 ├── attachments/      # File attachments per session
 ├── config.json       # Global settings + providers
 ├── auth.json         # API keys (encrypted)
-└── models.json       # Model definitions
+├── models.json       # Model definitions
+└── .expert-needs-restart  # Flag file for Expert app sync
 ```
 
 ## Supported providers
@@ -120,6 +129,7 @@ Quinki stores all user data in a `.quinki/` directory in the user's home:
 - **OpenRouter** (multiple models)
 - **Ollama** (local models)
 - **Moonshot** (Kimi)
+- **GLM** (Zhipu)
 - Any OpenAI-compatible API
 
 Provider detection is by capability (trying `/api/tags`), not by provider name.
@@ -130,7 +140,7 @@ Provider detection is by capability (trying `/api/tags`), not by provider name.
 |-------|-----------|
 | Frontend | React 19, TypeScript, Vite, Tailwind CSS v4 |
 | Native shell | Tauri 2 (Rust) |
-| Sidecar | Node.js, WebSocket, JSON-RPC |
+| Sidecar | Compiled bun binary (`bun build --compile`), WebSocket, JSON-RPC |
 | AI SDK | Pi SDK (`@earendil-works/pi-coding-agent`) |
 | Markdown | react-markdown, remark-gfm, rehype-highlight |
 | Tokenizer | gpt-tokenizer (BPE, cl100k_base) |
