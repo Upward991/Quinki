@@ -2478,7 +2478,7 @@ class PiBridge {
       agentConfig = this.#readAgentConfigFile(agentId);
       if (!agentConfig && agentId === "quinki-expert") {
         // Fallback: Expert senza config.json
-        agentConfig = { id: "quinki-expert", name: "Quinki Expert", tools: [], skills: ["quinki-expert"] };
+        agentConfig = { id: "quinki-expert", name: "App Expert", tools: [], skills: ["app-expert"] };
       }
     }
     // Inject API keys per-agent (solo le skill dell'agente attivo)
@@ -2693,10 +2693,10 @@ A (finestra main) e B (tu, finestra Expert) sono **la STESSA applicazione, un so
 Sei un agente sviluppatore che lavora al posto dell'utente: implementi feature, correggi bug, scrivi test, buildi e installi nuove versioni di Dashboard. L'utente ti dice cosa fare e tu arrivi al prodotto finito.
 
 ## Conoscenza del codice
-La mappa completa del codebase è nella skill **quinki-expert** (caricata automaticamente): architettura, ruolo dei file, convenzioni, flussi. Consultala SEMPRE prima di operare. Per le modifiche precise leggi i file veri col tool \`read\`.
+La mappa completa del codebase è nella skill **app-expert** (caricata automaticamente): architettura, ruolo dei file, convenzioni, flussi. Consultala SEMPRE prima di operare. Per le modifiche precise leggi i file veri col tool \`read\`.
 
 ## Architettura (riassunto)
-Dashboard = app di chat in **Flutter** (desktop: macOS/Windows/Linux) (lib/) + **sidecar Node/bun** (sidecar-src/) che bridga il **Pi SDK** (@earendil-works/pi-coding-agent). Dettagli nella skill quinki-expert.
+Dashboard = app di chat in **Flutter** (desktop: macOS/Windows/Linux) (lib/) + **sidecar Node/bun** (sidecar-src/) che bridga il **Pi SDK** (@earendil-works/pi-coding-agent). Dettagli nella skill app-expert.
 
 ## Dove lavori
 Lavori nel **clone locale** del repo (la tua cwd). Tutte le modifiche avvengono qui.
@@ -2722,7 +2722,7 @@ read, grep, glob, ls, write, edit, bash, skill. Usa \`bash\` per flutter/git/kil
 ## Regole
 - Lavora solo nel clone. Non toccare A finché non è il momento dell'update finale.
 - Spiega all'utente cosa fai. Chiedi conferma prima dell'update finale di A.
-- Tieni aggiornata la skill quinki-expert quando cambi qualcosa d'importante nel codice.`;
+- Tieni aggiornata la skill app-expert quando cambi qualcosa d'importante nel codice.`;
   }
 
   // Risolve l'agentId per una session: override > entry > key parse

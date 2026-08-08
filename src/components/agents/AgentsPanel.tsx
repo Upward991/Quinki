@@ -486,7 +486,7 @@ export function AgentsPanel(props) {
                       isExpanded: expandedSkillName === skill.name,
                       onToggle: () => setExpandedSkillName(expandedSkillName === skill.name ? null : skill.name),
                       onEdit: () => setFileEditor({ skillName: skill.name, fileName: 'SKILL.md' }),
-                      onDeleteSkill: skill.name === 'quinki-expert' ? null : () => setRemoveTagState({ type: 'skill', name: skill.name, agent: '' }),
+                      onDeleteSkill: skill.name === 'app-expert' ? null : () => setRemoveTagState({ type: 'skill', name: skill.name, agent: '' }),
                       onAddAgent: () => setAddItemsModal({ title: `Add agent to ${skill.name}`, items: agents.map(a => ({ name: a.name, description: a.systemPrompt ? a.systemPrompt.substring(0, 80) + (a.systemPrompt.length > 80 ? '...' : '') : a.id })), initialSelected: agents.filter(a => (a.skills||[]).some(s => (s.name||s) === skill.name)).map(a => a.name), onConfirm: (selected) => doAddAgentsToSkill(skill.name, selected) }),
                       onRemoveAgent: (agentName) => setRemoveTagState({ type: 'agent', name: agentName, agent: skill.name }),
                       onRemoveAllAgents: () => setRemoveAllState({ type: 'agents', agentName: skill.name })
