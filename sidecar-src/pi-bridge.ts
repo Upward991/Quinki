@@ -2231,9 +2231,16 @@ class PiBridge {
     } else {
       this.#agentOverride.delete(key);
     }
+    // Dispose la sessione attiva SOLO se l'agente cambia: prima dispose sempre a ogni
+    // sendMessage → sessione ricreata + MCP ricollegati a OGNI messaggio (hang/stabilità).
+    const prev = this.#agentOverridePrior.get(key);
+    const changed = prev !== agentId;
+    this.#agentOverridePrior.set(key, agentId);
+    if (!changed) {
+      this.logDebug("set-agent-same", { sessionKey: key, agentId });
+      return;
+    }
     // NON sovrascrivere agentId nella session entry — quello è la lista COMPLETA gestita da setChatAgents
-    // Dispose la sessione attiva → il prossimo send() ricrea con il resource loader
-    // e i customTools dell'agente corretto (es: Notion senza delegate_to_agent)
     const pi = this.#active.get(key);
     if (pi) {
       try { (pi as any).dispose?.(); } catch (e: any) { this.logDebug("set-agent-dispose-error", { sessionKey: key, error: e?.message }); }
@@ -2622,6 +2629,7 @@ class PiBridge {
   // === Per-agent API key injection ===
   #activeApiKeys: string[] = []; // env vars attualmente caricate
   #agentOverride: Map<string, string> = new Map(); // sessionKey -> agentId (cambio agente mid-session)
+  #agentOverridePrior: Map<string, string | null> = new Map(); // ultimo agentId per cui è stato chiamato setAgent (anti-recreate)
 
   #clearActiveApiKeys() {
     for (const v of this.#activeApiKeys) {
