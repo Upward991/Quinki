@@ -1307,7 +1307,7 @@ export function McpInstallModal({ onClose, onInstalled }) {
 
   const deriveName = (src) => {
     if (type === 'package') return (src.split('/').pop() || src).replace(/^server-/, '').replace(/^mcp-/, '');
-    if (type === 'url') { try { return new URL(src).hostname.replace(/^www\./, ''); } catch { return src; } }
+    if (type === 'url') { try { const u = new URL(src.startsWith('http') ? src : 'http://' + src); return u.hostname.replace(/^www\./, ''); } catch { return src; } }
     if (type === 'command') return (src.trim().split(/\s+/)[0] || src).split('/').pop();
     return src;
   };

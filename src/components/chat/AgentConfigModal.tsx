@@ -16,6 +16,7 @@ export function AgentConfigModal({ agentId, agents, onClose }: { agentId: string
   const [addItemsModal, setAddItemsModal] = useState<any>(null)
   const [fileEditor, setFileEditor] = useState<any>(null)
   const [addFileAgent, setAddFileAgent] = useState<string | null>(null)
+  const [mcpServers, setMcpServers] = useState<any[]>([])
 
   // Load skills + tools
   useEffect(() => {
@@ -26,6 +27,8 @@ export function AgentConfigModal({ agentId, agents, onClose }: { agentId: string
         if (!cancelled && sr?.skills) setSkills(sr.skills.map((s: any) => ({ name: s.name || s, description: s.description || '', source: s.source || 'local' })))
         const tr = await call('listTools', {})
         if (!cancelled && tr?.tools) setTools(tr.tools.map((t: any) => ({ name: t.name, description: t.description || '', readOnly: t.readOnly || false })))
+        const mr = await call('listMcpServers', {})
+        if (!cancelled && mr?.servers) setMcpServers(mr.servers)
       } catch (e) { console.error('AgentConfig load error:', e) }
     })()
     return () => { cancelled = true }
@@ -76,7 +79,20 @@ export function AgentConfigModal({ agentId, agents, onClose }: { agentId: string
       try { await call('updateAgent', { id: agent.id, config: { tools: remaining } }); setAgent(prev => prev ? { ...prev, tools: remaining } : prev) } catch (e) { console.error(e) }
     } else if (type === 'file') {
       try { await call('deleteAgentFile', { id: agent.id, fileName: name }); setAgent(prev => prev ? { ...prev, files: (prev.files || []).filter((f: string) => f !== name) } : prev) } catch (e) { console.error(e) }
+    } else if (type === 'mcp') {
+      const remaining = (agent.mcpServers || []).filter((m: string) => m !== name)
+      try { await call('updateAgent', { id: agent.id, config: { mcpServers: remaining } }); setAgent(prev => prev ? { ...prev, mcpServers: remaining } : prev) } catch (e) { console.error(e) }
     }
+  }, [call, agent])
+
+  const doAddMcpToAgent = useCallback(async (id: string, mcpIds: string[]) => {
+    if (!call || !agent) return
+    const existing = agent.mcpServers || []
+    const merged = [...new Set([...existing, ...mcpIds])]
+    try {
+      await call('updateAgent', { id, config: { mcpServers: merged } })
+      setAgent(prev => prev ? { ...prev, mcpServers: merged } : prev)
+    } catch (e) { console.error(e) }
   }, [call, agent])
 
   const doRemoveAll = useCallback(async (type: string) => {
@@ -88,6 +104,8 @@ export function AgentConfigModal({ agentId, agents, onClose }: { agentId: string
     } else if (type === 'files') {
       for (const f of (agent.files || [])) { try { await call('deleteAgentFile', { id: agent.id, fileName: f }) } catch {} }
       setAgent(prev => prev ? { ...prev, files: [] } : prev)
+    } else if (type === 'mcp') {
+      try { await call('updateAgent', { id: agent.id, config: { mcpServers: [] } }); setAgent(prev => prev ? { ...prev, mcpServers: [] } : prev) } catch (e) { console.error(e) }
     }
   }, [call, agent])
 
@@ -143,6 +161,8 @@ export function AgentConfigModal({ agentId, agents, onClose }: { agentId: string
               onAddFile={() => setAddFileAgent(agent.name)}
               onAddSkill={() => setAddItemsModal({ title: `Add skill to ${agent.name}`, items: skills.map(s => ({ name: s.name, description: s.description })), initialSelected: (agent.skills||[]).map((s:any)=>s.name||s), onConfirm: (selected: string[]) => doAddSkillsToAgent(agent.id, selected) })}
               onAddTool={() => setAddItemsModal({ title: `Add tool to ${agent.name}`, items: tools.map(t => ({ name: t.name, description: t.description })), initialSelected: (agent.tools||[]).map((t:any)=>t.name||t), onConfirm: (selected: string[]) => doAddToolsToAgent(agent.id, selected) })}
+              mcpServers={mcpServers}
+              onAddMcp={() => setAddItemsModal({ title: `Add MCP to ${agent.name}`, items: mcpServers.map(s => ({ name: s.name, description: s.description || s.source })), initialSelected: (agent.mcpServers||[]).map(id => { const s = mcpServers.find(x => x.id === id); return s ? s.name : null; }).filter(Boolean), onConfirm: (selected: string[]) => doAddMcpToAgent(agent.id, selected.map(n => { const s = mcpServers.find(x => x.name === n); return s ? s.id : n; }).filter(Boolean)) })}
               onOpenFile={(fileName: string) => setFileEditor({ agentId: agent.id, fileName })}
               onRemoveTag={(type: string, name: string) => setRemoveTagState({ type, name, agent: agent.name })}
               onRemoveAll={(type: string) => setRemoveAllState({ type, agentName: agent.name })}

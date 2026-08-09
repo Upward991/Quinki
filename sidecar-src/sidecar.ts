@@ -358,6 +358,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
       textPreview: (p.text || "").substring(0, 80)
     });
     if (p.model) await piBridge!.setModel(sk, p.model);
+    if (p.mode && p.mode !== meta.mode) await piBridge!.setMode(sk, p.mode);
     if (p.thinkingLevel) piBridge!.setThinkingLevel(sk, p.thinkingLevel);
     // === Set agent BEFORE send (single call, no race condition) ===
     if (p.agentId) {
