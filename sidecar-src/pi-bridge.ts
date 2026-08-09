@@ -143,6 +143,7 @@ class PiBridge {
   #cwdOverride = new Map<string, string>();
   #pendingDelegationSkills = new Map<string, { agentId: string; skillName: string }[]>();
   #pendingDelegationAttachments = new Map<string, { originalName: string; path: string; uuid: string; size?: number }[]>();  // override cwd per cambio dir mid-sessione
+  #scheduleHandler: ((params: any) => any) | null = null;  // A2.2: callback verso il Scheduler (settato da sidecar.ts)
   // === Multi-window streaming buffer: traccia il messaggio in streaming per sessione ===
   // Permette alle nuove finestre di recuperare il contenuto parziale quando aprono durante la generazione
   #streamingBuffers = new Map<string, { text: string; thinking: string; toolCalls: any[]; currentPhase: string | null; messageId: string | null; model: string | null; provider: string | null; stopReason: string | null; thinkingLevel: string | null; }>();
@@ -2578,7 +2579,7 @@ class PiBridge {
       const idsNow = JSON.stringify(Array.isArray(cfg?.mcpServers) ? cfg.mcpServers : []);
       if (this.#mcpSig.get(sk) !== idsNow) {
         const mcpTools = await this.#buildMcpTools(sk, agentId);
-        const keep = ((pi as any)._customTools || []).filter((t: any) => t?.name === 'skill' || t?.name === 'delegate_to_agent');
+        const keep = ((pi as any)._customTools || []).filter((t: any) => t?.name === 'skill' || t?.name === 'delegate_to_agent' || t?.name === 'schedule_task');
         (pi as any)._customTools = [...keep, ...mcpTools];
         try { (pi as any)._refreshToolRegistry?.(); } catch (e: any) { this.logDebug("mcp-refresh-registry-error", { sessionKey: sk, error: e?.message }); }
         this.#mcpSig.set(sk, idsNow);
@@ -2638,10 +2639,12 @@ class PiBridge {
       names = merged.filter(n => all.includes(n));
       // Always include custom tools (delegate_to_agent, skill) even if not in getAllTools
       // — they were registered via createAgentSession customTools
-      const customToolNames = ["delegate_to_agent", "skill"];
+      const customToolNames = ["delegate_to_agent", "skill", "schedule_task"];
       for (const ct of customToolNames) {
         if (merged.includes(ct) && !names.includes(ct)) names.push(ct);
       }
+      // A2.2: schedule_task è registrato come customTool per TUTTI gli agenti → sempre attivo
+      if (!names.includes("schedule_task")) names.push("schedule_task");
       // Plan mode: remove tools not allowed in plan (but keep custom tools)
       if (m === "plan") {
         const planFlags = globalConfig.planModeTools || {};
@@ -2741,6 +2744,67 @@ class PiBridge {
   setExpertEnv(exePath: string) {
     this.#expertExePath = exePath;
     this.logDebug("set-expert-env", { exePath });
+  }
+
+  // A2.2: il sidecar registra il bridge verso il Scheduler (tool schedule_task degli agenti)
+  setScheduleHandler(fn: (params: any) => any) {
+    this.#scheduleHandler = fn;
+  }
+
+  // === Tool personalizzato: schedule_task (A2.2) — l'agente può PROGRAMMARE un compito dal dialogo ===
+  // "domani alle 7 fammi X" → il modello chiama schedule_task → il Scheduler crea la schedule.
+  #buildScheduleTool(sessionKey: string): any {
+    const self = this;
+    return defineTool({
+      name: "schedule_task",
+      label: "Schedule task",
+      description: "Schedule an autonomous task that runs later or on a recurring basis (once, daily, weekly, monthly). Use it when the user asks to run something at a specific time or repeatedly (e.g. 'tomorrow at 7am do X', 'every morning at 8 run Y'). The task runs automatically at the chosen time; if the app is closed at that moment, it runs as soon as possible afterwards (late, never skipped).",
+      promptSnippet: "schedule_task: schedule a task for automatic execution at a chosen time/recurrence",
+      promptGuidelines: [
+        "When the user asks to do something later or on a schedule, use schedule_task instead of doing it now.",
+        "when.type: once = specific date; daily = every day at HH:MM; weekly = specific weekdays; monthly = specific day of month.",
+        "at is LOCAL time in 24h HH:MM (e.g. 07:00). For weekly, daysOfWeek uses 1=Monday ... 7=Sunday.",
+        "text must be the exact task the agent must perform when it fires.",
+        "If the user doesn't specify an agent, use agentIds ['orchestrator'].",
+        "After scheduling, confirm to the user what was scheduled and when.",
+      ],
+      parameters: Type.Object({
+        title: Type.Optional(Type.String({ description: "Short label for the scheduled task" })),
+        text: Type.String({ description: "The exact task/prompt to execute when the schedule fires" }),
+        when: Type.Object({
+          type: Type.Union([Type.Literal("once"), Type.Literal("daily"), Type.Literal("weekly"), Type.Literal("monthly")], { description: "once | daily | weekly | monthly" }),
+          at: Type.Optional(Type.String({ description: "Local time HH:MM (24h), e.g. 07:00 (daily/weekly/monthly)" })),
+          daysOfWeek: Type.Optional(Type.Array(Type.Number(), { description: "1=Monday ... 7=Sunday (weekly)" })),
+          dayOfMonth: Type.Optional(Type.Number({ description: "Day of month 1-31 (monthly)" })),
+          date: Type.Optional(Type.String({ description: "ISO date+time for once, e.g. 2026-08-10T07:00:00" })),
+        }),
+        agentIds: Type.Optional(Type.Union([Type.String(), Type.Array(Type.String())], { description: "Agent(s) to run the task, default ['orchestrator']" })),
+        workingDir: Type.Optional(Type.String({ description: "Working directory for the task" })),
+        mode: Type.Optional(Type.String({ description: "plan or build (default build)" })),
+      }),
+      async execute(toolCallId: string, params: any, signal: any, onUpdate: any, ctx: any): Promise<any> {
+        try {
+          self.logDebug("schedule-task-call", { sessionKey, params: JSON.stringify(params)?.slice(0, 400) });
+          if (!self.#scheduleHandler) {
+            return { content: [{ type: "text", text: "Scheduling is not available in this sidecar yet." }], isError: true };
+          }
+          const r = self.#scheduleHandler(params);
+          const when = params.when || {};
+          let whenText = `type=${when.type}`;
+          if (when.type === "once" && when.date) whenText += ` at ${when.date}`;
+          else if (when.at) {
+            whenText += ` at ${when.at}`;
+            if (when.type === "weekly") whenText += ` (days ${(when.daysOfWeek || []).join(",")})`;
+            if (when.type === "monthly") whenText += ` (day ${when.dayOfMonth})`;
+          }
+          self.logDebug("schedule-task-created", { sessionKey, scheduleId: r?.id, whenText, text: params.text?.substring(0, 200) });
+          return { content: [{ type: "text", text: `Task scheduled successfully. Schedule ID: ${r?.id}. When: ${whenText}. It runs automatically; if the app is closed at that time it will run as soon as possible afterwards.` }] };
+        } catch (e: any) {
+          self.logDebug("schedule-task-error", { sessionKey, error: e?.message || String(e) });
+          return { content: [{ type: "text", text: `Unable to schedule: ${e?.message || String(e)}` }], isError: true };
+        }
+      },
+    });
   }
 
   // === Per-agent API key injection ===
@@ -3173,7 +3237,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     if (ids.length === 0) return [];
     const self = this;
     const tools: any[] = [];
-    const used = new Set<string>(["skill", "delegate_to_agent"]);
+    const used = new Set<string>(["skill", "delegate_to_agent", "schedule_task"]);
     for (const sid of ids) {
       const server = readMcpServers().find((s: any) => s.id === sid);
       if (!server) {
@@ -4047,6 +4111,14 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       // Always register skill tool (so agents can list/search/load skills)
       const skillTool = this.#buildSkillTool(() => this.#active.get(sk));
       if (skillTool) customTools.push(skillTool);
+      // A2.2: schedule_task per TUTTI gli agenti (automazione dal dialogo: "domani alle 7 fammi X")
+      try {
+        const schedTool = this.#buildScheduleTool(sk);
+        if (schedTool) customTools.push(schedTool);
+        this.logDebug("schedule-tool-registered", { sessionKey: sk, agentId: resolvedAgentId });
+      } catch (e: any) {
+        this.logDebug("schedule-tool-error", { sessionKey: sk, error: String(e?.message || e) });
+      }
       if (resolvedAgentId) {
         // Check if the agent has delegate_to_agent in its config tools
         const agentCfg = this.#readAgentConfigFile(resolvedAgentId);

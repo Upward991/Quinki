@@ -759,6 +759,8 @@ async function bootstrap() {
     piBridge.reloadAndMerge();
     // A2.2: scheduler parte DOPO init (il primo scan è il catch-up al boot)
     try { scheduler.start(); } catch (e: any) { process.stderr.write(`[sidecar-marker] scheduler-start-error: ${e?.message}\n`); }
+    // A2.2: tool schedule_task degli agenti → crea schedule nel Scheduler
+    try { piBridge.setScheduleHandler((p: any) => scheduler.createSchedule(p)); } catch (e: any) { process.stderr.write(`[sidecar-marker] schedule-handler-error: ${e?.message}\n`); }
     sendNotification("ready", { message: "PiBridge initialized" });
     // === NO periodic flush, NO SIGTERM handler ===
     // #save() è chiamato esplicitamente da create(), setModel(), setChatAgents(), rename(), etc.
