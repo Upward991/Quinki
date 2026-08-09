@@ -4296,7 +4296,10 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
         return true;
       }) : undefined;
       const agentCfg = resolvedAgent ? this.#readAgentConfig(resolvedAgent) : null;
-            let prompt = this.#buildSystemPrompt(sk, effectiveCwd, data.workingDirs, undefined, skillsForPrompt, data.attachments);
+      const sessionModeNow = this.#entries.get(sk)?.mode || "plan";
+            // IMPORTANTE: passa la modalità così la nota "Sei in MODALITÀ PIANO/BUILD" NON viene persa
+            // (il rebuild senza mode faceva sembrare al modello di essere sempre in plan).
+            let prompt = this.#buildSystemPrompt(sk, effectiveCwd, data.workingDirs, sessionModeNow, skillsForPrompt, data.attachments);
       // When NO skill is attached, add explicit note that previous skills are deactivated
       if (!skillNames) {
       }
