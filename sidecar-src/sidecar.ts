@@ -428,6 +428,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   getExecution: async (p) => ({ execution: executor.get(String(p.executionId)) }),
   getExecutionEvents: async (p) => ({ events: executor.events(String(p.executionId)) }),
   cancelExecution: async (p) => ({ ...executor.cancel(String(p.executionId)) }),
+  stopExecution: async (p) => ({ ...executor.stop(String(p.executionId)) }),
   deleteExecution: async (p) => ({ ...executor.remove(String(p.executionId)) }),
   resumeExecution: async (p) => ({ ...(await executor.resumeExecution(String(p.executionId))) }),
   recoverExecutions: async (p) => ({ ...(await executor.recover(p.autoResume !== false)) }),

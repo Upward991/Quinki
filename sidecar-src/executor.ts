@@ -56,7 +56,7 @@ export interface ExecutionState {
 export class ExecutionEngine {
   #piBridge: any = null;
   onUpdate: ((payload: any) => void) | null = null;
-  #runs = new Map<string, { timer: any; aborted: boolean }>();
+  #runs = new Map<string, { timer: any; aborted: boolean; stopped?: boolean }>();
 
   setPiBridge(pb: any) { this.#piBridge = pb; }
 
@@ -228,11 +228,22 @@ export class ExecutionEngine {
           state.status = "cancelled";
           state.endedAt = Date.now();
           this.#appendEvent(id, "execution_cancelled", { by: "user" });
+        } else if (run?.stopped) {
+          state.status = "interrupted";
+          state.endedAt = Date.now();
+          state.progressNote = "stopped by user";
+          this.#appendEvent(id, "execution_interrupted", { by: "user" });
         } else if (result.ok) {
           state.status = "completed";
           state.endedAt = Date.now();
           state.progressNote = result.stopReason || "completed";
           this.#appendEvent(id, "execution_completed", { stopReason: result.stopReason, resultPreview: result.text.slice(0, 3000) });
+        } else if (result.stopReason === "aborted") {
+          // Fermato dall'utente dalla CHAT (stop streaming) → riprendibile, non fallita
+          state.status = "interrupted";
+          state.endedAt = Date.now();
+          state.progressNote = "stopped from chat";
+          this.#appendEvent(id, "execution_interrupted", { by: "chat" });
         } else {
           state.status = "failed";
           state.endedAt = Date.now();
@@ -258,6 +269,26 @@ export class ExecutionEngine {
     })();
 
     return { executionId: id, status: "queued" };
+  }
+
+  // Interrompi un'execution running/queued → diventa interrupted (riprendibile da Calendar)
+  async stop(id: string): Promise<{ ok: boolean; error?: string }> {
+    const state = this.get(id);
+    if (!state) return { ok: false, error: "not found" };
+    if (state.status === "running") {
+      const run = this.#runs.get(id);
+      if (run) run.stopped = true;
+      try { this.#piBridge?.abort?.(`__exec_${id}`); } catch {}
+      // lo stato finale viene scritto dal runner (interrupted)
+    } else if (state.status === "queued") {
+      state.status = "interrupted";
+      state.endedAt = Date.now();
+      state.progressNote = "stopped before start";
+      this.#writeState(id, state);
+      this.#appendEvent(id, "execution_interrupted", { by: "user", beforeStart: true });
+      this.#notify({ executionId: id, status: "interrupted", label: state.label });
+    }
+    return { ok: true };
   }
 
   async cancel(id: string): Promise<{ ok: boolean; error?: string }> {

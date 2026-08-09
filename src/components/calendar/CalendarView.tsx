@@ -215,7 +215,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
                   (ex.agentIds || []).join(', ') + ' · ' + fmtTime(ex.createdAt) +
                   (ex.error ? ' · ' + String(ex.error).slice(0, 40) : '')),
               ]),
-              (ex.status === 'running' || ex.status === 'queued') ? React.createElement('button', { key: 'cancel', style: btnText, title: 'Cancel', onClick: () => act(async () => { await call('cancelExecution', { executionId: ex.id }) }) }, React.createElement(X, { size: 12 })) : null,
+              (ex.status === 'running' || ex.status === 'queued') ? React.createElement('button', { key: 'stop', style: btnText, title: 'Stop (interrupt, can resume)', onClick: () => act(async () => { await call('stopExecution', { executionId: ex.id }) }) }, React.createElement(X, { size: 12 })) : null,
               ex.status === 'interrupted' ? React.createElement('button', { key: 'res', style: btnText, title: 'Resume', onClick: () => act(async () => { await call('resumeExecution', { executionId: ex.id }) }) }, React.createElement(RotateCcw, { size: 12 })) : null,
               React.createElement('button', { key: 'del', style: btnText, title: 'Delete', onClick: () => act(async () => { await call('deleteExecution', { executionId: ex.id }) }) }, React.createElement(Trash2, { size: 12 })),
             ]
