@@ -866,7 +866,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     setChatAgentIds([])
     setAgentOverrides({})
     setContextTokens(0)
-    setContextWindow(0)
+    setContextWindow(1000000) // 0 mostrava "0/0" — manteniamo la finestra per avere la scritta normale (0/1M (0%))
     setSessionTokens({})
   }, [])
 
