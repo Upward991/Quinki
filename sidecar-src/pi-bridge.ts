@@ -430,6 +430,23 @@ class PiBridge {
           messageSkills: (v as any).messageSkills,
           messageAttachments: (v as any).messageAttachments,
         });
+        // Backup per-sessione COMPLETO (chat-meta.json): agenti, directory, override
+        // per-agente (model/thinking), mode, message settings → si ripristinano SEMPRE al boot.
+        this.#writeChatMeta(k, {
+          agentIds: (v as any).agentId || '',
+          workingDir: (v as any).workingDir || '',
+          agentOverrides: (v as any).agentOverrides,
+          model: v.model,
+          thinkingLevel: v.thinkingLevel,
+          mode: (v as any).mode,
+          messageAgents: (v as any).messageAgents,
+          messageThinking: (v as any).messageThinking,
+          messageSkills: (v as any).messageSkills,
+          messageAttachments: (v as any).messageAttachments,
+          compactionAuto: (v as any).compactionAuto,
+          compactionThreshold: (v as any).compactionThreshold,
+          folderId: (v as any).folderId ?? null,
+        });
       }
       // === MERGE (due sidecar main/Expert condividono lo stesso file) ===
       // Prima #save sovrascriveva TUTTO → una app cancellava le sessioni (e agenti/
@@ -494,6 +511,14 @@ class PiBridge {
             if (e) {
               if (!e.agentId && meta.agentIds) e.agentId = meta.agentIds;
               if (!e.workingDir && meta.workingDir) e.workingDir = meta.workingDir;
+              if (!(e as any).agentOverrides && meta.agentOverrides) (e as any).agentOverrides = meta.agentOverrides;
+              if (!e.model && meta.model) e.model = meta.model;
+              if (!e.thinkingLevel && meta.thinkingLevel) e.thinkingLevel = meta.thinkingLevel;
+              if (!(e as any).mode && meta.mode) (e as any).mode = meta.mode;
+              if (!(e as any).messageAgents && meta.messageAgents) (e as any).messageAgents = meta.messageAgents;
+              if (!(e as any).messageThinking && meta.messageThinking) (e as any).messageThinking = meta.messageThinking;
+              if (!(e as any).messageSkills && meta.messageSkills) (e as any).messageSkills = meta.messageSkills;
+              if (!(e as any).messageAttachments && meta.messageAttachments) (e as any).messageAttachments = meta.messageAttachments;
             }
           }
         } catch {}
