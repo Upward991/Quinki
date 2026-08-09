@@ -52,11 +52,18 @@ export function saveMcpServers(servers: McpServerConfig[]): void {
 // Risolve un comando custom: "bun x …", "bunx …", "npx …" vengono mappati sul Bun presente.
 export function resolveCommandLaunch(cmd: string[]): string[] {
   if (!cmd || cmd.length === 0) return cmd || [];
+  // Espandi la tilde (~ → home): spawn NON la espande da solo (bug '~/.bun/bin/bun' ENOENT)
+  const home = homedir();
+  const expanded = cmd.map((t) => {
+    if (t === "~") return home;
+    if (t.startsWith("~/")) return home + t.slice(1);
+    return t;
+  });
   const bun = findBunPath();
-  if (!bun) return cmd;
-  if (cmd[0] === "bun") return [bun, ...cmd.slice(1)];
-  if (cmd[0] === "bunx" || cmd[0] === "npx") return [bun, "x", ...cmd.slice(1)];
-  return cmd;
+  if (!bun) return expanded;
+  if (expanded[0] === "bun" || expanded[0] === home + "/.bun/bin/bun") return [bun, ...expanded.slice(1)];
+  if (expanded[0] === "bunx" || expanded[0] === "npx") return [bun, "x", ...expanded.slice(1)];
+  return expanded;
 }
 
 export function findBunPath(): string | null {

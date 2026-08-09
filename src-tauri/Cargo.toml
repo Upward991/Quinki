@@ -24,6 +24,7 @@ log = "0.4"
 tauri = { version = "2.11.3", features = ["devtools", "tray-icon", "image-png"] }
 tauri-plugin-log = "2"
 tauri-plugin-shell = "2"
+tauri-plugin-clipboard-manager = "2"
 tauri-plugin-window-state = "2"
 tauri-plugin-dialog = "2.7.2"
 tauri-plugin-fs = "2.5.1"

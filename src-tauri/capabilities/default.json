@@ -37,6 +37,7 @@
     "dialog:allow-message",
     "dialog:allow-ask",
     "autostart:default",
+    "clipboard-manager:default",
     "autostart:allow-enable",
     "autostart:allow-disable",
     "autostart:allow-is-enabled",
