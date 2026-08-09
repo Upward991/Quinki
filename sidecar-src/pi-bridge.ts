@@ -2647,9 +2647,9 @@ class PiBridge {
   #modeNote(mode: string, _hasDelegateTool = false): string {
     const m = mode === "build" ? "build" : "plan";
     if (m === "plan") {
-      // Nota CORTA: niente elenco dinamico di tool (il modello conosce i tool attivi
-      // dall'array tools; l'elenco nel testo occupava token e non serviva).
-      return `\n\nYou are in PLAN MODE. Explore freely to understand the problem. Do not attempt to call tools that are not available to you. Collaborate with the user to create a detailed, feasible PLAN to solve the problem. If an operation requires an unavailable tool, TELL the user that, after approving the plan, they must switch to BUILD MODE. In Plan mode the user wants certainty that you will not make changes without permission.`;
+      // Nota COMPLETA, senza le liste dinamiche dei tool (quelle le abbiamo tolte:
+      // il modello conosce i tool attivi dall'array tools, non dal testo).
+      return `\n\nYou are in PLAN MODE (Plan mode). Explore freely to understand the problem well. Do NOT attempt to call the not-available tools. Collaborate with the user to create a DETAILED, feasible PLAN of how to solve the problem. If an operation requires an unavailable tool, TELL the user that, after approving the plan, they must switch to BUILD MODE. In Plan mode the user wants certainty that you will not make changes without their permission.`;
     }
     return `\n\nYou are in BUILD MODE. All tools are available. Make the necessary changes to solve the problem. Respect the user's instructions and constraints.`;
   }
