@@ -2561,6 +2561,24 @@ class PiBridge {
     return paths;
   }
 
+  // Dump delle definizioni dei tool ATTIVI che verranno inviati al modello (canale tools):
+  // nome + descrizione + schema parametri, customTool MCP inclusi. Usato dal log system_prompt.
+  #activeToolDefs(pi: any): any[] {
+    const out: any[] = [];
+    try {
+      const names = (pi?.getActiveToolNames?.() || []) as string[];
+      for (const name of names) {
+        try {
+          const d = pi?.getToolDefinition?.(name);
+          let params = "";
+          try { params = JSON.stringify(d?.parameters ?? {}); } catch { try { params = String(d?.parameters || ""); } catch {} }
+          out.push({ name: d?.name || name, description: (d?.description || "").slice(0, 400), params: params.slice(0, 500) });
+        } catch {}
+      }
+    } catch {}
+    return out;
+  }
+
   #applyMode(pi: any, key: string, mode: string, workingDirs?: string[], cwd?: string, hasDelegateTool = false) {
     const m = mode === "build" ? "build" : "plan";
     // Fase C: merge tool globali + agent, filtra per plan mode
@@ -4323,7 +4341,10 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       try { (pi as any)._baseSystemPrompt = prompt; } catch {}
       pi.agent.state.systemPrompt = prompt;
             // Log system prompt via logDebug (uses existing debug_log flow)
-      this.logDebug("system_prompt", { sessionKey: sk, len: prompt.length, hasSkills: !!(skillsForPrompt && skillsForPrompt.length > 0), skills: skillsForPrompt ? skillsForPrompt.map((s: any) => s.skillName) : [], agentId: resolvedAgent || "unknown", agentName: agentCfg?.name || resolvedAgent || "unknown", isDelegation: false, isOrchestrator, messageText: (data.text || "").substring(0, 200), prompt: prompt });
+      // Include le definizioni COMPLETE dei tool attivi inviati al modello (canale tools),
+      // customTool MCP inclusi — così il log mostra esattamente tutto ciò che arriva all'agente.
+      const activeTools = this.#activeToolDefs(pi);
+      this.logDebug("system_prompt", { sessionKey: sk, len: prompt.length, hasSkills: !!(skillsForPrompt && skillsForPrompt.length > 0), skills: skillsForPrompt ? skillsForPrompt.map((s: any) => s.skillName) : [], agentId: resolvedAgent || "unknown", agentName: agentCfg?.name || resolvedAgent || "unknown", isDelegation: false, isOrchestrator, messageText: (data.text || "").substring(0, 200), activeToolCount: activeTools.length, activeTools, prompt: prompt });
       // Store skills for delegation — #buildDelegateTool will inject them into the delegated agent's system prompt
       if (skillNames && skillNames.length > 0) {
         this.#pendingDelegationSkills.set(sk, skillNames);
