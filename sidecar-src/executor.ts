@@ -24,6 +24,8 @@ export interface ExecutionParams {
   thinkingLevel?: string;
   text: string;
   owner?: "main" | "expert";
+  scheduleId?: string;
+  scheduledFor?: number;
 }
 
 export interface ExecutionState {
@@ -43,6 +45,8 @@ export interface ExecutionState {
   lastHeartbeat: number | null;
   progressNote: string | null;
   error: string | null;
+  scheduleId: string | null;
+  scheduledFor: number | null;
 }
 
 export class ExecutionEngine {
@@ -138,6 +142,8 @@ export class ExecutionEngine {
       lastHeartbeat: null,
       progressNote: null,
       error: null,
+      scheduleId: p.scheduleId || null,
+      scheduledFor: p.scheduledFor || null,
     };
     this.#writeState(id, state);
     this.#appendEvent(id, "execution_queued", { label: state.label, owner: state.owner });

@@ -59,6 +59,7 @@ import { buildSidecarEntry } from "./sidecar-helper";
 import { createAgentHandlers } from "./agent-handlers";
 import { seedDefaults } from "./seed-defaults";
 import { ExecutionEngine } from "./executor";
+import { Scheduler } from "./scheduler";
 
 // === FORCE: stdout.write -> stderr.write TRANNE per messaggi JSON-RPC ===
 // Alcuni moduli (Bun runtime, vendor SDK) scrivono su stdout con process.stdout.write
@@ -153,9 +154,6 @@ const notificationFor: Record<string, string> = {
 
 // === PiBridge instance ===
 let piBridge: PiBridge | null = null;
-// === A2.1: ExecutionEngine (task autonomi, fondamentale H24) ===
-const executor = new ExecutionEngine();
-executor.onUpdate = (payload) => { try { sendNotification("execution_update", payload); } catch {} };
 const agentDir = process.env.QUINKI_AGENT_DIR || path.join(homedir(), ".pi", "agent");
 const authPath = path.join(agentDir, "auth.json");
 const modelsPath = path.join(agentDir, "models.json");
@@ -165,6 +163,13 @@ const agentsDir = path.join(agentDir, "agents");
 const globalConfigFile = fs.existsSync(path.join(agentDir, "quinki-global.json"))
   ? path.join(agentDir, "quinki-global.json")
   : path.join(agentDir, "dashboard-global.json");
+// === A2.1: ExecutionEngine (task autonomi, fondamentale H24) ===
+const executor = new ExecutionEngine();
+executor.onUpdate = (payload) => { try { sendNotification("execution_update", payload); } catch {} };
+// === A2.2: Scheduler (programmazione compiti, catch-up "si fa comunque in ritardo") ===
+const scheduler = new Scheduler(agentDir, executor);
+scheduler.setLogger((tag, data) => { try { piBridge?.logDebug?.(tag, data); } catch {} });
+scheduler.onNotify = (payload) => { try { sendNotification("schedule_update", payload); } catch {} };
 
 const formatName = (id: string) =>
   id.replace(":cloud", "").replace(":35b-mlx", "").replace(":567m", "").replace(":120b-cloud", " 120B")
@@ -421,6 +426,13 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   getExecutionEvents: async (p) => ({ events: executor.events(String(p.executionId)) }),
   cancelExecution: async (p) => ({ ...executor.cancel(String(p.executionId)) }),
   deleteExecution: async (p) => ({ ...executor.remove(String(p.executionId)) }),
+
+  // === A2.2: Scheduler ===
+  listSchedules: async () => ({ schedules: scheduler.readSchedules() }),
+  createSchedule: async (p) => scheduler.createSchedule(p),
+  updateSchedule: async (p) => scheduler.updateSchedule(p),
+  deleteSchedule: async (p) => scheduler.deleteSchedule(p),
+  runScheduleNow: async (p) => ({ ...(await scheduler.runScheduleNow(p)) }),
   debugLog: async (p) => { if (piBridge && p && typeof p.tag === 'string') piBridge.logDebug(p.tag, p.data); return { ok: true }; },
   log_debug: async (p) => handlers.debugLog(p),
   clearDebugLog: async () => { piBridge!.clearDebugLog(); return { log: [] }; },
@@ -745,6 +757,8 @@ async function bootstrap() {
     try { executor.setPiBridge(piBridge); } catch {}
     await piBridge.init();
     piBridge.reloadAndMerge();
+    // A2.2: scheduler parte DOPO init (il primo scan è il catch-up al boot)
+    try { scheduler.start(); } catch (e: any) { process.stderr.write(`[sidecar-marker] scheduler-start-error: ${e?.message}\n`); }
     sendNotification("ready", { message: "PiBridge initialized" });
     // === NO periodic flush, NO SIGTERM handler ===
     // #save() è chiamato esplicitamente da create(), setModel(), setChatAgents(), rename(), etc.
