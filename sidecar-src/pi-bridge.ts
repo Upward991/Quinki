@@ -431,6 +431,22 @@ class PiBridge {
           messageAttachments: (v as any).messageAttachments,
         });
       }
+      // === MERGE (due sidecar main/Expert condividono lo stesso file) ===
+      // Prima #save sovrascriveva TUTTO → una app cancellava le sessioni (e agenti/
+      // workingDir) dell'altra ad ogni salvataggio. Ora uniamo le entry del disco
+      // che non conosciamo in memoria (es. create dall'altra app).
+      try {
+        if (fs.existsSync(SESSION_FILE)) {
+          const disk = JSON.parse(fs.readFileSync(SESSION_FILE, "utf8"));
+          const known = new Set(data.map((d: any) => d.key));
+          for (const d of Array.isArray(disk) ? disk : []) {
+            if (d && d.key && !known.has(d.key)) {
+              data.push(d);
+              known.add(d.key);
+            }
+          }
+        }
+      } catch {}
       fs.writeFileSync(SESSION_FILE, JSON.stringify(data, null, 2), "utf8");
     } catch (e: any) {
       this.logDebug("save-error", { error: e?.message || String(e), entriesCount: this.#entries.size });
@@ -464,6 +480,9 @@ class PiBridge {
             agentOverrides: s.agentOverrides,
             messageAgents: s.messageAgents,
             messageThinking: s.messageThinking,
+            workingDir: s.workingDir,
+            messageSkills: s.messageSkills,
+            messageAttachments: s.messageAttachments,
           } as any);
         }
       }
