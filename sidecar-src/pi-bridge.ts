@@ -133,7 +133,6 @@ class PiBridge {
   #active = new Map<string, any>();
   #mcpClients = new Map<string, StdioMcpClient>();  // chiave `${sessionKey}:${serverId}`
   #mcpToolNames = new Map<string, { name: string; serverId: string }[]>();  // per sessione: tool MCP per applyMode (plan/build)
-  #mcpCfgSig = new Map<string, string>();  // per sessione: firma mcpServers con cui è stata creata (per auto-reload)
   #wss = new Map<string, any>();
   #unsubs = new Map<string, () => void>();
   #prompts = new Map<string, Promise<void>>();
@@ -3101,7 +3100,6 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
           if (nm) prev.push({ name: nm, serverId: sid });
         }
         self.#mcpToolNames.set(sk, prev);
-        self.#mcpCfgSig.set(sk, JSON.stringify(ids));
         this.logDebug("mcp-tools-registered", { sessionKey: sk, serverId: sid, toolCount: list.length });
       } catch (e: any) {
         this.logDebug("mcp-connect-error", { sessionKey: sk, serverId: sid, error: String(e?.message || e) });
@@ -3879,25 +3877,6 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
         this.#active.delete(sk);
         pi = undefined as any;  // force re-creation sotto (if (!pi)) con nuovo loader
         this.logDebug("skill-auto-reload", { sessionKey: sk, oldMtime: savedM, newMtime: curM });
-      }
-    }
-    // === Auto-reload MCP: se mcpServers dell'agente è cambiato da quando la sessione è stata creata,
-    // dispose + reopen (history PRESERVATA) → i tool MCP (nuovi o rimossi) valgono dal messaggio successivo.
-    if (pi) {
-      const rawMcpAgent = (data as any).agentId || this.#resolveAgentId(sk);
-      let mcpAgentId: string | null = rawMcpAgent || null;
-      if (mcpAgentId && typeof mcpAgentId === 'string' && mcpAgentId.includes(',')) {
-        const aid = mcpAgentId.split(',').map((x) => x.trim()).filter(Boolean);
-        mcpAgentId = aid.find((x) => x === 'orchestrator') || aid[0] || null;
-      }
-      const mcpCfg = mcpAgentId ? this.#readAgentConfigFile(mcpAgentId) : null;
-      const mcpIdsNow = JSON.stringify(Array.isArray(mcpCfg?.mcpServers) ? mcpCfg.mcpServers : []);
-      if (this.#mcpCfgSig.get(sk) !== mcpIdsNow) {
-        try { (pi as any).dispose?.(); } catch (e: any) { this.logDebug("mcp-reload-dispose-error", { sessionKey: sk, error: e?.message }); }
-        this.#active.delete(sk);
-        this.#mcpCfgSig.delete(sk);
-        pi = undefined as any;
-        this.logDebug("mcp-config-reload", { sessionKey: sk, now: mcpIdsNow });
       }
     }
     if (!pi) {
