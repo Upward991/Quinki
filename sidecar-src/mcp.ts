@@ -154,6 +154,7 @@ export class StdioMcpClient {
   private seq = 0;
   private pending = new Map<number, { res: (v: any) => void; rej: (e: any) => void; t: any }>();
   private buf = "";
+  private initialized = false;
 
   constructor(
     private serverId: string,
@@ -164,6 +165,7 @@ export class StdioMcpClient {
 
   private ensureStarted(): void {
     if (this.proc && this.proc.exitCode === null) return;
+    this.initialized = false; // processo (ri)spawnato: va re-inizializzato prima di tools/call
     const env = { ...process.env, ...(this.envVars || {}) } as Record<string, string>;
     const bun = findBunPath();
     if (bun) env.PATH = path.dirname(bun) + ":" + (env.PATH || "");
@@ -227,6 +229,7 @@ export class StdioMcpClient {
       capabilities: {},
       clientInfo: { name: "quinki", version: "1.1.0" },
     });
+    this.initialized = true;
     try {
       this.proc!.stdin!.write(JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }) + "\n");
     } catch {}
@@ -240,6 +243,7 @@ export class StdioMcpClient {
   }
 
   async callTool(name: string, args: any): Promise<any> {
+    if (!this.initialized) await this.initialize();
     const r = await this.request("tools/call", { name, arguments: args || {} });
     return r;
   }
