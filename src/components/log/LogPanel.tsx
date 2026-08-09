@@ -159,6 +159,16 @@ export function LogPanel(props: LogPanelProps) {
       info += '\nSkills: ' + skills
       info += '\nHas Skills: ' + data.hasSkills
       info += '\n\n--- SYSTEM PROMPT ---\n' + data.prompt
+      // Tool attivi inviati al modello (canale tools) — MCP inclusi
+      const at = data.activeTools || []
+      if (at.length > 0) {
+        info += '\n\n--- ACTIVE TOOLS SENT (' + at.length + ') ---'
+        for (const t of at) {
+          info += '\n\n▪ ' + (t.name || '?')
+          if (t.description) info += '\n  ' + t.description
+          if (t.params) info += '\n  params: ' + t.params
+        }
+      }
       return info
     }
     try { return JSON.stringify(data, null, 2) } catch { return String(data) }
