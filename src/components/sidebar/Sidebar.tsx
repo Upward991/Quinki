@@ -515,7 +515,7 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
   const iconColor = isFolder
     ? expanded ? 'var(--q-accent-folder-open)' : isHovered ? 'var(--q-text)' : 'var(--q-text-tertiary)'
     : isSelected ? 'var(--q-accent-danger)' : isActive ? 'var(--q-accent-info)' : isHovered ? 'var(--q-text)' : 'var(--q-text-tertiary)'
-  const bgColor = isHovered && !isActive ? 'var(--q-hover)' : 'transparent'
+  const bgColor = isHovered ? 'var(--q-hover)' : 'transparent' // hover su TUTTE le righe (anche attiva/selezionata); la selezione si vede dal colore icona/testo
   const indent = 8 + depth * 12
 
   return (
