@@ -568,7 +568,7 @@ export function AgentsPanel(props) {
       ]}),
 
       // Scrollable content
-      React.createElement('div', { style: { flex: 1, minHeight: 0, overflowY: 'auto', padding: '4px 16px 0 16px', overscrollBehavior: 'contain', scrollbarGutter: 'stable' }, children: [
+      React.createElement('div', { className: 'q-scroll', style: { flex: 1, minHeight: 0, overflowY: 'auto', padding: '4px 16px 0 16px', overscrollBehavior: 'contain', scrollbarGutter: 'stable' }, children: [
 
         // === Section: Your agents ===
         Section({ icon: Bot, title: `Your agents (${agents.length})`, children: [
@@ -775,7 +775,7 @@ export function AgentsPanel(props) {
     ]}),
 
     // Remove single tag confirm
-    removeTagState && Modal({ onClose: () => setRemoveTagState(null), title: `Remove ${removeTagState.type}`, children: [
+    removeTagState && Modal({ onClose: () => setRemoveTagState(null), title: removeTagState.type === 'mcp-server' ? 'Uninstall MCP server' : `Remove ${removeTagState.type}`, children: [
       React.createElement('div', { style: { color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', marginBottom: '20px' }, children: [
         removeTagState.type === 'skill'
           ? `Delete skill "${removeTagState.name}"? This removes it from all agents.`
@@ -813,7 +813,7 @@ export function AgentsPanel(props) {
         } else {
           setRemoveTagState(null);
         }
-      }, confirmLabel: 'Remove', danger: true })
+      }, confirmLabel: removeTagState.type === 'mcp-server' ? 'Uninstall' : 'Remove', danger: true })
     ]}),
 
     // Add items modal
@@ -1010,7 +1010,7 @@ export function AgentRow({ agent, isExpanded, isRenaming, onToggle, onStartRenam
           )}),
 
       // Delete agent
-      agent.isDeletable && !hideDelete && React.createElement('div', { style: { marginTop: '16px' }, children:
+      agent.isDeletable && !hideDelete && React.createElement('div', { style: { marginTop: '12px' }, children:
         React.createElement('button', { onClick: onShowDelete, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '0', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '14px', fontFamily: 'var(--font-interface)' }, children: [React.createElement(Trash, { size: 16 }), ' Delete agent'] })
       })
     ]})

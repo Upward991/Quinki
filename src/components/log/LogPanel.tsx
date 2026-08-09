@@ -377,7 +377,7 @@ export function LogPanel(props: LogPanelProps) {
 
       {/* Log body */}
       <div ref={bodyRef}
-        style={{ flex: 1, overflowY: 'auto', padding: '4px 16px 8px 16px', position: 'relative' }}
+        className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '4px 16px 8px 16px', position: 'relative' }}
         onScroll={(e) => {
           const el = e.currentTarget
           setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100)
