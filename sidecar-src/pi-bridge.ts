@@ -2623,14 +2623,16 @@ class PiBridge {
       if (agentId && typeof base === "string" && !base.includes(agentConfig?.name || "§§")) {
         const effCwd = cwd || (workingDirs && workingDirs[0]) || this.#cwd;
         const agentPrompt = this.#readAgentPrompt(agentId, effCwd);
-        base = agentPrompt + `\n\nLavori nella directory: ${effCwd}\n\n` + base;
+        base = agentPrompt + `\n\nWorking directory: ${effCwd}\n\n` + base;
       }
       if (typeof base === "string" && base.length > 0 && note) {
         // Strip old mode note before adding new one (fix: mode change not detected)
         const planIdx = base.indexOf("\n\nSei in MODALITÀ PIANO");
         const buildIdx = base.indexOf("\n\nSei in MODALITÀ BUILD");
-        if (planIdx >= 0) base = base.substring(0, planIdx);
-        else if (buildIdx >= 0) base = base.substring(0, buildIdx);
+        const planIdxEn = base.indexOf("\n\nYou are in PLAN MODE");
+        const buildIdxEn = base.indexOf("\n\nYou are in BUILD MODE");
+        const cut = Math.max(planIdx, buildIdx, planIdxEn, buildIdxEn);
+        if (cut >= 0) base = base.substring(0, cut);
         base = base + note;
       }
       if (typeof base === "string" && base.length > 0) {
@@ -2652,9 +2654,9 @@ class PiBridge {
       const disabled = allTools.filter((t: string) => planTools[t] !== true && t !== "delegate_to_agent");
       const enabledStr = enabled.length > 0 ? enabled.join(", ") : "nessuno";
       const disabledStr = disabled.length > 0 ? disabled.join(", ") : "nessuno";
-      return `\n\nSei in MODALITÀ PIANO (Plan mode). Puoi esplorare liberamente per capire bene il problema. Tool disponibili: ${enabledStr}. Tool NON disponibili: ${disabledStr}. NON tentare di chiamare i tool non disponibili. Collabora con l'utente per creare un PIANO dettagliato e fattibile di come risolvere il problema. Se un'operazione richiede un tool non disponibile, AVVISA l'utente che, dopo aver approvato il piano, deve passare in MODALITÀ BUILD. In Plan mode l'utente vuole la certezza che non fai modifiche senza il suo permesso.`;
+      return `\n\nYou are in PLAN MODE. Explore freely to understand the problem. Available tools: ${enabledStr}. NOT available tools: ${disabledStr}. Do NOT attempt to call tools that are not available. Collaborate with the user to create a detailed, feasible PLAN to solve the problem. If an operation requires an unavailable tool, TELL the user that, after approving the plan, they must switch to BUILD MODE. In Plan mode the user wants certainty that you will not make changes without permission.`;
     }
-    return `\n\nSei in MODALITÀ BUILD. Tutti i tool sono disponibili. Esegui le modifiche necessarie per risolvere il problema. Rispetta le istruzioni e i vincoli dell'utente.`;
+    return `\n\nYou are in BUILD MODE. All tools are available. Make the necessary changes to solve the problem. Respect the user's instructions and constraints.`;
   }
 
   #isExpertKey(sk: string): boolean {
@@ -2912,13 +2914,15 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       let base = (tempPi as any)._baseSystemPrompt || tempPi.agent.state.systemPrompt || "";
       const note = this.#modeNote(mainModeSD);
       if (typeof base === "string" && !base.includes(agentConfig?.name || "§§")) {
-        base = agentPrompt + `\n\nLavori nella directory: ${this.#cwd}\n\n` + base;
+        base = agentPrompt + `\n\nWorking directory: ${this.#cwd}\n\n` + base;
       }
       if (typeof base === "string" && base.length > 0 && note) {
         const planIdx = base.indexOf("\n\nSei in MODALITÀ PIANO");
         const buildIdx = base.indexOf("\n\nSei in MODALITÀ BUILD");
-        if (planIdx >= 0) base = base.substring(0, planIdx);
-        else if (buildIdx >= 0) base = base.substring(0, buildIdx);
+        const planIdxEn = base.indexOf("\n\nYou are in PLAN MODE");
+        const buildIdxEn = base.indexOf("\n\nYou are in BUILD MODE");
+        const cut = Math.max(planIdx, buildIdx, planIdxEn, buildIdxEn);
+        if (cut >= 0) base = base.substring(0, cut);
         base = base + note;
       }
       if (tempPi?.resourceLoader) {
@@ -3447,7 +3451,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
               const note = self.#modeNote(mainMode);
               // Prepend agent PROMPT.md + cwd (same as #applyMode)
               if (typeof base === "string" && !base.includes(agentConfig?.name || "§§")) {
-                base = agentPrompt + `\n\nLavori nella directory: ${tempCwd2}\n\n` + base;
+                base = agentPrompt + `\n\nWorking directory: ${tempCwd2}\n\n` + base;
               }
               // Add mode note (same as #applyMode)
               if (typeof base === "string" && base.length > 0 && note) {

@@ -993,7 +993,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     let sk: string, m: string
     if (model !== undefined) { sk = sessionKeyOrModel; m = model }
     else { sk = activeSessionId || ''; m = sessionKeyOrModel }
-    notify('setModel', { sessionKey: sk, model: m })
+    try { await call('setModel', { sessionKey: sk, model: m }) } catch (e) { console.error('setModel:', e) }
     setSessions(prev => prev.map(s => s.id === sk ? { ...s, model: m } : s))
     // Aggiorna subito il contatore contesto (il sidecar resetta l'usage al cambio modello — B16)
     const mi = models.find((x: any) => x.id === m)
@@ -1006,7 +1006,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     let sk: string, l: string
     if (level !== undefined) { sk = sessionKeyOrLevel; l = level }
     else { sk = activeSessionId || ''; l = sessionKeyOrLevel }
-    notify('setThinking', { sessionKey: sk, thinkingLevel: l })
+    try { await call('setThinking', { sessionKey: sk, thinkingLevel: l }) } catch (e) { console.error('setThinking:', e) }
     setSessions(prev => prev.map(s => s.id === sk ? { ...s, thinkingLevel: l } : s))
   }, [ready, notify, activeSessionId])
 
@@ -1015,9 +1015,9 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     let sk: string, m: string
     if (mode !== undefined) { sk = sessionKeyOrMode; m = mode }
     else { sk = activeSessionId || ''; m = sessionKeyOrMode }
-    notify('setMode', { sessionKey: sk, mode: m })
+    try { await call('setMode', { sessionKey: sk, mode: m }) } catch (e) { console.error('setMode:', e) }
     setSessions(prev => prev.map(s => s.id === sk ? { ...s, mode: m } : s))
-  }, [ready, notify, activeSessionId])
+  }, [ready, call, activeSessionId])
 
   const setSessionCompaction = useCallback((sessionKey: string, auto: boolean, threshold: number) => {
     if (!ready) return
