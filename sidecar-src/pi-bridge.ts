@@ -718,7 +718,8 @@ class PiBridge {
 
   getSessions() {
     // A2.1: le sessioni __exec_* sono headless (worker execution) → mai in sidebar
-    const out = [...this.#entries.values()].filter((s: any) => !String(s.key).startsWith("__exec_")).map((s: any) => ({
+    // TOMBSTONE: le sessioni eliminate non devono MAI comparire nella mappa in memoria
+    const out = [...this.#entries.values()].filter((s: any) => !String(s.key).startsWith("__exec_") && !isSessionDeleted(String(s.key))).map((s: any) => ({
       key: s.key, label: s.label, agentId: s.agentId || "pi",
       model: s.model, thinkingLevel: s.thinkingLevel, mode: s.mode,
       lastActivity: s.lastActivity, order: s.lastActivity,
@@ -757,7 +758,8 @@ class PiBridge {
     // === FIX: leggo l'order dal file (per persistere il riordino manuale) ===
     const orderByKey = new Map(fromFile.map((s: any) => [s.key, typeof (s as any).order === "number" ? (s as any).order : undefined]));
     // A2.1: sessioni __exec_* headless → mai nelle liste UI
-    const out = [...this.#entries.values()].filter((s: any) => !String(s.key).startsWith("__exec_")).map((s: any) => {
+    // TOMBSTONE: le eliminate non compaiono MAI (anche se ancora presenti nella mappa in memoria)
+    const out = [...this.#entries.values()].filter((s: any) => !String(s.key).startsWith("__exec_") && !isSessionDeleted(String(s.key))).map((s: any) => {
       const c = compactionByKey.get(s.key);
       return {
         key: s.key, label: s.label, agentId: s.agentId || "pi",
