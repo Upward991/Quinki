@@ -26,6 +26,7 @@ export function LogPanel(props: LogPanelProps) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null)
   const [autoScroll, setAutoScroll] = useState(true)
   const [showScrollBtn, setShowScrollBtn] = useState(false)
+  const [liveMode, setLiveMode] = useState(false) // log in tempo reale: DEFAULT OFF (leggero)
   const [currentMatch, setCurrentMatch] = useState(0)
   const [searchMatches, setSearchMatches] = useState<number[]>([])
   const bodyRef = useRef<HTMLDivElement>(null)
@@ -69,35 +70,43 @@ export function LogPanel(props: LogPanelProps) {
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
-  // LOG: initial bounded + aggiornamento calmo (3s, SOLO entry nuove, autoscroll verso il basso)
+  // LOG iniziale SEMPRE + aggiornamenti LIVE SOLO se abilitato (tasto Live, default OFF → app leggera)
   useEffect(() => {
     if (!call) return
     let lastTs = 0
     let timer: any = null
     let disposed = false
-    call('getFullDebugLog', {}).then((r: any) => {
+    const fetchInitial = () => {
+      lastTs = 0
+      return call('getFullDebugLog', {}).then((r: any) => {
+        if (disposed) return
+        if (r && r.log) {
+          setEntries(r.log.slice(-300))
+          for (const e of r.log) if (typeof e.ts === 'number' && e.ts > lastTs) lastTs = e.ts
+        }
+      }).catch(() => {})
+    }
+    fetchInitial().then(() => {
       if (disposed) return
-      if (r && r.log) {
-        setEntries(r.log.slice(-300))
-        for (const e of r.log) if (typeof e.ts === 'number' && e.ts > lastTs) lastTs = e.ts
+      if (liveMode) {
+        timer = setInterval(() => {
+          call('getDebugLogSince', { ts: lastTs }).then((res: any) => {
+            if (disposed) return
+            if (!res) return
+            if (typeof res.latestTs === 'number' && res.latestTs > lastTs) lastTs = res.latestTs
+            if (res.entries && res.entries.length) {
+              setEntries(prev => {
+                const seen = new Set(prev.map((e: any) => e.ts + ':' + e.tag))
+                const add = res.entries.filter((e: any) => !seen.has(e.ts + ':' + e.tag))
+                return add.length ? [...prev, ...add].slice(-300) : prev
+              })
+            }
+          }).catch(() => {})
+        }, 1500)
       }
-      timer = setInterval(() => {
-        call('getDebugLogSince', { ts: lastTs }).then((res: any) => {
-          if (disposed) return
-          if (!res) return
-          if (typeof res.latestTs === 'number' && res.latestTs > lastTs) lastTs = res.latestTs
-          if (res.entries && res.entries.length) {
-            setEntries(prev => {
-              const seen = new Set(prev.map((e: any) => e.ts + ':' + e.tag))
-              const add = res.entries.filter((e: any) => !seen.has(e.ts + ':' + e.tag))
-              return add.length ? [...prev, ...add].slice(-300) : prev
-            })
-          }
-        }).catch(() => {})
-      }, 3000)
-    }).catch(() => {})
+    })
     return () => { disposed = true; if (timer) clearInterval(timer) }
-  }, [call])
+  }, [call, liveMode])
 
   const levelColors: Record<string, { bg: string; text: string; tag: string; pill: string }> = {
     error:    { bg: 'color-mix(in srgb, var(--q-accent-danger) 6%, transparent)', text: 'var(--q-accent-danger)', tag: 'var(--q-accent-danger)', pill: 'var(--q-accent-danger)' },
@@ -204,9 +213,8 @@ export function LogPanel(props: LogPanelProps) {
   }
 
   const filtered = entries.filter((e) => {
+    // TUTTI i log sono visibili di default; i filtri SERVONO per restringere
     const level = deriveLevel(e.tag)
-    // Hide renderer (verbose technical logs) by default
-    if (level === 'renderer') return false
     if (activeFilters.size > 0 && !activeFilters.has(level)) return false
     return true
   })
@@ -329,7 +337,7 @@ export function LogPanel(props: LogPanelProps) {
                 if (dropdownRef.current) dropdownRef.current.style.display = isOpen ? 'none' : 'flex'
                 if (overlayRef.current) overlayRef.current.style.display = isOpen ? 'none' : 'block'
                 const arrow = btn.querySelector('svg')
-                if (arrow) arrow.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(90deg)'
+                if (arrow) arrow.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(-90deg)'
                 btn.dataset.open = isOpen ? '0' : '1'
                 btn.style.borderColor = isOpen ? 'var(--q-border)' : 'var(--q-accent-success)'
                 btn.style.color = isOpen ? 'var(--q-text-secondary)' : 'var(--q-accent-success)'
@@ -349,7 +357,7 @@ export function LogPanel(props: LogPanelProps) {
                 transition: 'none',
               }}
             >
-              <ChevronDown size={14} style={{ transition: 'none' }} />
+              <ChevronDown size={14} style={{ transition: 'none', transform: 'rotate(-90deg)' }} />
               More
             </button>
             <div
@@ -364,7 +372,7 @@ export function LogPanel(props: LogPanelProps) {
                   moreBtn.style.borderColor = 'var(--q-border)'
                   moreBtn.style.color = 'var(--q-text-secondary)'
                   const arrow = moreBtn.querySelector('svg')
-                  if (arrow) arrow.style.transform = 'rotate(0deg)'
+                  if (arrow) arrow.style.transform = 'rotate(-90deg)'
                 }
               }}
             />
@@ -389,11 +397,11 @@ export function LogPanel(props: LogPanelProps) {
             navigator.clipboard.writeText(md)
           }} />
           <div style={{ width: '4px', flexShrink: 0 }} />
-          <HeaderBtn label="refresh" icon={<RefreshCw size={14} />} onClick={() => {
-            if (!call) return
-            call('getFullDebugLog', {}).then((r: any) => {
-              if (r && r.log) setEntries(r.log.slice(-500))
-            }).catch(() => {})
+          <HeaderBtn label="live" icon={<RefreshCw size={14} />} active={liveMode} onClick={() => {
+            const nv = !liveMode
+            setLiveMode(nv)
+            // appena attivo: refresh immediato così si vede subito l'ultima realtà
+            if (nv && call) call('getFullDebugLog', {}).then((r: any) => { if (r && r.log) setEntries(r.log.slice(-300)) }).catch(() => {})
           }} />
           <div style={{ width: '4px', flexShrink: 0 }} />
           <HeaderBtn label="clear" icon={<Trash size={14} />} onClick={() => setShowClear(true)} />
