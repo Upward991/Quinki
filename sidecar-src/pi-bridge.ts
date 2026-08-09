@@ -499,6 +499,9 @@ class PiBridge {
         } catch {}
         }
       }
+      // Persisti i valori ripristinati (altrimenti un salvataggio dell'altra app
+      // riporterebbe subito i None dal file condiviso).
+      this.#save();
     } catch {}
     this.#loadContextUsage();
     try {
@@ -2057,7 +2060,8 @@ class PiBridge {
     const sessionDir = this.#piSessionDir(key);
     fs.mkdirSync(sessionDir, { recursive: true });
 
-    const effectiveCwd = this.#cwdOverride.get(key) ?? this.#cwd;
+    const effCwdEntry = (this.#entries.get(key) as any)?.workingDir
+    const effectiveCwd = this.#cwdOverride.get(key) ?? (effCwdEntry || this.#cwd);
     let sm: any;
     const files = fs.readdirSync(sessionDir).filter((f: string) => f.endsWith(".jsonl"));
     if (files.length > 0) {
@@ -2816,7 +2820,8 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     const s = this.#entries.get(sk);
     if (!s) return;
 
-    const effectiveCwd = this.#cwdOverride.get(sk) ?? ((data.workingDirs && data.workingDirs.length > 0) ? data.workingDirs[0] : this.#cwd);
+    const effEntryWd = (this.#entries.get(sk) as any)?.workingDir
+    const effectiveCwd = this.#cwdOverride.get(sk) ?? ((data.workingDirs && data.workingDirs.length > 0) ? data.workingDirs[0] : (effEntryWd || this.#cwd));
     this.#lastEffectiveCwd.set(sk, effectiveCwd);
 
     // Resolve agent config
@@ -3905,7 +3910,8 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       }
     }
 
-    const effectiveCwd = this.#cwdOverride.get(sk) ?? ((data.workingDirs && data.workingDirs.length > 0) ? data.workingDirs[0] : this.#cwd);
+    const effEntryWd = (this.#entries.get(sk) as any)?.workingDir
+    const effectiveCwd = this.#cwdOverride.get(sk) ?? ((data.workingDirs && data.workingDirs.length > 0) ? data.workingDirs[0] : (effEntryWd || this.#cwd));
     this.#lastEffectiveCwd.set(sk, effectiveCwd);
 
     this.logDebug("msg-in", {
