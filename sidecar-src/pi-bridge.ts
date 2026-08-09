@@ -49,7 +49,7 @@ const CONTEXT_USAGE_FILE = fs.existsSync(path.join(_agentDir, "quinki-context-us
   : path.join(_agentDir, "dashboard-context-usage.json");
 const ERRORS_FILE = path.join(_agentDir, "quinki-errors.json");
 const DEBUG_LOG_FILE = path.join(_agentDir, "quinki-debug.log");
-const DEBUG_LOG_MAX = 50000;
+const DEBUG_LOG_MAX = 200;
 const SESSION_BASE = path.join(_agentDir, "sessions", "quinki");
 
 function makeBackup() {
@@ -144,6 +144,11 @@ class PiBridge {
   #pendingDelegationSkills = new Map<string, { agentId: string; skillName: string }[]>();
   #pendingDelegationAttachments = new Map<string, { originalName: string; path: string; uuid: string; size?: number }[]>();  // override cwd per cambio dir mid-sessione
   #scheduleHandler: ((params: any) => any) | null = null;  // A2.2: callback verso il Scheduler (settato da sidecar.ts)
+  #logBroadcast: ((entry: any) => void) | null = null;  // log live: notifica WS per ogni nuova entry (niente polling)
+
+  setLogBroadcast(fn: (entry: any) => void) {
+    this.#logBroadcast = fn;
+  }
   // === Multi-window streaming buffer: traccia il messaggio in streaming per sessione ===
   // Permette alle nuove finestre di recuperare il contenuto parziale quando aprono durante la generazione
   #streamingBuffers = new Map<string, { text: string; thinking: string; toolCalls: any[]; currentPhase: string | null; messageId: string | null; model: string | null; provider: string | null; stopReason: string | null; thinkingLevel: string | null; }>();
@@ -2203,6 +2208,7 @@ class PiBridge {
   logDebug(tag: string, data: any) {
     try {
       const entry = { ts: Date.now(), tag, data };
+      try { this.#logBroadcast?.(entry); } catch {}
       this.#debugLog.push(entry);
       if (this.#debugLog.length > this.#debugMax) this.#debugLog.shift();
       // === Fix lag: buffer in memoria + flush async ogni 5s, NO appendFileSync ===
@@ -5753,9 +5759,18 @@ export function getFullDebugLog(): { ts: number; tag: string; data: any }[] {
   const out: { ts: number; tag: string; data: any }[] = [];
   try {
     if (!fs.existsSync(DEBUG_LOG_FILE)) return out;
-    const raw = fs.readFileSync(DEBUG_LOG_FILE, "utf8");
+    // FIX performance: NON leggere l'intero file (può essere decine di MB e congela il sidecar).
+    // Leggiamo solo l'ultimo MB e teniamo le ultime 300 entry.
+    const st = fs.statSync(DEBUG_LOG_FILE);
+    const fd = fs.openSync(DEBUG_LOG_FILE, "r");
+    const len = Math.min(st.size, 1_500_000);
+    const buf = Buffer.alloc(len);
+    fs.readSync(fd, buf, 0, len, st.size - len);
+    fs.closeSync(fd);
+    const raw = buf.toString("utf8");
     const lines = raw.split("\n").filter((l) => l.trim().length > 0);
-    for (const line of lines) {
+    const last = lines.slice(-300);
+    for (const line of last) {
       try {
         const obj = JSON.parse(line);
         if (typeof obj.ts === "number" && typeof obj.tag === "string") {

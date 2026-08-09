@@ -69,55 +69,18 @@ export function LogPanel(props: LogPanelProps) {
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
-  // primo caricamento completo
+  // Caricamento iniziale: ultime entry (server LIMITATO, niente file intero)
   useEffect(() => {
     if (!call) return
     call('getFullDebugLog', {}).then((r: any) => {
-      if (r && r.log) setEntries(r.log.slice(-500))
+      if (r && r.log) setEntries(prev => prev.length ? prev : r.log.slice(-300))
     }).catch(() => {})
   }, [call])
 
-  // REAL-TIME: polling leggero ogni 1.5s (solo le entry NUOVE, lastTs condiviso col primo fetch)
+  // LIVE via PUSH WS (log_entry): props.logs è aggiornato dal hook — niente polling
   useEffect(() => {
-    if (!call) return
-    let lastTs = 0
-    const first = async () => {
-      try {
-        const r = await call('getFullDebugLog', {})
-        if (r && r.log) {
-          setEntries(r.log.slice(-500))
-          for (const e of r.log) if (typeof e.ts === 'number' && e.ts > lastTs) lastTs = e.ts
-        }
-      } catch {}
-      const timer = setInterval(() => {
-        call('getDebugLogSince', { ts: lastTs }).then((r: any) => {
-          if (!r) return
-          if (typeof r.latestTs === 'number' && r.latestTs > lastTs) lastTs = r.latestTs
-          if (r.entries && r.entries.length > 0) {
-            setEntries((prev) => {
-              const merged = [...prev]
-              const seen = new Set<string>()
-              for (const e of merged) seen.add(e.ts + ':' + e.tag)
-              for (const e of r.entries) {
-                const k = e.ts + ':' + e.tag
-                if (!seen.has(k)) { seen.add(k); merged.push(e) }
-              }
-              return merged.length > 500 ? merged.slice(-500) : merged
-            })
-          }
-        }).catch(() => {})
-      }, 1500)
-      return () => clearInterval(timer)
-    }
-    first()
-  }, [call])
-
-  // NON sovrascrivere mai con props.logs: distrugge le entry accumulate dal polling live
-  // (era la causa del contatore che scendeva all'apertura). Usato solo se non c'è altro.
-
-  useEffect(() => {
-    if (autoScroll && bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight
-  }, [entries, autoScroll])
+    if (props.logs && props.logs.length > 0) setEntries(props.logs.slice(-300))
+  }, [props.logs])
 
   const levelColors: Record<string, { bg: string; text: string; tag: string; pill: string }> = {
     error:    { bg: 'color-mix(in srgb, var(--q-accent-danger) 6%, transparent)', text: 'var(--q-accent-danger)', tag: 'var(--q-accent-danger)', pill: 'var(--q-accent-danger)' },

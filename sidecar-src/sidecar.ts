@@ -412,6 +412,8 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   // === A2.1: Execution engine (task autonomi) ===
   runTask: async (p) => {
     try { executor.setPiBridge(piBridge); } catch {}
+    // Log LIVE: ogni nuova entry debug viene spinta via WS (log_entry) — niente polling della UI
+    try { piBridge.setLogBroadcast((entry: any) => { try { sendNotification("log_entry", entry); } catch {} }); } catch {}
     const r = await executor.runTask({
       label: p.label,
       agentIds: p.agentIds,
@@ -744,6 +746,19 @@ async function handleLine(line: string) {
 // === Bootstrap ===
 async function bootstrap() {
   try {
+    // FIX RAM/perf: ruota il debug log se > 15MB (un file enorme viene letto tutto dalla tab Log)
+    try {
+      const debugFile = path.join(agentDir, "quinki-debug.log");
+      if (fs.existsSync(debugFile)) {
+        const s = fs.statSync(debugFile);
+        if (s.size > 15 * 1024 * 1024) {
+          const old = debugFile + ".old";
+          if (fs.existsSync(old)) fs.rmSync(old, { force: true });
+          fs.renameSync(debugFile, old);
+          process.stderr.write("[sidecar-marker] debug-log-rotated\n");
+        }
+      }
+    } catch {}
     // Agent working dir: configurabile via env, default ~/.quinki/workdir.
     // Il SDK pi-coding-agent legge <cwd>/package.json al boot (project detection);
     // in standalone non c'è, quindi assicuriamo uno stub package.json.
@@ -764,6 +779,8 @@ async function bootstrap() {
     piBridge = new PiBridge({ cwd: workdir, agentDir });
     setPiBridgeInstance(piBridge);
     try { executor.setPiBridge(piBridge); } catch {}
+    // Log LIVE: ogni nuova entry debug viene spinta via WS (log_entry) — niente polling della UI
+    try { piBridge.setLogBroadcast((entry: any) => { try { sendNotification("log_entry", entry); } catch {} }); } catch {}
     await piBridge.init();
     piBridge.reloadAndMerge();
     // A2.2: scheduler parte DOPO init (il primo scan è il catch-up al boot)
