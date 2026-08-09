@@ -27,6 +27,7 @@ export function LogPanel(props: LogPanelProps) {
   const [autoScroll, setAutoScroll] = useState(true)
   const [showScrollBtn, setShowScrollBtn] = useState(false)
   const [liveMode, setLiveMode] = useState(false) // log in tempo reale: DEFAULT OFF (leggero)
+  const [moreOpen, setMoreOpen] = useState(false)
   const [currentMatch, setCurrentMatch] = useState(0)
   const [searchMatches, setSearchMatches] = useState<number[]>([])
   const bodyRef = useRef<HTMLDivElement>(null)
@@ -349,50 +350,28 @@ export function LogPanel(props: LogPanelProps) {
           {/* More filters dropdown */}
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
             <button
-              onClick={(e) => {
-                const btn = e.currentTarget
-                const isOpen = btn.dataset.open === '1'
-                if (dropdownRef.current) dropdownRef.current.style.display = isOpen ? 'none' : 'flex'
-                if (overlayRef.current) overlayRef.current.style.display = isOpen ? 'none' : 'block'
-                const arrow = btn.querySelector('svg')
-                if (arrow) arrow.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(-90deg)'
-                btn.dataset.open = isOpen ? '0' : '1'
-                btn.style.borderColor = isOpen ? 'var(--q-border)' : 'var(--q-accent-success)'
-                btn.style.color = isOpen ? 'var(--q-text-secondary)' : 'var(--q-accent-success)'
-              }}
+              onClick={() => setMoreOpen(!moreOpen)}
               onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--q-accent-success)'; e.currentTarget.style.color = 'var(--q-accent-success)' }}
               onMouseLeave={(e) => {
                 const btn = e.currentTarget
-                const isOpen = btn.dataset.open === '1'
-                btn.style.borderColor = isOpen ? 'var(--q-accent-success)' : 'var(--q-border)'
-                btn.style.color = isOpen ? 'var(--q-accent-success)' : 'var(--q-text-secondary)'
+                btn.style.borderColor = moreOpen ? 'var(--q-accent-success)' : 'var(--q-border)'
+                btn.style.color = moreOpen ? 'var(--q-accent-success)' : 'var(--q-text-secondary)'
               }}
               style={{
                 display: 'flex', alignItems: 'center', gap: '6px', padding: '0 8px', height: '32px',
-                borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)',
-                cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)',
+                borderRadius: 'var(--radius-md)', border: '1px solid ' + (moreOpen ? 'var(--q-accent-success)' : 'var(--q-border)'),
+                cursor: 'pointer', backgroundColor: 'transparent', color: moreOpen ? 'var(--q-accent-success)' : 'var(--q-text-secondary)',
                 fontSize: '12px', fontFamily: 'var(--font-interface)',
                 transition: 'none',
               }}
             >
-              <ChevronDown size={14} style={{ transition: 'none', transform: 'rotate(-90deg)' }} />
+              <ChevronDown size={14} style={{ transition: 'none', transform: moreOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }} />
               More
             </button>
             <div
               ref={overlayRef}
-              style={{ position: 'fixed', inset: 0, zIndex: 40, backgroundColor: 'transparent', display: 'none' }}
-              onClick={() => {
-                if (dropdownRef.current) dropdownRef.current.style.display = 'none'
-                if (overlayRef.current) overlayRef.current.style.display = 'none'
-                const moreBtn = dropdownRef.current?.parentElement?.querySelector('button')
-                if (moreBtn) {
-                  moreBtn.dataset.open = '0'
-                  moreBtn.style.borderColor = 'var(--q-border)'
-                  moreBtn.style.color = 'var(--q-text-secondary)'
-                  const arrow = moreBtn.querySelector('svg')
-                  if (arrow) arrow.style.transform = 'rotate(-90deg)'
-                }
-              }}
+              style={{ position: 'fixed', inset: 0, zIndex: 40, backgroundColor: 'transparent', display: moreOpen ? 'block' : 'none' }}
+              onClick={() => setMoreOpen(false)}
             />
             <div
               ref={dropdownRef}
@@ -400,7 +379,7 @@ export function LogPanel(props: LogPanelProps) {
                 position: 'absolute', top: 'calc(100% + 8px)', left: '0', zIndex: 50,
                 backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)',
                 boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)',
-                padding: '4px', display: 'none', flexDirection: 'column', gap: '4px',
+                padding: '4px', display: moreOpen ? 'flex' : 'none', flexDirection: 'column', gap: '4px',
               }}
             >
               {moreFilters.map((level) => <FilterPill key={level} level={level} />)}
@@ -413,6 +392,13 @@ export function LogPanel(props: LogPanelProps) {
           <HeaderBtn label="copy" icon={<Copy size={14} />} onClick={() => {
             const md = filtered.map((e) => `### [${deriveLevel(e.tag)}] ${fmtTimestampFull(e.ts)}\n**Tag:** ${e.tag}\n\n${formatPayload(e.data)}\n`).join(`\n---\n\n`)
             navigator.clipboard.writeText(md)
+          }} />
+          <div style={{ width: '4px', flexShrink: 0 }} />
+          <HeaderBtn label="refresh" icon={<RefreshCw size={14} />} onClick={() => {
+            if (!call) return
+            call('getFullDebugLog', {}).then((r: any) => {
+              if (r && r.log) setEntries(r.log.slice(-300))
+            }).catch(() => {})
           }} />
           <div style={{ width: '4px', flexShrink: 0 }} />
           <HeaderBtn label="live" icon={<RefreshCw size={14} />} active={liveMode} onClick={() => {
