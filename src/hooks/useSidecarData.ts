@@ -1010,7 +1010,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     setSessions(prev => prev.map(s => s.id === sk ? { ...s, thinkingLevel: l } : s))
   }, [ready, notify, activeSessionId])
 
-  const setMode = useCallback((sessionKeyOrMode: string, mode?: string) => {
+  const setMode = useCallback(async (sessionKeyOrMode: string, mode?: string) => {
     if (!ready) return
     let sk: string, m: string
     if (mode !== undefined) { sk = sessionKeyOrMode; m = mode }
