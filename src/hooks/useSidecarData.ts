@@ -936,7 +936,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
           setSessionTokens((prev: any) => ({ ...prev, [sk]: { input: u.input || 0, output: u.output || 0 } }))
         })
         .catch(() => {})
-    }, 5000)
+    }, 15000)
     return () => clearInterval(iv)
   }, [ready, activeSessionId, call])
 

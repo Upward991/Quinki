@@ -66,7 +66,7 @@ function Chip({ color, text }: { color: string; text: string }) {
 }
 
 export function CalendarView(props: { activePanel: string; onSelectPanel: (p: string) => void; agents?: any[]; onOpenSession?: (key: string) => void }) {
-  const { call } = useSidecarContext()
+  const { call, subscribe } = useSidecarContext()
   const [schedules, setSchedules] = useState<any[]>([])
   const [executions, setExecutions] = useState<any[]>([])
   const [view, setView] = useState(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d })
@@ -86,7 +86,15 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     } catch {}
   }, [call])
 
-  useEffect(() => { refresh(); const iv = setInterval(refresh, 2000); return () => clearInterval(iv) }, [refresh])
+  // REALTIME senza polling aggressivo: aggiorna SOLO quando il sidecar notifica cambi
+  // (execution_update / schedule_update) + un refresh lento di sicurezza ogni 30s.
+  useEffect(() => {
+    refresh()
+    const iv = setInterval(refresh, 30000)
+    const unsub1 = subscribe?.('execution_update', () => { refresh() })
+    const unsub2 = subscribe?.('schedule_update', () => { refresh() })
+    return () => { clearInterval(iv); if (unsub1) try { unsub1() } catch {}; if (unsub2) try { unsub2() } catch {} }
+  }, [refresh, subscribe])
 
   const act = useCallback(async (fn: () => Promise<any>) => {
     try { await fn() } catch {}

@@ -69,7 +69,7 @@ export function LogPanel(props: LogPanelProps) {
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
-  // LOG: initial bounded + LIVE con polling leggero (solo entry nuove, cleanup corretto)
+  // LOG: initial bounded + aggiornamento calmo (3s, SOLO entry nuove, autoscroll verso il basso)
   useEffect(() => {
     if (!call) return
     let lastTs = 0
@@ -94,7 +94,7 @@ export function LogPanel(props: LogPanelProps) {
             })
           }
         }).catch(() => {})
-      }, 1500)
+      }, 3000)
     }).catch(() => {})
     return () => { disposed = true; if (timer) clearInterval(timer) }
   }, [call])
