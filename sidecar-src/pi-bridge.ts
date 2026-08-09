@@ -2690,7 +2690,7 @@ class PiBridge {
     if (agentId === "app-expert") return this.#expertSystemPromptFallback(cwd);
     // Moderatore: prompt speciale di coordinamento
     if (agentId === "orchestrator") {
-      return `Sei il **Moderatore**, il coordinatore degli agenti nella chat. L'utente parla direttamente con te.\n\n## Cosa fai\n- Analizzi la richiesta dell'utente\n- Decidi quale agente delegare per ogni task\n- Coordini gli agenti per risolvere il problema\n- Riporti i risultati all'utente\n\n## Regole\n- Non hai skill o tool diretti — solo coordinamento\n- Rispondi in italiano\n- Sii conciso: spiega cosa fai e chi deleghi`;  
+      return `You are the **Moderator**, the coordinator of the agents in the chat. The user talks directly with you.\n\n## What you do\n- Analyze the user's request\n- Decide which agent to delegate for each task\n- Coordinate the agents to solve the problem\n- Report the results to the user\n\n## Rules\n- You have no skills or direct tools — coordination only\n- Be concise: explain what you do and who you delegate`;  
     }
     // Per altri agenti senza PROMPT.md: prompt minimo
     const cfg = this.#readAgentConfigFile(agentId);
@@ -3304,17 +3304,17 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     const self = this;
     return defineTool({
       name: "delegate_to_agent",
-      label: "Delega ad agente",
-      description: "Delega un task a un agente specifico nella chat. Usa questo tool quando l'utente chiede qualcosa che richiede competenze specifiche di un agente. L'agente riceve il task, lo esegue, e ti ritorna la risposta. Tu poi sintetizzi e riporti all'utente.",
-      promptSnippet: "delegate_to_agent: delega un task a un agente specifico nella chat",
+      label: "Delegate to agent",
+      description: "Delegate a task to a specific agent in the chat. Use this tool when the user asks something that requires a specific agent's expertise. The agent receives the task, executes it, and returns the response. You then synthesize and report it to the user.",
+      promptSnippet: "delegate_to_agent: delegate a task to a specific agent in the chat",
       promptGuidelines: [
-        "Quando devi delegare un task a un agente, usa il tool delegate_to_agent con il nome dell'agente e il task da svolgere.",
-        "Non provare a fare tu il lavoro di un agente specializzato. Delega sempre.",
-        "Dopo aver ricevuto la risposta, sintetizza e riportala all'utente.",
+        "When you need to delegate a task to an agent, use the delegate_to_agent tool with the agent's name and the task to perform.",
+        "Do not try to do the work of a specialized agent yourself. Always delegate.",
+        "After receiving the response, synthesize and report it to the user.",
       ],
       parameters: Type.Object({
-        agent_name: Type.String({ description: "Nome dell'agente a cui delegare (es: Notion, Quinki Expert)" }),
-        task: Type.String({ description: "Descrizione del task da assegnare all'agente" }),
+        agent_name: Type.String({ description: "Name of the agent to delegate to (e.g. Notion, App Expert)" }),
+        task: Type.String({ description: "Description of the task to assign to the agent" }),
       }),
       async execute(toolCallId: string, params: any, signal: any, onUpdate: any, ctx: any): Promise<any> {
         const { agent_name, task } = params;
@@ -3712,12 +3712,12 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
             } catch { agentNames.push(id); }
           }
           if (agentNames.length > 0) {
-            systemPrompt += `\n\n**Agenti disponibili in questa chat (usa @nome per taggarli):**\n`;
+            systemPrompt += `\n\n**Agents available in this chat (use @name to tag them):**\n`;
             for (const name of agentNames) {
               systemPrompt += `- @${name}\n`;
             }
-            systemPrompt += `\nQuando l'utente fa una richiesta, analizza e delega all'agente più adatto. Se la richiesta è semplice, rispondi tu direttamente.\n`;
-            systemPrompt += `\n**Descrizione agenti:**\n`;
+            systemPrompt += `\nWhen the user makes a request, analyze it and delegate to the most suitable agent. If the request is simple, answer directly.\n`;
+            systemPrompt += `\n**Agent descriptions:**\n`;
             for (const id of agentIds) {
               try {
                 const cfg = this.#readAgentConfig(id);
@@ -3769,12 +3769,12 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     }
     const hasAgent = agentId !== null;
     let prompt = hasAgent ? this.#readAgentPrompt(agentId!, cwd) : "quinki";
-    const lead = hasAgent ? "Lavori" : "Sei un assistente che lavora";
+    const lead = hasAgent ? "You work" : "You are an assistant who works";
     if (workingDirs && workingDirs.length > 0) {
       if (workingDirs.length === 1) {
-        prompt += `\n\n${lead} nella directory: ${workingDirs[0]}`;
+        prompt += `\n\n${lead} in the directory: ${workingDirs[0]}`;
       } else {
-        prompt += `\n\n${lead} nelle seguenti directory:`;
+        prompt += `\n\n${lead} in the following directories:`;
         for (const d of workingDirs) {
           prompt += `\n- ${d}`;
         }
@@ -3806,11 +3806,11 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
           } catch { agentNames.push(id); }
         }
         if (agentNames.length > 0) {
-          prompt += `\n\n**Agenti disponibili in questa chat (usa @nome per taggarli):**\n`;
+          prompt += `\n\n**Agents available in this chat (use @name to tag them):**\n`;
           for (const name of agentNames) {
             prompt += `- @${name}\n`;
           }
-          prompt += `\nQuando l'utente fa una richiesta, analizza e delega all'agente più adatto. Se la richiesta è semplice, rispondi tu direttamente.`;
+          prompt += `\nWhen the user makes a request, analyze it and delegate to the most suitable agent. If the request is simple, answer directly.`;
         }
       }
     }
