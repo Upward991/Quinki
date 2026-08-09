@@ -13,6 +13,7 @@ const STATUS_COLOR: Record<string, string> = {
 }
 const WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+const HOUR_H = 48 // altezza (px) di un'ora in week/day (spostamento al minuto)
 
 const panelStyle: React.CSSProperties = {
   backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)',
@@ -95,9 +96,8 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const year = view.getFullYear()
   const month = view.getMonth()
 
-  // Attività per giorno
-  const dayActivities = (d: Date): { type: string; color: string; text: string; hour: number; id: string }[] => {
-    const out: { type: string; color: string; text: string; hour: number; id: string }[] = []
+  const dayActivities = (d: Date): { type: string; color: string; text: string; h: number; m: number; id: string; ex?: any }[] => {
+    const out: any[] = []
     const jsDay = d.getDay(); const dayNum = jsDay === 0 ? 7 : jsDay
     for (const s of schedules) {
       const w = s.when || {}
@@ -105,18 +105,18 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
         if (!w.date) continue
         const dt = new Date(w.date)
         if (!sameDay(dt, d)) continue
-        out.push({ type: 'schedule', color: 'var(--q-accent-calendar)', text: (s.enabled ? '' : '(off) ') + (s.title || 'Task') + ' · ' + fmtTime(dt.getTime()), hour: dt.getHours(), id: s.id })
+        out.push({ type: 'schedule', color: 'var(--q-accent-calendar)', text: (s.enabled ? '' : '(off) ') + (s.title || 'Task') + ' · ' + fmtTime(dt.getTime()), h: dt.getHours(), m: dt.getMinutes(), id: s.id, draggable: true })
       } else if (w.type === 'daily') {
-        const { h } = parseAt(w.at || '08:00')
-        out.push({ type: 'schedule', color: 'var(--q-accent-calendar)', text: (s.enabled ? '' : '(off) ') + (s.title || 'Task') + ' · ' + (w.at || '08:00'), hour: h, id: s.id })
+        const { h, m } = parseAt(w.at || '08:00')
+        out.push({ type: 'schedule', color: 'var(--q-accent-calendar)', text: (s.enabled ? '' : '(off) ') + (s.title || 'Task') + ' · ' + (w.at || '08:00'), h, m, id: s.id, draggable: true })
       } else if (w.type === 'weekly') {
         if (!(w.daysOfWeek || []).includes(dayNum)) continue
-        const { h } = parseAt(w.at || '08:00')
-        out.push({ type: 'schedule', color: 'var(--q-accent-calendar)', text: (s.enabled ? '' : '(off) ') + (s.title || 'Task') + ' · ' + (w.at || '08:00'), hour: h, id: s.id })
+        const { h, m } = parseAt(w.at || '08:00')
+        out.push({ type: 'schedule', color: 'var(--q-accent-calendar)', text: (s.enabled ? '' : '(off) ') + (s.title || 'Task') + ' · ' + (w.at || '08:00'), h, m, id: s.id, draggable: true })
       } else if (w.type === 'monthly') {
         if ((w.dayOfMonth ?? 1) !== d.getDate()) continue
-        const { h } = parseAt(w.at || '08:00')
-        out.push({ type: 'schedule', color: 'var(--q-accent-calendar)', text: (s.enabled ? '' : '(off) ') + (s.title || 'Task') + ' · ' + (w.at || '08:00'), hour: h, id: s.id })
+        const { h, m } = parseAt(w.at || '08:00')
+        out.push({ type: 'schedule', color: 'var(--q-accent-calendar)', text: (s.enabled ? '' : '(off) ') + (s.title || 'Task') + ' · ' + (w.at || '08:00'), h, m, id: s.id, draggable: true })
       }
     }
     for (const ex of executions) {
@@ -125,9 +125,9 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       const dt = new Date(t)
       if (!sameDay(dt, d)) continue
       const col = STATUS_COLOR[ex.status] || 'var(--q-text-tertiary)'
-      out.push({ type: 'exec' + '/' + ex.status, color: col, text: (ex.label || ex.id) + ' · ' + ex.status + ' · ' + fmtTime(dt.getTime()), hour: dt.getHours(), id: ex.id })
+      out.push({ type: 'exec', color: col, text: (ex.label || ex.id) + ' · ' + ex.status + ' · ' + fmtTime(dt.getTime()), h: dt.getHours(), m: dt.getMinutes(), id: ex.id, ex })
     }
-    out.sort((a, b) => a.hour - b.hour)
+    out.sort((a, b) => (a.h * 60 + a.m) - (b.h * 60 + b.m))
     return out
   }
 
@@ -137,31 +137,45 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     const when = { ...(s.when || {}) }
     const t = new Date(target)
     if (when.type === 'once') {
-      const cur = when.date ? new Date(when.date) : new Date()
-      t.setHours(cur.getHours(), cur.getMinutes(), 0, 0)
       when.date = t.toISOString()
     } else if (when.type === 'weekly') {
       const js = t.getDay()
       when.daysOfWeek = [js === 0 ? 7 : js]
+      if (when.at) { const { h, m } = { h: t.getHours(), m: t.getMinutes() }; when.at = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') }
     } else if (when.type === 'monthly') {
       when.dayOfMonth = t.getDate()
-    } else {
-      return
-    }
+      if (when.at) { const { h, m } = { h: t.getHours(), m: t.getMinutes() }; when.at = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') }
+    } else if (when.type === 'daily') {
+      if (when.at) { const { h, m } = { h: t.getHours(), m: t.getMinutes() }; when.at = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') }
+    } else { return }
     await act(async () => { await call('updateSchedule', { id, when }) })
   }
   const startDrag = (e: any, id: string) => { e.dataTransfer.setData('text/quinki-schedule', id); setDragId(id); e.stopPropagation() }
   const endDrag = () => setDragId(null)
-  const onDropDay = (e: React.DragEvent, target: Date) => {
+  const today0 = () => { const n = new Date(); n.setHours(0, 0, 0, 0); return n }
+  const openDay = (d: Date) => { const nd = new Date(d); nd.setHours(0, 0, 0, 0); setSelected(nd); setView(nd); setMode('day') }
+
+  // Drop con MINUTI (week/day): calcola ora:minuto dalla coordinata Y
+  const onDropTimed = (e: React.DragEvent, d: Date, rectTop: number) => {
     e.preventDefault(); e.stopPropagation()
     const id = e.dataTransfer.getData('text/quinki-schedule')
-    if (id) moveSchedule(id, target)
+    if (!id) { setDragId(null); return }
+    const off = Math.max(0, e.clientY - rectTop)
+    const minutes = Math.floor(off / HOUR_H * 60)
+    const hh = Math.min(23, Math.floor(minutes / 60))
+    const mm = minutes % 60
+    const t = new Date(d); t.setHours(hh, mm, 0, 0)
+    moveSchedule(id, t)
     setDragId(null)
   }
-  const openDay = (d: Date) => { const nd = new Date(d); nd.setHours(0, 0, 0, 0); setSelected(nd); setView(nd); setMode('day') }
-  const today0 = () => { const n = new Date(); n.setHours(0, 0, 0, 0); return n }
+  const onDropDay = (e: React.DragEvent, d: Date) => {
+    e.preventDefault(); e.stopPropagation()
+    const id = e.dataTransfer.getData('text/quinki-schedule')
+    if (id) moveSchedule(id, d)
+    setDragId(null)
+  }
 
-  // === Griglia mese ===
+  // === MESE ===
   let calendarGrid: React.ReactElement
   if (mode === 'month') {
     const first = new Date(year, month, 1)
@@ -175,96 +189,96 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       const isSel = sameDay(d, selected)
       const acts = dayActivities(d)
       const kids: React.ReactNode[] = [
-        React.createElement('div', { key: 'n', style: { color: isToday ? 'var(--q-accent-calendar)' : 'var(--q-text-secondary)', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-interface)' } }, d.getDate()),
+        React.createElement('div', { key: 'n', style: { color: isToday ? 'var(--q-accent-calendar)' : 'var(--q-text-secondary)', fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-interface)' } }, d.getDate()),
       ]
       for (const a of acts.slice(0, 4)) {
         kids.push(React.createElement('div', {
           key: 'a' + a.id, title: a.text,
-          style: {
-            padding: '2px 6px', borderRadius: 6, fontSize: 11, fontFamily: 'var(--font-interface)', color: 'var(--q-text)',
-            backgroundColor: 'color-mix(in srgb, ' + a.color + ' 15%, transparent)', border: '1px solid ' + a.color,
-            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-          },
+          style: { padding: '2px 6px', borderRadius: 6, fontSize: 11, fontFamily: 'var(--font-interface)', color: 'var(--q-text)', backgroundColor: 'color-mix(in srgb, ' + a.color + ' 15%, transparent)', border: '1px solid ' + a.color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
         }, a.text.split('·')[0]))
       }
-      if (acts.length > 4) {
-        kids.push(React.createElement('div', { key: 'more', style: { color: 'var(--q-text-tertiary)', fontSize: 10, fontFamily: 'var(--font-interface)' } }, '+' + (acts.length - 4) + ' more'))
-      }
+      if (acts.length > 4) kids.push(React.createElement('div', { key: 'more', style: { color: 'var(--q-text-tertiary)', fontSize: 10, fontFamily: 'var(--font-interface)' } }, '+' + (acts.length - 4) + ' more'))
       cells.push(React.createElement('div', {
         key: dayKey(d.getTime()),
         onClick: () => openDay(d),
         onDragOver: (e: any) => e.preventDefault(),
         onDrop: (e: any) => onDropDay(e, d),
         style: {
-          minHeight: 104, padding: 5, borderRadius: 'var(--radius-sm)', display: 'flex', flexDirection: 'column', gap: 3,
-          cursor: 'pointer', transition: 'none',
+          aspectRatio: '1 / 1', padding: 6, borderRadius: 'var(--radius-sm)', display: 'flex', flexDirection: 'column', gap: 3,
+          cursor: 'pointer', transition: 'none', overflow: 'hidden',
           backgroundColor: isSel ? 'var(--q-active)' : 'var(--q-bg-panel)',
           border: isToday ? '1px solid var(--q-accent-calendar)' : isSel ? '1px solid var(--q-text-secondary)' : '1px solid var(--q-border)',
           opacity: inMonth ? 1 : 0.4,
         },
       }, kids))
     }
-    calendarGrid = React.createElement('div', { key: 'g', style: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, flex: 1, width: '100%' } }, cells)
-  } else if (mode === 'week') {
-    const dow = (view.getDay() + 6) % 7
-    const weekStart = new Date(year, month, view.getDate() - dow)
-    const cols: React.ReactElement[] = []
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + i)
-      const acts = dayActivities(d)
-      const rows: React.ReactNode[] = []
-      for (let h = 0; h < 24; h++) {
-        const inHour = acts.filter((a) => a.hour === h)
-        rows.push(React.createElement('div', {
-          key: h,
-          style: { display: 'flex', alignItems: 'stretch', minHeight: 30, borderBottom: '1px solid var(--q-border-soft)', backgroundColor: 'var(--q-bg-panel)' },
-        }, [
-          React.createElement('div', { style: { width: 40, flexShrink: 0, color: 'var(--q-text-tertiary)', fontSize: 9, fontFamily: 'var(--font-code)', paddingTop: 3, textAlign: 'right', paddingRight: 4 } }, String(h).padStart(2, '0') + ':00'),
-          React.createElement('div', { style: { flex: 1, display: 'flex', gap: 2, alignItems: 'center', padding: '2px 3px', overflow: 'hidden' } },
-            inHour.length ? inHour.map((a, idx) => React.createElement('div', {
-              key: idx, title: a.text,
-              style: { padding: '1px 5px', borderRadius: 5, fontSize: 10, fontFamily: 'var(--font-interface)', color: 'var(--q-text)', backgroundColor: 'color-mix(in srgb, ' + a.color + ' 15%, transparent)', border: '1px solid ' + a.color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-            }, a.text.split('·')[0])) : React.createElement('div', { style: { width: '100%' } })),
-        ]))
-      }
-      cols.push(React.createElement('div', { key: 'wk' + i, style: { display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 } }, [
-        React.createElement('div', {
-          onClick: () => openDay(d),
-          style: { cursor: 'pointer', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-interface)', textAlign: 'center', padding: '4px 0', borderRadius: 'var(--radius-sm)', color: sameDay(d, today0()) ? 'var(--q-accent-calendar)' : 'var(--q-text)', backgroundColor: sameDay(d, selected) ? 'var(--q-active)' : 'transparent' },
-        }, WEEK[i] + ' ' + d.getDate()),
-        React.createElement('div', { style: { border: '1px solid var(--q-border-strong)', borderRadius: 'var(--radius-sm)', overflow: 'hidden', display: 'flex', flexDirection: 'column' } }, rows),
-      ]))
-    }
-    calendarGrid = React.createElement('div', { key: 'g', style: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, flex: 1, width: '100%' } }, cols)
+    calendarGrid = React.createElement('div', { key: 'g', style: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, width: '100%' } }, cells)
   } else {
-    // Giorno (agenda 24h)
-    const acts = dayActivities(selected)
-    const rows: React.ReactNode[] = []
-    for (let h = 0; h < 24; h++) {
-      const inHour = acts.filter((a) => a.hour === h)
-      rows.push(React.createElement('div', { key: h, style: { display: 'flex', alignItems: 'flex-start', borderBottom: '1px solid var(--q-border-soft)', backgroundColor: 'var(--q-bg-panel)' } }, [
-        React.createElement('div', { style: { width: 52, flexShrink: 0, color: 'var(--q-text-tertiary)', fontSize: 11, fontFamily: 'var(--font-code)', padding: '8px 8px 0 0', textAlign: 'right' } }, String(h).padStart(2, '0') + ':00'),
-        React.createElement('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 4, padding: '6px 4px', minHeight: 40 } },
-          inHour.map((a, i) => {
-            const isExec = a.type.indexOf('exec') === 0
-            const ctrl: React.ReactNode[] = [
-              React.createElement(Chip, { key: 'chip', color: a.color, text: isExec ? a.type.split('/')[1] : 'schedule' }),
-              React.createElement('span', { key: 'txt', style: { color: 'var(--q-text)', fontSize: 12, fontFamily: 'var(--font-interface)', fontWeight: 500 } }, a.text),
-            ]
-            if (isExec) {
-              const ex = executions.find((x: any) => x.id === a.id)
-              if (ex && (ex.status === 'running' || ex.status === 'queued')) {
-                ctrl.push(React.createElement('button', { key: 'stop', style: btnText, title: 'Stop', onClick: () => act(async () => { await call('stopExecution', { executionId: ex.id }) }) }, React.createElement(X, { size: 12 })))
-              }
-              if (ex && ex.status === 'interrupted') {
-                ctrl.push(React.createElement('button', { key: 'res', style: btnText, title: 'Resume', onClick: () => act(async () => { await call('resumeExecution', { executionId: ex.id }) }) }, React.createElement(RotateCcw, { size: 12 })))
-              }
-            }
-            return React.createElement('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 'var(--radius-sm)', backgroundColor: 'color-mix(in srgb, ' + a.color + ' 12%, transparent)', border: '1px solid ' + a.color, flexWrap: 'wrap' } }, ctrl)
-          })),
-      ]))
+    // === SETTIMANA / GIORNO — barra orari unica a sinistra + griglia (stile Google Calendar) ===
+    const days: Date[] = []
+    if (mode === 'week') {
+      const dow = (view.getDay() + 6) % 7
+      const weekStart = new Date(year, month, view.getDate() - dow)
+      for (let i = 0; i < 7; i++) days.push(new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + i))
+    } else {
+      days.push(new Date(selected.getFullYear(), selected.getMonth(), selected.getDate()))
     }
-    calendarGrid = React.createElement('div', { key: 'g', style: { width: '100%', maxWidth: 900, display: 'flex', flexDirection: 'column', border: '1px solid var(--q-border-strong)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' } }, rows)
+    const totalH = 24 * HOUR_H
+    const gutterKids: React.ReactNode[] = []
+    for (let h = 0; h < 24; h++) {
+      gutterKids.push(React.createElement('div', {
+        key: h,
+        style: { position: 'absolute', top: h * HOUR_H - 7, left: 0, width: '100%', fontSize: 9, fontFamily: 'var(--font-code)', color: 'var(--q-text-tertiary)', textAlign: 'right', paddingRight: 6 },
+      }, String(h).padStart(2, '0') + ':00'))
+    }
+    const gridKids: React.ReactNode[] = days.map((d, di) => {
+      const acts = dayActivities(d)
+      const isToday = sameDay(d, today0())
+      const isSel = sameDay(d, selected)
+      const blocks: React.ReactNode[] = acts.map((a, ai) => {
+        const topPx = (a.h * HOUR_H) + Math.round((a.m / 60) * HOUR_H)
+        if (a.ex && a.ex.status === 'running') { /* mostra bordi */ }
+        return React.createElement('div', {
+          key: ai,
+          title: a.text,
+          draggable: a.type === 'schedule',
+          onDragStart: a.type === 'schedule' ? (e: any) => startDrag(e, a.id) : undefined,
+          onDragEnd: a.type === 'schedule' ? endDrag : undefined,
+          style: {
+            position: 'absolute', left: 3, right: 3, top: topPx, height: Math.max(18, HOUR_H / 2), borderRadius: 6,
+            backgroundColor: 'color-mix(in srgb, ' + a.color + ' 20%, transparent)', border: '1px solid ' + a.color,
+            color: 'var(--q-text)', fontSize: 10, fontFamily: 'var(--font-interface)', padding: '1px 5px',
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: a.type === 'schedule' ? 'grab' : 'default', zIndex: 3,
+          },
+        }, a.text.split('·')[0])
+      })
+      // righe orarie di sfondo
+      const bgRows: React.ReactNode[] = []
+      for (let h = 0; h < 24; h++) {
+        bgRows.push(React.createElement('div', { key: h, style: { position: 'absolute', left: 0, right: 0, top: h * HOUR_H, height: HOUR_H, borderTop: '1px solid var(--q-border-soft)' } }))
+      }
+      return React.createElement('div', {
+        key: 'col' + di,
+        onClick: () => { if (mode === 'week') openDay(d) },
+        onDragOver: (e: any) => e.preventDefault(),
+        onDrop: (e: any) => {
+          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+          onDropTimed(e, d, rect.top)
+        },
+        style: { position: 'relative', minWidth: 0, height: totalH, backgroundColor: isToday ? 'var(--q-active)' : 'var(--q-bg-panel)', border: isSel ? '1px solid var(--q-text-secondary)' : isToday ? '1px solid var(--q-accent-calendar)' : '1px solid var(--q-border)', borderRadius: 'var(--radius-sm)', overflow: 'hidden', cursor: mode === 'week' ? 'pointer' : 'default' },
+      }, [ ...bgRows, ...blocks ])
+    })
+
+    const grid = React.createElement('div', { key: 'grid', style: { position: 'relative', flex: 1, display: 'grid', gridTemplateColumns: 'repeat(' + days.length + ', 1fr)', gap: 4, overflow: 'hidden', borderRadius: 'var(--radius-sm)' } }, gridKids)
+    const gutter = React.createElement('div', { key: 'gutter', style: { position: 'relative', width: 44, flexShrink: 0, height: totalH } }, gutterKids)
+    const dayHeaders = React.createElement('div', { key: 'dh', style: { display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 } }, days.map((d, i) => React.createElement('div', {
+      key: i, style: { flex: 1, textAlign: 'center', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-interface)', color: sameDay(d, today0()) ? 'var(--q-accent-calendar)' : 'var(--q-text)', padding: '4px 0', borderRadius: 'var(--radius-sm)', backgroundColor: sameDay(d, selected) ? 'var(--q-active)' : 'transparent', cursor: 'pointer' },
+    }, mode === 'week' ? WEEK[i] + ' ' + d.getDate() : fullDate(d))))
+
+    calendarGrid = React.createElement('div', { key: 'wg', style: { width: '100%', display: 'flex', flexDirection: 'column', gap: 4, overflowX: 'auto' } }, [
+      dayHeaders,
+      React.createElement('div', { key: 'wgbody', style: { display: 'flex', gap: 4, overflowY: 'auto' } }, [gutter, grid]),
+    ])
   }
 
   const nav = (dir: number) => {
@@ -276,7 +290,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     setView(d)
   }
 
-  // === To-do (floating panel, come prima) ===
+  // === To-do (panel laterale che SPINGE il calendario, altezza totale) ===
   const schedRows: React.ReactElement[] = []
   for (const s of schedules) {
     if (!s.enabled && !s.lastFiredAt) continue
@@ -310,9 +324,9 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   }
   const todoPanel = React.createElement('div', {
     style: {
-      position: 'absolute', top: 0, bottom: 0, left: 0, width: 300, zIndex: 20,
+      width: 300, flexShrink: 0, alignSelf: 'stretch', display: 'flex', flexDirection: 'column', gap: 10,
       backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)',
-      border: '1px solid var(--q-border)', padding: '12px', display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto',
+      border: '1px solid var(--q-border)', padding: '12px', overflowY: 'auto',
     },
   }, [
     React.createElement('div', { key: 'sh', style: { display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }, onClick: () => setOpenSched(!openSched) }, [
@@ -331,16 +345,16 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     openExec ? React.createElement('div', { key: 'el', style: { display: 'flex', flexDirection: 'column', gap: 6 } }, execRows.length ? execRows : React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: 12, fontFamily: 'var(--font-interface)', padding: '6px 0' } }, 'No executions yet.')) : null,
   ])
 
-  // === Header (come la chat: [Home][sidebar]) ===
-  const IconBtn = ({ icon: Icon, onClick, active }: { icon: React.FC<any>; onClick: () => void; active?: boolean }) => {
+  // === Header (come la chat: [Home][sidebar], niente glow sulla sidebar attiva) ===
+  const IconBtn = ({ icon: Icon, onClick }: { icon: React.FC<any>; onClick: () => void }) => {
     const [h, setH] = useState(false)
     return React.createElement('button', {
       onClick, onMouseEnter: () => setH(true), onMouseLeave: () => setH(false),
       style: {
         width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
         borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', padding: '0',
-        backgroundColor: (h || active) ? 'var(--q-hover)' : 'transparent',
-        color: (h || active) ? 'var(--q-text)' : 'var(--q-text-secondary)',
+        backgroundColor: h ? 'var(--q-hover)' : 'transparent',
+        color: h ? 'var(--q-text)' : 'var(--q-text-secondary)',
         transition: 'none',
       },
     }, React.createElement(Icon, { size: 20 }))
@@ -360,7 +374,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const headerKids: React.ReactNode[] = [
     React.createElement('div', { key: 'h1', style: panelStyle }, [React.createElement(IconBtn, { key: 'home', icon: Home, onClick: () => props.onSelectPanel('home') })]),
     React.createElement('div', { key: 'sp1', style: { width: '8px', flexShrink: 0 } }),
-    React.createElement('div', { key: 'h2', style: panelStyle }, [React.createElement(IconBtn, { key: 'todo', icon: PanelLeft, onClick: () => setShowTodo(!showTodo), active: showTodo })]),
+    React.createElement('div', { key: 'h2', style: panelStyle }, [React.createElement(IconBtn, { key: 'todo', icon: PanelLeft, onClick: () => setShowTodo(!showTodo) })]),
     React.createElement('div', { key: 'sp2', style: { width: '8px', flexShrink: 0 } }),
     React.createElement('div', { key: 'h3', style: { ...panelStyle, flex: 1, minWidth: 0 } }, [
       React.createElement('div', { key: 'sp0', style: { width: '8px', flexShrink: 0 } }),
@@ -382,21 +396,21 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   ]
   const header = React.createElement('div', { key: 'hdr', style: { marginBottom: '8px', flexShrink: 0, display: 'flex', alignItems: 'center', width: '100%' } }, headerKids)
 
-  const bodyKids: React.ReactNode[] = [
-    React.createElement('div', { key: 'calwrap', style: { position: 'relative', flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' } }, [
-      React.createElement('div', { key: 'cal', style: { width: '100%', height: '100%', display: 'flex', flexDirection: 'column', gap: 6, justifyContent: 'center' } }, [
-        mode === 'month'
-          ? React.createElement('div', { key: 'wh', style: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 } }, WEEK.map((w, i) => React.createElement('div', { key: w, style: { color: 'var(--q-text-tertiary)', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-interface)', textAlign: 'center', padding: 4 } }, w)))
-          : null,
-        calendarGrid,
-      ]),
-      showTodo ? todoPanel : null,
+  const calWrap = React.createElement('div', { key: 'calwrap', style: { flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', paddingLeft: showTodo ? 12 : 0 } }, [
+    React.createElement('div', { key: 'cal', style: { width: '100%', height: '100%', display: 'flex', flexDirection: 'column', gap: 6, justifyContent: 'center' } }, [
+      mode === 'month'
+        ? React.createElement('div', { key: 'wh', style: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 } }, WEEK.map((w, i) => React.createElement('div', { key: w, style: { color: 'var(--q-text-tertiary)', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-interface)', textAlign: 'center', padding: 4 } }, w)))
+        : null,
+      calendarGrid,
     ]),
-  ]
+  ])
+
+  const bodyKids: React.ReactNode[] = [calWrap]
+  if (showTodo) bodyKids.unshift(todoPanel)
 
   return React.createElement('div', { className: 'h-full flex flex-col', style: { width: '100%', position: 'relative' } }, [
     header,
-    React.createElement('div', { key: 'body', className: 'q-scroll', style: { flex: 1, overflowY: 'auto', padding: '4px 8px 12px 8px', minHeight: 0, display: 'flex', alignItems: 'center' } }, bodyKids),
+    React.createElement('div', { key: 'body', className: 'q-scroll', style: { flex: 1, overflowY: 'auto', padding: '4px 8px 12px 8px', minHeight: 0, display: 'flex', alignItems: 'stretch' } }, bodyKids),
   ])
 }
 

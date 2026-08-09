@@ -2208,7 +2208,6 @@ class PiBridge {
   logDebug(tag: string, data: any) {
     try {
       const entry = { ts: Date.now(), tag, data };
-      try { this.#logBroadcast?.(entry); } catch {}
       this.#debugLog.push(entry);
       if (this.#debugLog.length > this.#debugMax) this.#debugLog.shift();
       // === Fix lag: buffer in memoria + flush async ogni 5s, NO appendFileSync ===

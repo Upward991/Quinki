@@ -150,7 +150,7 @@ export class Scheduler {
           changed = true;
         }
       }
-      if (!changed) this.#log("scheduler-scan", { owner: this.#owner, now, count: all.length });
+      // niente log a ogni tick (rumore): si logga solo quando qualcosa scatta
     } catch (e: any) {
       this.#log("scheduler-scan-error", { error: e?.message });
     } finally {

@@ -412,8 +412,8 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   // === A2.1: Execution engine (task autonomi) ===
   runTask: async (p) => {
     try { executor.setPiBridge(piBridge); } catch {}
-    // Log LIVE: ogni nuova entry debug viene spinta via WS (log_entry) — niente polling della UI
-    try { piBridge.setLogBroadcast((entry: any) => { try { sendNotification("log_entry", entry); } catch {} }); } catch {}
+
+
     const r = await executor.runTask({
       label: p.label,
       agentIds: p.agentIds,
@@ -779,8 +779,8 @@ async function bootstrap() {
     piBridge = new PiBridge({ cwd: workdir, agentDir });
     setPiBridgeInstance(piBridge);
     try { executor.setPiBridge(piBridge); } catch {}
-    // Log LIVE: ogni nuova entry debug viene spinta via WS (log_entry) — niente polling della UI
-    try { piBridge.setLogBroadcast((entry: any) => { try { sendNotification("log_entry", entry); } catch {} }); } catch {}
+
+
     await piBridge.init();
     piBridge.reloadAndMerge();
     // A2.2: scheduler parte DOPO init (il primo scan è il catch-up al boot)

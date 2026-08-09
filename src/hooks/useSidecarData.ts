@@ -541,14 +541,7 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
 const unsubDebugLog = subscribe('debug_log', (p: any) => {
       if (p?.log) setDebugLog(p.log)
     })
-    // LOG LIVE: push incrementale (sostenibile, niente polling del file)
-    const unsubLogEntry = subscribe('log_entry', (entry: any) => {
-      if (!entry || typeof entry.ts !== 'number' || typeof entry.tag !== 'string') return
-      setDebugLog((prev: any[]) => {
-        const merged = [...prev, entry]
-        return merged.length > 300 ? merged.slice(-300) : merged
-      })
-    })
+
 
     // Compaction status
     const unsubCompaction = subscribe('compaction_status', (p: any) => {

@@ -69,18 +69,35 @@ export function LogPanel(props: LogPanelProps) {
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
-  // Caricamento iniziale: ultime entry (server LIMITATO, niente file intero)
+  // LOG: initial bounded + LIVE con polling leggero (solo entry nuove, cleanup corretto)
   useEffect(() => {
     if (!call) return
+    let lastTs = 0
+    let timer: any = null
+    let disposed = false
     call('getFullDebugLog', {}).then((r: any) => {
-      if (r && r.log) setEntries(prev => prev.length ? prev : r.log.slice(-300))
+      if (disposed) return
+      if (r && r.log) {
+        setEntries(r.log.slice(-300))
+        for (const e of r.log) if (typeof e.ts === 'number' && e.ts > lastTs) lastTs = e.ts
+      }
+      timer = setInterval(() => {
+        call('getDebugLogSince', { ts: lastTs }).then((res: any) => {
+          if (disposed) return
+          if (!res) return
+          if (typeof res.latestTs === 'number' && res.latestTs > lastTs) lastTs = res.latestTs
+          if (res.entries && res.entries.length) {
+            setEntries(prev => {
+              const seen = new Set(prev.map((e: any) => e.ts + ':' + e.tag))
+              const add = res.entries.filter((e: any) => !seen.has(e.ts + ':' + e.tag))
+              return add.length ? [...prev, ...add].slice(-300) : prev
+            })
+          }
+        }).catch(() => {})
+      }, 1500)
     }).catch(() => {})
+    return () => { disposed = true; if (timer) clearInterval(timer) }
   }, [call])
-
-  // LIVE via PUSH WS (log_entry): props.logs è aggiornato dal hook — niente polling
-  useEffect(() => {
-    if (props.logs && props.logs.length > 0) setEntries(props.logs.slice(-300))
-  }, [props.logs])
 
   const levelColors: Record<string, { bg: string; text: string; tag: string; pill: string }> = {
     error:    { bg: 'color-mix(in srgb, var(--q-accent-danger) 6%, transparent)', text: 'var(--q-accent-danger)', tag: 'var(--q-accent-danger)', pill: 'var(--q-accent-danger)' },
@@ -386,10 +403,7 @@ export function LogPanel(props: LogPanelProps) {
       {/* Log body */}
       <div ref={bodyRef}
         className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '4px 16px 8px 16px', position: 'relative' }}
-        onScroll={(e) => {
-          const el = e.currentTarget
-          setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100)
-        }}>
+        onScroll={(e) => { onScroll() }}>
         
         {entries.length === 0 ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--q-text-tertiary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>
