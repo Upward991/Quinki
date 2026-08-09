@@ -418,6 +418,9 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
       thinkingLevel: p.thinkingLevel,
       text: String(p.text || ""),
       owner: p.owner === "expert" ? "expert" : "main",
+      scheduleId: p.scheduleId,
+      scheduledFor: p.scheduledFor,
+      keepAwake: !!p.keepAwake,
     });
     return r;
   },
@@ -426,6 +429,8 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   getExecutionEvents: async (p) => ({ events: executor.events(String(p.executionId)) }),
   cancelExecution: async (p) => ({ ...executor.cancel(String(p.executionId)) }),
   deleteExecution: async (p) => ({ ...executor.remove(String(p.executionId)) }),
+  resumeExecution: async (p) => ({ ...(await executor.resumeExecution(String(p.executionId))) }),
+  recoverExecutions: async (p) => ({ ...(await executor.recover(p.autoResume !== false)) }),
 
   // === A2.2: Scheduler ===
   listSchedules: async () => ({ schedules: scheduler.readSchedules() }),
@@ -761,6 +766,8 @@ async function bootstrap() {
     try { scheduler.start(); } catch (e: any) { process.stderr.write(`[sidecar-marker] scheduler-start-error: ${e?.message}\n`); }
     // A2.2: tool schedule_task degli agenti → crea schedule nel Scheduler
     try { piBridge.setScheduleHandler((p: any) => scheduler.createSchedule(p)); } catch (e: any) { process.stderr.write(`[sidecar-marker] schedule-handler-error: ${e?.message}\n`); }
+    // A2.3: Recovery Manager (al boot: interrupted → auto-resume semantico) + Keep Awake
+    try { executor.startRecovery(true); } catch (e: any) { process.stderr.write(`[sidecar-marker] recovery-start-error: ${e?.message}\n`); }
     sendNotification("ready", { message: "PiBridge initialized" });
     // === NO periodic flush, NO SIGTERM handler ===
     // #save() è chiamato esplicitamente da create(), setModel(), setChatAgents(), rename(), etc.

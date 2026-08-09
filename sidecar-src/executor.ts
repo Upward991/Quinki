@@ -11,6 +11,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { homedir } from "node:os";
+import { spawn } from "node:child_process";
 
 const AGENT_DIR = process.env.QUINKI_AGENT_DIR || path.join(homedir(), ".quinki");
 const EXEC_BASE = path.join(AGENT_DIR, "executions");
@@ -26,6 +27,7 @@ export interface ExecutionParams {
   owner?: "main" | "expert";
   scheduleId?: string;
   scheduledFor?: number;
+  keepAwake?: boolean;
 }
 
 export interface ExecutionState {
@@ -47,6 +49,8 @@ export interface ExecutionState {
   error: string | null;
   scheduleId: string | null;
   scheduledFor: number | null;
+  keepAwake: boolean;
+  resumeCount: number;
 }
 
 export class ExecutionEngine {
@@ -144,6 +148,8 @@ export class ExecutionEngine {
       error: null,
       scheduleId: p.scheduleId || null,
       scheduledFor: p.scheduledFor || null,
+      keepAwake: !!p.keepAwake,
+      resumeCount: 0,
     };
     this.#writeState(id, state);
     this.#appendEvent(id, "execution_queued", { label: state.label, owner: state.owner });
@@ -158,6 +164,8 @@ export class ExecutionEngine {
         this.#writeState(id, state);
         this.#appendEvent(id, "execution_started", { sessionKey: sk });
         this.#notify({ executionId: id, status: "running", label: state.label });
+        let keepAcquired = false;
+        if (state.keepAwake) { this.#acquireKeepAwake(); keepAcquired = true; }
 
         // Heartbeat ogni 5s mentre è running (base per recovery in A2.3)
         const timer = setInterval(() => {
@@ -234,7 +242,9 @@ export class ExecutionEngine {
         this.#writeState(id, state);
         this.#appendEvent(id, "execution_end", { status: state.status });
         this.#notify({ executionId: id, status: state.status, label: state.label, error: state.error });
+        if (keepAcquired) this.#releaseKeepAwake();
       } catch (e: any) {
+        if (keepAcquired) this.#releaseKeepAwake();
         const run = this.#runs.get(id);
         if (run?.timer) clearInterval(run.timer);
         this.#runs.delete(id);
@@ -266,6 +276,166 @@ export class ExecutionEngine {
       this.#notify({ executionId: id, status: "cancelled", label: state.label });
     }
     return { ok: true };
+  }
+
+  // === A2.3: Keep Awake (caffeinate, ref-counted: 1 processo finché ALMENO un task keepAwake gira) ===
+  #caffeinate: any = null;
+  #keepCount = 0;
+
+  #acquireKeepAwake() {
+    if (process.platform !== "darwin") return;
+    this.#keepCount++;
+    if (this.#keepCount === 1 && !this.#caffeinate) {
+      try {
+        this.#caffeinate = spawn("caffeinate", ["-dimsu"], { stdio: "ignore" });
+        this.#log("keep-awake-start", { pid: this.#caffeinate?.pid });
+      } catch (e: any) { this.#log("keep-awake-error", { error: e?.message }); }
+    }
+  }
+
+  #releaseKeepAwake() {
+    if (process.platform !== "darwin") return;
+    if (this.#keepCount > 0) this.#keepCount--;
+    if (this.#keepCount === 0 && this.#caffeinate) {
+      try { this.#caffeinate.kill(); } catch {}
+      this.#caffeinate = null;
+      this.#log("keep-awake-stop", {});
+    }
+  }
+
+  stopCaffeinate() { this.#releaseKeepAwake(); }
+
+  // Resume manuale (per la futura UI Calendar): riprende un'execution interrupted/resumable
+  async resumeExecution(id: string): Promise<{ ok: boolean; error?: string }> {
+    const st = this.get(id);
+    if (!st) return { ok: false, error: "not found" };
+    if (st.status !== "interrupted" && st.status !== "failed") return { ok: false, error: `status is ${st.status}` };
+    this.#resume(id).catch(() => {});
+    return { ok: true };
+  }
+
+  // === A2.3: Recovery Manager vic1 (resume SEMANTICO) ===
+  // Al boot + ogni 60s: execution running/queued con heartbeat stantio → interrupted →
+  // se autoResume (default) → CONTINUA la stessa sessione con un messaggio di ripresa.
+  startRecovery(autoResume = true) {
+    this.recover(autoResume);
+    this.#recoveryTimer = setInterval(() => { this.recover(autoResume); }, 60000);
+    this.#log("recovery-started", { autoResume });
+  }
+  #recoveryTimer: any = null;
+  stopRecovery() { if (this.#recoveryTimer) clearInterval(this.#recoveryTimer); }
+
+  async recover(autoResume = true): Promise<{ recovered: number; resumed: number }> {
+    let recovered = 0, resumed = 0;
+    const now = Date.now();
+    try {
+      for (const st of this.list()) {
+        if (st.status !== "running" && st.status !== "queued") continue;
+        if (st.status === "running") {
+          const stale = st.lastHeartbeat ? (now - st.lastHeartbeat > 120000)
+            : (st.startedAt ? now - st.startedAt > 60000 : true);
+          if (!stale) continue;
+          st.status = "interrupted";
+          this.#writeState(st.id, st);
+          this.#appendEvent(st.id, "execution_interrupted", { atBoot: true, staleSec: Math.round((now - (st.lastHeartbeat || st.startedAt || now)) / 1000) });
+          this.#notify({ executionId: st.id, status: "interrupted", label: st.label });
+          recovered++;
+          if ((st.resumeCount || 0) >= 3) {
+            st.status = "failed"; st.error = "auto-resume limit reached (3)";
+            this.#writeState(st.id, st); this.#appendEvent(st.id, "execution_failed", { error: st.error });
+            this.#notify({ executionId: st.id, status: "failed", label: st.label, error: st.error });
+          } else if (autoResume) {
+            resumed++;
+            this.#resume(st.id).catch(() => {});
+          }
+        } else if (st.status === "queued") {
+          // crash prima dell'avvio → interrupt + resume da zero (azzera session key se serve)
+          st.status = "interrupted";
+          this.#writeState(st.id, st);
+          this.#appendEvent(st.id, "execution_interrupted", { atBoot: true, queueCrash: true });
+          recovered++;
+          if (autoResume) { resumed++; this.#resume(st.id).catch(() => {}); }
+        }
+      }
+      this.#log("recovery-scan", { recovered, resumed, total: this.list().length });
+    } catch (e: any) { this.#log("recovery-error", { error: e?.message }); }
+    return { recovered, resumed };
+  }
+
+  // Ripresa semantica: stessa sessione (stessa history su disco) + messaggio di continuazione.
+  async #resume(id: string): Promise<void> {
+    const pb = this.#piBridge;
+    if (!pb) return;
+    const st = this.get(id);
+    if (!st) return;
+    const sk = `__exec_${id}`;
+    st.status = "running";
+    st.lastHeartbeat = Date.now();
+    st.resumeCount = (st.resumeCount || 0) + 1;
+    st.error = null;
+    this.#writeState(id, st);
+    this.#appendEvent(id, "execution_resumed", { attempt: st.resumeCount });
+    this.#notify({ executionId: id, status: "running", label: st.label, resumed: true });
+    try { pb.abort?.(sk); } catch {}
+    // Ricostruisci entry + configurazione sessione (dopo un riavvio l'entry può mancare)
+    try {
+      pb.create(sk, `__exec_${id.slice(0, 14)}`);
+      if (st.agentIds && st.agentIds.length) pb.setChatAgents(sk, st.agentIds.join(","));
+      if (st.mode) pb.setMode(sk, st.mode);
+      if (st.workingDir) pb.setWorkingDir(sk, st.workingDir);
+      if (st.model) await pb.setModel(sk, st.model);
+      if (st.thinkingLevel) pb.setThinkingLevel(sk, st.thinkingLevel);
+    } catch (e: any) { this.#log("resume-setup-error", { executionId: id, error: e?.message }); }
+    const timer = setInterval(() => {
+      const cur = this.get(id);
+      if (cur && cur.status === "running") { cur.lastHeartbeat = Date.now(); this.#writeState(id, cur); }
+    }, 5000);
+    this.#runs.set(id, { timer, aborted: false });
+    const continuation = `[AUTO-RESUME after interruption] You are continuing an autonomous task\n\nOriginal task: ${st.text}\n\nReview what was already done in this conversation, then CONTINUE and COMPLETE the task. If a step may already have been performed, VERIFY before repeating it (check files/tools). Don't invent results.`;
+    try {
+      const result = await new Promise<{ ok: boolean; stopReason?: string; errorMessage?: string }>((resolve) => {
+        let done = false;
+        const finish = (r: any) => { if (!done) { done = true; resolve(r); } };
+        const dummyWs = {
+          send: (msg: string) => {
+            try {
+              const m = JSON.parse(msg);
+              if (m.type === "done") finish({ ok: m.stopReason !== "error" && m.stopReason !== "cancelled", stopReason: m.stopReason, errorMessage: m.errorMessage });
+              else if (m.type === "error") finish({ ok: false, errorMessage: m.message || m.errorMessage });
+              else if (m.type === "aborted") finish({ ok: false, stopReason: "cancelled" });
+            } catch {}
+          },
+        };
+        pb.send(dummyWs, { sessionKey: sk, text: continuation }).then(
+          () => finish({ ok: true, stopReason: "completed" }),
+          (e: any) => finish({ ok: false, errorMessage: e?.message || String(e) })
+        );
+      });
+      clearInterval(timer);
+      this.#runs.delete(id);
+      const run = this.#runs.get(id);
+      if (run?.aborted) {
+        st.status = "cancelled"; st.endedAt = Date.now();
+        this.#appendEvent(id, "execution_cancelled", { afterResume: true });
+      } else if (result.ok) {
+        st.status = "completed"; st.endedAt = Date.now();
+        this.#appendEvent(id, "execution_completed", { afterResume: true, stopReason: result.stopReason });
+      } else {
+        st.status = "failed"; st.endedAt = Date.now();
+        st.error = result.errorMessage || "resume failed";
+        this.#appendEvent(id, "execution_failed", { afterResume: true, error: st.error });
+      }
+      this.#writeState(id, st);
+      this.#appendEvent(id, "execution_end", { status: st.status });
+      this.#notify({ executionId: id, status: st.status, label: st.label, error: st.error, resumed: true });
+    } catch (e: any) {
+      clearInterval(timer);
+      this.#runs.delete(id);
+      st.status = "failed"; st.endedAt = Date.now(); st.error = e?.message || String(e);
+      this.#writeState(id, st);
+      this.#appendEvent(id, "execution_failed", { afterResume: true, error: st.error });
+      this.#notify({ executionId: id, status: "failed", label: st.label, error: st.error, resumed: true });
+    }
   }
 
   remove(id: string): { ok: boolean; error?: string } {
