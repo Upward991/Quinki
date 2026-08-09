@@ -2223,6 +2223,15 @@ class PiBridge {
     } catch {}
   }
 
+  // Log real-time: solo le entry successive a ts (payload leggero per il polling della UI)
+  getDebugLogSince(ts: number) {
+    const all = this.getDebugLog();
+    const entries = all.filter((e: any) => typeof e.ts === "number" && e.ts > ts);
+    let latestTs = 0;
+    for (const e of all) if (typeof e.ts === "number" && e.ts > latestTs) latestTs = e.ts;
+    return { entries, latestTs, total: all.length };
+  }
+
   getDebugLog() {
     if (this.#debugLog.length > 0) return [...this.#debugLog];
     try {

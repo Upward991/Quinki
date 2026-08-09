@@ -69,11 +69,31 @@ export function LogPanel(props: LogPanelProps) {
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
+  // primo caricamento completo
   useEffect(() => {
     if (!call) return
     call('getFullDebugLog', {}).then((r: any) => {
       if (r && r.log) setEntries(r.log.slice(-500))
     }).catch(() => {})
+  }, [call])
+
+  // REAL-TIME: polling leggero ogni 1.5s (solo le entry nuove, no refresh manuale)
+  useEffect(() => {
+    if (!call) return
+    let lastTs = 0
+    const timer = setInterval(() => {
+      call('getDebugLogSince', { ts: lastTs }).then((r: any) => {
+        if (!r) return
+        if (r.total !== undefined && r.latestTs) lastTs = r.latestTs
+        if (r.entries && r.entries.length > 0) {
+          setEntries((prev) => {
+            const merged = [...prev, ...r.entries]
+            return merged.length > 500 ? merged.slice(-500) : merged
+          })
+        }
+      }).catch(() => {})
+    }, 1500)
+    return () => clearInterval(timer)
   }, [call])
 
   useEffect(() => {

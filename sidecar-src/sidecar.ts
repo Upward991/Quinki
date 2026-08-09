@@ -405,6 +405,9 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   getStreamingMessage: async (p) => ({ streaming: piBridge ? piBridge.getStreamingMessage(String(p.sessionKey)) : null }),
 
   getDebugLog: async () => ({ log: piBridge!.getDebugLog() }),
+  getDebugLogSince: async (p) => ({
+    ...piBridge!.getDebugLogSince(typeof p.ts === "number" ? p.ts : 0),
+  }),
 
   // === A2.1: Execution engine (task autonomi) ===
   runTask: async (p) => {
