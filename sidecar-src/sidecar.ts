@@ -497,6 +497,19 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     // Rimuovi dal registro
     const servers = readMcpServers().filter((s) => s.id !== id);
     saveMcpServers(servers);
+    // Pulizia planModeMcp nel global config (evita id orfani)
+    try {
+      const gcPath = fs.existsSync(path.join(homedir(), '.quinki', 'quinki-global.json'))
+        ? path.join(homedir(), '.quinki', 'quinki-global.json')
+        : path.join(homedir(), '.quinki', 'dashboard-global.json');
+      if (fs.existsSync(gcPath)) {
+        const gc = JSON.parse(fs.readFileSync(gcPath, 'utf-8'));
+        if (gc && gc.planModeMcp && typeof gc.planModeMcp === 'object') {
+          delete gc.planModeMcp[id];
+          fs.writeFileSync(gcPath, JSON.stringify(gc, null, 2));
+        }
+      }
+    } catch {}
     piBridge?.logDebug('mcp-removed', { id });
     return { ok: true };
   },
