@@ -459,7 +459,7 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
     const unsubSessDeleted = subscribe('session_deleted', (p: any) => {
       if (p?.sessionKey) {
         setSessions(prev => prev.filter(s => s.id !== p.sessionKey))
-        if (activeSessionIdRef.current === p.sessionKey) { activeSessionIdRef.current = null; setActiveSessionId(null); setMessages([]); setChatAgentIds([]); setAgentOverrides({}) }
+        if (activeSessionIdRef.current === p.sessionKey) { resetTransientState() }
       }
     })
 
@@ -492,6 +492,9 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
 
     // Agent status — TUTTI gli stati tracciati (parity Flutter _statusLabel)
     const unsubAgentStatus = subscribe('agent_status', (p: any) => {
+      // Solo la sessione ATTIVA può aggiornare status/streaming globali:
+      // gli eventi di una chat eliminata (o in background) non devono toccare la welcome.
+      if (p?.sessionKey && p.sessionKey !== activeSessionIdRef.current) return
       if (p?.sessionKey) setAgentStatus(p)
       // idle NON cancella: fra i turni tool il SDK emette idle a metà stream.
       // La pill si cancella solo con done / streaming_stopped / error.
@@ -815,9 +818,10 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
           const createParams: any = { label: 'New chat' }
           const dm = optsModel || defs.defaultModel
           const dt = optsThinking || defs.defaultThinking
+          const dmode = optsMode || defs.defaultMode || 'plan'
           if (dm) createParams.model = dm
           if (dt) createParams.thinkingLevel = dt
-          if (defs.defaultMode) createParams.mode = defs.defaultMode
+          createParams.mode = dmode
           const createResult = await call('createSession', createParams)
           if (createResult?.key || createResult?.sessionKey) {
             sk = createResult.key || createResult.sessionKey
@@ -850,16 +854,25 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     }
   }, [ready, call, activeSessionId, providers])
 
-  const deselectSession = useCallback(() => {
+  // Reset TOTALE dello stato transitorio: usato da deselect/delete/session_deleted
+  // così la welcome non eredita MAI contesto/stream/status di una chat (eliminata o no).
+  const resetTransientState = useCallback(() => {
     activeSessionIdRef.current = null
     setActiveSessionId(null)
     setMessages([])
     setIsStreaming(false)
+    setIsCompacting(false)
     setStatusLabel(''); setStatusKind('')
     setChatAgentIds([])
     setAgentOverrides({})
     setContextTokens(0)
+    setContextWindow(0)
+    setSessionTokens({})
   }, [])
+
+  const deselectSession = useCallback(() => {
+    resetTransientState()
+  }, [resetTransientState])
 
   const stopStreaming = useCallback(() => {
     if (!ready) return
@@ -891,11 +904,13 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
   const deleteSession = useCallback(async (sessionKey: string) => {
     if (!ready) return
     try {
+      // Abort dello streaming PRIMA di eliminare: niente più eventi della chat cancellata
+      call('abort', { sessionKey }).catch(() => {})
       notify('deleteSession', { sessionKey })
       setSessions(prev => prev.filter(s => s.id !== sessionKey))
-      if (activeSessionId === sessionKey) { activeSessionIdRef.current = null; setActiveSessionId(null); setMessages([]); setChatAgentIds([]); setAgentOverrides({}) }
+      if (activeSessionId === sessionKey) resetTransientState()
     } catch (e) { console.error('deleteSession:', e) }
-  }, [ready, notify, activeSessionId])
+  }, [ready, notify, activeSessionId, resetTransientState])
 
   const renameSession = useCallback(async (sessionKey: string, title: string) => {
     if (!ready) return
