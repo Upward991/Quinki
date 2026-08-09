@@ -415,7 +415,7 @@ class PiBridge {
 
   #save() {
     try {
-      const data: SessionEntry[] = [];
+      let data: SessionEntry[] = [];
       for (const [k, v] of this.#entries) {
         data.push({
           key: k,
@@ -460,14 +460,29 @@ class PiBridge {
       // workingDir) dell'altra ad ogni salvataggio. Ora uniamo le entry del disco
       // che non conosciamo in memoria (es. create dall'altra app).
       try {
+        // TOMBSTONE: mai ri-aggiungere o riscrivere sessioni eliminate
+        data = data.filter((d: any) => !(d && d.key && isSessionDeleted(d.key)));
         if (fs.existsSync(SESSION_FILE)) {
           const disk = JSON.parse(fs.readFileSync(SESSION_FILE, "utf8"));
           const known = new Set(data.map((d: any) => d.key));
           for (const d of Array.isArray(disk) ? disk : []) {
-            if (d && d.key && !known.has(d.key)) {
+            if (d && d.key && !known.has(d.key) && !isSessionDeleted(d.key)) {
               data.push(d);
               known.add(d.key);
             }
+          }
+        }
+      } catch {}
+      // riscrive anche il file senza le sessioni tombstoned (pulizia progressiva)
+      const cleanedDisk: any[] = [];
+      try {
+        if (fs.existsSync(SESSION_FILE)) {
+          const disk = JSON.parse(fs.readFileSync(SESSION_FILE, "utf8"));
+          for (const d of Array.isArray(disk) ? disk : []) {
+            if (d && d.key && !isSessionDeleted(d.key)) cleanedDisk.push(d);
+          }
+          if (cleanedDisk.length !== (Array.isArray(disk) ? disk.length : -1)) {
+            fs.writeFileSync(SESSION_FILE, JSON.stringify(cleanedDisk, null, 2), "utf8");
           }
         }
       } catch {}
@@ -714,7 +729,7 @@ class PiBridge {
         const dirs = fs.readdirSync(SESSION_BASE, { withFileTypes: true }).filter((d: fs.Dirent) => d.isDirectory());
         const existing = new Set(out.map((s: any) => s.key));
         for (const d of dirs) {
-          if (d.name.startsWith("__delegate_") || d.name.startsWith("__exec_")) continue; // skip temp delegation + execution headless sessions
+          if (d.name.startsWith("__delegate_") || d.name.startsWith("__exec_") || isSessionDeleted(d.name)) continue; // skip temp + execution + eliminate
           if (!existing.has(d.name)) {
             const files = fs.readdirSync(path.join(SESSION_BASE, d.name)).filter((f: string) => f.endsWith(".jsonl"));
             if (files.length > 0) {
@@ -759,7 +774,7 @@ class PiBridge {
         const dirs = fs.readdirSync(SESSION_BASE, { withFileTypes: true }).filter((d: fs.Dirent) => d.isDirectory());
         const existing = new Set(out.map((s: any) => s.key));
         for (const d of dirs) {
-          if (d.name.startsWith("__delegate_") || d.name.startsWith("__exec_")) continue; // skip temp delegation + execution headless sessions
+          if (d.name.startsWith("__delegate_") || d.name.startsWith("__exec_") || isSessionDeleted(d.name)) continue; // skip temp + execution + eliminate
           if (!existing.has(d.name)) {
             const files = fs.readdirSync(path.join(SESSION_BASE, d.name)).filter((f: string) => f.endsWith(".jsonl"));
             if (files.length > 0) {
@@ -1122,6 +1137,7 @@ class PiBridge {
   }
 
   remove(key: string) {
+    try { markSessionDeleted(String(key)); } catch {}
     this.#entries.delete(key);
     this.#active.delete(key);
     this.#wss.delete(key);
@@ -5457,14 +5473,47 @@ export function deleteSessionsByKeysIPC(keys: string[]): { success: boolean; del
   }
 }
 
+// === TOMBSTONE sessioni eliminate (bug "ricompaiono nella sidebar") ===
+// Quando una sessione viene eliminata, scriviamo qui il suo key in modo persistente.
+// TUTTI i processi/letture (getSessionsFromFile, #load, getSessions, orphan adoption, #save)
+// lo rispettano → nessun altro sidecar può ri-aggiungerla nel file condiviso.
+const DELETED_SESSIONS_FILE = path.join(_agentDir, "quinki-deleted-sessions.json");
+let __deletedSessions: Set<string> | null = null;
+function deletedSessionsSet(): Set<string> {
+  if (__deletedSessions) return __deletedSessions;
+  __deletedSessions = new Set();
+  try {
+    if (fs.existsSync(DELETED_SESSIONS_FILE)) {
+      const arr = JSON.parse(fs.readFileSync(DELETED_SESSIONS_FILE, "utf8"));
+      if (Array.isArray(arr)) for (const k of arr) if (typeof k === "string") __deletedSessions.add(k);
+    }
+  } catch {}
+  return __deletedSessions;
+}
+export function markSessionDeleted(key: string) {
+  const s = deletedSessionsSet();
+  s.add(key);
+  try {
+    fs.writeFileSync(DELETED_SESSIONS_FILE, JSON.stringify([...s], null, 2), "utf8");
+  } catch {}
+}
+export function isSessionDeleted(key: string): boolean {
+  return deletedSessionsSet().has(key);
+}
+
 export function getSessionsFromFile(): any[] {
   try {
     if (!fs.existsSync(SESSION_FILE)) return [];
     const data = JSON.parse(fs.readFileSync(SESSION_FILE, "utf8"));
     // Il file è scritto come array bare da #save (riga 321). Gestisco entrambi i formati.
-    if (Array.isArray(data)) return data;
-    if (data && Array.isArray(data.sessions)) return data.sessions;
-    return [];
+    let arr: any[] = [];
+    if (Array.isArray(data)) arr = data;
+    else if (data && Array.isArray(data.sessions)) arr = data.sessions;
+    else return [];
+    // TOMBSTONE: filtra le sessioni eliminate definitivamente
+    const del = deletedSessionsSet();
+    if (del.size > 0) arr = arr.filter((s: any) => !(s && s.key && del.has(s.key)));
+    return arr;
   } catch (e) {
     process.stderr.write(`[pi-bridge] getSessionsFromFile error: ${e}`);
     return [];
