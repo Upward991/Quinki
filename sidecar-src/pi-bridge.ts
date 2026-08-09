@@ -133,6 +133,7 @@ class PiBridge {
   #active = new Map<string, any>();
   #mcpClients = new Map<string, StdioMcpClient>();  // chiave `${sessionKey}:${serverId}`
   #mcpToolNames = new Map<string, { name: string; serverId: string }[]>();  // per sessione: tool MCP per applyMode (plan/build)
+  #mcpSig = new Map<string, string>();  // firma mcpServers con cui è stata costruita la sessione (auto-diff)
   #wss = new Map<string, any>();
   #unsubs = new Map<string, () => void>();
   #prompts = new Map<string, Promise<void>>();
@@ -2643,18 +2644,12 @@ class PiBridge {
     this.logDebug("apply-mode", { sessionKey: key, mode: m, toolCount: names.length, tools: names });
   }
 
-  #modeNote(mode: string, hasDelegateTool = false): string {
+  #modeNote(mode: string, _hasDelegateTool = false): string {
     const m = mode === "build" ? "build" : "plan";
     if (m === "plan") {
-      const cfg = this.#readGlobalConfig();
-      const planTools = cfg.planModeTools || {};
-      const allTools = ["read", "write", "edit", "bash", "grep", "find", "ls", "skill"];
-      if (hasDelegateTool) allTools.push("delegate_to_agent");
-      const enabled = allTools.filter((t: string) => planTools[t] === true || t === "delegate_to_agent");
-      const disabled = allTools.filter((t: string) => planTools[t] !== true && t !== "delegate_to_agent");
-      const enabledStr = enabled.length > 0 ? enabled.join(", ") : "nessuno";
-      const disabledStr = disabled.length > 0 ? disabled.join(", ") : "nessuno";
-      return `\n\nYou are in PLAN MODE. Explore freely to understand the problem. Available tools: ${enabledStr}. NOT available tools: ${disabledStr}. Do NOT attempt to call tools that are not available. Collaborate with the user to create a detailed, feasible PLAN to solve the problem. If an operation requires an unavailable tool, TELL the user that, after approving the plan, they must switch to BUILD MODE. In Plan mode the user wants certainty that you will not make changes without permission.`;
+      // Nota CORTA: niente elenco dinamico di tool (il modello conosce i tool attivi
+      // dall'array tools; l'elenco nel testo occupava token e non serviva).
+      return `\n\nYou are in PLAN MODE. Explore freely to understand the problem. Do not attempt to call tools that are not available to you. Collaborate with the user to create a detailed, feasible PLAN to solve the problem. If an operation requires an unavailable tool, TELL the user that, after approving the plan, they must switch to BUILD MODE. In Plan mode the user wants certainty that you will not make changes without permission.`;
     }
     return `\n\nYou are in BUILD MODE. All tools are available. Make the necessary changes to solve the problem. Respect the user's instructions and constraints.`;
   }
@@ -3189,6 +3184,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
           if (nm) prev.push({ name: nm, serverId: sid });
         }
         self.#mcpToolNames.set(sk, prev);
+        self.#mcpSig.set(sk, JSON.stringify(ids));
         this.logDebug("mcp-tools-registered", { sessionKey: sk, serverId: sid, toolCount: list.length });
       } catch (e: any) {
         this.logDebug("mcp-connect-error", { sessionKey: sk, serverId: sid, error: String(e?.message || e) });
@@ -4135,6 +4131,22 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
           });
         }
       }
+
+      // === Auto-diff MCP (safe): se i mcpServers dell'agente sono CAMBIATI da quando la
+      // sessione è nata, aggiorna SOLO i customTool MCP della sessione viva (niente dispose,
+      // niente ricreazione, history intatta) → i tool nuovi/via valgono dal messaggio successivo.
+      try {
+        const mcpAgentCfg = resolvedAgentId ? this.#readAgentConfigFile(resolvedAgentId) : null;
+        const mcpIdsNow = JSON.stringify(Array.isArray(mcpAgentCfg?.mcpServers) ? mcpAgentCfg.mcpServers : []);
+        if (this.#mcpSig.get(sk) !== mcpIdsNow) {
+          const mcpTools = await this.#buildMcpTools(sk, resolvedAgentId);
+          const keep = ((pi as any)._customTools || []).filter((t: any) => t?.name === 'skill' || t?.name === 'delegate_to_agent');
+          (pi as any)._customTools = [...keep, ...mcpTools];
+          try { (pi as any)._refreshToolRegistry?.(); } catch (e: any) { this.logDebug("mcp-refresh-registry-error", { sessionKey: sk, error: e?.message }); }
+          this.#mcpSig.set(sk, mcpIdsNow);
+          this.logDebug("mcp-config-refresh", { sessionKey: sk, mcpTools: mcpTools.length, keep: keep.length });
+        }
+      } catch (e: any) { this.logDebug("mcp-refresh-error", { sessionKey: sk, error: e?.message || String(e) }); }
 
       // === Apply Plan/Build mode (pending or saved, default build) ===
       const pendingMode = this.#pendingMode.get(sk);
