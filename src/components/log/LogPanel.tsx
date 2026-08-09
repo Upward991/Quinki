@@ -108,6 +108,24 @@ export function LogPanel(props: LogPanelProps) {
     return () => { disposed = true; if (timer) clearInterval(timer) }
   }, [call, liveMode])
 
+  // AUTOSCROLL come le chat: sempre in fondo; se l'utente scrolla su si ferma, tornando in fondo riprende
+  const onScroll = () => {
+    const el = bodyRef.current
+    if (!el) return
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+    setAutoScroll(nearBottom)
+    setShowScrollBtn(!nearBottom && entries.length > 0)
+  }
+  useEffect(() => {
+    if (!autoScroll || !bodyRef.current) return
+    const el = bodyRef.current
+    const raf1 = requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight
+      requestAnimationFrame(() => { el.scrollTop = el.scrollHeight })
+    })
+    return () => cancelAnimationFrame(raf1)
+  }, [entries, autoScroll])
+
   const levelColors: Record<string, { bg: string; text: string; tag: string; pill: string }> = {
     error:    { bg: 'color-mix(in srgb, var(--q-accent-danger) 6%, transparent)', text: 'var(--q-accent-danger)', tag: 'var(--q-accent-danger)', pill: 'var(--q-accent-danger)' },
     warn:     { bg: 'color-mix(in srgb, var(--q-accent-warning) 6%, transparent)', text: 'var(--q-accent-warning)', tag: 'var(--q-accent-warning)', pill: 'var(--q-accent-warning)' },
