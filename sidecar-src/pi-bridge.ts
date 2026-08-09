@@ -2561,6 +2561,30 @@ class PiBridge {
     return paths;
   }
 
+  // Auto-diff MCP (safe): se i mcpServers dell'agente sono CAMBIATI da quando la sessione è nata,
+  // aggiorna SOLO i customTool MCP della sessione viva (niente dispose/ricreazione, history intatta).
+  // Chiamato a OGNI invio dopo l'ensure della sessione.
+  async #maybeRefreshMcp(sk: string, pi: any): Promise<void> {
+    try {
+      const raw = this.#resolveAgentId(sk);
+      let agentId: string | null = raw || null;
+      if (agentId && typeof agentId === 'string' && agentId.includes(',')) {
+        const ids = agentId.split(',').map((x) => x.trim()).filter(Boolean);
+        agentId = ids.find((x) => x === 'orchestrator') || ids[0] || null;
+      }
+      const cfg = agentId ? this.#readAgentConfigFile(agentId) : null;
+      const idsNow = JSON.stringify(Array.isArray(cfg?.mcpServers) ? cfg.mcpServers : []);
+      if (this.#mcpSig.get(sk) !== idsNow) {
+        const mcpTools = await this.#buildMcpTools(sk, agentId);
+        const keep = ((pi as any)._customTools || []).filter((t: any) => t?.name === 'skill' || t?.name === 'delegate_to_agent');
+        (pi as any)._customTools = [...keep, ...mcpTools];
+        try { (pi as any)._refreshToolRegistry?.(); } catch (e: any) { this.logDebug("mcp-refresh-registry-error", { sessionKey: sk, error: e?.message }); }
+        this.#mcpSig.set(sk, idsNow);
+        this.logDebug("mcp-config-refresh", { sessionKey: sk, mcpTools: mcpTools.length, keep: keep.length });
+      }
+    } catch (e: any) { this.logDebug("mcp-refresh-error", { sessionKey: sk, error: e?.message || String(e) }); }
+  }
+
   // Dump delle definizioni dei tool ATTIVI che verranno inviati al modello (canale tools):
   // nome + descrizione + schema parametri, customTool MCP inclusi. Usato dal log system_prompt.
   #activeToolDefs(pi: any): any[] {
@@ -3970,6 +3994,8 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     
     let pi = this.#active.get(sk);
     this.logDebug("send-resolved-agent", { sessionKey: sk, override: this.#agentOverride.get(sk), resolvedAgentId: this.#resolveAgentId(sk), hasActiveSession: !!pi });
+    // Auto-diff MCP safe: applica aggiunte/rimozioni MCP al messaggio successivo (niente ricreazione)
+    if (pi) { await this.#maybeRefreshMcp(sk, pi); }
     // === Auto-reload skill: se .pi/skills/ è cambiato da quando la sessione è stata creata,
     // dispose + reopen (SessionManager.open → history PRESERVATA, no /reset, no message loss).
     // Così l'Expert edita SKILL.md / aggiunge skill senza perdere la conversazione.
@@ -4149,22 +4175,6 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
           });
         }
       }
-
-      // === Auto-diff MCP (safe): se i mcpServers dell'agente sono CAMBIATI da quando la
-      // sessione è nata, aggiorna SOLO i customTool MCP della sessione viva (niente dispose,
-      // niente ricreazione, history intatta) → i tool nuovi/via valgono dal messaggio successivo.
-      try {
-        const mcpAgentCfg = resolvedAgentId ? this.#readAgentConfigFile(resolvedAgentId) : null;
-        const mcpIdsNow = JSON.stringify(Array.isArray(mcpAgentCfg?.mcpServers) ? mcpAgentCfg.mcpServers : []);
-        if (this.#mcpSig.get(sk) !== mcpIdsNow) {
-          const mcpTools = await this.#buildMcpTools(sk, resolvedAgentId);
-          const keep = ((pi as any)._customTools || []).filter((t: any) => t?.name === 'skill' || t?.name === 'delegate_to_agent');
-          (pi as any)._customTools = [...keep, ...mcpTools];
-          try { (pi as any)._refreshToolRegistry?.(); } catch (e: any) { this.logDebug("mcp-refresh-registry-error", { sessionKey: sk, error: e?.message }); }
-          this.#mcpSig.set(sk, mcpIdsNow);
-          this.logDebug("mcp-config-refresh", { sessionKey: sk, mcpTools: mcpTools.length, keep: keep.length });
-        }
-      } catch (e: any) { this.logDebug("mcp-refresh-error", { sessionKey: sk, error: e?.message || String(e) }); }
 
       // === Apply Plan/Build mode (pending or saved, default build) ===
       const pendingMode = this.#pendingMode.get(sk);
