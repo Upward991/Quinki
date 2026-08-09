@@ -3816,10 +3816,10 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
         for (const d of workingDirs) {
           prompt += `\n- ${d}`;
         }
-        prompt += `\nLa directory principale (dove i comandi vengono eseguiti) è: ${workingDirs[0]}`;
+        prompt += `\nThe main directory (where commands are executed) is: ${workingDirs[0]}`;
       }
     } else {
-      prompt += `\n\n${lead} nella directory: ${cwd}`;
+      prompt += `\n\n${lead} in the directory: ${cwd}`;
     }
     // === Plan/Build mode: nota mode-aware (il modello sa in che mode è) ===
     const m = mode === "build" ? "build" : "plan";
