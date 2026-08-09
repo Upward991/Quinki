@@ -163,7 +163,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const header = React.createElement('div', { key: 'h', style: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, justifyContent: 'space-between' } }, [
     React.createElement('div', { key: 'tt', style: { display: 'flex', alignItems: 'center', gap: 10 } }, [
       React.createElement(Calendar, { size: 22, style: { color: 'var(--q-accent-calendar)' } }),
-      React.createElement('span', { key: 'l', style: { color: 'var(--q-text)', fontSize: 16, fontWeight: 600, fontFamily: 'var(--font-interface)' } }, 'Agent Calendar'),
+      React.createElement('span', { key: 'l', style: { color: 'var(--q-text)', fontSize: 16, fontWeight: 600, fontFamily: 'var(--font-interface)' } }, 'Agents Calendar'),
     ]),
     React.createElement('button', {
       key: 'r', style: btnAccent, onClick: () => act(async () => {}),
