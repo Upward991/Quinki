@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { useSidecarContext } from '../shared/AppShell'
-import { Home, Terminal, Search, ChevronDown, ChevronUp, Download, Copy, RefreshCw, Trash, ArrowDown } from '../icons'
+import { Home, Terminal, Search, ChevronDown, ChevronUp, Download, Copy, RefreshCw, Trash, ArrowDown, Pulse } from '../icons'
 
 interface LogEntry {
   ts: number
@@ -401,7 +401,7 @@ export function LogPanel(props: LogPanelProps) {
             }).catch(() => {})
           }} />
           <div style={{ width: '4px', flexShrink: 0 }} />
-          <HeaderBtn label="live" icon={<RefreshCw size={14} />} active={liveMode} onClick={() => {
+          <HeaderBtn label="live" icon={<Pulse size={14} />} active={liveMode} onClick={() => {
             const nv = !liveMode
             setLiveMode(nv)
             // appena attivo: refresh immediato così si vede subito l'ultima realtà
