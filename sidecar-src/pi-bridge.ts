@@ -484,6 +484,19 @@ class PiBridge {
             messageSkills: s.messageSkills,
             messageAttachments: s.messageAttachments,
           } as any);
+        // Auto-ripristino: se il metadata condiviso ha perso agenti/workingDir,
+        // li recuperiamo dal chat-meta.json DELLA CARTELLA DI SESSIONE.
+        try {
+          const metaP = path.join(dir, "chat-meta.json");
+          if (fs.existsSync(metaP)) {
+            const meta = JSON.parse(fs.readFileSync(metaP, "utf8"));
+            const e = this.#entries.get(s.key);
+            if (e) {
+              if (!e.agentId && meta.agentIds) e.agentId = meta.agentIds;
+              if (!e.workingDir && meta.workingDir) e.workingDir = meta.workingDir;
+            }
+          }
+        } catch {}
         }
       }
     } catch {}
@@ -2272,11 +2285,24 @@ class PiBridge {
 
   // === Persiste la lista agenti nella session entry (comma-separated) ===
   // Non chiama #applyMode. Solo persistenza per sopravvivere al riavvio.
+  // Persiste agenti/workingDir ANCHE nel file meta della cartella di sessione:
+  // così sopravvivono anche se quinki-sessions.json viene sovrascritto dall'altra app.
+  #writeChatMeta(key: string, patch: Record<string, any>) {
+    try {
+      const dir = this.#piSessionDir(key);
+      fs.mkdirSync(dir, { recursive: true });
+      const p = path.join(dir, "chat-meta.json");
+      let cur: any = {};
+      try { cur = JSON.parse(fs.readFileSync(p, "utf8")); } catch {}
+      fs.writeFileSync(p, JSON.stringify({ ...cur, ...patch, ts: Date.now() }, null, 2));
+    } catch {}
+  }
+
   setChatAgents(key: string, agentIds: string) {
     const s = this.#entries.get(key);
-    if (!s) return;
-    (s as any).agentId = agentIds || '';
-    this.#save();
+    // Se l'entry non esiste in memoria la salviamo comunque nel meta file (e #load la riporterà)
+    if (s) { (s as any).agentId = agentIds || ''; this.#save(); }
+    this.#writeChatMeta(key, { agentIds: agentIds || '' });
     this.logDebug("set-chat-agents", { sessionKey: key, agentIds, saved: true });
   }
 
@@ -2322,13 +2348,15 @@ class PiBridge {
     }
     if (newPath && newPath.length > 0) {
       this.#cwdOverride.set(key, newPath);
-      // Persist to session entry
+      // Persist to session entry + meta file per-sessione (sopravvive a wipe del metadata condiviso)
       const s = this.#entries.get(key);
       if (s) { (s as any).workingDir = newPath; this.#save(); }
+      this.#writeChatMeta(key, { workingDir: newPath });
     } else {
       this.#cwdOverride.delete(key);
       const s = this.#entries.get(key);
       if (s) { (s as any).workingDir = undefined; this.#save(); }
+      this.#writeChatMeta(key, { workingDir: "" });
     }
     this.logDebug("set-working-dir", { sessionKey: key, newPath: newPath || "(default)" });
   }

@@ -67,29 +67,6 @@ function useSidecar(url: string = 'ws://127.0.0.1:9182') {
 }
 
 // ── helper: map session from sidecar format ──
-// Ricostruisce i blocchi (thinking/tool/testo/delegation) di un messaggio in streaming
-// dai delta salvati per-sessione. I delta sono in ordine: pensieri, tool call/result, testo.
-function buildBlocksFromDeltas(deltas: any[]): any[] {
-  const blocks: any[] = []
-  let thinkingAcc = ''
-  let textAcc = ''
-  let toolName = ''
-  let toolInput = ''
-  const flushThinking = () => { if (thinkingAcc) { blocks.push({ type: 'thinking', content: thinkingAcc }); thinkingAcc = '' } }
-  const flushText = () => { if (textAcc) { blocks.push({ type: 'text', content: textAcc }); textAcc = '' } }
-  for (const d of deltas) {
-    const t = d?.type || ''
-    if (t === 'thinking_start' || t === 'thinking' || t === 'thinking_delta') { thinkingAcc += d.content || '' }
-    else if (t === 'text_start' || t === 'text' || t === 'text_delta') { flushThinking(); textAcc += d.content || '' }
-    else if (t === 'toolcall_start') { flushThinking(); flushText(); toolName = d.toolName || d.content || 'tool'; toolInput = ''; blocks.push({ type: 'tool_call', name: toolName, input: '' }) }
-    else if (t === 'toolcall_delta') { toolInput += d.content || ''; const last = blocks[blocks.length - 1]; if (last?.type === 'tool_call') last.input = toolInput }
-    else if (t === 'toolcall_end') { const last = blocks[blocks.length - 1]; if (last?.type === 'tool_call') last.input = toolInput || last.input }
-    else if (t === 'tool_result') { flushThinking(); flushText(); blocks.push({ type: 'tool_result', name: d.toolName || toolName || 'tool', output: String(d.content || ''), isError: !!d.isError }) }
-  }
-  flushThinking(); flushText()
-  return blocks
-}
-
 function mapSession(s: any) {
   return {
     id: s.sessionKey || s.id || s.key,
@@ -153,9 +130,6 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const [isCompacting, setIsCompacting] = useState(false)
   const [chatAgentIds, setChatAgentIds] = useState<string[]>([])
   const sessionStreamingMap = useRef<Map<string, { isStreaming: boolean; statusLabel: string; statusKind: string }>>(new Map())
-  // Buffer delta per-sessione: conserva i delta di streaming (thinking/tool/testo) anche quando
-  // cambi chat a metà generazione → al ritorno i TOGGLE vengono ricostruiti (bug 3).
-  const partialDeltasRef = useRef<Record<string, any[]>>({})
   const activeSessionIdRef = useRef<string | null>(null)
   const setStreamingState = (sk: string, state: { isStreaming: boolean; statusLabel: string; statusKind: string }) => {
     sessionStreamingMap.current.set(sk, state)
@@ -305,16 +279,10 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
     }
     const unsubStream = subscribe('stream_event', (p: any) => {
       if (!p) return
+      if (p.sessionKey && p.sessionKey !== activeSessionIdRef.current) return
       const { type, eventType, delta, content, messageId, toolName, isError } = p
       const _type = eventType || type
       const _content = delta || content || ''
-      // Salva SEMPRE i delta per-sessione (anche se la chat non è attiva): così al ritorno
-      // possiamo ricostruire tutti i blocchi (thinking/tool/delegation/testo) — bug 3.
-      if (p.sessionKey) {
-        const arr = (partialDeltasRef.current[p.sessionKey] = partialDeltasRef.current[p.sessionKey] || [])
-        arr.push({ type: _type, content: _content, messageId, toolName, isError })
-      }
-      if (p.sessionKey && p.sessionKey !== activeSessionIdRef.current) return
       // Eventi nested di una delega attiva: vanno nel blocco delegation, NON nel messaggio principale
       if (messageId && activeDelegationsRef.current.has(messageId) && _type !== 'delegation_end') {
         // DON'T touch status pill — delegation is a tool call, pill stays on "Tool call" from toolcall_start
@@ -468,7 +436,6 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
 
     const unsubStreamStop = subscribe('streaming_stopped', (p: any) => {
       const sk = p?.sessionKey || activeSessionIdRef.current || ''
-      if (p?.sessionKey) delete partialDeltasRef.current[p.sessionKey]
       setStreamingState(sk, { isStreaming: false, statusLabel: '', statusKind: '' })
       if (p?.sessionKey && p.sessionKey !== activeSessionIdRef.current) return
       setStatusLabel(''); setStatusKind('')
@@ -747,34 +714,18 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
         if (ss?.streaming) {
           setIsStreaming(true)
           setStatusLabel('Running'); setStatusKind('running')
-          // Bug 3: se abbiamo il buffer delta per-sessione, ricostruiamo TUTTI i blocchi
-          // (thinking/tool/delegation/testo) invece del solo buffer corrente del sidecar.
-          const deltas = partialDeltasRef.current[sessionKey] || []
-          if (deltas.length > 0) {
-            const blocks = buildBlocksFromDeltas(deltas)
-            const pid = `partial-${sessionKey}`
-            const text = blocks.filter((b: any) => b.type === 'text').map((b: any) => b.content || '').join('')
+          const buf = await call('getStreamingMessage', { sessionKey })
+          if (buf?.streaming && (buf.streaming.text || buf.streaming.thinking || (buf.streaming.toolCalls || []).length > 0)) {
+            const sb = buf.streaming
+            const blocks: any[] = []
+            if (sb.thinking) blocks.push({ type: 'thinking', content: sb.thinking })
+            for (const tc of sb.toolCalls || []) blocks.push({ type: 'tool_call', name: tc.name || 'tool', input: tc.input || '' })
+            if (sb.text) blocks.push({ type: 'text', content: sb.text })
             setMessages(prev => {
-              const idx = prev.findIndex(m => m.id === pid)
-              if (idx >= 0) {
-                return prev.map(m => m.id === pid ? { ...m, blocks, content: text, isStreaming: true } : m)
-              }
-              return [...prev, { id: pid, role: 'assistant' as const, content: text, blocks, timestamp: new Date().toISOString(), isStreaming: true }]
+              const last = prev[prev.length - 1]
+              if (last?.role === 'assistant' && last.isStreaming) return prev
+              return [...prev, { id: sb.messageId || `msg-restored-${Date.now()}`, role: 'assistant' as const, content: sb.text || '', blocks, timestamp: new Date().toISOString(), isStreaming: true }]
             })
-          } else {
-            const buf = await call('getStreamingMessage', { sessionKey })
-            if (buf?.streaming && (buf.streaming.text || buf.streaming.thinking || (buf.streaming.toolCalls || []).length > 0)) {
-              const sb = buf.streaming
-              const blocks: any[] = []
-              if (sb.thinking) blocks.push({ type: 'thinking', content: sb.thinking })
-              for (const tc of sb.toolCalls || []) blocks.push({ type: 'tool_call', name: tc.name || 'tool', input: tc.input || '' })
-              if (sb.text) blocks.push({ type: 'text', content: sb.text })
-              setMessages(prev => {
-                const last = prev[prev.length - 1]
-                if (last?.role === 'assistant' && last.isStreaming) return prev
-                return [...prev, { id: sb.messageId || `msg-restored-${Date.now()}`, role: 'assistant' as const, content: sb.text || '', blocks, timestamp: new Date().toISOString(), isStreaming: true }]
-              })
-            }
           }
         }
       } catch {}
