@@ -58,6 +58,7 @@ import { readProvidersConfig, writeProvidersConfig, syncModelsJson } from "./pro
 import { buildSidecarEntry } from "./sidecar-helper";
 import { createAgentHandlers } from "./agent-handlers";
 import { seedDefaults } from "./seed-defaults";
+import { ExecutionEngine } from "./executor";
 
 // === FORCE: stdout.write -> stderr.write TRANNE per messaggi JSON-RPC ===
 // Alcuni moduli (Bun runtime, vendor SDK) scrivono su stdout con process.stdout.write
@@ -152,6 +153,9 @@ const notificationFor: Record<string, string> = {
 
 // === PiBridge instance ===
 let piBridge: PiBridge | null = null;
+// === A2.1: ExecutionEngine (task autonomi, fondamentale H24) ===
+const executor = new ExecutionEngine();
+executor.onUpdate = (payload) => { try { sendNotification("execution_update", payload); } catch {} };
 const agentDir = process.env.QUINKI_AGENT_DIR || path.join(homedir(), ".pi", "agent");
 const authPath = path.join(agentDir, "auth.json");
 const modelsPath = path.join(agentDir, "models.json");
@@ -396,6 +400,27 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   getStreamingMessage: async (p) => ({ streaming: piBridge ? piBridge.getStreamingMessage(String(p.sessionKey)) : null }),
 
   getDebugLog: async () => ({ log: piBridge!.getDebugLog() }),
+
+  // === A2.1: Execution engine (task autonomi) ===
+  runTask: async (p) => {
+    try { executor.setPiBridge(piBridge); } catch {}
+    const r = await executor.runTask({
+      label: p.label,
+      agentIds: p.agentIds,
+      workingDir: p.workingDir,
+      mode: p.mode,
+      model: p.model,
+      thinkingLevel: p.thinkingLevel,
+      text: String(p.text || ""),
+      owner: p.owner === "expert" ? "expert" : "main",
+    });
+    return r;
+  },
+  listExecutions: async () => ({ executions: executor.list() }),
+  getExecution: async (p) => ({ execution: executor.get(String(p.executionId)) }),
+  getExecutionEvents: async (p) => ({ events: executor.events(String(p.executionId)) }),
+  cancelExecution: async (p) => ({ ...executor.cancel(String(p.executionId)) }),
+  deleteExecution: async (p) => ({ ...executor.remove(String(p.executionId)) }),
   debugLog: async (p) => { if (piBridge && p && typeof p.tag === 'string') piBridge.logDebug(p.tag, p.data); return { ok: true }; },
   log_debug: async (p) => handlers.debugLog(p),
   clearDebugLog: async () => { piBridge!.clearDebugLog(); return { log: [] }; },
@@ -717,6 +742,7 @@ async function bootstrap() {
     process.chdir(workdir);
     piBridge = new PiBridge({ cwd: workdir, agentDir });
     setPiBridgeInstance(piBridge);
+    try { executor.setPiBridge(piBridge); } catch {}
     await piBridge.init();
     piBridge.reloadAndMerge();
     sendNotification("ready", { message: "PiBridge initialized" });

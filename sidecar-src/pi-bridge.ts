@@ -696,7 +696,8 @@ class PiBridge {
 
 
   getSessions() {
-    const out = [...this.#entries.values()].map((s: any) => ({
+    // A2.1: le sessioni __exec_* sono headless (worker execution) → mai in sidebar
+    const out = [...this.#entries.values()].filter((s: any) => !String(s.key).startsWith("__exec_")).map((s: any) => ({
       key: s.key, label: s.label, agentId: s.agentId || "pi",
       model: s.model, thinkingLevel: s.thinkingLevel, mode: s.mode,
       lastActivity: s.lastActivity, order: s.lastActivity,
@@ -707,7 +708,7 @@ class PiBridge {
         const dirs = fs.readdirSync(SESSION_BASE, { withFileTypes: true }).filter((d: fs.Dirent) => d.isDirectory());
         const existing = new Set(out.map((s: any) => s.key));
         for (const d of dirs) {
-          if (d.name.startsWith("__delegate_")) continue; // skip temp delegation sessions
+          if (d.name.startsWith("__delegate_") || d.name.startsWith("__exec_")) continue; // skip temp delegation + execution headless sessions
           if (!existing.has(d.name)) {
             const files = fs.readdirSync(path.join(SESSION_BASE, d.name)).filter((f: string) => f.endsWith(".jsonl"));
             if (files.length > 0) {
@@ -734,7 +735,8 @@ class PiBridge {
     const compactionByKey = new Map(fromFile.map((s: any) => [s.key, { compactionAuto: (s as any).compactionAuto, compactionThreshold: (s as any).compactionThreshold }]));
     // === FIX: leggo l'order dal file (per persistere il riordino manuale) ===
     const orderByKey = new Map(fromFile.map((s: any) => [s.key, typeof (s as any).order === "number" ? (s as any).order : undefined]));
-    const out = [...this.#entries.values()].map((s: any) => {
+    // A2.1: sessioni __exec_* headless → mai nelle liste UI
+    const out = [...this.#entries.values()].filter((s: any) => !String(s.key).startsWith("__exec_")).map((s: any) => {
       const c = compactionByKey.get(s.key);
       return {
         key: s.key, label: s.label, agentId: s.agentId || "pi",
@@ -751,7 +753,7 @@ class PiBridge {
         const dirs = fs.readdirSync(SESSION_BASE, { withFileTypes: true }).filter((d: fs.Dirent) => d.isDirectory());
         const existing = new Set(out.map((s: any) => s.key));
         for (const d of dirs) {
-          if (d.name.startsWith("__delegate_")) continue; // skip temp delegation sessions
+          if (d.name.startsWith("__delegate_") || d.name.startsWith("__exec_")) continue; // skip temp delegation + execution headless sessions
           if (!existing.has(d.name)) {
             const files = fs.readdirSync(path.join(SESSION_BASE, d.name)).filter((f: string) => f.endsWith(".jsonl"));
             if (files.length > 0) {
