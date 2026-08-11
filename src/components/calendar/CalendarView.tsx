@@ -20,13 +20,13 @@ const btnText: React.CSSProperties = { background: 'none', border: 'none', color
 
 function fmtWhen(s: any): string {
   const w = s.when || {}
-  if (w.type === 'once') return w.date ? new Date(w.date).toLocaleString() : 'Once'
+  if (w.type === 'once') return w.date ? new Date(w.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) + ' ' + new Date(w.date).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) : 'Once'
   if (w.type === 'daily') return 'Daily at ' + (w.at || '08:00')
   if (w.type === 'weekly') return 'Weekly ' + (w.at || '08:00') + ' · ' + (w.daysOfWeek || []).map((d: number) => WEEK[(d - 1 + 7) % 7]).join(' ')
   if (w.type === 'monthly') return 'Monthly · day ' + (w.dayOfMonth ?? 1) + ' at ' + (w.at || '08:00')
   return w.type || '?'
 }
-function fmtTime(ts: number | null | undefined): string { if (!ts) return '—'; return new Date(ts).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) }
+function fmtTime(ts: number | null | undefined): string { if (!ts) return '—'; return new Date(ts).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false }) }
 function dayKey(ts: number): string { const d = new Date(ts); return d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate() }
 function sameDay(a: Date, b: Date): boolean { return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate() }
 function parseAt(at: string): { h: number; m: number } { const p = String(at || '08:00').split(':'); return { h: parseInt(p[0], 10) || 0, m: parseInt(p[1], 10) || 0 } }
@@ -105,7 +105,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     const out: any[] = []; const jsDay = d.getDay(); const dayNum = jsDay === 0 ? 7 : jsDay
     for (const s of schedules) {
       const w = s.when || {}
-      if (w.type === 'once') { if (!w.date) continue; const dt = new Date(w.date); if (!sameDay(dt, d)) continue; out.push({ type: 'schedule', color: 'var(--q-accent-calendar)', text: (s.enabled ? '' : '(off) ') + (s.title || 'Task') + ' · ' + dt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' }), h: dt.getHours(), m: dt.getMinutes(), s: dt.getSeconds(), id: s.id }) }
+      if (w.type === 'once') { if (!w.date) continue; const dt = new Date(w.date); if (!sameDay(dt, d)) continue; out.push({ type: 'schedule', color: 'var(--q-accent-calendar)', text: (s.enabled ? '' : '(off) ') + (s.title || 'Task') + ' · ' + dt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }), h: dt.getHours(), m: dt.getMinutes(), s: dt.getSeconds(), id: s.id }) }
       else if (w.type === 'daily') { const { h, m } = parseAt(w.at || '08:00'); out.push({ type: 'schedule', color: 'var(--q-accent-calendar)', text: (s.enabled ? '' : '(off) ') + (s.title || 'Task') + ' · ' + (w.at || '08:00'), h, m, s: 0, id: s.id }) }
       else if (w.type === 'weekly') { if (!(w.daysOfWeek || []).includes(dayNum)) continue; const { h, m } = parseAt(w.at || '08:00'); out.push({ type: 'schedule', color: 'var(--q-accent-calendar)', text: (s.enabled ? '' : '(off) ') + (s.title || 'Task') + ' · ' + (w.at || '08:00'), h, m, s: 0, id: s.id }) }
       else if (w.type === 'monthly') { if ((w.dayOfMonth ?? 1) !== d.getDate()) continue; const { h, m } = parseAt(w.at || '08:00'); out.push({ type: 'schedule', color: 'var(--q-accent-calendar)', text: (s.enabled ? '' : '(off) ') + (s.title || 'Task') + ' · ' + (w.at || '08:00'), h, m, s: 0, id: s.id }) }
