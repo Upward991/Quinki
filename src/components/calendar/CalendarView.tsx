@@ -56,6 +56,8 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const [openExec, setOpenExec] = useState(true)
   const [editSched, setEditSched] = useState<any>(null)
   const [hoverDay, setHoverDay] = useState<string | null>(null)
+  const [todoW, setTodoW] = useState(() => { try { return parseInt(localStorage.getItem('quinki-cal-todo-w') || '280', 10) || 280 } catch { return 280 } })
+  const dragRef = useRef<{ startX: number; startW: number } | null>(null)
   const bodyRef = useRef<HTMLDivElement>(null)
   const [bodyH, setBodyH] = useState(600)
 
@@ -76,6 +78,23 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     ro.observe(el); setBodyH(el.clientHeight)
     return () => { try { ro.disconnect() } catch {} }
   }, [mode])
+
+  // drag per ridimensionare la sidebar (come la chat)
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!dragRef.current) return
+      const w = Math.min(440, Math.max(200, dragRef.current.startW + (e.clientX - dragRef.current.startX)))
+      setTodoW(w)
+    }
+    const onUp = () => {
+      if (!dragRef.current) return
+      dragRef.current = null
+      try { localStorage.setItem('quinki-cal-todo-w', String(todoW)) } catch {}
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+  }, [todoW])
 
   const act = useCallback(async (fn: () => Promise<any>) => { try { await fn() } catch {}; await refresh() }, [refresh])
   const year = view.getFullYear(); const month = view.getMonth()
@@ -151,7 +170,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
         style: { display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 0, padding: '2px 0' },
       }, React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 40, height: 24, padding: '0 8px', borderRadius: 'var(--radius-sm)', backgroundColor: isToday ? 'var(--q-accent-calendar)' : 'transparent', color: isToday ? 'var(--q-bg)' : 'var(--q-text)', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap', cursor: 'pointer' } }, label))
     })
-    const headerGrid = React.createElement('div', { key: 'hh', style: { display: 'grid', gridTemplateColumns: colTemplate, height: headerH, borderBottom: '1px solid var(--q-border-strong)' } }, [
+    const headerGrid = React.createElement('div', { key: 'hh', style: { display: 'grid', gridTemplateColumns: colTemplate, height: headerH, borderBottom: '1px solid var(--q-border-strong)', minWidth: mode === 'week' ? 700 : 0 } }, [
       React.createElement('div', { key: 'gh', style: {} }),
       ...dayHeaders,
     ])
@@ -185,10 +204,10 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       }, blocks)
     })
     const gutter = React.createElement('div', { key: 'gutter', style: { position: 'relative', height: totalH } }, hourLabels)
-    const bodyGrid = React.createElement('div', { key: 'bg', style: { display: 'grid', gridTemplateColumns: colTemplate, position: 'relative' } }, [gutter, ...colCells])
+    const bodyGrid = React.createElement('div', { key: 'bg', style: { display: 'grid', gridTemplateColumns: colTemplate, position: 'relative', minWidth: mode === 'week' ? 700 : 0 } }, [gutter, ...colCells])
     const linesOverlay = React.createElement('div', { key: 'lines', style: { position: 'absolute', left: gutterW, right: 0, top: 0, height: totalH, pointerEvents: 'none' } }, hourLines)
 
-    const wrap = React.createElement('div', { key: 'wbox', style: { width: '100%', height: '100%', position: 'relative', overflow: 'hidden', border: '1px solid var(--q-border-strong)', borderRadius: 'var(--radius-lg)' } }, [
+    const wrap = React.createElement('div', { key: 'wbox', style: { width: '100%', height: '100%', position: 'relative', overflowX: 'auto', overflowY: 'hidden', border: '1px solid var(--q-border-strong)', borderRadius: 'var(--radius-lg)' } }, [
       headerGrid,
       React.createElement('div', { key: 't', style: { position: 'relative' } }, [bodyGrid, linesOverlay]),
     ])
@@ -236,7 +255,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     execRows.push(React.createElement('div', { key: ex.id, style: { display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', transition: 'none' } }, row))
   }
   const todoPanel = React.createElement('div', {
-    style: { width: 280, flexShrink: 0, alignSelf: 'stretch', display: 'flex', flexDirection: 'column', gap: 10, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)', border: '1px solid var(--q-border)', padding: '12px', overflowY: 'auto' },
+    style: { width: todoW, flexShrink: 0, alignSelf: 'stretch', display: 'flex', flexDirection: 'column', gap: 10, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)', border: '1px solid var(--q-border)', padding: '12px', overflowY: 'auto', position: 'relative' },
   }, [
     React.createElement('div', { key: 'sh', style: { display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }, onClick: () => setOpenSched(!openSched) }, [
       openSched ? React.createElement(ChevronDown, { size: 14, style: { color: 'var(--q-text-secondary)' } }) : React.createElement(ChevronRightIcon, { size: 14, style: { color: 'var(--q-text-secondary)' } }),
@@ -252,6 +271,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: 11, fontFamily: 'var(--font-interface)' } }, '(' + executions.length + ')'),
     ]),
     openExec ? React.createElement('div', { key: 'el', style: { display: 'flex', flexDirection: 'column', gap: 6, maxHeight: '45%', overflowY: 'auto' } }, execRows.length ? execRows : React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: 12, fontFamily: 'var(--font-interface)', padding: '6px 0' } }, 'No executions yet.')) : null,
+    React.createElement('div', { key: 'handle', onMouseDown: (e: any) => { e.preventDefault(); dragRef.current = { startX: e.clientX, startW: todoW } }, style: { position: 'absolute', top: 0, right: -3, bottom: 0, width: 6, cursor: 'col-resize', zIndex: 5 } }),
   ])
 
   const IconBtn = ({ icon: Icon, onClick }: { icon: React.FC<any>; onClick: () => void }) => {
