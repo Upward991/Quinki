@@ -36,10 +36,10 @@ function Chip({ color, text }: { color: string; text: string }) {
   return React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', padding: '1px 8px', borderRadius: 999, fontSize: 10, fontWeight: 600, fontFamily: 'var(--font-interface)', color, border: '1px solid ' + color, backgroundColor: 'transparent', letterSpacing: 0.2, textTransform: 'capitalize', flexShrink: 0 } }, text)
 }
 // Chip del giorno (accent, stile tasto invio): unico elemento evidenziato
-function DayNum({ d, hovered }: { d: Date; hovered?: boolean }) {
+function DayNum({ d, hovered, inMonth }: { d: Date; hovered?: boolean; inMonth?: boolean }) {
   const isToday = sameDay(d, (() => { const n = new Date(); n.setHours(0, 0, 0, 0); return n })())
   const bg = isToday ? 'var(--q-accent-calendar)' : hovered ? 'var(--q-hover)' : 'transparent'
-  const fg = isToday ? 'var(--q-bg)' : hovered ? 'var(--q-text)' : 'var(--q-text-secondary)'
+  const fg = isToday ? 'var(--q-bg)' : hovered ? 'var(--q-text)' : inMonth ? 'var(--q-accent-calendar)' : 'var(--q-text-secondary)'
   return React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 22, height: 22, padding: '0 5px', borderRadius: 'var(--radius-sm)', backgroundColor: bg, color: fg, fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-interface)', transition: 'none' } }, d.getDate())
 }
 
@@ -119,7 +119,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       const row = Math.floor(i / 7)
       const acts = dayActivities(d)
       const isHover = hoverDay === dayKey(d.getTime())
-      const kids: React.ReactNode[] = [React.createElement(DayNum, { key: 'n', d, hovered: isHover })]
+      const kids: React.ReactNode[] = [React.createElement(DayNum, { key: 'n', d, hovered: isHover, inMonth })]
       for (const a of acts.slice(0, 3)) kids.push(React.createElement('div', { key: 'a' + a.id, title: a.text, style: { padding: '2px 6px', borderRadius: 6, fontSize: 11, fontFamily: 'var(--font-interface)', color: 'var(--q-text)', backgroundColor: 'color-mix(in srgb, ' + a.color + ' 18%, transparent)', border: '1px solid ' + a.color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, a.text.split('·')[0]))
       if (acts.length > 3) kids.push(React.createElement('div', { key: 'more', style: { color: 'var(--q-text-tertiary)', fontSize: 10, fontFamily: 'var(--font-interface)' } }, '+' + (acts.length - 3) + ' more'))
       cells.push(React.createElement('div', {
@@ -128,7 +128,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       }, kids))
     }
     const mHeader = WEEK.map((w, i) => React.createElement('div', { key: 'mh' + i, style: { display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px 0', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-interface)', color: 'var(--q-text-tertiary)', borderBottom: '1px solid var(--q-border-strong)', borderRight: i < 6 ? '1px solid var(--q-border-soft)' : 'none' } }, w))
-    calendarGrid = React.createElement('div', { key: 'g', style: { flex: 1, minHeight: 0, overflow: 'hidden', border: '1px solid var(--q-border-strong)', borderRadius: 'var(--radius-sm)' } }, [
+    calendarGrid = React.createElement('div', { key: 'g', style: { flex: 1, minHeight: 0, overflow: 'hidden', border: '1px solid var(--q-border-strong)', borderRadius: 'var(--radius-lg)' } }, [
       React.createElement('div', { key: 'table', style: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gridTemplateRows: '28px repeat(6, 1fr)', height: '100%' } }, [...mHeader, ...cells]),
     ])
   } else {
@@ -188,7 +188,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     const bodyGrid = React.createElement('div', { key: 'bg', style: { display: 'grid', gridTemplateColumns: colTemplate, position: 'relative' } }, [gutter, ...colCells])
     const linesOverlay = React.createElement('div', { key: 'lines', style: { position: 'absolute', left: gutterW, right: 0, top: 0, height: totalH, pointerEvents: 'none' } }, hourLines)
 
-    const wrap = React.createElement('div', { key: 'wbox', style: { width: '100%', height: '100%', position: 'relative', overflow: 'hidden', border: '1px solid var(--q-border-strong)', borderRadius: 'var(--radius-sm)' } }, [
+    const wrap = React.createElement('div', { key: 'wbox', style: { width: '100%', height: '100%', position: 'relative', overflow: 'hidden', border: '1px solid var(--q-border-strong)', borderRadius: 'var(--radius-lg)' } }, [
       headerGrid,
       React.createElement('div', { key: 't', style: { position: 'relative' } }, [bodyGrid, linesOverlay]),
     ])
