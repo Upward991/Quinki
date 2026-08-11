@@ -70,3 +70,4 @@ sidecar-src/standalone-entry.ts
 sidecar-src/ws-bridge-bundled.ts
 src-tauri/resources/sidecar/bun-runtime
 sidecar-src/bundle/
+sidecar-src/.bun-build
