@@ -103,6 +103,22 @@
         "titleBarStyle": "Overlay",
         "create": false,
         "dragDropEnabled": false
+      },
+      {
+        "label": "win-calendar",
+        "url": "index.html?tab=calendar",
+        "title": "",
+        "width": 1000,
+        "height": 700,
+        "minWidth": 600,
+        "minHeight": 400,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": true,
+        "hiddenTitle": true,
+        "titleBarStyle": "Overlay",
+        "create": false,
+        "dragDropEnabled": false
       }
     ],
     "security": {

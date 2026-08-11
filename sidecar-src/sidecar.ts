@@ -617,6 +617,27 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     }
   },
 
+  saveUiState: async (p) => {
+    try {
+      const f = path.join(homedir(), '.quinki', 'ui-state.json');
+      fs.mkdirSync(path.join(homedir(), '.quinki'), { recursive: true });
+      fs.writeFileSync(f, JSON.stringify(p.state || {}, null, 2), 'utf-8');
+      return { success: true };
+    } catch (e: any) {
+      process.stderr.write(`[ui-state] save failed: ${e.message}\n`);
+      return { success: false, error: e.message };
+    }
+  },
+  getUiState: async () => {
+    try {
+      const f = path.join(homedir(), '.quinki', 'ui-state.json');
+      if (!fs.existsSync(f)) return {};
+      return JSON.parse(fs.readFileSync(f, 'utf-8'));
+    } catch (e: any) {
+      process.stderr.write(`[ui-state] load failed: ${e.message}\n`);
+      return {};
+    }
+  },
   getFolders: async () => ({ folders: getFolders() }),
   setFolders: async (p) => setFolders(p.folders),
   moveSession: async (p) => {
