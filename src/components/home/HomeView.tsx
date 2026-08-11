@@ -6,7 +6,7 @@ import { Bot, Terminal, MessageSquare, Settings, Brain, Calendar } from '../icon
 const tabs = [
   {id:'expert', icon:Bot, label:'App Expert', color:'var(--q-accent-orange)', panel:'expert', doubleBot:false},
   {id:'chat', icon:MessageSquare, label:'Chat', color:'var(--q-accent-info)', panel:'chat', doubleBot:false},
-  {id:'calendar', icon:Calendar, label:'Tasks', color:'var(--q-accent-calendar)', panel:'calendar', doubleBot:false},
+  {id:'calendar', icon:Calendar, label:'Agents Tasks', color:'var(--q-accent-calendar)', panel:'calendar', doubleBot:false},
   {id:'agents', icon:Bot, label:'Agents', color:'var(--q-accent-secondary)', panel:'agents', doubleBot:true},
   {id:'settings', icon:Settings, label:'Settings', color:'var(--q-accent-primary)', panel:'settings', doubleBot:false},
   {id:'log', icon:Terminal, label:'Log', color:'var(--q-accent-success)', panel:'log', doubleBot:false},

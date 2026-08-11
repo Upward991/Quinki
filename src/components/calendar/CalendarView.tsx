@@ -220,7 +220,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       React.createElement('div', { key: 'sp0', style: { width: '8px', flexShrink: 0 } }),
       React.createElement(Bot, { key: 'ic', size: 18, style: { color: 'var(--q-text-secondary)', flexShrink: 0 } }),
       React.createElement('div', { key: 'sp0b', style: { width: '12px', flexShrink: 0 } }),
-      React.createElement('span', { key: 'ti', style: { color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap' } }, 'Tasks'),
+      React.createElement('span', { key: 'ti', style: { color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap' } }, 'Agents Tasks'),
       React.createElement('div', { key: 'sp2', style: { width: '8px', flexShrink: 0 } }),
       React.createElement('span', { key: 'ct', style: { color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' } }, '(' + filtered.length + ')'),
       React.createElement('div', { key: 'fx', style: { flex: 1 } }),
