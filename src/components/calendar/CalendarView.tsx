@@ -112,16 +112,21 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     for (let i = 0; i < 42; i++) {
       const d = new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + i)
       const inMonth = d.getMonth() === month
+      const col = i % 7
+      const row = Math.floor(i / 7)
       const acts = dayActivities(d)
       const kids: React.ReactNode[] = [React.createElement(DayNum, { key: 'n', d })]
       for (const a of acts.slice(0, 3)) kids.push(React.createElement('div', { key: 'a' + a.id, title: a.text, style: { padding: '2px 6px', borderRadius: 6, fontSize: 11, fontFamily: 'var(--font-interface)', color: 'var(--q-text)', backgroundColor: 'color-mix(in srgb, ' + a.color + ' 18%, transparent)', border: '1px solid ' + a.color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, a.text.split('·')[0]))
       if (acts.length > 3) kids.push(React.createElement('div', { key: 'more', style: { color: 'var(--q-text-tertiary)', fontSize: 10, fontFamily: 'var(--font-interface)' } }, '+' + (acts.length - 3) + ' more'))
       cells.push(React.createElement('div', {
         key: dayKey(d.getTime()), onClick: () => openDay(d), onDragOver: (e: any) => e.preventDefault(), onDrop: (e: any) => { e.preventDefault(); e.stopPropagation(); const id = e.dataTransfer.getData ? e.dataTransfer.getData('text/quinki-schedule') : ''; if (id) setScheduleTime(id, d, 12, 0, 0); setDragId(null) },
-        style: { minHeight: 0, padding: 4, borderRadius: 'var(--radius-sm)', display: 'flex', flexDirection: 'column', gap: 3, overflow: 'hidden', cursor: 'pointer', transition: 'none', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', opacity: inMonth ? 1 : 0.4, alignItems: 'flex-start' },
+        style: { minHeight: 0, padding: 4, display: 'flex', flexDirection: 'column', gap: 3, overflow: 'hidden', cursor: 'pointer', transition: 'none', backgroundColor: 'var(--q-bg-panel)', opacity: inMonth ? 1 : 0.4, alignItems: 'flex-start', borderRight: col < 6 ? '1px solid var(--q-border-soft)' : 'none', borderBottom: row < 5 ? '1px solid var(--q-border-soft)' : 'none' },
       }, kids))
     }
-    calendarGrid = React.createElement('div', { key: 'g', style: { flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gridAutoRows: '1fr', gap: 4 } }, cells)
+    const mHeader = WEEK.map((w, i) => React.createElement('div', { key: 'mh' + i, style: { padding: '4px 0', textAlign: 'center', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-interface)', color: 'var(--q-text-tertiary)', borderBottom: '1px solid var(--q-border-strong)', borderRight: i < 6 ? '1px solid var(--q-border-soft)' : 'none' } }, w))
+    calendarGrid = React.createElement('div', { key: 'g', style: { flex: 1, minHeight: 0, overflow: 'hidden', border: '1px solid var(--q-border-strong)', borderRadius: 'var(--radius-sm)' } }, [
+      React.createElement('div', { key: 'table', style: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gridAutoRows: '1fr', height: '100%' } }, [...mHeader, ...cells]),
+    ])
   } else {
     const days: Date[] = []
     if (mode === 'week') { const dow = (view.getDay() + 6) % 7; const ws = new Date(year, month, view.getDate() - dow); for (let i = 0; i < 7; i++) days.push(new Date(ws.getFullYear(), ws.getMonth(), ws.getDate() + i)) }
@@ -299,7 +304,6 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     React.createElement('div', { key: 'body', ref: bodyRef, style: { flex: 1, minHeight: 0, display: 'flex', gap: 8, padding: 0, overflow: 'hidden' } }, [
       showTodo ? todoPanel : null,
       React.createElement('div', { key: 'cal', style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0, overflow: 'hidden' } }, [
-        mode === 'month' ? React.createElement('div', { key: 'wh', style: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, flexShrink: 0 } }, WEEK.map((w) => React.createElement('div', { key: w, style: { color: 'var(--q-text-tertiary)', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-interface)', textAlign: 'center', padding: 4 } }, w))) : null,
         calendarGrid,
       ]),
       editModal,
