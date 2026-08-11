@@ -179,14 +179,14 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     const bodyGrid = React.createElement('div', { key: 'bg', style: { display: 'grid', gridTemplateColumns: colTemplate, position: 'relative' } }, [gutter, ...colCells])
     const linesOverlay = React.createElement('div', { key: 'lines', style: { position: 'absolute', left: gutterW, right: 0, top: 0, height: totalH, pointerEvents: 'none' } }, hourLines)
 
-    const wrap = React.createElement('div', { key: 'wbox', style: { flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden', border: '1px solid var(--q-border-strong)', borderRadius: 'var(--radius-sm)' } }, [
+    const wrap = React.createElement('div', { key: 'wbox', style: { width: '100%', height: '100%', position: 'relative', overflow: 'hidden', border: '1px solid var(--q-border-strong)', borderRadius: 'var(--radius-sm)' } }, [
       headerGrid,
       React.createElement('div', { key: 't', style: { position: 'relative' } }, [bodyGrid, linesOverlay]),
     ])
     if (mode === 'day') {
-      calendarGrid = React.createElement('div', { key: 'g', style: { flex: 1, minHeight: 0, display: 'flex', justifyContent: 'center', width: '100%', margin: '0 auto', maxWidth: 'var(--spacing-chat-max)' } }, [wrap])
+      calendarGrid = React.createElement('div', { key: 'g', style: { flex: 1, minHeight: 0, display: 'flex', justifyContent: 'center', alignItems: 'stretch', width: '100%', margin: '0 auto', maxWidth: 'var(--spacing-chat-max)' } }, [wrap])
     } else {
-      calendarGrid = React.createElement('div', { key: 'g', style: { flex: 1, minHeight: 0, width: '100%' } }, [wrap])
+      calendarGrid = React.createElement('div', { key: 'g', style: { flex: 1, minHeight: 0, width: '100%', display: 'flex', flexDirection: 'column' } }, [wrap])
     }
   }
 
@@ -283,6 +283,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       React.createElement('div', { key: 'fx', style: { flex: 1 } }),
       React.createElement('button', { key: 'm', onClick: () => setMode('month'), style: modeBtn('month', mode) }, 'Month'),
       React.createElement('button', { key: 'w', onClick: () => setMode('week'), style: modeBtn('week', mode) }, 'Week'),
+      React.createElement('button', { key: 'dy', onClick: () => setMode('day'), style: modeBtn('day', mode) }, 'Day'),
       React.createElement('div', { key: 'sp3', style: { width: '10px', flexShrink: 0 } }),
       React.createElement('button', { key: 'prev', onClick: () => nav(-1), style: btnGhost }, React.createElement(ChevronLeft, { size: 14 })),
       React.createElement('button', { key: 'today', onClick: () => { const n = today0(); setSelected(n); setView(n); setMode('month') }, style: btnGhost }, 'Today'),
@@ -295,9 +296,9 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   // header sopra; SIDEBAR accanto al calendario (stessa altezza → la segue), come prima
   return React.createElement('div', { className: 'h-full flex flex-col', style: { width: '100%', position: 'relative', overflow: 'hidden' } }, [
     React.createElement('div', { key: 'hdr', style: { marginBottom: '8px', flexShrink: 0, display: 'flex', alignItems: 'center', width: '100%' } }, headerKids),
-    React.createElement('div', { key: 'body', ref: bodyRef, style: { flex: 1, minHeight: 0, display: 'flex', gap: 8, overflow: 'hidden' } }, [
+    React.createElement('div', { key: 'body', ref: bodyRef, style: { flex: 1, minHeight: 0, display: 'flex', gap: 8, padding: 0, overflow: 'hidden' } }, [
       showTodo ? todoPanel : null,
-      React.createElement('div', { key: 'cal', style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'hidden' } }, [
+      React.createElement('div', { key: 'cal', style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0, overflow: 'hidden' } }, [
         mode === 'month' ? React.createElement('div', { key: 'wh', style: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, flexShrink: 0 } }, WEEK.map((w) => React.createElement('div', { key: w, style: { color: 'var(--q-text-tertiary)', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-interface)', textAlign: 'center', padding: 4 } }, w))) : null,
         calendarGrid,
       ]),
@@ -306,8 +307,8 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   ])
 }
 
-function modeBtn(v: 'month' | 'week', cur: string): React.CSSProperties {
+function modeBtn(v: 'month' | 'week' | 'day', cur: string): React.CSSProperties {
   const active = cur === v
-  const radius = v === 'month' ? 'var(--radius-sm) 0 0 var(--radius-sm)' : '0 var(--radius-sm) var(--radius-sm) 0'
-  return { cursor: 'pointer', height: 28, padding: '4px 10px', fontSize: 12, fontFamily: 'var(--font-interface)', backgroundColor: active ? 'var(--q-accent-calendar)' : 'transparent', color: active ? 'var(--q-bg)' : 'var(--q-text-secondary)', fontWeight: active ? 600 : 400, borderRadius: radius, transition: 'none', border: '1px solid var(--q-border)', borderRight: v === 'week' ? '1px solid var(--q-border)' : 'none' }
+  const radius = v === 'month' ? 'var(--radius-sm) 0 0 var(--radius-sm)' : v === 'week' ? '0' : '0 var(--radius-sm) var(--radius-sm) 0'
+  return { cursor: 'pointer', height: 28, padding: '4px 10px', fontSize: 12, fontFamily: 'var(--font-interface)', backgroundColor: active ? 'var(--q-accent-calendar)' : 'transparent', color: active ? 'var(--q-bg)' : 'var(--q-text-secondary)', fontWeight: active ? 600 : 400, borderRadius: radius, transition: 'none', border: '1px solid var(--q-border)', borderRight: v === 'day' ? '1px solid var(--q-border)' : 'none' }
 }
