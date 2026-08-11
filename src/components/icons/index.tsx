@@ -42,6 +42,7 @@ export const MessageSquarePlus = makeIcon('material-symbols:add-comment-rounded'
 export const Download = makeIcon('material-symbols:download-rounded')
 export const RefreshCw = makeIcon('material-symbols:refresh-rounded')
 export const Pulse = makeIcon('material-symbols:graphic-eq-rounded')
+export const Filter = makeIcon('material-symbols:filter-alt-rounded')
 export const Calendar = makeIcon('material-symbols:calendar-month-rounded')
 export const Clock = makeIcon('material-symbols:schedule-rounded')
 export const Cpu = makeIcon('material-symbols:memory-rounded')
