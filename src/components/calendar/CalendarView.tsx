@@ -92,7 +92,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     if (key === 'x') return actions(i)
     return ''
   }
-  const cellStyle = (align = 'left'): React.CSSProperties => ({ padding: '7px 10px', borderBottom: '1px solid var(--q-border-soft)', color: 'var(--q-text-secondary)', fontSize: 12, fontFamily: 'var(--font-interface)', textAlign: align as any, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 200 })
+  const cellStyle = (align = 'left', rightBorder = true): React.CSSProperties => ({ padding: '7px 10px', borderBottom: '1px solid var(--q-border)', borderRight: rightBorder ? '1px solid var(--q-border)' : 'none', color: 'var(--q-text-secondary)', fontSize: 12, fontFamily: 'var(--font-interface)', textAlign: align as any, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 200 })
 
   // === TABLE ===
   const thead = React.createElement('tr', { key: 'thr' }, cols.map((k, idx) => {
@@ -102,15 +102,15 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       key: k, draggable: true, onDragStart: (e: any) => { setDragCol(k); e.dataTransfer.effectAllowed = 'move' }, onDragOver: (e: any) => { e.preventDefault() },
       onDrop: (e: any) => { e.preventDefault(); if (!dragCol || dragCol === k) { setDragCol(null); return } setCols(prev => { const arr = [...prev]; const from = arr.indexOf(dragCol); const to = arr.indexOf(k); arr.splice(from, 1); arr.splice(to, 0, dragCol); return arr }); setDragCol(null) },
       onClick: sortable ? () => { if (sortKey === k) setSortDir(sortDir === 1 ? -1 : 1); else { setSortKey(k); setSortDir(1) } } : undefined,
-      style: { padding: '7px 10px', borderBottom: '1px solid var(--q-border-strong)', cursor: sortable ? 'pointer' : 'default', color: 'var(--q-text-secondary)', fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap', userSelect: 'none', background: dragCol === k ? 'var(--q-hover)' : 'transparent' },
+      style: { padding: '7px 10px', borderBottom: '1px solid var(--q-border)', borderRight: idx < cols.length - 1 ? '1px solid var(--q-border)' : 'none', cursor: sortable ? 'pointer' : 'default', color: 'var(--q-text-secondary)', fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap', userSelect: 'none', background: dragCol === k ? 'var(--q-hover)' : 'transparent' },
     }, c ? c.label : '')
   }))
-  const tbody = filtered.map(i => React.createElement('tr', { key: i.id, onMouseEnter: () => setHoverRow(i.id), onMouseLeave: () => setHoverRow(null), style: { backgroundColor: hoverRow === i.id ? 'var(--q-hover)' : 'transparent', transition: 'none' } }, cols.map((k) => {
+  const tbody = filtered.map(i => React.createElement('tr', { key: i.id, onMouseEnter: () => setHoverRow(i.id), onMouseLeave: () => setHoverRow(null), style: { backgroundColor: hoverRow === i.id ? 'var(--q-hover)' : 'transparent', transition: 'none' } }, cols.map((k, idx) => {
     const isHov = hoverRow === i.id
     const cell = cellVal(i, k)
-    return React.createElement('td', { key: k, style: { ...cellStyle(), maxWidth: k === 'x' ? undefined : 220, opacity: k === 'x' ? (isHov ? 1 : 0) : 1 } }, k === 'x' && !isHov ? React.createElement('span', {}, ' ') : cell)
+    return React.createElement('td', { key: k, style: { ...cellStyle('left', idx < cols.length - 1), maxWidth: k === 'x' ? undefined : 220, opacity: k === 'x' ? (isHov ? 1 : 0) : 1 } }, k === 'x' && !isHov ? React.createElement('span', {}, ' ') : cell)
   })))
-  const tableWrap = React.createElement('div', { key: 'tbl', style: { width: '100%', overflowX: 'auto' } }, React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', minWidth: 720 } }, [
+  const tableWrap = React.createElement('div', { key: 'tbl', style: { width: '100%', overflowX: 'auto' } }, React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', minWidth: 720 } }, [
     React.createElement('thead', { key: 'th' }, thead),
     React.createElement('tbody', { key: 'tb' }, tbody.length ? tbody : React.createElement('tr', { key: 'e' }, React.createElement('td', { colSpan: cols.length, style: { padding: 20, textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', border: 'none' } }, 'No activities match the filters.'))),
   ]))
