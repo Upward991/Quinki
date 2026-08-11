@@ -15,7 +15,7 @@ const WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
 const panelStyle: React.CSSProperties = { backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)', padding: '8px', minHeight: 'var(--spacing-header-min)', display: 'flex', alignItems: 'center' }
-const btnGhost: React.CSSProperties = { padding: '4px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: '12px', fontFamily: 'var(--font-interface)', cursor: 'pointer', transition: 'none', display: 'inline-flex', alignItems: 'center', gap: 5, height: 28 }
+const btnGhost: React.CSSProperties = { padding: '4px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-text)', fontSize: '12px', fontFamily: 'var(--font-interface)', cursor: 'pointer', transition: 'none', display: 'inline-flex', alignItems: 'center', gap: 5, height: 28 }
 const btnText: React.CSSProperties = { background: 'none', border: 'none', color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', cursor: 'pointer', padding: '2px', display: 'inline-flex', alignItems: 'center', gap: 3 }
 
 function fmtWhen(s: any): string {
@@ -127,7 +127,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
         style: { minHeight: 0, padding: 4, display: 'flex', flexDirection: 'column', gap: 3, overflow: 'hidden', cursor: 'pointer', transition: 'none', backgroundColor: 'transparent', opacity: inMonth ? 1 : 0.4, alignItems: 'flex-start', borderRight: col < 6 ? '1px solid var(--q-border-soft)' : 'none', borderBottom: row < 5 ? '1px solid var(--q-border-soft)' : 'none' },
       }, kids))
     }
-    const mHeader = WEEK.map((w, i) => React.createElement('div', { key: 'mh' + i, style: { display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px 0', fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-interface)', color: 'var(--q-text-secondary)', borderBottom: '1px solid var(--q-border-strong)', borderRight: i < 6 ? '1px solid var(--q-border-soft)' : 'none' } }, w))
+    const mHeader = WEEK.map((w, i) => React.createElement('div', { key: 'mh' + i, style: { display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px 0', fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-interface)', color: 'var(--q-text)', borderBottom: '1px solid var(--q-border-strong)', borderRight: i < 6 ? '1px solid var(--q-border-soft)' : 'none' } }, w))
     calendarGrid = React.createElement('div', { key: 'g', style: { flex: 1, minHeight: 0, overflow: 'hidden', border: '1px solid var(--q-border-strong)', borderRadius: 'var(--radius-lg)' } }, [
       React.createElement('div', { key: 'table', style: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gridTemplateRows: '28px repeat(6, 1fr)', height: '100%' } }, [...mHeader, ...cells]),
     ])
@@ -318,5 +318,5 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
 function modeBtn(v: 'month' | 'week' | 'day', cur: string): React.CSSProperties {
   const active = cur === v
   const radius = v === 'month' ? 'var(--radius-sm) 0 0 var(--radius-sm)' : v === 'week' ? '0' : '0 var(--radius-sm) var(--radius-sm) 0'
-  return { cursor: 'pointer', height: 28, padding: '4px 10px', fontSize: 12, fontFamily: 'var(--font-interface)', backgroundColor: active ? 'var(--q-accent-calendar)' : 'transparent', color: active ? 'var(--q-bg)' : 'var(--q-text-secondary)', fontWeight: active ? 600 : 400, borderRadius: radius, transition: 'none', border: '1px solid var(--q-border)', borderRight: v === 'day' ? '1px solid var(--q-border)' : 'none' }
+  return { cursor: 'pointer', height: 28, padding: '4px 10px', fontSize: 12, fontFamily: 'var(--font-interface)', backgroundColor: active ? 'var(--q-accent-calendar)' : 'transparent', color: active ? 'var(--q-bg)' : 'var(--q-text)', fontWeight: active ? 600 : 500, borderRadius: radius, transition: 'none', border: '1px solid var(--q-border)', borderRight: v === 'day' ? '1px solid var(--q-border)' : 'none' }
 }
