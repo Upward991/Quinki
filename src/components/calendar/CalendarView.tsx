@@ -60,6 +60,21 @@ function FilterChip({ label, values, options, onChange }: { label: string; value
   ])
 }
 
+function RowBtn({ title, onClick, children, color }: { title: string; onClick: () => void; children: React.ReactNode; color?: string }) {
+  const [h, setH] = useState(false)
+  return React.createElement('button', { title, onClick, onMouseEnter: () => setH(true), onMouseLeave: () => setH(false), style: { background: h ? 'var(--q-hover)' : 'none', border: 'none', cursor: 'pointer', color: color || 'var(--q-text-secondary)', padding: 6, display: 'flex', borderRadius: 'var(--radius-sm)', flexShrink: 0, transition: 'none' } }, children)
+}
+function ViewTab({ v, active, onSelect, onDelete }: { v: ViewCfg; active: boolean; onSelect: () => void; onDelete: () => void }) {
+  const [h, setH] = useState(false)
+  const bg = active ? 'var(--q-tab-accent)' : h ? 'var(--q-hover)' : 'transparent'
+  const color = active ? 'var(--q-bg)' : h ? 'var(--q-text)' : 'var(--q-text-secondary)'
+  const xColor = active ? 'var(--q-bg)' : 'var(--q-text-tertiary)'
+  return React.createElement('div', { 'data-view-id': v.id, onMouseEnter: () => setH(true), onMouseLeave: () => setH(false), style: { display: 'flex', alignItems: 'center', gap: 5, padding: '6px 10px', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: 14, fontWeight: active ? 700 : 500, fontFamily: 'var(--font-interface)', backgroundColor: bg, color, transition: 'none', flexShrink: 0 } }, [
+    React.createElement('button', { key: 'n', onClick: onSelect, style: { background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontSize: 14, fontWeight: 'inherit', fontFamily: 'var(--font-interface)', padding: 0 } }, v.name),
+    v.id !== BASE_ID ? React.createElement('button', { key: 'x', onClick: onDelete, style: { background: 'none', border: 'none', cursor: 'pointer', color: xColor, padding: 0, display: 'flex' } }, React.createElement(X, { size: 13 })) : null,
+  ])
+}
+
 interface Item { id: string; kind: 'sched' | 'exec'; title: string; agent: string; chat: string; status: string; when: number | null; error: string; ex?: any }
 interface ViewCfg { id: string; name: string; type: 'table' | 'board'; f: { q: string; status: string; agents: string[]; chats: string[] } }
 const BASE_ID = 'v-table'
@@ -87,6 +102,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const [dragCol, setDragCol] = useState<string | null>(null)
   const [hoverRow, setHoverRow] = useState<string | null>(null)
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
+  const [deleteView, setDeleteView] = useState<ViewCfg | null>(null)
   const [filterBarOpen, setFilterBarOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [newViewOpen, setNewViewOpen] = useState(false)
@@ -118,7 +134,22 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   useEffect(() => { const u = subscribe?.('schedule_update', refresh); return () => { if (u) try { u() } catch {} } }, [refresh, subscribe])
   const act = useCallback(async (fn: () => Promise<any>) => { try { await fn() } catch {}; await refresh() }, [refresh])
   const tabsRef = useRef<HTMLDivElement>(null)
-  const scrollTabs = (dir: 1 | -1) => { if (tabsRef.current) tabsRef.current.scrollLeft += dir * 120 }
+  const goView = (dir: 1 | -1) => {
+    const idx = views.findIndex(v => v.id === activeId)
+    if (idx === -1 || views.length === 0) return
+    const next = views[(idx + dir + views.length) % views.length]
+    setActiveId(next.id)
+    requestAnimationFrame(() => {
+      const el = tabsRef.current
+      if (!el) return
+      const btn = el.querySelector('[data-view-id="' + next.id + '"]') as HTMLElement | null
+      if (btn) {
+        const left = btn.offsetLeft - el.offsetLeft
+        if (left < el.scrollLeft) el.scrollLeft = left
+        else if (left + btn.offsetWidth > el.scrollLeft + el.clientWidth) el.scrollLeft = left + btn.offsetWidth - el.clientWidth
+      }
+    })
+  }
   useEffect(() => {
     const el = tabsRef.current
     if (!el) return
@@ -195,10 +226,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
 
   // Toolbar: view dinamiche (base non eliminabile) + Filters + Search
   const addView = (name: string) => { const id = 'v' + Date.now(); const nv: ViewCfg = { id, name: name || 'View ' + (views.length + 1), type: 'table', f: { q: '', status: 'all', agents: [], chats: [] } }; persist([...views, nv]); setActiveId(id); setNewViewOpen(false); requestAnimationFrame(() => { if (tabsRef.current) tabsRef.current.scrollLeft = tabsRef.current.scrollWidth }) }
-  const viewTab = (v: ViewCfg) => React.createElement('div', { key: v.id, style: { display: 'flex', alignItems: 'center', gap: 5, padding: '6px 10px', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: 14, fontWeight: v.id === activeId ? 700 : 500, fontFamily: 'var(--font-interface)', backgroundColor: v.id === activeId ? 'var(--q-active)' : 'transparent', color: v.id === activeId ? 'var(--q-text)' : 'var(--q-text-secondary)', transition: 'none' } }, [
-    React.createElement('button', { key: 'n', onClick: () => setActiveId(v.id), style: { background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontSize: 14, fontWeight: 'inherit', fontFamily: 'var(--font-interface)', padding: 0 } }, v.name),
-    v.id !== BASE_ID ? React.createElement('button', { key: 'x', onClick: () => { const rem = views.filter(x => x.id !== v.id); persist(rem); if (activeId === v.id) setActiveId(rem[0].id) }, style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-tertiary)', padding: 0, display: 'flex' } }, React.createElement(X, { size: 13 })) : null,
-  ])
+  const viewTab = (v: ViewCfg) => React.createElement(ViewTab, { key: v.id, v, active: v.id === activeId, onSelect: () => setActiveId(v.id), onDelete: () => setDeleteView(v) })
   const hasActiveFilters = f.agents.length > 0 || f.chats.length > 0
   const filterBar = (filterBarOpen || hasActiveFilters) ? React.createElement('div', { key: 'fbar', style: { display: 'flex', alignItems: 'center', gap: 6, padding: '8px 0 0 0', flexWrap: 'wrap' } }, [
     React.createElement(FilterChip, { key: 'fA', label: 'Agent', values: f.agents, options: agents, onChange: (v: string[]) => patchF({ agents: v }) }),
@@ -207,18 +235,18 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   ]) : null
   const toolbar = React.createElement('div', { key: 'tb', style: { display: 'flex', flexDirection: 'column', padding: '4px 0 8px 0' } }, [
     React.createElement('div', { key: 'row', style: { display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'nowrap' } }, [
-    React.createElement('button', { key: 'larr', onClick: () => scrollTabs(-1), title: 'Scroll views left', style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-secondary)', padding: 6, display: 'flex', flexShrink: 0 } }, React.createElement(ChevronLeft, { size: 18 })),
+    React.createElement(RowBtn, { key: 'larr', title: 'Previous view', onClick: () => goView(-1) }, React.createElement(ChevronLeft, { size: 18 })),
     React.createElement('div', { key: 'tabs', ref: tabsRef, style: { display: 'flex', alignItems: 'center', gap: 4, overflow: 'hidden', flex: 1, minWidth: 0 } }, [...views.map(viewTab)]),
-    React.createElement('button', { key: 'rarr', onClick: () => scrollTabs(1), title: 'Scroll views right', style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-secondary)', padding: 6, display: 'flex', flexShrink: 0 } }, React.createElement(ChevronRight, { size: 18 })),
+    React.createElement(RowBtn, { key: 'rarr', title: 'Next view', onClick: () => goView(1) }, React.createElement(ChevronRight, { size: 18 })),
     React.createElement('div', { key: 'nvw', style: { position: 'relative', display: 'flex', flexShrink: 0 } }, [
-      React.createElement('button', { key: 'add', onClick: () => setNewViewOpen(!newViewOpen), title: 'New view', style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-secondary)', padding: '6px', display: 'flex' } }, React.createElement(Plus, { size: 18 })),
+      React.createElement(RowBtn, { key: 'add', title: 'New view', onClick: () => setNewViewOpen(!newViewOpen) }, React.createElement(Plus, { size: 18 })),
       newViewOpen ? React.createElement(React.Fragment, { key: 'nv' }, [React.createElement('div', { key: 'o', style: { position: 'fixed', inset: 0, zIndex: 150 }, onClick: () => setNewViewOpen(false) }), React.createElement('div', { key: 'd', style: { position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 151, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: 8, display: 'flex', flexDirection: 'column', gap: 6 } }, [React.createElement('input', { key: 'i', autoFocus: true, placeholder: 'View name', onKeyDown: (e: any) => { if (e.key === 'Enter') addView(e.target.value.trim()) }, style: { padding: '7px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)' } }), React.createElement('button', { key: 'go', onClick: () => { const inp = document.querySelector('input[placeholder="View name"]') as HTMLInputElement; addView(inp?.value?.trim() || '') }, style: { padding: '7px 12px', borderRadius: 'var(--radius-sm)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-tab-accent)', color: 'var(--q-bg)', fontSize: 14, fontWeight: 600, fontFamily: 'var(--font-interface)' } }, 'Create')])]) : null,
     ]),
     searchOpen ? React.createElement('input', { key: 'si', autoFocus: true, value: f.q, onChange: (e: any) => patchF({ q: e.target.value }), onKeyDown: (e: any) => { if (e.key === 'Escape') setSearchOpen(false) }, placeholder: 'Search activities...', style: { width: 240, height: 30, padding: '0 12px', boxSizing: 'border-box', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)', flexShrink: 0 } }) : null,
     React.createElement('div', { key: 'right', style: { display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 } }, [
-      React.createElement('button', { key: 'search', onClick: () => setSearchOpen(!searchOpen), title: 'Search', style: { background: 'none', border: 'none', cursor: 'pointer', color: f.q ? 'var(--q-tab-accent)' : 'var(--q-text-secondary)', padding: 6, display: 'flex' } }, React.createElement(Search, { size: 18 })),
-      React.createElement('button', { key: 'filters', onClick: () => setFilterBarOpen(!filterBarOpen), title: 'Filters', style: { background: 'none', border: 'none', cursor: 'pointer', color: hasActiveFilters ? 'var(--q-tab-accent)' : 'var(--q-text-secondary)', padding: 6, display: 'flex' } }, React.createElement(Filter, { size: 18 })),
-      React.createElement('button', { key: 'fwbtn', onClick: () => { const nv = !fullWidth; setFullWidth(nv); saveUi(nv, views) }, title: fullWidth ? 'Default width' : 'Full width', style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-secondary)', padding: 6, display: 'flex' } }, React.createElement(fullWidth ? Minimize : Maximize, { size: 18 })),
+      React.createElement(RowBtn, { key: 'search', title: 'Search', onClick: () => setSearchOpen(!searchOpen), color: f.q ? 'var(--q-tab-accent)' : undefined }, React.createElement(Search, { size: 18 })),
+      React.createElement(RowBtn, { key: 'filters', title: 'Filters', onClick: () => setFilterBarOpen(!filterBarOpen), color: hasActiveFilters ? 'var(--q-tab-accent)' : undefined }, React.createElement(Filter, { size: 18 })),
+      React.createElement(RowBtn, { key: 'fwbtn', title: fullWidth ? 'Default width' : 'Full width', onClick: () => { const nv = !fullWidth; setFullWidth(nv); saveUi(nv, views) } }, React.createElement(fullWidth ? Minimize : Maximize, { size: 18 })),
     ]),
     React.createElement('div', { key: 'sep', style: { height: 1, backgroundColor: 'var(--q-border)', marginTop: 6 } }),
   ]),
@@ -240,5 +268,13 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
         React.createElement('div', { key: 'content', style: { flex: 1, minHeight: 0, overflowY: 'auto' } }, view.type === 'table' ? tableWrap : board),
       ]),
     ]),
+    deleteView ? React.createElement('div', { key: 'dv', style: { position: 'fixed', inset: 0, zIndex: 300, backgroundColor: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: () => setDeleteView(null) }, React.createElement('div', { style: { backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '20px 24px', minWidth: 320, maxWidth: 400 }, onClick: (e: any) => e.stopPropagation() }, [
+      React.createElement('div', { key: 't', style: { color: 'var(--q-text)', fontSize: 16, fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: 8 } }, 'Delete view?'),
+      React.createElement('div', { key: 'd', style: { color: 'var(--q-text-secondary)', fontSize: 14, fontFamily: 'var(--font-interface)', marginBottom: 16 } }, 'The view "' + deleteView.name + '" will be deleted.'),
+      React.createElement('div', { key: 'b', style: { display: 'flex', justifyContent: 'flex-end', gap: 8 } }, [
+        React.createElement('button', { key: 'c', onClick: () => setDeleteView(null), onMouseEnter: (e: any) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }, onMouseLeave: (e: any) => { e.currentTarget.style.backgroundColor = 'transparent' }, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: 13, fontFamily: 'var(--font-interface)', cursor: 'pointer' } }, 'Cancel'),
+        React.createElement('button', { key: 'ok', onClick: () => { const rem = views.filter(x => x.id !== deleteView.id); persist(rem); if (activeId === deleteView.id) setActiveId(rem[0]?.id || BASE_ID); setDeleteView(null) }, onMouseEnter: (e: any) => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }, onMouseLeave: (e: any) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-interface)', cursor: 'pointer' } }, 'Delete'),
+      ]),
+    ])) : null,
   ])
 }
