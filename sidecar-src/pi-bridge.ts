@@ -2847,7 +2847,8 @@ class PiBridge {
           if (!self.#scheduleHandler) {
             return { content: [{ type: "text", text: "Scheduling is not available in this sidecar yet." }], isError: true };
           }
-          const r = self.#scheduleHandler(params);
+          const srcLabel = (self.#entries.get(sessionKey) as any)?.label || sessionKey;
+          const r = self.#scheduleHandler({ ...params, sourceSession: { key: sessionKey, label: srcLabel } });
           const when = params.when || {};
           let whenText = `type=${when.type}`;
           if (when.type === "once" && when.date) whenText += ` at ${when.date}`;

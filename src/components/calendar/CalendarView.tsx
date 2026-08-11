@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useSidecarContext } from '../shared/AppShell'
-import { Home, Calendar, Clock, Play, X, RotateCcw, Trash2, Bot, PanelLeft, ChevronLeft, ChevronRight, ChevronDown, ChevronRight as ChevronRightIcon } from '../icons'
+import { Home, Calendar, Clock, Play, X, RotateCcw, Trash2, Bot, PanelLeft, ChevronLeft, ChevronRight, ChevronDown, ChevronRight as ChevronRightIcon, Check } from '../icons'
 
 const STATUS_COLOR: Record<string, string> = {
   queued: 'var(--q-accent-warning)',
@@ -54,6 +54,8 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const [showTodo, setShowTodo] = useState(true)
   const [openSched, setOpenSched] = useState(true)
   const [openExec, setOpenExec] = useState(true)
+  const [openDone, setOpenDone] = useState(true)
+  const [openFail, setOpenFail] = useState(true)
   const [editSched, setEditSched] = useState<any>(null)
   const [hoverDay, setHoverDay] = useState<string | null>(null)
   const [todoW, setTodoW] = useState(() => { try { return parseInt(localStorage.getItem('quinki-cal-todo-w') || '280', 10) || 280 } catch { return 280 } })
@@ -226,51 +228,71 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     d.setHours(0, 0, 0, 0); setView(d)
   }
 
+  // === Sidebar: Scheduled / Execution / Executed / Failed ===
   const schedRows: React.ReactElement[] = []
   for (const s of schedules) {
-    if (!s.enabled && !s.lastFiredAt) continue
+    if (!s.enabled) continue
+    const src = s.sourceSession ? 'from ' + (s.sourceSession.label || s.sourceSession.key) : ''
     const row: React.ReactNode[] = [
-      React.createElement('div', { key: 'dot', style: { width: 8, height: 8, borderRadius: 4, flexShrink: 0, backgroundColor: s.enabled ? 'var(--q-accent-calendar)' : 'var(--q-text-tertiary)', marginTop: 5 } }),
+      React.createElement('div', { key: 'dot', style: { width: 8, height: 8, borderRadius: 4, flexShrink: 0, backgroundColor: 'var(--q-accent-calendar)', marginTop: 5 } }),
       React.createElement('div', { key: 'mid', style: { flex: 1, minWidth: 0 } }, [
         React.createElement('div', { key: 't', style: { color: 'var(--q-text)', fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, s.title || '(untitled)'),
-        React.createElement('div', { key: 'd', style: { color: 'var(--q-text-tertiary)', fontSize: 11, fontFamily: 'var(--font-interface)', marginTop: 1 } }, fmtWhen(s)),
+        React.createElement('div', { key: 'd', style: { color: 'var(--q-text-tertiary)', fontSize: 11, fontFamily: 'var(--font-interface)', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } },
+          (src ? src + ' · ' : '') + 'agent: ' + (s.agentIds || []).join(', ') + ' · ' + fmtWhen(s)),
       ]),
     ]
-    if (s.enabled) row.push(React.createElement('button', { key: 'run', style: btnText, title: 'Run now', onClick: () => act(async () => { await call('runScheduleNow', { id: s.id }) }) }, React.createElement(Play, { size: 12 })))
+    row.push(React.createElement('button', { key: 'run', style: btnText, title: 'Run now', onClick: () => act(async () => { await call('runScheduleNow', { id: s.id }) }) }, React.createElement(Play, { size: 12 })))
     row.push(React.createElement('button', { key: 'del', style: btnText, title: 'Delete', onClick: () => act(async () => { await call('deleteSchedule', { id: s.id }) }) }, React.createElement(Trash2, { size: 12 })))
     schedRows.push(React.createElement('div', { key: s.id, draggable: true, onDragStart: (e: any) => startDrag(e, s.id), onDragEnd: endDrag, style: { display: 'flex', alignItems: 'flex-start', gap: 8, padding: '7px 10px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-sm)', border: '1px solid ' + (dragId === s.id ? 'var(--q-accent-calendar)' : 'var(--q-border)'), cursor: 'grab', transition: 'none' } }, row))
   }
   const execRows: React.ReactElement[] = []
-  for (const ex of executions.slice(0, 60)) {
+  const doneRows: React.ReactElement[] = []
+  const failRows: React.ReactElement[] = []
+  for (const ex of executions) {
     const row: React.ReactNode[] = [
-      React.createElement(Chip, { key: 'c', color: STATUS_COLOR[ex.status] || 'var(--q-text-tertiary)', text: ex.status || '?' }),
       React.createElement('div', { key: 'mid', style: { flex: 1, minWidth: 0 } }, [
         React.createElement('div', { key: 't', style: { color: 'var(--q-text)', fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, ex.label || ex.id),
-        React.createElement('div', { key: 'd', style: { color: 'var(--q-text-tertiary)', fontSize: 11, fontFamily: 'var(--font-interface)', marginTop: 1 } }, (ex.agentIds || []).join(', ') + ' · ' + fmtTime(ex.createdAt)),
+        React.createElement('div', { key: 'd', style: { color: 'var(--q-text-tertiary)', fontSize: 11, fontFamily: 'var(--font-interface)', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } },
+          'agent: ' + (ex.agentIds || []).join(', ') + ' · ' + fmtTime(ex.createdAt) + (ex.error ? ' · ' + String(ex.error).slice(0, 40) : '')),
       ]),
     ]
-    if (ex.status === 'running' || ex.status === 'queued') row.push(React.createElement('button', { key: 'stop', style: btnText, title: 'Stop (interrupt)', onClick: () => act(async () => { await call('stopExecution', { executionId: ex.id }) }) }, React.createElement(X, { size: 12 })))
-    if (ex.status === 'interrupted') row.push(React.createElement('button', { key: 'res', style: btnText, title: 'Resume', onClick: () => act(async () => { await call('resumeExecution', { executionId: ex.id }) }) }, React.createElement(RotateCcw, { size: 12 })))
-    row.push(React.createElement('button', { key: 'del', style: btnText, title: 'Delete', onClick: () => act(async () => { await call('deleteExecution', { executionId: ex.id }) }) }, React.createElement(Trash2, { size: 12 })))
-    execRows.push(React.createElement('div', { key: ex.id, style: { display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', transition: 'none' } }, row))
+    if (ex.status === 'running' || ex.status === 'queued' || ex.status === 'interrupted') {
+      row.unshift(React.createElement(Chip, { key: 'c', color: STATUS_COLOR[ex.status] || 'var(--q-text-tertiary)', text: ex.status || '?' }))
+      if (ex.status === 'running' || ex.status === 'queued') row.push(React.createElement('button', { key: 'stop', style: btnText, title: 'Stop (interrupt)', onClick: () => act(async () => { await call('stopExecution', { executionId: ex.id }) }) }, React.createElement(X, { size: 12 })))
+      if (ex.status === 'interrupted') row.push(React.createElement('button', { key: 'res', style: btnText, title: 'Resume', onClick: () => act(async () => { await call('resumeExecution', { executionId: ex.id }) }) }, React.createElement(RotateCcw, { size: 12 })))
+      row.push(React.createElement('button', { key: 'del', style: btnText, title: 'Delete', onClick: () => act(async () => { await call('deleteExecution', { executionId: ex.id }) }) }, React.createElement(Trash2, { size: 12 })))
+      execRows.push(React.createElement('div', { key: ex.id, style: { display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', transition: 'none' } }, row))
+    } else if (ex.status === 'completed') {
+      row.unshift(React.createElement('span', { key: 'ok', style: { color: 'var(--q-accent-success)', fontSize: 13, flexShrink: 0 } }, '✓'))
+      row.push(React.createElement('button', { key: 'del', style: btnText, title: 'Delete', onClick: () => act(async () => { await call('deleteExecution', { executionId: ex.id }) }) }, React.createElement(Trash2, { size: 12 })))
+      doneRows.push(React.createElement('div', { key: ex.id, style: { display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', transition: 'none' } }, row))
+    } else {
+      row.unshift(React.createElement(Chip, { key: 'c', color: STATUS_COLOR[ex.status] || 'var(--q-text-tertiary)', text: ex.status || '?' }))
+      row.push(React.createElement('button', { key: 'retry', style: btnText, title: 'Retry / reprogram', onClick: () => act(async () => {
+        if (ex.scheduleId) { await call('runScheduleNow', { id: ex.scheduleId }) }
+        else { await call('runTask', { label: ex.label, agentIds: ex.agentIds, workingDir: ex.workingDir, mode: ex.mode, model: ex.model, text: ex.text }) }
+      }) }, React.createElement(RotateCcw, { size: 12 })))
+      row.push(React.createElement('button', { key: 'del', style: btnText, title: 'Delete', onClick: () => act(async () => { await call('deleteExecution', { executionId: ex.id }) }) }, React.createElement(Trash2, { size: 12 })))
+      failRows.push(React.createElement('div', { key: ex.id, style: { display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', transition: 'none' } }, row))
+    }
   }
+  const section = (key: string, icon: React.ReactElement, title: string, count: number, rows: React.ReactElement[], empty: string, open: boolean, setOpen: (b: boolean) => void) =>
+    React.createElement('div', { key, style: { display: 'flex', flexDirection: 'column', gap: 6 } }, [
+      React.createElement('div', { key: 'h', style: { display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }, onClick: () => setOpen(!open) }, [
+        open ? React.createElement(ChevronDown, { size: 14, style: { color: 'var(--q-text-secondary)' } }) : React.createElement(ChevronRightIcon, { size: 14, style: { color: 'var(--q-text-secondary)' } }),
+        icon,
+        React.createElement('span', { style: { color: 'var(--q-text)', fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-interface)', flex: 1 } }, title),
+        React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: 11, fontFamily: 'var(--font-interface)' } }, '(' + count + ')'),
+      ]),
+      open ? React.createElement('div', { key: 'l', style: { display: 'flex', flexDirection: 'column', gap: 6, maxHeight: '30%', overflowY: 'auto' } }, rows.length ? rows : React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: 12, fontFamily: 'var(--font-interface)', padding: '6px 0' } }, empty)) : null,
+    ])
   const todoPanel = React.createElement('div', {
     style: { width: todoW, flexShrink: 0, alignSelf: 'stretch', display: 'flex', flexDirection: 'column', gap: 10, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)', border: '1px solid var(--q-border)', padding: '12px', overflowY: 'auto', position: 'relative' },
   }, [
-    React.createElement('div', { key: 'sh', style: { display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }, onClick: () => setOpenSched(!openSched) }, [
-      openSched ? React.createElement(ChevronDown, { size: 14, style: { color: 'var(--q-text-secondary)' } }) : React.createElement(ChevronRightIcon, { size: 14, style: { color: 'var(--q-text-secondary)' } }),
-      React.createElement(Clock, { size: 14, style: { color: 'var(--q-accent-calendar)' } }),
-      React.createElement('span', { style: { color: 'var(--q-text)', fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-interface)', flex: 1 } }, 'Scheduled'),
-      React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: 11, fontFamily: 'var(--font-interface)' } }, '(' + schedules.filter((x: any) => x.enabled).length + ')'),
-    ]),
-    openSched ? React.createElement('div', { key: 'sl', style: { display: 'flex', flexDirection: 'column', gap: 6, maxHeight: '45%', overflowY: 'auto' } }, schedRows.length ? schedRows : React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: 12, fontFamily: 'var(--font-interface)', padding: '6px 0' } }, 'Nothing scheduled.')) : null,
-    React.createElement('div', { key: 'eh', style: { display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }, onClick: () => setOpenExec(!openExec) }, [
-      openExec ? React.createElement(ChevronDown, { size: 14, style: { color: 'var(--q-text-secondary)' } }) : React.createElement(ChevronRightIcon, { size: 14, style: { color: 'var(--q-text-secondary)' } }),
-      React.createElement(Bot, { size: 14, style: { color: 'var(--q-accent-calendar)' } }),
-      React.createElement('span', { style: { color: 'var(--q-text)', fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-interface)', flex: 1 } }, 'Executions'),
-      React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: 11, fontFamily: 'var(--font-interface)' } }, '(' + executions.length + ')'),
-    ]),
-    openExec ? React.createElement('div', { key: 'el', style: { display: 'flex', flexDirection: 'column', gap: 6, maxHeight: '45%', overflowY: 'auto' } }, execRows.length ? execRows : React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: 12, fontFamily: 'var(--font-interface)', padding: '6px 0' } }, 'No executions yet.')) : null,
+    section('sched', React.createElement(Clock, { size: 14, style: { color: 'var(--q-accent-calendar)' } }), 'Scheduled', schedules.filter((x: any) => x.enabled).length, schedRows, 'Nothing scheduled.', openSched, setOpenSched),
+    section('exec', React.createElement(Bot, { size: 14, style: { color: 'var(--q-accent-info)' } }), 'Execution', execRows.length, execRows, 'Nothing running.', openExec, setOpenExec),
+    section('done', React.createElement(Check, { size: 14, style: { color: 'var(--q-accent-success)' } }), 'Executed', doneRows.length, doneRows, 'Nothing executed yet.', openDone, setOpenDone),
+    section('fail', React.createElement(X, { size: 14, style: { color: 'var(--q-accent-danger)' } }), 'Failed', failRows.length, failRows, 'Nothing failed.', openFail, setOpenFail),
     React.createElement('div', { key: 'handle', onMouseDown: (e: any) => { e.preventDefault(); dragRef.current = { startX: e.clientX, startW: todoW } }, style: { position: 'absolute', top: 0, right: -3, bottom: 0, width: 6, cursor: 'col-resize', zIndex: 5 } }),
   ])
 

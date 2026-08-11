@@ -24,6 +24,7 @@ export interface ScheduleWhen {
 export interface Schedule {
   id: string;
   title: string;
+  sourceSession?: { key: string; label: string };  // chat da cui è stata schedulata
   agentIds: string[];
   workingDir?: string;
   mode?: string;
@@ -210,6 +211,7 @@ export class Scheduler {
     const s: Schedule = {
       id,
       title: String(p.title || "Scheduled task"),
+      sourceSession: p.sourceSession ? { key: String(p.sourceSession.key || ''), label: String(p.sourceSession.label || '') } : undefined,
       agentIds: Array.isArray(p.agentIds) ? p.agentIds.map((x: string) => String(x).trim()).filter(Boolean)
         : String(p.agentIds || "orchestrator").split(",").map((x: string) => x.trim()).filter(Boolean),
       workingDir: p.workingDir ?? undefined,
