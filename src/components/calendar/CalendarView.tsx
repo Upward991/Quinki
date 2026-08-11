@@ -27,28 +27,54 @@ const cellBorder = '1px solid var(--q-border)'
 
 function fmtDT(ts: number | null | undefined): string { if (!ts) return '—'; const d = new Date(ts); return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false }) }
 function Chip({ color, text }: { color: string; text: string }) { return React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', padding: '1px 8px', borderRadius: 999, fontSize: 10, fontWeight: 600, fontFamily: 'var(--font-interface)', color, border: '1px solid ' + color, backgroundColor: 'transparent', letterSpacing: 0.2, textTransform: 'capitalize', flexShrink: 0 } }, text) }
-function Dropdown({ value, options, onChange, allLabel }: { value: string; options: { value: string; label: string }[]; onChange: (v: string) => void; allLabel: string }) {
+function FilterChip({ label, values, options, onChange }: { label: string; values: string[]; options: string[]; onChange: (v: string[]) => void }) {
   const [open, setOpen] = useState(false)
-  const opts = [{ value: 'all', label: allLabel }, ...options]
-  const cur = opts.find(o => o.value === value) || opts[0]
-  const btnStyle: React.CSSProperties = { height: 26, padding: '0 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 12, fontFamily: 'var(--font-interface)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }
-  const itemStyle = (o: { value: string; label: string }): React.CSSProperties => ({ textAlign: 'left', padding: '6px 8px', borderRadius: 'var(--radius-sm)', border: 'none', cursor: 'pointer', fontSize: 12, fontFamily: 'var(--font-interface)', backgroundColor: o.value === value ? 'var(--q-active)' : 'transparent', color: 'var(--q-text)' })
-  const menu = open ? React.createElement(React.Fragment, { key: 'm' }, [
-    React.createElement('div', { key: 'o', style: { position: 'fixed', inset: 0, zIndex: 150 }, onClick: () => setOpen(false) }),
-    React.createElement('div', { key: 'd', style: { position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 151, minWidth: 140, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: 4, display: 'flex', flexDirection: 'column', gap: 2 } }, opts.map(o => React.createElement('button', { key: o.value, onClick: () => { onChange(o.value); setOpen(false) }, style: itemStyle(o) }, o.label))),
-  ]) : null
-  return React.createElement('div', { style: { position: 'relative', display: 'inline-block' } }, [
-    React.createElement('button', { key: 'b', onClick: () => setOpen(!open), style: btnStyle }, cur.label + (open ? ' ▴' : ' ▾')),
-    menu,
+  const [q, setQ] = useState('')
+  const toggle = (v: string) => onChange(values.includes(v) ? values.filter(x => x !== v) : [...values, v])
+  const sorted = [...options].sort((a, b) => {
+    const ai = values.includes(a) ? 0 : 1
+    const bi = values.includes(b) ? 0 : 1
+    if (ai !== bi) return ai - bi
+    return a.localeCompare(b)
+  })
+  const filtered = sorted.filter(o => !q.trim() || o.toLowerCase().includes(q.trim().toLowerCase()))
+  const has = values.length > 0
+  return React.createElement('div', { style: { position: 'relative', display: 'flex', alignItems: 'center', gap: 2 } }, [
+    React.createElement('button', { key: 'b', onClick: () => { setOpen(!open); setQ('') }, title: label, style: { display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: has ? 'var(--q-active)' : 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 12, fontFamily: 'var(--font-interface)', cursor: 'pointer', maxWidth: 220 } }, [
+      React.createElement('span', { key: 't', style: { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, has ? label + ': ' + values.join(', ') : '> ' + label),
+      React.createElement(ChevronDown, { key: 'a', size: 11, style: { flexShrink: 0, transform: open ? 'rotate(180deg)' : 'none', transition: 'none' } }),
+    ]),
+    has ? React.createElement('button', { key: 'x', title: 'Clear ' + label, onClick: () => onChange([]), style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-tertiary)', padding: 2, display: 'flex' } }, React.createElement(X, { size: 11 })) : null,
+    open ? React.createElement(React.Fragment, { key: 'm' }, [
+      React.createElement('div', { key: 'o', style: { position: 'fixed', inset: 0, zIndex: 150 }, onClick: () => setOpen(false) }),
+      React.createElement('div', { key: 'd', style: { position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 151, minWidth: 200, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: 6, display: 'flex', flexDirection: 'column', gap: 2 } }, [
+        React.createElement('input', { key: 'i', autoFocus: true, value: q, onChange: (e: any) => setQ(e.target.value), placeholder: 'Search ' + label.toLowerCase() + '...', style: { padding: '5px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 12, fontFamily: 'var(--font-interface)', width: '100%', boxSizing: 'border-box', marginBottom: 4 } }),
+        filtered.length === 0 ? React.createElement('div', { key: 'e', style: { color: 'var(--q-text-tertiary)', fontSize: 12, fontFamily: 'var(--font-interface)', padding: '6px 8px' } }, 'No options') :
+          filtered.map(o => React.createElement('label', { key: o, style: { display: 'flex', alignItems: 'center', gap: 6, padding: '3px 6px', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: 12, fontFamily: 'var(--font-interface)', color: 'var(--q-text)', backgroundColor: values.includes(o) ? 'var(--q-active)' : 'transparent' } }, [
+            React.createElement('input', { key: 'c', type: 'checkbox', checked: values.includes(o), onChange: () => toggle(o), style: { accentColor: 'var(--q-tab-accent)', cursor: 'pointer' } }),
+            React.createElement('span', { key: 'l' }, o),
+          ])),
+        values.length > 0 ? React.createElement('button', { key: 'cl', onClick: () => { onChange([]); setOpen(false) }, style: { alignSelf: 'flex-start', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-accent-danger)', fontSize: 12, fontFamily: 'var(--font-interface)', padding: '4px 6px', marginTop: 2 } }, 'Clear') : null,
+      ]),
+    ]) : null,
   ])
 }
 
 interface Item { id: string; kind: 'sched' | 'exec'; title: string; agent: string; chat: string; status: string; when: number | null; error: string; ex?: any }
-interface ViewCfg { id: string; name: string; type: 'table' | 'board'; f: { q: string; status: string; chat: string; agent: string } }
+interface ViewCfg { id: string; name: string; type: 'table' | 'board'; f: { q: string; status: string; agents: string[]; chats: string[] } }
 const BASE_ID = 'v-table'
 const VIEWS_KEY = 'quinki-views-v1'
-function loadViews(): ViewCfg[] { try { const s = localStorage.getItem(VIEWS_KEY); if (s) { const v = JSON.parse(s); if (Array.isArray(v) && v.length) return v } } catch {} return [{ id: BASE_ID, name: 'All', type: 'table', f: { q: '', status: 'all', chat: 'all', agent: 'all' } }] }
-const DEFAULT_VIEWS: ViewCfg[] = [{ id: BASE_ID, name: 'All', type: 'table', f: { q: '', status: 'all', chat: 'all', agent: 'all' } }]
+function normalizeF(f: any): ViewCfg['f'] {
+  const out: ViewCfg['f'] = { q: f?.q || '', status: f?.status || 'all', agents: [], chats: [] }
+  if (Array.isArray(f?.agents)) out.agents = f.agents
+  else if (typeof f?.agent === 'string' && f.agent !== 'all') out.agents = [f.agent]
+  if (Array.isArray(f?.chats)) out.chats = f.chats
+  else if (typeof f?.chat === 'string' && f.chat !== 'all') out.chats = [f.chat]
+  return out
+}
+function normViews(v: any): ViewCfg[] { return (Array.isArray(v) ? v : []).map((x: any) => ({ id: x.id, name: x.name, type: x.type === 'board' ? 'board' : 'table', f: normalizeF(x.f) })) }
+function loadViews(): ViewCfg[] { try { const s = localStorage.getItem(VIEWS_KEY); if (s) { const v = normViews(JSON.parse(s)); if (v.length) return v } } catch {} return [{ id: BASE_ID, name: 'All', type: 'table', f: { q: '', status: 'all', agents: [], chats: [] } }] }
+const DEFAULT_VIEWS: ViewCfg[] = [{ id: BASE_ID, name: 'All', type: 'table', f: { q: '', status: 'all', agents: [], chats: [] } }]
 
 export function CalendarView(props: { activePanel: string; onSelectPanel: (p: string) => void; agents?: any[]; onOpenSession?: (key: string) => void }) {
   const { call, subscribe } = useSidecarContext()
@@ -61,7 +87,9 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const [dragCol, setDragCol] = useState<string | null>(null)
   const [hoverRow, setHoverRow] = useState<string | null>(null)
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
-  const [filterOpen, setFilterOpen] = useState(false)
+  const [filterBarOpen, setFilterBarOpen] = useState(false)
+  const [addedFilters, setAddedFilters] = useState<string[]>(['agent'])
+  const [addFilterOpen, setAddFilterOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [newViewOpen, setNewViewOpen] = useState(false)
   const [fullWidth, setFullWidth] = useState(() => { try { return localStorage.getItem('quinki-tasks-fullwidth') === '1' } catch { return false } })
@@ -74,13 +102,13 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     call('getUiState').then((s: any) => {
       if (!alive || !s) return
       if (typeof s.fullWidth === 'boolean') setFullWidth(s.fullWidth)
-      if (Array.isArray(s.views) && s.views.length) { setViews(s.views); setActiveId(s.views[0].id) }
+      if (Array.isArray(s.views) && s.views.length) { const nv = normViews(s.views); setViews(nv); setActiveId(nv[0].id) }
     }).catch(() => {})
     return () => { alive = false }
   }, [])
 
   const view = views.find(v => v.id === activeId) || views[0]
-  const f = view ? view.f : { q: '', status: 'all', chat: 'all', agent: 'all' }
+  const f = view ? view.f : { q: '', status: 'all', agents: [], chats: [] }
   const persist = (v: ViewCfg[]) => { setViews(v); saveUi(fullWidth, v) }
   const patchF = (patch: Partial<ViewCfg['f']>) => { const v = { ...view, f: { ...view.f, ...patch } }; persist(views.map(x => x.id === v.id ? v : x)) }
 
@@ -99,8 +127,8 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   let filtered = items.filter(i => {
     if (f.q && !(i.title + ' ' + i.agent + ' ' + i.chat).toLowerCase().includes(f.q.toLowerCase())) return false
     if (f.status !== 'all' && bucketOf(i.status) !== f.status) return false
-    if (f.chat !== 'all' && i.chat !== f.chat) return false
-    if (f.agent !== 'all' && i.agent !== f.agent) return false
+    if (f.chats.length > 0 && !f.chats.includes(i.chat)) return false
+    if (f.agents.length > 0 && !f.agents.includes(i.agent)) return false
     return true
   })
   const cmp = (a: Item, b: Item) => { let av: any = (a as any)[sortKey], bv: any = (b as any)[sortKey]; if (typeof av === 'string') av = av.toLowerCase(); if (typeof bv === 'string') bv = bv.toLowerCase(); if (av == null) av = ''; if (bv == null) bv = ''; return av < bv ? -1 * sortDir : av > bv ? 1 * sortDir : 0 }
@@ -160,14 +188,26 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     React.createElement('button', { key: 'n', onClick: () => setActiveId(v.id), style: { background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontSize: 12, fontWeight: 'inherit', fontFamily: 'var(--font-interface)', padding: 0 } }, v.name),
     v.id !== BASE_ID ? React.createElement('button', { key: 'x', onClick: () => { const rem = views.filter(x => x.id !== v.id); persist(rem); if (activeId === v.id) setActiveId(rem[0].id) }, style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-tertiary)', padding: 0, display: 'flex' } }, React.createElement(X, { size: 11 })) : null,
   ])
-  const chip = (label: string, clear: () => void) => React.createElement('span', { key: label, style: { display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 999, fontSize: 11, fontFamily: 'var(--font-interface)', color: 'var(--q-text-secondary)', border: '1px solid var(--q-border)' } }, label, React.createElement('button', { onClick: clear, style: { background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: 0, display: 'flex' } }, React.createElement(X, { size: 10 })))
-  const activeChips: React.ReactNode[] = []
-  if (f.status !== 'all') activeChips.push(chip('status: ' + f.status, () => patchF({ status: 'all' })))
-  if (f.chat !== 'all') activeChips.push(chip('chat: ' + f.chat, () => patchF({ chat: 'all' })))
-  if (f.agent !== 'all') activeChips.push(chip('agent: ' + f.agent, () => patchF({ agent: 'all' })))
-  if (f.q) activeChips.push(chip('search: ' + f.q, () => patchF({ q: '' })))
-
-  const chipsRow = activeChips.length ? React.createElement('div', { key: 'chips', style: { display: 'flex', alignItems: 'center', gap: 4, padding: '0 0 6px 0', flexWrap: 'wrap' } }, activeChips) : null
+  const hasActiveFilters = f.agents.length > 0 || f.chats.length > 0
+  const effAdded = Array.from(new Set([...addedFilters, ...(f.agents.length ? ['agent'] : []), ...(f.chats.length ? ['chat'] : [])]))
+  const canAdd = !effAdded.includes('agent') || !effAdded.includes('chat')
+  const addFilterMenu = (addFilterOpen && canAdd) ? React.createElement(React.Fragment, { key: 'm' }, [
+    React.createElement('div', { key: 'o', style: { position: 'fixed', inset: 0, zIndex: 150 }, onClick: () => setAddFilterOpen(false) }),
+    React.createElement('div', { key: 'd', style: { position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 151, minWidth: 140, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: 4, display: 'flex', flexDirection: 'column', gap: 2 } }, [
+      !effAdded.includes('agent') ? React.createElement('button', { key: 'a', onClick: () => { setAddedFilters([...effAdded, 'agent']); setAddFilterOpen(false) }, style: { textAlign: 'left', padding: '6px 8px', borderRadius: 'var(--radius-sm)', border: 'none', cursor: 'pointer', fontSize: 12, fontFamily: 'var(--font-interface)', backgroundColor: 'transparent', color: 'var(--q-text)' } }, 'Agent') : null,
+      !effAdded.includes('chat') ? React.createElement('button', { key: 'c', onClick: () => { setAddedFilters([...effAdded, 'chat']); setAddFilterOpen(false) }, style: { textAlign: 'left', padding: '6px 8px', borderRadius: 'var(--radius-sm)', border: 'none', cursor: 'pointer', fontSize: 12, fontFamily: 'var(--font-interface)', backgroundColor: 'transparent', color: 'var(--q-text)' } }, 'Chat') : null,
+    ]),
+  ]) : null
+  const filterBar = (filterBarOpen || hasActiveFilters) ? React.createElement('div', { key: 'fbar', style: { display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0 0 0', flexWrap: 'wrap' } }, [
+    React.createElement('span', { key: 'lbl', style: { color: 'var(--q-text-tertiary)', fontSize: 11, fontFamily: 'var(--font-interface)', textTransform: 'uppercase', letterSpacing: 0.4 } }, 'Filters'),
+    effAdded.includes('agent') ? React.createElement(FilterChip, { key: 'fA', label: 'Agent', values: f.agents, options: agents, onChange: (v: string[]) => patchF({ agents: v }) }) : null,
+    effAdded.includes('chat') ? React.createElement(FilterChip, { key: 'fC', label: 'Chat', values: f.chats, options: chats, onChange: (v: string[]) => patchF({ chats: v }) }) : null,
+    canAdd ? React.createElement('div', { key: 'addf', style: { position: 'relative', display: 'flex' } }, [
+      React.createElement('button', { key: 'b', onClick: () => setAddFilterOpen(!addFilterOpen), style: { display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-elevated)', color: 'var(--q-text-secondary)', fontSize: 12, fontFamily: 'var(--font-interface)', cursor: 'pointer' } }, '+ Add filter'),
+      addFilterMenu,
+    ]) : null,
+    hasActiveFilters ? React.createElement('button', { key: 'clr', onClick: () => patchF({ agents: [], chats: [] }), style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-accent-danger)', fontSize: 12, fontFamily: 'var(--font-interface)', padding: '2px 4px' } }, 'Clear') : null,
+  ]) : null
   const toolbar = React.createElement('div', { key: 'tb', style: { display: 'flex', flexDirection: 'column', padding: '4px 0 8px 0' } }, [
     React.createElement('div', { key: 'row', style: { display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'nowrap' } }, [
     ...views.map(viewTab),
@@ -176,29 +216,20 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       newViewOpen ? React.createElement(React.Fragment, { key: 'nv' }, [React.createElement('div', { key: 'o', style: { position: 'fixed', inset: 0, zIndex: 150 }, onClick: () => setNewViewOpen(false) }), React.createElement('div', { key: 'd', style: { position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 151, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: 8, display: 'flex', flexDirection: 'column', gap: 6 } }, [React.createElement('input', { key: 'i', autoFocus: true, placeholder: 'View name', onKeyDown: (e: any) => { if (e.key === 'Enter') addView(e.target.value.trim()) }, style: { padding: '4px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 12, fontFamily: 'var(--font-interface)' } }), React.createElement('button', { key: 'go', onClick: () => { const inp = document.querySelector('input[placeholder="View name"]') as HTMLInputElement; addView(inp?.value?.trim() || '') }, style: { padding: '5px 10px', borderRadius: 'var(--radius-sm)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-tab-accent)', color: 'var(--q-bg)', fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-interface)' } }, 'Create')])]) : null,
     ]),
     React.createElement('span', { key: 'grow', style: { flex: 1 } }),
+    searchOpen ? React.createElement('input', { key: 'si', autoFocus: true, value: f.q, onChange: (e: any) => patchF({ q: e.target.value }), onKeyDown: (e: any) => { if (e.key === 'Escape') setSearchOpen(false) }, placeholder: 'Search activities...', style: { width: 200, padding: '6px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 12, fontFamily: 'var(--font-interface)', flexShrink: 0 } }) : null,
     React.createElement('div', { key: 'right', style: { display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 } }, [
-      React.createElement('div', { key: 'sw', style: { position: 'relative', display: 'flex' } }, [
-        React.createElement('button', { key: 'search', onClick: () => setSearchOpen(!searchOpen), title: 'Search', style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-secondary)', padding: 5, display: 'flex' } }, React.createElement(Search, { size: 14 })),
-        searchOpen ? React.createElement(React.Fragment, { key: 'sp' }, [React.createElement('div', { key: 'o', style: { position: 'fixed', inset: 0, zIndex: 150 }, onClick: () => setSearchOpen(false) }), React.createElement('div', { key: 'd', style: { position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 151, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: 8 } }, React.createElement('input', { key: 'i', autoFocus: true, value: f.q, onChange: (e: any) => patchF({ q: e.target.value }), placeholder: 'Search activities...', style: { padding: '6px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 12, fontFamily: 'var(--font-interface)', width: 200 } }))]) : null,
-      ]),
-      React.createElement('div', { key: 'fw', style: { position: 'relative', display: 'flex' } }, [
-        React.createElement('button', { key: 'filters', onClick: () => setFilterOpen(!filterOpen), title: 'Filters', style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-secondary)', padding: 5, display: 'flex' } }, React.createElement(Filter, { size: 14 })),
-        filterOpen ? React.createElement(React.Fragment, { key: 'fp' }, [React.createElement('div', { key: 'o', style: { position: 'fixed', inset: 0, zIndex: 150 }, onClick: () => setFilterOpen(false) }), React.createElement('div', { key: 'd', style: { position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 151, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: 10, display: 'flex', flexDirection: 'column', gap: 8, minWidth: 190 } }, [
-          React.createElement('div', { key: 'l2', style: { display: 'flex', alignItems: 'center', gap: 6 } }, [React.createElement('span', { style: { color: 'var(--q-text-secondary)', fontSize: 12, fontFamily: 'var(--font-interface)', width: 60 } }, 'Agent'), React.createElement(Dropdown, { value: f.agent, allLabel: 'all', options: agents.map(a => ({ value: a, label: a })), onChange: (v) => patchF({ agent: v }) })]),
-          React.createElement('div', { key: 'l3', style: { display: 'flex', alignItems: 'center', gap: 6 } }, [React.createElement('span', { style: { color: 'var(--q-text-secondary)', fontSize: 12, fontFamily: 'var(--font-interface)', width: 60 } }, 'Chat'), React.createElement(Dropdown, { value: f.chat, allLabel: 'all', options: chats.map(c => ({ value: c, label: c })), onChange: (v) => patchF({ chat: v }) })]),
-          React.createElement('button', { key: 'reset', onClick: () => patchF({ status: 'all', chat: 'all', agent: 'all', q: '' }), style: { alignSelf: 'flex-end', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-accent-danger)', fontSize: 12, fontFamily: 'var(--font-interface)', padding: '2px 4px' } }, 'Reset'),
-        ])]) : null,
-      ]),
+      React.createElement('button', { key: 'search', onClick: () => setSearchOpen(!searchOpen), title: 'Search', style: { background: 'none', border: 'none', cursor: 'pointer', color: f.q ? 'var(--q-tab-accent)' : 'var(--q-text-secondary)', padding: 5, display: 'flex' } }, React.createElement(Search, { size: 14 })),
+      React.createElement('button', { key: 'filters', onClick: () => setFilterBarOpen(!filterBarOpen), title: 'Filters', style: { background: 'none', border: 'none', cursor: 'pointer', color: hasActiveFilters ? 'var(--q-tab-accent)' : 'var(--q-text-secondary)', padding: 5, display: 'flex' } }, React.createElement(Filter, { size: 14 })),
       React.createElement('button', { key: 'fwbtn', onClick: () => { const nv = !fullWidth; setFullWidth(nv); saveUi(nv, views) }, title: fullWidth ? 'Default width' : 'Full width', style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-secondary)', padding: 5, display: 'flex' } }, React.createElement(fullWidth ? Minimize : Maximize, { size: 14 })),
     ]),
   ]),
-  chipsRow,
+  filterBar,
 ])
 
   const IconBtn = ({ icon: Icon, onClick }: { icon: React.FC<any>; onClick: () => void }) => { const [h, setH] = useState(false); return React.createElement('button', { onClick, onMouseEnter: () => setH(true), onMouseLeave: () => setH(false), style: { width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', padding: '0', backgroundColor: h ? 'var(--q-hover)' : 'transparent', color: h ? 'var(--q-text)' : 'var(--q-text-secondary)', transition: 'none' } }, React.createElement(Icon, { size: 20 })) }
 
   return React.createElement('div', { className: 'h-full flex flex-col', style: { width: '100%', position: 'relative', overflow: 'hidden' } }, [
-    React.createElement('div', { key: 'hdrwrap', style: { width: '100%', maxWidth: 'var(--spacing-chat-max)', margin: '0 auto', flexShrink: 0 } }, [
+    React.createElement('div', { key: 'hdrwrap', style: { width: '100%', maxWidth: 'var(--spacing-chat-max)', margin: '0 auto', flexShrink: 0, paddingTop: '4px' } }, [
       React.createElement('div', { key: 'hdr', style: { marginBottom: '8px', display: 'flex', alignItems: 'center', gap: 8, width: '100%' } }, [
         React.createElement('div', { key: 'h1', style: panelStyle }, [React.createElement(IconBtn, { key: 'home', icon: Home, onClick: () => props.onSelectPanel('home') })]),
         React.createElement('div', { key: 'h2', style: { ...panelStyle, flex: 1 } }, [React.createElement('div', { key: 'sp', style: { width: '8px', flexShrink: 0 } }), React.createElement(Checklist, { key: 'ic', size: 18, style: { color: 'var(--q-text-secondary)', flexShrink: 0 } }), React.createElement('div', { key: 'sp2', style: { width: '12px', flexShrink: 0 } }), React.createElement('span', { key: 'ti', style: { color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)' } }, 'Agents Tasks')]),

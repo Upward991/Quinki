@@ -41,6 +41,7 @@ interface ComposerProps {
   chatAgentIds?: string[]
   sessionKey?: string
   onHeightChange?: (h: number) => void
+  onHeightChangeNow?: (h: number) => void
 }
 
 export function Composer(props: ComposerProps) {
@@ -65,6 +66,7 @@ export function Composer(props: ComposerProps) {
       textareaRef.current.style.height = 'auto'
       textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 280) + 'px'
       props.onHeightChange?.(parseFloat(textareaRef.current.style.height) || 0)
+      props.onHeightChangeNow?.(parseFloat(textareaRef.current.style.height) || 0)
     }
   }, [text])
 

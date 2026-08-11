@@ -342,6 +342,7 @@ export function ChatArea(props: ChatAreaProps) {
               onAgentToggle={props.onAgentToggle}
               sessionKey={props.session?.id || ''}
               onHeightChange={setComposerH}
+              onHeightChangeNow={() => { if (scrollRef.current && pinnedRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }}
             />
           </div>
         </>
