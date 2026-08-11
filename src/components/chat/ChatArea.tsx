@@ -2,7 +2,7 @@
 // ChatArea — structure fix: overflow hidden on messages, button outside
 // ============================================================
 
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState, useLayoutEffect } from 'react'
 
 import { messageMatchesFilters } from '../../utils/dateParser'
 import { getContrastColor } from '../../utils/contrast'
