@@ -60,7 +60,6 @@ export function ChatArea(props: ChatAreaProps) {
   // streaming, il pin si scioglie e lo scroll automatico si ferma; rientrando in fondo
   // il pin si rinsalda e lo scroll automatico riprende.
   const pinnedRef = useRef(true)
-  const [composerH, setComposerH] = useState(0)
   const prevSessionIdRef = useRef('')
   const [searchQuery, setSearchQuery] = useState('')
   const [searchDate, setSearchDate] = useState('')
@@ -212,7 +211,7 @@ export function ChatArea(props: ChatAreaProps) {
     const t2 = setTimeout(() => { if (scrollRef.current && pinnedRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 300)
     const t3 = setTimeout(() => { if (scrollRef.current && pinnedRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 500)
     return () => { cancelAnimationFrame(raf1); clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
-  }, [sessionId, msgCount, isEmpty, props.streaming, searchQuery, searchDate, searchTime, props.messages, composerH])
+  }, [sessionId, msgCount, isEmpty, props.streaming, searchQuery, searchDate, searchTime, props.messages])
 
   return (
     <div className="h-full flex flex-col" style={{ maxWidth: 'var(--spacing-chat-max)', margin: '0 auto', width: '100%', position: 'relative' }} onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
@@ -340,7 +339,6 @@ export function ChatArea(props: ChatAreaProps) {
               chatAgentIds={props.selectedAgentIds}
               onAgentToggle={props.onAgentToggle}
               sessionKey={props.session?.id || ''}
-              onHeightChange={setComposerH}
             />
           </div>
         </>

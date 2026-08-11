@@ -138,7 +138,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     { key: 'failed', label: 'Failed', color: 'var(--q-accent-danger)', items: [] },
   ]
   for (const i of filtered) { const b = i.status === 'scheduled' || i.status === 'off' ? 'scheduled' : i.status === 'running' || i.status === 'queued' || i.status === 'interrupted' ? 'running' : i.status === 'completed' ? 'completed' : 'failed'; const g = groups.find(x => x.key === b); if (g) g.items.push(i) }
-  const board = React.createElement('div', { key: 'bd', style: { display: 'flex', gap: 10, alignItems: 'flex-start', flex: 1, minHeight: 0, overflowX: 'auto' } }, groups.map(g => React.createElement('div', { key: g.key, style: { width: 250, flexShrink: 0, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--q-border)', display: 'flex', flexDirection: 'column', maxHeight: '100%' } }, [
+  const board = React.createElement('div', { key: 'bd', style: { display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'flex-start', flex: 1, minHeight: 0 } }, groups.map(g => React.createElement('div', { key: g.key, style: { flex: '1 1 220px', minWidth: 200, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--q-border)', display: 'flex', flexDirection: 'column', maxHeight: '100%' } }, [
     React.createElement('div', { key: 'h', style: { padding: '8px 10px', color: 'var(--q-text)', fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-interface)', borderBottom: '1px solid var(--q-border)', display: 'flex', alignItems: 'center', gap: 6 } }, [React.createElement('span', { style: { width: 8, height: 8, borderRadius: 4, backgroundColor: g.color } }), g.label, React.createElement('span', { style: { color: 'var(--q-text-tertiary)' } }, '(' + g.items.length + ')')]),
     React.createElement('div', { key: 'l', style: { padding: 8, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 } }, g.items.length ? g.items.map(i => React.createElement('div', { key: i.id, style: { backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', padding: 8, display: 'flex', flexDirection: 'column', gap: 4 } }, [
       React.createElement('div', { key: 't', style: { color: 'var(--q-text)', fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-interface)' } }, i.title),
@@ -206,6 +206,6 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
         React.createElement('span', { key: 'ti', style: { color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)' } }, 'Agents Tasks'),
       ]),
     ]),
-    React.createElement('div', { key: 'body', style: { flex: 1, minHeight: 0, padding: '0 0 8px 0', display: 'flex', justifyContent: 'center' } }, [React.createElement('div', { key: 'dbwrap', style: { width: '100%', maxWidth: 'var(--spacing-chat-max)', display: 'flex', flexDirection: 'column' } }, [dbPanel])]),
+    React.createElement('div', { key: 'body', style: { flex: 1, minHeight: 0, padding: '0 0 8px 0', display: 'flex', justifyContent: 'center' } }, [React.createElement('div', { key: 'dbwrap', style: { width: '100%', display: 'flex', flexDirection: 'column' } }, [dbPanel])]),
   ])
 }
