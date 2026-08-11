@@ -31,9 +31,15 @@ function Dropdown({ value, options, onChange, allLabel }: { value: string; optio
   const [open, setOpen] = useState(false)
   const opts = [{ value: 'all', label: allLabel }, ...options]
   const cur = opts.find(o => o.value === value) || opts[0]
+  const btnStyle: React.CSSProperties = { height: 26, padding: '0 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 12, fontFamily: 'var(--font-interface)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }
+  const itemStyle = (o: { value: string; label: string }): React.CSSProperties => ({ textAlign: 'left', padding: '6px 8px', borderRadius: 'var(--radius-sm)', border: 'none', cursor: 'pointer', fontSize: 12, fontFamily: 'var(--font-interface)', backgroundColor: o.value === value ? 'var(--q-active)' : 'transparent', color: 'var(--q-text)' })
+  const menu = open ? React.createElement(React.Fragment, { key: 'm' }, [
+    React.createElement('div', { key: 'o', style: { position: 'fixed', inset: 0, zIndex: 150 }, onClick: () => setOpen(false) }),
+    React.createElement('div', { key: 'd', style: { position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 151, minWidth: 140, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: 4, display: 'flex', flexDirection: 'column', gap: 2 } }, opts.map(o => React.createElement('button', { key: o.value, onClick: () => { onChange(o.value); setOpen(false) }, style: itemStyle(o) }, o.label))),
+  ]) : null
   return React.createElement('div', { style: { position: 'relative', display: 'inline-block' } }, [
-    React.createElement('button', { key: 'b', onClick: () => setOpen(!open), style: { height: 26, padding: '0 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 12, fontFamily: 'var(--font-interface)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 } }, cur.label + (open ? ' ▴' : ' ▾')),
-    open ? React.createElement(React.Fragment, { key: 'm' }, [React.createElement('div', { key: 'o', style: { position: 'fixed', inset: 0, zIndex: 150 }, onClick: () => setOpen(false) }), React.createElement('div', { key: 'd', style: { position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 151, minWidth: 140, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: 4, display: 'flex', flexDirection: 'column', gap: 2 } }, opts.map(o => React.createElement('button', { key: o.value, onClick: () => { onChange(o.value); setOpen(false) }, style: { textAlign: 'left', padding: '6px 8px', borderRadius: 'var(--radius-sm)', border: 'none', cursor: 'pointer', fontSize: 12, fontFamily: 'var(--font-interface)', backgroundColor: o.value === value ? 'var(--q-active)' : 'transparent', color: 'var(--q-text)' } }, o.label)))])) : null,
+    React.createElement('button', { key: 'b', onClick: () => setOpen(!open), style: btnStyle }, cur.label + (open ? ' ▴' : ' ▾')),
+    menu,
   ])
 }
 
