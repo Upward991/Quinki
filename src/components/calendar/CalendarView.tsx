@@ -41,7 +41,7 @@ function FilterChip({ label, values, options, onChange }: { label: string; value
   const has = values.length > 0
   return React.createElement('div', { style: { position: 'relative', display: 'flex', alignItems: 'center', gap: 2 } }, [
     React.createElement('button', { key: 'b', onClick: () => { setOpen(!open); setQ('') }, title: label, style: { display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: has ? 'var(--q-active)' : 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 12, fontFamily: 'var(--font-interface)', cursor: 'pointer', maxWidth: 220 } }, [
-      React.createElement('span', { key: 't', style: { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, has ? label + ': ' + values.join(', ') : '> ' + label),
+      React.createElement('span', { key: 't', style: { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, has ? label + ': ' + values.join(', ') : label),
       React.createElement(ChevronDown, { key: 'a', size: 11, style: { flexShrink: 0, transform: open ? 'rotate(180deg)' : 'none', transition: 'none' } }),
     ]),
     has ? React.createElement('button', { key: 'x', title: 'Clear ' + label, onClick: () => onChange([]), style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-tertiary)', padding: 2, display: 'flex' } }, React.createElement(X, { size: 11 })) : null,
@@ -88,8 +88,6 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const [hoverRow, setHoverRow] = useState<string | null>(null)
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
   const [filterBarOpen, setFilterBarOpen] = useState(false)
-  const [addedFilters, setAddedFilters] = useState<string[]>(['agent'])
-  const [addFilterOpen, setAddFilterOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [newViewOpen, setNewViewOpen] = useState(false)
   const [fullWidth, setFullWidth] = useState(() => { try { return localStorage.getItem('quinki-tasks-fullwidth') === '1' } catch { return false } })
@@ -189,23 +187,9 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     v.id !== BASE_ID ? React.createElement('button', { key: 'x', onClick: () => { const rem = views.filter(x => x.id !== v.id); persist(rem); if (activeId === v.id) setActiveId(rem[0].id) }, style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-tertiary)', padding: 0, display: 'flex' } }, React.createElement(X, { size: 11 })) : null,
   ])
   const hasActiveFilters = f.agents.length > 0 || f.chats.length > 0
-  const effAdded = Array.from(new Set([...addedFilters, ...(f.agents.length ? ['agent'] : []), ...(f.chats.length ? ['chat'] : [])]))
-  const canAdd = !effAdded.includes('agent') || !effAdded.includes('chat')
-  const addFilterMenu = (addFilterOpen && canAdd) ? React.createElement(React.Fragment, { key: 'm' }, [
-    React.createElement('div', { key: 'o', style: { position: 'fixed', inset: 0, zIndex: 150 }, onClick: () => setAddFilterOpen(false) }),
-    React.createElement('div', { key: 'd', style: { position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 151, minWidth: 140, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: 4, display: 'flex', flexDirection: 'column', gap: 2 } }, [
-      !effAdded.includes('agent') ? React.createElement('button', { key: 'a', onClick: () => { setAddedFilters([...effAdded, 'agent']); setAddFilterOpen(false) }, style: { textAlign: 'left', padding: '6px 8px', borderRadius: 'var(--radius-sm)', border: 'none', cursor: 'pointer', fontSize: 12, fontFamily: 'var(--font-interface)', backgroundColor: 'transparent', color: 'var(--q-text)' } }, 'Agent') : null,
-      !effAdded.includes('chat') ? React.createElement('button', { key: 'c', onClick: () => { setAddedFilters([...effAdded, 'chat']); setAddFilterOpen(false) }, style: { textAlign: 'left', padding: '6px 8px', borderRadius: 'var(--radius-sm)', border: 'none', cursor: 'pointer', fontSize: 12, fontFamily: 'var(--font-interface)', backgroundColor: 'transparent', color: 'var(--q-text)' } }, 'Chat') : null,
-    ]),
-  ]) : null
-  const filterBar = (filterBarOpen || hasActiveFilters) ? React.createElement('div', { key: 'fbar', style: { display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0 0 0', flexWrap: 'wrap' } }, [
-    React.createElement('span', { key: 'lbl', style: { color: 'var(--q-text-tertiary)', fontSize: 11, fontFamily: 'var(--font-interface)', textTransform: 'uppercase', letterSpacing: 0.4 } }, 'Filters'),
-    effAdded.includes('agent') ? React.createElement(FilterChip, { key: 'fA', label: 'Agent', values: f.agents, options: agents, onChange: (v: string[]) => patchF({ agents: v }) }) : null,
-    effAdded.includes('chat') ? React.createElement(FilterChip, { key: 'fC', label: 'Chat', values: f.chats, options: chats, onChange: (v: string[]) => patchF({ chats: v }) }) : null,
-    canAdd ? React.createElement('div', { key: 'addf', style: { position: 'relative', display: 'flex' } }, [
-      React.createElement('button', { key: 'b', onClick: () => setAddFilterOpen(!addFilterOpen), style: { display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-elevated)', color: 'var(--q-text-secondary)', fontSize: 12, fontFamily: 'var(--font-interface)', cursor: 'pointer' } }, '+ Add filter'),
-      addFilterMenu,
-    ]) : null,
+  const filterBar = (filterBarOpen || hasActiveFilters) ? React.createElement('div', { key: 'fbar', style: { display: 'flex', alignItems: 'center', gap: 6, padding: '8px 0 0 0', flexWrap: 'wrap' } }, [
+    React.createElement(FilterChip, { key: 'fA', label: 'Agent', values: f.agents, options: agents, onChange: (v: string[]) => patchF({ agents: v }) }),
+    React.createElement(FilterChip, { key: 'fC', label: 'Chat', values: f.chats, options: chats, onChange: (v: string[]) => patchF({ chats: v }) }),
     hasActiveFilters ? React.createElement('button', { key: 'clr', onClick: () => patchF({ agents: [], chats: [] }), style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-accent-danger)', fontSize: 12, fontFamily: 'var(--font-interface)', padding: '2px 4px' } }, 'Clear') : null,
   ]) : null
   const toolbar = React.createElement('div', { key: 'tb', style: { display: 'flex', flexDirection: 'column', padding: '4px 0 8px 0' } }, [
@@ -222,6 +206,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       React.createElement('button', { key: 'filters', onClick: () => setFilterBarOpen(!filterBarOpen), title: 'Filters', style: { background: 'none', border: 'none', cursor: 'pointer', color: hasActiveFilters ? 'var(--q-tab-accent)' : 'var(--q-text-secondary)', padding: 5, display: 'flex' } }, React.createElement(Filter, { size: 14 })),
       React.createElement('button', { key: 'fwbtn', onClick: () => { const nv = !fullWidth; setFullWidth(nv); saveUi(nv, views) }, title: fullWidth ? 'Default width' : 'Full width', style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-secondary)', padding: 5, display: 'flex' } }, React.createElement(fullWidth ? Minimize : Maximize, { size: 14 })),
     ]),
+    React.createElement('div', { key: 'sep', style: { height: 1, backgroundColor: 'var(--q-border)', marginTop: 6 } }),
   ]),
   filterBar,
 ])
