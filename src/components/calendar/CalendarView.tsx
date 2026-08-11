@@ -46,7 +46,7 @@ function Dropdown({ value, options, onChange, allLabel }: { value: string; optio
 interface Item { id: string; kind: 'sched' | 'exec'; title: string; agent: string; chat: string; status: string; when: number | null; error: string; ex?: any }
 
 const COLS: { key: string; label: string }[] = [
-  { key: 'title', label: 'Title' }, { key: 'agent', label: 'Agent' }, { key: 'chat', label: 'Chat' }, { key: 'status', label: 'Status' }, { key: 'when', label: 'When' }, { key: 'error', label: 'Result' }, { key: 'x', label: '' },
+  { key: 'title', label: 'Title' }, { key: 'agent', label: 'Agent' }, { key: 'chat', label: 'Chat' }, { key: 'status', label: 'Status' }, { key: 'when', label: 'When' }, { key: 'error', label: 'Result' },
 ]
 
 export function CalendarView(props: { activePanel: string; onSelectPanel: (p: string) => void; agents?: any[]; onOpenSession?: (key: string) => void }) {
@@ -122,10 +122,12 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   }))
   const tbody = filtered.map(i => React.createElement('tr', { key: i.id, onMouseEnter: () => setHoverRow(i.id), onMouseLeave: () => setHoverRow(null), style: { backgroundColor: hoverRow === i.id ? 'var(--q-hover)' : 'transparent', transition: 'none' } }, cols.map((k, idx) => {
     const isHov = hoverRow === i.id
-    const cell = cellVal(i, k)
-    return React.createElement('td', { key: k, style: { ...cellStyle('left', idx < cols.length - 1), maxWidth: k === 'x' ? undefined : 220, opacity: k === 'x' ? (isHov ? 1 : 0) : 1 } }, k === 'x' && !isHov ? React.createElement('span', {}, ' ') : cell)
+    if (k === 'title') {
+      return React.createElement('td', { key: k, style: cellStyle('left', idx < cols.length - 1) }, React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } }, [React.createElement('span', { key: 't', style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--q-text)' } }, i.title), isHov ? React.createElement('span', { key: 'a' }, actions(i)) : null]))
+    }
+    return React.createElement('td', { key: k, style: cellStyle('left', idx < cols.length - 1) }, cellVal(i, k))
   })))
-  const tableWrap = React.createElement('div', { key: 'tbl', style: { width: '100%', overflowX: 'auto' } }, React.createElement('table', { style: { width: 'auto', margin: '0 auto', borderCollapse: 'collapse', minWidth: 560, maxWidth: '100%' } }, [
+  const tableWrap = React.createElement('div', { key: 'tbl', style: { width: '100%', overflowX: 'auto' } }, React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' } }, [
     React.createElement('thead', { key: 'th' }, thead),
     React.createElement('tbody', { key: 'tb' }, tbody.length ? tbody : React.createElement('tr', { key: 'e' }, React.createElement('td', { colSpan: cols.length, style: { padding: 20, textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', border: 'none' } }, 'No activities match the filters.'))),
   ]))
