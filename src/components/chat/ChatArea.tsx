@@ -208,10 +208,11 @@ export function ChatArea(props: ChatAreaProps) {
     // timeout multipli: servono all'apertura della chat (contenuto carica in più passate);
     // OGNI volta ricontrollano pinned → durante lo streaming NON riscendono se hai scrollato su.
     const raf1 = requestAnimationFrame(() => { if (scrollRef.current && pinnedRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight })
-    const t1 = setTimeout(() => { if (scrollRef.current && pinnedRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 100)
-    const t2 = setTimeout(() => { if (scrollRef.current && pinnedRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 300)
-    const t3 = setTimeout(() => { if (scrollRef.current && pinnedRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 500)
-    return () => { cancelAnimationFrame(raf1); clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
+    const raf2 = requestAnimationFrame(() => { if (scrollRef.current && pinnedRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight })
+    const t1 = setTimeout(() => { if (scrollRef.current && pinnedRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 120)
+    const t2 = setTimeout(() => { if (scrollRef.current && pinnedRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 250)
+    const t3 = setTimeout(() => { if (scrollRef.current && pinnedRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 450)
+    return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
   }, [sessionId, msgCount, isEmpty, props.streaming, searchQuery, searchDate, searchTime, props.messages, composerH])
 
   return (
@@ -309,7 +310,7 @@ export function ChatArea(props: ChatAreaProps) {
         <>
           {/* Messages */}
           {/* minHeight:0 = flex shrink corretto (composer non spinto fuori); overflow visible = shadow auto-scroll non clippata */}
-          <div style={{ flex: 1, minHeight: 0, overflow: 'visible', position: 'relative' }}>
+          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative' }}>
             <div ref={scrollRef} className="q-scroll" style={{ height: '100%', overflowY: 'auto', padding: '4px 16px 0 16px', scrollbarGutter: 'stable' }}
               onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100); pinnedRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 120 }}>
               {props.messages.map((msg, mIdx) => (
