@@ -510,6 +510,16 @@ fn sync_expert_app() -> Result<String, String> {
         return Err("Sync failed: Expert sidecar binary is missing after copy.".to_string());
     }
     
+    // FIX nome: il sync DEVE aggiornare anche CFBundleName/DisplayName (altrimenti
+    // l'Expert resta "Quinki Expert" nel menu Uscita forzata di macOS).
+    let plist = format!("{}/Contents/Info.plist", expert_app);
+    let _ = std::process::Command::new("/usr/libexec/PlistBuddy")
+        .args(["-c", "Set :CFBundleName App Expert", &plist])
+        .output();
+    let _ = std::process::Command::new("/usr/libexec/PlistBuddy")
+        .args(["-c", "Set :CFBundleDisplayName App Expert", &plist])
+        .output();
+
     // Scrive il flag SOLO dopo la verifica: l'App Expert mostrerà il badge di riavvio
     let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
     let flag = format!("{}/.quinki/.expert-needs-restart", home);
