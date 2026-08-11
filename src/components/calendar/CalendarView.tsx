@@ -181,7 +181,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
           React.createElement('div', { key: 'x', style: { display: 'flex', justifyContent: 'flex-end', marginTop: 2 } }, actions(i)),
         ])) : React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: 12, fontFamily: 'var(--font-interface)', padding: 8 } }, '—'),
       ),
-    ]))
+    ])))
 
   // === VISTA CALENDARIO (per giorno) ===
   const byDay: Record<string, Item[]> = {}
