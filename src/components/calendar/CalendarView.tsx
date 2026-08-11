@@ -19,7 +19,7 @@ const GROUP_DEFS: { key: string; label: string; color: string }[] = [
   { key: 'failed', label: 'Failed', color: 'var(--q-accent-danger)' },
   { key: 'cancelled', label: 'Cancelled', color: 'var(--q-text-tertiary)' },
 ]
-const COLS: { key: string; label: string }[] = [{ key: 'title', label: 'Title' }, { key: 'when', label: 'When' }, { key: 'agent', label: 'Agent' }, { key: 'chat', label: 'Chat' }, { key: 'status', label: 'Status' }, { key: 'error', label: 'Result' }]
+const COLS: { key: string; label: string }[] = [{ key: 'time', label: 'Time' }, { key: 'date', label: 'Date' }, { key: 'title', label: 'Task' }, { key: 'agent', label: 'Agent' }, { key: 'chat', label: 'Chat' }]
 
 const panelStyle: React.CSSProperties = { backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)', padding: '8px', minHeight: 'var(--spacing-header-min)', display: 'flex', alignItems: 'center' }
 const btnText: React.CSSProperties = { background: 'none', border: 'none', color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', cursor: 'pointer', padding: '2px', display: 'inline-flex', alignItems: 'center', gap: 3 }
@@ -55,7 +55,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const [executions, setExecutions] = useState<any[]>([])
   const [views, setViews] = useState<ViewCfg[]>(loadViews)
   const [activeId, setActiveId] = useState<string>(() => { const v = loadViews(); return v[0]?.id || BASE_ID })
-  const [sortKey, setSortKey] = useState<string>('when'); const [sortDir, setSortDir] = useState<1 | -1>(1)
+  const [sortKey, setSortKey] = useState<string>('time'); const [sortDir, setSortDir] = useState<1 | -1>(-1)
   const [cols, setCols] = useState<string[]>(COLS.map(c => c.key))
   const [dragCol, setDragCol] = useState<string | null>(null)
   const [hoverRow, setHoverRow] = useState<string | null>(null)
@@ -99,7 +99,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     else { if (i.status === 'running' || i.status === 'queued') b.push(React.createElement('button', { key: 'stop', style: btnText, title: 'Stop', onClick: () => act(async () => { await call('stopExecution', { executionId: i.id }) }) }, React.createElement(X, { size: 12 }))); if (i.status === 'interrupted') b.push(React.createElement('button', { key: 'res', style: btnText, title: 'Resume', onClick: () => act(async () => { await call('resumeExecution', { executionId: i.id }) }) }, React.createElement(RotateCcw, { size: 12 }))); if (i.status === 'failed' || i.status === 'cancelled') b.push(React.createElement('button', { key: 'retry', style: btnText, title: 'Retry', onClick: () => act(async () => { if (i.ex?.scheduleId) await call('runScheduleNow', { id: i.ex.scheduleId }); else await call('runTask', { label: i.ex.label, agentIds: i.ex.agentIds, workingDir: i.ex.workingDir, mode: i.ex.mode, model: i.ex.model, text: i.ex.text }) }) }, React.createElement(RotateCcw, { size: 12 }))); b.push(React.createElement('button', { key: 'del', style: btnText, title: 'Delete', onClick: () => act(async () => { await call('deleteExecution', { executionId: i.id }) }) }, React.createElement(Trash2, { size: 12 }))) }
     return React.createElement('div', { key: 'acts', style: { display: 'flex', gap: 4 } }, b)
   }
-  const cellVal = (i: Item, key: string): React.ReactNode => { if (key === 'title') return i.title; if (key === 'when') return fmtDT(i.when); if (key === 'agent') return i.agent; if (key === 'chat') return i.chat; if (key === 'status') return React.createElement(Chip, { color: STATUS_COLOR[i.status] || 'var(--q-text-tertiary)', text: i.status || '?' }); if (key === 'error') return React.createElement('span', { style: { color: 'var(--q-accent-danger)', fontSize: 11, fontFamily: 'var(--font-interface)' } }, i.error); return '' }
+  const cellVal = (i: Item, key: string): React.ReactNode => { if (key === 'time') return i.when ? new Date(i.when).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false }) : '—'; if (key === 'date') return i.when ? new Date(i.when).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '—'; if (key === 'title') return i.title; if (key === 'agent') return i.agent; if (key === 'chat') return i.chat; return '' }
   const cellStyle = (align = 'left', rightBorder = true): React.CSSProperties => ({ padding: '7px 10px', borderBottom: cellBorder, borderRight: rightBorder ? cellBorder : 'none', color: 'var(--q-text-secondary)', fontSize: 12, fontFamily: 'var(--font-interface)', textAlign: align as any, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' })
 
   // Tabella per un gruppo (header colonne + righe) — la stessa struttura in ogni toggle
