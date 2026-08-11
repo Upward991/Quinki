@@ -66,6 +66,17 @@ fn __toggle_maximize(window: tauri::WebviewWindow) {
 fn set_window_bg_color(_window: tauri::WebviewWindow, _color: String) {}
 
 #[tauri::command]
+fn save_window_state(width: f64, height: f64, x: f64, y: f64, maximized: bool) -> Result<(), String> {
+    let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+    let dir = format!("{}/.quinki", home);
+    let _ = std::fs::create_dir_all(&dir);
+    let path = format!("{}/window-state.json", dir);
+    let state = serde_json::json!({ "width": width, "height": height, "x": x, "y": y, "maximized": maximized });
+    std::fs::write(&path, serde_json::to_string_pretty(&state).map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn export_chat_file(window: tauri::WebviewWindow, content: String, filename: String, extension: String) -> Result<String, String> {
     use rfd::FileDialog;
     let filter_name = if extension == "md" { "Markdown" } else { "HTML" };
@@ -887,6 +898,7 @@ pub fn run() {
     let app = tauri::Builder::default()
     .invoke_handler(tauri::generate_handler![
         set_window_bg_color,
+        save_window_state,
         __drag_window,
         __toggle_maximize,
         export_chat_file,
@@ -996,6 +1008,31 @@ pub fn run() {
           let ns_color_cls = objc::class!(NSColor);
           let bg: id = msg_send![ns_color_cls, colorWithDeviceRed: 0.031f64 green: 0.031f64 blue: 0.043f64 alpha: 1.0f64];
           let _: () = msg_send![ns_window, setBackgroundColor: bg];
+        }
+      }
+
+      // === Window state: ripristina la main window dal nostro save (sopravvive ai kill) ===
+      {
+        let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+        let path = format!("{}/.quinki/window-state.json", home);
+        if let Ok(content) = std::fs::read_to_string(&path) {
+          if let Ok(state) = serde_json::from_str::<serde_json::Value>(&content) {
+            let w = state.get("width").and_then(|v| v.as_f64());
+            let h = state.get("height").and_then(|v| v.as_f64());
+            if let (Some(w), Some(h)) = (w, h) {
+              if let Some(win) = app.get_webview_window("main") {
+                let _ = win.unmaximize();
+                let _ = win.unfullscreen();
+                let _ = win.set_size(tauri::LogicalSize::new(w, h));
+                if let (Some(x), Some(y)) = (state.get("x").and_then(|v| v.as_f64()), state.get("y").and_then(|v| v.as_f64())) {
+                  let _ = win.set_position(tauri::LogicalPosition::new(x, y));
+                }
+                if state.get("maximized").and_then(|v| v.as_bool()).unwrap_or(false) {
+                  let _ = win.maximize();
+                }
+              }
+            }
+          }
         }
       }
 

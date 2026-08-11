@@ -62,7 +62,7 @@ function FilterChip({ label, values, options, onChange }: { label: string; value
 
 function RowBtn({ title, onClick, children, color }: { title: string; onClick: () => void; children: React.ReactNode; color?: string }) {
   const [h, setH] = useState(false)
-  return React.createElement('button', { title, onClick, onMouseEnter: () => setH(true), onMouseLeave: () => setH(false), style: { background: h ? 'var(--q-hover)' : 'none', border: 'none', cursor: 'pointer', color: color || 'var(--q-text-secondary)', padding: 6, display: 'flex', borderRadius: 'var(--radius-sm)', flexShrink: 0, transition: 'none' } }, children)
+  return React.createElement('button', { title, onClick, onMouseEnter: () => setH(true), onMouseLeave: () => setH(false), style: { background: h ? 'var(--q-hover)' : 'none', border: 'none', cursor: 'pointer', color: color || 'var(--q-text-secondary)', padding: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-sm)', flexShrink: 0, transition: 'none' } }, children)
 }
 function ViewTab({ v, active, onSelect, onDelete }: { v: ViewCfg; active: boolean; onSelect: () => void; onDelete: () => void }) {
   const [h, setH] = useState(false)
@@ -137,7 +137,9 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const goView = (dir: 1 | -1) => {
     const idx = views.findIndex(v => v.id === activeId)
     if (idx === -1 || views.length === 0) return
-    const next = views[(idx + dir + views.length) % views.length]
+    const nextIdx = idx + dir
+    if (nextIdx < 0 || nextIdx >= views.length) return
+    const next = views[nextIdx]
     setActiveId(next.id)
     requestAnimationFrame(() => {
       const el = tabsRef.current
@@ -262,10 +264,10 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
         React.createElement('div', { key: 'h2', style: { ...panelStyle, flex: 1 } }, [React.createElement('div', { key: 'sp', style: { width: '8px', flexShrink: 0 } }), React.createElement(Checklist, { key: 'ic', size: 18, style: { color: 'var(--q-text-secondary)', flexShrink: 0 } }), React.createElement('div', { key: 'sp2', style: { width: '16px', flexShrink: 0 } }), React.createElement('span', { key: 'ti', style: { color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)' } }, 'Agents Tasks')]),
       ]),
     ]),
-    React.createElement('div', { key: 'body', style: { flex: 1, minHeight: 0, padding: '0 0 8px 0', overflowY: 'auto' } }, [
+    React.createElement('div', { key: 'body', style: { flex: 1, minHeight: 0, padding: '0 0 8px 0', overflowY: 'auto', scrollbarGutter: 'stable' } }, [
       React.createElement('div', { key: 'dbwrap', style: { width: '100%', maxWidth: fullWidth ? '100%' : 'calc(var(--spacing-chat-max) - 32px)', margin: '0 auto', display: 'flex', flexDirection: 'column' } }, [
         toolbar,
-        React.createElement('div', { key: 'content', style: { flex: 1, minHeight: 0, overflowY: 'auto' } }, view.type === 'table' ? tableWrap : board),
+        React.createElement('div', { key: 'content', style: { flex: 1, minHeight: 0, overflowY: 'auto', scrollbarGutter: 'stable' } }, view.type === 'table' ? tableWrap : board),
       ]),
     ]),
     deleteView ? React.createElement('div', { key: 'dv', style: { position: 'fixed', inset: 0, zIndex: 300, backgroundColor: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: () => setDeleteView(null) }, React.createElement('div', { style: { backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '20px 24px', minWidth: 320, maxWidth: 400 }, onClick: (e: any) => e.stopPropagation() }, [
