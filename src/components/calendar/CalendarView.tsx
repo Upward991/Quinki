@@ -28,6 +28,21 @@ function Chip({ color, text }: { color: string; text: string }) {
   return React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', padding: '1px 8px', borderRadius: 999, fontSize: 10, fontWeight: 600, fontFamily: 'var(--font-interface)', color, border: '1px solid ' + color, backgroundColor: 'transparent', letterSpacing: 0.2, textTransform: 'capitalize', flexShrink: 0 } }, text)
 }
 
+function Dropdown({ value, options, onChange, allLabel }: { value: string; options: { value: string; label: string }[]; onChange: (v: string) => void; allLabel: string }) {
+  const [open, setOpen] = useState(false)
+  const opts = [{ value: 'all', label: allLabel }, ...options]
+  const cur = opts.find(o => o.value === value) || opts[0]
+  const btnStyle: React.CSSProperties = { height: 28, padding: '0 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 12, fontFamily: 'var(--font-interface)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }
+  return React.createElement('div', { style: { position: 'relative', display: 'inline-block' } }, [
+    React.createElement('button', { key: 'b', onClick: () => setOpen(!open), style: btnStyle }, cur.label + (open ? ' ▴' : ' ▾')),
+    open ? React.createElement(React.Fragment, { key: 'm' }, [
+      React.createElement('div', { key: 'o', style: { position: 'fixed', inset: 0, zIndex: 150 }, onClick: () => setOpen(false) }),
+      React.createElement('div', { key: 'd', style: { position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 151, minWidth: 140, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: 4, display: 'flex', flexDirection: 'column', gap: 2 } },
+        opts.map(o => React.createElement('button', { key: o.value, onClick: () => { onChange(o.value); setOpen(false) }, style: { textAlign: 'left', padding: '6px 8px', borderRadius: 'var(--radius-sm)', border: 'none', cursor: 'pointer', fontSize: 12, fontFamily: 'var(--font-interface)', backgroundColor: o.value === value ? 'var(--q-active)' : 'transparent', color: 'var(--q-text)' } }, o.label))),
+    ]) : null,
+  ])
+}
+
 interface Item { id: string; kind: 'sched' | 'exec'; title: string; agent: string; chat: string; status: string; when: number | null; error: string; ex?: any }
 
 const COLS: { key: string; label: string }[] = [
@@ -165,8 +180,8 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       React.createElement(Search, { size: 13, style: { color: 'var(--q-text-tertiary)' } }),
       React.createElement('input', { value: q, onChange: (e: any) => setQ(e.target.value), placeholder: 'Search...', style: { background: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: 12, fontFamily: 'var(--font-interface)', padding: '6px 8px', width: 130 } }),
     ]),
-    React.createElement('select', { value: statusF, onChange: (e: any) => setStatusF(e.target.value), style: selectStyle }, ['all', 'scheduled', 'running', 'completed', 'failed'].map(s => React.createElement('option', { key: s, value: s }, s === 'all' ? 'Status: all' : s))),
-    React.createElement('select', { value: chatF, onChange: (e: any) => setChatF(e.target.value), style: selectStyle }, [React.createElement('option', { key: 'all', value: 'all' }, 'Chat: all'), ...chats.map(c => React.createElement('option', { key: c, value: c }, c))]),
+    React.createElement(Dropdown, { key: 'st', value: statusF, allLabel: 'Status: all', options: ['scheduled', 'running', 'completed', 'failed'].map(s => ({ value: s, label: s })), onChange: setStatusF }),
+    React.createElement(Dropdown, { key: 'ch', value: chatF, allLabel: 'Chat: all', options: chats.map(c => ({ value: c, label: c })), onChange: setChatF }),
     React.createElement('button', { key: 'refresh', onClick: () => act(async () => {}), style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-secondary)', padding: 4, display: 'flex' } }, React.createElement(RefreshCw, { size: 14 })),
   ])
 
@@ -191,6 +206,6 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
         React.createElement('span', { key: 'ti', style: { color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)' } }, 'Agents Tasks'),
       ]),
     ]),
-    React.createElement('div', { key: 'body', style: { flex: 1, minHeight: 0, padding: '0 0 8px 0', display: 'flex' } }, [dbPanel]),
+    React.createElement('div', { key: 'body', style: { flex: 1, minHeight: 0, padding: '0 0 8px 0', display: 'flex', justifyContent: 'center' } }, [React.createElement('div', { key: 'dbwrap', style: { width: '100%', maxWidth: 'var(--spacing-chat-max)', display: 'flex', flexDirection: 'column' } }, [dbPanel])]),
   ])
 }

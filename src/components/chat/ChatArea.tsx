@@ -204,11 +204,11 @@ export function ChatArea(props: ChatAreaProps) {
     // precedenti durante lo streaming). Rientrerà in automatico quando torna in fondo.
     if (!pinnedRef.current) return
     scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-    const raf1 = requestAnimationFrame(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight })
-    const t1 = setTimeout(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 100)
-    const t2 = setTimeout(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 300)
-    const t3 = setTimeout(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 500)
-    return () => { cancelAnimationFrame(raf1); clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
+    // scroll SOLO se l'utente è ancora in fondo (pinned): i timeout NÃO devono
+    // riscendere se nel frattempo l'utente ha scrollato su (era la causa del jump).
+    const raf1 = requestAnimationFrame(() => { if (scrollRef.current && pinnedRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight })
+    const t1 = setTimeout(() => { if (scrollRef.current && pinnedRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 120)
+    return () => { cancelAnimationFrame(raf1); clearTimeout(t1) }
   }, [sessionId, msgCount, isEmpty, props.streaming, searchQuery, searchDate, searchTime, props.messages])
 
   return (
