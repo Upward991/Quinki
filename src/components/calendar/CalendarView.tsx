@@ -148,7 +148,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
         style: { minHeight: 0, padding: 4, display: 'flex', flexDirection: 'column', gap: 3, overflow: 'hidden', cursor: 'pointer', transition: 'none', backgroundColor: 'transparent', opacity: inMonth ? 1 : 0.4, alignItems: 'flex-start', borderRight: col < 6 ? '1px solid var(--q-border-soft)' : 'none', borderBottom: row < 5 ? '1px solid var(--q-border-soft)' : 'none' },
       }, kids))
     }
-    const mHeader = WEEK.map((w, i) => React.createElement('div', { key: 'mh' + i, style: { display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px 0', fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-interface)', color: 'var(--q-text)', borderBottom: '1px solid var(--q-border-strong)', borderRight: i < 6 ? '1px solid var(--q-border-soft)' : 'none' } }, w))
+    const mHeader = WEEK.map((w, i) => React.createElement('div', { key: 'mh' + i, style: { display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px 0', fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-interface)', color: 'var(--q-text)', borderBottom: '1px solid var(--q-border-strong)', borderRight: i < 6 ? '1px solid var(--q-border)' : 'none' } }, w))
     calendarGrid = React.createElement('div', { key: 'g', style: { flex: 1, minHeight: 0, overflow: 'hidden', border: '1px solid var(--q-border-strong)', borderRadius: 'var(--radius-lg)' } }, [
       React.createElement('div', { key: 'table', style: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gridTemplateRows: '28px repeat(6, 1fr)', height: '100%' } }, [...mHeader, ...cells]),
     ])
@@ -169,7 +169,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       const label = mode === 'week' ? WEEK[i] + ' ' + d.getDate() : fullDate(d)
       return React.createElement('div', {
         key: 'dh' + i, onClick: () => { if (mode === 'week') openDay(d) },
-        style: { display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 0, padding: '2px 0' },
+        style: { display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 0, padding: '2px 0', borderLeft: '1px solid var(--q-border)' },
       }, React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 40, height: 24, padding: '0 8px', borderRadius: 'var(--radius-sm)', backgroundColor: isToday ? 'var(--q-accent-calendar)' : 'transparent', color: isToday ? 'var(--q-bg)' : 'var(--q-text)', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap', cursor: 'pointer' } }, label))
     })
     const headerGrid = React.createElement('div', { key: 'hh', style: { display: 'grid', gridTemplateColumns: colTemplate, height: headerH, borderBottom: '1px solid var(--q-border-strong)', minWidth: mode === 'week' ? 700 : 0 } }, [
@@ -284,7 +284,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
         React.createElement('span', { style: { color: 'var(--q-text)', fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-interface)', flex: 1 } }, title),
         React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: 11, fontFamily: 'var(--font-interface)' } }, '(' + count + ')'),
       ]),
-      open ? React.createElement('div', { key: 'l', style: { display: 'flex', flexDirection: 'column', gap: 6, maxHeight: '30%', overflowY: 'auto' } }, rows.length ? rows : React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: 12, fontFamily: 'var(--font-interface)', padding: '6px 0' } }, empty)) : null,
+      open ? React.createElement('div', { key: 'l', style: { display: 'flex', flexDirection: 'column', gap: 6 } }, rows.length ? rows : React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: 12, fontFamily: 'var(--font-interface)', padding: '6px 0' } }, empty)) : null,
     ])
   const todoPanel = React.createElement('div', {
     style: { width: todoW, flexShrink: 0, alignSelf: 'stretch', display: 'flex', flexDirection: 'column', gap: 10, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)', border: '1px solid var(--q-border)', padding: '12px', overflowY: 'auto', position: 'relative' },
