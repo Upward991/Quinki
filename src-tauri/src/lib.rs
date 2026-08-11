@@ -1022,7 +1022,7 @@ pub fn run() {
             if let (Some(w), Some(h)) = (w, h) {
               if let Some(win) = app.get_webview_window("main") {
                 let _ = win.unmaximize();
-                let _ = win.unfullscreen();
+                let _ = win.set_fullscreen(false);
                 let _ = win.set_size(tauri::LogicalSize::new(w, h));
                 if let (Some(x), Some(y)) = (state.get("x").and_then(|v| v.as_f64()), state.get("y").and_then(|v| v.as_f64())) {
                   let _ = win.set_position(tauri::LogicalPosition::new(x, y));
