@@ -544,6 +544,20 @@ class PiBridge {
             }
           }
         } catch {}
+        // Preferenze AUTHORITATIVE per-sessione (mode/model/thinking): mode.json è scritto
+        // solo quando l'utente le cambia davvero → vince su file condiviso/chat-meta stantii.
+        try {
+          const prefsP = path.join(dir, "mode.json");
+          if (fs.existsSync(prefsP)) {
+            const prefs = JSON.parse(fs.readFileSync(prefsP, "utf8"));
+            const e = this.#entries.get(s.key);
+            if (e) {
+              if (prefs.mode) e.mode = prefs.mode;
+              if (prefs.model) e.model = prefs.model;
+              if (prefs.thinkingLevel) e.thinkingLevel = prefs.thinkingLevel;
+            }
+          }
+        } catch {}
         }
       }
       // Persisti i valori ripristinati (altrimenti un salvataggio dell'altra app
@@ -1787,7 +1801,7 @@ class PiBridge {
     const prevModel = this.#entries.get(key)?.model;
     this.logDebug("set-model", { sessionKey: key, prevModel, newModel: modelId });
     const s = this.#entries.get(key);
-    if (s) { s.model = modelId; this.#save(); }
+    if (s) { s.model = modelId; this.#save(); this.#writeSessionPrefs(key); }
     // === B16: reset context usage al cambio modello ===
     if (prevModel && prevModel !== modelId) {
       this.logDebug("set-model-reset-context-usage", { sessionKey: key, prevModel, newModel: modelId });
@@ -1838,7 +1852,7 @@ class PiBridge {
     if (!pi) {
       // === Map "on" to a real level before pending ===
       if (level === 'on') level = pickDefaultThinkingLevel();
-      if (s) { s.thinkingLevel = level; this.#save(); }
+      if (s) { s.thinkingLevel = level; this.#save(); this.#writeSessionPrefs(key); }
       this.#pendingThinking.set(key, level);
       this.logDebug("set-thinking-pending", { sessionKey: key, level });
       this.#logThinkingMapResolved(key, level, null);
@@ -2308,11 +2322,24 @@ class PiBridge {
     if (changed) this.#save();
   }
 
+  // Preferenze per-sessione AUTHORITATIVE (mode/model/thinking): scritte SOLO quando l'utente
+  // le cambia davvero → un salvataggio stantio dell'altro processo non può sovrascriverle.
+  #writeSessionPrefs(key: string) {
+    try {
+      const s = this.#entries.get(key);
+      if (!s) return;
+      const dir = this.#piSessionDir(key);
+      if (!fs.existsSync(dir)) return;
+      const prefs = { mode: s.mode, model: s.model, thinkingLevel: s.thinkingLevel, ts: Date.now() };
+      fs.writeFileSync(path.join(dir, "mode.json"), JSON.stringify(prefs, null, 2), "utf8");
+    } catch {}
+  }
+
   setMode(key: string, mode: string) {
     const m = mode === "build" ? "build" : "plan";
     const s = this.#entries.get(key);
     this.logDebug("set-mode", { sessionKey: key, mode: m, entryFound: !!s });
-    if (s) { s.mode = m; this.#save(); }
+    if (s) { s.mode = m; this.#save(); this.#writeSessionPrefs(key); }
     const pi = this.#active.get(key);
     if (!pi) { this.#pendingMode.set(key, m); this.logDebug("set-mode-pending", { sessionKey: key, mode: m }); return; }
     try { this.#applyMode(pi, key, m); this.logDebug("set-mode-applied", { sessionKey: key, mode: m }); }
