@@ -36,9 +36,11 @@ function Chip({ color, text }: { color: string; text: string }) {
   return React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', padding: '1px 8px', borderRadius: 999, fontSize: 10, fontWeight: 600, fontFamily: 'var(--font-interface)', color, border: '1px solid ' + color, backgroundColor: 'transparent', letterSpacing: 0.2, textTransform: 'capitalize', flexShrink: 0 } }, text)
 }
 // Chip del giorno (accent, stile tasto invio): unico elemento evidenziato
-function DayNum({ d }: { d: Date }) {
+function DayNum({ d, hovered }: { d: Date; hovered?: boolean }) {
   const isToday = sameDay(d, (() => { const n = new Date(); n.setHours(0, 0, 0, 0); return n })())
-  return React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 22, height: 22, padding: '0 5px', borderRadius: 'var(--radius-sm)', backgroundColor: isToday ? 'var(--q-accent-calendar)' : 'transparent', color: isToday ? 'var(--q-bg)' : 'var(--q-text-secondary)', fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-interface)' } }, d.getDate())
+  const bg = isToday ? 'var(--q-accent-calendar)' : hovered ? 'var(--q-hover)' : 'transparent'
+  const fg = isToday ? 'var(--q-bg)' : hovered ? 'var(--q-text)' : 'var(--q-text-secondary)'
+  return React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 22, height: 22, padding: '0 5px', borderRadius: 'var(--radius-sm)', backgroundColor: bg, color: fg, fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-interface)', transition: 'none' } }, d.getDate())
 }
 
 export function CalendarView(props: { activePanel: string; onSelectPanel: (p: string) => void; agents?: any[]; onOpenSession?: (key: string) => void }) {
@@ -53,6 +55,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const [openSched, setOpenSched] = useState(true)
   const [openExec, setOpenExec] = useState(true)
   const [editSched, setEditSched] = useState<any>(null)
+  const [hoverDay, setHoverDay] = useState<string | null>(null)
   const bodyRef = useRef<HTMLDivElement>(null)
   const [bodyH, setBodyH] = useState(600)
 
@@ -115,11 +118,12 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       const col = i % 7
       const row = Math.floor(i / 7)
       const acts = dayActivities(d)
-      const kids: React.ReactNode[] = [React.createElement(DayNum, { key: 'n', d })]
+      const isHover = hoverDay === dayKey(d.getTime())
+      const kids: React.ReactNode[] = [React.createElement(DayNum, { key: 'n', d, hovered: isHover })]
       for (const a of acts.slice(0, 3)) kids.push(React.createElement('div', { key: 'a' + a.id, title: a.text, style: { padding: '2px 6px', borderRadius: 6, fontSize: 11, fontFamily: 'var(--font-interface)', color: 'var(--q-text)', backgroundColor: 'color-mix(in srgb, ' + a.color + ' 18%, transparent)', border: '1px solid ' + a.color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, a.text.split('·')[0]))
       if (acts.length > 3) kids.push(React.createElement('div', { key: 'more', style: { color: 'var(--q-text-tertiary)', fontSize: 10, fontFamily: 'var(--font-interface)' } }, '+' + (acts.length - 3) + ' more'))
       cells.push(React.createElement('div', {
-        key: dayKey(d.getTime()), onClick: () => openDay(d), onDragOver: (e: any) => e.preventDefault(), onDrop: (e: any) => { e.preventDefault(); e.stopPropagation(); const id = e.dataTransfer.getData ? e.dataTransfer.getData('text/quinki-schedule') : ''; if (id) setScheduleTime(id, d, 12, 0, 0); setDragId(null) },
+        key: dayKey(d.getTime()), onClick: () => openDay(d), onMouseEnter: () => setHoverDay(dayKey(d.getTime())), onMouseLeave: () => setHoverDay(null), onDragOver: (e: any) => e.preventDefault(), onDrop: (e: any) => { e.preventDefault(); e.stopPropagation(); const id = e.dataTransfer.getData ? e.dataTransfer.getData('text/quinki-schedule') : ''; if (id) setScheduleTime(id, d, 12, 0, 0); setDragId(null) },
         style: { minHeight: 0, padding: 4, display: 'flex', flexDirection: 'column', gap: 3, overflow: 'hidden', cursor: 'pointer', transition: 'none', backgroundColor: 'transparent', opacity: inMonth ? 1 : 0.4, alignItems: 'flex-start', borderRight: col < 6 ? '1px solid var(--q-border-soft)' : 'none', borderBottom: row < 5 ? '1px solid var(--q-border-soft)' : 'none' },
       }, kids))
     }
