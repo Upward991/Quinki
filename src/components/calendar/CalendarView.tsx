@@ -125,7 +125,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     }
     const mHeader = WEEK.map((w, i) => React.createElement('div', { key: 'mh' + i, style: { padding: '4px 0', textAlign: 'center', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-interface)', color: 'var(--q-text-tertiary)', borderBottom: '1px solid var(--q-border-strong)', borderRight: i < 6 ? '1px solid var(--q-border-soft)' : 'none' } }, w))
     calendarGrid = React.createElement('div', { key: 'g', style: { flex: 1, minHeight: 0, overflow: 'hidden', border: '1px solid var(--q-border-strong)', borderRadius: 'var(--radius-sm)' } }, [
-      React.createElement('div', { key: 'table', style: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gridAutoRows: '1fr', height: '100%' } }, [...mHeader, ...cells]),
+      React.createElement('div', { key: 'table', style: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gridTemplateRows: '28px repeat(6, 1fr)', height: '100%' } }, [...mHeader, ...cells]),
     ])
   } else {
     const days: Date[] = []
