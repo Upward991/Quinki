@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useSidecarContext } from '../shared/AppShell'
-import { Home, Checklist, Play, X, RotateCcw, Trash2, Search, Plus, Filter, Check, ChevronDown, ChevronRight, Maximize, Minimize } from '../icons'
+import { Home, Checklist, Play, X, RotateCcw, Trash2, Search, Plus, Filter, Check, ChevronDown, ChevronLeft, ChevronRight, Maximize, Minimize } from '../icons'
 
 const STATUS_COLOR: Record<string, string> = {
   scheduled: 'var(--q-accent-calendar)',
@@ -117,6 +117,17 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   useEffect(() => { const u = subscribe?.('execution_update', refresh); return () => { if (u) try { u() } catch {} } }, [refresh, subscribe])
   useEffect(() => { const u = subscribe?.('schedule_update', refresh); return () => { if (u) try { u() } catch {} } }, [refresh, subscribe])
   const act = useCallback(async (fn: () => Promise<any>) => { try { await fn() } catch {}; await refresh() }, [refresh])
+  const tabsRef = useRef<HTMLDivElement>(null)
+  const scrollTabs = (dir: 1 | -1) => { if (tabsRef.current) tabsRef.current.scrollLeft += dir * 120 }
+  useEffect(() => {
+    const el = tabsRef.current
+    if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      if (el.scrollWidth > el.clientWidth) { e.preventDefault(); el.scrollLeft += e.deltaY }
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [])
 
   const items: Item[] = []
   for (const s of schedules || []) items.push({ id: s.id, kind: 'sched', title: s.title || '(untitled)', agent: (s.agentIds || []).join(', ') || '—', chat: s.sourceSession ? (s.sourceSession.label || s.sourceSession.key) : '—', status: s.enabled ? 'scheduled' : 'off', when: s.nextFireAt || (s.lastFiredAt ? s.lastFiredAt : null), error: '', ex: undefined })
@@ -183,7 +194,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   ])))
 
   // Toolbar: view dinamiche (base non eliminabile) + Filters + Search
-  const addView = (name: string) => { const id = 'v' + Date.now(); const nv: ViewCfg = { id, name: name || 'View ' + (views.length + 1), type: 'table', f: { q: '', status: 'all', chat: 'all', agent: 'all' } }; persist([...views, nv]); setActiveId(id); setNewViewOpen(false) }
+  const addView = (name: string) => { const id = 'v' + Date.now(); const nv: ViewCfg = { id, name: name || 'View ' + (views.length + 1), type: 'table', f: { q: '', status: 'all', agents: [], chats: [] } }; persist([...views, nv]); setActiveId(id); setNewViewOpen(false); requestAnimationFrame(() => { if (tabsRef.current) tabsRef.current.scrollLeft = tabsRef.current.scrollWidth }) }
   const viewTab = (v: ViewCfg) => React.createElement('div', { key: v.id, style: { display: 'flex', alignItems: 'center', gap: 5, padding: '6px 10px', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: 14, fontWeight: v.id === activeId ? 700 : 500, fontFamily: 'var(--font-interface)', backgroundColor: v.id === activeId ? 'var(--q-active)' : 'transparent', color: v.id === activeId ? 'var(--q-text)' : 'var(--q-text-secondary)', transition: 'none' } }, [
     React.createElement('button', { key: 'n', onClick: () => setActiveId(v.id), style: { background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontSize: 14, fontWeight: 'inherit', fontFamily: 'var(--font-interface)', padding: 0 } }, v.name),
     v.id !== BASE_ID ? React.createElement('button', { key: 'x', onClick: () => { const rem = views.filter(x => x.id !== v.id); persist(rem); if (activeId === v.id) setActiveId(rem[0].id) }, style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-tertiary)', padding: 0, display: 'flex' } }, React.createElement(X, { size: 13 })) : null,
@@ -196,12 +207,13 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   ]) : null
   const toolbar = React.createElement('div', { key: 'tb', style: { display: 'flex', flexDirection: 'column', padding: '4px 0 8px 0' } }, [
     React.createElement('div', { key: 'row', style: { display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'nowrap' } }, [
-    ...views.map(viewTab),
+    React.createElement('button', { key: 'larr', onClick: () => scrollTabs(-1), title: 'Scroll views left', style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-secondary)', padding: 6, display: 'flex', flexShrink: 0 } }, React.createElement(ChevronLeft, { size: 18 })),
+    React.createElement('div', { key: 'tabs', ref: tabsRef, style: { display: 'flex', alignItems: 'center', gap: 4, overflow: 'hidden', flex: 1, minWidth: 0 } }, [...views.map(viewTab)]),
+    React.createElement('button', { key: 'rarr', onClick: () => scrollTabs(1), title: 'Scroll views right', style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-secondary)', padding: 6, display: 'flex', flexShrink: 0 } }, React.createElement(ChevronRight, { size: 18 })),
     React.createElement('div', { key: 'nvw', style: { position: 'relative', display: 'flex', flexShrink: 0 } }, [
       React.createElement('button', { key: 'add', onClick: () => setNewViewOpen(!newViewOpen), title: 'New view', style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-secondary)', padding: '6px', display: 'flex' } }, React.createElement(Plus, { size: 18 })),
       newViewOpen ? React.createElement(React.Fragment, { key: 'nv' }, [React.createElement('div', { key: 'o', style: { position: 'fixed', inset: 0, zIndex: 150 }, onClick: () => setNewViewOpen(false) }), React.createElement('div', { key: 'd', style: { position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 151, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: 8, display: 'flex', flexDirection: 'column', gap: 6 } }, [React.createElement('input', { key: 'i', autoFocus: true, placeholder: 'View name', onKeyDown: (e: any) => { if (e.key === 'Enter') addView(e.target.value.trim()) }, style: { padding: '7px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)' } }), React.createElement('button', { key: 'go', onClick: () => { const inp = document.querySelector('input[placeholder="View name"]') as HTMLInputElement; addView(inp?.value?.trim() || '') }, style: { padding: '7px 12px', borderRadius: 'var(--radius-sm)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-tab-accent)', color: 'var(--q-bg)', fontSize: 14, fontWeight: 600, fontFamily: 'var(--font-interface)' } }, 'Create')])]) : null,
     ]),
-    React.createElement('span', { key: 'grow', style: { flex: 1 } }),
     searchOpen ? React.createElement('input', { key: 'si', autoFocus: true, value: f.q, onChange: (e: any) => patchF({ q: e.target.value }), onKeyDown: (e: any) => { if (e.key === 'Escape') setSearchOpen(false) }, placeholder: 'Search activities...', style: { width: 240, height: 30, padding: '0 12px', boxSizing: 'border-box', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)', flexShrink: 0 } }) : null,
     React.createElement('div', { key: 'right', style: { display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 } }, [
       React.createElement('button', { key: 'search', onClick: () => setSearchOpen(!searchOpen), title: 'Search', style: { background: 'none', border: 'none', cursor: 'pointer', color: f.q ? 'var(--q-tab-accent)' : 'var(--q-text-secondary)', padding: 6, display: 'flex' } }, React.createElement(Search, { size: 18 })),
