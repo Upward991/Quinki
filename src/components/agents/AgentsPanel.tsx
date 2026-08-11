@@ -9,7 +9,7 @@ import { Archive, BookOpen, Bot, ChevronDown, ChevronUp, Copy, FileText, Home, I
 
 export function AgentsPanel(props) {
   const { call } = useSidecarContext();
-  const { agents, refreshAgents, onSelectPanel } = props;
+  const { agents = [], refreshAgents, onSelectPanel } = props;
 
   // --- State ---
   const [skills, setSkills] = useState([]);

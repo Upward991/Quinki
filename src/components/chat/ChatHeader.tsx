@@ -302,7 +302,7 @@ export function ChatHeader(props: ChatHeaderProps) {
                   {/* Agent list */}
                   <div style={{ flex: 1, overflowY: 'auto' }}>
                     {(() => {
-                      const agents = props.agents
+                      const agents = (props.agents || [])
                         .filter(a => props.selectedAgentIds.includes(a.id) && (!agentQuery || a.name.toLowerCase().includes(agentQuery.toLowerCase())))
                         .sort((a, b) => a.id === 'orchestrator' ? -1 : b.id === 'orchestrator' ? 1 : 0)
                       if (agents.length === 0) {
@@ -378,7 +378,7 @@ export function ChatHeader(props: ChatHeaderProps) {
       {/* Agent picker modal (Add agent) */}
       {addAgentOpen && (
         <AgentPickerModal
-          agents={props.agents.filter(a => a.id !== 'orchestrator')}
+          agents={(props.agents || []).filter(a => a.id !== 'orchestrator')}
           initialSelected={props.selectedAgentIds.filter(id => id !== 'orchestrator')}
           onClose={() => setAddAgentOpen(false)}
           onAdd={(ids) => { ids.forEach(id => props.onAgentToggle(id)); setAddAgentOpen(false) }}

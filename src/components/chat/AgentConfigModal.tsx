@@ -4,7 +4,7 @@ import { AddItemsModal, FileEditor } from '../agents/AgentsPanel'
 import { useSidecarContext } from '../shared/AppShell'
 import type { Agent } from '../../types'
 
-export function AgentConfigModal({ agentId, agents, onClose }: { agentId: string; agents: Agent[]; onClose: () => void }) {
+export function AgentConfigModal({ agentId, agents = [], onClose }: { agentId: string; agents?: Agent[]; onClose: () => void }) {
   const { call } = useSidecarContext()
   const [agent, setAgent] = useState<Agent | null>(agents.find(a => a.id === agentId) || null)
   const [skills, setSkills] = useState<any[]>([])
