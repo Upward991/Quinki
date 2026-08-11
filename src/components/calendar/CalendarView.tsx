@@ -63,6 +63,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const [filterOpen, setFilterOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [newViewOpen, setNewViewOpen] = useState(false)
+  const [fullWidth, setFullWidth] = useState(false)
 
   const view = views.find(v => v.id === activeId) || views[0]
   const f = view ? view.f : { q: '', status: 'all', chat: 'all', agent: 'all' }
@@ -174,10 +175,10 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   return React.createElement('div', { className: 'h-full flex flex-col', style: { width: '100%', position: 'relative', overflow: 'hidden' } }, [
     React.createElement('div', { key: 'hdr', style: { marginBottom: '8px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, width: '100%' } }, [
       React.createElement('div', { key: 'h1', style: panelStyle }, [React.createElement(IconBtn, { key: 'home', icon: Home, onClick: () => props.onSelectPanel('home') })]),
-      React.createElement('div', { key: 'h2', style: { ...panelStyle, flex: 1 } }, [React.createElement('div', { key: 'sp', style: { width: '8px', flexShrink: 0 } }), React.createElement(Bot, { key: 'ic', size: 18, style: { color: 'var(--q-text-secondary)', flexShrink: 0 } }), React.createElement('div', { key: 'sp2', style: { width: '12px', flexShrink: 0 } }), React.createElement('span', { key: 'ti', style: { color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)' } }, 'Agents Tasks')]),
+      React.createElement('div', { key: 'h2', style: { ...panelStyle, flex: 1 } }, [React.createElement('div', { key: 'sp', style: { width: '8px', flexShrink: 0 } }), React.createElement(Bot, { key: 'ic', size: 18, style: { color: 'var(--q-text-secondary)', flexShrink: 0 } }), React.createElement('div', { key: 'sp2', style: { width: '12px', flexShrink: 0 } }), React.createElement('span', { key: 'ti', style: { color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)' } }, 'Agents Tasks'), React.createElement('span', { key: 'fx', style: { flex: 1 } }), React.createElement(IconBtn, { key: 'fw', icon: fullWidth ? Minimize : Maximize, onClick: () => setFullWidth(!fullWidth) })]),
     ]),
     React.createElement('div', { key: 'body', style: { flex: 1, minHeight: 0, padding: '0 0 8px 0', display: 'flex' } }, [
-      React.createElement('div', { key: 'dbwrap', style: { width: '100%', display: 'flex', flexDirection: 'column' } }, [
+      React.createElement('div', { key: 'dbwrap', style: { width: '100%', maxWidth: fullWidth ? '100%' : 'var(--spacing-chat-max)', margin: '0 auto', display: 'flex', flexDirection: 'column' } }, [
         toolbar,
         React.createElement('div', { key: 'content', style: { flex: 1, minHeight: 0, overflowY: 'auto' } }, view.type === 'table' ? tableWrap : board),
       ]),
