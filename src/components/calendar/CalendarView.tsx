@@ -126,30 +126,39 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     const days: Date[] = []
     if (mode === 'week') { const dow = (view.getDay() + 6) % 7; const ws = new Date(year, month, view.getDate() - dow); for (let i = 0; i < 7; i++) days.push(new Date(ws.getFullYear(), ws.getMonth(), ws.getDate() + i)) }
     else days.push(new Date(selected.getFullYear(), selected.getMonth(), selected.getDate()))
-    const headerH = 32
+    const headerH = 30
     const gutterW = 54
-    const avail = Math.max(360, bodyH - headerH - 8)
-    const hourH = Math.max(20, avail / 24)
+    const N = days.length
+    const hourH = Math.max(20, (bodyH - headerH - 8) / 24)
     const totalH = 24 * hourH
-    const W = (bodyRef.current?.clientWidth || 900) - (mode === 'week' ? gutterW : 0)
-    const colW = W / days.length
+    const colTemplate = gutterW + 'px repeat(' + N + ',1fr)'
 
-    const hourLines: React.ReactNode[] = []
-    for (let h = 0; h < 24; h++) {
-      hourLines.push(React.createElement('div', { key: 'hg' + h, style: { position: 'absolute', left: mode === 'week' ? gutterW : 0, right: 0, top: h * hourH, borderTop: '1px solid var(--q-border)', pointerEvents: 'none' } }))
-      hourLines.push(React.createElement('div', { key: 'gt' + h, style: { position: 'absolute', left: 0, top: h * hourH, width: mode === 'week' ? gutterW - 6 : 40, textAlign: 'right', fontSize: 9, fontFamily: 'var(--font-code)', color: 'var(--q-text-tertiary)', paddingTop: 1, paddingRight: 4 } }, String(h).padStart(2, '0') + ':00'))
-    }
+    // HEADER: stessa griglia colonne del body → allineamento garantito (anche al resize)
     const dayHeaders: React.ReactNode[] = days.map((d, i) => {
       const isToday = sameDay(d, today0())
       const label = mode === 'week' ? WEEK[i] + ' ' + d.getDate() : fullDate(d)
       return React.createElement('div', {
         key: 'dh' + i, onClick: () => { if (mode === 'week') openDay(d) },
-        style: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 0 },
+        style: { display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 0, padding: '2px 0' },
       }, React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 40, height: 24, padding: '0 8px', borderRadius: 'var(--radius-sm)', backgroundColor: isToday ? 'var(--q-accent-calendar)' : 'transparent', color: isToday ? 'var(--q-bg)' : 'var(--q-text)', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap', cursor: 'pointer' } }, label))
     })
-    const cols: React.ReactNode[] = days.map((d, di) => {
+    const headerGrid = React.createElement('div', { key: 'hh', style: { display: 'grid', gridTemplateColumns: colTemplate, height: headerH, borderBottom: '1px solid var(--q-border-strong)' } }, [
+      React.createElement('div', { key: 'gh', style: {} }),
+      ...dayHeaders,
+    ])
+
+    // GUTTER: etichette orarie allineate alle righe
+    const hourLabels: React.ReactNode[] = []
+    for (let h = 0; h < 24; h++) {
+      hourLabels.push(React.createElement('div', { key: 'gl' + h, style: { position: 'absolute', left: 0, top: h * hourH, width: gutterW - 6, textAlign: 'right', fontSize: 9, fontFamily: 'var(--font-code)', color: 'var(--q-text-tertiary)', paddingTop: 1, paddingRight: 4 } }, String(h).padStart(2, '0') + ':00'))
+    }
+    const hourLines: React.ReactNode[] = []
+    for (let h = 0; h < 24; h++) {
+      hourLines.push(React.createElement('div', { key: 'hg' + h, style: { position: 'absolute', left: 0, right: 0, top: h * hourH, borderTop: '1px solid var(--q-border)', pointerEvents: 'none' } }))
+    }
+
+    const colCells: React.ReactNode[] = days.map((d, di) => {
       const acts = dayActivities(d)
-      const x = mode === 'week' ? gutterW + di * colW : 0
       const blocks: React.ReactNode[] = acts.map((a, ai) => {
         const topPx = a.h * hourH + (a.m / 60) * hourH + (a.s / 3600) * hourH
         return React.createElement('div', {
@@ -163,18 +172,16 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       return React.createElement('div', {
         key: 'col' + di, onDragOver: (e: any) => e.preventDefault(),
         onDrop: (e: any) => { e.preventDefault(); e.stopPropagation(); const id = e.dataTransfer.getData('text/quinki-schedule'); if (!id) { setDragId(null); return } const rect = (e.currentTarget as HTMLElement).getBoundingClientRect(); const off = e.clientY - rect.top; const totalMin = Math.floor(off / hourH * 60 / 15) * 15; const hh = Math.min(23, Math.floor(totalMin / 60)); const mm = totalMin % 60; setScheduleTime(id, d, hh, mm, 0); setDragId(null) },
-        style: { position: 'absolute', top: 0, left: x, width: colW, height: totalH, backgroundColor: 'transparent', borderLeft: '1px solid var(--q-border)', borderRight: '1px solid var(--q-border)', borderTop: '1px solid var(--q-border)' },
+        style: { position: 'relative', height: totalH, borderLeft: '1px solid var(--q-border)', overflow: 'hidden' },
       }, blocks)
     })
-    const table = React.createElement('div', { style: { position: 'relative', height: totalH, minWidth: 0 } }, [...hourLines, ...cols])
-    const header = React.createElement('div', { key: 'hh', style: { display: 'flex', alignItems: 'center', gap: 4, height: headerH, paddingBottom: 4, width: '100%', boxSizing: 'border-box' } }, [
-      mode === 'week' ? React.createElement('div', { key: 'gsp', style: { width: gutterW, flexShrink: 0 } }) : null,
-      ...dayHeaders,
-    ])
-    // giorno: centrato con larghezza tipo chat; settimana: piena
-    const wrap = React.createElement('div', { key: 'wbox', style: { flex: 1, minHeight: 0, overflowY: 'auto', border: '1px solid var(--q-border-strong)', borderRadius: 'var(--radius-sm)' } }, [
-      header,
-      React.createElement('div', { key: 't', style: { width: '100%', overflow: 'hidden' } }, table),
+    const gutter = React.createElement('div', { key: 'gutter', style: { position: 'relative', height: totalH } }, hourLabels)
+    const bodyGrid = React.createElement('div', { key: 'bg', style: { display: 'grid', gridTemplateColumns: colTemplate, position: 'relative' } }, [gutter, ...colCells])
+    const linesOverlay = React.createElement('div', { key: 'lines', style: { position: 'absolute', left: gutterW, right: 0, top: 0, height: totalH, pointerEvents: 'none' } }, hourLines)
+
+    const wrap = React.createElement('div', { key: 'wbox', style: { flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden', border: '1px solid var(--q-border-strong)', borderRadius: 'var(--radius-sm)' } }, [
+      headerGrid,
+      React.createElement('div', { key: 't', style: { position: 'relative' } }, [bodyGrid, linesOverlay]),
     ])
     if (mode === 'day') {
       calendarGrid = React.createElement('div', { key: 'g', style: { flex: 1, minHeight: 0, display: 'flex', justifyContent: 'center', width: '100%', margin: '0 auto', maxWidth: 'var(--spacing-chat-max)' } }, [wrap])
@@ -285,16 +292,14 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     ]),
   ]
 
-  // La sidebar a SINISTRA spinge la header a destra e occupa tutta l'altezza (come la chat).
+  // header sopra; SIDEBAR accanto al calendario (stessa altezza → la segue), come prima
   return React.createElement('div', { className: 'h-full flex flex-col', style: { width: '100%', position: 'relative', overflow: 'hidden' } }, [
-    React.createElement('div', { key: 'layout', style: { flex: 1, minHeight: 0, display: 'flex', gap: 8, overflow: 'hidden' } }, [
+    React.createElement('div', { key: 'hdr', style: { marginBottom: '8px', flexShrink: 0, display: 'flex', alignItems: 'center', width: '100%' } }, headerKids),
+    React.createElement('div', { key: 'body', ref: bodyRef, style: { flex: 1, minHeight: 0, display: 'flex', gap: 8, overflow: 'hidden' } }, [
       showTodo ? todoPanel : null,
-      React.createElement('div', { key: 'right', ref: bodyRef, style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' } }, [
-        React.createElement('div', { key: 'hdr', style: { marginBottom: '8px', flexShrink: 0, display: 'flex', alignItems: 'center', width: '100%' } }, headerKids),
-        React.createElement('div', { key: 'area', style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'hidden' } }, [
-          mode === 'month' ? React.createElement('div', { key: 'wh', style: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, flexShrink: 0 } }, WEEK.map((w) => React.createElement('div', { key: w, style: { color: 'var(--q-text-tertiary)', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-interface)', textAlign: 'center', padding: 4 } }, w))) : null,
-          calendarGrid,
-        ]),
+      React.createElement('div', { key: 'cal', style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'hidden' } }, [
+        mode === 'month' ? React.createElement('div', { key: 'wh', style: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, flexShrink: 0 } }, WEEK.map((w) => React.createElement('div', { key: w, style: { color: 'var(--q-text-tertiary)', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-interface)', textAlign: 'center', padding: 4 } }, w))) : null,
+        calendarGrid,
       ]),
       editModal,
     ]),
