@@ -1,68 +1,65 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useSidecarContext } from '../shared/AppShell'
-import { Home, Calendar, Clock, Play, X, RotateCcw, Trash2, Bot, PanelLeft, ChevronLeft, ChevronRight, ChevronDown, ChevronRight as ChevronRightIcon, Check } from '../icons'
+import { Home, Calendar, Play, X, RotateCcw, Trash2, Search, RefreshCw, Bot, Clock } from '../icons'
 
 const STATUS_COLOR: Record<string, string> = {
+  scheduled: 'var(--q-accent-calendar)',
+  off: 'var(--q-text-tertiary)',
   queued: 'var(--q-accent-warning)',
   running: 'var(--q-accent-info)',
   completed: 'var(--q-accent-success)',
   failed: 'var(--q-accent-danger)',
   cancelled: 'var(--q-text-tertiary)',
   interrupted: 'var(--q-accent-warning)',
-  missed: 'var(--q-text-tertiary)',
 }
-const WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
 const panelStyle: React.CSSProperties = { backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)', padding: '8px', minHeight: 'var(--spacing-header-min)', display: 'flex', alignItems: 'center' }
 const btnGhost: React.CSSProperties = { padding: '4px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-text)', fontSize: '12px', fontFamily: 'var(--font-interface)', cursor: 'pointer', transition: 'none', display: 'inline-flex', alignItems: 'center', gap: 5, height: 28 }
 const btnText: React.CSSProperties = { background: 'none', border: 'none', color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', cursor: 'pointer', padding: '2px', display: 'inline-flex', alignItems: 'center', gap: 3 }
 
-function fmtWhen(s: any): string {
-  const w = s.when || {}
-  if (w.type === 'once') return w.date ? new Date(w.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) + ' ' + new Date(w.date).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) : 'Once'
-  if (w.type === 'daily') return 'Daily at ' + (w.at || '08:00')
-  if (w.type === 'weekly') return 'Weekly ' + (w.at || '08:00') + ' · ' + (w.daysOfWeek || []).map((d: number) => WEEK[(d - 1 + 7) % 7]).join(' ')
-  if (w.type === 'monthly') return 'Monthly · day ' + (w.dayOfMonth ?? 1) + ' at ' + (w.at || '08:00')
-  return w.type || '?'
+function fmtDT(ts: number | null | undefined): string {
+  if (!ts) return '—'
+  const d = new Date(ts)
+  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
 }
-function fmtTime(ts: number | null | undefined): string { if (!ts) return '—'; return new Date(ts).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false }) }
-function dayKey(ts: number): string { const d = new Date(ts); return d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate() }
-function sameDay(a: Date, b: Date): boolean { return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate() }
-function parseAt(at: string): { h: number; m: number } { const p = String(at || '08:00').split(':'); return { h: parseInt(p[0], 10) || 0, m: parseInt(p[1], 10) || 0 } }
-function fullDate(d: Date): string { return d.getDate() + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear() }
-
+function dayKey(ts: number | null | undefined): string {
+  if (!ts) return '—'
+  const d = new Date(ts)
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
+}
+function dayLabel(key: string): string {
+  const p = key.split('-'); if (p.length !== 3) return key
+  const d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]))
+  return d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+}
+function statusLabel(st: string): string { return st || '?' }
 function Chip({ color, text }: { color: string; text: string }) {
   return React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', padding: '1px 8px', borderRadius: 999, fontSize: 10, fontWeight: 600, fontFamily: 'var(--font-interface)', color, border: '1px solid ' + color, backgroundColor: 'transparent', letterSpacing: 0.2, textTransform: 'capitalize', flexShrink: 0 } }, text)
 }
-// Chip del giorno (accent, stile tasto invio): unico elemento evidenziato
-function DayNum({ d, hovered, inMonth }: { d: Date; hovered?: boolean; inMonth?: boolean }) {
-  const isToday = sameDay(d, (() => { const n = new Date(); n.setHours(0, 0, 0, 0); return n })())
-  const bg = isToday ? 'var(--q-accent-calendar)' : hovered ? 'var(--q-hover)' : 'transparent'
-  const fg = isToday ? 'var(--q-bg)' : inMonth ? 'var(--q-accent-calendar)' : 'var(--q-text-secondary)'
-  return React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 22, height: 22, padding: '0 5px', borderRadius: 'var(--radius-sm)', backgroundColor: bg, color: fg, fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-interface)', transition: 'none' } }, d.getDate())
+
+interface Item {
+  id: string
+  kind: 'sched' | 'exec'
+  title: string
+  agent: string
+  chat: string
+  status: string
+  when: number | null
+  error: string
+  sched?: any
+  ex?: any
 }
 
 export function CalendarView(props: { activePanel: string; onSelectPanel: (p: string) => void; agents?: any[]; onOpenSession?: (key: string) => void }) {
   const { call, subscribe } = useSidecarContext()
   const [schedules, setSchedules] = useState<any[]>([])
   const [executions, setExecutions] = useState<any[]>([])
-  const [view, setView] = useState(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d })
-  const [mode, setMode] = useState<'month' | 'week' | 'day'>('week')
-  const [selected, setSelected] = useState<Date>(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d })
-  const [dragId, setDragId] = useState<string | null>(null)
-  const [showTodo, setShowTodo] = useState(true)
-  const [openSched, setOpenSched] = useState(true)
-  const [openExec, setOpenExec] = useState(true)
-  const [openDone, setOpenDone] = useState(true)
-  const [openFail, setOpenFail] = useState(true)
-  const [editSched, setEditSched] = useState<any>(null)
-  const [hoverDay, setHoverDay] = useState<string | null>(null)
-  const [dropLine, setDropLine] = useState<{ di: number; top: number } | null>(null)
-  const [todoW, setTodoW] = useState(() => { try { return parseInt(localStorage.getItem('quinki-cal-todo-w') || '280', 10) || 280 } catch { return 280 } })
-  const dragRef = useRef<{ startX: number; startW: number } | null>(null)
-  const bodyRef = useRef<HTMLDivElement>(null)
-  const [bodyH, setBodyH] = useState(600)
+  const [view, setView] = useState<'table' | 'board' | 'calendar'>('table')
+  const [sortKey, setSortKey] = useState<string>('when')
+  const [sortDir, setSortDir] = useState<1 | -1>(1)
+  const [q, setQ] = useState('')
+  const [statusF, setStatusF] = useState('all')
+  const [chatF, setChatF] = useState('all')
 
   const refresh = useCallback(async () => {
     try {
@@ -74,313 +71,183 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   useEffect(() => { const u = subscribe?.('execution_update', refresh); return () => { if (u) try { u() } catch {} } }, [refresh, subscribe])
   useEffect(() => { const u = subscribe?.('schedule_update', refresh); return () => { if (u) try { u() } catch {} } }, [refresh, subscribe])
 
-  useEffect(() => {
-    const el = bodyRef.current
-    if (!el) return
-    const ro = new ResizeObserver(() => setBodyH(el.clientHeight))
-    ro.observe(el); setBodyH(el.clientHeight)
-    return () => { try { ro.disconnect() } catch {} }
-  }, [mode])
-
-  // drag per ridimensionare la sidebar (come la chat)
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      if (!dragRef.current) return
-      const w = Math.min(440, Math.max(200, dragRef.current.startW + (e.clientX - dragRef.current.startX)))
-      setTodoW(w)
-    }
-    const onUp = () => {
-      if (!dragRef.current) return
-      dragRef.current = null
-      try { localStorage.setItem('quinki-cal-todo-w', String(todoW)) } catch {}
-    }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
-  }, [todoW])
-
   const act = useCallback(async (fn: () => Promise<any>) => { try { await fn() } catch {}; await refresh() }, [refresh])
-  const year = view.getFullYear(); const month = view.getMonth()
-  const today0 = () => { const n = new Date(); n.setHours(0, 0, 0, 0); return n }
-  const openDay = (d: Date) => { const nd = new Date(d); nd.setHours(0, 0, 0, 0); setSelected(nd); setView(nd); setMode('day') }
 
-  const dayActivities = (d: Date): any[] => {
-    const out: any[] = []; const jsDay = d.getDay(); const dayNum = jsDay === 0 ? 7 : jsDay
-    for (const s of schedules) {
-      const w = s.when || {}
-      if (w.type === 'once') { if (!w.date) continue; const dt = new Date(w.date); if (!sameDay(dt, d)) continue; out.push({ type: 'schedule', color: 'var(--q-accent-calendar)', text: (s.enabled ? '' : '(off) ') + (s.title || 'Task') + ' · ' + dt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }), h: dt.getHours(), m: dt.getMinutes(), s: dt.getSeconds(), id: s.id }) }
-      else if (w.type === 'daily') { const { h, m } = parseAt(w.at || '08:00'); out.push({ type: 'schedule', color: 'var(--q-accent-calendar)', text: (s.enabled ? '' : '(off) ') + (s.title || 'Task') + ' · ' + (w.at || '08:00'), h, m, s: 0, id: s.id }) }
-      else if (w.type === 'weekly') { if (!(w.daysOfWeek || []).includes(dayNum)) continue; const { h, m } = parseAt(w.at || '08:00'); out.push({ type: 'schedule', color: 'var(--q-accent-calendar)', text: (s.enabled ? '' : '(off) ') + (s.title || 'Task') + ' · ' + (w.at || '08:00'), h, m, s: 0, id: s.id }) }
-      else if (w.type === 'monthly') { if ((w.dayOfMonth ?? 1) !== d.getDate()) continue; const { h, m } = parseAt(w.at || '08:00'); out.push({ type: 'schedule', color: 'var(--q-accent-calendar)', text: (s.enabled ? '' : '(off) ') + (s.title || 'Task') + ' · ' + (w.at || '08:00'), h, m, s: 0, id: s.id }) }
-    }
-    for (const ex of executions) {
-      // nel CALENDARIO solo le attività ATTIVE; quelle finite restano solo in sidebar
-      if (ex.status !== 'running' && ex.status !== 'queued' && ex.status !== 'interrupted') continue
-      const t = ex.scheduledFor || ex.createdAt; if (!t) continue; const dt = new Date(t); if (!sameDay(dt, d)) continue
-      const col = STATUS_COLOR[ex.status] || 'var(--q-text-tertiary)'
-      out.push({ type: 'exec', color: col, text: (ex.label || ex.id) + ' · ' + ex.status + ' · ' + fmtTime(dt.getTime()), h: dt.getHours(), m: dt.getMinutes(), s: dt.getSeconds(), id: ex.id })
-    }
-    out.sort((a, b) => (a.h * 3600 + a.m * 60 + a.s) - (b.h * 3600 + b.m * 60 + b.s)); return out
-  }
-
-  const setScheduleTime = async (id: string, d: Date, hh: number, mm: number, ss: number) => {
-    const s = schedules.find((x: any) => x.id === id); if (!s) return
-    const when = { ...(s.when || {}) }; const t = new Date(d); t.setHours(hh, mm, ss, 0)
-    if (when.type === 'once') when.date = t.toISOString()
-    else if (when.type === 'daily') when.at = String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0')
-    else if (when.type === 'weekly') { when.daysOfWeek = [t.getDay() === 0 ? 7 : t.getDay()]; when.at = String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0') }
-    else if (when.type === 'monthly') { when.dayOfMonth = t.getDate(); when.at = String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0') }
-    else return
-    await act(async () => { await call('updateSchedule', { id, when }) })
-  }
-  const startDrag = (e: any, id: string) => { e.dataTransfer.setData('text/quinki-schedule', id); setDragId(id); e.stopPropagation() }
-  const endDrag = () => setDragId(null)
-
-  let calendarGrid: React.ReactElement
-  if (mode === 'month') {
-    const first = new Date(year, month, 1); const startOffset = (first.getDay() + 6) % 7; const gridStart = new Date(year, month, 1 - startOffset)
-    const cells: React.ReactElement[] = []
-    for (let i = 0; i < 42; i++) {
-      const d = new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + i)
-      const inMonth = d.getMonth() === month
-      const col = i % 7
-      const row = Math.floor(i / 7)
-      const acts = dayActivities(d)
-      const isHover = hoverDay === dayKey(d.getTime())
-      const kids: React.ReactNode[] = [React.createElement(DayNum, { key: 'n', d, hovered: isHover, inMonth })]
-      for (const a of acts.slice(0, 3)) kids.push(React.createElement('div', { key: 'a' + a.id, title: a.text, style: { padding: '2px 6px', borderRadius: 6, fontSize: 11, fontFamily: 'var(--font-interface)', color: 'var(--q-text)', backgroundColor: 'color-mix(in srgb, ' + a.color + ' 18%, transparent)', border: '1px solid ' + a.color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, a.text.split('·')[0]))
-      if (acts.length > 3) kids.push(React.createElement('div', { key: 'more', style: { color: 'var(--q-text-tertiary)', fontSize: 10, fontFamily: 'var(--font-interface)' } }, '+' + (acts.length - 3) + ' more'))
-      cells.push(React.createElement('div', {
-        key: dayKey(d.getTime()), onClick: () => openDay(d), onMouseEnter: () => setHoverDay(dayKey(d.getTime())), onMouseLeave: () => setHoverDay(null), onDragOver: (e: any) => e.preventDefault(), onDrop: (e: any) => { e.preventDefault(); e.stopPropagation(); const id = e.dataTransfer.getData ? e.dataTransfer.getData('text/quinki-schedule') : ''; if (id) setScheduleTime(id, d, 12, 0, 0); setDragId(null) },
-        style: { minHeight: 0, padding: 4, display: 'flex', flexDirection: 'column', gap: 3, overflow: 'hidden', cursor: 'pointer', transition: 'none', backgroundColor: 'transparent', opacity: inMonth ? 1 : 0.4, alignItems: 'flex-start', borderRight: col < 6 ? '1px solid var(--q-border)' : 'none', borderBottom: row < 5 ? '1px solid var(--q-border)' : 'none' },
-      }, kids))
-    }
-    const mHeader = WEEK.map((w, i) => React.createElement('div', { key: 'mh' + i, style: { display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px 0', fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-interface)', color: 'var(--q-text)', borderBottom: '1px solid var(--q-border-strong)', borderRight: i < 6 ? '1px solid var(--q-border)' : 'none' } }, w))
-    calendarGrid = React.createElement('div', { key: 'g', style: { flex: 1, minHeight: 0, overflow: 'hidden', border: '1px solid var(--q-border-strong)', borderRadius: 'var(--radius-lg)' } }, [
-      React.createElement('div', { key: 'table', style: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gridTemplateRows: '28px repeat(6, 1fr)', height: '100%' } }, [...mHeader, ...cells]),
-    ])
-  } else {
-    const days: Date[] = []
-    if (mode === 'week') { const dow = (view.getDay() + 6) % 7; const ws = new Date(year, month, view.getDate() - dow); for (let i = 0; i < 7; i++) days.push(new Date(ws.getFullYear(), ws.getMonth(), ws.getDate() + i)) }
-    else days.push(new Date(selected.getFullYear(), selected.getMonth(), selected.getDate()))
-    const headerH = 30
-    const gutterW = 54
-    const N = days.length
-    const hourH = Math.max(20, (bodyH - headerH - 8) / 24)
-    const totalH = 24 * hourH
-    const colTemplate = gutterW + 'px repeat(' + N + ',1fr)'
-
-    // HEADER: stessa griglia colonne del body → allineamento garantito (anche al resize)
-    const dayHeaders: React.ReactNode[] = days.map((d, i) => {
-      const isToday = sameDay(d, today0())
-      const label = mode === 'week' ? WEEK[i] + ' ' + d.getDate() : fullDate(d)
-      return React.createElement('div', {
-        key: 'dh' + i, onClick: () => { if (mode === 'week') openDay(d) },
-        style: { display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 0, padding: '2px 0', borderLeft: '1px solid var(--q-border)' },
-      }, React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 40, height: 24, padding: '0 8px', borderRadius: 'var(--radius-sm)', backgroundColor: isToday ? 'var(--q-accent-calendar)' : 'transparent', color: isToday ? 'var(--q-bg)' : 'var(--q-text)', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap', cursor: 'pointer' } }, label))
+  // Unifica schedule + execution in un'unica lista attività
+  const items: Item[] = []
+  for (const s of schedules || []) {
+    items.push({
+      id: s.id, kind: 'sched',
+      title: s.title || '(untitled)',
+      agent: (s.agentIds || []).join(', ') || '—',
+      chat: s.sourceSession ? (s.sourceSession.label || s.sourceSession.key) : '—',
+      status: s.enabled ? 'scheduled' : 'off',
+      when: s.nextFireAt || (s.lastFiredAt ? s.lastFiredAt : null),
+      error: '',
+      sched: s,
     })
-    const headerGrid = React.createElement('div', { key: 'hh', style: { display: 'grid', gridTemplateColumns: colTemplate, height: headerH, borderBottom: '1px solid var(--q-border-strong)', minWidth: mode === 'week' ? 700 : 0 } }, [
-      React.createElement('div', { key: 'gh', style: {} }),
-      ...dayHeaders,
-    ])
-
-    // GUTTER: etichette orarie allineate alle righe
-    const hourLabels: React.ReactNode[] = []
-    for (let h = 0; h < 24; h++) {
-      hourLabels.push(React.createElement('div', { key: 'gl' + h, style: { position: 'absolute', left: 0, top: h * hourH, width: gutterW - 6, textAlign: 'right', fontSize: 9, fontFamily: 'var(--font-code)', color: 'var(--q-text-tertiary)', paddingTop: 1, paddingRight: 4 } }, String(h).padStart(2, '0') + ':00'))
-    }
-    const hourLines: React.ReactNode[] = []
-    for (let h = 0; h < 24; h++) {
-      hourLines.push(React.createElement('div', { key: 'hg' + h, style: { position: 'absolute', left: 0, right: 0, top: h * hourH, borderTop: '1px solid var(--q-border)', pointerEvents: 'none' } }))
-    }
-
-    const colCells: React.ReactNode[] = days.map((d, di) => {
-      const acts = dayActivities(d)
-      // raggruppa per orario esatto → attività stesso orario AFFIANCATE (niente sovrapposizione)
-      const groups: { key: number; items: any[] }[] = []
-      for (const a of acts) { const k = a.h * 3600 + a.m * 60 + a.s; const g = groups.find((x) => x.key === k); if (g) g.items.push(a); else groups.push({ key: k, items: [a] }) }
-      const blocks: React.ReactNode[] = []
-      for (const g of groups) {
-        const n = g.items.length
-        g.items.forEach((a, ai) => {
-          const topPx = a.h * hourH + (a.m / 60) * hourH + (a.s / 3600) * hourH
-          const dropHere = (e: any) => { e.preventDefault(); e.stopPropagation(); const id = e.dataTransfer.getData('text/quinki-schedule'); if (!id) { setDragId(null); setDropLine(null); return } const rect = (e.currentTarget as HTMLElement).getBoundingClientRect(); const off = e.clientY - rect.top; const totalMin = Math.floor(off / hourH * 60 / 15) * 15; const hh = Math.min(23, Math.floor(totalMin / 60)); const mm = totalMin % 60; setScheduleTime(id, d, hh, mm, 0); setDragId(null); setDropLine(null) }
-          blocks.push(React.createElement('div', {
-            key: 'b' + di + ai, draggable: a.type === 'schedule',
-            onDragStart: a.type === 'schedule' ? (ev: any) => startDrag(ev, a.id) : undefined,
-            onDragOver: (e: any) => { e.preventDefault(); e.stopPropagation(); const rect = (e.currentTarget as HTMLElement).getBoundingClientRect(); setDropLine({ di, top: e.clientY - rect.top }) },
-            onDragLeave: () => setDropLine(null),
-            onDrop: dropHere,
-            onClick: a.type === 'schedule' ? () => setEditSched({ id: a.id, h: a.h, m: a.m, s: a.s, day: new Date(d) }) : undefined,
-            title: a.text,
-            style: { position: 'absolute', left: 'calc(' + (ai * (100 / n)) + '% + 2px)', width: 'calc(' + (100 / n) + '% - 4px)', top: topPx, height: Math.max(16, hourH / 2), borderRadius: 6, zIndex: 3, cursor: a.type === 'schedule' ? 'grab' : 'default', backgroundColor: 'color-mix(in srgb, ' + a.color + ' 22%, transparent)', border: '1px solid ' + a.color, padding: '1px 5px', fontSize: 10, fontFamily: 'var(--font-interface)', color: 'var(--q-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-          }, a.text.split('·')[0] + (a.type === 'schedule' ? ' ✎' : '')))
-        })
-      }
-      return React.createElement('div', {
-        key: 'col' + di, onDragOver: (e: any) => { e.preventDefault(); const rect = (e.currentTarget as HTMLElement).getBoundingClientRect(); setDropLine({ di, top: e.clientY - rect.top }) },
-        onDragLeave: () => setDropLine(null),
-        onDrop: (e: any) => { e.preventDefault(); e.stopPropagation(); const id = e.dataTransfer.getData('text/quinki-schedule'); if (!id) { setDragId(null); setDropLine(null); return } const rect = (e.currentTarget as HTMLElement).getBoundingClientRect(); const off = e.clientY - rect.top; const totalMin = Math.floor(off / hourH * 60 / 15) * 15; const hh = Math.min(23, Math.floor(totalMin / 60)); const mm = totalMin % 60; setScheduleTime(id, d, hh, mm, 0); setDragId(null); setDropLine(null) },
-        style: { position: 'relative', height: totalH, borderLeft: '1px solid var(--q-border)', overflow: 'hidden' },
-      }, [...blocks, dropLine && dropLine.di === di ? React.createElement('div', { key: 'dl', style: { position: 'absolute', left: 2, right: 2, top: dropLine.top, height: 2, backgroundColor: 'var(--q-accent-calendar)', zIndex: 6, pointerEvents: 'none' } }) : null])
+  }
+  for (const ex of executions || []) {
+    items.push({
+      id: ex.id, kind: 'exec',
+      title: ex.label || ex.id,
+      agent: (ex.agentIds || []).join(', ') || '—',
+      chat: '—',
+      status: ex.status || '?',
+      when: ex.scheduledFor || ex.createdAt || null,
+      error: ex.error ? String(ex.error).slice(0, 60) : '',
+      ex,
     })
-    const gutter = React.createElement('div', { key: 'gutter', style: { position: 'relative', height: totalH } }, hourLabels)
-    const bodyGrid = React.createElement('div', { key: 'bg', style: { display: 'grid', gridTemplateColumns: colTemplate, position: 'relative', minWidth: mode === 'week' ? 700 : 0 } }, [gutter, ...colCells])
-    const linesOverlay = React.createElement('div', { key: 'lines', style: { position: 'absolute', left: gutterW, right: 0, top: 0, height: totalH, pointerEvents: 'none' } }, hourLines)
+  }
 
-    const wrap = React.createElement('div', { key: 'wbox', style: { width: '100%', height: '100%', position: 'relative', overflowX: 'auto', overflowY: 'hidden', border: '1px solid var(--q-border-strong)', borderRadius: 'var(--radius-lg)' } }, [
-      headerGrid,
-      React.createElement('div', { key: 't', style: { position: 'relative' } }, [bodyGrid, linesOverlay]),
-    ])
-    if (mode === 'day') {
-      calendarGrid = React.createElement('div', { key: 'g', style: { flex: 1, minHeight: 0, display: 'flex', justifyContent: 'center', alignItems: 'stretch', width: '100%', margin: '0 auto', maxWidth: 'var(--spacing-chat-max)' } }, [wrap])
-    } else {
-      calendarGrid = React.createElement('div', { key: 'g', style: { flex: 1, minHeight: 0, width: '100%', display: 'flex', flexDirection: 'column' } }, [wrap])
+  // Filtri
+  const chats = Array.from(new Set(items.map(i => i.chat).filter(c => c && c !== '—')))
+  let filtered = items.filter(i => {
+    if (q && !(i.title + ' ' + i.agent + ' ' + i.chat).toLowerCase().includes(q.toLowerCase())) return false
+    if (statusF !== 'all') {
+      const bucket = i.status === 'scheduled' || i.status === 'off' ? 'scheduled' : i.status === 'running' || i.status === 'queued' || i.status === 'interrupted' ? 'running' : i.status === 'completed' ? 'completed' : 'failed'
+      if (bucket !== statusF) return false
     }
+    if (chatF !== 'all' && i.chat !== chatF) return false
+    return true
+  })
+  // Ordinamento
+  const cmp = (a: Item, b: Item) => {
+    let av: any = (a as any)[sortKey]; let bv: any = (b as any)[sortKey]
+    if (typeof av === 'string') av = av.toLowerCase(); if (typeof bv === 'string') bv = bv.toLowerCase()
+    if (av == null) av = ''; if (bv == null) bv = ''
+    if (av < bv) return -1 * sortDir; if (av > bv) return 1 * sortDir; return 0
   }
+  filtered = [...filtered].sort(cmp)
 
-  const nav = (dir: number) => {
-    const d = new Date(view)
-    if (mode === 'month') d.setMonth(d.getMonth() + dir)
-    else if (mode === 'week') d.setDate(d.getDate() + dir * 7)
-    else d.setDate(d.getDate() + dir)
-    d.setHours(0, 0, 0, 0); setView(d)
-  }
+  const toggleSort = (key: string) => { if (sortKey === key) setSortDir(sortDir === 1 ? -1 : 1); else { setSortKey(key); setSortDir(1) } }
 
-  // === Sidebar: Scheduled / Execution / Executed / Failed ===
-  const schedList = [...schedules].sort((a: any, b: any) => (a.nextFireAt || 0) - (b.nextFireAt || 0))
-  const schedRows: React.ReactElement[] = []
-  for (const s of schedList) {
-    const isOff = !s.enabled
-    const src = s.sourceSession ? (s.sourceSession.label || s.sourceSession.key) : ''
-    const row: React.ReactNode[] = [
-      React.createElement('div', { key: 'dot', style: { width: 8, height: 8, borderRadius: 4, flexShrink: 0, backgroundColor: isOff ? 'var(--q-text-tertiary)' : 'var(--q-accent-calendar)', marginTop: 5 } }),
-      React.createElement('div', { key: 'mid', style: { flex: 1, minWidth: 0 } }, [
-        React.createElement('div', { key: 't', style: { color: 'var(--q-text)', fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, (isOff ? '(off) ' : '') + (s.title || '(untitled)')),
-        React.createElement('div', { key: 'a', style: { color: 'var(--q-text-secondary)', fontSize: 11, fontFamily: 'var(--font-interface)', marginTop: 2 } }, 'agent: ' + (s.agentIds || []).join(', ')),
-        src ? React.createElement('div', { key: 'c', style: { color: 'var(--q-text-secondary)', fontSize: 11, fontFamily: 'var(--font-interface)', marginTop: 1 } }, 'from chat: ' + src) : null,
-        React.createElement('div', { key: 'w', style: { color: 'var(--q-text-tertiary)', fontSize: 11, fontFamily: 'var(--font-interface)', marginTop: 1 } }, fmtWhen(s)),
-      ]),
-    ]
-    if (!isOff) row.push(React.createElement('button', { key: 'run', style: btnText, title: 'Run now', onClick: () => act(async () => { await call('runScheduleNow', { id: s.id }) }) }, React.createElement(Play, { size: 12 })))
-    row.push(React.createElement('button', { key: 'del', style: btnText, title: 'Delete', onClick: () => act(async () => { await call('deleteSchedule', { id: s.id }) }) }, React.createElement(Trash2, { size: 12 })))
-    schedRows.push(React.createElement('div', { key: s.id, draggable: !isOff, onDragStart: (e: any) => startDrag(e, s.id), onDragEnd: endDrag, style: { display: 'flex', alignItems: 'flex-start', gap: 8, padding: '7px 10px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-sm)', border: '1px solid ' + (dragId === s.id ? 'var(--q-accent-calendar)' : 'var(--q-border)'), cursor: isOff ? 'default' : 'grab', transition: 'none', opacity: isOff ? 0.6 : 1 } }, row))
-  }
-  const execList = [...executions].sort((a: any, b: any) => (a.createdAt || 0) - (b.createdAt || 0))
-  const execRows: React.ReactElement[] = []
-  const doneRows: React.ReactElement[] = []
-  const failRows: React.ReactElement[] = []
-  for (const ex of execList) {
-    const row: React.ReactNode[] = [
-      React.createElement('div', { key: 'mid', style: { flex: 1, minWidth: 0 } }, [
-        React.createElement('div', { key: 't', style: { color: 'var(--q-text)', fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, ex.label || ex.id),
-        React.createElement('div', { key: 'a', style: { color: 'var(--q-text-secondary)', fontSize: 11, fontFamily: 'var(--font-interface)', marginTop: 2 } }, 'agent: ' + (ex.agentIds || []).join(', ')),
-        React.createElement('div', { key: 'w', style: { color: 'var(--q-text-tertiary)', fontSize: 11, fontFamily: 'var(--font-interface)', marginTop: 1 } }, new Date(ex.scheduledFor || ex.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) + ' ' + new Date(ex.scheduledFor || ex.createdAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) + (ex.error ? ' · ' + String(ex.error).slice(0, 40) : '')),
-      ]),
-    ]
-    if (ex.status === 'running' || ex.status === 'queued' || ex.status === 'interrupted') {
-      row.unshift(React.createElement(Chip, { key: 'c', color: STATUS_COLOR[ex.status] || 'var(--q-text-tertiary)', text: ex.status || '?' }))
-      if (ex.status === 'running' || ex.status === 'queued') row.push(React.createElement('button', { key: 'stop', style: btnText, title: 'Stop (interrupt)', onClick: () => act(async () => { await call('stopExecution', { executionId: ex.id }) }) }, React.createElement(X, { size: 12 })))
-      if (ex.status === 'interrupted') row.push(React.createElement('button', { key: 'res', style: btnText, title: 'Resume', onClick: () => act(async () => { await call('resumeExecution', { executionId: ex.id }) }) }, React.createElement(RotateCcw, { size: 12 })))
-      row.push(React.createElement('button', { key: 'del', style: btnText, title: 'Delete', onClick: () => act(async () => { await call('deleteExecution', { executionId: ex.id }) }) }, React.createElement(Trash2, { size: 12 })))
-      execRows.push(React.createElement('div', { key: ex.id, style: { display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', transition: 'none' } }, row))
-    } else if (ex.status === 'completed') {
-      row.unshift(React.createElement('span', { key: 'ok', style: { color: 'var(--q-accent-success)', fontSize: 13, flexShrink: 0 } }, '✓'))
-      row.push(React.createElement('button', { key: 'del', style: btnText, title: 'Delete', onClick: () => act(async () => { await call('deleteExecution', { executionId: ex.id }) }) }, React.createElement(Trash2, { size: 12 })))
-      doneRows.push(React.createElement('div', { key: ex.id, style: { display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', transition: 'none' } }, row))
+  const actions = (i: Item) => {
+    const btns: React.ReactNode[] = []
+    if (i.kind === 'sched') {
+      if (i.status === 'scheduled') btns.push(React.createElement('button', { key: 'run', style: btnText, title: 'Run now', onClick: () => act(async () => { await call('runScheduleNow', { id: i.id }) }) }, React.createElement(Play, { size: 12 })))
+      btns.push(React.createElement('button', { key: 'del', style: btnText, title: 'Delete', onClick: () => act(async () => { await call('deleteSchedule', { id: i.id }) }) }, React.createElement(Trash2, { size: 12 })))
     } else {
-      row.unshift(React.createElement(Chip, { key: 'c', color: STATUS_COLOR[ex.status] || 'var(--q-text-tertiary)', text: ex.status || '?' }))
-      row.push(React.createElement('button', { key: 'retry', style: btnText, title: 'Retry / reprogram', onClick: () => act(async () => {
-        if (ex.scheduleId) { await call('runScheduleNow', { id: ex.scheduleId }) }
-        else { await call('runTask', { label: ex.label, agentIds: ex.agentIds, workingDir: ex.workingDir, mode: ex.mode, model: ex.model, text: ex.text }) }
+      if (i.status === 'running' || i.status === 'queued') btns.push(React.createElement('button', { key: 'stop', style: btnText, title: 'Stop', onClick: () => act(async () => { await call('stopExecution', { executionId: i.id }) }) }, React.createElement(X, { size: 12 })))
+      if (i.status === 'interrupted') btns.push(React.createElement('button', { key: 'res', style: btnText, title: 'Resume', onClick: () => act(async () => { await call('resumeExecution', { executionId: i.id }) }) }, React.createElement(RotateCcw, { size: 12 })))
+      if (i.status === 'failed' || i.status === 'cancelled') btns.push(React.createElement('button', { key: 'retry', style: btnText, title: 'Retry', onClick: () => act(async () => {
+        if (i.ex?.scheduleId) await call('runScheduleNow', { id: i.ex.scheduleId })
+        else await call('runTask', { label: i.ex.label, agentIds: i.ex.agentIds, workingDir: i.ex.workingDir, mode: i.ex.mode, model: i.ex.model, text: i.ex.text })
       }) }, React.createElement(RotateCcw, { size: 12 })))
-      row.push(React.createElement('button', { key: 'del', style: btnText, title: 'Delete', onClick: () => act(async () => { await call('deleteExecution', { executionId: ex.id }) }) }, React.createElement(Trash2, { size: 12 })))
-      failRows.push(React.createElement('div', { key: ex.id, style: { display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', transition: 'none' } }, row))
+      btns.push(React.createElement('button', { key: 'del', style: btnText, title: 'Delete', onClick: () => act(async () => { await call('deleteExecution', { executionId: i.id }) }) }, React.createElement(Trash2, { size: 12 })))
     }
+    return React.createElement('div', { key: 'acts', style: { display: 'flex', gap: 4, justifyContent: 'flex-end' } }, btns)
   }
-  const section = (key: string, icon: React.ReactElement, title: string, count: number, rows: React.ReactElement[], empty: string, open: boolean, setOpen: (b: boolean) => void) =>
-    React.createElement('div', { key, style: { display: 'flex', flexDirection: 'column', gap: 6 } }, [
-      React.createElement('div', { key: 'h', style: { display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }, onClick: () => setOpen(!open) }, [
-        open ? React.createElement(ChevronDown, { size: 14, style: { color: 'var(--q-text-secondary)' } }) : React.createElement(ChevronRightIcon, { size: 14, style: { color: 'var(--q-text-secondary)' } }),
-        icon,
-        React.createElement('span', { style: { color: 'var(--q-text)', fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-interface)', flex: 1 } }, title),
-        React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: 11, fontFamily: 'var(--font-interface)' } }, '(' + count + ')'),
-      ]),
-      open ? React.createElement('div', { key: 'l', style: { display: 'flex', flexDirection: 'column', gap: 6 } }, rows.length ? rows : React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: 12, fontFamily: 'var(--font-interface)', padding: '6px 0' } }, empty)) : null,
-    ])
-  const todoPanel = React.createElement('div', {
-    style: { width: todoW, flexShrink: 0, alignSelf: 'stretch', display: 'flex', flexDirection: 'column', gap: 10, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)', border: '1px solid var(--q-border)', padding: '12px', overflowY: 'auto', position: 'relative' },
-  }, [
-    section('sched', React.createElement(Clock, { size: 14, style: { color: 'var(--q-accent-calendar)' } }), 'Scheduled', schedules.filter((x: any) => x.enabled).length, schedRows, 'Nothing scheduled.', openSched, setOpenSched),
-    section('exec', React.createElement(Bot, { size: 14, style: { color: 'var(--q-accent-info)' } }), 'Execution', execRows.length, execRows, 'Nothing running.', openExec, setOpenExec),
-    section('done', React.createElement(Check, { size: 14, style: { color: 'var(--q-accent-success)' } }), 'Executed', doneRows.length, doneRows, 'Nothing executed yet.', openDone, setOpenDone),
-    section('fail', React.createElement(X, { size: 14, style: { color: 'var(--q-accent-danger)' } }), 'Failed', failRows.length, failRows, 'Nothing failed.', openFail, setOpenFail),
-    React.createElement('div', { key: 'handle', onMouseDown: (e: any) => { e.preventDefault(); dragRef.current = { startX: e.clientX, startW: todoW } }, style: { position: 'absolute', top: 0, right: -3, bottom: 0, width: 6, cursor: 'col-resize', zIndex: 5 } }),
-  ])
 
+  // === VISTA TABELLA ===
+  const th = (key: string, label: string, align = 'left') => React.createElement('th', {
+    key, onClick: () => toggleSort(key), style: { cursor: 'pointer', textAlign: align as any, padding: '8px 10px', color: 'var(--q-text-secondary)', fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-interface)', borderBottom: '1px solid var(--q-border-strong)', whiteSpace: 'nowrap', userSelect: 'none' },
+  }, label + (sortKey === key ? (sortDir === 1 ? ' ↑' : ' ↓') : ''))
+  const tbody: React.ReactNode[] = filtered.map(i => React.createElement('tr', { key: i.id, style: { borderBottom: '1px solid var(--q-border-soft)' } }, [
+    React.createElement('td', { key: 't', style: { padding: '8px 10px', color: 'var(--q-text)', fontSize: 13, fontFamily: 'var(--font-interface)' } }, i.title),
+    React.createElement('td', { key: 'a', style: { padding: '8px 10px', color: 'var(--q-text-secondary)', fontSize: 12, fontFamily: 'var(--font-interface)' } }, i.agent),
+    React.createElement('td', { key: 'c', style: { padding: '8px 10px', color: 'var(--q-text-secondary)', fontSize: 12, fontFamily: 'var(--font-interface)' } }, i.chat),
+    React.createElement('td', { key: 's', style: { padding: '8px 10px' } }, React.createElement(Chip, { color: STATUS_COLOR[i.status] || 'var(--q-text-tertiary)', text: statusLabel(i.status) })),
+    React.createElement('td', { key: 'w', style: { padding: '8px 10px', color: 'var(--q-text-secondary)', fontSize: 12, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap' } }, fmtDT(i.when)),
+    React.createElement('td', { key: 'e', style: { padding: '8px 10px', color: 'var(--q-accent-danger)', fontSize: 11, fontFamily: 'var(--font-interface)', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, i.error),
+    React.createElement('td', { key: 'x', style: { padding: '8px 10px' } }, actions(i)),
+  ]))
+  const tableView = React.createElement('div', { key: 'tv', style: { width: '100%', overflow: 'auto', border: '1px solid var(--q-border-strong)', borderRadius: 'var(--radius-lg)' } }, React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse' } }, [
+    React.createElement('thead', { key: 'th' }, React.createElement('tr', { key: 'tr' }, [th('title', 'Title'), th('agent', 'Agent'), th('chat', 'Chat'), th('status', 'Status'), th('when', 'When'), th('error', 'Result'), th('x', '', 'right')])),
+    React.createElement('tbody', { key: 'tb' }, tbody.length ? tbody : React.createElement('tr', { key: 'e' }, React.createElement('td', { colSpan: 7, style: { padding: 20, textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)' } }, 'No activities match the filters.'))),
+  ]))
+
+  // === VISTA BOARD ===
+  const groups: { key: string; label: string; color: string; items: Item[] }[] = [
+    { key: 'scheduled', label: 'Scheduled', color: 'var(--q-accent-calendar)', items: [] },
+    { key: 'running', label: 'Running', color: 'var(--q-accent-info)', items: [] },
+    { key: 'completed', label: 'Completed', color: 'var(--q-accent-success)', items: [] },
+    { key: 'failed', label: 'Failed', color: 'var(--q-accent-danger)', items: [] },
+  ]
+  for (const i of filtered) {
+    const bucket = i.status === 'scheduled' || i.status === 'off' ? 'scheduled' : i.status === 'running' || i.status === 'queued' || i.status === 'interrupted' ? 'running' : i.status === 'completed' ? 'completed' : 'failed'
+    const g = groups.find(x => x.key === bucket); if (g) g.items.push(i)
+  }
+  const boardView = React.createElement('div', { key: 'bv', style: { display: 'flex', gap: 10, alignItems: 'flex-start', flex: 1, minHeight: 0, overflowX: 'auto' } },
+    groups.map(g => React.createElement('div', { key: g.key, style: { width: 250, flexShrink: 0, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--q-border)', display: 'flex', flexDirection: 'column', maxHeight: '100%' } }, [
+      React.createElement('div', { key: 'h', style: { padding: '8px 10px', color: 'var(--q-text)', fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-interface)', borderBottom: '1px solid var(--q-border)', display: 'flex', alignItems: 'center', gap: 6 } }, [React.createElement('span', { style: { width: 8, height: 8, borderRadius: 4, backgroundColor: g.color } }), g.label, React.createElement('span', { style: { color: 'var(--q-text-tertiary)' } }, '(' + g.items.length + ')')]),
+      React.createElement('div', { key: 'l', style: { padding: 8, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 } },
+        g.items.length ? g.items.map(i => React.createElement('div', { key: i.id, style: { backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', padding: 8, display: 'flex', flexDirection: 'column', gap: 4 } }, [
+          React.createElement('div', { key: 't', style: { color: 'var(--q-text)', fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-interface)' } }, i.title),
+          React.createElement('div', { key: 'a', style: { color: 'var(--q-text-secondary)', fontSize: 11, fontFamily: 'var(--font-interface)' } }, 'agent: ' + i.agent),
+          i.chat !== '—' ? React.createElement('div', { key: 'c', style: { color: 'var(--q-text-secondary)', fontSize: 11, fontFamily: 'var(--font-interface)' } }, 'chat: ' + i.chat) : null,
+          React.createElement('div', { key: 'w', style: { color: 'var(--q-text-tertiary)', fontSize: 11, fontFamily: 'var(--font-interface)' } }, fmtDT(i.when)),
+          i.error ? React.createElement('div', { key: 'e', style: { color: 'var(--q-accent-danger)', fontSize: 11, fontFamily: 'var(--font-interface)' } }, i.error) : null,
+          React.createElement('div', { key: 'x', style: { display: 'flex', justifyContent: 'flex-end', marginTop: 2 } }, actions(i)),
+        ])) : React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: 12, fontFamily: 'var(--font-interface)', padding: 8 } }, '—'),
+      ),
+    ]))
+
+  // === VISTA CALENDARIO (per giorno) ===
+  const byDay: Record<string, Item[]> = {}
+  for (const i of filtered) { const k = dayKey(i.when); if (!byDay[k]) byDay[k] = []; byDay[k].push(i) }
+  const dayKeys = Object.keys(byDay).sort()
+  const calView = React.createElement('div', { key: 'cv', style: { flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14 } },
+    dayKeys.length ? dayKeys.map(k => React.createElement('div', { key: k }, [
+      React.createElement('div', { key: 'h', style: { color: 'var(--q-text)', fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-interface)', marginBottom: 6 } }, dayLabel(k)),
+      React.createElement('div', { key: 'l', style: { display: 'flex', flexDirection: 'column', gap: 6 } },
+        byDay[k].map(i => React.createElement('div', { key: i.id, style: { display: 'flex', alignItems: 'center', gap: 10, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', padding: '8px 10px' } }, [
+          React.createElement(Chip, { key: 's', color: STATUS_COLOR[i.status] || 'var(--q-text-tertiary)', text: statusLabel(i.status) }),
+          React.createElement('div', { key: 'm', style: { flex: 1, minWidth: 0 } }, [
+            React.createElement('div', { key: 't', style: { color: 'var(--q-text)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, i.title),
+            React.createElement('div', { key: 'd', style: { color: 'var(--q-text-secondary)', fontSize: 11, fontFamily: 'var(--font-interface)', marginTop: 1 } }, fmtDT(i.when) + ' · agent: ' + i.agent + (i.chat !== '—' ? ' · ' + i.chat : '')),
+          ]),
+          actions(i),
+        ]))),
+    ])) : React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)' } }, 'No activities.'))
+
+  // === HEADER ===
   const IconBtn = ({ icon: Icon, onClick }: { icon: React.FC<any>; onClick: () => void }) => {
     const [h, setH] = useState(false)
-    return React.createElement('button', { onClick, onMouseEnter: () => setH(true), onMouseLeave: () => setH(false), style: { width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', padding: '0', backgroundColor: (h) ? 'var(--q-hover)' : 'transparent', color: h ? 'var(--q-text)' : 'var(--q-text-secondary)', transition: 'none' } }, React.createElement(Icon, { size: 20 }))
+    return React.createElement('button', { onClick, onMouseEnter: () => setH(true), onMouseLeave: () => setH(false), style: { width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', padding: '0', backgroundColor: h ? 'var(--q-hover)' : 'transparent', color: h ? 'var(--q-text)' : 'var(--q-text-secondary)', transition: 'none' } }, React.createElement(Icon, { size: 20 }))
   }
-
-  let editModal: React.ReactElement | null = null
-  if (editSched) {
-    const inputStyle: React.CSSProperties = { width: 64, padding: '4px 6px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 13, fontFamily: 'var(--font-code)', textAlign: 'center' }
-    editModal = React.createElement('div', { key: 'modal', style: { position: 'fixed', inset: 0, zIndex: 300, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: () => setEditSched(null) }, React.createElement('div', { style: { backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: 20, minWidth: 320 }, onClick: (e: any) => e.stopPropagation() }, [
-      React.createElement('div', { key: 't', style: { color: 'var(--q-text)', fontSize: 15, fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: 12 } }, 'Exact time'),
-      React.createElement('input', { key: 'date', style: { width: 150, padding: '4px 6px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 13, fontFamily: 'var(--font-code)' }, type: 'date', defaultValue: (editSched.day || new Date()).toISOString().slice(0, 10) }),
-      React.createElement('div', { key: 'row', style: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 } }, [
-        React.createElement('input', { style: inputStyle, defaultValue: String(editSched.h).padStart(2, '0'), id: 'edh', type: 'number', min: 0, max: 23 }),
-        React.createElement('span', { style: { color: 'var(--q-text-secondary)' } }, ':'),
-        React.createElement('input', { style: inputStyle, defaultValue: String(editSched.m).padStart(2, '0'), id: 'edm', type: 'number', min: 0, max: 59 }),
-        React.createElement('span', { style: { color: 'var(--q-text-secondary)' } }, ':'),
-        React.createElement('input', { style: inputStyle, defaultValue: String(editSched.s).padStart(2, '0'), id: 'eds', type: 'number', min: 0, max: 59 }),
-      ]),
-      React.createElement('div', { key: 'btns', style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 } }, [
-        React.createElement('button', { onClick: () => setEditSched(null), style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'transparent', color: 'var(--q-accent-danger)', fontSize: 13, fontFamily: 'var(--font-interface)', cursor: 'pointer' } }, 'Cancel'),
-        React.createElement('button', { onClick: async () => { const dt = (document.querySelector('[key="date"]') as any); let nd = new Date((editSched.day || new Date())); const dv = ((document.querySelector('input[type=date]')) as HTMLInputElement)?.value; if (dv) { const t = new Date(dv + 'T00:00:00'); if (!isNaN(t.getTime())) nd = t } const hh = parseInt((document.getElementById('edh') as HTMLInputElement)?.value || '0', 10); const mm = parseInt((document.getElementById('edm') as HTMLInputElement)?.value || '0', 10); const ss = parseInt((document.getElementById('eds') as HTMLInputElement)?.value || '0', 10); await setScheduleTime(editSched.id, nd, hh || 0, mm || 0, ss || 0); setEditSched(null) }, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-accent-calendar)', background: 'transparent', color: 'var(--q-accent-calendar)', fontSize: 13, fontFamily: 'var(--font-interface)', fontWeight: 600, cursor: 'pointer' } }, 'Save'),
-      ]),
-    ]))
+  const modeBtn = (v: 'table' | 'board' | 'calendar') => {
+    const active = view === v
+    const radius = v === 'table' ? 'var(--radius-sm) 0 0 var(--radius-sm)' : v === 'board' ? '0' : '0 var(--radius-sm) var(--radius-sm) 0'
+    return { cursor: 'pointer', height: 28, padding: '4px 10px', fontSize: 12, fontFamily: 'var(--font-interface)', backgroundColor: active ? 'var(--q-accent-calendar)' : 'transparent', color: active ? 'var(--q-bg)' : 'var(--q-text)', fontWeight: active ? 600 : 500, borderRadius: radius, transition: 'none', border: '1px solid var(--q-border)', borderRight: v === 'calendar' ? '1px solid var(--q-border)' : 'none' }
   }
+  const selectStyle: React.CSSProperties = { height: 28, padding: '0 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 12, fontFamily: 'var(--font-interface)', cursor: 'pointer' }
 
   const headerKids: React.ReactNode[] = [
     React.createElement('div', { key: 'h1', style: panelStyle }, [React.createElement(IconBtn, { key: 'home', icon: Home, onClick: () => props.onSelectPanel('home') })]),
     React.createElement('div', { key: 'sp1', style: { width: '8px', flexShrink: 0 } }),
-    React.createElement('div', { key: 'h2', style: panelStyle }, [React.createElement(IconBtn, { key: 'todo', icon: PanelLeft, onClick: () => setShowTodo(!showTodo) })]),
-    React.createElement('div', { key: 'sp2', style: { width: '8px', flexShrink: 0 } }),
-    React.createElement('div', { key: 'h3', style: { ...panelStyle, flex: 1, minWidth: 0 } }, [
+    React.createElement('div', { key: 'h2', style: { ...panelStyle, flex: 1, minWidth: 0 } }, [
       React.createElement('div', { key: 'sp0', style: { width: '8px', flexShrink: 0 } }),
-      React.createElement(Calendar, { key: 'ic', size: 18, style: { color: 'var(--q-text-secondary)', flexShrink: 0 } }),
+      React.createElement(Bot, { key: 'ic', size: 18, style: { color: 'var(--q-text-secondary)', flexShrink: 0 } }),
       React.createElement('div', { key: 'sp0b', style: { width: '12px', flexShrink: 0 } }),
-      React.createElement('span', { key: 'ti', style: { color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap' } }, 'Agents Calendar'),
+      React.createElement('span', { key: 'ti', style: { color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap' } }, 'Tasks'),
+      React.createElement('div', { key: 'sp2', style: { width: '8px', flexShrink: 0 } }),
+      React.createElement('span', { key: 'ct', style: { color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' } }, '(' + filtered.length + ')'),
       React.createElement('div', { key: 'fx', style: { flex: 1 } }),
-      React.createElement('button', { key: 'm', onClick: () => setMode('month'), style: modeBtn('month', mode) }, 'Month'),
-      React.createElement('button', { key: 'w', onClick: () => setMode('week'), style: modeBtn('week', mode) }, 'Week'),
-      React.createElement('button', { key: 'dy', onClick: () => setMode('day'), style: modeBtn('day', mode) }, 'Day'),
+      React.createElement('button', { key: 'tb', onClick: () => setView('table'), style: modeBtn('table') }, 'Table'),
+      React.createElement('button', { key: 'bd', onClick: () => setView('board'), style: modeBtn('board') }, 'Board'),
+      React.createElement('button', { key: 'cl', onClick: () => setView('calendar'), style: modeBtn('calendar') }, 'Calendar'),
       React.createElement('div', { key: 'sp3', style: { width: '10px', flexShrink: 0 } }),
-      React.createElement('button', { key: 'prev', onClick: () => nav(-1), style: btnGhost }, React.createElement(ChevronLeft, { size: 14 })),
-      React.createElement('button', { key: 'today', onClick: () => { const n = today0(); setSelected(n); setView(n); setMode('month') }, style: btnGhost }, 'Today'),
-      React.createElement('button', { key: 'next', onClick: () => nav(1), style: btnGhost }, React.createElement(ChevronRight, { size: 14 })),
-      React.createElement('div', { key: 'sp4', style: { width: '10px', flexShrink: 0 } }),
-      React.createElement('span', { key: 'dt', style: { color: 'var(--q-text)', fontSize: 14, fontWeight: 600, fontFamily: 'var(--font-interface)', minWidth: 130, whiteSpace: 'nowrap' } }, fullDate(selected)),
+      React.createElement('div', { key: 'search', style: { display: 'flex', alignItems: 'center', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--q-bg-elevated)', paddingLeft: 8 } }, [
+        React.createElement(Search, { size: 13, style: { color: 'var(--q-text-tertiary)' } }),
+        React.createElement('input', { value: q, onChange: (e: any) => setQ(e.target.value), placeholder: 'Search...', style: { background: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: 12, fontFamily: 'var(--font-interface)', padding: '6px 8px', width: 140 } }),
+      ]),
+      React.createElement('div', { key: 'sp4', style: { width: '8px', flexShrink: 0 } }),
+      React.createElement('select', { value: statusF, onChange: (e: any) => setStatusF(e.target.value), style: selectStyle }, ['all', 'scheduled', 'running', 'completed', 'failed'].map(s => React.createElement('option', { key: s, value: s }, s === 'all' ? 'Status: all' : s))),
+      React.createElement('div', { key: 'sp5', style: { width: '8px', flexShrink: 0 } }),
+      React.createElement('select', { value: chatF, onChange: (e: any) => setChatF(e.target.value), style: selectStyle }, [
+        React.createElement('option', { key: 'all', value: 'all' }, 'Chat: all'),
+        ...chats.map(c => React.createElement('option', { key: c, value: c }, c)),
+      ]),
+      React.createElement('div', { key: 'sp6', style: { width: '8px', flexShrink: 0 } }),
+      React.createElement('button', { key: 'refresh', onClick: () => act(async () => {}), style: btnGhost }, React.createElement(RefreshCw, { size: 13 })),
     ]),
   ]
 
-  // header sopra; SIDEBAR accanto al calendario (stessa altezza → la segue), come prima
   return React.createElement('div', { className: 'h-full flex flex-col', style: { width: '100%', position: 'relative', overflow: 'hidden' } }, [
     React.createElement('div', { key: 'hdr', style: { marginBottom: '8px', flexShrink: 0, display: 'flex', alignItems: 'center', width: '100%' } }, headerKids),
-    React.createElement('div', { key: 'body', ref: bodyRef, style: { flex: 1, minHeight: 0, display: 'flex', gap: 8, padding: 0, overflow: 'hidden' } }, [
-      showTodo ? todoPanel : null,
-      React.createElement('div', { key: 'cal', style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0, overflow: 'hidden' } }, [
-        calendarGrid,
-      ]),
-      editModal,
+    React.createElement('div', { key: 'body', className: 'q-scroll', style: { flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 8px 8px 8px', display: 'flex', flexDirection: 'column' } }, [
+      view === 'table' ? tableView : view === 'board' ? boardView : calView,
     ]),
   ])
-}
-
-function modeBtn(v: 'month' | 'week' | 'day', cur: string): React.CSSProperties {
-  const active = cur === v
-  const radius = v === 'month' ? 'var(--radius-sm) 0 0 var(--radius-sm)' : v === 'week' ? '0' : '0 var(--radius-sm) var(--radius-sm) 0'
-  return { cursor: 'pointer', height: 28, padding: '4px 10px', fontSize: 12, fontFamily: 'var(--font-interface)', backgroundColor: active ? 'var(--q-accent-calendar)' : 'transparent', color: active ? 'var(--q-bg)' : 'var(--q-text)', fontWeight: active ? 600 : 500, borderRadius: radius, transition: 'none', border: '1px solid var(--q-border)', borderRight: v === 'day' ? '1px solid var(--q-border)' : 'none' }
 }
