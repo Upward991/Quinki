@@ -153,7 +153,9 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   if (f.agent !== 'all') activeChips.push(chip('agent: ' + f.agent, () => patchF({ agent: 'all' })))
   if (f.q) activeChips.push(chip('search: ' + f.q, () => patchF({ q: '' })))
 
-  const toolbar = React.createElement('div', { key: 'tb', style: { display: 'flex', alignItems: 'center', gap: 4, padding: '4px 0 8px 0', flexWrap: 'wrap' } }, [
+  const chipsRow = activeChips.length ? React.createElement('div', { key: 'chips', style: { display: 'flex', alignItems: 'center', gap: 4, padding: '0 0 6px 0', flexWrap: 'wrap' } }, activeChips) : null
+  const toolbar = React.createElement('div', { key: 'tb', style: { display: 'flex', flexDirection: 'column', padding: '4px 0 8px 0' } }, [
+    React.createElement('div', { key: 'row', style: { display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' } }, [
     ...views.map(viewTab),
     React.createElement('button', { key: 'add', onClick: () => setNewViewOpen(!newViewOpen), title: 'New view', style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-secondary)', padding: '4px', display: 'flex' } }, React.createElement(Plus, { size: 14 })),
     newViewOpen ? React.createElement('div', { key: 'nv', style: { position: 'relative', display: 'inline-block' } }, [React.createElement('div', { key: 'o', style: { position: 'fixed', inset: 0, zIndex: 150 }, onClick: () => setNewViewOpen(false) }), React.createElement('div', { key: 'd', style: { position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 151, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: 8, display: 'flex', flexDirection: 'column', gap: 6 } }, [React.createElement('input', { key: 'i', autoFocus: true, placeholder: 'View name', onKeyDown: (e: any) => { if (e.key === 'Enter') addView(e.target.value.trim()) }, style: { padding: '4px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 12, fontFamily: 'var(--font-interface)' } }), React.createElement('button', { key: 'go', onClick: () => { const inp = document.querySelector('input[placeholder="View name"]') as HTMLInputElement; addView(inp?.value?.trim() || '') }, style: { padding: '5px 10px', borderRadius: 'var(--radius-sm)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-tab-accent)', color: 'var(--q-bg)', fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-interface)' } }, 'Create')])]) : null,
@@ -168,14 +170,18 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       React.createElement('div', { key: 'l3', style: { display: 'flex', alignItems: 'center', gap: 6 } }, [React.createElement('span', { style: { color: 'var(--q-text-secondary)', fontSize: 12, fontFamily: 'var(--font-interface)', width: 60 } }, 'Chat'), React.createElement(Dropdown, { value: f.chat, allLabel: 'all', options: chats.map(c => ({ value: c, label: c })), onChange: (v) => patchF({ chat: v }) })]),
       React.createElement('button', { key: 'reset', onClick: () => patchF({ status: 'all', chat: 'all', agent: 'all', q: '' }), style: { alignSelf: 'flex-end', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-accent-danger)', fontSize: 12, fontFamily: 'var(--font-interface)', padding: '2px 4px' } }, 'Reset'),
     ])]) : null,
+    ]),
+    chipsRow,
   ])
 
   const IconBtn = ({ icon: Icon, onClick }: { icon: React.FC<any>; onClick: () => void }) => { const [h, setH] = useState(false); return React.createElement('button', { onClick, onMouseEnter: () => setH(true), onMouseLeave: () => setH(false), style: { width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', padding: '0', backgroundColor: h ? 'var(--q-hover)' : 'transparent', color: h ? 'var(--q-text)' : 'var(--q-text-secondary)', transition: 'none' } }, React.createElement(Icon, { size: 20 })) }
 
   return React.createElement('div', { className: 'h-full flex flex-col', style: { width: '100%', position: 'relative', overflow: 'hidden' } }, [
+    React.createElement('div', { key: 'hdrmax', style: { maxWidth: 'var(--spacing-chat-max)', margin: '0 auto', width: '100%' } }, [
     React.createElement('div', { key: 'hdr', style: { marginBottom: '8px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, width: '100%' } }, [
       React.createElement('div', { key: 'h1', style: panelStyle }, [React.createElement(IconBtn, { key: 'home', icon: Home, onClick: () => props.onSelectPanel('home') })]),
       React.createElement('div', { key: 'h2', style: { ...panelStyle, flex: 1 } }, [React.createElement('div', { key: 'sp', style: { width: '8px', flexShrink: 0 } }), React.createElement(Bot, { key: 'ic', size: 18, style: { color: 'var(--q-text-secondary)', flexShrink: 0 } }), React.createElement('div', { key: 'sp2', style: { width: '12px', flexShrink: 0 } }), React.createElement('span', { key: 'ti', style: { color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)' } }, 'Agents Tasks')]),
+    ]),
     ]),
     React.createElement('div', { key: 'body', style: { flex: 1, minHeight: 0, padding: '0 0 8px 0', display: 'flex' } }, [
       React.createElement('div', { key: 'dbwrap', style: { width: '100%', maxWidth: fullWidth ? '100%' : 'var(--spacing-chat-max)', margin: '0 auto', display: 'flex', flexDirection: 'column' } }, [
