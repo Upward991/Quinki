@@ -46,7 +46,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const [schedules, setSchedules] = useState<any[]>([])
   const [executions, setExecutions] = useState<any[]>([])
   const [view, setView] = useState(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d })
-  const [mode, setMode] = useState<'month' | 'week' | 'day'>('month')
+  const [mode, setMode] = useState<'month' | 'week' | 'day'>('week')
   const [selected, setSelected] = useState<Date>(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d })
   const [dragId, setDragId] = useState<string | null>(null)
   const [showTodo, setShowTodo] = useState(true)
@@ -120,10 +120,10 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       if (acts.length > 3) kids.push(React.createElement('div', { key: 'more', style: { color: 'var(--q-text-tertiary)', fontSize: 10, fontFamily: 'var(--font-interface)' } }, '+' + (acts.length - 3) + ' more'))
       cells.push(React.createElement('div', {
         key: dayKey(d.getTime()), onClick: () => openDay(d), onDragOver: (e: any) => e.preventDefault(), onDrop: (e: any) => { e.preventDefault(); e.stopPropagation(); const id = e.dataTransfer.getData ? e.dataTransfer.getData('text/quinki-schedule') : ''; if (id) setScheduleTime(id, d, 12, 0, 0); setDragId(null) },
-        style: { minHeight: 0, padding: 4, display: 'flex', flexDirection: 'column', gap: 3, overflow: 'hidden', cursor: 'pointer', transition: 'none', backgroundColor: 'var(--q-bg-panel)', opacity: inMonth ? 1 : 0.4, alignItems: 'flex-start', borderRight: col < 6 ? '1px solid var(--q-border-soft)' : 'none', borderBottom: row < 5 ? '1px solid var(--q-border-soft)' : 'none' },
+        style: { minHeight: 0, padding: 4, display: 'flex', flexDirection: 'column', gap: 3, overflow: 'hidden', cursor: 'pointer', transition: 'none', backgroundColor: 'transparent', opacity: inMonth ? 1 : 0.4, alignItems: 'flex-start', borderRight: col < 6 ? '1px solid var(--q-border-soft)' : 'none', borderBottom: row < 5 ? '1px solid var(--q-border-soft)' : 'none' },
       }, kids))
     }
-    const mHeader = WEEK.map((w, i) => React.createElement('div', { key: 'mh' + i, style: { padding: '4px 0', textAlign: 'center', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-interface)', color: 'var(--q-text-tertiary)', borderBottom: '1px solid var(--q-border-strong)', borderRight: i < 6 ? '1px solid var(--q-border-soft)' : 'none' } }, w))
+    const mHeader = WEEK.map((w, i) => React.createElement('div', { key: 'mh' + i, style: { display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px 0', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-interface)', color: 'var(--q-text-tertiary)', borderBottom: '1px solid var(--q-border-strong)', borderRight: i < 6 ? '1px solid var(--q-border-soft)' : 'none' } }, w))
     calendarGrid = React.createElement('div', { key: 'g', style: { flex: 1, minHeight: 0, overflow: 'hidden', border: '1px solid var(--q-border-strong)', borderRadius: 'var(--radius-sm)' } }, [
       React.createElement('div', { key: 'table', style: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gridTemplateRows: '28px repeat(6, 1fr)', height: '100%' } }, [...mHeader, ...cells]),
     ])
