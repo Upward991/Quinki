@@ -58,6 +58,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const [openFail, setOpenFail] = useState(true)
   const [editSched, setEditSched] = useState<any>(null)
   const [hoverDay, setHoverDay] = useState<string | null>(null)
+  const [dropLine, setDropLine] = useState<{ di: number; top: number } | null>(null)
   const [todoW, setTodoW] = useState(() => { try { return parseInt(localStorage.getItem('quinki-cal-todo-w') || '280', 10) || 280 } catch { return 280 } })
   const dragRef = useRef<{ startX: number; startW: number } | null>(null)
   const bodyRef = useRef<HTMLDivElement>(null)
@@ -112,7 +113,13 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       else if (w.type === 'weekly') { if (!(w.daysOfWeek || []).includes(dayNum)) continue; const { h, m } = parseAt(w.at || '08:00'); out.push({ type: 'schedule', color: 'var(--q-accent-calendar)', text: (s.enabled ? '' : '(off) ') + (s.title || 'Task') + ' · ' + (w.at || '08:00'), h, m, s: 0, id: s.id }) }
       else if (w.type === 'monthly') { if ((w.dayOfMonth ?? 1) !== d.getDate()) continue; const { h, m } = parseAt(w.at || '08:00'); out.push({ type: 'schedule', color: 'var(--q-accent-calendar)', text: (s.enabled ? '' : '(off) ') + (s.title || 'Task') + ' · ' + (w.at || '08:00'), h, m, s: 0, id: s.id }) }
     }
-    for (const ex of executions) { const t = ex.scheduledFor || ex.createdAt; if (!t) continue; const dt = new Date(t); if (!sameDay(dt, d)) continue; const col = STATUS_COLOR[ex.status] || 'var(--q-text-tertiary)'; out.push({ type: 'exec', color: col, text: (ex.label || ex.id) + ' · ' + ex.status + ' · ' + fmtTime(dt.getTime()), h: dt.getHours(), m: dt.getMinutes(), s: dt.getSeconds(), id: ex.id }) }
+    for (const ex of executions) {
+      // nel CALENDARIO solo le attività ATTIVE; quelle finite restano solo in sidebar
+      if (ex.status !== 'running' && ex.status !== 'queued' && ex.status !== 'interrupted') continue
+      const t = ex.scheduledFor || ex.createdAt; if (!t) continue; const dt = new Date(t); if (!sameDay(dt, d)) continue
+      const col = STATUS_COLOR[ex.status] || 'var(--q-text-tertiary)'
+      out.push({ type: 'exec', color: col, text: (ex.label || ex.id) + ' · ' + ex.status + ' · ' + fmtTime(dt.getTime()), h: dt.getHours(), m: dt.getMinutes(), s: dt.getSeconds(), id: ex.id })
+    }
     out.sort((a, b) => (a.h * 3600 + a.m * 60 + a.s) - (b.h * 3600 + b.m * 60 + b.s)); return out
   }
 
@@ -145,7 +152,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       if (acts.length > 3) kids.push(React.createElement('div', { key: 'more', style: { color: 'var(--q-text-tertiary)', fontSize: 10, fontFamily: 'var(--font-interface)' } }, '+' + (acts.length - 3) + ' more'))
       cells.push(React.createElement('div', {
         key: dayKey(d.getTime()), onClick: () => openDay(d), onMouseEnter: () => setHoverDay(dayKey(d.getTime())), onMouseLeave: () => setHoverDay(null), onDragOver: (e: any) => e.preventDefault(), onDrop: (e: any) => { e.preventDefault(); e.stopPropagation(); const id = e.dataTransfer.getData ? e.dataTransfer.getData('text/quinki-schedule') : ''; if (id) setScheduleTime(id, d, 12, 0, 0); setDragId(null) },
-        style: { minHeight: 0, padding: 4, display: 'flex', flexDirection: 'column', gap: 3, overflow: 'hidden', cursor: 'pointer', transition: 'none', backgroundColor: 'transparent', opacity: inMonth ? 1 : 0.4, alignItems: 'flex-start', borderRight: col < 6 ? '1px solid var(--q-border-soft)' : 'none', borderBottom: row < 5 ? '1px solid var(--q-border-soft)' : 'none' },
+        style: { minHeight: 0, padding: 4, display: 'flex', flexDirection: 'column', gap: 3, overflow: 'hidden', cursor: 'pointer', transition: 'none', backgroundColor: 'transparent', opacity: inMonth ? 1 : 0.4, alignItems: 'flex-start', borderRight: col < 6 ? '1px solid var(--q-border)' : 'none', borderBottom: row < 5 ? '1px solid var(--q-border)' : 'none' },
       }, kids))
     }
     const mHeader = WEEK.map((w, i) => React.createElement('div', { key: 'mh' + i, style: { display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px 0', fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-interface)', color: 'var(--q-text)', borderBottom: '1px solid var(--q-border-strong)', borderRight: i < 6 ? '1px solid var(--q-border)' : 'none' } }, w))
@@ -189,21 +196,33 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
 
     const colCells: React.ReactNode[] = days.map((d, di) => {
       const acts = dayActivities(d)
-      const blocks: React.ReactNode[] = acts.map((a, ai) => {
-        const topPx = a.h * hourH + (a.m / 60) * hourH + (a.s / 3600) * hourH
-        return React.createElement('div', {
-          key: 'b' + di + ai, draggable: a.type === 'schedule',
-          onDragStart: a.type === 'schedule' ? (ev: any) => startDrag(ev, a.id) : undefined,
-          onClick: a.type === 'schedule' ? () => setEditSched({ id: a.id, h: a.h, m: a.m, s: a.s, day: new Date(d) }) : undefined,
-          title: a.text,
-          style: { position: 'absolute', left: 2, right: 2, top: topPx, height: Math.max(16, hourH / 2), borderRadius: 6, zIndex: 3, cursor: a.type === 'schedule' ? 'grab' : 'default', backgroundColor: 'color-mix(in srgb, ' + a.color + ' 22%, transparent)', border: '1px solid ' + a.color, padding: '1px 5px', fontSize: 10, fontFamily: 'var(--font-interface)', color: 'var(--q-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-        }, a.text.split('·')[0] + (a.type === 'schedule' ? ' ✎' : ''))
-      })
+      // raggruppa per orario esatto → attività stesso orario AFFIANCATE (niente sovrapposizione)
+      const groups: { key: number; items: any[] }[] = []
+      for (const a of acts) { const k = a.h * 3600 + a.m * 60 + a.s; const g = groups.find((x) => x.key === k); if (g) g.items.push(a); else groups.push({ key: k, items: [a] }) }
+      const blocks: React.ReactNode[] = []
+      for (const g of groups) {
+        const n = g.items.length
+        g.items.forEach((a, ai) => {
+          const topPx = a.h * hourH + (a.m / 60) * hourH + (a.s / 3600) * hourH
+          const dropHere = (e: any) => { e.preventDefault(); e.stopPropagation(); const id = e.dataTransfer.getData('text/quinki-schedule'); if (!id) { setDragId(null); setDropLine(null); return } const rect = (e.currentTarget as HTMLElement).getBoundingClientRect(); const off = e.clientY - rect.top; const totalMin = Math.floor(off / hourH * 60 / 15) * 15; const hh = Math.min(23, Math.floor(totalMin / 60)); const mm = totalMin % 60; setScheduleTime(id, d, hh, mm, 0); setDragId(null); setDropLine(null) }
+          blocks.push(React.createElement('div', {
+            key: 'b' + di + ai, draggable: a.type === 'schedule',
+            onDragStart: a.type === 'schedule' ? (ev: any) => startDrag(ev, a.id) : undefined,
+            onDragOver: (e: any) => { e.preventDefault(); e.stopPropagation(); const rect = (e.currentTarget as HTMLElement).getBoundingClientRect(); setDropLine({ di, top: e.clientY - rect.top }) },
+            onDragLeave: () => setDropLine(null),
+            onDrop: dropHere,
+            onClick: a.type === 'schedule' ? () => setEditSched({ id: a.id, h: a.h, m: a.m, s: a.s, day: new Date(d) }) : undefined,
+            title: a.text,
+            style: { position: 'absolute', left: 'calc(' + (ai * (100 / n)) + '% + 2px)', width: 'calc(' + (100 / n) + '% - 4px)', top: topPx, height: Math.max(16, hourH / 2), borderRadius: 6, zIndex: 3, cursor: a.type === 'schedule' ? 'grab' : 'default', backgroundColor: 'color-mix(in srgb, ' + a.color + ' 22%, transparent)', border: '1px solid ' + a.color, padding: '1px 5px', fontSize: 10, fontFamily: 'var(--font-interface)', color: 'var(--q-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+          }, a.text.split('·')[0] + (a.type === 'schedule' ? ' ✎' : '')))
+        })
+      }
       return React.createElement('div', {
-        key: 'col' + di, onDragOver: (e: any) => e.preventDefault(),
-        onDrop: (e: any) => { e.preventDefault(); e.stopPropagation(); const id = e.dataTransfer.getData('text/quinki-schedule'); if (!id) { setDragId(null); return } const rect = (e.currentTarget as HTMLElement).getBoundingClientRect(); const off = e.clientY - rect.top; const totalMin = Math.floor(off / hourH * 60 / 15) * 15; const hh = Math.min(23, Math.floor(totalMin / 60)); const mm = totalMin % 60; setScheduleTime(id, d, hh, mm, 0); setDragId(null) },
+        key: 'col' + di, onDragOver: (e: any) => { e.preventDefault(); const rect = (e.currentTarget as HTMLElement).getBoundingClientRect(); setDropLine({ di, top: e.clientY - rect.top }) },
+        onDragLeave: () => setDropLine(null),
+        onDrop: (e: any) => { e.preventDefault(); e.stopPropagation(); const id = e.dataTransfer.getData('text/quinki-schedule'); if (!id) { setDragId(null); setDropLine(null); return } const rect = (e.currentTarget as HTMLElement).getBoundingClientRect(); const off = e.clientY - rect.top; const totalMin = Math.floor(off / hourH * 60 / 15) * 15; const hh = Math.min(23, Math.floor(totalMin / 60)); const mm = totalMin % 60; setScheduleTime(id, d, hh, mm, 0); setDragId(null); setDropLine(null) },
         style: { position: 'relative', height: totalH, borderLeft: '1px solid var(--q-border)', overflow: 'hidden' },
-      }, blocks)
+      }, [...blocks, dropLine && dropLine.di === di ? React.createElement('div', { key: 'dl', style: { position: 'absolute', left: 2, right: 2, top: dropLine.top, height: 2, backgroundColor: 'var(--q-accent-calendar)', zIndex: 6, pointerEvents: 'none' } }) : null])
     })
     const gutter = React.createElement('div', { key: 'gutter', style: { position: 'relative', height: totalH } }, hourLabels)
     const bodyGrid = React.createElement('div', { key: 'bg', style: { display: 'grid', gridTemplateColumns: colTemplate, position: 'relative', minWidth: mode === 'week' ? 700 : 0 } }, [gutter, ...colCells])
@@ -229,31 +248,34 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   }
 
   // === Sidebar: Scheduled / Execution / Executed / Failed ===
+  const schedList = [...schedules].sort((a: any, b: any) => (a.nextFireAt || 0) - (b.nextFireAt || 0))
   const schedRows: React.ReactElement[] = []
-  for (const s of schedules) {
-    if (!s.enabled) continue
-    const src = s.sourceSession ? 'from ' + (s.sourceSession.label || s.sourceSession.key) : ''
+  for (const s of schedList) {
+    const isOff = !s.enabled
+    const src = s.sourceSession ? (s.sourceSession.label || s.sourceSession.key) : ''
     const row: React.ReactNode[] = [
-      React.createElement('div', { key: 'dot', style: { width: 8, height: 8, borderRadius: 4, flexShrink: 0, backgroundColor: 'var(--q-accent-calendar)', marginTop: 5 } }),
+      React.createElement('div', { key: 'dot', style: { width: 8, height: 8, borderRadius: 4, flexShrink: 0, backgroundColor: isOff ? 'var(--q-text-tertiary)' : 'var(--q-accent-calendar)', marginTop: 5 } }),
       React.createElement('div', { key: 'mid', style: { flex: 1, minWidth: 0 } }, [
-        React.createElement('div', { key: 't', style: { color: 'var(--q-text)', fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, s.title || '(untitled)'),
-        React.createElement('div', { key: 'd', style: { color: 'var(--q-text-tertiary)', fontSize: 11, fontFamily: 'var(--font-interface)', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } },
-          (src ? src + ' · ' : '') + 'agent: ' + (s.agentIds || []).join(', ') + ' · ' + fmtWhen(s)),
+        React.createElement('div', { key: 't', style: { color: 'var(--q-text)', fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, (isOff ? '(off) ' : '') + (s.title || '(untitled)')),
+        React.createElement('div', { key: 'a', style: { color: 'var(--q-text-secondary)', fontSize: 11, fontFamily: 'var(--font-interface)', marginTop: 2 } }, 'agent: ' + (s.agentIds || []).join(', ')),
+        src ? React.createElement('div', { key: 'c', style: { color: 'var(--q-text-secondary)', fontSize: 11, fontFamily: 'var(--font-interface)', marginTop: 1 } }, 'from chat: ' + src) : null,
+        React.createElement('div', { key: 'w', style: { color: 'var(--q-text-tertiary)', fontSize: 11, fontFamily: 'var(--font-interface)', marginTop: 1 } }, fmtWhen(s)),
       ]),
     ]
-    row.push(React.createElement('button', { key: 'run', style: btnText, title: 'Run now', onClick: () => act(async () => { await call('runScheduleNow', { id: s.id }) }) }, React.createElement(Play, { size: 12 })))
+    if (!isOff) row.push(React.createElement('button', { key: 'run', style: btnText, title: 'Run now', onClick: () => act(async () => { await call('runScheduleNow', { id: s.id }) }) }, React.createElement(Play, { size: 12 })))
     row.push(React.createElement('button', { key: 'del', style: btnText, title: 'Delete', onClick: () => act(async () => { await call('deleteSchedule', { id: s.id }) }) }, React.createElement(Trash2, { size: 12 })))
-    schedRows.push(React.createElement('div', { key: s.id, draggable: true, onDragStart: (e: any) => startDrag(e, s.id), onDragEnd: endDrag, style: { display: 'flex', alignItems: 'flex-start', gap: 8, padding: '7px 10px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-sm)', border: '1px solid ' + (dragId === s.id ? 'var(--q-accent-calendar)' : 'var(--q-border)'), cursor: 'grab', transition: 'none' } }, row))
+    schedRows.push(React.createElement('div', { key: s.id, draggable: !isOff, onDragStart: (e: any) => startDrag(e, s.id), onDragEnd: endDrag, style: { display: 'flex', alignItems: 'flex-start', gap: 8, padding: '7px 10px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-sm)', border: '1px solid ' + (dragId === s.id ? 'var(--q-accent-calendar)' : 'var(--q-border)'), cursor: isOff ? 'default' : 'grab', transition: 'none', opacity: isOff ? 0.6 : 1 } }, row))
   }
+  const execList = [...executions].sort((a: any, b: any) => (a.createdAt || 0) - (b.createdAt || 0))
   const execRows: React.ReactElement[] = []
   const doneRows: React.ReactElement[] = []
   const failRows: React.ReactElement[] = []
-  for (const ex of executions) {
+  for (const ex of execList) {
     const row: React.ReactNode[] = [
       React.createElement('div', { key: 'mid', style: { flex: 1, minWidth: 0 } }, [
         React.createElement('div', { key: 't', style: { color: 'var(--q-text)', fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, ex.label || ex.id),
-        React.createElement('div', { key: 'd', style: { color: 'var(--q-text-tertiary)', fontSize: 11, fontFamily: 'var(--font-interface)', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } },
-          'agent: ' + (ex.agentIds || []).join(', ') + ' · ' + fmtTime(ex.createdAt) + (ex.error ? ' · ' + String(ex.error).slice(0, 40) : '')),
+        React.createElement('div', { key: 'a', style: { color: 'var(--q-text-secondary)', fontSize: 11, fontFamily: 'var(--font-interface)', marginTop: 2 } }, 'agent: ' + (ex.agentIds || []).join(', ')),
+        React.createElement('div', { key: 'w', style: { color: 'var(--q-text-tertiary)', fontSize: 11, fontFamily: 'var(--font-interface)', marginTop: 1 } }, new Date(ex.scheduledFor || ex.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) + ' ' + new Date(ex.scheduledFor || ex.createdAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) + (ex.error ? ' · ' + String(ex.error).slice(0, 40) : '')),
       ]),
     ]
     if (ex.status === 'running' || ex.status === 'queued' || ex.status === 'interrupted') {
