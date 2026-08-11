@@ -39,7 +39,7 @@ function Chip({ color, text }: { color: string; text: string }) {
 function DayNum({ d, hovered, inMonth }: { d: Date; hovered?: boolean; inMonth?: boolean }) {
   const isToday = sameDay(d, (() => { const n = new Date(); n.setHours(0, 0, 0, 0); return n })())
   const bg = isToday ? 'var(--q-accent-calendar)' : hovered ? 'var(--q-hover)' : 'transparent'
-  const fg = isToday ? 'var(--q-bg)' : hovered ? 'var(--q-text)' : inMonth ? 'var(--q-accent-calendar)' : 'var(--q-text-secondary)'
+  const fg = isToday ? 'var(--q-bg)' : inMonth ? 'var(--q-accent-calendar)' : 'var(--q-text-secondary)'
   return React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 22, height: 22, padding: '0 5px', borderRadius: 'var(--radius-sm)', backgroundColor: bg, color: fg, fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-interface)', transition: 'none' } }, d.getDate())
 }
 
@@ -127,7 +127,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
         style: { minHeight: 0, padding: 4, display: 'flex', flexDirection: 'column', gap: 3, overflow: 'hidden', cursor: 'pointer', transition: 'none', backgroundColor: 'transparent', opacity: inMonth ? 1 : 0.4, alignItems: 'flex-start', borderRight: col < 6 ? '1px solid var(--q-border-soft)' : 'none', borderBottom: row < 5 ? '1px solid var(--q-border-soft)' : 'none' },
       }, kids))
     }
-    const mHeader = WEEK.map((w, i) => React.createElement('div', { key: 'mh' + i, style: { display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px 0', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-interface)', color: 'var(--q-text-tertiary)', borderBottom: '1px solid var(--q-border-strong)', borderRight: i < 6 ? '1px solid var(--q-border-soft)' : 'none' } }, w))
+    const mHeader = WEEK.map((w, i) => React.createElement('div', { key: 'mh' + i, style: { display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px 0', fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-interface)', color: 'var(--q-text-secondary)', borderBottom: '1px solid var(--q-border-strong)', borderRight: i < 6 ? '1px solid var(--q-border-soft)' : 'none' } }, w))
     calendarGrid = React.createElement('div', { key: 'g', style: { flex: 1, minHeight: 0, overflow: 'hidden', border: '1px solid var(--q-border-strong)', borderRadius: 'var(--radius-lg)' } }, [
       React.createElement('div', { key: 'table', style: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gridTemplateRows: '28px repeat(6, 1fr)', height: '100%' } }, [...mHeader, ...cells]),
     ])
