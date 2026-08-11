@@ -2793,6 +2793,7 @@ class PiBridge {
       promptSnippet: "schedule_task: schedule a task for automatic execution at a chosen time/recurrence",
       promptGuidelines: [
         "When the user asks to do something later or on a schedule, use schedule_task instead of doing it now.",
+        "CURRENT DATE AND TIME (use this to compute when dates/times): " + new Date().toString() + " (ISO: " + new Date().toISOString() + ").",
         "when.type: once = specific date; daily = every day at HH:MM; weekly = specific weekdays; monthly = specific day of month.",
         "at is LOCAL time in 24h HH:MM (e.g. 07:00). For weekly, daysOfWeek uses 1=Monday ... 7=Sunday.",
         "text must be the exact task the agent must perform when it fires.",

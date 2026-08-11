@@ -192,6 +192,8 @@ export class ExecutionEngine {
         this.#log("exec-session-ready", { executionId: id, sessionKey: sk, agentIds, mode: state.mode, model: state.model });
 
         // Esegue l'agente in headless: il ws finto cattura done/error + testo progressivo
+        // Direttiva: il task va ESEGUITO DAVVERO con i tool, non solo dichiarato completato
+        const execText = "[Scheduled task - EXECUTE IT NOW] You are running an autonomous scheduled task. Actually perform the task using your tools (write/edit/bash/etc.). Do NOT just claim completion: do it, then verify. Task: " + state.text;
         const result = await new Promise<{ ok: boolean; stopReason?: string; errorMessage?: string; text: string }>((resolve) => {
           let resolved = false;
           const finish = (r: { ok: boolean; stopReason?: string; errorMessage?: string; text: string }) => {
@@ -214,7 +216,7 @@ export class ExecutionEngine {
               } catch {}
             },
           };
-          pb.send(dummyWs, { sessionKey: sk, text: state.text }).then(
+          pb.send(dummyWs, { sessionKey: sk, text: execText }).then(
             () => finish({ ok: true, stopReason: "completed", text: "" }),
             (e: any) => finish({ ok: false, errorMessage: e?.message || String(e), text: "" })
           );
