@@ -106,7 +106,9 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   }, [])
 
   const view = views.find(v => v.id === activeId) || views[0]
-  const f = view ? view.f : { q: '', status: 'all', agents: [], chats: [] }
+  // Normalizza SEMPRE f: le viste salvate in formato vecchio (agent/chat stringhe)
+  // potrebbero non avere agents/chats array -> crash su .length
+  const f = normalizeF(view ? view.f : null)
   const persist = (v: ViewCfg[]) => { setViews(v); saveUi(fullWidth, v) }
   const patchF = (patch: Partial<ViewCfg['f']>) => { const v = { ...view, f: { ...view.f, ...patch } }; persist(views.map(x => x.id === v.id ? v : x)) }
 
