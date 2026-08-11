@@ -43,6 +43,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const [q, setQ] = useState(''); const [statusF, setStatusF] = useState('all'); const [chatF, setChatF] = useState('all')
   const [cols, setCols] = useState<string[]>(COLS.map(c => c.key))
   const [dragCol, setDragCol] = useState<string | null>(null)
+  const [hoverRow, setHoverRow] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
     try { const a = await call('listSchedules'); const b = await call('listExecutions'); setSchedules(a?.schedules || []); setExecutions(b?.executions || []) } catch {}
@@ -91,7 +92,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     if (key === 'x') return actions(i)
     return ''
   }
-  const cellStyle = (align = 'left'): React.CSSProperties => ({ padding: '8px 10px', borderBottom: cellBorder, borderRight: cellBorder, color: 'var(--q-text-secondary)', fontSize: 12, fontFamily: 'var(--font-interface)', textAlign: align as any, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 200 })
+  const cellStyle = (align = 'left'): React.CSSProperties => ({ padding: '7px 10px', borderBottom: '1px solid var(--q-border-soft)', color: 'var(--q-text-secondary)', fontSize: 12, fontFamily: 'var(--font-interface)', textAlign: align as any, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 200 })
 
   // === TABLE ===
   const thead = React.createElement('tr', { key: 'thr' }, cols.map((k, idx) => {
@@ -101,11 +102,15 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       key: k, draggable: true, onDragStart: (e: any) => { setDragCol(k); e.dataTransfer.effectAllowed = 'move' }, onDragOver: (e: any) => { e.preventDefault() },
       onDrop: (e: any) => { e.preventDefault(); if (!dragCol || dragCol === k) { setDragCol(null); return } setCols(prev => { const arr = [...prev]; const from = arr.indexOf(dragCol); const to = arr.indexOf(k); arr.splice(from, 1); arr.splice(to, 0, dragCol); return arr }); setDragCol(null) },
       onClick: sortable ? () => { if (sortKey === k) setSortDir(sortDir === 1 ? -1 : 1); else { setSortKey(k); setSortDir(1) } } : undefined,
-      style: { padding: '8px 10px', borderBottom: '1px solid var(--q-border-strong)', borderRight: idx < cols.length - 1 ? cellBorder : 'none', cursor: sortable ? 'pointer' : 'default', color: 'var(--q-text-secondary)', fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap', userSelect: 'none', background: dragCol === k ? 'var(--q-hover)' : 'transparent' },
+      style: { padding: '7px 10px', borderBottom: '1px solid var(--q-border-strong)', cursor: sortable ? 'pointer' : 'default', color: 'var(--q-text-secondary)', fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap', userSelect: 'none', background: dragCol === k ? 'var(--q-hover)' : 'transparent' },
     }, c ? c.label : '')
   }))
-  const tbody = filtered.map(i => React.createElement('tr', { key: i.id }, cols.map((k, idx) => React.createElement('td', { key: k, style: { ...cellStyle(), borderRight: idx < cols.length - 1 ? cellBorder : 'none', maxWidth: k === 'x' ? undefined : 220 } }, cellVal(i, k)))))
-  const tableWrap = React.createElement('div', { key: 'tbl', style: { width: '100%', overflow: 'auto', border: '1px solid var(--q-border-strong)', borderRadius: 'var(--radius-md)' } }, React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse' } }, [
+  const tbody = filtered.map(i => React.createElement('tr', { key: i.id, onMouseEnter: () => setHoverRow(i.id), onMouseLeave: () => setHoverRow(null), style: { backgroundColor: hoverRow === i.id ? 'var(--q-hover)' : 'transparent', transition: 'none' } }, cols.map((k) => {
+    const isHov = hoverRow === i.id
+    const cell = cellVal(i, k)
+    return React.createElement('td', { key: k, style: { ...cellStyle(), maxWidth: k === 'x' ? undefined : 220, opacity: k === 'x' ? (isHov ? 1 : 0) : 1 } }, k === 'x' && !isHov ? React.createElement('span', {}, ' ') : cell)
+  })))
+  const tableWrap = React.createElement('div', { key: 'tbl', style: { width: '100%', overflowX: 'auto' } }, React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', minWidth: 720 } }, [
     React.createElement('thead', { key: 'th' }, thead),
     React.createElement('tbody', { key: 'tb' }, tbody.length ? tbody : React.createElement('tr', { key: 'e' }, React.createElement('td', { colSpan: cols.length, style: { padding: 20, textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', border: 'none' } }, 'No activities match the filters.'))),
   ]))
@@ -165,9 +170,9 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     React.createElement('button', { key: 'refresh', onClick: () => act(async () => {}), style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-secondary)', padding: 4, display: 'flex' } }, React.createElement(RefreshCw, { size: 14 })),
   ])
 
-  const dbPanel = React.createElement('div', { key: 'db', style: { flex: 1, minHeight: 0, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)', border: '1px solid var(--q-border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' } }, [
+  const dbPanel = React.createElement('div', { key: 'db', style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' } }, [
     dbToolbar,
-    React.createElement('div', { key: 'content', style: { flex: 1, minHeight: 0, overflowY: 'auto', padding: 10 } }, view === 'table' ? tableWrap : view === 'board' ? board : cal),
+    React.createElement('div', { key: 'content', style: { flex: 1, minHeight: 0, overflowY: 'auto', padding: '4px 0' } }, view === 'table' ? tableWrap : view === 'board' ? board : cal),
   ])
 
   // === APP HEADER (solo Home + titolo, come le altre tab) ===
