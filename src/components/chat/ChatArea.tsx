@@ -60,6 +60,7 @@ export function ChatArea(props: ChatAreaProps) {
   // streaming, il pin si scioglie e lo scroll automatico si ferma; rientrando in fondo
   // il pin si rinsalda e lo scroll automatico riprende.
   const pinnedRef = useRef(true)
+  const [composerH, setComposerH] = useState(0)
   const prevSessionIdRef = useRef('')
   const [searchQuery, setSearchQuery] = useState('')
   const [searchDate, setSearchDate] = useState('')
@@ -204,12 +205,14 @@ export function ChatArea(props: ChatAreaProps) {
     // precedenti durante lo streaming). Rientrerà in automatico quando torna in fondo.
     if (!pinnedRef.current) return
     scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-    // scroll SOLO se l'utente è ancora in fondo (pinned): i timeout NÃO devono
-    // riscendere se nel frattempo l'utente ha scrollato su (era la causa del jump).
+    // timeout multipli: servono all'apertura della chat (contenuto carica in più passate);
+    // OGNI volta ricontrollano pinned → durante lo streaming NON riscendono se hai scrollato su.
     const raf1 = requestAnimationFrame(() => { if (scrollRef.current && pinnedRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight })
-    const t1 = setTimeout(() => { if (scrollRef.current && pinnedRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 120)
-    return () => { cancelAnimationFrame(raf1); clearTimeout(t1) }
-  }, [sessionId, msgCount, isEmpty, props.streaming, searchQuery, searchDate, searchTime, props.messages])
+    const t1 = setTimeout(() => { if (scrollRef.current && pinnedRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 100)
+    const t2 = setTimeout(() => { if (scrollRef.current && pinnedRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 300)
+    const t3 = setTimeout(() => { if (scrollRef.current && pinnedRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 500)
+    return () => { cancelAnimationFrame(raf1); clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
+  }, [sessionId, msgCount, isEmpty, props.streaming, searchQuery, searchDate, searchTime, props.messages, composerH])
 
   return (
     <div className="h-full flex flex-col" style={{ maxWidth: 'var(--spacing-chat-max)', margin: '0 auto', width: '100%', position: 'relative' }} onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
@@ -308,7 +311,7 @@ export function ChatArea(props: ChatAreaProps) {
           {/* minHeight:0 = flex shrink corretto (composer non spinto fuori); overflow visible = shadow auto-scroll non clippata */}
           <div style={{ flex: 1, minHeight: 0, overflow: 'visible', position: 'relative' }}>
             <div ref={scrollRef} className="q-scroll" style={{ height: '100%', overflowY: 'auto', padding: '4px 16px 0 16px', scrollbarGutter: 'stable' }}
-              onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100); pinnedRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 60 }}>
+              onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100); pinnedRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 120 }}>
               {props.messages.map((msg, mIdx) => (
                 <div key={msg.id} data-msg-idx={mIdx} style={{ marginBottom: '12px' }}>
                   <MessageBubble message={msg} onCopy={() => {}} searchQuery={searchQuery} msgIndex={mIdx} activeMatchMsgIdx={activeMatchInfo?.msgIdx ?? -1} activeMatchOccurrence={activeMatchInfo?.occurrence ?? -1} isDateMatch={!searchQuery.trim() && hasDateFilter && dateMatchIndices.includes(mIdx) && mIdx === dateMatchIndices[Math.min(dateMatchIdx, dateMatchIndices.length - 1)]} />
@@ -337,6 +340,7 @@ export function ChatArea(props: ChatAreaProps) {
               chatAgentIds={props.selectedAgentIds}
               onAgentToggle={props.onAgentToggle}
               sessionKey={props.session?.id || ''}
+              onHeightChange={setComposerH}
             />
           </div>
         </>
