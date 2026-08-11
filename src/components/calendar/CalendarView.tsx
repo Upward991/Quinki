@@ -125,7 +125,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     const cell = cellVal(i, k)
     return React.createElement('td', { key: k, style: { ...cellStyle('left', idx < cols.length - 1), maxWidth: k === 'x' ? undefined : 220, opacity: k === 'x' ? (isHov ? 1 : 0) : 1 } }, k === 'x' && !isHov ? React.createElement('span', {}, ' ') : cell)
   })))
-  const tableWrap = React.createElement('div', { key: 'tbl', style: { width: '100%', overflowX: 'auto' } }, React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', minWidth: 720 } }, [
+  const tableWrap = React.createElement('div', { key: 'tbl', style: { width: '100%', overflowX: 'auto' } }, React.createElement('table', { style: { width: 'auto', margin: '0 auto', borderCollapse: 'collapse', minWidth: 560, maxWidth: '100%' } }, [
     React.createElement('thead', { key: 'th' }, thead),
     React.createElement('tbody', { key: 'tb' }, tbody.length ? tbody : React.createElement('tr', { key: 'e' }, React.createElement('td', { colSpan: cols.length, style: { padding: 20, textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', border: 'none' } }, 'No activities match the filters.'))),
   ]))
