@@ -4142,17 +4142,6 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       // Always register skill tool (so agents can list/search/load skills)
       const skillTool = this.#buildSkillTool(() => this.#active.get(sk));
       if (skillTool) customTools.push(skillTool);
-      // A2.2: schedule_task SOLO se l'agente lo ha nel config tools (assegnabile dalla tab Agents)
-      const hasScheduleTool = !!(agentCfg?.tools?.includes('schedule_task'));
-      if (hasScheduleTool) {
-        try {
-          const schedTool = this.#buildScheduleTool(sk);
-          if (schedTool) customTools.push(schedTool);
-          this.logDebug("schedule-tool-registered", { sessionKey: sk, agentId: resolvedAgentId });
-        } catch (e: any) {
-          this.logDebug("schedule-tool-error", { sessionKey: sk, error: String(e?.message || e) });
-        }
-      }
       if (resolvedAgentId) {
         // Check if the agent has delegate_to_agent in its config tools
         const agentCfg = this.#readAgentConfigFile(resolvedAgentId);
@@ -4162,6 +4151,17 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
           const delegateTool = this.#buildDelegateTool(sk);
           if (delegateTool) customTools.push(delegateTool);
           this.logDebug("delegate-tool-registered", { sessionKey: sk, agentId: resolvedAgentId, isOrchestrator });
+        }
+        // A2.2: schedule_task SOLO se l'agente lo ha nel config tools (assegnabile dalla tab Agents)
+        const hasScheduleTool = !!(agentCfg?.tools?.includes('schedule_task'));
+        if (hasScheduleTool) {
+          try {
+            const schedTool = this.#buildScheduleTool(sk);
+            if (schedTool) customTools.push(schedTool);
+            this.logDebug("schedule-tool-registered", { sessionKey: sk, agentId: resolvedAgentId });
+          } catch (e: any) {
+            this.logDebug("schedule-tool-error", { sessionKey: sk, error: String(e?.message || e) });
+          }
         }
       }
       // MCP tools: server abilitati sull'agente (mcpServers nel config)
