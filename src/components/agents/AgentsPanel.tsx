@@ -913,8 +913,9 @@ export function TagChip({ icon, label, onRemove }) {
 }
 
 export function AgentRow({ agent, isExpanded, isRenaming, onToggle, onStartRename, onCommitRename, skills, tools, mcpServers, onShowDelete, onAddFile, onAddSkill, onAddTool, onAddMcp, onOpenFile, onRemoveTag, onRemoveAll, hideHeader, hideDelete }) {
-  const agentSkills = skills.filter(s => agent.skills.some(as => as.name === s.name));
-  const agentTools = tools.filter(t => agent.tools.some(at => at.name === t.name));
+  const nm = (x: any) => typeof x === 'string' ? x : (x && x.name != null ? x.name : x);
+  const agentSkills = skills.filter(s => (agent.skills || []).some(as => nm(as) === s.name));
+  const agentTools = tools.filter(t => (agent.tools || []).some(at => nm(at) === t.name));
   const agentMcps = (mcpServers || []).filter(s => (agent.mcpServers || []).some(id => id === s.id));
   const canRename = agent.id !== 'app-expert' && agent.id !== 'orchestrator';
   const renameRef = useRef(null);

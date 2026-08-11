@@ -34,11 +34,29 @@ export function AgentConfigModal({ agentId, agents, onClose }: { agentId: string
     return () => { cancelled = true }
   }, [call])
 
-  // Refresh agent from agents array
+  // Refresh agent from agents array (fallback)
   useEffect(() => {
     const a = agents.find(a => a.id === agentId)
     if (a) setAgent(a)
   }, [agents, agentId])
+
+  // RICARICA l'agente fresco da disco all'apertura: le modifiche salvate si vedono davvero
+  // (il props agents può essere stale). listAgents restituisce liste come stringhe:
+  // AgentRow gestisce entrambe le forme.
+  useEffect(() => {
+    if (!call || !agentId) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const r = await call('listAgents', {})
+        if (!cancelled && r?.agents) {
+          const fresh = r.agents.find((x: any) => x.id === agentId)
+          if (fresh) setAgent((prev: any) => prev ? { ...prev, ...fresh } : fresh)
+        }
+      } catch (e) { console.error('AgentConfig fresh load:', e) }
+    })()
+    return () => { cancelled = true }
+  }, [agentId, call])
 
   const doRenameAgent = useCallback(async (ag: Agent, newName: string) => {
     if (!call || !newName?.trim() || newName === ag.name) { setRenaming(false); return }
