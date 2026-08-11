@@ -285,13 +285,16 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     ]),
   ]
 
+  // La sidebar a SINISTRA spinge la header a destra e occupa tutta l'altezza (come la chat).
   return React.createElement('div', { className: 'h-full flex flex-col', style: { width: '100%', position: 'relative', overflow: 'hidden' } }, [
-    React.createElement('div', { key: 'hdr', style: { marginBottom: '8px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, width: '100%' } }, headerKids),
-    React.createElement('div', { key: 'body', ref: bodyRef, style: { flex: 1, minHeight: 0, display: 'flex', gap: 8, padding: 0, overflow: 'hidden' } }, [
+    React.createElement('div', { key: 'layout', style: { flex: 1, minHeight: 0, display: 'flex', gap: 8, overflow: 'hidden' } }, [
       showTodo ? todoPanel : null,
-      React.createElement('div', { key: 'cal', style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'hidden' } }, [
-        mode === 'month' ? React.createElement('div', { key: 'wh', style: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, flexShrink: 0 } }, WEEK.map((w) => React.createElement('div', { key: w, style: { color: 'var(--q-text-tertiary)', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-interface)', textAlign: 'center', padding: 4 } }, w))) : null,
-        calendarGrid,
+      React.createElement('div', { key: 'right', ref: bodyRef, style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' } }, [
+        React.createElement('div', { key: 'hdr', style: { marginBottom: '8px', flexShrink: 0, display: 'flex', alignItems: 'center', width: '100%' } }, headerKids),
+        React.createElement('div', { key: 'area', style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'hidden' } }, [
+          mode === 'month' ? React.createElement('div', { key: 'wh', style: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, flexShrink: 0 } }, WEEK.map((w) => React.createElement('div', { key: w, style: { color: 'var(--q-text-tertiary)', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-interface)', textAlign: 'center', padding: 4 } }, w))) : null,
+          calendarGrid,
+        ]),
       ]),
       editModal,
     ]),
