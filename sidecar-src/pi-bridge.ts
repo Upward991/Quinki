@@ -2675,8 +2675,7 @@ class PiBridge {
       for (const ct of customToolNames) {
         if (merged.includes(ct) && !names.includes(ct)) names.push(ct);
       }
-      // A2.2: schedule_task è registrato come customTool per TUTTI gli agenti → sempre attivo
-      if (!names.includes("schedule_task")) names.push("schedule_task");
+      // schedule_task: presente SOLO se l'agente lo ha nel config tools (lo gestisce customToolNames)
       // Plan mode: remove tools not allowed in plan (but keep custom tools)
       if (m === "plan") {
         const planFlags = globalConfig.planModeTools || {};
@@ -4143,13 +4142,16 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       // Always register skill tool (so agents can list/search/load skills)
       const skillTool = this.#buildSkillTool(() => this.#active.get(sk));
       if (skillTool) customTools.push(skillTool);
-      // A2.2: schedule_task per TUTTI gli agenti (automazione dal dialogo: "domani alle 7 fammi X")
-      try {
-        const schedTool = this.#buildScheduleTool(sk);
-        if (schedTool) customTools.push(schedTool);
-        this.logDebug("schedule-tool-registered", { sessionKey: sk, agentId: resolvedAgentId });
-      } catch (e: any) {
-        this.logDebug("schedule-tool-error", { sessionKey: sk, error: String(e?.message || e) });
+      // A2.2: schedule_task SOLO se l'agente lo ha nel config tools (assegnabile dalla tab Agents)
+      const hasScheduleTool = !!(agentCfg?.tools?.includes('schedule_task'));
+      if (hasScheduleTool) {
+        try {
+          const schedTool = this.#buildScheduleTool(sk);
+          if (schedTool) customTools.push(schedTool);
+          this.logDebug("schedule-tool-registered", { sessionKey: sk, agentId: resolvedAgentId });
+        } catch (e: any) {
+          this.logDebug("schedule-tool-error", { sessionKey: sk, error: String(e?.message || e) });
+        }
       }
       if (resolvedAgentId) {
         // Check if the agent has delegate_to_agent in its config tools

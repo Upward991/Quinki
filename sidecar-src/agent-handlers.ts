@@ -468,6 +468,7 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
         { name: "ls", description: "List directory contents", readOnly: true },
         { name: "skill", description: "Load skills on-demand", readOnly: true },
         { name: "delegate_to_agent", description: "Delegate a task to another agent in the chat (for orchestrators/coordinators only)", readOnly: true },
+        { name: "schedule_task", description: "Schedule an autonomous task to run later or on a recurring basis (once/daily/weekly/monthly)", readOnly: true },
       ],
     }),
     getGlobalConfig: async () => ({ config: readGlobalConfig() }),
