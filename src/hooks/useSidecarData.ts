@@ -75,7 +75,7 @@ function mapSession(s: any) {
     updatedAt: new Date(s.lastActivity || Date.now()).toISOString(),
     order: s.order || s.lastActivity || Date.now(),
     messageCount: s.messageCount || 0,
-    agents: s.agents || [],
+    agents: s.agentId ? String(s.agentId).split(',').filter(Boolean) : (s.agents || []),
     model: s.model,
     thinkingLevel: s.thinkingLevel,
     mode: s.mode || 'plan',

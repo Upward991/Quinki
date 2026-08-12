@@ -555,7 +555,7 @@ export function ModelPickerModal({ currentModel, models, onClose, onConfirm }: {
             <input type="text" placeholder="Search model..." value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '8px 0' }} />
           </div>
         </div>
-        <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0', overscrollBehavior: 'contain' }}>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '4px 0', overscrollBehavior: 'contain' }}>
           <div onClick={() => setSelected(null)} style={{ padding: '8px 16px', cursor: 'pointer', backgroundColor: selected === null ? 'color-mix(in srgb, var(--q-tab-accent) 12%, transparent)' : 'transparent', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div style={{ width: '14px', height: '14px', borderRadius: '50%', border: '2px solid ' + (selected === null ? 'var(--q-tab-accent)' : 'var(--q-text-tertiary)'), backgroundColor: selected === null ? 'var(--q-tab-accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{selected === null && <div style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: 'var(--q-bg)' }} />}</div>
             <span style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', flex: 1 }}>Chat default</span>
