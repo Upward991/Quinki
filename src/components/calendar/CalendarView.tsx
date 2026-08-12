@@ -254,7 +254,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     if (key === 'when') {
       if (!i.when) return '—'
       const d = new Date(i.when)
-      const dateStr = d.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })
+      const dateStr = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
       const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
       return React.createElement('span', { key: 'dt', style: { maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12.5, fontFamily: 'var(--font-interface)', color: 'var(--q-text-secondary)' } }, dateStr + ', ' + timeStr)
     }
