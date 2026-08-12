@@ -60,6 +60,7 @@ export function ChatHeader(props: ChatHeaderProps) {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [multiSelect, setMultiSelect] = useState(false)
   const [selectedForRemoval, setSelectedForRemoval] = useState<Set<string>>(new Set())
+  const agentListRef = useRef<HTMLDivElement>(null)
   const [modelPickerFor, setModelPickerFor] = useState<string | null>(null)
   const [thinkingPickerFor, setThinkingPickerFor] = useState<string | null>(null)
   const [addAgentOpen, setAddAgentOpen] = useState(false)
@@ -300,7 +301,7 @@ export function ChatHeader(props: ChatHeaderProps) {
                     </div>
                   </div>
                   {/* Agent list */}
-                  <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+                  <div ref={agentListRef} onWheel={(e: any) => { e.preventDefault(); e.stopPropagation(); if (agentListRef.current) agentListRef.current.scrollTop += e.deltaY }} style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
                     {(() => {
                       const agents = (props.agents || [])
                         .filter(a => props.selectedAgentIds.includes(a.id) && (!agentQuery || a.name.toLowerCase().includes(agentQuery.toLowerCase())))
@@ -535,6 +536,7 @@ export function ModelPickerModal({ currentModel, models, onClose, onConfirm }: {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<string | null>(currentModel || null)
   const overlayRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const el = overlayRef.current
     if (!el) return
@@ -563,7 +565,7 @@ export function ModelPickerModal({ currentModel, models, onClose, onConfirm }: {
             <input type="text" placeholder="Search model..." value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '8px 0' }} />
           </div>
         </div>
-        <div data-modal-scroll style={{ flex: 1, minHeight: 0, maxHeight: '55vh', overflowY: 'auto', padding: '4px 0', overscrollBehavior: 'contain' }}>
+        <div ref={listRef} data-modal-scroll onWheel={(e: any) => { e.preventDefault(); e.stopPropagation(); if (listRef.current) listRef.current.scrollTop += e.deltaY }} style={{ flex: 1, minHeight: 0, maxHeight: '55vh', overflowY: 'auto', padding: '4px 0', overscrollBehavior: 'contain' }}>
           <div onClick={() => setSelected(null)} style={{ padding: '8px 16px', cursor: 'pointer', backgroundColor: selected === null ? 'color-mix(in srgb, var(--q-tab-accent) 12%, transparent)' : 'transparent', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div style={{ width: '14px', height: '14px', borderRadius: '50%', border: '2px solid ' + (selected === null ? 'var(--q-tab-accent)' : 'var(--q-text-tertiary)'), backgroundColor: selected === null ? 'var(--q-tab-accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{selected === null && <div style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: 'var(--q-bg)' }} />}</div>
             <span style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', flex: 1 }}>Chat default</span>
