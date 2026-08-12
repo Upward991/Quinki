@@ -151,7 +151,7 @@ export class ExecutionEngine {
         const text = contentArr.filter((c: any) => c.type === "text").map((c: any) => c.text).join(" ");
         const thinking = contentArr.filter((c: any) => c.type === "thinking").map((c: any) => ({ level: "on", content: c.thinking || "" }));
         const toolCalls = contentArr.filter((c: any) => c.type === "toolCall").map((c: any) => ({ name: c.name || c.toolName || "tool", input: typeof c.arguments === "string" ? c.arguments : JSON.stringify(c.arguments || {}) }));
-        const m: any = { id: e.id, role: "assistant", content: text, timestamp: ts, thinking, toolCalls, toolResults: [], agentModel: state?.model || undefined, thinkingLevel: state?.thinkingLevel || undefined, agentName: state?.label || undefined };
+        const m: any = { id: e.id, role: "assistant", content: text, timestamp: ts, thinking, toolCalls, toolResults: [], agentModel: state?.model || undefined, thinkingLevel: state?.thinkingLevel || undefined, agentName: ((state?.agentIds || []).join(", ")) || undefined };
         out.push(m);
         lastAssistant = m;
       } else if (role === "toolResult") {

@@ -337,10 +337,15 @@ export function ChatArea(props: ChatAreaProps) {
         <>
           {/* Messages / Task panel (A2.8) */}
           {taskPanelOpen ? (
-            <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column' }}>
-              <div style={{ padding: '4px 16px 8px 16px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom' }}>
+              <div style={{ padding: '4px 16px 8px 16px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, borderBottom: '1px solid var(--q-border)' }}>
                 <Checklist size={16} style={{ color: 'var(--q-text-secondary)', flexShrink: 0 }} />
                 <span style={{ color: 'var(--q-text)', fontSize: 14, fontWeight: 600, fontFamily: 'var(--font-interface)' }}>Tasks</span>
+                {taskExecs.some((e: any) => e.status === 'running' || e.status === 'queued') && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-interface)', color: 'var(--q-accent-info)', border: '1px solid var(--q-accent-info)' }}>
+                    <span style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: 'var(--q-accent-info)', display: 'inline-block' }} /> RUNNING
+                  </span>
+                )}
                 <span style={{ flex: 1 }} />
                 <span style={{ color: 'var(--q-text-tertiary)', fontSize: 12, fontFamily: 'var(--font-interface)' }}>{taskMsgs.length} messages</span>
               </div>
@@ -382,7 +387,7 @@ export function ChatArea(props: ChatAreaProps) {
             const label = running ? '"' + (running.label || 'task') + '" in corso' : (taskExecs.length + taskScheds.length) + ' tasks · ' + doneCount + ' done' + (failCount ? ' · ' + failCount + ' failed' : '')
             return (
               <div key="tstrip" style={{ paddingTop: '8px', flexShrink: 0 }}>
-                <button onClick={toggleTaskPanel} title={taskPanelOpen ? 'Collapse tasks' : 'Show tasks'} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-panel)', cursor: 'pointer', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: 13, transition: 'none' }}>
+                <button onClick={toggleTaskPanel} title={taskPanelOpen ? 'Collapse tasks' : 'Show tasks'} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 'var(--radius-lg)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-panel)', cursor: 'pointer', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: 13, transition: 'none' }}>
                   <Checklist size={16} style={{ color: runningCount ? 'var(--q-accent-info)' : 'var(--q-text-secondary)', flexShrink: 0 }} />
                   <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
                   {taskPanelOpen ? <ChevronDown size={16} /> : <ChevronUp size={16} />}

@@ -380,3 +380,5 @@ mark.search-highlight-mark {
 body.win-inactive *:not(.sidebar-item):not(.sortable-row) {
   pointer-events: none !important;
 }
+
+@keyframes taskPanelExpand { from { transform: translateY(28px); opacity: 0.4 } to { transform: translateY(0); opacity: 1 } }
