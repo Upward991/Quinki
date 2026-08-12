@@ -126,6 +126,14 @@ export class ExecutionEngine {
     if (!chatKey) return null;
     return path.join(AGENT_DIR, "handoffs", chatKey.replace(/[^a-zA-Z0-9_-]/g, "_"), "handoff.md");
   }
+  async #readLastAssistantTextWithRetry(sk: string): Promise<string> {
+    let t = this.#readLastAssistantText(sk);
+    for (let i = 0; i < 4 && !t; i++) {
+      await new Promise(r => setTimeout(r, 800));
+      t = this.#readLastAssistantText(sk);
+    }
+    return t;
+  }
   #readLastAssistantText(sk: string): string {
     try {
       const dir = path.join(AGENT_DIR, "sessions", "quinki", sk);
@@ -309,8 +317,8 @@ export class ExecutionEngine {
           state.status = "completed";
           state.endedAt = Date.now();
           state.progressNote = result.stopReason || "completed";
-          state.resultPreview = (result.text || this.#readLastAssistantText(sk)).slice(0, 1000);
-          this.#appendEvent(id, "execution_completed", { stopReason: result.stopReason, resultPreview: (result.text || this.#readLastAssistantText(sk)).slice(0, 3000) });
+          state.resultPreview = (result.text || await this.#readLastAssistantTextWithRetry(sk)).slice(0, 1000);
+          this.#appendEvent(id, "execution_completed", { stopReason: result.stopReason, resultPreview: state.resultPreview.slice(0, 3000) });
         } else if (result.stopReason === "aborted") {
           // Fermato dall'utente dalla CHAT (stop streaming) → riprendibile, non fallita
           state.status = "interrupted";
