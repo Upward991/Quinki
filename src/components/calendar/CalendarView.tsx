@@ -254,8 +254,9 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     if (key === 'when') {
       if (!i.when) return '—'
       const d = new Date(i.when)
-      const dateStr = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
-      const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+      const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
+      const dateStr = d.getDate() + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear()
+      const timeStr = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ':' + String(d.getSeconds()).padStart(2, '0')
       return React.createElement('span', { key: 'dt', style: { maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12.5, fontFamily: 'var(--font-interface)', color: 'var(--q-text-secondary)' } }, dateStr + ', ' + timeStr)
     }
     if (key === 'title') return i.title
