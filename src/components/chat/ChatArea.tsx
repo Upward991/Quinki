@@ -69,7 +69,6 @@ export function ChatArea(props: ChatAreaProps) {
   const [taskExecs, setTaskExecs] = useState<any[]>([])
   const [taskScheds, setTaskScheds] = useState<any[]>([])
   const [taskMsgs, setTaskMsgs] = useState<any[]>([])
-  const taskScrollRef = useRef<HTMLDivElement>(null)
   const toggleTaskPanel = () => { const nv = !taskPanelOpen; setTaskPanelOpen(nv); try { localStorage.setItem('quinki-taskpanel-' + sessionIdKey, nv ? '1' : '0') } catch {} }
   const refreshTasks = useCallback(async () => {
     if (!sessionIdKey || sessionIdKey === '__app_expert__') { setTaskExecs([]); setTaskScheds([]); setTaskMsgs([]); return }
@@ -89,7 +88,7 @@ export function ChatArea(props: ChatAreaProps) {
   useEffect(() => { refreshTasks(); const iv = setInterval(refreshTasks, 3000); return () => clearInterval(iv) }, [refreshTasks])
   const taskPrevOpen = useRef(false)
   useEffect(() => {
-    if (taskPanelOpen && !taskPrevOpen.current && taskScrollRef.current) taskScrollRef.current.scrollTop = taskScrollRef.current.scrollHeight
+    if (taskPanelOpen && !taskPrevOpen.current && scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     taskPrevOpen.current = taskPanelOpen
   }, [taskPanelOpen])
   const taskRunning = taskExecs.filter((e: any) => e.status === 'running' || e.status === 'queued').length
@@ -97,6 +96,19 @@ export function ChatArea(props: ChatAreaProps) {
   const taskFail = taskExecs.filter((e: any) => e.status === 'failed').length
   const taskRunningItem = taskExecs.find((e: any) => e.status === 'running' || e.status === 'queued')
   const taskLabel = taskRunningItem ? '"' + (taskRunningItem.label || 'task') + '" in corso' : (taskExecs.length + taskScheds.length) + ' tasks · ' + taskDone + ' done' + (taskFail ? ' · ' + taskFail + ' failed' : '')
+  const hasTasks = taskExecs.length > 0 || taskScheds.length > 0
+  const taskStripBar = hasTasks ? (
+    <button onClick={toggleTaskPanel} title={taskPanelOpen ? 'Collapse tasks' : 'Show tasks'} style={{ width: '100%', padding: '8px 14px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, border: taskPanelOpen ? 'none' : '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', cursor: 'pointer', backgroundColor: taskPanelOpen ? 'transparent' : 'var(--q-bg-panel)', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: 13, transition: 'none' }}>
+      <Checklist size={16} style={{ color: taskRunning ? 'var(--q-accent-info)' : 'var(--q-text-secondary)', flexShrink: 0 }} />
+      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--q-text)' }}>{taskLabel}</span>
+      {taskRunning > 0 && (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-interface)', color: 'var(--q-accent-info)', border: '1px solid var(--q-accent-info)', flexShrink: 0 }}>
+          <span style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: 'var(--q-accent-info)', display: 'inline-block' }} /> RUNNING
+        </span>
+      )}
+      {taskPanelOpen ? <ChevronDown size={16} style={{ flexShrink: 0 }} /> : <ChevronUp size={16} style={{ flexShrink: 0 }} />}
+    </button>
+  ) : null
   const taskPanelEl = (
     <div style={{ position: 'absolute', inset: '2px 2px 0 2px', zIndex: 20, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', display: 'flex', flexDirection: 'column', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom', overflow: 'hidden' }}>
       <div ref={taskScrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', scrollbarGutter: 'stable' }}>
@@ -362,7 +374,18 @@ export function ChatArea(props: ChatAreaProps) {
 {/* Welcome: composer centered */}
       {isEmpty ? (
         taskPanelOpen ? (
-          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative' }}>{taskPanelEl}</div>
+          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column', margin: '2px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom' }}>
+            <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', scrollbarGutter: 'stable' }}>
+              {taskMsgs.length === 0 ? (
+                <div style={{ color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', padding: '24px 8px', textAlign: 'center' }}>No tasks yet.</div>
+              ) : taskMsgs.map((msg, mIdx) => (
+                <div key={msg.id + '-' + mIdx} style={{ marginBottom: '12px' }}>
+                  <MessageBubble message={msg} onCopy={() => {}} searchQuery={''} msgIndex={mIdx} activeMatchMsgIdx={-1} activeMatchOccurrence={-1} isDateMatch={false} />
+                </div>
+              ))}
+            </div>
+            {taskStripBar}
+          </div>
         ) : (
         <>
           <div className="flex-1 flex items-center justify-center">
@@ -379,16 +402,24 @@ export function ChatArea(props: ChatAreaProps) {
               onAgentToggle={props.onAgentToggle}
             />
           </div>
-          {!taskPanelOpen && taskStrip}
+          {taskStripBar}
         </>
         )
       ) : (
         <>
-          {/* Messages — la chat normale resta SEMPRE renderizzata; il pannello task è un overlay flottante */}
-          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative' }}>
-            <div ref={scrollRef} className="q-scroll" style={{ height: '100%', overflowY: 'auto', padding: '4px 16px 0 16px', scrollbarGutter: 'stable' }}
+          {/* Messages — area unica: scroll (chat o task) + barra riassunto in fondo (la striscia, sempre stessa posizione) */}
+          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column', ...(taskPanelOpen ? { margin: '2px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom' } : {}) }}>
+            <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '4px 16px 0 16px', scrollbarGutter: 'stable' }}
               onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100); pinnedRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 120 }}>
-              {props.messages.map((msg, mIdx) => (
+              {taskPanelOpen ? (
+                taskMsgs.length === 0 ? (
+                  <div style={{ color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', padding: '24px 8px', textAlign: 'center' }}>No tasks yet.</div>
+                ) : taskMsgs.map((msg, mIdx) => (
+                  <div key={msg.id + '-' + mIdx} style={{ marginBottom: '12px' }}>
+                    <MessageBubble message={msg} onCopy={() => {}} searchQuery={''} msgIndex={mIdx} activeMatchMsgIdx={-1} activeMatchOccurrence={-1} isDateMatch={false} />
+                  </div>
+                ))
+              ) : props.messages.map((msg, mIdx) => (
                 <div key={msg.id} data-msg-idx={mIdx} style={{ marginBottom: '12px' }}>
                   <MessageBubble message={msg} onCopy={() => {}} searchQuery={searchQuery} msgIndex={mIdx} activeMatchMsgIdx={activeMatchInfo?.msgIdx ?? -1} activeMatchOccurrence={activeMatchInfo?.occurrence ?? -1} isDateMatch={!searchQuery.trim() && hasDateFilter && dateMatchIndices.includes(mIdx) && mIdx === dateMatchIndices[Math.min(dateMatchIdx, dateMatchIndices.length - 1)]} />
                 </div>
@@ -396,15 +427,12 @@ export function ChatArea(props: ChatAreaProps) {
             </div>
             {showScrollBtn && (
               <button onClick={() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }}
-                style={{ position: 'absolute', bottom: '0px', right: '0px', zIndex: 10, width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--q-tab-accent)', color: getContrastColor('--q-tab-accent'), border: 'none', boxShadow: 'var(--shadow-floating)', cursor: 'pointer' }}>
+                style={{ position: 'absolute', bottom: (hasTasks ? 46 : 0) + 'px', right: '0px', zIndex: 10, width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--q-tab-accent)', color: getContrastColor('--q-tab-accent'), border: 'none', boxShadow: 'var(--shadow-floating)', cursor: 'pointer' }}>
                 <ArrowDown size={20} />
               </button>
             )}
-            {taskPanelOpen && taskPanelEl}
+            {taskStripBar}
           </div>
-
-          {/* A2.8: Task strip sopra il composer — solo quando il pannello è chiuso (aperto: la barra è dentro la sezione, in basso) */}
-          {!taskPanelOpen && taskStrip}
 
           {/* Composer — flexShrink 0 so it stays visible */}
           <div style={{ paddingTop: '8px', flexShrink: 0 }}>
