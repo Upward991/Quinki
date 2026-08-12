@@ -96,7 +96,7 @@ function ViewRow({ v, active, renaming, renameVal, onRenameChange, onRenameCommi
 
 function MtText({ label, onClick }: { label: string; onClick: (e: any) => void }) {
   const [h, setH] = useState(false)
-  return React.createElement('span', { onClick, onMouseEnter: () => setH(true), onMouseLeave: () => setH(false), style: { color: h ? 'var(--q-text)' : 'var(--q-text-secondary)', cursor: 'pointer', fontSize: 12.5, fontFamily: 'var(--font-interface)', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', backgroundColor: h ? 'var(--q-hover)' : 'transparent', borderRadius: 'var(--radius-sm)', padding: '1px 5px', transition: 'none' } }, label)
+  return React.createElement('span', { onClick, onMouseEnter: () => setH(true), onMouseLeave: () => setH(false), style: { color: h ? 'var(--q-text)' : 'var(--q-text-secondary)', cursor: 'pointer', fontSize: 12.5, fontFamily: 'var(--font-interface)', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', transition: 'none' } }, label)
 }
 
 function MenuItem({ label, color, onClick }: any) {
