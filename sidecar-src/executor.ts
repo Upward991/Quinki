@@ -199,6 +199,16 @@ export class ExecutionEngine {
       return last;
     } catch { return ""; }
   }
+  #resolveActualModelThinking(state: ExecutionState) {
+    try {
+      const mpath = path.join(AGENT_DIR, "sessions", "quinki", `__exec_${state.id}`, "chat-meta.json");
+      if (fs.existsSync(mpath)) {
+        const m = JSON.parse(fs.readFileSync(mpath, "utf8"));
+        if (!state.model && m.model) state.model = m.model;
+        if (!state.thinkingLevel && m.thinkingLevel) state.thinkingLevel = m.thinkingLevel;
+      }
+    } catch {}
+  }
   #appendHandoff(state: ExecutionState) {
     if (!state.sourceSession?.key) return;
     const p = this.#handoffPath(state.sourceSession.key);
@@ -388,6 +398,7 @@ export class ExecutionEngine {
           state.error = result.errorMessage || "unknown error";
           this.#appendEvent(id, "execution_failed", { error: state.error });
         }
+        this.#resolveActualModelThinking(state);
         this.#appendHandoff(state);
         this.#writeState(id, state);
         this.#appendEvent(id, "execution_end", { status: state.status });
@@ -401,6 +412,7 @@ export class ExecutionEngine {
         state.status = "failed";
         state.endedAt = Date.now();
         state.error = e?.message || String(e);
+        this.#resolveActualModelThinking(state);
         this.#appendHandoff(state);
         this.#writeState(id, state);
         this.#appendEvent(id, "execution_failed", { error: state.error });
