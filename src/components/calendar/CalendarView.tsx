@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useSidecarContext } from '../shared/AppShell'
-import { Home, Checklist, Play, X, RotateCcw, Trash2, Search, Plus, Filter, Check, ChevronDown, ChevronRight, Pencil, Maximize, Minimize } from '../icons'
+import { Home, Checklist, Play, X, RotateCcw, Trash2, Search, Plus, Filter, Check, ChevronDown, ChevronRight, Pencil, PanelLeft, Maximize, Minimize } from '../icons'
 
 const STATUS_COLOR: Record<string, string> = {
   scheduled: 'var(--q-accent-calendar)',
@@ -112,6 +112,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const [renamingView, setRenamingView] = useState<string | null>(null)
   const [renameVal, setRenameVal] = useState('')
   const [allHover, setAllHover] = useState(false)
+  const [sideMode, setSideMode] = useState<'open' | 'hidden' | 'peek'>('open')
   const [filterBarOpen, setFilterBarOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [newViewOpen, setNewViewOpen] = useState(false)
@@ -244,15 +245,16 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
         ]),
       ]),
     ]),
-    React.createElement('div', { key: 'list', style: { flex: 1, overflowY: 'auto', paddingBottom: 8, scrollbarGutter: 'stable' } }, views.map(v => React.createElement(ViewRow, { key: v.id, v, active: v.id === activeId, onSelect: () => setActiveId(v.id), onRenameCommit: (name: string) => renameView(v.id, name), onDelete: () => setDeleteView(v) }))),
+    React.createElement('div', { key: 'list', style: { flex: 1, overflowY: 'auto', paddingBottom: 8, scrollbarGutter: 'stable' } }, views.filter(v => v.id !== BASE_ID).map(v => React.createElement(ViewRow, { key: v.id, v, active: v.id === activeId, onSelect: () => setActiveId(v.id), onRenameCommit: (name: string) => renameView(v.id, name), onDelete: () => setDeleteView(v) }))),
   ])
 
   return React.createElement('div', { className: 'h-full flex flex-row', style: { width: '100%', position: 'relative', overflow: 'hidden' } }, [
-    viewSidebar,
+    sideMode !== 'hidden' ? viewSidebar : null,
     React.createElement('div', { key: 'main', style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' } }, [
     React.createElement('div', { key: 'hdrwrap', style: { width: '100%', maxWidth: 'var(--spacing-chat-max)', margin: '0 auto', flexShrink: 0, paddingTop: '4px' } }, [
       React.createElement('div', { key: 'hdr', style: { marginBottom: '8px', display: 'flex', alignItems: 'center', gap: 8, width: '100%' } }, [
         React.createElement('div', { key: 'h1', style: panelStyle }, [React.createElement(IconBtn, { key: 'home', icon: Home, onClick: () => props.onSelectPanel('home') })]),
+        React.createElement('div', { key: 'h1b', style: panelStyle }, [React.createElement(IconBtn, { key: 'side', icon: PanelLeft, onClick: () => setSideMode(m => m === 'open' ? 'hidden' : 'open'), title: sideMode === 'open' ? 'Hide sidebar' : 'Show sidebar' })]),
         React.createElement('div', { key: 'h2', style: { ...panelStyle, flex: 1 } }, [React.createElement('div', { key: 'sp', style: { width: '8px', flexShrink: 0 } }), React.createElement(Checklist, { key: 'ic', size: 18, style: { color: 'var(--q-text-secondary)', flexShrink: 0 } }), React.createElement('div', { key: 'sp2', style: { width: '16px', flexShrink: 0 } }), React.createElement('span', { key: 'ti', style: { color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)' } }, 'Agents Tasks')]),
       ]),
     ]),
@@ -263,6 +265,8 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       ]),
     ]),
     ]),
+    sideMode === 'hidden' ? React.createElement('div', { key: 'strip', style: { position: 'absolute', top: 8, bottom: 8, left: 0, width: 12, zIndex: 10, cursor: 'pointer' }, onMouseEnter: () => setSideMode('peek') }) : null,
+    sideMode === 'peek' ? React.createElement('div', { key: 'peekov', style: { position: 'absolute', top: 0, bottom: 0, left: 288, right: 0, zIndex: 30 } }, onMouseLeave: () => setSideMode('hidden')) : null,
     deleteView ? React.createElement('div', { key: 'dv', style: { position: 'fixed', inset: 0, zIndex: 300, backgroundColor: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: () => setDeleteView(null) }, React.createElement('div', { style: { backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '20px 24px', minWidth: 320, maxWidth: 400 }, onClick: (e: any) => e.stopPropagation() }, [
       React.createElement('div', { key: 't', style: { color: 'var(--q-text)', fontSize: 16, fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: 8 } }, 'Delete view?'),
       React.createElement('div', { key: 'd', style: { color: 'var(--q-text-secondary)', fontSize: 14, fontFamily: 'var(--font-interface)', marginBottom: 16 } }, 'The view "' + deleteView.name + '" will be deleted.'),
