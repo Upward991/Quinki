@@ -175,6 +175,7 @@ export class Scheduler {
         owner: s.owner || this.#owner,
         scheduleId: s.id,
         scheduledFor,
+        sourceSession: s.sourceSession,
       });
       execId = r.executionId;
       this.#log("schedule-fired", {
@@ -283,6 +284,7 @@ export class Scheduler {
     try {
       const r = await this.#executor.runTask({
         label: s.title || "Scheduled task (manual)",
+        sourceSession: s.sourceSession,
         agentIds: s.agentIds,
         workingDir: s.workingDir,
         mode: s.mode,

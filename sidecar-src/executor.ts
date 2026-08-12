@@ -28,6 +28,7 @@ export interface ExecutionParams {
   scheduleId?: string;
   scheduledFor?: number;
   keepAwake?: boolean;
+  sourceSession?: { key: string; label: string };
 }
 
 export interface ExecutionState {
@@ -49,6 +50,7 @@ export interface ExecutionState {
   error: string | null;
   scheduleId: string | null;
   scheduledFor: number | null;
+  sourceSession?: { key: string; label: string };
   keepAwake: boolean;
   resumeCount: number;
 }
@@ -119,6 +121,30 @@ export class ExecutionEngine {
     return out;
   }
 
+  #handoffPath(chatKey: string): string | null {
+    if (!chatKey) return null;
+    return path.join(AGENT_DIR, "handoffs", chatKey.replace(/[^a-zA-Z0-9_-]/g, "_"), "handoff.md");
+  }
+  #appendHandoff(state: ExecutionState) {
+    if (!state.sourceSession?.key) return;
+    const p = this.#handoffPath(state.sourceSession.key);
+    if (!p) return;
+    try {
+      fs.mkdirSync(path.dirname(p), { recursive: true });
+      const status = state.status || "?";
+      const record = [
+        `## T-${state.id} · ${state.label || "Task"} — ${status.toUpperCase()} — ${new Date().toISOString()}`,
+        `- Agente: ${(state.agentIds || []).join(", ")}`,
+        `- Modello: ${state.model || "default"} · Thinking: ${state.thinkingLevel || "default"}`,
+        state.error ? `- Errore: ${state.error}` : `- Note: ${state.progressNote || "ok"}`,
+        "",
+      ].join("\n");
+      fs.appendFileSync(p, record, "utf8");
+    } catch (e: any) {
+      this.#log("handoff-append-failed", { executionId: state.id, error: e?.message });
+    }
+  }
+
   async runTask(p: ExecutionParams): Promise<{ executionId: string; status: string }> {
     const pb = this.#piBridge;
     if (!pb) throw new Error("PiBridge not ready");
@@ -148,6 +174,7 @@ export class ExecutionEngine {
       error: null,
       scheduleId: p.scheduleId || null,
       scheduledFor: p.scheduledFor || null,
+      sourceSession: p.sourceSession,
       keepAwake: !!p.keepAwake,
       resumeCount: 0,
     };
@@ -252,6 +279,7 @@ export class ExecutionEngine {
           state.error = result.errorMessage || "unknown error";
           this.#appendEvent(id, "execution_failed", { error: state.error });
         }
+        this.#appendHandoff(state);
         this.#writeState(id, state);
         this.#appendEvent(id, "execution_end", { status: state.status });
         this.#notify({ executionId: id, status: state.status, label: state.label, error: state.error });
@@ -264,6 +292,7 @@ export class ExecutionEngine {
         state.status = "failed";
         state.endedAt = Date.now();
         state.error = e?.message || String(e);
+        this.#appendHandoff(state);
         this.#writeState(id, state);
         this.#appendEvent(id, "execution_failed", { error: state.error });
         this.#notify({ executionId: id, status: "failed", label: state.label, error: state.error });

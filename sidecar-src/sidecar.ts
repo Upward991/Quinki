@@ -638,6 +638,10 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
       return {};
     }
   },
+  getHandoff: async (p) => { try { const f = path.join(homedir(), '.quinki', 'handoffs', String(p.chatKey || '').replace(/[^a-zA-Z0-9_-]/g, '_'), 'handoff.md'); if (!fs.existsSync(f)) return { content: '' }; return { content: fs.readFileSync(f, 'utf8') }; } catch (e: any) { return { content: '', error: e.message }; } },
+  saveHandoff: async (p) => { try { const d = path.join(homedir(), '.quinki', 'handoffs', String(p.chatKey || '').replace(/[^a-zA-Z0-9_-]/g, '_')); fs.mkdirSync(d, { recursive: true }); fs.writeFileSync(path.join(d, 'handoff.md'), String(p.content || ''), 'utf8'); return { success: true }; } catch (e: any) { return { success: false, error: e.message }; } },
+  getPlan: async (p) => { try { const f = path.join(homedir(), '.quinki', 'handoffs', String(p.chatKey || '').replace(/[^a-zA-Z0-9_-]/g, '_'), 'plan.md'); if (!fs.existsSync(f)) return { content: '' }; return { content: fs.readFileSync(f, 'utf8') }; } catch (e: any) { return { content: '', error: e.message }; } },
+  savePlan: async (p) => { try { const d = path.join(homedir(), '.quinki', 'handoffs', String(p.chatKey || '').replace(/[^a-zA-Z0-9_-]/g, '_')); fs.mkdirSync(d, { recursive: true }); fs.writeFileSync(path.join(d, 'plan.md'), String(p.content || ''), 'utf8'); return { success: true }; } catch (e: any) { return { success: false, error: e.message }; } },
   getFolders: async () => ({ folders: getFolders() }),
   setFolders: async (p) => setFolders(p.folders),
   moveSession: async (p) => {
