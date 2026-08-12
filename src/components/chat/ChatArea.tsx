@@ -88,9 +88,16 @@ export function ChatArea(props: ChatAreaProps) {
   useEffect(() => { refreshTasks(); const iv = setInterval(refreshTasks, 3000); return () => clearInterval(iv) }, [refreshTasks])
   const taskPrevOpen = useRef(false)
   useEffect(() => {
-    if (taskPanelOpen && !taskPrevOpen.current && scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    const opening = taskPanelOpen && !taskPrevOpen.current
     taskPrevOpen.current = taskPanelOpen
-  }, [taskPanelOpen])
+    if (!taskPanelOpen) return
+    if (opening || pinnedRef.current) {
+      requestAnimationFrame(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight })
+      setTimeout(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 120)
+      setTimeout(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 400)
+      if (opening) pinnedRef.current = true
+    }
+  }, [taskPanelOpen, taskMsgs])
   const taskRunning = taskExecs.filter((e: any) => e.status === 'running' || e.status === 'queued').length
   const taskDone = taskExecs.filter((e: any) => e.status === 'completed').length
   const taskFail = taskExecs.filter((e: any) => e.status === 'failed').length
@@ -98,9 +105,9 @@ export function ChatArea(props: ChatAreaProps) {
   const taskLabel = taskRunningItem ? '"' + (taskRunningItem.label || 'task') + '" in corso' : (taskExecs.length + taskScheds.length) + ' tasks · ' + taskDone + ' done' + (taskFail ? ' · ' + taskFail + ' failed' : '')
   const hasTasks = taskExecs.length > 0 || taskScheds.length > 0
   const taskStripBar = hasTasks ? (
-    <button onClick={toggleTaskPanel} title={taskPanelOpen ? 'Collapse tasks' : 'Show tasks'} style={{ width: '100%', padding: '8px 14px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, border: taskPanelOpen ? 'none' : '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', cursor: 'pointer', backgroundColor: taskPanelOpen ? 'transparent' : 'var(--q-bg-panel)', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: 13, transition: 'none' }}>
-      <Checklist size={16} style={{ color: taskRunning ? 'var(--q-accent-info)' : 'var(--q-text-secondary)', flexShrink: 0 }} />
-      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--q-text)' }}>{taskLabel}</span>
+    <button onClick={toggleTaskPanel} title={taskPanelOpen ? 'Collapse tasks' : 'Show tasks'} style={{ width: '100%', padding: '8px 14px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, border: taskPanelOpen ? 'none' : '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', cursor: 'pointer', backgroundColor: taskPanelOpen ? 'transparent' : 'var(--q-bg-panel)', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: 13, transition: 'none', textAlign: 'left' }}>
+      <Checklist size={16} style={{ color: 'var(--q-text-secondary)', flexShrink: 0 }} />
+      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--q-text-secondary)' }}>{taskLabel}</span>
       {taskRunning > 0 && (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-interface)', color: 'var(--q-accent-info)', border: '1px solid var(--q-accent-info)', flexShrink: 0 }}>
           <span style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: 'var(--q-accent-info)', display: 'inline-block' }} /> RUNNING
