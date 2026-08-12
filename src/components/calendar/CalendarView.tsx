@@ -3,7 +3,7 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragOv
 import { arrayMove } from '@dnd-kit/sortable'
 import { useSidecarContext } from '../shared/AppShell'
 import { ModelPickerModal, ThinkingPickerModal } from '../chat/ChatHeader'
-import { Home, Checklist, Play, X, RotateCcw, Trash2, Search, Plus, Filter, Check, ChevronDown, ChevronRight, PanelLeft, Maximize, Minimize } from '../icons'
+import { Home, Checklist, Play, X, RotateCcw, Trash2, Search, Plus, Filter, Check, ChevronDown, ChevronRight, PanelLeft, MessageSquare, Maximize, Minimize } from '../icons'
 
 const STATUS_COLOR: Record<string, string> = {
   scheduled: 'var(--q-accent-calendar)',
@@ -127,7 +127,7 @@ function ConfirmModal({ title, subtitle, onCancel, onConfirm }: any) {
   ])
 }
 
-interface Item { id: string; kind: 'sched' | 'exec'; title: string; agent: string; chat: string; status: string; when: number | null; error: string; ex?: any; model?: string | null; thinkingLevel?: string | null }
+interface Item { id: string; kind: 'sched' | 'exec'; title: string; agent: string; chat: string; status: string; when: number | null; error: string; ex?: any; model?: string | null; thinkingLevel?: string | null; whenObj?: any; sourceKey?: string | null }
 interface ViewCfg { id: string; name: string; type: 'table' | 'board'; f: { q: string; status: string; agents: string[]; chats: string[] } }
 const BASE_ID = 'v-table'
 const VIEWS_KEY = 'quinki-views-v1'
@@ -166,6 +166,9 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; view: ViewCfg } | null>(null)
   const [mtModelPicker, setMtModelPicker] = useState<{ id: string; model: string | null } | null>(null)
   const [mtThinkingPicker, setMtThinkingPicker] = useState<{ id: string; thinking: string | null } | null>(null)
+  const [editWhen, setEditWhen] = useState<{ id: string; when: any } | null>(null)
+  const [whenDate, setWhenDate] = useState('')
+  const [whenTime, setWhenTime] = useState('')
   const [models, setModels] = useState<any[]>([])
   const [defaultThinking, setDefaultThinking] = useState('xhigh')
   useEffect(() => { call('getModels').then((r: any) => setModels(r?.models || [])).catch(() => {}) }, [call])
@@ -227,8 +230,8 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const act = useCallback(async (fn: () => Promise<any>) => { try { await fn() } catch {}; await refresh() }, [refresh])
 
   const items: Item[] = []
-  for (const s of schedules || []) items.push({ id: s.id, kind: 'sched', title: s.title || '(untitled)', agent: (s.agentIds || []).join(', ') || '—', chat: s.sourceSession ? (sessionsMap[s.sourceSession.key] || s.sourceSession.label || s.sourceSession.key) : '—', status: s.enabled ? 'scheduled' : 'off', when: s.nextFireAt || (s.lastFiredAt ? s.lastFiredAt : null), error: '', ex: undefined, model: s.model || null, thinkingLevel: s.thinkingLevel || null })
-  for (const ex of executions || []) items.push({ id: ex.id, kind: 'exec', title: ex.label || ex.id, agent: (ex.agentIds || []).join(', ') || '—', chat: '—', status: ex.status || '?', when: ex.scheduledFor || ex.createdAt || null, error: ex.error ? String(ex.error).slice(0, 60) : '', ex, model: ex.model || null, thinkingLevel: ex.thinkingLevel || null })
+  for (const s of schedules || []) items.push({ id: s.id, kind: 'sched', title: s.title || '(untitled)', agent: (s.agentIds || []).join(', ') || '—', chat: s.sourceSession ? (sessionsMap[s.sourceSession.key] || s.sourceSession.label || s.sourceSession.key) : '—', status: s.enabled ? 'scheduled' : 'off', when: s.nextFireAt || (s.lastFiredAt ? s.lastFiredAt : null), error: '', ex: undefined, model: s.model || null, thinkingLevel: s.thinkingLevel || null, whenObj: s.when || null, sourceKey: s.sourceSession?.key || null })
+  for (const ex of executions || []) items.push({ id: ex.id, kind: 'exec', title: ex.label || ex.id, agent: (ex.agentIds || []).join(', ') || '—', chat: '—', status: ex.status || '?', when: ex.scheduledFor || ex.createdAt || null, error: ex.error ? String(ex.error).slice(0, 60) : '', ex, model: ex.model || null, thinkingLevel: ex.thinkingLevel || null, whenObj: null, sourceKey: ex.sourceSession?.key || null })
 
   const chats = Array.from(new Set(items.map(i => i.chat).filter(c => c && c !== '—')))
   const agents = Array.from(new Set(items.map(i => i.agent).filter(a => a && a !== '—')))
@@ -246,8 +249,8 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
 
   const actions = (i: Item) => {
     const b: React.ReactNode[] = []
-    if (i.kind === 'sched') { if (i.status === 'scheduled') b.push(React.createElement('button', { key: 'run', style: btnText, title: 'Run now', onClick: () => act(async () => { await call('runScheduleNow', { id: i.id }) }) }, React.createElement(Play, { size: 15 }))); b.push(React.createElement('button', { key: 'del', style: btnText, title: 'Delete', onClick: () => act(async () => { await call('deleteSchedule', { id: i.id }) }) }, React.createElement(Trash2, { size: 15 }))) }
-    else { if (i.status === 'running' || i.status === 'queued') b.push(React.createElement('button', { key: 'stop', style: btnText, title: 'Stop', onClick: () => act(async () => { await call('stopExecution', { executionId: i.id }) }) }, React.createElement(X, { size: 15 }))); if (i.status === 'interrupted') b.push(React.createElement('button', { key: 'res', style: btnText, title: 'Resume', onClick: () => act(async () => { await call('resumeExecution', { executionId: i.id }) }) }, React.createElement(RotateCcw, { size: 15 }))); if (i.status === 'failed' || i.status === 'cancelled') b.push(React.createElement('button', { key: 'retry', style: btnText, title: 'Retry', onClick: () => act(async () => { if (i.ex?.scheduleId) await call('runScheduleNow', { id: i.ex.scheduleId }); else await call('runTask', { label: i.ex.label, agentIds: i.ex.agentIds, workingDir: i.ex.workingDir, mode: i.ex.mode, model: i.ex.model, text: i.ex.text }) }) }, React.createElement(RotateCcw, { size: 15 }))); b.push(React.createElement('button', { key: 'del', style: btnText, title: 'Delete', onClick: () => act(async () => { await call('deleteExecution', { executionId: i.id }) }) }, React.createElement(Trash2, { size: 15 }))) }
+    if (i.kind === 'sched') { if (i.status === 'scheduled') b.push(React.createElement('button', { key: 'run', style: btnText, title: 'Run now', onClick: () => act(async () => { await call('runScheduleNow', { id: i.id }) }) }, React.createElement(Play, { size: 15 }))); if (i.sourceKey) b.push(React.createElement('button', { key: 'chat', style: btnText, title: 'Open in chat', onClick: () => props.onOpenSession?.(i.sourceKey as string) }, React.createElement(MessageSquare, { size: 15 }))); b.push(React.createElement('button', { key: 'del', style: btnText, title: 'Delete', onClick: () => act(async () => { await call('deleteSchedule', { id: i.id }) }) }, React.createElement(Trash2, { size: 15 }))) }
+    else { if (i.status === 'running' || i.status === 'queued') b.push(React.createElement('button', { key: 'stop', style: btnText, title: 'Stop', onClick: () => act(async () => { await call('stopExecution', { executionId: i.id }) }) }, React.createElement(X, { size: 15 }))); if (i.status === 'interrupted') b.push(React.createElement('button', { key: 'res', style: btnText, title: 'Resume', onClick: () => act(async () => { await call('resumeExecution', { executionId: i.id }) }) }, React.createElement(RotateCcw, { size: 15 }))); if (i.status === 'failed' || i.status === 'cancelled') b.push(React.createElement('button', { key: 'retry', style: btnText, title: 'Retry', onClick: () => act(async () => { if (i.ex?.scheduleId) await call('runScheduleNow', { id: i.ex.scheduleId }); else await call('runTask', { label: i.ex.label, agentIds: i.ex.agentIds, workingDir: i.ex.workingDir, mode: i.ex.mode, model: i.ex.model, text: i.ex.text }) }) }, React.createElement(RotateCcw, { size: 15 }))); if (i.sourceKey) b.push(React.createElement('button', { key: 'chat', style: btnText, title: 'Open in chat', onClick: () => props.onOpenSession?.(i.sourceKey as string) }, React.createElement(MessageSquare, { size: 15 }))); b.push(React.createElement('button', { key: 'del', style: btnText, title: 'Delete', onClick: () => act(async () => { await call('deleteExecution', { executionId: i.id }) }) }, React.createElement(Trash2, { size: 15 }))) }
     return React.createElement('div', { key: 'acts', style: { display: 'flex', gap: 4 } }, b)
   }
   const cellVal = (i: Item, key: string): React.ReactNode => {
@@ -257,10 +260,14 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
       const dateStr = d.getDate() + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear()
       const timeStr = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ':' + String(d.getSeconds()).padStart(2, '0')
-      return React.createElement('div', { key: 'dt', style: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 } }, [
+      const content = React.createElement('div', { key: 'dt', style: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 } }, [
         React.createElement('span', { key: 'dd', style: { maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12.5, fontFamily: 'var(--font-interface)', color: 'var(--q-text-secondary)' } }, dateStr),
         React.createElement('span', { key: 'tt', style: { maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12.5, fontFamily: 'var(--font-interface)', color: 'var(--q-text-secondary)', opacity: 0.8 } }, timeStr),
       ])
+      if (i.kind === 'sched') {
+        return React.createElement(MtText, { key: 'w', label: dateStr + ' · ' + timeStr, onClick: (e: any) => { e.stopPropagation(); const w = i.whenObj || {}; const dt = w.date ? w.date.slice(0, 10) : new Date(i.when || Date.now()).toISOString().slice(0, 10); const tm = w.date ? w.date.slice(11, 16) : (w.at || String(new Date(i.when || Date.now()).getHours()).padStart(2, '0') + ':' + String(new Date(i.when || Date.now()).getMinutes()).padStart(2, '0')); setWhenDate(dt); setWhenTime(tm); setEditWhen({ id: i.id, when: w }) } })
+      }
+      return content
     }
     if (key === 'title') return i.title
     if (key === 'agent') return i.agent
@@ -381,6 +388,18 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     ctxMenu ? React.createElement(ViewContextMenu, { key: 'cm', x: ctxMenu.x, y: ctxMenu.y, item: ctxMenu.view, multiSelect: multiSel, selectedCount: selViews.size, onClose: () => setCtxMenu(null), onRename: () => { setRenamingView(ctxMenu.view.id); setRenameVal(ctxMenu.view.name); setCtxMenu(null) }, onSelect: () => { setMultiSel(true); setSelViews(new Set([ctxMenu.view.id])); setCtxMenu(null) }, onDelete: () => { setDeleteViews([ctxMenu.view]); setCtxMenu(null) }, onDeselectAll: () => { setMultiSel(false); setSelViews(new Set()); setCtxMenu(null) }, onDeleteSelected: () => { setDeleteViews(views.filter(v => selViews.has(v.id))); setCtxMenu(null) } }) : null,
     mtModelPicker ? React.createElement(ModelPickerModal, { key: 'mp', currentModel: mtModelPicker.model || '', models, onClose: () => setMtModelPicker(null), onConfirm: (model: string | null) => { const id = mtModelPicker.id; setMtModelPicker(null); if (!id) return; call('updateSchedule', { id, model: model || null }).then(() => refresh()).catch(() => {}) } }) : null,
     mtThinkingPicker ? React.createElement(ThinkingPickerModal, { key: 'tp', currentThinking: mtThinkingPicker.thinking || '', chatThinkingLevel: defaultThinking, onClose: () => setMtThinkingPicker(null), onConfirm: (level: string | null) => { const id = mtThinkingPicker.id; setMtThinkingPicker(null); if (!id) return; call('updateSchedule', { id, thinkingLevel: level || null }).then(() => refresh()).catch(() => {}) } }) : null,
+    editWhen ? React.createElement(React.Fragment, { key: 'wted' }, [
+      React.createElement('div', { key: 'o', style: { position: 'fixed', inset: 0, zIndex: 250 }, onClick: () => setEditWhen(null) }),
+      React.createElement('div', { key: 'p', style: { position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', zIndex: 251, width: 260, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: 12, display: 'flex', flexDirection: 'column', gap: 8 } }, [
+        React.createElement('div', { key: 't', style: { color: 'var(--q-text)', fontSize: 14, fontWeight: 600, fontFamily: 'var(--font-interface)' } }, 'Date & Time'),
+        React.createElement('input', { key: 'd', type: 'date', value: whenDate, onChange: (e: any) => setWhenDate(e.target.value), style: { padding: '6px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 13, fontFamily: 'var(--font-interface)' } }),
+        React.createElement('input', { key: 't2', type: 'time', value: whenTime, onChange: (e: any) => setWhenTime(e.target.value), style: { padding: '6px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 13, fontFamily: 'var(--font-interface)' } }),
+        React.createElement('div', { key: 'b', style: { display: 'flex', justifyContent: 'flex-end', gap: 6 } }, [
+          React.createElement('button', { key: 'c', onClick: () => setEditWhen(null), style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-accent-danger)', fontSize: 12.5, fontFamily: 'var(--font-interface)', padding: '4px 8px' } }, 'Cancel'),
+          React.createElement('button', { key: 's', onClick: async () => { const id = editWhen.id; const w = editWhen.when; setEditWhen(null); if (!id || !whenDate || !whenTime) return; try { if (w.type === 'once') await call('updateSchedule', { id, when: { date: whenDate + 'T' + whenTime } }); else await call('updateSchedule', { id, when: { at: whenTime } }); refresh() } catch {} }, style: { background: 'none', border: '1px solid var(--q-tab-accent)', cursor: 'pointer', color: 'var(--q-tab-accent)', fontSize: 12.5, fontWeight: 600, fontFamily: 'var(--font-interface)', padding: '4px 12px', borderRadius: 'var(--radius-sm)' } }, 'Save'),
+        ]),
+      ]),
+    ]) : null,
     deleteViews ? React.createElement(ConfirmModal, { key: 'dv', title: deleteViews.length === 1 ? 'Delete view?' : 'Delete ' + deleteViews.length + ' views?', subtitle: deleteViews.length === 1 ? deleteViews[0].name + ' will be permanently deleted.' : deleteViews.length + ' views will be permanently deleted.', onCancel: () => setDeleteViews(null), onConfirm: () => doDelete(deleteViews) }) : null,
   ])
 }
