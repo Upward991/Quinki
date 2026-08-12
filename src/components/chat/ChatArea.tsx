@@ -88,6 +88,20 @@ export function ChatArea(props: ChatAreaProps) {
   }, [sessionIdKey, sidecarCall])
   useEffect(() => { refreshTasks(); const iv = setInterval(refreshTasks, 3000); return () => clearInterval(iv) }, [refreshTasks])
   useEffect(() => { if (taskPanelOpen && taskScrollRef.current) taskScrollRef.current.scrollTop = taskScrollRef.current.scrollHeight }, [taskPanelOpen, taskMsgs])
+  const taskRunning = taskExecs.filter((e: any) => e.status === 'running' || e.status === 'queued').length
+  const taskDone = taskExecs.filter((e: any) => e.status === 'completed').length
+  const taskFail = taskExecs.filter((e: any) => e.status === 'failed').length
+  const taskRunningItem = taskExecs.find((e: any) => e.status === 'running' || e.status === 'queued')
+  const taskLabel = taskRunningItem ? '"' + (taskRunningItem.label || 'task') + '" in corso' : (taskExecs.length + taskScheds.length) + ' tasks · ' + taskDone + ' done' + (taskFail ? ' · ' + taskFail + ' failed' : '')
+  const taskStrip = (taskExecs.length > 0 || taskScheds.length > 0) ? (
+    <div key="tstrip" style={{ paddingTop: '8px', flexShrink: 0 }}>
+      <button onClick={toggleTaskPanel} title={taskPanelOpen ? 'Collapse tasks' : 'Show tasks'} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 'var(--radius-lg)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-panel)', cursor: 'pointer', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: 13, transition: 'none' }}>
+        <Checklist size={16} style={{ color: taskRunning ? 'var(--q-accent-info)' : 'var(--q-text-secondary)', flexShrink: 0 }} />
+        <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{taskLabel}</span>
+        {taskPanelOpen ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+      </button>
+    </div>
+  ) : null
   const prevSessionIdRef = useRef('')
   const [searchQuery, setSearchQuery] = useState('')
   const [searchDate, setSearchDate] = useState('')
@@ -319,20 +333,23 @@ export function ChatArea(props: ChatAreaProps) {
 
 {/* Welcome: composer centered */}
       {isEmpty ? (
-        <div className="flex-1 flex items-center justify-center">
-          <Composer
-            providers={props.providers} selectedModel={props.selectedModel} mode={props.mode}
-            thinking={props.thinking} contextTokens={props.contextTokens} contextWindow={props.contextWindow}
-            isStreaming={props.streaming} isCompacting={props.isCompacting} statusLabel={props.statusLabel} statusKind={props.statusKind}
-            onSend={props.onSend} onStop={props.onStop}
-            onModelChange={props.onModelSelect} onModeChange={props.onModeChange}
-            onThinkingChange={t => props.onThinkingChange(t)} welcomeMode={true}
-            agents={props.agents}
-            chatAgentIds={props.selectedAgentIds}
-            onReset={props.onReset}
-            onAgentToggle={props.onAgentToggle}
-          />
-        </div>
+        <>
+          <div className="flex-1 flex items-center justify-center">
+            <Composer
+              providers={props.providers} selectedModel={props.selectedModel} mode={props.mode}
+              thinking={props.thinking} contextTokens={props.contextTokens} contextWindow={props.contextWindow}
+              isStreaming={props.streaming} isCompacting={props.isCompacting} statusLabel={props.statusLabel} statusKind={props.statusKind}
+              onSend={props.onSend} onStop={props.onStop}
+              onModelChange={props.onModelSelect} onModeChange={props.onModeChange}
+              onThinkingChange={t => props.onThinkingChange(t)} welcomeMode={true}
+              agents={props.agents}
+              chatAgentIds={props.selectedAgentIds}
+              onReset={props.onReset}
+              onAgentToggle={props.onAgentToggle}
+            />
+          </div>
+          {taskStrip}
+        </>
       ) : (
         <>
           {/* Messages / Task panel (A2.8) */}
@@ -378,23 +395,8 @@ export function ChatArea(props: ChatAreaProps) {
             </div>
           )}
 
-          {/* A2.8: Task strip sopra il composer (visibile solo se la sessione ha task) */}
-          {(taskExecs.length > 0 || taskScheds.length > 0) && (() => {
-            const runningCount = taskExecs.filter((e: any) => e.status === 'running' || e.status === 'queued').length
-            const doneCount = taskExecs.filter((e: any) => e.status === 'completed').length
-            const failCount = taskExecs.filter((e: any) => e.status === 'failed').length
-            const running = taskExecs.find((e: any) => e.status === 'running' || e.status === 'queued')
-            const label = running ? '"' + (running.label || 'task') + '" in corso' : (taskExecs.length + taskScheds.length) + ' tasks · ' + doneCount + ' done' + (failCount ? ' · ' + failCount + ' failed' : '')
-            return (
-              <div key="tstrip" style={{ paddingTop: '8px', flexShrink: 0 }}>
-                <button onClick={toggleTaskPanel} title={taskPanelOpen ? 'Collapse tasks' : 'Show tasks'} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 'var(--radius-lg)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-panel)', cursor: 'pointer', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: 13, transition: 'none' }}>
-                  <Checklist size={16} style={{ color: runningCount ? 'var(--q-accent-info)' : 'var(--q-text-secondary)', flexShrink: 0 }} />
-                  <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
-                  {taskPanelOpen ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
-                </button>
-              </div>
-            )
-          })()}
+          {/* A2.8: Task strip sopra il composer */}
+          {taskStrip}
 
           {/* Composer — flexShrink 0 so it stays visible */}
           <div style={{ paddingTop: '8px', flexShrink: 0 }}>
