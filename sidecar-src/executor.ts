@@ -241,6 +241,19 @@ export class ExecutionEngine {
         // Setup sessione headless (riuso totale della meccanica chat)
         const prevLabel = this.get(id)?.label || state.label;
         pb.create(sk, prevLabel !== "Task" ? `__exec_${prevLabel.slice(0, 16)}` : `__exec_${id.slice(0, 14)}`);
+        // === A2.7.4: risoluzione model/thinking — schedule → sessione (chat-meta) → default ===
+        if (!state.model || !state.thinkingLevel) {
+          try {
+            const metaPath = path.join(AGENT_DIR, "sessions", "quinki", state.sourceSession?.key || "", "chat-meta.json");
+            if (fs.existsSync(metaPath)) {
+              const meta = JSON.parse(fs.readFileSync(metaPath, "utf8"));
+              if (!state.model && meta.model) state.model = meta.model;
+              if (!state.thinkingLevel && meta.thinkingLevel) state.thinkingLevel = meta.thinkingLevel;
+            }
+          } catch (e: any) {
+            this.#log("exec-model-resolve-failed", { executionId: id, error: e?.message });
+          }
+        }
         // === A2.7.2: fork della chat — copia la storia della sourceSession nella sessione di esecuzione ===
         if (state.sourceSession?.key) {
           try {

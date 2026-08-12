@@ -2825,6 +2825,7 @@ class PiBridge {
         "at is LOCAL time in 24h HH:MM (e.g. 07:00). For weekly, daysOfWeek uses 1=Monday ... 7=Sunday.",
         "text must be the exact task the agent must perform when it fires.",
         "If the user doesn't specify an agent, use agentIds ['orchestrator'].",
+        "If the user asks for a specific model or thinking level for the task, pass model and thinkingLevel.",
         "After scheduling, confirm to the user what was scheduled and when.",
       ],
       parameters: Type.Object({
@@ -2840,6 +2841,8 @@ class PiBridge {
         agentIds: Type.Optional(Type.Union([Type.String(), Type.Array(Type.String())], { description: "Agent(s) to run the task, default ['orchestrator']" })),
         workingDir: Type.Optional(Type.String({ description: "Working directory for the task" })),
         mode: Type.Optional(Type.String({ description: "plan or build (default build)" })),
+        model: Type.Optional(Type.String({ description: "Model to run this task with (e.g. 'deepseek/deepseek-v4-flash-0731'). Only if the user specifies one." })),
+        thinkingLevel: Type.Optional(Type.String({ description: "Thinking level: off | low | medium | high | xhigh. Only if the user specifies one." })),
       }),
       async execute(toolCallId: string, params: any, signal: any, onUpdate: any, ctx: any): Promise<any> {
         try {
