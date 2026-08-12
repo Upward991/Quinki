@@ -370,16 +370,11 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
           models.map((m: any) => React.createElement('button', { key: m.id, onClick: () => setMtModel(m.id), style: { textAlign: 'left', padding: '5px 8px', borderRadius: 'var(--radius-sm)', border: 'none', cursor: 'pointer', fontSize: 12.5, fontFamily: 'var(--font-interface)', backgroundColor: mtModel === m.id ? 'var(--q-active)' : 'transparent', color: 'var(--q-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, (m.name || m.id))),
         ]),
         React.createElement('div', { key: 'l2', style: { color: 'var(--q-text)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-interface)' } }, 'Thinking'),
-        React.createElement('div', { key: 'tl', style: { display: 'flex', flexWrap: 'wrap', gap: 4 } }, (() => {
-          const selM = models.find((x: any) => x.id === mtModel)
-          const tlMap = selM?.thinkingLevelMap
-          const avail = tlMap ? Object.keys(tlMap).filter((k: string, i: number, arr: string[]) => arr.map((x: string) => tlMap[x]).indexOf(tlMap[k]) === i) : ['off', 'low', 'medium', 'high', 'xhigh']
-          return ['default', ...avail].map(t => {
-            const active = mtThinking === t || (t === 'default' && mtThinking === null)
-            const label = t === 'default' ? 'default' : t === 'xhigh' ? 'On (xhigh)' : t === 'off' ? 'Off' : t.charAt(0).toUpperCase() + t.slice(1)
-            return React.createElement('button', { key: t, onClick: () => setMtThinking(t === 'default' ? null : t), style: { padding: '3px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid ' + (active ? 'var(--q-tab-accent)' : 'var(--q-border)'), cursor: 'pointer', fontSize: 12, fontFamily: 'var(--font-interface)', backgroundColor: active ? 'var(--q-active)' : 'transparent', color: 'var(--q-text)' } }, label)
-          })
-        })()),
+        React.createElement('div', { key: 'tl', style: { display: 'flex', flexWrap: 'wrap', gap: 4 } }, ['default', 'xhigh', 'off'].map(t => {
+          const active = mtThinking === t || (t === 'default' && mtThinking === null)
+          const label = t === 'default' ? 'default' : t === 'xhigh' ? 'On (xhigh)' : 'Off'
+          return React.createElement('button', { key: t, onClick: () => setMtThinking(t === 'default' ? null : t), style: { padding: '3px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid ' + (active ? 'var(--q-tab-accent)' : 'var(--q-border)'), cursor: 'pointer', fontSize: 12, fontFamily: 'var(--font-interface)', backgroundColor: active ? 'var(--q-active)' : 'transparent', color: 'var(--q-text)' } }, label)
+        })),
         React.createElement('div', { key: 'b', style: { display: 'flex', justifyContent: 'flex-end', gap: 6 } }, [
           React.createElement('button', { key: 'c', onClick: () => setEditMt(null), style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-accent-danger)', fontSize: 12.5, fontFamily: 'var(--font-interface)', padding: '4px 8px' } }, 'Cancel'),
           React.createElement('button', { key: 's', onClick: async () => { try { await call('updateSchedule', { id: editMt.id, model: mtModel || undefined, thinkingLevel: mtThinking || undefined }); setEditMt(null); refresh() } catch {} }, style: { background: 'none', border: '1px solid var(--q-tab-accent)', cursor: 'pointer', color: 'var(--q-tab-accent)', fontSize: 12.5, fontWeight: 600, fontFamily: 'var(--font-interface)', padding: '4px 12px', borderRadius: 'var(--radius-sm)' } }, 'Save'),
