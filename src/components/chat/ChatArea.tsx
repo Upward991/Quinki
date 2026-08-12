@@ -94,8 +94,8 @@ export function ChatArea(props: ChatAreaProps) {
   const taskRunningItem = taskExecs.find((e: any) => e.status === 'running' || e.status === 'queued')
   const taskLabel = taskRunningItem ? '"' + (taskRunningItem.label || 'task') + '" in corso' : (taskExecs.length + taskScheds.length) + ' tasks · ' + taskDone + ' done' + (taskFail ? ' · ' + taskFail + ' failed' : '')
   const taskPanelEl = (
-    <div style={{ position: 'absolute', inset: 0, zIndex: 20, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', display: 'flex', flexDirection: 'column', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom', overflow: 'hidden' }}>
-      <div style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, borderBottom: '1px solid var(--q-border)' }}>
+    <div style={{ position: 'absolute', inset: '6px', zIndex: 20, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', display: 'flex', flexDirection: 'column', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom', overflow: 'hidden' }}>
+      <div style={{ padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
         <Checklist size={16} style={{ color: taskRunning ? 'var(--q-accent-info)' : 'var(--q-text-secondary)', flexShrink: 0 }} />
         <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--q-text)', fontSize: 13, fontFamily: 'var(--font-interface)' }}>{taskLabel}</span>
         {taskRunning > 0 && (
@@ -375,7 +375,7 @@ export function ChatArea(props: ChatAreaProps) {
               onAgentToggle={props.onAgentToggle}
             />
           </div>
-          {!taskPanelOpen && taskStrip}
+          {taskStrip}
         </>
         )
       ) : (
@@ -399,8 +399,8 @@ export function ChatArea(props: ChatAreaProps) {
             {taskPanelOpen && taskPanelEl}
           </div>
 
-          {/* A2.8: Task strip sopra il composer (solo quando il pannello è chiuso) */}
-          {!taskPanelOpen && taskStrip}
+          {/* A2.8: Task strip sopra il composer — sempre visibile, è il toggle */}
+          {taskStrip}
 
           {/* Composer — flexShrink 0 so it stays visible */}
           <div style={{ paddingTop: '8px', flexShrink: 0 }}>
