@@ -256,10 +256,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       const d = new Date(i.when)
       const dateStr = d.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })
       const timeStr = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
-      return React.createElement('div', { key: 'dt', style: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 } }, [
-        React.createElement('span', { key: 'dd', style: { maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12.5, fontFamily: 'var(--font-interface)' } }, dateStr),
-        React.createElement('span', { key: 'tt', style: { maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12.5, fontFamily: 'var(--font-interface)', opacity: 0.8 } }, timeStr),
-      ])
+      return React.createElement('span', { key: 'dt', style: { maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12.5, fontFamily: 'var(--font-interface)', color: 'var(--q-text-secondary)' } }, dateStr + ' · ' + timeStr)
     }
     if (key === 'title') return i.title
     if (key === 'agent') return i.agent
