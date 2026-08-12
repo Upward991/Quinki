@@ -257,7 +257,10 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
       const dateStr = d.getDate() + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear()
       const timeStr = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ':' + String(d.getSeconds()).padStart(2, '0')
-      return React.createElement('span', { key: 'dt', style: { maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12.5, fontFamily: 'var(--font-interface)', color: 'var(--q-text-secondary)' } }, dateStr + ' · ' + timeStr)
+      return React.createElement('div', { key: 'dt', style: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 } }, [
+        React.createElement('span', { key: 'dd', style: { maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12.5, fontFamily: 'var(--font-interface)', color: 'var(--q-text-secondary)' } }, dateStr),
+        React.createElement('span', { key: 'tt', style: { maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12.5, fontFamily: 'var(--font-interface)', color: 'var(--q-text-secondary)', opacity: 0.8 } }, timeStr),
+      ])
     }
     if (key === 'title') return i.title
     if (key === 'agent') return i.agent
