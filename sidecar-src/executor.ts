@@ -122,6 +122,48 @@ export class ExecutionEngine {
     return out;
   }
 
+  // A2.8: mappa i messaggi della sessione di esecuzione nella shape delle chat (per la Timeline)
+  messages(id: string): any[] {
+    const state = this.get(id);
+    const out: any[] = [];
+    const dir = path.join(AGENT_DIR, "sessions", "quinki", `__exec_${id}`);
+    if (!fs.existsSync(dir)) return out;
+    const entries: any[] = [];
+    try {
+      for (const f of fs.readdirSync(dir)) {
+        if (!f.endsWith(".jsonl")) continue;
+        for (const l of fs.readFileSync(path.join(dir, f), "utf8").split("\n")) {
+          if (!l.trim()) continue;
+          try { const e = JSON.parse(l); if (e.type === "message") entries.push(e); } catch {}
+        }
+      }
+    } catch {}
+    entries.sort((a, b) => String(a.timestamp || "").localeCompare(String(b.timestamp || "")));
+    let lastAssistant: any = null;
+    for (const e of entries) {
+      const role = e.message?.role;
+      const contentArr = Array.isArray(e.message?.content) ? e.message.content : [];
+      const ts = e.timestamp || new Date().toISOString();
+      if (role === "user") {
+        const text = contentArr.filter((c: any) => c.type === "text").map((c: any) => c.text).join(" ");
+        out.push({ id: e.id, role: "user", content: text || "(task)", timestamp: ts });
+      } else if (role === "assistant") {
+        const text = contentArr.filter((c: any) => c.type === "text").map((c: any) => c.text).join(" ");
+        const thinking = contentArr.filter((c: any) => c.type === "thinking").map((c: any) => ({ level: "on", content: c.thinking || "" }));
+        const toolCalls = contentArr.filter((c: any) => c.type === "toolCall").map((c: any) => ({ name: c.name || c.toolName || "tool", input: typeof c.arguments === "string" ? c.arguments : JSON.stringify(c.arguments || {}) }));
+        const m: any = { id: e.id, role: "assistant", content: text, timestamp: ts, thinking, toolCalls, toolResults: [], agentModel: state?.model || undefined, thinkingLevel: state?.thinkingLevel || undefined, agentName: state?.label || undefined };
+        out.push(m);
+        lastAssistant = m;
+      } else if (role === "toolResult") {
+        if (lastAssistant) {
+          const output = contentArr.filter((c: any) => c.type === "text").map((c: any) => c.text).join(" ");
+          lastAssistant.toolResults.push({ name: e.message?.toolName || "tool", output: output || "(empty)", isError: !!e.message?.isError });
+        }
+      }
+    }
+    return out;
+  }
+
   #handoffPath(chatKey: string): string | null {
     if (!chatKey) return null;
     return path.join(AGENT_DIR, "handoffs", chatKey.replace(/[^a-zA-Z0-9_-]/g, "_"), "handoff.md");
