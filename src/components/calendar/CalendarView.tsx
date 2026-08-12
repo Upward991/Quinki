@@ -266,7 +266,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     ]),
     ]),
     sideMode === 'hidden' ? React.createElement('div', { key: 'strip', style: { position: 'absolute', top: 8, bottom: 8, left: 0, width: 12, zIndex: 10, cursor: 'pointer' }, onMouseEnter: () => setSideMode('peek') }) : null,
-    sideMode === 'peek' ? React.createElement('div', { key: 'peekov', style: { position: 'absolute', top: 0, bottom: 0, left: 288, right: 0, zIndex: 30 } }, onMouseLeave: () => setSideMode('hidden')) : null,
+    sideMode === 'peek' ? React.createElement('div', { key: 'peekov', style: { position: 'absolute', top: 0, bottom: 0, left: 288, right: 0, zIndex: 30 }, onMouseLeave: () => setSideMode('hidden') }) : null,
     deleteView ? React.createElement('div', { key: 'dv', style: { position: 'fixed', inset: 0, zIndex: 300, backgroundColor: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: () => setDeleteView(null) }, React.createElement('div', { style: { backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '20px 24px', minWidth: 320, maxWidth: 400 }, onClick: (e: any) => e.stopPropagation() }, [
       React.createElement('div', { key: 't', style: { color: 'var(--q-text)', fontSize: 16, fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: 8 } }, 'Delete view?'),
       React.createElement('div', { key: 'd', style: { color: 'var(--q-text-secondary)', fontSize: 14, fontFamily: 'var(--font-interface)', marginBottom: 16 } }, 'The view "' + deleteView.name + '" will be deleted.'),
