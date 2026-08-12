@@ -540,7 +540,7 @@ export function ModelPickerModal({ currentModel, models, onClose, onConfirm }: {
   const fmtCtx = (cw?: number) => { if (!cw || cw === 0) return '—'; if (cw >= 1000000) { const m = Math.round(cw / 100000) / 10; return m % 1 === 0 ? `${m}M` : `${m.toFixed(1)}M` }; if (cw >= 1000) return `${Math.floor(cw / 1000)}K`; return `${cw}` }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose} onWheel={(e: any) => { if (e.target === e.currentTarget) e.preventDefault() }}>
       <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '480px', height: '80vh', maxHeight: '500px', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
         <div style={{ padding: '12px 16px', backgroundColor: 'var(--q-bg-panel)', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
           <Cpu size={18} style={{ color: 'var(--q-tab-accent)', flexShrink: 0 }} />
@@ -555,7 +555,7 @@ export function ModelPickerModal({ currentModel, models, onClose, onConfirm }: {
             <input type="text" placeholder="Search model..." value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '8px 0' }} />
           </div>
         </div>
-        <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0', overscrollBehavior: 'contain' }}>
           <div onClick={() => setSelected(null)} style={{ padding: '8px 16px', cursor: 'pointer', backgroundColor: selected === null ? 'color-mix(in srgb, var(--q-tab-accent) 12%, transparent)' : 'transparent', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div style={{ width: '14px', height: '14px', borderRadius: '50%', border: '2px solid ' + (selected === null ? 'var(--q-tab-accent)' : 'var(--q-text-tertiary)'), backgroundColor: selected === null ? 'var(--q-tab-accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{selected === null && <div style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: 'var(--q-bg)' }} />}</div>
             <span style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', flex: 1 }}>Chat default</span>
@@ -592,7 +592,7 @@ export function ThinkingPickerModal({ currentThinking, chatThinkingLevel, onClos
   const effectiveLevel = chatThinkingLevel && chatThinkingLevel !== 'off' ? chatThinkingLevel : 'xhigh'
   const options: { value: string | null; label: string }[] = [{ value: null, label: 'Chat default' }, { value: 'on', label: `On (${effectiveLevel})` }, { value: 'off', label: 'Off' }]
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose} onWheel={(e: any) => { if (e.target === e.currentTarget) e.preventDefault() }}>
       <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '380px', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
         <div style={{ padding: '12px 16px', backgroundColor: 'var(--q-bg-panel)', display: 'flex', alignItems: 'center' }}>
           <Brain size={18} style={{ color: 'var(--q-tab-accent)', flexShrink: 0 }} />
