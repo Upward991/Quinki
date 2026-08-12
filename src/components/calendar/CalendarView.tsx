@@ -147,6 +147,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const { call, subscribe } = useSidecarContext()
   const [schedules, setSchedules] = useState<any[]>([])
   const [executions, setExecutions] = useState<any[]>([])
+  const [sessionsMap, setSessionsMap] = useState<Record<string, string>>({})
   const [views, setViews] = useState<ViewCfg[]>(loadViews)
   const [activeId, setActiveId] = useState<string>(() => { const v = loadViews(); return v[0]?.id || BASE_ID })
   const [sortKey, setSortKey] = useState<string>('when'); const [sortDir, setSortDir] = useState<1 | -1>(-1)
@@ -219,14 +220,14 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const persist = (v: ViewCfg[]) => { setViews(v); saveUi(fullWidth, v) }
   const patchF = (patch: Partial<ViewCfg['f']>) => { const v = { ...view, f: { ...view.f, ...patch } }; persist(views.map(x => x.id === v.id ? v : x)) }
 
-  const refresh = useCallback(async () => { try { const a = await call('listSchedules'); const b = await call('listExecutions'); setSchedules(a?.schedules || []); setExecutions(b?.executions || []) } catch {} }, [call])
+  const refresh = useCallback(async () => { try { const a = await call('listSchedules'); const b = await call('listExecutions'); setSchedules(a?.schedules || []); setExecutions(b?.executions || []); const s = await call('listSessions'); const m: Record<string, string> = {}; for (const x of (s?.sessions || [])) { const k = x.sessionKey || x.key; if (k) m[k] = x.label || x.title || k } setSessionsMap(m) } catch {} }, [call])
   useEffect(() => { refresh(); const iv = setInterval(refresh, 30000); return () => clearInterval(iv) }, [refresh])
   useEffect(() => { const u = subscribe?.('execution_update', refresh); return () => { if (u) try { u() } catch {} } }, [refresh, subscribe])
   useEffect(() => { const u = subscribe?.('schedule_update', refresh); return () => { if (u) try { u() } catch {} } }, [refresh, subscribe])
   const act = useCallback(async (fn: () => Promise<any>) => { try { await fn() } catch {}; await refresh() }, [refresh])
 
   const items: Item[] = []
-  for (const s of schedules || []) items.push({ id: s.id, kind: 'sched', title: s.title || '(untitled)', agent: (s.agentIds || []).join(', ') || '—', chat: s.sourceSession ? (s.sourceSession.label || s.sourceSession.key) : '—', status: s.enabled ? 'scheduled' : 'off', when: s.nextFireAt || (s.lastFiredAt ? s.lastFiredAt : null), error: '', ex: undefined, model: s.model || null, thinkingLevel: s.thinkingLevel || null })
+  for (const s of schedules || []) items.push({ id: s.id, kind: 'sched', title: s.title || '(untitled)', agent: (s.agentIds || []).join(', ') || '—', chat: s.sourceSession ? (sessionsMap[s.sourceSession.key] || s.sourceSession.label || s.sourceSession.key) : '—', status: s.enabled ? 'scheduled' : 'off', when: s.nextFireAt || (s.lastFiredAt ? s.lastFiredAt : null), error: '', ex: undefined, model: s.model || null, thinkingLevel: s.thinkingLevel || null })
   for (const ex of executions || []) items.push({ id: ex.id, kind: 'exec', title: ex.label || ex.id, agent: (ex.agentIds || []).join(', ') || '—', chat: '—', status: ex.status || '?', when: ex.scheduledFor || ex.createdAt || null, error: ex.error ? String(ex.error).slice(0, 60) : '', ex, model: ex.model || null, thinkingLevel: ex.thinkingLevel || null })
 
   const chats = Array.from(new Set(items.map(i => i.chat).filter(c => c && c !== '—')))
