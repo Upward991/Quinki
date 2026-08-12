@@ -210,6 +210,26 @@ export class ExecutionEngine {
         // Setup sessione headless (riuso totale della meccanica chat)
         const prevLabel = this.get(id)?.label || state.label;
         pb.create(sk, prevLabel !== "Task" ? `__exec_${prevLabel.slice(0, 16)}` : `__exec_${id.slice(0, 14)}`);
+        // === A2.7.2: fork della chat — copia la storia della sourceSession nella sessione di esecuzione ===
+        if (state.sourceSession?.key) {
+          try {
+            const srcDir = path.join(AGENT_DIR, "sessions", "quinki", state.sourceSession.key);
+            const dstDir = path.join(AGENT_DIR, "sessions", "quinki", sk);
+            if (fs.existsSync(srcDir)) {
+              fs.mkdirSync(dstDir, { recursive: true });
+              let copied = 0;
+              for (const f of fs.readdirSync(srcDir)) {
+                if (f.endsWith(".jsonl")) {
+                  fs.copyFileSync(path.join(srcDir, f), path.join(dstDir, f));
+                  copied++;
+                }
+              }
+              this.#log("exec-fork-chat", { executionId: id, source: state.sourceSession.key, copied });
+            }
+          } catch (e: any) {
+            this.#log("exec-fork-failed", { executionId: id, error: e?.message });
+          }
+        }
         if (agentIds.length > 0) pb.setChatAgents(sk, agentIds.join(","));
         if (state.mode) pb.setMode(sk, state.mode);
         if (state.workingDir) pb.setWorkingDir(sk, state.workingDir);
