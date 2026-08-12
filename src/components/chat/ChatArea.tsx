@@ -104,6 +104,18 @@ export function ChatArea(props: ChatAreaProps) {
           </div>
         ))}
       </div>
+      {/* Barra riassunto IN BASSO = la striscia che diventa la heading inferiore della sezione espansa */}
+      <div style={{ padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, borderTop: 'none', backgroundColor: 'var(--q-bg-panel)' }}>
+        <Checklist size={16} style={{ color: taskRunning ? 'var(--q-accent-info)' : 'var(--q-text-secondary)', flexShrink: 0 }} />
+        <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--q-text)', fontSize: 13, fontFamily: 'var(--font-interface)' }}>{taskLabel}</span>
+        {taskRunning > 0 && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-interface)', color: 'var(--q-accent-info)', border: '1px solid var(--q-accent-info)', flexShrink: 0 }}>
+            <span style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: 'var(--q-accent-info)', display: 'inline-block' }} /> RUNNING
+          </span>
+        )}
+        <span style={{ color: 'var(--q-text-tertiary)', fontSize: 12, fontFamily: 'var(--font-interface)', flexShrink: 0 }}>{taskMsgs.length} msgs</span>
+        <button onClick={toggleTaskPanel} title="Collapse tasks" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-secondary)', padding: 4, display: 'flex', borderRadius: 'var(--radius-sm)', flexShrink: 0 }}><ChevronDown size={16} /></button>
+      </div>
     </div>
   )
   const taskStrip = (taskExecs.length > 0 || taskScheds.length > 0) ? (
@@ -364,7 +376,7 @@ export function ChatArea(props: ChatAreaProps) {
               onAgentToggle={props.onAgentToggle}
             />
           </div>
-          {taskStrip}
+          {!taskPanelOpen && taskStrip}
         </>
         )
       ) : (
@@ -388,8 +400,8 @@ export function ChatArea(props: ChatAreaProps) {
             {taskPanelOpen && taskPanelEl}
           </div>
 
-          {/* A2.8: Task strip sopra il composer — sempre visibile, è il toggle */}
-          {taskStrip}
+          {/* A2.8: Task strip sopra il composer — solo quando il pannello è chiuso (aperto: la barra è dentro la sezione, in basso) */}
+          {!taskPanelOpen && taskStrip}
 
           {/* Composer — flexShrink 0 so it stays visible */}
           <div style={{ paddingTop: '8px', flexShrink: 0 }}>
