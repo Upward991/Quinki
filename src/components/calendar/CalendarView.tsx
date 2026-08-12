@@ -248,15 +248,16 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     if (key === 'agent') return i.agent
     if (key === 'chat') return i.chat
     if (key === 'mt') {
-      const m = i.model || 'default'
-      const t = i.thinkingLevel || 'default'
+      const modelName = (models.find((x: any) => x.id === i.model)?.name) || i.model || 'default'
+      const rawT = i.thinkingLevel || 'default'
+      const tName = rawT === 'default' ? 'default' : rawT === 'xhigh' ? 'Xhigh' : rawT.charAt(0).toUpperCase() + rawT.slice(1)
       if (i.kind === 'sched') return React.createElement('button', { key: 'mtb', onClick: (e: any) => { e.stopPropagation(); setEditMt({ x: e.clientX, y: e.clientY, id: i.id, model: i.model || null, thinkingLevel: i.thinkingLevel || null }); setMtModel(i.model || null); setMtThinking(i.thinkingLevel || null) }, title: 'Change model / thinking', style: { background: 'none', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--q-text-secondary)', fontSize: 12.5, fontFamily: 'var(--font-interface)', padding: '3px 8px', maxWidth: 180, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 } }, [
-        React.createElement('span', { key: 'm', style: { maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, m),
-        React.createElement('span', { key: 't', style: { maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.75, fontSize: 11 } }, t),
+        React.createElement('span', { key: 'm', style: { maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, modelName),
+        React.createElement('span', { key: 't', style: { maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.75, fontSize: 11 } }, tName),
       ])
       return React.createElement('div', { key: 'mts', style: { color: 'var(--q-text-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 } }, [
-        React.createElement('span', { key: 'm', style: { maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, m),
-        React.createElement('span', { key: 't', style: { maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.75, fontSize: 11 } }, t),
+        React.createElement('span', { key: 'm', style: { maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, modelName),
+        React.createElement('span', { key: 't', style: { maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.75, fontSize: 11 } }, tName),
       ])
     }
     return ''
