@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { useSidecarContext } from '../shared/AppShell'
 import { Home, Checklist, Play, X, RotateCcw, Trash2, Search, Plus, Filter, Check, ChevronDown, ChevronRight, PanelLeft, Maximize, Minimize } from '../icons'
 
@@ -67,9 +69,10 @@ function RowBtn({ title, onClick, children, color }: { title: string; onClick: (
 function ViewRow({ v, active, renaming, renameVal, onRenameChange, onRenameCommit, onRenameCancel, onSelect, onContextMenu, multiSel, selected, onToggleSel }: { v: ViewCfg; active: boolean; renaming: boolean; renameVal: string; onRenameChange: (s: string) => void; onRenameCommit: () => void; onRenameCancel: () => void; onSelect: () => void; onContextMenu: (e: React.MouseEvent, v: ViewCfg) => void; multiSel: boolean; selected: boolean; onToggleSel: () => void }) {
   const [h, setH] = useState(false)
   const isBase = v.id === BASE_ID
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useSortable({ id: v.id })
   const color = multiSel ? (selected ? 'var(--q-accent-danger)' : h ? 'var(--q-text)' : 'var(--q-text-secondary)') : active ? 'var(--q-tab-accent)' : h ? 'var(--q-text)' : 'var(--q-text-secondary)'
-  return React.createElement('div', { onMouseEnter: () => setH(true), onMouseLeave: () => setH(false), style: { padding: '2px 8px' } }, [
-    React.createElement('div', { onClick: multiSel ? onToggleSel : onSelect, onContextMenu: (e: any) => { e.preventDefault(); e.stopPropagation(); onContextMenu(e, v) }, style: { padding: '6px 8px', minHeight: '36px', borderRadius: 'var(--radius-md)', backgroundColor: h ? 'var(--q-hover)' : 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, boxSizing: 'border-box' } }, [
+  return React.createElement('div', { onMouseEnter: () => setH(true), onMouseLeave: () => setH(false), style: { padding: '2px 8px', opacity: isDragging ? 0.4 : 1 } }, [
+    React.createElement('div', { ref: setNodeRef, ...attributes, ...listeners, onClick: multiSel ? onToggleSel : onSelect, onContextMenu: (e: any) => { e.preventDefault(); e.stopPropagation(); onContextMenu(e, v) }, style: { padding: '6px 8px', minHeight: '36px', borderRadius: 'var(--radius-md)', backgroundColor: h ? 'var(--q-hover)' : 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, boxSizing: 'border-box', transform: transform ? 'translate3d(' + transform.x + 'px,' + transform.y + 'px,0)' : undefined, zIndex: isDragging ? 50 : undefined } }, [
       React.createElement(Checklist, { key: 'i', size: 20, style: { color, flexShrink: 0 } }),
       renaming ? React.createElement('input', { key: 'r', autoFocus: true, value: renameVal, onChange: (e: any) => onRenameChange(e.target.value), onBlur: () => onRenameCommit(), onKeyDown: (e: any) => { if (e.key === 'Enter') onRenameCommit(); if (e.key === 'Escape') onRenameCancel() }, onClick: (e: any) => e.stopPropagation(), style: { flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)', padding: 0 } })
       : React.createElement('span', { key: 'n', style: { flex: 1, color, fontSize: 14, fontWeight: active ? 700 : 500, fontFamily: 'var(--font-interface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, v.name),
@@ -251,40 +254,40 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   ])))
 
   // Toolbar: view dinamiche (base non eliminabile) + Filters + Search
-  const addView = () => { const id = 'v' + Date.now(); const nv: ViewCfg = { id, name: 'View ' + (views.filter(v => v.id !== BASE_ID).length + 1), type: 'table', f: { q: '', status: 'all', agents: [], chats: [] } }; persist([...views, nv]); setActiveId(id); setNewViewFlash(true); setTimeout(() => setNewViewFlash(false), 600) }
+  const addView = () => { const id = 'v' + Date.now(); const nv: ViewCfg = { id, name: 'View ' + (views.filter(v => v.id !== BASE_ID).length + 1), type: 'table', f: { q: '', status: 'all', agents: [], chats: [] } }; persist([views[0], nv, ...views.slice(1)]); setActiveId(id); setNewViewFlash(true); setTimeout(() => setNewViewFlash(false), 600) }
   const renameView = (id: string, name: string) => { const nm = name.trim(); if (!nm) { setRenamingView(null); setRenameVal(''); return } persist(views.map(x => x.id === id ? { ...x, name: nm } : x)); setRenamingView(null); setRenameVal('') }
   const doDelete = (targets: ViewCfg[]) => { const ids = new Set(targets.map(t => t.id)); const rem = views.filter(x => !ids.has(x.id)); persist(rem); if (ids.has(activeId)) setActiveId(rem[0]?.id || BASE_ID); setDeleteViews(null); setMultiSel(false); setSelViews(new Set()) }
   const hasActiveFilters = f.agents.length > 0 || f.chats.length > 0
-  const filterBar = (filterBarOpen || hasActiveFilters) ? React.createElement('div', { key: 'fbar', style: { display: 'flex', alignItems: 'center', gap: 6, padding: '8px 0 0 0', flexWrap: 'wrap' } }, [
+  const filterChips = (filterBarOpen || hasActiveFilters) ? [
     React.createElement(FilterChip, { key: 'fA', label: 'Agent', values: f.agents, options: agents, onChange: (v: string[]) => patchF({ agents: v }) }),
     React.createElement(FilterChip, { key: 'fC', label: 'Chat', values: f.chats, options: chats, onChange: (v: string[]) => patchF({ chats: v }) }),
     hasActiveFilters ? React.createElement('button', { key: 'clr', onClick: () => patchF({ agents: [], chats: [] }), style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-accent-danger)', fontSize: 13, fontFamily: 'var(--font-interface)', padding: '4px 6px' } }, 'Clear') : null,
-  ]) : null
+  ] : []
   const toolbar = React.createElement('div', { key: 'tb', style: { display: 'flex', flexDirection: 'column', padding: '4px 0 8px 0' } }, [
     React.createElement('div', { key: 'row', style: { display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'nowrap' } }, [
     React.createElement('span', { key: 'grow', style: { flex: 1 } }),
     searchOpen ? React.createElement('input', { key: 'si', autoFocus: true, value: f.q, onChange: (e: any) => patchF({ q: e.target.value }), onKeyDown: (e: any) => { if (e.key === 'Escape') setSearchOpen(false) }, placeholder: 'Search activities...', style: { width: 240, height: 30, padding: '0 12px', boxSizing: 'border-box', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)', flexShrink: 0 } }) : null,
-    React.createElement('div', { key: 'right', style: { display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 } }, [
-      React.createElement(RowBtn, { key: 'search', title: 'Search', onClick: () => setSearchOpen(!searchOpen), color: f.q ? 'var(--q-tab-accent)' : undefined }, React.createElement(Search, { size: 18 })),
-      React.createElement(RowBtn, { key: 'filters', title: 'Filters', onClick: () => setFilterBarOpen(!filterBarOpen), color: hasActiveFilters ? 'var(--q-tab-accent)' : undefined }, React.createElement(Filter, { size: 18 })),
-      React.createElement(RowBtn, { key: 'fwbtn', title: fullWidth ? 'Default width' : 'Full width', onClick: () => { const nv = !fullWidth; setFullWidth(nv); saveUi(nv, views) } }, React.createElement(fullWidth ? Minimize : Maximize, { size: 18 })),
-    ]),
+    React.createElement(RowBtn, { key: 'search', title: 'Search', onClick: () => setSearchOpen(!searchOpen), color: f.q ? 'var(--q-tab-accent)' : undefined }, React.createElement(Search, { size: 18 })),
+    ...filterChips,
+    React.createElement(RowBtn, { key: 'filters', title: 'Filters', onClick: () => setFilterBarOpen(!filterBarOpen), color: hasActiveFilters ? 'var(--q-tab-accent)' : undefined }, React.createElement(Filter, { size: 18 })),
+    React.createElement(RowBtn, { key: 'fwbtn', title: fullWidth ? 'Default width' : 'Full width', onClick: () => { const nv = !fullWidth; setFullWidth(nv); saveUi(nv, views) } }, React.createElement(fullWidth ? Minimize : Maximize, { size: 18 })),
     React.createElement('div', { key: 'sep', style: { height: 1, backgroundColor: 'var(--q-border)', marginTop: 6 } }),
   ]),
-  filterBar,
 ])
 
   const IconBtn = ({ icon: Icon, onClick }: { icon: React.FC<any>; onClick: () => void }) => { const [h, setH] = useState(false); return React.createElement('button', { onClick, onMouseEnter: () => setH(true), onMouseLeave: () => setH(false), style: { width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', padding: '0', backgroundColor: h ? 'var(--q-hover)' : 'transparent', color: h ? 'var(--q-text)' : 'var(--q-text-secondary)', transition: 'none' } }, React.createElement(Icon, { size: 20 })) }
 
   const isAllActive = activeId === BASE_ID
-  const viewSidebar = React.createElement('div', { key: 'vsb', onMouseLeave: () => { if (sideMode === 'peek') setSideMode('hidden') }, style: { position: 'absolute', top: 0, bottom: 0, left: 0, width: sideW, zIndex: 40, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)', display: 'flex', flexDirection: 'column', overflow: 'hidden' } }, [
+  const viewSidebar = React.createElement('div', { key: 'vsb', style: { position: 'absolute', top: 0, bottom: 0, left: 0, width: sideW, zIndex: 40, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)', display: 'flex', flexDirection: 'column', overflow: 'hidden' } }, [
     React.createElement('div', { key: 'hdr', style: { padding: '8px' } }, [
       React.createElement('div', { key: 'row', style: { display: 'flex', alignItems: 'center', gap: 8 } }, [
         React.createElement('button', { key: 'all', title: 'All views', onClick: () => setActiveId(views.find(v => v.id === BASE_ID)?.id || views[0]?.id || BASE_ID), onMouseEnter: () => setAllHover(true), onMouseLeave: () => setAllHover(false), style: { flex: 1, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: allHover ? 'var(--q-hover)' : 'transparent', color: isAllActive ? 'var(--q-tab-accent)' : allHover ? 'var(--q-text)' : 'var(--q-text-secondary)', padding: 0 } }, [React.createElement(Checklist, { key: 'i', size: 18 }), React.createElement('span', { key: 't', style: { fontSize: 14, fontWeight: 600, fontFamily: 'var(--font-interface)' } }, 'All')]),
         React.createElement(RowBtn, { key: 'add', title: 'New view', onClick: addView, color: newViewFlash ? 'var(--q-tab-accent)' : undefined }, React.createElement(Plus, { size: 18 })),
       ]),
     ]),
-    React.createElement('div', { key: 'list', style: { flex: 1, overflowY: 'auto', paddingBottom: 8, scrollbarGutter: 'stable' } }, views.filter(v => v.id !== BASE_ID).map(v => React.createElement(ViewRow, { key: v.id, v, active: v.id === activeId, renaming: renamingView === v.id, renameVal, onRenameChange: setRenameVal, onRenameCommit: () => renameView(v.id, renameVal), onRenameCancel: () => { setRenamingView(null); setRenameVal('') }, onSelect: () => setActiveId(v.id), onContextMenu: (e: any, vv: ViewCfg) => setCtxMenu({ x: e.clientX, y: e.clientY, view: vv }), multiSel, selected: selViews.has(v.id), onToggleSel: () => setSelViews(prev => { const n = new Set(prev); if (n.has(v.id)) n.delete(v.id); else n.add(v.id); return n }) }))),
+    React.createElement('div', { key: 'list', style: { flex: 1, overflowY: 'auto', paddingBottom: 8, scrollbarGutter: 'stable' } }, React.createElement(DndContext, { key: 'dnd', sensors: useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } })), collisionDetection: closestCenter, onDragEnd: (e: any) => { const { active, over } = e; if (!over || active.id === over.id) return; const ids = views.filter(v => v.id !== BASE_ID); const from = ids.findIndex(v => v.id === active.id); const to = ids.findIndex(v => v.id === over.id); if (from === -1 || to === -1) return; persist([views[0], ...arrayMove(ids, from, to)]) } }, [
+      React.createElement(SortableContext, { key: 'sc', items: views.filter(v => v.id !== BASE_ID).map(v => v.id), strategy: verticalListSortingStrategy }, views.filter(v => v.id !== BASE_ID).map(v => React.createElement(ViewRow, { key: v.id, v, active: v.id === activeId, renaming: renamingView === v.id, renameVal, onRenameChange: setRenameVal, onRenameCommit: () => renameView(v.id, renameVal), onRenameCancel: () => { setRenamingView(null); setRenameVal('') }, onSelect: () => setActiveId(v.id), onContextMenu: (e: any, vv: ViewCfg) => setCtxMenu({ x: e.clientX, y: e.clientY, view: vv }), multiSel, selected: selViews.has(v.id), onToggleSel: () => setSelViews(prev => { const n = new Set(prev); if (n.has(v.id)) n.delete(v.id); else n.add(v.id); return n }) }))),
+    ])),
     React.createElement('div', { key: 'rsz', onMouseDown: (e: any) => { e.preventDefault(); setDraggingSide(true) }, style: { position: 'absolute', top: 0, bottom: 0, right: 0, width: 6, cursor: 'col-resize', zIndex: 5 } }),
   ])
 
@@ -292,7 +295,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     sideMode !== 'hidden' ? viewSidebar : null,
     React.createElement('div', { key: 'main', style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', paddingLeft: sideMode === 'open' ? sideW + 8 : 0 } }, [
 
-    React.createElement('div', { key: 'hdrwrap', style: { width: '100%', maxWidth: 'var(--spacing-chat-max)', margin: '0 auto', flexShrink: 0, paddingTop: '4px' } }, [
+    React.createElement('div', { key: 'hdrwrap', style: { width: '100%', maxWidth: 'var(--spacing-chat-max)', margin: '0 auto', flexShrink: 0, paddingTop: '0px' } }, [
       React.createElement('div', { key: 'hdr', style: { marginBottom: '8px', display: 'flex', alignItems: 'center', gap: 8, width: '100%' } }, [
         React.createElement('div', { key: 'h1', style: panelStyle }, [React.createElement(IconBtn, { key: 'home', icon: Home, onClick: () => props.onSelectPanel('home') })]),
         React.createElement('div', { key: 'h1b', style: panelStyle }, [React.createElement(IconBtn, { key: 'side', icon: PanelLeft, onClick: () => setSideMode(m => m === 'open' ? 'hidden' : 'open'), title: sideMode === 'open' ? 'Hide sidebar' : 'Show sidebar' })]),
@@ -307,7 +310,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     ]),
     ]),
     sideMode === 'hidden' ? React.createElement('div', { key: 'strip', style: { position: 'absolute', top: 8, bottom: 8, left: 0, width: 12, zIndex: 10, cursor: 'pointer' }, onMouseEnter: () => setSideMode('peek') }) : null,
-    sideMode === 'peek' ? React.createElement('div', { key: 'peekov', style: { position: 'absolute', top: 0, bottom: 0, left: sideW + 20, right: 0, zIndex: 30 }, onMouseLeave: () => setSideMode('hidden') }) : null,
+    sideMode === 'peek' ? React.createElement('div', { key: 'peekov', style: { position: 'absolute', top: 0, bottom: 0, left: sideW + 10, right: 0, zIndex: 30 }, onMouseEnter: () => setSideMode('hidden') }) : null,
     ctxMenu ? React.createElement(ViewContextMenu, { key: 'cm', x: ctxMenu.x, y: ctxMenu.y, item: ctxMenu.view, multiSelect: multiSel, selectedCount: selViews.size, onClose: () => setCtxMenu(null), onRename: () => { setRenamingView(ctxMenu.view.id); setRenameVal(ctxMenu.view.name); setCtxMenu(null) }, onSelect: () => { setMultiSel(true); setSelViews(new Set([ctxMenu.view.id])); setCtxMenu(null) }, onDelete: () => { setDeleteViews([ctxMenu.view]); setCtxMenu(null) }, onDeselectAll: () => { setMultiSel(false); setSelViews(new Set()); setCtxMenu(null) }, onDeleteSelected: () => { setDeleteViews(views.filter(v => selViews.has(v.id))); setCtxMenu(null) } }) : null,
     deleteViews ? React.createElement(ConfirmModal, { key: 'dv', title: deleteViews.length === 1 ? 'Delete view?' : 'Delete ' + deleteViews.length + ' views?', subtitle: deleteViews.length === 1 ? deleteViews[0].name + ' will be permanently deleted.' : deleteViews.length + ' views will be permanently deleted.', onCancel: () => setDeleteViews(null), onConfirm: () => doDelete(deleteViews) }) : null,
   ])
