@@ -128,7 +128,7 @@ export class ExecutionEngine {
   }
   async #readLastAssistantTextWithRetry(sk: string): Promise<string> {
     let t = this.#readLastAssistantText(sk);
-    for (let i = 0; i < 4 && !t; i++) {
+    for (let i = 0; i < 8 && !t; i++) {
       await new Promise(r => setTimeout(r, 800));
       t = this.#readLastAssistantText(sk);
     }
