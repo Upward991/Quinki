@@ -99,6 +99,18 @@ function MtText({ label, onClick }: { label: string; onClick: (e: any) => void }
   return React.createElement('span', { onClick, onMouseEnter: () => setH(true), onMouseLeave: () => setH(false), style: { color: h ? 'var(--q-text)' : 'var(--q-text-secondary)', cursor: 'pointer', fontSize: 12.5, fontFamily: 'var(--font-interface)', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', transition: 'none' } }, label)
 }
 
+function MiniSelect({ value, options, onChange }: { value: string; options: { value: string; label: string }[]; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const cur = options.find(o => o.value === value) || options[0]
+  return React.createElement('div', { style: { position: 'relative', display: 'inline-block' } }, [
+    React.createElement('button', { key: 'b', onClick: () => setOpen(!open), style: { height: 28, padding: '0 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 12.5, fontFamily: 'var(--font-interface)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 } }, [cur.label, React.createElement(ChevronDown, { key: 'a', size: 12 })]),
+    open ? React.createElement(React.Fragment, { key: 'm' }, [
+      React.createElement('div', { key: 'o', style: { position: 'fixed', inset: 0, zIndex: 260 }, onClick: () => setOpen(false) }),
+      React.createElement('div', { key: 'd', style: { position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 261, maxHeight: 180, overflowY: 'auto', minWidth: 90, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: 4, display: 'flex', flexDirection: 'column', gap: 1 } }, options.map(o => React.createElement('button', { key: o.value, onClick: () => { onChange(o.value); setOpen(false) }, style: { textAlign: 'left', padding: '5px 8px', borderRadius: 'var(--radius-sm)', border: 'none', cursor: 'pointer', fontSize: 12.5, fontFamily: 'var(--font-interface)', backgroundColor: o.value === value ? 'var(--q-active)' : 'transparent', color: 'var(--q-text)' } }, o.label))),
+    ]) : null,
+  ])
+}
+
 function MenuItem({ label, color, onClick }: any) {
   const [hovered, setHovered] = useState(false)
   return React.createElement('button', { onClick, onMouseEnter: () => setHovered(true), onMouseLeave: () => setHovered(false), style: { display: 'flex', alignItems: 'center', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: hovered ? 'var(--q-hover)' : 'transparent', color: color || 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', textAlign: 'left' } }, label)
@@ -169,6 +181,11 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const [editWhen, setEditWhen] = useState<{ id: string; when: any } | null>(null)
   const [whenDate, setWhenDate] = useState('')
   const [whenTime, setWhenTime] = useState('')
+  const [whenDay, setWhenDay] = useState('1')
+  const [whenMonth, setWhenMonth] = useState('0')
+  const [whenYear, setWhenYear] = useState('2026')
+  const [whenHour, setWhenHour] = useState('09')
+  const [whenMinute, setWhenMinute] = useState('00')
   const [models, setModels] = useState<any[]>([])
   const [defaultThinking, setDefaultThinking] = useState('xhigh')
   useEffect(() => { call('getModels').then((r: any) => setModels(r?.models || [])).catch(() => {}) }, [call])
@@ -265,7 +282,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
         React.createElement('span', { key: 'tt', style: { maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12.5, fontFamily: 'var(--font-interface)', color: 'var(--q-text-secondary)', opacity: 0.8 } }, timeStr),
       ])
       if (i.kind === 'sched') {
-        return React.createElement(MtText, { key: 'w', label: dateStr + ' · ' + timeStr, onClick: (e: any) => { e.stopPropagation(); const w = i.whenObj || {}; const dt = w.date ? w.date.slice(0, 10) : new Date(i.when || Date.now()).toISOString().slice(0, 10); const tm = w.date ? w.date.slice(11, 16) : (w.at || String(new Date(i.when || Date.now()).getHours()).padStart(2, '0') + ':' + String(new Date(i.when || Date.now()).getMinutes()).padStart(2, '0')); setWhenDate(dt); setWhenTime(tm); setEditWhen({ id: i.id, when: w }) } })
+        return React.createElement(MtText, { key: 'w', label: dateStr + ' · ' + timeStr, onClick: (e: any) => { e.stopPropagation(); const w = i.whenObj || {}; const dt = w.date ? w.date.slice(0, 10) : new Date(i.when || Date.now()).toISOString().slice(0, 10); const tm = w.date ? w.date.slice(11, 16) : (w.at || String(new Date(i.when || Date.now()).getHours()).padStart(2, '0') + ':' + String(new Date(i.when || Date.now()).getMinutes()).padStart(2, '0')); setWhenDate(dt); setWhenTime(tm); const dd = new Date(dt + 'T' + tm); setWhenDay(String(dd.getDate())); setWhenMonth(String(dd.getMonth())); setWhenYear(String(dd.getFullYear())); setWhenHour(tm.slice(0, 2)); setWhenMinute(tm.slice(3, 5)); setEditWhen({ id: i.id, when: w }) } })
       }
       return content
     }
@@ -392,11 +409,19 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       React.createElement('div', { key: 'o', style: { position: 'fixed', inset: 0, zIndex: 250 }, onClick: () => setEditWhen(null) }),
       React.createElement('div', { key: 'p', style: { position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', zIndex: 251, width: 260, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: 12, display: 'flex', flexDirection: 'column', gap: 8 } }, [
         React.createElement('div', { key: 't', style: { color: 'var(--q-text)', fontSize: 14, fontWeight: 600, fontFamily: 'var(--font-interface)' } }, 'Date & Time'),
-        React.createElement('input', { key: 'd', type: 'date', value: whenDate, onChange: (e: any) => setWhenDate(e.target.value), style: { padding: '6px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 13, fontFamily: 'var(--font-interface)' } }),
-        React.createElement('input', { key: 't2', type: 'time', value: whenTime, onChange: (e: any) => setWhenTime(e.target.value), style: { padding: '6px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 13, fontFamily: 'var(--font-interface)' } }),
+        React.createElement('div', { key: 'drow', style: { display: 'flex', gap: 4, alignItems: 'center' } }, [
+          React.createElement(MiniSelect, { key: 'day', value: whenDay, options: Array.from({ length: 31 }, (_, i) => ({ value: String(i + 1), label: String(i + 1) })), onChange: setWhenDay }),
+          React.createElement(MiniSelect, { key: 'mon', value: whenMonth, options: ['January','February','March','April','May','June','July','August','September','October','November','December'].map((m, i) => ({ value: String(i), label: m })), onChange: setWhenMonth }),
+          React.createElement(MiniSelect, { key: 'yr', value: whenYear, options: Array.from({ length: 8 }, (_, i) => { const y = new Date().getFullYear() - 2 + i; return { value: String(y), label: String(y) } }), onChange: setWhenYear }),
+        ]),
+        React.createElement('div', { key: 'trow', style: { display: 'flex', gap: 4, alignItems: 'center' } }, [
+          React.createElement(MiniSelect, { key: 'hh', value: whenHour, options: Array.from({ length: 24 }, (_, i) => ({ value: String(i).padStart(2, '0'), label: String(i).padStart(2, '0') })), onChange: setWhenHour }),
+          React.createElement('span', { key: 'sep', style: { color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)' } }, ':'),
+          React.createElement(MiniSelect, { key: 'mm', value: whenMinute, options: Array.from({ length: 60 }, (_, i) => ({ value: String(i).padStart(2, '0'), label: String(i).padStart(2, '0') })), onChange: setWhenMinute }),
+        ]),
         React.createElement('div', { key: 'b', style: { display: 'flex', justifyContent: 'flex-end', gap: 6 } }, [
           React.createElement('button', { key: 'c', onClick: () => setEditWhen(null), style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-accent-danger)', fontSize: 12.5, fontFamily: 'var(--font-interface)', padding: '4px 8px' } }, 'Cancel'),
-          React.createElement('button', { key: 's', onClick: async () => { const id = editWhen.id; const w = editWhen.when; setEditWhen(null); if (!id || !whenDate || !whenTime) return; try { if (w.type === 'once') await call('updateSchedule', { id, when: { date: whenDate + 'T' + whenTime } }); else await call('updateSchedule', { id, when: { at: whenTime } }); refresh() } catch {} }, style: { background: 'none', border: '1px solid var(--q-tab-accent)', cursor: 'pointer', color: 'var(--q-tab-accent)', fontSize: 12.5, fontWeight: 600, fontFamily: 'var(--font-interface)', padding: '4px 12px', borderRadius: 'var(--radius-sm)' } }, 'Save'),
+          React.createElement('button', { key: 's', onClick: async () => { const id = editWhen.id; const w = editWhen.when; setEditWhen(null); if (!id) return; const nd = whenYear + '-' + String(Number(whenMonth) + 1).padStart(2, '0') + '-' + String(Number(whenDay)).padStart(2, '0'); const nt = whenHour + ':' + whenMinute; try { if (w.type === 'once') await call('updateSchedule', { id, when: { date: nd + 'T' + nt } }); else await call('updateSchedule', { id, when: { at: nt } }); refresh() } catch {} }, style: { background: 'none', border: '1px solid var(--q-tab-accent)', cursor: 'pointer', color: 'var(--q-tab-accent)', fontSize: 12.5, fontWeight: 600, fontFamily: 'var(--font-interface)', padding: '4px 12px', borderRadius: 'var(--radius-sm)' } }, 'Save'),
         ]),
       ]),
     ]) : null,
