@@ -51,6 +51,7 @@ export interface ExecutionState {
   scheduleId: string | null;
   scheduledFor: number | null;
   sourceSession?: { key: string; label: string };
+  resultPreview?: string;
   keepAwake: boolean;
   resumeCount: number;
 }
@@ -137,6 +138,7 @@ export class ExecutionEngine {
         `- Agente: ${(state.agentIds || []).join(", ")}`,
         `- Modello: ${state.model || "default"} · Thinking: ${state.thinkingLevel || "default"}`,
         state.error ? `- Errore: ${state.error}` : `- Note: ${state.progressNote || "ok"}`,
+        state.resultPreview ? `- Risultato: ${state.resultPreview.replace(/\n/g, " ").slice(0, 400)}` : "",
         "",
       ].join("\n");
       fs.appendFileSync(p, record, "utf8");
@@ -240,7 +242,7 @@ export class ExecutionEngine {
 
         // Esegue l'agente in headless: il ws finto cattura done/error + testo progressivo
         // Direttiva: il task va ESEGUITO DAVVERO con i tool, non solo dichiarato completato
-        const execText = "[Scheduled task - EXECUTE IT NOW] You are running an autonomous scheduled task. Actually perform the task using your tools (write/edit/bash/etc.). Do NOT just claim completion: do it, then verify. Task: " + state.text;
+        const execText = "[Scheduled task - EXECUTE IT NOW] You are running an autonomous scheduled task. Actually perform the task using your tools (write/edit/bash/etc.). Do NOT just claim completion: do it, then VERIFY the result objectively (check the file exists, run the tests, confirm the output). If the task gives verification criteria, follow them exactly. End your final message with a short 'Verification:' section stating what you checked and the outcome. Task: " + state.text;
         const result = await new Promise<{ ok: boolean; stopReason?: string; errorMessage?: string; text: string }>((resolve) => {
           let resolved = false;
           const finish = (r: { ok: boolean; stopReason?: string; errorMessage?: string; text: string }) => {
@@ -286,6 +288,7 @@ export class ExecutionEngine {
           state.status = "completed";
           state.endedAt = Date.now();
           state.progressNote = result.stopReason || "completed";
+          state.resultPreview = result.text.slice(0, 1000);
           this.#appendEvent(id, "execution_completed", { stopReason: result.stopReason, resultPreview: result.text.slice(0, 3000) });
         } else if (result.stopReason === "aborted") {
           // Fermato dall'utente dalla CHAT (stop streaming) → riprendibile, non fallita
