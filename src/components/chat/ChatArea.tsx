@@ -281,8 +281,9 @@ export function ChatArea(props: ChatAreaProps) {
   const sessionId = props.session?.id || ''
   const msgCount = props.messages.length
   useLayoutEffect(() => {
-    // Skip auto-scroll when search is active
+    // Skip auto-scroll when search is active, or quando la sezione task è aperta (lì scrolla il task view, non la chat)
     if (searchQuery || searchDate || searchTime) return
+    if (taskPanelOpen) return
     // Cambio sessione: torna in fondo e rinsalda il pin
     if (prevSessionIdRef.current !== sessionId) {
       prevSessionIdRef.current = sessionId
