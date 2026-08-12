@@ -94,6 +94,11 @@ function ViewRow({ v, active, renaming, renameVal, onRenameChange, onRenameCommi
   ])
 }
 
+function MtText({ label, onClick }: { label: string; onClick: (e: any) => void }) {
+  const [h, setH] = useState(false)
+  return React.createElement('span', { onClick, onMouseEnter: () => setH(true), onMouseLeave: () => setH(false), style: { color: h ? 'var(--q-text)' : 'var(--q-text-secondary)', cursor: 'pointer', fontSize: 12.5, fontFamily: 'var(--font-interface)', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', backgroundColor: h ? 'var(--q-hover)' : 'transparent', borderRadius: 'var(--radius-sm)', padding: '1px 5px', transition: 'none' } }, label)
+}
+
 function MenuItem({ label, color, onClick }: any) {
   const [hovered, setHovered] = useState(false)
   return React.createElement('button', { onClick, onMouseEnter: () => setHovered(true), onMouseLeave: () => setHovered(false), style: { display: 'flex', alignItems: 'center', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: hovered ? 'var(--q-hover)' : 'transparent', color: color || 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', textAlign: 'left' } }, label)
@@ -251,16 +256,15 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     if (key === 'chat') return i.chat
     if (key === 'mt') {
       const modelName = (models.find((x: any) => x.id === i.model)?.name) || i.model || 'Chat default'
-      const rawT = i.thinkingLevel || 'default'
-      const effLevel = (rawT && rawT !== 'off' && rawT !== 'on') ? rawT : defaultThinking
-      const tName = rawT === 'off' ? 'Off' : 'On (' + effLevel + ')'
-      if (i.kind === 'sched') return React.createElement('div', { key: 'mtb', style: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 } }, [
-        React.createElement('button', { key: 'm', onClick: (e: any) => { e.stopPropagation(); setMtModelPicker({ id: i.id, model: i.model || null }) }, title: 'Change model', style: { background: 'none', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--q-text-secondary)', fontSize: 12.5, fontFamily: 'var(--font-interface)', padding: '2px 8px', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, modelName),
-        React.createElement('button', { key: 't', onClick: (e: any) => { e.stopPropagation(); setMtThinkingPicker({ id: i.id, thinking: i.thinkingLevel || null }) }, title: 'Change thinking', style: { background: 'none', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--q-text-secondary)', fontSize: 12.5, fontFamily: 'var(--font-interface)', padding: '2px 8px', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.8 } }, tName),
+      const rawT = i.thinkingLevel || null
+      const tName = rawT === null ? 'Chat default' : rawT === 'off' ? 'Off' : 'On (' + ((rawT && rawT !== 'on') ? rawT : defaultThinking) + ')'
+      if (i.kind === 'sched') return React.createElement('div', { key: 'mtb', style: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3 } }, [
+        React.createElement(MtText, { key: 'm', label: modelName, onClick: (e: any) => { e.stopPropagation(); setMtModelPicker({ id: i.id, model: i.model || null }) } }),
+        React.createElement(MtText, { key: 't', label: tName, onClick: (e: any) => { e.stopPropagation(); setMtThinkingPicker({ id: i.id, thinking: i.thinkingLevel || null }) } }),
       ])
-      return React.createElement('div', { key: 'mts', style: { color: 'var(--q-text-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 } }, [
-        React.createElement('span', { key: 'm', style: { maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, modelName),
-        React.createElement('span', { key: 't', style: { maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.75, fontSize: 11 } }, tName),
+      return React.createElement('div', { key: 'mts', style: { color: 'var(--q-text-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 } }, [
+        React.createElement('span', { key: 'm', style: { maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12.5, fontFamily: 'var(--font-interface)' } }, modelName),
+        React.createElement('span', { key: 't', style: { maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12.5, fontFamily: 'var(--font-interface)', opacity: 0.8 } }, tName),
       ])
     }
     return ''

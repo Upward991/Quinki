@@ -300,7 +300,7 @@ export function ChatHeader(props: ChatHeaderProps) {
                     </div>
                   </div>
                   {/* Agent list */}
-                  <div style={{ flex: 1, overflowY: 'auto' }}>
+                  <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
                     {(() => {
                       const agents = (props.agents || [])
                         .filter(a => props.selectedAgentIds.includes(a.id) && (!agentQuery || a.name.toLowerCase().includes(agentQuery.toLowerCase())))
