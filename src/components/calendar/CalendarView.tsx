@@ -22,7 +22,7 @@ const GROUP_DEFS: { key: string; label: string; color: string }[] = [
   { key: 'failed', label: 'Failed', color: 'var(--q-accent-danger)' },
   { key: 'cancelled', label: 'Cancelled', color: 'var(--q-text-tertiary)' },
 ]
-const COLS: { key: string; label: string }[] = [{ key: 'title', label: 'Task' }, { key: 'agent', label: 'Agent' }, { key: 'chat', label: 'Chat' }, { key: 'mt', label: 'Model · Thinking' }, { key: 'when', label: 'Date & Time' }]
+const COLS: { key: string; label: string }[] = [{ key: 'title', label: 'Task' }, { key: 'agent', label: 'Agent' }, { key: 'chat', label: 'Chat' }, { key: 'mt', label: 'Model · Thinking' }, { key: 'when', label: 'Date · Time' }]
 
 const panelStyle: React.CSSProperties = { backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)', padding: '8px', minHeight: 'var(--spacing-header-min)', display: 'flex', alignItems: 'center' }
 const btnText: React.CSSProperties = { background: 'none', border: 'none', color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)', cursor: 'pointer', padding: '3px', display: 'inline-flex', alignItems: 'center', gap: 4 }
@@ -254,9 +254,9 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     if (key === 'when') {
       if (!i.when) return '—'
       const d = new Date(i.when)
-      const dateStr = d.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })
-      const timeStr = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
-      return React.createElement('span', { key: 'dt', style: { maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12.5, fontFamily: 'var(--font-interface)', color: 'var(--q-text-secondary)' } }, dateStr + ' · ' + timeStr)
+      const dateStr = d.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })
+      const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+      return React.createElement('span', { key: 'dt', style: { maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12.5, fontFamily: 'var(--font-interface)', color: 'var(--q-text-secondary)' } }, dateStr + ', ' + timeStr)
     }
     if (key === 'title') return i.title
     if (key === 'agent') return i.agent
