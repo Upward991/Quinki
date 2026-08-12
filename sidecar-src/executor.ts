@@ -317,7 +317,7 @@ export class ExecutionEngine {
           state.status = "completed";
           state.endedAt = Date.now();
           state.progressNote = result.stopReason || "completed";
-          state.resultPreview = (result.text || await this.#readLastAssistantTextWithRetry(sk)).slice(0, 1000);
+          state.resultPreview = ((result.text && result.text.trim()) ? result.text : await this.#readLastAssistantTextWithRetry(sk)).slice(0, 1000);
           this.#appendEvent(id, "execution_completed", { stopReason: result.stopReason, resultPreview: state.resultPreview.slice(0, 3000) });
         } else if (result.stopReason === "aborted") {
           // Fermato dall'utente dalla CHAT (stop streaming) → riprendibile, non fallita
