@@ -68,7 +68,7 @@ export function ChatArea(props: ChatAreaProps) {
   const [taskPanelOpen, setTaskPanelOpen] = useState<boolean>(() => { try { return localStorage.getItem('quinki-taskpanel-' + sessionIdKey) === '1' } catch { return false } })
   const [taskExecs, setTaskExecs] = useState<any[]>([])
   const [taskScheds, setTaskScheds] = useState<any[]>([])
-  const [taskMsgs, setTaskMsgs] = useState<any[]>([])
+  const [taskRuns, setTaskRuns] = useState<any[]>([])
   const toggleTaskPanel = () => { const nv = !taskPanelOpen; setTaskPanelOpen(nv); try { localStorage.setItem('quinki-taskpanel-' + sessionIdKey, nv ? '1' : '0') } catch {} }
   const refreshTasks = useCallback(async () => {
     if (!sessionIdKey || sessionIdKey === '__app_expert__') { setTaskExecs([]); setTaskScheds([]); setTaskMsgs([]); return }
@@ -77,15 +77,44 @@ export function ChatArea(props: ChatAreaProps) {
       const execs = (exR?.executions || []).filter((e: any) => e.sourceSession?.key === sessionIdKey)
       const scheds = (schR?.schedules || []).filter((s: any) => s.sourceSession?.key === sessionIdKey)
       setTaskExecs(execs); setTaskScheds(scheds)
-      const all: any[] = []
+      const runs: any[] = []
       for (const e of execs) {
-        try { const mR = await sidecarCall('getExecutionMessages', { executionId: e.id }); for (const m of (mR?.messages || [])) all.push(m) } catch {}
+        try { const mR = await sidecarCall('getExecutionMessages', { executionId: e.id }); runs.push({ id: e.id, label: e.label || 'Task', status: e.status || '?', messages: (mR?.messages || []).sort((a: any, b: any) => String(a.timestamp || '').localeCompare(String(b.timestamp || ''))) }) } catch {}
       }
-      all.sort((a, b) => String(a.timestamp || '').localeCompare(String(b.timestamp || '')))
-      setTaskMsgs(all)
+      runs.sort((a, b) => String(a.messages[0]?.timestamp || '').localeCompare(String(b.messages[0]?.timestamp || '')))
+      setTaskRuns(runs)
     } catch {}
   }, [sessionIdKey, sidecarCall])
   useEffect(() => { refreshTasks(); const iv = setInterval(refreshTasks, 3000); return () => clearInterval(iv) }, [refreshTasks])
+  const TaskResultToggle = ({ run }: { run: any }) => {
+    const [collapsed, setCollapsed] = useState(true)
+    const [hovered, setHovered] = useState(false)
+    const st = run.status
+    const color = st === 'failed' ? 'var(--q-accent-danger)' : (st === 'running' || st === 'queued') ? 'var(--q-accent-info)' : st === 'interrupted' ? 'var(--q-accent-warning)' : 'var(--q-accent-calendar)'
+    const label = st === 'failed' ? 'task failed' : (st === 'running' || st === 'queued') ? 'task running' : st === 'interrupted' ? 'task interrupted' : 'task completed'
+    return (
+      <div style={{ marginTop: '12px', padding: '4px' }}>
+        <div onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} onClick={() => setCollapsed(!collapsed)}
+          style={{ cursor: 'pointer', backgroundColor: hovered ? 'rgba(255,255,255,0.04)' : 'transparent', borderRadius: 'var(--radius-md)', padding: '8px', transform: hovered ? 'translateX(2px)' : 'translateX(0)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <ChevronRight size={14} style={{ color, flexShrink: 0, transform: collapsed ? 'rotate(0deg)' : 'rotate(90deg)', transition: 'none' }} />
+            <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color }}>{label}</span>
+            <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', fontWeight: 600, color }}>{run.label}</span>
+            <span style={{ flex: 1 }} />
+          </div>
+        </div>
+        {!collapsed && (
+          <div style={{ padding: '4px 8px' }}>
+            {run.messages.map((msg: any, mIdx: number) => (
+              <div key={msg.id + '-' + mIdx} style={{ marginBottom: '12px' }}>
+                <MessageBubble message={msg} onCopy={() => {}} searchQuery={''} msgIndex={mIdx} activeMatchMsgIdx={-1} activeMatchOccurrence={-1} isDateMatch={false} />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
   const taskPrevOpen = useRef(false)
   useEffect(() => {
     const opening = taskPanelOpen && !taskPrevOpen.current
@@ -97,7 +126,7 @@ export function ChatArea(props: ChatAreaProps) {
       setTimeout(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 400)
       if (opening) pinnedRef.current = true
     }
-  }, [taskPanelOpen, taskMsgs])
+  }, [taskPanelOpen, taskRuns])
   const taskRunning = taskExecs.filter((e: any) => e.status === 'running' || e.status === 'queued').length
   const taskDone = taskExecs.filter((e: any) => e.status === 'completed').length
   const taskFail = taskExecs.filter((e: any) => e.status === 'failed').length
@@ -119,12 +148,10 @@ export function ChatArea(props: ChatAreaProps) {
   const taskPanelEl = (
     <div style={{ position: 'absolute', inset: '2px 2px 0 2px', zIndex: 20, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', display: 'flex', flexDirection: 'column', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom', overflow: 'hidden' }}>
       <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '16px 16px', scrollbarGutter: 'stable' }}>
-        {taskMsgs.length === 0 ? (
+        {taskRuns.length === 0 ? (
           <div style={{ color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', padding: '24px 8px', textAlign: 'center' }}>No tasks yet.</div>
-        ) : taskMsgs.map((msg, mIdx) => (
-          <div key={msg.id + '-' + mIdx} style={{ marginBottom: '12px' }}>
-            <MessageBubble message={msg} onCopy={() => {}} searchQuery={''} msgIndex={mIdx} activeMatchMsgIdx={-1} activeMatchOccurrence={-1} isDateMatch={false} />
-          </div>
+        ) : taskRuns.map((run) => (
+          <TaskResultToggle key={run.id} run={run} />
         ))}
       </div>
       {/* Barra riassunto IN BASSO = la striscia che diventa la heading inferiore della sezione espansa — tutta cliccabile per chiudere */}
@@ -384,12 +411,10 @@ export function ChatArea(props: ChatAreaProps) {
         taskPanelOpen ? (
           <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column', margin: '2px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom' }}>
             <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '16px 16px', scrollbarGutter: 'stable' }}>
-              {taskMsgs.length === 0 ? (
+              {taskRuns.length === 0 ? (
                 <div style={{ color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', padding: '24px 8px', textAlign: 'center' }}>No tasks yet.</div>
-              ) : taskMsgs.map((msg, mIdx) => (
-                <div key={msg.id + '-' + mIdx} style={{ marginBottom: '12px' }}>
-                  <MessageBubble message={msg} onCopy={() => {}} searchQuery={''} msgIndex={mIdx} activeMatchMsgIdx={-1} activeMatchOccurrence={-1} isDateMatch={false} />
-                </div>
+              ) : taskRuns.map((run) => (
+                <TaskResultToggle key={run.id} run={run} />
               ))}
             </div>
             {taskStripBar}
@@ -420,12 +445,10 @@ export function ChatArea(props: ChatAreaProps) {
             <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: taskPanelOpen ? '16px 16px' : '4px 16px 0 16px', scrollbarGutter: 'stable' }}
               onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100); pinnedRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 120 }}>
               {taskPanelOpen ? (
-                taskMsgs.length === 0 ? (
+                taskRuns.length === 0 ? (
                   <div style={{ color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', padding: '24px 8px', textAlign: 'center' }}>No tasks yet.</div>
-                ) : taskMsgs.map((msg, mIdx) => (
-                  <div key={msg.id + '-' + mIdx} style={{ marginBottom: '12px' }}>
-                    <MessageBubble message={msg} onCopy={() => {}} searchQuery={''} msgIndex={mIdx} activeMatchMsgIdx={-1} activeMatchOccurrence={-1} isDateMatch={false} />
-                  </div>
+                ) : taskRuns.map((run) => (
+                  <TaskResultToggle key={run.id} run={run} />
                 ))
               ) : props.messages.map((msg, mIdx) => (
                 <div key={msg.id} data-msg-idx={mIdx} style={{ marginBottom: '12px' }}>
