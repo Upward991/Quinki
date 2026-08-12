@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useSidecarContext } from '../shared/AppShell'
-import { Home, Checklist, Play, X, RotateCcw, Trash2, Search, Plus, Filter, Check, ChevronDown, ChevronLeft, ChevronRight, Maximize, Minimize } from '../icons'
+import { Home, Checklist, Play, X, RotateCcw, Trash2, Search, Plus, Filter, Check, ChevronDown, Pencil, Maximize, Minimize } from '../icons'
 
 const STATUS_COLOR: Record<string, string> = {
   scheduled: 'var(--q-accent-calendar)',
@@ -64,14 +64,20 @@ function RowBtn({ title, onClick, children, color }: { title: string; onClick: (
   const [h, setH] = useState(false)
   return React.createElement('button', { title, onClick, onMouseEnter: () => setH(true), onMouseLeave: () => setH(false), style: { background: h ? 'var(--q-hover)' : 'none', border: 'none', cursor: 'pointer', color: color || 'var(--q-text-secondary)', padding: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-sm)', flexShrink: 0, transition: 'none' } }, children)
 }
-function ViewTab({ v, active, onSelect, onDelete }: { v: ViewCfg; active: boolean; onSelect: () => void; onDelete: () => void }) {
+function ViewRow({ v, active, onSelect, onRenameCommit, onDelete }: { v: ViewCfg; active: boolean; onSelect: () => void; onRenameCommit: (name: string) => void; onDelete: () => void }) {
   const [h, setH] = useState(false)
-  const bg = active ? 'var(--q-tab-accent)' : h ? 'var(--q-hover)' : 'transparent'
-  const color = active ? 'var(--q-bg)' : h ? 'var(--q-text)' : 'var(--q-text-secondary)'
-  const xColor = active ? 'var(--q-bg)' : 'var(--q-text-tertiary)'
-  return React.createElement('div', { 'data-view-id': v.id, onMouseEnter: () => setH(true), onMouseLeave: () => setH(false), style: { display: 'flex', alignItems: 'center', gap: 5, padding: '6px 10px', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: 14, fontWeight: active ? 700 : 500, fontFamily: 'var(--font-interface)', backgroundColor: bg, color, transition: 'none', flexShrink: 0 } }, [
-    React.createElement('button', { key: 'n', onClick: onSelect, style: { background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontSize: 14, fontWeight: 'inherit', fontFamily: 'var(--font-interface)', padding: 0 } }, v.name),
-    v.id !== BASE_ID ? React.createElement('button', { key: 'x', onClick: onDelete, style: { background: 'none', border: 'none', cursor: 'pointer', color: xColor, padding: 0, display: 'flex' } }, React.createElement(X, { size: 13 })) : null,
+  const [ren, setRen] = useState(false)
+  const [val, setVal] = useState(v.name)
+  const isBase = v.id === BASE_ID
+  const color = active ? 'var(--q-tab-accent)' : h ? 'var(--q-text)' : 'var(--q-text-secondary)'
+  return React.createElement('div', { onMouseEnter: () => setH(true), onMouseLeave: () => setH(false), style: { padding: '2px 8px' } }, [
+    React.createElement('div', { onClick: onSelect, onDoubleClick: () => { if (!isBase) { setRen(true); setVal(v.name) } }, style: { padding: '6px 8px', minHeight: '36px', borderRadius: 'var(--radius-md)', backgroundColor: h ? 'var(--q-hover)' : 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, boxSizing: 'border-box' } }, [
+      React.createElement(Checklist, { key: 'i', size: 20, style: { color, flexShrink: 0 } }),
+      ren ? React.createElement('input', { key: 'r', autoFocus: true, value: val, onChange: (e: any) => setVal(e.target.value), onBlur: () => { onRenameCommit(val); setRen(false) }, onKeyDown: (e: any) => { if (e.key === 'Enter') { onRenameCommit(val); setRen(false) } if (e.key === 'Escape') setRen(false) }, onClick: (e: any) => e.stopPropagation(), style: { flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)', padding: 0 } })
+      : React.createElement('span', { key: 'n', style: { flex: 1, color, fontSize: 14, fontWeight: active ? 700 : 500, fontFamily: 'var(--font-interface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, v.name),
+      h && !isBase ? React.createElement('button', { key: 'e', title: 'Rename', onClick: (e: any) => { e.stopPropagation(); setRen(true); setVal(v.name) }, style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-tertiary)', padding: 2, display: 'flex', flexShrink: 0 } }, React.createElement(Pencil, { size: 13 })) : null,
+      h && !isBase ? React.createElement('button', { key: 'x', title: 'Delete', onClick: (e: any) => { e.stopPropagation(); onDelete() }, style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-tertiary)', padding: 2, display: 'flex', flexShrink: 0 } }, React.createElement(X, { size: 13 })) : null,
+    ]),
   ])
 }
 
@@ -103,6 +109,9 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const [hoverRow, setHoverRow] = useState<string | null>(null)
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
   const [deleteView, setDeleteView] = useState<ViewCfg | null>(null)
+  const [renamingView, setRenamingView] = useState<string | null>(null)
+  const [renameVal, setRenameVal] = useState('')
+  const [allHover, setAllHover] = useState(false)
   const [filterBarOpen, setFilterBarOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [newViewOpen, setNewViewOpen] = useState(false)
@@ -133,34 +142,6 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   useEffect(() => { const u = subscribe?.('execution_update', refresh); return () => { if (u) try { u() } catch {} } }, [refresh, subscribe])
   useEffect(() => { const u = subscribe?.('schedule_update', refresh); return () => { if (u) try { u() } catch {} } }, [refresh, subscribe])
   const act = useCallback(async (fn: () => Promise<any>) => { try { await fn() } catch {}; await refresh() }, [refresh])
-  const tabsRef = useRef<HTMLDivElement>(null)
-  const goView = (dir: 1 | -1) => {
-    const idx = views.findIndex(v => v.id === activeId)
-    if (idx === -1 || views.length === 0) return
-    const nextIdx = idx + dir
-    if (nextIdx < 0 || nextIdx >= views.length) return
-    const next = views[nextIdx]
-    setActiveId(next.id)
-    requestAnimationFrame(() => {
-      const el = tabsRef.current
-      if (!el) return
-      const btn = el.querySelector('[data-view-id="' + next.id + '"]') as HTMLElement | null
-      if (btn) {
-        const left = btn.offsetLeft - el.offsetLeft
-        if (left < el.scrollLeft) el.scrollLeft = left
-        else if (left + btn.offsetWidth > el.scrollLeft + el.clientWidth) el.scrollLeft = left + btn.offsetWidth - el.clientWidth
-      }
-    })
-  }
-  useEffect(() => {
-    const el = tabsRef.current
-    if (!el) return
-    const onWheel = (e: WheelEvent) => {
-      if (el.scrollWidth > el.clientWidth) { e.preventDefault(); el.scrollLeft += e.deltaY }
-    }
-    el.addEventListener('wheel', onWheel, { passive: false })
-    return () => el.removeEventListener('wheel', onWheel)
-  }, [])
 
   const items: Item[] = []
   for (const s of schedules || []) items.push({ id: s.id, kind: 'sched', title: s.title || '(untitled)', agent: (s.agentIds || []).join(', ') || '—', chat: s.sourceSession ? (s.sourceSession.label || s.sourceSession.key) : '—', status: s.enabled ? 'scheduled' : 'off', when: s.nextFireAt || (s.lastFiredAt ? s.lastFiredAt : null), error: '', ex: undefined })
@@ -227,8 +208,8 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   ])))
 
   // Toolbar: view dinamiche (base non eliminabile) + Filters + Search
-  const addView = (name: string) => { const id = 'v' + Date.now(); const nv: ViewCfg = { id, name: name || 'View ' + (views.length + 1), type: 'table', f: { q: '', status: 'all', agents: [], chats: [] } }; persist([...views, nv]); setActiveId(id); setNewViewOpen(false); requestAnimationFrame(() => { if (tabsRef.current) tabsRef.current.scrollLeft = tabsRef.current.scrollWidth }) }
-  const viewTab = (v: ViewCfg) => React.createElement(ViewTab, { key: v.id, v, active: v.id === activeId, onSelect: () => setActiveId(v.id), onDelete: () => setDeleteView(v) })
+  const addView = (name: string) => { const id = 'v' + Date.now(); const nv: ViewCfg = { id, name: name || 'View ' + (views.length + 1), type: 'table', f: { q: '', status: 'all', agents: [], chats: [] } }; persist([...views, nv]); setActiveId(id); setNewViewOpen(false) }
+  const renameView = (id: string, name: string) => { const nm = name.trim(); if (!nm) return; persist(views.map(x => x.id === id ? { ...x, name: nm } : x)); setRenamingView(null); setRenameVal('') }
   const hasActiveFilters = f.agents.length > 0 || f.chats.length > 0
   const filterBar = (filterBarOpen || hasActiveFilters) ? React.createElement('div', { key: 'fbar', style: { display: 'flex', alignItems: 'center', gap: 6, padding: '8px 0 0 0', flexWrap: 'wrap' } }, [
     React.createElement(FilterChip, { key: 'fA', label: 'Agent', values: f.agents, options: agents, onChange: (v: string[]) => patchF({ agents: v }) }),
@@ -237,13 +218,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   ]) : null
   const toolbar = React.createElement('div', { key: 'tb', style: { display: 'flex', flexDirection: 'column', padding: '4px 0 8px 0' } }, [
     React.createElement('div', { key: 'row', style: { display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'nowrap' } }, [
-    React.createElement(RowBtn, { key: 'larr', title: 'Previous view', onClick: () => goView(-1) }, React.createElement(ChevronLeft, { size: 18 })),
-    React.createElement('div', { key: 'tabs', ref: tabsRef, style: { display: 'flex', alignItems: 'center', gap: 4, overflow: 'hidden', flex: 1, minWidth: 0 } }, [...views.map(viewTab)]),
-    React.createElement(RowBtn, { key: 'rarr', title: 'Next view', onClick: () => goView(1) }, React.createElement(ChevronRight, { size: 18 })),
-    React.createElement('div', { key: 'nvw', style: { position: 'relative', display: 'flex', flexShrink: 0 } }, [
-      React.createElement(RowBtn, { key: 'add', title: 'New view', onClick: () => setNewViewOpen(!newViewOpen) }, React.createElement(Plus, { size: 18 })),
-      newViewOpen ? React.createElement(React.Fragment, { key: 'nv' }, [React.createElement('div', { key: 'o', style: { position: 'fixed', inset: 0, zIndex: 150 }, onClick: () => setNewViewOpen(false) }), React.createElement('div', { key: 'd', style: { position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 151, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: 8, display: 'flex', flexDirection: 'column', gap: 6 } }, [React.createElement('input', { key: 'i', autoFocus: true, placeholder: 'View name', onKeyDown: (e: any) => { if (e.key === 'Enter') addView(e.target.value.trim()) }, style: { padding: '7px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)' } }), React.createElement('button', { key: 'go', onClick: () => { const inp = document.querySelector('input[placeholder="View name"]') as HTMLInputElement; addView(inp?.value?.trim() || '') }, style: { padding: '7px 12px', borderRadius: 'var(--radius-sm)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-tab-accent)', color: 'var(--q-bg)', fontSize: 14, fontWeight: 600, fontFamily: 'var(--font-interface)' } }, 'Create')])]) : null,
-    ]),
+    React.createElement('span', { key: 'grow', style: { flex: 1 } }),
     searchOpen ? React.createElement('input', { key: 'si', autoFocus: true, value: f.q, onChange: (e: any) => patchF({ q: e.target.value }), onKeyDown: (e: any) => { if (e.key === 'Escape') setSearchOpen(false) }, placeholder: 'Search activities...', style: { width: 240, height: 30, padding: '0 12px', boxSizing: 'border-box', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)', flexShrink: 0 } }) : null,
     React.createElement('div', { key: 'right', style: { display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 } }, [
       React.createElement(RowBtn, { key: 'search', title: 'Search', onClick: () => setSearchOpen(!searchOpen), color: f.q ? 'var(--q-tab-accent)' : undefined }, React.createElement(Search, { size: 18 })),
@@ -257,7 +232,24 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
 
   const IconBtn = ({ icon: Icon, onClick }: { icon: React.FC<any>; onClick: () => void }) => { const [h, setH] = useState(false); return React.createElement('button', { onClick, onMouseEnter: () => setH(true), onMouseLeave: () => setH(false), style: { width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', padding: '0', backgroundColor: h ? 'var(--q-hover)' : 'transparent', color: h ? 'var(--q-text)' : 'var(--q-text-secondary)', transition: 'none' } }, React.createElement(Icon, { size: 20 })) }
 
-  return React.createElement('div', { className: 'h-full flex flex-col', style: { width: '100%', position: 'relative', overflow: 'hidden' } }, [
+  const newViewPopover = newViewOpen ? React.createElement(React.Fragment, { key: 'nv' }, [React.createElement('div', { key: 'o', style: { position: 'fixed', inset: 0, zIndex: 150 }, onClick: () => setNewViewOpen(false) }), React.createElement('div', { key: 'd', style: { position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 151, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: 8, display: 'flex', flexDirection: 'column', gap: 6 } }, [React.createElement('input', { key: 'i', autoFocus: true, placeholder: 'View name', onKeyDown: (e: any) => { if (e.key === 'Enter') addView(e.target.value.trim()) }, style: { padding: '7px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)' } }), React.createElement('button', { key: 'go', onClick: () => { const inp = document.querySelector('input[placeholder="View name"]') as HTMLInputElement; addView(inp?.value?.trim() || '') }, style: { padding: '7px 12px', borderRadius: 'var(--radius-sm)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-tab-accent)', color: 'var(--q-bg)', fontSize: 14, fontWeight: 600, fontFamily: 'var(--font-interface)' } }, 'Create')])]) : null
+  const isAllActive = activeId === BASE_ID
+  const viewSidebar = React.createElement('div', { key: 'vsb', style: { width: 260, flexShrink: 0, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)', display: 'flex', flexDirection: 'column', overflow: 'hidden', marginRight: 8 } }, [
+    React.createElement('div', { key: 'hdr', style: { padding: '8px' } }, [
+      React.createElement('div', { key: 'row', style: { display: 'flex', alignItems: 'center', gap: 8 } }, [
+        React.createElement('button', { key: 'all', title: 'All views', onClick: () => setActiveId(views.find(v => v.id === BASE_ID)?.id || views[0]?.id || BASE_ID), onMouseEnter: () => setAllHover(true), onMouseLeave: () => setAllHover(false), style: { flex: 1, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: allHover ? 'var(--q-hover)' : 'transparent', color: isAllActive ? 'var(--q-tab-accent)' : allHover ? 'var(--q-text)' : 'var(--q-text-secondary)', padding: 0 } }, [React.createElement(Checklist, { key: 'i', size: 18 }), React.createElement('span', { key: 't', style: { fontSize: 14, fontWeight: 600, fontFamily: 'var(--font-interface)' } }, 'All')]),
+        React.createElement('div', { key: 'addw', style: { position: 'relative', display: 'flex', flexShrink: 0 } }, [
+          React.createElement(RowBtn, { key: 'add', title: 'New view', onClick: () => setNewViewOpen(!newViewOpen) }, React.createElement(Plus, { size: 18 })),
+          newViewPopover,
+        ]),
+      ]),
+    ]),
+    React.createElement('div', { key: 'list', style: { flex: 1, overflowY: 'auto', paddingBottom: 8, scrollbarGutter: 'stable' } }, views.map(v => React.createElement(ViewRow, { key: v.id, v, active: v.id === activeId, onSelect: () => setActiveId(v.id), onRenameCommit: (name: string) => renameView(v.id, name), onDelete: () => setDeleteView(v) }))),
+  ])
+
+  return React.createElement('div', { className: 'h-full flex flex-row', style: { width: '100%', position: 'relative', overflow: 'hidden' } }, [
+    viewSidebar,
+    React.createElement('div', { key: 'main', style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' } }, [
     React.createElement('div', { key: 'hdrwrap', style: { width: '100%', maxWidth: 'var(--spacing-chat-max)', margin: '0 auto', flexShrink: 0, paddingTop: '4px' } }, [
       React.createElement('div', { key: 'hdr', style: { marginBottom: '8px', display: 'flex', alignItems: 'center', gap: 8, width: '100%' } }, [
         React.createElement('div', { key: 'h1', style: panelStyle }, [React.createElement(IconBtn, { key: 'home', icon: Home, onClick: () => props.onSelectPanel('home') })]),
@@ -269,6 +261,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
         toolbar,
         React.createElement('div', { key: 'content', style: { flex: 1, minHeight: 0, overflowY: 'auto', scrollbarGutter: 'stable' } }, view.type === 'table' ? tableWrap : board),
       ]),
+    ]),
     ]),
     deleteView ? React.createElement('div', { key: 'dv', style: { position: 'fixed', inset: 0, zIndex: 300, backgroundColor: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: () => setDeleteView(null) }, React.createElement('div', { style: { backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '20px 24px', minWidth: 320, maxWidth: 400 }, onClick: (e: any) => e.stopPropagation() }, [
       React.createElement('div', { key: 't', style: { color: 'var(--q-text)', fontSize: 16, fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: 8 } }, 'Delete view?'),
