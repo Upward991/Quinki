@@ -87,14 +87,18 @@ export function ChatArea(props: ChatAreaProps) {
     } catch {}
   }, [sessionIdKey, sidecarCall])
   useEffect(() => { refreshTasks(); const iv = setInterval(refreshTasks, 3000); return () => clearInterval(iv) }, [refreshTasks])
-  useEffect(() => { if (taskPanelOpen && taskScrollRef.current) taskScrollRef.current.scrollTop = taskScrollRef.current.scrollHeight }, [taskPanelOpen, taskMsgs])
+  const taskPrevOpen = useRef(false)
+  useEffect(() => {
+    if (taskPanelOpen && !taskPrevOpen.current && taskScrollRef.current) taskScrollRef.current.scrollTop = taskScrollRef.current.scrollHeight
+    taskPrevOpen.current = taskPanelOpen
+  }, [taskPanelOpen])
   const taskRunning = taskExecs.filter((e: any) => e.status === 'running' || e.status === 'queued').length
   const taskDone = taskExecs.filter((e: any) => e.status === 'completed').length
   const taskFail = taskExecs.filter((e: any) => e.status === 'failed').length
   const taskRunningItem = taskExecs.find((e: any) => e.status === 'running' || e.status === 'queued')
   const taskLabel = taskRunningItem ? '"' + (taskRunningItem.label || 'task') + '" in corso' : (taskExecs.length + taskScheds.length) + ' tasks · ' + taskDone + ' done' + (taskFail ? ' · ' + taskFail + ' failed' : '')
   const taskPanelEl = (
-    <div style={{ position: 'absolute', inset: '2px', zIndex: 20, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', display: 'flex', flexDirection: 'column', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom', overflow: 'hidden' }}>
+    <div style={{ position: 'absolute', inset: '2px 2px 0 2px', zIndex: 20, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', display: 'flex', flexDirection: 'column', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom', overflow: 'hidden' }}>
       <div ref={taskScrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', scrollbarGutter: 'stable' }}>
         {taskMsgs.length === 0 ? (
           <div style={{ color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', padding: '24px 8px', textAlign: 'center' }}>No tasks yet.</div>
@@ -104,18 +108,17 @@ export function ChatArea(props: ChatAreaProps) {
           </div>
         ))}
       </div>
-      {/* Barra riassunto IN BASSO = la striscia che diventa la heading inferiore della sezione espansa */}
-      <div style={{ padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, borderTop: 'none', backgroundColor: 'var(--q-bg-panel)' }}>
+      {/* Barra riassunto IN BASSO = la striscia che diventa la heading inferiore della sezione espansa — tutta cliccabile per chiudere */}
+      <button onClick={toggleTaskPanel} title="Collapse tasks" style={{ width: '100%', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-bg-panel)', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: 13, transition: 'none', textAlign: 'left' }}>
         <Checklist size={16} style={{ color: taskRunning ? 'var(--q-accent-info)' : 'var(--q-text-secondary)', flexShrink: 0 }} />
-        <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--q-text)', fontSize: 13, fontFamily: 'var(--font-interface)' }}>{taskLabel}</span>
+        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--q-text)' }}>{taskLabel}</span>
         {taskRunning > 0 && (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-interface)', color: 'var(--q-accent-info)', border: '1px solid var(--q-accent-info)', flexShrink: 0 }}>
             <span style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: 'var(--q-accent-info)', display: 'inline-block' }} /> RUNNING
           </span>
         )}
-        <span style={{ color: 'var(--q-text-tertiary)', fontSize: 12, fontFamily: 'var(--font-interface)', flexShrink: 0 }}>{taskMsgs.length} msgs</span>
-        <button onClick={toggleTaskPanel} title="Collapse tasks" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-secondary)', padding: 4, display: 'flex', borderRadius: 'var(--radius-sm)', flexShrink: 0 }}><ChevronDown size={16} /></button>
-      </div>
+        <ChevronDown size={16} style={{ flexShrink: 0 }} />
+      </button>
     </div>
   )
   const taskStrip = (taskExecs.length > 0 || taskScheds.length > 0) ? (
