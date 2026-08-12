@@ -426,6 +426,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
       scheduleId: p.scheduleId,
       scheduledFor: p.scheduledFor,
       keepAwake: !!p.keepAwake,
+      sourceSession: p.sourceSession,
     });
     return r;
   },
