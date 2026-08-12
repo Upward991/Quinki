@@ -126,6 +126,27 @@ export class ExecutionEngine {
     if (!chatKey) return null;
     return path.join(AGENT_DIR, "handoffs", chatKey.replace(/[^a-zA-Z0-9_-]/g, "_"), "handoff.md");
   }
+  #readLastAssistantText(sk: string): string {
+    try {
+      const dir = path.join(AGENT_DIR, "sessions", "quinki", sk);
+      if (!fs.existsSync(dir)) return "";
+      let last = "";
+      for (const f of fs.readdirSync(dir)) {
+        if (!f.endsWith(".jsonl")) continue;
+        for (const l of fs.readFileSync(path.join(dir, f), "utf8").split("\n")) {
+          if (!l.trim()) continue;
+          try {
+            const e = JSON.parse(l);
+            if (e.type === "message" && e.message?.role === "assistant" && Array.isArray(e.message.content)) {
+              const text = e.message.content.filter((c: any) => c.type === "text").map((c: any) => c.text).join(" ");
+              if (text.trim()) last = text.trim();
+            }
+          } catch {}
+        }
+      }
+      return last;
+    } catch { return ""; }
+  }
   #appendHandoff(state: ExecutionState) {
     if (!state.sourceSession?.key) return;
     const p = this.#handoffPath(state.sourceSession.key);
@@ -288,8 +309,8 @@ export class ExecutionEngine {
           state.status = "completed";
           state.endedAt = Date.now();
           state.progressNote = result.stopReason || "completed";
-          state.resultPreview = result.text.slice(0, 1000);
-          this.#appendEvent(id, "execution_completed", { stopReason: result.stopReason, resultPreview: result.text.slice(0, 3000) });
+          state.resultPreview = (result.text || this.#readLastAssistantText(sk)).slice(0, 1000);
+          this.#appendEvent(id, "execution_completed", { stopReason: result.stopReason, resultPreview: (result.text || this.#readLastAssistantText(sk)).slice(0, 3000) });
         } else if (result.stopReason === "aborted") {
           // Fermato dall'utente dalla CHAT (stop streaming) → riprendibile, non fallita
           state.status = "interrupted";
