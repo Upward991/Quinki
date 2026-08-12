@@ -22,13 +22,39 @@ const GROUP_DEFS: { key: string; label: string; color: string }[] = [
   { key: 'failed', label: 'Failed', color: 'var(--q-accent-danger)' },
   { key: 'cancelled', label: 'Cancelled', color: 'var(--q-text-tertiary)' },
 ]
-const COLS: { key: string; label: string }[] = [{ key: 'title', label: 'Task' }, { key: 'agent', label: 'Agent' }, { key: 'chat', label: 'Chat' }, { key: 'mt', label: 'Model · Thinking' }, { key: 'when', label: 'Date · Time' }]
+const COLS: { key: string; label: string }[] = [{ key: 'title', label: 'Task' }, { key: 'agent', label: 'Agent' }, { key: 'chat', label: 'Chat' }, { key: 'mt', label: 'Model · Thinking' }, { key: 'when', label: 'Time · Date' }]
 
 const panelStyle: React.CSSProperties = { backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)', padding: '8px', minHeight: 'var(--spacing-header-min)', display: 'flex', alignItems: 'center' }
 const btnText: React.CSSProperties = { background: 'none', border: 'none', color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)', cursor: 'pointer', padding: '3px', display: 'inline-flex', alignItems: 'center', gap: 4 }
 const cellBorder = '1px solid var(--q-border)'
 
 function fmtDT(ts: number | null | undefined): string { if (!ts) return '—'; const d = new Date(ts); return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false }) }
+function parseFlexDate(s: string): Date | null {
+  const t = s.trim()
+  if (!t) return null
+  const MONTHS = ['january','february','march','april','may','june','july','august','september','october','november','december']
+  const MSHORT = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec']
+  const parts = t.split(/[\/\-\s.,]+/).filter(Boolean)
+  if (parts.length !== 3) return null
+  let day = 0, month = -1, year = 0
+  const mi = parts.findIndex(p => MONTHS.includes(p.toLowerCase()) || MSHORT.includes(p.toLowerCase()))
+  if (mi === 1) { day = parseInt(parts[0]); const mn = parts[1].toLowerCase(); month = MONTHS.indexOf(mn); if (month === -1) month = MSHORT.indexOf(mn); year = parseInt(parts[2]) }
+  else if (mi === 0) { const mn = parts[0].toLowerCase(); month = MONTHS.indexOf(mn); if (month === -1) month = MSHORT.indexOf(mn); day = parseInt(parts[1]); year = parseInt(parts[2]) }
+  else { day = parseInt(parts[0]); month = parseInt(parts[1]) - 1; year = parseInt(parts[2]) }
+  if (isNaN(day) || month < 0 || isNaN(year)) return null
+  if (year < 100) year += 2000
+  const d = new Date(year, month, day)
+  return isNaN(d.getTime()) ? null : d
+}
+function parseFlexTime(s: string): { h: number; m: number; sec: number } | null {
+  const t = s.trim()
+  if (!t) return null
+  const parts = t.split(/[\/:\-\s.,]+/).filter(Boolean)
+  if (parts.length < 2) return null
+  const h = parseInt(parts[0]), m = parseInt(parts[1]), sec = parts.length >= 3 ? parseInt(parts[2]) : 0
+  if (isNaN(h) || isNaN(m)) return null
+  return { h, m, sec: isNaN(sec) ? 0 : sec }
+}
 function Chip({ color, text }: { color: string; text: string }) { return React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', padding: '2px 10px', borderRadius: 999, fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-interface)', color, border: '1px solid ' + color, backgroundColor: 'transparent', letterSpacing: 0.2, textTransform: 'capitalize', flexShrink: 0 } }, text) }
 function FilterChip({ label, values, options, onChange }: { label: string; values: string[]; options: string[]; onChange: (v: string[]) => void }) {
   const [open, setOpen] = useState(false)
@@ -278,8 +304,8 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       const dateStr = d.getDate() + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear()
       const timeStr = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ':' + String(d.getSeconds()).padStart(2, '0')
       const content = React.createElement('div', { key: 'dt', style: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 } }, [
-        React.createElement('span', { key: 'dd', style: { maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12.5, fontFamily: 'var(--font-interface)', color: 'var(--q-text-secondary)' } }, dateStr),
-        React.createElement('span', { key: 'tt', style: { maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12.5, fontFamily: 'var(--font-interface)', color: 'var(--q-text-secondary)', opacity: 0.8 } }, timeStr),
+        React.createElement('span', { key: 'tt', style: { maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12.5, fontFamily: 'var(--font-interface)', color: 'var(--q-text-secondary)' } }, timeStr),
+        React.createElement('span', { key: 'dd', style: { maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12.5, fontFamily: 'var(--font-interface)', color: 'var(--q-text-secondary)', opacity: 0.8 } }, dateStr),
       ])
       if (i.kind === 'sched') {
         return React.createElement(MtText, { key: 'w', label: dateStr + ' · ' + timeStr, onClick: (e: any) => { e.stopPropagation(); const w = i.whenObj || {}; const dt = w.date ? w.date.slice(0, 10) : new Date(i.when || Date.now()).toISOString().slice(0, 10); const tm = w.date ? w.date.slice(11, 16) : (w.at || String(new Date(i.when || Date.now()).getHours()).padStart(2, '0') + ':' + String(new Date(i.when || Date.now()).getMinutes()).padStart(2, '0')); setWhenDate(dt); setWhenTime(tm); const dd = new Date(dt + 'T' + tm); setWhenDay(String(dd.getDate())); setWhenMonth(String(dd.getMonth())); setWhenYear(String(dd.getFullYear())); setWhenHour(tm.slice(0, 2)); setWhenMinute(tm.slice(3, 5)); setEditWhen({ id: i.id, when: w }) } })
@@ -288,7 +314,10 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     }
     if (key === 'title') return i.title
     if (key === 'agent') return i.agent
-    if (key === 'chat') return i.chat
+    if (key === 'chat') {
+      if (i.sourceKey) return React.createElement(MtText, { key: 'ch', label: i.chat, onClick: (e: any) => { e.stopPropagation(); props.onOpenSession?.(i.sourceKey as string) } })
+      return i.chat
+    }
     if (key === 'mt') {
       const modelName = (models.find((x: any) => x.id === i.model)?.name) || i.model || 'Chat default'
       const rawT = i.thinkingLevel || null
@@ -304,12 +333,12 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     }
     return ''
   }
-  const cellStyle = (align = 'left', isLast = false): React.CSSProperties => ({ padding: '9px 12px', borderBottom: isLast ? 'none' : cellBorder, color: 'var(--q-text-secondary)', fontSize: 13.5, fontFamily: 'var(--font-interface)', textAlign: align as any, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' })
+  const cellStyle = (align = 'left', isLast = false): React.CSSProperties => ({ padding: '9px 12px', borderBottom: isLast ? 'none' : cellBorder, color: 'var(--q-text-secondary)', fontSize: 13.5, fontFamily: 'var(--font-interface)', textAlign: align as any, whiteSpace: 'normal', wordBreak: 'break-word' })
 
   // Tabella per un gruppo (header colonne + righe) — la stessa struttura in ogni toggle
   const tableFor = (rows: Item[]) => {
     const thead = React.createElement('tr', { key: 'thr' }, cols.map((k, idx) => { const c = COLS.find(x => x.key === k); return React.createElement('th', { key: k, draggable: true, onDragStart: (e: any) => { setDragCol(k); e.dataTransfer.effectAllowed = 'move' }, onDragOver: (e: any) => e.preventDefault(), onDrop: (e: any) => { e.preventDefault(); if (!dragCol || dragCol === k) { setDragCol(null); return } setCols(prev => { const arr = [...prev]; const from = arr.indexOf(dragCol); const to = arr.indexOf(k); arr.splice(from, 1); arr.splice(to, 0, dragCol); return arr }); setDragCol(null) }, onClick: () => toggleSort(k), style: { padding: '9px 12px', borderBottom: cellBorder, cursor: 'pointer', color: 'var(--q-text-secondary)', fontSize: 13.5, fontWeight: 700, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap', userSelect: 'none', background: dragCol === k ? 'var(--q-hover)' : 'transparent' } }, c ? c.label : '') }))
-    const tbody = rows.map((i, ri) => React.createElement('tr', { key: i.id, onMouseEnter: () => setHoverRow(i.id), onMouseLeave: () => setHoverRow(null), style: { backgroundColor: hoverRow === i.id ? 'var(--q-hover)' : 'transparent', transition: 'none' } }, cols.map((k, idx) => { const isHov = hoverRow === i.id; const isLast = ri === rows.length - 1; if (k === 'title') { return React.createElement('td', { key: k, style: cellStyle('left', isLast) }, React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } }, [React.createElement('span', { key: 't', style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--q-text)' } }, i.title), isHov ? React.createElement('span', { key: 'a' }, actions(i)) : null])) } return React.createElement('td', { key: k, style: cellStyle('left', isLast) }, cellVal(i, k)) })))
+    const tbody = rows.map((i, ri) => React.createElement('tr', { key: i.id, onMouseEnter: () => setHoverRow(i.id), onMouseLeave: () => setHoverRow(null), style: { backgroundColor: hoverRow === i.id ? 'var(--q-hover)' : 'transparent', transition: 'none' } }, cols.map((k, idx) => { const isHov = hoverRow === i.id; const isLast = ri === rows.length - 1; if (k === 'title') { return React.createElement('td', { key: k, style: cellStyle('left', isLast) }, React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } }, [React.createElement('span', { key: 't', style: { color: 'var(--q-text)', wordBreak: 'break-word' } }, i.title), isHov ? React.createElement('span', { key: 'a' }, actions(i)) : null])) } return React.createElement('td', { key: k, style: cellStyle('left', isLast) }, cellVal(i, k)) })))
     return React.createElement('div', { key: 'tbl', style: { width: '100%', overflowX: 'auto' } }, React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' } }, [React.createElement('thead', { key: 'th' }, thead), React.createElement('tbody', { key: 'tb' }, tbody.length ? tbody : React.createElement('tr', { key: 'e' }, React.createElement('td', { colSpan: cols.length, style: { padding: 16, textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', border: 'none' } }, 'No tasks in this group.')))]))
   }
 
@@ -408,14 +437,14 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     editWhen ? React.createElement(React.Fragment, { key: 'wted' }, [
       React.createElement('div', { key: 'o', style: { position: 'fixed', inset: 0, zIndex: 250 }, onClick: () => setEditWhen(null) }),
       React.createElement('div', { key: 'p', style: { position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', zIndex: 251, width: 340, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: 16, display: 'flex', flexDirection: 'column', gap: 10 } }, [
-        React.createElement('div', { key: 't', style: { color: 'var(--q-text)', fontSize: 15, fontWeight: 600, fontFamily: 'var(--font-interface)' } }, 'Date & Time'),
-        React.createElement('div', { key: 'l1', style: { color: 'var(--q-text-secondary)', fontSize: 12.5, fontFamily: 'var(--font-interface)' } }, 'Date (e.g. 12 August 2026)'),
+        React.createElement('div', { key: 't', style: { color: 'var(--q-text)', fontSize: 15, fontWeight: 600, fontFamily: 'var(--font-interface)' } }, 'Time · Date'),
+        React.createElement('div', { key: 'l2', style: { color: 'var(--q-text-secondary)', fontSize: 12.5, fontFamily: 'var(--font-interface)' } }, 'Time (e.g. 14:30 or 14:30:45)'),
+        React.createElement('input', { key: 't2', value: whenTime, onChange: (e: any) => setWhenTime(e.target.value), placeholder: '14:30:45', style: { padding: '8px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)', width: '100%', boxSizing: 'border-box' } }),
+        React.createElement('div', { key: 'l1', style: { color: 'var(--q-text-secondary)', fontSize: 12.5, fontFamily: 'var(--font-interface)' } }, 'Date (e.g. 12 August 2026, 12/08/2026, 12-08-2026)'),
         React.createElement('input', { key: 'd', value: whenDate, onChange: (e: any) => setWhenDate(e.target.value), placeholder: '12 August 2026', style: { padding: '8px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)', width: '100%', boxSizing: 'border-box' } }),
-        React.createElement('div', { key: 'l2', style: { color: 'var(--q-text-secondary)', fontSize: 12.5, fontFamily: 'var(--font-interface)' } }, 'Time (HH:MM)'),
-        React.createElement('input', { key: 't2', value: whenTime, onChange: (e: any) => setWhenTime(e.target.value), placeholder: '14:30', style: { padding: '8px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)', width: '100%', boxSizing: 'border-box' } }),
         React.createElement('div', { key: 'b', style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 } }, [
           React.createElement('button', { key: 'c', onClick: () => setEditWhen(null), onMouseEnter: (e: any) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }, onMouseLeave: (e: any) => { e.currentTarget.style.backgroundColor = 'transparent' }, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: 13, fontFamily: 'var(--font-interface)', fontWeight: 400, cursor: 'pointer' } }, 'Cancel'),
-          React.createElement('button', { key: 's', onClick: async () => { const id = editWhen.id; const w = editWhen.when; setEditWhen(null); if (!id || !whenDate.trim() || !whenTime.trim()) return; try { const dd = new Date(whenDate.trim()); if (isNaN(dd.getTime())) return; const nd = dd.getFullYear() + '-' + String(dd.getMonth() + 1).padStart(2, '0') + '-' + String(dd.getDate()).padStart(2, '0'); const parts = whenTime.trim().split(':'); const nt = String(Number(parts[0])).padStart(2, '0') + ':' + String(Number(parts[1] || 0)).padStart(2, '0'); if (w.type === 'once') await call('updateSchedule', { id, when: { date: nd + 'T' + nt } }); else await call('updateSchedule', { id, when: { at: nt } }); refresh() } catch {} }, onMouseEnter: (e: any) => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }, onMouseLeave: (e: any) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-interface)', cursor: 'pointer' } }, 'Save'),
+          React.createElement('button', { key: 's', onClick: async () => { const id = editWhen.id; const w = editWhen.when; setEditWhen(null); if (!id) return; try { const dd = parseFlexDate(whenDate); const tt = parseFlexTime(whenTime); if (!dd || !tt) return; const nd = dd.getFullYear() + '-' + String(dd.getMonth() + 1).padStart(2, '0') + '-' + String(dd.getDate()).padStart(2, '0'); const nt = String(tt.h).padStart(2, '0') + ':' + String(tt.m).padStart(2, '0') + ':' + String(tt.sec).padStart(2, '0'); if (w.type === 'once') await call('updateSchedule', { id, when: { date: nd + 'T' + nt } }); else await call('updateSchedule', { id, when: { at: nt } }); refresh() } catch {} }, onMouseEnter: (e: any) => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }, onMouseLeave: (e: any) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-interface)', cursor: 'pointer' } }, 'Save'),
         ]),
       ]),
     ]) : null,
