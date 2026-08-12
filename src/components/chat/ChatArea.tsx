@@ -118,7 +118,7 @@ export function ChatArea(props: ChatAreaProps) {
   ) : null
   const taskPanelEl = (
     <div style={{ position: 'absolute', inset: '2px 2px 0 2px', zIndex: 20, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', display: 'flex', flexDirection: 'column', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom', overflow: 'hidden' }}>
-      <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', scrollbarGutter: 'stable' }}>
+      <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '16px 16px', scrollbarGutter: 'stable' }}>
         {taskMsgs.length === 0 ? (
           <div style={{ color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', padding: '24px 8px', textAlign: 'center' }}>No tasks yet.</div>
         ) : taskMsgs.map((msg, mIdx) => (
@@ -382,7 +382,7 @@ export function ChatArea(props: ChatAreaProps) {
       {isEmpty ? (
         taskPanelOpen ? (
           <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column', margin: '2px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom' }}>
-            <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', scrollbarGutter: 'stable' }}>
+            <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '16px 16px', scrollbarGutter: 'stable' }}>
               {taskMsgs.length === 0 ? (
                 <div style={{ color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', padding: '24px 8px', textAlign: 'center' }}>No tasks yet.</div>
               ) : taskMsgs.map((msg, mIdx) => (
@@ -416,7 +416,7 @@ export function ChatArea(props: ChatAreaProps) {
         <>
           {/* Messages — area unica: scroll (chat o task) + barra riassunto in fondo (la striscia, sempre stessa posizione) */}
           <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column', ...(taskPanelOpen ? { margin: '2px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom' } : {}) }}>
-            <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '4px 16px 0 16px', scrollbarGutter: 'stable' }}
+            <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: taskPanelOpen ? '16px 16px' : '4px 16px 0 16px', scrollbarGutter: 'stable' }}
               onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100); pinnedRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 120 }}>
               {taskPanelOpen ? (
                 taskMsgs.length === 0 ? (
