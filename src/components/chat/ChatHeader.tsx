@@ -526,7 +526,7 @@ function AgentPickerModal({ agents, initialSelected, onClose, onAdd }: {
 }
 
 // ── Model picker modal — exact Flutter _ModelPickerDialog copy ──
-function ModelPickerModal({ currentModel, models, onClose, onConfirm }: {
+export function ModelPickerModal({ currentModel, models, onClose, onConfirm }: {
   currentModel: string
   models: { id: string; name: string; contextWindow?: number; provider: string }[]
   onClose: () => void
@@ -587,7 +587,7 @@ function ModelPickerModal({ currentModel, models, onClose, onConfirm }: {
 }
 
 // ── Thinking picker modal — exact Flutter _ThinkingPickerDialog copy ──
-function ThinkingPickerModal({ currentThinking, chatThinkingLevel, onClose, onConfirm }: { currentThinking: string; chatThinkingLevel: string; onClose: () => void; onConfirm: (level: string | null) => void }) {
+export function ThinkingPickerModal({ currentThinking, chatThinkingLevel, onClose, onConfirm }: { currentThinking: string; chatThinkingLevel: string; onClose: () => void; onConfirm: (level: string | null) => void }) {
   const [selected, setSelected] = useState<string | null>(currentThinking || null)
   const effectiveLevel = chatThinkingLevel && chatThinkingLevel !== 'off' ? chatThinkingLevel : 'xhigh'
   const options: { value: string | null; label: string }[] = [{ value: null, label: 'Chat default' }, { value: 'on', label: `On (${effectiveLevel})` }, { value: 'off', label: 'Off' }]

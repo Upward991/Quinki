@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragOverlay, useDraggable, useDroppable } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
 import { useSidecarContext } from '../shared/AppShell'
+import { ModelPickerModal, ThinkingPickerModal } from '../chat/ChatHeader'
 import { Home, Checklist, Play, X, RotateCcw, Trash2, Search, Plus, Filter, Check, ChevronDown, ChevronRight, PanelLeft, Maximize, Minimize } from '../icons'
 
 const STATUS_COLOR: Record<string, string> = {
@@ -157,9 +158,8 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const [draggingSide, setDraggingSide] = useState(false)
   const [newViewFlash, setNewViewFlash] = useState(false)
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; view: ViewCfg } | null>(null)
-  const [editMt, setEditMt] = useState<{ x: number; y: number; id: string; model: string | null; thinkingLevel: string | null } | null>(null)
-  const [mtModel, setMtModel] = useState<string | null>(null)
-  const [mtThinking, setMtThinking] = useState<string | null>(null)
+  const [mtModelPicker, setMtModelPicker] = useState<{ id: string; model: string | null } | null>(null)
+  const [mtThinkingPicker, setMtThinkingPicker] = useState<{ id: string; thinking: string | null } | null>(null)
   const [models, setModels] = useState<any[]>([])
   const [defaultThinking, setDefaultThinking] = useState('xhigh')
   useEffect(() => { call('getModels').then((r: any) => setModels(r?.models || [])).catch(() => {}) }, [call])
@@ -254,9 +254,9 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       const rawT = i.thinkingLevel || 'default'
       const effLevel = (rawT && rawT !== 'off' && rawT !== 'on') ? rawT : defaultThinking
       const tName = rawT === 'off' ? 'Off' : 'On (' + effLevel + ')'
-      if (i.kind === 'sched') return React.createElement('button', { key: 'mtb', onClick: (e: any) => { e.stopPropagation(); setEditMt({ x: e.clientX, y: e.clientY, id: i.id, model: i.model || null, thinkingLevel: i.thinkingLevel || null }); setMtModel(i.model || null); setMtThinking(i.thinkingLevel || null) }, title: 'Change model / thinking', style: { background: 'none', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--q-text-secondary)', fontSize: 12.5, fontFamily: 'var(--font-interface)', padding: '3px 8px', maxWidth: 180, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 } }, [
-        React.createElement('span', { key: 'm', style: { maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, modelName),
-        React.createElement('span', { key: 't', style: { maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.75, fontSize: 11 } }, tName),
+      if (i.kind === 'sched') return React.createElement('div', { key: 'mtb', style: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 } }, [
+        React.createElement('button', { key: 'm', onClick: (e: any) => { e.stopPropagation(); setMtModelPicker({ id: i.id, model: i.model || null }) }, title: 'Change model', style: { background: 'none', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--q-text-secondary)', fontSize: 12.5, fontFamily: 'var(--font-interface)', padding: '2px 8px', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, modelName),
+        React.createElement('button', { key: 't', onClick: (e: any) => { e.stopPropagation(); setMtThinkingPicker({ id: i.id, thinking: i.thinkingLevel || null }) }, title: 'Change thinking', style: { background: 'none', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--q-text-secondary)', fontSize: 12.5, fontFamily: 'var(--font-interface)', padding: '2px 8px', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.8 } }, tName),
       ])
       return React.createElement('div', { key: 'mts', style: { color: 'var(--q-text-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 } }, [
         React.createElement('span', { key: 'm', style: { maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, modelName),
@@ -364,26 +364,8 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     sideMode === 'hidden' ? React.createElement('div', { key: 'strip', style: { position: 'absolute', top: 8, bottom: 8, left: 0, width: 12, zIndex: 10, cursor: 'pointer' }, onMouseEnter: () => setSideMode('peek') }) : null,
     sideMode === 'peek' && !draggingSide ? React.createElement('div', { key: 'peekov', style: { position: 'absolute', top: 0, bottom: 0, left: sideW + 24, right: 0, zIndex: 30 }, onMouseEnter: () => setSideMode('hidden') }) : null,
     ctxMenu ? React.createElement(ViewContextMenu, { key: 'cm', x: ctxMenu.x, y: ctxMenu.y, item: ctxMenu.view, multiSelect: multiSel, selectedCount: selViews.size, onClose: () => setCtxMenu(null), onRename: () => { setRenamingView(ctxMenu.view.id); setRenameVal(ctxMenu.view.name); setCtxMenu(null) }, onSelect: () => { setMultiSel(true); setSelViews(new Set([ctxMenu.view.id])); setCtxMenu(null) }, onDelete: () => { setDeleteViews([ctxMenu.view]); setCtxMenu(null) }, onDeselectAll: () => { setMultiSel(false); setSelViews(new Set()); setCtxMenu(null) }, onDeleteSelected: () => { setDeleteViews(views.filter(v => selViews.has(v.id))); setCtxMenu(null) } }) : null,
-    editMt ? React.createElement(React.Fragment, { key: 'mted' }, [
-      React.createElement('div', { key: 'o', style: { position: 'fixed', inset: 0, zIndex: 250 }, onClick: () => setEditMt(null) }),
-      React.createElement('div', { key: 'p', style: { position: 'fixed', left: Math.min(editMt.x, window.innerWidth - 260), top: Math.min(editMt.y, window.innerHeight - 320), zIndex: 251, width: 240, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: 10, display: 'flex', flexDirection: 'column', gap: 8 } }, [
-        React.createElement('div', { key: 'l1', style: { color: 'var(--q-text)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-interface)' } }, 'Model'),
-        React.createElement('div', { key: 'ml', style: { maxHeight: 160, overflowY: 'auto', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-sm)', padding: 4, display: 'flex', flexDirection: 'column', gap: 1 } }, [
-          React.createElement('button', { key: 'def', onClick: () => setMtModel(null), style: { textAlign: 'left', padding: '5px 8px', borderRadius: 'var(--radius-sm)', border: 'none', cursor: 'pointer', fontSize: 12.5, fontFamily: 'var(--font-interface)', backgroundColor: mtModel === null ? 'var(--q-active)' : 'transparent', color: 'var(--q-text)' } }, 'Chat default'),
-          models.map((m: any) => React.createElement('button', { key: m.id, onClick: () => setMtModel(m.id), style: { textAlign: 'left', padding: '5px 8px', borderRadius: 'var(--radius-sm)', border: 'none', cursor: 'pointer', fontSize: 12.5, fontFamily: 'var(--font-interface)', backgroundColor: mtModel === m.id ? 'var(--q-active)' : 'transparent', color: 'var(--q-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, (m.name || m.id))),
-        ]),
-        React.createElement('div', { key: 'l2', style: { color: 'var(--q-text)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-interface)' } }, 'Thinking'),
-        React.createElement('div', { key: 'tl', style: { display: 'flex', flexWrap: 'wrap', gap: 4 } }, ['default', 'off', 'on'].map(t => {
-          const active = mtThinking === t || (t === 'default' && mtThinking === null)
-          const label = t === 'default' ? 'Chat default' : t === 'on' ? 'On (' + defaultThinking + ')' : 'Off'
-          return React.createElement('button', { key: t, onClick: () => setMtThinking(t === 'default' ? null : t), style: { padding: '3px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid ' + (active ? 'var(--q-tab-accent)' : 'var(--q-border)'), cursor: 'pointer', fontSize: 12, fontFamily: 'var(--font-interface)', backgroundColor: active ? 'var(--q-active)' : 'transparent', color: 'var(--q-text)' } }, label)
-        })),
-        React.createElement('div', { key: 'b', style: { display: 'flex', justifyContent: 'flex-end', gap: 6 } }, [
-          React.createElement('button', { key: 'c', onClick: () => setEditMt(null), style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-accent-danger)', fontSize: 12.5, fontFamily: 'var(--font-interface)', padding: '4px 8px' } }, 'Cancel'),
-          React.createElement('button', { key: 's', onClick: async () => { try { await call('updateSchedule', { id: editMt.id, model: mtModel || undefined, thinkingLevel: mtThinking || undefined }); setEditMt(null); refresh() } catch {} }, style: { background: 'none', border: '1px solid var(--q-tab-accent)', cursor: 'pointer', color: 'var(--q-tab-accent)', fontSize: 12.5, fontWeight: 600, fontFamily: 'var(--font-interface)', padding: '4px 12px', borderRadius: 'var(--radius-sm)' } }, 'Save'),
-        ]),
-      ]),
-    ]) : null,
+    mtModelPicker ? React.createElement(ModelPickerModal, { key: 'mp', currentModel: mtModelPicker.model || '', models, onClose: () => setMtModelPicker(null), onConfirm: (model: string | null) => { setMtModelPicker(null); if (!mtModelPicker) return; call('updateSchedule', { id: mtModelPicker.id, model: model || undefined }).then(() => refresh()).catch(() => {}) } }) : null,
+    mtThinkingPicker ? React.createElement(ThinkingPickerModal, { key: 'tp', currentThinking: mtThinkingPicker.thinking || '', chatThinkingLevel: defaultThinking, onClose: () => setMtThinkingPicker(null), onConfirm: (level: string | null) => { setMtThinkingPicker(null); if (!mtThinkingPicker) return; call('updateSchedule', { id: mtThinkingPicker.id, thinkingLevel: level || undefined }).then(() => refresh()).catch(() => {}) } }) : null,
     deleteViews ? React.createElement(ConfirmModal, { key: 'dv', title: deleteViews.length === 1 ? 'Delete view?' : 'Delete ' + deleteViews.length + ' views?', subtitle: deleteViews.length === 1 ? deleteViews[0].name + ' will be permanently deleted.' : deleteViews.length + ' views will be permanently deleted.', onCancel: () => setDeleteViews(null), onConfirm: () => doDelete(deleteViews) }) : null,
   ])
 }
