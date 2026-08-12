@@ -2,14 +2,15 @@
 // ChatArea — structure fix: overflow hidden on messages, button outside
 // ============================================================
 
-import { useRef, useEffect, useState, useLayoutEffect } from 'react'
+import { useRef, useEffect, useState, useLayoutEffect, useCallback } from 'react'
 
 import { messageMatchesFilters } from '../../utils/dateParser'
 import { getContrastColor } from '../../utils/contrast'
 import { MessageBubble } from './MessageBubble'
 import { ChatHeader } from './ChatHeader'
 import { Composer } from './Composer'
-import { ArrowDown } from '../icons'
+import { ArrowDown, Checklist, ChevronDown, ChevronUp } from '../icons'
+import { useSidecarContext } from '../shared/AppShell'
 import type { Message, Session, Agent, Provider, ChatMode, ThinkingLevel } from '../../types'
 
 interface ChatAreaProps {
@@ -61,6 +62,32 @@ export function ChatArea(props: ChatAreaProps) {
   // il pin si rinsalda e lo scroll automatico riprende.
   const pinnedRef = useRef(true)
   const [composerH, setComposerH] = useState(0)
+  // === A2.8: Task Timeline ===
+  const { call: sidecarCall } = useSidecarContext()
+  const sessionIdKey = props.session?.id || ''
+  const [taskPanelOpen, setTaskPanelOpen] = useState<boolean>(() => { try { return localStorage.getItem('quinki-taskpanel-' + sessionIdKey) === '1' } catch { return false } })
+  const [taskExecs, setTaskExecs] = useState<any[]>([])
+  const [taskScheds, setTaskScheds] = useState<any[]>([])
+  const [taskMsgs, setTaskMsgs] = useState<any[]>([])
+  const taskScrollRef = useRef<HTMLDivElement>(null)
+  const toggleTaskPanel = () => { const nv = !taskPanelOpen; setTaskPanelOpen(nv); try { localStorage.setItem('quinki-taskpanel-' + sessionIdKey, nv ? '1' : '0') } catch {} }
+  const refreshTasks = useCallback(async () => {
+    if (!sessionIdKey || sessionIdKey === '__app_expert__') { setTaskExecs([]); setTaskScheds([]); setTaskMsgs([]); return }
+    try {
+      const [exR, schR] = await Promise.all([sidecarCall('listExecutions'), sidecarCall('listSchedules')])
+      const execs = (exR?.executions || []).filter((e: any) => e.sourceSession?.key === sessionIdKey)
+      const scheds = (schR?.schedules || []).filter((s: any) => s.sourceSession?.key === sessionIdKey)
+      setTaskExecs(execs); setTaskScheds(scheds)
+      const all: any[] = []
+      for (const e of execs) {
+        try { const mR = await sidecarCall('getExecutionMessages', { executionId: e.id }); for (const m of (mR?.messages || [])) all.push(m) } catch {}
+      }
+      all.sort((a, b) => String(a.timestamp || '').localeCompare(String(b.timestamp || '')))
+      setTaskMsgs(all)
+    } catch {}
+  }, [sessionIdKey, sidecarCall])
+  useEffect(() => { refreshTasks(); const iv = setInterval(refreshTasks, 3000); return () => clearInterval(iv) }, [refreshTasks])
+  useEffect(() => { if (taskPanelOpen && taskScrollRef.current) taskScrollRef.current.scrollTop = taskScrollRef.current.scrollHeight }, [taskPanelOpen, taskMsgs])
   const prevSessionIdRef = useRef('')
   const [searchQuery, setSearchQuery] = useState('')
   const [searchDate, setSearchDate] = useState('')
@@ -308,24 +335,61 @@ export function ChatArea(props: ChatAreaProps) {
         </div>
       ) : (
         <>
-          {/* Messages */}
-          {/* minHeight:0 = flex shrink corretto (composer non spinto fuori); overflow visible = shadow auto-scroll non clippata */}
-          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative' }}>
-            <div ref={scrollRef} className="q-scroll" style={{ height: '100%', overflowY: 'auto', padding: '4px 16px 0 16px', scrollbarGutter: 'stable' }}
-              onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100); pinnedRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 120 }}>
-              {props.messages.map((msg, mIdx) => (
-                <div key={msg.id} data-msg-idx={mIdx} style={{ marginBottom: '12px' }}>
-                  <MessageBubble message={msg} onCopy={() => {}} searchQuery={searchQuery} msgIndex={mIdx} activeMatchMsgIdx={activeMatchInfo?.msgIdx ?? -1} activeMatchOccurrence={activeMatchInfo?.occurrence ?? -1} isDateMatch={!searchQuery.trim() && hasDateFilter && dateMatchIndices.includes(mIdx) && mIdx === dateMatchIndices[Math.min(dateMatchIdx, dateMatchIndices.length - 1)]} />
-                </div>
-              ))}
+          {/* Messages / Task panel (A2.8) */}
+          {taskPanelOpen ? (
+            <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ padding: '4px 16px 8px 16px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                <Checklist size={16} style={{ color: 'var(--q-text-secondary)', flexShrink: 0 }} />
+                <span style={{ color: 'var(--q-text)', fontSize: 14, fontWeight: 600, fontFamily: 'var(--font-interface)' }}>Tasks</span>
+                <span style={{ flex: 1 }} />
+                <span style={{ color: 'var(--q-text-tertiary)', fontSize: 12, fontFamily: 'var(--font-interface)' }}>{taskMsgs.length} messages</span>
+              </div>
+              <div ref={taskScrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '0 16px 8px 16px', scrollbarGutter: 'stable' }}>
+                {taskMsgs.length === 0 ? (
+                  <div style={{ color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', padding: '24px 8px', textAlign: 'center' }}>No tasks yet.</div>
+                ) : taskMsgs.map((msg, mIdx) => (
+                  <div key={msg.id + '-' + mIdx} style={{ marginBottom: '12px' }}>
+                    <MessageBubble message={msg} onCopy={() => {}} searchQuery={''} msgIndex={mIdx} activeMatchMsgIdx={-1} activeMatchOccurrence={-1} isDateMatch={false} />
+                  </div>
+                ))}
+              </div>
             </div>
-            {showScrollBtn && (
-              <button onClick={() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }}
-                style={{ position: 'absolute', bottom: '0px', right: '0px', zIndex: 10, width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--q-tab-accent)', color: getContrastColor('--q-tab-accent'), border: 'none', boxShadow: 'var(--shadow-floating)', cursor: 'pointer' }}>
-                <ArrowDown size={20} />
-              </button>
-            )}
-          </div>
+          ) : (
+            <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative' }}>
+              <div ref={scrollRef} className="q-scroll" style={{ height: '100%', overflowY: 'auto', padding: '4px 16px 0 16px', scrollbarGutter: 'stable' }}
+                onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100); pinnedRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 120 }}>
+                {props.messages.map((msg, mIdx) => (
+                  <div key={msg.id} data-msg-idx={mIdx} style={{ marginBottom: '12px' }}>
+                    <MessageBubble message={msg} onCopy={() => {}} searchQuery={searchQuery} msgIndex={mIdx} activeMatchMsgIdx={activeMatchInfo?.msgIdx ?? -1} activeMatchOccurrence={activeMatchInfo?.occurrence ?? -1} isDateMatch={!searchQuery.trim() && hasDateFilter && dateMatchIndices.includes(mIdx) && mIdx === dateMatchIndices[Math.min(dateMatchIdx, dateMatchIndices.length - 1)]} />
+                  </div>
+                ))}
+              </div>
+              {showScrollBtn && (
+                <button onClick={() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }}
+                  style={{ position: 'absolute', bottom: '0px', right: '0px', zIndex: 10, width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--q-tab-accent)', color: getContrastColor('--q-tab-accent'), border: 'none', boxShadow: 'var(--shadow-floating)', cursor: 'pointer' }}>
+                  <ArrowDown size={20} />
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* A2.8: Task strip sopra il composer (visibile solo se la sessione ha task) */}
+          {(taskExecs.length > 0 || taskScheds.length > 0) && (() => {
+            const runningCount = taskExecs.filter((e: any) => e.status === 'running' || e.status === 'queued').length
+            const doneCount = taskExecs.filter((e: any) => e.status === 'completed').length
+            const failCount = taskExecs.filter((e: any) => e.status === 'failed').length
+            const running = taskExecs.find((e: any) => e.status === 'running' || e.status === 'queued')
+            const label = running ? '"' + (running.label || 'task') + '" in corso' : (taskExecs.length + taskScheds.length) + ' tasks · ' + doneCount + ' done' + (failCount ? ' · ' + failCount + ' failed' : '')
+            return (
+              <div key="tstrip" style={{ paddingTop: '8px', flexShrink: 0 }}>
+                <button onClick={toggleTaskPanel} title={taskPanelOpen ? 'Collapse tasks' : 'Show tasks'} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-panel)', cursor: 'pointer', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: 13, transition: 'none' }}>
+                  <Checklist size={16} style={{ color: runningCount ? 'var(--q-accent-info)' : 'var(--q-text-secondary)', flexShrink: 0 }} />
+                  <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+                  {taskPanelOpen ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+                </button>
+              </div>
+            )
+          })()}
 
           {/* Composer — flexShrink 0 so it stays visible */}
           <div style={{ paddingTop: '8px', flexShrink: 0 }}>
