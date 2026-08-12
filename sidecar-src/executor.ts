@@ -145,7 +145,9 @@ export class ExecutionEngine {
       const contentArr = Array.isArray(e.message?.content) ? e.message.content : [];
       const ts = e.timestamp || new Date().toISOString();
       if (role === "user") {
-        const text = contentArr.filter((c: any) => c.type === "text").map((c: any) => c.text).join(" ");
+        let text = contentArr.filter((c: any) => c.type === "text").map((c: any) => c.text).join(" ");
+        const ti = text.indexOf("Task: ");
+        if (ti >= 0) text = text.slice(ti + 6).trim();
         out.push({ id: e.id, role: "user", content: text || "(task)", timestamp: ts });
       } else if (role === "assistant") {
         const text = contentArr.filter((c: any) => c.type === "text").map((c: any) => c.text).join(" ");

@@ -93,6 +93,30 @@ export function ChatArea(props: ChatAreaProps) {
   const taskFail = taskExecs.filter((e: any) => e.status === 'failed').length
   const taskRunningItem = taskExecs.find((e: any) => e.status === 'running' || e.status === 'queued')
   const taskLabel = taskRunningItem ? '"' + (taskRunningItem.label || 'task') + '" in corso' : (taskExecs.length + taskScheds.length) + ' tasks · ' + taskDone + ' done' + (taskFail ? ' · ' + taskFail + ' failed' : '')
+  const taskPanelEl = (
+    <div style={{ position: 'absolute', inset: 0, zIndex: 20, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', display: 'flex', flexDirection: 'column', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom', overflow: 'hidden' }}>
+      <div style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, borderBottom: '1px solid var(--q-border)' }}>
+        <Checklist size={16} style={{ color: taskRunning ? 'var(--q-accent-info)' : 'var(--q-text-secondary)', flexShrink: 0 }} />
+        <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--q-text)', fontSize: 13, fontFamily: 'var(--font-interface)' }}>{taskLabel}</span>
+        {taskRunning > 0 && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-interface)', color: 'var(--q-accent-info)', border: '1px solid var(--q-accent-info)', flexShrink: 0 }}>
+            <span style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: 'var(--q-accent-info)', display: 'inline-block' }} /> RUNNING
+          </span>
+        )}
+        <span style={{ color: 'var(--q-text-tertiary)', fontSize: 12, fontFamily: 'var(--font-interface)', flexShrink: 0 }}>{taskMsgs.length} msgs</span>
+        <button onClick={toggleTaskPanel} title="Collapse tasks" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-secondary)', padding: 4, display: 'flex', borderRadius: 'var(--radius-sm)', flexShrink: 0 }}><ChevronDown size={16} /></button>
+      </div>
+      <div ref={taskScrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', scrollbarGutter: 'stable' }}>
+        {taskMsgs.length === 0 ? (
+          <div style={{ color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', padding: '24px 8px', textAlign: 'center' }}>No tasks yet.</div>
+        ) : taskMsgs.map((msg, mIdx) => (
+          <div key={msg.id + '-' + mIdx} style={{ marginBottom: '12px' }}>
+            <MessageBubble message={msg} onCopy={() => {}} searchQuery={''} msgIndex={mIdx} activeMatchMsgIdx={-1} activeMatchOccurrence={-1} isDateMatch={false} />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
   const taskStrip = (taskExecs.length > 0 || taskScheds.length > 0) ? (
     <div key="tstrip" style={{ paddingTop: '8px', flexShrink: 0 }}>
       <button onClick={toggleTaskPanel} title={taskPanelOpen ? 'Collapse tasks' : 'Show tasks'} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 'var(--radius-lg)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-panel)', cursor: 'pointer', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: 13, transition: 'none' }}>
@@ -333,6 +357,9 @@ export function ChatArea(props: ChatAreaProps) {
 
 {/* Welcome: composer centered */}
       {isEmpty ? (
+        taskPanelOpen ? (
+          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative' }}>{taskPanelEl}</div>
+        ) : (
         <>
           <div className="flex-1 flex items-center justify-center">
             <Composer
@@ -348,55 +375,32 @@ export function ChatArea(props: ChatAreaProps) {
               onAgentToggle={props.onAgentToggle}
             />
           </div>
-          {taskStrip}
+          {!taskPanelOpen && taskStrip}
         </>
+        )
       ) : (
         <>
-          {/* Messages / Task panel (A2.8) */}
-          {taskPanelOpen ? (
-            <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom' }}>
-              <div style={{ padding: '4px 16px 8px 16px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, borderBottom: '1px solid var(--q-border)' }}>
-                <Checklist size={16} style={{ color: 'var(--q-text-secondary)', flexShrink: 0 }} />
-                <span style={{ color: 'var(--q-text)', fontSize: 14, fontWeight: 600, fontFamily: 'var(--font-interface)' }}>Tasks</span>
-                {taskExecs.some((e: any) => e.status === 'running' || e.status === 'queued') && (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-interface)', color: 'var(--q-accent-info)', border: '1px solid var(--q-accent-info)' }}>
-                    <span style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: 'var(--q-accent-info)', display: 'inline-block' }} /> RUNNING
-                  </span>
-                )}
-                <span style={{ flex: 1 }} />
-                <span style={{ color: 'var(--q-text-tertiary)', fontSize: 12, fontFamily: 'var(--font-interface)' }}>{taskMsgs.length} messages</span>
-              </div>
-              <div ref={taskScrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '0 16px 8px 16px', scrollbarGutter: 'stable' }}>
-                {taskMsgs.length === 0 ? (
-                  <div style={{ color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', padding: '24px 8px', textAlign: 'center' }}>No tasks yet.</div>
-                ) : taskMsgs.map((msg, mIdx) => (
-                  <div key={msg.id + '-' + mIdx} style={{ marginBottom: '12px' }}>
-                    <MessageBubble message={msg} onCopy={() => {}} searchQuery={''} msgIndex={mIdx} activeMatchMsgIdx={-1} activeMatchOccurrence={-1} isDateMatch={false} />
-                  </div>
-                ))}
-              </div>
+          {/* Messages — la chat normale resta SEMPRE renderizzata; il pannello task è un overlay flottante */}
+          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative' }}>
+            <div ref={scrollRef} className="q-scroll" style={{ height: '100%', overflowY: 'auto', padding: '4px 16px 0 16px', scrollbarGutter: 'stable' }}
+              onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100); pinnedRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 120 }}>
+              {props.messages.map((msg, mIdx) => (
+                <div key={msg.id} data-msg-idx={mIdx} style={{ marginBottom: '12px' }}>
+                  <MessageBubble message={msg} onCopy={() => {}} searchQuery={searchQuery} msgIndex={mIdx} activeMatchMsgIdx={activeMatchInfo?.msgIdx ?? -1} activeMatchOccurrence={activeMatchInfo?.occurrence ?? -1} isDateMatch={!searchQuery.trim() && hasDateFilter && dateMatchIndices.includes(mIdx) && mIdx === dateMatchIndices[Math.min(dateMatchIdx, dateMatchIndices.length - 1)]} />
+                </div>
+              ))}
             </div>
-          ) : (
-            <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative' }}>
-              <div ref={scrollRef} className="q-scroll" style={{ height: '100%', overflowY: 'auto', padding: '4px 16px 0 16px', scrollbarGutter: 'stable' }}
-                onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100); pinnedRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 120 }}>
-                {props.messages.map((msg, mIdx) => (
-                  <div key={msg.id} data-msg-idx={mIdx} style={{ marginBottom: '12px' }}>
-                    <MessageBubble message={msg} onCopy={() => {}} searchQuery={searchQuery} msgIndex={mIdx} activeMatchMsgIdx={activeMatchInfo?.msgIdx ?? -1} activeMatchOccurrence={activeMatchInfo?.occurrence ?? -1} isDateMatch={!searchQuery.trim() && hasDateFilter && dateMatchIndices.includes(mIdx) && mIdx === dateMatchIndices[Math.min(dateMatchIdx, dateMatchIndices.length - 1)]} />
-                  </div>
-                ))}
-              </div>
-              {showScrollBtn && (
-                <button onClick={() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }}
-                  style={{ position: 'absolute', bottom: '0px', right: '0px', zIndex: 10, width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--q-tab-accent)', color: getContrastColor('--q-tab-accent'), border: 'none', boxShadow: 'var(--shadow-floating)', cursor: 'pointer' }}>
-                  <ArrowDown size={20} />
-                </button>
-              )}
-            </div>
-          )}
+            {showScrollBtn && (
+              <button onClick={() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }}
+                style={{ position: 'absolute', bottom: '0px', right: '0px', zIndex: 10, width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--q-tab-accent)', color: getContrastColor('--q-tab-accent'), border: 'none', boxShadow: 'var(--shadow-floating)', cursor: 'pointer' }}>
+                <ArrowDown size={20} />
+              </button>
+            )}
+            {taskPanelOpen && taskPanelEl}
+          </div>
 
-          {/* A2.8: Task strip sopra il composer */}
-          {taskStrip}
+          {/* A2.8: Task strip sopra il composer (solo quando il pannello è chiuso) */}
+          {!taskPanelOpen && taskStrip}
 
           {/* Composer — flexShrink 0 so it stays visible */}
           <div style={{ paddingTop: '8px', flexShrink: 0 }}>
