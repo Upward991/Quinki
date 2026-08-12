@@ -77,6 +77,34 @@ function ViewRow({ v, active, renaming, renameVal, onRenameChange, onRenameCommi
   ])
 }
 
+function MenuItem({ label, color, onClick }: any) {
+  const [hovered, setHovered] = useState(false)
+  return React.createElement('button', { onClick, onMouseEnter: () => setHovered(true), onMouseLeave: () => setHovered(false), style: { display: 'flex', alignItems: 'center', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: hovered ? 'var(--q-hover)' : 'transparent', color: color || 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', textAlign: 'left' } }, label)
+}
+function ViewContextMenu({ x, y, item, multiSelect, selectedCount, onClose, onRename, onSelect, onDelete, onDeselectAll, onDeleteSelected }: any) {
+  return React.createElement(React.Fragment, null, [
+    React.createElement('div', { key: 'o', style: { position: 'fixed', inset: 0, zIndex: 200 }, onClick: onClose, onContextMenu: (e: any) => { e.preventDefault(); onClose() } }),
+    React.createElement('div', { key: 'm', style: { position: 'fixed', left: Math.min(x, window.innerWidth - 200), top: Math.min(y, window.innerHeight - 250), zIndex: 210, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '4px 0', minWidth: '180px' } }, [
+      multiSelect
+        ? [React.createElement(MenuItem, { key: 'ds', label: 'Deselect all', onClick: onDeselectAll }), selectedCount > 0 ? React.createElement(MenuItem, { key: 'dl', label: 'Delete ' + selectedCount + ' view' + (selectedCount > 1 ? 's' : ''), color: 'var(--q-accent-danger)', onClick: onDeleteSelected }) : null]
+        : [React.createElement(MenuItem, { key: 'rn', label: 'Rename', onClick: onRename }), React.createElement(MenuItem, { key: 'sl', label: 'Select view', onClick: onSelect }), React.createElement(MenuItem, { key: 'dl', label: 'Delete view', color: 'var(--q-accent-danger)', onClick: onDelete })],
+    ]),
+  ])
+}
+function ConfirmModal({ title, subtitle, onCancel, onConfirm }: any) {
+  return React.createElement(React.Fragment, null, [
+    React.createElement('div', { key: 'o', style: { position: 'fixed', inset: 0, zIndex: 300, backgroundColor: 'rgba(0,0,0,0.4)' }, onClick: onCancel }),
+    React.createElement('div', { key: 'm', style: { position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', zIndex: 310, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '20px 24px', minWidth: '320px', maxWidth: '400px' } }, [
+      React.createElement('div', { key: 't', style: { color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', marginBottom: '8px' } }, title),
+      React.createElement('div', { key: 's', style: { color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', marginBottom: '16px' } }, subtitle),
+      React.createElement('div', { key: 'b', style: { display: 'flex', justifyContent: 'flex-end', gap: '8px' } }, [
+        React.createElement('button', { key: 'c', onClick: onCancel, onMouseEnter: (e: any) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }, onMouseLeave: (e: any) => { e.currentTarget.style.backgroundColor = 'transparent' }, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', fontWeight: 400, cursor: 'pointer' } }, 'Cancel'),
+        React.createElement('button', { key: 'ok', onClick: onConfirm, onMouseEnter: (e: any) => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }, onMouseLeave: (e: any) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)', cursor: 'pointer' } }, 'Delete'),
+      ]),
+    ]),
+  ])
+}
+
 interface Item { id: string; kind: 'sched' | 'exec'; title: string; agent: string; chat: string; status: string; when: number | null; error: string; ex?: any }
 interface ViewCfg { id: string; name: string; type: 'table' | 'board'; f: { q: string; status: string; agents: string[]; chats: string[] } }
 const BASE_ID = 'v-table'
@@ -223,7 +251,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   ])))
 
   // Toolbar: view dinamiche (base non eliminabile) + Filters + Search
-  const addView = () => { const id = 'v' + Date.now(); const nv: ViewCfg = { id, name: 'View ' + (views.length + 1), type: 'table', f: { q: '', status: 'all', agents: [], chats: [] } }; persist([...views, nv]); setActiveId(id); setNewViewFlash(true); setTimeout(() => setNewViewFlash(false), 600) }
+  const addView = () => { const id = 'v' + Date.now(); const nv: ViewCfg = { id, name: 'View ' + (views.filter(v => v.id !== BASE_ID).length + 1), type: 'table', f: { q: '', status: 'all', agents: [], chats: [] } }; persist([...views, nv]); setActiveId(id); setNewViewFlash(true); setTimeout(() => setNewViewFlash(false), 600) }
   const renameView = (id: string, name: string) => { const nm = name.trim(); if (!nm) { setRenamingView(null); setRenameVal(''); return } persist(views.map(x => x.id === id ? { ...x, name: nm } : x)); setRenamingView(null); setRenameVal('') }
   const doDelete = (targets: ViewCfg[]) => { const ids = new Set(targets.map(t => t.id)); const rem = views.filter(x => !ids.has(x.id)); persist(rem); if (ids.has(activeId)) setActiveId(rem[0]?.id || BASE_ID); setDeleteViews(null); setMultiSel(false); setSelViews(new Set()) }
   const hasActiveFilters = f.agents.length > 0 || f.chats.length > 0
@@ -249,7 +277,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const IconBtn = ({ icon: Icon, onClick }: { icon: React.FC<any>; onClick: () => void }) => { const [h, setH] = useState(false); return React.createElement('button', { onClick, onMouseEnter: () => setH(true), onMouseLeave: () => setH(false), style: { width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', padding: '0', backgroundColor: h ? 'var(--q-hover)' : 'transparent', color: h ? 'var(--q-text)' : 'var(--q-text-secondary)', transition: 'none' } }, React.createElement(Icon, { size: 20 })) }
 
   const isAllActive = activeId === BASE_ID
-  const viewSidebar = React.createElement('div', { key: 'vsb', style: { position: 'absolute', top: 0, bottom: 0, left: 0, width: sideW, zIndex: 40, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)', display: 'flex', flexDirection: 'column', overflow: 'hidden' } }, [
+  const viewSidebar = React.createElement('div', { key: 'vsb', onMouseLeave: () => { if (sideMode === 'peek') setSideMode('hidden') }, style: { position: 'absolute', top: 0, bottom: 0, left: 0, width: sideW, zIndex: 40, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)', display: 'flex', flexDirection: 'column', overflow: 'hidden' } }, [
     React.createElement('div', { key: 'hdr', style: { padding: '8px' } }, [
       React.createElement('div', { key: 'row', style: { display: 'flex', alignItems: 'center', gap: 8 } }, [
         React.createElement('button', { key: 'all', title: 'All views', onClick: () => setActiveId(views.find(v => v.id === BASE_ID)?.id || views[0]?.id || BASE_ID), onMouseEnter: () => setAllHover(true), onMouseLeave: () => setAllHover(false), style: { flex: 1, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: allHover ? 'var(--q-hover)' : 'transparent', color: isAllActive ? 'var(--q-tab-accent)' : allHover ? 'var(--q-text)' : 'var(--q-text-secondary)', padding: 0 } }, [React.createElement(Checklist, { key: 'i', size: 18 }), React.createElement('span', { key: 't', style: { fontSize: 14, fontWeight: 600, fontFamily: 'var(--font-interface)' } }, 'All')]),
@@ -257,16 +285,10 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       ]),
     ]),
     React.createElement('div', { key: 'list', style: { flex: 1, overflowY: 'auto', paddingBottom: 8, scrollbarGutter: 'stable' } }, views.filter(v => v.id !== BASE_ID).map(v => React.createElement(ViewRow, { key: v.id, v, active: v.id === activeId, renaming: renamingView === v.id, renameVal, onRenameChange: setRenameVal, onRenameCommit: () => renameView(v.id, renameVal), onRenameCancel: () => { setRenamingView(null); setRenameVal('') }, onSelect: () => setActiveId(v.id), onContextMenu: (e: any, vv: ViewCfg) => setCtxMenu({ x: e.clientX, y: e.clientY, view: vv }), multiSel, selected: selViews.has(v.id), onToggleSel: () => setSelViews(prev => { const n = new Set(prev); if (n.has(v.id)) n.delete(v.id); else n.add(v.id); return n }) }))),
-    multiSel ? React.createElement('div', { key: 'mtb', style: { padding: '8px', borderTop: '1px solid var(--q-border)', display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' } }, [
-      React.createElement('button', { key: 'sa', onClick: () => setSelViews(new Set(views.filter(x => x.id !== BASE_ID).map(x => x.id))), style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-secondary)', fontSize: 13, fontFamily: 'var(--font-interface)', padding: '4px 6px' } }, 'Select all'),
-      React.createElement('button', { key: 'dl', onClick: () => { if (selViews.size) setDeleteViews(views.filter(v => selViews.has(v.id))) }, style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-accent-danger)', fontSize: 13, fontFamily: 'var(--font-interface)', padding: '4px 6px' } }, 'Delete'),
-      React.createElement('button', { key: 'cx', onClick: () => { setMultiSel(false); setSelViews(new Set()) }, style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', padding: '4px 6px' } }, 'Cancel'),
-      React.createElement('span', { key: 'cnt', style: { flex: 1, textAlign: 'right', color: 'var(--q-text-tertiary)', fontSize: 12, fontFamily: 'var(--font-interface)' } }, selViews.size + ' selected'),
-    ]) : null,
     React.createElement('div', { key: 'rsz', onMouseDown: (e: any) => { e.preventDefault(); setDraggingSide(true) }, style: { position: 'absolute', top: 0, bottom: 0, right: 0, width: 6, cursor: 'col-resize', zIndex: 5 } }),
   ])
 
-  return React.createElement('div', { key: 'root', ref: rootRef, className: 'h-full flex flex-row', style: { width: '100%', position: 'relative', overflow: 'hidden' } }, [
+  return React.createElement('div', { key: 'root', ref: rootRef, className: 'h-full flex flex-row', style: { width: '100%', position: 'relative' } }, [
     sideMode !== 'hidden' ? viewSidebar : null,
     React.createElement('div', { key: 'main', style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', paddingLeft: sideMode === 'open' ? sideW + 8 : 0 } }, [
 
@@ -286,21 +308,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     ]),
     sideMode === 'hidden' ? React.createElement('div', { key: 'strip', style: { position: 'absolute', top: 8, bottom: 8, left: 0, width: 12, zIndex: 10, cursor: 'pointer' }, onMouseEnter: () => setSideMode('peek') }) : null,
     sideMode === 'peek' ? React.createElement('div', { key: 'peekov', style: { position: 'absolute', top: 0, bottom: 0, left: sideW + 20, right: 0, zIndex: 30 }, onMouseLeave: () => setSideMode('hidden') }) : null,
-    ctxMenu ? React.createElement(React.Fragment, { key: 'cm' }, [
-      React.createElement('div', { key: 'o', style: { position: 'fixed', inset: 0, zIndex: 9998, backgroundColor: 'transparent' }, onClick: () => setCtxMenu(null), onContextMenu: (e: any) => { e.preventDefault(); setCtxMenu(null) } }),
-      React.createElement('div', { key: 'm', style: { position: 'fixed', left: Math.min(ctxMenu.x, window.innerWidth - 170), top: Math.min(ctxMenu.y, window.innerHeight - 120), zIndex: 9999, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '4px 0', minWidth: 160, display: 'flex', flexDirection: 'column' } }, [
-        ctxMenu.view.id !== BASE_ID ? React.createElement('button', { key: 'rn', onClick: () => { setRenamingView(ctxMenu.view.id); setRenameVal(ctxMenu.view.name); setCtxMenu(null) }, onMouseEnter: (e: any) => { e.currentTarget.style.backgroundColor = 'var(--q-hover)' }, onMouseLeave: (e: any) => { e.currentTarget.style.backgroundColor = 'transparent' }, style: { textAlign: 'left', padding: '7px 12px', border: 'none', cursor: 'pointer', background: 'transparent', color: 'var(--q-text)', fontSize: 13, fontFamily: 'var(--font-interface)' } }, 'Rename') : null,
-        React.createElement('button', { key: 'sl', onClick: () => { setMultiSel(true); setSelViews(new Set([ctxMenu.view.id])); setCtxMenu(null) }, onMouseEnter: (e: any) => { e.currentTarget.style.backgroundColor = 'var(--q-hover)' }, onMouseLeave: (e: any) => { e.currentTarget.style.backgroundColor = 'transparent' }, style: { textAlign: 'left', padding: '7px 12px', border: 'none', cursor: 'pointer', background: 'transparent', color: 'var(--q-text)', fontSize: 13, fontFamily: 'var(--font-interface)' } }, 'Select'),
-        ctxMenu.view.id !== BASE_ID ? React.createElement('button', { key: 'dl', onClick: () => { setDeleteViews([ctxMenu.view]); setCtxMenu(null) }, onMouseEnter: (e: any) => { e.currentTarget.style.backgroundColor = 'var(--q-hover)' }, onMouseLeave: (e: any) => { e.currentTarget.style.backgroundColor = 'transparent' }, style: { textAlign: 'left', padding: '7px 12px', border: 'none', cursor: 'pointer', background: 'transparent', color: 'var(--q-accent-danger)', fontSize: 13, fontFamily: 'var(--font-interface)' } }, 'Delete') : null,
-      ]),
-    ]) : null,
-    deleteViews ? React.createElement('div', { key: 'dv', style: { position: 'fixed', inset: 0, zIndex: 300, backgroundColor: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: () => setDeleteViews(null) }, React.createElement('div', { style: { backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '20px 24px', minWidth: 320, maxWidth: 400 }, onClick: (e: any) => e.stopPropagation() }, [
-      React.createElement('div', { key: 't', style: { color: 'var(--q-text)', fontSize: 16, fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: 8 } }, deleteViews.length === 1 ? 'Delete view?' : 'Delete ' + deleteViews.length + ' views?'),
-      React.createElement('div', { key: 'd', style: { color: 'var(--q-text-secondary)', fontSize: 14, fontFamily: 'var(--font-interface)', marginBottom: 16 } }, deleteViews.length === 1 ? 'The view "' + deleteViews[0].name + '" will be deleted.' : deleteViews.length + ' views will be deleted.'),
-      React.createElement('div', { key: 'b', style: { display: 'flex', justifyContent: 'flex-end', gap: 8 } }, [
-        React.createElement('button', { key: 'c', onClick: () => setDeleteViews(null), onMouseEnter: (e: any) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }, onMouseLeave: (e: any) => { e.currentTarget.style.backgroundColor = 'transparent' }, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: 13, fontFamily: 'var(--font-interface)', cursor: 'pointer' } }, 'Cancel'),
-        React.createElement('button', { key: 'ok', onClick: () => doDelete(deleteViews), onMouseEnter: (e: any) => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }, onMouseLeave: (e: any) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-interface)', cursor: 'pointer' } }, 'Delete'),
-      ]),
-    ])) : null,
+    ctxMenu ? React.createElement(ViewContextMenu, { key: 'cm', x: ctxMenu.x, y: ctxMenu.y, item: ctxMenu.view, multiSelect: multiSel, selectedCount: selViews.size, onClose: () => setCtxMenu(null), onRename: () => { setRenamingView(ctxMenu.view.id); setRenameVal(ctxMenu.view.name); setCtxMenu(null) }, onSelect: () => { setMultiSel(true); setSelViews(new Set([ctxMenu.view.id])); setCtxMenu(null) }, onDelete: () => { setDeleteViews([ctxMenu.view]); setCtxMenu(null) }, onDeselectAll: () => { setMultiSel(false); setSelViews(new Set()); setCtxMenu(null) }, onDeleteSelected: () => { setDeleteViews(views.filter(v => selViews.has(v.id))); setCtxMenu(null) } }) : null,
+    deleteViews ? React.createElement(ConfirmModal, { key: 'dv', title: deleteViews.length === 1 ? 'Delete view?' : 'Delete ' + deleteViews.length + ' views?', subtitle: deleteViews.length === 1 ? deleteViews[0].name + ' will be permanently deleted.' : deleteViews.length + ' views will be permanently deleted.', onCancel: () => setDeleteViews(null), onConfirm: () => doDelete(deleteViews) }) : null,
   ])
 }
