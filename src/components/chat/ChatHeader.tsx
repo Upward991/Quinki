@@ -2,7 +2,7 @@
 // ChatHeader — all menus positioned relative to their own button
 // ============================================================
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { Session, Agent } from '../../types'
 import { Home, PanelLeft, MessageSquare, Download, Search, RefreshCw, Bot, Calendar, Clock, ChevronDown, ChevronUp, Cpu, Brain, Network, X } from '../icons'
 import { AgentConfigModal } from './AgentConfigModal'
