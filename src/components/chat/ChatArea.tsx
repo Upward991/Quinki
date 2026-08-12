@@ -111,7 +111,7 @@ export function ChatArea(props: ChatAreaProps) {
   ) : null
   const taskPanelEl = (
     <div style={{ position: 'absolute', inset: '2px 2px 0 2px', zIndex: 20, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', display: 'flex', flexDirection: 'column', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom', overflow: 'hidden' }}>
-      <div ref={taskScrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', scrollbarGutter: 'stable' }}>
+      <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', scrollbarGutter: 'stable' }}>
         {taskMsgs.length === 0 ? (
           <div style={{ color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', padding: '24px 8px', textAlign: 'center' }}>No tasks yet.</div>
         ) : taskMsgs.map((msg, mIdx) => (
