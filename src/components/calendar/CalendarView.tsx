@@ -251,7 +251,16 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     return React.createElement('div', { key: 'acts', style: { display: 'flex', gap: 4 } }, b)
   }
   const cellVal = (i: Item, key: string): React.ReactNode => {
-    if (key === 'when') return i.when ? fmtDT(i.when) : '—'
+    if (key === 'when') {
+      if (!i.when) return '—'
+      const d = new Date(i.when)
+      const dateStr = d.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })
+      const timeStr = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+      return React.createElement('div', { key: 'dt', style: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 } }, [
+        React.createElement('span', { key: 'dd', style: { maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12.5, fontFamily: 'var(--font-interface)' } }, dateStr),
+        React.createElement('span', { key: 'tt', style: { maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12.5, fontFamily: 'var(--font-interface)', opacity: 0.8 } }, timeStr),
+      ])
+    }
     if (key === 'title') return i.title
     if (key === 'agent') return i.agent
     if (key === 'chat') return i.chat
