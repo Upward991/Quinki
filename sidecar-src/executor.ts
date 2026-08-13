@@ -11,7 +11,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { homedir } from "node:os";
-import { spawn } from "node:child_process";
+import { spawn, execSync } from "node:child_process";
 
 const AGENT_DIR = process.env.QUINKI_AGENT_DIR || path.join(homedir(), ".quinki");
 const EXEC_BASE = path.join(AGENT_DIR, "executions");
@@ -43,6 +43,7 @@ export interface ExecutionState {
   text: string;
   status: "queued" | "running" | "completed" | "failed" | "cancelled" | "interrupted";
   failAfterMs?: number;
+  verifyCmds?: string[];
   createdAt: number;
   startedAt: number | null;
   endedAt: number | null;
@@ -176,6 +177,18 @@ export class ExecutionEngine {
     return out;
   }
 
+  async #runVerify(state: ExecutionState, cmds: string[]): Promise<{ ok: boolean; error?: string }> {
+    const cwd = state.workingDir || path.join(AGENT_DIR, "workdir");
+    for (const cmd of cmds) {
+      try {
+        execSync(cmd, { cwd, timeout: 30000, shell: "/bin/bash", stdio: "pipe" });
+      } catch (e: any) {
+        return { ok: false, error: `Verify failed: ${cmd} → ${e?.message || String(e)}` };
+      }
+    }
+    return { ok: true };
+  }
+
   #handoffPath(chatKey: string): string | null {
     if (!chatKey) return null;
     return path.join(AGENT_DIR, "handoffs", chatKey.replace(/[^a-zA-Z0-9_-]/g, "_"), "handoff.md");
@@ -250,9 +263,18 @@ export class ExecutionEngine {
       ? p.agentIds.map((s: string) => s.trim()).filter(Boolean)
       : String(p.agentIds || "orchestrator").split(",").map((s: string) => s.trim()).filter(Boolean);
 
+    const verifyCmds: string[] = [];
+    const vi = String(p.text || "").indexOf("Verify:");
+    if (vi >= 0) {
+      for (const line of String(p.text || "").slice(vi + 7).split("\n")) {
+        const t = line.trim();
+        if (t) verifyCmds.push(t);
+      }
+    }
     const state: ExecutionState = {
       id,
       failAfterMs: p.failAfterMs ? Number(p.failAfterMs) : undefined,
+      verifyCmds: verifyCmds.length > 0 ? verifyCmds : undefined,
       label: p.label || "Task",
       owner: p.owner || "main",
       agentIds,
@@ -395,7 +417,22 @@ export class ExecutionEngine {
           state.endedAt = Date.now();
           state.progressNote = "stopped by user";
           this.#appendEvent(id, "execution_interrupted", { by: "user" });
-        } else if (result.ok) {
+        } else if (result.ok && state.verifyCmds && state.verifyCmds.length > 0) {
+          // === A2.9: verifica oggettiva — se i comandi Verify falliscono, la task è FALLITA ===
+          const vres = await this.#runVerify(state, state.verifyCmds);
+          if (!vres.ok) {
+            state.status = "failed";
+            state.endedAt = Date.now();
+            state.error = vres.error || "Verification failed";
+            this.#appendEvent(id, "execution_failed", { error: state.error });
+            this.#resolveActualModelThinking(state);
+            this.#appendHandoff(state);
+            this.#writeState(id, state);
+            this.#appendEvent(id, "execution_end", { status: state.status });
+            this.#notify({ executionId: id, status: state.status, label: state.label, error: state.error });
+            if (keepAcquired) this.#releaseKeepAwake();
+            return;
+          }
           state.status = "completed";
           state.endedAt = Date.now();
           state.progressNote = result.stopReason || "completed";

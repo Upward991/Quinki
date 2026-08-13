@@ -211,6 +211,17 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const [deleteViews, setDeleteViews] = useState<ViewCfg[] | null>(null)
   const [deleteTask, setDeleteTask] = useState<{ items: { id: string; kind: 'sched' | 'exec'; title: string }[]; section?: string } | null>(null)
   const [selTasks, setSelTasks] = useState<Set<string>>(new Set())
+  const [createTaskOpen, setCreateTaskOpen] = useState(false)
+  const [ctTitle, setCtTitle] = useState('')
+  const [ctText, setCtText] = useState('')
+  const [ctAgent, setCtAgent] = useState('orchestrator')
+  const [ctDate, setCtDate] = useState('')
+  const [ctTime, setCtTime] = useState('')
+  const [ctRecur, setCtRecur] = useState('once')
+  const [ctModel, setCtModel] = useState<string | null>(null)
+  const [ctThinking, setCtThinking] = useState<string | null>(null)
+  const [ctChat, setCtChat] = useState('')
+  const [sessions, setSessions] = useState<{ key: string; label: string }[]>([])
   const [renamingView, setRenamingView] = useState<string | null>(null)
   const [renameVal, setRenameVal] = useState('')
   const [allHover, setAllHover] = useState(false)
@@ -310,7 +321,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const persist = (v: ViewCfg[]) => { setViews(v); saveUi(fullWidth, v) }
   const patchF = (patch: Partial<ViewCfg['f']>) => { const v = { ...view, f: { ...view.f, ...patch } }; persist(views.map(x => x.id === v.id ? v : x)) }
 
-  const refresh = useCallback(async () => { try { const a = await call('listSchedules'); const b = await call('listExecutions'); setSchedules(a?.schedules || []); setExecutions(b?.executions || []); const s = await call('listSessions'); const m: Record<string, string> = {}; for (const x of (s?.sessions || [])) { const k = x.sessionKey || x.key; if (k) m[k] = x.label || x.title || k } setSessionsMap(m) } catch {} }, [call])
+  const refresh = useCallback(async () => { try { const a = await call('listSchedules'); const b = await call('listExecutions'); setSchedules(a?.schedules || []); setExecutions(b?.executions || []); const s = await call('listSessions'); const m: Record<string, string> = {}; const sl: { key: string; label: string }[] = []; for (const x of (s?.sessions || [])) { const k = x.sessionKey || x.key; if (k) { const lb = x.label || x.title || k; m[k] = lb; sl.push({ key: k, label: lb }) } } setSessionsMap(m); setSessions(sl) } catch {} }, [call])
   useEffect(() => { refresh(); const iv = setInterval(refresh, 30000); return () => clearInterval(iv) }, [refresh])
   useEffect(() => { const u = subscribe?.('execution_update', refresh); return () => { if (u) try { u() } catch {} } }, [refresh, subscribe])
   useEffect(() => { const u = subscribe?.('schedule_update', refresh); return () => { if (u) try { u() } catch {} } }, [refresh, subscribe])
@@ -436,6 +447,34 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const renameView = (id: string, name: string) => { const nm = name.trim(); if (!nm) { setRenamingView(null); setRenameVal(''); return } persist(views.map(x => x.id === id ? { ...x, name: nm } : x)); setRenamingView(null); setRenameVal('') }
   const doDelete = (targets: ViewCfg[]) => { const ids = new Set(targets.map(t => t.id)); const rem = views.filter(x => !ids.has(x.id)); persist(rem); if (ids.has(activeId)) setActiveId(rem[0]?.id || BASE_ID); setDeleteViews(null); setMultiSel(false); setSelViews(new Set()) }
   const doDeleteTask = (t: { items: { id: string; kind: 'sched' | 'exec' }[] }) => { setDeleteTask(null); act(async () => { for (const it of t.items) { if (it.kind === 'sched') await call('deleteSchedule', { id: it.id }); else await call('deleteExecution', { executionId: it.id }) } setSelTasks(new Set()) }) }
+  const doCreateTask = async () => {
+    const title = ctTitle.trim()
+    if (!title) return
+    setCreateTaskOpen(false)
+    try {
+      let chatKey = ctChat
+      let chatLabel = ''
+      if (!chatKey) {
+        const r: any = await call('createSession', { label: 'Task: ' + title, agentId: ctAgent, model: ctModel || undefined, thinkingLevel: ctThinking || undefined, mode: 'plan' })
+        chatKey = r?.key || ''
+        chatLabel = r?.label || 'Task: ' + title
+      } else {
+        chatLabel = sessions.find(s => s.key === chatKey)?.label || chatKey
+      }
+      const sourceSession = chatKey ? { key: chatKey, label: chatLabel } : undefined
+      const text = ctText.trim() || title
+      const dd = parseFlexDate(ctDate)
+      const tt = parseFlexTime(ctTime)
+      if (dd && tt) {
+        const nd = dd.getFullYear() + '-' + String(dd.getMonth() + 1).padStart(2, '0') + '-' + String(dd.getDate()).padStart(2, '0')
+        const nt = String(tt.h).padStart(2, '0') + ':' + String(tt.m).padStart(2, '0') + ':' + String(tt.sec).padStart(2, '0')
+        await call('createSchedule', { title, agentIds: [ctAgent], when: ctRecur === 'once' ? { type: 'once', date: nd + 'T' + nt } : { type: ctRecur, at: nt }, model: ctModel || undefined, thinkingLevel: ctThinking || undefined, sourceSession })
+      } else {
+        await call('runTask', { label: title, agentIds: [ctAgent], text, model: ctModel || undefined, thinkingLevel: ctThinking || undefined, sourceSession })
+      }
+    } catch {}
+    refresh()
+  }
   const hasActiveFilters = f.agents.length > 0 || f.chats.length > 0
   const filterChips = (filterBarOpen || hasActiveFilters) ? [
     React.createElement(FilterChip, { key: 'fA', label: 'Agent', values: f.agents, options: agents, onChange: (v: string[]) => patchF({ agents: v }) }),
@@ -450,6 +489,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     ...filterChips,
     React.createElement(RowBtn, { key: 'filters', title: 'Filters', onClick: () => setFilterBarOpen(!filterBarOpen), color: hasActiveFilters ? 'var(--q-tab-accent)' : undefined }, React.createElement(Filter, { size: 18 })),
     React.createElement(RowBtn, { key: 'fwbtn', title: fullWidth ? 'Default width' : 'Full width', onClick: () => { const nv = !fullWidth; setFullWidth(nv); saveUi(nv, views) } }, React.createElement(fullWidth ? Minimize : Maximize, { size: 18 })),
+    React.createElement(RowBtn, { key: 'addtask', title: 'New task', onClick: () => { setCtTitle(''); setCtText(''); setCtAgent(agents[0]?.id || 'orchestrator'); setCtDate(''); setCtTime(''); setCtRecur('once'); setCtModel(null); setCtThinking(null); setCtChat(''); setCreateTaskOpen(true) }, color: 'var(--q-tab-accent)' }, React.createElement(Plus, { size: 18 })),
     React.createElement('div', { key: 'sep', style: { height: 1, backgroundColor: 'var(--q-border)', marginTop: 6 } }),
   ]),
 ])
@@ -492,8 +532,8 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     sideMode === 'hidden' ? React.createElement('div', { key: 'strip', style: { position: 'absolute', top: 8, bottom: 8, left: 0, width: 12, zIndex: 10, cursor: 'pointer' }, onMouseEnter: () => setSideMode('peek') }) : null,
     sideMode === 'peek' && !draggingSide ? React.createElement('div', { key: 'peekov', style: { position: 'absolute', top: 0, bottom: 0, left: sideW + 24, right: 0, zIndex: 30 }, onMouseEnter: () => setSideMode('hidden') }) : null,
     ctxMenu ? React.createElement(ViewContextMenu, { key: 'cm', x: ctxMenu.x, y: ctxMenu.y, item: ctxMenu.view, multiSelect: multiSel, selectedCount: selViews.size, onClose: () => setCtxMenu(null), onRename: () => { setRenamingView(ctxMenu.view.id); setRenameVal(ctxMenu.view.name); setCtxMenu(null) }, onSelect: () => { setMultiSel(true); setSelViews(new Set([ctxMenu.view.id])); setCtxMenu(null) }, onDelete: () => { setDeleteViews([ctxMenu.view]); setCtxMenu(null) }, onDeselectAll: () => { setMultiSel(false); setSelViews(new Set()); setCtxMenu(null) }, onDeleteSelected: () => { setDeleteViews(views.filter(v => selViews.has(v.id))); setCtxMenu(null) } }) : null,
-    mtModelPicker ? React.createElement(ModelPickerModal, { key: 'mp', currentModel: mtModelPicker.model || '', models, onClose: () => setMtModelPicker(null), onConfirm: (model: string | null) => { const id = mtModelPicker.id; setMtModelPicker(null); if (!id) return; call('updateSchedule', { id, model: model || null }).then(() => refresh()).catch(() => {}) } }) : null,
-    mtThinkingPicker ? React.createElement(ThinkingPickerModal, { key: 'tp', currentThinking: mtThinkingPicker.thinking || '', chatThinkingLevel: defaultThinking, onClose: () => setMtThinkingPicker(null), onConfirm: (level: string | null) => { const id = mtThinkingPicker.id; setMtThinkingPicker(null); if (!id) return; call('updateSchedule', { id, thinkingLevel: level || null }).then(() => refresh()).catch(() => {}) } }) : null,
+    mtModelPicker ? React.createElement(ModelPickerModal, { key: 'mp', currentModel: mtModelPicker.model || '', models, onClose: () => setMtModelPicker(null), onConfirm: (model: string | null) => { const id = mtModelPicker.id; setMtModelPicker(null); if (!id) return; if (id === '__new__') { setCtModel(model); return } call('updateSchedule', { id, model: model || null }).then(() => refresh()).catch(() => {}) } }) : null,
+    mtThinkingPicker ? React.createElement(ThinkingPickerModal, { key: 'tp', currentThinking: mtThinkingPicker.thinking || '', chatThinkingLevel: defaultThinking, onClose: () => setMtThinkingPicker(null), onConfirm: (level: string | null) => { const id = mtThinkingPicker.id; setMtThinkingPicker(null); if (!id) return; if (id === '__new__') { setCtThinking(level); return } call('updateSchedule', { id, thinkingLevel: level || null }).then(() => refresh()).catch(() => {}) } }) : null,
     editWhen ? React.createElement(React.Fragment, { key: 'wted' }, [
       React.createElement('div', { key: 'o', style: { position: 'fixed', inset: 0, zIndex: 250 }, onClick: () => setEditWhen(null) }),
       React.createElement('div', { key: 'p', style: { position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', zIndex: 251, width: 340, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: 16, display: 'flex', flexDirection: 'column', gap: 10 } }, [
@@ -509,6 +549,33 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       ]),
     ]) : null,
     deleteViews ? React.createElement(ConfirmModal, { key: 'dv', title: deleteViews.length === 1 ? 'Delete view?' : 'Delete ' + deleteViews.length + ' views?', subtitle: deleteViews.length === 1 ? deleteViews[0].name + ' will be permanently deleted.' : deleteViews.length + ' views will be permanently deleted.', onCancel: () => setDeleteViews(null), onConfirm: () => doDelete(deleteViews) }) : null,
-    deleteTask ? React.createElement(ConfirmModal, { key: 'dt', title: deleteTask.items.length === 1 ? 'Delete task?' : 'Delete ' + deleteTask.items.length + ' tasks?', subtitle: deleteTask.section ? 'All ' + deleteTask.items.length + (deleteTask.items.length === 1 ? ' task in "' + deleteTask.section + '" will be permanently deleted.' : ' tasks in "' + deleteTask.section + '" will be permanently deleted.') : deleteTask.items.length + (deleteTask.items.length === 1 ? ' task will be permanently deleted.' : ' tasks will be permanently deleted.'), onCancel: () => setDeleteTask(null), onConfirm: () => doDeleteTask(deleteTask) }) : null,
+    deleteTask ? React.createElement(ConfirmModal, { key: 'dt', title: deleteTask.items.length === 1 ? 'Delete task?' : 'Delete ' + deleteTask.items.length + ' tasks?', subtitle: deleteTask.section ? 'All tasks in "' + deleteTask.section + '" will be permanently deleted.' : deleteTask.items.length + (deleteTask.items.length === 1 ? ' task will be permanently deleted.' : ' tasks will be permanently deleted.'), onCancel: () => setDeleteTask(null), onConfirm: () => doDeleteTask(deleteTask) }) : null,
+    createTaskOpen ? React.createElement('div', { key: 'ct', style: { position: 'fixed', inset: 0, zIndex: 300, backgroundColor: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: () => setCreateTaskOpen(false) }, React.createElement('div', { onClick: (e: any) => e.stopPropagation(), style: { backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: 20, width: 440, maxHeight: '85vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10 } }, [
+      React.createElement('div', { key: 't', style: { color: 'var(--q-text)', fontSize: 16, fontWeight: 600, fontFamily: 'var(--font-interface)' } }, 'New task'),
+      React.createElement('div', { key: 'l1', style: { color: 'var(--q-text-secondary)', fontSize: 12.5, fontFamily: 'var(--font-interface)' } }, 'Title'),
+      React.createElement('input', { key: 'i1', value: ctTitle, onChange: (e: any) => setCtTitle(e.target.value), placeholder: 'e.g. Create report', style: { padding: '8px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)', width: '100%', boxSizing: 'border-box' } }),
+      React.createElement('div', { key: 'l2', style: { color: 'var(--q-text-secondary)', fontSize: 12.5, fontFamily: 'var(--font-interface)' } }, 'Task text (optional — add \"Verify:\" with shell commands to check the result)'),
+      React.createElement('textarea', { key: 'i2', value: ctText, onChange: (e: any) => setCtText(e.target.value), placeholder: 'Create the file /tmp/test.txt with content hello.\nVerify: test -f /tmp/test.txt && grep -q hello /tmp/test.txt', rows: 3, style: { padding: '8px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 13, fontFamily: 'var(--font-interface)', width: '100%', boxSizing: 'border-box', resize: 'vertical' } }),
+      React.createElement('div', { key: 'l3', style: { color: 'var(--q-text-secondary)', fontSize: 12.5, fontFamily: 'var(--font-interface)' } }, 'Agent'),
+      React.createElement(MiniSelect, { key: 'i3', value: ctAgent, options: (agents || []).map((a: any) => ({ value: a.id, label: a.name || a.id })), onChange: (v: string) => setCtAgent(v) }),
+      React.createElement('div', { key: 'l4', style: { color: 'var(--q-text-secondary)', fontSize: 12.5, fontFamily: 'var(--font-interface)' } }, 'When (leave empty to run now)'),
+      React.createElement('div', { key: 'i4', style: { display: 'flex', gap: 8 } }, [
+        React.createElement('input', { key: 'd', value: ctDate, onChange: (e: any) => setCtDate(e.target.value), placeholder: '12 August 2026', style: { flex: 1, padding: '8px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)', boxSizing: 'border-box' } }),
+        React.createElement('input', { key: 'tm', value: ctTime, onChange: (e: any) => setCtTime(e.target.value), placeholder: '14:30:00', style: { width: 110, padding: '8px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)', boxSizing: 'border-box' } }),
+      ]),
+      React.createElement('div', { key: 'l5', style: { color: 'var(--q-text-secondary)', fontSize: 12.5, fontFamily: 'var(--font-interface)' } }, 'Recurrence'),
+      React.createElement(MiniSelect, { key: 'i5', value: ctRecur, options: [{ value: 'once', label: 'Once' }, { value: 'daily', label: 'Daily' }, { value: 'weekly', label: 'Weekly' }, { value: 'monthly', label: 'Monthly' }], onChange: (v: string) => setCtRecur(v) }),
+      React.createElement('div', { key: 'l6', style: { color: 'var(--q-text-secondary)', fontSize: 12.5, fontFamily: 'var(--font-interface)' } }, 'Model · Thinking'),
+      React.createElement('div', { key: 'i6', style: { display: 'flex', gap: 8 } }, [
+        React.createElement('button', { key: 'm', onClick: () => setMtModelPicker({ id: '__new__', model: ctModel }), style: { flex: 1, padding: '7px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text-secondary)', fontSize: 13, fontFamily: 'var(--font-interface)', cursor: 'pointer', textAlign: 'left' } }, ctModel || 'Chat default'),
+        React.createElement('button', { key: 'th', onClick: () => setMtThinkingPicker({ id: '__new__', thinking: ctThinking }), style: { flex: 1, padding: '7px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text-secondary)', fontSize: 13, fontFamily: 'var(--font-interface)', cursor: 'pointer', textAlign: 'left' } }, ctThinking === null ? 'Chat default' : ctThinking === 'off' ? 'Off' : 'On (' + ctThinking + ')'),
+      ]),
+      React.createElement('div', { key: 'l7', style: { color: 'var(--q-text-secondary)', fontSize: 12.5, fontFamily: 'var(--font-interface)' } }, 'Chat (optional — empty creates a new session)'),
+      React.createElement(MiniSelect, { key: 'i7', value: ctChat, options: [{ value: '', label: 'Auto-create session' }, ...sessions.map(s => ({ value: s.key, label: s.label }))], onChange: (v: string) => setCtChat(v) }),
+      React.createElement('div', { key: 'b', style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 } }, [
+        React.createElement('button', { key: 'c', onClick: () => setCreateTaskOpen(false), onMouseEnter: (e: any) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }, onMouseLeave: (e: any) => { e.currentTarget.style.backgroundColor = 'transparent' }, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: 13, fontFamily: 'var(--font-interface)', fontWeight: 400, cursor: 'pointer' } }, 'Cancel'),
+        React.createElement('button', { key: 's', onClick: doCreateTask, onMouseEnter: (e: any) => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }, onMouseLeave: (e: any) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-interface)', cursor: 'pointer' } }, 'Create'),
+      ]),
+    ])) : null,
   ])
 }
