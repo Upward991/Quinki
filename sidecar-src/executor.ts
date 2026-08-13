@@ -281,13 +281,13 @@ export class ExecutionEngine {
     // Esecuzione asincrona (l'RPC ritorna subito con l'id)
     (async () => {
       const sk = `__exec_${id}`;
+      let keepAcquired = false;
       try {
         state.status = "running";
         state.startedAt = Date.now();
         this.#writeState(id, state);
         this.#appendEvent(id, "execution_started", { sessionKey: sk });
         this.#notify({ executionId: id, status: "running", label: state.label });
-        let keepAcquired = false;
         if (state.keepAwake) { this.#acquireKeepAwake(); keepAcquired = true; }
 
         // Heartbeat ogni 5s mentre è running (base per recovery in A2.3)
