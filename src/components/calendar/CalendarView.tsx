@@ -64,7 +64,7 @@ function FilterChip({ label, values, options, onChange }: { label: string; value
     const r = wrapRef.current?.getBoundingClientRect()
     const p: React.CSSProperties = {}
     if (r) {
-      const menuW = 230, menuH = 240
+      const menuW = 300, menuH = 240
       if (r.left + menuW > window.innerWidth - 8) p.right = 0; else p.left = 0
       if (r.bottom + menuH > window.innerHeight - 8) p.bottom = 'calc(100% + 8px)'; else p.top = 'calc(100% + 8px)'
     } else { p.left = 0; p.top = 'calc(100% + 8px)' }
@@ -89,7 +89,7 @@ function FilterChip({ label, values, options, onChange }: { label: string; value
       React.createElement('div', { key: 'd', style: { position: 'absolute', zIndex: 151, minWidth: 230, maxHeight: 320, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: 8, display: 'flex', flexDirection: 'column', gap: 3, ...pos } }, [
         React.createElement('div', { key: 'top', style: { display: 'flex', alignItems: 'center', gap: 5, marginBottom: 5 } }, [
           React.createElement('input', { key: 'i', autoFocus: true, value: q, onChange: (e: any) => setQ(e.target.value), placeholder: 'Search ' + label.toLowerCase() + '...', style: { flex: 1, minWidth: 0, padding: '7px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)', boxSizing: 'border-box' } }),
-          React.createElement('button', { key: 'cl', title: 'Clear ' + label, onClick: () => { onChange([]); setOpen(false) }, style: { width: 30, height: 30, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-accent-danger)', cursor: 'pointer', padding: 0 } }, React.createElement(X, { size: 14 })),
+          React.createElement('button', { key: 'cl', title: 'Clear ' + label, onClick: () => { onChange([]); setOpen(false) }, style: { width: 34, height: 34, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-accent-danger)', cursor: 'pointer', padding: 0 } }, React.createElement(X, { size: 15 })),
         ]),
         React.createElement('div', { key: 'list', style: { maxHeight: 240, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 3 } }, [
           filtered.length === 0 ? React.createElement('div', { key: 'e', style: { color: 'var(--q-text-tertiary)', fontSize: 14, fontFamily: 'var(--font-interface)', padding: '8px 10px' } }, 'No options') :

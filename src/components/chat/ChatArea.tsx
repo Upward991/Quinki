@@ -101,6 +101,8 @@ export function ChatArea(props: ChatAreaProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const taskScrollRef = useRef<HTMLDivElement>(null)
   const [showScrollBtn, setShowScrollBtn] = useState(false)
+  const [showTaskScrollBtn, setShowTaskScrollBtn] = useState(false)
+  const taskPinnedRef = useRef(true)
   // Pinned-to-bottom: true finché l'utente è in fondo. Se l'utente sale durante lo
   // streaming, il pin si scioglie e lo scroll automatico si ferma; rientrando in fondo
   // il pin si rinsalda e lo scroll automatico riprende.
@@ -147,11 +149,11 @@ export function ChatArea(props: ChatAreaProps) {
     const opening = taskPanelOpen && !taskPrevOpen.current
     taskPrevOpen.current = taskPanelOpen
     if (!taskPanelOpen) return
-    if (opening || pinnedRef.current) {
+    if (opening || taskPinnedRef.current) {
       requestAnimationFrame(() => { if (taskScrollRef.current) taskScrollRef.current.scrollTop = taskScrollRef.current.scrollHeight })
       setTimeout(() => { if (taskScrollRef.current) taskScrollRef.current.scrollTop = taskScrollRef.current.scrollHeight }, 120)
       setTimeout(() => { if (taskScrollRef.current) taskScrollRef.current.scrollTop = taskScrollRef.current.scrollHeight }, 400)
-      if (opening) pinnedRef.current = true
+      if (opening) taskPinnedRef.current = true
     }
   }, [taskPanelOpen, taskRuns])
   const taskRunning = taskExecs.filter((e: any) => e.status === 'running' || e.status === 'queued').length
@@ -480,7 +482,8 @@ export function ChatArea(props: ChatAreaProps) {
                 ))}
               </div>
               {/* Task — SEMPRE montato (display none quando il pannello è chiuso) */}
-              <div ref={taskScrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '16px 16px', scrollbarGutter: 'stable', display: taskPanelOpen ? 'block' : 'none' }}>
+              <div ref={taskScrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '16px 16px', scrollbarGutter: 'stable', display: taskPanelOpen ? 'block' : 'none' }}
+                onScroll={e => { const el = e.currentTarget; setShowTaskScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100); taskPinnedRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 120 }}>
                 {taskRuns.length === 0 ? (
                   <div style={{ color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', padding: '24px 8px', textAlign: 'center' }}>No tasks yet.</div>
                 ) : taskRuns.map((run) => (
@@ -488,7 +491,7 @@ export function ChatArea(props: ChatAreaProps) {
                 ))}
               </div>
             </div>
-            {showScrollBtn && (
+            {(taskPanelOpen ? showTaskScrollBtn : showScrollBtn) && (
               <button onClick={() => { const el = taskPanelOpen ? taskScrollRef.current : scrollRef.current; if (el) el.scrollTop = el.scrollHeight }}
                 style={{ position: 'absolute', bottom: (hasTasks ? 44 : 8) + 'px', right: '0px', zIndex: 10, width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--q-tab-accent)', color: getContrastColor('--q-tab-accent'), border: 'none', boxShadow: 'var(--shadow-floating)', cursor: 'pointer' }}>
                 <ArrowDown size={20} />
