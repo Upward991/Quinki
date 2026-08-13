@@ -99,6 +99,7 @@ interface ChatAreaProps {
 
 export function ChatArea(props: ChatAreaProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
+  const taskScrollRef = useRef<HTMLDivElement>(null)
   const [showScrollBtn, setShowScrollBtn] = useState(false)
   // Pinned-to-bottom: true finché l'utente è in fondo. Se l'utente sale durante lo
   // streaming, il pin si scioglie e lo scroll automatico si ferma; rientrando in fondo
@@ -147,9 +148,9 @@ export function ChatArea(props: ChatAreaProps) {
     taskPrevOpen.current = taskPanelOpen
     if (!taskPanelOpen) return
     if (opening || pinnedRef.current) {
-      requestAnimationFrame(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight })
-      setTimeout(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 120)
-      setTimeout(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 400)
+      requestAnimationFrame(() => { if (taskScrollRef.current) taskScrollRef.current.scrollTop = taskScrollRef.current.scrollHeight })
+      setTimeout(() => { if (taskScrollRef.current) taskScrollRef.current.scrollTop = taskScrollRef.current.scrollHeight }, 120)
+      setTimeout(() => { if (taskScrollRef.current) taskScrollRef.current.scrollTop = taskScrollRef.current.scrollHeight }, 400)
       if (opening) pinnedRef.current = true
     }
   }, [taskPanelOpen, taskRuns])
@@ -468,22 +469,27 @@ export function ChatArea(props: ChatAreaProps) {
         <>
           {/* Messages — area unica: scroll (chat o task) + barra riassunto in fondo (la striscia, sempre stessa posizione) */}
           <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column', ...(taskPanelOpen ? { margin: '2px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom' } : {}) }}>
-            <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: taskPanelOpen ? '16px 16px' : '4px 16px 0 16px', scrollbarGutter: 'stable' }}
-              onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100); pinnedRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 120 }}>
-              {taskPanelOpen ? (
-                taskRuns.length === 0 ? (
+            <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
+              {/* Chat — SEMPRE montata (display none quando il pannello task è aperto) → lo scroll resta dov'era */}
+              <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '4px 16px 0 16px', scrollbarGutter: 'stable', display: taskPanelOpen ? 'none' : 'block' }}
+                onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100); pinnedRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 120 }}>
+                {props.messages.map((msg, mIdx) => (
+                  <div key={msg.id} data-msg-idx={mIdx} style={{ marginBottom: '12px' }}>
+                    <MessageBubble message={msg} onCopy={() => {}} searchQuery={searchQuery} msgIndex={mIdx} activeMatchMsgIdx={activeMatchInfo?.msgIdx ?? -1} activeMatchOccurrence={activeMatchInfo?.occurrence ?? -1} isDateMatch={!searchQuery.trim() && hasDateFilter && dateMatchIndices.includes(mIdx) && mIdx === dateMatchIndices[Math.min(dateMatchIdx, dateMatchIndices.length - 1)]} />
+                  </div>
+                ))}
+              </div>
+              {/* Task — SEMPRE montato (display none quando il pannello è chiuso) */}
+              <div ref={taskScrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '16px 16px', scrollbarGutter: 'stable', display: taskPanelOpen ? 'block' : 'none' }}>
+                {taskRuns.length === 0 ? (
                   <div style={{ color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', padding: '24px 8px', textAlign: 'center' }}>No tasks yet.</div>
                 ) : taskRuns.map((run) => (
                   <TaskResultToggle key={run.id} run={run} />
-                ))
-              ) : props.messages.map((msg, mIdx) => (
-                <div key={msg.id} data-msg-idx={mIdx} style={{ marginBottom: '12px' }}>
-                  <MessageBubble message={msg} onCopy={() => {}} searchQuery={searchQuery} msgIndex={mIdx} activeMatchMsgIdx={activeMatchInfo?.msgIdx ?? -1} activeMatchOccurrence={activeMatchInfo?.occurrence ?? -1} isDateMatch={!searchQuery.trim() && hasDateFilter && dateMatchIndices.includes(mIdx) && mIdx === dateMatchIndices[Math.min(dateMatchIdx, dateMatchIndices.length - 1)]} />
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
             {showScrollBtn && (
-              <button onClick={() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }}
+              <button onClick={() => { const el = taskPanelOpen ? taskScrollRef.current : scrollRef.current; if (el) el.scrollTop = el.scrollHeight }}
                 style={{ position: 'absolute', bottom: (hasTasks ? 44 : 8) + 'px', right: '0px', zIndex: 10, width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--q-tab-accent)', color: getContrastColor('--q-tab-accent'), border: 'none', boxShadow: 'var(--shadow-floating)', cursor: 'pointer' }}>
                 <ArrowDown size={20} />
               </button>
