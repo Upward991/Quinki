@@ -113,9 +113,9 @@ function WhenCell({ i, onEdit }: { i: Item; onEdit: (e: any) => void }) {
   ])
 }
 
-function RowBtn({ title, onClick, children, color }: { title: string; onClick: () => void; children: React.ReactNode; color?: string }) {
+function RowBtn({ title, onClick, children, color, hoverColor }: { title: string; onClick: () => void; children: React.ReactNode; color?: string; hoverColor?: string }) {
   const [h, setH] = useState(false)
-  return React.createElement('button', { title, onClick, onMouseEnter: () => setH(true), onMouseLeave: () => setH(false), style: { background: h ? 'var(--q-hover)' : 'none', border: 'none', cursor: 'pointer', color: color || 'var(--q-text-secondary)', padding: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-sm)', flexShrink: 0, transition: 'none' } }, children)
+  return React.createElement('button', { title, onClick, onMouseEnter: () => setH(true), onMouseLeave: () => setH(false), style: { background: 'none', border: 'none', cursor: 'pointer', color: h ? (hoverColor || color || 'var(--q-text)') : (color || 'var(--q-text-tertiary)'), padding: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-sm)', flexShrink: 0, transition: 'none' } }, children)
 }
 function ViewRow({ v, active, renaming, renameVal, onRenameChange, onRenameCommit, onRenameCancel, onSelect, onContextMenu, multiSel, selected, onToggleSel, isOverlay }: { v: ViewCfg; active: boolean; renaming: boolean; renameVal: string; onRenameChange: (s: string) => void; onRenameCommit: () => void; onRenameCancel: () => void; onSelect: () => void; onContextMenu: (e: React.MouseEvent, v: ViewCfg) => void; multiSel: boolean; selected: boolean; onToggleSel: () => void; isOverlay?: boolean }) {
   const [h, setH] = useState(false)
@@ -205,6 +205,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const [hoverRow, setHoverRow] = useState<string | null>(null)
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
   const [deleteViews, setDeleteViews] = useState<ViewCfg[] | null>(null)
+  const [deleteTask, setDeleteTask] = useState<{ id: string; kind: 'sched' | 'exec'; title: string } | null>(null)
   const [renamingView, setRenamingView] = useState<string | null>(null)
   const [renameVal, setRenameVal] = useState('')
   const [allHover, setAllHover] = useState(false)
@@ -335,8 +336,8 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
 
   const actions = (i: Item) => {
     const b: React.ReactNode[] = []
-    if (i.kind === 'sched') { if (i.status === 'scheduled') b.push(React.createElement(RowBtn, { key: 'run', title: 'Run now', onClick: () => act(async () => { await call('runScheduleNow', { id: i.id }) }) }, React.createElement(Play, { size: 16 }))); b.push(React.createElement(RowBtn, { key: 'del', title: 'Delete', color: 'var(--q-accent-danger)', onClick: () => act(async () => { await call('deleteSchedule', { id: i.id }) }) }, React.createElement(Trash2, { size: 16 }))) }
-    else { if (i.status === 'running' || i.status === 'queued') b.push(React.createElement(RowBtn, { key: 'stop', title: 'Stop', onClick: () => act(async () => { await call('stopExecution', { executionId: i.id }) }) }, React.createElement(X, { size: 16 }))); if (i.status === 'interrupted') b.push(React.createElement(RowBtn, { key: 'res', title: 'Resume', onClick: () => act(async () => { await call('resumeExecution', { executionId: i.id }) }) }, React.createElement(RotateCcw, { size: 16 }))); if (i.status === 'failed' || i.status === 'cancelled') b.push(React.createElement(RowBtn, { key: 'retry', title: 'Retry', onClick: () => act(async () => { if (i.ex?.scheduleId) await call('runScheduleNow', { id: i.ex.scheduleId }); else await call('runTask', { label: i.ex.label, agentIds: i.ex.agentIds, workingDir: i.ex.workingDir, mode: i.ex.mode, model: i.ex.model, text: i.ex.text }) }) }, React.createElement(RotateCcw, { size: 16 }))); b.push(React.createElement(RowBtn, { key: 'del', title: 'Delete', color: 'var(--q-accent-danger)', onClick: () => act(async () => { await call('deleteExecution', { executionId: i.id }) }) }, React.createElement(Trash2, { size: 16 }))) }
+    if (i.kind === 'sched') { if (i.status === 'scheduled') b.push(React.createElement(RowBtn, { key: 'run', title: 'Run now', onClick: () => act(async () => { await call('runScheduleNow', { id: i.id }) }) }, React.createElement(Play, { size: 16 }))); b.push(React.createElement(RowBtn, { key: 'del', title: 'Delete', hoverColor: 'var(--q-accent-danger)', onClick: () => setDeleteTask({ id: i.id, kind: 'sched', title: i.title }) }, React.createElement(Trash2, { size: 16 }))) }
+    else { if (i.status === 'running' || i.status === 'queued') b.push(React.createElement(RowBtn, { key: 'stop', title: 'Stop', hoverColor: 'var(--q-accent-warning)', onClick: () => act(async () => { await call('stopExecution', { executionId: i.id }) }) }, React.createElement(X, { size: 16 }))); if (i.status === 'interrupted') b.push(React.createElement(RowBtn, { key: 'res', title: 'Resume', hoverColor: 'var(--q-accent-info)', onClick: () => act(async () => { await call('resumeExecution', { executionId: i.id }) }) }, React.createElement(RotateCcw, { size: 16 }))); if (i.status === 'failed' || i.status === 'cancelled') b.push(React.createElement(RowBtn, { key: 'retry', title: 'Retry', hoverColor: 'var(--q-accent-info)', onClick: () => act(async () => { if (i.ex?.scheduleId) await call('runScheduleNow', { id: i.ex.scheduleId }); else await call('runTask', { label: i.ex.label, agentIds: i.ex.agentIds, workingDir: i.ex.workingDir, mode: i.ex.mode, model: i.ex.model, text: i.ex.text }) }) }, React.createElement(RotateCcw, { size: 16 }))); b.push(React.createElement(RowBtn, { key: 'del', title: 'Delete', hoverColor: 'var(--q-accent-danger)', onClick: () => setDeleteTask({ id: i.id, kind: 'exec', title: i.title }) }, React.createElement(Trash2, { size: 16 }))) }
     return React.createElement('div', { key: 'acts', style: { display: 'flex', gap: 4 } }, b)
   }
   const cellVal = (i: Item, key: string): React.ReactNode => {
@@ -394,7 +395,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       panRef.current = { startX: e.clientX, startScroll: el.scrollLeft, active: true, moved: false }
       setPanning(true)
     }
-    return React.createElement('div', { key: 'tbl', ref: tblWrapRef, onMouseDown: startPan, style: { width: '100%', overflowX: 'auto', cursor: panning ? 'grabbing' : 'grab', userSelect: panning ? 'none' : 'text' } }, React.createElement('table', { style: { borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'auto' } }, [React.createElement('thead', { key: 'th' }, thead), React.createElement('tbody', { key: 'tb' }, tbody.length ? tbody : React.createElement('tr', { key: 'e' }, React.createElement('td', { colSpan: renderCols.length, style: { padding: 16, textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', borderBottom: '1px solid var(--q-border-solid)' } }, 'No tasks in this group.')))]))
+    return React.createElement('div', { key: 'tbl', ref: tblWrapRef, onMouseDown: startPan, style: { width: '100%', overflowX: 'auto', cursor: panning ? 'grabbing' : 'grab', userSelect: panning ? 'none' : 'text' } }, React.createElement('table', { style: { borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'auto', margin: '0 auto' } }, [React.createElement('thead', { key: 'th' }, thead), React.createElement('tbody', { key: 'tb' }, tbody.length ? tbody : React.createElement('tr', { key: 'e' }, React.createElement('td', { colSpan: renderCols.length, style: { padding: 16, textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', borderBottom: '1px solid var(--q-border-solid)' } }, 'No tasks in this group.')))]))
   }
 
   // Vista TABLE = toggle per status (Notion group-by-status)
@@ -431,6 +432,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const addView = () => { const id = 'v' + Date.now(); const nv: ViewCfg = { id, name: 'View ' + (views.filter(v => v.id !== BASE_ID).length + 1), type: 'table', f: { q: '', status: 'all', agents: [], chats: [] } }; persist([views[0], nv, ...views.slice(1)]); setActiveId(id); setNewViewFlash(true); setTimeout(() => setNewViewFlash(false), 600) }
   const renameView = (id: string, name: string) => { const nm = name.trim(); if (!nm) { setRenamingView(null); setRenameVal(''); return } persist(views.map(x => x.id === id ? { ...x, name: nm } : x)); setRenamingView(null); setRenameVal('') }
   const doDelete = (targets: ViewCfg[]) => { const ids = new Set(targets.map(t => t.id)); const rem = views.filter(x => !ids.has(x.id)); persist(rem); if (ids.has(activeId)) setActiveId(rem[0]?.id || BASE_ID); setDeleteViews(null); setMultiSel(false); setSelViews(new Set()) }
+  const doDeleteTask = (t: { id: string; kind: 'sched' | 'exec' }) => { setDeleteTask(null); act(async () => { if (t.kind === 'sched') await call('deleteSchedule', { id: t.id }); else await call('deleteExecution', { executionId: t.id }) }) }
   const hasActiveFilters = f.agents.length > 0 || f.chats.length > 0
   const filterChips = (filterBarOpen || hasActiveFilters) ? [
     React.createElement(FilterChip, { key: 'fA', label: 'Agent', values: f.agents, options: agents, onChange: (v: string[]) => patchF({ agents: v }) }),
@@ -504,5 +506,6 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       ]),
     ]) : null,
     deleteViews ? React.createElement(ConfirmModal, { key: 'dv', title: deleteViews.length === 1 ? 'Delete view?' : 'Delete ' + deleteViews.length + ' views?', subtitle: deleteViews.length === 1 ? deleteViews[0].name + ' will be permanently deleted.' : deleteViews.length + ' views will be permanently deleted.', onCancel: () => setDeleteViews(null), onConfirm: () => doDelete(deleteViews) }) : null,
+    deleteTask ? React.createElement(ConfirmModal, { key: 'dt', title: 'Delete task?', subtitle: deleteTask.title + ' will be permanently deleted.', onCancel: () => setDeleteTask(null), onConfirm: () => doDeleteTask(deleteTask) }) : null,
   ])
 }
