@@ -200,8 +200,9 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const [sideW, setSideW] = useState(260)
   const [draggingSide, setDraggingSide] = useState(false)
   const tblWrapRef = useRef<HTMLDivElement | null>(null)
-  const panRef = useRef<{ startX: number; startScroll: number; active: boolean }>({ startX: 0, startScroll: 0, active: false })
+  const panRef = useRef<{ startX: number; startScroll: number; active: boolean; moved: boolean }>({ startX: 0, startScroll: 0, active: false, moved: false })
   const [panning, setPanning] = useState(false)
+  const suppressClickRef = useRef(false)
   const [newViewFlash, setNewViewFlash] = useState(false)
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; view: ViewCfg } | null>(null)
   const [mtModelPicker, setMtModelPicker] = useState<{ id: string; model: string | null } | null>(null)
@@ -238,9 +239,24 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       const el = tblWrapRef.current
       if (!el || !panRef.current.active) return
       const dx = e.clientX - panRef.current.startX
+      if (Math.abs(dx) > 3) panRef.current.moved = true
       el.scrollLeft = panRef.current.startScroll - dx
     }
-    const onUp = () => { panRef.current.active = false; setPanning(false) }
+    const onUp = () => {
+      panRef.current.active = false
+      setPanning(false)
+      if (panRef.current.moved) {
+        suppressClickRef.current = true
+        const kill = (e: MouseEvent) => {
+          e.stopPropagation()
+          e.preventDefault()
+          window.removeEventListener('click', kill, true)
+          suppressClickRef.current = false
+        }
+        window.addEventListener('click', kill, true)
+      }
+      panRef.current.moved = false
+    }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
     return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
@@ -360,10 +376,10 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     const startPan = (e: React.MouseEvent) => {
       if (e.button !== 0) return
       const t = e.target as HTMLElement
-      if (t.closest('button, input, a, th, [role="button"]')) return
+      if (t.closest('button, input, a, [role="button"]')) return
       const el = tblWrapRef.current
       if (!el) return
-      panRef.current = { startX: e.clientX, startScroll: el.scrollLeft, active: true }
+      panRef.current = { startX: e.clientX, startScroll: el.scrollLeft, active: true, moved: false }
       setPanning(true)
     }
     return React.createElement('div', { key: 'tbl', ref: tblWrapRef, onMouseDown: startPan, style: { width: '100%', overflowX: 'auto', cursor: panning ? 'grabbing' : 'grab', userSelect: panning ? 'none' : 'text' } }, React.createElement('table', { style: { borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'auto' } }, [React.createElement('thead', { key: 'th' }, thead), React.createElement('tbody', { key: 'tb' }, tbody.length ? tbody : React.createElement('tr', { key: 'e' }, React.createElement('td', { colSpan: renderCols.length, style: { padding: 16, textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', borderBottom: '1px solid var(--q-border-solid)' } }, 'No tasks in this group.')))]))
