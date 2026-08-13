@@ -86,14 +86,18 @@ function FilterChip({ label, values, options, onChange }: { label: string; value
     ]),
     open ? React.createElement(React.Fragment, { key: 'm' }, [
       React.createElement('div', { key: 'o', style: { position: 'fixed', inset: 0, zIndex: 150 }, onClick: () => setOpen(false) }),
-      React.createElement('div', { key: 'd', style: { position: 'absolute', zIndex: 151, minWidth: 230, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: 8, display: 'flex', flexDirection: 'column', gap: 3, ...pos } }, [
-        React.createElement('input', { key: 'i', autoFocus: true, value: q, onChange: (e: any) => setQ(e.target.value), placeholder: 'Search ' + label.toLowerCase() + '...', style: { padding: '7px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)', width: '100%', boxSizing: 'border-box', marginBottom: 5 } }),
-        filtered.length === 0 ? React.createElement('div', { key: 'e', style: { color: 'var(--q-text-tertiary)', fontSize: 14, fontFamily: 'var(--font-interface)', padding: '8px 10px' } }, 'No options') :
-          filtered.map(o => React.createElement('label', { key: o, style: { display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: 14, fontFamily: 'var(--font-interface)', color: 'var(--q-text)', backgroundColor: values.includes(o) ? 'var(--q-active)' : 'transparent' } }, [
-            React.createElement('input', { key: 'c', type: 'checkbox', checked: values.includes(o), onChange: () => toggle(o), style: { accentColor: 'var(--q-tab-accent)', cursor: 'pointer' } }),
-            React.createElement('span', { key: 'l' }, o),
-          ])),
-        values.length > 0 ? React.createElement('button', { key: 'cl', onClick: () => { onChange([]); setOpen(false) }, style: { alignSelf: 'flex-start', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-accent-danger)', fontSize: 14, fontFamily: 'var(--font-interface)', padding: '5px 8px', marginTop: 2 } }, 'Clear') : null,
+      React.createElement('div', { key: 'd', style: { position: 'absolute', zIndex: 151, minWidth: 230, maxHeight: 320, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: 8, display: 'flex', flexDirection: 'column', gap: 3, ...pos } }, [
+        React.createElement('div', { key: 'top', style: { display: 'flex', alignItems: 'center', gap: 5, marginBottom: 5 } }, [
+          React.createElement('input', { key: 'i', autoFocus: true, value: q, onChange: (e: any) => setQ(e.target.value), placeholder: 'Search ' + label.toLowerCase() + '...', style: { flex: 1, minWidth: 0, padding: '7px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)', boxSizing: 'border-box' } }),
+          React.createElement('button', { key: 'cl', title: 'Clear ' + label, onClick: () => { onChange([]); setOpen(false) }, style: { width: 30, height: 30, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-accent-danger)', cursor: 'pointer', padding: 0 } }, React.createElement(X, { size: 14 })),
+        ]),
+        React.createElement('div', { key: 'list', style: { maxHeight: 240, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 3 } }, [
+          filtered.length === 0 ? React.createElement('div', { key: 'e', style: { color: 'var(--q-text-tertiary)', fontSize: 14, fontFamily: 'var(--font-interface)', padding: '8px 10px' } }, 'No options') :
+            filtered.map(o => React.createElement('label', { key: o, style: { display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: 14, fontFamily: 'var(--font-interface)', color: 'var(--q-text)', backgroundColor: values.includes(o) ? 'var(--q-active)' : 'transparent' } }, [
+              React.createElement('input', { key: 'c', type: 'checkbox', checked: values.includes(o), onChange: () => toggle(o), style: { accentColor: 'var(--q-tab-accent)', cursor: 'pointer' } }),
+              React.createElement('span', { key: 'l' }, o),
+            ])),
+        ]),
       ]),
     ]) : null,
   ])
@@ -478,7 +482,6 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const filterChips = (filterBarOpen || hasActiveFilters) ? [
     React.createElement(FilterChip, { key: 'fA', label: 'Agent', values: f.agents, options: agents, onChange: (v: string[]) => patchF({ agents: v }) }),
     React.createElement(FilterChip, { key: 'fC', label: 'Chat', values: f.chats, options: chats, onChange: (v: string[]) => patchF({ chats: v }) }),
-    hasActiveFilters ? React.createElement('button', { key: 'clr', onClick: () => patchF({ agents: [], chats: [] }), style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-accent-danger)', fontSize: 13, fontFamily: 'var(--font-interface)', height: 30, display: 'inline-flex', alignItems: 'center', padding: '0 6px' } }, 'Clear') : null,
   ] : []
   const toolbar = React.createElement('div', { key: 'tb', style: { display: 'flex', flexDirection: 'column', padding: '4px 0 8px 0' } }, [
     React.createElement('div', { key: 'row', style: { display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'nowrap' } }, [
