@@ -200,6 +200,9 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const [sideMode, setSideMode] = useState<'open' | 'hidden' | 'peek'>('open')
   const [sideW, setSideW] = useState(260)
   const [draggingSide, setDraggingSide] = useState(false)
+  const tblWrapRef = useRef<HTMLDivElement | null>(null)
+  const panRef = useRef<{ startX: number; startScroll: number; active: boolean }>({ startX: 0, startScroll: 0, active: false })
+  const [panning, setPanning] = useState(false)
   const [newViewFlash, setNewViewFlash] = useState(false)
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; view: ViewCfg } | null>(null)
   const [mtModelPicker, setMtModelPicker] = useState<{ id: string; model: string | null } | null>(null)
@@ -230,6 +233,19 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     window.addEventListener('pointermove', onMove)
     return () => window.removeEventListener('pointermove', onMove)
   }, [])
+  useEffect(() => {
+    if (!panning) return
+    const onMove = (e: MouseEvent) => {
+      const el = tblWrapRef.current
+      if (!el || !panRef.current.active) return
+      const dx = e.clientX - panRef.current.startX
+      el.scrollLeft = panRef.current.startScroll - dx
+    }
+    const onUp = () => { panRef.current.active = false; setPanning(false) }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+  }, [panning])
   useEffect(() => {
     if (!draggingSide) return
     const onMove = (e: MouseEvent) => {
@@ -337,11 +353,21 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const cellStyle = (align = 'left', isLast = false, isLastCol = false): React.CSSProperties => ({ padding: '9px 12px', color: 'var(--q-text-secondary)', fontSize: 13.5, fontFamily: 'var(--font-interface)', textAlign: align as any, whiteSpace: 'normal', overflow: 'hidden', borderBottom: isLast ? 'none' : '1px solid var(--q-border-solid)', borderRight: isLastCol ? 'none' : '1px solid var(--q-border-solid)' })
 
   // Tabella per un gruppo (header colonne + righe) — la stessa struttura in ogni toggle
+  const COL_MIN: Record<string, number> = { title: 180, agent: 110, chat: 140, mt: 140, when: 130, actions: 90 }
   const tableFor = (rows: Item[]) => {
     const renderCols = [...cols.filter(x => x !== 'actions'), 'actions']
-    const thead = React.createElement('tr', { key: 'thr' }, renderCols.map((k, idx) => { const c = COLS.find(x => x.key === k); const isLastCol = idx === renderCols.length - 1; if (k === 'actions') return React.createElement('th', { key: k, style: { padding: '9px 12px', color: 'var(--q-text-secondary)', fontSize: 13.5, fontWeight: 700, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap', userSelect: 'none', borderBottom: '1px solid var(--q-border-solid)' } }, 'Actions'); return React.createElement('th', { key: k, draggable: true, onDragStart: (e: any) => { setDragCol(k); e.dataTransfer.effectAllowed = 'move' }, onDragOver: (e: any) => e.preventDefault(), onDrop: (e: any) => { e.preventDefault(); if (!dragCol || dragCol === k) { setDragCol(null); return } setCols(prev => { const arr = [...prev].filter(x => x !== 'actions'); const from = arr.indexOf(dragCol); const to = arr.indexOf(k); if (from < 0 || to < 0) { setDragCol(null); return } arr.splice(from, 1); arr.splice(to, 0, dragCol); setDragCol(null); return [...arr, 'actions'] }) }, onClick: () => toggleSort(k), style: { padding: '9px 12px', cursor: 'pointer', color: 'var(--q-text-secondary)', fontSize: 13.5, fontWeight: 700, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap', userSelect: 'none', backgroundColor: dragCol === k ? 'var(--q-hover)' : 'transparent', borderBottom: '1px solid var(--q-border-solid)', borderRight: isLastCol ? 'none' : '1px solid var(--q-border-solid)' } }, c ? c.label : '') }))
-    const tbody = rows.map((i, ri) => React.createElement('tr', { key: i.id, onMouseEnter: () => setHoverRow(i.id), onMouseLeave: () => setHoverRow(null), style: { backgroundColor: hoverRow === i.id ? 'var(--q-hover)' : 'transparent', transition: 'none' } }, renderCols.map((k, idx) => { const isLast = ri === rows.length - 1; const isLastCol = idx === renderCols.length - 1; if (k === 'title') { return React.createElement('td', { key: k, style: cellStyle('left', isLast, isLastCol) }, React.createElement('span', { key: 't', style: { color: 'var(--q-text)', wordBreak: 'break-word' } }, i.title)) } if (k === 'actions') { return React.createElement('td', { key: k, style: cellStyle('left', isLast, isLastCol) }, actions(i)) } return React.createElement('td', { key: k, style: cellStyle('left', isLast, isLastCol) }, cellVal(i, k)) })))
-    return React.createElement('div', { key: 'tbl', style: { width: '100%', overflowX: 'auto' } }, React.createElement('table', { style: { width: '100%', borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'auto', minWidth: 760 } }, [React.createElement('thead', { key: 'th' }, thead), React.createElement('tbody', { key: 'tb' }, tbody.length ? tbody : React.createElement('tr', { key: 'e' }, React.createElement('td', { colSpan: renderCols.length, style: { padding: 16, textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', borderBottom: '1px solid var(--q-border-solid)' } }, 'No tasks in this group.')))]))
+    const thead = React.createElement('tr', { key: 'thr' }, renderCols.map((k, idx) => { const c = COLS.find(x => x.key === k); const isLastCol = idx === renderCols.length - 1; if (k === 'actions') return React.createElement('th', { key: k, style: { padding: '9px 12px', color: 'var(--q-text-secondary)', fontSize: 13.5, fontWeight: 700, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap', userSelect: 'none', minWidth: COL_MIN.actions, borderBottom: '1px solid var(--q-border-solid)' } }, 'Actions'); return React.createElement('th', { key: k, draggable: true, onDragStart: (e: any) => { setDragCol(k); e.dataTransfer.effectAllowed = 'move' }, onDragOver: (e: any) => e.preventDefault(), onDrop: (e: any) => { e.preventDefault(); if (!dragCol || dragCol === k) { setDragCol(null); return } setCols(prev => { const arr = [...prev].filter(x => x !== 'actions'); const from = arr.indexOf(dragCol); const to = arr.indexOf(k); if (from < 0 || to < 0) { setDragCol(null); return } arr.splice(from, 1); arr.splice(to, 0, dragCol); setDragCol(null); return [...arr, 'actions'] }) }, onClick: () => toggleSort(k), style: { padding: '9px 12px', cursor: 'pointer', color: 'var(--q-text-secondary)', fontSize: 13.5, fontWeight: 700, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap', userSelect: 'none', minWidth: COL_MIN[k] || 80, backgroundColor: dragCol === k ? 'var(--q-hover)' : 'transparent', borderBottom: '1px solid var(--q-border-solid)', borderRight: isLastCol ? 'none' : '1px solid var(--q-border-solid)' } }, c ? c.label : '') }))
+    const tbody = rows.map((i, ri) => React.createElement('tr', { key: i.id, onMouseEnter: () => setHoverRow(i.id), onMouseLeave: () => setHoverRow(null), style: { backgroundColor: hoverRow === i.id ? 'var(--q-hover)' : 'transparent', transition: 'none' } }, renderCols.map((k, idx) => { const isLast = ri === rows.length - 1; const isLastCol = idx === renderCols.length - 1; if (k === 'title') { return React.createElement('td', { key: k, style: cellStyle('left', isLast, isLastCol) }, React.createElement('span', { key: 't', style: { color: 'var(--q-text)', whiteSpace: 'normal', overflow: 'hidden' } }, i.title)) } if (k === 'actions') { return React.createElement('td', { key: k, style: cellStyle('left', isLast, isLastCol) }, actions(i)) } return React.createElement('td', { key: k, style: cellStyle('left', isLast, isLastCol) }, cellVal(i, k)) })))
+    const startPan = (e: React.MouseEvent) => {
+      if (e.button !== 0) return
+      const t = e.target as HTMLElement
+      if (t.closest('button, input, a, th, [role="button"]')) return
+      const el = tblWrapRef.current
+      if (!el) return
+      panRef.current = { startX: e.clientX, startScroll: el.scrollLeft, active: true }
+      setPanning(true)
+    }
+    return React.createElement('div', { key: 'tbl', ref: tblWrapRef, onMouseDown: startPan, style: { width: '100%', overflowX: 'auto', cursor: panning ? 'grabbing' : 'grab', userSelect: panning ? 'none' : 'text' } }, React.createElement('table', { style: { borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'auto' } }, [React.createElement('thead', { key: 'th' }, thead), React.createElement('tbody', { key: 'tb' }, tbody.length ? tbody : React.createElement('tr', { key: 'e' }, React.createElement('td', { colSpan: renderCols.length, style: { padding: 16, textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', borderBottom: '1px solid var(--q-border-solid)' } }, 'No tasks in this group.')))]))
   }
 
   // Vista TABLE = toggle per status (Notion group-by-status)
