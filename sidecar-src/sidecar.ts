@@ -427,6 +427,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
       scheduledFor: p.scheduledFor,
       keepAwake: !!p.keepAwake,
       sourceSession: p.sourceSession,
+      failAfterMs: p.failAfterMs,
     });
     return r;
   },
