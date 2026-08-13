@@ -302,14 +302,14 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const [fullWidth, setFullWidth] = useState(() => { try { return localStorage.getItem('quinki-tasks-fullwidth') === '1' } catch { return false } })
   const saveUi = (fw: boolean, v: ViewCfg[]) => {
     try { localStorage.setItem('quinki-tasks-fullwidth', fw ? '1' : '0'); localStorage.setItem(VIEWS_KEY, JSON.stringify(v)) } catch {}
-    call('saveUiState', { state: { fullWidth: fw, views: v } }).catch(() => {})
+    call('saveUiState', { state: { fullWidth: fw, views: v, activeId } }).catch(() => {})
   }
   useEffect(() => {
     let alive = true
     call('getUiState').then((s: any) => {
       if (!alive || !s) return
       if (typeof s.fullWidth === 'boolean') setFullWidth(s.fullWidth)
-      if (Array.isArray(s.views) && s.views.length) { const nv = normViews(s.views); setViews(nv); setActiveId(nv[0].id) }
+      if (Array.isArray(s.views) && s.views.length) { const nv = normViews(s.views); setViews(nv); const want = s.activeId && nv.some((x: any) => x.id === s.activeId) ? s.activeId : nv[0].id; setActiveId(want) }
     }).catch(() => {})
     return () => { alive = false }
   }, [])
