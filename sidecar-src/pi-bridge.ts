@@ -440,8 +440,8 @@ class PiBridge {
         // Backup per-sessione COMPLETO (chat-meta.json): agenti, directory, override
         // per-agente (model/thinking), mode, message settings → si ripristinano SEMPRE al boot.
         this.#writeChatMeta(k, {
-          agentIds: (v as any).agentId || '',
-          workingDir: (v as any).workingDir || '',
+          agentIds: (v as any).agentId || undefined,
+          workingDir: (v as any).workingDir || undefined,
           agentOverrides: (v as any).agentOverrides,
           model: v.model,
           thinkingLevel: v.thinkingLevel,
@@ -469,6 +469,42 @@ class PiBridge {
             if (d && d.key && !known.has(d.key) && !isSessionDeleted(d.key)) {
               data.push(d);
               known.add(d.key);
+            }
+          }
+        }
+      } catch {}
+      // === RECOVERY: non distruggere MAI agenti/workingDir se l'entry in memoria li ha persi ===
+      try {
+        const diskMap = new Map<string, any>();
+        if (fs.existsSync(SESSION_FILE)) {
+          const disk = JSON.parse(fs.readFileSync(SESSION_FILE, "utf8"));
+          for (const d of Array.isArray(disk) ? disk : []) if (d && d.key) diskMap.set(d.key, d);
+        }
+        for (const d of data) {
+          if (!d.agentId) {
+            const diskE = diskMap.get(d.key);
+            if (diskE && diskE.agentId) d.agentId = diskE.agentId;
+            else {
+              try {
+                const metaP = path.join(this.#piSessionDir(d.key), "chat-meta.json");
+                if (fs.existsSync(metaP)) {
+                  const meta = JSON.parse(fs.readFileSync(metaP, "utf8"));
+                  if (meta.agentIds) d.agentId = meta.agentIds;
+                }
+              } catch {}
+            }
+          }
+          if (!d.workingDir) {
+            const diskE = diskMap.get(d.key);
+            if (diskE && diskE.workingDir) d.workingDir = diskE.workingDir;
+            else {
+              try {
+                const metaP = path.join(this.#piSessionDir(d.key), "chat-meta.json");
+                if (fs.existsSync(metaP)) {
+                  const meta = JSON.parse(fs.readFileSync(metaP, "utf8"));
+                  if (meta.workingDir) d.workingDir = meta.workingDir;
+                }
+              } catch {}
             }
           }
         }
@@ -2386,7 +2422,10 @@ class PiBridge {
       const p = path.join(dir, "chat-meta.json");
       let cur: any = {};
       try { cur = JSON.parse(fs.readFileSync(p, "utf8")); } catch {}
-      fs.writeFileSync(p, JSON.stringify({ ...cur, ...patch, ts: Date.now() }, null, 2));
+      // Non sovrascrivere MAI con undefined: i campi assenti preservano il valore esistente
+      const clean: any = {};
+      for (const [k, v] of Object.entries(patch)) if (v !== undefined) clean[k] = v;
+      fs.writeFileSync(p, JSON.stringify({ ...cur, ...clean, ts: Date.now() }, null, 2));
     } catch {}
   }
 

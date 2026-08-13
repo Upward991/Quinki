@@ -826,8 +826,8 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
           if (createResult?.key || createResult?.sessionKey) {
             sk = createResult.key || createResult.sessionKey
             setActiveSessionId(sk as string)
-            // Persisti gli agenti selezionati nella nuova sessione (orchestrator incluso)
-            const allAgents = (optsChatAgents && optsChatAgents.length > 0) ? optsChatAgents : (ag || []);
+            // Persisti gli agenti selezionati nella nuova sessione (orchestrator di default)
+            const allAgents = (optsChatAgents && optsChatAgents.length > 0) ? optsChatAgents : (ag && ag.length > 0 ? ag : ['orchestrator']);
             if (allAgents.length > 0) {
               try { await call('setChatAgents', { sessionKey: sk, agentIds: allAgents.join(',') }) } catch {}
             }
