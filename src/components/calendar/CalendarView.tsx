@@ -223,11 +223,6 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const [editWhen, setEditWhen] = useState<{ id: string; when: any } | null>(null)
   const [whenDate, setWhenDate] = useState('')
   const [whenTime, setWhenTime] = useState('')
-  const [whenDay, setWhenDay] = useState('1')
-  const [whenMonth, setWhenMonth] = useState('0')
-  const [whenYear, setWhenYear] = useState('2026')
-  const [whenHour, setWhenHour] = useState('09')
-  const [whenMinute, setWhenMinute] = useState('00')
   const [models, setModels] = useState<any[]>([])
   const [defaultThinking, setDefaultThinking] = useState('xhigh')
   useEffect(() => { call('getModels').then((r: any) => setModels(r?.models || [])).catch(() => {}) }, [call])
@@ -352,7 +347,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
         React.createElement('span', { key: 'dd', style: { whiteSpace: 'normal', overflow: 'hidden', fontSize: 12.5, fontFamily: 'var(--font-interface)', color: 'var(--q-text-secondary)', opacity: 0.8 } }, dateStr),
       ])
       if (i.kind === 'sched') {
-        return React.createElement(WhenCell, { key: 'w', i, onEdit: (e: any) => { e.stopPropagation(); const w = i.whenObj || {}; const dt = w.date ? w.date.slice(0, 10) : new Date(i.when || Date.now()).toISOString().slice(0, 10); const tm = w.date ? w.date.slice(11, 16) : (w.at || String(new Date(i.when || Date.now()).getHours()).padStart(2, '0') + ':' + String(new Date(i.when || Date.now()).getMinutes()).padStart(2, '0')); setWhenDate(dt); setWhenTime(tm); const dd = new Date(dt + 'T' + tm); setWhenDay(String(dd.getDate())); setWhenMonth(String(dd.getMonth())); setWhenYear(String(dd.getFullYear())); setWhenHour(tm.slice(0, 2)); setWhenMinute(tm.slice(3, 5)); setEditWhen({ id: i.id, when: w }) } })
+        return React.createElement(WhenCell, { key: 'w', i, onEdit: (e: any) => { e.stopPropagation(); const w = i.whenObj || {}; const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']; const pad2 = (n: number) => String(n).padStart(2, '0'); const base = new Date(i.when || Date.now()); let ds: string, ts: string; if (w.date) { const dd = new Date(String(w.date)); ds = dd.getDate() + ' ' + MONTHS[dd.getMonth()] + ' ' + dd.getFullYear(); ts = pad2(dd.getHours()) + ':' + pad2(dd.getMinutes()) + ':' + pad2(dd.getSeconds()) } else if (w.at) { const at = String(w.at); ds = base.getDate() + ' ' + MONTHS[base.getMonth()] + ' ' + base.getFullYear(); ts = at.length === 5 ? at + ':00' : at } else { ds = base.getDate() + ' ' + MONTHS[base.getMonth()] + ' ' + base.getFullYear(); ts = pad2(base.getHours()) + ':' + pad2(base.getMinutes()) + ':' + pad2(base.getSeconds()) } setWhenDate(ds); setWhenTime(ts); setEditWhen({ id: i.id, when: w }) } })
       }
       return content
     }
