@@ -42,6 +42,9 @@ function TaskResultToggle({ run }: { run: any }) {
       </div>
       {!collapsed && (
         <div style={{ marginTop: '4px', padding: '8px 8px 8px 16px', borderLeft: `2px solid ${color}`, userSelect: 'text', WebkitUserSelect: 'text' }}>
+          {run.messages.length === 0 && run.error ? (
+            <div style={{ color: 'var(--q-accent-danger)', fontSize: 13, fontFamily: 'var(--font-interface)', padding: '4px 0' }}>{String(run.error)}</div>
+          ) : null}
           {run.messages.map((msg: any, mIdx: number) => (
             <div key={msg.id + '-' + mIdx} style={{ marginBottom: '12px' }}>
               <MessageBubble message={msg} onCopy={() => {}} searchQuery={''} msgIndex={mIdx} activeMatchMsgIdx={-1} activeMatchOccurrence={-1} isDateMatch={false} />
@@ -119,7 +122,7 @@ export function ChatArea(props: ChatAreaProps) {
       setTaskExecs(execs); setTaskScheds(scheds)
       const runs: any[] = []
       for (const e of execs) {
-        try { const mR = await sidecarCall('getExecutionMessages', { executionId: e.id }); runs.push({ id: e.id, label: e.label || 'Task', status: e.status || '?', messages: (mR?.messages || []).sort((a: any, b: any) => String(a.timestamp || '').localeCompare(String(b.timestamp || ''))) }) } catch {}
+        try { const mR = await sidecarCall('getExecutionMessages', { executionId: e.id }); runs.push({ id: e.id, label: e.label || 'Task', status: e.status || '?', error: e.error || null, messages: (mR?.messages || []).sort((a: any, b: any) => String(a.timestamp || '').localeCompare(String(b.timestamp || ''))) }) } catch {}
       }
       runs.sort((a, b) => String(a.messages[0]?.timestamp || '').localeCompare(String(b.messages[0]?.timestamp || '')))
       setTaskRuns(runs)

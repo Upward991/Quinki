@@ -347,12 +347,6 @@ export class ExecutionEngine {
         this.#appendEvent(id, "session_ready", { sessionKey: sk, agentIds });
         this.#log("exec-session-ready", { executionId: id, sessionKey: sk, agentIds, mode: state.mode, model: state.model });
 
-        // === Test hook: failAfterMs → fallimento deterministico (per test UI/recovery) ===
-        if (state.failAfterMs) {
-          await new Promise(r => setTimeout(r, state.failAfterMs));
-          throw new Error("Deliberate failure (test hook)");
-        }
-
         // Esegue l'agente in headless: il ws finto cattura done/error + testo progressivo
         // Direttiva: il task va ESEGUITO DAVVERO con i tool, non solo dichiarato completato
         const execText = "[Scheduled task - EXECUTE IT NOW] You are running an autonomous scheduled task. Actually perform the task using your tools (write/edit/bash/etc.). Do NOT just claim completion: do it, then VERIFY the result objectively (check the file exists, run the tests, confirm the output). If the task gives verification criteria, follow them exactly. End your final message with a short 'Verification:' section stating what you checked and the outcome. Task: " + state.text;
@@ -382,6 +376,10 @@ export class ExecutionEngine {
             () => finish({ ok: true, stopReason: "completed", text: "" }),
             (e: any) => finish({ ok: false, errorMessage: e?.message || String(e), text: "" })
           );
+          // === Test hook: failAfterMs → fallimento deterministico dopo l'invio (il messaggio utente resta) ===
+          if (state.failAfterMs) {
+            setTimeout(() => finish({ ok: false, errorMessage: "Deliberate failure (test hook)", text: "" }), state.failAfterMs);
+          }
         });
 
         clearInterval(timer);
