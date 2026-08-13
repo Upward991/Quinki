@@ -4,13 +4,15 @@
 
 import { useState, useEffect, useRef } from 'react'
 import type { Session, Agent } from '../../types'
-import { Home, PanelLeft, MessageSquare, Download, Search, RefreshCw, Bot, Calendar, Clock, ChevronDown, ChevronUp, Cpu, Brain, Network, X } from '../icons'
+import { Home, PanelLeft, MessageSquare, Download, Search, RefreshCw, Bot, Calendar, Clock, ChevronDown, ChevronUp, Cpu, Brain, Network, X, Checklist } from '../icons'
 import { AgentConfigModal } from './AgentConfigModal'
 
 interface ChatHeaderProps {
   session?: Session
   activePanel: string
   onSelectPanel: (panel: string) => void
+  homeIcon?: 'home' | 'agent-task'
+  onHomeClick?: () => void
   sidebarOpen: boolean
   onToggleSidebar: () => void
   hideSidebarToggle?: boolean
@@ -112,7 +114,7 @@ export function ChatHeader(props: ChatHeaderProps) {
         {!props.isExpertApp && (
           <>
             <div style={panelStyle}>
-              <IconBtn icon={Home} onClick={() => props.onSelectPanel('home')} title="Home" />
+              <IconBtn icon={props.homeIcon === 'agent-task' ? Checklist : Home} onClick={() => props.homeIcon === 'agent-task' ? (props.onHomeClick ? props.onHomeClick() : props.onSelectPanel('home')) : props.onSelectPanel('home')} title={props.homeIcon === 'agent-task' ? 'Back to Agents Tasks' : 'Home'} />
             </div>
             <div style={{ width: '8px', flexShrink: 0 }} />
           </>

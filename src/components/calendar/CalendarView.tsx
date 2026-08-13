@@ -399,7 +399,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     if (key === 'title') return i.title
     if (key === 'agent') return i.agent
     if (key === 'chat') {
-      if (i.sourceKey) return React.createElement(MtText, { key: 'ch', label: i.chat, onClick: (e: any) => { e.stopPropagation(); props.onOpenSession?.(i.sourceKey as string) } })
+      if (i.sourceKey) return React.createElement(MtText, { key: 'ch', label: i.chat, onClick: (e: any) => { e.stopPropagation(); openTaskChat(i.sourceKey as string, i.chat, false) } })
       return i.chat
     }
     if (key === 'actions') return actions(i)
@@ -685,7 +685,6 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       ]),
     ])) : null,
     taskChat ? React.createElement('div', { key: 'tcm', style: { position: 'fixed', top: 25, bottom: 0, left: 0, right: 0, zIndex: 310, backgroundColor: 'var(--q-bg)', padding: '8px 8px 8px 8px' } }, [
-      React.createElement('button', { key: 'x', onClick: closeTaskChat, title: 'Back to Agents Tasks', style: { position: 'absolute', top: 10, right: 12, zIndex: 20, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-secondary)', padding: 4, display: 'flex' } }, React.createElement(Checklist, { size: 20 })),
       React.createElement('div', { key: 'body', style: { position: 'absolute', inset: 0, padding: '8px 8px 8px 8px', overflow: 'hidden' } }, [
         React.createElement(ChatArea, {
           key: 'ca',
@@ -697,6 +696,8 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
           mode: (tcMode as any) || 'plan',
           activePanel: 'calendar',
           onSelectPanel: () => {},
+          homeIcon: 'agent-task',
+          onHomeClick: closeTaskChat,
           sidebarOpen: false,
           onToggleSidebar: () => {},
           hideSidebarToggle: true,

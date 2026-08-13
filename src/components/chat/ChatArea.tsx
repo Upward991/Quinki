@@ -65,6 +65,8 @@ interface ChatAreaProps {
   mode: ChatMode
   activePanel: string
   onSelectPanel: (panel: string) => void
+  homeIcon?: 'home' | 'agent-task'
+  onHomeClick?: () => void
   sidebarOpen: boolean
   onToggleSidebar: () => void
   hideSidebarToggle?: boolean
@@ -380,6 +382,8 @@ export function ChatArea(props: ChatAreaProps) {
           session={props.session}
           activePanel={props.activePanel}
           onSelectPanel={props.onSelectPanel}
+          homeIcon={props.homeIcon}
+          onHomeClick={props.onHomeClick}
           sidebarOpen={props.sidebarOpen}
           onToggleSidebar={props.onToggleSidebar}
           hideSidebarToggle={props.hideSidebarToggle}
