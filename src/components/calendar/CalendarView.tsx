@@ -25,7 +25,6 @@ const GROUP_DEFS: { key: string; label: string; color: string }[] = [
 const COLS: { key: string; label: string }[] = [{ key: 'title', label: 'Task' }, { key: 'agent', label: 'Agent' }, { key: 'chat', label: 'Chat' }, { key: 'mt', label: 'Model · Thinking' }, { key: 'when', label: 'Time · Date' }, { key: 'actions', label: '' }]
 
 const panelStyle: React.CSSProperties = { backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)', padding: '8px', minHeight: 'var(--spacing-header-min)', display: 'flex', alignItems: 'center' }
-const btnText: React.CSSProperties = { background: 'none', border: 'none', color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)', cursor: 'pointer', padding: '3px', display: 'inline-flex', alignItems: 'center', gap: 4 }
 const cellBorder = '1px solid var(--q-border)'
 
 function fmtDT(ts: number | null | undefined): string { if (!ts) return '—'; const d = new Date(ts); return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false }) }
