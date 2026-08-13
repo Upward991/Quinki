@@ -209,7 +209,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const [hoverRow, setHoverRow] = useState<string | null>(null)
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
   const [deleteViews, setDeleteViews] = useState<ViewCfg[] | null>(null)
-  const [deleteTask, setDeleteTask] = useState<{ items: { id: string; kind: 'sched' | 'exec'; title: string }[] } | null>(null)
+  const [deleteTask, setDeleteTask] = useState<{ items: { id: string; kind: 'sched' | 'exec'; title: string }[]; section?: string } | null>(null)
   const [selTasks, setSelTasks] = useState<Set<string>>(new Set())
   const [renamingView, setRenamingView] = useState<string | null>(null)
   const [renameVal, setRenameVal] = useState('')
@@ -410,7 +410,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
         React.createElement('span', { style: { color: 'var(--q-text)', fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-interface)' } }, g.label),
         React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)' } }, '(' + gItems.length + ')'),
         React.createElement('span', { key: 'sp', style: { flex: 1 } }),
-        React.createElement(RowBtn, { key: 'del', title: 'Delete all tasks in ' + g.label, hoverColor: 'var(--q-accent-danger)', onClick: (e: any) => { e.stopPropagation(); setDeleteTask({ items: gItems.map(x => ({ id: x.id, kind: x.kind, title: x.title })) }) } }, React.createElement(Trash2, { size: 14 })),
+        React.createElement(RowBtn, { key: 'del', title: 'Delete all tasks in ' + g.label, hoverColor: 'var(--q-accent-danger)', onClick: (e: any) => { e.stopPropagation(); setDeleteTask({ items: gItems.map(x => ({ id: x.id, kind: x.kind, title: x.title })), section: g.label }) } }, React.createElement(Trash2, { size: 14 })),
       ]),
       open ? tableFor(gItems) : null,
     ])
@@ -509,6 +509,6 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       ]),
     ]) : null,
     deleteViews ? React.createElement(ConfirmModal, { key: 'dv', title: deleteViews.length === 1 ? 'Delete view?' : 'Delete ' + deleteViews.length + ' views?', subtitle: deleteViews.length === 1 ? deleteViews[0].name + ' will be permanently deleted.' : deleteViews.length + ' views will be permanently deleted.', onCancel: () => setDeleteViews(null), onConfirm: () => doDelete(deleteViews) }) : null,
-    deleteTask ? React.createElement(ConfirmModal, { key: 'dt', title: deleteTask.items.length === 1 ? 'Delete task?' : 'Delete ' + deleteTask.items.length + ' tasks?', subtitle: deleteTask.items.length + (deleteTask.items.length === 1 ? ' task will be permanently deleted.' : ' tasks will be permanently deleted.'), onCancel: () => setDeleteTask(null), onConfirm: () => doDeleteTask(deleteTask) }) : null,
+    deleteTask ? React.createElement(ConfirmModal, { key: 'dt', title: deleteTask.items.length === 1 ? 'Delete task?' : 'Delete ' + deleteTask.items.length + ' tasks?', subtitle: deleteTask.section ? 'All ' + deleteTask.items.length + (deleteTask.items.length === 1 ? ' task in "' + deleteTask.section + '" will be permanently deleted.' : ' tasks in "' + deleteTask.section + '" will be permanently deleted.') : deleteTask.items.length + (deleteTask.items.length === 1 ? ' task will be permanently deleted.' : ' tasks will be permanently deleted.'), onCancel: () => setDeleteTask(null), onConfirm: () => doDeleteTask(deleteTask) }) : null,
   ])
 }

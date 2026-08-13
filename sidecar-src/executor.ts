@@ -42,6 +42,7 @@ export interface ExecutionState {
   thinkingLevel: string | null;
   text: string;
   status: "queued" | "running" | "completed" | "failed" | "cancelled" | "interrupted";
+  failAfterMs?: number;
   createdAt: number;
   startedAt: number | null;
   endedAt: number | null;
@@ -251,6 +252,7 @@ export class ExecutionEngine {
 
     const state: ExecutionState = {
       id,
+      failAfterMs: p.failAfterMs ? Number(p.failAfterMs) : undefined,
       label: p.label || "Task",
       owner: p.owner || "main",
       agentIds,
@@ -344,6 +346,12 @@ export class ExecutionEngine {
         if (state.thinkingLevel) pb.setThinkingLevel(sk, state.thinkingLevel);
         this.#appendEvent(id, "session_ready", { sessionKey: sk, agentIds });
         this.#log("exec-session-ready", { executionId: id, sessionKey: sk, agentIds, mode: state.mode, model: state.model });
+
+        // === Test hook: failAfterMs → fallimento deterministico (per test UI/recovery) ===
+        if (state.failAfterMs) {
+          await new Promise(r => setTimeout(r, state.failAfterMs));
+          throw new Error("Deliberate failure (test hook)");
+        }
 
         // Esegue l'agente in headless: il ws finto cattura done/error + testo progressivo
         // Direttiva: il task va ESEGUITO DAVVERO con i tool, non solo dichiarato completato
