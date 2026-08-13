@@ -481,6 +481,14 @@ class PiBridge {
           for (const d of Array.isArray(disk) ? disk : []) if (d && d.key) diskMap.set(d.key, d);
         }
         for (const d of data) {
+          if (d.agentId) {
+            // Backup per-sessione (l'Expert NON lo tocca): fonte di recovery se file/chat-meta vengono svuotati
+            try {
+              const bdir = this.#piSessionDir(d.key);
+              fs.mkdirSync(bdir, { recursive: true });
+              fs.writeFileSync(path.join(bdir, "agent-backup.json"), JSON.stringify({ agentIds: d.agentId, ts: Date.now() }), "utf8");
+            } catch {}
+          }
           if (!d.agentId) {
             const diskE = diskMap.get(d.key);
             if (diskE && diskE.agentId) d.agentId = diskE.agentId;
@@ -490,6 +498,15 @@ class PiBridge {
                 if (fs.existsSync(metaP)) {
                   const meta = JSON.parse(fs.readFileSync(metaP, "utf8"));
                   if (meta.agentIds) d.agentId = meta.agentIds;
+                }
+              } catch {}
+            }
+            if (!d.agentId) {
+              try {
+                const bp = path.join(this.#piSessionDir(d.key), "agent-backup.json");
+                if (fs.existsSync(bp)) {
+                  const b = JSON.parse(fs.readFileSync(bp, "utf8"));
+                  if (b.agentIds) d.agentId = b.agentIds;
                 }
               } catch {}
             }
@@ -568,6 +585,15 @@ class PiBridge {
             const e = this.#entries.get(s.key);
             if (e) {
               if (!e.agentId && meta.agentIds) e.agentId = meta.agentIds;
+              if (!e.agentId) {
+                try {
+                  const bp = path.join(dir, "agent-backup.json");
+                  if (fs.existsSync(bp)) {
+                    const b = JSON.parse(fs.readFileSync(bp, "utf8"));
+                    if (b.agentIds) e.agentId = b.agentIds;
+                  }
+                } catch {}
+              }
               if (!e.workingDir && meta.workingDir) e.workingDir = meta.workingDir;
               if (!(e as any).agentOverrides && meta.agentOverrides) (e as any).agentOverrides = meta.agentOverrides;
               if (!e.model && meta.model) e.model = meta.model;
