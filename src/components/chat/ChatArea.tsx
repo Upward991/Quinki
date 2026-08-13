@@ -9,9 +9,48 @@ import { getContrastColor } from '../../utils/contrast'
 import { MessageBubble } from './MessageBubble'
 import { ChatHeader } from './ChatHeader'
 import { Composer } from './Composer'
-import { ArrowDown, Checklist, ChevronDown, ChevronRight, ChevronUp } from '../icons'
+import { ArrowDown, Checklist, ChevronDown, ChevronRight, ChevronUp, Copy } from '../icons'
 import { useSidecarContext } from '../shared/AppShell'
 import type { Message, Session, Agent, Provider, ChatMode, ThinkingLevel } from '../../types'
+
+function TaskResultToggle({ run }: { run: any }) {
+  const [collapsed, setCollapsed] = useState(true)
+  const [hovered, setHovered] = useState(false)
+  const [copyHovered, setCopyHovered] = useState(false)
+  const st = run.status
+  const isFailed = st === 'failed'
+  const isRunning = st === 'running' || st === 'queued'
+  const isInterrupted = st === 'interrupted'
+  const color = isFailed ? 'var(--q-accent-danger)' : isRunning ? 'var(--q-accent-info)' : isInterrupted ? 'var(--q-accent-warning)' : 'var(--q-accent-calendar)'
+  const label = isFailed ? 'task failed' : isRunning ? 'task running' : isInterrupted ? 'task interrupted' : 'task completed'
+  return (
+    <div style={{ marginTop: '12px', padding: '4px' }}>
+      <div onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} onClick={() => setCollapsed(!collapsed)}
+        style={{ cursor: 'pointer', backgroundColor: hovered ? 'rgba(255,255,255,0.04)' : 'transparent', borderRadius: 'var(--radius-md)', padding: '8px', transform: hovered ? 'translateX(2px)' : 'translateX(0)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <ChevronRight size={14} style={{ color, flexShrink: 0, transform: collapsed ? 'rotate(0deg)' : 'rotate(90deg)', transition: 'none' }} />
+          <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color }}>{label}</span>
+          <span style={{ fontFamily: 'var(--font-interface)', fontSize: '13px', fontWeight: 600, color: 'var(--q-text)' }}>{run.label}</span>
+          <span style={{ flex: 1 }} />
+          <button onClick={(e) => { e.stopPropagation(); try { let fullText = ''; for (const m of run.messages || []) { fullText += (m.role === 'user' ? 'User: ' : 'Agent: ') + (m.content || '') + '\n' } navigator.clipboard.writeText(fullText) } catch {} }}
+            onMouseEnter={() => setCopyHovered(true)} onMouseLeave={() => setCopyHovered(false)}
+            style={{ opacity: hovered ? 1 : 0, background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: 'var(--radius-sm)', color: copyHovered ? color : 'var(--q-text-tertiary)' }}>
+            <Copy size={14} />
+          </button>
+        </div>
+      </div>
+      {!collapsed && (
+        <div style={{ marginTop: '4px', padding: '8px 8px 8px 16px', borderLeft: `2px solid ${color}`, userSelect: 'text', WebkitUserSelect: 'text' }}>
+          {run.messages.map((msg: any, mIdx: number) => (
+            <div key={msg.id + '-' + mIdx} style={{ marginBottom: '12px' }}>
+              <MessageBubble message={msg} onCopy={() => {}} searchQuery={''} msgIndex={mIdx} activeMatchMsgIdx={-1} activeMatchOccurrence={-1} isDateMatch={false} />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 interface ChatAreaProps {
   session?: Session
@@ -86,35 +125,6 @@ export function ChatArea(props: ChatAreaProps) {
     } catch {}
   }, [sessionIdKey, sidecarCall])
   useEffect(() => { refreshTasks(); const iv = setInterval(refreshTasks, 3000); return () => clearInterval(iv) }, [refreshTasks])
-  const TaskResultToggle = ({ run }: { run: any }) => {
-    const [collapsed, setCollapsed] = useState(true)
-    const [hovered, setHovered] = useState(false)
-    const st = run.status
-    const color = st === 'failed' ? 'var(--q-accent-danger)' : (st === 'running' || st === 'queued') ? 'var(--q-accent-info)' : st === 'interrupted' ? 'var(--q-accent-warning)' : 'var(--q-accent-calendar)'
-    const label = st === 'failed' ? 'task failed' : (st === 'running' || st === 'queued') ? 'task running' : st === 'interrupted' ? 'task interrupted' : 'task completed'
-    return (
-      <div style={{ marginTop: '12px', padding: '4px' }}>
-        <div onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} onClick={() => setCollapsed(!collapsed)}
-          style={{ cursor: 'pointer', backgroundColor: hovered ? 'rgba(255,255,255,0.04)' : 'transparent', borderRadius: 'var(--radius-md)', padding: '8px', transform: hovered ? 'translateX(2px)' : 'translateX(0)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <ChevronRight size={14} style={{ color, flexShrink: 0, transform: collapsed ? 'rotate(0deg)' : 'rotate(90deg)', transition: 'none' }} />
-            <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color }}>{label}</span>
-            <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', fontWeight: 600, color }}>{run.label}</span>
-            <span style={{ flex: 1 }} />
-          </div>
-        </div>
-        {!collapsed && (
-          <div style={{ padding: '4px 8px' }}>
-            {run.messages.map((msg: any, mIdx: number) => (
-              <div key={msg.id + '-' + mIdx} style={{ marginBottom: '12px' }}>
-                <MessageBubble message={msg} onCopy={() => {}} searchQuery={''} msgIndex={mIdx} activeMatchMsgIdx={-1} activeMatchOccurrence={-1} isDateMatch={false} />
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    )
-  }
   const taskPrevOpen = useRef(false)
   useEffect(() => {
     const opening = taskPanelOpen && !taskPrevOpen.current

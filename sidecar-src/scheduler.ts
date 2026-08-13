@@ -190,15 +190,16 @@ export class Scheduler {
     }
     s.lastFiredAt = now;
     s.lastExecutionId = execId;
-    if (s.when.type === "once") {
-      s.enabled = false;      // once → non riparte mai
-      s.nextFireAt = null;
-    } else {
-      s.nextFireAt = this.#computeNext(s, now);
-    }
     const all = this.readSchedules();
     const idx = all.findIndex((x: Schedule) => x.id === s.id);
-    if (idx >= 0) { all[idx] = s; this.#writeSchedules(all); }
+    if (s.when.type === "once") {
+      // once → dopo il fire la schedule sparisce (l'esecuzione resta in history)
+      if (idx >= 0) all.splice(idx, 1);
+    } else {
+      s.nextFireAt = this.#computeNext(s, now);
+      if (idx >= 0) all[idx] = s;
+    }
+    this.#writeSchedules(all);
     this.#notify();
   }
 
@@ -297,10 +298,14 @@ export class Scheduler {
       });
       s.lastFiredAt = now;
       s.lastExecutionId = r.executionId;
-      if (s.when.type === "once") { s.enabled = false; s.nextFireAt = null; }
-      else s.nextFireAt = this.#computeNext(s, now);
       const idx = all.findIndex((x: Schedule) => x.id === s.id);
-      all[idx] = s;
+      if (s.when.type === "once") {
+        // once → dopo Run now la schedule sparisce (l'esecuzione resta in history)
+        if (idx >= 0) all.splice(idx, 1);
+      } else {
+        s.nextFireAt = this.#computeNext(s, now);
+        if (idx >= 0) all[idx] = s;
+      }
       this.#writeSchedules(all);
       this.#log("schedule-run-now", { scheduleId: s.id, executionId: r.executionId });
       this.#notify();

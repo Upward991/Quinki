@@ -139,25 +139,34 @@ export class ExecutionEngine {
       }
     } catch {}
     entries.sort((a, b) => String(a.timestamp || "").localeCompare(String(b.timestamp || "")));
+    // A2.9: la sessione exec è un FORK della chat (storia copiata per contesto).
+    // Mostriamo SOLO i messaggi del task: saltiamo la storia forkata fino al messaggio utente del task.
+    let started = false;
     let lastAssistant: any = null;
     for (const e of entries) {
       const role = e.message?.role;
       const contentArr = Array.isArray(e.message?.content) ? e.message.content : [];
       const ts = e.timestamp || new Date().toISOString();
+      const rawText = contentArr.filter((c: any) => c.type === "text").map((c: any) => c.text).join(" ");
       if (role === "user") {
-        let text = contentArr.filter((c: any) => c.type === "text").map((c: any) => c.text).join(" ");
+        if (!started) {
+          if (rawText.includes("[Scheduled task")) started = true;
+          else continue;
+        }
+        let text = rawText;
         const ti = text.indexOf("Task: ");
         if (ti >= 0) text = text.slice(ti + 6).trim();
         out.push({ id: e.id, role: "user", content: text || "(task)", timestamp: ts });
       } else if (role === "assistant") {
-        const text = contentArr.filter((c: any) => c.type === "text").map((c: any) => c.text).join(" ");
+        if (!started) continue;
+        const text = rawText;
         const thinking = contentArr.filter((c: any) => c.type === "thinking").map((c: any) => ({ level: "on", content: c.thinking || "" }));
         const toolCalls = contentArr.filter((c: any) => c.type === "toolCall").map((c: any) => ({ name: c.name || c.toolName || "tool", input: typeof c.arguments === "string" ? c.arguments : JSON.stringify(c.arguments || {}) }));
         const m: any = { id: e.id, role: "assistant", content: text, timestamp: ts, thinking, toolCalls, toolResults: [], agentModel: state?.model || undefined, thinkingLevel: state?.thinkingLevel || undefined, agentName: ((state?.agentIds || []).join(", ")) || undefined };
         out.push(m);
         lastAssistant = m;
       } else if (role === "toolResult") {
-        if (lastAssistant) {
+        if (lastAssistant && started) {
           const output = contentArr.filter((c: any) => c.type === "text").map((c: any) => c.text).join(" ");
           lastAssistant.toolResults.push({ name: e.message?.toolName || "tool", output: output || "(empty)", isError: !!e.message?.isError });
         }
