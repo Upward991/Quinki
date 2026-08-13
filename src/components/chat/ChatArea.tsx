@@ -131,7 +131,7 @@ export function ChatArea(props: ChatAreaProps) {
     }
   }, [taskPanelOpen])
   const refreshTasks = useCallback(async () => {
-    if (!sessionIdKey || sessionIdKey === '__app_expert__') { setTaskExecs([]); setTaskScheds([]); setTaskMsgs([]); return }
+    if (!sessionIdKey || sessionIdKey === '__app_expert__') { setTaskExecs([]); setTaskScheds([]); setTaskRuns([]); return }
     try {
       const [exR, schR] = await Promise.all([sidecarCall('listExecutions'), sidecarCall('listSchedules')])
       const execs = (exR?.executions || []).filter((e: any) => e.sourceSession?.key === sessionIdKey)

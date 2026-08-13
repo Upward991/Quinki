@@ -546,7 +546,25 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     setTcStreaming(false)
     setTcText('')
     setTcSession(isNew ? undefined : { id: key, title: label, type: 'chat', updatedAt: new Date().toISOString(), order: Date.now(), messageCount: 0, agents: [], model: '', thinkingLevel: '', mode: 'plan', folderId: null, parentId: null, compactionAuto: true, compactionThreshold: 80, agentId: '' })
-    call('getProvidersConfig').then((r: any) => setTcProviders(r?.providers || [])).catch(() => {})
+    call('getProvidersConfig').then(async (r: any) => {
+      const modelsResult: any = await call('getModels').catch(() => ({}))
+      const modelsByProvider: Record<string, any[]> = {}
+      for (const m of (modelsResult?.models || [])) {
+        const pr = m.provider || 'unknown'
+        if (!modelsByProvider[pr]) modelsByProvider[pr] = []
+        modelsByProvider[pr].push({ id: m.id, name: m.name || m.id, contextWindow: m.contextWindow })
+      }
+      const providerList: any[] = []
+      if (r?.providers) {
+        for (const [id, p] of Object.entries(r.providers) as [string, any][]) {
+          providerList.push({ id, name: id, type: p.api || 'ollama', apiKeyStatus: 'configured', models: modelsByProvider[id] || [], enabled: p.enabled !== false, enabledModels: p.enabledModels || [], baseUrl: p.baseUrl || '' })
+        }
+      }
+      for (const [id, mods] of Object.entries(modelsByProvider)) {
+        if (!providerList.find((p: any) => p.id === id)) providerList.push({ id, name: id, type: 'unknown', apiKeyStatus: 'missing', models: mods, enabled: true, baseUrl: '' })
+      }
+      setTcProviders(providerList)
+    }).catch(() => {})
     tcLoad(chat)
     clearInterval(tcTimer.current)
     tcTimer.current = setInterval(() => { if (tcChatRef.current) tcLoad(tcChatRef.current) }, 2000)
