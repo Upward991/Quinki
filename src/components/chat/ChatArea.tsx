@@ -22,11 +22,12 @@ function TaskResultToggle({ run }: { run: any }) {
   const isRunning = st === 'running' || st === 'queued'
   const isInterrupted = st === 'interrupted'
   const color = isFailed ? 'var(--q-accent-danger)' : isRunning ? 'var(--q-accent-info)' : isInterrupted ? 'var(--q-accent-warning)' : 'var(--q-accent-calendar)'
-  const label = isFailed ? 'task failed' : isRunning ? 'task running' : isInterrupted ? 'task interrupted' : 'task completed'
+  const hoverBg = isFailed ? 'rgba(217, 107, 107, 0.06)' : isRunning ? 'rgba(122, 162, 247, 0.06)' : isInterrupted ? 'rgba(210, 153, 34, 0.06)' : 'rgba(127, 209, 192, 0.06)'
+  const label = isFailed ? 'Task failed' : isRunning ? 'Task running' : isInterrupted ? 'Task interrupted' : 'Task completed'
   return (
     <div style={{ marginTop: '12px', padding: '4px' }}>
       <div onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} onClick={() => setCollapsed(!collapsed)}
-        style={{ cursor: 'pointer', backgroundColor: hovered ? 'rgba(255,255,255,0.04)' : 'transparent', borderRadius: 'var(--radius-md)', padding: '8px', transform: hovered ? 'translateX(2px)' : 'translateX(0)' }}>
+        style={{ cursor: 'pointer', backgroundColor: hovered ? hoverBg : 'transparent', borderRadius: 'var(--radius-md)', padding: '8px', transform: hovered ? 'translateX(2px)' : 'translateX(0)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <ChevronRight size={14} style={{ color, flexShrink: 0, transform: collapsed ? 'rotate(0deg)' : 'rotate(90deg)', transition: 'none' }} />
           <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color }}>{label}</span>

@@ -8,11 +8,20 @@ export function installScrollAnywhere(): void {
     (e: WheelEvent) => {
       const t = e.target as HTMLElement | null
       if (!t || !t.closest) return
+      // textarea/input/contenteditable: scroll naturale (composer, campi di testo)
+      if (t.closest('textarea, input, [contenteditable="true"]')) return
       // Dentro un pannello scrollabile: comportamento naturale + ricordiamolo
       const sc = t.closest('.q-scroll') as HTMLElement | null
       if (sc) {
         last = sc
         return
+      }
+      // Dentro QUALSIASI contenitore scrollabile (overflow auto/scroll con overflow reale): naturale
+      let el: HTMLElement | null = t
+      while (el && el !== document.body) {
+        const cs = getComputedStyle(el)
+        if ((cs.overflowY === 'auto' || cs.overflowY === 'scroll') && el.scrollHeight > el.clientHeight + 4) return
+        el = el.parentElement
       }
       // Fuori da qualsiasi area scrollabile: scrolla l'ultimo pannello usato
       const scroller = last && last.isConnected ? last : document.querySelector('.q-scroll')
