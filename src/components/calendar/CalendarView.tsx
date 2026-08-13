@@ -584,7 +584,8 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     if (chat.key) call('setChatAgents', { sessionKey: chat.key, agentIds: next.join(',') }).catch(() => {})
   }
   useEffect(() => {
-    if (tcMsgRef.current) tcMsgRef.current.scrollTop = tcMsgRef.current.scrollHeight
+    const el = tcMsgRef.current
+    if (el && el.scrollTop + el.clientHeight >= el.scrollHeight - 120) el.scrollTop = el.scrollHeight
   }, [tcMsgs])
   useEffect(() => {
     if (!taskChat) return
@@ -683,11 +684,9 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
         React.createElement('button', { key: 'c', onClick: () => { setCreateTaskOpen(false); setPickExisting(false) }, onMouseEnter: (e: any) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }, onMouseLeave: (e: any) => { e.currentTarget.style.backgroundColor = 'transparent' }, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: 13, fontFamily: 'var(--font-interface)', fontWeight: 400, cursor: 'pointer' } }, 'Cancel'),
       ]),
     ])) : null,
-    taskChat ? React.createElement('div', { key: 'tcm', style: { position: 'fixed', inset: 0, zIndex: 310, backgroundColor: 'var(--q-bg)', display: 'flex', flexDirection: 'column' } }, [
-      React.createElement('div', { key: 'bar', style: { height: 25, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '0 12px', backgroundColor: 'var(--q-bg)' } }, [
-        React.createElement('button', { key: 'x', onClick: closeTaskChat, title: 'Close', style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-secondary)', fontSize: 16, padding: '2px 6px' } }, '✕'),
-      ]),
-      React.createElement('div', { key: 'body', style: { flex: 1, minHeight: 0, overflow: 'hidden' } }, [
+    taskChat ? React.createElement('div', { key: 'tcm', style: { position: 'fixed', top: 25, bottom: 0, left: 0, right: 0, zIndex: 310, backgroundColor: 'var(--q-bg)', padding: '8px 8px 8px 8px' } }, [
+      React.createElement('button', { key: 'x', onClick: closeTaskChat, title: 'Back to Agents Tasks', style: { position: 'absolute', top: 10, right: 12, zIndex: 20, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-secondary)', padding: 4, display: 'flex' } }, React.createElement(Checklist, { size: 20 })),
+      React.createElement('div', { key: 'body', style: { position: 'absolute', inset: 0, padding: '8px 8px 8px 8px', overflow: 'hidden' } }, [
         React.createElement(ChatArea, {
           key: 'ca',
           session: tcSession,
