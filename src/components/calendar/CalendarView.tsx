@@ -242,6 +242,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const [tcOutput, setTcOutput] = useState(0)
   const [tcProviders, setTcProviders] = useState<any[]>([])
   const [tcAgentModal, setTcAgentModal] = useState(false)
+  const [tcAgentDropdownOpen, setTcAgentDropdownOpen] = useState(false)
   const [tcSending, setTcSending] = useState(false)
   const [tcText, setTcText] = useState('')
   const [tcSession, setTcSession] = useState<any>(undefined)
@@ -525,6 +526,10 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     } else {
       setTcMsgs([])
       setTcStreaming(false)
+      setTcTokens(0)
+      setTcWindow(0)
+      setTcInput(0)
+      setTcOutput(0)
       let st: any = {}
       try { st = JSON.parse(localStorage.getItem('quinki-settings') || '{}') } catch {}
       setTcModel(st.defaultModel || '')
@@ -701,8 +706,8 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
           sidebarOpen: false,
           onToggleSidebar: () => {},
           hideSidebarToggle: true,
-          agentDropdownOpen: false,
-          onToggleAgentDropdown: () => {},
+          agentDropdownOpen: tcAgentDropdownOpen,
+          onToggleAgentDropdown: () => setTcAgentDropdownOpen(!tcAgentDropdownOpen),
           agents: (props.agents || []) as any,
           selectedAgentIds: tcAgents,
           onAgentToggle: tcAgentToggle,
