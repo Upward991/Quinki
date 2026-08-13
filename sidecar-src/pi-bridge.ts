@@ -473,55 +473,43 @@ class PiBridge {
           }
         }
       } catch {}
-      // === RECOVERY: non distruggere MAI agenti/workingDir se l'entry in memoria li ha persi ===
+      // === RECOVERY: non distruggere MAI i dati di sessione se l'entry in memoria li ha persi ===
       try {
         const diskMap = new Map<string, any>();
         if (fs.existsSync(SESSION_FILE)) {
           const disk = JSON.parse(fs.readFileSync(SESSION_FILE, "utf8"));
           for (const d of Array.isArray(disk) ? disk : []) if (d && d.key) diskMap.set(d.key, d);
         }
+        const FIELD_MAP: [string, string][] = [
+          ["agentId", "agentIds"], ["workingDir", "workingDir"], ["model", "model"], ["thinkingLevel", "thinkingLevel"],
+          ["mode", "mode"], ["agentOverrides", "agentOverrides"], ["messageAgents", "messageAgents"], ["messageThinking", "messageThinking"],
+          ["messageSkills", "messageSkills"], ["messageAttachments", "messageAttachments"], ["compactionAuto", "compactionAuto"], ["compactionThreshold", "compactionThreshold"], ["folderId", "folderId"],
+        ];
         for (const d of data) {
-          if (d.agentId) {
-            // Backup per-sessione (l'Expert NON lo tocca): fonte di recovery se file/chat-meta vengono svuotati
-            try {
-              const bdir = this.#piSessionDir(d.key);
-              fs.mkdirSync(bdir, { recursive: true });
-              fs.writeFileSync(path.join(bdir, "agent-backup.json"), JSON.stringify({ agentIds: d.agentId, ts: Date.now() }), "utf8");
-            } catch {}
-          }
-          if (!d.agentId) {
-            const diskE = diskMap.get(d.key);
-            if (diskE && diskE.agentId) d.agentId = diskE.agentId;
-            else {
-              try {
-                const metaP = path.join(this.#piSessionDir(d.key), "chat-meta.json");
-                if (fs.existsSync(metaP)) {
-                  const meta = JSON.parse(fs.readFileSync(metaP, "utf8"));
-                  if (meta.agentIds) d.agentId = meta.agentIds;
-                }
-              } catch {}
-            }
-            if (!d.agentId) {
-              try {
-                const bp = path.join(this.#piSessionDir(d.key), "agent-backup.json");
-                if (fs.existsSync(bp)) {
-                  const b = JSON.parse(fs.readFileSync(bp, "utf8"));
-                  if (b.agentIds) d.agentId = b.agentIds;
-                }
-              } catch {}
-            }
-          }
-          if (!d.workingDir) {
-            const diskE = diskMap.get(d.key);
-            if (diskE && diskE.workingDir) d.workingDir = diskE.workingDir;
-            else {
-              try {
-                const metaP = path.join(this.#piSessionDir(d.key), "chat-meta.json");
-                if (fs.existsSync(metaP)) {
-                  const meta = JSON.parse(fs.readFileSync(metaP, "utf8"));
-                  if (meta.workingDir) d.workingDir = meta.workingDir;
-                }
-              } catch {}
+          // Backup per-sessione COMPLETO (l'Expert NON lo tocca): fonte di recovery se file/chat-meta vengono svuotati
+          try {
+            const bdir = this.#piSessionDir(d.key);
+            fs.mkdirSync(bdir, { recursive: true });
+            const bk: any = { ts: Date.now() };
+            for (const [f, m] of FIELD_MAP) if ((d as any)[f] !== undefined && (d as any)[f] !== null) bk[m] = (d as any)[f];
+            fs.writeFileSync(path.join(bdir, "session-backup.json"), JSON.stringify(bk), "utf8");
+          } catch {}
+          const diskE = diskMap.get(d.key);
+          let meta: any = null;
+          try {
+            const metaP = path.join(this.#piSessionDir(d.key), "chat-meta.json");
+            if (fs.existsSync(metaP)) meta = JSON.parse(fs.readFileSync(metaP, "utf8"));
+          } catch {}
+          let backup: any = null;
+          try {
+            const bp = path.join(this.#piSessionDir(d.key), "session-backup.json");
+            if (fs.existsSync(bp)) backup = JSON.parse(fs.readFileSync(bp, "utf8"));
+          } catch {}
+          for (const [f, m] of FIELD_MAP) {
+            if ((d as any)[f] === undefined || (d as any)[f] === null) {
+              if (diskE && (diskE as any)[f] !== undefined && (diskE as any)[f] !== null) (d as any)[f] = (diskE as any)[f];
+              else if (meta && (meta as any)[m] !== undefined && (meta as any)[m] !== null) (d as any)[f] = (meta as any)[m];
+              else if (backup && (backup as any)[m] !== undefined && (backup as any)[m] !== null) (d as any)[f] = (backup as any)[m];
             }
           }
         }
@@ -584,25 +572,30 @@ class PiBridge {
             const meta = JSON.parse(fs.readFileSync(metaP, "utf8"));
             const e = this.#entries.get(s.key);
             if (e) {
-              if (!e.agentId && meta.agentIds) e.agentId = meta.agentIds;
-              if (!e.agentId) {
-                try {
-                  const bp = path.join(dir, "agent-backup.json");
-                  if (fs.existsSync(bp)) {
-                    const b = JSON.parse(fs.readFileSync(bp, "utf8"));
-                    if (b.agentIds) e.agentId = b.agentIds;
-                  }
-                } catch {}
-              }
-              if (!e.workingDir && meta.workingDir) e.workingDir = meta.workingDir;
-              if (!(e as any).agentOverrides && meta.agentOverrides) (e as any).agentOverrides = meta.agentOverrides;
-              if (!e.model && meta.model) e.model = meta.model;
-              if (!e.thinkingLevel && meta.thinkingLevel) e.thinkingLevel = meta.thinkingLevel;
-              if (!(e as any).mode && meta.mode) (e as any).mode = meta.mode;
-              if (!(e as any).messageAgents && meta.messageAgents) (e as any).messageAgents = meta.messageAgents;
-              if (!(e as any).messageThinking && meta.messageThinking) (e as any).messageThinking = meta.messageThinking;
-              if (!(e as any).messageSkills && meta.messageSkills) (e as any).messageSkills = meta.messageSkills;
-              if (!(e as any).messageAttachments && meta.messageAttachments) (e as any).messageAttachments = meta.messageAttachments;
+              let backup: any = null;
+              try {
+                const bp = path.join(dir, "session-backup.json");
+                if (fs.existsSync(bp)) backup = JSON.parse(fs.readFileSync(bp, "utf8"));
+              } catch {}
+              const rec = (f: string, m: string) => {
+                if ((e as any)[f] === undefined || (e as any)[f] === null) {
+                  if (meta && (meta as any)[m] !== undefined && (meta as any)[m] !== null) (e as any)[f] = (meta as any)[m];
+                  else if (backup && (backup as any)[m] !== undefined && (backup as any)[m] !== null) (e as any)[f] = (backup as any)[m];
+                }
+              };
+              rec("agentId", "agentIds");
+              rec("workingDir", "workingDir");
+              rec("agentOverrides", "agentOverrides");
+              rec("model", "model");
+              rec("thinkingLevel", "thinkingLevel");
+              rec("mode", "mode");
+              rec("messageAgents", "messageAgents");
+              rec("messageThinking", "messageThinking");
+              rec("messageSkills", "messageSkills");
+              rec("messageAttachments", "messageAttachments");
+              rec("compactionAuto", "compactionAuto");
+              rec("compactionThreshold", "compactionThreshold");
+              rec("folderId", "folderId");
             }
           }
         } catch {}
