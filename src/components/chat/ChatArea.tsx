@@ -112,7 +112,19 @@ export function ChatArea(props: ChatAreaProps) {
   const [taskExecs, setTaskExecs] = useState<any[]>([])
   const [taskScheds, setTaskScheds] = useState<any[]>([])
   const [taskRuns, setTaskRuns] = useState<any[]>([])
-  const toggleTaskPanel = () => { const nv = !taskPanelOpen; setTaskPanelOpen(nv); try { localStorage.setItem('quinki-taskpanel-' + sessionIdKey, nv ? '1' : '0') } catch {} }
+  const chatScrollPos = useRef(0)
+  const toggleTaskPanel = () => {
+    const el = scrollRef.current
+    if (el && !taskPanelOpen) chatScrollPos.current = el.scrollTop
+    const nv = !taskPanelOpen
+    setTaskPanelOpen(nv)
+    try { localStorage.setItem('quinki-taskpanel-' + sessionIdKey, nv ? '1' : '0') } catch {}
+  }
+  useEffect(() => {
+    if (!taskPanelOpen) {
+      requestAnimationFrame(() => { if (scrollRef.current) scrollRef.current.scrollTop = chatScrollPos.current })
+    }
+  }, [taskPanelOpen])
   const refreshTasks = useCallback(async () => {
     if (!sessionIdKey || sessionIdKey === '__app_expert__') { setTaskExecs([]); setTaskScheds([]); setTaskMsgs([]); return }
     try {
@@ -472,7 +484,7 @@ export function ChatArea(props: ChatAreaProps) {
             </div>
             {showScrollBtn && (
               <button onClick={() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }}
-                style={{ position: 'absolute', bottom: (hasTasks ? 46 : 0) + 'px', right: '0px', zIndex: 10, width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--q-tab-accent)', color: getContrastColor('--q-tab-accent'), border: 'none', boxShadow: 'var(--shadow-floating)', cursor: 'pointer' }}>
+                style={{ position: 'absolute', bottom: (hasTasks ? 44 : 8) + 'px', right: '0px', zIndex: 10, width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--q-tab-accent)', color: getContrastColor('--q-tab-accent'), border: 'none', boxShadow: 'var(--shadow-floating)', cursor: 'pointer' }}>
                 <ArrowDown size={20} />
               </button>
             )}
