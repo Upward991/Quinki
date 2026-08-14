@@ -545,6 +545,10 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       setTcStreaming(false)
     }
   }, [call])
+  const startTcTimer = () => {
+    clearInterval(tcTimer.current)
+    tcTimer.current = setInterval(() => { if (tcChatRef.current) tcLoad(tcChatRef.current) }, 3000)
+  }
   const openTaskChat = (key: string, label: string, isNew: boolean) => {
     const chat = { key, label, isNew }
     tcChatRef.current = chat
@@ -565,6 +569,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       setTcTokens(0); setTcInput(0); setTcOutput(0)
       if (dm) { const mm = models.find((x: any) => x.id === dm); setTcWindow(mm?.contextWindow || 0) }
     }
+    if (!isNew) startTcTimer()
     call('getProvidersConfig').then(async (r: any) => {
       if (r?.defaultModel) tcDefModel.current = r.defaultModel
       if (r?.defaultThinking) tcDefThinking.current = r.defaultThinking
@@ -589,8 +594,6 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       setTcProviders(providerList)
     }).catch(() => {})
     tcLoad(chat)
-    clearInterval(tcTimer.current)
-    tcTimer.current = setInterval(() => { if (tcChatRef.current) tcLoad(tcChatRef.current) }, 2000)
   }
   const closeTaskChat = () => {
     clearInterval(tcTimer.current)
@@ -618,6 +621,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
         tcChatRef.current = newChat
         setTaskChat(newChat)
         props.onSessionCreated?.(key)
+        startTcTimer()
         setTcSession({ id: key, title: 'New chat', type: 'chat', updatedAt: new Date().toISOString(), order: Date.now(), messageCount: 0, agents: tcAgents, model: tcModel, thinkingLevel: tcThinking, mode: tcMode, folderId: null, parentId: null, compactionAuto: true, compactionThreshold: 80, agentId: tcAgents.join(',') })
       }
       // Fire-and-forget: NON bloccare il passaggio alla sessione nuova (la risposta arriva via poll)
