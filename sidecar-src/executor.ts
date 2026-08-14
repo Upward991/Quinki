@@ -673,6 +673,15 @@ export class ExecutionEngine {
     }
   }
 
+  updateExecution(id: string, patch: { model?: string | null; thinkingLevel?: string | null }): { ok: boolean; error?: string } {
+    const state = this.get(id);
+    if (!state) return { ok: false, error: "execution not found" };
+    if (patch.model !== undefined) state.model = patch.model || null;
+    if (patch.thinkingLevel !== undefined) state.thinkingLevel = patch.thinkingLevel || null;
+    try { this.#writeState(id, state); } catch (e: any) { return { ok: false, error: e?.message || String(e) }; }
+    return { ok: true };
+  }
+
   remove(id: string): { ok: boolean; error?: string } {
     try {
       try {
