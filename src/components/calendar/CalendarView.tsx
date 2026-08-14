@@ -124,9 +124,9 @@ function WhenCell({ i, onEdit }: { i: Item; onEdit: (e: any) => void }) {
   ])
 }
 
-function RowBtn({ title, onClick, children, color, hoverColor }: { title: string; onClick: () => void; children: React.ReactNode; color?: string; hoverColor?: string }) {
+function RowBtn({ title, onClick, children, color, hoverColor }: { title: string; onClick: (e?: any) => void; children: React.ReactNode; color?: string; hoverColor?: string }) {
   const [h, setH] = useState(false)
-  return React.createElement('button', { title, onClick: () => { setH(false); onClick() }, onMouseEnter: () => setH(true), onMouseLeave: () => setH(false), style: { background: 'none', border: 'none', cursor: 'pointer', color: h ? (hoverColor || color || 'var(--q-text)') : (color || 'var(--q-text-tertiary)'), padding: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-sm)', flexShrink: 0, transition: 'none' } }, children)
+  return React.createElement('button', { title, onClick: (e: any) => { setH(false); onClick(e) }, onMouseEnter: () => setH(true), onMouseLeave: () => setH(false), style: { background: 'none', border: 'none', cursor: 'pointer', color: h ? (hoverColor || color || 'var(--q-text)') : (color || 'var(--q-text-tertiary)'), padding: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-sm)', flexShrink: 0, transition: 'none' } }, children)
 }
 function ViewRow({ v, active, renaming, renameVal, onRenameChange, onRenameCommit, onRenameCancel, onSelect, onContextMenu, multiSel, selected, onToggleSel, isOverlay }: { v: ViewCfg; active: boolean; renaming: boolean; renameVal: string; onRenameChange: (s: string) => void; onRenameCommit: () => void; onRenameCancel: () => void; onSelect: () => void; onContextMenu: (e: React.MouseEvent, v: ViewCfg) => void; multiSel: boolean; selected: boolean; onToggleSel: () => void; isOverlay?: boolean }) {
   const [h, setH] = useState(false)
@@ -255,6 +255,9 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const tcMsgRef = useRef<HTMLDivElement | null>(null)
   const tcSigRef = useRef('')
   const tcAgentsSigRef = useRef('')
+  const tcDefModel = useRef('')
+  const tcDefThinking = useRef('xhigh')
+  const tcDefMode = useRef('plan')
   const [renamingView, setRenamingView] = useState<string | null>(null)
   const [renameVal, setRenameVal] = useState('')
   const [allHover, setAllHover] = useState(false)
@@ -538,17 +541,14 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       setTcMsgs([])
       setTcStreaming(false)
       setTcTokens(0)
-      setTcWindow(0)
       setTcInput(0)
       setTcOutput(0)
-      let st: any = {}
-      try { st = JSON.parse(localStorage.getItem('quinki-settings') || '{}') } catch {}
-      setTcModel(st.defaultModel || '')
-      setTcThinking(st.defaultThinking || 'xhigh')
-      setTcMode(st.defaultMode || 'plan')
+      const dm = tcDefModel.current
+      setTcModel(dm)
+      setTcThinking(tcDefThinking.current)
+      setTcMode(tcDefMode.current)
       setTcAgents([])
-      const dm = st.defaultModel || ''
-      if (dm) { const mm = models.find((x: any) => x.id === dm); if (mm?.contextWindow) setTcWindow(mm.contextWindow) }
+      if (dm) { const mm = models.find((x: any) => x.id === dm); setTcWindow(mm?.contextWindow || 0) }
     }
   }, [call])
   const openTaskChat = (key: string, label: string, isNew: boolean) => {
@@ -560,6 +560,9 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     setTcText('')
     setTcSession(isNew ? undefined : { id: key, title: label, type: 'chat', updatedAt: new Date().toISOString(), order: Date.now(), messageCount: 0, agents: [], model: '', thinkingLevel: '', mode: 'plan', folderId: null, parentId: null, compactionAuto: true, compactionThreshold: 80, agentId: '' })
     call('getProvidersConfig').then(async (r: any) => {
+      if (r?.defaultModel) tcDefModel.current = r.defaultModel
+      if (r?.defaultThinking) tcDefThinking.current = r.defaultThinking
+      if (r?.defaultMode) tcDefMode.current = r.defaultMode
       const modelsResult: any = await call('getModels').catch(() => ({}))
       const modelsByProvider: Record<string, any[]> = {}
       for (const m of (modelsResult?.models || [])) {
@@ -600,12 +603,12 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     try {
       let key = chat.key
       if (!key) {
-        const r: any = await call('createSession', { label: 'Task: ' + t.slice(0, 40), agentId: tcAgents[0] || 'orchestrator', model: tcModel || undefined, thinkingLevel: tcThinking || undefined, mode: tcMode })
+        const r: any = await call('createSession', { label: 'New chat', agentId: tcAgents[0] || undefined, model: tcModel || undefined, thinkingLevel: tcThinking || undefined, mode: tcMode })
         key = r?.key || ''
         chat.key = key
-        tcChatRef.current = { ...chat, key }
+        tcChatRef.current = { ...chat, key, isNew: false }
         setTaskChat(prev => prev ? { ...prev, key } : prev)
-        setTcSession({ id: key, title: 'Task: ' + t.slice(0, 40), type: 'chat', updatedAt: new Date().toISOString(), order: Date.now(), messageCount: 0, agents: tcAgents, model: tcModel, thinkingLevel: tcThinking, mode: tcMode, folderId: null, parentId: null, compactionAuto: true, compactionThreshold: 80, agentId: tcAgents.join(',') })
+        setTcSession({ id: key, title: 'New chat', type: 'chat', updatedAt: new Date().toISOString(), order: Date.now(), messageCount: 0, agents: tcAgents, model: tcModel, thinkingLevel: tcThinking, mode: tcMode, folderId: null, parentId: null, compactionAuto: true, compactionThreshold: 80, agentId: tcAgents.join(',') })
       }
       await call('sendMessage', { sessionKey: key, text: t, agentId: tcAgents[0] || undefined, model: tcModel || undefined, mode: tcMode || undefined, thinkingLevel: tcThinking || undefined })
       if (tcChatRef.current) tcLoad(tcChatRef.current)
