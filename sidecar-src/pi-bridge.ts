@@ -2965,7 +2965,7 @@ class PiBridge {
       promptSnippet: "getTaskStatus: list scheduled and executed tasks of this session with their status",
       promptGuidelines: [
         "Use this when the user asks about the status/progress of their tasks.",
-        "Scheduled tasks show when they will run; executed tasks show completed/failed/interrupted.",
+        "Scheduled tasks show when they will run; executed tasks show their status (executed/running).",
       ],
       parameters: Type.Object({}),
       async execute(toolCallId: string, params: any, signal: any, onUpdate: any, ctx: any): Promise<any> {

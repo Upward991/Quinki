@@ -172,9 +172,9 @@ export function ChatArea(props: ChatAreaProps) {
     }
   }, [taskPanelOpen, taskRuns])
   const taskRunning = taskExecs.filter((e: any) => e.status === 'running' || e.status === 'queued').length
-  const taskDone = taskExecs.filter((e: any) => e.status === 'completed').length
+  const taskDone = taskExecs.filter((e: any) => e.status === 'executed').length
   const taskRunningItem = taskExecs.find((e: any) => e.status === 'running' || e.status === 'queued')
-  const taskLabel = (taskScheds.length > 0 ? taskScheds.length + ' tasks scheduled' : taskExecs.length + ' tasks') + (taskDone ? ' · ' + taskDone + ' completed' : '') + (taskRunning ? ' · ' + taskRunning + ' running' : '')
+  const taskLabel = (taskScheds.length > 0 ? taskScheds.length + ' tasks scheduled' : taskExecs.length + ' tasks') + (taskDone ? ' · ' + taskDone + ' executed' : '') + (taskRunning ? ' · ' + taskRunning + ' running' : '')
   const hasTasks = taskExecs.length > 0 || taskScheds.length > 0
   const taskStripBar = hasTasks ? (
     <button onClick={toggleTaskPanel} title={taskPanelOpen ? 'Collapse tasks' : 'Show tasks'} style={{ width: '100%', padding: '8px 14px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, border: taskPanelOpen ? 'none' : '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', cursor: 'pointer', backgroundColor: taskPanelOpen ? 'transparent' : 'var(--q-bg-panel)', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: 13, transition: 'none', textAlign: 'left' }}>

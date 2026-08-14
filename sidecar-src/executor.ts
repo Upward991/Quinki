@@ -41,7 +41,7 @@ export interface ExecutionState {
   model: string | null;
   thinkingLevel: string | null;
   text: string;
-  status: "queued" | "running" | "completed";
+  status: "queued" | "running" | "executed";
   failAfterMs?: number;
   createdAt: number;
   startedAt: number | null;
@@ -373,7 +373,7 @@ export class ExecutionEngine {
             },
           };
           pb.send(dummyWs, { sessionKey: sk, text: execText }).then(
-            () => finish({ ok: true, stopReason: "completed", text: "" }),
+            () => finish({ ok: true, stopReason: "executed", text: "" }),
             (e: any) => finish({ ok: false, errorMessage: e?.message || String(e), text: "" })
           );
           // === Test hook: failAfterMs → fallimento deterministico dopo l'invio (il messaggio utente resta) ===
@@ -388,7 +388,7 @@ export class ExecutionEngine {
 
         // === A2.10: niente verifica oggettiva, niente stati failed/interrupted/cancelled.
         // Ogni task finita è un RISULTATO (completed): l'utente controlla l'esito nel toggle. ===
-        state.status = "completed";
+        state.status = "executed";
         state.endedAt = Date.now();
         if (run?.aborted) {
           state.progressNote = "cancelled by user";
@@ -397,7 +397,7 @@ export class ExecutionEngine {
           state.progressNote = "stopped by user";
           this.#appendEvent(id, "execution_completed", { stopReason: "stopped" });
         } else {
-          state.progressNote = result.stopReason || "completed";
+          state.progressNote = result.stopReason || "executed";
           if (result.errorMessage) state.error = result.errorMessage;
           state.resultPreview = ((result.text && result.text.trim()) ? result.text : await this.#readLastAssistantTextWithRetry(sk)).slice(0, 1000);
           this.#appendEvent(id, "execution_completed", { stopReason: result.stopReason, resultPreview: state.resultPreview.slice(0, 3000) });
@@ -437,12 +437,12 @@ export class ExecutionEngine {
       try { this.#piBridge?.abort?.(`__exec_${id}`); } catch {}
       // lo stato finale viene scritto dal runner (interrupted)
     } else if (state.status === "queued") {
-      state.status = "completed";
+      state.status = "executed";
       state.endedAt = Date.now();
       state.progressNote = "stopped before start";
       this.#writeState(id, state);
       this.#appendEvent(id, "execution_completed", { stopReason: "stopped", beforeStart: true });
-      this.#notify({ executionId: id, status: "completed", label: state.label });
+      this.#notify({ executionId: id, status: "executed", label: state.label });
     }
     return { ok: true };
   }
@@ -456,12 +456,12 @@ export class ExecutionEngine {
       try { this.#piBridge?.abort?.(`__exec_${id}`); } catch {}
       // Lo stato finale viene scritto dal runner (completed)
     } else if (state.status === "queued") {
-      state.status = "completed";
+      state.status = "executed";
       state.endedAt = Date.now();
       state.progressNote = "cancelled before start";
       this.#writeState(id, state);
       this.#appendEvent(id, "execution_completed", { stopReason: "cancelled", beforeStart: true });
-      this.#notify({ executionId: id, status: "completed", label: state.label });
+      this.#notify({ executionId: id, status: "executed", label: state.label });
     }
     return { ok: true };
   }
@@ -529,9 +529,9 @@ export class ExecutionEngine {
           this.#notify({ executionId: st.id, status: "interrupted", label: st.label });
           recovered++;
           if ((st.resumeCount || 0) >= 3) {
-            st.status = "completed"; st.error = "auto-resume limit reached (3)";
+            st.status = "executed"; st.error = "auto-resume limit reached (3)";
             this.#writeState(st.id, st); this.#appendEvent(st.id, "execution_completed", { stopReason: "resume-limit" });
-            this.#notify({ executionId: st.id, status: "completed", label: st.label, error: st.error });
+            this.#notify({ executionId: st.id, status: "executed", label: st.label, error: st.error });
           } else if (autoResume) {
             resumed++;
             this.#resume(st.id).catch(() => {});
@@ -595,7 +595,7 @@ export class ExecutionEngine {
           },
         };
         pb.send(dummyWs, { sessionKey: sk, text: continuation }).then(
-          () => finish({ ok: true, stopReason: "completed" }),
+          () => finish({ ok: true, stopReason: "executed" }),
           (e: any) => finish({ ok: false, errorMessage: e?.message || String(e) })
         );
       });
@@ -606,7 +606,7 @@ export class ExecutionEngine {
         st.status = "cancelled"; st.endedAt = Date.now();
         this.#appendEvent(id, "execution_cancelled", { afterResume: true });
       } else if (result.ok) {
-        st.status = "completed"; st.endedAt = Date.now();
+        st.status = "executed"; st.endedAt = Date.now();
         this.#appendEvent(id, "execution_completed", { afterResume: true, stopReason: result.stopReason });
       } else {
         st.status = "failed"; st.endedAt = Date.now();
