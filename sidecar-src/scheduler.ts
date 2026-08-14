@@ -1,11 +1,13 @@
 // src/main/scheduler.ts — A2.2: programmazione compiti (Schedule Object, NON cron)
+// Riscritto in EVENT-DRIVEN (A2.9): niente polling ogni 30s.
+// Un solo setTimeout per la prossima occorrenza; ricalcolo su ogni modifica;
+// scan catch-up solo al boot (app ripartita: i task scaduti partono comunque).
 //
 // schedules.json in ~/.quinki/ (condiviso tra main + Expert):
 //   { id, title, agentIds, workingDir, mode, model, thinkingLevel, text, owner,
 //     when: { type: once|daily|weekly|monthly, at: "HH:MM", daysOfWeek: [1..7], dayOfMonth: n, date: ISO },
 //     enabled, catchUp, lastFiredAt, lastExecutionId, nextFireAt, createdAt }
 //
-// Loop ogni 30s + scan immediato al boot (catch-up: "si fa comunque, anche in ritardo").
 // Ogni sidecar esegue SOLO le schedule con owner == se stesso (main 9182 / expert 9183).
 
 import * as fs from "node:fs";
@@ -84,14 +86,36 @@ export class Scheduler {
     try { this.onNotify?.({ schedules: this.readSchedules() }); } catch {}
   }
 
+  // === EVENT-DRIVEN: un solo timer per la prossima occorrenza ===
   start() {
     // Catch-up immediato al boot (app ripartita: i task scaduti DEVONO partire, anche in ritardo)
+    // poi #scan() riposiziona il timer sulla prossima occorrenza.
     this.#scan();
-    this.#timer = setInterval(() => this.#scan(), 30000);
-    this.#log("scheduler-started", { owner: this.#owner, intervalSec: 30 });
+    this.#log("scheduler-started", { owner: this.#owner, mode: "event-driven" });
   }
 
-  stop() { if (this.#timer) clearInterval(this.#timer); }
+  stop() { if (this.#timer) { clearTimeout(this.#timer); this.#timer = null; } }
+
+  // Ricalcola e riposiziona il timer sulla prossima occorrenza (una sola attiva).
+  #scheduleNext() {
+    if (this.#timer) { clearTimeout(this.#timer); this.#timer = null; }
+    const now = Date.now();
+    let earliest: number | null = null;
+    for (const s of this.readSchedules()) {
+      if (!s.enabled) continue;
+      if (s.owner !== this.#owner) continue; // il main esegue solo le sue, l'expert solo le sue
+      const next = s.nextFireAt ?? this.#computeNext(s, s.lastFiredAt || 0);
+      if (next == null) continue;
+      if (earliest == null || next < earliest) earliest = next;
+    }
+    if (earliest == null) return;
+    // +50ms di sicurezza: mai scattare prima dell'ora esatta
+    const delay = Math.max(0, earliest - Date.now()) + 50;
+    this.#timer = setTimeout(() => {
+      this.#timer = null;
+      this.#scan();
+    }, delay);
+  }
 
   // === Calcolo prossima occorrenza > afterTs ===
   #parseAt(at: string): { h: number; m: number } {
@@ -133,22 +157,20 @@ export class Scheduler {
     return null;
   }
 
-  // === Scan: find + fire le mie schedule in scadenza ===
+  // === Scan: fire le mie schedule in scadenza, poi riposiziona il timer ===
   async #scan() {
     if (this.#scanning) return;
     this.#scanning = true;
     try {
       const now = Date.now();
       const all = this.readSchedules();
-      let changed = false;
       for (const s of all) {
         if (!s.enabled) continue;
-        if (s.owner !== this.#owner) continue; // il main esegue solo le sue, l'expert solo le sue
+        if (s.owner !== this.#owner) continue;
         const next = s.nextFireAt ?? this.#computeNext(s, s.lastFiredAt || 0);
         if (next == null) continue;
         if (now >= next) {
           await this.#fire(s, next);
-          changed = true;
         }
       }
       // niente log a ogni tick (rumore): si logga solo quando qualcosa scatta
@@ -156,6 +178,7 @@ export class Scheduler {
       this.#log("scheduler-scan-error", { error: e?.message });
     } finally {
       this.#scanning = false;
+      this.#scheduleNext();
     }
   }
 
@@ -236,6 +259,7 @@ export class Scheduler {
     this.#writeSchedules(all);
     this.#log("schedule-created", { scheduleId: id, title: s.title, type: when.type, nextFireAt: s.nextFireAt });
     this.#notify();
+    this.#scheduleNext();
     return { id, schedule: s };
   }
 
@@ -263,6 +287,7 @@ export class Scheduler {
     this.#writeSchedules(all);
     this.#log("schedule-updated", { scheduleId: s.id });
     this.#notify();
+    this.#scheduleNext();
     return { ok: true };
   }
 
@@ -272,6 +297,7 @@ export class Scheduler {
     this.#writeSchedules(next);
     this.#log("schedule-deleted", { scheduleId: p.id });
     this.#notify();
+    this.#scheduleNext();
     return { ok: true };
   }
 
@@ -309,6 +335,7 @@ export class Scheduler {
       this.#writeSchedules(all);
       this.#log("schedule-run-now", { scheduleId: s.id, executionId: r.executionId });
       this.#notify();
+      this.#scheduleNext();
       return { ok: true, executionId: r.executionId };
     } catch (e: any) {
       return { ok: false, error: e?.message || String(e) };
