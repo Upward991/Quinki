@@ -715,6 +715,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       React.createElement('div', { key: 'body', style: { position: 'absolute', inset: 0, padding: '8px 8px 8px 8px', overflow: 'hidden' } }, [
         React.createElement(ChatArea, {
           key: 'ca',
+          disableAutoScroll: true,
           session: tcSession,
           messages: tcMsgs,
           streaming: tcStreaming,

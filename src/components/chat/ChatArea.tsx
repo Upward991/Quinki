@@ -97,6 +97,7 @@ interface ChatAreaProps {
   onReset?: () => void
   onReload?: () => void
   onCompact?: () => void
+  disableAutoScroll?: boolean
 }
 
 export function ChatArea(props: ChatAreaProps) {
@@ -340,6 +341,7 @@ export function ChatArea(props: ChatAreaProps) {
   const msgCount = props.messages.length
   useLayoutEffect(() => {
     // Skip auto-scroll when search is active, or quando la sezione task è aperta (lì scrolla il task view, non la chat)
+    if (props.disableAutoScroll) return
     if (searchQuery || searchDate || searchTime) return
     if (taskPanelOpen) return
     // Cambio sessione: torna in fondo e rinsalda il pin
