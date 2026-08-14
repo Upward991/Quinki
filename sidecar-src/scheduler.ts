@@ -233,12 +233,17 @@ export class Scheduler {
       throw new Error("when.type must be once|daily|weekly|monthly");
     }
     const id = `sch_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    let rawIds: any = p.agentIds;
+    if (typeof rawIds === 'string') {
+      const t = rawIds.trim();
+      if (t.startsWith('[')) { try { rawIds = JSON.parse(t); } catch {} }
+    }
     const s: Schedule = {
       id,
       title: String(p.title || "Scheduled task"),
       sourceSession: p.sourceSession ? { key: String(p.sourceSession.key || ''), label: String(p.sourceSession.label || '') } : undefined,
-      agentIds: Array.isArray(p.agentIds) ? p.agentIds.map((x: string) => String(x).trim()).filter(Boolean)
-        : String(p.agentIds || "orchestrator").split(",").map((x: string) => x.trim()).filter(Boolean),
+      agentIds: Array.isArray(rawIds) ? rawIds.map((x: any) => String(x).trim()).filter(Boolean)
+        : String(rawIds || "orchestrator").split(",").map((x: string) => x.trim()).filter(Boolean),
       workingDir: p.workingDir ?? undefined,
       mode: p.mode ?? undefined,
       model: p.model ?? undefined,
@@ -268,7 +273,14 @@ export class Scheduler {
     const s = all.find((x: Schedule) => x.id === p.id);
     if (!s) throw new Error("schedule not found");
     if (p.title !== undefined) s.title = String(p.title);
-    if (p.agentIds !== undefined) s.agentIds = Array.isArray(p.agentIds) ? p.agentIds.map((x: string) => String(x).trim()).filter(Boolean) : [String(p.agentIds)];
+    if (p.agentIds !== undefined) {
+      let rawIds: any = p.agentIds;
+      if (typeof rawIds === 'string') {
+        const t = rawIds.trim();
+        if (t.startsWith('[')) { try { rawIds = JSON.parse(t); } catch {} }
+      }
+      s.agentIds = Array.isArray(rawIds) ? rawIds.map((x: any) => String(x).trim()).filter(Boolean) : [String(rawIds)];
+    }
     if (p.workingDir !== undefined) s.workingDir = p.workingDir || undefined;
     if (p.mode !== undefined) s.mode = p.mode || undefined;
     if (p.model !== undefined) s.model = p.model || undefined;
@@ -308,6 +320,17 @@ export class Scheduler {
     if (s.owner !== this.#owner) return { ok: false, error: `schedule owned by ${s.owner} (run it from that app)` };
     if (!s.enabled) return { ok: false, error: "schedule disabled" };
     const now = Date.now();
+    // === Aggiorna lo stato PRIMA del fire: il #scan event-driven non deve rifare la task ===
+    const idx = all.findIndex((x: Schedule) => x.id === s.id);
+    if (s.when.type === "once") {
+      // once → dopo Run now la schedule sparisce (l'esecuzione resta in history)
+      if (idx >= 0) all.splice(idx, 1);
+    } else {
+      s.nextFireAt = this.#computeNext(s, now);
+      if (idx >= 0) all[idx] = s;
+    }
+    this.#writeSchedules(all);
+    this.#scheduleNext();
     try {
       const r = await this.#executor.runTask({
         label: s.title || "Scheduled task (manual)",
@@ -324,18 +347,11 @@ export class Scheduler {
       });
       s.lastFiredAt = now;
       s.lastExecutionId = r.executionId;
-      const idx = all.findIndex((x: Schedule) => x.id === s.id);
-      if (s.when.type === "once") {
-        // once → dopo Run now la schedule sparisce (l'esecuzione resta in history)
-        if (idx >= 0) all.splice(idx, 1);
-      } else {
-        s.nextFireAt = this.#computeNext(s, now);
-        if (idx >= 0) all[idx] = s;
-      }
-      this.#writeSchedules(all);
+      const all2 = this.readSchedules();
+      const idx2 = all2.findIndex((x: Schedule) => x.id === s.id);
+      if (idx2 >= 0) { all2[idx2] = s; this.#writeSchedules(all2); }
       this.#log("schedule-run-now", { scheduleId: s.id, executionId: r.executionId });
       this.#notify();
-      this.#scheduleNext();
       return { ok: true, executionId: r.executionId };
     } catch (e: any) {
       return { ok: false, error: e?.message || String(e) };
