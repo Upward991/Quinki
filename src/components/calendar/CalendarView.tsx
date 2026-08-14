@@ -415,7 +415,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       return content
     }
     if (key === 'title') return i.title
-    if (key === 'type') return React.createElement('span', { key: 'tp', style: { fontSize: 12.5, fontFamily: 'var(--font-code)', color: i.type === 'once' ? 'var(--q-text-secondary)' : 'var(--q-accent-calendar)', textTransform: 'capitalize' } }, i.type)
+    if (key === 'type') return React.createElement('span', { key: 'tp', style: { fontSize: 12.5, fontFamily: 'var(--font-code)', color: 'var(--q-text-secondary)', textTransform: 'capitalize' } }, i.type)
     if (key === 'agent') return i.agent
     if (key === 'chat') {
       if (i.sourceKey) return React.createElement(MtText, { key: 'ch', label: i.chat, onClick: (e: any) => { e.stopPropagation(); props.onOpenSession?.(i.sourceKey as string, i.chat, false) } })
