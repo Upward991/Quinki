@@ -176,8 +176,8 @@ function ViewContextMenu({ x, y, item, multiSelect, selectedCount, onClose, onRe
 }
 function ConfirmModal({ title, subtitle, onCancel, onConfirm }: any) {
   return React.createElement(React.Fragment, null, [
-    React.createElement('div', { key: 'o', style: { position: 'fixed', inset: 0, zIndex: 300, backgroundColor: 'rgba(0,0,0,0.4)' }, onClick: onCancel }),
-    React.createElement('div', { key: 'm', style: { position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', zIndex: 310, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '20px 24px', minWidth: '320px', maxWidth: '400px' } }, [
+    React.createElement('div', { key: 'o', style: { position: 'fixed', inset: 0, zIndex: 300, backgroundColor: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: onCancel }),
+    React.createElement('div', { key: 'm', style: { backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '20px 24px', minWidth: '320px', maxWidth: '400px' } }, [
       React.createElement('div', { key: 't', style: { color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', marginBottom: '8px' } }, title),
       React.createElement('div', { key: 's', style: { color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', marginBottom: '16px' } }, subtitle),
       React.createElement('div', { key: 'b', style: { display: 'flex', justifyContent: 'flex-end', gap: '8px' } }, [
@@ -204,7 +204,7 @@ function normViews(v: any): ViewCfg[] { return (Array.isArray(v) ? v : []).map((
 function loadViews(): ViewCfg[] { try { const s = localStorage.getItem(VIEWS_KEY); if (s) { const v = normViews(JSON.parse(s)); if (v.length) return v } } catch {} return [{ id: BASE_ID, name: 'All', type: 'table', f: { q: '', status: 'all', agents: [], chats: [] } }] }
 const DEFAULT_VIEWS: ViewCfg[] = [{ id: BASE_ID, name: 'All', type: 'table', f: { q: '', status: 'all', agents: [], chats: [] } }]
 
-export function CalendarView(props: { activePanel: string; onSelectPanel: (p: string) => void; agents?: any[]; onOpenSession?: (key: string) => void }) {
+export function CalendarView(props: { activePanel: string; onSelectPanel: (p: string) => void; agents?: any[]; onOpenSession?: (key: string) => void; onSessionCreated?: (key: string) => void }) {
   const { call, subscribe } = useSidecarContext()
   const [schedules, setSchedules] = useState<any[]>([])
   const [executions, setExecutions] = useState<any[]>([])
@@ -560,6 +560,18 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     setTcStreaming(false)
     setTcText('')
     setTcSession(isNew ? undefined : { id: key, title: label, type: 'chat', updatedAt: new Date().toISOString(), order: Date.now(), messageCount: 0, agents: [], model: '', thinkingLevel: '', mode: 'plan', folderId: null, parentId: null, compactionAuto: true, compactionThreshold: 80, agentId: '' })
+    if (isNew) {
+      // Dati SUBITO (come la welcome chat della tab chat): default da localStorage + contextWindow dal modello
+      let st: any = {}
+      try { st = JSON.parse(localStorage.getItem('quinki-settings') || '{}') } catch {}
+      const dm = st.defaultModel || tcDefModel.current || ''
+      setTcModel(dm)
+      setTcThinking(st.defaultThinking || tcDefThinking.current || 'xhigh')
+      setTcMode(st.defaultMode || tcDefMode.current || 'plan')
+      setTcAgents([])
+      setTcTokens(0); setTcInput(0); setTcOutput(0)
+      if (dm) { const mm = models.find((x: any) => x.id === dm); setTcWindow(mm?.contextWindow || 0) }
+    }
     call('getProvidersConfig').then(async (r: any) => {
       if (r?.defaultModel) tcDefModel.current = r.defaultModel
       if (r?.defaultThinking) tcDefThinking.current = r.defaultThinking
@@ -612,6 +624,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
         const newChat = { ...chat, key, isNew: false }
         tcChatRef.current = newChat
         setTaskChat(newChat)
+        props.onSessionCreated?.(key)
         setTcSession({ id: key, title: 'New chat', type: 'chat', updatedAt: new Date().toISOString(), order: Date.now(), messageCount: 0, agents: tcAgents, model: tcModel, thinkingLevel: tcThinking, mode: tcMode, folderId: null, parentId: null, compactionAuto: true, compactionThreshold: 80, agentId: tcAgents.join(',') })
       }
       await call('sendMessage', { sessionKey: key, text: t, agentId: tcAgents[0] || undefined, model: tcModel || undefined, mode: tcMode || undefined, thinkingLevel: tcThinking || undefined })
@@ -726,8 +739,8 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
         ]),
       ],
       React.createElement('div', { key: 'b', style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 } }, [
-        pickExisting ? React.createElement('button', { key: 'bk', onClick: () => setPickExisting(false), onMouseEnter: (e: any) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }, onMouseLeave: (e: any) => { e.currentTarget.style.backgroundColor = 'transparent' }, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: 13, fontFamily: 'var(--font-interface)', fontWeight: 400, cursor: 'pointer' } }, 'Back') : null,
         React.createElement('button', { key: 'c', onClick: () => { setCreateTaskOpen(false); setPickExisting(false) }, onMouseEnter: (e: any) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }, onMouseLeave: (e: any) => { e.currentTarget.style.backgroundColor = 'transparent' }, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: 13, fontFamily: 'var(--font-interface)', fontWeight: 400, cursor: 'pointer' } }, 'Cancel'),
+        pickExisting ? React.createElement('button', { key: 'bk', onClick: () => setPickExisting(false), onMouseEnter: (e: any) => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }, onMouseLeave: (e: any) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-interface)', cursor: 'pointer' } }, 'Back') : null,
       ]),
     ])) : null,
     taskChat ? React.createElement('div', { key: 'tcm', style: { position: 'fixed', top: 25, bottom: 0, left: 0, right: 0, zIndex: 310, backgroundColor: 'var(--q-bg)', padding: '8px 8px 8px 8px' } }, [

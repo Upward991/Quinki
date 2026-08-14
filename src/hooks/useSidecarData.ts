@@ -1039,6 +1039,12 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     notify('setWorkingDir', { sessionKey: sk, workingDir: dir })
   }, [ready, notify])
 
+  const refreshSessions = useCallback(async () => {
+    try {
+      const r = await call('getFullState', {})
+      if (r?.sessions) setSessions(mapSessions(r.sessions))
+    } catch {}
+  }, [call])
   const ensureSession = useCallback(async (sessionKey: string, label: string) => {
     if (!ready) return
     try { await call('ensureSession', { sessionKey, label }) } catch (e) { console.error('ensureSession:', e) }
@@ -1355,7 +1361,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     // Sidebar
     sidebarSessions,
     // Session management
-    selectSession, sendMessage, injectErrorMessages, stopStreaming, createSession, deleteSession, renameSession, deselectSession,
+    selectSession, sendMessage, injectErrorMessages, stopStreaming, createSession, deleteSession, renameSession, deselectSession, refreshSessions,
     resetSession, reloadSession, moveSession, compactSession, ensureSession,
     // Session settings
     setChatAgents, setModel, setThinkingLevel, setMode, setSessionCompaction, setWorkingDir,

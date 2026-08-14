@@ -1286,7 +1286,7 @@ class PiBridge {
       thinkingLevel = s?.thinkingLevel;
       availableThinkingLevels = ["off", "low", "medium", "high"];
     }
-    return { model, thinkingLevel, availableThinkingLevels, mode, agentId: (s as any)?.agentId, agentOverrides: (s as any)?.agentOverrides || {}, workingDir: this.#cwdOverride.get(key) || '' };
+    return { model, thinkingLevel, availableThinkingLevels, mode, agentId: (s as any)?.agentId, agentOverrides: (s as any)?.agentOverrides || {}, workingDir: this.#cwdOverride.get(key) || '', label: s?.label };
   }
 
   getOllamaThinkingLevels(key: string): { piLevels: string[]; ollamaLevels: { pi: string; ollama: string }[] } {
