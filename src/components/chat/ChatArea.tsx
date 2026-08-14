@@ -170,17 +170,12 @@ export function ChatArea(props: ChatAreaProps) {
   const taskFail = taskExecs.filter((e: any) => e.status === 'failed').length
   const taskRunningItem = taskExecs.find((e: any) => e.status === 'running' || e.status === 'queued')
   const taskInterrupted = taskExecs.filter((e: any) => e.status === 'interrupted').length
-  const taskLabel = taskRunningItem ? '"' + (taskRunningItem.label || 'task') + '" in corso' : (taskExecs.length + taskScheds.length) + ' tasks · ' + taskDone + ' done' + (taskInterrupted ? ' · ' + taskInterrupted + ' interrupted' : '') + (taskFail ? ' · ' + taskFail + ' failed' : '')
+  const taskLabel = (taskExecs.length + taskScheds.length) + ' tasks' + (taskDone ? ' · ' + taskDone + ' completed' : '') + (taskFail ? ' · ' + taskFail + ' failed' : '')
   const hasTasks = taskExecs.length > 0 || taskScheds.length > 0
   const taskStripBar = hasTasks ? (
     <button onClick={toggleTaskPanel} title={taskPanelOpen ? 'Collapse tasks' : 'Show tasks'} style={{ width: '100%', padding: '8px 14px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, border: taskPanelOpen ? 'none' : '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', cursor: 'pointer', backgroundColor: taskPanelOpen ? 'transparent' : 'var(--q-bg-panel)', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: 13, transition: 'none', textAlign: 'left' }}>
       <Checklist size={16} style={{ color: 'var(--q-text-secondary)', flexShrink: 0 }} />
       <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--q-text-secondary)' }}>{taskLabel}</span>
-      {taskRunning > 0 && (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-interface)', color: 'var(--q-accent-info)', border: '1px solid var(--q-accent-info)', flexShrink: 0 }}>
-          <span style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: 'var(--q-accent-info)', display: 'inline-block' }} /> RUNNING
-        </span>
-      )}
       {taskPanelOpen ? <ChevronDown size={16} style={{ flexShrink: 0 }} /> : <ChevronUp size={16} style={{ flexShrink: 0 }} />}
     </button>
   ) : null
@@ -197,11 +192,6 @@ export function ChatArea(props: ChatAreaProps) {
       <button onClick={toggleTaskPanel} title="Collapse tasks" style={{ width: '100%', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-bg-panel)', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: 13, transition: 'none', textAlign: 'left' }}>
         <Checklist size={16} style={{ color: taskRunning ? 'var(--q-accent-info)' : 'var(--q-text-secondary)', flexShrink: 0 }} />
         <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--q-text)' }}>{taskLabel}</span>
-        {taskRunning > 0 && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-interface)', color: 'var(--q-accent-info)', border: '1px solid var(--q-accent-info)', flexShrink: 0 }}>
-            <span style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: 'var(--q-accent-info)', display: 'inline-block' }} /> RUNNING
-          </span>
-        )}
         <ChevronDown size={16} style={{ flexShrink: 0 }} />
       </button>
     </div>

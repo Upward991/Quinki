@@ -52,6 +52,16 @@ const DEBUG_LOG_FILE = path.join(_agentDir, "quinki-debug.log");
 const DEBUG_LOG_MAX = 200;
 const SESSION_BASE = path.join(_agentDir, "sessions", "quinki");
 
+// ID stabile per i messaggi senza id: timestamp + hash del contenuto (NON random → niente re-render)
+function stableMsgId(m: any): string {
+  const ts = typeof m.timestamp === "number" ? m.timestamp : (m.timestamp ? new Date(m.timestamp).getTime() : 0);
+  let h = 0;
+  const str = JSON.stringify([m.role, m.parentId, m.content, m.toolName, m.toolCallId, m.message?.role]);
+  for (let i = 0; i < str.length; i++) { h = ((h << 5) - h + str.charCodeAt(i)) | 0; }
+  return "m-" + ts + "-" + Math.abs(h).toString(36).slice(0, 8);
+}
+
+
 function makeBackup() {
   try {
     if (fs.existsSync(SESSION_FILE)) {
@@ -910,7 +920,7 @@ class PiBridge {
   }
 
   #mapMessage(m: any, thinkingLevel?: string, sessionKey?: string): any[] {
-    const id = m.id || `m-${Date.now()}${Math.random().toString(36).slice(2, 4)}`;
+    const id = m.id || stableMsgId(m);
     const role = m.role || "assistant";
     const ts = typeof m.timestamp === "number" ? m.timestamp : Date.now();
     const content = m.content;
@@ -1069,7 +1079,7 @@ class PiBridge {
     const mapWithNoop = (messages: any[], noopTs: Set<number>) => {
       return messages.flatMap((m: any) => {
         if (m.role === "compactionSummary" && noopTs.has(m.timestamp)) {
-          return [{ id: m.id || `m-${Date.now()}`, role: "assistant", content: "⚠️ **Compaction non efficace**: La conversazione è troppo corta o i messaggi sono troppo grandi per essere compattati.\\n\\nIl contesto non è stato ridotto. Considera di iniziare una nuova chat se il contesto è pieno.", timestamp: m.timestamp, done: true, isCompactionWarning: true }];
+          return [{ id: m.id || stableMsgId(m), role: "assistant", content: "⚠️ **Compaction non efficace**: La conversazione è troppo corta o i messaggi sono troppo grandi per essere compattati.\\n\\nIl contesto non è stato ridotto. Considera di iniziare una nuova chat se il contesto è pieno.", timestamp: m.timestamp, done: true, isCompactionWarning: true }];
         }
         return this.#mapMessage(m, tlvl, key);
       });
