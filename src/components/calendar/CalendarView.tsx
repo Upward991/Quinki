@@ -175,9 +175,8 @@ function ViewContextMenu({ x, y, item, multiSelect, selectedCount, onClose, onRe
   ])
 }
 function ConfirmModal({ title, subtitle, onCancel, onConfirm }: any) {
-  return React.createElement(React.Fragment, null, [
-    React.createElement('div', { key: 'o', style: { position: 'fixed', inset: 0, zIndex: 300, backgroundColor: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: onCancel }),
-    React.createElement('div', { key: 'm', style: { backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '20px 24px', minWidth: '320px', maxWidth: '400px' } }, [
+  return React.createElement('div', { key: 'o', style: { position: 'fixed', inset: 0, zIndex: 300, backgroundColor: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: onCancel },
+    React.createElement('div', { key: 'm', onClick: (e: any) => e.stopPropagation(), style: { backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '20px 24px', minWidth: '320px', maxWidth: '400px' } }, [
       React.createElement('div', { key: 't', style: { color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', marginBottom: '8px' } }, title),
       React.createElement('div', { key: 's', style: { color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', marginBottom: '16px' } }, subtitle),
       React.createElement('div', { key: 'b', style: { display: 'flex', justifyContent: 'flex-end', gap: '8px' } }, [
@@ -185,7 +184,7 @@ function ConfirmModal({ title, subtitle, onCancel, onConfirm }: any) {
         React.createElement('button', { key: 'ok', onClick: onConfirm, onMouseEnter: (e: any) => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }, onMouseLeave: (e: any) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)', cursor: 'pointer' } }, 'Delete'),
       ]),
     ]),
-  ])
+  )
 }
 
 interface Item { id: string; kind: 'sched' | 'exec'; title: string; agent: string; chat: string; status: string; when: number | null; error: string; ex?: any; model?: string | null; thinkingLevel?: string | null; whenObj?: any; sourceKey?: string | null }
