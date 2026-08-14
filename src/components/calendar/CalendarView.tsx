@@ -539,17 +539,10 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
         if (u) { if (u.tokens != null) setTcTokens(u.tokens); if (u.contextWindow || u.window) setTcWindow(u.contextWindow || u.window); if (typeof u.input === 'number') setTcInput(u.input); if (typeof u.output === 'number') setTcOutput(u.output) }
       } catch {}
     } else {
+      // Chat nuova: NON resettare le scelte dell'utente (agenti, mode, directory, modello)
+      // I default sono già impostati in openTaskChat — qui solo messaggi/streaming
       setTcMsgs([])
       setTcStreaming(false)
-      setTcTokens(0)
-      setTcInput(0)
-      setTcOutput(0)
-      const dm = tcDefModel.current
-      setTcModel(dm)
-      setTcThinking(tcDefThinking.current)
-      setTcMode(tcDefMode.current)
-      setTcAgents([])
-      if (dm) { const mm = tcModelsRef.current.find((x: any) => x.id === dm); setTcWindow(mm?.contextWindow || 0) }
     }
   }, [call])
   const openTaskChat = (key: string, label: string, isNew: boolean) => {
