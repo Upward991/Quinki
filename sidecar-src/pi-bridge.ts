@@ -5910,6 +5910,7 @@ export function setProvidersConfig(config: any): { success: boolean; error?: str
       providers: {},
       defaultModel: config.defaultModel || "",
       defaultThinking: config.defaultThinking || "xhigh",
+      defaultMode: config.defaultMode || "plan",
     };
     const existing = readProvidersConfig();
     // === BUGFIX: mappa case-insensitive per recuperare chiavi esistenti indipendentemente dal case ===

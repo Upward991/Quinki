@@ -28,12 +28,14 @@ export interface ProvidersConfig {
   providers: Record<string, ProviderConfig>;
   defaultModel: string;
   defaultThinking: string;
+  defaultMode?: string;
 }
 
 export interface SafeProvidersConfig {
   providers: Record<string, SafeProviderConfig>;
   defaultModel: string;
   defaultThinking: string;
+  defaultMode?: string;
 }
 
 export interface FetchedModel {
@@ -48,6 +50,7 @@ const DEFAULT_CONFIG: ProvidersConfig = {
   providers: {},
   defaultModel: "",
   defaultThinking: "xhigh",
+  defaultMode: "plan",
 };
 
 function maskApiKey(key: string): string {

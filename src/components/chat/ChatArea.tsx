@@ -9,7 +9,7 @@ import { getContrastColor } from '../../utils/contrast'
 import { MessageBubble } from './MessageBubble'
 import { ChatHeader } from './ChatHeader'
 import { Composer } from './Composer'
-import { ArrowDown, Checklist, ChevronDown, ChevronRight, ChevronUp, Copy } from '../icons'
+import { ArrowDown, Checklist, ChevronDown, ChevronRight, ChevronUp, Copy, Paperclip } from '../icons'
 import { useSidecarContext } from '../shared/AppShell'
 import type { Message, Session, Agent, Provider, ChatMode, ThinkingLevel } from '../../types'
 
@@ -31,6 +31,12 @@ function TaskResultToggle({ run, sessionKey, defaultOpen }: { run: any; sessionK
           <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color }}>{label}</span>
           <span style={{ fontFamily: 'var(--font-interface)', fontSize: '13px', fontWeight: 600, color: 'var(--q-text)' }}>{run.label}</span>
           <span style={{ flex: 1 }} />
+          <button onClick={(e) => { e.stopPropagation(); try { let fullText = ''; for (const m of run.messages || []) { fullText += (m.role === 'user' ? 'User: ' : 'Agent: ') + (m.content || '') + '\n' } const text = fullText.trim() || run.label; window.dispatchEvent(new CustomEvent('quinki-task-clip', { detail: { id: run.id, label: run.label, text } })) } catch {} }}
+            onMouseEnter={() => setCopyHovered(true)} onMouseLeave={() => setCopyHovered(false)}
+            title="Clip to chat"
+            style={{ opacity: hovered ? 1 : 0, background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: 'var(--radius-sm)', color: copyHovered ? color : 'var(--q-text-tertiary)' }}>
+            <Paperclip size={14} />
+          </button>
           <button onClick={(e) => { e.stopPropagation(); try { let fullText = ''; for (const m of run.messages || []) { fullText += (m.role === 'user' ? 'User: ' : 'Agent: ') + (m.content || '') + '\n' } navigator.clipboard.writeText(fullText) } catch {} }}
             onMouseEnter={() => setCopyHovered(true)} onMouseLeave={() => setCopyHovered(false)}
             style={{ opacity: hovered ? 1 : 0, background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: 'var(--radius-sm)', color: copyHovered ? color : 'var(--q-text-tertiary)' }}>
@@ -355,7 +361,7 @@ export function ChatArea(props: ChatAreaProps) {
     const t2 = setTimeout(() => { if (scrollRef.current && pinnedRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 250)
     const t3 = setTimeout(() => { if (scrollRef.current && pinnedRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 450)
     return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
-  }, [sessionId, msgCount, isEmpty, props.streaming, searchQuery, searchDate, searchTime, props.messages, composerH])
+  }, [sessionId, msgCount, isEmpty, props.streaming, searchQuery, searchDate, searchTime, props.messages, composerH, hasTasks])
 
   return (
     <div className="h-full flex flex-col" style={{ maxWidth: 'var(--spacing-chat-max)', margin: '0 auto', width: '100%', position: 'relative' }} onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
@@ -472,7 +478,7 @@ export function ChatArea(props: ChatAreaProps) {
           <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column', ...(taskPanelOpen ? { margin: '2px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom' } : {}) }}>
             <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
               {/* Chat — SEMPRE montata (display none quando il pannello task è aperto) → lo scroll resta dov'era */}
-              <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '4px 16px 0 16px', scrollbarGutter: 'stable', display: taskPanelOpen ? 'none' : 'block' }}
+              <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '4px 16px ' + (hasTasks ? 8 : 0) + 'px 16px', scrollbarGutter: 'stable', display: taskPanelOpen ? 'none' : 'block' }}
                 onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100); pinnedRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 120 }}>
                 {props.messages.map((msg, mIdx) => (
                   <div key={msg.id} data-msg-idx={mIdx} style={{ marginBottom: '12px' }}>
@@ -495,7 +501,7 @@ export function ChatArea(props: ChatAreaProps) {
             </div>
             {(taskPanelOpen ? showTaskScrollBtn : showScrollBtn) && (
               <button onClick={() => { const el = taskPanelOpen ? taskScrollRef.current : scrollRef.current; if (el) el.scrollTop = el.scrollHeight }}
-                style={{ position: 'absolute', bottom: (hasTasks ? 44 : 8) + 'px', right: '0px', zIndex: 10, width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--q-tab-accent)', color: getContrastColor('--q-tab-accent'), border: 'none', boxShadow: 'var(--shadow-floating)', cursor: 'pointer' }}>
+                style={{ position: 'absolute', bottom: (hasTasks ? 40 : 0) + 'px', right: '0px', zIndex: 10, width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--q-tab-accent)', color: getContrastColor('--q-tab-accent'), border: 'none', boxShadow: 'var(--shadow-floating)', cursor: 'pointer' }}>
                 <ArrowDown size={20} />
               </button>
             )}
