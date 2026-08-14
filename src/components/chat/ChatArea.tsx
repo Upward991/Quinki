@@ -97,7 +97,6 @@ interface ChatAreaProps {
   onReset?: () => void
   onReload?: () => void
   onCompact?: () => void
-  disableAutoScroll?: boolean
 }
 
 export function ChatArea(props: ChatAreaProps) {
@@ -137,17 +136,24 @@ export function ChatArea(props: ChatAreaProps) {
       const [exR, schR] = await Promise.all([sidecarCall('listExecutions'), sidecarCall('listSchedules')])
       const execs = (exR?.executions || []).filter((e: any) => e.sourceSession?.key === sessionIdKey)
       const scheds = (schR?.schedules || []).filter((s: any) => s.sourceSession?.key === sessionIdKey)
-      setTaskExecs(execs); setTaskScheds(scheds)
+      const es = execs.map((e: any) => e.id + ':' + e.status + ':' + (e.label || '')).join('|')
+      if (es !== taskExecsSig.current) { taskExecsSig.current = es; setTaskExecs(execs) }
+      const ss = scheds.map((s: any) => s.id + ':' + (s.enabled ? '1' : '0')).join('|')
+      if (ss !== taskSchedsSig.current) { taskSchedsSig.current = ss; setTaskScheds(scheds) }
       const runs: any[] = []
       for (const e of execs) {
         try { const mR = await sidecarCall('getExecutionMessages', { executionId: e.id }); runs.push({ id: e.id, label: e.label || 'Task', status: e.status || '?', error: e.error || null, messages: (mR?.messages || []).sort((a: any, b: any) => String(a.timestamp || '').localeCompare(String(b.timestamp || ''))) }) } catch {}
       }
       runs.sort((a, b) => String(a.messages[0]?.timestamp || '').localeCompare(String(b.messages[0]?.timestamp || '')))
-      setTaskRuns(runs)
+      const rs = runs.map((r: any) => r.id + ':' + r.status + ':' + (r.messages || []).length).join('|')
+      if (rs !== taskRunsSig.current) { taskRunsSig.current = rs; setTaskRuns(runs) }
     } catch {}
   }, [sessionIdKey, sidecarCall])
   useEffect(() => { refreshTasks(); const iv = setInterval(refreshTasks, 3000); return () => clearInterval(iv) }, [refreshTasks])
   const taskPrevOpen = useRef(false)
+  const taskExecsSig = useRef('')
+  const taskSchedsSig = useRef('')
+  const taskRunsSig = useRef('')
   useEffect(() => {
     const opening = taskPanelOpen && !taskPrevOpen.current
     taskPrevOpen.current = taskPanelOpen
@@ -341,7 +347,6 @@ export function ChatArea(props: ChatAreaProps) {
   const msgCount = props.messages.length
   useLayoutEffect(() => {
     // Skip auto-scroll when search is active, or quando la sezione task è aperta (lì scrolla il task view, non la chat)
-    if (props.disableAutoScroll) return
     if (searchQuery || searchDate || searchTime) return
     if (taskPanelOpen) return
     // Cambio sessione: torna in fondo e rinsalda il pin
