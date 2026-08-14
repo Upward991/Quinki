@@ -132,6 +132,9 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
         const sk = props.sessionKey || ''
         if (call && sk) {
           await call('setWorkingDir', { sessionKey: sk, path })
+        } else {
+          // Nessuna sessione ancora (welcome chat): salva come DEFAULT per le nuove chat
+          try { const st = JSON.parse(localStorage.getItem('quinki-settings') || '{}'); st.defaultWorkingDir = path; localStorage.setItem('quinki-settings', JSON.stringify(st)) } catch {}
         }
         setFocusAdd(false)
         setFocusConfirm(true)

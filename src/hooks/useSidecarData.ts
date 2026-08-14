@@ -822,6 +822,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
           if (dm) createParams.model = dm
           if (dt) createParams.thinkingLevel = dt
           createParams.mode = dmode
+          if (defs.defaultWorkingDir) createParams.workingDir = defs.defaultWorkingDir
           const createResult = await call('createSession', createParams)
           if (createResult?.key || createResult?.sessionKey) {
             sk = createResult.key || createResult.sessionKey
