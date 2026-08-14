@@ -26,7 +26,7 @@ const GROUP_DEFS: { key: string; label: string; color: string }[] = [
   { key: 'failed', label: 'Failed', color: 'var(--q-accent-danger)' },
   { key: 'cancelled', label: 'Cancelled', color: 'var(--q-text-tertiary)' },
 ]
-const COLS: { key: string; label: string }[] = [{ key: 'title', label: 'Task' }, { key: 'agent', label: 'Agent' }, { key: 'chat', label: 'Chat' }, { key: 'mt', label: 'Model · Thinking' }, { key: 'when', label: 'Time · Date' }, { key: 'actions', label: '' }]
+const COLS: { key: string; label: string }[] = [{ key: 'title', label: 'Task' }, { key: 'agent', label: 'Agent' }, { key: 'chat', label: 'Chat' }, { key: 'mt', label: 'Model · Thinking' }, { key: 'when', label: 'Time · Date' }, { key: 'type', label: 'Type' }, { key: 'actions', label: '' }]
 
 const panelStyle: React.CSSProperties = { backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)', padding: '8px', minHeight: 'var(--spacing-header-min)', display: 'flex', alignItems: 'center' }
 const cellBorder = '1px solid var(--q-border)'
@@ -339,13 +339,14 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const [fullWidth, setFullWidth] = useState(() => { try { return localStorage.getItem('quinki-tasks-fullwidth') === '1' } catch { return false } })
   const saveUi = (fw: boolean, v: ViewCfg[]) => {
     try { localStorage.setItem('quinki-tasks-fullwidth', fw ? '1' : '0'); localStorage.setItem(VIEWS_KEY, JSON.stringify(v)) } catch {}
-    call('saveUiState', { state: { fullWidth: fw, views: v, activeId } }).catch(() => {})
+    call('saveUiState', { state: { fullWidth: fw, views: v, activeId, openGroups } }).catch(() => {})
   }
   useEffect(() => {
     let alive = true
     call('getUiState').then((s: any) => {
       if (!alive || !s) return
       if (typeof s.fullWidth === 'boolean') setFullWidth(s.fullWidth)
+      if (s.openGroups && typeof s.openGroups === 'object') setOpenGroups(s.openGroups)
       if (Array.isArray(s.views) && s.views.length) { const nv = normViews(s.views); setViews(nv); const want = s.activeId && nv.some((x: any) => x.id === s.activeId) ? s.activeId : nv[0].id; setActiveId(want) }
     }).catch(() => {})
     return () => { alive = false }
@@ -376,9 +377,11 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     return out
   }
   const agentName = (id: string) => { const a = (props.agents || []).find((x: any) => x.id === id); return a?.name || id }
+  const schedTypeMap: Record<string, string> = {}
+  for (const s of schedules || []) schedTypeMap[s.id] = s.when?.type || 'once'
   const items: Item[] = []
-  for (const s of schedules || []) items.push({ id: s.id, kind: 'sched', title: s.title || '(untitled)', agent: normIds(s.agentIds).map(agentName).join(', ') || '—', chat: s.sourceSession ? (sessionsMap[s.sourceSession.key] || s.sourceSession.label || s.sourceSession.key) : '—', status: s.enabled ? 'scheduled' : 'off', when: s.nextFireAt || (s.lastFiredAt ? s.lastFiredAt : null), error: '', ex: undefined, model: s.model || null, thinkingLevel: s.thinkingLevel || null, whenObj: s.when || null, sourceKey: s.sourceSession?.key || null })
-  for (const ex of executions || []) items.push({ id: ex.id, kind: 'exec', title: ex.label || ex.id, agent: normIds(ex.agentIds).map(agentName).join(', ') || '—', chat: ex.sourceSession ? (sessionsMap[ex.sourceSession.key] || ex.sourceSession.label || ex.sourceSession.key) : '—', status: ex.status || '?', when: ex.scheduledFor || ex.createdAt || null, error: ex.error ? String(ex.error).slice(0, 60) : '', ex, model: ex.model || null, thinkingLevel: ex.thinkingLevel || null, whenObj: null, sourceKey: ex.sourceSession?.key || null })
+  for (const s of schedules || []) items.push({ id: s.id, kind: 'sched', title: s.title || '(untitled)', agent: normIds(s.agentIds).map(agentName).join(', ') || '—', chat: s.sourceSession ? (sessionsMap[s.sourceSession.key] || s.sourceSession.label || s.sourceSession.key) : '—', status: s.enabled ? 'scheduled' : 'off', when: s.nextFireAt || (s.lastFiredAt ? s.lastFiredAt : null), error: '', ex: undefined, model: s.model || null, thinkingLevel: s.thinkingLevel || null, whenObj: s.when || null, sourceKey: s.sourceSession?.key || null, type: s.when?.type || 'once' })
+  for (const ex of executions || []) items.push({ id: ex.id, kind: 'exec', title: ex.label || ex.id, agent: normIds(ex.agentIds).map(agentName).join(', ') || '—', chat: ex.sourceSession ? (sessionsMap[ex.sourceSession.key] || ex.sourceSession.label || ex.sourceSession.key) : '—', status: ex.status || '?', when: ex.scheduledFor || ex.createdAt || null, error: ex.error ? String(ex.error).slice(0, 60) : '', ex, model: ex.model || null, thinkingLevel: ex.thinkingLevel || null, whenObj: null, sourceKey: ex.sourceSession?.key || null, type: ex.scheduleId ? (schedTypeMap[ex.scheduleId] || 'once') : '—' })
 
   const chats = Array.from(new Set(items.map(i => i.chat).filter(c => c && c !== '—')))
   const agents = Array.from(new Set(items.map(i => i.agent).filter(a => a && a !== '—')))
@@ -418,6 +421,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       return content
     }
     if (key === 'title') return i.title
+    if (key === 'type') return React.createElement('span', { key: 'tp', style: { fontSize: 12.5, fontFamily: 'var(--font-code)', color: i.type === 'once' ? 'var(--q-text-secondary)' : 'var(--q-accent-calendar)', textTransform: 'capitalize' } }, i.type)
     if (key === 'agent') return i.agent
     if (key === 'chat') {
       if (i.sourceKey) return React.createElement(MtText, { key: 'ch', label: i.chat, onClick: (e: any) => { e.stopPropagation(); props.onOpenSession?.(i.sourceKey as string, i.chat, false) } })
@@ -465,7 +469,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     const gItems = filtered.filter(i => bucketOf(i.status) === g.key)
     const open = !!openGroups[g.key]
     return React.createElement('div', { key: g.key, style: { marginBottom: 6 } }, [
-      React.createElement('div', { key: 'h', onClick: () => setOpenGroups(prev => ({ ...prev, [g.key]: !prev[g.key] })), style: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 4px', cursor: 'pointer', userSelect: 'none' } }, [
+      React.createElement('div', { key: 'h', onClick: () => setOpenGroups(prev => { const nv = { ...prev, [g.key]: !prev[g.key] }; call('saveUiState', { state: { fullWidth, views, activeId, openGroups: nv } }).catch(() => {}); return nv }), style: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 4px', cursor: 'pointer', userSelect: 'none' } }, [
         open ? React.createElement(ChevronDown, { size: 16, style: { color: 'var(--q-text-secondary)' } }) : React.createElement(ChevronRight, { size: 16, style: { color: 'var(--q-text-secondary)' } }),
         React.createElement('span', { style: { width: 8, height: 8, borderRadius: 4, backgroundColor: g.color } }),
         React.createElement('span', { style: { color: 'var(--q-text)', fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-interface)' } }, g.label),
