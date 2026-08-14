@@ -606,11 +606,15 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
         const r: any = await call('createSession', { label: 'New chat', agentId: tcAgents[0] || undefined, model: tcModel || undefined, thinkingLevel: tcThinking || undefined, mode: tcMode })
         key = r?.key || ''
         chat.key = key
-        tcChatRef.current = { ...chat, key, isNew: false }
-        setTaskChat(prev => prev ? { ...prev, key } : prev)
+        // Passa SUBITO alla sessione nuova (isNew false → la welcome sparisce)
+        const newChat = { ...chat, key, isNew: false }
+        tcChatRef.current = newChat
+        setTaskChat(newChat)
         setTcSession({ id: key, title: 'New chat', type: 'chat', updatedAt: new Date().toISOString(), order: Date.now(), messageCount: 0, agents: tcAgents, model: tcModel, thinkingLevel: tcThinking, mode: tcMode, folderId: null, parentId: null, compactionAuto: true, compactionThreshold: 80, agentId: tcAgents.join(',') })
       }
       await call('sendMessage', { sessionKey: key, text: t, agentId: tcAgents[0] || undefined, model: tcModel || undefined, mode: tcMode || undefined, thinkingLevel: tcThinking || undefined })
+      // Mostra subito il messaggio utente (poi tcLoad lo sostituisce con la history vera)
+      setTcMsgs(prev => [...prev, { id: 'local-' + Date.now(), role: 'user', content: t, timestamp: new Date().toISOString() }])
       if (tcChatRef.current) tcLoad(tcChatRef.current)
     } catch {}
     setTcSending(false)
