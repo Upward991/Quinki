@@ -13,7 +13,11 @@ const ORCHESTRATOR_CONFIG = {
     "find",
     "ls",
     "skill",
-    "delegate_to_agent"
+    "delegate_to_agent",
+    "schedule_task",
+    "getTaskStatus",
+    "getTaskResult",
+    "readHandoff"
   ],
   "skills": []
 };

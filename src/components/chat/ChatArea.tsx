@@ -9,14 +9,16 @@ import { getContrastColor } from '../../utils/contrast'
 import { MessageBubble } from './MessageBubble'
 import { ChatHeader } from './ChatHeader'
 import { Composer } from './Composer'
-import { ArrowDown, Checklist, ChevronDown, ChevronRight, ChevronUp, Copy } from '../icons'
+import { ArrowDown, Checklist, ChevronDown, ChevronRight, ChevronUp, Copy, MessageSquare } from '../icons'
 import { useSidecarContext } from '../shared/AppShell'
 import type { Message, Session, Agent, Provider, ChatMode, ThinkingLevel } from '../../types'
 
-function TaskResultToggle({ run }: { run: any }) {
+function TaskResultToggle({ run, sessionKey }: { run: any; sessionKey?: string }) {
   const [collapsed, setCollapsed] = useState(true)
   const [hovered, setHovered] = useState(false)
   const [copyHovered, setCopyHovered] = useState(false)
+  const [injectHovered, setInjectHovered] = useState(false)
+  const [injected, setInjected] = useState(false)
   const st = run.status
   const isFailed = st === 'failed'
   const isRunning = st === 'running' || st === 'queued'
@@ -33,6 +35,12 @@ function TaskResultToggle({ run }: { run: any }) {
           <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color }}>{label}</span>
           <span style={{ fontFamily: 'var(--font-interface)', fontSize: '13px', fontWeight: 600, color: 'var(--q-text)' }}>{run.label}</span>
           <span style={{ flex: 1 }} />
+          <button onClick={(e) => { e.stopPropagation(); try { let fullText = ''; for (const m of run.messages || []) { fullText += (m.role === 'user' ? 'User: ' : 'Agent: ') + (m.content || '') + '\n' } const clip = `[Task result: "${run.label}"]\n${fullText.trim()}`; const call = (window as any).__sidecarCall; if (call && sessionKey) { call('injectClip', { sessionKey, text: clip }).then(() => setInjected(true)).catch(() => {}) } } catch {} }}
+            onMouseEnter={() => setInjectHovered(true)} onMouseLeave={() => setInjectHovered(false)}
+            title="Send to chat"
+            style={{ opacity: hovered ? 1 : 0, background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: 'var(--radius-sm)', color: injected ? 'var(--q-accent-success)' : (injectHovered ? color : 'var(--q-text-tertiary)') }}>
+            <MessageSquare size={14} />
+          </button>
           <button onClick={(e) => { e.stopPropagation(); try { let fullText = ''; for (const m of run.messages || []) { fullText += (m.role === 'user' ? 'User: ' : 'Agent: ') + (m.content || '') + '\n' } navigator.clipboard.writeText(fullText) } catch {} }}
             onMouseEnter={() => setCopyHovered(true)} onMouseLeave={() => setCopyHovered(false)}
             style={{ opacity: hovered ? 1 : 0, background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: 'var(--radius-sm)', color: copyHovered ? color : 'var(--q-text-tertiary)' }}>
@@ -185,7 +193,7 @@ export function ChatArea(props: ChatAreaProps) {
         {taskRuns.length === 0 ? (
           <div style={{ color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', padding: '24px 8px', textAlign: 'center' }}>No tasks yet.</div>
         ) : taskRuns.map((run) => (
-          <TaskResultToggle key={run.id} run={run} />
+          <TaskResultToggle key={run.id} run={run} sessionKey={session?.key} />
         ))}
       </div>
       {/* Barra riassunto IN BASSO = la striscia che diventa la heading inferiore della sezione espansa — tutta cliccabile per chiudere */}
@@ -445,7 +453,7 @@ export function ChatArea(props: ChatAreaProps) {
               {taskRuns.length === 0 ? (
                 <div style={{ color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', padding: '24px 8px', textAlign: 'center' }}>No tasks yet.</div>
               ) : taskRuns.map((run) => (
-                <TaskResultToggle key={run.id} run={run} />
+                <TaskResultToggle key={run.id} run={run} sessionKey={session?.key} />
               ))}
             </div>
             {taskStripBar}
@@ -489,7 +497,7 @@ export function ChatArea(props: ChatAreaProps) {
                 {taskRuns.length === 0 ? (
                   <div style={{ color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', padding: '24px 8px', textAlign: 'center' }}>No tasks yet.</div>
                 ) : taskRuns.map((run) => (
-                  <TaskResultToggle key={run.id} run={run} />
+                  <TaskResultToggle key={run.id} run={run} sessionKey={session?.key} />
                 ))}
               </div>
             </div>

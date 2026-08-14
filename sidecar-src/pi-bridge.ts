@@ -2183,6 +2183,52 @@ class PiBridge {
     void s;
   }
 
+  // === A2.10: injectClip — inietta un messaggio utente nella storia (clip "invia in chat") ===
+  // Appende un messaggio utente alla catena della sessione (persistito nel jsonl, visibile in chat,
+  // incluso nel prossimo contesto) SENZA triggerare una risposta.
+  async injectClip(sessionKey: string, text: string): Promise<boolean> {
+    try {
+      if (!this.#active.has(sessionKey)) {
+        // Sessione non attiva: attivala (come send()) così la catena è corretta
+        await this.#ensureActive(sessionKey);
+      }
+      const pi = this.#active.get(sessionKey);
+      if (pi?.sessionManager && typeof (pi.sessionManager as any)._appendEntry === 'function') {
+        const entry = {
+          type: "message",
+          id: `u-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          parentId: (pi.sessionManager as any).leafId,
+          timestamp: new Date().toISOString(),
+          message: { role: "user", content: [{ type: "text", text }], timestamp: Date.now() },
+        };
+        (pi.sessionManager as any)._appendEntry(entry);
+        this.logDebug("clip-injected", { sessionKey, text: text.slice(0, 120) });
+        return true;
+      }
+      // Fallback: append diretto al jsonl (messaggio orfano ma leggibile)
+      const sessionDir = this.#piSessionDir(sessionKey);
+      if (fs.existsSync(sessionDir)) {
+        const files = fs.readdirSync(sessionDir).filter((f: string) => f.endsWith(".jsonl"));
+        if (files.length > 0) {
+          const entry = {
+            type: "message",
+            id: `u-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            parentId: null,
+            timestamp: new Date().toISOString(),
+            message: { role: "user", content: [{ type: "text", text }], timestamp: Date.now() },
+          };
+          fs.appendFileSync(path.join(sessionDir, files[0]), JSON.stringify(entry) + "\n", "utf8");
+          this.logDebug("clip-injected-fallback", { sessionKey });
+          return true;
+        }
+      }
+      return false;
+    } catch (e: any) {
+      this.logDebug("clip-inject-error", { sessionKey, error: e?.message || String(e) });
+      return false;
+    }
+  }
+
   // === Attiva una sessione se non è già attiva (usato da compact() e send()) ===
   async #ensureActive(key: string, ws?: any): Promise<any> {
     let pi = this.#active.get(key);
@@ -2875,6 +2921,164 @@ class PiBridge {
   // A2.2: il sidecar registra il bridge verso il Scheduler (tool schedule_task degli agenti)
   setScheduleHandler(fn: (params: any) => any) {
     this.#scheduleHandler = fn;
+  }
+
+  // === A2.10: tool agente — leggere la cronologia dei task su richiesta (senza iniettarla) ===
+  // getTaskStatus / getTaskResult / readHandoff. Leggono da schedules.json + executions/ + handoffs/.
+  #buildTaskTools(sessionKey: string): any[] {
+    const self = this;
+    const agentDir = this.#agentDir;
+    const schedFile = path.join(agentDir, "schedules.json");
+    const execDir = path.join(agentDir, "executions");
+    const handoffFile = path.join(agentDir, "handoffs", sessionKey, "handoff.md");
+
+    const readSchedules = (): any[] => {
+      try { if (!fs.existsSync(schedFile)) return []; return JSON.parse(fs.readFileSync(schedFile, "utf8") || "[]"); } catch { return []; }
+    };
+    const readExec = (id: string): any | null => {
+      try {
+        const p = path.join(execDir, id, "execution.json");
+        if (!fs.existsSync(p)) return null;
+        return JSON.parse(fs.readFileSync(p, "utf8"));
+      } catch { return null; }
+    };
+    const readExecEvents = (id: string): any[] => {
+      try {
+        const p = path.join(execDir, id, "events.jsonl");
+        if (!fs.existsSync(p)) return [];
+        return fs.readFileSync(p, "utf8").split("\n").filter(Boolean).map((l: string) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+      } catch { return []; }
+    };
+    const lastAssistantText = (id: string): string => {
+      const evs = readExecEvents(id);
+      for (let i = evs.length - 1; i >= 0; i--) {
+        const e = evs[i];
+        if (e?.type === "assistant" && e?.text) return String(e.text);
+      }
+      return "";
+    };
+
+    const statusTool = defineTool({
+      name: "getTaskStatus",
+      label: "Get task status",
+      description: "List the status of all tasks (scheduled and executed) belonging to this chat/session. Use it when the user asks 'what's the status of my tasks?', 'a che punto sono i task?', or wants to know what is scheduled. Returns scheduled tasks (with their time) and executed tasks (with their status).",
+      promptSnippet: "getTaskStatus: list scheduled and executed tasks of this session with their status",
+      promptGuidelines: [
+        "Use this when the user asks about the status/progress of their tasks.",
+        "Scheduled tasks show when they will run; executed tasks show completed/failed/interrupted.",
+      ],
+      parameters: Type.Object({}),
+      async execute(toolCallId: string, params: any, signal: any, onUpdate: any, ctx: any): Promise<any> {
+        try {
+          const scheds = readSchedules().filter((s: any) => s?.sourceSession?.key === sessionKey);
+          const execs: any[] = [];
+          try {
+            if (fs.existsSync(execDir)) {
+              for (const d of fs.readdirSync(execDir)) {
+                const ex = readExec(d);
+                if (ex && ex?.sourceSession?.key === sessionKey) execs.push(ex);
+              }
+            }
+          } catch {}
+          const lines: string[] = [];
+          if (scheds.length === 0 && execs.length === 0) {
+            lines.push("No tasks found for this session.");
+          }
+          if (scheds.length > 0) {
+            lines.push("SCHEDULED TASKS:");
+            for (const s of scheds) {
+              const when = s.when || {};
+              let w = `type=${when.type}`;
+              if (when.type === "once" && when.date) w += ` at ${when.date}`;
+              else if (when.at) w += ` at ${when.at}`;
+              lines.push(`- [${s.enabled ? "enabled" : "disabled"}] ${s.title || s.id} — ${w}${s.nextFireAt ? " (next: " + new Date(s.nextFireAt).toISOString() + ")" : ""}`);
+            }
+          }
+          if (execs.length > 0) {
+            lines.push("EXECUTED TASKS:");
+            for (const ex of execs) {
+              lines.push(`- ${ex.label || ex.id} — status=${ex.status}${ex.endedAt ? " ended " + new Date(ex.endedAt).toISOString() : ""}`);
+            }
+          }
+          return { content: [{ type: "text", text: lines.join("\n") }] };
+        } catch (e: any) {
+          return { content: [{ type: "text", text: `Error reading task status: ${e?.message || String(e)}` }], isError: true };
+        }
+      },
+    });
+
+    const resultTool = defineTool({
+      name: "getTaskResult",
+      label: "Get task result",
+      description: "Read the full result of a specific task execution (by execution id). Use it when the user asks 'what did task X do?', 'che ne pensi del risultato di X?', or wants to discuss a task's outcome. Returns the task label, status, the final text produced, and the model used.",
+      promptSnippet: "getTaskResult: read the full result of a specific task execution by id",
+      promptGuidelines: [
+        "The execution id looks like ex_<timestamp>_<random>.",
+        "Use getTaskStatus first to find the execution id if the user doesn't provide it.",
+      ],
+      parameters: Type.Object({
+        executionId: Type.String({ description: "The execution id (ex_...) of the task" }),
+      }),
+      async execute(toolCallId: string, params: any, signal: any, onUpdate: any, ctx: any): Promise<any> {
+        try {
+          const id = String(params?.executionId || "");
+          const ex = readExec(id);
+          if (!ex) return { content: [{ type: "text", text: `Execution ${id} not found.` }], isError: true };
+          const final = lastAssistantText(id);
+          const parts: string[] = [];
+          parts.push(`Task: ${ex.label || id}`);
+          parts.push(`Status: ${ex.status}`);
+          if (ex.model) parts.push(`Model: ${ex.model}`);
+          if (ex.thinkingLevel) parts.push(`Thinking: ${ex.thinkingLevel}`);
+          if (ex.scheduledFor) parts.push(`Scheduled for: ${new Date(ex.scheduledFor).toISOString()}`);
+          if (ex.endedAt) parts.push(`Ended: ${new Date(ex.endedAt).toISOString()}`);
+          if (ex.error) parts.push(`Error: ${ex.error}`);
+          parts.push("");
+          parts.push("RESULT:");
+          parts.push(final || "(no final text)");
+          return { content: [{ type: "text", text: parts.join("\n") }] };
+        } catch (e: any) {
+          return { content: [{ type: "text", text: `Error reading result: ${e?.message || String(e)}` }], isError: true };
+        }
+      },
+    });
+
+    const handoffTool = defineTool({
+      name: "readHandoff",
+      label: "Read handoff",
+      description: "Read the handoff file of this session (the memory of what the scheduled tasks have done). Use it when the user asks 'what have the tasks done?', 'cosa hanno fatto i task?', or wants the history of task work. Returns the full handoff content (or the last N lines / a search).",
+      promptSnippet: "readHandoff: read the handoff memory of this session's tasks",
+      promptGuidelines: [
+        "The handoff is the persistent memory of the tasks of this session.",
+        "Use lastLines to read only the most recent part, or search to find a specific topic.",
+      ],
+      parameters: Type.Object({
+        lastLines: Type.Optional(Type.Number({ description: "Read only the last N lines (default: all)" })),
+        search: Type.Optional(Type.String({ description: "Only return lines containing this text" })),
+      }),
+      async execute(toolCallId: string, params: any, signal: any, onUpdate: any, ctx: any): Promise<any> {
+        try {
+          if (!fs.existsSync(handoffFile)) {
+            return { content: [{ type: "text", text: "No handoff file yet for this session (no task has run yet)." }] };
+          }
+          let content = fs.readFileSync(handoffFile, "utf8");
+          const search = String(params?.search || "");
+          if (search) {
+            content = content.split("\n").filter((l: string) => l.toLowerCase().includes(search.toLowerCase())).join("\n");
+          }
+          const lastLines = Number(params?.lastLines || 0);
+          if (lastLines > 0) {
+            content = content.split("\n").slice(-lastLines).join("\n");
+          }
+          if (!content.trim()) return { content: [{ type: "text", text: "(no matching lines)" }] };
+          return { content: [{ type: "text", text: content.slice(0, 20000) }] };
+        } catch (e: any) {
+          return { content: [{ type: "text", text: `Error reading handoff: ${e?.message || String(e)}` }], isError: true };
+        }
+      },
+    });
+
+    return [statusTool, resultTool, handoffTool];
   }
 
   // === Tool personalizzato: schedule_task (A2.2) — l'agente può PROGRAMMARE un compito dal dialogo ===
@@ -4261,6 +4465,17 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
             this.logDebug("schedule-tool-registered", { sessionKey: sk, agentId: resolvedAgentId });
           } catch (e: any) {
             this.logDebug("schedule-tool-error", { sessionKey: sk, error: String(e?.message || e) });
+          }
+        }
+        // A2.10: tool task (getTaskStatus/getTaskResult/readHandoff) SOLO se l'agente li ha nel config
+        const hasTaskTools = !!(agentCfg?.tools?.includes('getTaskStatus') || agentCfg?.tools?.includes('getTaskResult') || agentCfg?.tools?.includes('readHandoff'));
+        if (hasTaskTools) {
+          try {
+            const taskTools = this.#buildTaskTools(sk);
+            if (taskTools.length > 0) customTools.push(...taskTools);
+            this.logDebug("task-tools-registered", { sessionKey: sk, agentId: resolvedAgentId, count: taskTools.length });
+          } catch (e: any) {
+            this.logDebug("task-tools-error", { sessionKey: sk, error: String(e?.message || e) });
           }
         }
       }

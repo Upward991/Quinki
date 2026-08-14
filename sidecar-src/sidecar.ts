@@ -394,6 +394,15 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     return {};
   },
 
+  // === A2.10: injectClip — inietta un messaggio utente nella storia (clip "invia in chat") ===
+  injectClip: async (p) => {
+    const sk = String(p.sessionKey || "");
+    const text = String(p.text || "");
+    if (!sk || !text) return { ok: false, error: "sessionKey and text required" };
+    const ok = await piBridge!.injectClip(sk, text);
+    return { ok, sessionKey: sk };
+  },
+
   compactSession: async (p) => {
     piBridge!.logDebug("compact-session", { sessionKey: p.sessionKey });
     const fakeWs = new FakeWebSocket();
