@@ -9,16 +9,14 @@ import { getContrastColor } from '../../utils/contrast'
 import { MessageBubble } from './MessageBubble'
 import { ChatHeader } from './ChatHeader'
 import { Composer } from './Composer'
-import { ArrowDown, Checklist, ChevronDown, ChevronRight, ChevronUp, Copy, MessageSquare } from '../icons'
+import { ArrowDown, Checklist, ChevronDown, ChevronRight, ChevronUp, Copy } from '../icons'
 import { useSidecarContext } from '../shared/AppShell'
 import type { Message, Session, Agent, Provider, ChatMode, ThinkingLevel } from '../../types'
 
-function TaskResultToggle({ run, sessionKey }: { run: any; sessionKey?: string }) {
-  const [collapsed, setCollapsed] = useState(true)
+function TaskResultToggle({ run, sessionKey, defaultOpen }: { run: any; sessionKey?: string; defaultOpen?: boolean }) {
+  const [collapsed, setCollapsed] = useState(!defaultOpen)
   const [hovered, setHovered] = useState(false)
   const [copyHovered, setCopyHovered] = useState(false)
-  const [injectHovered, setInjectHovered] = useState(false)
-  const [injected, setInjected] = useState(false)
   const st = run.status
   const isRunning = st === 'running' || st === 'queued'
   const color = isRunning ? 'var(--q-accent-info)' : 'var(--q-accent-calendar)'
@@ -33,12 +31,6 @@ function TaskResultToggle({ run, sessionKey }: { run: any; sessionKey?: string }
           <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color }}>{label}</span>
           <span style={{ fontFamily: 'var(--font-interface)', fontSize: '13px', fontWeight: 600, color: 'var(--q-text)' }}>{run.label}</span>
           <span style={{ flex: 1 }} />
-          <button onClick={(e) => { e.stopPropagation(); try { let fullText = ''; for (const m of run.messages || []) { fullText += (m.role === 'user' ? 'User: ' : 'Agent: ') + (m.content || '') + '\n' } const clip = `[Task result: "${run.label}"]\n${fullText.trim()}`; const call = (window as any).__sidecarCall; if (call && sessionKey) { call('injectClip', { sessionKey, text: clip }).then(() => setInjected(true)).catch(() => {}) } } catch {} }}
-            onMouseEnter={() => setInjectHovered(true)} onMouseLeave={() => setInjectHovered(false)}
-            title="Send to chat"
-            style={{ opacity: hovered ? 1 : 0, background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: 'var(--radius-sm)', color: injected ? 'var(--q-accent-success)' : (injectHovered ? color : 'var(--q-text-tertiary)') }}>
-            <MessageSquare size={14} />
-          </button>
           <button onClick={(e) => { e.stopPropagation(); try { let fullText = ''; for (const m of run.messages || []) { fullText += (m.role === 'user' ? 'User: ' : 'Agent: ') + (m.content || '') + '\n' } navigator.clipboard.writeText(fullText) } catch {} }}
             onMouseEnter={() => setCopyHovered(true)} onMouseLeave={() => setCopyHovered(false)}
             style={{ opacity: hovered ? 1 : 0, background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: 'var(--radius-sm)', color: copyHovered ? color : 'var(--q-text-tertiary)' }}>
@@ -175,7 +167,7 @@ export function ChatArea(props: ChatAreaProps) {
   const taskDone = taskExecs.filter((e: any) => e.status === 'executed').length
   const taskRunningItem = taskExecs.find((e: any) => e.status === 'running' || e.status === 'queued')
   const pl = (n: number) => (n === 1 ? '' : 's')
-  const taskLabel = (taskScheds.length > 0 ? taskScheds.length + ' task' + pl(taskScheds.length) + ' scheduled' : taskExecs.length + ' task' + pl(taskExecs.length)) + (taskDone ? ' · ' + taskDone + ' executed' : '') + (taskRunning ? ' · ' + taskRunning + ' running' : '')
+  const taskLabel = taskScheds.length + ' task' + pl(taskScheds.length) + ' scheduled' + (taskDone ? ' · ' + taskDone + ' executed' : '') + (taskRunning ? ' · ' + taskRunning + ' running' : '')
   const hasTasks = taskExecs.length > 0 || taskScheds.length > 0
   const taskStripBar = hasTasks ? (
     <button onClick={toggleTaskPanel} title={taskPanelOpen ? 'Collapse tasks' : 'Show tasks'} style={{ width: '100%', padding: '8px 14px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, border: taskPanelOpen ? 'none' : '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', cursor: 'pointer', backgroundColor: taskPanelOpen ? 'transparent' : 'var(--q-bg-panel)', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: 13, transition: 'none', textAlign: 'left' }}>
@@ -486,6 +478,9 @@ export function ChatArea(props: ChatAreaProps) {
                   <div key={msg.id} data-msg-idx={mIdx} style={{ marginBottom: '12px' }}>
                     <MessageBubble message={msg} onCopy={() => {}} searchQuery={searchQuery} msgIndex={mIdx} activeMatchMsgIdx={activeMatchInfo?.msgIdx ?? -1} activeMatchOccurrence={activeMatchInfo?.occurrence ?? -1} isDateMatch={!searchQuery.trim() && hasDateFilter && dateMatchIndices.includes(mIdx) && mIdx === dateMatchIndices[Math.min(dateMatchIdx, dateMatchIndices.length - 1)]} />
                   </div>
+                ))}
+                {taskRuns.filter((r: any) => r.status === 'executed').map((run: any) => (
+                  <TaskResultToggle key={'chat-' + run.id} run={run} sessionKey={props.session?.key} defaultOpen />
                 ))}
               </div>
               {/* Task — SEMPRE montato (display none quando il pannello è chiuso) */}

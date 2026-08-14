@@ -6,7 +6,7 @@ import { ModelPickerModal, ThinkingPickerModal } from '../chat/ChatHeader'
 import { MessageBubble } from '../chat/MessageBubble'
 import { ChatArea } from '../chat/ChatArea'
 import { mergeHistoryMessages } from '../../utils/history'
-import { Home, Checklist, Play, X, RotateCcw, Trash2, Search, Plus, Filter, Check, ChevronDown, ChevronRight, PanelLeft, MessageSquare, Maximize, Minimize } from '../icons'
+import { Home, Checklist, Play, X, RotateCcw, Trash2, Search, Plus, Filter, Check, ChevronDown, ChevronRight, PanelLeft, MessageSquare, Maximize, Minimize, Paperclip } from '../icons'
 
 const STATUS_COLOR: Record<string, string> = {
   scheduled: 'var(--q-accent-calendar)',
@@ -395,7 +395,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     const b: React.ReactNode[] = []
     const delSel = () => { const sels = filtered.filter(x => selTasks.has(x.id)); if (sels.length > 0) setDeleteTask({ items: sels.map(x => ({ id: x.id, kind: x.kind, title: x.title })) }); else setDeleteTask({ items: [{ id: i.id, kind: i.kind, title: i.title }] }) }
     if (i.kind === 'sched') { if (i.status === 'scheduled') b.push(React.createElement(RowBtn, { key: 'run', title: 'Run now', onClick: () => act(async () => { await call('runScheduleNow', { id: i.id }) }) }, React.createElement(Play, { size: 16 }))); b.push(React.createElement(RowBtn, { key: 'del', title: 'Delete', hoverColor: 'var(--q-accent-danger)', onClick: delSel }, React.createElement(Trash2, { size: 16 }))) }
-    else { if (i.status === 'running' || i.status === 'queued') b.push(React.createElement(RowBtn, { key: 'stop', title: 'Stop', hoverColor: 'var(--q-accent-warning)', onClick: () => act(async () => { await call('stopExecution', { executionId: i.id }) }) }, React.createElement(X, { size: 16 }))); b.push(React.createElement(RowBtn, { key: 'del', title: 'Delete', hoverColor: 'var(--q-accent-danger)', onClick: delSel }, React.createElement(Trash2, { size: 16 }))) }
+    else { if (i.status === 'running' || i.status === 'queued') b.push(React.createElement(RowBtn, { key: 'stop', title: 'Stop', hoverColor: 'var(--q-accent-warning)', onClick: () => act(async () => { await call('stopExecution', { executionId: i.id }) }) }, React.createElement(X, { size: 16 }))); if (i.status === 'executed') b.push(React.createElement(RowBtn, { key: 'clip', title: 'Clip to chat', hoverColor: 'var(--q-accent-calendar)', onClick: () => { try { const text = (i.ex?.resultPreview || '').trim() || i.title; window.dispatchEvent(new CustomEvent('quinki-task-clip', { detail: { id: i.id, label: i.title, text } })) } catch {} } }, React.createElement(Paperclip, { size: 16 }))); b.push(React.createElement(RowBtn, { key: 'del', title: 'Delete', hoverColor: 'var(--q-accent-danger)', onClick: delSel }, React.createElement(Trash2, { size: 16 }))) }
     return React.createElement('div', { key: 'acts', style: { display: 'flex', gap: 4, justifyContent: 'center' } }, b)
   }
   const cellVal = (i: Item, key: string): React.ReactNode => {

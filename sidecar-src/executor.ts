@@ -340,7 +340,9 @@ export class ExecutionEngine {
           }
         }
         if (agentIds.length > 0) pb.setChatAgents(sk, agentIds.join(","));
-        if (state.mode) pb.setMode(sk, state.mode);
+        // === A2.10: i task girano SEMPRE in build mode (tutti i tool configurati, niente limiti) ===
+        pb.setMode(sk, "build");
+        state.mode = "build";
         if (state.workingDir) pb.setWorkingDir(sk, state.workingDir);
         if (state.model) await pb.setModel(sk, state.model);
         if (state.thinkingLevel) pb.setThinkingLevel(sk, state.thinkingLevel);

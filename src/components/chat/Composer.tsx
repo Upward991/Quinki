@@ -53,6 +53,15 @@ export function Composer(props: ComposerProps) {
   const [mentionIdx, setMentionIdx] = useState(0)
   const [pendingSkill, setPendingSkill] = useState<string | null>(null)
   const [pendingSkills, setPendingSkills] = useState<{ agentId: string; skillName: string; agentName: string }[]>([])
+  const [pendingTaskClips, setPendingTaskClips] = useState<{ id: string; label: string; text: string }[]>([])
+  useEffect(() => {
+    const onClip = (e: any) => {
+      const d = e?.detail
+      if (d && d.id && d.label) setPendingTaskClips(prev => prev.some(x => x.id === d.id) ? prev : [...prev, { id: d.id, label: d.label, text: d.text || '' }])
+    }
+    window.addEventListener('quinki-task-clip', onClip)
+    return () => window.removeEventListener('quinki-task-clip', onClip)
+  }, [])
   const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([])
   const [attachMenuOpen, setAttachMenuOpen] = useState(false)
   const [attachMenuView, setAttachMenuView] = useState<'main' | 'existing'>('main')
@@ -86,7 +95,12 @@ export function Composer(props: ComposerProps) {
 
   const handleSend = () => {
     if (canSend) {
-      props.onSend(text.trim(), {
+      let finalText = text.trim()
+      if (pendingTaskClips.length > 0) {
+        const clips = pendingTaskClips.map(c => `[Task result: "${c.label}"]\n${c.text.trim()}`).join('\n\n')
+        finalText = clips + '\n\n' + finalText
+      }
+      props.onSend(finalText, {
         skillNames: pendingSkills.length > 0 ? pendingSkills.map(s => ({ agentId: s.agentId, skillName: s.skillName, agentName: s.agentName })) : undefined,
         attachments: pendingAttachments.length > 0 ? pendingAttachments : undefined,
       })
@@ -95,6 +109,7 @@ export function Composer(props: ComposerProps) {
       setMentionOpen(false)
       setPendingSkill(null)
       setPendingSkills([])
+      setPendingTaskClips([])
       setPendingAttachments([])
     }
   }
@@ -309,8 +324,24 @@ export function Composer(props: ComposerProps) {
         flexDirection: 'column',
       }}>
         {/* Skill + Attachment chips */}
-        {(pendingSkills.length > 0 || pendingAttachments.length > 0 || copyingFile) && (
+        {(pendingSkills.length > 0 || pendingTaskClips.length > 0 || pendingAttachments.length > 0 || copyingFile) && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '6px' }}>
+            {pendingTaskClips.map((tc, i) => (
+              <div key={`tc-${i}`} style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '3px 8px 3px 10px', borderRadius: 'var(--radius-sm)',
+                backgroundColor: 'rgba(127,209,192,0.08)',
+                border: '1px solid var(--q-accent-calendar)',
+                fontSize: '12px', fontFamily: 'var(--font-interface)',
+                color: 'var(--q-text-secondary)',
+              }}>
+                <span style={{ color: 'var(--q-accent-calendar)', fontWeight: 600 }}>Task</span>
+                <span style={{ color: 'var(--q-text)', fontWeight: 500 }}>{tc.label}</span>
+                <button onClick={() => setPendingTaskClips(prev => prev.filter((_, idx) => idx !== i))} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', color: 'var(--q-text-tertiary)', display: 'flex' }}>
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
             {pendingSkills.map((s, i) => (
               <div key={`sk-${i}`} style={{
                 display: 'flex', alignItems: 'center', gap: '6px',
