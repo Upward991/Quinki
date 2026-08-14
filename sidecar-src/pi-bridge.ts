@@ -799,7 +799,7 @@ class PiBridge {
     // A2.1: le sessioni __exec_* sono headless (worker execution) → mai in sidebar
     // TOMBSTONE: le sessioni eliminate non devono MAI comparire nella mappa in memoria
     const out = [...this.#entries.values()].filter((s: any) => !String(s.key).startsWith("__exec_") && !isSessionDeleted(String(s.key))).map((s: any) => ({
-      key: s.key, label: s.label, agentId: s.agentId || "pi",
+      key: s.key, label: s.label, agentId: s.agentId || "",
       model: s.model, thinkingLevel: s.thinkingLevel, mode: s.mode,
       lastActivity: s.lastActivity, order: s.lastActivity,
     }));
@@ -841,7 +841,7 @@ class PiBridge {
     const out = [...this.#entries.values()].filter((s: any) => !String(s.key).startsWith("__exec_") && !isSessionDeleted(String(s.key))).map((s: any) => {
       const c = compactionByKey.get(s.key);
       return {
-        key: s.key, label: s.label, agentId: s.agentId || "pi",
+        key: s.key, label: s.label, agentId: s.agentId || "",
         model: s.model, thinkingLevel: s.thinkingLevel, mode: s.mode,
         lastActivity: s.lastActivity, order: orderByKey.get(s.key) ?? s.lastActivity,
         folderId: folderByKey.get(s.key) ?? null,
