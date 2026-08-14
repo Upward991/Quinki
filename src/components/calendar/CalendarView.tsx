@@ -22,6 +22,7 @@ const GROUP_DEFS: { key: string; label: string; color: string }[] = [
   { key: 'scheduled', label: 'Scheduled', color: 'var(--q-accent-calendar)' },
   { key: 'running', label: 'Execution', color: 'var(--q-accent-info)' },
   { key: 'completed', label: 'Completed', color: 'var(--q-accent-success)' },
+  { key: 'interrupted', label: 'Interrupted', color: 'var(--q-accent-warning)' },
   { key: 'failed', label: 'Failed', color: 'var(--q-accent-danger)' },
   { key: 'cancelled', label: 'Cancelled', color: 'var(--q-text-tertiary)' },
 ]
@@ -374,7 +375,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const cmp = (a: Item, b: Item) => { let av: any = (a as any)[sortKey], bv: any = (b as any)[sortKey]; if (typeof av === 'string') av = av.toLowerCase(); if (typeof bv === 'string') bv = bv.toLowerCase(); if (av == null) av = ''; if (bv == null) bv = ''; return av < bv ? -1 * sortDir : av > bv ? 1 * sortDir : 0 }
   filtered = [...filtered].sort(cmp)
   const toggleSort = (key: string) => { if (sortKey === key) setSortDir(sortDir === 1 ? -1 : 1); else { setSortKey(key); setSortDir(1) } }
-  function bucketOf(st: string): string { if (st === 'scheduled' || st === 'off') return 'scheduled'; if (st === 'running' || st === 'queued' || st === 'interrupted') return 'running'; if (st === 'completed') return 'completed'; if (st === 'cancelled') return 'cancelled'; return 'failed' }
+  function bucketOf(st: string): string { if (st === 'scheduled' || st === 'off') return 'scheduled'; if (st === 'running' || st === 'queued') return 'running'; if (st === 'interrupted') return 'interrupted'; if (st === 'completed') return 'completed'; if (st === 'cancelled') return 'cancelled'; return 'failed' }
 
   const actions = (i: Item) => {
     const b: React.ReactNode[] = []
