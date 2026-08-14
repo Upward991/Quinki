@@ -369,6 +369,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     if (p.model) await piBridge!.setModel(sk, p.model);
     if (p.mode && p.mode !== meta.mode) await piBridge!.setMode(sk, p.mode);
     if (p.thinkingLevel) piBridge!.setThinkingLevel(sk, p.thinkingLevel);
+    if (p.workingDir) await piBridge!.setWorkingDir(sk, p.workingDir);
     // === Set agent BEFORE send (single call, no race condition) ===
     if (p.agentId) {
       piBridge!.setAgent(sk, String(p.agentId));

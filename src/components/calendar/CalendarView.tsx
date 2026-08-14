@@ -258,6 +258,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const tcDefThinking = useRef('xhigh')
   const tcDefMode = useRef('plan')
   const tcModelsRef = useRef<any[]>([])
+  const [tcWorkingDir, setTcWorkingDir] = useState('')
   const [renamingView, setRenamingView] = useState<string | null>(null)
   const [renameVal, setRenameVal] = useState('')
   const [allHover, setAllHover] = useState(false)
@@ -277,8 +278,8 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const [whenTime, setWhenTime] = useState('')
   const [models, setModels] = useState<any[]>([])
   const [defaultThinking, setDefaultThinking] = useState('xhigh')
-  useEffect(() => { call('getModels').then((r: any) => setModels(r?.models || [])).catch(() => {}) }, [call])
-  useEffect(() => { call('getProvidersConfig').then((r: any) => { if (r?.defaultThinking) setDefaultThinking(r.defaultThinking) }).catch(() => {}) }, [call])
+  useEffect(() => { call('getModels').then((r: any) => { setModels(r?.models || []); tcModelsRef.current = (r?.models || []).map((m: any) => ({ id: m.id, name: m.name || m.id, contextWindow: m.contextWindow })) }).catch(() => {}) }, [call])
+  useEffect(() => { call('getProvidersConfig').then((r: any) => { if (r?.defaultThinking) setDefaultThinking(r.defaultThinking); if (r?.defaultModel) tcDefModel.current = r.defaultModel; if (r?.defaultMode) tcDefMode.current = r.defaultMode }).catch(() => {}) }, [call])
   const [multiSel, setMultiSel] = useState(false)
   const [selViews, setSelViews] = useState<Set<string>>(new Set())
   const rootRef = useRef<HTMLDivElement>(null)
@@ -596,7 +597,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     }).catch(() => {})
     tcLoad(chat)
     clearInterval(tcTimer.current)
-    tcTimer.current = setInterval(() => { if (tcChatRef.current) tcLoad(tcChatRef.current) }, 5000)
+    tcTimer.current = setInterval(() => { if (tcChatRef.current) tcLoad(tcChatRef.current) }, 2000)
   }
   const closeTaskChat = () => {
     clearInterval(tcTimer.current)
@@ -626,7 +627,8 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
         props.onSessionCreated?.(key)
         setTcSession({ id: key, title: 'New chat', type: 'chat', updatedAt: new Date().toISOString(), order: Date.now(), messageCount: 0, agents: tcAgents, model: tcModel, thinkingLevel: tcThinking, mode: tcMode, folderId: null, parentId: null, compactionAuto: true, compactionThreshold: 80, agentId: tcAgents.join(',') })
       }
-      await call('sendMessage', { sessionKey: key, text: t, agentId: tcAgents[0] || undefined, model: tcModel || undefined, mode: tcMode || undefined, thinkingLevel: tcThinking || undefined })
+      // Fire-and-forget: NON bloccare il passaggio alla sessione nuova (la risposta arriva via poll)
+      call('sendMessage', { sessionKey: key, text: t, agentId: tcAgents[0] || undefined, model: tcModel || undefined, mode: tcMode || undefined, thinkingLevel: tcThinking || undefined, workingDir: tcWorkingDir || undefined }).catch(() => {})
       // Mostra subito il messaggio utente (poi tcLoad lo sostituisce con la history vera)
       setTcMsgs(prev => [...prev, { id: 'local-' + Date.now(), role: 'user', content: t, timestamp: new Date().toISOString() }])
       // Aggiorna il titolo con l'auto-titolo generato dal sidecar
