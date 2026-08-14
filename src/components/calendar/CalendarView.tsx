@@ -408,7 +408,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     if (key === 'title') return i.title
     if (key === 'agent') return i.agent
     if (key === 'chat') {
-      if (i.sourceKey) return React.createElement(MtText, { key: 'ch', label: i.chat, onClick: (e: any) => { e.stopPropagation(); openTaskChat(i.sourceKey as string, i.chat, false) } })
+      if (i.sourceKey) return React.createElement(MtText, { key: 'ch', label: i.chat, onClick: (e: any) => { e.stopPropagation(); props.onOpenSession?.(i.sourceKey as string, i.chat, false) } })
       return i.chat
     }
     if (key === 'actions') return actions(i)
@@ -729,11 +729,11 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       React.createElement('div', { key: 'l0', style: { color: 'var(--q-text-secondary)', fontSize: 13, fontFamily: 'var(--font-interface)', lineHeight: 1.5 } }, 'Send a message in a chat and the agent schedules the task for you. Choose where:'),
       !pickExisting ? [
         React.createElement('button', { key: 'ex', onClick: () => { setPickExisting(true); setPickSearch('') }, style: { padding: '12px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)', cursor: 'pointer', textAlign: 'left' } }, 'Existing chat'),
-        React.createElement('button', { key: 'nw', onClick: () => { setCreateTaskOpen(false); setPickExisting(false); openTaskChat('', 'New chat', true) }, style: { padding: '12px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)', cursor: 'pointer', textAlign: 'left' } }, 'New chat'),
+        React.createElement('button', { key: 'nw', onClick: () => { setCreateTaskOpen(false); setPickExisting(false); props.onOpenSession?.('', 'New chat', true) }, style: { padding: '12px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)', cursor: 'pointer', textAlign: 'left' } }, 'New chat'),
       ] : [
         React.createElement('input', { key: 'srch', autoFocus: true, value: pickSearch, onChange: (e: any) => setPickSearch(e.target.value), placeholder: 'Search chats...', style: { padding: '8px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)', width: '100%', boxSizing: 'border-box' } }),
         React.createElement('div', { key: 'lst', style: { maxHeight: 'calc(90vh - 190px)', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 } }, [
-          (() => { const list = (sessions || []).filter((s: any) => s.key !== '__app_expert__' && (!pickSearch.trim() || s.label.toLowerCase().includes(pickSearch.trim().toLowerCase()))); if (list.length === 0) return React.createElement('div', { key: 'e', style: { color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', padding: '8px 4px' } }, 'No chats yet.'); return list.map((s: any) => React.createElement('button', { key: s.key, onClick: () => { setCreateTaskOpen(false); setPickExisting(false); openTaskChat(s.key, s.label, false) }, style: { padding: '12px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)', cursor: 'pointer', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, s.label)) })(),
+          (() => { const list = (sessions || []).filter((s: any) => s.key !== '__app_expert__' && (!pickSearch.trim() || s.label.toLowerCase().includes(pickSearch.trim().toLowerCase()))); if (list.length === 0) return React.createElement('div', { key: 'e', style: { color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', padding: '8px 4px' } }, 'No chats yet.'); return list.map((s: any) => React.createElement('button', { key: s.key, onClick: () => { setCreateTaskOpen(false); setPickExisting(false); props.onOpenSession?.(s.key, s.label, false) }, style: { padding: '12px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)', cursor: 'pointer', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, s.label)) })(),
         ]),
       ],
       React.createElement('div', { key: 'b', style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 } }, [
@@ -741,52 +741,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
         pickExisting ? React.createElement('button', { key: 'bk', onClick: () => setPickExisting(false), onMouseEnter: (e: any) => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }, onMouseLeave: (e: any) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-interface)', cursor: 'pointer' } }, 'Back') : null,
       ]),
     ])) : null,
-    taskChat ? React.createElement('div', { key: 'tcm', style: { position: 'fixed', top: 25, bottom: 0, left: 0, right: 0, zIndex: 310, backgroundColor: 'var(--q-bg)', padding: '8px 8px 8px 8px' } }, [
-      React.createElement('div', { key: 'body', style: { position: 'absolute', inset: 0, padding: '8px 8px 8px 8px', overflow: 'hidden' } }, [
-        React.createElement(ChatArea, {
-          key: 'ca',
-          session: tcSession,
-          messages: tcMsgs,
-          streaming: tcStreaming,
-          isCompacting: false,
-          welcomeMode: taskChat.isNew && !tcSession,
-          mode: (tcMode as any) || 'plan',
-          activePanel: 'calendar',
-          onSelectPanel: () => {},
-          homeIcon: 'agent-task',
-          onHomeClick: closeTaskChat,
-          sidebarOpen: false,
-          onToggleSidebar: () => {},
-          hideSidebarToggle: true,
-          agentDropdownOpen: tcAgentDropdownOpen,
-          onToggleAgentDropdown: () => setTcAgentDropdownOpen(!tcAgentDropdownOpen),
-          agents: (props.agents || []) as any,
-          selectedAgentIds: tcAgents,
-          onAgentToggle: tcAgentToggle,
-          agentOverrides: {},
-          onSetAgentOverride: () => {},
-          providers: tcProviders as any,
-          selectedModel: tcModel,
-          onModelSelect: (m: string) => { setTcModel(m); const ch = tcChatRef.current; if (ch?.key) call('setModel', { sessionKey: ch.key, model: m }).catch(() => {}) },
-          onModeChange: (m: any) => { setTcMode(m); const ch = tcChatRef.current; if (ch?.key) call('setMode', { sessionKey: ch.key, mode: m }).catch(() => {}) },
-          thinking: (tcThinking as any) || 'xhigh',
-          onThinkingChange: (l: any) => { setTcThinking(l); const ch = tcChatRef.current; if (ch?.key) call('setThinkingLevel', { sessionKey: ch.key, level: l }).catch(() => {}) },
-          contextTokens: tcTokens,
-          contextWindow: tcWindow,
-          contextInput: tcInput,
-          contextOutput: tcOutput,
-          statusLabel: tcStatusLabel,
-          statusKind: tcStatusKind,
-          onSend: (text: string) => tcSend(text),
-          onStop: () => { const ch = tcChatRef.current; if (ch?.key) call('stopStreaming', { sessionKey: ch.key }).catch(() => {}) },
-          onRenameSession: (label: string) => { const ch = tcChatRef.current; if (ch?.key) call('renameSession', { sessionKey: ch.key, label }).catch(() => {}) },
-          onExport: () => {},
-          onReset: () => {},
-          onReload: () => {},
-          onCompact: () => {},
-        }),
-      ]),
-    ]) : null,
+
     tcAgentModal ? React.createElement('div', { key: 'agm', style: { position: 'fixed', inset: 0, zIndex: 320, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: () => setTcAgentModal(false) }, React.createElement('div', { onClick: (e: any) => e.stopPropagation(), style: { width: 420, maxHeight: '70vh', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: 16, display: 'flex', flexDirection: 'column', gap: 8 } }, [
       React.createElement('div', { key: 't', style: { color: 'var(--q-text)', fontSize: 15, fontWeight: 600, fontFamily: 'var(--font-interface)' } }, 'Agents in chat'),
       React.createElement('div', { key: 'lst', style: { maxHeight: 360, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 3 } }, [
