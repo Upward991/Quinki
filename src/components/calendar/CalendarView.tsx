@@ -14,17 +14,11 @@ const STATUS_COLOR: Record<string, string> = {
   queued: 'var(--q-accent-warning)',
   running: 'var(--q-accent-info)',
   completed: 'var(--q-accent-success)',
-  failed: 'var(--q-accent-danger)',
-  cancelled: 'var(--q-text-tertiary)',
-  interrupted: 'var(--q-accent-warning)',
 }
 const GROUP_DEFS: { key: string; label: string; color: string }[] = [
   { key: 'scheduled', label: 'Scheduled', color: 'var(--q-accent-calendar)' },
   { key: 'running', label: 'Execution', color: 'var(--q-accent-info)' },
   { key: 'completed', label: 'Completed', color: 'var(--q-accent-success)' },
-  { key: 'interrupted', label: 'Interrupted', color: 'var(--q-accent-warning)' },
-  { key: 'failed', label: 'Failed', color: 'var(--q-accent-danger)' },
-  { key: 'cancelled', label: 'Cancelled', color: 'var(--q-text-tertiary)' },
 ]
 const COLS: { key: string; label: string }[] = [{ key: 'title', label: 'Task' }, { key: 'agent', label: 'Agent' }, { key: 'chat', label: 'Chat' }, { key: 'mt', label: 'Model · Thinking' }, { key: 'when', label: 'Time · Date' }, { key: 'type', label: 'Type' }, { key: 'actions', label: '' }]
 
@@ -395,13 +389,13 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const cmp = (a: Item, b: Item) => { let av: any = (a as any)[sortKey], bv: any = (b as any)[sortKey]; if (typeof av === 'string') av = av.toLowerCase(); if (typeof bv === 'string') bv = bv.toLowerCase(); if (av == null) av = ''; if (bv == null) bv = ''; return av < bv ? -1 * sortDir : av > bv ? 1 * sortDir : 0 }
   filtered = [...filtered].sort(cmp)
   const toggleSort = (key: string) => { if (sortKey === key) setSortDir(sortDir === 1 ? -1 : 1); else { setSortKey(key); setSortDir(1) } }
-  function bucketOf(st: string): string { if (st === 'scheduled' || st === 'off') return 'scheduled'; if (st === 'running' || st === 'queued') return 'running'; if (st === 'interrupted') return 'interrupted'; if (st === 'completed') return 'completed'; if (st === 'cancelled') return 'cancelled'; return 'failed' }
+  function bucketOf(st: string): string { if (st === 'scheduled' || st === 'off') return 'scheduled'; if (st === 'running' || st === 'queued') return 'running'; return 'completed' }
 
   const actions = (i: Item) => {
     const b: React.ReactNode[] = []
     const delSel = () => { const sels = filtered.filter(x => selTasks.has(x.id)); if (sels.length > 0) setDeleteTask({ items: sels.map(x => ({ id: x.id, kind: x.kind, title: x.title })) }); else setDeleteTask({ items: [{ id: i.id, kind: i.kind, title: i.title }] }) }
     if (i.kind === 'sched') { if (i.status === 'scheduled') b.push(React.createElement(RowBtn, { key: 'run', title: 'Run now', onClick: () => act(async () => { await call('runScheduleNow', { id: i.id }) }) }, React.createElement(Play, { size: 16 }))); b.push(React.createElement(RowBtn, { key: 'del', title: 'Delete', hoverColor: 'var(--q-accent-danger)', onClick: delSel }, React.createElement(Trash2, { size: 16 }))) }
-    else { if (i.status === 'running' || i.status === 'queued') b.push(React.createElement(RowBtn, { key: 'stop', title: 'Stop', hoverColor: 'var(--q-accent-warning)', onClick: () => act(async () => { await call('stopExecution', { executionId: i.id }) }) }, React.createElement(X, { size: 16 }))); if (i.status === 'interrupted') b.push(React.createElement(RowBtn, { key: 'res', title: 'Resume', hoverColor: 'var(--q-accent-info)', onClick: () => act(async () => { await call('resumeExecution', { executionId: i.id }) }) }, React.createElement(RotateCcw, { size: 16 }))); if (i.status === 'failed' || i.status === 'cancelled') b.push(React.createElement(RowBtn, { key: 'retry', title: 'Retry', hoverColor: 'var(--q-accent-info)', onClick: () => act(async () => { if (i.ex?.scheduleId) await call('runScheduleNow', { id: i.ex.scheduleId }); else await call('runTask', { label: i.ex.label, agentIds: i.ex.agentIds, workingDir: i.ex.workingDir, mode: i.ex.mode, model: i.ex.model, thinkingLevel: i.ex.thinkingLevel, text: i.ex.text, sourceSession: i.ex.sourceSession }); await call('deleteExecution', { executionId: i.id }) }) }, React.createElement(RotateCcw, { size: 16 }))); b.push(React.createElement(RowBtn, { key: 'del', title: 'Delete', hoverColor: 'var(--q-accent-danger)', onClick: delSel }, React.createElement(Trash2, { size: 16 }))) }
+    else { if (i.status === 'running' || i.status === 'queued') b.push(React.createElement(RowBtn, { key: 'stop', title: 'Stop', hoverColor: 'var(--q-accent-warning)', onClick: () => act(async () => { await call('stopExecution', { executionId: i.id }) }) }, React.createElement(X, { size: 16 }))); b.push(React.createElement(RowBtn, { key: 'del', title: 'Delete', hoverColor: 'var(--q-accent-danger)', onClick: delSel }, React.createElement(Trash2, { size: 16 }))) }
     return React.createElement('div', { key: 'acts', style: { display: 'flex', gap: 4, justifyContent: 'center' } }, b)
   }
   const cellVal = (i: Item, key: string): React.ReactNode => {
@@ -432,7 +426,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       const modelName = (models.find((x: any) => x.id === i.model)?.name) || i.model || 'Chat default'
       const rawT = i.thinkingLevel || null
       const tName = rawT === null ? 'Chat default' : rawT === 'off' ? 'Off' : 'On (' + ((rawT && rawT !== 'on') ? rawT : defaultThinking) + ')'
-      const mtEditable = i.kind === 'sched' || i.status === 'failed' || i.status === 'interrupted'
+      const mtEditable = i.kind === 'sched'
       if (mtEditable) return React.createElement('div', { key: 'mtb', style: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3 } }, [
         React.createElement(MtText, { key: 'm', label: modelName, onClick: (e: any) => { e.stopPropagation(); setMtModelPicker({ id: i.id, model: i.model || null }) } }),
         React.createElement(MtText, { key: 't', label: tName, onClick: (e: any) => { e.stopPropagation(); setMtThinkingPicker({ id: i.id, thinking: i.thinkingLevel || null }) } }),
@@ -487,7 +481,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const board = React.createElement('div', { key: 'bd', style: { display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'flex-start', flex: 1, minHeight: 0 } }, groups.map(g => React.createElement('div', { key: g.key, style: { flex: '1 1 180px', minWidth: 170, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--q-border)', display: 'flex', flexDirection: 'column', maxHeight: '100%' } }, [
     React.createElement('div', { key: 'h', style: { padding: '10px 12px', color: 'var(--q-text)', fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-interface)', borderBottom: '1px solid var(--q-border)', display: 'flex', alignItems: 'center', gap: 6 } }, [React.createElement('span', { style: { width: 8, height: 8, borderRadius: 4, backgroundColor: g.color } }), g.label, React.createElement('span', { style: { color: 'var(--q-text-tertiary)' } }, '(' + g.items.length + ')')]),
     React.createElement('div', { key: 'l', style: { padding: 8, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 } }, g.items.length ? g.items.map(i => React.createElement('div', { key: i.id, style: { backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', padding: 8, display: 'flex', flexDirection: 'column', gap: 4 } }, [
-      React.createElement('div', { key: 't', style: { display: 'flex', alignItems: 'center', gap: 6 } }, [i.status === 'cancelled' ? React.createElement(X, { size: 14, style: { color: 'var(--q-text-tertiary)', flexShrink: 0 } }) : i.status === 'completed' ? React.createElement(Check, { size: 14, style: { color: 'var(--q-accent-success)', flexShrink: 0 } }) : null, React.createElement('span', { style: { color: 'var(--q-text)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-interface)' } }, i.title)]),
+      React.createElement('div', { key: 't', style: { display: 'flex', alignItems: 'center', gap: 6 } }, [i.status === 'completed' ? React.createElement(Check, { size: 14, style: { color: 'var(--q-accent-success)', flexShrink: 0 } }) : null, React.createElement('span', { style: { color: 'var(--q-text)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-interface)' } }, i.title)]),
       React.createElement('div', { key: 'a', style: { color: 'var(--q-text-secondary)', fontSize: 12, fontFamily: 'var(--font-interface)' } }, 'agent: ' + i.agent),
       i.chat !== '—' ? React.createElement('div', { key: 'c', style: { color: 'var(--q-text-secondary)', fontSize: 12, fontFamily: 'var(--font-interface)' } }, 'chat: ' + i.chat) : null,
       React.createElement('div', { key: 'w', style: { color: 'var(--q-text-tertiary)', fontSize: 12, fontFamily: 'var(--font-interface)' } }, fmtDT(i.when)),

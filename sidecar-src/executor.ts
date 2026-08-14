@@ -41,9 +41,8 @@ export interface ExecutionState {
   model: string | null;
   thinkingLevel: string | null;
   text: string;
-  status: "queued" | "running" | "completed" | "failed" | "cancelled" | "interrupted";
+  status: "queued" | "running" | "completed";
   failAfterMs?: number;
-  verifyCmds?: string[];
   createdAt: number;
   startedAt: number | null;
   endedAt: number | null;
@@ -177,18 +176,6 @@ export class ExecutionEngine {
     return out;
   }
 
-  async #runVerify(state: ExecutionState, cmds: string[]): Promise<{ ok: boolean; error?: string }> {
-    const cwd = state.workingDir || path.join(AGENT_DIR, "workdir");
-    for (const cmd of cmds) {
-      try {
-        execSync(cmd, { cwd, timeout: 30000, shell: "/bin/bash", stdio: "pipe" });
-      } catch (e: any) {
-        return { ok: false, error: `Verify failed: ${cmd} → ${e?.message || String(e)}` };
-      }
-    }
-    return { ok: true };
-  }
-
   #handoffPath(chatKey: string): string | null {
     if (!chatKey) return null;
     return path.join(AGENT_DIR, "handoffs", chatKey.replace(/[^a-zA-Z0-9_-]/g, "_"), "handoff.md");
@@ -263,18 +250,9 @@ export class ExecutionEngine {
       ? p.agentIds.map((s: string) => s.trim()).filter(Boolean)
       : String(p.agentIds || "orchestrator").split(",").map((s: string) => s.trim()).filter(Boolean);
 
-    const verifyCmds: string[] = [];
-    const vi = String(p.text || "").indexOf("Verify:");
-    if (vi >= 0) {
-      for (const line of String(p.text || "").slice(vi + 7).split("\n")) {
-        const t = line.trim();
-        if (t) verifyCmds.push(t);
-      }
-    }
     const state: ExecutionState = {
       id,
       failAfterMs: p.failAfterMs ? Number(p.failAfterMs) : undefined,
-      verifyCmds: verifyCmds.length > 0 ? verifyCmds : undefined,
       label: p.label || "Task",
       owner: p.owner || "main",
       agentIds,
@@ -408,54 +386,21 @@ export class ExecutionEngine {
         const run = this.#runs.get(id);
         this.#runs.delete(id);
 
+        // === A2.10: niente verifica oggettiva, niente stati failed/interrupted/cancelled.
+        // Ogni task finita è un RISULTATO (completed): l'utente controlla l'esito nel toggle. ===
+        state.status = "completed";
+        state.endedAt = Date.now();
         if (run?.aborted) {
-          state.status = "cancelled";
-          state.endedAt = Date.now();
-          this.#appendEvent(id, "execution_cancelled", { by: "user" });
+          state.progressNote = "cancelled by user";
+          this.#appendEvent(id, "execution_completed", { stopReason: "cancelled" });
         } else if (run?.stopped) {
-          state.status = "interrupted";
-          state.endedAt = Date.now();
           state.progressNote = "stopped by user";
-          this.#appendEvent(id, "execution_interrupted", { by: "user" });
-        } else if (result.ok && state.verifyCmds && state.verifyCmds.length > 0) {
-          // === A2.9: verifica oggettiva — se i comandi Verify falliscono, la task è FALLITA ===
-          const vres = await this.#runVerify(state, state.verifyCmds);
-          if (!vres.ok) {
-            state.status = "failed";
-            state.endedAt = Date.now();
-            state.error = vres.error || "Verification failed";
-            this.#appendEvent(id, "execution_failed", { error: state.error });
-            this.#resolveActualModelThinking(state);
-            this.#appendHandoff(state);
-            this.#writeState(id, state);
-            this.#appendEvent(id, "execution_end", { status: state.status });
-            this.#notify({ executionId: id, status: state.status, label: state.label, error: state.error });
-            if (keepAcquired) this.#releaseKeepAwake();
-            return;
-          }
-          state.status = "completed";
-          state.endedAt = Date.now();
-          state.progressNote = result.stopReason || "completed";
-          state.resultPreview = ((result.text && result.text.trim()) ? result.text : await this.#readLastAssistantTextWithRetry(sk)).slice(0, 1000);
-          this.#appendEvent(id, "execution_completed", { stopReason: result.stopReason, resultPreview: state.resultPreview.slice(0, 3000) });
-        } else if (result.ok) {
-          // === Riuscita SENZA comandi Verify: la task è COMPLETATA ===
-          state.status = "completed";
-          state.endedAt = Date.now();
-          state.progressNote = result.stopReason || "completed";
-          state.resultPreview = ((result.text && result.text.trim()) ? result.text : await this.#readLastAssistantTextWithRetry(sk)).slice(0, 1000);
-          this.#appendEvent(id, "execution_completed", { stopReason: result.stopReason, resultPreview: state.resultPreview.slice(0, 3000) });
-        } else if (result.stopReason === "aborted") {
-          // Fermato dall'utente dalla CHAT (stop streaming) → riprendibile, non fallita
-          state.status = "interrupted";
-          state.endedAt = Date.now();
-          state.progressNote = "stopped from chat";
-          this.#appendEvent(id, "execution_interrupted", { by: "chat" });
+          this.#appendEvent(id, "execution_completed", { stopReason: "stopped" });
         } else {
-          state.status = "failed";
-          state.endedAt = Date.now();
-          state.error = result.errorMessage || "unknown error";
-          this.#appendEvent(id, "execution_failed", { error: state.error });
+          state.progressNote = result.stopReason || "completed";
+          if (result.errorMessage) state.error = result.errorMessage;
+          state.resultPreview = ((result.text && result.text.trim()) ? result.text : await this.#readLastAssistantTextWithRetry(sk)).slice(0, 1000);
+          this.#appendEvent(id, "execution_completed", { stopReason: result.stopReason, resultPreview: state.resultPreview.slice(0, 3000) });
         }
         this.#resolveActualModelThinking(state);
         this.#appendHandoff(state);
@@ -492,12 +437,12 @@ export class ExecutionEngine {
       try { this.#piBridge?.abort?.(`__exec_${id}`); } catch {}
       // lo stato finale viene scritto dal runner (interrupted)
     } else if (state.status === "queued") {
-      state.status = "interrupted";
+      state.status = "completed";
       state.endedAt = Date.now();
       state.progressNote = "stopped before start";
       this.#writeState(id, state);
-      this.#appendEvent(id, "execution_interrupted", { by: "user", beforeStart: true });
-      this.#notify({ executionId: id, status: "interrupted", label: state.label });
+      this.#appendEvent(id, "execution_completed", { stopReason: "stopped", beforeStart: true });
+      this.#notify({ executionId: id, status: "completed", label: state.label });
     }
     return { ok: true };
   }
@@ -509,13 +454,14 @@ export class ExecutionEngine {
       const run = this.#runs.get(id);
       if (run) run.aborted = true;
       try { this.#piBridge?.abort?.(`__exec_${id}`); } catch {}
-      // Lo stato finale viene scritto dal runner (cancelled)
+      // Lo stato finale viene scritto dal runner (completed)
     } else if (state.status === "queued") {
-      state.status = "cancelled";
+      state.status = "completed";
       state.endedAt = Date.now();
+      state.progressNote = "cancelled before start";
       this.#writeState(id, state);
-      this.#appendEvent(id, "execution_cancelled", { by: "user", beforeStart: true });
-      this.#notify({ executionId: id, status: "cancelled", label: state.label });
+      this.#appendEvent(id, "execution_completed", { stopReason: "cancelled", beforeStart: true });
+      this.#notify({ executionId: id, status: "completed", label: state.label });
     }
     return { ok: true };
   }
@@ -583,9 +529,9 @@ export class ExecutionEngine {
           this.#notify({ executionId: st.id, status: "interrupted", label: st.label });
           recovered++;
           if ((st.resumeCount || 0) >= 3) {
-            st.status = "failed"; st.error = "auto-resume limit reached (3)";
-            this.#writeState(st.id, st); this.#appendEvent(st.id, "execution_failed", { error: st.error });
-            this.#notify({ executionId: st.id, status: "failed", label: st.label, error: st.error });
+            st.status = "completed"; st.error = "auto-resume limit reached (3)";
+            this.#writeState(st.id, st); this.#appendEvent(st.id, "execution_completed", { stopReason: "resume-limit" });
+            this.#notify({ executionId: st.id, status: "completed", label: st.label, error: st.error });
           } else if (autoResume) {
             resumed++;
             this.#resume(st.id).catch(() => {});

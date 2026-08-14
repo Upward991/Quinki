@@ -20,12 +20,10 @@ function TaskResultToggle({ run, sessionKey }: { run: any; sessionKey?: string }
   const [injectHovered, setInjectHovered] = useState(false)
   const [injected, setInjected] = useState(false)
   const st = run.status
-  const isFailed = st === 'failed'
   const isRunning = st === 'running' || st === 'queued'
-  const isInterrupted = st === 'interrupted'
-  const color = isFailed ? 'var(--q-accent-danger)' : isRunning ? 'var(--q-accent-info)' : isInterrupted ? 'var(--q-accent-warning)' : 'var(--q-accent-calendar)'
-  const hoverBg = isFailed ? 'rgba(217, 107, 107, 0.06)' : isRunning ? 'rgba(122, 162, 247, 0.06)' : isInterrupted ? 'rgba(210, 153, 34, 0.06)' : 'rgba(127, 209, 192, 0.06)'
-  const label = isFailed ? 'Task failed' : isRunning ? 'Task running' : isInterrupted ? 'Task interrupted' : 'Task completed'
+  const color = isRunning ? 'var(--q-accent-info)' : 'var(--q-accent-calendar)'
+  const hoverBg = isRunning ? 'rgba(122, 162, 247, 0.06)' : 'rgba(127, 209, 192, 0.06)'
+  const label = isRunning ? 'Task running' : 'Task result'
   return (
     <div style={{ marginTop: '12px', padding: '4px' }}>
       <div onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} onClick={() => setCollapsed(!collapsed)}
@@ -175,10 +173,8 @@ export function ChatArea(props: ChatAreaProps) {
   }, [taskPanelOpen, taskRuns])
   const taskRunning = taskExecs.filter((e: any) => e.status === 'running' || e.status === 'queued').length
   const taskDone = taskExecs.filter((e: any) => e.status === 'completed').length
-  const taskFail = taskExecs.filter((e: any) => e.status === 'failed').length
   const taskRunningItem = taskExecs.find((e: any) => e.status === 'running' || e.status === 'queued')
-  const taskInterrupted = taskExecs.filter((e: any) => e.status === 'interrupted').length
-  const taskLabel = (taskScheds.length > 0 ? taskScheds.length + ' tasks scheduled' : taskExecs.length + ' tasks') + (taskDone ? ' · ' + taskDone + ' completed' : '') + (taskFail ? ' · ' + taskFail + ' failed' : '')
+  const taskLabel = (taskScheds.length > 0 ? taskScheds.length + ' tasks scheduled' : taskExecs.length + ' tasks') + (taskDone ? ' · ' + taskDone + ' completed' : '') + (taskRunning ? ' · ' + taskRunning + ' running' : '')
   const hasTasks = taskExecs.length > 0 || taskScheds.length > 0
   const taskStripBar = hasTasks ? (
     <button onClick={toggleTaskPanel} title={taskPanelOpen ? 'Collapse tasks' : 'Show tasks'} style={{ width: '100%', padding: '8px 14px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, border: taskPanelOpen ? 'none' : '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', cursor: 'pointer', backgroundColor: taskPanelOpen ? 'transparent' : 'var(--q-bg-panel)', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: 13, transition: 'none', textAlign: 'left' }}>
