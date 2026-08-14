@@ -4823,6 +4823,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     }
 
     const next = prev.then(() => pi.sendUserMessage(content, { deliverAs: "followUp" })).catch((err: Error) => {
+      this.logDebug("send-user-message-error", { sessionKey: sk, message: err?.message, name: err?.name, stack: err?.stack?.slice(0, 600) });
       ws.send(JSON.stringify({ type: "error", message: err.message, sessionKey: sk }));
     });
     this.#prompts.set(sk, next);

@@ -193,7 +193,7 @@ export function ChatArea(props: ChatAreaProps) {
         {taskRuns.length === 0 ? (
           <div style={{ color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', padding: '24px 8px', textAlign: 'center' }}>No tasks yet.</div>
         ) : taskRuns.map((run) => (
-          <TaskResultToggle key={run.id} run={run} sessionKey={session?.key} />
+          <TaskResultToggle key={run.id} run={run} sessionKey={props.session?.key} />
         ))}
       </div>
       {/* Barra riassunto IN BASSO = la striscia che diventa la heading inferiore della sezione espansa — tutta cliccabile per chiudere */}
@@ -453,7 +453,7 @@ export function ChatArea(props: ChatAreaProps) {
               {taskRuns.length === 0 ? (
                 <div style={{ color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', padding: '24px 8px', textAlign: 'center' }}>No tasks yet.</div>
               ) : taskRuns.map((run) => (
-                <TaskResultToggle key={run.id} run={run} sessionKey={session?.key} />
+                <TaskResultToggle key={run.id} run={run} sessionKey={props.session?.key} />
               ))}
             </div>
             {taskStripBar}
@@ -497,7 +497,7 @@ export function ChatArea(props: ChatAreaProps) {
                 {taskRuns.length === 0 ? (
                   <div style={{ color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', padding: '24px 8px', textAlign: 'center' }}>No tasks yet.</div>
                 ) : taskRuns.map((run) => (
-                  <TaskResultToggle key={run.id} run={run} sessionKey={session?.key} />
+                  <TaskResultToggle key={run.id} run={run} sessionKey={props.session?.key} />
                 ))}
               </div>
             </div>
