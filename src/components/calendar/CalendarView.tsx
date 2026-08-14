@@ -251,6 +251,8 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const tcTimer = useRef<any>(null)
   const tcChatRef = useRef<{ key: string; label: string; isNew: boolean } | null>(null)
   const tcMsgRef = useRef<HTMLDivElement | null>(null)
+  const tcSigRef = useRef('')
+  const tcAgentsSigRef = useRef('')
   const [renamingView, setRenamingView] = useState<string | null>(null)
   const [renameVal, setRenameVal] = useState('')
   const [allHover, setAllHover] = useState(false)
@@ -507,7 +509,12 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   // === A2.9 parte 2 (nuovo flusso): Create task → scegli chat → mini-chat per schedulare ===
   const tcLoad = useCallback(async (chat: { key: string; label: string; isNew: boolean }) => {
     if (!chat.isNew && chat.key) {
-      try { const h: any = await call('getHistory', { sessionKey: chat.key }); setTcMsgs(mergeHistoryMessages(h)) } catch {}
+      try {
+        const h: any = await call('getHistory', { sessionKey: chat.key })
+        const msgs = mergeHistoryMessages(h)
+        const sig = msgs.map((m: any) => (m.id || '') + ':' + (m.timestamp || '') + ':' + String(m.content || '').length).join('|')
+        if (sig !== tcSigRef.current) { tcSigRef.current = sig; setTcMsgs(msgs) }
+      } catch {}
       try { const ss: any = await call('getStreamingStatus', {}); setTcStreaming((ss?.streamingKeys || []).includes(chat.key)) } catch {}
       try {
         const meta: any = await call('getSessionMeta', { sessionKey: chat.key })
@@ -515,7 +522,8 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
           if (meta.model) setTcModel(meta.model)
           if (meta.thinkingLevel) setTcThinking(meta.thinkingLevel)
           if (meta.mode) setTcMode(meta.mode)
-          setTcAgents(meta.agentId ? String(meta.agentId).split(',').filter(Boolean) : ['orchestrator'])
+          const ids = meta.agentId ? String(meta.agentId).split(',').filter(Boolean) : ['orchestrator']
+          if (ids.join(',') !== tcAgentsSigRef.current) { tcAgentsSigRef.current = ids.join(','); setTcAgents(ids) }
         }
       } catch {}
       try {
@@ -606,10 +614,6 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     setTcAgents(next)
     if (chat.key) call('setChatAgents', { sessionKey: chat.key, agentIds: next.join(',') }).catch(() => {})
   }
-  useEffect(() => {
-    const el = tcMsgRef.current
-    if (el && el.scrollTop + el.clientHeight >= el.scrollHeight - 120) el.scrollTop = el.scrollHeight
-  }, [tcMsgs])
   useEffect(() => {
     if (!taskChat) return
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeTaskChat() }
