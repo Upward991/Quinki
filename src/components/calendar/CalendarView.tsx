@@ -125,7 +125,7 @@ function WhenCell({ i, onEdit }: { i: Item; onEdit: (e: any) => void }) {
 
 function RowBtn({ title, onClick, children, color, hoverColor }: { title: string; onClick: () => void; children: React.ReactNode; color?: string; hoverColor?: string }) {
   const [h, setH] = useState(false)
-  return React.createElement('button', { title, onClick, onMouseEnter: () => setH(true), onMouseLeave: () => setH(false), style: { background: 'none', border: 'none', cursor: 'pointer', color: h ? (hoverColor || color || 'var(--q-text)') : (color || 'var(--q-text-tertiary)'), padding: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-sm)', flexShrink: 0, transition: 'none' } }, children)
+  return React.createElement('button', { title, onClick: () => { setH(false); onClick() }, onMouseEnter: () => setH(true), onMouseLeave: () => setH(false), style: { background: 'none', border: 'none', cursor: 'pointer', color: h ? (hoverColor || color || 'var(--q-text)') : (color || 'var(--q-text-tertiary)'), padding: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-sm)', flexShrink: 0, transition: 'none' } }, children)
 }
 function ViewRow({ v, active, renaming, renameVal, onRenameChange, onRenameCommit, onRenameCancel, onSelect, onContextMenu, multiSel, selected, onToggleSel, isOverlay }: { v: ViewCfg; active: boolean; renaming: boolean; renameVal: string; onRenameChange: (s: string) => void; onRenameCommit: () => void; onRenameCancel: () => void; onSelect: () => void; onContextMenu: (e: React.MouseEvent, v: ViewCfg) => void; multiSel: boolean; selected: boolean; onToggleSel: () => void; isOverlay?: boolean }) {
   const [h, setH] = useState(false)
