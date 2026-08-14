@@ -3095,6 +3095,7 @@ class PiBridge {
         "CURRENT DATE AND TIME (use this to compute when dates/times): " + new Date().toString() + " (ISO: " + new Date().toISOString() + ").",
         "when.type: once = specific date; daily = every day at HH:MM; weekly = specific weekdays; monthly = specific day of month.",
         "at is LOCAL time in 24h HH:MM (e.g. 07:00). For weekly, daysOfWeek uses 1=Monday ... 7=Sunday.",
+        "IMPORTANT: if the user gives a specific time WITHOUT recurrence words (e.g. 'alle 15', 'tomorrow at 7am', 'at 21:00'), use type=once with the date. Use daily/weekly/monthly ONLY if the user explicitly says recurring ('ogni giorno', 'every day', 'daily', 'every morning', 'weekly', 'monthly').",
         "text must be the exact task the agent must perform when it fires.",
         "If the user doesn't specify an agent, use agentIds ['orchestrator'].",
         "If the user asks for a specific model or thinking level for the task, pass model and thinkingLevel.",

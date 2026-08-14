@@ -170,7 +170,7 @@ export class Scheduler {
         const next = s.nextFireAt ?? this.#computeNext(s, s.lastFiredAt || 0);
         if (next == null) continue;
         if (now >= next) {
-          await this.#fire(s, next);
+          this.#fire(s, next);
         }
       }
       // niente log a ogni tick (rumore): si logga solo quando qualcosa scatta
@@ -182,37 +182,10 @@ export class Scheduler {
     }
   }
 
-  async #fire(s: Schedule, scheduledFor: number) {
+  #fire(s: Schedule, scheduledFor: number) {
     const now = Date.now();
     const delayMs = Math.max(0, now - scheduledFor);
-    let execId: string | null = null;
-    try {
-      const r = await this.#executor.runTask({
-        label: s.title || "Scheduled task",
-        agentIds: s.agentIds,
-        workingDir: s.workingDir,
-        mode: s.mode,
-        model: s.model,
-        thinkingLevel: s.thinkingLevel,
-        text: s.text || "",
-        owner: s.owner || this.#owner,
-        scheduleId: s.id,
-        scheduledFor,
-        sourceSession: s.sourceSession,
-      });
-      execId = r.executionId;
-      this.#log("schedule-fired", {
-        scheduleId: s.id,
-        title: s.title,
-        delaySec: Math.round(delayMs / 1000),
-        executionId: execId,
-        scheduledFor,
-      });
-    } catch (e: any) {
-      this.#log("schedule-fire-error", { scheduleId: s.id, error: e?.message });
-    }
-    s.lastFiredAt = now;
-    s.lastExecutionId = execId;
+    // === Aggiorna lo stato PRIMA del run: la schedule non è più in scadenza (niente doppio fire) ===
     const all = this.readSchedules();
     const idx = all.findIndex((x: Schedule) => x.id === s.id);
     if (s.when.type === "once") {
@@ -224,6 +197,36 @@ export class Scheduler {
     }
     this.#writeSchedules(all);
     this.#notify();
+    // === Fire-and-forget: l'agente gira in background, la UI si aggiorna via execution_update ===
+    this.#executor.runTask({
+      label: s.title || "Scheduled task",
+      agentIds: s.agentIds,
+      workingDir: s.workingDir,
+      mode: s.mode,
+      model: s.model,
+      thinkingLevel: s.thinkingLevel,
+      text: s.text || "",
+      owner: s.owner || this.#owner,
+      scheduleId: s.id,
+      scheduledFor,
+      sourceSession: s.sourceSession,
+    }).then((r: any) => {
+      s.lastFiredAt = Date.now();
+      s.lastExecutionId = r.executionId;
+      const all2 = this.readSchedules();
+      const idx2 = all2.findIndex((x: Schedule) => x.id === s.id);
+      if (idx2 >= 0) { all2[idx2] = s; this.#writeSchedules(all2); }
+      this.#log("schedule-fired", {
+        scheduleId: s.id,
+        title: s.title,
+        delaySec: Math.round(delayMs / 1000),
+        executionId: r.executionId,
+        scheduledFor,
+      });
+      this.#notify();
+    }).catch((e: any) => {
+      this.#log("schedule-fire-error", { scheduleId: s.id, error: e?.message });
+    });
   }
 
   // === RPC API ===
@@ -330,31 +333,33 @@ export class Scheduler {
       if (idx >= 0) all[idx] = s;
     }
     this.#writeSchedules(all);
+    this.#notify();
     this.#scheduleNext();
-    try {
-      const r = await this.#executor.runTask({
-        label: s.title || "Scheduled task (manual)",
-        sourceSession: s.sourceSession,
-        agentIds: s.agentIds,
-        workingDir: s.workingDir,
-        mode: s.mode,
-        model: s.model,
-        thinkingLevel: s.thinkingLevel,
-        text: s.text || "",
-        owner: s.owner || this.#owner,
-        scheduleId: s.id,
-        scheduledFor: now,
-      });
-      s.lastFiredAt = now;
-      s.lastExecutionId = r.executionId;
+    // === Fire-and-forget: risposta immediata, la UI si aggiorna via execution_update ===
+    const sCopy = { ...s };
+    this.#executor.runTask({
+      label: s.title || "Scheduled task (manual)",
+      sourceSession: s.sourceSession,
+      agentIds: s.agentIds,
+      workingDir: s.workingDir,
+      mode: s.mode,
+      model: s.model,
+      thinkingLevel: s.thinkingLevel,
+      text: s.text || "",
+      owner: s.owner || this.#owner,
+      scheduleId: s.id,
+      scheduledFor: now,
+    }).then((r: any) => {
+      sCopy.lastFiredAt = Date.now();
+      sCopy.lastExecutionId = r.executionId;
       const all2 = this.readSchedules();
-      const idx2 = all2.findIndex((x: Schedule) => x.id === s.id);
-      if (idx2 >= 0) { all2[idx2] = s; this.#writeSchedules(all2); }
-      this.#log("schedule-run-now", { scheduleId: s.id, executionId: r.executionId });
+      const idx2 = all2.findIndex((x: Schedule) => x.id === sCopy.id);
+      if (idx2 >= 0) { all2[idx2] = sCopy; this.#writeSchedules(all2); }
+      this.#log("schedule-run-now", { scheduleId: sCopy.id, executionId: r.executionId });
       this.#notify();
-      return { ok: true, executionId: r.executionId };
-    } catch (e: any) {
-      return { ok: false, error: e?.message || String(e) };
-    }
+    }).catch((e: any) => {
+      this.#log("schedule-run-now-error", { scheduleId: sCopy.id, error: e?.message || String(e) });
+    });
+    return { ok: true };
   }
 }
