@@ -95,6 +95,13 @@ export function Composer(props: ComposerProps) {
   const canSend = text.trim().length > 0 && !props.isStreaming && !(props as any).isCompacting
   const canSteer = text.trim().length > 0 && props.isStreaming && !(props as any).isCompacting
 
+  const handleSteer = () => {
+    if (canSteer && props.onSteer) {
+      props.onSteer(text.trim())
+      setText('')
+    }
+  }
+
   const handleSend = () => {
     if (canSend) {
       props.onSend(text.trim(), {
@@ -251,7 +258,8 @@ export function Composer(props: ComposerProps) {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); slashMenuRef.current?.navEnter(); return }
       if (e.key === 'Escape') { e.preventDefault(); setSlashMenuOpen(false); setText(''); return }
     }
-    e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())
+    e.key === 'Enter' && e.ctrlKey && (e.preventDefault(), handleSteer())
+    e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && (e.preventDefault(), handleSend())
     // Esc: se sta generando → STOP (come il tasto stop). Altrimenti chiude menu/pulisce.
     e.key === 'Escape' && (props.isStreaming ? (e.preventDefault(), props.onStop()) : (setSlashMenuOpen(false), setMentionOpen(false), setAttachMenuOpen(false), setText('')))
     // Tab: toggle Plan/Build (non inserire tab nel testo)
@@ -445,7 +453,7 @@ export function Composer(props: ComposerProps) {
           <StopBtn color="var(--q-accent-danger)" onClick={props.isStreaming ? props.onStop : () => {}} />
           <div style={{ width: '8px', flexShrink: 0 }} />
           {props.onSteer && (
-            <SteerButton enabled={canSteer} onClick={() => { if (canSteer) { props.onSteer!(text.trim()); setText('') } }} />
+            <SteerButton enabled={canSteer} onClick={handleSteer} />
           )}
           <div style={{ width: '8px', flexShrink: 0 }} />
           <SendButton enabled={canSend} onClick={handleSend} />
