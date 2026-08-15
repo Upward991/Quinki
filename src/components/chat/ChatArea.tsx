@@ -469,7 +469,7 @@ export function ChatArea(props: ChatAreaProps) {
               onSend={props.onSend} onStop={props.onStop} onSteer={props.onSteer}
               onModelChange={props.onModelSelect} onModeChange={props.onModeChange}
               onThinkingChange={t => props.onThinkingChange(t)} welcomeMode={true}
-              longHorizon={props.longHorizon}
+              longHorizon={props.longHorizon} onLongHorizon={props.onLongHorizon}
               agents={props.agents}
               chatAgentIds={props.selectedAgentIds}
               onReset={props.onReset}
@@ -538,7 +538,7 @@ export function ChatArea(props: ChatAreaProps) {
               onSend={props.onSend} onStop={props.onStop} onSteer={props.onSteer}
               onModelChange={props.onModelSelect} onModeChange={props.onModeChange}
               onThinkingChange={t => props.onThinkingChange(t)} welcomeMode={false}
-              longHorizon={props.longHorizon}
+              longHorizon={props.longHorizon} onLongHorizon={props.onLongHorizon}
             onReset={props.onReset}
               agents={props.agents}
               chatAgentIds={props.selectedAgentIds}
