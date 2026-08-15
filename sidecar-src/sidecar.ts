@@ -384,7 +384,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
       piBridge!.setMessageAttachments(sk, mid, p.attachments, p.text);
     }
     const fakeWs = new FakeWebSocket();
-    await piBridge!.send(fakeWs, { sessionKey: sk, text: p.text, files: p.files, workingDirs: p.workingDirs, skillNames: p.skillNames, attachments: p.attachments });
+    await piBridge!.send(fakeWs, { sessionKey: sk, text: p.text, files: p.files, workingDirs: p.workingDirs, skillNames: p.skillNames, attachments: p.attachments, taskClips: p.taskClips });
     piBridge!.logDebug("message-sent", { sessionKey: sk, messageId: mid, agent: p.agentId || meta.agentId, model: p.model || meta.model });
     return { messageId: mid, sessionKey: sk };
   },

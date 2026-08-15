@@ -29,7 +29,7 @@ interface ComposerProps {
   isCompacting?: boolean
   statusLabel?: string
   statusKind?: string
-  onSend: (text: string, opts?: { skillNames?: { agentId: string; skillName: string; agentName?: string }[]; attachments?: Attachment[] }) => void
+  onSend: (text: string, opts?: { skillNames?: { agentId: string; skillName: string; agentName?: string }[]; attachments?: Attachment[]; taskClips?: { id: string; label: string; text: string }[] }) => void
   onStop: () => void
   onModelChange: (model: string) => void
   onModeChange: (mode: ChatMode) => void
@@ -95,14 +95,10 @@ export function Composer(props: ComposerProps) {
 
   const handleSend = () => {
     if (canSend) {
-      let finalText = text.trim()
-      if (pendingTaskClips.length > 0) {
-        const clips = pendingTaskClips.map(c => `[Task result: "${c.label}"]\n${c.text.trim()}`).join('\n\n')
-        finalText = clips + '\n\n' + finalText
-      }
-      props.onSend(finalText, {
+      props.onSend(text.trim(), {
         skillNames: pendingSkills.length > 0 ? pendingSkills.map(s => ({ agentId: s.agentId, skillName: s.skillName, agentName: s.agentName })) : undefined,
         attachments: pendingAttachments.length > 0 ? pendingAttachments : undefined,
+        taskClips: pendingTaskClips.length > 0 ? pendingTaskClips : undefined,
       })
       setText('')
       setSlashMenuOpen(false)

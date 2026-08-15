@@ -4196,7 +4196,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     });
   }
 
-  #buildSystemPrompt(key: string, cwd: string, workingDirs?: string[], mode?: string, skillNames?: { agentId: string; skillName: string }[], attachments?: { originalName: string; path: string; uuid: string; size?: number }[]): string {
+  #buildSystemPrompt(key: string, cwd: string, workingDirs?: string[], mode?: string, skillNames?: { agentId: string; skillName: string }[], attachments?: { originalName: string; path: string; uuid: string; size?: number }[], taskClips?: { id: string; label: string; text: string }[]): string {
     const rawAgentId = this.#resolveAgentId(key);
     // If agentId is a comma-separated list (e.g. "orchestrator,notion,frontend-designer"),
     // extract the first valid agent for reading PROMPT.md
@@ -4288,6 +4288,15 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
         } catch (e: any) { this.logDebug('skill-invoke-error', { skillName, error: e?.message }); }
       }
     }
+    // === Task clips: risultati di task clippati dall'utente (come le skill, nel system prompt) ===
+    if (taskClips && taskClips.length > 0) {
+      for (const tc of taskClips) {
+        const body = String(tc.text || '').trim();
+        if (!body) continue;
+        prompt += `\n\n=== TASK RESULT: ${tc.label} ===\n\n${body}\n\n=== END TASK RESULT ===\n\nThe task result above was explicitly attached by the user. It is ALREADY in your system prompt. Use it as context for the current request. If you need more detail (reasoning, tool calls, delegations), use the getTaskResult/readHandoff tools.`;
+        this.logDebug('task-clip-injected', { sessionKey: key, label: tc.label, contentLen: body.length });
+      }
+    }
     // === Attachment directory path (always present for this chat) ===
     const home = process.env.HOME || process.env.USERPROFILE || '';
     const attachmentDir = `${home}/.quinki/attachments/${key}`;
@@ -4346,7 +4355,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     return null;
   }
 
-  async send(ws: any, data: { sessionKey: string; text: string; files?: { name: string; type: string; path?: string; data?: string }[]; workingDirs?: string[]; skillNames?: { agentId: string; skillName: string }[]; attachments?: { originalName: string; path: string; uuid: string; size?: number }[] }) {
+  async send(ws: any, data: { sessionKey: string; text: string; files?: { name: string; type: string; path?: string; data?: string }[]; workingDirs?: string[]; skillNames?: { agentId: string; skillName: string }[]; attachments?: { originalName: string; path: string; uuid: string; size?: number }[]; taskClips?: { id: string; label: string; text: string }[] }) {
     const sk = data.sessionKey;
     const s = this.#entries.get(sk);
     if (!s) {
@@ -4744,7 +4753,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       let builtPrompt: string | undefined;
       if (pi.agent?.state) {
         const sessionMode = this.#entries.get(sk)?.mode || "plan";
-        builtPrompt = this.#buildSystemPrompt(sk, effectiveCwd, data.workingDirs, sessionMode);
+        builtPrompt = this.#buildSystemPrompt(sk, effectiveCwd, data.workingDirs, sessionMode, undefined, undefined, data.taskClips);
         pi.agent.state.systemPrompt = builtPrompt;
         (pi as any)._baseSystemPrompt = builtPrompt;
       }
@@ -4766,7 +4775,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       const sessionModeNow = this.#entries.get(sk)?.mode || "plan";
             // IMPORTANTE: passa la modalità così la nota "Sei in MODALITÀ PIANO/BUILD" NON viene persa
             // (il rebuild senza mode faceva sembrare al modello di essere sempre in plan).
-            let prompt = this.#buildSystemPrompt(sk, effectiveCwd, data.workingDirs, sessionModeNow, skillsForPrompt, data.attachments);
+            let prompt = this.#buildSystemPrompt(sk, effectiveCwd, data.workingDirs, sessionModeNow, skillsForPrompt, data.attachments, data.taskClips);
       // When NO skill is attached, add explicit note that previous skills are deactivated
       if (!skillNames) {
       }

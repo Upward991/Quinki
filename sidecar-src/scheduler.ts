@@ -248,7 +248,7 @@ export class Scheduler {
       agentIds: Array.isArray(rawIds) ? rawIds.map((x: any) => String(x).trim()).filter(Boolean)
         : String(rawIds || "orchestrator").split(",").map((x: string) => x.trim()).filter(Boolean),
       workingDir: p.workingDir ?? undefined,
-      mode: p.mode ?? undefined,
+      mode: "build", // A2.10: i task girano SEMPRE in build mode (tutti i tool configurati)
       model: p.model ?? undefined,
       thinkingLevel: p.thinkingLevel ?? undefined,
       text: String(p.text || ""),
