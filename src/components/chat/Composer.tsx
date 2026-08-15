@@ -719,10 +719,9 @@ function SteerButton({ enabled, onClick }: { enabled: boolean; onClick: () => vo
       }}>
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
         stroke={enabled ? getContrastColor('--q-accent-warning') : 'var(--q-text-tertiary)'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M7 17V7" />
-        <path d="M3 11l4-4 4 4" />
-        <path d="M17 17V7" />
-        <path d="M13 11l4-4 4 4" />
+        <path d="M12 20V6" />
+        <path d="M5 13l7-7 7 7" />
+        <path d="M5 9l7-7 7 7" />
       </svg>
     </button>
   )
