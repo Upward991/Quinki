@@ -5049,9 +5049,9 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
 
   steer(ws: any, data: { sessionKey: string; text: string }) {
     const pi = this.#active.get(data.sessionKey);
-    if (!pi) return;
-    if (data.text === "/stop") pi.abort();
-    else pi.steer(data.text);
+    if (!pi) { this.logDebug("steer-no-session", { sessionKey: data.sessionKey }); return; }
+    if (data.text === "/stop") { pi.abort(); this.logDebug("steer-stop", { sessionKey: data.sessionKey }); }
+    else { pi.steer(data.text); this.logDebug("steer-sent", { sessionKey: data.sessionKey, text: data.text.slice(0, 120) }); }
   }
 
   abort(key: string) {
