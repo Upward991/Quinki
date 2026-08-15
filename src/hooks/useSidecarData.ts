@@ -1020,6 +1020,14 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
   }, [ready, call, activeSessionId, selectSession])
 
   // ── Session settings ──
+  const steerMessage = useCallback(async (text: string) => {
+    const sk = activeSessionId || activeSessionIdRef.current || ''
+    if (!sk || !text.trim()) return
+    const userMsg = { id: `msg-${Date.now()}`, role: 'user' as const, content: text.trim(), timestamp: new Date().toISOString(), tokensIn: Math.ceil(text.length / 4) } as any
+    setMessages(prev => [...prev, userMsg])
+    try { await call('steer', { sessionKey: sk, text: text.trim() }) } catch (e) { console.error('steer:', e) }
+  }, [call, activeSessionId])
+
   const setChatAgents = useCallback(async (sessionKeyOrIds: string | string[], agentIds?: string[]) => {
     let sk: string, ids: string[]
     if (Array.isArray(sessionKeyOrIds)) { sk = activeSessionId || ''; ids = sessionKeyOrIds }
@@ -1403,7 +1411,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     // Sidebar
     sidebarSessions,
     // Session management
-    selectSession, sendMessage, injectErrorMessages, stopStreaming, createSession, deleteSession, renameSession, deselectSession, refreshSessions,
+    selectSession, sendMessage, injectErrorMessages, steerMessage, stopStreaming, createSession, deleteSession, renameSession, deselectSession, refreshSessions,
     resetSession, reloadSession, moveSession, compactSession, ensureSession,
     // Session settings
     setChatAgents, setModel, setThinkingLevel, setMode, setSessionCompaction, setWorkingDir,
