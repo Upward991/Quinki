@@ -100,6 +100,8 @@ interface ChatAreaProps {
   onSend: (text: string) => void
   onStop: () => void
   onSteer?: (text: string) => void
+  longHorizon?: boolean
+  onLongHorizon?: (activate: boolean) => void
   onRenameSession: (label: string) => void
   onExport: (format?: string) => void
   onReset?: () => void
@@ -467,6 +469,7 @@ export function ChatArea(props: ChatAreaProps) {
               onSend={props.onSend} onStop={props.onStop} onSteer={props.onSteer}
               onModelChange={props.onModelSelect} onModeChange={props.onModeChange}
               onThinkingChange={t => props.onThinkingChange(t)} welcomeMode={true}
+              longHorizon={props.longHorizon}
               agents={props.agents}
               chatAgentIds={props.selectedAgentIds}
               onReset={props.onReset}
@@ -479,7 +482,7 @@ export function ChatArea(props: ChatAreaProps) {
       ) : (
         <>
           {/* Messages — area unica: scroll (chat o task) + barra riassunto in fondo (la striscia, sempre stessa posizione) */}
-          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column', ...(taskPanelOpen ? { margin: '2px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom' } : {}) }}>
+          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column', ...(taskPanelOpen ? { margin: '2px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom', ...(props.longHorizon ? { border: '1px solid var(--q-accent-longhorizon)' } : {}) } : {}) }}>
             <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
               {/* Chat — SEMPRE montata (display none quando il pannello task è aperto) → lo scroll resta dov'era */}
               <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '4px 16px ' + (hasTasks ? 8 : 0) + 'px 16px', scrollbarGutter: 'stable', display: taskPanelOpen ? 'none' : 'block' }}
@@ -535,6 +538,7 @@ export function ChatArea(props: ChatAreaProps) {
               onSend={props.onSend} onStop={props.onStop} onSteer={props.onSteer}
               onModelChange={props.onModelSelect} onModeChange={props.onModeChange}
               onThinkingChange={t => props.onThinkingChange(t)} welcomeMode={false}
+              longHorizon={props.longHorizon}
             onReset={props.onReset}
               agents={props.agents}
               chatAgentIds={props.selectedAgentIds}

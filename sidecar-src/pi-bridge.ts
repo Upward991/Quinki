@@ -4463,7 +4463,8 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       requestedThinkingLevel: s?.thinkingLevel,
     });
 
-    this.#wss.set(sk, ws);
+    if (!(data as any)._preserveWs) this.#wss.set(sk, ws);
+    else this.logDebug("lh-preserve-ws", { sessionKey: sk, note: "Long Horizon: streaming al ws del frontend" });
     
     let pi = this.#active.get(sk);
     this.logDebug("send-resolved-agent", { sessionKey: sk, override: this.#agentOverride.get(sk), resolvedAgentId: this.#resolveAgentId(sk), hasActiveSession: !!pi });

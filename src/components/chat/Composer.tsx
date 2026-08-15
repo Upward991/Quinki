@@ -32,6 +32,8 @@ interface ComposerProps {
   onSend: (text: string, opts?: { skillNames?: { agentId: string; skillName: string; agentName?: string }[]; attachments?: Attachment[]; taskClips?: { id: string; label: string; text: string }[] }) => void
   onStop: () => void
   onSteer?: (text: string) => void
+  longHorizon?: boolean
+  onLongHorizon?: (activate: boolean) => void
   onModelChange: (model: string) => void
   onModeChange: (mode: ChatMode) => void
   onThinkingChange: (level: ThinkingLevel) => void
@@ -295,6 +297,8 @@ export function Composer(props: ComposerProps) {
           onSelectThinking={(t) => { props.onThinkingChange(t as ThinkingLevel); setSlashMenuOpen(false); if (text.startsWith('/') && !text.includes(' ')) setText('') }}
           onReset={() => { props.onReset?.(); setSlashMenuOpen(false); if (text.startsWith('/') && !text.includes(' ')) setText('') }}
           onClose={() => { setSlashMenuOpen(false); if (text.startsWith('/') && !text.includes(' ')) setText('') }}
+          onLongHorizon={props.onLongHorizon}
+          longHorizonActive={props.longHorizon}
           onSkillSelected={(skill) => {
             // Add skill chip
             setPendingSkills(prev => [...prev, skill])
@@ -328,6 +332,7 @@ export function Composer(props: ComposerProps) {
         padding: '8px',
         display: 'flex',
         flexDirection: 'column',
+        ...(props.longHorizon ? { border: '1px solid var(--q-accent-longhorizon)', boxShadow: '0 0 0 1px var(--q-accent-longhorizon), var(--shadow-floating)' } : {}),
       }}>
         {/* Skill + Attachment chips */}
         {(pendingSkills.length > 0 || pendingTaskClips.length > 0 || pendingAttachments.length > 0 || copyingFile) && (
@@ -435,7 +440,7 @@ export function Composer(props: ComposerProps) {
         <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', height: '32px', marginTop: '8px' }}>
           <SlashBtn color="var(--q-tab-accent)" onClick={() => { setSlashMenuOpen(true); setSlashFilter(''); if (!text.startsWith('/')) { /* don't clear text, just open menu */ } textareaRef.current?.focus() }} />
           <div style={{ width: '4px', flexShrink: 0 }} />
-          <ModeButton mode={props.mode} onChange={props.onModeChange} />
+          <ModeButton mode={props.mode} onChange={props.onModeChange} longHorizon={props.longHorizon} />
           <div style={{ width: '8px', flexShrink: 0 }} />
           <div style={{ height: '32px', display: 'flex', alignItems: 'center' }}>
             <span style={{ color: counterColor, fontSize: '12px', fontFamily: 'var(--font-code)', lineHeight: '1', whiteSpace: 'nowrap' }}>
@@ -670,9 +675,28 @@ function StopBtn({ color, onClick }: { color: string; onClick: () => void }) {
 }
 
 // ── Mode button — Plan/Build toggle ──
-function ModeButton({ mode, onChange }: { mode: ChatMode; onChange: (m: ChatMode) => void }) {
+function ModeButton({ mode, onChange, longHorizon }: { mode: ChatMode; onChange: (m: ChatMode) => void; longHorizon?: boolean }) {
   const [hovered, setHovered] = useState(false)
   const isPlan = mode === 'plan'
+  if (longHorizon) {
+    // Long Horizon attivo: bloccato, non si può cambiare modalità
+    return (
+      <button title="Long Horizon active — use /longhorizon to disable"
+        onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+        style={{
+          width: 'auto', padding: '0 10px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          transform: hovered ? 'scale(1.02)' : 'scale(1)', borderRadius: 'var(--radius-md)',
+          border: 'none', cursor: 'default',
+          backgroundColor: hovered ? 'var(--q-hover)' : 'transparent',
+          color: 'var(--q-accent-longhorizon)',
+          fontWeight: 700, fontSize: '13px', fontFamily: 'var(--font-interface)', lineHeight: '1',
+          flexShrink: 0,
+          transition: 'none',
+        }}>
+        Long Horizon
+      </button>
+    )
+  }
   return (
     <button onClick={() => onChange(isPlan ? 'build' : 'plan')}
       onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}

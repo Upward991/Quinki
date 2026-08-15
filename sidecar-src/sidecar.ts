@@ -60,6 +60,7 @@ import { createAgentHandlers } from "./agent-handlers";
 import { seedDefaults } from "./seed-defaults";
 import { ExecutionEngine } from "./executor";
 import { Scheduler } from "./scheduler";
+import { LongHorizon } from "./longhorizon";
 
 // === FORCE: stdout.write -> stderr.write TRANNE per messaggi JSON-RPC ===
 // Alcuni moduli (Bun runtime, vendor SDK) scrivono su stdout con process.stdout.write
@@ -168,8 +169,11 @@ const executor = new ExecutionEngine();
 executor.onUpdate = (payload) => { try { sendNotification("execution_update", payload); } catch {} };
 // === A2.2: Scheduler (programmazione compiti, catch-up "si fa comunque in ritardo") ===
 const scheduler = new Scheduler(agentDir, executor);
+const longHorizon = new LongHorizon(agentDir);
 scheduler.setLogger((tag, data) => { try { piBridge?.logDebug?.(tag, data); } catch {} });
 scheduler.onNotify = (payload) => { try { sendNotification("schedule_update", payload); } catch {} };
+longHorizon.setLogger((tag, data) => { try { piBridge?.logDebug?.(tag, data); } catch {} });
+longHorizon.onNotify = (payload) => { try { sendNotification("longhorizon_update", payload); } catch {} };
 
 const formatName = (id: string) =>
   id.replace(":cloud", "").replace(":35b-mlx", "").replace(":567m", "").replace(":120b-cloud", " 120B")
@@ -458,6 +462,17 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
 
   // === A2.2: Scheduler ===
   listSchedules: async () => ({ schedules: scheduler.readSchedules() }),
+
+  // === A2.11: Long Horizon ===
+  longHorizonActivate: async (p) => longHorizon.activate(String(p.sessionKey || '')),
+  longHorizonDeactivate: async (p) => longHorizon.deactivate(String(p.sessionKey || '')),
+  longHorizonSetPlan: async (p) => longHorizon.setPlan(String(p.sessionKey || ''), String(p.plan || '')),
+  getLongHorizonState: async (p) => longHorizon.getState(String(p.sessionKey || '')),
+  getSessionFiles: async (p) => ({ files: longHorizon.getSessionFiles(String(p.sessionKey || '')) }),
+  saveSessionFile: async (p) => longHorizon.saveSessionFile(String(p.sessionKey || ''), String(p.name || ''), String(p.content || '')),
+  longHorizonGitLog: async (p) => ({ commits: longHorizon.gitLog(String(p.sessionKey || '')) }),
+  longHorizonGitDiff: async (p) => ({ diff: longHorizon.gitDiff(String(p.sessionKey || ''), p.commit) }),
+  longHorizonGitRevert: async (p) => longHorizon.gitRevert(String(p.sessionKey || ''), p.commit),
   createSchedule: async (p) => scheduler.createSchedule(p),
   updateSchedule: async (p) => scheduler.updateSchedule(p),
   deleteSchedule: async (p) => scheduler.deleteSchedule(p),
@@ -828,6 +843,7 @@ async function bootstrap() {
     piBridge.reloadAndMerge();
     // A2.2: scheduler parte DOPO init (il primo scan è il catch-up al boot)
     try { scheduler.start(); } catch (e: any) { process.stderr.write(`[sidecar-marker] scheduler-start-error: ${e?.message}\n`); }
+    try { longHorizon.setPiBridge(piBridge); longHorizon.start(); } catch (e: any) { process.stderr.write(`[sidecar-marker] longhorizon-start-error: ${e?.message}\n`); }
     // A2.2: tool schedule_task degli agenti → crea schedule nel Scheduler
     try { piBridge.setScheduleHandler((p: any) => scheduler.createSchedule(p)); } catch (e: any) { process.stderr.write(`[sidecar-marker] schedule-handler-error: ${e?.message}\n`); }
     // A2.3: Recovery Manager (al boot: interrupted → auto-resume semantico) + Keep Awake

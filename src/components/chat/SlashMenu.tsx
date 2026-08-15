@@ -28,6 +28,8 @@ interface SlashMenuProps {
   onReset: () => void
   onClose: () => void
   onSkillSelected?: (skill: { agentId: string; skillName: string; agentName: string }) => void
+  onLongHorizon?: (activate: boolean) => void
+  longHorizonActive?: boolean
 }
 
 interface Command {
@@ -36,7 +38,7 @@ interface Command {
   description: string
 }
 
-type Mode = 'main' | 'model' | 'thinking' | 'directory' | 'skill' | 'reset_confirm'
+type Mode = 'main' | 'model' | 'thinking' | 'directory' | 'skill' | 'reset_confirm' | 'longhorizon'
 
 export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function SlashMenu(props, ref) {
   const [mode, setMode] = useState<Mode>('main')
@@ -75,6 +77,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
     { id: 'directory', label: '/Directory', description: 'Working directory' },
     { id: 'skill', label: '/Skill', description: 'Activate a skill' },
     { id: 'reset', label: '/Reset', description: 'Clear messages. Keeps model, directory and settings.' },
+    { id: 'longhorizon', label: '/longhorizon', description: 'Activate or disable Long Horizon mode' },
   ]
 
   const filteredCommands = commands.filter(cmd => cmd.id.includes(props.filter.toLowerCase()))
@@ -218,6 +221,9 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
       } else if (mode === 'reset_confirm') {
         if (focusConfirm) { props.onReset(); props.onClose() }
         else setFocusConfirm(true)
+      } else if (mode === 'longhorizon') {
+        if (focusConfirm) { props.onLongHorizon?.(!props.longHorizonActive); props.onClose() }
+        else setFocusConfirm(true)
       }
     },
   }))
@@ -337,6 +343,39 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
             onLeft={() => enterMode('main')}
             onRight={() => { setPendingThinking(selectedIdx === 0 ? 'on' : 'off'); setFocusConfirm(true) }}
             onConfirm={confirm}
+            onClose={props.onClose}
+          />
+        </>
+      )}
+
+      {/* Long Horizon mode */}
+      {mode === 'longhorizon' && (
+        <>
+          <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ color: 'var(--q-text)', fontSize: '15px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>
+              {props.longHorizonActive ? 'Disable Long Horizon?' : 'Activate Long Horizon?'}
+            </div>
+            <div style={{ color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', lineHeight: 1.5 }}>
+              {props.longHorizonActive
+                ? 'The mode toggle will be unlocked and the support agent will stop guiding the session.'
+                : 'The support agent will guide the session through a plan autonomously. The mode toggle will be locked until disabled.'}
+            </div>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button onClick={props.onClose} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
+                style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: 13, fontFamily: 'var(--font-interface)' }}>Cancel</button>
+              <button onClick={() => { props.onLongHorizon?.(!props.longHorizonActive); props.onClose() }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-accent-longhorizon)'; e.currentTarget.style.color = 'var(--q-bg)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-accent-longhorizon)' }}
+                style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-accent-longhorizon)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-longhorizon)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-interface)' }}>
+                {props.longHorizonActive ? 'Disable' : 'Activate'}
+              </button>
+            </div>
+          </div>
+          <NavBar
+            focusConfirm={focusConfirm}
+            onUp={() => setFocusConfirm(false)}
+            onDown={() => setFocusConfirm(true)}
+            onLeft={() => setMode('main')}
+            onRight={() => { if (focusConfirm) { props.onLongHorizon?.(!props.longHorizonActive); props.onClose() } }}
+            onConfirm={() => { if (focusConfirm) { props.onLongHorizon?.(!props.longHorizonActive); props.onClose() } else setFocusConfirm(true) }}
             onClose={props.onClose}
           />
         </>
