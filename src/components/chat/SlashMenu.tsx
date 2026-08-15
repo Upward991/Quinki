@@ -363,8 +363,8 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
             <div style={{ padding: '8px 16px 4px 16px', color: 'var(--q-text)', fontSize: '14px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>
               Long Horizon
             </div>
-            <div style={{ padding: '0 16px 6px 16px', color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>
-              The support agent guides the session through a plan autonomously. The mode toggle stays locked until disabled.
+            <div style={{ padding: '0 16px 6px 16px', color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', lineHeight: 1.5 }}>
+              Long Horizon makes the session work autonomously through a plan (hours/days, no prompts needed). The support agent reads the plan and handoff files, sends "continue" prompts as user bubbles, commits progress to git, and stops if it detects loops. The mode toggle stays locked until you disable it. You can always STOP or STEER.
             </div>
             <MenuItem
               label="Enable Long Horizon"
