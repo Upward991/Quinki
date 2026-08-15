@@ -348,37 +348,37 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
         </>
       )}
 
-      {/* Long Horizon mode */}
+      {/* Long Horizon mode — same pattern as reset_confirm (buttons, no extra navbar) */}
       {mode === 'longhorizon' && (
-        <>
-          <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <div style={{ color: 'var(--q-text)', fontSize: '15px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>
-              {props.longHorizonActive ? 'Disable Long Horizon?' : 'Activate Long Horizon?'}
-            </div>
-            <div style={{ color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', lineHeight: 1.5 }}>
-              {props.longHorizonActive
-                ? 'The mode toggle will be unlocked and the support agent will stop guiding the session.'
-                : 'The support agent will guide the session through a plan autonomously. The mode toggle will be locked until disabled.'}
-            </div>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-              <button onClick={props.onClose} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
-                style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: 13, fontFamily: 'var(--font-interface)' }}>Cancel</button>
-              <button onClick={() => { props.onLongHorizon?.(!props.longHorizonActive); props.onClose() }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-accent-longhorizon)'; e.currentTarget.style.color = 'var(--q-bg)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-accent-longhorizon)' }}
-                style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-accent-longhorizon)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-longhorizon)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-interface)' }}>
-                {props.longHorizonActive ? 'Disable' : 'Activate'}
-              </button>
-            </div>
+        <div style={{ padding: '12px 16px' }}>
+          <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', marginBottom: '4px' }}>
+            {props.longHorizonActive ? 'Disable Long Horizon?' : 'Activate Long Horizon?'}
           </div>
-          <NavBar
-            focusConfirm={focusConfirm}
-            onUp={() => setFocusConfirm(false)}
-            onDown={() => setFocusConfirm(true)}
-            onLeft={() => setMode('main')}
-            onRight={() => { if (focusConfirm) { props.onLongHorizon?.(!props.longHorizonActive); props.onClose() } }}
-            onConfirm={() => { if (focusConfirm) { props.onLongHorizon?.(!props.longHorizonActive); props.onClose() } else setFocusConfirm(true) }}
-            onClose={props.onClose}
-          />
-        </>
+          <div style={{ color: 'var(--q-text-secondary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginBottom: '8px' }}>
+            {props.longHorizonActive
+              ? 'The mode toggle will be unlocked and the support agent will stop guiding the session.'
+              : 'The support agent will guide the session through a plan autonomously. The mode toggle will be locked until disabled.'}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', padding: '4px 0 10px 0' }}>
+            <HoverTextBtn
+              label="Cancel"
+              onClick={() => setMode('main')}
+              textColor="var(--q-accent-danger)"
+              hoverTextColor="var(--q-accent-danger)"
+              hoverBg="rgba(255,255,255,0.06)"
+            />
+            <HoverTextBtn
+              label={props.longHorizonActive ? 'Disable' : 'Activate'}
+              highlighted={focusConfirm}
+              onClick={() => { props.onLongHorizon?.(!props.longHorizonActive); props.onClose() }}
+              borderColor="var(--q-accent-longhorizon)"
+              textColor="var(--q-accent-longhorizon)"
+              hoverTextColor="var(--q-bg)"
+              hoverBg="var(--q-accent-longhorizon)"
+              fontWeight={600}
+            />
+          </div>
+        </div>
       )}
 
       {/* Skill mode — grouped by agent */}
