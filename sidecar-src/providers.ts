@@ -5,6 +5,7 @@ import { encryptString, decryptString, isEncrypted } from "./crypto";
 
 const agentDir = process.env.QUINKI_AGENT_DIR || join(homedir(), ".pi", "agent");
 const providersPath = join(agentDir, "quinki-providers.json");
+const providersBackupPath = join(agentDir, "quinki-providers-backup.json");
 const modelsPath = join(agentDir, "models.json");
 const settingsPath = join(agentDir, "settings.json");
 
@@ -104,22 +105,37 @@ export function readProvidersConfig(): ProvidersConfig {
 
 export function writeProvidersConfig(config: ProvidersConfig): void {
   try {
+    // === ANTI-LOSS: le chiavi NON si perdono mai più ===
+    // 1) Preserva i provider NON presenti nella nuova config (evita drop accidentali).
+    // 2) Se una apiKey nuova è vuota e ce n'era una esistente, la mantiene
+    //    (salvo esplicita richiesta di cancellazione con apiKeyDelete=true).
+    const existing = readProvidersConfig();
     const toWrite: any = {
       defaultModel: config.defaultModel,
       defaultThinking: config.defaultThinking,
       providers: {},
     };
+    for (const [name, pcfg] of Object.entries(existing.providers)) {
+      if (!config.providers[name]) toWrite.providers[name] = pcfg;
+    }
     for (const [name, pcfg] of Object.entries(config.providers)) {
-      const apiKeyToStore = pcfg.apiKey ? encryptString(pcfg.apiKey) : "";
+      const pc = pcfg as any;
+      let apiKeyToStore = pc.apiKey ? encryptString(String(pc.apiKey)) : "";
+      const existingKey = existing.providers[name]?.apiKey || "";
+      if (!apiKeyToStore && existingKey && pc.apiKeyDelete !== true) {
+        apiKeyToStore = existingKey;
+      }
       toWrite.providers[name] = {
-        enabled: pcfg.enabled,
-        baseUrl: pcfg.baseUrl,
+        enabled: pc.enabled,
+        baseUrl: pc.baseUrl || existing.providers[name]?.baseUrl || "",
         apiKey: apiKeyToStore,
-        enabledModels: pcfg.enabledModels,
-        modelData: pcfg.modelData || [],
+        enabledModels: Array.isArray(pc.enabledModels) ? pc.enabledModels : [],
+        modelData: Array.isArray(pc.modelData) ? pc.modelData : [],
       };
     }
     writeFileSync(providersPath, JSON.stringify(toWrite, null, 2), "utf8");
+    // === BACKUP: copia del file (le chiavi restano cifrate) ===
+    try { writeFileSync(providersBackupPath, JSON.stringify(toWrite, null, 2), "utf8"); } catch {}
     // === SICUREZZA: forza permessi restrittivi sul file providers ===
     try { require("fs").chmodSync(providersPath, 0o600); } catch {}
     // === AUDIT LOG: cosa è stato salvato (mai loggare la vera chiave) ===
@@ -127,12 +143,36 @@ export function writeProvidersConfig(config: ProvidersConfig): void {
       name,
       enabled: pcfg.enabled,
       hasKey: !!pcfg.apiKey,
-      modelsCount: pcfg.enabledModels.length,
+      modelsCount: Array.isArray(pcfg.enabledModels) ? pcfg.enabledModels.length : 0,
     }));
     process.stderr.write(`[security-audit] writeProvidersConfig: ${JSON.stringify(summary)}`);
   } catch (e) {
     process.stderr.write(`[providers] writeProvidersConfig error: ${e}`);
   }
+}
+
+export function restoreProvidersFromBackup(): number {
+  // Ripristina apiKey vuote dal backup (chiamato all'init del sidecar).
+  try {
+    if (!existsSync(providersPath) || !existsSync(providersBackupPath)) return 0;
+    const main = JSON.parse(readFileSync(providersPath, "utf8"));
+    const backup = JSON.parse(readFileSync(providersBackupPath, "utf8"));
+    let restored = 0;
+    for (const [name, bcfg] of Object.entries(backup.providers || {})) {
+      const mainKey = main.providers?.[name]?.apiKey || "";
+      const backupKey = (bcfg as any)?.apiKey || "";
+      if (!mainKey && backupKey) {
+        if (!main.providers) main.providers = {};
+        main.providers[name] = { ...(main.providers[name] || {}), apiKey: backupKey };
+        restored++;
+      }
+    }
+    if (restored > 0) {
+      writeFileSync(providersPath, JSON.stringify(main, null, 2), "utf8");
+      try { require("fs").chmodSync(providersPath, 0o600); } catch {}
+    }
+    return restored;
+  } catch { return 0; }
 }
 
 export function getSafeProvidersConfig(): SafeProvidersConfig {

@@ -16,7 +16,7 @@ import {
   findBunPath,
 } from "./mcp";
 import { getFirstAvailableModelId, readModelsFromDisk } from "./models";
-import { readProvidersConfig } from "./providers";
+import { readProvidersConfig, restoreProvidersFromBackup } from "./providers";
 import { decryptString } from "./crypto";
 import {
   readProvidersConfig,
@@ -208,6 +208,7 @@ class PiBridge {
         modelsPath
       );
       this.logDebug("model-registry-initialized", { authPath, modelsPath });
+      try { const restored = restoreProvidersFromBackup(); if (restored > 0) this.logDebug("providers-restored-from-backup", { restored }); } catch (e: any) { this.logDebug("providers-restore-error", { error: e?.message }); }
     } catch (e: any) {
       this.logDebug("model-registry-init-error", { error: e?.message || String(e) });
     }
