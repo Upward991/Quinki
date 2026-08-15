@@ -448,6 +448,7 @@ class PiBridge {
           messageThinking: (v as any).messageThinking,
           workingDir: (v as any).workingDir,
           messageSkills: (v as any).messageSkills,
+          messageTaskClips: (v as any).messageTaskClips,
           messageAttachments: (v as any).messageAttachments,
         });
         // Backup per-sessione COMPLETO (chat-meta.json): agenti, directory, override
@@ -462,6 +463,7 @@ class PiBridge {
           messageAgents: (v as any).messageAgents,
           messageThinking: (v as any).messageThinking,
           messageSkills: (v as any).messageSkills,
+          messageTaskClips: (v as any).messageTaskClips,
           messageAttachments: (v as any).messageAttachments,
           compactionAuto: (v as any).compactionAuto,
           compactionThreshold: (v as any).compactionThreshold,
