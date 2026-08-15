@@ -464,6 +464,106 @@ export function Composer(props: ComposerProps) {
           <SendButton enabled={canSend} onClick={handleSend} />
         </div>
       </div>
+      {sessionFilesOpen && props.sessionKey && (
+        <SessionFilesModal sessionKey={props.sessionKey} onClose={() => setSessionFilesOpen(false)} />
+      )}
+    </div>
+  )
+}
+
+// ── Session files modal (plan, handoff, progress, git) ──
+function SessionFilesModal({ sessionKey, onClose }: { sessionKey: string; onClose: () => void }) {
+  const [tab, setTab] = useState<'plan' | 'handoff' | 'progress' | 'git'>('plan')
+  const [files, setFiles] = useState<any[]>([])
+  const [editing, setEditing] = useState<string | null>(null)
+  const [content, setContent] = useState('')
+  const [commits, setCommits] = useState<any[]>([])
+  const [diff, setDiff] = useState('')
+  const [saved, setSaved] = useState(false)
+  const load = async () => {
+    const call = (window as any).__sidecarCall
+    if (!call) return
+    try {
+      const r = await call('getSessionFiles', { sessionKey })
+      setFiles(r?.files || [])
+    } catch {}
+    try {
+      const g = await call('longHorizonGitLog', { sessionKey })
+      setCommits(g?.commits || [])
+    } catch {}
+  }
+  useEffect(() => { load() }, [sessionKey])
+  const file = (name: string) => files.find((f: any) => f.name === name)
+  const current = tab === 'plan' ? file('plan.md') : tab === 'handoff' ? file('handoff.md') : tab === 'progress' ? file('progress.json') : null
+  const save = async () => {
+    const call = (window as any).__sidecarCall
+    if (!call || !editing) return
+    try { await call('saveSessionFile', { sessionKey, name: editing, content }) } catch {}
+    setSaved(true); setTimeout(() => setSaved(false), 1500)
+    load()
+  }
+  const showDiff = async (hash: string) => {
+    const call = (window as any).__sidecarCall
+    if (!call) return
+    try { const r = await call('longHorizonGitDiff', { sessionKey, commit: hash }); setDiff(r?.diff || '') } catch {}
+  }
+  const revert = async (hash?: string) => {
+    const call = (window as any).__sidecarCall
+    if (!call) return
+    try { await call('longHorizonGitRevert', { sessionKey, commit: hash }); load() } catch {}
+  }
+  const tabBtn = (t: 'plan' | 'handoff' | 'progress' | 'git', label: string) => (
+    <button onClick={() => { setTab(t); setEditing(null); setDiff('') }} style={{ padding: '6px 12px', borderRadius: 'var(--radius-sm)', border: 'none', cursor: 'pointer', backgroundColor: tab === t ? 'var(--q-accent-longhorizon)' : 'transparent', color: tab === t ? 'var(--q-bg)' : 'var(--q-text-secondary)', fontSize: 13, fontWeight: tab === t ? 600 : 400, fontFamily: 'var(--font-interface)' }}>{label}</button>
+  )
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 300, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+      <div style={{ backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', width: '640px', maxWidth: '92vw', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+        <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 8, borderBottom: '1px solid var(--q-border)', flexShrink: 0 }}>
+          <ClipboardList size={16} style={{ color: 'var(--q-accent-longhorizon)' }} />
+          <span style={{ color: 'var(--q-text)', fontSize: 15, fontWeight: 600, fontFamily: 'var(--font-interface)' }}>Session files</span>
+          <span style={{ flex: 1 }} />
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-secondary)', display: 'flex' }}><X size={18} /></button>
+        </div>
+        <div style={{ padding: '8px 12px', display: 'flex', gap: 4, borderBottom: '1px solid var(--q-border)', flexShrink: 0 }}>
+          {tabBtn('plan', 'Plan')}
+          {tabBtn('handoff', 'Handoff')}
+          {tabBtn('progress', 'Progress')}
+          {tabBtn('git', 'Git')}
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px' }}>
+          {tab === 'git' ? (
+            <div>
+              {commits.length === 0 && <div style={{ color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)' }}>No commits yet.</div>}
+              {commits.map((cm: any) => (
+                <div key={cm.hash} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--q-border-soft)' }}>
+                  <span style={{ color: 'var(--q-text-tertiary)', fontSize: 12, fontFamily: 'var(--font-code)' }}>{cm.hash}</span>
+                  <span style={{ flex: 1, color: 'var(--q-text)', fontSize: 13, fontFamily: 'var(--font-interface)' }}>{cm.msg}</span>
+                  <button onClick={() => showDiff(cm.hash)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-secondary)', fontSize: 12, fontFamily: 'var(--font-interface)' }}>Diff</button>
+                  <button onClick={() => revert(cm.hash)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-accent-danger)', fontSize: 12, fontFamily: 'var(--font-interface)' }}>Revert</button>
+                </div>
+              ))}
+              {diff && (
+                <div style={{ marginTop: 8, padding: '8px 12px', backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-sm)', fontSize: 12, fontFamily: 'var(--font-code)', color: 'var(--q-text-secondary)', whiteSpace: 'pre-wrap', maxHeight: 200, overflowY: 'auto' }}>{diff}</div>
+              )}
+            </div>
+          ) : current ? (
+            <div>
+              <textarea value={editing === current.name ? content : String(current.content || '')}
+                onChange={e => { setEditing(current.name); setContent(e.target.value) }}
+                style={{ width: '100%', minHeight: 240, backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-sm)', color: 'var(--q-text)', fontSize: 13, fontFamily: 'var(--font-code)', padding: '8px 12px', resize: 'vertical', outline: 'none' }} />
+              {tab !== 'progress' && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
+                  {saved && <span style={{ color: 'var(--q-accent-success)', fontSize: 13, fontFamily: 'var(--font-interface)' }}>Saved</span>}
+                  <button onClick={save} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-accent-longhorizon)'; e.currentTarget.style.color = 'var(--q-bg)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-accent-longhorizon)' }}
+                    style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-accent-longhorizon)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-longhorizon)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-interface)' }}>Save</button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{ color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)' }}>No file yet. Activate Long Horizon to create the plan.</div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

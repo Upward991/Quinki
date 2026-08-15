@@ -102,6 +102,8 @@ interface ChatAreaProps {
   onSteer?: (text: string) => void
   longHorizon?: boolean
   onLongHorizon?: (activate: boolean) => void
+  longHorizonStatus?: string
+  onApprovePlan?: () => void
   onRenameSession: (label: string) => void
   onExport: (format?: string) => void
   onReset?: () => void
@@ -530,6 +532,17 @@ export function ChatArea(props: ChatAreaProps) {
           </div>
 
           {/* Composer — flexShrink 0 so it stays visible */}
+          {props.longHorizon && props.longHorizonStatus === 'idle' && (() => {
+            const lastAsst = [...(props.messages || [])].reverse().find((m: any) => m.role === 'assistant' && m.content)
+            const planLike = lastAsst && String(typeof lastAsst.content === 'string' ? lastAsst.content : '').includes('- [')
+            return planLike ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-accent-longhorizon)', backgroundColor: 'rgba(139,127,212,0.08)' }}>
+                <span style={{ flex: 1, color: 'var(--q-text)', fontSize: 13, fontFamily: 'var(--font-interface)' }}>Plan proposed. Approve to start Long Horizon.</span>
+                <button onClick={props.onApprovePlan} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-accent-longhorizon)'; e.currentTarget.style.color = 'var(--q-bg)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-accent-longhorizon)' }}
+                  style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-accent-longhorizon)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-longhorizon)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-interface)' }}>Approve plan</button>
+              </div>
+            ) : null
+          })()}
           <div style={{ paddingTop: '8px', flexShrink: 0 }}>
             <Composer
               providers={props.providers} selectedModel={props.selectedModel} mode={props.mode}
