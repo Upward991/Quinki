@@ -99,6 +99,7 @@ interface ChatAreaProps {
   statusKind?: string
   onSend: (text: string) => void
   onStop: () => void
+  onSteer?: (text: string) => void
   onRenameSession: (label: string) => void
   onExport: (format?: string) => void
   onReset?: () => void
@@ -463,7 +464,7 @@ export function ChatArea(props: ChatAreaProps) {
               providers={props.providers} selectedModel={props.selectedModel} mode={props.mode}
               thinking={props.thinking} contextTokens={props.contextTokens} contextWindow={props.contextWindow}
               isStreaming={props.streaming} isCompacting={props.isCompacting} statusLabel={props.statusLabel} statusKind={props.statusKind}
-              onSend={props.onSend} onStop={props.onStop}
+              onSend={props.onSend} onStop={props.onStop} onSteer={props.onSteer}
               onModelChange={props.onModelSelect} onModeChange={props.onModeChange}
               onThinkingChange={t => props.onThinkingChange(t)} welcomeMode={true}
               agents={props.agents}
@@ -531,7 +532,7 @@ export function ChatArea(props: ChatAreaProps) {
               providers={props.providers} selectedModel={props.selectedModel} mode={props.mode}
               thinking={props.thinking} contextTokens={props.contextTokens} contextWindow={props.contextWindow}
               isStreaming={props.streaming} isCompacting={props.isCompacting} statusLabel={props.statusLabel} statusKind={props.statusKind}
-              onSend={props.onSend} onStop={props.onStop}
+              onSend={props.onSend} onStop={props.onStop} onSteer={props.onSteer}
               onModelChange={props.onModelSelect} onModeChange={props.onModeChange}
               onThinkingChange={t => props.onThinkingChange(t)} welcomeMode={false}
             onReset={props.onReset}

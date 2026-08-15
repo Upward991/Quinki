@@ -31,6 +31,7 @@ interface ComposerProps {
   statusKind?: string
   onSend: (text: string, opts?: { skillNames?: { agentId: string; skillName: string; agentName?: string }[]; attachments?: Attachment[]; taskClips?: { id: string; label: string; text: string }[] }) => void
   onStop: () => void
+  onSteer?: (text: string) => void
   onModelChange: (model: string) => void
   onModeChange: (mode: ChatMode) => void
   onThinkingChange: (level: ThinkingLevel) => void
@@ -91,7 +92,8 @@ export function Composer(props: ComposerProps) {
 
   useEffect(() => { setMentionIdx(0) }, [mentionFilter])
 
-  const canSend = text.trim().length > 0 && !props.isStreaming
+  const canSend = text.trim().length > 0 && !props.isStreaming && !(props as any).isCompacting
+  const canSteer = text.trim().length > 0 && props.isStreaming && !(props as any).isCompacting
 
   const handleSend = () => {
     if (canSend) {
@@ -442,6 +444,10 @@ export function Composer(props: ComposerProps) {
           <div style={{ width: '8px', flexShrink: 0 }} />
           <StopBtn color="var(--q-accent-danger)" onClick={props.isStreaming ? props.onStop : () => {}} />
           <div style={{ width: '8px', flexShrink: 0 }} />
+          {props.onSteer && (
+            <SteerButton enabled={canSteer} onClick={() => { if (canSteer) { props.onSteer!(text.trim()); setText('') } }} />
+          )}
+          <div style={{ width: '8px', flexShrink: 0 }} />
           <SendButton enabled={canSend} onClick={handleSend} />
         </div>
       </div>
@@ -697,6 +703,31 @@ function AttachBtn({ children, onClick, title }: { children: React.ReactNode; on
 }
 
 // ── Send button — 32x32, arrow icon, pulse on enable ──
+function SteerButton({ enabled, onClick }: { enabled: boolean; onClick: () => void }) {
+  const [hovered, setHovered] = useState(false)
+  return (
+    <button onClick={onClick} disabled={!enabled} title="Steer (send directive while generating)"
+      onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+      style={{
+        width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        borderRadius: '8px',
+        border: 'none', cursor: enabled ? 'pointer' : 'default',
+        backgroundColor: enabled ? (hovered ? 'var(--q-accent-warning)' : 'var(--q-accent-warning-darker)') : 'var(--q-hover)',
+        color: enabled ? getContrastColor('--q-accent-warning') : 'var(--q-text-tertiary)',
+        flexShrink: 0, padding: '0',
+        transition: 'none',
+      }}>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+        stroke={enabled ? getContrastColor('--q-accent-warning') : 'var(--q-text-tertiary)'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 19V5" />
+        <path d="M5 12l7-7 7 7" />
+        <path d="M12 13V3" transform="translate(0,-6)" />
+        <path d="M5 6l7-7 7 7" transform="translate(0,-6)" />
+      </svg>
+    </button>
+  )
+}
+
 function SendButton({ enabled, onClick }: { enabled: boolean; onClick: () => void }) {
   const [hovered, setHovered] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
