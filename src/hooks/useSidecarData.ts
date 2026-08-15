@@ -241,22 +241,41 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   }, [ready, call])
 
   // ── Refresh post-boot: all'apertura automatica dopo un reinstall il sidecar può essere
-  // ancora in boot/recovery → i dati iniziali possono essere incompleti. Rileggi dopo ~3s
+  // ancora in boot/recovery (probe Ollama, caricamento sessioni) → i dati iniziali possono
+  // essere incompleti. Rileggiamo ogni 2s finché lo stato è stabile (o per max ~16s),
   // così la UI mostra lo stato FINALE (es. agenti recuperati da agents.json). ──
   useEffect(() => {
     if (!ready) return
-    const t = setTimeout(async () => {
+    let cancelled = false
+    let attempts = 0
+    let lastSig = ''
+    const poll = async () => {
+      if (cancelled || attempts >= 8) return
+      attempts++
       try {
         const r = await call('getFullState', {})
-        if (r?.sessions) setSessions(mapSessions(r.sessions))
-        const sk = activeSessionId || activeSessionIdRef.current
-        if (sk) {
-          const meta = await call('getSessionMeta', { sessionKey: sk })
-          if (meta?.agentId) setChatAgentIds(String(meta.agentId).split(',').filter(Boolean))
+        if (!cancelled && r?.sessions) {
+          const sessions = mapSessions(r.sessions)
+          setSessions(sessions)
+          const sk = activeSessionId || activeSessionIdRef.current
+          if (sk) {
+            const meta = await call('getSessionMeta', { sessionKey: sk })
+            if (!cancelled && meta?.agentId) {
+              const ids = String(meta.agentId).split(',').filter(Boolean)
+              setChatAgentIds(ids)
+              lastSig = ids.join(',')
+            }
+          }
+          // Stabile quando la sessione attiva ha i suoi agenti e non cambiano più
+          const stable = lastSig.split(',').length > 1 || attempts >= 8
+          if (!stable) setTimeout(poll, 2000)
+        } else {
+          setTimeout(poll, 2000)
         }
-      } catch {}
-    }, 3000)
-    return () => clearTimeout(t)
+      } catch { setTimeout(poll, 2000) }
+    }
+    const t0 = setTimeout(poll, 1500)
+    return () => { cancelled = true; clearTimeout(t0) }
   }, [ready, call, activeSessionId])
 
   // ── Subscribe to ALL sidecar events (Flutter parity) ──
