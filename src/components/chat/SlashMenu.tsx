@@ -76,8 +76,8 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
     { id: 'thinking', label: '/Thinking', description: 'Change thinking' },
     { id: 'directory', label: '/Directory', description: 'Working directory' },
     { id: 'skill', label: '/Skill', description: 'Activate a skill' },
-    { id: 'reset', label: '/Reset', description: 'Clear messages. Keeps model, directory and settings.' },
     { id: 'longhorizon', label: '/longhorizon', description: 'Activate or disable Long Horizon mode' },
+    { id: 'reset', label: '/Reset', description: 'Clear messages. Keeps model, directory and settings.' },
   ]
 
   const filteredCommands = commands.filter(cmd => cmd.id.includes(props.filter.toLowerCase()))
