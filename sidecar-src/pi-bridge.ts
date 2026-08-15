@@ -88,6 +88,7 @@ interface SessionEntry {
   compactionThreshold?: number;
   workingDir?: string;
   messageSkills?: Record<string, { agentId: string; skillName: string; agentName?: string }[]>;
+  messageTaskClips?: Record<string, { id: string; label: string; text: string }[]>;
   messageAttachments?: Record<string, { originalName: string; path: string; uuid: string; size?: number }[]>;
 }
 
@@ -406,6 +407,7 @@ class PiBridge {
           }
           // Restore message skills and attachments (always, not just when workingDir exists)
           if (s.messageSkills) (existing as any).messageSkills = s.messageSkills;
+          if (s.messageTaskClips) (existing as any).messageTaskClips = s.messageTaskClips;
           if (s.messageAttachments) (existing as any).messageAttachments = s.messageAttachments;
         }
       }
@@ -493,7 +495,7 @@ class PiBridge {
         const FIELD_MAP: [string, string][] = [
           ["agentId", "agentIds"], ["workingDir", "workingDir"], ["model", "model"], ["thinkingLevel", "thinkingLevel"],
           ["mode", "mode"], ["agentOverrides", "agentOverrides"], ["messageAgents", "messageAgents"], ["messageThinking", "messageThinking"],
-          ["messageSkills", "messageSkills"], ["messageAttachments", "messageAttachments"], ["compactionAuto", "compactionAuto"], ["compactionThreshold", "compactionThreshold"], ["folderId", "folderId"],
+          ["messageSkills", "messageSkills"], ["messageTaskClips", "messageTaskClips"], ["messageAttachments", "messageAttachments"], ["compactionAuto", "compactionAuto"], ["compactionThreshold", "compactionThreshold"], ["folderId", "folderId"],
         ];
         for (const d of data) {
           // Backup per-sessione COMPLETO (l'Expert NON lo tocca): fonte di recovery se file/chat-meta vengono svuotati
@@ -2582,6 +2584,22 @@ class PiBridge {
   getMessageSkills(key: string): Record<string, any[]> {
     const s = this.#entries.get(key);
     return (s as any)?.messageSkills || {};
+  }
+
+  setMessageTaskClips(key: string, messageId: string, clips: any[], messageText?: string) {
+    const s = this.#entries.get(key);
+    if (s && clips && clips.length > 0) {
+      if (!(s as any).messageTaskClips) (s as any).messageTaskClips = {};
+      const textKey = (messageText || messageId || '').substring(0, 200);
+      (s as any).messageTaskClips[textKey] = clips;
+      this.#save();
+      this.logDebug("set-message-task-clips", { sessionKey: key, textKey, clipCount: clips.length });
+    }
+  }
+
+  getMessageTaskClips(key: string): Record<string, any[]> {
+    const s = this.#entries.get(key);
+    return (s as any)?.messageTaskClips || {};
   }
 
   setMessageAttachments(key: string, messageId: string, attachments: any[], messageText?: string) {

@@ -351,7 +351,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
 
   getModelContext: async (p) => ({ modelId: p.modelId, ...await piBridge!.getModelContext(p.modelId) }),
 
-  getHistory: async (p) => ({ sessionKey: p.sessionKey, messages: piBridge!.getHistory(String(p.sessionKey)), messageSkills: piBridge!.getMessageSkills(String(p.sessionKey)), messageAttachments: piBridge!.getMessageAttachments(String(p.sessionKey)) }),
+  getHistory: async (p) => ({ sessionKey: p.sessionKey, messages: piBridge!.getHistory(String(p.sessionKey)), messageSkills: piBridge!.getMessageSkills(String(p.sessionKey)), messageTaskClips: piBridge!.getMessageTaskClips(String(p.sessionKey)), messageAttachments: piBridge!.getMessageAttachments(String(p.sessionKey)) }),
   get_history: async (p) => handlers.getHistory(p),
 
   stopStream: async (p) => { if (piBridge && p?.sessionKey) piBridge.abort(p.sessionKey); return { success: true }; },
@@ -382,6 +382,9 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     }
     if (p.attachments && p.attachments.length > 0) {
       piBridge!.setMessageAttachments(sk, mid, p.attachments, p.text);
+    }
+    if (p.taskClips && p.taskClips.length > 0) {
+      piBridge!.setMessageTaskClips(sk, mid, p.taskClips, p.text);
     }
     const fakeWs = new FakeWebSocket();
     await piBridge!.send(fakeWs, { sessionKey: sk, text: p.text, files: p.files, workingDirs: p.workingDirs, skillNames: p.skillNames, attachments: p.attachments, taskClips: p.taskClips });

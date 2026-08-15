@@ -690,8 +690,9 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
             merged.push(base)
           }
         }
-        // Attach skill names and attachments from history
+        // Attach skill names, task clips and attachments from history
         const msgSkills = history.messageSkills || {};
+        const msgTaskClips = history.messageTaskClips || {};
         const msgAttachments = history.messageAttachments || {};
         const mergedWithSkills = merged.map(m => {
           if (m.role === 'user') {
@@ -700,9 +701,10 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
               (Array.isArray(m.content) ? m.content.map((b: any) => b?.text || '').join('') : '');
             const textKey = text.substring(0, 200);
             const skills = msgSkills[textKey];
+            const clips = msgTaskClips[textKey];
             const atts = msgAttachments[textKey];
-            if (skills || atts) {
-              return { ...m, skillNames: skills, attachments: atts };
+            if (skills || clips || atts) {
+              return { ...m, skillNames: skills, taskClips: clips, attachments: atts };
             }
           }
           return m;

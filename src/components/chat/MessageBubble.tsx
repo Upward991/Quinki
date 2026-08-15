@@ -87,6 +87,16 @@ function UserMessage({ message, onCopy, searchQuery, activeOcc, isDateMatch }: {
   }
   return (
     <div className="user-message-content" style={{ width: '100%', padding: '10px 16px', backgroundColor: 'var(--q-bubble-user)', borderRadius: '12px', boxShadow: isDateMatch ? 'none' : '0 0 0 1px var(--q-border), inset 0 1px 0 rgba(255,255,255,0.02)', border: isDateMatch ? '2px solid var(--q-search-highlight-bg)' : 'none', animation: 'msgSent 300ms cubic-bezier(0.16, 1, 0.3, 1)' }}>
+      {(message as any).taskClips && (message as any).taskClips.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+          {(message as any).taskClips.map((tc: any, i: number) => (
+            <div key={`tc-${i}`} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 8px 3px 10px', borderRadius: 'var(--radius-sm)', backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid var(--q-border)', fontSize: '12px', fontFamily: 'var(--font-interface)', color: 'var(--q-text-secondary)' }}>
+              <span style={{ color: 'var(--q-text)', fontWeight: 500 }}>{tc.label}</span>
+              <span style={{ color: 'var(--q-text-tertiary)', fontSize: '11px' }}>→ Task</span>
+            </div>
+          ))}
+        </div>
+      )}
       {(message as any).skillNames && (message as any).skillNames.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
           {(message as any).skillNames.map((s: any, i: number) => (

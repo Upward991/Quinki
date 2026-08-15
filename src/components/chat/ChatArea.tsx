@@ -13,7 +13,7 @@ import { ArrowDown, Checklist, ChevronDown, ChevronRight, ChevronUp, Copy, Paper
 import { useSidecarContext } from '../shared/AppShell'
 import type { Message, Session, Agent, Provider, ChatMode, ThinkingLevel } from '../../types'
 
-function TaskResultToggle({ run, sessionKey, defaultOpen }: { run: any; sessionKey?: string; defaultOpen?: boolean }) {
+function TaskResultToggle({ run, sessionKey, defaultOpen, showClip }: { run: any; sessionKey?: string; defaultOpen?: boolean; showClip?: boolean }) {
   const [collapsed, setCollapsed] = useState(!defaultOpen)
   const [hovered, setHovered] = useState(false)
   const [copyHovered, setCopyHovered] = useState(false)
@@ -32,12 +32,14 @@ function TaskResultToggle({ run, sessionKey, defaultOpen }: { run: any; sessionK
           <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color }}>{label}</span>
           <span style={{ fontFamily: 'var(--font-interface)', fontSize: '13px', fontWeight: 600, color: 'var(--q-text)' }}>{run.label}</span>
           <span style={{ flex: 1 }} />
+          {showClip && (
           <button onClick={(e) => { e.stopPropagation(); try { let respText = ''; for (const m of run.messages || []) { if (m.role === 'assistant' && m.content) respText += (m.content || '') + '\n\n' } const text = respText.trim() || run.label; window.dispatchEvent(new CustomEvent('quinki-task-clip', { detail: { id: run.id, label: run.label, text } })) } catch {} }}
             onMouseEnter={() => setClipHovered(true)} onMouseLeave={() => setClipHovered(false)}
             title="Clip to chat"
             style={{ opacity: hovered ? 1 : 0, background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: 'var(--radius-sm)', color: clipHovered ? color : 'var(--q-text-tertiary)' }}>
             <Paperclip size={14} />
           </button>
+          )}
           <button onClick={(e) => { e.stopPropagation(); try { let fullText = ''; for (const m of run.messages || []) { fullText += (m.role === 'user' ? 'User: ' : 'Agent: ') + (m.content || '') + '\n' } navigator.clipboard.writeText(fullText) } catch {} }}
             onMouseEnter={() => setCopyHovered(true)} onMouseLeave={() => setCopyHovered(false)}
             style={{ opacity: hovered ? 1 : 0, background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: 'var(--radius-sm)', color: copyHovered ? color : 'var(--q-text-tertiary)' }}>
@@ -189,7 +191,7 @@ export function ChatArea(props: ChatAreaProps) {
         {taskRuns.length === 0 ? (
           <div style={{ color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', padding: '24px 8px', textAlign: 'center' }}>No tasks yet.</div>
         ) : taskRuns.map((run) => (
-          <TaskResultToggle key={run.id} run={run} sessionKey={props.session?.key} />
+          <TaskResultToggle key={run.id} run={run} sessionKey={props.session?.key} showClip />
         ))}
       </div>
       {/* Barra riassunto IN BASSO = la striscia che diventa la heading inferiore della sezione espansa — tutta cliccabile per chiudere */}
@@ -449,7 +451,7 @@ export function ChatArea(props: ChatAreaProps) {
               {taskRuns.length === 0 ? (
                 <div style={{ color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', padding: '24px 8px', textAlign: 'center' }}>No tasks yet.</div>
               ) : taskRuns.map((run) => (
-                <TaskResultToggle key={run.id} run={run} sessionKey={props.session?.key} />
+                <TaskResultToggle key={run.id} run={run} sessionKey={props.session?.key} showClip />
               ))}
             </div>
             {taskStripBar}
@@ -481,14 +483,28 @@ export function ChatArea(props: ChatAreaProps) {
               {/* Chat — SEMPRE montata (display none quando il pannello task è aperto) → lo scroll resta dov'era */}
               <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '4px 16px ' + (hasTasks ? 8 : 0) + 'px 16px', scrollbarGutter: 'stable', display: taskPanelOpen ? 'none' : 'block' }}
                 onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100); pinnedRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 120 }}>
-                {props.messages.map((msg, mIdx) => (
-                  <div key={msg.id} data-msg-idx={mIdx} style={{ marginBottom: '12px' }}>
-                    <MessageBubble message={msg} onCopy={() => {}} searchQuery={searchQuery} msgIndex={mIdx} activeMatchMsgIdx={activeMatchInfo?.msgIdx ?? -1} activeMatchOccurrence={activeMatchInfo?.occurrence ?? -1} isDateMatch={!searchQuery.trim() && hasDateFilter && dateMatchIndices.includes(mIdx) && mIdx === dateMatchIndices[Math.min(dateMatchIdx, dateMatchIndices.length - 1)]} />
-                  </div>
-                ))}
-                {taskRuns.filter((r: any) => r.status === 'executed').map((run: any) => (
-                  <TaskResultToggle key={'chat-' + run.id} run={run} sessionKey={props.session?.key} defaultOpen />
-                ))}
+                {(() => {
+                  const chatItems: { kind: 'msg' | 'task'; ts: number; msg?: any; run?: any; mIdx?: number }[] = []
+                  props.messages.forEach((msg, mIdx) => {
+                    let ts = 0
+                    try { ts = new Date(msg.timestamp).getTime() } catch {}
+                    chatItems.push({ kind: 'msg', ts, msg, mIdx })
+                  })
+                  for (const run of taskRuns) {
+                    if (run.status !== 'executed') continue
+                    chatItems.push({ kind: 'task', ts: run.endedAt || run.createdAt || 0, run })
+                  }
+                  chatItems.sort((a, b) => a.ts - b.ts || (a.kind === 'msg' ? 0 : 1))
+                  return chatItems.map((item, i) => (
+                    <div key={item.kind === 'msg' ? item.msg!.id : 'chat-' + item.run!.id} data-msg-idx={item.mIdx ?? -1} style={{ marginBottom: '12px' }}>
+                      {item.kind === 'msg' ? (
+                        <MessageBubble message={item.msg} onCopy={() => {}} searchQuery={searchQuery} msgIndex={item.mIdx ?? 0} activeMatchMsgIdx={activeMatchInfo?.msgIdx ?? -1} activeMatchOccurrence={activeMatchInfo?.occurrence ?? -1} isDateMatch={!searchQuery.trim() && hasDateFilter && dateMatchIndices.includes(item.mIdx ?? -1) && (item.mIdx ?? -1) === dateMatchIndices[Math.min(dateMatchIdx, dateMatchIndices.length - 1)]} />
+                      ) : (
+                        <TaskResultToggle run={item.run} sessionKey={props.session?.key} defaultOpen />
+                      )}
+                    </div>
+                  ))
+                })()}
               </div>
               {/* Task — SEMPRE montato (display none quando il pannello è chiuso) */}
               <div ref={taskScrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '16px 16px', scrollbarGutter: 'stable', display: taskPanelOpen ? 'block' : 'none' }}
@@ -496,13 +512,13 @@ export function ChatArea(props: ChatAreaProps) {
                 {taskRuns.length === 0 ? (
                   <div style={{ color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', padding: '24px 8px', textAlign: 'center' }}>No tasks yet.</div>
                 ) : taskRuns.map((run) => (
-                  <TaskResultToggle key={run.id} run={run} sessionKey={props.session?.key} />
+                  <TaskResultToggle key={run.id} run={run} sessionKey={props.session?.key} showClip />
                 ))}
               </div>
             </div>
             {(taskPanelOpen ? showTaskScrollBtn : showScrollBtn) && (
               <button onClick={() => { const el = taskPanelOpen ? taskScrollRef.current : scrollRef.current; if (el) el.scrollTop = el.scrollHeight }}
-                style={{ position: 'absolute', bottom: (hasTasks ? 40 : 0) + 'px', right: '0px', zIndex: 10, width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--q-tab-accent)', color: getContrastColor('--q-tab-accent'), border: 'none', boxShadow: 'var(--shadow-floating)', cursor: 'pointer' }}>
+                style={{ position: 'absolute', bottom: (hasTasks ? 48 : 0) + 'px', right: '0px', zIndex: 10, width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--q-tab-accent)', color: getContrastColor('--q-tab-accent'), border: 'none', boxShadow: 'var(--shadow-floating)', cursor: 'pointer' }}>
                 <ArrowDown size={20} />
               </button>
             )}
