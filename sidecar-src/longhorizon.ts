@@ -378,34 +378,78 @@ export class LongHorizon {
     this.#log("lh-prompt", { sessionKey: sk, unit: unit.id, promptCount: st!.promptCount });
     try {
       const fakeWs = { readyState: 1, constructor: { OPEN: 1 }, send: () => {} };
-      await this.#piBridge?.send(fakeWs, { sessionKey: sk, text: prompt, _preserveWs: true });
+      // Timeout: se il modello impiega > 5 minuti, il support agent non resta bloccato
+      const timeoutMs = 5 * 60 * 1000;
+      await Promise.race([
+        this.#piBridge?.send(fakeWs, { sessionKey: sk, text: prompt, _preserveWs: true }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error("send-timeout")), timeoutMs)),
+      ]);
       this.#log("lh-response-done", { sessionKey: sk, unit: unit.id });
     } catch (e: any) {
       this.#log("lh-send-error", { sessionKey: sk, unit: unit.id, error: e?.message });
+      try { this.#piBridge?.abort?.(sk); } catch {}
     } finally {
       this.#inflight.set(sk, false);
     }
-    // Dopo la risposta: l'handoff è stato aggiornato?
+    // Dopo la risposta: l'handoff è stato aggiornato dal modello?
     const st2 = this.#states.get(sk);
     if (st2) {
       const sig = this.#handoffSig(sk);
       if (sig && sig !== st2.lastHandoffSig) {
-        // handoff aggiornato → unità done
+        // handoff aggiornato dal modello → unità done
         const u = st2.units[st2.currentIdx];
         if (u) { u.status = "done"; }
         st2.lastHandoffSig = sig;
         st2.promptCount = 0;
-        // git after
-        try { this.#git(sk, ["add", "-A"]); this.#git(sk, ["commit", "-m", `unit-${unit.id}: after`, "--allow-empty", "-q"]); } catch {}
-        this.#writeState(sk);
-        this.#writeProgress(sk);
-        this.#log("lh-unit-done", { sessionKey: sk, unit: unit.id });
+        this.#log("lh-unit-done", { sessionKey: sk, unit: unit.id, source: "model-handoff" });
       } else {
-        st2.lastHandoffSig = sig;
-        this.#writeState(sk);
-        this.#log("lh-unit-no-progress", { sessionKey: sk, unit: unit.id });
+        // Fallback deterministico: se il modello non ha scritto handoff.md,
+        // l'agente di supporto lo scrive dall'ultima risposta (il loop non si ferma mai).
+        const resp = this.#lastAssistantText(sk);
+        if (resp.trim()) {
+          const u = st2.units[st2.currentIdx];
+          const entry = `\n## Unità ${unit.id} (completata)\n- Cosa: ${u?.desc || unit.desc}\n- Risultato: ${resp.slice(0, 800)}\n`;
+          try {
+            fs.mkdirSync(this.#dir(sk), { recursive: true });
+            fs.appendFileSync(this.#handoffFile(sk), entry, "utf8");
+          } catch {}
+          if (u) u.status = "done";
+          st2.lastHandoffSig = this.#handoffSig(sk);
+          st2.promptCount = 0;
+          this.#log("lh-unit-done", { sessionKey: sk, unit: unit.id, source: "auto-handoff" });
+        } else {
+          st2.lastHandoffSig = sig;
+          this.#log("lh-unit-no-progress", { sessionKey: sk, unit: unit.id });
+        }
       }
+      // git after (sempre, se l'unità è andata avanti)
+      const u2 = st2.units[st2.currentIdx];
+      if (u2?.status === "done") {
+        try { this.#git(sk, ["add", "-A"]); this.#git(sk, ["commit", "-m", `unit-${unit.id}: after`, "--allow-empty", "-q"]); } catch {}
+      }
+      this.#writeState(sk);
+      this.#writeProgress(sk);
     }
+  }
+
+  #lastAssistantText(sk: string): string {
+    try {
+      const hist = this.#piBridge?.getHistory?.(sk);
+      if (Array.isArray(hist)) {
+        for (let i = hist.length - 1; i >= 0; i--) {
+          const m = hist[i];
+          if (m?.role === "assistant") {
+            const c = m.content;
+            if (typeof c === "string") return c;
+            if (Array.isArray(c)) {
+              const t = c.filter((b: any) => b?.type === "text" && b.text).map((b: any) => b.text).join(" ");
+              if (t) return t;
+            }
+          }
+        }
+      }
+    } catch {}
+    return "";
   }
 
   async #sendToSession(sk: string, text: string) {
