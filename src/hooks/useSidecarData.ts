@@ -807,7 +807,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
       ])
       return
     }
-    const userMsg = { id: `msg-${Date.now()}`, role: 'user' as const, content: text, timestamp: new Date().toISOString(), tokensIn: Math.ceil(text.length / 4), skillNames: optsSkills, attachments: optsAttachments } as any
+    const userMsg = { id: `msg-${Date.now()}`, role: 'user' as const, content: text, timestamp: new Date().toISOString(), tokensIn: Math.ceil(text.length / 4), skillNames: optsSkills, taskClips: optsTaskClips, attachments: optsAttachments } as any
     setMessages(prev => [...prev, userMsg])
     setIsStreaming(true)
     setStatusLabel('Running'); setStatusKind('running')
