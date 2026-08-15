@@ -4293,8 +4293,12 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       for (const tc of taskClips) {
         const body = String(tc.text || '').trim();
         if (!body) continue;
-        prompt += `\n\n=== TASK RESULT: ${tc.label} ===\n\n${body}\n\n=== END TASK RESULT ===\n\nThe task result above was explicitly attached by the user. It is ALREADY in your system prompt. Use it as context for the current request. If you need more detail (reasoning, tool calls, delegations), use the getTaskResult/readHandoff tools.`;
-        this.logDebug('task-clip-injected', { sessionKey: key, label: tc.label, contentLen: body.length });
+        const execId = String(tc.id || '').trim();
+        const pointer = execId
+          ? `\n\nExecution ID: ${execId}\nTo read the FULL task result (reasoning, tool calls, tool results, delegations), use the getTaskResult tool with executionId "${execId}". For the full task history of this session, use the readHandoff tool.`
+          : `\n\nTo read the FULL task result (reasoning, tool calls, tool results, delegations), use the getTaskResult tool or the readHandoff tool.`;
+        prompt += `\n\n=== TASK RESULT: ${tc.label} ===\n\n${body}${pointer}\n\n=== END TASK RESULT ===\n\nThe task result above was explicitly attached by the user. It is ALREADY in your system prompt — use it as context for the current request. The user expects you to be aware of this task: read the full result if needed before answering.`;
+        this.logDebug('task-clip-injected', { sessionKey: key, label: tc.label, execId: execId || null, contentLen: body.length });
       }
     }
     // === Attachment directory path (always present for this chat) ===

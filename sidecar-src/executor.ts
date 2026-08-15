@@ -571,7 +571,9 @@ export class ExecutionEngine {
     try {
       pb.create(sk, `__exec_${id.slice(0, 14)}`);
       if (st.agentIds && st.agentIds.length) pb.setChatAgents(sk, st.agentIds.join(","));
-      if (st.mode) pb.setMode(sk, st.mode);
+      // A2.10: i task girano SEMPRE in build mode (anche al resume)
+      pb.setMode(sk, "build");
+      st.mode = "build";
       if (st.workingDir) pb.setWorkingDir(sk, st.workingDir);
       if (st.model) await pb.setModel(sk, st.model);
       if (st.thinkingLevel) pb.setThinkingLevel(sk, st.thinkingLevel);
