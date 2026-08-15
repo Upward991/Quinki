@@ -68,6 +68,7 @@ export function Composer(props: ComposerProps) {
   const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([])
   const [attachMenuOpen, setAttachMenuOpen] = useState(false)
   const [attachMenuView, setAttachMenuView] = useState<'main' | 'existing'>('main')
+  const [sessionFilesOpen, setSessionFilesOpen] = useState(false)
   const [existingAttachments, setExistingAttachments] = useState<any[]>([])
   const [copyingFile, setCopyingFile] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
