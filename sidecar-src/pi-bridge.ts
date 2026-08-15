@@ -606,19 +606,29 @@ class PiBridge {
                   else if (backup && (backup as any)[m] !== undefined && (backup as any)[m] !== null) (e as any)[f] = (backup as any)[m];
                 }
               };
-              // agentId: preferisci il valore con PIÙ agenti (il backup scritto dal main
-              // ha sempre la lista aggiornata; un sidecar stantio può averne meno)
+              // agentId: agents.json (user intent, scritto SOLO dal main) è AUTHORITATIVE.
+              // In sua assenza, preferisci il valore con PIÙ agenti tra disco/chat-meta/backup.
               try {
-                const curSet = new Set(String((e as any).agentId || '').split(',').filter(Boolean));
-                let bestSet = curSet;
-                const trySet = (v: any) => {
-                  if (!v) return;
-                  const s = new Set(String(v).split(',').filter(Boolean));
-                  if (s.size > bestSet.size) bestSet = s;
-                };
-                trySet((meta as any)?.agentIds);
-                trySet((backup as any)?.agentIds);
-                if (bestSet.size > 0 && bestSet.size > curSet.size) (e as any).agentId = Array.from(bestSet).join(',');
+                const intentP = path.join(dir, "agents.json");
+                if (fs.existsSync(intentP)) {
+                  try {
+                    const intent = JSON.parse(fs.readFileSync(intentP, "utf8"));
+                    if (typeof intent?.agentIds === 'string' && intent.agentIds.trim()) {
+                      (e as any).agentId = intent.agentIds;
+                    }
+                  } catch {}
+                } else {
+                  const curSet = new Set(String((e as any).agentId || '').split(',').filter(Boolean));
+                  let bestSet = curSet;
+                  const trySet = (v: any) => {
+                    if (!v) return;
+                    const s = new Set(String(v).split(',').filter(Boolean));
+                    if (s.size > bestSet.size) bestSet = s;
+                  };
+                  trySet((meta as any)?.agentIds);
+                  trySet((backup as any)?.agentIds);
+                  if (bestSet.size > 0 && bestSet.size > curSet.size) (e as any).agentId = Array.from(bestSet).join(',');
+                }
               } catch {}
               rec("workingDir", "workingDir");
               rec("agentOverrides", "agentOverrides");
@@ -2535,6 +2545,13 @@ class PiBridge {
     // Se l'entry non esiste in memoria la salviamo comunque nel meta file (e #load la riporterà)
     if (s) { (s as any).agentId = agentIds || ''; this.#save(); }
     this.#writeChatMeta(key, { agentIds: agentIds || '' });
+    // === USER INTENT (anti-loss): agents.json per-sessione, scritto SOLO dal main.
+    // Un sidecar stantio (Expert vecchio) non conosce questo file → non può sovrascriverlo. ===
+    try {
+      const dir = this.#piSessionDir(key);
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, "agents.json"), JSON.stringify({ agentIds: agentIds || '', ts: Date.now() }, null, 2), "utf8");
+    } catch {}
     this.logDebug("set-chat-agents", { sessionKey: key, agentIds, saved: true });
   }
 
