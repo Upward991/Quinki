@@ -378,16 +378,13 @@ export class LongHorizon {
     this.#log("lh-prompt", { sessionKey: sk, unit: unit.id, promptCount: st!.promptCount });
     try {
       const fakeWs = { readyState: 1, constructor: { OPEN: 1 }, send: () => {} };
-      // Timeout: se il modello impiega > 5 minuti, il support agent non resta bloccato
-      const timeoutMs = 5 * 60 * 1000;
-      await Promise.race([
-        this.#piBridge?.send(fakeWs, { sessionKey: sk, text: prompt, _preserveWs: true }),
-        new Promise((_, rej) => setTimeout(() => rej(new Error("send-timeout")), timeoutMs)),
-      ]);
+      // Nessun timeout: il send si risolve quando il modello finisce (anche ore).
+      // Se il modello si blocca, l'utente usa STOP → il send si risolve con errore →
+      // il support agent recupera e riprompta (promptCount aumenta → anti-loop).
+      await this.#piBridge?.send(fakeWs, { sessionKey: sk, text: prompt, _preserveWs: true });
       this.#log("lh-response-done", { sessionKey: sk, unit: unit.id });
     } catch (e: any) {
       this.#log("lh-send-error", { sessionKey: sk, unit: unit.id, error: e?.message });
-      try { this.#piBridge?.abort?.(sk); } catch {}
     } finally {
       this.#inflight.set(sk, false);
     }
