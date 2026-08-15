@@ -717,12 +717,12 @@ function SteerButton({ enabled, onClick }: { enabled: boolean; onClick: () => vo
         flexShrink: 0, padding: '0',
         transition: 'none',
       }}>
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
         stroke={enabled ? getContrastColor('--q-accent-warning') : 'var(--q-text-tertiary)'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 19V5" />
-        <path d="M5 12l7-7 7 7" />
-        <path d="M12 13V3" transform="translate(0,-6)" />
-        <path d="M5 6l7-7 7 7" transform="translate(0,-6)" />
+        <path d="M7 17V7" />
+        <path d="M3 11l4-4 4 4" />
+        <path d="M17 17V7" />
+        <path d="M13 11l4-4 4 4" />
       </svg>
     </button>
   )
