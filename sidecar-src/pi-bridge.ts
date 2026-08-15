@@ -527,6 +527,14 @@ class PiBridge {
               else if (backup && (backup as any)[m] !== undefined && (backup as any)[m] !== null) (d as any)[f] = (backup as any)[m];
             }
           }
+          // agentId: un sidecar stantio NON deve ridurre la lista agenti già salvata nel backup
+          try {
+            if (d && (backup as any)?.agentIds) {
+              const cur = new Set(String((d as any).agentId || '').split(',').filter(Boolean));
+              const bk = new Set(String((backup as any).agentIds).split(',').filter(Boolean));
+              if (bk.size > cur.size) (d as any).agentId = Array.from(bk).join(',');
+            }
+          } catch {}
         }
       } catch {}
       // riscrive anche il file senza le sessioni tombstoned (pulizia progressiva)
@@ -598,7 +606,20 @@ class PiBridge {
                   else if (backup && (backup as any)[m] !== undefined && (backup as any)[m] !== null) (e as any)[f] = (backup as any)[m];
                 }
               };
-              rec("agentId", "agentIds");
+              // agentId: preferisci il valore con PIÙ agenti (il backup scritto dal main
+              // ha sempre la lista aggiornata; un sidecar stantio può averne meno)
+              try {
+                const curSet = new Set(String((e as any).agentId || '').split(',').filter(Boolean));
+                let bestSet = curSet;
+                const trySet = (v: any) => {
+                  if (!v) return;
+                  const s = new Set(String(v).split(',').filter(Boolean));
+                  if (s.size > bestSet.size) bestSet = s;
+                };
+                trySet((meta as any)?.agentIds);
+                trySet((backup as any)?.agentIds);
+                if (bestSet.size > 0 && bestSet.size > curSet.size) (e as any).agentId = Array.from(bestSet).join(',');
+              } catch {}
               rec("workingDir", "workingDir");
               rec("agentOverrides", "agentOverrides");
               rec("model", "model");
