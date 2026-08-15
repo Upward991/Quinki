@@ -331,8 +331,7 @@ export function Composer(props: ComposerProps) {
                 fontSize: '12px', fontFamily: 'var(--font-interface)',
                 color: 'var(--q-text-secondary)',
               }}>
-                <span style={{ color: 'var(--q-text)', fontWeight: 500 }}>{tc.label}</span>
-                <span style={{ color: 'var(--q-text-tertiary)', fontSize: '11px' }}>→ Task</span>
+                <span style={{ color: 'var(--q-text)', fontWeight: 500 }}>Task: {tc.label}</span>
                 <button onClick={() => setPendingTaskClips(prev => prev.filter((_, idx) => idx !== i))} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', color: 'var(--q-text-tertiary)', display: 'flex' }}>
                   <X size={14} />
                 </button>

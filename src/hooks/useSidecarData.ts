@@ -794,6 +794,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     let optsThinking: string | undefined
     let optsSkills: any[] | undefined
     let optsAttachments: any[] | undefined
+    let optsTaskClips: any[] | undefined
     let optsChatAgents: string[] | undefined
     if (typeof sessionKeyOrOpts === 'string') { sk = sessionKeyOrOpts; ag = agents }
     else if (sessionKeyOrOpts && typeof sessionKeyOrOpts === 'object') { sk = activeSessionId || undefined; ag = sessionKeyOrOpts.agentId ? [sessionKeyOrOpts.agentId] : undefined; if (sessionKeyOrOpts.model) optsModel = sessionKeyOrOpts.model; if (sessionKeyOrOpts.mode) optsMode = sessionKeyOrOpts.mode; if (sessionKeyOrOpts.thinkingLevel) optsThinking = sessionKeyOrOpts.thinkingLevel; if (sessionKeyOrOpts.skillNames) optsSkills = sessionKeyOrOpts.skillNames; if (sessionKeyOrOpts.attachments) optsAttachments = sessionKeyOrOpts.attachments; if (sessionKeyOrOpts.taskClips) optsTaskClips = sessionKeyOrOpts.taskClips; if (sessionKeyOrOpts.chatAgentIds) optsChatAgents = sessionKeyOrOpts.chatAgentIds }

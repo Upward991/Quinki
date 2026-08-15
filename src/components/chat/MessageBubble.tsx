@@ -91,8 +91,7 @@ function UserMessage({ message, onCopy, searchQuery, activeOcc, isDateMatch }: {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
           {(message as any).taskClips.map((tc: any, i: number) => (
             <div key={`tc-${i}`} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 8px 3px 10px', borderRadius: 'var(--radius-sm)', backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid var(--q-border)', fontSize: '12px', fontFamily: 'var(--font-interface)', color: 'var(--q-text-secondary)' }}>
-              <span style={{ color: 'var(--q-text)', fontWeight: 500 }}>{tc.label}</span>
-              <span style={{ color: 'var(--q-text-tertiary)', fontSize: '11px' }}>→ Task</span>
+              <span style={{ color: 'var(--q-text)', fontWeight: 500 }}>Task: {tc.label}</span>
             </div>
           ))}
         </div>
