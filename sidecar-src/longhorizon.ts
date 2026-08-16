@@ -192,7 +192,7 @@ export class LongHorizon {
     this.#writeProgress(sk);
     this.#log("lh-deactivated", { sessionKey: sk, note: "back to discussion" });
     this.#piBridge?.setLongHorizonPhase(sk, "discussion");
-    this.#sendHiddenToSession(sk, `[System: Long Horizon is paused. You are back in the DISCUSSION phase. Discuss with the user what they want to change. Do not execute anything.]`);
+    this.#sendToSession(sk, `Long Horizon is paused. We are back in the DISCUSSION phase. Discuss with me what you want to change. Do not execute anything.`);
     return { ok: true };
   }
 
@@ -211,7 +211,7 @@ export class LongHorizon {
     this.#writeProgress(sk);
     this.#log("lh-new-discussion", { sessionKey: sk });
     this.#piBridge?.setLongHorizonPhase(sk, "discussion");
-    this.#sendHiddenToSession(sk, `[System: Long Horizon is back in the DISCUSSION phase. Ask the user what new problem they want to work on. Do not execute anything.]`);
+    this.#sendToSession(sk, `Long Horizon is back in the DISCUSSION phase. Ask me what new problem I want to work on. Do not execute anything.`);
     return { ok: true };
   }
 
@@ -231,9 +231,9 @@ export class LongHorizon {
       this.#log("lh-phase-planning", { sessionKey: sk, revision: isRevision });
       this.#piBridge?.setLongHorizonPhase(sk, "planning");
       if (isRevision) {
-        this.#sendHiddenToSession(sk, `[System: The user has moved to the PLANNING phase. Revise the plan based on our latest discussion. Output the updated plan with units in '- [ ]' format. Do not execute anything.]`);
+        this.#sendToSession(sk, `We are in the PLANNING phase. Revise the plan based on our latest discussion. Output the updated plan with units in '- [ ]' format. Do not execute anything.`);
       } else {
-        this.#sendHiddenToSession(sk, `[System: The user has moved to the PLANNING phase. Propose a plan for the goal we discussed, divided into units in '- [ ]' format. Do not execute anything.]`);
+        this.#sendToSession(sk, `We are in the PLANNING phase. Propose a plan for the goal we discussed, divided into units in '- [ ]' format. Do not execute anything.`);
       }
       return { ok: true };
     }
@@ -283,7 +283,7 @@ export class LongHorizon {
       this.#writeProgress(sk);
       this.#log("lh-phase-running", { sessionKey: sk });
       this.#piBridge?.setLongHorizonPhase(sk, "running");
-      this.#sendHiddenToSession(sk, `[System: The user has started the execution. Begin working through the plan units one at a time. Update handoff.md after each unit and commit to git.]`);
+      this.#sendToSession(sk, `The execution has started. Begin working through the plan units one at a time. Update handoff.md after each unit and commit to git.`);
       return { ok: true };
     }
     return { ok: false, error: "unknown phase" };

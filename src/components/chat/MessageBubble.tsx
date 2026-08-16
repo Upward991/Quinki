@@ -316,9 +316,10 @@ function MarkdownContent({ text, isError, searchQuery, activeOcc }: { text: stri
             return <code style={{ backgroundColor: 'var(--q-bg-code)', padding: '2px 6px', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-code)', fontSize: '13px', color: 'var(--q-text)' }}>{children}</code>
           },
           p: ({ children }) => <p style={{ color: isError ? 'var(--q-accent-danger)' : 'var(--q-text)', fontSize: '14px', lineHeight: 1.5, fontFamily: 'var(--font-interface)', fontWeight: 500, margin: '0 0 12px 0' }}>{hl(children)}</p>,
-          ul: ({ children }) => <ul style={{ color: 'var(--q-text)', fontSize: '14px', lineHeight: 1.5, margin: '0 0 12px 0', paddingLeft: '22px', listStyle: 'disc outside' }}>{children}</ul>,
+          ul: ({ children, className }) => <ul className={className} style={{ color: 'var(--q-text)', fontSize: '14px', lineHeight: 1.5, margin: '0 0 12px 0', paddingLeft: className?.includes('contains-task-list') ? '4px' : '22px', listStyle: className?.includes('contains-task-list') ? 'none' : 'disc outside' }}>{children}</ul>,
           ol: ({ children }) => <ol style={{ color: 'var(--q-text)', fontSize: '14px', lineHeight: 1.5, margin: '0 0 12px 0', paddingLeft: '26px' }}>{children}</ol>,
-          li: ({ children }) => <li style={{ marginBottom: '4px', color: 'var(--q-text)' }}>{hl(children)}</li>,
+          li: ({ children, className }) => <li className={className} style={{ marginBottom: '4px', color: 'var(--q-text)', listStyle: className?.includes('task-list-item') ? 'none' : undefined }}>{hl(children)}</li>,
+          input: ({ checked, disabled }) => <input type="checkbox" checked={!!checked} disabled={!!disabled} style={{ marginRight: '8px', accentColor: 'var(--q-tab-accent)', verticalAlign: 'middle' }} />,
           table: ({ children }) => (
             <div style={{ overflowX: 'auto', margin: '0 0 12px 0' }}>
               <table style={{ width: 'auto', borderCollapse: 'collapse', fontSize: '13px', fontFamily: 'var(--font-interface)', border: '1px solid var(--q-border)' }}>{children}</table>
