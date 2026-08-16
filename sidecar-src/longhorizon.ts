@@ -33,25 +33,25 @@ interface LHState {
   lastActivity: number;
 }
 
-const UNIT_PROMPT_TEMPLATE = `Continua il lavoro. Unità corrente: {desc}.
+const UNIT_PROMPT_TEMPLATE = `Continue the work. Current unit: {desc}.
 
-Contesto: {handoff}
+Context: {handoff}
 
-Ricorda SEMPRE:
-- Aggiorna handoff.md (cosa hai fatto, come, perché) in ~/.quinki/longhorizon/{sessionKey}/handoff.md
-- Aggiorna il piano (plan.md)
-- Usa tutte le skill a disposizione
-- Crea ciò che ti serve (agenti, file, tool)
-- Non fare danni
-- Prima di iniziare: git commit 'unit-{n}: before' nella workdir
-- Quando finisci: fai i test, e vai avanti SOLO se tutto funziona
-- Poi: git commit 'unit-{n}: after'
+ALWAYS remember:
+- Update handoff.md (what you did, how, why) at ~/.quinki/longhorizon/{sessionKey}/handoff.md
+- Update the plan (plan.md)
+- Use all the skills available
+- Create what you need (agents, files, tools)
+- Do no harm
+- Before starting: git commit 'unit-{n}: before' in the workdir
+- When done: run the tests, and move on ONLY if everything works
+- Then: git commit 'unit-{n}: after'
 
-Rispondi quando hai completato l'unità.`;
+Reply when you have completed the unit.`;
 
-const STUCK_MESSAGE = `Ma che cazzo stai facendo? Stai girando a vuoto: hai ripetuto le stesse azioni senza aggiornare handoff.md. Fermati, rileggi l'unità corrente, e riparti con un approccio diverso. Aggiorna handoff.md appena fai progresso.`;
+const STUCK_MESSAGE = `What are you doing? You are going in circles: you repeated the same actions without updating handoff.md. Stop, re-read the current unit, and restart with a different approach. Update handoff.md as soon as you make progress.`;
 
-const DONE_MESSAGE = `Il piano è completo. Fai una verifica finale completa: controlla che tutto funzioni, aggiorna handoff.md con il riepilogo finale, e fai un commit finale 'plan: complete'. Poi rispondi con il riepilogo del lavoro svolto.`;
+const DONE_MESSAGE = `The plan is complete. Do a final full verification: check that everything works, update handoff.md with the final summary, and make a final commit 'plan: complete'. Then reply with a summary of the work done.`;
 
 export class LongHorizon {
   #agentDir: string;
