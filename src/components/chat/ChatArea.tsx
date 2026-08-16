@@ -476,7 +476,11 @@ export function ChatArea(props: ChatAreaProps) {
               onSend={props.onSend} onStop={props.onStop} onSteer={props.onSteer}
               onModelChange={props.onModelSelect} onModeChange={props.onModeChange}
               onThinkingChange={t => props.onThinkingChange(t)} welcomeMode={true}
-              longHorizon={props.longHorizon} onLongHorizon={props.onLongHorizon} onRequestPlan={props.onRequestPlan}
+              longHorizon={props.longHorizon} longHorizonStatus={props.longHorizonStatus}
+              longHorizonPlanProposed={(() => { const la = [...(props.messages || [])].reverse().find((m: any) => m.role === 'assistant' && m.content); return !!la && String(typeof la.content === 'string' ? la.content : '').includes('- [') })()}
+              onLongHorizon={props.onLongHorizon} onRequestPlan={props.onRequestPlan}
+              onApprovePlan={props.onApprovePlan} onContinueDiscussing={() => setLhApprovalDismissed(true)}
+              onPauseLongHorizon={props.onPauseLongHorizon} onResumeLongHorizon={props.onResumeLongHorizon}
               agents={props.agents}
               chatAgentIds={props.selectedAgentIds}
               onReset={props.onReset}
@@ -537,45 +541,6 @@ export function ChatArea(props: ChatAreaProps) {
             {taskStripBar}
           </div>
 
-          {/* Long Horizon fixed panel (above the textbox) */}
-          {props.longHorizon && (() => {
-            const lastAsst = [...(props.messages || [])].reverse().find((m: any) => m.role === 'assistant' && m.content)
-            const planLike = lastAsst && String(typeof lastAsst.content === 'string' ? lastAsst.content : '').includes('- [')
-            const st = props.longHorizonStatus || 'idle'
-            const isPlanState = st === 'idle' && planLike && !lhApprovalDismissed
-            let title = 'Long Horizon Active'
-            let desc = 'The support agent can guide this session through a plan autonomously. Write your goal, then request a plan.'
-            if (isPlanState) { title = 'Plan proposed'; desc = 'Review the plan above. Approve to start, or keep discussing.' }
-            else if (st === 'running') { title = 'Long Horizon Running'; desc = 'The support agent is working through the plan. You can pause it anytime.' }
-            else if (st === 'paused') { title = 'Long Horizon Paused'; desc = 'You can send messages or steer. Resume to continue the plan.' }
-            else if (st === 'done') { title = 'Long Horizon Complete'; desc = 'The plan is complete. You can disable Long Horizon.' }
-            return (
-              <div style={{ marginTop: 8, padding: '8px 12px', borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-accent-longhorizon)', boxShadow: 'var(--shadow-floating)', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ color: 'var(--q-accent-longhorizon)', fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-interface)' }}>{title}</div>
-                  <div style={{ color: 'var(--q-text-tertiary)', fontSize: 11, fontFamily: 'var(--font-interface)', marginTop: 2, lineHeight: 1.4 }}>{desc}</div>
-                </div>
-                <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                  {isPlanState ? (
-                    <button onClick={() => setLhApprovalDismissed(true)} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
-                      style={{ padding: '6px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: 12, fontFamily: 'var(--font-interface)' }}>Continue discussing</button>
-                  ) : st === 'running' ? (
-                    <button onClick={props.onPauseLongHorizon} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
-                      style={{ padding: '6px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: 12, fontFamily: 'var(--font-interface)' }}>Pause</button>
-                  ) : st === 'paused' ? (
-                    <button onClick={props.onResumeLongHorizon} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
-                      style={{ padding: '6px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: 12, fontFamily: 'var(--font-interface)' }}>Resume</button>
-                  ) : null}
-                  <button onClick={isPlanState ? props.onApprovePlan : props.onRequestPlan ? () => {
-                    const lastUser = [...(props.messages || [])].reverse().find((m: any) => m.role === 'user' && m.content)
-                    const goal = lastUser ? (typeof lastUser.content === 'string' ? lastUser.content : '') : ''
-                    if (goal) props.onRequestPlan!(goal)
-                  } : undefined} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-accent-longhorizon)'; e.currentTarget.style.color = 'var(--q-bg)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-accent-longhorizon)' }}
-                    style={{ padding: '6px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-accent-longhorizon)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-longhorizon)', fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-interface)' }}>{isPlanState ? 'Approve plan' : st === 'done' ? 'Done' : 'Request plan'}</button>
-                </div>
-              </div>
-            )
-          })()}
           {/* Composer — flexShrink 0 so it stays visible */}
           <div style={{ paddingTop: '8px', flexShrink: 0 }}>
             <Composer
@@ -585,7 +550,11 @@ export function ChatArea(props: ChatAreaProps) {
               onSend={props.onSend} onStop={props.onStop} onSteer={props.onSteer}
               onModelChange={props.onModelSelect} onModeChange={props.onModeChange}
               onThinkingChange={t => props.onThinkingChange(t)} welcomeMode={false}
-              longHorizon={props.longHorizon} onLongHorizon={props.onLongHorizon} onRequestPlan={props.onRequestPlan}
+              longHorizon={props.longHorizon} longHorizonStatus={props.longHorizonStatus}
+              longHorizonPlanProposed={(() => { const la = [...(props.messages || [])].reverse().find((m: any) => m.role === 'assistant' && m.content); return !!la && String(typeof la.content === 'string' ? la.content : '').includes('- [') })()}
+              onLongHorizon={props.onLongHorizon} onRequestPlan={props.onRequestPlan}
+              onApprovePlan={props.onApprovePlan} onContinueDiscussing={() => setLhApprovalDismissed(true)}
+              onPauseLongHorizon={props.onPauseLongHorizon} onResumeLongHorizon={props.onResumeLongHorizon}
             onReset={props.onReset}
               agents={props.agents}
               chatAgentIds={props.selectedAgentIds}

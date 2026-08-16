@@ -33,8 +33,14 @@ interface ComposerProps {
   onStop: () => void
   onSteer?: (text: string) => void
   longHorizon?: boolean
+  longHorizonStatus?: string
+  longHorizonPlanProposed?: boolean
   onLongHorizon?: (activate: boolean) => void
   onRequestPlan?: (text: string) => void
+  onApprovePlan?: () => void
+  onContinueDiscussing?: () => void
+  onPauseLongHorizon?: () => void
+  onResumeLongHorizon?: () => void
   onModelChange: (model: string) => void
   onModeChange: (mode: ChatMode) => void
   onThinkingChange: (level: ThinkingLevel) => void
@@ -301,6 +307,13 @@ export function Composer(props: ComposerProps) {
           onClose={() => { setSlashMenuOpen(false); if (text.startsWith('/') && !text.includes(' ')) setText('') }}
           onLongHorizon={props.onLongHorizon}
           longHorizonActive={props.longHorizon}
+          longHorizonStatus={props.longHorizonStatus}
+          longHorizonPlanProposed={props.longHorizonPlanProposed}
+          onRequestPlan={props.onRequestPlan ? () => props.onRequestPlan!(text) : undefined}
+          onApprovePlan={props.onApprovePlan}
+          onContinueDiscussing={props.onContinueDiscussing}
+          onPauseLongHorizon={props.onPauseLongHorizon}
+          onResumeLongHorizon={props.onResumeLongHorizon}
           onSkillSelected={(skill) => {
             // Add skill chip
             setPendingSkills(prev => [...prev, skill])

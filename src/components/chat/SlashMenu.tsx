@@ -30,6 +30,13 @@ interface SlashMenuProps {
   onSkillSelected?: (skill: { agentId: string; skillName: string; agentName: string }) => void
   onLongHorizon?: (activate: boolean) => void
   longHorizonActive?: boolean
+  longHorizonStatus?: string
+  longHorizonPlanProposed?: boolean
+  onRequestPlan?: () => void
+  onApprovePlan?: () => void
+  onContinueDiscussing?: () => void
+  onPauseLongHorizon?: () => void
+  onResumeLongHorizon?: () => void
 }
 
 interface Command {
@@ -76,11 +83,31 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
     { id: 'thinking', label: '/Thinking', description: 'Change thinking' },
     { id: 'directory', label: '/Directory', description: 'Working directory' },
     { id: 'skill', label: '/Skill', description: 'Activate a skill' },
-    { id: 'longhorizon', label: '/longhorizon', description: 'Activate or disable Long Horizon mode' },
+    { id: 'longhorizon', label: '/longhorizon', description: 'Activate or disable Long Horizon mode. When active, only Long Horizon slash commands are available.' },
     { id: 'reset', label: '/Reset', description: 'Clear messages. Keeps model, directory and settings.' },
   ]
 
-  const filteredCommands = commands.filter(cmd => cmd.id.includes(props.filter.toLowerCase()))
+  const lhCommands: Command[] = [
+    { id: 'requestplan', label: '/request plan', description: 'Propose a plan for the goal' },
+    { id: 'approveplan', label: '/approve plan', description: 'Approve the proposed plan and start' },
+    { id: 'continuediscussing', label: '/continue discussing', description: 'Keep discussing without starting' },
+    { id: 'pause', label: '/pause', description: 'Pause the automatic work' },
+    { id: 'resume', label: '/resume', description: 'Resume the plan' },
+  ]
+  const visibleCommands: Command[] = props.longHorizonActive ? (() => {
+    if (props.longHorizonStatus === 'running') return [{ id: 'pause', label: '/pause', description: 'Pause the automatic work' }]
+    if (props.longHorizonStatus === 'paused') return [{ id: 'resume', label: '/resume', description: 'Resume the plan' }]
+    if (props.longHorizonPlanProposed) return [{ id: 'approveplan', label: '/approve plan', description: 'Approve the proposed plan and start' }, { id: 'continuediscussing', label: '/continue discussing', description: 'Keep discussing without starting' }]
+    return [{ id: 'requestplan', label: '/request plan', description: 'Propose a plan for the goal' }]
+  })() : commands
+  const filteredCommands = visibleCommands.filter(cmd => cmd.id.includes(props.filter.toLowerCase()))
+  const executeLhCommand = (id: string) => {
+    if (id === 'requestplan') { props.onRequestPlan?.(); props.onClose() }
+    else if (id === 'approveplan') { props.onApprovePlan?.(); props.onClose() }
+    else if (id === 'continuediscussing') { props.onContinueDiscussing?.(); props.onClose() }
+    else if (id === 'pause') { props.onPauseLongHorizon?.(); props.onClose() }
+    else if (id === 'resume') { props.onResumeLongHorizon?.(); props.onClose() }
+  }
 
   // All models grouped by provider
   const allModels = props.providers.flatMap(p => p.models.map(m => ({ id: m.id, name: m.name, contextWindow: m.contextWindow, provider: p.name })))
@@ -208,6 +235,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
     navEnter: () => {
       if (mode === 'main') {
         const cmd = filteredCommands[selectedIdx]
+        if (props.longHorizonActive && cmd) { executeLhCommand(cmd.id); return }
         if (cmd?.id === 'reset') setMode('reset_confirm')
         else if (cmd) enterMode(cmd.id as Mode)
       } else if (mode === 'model') {
@@ -265,6 +293,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
                 isSelected={idx === selectedIdx}
                 onHover={() => setSelectedIdx(idx)}
                 onTap={() => {
+                  if (props.longHorizonActive) { executeLhCommand(cmd.id); return }
                   if (cmd.id === 'reset') setMode('reset_confirm')
                   else enterMode(cmd.id as Mode)
                 }}
@@ -278,6 +307,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
             onLeft={() => {}}
             onRight={() => {
               const cmd = filteredCommands[selectedIdx]
+              if (props.longHorizonActive && cmd) { executeLhCommand(cmd.id); return }
               if (cmd?.id === 'reset') setMode('reset_confirm')
               else if (cmd) enterMode(cmd.id as Mode)
             }}
@@ -365,6 +395,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
             </div>
             <div style={{ padding: '0 16px 6px 16px', color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', lineHeight: 1.5 }}>
               Long Horizon makes the session work autonomously through a plan (hours/days, no prompts needed). The support agent reads the plan and handoff files, sends "continue" prompts as user bubbles, commits progress to git, and stops if it detects loops. The mode toggle stays locked until you disable it. You can always STOP or STEER.
+              {'\n\n'}When Long Horizon is active, the normal slash commands (model, thinking, skill, attachments, ...) are disabled. You can only use the Long Horizon slash commands: /request plan, /approve plan, /continue discussing, /pause, /resume. To restore the normal commands, disable Long Horizon with /longhorizon.
             </div>
             <MenuItem
               label="Enable Long Horizon"
