@@ -174,47 +174,90 @@ export class LongHorizon {
     return { ok: true };
   }
 
+  // Nuova discussione (post-completamento): azzera il piano e torna alla discussion
+  newDiscussion(sk: string): { ok: boolean; error?: string } {
+    const st = this.#states.get(sk);
+    if (!st || !st.active) return { ok: false, error: "Long Horizon not active" };
+    st.phase = "discussion";
+    st.status = "idle";
+    st.units = [];
+    st.currentIdx = -1;
+    st.promptCount = 0;
+    st.pendingGoal = undefined;
+    st.lastActivity = Date.now();
+    this.#writeState(sk);
+    this.#writeProgress(sk);
+    this.#log("lh-new-discussion", { sessionKey: sk });
+    this.#sendToSession(sk, `We are back in the DISCUSSION phase. Tell me the new problem you want to work on.`);
+    return { ok: true };
+  }
+
   // Transizione di fase controllata dall'utente (via la sezione in chat)
   setPhase(sk: string, phase: string): { ok: boolean; error?: string } {
     const st = this.#states.get(sk);
     if (!st || !st.active) return { ok: false, error: "Long Horizon not active" };
     if (phase === "planning") {
+      const isRevision = st.units.length > 0;
       st.phase = "planning";
+      st.units = []; // azzera: allo Start verrà ri-parsato il piano (nuovo o rivisto)
+      st.currentIdx = -1;
+      st.promptCount = 0;
       st.lastActivity = Date.now();
       this.#writeState(sk);
       this.#writeProgress(sk);
-      this.#log("lh-phase-planning", { sessionKey: sk });
-      this.#sendToSession(sk, `We are now in the PLANNING phase. I will propose a plan for the goal we discussed. I will not execute anything yet.`);
+      this.#log("lh-phase-planning", { sessionKey: sk, revision: isRevision });
+      if (isRevision) {
+        this.#sendToSession(sk, `We are back in the PLANNING phase. Revise the plan based on our latest discussion. Output the updated plan with units in '- [ ]' format. I will not execute anything yet.`);
+      } else {
+        this.#sendToSession(sk, `We are now in the PLANNING phase. I will propose a plan for the goal we discussed. I will not execute anything yet.`);
+      }
       return { ok: true };
     }
     if (phase === "running") {
-      // Start: se c'è un piano (o pendingGoal), crea il piano definitivo e parti
-      if (st.units.length === 0 && st.pendingGoal) {
-        const goal = st.pendingGoal;
-        st.pendingGoal = undefined;
-        this.#writeState(sk);
-        this.#sendPlanRequest(sk, st, goal).then(() => {
-          const st2 = this.#states.get(sk);
-          if (st2 && st2.status === "running") {
-            st2.phase = "running";
-            this.#writeState(sk);
-            this.#writeProgress(sk);
-            this.#log("lh-phase-running", { sessionKey: sk });
-          }
-        });
-        return { ok: true };
+      // Start: se non c'è ancora un piano, parsa l'ultimo messaggio assistente (il piano della fase planning)
+      if (st.units.length === 0) {
+        const resp = this.#lastAssistantText(sk);
+        const units = this.#parseUnits(resp);
+        if (units.length > 0) {
+          st.goal = st.goal || resp.slice(0, 120);
+          st.units = units.map((u, i) => ({ id: i + 1, desc: u.desc, status: "pending" as const }));
+          st.currentIdx = 0;
+          st.promptCount = 0;
+          st.lastHandoffSig = this.#handoffSig(sk);
+          try {
+            fs.mkdirSync(this.#dir(sk), { recursive: true });
+            fs.writeFileSync(this.#planFile(sk), units.map((u, i) => `- [ ] Unit ${i + 1}: ${u.desc}`).join("\n"), "utf8");
+            const wd = this.#workdir(sk);
+            fs.mkdirSync(wd, { recursive: true });
+            if (!fs.existsSync(path.join(wd, ".git"))) { try { this.#git(sk, ["init", "-q"]); } catch {} }
+          } catch {}
+          this.#log("lh-plan-parsed-from-chat", { sessionKey: sk, units: units.length });
+        } else if (st.pendingGoal) {
+          const goal = st.pendingGoal;
+          st.pendingGoal = undefined;
+          this.#writeState(sk);
+          this.#sendPlanRequest(sk, st, goal).then(() => {
+            const st2 = this.#states.get(sk);
+            if (st2 && st2.status === "running") {
+              st2.phase = "running";
+              this.#writeState(sk);
+              this.#writeProgress(sk);
+              this.#log("lh-phase-running", { sessionKey: sk });
+            }
+          });
+          return { ok: true };
+        } else {
+          return { ok: false, error: "No plan found. Finish the planning phase first." };
+        }
       }
-      if (st.units.length > 0) {
-        st.phase = "running";
-        st.status = "running";
-        st.promptCount = 0;
-        st.lastActivity = Date.now();
-        this.#writeState(sk);
-        this.#writeProgress(sk);
-        this.#log("lh-phase-running", { sessionKey: sk });
-        return { ok: true };
-      }
-      return { ok: false, error: "No plan yet. Finish the planning phase first." };
+      st.phase = "running";
+      st.status = "running";
+      st.promptCount = 0;
+      st.lastActivity = Date.now();
+      this.#writeState(sk);
+      this.#writeProgress(sk);
+      this.#log("lh-phase-running", { sessionKey: sk });
+      return { ok: true };
     }
     return { ok: false, error: "unknown phase" };
   }

@@ -107,6 +107,7 @@ interface ChatAreaProps {
   longHorizonPhase?: string
   onProceedToPlanning?: () => void
   onStartExecution?: () => void
+  onNewDiscussion?: () => void
   onPauseLongHorizon?: () => void
   onResumeLongHorizon?: () => void
   onRenameSession: (label: string) => void
@@ -529,7 +530,7 @@ export function ChatArea(props: ChatAreaProps) {
                   else if (ph === 'planning') { title = 'Planning phase'; desc = 'Refine the plan with the agent. Nothing will be executed yet.'; btnLabel = 'Start'; onBtn = props.onStartExecution }
                   else if (ph === 'running') { title = 'Long Horizon running'; desc = 'The agent is working through the plan autonomously.'; btnLabel = 'Pause'; onBtn = props.onPauseLongHorizon }
                   else if (ph === 'paused') { title = 'Long Horizon paused'; desc = 'You are back in the discussion phase. Discuss changes, then resume.'; btnLabel = 'Resume'; onBtn = props.onResumeLongHorizon }
-                  else if (ph === 'done') { title = 'Long Horizon complete'; desc = 'The plan is complete. You can disable Long Horizon or start a new discussion.'; btnLabel = 'Disable'; onBtn = () => props.onLongHorizon?.(false) }
+                  else if (ph === 'done') { title = 'Long Horizon complete'; desc = 'The plan is complete. You can start a new discussion or disable Long Horizon.'; btnLabel = 'New discussion'; onBtn = props.onNewDiscussion }
                   return (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-accent-longhorizon)', boxShadow: 'var(--shadow-floating)', marginBottom: '12px' }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
@@ -539,6 +540,10 @@ export function ChatArea(props: ChatAreaProps) {
                       {onBtn && (
                         <button onClick={onBtn} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }}
                           style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-interface)', flexShrink: 0 }}>{btnLabel}</button>
+                      )}
+                      {ph === 'done' && (
+                        <button onClick={() => props.onLongHorizon?.(false)} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
+                          style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: 13, fontFamily: 'var(--font-interface)', flexShrink: 0 }}>Disable</button>
                       )}
                     </div>
                   )
