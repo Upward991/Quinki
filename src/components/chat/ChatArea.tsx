@@ -519,6 +519,14 @@ export function ChatArea(props: ChatAreaProps) {
                   chatItems.sort((a, b) => a.ts - b.ts || (a.kind === 'msg' ? 0 : 1))
                   return (
                     <>
+                    {props.longHorizonSystemMessage && (
+                      <div style={{ maxWidth: 'var(--spacing-chat-max)', minWidth: 0, margin: '8px 0' }}>
+                        <div style={{ backgroundColor: 'var(--q-bg)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', padding: '12px 16px' }}>
+                          <div style={{ color: 'var(--q-text)', fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-interface)', marginBottom: 8 }}>Long Horizon Mode</div>
+                          <div style={{ color: 'var(--q-text)', fontSize: 13, lineHeight: 1.6, fontFamily: 'var(--font-interface)', whiteSpace: 'pre-wrap' }}>{props.longHorizonSystemMessage}</div>
+                        </div>
+                      </div>
+                    )}
                     {chatItems.map((item, i) => (
                     <div key={item.kind === 'msg' ? item.msg!.id : 'chat-' + item.run!.id} data-msg-idx={item.mIdx ?? -1} style={{ marginBottom: '12px' }}>
                       {item.kind === 'msg' ? (
@@ -528,14 +536,6 @@ export function ChatArea(props: ChatAreaProps) {
                       )}
                     </div>
                     ))}
-                    {props.longHorizonSystemMessage && (
-                      <div style={{ maxWidth: 'var(--spacing-chat-max)', minWidth: 0, margin: '8px 0' }}>
-                        <div style={{ backgroundColor: 'var(--q-bg)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', padding: '12px 16px' }}>
-                          <div style={{ color: 'var(--q-text)', fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-interface)', marginBottom: 8 }}>Long Horizon Mode</div>
-                          <div style={{ color: 'var(--q-text)', fontSize: 13, lineHeight: 1.6, fontFamily: 'var(--font-interface)', whiteSpace: 'pre-wrap' }}>{props.longHorizonSystemMessage}</div>
-                        </div>
-                      </div>
-                    )}
                     </>
                   )
                 })()}
@@ -548,7 +548,7 @@ export function ChatArea(props: ChatAreaProps) {
                   else if (ph === 'paused') { title = 'Long Horizon paused'; desc = 'You are back in the discussion phase. Discuss changes, then resume.'; btnLabel = 'Resume'; onBtn = props.onResumeLongHorizon }
                   else if (ph === 'done') { title = 'Long Horizon complete'; desc = 'The plan is complete. You can start a new discussion or disable Long Horizon.'; btnLabel = 'New discussion'; onBtn = props.onNewDiscussion }
                   return (
-                    <div style={{ maxWidth: 'var(--spacing-chat-max)', minWidth: 0, margin: '8px 0' }}>
+                    <div style={{ maxWidth: 'min(560px, 100%)', minWidth: 0, margin: '8px 0' }}>
                       <div style={{ backgroundColor: 'var(--q-bg)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', padding: '12px 16px' }}>
                         <div style={{ color: 'var(--q-text)', fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-interface)', marginBottom: 8 }}>{title}</div>
                         <div style={{ color: 'var(--q-text)', fontSize: 13, lineHeight: 1.6, fontFamily: 'var(--font-interface)' }}>{desc}</div>
