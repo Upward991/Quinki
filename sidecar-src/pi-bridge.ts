@@ -2471,6 +2471,20 @@ class PiBridge {
     return pi;
   }
 
+  // === Helper: ws della sessione, o fallback a stdout (broadcast al frontend via sidecar-ws) ===
+  // Dopo un restart del sidecar la mappa #wss è vuota: senza fallback gli eventi del
+  // support agent (Long Horizon) andrebbero persi. Il fallback scrive su stdout,
+  // che sidecar-ws.ts broadcasta a tutti i client connessi.
+  #getSessionWs(key: string): any {
+    const ws = this.#wss.get(key);
+    if (ws && ws.readyState === ws.constructor.OPEN) return ws;
+    return {
+      readyState: 1,
+      constructor: { OPEN: 1 },
+      send: (data: string) => { try { process.stdout.write(data + "\n"); } catch {} },
+    };
+  }
+
   #sendToWs(ws: any, payload: any) {
     try {
       if (ws && ws.readyState === ws.constructor.OPEN) ws.send(JSON.stringify(payload));
@@ -4641,7 +4655,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       this.logDebug("lh-preserve-ws", { sessionKey: sk, note: "Long Horizon: streaming al ws del frontend" });
       // Emetti un evento user_message così il frontend mostra in TEMPO REALE
       // il messaggio inviato dal support agent (niente più reload per vederlo).
-      try { this.#sendToWs(this.#wss.get(sk), { type: "user_message", sessionKey: sk, text: data.text, ts: Date.now() }); } catch {}
+      try { this.#sendToWs(this.#getSessionWs(sk), { type: "user_message", sessionKey: sk, text: data.text, ts: Date.now() }); } catch {}
     }
     
     let pi = this.#active.get(sk);
@@ -5386,7 +5400,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     if (old) { try { old(); } catch {} }
 
     const sub = pi.subscribe((e: any) => {
-      const ws = this.#wss.get(key);
+      const ws = this.#getSessionWs(key);
       if (!ws || ws.readyState !== ws.constructor.OPEN) return;
 
       switch (e.type) {
