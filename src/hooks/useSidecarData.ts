@@ -315,6 +315,13 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
       }
       return blocks
     }
+    const unsubUserMsg = subscribe('user_message', (p: any) => {
+      if (!p?.sessionKey || !p?.text) return
+      setMessages(prev => {
+        if (prev.some(m => m.id === 'lh-msg-' + p.ts)) return prev
+        return [...prev, { id: 'lh-msg-' + p.ts, role: 'user' as const, content: p.text, timestamp: new Date(p.ts || Date.now()).toISOString(), tokensIn: Math.ceil(String(p.text).length / 4) }]
+      })
+    })
     const unsubStream = subscribe('stream_event', (p: any) => {
       if (!p) return
       if (p.sessionKey && p.sessionKey !== activeSessionIdRef.current) return
@@ -625,7 +632,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     })
 
     return () => {
-      unsubStream(); unsubStreamStart(); unsubStreamStop(); unsubDone(); unsubToolResult()
+      unsubUserMsg(); unsubStream(); unsubStreamStart(); unsubStreamStop(); unsubDone(); unsubToolResult()
       unsubSessCreated(); unsubSessUpdated(); unsubSessDeleted()
       unsubModelUpdate(); unsubThinkUpdate(); unsubThinkLevels()
       unsubSessMeta(); unsubAgentStatus()

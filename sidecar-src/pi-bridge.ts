@@ -4605,7 +4605,12 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     });
 
     if (!(data as any)._preserveWs) this.#wss.set(sk, ws);
-    else this.logDebug("lh-preserve-ws", { sessionKey: sk, note: "Long Horizon: streaming al ws del frontend" });
+    else {
+      this.logDebug("lh-preserve-ws", { sessionKey: sk, note: "Long Horizon: streaming al ws del frontend" });
+      // Emetti un evento user_message così il frontend mostra in TEMPO REALE
+      // il messaggio inviato dal support agent (niente più reload per vederlo).
+      try { this.#sendToWs(this.#wss.get(sk), { type: "user_message", sessionKey: sk, text: data.text, ts: Date.now() }); } catch {}
+    }
     
     let pi = this.#active.get(sk);
     this.logDebug("send-resolved-agent", { sessionKey: sk, override: this.#agentOverride.get(sk), resolvedAgentId: this.#resolveAgentId(sk), hasActiveSession: !!pi });
