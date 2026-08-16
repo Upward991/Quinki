@@ -532,19 +532,21 @@ export function ChatArea(props: ChatAreaProps) {
                   else if (ph === 'paused') { title = 'Long Horizon paused'; desc = 'You are back in the discussion phase. Discuss changes, then resume.'; btnLabel = 'Resume'; onBtn = props.onResumeLongHorizon }
                   else if (ph === 'done') { title = 'Long Horizon complete'; desc = 'The plan is complete. You can start a new discussion or disable Long Horizon.'; btnLabel = 'New discussion'; onBtn = props.onNewDiscussion }
                   return (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', boxShadow: 'var(--shadow-floating)', marginBottom: '12px' }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ color: 'var(--q-text)', fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-interface)' }}>{title}</div>
-                        <div style={{ color: 'var(--q-text-tertiary)', fontSize: 12, fontFamily: 'var(--font-interface)', marginTop: 2, lineHeight: 1.4 }}>{desc}</div>
+                    <div style={{ maxWidth: 'var(--spacing-chat-max)', minWidth: 0, margin: '8px 0' }}>
+                      <div style={{ backgroundColor: 'var(--q-bg)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', padding: '12px 16px' }}>
+                        <div style={{ color: 'var(--q-text)', fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-interface)', marginBottom: 8 }}>{title}</div>
+                        <div style={{ color: 'var(--q-text)', fontSize: 13, lineHeight: 1.6, fontFamily: 'var(--font-interface)' }}>{desc}</div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 10 }}>
+                          {onBtn && (
+                            <button onClick={onBtn} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }}
+                              style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-interface)', flexShrink: 0 }}>{btnLabel}</button>
+                          )}
+                          {ph === 'done' && (
+                            <button onClick={() => props.onLongHorizon?.(false)} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
+                              style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: 13, fontFamily: 'var(--font-interface)', flexShrink: 0 }}>Disable</button>
+                          )}
+                        </div>
                       </div>
-                      {onBtn && (
-                        <button onClick={onBtn} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }}
-                          style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-interface)', flexShrink: 0 }}>{btnLabel}</button>
-                      )}
-                      {ph === 'done' && (
-                        <button onClick={() => props.onLongHorizon?.(false)} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
-                          style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: 13, fontFamily: 'var(--font-interface)', flexShrink: 0 }}>Disable</button>
-                      )}
                     </div>
                   )
                 })()}
