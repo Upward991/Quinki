@@ -195,6 +195,19 @@ fn open_attachments_folder(session_key: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+#[tauri::command]
+fn open_longhorizon_folder(session_key: String) -> Result<(), String> {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let dir = format!("{}/.quinki/longhorizon/{}", home, session_key);
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    std::process::Command::new("open")
+        .arg(&dir)
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
 fn open_general_attachments_folder() -> Result<(), String> {
     let home = std::env::var("HOME").unwrap_or_default();
     let dir = format!("{}/.quinki/attachments", home);
@@ -895,6 +908,7 @@ pub fn run() {
         copy_to_attachments,
         save_attachment_content,
         open_attachments_folder,
+        open_longhorizon_folder,
         open_general_attachments_folder,
         list_attachments,
         check_expert_installed,

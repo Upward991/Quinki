@@ -323,7 +323,7 @@ export function Composer(props: ComposerProps) {
           onReAttach={handleReAttach}
           onBack={() => setAttachMenuView('main')}
           onClose={() => { setAttachMenuOpen(false); setAttachMenuView('main') }}
-          onSessionFiles={() => { setAttachMenuOpen(false); setSessionFilesOpen(true) }}
+          onSessionFiles={async () => { setAttachMenuOpen(false); if (props.sessionKey) { try { await invoke('open_longhorizon_folder', { sessionKey: props.sessionKey }) } catch (e: any) { console.error('open_longhorizon_folder:', e) } } }}
         />
       )}
 
@@ -571,7 +571,7 @@ function SessionFilesModal({ sessionKey, onClose }: { sessionKey: string; onClos
 }
 
 // ── Attachment modal (centered — matches app modal style) ──
-function AttachMenu({ view, existingFiles, onPickFiles, onOpenFolder, onShowExisting, onReAttach, onBack, onClose }: {
+function AttachMenu({ view, existingFiles, onPickFiles, onOpenFolder, onShowExisting, onReAttach, onBack, onClose, onSessionFiles }: {
   view: 'main' | 'existing'
   existingFiles: any[]
   onPickFiles: () => void
@@ -593,7 +593,7 @@ function AttachMenu({ view, existingFiles, onPickFiles, onOpenFolder, onShowExis
               <AttachOptionRow icon={<Paperclip size={18} />} label="Attach new file" onClick={onPickFiles} />
               <AttachOptionRow icon={<Clock size={18} />} label="Previously sent" onClick={onShowExisting} />
               <AttachOptionRow icon={<Folder size={18} />} label="Open attachments folder" onClick={onOpenFolder} />
-              {onSessionFiles && <AttachOptionRow icon={<FileText size={18} />} label="Session files (plan, handoff, git)" onClick={onSessionFiles} />}
+              {onSessionFiles && <AttachOptionRow icon={<Folder size={18} />} label="Open session files folder" onClick={onSessionFiles} />}
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '16px 16px 12px 16px' }}>
               <AttachModalBtn label="Cancel" onClick={onClose} danger />
