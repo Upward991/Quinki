@@ -483,22 +483,6 @@ export class LongHorizon {
       return;
     }
 
-    // === Monitoraggio in DISCUSSION/PLANNING: se il modello esegue (write/edit/bash),
-    // il support agent interviene con un prompt correttivo. Tutti i tool sono abilitati,
-    // ma il modello è FORZATO a non eseguire finché l'utente non preme Start. ===
-    if (st.phase === "discussion" || st.phase === "planning") {
-      try {
-        const hist = this.#piBridge?.getHistory?.(sk) || [];
-        const lastMsgs = Array.isArray(hist) ? hist.slice(-6) : [];
-        const executed = lastMsgs.some((m: any) => m.role === "tool_call" && ["write", "edit", "bash", "patch", "apply_patch"].includes(m.toolName));
-        if (executed) {
-          this.#log("lh-monitor-execution", { sessionKey: sk, phase: st.phase });
-          this.#sendHiddenToSession(sk, `[System: STOP. You are in the ${st.phase.toUpperCase()} phase of Long Horizon. You must NOT execute, write files, or run commands. Only discuss and plan. Execution starts only when the user presses Start. Return to the discussion immediately.]`);
-        }
-      } catch (e: any) { this.#log("lh-monitor-error", { sessionKey: sk, error: e?.message }); }
-      return;
-    }
-
     if (st.status !== "running") return;
 
     // Se la sessione sta ancora generando (streaming attivo) → aspetta
