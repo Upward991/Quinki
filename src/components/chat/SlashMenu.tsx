@@ -243,6 +243,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
       else if (mode !== 'main') enterMode('main')
     },
     navRight: () => {
+      console.log('[SLASH] navRight mode:', mode, 'selectedIdx:', selectedIdx, 'focusConfirm:', focusConfirm, 'lhActive:', !!props.longHorizonActive)
       if (mode === 'main') {
         const cmd = filteredCommands[selectedIdx]
         if (props.longHorizonActive && cmd) { if (focusConfirm) confirmLh(); else setFocusConfirm(true); return }
@@ -263,7 +264,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
       }
     },
     navEnter: () => {
-      console.log('[SLASH] navEnter mode:', mode, 'selectedIdx:', selectedIdx, 'cmds:', filteredCommands.length)
+      console.log('[SLASH] navEnter mode:', mode, 'selectedIdx:', selectedIdx, 'cmds:', filteredCommands.length, 'focusConfirm:', focusConfirm, 'lhActive:', !!props.longHorizonActive)
       if (mode === 'main') {
         const cmd = filteredCommands[selectedIdx]
         if (props.longHorizonActive && cmd) { setFocusConfirm(true); return }
