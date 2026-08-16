@@ -134,7 +134,7 @@ export class LongHorizon {
   // === RPC API ===
 
   // Attiva Long Horizon per la sessione (il piano verrà impostato con setPlan)
-  activate(sk: string): { ok: boolean; error?: string } {
+  async activate(sk: string): Promise<{ ok: boolean; error?: string }> {
     if (!sk) return { ok: false, error: "sessionKey required" };
     const existing = this.#states.get(sk);
     if (existing?.active) return { ok: true, note: "already active" };
@@ -154,8 +154,9 @@ export class LongHorizon {
     this.#writeState(sk);
     this.#writeProgress(sk);
     this.#log("lh-activated", { sessionKey: sk });
-    // Messaggio di spiegazione in chat (fase 0): spiega le fasi e che la discussion parte da sola
-    this.#sendToSession(sk, `Long Horizon is now active. It works in three phases:\n\n1. DISCUSSION (automatic): we discuss the problem. I do not execute anything yet.\n2. PLANNING: I propose a plan and we refine it together.\n3. START: I create the final plan, set up the workspace, and work autonomously.\n\nThe first phase (discussion) starts now. Tell me the problem you want to work on.`);
+    this.#piBridge?.setLongHorizonPhase(sk, "discussion");
+    // Messaggio di SISTEMA (hardcoded, sempre uguale): bubble speciale in chat + entra nel contesto.
+    try { await this.#piBridge?.injectSystemMessage(sk, `LONG HORIZON MODE — SYSTEM MESSAGE\n\nLong Horizon is now active for this session. It works in three phases, and you (the model) CANNOT advance to the next phase on your own. The user controls the transitions with the buttons in the chat.\n\n1. DISCUSSION: we discuss the problem and understand the goal. Nothing is executed yet.\n2. PLANNING: a plan is proposed, divided into units in '- [ ]' format. Nothing is executed yet.\n3. START (EXECUTION): the plan is executed unit by unit, autonomously.\n\nThe first phase (DISCUSSION) starts now. Tell me the problem you want to work on.`); } catch {}
     return { ok: true };
   }
 
@@ -170,7 +171,8 @@ export class LongHorizon {
     this.#writeState(sk);
     this.#writeProgress(sk);
     this.#log("lh-deactivated", { sessionKey: sk, note: "back to discussion" });
-    this.#sendToSession(sk, `Long Horizon is paused. We are back in the DISCUSSION phase. Tell me what you want to change or discuss.`);
+    this.#piBridge?.setLongHorizonPhase(sk, "discussion");
+    this.#sendHiddenToSession(sk, `[System: Long Horizon is paused. You are back in the DISCUSSION phase. Discuss with the user what they want to change. Do not execute anything.]`);
     return { ok: true };
   }
 
@@ -188,7 +190,8 @@ export class LongHorizon {
     this.#writeState(sk);
     this.#writeProgress(sk);
     this.#log("lh-new-discussion", { sessionKey: sk });
-    this.#sendToSession(sk, `We are back in the DISCUSSION phase. Tell me the new problem you want to work on.`);
+    this.#piBridge?.setLongHorizonPhase(sk, "discussion");
+    this.#sendHiddenToSession(sk, `[System: Long Horizon is back in the DISCUSSION phase. Ask the user what new problem they want to work on. Do not execute anything.]`);
     return { ok: true };
   }
 
@@ -206,10 +209,11 @@ export class LongHorizon {
       this.#writeState(sk);
       this.#writeProgress(sk);
       this.#log("lh-phase-planning", { sessionKey: sk, revision: isRevision });
+      this.#piBridge?.setLongHorizonPhase(sk, "planning");
       if (isRevision) {
-        this.#sendToSession(sk, `We are back in the PLANNING phase. Revise the plan based on our latest discussion. Output the updated plan with units in '- [ ]' format. I will not execute anything yet.`);
+        this.#sendHiddenToSession(sk, `[System: The user has moved to the PLANNING phase. Revise the plan based on our latest discussion. Output the updated plan with units in '- [ ]' format. Do not execute anything.]`);
       } else {
-        this.#sendToSession(sk, `We are now in the PLANNING phase. I will propose a plan for the goal we discussed. I will not execute anything yet.`);
+        this.#sendHiddenToSession(sk, `[System: The user has moved to the PLANNING phase. Propose a plan for the goal we discussed, divided into units in '- [ ]' format. Do not execute anything.]`);
       }
       return { ok: true };
     }
@@ -232,6 +236,7 @@ export class LongHorizon {
             if (!fs.existsSync(path.join(wd, ".git"))) { try { this.#git(sk, ["init", "-q"]); } catch {} }
           } catch {}
           this.#log("lh-plan-parsed-from-chat", { sessionKey: sk, units: units.length });
+          this.#piBridge?.setLongHorizonPhase(sk, "running");
         } else if (st.pendingGoal) {
           const goal = st.pendingGoal;
           st.pendingGoal = undefined;
@@ -257,6 +262,8 @@ export class LongHorizon {
       this.#writeState(sk);
       this.#writeProgress(sk);
       this.#log("lh-phase-running", { sessionKey: sk });
+      this.#piBridge?.setLongHorizonPhase(sk, "running");
+      this.#sendHiddenToSession(sk, `[System: The user has started the execution. Begin working through the plan units one at a time. Update handoff.md after each unit and commit to git.]`);
       return { ok: true };
     }
     return { ok: false, error: "unknown phase" };
@@ -279,6 +286,8 @@ export class LongHorizon {
 
   // Riprende dopo una pausa: se c'è un piano → running, altrimenti discussion
   resume(sk: string): { ok: boolean; error?: string } {
+    const st0 = this.#states.get(sk);
+    if (st0) this.#piBridge?.setLongHorizonPhase(sk, st0.units.length > 0 ? "running" : "discussion");
     const st = this.#states.get(sk);
     if (!st) return { ok: false, error: "not found" };
     st.active = true;
@@ -645,6 +654,14 @@ export class LongHorizon {
     try {
       const fakeWs = { readyState: 1, constructor: { OPEN: 1 }, send: () => {} };
       await this.#piBridge?.send(fakeWs, { sessionKey: sk, text, _preserveWs: true });
+    } catch {}
+  }
+
+  // Prompt nascosto: messaggio utente che entra nel contesto (triggera il modello)
+  // ma NON è visibile in chat (flag hidden:true, filtrato in getHistory).
+  async #sendHiddenToSession(sk: string, text: string) {
+    try {
+      await this.#piBridge?.sendHiddenUserMessage(sk, text);
     } catch {}
   }
 }

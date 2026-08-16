@@ -1115,6 +1115,7 @@ class PiBridge {
     // === Map messages, marking noop compactions as warnings ===
     const mapWithNoop = (messages: any[], noopTs: Set<number>) => {
       return messages.flatMap((m: any) => {
+        if ((m as any).hidden) return [];
         if (m.role === "compactionSummary" && noopTs.has(m.timestamp)) {
           return [{ id: m.id || stableMsgId(m), role: "assistant", content: "⚠️ **Compaction non efficace**: La conversazione è troppo corta o i messaggi sono troppo grandi per essere compattati.\\n\\nIl contesto non è stato ridotto. Considera di iniziare una nuova chat se il contesto è pieno.", timestamp: m.timestamp, done: true, isCompactionWarning: true }];
         }
@@ -2262,6 +2263,96 @@ class PiBridge {
       return false;
     } catch (e: any) {
       this.logDebug("clip-inject-error", { sessionKey, error: e?.message || String(e) });
+      return false;
+    }
+  }
+
+  // === A2.11: sendHiddenUserMessage — messaggio utente NASCOSTO che TRIGGERA il modello.
+  // Entra nel contesto (il modello lo vede), ma NON è visibile in chat (flag hidden:true,
+  // filtrato in getHistory). Usato per le transizioni di fase Long Horizon.
+  // Tecnica: wrap di _appendEntry — il prossimo messaggio utente appeso dal prompt flow
+  // viene marcato hidden. Niente duplicati: il messaggio è appeso UNA volta (dal prompt flow). ===
+  async sendHiddenUserMessage(sessionKey: string, text: string): Promise<boolean> {
+    try {
+      if (!this.#active.has(sessionKey)) {
+        await this.#ensureActive(sessionKey);
+      }
+      const pi = this.#active.get(sessionKey);
+      if (!pi?.sessionManager) return false;
+      const sm = pi.sessionManager as any;
+      if (typeof sm._appendEntry === 'function') {
+        if (!sm._quinkiHiddenWrapped) {
+          const orig = sm._appendEntry.bind(sm);
+          sm._appendEntry = (entry: any) => {
+            if (sm._quinkiNextHidden && entry?.type === "message" && entry?.message?.role === "user") {
+              entry.message.hidden = true;
+              sm._quinkiNextHidden = false;
+            }
+            return orig(entry);
+          };
+          sm._quinkiHiddenWrapped = true;
+        }
+        sm._quinkiNextHidden = true;
+        // Rebuild del system prompt PRIMA di triggerare: la nuova fase deve essere nel contesto
+        try {
+          const effCwd = this.#cwdOverride.get(sessionKey) ?? (this.#entries.get(sessionKey) as any)?.workingDir ?? this.#cwd;
+          const sessionMode = this.#entries.get(sessionKey)?.mode || "plan";
+          const built = this.#buildSystemPrompt(sessionKey, effCwd, undefined, sessionMode, undefined, undefined, undefined);
+          pi.agent.state.systemPrompt = built;
+          (pi as any)._baseSystemPrompt = built;
+          this.logDebug("hidden-user-system-prompt-rebuilt", { sessionKey, phase: this.#lhPhase.get(sessionKey) });
+        } catch (e: any) { this.logDebug("hidden-user-sysprompt-error", { sessionKey, error: e?.message || String(e) }); }
+        const { content } = await this.#buildUserMessage(text, undefined);
+        await pi.sendUserMessage(content, { deliverAs: "followUp" });
+        this.logDebug("hidden-user-sent", { sessionKey, text: text.slice(0, 80) });
+        return true;
+      }
+      return false;
+    } catch (e: any) {
+      this.logDebug("hidden-user-send-error", { sessionKey, error: e?.message || String(e) });
+      return false;
+    }
+  }
+
+  // === A2.11: injectSystemMessage — messaggio di SISTEMA visibile in chat (bubble speciale)
+  // ed entra nel contesto della conversazione (il modello lo vede). Hardcoded, non generato dal modello.
+  async injectSystemMessage(sessionKey: string, text: string): Promise<boolean> {
+    try {
+      if (!this.#active.has(sessionKey)) {
+        await this.#ensureActive(sessionKey);
+      }
+      const pi = this.#active.get(sessionKey);
+      if (pi?.sessionManager && typeof (pi.sessionManager as any)._appendEntry === 'function') {
+        const entry = {
+          type: "message",
+          id: `sys-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          parentId: (pi.sessionManager as any).leafId,
+          timestamp: new Date().toISOString(),
+          message: { role: "system", content: [{ type: "text", text }], timestamp: Date.now() },
+        };
+        (pi.sessionManager as any)._appendEntry(entry);
+        this.logDebug("system-message-injected", { sessionKey, text: text.slice(0, 80) });
+        return true;
+      }
+      const sessionDir = this.#piSessionDir(sessionKey);
+      if (fs.existsSync(sessionDir)) {
+        const files = fs.readdirSync(sessionDir).filter((f: string) => f.endsWith(".jsonl"));
+        if (files.length > 0) {
+          const entry = {
+            type: "message",
+            id: `sys-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            parentId: null,
+            timestamp: new Date().toISOString(),
+            message: { role: "system", content: [{ type: "text", text }], timestamp: Date.now() },
+          };
+          fs.appendFileSync(path.join(sessionDir, files[0]), JSON.stringify(entry) + "\n", "utf8");
+          this.logDebug("system-message-injected-fallback", { sessionKey });
+          return true;
+        }
+      }
+      return false;
+    } catch (e: any) {
+      this.logDebug("system-message-inject-error", { sessionKey, error: e?.message || String(e) });
       return false;
     }
   }
@@ -4287,14 +4378,19 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     } else {
       prompt += `\n\n${lead} in the directory: ${cwd}`;
     }
-    // === Long Horizon phase: nota fase-aware (il modello SA in che fase è e cosa NON deve fare) ===
+    // === Long Horizon: messaggio di SISTEMA (hardcoded, entra nel contesto, non è una bubble) ===
+    // Spiega le fasi + blocca il modello nella fase corrente. Il modello NON può avanzare:
+    // la fase cambia SOLO quando l'utente preme il bottone nella sezione in chat.
     const lhPhase = this.#lhPhase.get(key);
-    if (lhPhase === "discussion") {
-      prompt += `\n\nYou are in the DISCUSSION phase of Long Horizon. You MUST discuss the problem with the user and understand the goal. You MUST NOT execute, create files, or start any work. Only discuss.`;
-    } else if (lhPhase === "planning") {
-      prompt += `\n\nYou are in the PLANNING phase of Long Horizon. You MUST create a plan with the user, divided into units in '- [ ]' format. You MUST NOT execute or start any work. Only plan.`;
-    } else if (lhPhase === "running") {
-      prompt += `\n\nYou are in the EXECUTION phase of Long Horizon. Follow the plan units one at a time. Update handoff.md after each unit and commit to git.`;
+    if (lhPhase) {
+      prompt += `\n\n=== LONG HORIZON MODE ===\nLong Horizon is active for this session. It works in three phases, and you CANNOT advance to the next phase on your own. The user controls the transitions with the buttons in the chat.\n\n1. DISCUSSION: you discuss the problem with the user and understand the goal. You MUST NOT execute, create files, or start any work. Only discuss.\n2. PLANNING: you propose a plan divided into units in '- [ ]' format (one per line). You MUST NOT execute or start any work. Only plan.\n3. START (EXECUTION): you work through the plan units one at a time, autonomously.\n\nYou are currently in the ${lhPhase === "running" ? "EXECUTION" : lhPhase.toUpperCase()} phase.`;
+      if (lhPhase === "discussion") {
+        prompt += ` You MUST discuss the problem with the user and understand the goal. You MUST NOT execute, create files, or start any work. Only discuss.`;
+      } else if (lhPhase === "planning") {
+        prompt += ` You MUST create a plan with the user, divided into units in '- [ ]' format. You MUST NOT execute or start any work. Only plan.`;
+      } else if (lhPhase === "running") {
+        prompt += ` Follow the plan units one at a time. Update handoff.md after each unit and commit to git.`;
+      }
     }
     // === Plan/Build mode: nota mode-aware (il modello sa in che mode è) ===
     const m = mode === "build" ? "build" : "plan";

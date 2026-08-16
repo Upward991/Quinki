@@ -471,6 +471,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   longHorizonSetGoal: async (p) => longHorizon.setGoal(String(p.sessionKey || ''), String(p.goal || '')),
   longHorizonSetPhase: async (p) => longHorizon.setPhase(String(p.sessionKey || ''), String(p.phase || '')),
   longHorizonNewDiscussion: async (p) => longHorizon.newDiscussion(String(p.sessionKey || '')),
+  injectSystemMessage: async (p) => piBridge!.injectSystemMessage(String(p.sessionKey || ''), String(p.text || '')),
   getLongHorizonState: async (p) => longHorizon.getState(String(p.sessionKey || '')),
   getSessionFiles: async (p) => ({ files: longHorizon.getSessionFiles(String(p.sessionKey || '')) }),
   saveSessionFile: async (p) => longHorizon.saveSessionFile(String(p.sessionKey || ''), String(p.name || ''), String(p.content || '')),

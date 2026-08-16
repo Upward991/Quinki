@@ -54,8 +54,27 @@ interface MessageBubbleProps {
 
 export const MessageBubble = memo(function MessageBubble({ message, onCopy, searchQuery, msgIndex, activeMatchMsgIdx, activeMatchOccurrence, isDateMatch }: MessageBubbleProps) {
   if (message.role === 'user') return <UserMessage message={message} onCopy={onCopy} searchQuery={searchQuery} activeOcc={msgIndex === activeMatchMsgIdx ? activeMatchOccurrence : -1} isDateMatch={isDateMatch} />
+  if (message.role === 'system') return <SystemMessage message={message} />
   return <AssistantMessage message={message} onCopy={onCopy} searchQuery={searchQuery} activeOcc={msgIndex === activeMatchMsgIdx ? activeMatchOccurrence : -1} isDateMatch={isDateMatch} />
 })
+
+// ── System message (Long Horizon) ──
+// Bubble speciale: colore UI, delimitata, etichettata "System message".
+// È un messaggio di sistema hardcoded che entra nel contesto della conversazione.
+function SystemMessage({ message }: { message: Message }) {
+  const text = typeof message.content === 'string' ? message.content : ''
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', margin: '10px 0' }}>
+      <div style={{ maxWidth: 'min(560px, 100%)', width: '100%', borderRadius: 'var(--radius-lg)', border: '1px solid var(--q-accent-longhorizon)', backgroundColor: 'color-mix(in srgb, var(--q-accent-longhorizon) 8%, var(--q-bg-panel))', padding: '12px 16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--q-accent-longhorizon)', fontFamily: 'var(--font-interface)' }}>System message</span>
+          <span style={{ flex: 1, height: 1, backgroundColor: 'var(--q-border)' }} />
+        </div>
+        <div style={{ color: 'var(--q-text-secondary)', fontSize: 13, lineHeight: 1.6, fontFamily: 'var(--font-interface)', whiteSpace: 'pre-wrap' }}>{text}</div>
+      </div>
+    </div>
+  )
+}
 
 // ── User message ──
 function UserMessage({ message, onCopy, searchQuery, activeOcc, isDateMatch }: { message: Message; onCopy?: (t: string) => void; searchQuery?: string; activeOcc?: number; isDateMatch?: boolean }) {

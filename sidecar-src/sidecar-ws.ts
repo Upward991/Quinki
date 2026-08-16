@@ -54,7 +54,7 @@ wss.on("connection", (ws) => {
 
 function stderr(msg: string) { process.stderr.write("[sidecar-ws] " + msg + "\n"); }
 
-import('./sidecar.js').then(() => {
+import('./sidecar.ts').then(() => {
   stderr("Sidecar loaded, handleLine=" + typeof (globalThis as any).__quinki_handleLine);
 }).catch((err) => {
   stderr("Import failed: " + err);
