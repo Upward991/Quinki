@@ -8,7 +8,7 @@ import { useState, useRef, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { getContrastColor } from '../../utils/contrast'
 import type { Provider, Agent, ChatMode, ThinkingLevel } from '../../types'
-import { Paperclip, ChevronUp, ChevronDown, Bot, X, Clock, Folder } from '../icons'
+import { Paperclip, ChevronUp, ChevronDown, Bot, X, Clock, Folder, FileText } from '../icons'
 import { SlashMenu, type SlashMenuRef } from './SlashMenu'
 
 export interface Attachment {
@@ -323,6 +323,7 @@ export function Composer(props: ComposerProps) {
           onReAttach={handleReAttach}
           onBack={() => setAttachMenuView('main')}
           onClose={() => { setAttachMenuOpen(false); setAttachMenuView('main') }}
+          onSessionFiles={() => { setAttachMenuOpen(false); setSessionFilesOpen(true) }}
         />
       )}
 
@@ -520,7 +521,7 @@ function SessionFilesModal({ sessionKey, onClose }: { sessionKey: string; onClos
     <div style={{ position: 'fixed', inset: 0, zIndex: 300, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
       <div style={{ backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', width: '640px', maxWidth: '92vw', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
         <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 8, borderBottom: '1px solid var(--q-border)', flexShrink: 0 }}>
-          <ClipboardList size={16} style={{ color: 'var(--q-accent-longhorizon)' }} />
+          <FileText size={16} style={{ color: 'var(--q-accent-longhorizon)' }} />
           <span style={{ color: 'var(--q-text)', fontSize: 15, fontWeight: 600, fontFamily: 'var(--font-interface)' }}>Session files</span>
           <span style={{ flex: 1 }} />
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-secondary)', display: 'flex' }}><X size={18} /></button>
@@ -579,6 +580,7 @@ function AttachMenu({ view, existingFiles, onPickFiles, onOpenFolder, onShowExis
   onReAttach: (file: any) => void
   onBack: () => void
   onClose: () => void
+  onSessionFiles?: () => void
 }) {
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
@@ -591,6 +593,7 @@ function AttachMenu({ view, existingFiles, onPickFiles, onOpenFolder, onShowExis
               <AttachOptionRow icon={<Paperclip size={18} />} label="Attach new file" onClick={onPickFiles} />
               <AttachOptionRow icon={<Clock size={18} />} label="Previously sent" onClick={onShowExisting} />
               <AttachOptionRow icon={<Folder size={18} />} label="Open attachments folder" onClick={onOpenFolder} />
+              {onSessionFiles && <AttachOptionRow icon={<FileText size={18} />} label="Session files (plan, handoff, git)" onClick={onSessionFiles} />}
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '16px 16px 12px 16px' }}>
               <AttachModalBtn label="Cancel" onClick={onClose} danger />
