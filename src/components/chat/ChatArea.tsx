@@ -391,11 +391,6 @@ export function ChatArea(props: ChatAreaProps) {
       <div style={{ marginBottom: '8px', flexShrink: 0 }}>
         <ChatHeader
           longHorizon={props.longHorizon}
-          onRequestPlan={props.onRequestPlan ? () => {
-            const lastUser = [...(props.messages || [])].reverse().find((m: any) => m.role === 'user' && m.content)
-            const goal = lastUser ? (typeof lastUser.content === 'string' ? lastUser.content : '') : ''
-            if (goal) props.onRequestPlan!(goal)
-          } : undefined}
           session={props.session}
           activePanel={props.activePanel}
           onSelectPanel={props.onSelectPanel}
