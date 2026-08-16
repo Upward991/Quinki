@@ -105,6 +105,8 @@ interface ChatAreaProps {
   onRequestPlan?: (text: string) => void
   longHorizonStatus?: string
   onApprovePlan?: () => void
+  onPauseLongHorizon?: () => void
+  onResumeLongHorizon?: () => void
   onRenameSession: (label: string) => void
   onExport: (format?: string) => void
   onReset?: () => void
@@ -514,18 +516,7 @@ export function ChatArea(props: ChatAreaProps) {
                     </div>
                   ))
                 })()}
-                {props.longHorizon && props.longHorizonStatus === 'idle' && !lhApprovalDismissed && (() => {
-                  const lastAsst = [...(props.messages || [])].reverse().find((m: any) => m.role === 'assistant' && m.content)
-                  const planLike = lastAsst && String(typeof lastAsst.content === 'string' ? lastAsst.content : '').includes('- [')
-                  return planLike ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-accent-longhorizon)', backgroundColor: 'rgba(139,127,212,0.08)', marginBottom: '12px' }}>
-                      <span style={{ flex: 1, color: 'var(--q-text)', fontSize: 13, fontFamily: 'var(--font-interface)' }}>Plan proposed.</span>
-                      <button onClick={props.onApprovePlan} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-accent-longhorizon)'; e.currentTarget.style.color = 'var(--q-bg)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-accent-longhorizon)' }}
-                        style={{ padding: '6px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-accent-longhorizon)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-longhorizon)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-interface)' }}>Approve plan</button>
-                      <button onClick={() => setLhApprovalDismissed(true)} title="Dismiss" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-tertiary)', display: 'flex', padding: 4 }}><X size={14} /></button>
-                    </div>
-                  ) : null
-                })()}
+
               </div>
               {/* Task — SEMPRE montato (display none quando il pannello è chiuso) */}
               <div ref={taskScrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '16px 16px', scrollbarGutter: 'stable', display: taskPanelOpen ? 'block' : 'none' }}
@@ -539,13 +530,54 @@ export function ChatArea(props: ChatAreaProps) {
             </div>
             {(taskPanelOpen ? showTaskScrollBtn : showScrollBtn) && (
               <button onClick={() => { const el = taskPanelOpen ? taskScrollRef.current : scrollRef.current; if (el) el.scrollTop = el.scrollHeight }}
-                style={{ position: 'absolute', bottom: (hasTasks ? 44 : 0) + 'px', right: '0px', zIndex: 10, width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--q-tab-accent)', color: getContrastColor('--q-tab-accent'), border: 'none', boxShadow: 'var(--shadow-floating)', cursor: 'pointer' }}>
+                style={{ position: 'absolute', bottom: ((hasTasks ? 44 : 0) + (props.longHorizon ? 58 : 0)) + 'px', right: '0px', zIndex: 10, width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--q-tab-accent)', color: getContrastColor('--q-tab-accent'), border: 'none', boxShadow: 'var(--shadow-floating)', cursor: 'pointer' }}>
                 <ArrowDown size={20} />
               </button>
             )}
             {taskStripBar}
           </div>
 
+          {/* Long Horizon fixed panel (above the textbox) */}
+          {props.longHorizon && (() => {
+            const lastAsst = [...(props.messages || [])].reverse().find((m: any) => m.role === 'assistant' && m.content)
+            const planLike = lastAsst && String(typeof lastAsst.content === 'string' ? lastAsst.content : '').includes('- [')
+            const st = props.longHorizonStatus || 'idle'
+            const isPlanState = st === 'idle' && planLike && !lhApprovalDismissed
+            let title = 'Long Horizon Active'
+            let desc = 'The support agent can guide this session through a plan autonomously. Write your goal, then request a plan.'
+            if (isPlanState) { title = 'Plan proposed'; desc = 'Review the plan above. Approve to start, or keep discussing.' }
+            else if (st === 'running') { title = 'Long Horizon Running'; desc = 'The support agent is working through the plan. You can pause it anytime.' }
+            else if (st === 'paused') { title = 'Long Horizon Paused'; desc = 'You can send messages or steer. Resume to continue the plan.' }
+            else if (st === 'done') { title = 'Long Horizon Complete'; desc = 'The plan is complete. You can disable Long Horizon.' }
+            return (
+              <div style={{ marginTop: 8, padding: '8px 12px', borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-accent-longhorizon)', boxShadow: 'var(--shadow-floating)', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ color: 'var(--q-accent-longhorizon)', fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-interface)' }}>{title}</div>
+                  <div style={{ color: 'var(--q-text-tertiary)', fontSize: 11, fontFamily: 'var(--font-interface)', marginTop: 2, lineHeight: 1.4 }}>{desc}</div>
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                  <button onClick={() => props.onLongHorizon?.(false)} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
+                    style={{ padding: '6px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: 12, fontFamily: 'var(--font-interface)' }}>Disable</button>
+                  {isPlanState ? (
+                    <button onClick={() => setLhApprovalDismissed(true)} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
+                      style={{ padding: '6px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: 12, fontFamily: 'var(--font-interface)' }}>Continue discussing</button>
+                  ) : st === 'running' ? (
+                    <button onClick={props.onPauseLongHorizon} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
+                      style={{ padding: '6px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: 12, fontFamily: 'var(--font-interface)' }}>Pause</button>
+                  ) : st === 'paused' ? (
+                    <button onClick={props.onResumeLongHorizon} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
+                      style={{ padding: '6px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: 12, fontFamily: 'var(--font-interface)' }}>Resume</button>
+                  ) : null}
+                  <button onClick={isPlanState ? props.onApprovePlan : props.onRequestPlan ? () => {
+                    const lastUser = [...(props.messages || [])].reverse().find((m: any) => m.role === 'user' && m.content)
+                    const goal = lastUser ? (typeof lastUser.content === 'string' ? lastUser.content : '') : ''
+                    if (goal) props.onRequestPlan!(goal)
+                  } : undefined} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-accent-longhorizon)'; e.currentTarget.style.color = 'var(--q-bg)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-accent-longhorizon)' }}
+                    style={{ padding: '6px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-accent-longhorizon)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-longhorizon)', fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-interface)' }}>{isPlanState ? 'Approve plan' : st === 'done' ? 'Done' : 'Request plan'}</button>
+                </div>
+              </div>
+            )
+          })()}
           {/* Composer — flexShrink 0 so it stays visible */}
           <div style={{ paddingTop: '8px', flexShrink: 0 }}>
             <Composer

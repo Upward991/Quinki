@@ -466,6 +466,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   // === A2.11: Long Horizon ===
   longHorizonActivate: async (p) => longHorizon.activate(String(p.sessionKey || '')),
   longHorizonDeactivate: async (p) => longHorizon.deactivate(String(p.sessionKey || '')),
+  longHorizonResume: async (p) => longHorizon.resume(String(p.sessionKey || '')),
   longHorizonSetPlan: async (p) => longHorizon.setPlan(String(p.sessionKey || ''), String(p.plan || '')),
   getLongHorizonState: async (p) => longHorizon.getState(String(p.sessionKey || '')),
   getSessionFiles: async (p) => ({ files: longHorizon.getSessionFiles(String(p.sessionKey || '')) }),

@@ -167,6 +167,24 @@ export class LongHorizon {
     return { ok: true };
   }
 
+  // Riprende dopo una pausa: se c'è un piano, torna in running (il tick continua)
+  resume(sk: string): { ok: boolean; error?: string } {
+    const st = this.#states.get(sk);
+    if (!st) return { ok: false, error: "not found" };
+    st.active = true;
+    if (st.units.length > 0 && st.status !== "done") {
+      st.status = "running";
+      st.promptCount = 0;
+    } else {
+      st.status = "idle";
+    }
+    st.lastActivity = Date.now();
+    this.#writeState(sk);
+    this.#writeProgress(sk);
+    this.#log("lh-resumed", { sessionKey: sk, status: st.status });
+    return { ok: true };
+  }
+
   // Imposta il piano (markdown con unità) — chiamato dopo l'approvazione
   setPlan(sk: string, planMd: string): { ok: boolean; error?: string } {
     const st = this.#states.get(sk);
