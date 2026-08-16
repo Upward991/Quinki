@@ -139,15 +139,6 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
     if (!id) return
     doLhAction(id)
   }
-  const lhCmdLabel = (id: string | null) => {
-    if (id === 'requestplan') return 'Request a plan for the goal?'
-    if (id === 'approveplan') return 'Approve the plan and start Long Horizon?'
-    if (id === 'continuediscussing') return 'Continue discussing without starting?'
-    if (id === 'pause') return 'Pause the automatic work?'
-    if (id === 'resume') return 'Resume the plan?'
-    return 'Confirm?'
-  }
-
   // All models grouped by provider
   const allModels = props.providers.flatMap(p => p.models.map(m => ({ id: m.id, name: m.name, contextWindow: m.contextWindow, provider: p.name })))
   const filteredModels = props.filter === '' || mode !== 'model'
