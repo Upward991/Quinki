@@ -2478,10 +2478,21 @@ class PiBridge {
   #getSessionWs(key: string): any {
     const ws = this.#wss.get(key);
     if (ws && ws.readyState === ws.constructor.OPEN) return ws;
+    // Fallback: scrive su stdout nel formato JSON-RPC (method=type) come il FakeWebSocket,
+    // così il frontend (che dispatca su msg.method) riceve gli eventi.
     return {
       readyState: 1,
       constructor: { OPEN: 1 },
-      send: (data: string) => { try { process.stdout.write(data + "\n"); } catch {} },
+      send: (data: string) => {
+        try {
+          const obj = JSON.parse(data);
+          if (obj && typeof obj === "object" && typeof obj.type === "string") {
+            process.stdout.write(JSON.stringify({ jsonrpc: "2.0", method: obj.type, params: obj }) + "\n");
+            return;
+          }
+        } catch {}
+        process.stdout.write(data + "\n");
+      },
     };
   }
 
