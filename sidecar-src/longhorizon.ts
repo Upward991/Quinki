@@ -231,7 +231,7 @@ export class LongHorizon {
       this.#log("lh-phase-planning", { sessionKey: sk, revision: isRevision });
       this.#piBridge?.setLongHorizonPhase(sk, "planning");
       if (isRevision) {
-        this.#sendToSession(sk, `We are in the PLANNING phase. Revise the plan based on our latest discussion. Output the updated plan with units in '- [ ]' format. Do not execute anything.`);
+        this.#sendToSession(sk, `We are in the PLANNING phase. Update the previous plan you were following based on our latest discussion. Keep the units that are still valid, modify the ones that changed, and add new ones if needed. Output the updated plan with units in '- [ ]' format. Do not execute anything.`);
       } else {
         this.#sendToSession(sk, `We are in the PLANNING phase. Propose a plan for the goal we discussed, divided into units in '- [ ]' format. Do not execute anything.`);
       }
