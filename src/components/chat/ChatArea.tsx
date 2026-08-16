@@ -118,6 +118,7 @@ export function ChatArea(props: ChatAreaProps) {
   const [showScrollBtn, setShowScrollBtn] = useState(false)
   const [showTaskScrollBtn, setShowTaskScrollBtn] = useState(false)
   const taskPinnedRef = useRef(true)
+  const [lhApprovalDismissed, setLhApprovalDismissed] = useState(false)
   // Pinned-to-bottom: true finché l'utente è in fondo. Se l'utente sale durante lo
   // streaming, il pin si scioglie e lo scroll automatico si ferma; rientrando in fondo
   // il pin si rinsalda e lo scroll automatico riprende.
@@ -389,6 +390,12 @@ export function ChatArea(props: ChatAreaProps) {
       {/* Header */}
       <div style={{ marginBottom: '8px', flexShrink: 0 }}>
         <ChatHeader
+          longHorizon={props.longHorizon}
+          onRequestPlan={props.onRequestPlan ? () => {
+            const lastUser = [...(props.messages || [])].reverse().find((m: any) => m.role === 'user' && m.content)
+            const goal = lastUser ? (typeof lastUser.content === 'string' ? lastUser.content : '') : ''
+            if (goal) props.onRequestPlan!(goal)
+          } : undefined}
           session={props.session}
           activePanel={props.activePanel}
           onSelectPanel={props.onSelectPanel}
@@ -512,14 +519,15 @@ export function ChatArea(props: ChatAreaProps) {
                     </div>
                   ))
                 })()}
-                {props.longHorizon && props.longHorizonStatus === 'idle' && (() => {
+                {props.longHorizon && props.longHorizonStatus === 'idle' && !lhApprovalDismissed && (() => {
                   const lastAsst = [...(props.messages || [])].reverse().find((m: any) => m.role === 'assistant' && m.content)
                   const planLike = lastAsst && String(typeof lastAsst.content === 'string' ? lastAsst.content : '').includes('- [')
                   return planLike ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-accent-longhorizon)', backgroundColor: 'rgba(139,127,212,0.08)', marginBottom: '12px' }}>
-                      <span style={{ flex: 1, color: 'var(--q-text)', fontSize: 13, fontFamily: 'var(--font-interface)' }}>Plan proposed. Approve to start Long Horizon, or keep discussing.</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-accent-longhorizon)', backgroundColor: 'rgba(139,127,212,0.08)', marginBottom: '12px' }}>
+                      <span style={{ flex: 1, color: 'var(--q-text)', fontSize: 13, fontFamily: 'var(--font-interface)' }}>Plan proposed.</span>
                       <button onClick={props.onApprovePlan} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-accent-longhorizon)'; e.currentTarget.style.color = 'var(--q-bg)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-accent-longhorizon)' }}
-                        style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-accent-longhorizon)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-longhorizon)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-interface)' }}>Approve plan</button>
+                        style={{ padding: '6px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-accent-longhorizon)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-longhorizon)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-interface)' }}>Approve plan</button>
+                      <button onClick={() => setLhApprovalDismissed(true)} title="Dismiss" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-tertiary)', display: 'flex', padding: 4 }}><X size={14} /></button>
                     </div>
                   ) : null
                 })()}

@@ -13,6 +13,8 @@ interface ChatHeaderProps {
   onSelectPanel: (panel: string) => void
   homeIcon?: 'home' | 'agent-task'
   onHomeClick?: () => void
+  longHorizon?: boolean
+  onRequestPlan?: () => void
   sidebarOpen: boolean
   onToggleSidebar: () => void
   hideSidebarToggle?: boolean
@@ -115,6 +117,16 @@ export function ChatHeader(props: ChatHeaderProps) {
           <>
             <div style={panelStyle}>
               <IconBtn icon={props.homeIcon === 'agent-task' ? Checklist : Home} onClick={() => props.homeIcon === 'agent-task' ? (props.onHomeClick ? props.onHomeClick() : props.onSelectPanel('home')) : props.onSelectPanel('home')} title={props.homeIcon === 'agent-task' ? 'Back to Agents Tasks' : 'Home'} />
+            </div>
+            <div style={{ width: '8px', flexShrink: 0 }} />
+          </>
+        )}
+
+        {/* Long Horizon: Request plan button */}
+        {props.longHorizon && props.onRequestPlan && (
+          <>
+            <div style={panelStyle}>
+              <IconBtn icon={Checklist} onClick={props.onRequestPlan} title="Request plan" />
             </div>
             <div style={{ width: '8px', flexShrink: 0 }} />
           </>
