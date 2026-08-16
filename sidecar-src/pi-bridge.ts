@@ -2652,6 +2652,24 @@ class PiBridge {
     } catch {}
   }
 
+  // === Long Horizon: legge gli ultimi tool call della sessione (per rilevare loop per PATTERN) ===
+  getRecentToolCalls(key: string, limit = 12): { name: string; args: string }[] {
+    const out: { name: string; args: string }[] = [];
+    try {
+      const hist = this.getHistory(key);
+      if (Array.isArray(hist)) {
+        for (const m of hist) {
+          if (m.role === "tool_call" && m.toolName) {
+            let args = "";
+            try { args = JSON.stringify(m.toolArgs || {}); } catch {}
+            out.push({ name: m.toolName, args });
+          }
+        }
+      }
+    } catch {}
+    return out.slice(-limit);
+  }
+
   getEffectiveCwd(key: string): string {
     return this.#cwdOverride.get(key) ?? (this.#entries.get(key) as any)?.workingDir ?? this.#cwd;
   }

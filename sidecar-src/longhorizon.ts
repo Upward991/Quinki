@@ -47,6 +47,12 @@ ALWAYS remember:
 - When done: run the tests, and move on ONLY if everything works
 - Then: git commit 'unit-{n}: after'
 
+BE SKEPTICAL ABOUT YOUR OWN WORK:
+- Do not claim the unit is done until you have PROVEN it works: run the code, run the tests, check the output.
+- Verify you actually did what the plan says — not something similar, not a shortcut.
+- Test multiple times, including edge cases. If something fails, fix it and test again.
+- If you are stuck repeating the same action, stop and take a different approach.
+
 Reply when you have completed the unit.`;
 
 const STUCK_MESSAGE = `What are you doing? You are going in circles: you repeated the same actions without updating handoff.md. Stop, re-read the current unit, and restart with a different approach. Update handoff.md as soon as you make progress.`;
@@ -492,6 +498,25 @@ export class LongHorizon {
     }
 
     if (st.status !== "running") return;
+
+    // === Rilevamento loop per PATTERN (non per tempo): legge gli ultimi tool call della sessione.
+    // Se lo stesso tool con gli stessi argomenti si ripete 3+ volte, è un loop → interviene. ===
+    try {
+      const tcs = this.#piBridge?.getRecentToolCalls?.(sk, 12) || [];
+      if (tcs.length >= 3) {
+        const last = tcs[tcs.length - 1];
+        const count = tcs.filter((t: any) => t.name === last.name && t.args === last.args).length;
+        if (count >= 3) {
+          this.#log("lh-loop-pattern", { sessionKey: sk, tool: last.name, count });
+          try { this.#piBridge?.abort?.(sk); } catch {}
+          this.#sendToSession(sk, `I notice you are repeating the same action (${last.name}) with the same arguments. This looks like a loop. Stop, re-read the current unit and the handoff, and take a different approach. Update handoff.md as soon as you make progress.`);
+          st.promptCount = 0;
+          st.lastHandoffSig = this.#handoffSig(sk);
+          this.#writeState(sk);
+          return;
+        }
+      }
+    } catch (e: any) { this.#log("lh-loop-pattern-error", { sessionKey: sk, error: e?.message }); }
 
     // Se la sessione sta ancora generando (streaming attivo) → aspetta
     try {
