@@ -4428,10 +4428,15 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       }
     }
     // === Plan/Build mode: nota mode-aware (il modello sa in che mode è) ===
-    const m = mode === "build" ? "build" : "plan";
-    // Check if this agent has delegate_to_agent tool (orchestrator or agent with it in config)
-    const hasDelegate = !!(agentId && (agentId === 'orchestrator' || (this.#readAgentConfigFile(agentId)?.tools?.includes('delegate_to_agent'))));
-    prompt += this.#modeNote(m, hasDelegate);
+    // In Long Horizon la nota plan/build NON viene aggiunta: il prompt di fase LH è sufficiente,
+    // altrimenti il modello si confonderebbe pensando di essere in troppe modalità contemporaneamente.
+    const lhPhaseNow = this.#lhPhase.get(key);
+    if (!lhPhaseNow) {
+      const m = mode === "build" ? "build" : "plan";
+      // Check if this agent has delegate_to_agent tool (orchestrator or agent with it in config)
+      const hasDelegate = !!(agentId && (agentId === 'orchestrator' || (this.#readAgentConfigFile(agentId)?.tools?.includes('delegate_to_agent'))));
+      prompt += this.#modeNote(m, hasDelegate);
+    }
     // === Orchestrator: aggiungi lista agenti disponibili nella chat ===
     // Check: agentId could be 'orchestrator' (from setAgent) OR contain it
     // (e.g. 'agent-123,orchestrator' from session entry, before setAgent is processed)
