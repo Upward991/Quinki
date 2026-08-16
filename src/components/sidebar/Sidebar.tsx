@@ -63,6 +63,7 @@ export function Sidebar(props: SidebarProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [bottomDropActive, setBottomDropActive] = useState(false)
   const [delConfirm, setDelConfirm] = useState<any>(null)
+  const [delConfirmMulti, setDelConfirmMulti] = useState(false)
   const [renaming, setRenaming] = useState<string | null>(null)
   const [renameVal, setRenameVal] = useState('')
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(() => {
@@ -460,7 +461,7 @@ export function Sidebar(props: SidebarProps) {
           onNewSubfolder={() => { props.onCreateFolder?.(contextMenu.item.id); setContextMenu(null) }}
           onDeleteFolder={(withContents: boolean) => { props.onDeleteFolder?.(contextMenu.item.id, withContents); setContextMenu(null) }}
           onDeselectAll={() => { setMultiSelect(false); setSelected(new Set()); setContextMenu(null) }}
-          onDeleteSelected={() => { a?.(e.filter(s => !selected.has(s.id))); setMultiSelect(false); setSelected(new Set()); setContextMenu(null) }}
+          onDeleteSelected={() => { setDelConfirmMulti(true); setContextMenu(null) }}
         />
       )}
 
@@ -471,6 +472,14 @@ export function Sidebar(props: SidebarProps) {
           subtitle={delConfirm.type === 'folder' ? 'Chats inside will be moved to the parent level.' : `${delConfirm.title} will be permanently deleted.`}
           onCancel={() => { setDelConfirm(null); setContextMenu(null) }}
           onConfirm={() => doDelete(delConfirm)}
+        />
+      )}
+      {delConfirmMulti && (
+        <ConfirmModal
+          title={`Delete ${selected.size} chat${selected.size > 1 ? 's' : ''}?`}
+          subtitle={`${selected.size} chat${selected.size > 1 ? 's' : ''} will be permanently deleted.`}
+          onCancel={() => { setDelConfirmMulti(false); setContextMenu(null) }}
+          onConfirm={() => { a?.(e.filter(s => !selected.has(s.id))); setMultiSelect(false); setSelected(new Set()); setDelConfirmMulti(false); setContextMenu(null) }}
         />
       )}
     </div>
