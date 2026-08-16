@@ -1442,7 +1442,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     // Attachments
     saveAttachments, loadAttachments,
     // Other
-    steer, call, notify,
+    steer, call, notify, subscribe,
   }
 }
 
