@@ -101,7 +101,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
       if (props.longHorizonPlanProposed) return [{ id: 'approveplan', label: '/approve plan', description: 'Approve the proposed plan and start' }, { id: 'continuediscussing', label: '/continue discussing', description: 'Keep discussing without starting' }]
       return [{ id: 'requestplan', label: '/request plan', description: 'Propose a plan for the goal' }]
     })()
-    return [...base, { id: 'longhorizon', label: '/longhorizon', description: 'Disable Long Horizon and restore normal commands' }]
+    return [...base, { id: 'disable', label: '/disable', description: 'Disable Long Horizon and restore normal commands' }]
   })() : commands
   const filteredCommands = visibleCommands.filter(cmd => cmd.id.includes(props.filter.toLowerCase()))
   const executeLhCommand = (id: string) => {
@@ -110,7 +110,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
     else if (id === 'continuediscussing') { props.onContinueDiscussing?.(); props.onClose() }
     else if (id === 'pause') { props.onPauseLongHorizon?.(); props.onClose() }
     else if (id === 'resume') { props.onResumeLongHorizon?.(); props.onClose() }
-    else if (id === 'longhorizon') { setMode('longhorizon'); setFocusConfirm(false) }
+    else if (id === 'disable') { setMode('longhorizon'); setFocusConfirm(false) }
   }
 
   // All models grouped by provider
@@ -142,7 +142,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
   const confirm = () => {
     if (mode === 'model') props.onSelectModel(pendingModel)
     else if (mode === 'thinking') props.onSelectThinking(pendingThinking)
-    else if (mode === 'longhorizon') props.onLongHorizon?.(selectedIdx === 0)
+    else if (mode === 'longhorizon') props.onLongHorizon?.(!props.longHorizonActive)
     props.onClose()
   }
 
@@ -390,42 +390,37 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
         </>
       )}
 
-      {/* Long Horizon mode — two options + native Confirm */}
+      {/* Long Horizon mode — single confirm (Activate or Disable depending on state) */}
       {mode === 'longhorizon' && (
-        <>
-          <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
-            <div style={{ padding: '8px 16px 4px 16px', color: 'var(--q-text)', fontSize: '14px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>
-              Long Horizon
-            </div>
-            <div style={{ padding: '0 16px 6px 16px', color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', lineHeight: 1.5 }}>
-              Long Horizon makes the session work autonomously through a plan (hours/days, no prompts needed). The support agent reads the plan and handoff files, sends "continue" prompts as user bubbles, commits progress to git, and stops if it detects loops. The mode toggle stays locked until you disable it. You can always STOP or STEER.
-              {'\n\n'}When Long Horizon is active, the normal slash commands (model, thinking, skill, attachments, ...) are disabled. You can only use the Long Horizon slash commands: /request plan, /approve plan, /continue discussing, /pause, /resume. To restore the normal commands, disable Long Horizon with /longhorizon.
-            </div>
-            <MenuItem
-              label="Enable Long Horizon"
-              isSelected={selectedIdx === 0}
-              isChecked={props.longHorizonActive}
-              onHover={() => setSelectedIdx(0)}
-              onTap={() => { setSelectedIdx(0); setFocusConfirm(true) }}
+        <div style={{ padding: '12px 16px' }}>
+          <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', marginBottom: '4px' }}>
+            {props.longHorizonActive ? 'Disable Long Horizon?' : 'Activate Long Horizon?'}
+          </div>
+          <div style={{ color: 'var(--q-text-secondary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginBottom: '8px', lineHeight: 1.5 }}>
+            {props.longHorizonActive
+              ? 'The support agent will stop guiding the session and the normal slash commands will be restored.'
+              : 'Long Horizon makes the session work autonomously through a plan. The support agent reads the plan and handoff files, sends "continue" prompts as user bubbles, commits progress to git, and stops if it detects loops. When active, the normal slash commands are disabled — you can only use the Long Horizon commands (/request plan, /approve plan, /continue discussing, /pause, /resume).'}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', padding: '4px 0 10px 0' }}>
+            <HoverTextBtn
+              label="Cancel"
+              onClick={() => setMode('main')}
+              textColor="var(--q-accent-danger)"
+              hoverTextColor="var(--q-accent-danger)"
+              hoverBg="rgba(255,255,255,0.06)"
             />
-            <MenuItem
-              label="Disable Long Horizon"
-              isSelected={selectedIdx === 1}
-              isChecked={!props.longHorizonActive && false}
-              onHover={() => setSelectedIdx(1)}
-              onTap={() => { setSelectedIdx(1); setFocusConfirm(true) }}
+            <HoverTextBtn
+              label={props.longHorizonActive ? 'Disable' : 'Activate'}
+              highlighted={focusConfirm}
+              onClick={() => { props.onLongHorizon?.(!props.longHorizonActive); props.onClose() }}
+              borderColor="var(--q-accent-longhorizon)"
+              textColor="var(--q-accent-longhorizon)"
+              hoverTextColor="var(--q-bg)"
+              hoverBg="var(--q-accent-longhorizon)"
+              fontWeight={600}
             />
           </div>
-          <NavBar
-            focusConfirm={focusConfirm}
-            onUp={() => { setSelectedIdx(i => (i - 1 + 2) % 2); setFocusConfirm(false) }}
-            onDown={() => { setSelectedIdx(i => (i + 1) % 2); setFocusConfirm(false) }}
-            onLeft={() => enterMode('main')}
-            onRight={() => { setFocusConfirm(true) }}
-            onConfirm={confirm}
-            onClose={props.onClose}
-          />
-        </>
+        </div>
       )}
 
       {/* Skill mode — grouped by agent */}
