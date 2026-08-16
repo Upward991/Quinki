@@ -834,6 +834,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     let optsAttachments: any[] | undefined
     let optsTaskClips: any[] | undefined
     let optsChatAgents: string[] | undefined
+    let optsCompactionAuto: boolean | null | undefined
     if (typeof sessionKeyOrOpts === 'string') { sk = sessionKeyOrOpts; ag = agents }
     else if (sessionKeyOrOpts && typeof sessionKeyOrOpts === 'object') { sk = activeSessionId || undefined; ag = sessionKeyOrOpts.agentId ? [sessionKeyOrOpts.agentId] : undefined; if (sessionKeyOrOpts.model) optsModel = sessionKeyOrOpts.model; if (sessionKeyOrOpts.mode) optsMode = sessionKeyOrOpts.mode; if (sessionKeyOrOpts.thinkingLevel) optsThinking = sessionKeyOrOpts.thinkingLevel; if (sessionKeyOrOpts.skillNames) optsSkills = sessionKeyOrOpts.skillNames; if (sessionKeyOrOpts.attachments) optsAttachments = sessionKeyOrOpts.attachments; if (sessionKeyOrOpts.taskClips) optsTaskClips = sessionKeyOrOpts.taskClips; if (sessionKeyOrOpts.chatAgentIds) optsChatAgents = sessionKeyOrOpts.chatAgentIds; if (typeof sessionKeyOrOpts.compactionAuto === 'boolean') optsCompactionAuto = sessionKeyOrOpts.compactionAuto }
     if (!ready) return
@@ -872,6 +873,9 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
             const allAgents = (optsChatAgents && optsChatAgents.length > 0) ? optsChatAgents : (ag && ag.length > 0 ? ag : []);
             if (allAgents.length > 0) {
               try { await call('setChatAgents', { sessionKey: sk, agentIds: allAgents.join(',') }) } catch {}
+            }
+            if (typeof optsCompactionAuto === 'boolean') {
+              try { await call('setSessionCompaction', { sessionKey: sk, auto: optsCompactionAuto, threshold: 80 }) } catch {}
             }
             try {
               const r = await call('getFullState', {})
