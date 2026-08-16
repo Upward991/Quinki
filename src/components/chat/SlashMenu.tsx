@@ -95,10 +95,13 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
     { id: 'resume', label: '/resume', description: 'Resume the plan' },
   ]
   const visibleCommands: Command[] = props.longHorizonActive ? (() => {
-    if (props.longHorizonStatus === 'running') return [{ id: 'pause', label: '/pause', description: 'Pause the automatic work' }]
-    if (props.longHorizonStatus === 'paused') return [{ id: 'resume', label: '/resume', description: 'Resume the plan' }]
-    if (props.longHorizonPlanProposed) return [{ id: 'approveplan', label: '/approve plan', description: 'Approve the proposed plan and start' }, { id: 'continuediscussing', label: '/continue discussing', description: 'Keep discussing without starting' }]
-    return [{ id: 'requestplan', label: '/request plan', description: 'Propose a plan for the goal' }]
+    const base: Command[] = (() => {
+      if (props.longHorizonStatus === 'running') return [{ id: 'pause', label: '/pause', description: 'Pause the automatic work' }]
+      if (props.longHorizonStatus === 'paused') return [{ id: 'resume', label: '/resume', description: 'Resume the plan' }]
+      if (props.longHorizonPlanProposed) return [{ id: 'approveplan', label: '/approve plan', description: 'Approve the proposed plan and start' }, { id: 'continuediscussing', label: '/continue discussing', description: 'Keep discussing without starting' }]
+      return [{ id: 'requestplan', label: '/request plan', description: 'Propose a plan for the goal' }]
+    })()
+    return [...base, { id: 'longhorizon', label: '/longhorizon', description: 'Disable Long Horizon and restore normal commands' }]
   })() : commands
   const filteredCommands = visibleCommands.filter(cmd => cmd.id.includes(props.filter.toLowerCase()))
   const executeLhCommand = (id: string) => {
@@ -107,6 +110,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
     else if (id === 'continuediscussing') { props.onContinueDiscussing?.(); props.onClose() }
     else if (id === 'pause') { props.onPauseLongHorizon?.(); props.onClose() }
     else if (id === 'resume') { props.onResumeLongHorizon?.(); props.onClose() }
+    else if (id === 'longhorizon') { setMode('longhorizon'); setFocusConfirm(false) }
   }
 
   // All models grouped by provider
