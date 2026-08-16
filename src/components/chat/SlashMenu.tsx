@@ -126,6 +126,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
     if (id === 'longhorizon') return 'Activate Long Horizon?'
     return 'Confirm?'
   }
+  const directCmdIds = new Set(['longhorizon', 'disable', 'requestplan', 'approveplan', 'continuediscussing', 'pause', 'resume'])
   const executeLhCommand = (id: string) => {
     // Niente secondo menu: usa il Confirm NATIVO. L'avanti evidenzia il Confirm, invio esegue.
     setFocusConfirm(true)
