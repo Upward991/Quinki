@@ -143,6 +143,7 @@ class PiBridge {
   #firstUserText = new Map<string, string>(); // primo msg utente per auto-title
   #active = new Map<string, any>();
   #lhPhase = new Map<string, string>();
+  #bashReadonlySessions = new Set<string>();
   #mcpClients = new Map<string, StdioMcpClient>();  // chiave `${sessionKey}:${serverId}`
   #mcpToolNames = new Map<string, { name: string; serverId: string }[]>();  // per sessione: tool MCP per applyMode (plan/build)
   #mcpSig = new Map<string, string>();  // firma mcpServers con cui è stata costruita la sessione (auto-diff)
@@ -2545,6 +2546,25 @@ class PiBridge {
     }
   }
 
+  // === Bash read-only: rileva comandi che modificano/eseguono (bloccati in read-only mode) ===
+  #isWriteCommand(cmd: string): boolean {
+    if (!cmd) return false;
+    const c = cmd.trim();
+    // Redirezione di scrittura
+    if (/>>|>|2>|2>>/.test(c) && !/grep|cat|head|tail|diff|sort|uniq|wc|find|ls/.test(c.split(/[>]/)[0] || "")) return true;
+    // Comandi di modifica/creazione/eliminazione
+    if (/\b(rm|rmdir|mv|cp|mkdir|touch|chmod|chown|ln|truncate|dd|tee)\b/.test(c)) return true;
+    // Editor / scrittura
+    if (/\b(nano|vim|vi|emacs|sed -i|perl -i|python3?\s+-c|node\s+-e|ruby\s+-e)\b/.test(c)) return true;
+    // Installazione / esecuzione di comandi esterni
+    if (/\b(curl|wget|npm\s+(install|run|start|build|publish)|yarn\s+(add|install|run)|pnpm\s+(add|install|run)|pip\s+install|pip3\s+install|brew\s+install|apt(-get)?\s+install|git\s+(add|commit|push|init|reset|revert|checkout\s+-b|merge|rebase|clone))\b/.test(c)) return true;
+    // Processi / kill
+    if (/\b(kill|pkill|killall|nohup|daemonize|launchctl|systemctl|service)\b/.test(c)) return true;
+    // Script di build
+    if (/\b(build|deploy|make|cmake|gradle|mvn|docker\s+(build|run|compose))\b/.test(c)) return true;
+    return false;
+  }
+
   #captureSessionMeta(key: string) {
     const s = this.#entries.get(key);
     const pi = this.#active.get(key);
@@ -2866,7 +2886,7 @@ class PiBridge {
       const file = path.join(this.#agentDir, "quinki-global.json");
       if (fs.existsSync(file)) return JSON.parse(fs.readFileSync(file, "utf8"));
     } catch {}
-    return { tools: ["read", "grep", "find", "ls", "skill"], planModeTools: { read: true, grep: true, find: true, ls: true, skill: true, write: false, edit: false, bash: false }, defaultMode: "plan" };
+    return { tools: ["read", "grep", "find", "ls", "skill"], planModeTools: { read: true, grep: true, find: true, ls: true, skill: true, write: false, edit: false, bash: false, bash_readonly: false }, defaultMode: "plan" };
   }
 
   #readAgentConfigFile(agentId: string): any | null {
@@ -2977,6 +2997,16 @@ class PiBridge {
       if (m === "plan") {
         const planFlags = globalConfig.planModeTools || {};
         names = names.filter(n => planFlags[n] !== false || customToolNames.includes(n));
+        // bash_readonly: se l'agente ha bash_readonly E planModeTools.bash_readonly è true,
+        // aggiungi bash (tool SDK) con restrizione read-only (solo comandi di lettura)
+        if (planFlags.bash_readonly === true && merged.includes("bash_readonly")) {
+          if (!names.includes("bash")) names.push("bash");
+          this.#bashReadonlySessions.add(key);
+        } else {
+          this.#bashReadonlySessions.delete(key);
+        }
+      } else {
+        this.#bashReadonlySessions.delete(key);
       }
       // MCP: in Build mode tutti i tool dei server assegnati; in Plan mode solo i tool
       // dei server abilitati globalmente nella sezione Plan mode (planModeMcp, vale per tutti gli agenti).
@@ -4784,8 +4814,12 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       }
 
       // === Apply Plan/Build mode (pending or saved, default build) ===
+      // Long Horizon: discussion/planning FORZA plan mode, running FORZA build mode.
       const pendingMode = this.#pendingMode.get(sk);
-      const intendedMode = pendingMode || (s ?? this.#entries.get(sk))?.mode || "plan";
+      const lhPhaseNow = this.#lhPhase.get(sk);
+      let intendedMode = pendingMode || (s ?? this.#entries.get(sk))?.mode || "plan";
+      if (lhPhaseNow === "discussion" || lhPhaseNow === "planning") intendedMode = "plan";
+      else if (lhPhaseNow === "running") intendedMode = "build";
       this.#pendingMode.delete(sk);
       try { this.#applyMode(pi, sk, intendedMode, data.workingDirs, effectiveCwd, !!(resolvedAgentId && (resolvedAgentId === 'orchestrator' || this.#readAgentConfigFile(resolvedAgentId)?.tools?.includes('delegate_to_agent')))); this.logDebug("mode-applied-send", { sessionKey: sk, mode: intendedMode }); }
       catch (e: any) { this.logDebug("mode-apply-error", { sessionKey: sk, error: e?.message }); }
@@ -5291,6 +5325,26 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
   }
 
   #listen(pi: any, key: string) {
+    // === Bash read-only: se la sessione è in modalità bash_readonly, blocca i comandi di scrittura ===
+    if (this.#bashReadonlySessions.has(key)) {
+      try {
+        const origBefore = pi.agent?.beforeToolCall;
+        pi.agent.beforeToolCall = async ({ toolCall, args }: any) => {
+          if (toolCall?.name === "bash" || toolCall?.name === "shell") {
+            const cmd = String((args as any)?.command || (args as any)?.cmd || (args as any)?.script || "").trim();
+            if (this.#isWriteCommand(cmd)) {
+              const ws2 = this.#wss.get(key);
+              try { this.#sendToWs(ws2, { type: "tool_call", sessionKey: key, toolCallId: toolCall.id, toolName: toolCall.name, toolArgs: args, ts: Date.now() }); } catch {}
+              this.logDebug("bash-readonly-blocked", { sessionKey: key, cmd: cmd.slice(0, 120) });
+              return { content: [{ type: "text", text: `[Bash read-only] This command is not allowed in read-only mode because it modifies or executes something. Use read-only commands (ls, cat, grep, find, pwd, head, tail, wc, diff, git status, git log, git diff).` }], isError: true };
+            }
+          }
+          if (origBefore) return origBefore({ toolCall, args });
+          return undefined;
+        };
+      } catch (e: any) { this.logDebug("bash-readonly-hook-error", { sessionKey: key, error: e?.message || String(e) }); }
+    }
+
     const old = this.#unsubs.get(key);
     if (old) { try { old(); } catch {} }
 

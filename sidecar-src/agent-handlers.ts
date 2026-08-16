@@ -23,7 +23,7 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
     } catch {}
     return {
       tools: ["read", "grep", "find", "ls", "skill"],
-      planModeTools: { read: true, grep: true, find: true, ls: true, skill: true, write: false, edit: false, bash: false },
+      planModeTools: { read: true, grep: true, find: true, ls: true, skill: true, write: false, edit: false, bash: false, bash_readonly: false },
       skills: [],
       defaultMode: "plan",
     };
@@ -463,6 +463,7 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
         { name: "write", description: "Write/create files", readOnly: false },
         { name: "edit", description: "Edit existing files", readOnly: false },
         { name: "bash", description: "Execute shell commands", readOnly: false },
+        { name: "bash_readonly", description: "Execute read-only shell commands (no writes, no modifications)", readOnly: true },
         { name: "grep", description: "Search file contents", readOnly: true },
         { name: "find", description: "Find files by name/pattern", readOnly: true },
         { name: "ls", description: "List directory contents", readOnly: true },
