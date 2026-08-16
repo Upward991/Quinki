@@ -235,6 +235,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
     navRight: () => {
       if (mode === 'main') {
         const cmd = filteredCommands[selectedIdx]
+        if (props.longHorizonActive && cmd) { executeLhCommand(cmd.id); return }
         if (cmd?.id === 'reset') setMode('reset_confirm')
         else if (cmd) enterMode(cmd.id as Mode)
       } else if (mode === 'model') {
