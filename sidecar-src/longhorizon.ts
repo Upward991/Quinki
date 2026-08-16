@@ -155,8 +155,10 @@ export class LongHorizon {
     this.#writeProgress(sk);
     this.#log("lh-activated", { sessionKey: sk });
     this.#piBridge?.setLongHorizonPhase(sk, "discussion");
-    // Messaggio di SISTEMA (hardcoded, sempre uguale): bubble speciale in chat + entra nel contesto.
-    try { await this.#piBridge?.injectSystemMessage(sk, `Long Horizon is now active for this session. It is a guided, phase-based working mode: the conversation moves through three phases, and you (the model) CANNOT advance to the next phase on your own. The user controls every transition with the buttons that appear in the chat.\n\nPHASE 1 — DISCUSSION (automatic, starts now)\nWe discuss the problem together to understand the goal, the constraints, and the approach. You MUST NOT execute, create files, or start any work. Only discuss and ask clarifying questions.\n\nPHASE 2 — PLANNING\nWhen the user is satisfied with the discussion, they press "Proceed to planning". You then propose a concrete plan divided into units, one per line, in '- [ ]' format. You MUST NOT execute or start any work. Only plan.\n\nPHASE 3 — START (EXECUTION)\nWhen the user presses "Start", you create the final plan and the support files, then work through the plan units one at a time, autonomously. You update handoff.md after each unit and commit progress to git.\n\nRULES\n- You are always in exactly one phase. The phase is stated in your system prompt.\n- You cannot change the phase. Only the user can, via the buttons in the chat.\n- During DISCUSSION and PLANNING you must never execute anything.\n- During EXECUTION you work autonomously but you still cannot skip phases or change the mode.\n\nThe first phase (DISCUSSION) starts now. Tell me the problem you want to work on.`); } catch {}
+    // Messaggio di SISTEMA per l'UTENTE (hardcoded, sempre uguale): UI-only, NON entra nel contesto del modello.
+    st.systemMessage = `Long Horizon is now active for this session. It is a guided, phase-based working mode. The conversation moves through three phases, and you control every transition with the buttons that appear in the chat.\n\nPHASE 1 — DISCUSSION (automatic, starts now)\nYou and the agent discuss the problem together to understand the goal, the constraints, and the approach. The agent can examine files and options, but it MUST NOT execute, modify, or build anything.\n\nPHASE 2 — PLANNING\nWhen you are satisfied with the discussion, press "Proceed to planning". The agent proposes a concrete plan divided into units, one per line, in '- [ ]' format. You can keep discussing and adding things. The agent still MUST NOT execute anything.\n\nPHASE 3 — START (EXECUTION)\nWhen you press "Start", the agent creates the final plan and the support files, then works through the plan units one at a time, autonomously. It updates handoff.md after each unit and commits progress to git.\n\nRULES\n- The agent is always in exactly one phase and cannot change it on its own.\n- Only you can advance the phases, with the buttons in the chat.\n- During DISCUSSION and PLANNING the agent never executes anything.\n- During EXECUTION the agent works autonomously.\n\nThe first phase (DISCUSSION) starts now. Tell the agent the problem you want to work on.`;
+    this.#writeState(sk);
+    return { ok: true };
     return { ok: true };
   }
 
@@ -369,6 +371,7 @@ export class LongHorizon {
       promptCount: st.promptCount,
       startedAt: st.startedAt,
       lastActivity: st.lastActivity,
+      systemMessage: st.systemMessage || "",
     };
   }
 

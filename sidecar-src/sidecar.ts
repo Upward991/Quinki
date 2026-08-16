@@ -603,6 +603,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
 
   // === P3: metodi IPC mancanti (settings/providers/attachments/folders/update/preflight) ===
   getSettings: async () => getSettings(),
+  setSettings: async (p) => { writeSettings({ ...readSettings(), ...(p || {}) }); return getSettings(); },
   saveSettings: async (p) => {
     try {
       fs.mkdirSync(path.dirname(settingsFile), { recursive: true });

@@ -5006,6 +5006,23 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       });
     }
 
+    // === AUTO-COMPACTION: se il contesto SUPERA la soglia (es. > 80%), compatta PRIMA del turno ===
+    try {
+      const sEntry2 = this.#entries.get(sk);
+      const auto2 = (sEntry2 as any)?.compactionAuto ?? true;
+      if (auto2 && !this.#compactingSessions.has(sk)) {
+        const threshold2 = (sEntry2 as any)?.compactionThreshold ?? 80;
+        const u2 = this.getContextUsage(sk);
+        const pct2 = u2?.percent ?? (u2?.tokens != null && u2.contextWindow > 0 ? (u2.tokens / u2.contextWindow) * 100 : null);
+        if (pct2 != null && pct2 > threshold2) {
+          this.logDebug("auto-compaction-trigger", { sessionKey: sk, percent: pct2, threshold: threshold2 });
+          await this.compact(sk, ws);
+        }
+      }
+    } catch (e: any) {
+      this.logDebug("auto-compaction-error", { sessionKey: sk, error: e?.message || String(e) });
+    }
+
     const next = prev.then(() => pi.sendUserMessage(content, { deliverAs: "followUp" })).catch((err: Error) => {
       this.logDebug("send-user-message-error", { sessionKey: sk, message: err?.message, name: err?.name, stack: err?.stack?.slice(0, 600) });
       ws.send(JSON.stringify({ type: "error", message: err.message, sessionKey: sk }));
@@ -5274,6 +5291,26 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
   }
 
   #listen(pi: any, key: string) {
+    // === Long Horizon: blocco REALE dei tool di scrittura/esecuzione in discussion/planning ===
+    // Il modello può leggere (read/grep/find/ls/skill) ma NON scrivere/modificare/eseguire.
+    try {
+      const origBefore = pi.agent?.beforeToolCall;
+      pi.agent.beforeToolCall = async ({ toolCall, args }: any) => {
+        const phase = this.#lhPhase.get(key);
+        if (phase === "discussion" || phase === "planning") {
+          const blocked = ["write", "edit", "bash", "patch", "apply_patch"];
+          if (blocked.includes(toolCall?.name)) {
+            const ws2 = this.#wss.get(key);
+            try { this.#sendToWs(ws2, { type: "tool_call", sessionKey: key, toolCallId: toolCall.id, toolName: toolCall.name, toolArgs: args, ts: Date.now() }); } catch {}
+            this.logDebug("lh-tool-blocked", { sessionKey: key, tool: toolCall?.name, phase });
+            return { content: [{ type: "text", text: `[Blocked by Long Horizon] The tool "${toolCall?.name}" is disabled in the ${phase.toUpperCase()} phase. You can only read files and discuss. Execution starts when the user presses Start.` }], isError: true };
+          }
+        }
+        if (origBefore) return origBefore({ toolCall, args });
+        return undefined;
+      };
+    } catch (e: any) { this.logDebug("lh-tool-hook-error", { sessionKey: key, error: e?.message || String(e) }); }
+
     const old = this.#unsubs.get(key);
     if (old) { try { old(); } catch {} }
 

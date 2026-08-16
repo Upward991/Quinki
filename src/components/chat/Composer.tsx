@@ -811,7 +811,7 @@ function ModeButton({ mode, onChange, longHorizon }: { mode: ChatMode; onChange:
           transform: hovered ? 'scale(1.02)' : 'scale(1)', borderRadius: 'var(--radius-md)',
           border: 'none', cursor: 'default',
           backgroundColor: hovered ? 'var(--q-hover)' : 'transparent',
-          color: 'var(--q-text-secondary)',
+          color: 'var(--q-accent-longhorizon)',
           fontWeight: 700, fontSize: '13px', fontFamily: 'var(--font-interface)', lineHeight: '1',
           flexShrink: 0,
           transition: 'none',

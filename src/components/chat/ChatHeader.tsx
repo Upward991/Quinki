@@ -34,6 +34,8 @@ interface ChatHeaderProps {
   agentOverrides?: Record<string, { model?: string; thinkingLevel?: string }>
   onSetAgentOverride?: (agentId: string, overrides: { model?: string | null; thinkingLevel?: string | null }) => void
   onCompact?: () => void
+  compactionAuto?: boolean
+  onCompactionChange?: (auto: boolean) => void
   onReload?: () => void
   searchQuery?: string
   onSearchQueryChange?: (q: string) => void
@@ -170,7 +172,7 @@ export function ChatHeader(props: ChatHeaderProps) {
                   <div style={{ height: '14px' }} />
                   <div style={{ textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: '10px', fontWeight: 600, letterSpacing: '0.8px', fontFamily: 'var(--font-code)', marginBottom: '6px' }}>COMPACTION</div>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginBottom: '8px' }}>
-                    <input type="checkbox" defaultChecked style={{ accentColor: 'var(--q-tab-accent)' }} />
+                    <input type="checkbox" checked={!!props.compactionAuto} onChange={e => props.onCompactionChange?.(e.target.checked)} style={{ accentColor: 'var(--q-tab-accent)' }} />
                     <span style={{ color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>Auto-compaction (80%)</span>
                   </label>
                   <CompactionBtn onClick={props.onCompact} />

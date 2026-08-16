@@ -115,6 +115,8 @@ interface ChatAreaProps {
   onReset?: () => void
   onReload?: () => void
   onCompact?: () => void
+  compactionAuto?: boolean
+  onCompactionChange?: (auto: boolean) => void
 }
 
 export function ChatArea(props: ChatAreaProps) {
@@ -420,6 +422,8 @@ export function ChatArea(props: ChatAreaProps) {
           agentOverrides={props.agentOverrides}
           onSetAgentOverride={props.onSetAgentOverride}
           onCompact={props.onCompact}
+          compactionAuto={props.compactionAuto}
+          onCompactionChange={props.onCompactionChange}
           onReload={props.onReload}
           searchQuery={searchQuery}
           onSearchQueryChange={(q) => { setSearchQuery(q); setCurrentMatch(q.trim() && hasDateFilter ? 0 : -1) }}
@@ -513,7 +517,17 @@ export function ChatArea(props: ChatAreaProps) {
                     chatItems.push({ kind: 'task', ts: run.endedAt || run.createdAt || 0, run })
                   }
                   chatItems.sort((a, b) => a.ts - b.ts || (a.kind === 'msg' ? 0 : 1))
-                  return chatItems.map((item, i) => (
+                  return (
+                    <>
+                    {props.longHorizonSystemMessage && (
+                      <div style={{ maxWidth: 'var(--spacing-chat-max)', minWidth: 0, margin: '8px 0' }}>
+                        <div style={{ backgroundColor: 'var(--q-bg)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', padding: '12px 16px' }}>
+                          <div style={{ color: 'var(--q-text)', fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-interface)', marginBottom: 8 }}>Long Horizon Mode</div>
+                          <div style={{ color: 'var(--q-text)', fontSize: 13, lineHeight: 1.6, fontFamily: 'var(--font-interface)', whiteSpace: 'pre-wrap' }}>{props.longHorizonSystemMessage}</div>
+                        </div>
+                      </div>
+                    )}
+                    {chatItems.map((item, i) => (
                     <div key={item.kind === 'msg' ? item.msg!.id : 'chat-' + item.run!.id} data-msg-idx={item.mIdx ?? -1} style={{ marginBottom: '12px' }}>
                       {item.kind === 'msg' ? (
                         <MessageBubble message={item.msg} onCopy={() => {}} searchQuery={searchQuery} msgIndex={item.mIdx ?? 0} activeMatchMsgIdx={activeMatchInfo?.msgIdx ?? -1} activeMatchOccurrence={activeMatchInfo?.occurrence ?? -1} isDateMatch={!searchQuery.trim() && hasDateFilter && dateMatchIndices.includes(item.mIdx ?? -1) && (item.mIdx ?? -1) === dateMatchIndices[Math.min(dateMatchIdx, dateMatchIndices.length - 1)]} />
@@ -521,7 +535,9 @@ export function ChatArea(props: ChatAreaProps) {
                         <TaskResultToggle run={item.run} sessionKey={props.session?.key} defaultOpen />
                       )}
                     </div>
-                  ))
+                    ))}
+                    </>
+                  )
                 })()}
                 {props.longHorizon && (() => {
                   const ph = props.longHorizonPhase || 'discussion'
