@@ -2652,6 +2652,10 @@ class PiBridge {
     } catch {}
   }
 
+  getEffectiveCwd(key: string): string {
+    return this.#cwdOverride.get(key) ?? (this.#entries.get(key) as any)?.workingDir ?? this.#cwd;
+  }
+
   setLongHorizonPhase(key: string, phase: string) {
     this.#lhPhase.set(key, phase);
     this.logDebug("lh-phase-set", { sessionKey: key, phase });

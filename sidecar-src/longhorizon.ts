@@ -251,7 +251,7 @@ export class LongHorizon {
           try {
             fs.mkdirSync(this.#dir(sk), { recursive: true });
             fs.writeFileSync(this.#planFile(sk), units.map((u, i) => `- [ ] Unit ${i + 1}: ${u.desc}`).join("\n"), "utf8");
-            const wd = this.#workdir(sk);
+            const wd = this.#gitDir(sk);
             fs.mkdirSync(wd, { recursive: true });
             if (!fs.existsSync(path.join(wd, ".git"))) { try { this.#git(sk, ["init", "-q"]); } catch {} }
           } catch {}
@@ -364,7 +364,7 @@ export class LongHorizon {
       fs.mkdirSync(this.#dir(sk), { recursive: true });
       fs.writeFileSync(this.#planFile(sk), String(planMd || ""), "utf8");
       // workdir + git init
-      const wd = this.#workdir(sk);
+      const wd = this.#gitDir(sk);
       fs.mkdirSync(wd, { recursive: true });
       if (!fs.existsSync(path.join(wd, ".git"))) {
         try { this.#git(sk, ["init", "-q"]); } catch {}
@@ -399,9 +399,17 @@ export class LongHorizon {
     return out;
   }
 
-  // === Git helpers (workdir della sessione) ===
+  // === Git helpers: il git va nella directory di lavoro della sessione (dove il modello crea il progetto) ===
+  #gitDir(sk: string): string {
+    try {
+      const cwd = this.#piBridge?.getEffectiveCwd?.(sk);
+      if (cwd && cwd.trim().length > 0) return cwd;
+    } catch {}
+    return this.#workdir(sk);
+  }
+
   #git(sk: string, args: string[]): { ok: boolean; out: string; err: string } {
-    const wd = this.#workdir(sk);
+    const wd = this.#gitDir(sk);
     try {
       const res = require("child_process").spawnSync("git", args, { cwd: wd, encoding: "utf8", timeout: 15000 });
       return { ok: res.status === 0, out: String(res.stdout || ""), err: String(res.stderr || "") };
