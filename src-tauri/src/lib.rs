@@ -195,7 +195,6 @@ fn open_attachments_folder(session_key: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-#[tauri::command]
 fn open_longhorizon_folder(session_key: String) -> Result<(), String> {
     let home = std::env::var("HOME").unwrap_or_default();
     let dir = format!("{}/.quinki/longhorizon/{}", home, session_key);
