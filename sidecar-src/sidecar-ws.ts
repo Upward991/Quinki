@@ -34,21 +34,10 @@ const clients = new Set<any>();
 
 stderr("WebSocket server on :" + PORT);
 
-const DIAG_FILE = join(homedir(), ".quinki", "lh-diag.log");
-function diag(msg: string) {
-  try { require("fs").appendFileSync(DIAG_FILE, new Date().toISOString() + " " + msg + "\n"); } catch {}
-}
 stdoutEmitter.on("line", (line: string) => {
-  if (line.includes("user_message") || line.includes("agent_status") || line.includes("stream_event")) {
-    diag("broadcast clients=" + clients.size + " line=" + line.slice(0, 150));
-  }
   for (const ws of clients) {
     if (ws.readyState === 1) ws.send(line);
   }
-});
-wss.on("connection", (ws) => {
-  const addr = (ws as any)._socket?.remoteAddress || (ws as any).url || "unknown";
-  diag("client connected, clients=" + (clients.size + 1) + " addr=" + addr);
 });
 
 wss.on("connection", (ws) => {

@@ -19,7 +19,6 @@ function useSidecar(url: string = 'ws://127.0.0.1:9182') {
       ws.onmessage = (ev) => {
         let msg: any
         try { msg = JSON.parse(ev.data) } catch { return }
-        console.log('[WS-ALL]', JSON.stringify(msg).slice(0, 200))
         if (msg.id !== undefined) {
           const pending = pendingRef.current.get(msg.id)
           if (pending) {
@@ -317,7 +316,6 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
       return blocks
     }
     const unsubUserMsg = subscribe('user_message', (p: any) => {
-      console.log('[LH-HANDLER] user_message called', p?.sessionKey, String(p?.text || '').slice(0, 40))
       if (!p?.sessionKey || !p?.text) return
       setMessages(prev => {
         if (prev.some(m => m.id === 'lh-msg-' + p.ts)) return prev
@@ -325,7 +323,6 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
       })
     })
     const unsubStream = subscribe('stream_event', (p: any) => {
-      console.log('[LH-HANDLER] stream_event called', p?.eventType, String(p?.delta || '').slice(0, 30), 'activeRef=', activeSessionIdRef.current)
       if (!p) return
       if (p.sessionKey && p.sessionKey !== activeSessionIdRef.current) return
       const { type, eventType, delta, content, messageId, toolName, isError } = p
