@@ -142,6 +142,7 @@ class PiBridge {
   #entries = new Map<string, SessionEntry>();
   #firstUserText = new Map<string, string>(); // primo msg utente per auto-title
   #active = new Map<string, any>();
+  #lhPhase = new Map<string, string>();
   #mcpClients = new Map<string, StdioMcpClient>();  // chiave `${sessionKey}:${serverId}`
   #mcpToolNames = new Map<string, { name: string; serverId: string }[]>();  // per sessione: tool MCP per applyMode (plan/build)
   #mcpSig = new Map<string, string>();  // firma mcpServers con cui è stata costruita la sessione (auto-diff)
@@ -2540,6 +2541,11 @@ class PiBridge {
     } catch {}
   }
 
+  setLongHorizonPhase(key: string, phase: string) {
+    this.#lhPhase.set(key, phase);
+    this.logDebug("lh-phase-set", { sessionKey: key, phase });
+  }
+
   setChatAgents(key: string, agentIds: string) {
     const s = this.#entries.get(key);
     // Se l'entry non esiste in memoria la salviamo comunque nel meta file (e #load la riporterà)
@@ -4280,6 +4286,15 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       }
     } else {
       prompt += `\n\n${lead} in the directory: ${cwd}`;
+    }
+    // === Long Horizon phase: nota fase-aware (il modello SA in che fase è e cosa NON deve fare) ===
+    const lhPhase = this.#lhPhase.get(key);
+    if (lhPhase === "discussion") {
+      prompt += `\n\nYou are in the DISCUSSION phase of Long Horizon. You MUST discuss the problem with the user and understand the goal. You MUST NOT execute, create files, or start any work. Only discuss.`;
+    } else if (lhPhase === "planning") {
+      prompt += `\n\nYou are in the PLANNING phase of Long Horizon. You MUST create a plan with the user, divided into units in '- [ ]' format. You MUST NOT execute or start any work. Only plan.`;
+    } else if (lhPhase === "running") {
+      prompt += `\n\nYou are in the EXECUTION phase of Long Horizon. Follow the plan units one at a time. Update handoff.md after each unit and commit to git.`;
     }
     // === Plan/Build mode: nota mode-aware (il modello sa in che mode è) ===
     const m = mode === "build" ? "build" : "plan";

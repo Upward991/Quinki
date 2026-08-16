@@ -34,6 +34,7 @@ interface ComposerProps {
   onSteer?: (text: string) => void
   longHorizon?: boolean
   longHorizonStatus?: string
+  longHorizonPhase?: string
   longHorizonPlanProposed?: boolean
   onLongHorizon?: (activate: boolean) => void
   onRequestPlan?: (text: string) => void
@@ -309,6 +310,7 @@ export function Composer(props: ComposerProps) {
           onLongHorizon={props.onLongHorizon}
           longHorizonActive={props.longHorizon}
           longHorizonStatus={props.longHorizonStatus}
+          longHorizonPhase={props.longHorizonPhase}
           longHorizonPlanProposed={props.longHorizonPlanProposed}
           onRequestPlan={props.onRequestPlan ? () => props.onRequestPlan!() : undefined}
           onApprovePlan={props.onApprovePlan}

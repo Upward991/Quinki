@@ -104,7 +104,9 @@ interface ChatAreaProps {
   onLongHorizon?: (activate: boolean) => void
   onRequestPlan?: (text: string) => void
   longHorizonStatus?: string
-  onApprovePlan?: () => void
+  longHorizonPhase?: string
+  onProceedToPlanning?: () => void
+  onStartExecution?: () => void
   onPauseLongHorizon?: () => void
   onResumeLongHorizon?: () => void
   onRenameSession: (label: string) => void
@@ -476,7 +478,7 @@ export function ChatArea(props: ChatAreaProps) {
               onSend={props.onSend} onStop={props.onStop} onSteer={props.onSteer}
               onModelChange={props.onModelSelect} onModeChange={props.onModeChange}
               onThinkingChange={t => props.onThinkingChange(t)} welcomeMode={true}
-              longHorizon={props.longHorizon} longHorizonStatus={props.longHorizonStatus}
+              longHorizon={props.longHorizon} longHorizonStatus={props.longHorizonStatus} longHorizonPhase={props.longHorizonPhase}
               longHorizonPlanProposed={(() => { const la = [...(props.messages || [])].reverse().find((m: any) => m.role === 'assistant' && m.content); return !!la && String(typeof la.content === 'string' ? la.content : '').includes('- [') })()}
               onLongHorizon={props.onLongHorizon} onRequestPlan={props.onRequestPlan}
               onApprovePlan={props.onApprovePlan} onContinueDiscussing={() => setLhApprovalDismissed(true)}
@@ -520,7 +522,27 @@ export function ChatArea(props: ChatAreaProps) {
                     </div>
                   ))
                 })()}
-
+                {props.longHorizon && (() => {
+                  const ph = props.longHorizonPhase || 'discussion'
+                  let title = '', desc = '', btnLabel = '', onBtn: (() => void) | null = null
+                  if (ph === 'discussion') { title = 'Discussion phase'; desc = 'Discuss the problem with the agent. Nothing will be executed yet.'; btnLabel = 'Proceed to planning'; onBtn = props.onProceedToPlanning }
+                  else if (ph === 'planning') { title = 'Planning phase'; desc = 'Refine the plan with the agent. Nothing will be executed yet.'; btnLabel = 'Start'; onBtn = props.onStartExecution }
+                  else if (ph === 'running') { title = 'Long Horizon running'; desc = 'The agent is working through the plan autonomously.'; btnLabel = 'Pause'; onBtn = props.onPauseLongHorizon }
+                  else if (ph === 'paused') { title = 'Long Horizon paused'; desc = 'You are back in the discussion phase. Discuss changes, then resume.'; btnLabel = 'Resume'; onBtn = props.onResumeLongHorizon }
+                  else if (ph === 'done') { title = 'Long Horizon complete'; desc = 'The plan is complete. You can disable Long Horizon or start a new discussion.'; btnLabel = 'Disable'; onBtn = () => props.onLongHorizon?.(false) }
+                  return (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-accent-longhorizon)', boxShadow: 'var(--shadow-floating)', marginBottom: '12px' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ color: 'var(--q-accent-longhorizon)', fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-interface)' }}>{title}</div>
+                        <div style={{ color: 'var(--q-text-tertiary)', fontSize: 12, fontFamily: 'var(--font-interface)', marginTop: 2, lineHeight: 1.4 }}>{desc}</div>
+                      </div>
+                      {onBtn && (
+                        <button onClick={onBtn} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }}
+                          style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-interface)', flexShrink: 0 }}>{btnLabel}</button>
+                      )}
+                    </div>
+                  )
+                })()}
               </div>
               {/* Task — SEMPRE montato (display none quando il pannello è chiuso) */}
               <div ref={taskScrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '16px 16px', scrollbarGutter: 'stable', display: taskPanelOpen ? 'block' : 'none' }}
@@ -550,7 +572,7 @@ export function ChatArea(props: ChatAreaProps) {
               onSend={props.onSend} onStop={props.onStop} onSteer={props.onSteer}
               onModelChange={props.onModelSelect} onModeChange={props.onModeChange}
               onThinkingChange={t => props.onThinkingChange(t)} welcomeMode={false}
-              longHorizon={props.longHorizon} longHorizonStatus={props.longHorizonStatus}
+              longHorizon={props.longHorizon} longHorizonStatus={props.longHorizonStatus} longHorizonPhase={props.longHorizonPhase}
               longHorizonPlanProposed={(() => { const la = [...(props.messages || [])].reverse().find((m: any) => m.role === 'assistant' && m.content); return !!la && String(typeof la.content === 'string' ? la.content : '').includes('- [') })()}
               onLongHorizon={props.onLongHorizon} onRequestPlan={props.onRequestPlan}
               onApprovePlan={props.onApprovePlan} onContinueDiscussing={() => setLhApprovalDismissed(true)}

@@ -22,6 +22,8 @@ interface LHUnit {
 interface LHState {
   active: boolean;
   goal: string;
+  pendingGoal?: string;
+  phase: "discussion" | "planning" | "running" | "paused" | "done";
   status: "idle" | "running" | "done" | "paused";
   units: LHUnit[];
   currentIdx: number; // 0-based; -1 = nessuna unità ancora
@@ -139,6 +141,7 @@ export class LongHorizon {
     const st: LHState = {
       active: true,
       goal: "",
+      phase: "discussion",
       status: "idle",
       units: [],
       currentIdx: -1,
@@ -151,37 +154,103 @@ export class LongHorizon {
     this.#writeState(sk);
     this.#writeProgress(sk);
     this.#log("lh-activated", { sessionKey: sk });
+    // Messaggio di spiegazione in chat (fase 0): spiega le fasi e che la discussion parte da sola
+    this.#sendToSession(sk, `Long Horizon is now active. It works in three phases:\n\n1. DISCUSSION (automatic): we discuss the problem. I do not execute anything yet.\n2. PLANNING: I propose a plan and we refine it together.\n3. START: I create the final plan, set up the workspace, and work autonomously.\n\nThe first phase (discussion) starts now. Tell me the problem you want to work on.`);
     return { ok: true };
   }
 
-  // Disattiva (pausa) Long Horizon per la sessione
+  // Disattiva (pausa) Long Horizon per la sessione — torna alla DISCUSSION
   deactivate(sk: string): { ok: boolean; error?: string } {
     const st = this.#states.get(sk);
     if (!st) return { ok: false, error: "not active" };
-    st.active = false;
+    st.active = true;
+    st.phase = "discussion";
     st.status = "paused";
     st.lastActivity = Date.now();
     this.#writeState(sk);
     this.#writeProgress(sk);
-    this.#log("lh-deactivated", { sessionKey: sk });
+    this.#log("lh-deactivated", { sessionKey: sk, note: "back to discussion" });
+    this.#sendToSession(sk, `Long Horizon is paused. We are back in the DISCUSSION phase. Tell me what you want to change or discuss.`);
     return { ok: true };
   }
 
-  // Riprende dopo una pausa: se c'è un piano, torna in running (il tick continua)
+  // Transizione di fase controllata dall'utente (via la sezione in chat)
+  setPhase(sk: string, phase: string): { ok: boolean; error?: string } {
+    const st = this.#states.get(sk);
+    if (!st || !st.active) return { ok: false, error: "Long Horizon not active" };
+    if (phase === "planning") {
+      st.phase = "planning";
+      st.lastActivity = Date.now();
+      this.#writeState(sk);
+      this.#writeProgress(sk);
+      this.#log("lh-phase-planning", { sessionKey: sk });
+      this.#sendToSession(sk, `We are now in the PLANNING phase. I will propose a plan for the goal we discussed. I will not execute anything yet.`);
+      return { ok: true };
+    }
+    if (phase === "running") {
+      // Start: se c'è un piano (o pendingGoal), crea il piano definitivo e parti
+      if (st.units.length === 0 && st.pendingGoal) {
+        const goal = st.pendingGoal;
+        st.pendingGoal = undefined;
+        this.#writeState(sk);
+        this.#sendPlanRequest(sk, st, goal).then(() => {
+          const st2 = this.#states.get(sk);
+          if (st2 && st2.status === "running") {
+            st2.phase = "running";
+            this.#writeState(sk);
+            this.#writeProgress(sk);
+            this.#log("lh-phase-running", { sessionKey: sk });
+          }
+        });
+        return { ok: true };
+      }
+      if (st.units.length > 0) {
+        st.phase = "running";
+        st.status = "running";
+        st.promptCount = 0;
+        st.lastActivity = Date.now();
+        this.#writeState(sk);
+        this.#writeProgress(sk);
+        this.#log("lh-phase-running", { sessionKey: sk });
+        return { ok: true };
+      }
+      return { ok: false, error: "No plan yet. Finish the planning phase first." };
+    }
+    return { ok: false, error: "unknown phase" };
+  }
+
+  // Salva l'obiettivo dell'utente (Long Horizon idle). Il modello NON lo riceve come task:
+  // il support agent crea il piano e poi guida. L'utente vede il suo messaggio (bubble) ma il
+  // modello non esegue nulla finché il piano non è creato.
+  setGoal(sk: string, goal: string): { ok: boolean; error?: string } {
+    const st = this.#states.get(sk);
+    if (!st || !st.active) return { ok: false, error: "Long Horizon not active" };
+    if (!goal.trim()) return { ok: false, error: "goal required" };
+    st.pendingGoal = goal.trim();
+    st.lastActivity = Date.now();
+    this.#writeState(sk);
+    this.#writeProgress(sk);
+    this.#log("lh-goal-set", { sessionKey: sk, goal: goal.slice(0, 80) });
+    return { ok: true };
+  }
+
+  // Riprende dopo una pausa: se c'è un piano → running, altrimenti discussion
   resume(sk: string): { ok: boolean; error?: string } {
     const st = this.#states.get(sk);
     if (!st) return { ok: false, error: "not found" };
     st.active = true;
     if (st.units.length > 0 && st.status !== "done") {
+      st.phase = "running";
       st.status = "running";
       st.promptCount = 0;
     } else {
+      st.phase = "discussion";
       st.status = "idle";
     }
     st.lastActivity = Date.now();
     this.#writeState(sk);
     this.#writeProgress(sk);
-    this.#log("lh-resumed", { sessionKey: sk, status: st.status });
+    this.#log("lh-resumed", { sessionKey: sk, phase: st.phase });
     return { ok: true };
   }
 
@@ -241,6 +310,7 @@ export class LongHorizon {
     return {
       active: st.active,
       goal: st.goal,
+      phase: st.phase,
       status: st.status,
       currentIdx: st.currentIdx,
       units: st.units,
@@ -328,8 +398,19 @@ export class LongHorizon {
   async #tickSession(sk: string) {
     const st = this.#states.get(sk);
     if (!st || !st.active) return;
-    if (st.status !== "running") return;
     if (this.#inflight.get(sk)) return; // send in corso
+
+    // === Automatico: se idle e c'è un obiettivo pendente → crea il piano e parti ===
+    if (st.status === "idle" && st.pendingGoal) {
+      const goal = st.pendingGoal;
+      st.pendingGoal = undefined;
+      this.#writeState(sk);
+      this.#log("lh-auto-plan", { sessionKey: sk, goal: goal.slice(0, 80) });
+      await this.#sendPlanRequest(sk, st, goal);
+      return;
+    }
+
+    if (st.status !== "running") return;
 
     // Se la sessione sta ancora generando (streaming attivo) → aspetta
     try {
@@ -379,6 +460,47 @@ export class LongHorizon {
       this.#writeProgress(sk);
       await this.#sendUnitPrompt(sk, unit);
     }
+  }
+
+  async #sendPlanRequest(sk: string, st: LHState, goal: string) {
+    const prompt = `You are in Long Horizon mode. The user's goal is: "${goal}".\n\nCreate a plan to achieve this goal. Divide it into units, one per line, in this exact format:\n- [ ] Unit 1: description\n- [ ] Unit 2: description\n...\n\nDo NOT execute anything yet. Only output the plan with the units.`;
+    this.#inflight.set(sk, true);
+    this.#log("lh-plan-request", { sessionKey: sk });
+    try {
+      const fakeWs = { readyState: 1, constructor: { OPEN: 1 }, send: () => {} };
+      await this.#piBridge?.send(fakeWs, { sessionKey: sk, text: prompt, _preserveWs: true });
+    } catch (e: any) {
+      this.#log("lh-plan-request-error", { sessionKey: sk, error: e?.message });
+    } finally {
+      this.#inflight.set(sk, false);
+    }
+    // Parsa il piano dalla risposta del modello
+    const resp = this.#lastAssistantText(sk);
+    const units = this.#parseUnits(resp);
+    if (units.length === 0) {
+      this.#log("lh-plan-parse-fail", { sessionKey: sk, respLen: resp.length });
+      st.pendingGoal = goal; // riprova al prossimo tick
+      this.#writeState(sk);
+      return;
+    }
+    const planMd = units.map((u, i) => `- [ ] Unit ${i + 1}: ${u.desc}`).join("\n");
+    st.goal = goal;
+    st.units = units.map((u, i) => ({ id: i + 1, desc: u.desc, status: "pending" as const }));
+    st.currentIdx = 0;
+    st.status = "running";
+    st.promptCount = 0;
+    st.lastHandoffSig = this.#handoffSig(sk);
+    st.lastActivity = Date.now();
+    try {
+      fs.mkdirSync(this.#dir(sk), { recursive: true });
+      fs.writeFileSync(this.#planFile(sk), planMd, "utf8");
+      const wd = this.#workdir(sk);
+      fs.mkdirSync(wd, { recursive: true });
+      if (!fs.existsSync(path.join(wd, ".git"))) { try { this.#git(sk, ["init", "-q"]); } catch {} }
+    } catch {}
+    this.#writeState(sk);
+    this.#writeProgress(sk);
+    this.#log("lh-auto-plan-set", { sessionKey: sk, units: units.length });
   }
 
   async #sendUnitPrompt(sk: string, unit: LHUnit) {
@@ -445,6 +567,15 @@ export class LongHorizon {
       this.#writeState(sk);
       this.#writeProgress(sk);
     }
+  }
+
+  #parseUnits(planMd: string): { desc: string }[] {
+    const units: { desc: string }[] = [];
+    for (const line of String(planMd || "").split("\n")) {
+      const m = line.trim().match(/^[-*]\s*\[([ xX])\]\s*(.*)$/);
+      if (m) units.push({ desc: m[2].trim() });
+    }
+    return units;
   }
 
   #lastAssistantText(sk: string): string {

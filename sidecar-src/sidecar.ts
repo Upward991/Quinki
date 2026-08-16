@@ -468,6 +468,8 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   longHorizonDeactivate: async (p) => longHorizon.deactivate(String(p.sessionKey || '')),
   longHorizonResume: async (p) => longHorizon.resume(String(p.sessionKey || '')),
   longHorizonSetPlan: async (p) => longHorizon.setPlan(String(p.sessionKey || ''), String(p.plan || '')),
+  longHorizonSetGoal: async (p) => longHorizon.setGoal(String(p.sessionKey || ''), String(p.goal || '')),
+  longHorizonSetPhase: async (p) => longHorizon.setPhase(String(p.sessionKey || ''), String(p.phase || '')),
   getLongHorizonState: async (p) => longHorizon.getState(String(p.sessionKey || '')),
   getSessionFiles: async (p) => ({ files: longHorizon.getSessionFiles(String(p.sessionKey || '')) }),
   saveSessionFile: async (p) => longHorizon.saveSessionFile(String(p.sessionKey || ''), String(p.name || ''), String(p.content || '')),
