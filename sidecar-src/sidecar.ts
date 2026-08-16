@@ -864,6 +864,7 @@ async function bootstrap() {
     try { piBridge.setScheduleHandler((p: any) => scheduler.createSchedule(p)); } catch (e: any) { process.stderr.write(`[sidecar-marker] schedule-handler-error: ${e?.message}\n`); }
     // A2.3: Recovery Manager (al boot: interrupted → auto-resume semantico) + Keep Awake
     try { executor.startRecovery(true); } catch (e: any) { process.stderr.write(`[sidecar-marker] recovery-start-error: ${e?.message}\n`); }
+    try { piBridge!.recoverPendingTurns().then((n: number) => { if (n > 0) process.stderr.write(`[sidecar-marker] pending-turns-recovered: ${n}\n`); }).catch(() => {}); } catch (e: any) { process.stderr.write(`[sidecar-marker] pending-turns-error: ${e?.message}\n`); }
     sendNotification("ready", { message: "PiBridge initialized" });
     // === NO periodic flush, NO SIGTERM handler ===
     // #save() è chiamato esplicitamente da create(), setModel(), setChatAgents(), rename(), etc.

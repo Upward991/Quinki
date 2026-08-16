@@ -2471,6 +2471,33 @@ class PiBridge {
     return pi;
   }
 
+  // === Recovery turni interrotti: se l'app è morta a metà turno, ri-prompta il modello ===
+  // Salta le sessioni Long Horizon attive: il support agent gestisce già il loro recovery.
+  async recoverPendingTurns(): Promise<number> {
+    let recovered = 0;
+    try {
+      const base = path.join(this.#agentDir, "sessions", "quinki");
+      if (!fs.existsSync(base)) return 0;
+      for (const sk of fs.readdirSync(base)) {
+        const p = path.join(base, sk, "pending-turn.json");
+        if (!fs.existsSync(p)) continue;
+        try {
+          // Salta Long Horizon attivo (il support agent ri-prompta da solo)
+          try {
+            const lhState = JSON.parse(fs.readFileSync(path.join(this.#agentDir, "longhorizon", sk, "state.json"), "utf8"));
+            if (lhState.active) continue;
+          } catch {}
+          const marker = JSON.parse(fs.readFileSync(p, "utf8"));
+          this.logDebug("pending-turn-recover", { sessionKey: sk, text: String(marker.text || "").slice(0, 80) });
+          const fakeWs = { readyState: 1, constructor: { OPEN: 1 }, send: () => {} };
+          await this.send(fakeWs, { sessionKey: sk, text: "The app was interrupted while processing. Please continue and complete your response.", _preserveWs: true });
+          recovered++;
+        } catch (e: any) { this.logDebug("pending-turn-recover-error", { sessionKey: sk, error: e?.message || String(e) }); }
+      }
+    } catch (e: any) { this.logDebug("pending-turn-recover-scan-error", { error: e?.message || String(e) }); }
+    return recovered;
+  }
+
   // === Helper: ws della sessione, o fallback a stdout (broadcast al frontend via sidecar-ws) ===
   // Dopo un restart del sidecar la mappa #wss è vuota: senza fallback gli eventi del
   // support agent (Long Horizon) andrebbero persi. Il fallback scrive su stdout,
@@ -5119,6 +5146,14 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       this.logDebug("auto-compaction-error", { sessionKey: sk, error: e?.message || String(e) });
     }
 
+    // === Pending-turn marker: persiste il turno in corso (per recovery dopo crash/riavvio) ===
+    // Se l'app muore a metà turno, al riavvio il sidecar ri-prompta il modello.
+    try {
+      const pdir = this.#piSessionDir(sk);
+      fs.mkdirSync(pdir, { recursive: true });
+      fs.writeFileSync(path.join(pdir, "pending-turn.json"), JSON.stringify({ text: data.text, ts: Date.now() }), "utf8");
+    } catch {}
+
     const next = prev.then(() => pi.sendUserMessage(content, { deliverAs: "followUp" })).catch((err: Error) => {
       this.logDebug("send-user-message-error", { sessionKey: sk, message: err?.message, name: err?.name, stack: err?.stack?.slice(0, 600) });
       ws.send(JSON.stringify({ type: "error", message: err.message, sessionKey: sk }));
@@ -5743,6 +5778,8 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
         }
         case "agent_end":
           if (this.#compactingSessions.has(key)) break; // sopprimi fine agente durante compaction
+          // Turno completato → rimuovi il marker pending-turn
+          try { const p = path.join(this.#piSessionDir(key), "pending-turn.json"); if (fs.existsSync(p)) fs.unlinkSync(p); } catch {}
           ws.send(JSON.stringify({ type: "typing_stop_broadcast", sessionKey: key }));
           this.#captureSessionMeta(key);
           this.#emitContextUsage(ws, key, "ctx-post-agent-end");
