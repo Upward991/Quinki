@@ -47,7 +47,8 @@ stdoutEmitter.on("line", (line: string) => {
   }
 });
 wss.on("connection", (ws) => {
-  diag("client connected, clients=" + (clients.size + 1));
+  const addr = (ws as any)._socket?.remoteAddress || (ws as any).url || "unknown";
+  diag("client connected, clients=" + (clients.size + 1) + " addr=" + addr);
 });
 
 wss.on("connection", (ws) => {
