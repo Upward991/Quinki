@@ -2939,7 +2939,7 @@ class PiBridge {
 
   // Dump delle definizioni dei tool ATTIVI che verranno inviati al modello (canale tools):
   // nome + descrizione + schema parametri, customTool MCP inclusi. Usato dal log system_prompt.
-  #activeToolDefs(pi: any): any[] {
+  #activeToolDefs(pi: any, key?: string): any[] {
     const out: any[] = [];
     try {
       const names = (pi?.getActiveToolNames?.() || []) as string[];
@@ -2948,7 +2948,12 @@ class PiBridge {
           const d = pi?.getToolDefinition?.(name);
           let params = "";
           try { params = JSON.stringify(d?.parameters ?? {}); } catch { try { params = String(d?.parameters || ""); } catch {} }
-          out.push({ name: d?.name || name, description: (d?.description || "").slice(0, 400), params: params.slice(0, 500) });
+          // bash_readonly: mostra "bash_readonly" invece di "bash" quando la sessione è in modalità read-only
+          let displayName = d?.name || name;
+          if (name === "bash" && key && this.#bashReadonlySessions.has(key)) {
+            displayName = "bash_readonly";
+          }
+          out.push({ name: displayName, description: (d?.description || "").slice(0, 400), params: params.slice(0, 500) });
         } catch {}
       }
     } catch {}
@@ -4999,7 +5004,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
             // Log system prompt via logDebug (uses existing debug_log flow)
       // Include le definizioni COMPLETE dei tool attivi inviati al modello (canale tools),
       // customTool MCP inclusi — così il log mostra esattamente tutto ciò che arriva all'agente.
-      const activeTools = this.#activeToolDefs(pi);
+      const activeTools = this.#activeToolDefs(pi, sk);
       this.logDebug("system_prompt", { sessionKey: sk, len: prompt.length, hasSkills: !!(skillsForPrompt && skillsForPrompt.length > 0), skills: skillsForPrompt ? skillsForPrompt.map((s: any) => s.skillName) : [], agentId: resolvedAgent || "unknown", agentName: agentCfg?.name || resolvedAgent || "unknown", isDelegation: false, isOrchestrator, messageText: (data.text || "").substring(0, 200), activeToolCount: activeTools.length, activeTools, prompt: prompt });
       // Store skills for delegation — #buildDelegateTool will inject them into the delegated agent's system prompt
       if (skillNames && skillNames.length > 0) {
