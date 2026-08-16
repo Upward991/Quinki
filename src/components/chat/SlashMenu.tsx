@@ -228,7 +228,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
       if (mode === 'main') setSelectedIdx(i => (i - 1 + filteredCommands.length) % filteredCommands.length)
       else if (mode === 'model') setSelectedIdx(i => (i - 1 + modelFlatIndex.length) % modelFlatIndex.length)
       else if (mode === 'thinking') setSelectedIdx(i => (i - 1 + 2) % 2)
-      else if (mode === 'longhorizon') setSelectedIdx(i => (i - 1 + 2) % 2)
+      else if (mode === 'longhorizon') setFocusConfirm(false)
       else if (mode === 'skill') { const flat = skillGroups.flatMap((g: any) => g.skills.map((s: any) => ({ ...s, agentId: g.agentId, agentName: g.agentName }))); setSelectedIdx(i => (i - 1 + flat.length) % flat.length) }
       else if (mode === 'reset_confirm' || mode === 'lh_confirm') setFocusConfirm(false)
       setFocusConfirm(false)
@@ -237,7 +237,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
       if (mode === 'main') setSelectedIdx(i => (i + 1) % filteredCommands.length)
       else if (mode === 'model') setSelectedIdx(i => (i + 1) % modelFlatIndex.length)
       else if (mode === 'thinking') setSelectedIdx(i => (i + 1) % 2)
-      else if (mode === 'longhorizon') setSelectedIdx(i => (i + 1) % 2)
+      else if (mode === 'longhorizon') setFocusConfirm(true)
       else if (mode === 'skill') { const flat = skillGroups.flatMap((g: any) => g.skills.map((s: any) => ({ ...s, agentId: g.agentId, agentName: g.agentName }))); setSelectedIdx(i => (i + 1) % flat.length) }
       else if (mode === 'directory' && !focusAdd && !focusConfirm) setFocusAdd(true)
       else if (mode === 'directory' && focusAdd) { setFocusAdd(false); setFocusConfirm(true) }
@@ -256,6 +256,8 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
         if (cmd && directCmdIds.has(cmd.id)) { setFocusConfirm(true); return }
         if (cmd?.id === 'reset') setMode('reset_confirm')
         else if (cmd) enterMode(cmd.id as Mode)
+      } else if (mode === 'longhorizon') {
+        setFocusConfirm(true)
       } else if (mode === 'model') {
         const m = modelFlatIndex[selectedIdx]
         if (m) { setPendingModel(m); setFocusConfirm(true) }
@@ -448,10 +450,10 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
               label={props.longHorizonActive ? 'Disable' : 'Activate'}
               highlighted={focusConfirm}
               onClick={() => { props.onLongHorizon?.(!props.longHorizonActive); props.onClose() }}
-              borderColor="var(--q-accent-longhorizon)"
-              textColor="var(--q-accent-longhorizon)"
+              borderColor="var(--q-tab-accent)"
+              textColor="var(--q-tab-accent)"
               hoverTextColor="var(--q-bg)"
-              hoverBg="var(--q-accent-longhorizon)"
+              hoverBg="var(--q-tab-accent)"
               fontWeight={600}
             />
           </div>
