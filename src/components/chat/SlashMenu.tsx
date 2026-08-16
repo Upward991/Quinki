@@ -98,10 +98,10 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
   ]
   const visibleCommands: Command[] = props.longHorizonActive ? (() => {
     if (props.longHorizonPhase === 'running') {
-      return [{ id: 'pause', label: '/pause', description: 'Pause the automatic work' }, { id: 'disable', label: '/disable', description: 'Disable Long Horizon and restore normal commands' }]
+      return [{ id: 'pause', label: '/pause', description: 'Pause the automatic work' }, { id: 'disable', label: '/disable long horizon', description: 'Disable Long Horizon and restore normal commands' }]
     }
     // discussion/planning/paused: comandi NORMALI + /disable (il /longhorizon diventa /disable)
-    return commands.map(c => c.id === 'longhorizon' ? { ...c, id: 'disable', label: '/disable', description: 'Disable Long Horizon and restore normal commands' } : c)
+    return commands.map(c => c.id === 'longhorizon' ? { ...c, id: 'disable', label: '/disable long horizon', description: 'Disable Long Horizon and restore normal commands' } : c)
   })() : commands
   const filteredCommands = visibleCommands.filter(cmd => cmd.id.includes(props.filter.toLowerCase()))
   const doLhAction = (id: string) => {
