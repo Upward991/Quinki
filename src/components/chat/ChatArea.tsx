@@ -532,9 +532,9 @@ export function ChatArea(props: ChatAreaProps) {
                   else if (ph === 'paused') { title = 'Long Horizon paused'; desc = 'You are back in the discussion phase. Discuss changes, then resume.'; btnLabel = 'Resume'; onBtn = props.onResumeLongHorizon }
                   else if (ph === 'done') { title = 'Long Horizon complete'; desc = 'The plan is complete. You can start a new discussion or disable Long Horizon.'; btnLabel = 'New discussion'; onBtn = props.onNewDiscussion }
                   return (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-accent-longhorizon)', boxShadow: 'var(--shadow-floating)', marginBottom: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', boxShadow: 'var(--shadow-floating)', marginBottom: '12px' }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ color: 'var(--q-accent-longhorizon)', fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-interface)' }}>{title}</div>
+                        <div style={{ color: 'var(--q-text)', fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-interface)' }}>{title}</div>
                         <div style={{ color: 'var(--q-text-tertiary)', fontSize: 12, fontFamily: 'var(--font-interface)', marginTop: 2, lineHeight: 1.4 }}>{desc}</div>
                       </div>
                       {onBtn && (

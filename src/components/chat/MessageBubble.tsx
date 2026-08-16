@@ -59,16 +59,15 @@ export const MessageBubble = memo(function MessageBubble({ message, onCopy, sear
 })
 
 // ── System message (Long Horizon) ──
-// Bubble speciale: colore UI, delimitata, etichettata "System message".
+// Bubble normale a tutta larghezza, sfondo chat, label "System message" in alto a destra.
 // È un messaggio di sistema hardcoded che entra nel contesto della conversazione.
 function SystemMessage({ message }: { message: Message }) {
   const text = typeof message.content === 'string' ? message.content : ''
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', margin: '10px 0' }}>
-      <div style={{ maxWidth: 'min(560px, 100%)', width: '100%', borderRadius: 'var(--radius-lg)', border: '1px solid var(--q-accent-longhorizon)', backgroundColor: 'color-mix(in srgb, var(--q-accent-longhorizon) 8%, var(--q-bg-panel))', padding: '12px 16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--q-accent-longhorizon)', fontFamily: 'var(--font-interface)' }}>System message</span>
-          <span style={{ flex: 1, height: 1, backgroundColor: 'var(--q-border)' }} />
+    <div style={{ maxWidth: 'var(--spacing-chat-max)', minWidth: 0, margin: '8px 0' }}>
+      <div style={{ backgroundColor: 'var(--q-bg)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', padding: '12px 16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--q-text-tertiary)', fontFamily: 'var(--font-interface)' }}>System message</span>
         </div>
         <div style={{ color: 'var(--q-text-secondary)', fontSize: 13, lineHeight: 1.6, fontFamily: 'var(--font-interface)', whiteSpace: 'pre-wrap' }}>{text}</div>
       </div>

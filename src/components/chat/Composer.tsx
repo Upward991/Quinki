@@ -534,13 +534,13 @@ function SessionFilesModal({ sessionKey, onClose }: { sessionKey: string; onClos
     try { await call('longHorizonGitRevert', { sessionKey, commit: hash }); load() } catch {}
   }
   const tabBtn = (t: 'plan' | 'handoff' | 'progress' | 'git', label: string) => (
-    <button onClick={() => { setTab(t); setEditing(null); setDiff('') }} style={{ padding: '6px 12px', borderRadius: 'var(--radius-sm)', border: 'none', cursor: 'pointer', backgroundColor: tab === t ? 'var(--q-accent-longhorizon)' : 'transparent', color: tab === t ? 'var(--q-bg)' : 'var(--q-text-secondary)', fontSize: 13, fontWeight: tab === t ? 600 : 400, fontFamily: 'var(--font-interface)' }}>{label}</button>
+    <button onClick={() => { setTab(t); setEditing(null); setDiff('') }} style={{ padding: '6px 12px', borderRadius: 'var(--radius-sm)', border: 'none', cursor: 'pointer', backgroundColor: tab === t ? 'var(--q-tab-accent)' : 'transparent', color: tab === t ? 'var(--q-bg)' : 'var(--q-text-secondary)', fontSize: 13, fontWeight: tab === t ? 600 : 400, fontFamily: 'var(--font-interface)' }}>{label}</button>
   )
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 300, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
       <div style={{ backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', width: '640px', maxWidth: '92vw', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
         <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 8, borderBottom: '1px solid var(--q-border)', flexShrink: 0 }}>
-          <FileText size={16} style={{ color: 'var(--q-accent-longhorizon)' }} />
+          <FileText size={16} style={{ color: 'var(--q-tab-accent)' }} />
           <span style={{ color: 'var(--q-text)', fontSize: 15, fontWeight: 600, fontFamily: 'var(--font-interface)' }}>Session files</span>
           <span style={{ flex: 1 }} />
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-secondary)', display: 'flex' }}><X size={18} /></button>
@@ -575,8 +575,8 @@ function SessionFilesModal({ sessionKey, onClose }: { sessionKey: string; onClos
               {tab !== 'progress' && (
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
                   {saved && <span style={{ color: 'var(--q-accent-success)', fontSize: 13, fontFamily: 'var(--font-interface)' }}>Saved</span>}
-                  <button onClick={save} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-accent-longhorizon)'; e.currentTarget.style.color = 'var(--q-bg)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-accent-longhorizon)' }}
-                    style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-accent-longhorizon)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-longhorizon)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-interface)' }}>Save</button>
+                  <button onClick={save} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }}
+                    style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-interface)' }}>Save</button>
                 </div>
               )}
             </div>
@@ -811,7 +811,7 @@ function ModeButton({ mode, onChange, longHorizon }: { mode: ChatMode; onChange:
           transform: hovered ? 'scale(1.02)' : 'scale(1)', borderRadius: 'var(--radius-md)',
           border: 'none', cursor: 'default',
           backgroundColor: hovered ? 'var(--q-hover)' : 'transparent',
-          color: 'var(--q-accent-longhorizon)',
+          color: 'var(--q-text-secondary)',
           fontWeight: 700, fontSize: '13px', fontFamily: 'var(--font-interface)', lineHeight: '1',
           flexShrink: 0,
           transition: 'none',

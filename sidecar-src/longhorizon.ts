@@ -156,7 +156,7 @@ export class LongHorizon {
     this.#log("lh-activated", { sessionKey: sk });
     this.#piBridge?.setLongHorizonPhase(sk, "discussion");
     // Messaggio di SISTEMA (hardcoded, sempre uguale): bubble speciale in chat + entra nel contesto.
-    try { await this.#piBridge?.injectSystemMessage(sk, `LONG HORIZON MODE — SYSTEM MESSAGE\n\nLong Horizon is now active for this session. It works in three phases, and you (the model) CANNOT advance to the next phase on your own. The user controls the transitions with the buttons in the chat.\n\n1. DISCUSSION: we discuss the problem and understand the goal. Nothing is executed yet.\n2. PLANNING: a plan is proposed, divided into units in '- [ ]' format. Nothing is executed yet.\n3. START (EXECUTION): the plan is executed unit by unit, autonomously.\n\nThe first phase (DISCUSSION) starts now. Tell me the problem you want to work on.`); } catch {}
+    try { await this.#piBridge?.injectSystemMessage(sk, `Long Horizon is now active for this session. It works in three phases, and you (the model) CANNOT advance to the next phase on your own. The user controls the transitions with the buttons in the chat.\n\n1. DISCUSSION: we discuss the problem and understand the goal. Nothing is executed yet.\n2. PLANNING: a plan is proposed, divided into units in '- [ ]' format. Nothing is executed yet.\n3. START (EXECUTION): the plan is executed unit by unit, autonomously.\n\nThe first phase (DISCUSSION) starts now. Tell me the problem you want to work on.`); } catch {}
     return { ok: true };
   }
 
