@@ -35,6 +35,9 @@ const clients = new Set<any>();
 stderr("WebSocket server on :" + PORT);
 
 stdoutEmitter.on("line", (line: string) => {
+  if (line.includes("user_message") || line.includes("agent_status") || line.includes("stream_event")) {
+    stderr("[LH-DIAG] broadcast line, clients=" + clients.size + " line=" + line.slice(0, 120));
+  }
   for (const ws of clients) {
     if (ws.readyState === 1) ws.send(line);
   }
