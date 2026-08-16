@@ -493,7 +493,7 @@ export class LongHorizon {
       st.pendingGoal = undefined;
       this.#writeState(sk);
       this.#log("lh-auto-plan", { sessionKey: sk, goal: goal.slice(0, 80) });
-      await this.#sendPlanRequest(sk, st, goal);
+      this.#sendPlanRequest(sk, st, goal).catch(() => {});
       return;
     }
 
@@ -564,7 +564,7 @@ export class LongHorizon {
       st.lastActivity = Date.now();
       this.#writeState(sk);
       this.#writeProgress(sk);
-      await this.#sendUnitPrompt(sk, unit);
+      this.#sendUnitPrompt(sk, unit).catch(() => {});
     }
   }
 
