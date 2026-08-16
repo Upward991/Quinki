@@ -10,6 +10,7 @@ import rehypeHighlight from 'rehype-highlight'
 import 'highlight.js/styles/github-dark.css'
 import type { Message, DelegationBlock, ThinkingBlock, ToolCall, ToolResult, CompactionInfo } from '../../types'
 import { Copy, Check, Info, ChevronRight } from '../icons'
+import { invoke } from '@tauri-apps/api/core'
 
 // Highlight search matches in text
 // Highlight the Nth occurrence of query in React children (string parts only)
@@ -326,7 +327,7 @@ function MarkdownContent({ text, isError, searchQuery, activeOcc }: { text: stri
           th: ({ children }) => <th style={{ color: 'var(--q-text)', fontWeight: 700, textAlign: 'left', padding: '8px 12px', borderBottom: '1px solid var(--q-border-strong)', boxShadow: 'inset -1px 0 0 var(--q-border)' }}>{children}</th>,
           td: ({ children }) => <td style={{ color: 'var(--q-text)', padding: '8px 12px', borderBottom: '1px solid var(--q-border)', boxShadow: 'inset -1px 0 0 var(--q-border)' }}>{children}</td>,
           strong: ({ children }) => <strong style={{ color: 'var(--q-text)', fontWeight: 700 }}>{hl(children)}</strong>,
-          a: ({ children, href }) => <a href={href} style={{ color: 'var(--q-accent-info-bright)', textDecoration: 'none' }} target="_blank" rel="noreferrer">{hl(children)}</a>,
+          a: ({ children, href }) => <a href={href} onClick={(e) => { e.preventDefault(); if (href) { try { invoke('open_url', { url: href }).catch(() => { window.open(href, '_blank') }) } catch { window.open(href, '_blank') } } }} style={{ color: 'var(--q-accent-info-bright)', textDecoration: 'none', cursor: 'pointer' }}>{hl(children)}</a>,
           h1: ({ children }) => <h1 style={{ color: 'var(--q-text)', fontSize: '18px', fontWeight: 700, margin: '8px 0 4px' }}>{hl(children)}</h1>,
           h2: ({ children }) => <h2 style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 700, margin: '8px 0 4px' }}>{hl(children)}</h2>,
           h3: ({ children }) => <h3 style={{ color: 'var(--q-text)', fontSize: '15px', fontWeight: 600, margin: '6px 0 4px' }}>{hl(children)}</h3>,

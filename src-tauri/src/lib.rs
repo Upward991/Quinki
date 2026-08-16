@@ -219,6 +219,15 @@ fn open_general_attachments_folder() -> Result<(), String> {
 }
 
 #[tauri::command]
+fn open_url(url: String) -> Result<(), String> {
+    std::process::Command::new("open")
+        .arg(&url)
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
 fn list_attachments(session_key: String) -> Result<Vec<serde_json::Value>, String> {
     use std::fs;
     use std::path::Path;
@@ -909,6 +918,7 @@ pub fn run() {
         open_attachments_folder,
         open_longhorizon_folder,
         open_general_attachments_folder,
+        open_url,
         list_attachments,
         check_expert_installed,
         install_expert_app,
