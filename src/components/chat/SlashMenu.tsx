@@ -167,7 +167,10 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
   }
 
   const confirm = () => {
-    if (mode === 'main' && props.longHorizonActive) { confirmLh(); return }
+    if (mode === 'main') {
+      const cmd = filteredCommands[selectedIdx]
+      if (cmd && directCmdIds.has(cmd.id)) { doLhAction(cmd.id); return }
+    }
     if (mode === 'model') props.onSelectModel(pendingModel)
     else if (mode === 'thinking') props.onSelectThinking(pendingThinking)
     props.onClose()
@@ -246,7 +249,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
       console.log('[SLASH] navRight mode:', mode, 'selectedIdx:', selectedIdx, 'focusConfirm:', focusConfirm, 'lhActive:', !!props.longHorizonActive)
       if (mode === 'main') {
         const cmd = filteredCommands[selectedIdx]
-        if (props.longHorizonActive && cmd) { if (focusConfirm) confirmLh(); else setFocusConfirm(true); return }
+        if (cmd && directCmdIds.has(cmd.id)) { setFocusConfirm(true); return }
         if (cmd?.id === 'reset') setMode('reset_confirm')
         else if (cmd) enterMode(cmd.id as Mode)
       } else if (mode === 'model') {
@@ -267,7 +270,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
       console.log('[SLASH] navEnter mode:', mode, 'selectedIdx:', selectedIdx, 'cmds:', filteredCommands.length, 'focusConfirm:', focusConfirm, 'lhActive:', !!props.longHorizonActive)
       if (mode === 'main') {
         const cmd = filteredCommands[selectedIdx]
-        if (props.longHorizonActive && cmd) { setFocusConfirm(true); return }
+        if (cmd && directCmdIds.has(cmd.id)) { if (focusConfirm) doLhAction(cmd.id); else setFocusConfirm(true); return }
         if (cmd?.id === 'reset') setMode('reset_confirm')
         else if (cmd) enterMode(cmd.id as Mode)
       } else if (mode === 'model') {
@@ -322,7 +325,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
                 isSelected={idx === selectedIdx}
                 onHover={() => setSelectedIdx(idx)}
                 onTap={() => {
-                  if (props.longHorizonActive) { executeLhCommand(cmd.id); return }
+                  if (directCmdIds.has(cmd.id)) { doLhAction(cmd.id); return }
                   if (cmd.id === 'reset') setMode('reset_confirm')
                   else enterMode(cmd.id as Mode)
                 }}
@@ -330,13 +333,13 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
             ))}
           </div>
           <NavBar
-            focusConfirm={props.longHorizonActive ? focusConfirm : false}
+            focusConfirm={(() => { const cmd = filteredCommands[selectedIdx]; return !!(cmd && directCmdIds.has(cmd.id)) && focusConfirm })()}
             onUp={() => setSelectedIdx(i => (i - 1 + filteredCommands.length) % filteredCommands.length)}
             onDown={() => setSelectedIdx(i => (i + 1) % filteredCommands.length)}
-            onLeft={() => { if (props.longHorizonActive && focusConfirm) setFocusConfirm(false) }}
+            onLeft={() => { if (focusConfirm) setFocusConfirm(false) }}
             onRight={() => {
               const cmd = filteredCommands[selectedIdx]
-              if (props.longHorizonActive && cmd) { setFocusConfirm(true); return }
+              if (cmd && directCmdIds.has(cmd.id)) { setFocusConfirm(true); return }
               if (cmd?.id === 'reset') setMode('reset_confirm')
               else if (cmd) enterMode(cmd.id as Mode)
             }}
