@@ -106,6 +106,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
   })() : commands
   const filteredCommands = visibleCommands.filter(cmd => cmd.id.includes(props.filter.toLowerCase()))
   const doLhAction = (id: string) => {
+    console.log('[SLASH] doLhAction:', id)
     if (id === 'requestplan') props.onRequestPlan?.()
     else if (id === 'approveplan') props.onApprovePlan?.()
     else if (id === 'continuediscussing') props.onContinueDiscussing?.()
@@ -253,6 +254,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
       }
     },
     navEnter: () => {
+      console.log('[SLASH] navEnter mode:', mode, 'selectedIdx:', selectedIdx, 'cmds:', filteredCommands.length)
       if (mode === 'main') {
         const cmd = filteredCommands[selectedIdx]
         if (props.longHorizonActive && cmd) { executeLhCommand(cmd.id); return }

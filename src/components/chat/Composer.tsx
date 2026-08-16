@@ -261,6 +261,7 @@ export function Composer(props: ComposerProps) {
     }
     // Slash menu navigation
     if (slashMenuOpen) {
+      console.log('[SLASH] key:', e.key, 'mode via ref:', !!slashMenuRef.current)
       if (e.key === 'ArrowUp') { e.preventDefault(); slashMenuRef.current?.navUp(); return }
       if (e.key === 'ArrowDown') { e.preventDefault(); slashMenuRef.current?.navDown(); return }
       if (e.key === 'ArrowLeft') { e.preventDefault(); slashMenuRef.current?.navLeft(); return }
@@ -427,6 +428,7 @@ export function Composer(props: ComposerProps) {
             setText(val)
             // Slash menu detection — only open if text starts with / AND text is just the slash command (no other text before it)
             if (val.startsWith('/') && !val.includes(' ') && text === '') {
+              console.log('[SLASH] menu open, filter:', val.slice(1))
               setSlashMenuOpen(true); setSlashFilter(val.slice(1)); setMentionOpen(false)
             } else if (val.startsWith('/') && !val.includes(' ') && text.startsWith('/')) {
               setSlashMenuOpen(true); setSlashFilter(val.slice(1)); setMentionOpen(false)
