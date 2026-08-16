@@ -2811,7 +2811,7 @@ class PiBridge {
       const idsNow = JSON.stringify(Array.isArray(cfg?.mcpServers) ? cfg.mcpServers : []);
       if (this.#mcpSig.get(sk) !== idsNow) {
         const mcpTools = await this.#buildMcpTools(sk, agentId);
-        const keep = ((pi as any)._customTools || []).filter((t: any) => t?.name === 'skill' || t?.name === 'delegate_to_agent' || t?.name === 'schedule_task');
+        const keep = ((pi as any)._customTools || []).filter((t: any) => t?.name === 'skill' || t?.name === 'delegate_to_agent' || t?.name === 'schedule_task' || t?.name === 'getTaskStatus' || t?.name === 'getTaskResult' || t?.name === 'readHandoff');
         (pi as any)._customTools = [...keep, ...mcpTools];
         try { (pi as any)._refreshToolRegistry?.(); } catch (e: any) { this.logDebug("mcp-refresh-registry-error", { sessionKey: sk, error: e?.message }); }
         this.#mcpSig.set(sk, idsNow);
@@ -2871,7 +2871,7 @@ class PiBridge {
       names = merged.filter(n => all.includes(n));
       // Always include custom tools (delegate_to_agent, skill) even if not in getAllTools
       // — they were registered via createAgentSession customTools
-      const customToolNames = ["delegate_to_agent", "skill", "schedule_task"];
+      const customToolNames = ["delegate_to_agent", "skill", "schedule_task", "getTaskStatus", "getTaskResult", "readHandoff"];
       for (const ct of customToolNames) {
         if (merged.includes(ct) && !names.includes(ct)) names.push(ct);
       }
