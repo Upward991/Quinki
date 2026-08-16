@@ -116,8 +116,8 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
     props.onClose()
   }
   const executeLhCommand = (id: string) => {
-    if (id === 'disable' || id === 'longhorizon') { setMode('longhorizon'); setFocusConfirm(false); return }
-    setPendingLhCmd(id); setMode('lh_confirm'); setFocusConfirm(false)
+    if (id === 'disable' || id === 'longhorizon') { setMode('longhorizon'); setFocusConfirm(true); return }
+    setPendingLhCmd(id); setMode('lh_confirm'); setFocusConfirm(true)
   }
   const lhCmdLabel = (id: string | null) => {
     if (id === 'requestplan') return 'Request a plan for the goal?'
