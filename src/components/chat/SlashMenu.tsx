@@ -45,12 +45,13 @@ interface Command {
   description: string
 }
 
-type Mode = 'main' | 'model' | 'thinking' | 'directory' | 'skill' | 'reset_confirm' | 'longhorizon'
+type Mode = 'main' | 'model' | 'thinking' | 'directory' | 'skill' | 'reset_confirm' | 'longhorizon' | 'lh_confirm'
 
 export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function SlashMenu(props, ref) {
   const [mode, setMode] = useState<Mode>('main')
   const [selectedIdx, setSelectedIdx] = useState(0)
   const [focusConfirm, setFocusConfirm] = useState(false)
+  const [pendingLhCmd, setPendingLhCmd] = useState<string | null>(null)
   const [focusAdd, setFocusAdd] = useState(false)
   const [pendingModel, setPendingModel] = useState(props.selectedModel)
   const [pendingThinking, setPendingThinking] = useState(props.thinking)
@@ -104,13 +105,27 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
     return [...base, { id: 'disable', label: '/disable', description: 'Disable Long Horizon and restore normal commands' }]
   })() : commands
   const filteredCommands = visibleCommands.filter(cmd => cmd.id.includes(props.filter.toLowerCase()))
+  const doLhAction = (id: string) => {
+    if (id === 'requestplan') props.onRequestPlan?.()
+    else if (id === 'approveplan') props.onApprovePlan?.()
+    else if (id === 'continuediscussing') props.onContinueDiscussing?.()
+    else if (id === 'pause') props.onPauseLongHorizon?.()
+    else if (id === 'resume') props.onResumeLongHorizon?.()
+    else if (id === 'disable') props.onLongHorizon?.(false)
+    else if (id === 'longhorizon') props.onLongHorizon?.(true)
+    props.onClose()
+  }
   const executeLhCommand = (id: string) => {
-    if (id === 'requestplan') { props.onRequestPlan?.(); props.onClose() }
-    else if (id === 'approveplan') { props.onApprovePlan?.(); props.onClose() }
-    else if (id === 'continuediscussing') { props.onContinueDiscussing?.(); props.onClose() }
-    else if (id === 'pause') { props.onPauseLongHorizon?.(); props.onClose() }
-    else if (id === 'resume') { props.onResumeLongHorizon?.(); props.onClose() }
-    else if (id === 'disable') { setMode('longhorizon'); setFocusConfirm(false) }
+    if (id === 'disable' || id === 'longhorizon') { setMode('longhorizon'); setFocusConfirm(false); return }
+    setPendingLhCmd(id); setMode('lh_confirm'); setFocusConfirm(false)
+  }
+  const lhCmdLabel = (id: string | null) => {
+    if (id === 'requestplan') return 'Request a plan for the goal?'
+    if (id === 'approveplan') return 'Approve the plan and start Long Horizon?'
+    if (id === 'continuediscussing') return 'Continue discussing without starting?'
+    if (id === 'pause') return 'Pause the automatic work?'
+    if (id === 'resume') return 'Resume the plan?'
+    return 'Confirm?'
   }
 
   // All models grouped by provider
@@ -143,6 +158,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
     if (mode === 'model') props.onSelectModel(pendingModel)
     else if (mode === 'thinking') props.onSelectThinking(pendingThinking)
     else if (mode === 'longhorizon') props.onLongHorizon?.(!props.longHorizonActive)
+    else if (mode === 'lh_confirm' && pendingLhCmd) { doLhAction(pendingLhCmd); return }
     props.onClose()
   }
 
@@ -197,7 +213,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
       else if (mode === 'thinking') setSelectedIdx(i => (i - 1 + 2) % 2)
       else if (mode === 'longhorizon') setSelectedIdx(i => (i - 1 + 2) % 2)
       else if (mode === 'skill') { const flat = skillGroups.flatMap((g: any) => g.skills.map((s: any) => ({ ...s, agentId: g.agentId, agentName: g.agentName }))); setSelectedIdx(i => (i - 1 + flat.length) % flat.length) }
-      else if (mode === 'reset_confirm') setFocusConfirm(false)
+      else if (mode === 'reset_confirm' || mode === 'lh_confirm') setFocusConfirm(false)
       setFocusConfirm(false)
     },
     navDown: () => {
@@ -248,7 +264,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
       } else if (mode === 'thinking') {
         if (focusConfirm) confirm()
         else { setPendingThinking(selectedIdx === 0 ? 'on' : 'off'); setFocusConfirm(true) }
-      } else if (mode === 'longhorizon') {
+      } else if (mode === 'longhorizon' || mode === 'lh_confirm') {
         if (focusConfirm) confirm()
         else setFocusConfirm(true)
       } else if (mode === 'skill') {
@@ -388,6 +404,32 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
             onClose={props.onClose}
           />
         </>
+      )}
+
+      {/* Long Horizon action confirm */}
+      {mode === 'lh_confirm' && (
+        <div style={{ padding: '12px 16px' }}>
+          <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', marginBottom: '12px' }}>{lhCmdLabel(pendingLhCmd)}</div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', padding: '4px 0 10px 0' }}>
+            <HoverTextBtn
+              label="Cancel"
+              onClick={() => setMode('main')}
+              textColor="var(--q-accent-danger)"
+              hoverTextColor="var(--q-accent-danger)"
+              hoverBg="rgba(255,255,255,0.06)"
+            />
+            <HoverTextBtn
+              label="Confirm"
+              highlighted={focusConfirm}
+              onClick={() => { if (pendingLhCmd) doLhAction(pendingLhCmd) }}
+              borderColor="var(--q-accent-longhorizon)"
+              textColor="var(--q-accent-longhorizon)"
+              hoverTextColor="var(--q-bg)"
+              hoverBg="var(--q-accent-longhorizon)"
+              fontWeight={600}
+            />
+          </div>
+        </div>
       )}
 
       {/* Long Horizon mode — single confirm (Activate or Disable depending on state) */}
