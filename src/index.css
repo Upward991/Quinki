@@ -367,6 +367,9 @@ mark.search-highlight-mark {
 .markdown-content ol li { display: list-item; list-style: decimal outside; }
 .markdown-content ol li::marker { color: var(--q-tab-accent); font-weight: 600; }
 .markdown-content ul li { display: list-item; list-style: none; position: relative; padding-left: 16px; }
+/* Task list (checkbox): niente pallino — solo la checkbox */
+.markdown-content ul li.task-list-item { padding-left: 0; }
+.markdown-content ul li.task-list-item::before { content: none; }
 .markdown-content ul li::before {
   content: '';
   position: absolute;
