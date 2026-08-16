@@ -126,7 +126,8 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
     if (id === 'longhorizon') return 'Activate Long Horizon?'
     return 'Confirm?'
   }
-  const directCmdIds = new Set(['longhorizon', 'disable', 'requestplan', 'approveplan', 'continuediscussing', 'pause', 'resume'])
+  const directCmdIds = new Set(['requestplan', 'approveplan', 'continuediscussing', 'pause', 'resume'])
+  const panelCmdIds = new Set(['longhorizon', 'disable'])
   const executeLhCommand = (id: string) => {
     // Niente secondo menu: usa il Confirm NATIVO. L'avanti evidenzia il Confirm, invio esegue.
     setFocusConfirm(true)
@@ -170,6 +171,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
   const confirm = () => {
     if (mode === 'main') {
       const cmd = filteredCommands[selectedIdx]
+      if (cmd && panelCmdIds.has(cmd.id)) { setMode('longhorizon'); setFocusConfirm(false); return }
       if (cmd && directCmdIds.has(cmd.id)) { doLhAction(cmd.id); return }
     }
     if (mode === 'model') props.onSelectModel(pendingModel)
@@ -250,6 +252,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
       console.log('[SLASH] navRight mode:', mode, 'selectedIdx:', selectedIdx, 'focusConfirm:', focusConfirm, 'lhActive:', !!props.longHorizonActive)
       if (mode === 'main') {
         const cmd = filteredCommands[selectedIdx]
+        if (cmd && panelCmdIds.has(cmd.id)) { setMode('longhorizon'); setFocusConfirm(false); return }
         if (cmd && directCmdIds.has(cmd.id)) { setFocusConfirm(true); return }
         if (cmd?.id === 'reset') setMode('reset_confirm')
         else if (cmd) enterMode(cmd.id as Mode)
@@ -271,6 +274,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
       console.log('[SLASH] navEnter mode:', mode, 'selectedIdx:', selectedIdx, 'cmds:', filteredCommands.length, 'focusConfirm:', focusConfirm, 'lhActive:', !!props.longHorizonActive)
       if (mode === 'main') {
         const cmd = filteredCommands[selectedIdx]
+        if (cmd && panelCmdIds.has(cmd.id)) { setMode('longhorizon'); setFocusConfirm(false); return }
         if (cmd && directCmdIds.has(cmd.id)) { if (focusConfirm) doLhAction(cmd.id); else setFocusConfirm(true); return }
         if (cmd?.id === 'reset') setMode('reset_confirm')
         else if (cmd) enterMode(cmd.id as Mode)
@@ -326,6 +330,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
                 isSelected={idx === selectedIdx}
                 onHover={() => setSelectedIdx(idx)}
                 onTap={() => {
+                  if (panelCmdIds.has(cmd.id)) { setMode('longhorizon'); setFocusConfirm(false); return }
                   if (directCmdIds.has(cmd.id)) { doLhAction(cmd.id); return }
                   if (cmd.id === 'reset') setMode('reset_confirm')
                   else enterMode(cmd.id as Mode)
@@ -340,6 +345,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
             onLeft={() => { if (focusConfirm) setFocusConfirm(false) }}
             onRight={() => {
               const cmd = filteredCommands[selectedIdx]
+              if (cmd && panelCmdIds.has(cmd.id)) { setMode('longhorizon'); setFocusConfirm(false); return }
               if (cmd && directCmdIds.has(cmd.id)) { setFocusConfirm(true); return }
               if (cmd?.id === 'reset') setMode('reset_confirm')
               else if (cmd) enterMode(cmd.id as Mode)
@@ -417,6 +423,39 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
             onClose={props.onClose}
           />
         </>
+      )}
+
+      {/* Long Horizon explanation panel (like reset) */}
+      {mode === 'longhorizon' && (
+        <div style={{ padding: '12px 16px' }}>
+          <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', marginBottom: '6px' }}>
+            {props.longHorizonActive ? 'Disable Long Horizon?' : 'Activate Long Horizon?'}
+          </div>
+          <div style={{ color: 'var(--q-text-secondary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginBottom: '10px', lineHeight: 1.6 }}>
+            {props.longHorizonActive
+              ? 'The support agent will stop guiding the session, the mode toggle will be unlocked, and the normal slash commands will be restored.'
+              : 'Long Horizon makes the session work autonomously through a plan: the support agent reads the plan and handoff files, sends "continue" prompts as user bubbles, commits progress to git, and stops if it detects loops. When active, the normal slash commands (model, thinking, skill, attachments) are disabled — you can only use the Long Horizon commands (/request plan, /approve plan, /continue discussing, /pause, /resume). The mode toggle stays locked until you disable it. You can always STOP or STEER.'}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', padding: '4px 0 10px 0' }}>
+            <HoverTextBtn
+              label="Cancel"
+              onClick={() => setMode('main')}
+              textColor="var(--q-accent-danger)"
+              hoverTextColor="var(--q-accent-danger)"
+              hoverBg="rgba(255,255,255,0.06)"
+            />
+            <HoverTextBtn
+              label={props.longHorizonActive ? 'Disable' : 'Activate'}
+              highlighted={focusConfirm}
+              onClick={() => { props.onLongHorizon?.(!props.longHorizonActive); props.onClose() }}
+              borderColor="var(--q-accent-longhorizon)"
+              textColor="var(--q-accent-longhorizon)"
+              hoverTextColor="var(--q-bg)"
+              hoverBg="var(--q-accent-longhorizon)"
+              fontWeight={600}
+            />
+          </div>
+        </div>
       )}
 
       {/* Skill mode — grouped by agent */}
