@@ -19,6 +19,9 @@ function useSidecar(url: string = 'ws://127.0.0.1:9182') {
       ws.onmessage = (ev) => {
         let msg: any
         try { msg = JSON.parse(ev.data) } catch { return }
+        if (msg.method === 'user_message' || msg.method === 'stream_event' || msg.method === 'agent_status') {
+          console.log('[LH-DIAG-FE] received', msg.method, msg.params?.sessionKey || '', String(msg.params?.text || msg.params?.delta || '').slice(0, 60))
+        }
         if (msg.id !== undefined) {
           const pending = pendingRef.current.get(msg.id)
           if (pending) {
