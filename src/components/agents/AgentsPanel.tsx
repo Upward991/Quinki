@@ -1310,9 +1310,14 @@ export function McpInstallModal({ onClose, onInstalled }) {
     if (type === 'package') return (src.split('/').pop() || src).replace(/^server-/, '').replace(/^mcp-/, '');
     if (type === 'url') { try { const u = new URL(src.startsWith('http') ? src : 'http://' + src); return u.hostname.replace(/^www\./, ''); } catch { return src; } }
     if (type === 'command') {
-      // Estrai il nome del pacchetto dal comando (es. "npx -y @playwright/mcp@latest" → "playwright-mcp")
-      const m = src.match(/@[a-zA-Z0-9_-]+\/([a-zA-Z0-9_.-]+)/);
-      if (m) return m[1].replace(/^server-/, '').replace(/^mcp-/, '').replace(/@.*$/, '');
+      // Estrai scope+pacchetto dal comando (es. "npx -y @playwright/mcp@latest" → "playwright-mcp")
+      const m = src.match(/@([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_.-]+)/);
+      if (m) {
+        const scope = m[1];
+        let pkg = m[2].replace(/@.*$/, '');
+        if (scope === 'modelcontextprotocol') return pkg.replace(/^server-/, '').replace(/^mcp-/, '');
+        return scope + '-' + pkg;
+      }
       return (src.trim().split(/\s+/)[0] || src).split('/').pop();
     }
     return src;
