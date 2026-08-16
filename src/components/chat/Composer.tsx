@@ -34,6 +34,7 @@ interface ComposerProps {
   onSteer?: (text: string) => void
   longHorizon?: boolean
   onLongHorizon?: (activate: boolean) => void
+  onRequestPlan?: (text: string) => void
   onModelChange: (model: string) => void
   onModeChange: (mode: ChatMode) => void
   onThinkingChange: (level: ThinkingLevel) => void
@@ -443,6 +444,13 @@ export function Composer(props: ComposerProps) {
           <SlashBtn color="var(--q-tab-accent)" onClick={() => { setSlashMenuOpen(true); setSlashFilter(''); if (!text.startsWith('/')) { /* don't clear text, just open menu */ } textareaRef.current?.focus() }} />
           <div style={{ width: '4px', flexShrink: 0 }} />
           <ModeButton mode={props.mode} onChange={props.onModeChange} longHorizon={props.longHorizon} />
+          {props.longHorizon && props.onRequestPlan && (
+            <button onClick={() => { if (text.trim()) { props.onRequestPlan!(text.trim()); setText('') } }}
+              title="Request a plan for the goal in the text box"
+              style={{ height: '32px', padding: '0 10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-accent-longhorizon)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-longhorizon)', fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-interface)', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+              Request plan
+            </button>
+          )}
           <div style={{ width: '8px', flexShrink: 0 }} />
           <div style={{ height: '32px', display: 'flex', alignItems: 'center' }}>
             <span style={{ color: counterColor, fontSize: '12px', fontFamily: 'var(--font-code)', lineHeight: '1', whiteSpace: 'nowrap' }}>
