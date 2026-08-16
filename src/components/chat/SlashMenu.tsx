@@ -436,7 +436,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
           <div style={{ color: 'var(--q-text-secondary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginBottom: '10px', lineHeight: 1.6 }}>
             {props.longHorizonActive
               ? 'The support agent will stop guiding the session, the mode toggle will be unlocked, and the normal slash commands will be restored.'
-              : 'Long Horizon makes the session work autonomously through a plan: the support agent reads the plan and handoff files, sends "continue" prompts as user bubbles, commits progress to git, and stops if it detects loops. When active, the normal slash commands (model, thinking, skill, attachments) are disabled — you can only use the Long Horizon commands (/request plan, /approve plan, /continue discussing, /pause, /resume). The mode toggle stays locked until you disable it. You can always STOP or STEER.'}
+              : 'Long Horizon makes the session work autonomously through a plan. The support agent reads the plan and handoff files, sends "continue" prompts as user bubbles, commits progress to git, and stops if it detects loops. When active, the normal slash commands (model, thinking, skill, attachments) are disabled. You can only use the Long Horizon commands: /request plan, /approve plan, /continue discussing, /pause, /resume. The mode toggle stays locked until you disable it. You can always STOP or STEER.'}
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', padding: '4px 0 10px 0' }}>
             <HoverTextBtn
