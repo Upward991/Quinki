@@ -310,7 +310,7 @@ export function Composer(props: ComposerProps) {
           longHorizonActive={props.longHorizon}
           longHorizonStatus={props.longHorizonStatus}
           longHorizonPlanProposed={props.longHorizonPlanProposed}
-          onRequestPlan={props.onRequestPlan ? () => props.onRequestPlan!(text) : undefined}
+          onRequestPlan={props.onRequestPlan ? () => props.onRequestPlan!() : undefined}
           onApprovePlan={props.onApprovePlan}
           onContinueDiscussing={props.onContinueDiscussing}
           onPauseLongHorizon={props.onPauseLongHorizon}

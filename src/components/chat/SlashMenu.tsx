@@ -135,8 +135,9 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
     return cmd ? cmd.id : null
   }
   const confirmLh = () => {
+    console.log('[SLASH] confirmLh, selectedIdx:', selectedIdx, 'filtered:', filteredCommands.map((x: any) => x.id).join(','))
     const id = lhSelectedId()
-    if (!id) return
+    if (!id) { console.log('[SLASH] confirmLh: id nullo'); return }
     doLhAction(id)
   }
   // All models grouped by provider
