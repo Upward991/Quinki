@@ -533,12 +533,14 @@ export class LongHorizon {
       // passa alla prossima unità pending
       const next = st.units.findIndex((u, i) => i > st.currentIdx && u.status === "pending");
       if (next === -1) {
-        // piano completo
+        // piano completo → torna alla DISCUSSION per discutere cosa è successo
         st.status = "done";
+        st.phase = "discussion";
         st.lastActivity = Date.now();
         this.#writeState(sk);
         this.#writeProgress(sk);
         this.#log("lh-completed", { sessionKey: sk, units: st.units.length });
+        this.#piBridge?.setLongHorizonPhase(sk, "discussion");
         this.#sendToSession(sk, DONE_MESSAGE);
         return;
       }
