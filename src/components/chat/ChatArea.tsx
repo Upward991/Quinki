@@ -105,6 +105,8 @@ interface ChatAreaProps {
   onRequestPlan?: (text: string) => void
   longHorizonStatus?: string
   longHorizonPhase?: string
+  longHorizonSystemMessage?: string
+  longHorizonStartedAt?: number
   onProceedToPlanning?: () => void
   onStartExecution?: () => void
   onNewDiscussion?: () => void
@@ -506,7 +508,7 @@ export function ChatArea(props: ChatAreaProps) {
               <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '4px 16px ' + (hasTasks ? 8 : 0) + 'px 16px', scrollbarGutter: 'stable', display: taskPanelOpen ? 'none' : 'block' }}
                 onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100); pinnedRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 120 }}>
                 {(() => {
-                  const chatItems: { kind: 'msg' | 'task'; ts: number; msg?: any; run?: any; mIdx?: number }[] = []
+                  const chatItems: { kind: 'msg' | 'task' | 'sys'; ts: number; msg?: any; run?: any; sysMsg?: string; mIdx?: number }[] = []
                   props.messages.forEach((msg, mIdx) => {
                     let ts = 0
                     try { ts = new Date(msg.timestamp).getTime() } catch {}
@@ -516,21 +518,23 @@ export function ChatArea(props: ChatAreaProps) {
                     if (run.status !== 'executed') continue
                     chatItems.push({ kind: 'task', ts: run.endedAt || run.createdAt || 0, run })
                   }
+                  if (props.longHorizonSystemMessage && props.longHorizonStartedAt) {
+                    chatItems.push({ kind: 'sys', ts: props.longHorizonStartedAt, sysMsg: props.longHorizonSystemMessage })
+                  }
                   chatItems.sort((a, b) => a.ts - b.ts || (a.kind === 'msg' ? 0 : 1))
                   return (
                     <>
-                    {props.longHorizonSystemMessage && (
-                      <div style={{ maxWidth: 'var(--spacing-chat-max)', minWidth: 0, margin: '8px 0' }}>
-                        <div style={{ backgroundColor: 'var(--q-bg)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', padding: '12px 16px' }}>
-                          <div style={{ color: 'var(--q-text)', fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-interface)', marginBottom: 8 }}>Long Horizon Mode</div>
-                          <div style={{ color: 'var(--q-text)', fontSize: 13, lineHeight: 1.6, fontFamily: 'var(--font-interface)', whiteSpace: 'pre-wrap' }}>{props.longHorizonSystemMessage}</div>
-                        </div>
-                      </div>
-                    )}
                     {chatItems.map((item, i) => (
-                    <div key={item.kind === 'msg' ? item.msg!.id : 'chat-' + item.run!.id} data-msg-idx={item.mIdx ?? -1} style={{ marginBottom: '12px' }}>
+                    <div key={item.kind === 'msg' ? item.msg!.id : item.kind === 'sys' ? 'lh-sys' : 'chat-' + item.run!.id} data-msg-idx={item.mIdx ?? -1} style={{ marginBottom: '12px' }}>
                       {item.kind === 'msg' ? (
                         <MessageBubble message={item.msg} onCopy={() => {}} searchQuery={searchQuery} msgIndex={item.mIdx ?? 0} activeMatchMsgIdx={activeMatchInfo?.msgIdx ?? -1} activeMatchOccurrence={activeMatchInfo?.occurrence ?? -1} isDateMatch={!searchQuery.trim() && hasDateFilter && dateMatchIndices.includes(item.mIdx ?? -1) && (item.mIdx ?? -1) === dateMatchIndices[Math.min(dateMatchIdx, dateMatchIndices.length - 1)]} />
+                      ) : item.kind === 'sys' ? (
+                        <div style={{ maxWidth: 'var(--spacing-chat-max)', minWidth: 0 }}>
+                          <div style={{ backgroundColor: 'var(--q-bg)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', padding: '12px 16px' }}>
+                            <div style={{ color: 'var(--q-text)', fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-interface)', marginBottom: 8 }}>Long Horizon Mode</div>
+                            <div style={{ color: 'var(--q-text)', fontSize: 13, lineHeight: 1.6, fontFamily: 'var(--font-interface)', whiteSpace: 'pre-wrap' }}>{item.sysMsg}</div>
+                          </div>
+                        </div>
                       ) : (
                         <TaskResultToggle run={item.run} sessionKey={props.session?.key} defaultOpen />
                       )}
