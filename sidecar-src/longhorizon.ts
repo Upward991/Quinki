@@ -162,6 +162,24 @@ export class LongHorizon {
     return { ok: true };
   }
 
+  // Disattiva COMPLETAMENTE Long Horizon per la sessione (usato quando la chat viene eliminata)
+  disable(sk: string): { ok: boolean; error?: string } {
+    const st = this.#states.get(sk);
+    if (!st) return { ok: true };
+    st.active = false;
+    st.phase = "discussion";
+    st.status = "idle";
+    st.units = [];
+    st.currentIdx = -1;
+    st.promptCount = 0;
+    st.pendingGoal = undefined;
+    this.#writeState(sk);
+    this.#writeProgress(sk);
+    this.#log("lh-disabled", { sessionKey: sk });
+    this.#piBridge?.setLongHorizonPhase(sk, "");
+    return { ok: true };
+  }
+
   // Disattiva (pausa) Long Horizon per la sessione — torna alla DISCUSSION
   deactivate(sk: string): { ok: boolean; error?: string } {
     const st = this.#states.get(sk);

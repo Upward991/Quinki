@@ -259,6 +259,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   },
 
   deleteSession: async (p) => {
+    try { longHorizon.disable(String(p.sessionKey || '')); } catch {}
     piBridge!.remove(p.sessionKey);
     piBridge!.logDebug("session-deleted", { sessionKey: p.sessionKey });
     return { sessionKey: p.sessionKey };
@@ -692,8 +693,17 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     }
     return result;
   },
-  deleteSessionsByFolderId: async (p) => deleteSessionsByFolderIdIPC(p.folderId),
-  deleteSessionsByKeys: async (p) => deleteSessionsByKeysIPC(p.keys),
+  deleteSessionsByFolderId: async (p) => {
+    try {
+      const arr = getSessionsFromFile();
+      for (const s of arr) if ((s.folderId ?? null) === p.folderId) longHorizon.disable(String(s.key || ''));
+    } catch {}
+    return deleteSessionsByFolderIdIPC(p.folderId);
+  },
+  deleteSessionsByKeys: async (p) => {
+    try { for (const k of (p.keys || [])) longHorizon.disable(String(k)); } catch {}
+    return deleteSessionsByKeysIPC(p.keys);
+  },
 
   getFullDebugLog: async () => ({ log: getFullDebugLog() }),
   clearDebugLogFile: async () => clearDebugLogFile(),
