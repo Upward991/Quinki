@@ -597,6 +597,11 @@ class PiBridge {
             const meta = JSON.parse(fs.readFileSync(metaP, "utf8"));
             const e = this.#entries.get(s.key);
             if (e) {
+              // label: chat-meta.json (user intent) è AUTHORITATIVE — il rename
+              // non si perde mai (reinstall, sync, sovrascritture del file condiviso).
+              if (meta && typeof meta.label === 'string' && meta.label.trim()) {
+                e.label = meta.label;
+              }
               let backup: any = null;
               try {
                 const bp = path.join(dir, "session-backup.json");
@@ -1214,6 +1219,9 @@ class PiBridge {
   rename(key: string, label: string) {
     const s = this.#entries.get(key);
     if (s) { s.label = label; this.#save(); }
+    // USER INTENT (anti-loss): label per-sessione in chat-meta.json — sopravvive
+    // a reinstall/aggiornamento e a sovrascritture del file condiviso da altri processi.
+    this.#writeChatMeta(key, { label });
   }
 
   updateSessionEntry(key: string, updates: { folderId?: string | null; order?: number }) {
