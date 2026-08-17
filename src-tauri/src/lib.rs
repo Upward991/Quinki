@@ -875,12 +875,13 @@ fn check_expert_needs_restart() -> Result<bool, String> {
         return Ok(false);
     };
 
-    // Confronta con il build della MAIN: se differisce, la main ha qualcosa
-    // che l'Expert (in esecuzione) non ha applicato ancora → badge
-    let Some((mb, ms)) = app_build_fingerprint("/Applications/Quinki.app") else {
+    // Confronta con il build ATTUALE dell'Expert (non della main): se differisce
+    // da quello registrato all'avvio, l'Expert è stato sincronizzato ma non riavviato → badge.
+    // (Confrontare con la main era sbagliato: le firme diverse cambiano l'MD5 del binario.)
+    let Some((eb, es)) = app_build_fingerprint("/Applications/App Expert.app") else {
         return Ok(false);
     };
-    Ok(mb != sb || ms != ss)
+    Ok(eb != sb || es != ss)
 }
 
 #[tauri::command]
