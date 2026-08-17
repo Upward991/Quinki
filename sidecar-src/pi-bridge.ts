@@ -2831,8 +2831,8 @@ class PiBridge {
 
   // === A2.11B: verifica se un path è permesso (working dir sempre OK, altrimenti il flag globale) ===
   loadAuthorizedFolders(): string[] {
+    // Legge SEMPRE il file (è minuscolo) — così le modifiche dalla UI sono subito attive
     try {
-      if (this.#authorizedFolders) return this.#authorizedFolders;
       const p = path.join(this.#agentDir, "quinki-authorized-folders.json");
       if (fs.existsSync(p)) {
         const d = JSON.parse(fs.readFileSync(p, "utf8"));
