@@ -837,7 +837,7 @@ fn restart_expert_app(app: tauri::AppHandle) -> Result<(), String> {
       .spawn();
     // Relaunch app — use nohup + detached process so it survives parent exit
     let _ = std::process::Command::new("sh").arg("-c")
-      .arg("nohup sh -c 'sleep 1; open "/Applications/App Expert.app"' >/dev/null 2>&1 &")
+      .arg("nohup sh -c 'sleep 1; open \"/Applications/App Expert.app\"' >/dev/null 2>&1 &")
       .spawn();
 
     // Remove the flag file
