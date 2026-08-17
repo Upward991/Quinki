@@ -420,6 +420,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   getSystemPrompt: async (p) => ({ prompt: getSystemPromptIPC(p.sessionKey) }),
 
   getStreamingStatus: async () => ({ streamingKeys: getStreamingStatusIPC() }),
+  getStreamingSnapshot: async (p) => piBridge!.getStreamingSnapshot(String(p.sessionKey || '')),
   getDelegations: async (p) => ({ delegations: piBridge ? piBridge.getDelegations(String(p.sessionKey || "")) : [] }),
   getStreamingMessage: async (p) => ({ streaming: piBridge ? piBridge.getStreamingMessage(String(p.sessionKey)) : null }),
 
