@@ -829,18 +829,30 @@ fn check_expert_backup_exists() -> Result<bool, String> {
 
 #[tauri::command]
 fn restart_expert_app() -> Result<(), String> {
-    // Kill the Expert app sidecar (port 9183)
+    let expert_app = "/Applications/App Expert.app";
+
+    // 1) SPAWN detachato che riapre l'app DOPO 2s. Deve partire PRIMA del kill:
+    //    altrimenti il kill uccide il processo che esegue questo comando e il
+    //    reopen non parte mai. Il processo `sh -c "sleep 2; open ..."` diventa
+    //    orfano ma continua, e riapre l'app (quit + reopen completo).
+    let _ = std::process::Command::new("sh")
+        .arg("-c")
+        .arg(format!("sleep 2; open '{}'", expert_app))
+        .spawn();
+
+    // 2) Kill il sidecar dell'Expert (porta 9183)
     let _ = std::process::Command::new("sh")
         .args(["-c", "lsof -ti:9183 | xargs kill -9 2>/dev/null"])
         .output();
-    
-    // Kill the Expert app process
+
+    // 3) Kill il processo dell'app (pattern specifico del binario: NON matcha
+    //    il processo `sh -c "sleep 2; open ..."` appena spawnato).
     let _ = std::process::Command::new("sh")
-        .args(["-c", "pkill -f 'App Expert' 2>/dev/null"])
+        .args(["-c", "pkill -f 'App Expert.app/Contents/MacOS/quinki' 2>/dev/null"])
         .output();
-    
-    // Attendi che la porta 9183 si liberi (max 8s): senza questo, il nuovo sidecar
-    // fallisce con "Failed to start server. Is port 9183 in use?" e l'app non carica.
+
+    // 4) Attendi che la porta 9183 si liberi (max 8s): il nuovo sidecar parte
+    //    subito quando l'app riapre, senza "Failed to start server".
     for _ in 0..8 {
         let still = std::process::Command::new("sh")
             .args(["-c", "lsof -ti:9183 2>/dev/null"])
@@ -850,21 +862,12 @@ fn restart_expert_app() -> Result<(), String> {
         if !still { break; }
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
-    
-    // Remove the flag file
+
+    // 5) Remove the flag file
     let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
     let flag = format!("{}/.quinki/.expert-needs-restart", home);
     let _ = std::fs::remove_file(&flag);
-    
-    // Reopen the Expert app
-    let expert_app = "/Applications/App Expert.app";
-    if std::path::Path::new(expert_app).exists() {
-        std::process::Command::new("open")
-            .arg(expert_app)
-            .spawn()
-            .map_err(|e| e.to_string())?;
-    }
-    
+
     Ok(())
 }
 
