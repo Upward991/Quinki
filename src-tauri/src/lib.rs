@@ -1453,24 +1453,33 @@ pub fn run() {
       // Prevent exit only if not explicitly requested
       if let tauri::RunEvent::ExitRequested { api, .. } = event {
         if !SHOULD_EXIT.load(Ordering::SeqCst) {
-          api.prevent_exit();
-        } else {
-          // Kill il sidecar PRIMA di uscire: altrimenti resta orfano, il turno
-          // continua e completa (agent_end cancella il marker) → al riavvio non c'è
-          // niente da recuperare e il recovery non parte. Con il sidecar morto a
-          // metà turno, il marker resta e il recovery al boot ri-promptata.
+          // Cmd+Q (o uscita standard): NON prevenire l'uscita. Il close-to-tray
+          // riguarda solo la chiusura della FINESTRA (CloseRequested), non Cmd+Q.
+          // Quindi uccidi il sidecar e lascia uscire davvero. Se NON uccidiamo il
+          // sidecar, resta orfano, il turno continua e completa (agent_end cancella
+          // il marker) → al riavvio niente recovery.
           let port = if is_expert_mode() { "9183" } else { "9182" };
           let _ = std::process::Command::new("sh").arg("-c")
             .arg(format!("lsof -ti:{} | xargs kill -9 2>/dev/null", port))
             .spawn();
-          // Clean up PID file on exit
           let pid_file = if is_expert_mode() {
         format!("{}/.quinki-expert-app.pid", std::env::var("HOME").unwrap_or_default())
     } else {
         format!("{}/.quinki-app.pid", std::env::var("HOME").unwrap_or_default())
     };
           let _ = std::fs::remove_file(&pid_file);
-
+        } else {
+          // SHOULD_EXIT (tray restart) → kill sidecar PRIMA di uscire
+          let port = if is_expert_mode() { "9183" } else { "9182" };
+          let _ = std::process::Command::new("sh").arg("-c")
+            .arg(format!("lsof -ti:{} | xargs kill -9 2>/dev/null", port))
+            .spawn();
+          let pid_file = if is_expert_mode() {
+        format!("{}/.quinki-expert-app.pid", std::env::var("HOME").unwrap_or_default())
+    } else {
+        format!("{}/.quinki-app.pid", std::env::var("HOME").unwrap_or_default())
+    };
+          let _ = std::fs::remove_file(&pid_file);
         }
       }
     });
