@@ -6045,14 +6045,32 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
         }
         case "agent_end":
           if (this.#compactingSessions.has(key)) break; // sopprimi fine agente durante compaction
-          // Turno completato → rimuovi il marker pending-turn.
-          // Solo l'Expert sidecar gestisce il marker di __app_expert__ (la main non lo tocca).
+          // Cancella il marker pending-turn SOLO se il turno è COMPLETATO davvero:
+          // l'ultimo messaggio assistant ha stopReason === "stop" (risposta finale).
+          // Se il turno è fallito (error), interrotto (aborted/toolUse) o non c'è
+          // risposta, il marker RESTA → il recovery al boot ri-promptata.
+          let turnCompleted = false;
+          try {
+            const msgs = (e as any)?.messages || [];
+            for (let i = msgs.length - 1; i >= 0; i--) {
+              const m = msgs[i];
+              if (m?.role === "assistant") {
+                turnCompleted = m.stopReason === "stop" || m.stopReason === "length";
+                break;
+              }
+              if (m?.role === "user") break;
+            }
+          } catch {}
           {
             const isExp = Number(process.env.QUINKI_WS_PORT || "9182") === 9183;
-            if (!(key === "__app_expert__" && !isExp)) {
-              try { const p = path.join(this.#piSessionDir(key), "pending-turn.json"); if (fs.existsSync(p)) { fs.unlinkSync(p); this.logDebug("marker-delete", { sessionKey: key, where: "agent_end", isExpert: isExp }); } } catch {}
+            if (turnCompleted) {
+              if (!(key === "__app_expert__" && !isExp)) {
+                try { const p = path.join(this.#piSessionDir(key), "pending-turn.json"); if (fs.existsSync(p)) { fs.unlinkSync(p); this.logDebug("marker-delete", { sessionKey: key, where: "agent_end", isExpert: isExp, turnCompleted }); } } catch {}
+              } else {
+                this.logDebug("marker-delete-guarded", { sessionKey: key, where: "agent_end", isExpert: isExp });
+              }
             } else {
-              this.logDebug("marker-delete-guarded", { sessionKey: key, where: "agent_end", isExpert: isExp });
+              this.logDebug("marker-keep-turn-not-complete", { sessionKey: key, where: "agent_end", isExpert: isExp });
             }
           }
           ws.send(JSON.stringify({ type: "typing_stop_broadcast", sessionKey: key }));
