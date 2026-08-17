@@ -237,7 +237,6 @@ fn open_system_settings(pane: String) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
 fn check_screen_recording(app: &tauri::AppHandle) -> bool {
     // Il helper è bundleato in Contents/Resources/resources/tcc-check
     let mut cand = app.path().resource_dir().unwrap_or_default();
@@ -256,6 +255,7 @@ fn check_screen_recording(app: &tauri::AppHandle) -> bool {
     false
 }
 
+#[tauri::command]
 fn check_tcc_status(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
     // Full Disk Access: prova a leggere il database TCC (richiede FDA) o ~/Library/Safari
