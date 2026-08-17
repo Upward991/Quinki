@@ -2488,9 +2488,21 @@ class PiBridge {
             if (lhState.active) continue;
           } catch {}
           const marker = JSON.parse(fs.readFileSync(p, "utf8"));
-          this.logDebug("pending-turn-recover", { sessionKey: sk, text: String(marker.text || "").slice(0, 80) });
+          const origText = String(marker.text || "");
+          // Se il messaggio originale NON è nel jsonl (app riavviata prima che venisse salvato),
+          // ri-invia il messaggio originale — altrimenti il modello non sa cosa continuare.
+          let hasOrig = false;
+          try {
+            const hist = this.getHistory(sk);
+            if (Array.isArray(hist)) {
+              const probe = origText.slice(0, 50);
+              hasOrig = hist.some((m: any) => m.role === "user" && String(m.content || "").includes(probe));
+            }
+          } catch {}
+          const prompt = hasOrig ? "The app was interrupted while processing. Please continue and complete your response." : origText;
+          this.logDebug("pending-turn-recover", { sessionKey: sk, hasOrig, text: prompt.slice(0, 80) });
           const fakeWs = { readyState: 1, constructor: { OPEN: 1 }, send: () => {} };
-          await this.send(fakeWs, { sessionKey: sk, text: "The app was interrupted while processing. Please continue and complete your response.", _preserveWs: true });
+          await this.send(fakeWs, { sessionKey: sk, text: prompt, _preserveWs: true });
           recovered++;
         } catch (e: any) { this.logDebug("pending-turn-recover-error", { sessionKey: sk, error: e?.message || String(e) }); }
       }
