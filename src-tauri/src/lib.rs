@@ -219,6 +219,60 @@ fn open_general_attachments_folder() -> Result<(), String> {
 }
 
 #[tauri::command]
+fn open_system_settings(pane: String) -> Result<(), String> {
+    // Apre la schermata specifica di System Settings per un permesso TCC
+    let url = match pane.as_str() {
+        "full_disk" => "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles",
+        "files_folders" => "x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders",
+        "network" => "x-apple.systempreferences:com.apple.preference.security?Privacy_Network",
+        "screen_recording" => "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
+        "accessibility" => "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
+        "notifications" => "x-apple.systempreferences:com.apple.preference.notifications",
+        _ => return Err(format!("Unknown pane: {}", pane)),
+    };
+    std::process::Command::new("open")
+        .arg(url)
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn check_tcc_status() -> Result<serde_json::Value, String> {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
+    // Full Disk Access: prova a leggere un file protetto (~/Library/Safari)
+    let full_disk = std::fs::read_dir(format!("{}/Library/Safari", home)).is_ok();
+    // Files and Folders: prova a leggere ~/Documents
+    let files_folders = std::fs::read_dir(format!("{}/Documents", home)).is_ok();
+    // Network: prova una richiesta curl veloce
+    let network = std::process::Command::new("curl")
+        .args(["-sI", "--max-time", "3", "https://www.apple.com"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+    // Screen Recording: prova screencapture (best-effort)
+    let screen_recording = std::process::Command::new("screencapture")
+        .args(["-x", "/tmp/quinki-screen-test.png"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+    // Accessibility: prova osascript (fallisce se non autorizzato)
+    let accessibility = std::process::Command::new("osascript")
+        .args(["-e", "tell application \"System Events\" to get name of first process"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    Ok(serde_json::json!({
+        "fullDisk": full_disk,
+        "filesFolders": files_folders,
+        "network": network,
+        "screenRecording": screen_recording,
+        "accessibility": accessibility,
+    }))
+}
+
+#[tauri::command]
 fn open_url(url: String) -> Result<(), String> {
     std::process::Command::new("open")
         .arg(&url)
@@ -1015,6 +1069,8 @@ pub fn run() {
         open_longhorizon_folder,
         open_general_attachments_folder,
         open_url,
+        open_system_settings,
+        check_tcc_status,
         list_attachments,
         check_expert_installed,
         install_expert_app,
