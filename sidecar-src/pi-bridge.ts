@@ -2781,8 +2781,9 @@ class PiBridge {
       network = r.status === 0;
     } catch {}
     try {
-      const r = require("child_process").spawnSync("screencapture", ["-x", "/tmp/quinki-screen-test.png"], { encoding: "utf8", timeout: 5000 });
-      screenRecording = r.status === 0;
+      // CGPreflightScreenCaptureAccess NON scatena il prompt (API non-invasiva)
+      const r = require("child_process").spawnSync("swift", ["-e", "import CoreGraphics; print(CGPreflightScreenCaptureAccess())"], { encoding: "utf8", timeout: 15000 });
+      screenRecording = r.status === 0 && (r.stdout || "").trim() === "true";
     } catch {}
     try {
       const r = require("child_process").spawnSync("osascript", ["-e", 'tell application "System Events" to get name of first process'], { encoding: "utf8", timeout: 5000 });
