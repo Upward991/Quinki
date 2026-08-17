@@ -2548,9 +2548,18 @@ class PiBridge {
             const lhState = JSON.parse(fs.readFileSync(path.join(this.#agentDir, "longhorizon", sk, "state.json"), "utf8"));
             if (lhState.active) { this.logDebug("recovery-skip", { sessionKey: sk, reason: "longhorizon-active" }); continue; }
           } catch {}
-          // Salta se il turno è attivo (streaming in corso) — SOLO se c'è un buffer
-          // di streaming (turno davvero in corso), non se la sessione è solo caricata.
-          if (this.#streamingBuffers.has(sk)) { this.logDebug("recovery-skip", { sessionKey: sk, reason: "streaming-buffer" }); continue; }
+          // Salta se il turno è attivo (streaming in corso) — MA se il buffer è STALE
+          // (> 20s senza aggiornamenti), il turno è BLOCCATO → ri-prompta per sbloccarlo.
+          if (this.#streamingBuffers.has(sk)) {
+            const sb = this.#streamingBuffers.get(sk);
+            const stale = sb && (Date.now() - (sb.ts || 0) > 20000);
+            if (stale) {
+              this.logDebug("recovery-stuck-turn", { sessionKey: sk, ageMs: Date.now() - (sb.ts || 0) });
+            } else {
+              this.logDebug("recovery-skip", { sessionKey: sk, reason: "streaming-buffer" });
+              continue;
+            }
+          }
           // Salta se l'utente ha premuto STOP (non ri-promptare)
           if (this.#stoppedSessions.has(sk)) { this.logDebug("recovery-skip", { sessionKey: sk, reason: "stopped" }); continue; }
           if (retries >= 3) { this.logDebug("recovery-skip", { sessionKey: sk, reason: "retries-limit" }); continue; } // limite raggiunto — l'utente ritenta a mano
@@ -5718,7 +5727,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
           // === A5: streaming started event per aggiornare streamingSet nel renderer ===
           this.#sendToWs(ws, { type: "streaming_started", sessionKey: key });
           // === Multi-window: inizializza streaming buffer ===
-          this.#streamingBuffers.set(key, { text: "", thinking: "", toolCalls: [], currentPhase: null, messageId: null, model: this.#active.get(key)?.model?.id || null, provider: null, stopReason: null, thinkingLevel: this.#entries.get(key)?.thinkingLevel || null });
+          this.#streamingBuffers.set(key, { text: "", thinking: "", toolCalls: [], currentPhase: null, messageId: null, model: this.#active.get(key)?.model?.id || null, provider: null, stopReason: null, thinkingLevel: this.#entries.get(key)?.thinkingLevel || null, ts: Date.now() });
           // System prompt già disabilitato alla radice via resourceLoader custom in createAgentSession
           break;
         case "message_update": {
@@ -5748,6 +5757,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
 
           // === Multi-window: aggiorna streaming buffer ===
           const buf = this.#streamingBuffers.get(key);
+          if (buf) buf.ts = Date.now();
           if (buf) {
             if (e.message?.id) buf.messageId = e.message.id;
             if (ame.type === "thinking_start") buf.currentPhase = "thinking";
