@@ -261,8 +261,10 @@ fn check_tcc_status(app: tauri::AppHandle) -> Result<serde_json::Value, String> 
     // Full Disk Access: prova a leggere il database TCC (richiede FDA) o ~/Library/Safari
     let full_disk = std::fs::read_dir(format!("{}/Library/Application Support/com.apple.TCC", home)).is_ok()
         || std::fs::read_dir(format!("{}/Library/Safari", home)).is_ok();
-    // Files and Folders: se FDA è concesso, è coperto; altrimenti prova ~/Documents
-    let files_folders = full_disk || std::fs::read_dir(format!("{}/Documents", home)).is_ok();
+    // Files and Folders: NON leggiamo ~/Documents (scatena il prompt macOS).
+    // Se FDA è concesso, Files and Folders è coperto. Altrimenti lo stato è OFF
+    // (l'utente lo concede in System Settings).
+    let files_folders = full_disk;
     // Screen Recording: helper Swift non-invasivo (CGPreflightScreenCaptureAccess — NON scatena il prompt)
     let screen_recording = check_screen_recording(&app);
 
