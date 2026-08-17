@@ -2734,6 +2734,14 @@ class PiBridge {
     return out.slice(-limit);
   }
 
+  // === Snapshot dello streaming in corso: per mostrare il messaggio parziale quando
+  // il frontend si riconnette a metà turno (dopo crash/riavvio). ===
+  getStreamingSnapshot(key: string): any | null {
+    const buf = this.#streamingBuffers.get(key);
+    if (!buf) return null;
+    return { ...buf };
+  }
+
   getEffectiveCwd(key: string): string {
     return this.#cwdOverride.get(key) ?? (this.#entries.get(key) as any)?.workingDir ?? this.#cwd;
   }

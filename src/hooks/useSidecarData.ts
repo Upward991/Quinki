@@ -659,6 +659,21 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
       setIsStreaming(false)
       setStatusLabel(''); setStatusKind('')
     }
+    // === Snapshot streaming: se la sessione è a metà turno (dopo crash/riavvio),
+    // recupera il messaggio parziale e lo mostra subito. ===
+    try {
+      const snap = await call('getStreamingSnapshot', { sessionKey })
+      if (snap && (snap.text || snap.thinking || (snap.toolCalls && snap.toolCalls.length > 0))) {
+        const blocks: any[] = []
+        if (snap.thinking) blocks.push({ type: 'thinking', content: snap.thinking })
+        for (const tc of (snap.toolCalls || [])) blocks.push({ type: 'tool_call', name: tc.name || 'tool', input: tc.args || '' })
+        if (snap.text) blocks.push({ type: 'text', content: snap.text })
+        setMessages(prev => {
+          if (prev.some(m => m.id === 'snap-' + sessionKey)) return prev
+          return [...prev, { id: 'snap-' + sessionKey, role: 'assistant' as const, content: snap.text || '', blocks, timestamp: new Date().toISOString(), isStreaming: true }]
+        })
+      }
+    } catch {}
     // Cross-sidecar: refresh contesto dalla sorgente condivisa su disco (main ↔ App Expert)
     try {
       const cu = await call('getContextUsage', { sessionKey })
