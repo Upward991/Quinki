@@ -900,8 +900,10 @@ fn check_expert_needs_restart() -> Result<bool, String> {
 
 #[tauri::command]
 fn check_expert_running() -> Result<bool, String> {
+    // Controlla il PROCESSO dell'app Expert (non la porta 9183: il sidecar può
+    // restare orfano quando l'app è chiusa, e darebbe un falso "in esecuzione").
     let output = std::process::Command::new("sh")
-        .args(["-c", "lsof -ti:9183 2>/dev/null"])
+        .args(["-c", "pgrep -f '/Applications/App Expert.app/Contents/MacOS/quinki' 2>/dev/null"])
         .output()
         .map_err(|e| e.to_string())?;
     Ok(!output.stdout.is_empty())
