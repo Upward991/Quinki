@@ -148,6 +148,7 @@ class PiBridge {
   #permissions: any = null;
   #authorizedFolders: string[] | null = null;
   #stoppedSessions = new Set<string>();
+  #rePrompted = new Set<string>();
   #mcpClients = new Map<string, StdioMcpClient>();  // chiave `${sessionKey}:${serverId}`
   #mcpToolNames = new Map<string, { name: string; serverId: string }[]>();  // per sessione: tool MCP per applyMode (plan/build)
   #mcpSig = new Map<string, string>();  // firma mcpServers con cui è stata costruita la sessione (auto-diff)
@@ -5310,8 +5311,9 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       fs.writeFileSync(path.join(pdir, "pending-turn.json"), JSON.stringify({ text: data.text, ts: Date.now(), retries }), "utf8");
     } catch {}
 
-    // Un nuovo invio = l'utente vuole riprendere: togli dalla lista "stopped"
+    // Un nuovo invio = l'utente vuole riprendere: togli dalle liste "stopped" e "rePrompted"
     this.#stoppedSessions.delete(sk);
+    this.#rePrompted.delete(sk);
 
     const next = prev.then(async () => {
       // Retry di sicurezza per errori THROWN (503/overloaded/rate limit) che bypassano
@@ -5903,6 +5905,20 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
             // Persisti l'errore in chat (deve ricomparire al reload)
             if (e.message?.stopReason === "error" && (e.message as any)?.errorMessage) {
               this.#saveError(key, { timestamp: Date.now(), errorMessage: (e.message as any).errorMessage, model: actualModel, agentName: doneAgentName, thinkingLevel: actualThinking });
+              // Re-prompt UNA volta DOPO i 3 tentativi dell'SDK (solo errori retryable: 503/overloaded).
+              // L'SDK ritenta già 3 volte con backoff; qui, se ha fallito comunque, ri-promptiamo
+              // la sessione una sola volta dopo 30s (il provider potrebbe essersi liberato).
+              const errMsg = String((e.message as any).errorMessage);
+              const retryable = /overloaded|503|429|rate.?limit|service.?unavailable|server.?error|temporarily|too many requests/i.test(errMsg);
+              if (retryable && !this.#rePrompted.has(key) && !this.#stoppedSessions.has(key)) {
+                this.#rePrompted.add(key);
+                this.logDebug("auto-reprompt-scheduled", { sessionKey: key, error: errMsg.slice(0, 120) });
+                setTimeout(() => {
+                  if (this.#stoppedSessions.has(key)) return;
+                  const fakeWs = { readyState: 1, constructor: { OPEN: 1 }, send: () => {} };
+                  this.send(fakeWs, { sessionKey: key, text: "The app was interrupted while processing. Please continue and complete your response.", _preserveWs: true });
+                }, 30000);
+              }
             }
             // Accumula input/output totali della sessione (persistiti)
             try {
