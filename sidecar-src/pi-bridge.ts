@@ -2512,10 +2512,15 @@ class PiBridge {
             const hist = this.getHistory(sk);
             if (Array.isArray(hist) && hist.length > 0) {
               const last = hist[hist.length - 1];
-              if (last.role === "user" && last.content) {
+              // Turno interrotto se: ultimo messaggio è un utente SENZA risposta,
+              // OPPURE è un assistant NON completato (done=false — interrotto a metà,
+              // es. thinking/toolCall senza risposta finale).
+              const userNoResp = last.role === "user" && last.content;
+              const asstNotDone = last.role === "assistant" && !last.done;
+              if (userNoResp || asstNotDone) {
                 interrupted = true;
-                markerText = String(last.content);
-                this.logDebug("recovery-jsonl-interrupted", { sessionKey: sk, lastUser: markerText.slice(0, 60) });
+                markerText = String(last.content || "");
+                this.logDebug("recovery-jsonl-interrupted", { sessionKey: sk, lastRole: last.role, done: !!last.done, lastText: markerText.slice(0, 60) });
               }
             }
           } catch (e: any) { this.logDebug("recovery-jsonl-error", { sessionKey: sk, error: e?.message || String(e) }); }
