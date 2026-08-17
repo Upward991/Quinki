@@ -2500,28 +2500,29 @@ class PiBridge {
       for (const sk of fs.readdirSync(base)) {
         const p = path.join(base, sk, "pending-turn.json");
         if (!fs.existsSync(p)) continue;
+        this.logDebug("recovery-check", { sessionKey: sk, marker: fs.existsSync(p) });
         // === DISTINZIONE main vs expert ===
         // Le sessioni __exec_* le gestisce l'executor recovery (separato).
         // La sessione __app_expert__ è CONDIVISA: la recupera SOLO il sidecar dell'Expert
         // (porta 9183), non quello della main (9182). Così la main non crea rumore nell'Expert.
         const isExpertSidecar = Number(process.env.QUINKI_WS_PORT || "9182") === 9183;
-        if (sk.startsWith("__exec_")) continue;
-        if (sk === "__app_expert__" && !isExpertSidecar) continue;
-        if (sk !== "__app_expert__" && isExpertSidecar) continue;
+        if (sk.startsWith("__exec_")) { this.logDebug("recovery-skip", { sessionKey: sk, reason: "exec" }); continue; }
+        if (sk === "__app_expert__" && !isExpertSidecar) { this.logDebug("recovery-skip", { sessionKey: sk, reason: "app-expert-non-expert-sidecar" }); continue; }
+        if (sk !== "__app_expert__" && isExpertSidecar) { this.logDebug("recovery-skip", { sessionKey: sk, reason: "non-app-expert-su-expert-sidecar" }); continue; }
         try {
           // Salta Long Horizon attivo (il support agent ri-prompta da solo)
           try {
             const lhState = JSON.parse(fs.readFileSync(path.join(this.#agentDir, "longhorizon", sk, "state.json"), "utf8"));
-            if (lhState.active) continue;
+            if (lhState.active) { this.logDebug("recovery-skip", { sessionKey: sk, reason: "longhorizon-active" }); continue; }
           } catch {}
           // Salta se il turno è attivo (streaming in corso) — SOLO se c'è un buffer
           // di streaming (turno davvero in corso), non se la sessione è solo caricata.
-          if (this.#streamingBuffers.has(sk)) continue;
+          if (this.#streamingBuffers.has(sk)) { this.logDebug("recovery-skip", { sessionKey: sk, reason: "streaming-buffer" }); continue; }
           // Salta se l'utente ha premuto STOP (non ri-promptare)
-          if (this.#stoppedSessions.has(sk)) continue;
+          if (this.#stoppedSessions.has(sk)) { this.logDebug("recovery-skip", { sessionKey: sk, reason: "stopped" }); continue; }
           const marker = JSON.parse(fs.readFileSync(p, "utf8"));
           const retries = marker.retries || 0;
-          if (retries >= 3) continue; // limite raggiunto — l'utente ritenta a mano
+          if (retries >= 3) { this.logDebug("recovery-skip", { sessionKey: sk, reason: "retries-limit" }); continue; } // limite raggiunto — l'utente ritenta a mano
           const origText = String(marker.text || "");
           // Se il messaggio originale NON è nel jsonl (app riavviata prima che venisse salvato),
           // ri-invia il messaggio originale — altrimenti il modello non sa cosa continuare.
