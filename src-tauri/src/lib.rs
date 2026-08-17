@@ -238,7 +238,23 @@ fn open_system_settings(pane: String) -> Result<(), String> {
 }
 
 fn check_screen_recording(app: &tauri::AppHandle) -> bool {
-    // Il helper è bundleato in Contents/Resources/resources/tcc-check
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
+    let tcc_db = format!("{}/Library/Application Support/com.apple.TCC/TCC.db", home);
+    // 1) Se l'app ha FDA, legge il database TCC direttamente (metodo più affidabile)
+    if std::path::Path::new(&tcc_db).exists() {
+        if let Ok(out) = std::process::Command::new("sqlite3")
+            .args([&tcc_db, "SELECT auth_value FROM access WHERE service='kTCCServiceScreenCapture' AND client='com.quinki.app'"])
+            .output()
+        {
+            let s = String::from_utf8_lossy(&out.stdout);
+            let v = s.trim();
+            if !v.is_empty() {
+                // auth_value: 0 = denied, 1 = allowed, 2 = allowed (limited)
+                return v == "1" || v == "2";
+            }
+        }
+    }
+    // 2) Fallback: helper Swift non-invasivo (CGPreflightScreenCaptureAccess)
     let mut cand = app.path().resource_dir().unwrap_or_default();
     cand.push("resources/tcc-check");
     if cand.exists() {
