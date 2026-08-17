@@ -810,20 +810,8 @@ fn rollback_expert_app() -> Result<String, String> {
         return Err("Sidecar restore failed (ditto).".to_string());
     }
 
-    // Riavvia l'Expert (sidecar 9183 + processo)
-    let _ = std::process::Command::new("sh")
-        .args(["-c", "lsof -ti:9183 | xargs kill -9 2>/dev/null"])
-        .output();
-    let _ = std::process::Command::new("sh")
-        .args(["-c", "pkill -f 'App Expert' 2>/dev/null"])
-        .output();
-    std::thread::sleep(std::time::Duration::from_secs(1));
-    if std::path::Path::new(expert_app).exists() {
-        std::process::Command::new("open")
-            .arg(expert_app)
-            .spawn()
-            .map_err(|e| e.to_string())?;
-    }
+    // NIENTE riavvio automatico: il frontend mostra il modale con Restart (se l'app
+    // è in esecuzione) o Done (se è chiusa). Il riavvio lo fa l'utente col bottone Restart.
 
     Ok("App Expert rolled back to the previous version.".to_string())
 }
