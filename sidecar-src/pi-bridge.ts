@@ -6060,14 +6060,21 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
           let turnCompleted = false;
           try {
             const msgs = (e as any)?.messages || [];
+            // NB: e.messages può contenere l'INTERA sessione, non solo il turno
+            // corrente. Il turno corrente è DOPO l'ULTIMO messaggio utente.
+            let lastUserIdx = -1;
             for (let i = msgs.length - 1; i >= 0; i--) {
+              if (msgs[i]?.role === "user") { lastUserIdx = i; break; }
+            }
+            // Cerca l'ultimo assistant DOPO l'ultimo user (il turno corrente)
+            for (let i = msgs.length - 1; i > lastUserIdx; i--) {
               const m = msgs[i];
               if (m?.role === "assistant") {
                 turnCompleted = m.stopReason === "stop" || m.stopReason === "length";
                 break;
               }
-              if (m?.role === "user") break;
             }
+            this.logDebug("agent-end-messages", { sessionKey: key, msgCount: msgs.length, lastUserIdx, last3: msgs.slice(-3).map((x: any) => ({ role: x?.role, sr: x?.stopReason })) });
           } catch {}
           {
             const isExp = Number(process.env.QUINKI_WS_PORT || "9182") === 9183;
