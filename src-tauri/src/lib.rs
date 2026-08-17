@@ -240,10 +240,11 @@ fn open_system_settings(pane: String) -> Result<(), String> {
 #[tauri::command]
 fn check_tcc_status() -> Result<serde_json::Value, String> {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
-    // Full Disk Access: prova a leggere un file protetto (~/Library/Safari)
-    let full_disk = std::fs::read_dir(format!("{}/Library/Safari", home)).is_ok();
-    // Files and Folders: prova a leggere ~/Documents
-    let files_folders = std::fs::read_dir(format!("{}/Documents", home)).is_ok();
+    // Full Disk Access: prova a leggere il database TCC (richiede FDA) o ~/Library/Safari
+    let full_disk = std::fs::read_dir(format!("{}/Library/Application Support/com.apple.TCC", home)).is_ok()
+        || std::fs::read_dir(format!("{}/Library/Safari", home)).is_ok();
+    // Files and Folders: se FDA è concesso, è coperto; altrimenti prova ~/Documents
+    let files_folders = full_disk || std::fs::read_dir(format!("{}/Documents", home)).is_ok();
     // Network: prova una richiesta curl veloce
     let network = std::process::Command::new("curl")
         .args(["-sI", "--max-time", "3", "https://www.apple.com"])

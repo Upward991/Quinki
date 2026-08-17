@@ -2773,8 +2773,9 @@ class PiBridge {
   detectTccStatus(): any {
     const home = process.env.HOME || "/";
     let fullDisk = false, filesFolders = false, network = false, screenRecording = false, accessibility = false;
-    try { fullDisk = fs.readdirSync(path.join(home, "Library", "Safari")).length >= 0; } catch {}
-    try { filesFolders = fs.readdirSync(path.join(home, "Documents")).length >= 0; } catch {}
+    try { fullDisk = fs.readdirSync(path.join(home, "Library", "Application Support", "com.apple.TCC")).length >= 0; } catch {}
+    if (!fullDisk) { try { fullDisk = fs.readdirSync(path.join(home, "Library", "Safari")).length >= 0; } catch {} }
+    try { filesFolders = fullDisk || fs.readdirSync(path.join(home, "Documents")).length >= 0; } catch {}
     try {
       const r = require("child_process").spawnSync("curl", ["-sI", "--max-time", "3", "https://www.apple.com"], { encoding: "utf8", timeout: 5000 });
       network = r.status === 0;
