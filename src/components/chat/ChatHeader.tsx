@@ -4,7 +4,8 @@
 
 import { useState, useEffect, useRef } from 'react'
 import type { Session, Agent } from '../../types'
-import { Home, PanelLeft, MessageSquare, Download, Search, RefreshCw, Bot, Calendar, Clock, ChevronDown, ChevronUp, Cpu, Brain, Network, X, Checklist } from '../icons'
+import { Home, PanelLeft, MessageSquare, Download, Search, RefreshCw, Bot, Calendar, Clock, ChevronDown, ChevronUp, Cpu, Brain, Network, X, Checklist, RotateCcw } from '../icons'
+import { invoke } from '@tauri-apps/api/core'
 import { AgentConfigModal } from './AgentConfigModal'
 
 interface ChatHeaderProps {
@@ -19,6 +20,7 @@ interface ChatHeaderProps {
   onToggleSidebar: () => void
   hideSidebarToggle?: boolean
   isExpertApp?: boolean
+  showRollback?: boolean
   agentDropdownOpen: boolean
   onToggleAgentDropdown: () => void
   agents: Agent[]
@@ -50,6 +52,7 @@ interface ChatHeaderProps {
 
 export function ChatHeader(props: ChatHeaderProps) {
   const isExpert = props.activePanel === 'expert'
+  const [rollbackConfirm, setRollbackConfirm] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
   const [contextOpen, setContextOpen] = useState(false)
@@ -114,11 +117,19 @@ export function ChatHeader(props: ChatHeaderProps) {
   return (
     <>
       <div className="flex items-center">
-        {/* Panel 1: Home (hidden in Expert app) */}
+        {/* Panel 1: Home (hidden in Expert app) — sostituito da Rollback nell'App Expert esterna */}
         {!props.isExpertApp && (
           <>
             <div style={panelStyle}>
               <IconBtn icon={props.homeIcon === 'agent-task' ? Checklist : Home} onClick={() => props.homeIcon === 'agent-task' ? (props.onHomeClick ? props.onHomeClick() : props.onSelectPanel('home')) : props.onSelectPanel('home')} title={props.homeIcon === 'agent-task' ? 'Back to Agents Tasks' : 'Home'} />
+            </div>
+            <div style={{ width: '8px', flexShrink: 0 }} />
+          </>
+        )}
+        {props.showRollback && (
+          <>
+            <div style={panelStyle}>
+              <IconBtn icon={RotateCcw} onClick={() => setRollbackConfirm(true)} title="Rollback App Expert" />
             </div>
             <div style={{ width: '8px', flexShrink: 0 }} />
           </>
@@ -181,7 +192,27 @@ export function ChatHeader(props: ChatHeaderProps) {
             )}
           </div>
 
-                {/* Right-click context menu */}
+                {/* Rollback App Expert modal */}
+      {rollbackConfirm && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 400, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setRollbackConfirm(false)} />
+          <div style={{ position: 'fixed', zIndex: 401, top: '50%', left: '50%', transform: 'translate(-50%, -50%)', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '440px', width: '90%' }}>
+            <div style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '12px' }}>Rollback App Expert?</div>
+            <div style={{ color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', lineHeight: 1.6, marginBottom: '16px' }}>
+              This restores the App Expert to the previous version (before the last sync). Use this if a sync broke the app or the chat stopped working. The app will restart with the previous code. Your data is not affected.
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button onClick={() => setRollbackConfirm(false)} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
+                style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>Cancel</button>
+              <button onClick={() => { setRollbackConfirm(false); try { invoke('rollback_expert_app').then((r: any) => { console.log('[rollback]', r) }).catch((e: any) => { console.error('[rollback]', e) }) } catch {} }}
+                onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }}
+                style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>Rollback</button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Right-click context menu */}
       {ctxMenu && (
         <>
           <div style={ctxOverlayStyle} onClick={() => { setCtxMenu(null) }} onContextMenu={e => { e.preventDefault(); setCtxMenu(null) }} />
