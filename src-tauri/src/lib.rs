@@ -839,7 +839,17 @@ fn restart_expert_app() -> Result<(), String> {
         .args(["-c", "pkill -f 'App Expert' 2>/dev/null"])
         .output();
     
-    std::thread::sleep(std::time::Duration::from_secs(1));
+    // Attendi che la porta 9183 si liberi (max 8s): senza questo, il nuovo sidecar
+    // fallisce con "Failed to start server. Is port 9183 in use?" e l'app non carica.
+    for _ in 0..8 {
+        let still = std::process::Command::new("sh")
+            .args(["-c", "lsof -ti:9183 2>/dev/null"])
+            .output()
+            .map(|o| !o.stdout.is_empty())
+            .unwrap_or(false);
+        if !still { break; }
+        std::thread::sleep(std::time::Duration::from_secs(1));
+    }
     
     // Remove the flag file
     let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
