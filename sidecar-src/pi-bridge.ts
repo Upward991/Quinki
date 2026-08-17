@@ -2769,6 +2769,38 @@ class PiBridge {
     return { ...buf };
   }
 
+  // === A2.11B: rileva lo stato TCC (per la sezione macOS Permissions) ===
+  detectTccStatus(): any {
+    const home = process.env.HOME || "/";
+    let fullDisk = false, filesFolders = false, network = false, screenRecording = false, accessibility = false;
+    try { fullDisk = fs.readdirSync(path.join(home, "Library", "Safari")).length >= 0; } catch {}
+    try { filesFolders = fs.readdirSync(path.join(home, "Documents")).length >= 0; } catch {}
+    try {
+      const r = require("child_process").spawnSync("curl", ["-sI", "--max-time", "3", "https://www.apple.com"], { encoding: "utf8", timeout: 5000 });
+      network = r.status === 0;
+    } catch {}
+    try {
+      const r = require("child_process").spawnSync("screencapture", ["-x", "/tmp/quinki-screen-test.png"], { encoding: "utf8", timeout: 5000 });
+      screenRecording = r.status === 0;
+    } catch {}
+    try {
+      const r = require("child_process").spawnSync("osascript", ["-e", 'tell application "System Events" to get name of first process'], { encoding: "utf8", timeout: 5000 });
+      accessibility = r.status === 0;
+    } catch {}
+    return { fullDisk, filesFolders, network, screenRecording, accessibility };
+  }
+
+  // L'Expert (porta 9183) scrive il suo stato TCC in un file condiviso, così la main lo legge.
+  writeExpertTccStatus() {
+    try {
+      const isExpert = Number(process.env.QUINKI_WS_PORT || "9182") === 9183;
+      if (!isExpert) return;
+      const st = this.detectTccStatus();
+      fs.mkdirSync(this.#agentDir, { recursive: true });
+      fs.writeFileSync(path.join(this.#agentDir, "quinki-expert-tcc.json"), JSON.stringify({ ...st, ts: Date.now() }, null, 2), "utf8");
+    } catch {}
+  }
+
   // === A2.11B: Permessi persistenti ===
   // Default: executeCommands ON (serve per build mode), il resto OFF.
   // La working directory è SEMPRE autorizzata.

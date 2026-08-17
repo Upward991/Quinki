@@ -273,6 +273,72 @@ fn check_tcc_status() -> Result<serde_json::Value, String> {
 }
 
 #[tauri::command]
+fn read_expert_tcc_status() -> Result<serde_json::Value, String> {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
+    let p = format!("{}/.quinki/quinki-expert-tcc.json", home);
+    if !std::path::Path::new(&p).exists() {
+        return Ok(serde_json::json!({ "available": false }));
+    }
+    let content = std::fs::read_to_string(&p).map_err(|e| e.to_string())?;
+    let v: serde_json::Value = serde_json::from_str(&content).map_err(|e| e.to_string())?;
+    Ok(v)
+}
+
+#[tauri::command]
+fn get_authorized_folders() -> Result<serde_json::Value, String> {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
+    let p = format!("{}/.quinki/quinki-authorized-folders.json", home);
+    if !std::path::Path::new(&p).exists() {
+        return Ok(serde_json::json!({ "folders": [] }));
+    }
+    let content = std::fs::read_to_string(&p).map_err(|e| e.to_string())?;
+    let v: serde_json::Value = serde_json::from_str(&content).map_err(|e| e.to_string())?;
+    Ok(v)
+}
+
+#[tauri::command]
+fn add_authorized_folder(folder: String) -> Result<serde_json::Value, String> {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
+    let p = format!("{}/.quinki/quinki-authorized-folders.json", home);
+    let mut folders: Vec<String> = Vec::new();
+    if std::path::Path::new(&p).exists() {
+        if let Ok(content) = std::fs::read_to_string(&p) {
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&content) {
+                if let Some(arr) = v.get("folders").and_then(|f| f.as_array()) {
+                    folders = arr.iter().filter_map(|x| x.as_str().map(String::from)).collect();
+                }
+            }
+        }
+    }
+    if !folders.contains(&folder) {
+        folders.push(folder);
+    }
+    let _ = std::fs::create_dir_all(format!("{}/.quinki", home));
+    std::fs::write(&p, serde_json::json!({ "folders": folders }).to_string()).map_err(|e| e.to_string())?;
+    Ok(serde_json::json!({ "folders": folders }))
+}
+
+#[tauri::command]
+fn remove_authorized_folder(folder: String) -> Result<serde_json::Value, String> {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
+    let p = format!("{}/.quinki/quinki-authorized-folders.json", home);
+    let mut folders: Vec<String> = Vec::new();
+    if std::path::Path::new(&p).exists() {
+        if let Ok(content) = std::fs::read_to_string(&p) {
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&content) {
+                if let Some(arr) = v.get("folders").and_then(|f| f.as_array()) {
+                    folders = arr.iter().filter_map(|x| x.as_str().map(String::from)).collect();
+                }
+            }
+        }
+    }
+    folders.retain(|f| f != &folder);
+    let _ = std::fs::create_dir_all(format!("{}/.quinki", home));
+    std::fs::write(&p, serde_json::json!({ "folders": folders }).to_string()).map_err(|e| e.to_string())?;
+    Ok(serde_json::json!({ "folders": folders }))
+}
+
+#[tauri::command]
 fn open_url(url: String) -> Result<(), String> {
     std::process::Command::new("open")
         .arg(&url)
@@ -1071,6 +1137,10 @@ pub fn run() {
         open_url,
         open_system_settings,
         check_tcc_status,
+        read_expert_tcc_status,
+        get_authorized_folders,
+        add_authorized_folder,
+        remove_authorized_folder,
         list_attachments,
         check_expert_installed,
         install_expert_app,
