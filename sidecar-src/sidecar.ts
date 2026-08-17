@@ -625,6 +625,13 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   },
 
   getAppVersion: async () => ({ version: getAppVersion() }),
+  getSidecarVersion: async () => {
+    try {
+      const p = path.join(path.dirname(process.execPath), "version.txt");
+      if (fs.existsSync(p)) return { version: fs.readFileSync(p, "utf8").trim() };
+    } catch {}
+    return { version: "unknown" };
+  },
 
   getProvidersConfig: async () => getProvidersConfig(),
   setProvidersConfig: async (p) => setProvidersConfig(p),
