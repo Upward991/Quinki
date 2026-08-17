@@ -488,55 +488,6 @@ fn install_expert_app() -> Result<String, String> {
 }
 
 #[tauri::command]
-#[tauri::command]
-fn rollback_expert_app() -> Result<String, String> {
-    // Ripristina l'ULTIMO backup del binario + sidecar dell'App Expert.
-    // Se un sync ha rotto l'Expert, l'utente torna alla versione precedente.
-    let home_bk = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
-    let backup_root = format!("{}/.quinki/backups", home_bk);
-    let expert_app = "/Applications/App Expert.app";
-
-    if !std::path::Path::new(&expert_app).exists() {
-        return Err("App Expert.app not found.".to_string());
-    }
-    if !std::path::Path::new(&backup_root).exists() {
-        return Err("No backups found. Sync the App Expert at least once first.".to_string());
-    }
-
-    // Trova l'ultimo backup (expert-<timestamp>)
-    let mut backups: Vec<String> = std::fs::read_dir(&backup_root)
-        .map_err(|e| e.to_string())?
-        .filter_map(|e| e.ok())
-        .filter(|e| e.file_name().to_string_lossy().starts_with("expert-"))
-        .map(|e| e.path().to_string_lossy().to_string())
-        .collect();
-    backups.sort();
-    let latest = backups.last().ok_or("No backups found. Sync the App Expert at least once first.".to_string())?;
-
-    // Ripristina il binario
-    let backup_bin = format!("{}/quinki", latest);
-    let expert_bin = format!("{}/Contents/MacOS/quinki", expert_app);
-    if std::path::Path::new(&backup_bin).exists() {
-        std::fs::copy(&backup_bin, &expert_bin).map_err(|e| format!("Binary restore failed: {}", e))?;
-    }
-
-    // Ripristina il sidecar
-    let backup_sidecar = format!("{}/sidecar", latest);
-    let expert_sidecar = format!("{}/Contents/Resources/resources/sidecar", expert_app);
-    if std::path::Path::new(&backup_sidecar).exists() {
-        let _ = std::fs::remove_dir_all(&expert_sidecar);
-        let ditto_st = std::process::Command::new("ditto")
-            .args([&backup_sidecar, &expert_sidecar])
-            .status()
-            .map_err(|e| format!("Sidecar restore failed: {}", e))?;
-        if !ditto_st.success() {
-            return Err("Sidecar restore failed (ditto).".to_string());
-        }
-    }
-
-    Ok(format!("Rolled back to backup: {}", latest))
-}
-
 fn sync_expert_app() -> Result<String, String> {
     // Copy binary + sidecar from main app to Expert app (sync new code)
     // OGNI step è VERIFICATO: si dichiara "synced" SOLO se la copia è davvero
@@ -558,13 +509,14 @@ fn sync_expert_app() -> Result<String, String> {
     let backup_root = format!("{}/.quinki/backups", home_bk);
     let ts_bk = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0);
     let backup_dir = format!("{}/expert-{}", backup_root, ts_bk);
-    let _ = std::fs::create_dir_all(&backup_dir);
     let expert_bin = format!("{}/Contents/MacOS/quinki", expert_app);
+    let expert_sidecar = format!("{}/Contents/Resources/resources/sidecar", expert_app);
     if std::path::Path::new(&expert_bin).exists() {
+        let _ = std::fs::create_dir_all(&backup_dir);
         let _ = std::fs::copy(&expert_bin, format!("{}/quinki", backup_dir));
     }
-    let expert_sidecar = format!("{}/Contents/Resources/resources/sidecar", expert_app);
     if std::path::Path::new(&expert_sidecar).exists() {
+        let _ = std::fs::create_dir_all(&backup_dir);
         let _ = std::process::Command::new("ditto")
             .args([&expert_sidecar, &format!("{}/sidecar", backup_dir)])
             .status();
@@ -589,7 +541,6 @@ fn sync_expert_app() -> Result<String, String> {
     // Copy sidecar resources con controllo di successo (prima l'esito NON era
     // controllato → il sync poteva dichiararsi completo anche se ditto falliva)
     let main_sidecar = format!("{}/Contents/Resources/resources/sidecar", main_app);
-    let expert_sidecar = format!("{}/Contents/Resources/resources/sidecar", expert_app);
     
     let _ = std::fs::remove_dir_all(&expert_sidecar);
     let ditto_st = std::process::Command::new("ditto")
@@ -680,7 +631,7 @@ fn rollback_expert_app() -> Result<String, String> {
             .map_err(|e| e.to_string())?;
     }
 
-    Ok(format!("App Expert rolled back to the previous version."))
+    Ok("App Expert rolled back to the previous version.".to_string())
 }
 
 #[tauri::command]
@@ -1068,7 +1019,6 @@ pub fn run() {
         check_expert_installed,
         install_expert_app,
         sync_expert_app,
-        rollback_expert_app,
         rollback_expert_app,
         check_expert_backup_exists,
         restart_expert_app,
