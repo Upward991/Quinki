@@ -862,6 +862,7 @@ async function bootstrap() {
     process.chdir(workdir);
     piBridge = new PiBridge({ cwd: workdir, agentDir });
     setPiBridgeInstance(piBridge);
+    (globalThis as any).__quinki_piBridge = piBridge;
     try { executor.setPiBridge(piBridge); } catch {}
 
 

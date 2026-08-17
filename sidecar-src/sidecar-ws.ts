@@ -42,6 +42,17 @@ stdoutEmitter.on("line", (line: string) => {
 
 wss.on("connection", (ws) => {
   clients.add(ws);
+  // Trigger recovery alla riconnessione del frontend (copre close-to-tray dove il
+  // sidecar resta vivo e il recovery al boot non gira). Ritardo per far inizializzare
+  // il piBridge. Solo sessioni con pending-turn marker vengono ri-promptate.
+  setTimeout(() => {
+    try {
+      const inst = (globalThis as any).__quinki_piBridge;
+      if (inst && typeof inst.recoverPendingTurns === 'function') {
+        inst.recoverPendingTurns().catch(() => {});
+      }
+    } catch(e) {}
+  }, 800);
   ws.on("message", (data) => {
     try {
       const msg = JSON.parse(data.toString());
