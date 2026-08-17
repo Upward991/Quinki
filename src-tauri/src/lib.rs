@@ -237,39 +237,16 @@ fn open_system_settings(pane: String) -> Result<(), String> {
     Ok(())
 }
 
-fn check_screen_recording(app: &tauri::AppHandle) -> bool {
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
-    let tcc_db = format!("{}/Library/Application Support/com.apple.TCC/TCC.db", home);
-    // 1) Helper Swift non-invasivo (CGPreflightScreenCaptureAccess): API ufficiale,
-    //    controlla il permesso del processo responsabile (l'app stessa). Metodo PRIMARIO.
-    let mut cand = app.path().resource_dir().unwrap_or_default();
-    cand.push("resources/tcc-check");
-    if cand.exists() {
-        if let Ok(out) = std::process::Command::new(&cand).output() {
-            if String::from_utf8_lossy(&out.stdout).contains("granted") { return true; }
-        }
-    }
-    let alt = std::path::PathBuf::from("/Applications/Quinki.app/Contents/Resources/resources/tcc-check");
-    if alt.exists() {
-        if let Ok(out) = std::process::Command::new(&alt).output() {
-            if String::from_utf8_lossy(&out.stdout).contains("granted") { return true; }
-        }
-    }
-    // 2) Fallback: query TCC.db (se l'app ha FDA, sqlite3 può leggerlo)
-    if std::path::Path::new(&tcc_db).exists() {
-        if let Ok(out) = std::process::Command::new("sqlite3")
-            .args([&tcc_db, "SELECT auth_value FROM access WHERE service='kTCCServiceScreenCapture' AND client='com.quinki.app'"])
-            .output()
-        {
-            let s = String::from_utf8_lossy(&out.stdout);
-            let v = s.trim();
-            if !v.is_empty() {
-                // auth_value: 0 = denied, 1 = allowed, 2 = allowed (limited)
-                return v == "1" || v == "2";
-            }
-        }
-    }
-    false
+// Chiamata DIRETTA a CGPreflightScreenCaptureAccess (CoreGraphics): controlla il
+// permesso Screen Recording del processo CHIAMANTE (l'app stessa), senza prompt e
+// senza helper esterno. È l'API ufficiale non-invasiva.
+#[link(name = "CoreGraphics", kind = "framework")]
+extern "C" {
+    fn CGPreflightScreenCaptureAccess() -> u8;
+}
+
+fn check_screen_recording(_app: &tauri::AppHandle) -> bool {
+    unsafe { CGPreflightScreenCaptureAccess() != 0 }
 }
 
 #[tauri::command]
