@@ -5,7 +5,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useSidecarContext } from '../shared/AppShell'
 import { Archive, Calendar, Check, ChevronDown, ChevronRight, ChevronUp, Copy, Folder, Home, Info, Palette, Paperclip, Plug, Plus, Power, RefreshCw, Save, Search, Settings, Shield, Sync, Trash } from '../icons'
 
-var Ih=[{id:'settings-providers',icon:Plug,label:'Providers & models'},{id:'settings-defaults',icon:Settings,label:'Global defaults'},{id:'settings-compaction',icon:Archive,label:'Compaction'},{id:'settings-theme',icon:Palette,label:'Theme'},{id:'settings-attachments',icon:Paperclip,label:'Attachments'},{id:'settings-expert-sync',icon:Sync,label:'App Expert'},{id:'settings-versions',icon:Info,label:'Versions'}];
+var Ih=[{id:'settings-providers',icon:Plug,label:'Providers & models'},{id:'settings-defaults',icon:Settings,label:'Global defaults'},{id:'settings-compaction',icon:Archive,label:'Compaction'},{id:'settings-theme',icon:Palette,label:'Theme'},{id:'settings-attachments',icon:Paperclip,label:'Attachments'},{id:'settings-app-permissions',icon:Shield,label:'App Permissions'},{id:'settings-expert-sync',icon:Sync,label:'App Expert'},{id:'settings-versions',icon:Info,label:'Versions'}];
 var Lh=['off','low','medium','high','xhigh'];
 
 let _inv;try{_inv=require('@tauri-apps/api/core')}catch{_inv={invoke:()=>{}}}
@@ -42,13 +42,12 @@ function AppPermissionsSection(){
   let remove=(f)=>{try{invoke('remove_authorized_folder',{folder:f}).then((r)=>{setFolders(r?.folders||[])}).catch(()=>{})}catch{}};
   let toggleAll=()=>{let next=!allowAll;setAllowAll(next);try{invoke('set_app_permissions',{patch:{readFilesAnywhere:next,writeFilesAnywhere:next}}).catch(()=>{})}catch{}};
   return React.createElement(Bh,{id:'settings-app-permissions',icon:Shield,title:'App Permissions',children:[
-    React.createElement(Uh,{children:'macOS controls the system permissions (Full Disk Access, Screen Recording). Click the gear to open the right System Settings screen and grant or revoke them there.'}),
-    React.createElement('div',{style:{height:'8px'}}),
-    React.createElement('div',{style:{color:'var(--q-text)',fontSize:'13px',fontWeight:600,fontFamily:'var(--font-interface)',marginBottom:'4px',textTransform:'uppercase',letterSpacing:'0.5px'},children:'macOS Permissions'}),
+    React.createElement('div',{style:{color:'var(--q-text)',fontSize:'13px',fontWeight:600,fontFamily:'var(--font-interface)',marginBottom:'4px'},children:'macOS Permissions'}),
+    React.createElement('div',{style:{color:'var(--q-text-tertiary)',fontSize:'12px',fontFamily:'var(--font-interface)',marginBottom:'8px',lineHeight:1.5},children:'macOS controls the system permissions (Full Disk Access, Screen Recording). Click the gear to open the right System Settings screen and grant or revoke them there.'}),
     renderApp('Quinki Permissions'),
     renderApp('App Expert Permissions'),
-    React.createElement('div',{style:{height:'12px'}}),
-    React.createElement('div',{style:{color:'var(--q-text)',fontSize:'13px',fontWeight:600,fontFamily:'var(--font-interface)',marginBottom:'4px',textTransform:'uppercase',letterSpacing:'0.5px'},children:'Authorized Folders'}),
+    React.createElement('div',{style:{height:'8px',borderTop:'1px solid var(--q-border)',marginTop:'8px'}}),
+    React.createElement('div',{style:{color:'var(--q-text)',fontSize:'13px',fontWeight:600,fontFamily:'var(--font-interface)',marginBottom:'4px',marginTop:'12px'},children:'Authorized Folders'}),
     React.createElement('div',{style:{color:'var(--q-text-tertiary)',fontSize:'12px',fontFamily:'var(--font-interface)',marginBottom:'8px',lineHeight:1.5},children:'Control which folders the agents can access. The working directory of each chat is always allowed. Add folders below, or enable Allow all folders to remove every restriction.'}),
     React.createElement('div',{style:{display:'flex',alignItems:'center',gap:'10px',padding:'6px 0'},children:[
       React.createElement('div',{style:{flex:1,minWidth:0},children:[
