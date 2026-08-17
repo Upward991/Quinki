@@ -6058,6 +6058,8 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
           // Se il turno è fallito (error), interrotto (aborted/toolUse) o non c'è
           // risposta, il marker RESTA → il recovery al boot ri-promptata.
           let turnCompleted = false;
+          let completingUserText = "";
+          let markerText = "";
           try {
             const msgs = (e as any)?.messages || [];
             // NB: e.messages può contenere l'INTERA sessione, non solo il turno
@@ -6074,21 +6076,40 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
                 break;
               }
             }
-            this.logDebug("agent-end-messages", { sessionKey: key, msgCount: msgs.length, lastUserIdx, last3: msgs.slice(-3).map((x: any) => ({ role: x?.role, sr: x?.stopReason })) });
+            // Testo del messaggio utente del turno che sta completando
+            if (lastUserIdx >= 0) {
+              const u = msgs[lastUserIdx];
+              const uc = u?.content;
+              if (typeof uc === "string") completingUserText = uc;
+              else if (Array.isArray(uc)) completingUserText = uc.filter((b: any) => b?.type === "text").map((b: any) => b.text).join(" ");
+            }
+            // Testo del marker (se esiste)
+            try {
+              const mp = path.join(this.#piSessionDir(key), "pending-turn.json");
+              if (fs.existsSync(mp)) {
+                const mk = JSON.parse(fs.readFileSync(mp, "utf8"));
+                markerText = String(mk.text || "");
+              }
+            } catch {}
+            this.logDebug("agent-end-messages", { sessionKey: key, msgCount: msgs.length, lastUserIdx, turnCompleted, completingUserText: completingUserText.slice(0, 40), markerText: markerText.slice(0, 40) });
           } catch {}
+          // Il marker appartiene a QUESTO turno solo se il testo coincide col
+          // messaggio utente che sta completando. Altrimenti è di un messaggio
+          // in coda (turno precedente che completa) → NON cancellare.
+          const sameMessage = completingUserText.slice(0, 40) !== "" && completingUserText.slice(0, 40) === markerText.slice(0, 40);
           {
             const isExp = Number(process.env.QUINKI_WS_PORT || "9182") === 9183;
             // Cancella SOLO se: turno completato E il turno di QUESTO marker è partito
             // (se il marker appartiene a un messaggio ancora in coda, non cancellarlo).
             const markerTurnStarted = this.#markerTurnStarted.has(key);
-            if (turnCompleted && markerTurnStarted) {
+            if (turnCompleted && markerTurnStarted && sameMessage) {
               if (!(key === "__app_expert__" && !isExp)) {
                 try { const p = path.join(this.#piSessionDir(key), "pending-turn.json"); if (fs.existsSync(p)) { fs.unlinkSync(p); this.logDebug("marker-delete", { sessionKey: key, where: "agent_end", isExpert: isExp, turnCompleted, markerTurnStarted }); } } catch {}
               } else {
                 this.logDebug("marker-delete-guarded", { sessionKey: key, where: "agent_end", isExpert: isExp });
               }
             } else {
-              this.logDebug("marker-keep-turn-not-complete", { sessionKey: key, where: "agent_end", isExpert: isExp, turnCompleted, markerTurnStarted });
+              this.logDebug("marker-keep-turn-not-complete", { sessionKey: key, where: "agent_end", isExpert: isExp, turnCompleted, markerTurnStarted, sameMessage });
             }
           }
           ws.send(JSON.stringify({ type: "typing_stop_broadcast", sessionKey: key }));
