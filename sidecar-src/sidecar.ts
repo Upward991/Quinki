@@ -866,6 +866,8 @@ async function bootstrap() {
     // A2.3: Recovery Manager (al boot: interrupted → auto-resume semantico) + Keep Awake
     try { executor.startRecovery(true); } catch (e: any) { process.stderr.write(`[sidecar-marker] recovery-start-error: ${e?.message}\n`); }
     try { piBridge!.recoverPendingTurns().then((n: number) => { if (n > 0) process.stderr.write(`[sidecar-marker] pending-turns-recovered: ${n}\n`); }).catch(() => {}); } catch (e: any) { process.stderr.write(`[sidecar-marker] pending-turns-error: ${e?.message}\n`); }
+    // Retry automatico per chat normali: ogni 30s riprova i turni falliti (provider/network)
+    try { setInterval(() => { piBridge!.recoverPendingTurns().catch(() => {}); }, 30000); } catch (e: any) { process.stderr.write(`[sidecar-marker] pending-turns-timer-error: ${e?.message}\n`); }
     sendNotification("ready", { message: "PiBridge initialized" });
     // === NO periodic flush, NO SIGTERM handler ===
     // #save() è chiamato esplicitamente da create(), setModel(), setChatAgents(), rename(), etc.

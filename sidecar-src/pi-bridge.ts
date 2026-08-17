@@ -2471,13 +2471,15 @@ class PiBridge {
     return pi;
   }
 
-  // === Recovery turni interrotti: se l'app è morta a metà turno, ri-prompta il modello ===
-  // Salta le sessioni Long Horizon attive: il support agent gestisce già il loro recovery.
+  // === Recovery turni interrotti: se l'app è morta a metà turno, o il provider fallisce,
+  // ri-prompta il modello. Salta le sessioni Long Horizon (le gestisce il support agent)
+  // e le sessioni in streaming (il turno è attivo). Retry massimo 3 volte. ===
   async recoverPendingTurns(): Promise<number> {
     let recovered = 0;
     try {
       const base = path.join(this.#agentDir, "sessions", "quinki");
       if (!fs.existsSync(base)) return 0;
+      const streaming = new Set(this.getStreamingStatus?.() || []);
       for (const sk of fs.readdirSync(base)) {
         const p = path.join(base, sk, "pending-turn.json");
         if (!fs.existsSync(p)) continue;
@@ -2487,7 +2489,11 @@ class PiBridge {
             const lhState = JSON.parse(fs.readFileSync(path.join(this.#agentDir, "longhorizon", sk, "state.json"), "utf8"));
             if (lhState.active) continue;
           } catch {}
+          // Salta se il turno è attivo (streaming in corso)
+          if (streaming.has(sk)) continue;
           const marker = JSON.parse(fs.readFileSync(p, "utf8"));
+          const retries = marker.retries || 0;
+          if (retries >= 3) continue; // limite raggiunto — l'utente ritenta a mano
           const origText = String(marker.text || "");
           // Se il messaggio originale NON è nel jsonl (app riavviata prima che venisse salvato),
           // ri-invia il messaggio originale — altrimenti il modello non sa cosa continuare.
@@ -2500,7 +2506,10 @@ class PiBridge {
             }
           } catch {}
           const prompt = hasOrig ? "The app was interrupted while processing. Please continue and complete your response." : origText;
-          this.logDebug("pending-turn-recover", { sessionKey: sk, hasOrig, text: prompt.slice(0, 80) });
+          // Incrementa retries PRIMA del send (il send preserva il contatore)
+          marker.retries = retries + 1;
+          fs.writeFileSync(p, JSON.stringify(marker), "utf8");
+          this.logDebug("pending-turn-recover", { sessionKey: sk, retry: retries + 1, hasOrig, text: prompt.slice(0, 80) });
           const fakeWs = { readyState: 1, constructor: { OPEN: 1 }, send: () => {} };
           await this.send(fakeWs, { sessionKey: sk, text: prompt, _preserveWs: true });
           recovered++;
@@ -5167,11 +5176,13 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     }
 
     // === Pending-turn marker: persiste il turno in corso (per recovery dopo crash/riavvio) ===
-    // Se l'app muore a metà turno, al riavvio il sidecar ri-prompta il modello.
+    // Se l'app muore a metà turno, o il provider fallisce, il sidecar ri-prompta il modello.
     try {
       const pdir = this.#piSessionDir(sk);
       fs.mkdirSync(pdir, { recursive: true });
-      fs.writeFileSync(path.join(pdir, "pending-turn.json"), JSON.stringify({ text: data.text, ts: Date.now() }), "utf8");
+      let retries = 0;
+      try { const ex = JSON.parse(fs.readFileSync(path.join(pdir, "pending-turn.json"), "utf8")); retries = ex.retries || 0; } catch {}
+      fs.writeFileSync(path.join(pdir, "pending-turn.json"), JSON.stringify({ text: data.text, ts: Date.now(), retries }), "utf8");
     } catch {}
 
     const next = prev.then(() => pi.sendUserMessage(content, { deliverAs: "followUp" })).catch((err: Error) => {
