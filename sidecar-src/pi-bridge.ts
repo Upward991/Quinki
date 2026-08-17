@@ -5328,6 +5328,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
         try { const ex = JSON.parse(fs.readFileSync(path.join(pdir, "pending-turn.json"), "utf8")); retries = ex.retries || 0; } catch {}
       }
       fs.writeFileSync(path.join(pdir, "pending-turn.json"), JSON.stringify({ text: data.text, ts: Date.now(), retries }), "utf8");
+      this.logDebug("marker-write", { sessionKey: sk, where: "send", isExpert: Number(process.env.QUINKI_WS_PORT || "9182") === 9183, retries });
     } catch {}
     }
 
@@ -5524,7 +5525,9 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     {
       const isExp = Number(process.env.QUINKI_WS_PORT || "9182") === 9183;
       if (!(key === "__app_expert__" && !isExp)) {
-        try { const p = path.join(this.#piSessionDir(key), "pending-turn.json"); if (fs.existsSync(p)) fs.unlinkSync(p); } catch {}
+        try { const p = path.join(this.#piSessionDir(key), "pending-turn.json"); if (fs.existsSync(p)) { fs.unlinkSync(p); this.logDebug("marker-delete", { sessionKey: key, where: "abort", isExpert: isExp }); } } catch {}
+      } else {
+        this.logDebug("marker-delete-guarded", { sessionKey: key, where: "abort", isExpert: isExp });
       }
     }
     const pi = this.#active.get(key);
@@ -6020,7 +6023,9 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
           {
             const isExp = Number(process.env.QUINKI_WS_PORT || "9182") === 9183;
             if (!(key === "__app_expert__" && !isExp)) {
-              try { const p = path.join(this.#piSessionDir(key), "pending-turn.json"); if (fs.existsSync(p)) fs.unlinkSync(p); } catch {}
+              try { const p = path.join(this.#piSessionDir(key), "pending-turn.json"); if (fs.existsSync(p)) { fs.unlinkSync(p); this.logDebug("marker-delete", { sessionKey: key, where: "agent_end", isExpert: isExp }); } } catch {}
+            } else {
+              this.logDebug("marker-delete-guarded", { sessionKey: key, where: "agent_end", isExpert: isExp });
             }
           }
           ws.send(JSON.stringify({ type: "typing_stop_broadcast", sessionKey: key }));
