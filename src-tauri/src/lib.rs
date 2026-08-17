@@ -305,6 +305,20 @@ fn read_expert_tcc_status() -> Result<serde_json::Value, String> {
 }
 
 #[tauri::command]
+fn get_sidecar_version(app: tauri::AppHandle) -> Result<String, String> {
+    let mut cand = app.path().resource_dir().unwrap_or_default();
+    cand.push("resources/sidecar/version.txt");
+    if cand.exists() {
+        if let Ok(s) = std::fs::read_to_string(&cand) { return Ok(s.trim().to_string()); }
+    }
+    let alt = std::path::PathBuf::from("/Applications/Quinki.app/Contents/Resources/resources/sidecar/version.txt");
+    if alt.exists() {
+        if let Ok(s) = std::fs::read_to_string(&alt) { return Ok(s.trim().to_string()); }
+    }
+    Ok("unknown".to_string())
+}
+
+#[tauri::command]
 fn get_app_permissions() -> Result<serde_json::Value, String> {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
     let p = format!("{}/.quinki/quinki-permissions.json", home);
@@ -1204,6 +1218,7 @@ pub fn run() {
         remove_authorized_folder,
         get_app_permissions,
         set_app_permissions,
+        get_sidecar_version,
         list_attachments,
         check_expert_installed,
         install_expert_app,
