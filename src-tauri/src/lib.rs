@@ -829,41 +829,17 @@ fn check_expert_backup_exists() -> Result<bool, String> {
 
 #[tauri::command]
 fn restart_expert_app() -> Result<(), String> {
-    let expert_app = "/Applications/App Expert.app";
-
-    // 1) SPAWN detachato che riapre l'app DOPO 2s. Deve partire PRIMA del kill:
-    //    altrimenti il kill uccide il processo che esegue questo comando e il
-    //    reopen non parte mai. Il processo `sh -c "sleep 2; open ..."` diventa
-    //    orfano ma continua, e riapre l'app (quit + reopen completo).
+    // Spawn UN SINGOLO script distaccato che fa l'INTERO restart (quit + reopen):
+    //   sleep 2 → kill sidecar 9183 → kill app → attendi porta libera → reopen.
+    // Il processo `sh` diventa orfano quando l'app muore, ma CONTINUA e completa
+    // tutto. Nessuna dipendenza dal processo dell'app (che muore al kill).
+    let script = "sleep 2; lsof -ti:9183 | xargs kill -9 2>/dev/null; pkill -f 'App Expert.app/Contents/MacOS/quinki' 2>/dev/null; for i in 1 2 3 4 5 6 7 8; do if ! lsof -ti:9183 >/dev/null 2>&1; then break; fi; sleep 1; done; open '/Applications/App Expert.app'";
     let _ = std::process::Command::new("sh")
         .arg("-c")
-        .arg(format!("sleep 2; open '{}'", expert_app))
+        .arg(script)
         .spawn();
 
-    // 2) Kill il sidecar dell'Expert (porta 9183)
-    let _ = std::process::Command::new("sh")
-        .args(["-c", "lsof -ti:9183 | xargs kill -9 2>/dev/null"])
-        .output();
-
-    // 3) Kill il processo dell'app (pattern specifico del binario: NON matcha
-    //    il processo `sh -c "sleep 2; open ..."` appena spawnato).
-    let _ = std::process::Command::new("sh")
-        .args(["-c", "pkill -f 'App Expert.app/Contents/MacOS/quinki' 2>/dev/null"])
-        .output();
-
-    // 4) Attendi che la porta 9183 si liberi (max 8s): il nuovo sidecar parte
-    //    subito quando l'app riapre, senza "Failed to start server".
-    for _ in 0..8 {
-        let still = std::process::Command::new("sh")
-            .args(["-c", "lsof -ti:9183 2>/dev/null"])
-            .output()
-            .map(|o| !o.stdout.is_empty())
-            .unwrap_or(false);
-        if !still { break; }
-        std::thread::sleep(std::time::Duration::from_secs(1));
-    }
-
-    // 5) Remove the flag file
+    // Remove the flag file
     let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
     let flag = format!("{}/.quinki/.expert-needs-restart", home);
     let _ = std::fs::remove_file(&flag);
