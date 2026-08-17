@@ -147,6 +147,7 @@ class PiBridge {
   // === A2.11B: Permessi persistenti ===
   #permissions: any = null;
   #authorizedFolders: string[] | null = null;
+  #stoppedSessions = new Set<string>();
   #mcpClients = new Map<string, StdioMcpClient>();  // chiave `${sessionKey}:${serverId}`
   #mcpToolNames = new Map<string, { name: string; serverId: string }[]>();  // per sessione: tool MCP per applyMode (plan/build)
   #mcpSig = new Map<string, string>();  // firma mcpServers con cui è stata costruita la sessione (auto-diff)
@@ -2510,6 +2511,8 @@ class PiBridge {
           } catch {}
           // Salta se il turno è attivo (streaming in corso)
           if (streaming.has(sk)) continue;
+          // Salta se l'utente ha premuto STOP (non ri-promptare)
+          if (this.#stoppedSessions.has(sk)) continue;
           const marker = JSON.parse(fs.readFileSync(p, "utf8"));
           const retries = marker.retries || 0;
           if (retries >= 3) continue; // limite raggiunto — l'utente ritenta a mano
@@ -5307,7 +5310,32 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       fs.writeFileSync(path.join(pdir, "pending-turn.json"), JSON.stringify({ text: data.text, ts: Date.now(), retries }), "utf8");
     } catch {}
 
-    const next = prev.then(() => pi.sendUserMessage(content, { deliverAs: "followUp" })).catch((err: Error) => {
+    // Un nuovo invio = l'utente vuole riprendere: togli dalla lista "stopped"
+    this.#stoppedSessions.delete(sk);
+
+    const next = prev.then(async () => {
+      // Retry di sicurezza per errori THROWN (503/overloaded/rate limit) che bypassano
+      // il retry interno dell'SDK. Backoff: 5s, 15s, 30s. Rispetta lo STOP.
+      const delays = [5000, 15000, 30000];
+      const maxAttempts = 3;
+      for (let attempt = 0; attempt <= maxAttempts; attempt++) {
+        if (this.#stoppedSessions.has(sk)) return;
+        try {
+          await pi.sendUserMessage(content, { deliverAs: "followUp" });
+          return;
+        } catch (err: any) {
+          const msg = String(err?.message || err);
+          const retryable = /overloaded|503|429|rate.?limit|service.?unavailable|server.?error|temporarily|too many requests/i.test(msg);
+          if (!retryable || attempt >= maxAttempts) {
+            this.logDebug("send-user-message-error", { sessionKey: sk, message: msg, attempt });
+            ws.send(JSON.stringify({ type: "error", message: msg, sessionKey: sk }));
+            return;
+          }
+          this.logDebug("send-user-message-retry", { sessionKey: sk, attempt: attempt + 1, message: msg.slice(0, 120) });
+          await new Promise((r) => setTimeout(r, delays[attempt]));
+        }
+      }
+    }).catch((err: Error) => {
       this.logDebug("send-user-message-error", { sessionKey: sk, message: err?.message, name: err?.name, stack: err?.stack?.slice(0, 600) });
       ws.send(JSON.stringify({ type: "error", message: err.message, sessionKey: sk }));
     });
@@ -5468,6 +5496,9 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
   }
 
   abort(key: string) {
+    // Marca come "stopped" così il recovery NON ri-promptava, e cancella il marker
+    this.#stoppedSessions.add(key);
+    try { const p = path.join(this.#piSessionDir(key), "pending-turn.json"); if (fs.existsSync(p)) fs.unlinkSync(p); } catch {}
     const pi = this.#active.get(key);
     if (pi) {
       try { pi.abort(); } catch {}
