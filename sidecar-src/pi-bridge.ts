@@ -2491,6 +2491,8 @@ class PiBridge {
       for (const sk of fs.readdirSync(base)) {
         const p = path.join(base, sk, "pending-turn.json");
         if (!fs.existsSync(p)) continue;
+        // Salta le sessioni SPECIALI: App Expert, esecuzioni task, agenti — hanno il loro recovery
+        if (sk.startsWith("__app_expert__") || sk.startsWith("__exec_") || sk.startsWith("__agent_")) continue;
         try {
           // Salta Long Horizon attivo (il support agent ri-prompta da solo)
           try {
