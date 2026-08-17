@@ -2499,8 +2499,11 @@ class PiBridge {
       // (es. __app_expert__ all'apertura dell'app Expert) e non le ri-promptata.
       for (const sk of fs.readdirSync(base)) {
         const p = path.join(base, sk, "pending-turn.json");
-        if (!fs.existsSync(p)) continue;
-        this.logDebug("recovery-check", { sessionKey: sk, marker: fs.existsSync(p) });
+        const hasMarker = fs.existsSync(p);
+        // Logga TUTTE le sessioni (anche senza marker) per vedere se __app_expert__ viene considerata
+        this.logDebug("recovery-scan-session", { sessionKey: sk, hasMarker, isExpert: Number(process.env.QUINKI_WS_PORT || "9182") === 9183 });
+        if (!hasMarker) continue;
+        this.logDebug("recovery-check", { sessionKey: sk, marker: true });
         // === DISTINZIONE main vs expert ===
         // Le sessioni __exec_* le gestisce l'executor recovery (separato).
         // La sessione __app_expert__ è CONDIVISA: la recupera SOLO il sidecar dell'Expert
