@@ -238,36 +238,37 @@ fn open_system_settings(pane: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn check_tcc_status() -> Result<serde_json::Value, String> {
+fn check_screen_recording(app: &tauri::AppHandle) -> bool {
+    // Il helper è bundleato in Contents/Resources/resources/tcc-check
+    let mut cand = app.path().resource_dir().unwrap_or_default();
+    cand.push("resources/tcc-check");
+    if cand.exists() {
+        if let Ok(out) = std::process::Command::new(&cand).output() {
+            return String::from_utf8_lossy(&out.stdout).contains("granted");
+        }
+    }
+    let alt = std::path::PathBuf::from("/Applications/Quinki.app/Contents/Resources/resources/tcc-check");
+    if alt.exists() {
+        if let Ok(out) = std::process::Command::new(&alt).output() {
+            return String::from_utf8_lossy(&out.stdout).contains("granted");
+        }
+    }
+    false
+}
+
+fn check_tcc_status(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
     // Full Disk Access: prova a leggere il database TCC (richiede FDA) o ~/Library/Safari
     let full_disk = std::fs::read_dir(format!("{}/Library/Application Support/com.apple.TCC", home)).is_ok()
         || std::fs::read_dir(format!("{}/Library/Safari", home)).is_ok();
     // Files and Folders: se FDA è concesso, è coperto; altrimenti prova ~/Documents
     let files_folders = full_disk || std::fs::read_dir(format!("{}/Documents", home)).is_ok();
-    // Network: prova una richiesta curl veloce
-    let network = std::process::Command::new("curl")
-        .args(["-sI", "--max-time", "3", "https://www.apple.com"])
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false);
-    // Screen Recording: prova screencapture (best-effort)
-    let screen_recording = std::process::Command::new("screencapture")
-        .args(["-x", "/tmp/quinki-screen-test.png"])
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false);
-    // Accessibility: prova osascript (fallisce se non autorizzato)
-    let accessibility = std::process::Command::new("osascript")
-        .args(["-e", "tell application \"System Events\" to get name of first process"])
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false);
+    // Screen Recording: helper Swift non-invasivo (CGPreflightScreenCaptureAccess — NON scatena il prompt)
+    let screen_recording = check_screen_recording(&app);
 
     Ok(serde_json::json!({
         "fullDisk": full_disk,
         "filesFolders": files_folders,
-        "network": network,
         "screenRecording": screen_recording,
         "accessibility": accessibility,
     }))

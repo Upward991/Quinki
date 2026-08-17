@@ -141,7 +141,8 @@
       "resources/sidecar/start.sh",
       "resources/sidecar/start-expert.sh",
       "resources/sidecar/expert-watchdog.sh",
-      "resources/sidecar/package.json"
+      "resources/sidecar/package.json",
+      "resources/tcc-check"
     ]
   }
 }
