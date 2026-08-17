@@ -894,7 +894,9 @@ fn check_expert_running() -> Result<bool, String> {
         .args(["-c", "pgrep -f '/Applications/App Expert.app/Contents/MacOS/quinki' 2>/dev/null"])
         .output()
         .map_err(|e| e.to_string())?;
-    Ok(!output.stdout.is_empty())
+    let running = !output.stdout.is_empty();
+    let _ = std::fs::write("/tmp/quinki-expert-running-debug.txt", format!("running={} stdout={:?}", running, String::from_utf8_lossy(&output.stdout)));
+    Ok(running)
 }
 
 #[tauri::command]
