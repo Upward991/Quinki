@@ -254,55 +254,42 @@ fn check_tcc_status(app: tauri::AppHandle) -> Result<serde_json::Value, String> 
     let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
     let tcc_db = format!("{}/Library/Application Support/com.apple.TCC/TCC.db", home);
 
-    // 1) Metodo PRIMARIO: legge il database TCC direttamente (richiede FDA).
-    //    Restituisce i permessi ESATTI di entrambe le app (Quinki + App Expert).
-    let mut quinki_fd = false;
-    let mut quinki_sr = false;
+    // Quinki Full Disk Access: prova a LEGGERE il file TCC.db (richiede FDA, in-process).
+    // È il test più affidabile: senza FDA la lettura fallisce con "permission denied".
+    let quinki_fd = std::fs::read(&tcc_db).is_ok();
+
+    // Quinki Screen Recording: chiamata diretta CGPreflightScreenCaptureAccess
+    let quinki_sr = check_screen_recording(&app);
+
+    // Expert: query TCC.db via sqlite3 (richiede FDA, che ora sappiamo se c'è)
     let mut expert_fd = false;
     let mut expert_sr = false;
-    let mut tcc_readable = false;
-    if std::path::Path::new(&tcc_db).exists() {
+    if quinki_fd {
         if let Ok(out) = std::process::Command::new("sqlite3")
-            .args([&tcc_db, "SELECT service, client, auth_value FROM access WHERE client IN ('com.quinki.app', 'com.quinki.app.expert')"])
+            .args([&tcc_db, "SELECT service, client, auth_value FROM access WHERE client = 'com.quinki.app.expert'"])
             .output()
         {
             let s = String::from_utf8_lossy(&out.stdout);
-            if !s.trim().is_empty() || out.status.success() {
-                tcc_readable = true;
-                for line in s.lines() {
-                    let parts: Vec<&str> = line.split('|').collect();
-                    if parts.len() >= 3 {
-                        let service = parts[0].trim();
-                        let client = parts[1].trim();
-                        let auth = parts[2].trim();
-                        let allowed = auth == "1" || auth == "2";
-                        let is_q = client == "com.quinki.app";
-                        let is_e = client == "com.quinki.app.expert";
-                        if service == "kTCCServiceSystemPolicyAllFiles" {
-                            if is_q { quinki_fd = allowed; }
-                            if is_e { expert_fd = allowed; }
-                        } else if service == "kTCCServiceScreenCapture" {
-                            if is_q { quinki_sr = allowed; }
-                            if is_e { expert_sr = allowed; }
-                        }
-                    }
+            for line in s.lines() {
+                let parts: Vec<&str> = line.split('|').collect();
+                if parts.len() >= 3 {
+                    let service = parts[0].trim();
+                    let auth = parts[2].trim();
+                    let allowed = auth == "1" || auth == "2";
+                    if service == "kTCCServiceSystemPolicyAllFiles" { expert_fd = allowed; }
+                    else if service == "kTCCServiceScreenCapture" { expert_sr = allowed; }
                 }
             }
         }
     }
 
-    // 2) Fallback (se TCC.db non è leggibile): euristiche per la sola app Quinki
-    if !tcc_readable {
-        quinki_fd = std::fs::read_dir(format!("{}/Library/Application Support/com.apple.TCC", home)).is_ok()
-            || std::fs::read_dir(format!("{}/Library/Safari", home)).is_ok();
-        quinki_sr = check_screen_recording(&app);
-    }
-
-    Ok(serde_json::json!({
+    let result = serde_json::json!({
         "quinki": { "fullDisk": quinki_fd, "screenRecording": quinki_sr },
         "expert": { "fullDisk": expert_fd, "screenRecording": expert_sr },
-        "tccReadable": tcc_readable,
-    }))
+    });
+    // Debug: scrivi il risultato su file per diagnosi
+    let _ = std::fs::write("/tmp/quinki-tcc-debug.json", result.to_string());
+    Ok(result)
 }
 
 #[tauri::command]
