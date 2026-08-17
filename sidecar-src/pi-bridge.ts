@@ -149,6 +149,7 @@ class PiBridge {
   #authorizedFolders: string[] | null = null;
   #stoppedSessions = new Set<string>();
   #rePrompted = new Set<string>();
+  #markerTurnStarted = new Set<string>();
   #mcpClients = new Map<string, StdioMcpClient>();  // chiave `${sessionKey}:${serverId}`
   #mcpToolNames = new Map<string, { name: string; serverId: string }[]>();  // per sessione: tool MCP per applyMode (plan/build)
   #mcpSig = new Map<string, string>();  // firma mcpServers con cui è stata costruita la sessione (auto-diff)
@@ -5355,6 +5356,10 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
         try { const ex = JSON.parse(fs.readFileSync(path.join(pdir, "pending-turn.json"), "utf8")); retries = ex.retries || 0; } catch {}
       }
       fs.writeFileSync(path.join(pdir, "pending-turn.json"), JSON.stringify({ text: data.text, ts: Date.now(), retries }), "utf8");
+      // Il turno per QUESTO marker non è ancora partito (potrebbe essere in coda
+      // dietro un turno precedente). Finché non parte, agent_end di altri turni
+      // NON deve cancellare il marker.
+      this.#markerTurnStarted.delete(sk);
       this.logDebug("marker-write", { sessionKey: sk, where: "send", isExpert: Number(process.env.QUINKI_WS_PORT || "9182") === 9183, retries });
     } catch {}
     }
@@ -5364,6 +5369,9 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     this.#rePrompted.delete(sk);
 
     const next = prev.then(async () => {
+      // Il turno per QUESTO marker è ora partito: l'agent_end di questo turno
+      // può cancellare il marker (se completato).
+      this.#markerTurnStarted.add(sk);
       // Retry di sicurezza per errori THROWN (503/overloaded/rate limit) che bypassano
       // il retry interno dell'SDK. Backoff: 5s, 15s, 30s. Rispetta lo STOP.
       const delays = [5000, 15000, 30000];
@@ -6063,14 +6071,17 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
           } catch {}
           {
             const isExp = Number(process.env.QUINKI_WS_PORT || "9182") === 9183;
-            if (turnCompleted) {
+            // Cancella SOLO se: turno completato E il turno di QUESTO marker è partito
+            // (se il marker appartiene a un messaggio ancora in coda, non cancellarlo).
+            const markerTurnStarted = this.#markerTurnStarted.has(key);
+            if (turnCompleted && markerTurnStarted) {
               if (!(key === "__app_expert__" && !isExp)) {
-                try { const p = path.join(this.#piSessionDir(key), "pending-turn.json"); if (fs.existsSync(p)) { fs.unlinkSync(p); this.logDebug("marker-delete", { sessionKey: key, where: "agent_end", isExpert: isExp, turnCompleted }); } } catch {}
+                try { const p = path.join(this.#piSessionDir(key), "pending-turn.json"); if (fs.existsSync(p)) { fs.unlinkSync(p); this.logDebug("marker-delete", { sessionKey: key, where: "agent_end", isExpert: isExp, turnCompleted, markerTurnStarted }); } } catch {}
               } else {
                 this.logDebug("marker-delete-guarded", { sessionKey: key, where: "agent_end", isExpert: isExp });
               }
             } else {
-              this.logDebug("marker-keep-turn-not-complete", { sessionKey: key, where: "agent_end", isExpert: isExp });
+              this.logDebug("marker-keep-turn-not-complete", { sessionKey: key, where: "agent_end", isExpert: isExp, turnCompleted, markerTurnStarted });
             }
           }
           ws.send(JSON.stringify({ type: "typing_stop_broadcast", sessionKey: key }));
