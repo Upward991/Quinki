@@ -144,6 +144,8 @@ class PiBridge {
   #active = new Map<string, any>();
   #lhPhase = new Map<string, string>();
   #bashReadonlySessions = new Set<string>();
+  // === A2.11B: Permessi persistenti ===
+  #permissions: any = null;
   #mcpClients = new Map<string, StdioMcpClient>();  // chiave `${sessionKey}:${serverId}`
   #mcpToolNames = new Map<string, { name: string; serverId: string }[]>();  // per sessione: tool MCP per applyMode (plan/build)
   #mcpSig = new Map<string, string>();  // firma mcpServers con cui è stata costruita la sessione (auto-diff)
@@ -2491,8 +2493,9 @@ class PiBridge {
       for (const sk of fs.readdirSync(base)) {
         const p = path.join(base, sk, "pending-turn.json");
         if (!fs.existsSync(p)) continue;
-        // Salta le sessioni SPECIALI: App Expert, esecuzioni task, agenti — hanno il loro recovery
-        if (sk.startsWith("__app_expert__") || sk.startsWith("__exec_") || sk.startsWith("__agent_")) continue;
+        // Salta solo le sessioni di ESECUZIONE TASK (__exec_*) — le gestisce l'executor recovery.
+        // L'App Expert (__app_expert__) DEVE recuperare: se crasha a metà lavoro, al riavvio riprende.
+        if (sk.startsWith("__exec_")) continue;
         try {
           // Salta Long Horizon attivo (il support agent ri-prompta da solo)
           try {
@@ -2759,6 +2762,45 @@ class PiBridge {
     const buf = this.#streamingBuffers.get(key);
     if (!buf) return null;
     return { ...buf };
+  }
+
+  // === A2.11B: Permessi persistenti ===
+  // Default: executeCommands ON (serve per build mode), il resto OFF.
+  // La working directory è SEMPRE autorizzata.
+  getPermissions(): any {
+    if (this.#permissions) return this.#permissions;
+    const p = path.join(this.#agentDir, "quinki-permissions.json");
+    let perm: any = { readFilesAnywhere: false, writeFilesAnywhere: false, executeCommands: true, networkAccess: false, openApps: false, installPackages: false };
+    try {
+      if (fs.existsSync(p)) perm = { ...perm, ...JSON.parse(fs.readFileSync(p, "utf8")) };
+    } catch {}
+    this.#permissions = perm;
+    return perm;
+  }
+
+  setPermissions(patch: any) {
+    const cur = this.getPermissions();
+    const next = { ...cur, ...(patch || {}) };
+    this.#permissions = next;
+    try {
+      fs.mkdirSync(this.#agentDir, { recursive: true });
+      fs.writeFileSync(path.join(this.#agentDir, "quinki-permissions.json"), JSON.stringify(next, null, 2), "utf8");
+    } catch {}
+    return next;
+  }
+
+  // === A2.11B: verifica se un path è permesso (working dir sempre OK, altrimenti il flag globale) ===
+  isPathAllowed(sk: string, fullPath: string, write: boolean): boolean {
+    try {
+      if (!fullPath) return true;
+      const perms = this.getPermissions();
+      if (write && perms.writeFilesAnywhere) return true;
+      if (!write && perms.readFilesAnywhere) return true;
+      // Working directory sempre autorizzata
+      const cwd = this.getEffectiveCwd(sk);
+      if (cwd && (fullPath === cwd || fullPath.startsWith(cwd + "/") || fullPath.startsWith(cwd + "\\"))) return true;
+      return false;
+    } catch { return true; }
   }
 
   getEffectiveCwd(key: string): string {

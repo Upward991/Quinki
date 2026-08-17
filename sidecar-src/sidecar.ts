@@ -605,6 +605,8 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
 
   // === P3: metodi IPC mancanti (settings/providers/attachments/folders/update/preflight) ===
   getSettings: async () => getSettings(),
+  getPermissions: async () => piBridge!.getPermissions(),
+  setPermissions: async (p) => piBridge!.setPermissions(p || {}),
   setSettings: async (p) => { writeSettings({ ...readSettings(), ...(p || {}) }); return getSettings(); },
   saveSettings: async (p) => {
     try {
