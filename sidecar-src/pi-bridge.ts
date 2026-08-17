@@ -5312,6 +5312,11 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
 
     // === Pending-turn marker: persiste il turno in corso (per recovery dopo crash/riavvio) ===
     // Se l'app muore a metà turno, o il provider fallisce, il sidecar ri-prompta il modello.
+    // NB: per __app_expert__ il marker lo gestisce SOLO il sidecar Expert (9183). Il
+    // sidecar main (9182) NON deve scriverlo/cancellarlo: la sessione è condivisa e
+    // l'interferenza della main cancella il marker → il recovery dell'Expert non parte.
+    const isExpertSidecarMark = Number(process.env.QUINKI_WS_PORT || "9182") === 9183;
+    if (!(sk === "__app_expert__" && !isExpertSidecarMark)) {
     try {
       const pdir = this.#piSessionDir(sk);
       fs.mkdirSync(pdir, { recursive: true });
@@ -5324,6 +5329,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       }
       fs.writeFileSync(path.join(pdir, "pending-turn.json"), JSON.stringify({ text: data.text, ts: Date.now(), retries }), "utf8");
     } catch {}
+    }
 
     // Un nuovo invio = l'utente vuole riprendere: togli dalle liste "stopped" e "rePrompted"
     this.#stoppedSessions.delete(sk);
@@ -5514,7 +5520,13 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
   abort(key: string) {
     // Marca come "stopped" così il recovery NON ri-promptava, e cancella il marker
     this.#stoppedSessions.add(key);
-    try { const p = path.join(this.#piSessionDir(key), "pending-turn.json"); if (fs.existsSync(p)) fs.unlinkSync(p); } catch {}
+    // Solo l'Expert sidecar gestisce il marker di __app_expert__ (la main non lo tocca)
+    {
+      const isExp = Number(process.env.QUINKI_WS_PORT || "9182") === 9183;
+      if (!(key === "__app_expert__" && !isExp)) {
+        try { const p = path.join(this.#piSessionDir(key), "pending-turn.json"); if (fs.existsSync(p)) fs.unlinkSync(p); } catch {}
+      }
+    }
     const pi = this.#active.get(key);
     if (pi) {
       try { pi.abort(); } catch {}
@@ -6003,8 +6015,14 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
         }
         case "agent_end":
           if (this.#compactingSessions.has(key)) break; // sopprimi fine agente durante compaction
-          // Turno completato → rimuovi il marker pending-turn
-          try { const p = path.join(this.#piSessionDir(key), "pending-turn.json"); if (fs.existsSync(p)) fs.unlinkSync(p); } catch {}
+          // Turno completato → rimuovi il marker pending-turn.
+          // Solo l'Expert sidecar gestisce il marker di __app_expert__ (la main non lo tocca).
+          {
+            const isExp = Number(process.env.QUINKI_WS_PORT || "9182") === 9183;
+            if (!(key === "__app_expert__" && !isExp)) {
+              try { const p = path.join(this.#piSessionDir(key), "pending-turn.json"); if (fs.existsSync(p)) fs.unlinkSync(p); } catch {}
+            }
+          }
           ws.send(JSON.stringify({ type: "typing_stop_broadcast", sessionKey: key }));
           this.#captureSessionMeta(key);
           this.#emitContextUsage(ws, key, "ctx-post-agent-end");

@@ -625,6 +625,12 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   },
 
   getAppVersion: async () => ({ version: getAppVersion() }),
+  recoverPendingTurns: async () => {
+    try {
+      const n = await piBridge!.recoverPendingTurns();
+      return { recovered: n };
+    } catch (e: any) { return { recovered: 0, error: String(e?.message || e) }; }
+  },
   getSidecarVersion: async () => {
     try {
       const p = path.join(path.dirname(process.execPath), "version.txt");
