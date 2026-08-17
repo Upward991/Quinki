@@ -2808,7 +2808,7 @@ class PiBridge {
   // Default: executeCommands ON (serve per build mode), il resto OFF.
   // La working directory è SEMPRE autorizzata.
   getPermissions(): any {
-    if (this.#permissions) return this.#permissions;
+    // Legge SEMPRE il file (è minuscolo) — così le modifiche dalla UI sono subito attive
     const p = path.join(this.#agentDir, "quinki-permissions.json");
     let perm: any = { readFilesAnywhere: false, writeFilesAnywhere: false, executeCommands: true, networkAccess: false, openApps: false, installPackages: false };
     try {

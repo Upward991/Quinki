@@ -288,6 +288,40 @@ fn read_expert_tcc_status() -> Result<serde_json::Value, String> {
 }
 
 #[tauri::command]
+fn get_app_permissions() -> Result<serde_json::Value, String> {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
+    let p = format!("{}/.quinki/quinki-permissions.json", home);
+    if !std::path::Path::new(&p).exists() {
+        return Ok(serde_json::json!({ "readFilesAnywhere": false, "writeFilesAnywhere": false, "executeCommands": true, "networkAccess": false, "openApps": false, "installPackages": false }));
+    }
+    let content = std::fs::read_to_string(&p).map_err(|e| e.to_string())?;
+    let v: serde_json::Value = serde_json::from_str(&content).map_err(|e| e.to_string())?;
+    Ok(v)
+}
+
+#[tauri::command]
+fn set_app_permissions(patch: serde_json::Value) -> Result<serde_json::Value, String> {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
+    let p = format!("{}/.quinki/quinki-permissions.json", home);
+    let mut cur: serde_json::Value = serde_json::json!({ "readFilesAnywhere": false, "writeFilesAnywhere": false, "executeCommands": true, "networkAccess": false, "openApps": false, "installPackages": false });
+    if std::path::Path::new(&p).exists() {
+        if let Ok(content) = std::fs::read_to_string(&p) {
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&content) {
+                cur = v;
+            }
+        }
+    }
+    if let (Some(obj), Some(patch_obj)) = (cur.as_object_mut(), patch.as_object()) {
+        for (k, v) in patch_obj {
+            obj.insert(k.clone(), v.clone());
+        }
+    }
+    let _ = std::fs::create_dir_all(format!("{}/.quinki", home));
+    std::fs::write(&p, cur.to_string()).map_err(|e| e.to_string())?;
+    Ok(cur)
+}
+
+#[tauri::command]
 fn get_authorized_folders() -> Result<serde_json::Value, String> {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
     let p = format!("{}/.quinki/quinki-authorized-folders.json", home);
@@ -1144,6 +1178,8 @@ pub fn run() {
         get_authorized_folders,
         add_authorized_folder,
         remove_authorized_folder,
+        get_app_permissions,
+        set_app_permissions,
         list_attachments,
         check_expert_installed,
         install_expert_app,
