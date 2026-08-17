@@ -146,6 +146,7 @@ class PiBridge {
   #bashReadonlySessions = new Set<string>();
   // === A2.11B: Permessi persistenti ===
   #permissions: any = null;
+  #authorizedFolders: string[] | null = null;
   #mcpClients = new Map<string, StdioMcpClient>();  // chiave `${sessionKey}:${serverId}`
   #mcpToolNames = new Map<string, { name: string; serverId: string }[]>();  // per sessione: tool MCP per applyMode (plan/build)
   #mcpSig = new Map<string, string>();  // firma mcpServers con cui è stata costruita la sessione (auto-diff)
@@ -2829,6 +2830,31 @@ class PiBridge {
   }
 
   // === A2.11B: verifica se un path è permesso (working dir sempre OK, altrimenti il flag globale) ===
+  loadAuthorizedFolders(): string[] {
+    try {
+      if (this.#authorizedFolders) return this.#authorizedFolders;
+      const p = path.join(this.#agentDir, "quinki-authorized-folders.json");
+      if (fs.existsSync(p)) {
+        const d = JSON.parse(fs.readFileSync(p, "utf8"));
+        this.#authorizedFolders = Array.isArray(d?.folders) ? d.folders.map((f: any) => String(f)) : [];
+      } else {
+        this.#authorizedFolders = [];
+      }
+    } catch { this.#authorizedFolders = []; }
+    return this.#authorizedFolders;
+  }
+
+  isInAuthorizedFolder(fullPath: string): boolean {
+    try {
+      const norm = path.normalize(fullPath);
+      for (const f of this.loadAuthorizedFolders()) {
+        const nf = path.normalize(f);
+        if (norm === nf || norm.startsWith(nf + path.sep)) return true;
+      }
+    } catch {}
+    return false;
+  }
+
   isPathAllowed(sk: string, fullPath: string, write: boolean): boolean {
     try {
       if (!fullPath) return true;
@@ -2838,6 +2864,11 @@ class PiBridge {
       // Working directory sempre autorizzata
       const cwd = this.getEffectiveCwd(sk);
       if (cwd && (fullPath === cwd || fullPath.startsWith(cwd + "/") || fullPath.startsWith(cwd + "\\"))) return true;
+      // Cartelle autorizzate (app-level)
+      if (this.isInAuthorizedFolder(fullPath)) return true;
+      // Path di sistema (agent dir: config, skills, attachments, sessioni)
+      const agentDir = path.normalize(this.#agentDir);
+      if (fullPath === agentDir || fullPath.startsWith(agentDir + path.sep)) return true;
       return false;
     } catch { return true; }
   }
@@ -5544,25 +5575,36 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
   }
 
   #listen(pi: any, key: string) {
-    // === Bash read-only: se la sessione è in modalità bash_readonly, blocca i comandi di scrittura ===
-    if (this.#bashReadonlySessions.has(key)) {
-      try {
-        const origBefore = pi.agent?.beforeToolCall;
-        pi.agent.beforeToolCall = async ({ toolCall, args }: any) => {
-          if (toolCall?.name === "bash" || toolCall?.name === "shell") {
-            const cmd = String((args as any)?.command || (args as any)?.cmd || (args as any)?.script || "").trim();
-            if (this.#isWriteCommand(cmd)) {
-              const ws2 = this.#wss.get(key);
-              try { this.#sendToWs(ws2, { type: "tool_call", sessionKey: key, toolCallId: toolCall.id, toolName: toolCall.name, toolArgs: args, ts: Date.now() }); } catch {}
-              this.logDebug("bash-readonly-blocked", { sessionKey: key, cmd: cmd.slice(0, 120) });
-              return { content: [{ type: "text", text: `[Bash read-only] This command is not allowed in read-only mode because it modifies or executes something. Use read-only commands (ls, cat, grep, find, pwd, head, tail, wc, diff, git status, git log, git diff).` }], isError: true };
-            }
+    // === Authorized folders + bash read-only: hook unico su beforeToolCall ===
+    try {
+      const origBefore = pi.agent?.beforeToolCall;
+      pi.agent.beforeToolCall = async ({ toolCall, args }: any) => {
+        const name = toolCall?.name;
+        // 1) Authorized folders: blocca i tool file su path fuori dalle cartelle autorizzate
+        const fileTools = ["read", "write", "edit", "grep", "find", "ls"];
+        if (fileTools.includes(name)) {
+          const p = String((args as any)?.path || (args as any)?.filePath || "");
+          if (p && !this.isPathAllowed(key, p, name === "write" || name === "edit")) {
+            const ws2 = this.#wss.get(key);
+            try { this.#sendToWs(ws2, { type: "tool_call", sessionKey: key, toolCallId: toolCall.id, toolName: name, toolArgs: args, ts: Date.now() }); } catch {}
+            this.logDebug("authorized-folder-blocked", { sessionKey: key, tool: name, path: p });
+            return { content: [{ type: "text", text: `[Access denied] This path is not in an authorized folder. Agents can only access files in the working directory and the folders listed in Settings → macOS Permissions → Authorized Folders.` }], isError: true };
           }
-          if (origBefore) return origBefore({ toolCall, args });
-          return undefined;
-        };
-      } catch (e: any) { this.logDebug("bash-readonly-hook-error", { sessionKey: key, error: e?.message || String(e) }); }
-    }
+        }
+        // 2) Bash read-only: se la sessione è in modalità bash_readonly, blocca i comandi di scrittura
+        if (this.#bashReadonlySessions.has(key) && (name === "bash" || name === "shell")) {
+          const cmd = String((args as any)?.command || (args as any)?.cmd || (args as any)?.script || "").trim();
+          if (this.#isWriteCommand(cmd)) {
+            const ws2 = this.#wss.get(key);
+            try { this.#sendToWs(ws2, { type: "tool_call", sessionKey: key, toolCallId: toolCall.id, toolName: name, toolArgs: args, ts: Date.now() }); } catch {}
+            this.logDebug("bash-readonly-blocked", { sessionKey: key, cmd: cmd.slice(0, 120) });
+            return { content: [{ type: "text", text: `[Bash read-only] This command is not allowed in read-only mode because it modifies or executes something. Use read-only commands (ls, cat, grep, find, pwd, head, tail, wc, diff, git status, git log, git diff).` }], isError: true };
+          }
+        }
+        if (origBefore) return origBefore({ toolCall, args });
+        return undefined;
+      };
+    } catch (e: any) { this.logDebug("tool-hook-error", { sessionKey: key, error: e?.message || String(e) }); }
 
     const old = this.#unsubs.get(key);
     if (old) { try { old(); } catch {} }
