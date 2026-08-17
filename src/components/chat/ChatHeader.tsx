@@ -53,6 +53,9 @@ interface ChatHeaderProps {
 export function ChatHeader(props: ChatHeaderProps) {
   const isExpert = props.activePanel === 'expert'
   const [rollbackConfirm, setRollbackConfirm] = useState(false)
+  const [rollbackState, setRollbackState] = useState(0)
+  const [rollbackMsg, setRollbackMsg] = useState('')
+  const [expertRunning, setExpertRunning] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
   const [contextOpen, setContextOpen] = useState(false)
@@ -204,9 +207,27 @@ export function ChatHeader(props: ChatHeaderProps) {
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
               <button onClick={() => setRollbackConfirm(false)} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
                 style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>Cancel</button>
-              <button onClick={() => { setRollbackConfirm(false); try { invoke('rollback_expert_app').then((r: any) => { console.log('[rollback]', r) }).catch((e: any) => { console.error('[rollback]', e) }) } catch {} }}
+              <button onClick={() => { setRollbackConfirm(false); setRollbackState(2); try { let t0 = Date.now(); invoke('rollback_expert_app').then(async (r: any) => { let elapsed = Date.now() - t0; if (elapsed < 800) await new Promise(res => setTimeout(res, 800 - elapsed)); setRollbackMsg(String(r)); let running = await invoke('check_expert_running'); setExpertRunning(!!running); setRollbackState(3) }).catch((e: any) => { setRollbackMsg('Rollback failed: ' + e); setRollbackState(3) }) } catch {} }}
                 onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }}
                 style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>Rollback</button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Rollback progress / complete modal */}
+      {rollbackState >= 2 && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 400, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => { if (rollbackState !== 2) setRollbackState(0) }} />
+          <div style={{ position: 'fixed', zIndex: 401, top: '50%', left: '50%', transform: 'translate(-50%, -50%)', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '400px', width: '90%' }}>
+            <div style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '12px' }}>{rollbackState === 2 ? 'Rolling back...' : (rollbackMsg.includes('failed') ? 'Rollback Failed' : 'Rollback Complete')}</div>
+            <div style={{ color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', lineHeight: 1.5, marginBottom: '16px' }}>
+              {rollbackState === 2 ? 'Please wait while the Expert app is being rolled back...' : (rollbackMsg || 'Expert app rolled back successfully.') + (expertRunning ? ' Click Restart to apply the changes.' : ' The Expert app will use the previous version next time you open it.')}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              {rollbackState === 2 && <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}><div style={{ width: '14px', height: '14px', border: '2px solid var(--q-text-tertiary)', borderTopColor: 'var(--q-tab-accent)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />Rolling back...</div>}
+              {rollbackState === 3 && !expertRunning && <button onClick={() => setRollbackState(0)} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }} style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>Done</button>}
+              {rollbackState === 3 && expertRunning && <button onClick={async () => { try { await invoke('restart_expert_app') } catch {} setRollbackState(0) }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }} style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>Restart</button>}
             </div>
           </div>
         </>
