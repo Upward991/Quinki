@@ -2493,9 +2493,14 @@ class PiBridge {
       for (const sk of fs.readdirSync(base)) {
         const p = path.join(base, sk, "pending-turn.json");
         if (!fs.existsSync(p)) continue;
-        // Salta solo le sessioni di ESECUZIONE TASK (__exec_*) — le gestisce l'executor recovery.
-        // L'App Expert (__app_expert__) DEVE recuperare: se crasha a metà lavoro, al riavvio riprende.
+        // === DISTINZIONE main vs expert ===
+        // Le sessioni __exec_* le gestisce l'executor recovery (separato).
+        // La sessione __app_expert__ è CONDIVISA: la recupera SOLO il sidecar dell'Expert
+        // (porta 9183), non quello della main (9182). Così la main non crea rumore nell'Expert.
+        const isExpertSidecar = Number(process.env.QUINKI_WS_PORT || "9182") === 9183;
         if (sk.startsWith("__exec_")) continue;
+        if (sk === "__app_expert__" && !isExpertSidecar) continue;
+        if (sk !== "__app_expert__" && isExpertSidecar) continue;
         try {
           // Salta Long Horizon attivo (il support agent ri-prompta da solo)
           try {
