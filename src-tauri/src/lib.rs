@@ -270,7 +270,6 @@ fn check_tcc_status(app: tauri::AppHandle) -> Result<serde_json::Value, String> 
         "fullDisk": full_disk,
         "filesFolders": files_folders,
         "screenRecording": screen_recording,
-        "accessibility": accessibility,
     }))
 }
 
