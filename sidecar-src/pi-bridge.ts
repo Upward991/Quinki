@@ -2502,8 +2502,32 @@ class PiBridge {
         const hasMarker = fs.existsSync(p);
         // Logga TUTTE le sessioni (anche senza marker) per vedere se __app_expert__ viene considerata
         this.logDebug("recovery-scan-session", { sessionKey: sk, hasMarker, isExpert: Number(process.env.QUINKI_WS_PORT || "9182") === 9183 });
-        if (!hasMarker) continue;
-        this.logDebug("recovery-check", { sessionKey: sk, marker: true });
+        // Recovery ROBUSTO: anche SENZA marker, se l'ultimo messaggio nel jsonl è un
+        // turno utente senza risposta assistant, il turno è stato interrotto → ri-promptata.
+        let interrupted = hasMarker;
+        let markerText = "";
+        let retries = 0;
+        if (!hasMarker) {
+          try {
+            const hist = this.getHistory(sk);
+            if (Array.isArray(hist) && hist.length > 0) {
+              const last = hist[hist.length - 1];
+              if (last.role === "user" && last.content) {
+                interrupted = true;
+                markerText = String(last.content);
+                this.logDebug("recovery-jsonl-interrupted", { sessionKey: sk, lastUser: markerText.slice(0, 60) });
+              }
+            }
+          } catch (e: any) { this.logDebug("recovery-jsonl-error", { sessionKey: sk, error: e?.message || String(e) }); }
+        } else {
+          this.logDebug("recovery-check", { sessionKey: sk, marker: true });
+          try {
+            const marker = JSON.parse(fs.readFileSync(p, "utf8"));
+            retries = marker.retries || 0;
+            markerText = String(marker.text || "");
+          } catch {}
+        }
+        if (!interrupted) continue;
         // === DISTINZIONE main vs expert ===
         // Le sessioni __exec_* le gestisce l'executor recovery (separato).
         // La sessione __app_expert__ è CONDIVISA: la recupera SOLO il sidecar dell'Expert
@@ -2523,10 +2547,8 @@ class PiBridge {
           if (this.#streamingBuffers.has(sk)) { this.logDebug("recovery-skip", { sessionKey: sk, reason: "streaming-buffer" }); continue; }
           // Salta se l'utente ha premuto STOP (non ri-promptare)
           if (this.#stoppedSessions.has(sk)) { this.logDebug("recovery-skip", { sessionKey: sk, reason: "stopped" }); continue; }
-          const marker = JSON.parse(fs.readFileSync(p, "utf8"));
-          const retries = marker.retries || 0;
           if (retries >= 3) { this.logDebug("recovery-skip", { sessionKey: sk, reason: "retries-limit" }); continue; } // limite raggiunto — l'utente ritenta a mano
-          const origText = String(marker.text || "");
+          const origText = markerText;
           // Se il messaggio originale NON è nel jsonl (app riavviata prima che venisse salvato),
           // ri-invia il messaggio originale — altrimenti il modello non sa cosa continuare.
           let hasOrig = false;
