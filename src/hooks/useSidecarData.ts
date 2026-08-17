@@ -773,23 +773,22 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
       }
       // === Ripristino streaming: se la sessione sta ancora generando, recupera stato + buffer ===
       try {
-        const ss = await call('getStreamingStatus', { sessionKey })
-        if (ss?.streaming) {
+        // getStreamingMessage restituisce il buffer SOLO se c'è un turno attivo
+        // (null se la sessione è idle). È la fonte più affidabile per lo streaming.
+        const buf = await call('getStreamingMessage', { sessionKey })
+        const sb = buf?.streaming
+        if (sb && (sb.text || sb.thinking || (sb.toolCalls || []).length > 0)) {
           setIsStreaming(true)
           setStatusLabel('Running'); setStatusKind('running')
-          const buf = await call('getStreamingMessage', { sessionKey })
-          if (buf?.streaming && (buf.streaming.text || buf.streaming.thinking || (buf.streaming.toolCalls || []).length > 0)) {
-            const sb = buf.streaming
-            const blocks: any[] = []
-            if (sb.thinking) blocks.push({ type: 'thinking', content: sb.thinking })
-            for (const tc of sb.toolCalls || []) blocks.push({ type: 'tool_call', name: tc.name || 'tool', input: tc.input || '' })
-            if (sb.text) blocks.push({ type: 'text', content: sb.text })
-            setMessages(prev => {
-              const last = prev[prev.length - 1]
-              if (last?.role === 'assistant' && last.isStreaming) return prev
-              return [...prev, { id: sb.messageId || `msg-restored-${Date.now()}`, role: 'assistant' as const, content: sb.text || '', blocks, timestamp: new Date().toISOString(), isStreaming: true }]
-            })
-          }
+          const blocks: any[] = []
+          if (sb.thinking) blocks.push({ type: 'thinking', content: sb.thinking })
+          for (const tc of sb.toolCalls || []) blocks.push({ type: 'tool_call', name: tc.name || 'tool', input: tc.input || '' })
+          if (sb.text) blocks.push({ type: 'text', content: sb.text })
+          setMessages(prev => {
+            const last = prev[prev.length - 1]
+            if (last?.role === 'assistant' && last.isStreaming) return prev
+            return [...prev, { id: sb.messageId || `msg-restored-${Date.now()}`, role: 'assistant' as const, content: sb.text || '', blocks, timestamp: new Date().toISOString(), isStreaming: true }]
+          })
         }
       } catch {}
 
