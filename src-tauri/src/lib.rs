@@ -275,20 +275,56 @@ fn check_screen_recording(app: &tauri::AppHandle) -> bool {
 #[tauri::command]
 fn check_tcc_status(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
-    // Full Disk Access: prova a leggere il database TCC (richiede FDA) o ~/Library/Safari
-    let full_disk = std::fs::read_dir(format!("{}/Library/Application Support/com.apple.TCC", home)).is_ok()
-        || std::fs::read_dir(format!("{}/Library/Safari", home)).is_ok();
-    // Files and Folders: NON leggiamo ~/Documents (scatena il prompt macOS).
-    // Se FDA è concesso, Files and Folders è coperto. Altrimenti lo stato è OFF
-    // (l'utente lo concede in System Settings).
-    let files_folders = full_disk;
-    // Screen Recording: helper Swift non-invasivo (CGPreflightScreenCaptureAccess — NON scatena il prompt)
-    let screen_recording = check_screen_recording(&app);
+    let tcc_db = format!("{}/Library/Application Support/com.apple.TCC/TCC.db", home);
+
+    // 1) Metodo PRIMARIO: legge il database TCC direttamente (richiede FDA).
+    //    Restituisce i permessi ESATTI di entrambe le app (Quinki + App Expert).
+    let mut quinki_fd = false;
+    let mut quinki_sr = false;
+    let mut expert_fd = false;
+    let mut expert_sr = false;
+    let mut tcc_readable = false;
+    if std::path::Path::new(&tcc_db).exists() {
+        if let Ok(out) = std::process::Command::new("sqlite3")
+            .args([&tcc_db, "SELECT service, client, auth_value FROM access WHERE client IN ('com.quinki.app', 'com.quinki.app.expert')"])
+            .output()
+        {
+            let s = String::from_utf8_lossy(&out.stdout);
+            if !s.trim().is_empty() || out.status.success() {
+                tcc_readable = true;
+                for line in s.lines() {
+                    let parts: Vec<&str> = line.split('|').collect();
+                    if parts.len() >= 3 {
+                        let service = parts[0].trim();
+                        let client = parts[1].trim();
+                        let auth = parts[2].trim();
+                        let allowed = auth == "1" || auth == "2";
+                        let is_q = client == "com.quinki.app";
+                        let is_e = client == "com.quinki.app.expert";
+                        if service == "kTCCServiceSystemPolicyAllFiles" {
+                            if is_q { quinki_fd = allowed; }
+                            if is_e { expert_fd = allowed; }
+                        } else if service == "kTCCServiceScreenCapture" {
+                            if is_q { quinki_sr = allowed; }
+                            if is_e { expert_sr = allowed; }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 2) Fallback (se TCC.db non è leggibile): euristiche per la sola app Quinki
+    if !tcc_readable {
+        quinki_fd = std::fs::read_dir(format!("{}/Library/Application Support/com.apple.TCC", home)).is_ok()
+            || std::fs::read_dir(format!("{}/Library/Safari", home)).is_ok();
+        quinki_sr = check_screen_recording(&app);
+    }
 
     Ok(serde_json::json!({
-        "fullDisk": full_disk,
-        "filesFolders": files_folders,
-        "screenRecording": screen_recording,
+        "quinki": { "fullDisk": quinki_fd, "screenRecording": quinki_sr },
+        "expert": { "fullDisk": expert_fd, "screenRecording": expert_sr },
+        "tccReadable": tcc_readable,
     }))
 }
 
@@ -743,6 +779,12 @@ fn sync_expert_app() -> Result<String, String> {
         .output();
     let _ = std::process::Command::new("/usr/libexec/PlistBuddy")
         .args(["-c", "Set :CFBundleDisplayName App Expert", &plist])
+        .output();
+
+    // Re-sign con requirement STABILE (identifier-based, non cdhash): così i permessi
+    // TCC dell'Expert (Full Disk Access, Screen Recording) sopravvivono ai sync/reinstall.
+    let _ = std::process::Command::new("codesign")
+        .args(["--force", "--sign", "-", "--identifier", "com.quinki.app.expert", "--requirements", "=designated => identifier \"com.quinki.app.expert\"", "--deep", expert_app])
         .output();
 
     // Scrive il flag SOLO dopo la verifica: l'App Expert mostrerà il badge di riavvio

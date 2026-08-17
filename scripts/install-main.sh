@@ -46,6 +46,14 @@ fi
 ditto "$MAIN_BUNDLE" "$MAIN_APP"
 echo "[install-main] Installed $MAIN_APP"
 
+# 2b) Re-sign with a STABLE designated requirement (identifier-based, not cdhash).
+#     This keeps macOS TCC permissions (Full Disk Access, Screen Recording, etc.)
+#     across reinstalls: the grant is tied to the identifier, not the binary hash.
+if command -v codesign >/dev/null 2>&1; then
+  codesign --force --sign - --identifier com.quinki.app --requirements '=designated => identifier "com.quinki.app"' --deep "$MAIN_APP" 2>/dev/null || true
+  echo "[install-main] Re-signed with stable requirement (identifier com.quinki.app)."
+fi
+
 # 3) Kill ONLY the main sidecar (port 9182) AND the main app process (by exact path).
 #    The App Expert process is NEVER matched (its path is /Applications/App Expert.app/...).
 if command -v lsof >/dev/null 2>&1; then
