@@ -828,22 +828,26 @@ fn check_expert_backup_exists() -> Result<bool, String> {
 }
 
 #[tauri::command]
-fn restart_expert_app() -> Result<(), String> {
-    // Spawn UN SINGOLO script distaccato che fa l'INTERO restart (quit + reopen):
-    //   sleep 2 → kill sidecar 9183 → kill app → attendi porta libera → reopen.
-    // Il processo `sh` diventa orfano quando l'app muore, ma CONTINUA e completa
-    // tutto. Nessuna dipendenza dal processo dell'app (che muore al kill).
-    let script = "sleep 2; lsof -ti:9183 | xargs kill -9 2>/dev/null; pkill -f 'App Expert.app/Contents/MacOS/quinki' 2>/dev/null; for i in 1 2 3 4 5 6 7 8; do if ! lsof -ti:9183 >/dev/null 2>&1; then break; fi; sleep 1; done; open '/Applications/App Expert.app'";
-    let _ = std::process::Command::new("sh")
-        .arg("-c")
-        .arg(script)
-        .spawn();
+fn restart_expert_app(app: tauri::AppHandle) -> Result<(), String> {
+    // Stessa logica del restart della main (tray): kill sidecar, spawn detachato
+    // che riapre, poi app.exit(0) → l'app si chiude AL 100% (anche dal dock) e
+    // riparte. niente pkill sul proprio processo: l'exit è pulito e completo.
+    let _ = std::process::Command::new("sh").arg("-c")
+      .arg("lsof -ti:9183 | xargs kill -9 2>/dev/null")
+      .spawn();
+    // Relaunch app — use nohup + detached process so it survives parent exit
+    let _ = std::process::Command::new("sh").arg("-c")
+      .arg("nohup sh -c 'sleep 1; open "/Applications/App Expert.app"' >/dev/null 2>&1 &")
+      .spawn();
 
     // Remove the flag file
     let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
     let flag = format!("{}/.quinki/.expert-needs-restart", home);
     let _ = std::fs::remove_file(&flag);
 
+    // Give the detached process time to start before we exit
+    std::thread::sleep(std::time::Duration::from_millis(300));
+    app.exit(0);
     Ok(())
 }
 
