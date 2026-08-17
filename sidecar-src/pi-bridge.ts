@@ -5307,7 +5307,12 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       const pdir = this.#piSessionDir(sk);
       fs.mkdirSync(pdir, { recursive: true });
       let retries = 0;
-      try { const ex = JSON.parse(fs.readFileSync(path.join(pdir, "pending-turn.json"), "utf8")); retries = ex.retries || 0; } catch {}
+      // Un messaggio NUOVO dell'utente azzera il contatore retries (il budget di
+      // recovery si resetta). Solo un re-prompt di recovery (_preserveWs) lo preserva.
+      const isRecovery = !!(data as any)._preserveWs;
+      if (isRecovery) {
+        try { const ex = JSON.parse(fs.readFileSync(path.join(pdir, "pending-turn.json"), "utf8")); retries = ex.retries || 0; } catch {}
+      }
       fs.writeFileSync(path.join(pdir, "pending-turn.json"), JSON.stringify({ text: data.text, ts: Date.now(), retries }), "utf8");
     } catch {}
 
