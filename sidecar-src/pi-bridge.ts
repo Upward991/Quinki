@@ -2493,6 +2493,10 @@ class PiBridge {
       const base = path.join(this.#agentDir, "sessions", "quinki");
       if (!fs.existsSync(base)) return 0;
       const streaming = new Set(this.getStreamingStatus?.() || []);
+      // NB: `streaming` = TUTTE le sessioni in #active (caricate), NON solo quelle
+      // con un turno in corso. Usiamo #streamingBuffers per le sessioni DAVVERO
+      // in streaming — altrimenti il recovery salta sessioni appena caricate
+      // (es. __app_expert__ all'apertura dell'app Expert) e non le ri-promptata.
       for (const sk of fs.readdirSync(base)) {
         const p = path.join(base, sk, "pending-turn.json");
         if (!fs.existsSync(p)) continue;
@@ -2510,8 +2514,9 @@ class PiBridge {
             const lhState = JSON.parse(fs.readFileSync(path.join(this.#agentDir, "longhorizon", sk, "state.json"), "utf8"));
             if (lhState.active) continue;
           } catch {}
-          // Salta se il turno è attivo (streaming in corso)
-          if (streaming.has(sk)) continue;
+          // Salta se il turno è attivo (streaming in corso) — SOLO se c'è un buffer
+          // di streaming (turno davvero in corso), non se la sessione è solo caricata.
+          if (this.#streamingBuffers.has(sk)) continue;
           // Salta se l'utente ha premuto STOP (non ri-promptare)
           if (this.#stoppedSessions.has(sk)) continue;
           const marker = JSON.parse(fs.readFileSync(p, "utf8"));
