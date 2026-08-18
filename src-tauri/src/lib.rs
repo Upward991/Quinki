@@ -318,6 +318,37 @@ fn get_sidecar_version(app: tauri::AppHandle) -> Result<String, String> {
     Ok("unknown".to_string())
 }
 
+// === A3: delegate UNUserNotificationCenter — mostra le notifiche anche in primo piano ===
+#[cfg(target_os = "macos")]
+fn setup_notification_delegate() {
+    use objc::runtime::{Object, Sel};
+    use objc::{class, msg_send, sel, sel_impl};
+    use std::os::raw::{c_char, c_void};
+    unsafe extern "C" {
+        fn objc_allocateClassPair(superclass: *const Object, name: *const c_char, extraBytes: usize) -> *mut Object;
+        fn class_addMethod(cls: *mut Object, name: Sel, imp: *const c_void, types: *const c_char) -> bool;
+        fn objc_registerClassPair(cls: *mut Object);
+    }
+    unsafe extern "C" fn will_present(_this: *mut Object, _cmd: Sel, _center: *mut Object, _notification: *mut Object, completion: *mut c_void) {
+        // UNNotificationPresentationOptionBanner=4, Sound=1, Badge=2
+        let options: u64 = 4 | 1 | 2;
+        let block = &*(completion as *const block::Block<(u64,), ()>);
+        block.call((options,));
+    }
+    unsafe {
+        let superclass = class!(NSObject) as *const _ as *const Object;
+        let name = b"QuinkiNotifDelegate\0".as_ptr() as *const c_char;
+        let cls = objc_allocateClassPair(superclass, name, 0);
+        if cls.is_null() { return; }
+        let types = b"v@:@@@?\0".as_ptr() as *const c_char;
+        class_addMethod(cls, sel!(userNotificationCenter:willPresentNotification:withCompletionHandler:), will_present as *const c_void, types);
+        objc_registerClassPair(cls);
+        let center: *mut Object = msg_send![class!(UNUserNotificationCenter), currentNotificationCenter];
+        let delegate: *mut Object = msg_send![cls, new];
+        let _: () = msg_send![center, setDelegate: delegate];
+    }
+}
+
 #[tauri::command]
 fn send_notification(app: tauri::AppHandle, title: String, body: String) -> Result<(), String> {
     // Il plugin usa notify_rust (osascript) che NON mostra notifiche per questa app.
@@ -1324,6 +1355,8 @@ pub fn run() {
             let block = block.copy();
             let block_ptr: *mut std::ffi::c_void = &*block as *const _ as *mut std::ffi::c_void;
             let _: () = msg_send![center, requestAuthorizationWithOptions: options completionHandler: block_ptr];
+            // Delegate per mostrare le notifiche ANCHE in primo piano
+            setup_notification_delegate();
           }
         }
       }
