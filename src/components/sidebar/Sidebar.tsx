@@ -631,8 +631,8 @@ function NotificationMenu({ x, y, current, onClose, onPick }: any) {
     <>
       <div style={{ position: 'fixed', inset: 0, zIndex: 200 }} onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose() }} />
       <div style={{ position: 'fixed', left, top, zIndex: 210, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '4px 0', minWidth: '180px' }}>
-        <MenuItem label={'Muted' + (current === 'none' ? ' ✓' : '')} icon={<BellOff size={14} />} onClick={() => onPick('none')} />
-        <MenuItem label={'All notifications' + (current !== 'none' ? ' ✓' : '')} icon={<Bell size={14} />} onClick={() => onPick('all')} />
+        <MenuItem label="Muted" icon={<BellOff size={14} />} onClick={() => onPick('none')} />
+        <MenuItem label="All notifications" icon={<Bell size={14} />} onClick={() => onPick('all')} />
       </div>
     </>
   )

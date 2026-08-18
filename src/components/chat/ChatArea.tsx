@@ -153,6 +153,10 @@ export function ChatArea(props: ChatAreaProps) {
   useEffect(() => { messagesRef.current = props.messages }, [props.messages])
   useEffect(() => {
     if (!sessionIdKey) return
+    // Reset dei ref del marker a ogni sessione (il marker deve riapparire per ogni chat)
+    markerScrolledRef.current = false
+    autoScrollDoneRef.current = false
+    setMarkerVisible(false)
     let cancelled = false
     sidecarCall('getReadState', { sessionKey: sessionIdKey }).then((r: any) => {
       if (!cancelled && r?.state) {
@@ -286,9 +290,22 @@ export function ChatArea(props: ChatAreaProps) {
       <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '16px 16px', scrollbarGutter: 'stable' }}>
         {taskRuns.length === 0 ? (
           <div style={{ color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', padding: '24px 8px', textAlign: 'center' }}>No tasks yet.</div>
-        ) : taskRuns.map((run) => (
-          <TaskResultToggle key={run.id} run={run} sessionKey={props.session?.key} showClip />
-        ))}
+        ) : taskRuns.map((run, ri) => {
+          const isUnreadTask = run.endedAt && run.endedAt > lastReadTaskTs
+          const isFirstUnreadTask = isUnreadTask && (ri === 0 || !(taskRuns[ri-1].endedAt && taskRuns[ri-1].endedAt > lastReadTaskTs))
+          return (
+            <div key={run.id}>
+              {isFirstUnreadTask && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 0' }}>
+                  <span style={{ flex: 1, height: '1px', backgroundColor: 'var(--q-tab-accent)' }} />
+                  <span style={{ fontSize: '11px', color: 'var(--q-tab-accent)', fontWeight: 600, whiteSpace: 'nowrap' }}>unread tasks below</span>
+                  <span style={{ flex: 1, height: '1px', backgroundColor: 'var(--q-tab-accent)' }} />
+                </div>
+              )}
+              <TaskResultToggle run={run} sessionKey={props.session?.key} showClip />
+            </div>
+          )
+        })}
       </div>
       {/* Barra riassunto IN BASSO = la striscia che diventa la heading inferiore della sezione espansa — tutta cliccabile per chiudere */}
       <button onClick={toggleTaskPanel} title="Collapse tasks" style={{ width: '100%', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-bg-panel)', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: 13, transition: 'none', textAlign: 'left' }}>

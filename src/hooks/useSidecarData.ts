@@ -656,14 +656,14 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
                 const title = 'Task executed'
                 const body = p.label || 'Task completed'
                 console.log('[A3] notif task', sk, '→', title, '/', body)
-                invoke('send_notification', { title, body }).catch(() => {})
+                invoke('send_notification', { title, body: '\n' + body }).catch(() => {})
               } else {
                 // Chat: titolo = nome chat (App Expert per la sessione expert), body = anteprima risposta
                 const sess = sessionsRef.current.find((s: any) => s.id === sk)
                 const title = sk === '__app_expert__' ? 'App Expert' : (sess?.title || 'New response')
                 const body = p.body || 'A response arrived'
                 console.log('[A3] notif chat', sk, '→', title, '/', String(body).slice(0, 40))
-                invoke('send_notification', { title, body }).catch(() => {})
+                invoke('send_notification', { title, body: '\n' + body }).catch(() => {})
               }
             }
           }).catch(() => {})
@@ -740,6 +740,14 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     setActiveSessionId(sessionKey)
     // === A3: al cambio sessione aggiorna i badge (il mark-on-exit ha segnato la lettura) ===
     refreshUnreadCounts()
+    // === A3: mark-as-read all'apertura — dopo 1.5s la chat aperta è considerata letta
+    // (messaggi + task) così il badge si azzera subito, senza entrare/uscire. ===
+    const openedKey = sessionKey
+    setTimeout(() => {
+      if (activeSessionIdRef.current === openedKey) {
+        call('setReadState', { sessionKey: openedKey, patch: { lastReadTs: Date.now(), lastReadTaskTs: Date.now() } }).catch(() => {})
+      }
+    }, 1500)
     // NON svuotare messages qui: evita il flash quando si ricarica la stessa chat (es. dopo compaction)
     // Restore streaming state from per-session map
     const saved = sessionStreamingMap.current.get(sessionKey)
