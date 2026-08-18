@@ -605,6 +605,8 @@ export function ChatArea(props: ChatAreaProps) {
                       // Solo le RISPOSTE assistant contano come non lette (le bubble utente le ho scritte io)
                       // Il marker è visibile SOLO all'apertura (markerVisible), mai durante lo streaming
                       const isUnread = item.kind === 'msg' && item.msg?.role === 'assistant' && item.ts > lastReadTs && markerVisible && !props.streaming
+                      // Il marker appare UNA volta, al PRIMO messaggio non letto (il confine letto/non letto)
+                      const isFirstUnread = isUnread && (i === 0 || !(chatItems[i-1].kind === 'msg' && chatItems[i-1].msg?.role === 'assistant' && chatItems[i-1].ts > lastReadTs && markerVisible && !props.streaming))
                       const isBookmark = bookmarkTs != null && item.ts >= bookmarkTs && (i === 0 || chatItems[i-1].ts < bookmarkTs)
                       return (
                     <div key={item.kind === 'msg' ? item.msg!.id : item.kind === 'sys' ? 'lh-sys' : 'chat-' + item.run!.id} data-msg-idx={item.mIdx ?? -1} style={{ marginBottom: '12px' }}>
@@ -615,7 +617,7 @@ export function ChatArea(props: ChatAreaProps) {
                           <span style={{ flex: 1, height: '1px', backgroundColor: 'var(--q-accent-warning)' }} />
                         </div>
                       )}
-                      {isUnread && (
+                      {isFirstUnread && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 0', padding: '2px 0' }}>
                           <span style={{ flex: 1, height: '1px', backgroundColor: 'var(--q-tab-accent)' }} />
                           <span style={{ fontSize: '11px', fontFamily: 'var(--font-interface)', color: 'var(--q-tab-accent)', fontWeight: 600, whiteSpace: 'nowrap' }}>unread messages below</span>

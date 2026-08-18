@@ -722,6 +722,8 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
   const selectSession = useCallback(async (sessionKey: string) => {
     activeSessionIdRef.current = sessionKey
     setActiveSessionId(sessionKey)
+    // === A3: al cambio sessione aggiorna i badge (il mark-on-exit ha segnato la lettura) ===
+    refreshUnreadCounts()
     // NON svuotare messages qui: evita il flash quando si ricarica la stessa chat (es. dopo compaction)
     // Restore streaming state from per-session map
     const saved = sessionStreamingMap.current.get(sessionKey)
