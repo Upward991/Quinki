@@ -351,15 +351,42 @@ fn setup_notification_delegate() {
     }
 }
 
+fn send_macos_notification(title: &str, body: &str) {
+    // UNUserNotificationCenter (mostra con firma corretta) + fallback osascript (firma ad-hoc)
+    #[cfg(target_os = "macos")]
+    {
+        use objc::{class, msg_send, sel, sel_impl};
+        use objc::runtime::Object;
+        use std::ffi::CString;
+        unsafe {
+            let center: *mut Object = msg_send![class!(UNUserNotificationCenter), currentNotificationCenter];
+            let content: *mut Object = msg_send![class!(UNMutableNotificationContent), new];
+            if let (Ok(title_c), Ok(body_c)) = (CString::new(title), CString::new(body)) {
+                let title_ns: *mut Object = msg_send![class!(NSString), stringWithUTF8String: title_c.as_ptr()];
+                let body_ns: *mut Object = msg_send![class!(NSString), stringWithUTF8String: body_c.as_ptr()];
+                let _: () = msg_send![content, setTitle: title_ns];
+                let _: () = msg_send![content, setBody: body_ns];
+                if let Ok(id_c) = CString::new("quinki-notif") {
+                    let id_ns: *mut Object = msg_send![class!(NSString), stringWithUTF8String: id_c.as_ptr()];
+                    let nil_obj: *mut Object = std::ptr::null_mut();
+                    let req: *mut Object = msg_send![class!(UNNotificationRequest), requestWithIdentifier: id_ns content: content trigger: nil_obj];
+                    let _: () = msg_send![center, addNotificationRequest: req withCompletionHandler: nil_obj];
+                }
+            }
+        }
+    }
+    // Fallback osascript (firma ad-hoc: UNUserNotificationCenter non mostra)
+    let _ = std::process::Command::new("osascript")
+        .arg("-e").arg(format!("display notification \"{}\" with title \"{}\"", body.replace('"', "\\\""), title.replace('"', "\\\"")))
+        .spawn();
+}
+
 #[tauri::command]
 fn send_notification(app: tauri::AppHandle, title: String, body: String) -> Result<(), String> {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
     let dbg = format!("{}/.quinki/a3-notif-debug.log", home);
     let _ = std::fs::write(&dbg, format!("[A3] send_notification called: {} / {}\n", title, body));
-    // Fallback: osascript (funziona anche con firma ad-hoc, dove UNUserNotificationCenter non mostra)
-    let _ = std::process::Command::new("osascript")
-        .arg("-e").arg(format!("display notification \"{}\" with title \"{}\"", body.replace('"', "\\\""), title.replace('"', "\\\"")))
-        .spawn();
+    send_macos_notification(&title, &body);
     // Il plugin usa notify_rust (osascript) che NON mostra notifiche per questa app.
     // Implementiamo la consegna REALE con UNUserNotificationCenter.
     #[cfg(target_os = "macos")]
@@ -435,6 +462,15 @@ fn request_notification_permission(app: tauri::AppHandle) -> Result<serde_json::
     }
     let _ = app;
     Ok(serde_json::json!({ "permission": "requested" }))
+}
+
+#[tauri::command]
+fn send_expert_test_notification() -> Result<serde_json::Value, String> {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
+    let flag = format!("{}/.quinki/.expert-test-notif", home);
+    let _ = std::fs::write(&flag, "1");
+    let _ = std::process::Command::new("open").arg("-a").arg("App Expert").spawn();
+    Ok(serde_json::json!({ "ok": true }))
 }
 
 #[tauri::command]
@@ -1358,6 +1394,7 @@ pub fn run() {
         send_notification,
         request_notification_permission,
         request_expert_notification_permission,
+        send_expert_test_notification,
     ])
     .plugin(tauri_plugin_shell::init())
     .plugin(tauri_plugin_clipboard_manager::init())
@@ -1399,24 +1436,31 @@ pub fn run() {
       {
         let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
         let flag = format!("{}/.quinki/.expert-request-notif-perm", home);
+        let flag_test = format!("{}/.quinki/.expert-test-notif", home);
         std::thread::spawn(move || {
           loop {
             std::thread::sleep(std::time::Duration::from_secs(3));
-            if !std::path::Path::new(&flag).exists() { continue; }
-            let _ = std::fs::remove_file(&flag);
-            #[cfg(target_os = "macos")]
-            {
-              use objc::{class, msg_send, sel, sel_impl};
-              use objc::runtime::Object;
-              unsafe {
-                let cls = class!(UNUserNotificationCenter);
-                let center: *mut Object = msg_send![cls, currentNotificationCenter];
-                let options: u64 = 1 | 2 | 4;
-                let block = block::ConcreteBlock::new(move |granted: bool, _error: *mut Object| { let _ = granted; });
-                let block = block.copy();
-                let block_ptr: *mut std::ffi::c_void = &*block as *const _ as *mut std::ffi::c_void;
-                let _: () = msg_send![center, requestAuthorizationWithOptions: options completionHandler: block_ptr];
+            if !std::path::Path::new(&flag).exists() && !std::path::Path::new(&flag_test).exists() { continue; }
+            if std::path::Path::new(&flag).exists() {
+              let _ = std::fs::remove_file(&flag);
+              #[cfg(target_os = "macos")]
+              {
+                use objc::{class, msg_send, sel, sel_impl};
+                use objc::runtime::Object;
+                unsafe {
+                  let cls = class!(UNUserNotificationCenter);
+                  let center: *mut Object = msg_send![cls, currentNotificationCenter];
+                  let options: u64 = 1 | 2 | 4;
+                  let block = block::ConcreteBlock::new(move |granted: bool, _error: *mut Object| { let _ = granted; });
+                  let block = block.copy();
+                  let block_ptr: *mut std::ffi::c_void = &*block as *const _ as *mut std::ffi::c_void;
+                  let _: () = msg_send![center, requestAuthorizationWithOptions: options completionHandler: block_ptr];
+                }
               }
+            }
+            if std::path::Path::new(&flag_test).exists() {
+              let _ = std::fs::remove_file(&flag_test);
+              send_macos_notification("App Expert", "Test notification — if you see this, App Expert notifications work!");
             }
           }
         });
