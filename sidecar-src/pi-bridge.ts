@@ -2561,10 +2561,12 @@ class PiBridge {
             if (lhState.active) { this.logDebug("recovery-skip", { sessionKey: sk, reason: "longhorizon-active" }); continue; }
           } catch {}
           // Salta se il turno è attivo (streaming in corso) — MA se il buffer è STALE
-          // (> 20s senza aggiornamenti), il turno è BLOCCATO → ri-prompta per sbloccarlo.
+          // (> 45s senza aggiornamenti), il turno è BLOCCATO → ri-prompta per sbloccarlo.
+          // NB: 45s per non doppiare i turni LENTI (contesto enorme di __app_expert__:
+          // il modello può metterci decine di secondi a produrre il primo token).
           if (this.#streamingBuffers.has(sk)) {
             const sb = this.#streamingBuffers.get(sk);
-            const stale = sb && (Date.now() - (sb.ts || 0) > 20000);
+            const stale = sb && (Date.now() - (sb.ts || 0) > 45000);
             if (stale) {
               this.logDebug("recovery-stuck-turn", { sessionKey: sk, ageMs: Date.now() - (sb.ts || 0) });
             } else {

@@ -663,15 +663,21 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     // recupera il messaggio parziale e lo mostra subito. ===
     try {
       const snap = await call('getStreamingSnapshot', { sessionKey })
-      if (snap && (snap.text || snap.thinking || (snap.toolCalls && snap.toolCalls.length > 0))) {
-        const blocks: any[] = []
-        if (snap.thinking) blocks.push({ type: 'thinking', content: snap.thinking })
-        for (const tc of (snap.toolCalls || [])) blocks.push({ type: 'tool_call', name: tc.name || 'tool', input: tc.args || '' })
-        if (snap.text) blocks.push({ type: 'text', content: snap.text })
-        setMessages(prev => {
-          if (prev.some(m => m.id === 'snap-' + sessionKey)) return prev
-          return [...prev, { id: 'snap-' + sessionKey, role: 'assistant' as const, content: snap.text || '', blocks, timestamp: new Date().toISOString(), isStreaming: true }]
-        })
+      // Pill "Running" se il buffer ESISTE (turno attivo) — anche se VUOTO
+      // (contesto enorme: il modello sta ancora caricando/generando il primo token).
+      if (snap) {
+        setIsStreaming(true)
+        setStatusLabel('Running'); setStatusKind('running')
+        if (snap.text || snap.thinking || (snap.toolCalls && snap.toolCalls.length > 0)) {
+          const blocks: any[] = []
+          if (snap.thinking) blocks.push({ type: 'thinking', content: snap.thinking })
+          for (const tc of (snap.toolCalls || [])) blocks.push({ type: 'tool_call', name: tc.name || 'tool', input: tc.args || '' })
+          if (snap.text) blocks.push({ type: 'text', content: snap.text })
+          setMessages(prev => {
+            if (prev.some(m => m.id === 'snap-' + sessionKey)) return prev
+            return [...prev, { id: 'snap-' + sessionKey, role: 'assistant' as const, content: snap.text || '', blocks, timestamp: new Date().toISOString(), isStreaming: true }]
+          })
+        }
       }
     } catch {}
     // Cross-sidecar: refresh contesto dalla sorgente condivisa su disco (main ↔ App Expert)
@@ -777,18 +783,22 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
         // (null se la sessione è idle). È la fonte più affidabile per lo streaming.
         const buf = await call('getStreamingMessage', { sessionKey })
         const sb = buf?.streaming
-        if (sb && (sb.text || sb.thinking || (sb.toolCalls || []).length > 0)) {
+        // Pill "Running" se il buffer ESISTE (turno attivo) — anche se VUOTO
+        // (contesto enorme: il modello sta ancora caricando il contesto).
+        if (sb) {
           setIsStreaming(true)
           setStatusLabel('Running'); setStatusKind('running')
-          const blocks: any[] = []
-          if (sb.thinking) blocks.push({ type: 'thinking', content: sb.thinking })
-          for (const tc of sb.toolCalls || []) blocks.push({ type: 'tool_call', name: tc.name || 'tool', input: tc.input || '' })
-          if (sb.text) blocks.push({ type: 'text', content: sb.text })
-          setMessages(prev => {
-            const last = prev[prev.length - 1]
-            if (last?.role === 'assistant' && last.isStreaming) return prev
-            return [...prev, { id: sb.messageId || `msg-restored-${Date.now()}`, role: 'assistant' as const, content: sb.text || '', blocks, timestamp: new Date().toISOString(), isStreaming: true }]
-          })
+          if (sb.text || sb.thinking || (sb.toolCalls || []).length > 0) {
+            const blocks: any[] = []
+            if (sb.thinking) blocks.push({ type: 'thinking', content: sb.thinking })
+            for (const tc of sb.toolCalls || []) blocks.push({ type: 'tool_call', name: tc.name || 'tool', input: tc.input || '' })
+            if (sb.text) blocks.push({ type: 'text', content: sb.text })
+            setMessages(prev => {
+              const last = prev[prev.length - 1]
+              if (last?.role === 'assistant' && last.isStreaming) return prev
+              return [...prev, { id: sb.messageId || `msg-restored-${Date.now()}`, role: 'assistant' as const, content: sb.text || '', blocks, timestamp: new Date().toISOString(), isStreaming: true }]
+            })
+          }
         }
       } catch {}
 
