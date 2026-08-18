@@ -1044,7 +1044,11 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
         // === A3: applica il default notify mode alle nuove chat ===
         try {
           const ls = JSON.parse(localStorage.getItem('quinki-settings') || '{}')
-          if (ls.defaultNotifyMode) call('setNotifyMode', { sessionKey: r.sessionKey, mode: ls.defaultNotifyMode }).catch(() => {})
+          if (ls.defaultNotifyMode) {
+            call('setNotifyMode', { sessionKey: r.sessionKey, mode: ls.defaultNotifyMode }).then((res: any) => {
+              if (res?.state) setNotifyModes(prev => ({ ...prev, [r.sessionKey]: res.state.notifyMode }))
+            }).catch(() => {})
+          }
         } catch {}
         try {
           const fs = await call('getFullState', {})

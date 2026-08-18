@@ -120,6 +120,8 @@ interface ChatAreaProps {
   onCompact?: () => void
   compactionAuto?: boolean
   onCompactionChange?: (auto: boolean) => void
+  notifyMode?: string
+  onSetNotifyMode?: (mode: string) => void
 }
 
 export function ChatArea(props: ChatAreaProps) {
@@ -142,6 +144,7 @@ export function ChatArea(props: ChatAreaProps) {
   const [lastReadTaskTs, setLastReadTaskTs] = useState(0)
   const [bookmarkTs, setBookmarkTs] = useState<number | null>(null)
   const [markerVisible, setMarkerVisible] = useState(false)
+  const markerInitRef = useRef<string | null>(null)
   const lastVisibleTsRef = useRef(0)
   const markerScrolledRef = useRef(false)
   useEffect(() => {
@@ -156,9 +159,11 @@ export function ChatArea(props: ChatAreaProps) {
     }).catch(() => {})
     return () => { cancelled = true }
   }, [sessionIdKey, sidecarCall])
-  // Auto-scroll al marker (primo non letto) all'apertura + mostra il marker solo all'apertura
+  // Auto-scroll al marker (primo non letto) all'apertura + mostra il marker SOLO all'apertura.
+  // Gira UNA volta per sessione (markerInitRef): i nuovi messaggi in live NON ri-mostrano il marker.
   useEffect(() => {
-    if (!sessionIdKey || markerScrolledRef.current) return
+    if (!sessionIdKey || markerInitRef.current === sessionIdKey) return
+    markerInitRef.current = sessionIdKey
     if (lastReadTs > 0 && props.messages.length > 0) {
       const el = scrollRef.current
       if (el) {
@@ -169,7 +174,6 @@ export function ChatArea(props: ChatAreaProps) {
         }
       }
     }
-    // Il marker è visibile SOLO all'apertura (se ci sono non letti); si nasconde al primo scroll
     const hasUnread = props.messages.some(m => { try { return m.role === 'assistant' && new Date(m.timestamp).getTime() > lastReadTs } catch { return false } })
     setMarkerVisible(hasUnread)
   }, [sessionIdKey, lastReadTs, props.messages])
@@ -474,6 +478,8 @@ export function ChatArea(props: ChatAreaProps) {
           compactionAuto={props.compactionAuto}
           onCompactionChange={props.onCompactionChange}
           onReload={props.onReload}
+          notifyMode={props.notifyMode}
+          onSetNotifyMode={props.onSetNotifyMode}
           searchQuery={searchQuery}
           onSearchQueryChange={(q) => { setSearchQuery(q); setCurrentMatch(q.trim() && hasDateFilter ? 0 : -1) }}
           searchDate={searchDate}
