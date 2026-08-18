@@ -624,10 +624,16 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
 
 // === A3: Menu notifiche (4 modalità) ===
 function NotificationMenu({ x, y, current, onClose, onPick }: any) {
+  const mw = 190, mh = 150, pad = 8
+  let left = x, top = y
+  if (left + mw > window.innerWidth - pad) left = window.innerWidth - mw - pad
+  if (left < pad) left = pad
+  if (top + mh > window.innerHeight - pad) top = window.innerHeight - mh - pad
+  if (top < pad) top = pad
   return (
     <>
       <div style={{ position: 'fixed', inset: 0, zIndex: 200 }} onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose() }} />
-      <div style={{ position: 'fixed', left: Math.min(x, window.innerWidth - 200), top: Math.min(y, window.innerHeight - 250), zIndex: 210, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '4px 0', minWidth: '180px' }}>
+      <div style={{ position: 'fixed', left, top, zIndex: 210, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '4px 0', minWidth: '180px' }}>
         <MenuItem label="All notifications" icon={<Bell size={14} />} active={current === 'all'} onClick={() => onPick('all')} />
         <MenuItem label="Messages only" icon={<MessageSquare size={14} />} active={current === 'messages-only'} onClick={() => onPick('messages-only')} />
         <MenuItem label="Tasks only" icon={<Checklist size={14} />} active={current === 'tasks-only'} onClick={() => onPick('tasks-only')} />
@@ -640,11 +646,17 @@ function NotificationMenu({ x, y, current, onClose, onPick }: any) {
 // === Context Menu ===
 function ContextMenu({ x, y, item, multiSelect, selectedCount, onClose, onRename, onSelect, onOpenWindow, onDelete, onNewSubfolder, onDeleteFolder, onDeselectAll, onDeleteSelected }: any) {
   const isFolder = item.type === 'folder'
+  const mw = 200, mh = 250, pad = 8
+  let left = x, top = y
+  if (left + mw > window.innerWidth - pad) left = window.innerWidth - mw - pad
+  if (left < pad) left = pad
+  if (top + mh > window.innerHeight - pad) top = window.innerHeight - mh - pad
+  if (top < pad) top = pad
   return (
     <>
       <div style={{ position: 'fixed', inset: 0, zIndex: 200 }} onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose() }} />
       <div style={{
-        position: 'fixed', left: Math.min(x, window.innerWidth - 200), top: Math.min(y, window.innerHeight - 250),
+        position: 'fixed', left, top,
         zIndex: 210, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)',
         boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '4px 0', minWidth: '180px',
       }}>
