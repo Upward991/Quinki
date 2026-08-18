@@ -1292,6 +1292,25 @@ pub fn run() {
       .level(log::LevelFilter::Info)
       .build())
     .setup(move |app| {
+      // === A3: richiesta AUTOMATICA del permesso notifiche al primo avvio
+      // (macOS chiede una volta sola; l'app compare in System Settings → Notifiche) ===
+      {
+        #[cfg(target_os = "macos")]
+        {
+          use objc::{class, msg_send, sel, sel_impl};
+          use objc::runtime::Object;
+          unsafe {
+            let cls = class!(UNUserNotificationCenter);
+            let center: *mut Object = msg_send![cls, currentNotificationCenter];
+            let options: u64 = 1 | 2 | 4;
+            let block = block::ConcreteBlock::new(move |granted: bool, _error: *mut Object| { let _ = granted; });
+            let block = block.copy();
+            let block_ptr: *mut std::ffi::c_void = &*block as *const _ as *mut std::ffi::c_void;
+            let _: () = msg_send![center, requestAuthorizationWithOptions: options completionHandler: block_ptr];
+          }
+        }
+      }
+
       // === A3: polling del flag file — quando la main scrive .expert-request-notif-perm,
       // richiedi il permesso notifiche (funziona anche se l'Expert è già in esecuzione) ===
       {
