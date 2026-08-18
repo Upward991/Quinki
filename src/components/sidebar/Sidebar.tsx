@@ -596,7 +596,7 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
 
         {/* Unread badge */}
         {item.unread && !isActive && (
-          <span style={{ backgroundColor: 'var(--q-accent-primary)', color: 'var(--q-bg)', fontSize: '12px', fontWeight: 600, fontFamily: 'var(--font-interface)', borderRadius: '999px', padding: '4px 8px', minWidth: '18px', textAlign: 'center', flexShrink: 0, lineHeight: '1' }}>
+          <span style={{ backgroundColor: 'var(--q-bg)', color: 'var(--q-text)', fontSize: '12px', fontWeight: 600, fontFamily: 'var(--font-interface)', borderRadius: '999px', padding: '4px 8px', minWidth: '18px', textAlign: 'center', flexShrink: 0, lineHeight: '1', border: '1px solid var(--q-border-strong)' }}>
             {item.messageCount || 0}
           </span>
         )}
@@ -631,8 +631,8 @@ function NotificationMenu({ x, y, current, onClose, onPick }: any) {
     <>
       <div style={{ position: 'fixed', inset: 0, zIndex: 200 }} onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose() }} />
       <div style={{ position: 'fixed', left, top, zIndex: 210, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '4px 0', minWidth: '180px' }}>
-        <MenuItem label="Muted" icon={<BellOff size={14} />} active={current === 'none'} onClick={() => onPick('none')} />
-        <MenuItem label="All notifications" icon={<Bell size={14} />} active={current === 'all' || current === 'messages-only' || current === 'tasks-only'} onClick={() => onPick('all')} />
+        <MenuItem label={'Muted' + (current === 'none' ? ' ✓' : '')} icon={<BellOff size={14} />} onClick={() => onPick('none')} />
+        <MenuItem label={'All notifications' + (current !== 'none' ? ' ✓' : '')} icon={<Bell size={14} />} onClick={() => onPick('all')} />
       </div>
     </>
   )
