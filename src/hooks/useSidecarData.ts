@@ -651,6 +651,7 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
               // Sottotitolo = titolo della chat
               const sess = sessions.find((s: any) => s.id === sk)
               const subtitle = sess?.title || ''
+              console.log('[A3] notif subtitle', sk, '→', subtitle)
               invoke('send_notification', { title, body, subtitle }).catch(() => {})
             }
           }).catch(() => {})

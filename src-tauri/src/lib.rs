@@ -387,7 +387,7 @@ fn send_macos_notification(title: &str, body: &str, subtitle: &str) {
 fn send_notification(app: tauri::AppHandle, title: String, body: String, subtitle: Option<String>) -> Result<(), String> {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
     let dbg = format!("{}/.quinki/a3-notif-debug.log", home);
-    let _ = std::fs::write(&dbg, format!("[A3] send_notification called: {} / {}\n", title, body));
+    let _ = std::fs::write(&dbg, format!("[A3] send_notification called: {} / {} / sub: {}\n", title, body, subtitle.clone().unwrap_or_default()));
     send_macos_notification(&title, &body, subtitle.as_deref().unwrap_or(""));
     // Il plugin usa notify_rust (osascript) che NON mostra notifiche per questa app.
     // Implementiamo la consegna REALE con UNUserNotificationCenter.
