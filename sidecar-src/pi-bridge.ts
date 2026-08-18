@@ -1224,6 +1224,15 @@ class PiBridge {
     // === Fix 3/B5: notifica Pi SDK dell'impostazione globale ===
     // Sarà applicata quando la sessione viene attivata (vedi activateSession)
     this.#pendingCompactionAuto.set(key, globalAuto);
+    // === A3: applica il default notify mode (persistente in quinki-settings.json) ===
+    try {
+      const gs = readSettings();
+      const dmode = gs.defaultNotifyMode;
+      if (dmode && !this.#readState.has(key)) {
+        this.#readState.set(key, { lastReadTs: 0, lastReadTaskTs: 0, notifyMode: dmode });
+        this.#saveReadState();
+      }
+    } catch {}
     return s;
   }
 
@@ -6353,6 +6362,19 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     this.#readState.set(key, cur);
     this.#saveReadState();
     return { ...cur };
+  }
+
+  getDefaultNotifyMode(): string {
+    try { return String(readSettings().defaultNotifyMode || "none"); } catch { return "none"; }
+  }
+
+  setDefaultNotifyMode(mode: string) {
+    try {
+      const s = readSettings();
+      s.defaultNotifyMode = mode;
+      writeSettings(s);
+    } catch {}
+    return mode;
   }
 
   setNotifyMode(key: string, mode: string) {

@@ -985,14 +985,12 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
               const r = await call('getFullState', {})
               if (r?.sessions) setSessions(mapSessions(r.sessions))
             } catch {}
-            // === A3: applica il default notify mode alla nuova chat ===
+            // === A3: il sidecar applica il default notify mode alla nuova chat (persistente).
+            // Aggiorna lo stato locale per rifletterlo subito. ===
             try {
-              const ls = JSON.parse(localStorage.getItem('quinki-settings') || '{}')
-              if (ls.defaultNotifyMode) {
-                call('setNotifyMode', { sessionKey: sk, mode: ls.defaultNotifyMode }).then((res: any) => {
-                  if (res?.state) setNotifyModes(prev => ({ ...prev, [sk]: res.state.notifyMode }))
-                }).catch(() => {})
-              }
+              call('getReadState', { sessionKey: sk }).then((res: any) => {
+                if (res?.state?.notifyMode) setNotifyModes(prev => ({ ...prev, [sk]: res.state.notifyMode }))
+              }).catch(() => {})
             } catch {}
           }
         } catch (e) {
@@ -1050,14 +1048,11 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
       if (opts?.agentId) params.agentId = opts.agentId
       const r = await call('createSession', params)
       if (r?.sessionKey) {
-        // === A3: applica il default notify mode alle nuove chat ===
+        // === A3: il sidecar applica il default notify mode (persistente). Aggiorna lo stato. ===
         try {
-          const ls = JSON.parse(localStorage.getItem('quinki-settings') || '{}')
-          if (ls.defaultNotifyMode) {
-            call('setNotifyMode', { sessionKey: r.sessionKey, mode: ls.defaultNotifyMode }).then((res: any) => {
-              if (res?.state) setNotifyModes(prev => ({ ...prev, [r.sessionKey]: res.state.notifyMode }))
-            }).catch(() => {})
-          }
+          call('getReadState', { sessionKey: r.sessionKey }).then((res: any) => {
+            if (res?.state?.notifyMode) setNotifyModes(prev => ({ ...prev, [r.sessionKey]: res.state.notifyMode }))
+          }).catch(() => {})
         } catch {}
         try {
           const fs = await call('getFullState', {})

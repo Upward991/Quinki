@@ -76,12 +76,14 @@ function NotificationsSection(){
   let[defMode,setDefMode]=React.useState(`none`);
   let _isExpert=()=>{try{return new URLSearchParams(window.location.search).get(`expert`)===`1`}catch{return false}};
   let appName=_isExpert()?`App Expert`:`Quinki`;
-  React.useEffect(()=>{try{let ls=JSON.parse(localStorage.getItem(`quinki-settings`)||`{}`);if(ls.defaultNotifyMode)setDefMode(ls.defaultNotifyMode)}catch{};try{invoke('request_notification_permission').catch(()=>{})}catch{}},[]);
-  let saveMode=(m)=>{setDefMode(m);try{let ls=JSON.parse(localStorage.getItem(`quinki-settings`)||`{}`);ls.defaultNotifyMode=m;localStorage.setItem(`quinki-settings`,JSON.stringify(ls))}catch{}};
+  let{call:rpcCall}=useSidecarContext();
+  React.useEffect(()=>{try{rpcCall(`getDefaultNotifyMode`,{}).then((r)=>{if(r&&r.mode)setDefMode(r.mode)}).catch(()=>{})}catch{};try{invoke('request_notification_permission').catch(()=>{})}catch{}},[rpcCall]);
+  let saveMode=(m)=>{setDefMode(m);try{rpcCall(`setDefaultNotifyMode`,{mode:m}).catch(()=>{})}catch{}};
   let modes=[{id:`none`,icon:BellOff,label:`Muted`},{id:`tasks-only`,icon:Checklist,label:`Tasks only`},{id:`messages-only`,icon:MessageSquare,label:`Messages only`},{id:`all`,icon:Bell,label:`All notifications`}];
   return React.createElement(Bh,{id:'settings-notifications',icon:Bell,title:'Notifications',children:[
     React.createElement('div',{style:{color:'var(--q-text)',fontSize:'13px',fontWeight:600,fontFamily:'var(--font-interface)',marginBottom:'4px'},children:'Default for new chats'}),
     React.createElement('div',{style:{color:'var(--q-text-tertiary)',fontSize:'12px',fontFamily:'var(--font-interface)',marginBottom:'8px',lineHeight:1.5},children:'Choose the notification mode applied to every new chat. You can change it per chat from the bell icon in the sidebar or the chat header.'}),
+    React.createElement('div',{style:{color:'var(--q-text-tertiary)',fontSize:'12px',fontFamily:'var(--font-interface)',marginBottom:'8px',lineHeight:1.5},children:'Muted: only the unread badge appears next to the chat. Any other mode: the macOS pop-up notification also appears when a response or task arrives.'}),
     modes.map(m=>React.createElement('div',{key:m.id,style:{display:'flex',alignItems:'center',gap:'10px',padding:'6px 0',cursor:'pointer'},onClick:()=>saveMode(m.id),children:[
       React.createElement(m.icon,{size:16,style:{color:defMode===m.id?'var(--q-tab-accent)':'var(--q-text-tertiary)',flexShrink:0}}),
       React.createElement('span',{style:{flex:1,color:defMode===m.id?'var(--q-tab-accent)':'var(--q-text)',fontSize:'13px',fontFamily:'var(--font-interface)'},children:m.label}),

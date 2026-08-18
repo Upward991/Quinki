@@ -147,6 +147,8 @@ export function ChatArea(props: ChatAreaProps) {
   const markerInitRef = useRef<string | null>(null)
   const lastVisibleTsRef = useRef(0)
   const markerScrolledRef = useRef(false)
+  const messagesRef = useRef(props.messages)
+  useEffect(() => { messagesRef.current = props.messages }, [props.messages])
   useEffect(() => {
     if (!sessionIdKey) return
     let cancelled = false
@@ -177,12 +179,30 @@ export function ChatArea(props: ChatAreaProps) {
     const hasUnread = props.messages.some(m => { try { return m.role === 'assistant' && new Date(m.timestamp).getTime() > lastReadTs } catch { return false } })
     setMarkerVisible(hasUnread)
   }, [sessionIdKey, lastReadTs, props.messages])
-  // Mark read all'uscita (ultimo messaggio visibile)
+  // Mark read all'uscita: calcola l'ultimo messaggio VISIBILE dal DOM al momento dell'uscita
+  // (non usa lastVisibleTsRef che può essere stale — il cleanup cattura i messaggi iniziali)
   useEffect(() => {
     return () => {
-      if (sessionIdKey && lastVisibleTsRef.current > 0) {
-        try { sidecarCall('setReadState', { sessionKey: sessionIdKey, patch: { lastReadTs: lastVisibleTsRef.current } }) } catch {}
-      }
+      if (!sessionIdKey) return
+      try {
+        const el = scrollRef.current
+        if (el) {
+          const items = el.querySelectorAll('[data-msg-idx]')
+          const bottom = el.getBoundingClientRect().bottom
+          for (let i = items.length - 1; i >= 0; i--) {
+            const it = items[i] as HTMLElement
+            const r = it.getBoundingClientRect()
+            if (r.top < bottom) {
+              const idx = Number(it.getAttribute('data-msg-idx'))
+              const m = messagesRef.current[idx]
+              if (m) {
+                try { sidecarCall('setReadState', { sessionKey: sessionIdKey, patch: { lastReadTs: new Date(m.timestamp).getTime() } }) } catch {}
+                break
+              }
+            }
+          }
+        }
+      } catch {}
     }
   }, [sessionIdKey, sidecarCall])
   const [taskPanelOpen, setTaskPanelOpen] = useState<boolean>(() => { try { return localStorage.getItem('quinki-taskpanel-' + sessionIdKey) === '1' } catch { return false } })

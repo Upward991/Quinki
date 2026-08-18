@@ -365,6 +365,8 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   getAllReadStates: async () => ({ states: piBridge!.getAllReadStates() }),
   setReadState: async (p) => ({ state: piBridge!.setReadState(String(p.sessionKey || ""), p.patch || {}) }),
   setNotifyMode: async (p) => ({ state: piBridge!.setNotifyMode(String(p.sessionKey || ""), String(p.mode || "none")) }),
+  getDefaultNotifyMode: async () => ({ mode: piBridge!.getDefaultNotifyMode() }),
+  setDefaultNotifyMode: async (p) => ({ mode: piBridge!.setDefaultNotifyMode(String(p.mode || "none")) }),
   getUnreadCounts: async () => ({ counts: piBridge!.getUnreadCounts() }),
   listNotifications: async () => ({ notifications: piBridge!.listNotifications() }),
   markAllNotificationsRead: async () => ({ ok: piBridge!.markAllNotificationsRead() }),
