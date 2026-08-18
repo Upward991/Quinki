@@ -171,7 +171,7 @@ export function ChatArea(props: ChatAreaProps) {
       const el = scrollRef.current
       if (el) {
         const firstUnread = props.messages.findIndex(m => { try { return new Date(m.timestamp).getTime() > lastReadTs } catch { return false } })
-        if (firstUnread > 0) {
+        if (firstUnread >= 0) {
           const target = el.querySelector(`[data-msg-idx="${firstUnread}"]`)
           if (target) { autoScrollDoneRef.current = true; (target as HTMLElement).scrollIntoView({ block: 'start' }); markerScrolledRef.current = true }
         }
