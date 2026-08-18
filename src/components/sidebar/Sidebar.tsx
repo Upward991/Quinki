@@ -58,6 +58,7 @@ export function Sidebar(props: SidebarProps) {
   const [hovered, setHovered] = useState<string | null>(null)
   const [newChatFlash, setNewChatFlash] = useState(false)
   const [folderFlash, setFolderFlash] = useState(false)
+  const [notifMenu, setNotifMenu] = useState<{ sessionKey: string; mode: string; x: number; y: number } | null>(null)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; item: any } | null>(null)
   const [multiSelect, setMultiSelect] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -406,6 +407,8 @@ export function Sidebar(props: SidebarProps) {
                 onRenameChange={setRenameVal}
                 onRenameCommit={() => handleRename(item.id, item.type)}
                 onRenameCancel={() => setRenaming(null)}
+                notifyMode={item.notifyMode}
+                onSetNotifyMode={(id: string, mode: string, x: number, y: number) => setNotifMenu({ sessionKey: id, mode, x, y })}
                 />
                 )
               })
@@ -616,6 +619,21 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
         )}
       </div>
     </div>
+  )
+}
+
+// === A3: Menu notifiche (4 modalità) ===
+function NotificationMenu({ x, y, current, onClose, onPick }: any) {
+  return (
+    <>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 200 }} onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose() }} />
+      <div style={{ position: 'fixed', left: Math.min(x, window.innerWidth - 200), top: Math.min(y, window.innerHeight - 250), zIndex: 210, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '4px 0', minWidth: '180px' }}>
+        <MenuItem label="All notifications" icon={<Bell size={14} />} active={current === 'all'} onClick={() => onPick('all')} />
+        <MenuItem label="Messages only" icon={<MessageSquare size={14} />} active={current === 'messages-only'} onClick={() => onPick('messages-only')} />
+        <MenuItem label="Tasks only" icon={<Checklist size={14} />} active={current === 'tasks-only'} onClick={() => onPick('tasks-only')} />
+        <MenuItem label="Muted" icon={<BellOff size={14} />} active={current === 'none'} onClick={() => onPick('none')} />
+      </div>
+    </>
   )
 }
 
