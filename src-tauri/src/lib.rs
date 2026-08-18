@@ -351,6 +351,9 @@ fn setup_notification_delegate() {
 
 #[tauri::command]
 fn send_notification(app: tauri::AppHandle, title: String, body: String) -> Result<(), String> {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
+    let dbg = format!("{}/.quinki/a3-notif-debug.log", home);
+    let _ = std::fs::write(&dbg, format!("[A3] send_notification called: {} / {}\n", title, body));
     // Il plugin usa notify_rust (osascript) che NON mostra notifiche per questa app.
     // Implementiamo la consegna REALE con UNUserNotificationCenter.
     #[cfg(target_os = "macos")]
@@ -371,7 +374,17 @@ fn send_notification(app: tauri::AppHandle, title: String, body: String) -> Resu
             let id_ns: *mut Object = msg_send![class!(NSString), stringWithUTF8String: id_c.as_ptr()];
             let nil_obj: *mut Object = std::ptr::null_mut();
             let req: *mut Object = msg_send![class!(UNNotificationRequest), requestWithIdentifier: id_ns content: content trigger: nil_obj];
-            let _: () = msg_send![center, addNotificationRequest: req withCompletionHandler: nil_obj];
+            // Log dell'errore di consegna (se c'è)
+            let block = block::ConcreteBlock::new(move |error: *mut Object| {
+                if !error.is_null() {
+                    let _ = std::fs::write(&dbg, format!("[A3] delivery error: {:?}\n", error));
+                } else {
+                    let _ = std::fs::write(&dbg, "[A3] delivery OK (no error)\n");
+                }
+            });
+            let block = block.copy();
+            let block_ptr: *mut std::ffi::c_void = &*block as *const _ as *mut std::ffi::c_void;
+            let _: () = msg_send![center, addNotificationRequest: req withCompletionHandler: block_ptr];
         }
     }
     let _ = app;
