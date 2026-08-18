@@ -166,8 +166,8 @@ export function ChatHeader(props: ChatHeaderProps) {
           <div style={{ width: '8px', flexShrink: 0 }} />
           <MessageSquare size={18} style={{ color: 'var(--q-text-secondary)', flexShrink: 0 }} />
           <div style={{ width: '12px', flexShrink: 0 }} />
-          <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ color: props.welcomeMode ? 'var(--q-text-tertiary)' : 'var(--q-text)', fontSize: '16px', fontWeight: props.welcomeMode ? 400 : 600, fontStyle: props.welcomeMode ? 'italic' : 'normal', fontFamily: 'var(--font-interface)', flex: '0 1 auto', minWidth: 0, maxWidth: '50%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ color: props.welcomeMode ? 'var(--q-text-tertiary)' : 'var(--q-text)', fontSize: '16px', fontWeight: props.welcomeMode ? 400 : 600, fontStyle: props.welcomeMode ? 'italic' : 'normal', fontFamily: 'var(--font-interface)', flex: '0 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {props.welcomeMode ? 'The chat title will be generated automatically' : (props.activePanel === 'expert' ? 'App Expert' : (props.session?.title ?? 'Chat'))}
             </span>
 
