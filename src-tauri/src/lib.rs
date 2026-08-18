@@ -320,13 +320,30 @@ fn get_sidecar_version(app: tauri::AppHandle) -> Result<String, String> {
 
 #[tauri::command]
 fn send_notification(app: tauri::AppHandle, title: String, body: String) -> Result<(), String> {
-    use tauri_plugin_notification::NotificationExt;
-    // Richiedi il permesso al primo invio (macOS mostra il prompt; l'app compare in System Settings)
-    let _ = app.notification().request_permission();
-    let _ = app.notification().builder()
-        .title(&title)
-        .body(&body)
-        .show();
+    // Il plugin usa notify_rust (osascript) che NON mostra notifiche per questa app.
+    // Implementiamo la consegna REALE con UNUserNotificationCenter.
+    #[cfg(target_os = "macos")]
+    {
+        use objc::{class, msg_send, sel, sel_impl};
+        use objc::runtime::Object;
+        use std::ffi::CString;
+        unsafe {
+            let center: *mut Object = msg_send![class!(UNUserNotificationCenter), currentNotificationCenter];
+            let content: *mut Object = msg_send![class!(UNMutableNotificationContent), new];
+            let title_c = CString::new(title.as_str()).map_err(|e| e.to_string())?;
+            let body_c = CString::new(body.as_str()).map_err(|e| e.to_string())?;
+            let title_ns: *mut Object = msg_send![class!(NSString), stringWithUTF8String: title_c.as_ptr()];
+            let body_ns: *mut Object = msg_send![class!(NSString), stringWithUTF8String: body_c.as_ptr()];
+            let _: () = msg_send![content, setTitle: title_ns];
+            let _: () = msg_send![content, setBody: body_ns];
+            let id_c = CString::new("quinki-notif").map_err(|e| e.to_string())?;
+            let id_ns: *mut Object = msg_send![class!(NSString), stringWithUTF8String: id_c.as_ptr()];
+            let nil_obj: *mut Object = std::ptr::null_mut();
+            let req: *mut Object = msg_send![class!(UNNotificationRequest), requestWithIdentifier: id_ns content: content trigger: nil_obj];
+            let _: () = msg_send![center, addNotificationRequest: req withCompletionHandler: nil_obj];
+        }
+    }
+    let _ = app;
     Ok(())
 }
 
