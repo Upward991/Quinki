@@ -985,6 +985,15 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
               const r = await call('getFullState', {})
               if (r?.sessions) setSessions(mapSessions(r.sessions))
             } catch {}
+            // === A3: applica il default notify mode alla nuova chat ===
+            try {
+              const ls = JSON.parse(localStorage.getItem('quinki-settings') || '{}')
+              if (ls.defaultNotifyMode) {
+                call('setNotifyMode', { sessionKey: sk, mode: ls.defaultNotifyMode }).then((res: any) => {
+                  if (res?.state) setNotifyModes(prev => ({ ...prev, [sk]: res.state.notifyMode }))
+                }).catch(() => {})
+              }
+            } catch {}
           }
         } catch (e) {
           console.error('Failed to create session:', e)
