@@ -1002,7 +1002,7 @@ fn restart_expert_app() -> Result<(), String> {
     //   sleep 2 → kill sidecar 9183 → kill app Expert → attendi porta libera → reopen.
     // Il processo `sh` diventa orfano quando l'Expert muore, ma CONTINUA e completa
     // tutto. NON tocca MAI la main (il pattern uccide solo App Expert.app).
-    let script = "sleep 2; lsof -ti:9183 | xargs kill -9 2>/dev/null; pkill -f 'App Expert.app/Contents/MacOS/quinki' 2>/dev/null; for i in 1 2 3 4 5 6 7 8; do if ! lsof -ti:9183 >/dev/null 2>&1; then break; fi; sleep 1; done; open '/Applications/App Expert.app'";
+    let script = "sleep 1; echo \"[restart] start $(date +%H:%M:%S)\" >> ~/.quinki/restart-debug.log; lsof -ti:9183 | xargs kill -9 2>/dev/null; pkill -f 'App Expert.app/Contents/MacOS/quinki' 2>/dev/null; for i in 1 2 3 4 5 6 7 8 9 10; do if ! lsof -ti:9183 >/dev/null 2>&1; then echo \"[restart] port free after ${i}s\" >> ~/.quinki/restart-debug.log; break; fi; sleep 1; done; sleep 1; open '/Applications/App Expert.app'; echo \"[restart] opened\" >> ~/.quinki/restart-debug.log";
     let _ = std::process::Command::new("sh")
         .arg("-c")
         .arg(script)
