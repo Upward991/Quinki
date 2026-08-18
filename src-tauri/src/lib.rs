@@ -358,12 +358,14 @@ fn request_notification_permission(app: tauri::AppHandle) -> Result<serde_json::
 
 #[tauri::command]
 fn request_expert_notification_permission() -> Result<serde_json::Value, String> {
-    // Apre l'App Expert con un flag: al launch richiede il SUO permesso notifiche.
-    let _ = std::process::Command::new("open")
-        .arg("-a").arg("App Expert")
-        .arg("--args").arg("--request-notif-perm")
-        .spawn();
-    Ok(serde_json::json!({ "permission": "expert-opened" }))
+    // Scrive un flag file: l'App Expert (in esecuzione o al prossimo launch) lo vede
+    // e richiede il SUO permesso notifiche. Funziona anche se l'Expert è già aperto.
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
+    let flag = format!("{}/.quinki/.expert-request-notif-perm", home);
+    let _ = std::fs::write(&flag, "1");
+    // Apri l'Expert se non è in esecuzione (se è già aperto, il polling lo gestisce)
+    let _ = std::process::Command::new("open").arg("-a").arg("App Expert").spawn();
+    Ok(serde_json::json!({ "permission": "expert-flag-written" }))
 }
 
 #[tauri::command]
@@ -1290,25 +1292,32 @@ pub fn run() {
       .level(log::LevelFilter::Info)
       .build())
     .setup(move |app| {
-      // === A3: se lanciata con --request-notif-perm (dalla main), richiedi il permesso notifiche ===
+      // === A3: polling del flag file — quando la main scrive .expert-request-notif-perm,
+      // richiedi il permesso notifiche (funziona anche se l'Expert è già in esecuzione) ===
       {
-        let args: Vec<String> = std::env::args().collect();
-        if args.iter().any(|a| a == "--request-notif-perm") {
-          #[cfg(target_os = "macos")]
-          {
-            use objc::{class, msg_send, sel, sel_impl};
-            use objc::runtime::Object;
-            unsafe {
-              let cls = class!(UNUserNotificationCenter);
-              let center: *mut Object = msg_send![cls, currentNotificationCenter];
-              let options: u64 = 1 | 2 | 4;
-              let block = block::ConcreteBlock::new(move |granted: bool, _error: *mut Object| { let _ = granted; });
-              let block = block.copy();
-              let block_ptr: *mut std::ffi::c_void = &*block as *const _ as *mut std::ffi::c_void;
-              let _: () = msg_send![center, requestAuthorizationWithOptions: options completionHandler: block_ptr];
+        let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
+        let flag = format!("{}/.quinki/.expert-request-notif-perm", home);
+        std::thread::spawn(move || {
+          loop {
+            std::thread::sleep(std::time::Duration::from_secs(3));
+            if !std::path::Path::new(&flag).exists() { continue; }
+            let _ = std::fs::remove_file(&flag);
+            #[cfg(target_os = "macos")]
+            {
+              use objc::{class, msg_send, sel, sel_impl};
+              use objc::runtime::Object;
+              unsafe {
+                let cls = class!(UNUserNotificationCenter);
+                let center: *mut Object = msg_send![cls, currentNotificationCenter];
+                let options: u64 = 1 | 2 | 4;
+                let block = block::ConcreteBlock::new(move |granted: bool, _error: *mut Object| { let _ = granted; });
+                let block = block.copy();
+                let block_ptr: *mut std::ffi::c_void = &*block as *const _ as *mut std::ffi::c_void;
+                let _: () = msg_send![center, requestAuthorizationWithOptions: options completionHandler: block_ptr];
+              }
             }
           }
-        }
+        });
       }
       // === Window state: restore sub-windows that were open ===
       // With create:false, sub-windows are NOT created at startup.
