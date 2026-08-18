@@ -169,7 +169,7 @@ const executor = new ExecutionEngine();
 executor.onUpdate = (payload) => { try { sendNotification("execution_update", payload); } catch {} };
 executor.onNotification = (entry) => { try { piBridge?.appendNotification?.(entry); } catch {} };
 // === A3: broadcast notifiche al frontend (chat message / task complete) ===
-if (piBridge) { try { piBridge.setNotificationBroadcast?.((entry: any) => { try { sendNotification("notification", entry); } catch {} }); } catch {} }
+
 // === A2.2: Scheduler (programmazione compiti, catch-up "si fa comunque in ritardo") ===
 const scheduler = new Scheduler(agentDir, executor);
 const longHorizon = new LongHorizon(agentDir);
@@ -369,6 +369,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   setDefaultNotifyMode: async (p) => ({ mode: piBridge!.setDefaultNotifyMode(String(p.mode || "none")) }),
   getUnreadCounts: async () => ({ counts: piBridge!.getUnreadCounts() }),
   listNotifications: async () => ({ notifications: piBridge!.listNotifications() }),
+  _testAppendNotification: async (p) => ({ n: piBridge!.appendNotification({ kind: "task_complete", label: "Test task", sourceSession: { key: String(p.sessionKey || "test") } }) }),
   markAllNotificationsRead: async () => ({ ok: piBridge!.markAllNotificationsRead() }),
   get_history: async (p) => handlers.getHistory(p),
 
@@ -883,6 +884,8 @@ async function bootstrap() {
     setPiBridgeInstance(piBridge);
     (globalThis as any).__quinki_piBridge = piBridge;
     try { executor.setPiBridge(piBridge); } catch {}
+    // === A3: broadcast notifiche al frontend (DOPO la creazione di piBridge!) ===
+    try { piBridge.setNotificationBroadcast?.((entry: any) => { try { sendNotification("notification", entry); } catch {} }); } catch {}
 
 
     await piBridge.init();
