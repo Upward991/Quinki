@@ -6161,15 +6161,21 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
           // === A3: notifica chat — quando un turno completa (risposta arrivata) ===
           if (turnCompleted) {
             try {
-              // Body = anteprima della RISPOSTA assistant (non del messaggio utente)
+              // Body = anteprima dell'ULTIMO WRITING (testo finale, niente thinking/tool)
               let respText = "";
               try {
                 const msgs = (e as any).messages || [];
                 for (let i = msgs.length - 1; i >= 0; i--) {
                   const m = msgs[i];
                   if (m?.role === "assistant" && m.content) {
-                    respText = typeof m.content === "string" ? m.content : JSON.stringify(m.content).slice(0, 120);
-                    break;
+                    if (typeof m.content === "string") { respText = m.content; break; }
+                    if (Array.isArray(m.content)) {
+                      for (let j = m.content.length - 1; j >= 0; j--) {
+                        const b = m.content[j];
+                        if (b?.type === "text" && b.text) { respText = b.text; break; }
+                      }
+                      if (respText) break;
+                    }
                   }
                 }
               } catch {}

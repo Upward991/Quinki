@@ -173,7 +173,12 @@ export function ChatArea(props: ChatAreaProps) {
         const firstUnread = props.messages.findIndex(m => { try { return new Date(m.timestamp).getTime() > lastReadTs } catch { return false } })
         if (firstUnread >= 0) {
           const target = el.querySelector(`[data-msg-idx="${firstUnread}"]`)
-          if (target) { autoScrollDoneRef.current = true; (target as HTMLElement).scrollIntoView({ block: 'start' }); markerScrolledRef.current = true }
+          if (target) {
+            (target as HTMLElement).scrollIntoView({ block: 'start' })
+            markerScrolledRef.current = true
+            // Il flag si attiva DOPO lo scroll: l'evento scroll dell'auto-scroll NON nasconde il marker
+            setTimeout(() => { autoScrollDoneRef.current = true }, 150)
+          }
         }
       }
     }
