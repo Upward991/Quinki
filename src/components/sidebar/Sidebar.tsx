@@ -596,7 +596,7 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
 
         {/* Unread badge */}
         {item.unread && !isActive && (
-          <span style={{ backgroundColor: 'var(--q-bg)', color: 'var(--q-text)', fontSize: '12px', fontWeight: 600, fontFamily: 'var(--font-interface)', borderRadius: '999px', padding: '4px 8px', minWidth: '18px', textAlign: 'center', flexShrink: 0, lineHeight: '1', border: '1px solid var(--q-border-strong)' }}>
+          <span style={{ backgroundColor: '#ffffff', color: '#000000', fontSize: '12px', fontWeight: 600, fontFamily: 'var(--font-interface)', borderRadius: '999px', padding: '4px 8px', minWidth: '18px', textAlign: 'center', flexShrink: 0, lineHeight: '1' }}>
             {item.messageCount || 0}
           </span>
         )}
