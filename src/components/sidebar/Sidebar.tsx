@@ -668,7 +668,7 @@ function ContextMenu({ x, y, item, multiSelect, selectedCount, onClose, onRename
   )
 }
 
-function MenuItem({ label, color, onClick }: any) {
+function MenuItem({ label, color, onClick, icon, active }: any) {
   const [hovered, setHovered] = useState(false)
   return (
     <button
