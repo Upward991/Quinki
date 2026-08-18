@@ -122,7 +122,7 @@ export function ChatHeader(props: ChatHeaderProps) {
 
   return (
     <>
-      <div className="flex items-center">
+      <div className="flex items-center" style={{ minWidth: 0, overflow: 'hidden', width: '100%' }}>
         {/* Panel 1: Home (hidden in Expert app) — sostituito da Rollback nell'App Expert esterna */}
         {!props.isExpertApp && (
           <>
@@ -162,7 +162,7 @@ export function ChatHeader(props: ChatHeaderProps) {
         )}
 
         {/* Panel 3: Expanded */}
-        <div style={{ ...panelStyle, flex: 1 }}>
+        <div style={{ ...panelStyle, flex: 1, minWidth: 0, overflow: 'hidden' }}>
           <div style={{ width: '8px', flexShrink: 0 }} />
           <MessageSquare size={18} style={{ color: 'var(--q-text-secondary)', flexShrink: 0 }} />
           <div style={{ width: '12px', flexShrink: 0 }} />
