@@ -196,9 +196,9 @@ export function ChatHeader(props: ChatHeaderProps) {
                 title="Notification settings"
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-tertiary)', padding: '5px', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'none' }}
               >
-                {props.notifyMode === 'all' ? <Bell size={16} style={{ color: 'var(--q-accent-primary)' }} />
-                  : props.notifyMode === 'messages-only' ? <MessageSquare size={16} style={{ color: 'var(--q-accent-info)' }} />
-                  : props.notifyMode === 'tasks-only' ? <Checklist size={16} style={{ color: 'var(--q-accent-success)' }} />
+                {props.notifyMode === 'all' ? <Bell size={16} />
+                  : props.notifyMode === 'messages-only' ? <MessageSquare size={16} />
+                  : props.notifyMode === 'tasks-only' ? <Checklist size={16} />
                   : <BellOff size={16} />}
               </button>
               {notifMenuOpen && notifMenuPos && (

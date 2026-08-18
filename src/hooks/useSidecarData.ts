@@ -171,9 +171,11 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const setNotifyMode = useCallback(async (sessionKey: string, mode: string) => {
     if (!ready || !sessionKey) return
     try {
+      console.log('[A3] setNotifyMode', sessionKey, mode)
       const r = await call('setNotifyMode', { sessionKey, mode })
+      console.log('[A3] setNotifyMode result', JSON.stringify(r))
       if (r?.state) setNotifyModes(prev => ({ ...prev, [sessionKey]: r.state.notifyMode }))
-    } catch {}
+    } catch (e) { console.error('[A3] setNotifyMode error', e) }
   }, [ready, call])
   const markAllNotificationsRead = useCallback(async () => {
     if (!ready) return

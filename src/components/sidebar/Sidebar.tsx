@@ -471,7 +471,7 @@ export function Sidebar(props: SidebarProps) {
         <NotificationMenu
           x={notifMenu.x} y={notifMenu.y} current={notifMenu.mode}
           onClose={() => setNotifMenu(null)}
-          onPick={(mode: string) => { props.onSetNotifyMode && props.onSetNotifyMode(notifMenu.sessionKey, mode); setNotifMenu(null) }}
+          onPick={(mode: string) => { console.log('[A3] sidebar onPick', notifMenu.sessionKey, mode); props.onSetNotifyMode && props.onSetNotifyMode(notifMenu.sessionKey, mode); setNotifMenu(null) }}
         />
       )}
 
@@ -611,9 +611,9 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
             style={{ display: 'inline-flex', flexShrink: 0, cursor: 'pointer', color: 'var(--q-text-tertiary)', opacity: 1, padding: '3px', borderRadius: 'var(--radius-sm)' }}
             title="Notification settings"
           >
-            {notifyMode === 'all' ? <Bell size={16} style={{ color: 'var(--q-accent-primary)' }} />
-              : notifyMode === 'messages-only' ? <MessageSquare size={16} style={{ color: 'var(--q-accent-info)' }} />
-              : notifyMode === 'tasks-only' ? <Checklist size={16} style={{ color: 'var(--q-accent-success)' }} />
+            {notifyMode === 'all' ? <Bell size={16} />
+              : notifyMode === 'messages-only' ? <MessageSquare size={16} />
+              : notifyMode === 'tasks-only' ? <Checklist size={16} />
               : <BellOff size={16} />}
           </span>
         )}
