@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import type { Session, Agent } from '../../types'
-import { Home, PanelLeft, MessageSquare, Download, Search, RefreshCw, Bot, Calendar, Clock, ChevronDown, ChevronUp, Cpu, Brain, Network, X, Checklist, RotateCcw } from '../icons'
+import { Home, PanelLeft, MessageSquare, Download, Search, RefreshCw, Bot, Calendar, Clock, ChevronDown, ChevronUp, Cpu, Brain, Network, X, Checklist, RotateCcw, Bell, BellOff } from '../icons'
 import { invoke } from '@tauri-apps/api/core'
 import { AgentConfigModal } from './AgentConfigModal'
 
@@ -48,6 +48,8 @@ interface ChatHeaderProps {
   matchCount?: number
   currentMatch?: number
   onMatchNavigate?: (dir: 'prev' | 'next') => void
+  notifyMode?: string
+  onSetNotifyMode?: (mode: string) => void
 }
 
 export function ChatHeader(props: ChatHeaderProps) {
@@ -59,6 +61,7 @@ export function ChatHeader(props: ChatHeaderProps) {
   const [searchOpen, setSearchOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
   const [contextOpen, setContextOpen] = useState(false)
+  const [notifMenuOpen, setNotifMenuOpen] = useState(false)
   const searchQuery = props.searchQuery || ''
   const setSearchQuery = props.onSearchQueryChange || (() => {})
   const searchDate = props.searchDate || ''
@@ -166,6 +169,35 @@ export function ChatHeader(props: ChatHeaderProps) {
           <span style={{ color: props.welcomeMode ? 'var(--q-text-tertiary)' : 'var(--q-text)', fontSize: '16px', fontWeight: props.welcomeMode ? 400 : 600, fontStyle: props.welcomeMode ? 'italic' : 'normal', fontFamily: 'var(--font-interface)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {props.welcomeMode ? 'The chat title will be generated automatically' : (props.activePanel === 'expert' ? 'App Expert' : (props.session?.title ?? 'Chat'))}
           </span>
+
+          {/* A3: campanella notifiche (accanto al titolo) */}
+          {!props.welcomeMode && (
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+              <button
+                onClick={() => setNotifMenuOpen(!notifMenuOpen)}
+                onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--q-text)'; e.currentTarget.style.backgroundColor = 'var(--q-hover)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--q-text-tertiary)'; e.currentTarget.style.backgroundColor = 'transparent' }}
+                title="Notification settings"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-tertiary)', padding: '5px', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'none' }}
+              >
+                {props.notifyMode === 'all' ? <Bell size={16} style={{ color: 'var(--q-accent-primary)' }} />
+                  : props.notifyMode === 'messages-only' ? <MessageSquare size={16} style={{ color: 'var(--q-accent-info)' }} />
+                  : props.notifyMode === 'tasks-only' ? <Checklist size={16} style={{ color: 'var(--q-accent-success)' }} />
+                  : <BellOff size={16} />}
+              </button>
+              {notifMenuOpen && (
+                <>
+                  <div style={{ position: 'fixed', inset: 0, zIndex: 200 }} onClick={() => setNotifMenuOpen(false)} />
+                  <div style={{ position: 'absolute', top: '100%', right: 0, zIndex: 210, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '4px 0', minWidth: '180px' }}>
+                    <button onClick={() => { props.onSetNotifyMode && props.onSetNotifyMode('all'); setNotifMenuOpen(false) }} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: props.notifyMode === 'all' ? 'rgba(255,255,255,0.06)' : 'transparent', color: props.notifyMode === 'all' ? 'var(--q-tab-accent)' : 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', textAlign: 'left' }}><Bell size={14} /> All notifications</button>
+                    <button onClick={() => { props.onSetNotifyMode && props.onSetNotifyMode('messages-only'); setNotifMenuOpen(false) }} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: props.notifyMode === 'messages-only' ? 'rgba(255,255,255,0.06)' : 'transparent', color: props.notifyMode === 'messages-only' ? 'var(--q-tab-accent)' : 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', textAlign: 'left' }}><MessageSquare size={14} /> Messages only</button>
+                    <button onClick={() => { props.onSetNotifyMode && props.onSetNotifyMode('tasks-only'); setNotifMenuOpen(false) }} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: props.notifyMode === 'tasks-only' ? 'rgba(255,255,255,0.06)' : 'transparent', color: props.notifyMode === 'tasks-only' ? 'var(--q-tab-accent)' : 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', textAlign: 'left' }}><Checklist size={14} /> Tasks only</button>
+                    <button onClick={() => { props.onSetNotifyMode && props.onSetNotifyMode('none'); setNotifMenuOpen(false) }} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: props.notifyMode === 'none' ? 'rgba(255,255,255,0.06)' : 'transparent', color: props.notifyMode === 'none' ? 'var(--q-tab-accent)' : 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', textAlign: 'left' }}><BellOff size={14} /> Muted (default)</button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
 
           {/* Context counter — inside its own position:relative wrapper */}
           <div style={{ position: 'relative' }}>

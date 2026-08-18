@@ -593,8 +593,12 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
         {/* A3: campanella notifiche (solo chat, dentro la clip) */}
         {!isFolder && (
           <span
+            onPointerDown={(e: any) => e.stopPropagation()}
+            onMouseDown={(e: any) => e.stopPropagation()}
             onClick={(e: any) => { e.stopPropagation(); onSetNotifyMode && onSetNotifyMode(item.id, notifyMode || 'none', e.clientX, e.clientY) }}
-            style={{ display: 'inline-flex', flexShrink: 0, cursor: 'pointer', color: 'var(--q-text-tertiary)', opacity: isHovered ? 1 : 0.6, padding: '2px' }}
+            onMouseEnter={(e: any) => { e.currentTarget.style.color = 'var(--q-text)'; e.currentTarget.style.opacity = '1' }}
+            onMouseLeave={(e: any) => { e.currentTarget.style.color = 'var(--q-text-tertiary)'; e.currentTarget.style.opacity = '1' }}
+            style={{ display: 'inline-flex', flexShrink: 0, cursor: 'pointer', color: 'var(--q-text-tertiary)', opacity: 1, padding: '3px', borderRadius: 'var(--radius-sm)' }}
             title="Notification settings"
           >
             {notifyMode === 'all' ? <Bell size={16} style={{ color: 'var(--q-accent-primary)' }} />
