@@ -332,9 +332,38 @@ fn send_notification(app: tauri::AppHandle, title: String, body: String) -> Resu
 
 #[tauri::command]
 fn request_notification_permission(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
-    use tauri_plugin_notification::NotificationExt;
-    let state = app.notification().request_permission().map_err(|e| e.to_string())?;
-    Ok(serde_json::json!({ "permission": format!("{:?}", state) }))
+    // Il plugin tauri-plugin-notification ha request_permission() come STUB su macOS
+    // (restituisce Granted senza fare nulla) → l'app non compare mai in System Settings.
+    // Implementiamo la richiesta REALE con UNUserNotificationCenter.
+    #[cfg(target_os = "macos")]
+    {
+        use objc::{class, msg_send, sel, sel_impl};
+        use objc::runtime::Object;
+        unsafe {
+            let cls = class!(UNUserNotificationCenter);
+            let center: *mut Object = msg_send![cls, currentNotificationCenter];
+            // UNAuthorizationOptionAlert=1, Sound=2, Badge=4
+            let options: u64 = 1 | 2 | 4;
+            let block = block::ConcreteBlock::new(move |granted: bool, _error: *mut Object| {
+                let _ = granted;
+            });
+            let block = block.copy();
+            let block_ptr: *mut std::ffi::c_void = &*block as *const _ as *mut std::ffi::c_void;
+            let _: () = msg_send![center, requestAuthorizationWithOptions: options completionHandler: block_ptr];
+        }
+    }
+    let _ = app;
+    Ok(serde_json::json!({ "permission": "requested" }))
+}
+
+#[tauri::command]
+fn request_expert_notification_permission() -> Result<serde_json::Value, String> {
+    // Apre l'App Expert con un flag: al launch richiede il SUO permesso notifiche.
+    let _ = std::process::Command::new("open")
+        .arg("-a").arg("App Expert")
+        .arg("--args").arg("--request-notif-perm")
+        .spawn();
+    Ok(serde_json::json!({ "permission": "expert-opened" }))
 }
 
 #[tauri::command]
@@ -1245,6 +1274,7 @@ pub fn run() {
         get_window_label,
         send_notification,
         request_notification_permission,
+        request_expert_notification_permission,
     ])
     .plugin(tauri_plugin_shell::init())
     .plugin(tauri_plugin_clipboard_manager::init())
@@ -1260,6 +1290,26 @@ pub fn run() {
       .level(log::LevelFilter::Info)
       .build())
     .setup(move |app| {
+      // === A3: se lanciata con --request-notif-perm (dalla main), richiedi il permesso notifiche ===
+      {
+        let args: Vec<String> = std::env::args().collect();
+        if args.iter().any(|a| a == "--request-notif-perm") {
+          #[cfg(target_os = "macos")]
+          {
+            use objc::{class, msg_send, sel, sel_impl};
+            use objc::runtime::Object;
+            unsafe {
+              let cls = class!(UNUserNotificationCenter);
+              let center: *mut Object = msg_send![cls, currentNotificationCenter];
+              let options: u64 = 1 | 2 | 4;
+              let block = block::ConcreteBlock::new(move |granted: bool, _error: *mut Object| { let _ = granted; });
+              let block = block.copy();
+              let block_ptr: *mut std::ffi::c_void = &*block as *const _ as *mut std::ffi::c_void;
+              let _: () = msg_send![center, requestAuthorizationWithOptions: options completionHandler: block_ptr];
+            }
+          }
+        }
+      }
       // === Window state: restore sub-windows that were open ===
       // With create:false, sub-windows are NOT created at startup.
       // We need to create them if they were visible in the saved state.
