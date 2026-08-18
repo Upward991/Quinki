@@ -464,6 +464,13 @@ export function Sidebar(props: SidebarProps) {
           onDeleteSelected={() => { setDelConfirmMulti(true); setContextMenu(null) }}
         />
       )}
+      {notifMenu && (
+        <NotificationMenu
+          x={notifMenu.x} y={notifMenu.y} current={notifMenu.mode}
+          onClose={() => setNotifMenu(null)}
+          onPick={(mode: string) => { props.onSetNotifyMode && props.onSetNotifyMode(notifMenu.sessionKey, mode); setNotifMenu(null) }}
+        />
+      )}
 
       {/* Delete confirmation modal */}
       {delConfirm && (

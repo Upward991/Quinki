@@ -166,9 +166,10 @@ export function ChatHeader(props: ChatHeaderProps) {
           <div style={{ width: '8px', flexShrink: 0 }} />
           <MessageSquare size={18} style={{ color: 'var(--q-text-secondary)', flexShrink: 0 }} />
           <div style={{ width: '12px', flexShrink: 0 }} />
-          <span style={{ color: props.welcomeMode ? 'var(--q-text-tertiary)' : 'var(--q-text)', fontSize: '16px', fontWeight: props.welcomeMode ? 400 : 600, fontStyle: props.welcomeMode ? 'italic' : 'normal', fontFamily: 'var(--font-interface)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {props.welcomeMode ? 'The chat title will be generated automatically' : (props.activePanel === 'expert' ? 'App Expert' : (props.session?.title ?? 'Chat'))}
-          </span>
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ color: props.welcomeMode ? 'var(--q-text-tertiary)' : 'var(--q-text)', fontSize: '16px', fontWeight: props.welcomeMode ? 400 : 600, fontStyle: props.welcomeMode ? 'italic' : 'normal', fontFamily: 'var(--font-interface)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {props.welcomeMode ? 'The chat title will be generated automatically' : (props.activePanel === 'expert' ? 'App Expert' : (props.session?.title ?? 'Chat'))}
+            </span>
 
           {/* A3: campanella notifiche (accanto al titolo) */}
           {!props.welcomeMode && (
@@ -192,12 +193,14 @@ export function ChatHeader(props: ChatHeaderProps) {
                     <button onClick={() => { props.onSetNotifyMode && props.onSetNotifyMode('all'); setNotifMenuOpen(false) }} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: props.notifyMode === 'all' ? 'rgba(255,255,255,0.06)' : 'transparent', color: props.notifyMode === 'all' ? 'var(--q-tab-accent)' : 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', textAlign: 'left' }}><Bell size={14} /> All notifications</button>
                     <button onClick={() => { props.onSetNotifyMode && props.onSetNotifyMode('messages-only'); setNotifMenuOpen(false) }} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: props.notifyMode === 'messages-only' ? 'rgba(255,255,255,0.06)' : 'transparent', color: props.notifyMode === 'messages-only' ? 'var(--q-tab-accent)' : 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', textAlign: 'left' }}><MessageSquare size={14} /> Messages only</button>
                     <button onClick={() => { props.onSetNotifyMode && props.onSetNotifyMode('tasks-only'); setNotifMenuOpen(false) }} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: props.notifyMode === 'tasks-only' ? 'rgba(255,255,255,0.06)' : 'transparent', color: props.notifyMode === 'tasks-only' ? 'var(--q-tab-accent)' : 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', textAlign: 'left' }}><Checklist size={14} /> Tasks only</button>
-                    <button onClick={() => { props.onSetNotifyMode && props.onSetNotifyMode('none'); setNotifMenuOpen(false) }} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: props.notifyMode === 'none' ? 'rgba(255,255,255,0.06)' : 'transparent', color: props.notifyMode === 'none' ? 'var(--q-tab-accent)' : 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', textAlign: 'left' }}><BellOff size={14} /> Muted (default)</button>
+                    <button onClick={() => { props.onSetNotifyMode && props.onSetNotifyMode('none'); setNotifMenuOpen(false) }} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: props.notifyMode === 'none' ? 'rgba(255,255,255,0.06)' : 'transparent', color: props.notifyMode === 'none' ? 'var(--q-tab-accent)' : 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', textAlign: 'left' }}><BellOff size={14} /> Muted</button>
                   </div>
                 </>
               )}
             </div>
           )}
+
+          </div>
 
           {/* Context counter — inside its own position:relative wrapper */}
           <div style={{ position: 'relative' }}>
