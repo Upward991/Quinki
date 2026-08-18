@@ -153,6 +153,7 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
     if (!ready) return
     try {
       const r = await call('getUnreadCounts', {})
+      console.log('[A3] unread counts', JSON.stringify(r?.counts))
       if (r?.counts) setUnreadCounts(r.counts)
     } catch {}
   }, [ready, call])
@@ -633,6 +634,7 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
 
     // === A3: Notifiche — evento notification (chat message / task complete) ===
     const unsubNotification = subscribe('notification', (p: any) => {
+      console.log('[A3] notification event', JSON.stringify(p))
       if (p?.kind) {
         refreshUnreadCounts()
         refreshNotifications()

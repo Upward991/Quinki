@@ -6453,6 +6453,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
   }
 
   appendNotification(entry: any) {
+    this.logDebug("a3-notification-appended", { kind: entry.kind, sessionKey: entry.sessionKey, src: entry.sourceSession?.key });
     const e = { id: `ntf_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, read: false, ...entry, ts: entry.ts || Date.now() };
     this.#notifications.push(e);
     if (this.#notifications.length > 500) this.#notifications = this.#notifications.slice(-500);
