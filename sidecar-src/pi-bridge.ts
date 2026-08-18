@@ -177,6 +177,7 @@ class PiBridge {
   #readState = new Map<string, { lastReadTs: number; lastReadTaskTs: number; notifyMode: string }>();
   #notifications: any[] = [];
   #notifBroadcast: ((entry: any) => void) | null = null;
+  #readStateBroadcast: ((key: string) => void) | null = null;
   // === Fix 3/B5: pending compaction auto per sessioni non ancora attivate ===
   #pendingCompactionAuto = new Map<string, boolean>();
   // === Anti-loop: firstKeptEntryId dell'ultima compaction per sessione ===
@@ -6341,6 +6342,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
 
   // === A3: Notifiche — read-state per chat + log notifiche ===
   setNotificationBroadcast(fn: (entry: any) => void) { this.#notifBroadcast = fn; }
+  setReadStateBroadcast(fn: (key: string) => void) { this.#readStateBroadcast = fn; }
 
   #readStateFile() { return path.join(this.#agentDir, "read-state.json"); }
   #notificationsFile() { return path.join(this.#agentDir, "notifications.jsonl"); }
@@ -6382,6 +6384,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     if (typeof patch.notifyMode === "string") cur.notifyMode = patch.notifyMode;
     this.#readState.set(key, cur);
     this.#saveReadState();
+    try { this.#readStateBroadcast?.(key); } catch {}
     return { ...cur };
   }
 
@@ -6406,6 +6409,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     cur.notifyMode = mode;
     this.#readState.set(key, cur);
     this.#saveReadState();
+    try { this.#readStateBroadcast?.(key); } catch {}
     return { ...cur };
   }
 

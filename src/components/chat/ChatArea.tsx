@@ -142,6 +142,7 @@ export function ChatArea(props: ChatAreaProps) {
   // === A3: marker unread + segnalibro ===
   const [lastReadTs, setLastReadTs] = useState(0)
   const [lastReadTaskTs, setLastReadTaskTs] = useState(0)
+  const [readStateLoaded, setReadStateLoaded] = useState(false)
   const [bookmarkTs, setBookmarkTs] = useState<number | null>(null)
   const [markerVisible, setMarkerVisible] = useState(false)
   const markerInitRef = useRef<string | null>(null)
@@ -159,32 +160,31 @@ export function ChatArea(props: ChatAreaProps) {
         setLastReadTaskTs(r.state.lastReadTaskTs || 0)
         if (r.state.bookmarkTs) setBookmarkTs(r.state.bookmarkTs)
       }
-    }).catch(() => {})
+      if (!cancelled) setReadStateLoaded(true)
+    }).catch(() => { if (!cancelled) setReadStateLoaded(true) })
     return () => { cancelled = true }
   }, [sessionIdKey, sidecarCall])
   // Auto-scroll al marker (primo non letto) all'apertura + mostra il marker SOLO all'apertura.
-  // Gira UNA volta per sessione (markerInitRef): i nuovi messaggi in live NON ri-mostrano il marker.
+  // Gira quando lastReadTs è caricato e i messaggi sono pronti (markerScrolledRef evita i doppioni).
   useEffect(() => {
-    if (!sessionIdKey || markerInitRef.current === sessionIdKey) return
-    markerInitRef.current = sessionIdKey
-    if (lastReadTs > 0 && props.messages.length > 0) {
-      const el = scrollRef.current
-      if (el) {
-        const firstUnread = props.messages.findIndex(m => { try { return new Date(m.timestamp).getTime() > lastReadTs } catch { return false } })
-        if (firstUnread >= 0) {
-          const target = el.querySelector(`[data-msg-idx="${firstUnread}"]`)
-          if (target) {
-            (target as HTMLElement).scrollIntoView({ block: 'start' })
-            markerScrolledRef.current = true
-            // Il flag si attiva DOPO lo scroll: l'evento scroll dell'auto-scroll NON nasconde il marker
-            setTimeout(() => { autoScrollDoneRef.current = true }, 150)
-          }
+    if (!sessionIdKey || !readStateLoaded || markerScrolledRef.current) return
+    if (props.messages.length === 0) return
+    const el = scrollRef.current
+    if (el) {
+      const firstUnread = props.messages.findIndex(m => { try { return new Date(m.timestamp).getTime() > lastReadTs } catch { return false } })
+      if (firstUnread >= 0) {
+        const target = el.querySelector(`[data-msg-idx="${firstUnread}"]`)
+        if (target) {
+          (target as HTMLElement).scrollIntoView({ block: 'start' })
+          markerScrolledRef.current = true
+          // Il flag si attiva DOPO lo scroll: l'evento scroll dell'auto-scroll NON nasconde il marker
+          setTimeout(() => { autoScrollDoneRef.current = true }, 150)
         }
       }
     }
     const hasUnread = props.messages.some(m => { try { return m.role === 'assistant' && new Date(m.timestamp).getTime() > lastReadTs } catch { return false } })
     setMarkerVisible(hasUnread)
-  }, [sessionIdKey, lastReadTs, props.messages])
+  }, [sessionIdKey, lastReadTs, props.messages, readStateLoaded])
   // Mark read all'uscita: calcola l'ultimo messaggio VISIBILE dal DOM al momento dell'uscita
   // (non usa lastVisibleTsRef che può essere stale — il cleanup cattura i messaggi iniziali)
   useEffect(() => {

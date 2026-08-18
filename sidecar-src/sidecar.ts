@@ -886,6 +886,7 @@ async function bootstrap() {
     try { executor.setPiBridge(piBridge); } catch {}
     // === A3: broadcast notifiche al frontend (DOPO la creazione di piBridge!) ===
     try { piBridge.setNotificationBroadcast?.((entry: any) => { try { sendNotification("notification", entry); } catch {} }); } catch {}
+    try { piBridge.setReadStateBroadcast?.((key: string) => { try { sendNotification("read_state_changed", { sessionKey: key }); } catch {} }); } catch {}
 
 
     await piBridge.init();

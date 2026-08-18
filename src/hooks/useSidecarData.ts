@@ -634,6 +634,9 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
       }
     })
 
+    // === A3: read_state_changed — il read-state è cambiato (mark read) → aggiorna i badge ===
+    const unsubReadState = subscribe('read_state_changed', () => { refreshUnreadCounts() })
+
     // === A3: Notifiche — evento notification (chat message / task complete) ===
     const unsubNotification = subscribe('notification', (p: any) => {
       console.log('[A3] notification event', JSON.stringify(p))
@@ -724,7 +727,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
       unsubSessMeta(); unsubAgentStatus()
       unsubCtxUsage(); unsubAllCtx(); unsubModelCtx()
       unsubDebugLog(); unsubCompaction(); unsubHistory()
-      unsubNotification()
+      unsubReadState(); unsubNotification()
       unsubPiNeeded(); unsubPiOk(); unsubPiCreated()
       unsubModelsList()
       unsubProgress()
