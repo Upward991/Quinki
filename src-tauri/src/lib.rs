@@ -332,6 +332,8 @@ fn setup_notification_delegate() {
     unsafe extern "C" fn will_present(_this: *mut Object, _cmd: Sel, _center: *mut Object, _notification: *mut Object, completion: *mut c_void) {
         // UNNotificationPresentationOptionBanner=4, Sound=1, Badge=2
         let options: u64 = 4 | 1 | 2;
+        let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
+        let _ = std::fs::write(format!("{}/.quinki/a3-notif-debug.log", home), "[A3] willPresent called (delegate works)\n");
         let block = &*(completion as *const block::Block<(u64,), ()>);
         block.call((options,));
     }
@@ -354,6 +356,10 @@ fn send_notification(app: tauri::AppHandle, title: String, body: String) -> Resu
     let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
     let dbg = format!("{}/.quinki/a3-notif-debug.log", home);
     let _ = std::fs::write(&dbg, format!("[A3] send_notification called: {} / {}\n", title, body));
+    // Fallback: osascript (funziona anche con firma ad-hoc, dove UNUserNotificationCenter non mostra)
+    let _ = std::process::Command::new("osascript")
+        .arg("-e").arg(format!("display notification \"{}\" with title \"{}\"", body.replace('"', "\\\""), title.replace('"', "\\\"")))
+        .spawn();
     // Il plugin usa notify_rust (osascript) che NON mostra notifiche per questa app.
     // Implementiamo la consegna REALE con UNUserNotificationCenter.
     #[cfg(target_os = "macos")]
