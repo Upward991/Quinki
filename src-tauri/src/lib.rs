@@ -375,10 +375,6 @@ fn send_macos_notification(title: &str, body: &str) {
             }
         }
     }
-    // Fallback osascript (firma ad-hoc: UNUserNotificationCenter non mostra)
-    let _ = std::process::Command::new("osascript")
-        .arg("-e").arg(format!("display notification \"{}\" with title \"{}\"", body.replace('"', "\\\""), title.replace('"', "\\\"")))
-        .spawn();
 }
 
 #[tauri::command]
