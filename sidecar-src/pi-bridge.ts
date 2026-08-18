@@ -6378,6 +6378,8 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
   }
 
   setNotifyMode(key: string, mode: string) {
+    // A3 semplificato: solo "none" (muted) o "all" (non muted). Legacy mappati a "all".
+    if (mode === "messages-only" || mode === "tasks-only") mode = "all";
     this.logDebug("a3-set-notify-mode", { sessionKey: key, mode });
     const cur = this.#readState.get(key) || { lastReadTs: 0, lastReadTaskTs: 0, notifyMode: "none" };
     cur.notifyMode = mode;

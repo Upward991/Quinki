@@ -216,6 +216,10 @@ export function ChatArea(props: ChatAreaProps) {
     const nv = !taskPanelOpen
     setTaskPanelOpen(nv)
     try { localStorage.setItem('quinki-taskpanel-' + sessionIdKey, nv ? '1' : '0') } catch {}
+    // === A3: all'apertura del pannello le task diventano lette (azzera il conteggio) ===
+    if (nv && sessionIdKey) {
+      try { sidecarCall('setReadState', { sessionKey: sessionIdKey, patch: { lastReadTaskTs: Date.now() } }) } catch {}
+    }
   }
   useEffect(() => {
     if (!taskPanelOpen) {
@@ -234,7 +238,7 @@ export function ChatArea(props: ChatAreaProps) {
       if (ss !== taskSchedsSig.current) { taskSchedsSig.current = ss; setTaskScheds(scheds) }
       const runs: any[] = []
       for (const e of execs) {
-        try { const mR = await sidecarCall('getExecutionMessages', { executionId: e.id }); runs.push({ id: e.id, label: e.label || 'Task', status: e.status || '?', error: e.error || null, messages: (mR?.messages || []).sort((a: any, b: any) => String(a.timestamp || '').localeCompare(String(b.timestamp || ''))) }) } catch {}
+        try { const mR = await sidecarCall('getExecutionMessages', { executionId: e.id }); runs.push({ id: e.id, label: e.label || 'Task', status: e.status || '?', error: e.error || null, endedAt: e.endedAt || null, createdAt: e.createdAt || null, messages: (mR?.messages || []).sort((a: any, b: any) => String(a.timestamp || '').localeCompare(String(b.timestamp || ''))) }) } catch {}
       }
       runs.sort((a, b) => String(a.messages[0]?.timestamp || '').localeCompare(String(b.messages[0]?.timestamp || '')))
       const rs = runs.map((r: any) => r.id + ':' + r.status + ':' + (r.messages || []).length).join('|')

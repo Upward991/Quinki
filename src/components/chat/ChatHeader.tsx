@@ -197,19 +197,14 @@ export function ChatHeader(props: ChatHeaderProps) {
                 title="Notification settings"
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-tertiary)', padding: '5px', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'none' }}
               >
-                {props.notifyMode === 'all' ? <Bell size={16} />
-                  : props.notifyMode === 'messages-only' ? <MessageSquare size={16} />
-                  : props.notifyMode === 'tasks-only' ? <Checklist size={16} />
-                  : <BellOff size={16} />}
+                {props.notifyMode === 'none' ? <BellOff size={16} /> : <Bell size={16} />}
               </button>
               {notifMenuOpen && notifMenuPos && createPortal(
                 <>
                   <div style={{ position: 'fixed', inset: 0, zIndex: 9998 }} onClick={() => setNotifMenuOpen(false)} />
                   <div style={{ position: 'fixed', left: notifMenuPos.left, top: notifMenuPos.top, zIndex: 9999, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '4px 0', minWidth: '180px' }}>
                     <button onClick={() => { props.onSetNotifyMode && props.onSetNotifyMode('none'); setNotifMenuOpen(false) }} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: props.notifyMode === 'none' ? 'rgba(255,255,255,0.06)' : 'transparent', color: props.notifyMode === 'none' ? 'var(--q-tab-accent)' : 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', textAlign: 'left' }}><BellOff size={14} /> Muted</button>
-                    <button onClick={() => { props.onSetNotifyMode && props.onSetNotifyMode('tasks-only'); setNotifMenuOpen(false) }} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: props.notifyMode === 'tasks-only' ? 'rgba(255,255,255,0.06)' : 'transparent', color: props.notifyMode === 'tasks-only' ? 'var(--q-tab-accent)' : 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', textAlign: 'left' }}><Checklist size={14} /> Tasks only</button>
-                    <button onClick={() => { props.onSetNotifyMode && props.onSetNotifyMode('messages-only'); setNotifMenuOpen(false) }} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: props.notifyMode === 'messages-only' ? 'rgba(255,255,255,0.06)' : 'transparent', color: props.notifyMode === 'messages-only' ? 'var(--q-tab-accent)' : 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', textAlign: 'left' }}><MessageSquare size={14} /> Messages only</button>
-                    <button onClick={() => { props.onSetNotifyMode && props.onSetNotifyMode('all'); setNotifMenuOpen(false) }} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: props.notifyMode === 'all' ? 'rgba(255,255,255,0.06)' : 'transparent', color: props.notifyMode === 'all' ? 'var(--q-tab-accent)' : 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', textAlign: 'left' }}><Bell size={14} /> All notifications</button>
+                    <button onClick={() => { props.onSetNotifyMode && props.onSetNotifyMode('all'); setNotifMenuOpen(false) }} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: props.notifyMode === 'all' || props.notifyMode === 'messages-only' || props.notifyMode === 'tasks-only' ? 'rgba(255,255,255,0.06)' : 'transparent', color: props.notifyMode === 'all' || props.notifyMode === 'messages-only' || props.notifyMode === 'tasks-only' ? 'var(--q-tab-accent)' : 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', textAlign: 'left' }}><Bell size={14} /> All notifications</button>
                   </div>
                 </>,
                 document.body

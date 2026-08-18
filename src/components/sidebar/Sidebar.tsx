@@ -611,10 +611,7 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
             style={{ display: 'inline-flex', flexShrink: 0, cursor: 'pointer', color: 'var(--q-text-tertiary)', opacity: 1, padding: '3px', borderRadius: 'var(--radius-sm)' }}
             title="Notification settings"
           >
-            {notifyMode === 'all' ? <Bell size={16} />
-              : notifyMode === 'messages-only' ? <MessageSquare size={16} />
-              : notifyMode === 'tasks-only' ? <Checklist size={16} />
-              : <BellOff size={16} />}
+            {notifyMode === 'none' ? <BellOff size={16} /> : <Bell size={16} />}
           </span>
         )}
       </div>
@@ -635,9 +632,7 @@ function NotificationMenu({ x, y, current, onClose, onPick }: any) {
       <div style={{ position: 'fixed', inset: 0, zIndex: 200 }} onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose() }} />
       <div style={{ position: 'fixed', left, top, zIndex: 210, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '4px 0', minWidth: '180px' }}>
         <MenuItem label="Muted" icon={<BellOff size={14} />} active={current === 'none'} onClick={() => onPick('none')} />
-        <MenuItem label="Tasks only" icon={<Checklist size={14} />} active={current === 'tasks-only'} onClick={() => onPick('tasks-only')} />
-        <MenuItem label="Messages only" icon={<MessageSquare size={14} />} active={current === 'messages-only'} onClick={() => onPick('messages-only')} />
-        <MenuItem label="All notifications" icon={<Bell size={14} />} active={current === 'all'} onClick={() => onPick('all')} />
+        <MenuItem label="All notifications" icon={<Bell size={14} />} active={current === 'all' || current === 'messages-only' || current === 'tasks-only'} onClick={() => onPick('all')} />
       </div>
     </>
   )

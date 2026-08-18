@@ -636,15 +636,14 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
       if (p?.kind) {
         refreshUnreadCounts()
         refreshNotifications()
-        // Pop-up nativo: solo se la chat NON è aperta e la modalità lo permette
+        // Pop-up nativo: se la chat NON è silenziata, il pop-up arriva SEMPRE
+        // (anche se la chat è aperta a schermo — per messaggi e task)
         try {
           const sk = p.kind === 'chat_message' ? p.sessionKey : (p.sourceSession?.key || '')
           if (!sk) return
-          if (sk === activeSessionIdRef.current) return
           call('getReadState', { sessionKey: sk }).then((r: any) => {
             const mode = r?.state?.notifyMode || 'none'
-            const shouldPop = p.kind === 'chat_message' ? (mode === 'all' || mode === 'messages-only') : (mode === 'all' || mode === 'tasks-only')
-            if (shouldPop) {
+            if (mode !== 'none') {
               const title = p.kind === 'chat_message' ? 'New response' : 'Task completed'
               const body = p.kind === 'chat_message' ? (p.title || 'A response arrived') : (p.label || 'Task completed')
               invoke('send_notification', { title, body }).catch(() => {})
