@@ -658,9 +658,9 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
                 console.log('[A3] notif task', sk, '→', title, '/', body)
                 invoke('send_notification', { title, body }).catch(() => {})
               } else {
-                // Chat: titolo = nome chat, body = anteprima risposta (ultimo writing)
+                // Chat: titolo = nome chat (App Expert per la sessione expert), body = anteprima risposta
                 const sess = sessionsRef.current.find((s: any) => s.id === sk)
-                const title = sess?.title || 'New response'
+                const title = sk === '__app_expert__' ? 'App Expert' : (sess?.title || 'New response')
                 const body = p.body || 'A response arrived'
                 console.log('[A3] notif chat', sk, '→', title, '/', String(body).slice(0, 40))
                 invoke('send_notification', { title, body }).catch(() => {})
