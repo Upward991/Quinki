@@ -600,8 +600,8 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
             {item.messageCount || 0}
           </span>
         )}
-        {/* A3: campanella notifiche (solo chat, dentro la clip) */}
-        {!isFolder && (
+        {/* A3: campanella notifiche (solo chat, dentro la clip) — nascosta durante il rename per non spostarsi */}
+        {!isFolder && !renaming && (
           <span
             onPointerDown={(e: any) => e.stopPropagation()}
             onMouseDown={(e: any) => e.stopPropagation()}
