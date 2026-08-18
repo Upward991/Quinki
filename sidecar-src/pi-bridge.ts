@@ -2540,7 +2540,19 @@ class PiBridge {
         // (porta 9183), non quello della main (9182). Così la main non crea rumore nell'Expert.
         const isExpertSidecar = Number(process.env.QUINKI_WS_PORT || "9182") === 9183;
         if (sk.startsWith("__exec_")) { this.logDebug("recovery-skip", { sessionKey: sk, reason: "exec" }); continue; }
-        if (sk === "__app_expert__" && !isExpertSidecar) { this.logDebug("recovery-skip", { sessionKey: sk, reason: "app-expert-non-expert-sidecar" }); continue; }
+        if (sk === "__app_expert__" && !isExpertSidecar) {
+          // La sessione __app_expert__ è CONDIVISA. Se il sidecar Expert (porta 9183)
+          // è ATTIVO, la recupera SOLO lui (evita doppio prompt). Se l'Expert è
+          // CHIUSO, la main la recupera NORMALMENTE (altrimenti il turno resta
+          // bloccato senza recovery — bug osservato usando __app_expert__ nella main).
+          let expertUp = false;
+          try {
+            const out = require("child_process").spawnSync("lsof", ["-ti:9183"], { encoding: "utf8", timeout: 3000 });
+            expertUp = (out.stdout || "").trim().length > 0;
+          } catch {}
+          if (expertUp) { this.logDebug("recovery-skip", { sessionKey: sk, reason: "app-expert-non-expert-sidecar" }); continue; }
+          this.logDebug("recovery-expert-down-main-recovers", { sessionKey: sk });
+        }
         if (sk !== "__app_expert__" && isExpertSidecar) { this.logDebug("recovery-skip", { sessionKey: sk, reason: "non-app-expert-su-expert-sidecar" }); continue; }
         try {
           // Salta Long Horizon attivo (il support agent ri-prompta da solo)
