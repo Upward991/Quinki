@@ -375,16 +375,30 @@ fn send_notification(app: tauri::AppHandle, title: String, body: String) -> Resu
             let nil_obj: *mut Object = std::ptr::null_mut();
             let req: *mut Object = msg_send![class!(UNNotificationRequest), requestWithIdentifier: id_ns content: content trigger: nil_obj];
             // Log dell'errore di consegna (se c'è)
+            let dbg1 = dbg.clone();
             let block = block::ConcreteBlock::new(move |error: *mut Object| {
                 if !error.is_null() {
-                    let _ = std::fs::write(&dbg, format!("[A3] delivery error: {:?}\n", error));
+                    let _ = std::fs::write(&dbg1, format!("[A3] delivery error: {:?}\n", error));
                 } else {
-                    let _ = std::fs::write(&dbg, "[A3] delivery OK (no error)\n");
+                    let _ = std::fs::write(&dbg1, "[A3] delivery OK (no error)\n");
                 }
             });
             let block = block.copy();
             let block_ptr: *mut std::ffi::c_void = &*block as *const _ as *mut std::ffi::c_void;
             let _: () = msg_send![center, addNotificationRequest: req withCompletionHandler: block_ptr];
+            // Check dello stato del permesso (0=notDetermined 1=denied 2=authorized 3=provisional)
+            let dbg2 = dbg.clone();
+            let pblock = block::ConcreteBlock::new(move |settings: *mut Object| {
+                if !settings.is_null() {
+                    let status: i64 = msg_send![settings, authorizationStatus];
+                    let _ = std::fs::write(&dbg2, format!("[A3] authorizationStatus: {}\n", status));
+                } else {
+                    let _ = std::fs::write(&dbg2, "[A3] settings null\n");
+                }
+            });
+            let pblock = pblock.copy();
+            let pblock_ptr: *mut std::ffi::c_void = &*pblock as *const _ as *mut std::ffi::c_void;
+            let _: () = msg_send![center, getNotificationSettingsWithCompletionHandler: pblock_ptr];
         }
     }
     let _ = app;
