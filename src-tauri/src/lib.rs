@@ -351,7 +351,7 @@ fn setup_notification_delegate() {
     }
 }
 
-fn send_macos_notification(title: &str, body: &str) {
+fn send_macos_notification(title: &str, body: &str, subtitle: &str) {
     // UNUserNotificationCenter (mostra con firma corretta) + fallback osascript (firma ad-hoc)
     #[cfg(target_os = "macos")]
     {
@@ -366,6 +366,12 @@ fn send_macos_notification(title: &str, body: &str) {
                 let body_ns: *mut Object = msg_send![class!(NSString), stringWithUTF8String: body_c.as_ptr()];
                 let _: () = msg_send![content, setTitle: title_ns];
                 let _: () = msg_send![content, setBody: body_ns];
+                if !subtitle.is_empty() {
+                    if let Ok(sub_c) = CString::new(subtitle) {
+                        let sub_ns: *mut Object = msg_send![class!(NSString), stringWithUTF8String: sub_c.as_ptr()];
+                        let _: () = msg_send![content, setSubtitle: sub_ns];
+                    }
+                }
                 if let Ok(id_c) = CString::new("quinki-notif") {
                     let id_ns: *mut Object = msg_send![class!(NSString), stringWithUTF8String: id_c.as_ptr()];
                     let nil_obj: *mut Object = std::ptr::null_mut();
@@ -378,11 +384,11 @@ fn send_macos_notification(title: &str, body: &str) {
 }
 
 #[tauri::command]
-fn send_notification(app: tauri::AppHandle, title: String, body: String) -> Result<(), String> {
+fn send_notification(app: tauri::AppHandle, title: String, body: String, subtitle: Option<String>) -> Result<(), String> {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
     let dbg = format!("{}/.quinki/a3-notif-debug.log", home);
     let _ = std::fs::write(&dbg, format!("[A3] send_notification called: {} / {}\n", title, body));
-    send_macos_notification(&title, &body);
+    send_macos_notification(&title, &body, subtitle.as_deref().unwrap_or(""));
     // Il plugin usa notify_rust (osascript) che NON mostra notifiche per questa app.
     // Implementiamo la consegna REALE con UNUserNotificationCenter.
     #[cfg(target_os = "macos")]
@@ -1456,7 +1462,7 @@ pub fn run() {
             }
             if std::path::Path::new(&flag_test).exists() {
               let _ = std::fs::remove_file(&flag_test);
-              send_macos_notification("App Expert", "Test notification — if you see this, App Expert notifications work!");
+              send_macos_notification("App Expert", "Test notification — if you see this, App Expert notifications work!", "");
             }
           }
         });

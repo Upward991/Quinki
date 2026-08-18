@@ -147,6 +147,7 @@ export function ChatArea(props: ChatAreaProps) {
   const markerInitRef = useRef<string | null>(null)
   const lastVisibleTsRef = useRef(0)
   const markerScrolledRef = useRef(false)
+  const autoScrollDoneRef = useRef(false)
   const messagesRef = useRef(props.messages)
   useEffect(() => { messagesRef.current = props.messages }, [props.messages])
   useEffect(() => {
@@ -172,7 +173,7 @@ export function ChatArea(props: ChatAreaProps) {
         const firstUnread = props.messages.findIndex(m => { try { return new Date(m.timestamp).getTime() > lastReadTs } catch { return false } })
         if (firstUnread > 0) {
           const target = el.querySelector(`[data-msg-idx="${firstUnread}"]`)
-          if (target) { (target as HTMLElement).scrollIntoView({ block: 'start' }); markerScrolledRef.current = true }
+          if (target) { autoScrollDoneRef.current = true; (target as HTMLElement).scrollIntoView({ block: 'start' }); markerScrolledRef.current = true }
         }
       }
     }
@@ -583,7 +584,7 @@ export function ChatArea(props: ChatAreaProps) {
             <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
               {/* Chat — SEMPRE montata (display none quando il pannello task è aperto) → lo scroll resta dov'era */}
               <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '4px 16px ' + (hasTasks ? 8 : 0) + 'px 16px', scrollbarGutter: 'stable', display: taskPanelOpen ? 'none' : 'block' }}
-                onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100); pinnedRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 120; setMarkerVisible(false); try { const items = el.querySelectorAll('[data-msg-idx]'); for (let i = items.length - 1; i >= 0; i--) { const it = items[i] as HTMLElement; const r = it.getBoundingClientRect(); if (r.top < el.getBoundingClientRect().bottom) { const idx = Number(it.getAttribute('data-msg-idx')); const m = props.messages[idx]; if (m) { try { lastVisibleTsRef.current = new Date(m.timestamp).getTime() } catch {} } break } } } catch {} }}>
+                onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100); pinnedRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 120; if (autoScrollDoneRef.current) setMarkerVisible(false); try { const items = el.querySelectorAll('[data-msg-idx]'); for (let i = items.length - 1; i >= 0; i--) { const it = items[i] as HTMLElement; const r = it.getBoundingClientRect(); if (r.top < el.getBoundingClientRect().bottom) { const idx = Number(it.getAttribute('data-msg-idx')); const m = props.messages[idx]; if (m) { try { lastVisibleTsRef.current = new Date(m.timestamp).getTime() } catch {} } break } } } catch {} }}>
                 {(() => {
                   const chatItems: { kind: 'msg' | 'task' | 'sys'; ts: number; msg?: any; run?: any; sysMsg?: string; mIdx?: number }[] = []
                   props.messages.forEach((msg, mIdx) => {

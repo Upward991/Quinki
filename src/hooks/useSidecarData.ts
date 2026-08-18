@@ -648,7 +648,10 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
             if (mode !== 'none') {
               const title = p.kind === 'chat_message' ? 'New response' : 'Task completed'
               const body = p.kind === 'chat_message' ? (p.title || 'A response arrived') : (p.label || 'Task completed')
-              invoke('send_notification', { title, body }).catch(() => {})
+              // Sottotitolo = titolo della chat
+              const sess = sessions.find((s: any) => s.id === sk)
+              const subtitle = sess?.title || ''
+              invoke('send_notification', { title, body, subtitle }).catch(() => {})
             }
           }).catch(() => {})
         } catch {}
