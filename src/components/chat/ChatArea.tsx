@@ -141,6 +141,7 @@ export function ChatArea(props: ChatAreaProps) {
   const [lastReadTs, setLastReadTs] = useState(0)
   const [lastReadTaskTs, setLastReadTaskTs] = useState(0)
   const [bookmarkTs, setBookmarkTs] = useState<number | null>(null)
+  const [markerVisible, setMarkerVisible] = useState(false)
   const lastVisibleTsRef = useRef(0)
   const markerScrolledRef = useRef(false)
   useEffect(() => {
@@ -155,7 +156,7 @@ export function ChatArea(props: ChatAreaProps) {
     }).catch(() => {})
     return () => { cancelled = true }
   }, [sessionIdKey, sidecarCall])
-  // Auto-scroll al marker (primo non letto) all'apertura
+  // Auto-scroll al marker (primo non letto) all'apertura + mostra il marker solo all'apertura
   useEffect(() => {
     if (!sessionIdKey || markerScrolledRef.current) return
     if (lastReadTs > 0 && props.messages.length > 0) {
@@ -168,6 +169,9 @@ export function ChatArea(props: ChatAreaProps) {
         }
       }
     }
+    // Il marker è visibile SOLO all'apertura (se ci sono non letti); si nasconde al primo scroll
+    const hasUnread = props.messages.some(m => { try { return m.role === 'assistant' && new Date(m.timestamp).getTime() > lastReadTs } catch { return false } })
+    setMarkerVisible(hasUnread)
   }, [sessionIdKey, lastReadTs, props.messages])
   // Mark read all'uscita (ultimo messaggio visibile)
   useEffect(() => {
@@ -549,7 +553,7 @@ export function ChatArea(props: ChatAreaProps) {
             <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
               {/* Chat — SEMPRE montata (display none quando il pannello task è aperto) → lo scroll resta dov'era */}
               <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '4px 16px ' + (hasTasks ? 8 : 0) + 'px 16px', scrollbarGutter: 'stable', display: taskPanelOpen ? 'none' : 'block' }}
-                onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100); pinnedRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 120; try { const items = el.querySelectorAll('[data-msg-idx]'); for (let i = items.length - 1; i >= 0; i--) { const it = items[i] as HTMLElement; const r = it.getBoundingClientRect(); if (r.top < el.getBoundingClientRect().bottom) { const idx = Number(it.getAttribute('data-msg-idx')); const m = props.messages[idx]; if (m) { try { lastVisibleTsRef.current = new Date(m.timestamp).getTime() } catch {} } break } } } catch {} }}>
+                onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100); pinnedRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 120; setMarkerVisible(false); try { const items = el.querySelectorAll('[data-msg-idx]'); for (let i = items.length - 1; i >= 0; i--) { const it = items[i] as HTMLElement; const r = it.getBoundingClientRect(); if (r.top < el.getBoundingClientRect().bottom) { const idx = Number(it.getAttribute('data-msg-idx')); const m = props.messages[idx]; if (m) { try { lastVisibleTsRef.current = new Date(m.timestamp).getTime() } catch {} } break } } } catch {} }}>
                 {(() => {
                   const chatItems: { kind: 'msg' | 'task' | 'sys'; ts: number; msg?: any; run?: any; sysMsg?: string; mIdx?: number }[] = []
                   props.messages.forEach((msg, mIdx) => {
@@ -569,7 +573,8 @@ export function ChatArea(props: ChatAreaProps) {
                     <>
                     {chatItems.map((item, i) => {
                       // Solo le RISPOSTE assistant contano come non lette (le bubble utente le ho scritte io)
-                      const isUnread = item.kind === 'msg' && item.msg?.role === 'assistant' && item.ts > lastReadTs && !props.streaming
+                      // Il marker è visibile SOLO all'apertura (markerVisible), mai durante lo streaming
+                      const isUnread = item.kind === 'msg' && item.msg?.role === 'assistant' && item.ts > lastReadTs && markerVisible && !props.streaming
                       const isBookmark = bookmarkTs != null && item.ts >= bookmarkTs && (i === 0 || chatItems[i-1].ts < bookmarkTs)
                       return (
                     <div key={item.kind === 'msg' ? item.msg!.id : item.kind === 'sys' ? 'lh-sys' : 'chat-' + item.run!.id} data-msg-idx={item.mIdx ?? -1} style={{ marginBottom: '12px' }}>
@@ -583,7 +588,7 @@ export function ChatArea(props: ChatAreaProps) {
                       {isUnread && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 0', padding: '2px 0' }}>
                           <span style={{ flex: 1, height: '1px', backgroundColor: 'var(--q-tab-accent)' }} />
-                          <span style={{ fontSize: '11px', fontFamily: 'var(--font-interface)', color: 'var(--q-tab-accent)', fontWeight: 600, whiteSpace: 'nowrap' }}>unread messages</span>
+                          <span style={{ fontSize: '11px', fontFamily: 'var(--font-interface)', color: 'var(--q-tab-accent)', fontWeight: 600, whiteSpace: 'nowrap' }}>unread messages below</span>
                           <span style={{ flex: 1, height: '1px', backgroundColor: 'var(--q-tab-accent)' }} />
                         </div>
                       )}

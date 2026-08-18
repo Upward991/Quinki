@@ -1031,6 +1031,11 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
       if (opts?.agentId) params.agentId = opts.agentId
       const r = await call('createSession', params)
       if (r?.sessionKey) {
+        // === A3: applica il default notify mode alle nuove chat ===
+        try {
+          const ls = JSON.parse(localStorage.getItem('quinki-settings') || '{}')
+          if (ls.defaultNotifyMode) call('setNotifyMode', { sessionKey: r.sessionKey, mode: ls.defaultNotifyMode }).catch(() => {})
+        } catch {}
         try {
           const fs = await call('getFullState', {})
           if (fs?.sessions) setSessions(mapSessions(fs.sessions))
