@@ -3070,6 +3070,11 @@ class PiBridge {
   reloadSession(key: string) {
     const pi = this.#active.get(key);
     if (pi) {
+      // NON disporre se c'è un turno in corso (streaming buffer attivo):
+      // altrimenti la riapertura dell'app uccide la risposta in corso
+      // (bug: la sessione Expert moriva a ogni riapertura).
+      const buf = this.#streamingBuffers.get(key);
+      if (buf) { this.logDebug("reload-session-skip-streaming", { sessionKey: key }); return; }
       try { (pi as any).dispose?.(); } catch (e: any) { this.logDebug("reload-session-dispose-error", { sessionKey: key, error: e?.message }); }
       this.#active.delete(key);
       this.logDebug("reload-session", { sessionKey: key });
