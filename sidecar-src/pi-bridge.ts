@@ -6161,7 +6161,19 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
           // === A3: notifica chat — quando un turno completa (risposta arrivata) ===
           if (turnCompleted) {
             try {
-              this.appendNotification({ kind: "chat_message", sessionKey: key, title: "New response", body: completingUserText.slice(0, 80) || "A response arrived" });
+              // Body = anteprima della RISPOSTA assistant (non del messaggio utente)
+              let respText = "";
+              try {
+                const msgs = (e as any).messages || [];
+                for (let i = msgs.length - 1; i >= 0; i--) {
+                  const m = msgs[i];
+                  if (m?.role === "assistant" && m.content) {
+                    respText = typeof m.content === "string" ? m.content : JSON.stringify(m.content).slice(0, 120);
+                    break;
+                  }
+                }
+              } catch {}
+              this.appendNotification({ kind: "chat_message", sessionKey: key, title: "New response", body: respText.slice(0, 100) || "A response arrived" });
             } catch {}
           }
           ws.send(JSON.stringify({ type: "typing_stop_broadcast", sessionKey: key }));

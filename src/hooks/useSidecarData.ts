@@ -146,6 +146,8 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const [debugLog, setDebugLog] = useState<any[]>([])
   const [piConfigNeeded, setPiConfigNeeded] = useState(false)
   // === A3: Notifiche ===
+  const sessionsRef = useRef<any[]>([])
+  useEffect(() => { sessionsRef.current = sessions }, [sessions])
   const [unreadCounts, setUnreadCounts] = useState<Record<string, { messages: number; tasks: number }>>({})
   const [notifyModes, setNotifyModes] = useState<Record<string, string>>({})
   const [notifications, setNotifications] = useState<any[]>([])
@@ -646,13 +648,12 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
           call('getReadState', { sessionKey: sk }).then((r: any) => {
             const mode = r?.state?.notifyMode || 'none'
             if (mode !== 'none') {
-              const title = p.kind === 'chat_message' ? 'New response' : 'Task completed'
-              const body = p.kind === 'chat_message' ? (p.title || 'A response arrived') : (p.label || 'Task completed')
-              // Sottotitolo = titolo della chat
-              const sess = sessions.find((s: any) => s.id === sk)
-              const subtitle = sess?.title || ''
-              console.log('[A3] notif subtitle', sk, '→', subtitle)
-              invoke('send_notification', { title, body, subtitle }).catch(() => {})
+              // Titolo = nome chat; body = anteprima risposta
+              const sess = sessionsRef.current.find((s: any) => s.id === sk)
+              const title = sess?.title || (p.kind === 'chat_message' ? 'New response' : 'Task completed')
+              const body = p.kind === 'chat_message' ? (p.body || 'A response arrived') : (p.resultPreview || p.label || 'Task completed')
+              console.log('[A3] notif title/body', sk, '→', title, '/', String(body).slice(0, 40))
+              invoke('send_notification', { title, body }).catch(() => {})
             }
           }).catch(() => {})
         } catch {}
