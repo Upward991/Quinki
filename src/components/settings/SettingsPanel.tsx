@@ -28,6 +28,8 @@ function AppPermissionsSection(){
     {id:'screen_recording',label:'Screen Recording',desc:'Capture the screen'},
     {id:'notifications',label:'Notifications',desc:'Show pop-up notifications in Notification Center'}
   ];
+  // === A3: richiedi il permesso notifiche quando l'utente apre questa sezione (così l'app compare in System Settings) ===
+  try { invoke('request_notification_permission').catch(()=>{}) } catch {}
   let gear=(pane)=>React.createElement('button',{onClick:()=>{try{invoke('open_system_settings',{pane}).catch(()=>{})}catch{}},onMouseEnter:ev=>{ev.currentTarget.style.color='var(--q-text)';ev.currentTarget.style.backgroundColor='var(--q-hover)'},onMouseLeave:ev=>{ev.currentTarget.style.color='var(--q-text-tertiary)';ev.currentTarget.style.backgroundColor='transparent'},title:'Open System Settings',style:{background:'none',border:'none',cursor:'pointer',color:'var(--q-text-tertiary)',padding:'6px',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:'var(--radius-sm)',transition:'none'},children:React.createElement(Settings,{size:16})});
   let renderApp=(title)=>React.createElement('div',{style:{marginBottom:'12px'},children:[
     React.createElement('div',{style:{color:'var(--q-text)',fontSize:'14px',fontWeight:600,fontFamily:'var(--font-interface)',marginBottom:'4px'},children:title}),

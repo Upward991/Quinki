@@ -568,7 +568,8 @@ export function ChatArea(props: ChatAreaProps) {
                   return (
                     <>
                     {chatItems.map((item, i) => {
-                      const isUnread = item.kind === 'msg' && item.ts > lastReadTs
+                      // Solo le RISPOSTE assistant contano come non lette (le bubble utente le ho scritte io)
+                      const isUnread = item.kind === 'msg' && item.msg?.role === 'assistant' && item.ts > lastReadTs && !props.streaming
                       const isBookmark = bookmarkTs != null && item.ts >= bookmarkTs && (i === 0 || chatItems[i-1].ts < bookmarkTs)
                       return (
                     <div key={item.kind === 'msg' ? item.msg!.id : item.kind === 'sys' ? 'lh-sys' : 'chat-' + item.run!.id} data-msg-idx={item.mIdx ?? -1} style={{ marginBottom: '12px' }}>
@@ -582,7 +583,7 @@ export function ChatArea(props: ChatAreaProps) {
                       {isUnread && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 0', padding: '2px 0' }}>
                           <span style={{ flex: 1, height: '1px', backgroundColor: 'var(--q-tab-accent)' }} />
-                          <span style={{ fontSize: '11px', fontFamily: 'var(--font-interface)', color: 'var(--q-tab-accent)', fontWeight: 600, whiteSpace: 'nowrap' }}>unread below</span>
+                          <span style={{ fontSize: '11px', fontFamily: 'var(--font-interface)', color: 'var(--q-tab-accent)', fontWeight: 600, whiteSpace: 'nowrap' }}>unread messages</span>
                           <span style={{ flex: 1, height: '1px', backgroundColor: 'var(--q-tab-accent)' }} />
                         </div>
                       )}

@@ -321,11 +321,20 @@ fn get_sidecar_version(app: tauri::AppHandle) -> Result<String, String> {
 #[tauri::command]
 fn send_notification(app: tauri::AppHandle, title: String, body: String) -> Result<(), String> {
     use tauri_plugin_notification::NotificationExt;
+    // Richiedi il permesso al primo invio (macOS mostra il prompt; l'app compare in System Settings)
+    let _ = app.notification().request_permission();
     let _ = app.notification().builder()
         .title(&title)
         .body(&body)
         .show();
     Ok(())
+}
+
+#[tauri::command]
+fn request_notification_permission(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    use tauri_plugin_notification::NotificationExt;
+    let state = app.notification().request_permission().map_err(|e| e.to_string())?;
+    Ok(serde_json::json!({ "permission": format!("{:?}", state) }))
 }
 
 #[tauri::command]
@@ -1235,6 +1244,7 @@ pub fn run() {
         hide_window,
         get_window_label,
         send_notification,
+        request_notification_permission,
     ])
     .plugin(tauri_plugin_shell::init())
     .plugin(tauri_plugin_clipboard_manager::init())
