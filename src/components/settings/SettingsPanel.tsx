@@ -78,7 +78,7 @@ function NotificationsSection(){
   let appName=_isExpert()?`App Expert`:`Quinki`;
   React.useEffect(()=>{try{let ls=JSON.parse(localStorage.getItem(`quinki-settings`)||`{}`);if(ls.defaultNotifyMode)setDefMode(ls.defaultNotifyMode)}catch{};try{invoke('request_notification_permission').catch(()=>{})}catch{}},[]);
   let saveMode=(m)=>{setDefMode(m);try{let ls=JSON.parse(localStorage.getItem(`quinki-settings`)||`{}`);ls.defaultNotifyMode=m;localStorage.setItem(`quinki-settings`,JSON.stringify(ls))}catch{}};
-  let modes=[{id:`all`,icon:Bell,label:`All notifications`},{id:`messages-only`,icon:MessageSquare,label:`Messages only`},{id:`tasks-only`,icon:Checklist,label:`Tasks only`},{id:`none`,icon:BellOff,label:`Muted`}];
+  let modes=[{id:`none`,icon:BellOff,label:`Muted`},{id:`tasks-only`,icon:Checklist,label:`Tasks only`},{id:`messages-only`,icon:MessageSquare,label:`Messages only`},{id:`all`,icon:Bell,label:`All notifications`}];
   return React.createElement(Bh,{id:'settings-notifications',icon:Bell,title:'Notifications',children:[
     React.createElement('div',{style:{color:'var(--q-text)',fontSize:'13px',fontWeight:600,fontFamily:'var(--font-interface)',marginBottom:'4px'},children:'Default for new chats'}),
     React.createElement('div',{style:{color:'var(--q-text-tertiary)',fontSize:'12px',fontFamily:'var(--font-interface)',marginBottom:'8px',lineHeight:1.5},children:'Choose the notification mode applied to every new chat. You can change it per chat from the bell icon in the sidebar or the chat header.'}),

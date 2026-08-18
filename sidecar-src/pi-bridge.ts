@@ -6406,6 +6406,13 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     return out;
   }
 
+  // === A3: tutti gli stati di lettura (per caricare notifyModes all'avvio) ===
+  getAllReadStates(): { [key: string]: { lastReadTs: number; lastReadTaskTs: number; notifyMode: string } } {
+    const out: any = {};
+    for (const [k, v] of this.#readState) out[k] = { ...v };
+    return out;
+  }
+
   // === Notifications log (per la campanella Agents Tasks) ===
   listNotifications() { return this.#notifications.slice().reverse(); }
 

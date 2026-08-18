@@ -271,9 +271,17 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
       } catch {}
 
       setLoading(false)
-      // === A3: carica conteggi non letti + notifiche ===
+      // === A3: carica conteggi non letti + notifiche + modalità ===
       refreshUnreadCounts()
       refreshNotifications()
+      try {
+        const rs = await call('getAllReadStates', {})
+        if (rs?.states) {
+          const modes: Record<string, string> = {}
+          for (const [k, v] of Object.entries(rs.states as any)) modes[k] = (v as any).notifyMode || 'none'
+          setNotifyModes(modes)
+        }
+      } catch {}
     }
     loadData()
     return () => { cancelled = true }

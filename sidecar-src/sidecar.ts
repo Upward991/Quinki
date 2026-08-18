@@ -362,6 +362,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   getHistory: async (p) => ({ sessionKey: p.sessionKey, messages: piBridge!.getHistory(String(p.sessionKey)), messageSkills: piBridge!.getMessageSkills(String(p.sessionKey)), messageTaskClips: piBridge!.getMessageTaskClips(String(p.sessionKey)), messageAttachments: piBridge!.getMessageAttachments(String(p.sessionKey)) }),
   // === A3: Notifiche ===
   getReadState: async (p) => ({ state: piBridge!.getReadState(String(p.sessionKey || "")) }),
+  getAllReadStates: async () => ({ states: piBridge!.getAllReadStates() }),
   setReadState: async (p) => ({ state: piBridge!.setReadState(String(p.sessionKey || ""), p.patch || {}) }),
   setNotifyMode: async (p) => ({ state: piBridge!.setNotifyMode(String(p.sessionKey || ""), String(p.mode || "none")) }),
   getUnreadCounts: async () => ({ counts: piBridge!.getUnreadCounts() }),
