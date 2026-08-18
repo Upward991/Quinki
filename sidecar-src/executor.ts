@@ -60,6 +60,7 @@ export interface ExecutionState {
 export class ExecutionEngine {
   #piBridge: any = null;
   onUpdate: ((payload: any) => void) | null = null;
+  onNotification: ((entry: any) => void) | null = null;
   #runs = new Map<string, { timer: any; aborted: boolean; stopped?: boolean }>();
 
   setPiBridge(pb: any) { this.#piBridge = pb; }
@@ -409,6 +410,18 @@ export class ExecutionEngine {
         this.#writeState(id, state);
         this.#appendEvent(id, "execution_end", { status: state.status });
         this.#notify({ executionId: id, status: state.status, label: state.label, error: state.error });
+        // === A3: notifica task completata (solo se davvero eseguita, non cancelled/stopped) ===
+        if (state.status === "executed" && !run?.aborted && !run?.stopped) {
+          try {
+            this.onNotification?.({
+              kind: "task_complete",
+              executionId: id,
+              label: state.label,
+              sourceSession: state.sourceSession,
+              resultPreview: state.resultPreview || "",
+            });
+          } catch {}
+        }
         if (keepAcquired) this.#releaseKeepAwake();
       } catch (e: any) {
         if (keepAcquired) this.#releaseKeepAwake();

@@ -855,6 +855,26 @@ export function AgentsPanel(props) {
       ]})
     })
   ]});
+  // === A3: pannello notifiche task ===
+  if (notifOpen) {
+    return React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 300, backgroundColor: 'rgba(0,0,0,0.4)' }, onClick: () => setNotifOpen(false), children: [
+      React.createElement('div', { onClick: (e) => e.stopPropagation(), style: { position: 'fixed', top: '60px', right: '16px', width: '380px', maxHeight: '70vh', overflowY: 'auto', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '16px', zIndex: 310 }, children: [
+        React.createElement('div', { style: { display: 'flex', alignItems: 'center', marginBottom: '12px' }, children: [
+          React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '15px', fontWeight: 600, fontFamily: 'var(--font-interface)', flex: 1 }, children: 'Task notifications' }),
+          React.createElement('button', { onClick: async () => { try { await call('markAllNotificationsRead', {}); setNotifications([]); refreshNotifs() } catch {} }, style: { padding: '6px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '12px', fontWeight: 600, fontFamily: 'var(--font-interface)' }, children: 'Mark all read' }),
+        ]}),
+        notifications.length === 0
+          ? React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)', padding: '12px 0', textAlign: 'center' }, children: 'No task notifications' })
+          : notifications.map((n) => React.createElement('div', { key: n.id, style: { padding: '10px 0', borderBottom: '1px solid var(--q-border)' }, children: [
+              React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' }, children: [
+                React.createElement(Checklist, { size: 14, style: { color: 'var(--q-accent-success)', flexShrink: 0 } }),
+                React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: n.label || 'Task completed' }),
+              ]}),
+              React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginTop: '4px' }, children: new Date(n.ts || Date.now()).toLocaleString() }),
+            ]})),
+      ]}),
+    ]});
+  }
 }
 
 // ============================================================

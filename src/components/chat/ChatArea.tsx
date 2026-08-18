@@ -137,6 +137,46 @@ export function ChatArea(props: ChatAreaProps) {
   // === A2.8: Task Timeline ===
   const { call: sidecarCall } = useSidecarContext()
   const sessionIdKey = props.session?.id || ''
+  // === A3: marker unread + segnalibro ===
+  const [lastReadTs, setLastReadTs] = useState(0)
+  const [lastReadTaskTs, setLastReadTaskTs] = useState(0)
+  const [bookmarkTs, setBookmarkTs] = useState<number | null>(null)
+  const lastVisibleTsRef = useRef(0)
+  const markerScrolledRef = useRef(false)
+  useEffect(() => {
+    if (!sessionIdKey) return
+    let cancelled = false
+    sidecarCall('getReadState', { sessionKey: sessionIdKey }).then((r: any) => {
+      if (!cancelled && r?.state) {
+        setLastReadTs(r.state.lastReadTs || 0)
+        setLastReadTaskTs(r.state.lastReadTaskTs || 0)
+        if (r.state.bookmarkTs) setBookmarkTs(r.state.bookmarkTs)
+      }
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [sessionIdKey, sidecarCall])
+  // Auto-scroll al marker (primo non letto) all'apertura
+  useEffect(() => {
+    if (!sessionIdKey || markerScrolledRef.current) return
+    if (lastReadTs > 0 && props.messages.length > 0) {
+      const el = scrollRef.current
+      if (el) {
+        const firstUnread = props.messages.findIndex(m => { try { return new Date(m.timestamp).getTime() > lastReadTs } catch { return false } })
+        if (firstUnread > 0) {
+          const target = el.querySelector(`[data-msg-idx="${firstUnread}"]`)
+          if (target) { (target as HTMLElement).scrollIntoView({ block: 'start' }); markerScrolledRef.current = true }
+        }
+      }
+    }
+  }, [sessionIdKey, lastReadTs, props.messages])
+  // Mark read all'uscita (ultimo messaggio visibile)
+  useEffect(() => {
+    return () => {
+      if (sessionIdKey && lastVisibleTsRef.current > 0) {
+        try { sidecarCall('setReadState', { sessionKey: sessionIdKey, patch: { lastReadTs: lastVisibleTsRef.current } }) } catch {}
+      }
+    }
+  }, [sessionIdKey, sidecarCall])
   const [taskPanelOpen, setTaskPanelOpen] = useState<boolean>(() => { try { return localStorage.getItem('quinki-taskpanel-' + sessionIdKey) === '1' } catch { return false } })
   const [taskExecs, setTaskExecs] = useState<any[]>([])
   const [taskScheds, setTaskScheds] = useState<any[]>([])
@@ -193,7 +233,8 @@ export function ChatArea(props: ChatAreaProps) {
   const taskDone = taskExecs.filter((e: any) => e.status === 'executed').length
   const taskRunningItem = taskExecs.find((e: any) => e.status === 'running' || e.status === 'queued')
   const pl = (n: number) => (n === 1 ? '' : 's')
-  const taskLabel = taskScheds.length + ' task' + pl(taskScheds.length) + ' scheduled' + (taskDone ? ' · ' + taskDone + ' executed' : '')
+  const taskUnread = taskExecs.filter((e: any) => e.status === 'executed' && e.endedAt && e.endedAt > lastReadTaskTs).length
+  const taskLabel = taskScheds.length + ' task' + pl(taskScheds.length) + ' scheduled' + (taskDone ? ' · ' + taskDone + ' executed' : '') + (taskUnread > 0 ? ' · ' + taskUnread + ' task unread' : '')
   const hasTasks = taskExecs.length > 0 || taskScheds.length > 0
   const taskStripBar = hasTasks ? (
     <button onClick={toggleTaskPanel} title={taskPanelOpen ? 'Collapse tasks' : 'Show tasks'} style={{ width: '100%', marginTop: 8, padding: '8px 14px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, border: taskPanelOpen ? 'none' : '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', cursor: 'pointer', backgroundColor: taskPanelOpen ? 'transparent' : 'var(--q-bg-panel)', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: 13, transition: 'none', textAlign: 'left' }}>
@@ -508,7 +549,7 @@ export function ChatArea(props: ChatAreaProps) {
             <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
               {/* Chat — SEMPRE montata (display none quando il pannello task è aperto) → lo scroll resta dov'era */}
               <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '4px 16px ' + (hasTasks ? 8 : 0) + 'px 16px', scrollbarGutter: 'stable', display: taskPanelOpen ? 'none' : 'block' }}
-                onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100); pinnedRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 120 }}>
+                onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100); pinnedRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 120; try { const items = el.querySelectorAll('[data-msg-idx]'); for (let i = items.length - 1; i >= 0; i--) { const it = items[i] as HTMLElement; const r = it.getBoundingClientRect(); if (r.top < el.getBoundingClientRect().bottom) { const idx = Number(it.getAttribute('data-msg-idx')); const m = props.messages[idx]; if (m) { try { lastVisibleTsRef.current = new Date(m.timestamp).getTime() } catch {} } break } } } catch {} }}>
                 {(() => {
                   const chatItems: { kind: 'msg' | 'task' | 'sys'; ts: number; msg?: any; run?: any; sysMsg?: string; mIdx?: number }[] = []
                   props.messages.forEach((msg, mIdx) => {
@@ -526,8 +567,25 @@ export function ChatArea(props: ChatAreaProps) {
                   chatItems.sort((a, b) => a.ts - b.ts || (a.kind === 'msg' ? 0 : 1))
                   return (
                     <>
-                    {chatItems.map((item, i) => (
+                    {chatItems.map((item, i) => {
+                      const isUnread = item.kind === 'msg' && item.ts > lastReadTs
+                      const isBookmark = bookmarkTs != null && item.ts >= bookmarkTs && (i === 0 || chatItems[i-1].ts < bookmarkTs)
+                      return (
                     <div key={item.kind === 'msg' ? item.msg!.id : item.kind === 'sys' ? 'lh-sys' : 'chat-' + item.run!.id} data-msg-idx={item.mIdx ?? -1} style={{ marginBottom: '12px' }}>
+                      {isBookmark && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 0', padding: '2px 0' }}>
+                          <span style={{ flex: 1, height: '1px', backgroundColor: 'var(--q-accent-warning)' }} />
+                          <span style={{ fontSize: '11px', fontFamily: 'var(--font-interface)', color: 'var(--q-accent-warning)', fontWeight: 600, whiteSpace: 'nowrap' }}>📌 bookmark</span>
+                          <span style={{ flex: 1, height: '1px', backgroundColor: 'var(--q-accent-warning)' }} />
+                        </div>
+                      )}
+                      {isUnread && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 0', padding: '2px 0' }}>
+                          <span style={{ flex: 1, height: '1px', backgroundColor: 'var(--q-tab-accent)' }} />
+                          <span style={{ fontSize: '11px', fontFamily: 'var(--font-interface)', color: 'var(--q-tab-accent)', fontWeight: 600, whiteSpace: 'nowrap' }}>unread below</span>
+                          <span style={{ flex: 1, height: '1px', backgroundColor: 'var(--q-tab-accent)' }} />
+                        </div>
+                      )}
                       {item.kind === 'msg' ? (
                         <MessageBubble message={item.msg} onCopy={() => {}} searchQuery={searchQuery} msgIndex={item.mIdx ?? 0} activeMatchMsgIdx={activeMatchInfo?.msgIdx ?? -1} activeMatchOccurrence={activeMatchInfo?.occurrence ?? -1} isDateMatch={!searchQuery.trim() && hasDateFilter && dateMatchIndices.includes(item.mIdx ?? -1) && (item.mIdx ?? -1) === dateMatchIndices[Math.min(dateMatchIdx, dateMatchIndices.length - 1)]} />
                       ) : item.kind === 'sys' ? (
@@ -541,7 +599,7 @@ export function ChatArea(props: ChatAreaProps) {
                         <TaskResultToggle run={item.run} sessionKey={props.session?.key} defaultOpen />
                       )}
                     </div>
-                    ))}
+                    )})}
                     </>
                   )
                 })()}

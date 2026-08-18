@@ -5,7 +5,7 @@ import {
   DragOverlay, useDroppable, useDraggable,
 } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
-import { Folder, FolderOpen, MessageSquare, MessageSquarePlus, FolderAdd } from '../icons'
+import { Folder, FolderOpen, MessageSquare, MessageSquarePlus, FolderAdd, Bell, BellOff, Checklist } from '../icons'
 
 interface SidebarProps {
   sessions: any[]
@@ -510,7 +510,7 @@ function TransitionZone({ entry, isActive }: any) {
 }
 
 // === Sortable Row ===
-function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, renameVal, dropZone, dropLabel, onSelect, onHover, onContextMenu, onRenameStart, onRenameChange, onRenameCommit, onRenameCancel, isOverlay, isSelected, multiSelect }: any) {
+function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, renameVal, dropZone, dropLabel, onSelect, onHover, onContextMenu, onRenameStart, onRenameChange, onRenameCommit, onRenameCancel, isOverlay, isSelected, multiSelect, notifyMode, onSetNotifyMode }: any) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: item.id, disabled: !!isOverlay })
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: item.id, disabled: !!isOverlay })
 
@@ -590,6 +590,19 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
             {item.messageCount || 0}
           </span>
         )}
+        {/* A3: campanella notifiche (solo chat, dentro la clip) */}
+        {!isFolder && (
+          <span
+            onClick={(e: any) => { e.stopPropagation(); onSetNotifyMode && onSetNotifyMode(item.id, notifyMode || 'none', e.clientX, e.clientY) }}
+            style={{ display: 'inline-flex', flexShrink: 0, cursor: 'pointer', color: 'var(--q-text-tertiary)', opacity: isHovered ? 1 : 0.6, padding: '2px' }}
+            title="Notification settings"
+          >
+            {notifyMode === 'all' ? <Bell size={16} style={{ color: 'var(--q-accent-primary)' }} />
+              : notifyMode === 'messages-only' ? <MessageSquare size={16} style={{ color: 'var(--q-accent-info)' }} />
+              : notifyMode === 'tasks-only' ? <Checklist size={16} style={{ color: 'var(--q-accent-success)' }} />
+              : <BellOff size={16} />}
+          </span>
+        )}
       </div>
     </div>
   )
@@ -639,6 +652,7 @@ function MenuItem({ label, color, onClick }: any) {
         fontSize: '14px', fontFamily: 'var(--font-interface)', textAlign: 'left',
       }}
     >
+      {icon && <span style={{ display: 'inline-flex', flexShrink: 0, marginRight: '6px' }}>{icon}</span>}
       {label}
     </button>
   )

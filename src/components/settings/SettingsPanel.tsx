@@ -25,7 +25,8 @@ function AppPermissionsSection(){
   },[]);
   let perms=[
     {id:'full_disk',label:'Full Disk Access',desc:'Access all files on this Mac'},
-    {id:'screen_recording',label:'Screen Recording',desc:'Capture the screen'}
+    {id:'screen_recording',label:'Screen Recording',desc:'Capture the screen'},
+    {id:'notifications',label:'Notifications',desc:'Show pop-up notifications in Notification Center'}
   ];
   let gear=(pane)=>React.createElement('button',{onClick:()=>{try{invoke('open_system_settings',{pane}).catch(()=>{})}catch{}},onMouseEnter:ev=>{ev.currentTarget.style.color='var(--q-text)';ev.currentTarget.style.backgroundColor='var(--q-hover)'},onMouseLeave:ev=>{ev.currentTarget.style.color='var(--q-text-tertiary)';ev.currentTarget.style.backgroundColor='transparent'},title:'Open System Settings',style:{background:'none',border:'none',cursor:'pointer',color:'var(--q-text-tertiary)',padding:'6px',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:'var(--radius-sm)',transition:'none'},children:React.createElement(Settings,{size:16})});
   let renderApp=(title)=>React.createElement('div',{style:{marginBottom:'12px'},children:[

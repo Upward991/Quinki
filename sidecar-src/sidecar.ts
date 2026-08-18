@@ -167,6 +167,9 @@ const globalConfigFile = fs.existsSync(path.join(agentDir, "quinki-global.json")
 // === A2.1: ExecutionEngine (task autonomi, fondamentale H24) ===
 const executor = new ExecutionEngine();
 executor.onUpdate = (payload) => { try { sendNotification("execution_update", payload); } catch {} };
+executor.onNotification = (entry) => { try { piBridge?.appendNotification?.(entry); } catch {} };
+// === A3: broadcast notifiche al frontend (chat message / task complete) ===
+if (piBridge) { try { piBridge.setNotificationBroadcast?.((entry: any) => { try { sendNotification("notification", entry); } catch {} }); } catch {} }
 // === A2.2: Scheduler (programmazione compiti, catch-up "si fa comunque in ritardo") ===
 const scheduler = new Scheduler(agentDir, executor);
 const longHorizon = new LongHorizon(agentDir);
@@ -357,6 +360,13 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   getModelContext: async (p) => ({ modelId: p.modelId, ...await piBridge!.getModelContext(p.modelId) }),
 
   getHistory: async (p) => ({ sessionKey: p.sessionKey, messages: piBridge!.getHistory(String(p.sessionKey)), messageSkills: piBridge!.getMessageSkills(String(p.sessionKey)), messageTaskClips: piBridge!.getMessageTaskClips(String(p.sessionKey)), messageAttachments: piBridge!.getMessageAttachments(String(p.sessionKey)) }),
+  // === A3: Notifiche ===
+  getReadState: async (p) => ({ state: piBridge!.getReadState(String(p.sessionKey || "")) }),
+  setReadState: async (p) => ({ state: piBridge!.setReadState(String(p.sessionKey || ""), p.patch || {}) }),
+  setNotifyMode: async (p) => ({ state: piBridge!.setNotifyMode(String(p.sessionKey || ""), String(p.mode || "none")) }),
+  getUnreadCounts: async () => ({ counts: piBridge!.getUnreadCounts() }),
+  listNotifications: async () => ({ notifications: piBridge!.listNotifications() }),
+  markAllNotificationsRead: async () => ({ ok: piBridge!.markAllNotificationsRead() }),
   get_history: async (p) => handlers.getHistory(p),
 
   stopStream: async (p) => { if (piBridge && p?.sessionKey) piBridge.abort(p.sessionKey); return { success: true }; },

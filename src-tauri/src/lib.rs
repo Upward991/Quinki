@@ -319,6 +319,16 @@ fn get_sidecar_version(app: tauri::AppHandle) -> Result<String, String> {
 }
 
 #[tauri::command]
+fn send_notification(app: tauri::AppHandle, title: String, body: String) -> Result<(), String> {
+    use tauri_plugin_notification::NotificationExt;
+    let _ = app.notification().builder()
+        .title(&title)
+        .body(&body)
+        .show();
+    Ok(())
+}
+
+#[tauri::command]
 fn get_app_permissions() -> Result<serde_json::Value, String> {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
     let p = format!("{}/.quinki/quinki-permissions.json", home);
@@ -1224,12 +1234,14 @@ pub fn run() {
         close_window,
         hide_window,
         get_window_label,
+        send_notification,
     ])
     .plugin(tauri_plugin_shell::init())
     .plugin(tauri_plugin_clipboard_manager::init())
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_fs::init())
     .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
+    .plugin(tauri_plugin_notification::init())
     .plugin(tauri_plugin_window_state::Builder::default()
       .with_state_flags(tauri_plugin_window_state::StateFlags::all())
       .with_filename(window_state_filename.clone())
@@ -1405,6 +1417,59 @@ pub fn run() {
             }
           }
         }
+      }
+
+      // === A3: polling notifiche — quando la finestra è nascosta, mostra i pop-up nativi ===
+      {
+        use tauri_plugin_notification::NotificationExt;
+        let app_handle = app.handle().clone();
+        std::thread::spawn(move || {
+          let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
+          let notif_file = format!("{}/.quinki/notifications.jsonl", home);
+          let read_state_file = format!("{}/.quinki/read-state.json", home);
+          let mut last_size: u64 = 0;
+          if let Ok(md) = std::fs::metadata(&notif_file) { last_size = md.len(); }
+          loop {
+            std::thread::sleep(std::time::Duration::from_secs(5));
+            // Solo se la finestra principale è nascosta (il frontend gestisce i pop-up quando è visibile)
+            let window_visible = app_handle.get_webview_window("main").map(|w| w.is_visible().unwrap_or(false)).unwrap_or(false);
+            if window_visible { 
+              if let Ok(md) = std::fs::metadata(&notif_file) { last_size = md.len(); }
+              continue; 
+            }
+            let Ok(md) = std::fs::metadata(&notif_file) else { continue };
+            if md.len() <= last_size { continue; }
+            let Ok(content) = std::fs::read_to_string(&notif_file) else { continue };
+            let lines: Vec<&str> = content.lines().collect();
+            let total = lines.len() as u64;
+            let start = last_size;
+            last_size = md.len();
+            // Leggi le nuove righe (dall'ultima dimensione nota)
+            let mut new_entries: Vec<serde_json::Value> = Vec::new();
+            let mut acc: String = String::new();
+            let mut acc_len: u64 = 0;
+            for line in lines {
+              acc_len += line.len() as u64 + 1;
+              if acc_len <= start { continue; }
+              if let Ok(v) = serde_json::from_str::<serde_json::Value>(line) { new_entries.push(v); }
+            }
+            let _ = total;
+            // read-state per il filtro notifyMode
+            let read_state: serde_json::Value = std::fs::read_to_string(&read_state_file)
+              .ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(serde_json::json!({}));
+            for entry in new_entries {
+              let kind = entry.get("kind").and_then(|k| k.as_str()).unwrap_or("");
+              if kind != "task_complete" { continue; }
+              // Filtro notifyMode: la chat sorgente deve avere all o tasks-only
+              let src_key = entry.get("sourceSession").and_then(|s| s.get("key")).and_then(|k| k.as_str()).unwrap_or("");
+              let mode = read_state.get(src_key).and_then(|s| s.get("notifyMode")).and_then(|m| m.as_str()).unwrap_or("none");
+              if mode != "all" && mode != "tasks-only" { continue; }
+              let title = entry.get("label").and_then(|l| l.as_str()).unwrap_or("Task completed");
+              let body = format!("Task completed: {}", title);
+              let _ = app_handle.notification().builder().title("Quinki").body(&body).show();
+            }
+          }
+        });
       }
       
       Ok(())

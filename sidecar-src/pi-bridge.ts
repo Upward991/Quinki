@@ -173,6 +173,10 @@ class PiBridge {
   #streamingBuffers = new Map<string, { text: string; thinking: string; toolCalls: any[]; currentPhase: string | null; messageId: string | null; model: string | null; provider: string | null; stopReason: string | null; thinkingLevel: string | null; }>();
   #lastEffectiveCwd = new Map<string, string>();  // ultimo effectiveCwd per sessione (per delega)
   #skillsMtime = new Map<string, number>();  // mtime .pi/skills/ al session-create (auto-reload skill, history preservata)
+  // === A3: Notifiche — read-state per chat + log notifiche ===
+  #readState = new Map<string, { lastReadTs: number; lastReadTaskTs: number; notifyMode: string }>();
+  #notifications: any[] = [];
+  #notifBroadcast: ((entry: any) => void) | null = null;
   // === Fix 3/B5: pending compaction auto per sessioni non ancora attivate ===
   #pendingCompactionAuto = new Map<string, boolean>();
   // === Anti-loop: firstKeptEntryId dell'ultima compaction per sessione ===
@@ -206,6 +210,7 @@ class PiBridge {
       throw e;
     }
     this.#load();
+    this.#loadReadState();
     this.#loadOllamaBaseUrl();
     // === Inizializza ModelRegistry di Pi SDK: stessa fonte di model.contextWindow usata dalle chat attive ===
     try {
@@ -6141,6 +6146,12 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
               this.logDebug("marker-keep-turn-not-complete", { sessionKey: key, where: "agent_end", isExpert: isExp, turnCompleted, markerTurnStarted, sameMessage });
             }
           }
+          // === A3: notifica chat — quando un turno completa (risposta arrivata) ===
+          if (turnCompleted) {
+            try {
+              this.appendNotification({ kind: "chat_message", sessionKey: key, title: "New response", body: completingUserText.slice(0, 80) || "A response arrived" });
+            } catch {}
+          }
           ws.send(JSON.stringify({ type: "typing_stop_broadcast", sessionKey: key }));
           this.#captureSessionMeta(key);
           this.#emitContextUsage(ws, key, "ctx-post-agent-end");
@@ -6296,6 +6307,122 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       }
     });
     this.#unsubs.set(key, sub);
+  }
+
+  // === A3: Notifiche — read-state per chat + log notifiche ===
+  setNotificationBroadcast(fn: (entry: any) => void) { this.#notifBroadcast = fn; }
+
+  #readStateFile() { return path.join(this.#agentDir, "read-state.json"); }
+  #notificationsFile() { return path.join(this.#agentDir, "notifications.jsonl"); }
+
+  #loadReadState() {
+    try {
+      if (fs.existsSync(this.#readStateFile())) {
+        const data = JSON.parse(fs.readFileSync(this.#readStateFile(), "utf8") || "{}");
+        for (const [k, v] of Object.entries(data)) this.#readState.set(k, v as any);
+      }
+    } catch {}
+    try {
+      if (fs.existsSync(this.#notificationsFile())) {
+        const lines = fs.readFileSync(this.#notificationsFile(), "utf8").trim().split("\n").filter((l: string) => l.trim());
+        this.#notifications = lines.slice(-500).map((l: string) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+      }
+    } catch {}
+  }
+
+  #saveReadState() {
+    try {
+      const obj: any = {};
+      for (const [k, v] of this.#readState) obj[k] = v;
+      const tmp = this.#readStateFile() + ".tmp";
+      fs.writeFileSync(tmp, JSON.stringify(obj, null, 2), "utf8");
+      fs.renameSync(tmp, this.#readStateFile());
+    } catch {}
+  }
+
+  getReadState(key: string) {
+    const s = this.#readState.get(key) || { lastReadTs: 0, lastReadTaskTs: 0, notifyMode: "none" };
+    return { ...s };
+  }
+
+  setReadState(key: string, patch: any) {
+    const cur = this.#readState.get(key) || { lastReadTs: 0, lastReadTaskTs: 0, notifyMode: "none" };
+    if (typeof patch.lastReadTs === "number") cur.lastReadTs = patch.lastReadTs;
+    if (typeof patch.lastReadTaskTs === "number") cur.lastReadTaskTs = patch.lastReadTaskTs;
+    if (typeof patch.notifyMode === "string") cur.notifyMode = patch.notifyMode;
+    this.#readState.set(key, cur);
+    this.#saveReadState();
+    return { ...cur };
+  }
+
+  setNotifyMode(key: string, mode: string) {
+    const cur = this.#readState.get(key) || { lastReadTs: 0, lastReadTaskTs: 0, notifyMode: "none" };
+    cur.notifyMode = mode;
+    this.#readState.set(key, cur);
+    this.#saveReadState();
+    return { ...cur };
+  }
+
+  // === Unread counts: messaggi assistant dopo lastReadTs + task completate dopo lastReadTaskTs ===
+  getUnreadCounts(): { [key: string]: { messages: number; tasks: number } } {
+    const out: { [key: string]: { messages: number; tasks: number } } = {};
+    const base = path.join(this.#agentDir, "sessions", "quinki");
+    try {
+      if (!fs.existsSync(base)) return out;
+      for (const sk of fs.readdirSync(base)) {
+        const st = this.#readState.get(sk);
+        if (!st) continue;
+        const dir = path.join(base, sk);
+        let messages = 0;
+        try {
+          const files = fs.readdirSync(dir).filter((f: string) => f.endsWith(".jsonl"));
+          if (files.length > 0) {
+            const lines = fs.readFileSync(path.join(dir, files[0]), "utf8").split("\n");
+            for (const line of lines) {
+              if (!line.trim()) continue;
+              try {
+                const d = JSON.parse(line);
+                const m = d?.message;
+                if (d?.type === "message" && m?.role === "assistant" && typeof m.timestamp === "number" && m.timestamp > st.lastReadTs) messages++;
+              } catch {}
+            }
+          }
+        } catch {}
+        let tasks = 0;
+        try {
+          const execBase = path.join(this.#agentDir, "executions");
+          if (fs.existsSync(execBase)) {
+            for (const exId of fs.readdirSync(execBase)) {
+              try {
+                const st2 = JSON.parse(fs.readFileSync(path.join(execBase, exId, "execution.json"), "utf8"));
+                if (st2?.sourceSession?.key === sk && st2?.status === "executed" && typeof st2.endedAt === "number" && st2.endedAt > st.lastReadTaskTs) tasks++;
+              } catch {}
+            }
+          }
+        } catch {}
+        if (messages > 0 || tasks > 0) out[sk] = { messages, tasks };
+      }
+    } catch {}
+    return out;
+  }
+
+  // === Notifications log (per la campanella Agents Tasks) ===
+  listNotifications() { return this.#notifications.slice().reverse(); }
+
+  markAllNotificationsRead() {
+    const now = Date.now();
+    for (const [k, v] of this.#readState) v.lastReadTaskTs = now;
+    this.#saveReadState();
+    return { ok: true };
+  }
+
+  appendNotification(entry: any) {
+    const e = { id: `ntf_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, read: false, ...entry, ts: entry.ts || Date.now() };
+    this.#notifications.push(e);
+    if (this.#notifications.length > 500) this.#notifications = this.#notifications.slice(-500);
+    try { fs.appendFileSync(this.#notificationsFile(), JSON.stringify(e) + "\n", "utf8"); } catch {}
+    try { this.#notifBroadcast?.(e); } catch {}
+    return e;
   }
 }
 

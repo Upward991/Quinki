@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { invoke } from '@tauri-apps/api/core'
 
 // useSidecar — WebSocket connection
 function useSidecar(url: string = 'ws://127.0.0.1:9182') {
@@ -144,6 +145,41 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const [sessionTokens, setSessionTokens] = useState<Record<string, { input: number; output: number }>>({})
   const [debugLog, setDebugLog] = useState<any[]>([])
   const [piConfigNeeded, setPiConfigNeeded] = useState(false)
+  // === A3: Notifiche ===
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, { messages: number; tasks: number }>>({})
+  const [notifyModes, setNotifyModes] = useState<Record<string, string>>({})
+  const [notifications, setNotifications] = useState<any[]>([])
+  const refreshUnreadCounts = useCallback(async () => {
+    if (!ready) return
+    try {
+      const r = await call('getUnreadCounts', {})
+      if (r?.counts) setUnreadCounts(r.counts)
+    } catch {}
+  }, [ready, call])
+  const refreshNotifications = useCallback(async () => {
+    if (!ready) return
+    try {
+      const r = await call('listNotifications', {})
+      if (r?.notifications) setNotifications(r.notifications)
+    } catch {}
+  }, [ready, call])
+  const markChatRead = useCallback(async (sessionKey: string, lastReadTs: number) => {
+    if (!ready || !sessionKey) return
+    try { await call('setReadState', { sessionKey, patch: { lastReadTs } }) } catch {}
+    refreshUnreadCounts()
+  }, [ready, call, refreshUnreadCounts])
+  const setNotifyMode = useCallback(async (sessionKey: string, mode: string) => {
+    if (!ready || !sessionKey) return
+    try {
+      const r = await call('setNotifyMode', { sessionKey, mode })
+      if (r?.state) setNotifyModes(prev => ({ ...prev, [sessionKey]: r.state.notifyMode }))
+    } catch {}
+  }, [ready, call])
+  const markAllNotificationsRead = useCallback(async () => {
+    if (!ready) return
+    try { await call('markAllNotificationsRead', {}) } catch {}
+    refreshUnreadCounts()
+  }, [ready, call, refreshUnreadCounts])
 
   // ── Load initial data when connected ──
   useEffect(() => {
@@ -235,10 +271,13 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
       } catch {}
 
       setLoading(false)
+      // === A3: carica conteggi non letti + notifiche ===
+      refreshUnreadCounts()
+      refreshNotifications()
     }
     loadData()
     return () => { cancelled = true }
-  }, [ready, call])
+  }, [ready, call, refreshUnreadCounts, refreshNotifications])
 
   // ── Refresh post-boot: all'apertura automatica dopo un reinstall il sidecar può essere
   // ancora in boot/recovery (probe Ollama, caricamento sessioni) → i dati iniziali possono
@@ -582,6 +621,29 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
       }
     })
 
+    // === A3: Notifiche — evento notification (chat message / task complete) ===
+    const unsubNotification = subscribe('notification', (p: any) => {
+      if (p?.kind) {
+        refreshUnreadCounts()
+        refreshNotifications()
+        // Pop-up nativo: solo se la chat NON è aperta e la modalità lo permette
+        try {
+          const sk = p.kind === 'chat_message' ? p.sessionKey : (p.sourceSession?.key || '')
+          if (!sk) return
+          if (sk === activeSessionIdRef.current) return
+          call('getReadState', { sessionKey: sk }).then((r: any) => {
+            const mode = r?.state?.notifyMode || 'none'
+            const shouldPop = p.kind === 'chat_message' ? (mode === 'all' || mode === 'messages-only') : (mode === 'all' || mode === 'tasks-only')
+            if (shouldPop) {
+              const title = p.kind === 'chat_message' ? 'New response' : 'Task completed'
+              const body = p.kind === 'chat_message' ? (p.title || 'A response arrived') : (p.label || 'Task completed')
+              invoke('send_notification', { title, body }).catch(() => {})
+            }
+          }).catch(() => {})
+        } catch {}
+      }
+    })
+
     // Debug log
 const unsubDebugLog = subscribe('debug_log', (p: any) => {
       if (p?.log) setDebugLog(p.log)
@@ -638,6 +700,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
       unsubSessMeta(); unsubAgentStatus()
       unsubCtxUsage(); unsubAllCtx(); unsubModelCtx()
       unsubDebugLog(); unsubCompaction(); unsubHistory()
+      unsubNotification()
       unsubPiNeeded(); unsubPiOk(); unsubPiCreated()
       unsubModelsList()
       unsubProgress()
@@ -1429,13 +1492,17 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
   }, [ready, notify])
   // Merge sessions + folders into one list for sidebar (memoized — no flash on re-render)
   const sidebarSessions = useMemo(() => {
-    const chats = sessions.filter(s => s.id !== '__app_expert__')
+    const chats = sessions.filter(s => s.id !== '__app_expert__').map(s => {
+      const uc = unreadCounts[s.id]
+      const total = uc ? (uc.messages || 0) + (uc.tasks || 0) : 0
+      return { ...s, unread: total > 0, messageCount: total, notifyMode: notifyModes[s.id] || 'none' }
+    })
     const folderItems = (folders || []).map(f => ({
       id: f.id, title: f.title || f.name || 'Folder', type: 'folder' as const,
       isExpanded: !!f.isExpanded, parentId: f.parentId || null, order: f.order || Date.now(),
     }))
     return [...chats, ...folderItems].sort((a, b) => (b.order || 0) - (a.order || 0))
-  }, [sessions, folders])
+  }, [sessions, folders, unreadCounts, notifyModes])
 
   return {
     // State
@@ -1474,6 +1541,9 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     saveAttachments, loadAttachments,
     // Other
     steer, call, notify, subscribe,
+    // A3: Notifiche
+    unreadCounts, notifyModes, notifications,
+    refreshUnreadCounts, refreshNotifications, markChatRead, setNotifyMode, markAllNotificationsRead,
   }
 }
 
