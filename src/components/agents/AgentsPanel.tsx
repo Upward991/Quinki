@@ -27,6 +27,17 @@ export function AgentsPanel(props) {
     { id: 'plan', label: 'Plan mode', icon: Shield }
   ];
   const defaultAgentBtnRef = useRef<any>(null);
+  const contentScrollRef = useRef<any>(null);
+  // Scroll LISCIO alla sezione (come la tab impostazioni: scrollTo smooth sul contenitore)
+  const scrollToSection = (id: string) => {
+    const el = document.getElementById('sec-' + id);
+    const sc = contentScrollRef.current;
+    if (el && sc) {
+      const contTop = sc.getBoundingClientRect().top;
+      const target = el.getBoundingClientRect().top - contTop + sc.scrollTop;
+      try { sc.scrollTo({ top: target, behavior: 'smooth' }); } catch { sc.scrollTop = target; }
+    }
+  };
   const [expandedAgentId, setExpandedAgentId] = useState(null);
   const [renamingAgentId, setRenamingAgentId] = useState(null);
   const [searchAgents, setSearchAgents] = useState('');
@@ -588,7 +599,7 @@ export function AgentsPanel(props) {
     // Sidebar a SINISTRA (fuori dal contenuto, come la tab impostazioni)
     React.createElement('div', { style: { width: '220px', flexShrink: 0, paddingRight: '8px', height: '100%' }, children:
       React.createElement('div', { style: { height: '100%', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)', padding: '8px', overflowY: 'auto' }, children: [
-        agentsNav.map(n => React.createElement(AgentsNavItem, { key: n.id, item: n, onTap: () => { const el = document.getElementById('sec-' + n.id); if (el) el.scrollIntoView(); } }))
+        agentsNav.map(n => React.createElement(AgentsNavItem, { key: n.id, item: n, onTap: () => scrollToSection(n.id) }))
       ]})
     }),
     // Colonna principale: maxWidth centrato DENTRO
@@ -616,7 +627,7 @@ export function AgentsPanel(props) {
         ]})
       ]}),
             // Content
-            React.createElement('div', { className: 'q-scroll', style: { flex: 1, minHeight: 0, overflowY: 'auto', padding: '4px 16px 0 16px', overscrollBehavior: 'contain', scrollbarGutter: 'stable' }, children: [
+            React.createElement('div', { ref: contentScrollRef, className: 'q-scroll', style: { flex: 1, minHeight: 0, overflowY: 'auto', padding: '4px 16px 0 16px', overscrollBehavior: 'contain', scrollbarGutter: 'stable' }, children: [
 
         // === Section: Default agent for new chats ===
       Section({ icon: Bot, title: 'Default agent for new chats', children: [
