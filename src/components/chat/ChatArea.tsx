@@ -191,6 +191,11 @@ export function ChatArea(props: ChatAreaProps) {
     }
   }, [sessionIdKey, sidecarCall])
 
+  const [taskPanelOpen, setTaskPanelOpen] = useState<boolean>(() => { try { return localStorage.getItem('quinki-taskpanel-' + sessionIdKey) === '1' } catch { return false } })
+  const [taskExecs, setTaskExecs] = useState<any[]>([])
+  const [taskScheds, setTaskScheds] = useState<any[]>([])
+  const [taskRuns, setTaskRuns] = useState<any[]>([])
+
   // Auto-scroll al marker all'apertura (UNA volta per sessione) + mostra il marker.
   // Il marker include messaggi E task (endedAt > lastReadTs).
   const hasAnyUnread = (): boolean => {
@@ -218,10 +223,6 @@ export function ChatArea(props: ChatAreaProps) {
     setMarkerVisible(hasAnyUnread())
   }, [sessionIdKey, lastReadTs, props.messages, readStateLoaded, taskRuns])
 
-  const [taskPanelOpen, setTaskPanelOpen] = useState<boolean>(() => { try { return localStorage.getItem('quinki-taskpanel-' + sessionIdKey) === '1' } catch { return false } })
-  const [taskExecs, setTaskExecs] = useState<any[]>([])
-  const [taskScheds, setTaskScheds] = useState<any[]>([])
-  const [taskRuns, setTaskRuns] = useState<any[]>([])
   const chatScrollPos = useRef(0)
   const toggleTaskPanel = () => {
     const el = scrollRef.current
