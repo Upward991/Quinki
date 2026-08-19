@@ -19,6 +19,14 @@ export function AgentsPanel(props) {
   const [defaultAgentId, setDefaultAgentId] = useState('quinki');
   const [defaultMenuOpen, setDefaultMenuOpen] = useState(false);
   const [defaultMenuPos, setDefaultMenuPos] = useState({ x: 0, y: 0 });
+  const [activeNav, setActiveNav] = useState('agents');
+  const agentsNav = [
+    { id: 'agents', label: 'Your agents', icon: Bot },
+    { id: 'skills', label: 'Skills', icon: BookOpen },
+    { id: 'mcp', label: 'MCP', icon: Plug },
+    { id: 'tools', label: 'Tools', icon: Wrench },
+    { id: 'plan', label: 'Plan mode', icon: Shield }
+  ];
   const defaultAgentBtnRef = useRef<any>(null);
   const [expandedAgentId, setExpandedAgentId] = useState(null);
   const [renamingAgentId, setRenamingAgentId] = useState(null);
@@ -590,7 +598,7 @@ export function AgentsPanel(props) {
         // Title bar
         React.createElement('div', { style: { ...headerStyle, flex: 1 }, children: [
           React.createElement('div', { style: { width: '8px', flexShrink: 0 } }),
-          React.createElement(Bot, { size: 18, style: { color: 'var(--q-accent-secondary)', flexShrink: 0 } }),
+          React.createElement(Bot, { size: 18, style: { color: 'var(--q-text-secondary)', flexShrink: 0 } }),
           React.createElement('div', { style: { width: '16px', flexShrink: 0 } }),
           React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)' }, children: 'Agents' }),
           React.createElement('span', { style: { flex: 1 } }),
@@ -602,8 +610,25 @@ export function AgentsPanel(props) {
         ]})
       ]}),
 
-      // Scrollable content
-      React.createElement('div', { className: 'q-scroll', style: { flex: 1, minHeight: 0, overflowY: 'auto', padding: '4px 16px 0 16px', overscrollBehavior: 'contain', scrollbarGutter: 'stable' }, children: [
+      // Body: sidebar nav + content
+      React.createElement('div', { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'row', gap: '12px' }, children: [
+        // Sidebar nav (come la logica delle impostazioni)
+        React.createElement('div', { className: 'q-scroll', style: { width: '180px', flexShrink: 0, overflowY: 'auto', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)', padding: '6px 0' }, children: [
+          agentsNav.map(n => {
+            const active = activeNav === n.id;
+            return React.createElement('button', {
+              key: n.id,
+              onClick: () => { setActiveNav(n.id); const el = document.getElementById('sec-' + n.id); if (el) el.scrollIntoView(); },
+              style: { display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 14px', border: 'none', cursor: 'pointer', backgroundColor: active ? 'var(--q-hover)' : 'transparent', color: active ? 'var(--q-text)' : 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', textAlign: 'left' },
+              children: [
+                React.createElement(n.icon, { size: 15, style: { color: active ? 'var(--q-tab-accent)' : 'var(--q-text-tertiary)', flexShrink: 0 } }),
+                React.createElement('span', { style: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: n.label })
+              ]
+            });
+          })
+        ]}),
+        // Content
+        React.createElement('div', { className: 'q-scroll', style: { flex: 1, minHeight: 0, overflowY: 'auto', padding: '4px 16px 0 16px', overscrollBehavior: 'contain', scrollbarGutter: 'stable' }, children: [
 
         // === Section: Default agent for new chats ===
       Section({ icon: Bot, title: 'Default agent for new chats', children: [
@@ -628,12 +653,12 @@ export function AgentsPanel(props) {
       ]}),
 
       // === Section: Your agents ===
-        Section({ icon: Bot, title: `Your agents (${agents.length})`, children: [
+        React.createElement('div', { id: 'sec-agents' }, Section({ icon: Bot, title: `Your agents (${agents.length})`, children: [
           AddButton({ label: 'New agent', onClick: () => setShowNewAgent(true) }),
           React.createElement('div', { style: { height: '8px' } }),
           SearchBar({ placeholder: 'Search agents...', value: searchAgents, onChange: setSearchAgents }),
           React.createElement('div', { style: { height: '8px' } }),
-          React.createElement('div', { style: { maxHeight: '500px', overflowY: 'auto' }, children:
+          React.createElement('div', { children:
             filteredAgents.map(agent => React.createElement(AgentRow, {
               key: agent.id,
               agent,
@@ -655,19 +680,18 @@ export function AgentsPanel(props) {
               onRemoveAll: (type) => setRemoveAllState({ type, agentName: agent.name })
             }))
           })
-        ]}),
+        ]})),
 
-        // === Section: Installed resources ===
-        Section({ icon: Package, title: 'Installed resources', children: [
-
-          // Skills subsection
-          SubSection({ icon: BookOpen, title: `Skill (${skills.length})`, action: React.createElement(React.Fragment, { children: [
+        // === Section: Skill (standalone) ===
+        React.createElement('div', { id: 'sec-skills' }, Section({ icon: BookOpen, title: `Skill (${skills.length})`, children: [
+          React.createElement(React.Fragment, { children: [
             MiniButton({ label: 'Create skill', onClick: () => setShowCreateSkill(true) }),
             MiniButton({ label: 'Install skill', onClick: () => setShowInstallSkill(true) })
-          ]}), children: [
-            SearchBar({ placeholder: 'Search skill...', value: searchSkills, onChange: setSearchSkills }),
-            React.createElement('div', { style: { height: '8px' } }),
-            React.createElement('div', { style: { maxHeight: '300px', overflowY: 'auto' }, children:
+          ]}),
+          React.createElement('div', { style: { height: '8px' } }),
+          SearchBar({ placeholder: 'Search skill...', value: searchSkills, onChange: setSearchSkills }),
+          React.createElement('div', { style: { height: '8px' } }),
+          React.createElement('div', { children:
               filteredSkills.length === 0
                 ? React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'No skill found.' })
                 : filteredSkills.map(skill => {
@@ -688,15 +712,15 @@ export function AgentsPanel(props) {
                     });
                   })
             })
-          ]}),
+          ]})),
 
+        // === Section: MCP (standalone) ===
+        React.createElement('div', { id: 'sec-mcp' }, Section({ icon: Plug, title: `MCP (${mcpServers.length})`, children: [
+          MiniButton({ label: 'Install MCP', onClick: () => setMcpInstallModal({}) }),
           React.createElement('div', { style: { height: '8px' } }),
-
-          // MCP subsection
-          SubSection({ icon: Plug, title: `MCP (${mcpServers.length})`, action: MiniButton({ label: 'Install MCP', onClick: () => setMcpInstallModal({}) }), children: [
-            SearchBar({ placeholder: 'Search MCP...', value: searchMcp, onChange: setSearchMcp }),
-            React.createElement('div', { style: { height: '8px' } }),
-            React.createElement('div', { style: { maxHeight: '300px', overflowY: 'auto' }, children:
+          SearchBar({ placeholder: 'Search MCP...', value: searchMcp, onChange: setSearchMcp }),
+          React.createElement('div', { style: { height: '8px' } }),
+          React.createElement('div', { children:
               filteredMcp.length === 0
                 ? React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'No MCP server installed.' })
                 : filteredMcp.map(mcp => {
@@ -714,15 +738,13 @@ export function AgentsPanel(props) {
                     });
                   })
             })
-          ]}),
+          ]})),
 
+        // === Section: Tool (standalone) ===
+        React.createElement('div', { id: 'sec-tools' }, Section({ icon: Wrench, title: `Tool (${tools.length})`, children: [
+          SearchBar({ placeholder: 'Search tool...', value: searchTools, onChange: setSearchTools }),
           React.createElement('div', { style: { height: '8px' } }),
-
-          // Tools subsection
-          SubSection({ icon: Wrench, title: `Tool (${tools.length})`, children: [
-            SearchBar({ placeholder: 'Search tool...', value: searchTools, onChange: setSearchTools }),
-            React.createElement('div', { style: { height: '8px' } }),
-            React.createElement('div', { style: { maxHeight: '300px', overflowY: 'auto' }, children:
+          React.createElement('div', { children:
               filteredTools.map(tool => {
                 const usingAgents = agents.filter(a => a.tools.some(t => t.name === tool.name));
                 return React.createElement(SkillRow, {
@@ -741,11 +763,10 @@ export function AgentsPanel(props) {
                 });
               })
             })
-          ]})
-        ]}),
+          ]})),
 
         // === Section: Plan mode ===
-        Section({ icon: Shield, title: 'Plan mode', children: [
+        React.createElement('div', { id: 'sec-plan' }, Section({ icon: Shield, title: 'Plan mode', children: [
           React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }, children: 'Tools enabled in Plan mode. Applies to all agents.' }),
           React.createElement('div', { style: { height: '8px' } }),
           React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '6px' }, children: [
@@ -764,9 +785,10 @@ export function AgentsPanel(props) {
             }),
             MiniButton({ label: 'Add MCP', onClick: () => setAddItemsModal({ title: 'Enable MCP in Plan mode', items: mcpServers.filter(s => !planModeMcp[s.id]).map(s => ({ name: s.name, description: s.description || s.source })), onConfirm: (selected) => doEnablePlanModeMcp(selected.map(n => { const s = mcpServers.find(x => x.name === n); return s ? s.id : n; }).filter(Boolean)) }) })
           ]})
-        ]}),
+        ]})),
 
         React.createElement('div', { style: { height: '32px' } })
+        ]})
       ]})
     ]}),
 
