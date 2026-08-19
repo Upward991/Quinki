@@ -144,20 +144,11 @@ export function ChatArea(props: ChatAreaProps) {
   const [lastReadTaskTs, setLastReadTaskTs] = useState(0)
   const [readStateLoaded, setReadStateLoaded] = useState(false)
   const [bookmarkTs, setBookmarkTs] = useState<number | null>(null)
-  const [markerVisible, setMarkerVisible] = useState(false)
-  const markerInitRef = useRef<string | null>(null)
   const lastVisibleTsRef = useRef(0)
-  const markerScrolledRef = useRef(false)
-  const autoScrollDoneRef = useRef(false)
-  const markReadTimerRef = useRef<any>(null)
   const messagesRef = useRef(props.messages)
   useEffect(() => { messagesRef.current = props.messages }, [props.messages])
   useEffect(() => {
     if (!sessionIdKey) return
-    // Reset dei ref del marker a ogni sessione (il marker deve riapparire per ogni chat)
-    markerScrolledRef.current = false
-    autoScrollDoneRef.current = false
-    setMarkerVisible(false)
     let cancelled = false
     sidecarCall('getReadState', { sessionKey: sessionIdKey }).then((r: any) => {
       if (!cancelled && r?.state) {
@@ -169,27 +160,6 @@ export function ChatArea(props: ChatAreaProps) {
     }).catch(() => { if (!cancelled) setReadStateLoaded(true) })
     return () => { cancelled = true }
   }, [sessionIdKey, sidecarCall])
-  // Auto-scroll al marker (primo non letto) all'apertura + mostra il marker SOLO all'apertura.
-  // Gira quando lastReadTs è caricato e i messaggi sono pronti (markerScrolledRef evita i doppioni).
-  useEffect(() => {
-    if (!sessionIdKey || !readStateLoaded || markerScrolledRef.current) return
-    if (props.messages.length === 0) return
-    const el = scrollRef.current
-    if (el) {
-      const firstUnread = props.messages.findIndex(m => { try { return new Date(m.timestamp).getTime() > lastReadTs } catch { return false } })
-      if (firstUnread >= 0) {
-        const target = el.querySelector(`[data-msg-idx="${firstUnread}"]`)
-        if (target) {
-          (target as HTMLElement).scrollIntoView({ block: 'start' })
-          markerScrolledRef.current = true
-          // Il flag si attiva DOPO lo scroll: l'evento scroll dell'auto-scroll NON nasconde il marker
-          setTimeout(() => { autoScrollDoneRef.current = true }, 150)
-        }
-      }
-    }
-    const hasUnread = props.messages.some(m => { try { return m.role === 'assistant' && new Date(m.timestamp).getTime() > lastReadTs } catch { return false } })
-    setMarkerVisible(hasUnread)
-  }, [sessionIdKey, lastReadTs, props.messages, readStateLoaded])
   // Mark read all'uscita: calcola l'ultimo messaggio VISIBILE dal DOM al momento dell'uscita
   // (non usa lastVisibleTsRef che può essere stale — il cleanup cattura i messaggi iniziali)
   useEffect(() => {
@@ -609,11 +579,6 @@ export function ChatArea(props: ChatAreaProps) {
                   return (
                     <>
                     {chatItems.map((item, i) => {
-                      // Solo le RISPOSTE assistant contano come non lette (le bubble utente le ho scritte io)
-                      // Il marker è visibile SOLO all'apertura (markerVisible), mai durante lo streaming
-                      const isUnread = item.kind === 'msg' && item.msg?.role === 'assistant' && item.ts > lastReadTs && markerVisible && !props.streaming
-                      // Il marker appare UNA volta, al PRIMO messaggio non letto (il confine letto/non letto)
-                      const isFirstUnread = isUnread && (i === 0 || !(chatItems[i-1].kind === 'msg' && chatItems[i-1].msg?.role === 'assistant' && chatItems[i-1].ts > lastReadTs && markerVisible && !props.streaming))
                       const isBookmark = bookmarkTs != null && item.ts >= bookmarkTs && (i === 0 || chatItems[i-1].ts < bookmarkTs)
                       return (
                     <div key={item.kind === 'msg' ? item.msg!.id : item.kind === 'sys' ? 'lh-sys' : 'chat-' + item.run!.id} data-msg-idx={item.mIdx ?? -1} style={{ marginBottom: '12px' }}>
@@ -622,13 +587,6 @@ export function ChatArea(props: ChatAreaProps) {
                           <span style={{ flex: 1, height: '1px', backgroundColor: 'var(--q-accent-warning)' }} />
                           <span style={{ fontSize: '11px', fontFamily: 'var(--font-interface)', color: 'var(--q-accent-warning)', fontWeight: 600, whiteSpace: 'nowrap' }}>📌 bookmark</span>
                           <span style={{ flex: 1, height: '1px', backgroundColor: 'var(--q-accent-warning)' }} />
-                        </div>
-                      )}
-                      {isFirstUnread && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 0', padding: '2px 0' }}>
-                          <span style={{ flex: 1, height: '1px', backgroundColor: 'var(--q-tab-accent)' }} />
-                          <span style={{ fontSize: '11px', fontFamily: 'var(--font-interface)', color: 'var(--q-tab-accent)', fontWeight: 600, whiteSpace: 'nowrap' }}>unread messages below</span>
-                          <span style={{ flex: 1, height: '1px', backgroundColor: 'var(--q-tab-accent)' }} />
                         </div>
                       )}
                       {item.kind === 'msg' ? (
