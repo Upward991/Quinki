@@ -6446,7 +6446,8 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
             for (const exId of fs.readdirSync(execBase)) {
               try {
                 const st2 = JSON.parse(fs.readFileSync(path.join(execBase, exId, "execution.json"), "utf8"));
-                if (st2?.sourceSession?.key === sk && st2?.status === "executed" && typeof st2.endedAt === "number" && st2.endedAt > st.lastReadTaskTs) tasks++;
+                // Le task contano come MESSAGGI: unread se endedAt > lastReadTs (stessa logica dei messaggi)
+                if (st2?.sourceSession?.key === sk && st2?.status === "executed" && typeof st2.endedAt === "number" && st2.endedAt > st.lastReadTs) tasks++;
               } catch {}
             }
           }

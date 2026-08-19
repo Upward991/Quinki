@@ -227,10 +227,7 @@ export function ChatArea(props: ChatAreaProps) {
     const nv = !taskPanelOpen
     setTaskPanelOpen(nv)
     try { localStorage.setItem('quinki-taskpanel-' + sessionIdKey, nv ? '1' : '0') } catch {}
-    // === A3: alla CHIUSURA del pannello le task diventano lette (il marker ha mostrato quali non erano lette) ===
-    if (!nv && sessionIdKey) {
-      try { sidecarCall('setReadState', { sessionKey: sessionIdKey, patch: { lastReadTaskTs: Date.now() } }) } catch {}
-    }
+
   }
   useEffect(() => {
     if (!taskPanelOpen) {
@@ -276,8 +273,7 @@ export function ChatArea(props: ChatAreaProps) {
   const taskDone = taskExecs.filter((e: any) => e.status === 'executed').length
   const taskRunningItem = taskExecs.find((e: any) => e.status === 'running' || e.status === 'queued')
   const pl = (n: number) => (n === 1 ? '' : 's')
-  const taskUnread = taskExecs.filter((e: any) => e.status === 'executed' && e.endedAt && e.endedAt > lastReadTaskTs).length
-  const taskLabel = taskScheds.length + ' task' + pl(taskScheds.length) + ' scheduled' + (taskDone ? ' · ' + taskDone + ' executed' : '') + (taskUnread > 0 ? ' · ' + taskUnread + ' task unread' : '')
+  const taskLabel = taskScheds.length + ' task' + pl(taskScheds.length) + ' scheduled' + (taskDone ? ' · ' + taskDone + ' executed' : '')
   const hasTasks = taskExecs.length > 0 || taskScheds.length > 0
   const taskStripBar = hasTasks ? (
     <button onClick={toggleTaskPanel} title={taskPanelOpen ? 'Collapse tasks' : 'Show tasks'} style={{ width: '100%', marginTop: 8, padding: '8px 14px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, border: taskPanelOpen ? 'none' : '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', cursor: 'pointer', backgroundColor: taskPanelOpen ? 'transparent' : 'var(--q-bg-panel)', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: 13, transition: 'none', textAlign: 'left' }}>
@@ -291,23 +287,9 @@ export function ChatArea(props: ChatAreaProps) {
       <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '16px 16px', scrollbarGutter: 'stable' }}>
         {taskRuns.length === 0 ? (
           <div style={{ color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', padding: '24px 8px', textAlign: 'center' }}>No tasks yet.</div>
-        ) : taskRuns.map((run, ri) => {
-          const isUnreadTask = run.endedAt && run.endedAt > lastReadTaskTs
-          const isFirstUnreadTask = isUnreadTask && (ri === 0 || !(taskRuns[ri-1].endedAt && taskRuns[ri-1].endedAt > lastReadTaskTs))
-          console.log('[A3] task marker check', run.id.slice(0, 15), 'endedAt:', run.endedAt, 'lastReadTaskTs:', lastReadTaskTs, 'unread:', isUnreadTask)
-          return (
-            <div key={run.id}>
-              {isFirstUnreadTask && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 0' }}>
-                  <span style={{ flex: 1, height: '1px', backgroundColor: 'var(--q-tab-accent)' }} />
-                  <span style={{ fontSize: '11px', color: 'var(--q-tab-accent)', fontWeight: 600, whiteSpace: 'nowrap' }}>unread tasks below</span>
-                  <span style={{ flex: 1, height: '1px', backgroundColor: 'var(--q-tab-accent)' }} />
-                </div>
-              )}
-              <TaskResultToggle run={run} sessionKey={props.session?.key} showClip />
-            </div>
-          )
-        })}
+        ) : taskRuns.map((run) => (
+          <TaskResultToggle key={run.id} run={run} sessionKey={props.session?.key} showClip />
+        ))}
       </div>
       {/* Barra riassunto IN BASSO = la striscia che diventa la heading inferiore della sezione espansa — tutta cliccabile per chiudere */}
       <button onClick={toggleTaskPanel} title="Collapse tasks" style={{ width: '100%', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-bg-panel)', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: 13, transition: 'none', textAlign: 'left' }}>
