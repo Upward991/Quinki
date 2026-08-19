@@ -1231,11 +1231,74 @@ fn count_items(dir: &str) -> usize {
 }
 
 #[tauri::command]
+fn kill_backend() {
+    if is_expert_mode() {
+        // Watchdog PRIMA (niente race di riaccensione), poi sidecar
+        let _ = std::process::Command::new("sh").arg("-c")
+          .arg("pkill -f 'start-expert.sh' 2>/dev/null; pkill -f expert-watchdog 2>/dev/null; sleep 0.3; lsof -ti:9183 | xargs kill -9 2>/dev/null")
+          .spawn();
+    } else {
+        let _ = std::process::Command::new("sh").arg("-c")
+          .arg("lsof -ti:9182 | xargs kill -9 2>/dev/null")
+          .spawn();
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn native_quit_confirm(app_name: &str) -> bool {
+    // NSAlert nativo: il tray è l'unico modo di chiudere senza UI → conferma di sistema.
+    use objc::{class, msg_send, sel, sel_impl};
+    use objc::runtime::Object;
+    use std::ffi::CString;
+    unsafe {
+        let alert: *mut Object = msg_send![class!(NSAlert), new];
+        let title = format!("Quit {}?", app_name);
+        let info = "Quitting from the menu bar closes the app AND its background service. Use Cmd+Q to choose what to close.";
+        let t_c = CString::new(title).unwrap_or_default();
+        let i_c = CString::new(info).unwrap_or_default();
+        let t_ns: *mut Object = msg_send![class!(NSString), stringWithUTF8String: t_c.as_ptr()];
+        let i_ns: *mut Object = msg_send![class!(NSString), stringWithUTF8String: i_c.as_ptr()];
+        let _: () = msg_send![alert, setMessageText: t_ns];
+        let _: () = msg_send![alert, setInformativeText: i_ns];
+        let q_c = CString::new("Quit App").unwrap_or_default();
+        let c_c = CString::new("Cancel").unwrap_or_default();
+        let q_ns: *mut Object = msg_send![class!(NSString), stringWithUTF8String: q_c.as_ptr()];
+        let c_ns: *mut Object = msg_send![class!(NSString), stringWithUTF8String: c_c.as_ptr()];
+        let _: () = msg_send![alert, addButtonWithTitle: q_ns];
+        let _: () = msg_send![alert, addButtonWithTitle: c_ns];
+        let ret: isize = msg_send![alert, runModal];
+        let _: () = msg_send![alert, release];
+        ret == 1000
+    }
+}
+#[cfg(not(target_os = "macos"))]
+fn native_quit_confirm(_app_name: &str) -> bool { true }
+
+#[tauri::command]
+fn quit_app(app: tauri::AppHandle) {
+    // Chiude TUTTO: backend + app (usato dal modale Cmd+Q → "Quit App")
+    kill_backend();
+    SHOULD_EXIT.store(true, Ordering::SeqCst);
+    let home = std::env::var("HOME").unwrap_or_default();
+    let pid_file = if is_expert_mode() { format!("{}/.quinki-expert-app.pid", home) } else { format!("{}/.quinki-app.pid", home) };
+    let _ = std::fs::remove_file(&pid_file);
+    app.exit(0);
+}
+
+#[tauri::command]
+fn hide_to_tray(app: tauri::AppHandle) {
+    // Chiude SOLO il frontend: la finestra si nasconde, app + sidecar restano attivi
+    if let Some(window) = app.get_webview_window("main") {
+        use tauri_plugin_window_state::AppHandleExt;
+        let _ = window.app_handle().save_window_state(tauri_plugin_window_state::StateFlags::all());
+        let _ = window.hide();
+    }
+}
+
+#[tauri::command]
 fn quit_expert_app(app: tauri::AppHandle) {
-    // Kill expert sidecar + watchdog
-    let _ = std::process::Command::new("sh").arg("-c")
-      .arg("lsof -ti:9183 | xargs kill -9 2>/dev/null; pkill -f 'start-expert.sh' 2>/dev/null; pkill -f expert-watchdog 2>/dev/null")
-      .spawn();
+    // Kill watchdog PRIMA (niente race di riaccensione), poi sidecar
+    kill_backend();
     SHOULD_EXIT.store(true, Ordering::SeqCst);
     app.exit(0);
 }
@@ -1447,6 +1510,8 @@ pub fn run() {
         restart_main_app,
         apply_update,
         quit_expert_app,
+        quit_app,
+        hide_to_tray,
         restart_app,
         enable_autostart,
         disable_autostart,
@@ -1646,12 +1711,14 @@ pub fn run() {
               app.exit(0);
             }
             "quit" => {
-              // Kill sidecar processes
-              let _ = std::process::Command::new("sh").arg("-c")
-                .arg("lsof -ti:9182 | xargs kill -9 2>/dev/null")
-                .spawn();
-              SHOULD_EXIT.store(true, Ordering::SeqCst);
-              app.exit(0);
+              // Il quit dal tray chiude TUTTO (app + backend) → conferma nativa macOS
+              if native_quit_confirm("Quinki") {
+                let _ = std::process::Command::new("sh").arg("-c")
+                  .arg("lsof -ti:9182 | xargs kill -9 2>/dev/null")
+                  .spawn();
+                SHOULD_EXIT.store(true, Ordering::SeqCst);
+                app.exit(0);
+              }
             }
             _ => {}
           }
@@ -1795,13 +1862,12 @@ pub fn run() {
       // Prevent exit only if not explicitly requested
       if let tauri::RunEvent::ExitRequested { api, .. } = event {
         if !SHOULD_EXIT.load(Ordering::SeqCst) {
+          // Cmd+Q (o quit dal menu macOS): NON uscire, chiedi all'utente cosa chiudere
           api.prevent_exit();
+          let _ = _app_handle.emit("quit_requested", ());
         } else {
-          // SHOULD_EXIT (tray restart) → kill sidecar PRIMA di uscire
-          let port = if is_expert_mode() { "9183" } else { "9182" };
-          let _ = std::process::Command::new("sh").arg("-c")
-            .arg(format!("lsof -ti:{} | xargs kill -9 2>/dev/null", port))
-            .spawn();
+          // SHOULD_EXIT (tray quit confermato / modale "Quit App") → kill backend PRIMA di uscire
+          kill_backend();
           let pid_file = if is_expert_mode() {
         format!("{}/.quinki-expert-app.pid", std::env::var("HOME").unwrap_or_default())
     } else {
