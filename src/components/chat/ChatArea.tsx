@@ -227,8 +227,8 @@ export function ChatArea(props: ChatAreaProps) {
     const nv = !taskPanelOpen
     setTaskPanelOpen(nv)
     try { localStorage.setItem('quinki-taskpanel-' + sessionIdKey, nv ? '1' : '0') } catch {}
-    // === A3: all'apertura del pannello le task diventano lette (azzera il conteggio) ===
-    if (nv && sessionIdKey) {
+    // === A3: alla CHIUSURA del pannello le task diventano lette (il marker ha mostrato quali non erano lette) ===
+    if (!nv && sessionIdKey) {
       try { sidecarCall('setReadState', { sessionKey: sessionIdKey, patch: { lastReadTaskTs: Date.now() } }) } catch {}
     }
   }
