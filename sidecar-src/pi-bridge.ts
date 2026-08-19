@@ -148,6 +148,7 @@ class PiBridge {
   #permissions: any = null;
   #authorizedFolders: string[] | null = null;
   #stoppedSessions = new Set<string>();
+  #recoveringTurns = new Set<string>();
   #rePrompted = new Set<string>();
   #markerTurnStarted = new Set<string>();
   #mcpClients = new Map<string, StdioMcpClient>();  // chiave `${sessionKey}:${serverId}`
@@ -2625,6 +2626,56 @@ class PiBridge {
       }
     } catch (e: any) { this.logDebug("pending-turn-recover-scan-error", { error: e?.message || String(e) }); }
     return recovered;
+  }
+
+  // === Recovery MID-SESSION basato su EVENTO (nessun timer): il turno è finito
+  // (errore/abort) SENZA il segnale di completamento (agent_end stop/length).
+  // Il marker pending-turn è ancora lì → il turno è stato interrotto → ri-prompta
+  // SUBITO per farlo continuare. Stessa logica del boot recovery, ma scatta
+  // quando il turno fallisce mentre il sidecar è vivo. ===
+  async #recoverInterruptedTurn(sk: string): Promise<boolean> {
+    try {
+      if (this.#stoppedSessions.has(sk)) return false;
+      if (this.#recoveringTurns.has(sk)) return false; // già in corso (send-catch + agent_end possono scattare insieme)
+      this.#recoveringTurns.add(sk);
+      // Long Horizon attivo → il support agent ri-prompta da solo
+      try {
+        const lhState = JSON.parse(fs.readFileSync(path.join(this.#agentDir, "longhorizon", sk, "state.json"), "utf8"));
+        if (lhState.active) return false;
+      } catch {}
+      const p = path.join(this.#piSessionDir(sk), "pending-turn.json");
+      let marker: any = null;
+      let retries = 0;
+      try {
+        if (fs.existsSync(p)) {
+          marker = JSON.parse(fs.readFileSync(p, "utf8"));
+          retries = marker.retries || 0;
+        }
+      } catch {}
+      if (retries >= 3) return false; // limite raggiunto — l'utente ritenta a mano
+      const markerText = marker?.text ? String(marker.text) : "";
+      let hasOrig = false;
+      try {
+        const hist = this.getHistory(sk);
+        if (Array.isArray(hist)) {
+          const probe = markerText.slice(0, 50);
+          hasOrig = hist.some((m: any) => m.role === "user" && String(m.content || "").includes(probe));
+        }
+      } catch {}
+      const prompt = hasOrig ? "The app was interrupted while processing. Please continue and complete your response." : (markerText || "Please continue.");
+      if (!marker) marker = { text: markerText || prompt, ts: Date.now(), retries: 0 };
+      marker.retries = retries + 1;
+      try { fs.writeFileSync(p, JSON.stringify(marker), "utf8"); } catch {}
+      this.logDebug("pending-turn-recover-mid", { sessionKey: sk, retry: retries + 1, text: prompt.slice(0, 60) });
+      const fakeWs = { readyState: 1, constructor: { OPEN: 1 }, send: () => {} };
+      await this.send(fakeWs, { sessionKey: sk, text: prompt, _preserveWs: true });
+      return true;
+    } catch (e: any) {
+      this.logDebug("pending-turn-recover-mid-error", { sessionKey: sk, error: e?.message || String(e) });
+      return false;
+    } finally {
+      this.#recoveringTurns.delete(sk);
+    }
   }
 
   // === Helper: ws della sessione, o fallback a stdout (broadcast al frontend via sidecar-ws) ===
@@ -5440,6 +5491,9 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
           if (!retryable || attempt >= maxAttempts) {
             this.logDebug("send-user-message-error", { sessionKey: sk, message: msg, attempt });
             ws.send(JSON.stringify({ type: "error", message: msg, sessionKey: sk }));
+            // Il turno è finito SENZA completamento (nessun agent_end stop/length):
+            // il marker è ancora lì → autoprompt per farlo continuare (evento, no timer).
+            this.#recoverInterruptedTurn(sk).catch(() => {});
             return;
           }
           this.logDebug("send-user-message-retry", { sessionKey: sk, attempt: attempt + 1, message: msg.slice(0, 120) });
@@ -5449,6 +5503,8 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     }).catch((err: Error) => {
       this.logDebug("send-user-message-error", { sessionKey: sk, message: err?.message, name: err?.name, stack: err?.stack?.slice(0, 600) });
       ws.send(JSON.stringify({ type: "error", message: err.message, sessionKey: sk }));
+      // Turno finito senza completamento → autoprompt per continuare
+      this.#recoverInterruptedTurn(sk).catch(() => {});
     });
     this.#prompts.set(sk, next);
     await next;
@@ -6115,6 +6171,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
           let turnCompleted = false;
           let completingUserText = "";
           let markerText = "";
+          let lastStopReason = "";
           try {
             const msgs = (e as any)?.messages || [];
             // NB: e.messages può contenere l'INTERA sessione, non solo il turno
@@ -6128,6 +6185,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
               const m = msgs[i];
               if (m?.role === "assistant") {
                 turnCompleted = m.stopReason === "stop" || m.stopReason === "length";
+                lastStopReason = String(m.stopReason || "");
                 break;
               }
             }
@@ -6157,6 +6215,15 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
             // Cancella SOLO se: turno completato E il turno di QUESTO marker è partito
             // (se il marker appartiene a un messaggio ancora in coda, non cancellarlo).
             const markerTurnStarted = this.#markerTurnStarted.has(key);
+            // === Recovery MID-SESSION basato su EVENTO (nessun timer):
+            // agent_end è arrivato ma il turno NON è completato (stopReason error/aborted/
+            // altro) → il turno è finito SENZA la risposta completa → il marker è ancora
+            // lì → autoprompt SUBITO per farlo continuare. Escluso toolUse (il loop
+            // dell'agente continua da solo) e stopped (l'utente ha fermato). ===
+            if (!turnCompleted && lastStopReason && lastStopReason !== "toolUse" && !this.#stoppedSessions.has(key)) {
+              this.logDebug("agent-end-not-complete", { sessionKey: key, stopReason: lastStopReason, isExpert: Number(process.env.QUINKI_WS_PORT || "9182") === 9183 });
+              this.#recoverInterruptedTurn(key).catch(() => {});
+            }
             if (turnCompleted && markerTurnStarted && sameMessage) {
               if (!(key === "__app_expert__" && !isExp)) {
                 try { const p = path.join(this.#piSessionDir(key), "pending-turn.json"); if (fs.existsSync(p)) { fs.unlinkSync(p); this.logDebug("marker-delete", { sessionKey: key, where: "agent_end", isExpert: isExp, turnCompleted, markerTurnStarted }); } } catch {}
