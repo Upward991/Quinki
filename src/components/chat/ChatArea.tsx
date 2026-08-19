@@ -160,23 +160,36 @@ export function ChatArea(props: ChatAreaProps) {
     let cancelled = false
     sidecarCall('getReadState', { sessionKey: sessionIdKey }).then((r: any) => {
       if (!cancelled && r?.state) {
+        // baseline = il lastReadTs PRIMA del mark-read → il marker resta visibile finché esci
         setLastReadTs(r.state.lastReadTs || 0)
         setLastReadTaskTs(r.state.lastReadTaskTs || 0)
         if (r.state.bookmarkTs) setBookmarkTs(r.state.bookmarkTs)
       }
       if (!cancelled) setReadStateLoaded(true)
-    }).catch(() => { if (!cancelled) setReadStateLoaded(true) })
+      // Mark-read on open (DOPO aver catturato la baseline): persiste SEMPRE → dopo
+      // reinstall/uccisione l'app, le chat già viste NON mostrano badge/marker.
+      if (!cancelled && sessionIdKey !== '__app_expert__') {
+        try { sidecarCall('setReadState', { sessionKey: sessionIdKey, patch: { lastReadTs: Date.now() } }) } catch {}
+      }
+    }).catch(() => {
+      if (!cancelled) { setReadStateLoaded(true); if (sessionIdKey !== '__app_expert__') { try { sidecarCall('setReadState', { sessionKey: sessionIdKey, patch: { lastReadTs: Date.now() } }) } catch {} } }
+    })
     return () => { cancelled = true }
   }, [sessionIdKey, sidecarCall])
 
   // Mark-read alla FINE dello streaming: la risposta è arrivata mentre la chat era aperta
   // → l'utente l'ha vista in tempo reale → NON deve diventare unread (niente badge né marker).
   const prevStreamingRef = useRef(false)
+  const streamingSessionRef = useRef<string | null>(null)
   useEffect(() => {
+    if (props.streaming && sessionIdKey) streamingSessionRef.current = sessionIdKey
     const wasStreaming = prevStreamingRef.current
     prevStreamingRef.current = props.streaming
-    if (wasStreaming && !props.streaming && sessionIdKey && sessionIdKey !== '__app_expert__') {
-      try { sidecarCall('setReadState', { sessionKey: sessionIdKey, patch: { lastReadTs: Date.now() } }) } catch {}
+    if (wasStreaming && !props.streaming && streamingSessionRef.current && streamingSessionRef.current !== '__app_expert__') {
+      const sk = streamingSessionRef.current
+      streamingSessionRef.current = null
+      // Marca la chat CHE STREAMMAVA (l'utente l'ha vista in tempo reale), non quella attuale
+      try { sidecarCall('setReadState', { sessionKey: sk, patch: { lastReadTs: Date.now() } }) } catch {}
     }
   }, [props.streaming, sessionIdKey, sidecarCall])
 
@@ -189,6 +202,16 @@ export function ChatArea(props: ChatAreaProps) {
         try { sidecarCall('setReadState', { sessionKey: key, patch: { lastReadTs: Date.now() } }) } catch {}
       }
     }
+  }, [sessionIdKey, sidecarCall])
+
+  // Mark-read PERIODICO mentre la chat è aperta (5s): lo stato persistito resta sempre
+  // recente → se l'app viene uccisa/reinstallata, le chat già viste NON mostrano badge.
+  useEffect(() => {
+    if (!sessionIdKey || sessionIdKey === '__app_expert__') return
+    const iv = setInterval(() => {
+      try { sidecarCall('setReadState', { sessionKey: sessionIdKey, patch: { lastReadTs: Date.now() } }) } catch {}
+    }, 5000)
+    return () => clearInterval(iv)
   }, [sessionIdKey, sidecarCall])
 
   const [taskPanelOpen, setTaskPanelOpen] = useState<boolean>(() => { try { return localStorage.getItem('quinki-taskpanel-' + sessionIdKey) === '1' } catch { return false } })
