@@ -150,6 +150,7 @@ export function ChatArea(props: ChatAreaProps) {
   const markReadTimerRef = useRef<any>(null)
   const messagesRef = useRef(props.messages)
   useEffect(() => { messagesRef.current = props.messages }, [props.messages])
+  const chatItemsRef = useRef<any[]>([])
   useEffect(() => {
     if (!sessionIdKey) return
     markerScrolledRef.current = false
@@ -168,25 +169,54 @@ export function ChatArea(props: ChatAreaProps) {
     return () => { cancelled = true }
   }, [sessionIdKey, sidecarCall])
 
-  // Auto-scroll al marker all'apertura (UNA volta per sessione) + mostra il marker
+  // Mark-read alla FINE dello streaming: la risposta è arrivata mentre la chat era aperta
+  // → l'utente l'ha vista in tempo reale → NON deve diventare unread (niente badge né marker).
+  const prevStreamingRef = useRef(false)
   useEffect(() => {
-    if (!sessionIdKey || !readStateLoaded || markerScrolledRef.current) return
-    if (props.messages.length === 0) return
-    const el = scrollRef.current
-    if (el) {
-      const firstUnread = props.messages.findIndex(m => { try { return m.role === 'assistant' && new Date(m.timestamp).getTime() > lastReadTs } catch { return false } })
-      if (firstUnread >= 0) {
-        const target = el.querySelector(`[data-msg-idx="${firstUnread}"]`)
-        if (target) {
-          (target as HTMLElement).scrollIntoView({ block: 'start' })
-          markerScrolledRef.current = true
-          setTimeout(() => { autoScrollDoneRef.current = true }, 150)
-        }
+    const wasStreaming = prevStreamingRef.current
+    prevStreamingRef.current = props.streaming
+    if (wasStreaming && !props.streaming && sessionIdKey && sessionIdKey !== '__app_expert__') {
+      try { sidecarCall('setReadState', { sessionKey: sessionIdKey, patch: { lastReadTs: Date.now() } }) } catch {}
+    }
+  }, [props.streaming, sessionIdKey, sidecarCall])
+
+  // Mark-on-exit: quando ESCi dalla chat, segna tutto come letto → al prossimo ingresso
+  // niente badge né marker (il marker resta visibile finché la chat è aperta).
+  useEffect(() => {
+    const key = sessionIdKey
+    return () => {
+      if (key && key !== '__app_expert__') {
+        try { sidecarCall('setReadState', { sessionKey: key, patch: { lastReadTs: Date.now() } }) } catch {}
       }
     }
-    const hasUnread = props.messages.some(m => { try { return m.role === 'assistant' && new Date(m.timestamp).getTime() > lastReadTs } catch { return false } })
-    setMarkerVisible(hasUnread)
-  }, [sessionIdKey, lastReadTs, props.messages, readStateLoaded])
+  }, [sessionIdKey, sidecarCall])
+
+  // Auto-scroll al marker all'apertura (UNA volta per sessione) + mostra il marker.
+  // Il marker include messaggi E task (endedAt > lastReadTs).
+  const hasAnyUnread = (): boolean => {
+    for (const it of chatItemsRef.current) {
+      if ((it.kind === 'msg' && it.msg?.role === 'assistant') || it.kind === 'task') {
+        if (it.ts > lastReadTs) return true
+      }
+    }
+    return false
+  }
+  useEffect(() => {
+    if (!sessionIdKey || !readStateLoaded || markerScrolledRef.current) return
+    const el = scrollRef.current
+    if (!el) return
+    const items = chatItemsRef.current
+    if (items.length === 0) return
+    const firstUnreadIdx = items.findIndex(it => ((it.kind === 'msg' && it.msg?.role === 'assistant') || it.kind === 'task') && it.ts > lastReadTs)
+    if (firstUnreadIdx >= 0) {
+      const target = el.querySelector(`[data-item-idx="${firstUnreadIdx}"]`)
+      if (target) {
+        (target as HTMLElement).scrollIntoView({ block: 'start' })
+        markerScrolledRef.current = true
+      }
+    }
+    setMarkerVisible(hasAnyUnread())
+  }, [sessionIdKey, lastReadTs, props.messages, readStateLoaded, taskRuns])
 
   const [taskPanelOpen, setTaskPanelOpen] = useState<boolean>(() => { try { return localStorage.getItem('quinki-taskpanel-' + sessionIdKey) === '1' } catch { return false } })
   const [taskExecs, setTaskExecs] = useState<any[]>([])
@@ -574,7 +604,7 @@ export function ChatArea(props: ChatAreaProps) {
             <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
               {/* Chat — SEMPRE montata (display none quando il pannello task è aperto) → lo scroll resta dov'era */}
               <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '4px 16px ' + (hasTasks ? 8 : 0) + 'px 16px', scrollbarGutter: 'stable', display: taskPanelOpen ? 'none' : 'block' }}
-                onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100); pinnedRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 120; if (autoScrollDoneRef.current) setMarkerVisible(false); try { const items = el.querySelectorAll('[data-msg-idx]'); for (let i = items.length - 1; i >= 0; i--) { const it = items[i] as HTMLElement; const r = it.getBoundingClientRect(); if (r.top < el.getBoundingClientRect().bottom) { const idx = Number(it.getAttribute('data-msg-idx')); const m = messagesRef.current[idx]; if (m) { try { const ts = new Date(m.timestamp).getTime(); if (ts > lastReadTs && sessionIdKey) { if (markReadTimerRef.current) clearTimeout(markReadTimerRef.current); markReadTimerRef.current = setTimeout(() => { try { sidecarCall('setReadState', { sessionKey: sessionIdKey, patch: { lastReadTs: ts } }) } catch {} }, 300) } } catch {} } break } } } catch {} }}>
+                onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100); pinnedRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 120; }}>
                 {(() => {
                   const chatItems: { kind: 'msg' | 'task' | 'sys'; ts: number; msg?: any; run?: any; sysMsg?: string; mIdx?: number }[] = []
                   props.messages.forEach((msg, mIdx) => {
@@ -590,14 +620,15 @@ export function ChatArea(props: ChatAreaProps) {
                     chatItems.push({ kind: 'sys', ts: props.longHorizonStartedAt, sysMsg: props.longHorizonSystemMessage })
                   }
                   chatItems.sort((a, b) => a.ts - b.ts || (a.kind === 'msg' ? 0 : 1))
+                  chatItemsRef.current = chatItems
                   return (
                     <>
                     {chatItems.map((item, i) => {
-                      const isUnread = item.kind === 'msg' && item.msg?.role === 'assistant' && item.ts > lastReadTs && markerVisible && !props.streaming
-                      const isFirstUnread = isUnread && (i === 0 || !(chatItems[i-1].kind === 'msg' && chatItems[i-1].msg?.role === 'assistant' && chatItems[i-1].ts > lastReadTs && markerVisible && !props.streaming))
+                      const isUnread = ((item.kind === 'msg' && item.msg?.role === 'assistant') || item.kind === 'task') && item.ts > lastReadTs && markerVisible && !props.streaming
+                      const isFirstUnread = isUnread && (i === 0 || !(((chatItems[i-1].kind === 'msg' && chatItems[i-1].msg?.role === 'assistant') || chatItems[i-1].kind === 'task') && chatItems[i-1].ts > lastReadTs && markerVisible && !props.streaming))
                       const isBookmark = bookmarkTs != null && item.ts >= bookmarkTs && (i === 0 || chatItems[i-1].ts < bookmarkTs)
                       return (
-                    <div key={item.kind === 'msg' ? item.msg!.id : item.kind === 'sys' ? 'lh-sys' : 'chat-' + item.run!.id} data-msg-idx={item.mIdx ?? -1} style={{ marginBottom: '12px' }}>
+                    <div key={item.kind === 'msg' ? item.msg!.id : item.kind === 'sys' ? 'lh-sys' : 'chat-' + item.run!.id} data-msg-idx={item.mIdx ?? -1} data-item-idx={i} style={{ marginBottom: '12px' }}>
                       {isBookmark && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 0', padding: '2px 0' }}>
                           <span style={{ flex: 1, height: '1px', backgroundColor: 'var(--q-accent-warning)' }} />
