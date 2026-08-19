@@ -2589,6 +2589,23 @@ class PiBridge {
           // il modello può metterci decine di secondi a produrre il primo token).
           if (this.#streamingBuffers.has(sk)) {
             const sb = this.#streamingBuffers.get(sk);
+            // === FIX: se un TOOL è in esecuzione, NON ri-promptare MAI (il tool può
+            // durare legittimamente 5-10-20 min, es. build/test lunghi). Il buffer non
+            // si aggiorna durante un tool silenzioso → lo stale-check da solo
+            // ri-promptarebbe all'infinito. Solo quando NESSUN tool è attivo lo
+            // stale-check ha senso (modello bloccato a metà generazione). ===
+            if (sb && sb.currentPhase === "tool_call") {
+              // Tool ATTIVO: mai ri-promptare durante l'esecuzione (anche 5-20 min).
+              // MA se il tool non finisce per > 20 min (toolcall_end mai arrivato,
+              // processo appeso) → è DAVVERO bloccato → ri-prompta.
+              const toolAge = Date.now() - (sb.ts || 0);
+              if (toolAge > 1200000) {
+                this.logDebug("recovery-tool-hung", { sessionKey: sk, ageMs: toolAge });
+              } else {
+                this.logDebug("recovery-skip", { sessionKey: sk, reason: "tool-running" });
+                continue;
+              }
+            }
             const stale = sb && (Date.now() - (sb.ts || 0) > 45000);
             if (stale) {
               this.logDebug("recovery-stuck-turn", { sessionKey: sk, ageMs: Date.now() - (sb.ts || 0) });
@@ -5811,6 +5828,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
             else if (ame.type === "text_end") buf.currentPhase = null;
             else if (ame.type === "toolcall_start") { buf.currentPhase = "tool_call"; buf.toolCalls.push({ name: toolName || "", id: e.message?.id || "", args: "" }); }
             else if (ame.type === "toolcall_delta") buf.currentPhase = "tool_call";
+            else if (ame.type === "toolcall_end") { buf.currentPhase = null; buf.ts = Date.now(); }
           }
 
           // Agent status per text/thinking durante streaming
