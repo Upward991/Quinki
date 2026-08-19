@@ -175,6 +175,7 @@ export function ChatArea(props: ChatAreaProps) {
     }
   }, [taskPanelOpen])
   const refreshTasks = useCallback(async () => {
+    console.log('[A3] refreshTasks sessionIdKey:', sessionIdKey)
     if (!sessionIdKey || sessionIdKey === '__app_expert__') { setTaskExecs([]); setTaskScheds([]); setTaskRuns([]); return }
     try {
       const [exR, schR] = await Promise.all([sidecarCall('listExecutions'), sidecarCall('listSchedules')])
