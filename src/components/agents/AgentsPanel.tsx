@@ -589,8 +589,8 @@ export function AgentsPanel(props) {
     React.createElement('div', { style: { width: '220px', flexShrink: 0, paddingRight: '8px', height: '100%' }, children:
       React.createElement('div', { style: { height: '100%', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)', padding: '8px', overflowY: 'auto' }, children: [
         agentsNav.map(n => React.createElement(AgentsNavItem, { key: n.id, item: n, onTap: () => { const el = document.getElementById('sec-' + n.id); if (el) el.scrollIntoView(); } }))
-      ])
-    ),
+      ]})
+    }),
     // Colonna principale: maxWidth centrato DENTRO
     React.createElement('div', { className: 'h-full flex flex-col', style: { flex: 1, minWidth: 0 }, children: [
       React.createElement('div', { className: 'flex flex-col', style: { maxWidth: 'var(--spacing-chat-max)', margin: '0 auto', width: '100%', flex: 1, minHeight: 0 }, children: [
