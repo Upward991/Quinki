@@ -231,13 +231,16 @@ export function ChatArea(props: ChatAreaProps) {
   // === A3: quando l'utente MANDA un messaggio in una chat con notifiche → tutto
   // segnato come letto IN TEMPO REALE: badge (via setReadState + read_state_changed)
   // e marker (lastReadTs locale aggiornato → isUnread=false). ===
-  const handleSend = useCallback((text: string) => {
+  const handleSend = useCallback((text: string, opts?: any) => {
     if (sessionIdKey && !(sessionIdKey === '__app_expert__' && !props.isExpertApp)) {
       try { sidecarCall('setReadState', { sessionKey: sessionIdKey, patch: { lastReadTs: Date.now() } }) } catch {}
       setLastReadTs(Date.now())
       setMarkerVisible(false)
     }
-    props.onSend(text)
+    // IMPORTANTE: inoltrare opts (attachments/skillNames/taskClips) — una regressione A3
+    // passava solo text e gli allegati sparivano dal payload (clip in bolla + sezione
+    // ATTACHED FILES nel prompt non comparivano più).
+    props.onSend(text, opts)
   }, [sessionIdKey, sidecarCall, props.isExpertApp, props.onSend])
 
   const [taskPanelOpen, setTaskPanelOpen] = useState<boolean>(() => { try { return localStorage.getItem('quinki-taskpanel-' + sessionIdKey) === '1' } catch { return false } })
@@ -643,6 +646,7 @@ export function ChatArea(props: ChatAreaProps) {
               chatAgentIds={props.selectedAgentIds}
               onReset={props.onReset}
               onAgentToggle={props.onAgentToggle}
+              sessionKey={props.session?.id || ''}
             />
           </div>
           {taskStripBar}
