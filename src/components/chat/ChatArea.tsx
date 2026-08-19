@@ -142,11 +142,7 @@ export function ChatArea(props: ChatAreaProps) {
   // === A3: marker unread + segnalibro ===
   const [lastReadTs, setLastReadTs] = useState(0)
   const [lastReadTaskTs, setLastReadTaskTs] = useState(0)
-  const [readStateLoaded, setReadStateLoaded] = useState(false)
   const [bookmarkTs, setBookmarkTs] = useState<number | null>(null)
-  const lastVisibleTsRef = useRef(0)
-  const messagesRef = useRef(props.messages)
-  useEffect(() => { messagesRef.current = props.messages }, [props.messages])
   useEffect(() => {
     if (!sessionIdKey) return
     let cancelled = false
@@ -156,36 +152,10 @@ export function ChatArea(props: ChatAreaProps) {
         setLastReadTaskTs(r.state.lastReadTaskTs || 0)
         if (r.state.bookmarkTs) setBookmarkTs(r.state.bookmarkTs)
       }
-      if (!cancelled) setReadStateLoaded(true)
-    }).catch(() => { if (!cancelled) setReadStateLoaded(true) })
+    }).catch(() => {})
     return () => { cancelled = true }
   }, [sessionIdKey, sidecarCall])
-  // Mark read all'uscita: calcola l'ultimo messaggio VISIBILE dal DOM al momento dell'uscita
-  // (non usa lastVisibleTsRef che può essere stale — il cleanup cattura i messaggi iniziali)
-  useEffect(() => {
-    return () => {
-      if (!sessionIdKey) return
-      try {
-        const el = scrollRef.current
-        if (el) {
-          const items = el.querySelectorAll('[data-msg-idx]')
-          const bottom = el.getBoundingClientRect().bottom
-          for (let i = items.length - 1; i >= 0; i--) {
-            const it = items[i] as HTMLElement
-            const r = it.getBoundingClientRect()
-            if (r.top < bottom) {
-              const idx = Number(it.getAttribute('data-msg-idx'))
-              const m = messagesRef.current[idx]
-              if (m) {
-                try { sidecarCall('setReadState', { sessionKey: sessionIdKey, patch: { lastReadTs: new Date(m.timestamp).getTime() } }) } catch {}
-                break
-              }
-            }
-          }
-        }
-      } catch {}
-    }
-  }, [sessionIdKey, sidecarCall])
+
   const [taskPanelOpen, setTaskPanelOpen] = useState<boolean>(() => { try { return localStorage.getItem('quinki-taskpanel-' + sessionIdKey) === '1' } catch { return false } })
   const [taskExecs, setTaskExecs] = useState<any[]>([])
   const [taskScheds, setTaskScheds] = useState<any[]>([])
@@ -560,7 +530,7 @@ export function ChatArea(props: ChatAreaProps) {
             <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
               {/* Chat — SEMPRE montata (display none quando il pannello task è aperto) → lo scroll resta dov'era */}
               <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '4px 16px ' + (hasTasks ? 8 : 0) + 'px 16px', scrollbarGutter: 'stable', display: taskPanelOpen ? 'none' : 'block' }}
-                onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100); pinnedRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 120; if (autoScrollDoneRef.current) setMarkerVisible(false); try { const items = el.querySelectorAll('[data-msg-idx]'); for (let i = items.length - 1; i >= 0; i--) { const it = items[i] as HTMLElement; const r = it.getBoundingClientRect(); if (r.top < el.getBoundingClientRect().bottom) { const idx = Number(it.getAttribute('data-msg-idx')); const m = props.messages[idx]; if (m) { try { const ts = new Date(m.timestamp).getTime(); lastVisibleTsRef.current = ts; if (ts > lastReadTs && sessionIdKey) { if (markReadTimerRef.current) clearTimeout(markReadTimerRef.current); markReadTimerRef.current = setTimeout(() => { try { sidecarCall('setReadState', { sessionKey: sessionIdKey, patch: { lastReadTs: lastVisibleTsRef.current } }) } catch {} }, 300) } } catch {} } break } } } catch {} }}>
+                onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100); pinnedRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 120; }}>
                 {(() => {
                   const chatItems: { kind: 'msg' | 'task' | 'sys'; ts: number; msg?: any; run?: any; sysMsg?: string; mIdx?: number }[] = []
                   props.messages.forEach((msg, mIdx) => {
