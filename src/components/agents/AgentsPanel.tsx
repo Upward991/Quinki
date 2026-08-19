@@ -9,7 +9,7 @@ import { Archive, BookOpen, Bot, ChevronDown, ChevronUp, Copy, FileText, Home, I
 
 export function AgentsPanel(props) {
   const { call } = useSidecarContext();
-  const { agents = [], refreshAgents, onSelectPanel } = props;
+  const { agents = [], refreshAgents, onSelectPanel, onDefaultAgentChange } = props;
 
   // --- State ---
   const [skills, setSkills] = useState([]);
@@ -92,6 +92,7 @@ export function AgentsPanel(props) {
       const cfg = cfgRes?.config || {};
       cfg.defaultAgentId = agentId;
       await call('updateGlobalConfig', { config: cfg });
+      if (onDefaultAgentChange) onDefaultAgentChange();
       setSavedMsg('Saved.');
       setTimeout(() => setSavedMsg(null), 4000);
     } catch (e) { console.error('setDefaultAgent:', e); }

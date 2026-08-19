@@ -1502,6 +1502,13 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     try { await call('saveSettings', settings) } catch (e) { console.error('saveSettings:', e) }
   }, [ready, call])
 
+  const refreshDefaultAgent = useCallback(async () => {
+    if (!ready) return
+    try {
+      const r = await call('getGlobalConfig', {})
+      if (r?.config?.defaultAgentId) setDefaultAgentId(String(r.config.defaultAgentId))
+    } catch {}
+  }, [ready, call])
   const getGlobalConfig = useCallback(async () => {
     if (!ready) return {}
     try { return await call('getGlobalConfig', {}) } catch (e) { return {} }
@@ -1588,7 +1595,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     // History / errors
     getChatErrors, getDelegations, getSystemPrompt, getStreamingStatus, getStreamingMessage,
     // Settings / config
-    getSettings, saveSettings, getGlobalConfig, updateGlobalConfig, checkForPiUpdate,
+    getSettings, saveSettings, getGlobalConfig, updateGlobalConfig, refreshDefaultAgent, checkForPiUpdate,
     // Logs
     clearLogs, loadLogs,
     // Attachments
