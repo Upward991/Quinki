@@ -6364,12 +6364,48 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
 
   #saveReadState() {
     try {
+      // MERGE con il file esistente: main (9182) e Expert (9183) condividono lo STESSO
+      // read-state.json. Senza merge, il sidecar con lo stato più vecchio in memoria
+      // sovrascrive i valori più recenti dell'altro → i badge ricompaiono dopo la reinstall.
       const obj: any = {};
-      for (const [k, v] of this.#readState) obj[k] = v;
+      try {
+        if (fs.existsSync(this.#readStateFile())) {
+          const data = JSON.parse(fs.readFileSync(this.#readStateFile(), "utf8") || "{}");
+          for (const [k, v] of Object.entries(data)) obj[k] = { ...(v as any) };
+        }
+      } catch {}
+      for (const [k, v] of this.#readState) {
+        const cur = obj[k] || {};
+        const lastReadTs = Math.max(typeof cur.lastReadTs === "number" ? cur.lastReadTs : 0, v.lastReadTs || 0);
+        const lastReadTaskTs = Math.max(typeof cur.lastReadTaskTs === "number" ? cur.lastReadTaskTs : 0, v.lastReadTaskTs || 0);
+        const notifyMode = v.notifyMode || cur.notifyMode || "none";
+        obj[k] = { lastReadTs, lastReadTaskTs, notifyMode };
+      }
       const tmp = this.#readStateFile() + ".tmp";
       fs.writeFileSync(tmp, JSON.stringify(obj, null, 2), "utf8");
       fs.renameSync(tmp, this.#readStateFile());
     } catch {}
+  }
+
+  // Ricarica il file (l'altro sidecar potrebbe aver aggiornato lo stato condiviso).
+  // Prende il max lastReadTs per chat → i badge restano sincronizzati tra le due app.
+  #syncReadStateFromFile() {
+    try {
+      if (!fs.existsSync(this.#readStateFile())) return;
+      const data = JSON.parse(fs.readFileSync(this.#readStateFile(), "utf8") || "{}");
+      for (const [k, v] of Object.entries(data)) {
+        const cur = this.#readState.get(k);
+        const lastReadTs = Math.max(cur?.lastReadTs || 0, (v as any)?.lastReadTs || 0);
+        const lastReadTaskTs = Math.max(cur?.lastReadTaskTs || 0, (v as any)?.lastReadTaskTs || 0);
+        const notifyMode = cur?.notifyMode || (v as any)?.notifyMode || "none";
+        this.#readState.set(k, { lastReadTs, lastReadTaskTs, notifyMode });
+      }
+    } catch {}
+  }
+
+  startReadStateSync() {
+    this.#syncReadStateFromFile();
+    setInterval(() => { this.#syncReadStateFromFile(); }, 10000);
   }
 
   getReadState(key: string) {
