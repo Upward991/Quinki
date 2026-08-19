@@ -175,7 +175,7 @@ class PiBridge {
   #lastEffectiveCwd = new Map<string, string>();  // ultimo effectiveCwd per sessione (per delega)
   #skillsMtime = new Map<string, number>();  // mtime .pi/skills/ al session-create (auto-reload skill, history preservata)
   // === A3: Notifiche — read-state per chat + log notifiche ===
-  #readState = new Map<string, { lastReadTs: number; lastReadTaskTs: number; notifyMode: string }>();
+  #readState = new Map<string, { lastReadTs: number; lastReadTaskTs: number; notifyMode: string; notifyModeTs: number }>();
   #notifications: any[] = [];
   #notifBroadcast: ((entry: any) => void) | null = null;
   #readStateBroadcast: ((key: string) => void) | null = null;
@@ -1233,7 +1233,7 @@ class PiBridge {
         const gs = readSettings();
         const dmode = gs.defaultNotifyMode;
         if (dmode && !this.#readState.has(key)) {
-          this.#readState.set(key, { lastReadTs: 0, lastReadTaskTs: 0, notifyMode: dmode });
+          this.#readState.set(key, { lastReadTs: 0, lastReadTaskTs: 0, notifyMode: dmode, notifyModeTs: 0 });
           this.#saveReadState();
         }
       } catch {}
@@ -6453,8 +6453,13 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
         const cur = obj[k] || {};
         const lastReadTs = Math.max(typeof cur.lastReadTs === "number" ? cur.lastReadTs : 0, v.lastReadTs || 0);
         const lastReadTaskTs = Math.max(typeof cur.lastReadTaskTs === "number" ? cur.lastReadTaskTs : 0, v.lastReadTaskTs || 0);
-        const notifyMode = v.notifyMode || cur.notifyMode || "none";
-        obj[k] = { lastReadTs, lastReadTaskTs, notifyMode };
+        // notifyMode: vince quello col timestamp PIÙ RECENTE (merge-safe tra main ed Expert —
+        // senza, il sidecar con lo stato stantio sovrascriveva la modalità appena cambiata).
+        const vTs = v.notifyModeTs || 0;
+        const cTs = cur.notifyModeTs || 0;
+        const notifyMode = vTs >= cTs ? (v.notifyMode || cur.notifyMode || "none") : (cur.notifyMode || v.notifyMode || "none");
+        const notifyModeTs = Math.max(vTs, cTs);
+        obj[k] = { lastReadTs, lastReadTaskTs, notifyMode, notifyModeTs };
       }
       const tmp = this.#readStateFile() + ".tmp";
       fs.writeFileSync(tmp, JSON.stringify(obj, null, 2), "utf8");
@@ -6472,8 +6477,11 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
         const cur = this.#readState.get(k);
         const lastReadTs = Math.max(cur?.lastReadTs || 0, (v as any)?.lastReadTs || 0);
         const lastReadTaskTs = Math.max(cur?.lastReadTaskTs || 0, (v as any)?.lastReadTaskTs || 0);
-        const notifyMode = cur?.notifyMode || (v as any)?.notifyMode || "none";
-        this.#readState.set(k, { lastReadTs, lastReadTaskTs, notifyMode });
+        const vTs = (v as any)?.notifyModeTs || 0;
+        const cTs = cur?.notifyModeTs || 0;
+        const notifyMode = cTs >= vTs ? (cur?.notifyMode || (v as any)?.notifyMode || "none") : ((v as any)?.notifyMode || cur?.notifyMode || "none");
+        const notifyModeTs = Math.max(cTs, vTs);
+        this.#readState.set(k, { lastReadTs, lastReadTaskTs, notifyMode, notifyModeTs });
       }
     } catch {}
   }
@@ -6484,7 +6492,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
   }
 
   getReadState(key: string) {
-    const s = this.#readState.get(key) || { lastReadTs: 0, lastReadTaskTs: 0, notifyMode: "none" };
+    const s = this.#readState.get(key) || { lastReadTs: 0, lastReadTaskTs: 0, notifyMode: "none", notifyModeTs: 0 };
     return { ...s };
   }
 
@@ -6492,7 +6500,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     const cur = this.#readState.get(key) || { lastReadTs: 0, lastReadTaskTs: 0, notifyMode: "none" };
     if (typeof patch.lastReadTs === "number") cur.lastReadTs = patch.lastReadTs;
     if (typeof patch.lastReadTaskTs === "number") cur.lastReadTaskTs = patch.lastReadTaskTs;
-    if (typeof patch.notifyMode === "string") cur.notifyMode = patch.notifyMode;
+    if (typeof patch.notifyMode === "string") { cur.notifyMode = patch.notifyMode; cur.notifyModeTs = Date.now(); }
     this.#readState.set(key, cur);
     this.#saveReadState();
     try { this.#readStateBroadcast?.(key); } catch {}
@@ -6516,8 +6524,9 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     // A3 semplificato: solo "none" (muted) o "all" (non muted). Legacy mappati a "all".
     if (mode === "messages-only" || mode === "tasks-only") mode = "all";
     this.logDebug("a3-set-notify-mode", { sessionKey: key, mode });
-    const cur = this.#readState.get(key) || { lastReadTs: 0, lastReadTaskTs: 0, notifyMode: "none" };
+    const cur = this.#readState.get(key) || { lastReadTs: 0, lastReadTaskTs: 0, notifyMode: "none", notifyModeTs: 0 };
     cur.notifyMode = mode;
+    cur.notifyModeTs = Date.now();
     this.#readState.set(key, cur);
     this.#saveReadState();
     try { this.#readStateBroadcast?.(key); } catch {}
