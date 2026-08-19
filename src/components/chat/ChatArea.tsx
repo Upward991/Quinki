@@ -178,15 +178,20 @@ export function ChatArea(props: ChatAreaProps) {
     if (!sessionIdKey || sessionIdKey === '__app_expert__') { setTaskExecs([]); setTaskScheds([]); setTaskRuns([]); return }
     try {
       const [exR, schR] = await Promise.all([sidecarCall('listExecutions'), sidecarCall('listSchedules')])
-      const execs = (exR?.executions || []).filter((e: any) => e.sourceSession?.key === sessionIdKey)
-      const scheds = (schR?.schedules || []).filter((s: any) => s.sourceSession?.key === sessionIdKey)
+      // Se una RPC fallisce, NON aggiornare (mantieni lo stato attuale — le task non spariscono)
+      if (!exR || !schR) return
+      const execs = (exR.executions || []).filter((e: any) => e.sourceSession?.key === sessionIdKey)
+      const scheds = (schR.schedules || []).filter((s: any) => s.sourceSession?.key === sessionIdKey)
       const es = execs.map((e: any) => e.id + ':' + e.status + ':' + (e.label || '')).join('|')
       if (es !== taskExecsSig.current) { taskExecsSig.current = es; setTaskExecs(execs) }
       const ss = scheds.map((s: any) => s.id + ':' + (s.enabled ? '1' : '0')).join('|')
       if (ss !== taskSchedsSig.current) { taskSchedsSig.current = ss; setTaskScheds(scheds) }
       const runs: any[] = []
       for (const e of execs) {
-        try { const mR = await sidecarCall('getExecutionMessages', { executionId: e.id }); runs.push({ id: e.id, label: e.label || 'Task', status: e.status || '?', error: e.error || null, endedAt: e.endedAt || null, createdAt: e.createdAt || null, messages: (mR?.messages || []).sort((a: any, b: any) => String(a.timestamp || '').localeCompare(String(b.timestamp || ''))) }) } catch {}
+        // Anche se getExecutionMessages fallisce, il run viene pushato (messaggi vuoti) → le task non spariscono
+        let msgs: any[] = []
+        try { const mR = await sidecarCall('getExecutionMessages', { executionId: e.id }); msgs = (mR?.messages || []) } catch {}
+        runs.push({ id: e.id, label: e.label || 'Task', status: e.status || '?', error: e.error || null, endedAt: e.endedAt || null, createdAt: e.createdAt || null, messages: msgs.sort((a: any, b: any) => String(a.timestamp || '').localeCompare(String(b.timestamp || ''))) })
       }
       runs.sort((a, b) => String(a.messages[0]?.timestamp || '').localeCompare(String(b.messages[0]?.timestamp || '')))
       const rs = runs.map((r: any) => r.id + ':' + r.status + ':' + (r.messages || []).length).join('|')
