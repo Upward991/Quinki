@@ -113,7 +113,7 @@ export class LongHorizon {
       fs.writeFileSync(this.#progressFile(sk), JSON.stringify({
         goal: st.goal,
         status: st.status,
-        units: st.units.map((u, i) => ({ id: u.id, desc: u.desc, status: u.status, current: i === st.currentIdx })),
+        units: (st.units || []).map((u, i) => ({ id: u.id, desc: u.desc, status: u.status, current: i === st.currentIdx })),
       }, null, 2), "utf8");
     } catch {}
     this.#notify({ sessionKey: sk, ...this.getState(sk) });
@@ -129,8 +129,29 @@ export class LongHorizon {
         try {
           const st = JSON.parse(fs.readFileSync(sf, "utf8"));
           if (st && st.active) {
-            this.#states.set(d, { ...st });
-            this.#log("lh-loaded", { sessionKey: d, status: st.status });
+            // Normalizzazione difensiva: un state.json vecchio/troncato può mancare di campi
+            // (es. {"active":true,"status":"running"} senza units) → senza normalize il tick crasha
+            // con "st.units is undefined" a OGNI tick.
+            const norm: any = {
+              active: true,
+              goal: st.goal || "",
+              phase: st.phase || "discussion",
+              status: st.status || "idle",
+              units: Array.isArray(st.units) ? st.units : [],
+              currentIdx: typeof st.currentIdx === "number" ? st.currentIdx : -1,
+              promptCount: typeof st.promptCount === "number" ? st.promptCount : 0,
+              lastHandoffSig: st.lastHandoffSig || "",
+              startedAt: st.startedAt || Date.now(),
+              lastActivity: st.lastActivity || Date.now(),
+            };
+            // Stato incoerente: "running" senza unità → torna idle (il tick non gira a vuoto)
+            if (norm.status === "running" && norm.units.length === 0) {
+              norm.status = "idle";
+              norm.phase = "discussion";
+              norm.currentIdx = -1;
+            }
+            this.#states.set(d, norm);
+            this.#log("lh-loaded", { sessionKey: d, status: norm.status });
           }
         } catch {}
       }
@@ -526,12 +547,12 @@ export class LongHorizon {
     } catch {}
 
     if (st.currentIdx < 0) return; // nessuna unità impostata
-    let unit = st.units[st.currentIdx];
+    let unit = st.units?.[st.currentIdx];
     if (!unit) return;
 
     if (unit.status === "done") {
       // passa alla prossima unità pending
-      const next = st.units.findIndex((u, i) => i > st.currentIdx && u.status === "pending");
+      const next = (st.units || []).findIndex((u, i) => i > st.currentIdx && u.status === "pending");
       if (next === -1) {
         // piano completo → torna alla DISCUSSION per discutere cosa è successo
         st.status = "done";
@@ -642,7 +663,7 @@ export class LongHorizon {
       const sig = this.#handoffSig(sk);
       if (sig && sig !== st2.lastHandoffSig) {
         // handoff aggiornato dal modello → unità done
-        const u = st2.units[st2.currentIdx];
+        const u = st2.units?.[st2.currentIdx];
         if (u) { u.status = "done"; }
         st2.lastHandoffSig = sig;
         st2.promptCount = 0;
@@ -652,7 +673,7 @@ export class LongHorizon {
         // l'agente di supporto lo scrive dall'ultima risposta (il loop non si ferma mai).
         const resp = this.#lastAssistantText(sk);
         if (resp.trim()) {
-          const u = st2.units[st2.currentIdx];
+          const u = st2.units?.[st2.currentIdx];
           const entry = `\n## Unità ${unit.id} (completata)\n- Cosa: ${u?.desc || unit.desc}\n- Risultato: ${resp.slice(0, 800)}\n`;
           try {
             fs.mkdirSync(this.#dir(sk), { recursive: true });
@@ -668,7 +689,7 @@ export class LongHorizon {
         }
       }
       // git after (sempre, se l'unità è andata avanti)
-      const u2 = st2.units[st2.currentIdx];
+      const u2 = st2.units?.[st2.currentIdx];
       if (u2?.status === "done") {
         try { this.#git(sk, ["add", "-A"]); this.#git(sk, ["commit", "-m", `unit-${unit.id}: after`, "--allow-empty", "-q"]); } catch {}
       }
