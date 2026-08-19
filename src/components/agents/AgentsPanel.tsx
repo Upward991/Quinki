@@ -19,7 +19,6 @@ export function AgentsPanel(props) {
   const [defaultAgentId, setDefaultAgentId] = useState('quinki');
   const [defaultMenuOpen, setDefaultMenuOpen] = useState(false);
   const [defaultMenuPos, setDefaultMenuPos] = useState({ x: 0, y: 0 });
-  const [activeNav, setActiveNav] = useState('agents');
   const agentsNav = [
     { id: 'agents', label: 'Your agents', icon: Bot },
     { id: 'skills', label: 'Skills', icon: BookOpen },
@@ -588,8 +587,17 @@ export function AgentsPanel(props) {
   return React.createElement('div', { className: 'h-full flex flex-col', children: [
     // Container
     React.createElement('div', { className: 'flex flex-col', style: { maxWidth: 'var(--spacing-chat-max)', margin: '0 auto', width: '100%', flex: 1, minHeight: 0 }, children: [
-      // Header
-      React.createElement('div', { style: { marginBottom: '8px', flexShrink: 0, display: 'flex', alignItems: 'center' }, children: [
+      // Full row: sidebar (full-height, come le impostazioni) + colonna principale
+      React.createElement('div', { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'row', gap: '12px' }, children: [
+        // Sidebar — stile impostazioni: solo hover, nessuno stato attivo persistente
+        React.createElement('div', { style: { height: '100%', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)', padding: '8px', overflowY: 'auto', flexShrink: 0 }, children: [
+          agentsNav.map(n => React.createElement(AgentsNavItem, { key: n.id, item: n, onTap: () => { const el = document.getElementById('sec-' + n.id); if (el) el.scrollIntoView(); } }))
+        ]}),
+        // Colonna principale: header + contenuto
+        React.createElement('div', { className: 'h-full flex flex-col', style: { flex: 1, minWidth: 0 }, children: [
+          React.createElement('div', { className: 'flex flex-col', style: { flex: 1, minHeight: 0 }, children: [
+            // Header
+            React.createElement('div', { style: { marginBottom: '8px', flexShrink: 0, display: 'flex', alignItems: 'center' }, children: [
         // Home button
         React.createElement('div', { style: headerStyle, children: 
           React.createElement(IconButton, { icon: Home, onClick: () => onSelectPanel('home'), title: 'Home' })
@@ -609,20 +617,8 @@ export function AgentsPanel(props) {
           savedMsg && React.createElement('div', { style: { width: '16px', flexShrink: 0 } }),
         ]})
       ]}),
-
-      // Body: sidebar nav + content
-      React.createElement('div', { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'row', gap: '12px' }, children: [
-        // Sidebar stile sidebar CHAT: pannello flottante + righe con active evidenziato
-        React.createElement('div', { style: { width: '200px', flexShrink: 0, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)', padding: '8px', display: 'flex', flexDirection: 'column' }, children: [
-          agentsNav.map(n => React.createElement(AgentsNavItem, {
-            key: n.id,
-            item: n,
-            isActive: activeNav === n.id,
-            onSelect: () => { setActiveNav(n.id); const el = document.getElementById('sec-' + n.id); if (el) el.scrollIntoView(); }
-          }))
-        ]}),
-        // Content
-        React.createElement('div', { className: 'q-scroll', onScroll: (e: any) => { const el = e.currentTarget; const cont = el.getBoundingClientRect(); let cur = 'agents'; for (const n of agentsNav) { const sec = document.getElementById('sec-' + n.id); if (sec && sec.getBoundingClientRect().top <= cont.top + 90) cur = n.id; } setActiveNav(cur); }, style: { flex: 1, minHeight: 0, overflowY: 'auto', padding: '4px 16px 0 16px', overscrollBehavior: 'contain', scrollbarGutter: 'stable' }, children: [
+            // Content
+            React.createElement('div', { className: 'q-scroll', style: { flex: 1, minHeight: 0, overflowY: 'auto', padding: '4px 16px 0 16px', overscrollBehavior: 'contain', scrollbarGutter: 'stable' }, children: [
 
         // === Section: Default agent for new chats ===
       Section({ icon: Bot, title: 'Default agent for new chats', children: [
@@ -678,9 +674,9 @@ export function AgentsPanel(props) {
 
         // === Section: Skill (standalone) ===
         React.createElement('div', { id: 'sec-skills' }, Section({ icon: BookOpen, title: `Skill (${skills.length})`, children: [
-          React.createElement('div', { style: { display: 'flex', gap: '8px' }, children: [
-            MiniButton({ label: 'Create skill', onClick: () => setShowCreateSkill(true) }),
-            MiniButton({ label: 'Install skill', onClick: () => setShowInstallSkill(true) })
+          React.createElement('div', { style: { display: 'flex', gap: '6px' }, children: [
+            MiniButton({ label: 'Install skill', onClick: () => setShowInstallSkill(true) }),
+            MiniButton({ label: 'Create skill', onClick: () => setShowCreateSkill(true) })
           ]}),
           React.createElement('div', { style: { height: '8px' } }),
           SearchBar({ placeholder: 'Search skill...', value: searchSkills, onChange: setSearchSkills }),
@@ -783,8 +779,10 @@ export function AgentsPanel(props) {
 
         React.createElement('div', { style: { height: '32px' } })
         ]})
-      ]})
-    ]}),
+            ]})
+          ]})
+        ]})
+      ]}),
 
     // === Modals ===
 
@@ -964,18 +962,16 @@ function Section({ icon, title, children }) {
   ]});
 }
 
-function AgentsNavItem({ item, isActive, onSelect }) {
+function AgentsNavItem({ item, onTap }) {
   const [hovered, setHovered] = useState(false)
-  const textColor = isActive ? 'var(--q-accent-info)' : hovered ? 'var(--q-text)' : 'var(--q-text-secondary)'
-  const iconColor = isActive ? 'var(--q-accent-info)' : hovered ? 'var(--q-text)' : 'var(--q-text-tertiary)'
-  return React.createElement('button', {
-    onClick: onSelect,
+  return React.createElement('div', {
+    onClick: onTap,
     onMouseEnter: () => setHovered(true),
     onMouseLeave: () => setHovered(false),
-    style: { display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 10px', marginBottom: '2px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: hovered ? 'var(--q-hover)' : 'transparent', color: textColor, fontSize: '13px', fontFamily: 'var(--font-interface)', textAlign: 'left' },
+    style: { padding: '8px 12px', marginBottom: '2px', borderRadius: '8px', cursor: 'pointer', backgroundColor: hovered ? 'var(--q-hover)' : 'transparent', display: 'flex', alignItems: 'center', gap: '8px', transition: 'none' },
     children: [
-      React.createElement(item.icon, { size: 15, style: { color: iconColor, flexShrink: 0 } }),
-      React.createElement('span', { style: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: item.label })
+      React.createElement(item.icon, { size: 20, style: { color: hovered ? 'var(--q-tab-accent)' : 'var(--q-text-secondary)', flexShrink: 0 } }),
+      React.createElement('span', { style: { color: hovered ? 'var(--q-tab-accent)' : 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: item.label })
     ]
   })
 }
