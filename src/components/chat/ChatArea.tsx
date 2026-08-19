@@ -233,6 +233,9 @@ export function ChatArea(props: ChatAreaProps) {
   // === A3: quando l'utente MANDA un messaggio in una chat con notifiche → tutto
   // segnato come letto IN TEMPO REALE: badge (via setReadState + read_state_changed)
   // e marker (lastReadTs locale aggiornato → isUnread=false). ===
+  // Dichiarata PRIMA di handleSend (i suoi deps la usano — altrimenti TDZ 'Cannot access before initialization')
+  const [welcomeKey, setWelcomeKey] = useState('')
+
   const handleSend = useCallback((text: string, opts?: any) => {
     if (sessionIdKey && !(sessionIdKey === '__app_expert__' && !props.isExpertApp)) {
       try { sidecarCall('setReadState', { sessionKey: sessionIdKey, patch: { lastReadTs: Date.now() } }) } catch {}
@@ -251,7 +254,6 @@ export function ChatArea(props: ChatAreaProps) {
 
   // === Welcome-attach: se non c'è ancora una sessione (chat non iniziata), creala on-demand
   // così gli allegati funzionano anche prima del primo invio. ===
-  const [welcomeKey, setWelcomeKey] = useState('')
   const ensureWelcomeSession = useCallback(async (): Promise<string | null> => {
     if (props.session?.id) return props.session.id
     if (welcomeKey) return welcomeKey
