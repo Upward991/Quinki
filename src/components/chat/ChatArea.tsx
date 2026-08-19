@@ -183,6 +183,7 @@ export function ChatArea(props: ChatAreaProps) {
       if (!exR || !schR) return
       const execs = (exR.executions || []).filter((e: any) => e.sourceSession?.key === sessionIdKey)
       const scheds = (schR.schedules || []).filter((s: any) => s.sourceSession?.key === sessionIdKey)
+      console.log('[A3] refreshTasks', sessionIdKey.slice(0, 18), '→ execs:', execs.length, 'scheds:', scheds.length)
       const es = execs.map((e: any) => e.id + ':' + e.status + ':' + (e.label || '')).join('|')
       if (es !== taskExecsSig.current) { taskExecsSig.current = es; setTaskExecs(execs) }
       const ss = scheds.map((s: any) => s.id + ':' + (s.enabled ? '1' : '0')).join('|')
