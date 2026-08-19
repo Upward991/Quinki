@@ -294,6 +294,7 @@ export function ChatArea(props: ChatAreaProps) {
         ) : taskRuns.map((run, ri) => {
           const isUnreadTask = run.endedAt && run.endedAt > lastReadTaskTs
           const isFirstUnreadTask = isUnreadTask && (ri === 0 || !(taskRuns[ri-1].endedAt && taskRuns[ri-1].endedAt > lastReadTaskTs))
+          console.log('[A3] task marker check', run.id.slice(0, 15), 'endedAt:', run.endedAt, 'lastReadTaskTs:', lastReadTaskTs, 'unread:', isUnreadTask)
           return (
             <div key={run.id}>
               {isFirstUnreadTask && (
