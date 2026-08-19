@@ -176,7 +176,12 @@ export function ChatArea(props: ChatAreaProps) {
   }, [taskPanelOpen])
   const refreshTasks = useCallback(async () => {
     console.log('[A3] refreshTasks sessionIdKey:', sessionIdKey)
-    if (!sessionIdKey || sessionIdKey === '__app_expert__') { setTaskExecs([]); setTaskScheds([]); setTaskRuns([]); return }
+    if (!sessionIdKey || sessionIdKey === '__app_expert__') {
+      setTaskExecs([]); setTaskScheds([]); setTaskRuns([])
+      // Resetta le firme: al ritorno in una chat il confronto rileva il cambiamento e aggiorna
+      taskExecsSig.current = ''; taskSchedsSig.current = ''; taskRunsSig.current = ''
+      return
+    }
     try {
       const [exR, schR] = await Promise.all([sidecarCall('listExecutions'), sidecarCall('listSchedules')])
       // Se una RPC fallisce, NON aggiornare (mantieni lo stato attuale — le task non spariscono)

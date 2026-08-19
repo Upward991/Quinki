@@ -306,7 +306,7 @@ export function Sidebar(props: SidebarProps) {
               flex: 1, height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
               borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer',
               backgroundColor: o || hovered === 'newchat' ? 'var(--q-hover)' : 'transparent',
-              color: o ? 'var(--q-accent-info)' : newChatFlash ? 'var(--q-accent-primary)' : hovered === 'newchat' ? 'var(--q-text)' : 'var(--q-text-secondary)',
+              color: o ? 'var(--q-accent-info)' : newChatFlash ? 'var(--q-text)' : hovered === 'newchat' ? 'var(--q-text)' : 'var(--q-text-secondary)',
               padding: 0,
             }}
           >
