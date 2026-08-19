@@ -901,15 +901,9 @@ async function bootstrap() {
     // A2.3: Recovery Manager (al boot: interrupted → auto-resume semantico) + Keep Awake
     try { executor.startRecovery(true); } catch (e: any) { process.stderr.write(`[sidecar-marker] recovery-start-error: ${e?.message}\n`); }
     try { piBridge!.recoverPendingTurns().then((n: number) => { if (n > 0) process.stderr.write(`[sidecar-marker] pending-turns-recovered: ${n}\n`); }).catch(() => {}); } catch (e: any) { process.stderr.write(`[sidecar-marker] pending-turns-error: ${e?.message}\n`); }
-    // === A3 FIX: recovery PERIODICO dei turni bloccati (ogni 30s).
-    // Il vecchio tick 30s causava autoprompt spuri; ORA c'è la guardia stale-buffer
-    // (45s senza aggiornamenti = turno DAVVERO bloccato, es. tool call appeso) → i turni
-    // lenti ma attivi vengono saltati. Senza questo, se l'agente si blocca a metà
-    // sessione (tool call che non ritorna), la chat resta ferma finché l'utente non
-    // ricarica — l'autoprompt DEVE arrivare sempre. ===
-    setInterval(() => {
-      try { piBridge!.recoverPendingTurns().then((n: number) => { if (n > 0) process.stderr.write(`[sidecar-marker] periodic-recovered: ${n}\n`); }).catch(() => {}); } catch (e: any) { process.stderr.write(`[sidecar-marker] periodic-recover-error: ${e?.message}\n`); }
-    }, 30000);
+    // NESSUN tick periodico: il recovery scatta SOLO al boot (crash/riavvio) quando il
+    // marker pending-turn è presente (turno davvero interrotto). I timer causavano
+    // falsi autoprompt (modelli lenti, tool lunghi). Un turno attivo non si tocca mai.
     try { piBridge!.writeExpertTccStatus(); } catch (e: any) { process.stderr.write(`[sidecar-marker] expert-tcc-error: ${e?.message}\n`); }
     // NIENTE tick 30s: il re-prompt avviene SOLO dopo i 3 tentativi dell'SDK (in pi-bridge),
     // non a intervalli fissi (causava autoprompt spuri). Il recovery al boot resta per i crash.

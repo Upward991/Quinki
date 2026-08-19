@@ -2587,32 +2587,16 @@ class PiBridge {
           // (> 45s senza aggiornamenti), il turno è BLOCCATO → ri-prompta per sbloccarlo.
           // NB: 45s per non doppiare i turni LENTI (contesto enorme di __app_expert__:
           // il modello può metterci decine di secondi a produrre il primo token).
+          // === NESSUN TIMER: se il turno è ATTIVO (buffer presente), il sidecar è vivo
+          // e sta lavorando (modello lento, tool lungo, contesto enorme) → NON si
+          // ri-prompta MAI, a prescindere da quanto tempo passa. I timer (45s, 20min)
+          // causavano falsi autoprompt (modelli locali lenti, build lunghe).
+          // Il recovery scatta SOLO quando il processo è morto/riavviato (al boot il
+          // buffer non c'è) e il marker pending-turn è presente → turno DAVVERO
+          // interrotto. L'utente può sempre fermare o mandare un messaggio. ===
           if (this.#streamingBuffers.has(sk)) {
-            const sb = this.#streamingBuffers.get(sk);
-            // === FIX: se un TOOL è in esecuzione, NON ri-promptare MAI (il tool può
-            // durare legittimamente 5-10-20 min, es. build/test lunghi). Il buffer non
-            // si aggiorna durante un tool silenzioso → lo stale-check da solo
-            // ri-promptarebbe all'infinito. Solo quando NESSUN tool è attivo lo
-            // stale-check ha senso (modello bloccato a metà generazione). ===
-            if (sb && sb.currentPhase === "tool_call") {
-              // Tool ATTIVO: mai ri-promptare durante l'esecuzione (anche 5-20 min).
-              // MA se il tool non finisce per > 20 min (toolcall_end mai arrivato,
-              // processo appeso) → è DAVVERO bloccato → ri-prompta.
-              const toolAge = Date.now() - (sb.ts || 0);
-              if (toolAge > 1200000) {
-                this.logDebug("recovery-tool-hung", { sessionKey: sk, ageMs: toolAge });
-              } else {
-                this.logDebug("recovery-skip", { sessionKey: sk, reason: "tool-running" });
-                continue;
-              }
-            }
-            const stale = sb && (Date.now() - (sb.ts || 0) > 45000);
-            if (stale) {
-              this.logDebug("recovery-stuck-turn", { sessionKey: sk, ageMs: Date.now() - (sb.ts || 0) });
-            } else {
-              this.logDebug("recovery-skip", { sessionKey: sk, reason: "streaming-buffer" });
-              continue;
-            }
+            this.logDebug("recovery-skip", { sessionKey: sk, reason: "turn-active" });
+            continue;
           }
           // Salta se l'utente ha premuto STOP (non ri-promptare)
           if (this.#stoppedSessions.has(sk)) { this.logDebug("recovery-skip", { sessionKey: sk, reason: "stopped" }); continue; }
