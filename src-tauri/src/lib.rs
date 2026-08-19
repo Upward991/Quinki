@@ -318,9 +318,13 @@ fn get_sidecar_version(app: tauri::AppHandle) -> Result<String, String> {
     Ok("unknown".to_string())
 }
 
-// === A3: delegate UNUserNotificationCenter — mostra le notifiche anche in primo piano ===
+// === A3: delegate UNUserNotificationCenter — mostra le notifiche anche in primo piano
+// e gestisce il CLICK sulla notifica (apre la chat relativa) ===
+static NOTIF_APP: std::sync::OnceLock<tauri::AppHandle> = std::sync::OnceLock::new();
+
 #[cfg(target_os = "macos")]
-fn setup_notification_delegate() {
+fn setup_notification_delegate(app: &tauri::AppHandle) {
+    let _ = NOTIF_APP.set(app.clone());
     use objc::runtime::{Object, Sel};
     use objc::{class, msg_send, sel, sel_impl};
     use std::os::raw::{c_char, c_void};
@@ -337,6 +341,43 @@ fn setup_notification_delegate() {
         let block = &*(completion as *const block::Block<(u64,), ()>);
         block.call((options,));
     }
+    // CLICK sulla notifica → estrae la sessionKey da userInfo → focus + apre la chat
+    unsafe extern "C" fn did_receive(_this: *mut Object, _cmd: Sel, _center: *mut Object, response: *mut Object, completion: *mut c_void) {
+        if let Some(app) = NOTIF_APP.get() {
+            unsafe {
+                use objc::{class, msg_send, sel, sel_impl};
+                use objc::runtime::Object;
+                use std::ffi::{CStr, CString};
+                let notif: *mut Object = msg_send![response, notification];
+                let request: *mut Object = msg_send![notif, request];
+                let content: *mut Object = msg_send![request, content];
+                let user_info: *mut Object = msg_send![content, userInfo];
+                if !user_info.is_null() {
+                    let key_c = CString::new("sessionKey").unwrap_or_default();
+                    let key_ns: *mut Object = msg_send![class!(NSString), stringWithUTF8String: key_c.as_ptr()];
+                    let val: *mut Object = msg_send![user_info, objectForKey: key_ns];
+                    if !val.is_null() {
+                        let cstr: *const c_char = msg_send![val, UTF8String];
+                        if !cstr.is_null() {
+                            let sk = CStr::from_ptr(cstr).to_string_lossy().into_owned();
+                            if !sk.is_empty() {
+                                let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
+                                let _ = std::fs::write(format!("{}/.quinki/a3-notif-debug.log", home), format!("[A3] notification CLICKED for session: {}\n", sk));
+                                if let Some(win) = app.get_webview_window("main") {
+                                    let _ = win.show();
+                                    let _ = win.set_focus();
+                                    let _ = win.emit("switch-session", &sk);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // completion handler (void block)
+        let block = &*(completion as *const block::Block<(), ()>);
+        block.call(());
+    }
     unsafe {
         let superclass = class!(NSObject) as *const _ as *const Object;
         let name = b"QuinkiNotifDelegate\0".as_ptr() as *const c_char;
@@ -344,6 +385,7 @@ fn setup_notification_delegate() {
         if cls.is_null() { return; }
         let types = b"v@:@@@?\0".as_ptr() as *const c_char;
         class_addMethod(cls, sel!(userNotificationCenter:willPresentNotification:withCompletionHandler:), will_present as *const c_void, types);
+        class_addMethod(cls, sel!(userNotificationCenter:didReceiveNotificationResponse:withCompletionHandler:), did_receive as *const c_void, types);
         objc_registerClassPair(cls);
         let center: *mut Object = msg_send![class!(UNUserNotificationCenter), currentNotificationCenter];
         let delegate: *mut Object = msg_send![cls, new];
@@ -384,10 +426,10 @@ fn send_macos_notification(title: &str, body: &str, subtitle: &str) {
 }
 
 #[tauri::command]
-fn send_notification(app: tauri::AppHandle, title: String, body: String, subtitle: Option<String>) -> Result<(), String> {
+fn send_notification(app: tauri::AppHandle, title: String, body: String, subtitle: Option<String>, session_key: Option<String>) -> Result<(), String> {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
     let dbg = format!("{}/.quinki/a3-notif-debug.log", home);
-    let _ = std::fs::write(&dbg, format!("[A3] send_notification called: {} / {} / sub: {}\n", title, body, subtitle.clone().unwrap_or_default()));
+    let _ = std::fs::write(&dbg, format!("[A3] send_notification called: {} / {} / sub: {} / sk: {}\n", title, body, subtitle.clone().unwrap_or_default(), session_key.clone().unwrap_or_default()));
     send_macos_notification(&title, &body, subtitle.as_deref().unwrap_or(""));
     // Il plugin usa notify_rust (osascript) che NON mostra notifiche per questa app.
     // Implementiamo la consegna REALE con UNUserNotificationCenter.
@@ -405,6 +447,17 @@ fn send_notification(app: tauri::AppHandle, title: String, body: String, subtitl
             let body_ns: *mut Object = msg_send![class!(NSString), stringWithUTF8String: body_c.as_ptr()];
             let _: () = msg_send![content, setTitle: title_ns];
             let _: () = msg_send![content, setBody: body_ns];
+            // userInfo: la sessionKey serve al CLICK sulla notifica per aprire la chat
+            if let Some(sk) = &session_key {
+                if let Ok(sk_c) = CString::new(sk.as_str()) {
+                    let sk_ns: *mut Object = msg_send![class!(NSString), stringWithUTF8String: sk_c.as_ptr()];
+                    let key_c = CString::new("sessionKey").map_err(|e| e.to_string())?;
+                    let key_ns: *mut Object = msg_send![class!(NSString), stringWithUTF8String: key_c.as_ptr()];
+                    let dict: *mut Object = msg_send![class!(NSMutableDictionary), new];
+                    let _: () = msg_send![dict, setObject: sk_ns forKey: key_ns];
+                    let _: () = msg_send![content, setUserInfo: dict];
+                }
+            }
             let id_c = CString::new("quinki-notif").map_err(|e| e.to_string())?;
             let id_ns: *mut Object = msg_send![class!(NSString), stringWithUTF8String: id_c.as_ptr()];
             let nil_obj: *mut Object = std::ptr::null_mut();
@@ -1428,7 +1481,7 @@ pub fn run() {
             let block_ptr: *mut std::ffi::c_void = &*block as *const _ as *mut std::ffi::c_void;
             let _: () = msg_send![center, requestAuthorizationWithOptions: options completionHandler: block_ptr];
             // Delegate per mostrare le notifiche ANCHE in primo piano
-            setup_notification_delegate();
+            setup_notification_delegate(app.handle());
           }
         }
       }

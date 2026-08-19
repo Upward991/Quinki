@@ -25,7 +25,7 @@ listen('tray-open-expert', () => {
     }).then((u: any) => unsubs.push(u))
     listen('switch-session', (event: any) => {
       const sk = event.payload
-      if (sk) { localStorage.setItem('quinki-chat-window-session', sk); e.selectSession(sk) }
+      if (sk) { localStorage.setItem('quinki-chat-window-session', sk); e.selectSession(sk); n('chat') }
     }).then((u: any) => unsubs.push(u))
     return () => { unsubs.forEach((u: any) => u?.()) }
   }, [])
