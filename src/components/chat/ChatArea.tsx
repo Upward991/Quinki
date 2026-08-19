@@ -149,6 +149,7 @@ export function ChatArea(props: ChatAreaProps) {
   const lastVisibleTsRef = useRef(0)
   const markerScrolledRef = useRef(false)
   const autoScrollDoneRef = useRef(false)
+  const markReadTimerRef = useRef<any>(null)
   const messagesRef = useRef(props.messages)
   useEffect(() => { messagesRef.current = props.messages }, [props.messages])
   useEffect(() => {
@@ -606,7 +607,7 @@ export function ChatArea(props: ChatAreaProps) {
             <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
               {/* Chat — SEMPRE montata (display none quando il pannello task è aperto) → lo scroll resta dov'era */}
               <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '4px 16px ' + (hasTasks ? 8 : 0) + 'px 16px', scrollbarGutter: 'stable', display: taskPanelOpen ? 'none' : 'block' }}
-                onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100); pinnedRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 120; if (autoScrollDoneRef.current) setMarkerVisible(false); try { const items = el.querySelectorAll('[data-msg-idx]'); for (let i = items.length - 1; i >= 0; i--) { const it = items[i] as HTMLElement; const r = it.getBoundingClientRect(); if (r.top < el.getBoundingClientRect().bottom) { const idx = Number(it.getAttribute('data-msg-idx')); const m = props.messages[idx]; if (m) { try { lastVisibleTsRef.current = new Date(m.timestamp).getTime() } catch {} } break } } } catch {} }}>
+                onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100); pinnedRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 120; if (autoScrollDoneRef.current) setMarkerVisible(false); try { const items = el.querySelectorAll('[data-msg-idx]'); for (let i = items.length - 1; i >= 0; i--) { const it = items[i] as HTMLElement; const r = it.getBoundingClientRect(); if (r.top < el.getBoundingClientRect().bottom) { const idx = Number(it.getAttribute('data-msg-idx')); const m = props.messages[idx]; if (m) { try { const ts = new Date(m.timestamp).getTime(); lastVisibleTsRef.current = ts; if (ts > lastReadTs && sessionIdKey) { if (markReadTimerRef.current) clearTimeout(markReadTimerRef.current); markReadTimerRef.current = setTimeout(() => { try { sidecarCall('setReadState', { sessionKey: sessionIdKey, patch: { lastReadTs: lastVisibleTsRef.current } }) } catch {} }, 300) } } catch {} } break } } } catch {} }}>
                 {(() => {
                   const chatItems: { kind: 'msg' | 'task' | 'sys'; ts: number; msg?: any; run?: any; sysMsg?: string; mIdx?: number }[] = []
                   props.messages.forEach((msg, mIdx) => {

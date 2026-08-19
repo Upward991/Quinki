@@ -738,16 +738,8 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
   const selectSession = useCallback(async (sessionKey: string) => {
     activeSessionIdRef.current = sessionKey
     setActiveSessionId(sessionKey)
-    // === A3: al cambio sessione aggiorna i badge (il mark-on-exit ha segnato la lettura) ===
+    // === A3: al cambio sessione aggiorna i badge (il mark-read in tempo reale ha aggiornato) ===
     refreshUnreadCounts()
-    // === A3: mark-as-read all'apertura — dopo 1.5s la chat aperta è considerata letta
-    // (messaggi + task) così il badge si azzera subito, senza entrare/uscire. ===
-    const openedKey = sessionKey
-    setTimeout(() => {
-      if (activeSessionIdRef.current === openedKey) {
-        call('setReadState', { sessionKey: openedKey, patch: { lastReadTs: Date.now(), lastReadTaskTs: Date.now() } }).catch(() => {})
-      }
-    }, 1500)
     // NON svuotare messages qui: evita il flash quando si ricarica la stessa chat (es. dopo compaction)
     // Restore streaming state from per-session map
     const saved = sessionStreamingMap.current.get(sessionKey)
