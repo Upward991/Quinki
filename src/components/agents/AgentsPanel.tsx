@@ -17,6 +17,9 @@ export function AgentsPanel(props) {
   const [planModeTools, setPlanModeTools] = useState({}); // { toolName: true/false }
   const [planModeMcp, setPlanModeMcp] = useState({}); // { mcpId: true/false }
   const [defaultAgentId, setDefaultAgentId] = useState('quinki');
+  const [defaultMenuOpen, setDefaultMenuOpen] = useState(false);
+  const [defaultMenuPos, setDefaultMenuPos] = useState({ x: 0, y: 0 });
+  const defaultAgentBtnRef = useRef<any>(null);
   const [expandedAgentId, setExpandedAgentId] = useState(null);
   const [renamingAgentId, setRenamingAgentId] = useState(null);
   const [searchAgents, setSearchAgents] = useState('');
@@ -92,6 +95,20 @@ export function AgentsPanel(props) {
       setSavedMsg('Saved.');
       setTimeout(() => setSavedMsg(null), 4000);
     } catch (e) { console.error('setDefaultAgent:', e); }
+  };
+
+  // Apre il menu custom dell'agente di default con posizionamento viewport-aware
+  // (stesso pattern del menu contestuale: non deve finire fuori dalla finestra).
+  const openDefaultAgentMenu = () => {
+    const rect = defaultAgentBtnRef.current?.getBoundingClientRect();
+    const W = 200;
+    const H = Math.min(agents.length, 10) * 34 + 8;
+    let x = rect ? rect.left : 8;
+    let y = rect ? rect.bottom + 8 : 8;
+    if (x + W > window.innerWidth) x = window.innerWidth - W - 8;
+    if (y + H > window.innerHeight) y = Math.max(8, (rect ? rect.top : 8) - H - 8);
+    setDefaultMenuPos({ x: Math.max(8, x), y });
+    setDefaultMenuOpen(true);
   };
 
   // --- No toasts in header — only dirty/saved indicator ---
@@ -588,19 +605,28 @@ export function AgentsPanel(props) {
       React.createElement('div', { className: 'q-scroll', style: { flex: 1, minHeight: 0, overflowY: 'auto', padding: '4px 16px 0 16px', overscrollBehavior: 'contain', scrollbarGutter: 'stable' }, children: [
 
         // === Section: Default agent for new chats ===
-        Section({ icon: Bot, title: 'Default agent for new chats', children: [
-          React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', padding: '4px 0 12px 0' }, children: [
-            React.createElement('span', { style: { color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'New chats always start with this agent:' }),
-            React.createElement('select', {
-              value: agents.some(a => a.id === defaultAgentId) ? defaultAgentId : 'quinki',
-              onChange: (e: any) => doSetDefaultAgent(e.target.value),
-              style: { padding: '7px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-panel)', color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', cursor: 'pointer' }
-            }, agents.map((a: any) => React.createElement('option', { key: a.id, value: a.id }, a.name || a.id)))
+      Section({ icon: Bot, title: 'Default agent for new chats', children: [
+        React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }, children: [
+          React.createElement('span', { style: { color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'New chats always start with this agent:' }),
+          React.createElement('div', { ref: defaultAgentBtnRef, style: { position: 'relative' }, children: [
+            React.createElement('button', {
+              onClick: (e: any) => { e.stopPropagation(); openDefaultAgentMenu(); },
+              style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-panel)', color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', cursor: 'pointer' },
+              children: [
+                React.createElement(Bot, { size: 14, style: { color: 'var(--q-text-secondary)', flexShrink: 0 } }),
+                React.createElement('span', { style: { maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: (agents.find((a: any) => a.id === defaultAgentId) || { name: defaultAgentId }).name || defaultAgentId }),
+                React.createElement(ChevronDown, { size: 14, style: { color: 'var(--q-text-tertiary)', flexShrink: 0 } })
+              ]
+            }),
+            defaultMenuOpen && React.createElement(React.Fragment, null, [
+              React.createElement('div', { key: 'ov', style: { position: 'fixed', inset: 0, zIndex: 998, backgroundColor: 'transparent' }, onClick: () => setDefaultMenuOpen(false), onContextMenu: (e: any) => { e.preventDefault(); setDefaultMenuOpen(false) } }),
+              React.createElement('div', { key: 'menu', style: { position: 'fixed', left: defaultMenuPos.x, top: defaultMenuPos.y, zIndex: 999, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '4px 0', minWidth: '200px', maxHeight: '320px', overflowY: 'auto' }, children: agents.map((a: any) => React.createElement(DefaultAgentMenuItem, { key: a.id, agent: a, isSelected: a.id === defaultAgentId, onSelect: (id: string) => { doSetDefaultAgent(id); setDefaultMenuOpen(false) } })) })
+            ])
           ]})
-        ]}),
-        React.createElement('div', { style: { height: '4px' } }),
+        ]})
+      ]}),
 
-        // === Section: Your agents ===
+      // === Section: Your agents ===
         Section({ icon: Bot, title: `Your agents (${agents.length})`, children: [
           AddButton({ label: 'New agent', onClick: () => setShowNewAgent(true) }),
           React.createElement('div', { style: { height: '8px' } }),
@@ -921,6 +947,21 @@ function Section({ icon, title, children }) {
   ]});
 }
 
+function DefaultAgentMenuItem({ agent, isSelected, onSelect }) {
+  const [hover, setHover] = useState(false);
+  return React.createElement('button', {
+    onClick: () => onSelect(agent.id),
+    onMouseEnter: () => setHover(true),
+    onMouseLeave: () => setHover(false),
+    style: { display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: hover ? 'var(--q-hover)' : 'transparent', color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', textAlign: 'left' },
+    children: [
+      React.createElement(Bot, { size: 14, style: { color: hover ? 'var(--q-tab-accent)' : 'var(--q-text-secondary)', flexShrink: 0 } }),
+      React.createElement('span', { style: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: agent.name || agent.id }),
+      isSelected && React.createElement('span', { style: { color: 'var(--q-tab-accent)', fontSize: '13px', flexShrink: 0 }, children: '✓' })
+    ]
+  });
+}
+
 function SubSection({ icon, title, action, children }) {
   return React.createElement('div', { style: { width: '100%', padding: '12px 16px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)' }, children: [
     React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }, children: [
@@ -967,7 +1008,7 @@ export function AgentRow({ agent, isExpanded, isRenaming, onToggle, onStartRenam
   const agentSkills = skills.filter(s => (agent.skills || []).some(as => nm(as) === s.name));
   const agentTools = tools.filter(t => (agent.tools || []).some(at => nm(at) === t.name));
   const agentMcps = (mcpServers || []).filter(s => (agent.mcpServers || []).some(id => id === s.id));
-  const canRename = agent.id !== 'app-expert' && agent.id !== 'orchestrator';
+  const canRename = agent.id !== 'app-expert' && agent.id !== 'orchestrator' && agent.id !== 'quinki';
   const renameRef = useRef(null);
 
   return React.createElement('div', { style: { marginBottom: '4px', backgroundColor: 'var(--q-bg-elevated)', border: 'none', borderRadius: '8px', overflow: 'hidden' }, children: [

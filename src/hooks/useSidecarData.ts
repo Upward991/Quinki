@@ -105,7 +105,7 @@ function mapAgent(a: any) {
     tools: (a.tools || []).map((t: string) => ({ name: t, enabled: true })),
     mcpServers: Array.isArray(a.mcpServers) ? a.mcpServers : [],
     directory: a.directory || '',
-    isDeletable: a.id !== 'orchestrator' && a.id !== 'app-expert',
+    isDeletable: a.id !== 'orchestrator' && a.id !== 'app-expert' && a.id !== 'quinki',
   }
 }
 
