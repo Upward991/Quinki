@@ -147,6 +147,7 @@ export function ChatArea(props: ChatAreaProps) {
   const [readStateLoaded, setReadStateLoaded] = useState(false)
   const markerScrolledRef = useRef(false)
   const autoScrollDoneRef = useRef(false)
+  const openTsRef = useRef(0)
   const markReadTimerRef = useRef<any>(null)
   const messagesRef = useRef(props.messages)
   useEffect(() => { messagesRef.current = props.messages }, [props.messages])
@@ -158,6 +159,9 @@ export function ChatArea(props: ChatAreaProps) {
     setMarkerVisible(false)
     setReadStateLoaded(false)
     let cancelled = false
+    // openTs = momento dell'apertura: il marker mostra SOLO ciò che era unread PRIMA
+    // dell'apertura (ts <= openTs), non ciò che arriva live mentre sei dentro.
+    openTsRef.current = Date.now()
     sidecarCall('getReadState', { sessionKey: sessionIdKey }).then((r: any) => {
       if (!cancelled && r?.state) {
         // baseline = il lastReadTs PRIMA del mark-read → il marker resta visibile finché esci
@@ -188,8 +192,11 @@ export function ChatArea(props: ChatAreaProps) {
     if (wasStreaming && !props.streaming && streamingSessionRef.current && streamingSessionRef.current !== '__app_expert__') {
       const sk = streamingSessionRef.current
       streamingSessionRef.current = null
-      // Marca la chat CHE STREAMMAVA (l'utente l'ha vista in tempo reale), non quella attuale
-      try { sidecarCall('setReadState', { sessionKey: sk, patch: { lastReadTs: Date.now() } }) } catch {}
+      // Marca SOLO se l'utente è ANCORA nella chat (ha visto la risposta in tempo reale).
+      // Se è uscito prima che finisse → la parte non vista resta UNREAD (badge + marker).
+      if (sk === sessionIdKey) {
+        try { sidecarCall('setReadState', { sessionKey: sk, patch: { lastReadTs: Date.now() } }) } catch {}
+      }
     }
   }, [props.streaming, sessionIdKey, sidecarCall])
 
@@ -221,11 +228,12 @@ export function ChatArea(props: ChatAreaProps) {
 
   // Auto-scroll al marker all'apertura (UNA volta per sessione) + mostra il marker.
   // Il marker include messaggi E task (endedAt > lastReadTs).
+  const isUnreadItem = (it: any): boolean => {
+    return ((it.kind === 'msg' && it.msg?.role === 'assistant') || it.kind === 'task') && it.ts > lastReadTs && it.ts <= openTsRef.current
+  }
   const hasAnyUnread = (): boolean => {
     for (const it of chatItemsRef.current) {
-      if ((it.kind === 'msg' && it.msg?.role === 'assistant') || it.kind === 'task') {
-        if (it.ts > lastReadTs) return true
-      }
+      if (isUnreadItem(it)) return true
     }
     return false
   }
@@ -235,7 +243,7 @@ export function ChatArea(props: ChatAreaProps) {
     if (!el) return
     const items = chatItemsRef.current
     if (items.length === 0) return
-    const firstUnreadIdx = items.findIndex(it => ((it.kind === 'msg' && it.msg?.role === 'assistant') || it.kind === 'task') && it.ts > lastReadTs)
+    const firstUnreadIdx = items.findIndex(it => isUnreadItem(it))
     if (firstUnreadIdx >= 0) {
       const target = el.querySelector(`[data-item-idx="${firstUnreadIdx}"]`)
       if (target) {
@@ -648,8 +656,8 @@ export function ChatArea(props: ChatAreaProps) {
                   return (
                     <>
                     {chatItems.map((item, i) => {
-                      const isUnread = ((item.kind === 'msg' && item.msg?.role === 'assistant') || item.kind === 'task') && item.ts > lastReadTs && markerVisible && !props.streaming
-                      const isFirstUnread = isUnread && (i === 0 || !(((chatItems[i-1].kind === 'msg' && chatItems[i-1].msg?.role === 'assistant') || chatItems[i-1].kind === 'task') && chatItems[i-1].ts > lastReadTs && markerVisible && !props.streaming))
+                      const isUnread = ((item.kind === 'msg' && item.msg?.role === 'assistant') || item.kind === 'task') && item.ts > lastReadTs && item.ts <= openTsRef.current && markerVisible && !props.streaming
+                      const isFirstUnread = isUnread && (i === 0 || !(((chatItems[i-1].kind === 'msg' && chatItems[i-1].msg?.role === 'assistant') || chatItems[i-1].kind === 'task') && chatItems[i-1].ts > lastReadTs && chatItems[i-1].ts <= openTsRef.current && markerVisible && !props.streaming))
                       const isBookmark = bookmarkTs != null && item.ts >= bookmarkTs && (i === 0 || chatItems[i-1].ts < bookmarkTs)
                       return (
                     <div key={item.kind === 'msg' ? item.msg!.id : item.kind === 'sys' ? 'lh-sys' : 'chat-' + item.run!.id} data-msg-idx={item.mIdx ?? -1} data-item-idx={i} style={{ marginBottom: '12px' }}>
