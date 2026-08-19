@@ -612,23 +612,17 @@ export function AgentsPanel(props) {
 
       // Body: sidebar nav + content
       React.createElement('div', { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'row', gap: '12px' }, children: [
-        // Sidebar nav (come la logica delle impostazioni)
-        React.createElement('div', { className: 'q-scroll', style: { width: '180px', flexShrink: 0, overflowY: 'auto', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)', padding: '6px 0' }, children: [
-          agentsNav.map(n => {
-            const active = activeNav === n.id;
-            return React.createElement('button', {
-              key: n.id,
-              onClick: () => { setActiveNav(n.id); const el = document.getElementById('sec-' + n.id); if (el) el.scrollIntoView(); },
-              style: { display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 14px', border: 'none', cursor: 'pointer', backgroundColor: active ? 'var(--q-hover)' : 'transparent', color: active ? 'var(--q-text)' : 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', textAlign: 'left' },
-              children: [
-                React.createElement(n.icon, { size: 15, style: { color: active ? 'var(--q-tab-accent)' : 'var(--q-text-tertiary)', flexShrink: 0 } }),
-                React.createElement('span', { style: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: n.label })
-              ]
-            });
-          })
+        // Sidebar stile sidebar CHAT: pannello flottante + righe con active evidenziato
+        React.createElement('div', { style: { width: '200px', flexShrink: 0, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)', padding: '8px', display: 'flex', flexDirection: 'column' }, children: [
+          agentsNav.map(n => React.createElement(AgentsNavItem, {
+            key: n.id,
+            item: n,
+            isActive: activeNav === n.id,
+            onSelect: () => { setActiveNav(n.id); const el = document.getElementById('sec-' + n.id); if (el) el.scrollIntoView(); }
+          }))
         ]}),
         // Content
-        React.createElement('div', { className: 'q-scroll', style: { flex: 1, minHeight: 0, overflowY: 'auto', padding: '4px 16px 0 16px', overscrollBehavior: 'contain', scrollbarGutter: 'stable' }, children: [
+        React.createElement('div', { className: 'q-scroll', onScroll: (e: any) => { const el = e.currentTarget; const cont = el.getBoundingClientRect(); let cur = 'agents'; for (const n of agentsNav) { const sec = document.getElementById('sec-' + n.id); if (sec && sec.getBoundingClientRect().top <= cont.top + 90) cur = n.id; } setActiveNav(cur); }, style: { flex: 1, minHeight: 0, overflowY: 'auto', padding: '4px 16px 0 16px', overscrollBehavior: 'contain', scrollbarGutter: 'stable' }, children: [
 
         // === Section: Default agent for new chats ===
       Section({ icon: Bot, title: 'Default agent for new chats', children: [
@@ -658,7 +652,7 @@ export function AgentsPanel(props) {
           React.createElement('div', { style: { height: '8px' } }),
           SearchBar({ placeholder: 'Search agents...', value: searchAgents, onChange: setSearchAgents }),
           React.createElement('div', { style: { height: '8px' } }),
-          React.createElement('div', { children:
+          React.createElement('div', { style: { maxHeight: '65vh', overflowY: 'auto' }, children:
             filteredAgents.map(agent => React.createElement(AgentRow, {
               key: agent.id,
               agent,
@@ -684,14 +678,14 @@ export function AgentsPanel(props) {
 
         // === Section: Skill (standalone) ===
         React.createElement('div', { id: 'sec-skills' }, Section({ icon: BookOpen, title: `Skill (${skills.length})`, children: [
-          React.createElement(React.Fragment, { children: [
+          React.createElement('div', { style: { display: 'flex', gap: '8px' }, children: [
             MiniButton({ label: 'Create skill', onClick: () => setShowCreateSkill(true) }),
             MiniButton({ label: 'Install skill', onClick: () => setShowInstallSkill(true) })
           ]}),
           React.createElement('div', { style: { height: '8px' } }),
           SearchBar({ placeholder: 'Search skill...', value: searchSkills, onChange: setSearchSkills }),
           React.createElement('div', { style: { height: '8px' } }),
-          React.createElement('div', { children:
+          React.createElement('div', { style: { maxHeight: '55vh', overflowY: 'auto' }, children:
               filteredSkills.length === 0
                 ? React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'No skill found.' })
                 : filteredSkills.map(skill => {
@@ -720,7 +714,7 @@ export function AgentsPanel(props) {
           React.createElement('div', { style: { height: '8px' } }),
           SearchBar({ placeholder: 'Search MCP...', value: searchMcp, onChange: setSearchMcp }),
           React.createElement('div', { style: { height: '8px' } }),
-          React.createElement('div', { children:
+          React.createElement('div', { style: { maxHeight: '55vh', overflowY: 'auto' }, children:
               filteredMcp.length === 0
                 ? React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'No MCP server installed.' })
                 : filteredMcp.map(mcp => {
@@ -744,7 +738,7 @@ export function AgentsPanel(props) {
         React.createElement('div', { id: 'sec-tools' }, Section({ icon: Wrench, title: `Tool (${tools.length})`, children: [
           SearchBar({ placeholder: 'Search tool...', value: searchTools, onChange: setSearchTools }),
           React.createElement('div', { style: { height: '8px' } }),
-          React.createElement('div', { children:
+          React.createElement('div', { style: { maxHeight: '55vh', overflowY: 'auto' }, children:
               filteredTools.map(tool => {
                 const usingAgents = agents.filter(a => a.tools.some(t => t.name === tool.name));
                 return React.createElement(SkillRow, {
@@ -968,6 +962,22 @@ function Section({ icon, title, children }) {
     ]}),
     children
   ]});
+}
+
+function AgentsNavItem({ item, isActive, onSelect }) {
+  const [hovered, setHovered] = useState(false)
+  const textColor = isActive ? 'var(--q-accent-info)' : hovered ? 'var(--q-text)' : 'var(--q-text-secondary)'
+  const iconColor = isActive ? 'var(--q-accent-info)' : hovered ? 'var(--q-text)' : 'var(--q-text-tertiary)'
+  return React.createElement('button', {
+    onClick: onSelect,
+    onMouseEnter: () => setHovered(true),
+    onMouseLeave: () => setHovered(false),
+    style: { display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 10px', marginBottom: '2px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: hovered ? 'var(--q-hover)' : 'transparent', color: textColor, fontSize: '13px', fontFamily: 'var(--font-interface)', textAlign: 'left' },
+    children: [
+      React.createElement(item.icon, { size: 15, style: { color: iconColor, flexShrink: 0 } }),
+      React.createElement('span', { style: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: item.label })
+    ]
+  })
 }
 
 function DefaultAgentMenuItem({ agent, isSelected, onSelect }) {
