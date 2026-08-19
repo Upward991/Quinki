@@ -6434,7 +6434,11 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
               try {
                 const d = JSON.parse(line);
                 const m = d?.message;
-                if (d?.type === "message" && m?.role === "assistant" && typeof m.timestamp === "number" && m.timestamp > st.lastReadTs) messages++;
+                if (d?.type === "message" && m?.role === "assistant" && typeof m.timestamp === "number" && m.timestamp > st.lastReadTs) {
+                  // Conta 1 per RISPOSTA (solo il messaggio con testo finale, non thinking/tool call)
+                  const hasText = Array.isArray(m.content) ? m.content.some((b: any) => b?.type === "text" && b.text) : (typeof m.content === "string" && m.content.trim());
+                  if (hasText) messages++;
+                }
               } catch {}
             }
           }

@@ -143,8 +143,19 @@ export function ChatArea(props: ChatAreaProps) {
   const [lastReadTs, setLastReadTs] = useState(0)
   const [lastReadTaskTs, setLastReadTaskTs] = useState(0)
   const [bookmarkTs, setBookmarkTs] = useState<number | null>(null)
+  const [markerVisible, setMarkerVisible] = useState(false)
+  const [readStateLoaded, setReadStateLoaded] = useState(false)
+  const markerScrolledRef = useRef(false)
+  const autoScrollDoneRef = useRef(false)
+  const markReadTimerRef = useRef<any>(null)
+  const messagesRef = useRef(props.messages)
+  useEffect(() => { messagesRef.current = props.messages }, [props.messages])
   useEffect(() => {
     if (!sessionIdKey) return
+    markerScrolledRef.current = false
+    autoScrollDoneRef.current = false
+    setMarkerVisible(false)
+    setReadStateLoaded(false)
     let cancelled = false
     sidecarCall('getReadState', { sessionKey: sessionIdKey }).then((r: any) => {
       if (!cancelled && r?.state) {
@@ -152,9 +163,30 @@ export function ChatArea(props: ChatAreaProps) {
         setLastReadTaskTs(r.state.lastReadTaskTs || 0)
         if (r.state.bookmarkTs) setBookmarkTs(r.state.bookmarkTs)
       }
-    }).catch(() => {})
+      if (!cancelled) setReadStateLoaded(true)
+    }).catch(() => { if (!cancelled) setReadStateLoaded(true) })
     return () => { cancelled = true }
   }, [sessionIdKey, sidecarCall])
+
+  // Auto-scroll al marker all'apertura (UNA volta per sessione) + mostra il marker
+  useEffect(() => {
+    if (!sessionIdKey || !readStateLoaded || markerScrolledRef.current) return
+    if (props.messages.length === 0) return
+    const el = scrollRef.current
+    if (el) {
+      const firstUnread = props.messages.findIndex(m => { try { return m.role === 'assistant' && new Date(m.timestamp).getTime() > lastReadTs } catch { return false } })
+      if (firstUnread >= 0) {
+        const target = el.querySelector(`[data-msg-idx="${firstUnread}"]`)
+        if (target) {
+          (target as HTMLElement).scrollIntoView({ block: 'start' })
+          markerScrolledRef.current = true
+          setTimeout(() => { autoScrollDoneRef.current = true }, 150)
+        }
+      }
+    }
+    const hasUnread = props.messages.some(m => { try { return m.role === 'assistant' && new Date(m.timestamp).getTime() > lastReadTs } catch { return false } })
+    setMarkerVisible(hasUnread)
+  }, [sessionIdKey, lastReadTs, props.messages, readStateLoaded])
 
   const [taskPanelOpen, setTaskPanelOpen] = useState<boolean>(() => { try { return localStorage.getItem('quinki-taskpanel-' + sessionIdKey) === '1' } catch { return false } })
   const [taskExecs, setTaskExecs] = useState<any[]>([])
@@ -542,7 +574,7 @@ export function ChatArea(props: ChatAreaProps) {
             <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
               {/* Chat — SEMPRE montata (display none quando il pannello task è aperto) → lo scroll resta dov'era */}
               <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '4px 16px ' + (hasTasks ? 8 : 0) + 'px 16px', scrollbarGutter: 'stable', display: taskPanelOpen ? 'none' : 'block' }}
-                onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100); pinnedRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 120; }}>
+                onScroll={e => { const el = e.currentTarget; setShowScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100); pinnedRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 120; if (autoScrollDoneRef.current) setMarkerVisible(false); try { const items = el.querySelectorAll('[data-msg-idx]'); for (let i = items.length - 1; i >= 0; i--) { const it = items[i] as HTMLElement; const r = it.getBoundingClientRect(); if (r.top < el.getBoundingClientRect().bottom) { const idx = Number(it.getAttribute('data-msg-idx')); const m = messagesRef.current[idx]; if (m) { try { const ts = new Date(m.timestamp).getTime(); if (ts > lastReadTs && sessionIdKey) { if (markReadTimerRef.current) clearTimeout(markReadTimerRef.current); markReadTimerRef.current = setTimeout(() => { try { sidecarCall('setReadState', { sessionKey: sessionIdKey, patch: { lastReadTs: ts } }) } catch {} }, 300) } } catch {} } break } } } catch {} }}>
                 {(() => {
                   const chatItems: { kind: 'msg' | 'task' | 'sys'; ts: number; msg?: any; run?: any; sysMsg?: string; mIdx?: number }[] = []
                   props.messages.forEach((msg, mIdx) => {
@@ -561,6 +593,8 @@ export function ChatArea(props: ChatAreaProps) {
                   return (
                     <>
                     {chatItems.map((item, i) => {
+                      const isUnread = item.kind === 'msg' && item.msg?.role === 'assistant' && item.ts > lastReadTs && markerVisible && !props.streaming
+                      const isFirstUnread = isUnread && (i === 0 || !(chatItems[i-1].kind === 'msg' && chatItems[i-1].msg?.role === 'assistant' && chatItems[i-1].ts > lastReadTs && markerVisible && !props.streaming))
                       const isBookmark = bookmarkTs != null && item.ts >= bookmarkTs && (i === 0 || chatItems[i-1].ts < bookmarkTs)
                       return (
                     <div key={item.kind === 'msg' ? item.msg!.id : item.kind === 'sys' ? 'lh-sys' : 'chat-' + item.run!.id} data-msg-idx={item.mIdx ?? -1} style={{ marginBottom: '12px' }}>
@@ -569,6 +603,13 @@ export function ChatArea(props: ChatAreaProps) {
                           <span style={{ flex: 1, height: '1px', backgroundColor: 'var(--q-accent-warning)' }} />
                           <span style={{ fontSize: '11px', fontFamily: 'var(--font-interface)', color: 'var(--q-accent-warning)', fontWeight: 600, whiteSpace: 'nowrap' }}>📌 bookmark</span>
                           <span style={{ flex: 1, height: '1px', backgroundColor: 'var(--q-accent-warning)' }} />
+                        </div>
+                      )}
+                      {isFirstUnread && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 0', padding: '2px 0' }}>
+                          <span style={{ flex: 1, height: '1px', backgroundColor: 'var(--q-tab-accent)' }} />
+                          <span style={{ fontSize: '11px', fontFamily: 'var(--font-interface)', color: 'var(--q-tab-accent)', fontWeight: 600, whiteSpace: 'nowrap' }}>unread messages below</span>
+                          <span style={{ flex: 1, height: '1px', backgroundColor: 'var(--q-tab-accent)' }} />
                         </div>
                       )}
                       {item.kind === 'msg' ? (
