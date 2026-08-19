@@ -95,6 +95,15 @@
 - **Cosa**: executor crea sessioni `__exec_*` per i task; al termine fa `abort` + `remove` (che non dispose/unsub → C4). Con task frequenti = micro-leak a ogni task.
 - **Evidenza**: executor.ts:660-661; 231 sessioni in context-usage (molte `__exec_*`).
 
+### C11 — CICLO DI VITA DEL SIDECAR ALLA CHIUSURA (scoperto con la domanda dell'utente) 🔴
+- **Cosa succede davvero quando chiudi la app**:
+  - **X rosso / Cmd+W** → close-to-tray: la finestra si NASCONDE, l'app resta in tray, il sidecar CONTINUA a girare (by design, per i task programmati).
+  - **Quit dal tray (Main)** → `SHOULD_EXIT=true` → ExitRequested → `kill -9` sul sidecar 9182 → l'app esce. Niente shutdown pulito.
+  - **Quit dal tray (Expert)** → `quit_expert_app`: kill -9 sidecar 9183 + `pkill start-expert.sh` + `pkill expert-watchdog`. MA c'è una RACE: il watchdog controlla la porta ogni 1s; se tra il kill del sidecar e il pkill del watchdog il watchdog ha GIÀ riacceso un nuovo sidecar, quello diventa zombie.
+  - **Cmd+Q (macOS)** → `ExitRequested` con `SHOULD_EXIT=false` → `api.prevent_exit()` → **la app NON esce** (bug noto, fix revertito). L'unico modo per uscire è il tray.
+- **EVIDENZA GRAVE**: `expert-watchdog.sh` gira con `nohup` (sopravvive alla chiusura della app) in loop infinito: se la porta 9183 è libera, RIACCENDE il sidecar. Log: **6339 riavvii** del sidecar Expert registrati. Il watchdog è stato osservato attivo anche con l'app Expert "chiusa" (ps). → **quando "chiudi" l'Expert, il sidecar 2.1GB può continuare a girare come zombie**.
+- **Cosa si salva alla chiusura**: messaggi scritti in tempo reale nel .jsonl (sicuri); session entries salvate su create/rename/etc. (sicure); read-state/notifications su modifica (sic); il turno in corso → marker pending-turn → recovery al boot (by design). SI PERDONO: ultimi ≤200 log in buffer (non flushati), eventuali dati non salvati esplicitamente. Con `kill -9` NON c'è flush: il sidecar non ha handler SIGTERM/SIGINT.
+
 ---
 
 ## 3. SOLUZIONI (per scenario, con fonte online+interna)
@@ -123,15 +132,20 @@
 - **Evidenza**: docs bun runtime (`--smol` = "Use less memory, but run GC more often"), docs executables (BUN_OPTIONS per binari compilati).
 - **Da misurare**: curva RSS a parità di carico con/ senza --smol.
 
-### S6 — MONITORING: heapStats() nel debug log (per validare tutti i fix)
+### S8 — SHUTDOWN PULITO + WATCHDOG CONSAPEVOLE (per C11)
+- **Cosa**: (1) il sidecar gestisce SIGTERM: flush del buffer log, salva stati pendenti, poi exit (niente kill -9). (2) `quit_expert_app` deve killare il sidecar e il watchdog ATOMICAMENTE senza race (kill watchdog PRIMA, poi sidecar, poi verificare). (3) il watchdog deve controllare ANCHE che l'app Expert sia viva (es. `pgrep -f 'App Expert.app/Contents/MacOS'`), non solo la porta → niente zombie quando l'app è chiusa davvero.
+- **Vincoli**: i task programmati (A2.2 scheduler) girano nel sidecar → la domanda è di PRODUCT: vuoi che il sidecar Expert resti su anche a app chiusa (scheduler H24) o si spegne con la app?
+- **Fonti**: codice lib.rs (quit_expert_app, ExitRequested, watchdog loop).
+
+### S9 — MONITORING: heapStats() nel debug log (per validare tutti i fix)
 - **Cosa**: RPC `getHeapStats` + log periodico (`heapStats()` di `bun:jsc`: heapSize/heapCapacity/extraMemory/objectCount) a ogni agent_end e ogni 60 s idle. Serve per distinguere spike/leak e validare ogni fix con curve (Bible §25).
 - **Evidenza**: bun blog — heapStats() di bun:jsc.
 
-### S7 — EVITARE getHistory RIPETUTI (per C2)
+### S6 — EVITARE getHistory RIPETUTI (per C2)
 - **Cosa**: la UI chiama getHistory a ogni `selectSession` e ad altri eventi; con S2 il costo crolla ma restare attenti a non farlo in loop.
 - **Da verificare**: punti esatti nel frontend (useSidecarData.ts:795 e altre).
 
-### S8 — CAP SESSIONI ATTIVE (complemento a S1)
+### S7 — CAP SESSIONI ATTIVE (complemento a S1)
 - **Policy**: massimo N sessioni Pi in `#active` (es. 5) per app; oltre → disattiva la meno recente inattiva (LRU).
 - **Vincoli**: mai le in streaming; mai `__app_expert__` se Expert aperto? (l'Expert gestisce la sua; la main fa recovery solo se 9183 chiuso — già così).
 
@@ -147,12 +161,13 @@
 ---
 
 ## 5. DECISIONI DA PRENDERE (discussione)
-1. **Strategia sessioni (S1+S8)**: quante attive max? inactivity timeout? dispose al cambio sessione?
+1. **Strategia sessioni (S1+S7)**: quante attive max? inactivity timeout? dispose al cambio sessione?
 2. **getHistory tail (S2)**: procediamo (basso rischio, grande guadagno)?
 3. **--smol (S5)**: quick win subito o prima misurare baseline senza?
 4. **Vacuum jsonl (S3)**: sì? (rischio integrità) o rimandare?
-5. **Monitoring heapStats (S6)**: sì — strumentazione prima di toccare il codice.
+5. **Monitoring heapStats (S9)**: sì — strumentazione prima di toccare il codice.
 6. **Fix leak (S4)**: ovviamente sì — bug reale, indipendente dalle strategie.
+7. **Shutdown/watchdog (S8)**: il sidecar Expert deve restare su a app chiusa (scheduler H24) o spegnersi con la app?
 
 ---
 
