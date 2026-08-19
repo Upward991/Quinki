@@ -221,6 +221,18 @@ export function ChatArea(props: ChatAreaProps) {
     return () => clearInterval(iv)
   }, [sessionIdKey, sidecarCall])
 
+  // === A3: quando l'utente MANDA un messaggio in una chat con notifiche → tutto
+  // segnato come letto IN TEMPO REALE: badge (via setReadState + read_state_changed)
+  // e marker (lastReadTs locale aggiornato → isUnread=false). ===
+  const handleSend = useCallback((text: string) => {
+    if (sessionIdKey && sessionIdKey !== '__app_expert__') {
+      try { sidecarCall('setReadState', { sessionKey: sessionIdKey, patch: { lastReadTs: Date.now() } }) } catch {}
+      setLastReadTs(Date.now())
+      setMarkerVisible(false)
+    }
+    props.onSend(text)
+  }, [sessionIdKey, sidecarCall, props])
+
   const [taskPanelOpen, setTaskPanelOpen] = useState<boolean>(() => { try { return localStorage.getItem('quinki-taskpanel-' + sessionIdKey) === '1' } catch { return false } })
   const [taskExecs, setTaskExecs] = useState<any[]>([])
   const [taskScheds, setTaskScheds] = useState<any[]>([])
@@ -612,7 +624,7 @@ export function ChatArea(props: ChatAreaProps) {
               providers={props.providers} selectedModel={props.selectedModel} mode={props.mode}
               thinking={props.thinking} contextTokens={props.contextTokens} contextWindow={props.contextWindow}
               isStreaming={props.streaming} isCompacting={props.isCompacting} statusLabel={props.statusLabel} statusKind={props.statusKind}
-              onSend={props.onSend} onStop={props.onStop} onSteer={props.onSteer}
+              onSend={handleSend} onStop={props.onStop} onSteer={props.onSteer}
               onModelChange={props.onModelSelect} onModeChange={props.onModeChange}
               onThinkingChange={t => props.onThinkingChange(t)} welcomeMode={true}
               longHorizon={props.longHorizon} longHorizonStatus={props.longHorizonStatus} longHorizonPhase={props.longHorizonPhase}
@@ -747,7 +759,7 @@ export function ChatArea(props: ChatAreaProps) {
               providers={props.providers} selectedModel={props.selectedModel} mode={props.mode}
               thinking={props.thinking} contextTokens={props.contextTokens} contextWindow={props.contextWindow}
               isStreaming={props.streaming} isCompacting={props.isCompacting} statusLabel={props.statusLabel} statusKind={props.statusKind}
-              onSend={props.onSend} onStop={props.onStop} onSteer={props.onSteer}
+              onSend={handleSend} onStop={props.onStop} onSteer={props.onSteer}
               onModelChange={props.onModelSelect} onModeChange={props.onModeChange}
               onThinkingChange={t => props.onThinkingChange(t)} welcomeMode={false}
               longHorizon={props.longHorizon} longHorizonStatus={props.longHorizonStatus} longHorizonPhase={props.longHorizonPhase}
