@@ -2526,6 +2526,11 @@ class PiBridge {
         let interrupted = hasMarker;
         let markerText = "";
         let retries = 0;
+        // FIX ROOT: `marker` DEVE essere dichiarato QUI (scope del loop), non nel try.
+        // Prima era `const marker` dentro il try → `marker.retries` più sotto lanciava
+        // "marker is not defined" → il recovery CRASHAVA a ogni sessione con
+        // pending-turn.json → l'autoprompt non arrivava MAI (il .catch lo ingoiava).
+        let marker: any = null;
         if (!hasMarker) {
           try {
             const hist = this.getHistory(sk);
@@ -2546,7 +2551,7 @@ class PiBridge {
         } else {
           this.logDebug("recovery-check", { sessionKey: sk, marker: true });
           try {
-            const marker = JSON.parse(fs.readFileSync(p, "utf8"));
+            marker = JSON.parse(fs.readFileSync(p, "utf8"));
             retries = marker.retries || 0;
             markerText = String(marker.text || "");
           } catch {}
@@ -2608,6 +2613,7 @@ class PiBridge {
           } catch {}
           const prompt = hasOrig ? "The app was interrupted while processing. Please continue and complete your response." : origText;
           // Incrementa retries PRIMA del send (il send preserva il contatore)
+          if (!marker) marker = { text: markerText || prompt, ts: Date.now(), retries: 0 };
           marker.retries = retries + 1;
           fs.writeFileSync(p, JSON.stringify(marker), "utf8");
           this.logDebug("pending-turn-recover", { sessionKey: sk, retry: retries + 1, hasOrig, text: prompt.slice(0, 80) });
