@@ -65,6 +65,8 @@ function TaskResultToggle({ run, sessionKey, defaultOpen, showClip }: { run: any
 
 interface ChatAreaProps {
   session?: Session
+  onEnsureSession?: () => Promise<string | null>
+  welcomeSessionKey?: string
   messages: Message[]
   streaming: boolean
   isCompacting?: boolean
@@ -240,8 +242,26 @@ export function ChatArea(props: ChatAreaProps) {
     // IMPORTANTE: inoltrare opts (attachments/skillNames/taskClips) — una regressione A3
     // passava solo text e gli allegati sparivano dal payload (clip in bolla + sezione
     // ATTACHED FILES nel prompt non comparivano più).
-    props.onSend(text, opts)
-  }, [sessionIdKey, sidecarCall, props.isExpertApp, props.onSend])
+    let finalOpts = opts
+    if (!sessionIdKey && welcomeKey && opts?.attachments?.length) {
+      finalOpts = { ...opts, sessionKey: welcomeKey }
+    }
+    props.onSend(text, finalOpts)
+  }, [sessionIdKey, sidecarCall, props.isExpertApp, props.onSend, welcomeKey])
+
+  // === Welcome-attach: se non c'è ancora una sessione (chat non iniziata), creala on-demand
+  // così gli allegati funzionano anche prima del primo invio. ===
+  const [welcomeKey, setWelcomeKey] = useState('')
+  const ensureWelcomeSession = useCallback(async (): Promise<string | null> => {
+    if (props.session?.id) return props.session.id
+    if (welcomeKey) return welcomeKey
+    try {
+      const r: any = await sidecarCall('createSession', { label: 'New chat', mode: props.mode })
+      const key = r?.sessionKey || r?.key || ''
+      if (key) setWelcomeKey(key)
+      return key || null
+    } catch (e) { console.error('ensureWelcomeSession:', e); return null }
+  }, [sidecarCall, props.session?.id, props.mode, welcomeKey])
 
   const [taskPanelOpen, setTaskPanelOpen] = useState<boolean>(() => { try { return localStorage.getItem('quinki-taskpanel-' + sessionIdKey) === '1' } catch { return false } })
   const [taskExecs, setTaskExecs] = useState<any[]>([])
@@ -646,7 +666,8 @@ export function ChatArea(props: ChatAreaProps) {
               chatAgentIds={props.selectedAgentIds}
               onReset={props.onReset}
               onAgentToggle={props.onAgentToggle}
-              sessionKey={props.session?.id || ''}
+              sessionKey={props.session?.id || props.welcomeSessionKey || welcomeKey || ''}
+              onEnsureSession={props.onEnsureSession || ensureWelcomeSession}
             />
           </div>
           {taskStripBar}
@@ -782,7 +803,8 @@ export function ChatArea(props: ChatAreaProps) {
               agents={props.agents}
               chatAgentIds={props.selectedAgentIds}
               onAgentToggle={props.onAgentToggle}
-              sessionKey={props.session?.id || ''}
+              sessionKey={props.session?.id || props.welcomeSessionKey || welcomeKey || ''}
+              onEnsureSession={props.onEnsureSession || ensureWelcomeSession}
               onHeightChange={setComposerH}
               onHeightChangeNow={() => { if (scrollRef.current && pinnedRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }}
             />

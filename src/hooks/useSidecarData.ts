@@ -959,7 +959,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     let optsChatAgents: string[] | undefined
     let optsCompactionAuto: boolean | null | undefined
     if (typeof sessionKeyOrOpts === 'string') { sk = sessionKeyOrOpts; ag = agents }
-    else if (sessionKeyOrOpts && typeof sessionKeyOrOpts === 'object') { sk = activeSessionId || undefined; ag = sessionKeyOrOpts.agentId ? [sessionKeyOrOpts.agentId] : undefined; if (sessionKeyOrOpts.model) optsModel = sessionKeyOrOpts.model; if (sessionKeyOrOpts.mode) optsMode = sessionKeyOrOpts.mode; if (sessionKeyOrOpts.thinkingLevel) optsThinking = sessionKeyOrOpts.thinkingLevel; if (sessionKeyOrOpts.skillNames) optsSkills = sessionKeyOrOpts.skillNames; if (sessionKeyOrOpts.attachments) optsAttachments = sessionKeyOrOpts.attachments; if (sessionKeyOrOpts.taskClips) optsTaskClips = sessionKeyOrOpts.taskClips; if (sessionKeyOrOpts.chatAgentIds) optsChatAgents = sessionKeyOrOpts.chatAgentIds; if (typeof sessionKeyOrOpts.compactionAuto === 'boolean') optsCompactionAuto = sessionKeyOrOpts.compactionAuto }
+    else if (sessionKeyOrOpts && typeof sessionKeyOrOpts === 'object') { sk = sessionKeyOrOpts.sessionKey || activeSessionId || undefined; ag = sessionKeyOrOpts.agentId ? [sessionKeyOrOpts.agentId] : undefined; if (sessionKeyOrOpts.model) optsModel = sessionKeyOrOpts.model; if (sessionKeyOrOpts.mode) optsMode = sessionKeyOrOpts.mode; if (sessionKeyOrOpts.thinkingLevel) optsThinking = sessionKeyOrOpts.thinkingLevel; if (sessionKeyOrOpts.skillNames) optsSkills = sessionKeyOrOpts.skillNames; if (sessionKeyOrOpts.attachments) optsAttachments = sessionKeyOrOpts.attachments; if (sessionKeyOrOpts.taskClips) optsTaskClips = sessionKeyOrOpts.taskClips; if (sessionKeyOrOpts.chatAgentIds) optsChatAgents = sessionKeyOrOpts.chatAgentIds; if (typeof sessionKeyOrOpts.compactionAuto === 'boolean') optsCompactionAuto = sessionKeyOrOpts.compactionAuto }
     if (!ready) return
     const hasModels = providers.some((p: any) => p.models && p.models.length > 0)
     if (!hasModels) {
@@ -1018,6 +1018,8 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
           return
         }
       }
+      // Sessione pre-creata (welcome-attach): attivala prima dell'invio così la UI passa alla chat
+      if (sk && sk !== activeSessionId) setActiveSessionId(sk)
       await call('sendMessage', { sessionKey: sk, text, agentId: ag && ag.length > 0 ? ag[0] : undefined, model: optsModel, mode: optsMode, thinkingLevel: optsThinking, skillNames: optsSkills, attachments: optsAttachments, taskClips: optsTaskClips }, 600000)
       // Reload sessions to get auto-generated title
       try {

@@ -51,6 +51,7 @@ interface ComposerProps {
   onAgentToggle?: (id: string) => void
   chatAgentIds?: string[]
   sessionKey?: string
+  onEnsureSession?: () => Promise<string | null>
   onHeightChange?: (h: number) => void
   onHeightChangeNow?: (h: number) => void
 }
@@ -148,15 +149,27 @@ export function Composer(props: ComposerProps) {
   }
 
   // === Attachment handling ===
+  // In welcome mode (chat non ancora iniziata) non esiste una sessione: la crea on-demand
+  // (onEnsureSession) così gli allegati funzionano anche PRIMA del primo invio.
+  const resolveSessionKey = async (): Promise<string> => {
+    if (props.sessionKey) return props.sessionKey
+    if (props.onEnsureSession) {
+      const k = await props.onEnsureSession()
+      if (k) return k
+    }
+    return ''
+  }
+
   const handlePickFiles = async () => {
     setAttachMenuOpen(false)
-    if (!props.sessionKey) return
+    const key = await resolveSessionKey()
+    if (!key) return
     try {
       const paths = await invoke('pick_files') as string[]
       if (!paths || paths.length === 0) return
       setCopyingFile(true)
       for (const p of paths) {
-        const result = await invoke('copy_to_attachments', { srcPath: p, sessionKey: props.sessionKey }) as any
+        const result = await invoke('copy_to_attachments', { srcPath: p, sessionKey: key }) as any
         if (result) {
           setPendingAttachments(prev => [...prev, {
             originalName: result.originalName,
@@ -175,19 +188,21 @@ export function Composer(props: ComposerProps) {
 
   const handleOpenAttachmentsFolder = async () => {
     setAttachMenuOpen(false)
-    if (!props.sessionKey) return
+    const key = await resolveSessionKey()
+    if (!key) return
     try {
-      await invoke('open_attachments_folder', { sessionKey: props.sessionKey })
+      await invoke('open_attachments_folder', { sessionKey: key })
     } catch (e: any) {
       console.error('open_attachments_folder error:', e)
     }
   }
 
   const handleShowExisting = async () => {
-    if (!props.sessionKey) return
+    const key = await resolveSessionKey()
+    if (!key) return
     setAttachMenuView('existing')
     try {
-      const files = await invoke('list_attachments', { sessionKey: props.sessionKey }) as any[]
+      const files = await invoke('list_attachments', { sessionKey: key }) as any[]
       setExistingAttachments(files || [])
     } catch (e: any) {
       console.error('list_attachments error:', e)
@@ -211,10 +226,11 @@ export function Composer(props: ComposerProps) {
   useEffect(() => {
     // Path-based (from native file picker)
     (window as any).__quinkiAddAttachment = async (filePath: string) => {
-      if (!props.sessionKey) return
+      const key = await resolveSessionKey()
+      if (!key) return
       setCopyingFile(true)
       try {
-        const result = await invoke('copy_to_attachments', { srcPath: filePath, sessionKey: props.sessionKey }) as any
+        const result = await invoke('copy_to_attachments', { srcPath: filePath, sessionKey: key }) as any
         if (result) {
           setPendingAttachments(prev => {
             if (prev.some(a => a.originalName === result.originalName && a.size === result.size)) return prev
@@ -229,14 +245,15 @@ export function Composer(props: ComposerProps) {
     }
     // Content-based (from HTML5 drag-drop — no file path available in WKWebView)
     (window as any).__quinkiAddAttachmentFromContent = async (fileName: string, contentB64: string) => {
-      if (!props.sessionKey) return
+      const key = await resolveSessionKey()
+      if (!key) return
       // Check for dup BEFORE copying
       let isDup = false
       setPendingAttachments(prev => { isDup = prev.some(a => a.originalName === fileName); return prev })
       if (isDup) return
       setCopyingFile(true)
       try {
-        const result = await invoke('save_attachment_content', { fileName, contentB64, sessionKey: props.sessionKey }) as any
+        const result = await invoke('save_attachment_content', { fileName, contentB64, sessionKey: key }) as any
         if (result) {
           setPendingAttachments(prev => {
             if (prev.some(a => a.originalName === result.originalName)) return prev
