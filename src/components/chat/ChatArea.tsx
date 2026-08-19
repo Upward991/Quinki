@@ -413,7 +413,7 @@ export function ChatArea(props: ChatAreaProps) {
     const t2 = setTimeout(() => { if (scrollRef.current && pinnedRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 250)
     const t3 = setTimeout(() => { if (scrollRef.current && pinnedRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 450)
     return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
-  }, [sessionId, msgCount, isEmpty, props.streaming, searchQuery, searchDate, searchTime, props.messages, composerH, hasTasks])
+  }, [sessionId, msgCount, isEmpty, props.streaming, searchQuery, searchDate, searchTime, props.messages, composerH, hasTasks, taskRuns])
 
   return (
     <div className="h-full flex flex-col" style={{ maxWidth: 'var(--spacing-chat-max)', margin: '0 auto', width: '100%', position: 'relative' }} onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
