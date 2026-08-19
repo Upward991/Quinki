@@ -471,7 +471,7 @@ export function Sidebar(props: SidebarProps) {
         <NotificationMenu
           x={notifMenu.x} y={notifMenu.y} current={notifMenu.mode}
           onClose={() => setNotifMenu(null)}
-          onPick={(mode: string) => { console.log('[A3] sidebar onPick', notifMenu.sessionKey, mode); props.onSetNotifyMode && props.onSetNotifyMode(notifMenu.sessionKey, mode); setNotifMenu(null) }}
+          onPick={(mode: string) => { props.onSetNotifyMode && props.onSetNotifyMode(notifMenu.sessionKey, mode); setNotifMenu(null) }}
         />
       )}
 

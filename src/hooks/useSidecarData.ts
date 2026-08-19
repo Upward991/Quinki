@@ -164,7 +164,6 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
     if (!ready) return
     try {
       const r = await call('getUnreadCounts', {})
-      console.log('[A3] unread counts', JSON.stringify(r?.counts))
       if (r?.counts) setUnreadCounts(r.counts)
     } catch {}
   }, [ready, call])
@@ -183,11 +182,9 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const setNotifyMode = useCallback(async (sessionKey: string, mode: string) => {
     if (!ready || !sessionKey) return
     try {
-      console.log('[A3] setNotifyMode', sessionKey, mode)
       const r = await call('setNotifyMode', { sessionKey, mode })
-      console.log('[A3] setNotifyMode result', JSON.stringify(r))
       if (r?.state) setNotifyModes(prev => ({ ...prev, [sessionKey]: r.state.notifyMode }))
-    } catch (e) { console.error('[A3] setNotifyMode error', e) }
+    } catch {}
   }, [ready, call])
   const markAllNotificationsRead = useCallback(async () => {
     if (!ready) return
@@ -648,7 +645,6 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
 
     // === A3: Notifiche — evento notification (chat message / task complete) ===
     const unsubNotification = subscribe('notification', (p: any) => {
-      console.log('[A3] notification event', JSON.stringify(p))
       if (p?.kind) {
         refreshUnreadCounts()
         refreshNotifications()
@@ -664,14 +660,12 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
                 // Task: titolo = "Task executed", body = nome della task
                 const title = 'Task executed'
                 const body = p.label || 'Task completed'
-                console.log('[A3] notif task', sk, '→', title, '/', body)
                 invoke('send_notification', { title, body: '\n' + body, sessionKey: sk }).catch(() => {})
               } else {
                 // Chat: titolo = nome chat (App Expert per la sessione expert), body = anteprima risposta
                 const sess = sessionsRef.current.find((s: any) => s.id === sk)
                 const title = sk === '__app_expert__' ? 'App Expert' : (sess?.title || 'New response')
                 const body = p.body || 'A response arrived'
-                console.log('[A3] notif chat', sk, '→', title, '/', String(body).slice(0, 40))
                 invoke('send_notification', { title, body: '\n' + body, sessionKey: sk }).catch(() => {})
               }
             }
