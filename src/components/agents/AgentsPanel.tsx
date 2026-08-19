@@ -16,6 +16,7 @@ export function AgentsPanel(props) {
   const [tools, setTools] = useState([]);
   const [planModeTools, setPlanModeTools] = useState({}); // { toolName: true/false }
   const [planModeMcp, setPlanModeMcp] = useState({}); // { mcpId: true/false }
+  const [defaultAgentId, setDefaultAgentId] = useState('quinki');
   const [expandedAgentId, setExpandedAgentId] = useState(null);
   const [renamingAgentId, setRenamingAgentId] = useState(null);
   const [searchAgents, setSearchAgents] = useState('');
@@ -68,6 +69,9 @@ export function AgentsPanel(props) {
         if (!cancelled && res?.config?.planModeMcp) {
           setPlanModeMcp(res.config.planModeMcp);
         }
+        if (!cancelled && res?.config?.defaultAgentId) {
+          setDefaultAgentId(res.config.defaultAgentId);
+        }
       } catch (e) { console.error('Failed to load global config:', e); }
       try {
         const res = await call('listMcpServers', {});
@@ -76,6 +80,19 @@ export function AgentsPanel(props) {
     })();
     return () => { cancelled = true; };
   }, [call]);
+
+  // --- Default agent for new chats ---
+  const doSetDefaultAgent = async (agentId: string) => {
+    setDefaultAgentId(agentId);
+    try {
+      const cfgRes = await call('getGlobalConfig', {});
+      const cfg = cfgRes?.config || {};
+      cfg.defaultAgentId = agentId;
+      await call('updateGlobalConfig', { config: cfg });
+      setSavedMsg('Saved.');
+      setTimeout(() => setSavedMsg(null), 4000);
+    } catch (e) { console.error('setDefaultAgent:', e); }
+  };
 
   // --- No toasts in header — only dirty/saved indicator ---
   const onSaved = useCallback(() => {
@@ -569,6 +586,19 @@ export function AgentsPanel(props) {
 
       // Scrollable content
       React.createElement('div', { className: 'q-scroll', style: { flex: 1, minHeight: 0, overflowY: 'auto', padding: '4px 16px 0 16px', overscrollBehavior: 'contain', scrollbarGutter: 'stable' }, children: [
+
+        // === Section: Default agent for new chats ===
+        Section({ icon: Bot, title: 'Default agent for new chats', children: [
+          React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', padding: '4px 0 12px 0' }, children: [
+            React.createElement('span', { style: { color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'New chats always start with this agent:' }),
+            React.createElement('select', {
+              value: agents.some(a => a.id === defaultAgentId) ? defaultAgentId : 'quinki',
+              onChange: (e: any) => doSetDefaultAgent(e.target.value),
+              style: { padding: '7px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-panel)', color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', cursor: 'pointer' }
+            }, agents.map((a: any) => React.createElement('option', { key: a.id, value: a.id }, a.name || a.id)))
+          ]})
+        ]}),
+        React.createElement('div', { style: { height: '4px' } }),
 
         // === Section: Your agents ===
         Section({ icon: Bot, title: `Your agents (${agents.length})`, children: [

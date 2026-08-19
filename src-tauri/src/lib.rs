@@ -1069,32 +1069,43 @@ fn restart_expert_app() -> Result<(), String> {
     Ok(())
 }
 
+// Legge il version.txt (git hash) di un bundle: è stabile rispetto alla firma
+// (stesso codice = stesso hash, anche se gli MD5 del binario differiscono per il codesign).
+fn read_version_txt(app_root: &str) -> Option<String> {
+    let p = format!("{}/Contents/Resources/resources/sidecar/version.txt", app_root);
+    let s = std::fs::read_to_string(&p).ok()?;
+    Some(s.trim().to_string())
+}
+
 #[tauri::command]
 fn check_expert_needs_restart() -> Result<bool, String> {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
     let stored_path = format!("{}/.quinki/.expert-running-build.json", home);
 
-    // Leggi l'MD5 del build che l'Expert stava eseguendo all'ultimo avvio
+    // 1) L'Expert è stato sincronizzato ma NON riavviato: il bundle attuale dell'Expert
+    // differisce da quello registrato all'ultimo avvio → badge.
     let stored = std::fs::read_to_string(&stored_path).ok();
     let stored = stored.map(|t| {
         let b = t.split("\"binary\":\"").nth(1).and_then(|r| r.split('"').next()).map(String::from);
         let s = t.split("\"sidecar\":\"").nth(1).and_then(|r| r.split('"').next()).map(String::from);
         (b, s)
     });
-
-    let Some((Some(sb), Some(ss))) = stored else {
-        // Mai registrato: registra ora e non mostrare badge (evita falsi positivi al primo avvio)
+    if let Some((Some(sb), Some(ss))) = &stored {
+        if let Some((eb, es)) = app_build_fingerprint("/Applications/App Expert.app") {
+            if eb != *sb || es != *ss { return Ok(true); }
+        }
+    } else {
+        // Mai registrato: registra ora (niente falsi positivi al primo avvio)
         record_running_build();
-        return Ok(false);
-    };
+    }
 
-    // Confronta con il build ATTUALE dell'Expert (non della main): se differisce
-    // da quello registrato all'avvio, l'Expert è stato sincronizzato ma non riavviato → badge.
-    // (Confrontare con la main era sbagliato: le firme diverse cambiano l'MD5 del binario.)
-    let Some((eb, es)) = app_build_fingerprint("/Applications/App Expert.app") else {
-        return Ok(false);
-    };
-    Ok(eb != sb || es != ss)
+    // 2) La MAIN ha una versione più nuova dell'Expert (version.txt diversi) →
+    // "Update available. Sync and restart to apply." (confronto stabile rispetto alla firma).
+    if let (Some(mv), Some(ev)) = (read_version_txt("/Applications/Quinki.app"), read_version_txt("/Applications/App Expert.app")) {
+        if !mv.is_empty() && !ev.is_empty() && mv != ev { return Ok(true); }
+    }
+
+    Ok(false)
 }
 
 #[tauri::command]

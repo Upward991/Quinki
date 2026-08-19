@@ -156,6 +156,20 @@ const notificationFor: Record<string, string> = {
 // === PiBridge instance ===
 let piBridge: PiBridge | null = null;
 const agentDir = process.env.QUINKI_AGENT_DIR || path.join(homedir(), ".pi", "agent");
+
+// Agente di default per le nuove chat: defaultAgentId dal config globale, fallback "quinki".
+function readDefaultAgentId(): string {
+  try {
+    const gcf = fs.existsSync(path.join(agentDir, "quinki-global.json"))
+      ? path.join(agentDir, "quinki-global.json")
+      : path.join(agentDir, "dashboard-global.json");
+    if (fs.existsSync(gcf)) {
+      const cfg = JSON.parse(fs.readFileSync(gcf, "utf8"));
+      if (cfg.defaultAgentId) return String(cfg.defaultAgentId);
+    }
+  } catch {}
+  return "quinki";
+}
 const authPath = path.join(agentDir, "auth.json");
 const modelsPath = path.join(agentDir, "models.json");
 const attachmentsDir = path.join(agentDir, "quinki-attachments");
@@ -232,9 +246,12 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   createSession: async (p) => {
     const key = `pi-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const s = piBridge!.create(key, p.label || "Chat");
-    if (p.agentId) {
-      piBridge!.setAgent(key, String(p.agentId));
-      piBridge!.setChatAgents(key, String(p.agentId));
+    // Ogni chat nasce con ALMENO un agente: quello passato, oppure il default (config → quinki)
+    const defaultAgentId = readDefaultAgentId();
+    const agentId = p.agentId || (defaultAgentId ? defaultAgentId : null);
+    if (agentId) {
+      piBridge!.setAgent(key, String(agentId));
+      piBridge!.setChatAgents(key, String(agentId));
     }
     if (p.model) await piBridge!.setModel(key, p.model);
     if (p.thinkingLevel) piBridge!.setThinkingLevel(key, p.thinkingLevel);
@@ -245,7 +262,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     }
     const meta = piBridge!.getSessionMeta(key);
     piBridge!.logDebug("session-created", { sessionKey: key, label: p.label, agentId: p.agentId || "pi", model: meta.model, thinkingLevel: meta.thinkingLevel, mode: meta.mode });
-    return { key, label: s.label, agentId: p.agentId || "pi", model: meta.model, thinkingLevel: meta.thinkingLevel, compactionAuto: p.compactionAuto, compactionThreshold: p.compactionThreshold };
+    return { key, label: s.label, agentId: agentId || "pi", model: meta.model, thinkingLevel: meta.thinkingLevel, compactionAuto: p.compactionAuto, compactionThreshold: p.compactionThreshold };
   },
   ensureSession: async (p) => {
     // Crea l'entry della sessione se non esiste (idempotente: se esiste già, ritorna quella).

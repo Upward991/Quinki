@@ -145,6 +145,15 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const [sessionTokens, setSessionTokens] = useState<Record<string, { input: number; output: number }>>({})
   const [debugLog, setDebugLog] = useState<any[]>([])
   const [piConfigNeeded, setPiConfigNeeded] = useState(false)
+  const [defaultAgentId, setDefaultAgentId] = useState<string>('quinki')
+  // === Agente di default per le nuove chat (config globale → fallback quinki) ===
+  useEffect(() => {
+    if (!ready) return
+    call('getGlobalConfig', {}).then((r: any) => {
+      if (r?.config?.defaultAgentId) setDefaultAgentId(String(r.config.defaultAgentId))
+    }).catch(() => {})
+  }, [ready, call])
+
   // === A3: Notifiche ===
   const sessionsRef = useRef<any[]>([])
   useEffect(() => { sessionsRef.current = sessions }, [sessions])
@@ -992,11 +1001,12 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
           if (createResult?.key || createResult?.sessionKey) {
             sk = createResult.key || createResult.sessionKey
             setActiveSessionId(sk as string)
-            // Persisti gli agenti selezionati nella nuova sessione (nessun default: se non selezionati, nessun agente)
-            const allAgents = (optsChatAgents && optsChatAgents.length > 0) ? optsChatAgents : (ag && ag.length > 0 ? ag : []);
+            // Ogni chat nasce con ALMENO un agente: quelli selezionati, oppure il default (createResult.agentId)
+            const allAgents = (optsChatAgents && optsChatAgents.length > 0) ? optsChatAgents : (ag && ag.length > 0 ? ag : (createResult?.agentId ? [createResult.agentId] : []));
             if (allAgents.length > 0) {
               try { await call('setChatAgents', { sessionKey: sk, agentIds: allAgents.join(',') }) } catch {}
             }
+            setChatAgentIds(allAgents)
             if (typeof optsCompactionAuto === 'boolean') {
               try { await call('setSessionCompaction', { sessionKey: sk, auto: optsCompactionAuto, threshold: 80 }) } catch {}
             }
@@ -1553,7 +1563,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     connected: ready, loading, sessions, agents, providers, messages, folders, models, isCompacting,
     activeSessionId, isStreaming, statusLabel, statusKind, contextTokens, contextWindow,
     thinkingLevels, agentStatus, compactingSessions, sessionTokens, debugLog, piConfigNeeded,
-    chatAgentIds, agentOverrides,
+    chatAgentIds, defaultAgentId, agentOverrides,
     // Sidebar
     sidebarSessions,
     // Session management
