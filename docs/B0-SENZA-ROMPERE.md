@@ -5,26 +5,30 @@
 
 ---
 
-## 0. FEATURE CRITICHE DA NON ROMPERE (inventario)
+## 0. FEATURE CRITICHE DA NON ROMPERE — INVENTARIO COMPLETO
 
-| ID | Feature | Dove vive |
-|---|---|---|
-| F1 | **Recovery turni interrotti** (pending-turn, re-prompt al boot, salta LH) | sidecar `recoverPendingTurns`, marker `pending-turn.json` |
-| F2 | **Streaming** (chunk, restore dopo riapertura, buffer) | `pi-bridge` `#streamingBuffers`, WS `stream_event` |
-| F3 | **Task/scheduler/timeline** (executor `__exec_*`, schedule, task clips) | `executor.ts`, `scheduler.ts`, `longhorizon.ts` |
-| F4 | **Long Horizon** (fasi, units, support agent) | `longhorizon.ts` |
-| F5 | **Allegati** (clip in bolla, `ATTACHED FILES`, sessione on-demand) | `ChatArea`, `Composer`, `pi-bridge` |
-| F6 | **Notifiche A3** (badge, read-state, modalità, click→chat, macOS) | `pi-bridge`, `useSidecarData`, `lib.rs` |
-| F7 | **Delegazioni/orchestrator** (tool di delega, multi-agent) | `pi-bridge`, `agent-handlers` |
-| F8 | **Compaction** (auto, manuale, toggle) | SDK + `pi-bridge` `compactSession` |
-| F9 | **Multi-window** (win-chat, focus, switch-session) | `App.tsx`, `lib.rs` |
-| F10 | **Sync main↔Expert** (file condivisi, version.txt, banner) | `lib.rs`, `read-state` |
-| F11 | **Export md/html** | `utils/export.ts` |
-| F12 | **Search nella chat** (highlight, date filter, scroll-to-msg) | `ChatArea`, `MessageBubble` |
-| F13 | **Marker unread** (linea "unread below", auto-scroll) | `ChatArea` |
-| F14 | **Agenti/default agent** (multi-agent, overrides, default "Quinki") | `App.tsx`, `pi-bridge` |
+> **L'inventario COMPLETO delle feature (estratto dal codice: 134 RPC + 54 comandi Rust + strumenti agenti + UI) è in `docs/APP0-FEATURES-INVENTARIO.md`.** Qui sotto le aree di riferimento per le analisi di rischio (ogni area racchiude più feature).
+
+| Area | Feature principali (vedi inventario per il dettaglio) |
+|---|---|
+| **A1 Chat/Messaggi** | send/stream/stop/steer/clip, 200 msg, marker unread, search+date, export, reset/reload/compact, allegati, task clips, multi-agente, default agent |
+| **A2 Agenti/Risorse** | CRUD agenti (protetti), skill, MCP (3 tipi), tool + bash_readonly, plan mode, default agent |
+| **A3 Task/Scheduler/Timeline** | executor, scheduler (once/daily/…), recoverExecutions, handoff, piani, ponti chat↔task |
+| **A4 Long Horizon** | fasi, unità, support agent, session files, git, multiple sessioni |
+| **A5 Sessioni/Sidebar** | folders, tombstone, welcome, multi-window (win-chat) |
+| **A6 Notifiche** | 2 modalità, badge, pannello, macOS click→chat, read-state condiviso |
+| **A7 Settings/Providers/Modelli** | providers DnD, apiKey, modelli, thinking probe, tema, default |
+| **A8 Files/Attachments** | clip, cartelle, export, permessi cartelle |
+| **A9 Ciclo vita app** | tray, close-to-tray, quit modale, kill sincrono, menu custom, watchdog |
+| **A10 Expert/Sync/Update** | install/sync/rollback/restart Expert, banner, apply update |
+| **A11 Recovery/Reliability** | pending-turn, recoverPendingTurns, executor recovery, tombstone, merge condivisi |
+| **A12 Home/Calendar/Log** | welcome, timeline, task view, log |
+| **A13 Sidecar/SDK** | sessioni Pi, jsonl, compaction, Ollama, MCP client, auth |
+| **A14 Permessi macOS** | TCC, folders, system settings |
 
 ---
+
+> Nota: i riferimenti F1–F14 qui sotto sono le aree critiche specifiche per ogni modifica (da incrociare con l'inventario completo A1–A14).
 
 ## 1. B0.1 — Monitoring heapStats (S9)
 
