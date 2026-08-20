@@ -95,7 +95,8 @@
 - **Cosa**: executor crea sessioni `__exec_*` per i task; al termine fa `abort` + `remove` (che non dispose/unsub → C4). Con task frequenti = micro-leak a ogni task.
 - **Evidenza**: executor.ts:660-661; 231 sessioni in context-usage (molte `__exec_*`).
 
-### C11 — CICLO DI VITA DEL SIDECAR ALLA CHIUSURA (scoperto con la domanda dell'utente) 🔴
+### C11 — CICLO DI VITA DEL SIDECAR ALLA CHIUSURA (scoperto con la domanda dell'utente) — ✅ RISOLTA (20 ago)
+**Fix installato**: Cmd+Q → modale di conferma (solo Quit App + spiegazione recovery), tray → conferma nativa macOS, menu custom (Cmd+Q libero, Cmd+W ripristinato), `kill_backend()` SINCRONO in TUTTI i percorsi (modale/tray/menu/ExitRequested) — uccide sidecar per porta+percorso, watchdog PRIMA per l'Expert, watchdog consapevole (esce se l'app non è viva). Verificato: dopo quit di main ed Expert → ZERO processi residui (ps pulito).
 - **Cosa succede davvero quando chiudi la app**:
   - **X rosso / Cmd+W** → close-to-tray: la finestra si NASCONDE, l'app resta in tray, il sidecar CONTINUA a girare (by design, per i task programmati).
   - **Quit dal tray (Main)** → `SHOULD_EXIT=true` → ExitRequested → `kill -9` sul sidecar 9182 → l'app esce. Niente shutdown pulito.
