@@ -36,40 +36,40 @@
 
 ---
 
-## 4. PIANO DI LAVORO — ORDINE + METRICHE + RISCHI
+## 4. PIANO DI LAVORO — ORDINE + METRICHE + RISCHI + TEST AUTOMATICI
 
-> Ogni fase ha: cosa · dove · metriche · rischio · verifica. Lo studio "come non rompere" è in `docs/B0-SENZA-ROMPERE.md`.
+> Ogni fase ha: cosa · dove · metriche · rischio · **test automatico** · verifica. Lo studio "come non rompere" è in `docs/B0-SENZA-ROMPERE.md`. I test automatici sono script bun su WS (li faccio IO prima di installare, regola: mai far testare all'utente).
 
 ### B0.1 — Monitoring (S9)
 - **Cosa**: RPC `getHeapStats` + log `heapStats()` (bun:jsc) a ogni agent_end e ogni 60s idle.
 - **Dove**: `sidecar-src/pi-bridge.ts` + `sidecar.ts` (RPC) + risorse.
 - **Metrica**: heapSize/heapCapacity/extraMemory/objectCount nel debug log.
-- **Rischio**: ~zero (read-only). **Verifica**: probe bun → RPC risponde.
+- **Test automatico**: ✅ SÌ — script bun: RPC `getHeapStats` → risponde con heapSize/heapCapacity/extraMemory/objectCount; log contiene le entry periodiche. **Verifica**: probe bun → RPC risponde.
 
 ### B0.2 — Fix leak (S4) 🔴
 - **Cosa**: `remove()`/`deleteSessionsByKeys`/`deleteSessionsByFolder` → chiamare `(unsub)?.()` + `(pi)?.dispose?.()` PRIMA di eliminare. Guardie: niente dispose se streaming buffer attivo o pending-turn presente.
 - **Dove**: `pi-bridge.ts` (`remove()` riga ~1295, delete IPC ~6808) + `executor.ts` (remove `__exec_*`).
 - **Metri**: RSS dopo eliminazione di N chat non cresce; heapStats scende.
-- **Rischio**: MEDIO (dispose in momenti sbagliati) → guardie + test end-to-end.
+- **Test automatico**: ✅ SÌ (forte) — script: crea→attiva→invia→`deleteSession` ×20 → `heapStats` dopo `Bun.gc` → l'heap NON deve crescere; guard: sessione in streaming NON viene disposta (delete ignorata); sessione eliminata → `pending-turn.json` rimosso. **Verifica**: test bun + poi test manuale (elimina chat in UI).
 - **Verifica**: test bun: crea→attiva→rimuovi sessione → heapStats; poi test manuale (elimina chat in UI).
 
 ### B0.3 — getHistory tail (S2)
 - **Cosa**: per la HISTORY VIEW non costruire il contesto completo; leggere la coda del jsonl (ultime ~250 entry) e mappare quelle. Il send resta con l'SDK (contesto completo).
 - **Dove**: `pi-bridge.ts` `getHistory()` + helper tail-reader.
 - **Metrica**: getHistory su __app_expert__: da +466MB spike → <10MB; tempo da 612ms → <50ms.
-- **Rischio**: history incompleta / ordine / compaction → confronto di parità col vecchio su stessa sessione.
+- **Test automatico**: ✅ SÌ (test di PARITÀ) — script bun: per 3 sessioni (piccola, media, `__app_expert__`) confronta getHistory vecchio vs nuovo → stessi ultimi 200 (stesso id e ordine), tempo < 100ms, delta RSS < 10MB; fallback al vecchio se file malformato. **Verifica**: script di parità + probe tempi.
 - **Verifica**: script bun che confronta getHistory nuovo vs vecchio (stessi ultimi 200 messaggi, id+order).
 
 ### B0.4 — quick win `--smol` (S5)
 - **Cosa**: `BUN_OPTIONS=--smol` nel launch del sidecar (start.sh / Rust env).
 - **Metrica**: curva RSS idle/streaming con e senza.
-- **Rischio**: ~zero (CPU + leggermente). **Verifica**: misura.
+- **Test automatico**: ✅ SÌ (parziale) — avvio con `BUN_OPTIONS=--smol`: probe RPC rispondono, CPU idle 2min registrata, RSS a riposo prima/dopo. **Verifica**: misura.
 
 ### B0.5 — Sessioni LRU (S1+S7) — il grande
 - **Cosa**: policy: max N attive (es. 5); dopo X min di inattività o cambio chat → `dispose()` + unsub. RIapre on-demand (con B0.3 per lo spike).
 - **Dove**: `pi-bridge.ts` (`#ensureActive`, new `#touchSession`, `#inactivitySweep` event-based) + guardie streaming.
-- **Metrica**: N sessioni attive, RSS, curva 1→5→10→20→50→100.
-- **Rischio**: MEDIO (dispose su sessioni live, conflitto con task/LH) → guardie + test 100 sessioni.
+- **Metrica**: N sessioni attive, RSS, curva 1→5→10→20→50→100. **Test automatico**: script scala (vedi B0.6).
+- **Test automatico**: ✅ SÌ (forte) — script bun: attiva N sessioni con invio breve → wait idle → conta attive (deve essere ≤ max via streamingStatus/debugLog); RSS cala; riusa una disattivata → torna attiva con history; guardie: sessione in streaming / task / LH mai disposta. **Verifica**: test 100 sessioni + manuale.
 - **Decisioni**: quante attive? timeout? (vedi §5)
 
 ### B0.6 — Misura finale
@@ -78,19 +78,19 @@
 ### B0.7 — UI: V3 truncate contenuti enormi (subito)
 - **Cosa**: tool result/output > soglia (es. 20KB) → default troncato + "Show more". Export/copia/ricerca usano il FULL.
 - **Dove**: `MessageBubble.tsx` (render blocchi), `useSidecarData` (non troncare i dati, solo il render).
-- **Metrica**: DOM nodes di una chat con 1.3MB scende sotto 1500.
+- **Metrica**: DOM nodes di una chat con 1.3MB scende sotto 1500. **Test automatico**: PARZIALE — estrarre la logica truncate come funzione pura → `bun test` (default, bordi, full data intatti); il conteggio DOM è manuale (DevTools).
 - **Rischio**: l'utente "perde" visibilità → toggle espandi + export completo.
 
 ### B0.8 — UI: virtualizzazione + paginazione (V1+V2) — fase 2
 - **Cosa**: Virtuoso Message List (o TanStack) per il render dei 200+ messaggi; `getHistoryBefore(ts)` lato sidecar per caricare più vecchi su scroll-up.
 - **Dove**: `ChatArea.tsx`, `MessageBubble` wrapper; `pi-bridge.ts` (nuovo RPC).
-- **Metrica**: DOM nodes < 1500; scroll fluido; caricamento storia senza salti.
+- **Metrica**: DOM nodes < 1500; scroll fluido; caricamento storia senza salti. **Test automatico**: PARZIALE — lato sidecar: nuova RPC `getHistoryBefore` con test parità/tempi (bun); lato UI: manuale (autoscroll, search, marker, task panel) — browser automation (playwright) è un'opzione futura, non ora.
 - **Rischio**: ALTO (autoscroll, marker unread, search highlight, scroll-to-msg, data-msg-idx query) → Virtuoso MessageList + test manuale di ogni feature.
 
 ### B0.9 — UI: streaming batching (V4) + search sidecar (V5)
 - **Cosa**: batch dei stream_event a 20-30Hz; RPC `searchSessionMessages` che cerca nel jsonl.
 - **Dove**: `useSidecarData.ts` (buffer delta), `pi-bridge.ts` (search RPC).
-- **Rischio**: testo in ritardo / markdown parziale → flush a fine; search in parallelo alla history.
+- **Test automatico**: SÌ (parziale) — buffer batching: `bun test` della logica di buffer (accumulo/flush); search sidecar: test bun (query su sessione grande → correttezza vs grep, tempi). UI streaming: FPS manuale.
 
 ### B0.10 — A2.5 Enduro (24-48h)
 - Valida B0: due app conviventi, leak, crash/ripristino, RAM per giorni.
