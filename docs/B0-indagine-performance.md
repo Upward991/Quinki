@@ -80,6 +80,14 @@
 - **Evidenza**: `useSidecarData.ts` `messages` = getHistory (max 200); UI RSS misurato.
 - **Scenario futuro**: con 100 chat il DOM è contenuto (200 msg max per view); il problema resta il sidecar, non la UI.
 
+### C6b — FASE 2 (UI): virtualizzazione/subscription/memo — NON è il problema ora
+- **Subscription frontend**: ✅ verificate — TUTTE hanno cleanup (`return () => { unsub...() }` in useSidecarData). Il leak delle subscription è nel SIDECAR (C4), stesso principio (EventEmitter) ma nel backend.
+- **Virtualizzazione**: NON necessaria ora — la UI è già limitata (chat = max 200 messaggi da `slice(-200)`, log = 200 entry `#debugMax`, sidebar = lista sessioni). Bibbia §4: la virtualizzazione riduce il DOM, NON la RAM del dataset (che vive nel sidecar) → servirebbe SOLO se in futuro mostreremo cronologie lunghe (200→2000 msg) senza capi.
+- **Streaming render-per-token**: esiste (un `stream_event` per token → append → setState). È costo CPU (non RAM) → ottimizzabile in fase 2 con batching (30-60Hz).
+- **React.memo/useMemo/useCallback**: Bibbia dice solo dopo aver misurato i render costosi; UI a 134MB e fluida → fase 2.
+- **UI lifecycle ≠ agent lifecycle**: già rispettato (runtime nel sidecar, indipendente dalla UI).
+- **Decisione**: il problema RAM attuale è 100% nel sidecar; le ottimizzazioni UI sono la fase 2, DOPO B0.
+
 ### C7 — LOG: GIÀ GESTITO (non è un problema)
 - **Cosa**: `#debugMax=200` entry in RAM + flush async 5s su file. Log file 10 MB.
 - **Evidenza**: `logDebug` pi-bridge.ts:2712 (cap + buffer).
