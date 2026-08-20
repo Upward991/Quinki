@@ -1,6 +1,6 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{
-    menu::{Menu, MenuItem},
+    menu::{Menu, MenuItem, Submenu, PredefinedMenuItem},
     tray::TrayIconBuilder,
     Manager, WindowEvent, Emitter,
 };
@@ -1729,6 +1729,32 @@ pub fn run() {
         .build(app)?;
       } // end if !is_expert_mode()
 
+      // === Menu applicazione: SENZA Quit con Cmd+Q (così Cmd+Q arriva al webview) ===
+      // Il menu mantiene About/Hide + Edit (copy/paste funzionano negli input).
+      // "Quit" è presente ma senza scorciatoia → apre il modale (stessa UX di Cmd+Q).
+      {
+        let app_name = if is_expert_mode() { "App Expert" } else { "Quinki" };
+        let about = PredefinedMenuItem::about(app, Some(app_name), None)?;
+        let sep = PredefinedMenuItem::separator(app)?;
+        let hide = PredefinedMenuItem::hide(app, None)?;
+        let quit_noaccel = MenuItem::with_id(app, "app-quit", format!("Quit {}", app_name), true, None::<&str>)?;
+        let app_sub = Submenu::with_items(app, app_name, true, &[&about, &sep, &hide, &sep, &quit_noaccel])?;
+
+        let undo = PredefinedMenuItem::undo(app, None)?;
+        let redo = PredefinedMenuItem::redo(app, None)?;
+        let cut = PredefinedMenuItem::cut(app, None)?;
+        let copy = PredefinedMenuItem::copy(app, None)?;
+        let paste = PredefinedMenuItem::paste(app, None)?;
+        let select_all = PredefinedMenuItem::select_all(app, None)?;
+        let edit_sub = Submenu::with_items(app, "Edit", true, &[&undo, &redo, &sep, &cut, &copy, &paste, &select_all])?;
+
+        let min = PredefinedMenuItem::minimize(app, None)?;
+        let window_sub = Submenu::with_items(app, "Window", true, &[&min])?;
+
+        let menu = Menu::with_items(app, &[&app_sub, &edit_sub, &window_sub])?;
+        let _ = app.set_menu(menu);
+      }
+
       // === Sidecar start ===
       #[cfg(not(target_os = "windows"))]
       {
@@ -1821,6 +1847,12 @@ pub fn run() {
       }
       
       Ok(())
+    })
+    .on_menu_event(|app, event| {
+      // Item "Quit" del menu applicazione (senza Cmd+Q) → stesso modale di Cmd+Q
+      if event.id.as_ref() == "app-quit" {
+        let _ = app.emit("quit_requested", ());
+      }
     })
     .on_window_event(|window, event| {
       // Close-to-tray: ONLY main window hides. Sub-windows close normally.

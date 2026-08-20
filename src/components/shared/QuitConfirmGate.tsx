@@ -18,7 +18,15 @@ export function QuitConfirmGate() {
     listen('quit_requested', () => setOpen(true))
       .then((u: any) => { un = u })
       .catch(() => {})
-    return () => { un?.() }
+    // Cmd+Q: path deterministico — con il menu custom (senza acceleratore) l'evento arriva qui
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.metaKey && (e.key === 'q' || e.key === 'Q')) {
+        e.preventDefault()
+        setOpen(true)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => { un?.(); window.removeEventListener('keydown', onKeyDown) }
   }, [])
 
   if (!open) return null
