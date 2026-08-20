@@ -1232,15 +1232,18 @@ fn count_items(dir: &str) -> usize {
 
 #[tauri::command]
 fn kill_backend() {
+    // SINCRONO (status()): il kill DEVE essere completato prima di uscire, altrimenti
+    // il sidecar sopravvive alla chiusura (race). Copre tutte le vie di quit.
     if is_expert_mode() {
-        // Watchdog PRIMA (niente race di riaccensione), poi sidecar
+        // Watchdog PRIMA (niente race di riaccensione), poi sidecar (porta + percorso binario)
         let _ = std::process::Command::new("sh").arg("-c")
-          .arg("pkill -f 'start-expert.sh' 2>/dev/null; pkill -f expert-watchdog 2>/dev/null; sleep 0.3; lsof -ti:9183 | xargs kill -9 2>/dev/null")
-          .spawn();
+          .arg("pkill -f 'start-expert.sh' 2>/dev/null; pkill -f expert-watchdog 2>/dev/null; sleep 0.2; lsof -ti:9183 | xargs kill -9 2>/dev/null; pkill -9 -f 'App Expert.app/Contents/Resources/resources/sidecar/quinki-sidecar-w[s]' 2>/dev/null; true")
+          .status();
     } else {
+        // Sidecar main: porta 9182 + percorso binario (bracket trick per non matchare la shell stessa)
         let _ = std::process::Command::new("sh").arg("-c")
-          .arg("lsof -ti:9182 | xargs kill -9 2>/dev/null")
-          .spawn();
+          .arg("lsof -ti:9182 | xargs kill -9 2>/dev/null; pkill -9 -f 'Quinki.app/Contents/Resources/resources/sidecar/quinki-sidecar-w[s]' 2>/dev/null; true")
+          .status();
     }
 }
 
@@ -1305,10 +1308,8 @@ fn quit_expert_app(app: tauri::AppHandle) {
 
 #[tauri::command]
 fn restart_app(app: tauri::AppHandle) {
-    // Same logic as tray menu restart
-    let _ = std::process::Command::new("sh").arg("-c")
-      .arg("lsof -ti:9182 | xargs kill -9 2>/dev/null")
-      .spawn();
+    // Same logic as tray menu restart (kill sincrono)
+    kill_backend();
     SHOULD_EXIT.store(true, Ordering::SeqCst);
     // Relaunch app — use nohup + detached process so it survives parent exit
     let _ = std::process::Command::new("sh").arg("-c")
@@ -1697,10 +1698,8 @@ pub fn run() {
               }
             }
             "restart" => {
-              // Kill sidecar processes
-              let _ = std::process::Command::new("sh").arg("-c")
-                .arg("lsof -ti:9182 | xargs kill -9 2>/dev/null")
-                .spawn();
+              // Kill sidecar (sincrono) poi riapri
+              kill_backend();
               SHOULD_EXIT.store(true, Ordering::SeqCst);
               // Relaunch app — use nohup + detached process so it survives parent exit
               let _ = std::process::Command::new("sh").arg("-c")
@@ -1713,9 +1712,7 @@ pub fn run() {
             "quit" => {
               // Il quit dal tray chiude TUTTO (app + backend) → conferma nativa macOS
               if native_quit_confirm("Quinki") {
-                let _ = std::process::Command::new("sh").arg("-c")
-                  .arg("lsof -ti:9182 | xargs kill -9 2>/dev/null")
-                  .spawn();
+                kill_backend();
                 SHOULD_EXIT.store(true, Ordering::SeqCst);
                 app.exit(0);
               }
