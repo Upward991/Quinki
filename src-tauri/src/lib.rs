@@ -1253,7 +1253,7 @@ fn native_quit_confirm(app_name: &str) -> bool {
     unsafe {
         let alert: *mut Object = msg_send![class!(NSAlert), new];
         let title = format!("Quit {}?", app_name);
-        let info = "Quitting from the menu bar closes the app AND its background service. Use Cmd+Q to choose what to close.";
+        let info = "Quitting closes the app and its background service. The recovery system resumes interrupted messages and tasks automatically the next time you open the app.";
         let t_c = CString::new(title).unwrap_or_default();
         let i_c = CString::new(info).unwrap_or_default();
         let t_ns: *mut Object = msg_send![class!(NSString), stringWithUTF8String: t_c.as_ptr()];
@@ -1749,7 +1749,8 @@ pub fn run() {
         let edit_sub = Submenu::with_items(app, "Edit", true, &[&undo, &redo, &sep, &cut, &copy, &paste, &select_all])?;
 
         let min = PredefinedMenuItem::minimize(app, None)?;
-        let window_sub = Submenu::with_items(app, "Window", true, &[&min])?;
+        let close_win = PredefinedMenuItem::close_window(app, None)?;
+        let window_sub = Submenu::with_items(app, "Window", true, &[&min, &close_win])?;
 
         let menu = Menu::with_items(app, &[&app_sub, &edit_sub, &window_sub])?;
         let _ = app.set_menu(menu);
