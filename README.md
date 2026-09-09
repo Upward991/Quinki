@@ -2,9 +2,9 @@
 
 ![Quinki](screenshots/hero.png)
 
-**Your AI subscriptions, in one app.**
+**AI agents, chats and tools on your desktop.**
 
-Quinki is a native macOS desktop app that lets you chat with AI models using the subscriptions you already have — ChatGPT Plus, Claude Pro, GitHub Copilot, SuperGrok — plus free options like Ollama and OpenRouter.
+Quinki is a native desktop app for AI work: parallel multi-agent chats, scheduled jobs, a Market of community-built tools, and the App Expert to extend the app from inside it. Everything stays on your machine.
 
 ![macOS](https://img.shields.io/badge/macOS-Apple%20Silicon-blue)
 ![Version](https://img.shields.io/badge/version-1.0.0--beta.1-orange)
@@ -12,7 +12,7 @@ Quinki is a native macOS desktop app that lets you chat with AI models using the
 
 ## What is Quinki?
 
-Quinki is an AI chat desktop app with a difference: it uses **your existing subscriptions** to power the AI. No new API keys, no new billing — just sign in with the account you already pay for.
+Quinki is a desktop app with tabs: chat with AI agents, schedule tasks, browse the Market, manage your agents — all in one place. Create your own tabs with the App Expert, publish them to the Market, and install community-built tools. Everything runs locally on your Mac.
 
 ### Providers (built-in)
 
