@@ -1,0 +1,74 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+dist-ssr/
+*.local
+sidecar-src/*.cjs
+sidecar-src/*.mjs
+sidecar-src/*.bun-build
+sidecar-src/quinki-sidecar-ws
+sidecar-src/quinki-sidecar-full
+sidecar-src/quinki-combined
+sidecar-src/bundle/
+src-tauri/target/
+src-tauri/gen/
+src-compiled/
+.deep-cosmos-backup/
+
+# Binaries (build artifacts — build with scripts/build-sidecar.sh)
+src-tauri/resources/sidecar/quinki-sidecar-ws
+src-tauri/resources/sidecar/bun-runtime
+src-tauri/resources/sidecar/quinki-sidecar-full
+src-tauri/resources/sidecar/quinki-ws-bridge
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Environment
+.env
+.env.*
+
+# Internal docs (not for public)
+docs/TEST-*.md
+docs/B0-*.md
+docs/B0b-*.md
+docs/B0c-*.md
+docs/B0d-*.md
+docs/A2.5-*.md
+docs/SMOKE-TEST-CHECKLIST.md
+docs/SIGNING-*.md
+docs/COMPARE.md
+docs/DECISIONS.md
+docs/CLA.md
+docs/RELEASE-CHECKLIST.md
+docs/ROAD-TO-*.md
+docs/MARKET-REPO-README.md
+docs/auto-merge.yml
+docs/b4-poc/
+
+# VM test scripts (internal)
+scripts/vm-tests/
+
+# OAuth secrets (never in repo)
+*.env
+oauth.conf
+sidecar-src/quinki-sidecar
+sidecar-src/quinki-ws-bridge
+.vercel/

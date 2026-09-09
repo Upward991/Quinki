@@ -1345,7 +1345,7 @@ export function AddItemsModal({ title, items, initialSelected, onClose, onConfir
   });
 }
 
-function Modal({ onClose, title, children }) {
+export function Modal({ onClose, title, children }) {
   return React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 210, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: onClose, children:
     React.createElement('div', { style: { backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', animation: 'modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '420px', width: '90%' }, onClick: e => e.stopPropagation(), children: [
       React.createElement('div', { style: { color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '16px' }, children: title }),
@@ -1354,7 +1354,7 @@ function Modal({ onClose, title, children }) {
   });
 }
 
-function ConfirmButtons({ onCancel, onConfirm, confirmLabel, danger }) {
+export function ConfirmButtons({ onCancel, onConfirm, confirmLabel, danger }) {
   return React.createElement('div', { style: { display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }, children: [
     React.createElement('button', { onClick: onCancel, onMouseEnter: e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }, onMouseLeave: e => { e.currentTarget.style.backgroundColor = 'transparent' }, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'Cancel' }),
     React.createElement('div', { style: { width: '8px' } }),

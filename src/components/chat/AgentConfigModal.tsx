@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { AgentRow } from '../agents/AgentsPanel'
-import { AddItemsModal, FileEditor } from '../agents/AgentsPanel'
+import { AddItemsModal, FileEditor, Modal, ConfirmButtons } from '../agents/AgentsPanel'
 import { useSidecarContext } from '../shared/AppShell'
 import type { Agent } from '../../types'
 
@@ -191,39 +191,24 @@ export function AgentConfigModal({ agentId, agents = [], onClose }: { agentId: s
 
       {/* Sub-modals — same as AgentsPanel */}
       {deleteAgentName && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 210, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setDeleteAgentName(null)}>
-          <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '400px', width: '90%' }} onClick={e => e.stopPropagation()}>
-            <div style={{ color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', marginBottom: '20px' }}>Delete "{deleteAgentName}"?</div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              <button onClick={() => setDeleteAgentName(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-accent-danger)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }}>Cancel</button>
-              <button onClick={() => doDeleteAgent(deleteAgentName)} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }} style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>Delete</button>
-            </div>
-          </div>
-        </div>
+        <Modal onClose={() => setDeleteAgentName(null)} title={'Delete agent'}>
+          <div style={{ color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', marginBottom: '20px' }}>Delete "{deleteAgentName}"?</div>
+          <ConfirmButtons onCancel={() => setDeleteAgentName(null)} onConfirm={() => doDeleteAgent(deleteAgentName)} confirmLabel="Delete" danger />
+        </Modal>
       )}
 
       {removeAllState && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 210, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setRemoveAllState(null)}>
-          <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '400px', width: '90%' }} onClick={e => e.stopPropagation()}>
-            <div style={{ color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', marginBottom: '20px' }}>Remove all {removeAllState.type} from agent "{removeAllState.agentName}"?</div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              <button onClick={() => setRemoveAllState(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-accent-danger)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }}>Cancel</button>
-              <button onClick={() => { doRemoveAll(removeAllState.type); setRemoveAllState(null) }} style={{ padding: '4px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-tab-accent)', color: 'var(--q-bg)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Remove</button>
-            </div>
-          </div>
-        </div>
+        <Modal onClose={() => setRemoveAllState(null)} title={`Remove all ${removeAllState.type}`}>
+          <div style={{ color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', marginBottom: '20px' }}>Remove all {removeAllState.type} from agent "{removeAllState.agentName}"?</div>
+          <ConfirmButtons onCancel={() => setRemoveAllState(null)} onConfirm={() => { doRemoveAll(removeAllState.type); setRemoveAllState(null) }} confirmLabel="Remove all" danger />
+        </Modal>
       )}
 
       {removeTagState && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 210, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setRemoveTagState(null)}>
-          <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '400px', width: '90%' }} onClick={e => e.stopPropagation()}>
-            <div style={{ color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', marginBottom: '20px' }}>Remove {removeTagState.type} "{removeTagState.name}" from agent "{removeTagState.agent}"?</div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              <button onClick={() => setRemoveTagState(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-accent-danger)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }}>Cancel</button>
-              <button onClick={() => { doRemoveTag(removeTagState.type, removeTagState.name); setRemoveTagState(null) }} style={{ padding: '4px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-tab-accent)', color: 'var(--q-bg)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Remove</button>
-            </div>
-          </div>
-        </div>
+        <Modal onClose={() => setRemoveTagState(null)} title={`Remove ${removeTagState.type}`}>
+          <div style={{ color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', marginBottom: '20px' }}>Remove {removeTagState.type} "{removeTagState.name}" from agent "{removeTagState.agent}"?</div>
+          <ConfirmButtons onCancel={() => setRemoveTagState(null)} onConfirm={() => { doRemoveTag(removeTagState.type, removeTagState.name); setRemoveTagState(null) }} confirmLabel="Remove" danger />
+        </Modal>
       )}
 
       {addItemsModal && (

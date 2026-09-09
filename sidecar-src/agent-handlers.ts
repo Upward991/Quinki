@@ -9,9 +9,7 @@ import { homedir } from "node:os";
 
 export function createAgentHandlers(agentDir: string, getCwd: () => string) {
   const agentsDir = path.join(agentDir, "agents");
-  const globalConfigFile = fs.existsSync(path.join(agentDir, "quinki-global.json"))
-  ? path.join(agentDir, "quinki-global.json")
-  : path.join(agentDir, "dashboard-global.json");
+  const globalConfigFile = path.join(agentDir, "quinki-global.json");
 
   // === Global config ===
 
@@ -503,6 +501,13 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
     getGlobalConfig: async () => ({ config: readGlobalConfig() }),
     updateGlobalConfig: async (p: any) => {
       writeGlobalConfig(p.config);
+      // === MID-SESSION REFRESH: ri-applica #applyMode sulle sessioni ATTIVE così
+      // i cambiamenti a planModeTools/planModeMcp/tools globali sono immediati.
+      // Niente dispose (history intatta): setActiveToolsByName rebuilda solo i tool.
+      try {
+        const bridge = (globalThis as any).__quinki_piBridge;
+        if (bridge?.reapplyModeOnActiveSessions) bridge.reapplyModeOnActiveSessions();
+      } catch {}
       return { success: true };
     },
     // === API Key management (macOS Keychain / fallback) ===

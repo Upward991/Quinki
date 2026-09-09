@@ -47,18 +47,10 @@ const _logSource = (() => {
     return poolI > 0 ? role + "-pool" + poolI : role;
   } catch { return "?"; }
 })();
-const SESSION_FILE = fs.existsSync(path.join(_agentDir, "quinki-sessions.json"))
-  ? path.join(_agentDir, "quinki-sessions.json")
-  : path.join(_agentDir, "dashboard-sessions.json");
-const FOLDERS_FILE = fs.existsSync(path.join(_agentDir, "quinki-folders.json"))
-  ? path.join(_agentDir, "quinki-folders.json")
-  : path.join(_agentDir, "dashboard-folders.json");
-const SETTINGS_FILE = fs.existsSync(path.join(_agentDir, "quinki-settings.json"))
-  ? path.join(_agentDir, "quinki-settings.json")
-  : path.join(_agentDir, "dashboard-settings.json");
-const CONTEXT_USAGE_FILE = fs.existsSync(path.join(_agentDir, "quinki-context-usage.json"))
-  ? path.join(_agentDir, "quinki-context-usage.json")
-  : path.join(_agentDir, "dashboard-context-usage.json");
+const SESSION_FILE = path.join(_agentDir, "quinki-sessions.json");
+const FOLDERS_FILE = path.join(_agentDir, "quinki-folders.json");
+const SETTINGS_FILE = path.join(_agentDir, "quinki-settings.json");
+const CONTEXT_USAGE_FILE = path.join(_agentDir, "quinki-context-usage.json");
 const ERRORS_FILE = path.join(_agentDir, "quinki-errors.json");
 const DEBUG_LOG_FILE = path.join(_agentDir, "quinki-debug.log");
 const DEBUG_LOG_MAX = 200;
@@ -4520,12 +4512,42 @@ Read this file to view it.` }] };
   #needsConfigRefresh = new Set<string>();
   #promptsAt = new Map<string, number>();
 
+  // Ri-applica #applyMode su TUTTE le sessioni attive (niente dispose).
+  // Chiamato da updateGlobalConfig quando planModeTools/planModeMcp/tools cambiano:
+  // il runtime legge il global config fresco e setta i tool attivi senza uccidere la sessione.
+  reapplyModeOnActiveSessions() {
+    try {
+      for (const sk of [...this.#active.keys()]) {
+        const pi = this.#active.get(sk);
+        if (!pi) continue;
+        const entry = this.#entries.get(sk);
+        const mode = entry?.mode === "build" ? "build" : "plan";
+        try {
+          this.#applyMode(pi, sk, mode);
+          this.logDebug("global-config-reapplied", { sessionKey: sk, mode });
+        } catch (e: any) {
+          this.logDebug("global-config-reapply-error", { sessionKey: sk, error: e?.message });
+        }
+      }
+    } catch (e: any) { this.logDebug("global-config-reapply-scan-error", { error: String(e?.message || e) }); }
+  }
+
   refreshSessionsForAgent(agentId: string) {
     try {
       for (const sk of [...this.#active.keys()]) {
-        const raw = String(this.#resolveAgentId(sk) || "");
-        const list = raw.split(",").map((s: any) => s.trim()).filter(Boolean);
-        if (!list.includes(agentId) && raw !== agentId) continue;
+        // Match ESTESO: controlla il resolved agent (override), la entry completa
+        // (agentId può essere una lista multi-agente) e il resolved raw.
+        // Prima matchava SOLO #resolveAgentId → le sessioni multi-agente con
+        // override non venivano mai rinfrescate.
+        const resolved = String(this.#resolveAgentId(sk) || "");
+        const entry = this.#entries.get(sk);
+        const entryAgents = String(entry?.agentId || "").split(",").map((s: string) => s.trim()).filter(Boolean);
+        const resolvedList = resolved.split(",").map((s: any) => s.trim()).filter(Boolean);
+        const matches = resolvedList.includes(agentId)
+          || resolved === agentId
+          || entryAgents.includes(agentId)
+          || entry?.agentId === agentId;
+        if (!matches) continue;
         this.#safeRecreateSession(sk, `agent-config-changed:${agentId}`);
       }
     } catch (e: any) { this.logDebug("config-refresh-scan-error", { error: String(e?.message || e) }); }
@@ -4533,6 +4555,11 @@ Read this file to view it.` }] };
 
   #safeRecreateSession(sk: string, reason: string) {
     try {
+      // === PRESERVA LA MODE: il dispose non deve MAI far perdere plan/build.
+      // #writeSessionPrefs salva mode/model/thinking in mode.json — il prossimo
+      // giro (recreate) la rilegge AUTHORITATIVA. Senza questo, il fallback "plan"
+      // nel send path scattava a ogni ricreazione → mode che si resetta da sola.
+      try { this.#writeSessionPrefs(sk); } catch {}
       const turnActive = this.#streamingBuffers.has(sk) || this.#responseTimers.has(sk) || this.#prompts.has(sk);
       if (turnActive) {
         this.#needsConfigRefresh.add(sk);
@@ -6443,6 +6470,22 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     
     let pi = this.#active.get(sk);
     this.logDebug("send-resolved-agent", { sessionKey: sk, override: this.#agentOverride.get(sk), resolvedAgentId: this.#resolveAgentId(sk), hasActiveSession: !!pi });
+    // === SAFETY NET mid-session (rianimato, FIX 10 set): #maybeRefreshMcp con ADOPT-IF-MISSING
+    // è sicuro — controlla la firma (mcp+tools) del config agente a ogni send. Se la firma
+    // è MANCANTE (boot) la ADOTTA senza dispose (fix 29 ago). Se è CAMBIATA → rebuild tool +
+    // refresh registry + dispose → recreate al prossimo giro. Questo copre i casi in cui
+    // l'event-driven (refreshSessionsForAgent) non ha trovato la sessione o il match è
+    // fallito: il prossimo send rileva comunque il cambio e aggiorna.
+    try {
+      if (pi) {
+        const refreshed = await this.#maybeRefreshMcp(sk, pi);
+        if (refreshed) {
+          // La sessione è stata disposta dal refresh — la ricrea sotto (if (!pi))
+          pi = this.#active.get(sk) as any;
+          this.logDebug("send-mcp-refreshed", { sessionKey: sk, note: "config agente cambiato — sessione ricreata" });
+        }
+      }
+    } catch (e: any) { this.logDebug("send-mcp-refresh-error", { sessionKey: sk, error: e?.message }); }
     // === REDESIGN (29 ago): QUI non si controlla PIÙ NESSUNA configurazione a ogni
     // messaggio. Prima: #maybeRefreshMcp leggeva il config agente da disco e calcolava
     // la firma a OGNI send → con la firma vuota al boot (sidecar riavviato) il PRIMO
@@ -8071,6 +8114,9 @@ if (!turnCompleted && lastStopReason && lastStopReason !== "toolUse" && !this.#s
           try {
             if (this.#needsConfigRefresh.has(key)) {
               this.#needsConfigRefresh.delete(key);
+              // === PRESERVA LA MODE prima del dispose (stesso fix di #safeRecreateSession):
+              // mode.json AUTHORITATIVO → il recreate non può defaultare a "plan".
+              try { this.#writeSessionPrefs(key); } catch {}
               const piEnd = this.#active.get(key);
               try { const un = this.#unsubs.get(key); if (un) { try { un(); } catch {} } this.#unsubs.delete(key); } catch {}
               try { (piEnd as any)?.dispose?.(); } catch {}

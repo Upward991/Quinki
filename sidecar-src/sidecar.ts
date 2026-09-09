@@ -187,9 +187,7 @@ const agentDir = process.env.QUINKI_AGENT_DIR || path.join(homedir(), ".pi", "ag
 // Agente di default per le nuove chat: defaultAgentId dal config globale, fallback "quinki".
 function readDefaultAgentId(): string {
   try {
-    const gcf = fs.existsSync(path.join(agentDir, "quinki-global.json"))
-      ? path.join(agentDir, "quinki-global.json")
-      : path.join(agentDir, "dashboard-global.json");
+    const gcf = path.join(agentDir, "quinki-global.json");
     if (fs.existsSync(gcf)) {
       const cfg = JSON.parse(fs.readFileSync(gcf, "utf8"));
       if (cfg.defaultAgentId) return String(cfg.defaultAgentId);
@@ -202,9 +200,7 @@ const modelsPath = path.join(agentDir, "models.json");
 const attachmentsDir = path.join(agentDir, "quinki-attachments");
 const settingsFile = path.join(agentDir, "quinki-settings.json");
 const agentsDir = path.join(agentDir, "agents");
-const globalConfigFile = fs.existsSync(path.join(agentDir, "quinki-global.json"))
-  ? path.join(agentDir, "quinki-global.json")
-  : path.join(agentDir, "dashboard-global.json");
+const globalConfigFile = path.join(agentDir, "quinki-global.json");
 // === A2.1: ExecutionEngine (task autonomi, fondamentale H24) ===
 const executor = new ExecutionEngine();
 executor.onUpdate = (payload) => { try { sendNotification("execution_update", payload); } catch {} };
@@ -758,9 +754,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     saveMcpServers(servers);
     // Pulizia planModeMcp nel global config (evita id orfani)
     try {
-      const gcPath = fs.existsSync(path.join(homedir(), '.quinki', 'quinki-global.json'))
-        ? path.join(homedir(), '.quinki', 'quinki-global.json')
-        : path.join(homedir(), '.quinki', 'dashboard-global.json');
+      const gcPath = path.join(homedir(), '.quinki', 'quinki-global.json');
       if (fs.existsSync(gcPath)) {
         const gc = JSON.parse(fs.readFileSync(gcPath, 'utf-8'));
         if (gc && gc.planModeMcp && typeof gc.planModeMcp === 'object') {
