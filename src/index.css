@@ -1,0 +1,509 @@
+
+/* ============================================================
+   Quinki — "Deep Cosmos" Design System CSS
+   Deep space aesthetic — warm but mysterious.
+   Muted lavender violet accent. Inner glow shadows.
+   Aurora atmosphere + noise overlay.
+   ============================================================ */
+
+@import "tailwindcss";
+
+/* ──────────────────────────────────────────────────────────
+   TAILWIND THEME — design tokens → utility classes
+   ────────────────────────────────────────────────────────── */
+@theme {
+  /* Backgrounds */
+  --color-bg: var(--q-bg);
+  --color-bg-elevated: var(--q-bg-elevated);
+  --color-bg-panel: var(--q-bg-panel);
+  --color-bg-code: var(--q-bg-code);
+  --color-bubble-user: var(--q-bubble-user);
+  --color-bubble-user-text: var(--q-bubble-user-text);
+  --color-overlay: var(--q-overlay);
+
+  /* Text */
+  --color-text: var(--q-text);
+  --color-text-secondary: var(--q-text-secondary);
+  --color-text-tertiary: var(--q-text-tertiary);
+
+  /* Borders */
+  --color-border-soft: var(--q-border-soft);
+  --color-border: var(--q-border);
+  --color-border-strong: var(--q-border-strong);
+
+  /* States */
+  --color-hover: var(--q-hover);
+  --color-active: var(--q-active);
+
+  /* Accents */
+  --color-accent-primary: var(--q-accent-primary);
+  --color-accent-secondary: var(--q-accent-secondary);
+  --color-accent-danger: var(--q-accent-danger);
+  --color-accent-warning: var(--q-accent-warning);
+  --color-accent-success: var(--q-accent-success);
+  --color-accent-info: var(--q-accent-info);
+  --color-accent-info-bright: var(--q-accent-info-bright);
+  --color-accent-folder-open: var(--q-accent-folder-open);
+  --color-accent-orange: var(--q-accent-orange);
+
+  /* Accent soft variants */
+  --color-accent-primary-soft: var(--q-accent-primary-soft);
+  --color-accent-danger-soft: var(--q-accent-danger-soft);
+  --color-accent-danger-border: var(--q-accent-danger-border);
+  --color-accent-folder-open-soft: var(--q-accent-folder-open-soft);
+  --color-accent-folder-open-border: var(--q-accent-folder-open-border);
+
+  /* Mode */
+  --color-mode-plan: var(--q-mode-plan);
+  --color-mode-build: var(--q-mode-build);
+
+  /* Semantic */
+  --color-thinking: var(--q-thinking);
+  --color-tool-call: var(--q-tool-call);
+  --color-tool-result: var(--q-tool-result);
+  --color-delegation: var(--q-delegation);
+
+  /* Status */
+  --color-status-thinking: var(--q-status-thinking);
+  --color-status-writing: var(--q-status-writing);
+  --color-status-tool-call: var(--q-status-tool-call);
+  --color-status-tool-result: var(--q-status-tool-result);
+  --color-status-tool-error: var(--q-status-tool-error);
+  --color-status-compacting: var(--q-status-compacting);
+  --color-status-retrying: var(--q-status-retrying);
+  --color-status-failed: var(--q-status-failed);
+  --color-status-running: var(--q-status-running);
+
+  /* Log levels — bg, text, tag */
+  --color-log-error-bg: var(--q-log-error-bg);
+  --color-log-error-text: var(--q-log-error-text);
+  --color-log-error-tag: var(--q-log-error-tag);
+  --color-log-warn-bg: var(--q-log-warn-bg);
+  --color-log-warn-text: var(--q-log-warn-text);
+  --color-log-warn-tag: var(--q-log-warn-tag);
+  --color-log-ui-bg: var(--q-log-ui-bg);
+  --color-log-ui-text: var(--q-log-ui-text);
+  --color-log-ui-tag: var(--q-log-ui-tag);
+  --color-log-success-bg: var(--q-log-success-bg);
+  --color-log-success-text: var(--q-log-success-text);
+  --color-log-success-tag: var(--q-log-success-tag);
+  --color-log-bridge-bg: var(--q-log-bridge-bg);
+  --color-log-bridge-text: var(--q-log-bridge-text);
+  --color-log-bridge-tag: var(--q-log-bridge-tag);
+  --color-log-renderer-bg: var(--q-log-renderer-bg);
+  --color-log-renderer-text: var(--q-log-renderer-text);
+  --color-log-renderer-tag: var(--q-log-renderer-tag);
+  --color-log-info-bg: var(--q-log-info-bg);
+  --color-log-info-text: var(--q-log-info-text);
+  --color-log-info-tag: var(--q-log-info-tag);
+
+  /* Directory */
+  --color-directory-btn: var(--q-directory-btn);
+  --color-directory-btn-hover: var(--q-directory-btn-hover);
+
+  /* Fonts */
+  --font-interface: "Geist", sans-serif;
+  --font-code: "Geist Mono", monospace;
+
+  /* Shadows */
+  --shadow-floating: 0 0 0 1px var(--q-border), inset 0 1px 0 #ffffff05;
+  --shadow-modal: 0 0 0 1px var(--q-border), 0 8px 32px #0006, inset 0 1px 0 #ffffff05;
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  /* Spacing — base unit 4px so p-1=4px, p-2=8px, p-3=12px, p-4=16px */
+  --spacing: 4px;
+  --spacing-titlebar: 28px;
+  --spacing-header-min: 48px;
+  --spacing-sidebar: 260px;
+  --spacing-chat-max: 1000px;
+
+  /* Font sizes */
+  --text-11: 11px;
+  --text-12: 12px;
+  --text-13: 13px;
+  --text-14: 14px;
+  --text-15: 15px;
+  --text-16: 16px;
+
+  /* Z-index */
+  --z-overlay: 40;
+  --z-dropdown: 50;
+  --z-modal: 100;
+}
+
+/* ──────────────────────────────────────────────────────────
+   DESIGN TOKENS — "Deep Cosmos" base (:root)
+   ────────────────────────────────────────────────────────── */
+:root {
+  --q-bg: #08080b;
+  --q-bg-panel: #0f0f13;
+  --q-bg-elevated: #16161b;
+  --q-bg-code: #040406;
+  --q-bubble-user: #1a1a20;
+  --q-bubble-user-text: #e8e8ec;
+  --q-overlay: #06060ad1;
+  --q-text: #e8e8ec;
+  --q-text-secondary: #888892;
+  --q-text-tertiary: #585860;
+  --q-border-soft: #ffffff08;
+  --q-border: #ffffff0f;
+  --q-border-solid: #17171a;
+  --q-border-strong: #ffffff1a;
+  --q-hover: #ffffff0a;
+  --q-active: #ffffff12;
+  --q-accent-primary: #9d8bd9;
+  --q-accent-secondary: #c97084;
+  --q-accent-danger: #d96b6b;
+  --q-accent-warning: #d29922;
+  --q-accent-success: #6bc46d;
+  --q-accent-info: #7aa2f7;
+  --q-accent-longhorizon: #8B7FD4;
+  --q-accent-calendar: #7fd1c0;
+  /* Accent della tab corrente — impostato da App.tsx al cambio tab (expert=orange, chat=info, log=success, agents=secondary, settings=primary) */
+  --q-tab-accent: var(--q-accent-info);
+  --q-tab-accent-darker: color-mix(in srgb, var(--q-tab-accent) 82%, black);
+  --q-search-highlight-bg: #d7be66;
+  --q-search-highlight-text: #161616;
+  --q-accent-info-darker: #5a8cd9;
+  --q-accent-info-bright: #89b4fa;
+  --q-accent-folder-open: #d9a066;
+  --q-accent-orange: #d9a066;
+  --q-accent-folder-open-soft: #d9a0661f;
+  --q-accent-folder-open-border: #d9a06680;
+  --q-mode-plan: #F4A6BD;
+  /* Sending pill: il rosa plan, attenuato (richiesta: stesso rosa, intensità più bassa) */
+  --q-mode-plan-dim: #E295AC;
+  --q-mode-build: #F2A65E;
+  --q-directory-btn: #16161b;
+  --q-directory-btn-hover: #9d8bd9;
+  --q-accent-primary-soft: #9d8bd91a;
+  --q-accent-danger-soft: #d96b6b1a;
+  --q-accent-danger-border: #d96b6b40;
+  --q-thinking: #9d8bd9;
+  --q-tool-call: #d29922;
+  --q-tool-result: #6bc46d;
+  --q-delegation: #c97084;
+  --q-status-thinking: #9d8bd9;
+  --q-status-writing: #e8e8ec;
+  --q-status-tool-call: #d29922;
+  --q-status-tool-result: #6bc46d;
+  --q-status-tool-error: #d96b6b;
+  --q-status-compacting: #7aa2f7;
+  --q-status-retrying: #d29922;
+  --q-status-failed: #d96b6b;
+  --q-status-running: #5a8c9e;
+  --q-log-error-bg: #d96b6b0f;
+  --q-log-error-text: #f0a0a0;
+  --q-log-error-tag: #d96b6b;
+  --q-log-warn-bg: #d299220f;
+  --q-log-warn-text: #e0c890;
+  --q-log-warn-tag: #d29922;
+  --q-log-ui-bg: #7aa2f70f;
+  --q-log-ui-text: #a0b8d0;
+  --q-log-ui-tag: #7aa2f7;
+  --q-log-success-bg: #6bc46d0f;
+  --q-log-success-text: #90d090;
+  --q-log-success-tag: #6bc46d;
+  --q-log-bridge-bg: #ffffff08;
+  --q-log-bridge-text: var(--q-text);
+  --q-log-bridge-tag: var(--q-text);
+  --q-log-renderer-bg: #ffffff05;
+  --q-log-renderer-text: var(--q-text-secondary);
+  --q-log-renderer-tag: var(--q-text-secondary);
+  --q-log-info-bg: #ffffff05;
+  --q-log-info-text: var(--q-text-tertiary);
+  --q-log-info-tag: var(--q-text-tertiary);
+  --fs-11: 11px;
+  --fs-13: 13px;
+  font-size: 15px;
+}
+
+/* ──────────────────────────────────────────────────────────
+   7 THEMES — each overrides atmospheric variables
+   ────────────────────────────────────────────────────────── */
+[data-theme="comfort"] { --q-bg: #08080b; --q-bg-panel: #0f0f13; --q-bg-elevated: #16161b; --q-bg-code: #040406; --q-bubble-user: #1a1a20; --q-bubble-user-text: #e8e8ec; --q-overlay: #06060ad1; --q-text: #e8e8ec; --q-text-secondary: #888892; --q-text-tertiary: #585860; }
+[data-theme="midnight"] { --q-bg: #060608; --q-bg-panel: #0c0c10; --q-bg-elevated: #121216; --q-bg-code: #020204; --q-bubble-user: #16161a; --q-bubble-user-text: #e8e8ec; --q-overlay: #06060ad1; --q-text: #e8e8ec; --q-text-secondary: #888892; --q-text-tertiary: #585860; }
+[data-theme="forest"] { --q-bg: #08080a; --q-bg-panel: #0e0e10; --q-bg-elevated: #141416; --q-bg-code: #040406; --q-bubble-user: #18181a; --q-bubble-user-text: #e8e8ec; --q-overlay: #06060ad1; --q-text: #e8e8ec; --q-text-secondary: #888892; --q-text-tertiary: #585860; }
+[data-theme="warm"] { --q-bg: #0a0a0a; --q-bg-panel: #101010; --q-bg-elevated: #161616; --q-bg-code: #060606; --q-bubble-user: #1a1a1a; --q-bubble-user-text: #e8e8ec; --q-overlay: #06060ad1; --q-text: #e8e8ec; --q-text-secondary: #888892; --q-text-tertiary: #585860; }
+[data-theme="eclipse"] { --q-bg: #040406; --q-bg-panel: #0a0a0c; --q-bg-elevated: #101012; --q-bg-code: #000000; --q-bubble-user: #141416; --q-bubble-user-text: #e8e8ec; --q-overlay: #06060ad1; --q-text: #e8e8ec; --q-text-secondary: #888892; --q-text-tertiary: #585860; }
+[data-theme="graphite"] { --q-bg: #0c0c0e; --q-bg-panel: #121214; --q-bg-elevated: #18181a; --q-bg-code: #060608; --q-bubble-user: #1e1e20; --q-bubble-user-text: #e8e8ec; --q-overlay: #06060ad1; --q-text: #e8e8ec; --q-text-secondary: #888892; --q-text-tertiary: #585860; }
+[data-theme="mist"] { --q-bg: #141416; --q-bg-panel: #1a1a1c; --q-bg-elevated: #202022; --q-bg-code: #0c0c0e; --q-bubble-user: #262628; --q-bubble-user-text: #e8e8ec; --q-overlay: #06060ad1; --q-text: #e8e8ec; --q-text-secondary: #888892; --q-text-tertiary: #585860; }
+
+/* ──────────────────────────────────────────────────────────
+   BASE RESET + GLOBAL STYLES
+   ────────────────────────────────────────────────────────── */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, #root { height: 100vh; overflow: hidden; }
+body {
+  font-family: var(--font-interface);
+  background-color: var(--q-bg);
+  color: var(--q-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-user-select: none;
+  user-select: none;
+  font-size: 15px;
+}
+
+/* Aurora background — subtle radial gradients */
+/* Aurora moved to body background-image */
+
+/* Noise overlay — fractal turbulence at 2.5% opacity 
+body:after {
+  content: "";
+  opacity: 0.025;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  z-index: 9999;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E");
+  position: fixed;
+  inset: 0;
+}*/
+
+/* Scrollbars — hidden for clean look */
+* { scrollbar-width: none; }
+::-webkit-scrollbar { width: 0; height: 0; display: none; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: transparent; }
+::-webkit-scrollbar-corner { background: transparent; }
+* { -ms-overflow-style: none; }
+html { scrollbar-gutter: stable; }
+
+/* Code + links */
+code, pre { font-family: var(--font-code); font-size: var(--fs-13); }
+a { color: var(--q-accent-info-bright); text-decoration: none; }
+/* Caret (cursore testo) = accent della tab corrente, ovunque */
+input, textarea, [contenteditable] { caret-color: var(--q-tab-accent); }
+
+a:hover { text-decoration: underline; }
+h1, h2, h3, h4, h5, h6 { letter-spacing: -0.01em; }
+
+/* Focus — no outline, clean */
+input:focus, textarea:focus, button:focus { box-shadow: none; outline: none; }
+
+/* Global transition for smooth theme switching */
+* { transition: none; }
+
+/* ──────────────────────────────────────────────────────────
+   ANIMATIONS — "Deep Cosmos" motion design
+   ────────────────────────────────────────────────────────── */
+@keyframes materialize {
+  0% { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes breathe {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.9; transform: scale(1.1); }
+}
+@keyframes modalEnter {
+  0% { opacity: 0; transform: scale(0.97) translateY(6px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes staggerIn {
+  0% { opacity: 0; transform: translateY(6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes msgSent {
+  0% { opacity: 0; transform: translateY(16px) scale(0.97); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes sendReadyPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
+
+/* Animation utility classes */
+.q-modal-enter { animation: 0.25s cubic-bezier(0.16, 1, 0.3, 1) modalEnter; }
+.q-msg-sent { animation: 0.3s cubic-bezier(0.16, 1, 0.3, 1) msgSent; }
+.q-send-pulse { animation: 0.3s cubic-bezier(0.16, 1, 0.3, 1) sendReadyPulse; }
+.q-press:active { transform: scale(0.97) !important; }
+
+/* Text selection — enabled in chat content */
+.user-message-content, .assistant-content, .toggle-content, .markdown-content {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* ──────────────────────────────────────────────────────────
+   HIGHLIGHT.JS — code syntax highlighting
+   ────────────────────────────────────────────────────────── */
+.hljs { background: transparent !important; padding: 0 !important; }
+
+
+
+
+
+.q-hover-btn:hover {
+  background-color: var(--q-hover) !important;
+}
+
+
+
+mark.search-highlight-mark {
+  background-color: #d7be66;
+  color: #161616;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+/* Primo elemento della risposta: niente margin-top (spacing 12 solo TRA blocchi) */
+.assistant-content > div:first-child { margin-top: 0 !important; }
+
+
+
+/* ol: numero tab-accent bold */
+.markdown-content ol li::marker { color: var(--q-tab-accent); font-weight: 600; }
+
+
+
+/* Liste: numeri ol tab-accent, dot ul tab-accent — STESSO spacing */
+.markdown-content ol li { display: list-item; list-style: decimal outside; }
+.markdown-content ol li::marker { color: var(--q-tab-accent); font-weight: 600; }
+.markdown-content ul li { display: list-item; list-style: none; position: relative; padding-left: 16px; }
+/* Task list (checkbox): niente pallino — solo la checkbox */
+.markdown-content ul li.task-list-item { padding-left: 0; }
+.markdown-content ul li.task-list-item::before { content: none; }
+.markdown-content ul li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--q-tab-accent);
+}
+
+/* === Fix: hover stuck when switching windows === */
+body.win-inactive *:not(.sidebar-item):not(.sortable-row) {
+  pointer-events: none !important;
+}
+
+@keyframes taskPanelExpand { from { transform: translateY(28px); opacity: 0.4 } to { transform: translateY(0); opacity: 1 } }
+
+
+/* === B0.8 v3 — virtualizzazione NATIVA (content-visibility) ===
+   Il browser SKIPPA il render (layout/paint) degli elementi fuori schermo.
+   Layout invariato (block), larghezza identica, search/scrollIntoView funzionano. */
+.q-cv-item {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 140px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* B4 fix: le TABELLE markdown non devono spezzare le parole lettera per lettera.
+   .q-cv-item ha overflow-wrap:anywhere (per URL/codice lunghi) che rompeva le
+   celle delle tabelle. Per le tabelle: a capo per parola + scroll orizzontale
+   (il wrapper div del componente table ha già overflowX:auto). */
+.q-cv-item .markdown-content table,
+.markdown-content table {
+  overflow-wrap: normal;
+  word-break: normal;
+  table-layout: auto;
+  min-width: 100%;
+}
+.q-cv-item .markdown-content table td,
+.q-cv-item .markdown-content table th,
+.markdown-content table td,
+.markdown-content table th {
+  overflow-wrap: break-word;
+  word-break: normal;
+  white-space: normal;
+  min-width: 0;
+}
+
+/* ─────────────────────────────────────────────
+   MARKETPLACE THEME — tema FISSO dello store.
+   Valori copiati dal tema scuro dell'app MA fissi:
+   il Marketplace NON cambia quando cambi tema nell'app.
+   ───────────────────────────────────────────── */
+:root {
+  --mp-bg: #08080b;
+  --mp-panel: #0f0f13;
+  --mp-elevated: #16161b;
+  --mp-border: #ffffff0f;
+  --mp-border-strong: #ffffff1a;
+  --mp-text: #e8e8ec;
+  --mp-text-secondary: #888892;
+  --mp-text-tertiary: #585860;
+  --mp-accent: #9d8bd9;
+  --mp-accent-strong: #b3a6e8;
+  --mp-success: #6bc46d;
+  --mp-danger: #d96b6b;
+  --mp-warning: #d29922;
+}
+
+/* Tasti di navigazione del Marketplace: hover via CSS (niente stati appiccicosi) */
+.mp-btn {
+  display: flex; align-items: center; gap: 6px; padding: 7px 14px;
+  border-radius: var(--radius-sm); border: 1px solid var(--mp-accent);
+  background-color: var(--mp-panel); color: var(--mp-accent);
+  font-size: 13px; font-weight: 600; font-family: var(--font-interface);
+  cursor: pointer; transition: none;
+}
+.mp-btn:hover { background-color: var(--mp-accent); color: var(--mp-bg); }
+.mp-btn-back {
+  display: flex; align-items: center; gap: 6px; padding: 7px 14px;
+  border-radius: var(--radius-sm); border: 1px solid var(--mp-border-strong);
+  background-color: var(--mp-panel); color: var(--mp-text);
+  font-size: 13px; font-weight: 600; font-family: var(--font-interface);
+  cursor: pointer; transition: none;
+}
+.mp-btn-back:hover { background-color: var(--mp-elevated); }
+.mp-btn-active {
+  display: flex; align-items: center; gap: 6px; padding: 7px 14px;
+  border-radius: var(--radius-sm); border: 1px solid var(--mp-accent);
+  background-color: var(--mp-accent); color: var(--mp-bg);
+  font-size: 13px; font-weight: 600; font-family: var(--font-interface);
+  cursor: pointer; transition: none;
+}
+.mp-btn-danger {
+  display: flex; align-items: center; gap: 6px; padding: 6px 12px;
+  border-radius: var(--radius-sm); border: 1px solid var(--mp-border-strong);
+  background-color: var(--mp-panel); color: var(--mp-danger);
+  font-size: 12px; font-family: var(--font-interface);
+  cursor: pointer; transition: none;
+}
+.mp-btn-danger:hover { background-color: rgba(217,107,107,0.12); }
+
+/* Filtri sezioni (stile pill della Home): neutri, solo l'attivo è accent */
+.mp-filter {
+  display: flex; align-items: center; gap: 6px; padding: 6px 14px;
+  border-radius: var(--radius-sm); border: 1px solid var(--mp-border-strong);
+  background-color: var(--mp-panel); color: var(--mp-text-secondary);
+  font-size: 12px; font-weight: 400; font-family: var(--font-interface);
+  cursor: pointer; transition: none;
+}
+.mp-filter:hover { background-color: var(--mp-elevated); color: var(--mp-text); }
+.mp-filter-active {
+  display: flex; align-items: center; gap: 6px; padding: 6px 14px;
+  border-radius: var(--radius-sm); border: 1px solid var(--mp-accent);
+  background-color: var(--mp-accent); color: var(--mp-bg);
+  font-size: 12px; font-weight: 600; font-family: var(--font-interface);
+  cursor: pointer; transition: none;
+}
+.mp-btn-avatar {
+  position: absolute; bottom: -2px; right: -2px;
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid var(--mp-panel); background-color: var(--mp-accent); color: var(--mp-bg);
+  display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;
+}
+.mp-btn-avatar:hover { background-color: var(--mp-accent-strong); }
+
+/* FIX (31 ago): WebKit mostra un resize handle (pixel bianco) in basso a destra
+   del textarea anche con resize:none. Questo lo nasconde completamente. */
+textarea::-webkit-resizer {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+}
