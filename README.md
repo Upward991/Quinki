@@ -1,5 +1,7 @@
 # Quinki
 
+![Quinki](screenshots/hero.png)
+
 **Your AI subscriptions, in one app.**
 
 Quinki is a native macOS desktop app that lets you chat with AI models using the subscriptions you already have — ChatGPT Plus, Claude Pro, GitHub Copilot, SuperGrok — plus free options like Ollama and OpenRouter.
