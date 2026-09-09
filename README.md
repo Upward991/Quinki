@@ -47,7 +47,7 @@ curl -fsSL https://raw.githubusercontent.com/Upward991/quinki/main/install.sh | 
 
 ### From DMG
 
-1. Download the latest DMG from [Releases](../../releases)
+1. Download the latest DMG from [Releases](https://github.com/Upward991/Quinki/releases)
 2. Open the DMG and drag Quinki to Applications
 3. **Important**: On first launch, right-click Quinki.app → "Open" (bypass Gatekeeper)
 
@@ -63,7 +63,11 @@ curl -fsSL https://raw.githubusercontent.com/Upward991/quinki/main/install.sh | 
 3. **Pick a model** — the model selector in the chat header shows all your available models
 4. **Start chatting!**
 
-## Recommended market sources
+## Market
+
+The [Quinki Market](https://github.com/Upward991/quinki-market) is the official package repository — browse it from within the app (Market tab).
+
+### Recommended market sources
 
 The Quinki Market can browse external GitHub repositories. Add these to get 250+ skills and MCP servers instantly:
 
@@ -118,21 +122,15 @@ npx tauri build
 
 The built app appears in `src-tauri/target/release/bundle/macos/Quinki.app`.
 
-## Support the project 🎯
+## Support the project
 
-Quinki is free and open source. Donations fund the infrastructure:
-
-| Goal | Amount | Status |
-|------|--------|--------|
-| Apple Developer Program (notarization) | $99/year | ⏳ Pending |
-| Domain (quinki.app) | $20/year | ⏳ Pending |
-| Development time | Any amount | ❤️ Always needed |
+Quinki is free and open source.
 
 **Donate**: [GitHub Sponsors](https://github.com/sponsors/Upward991)
 
 ## Report issues
 
-Found a bug? [Open an issue](../../issues) with:
+Found a bug? [Open an issue](https://github.com/Upward991/Quinki/issues) with:
 - What you were doing
 - What happened vs what you expected
 - macOS version and model used
