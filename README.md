@@ -11,7 +11,7 @@ Quinki is a native desktop app for AI work: parallel multi-agent chats, schedule
 https://github.com/user-attachments/assets/bd586281-bdfa-471d-8a90-4659b238a889
 
 ![macOS](https://img.shields.io/badge/macOS-Apple%20Silicon-blue)
-![Version](https://img.shields.io/badge/version-1.0.0--beta.1-orange)
+[![Version](https://img.shields.io/github/v/release/Upward991/Quinki?include_prereleases&sort=semver&label=version&color=orange)](https://github.com/Upward991/Quinki/releases)
 ![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 
 ## What is Quinki?
