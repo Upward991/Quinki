@@ -160,6 +160,7 @@
       <a href="#market">Market</a>
       <a href="#download">Download</a>
       <a href="#roadmap">Roadmap</a>
+      <a href="#" onclick="openContact(event)">Contact</a>
       <a href="https://github.com/Upward991/Quinki" class="gh">
         <svg class="lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>
         GitHub
@@ -184,7 +185,7 @@
 
 <div class="wrap">
   <a class="shot-frame" href="https://github.com/Upward991/Quinki/releases/latest" target="_blank" rel="noopener">
-    <video autoplay muted loop playsinline src="media/hello-demo.mp4" alt="Quinki, the AI work app for your desktop"></video>
+    <video autoplay muted loop playsinline src="media/hello-demo.mp4" oncontextmenu="return false" controlslist="nodownload"></video>
   </a>
 </div>
 
@@ -274,7 +275,7 @@
   </div>
   <div class="demo-grid">
     <div class="card demo-card">
-      <video controls preload="metadata" src="media/chat-demo.mp4"></video>
+      <video controls preload="metadata" src="media/chat-demo.mp4" oncontextmenu="return false" controlslist="nodownload" disablepictureinpicture></video>
       <h3>Chat: multi-agent + plan/build</h3>
       <p>A single agent first, then a team. The Orchestrator delegates to Coder and Web Researcher in parallel, with plan/build mode in between.</p>
     </div>
@@ -385,11 +386,50 @@
       </div>
     </div>
     <div class="fbottom">
-      <span>© 2026 Quinki, AGPL-3.0 license · <a href="mailto:quinki.inbox@gmail.com" style="color:inherit;text-decoration:underline">quinki.inbox@gmail.com</a></span>
+      <span>© 2026 Quinki, AGPL-3.0 license · <a href="#" onclick="openContact(event)" style="color:inherit;text-decoration:underline">Contact</a></span>
       <span><a href="https://github.com/Upward991/Quinki/blob/main/README.md">About</a> · Bundled with the Pi SDK (MIT)</span>
     </div>
   </div>
 </footer>
+
+<!-- Contact modal -->
+<div id="contact-modal" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;" onclick="if(event.target===this)closeContact()">
+  <div style="background:var(--q-panel);border:1px solid var(--q-border);border-radius:var(--r-lg);padding:24px;width:90%;max-width:420px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h3 style="font-size:16px;font-weight:600;">Contact</h3>
+      <button onclick="closeContact()" style="background:none;border:none;color:var(--q-tertiary);font-size:18px;cursor:pointer;line-height:1;">×</button>
+    </div>
+    <form onsubmit="sendContact(event)">
+      <input id="c-name" type="text" placeholder="Your name (optional)" style="width:100%;padding:9px 12px;margin-bottom:10px;background:var(--q-elevated);border:1px solid var(--q-border);border-radius:var(--r-sm);color:var(--q-text);font-size:13px;outline:none;">
+      <input id="c-email" type="email" placeholder="Your email (so I can reply)" required style="width:100%;padding:9px 12px;margin-bottom:10px;background:var(--q-elevated);border:1px solid var(--q-border);border-radius:var(--r-sm);color:var(--q-text);font-size:13px;outline:none;">
+      <textarea id="c-msg" placeholder="Your message" required rows="5" style="width:100%;padding:9px 12px;margin-bottom:14px;background:var(--q-elevated);border:1px solid var(--q-border);border-radius:var(--r-sm);color:var(--q-text);font-size:13px;outline:none;resize:vertical;font-family:inherit;"></textarea>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:11px;color:var(--q-tertiary);">Opens your mail app, to quinki.inbox@gmail.com</span>
+        <button type="submit" style="padding:8px 18px;border-radius:var(--r-sm);font-size:13px;font-weight:600;cursor:pointer;border:1px solid var(--q-accent);background:var(--q-accent);color:var(--q-bg);">Send</button>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+function openContact(e) {
+  if (e) e.preventDefault();
+  document.getElementById('contact-modal').style.display = 'flex';
+}
+function closeContact() {
+  document.getElementById('contact-modal').style.display = 'none';
+}
+function sendContact(e) {
+  e.preventDefault();
+  var name = document.getElementById('c-name').value.trim();
+  var email = document.getElementById('c-email').value.trim();
+  var msg = document.getElementById('c-msg').value.trim();
+  var subject = 'Quinki' + (name ? ' - ' + name : '');
+  var body = msg + '\n\nReply to: ' + email;
+  window.location.href = 'mailto:quinki.inbox@gmail.com?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+  closeContact();
+}
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeContact(); });
+</script>
 
 </body>
 </html>
