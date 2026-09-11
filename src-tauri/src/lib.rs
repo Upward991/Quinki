@@ -2310,7 +2310,11 @@ fn quick_chat_register_shortcut(app: &tauri::AppHandle) {
         let about = PredefinedMenuItem::about(app, Some(app_name), None)?;
         let sep = PredefinedMenuItem::separator(app)?;
         let check_item = MenuItem::with_id(app, "app-check-update", "Check for Update…", true, None::<&str>)?;
-        let app_sub = Submenu::with_items(app, app_name, true, &[&about, &sep, &check_item])?;
+        let sep2 = PredefinedMenuItem::separator(app)?;
+        // Close Window con Cmd+W: senza questa voce il shortcut muore (macOS lo
+        // legge dal menu). Il close passa dal QuitConfirmGate come sempre.
+        let close_win = PredefinedMenuItem::close_window(app, None)?;
+        let app_sub = Submenu::with_items(app, app_name, true, &[&about, &sep, &check_item, &sep2, &close_win])?;
         let menu = Menu::with_items(app, &[&app_sub])?;
         let _ = app.set_menu(menu.clone());
         app.on_menu_event(move |app, event| {
