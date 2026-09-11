@@ -976,12 +976,189 @@ fn check_for_update_dialog(app: tauri::AppHandle) {
         // Attendi il risultato dell'alert (0 = "Update now" premuto)
         if let Ok(0) = rx.recv() {
             if let Some((_, dmg_url)) = result_full {
-                std::thread::spawn(move || {
-                    let _ = apply_update(dmg_url, false);
-                });
+                run_native_update_flow(app_c, dmg_url);
             }
         }
     });
+}
+
+// === Native update progress window: floating panel, always on top, indeterminate spinner + status text ===
+// All UI is created and touched ONLY on the main thread (run_on_main_thread closures); the window is
+// stored in a main-thread thread_local so background threads never hold non-Send AppKit objects.
+#[cfg(target_os = "macos")]
+mod upd_progress {
+    use objc2::rc::Retained;
+    use objc2::{ClassType, MainThreadOnly};
+    use objc2_app_kit::{
+        NSBackingStoreType, NSProgressIndicator, NSTextField, NSView, NSWindow, NSWindowStyleMask,
+        NSFloatingWindowLevel,
+    };
+    use objc2_foundation::{NSPoint, NSRect, NSSize, NSString};
+    use std::cell::RefCell;
+    use tauri::Manager;
+
+    struct UpdWin {
+        win: Retained<NSWindow>,
+        label: Retained<NSTextField>,
+        prog: Retained<NSProgressIndicator>,
+    }
+
+    thread_local! {
+        static WIN: RefCell<Option<UpdWin>> = const { RefCell::new(None) };
+    }
+
+    fn with_win(app: &tauri::AppHandle, f: impl FnOnce(Option<&UpdWin>) + Send + 'static) {
+        let _ = app.run_on_main_thread(move || {
+            WIN.with(|c| f(c.borrow().as_ref()));
+        });
+    }
+
+    pub fn show(app: &tauri::AppHandle, text: &str) {
+        let text = text.to_string();
+        let _ = app.run_on_main_thread(move || {
+            // Update text if the window already exists
+            let existed = WIN.with(|c| {
+                if let Some(w) = c.borrow().as_ref() {
+                    w.label.setStringValue(&NSString::from_str(&text));
+                    true
+                } else {
+                    false
+                }
+            });
+            if existed {
+                return;
+            }
+            let Some(mtm) = objc2::MainThreadMarker::new() else { return };
+            unsafe {
+                let rect = NSRect::new(NSPoint::new(0.0, 0.0), NSSize::new(380.0, 130.0));
+                let win = NSWindow::initWithContentRect_styleMask_backing_defer(
+                    NSWindow::alloc(mtm),
+                    rect,
+                    NSWindowStyleMask::Titled,
+                    NSBackingStoreType::Buffered,
+                    false,
+                );
+                win.setTitle(&NSString::from_str("Updating Quinki"));
+                win.setLevel(NSFloatingWindowLevel);
+                let label = NSTextField::labelWithString(&NSString::from_str(&text), mtm);
+                label.setFrameOrigin(NSPoint::new(24.0, 78.0));
+                let prog = NSProgressIndicator::initWithFrame(
+                    NSProgressIndicator::alloc(mtm),
+                    NSRect::new(NSPoint::new(24.0, 40.0), NSSize::new(332.0, 22.0)),
+                );
+                prog.setIndeterminate(true);
+                prog.startAnimation(None);
+                if let Some(content) = win.contentView() {
+                    content.addSubview(&label);
+                    content.addSubview(&prog);
+                }
+                win.center();
+                win.makeKeyAndOrderFront(None);
+                WIN.with(|c| {
+                    *c.borrow_mut() = Some(UpdWin { win, label, prog });
+                });
+            }
+        });
+    }
+
+    pub fn set_text(app: &tauri::AppHandle, text: &str) {
+        let text = text.to_string();
+        with_win(app, move |w| {
+            if let Some(w) = w {
+                w.label.setStringValue(&NSString::from_str(&text));
+            }
+        });
+    }
+
+    pub fn close(app: &tauri::AppHandle) {
+        let _ = app.run_on_main_thread(move || {
+            WIN.with(|c| {
+                if let Some(w) = c.borrow_mut().take() {
+                    unsafe { w.prog.stopAnimation(None) };
+                    w.win.orderOut(None);
+                }
+            });
+        });
+    }
+}
+
+// === Mostra un alert nativo SENZA bloccare il thread chiamante; ritorna l'indice del bottone premuto ===
+#[cfg(target_os = "macos")]
+fn show_alert_async(app: &tauri::AppHandle, title: &str, message: &str, buttons: &[&str]) -> usize {
+    let (tx, rx) = std::sync::mpsc::channel::<usize>();
+    let title = title.to_string();
+    let message = message.to_string();
+    let btns: Vec<String> = buttons.iter().map(|s| s.to_string()).collect();
+    let _ = app.run_on_main_thread(move || {
+        let Some(mtm) = objc2::MainThreadMarker::new() else {
+            let _ = tx.send(99);
+            return;
+        };
+        let refs: Vec<&str> = btns.iter().map(|s| s.as_str()).collect();
+        let _ = tx.send(show_alert_no_icon(mtm, &title, &message, &refs));
+    });
+    rx.recv().unwrap_or(99)
+}
+
+// Versione attualmente installata in /Applications/Quinki.app (se leggibile)
+fn read_installed_version() -> Option<String> {
+    let out = std::process::Command::new("/usr/libexec/PlistBuddy")
+        .args(["-c", "Print :CFBundleShortVersionString", "/Applications/Quinki.app/Contents/Info.plist"])
+        .output()
+        .ok()?;
+    let v = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    if v.is_empty() { None } else { Some(v) }
+}
+
+// === Flusso update completo con UI nativa: progress window → download → install (+ sync Expert) →
+// alert "Update complete" [OK] → alert "Restart?" [Restart/Later] → riavvia entrambe le app ===
+fn run_native_update_flow(app: tauri::AppHandle, dmg_url: String) {
+    std::thread::spawn(move || {
+        #[cfg(target_os = "macos")]
+        {
+            upd_progress::show(&app, "Downloading update…");
+            let dmg_path = match download_update_file(dmg_url) {
+                Ok(p) => p,
+                Err(e) => {
+                    upd_progress::close(&app);
+                    show_alert_async(&app, "Update failed", &format!("Could not download the update: {e}"), &["OK"]);
+                    return;
+                }
+            };
+            upd_progress::set_text(&app, "Installing update and syncing App Expert…");
+            std::thread::sleep(std::time::Duration::from_millis(300));
+            // sync_expert = true: il sync dell'App Expert è SEMPRE automatico
+            if let Err(e) = install_downloaded_update(dmg_path, true) {
+                upd_progress::close(&app);
+                show_alert_async(&app, "Update failed", &format!("Could not install the update: {e}"), &["OK"]);
+                return;
+            }
+            upd_progress::set_text(&app, "Update complete.");
+            std::thread::sleep(std::time::Duration::from_millis(500));
+            upd_progress::close(&app);
+            let msg = match read_installed_version() {
+                Some(v) => format!("Quinki {v} has been downloaded and installed. The App Expert has been synced."),
+                None => "The new version has been downloaded and installed. The App Expert has been synced.".to_string(),
+            };
+            let ok = show_alert_async(&app, "Update complete", &msg, &["OK"]);
+            if ok == 0 {
+                let choice = show_alert_async(&app, "Restart required", "Do you want to apply the update now by restarting the apps?", &["Restart", "Later"]);
+                if choice == 0 {
+                    let _ = restart_after_update();
+                }
+            }
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            let _ = apply_update(dmg_url, true);
+        }
+    });
+}
+
+#[tauri::command]
+fn check_update_dialog(app: tauri::AppHandle) {
+    // Apre lo STESSO dialogo nativo del menu App → Check for Update (dal bottone in Settings → Versions)
+    check_for_update_dialog(app);
 }
 
 #[tauri::command]
@@ -2067,6 +2244,7 @@ pub fn run() {
         apply_update,
         download_update_file,
         install_downloaded_update,
+        check_update_dialog,
         restart_after_update,
         quit_expert_app,
         quit_app,
