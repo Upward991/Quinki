@@ -2312,9 +2312,10 @@ fn quick_chat_register_shortcut(app: &tauri::AppHandle) {
         let about = PredefinedMenuItem::about(app, Some(app_name), None)?;
         let sep = PredefinedMenuItem::separator(app)?;
         let hide = PredefinedMenuItem::hide(app, None)?;
-        let quit_noaccel = MenuItem::with_id(app, "app-quit", format!("Quit {}", app_name), true, None::<&str>)?;
         let check_item = MenuItem::with_id(app, "app-check-update", "Check for Update…", true, None::<&str>)?;
-        let app_sub = Submenu::with_items(app, app_name, true, &[&about, &sep, &hide, &sep, &quit_noaccel, &check_item])?;
+        let quit_noaccel = MenuItem::with_id(app, "app-quit", format!("Quit {}", app_name), true, None::<&str>)?;
+        let quit_sep = PredefinedMenuItem::separator(app)?;
+        let app_sub = Submenu::with_items(app, app_name, true, &[&about, &sep, &hide, &sep, &check_item, &quit_sep, &quit_noaccel])?;
 
         let undo = PredefinedMenuItem::undo(app, None)?;
         let redo = PredefinedMenuItem::redo(app, None)?;
