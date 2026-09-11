@@ -1208,10 +1208,10 @@ fn install_downloaded_update(dmg_path: String, sync_expert: bool) -> Result<Stri
     }
 
     let main = "/Applications/Quinki.app";
-    if std::path::Path::new(main).exists() {
-        let _ = std::fs::remove_dir_all(format!("{}.bak", main));
-        std::fs::rename(main, format!("{}.bak", main)).map_err(|e| format!("backup failed: {}", e))?;
-    }
+    // NO backup: the DMG stays in ~/.quinki/update/ and can be re-installed if
+    // needed. A .bak here was never used for rollback and only wasted ~90 MB on
+    // every user's disk. Instead, clean up any stale .bak left by older versions.
+    let _ = std::fs::remove_dir_all(format!("{}.bak", main));
     std::process::Command::new("ditto")
         .args([&src_app, main])
         .status()
