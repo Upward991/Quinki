@@ -899,8 +899,14 @@ fn show_alert_no_icon(mtm: objc2::MainThreadMarker, title: &str, message: &str, 
     let alert = unsafe { NSAlert::new(mtm) };
     alert.setAlertStyle(NSAlertStyle::Informational);
     unsafe {
-        let empty = unsafe { NSImage::new() };
-        alert.setIcon(Some(&empty));
+        // Icona REALE dell'app: caricata dal bundle (Resources/icon.icns)
+        let icon = std::env::current_exe().ok().and_then(|exe| {
+            let icon_path = exe.parent()?.parent()?.join("Resources/icon.icns");
+            unsafe { NSImage::initWithContentsOfFile(<NSImage as objc2::AnyThread>::alloc(), &objc2_foundation::NSString::from_str(icon_path.to_string_lossy().as_ref())) }
+        });
+        if let Some(icon) = &icon {
+            alert.setIcon(Some(icon));
+        }
         alert.setMessageText(&objc2_foundation::NSString::from_str(title));
         alert.setInformativeText(&objc2_foundation::NSString::from_str(message));
         for b in buttons {
