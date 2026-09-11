@@ -404,7 +404,7 @@
       <input id="c-email" type="email" placeholder="Your email (so I can reply)" required style="width:100%;padding:9px 12px;margin-bottom:10px;background:var(--q-elevated);border:1px solid var(--q-border);border-radius:var(--r-sm);color:var(--q-text);font-size:13px;outline:none;">
       <textarea id="c-msg" placeholder="Your message" required rows="5" style="width:100%;padding:9px 12px;margin-bottom:14px;background:var(--q-elevated);border:1px solid var(--q-border);border-radius:var(--r-sm);color:var(--q-text);font-size:13px;outline:none;resize:vertical;font-family:inherit;"></textarea>
       <div style="display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-size:11px;color:var(--q-tertiary);">Opens your mail app, to quinki.inbox@gmail.com</span>
+        <span id="c-note" style="font-size:11px;color:var(--q-tertiary);">Write, hit send, it lands in the Quinki inbox.</span>
         <button type="submit" style="padding:8px 18px;border-radius:var(--r-sm);font-size:13px;font-weight:600;cursor:pointer;border:1px solid var(--q-accent);background:var(--q-accent);color:var(--q-bg);">Send</button>
       </div>
     </form>
@@ -418,15 +418,35 @@ function openContact(e) {
 function closeContact() {
   document.getElementById('contact-modal').style.display = 'none';
 }
-function sendContact(e) {
+async function sendContact(e) {
   e.preventDefault();
+  var btn = e.target.querySelector('button[type=submit]');
+  var note = document.getElementById('c-note');
+  btn.disabled = true; btn.textContent = 'Sending…';
   var name = document.getElementById('c-name').value.trim();
   var email = document.getElementById('c-email').value.trim();
   var msg = document.getElementById('c-msg').value.trim();
-  var subject = 'Quinki' + (name ? ' - ' + name : '');
-  var body = msg + '\n\nReply to: ' + email;
-  window.location.href = 'mailto:quinki.inbox@gmail.com?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
-  closeContact();
+  try {
+    var r = await fetch('https://formsubmit.co/ajax/quinki.inbox@gmail.com', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({
+        _subject: 'Quinki contact' + (name ? ' from ' + name : ''),
+        _replyto: email,
+        name: name || '(no name)',
+        email: email,
+        message: msg
+      })
+    });
+    var j = await r.json();
+    if (j.success === 'true' || j.success === true) {
+      note.textContent = 'Message sent. Talk soon.'; note.style.color = 'var(--q-accent)';
+      setTimeout(closeContact, 1600);
+    } else { throw new Error('failed'); }
+  } catch (err) {
+    note.textContent = 'Something went wrong. Try again or write to quinki.inbox@gmail.com'; note.style.color = '#e06c75';
+    btn.disabled = false; btn.textContent = 'Send';
+  }
 }
 document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeContact(); });
 </script>
