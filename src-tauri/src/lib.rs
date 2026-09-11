@@ -889,6 +889,68 @@ fn restart_main_app() -> Result<String, String> {
     Ok("Main app restarted".to_string())
 }
 
+
+// === Update check con dialoghi nativi macOS (menu App → Check for Update) ===
+fn check_for_update_dialog(app: tauri::AppHandle) {
+    use tauri_plugin_dialog::DialogExt;
+    let app = app.clone();
+    std::thread::spawn(move || {
+        let app_name = if is_expert_mode() { "App Expert" } else { "Quinki" }.to_string();
+        let out = std::process::Command::new("curl")
+            .args(["-fsSL", "https://api.github.com/repos/Upward991/Quinki/releases?per_page=1"])
+            .output();
+        let Ok(out) = out else {
+            app.dialog().message("Could not check for updates (network error).").title(app_name).show(|_| {});
+            return;
+        };
+        let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_or(serde_json::Value::Null);
+        let Some(first) = json.as_array().and_then(|a| a.first()).cloned() else {
+            app.dialog().message("Could not check for updates (unexpected response).").title(app_name).show(|_| {});
+            return;
+        };
+        let tag = first.get("tag_name").and_then(|t| t.as_str()).unwrap_or("").to_string();
+        let dmg_url = first.get("assets")
+            .and_then(|a| a.as_array())
+            .and_then(|assets| assets.iter().find(|a| {
+                a.get("name").and_then(|n| n.as_str()).map(|n| n.to_lowercase().ends_with(".dmg")).unwrap_or(false)
+            }))
+            .and_then(|a| a.get("browser_download_url"))
+            .and_then(|u| u.as_str())
+            .unwrap_or("")
+            .to_string();
+        let current = app.package_info().version.to_string();
+        let latest = tag.trim_start_matches('v').to_string();
+        if latest.is_empty() {
+            app.dialog().message("Could not check for updates (unexpected response).").title(app_name).show(|_| {});
+            return;
+        }
+        if latest != current && latest > current {
+            let app_c = app.clone();
+            app.dialog()
+                .message(format!("Quinki {} is available (you have v{}). Update now?", latest, current))
+                .title("Update available")
+                .buttons(tauri_plugin_dialog::MessageDialogButtons::OkCancelCustom("Update now".into(), "Later".into()))
+                .show(move |update_now| {
+                    if update_now {
+                        let app2 = app_c.clone();
+                        let dmg = dmg_url.clone();
+                        let expert = is_expert_mode();
+                        std::thread::spawn(move || {
+                            match apply_update(dmg, expert) {
+                                Ok(_) => { /* apply_update riavvia la main app in detach */ }
+                                Err(e) => {
+                                    app2.dialog().message(format!("Update failed: {}", e)).title("Update failed").show(|_| {});
+                                }
+                            }
+                        });
+                    }
+                });
+        } else {
+            app.dialog().message(format!("You're up to date (v{}).", current)).title(app_name).show(|_| {});
+        }
+    });
+}
+
 #[tauri::command]
 fn apply_update(dmg_url: String, sync_expert: bool) -> Result<String, String> {
     // Manual update from Settings → Versions. Downloads the released DMG from GitHub,
@@ -2242,31 +2304,20 @@ fn quick_chat_register_shortcut(app: &tauri::AppHandle) {
         });
       }
 
-      // === Menu applicazione: SENZA Quit con Cmd+Q (così Cmd+Q arriva al webview) ===
-      // Il menu mantiene About/Hide + Edit (copy/paste funzionano negli input).
-      // "Quit" è presente ma senza scorciatoia → apre il modale (stessa UX di Cmd+Q).
+      // === Menu applicazione: solo About + Check for Update (via Hide/Quit/Edit/Window) ===
       {
         let app_name = if is_expert_mode() { "App Expert" } else { "Quinki" };
         let about = PredefinedMenuItem::about(app, Some(app_name), None)?;
         let sep = PredefinedMenuItem::separator(app)?;
-        let hide = PredefinedMenuItem::hide(app, None)?;
-        let quit_noaccel = MenuItem::with_id(app, "app-quit", format!("Quit {}", app_name), true, None::<&str>)?;
-        let app_sub = Submenu::with_items(app, app_name, true, &[&about, &sep, &hide, &sep, &quit_noaccel])?;
-
-        let undo = PredefinedMenuItem::undo(app, None)?;
-        let redo = PredefinedMenuItem::redo(app, None)?;
-        let cut = PredefinedMenuItem::cut(app, None)?;
-        let copy = PredefinedMenuItem::copy(app, None)?;
-        let paste = PredefinedMenuItem::paste(app, None)?;
-        let select_all = PredefinedMenuItem::select_all(app, None)?;
-        let edit_sub = Submenu::with_items(app, "Edit", true, &[&undo, &redo, &sep, &cut, &copy, &paste, &select_all])?;
-
-        let min = PredefinedMenuItem::minimize(app, None)?;
-        let close_win = PredefinedMenuItem::close_window(app, None)?;
-        let window_sub = Submenu::with_items(app, "Window", true, &[&min, &close_win])?;
-
-        let menu = Menu::with_items(app, &[&app_sub, &edit_sub, &window_sub])?;
-        let _ = app.set_menu(menu);
+        let check_item = MenuItem::with_id(app, "app-check-update", "Check for Update…", true, None::<&str>)?;
+        let app_sub = Submenu::with_items(app, app_name, true, &[&about, &sep, &check_item])?;
+        let menu = Menu::with_items(app, &[&app_sub])?;
+        let _ = app.set_menu(menu.clone());
+        app.on_menu_event(move |app, event| {
+          if event.id() == "app-check-update" {
+            check_for_update_dialog(app.clone());
+          }
+        });
       }
 
       // === Sidecar start ===
