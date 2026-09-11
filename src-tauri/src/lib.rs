@@ -893,64 +893,76 @@ fn restart_main_app() -> Result<String, String> {
 // === Update check con dialoghi nativi macOS (menu App → Check for Update) ===
 fn check_for_update_dialog(app: tauri::AppHandle) {
     use tauri_plugin_dialog::DialogExt;
-    let app = app.clone();
+    let app_c = app.clone();
+    // Il fetch resta su un thread secondario (curl blocca), ma i DIALOGHI
+    // vengono mostrati sul MAIN THREAD: NSAlert creato fuori dal main thread
+    // perde il contesto app (icona mancante).
     std::thread::spawn(move || {
-        let app_name = if is_expert_mode() { "App Expert" } else { "Quinki" }.to_string();
         let out = std::process::Command::new("curl")
             .args(["-fsSL", "https://api.github.com/repos/Upward991/Quinki/releases?per_page=1"])
             .output();
-        let Ok(out) = out else {
-            app.dialog().message("Could not check for updates (network error).").title(app_name).show(|_| {});
-            return;
-        };
-        let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_or(serde_json::Value::Null);
-        let Some(first) = json.as_array().and_then(|a| a.first()).cloned() else {
-            app.dialog().message("Could not check for updates (unexpected response).").title(app_name).show(|_| {});
-            return;
-        };
-        let tag = first.get("tag_name").and_then(|t| t.as_str()).unwrap_or("").to_string();
-        let dmg_url = first.get("assets")
-            .and_then(|a| a.as_array())
-            .and_then(|assets| assets.iter().find(|a| {
-                a.get("name").and_then(|n| n.as_str()).map(|n| n.to_lowercase().ends_with(".dmg")).unwrap_or(false)
-            }))
-            .and_then(|a| a.get("browser_download_url"))
-            .and_then(|u| u.as_str())
-            .unwrap_or("")
-            .to_string();
-        let current = app.package_info().version.to_string();
-        let latest = tag.trim_start_matches('v').to_string();
-        if latest.is_empty() {
-            app.dialog().message("Could not check for updates (unexpected response).").title(app_name).show(|_| {});
-            return;
-        }
-        if latest != current && latest > current {
-            let app_c = app.clone();
-            app.dialog()
-                .message(format!("Quinki {} is available (you have v{}). Update now?", latest, current))
-                .title("Update available")
-                .buttons(tauri_plugin_dialog::MessageDialogButtons::OkCancelCustom("Update now".into(), "Later".into()))
-                .show(move |update_now| {
-                    if update_now {
-                        let app2 = app_c.clone();
+        let app_name = if is_expert_mode() { "App Expert" } else { "Quinki" }.to_string();
+        let current = app_c.package_info().version.to_string();
+        let app_name2 = app_name.clone();
+        let app_for_main = app_c.clone();
+        let result: Option<(String, String)> = out.ok().and_then(|o| {
+            let json: serde_json::Value = serde_json::from_slice(&o.stdout).unwrap_or(serde_json::Value::Null);
+            json.as_array().and_then(|a| a.first()).and_then(|first| {
+                let tag = first.get("tag_name").and_then(|t| t.as_str()).unwrap_or("").to_string();
+                let dmg_url = first.get("assets")
+                    .and_then(|a| a.as_array())
+                    .and_then(|assets| assets.iter().find(|a| {
+                        a.get("name").and_then(|n| n.as_str()).map(|n| n.to_lowercase().ends_with(".dmg")).unwrap_or(false)
+                    }))
+                    .and_then(|a| a.get("browser_download_url"))
+                    .and_then(|u| u.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                Some((tag, dmg_url))
+            })
+        });
+        let app_for_run = app_for_main.clone();
+        let _ = app_for_run.run_on_main_thread(move || {
+            let app = app_for_main;
+            let app_name = app_name2;
+            match result {
+                None => {
+                    app.dialog().message("Could not check for updates (network error).").title(app_name).show(|_| {});
+                }
+                Some((tag, dmg_url)) => {
+                    let latest = tag.trim_start_matches('v').to_string();
+                    if latest.is_empty() {
+                        app.dialog().message("Could not check for updates (unexpected response).").title(app_name).show(|_| {});
+                        return;
+                    }
+                    if latest != current && latest > current {
                         let dmg = dmg_url.clone();
                         let expert = is_expert_mode();
-                        std::thread::spawn(move || {
-                            match apply_update(dmg, expert) {
-                                Ok(_) => { /* apply_update riavvia la main app in detach */ }
-                                Err(e) => {
-                                    app2.dialog().message(format!("Update failed: {}", e)).title("Update failed").show(|_| {});
+                        app.dialog()
+                            .message(format!("Quinki {} is available (you have v{}). Update now?", latest, current))
+                            .title("Update available")
+                            .buttons(tauri_plugin_dialog::MessageDialogButtons::OkCancelCustom("Update now".into(), "Later".into()))
+                            .show(move |update_now| {
+                                if update_now {
+                                    std::thread::spawn(move || {
+                                        match apply_update(dmg, expert) {
+                                            Ok(_) => { /* apply_update riavvia la main app in detach */ }
+                                            Err(e) => {
+                                                use tauri_plugin_dialog::DialogExt;
+                                                app.dialog().message(format!("Update failed: {}", e)).title("Update failed").show(|_| {});
+                                            }
+                                        }
+                                    });
                                 }
-                            }
-                        });
+                            });
+                    } else {
+                        app.dialog().message(format!("You're up to date (v{}).", current)).title(app_name).show(|_| {});
                     }
-                });
-        } else {
-            app.dialog().message(format!("You're up to date (v{}).", current)).title(app_name).show(|_| {});
-        }
+                }
+            }
+        });
     });
 }
-
 #[tauri::command]
 fn apply_update(dmg_url: String, sync_expert: bool) -> Result<String, String> {
     // Manual update from Settings → Versions. Downloads the released DMG from GitHub,
