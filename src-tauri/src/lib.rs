@@ -976,14 +976,13 @@ fn check_for_update_dialog(app: tauri::AppHandle) {
 #[cfg(target_os = "macos")]
 mod upd_progress {
     use objc2::rc::Retained;
-    use objc2::{ClassType, MainThreadOnly};
+    use objc2::MainThreadOnly;
     use objc2_app_kit::{
-        NSBackingStoreType, NSProgressIndicator, NSTextField, NSView, NSWindow, NSWindowStyleMask,
+        NSBackingStoreType, NSProgressIndicator, NSTextField, NSWindow, NSWindowStyleMask,
         NSFloatingWindowLevel,
     };
     use objc2_foundation::{NSPoint, NSRect, NSSize, NSString};
     use std::cell::RefCell;
-    use tauri::Manager;
 
     struct UpdWin {
         win: Retained<NSWindow>,
@@ -1098,8 +1097,34 @@ fn read_installed_version() -> Option<String> {
     if v.is_empty() { None } else { Some(v) }
 }
 
-// === Flusso update completo con UI nativa: progress window → download → install (+ sync Expert) →
-// alert "Update complete" [OK] → alert "Restart?" [Restart/Later] → riavvia entrambe le app ===
+// Copia il nuovo binario + sidecar della main app dentro l'app Expert, SENZA
+// scrivere il flag .expert-needs-restart: viene chiamato al momento del Restart
+// (le app vengono subito chiuse e riaprite dallo script di restart — il flag
+// farebbe riavviare l'Expert una seconda volta da solo dopo la riapertura).
+// La firma non viene toccata: il binario copiato conserva la sua firma embedded
+// (stessa identità stabile "Quinki Self-Signing" di build).
+fn sync_expert_files() {
+    let exp = "/Applications/App Expert.app";
+    if std::path::Path::new(exp).exists()
+        && std::path::Path::new("/Applications/Quinki.app/Contents/MacOS/quinki").exists()
+    {
+        let _ = std::fs::copy(
+            "/Applications/Quinki.app/Contents/MacOS/quinki",
+            format!("{}/Contents/MacOS/quinki", exp),
+        );
+        let _ = std::fs::remove_dir_all(format!("{}/Contents/Resources/resources/sidecar", exp));
+        let _ = std::process::Command::new("ditto")
+            .args([
+                "/Applications/Quinki.app/Contents/Resources/resources/sidecar",
+                &format!("{}/Contents/Resources/resources/sidecar", exp),
+            ])
+            .status();
+    }
+}
+
+// === Flusso update completo con UI nativa: progress window → download → install →
+// alert "Update installed — restart to apply" [OK] → alert "Restart?" [Restart/Later] →
+// SOLO ALLORA: sync Expert + chiusura e riapertura di entrambe le app ===
 fn run_native_update_flow(app: tauri::AppHandle, dmg_url: String) {
     std::thread::spawn(move || {
         #[cfg(target_os = "macos")]
@@ -1115,8 +1140,9 @@ fn run_native_update_flow(app: tauri::AppHandle, dmg_url: String) {
             };
             upd_progress::set_text(&app, "Installing…");
             std::thread::sleep(std::time::Duration::from_millis(300));
-            // sync_expert = true: il sync dell'App Expert è SEMPRE automatico
-            if let Err(e) = install_downloaded_update(dmg_path, true) {
+            // sync_expert = false: FINO AL RESTART niente si chiude né si ferma —
+            // nessun flag, nessun sync: l'Expert NON si auto-riavvia più a metà update.
+            if let Err(e) = install_downloaded_update(dmg_path, false) {
                 upd_progress::close(&app);
                 show_alert_async(&app, "Update failed", &format!("Could not install the update: {e}"), &["OK"]);
                 return;
@@ -1125,13 +1151,18 @@ fn run_native_update_flow(app: tauri::AppHandle, dmg_url: String) {
             std::thread::sleep(std::time::Duration::from_millis(500));
             upd_progress::close(&app);
             let msg = match read_installed_version() {
-                Some(v) => format!("Quinki {v} has been downloaded and installed. The App Expert has been synced."),
-                None => "The new version has been downloaded and installed. The App Expert has been synced.".to_string(),
+                Some(v) => format!("Quinki {v} has been installed. Restart to apply it."),
+                None => "The update has been installed. Restart to apply it.".to_string(),
             };
-            let ok = show_alert_async(&app, "Update complete", &msg, &["OK"]);
+            let ok = show_alert_async(&app, "Update installed", &msg, &["OK"]);
             if ok == 0 {
                 let choice = show_alert_async(&app, "Restart required", "Do you want to apply the update now by restarting the apps?", &["Restart", "Later"]);
                 if choice == 0 {
+                    // Sync dell'Expert SOLO ADESSO, al Restart: copia il nuovo
+                    // binario + sidecar dentro l'app Expert, poi chiude e riapre
+                    // entrambe le app (senza scrivere il flag: verrebbe consumato
+                    // dall'Expert riaperta → doppio restart a vuoto).
+                    sync_expert_files();
                     let _ = restart_after_update();
                 }
             }
@@ -1267,15 +1298,21 @@ fn install_downloaded_update(dmg_path: String, sync_expert: bool) -> Result<Stri
 #[tauri::command]
 fn restart_after_update() -> Result<String, String> {
     // Chiude e riapre ENTRAMBE le app se aperte: main sempre, Expert solo se era aperta.
+    // FIX (11 set): pkill -9 (SIGKILL istantaneo). Prima era SIGTERM (morte graceful,
+    // lenta): l'`open` dopo 1s trovava il vecchio processo ANCORA in chiusura →
+    // il check single-instance vedeva il PID vecchio vivo → la nuova istanza
+    // abortiva → la main app NON si riapriva mai (verificato: main chiusa 18:57:33,
+    // riaperta solo a mano 25s dopo). Con -9 il processo muove subito e dopo 2s
+    // l'open parte pulito. Preserva la firma del bundle (ditto/open non la toccano).
     let expert_open = std::process::Command::new("sh")
         .args(["-c", "pgrep -f '/Applications/App Expert.app' >/dev/null 2>&1"])
         .status()
         .map(|s| s.success())
         .unwrap_or(false);
     let script = if expert_open {
-        "sleep 1; lsof -ti:9182 | xargs kill -9 2>/dev/null; lsof -ti:9183 | xargs kill -9 2>/dev/null; pkill -f '/Applications/Quinki.app/Contents/MacOS/quinki' 2>/dev/null; pkill -f '/Applications/App Expert.app/Contents/MacOS/quinki' 2>/dev/null; sleep 1; open /Applications/Quinki.app; open '/Applications/App Expert.app'"
+        "sleep 1; lsof -ti:9182 | xargs kill -9 2>/dev/null; lsof -ti:9183 | xargs kill -9 2>/dev/null; pkill -9 -f '/Applications/Quinki.app/Contents/MacOS/quinki' 2>/dev/null; pkill -9 -f '/Applications/App Expert.app/Contents/MacOS/quinki' 2>/dev/null; sleep 2; open /Applications/Quinki.app; open '/Applications/App Expert.app'"
     } else {
-        "sleep 1; lsof -ti:9182 | xargs kill -9 2>/dev/null; pkill -f '/Applications/Quinki.app/Contents/MacOS/quinki' 2>/dev/null; sleep 1; open /Applications/Quinki.app"
+        "sleep 1; lsof -ti:9182 | xargs kill -9 2>/dev/null; pkill -9 -f '/Applications/Quinki.app/Contents/MacOS/quinki' 2>/dev/null; sleep 2; open /Applications/Quinki.app"
     };
     let _ = std::process::Command::new("nohup")
         .args(["sh", "-c", script])
