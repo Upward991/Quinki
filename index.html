@@ -42,7 +42,7 @@
   .soon-note { margin-top: 14px; color: var(--q-tertiary); font-size: 12.5px; }
 
   .shot-frame { display: block; max-width: 860px; margin: 0 auto; border: 1px solid #2a2a32; border-radius: 12px; overflow: hidden; background: var(--q-panel); }
-  .shot-frame img { display: block; width: 100%; height: auto; }
+  .shot-frame img, .shot-frame video { display: block; width: 100%; height: auto; }
 
   section.block { padding: 56px 0; }
   .sec-head { text-align: center; margin-bottom: 36px; }
@@ -179,9 +179,21 @@
 
 <div class="wrap">
   <a class="shot-frame" href="https://github.com/Upward991/Quinki/releases/latest" target="_blank" rel="noopener">
-    <img src="screenshots/hero.png" alt="Quinki, the AI work app for your desktop">
+    <video autoplay muted loop playsinline src="media/hello-demo.mp4" alt="Quinki, the AI work app for your desktop"></video>
   </a>
 </div>
+
+<section class="wrap block" id="demo">
+  <div class="sec-head">
+    <h2>See it in action</h2>
+    <p class="sec-sub">A real chat: single agent, then a team — the Orchestrator delegates to Coder and Web Researcher in parallel, with plan/build mode in between.</p>
+  </div>
+  <div class="wrap" style="padding:0">
+    <div class="shot-frame">
+      <video controls preload="metadata" src="media/chat-demo.mp4"></video>
+    </div>
+  </div>
+</section>
 
 <section class="wrap block" id="features">
   <div class="sec-head">
