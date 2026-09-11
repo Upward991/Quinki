@@ -52,16 +52,20 @@ echo "  ✓ Downloaded"
 
 # Mount
 echo "Mounting disk image..."
+hdiutil detach "$MOUNT_POINT" -quiet 2>/dev/null || true
 hdiutil attach "$TMP_DMG" -mountpoint "$MOUNT_POINT" -nobrowse -quiet
 echo "  ✓ Mounted"
 
 # Install
+# NO backup: the public installer never leaves .bak copies on user machines
+# (re-running it always re-fetches the latest release). Clean up any stale .bak
+# left by previous installer versions.
 echo "Installing to /Applications..."
-if [ -d "/Applications/Quinki.app" ]; then
+if [ -d "/Applications/Quinki.app.bak" ]; then
   rm -rf "/Applications/Quinki.app.bak"
-  mv "/Applications/Quinki.app" "/Applications/Quinki.app.bak"
-  echo "  ✓ Previous version backed up"
+  echo "  ✓ Removed stale backup from a previous install"
 fi
+rm -rf "/Applications/Quinki.app"
 ditto "${MOUNT_POINT}/Quinki.app" "/Applications/Quinki.app"
 echo "  ✓ Installed"
 
