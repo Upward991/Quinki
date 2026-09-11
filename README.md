@@ -51,6 +51,8 @@ Quinki is a desktop app with tabs: chat with AI agents, schedule tasks, browse t
 curl -fsSL https://raw.githubusercontent.com/Upward991/quinki/main/install.sh | sh
 ```
 
+> **Updates**: re-running the command above always installs the latest release. New builds are published as new releases, and the changelog is on the [Releases](https://github.com/Upward991/Quinki/releases) page.
+
 ### From DMG
 
 1. Download the latest DMG from [Releases](https://github.com/Upward991/Quinki/releases)

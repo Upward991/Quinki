@@ -1,17 +1,26 @@
 #!/bin/bash
-# Quinki installer (beta) — downloads and installs Quinki from GitHub Releases.
+# Quinki installer (beta) — downloads and installs the latest Quinki from GitHub Releases.
 # Usage: curl -fsSL https://raw.githubusercontent.com/Upward991/quinki/main/install.sh | sh
+# Re-running this command always installs the latest version.
 set -e
 
-VERSION="v1.0.0-beta.1"
 REPO="Upward991/quinki"
-DMG_URL="https://github.com/${REPO}/releases/download/${VERSION}/Quinki_${VERSION}_aarch64.dmg"
 TMP_DMG="/tmp/quinki-install.dmg"
 MOUNT_POINT="/Volumes/Quinki Installer"
 
-echo "Quinki Installer"
-echo "================="
-echo ""
+# Fetch the latest release tag + DMG asset URL from the GitHub API (no hardcoded version:
+# re-running the installer always gets the latest published release, prereleases included)
+echo "Fetching latest release..."
+LATEST_JSON=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=1")
+VERSION=$(echo "$LATEST_JSON" | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4)
+DMG_URL=$(echo "$LATEST_JSON" | grep -o '"browser_download_url": *"[^"]*\.dmg"' | head -1 | cut -d'"' -f4)
+
+if [ -z "$VERSION" ] || [ -z "$DMG_URL" ]; then
+  echo "❌ Could not fetch the latest release. Check your connection and retry."
+  exit 1
+fi
+
+echo "Latest release: ${VERSION}"
 
 # Check architecture
 ARCH=$(uname -m)
