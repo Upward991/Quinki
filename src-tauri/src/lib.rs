@@ -1151,20 +1151,41 @@ fn run_native_update_flow(app: tauri::AppHandle, dmg_url: String) {
             std::thread::sleep(std::time::Duration::from_millis(500));
             upd_progress::close(&app);
             let msg = match read_installed_version() {
-                Some(v) => format!("Quinki {v} has been installed. Restart to apply it."),
-                None => "The update has been installed. Restart to apply it.".to_string(),
+                Some(v) => format!("Quinki {v} has been installed. Restart to apply it?"),
+                None => "The update has been installed. Restart to apply it?".to_string(),
             };
-            let ok = show_alert_async(&app, "Update installed", &msg, &["OK"]);
+            // UN SOLO modale: quello con il Restart vero (niente alert intermedio [OK])
+            let ok = show_alert_async(&app, "Update installed", &msg, &["Restart", "Later"]);
             if ok == 0 {
-                let choice = show_alert_async(&app, "Restart required", "Do you want to apply the update now by restarting the apps?", &["Restart", "Later"]);
-                if choice == 0 {
-                    // Sync dell'Expert SOLO ADESSO, al Restart: copia il nuovo
-                    // binario + sidecar dentro l'app Expert, poi chiude e riapre
-                    // entrambe le app (senza scrivere il flag: verrebbe consumato
-                    // dall'Expert riaperta → doppio restart a vuoto).
-                    sync_expert_files();
-                    let _ = restart_after_update();
-                }
+                // Sync dell'Expert SOLO ADESSO (niente si chiude prima del Restart):
+                // copia il nuovo binario + sidecar dentro l'app Expert, senza scrivere
+                // il flag (il flag farebbe riavviare l'Expert una seconda volta).
+                sync_expert_files();
+                let expert_open = std::process::Command::new("sh")
+                    .args(["-c", "pgrep -f '/Applications/App Expert.app' >/dev/null 2>&1"])
+                    .status()
+                    .map(|s| s.success())
+                    .unwrap_or(false);
+                // Nohup script: chiude l'Expert (se aperta) e RIAPRE le app. La main
+                // app esce da sola qui sotto (app.exit(0), stesso meccanismo del
+                // Restart del tray: quit pulito tipo Cmd+Q) e l'nohup la riapre.
+                let script = if expert_open {
+                    "sleep 1.5; pkill -f 'start-expert.sh' 2>/dev/null; pkill -f expert-watchdog 2>/dev/null; lsof -ti:9183 | xargs kill -9 2>/dev/null; pkill -9 -f '/Applications/App Expert.app/Contents/MacOS/quinki' 2>/dev/null; sleep 0.5; open /Applications/Quinki.app; sleep 1; open '/Applications/App Expert.app'"
+                } else {
+                    "sleep 1.5; open /Applications/Quinki.app"
+                };
+                let _ = std::process::Command::new("nohup")
+                    .args(["sh", "-c", script])
+                    .stdout(std::process::Stdio::null())
+                    .stderr(std::process::Stdio::null())
+                    .spawn();
+                // Quit VERO della main app (identico al Restart del tray/menu):
+                // kill sincrono del backend + exit pulito. La firma non viene
+                // toccata: il bundle installato conserva la firma stabile.
+                kill_backend();
+                SHOULD_EXIT.store(true, Ordering::SeqCst);
+                std::thread::sleep(std::time::Duration::from_millis(300));
+                app.exit(0);
             }
         }
         #[cfg(not(target_os = "macos"))]
