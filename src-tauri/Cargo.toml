@@ -29,7 +29,7 @@ tauri-plugin-window-state = "2"
 tauri-plugin-dialog = "2.7.2"
 objc2 = "0.6.4"
 objc2-app-kit = { version = "0.3.2", features = ["NSAlert", "NSImage", "NSApplication", "NSRunningApplication", "NSResponder"] }
-objc2-foundation = { version = "0.3.2", features = ["NSString"] }
+objc2-foundation = { version = "0.3.2", features = ["NSString", "NSData"] }
 tauri-plugin-fs = "2.5.1"
 tauri-plugin-autostart = "2"
 tauri-plugin-notification = "2"

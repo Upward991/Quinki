@@ -898,14 +898,15 @@ fn show_alert_no_icon(mtm: objc2::MainThreadMarker, title: &str, message: &str, 
     use objc2_app_kit::{NSAlert, NSAlertStyle, NSImage, NSApplication};
     let alert = unsafe { NSAlert::new(mtm) };
     alert.setAlertStyle(NSAlertStyle::Informational);
+    // Icona: il logo mascot SENZA sfondo (quello del sito), incluso nel binario
+    let logo_bytes = include_bytes!("../../site/quinki-logo.png");
     unsafe {
-        // Icona REALE dell'app: caricata dal bundle (Resources/icon.icns)
-        let icon = std::env::current_exe().ok().and_then(|exe| {
-            let icon_path = exe.parent()?.parent()?.join("Resources/icon.icns");
-            unsafe { NSImage::initWithContentsOfFile(<NSImage as objc2::AnyThread>::alloc(), &objc2_foundation::NSString::from_str(icon_path.to_string_lossy().as_ref())) }
-        });
-        if let Some(icon) = &icon {
-            alert.setIcon(Some(icon));
+        let data = objc2_foundation::NSData::dataWithBytes_length(
+            logo_bytes.as_ptr() as *const _,
+            logo_bytes.len(),
+        );
+        if let Some(img) = NSImage::initWithData(<NSImage as objc2::AnyThread>::alloc(), &data) {
+            alert.setIcon(Some(&img));
         }
         alert.setMessageText(&objc2_foundation::NSString::from_str(title));
         alert.setInformativeText(&objc2_foundation::NSString::from_str(message));
