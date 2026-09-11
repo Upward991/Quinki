@@ -145,6 +145,12 @@ Found a bug? [Open an issue](https://github.com/Upward991/Quinki/issues) with:
 - What happened vs what you expected
 - macOS version and model used
 
+Or write to [quinki.inbox@gmail.com](mailto:quinki.inbox@gmail.com).
+
+## Contact
+
+**Quinki**: [quinki.inbox@gmail.com](mailto:quinki.inbox@gmail.com)
+
 ## License
 
 AGPL-3.0. See [LICENSE](LICENSE) for details.
