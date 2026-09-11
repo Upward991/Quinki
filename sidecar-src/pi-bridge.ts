@@ -7567,6 +7567,31 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       if (key === "__app_expert__" && !isExpertSidecar() && isExpertAppProcessRunning()) {
         this.logDebug("takeover-expert-app-aperta-aborto-turno", { sessionKey: key });
         try { this.abort(key); } catch {}
+        // FIX (11 set): il takeover INTERROMPE il turno → il main DEVE lasciare un
+        // marker FRESCO di pending-turn. Senza questo, l'app Expert che si sta
+        // aprendo trovava solo il marker VECCHIO (di un turno già risposto) →
+        // already-answered → skip → NESSUN recovery → la sessione restava morta
+        // ("apro la Expert e muore la sessione"). Il guard "il main non scrive
+        // marker __app_expert__" resta valido ovunque: QUESTO è l'unico punto in
+        // cui la main interrompe LEGITTIMAMENTE il turno, quindi qui il marker
+        // dice la verità (c'è un turno pending).
+        try {
+          const pdir = this.#piSessionDir(key);
+          fs.mkdirSync(pdir, { recursive: true });
+          let lastUser = "";
+          try {
+            const hist = this.getHistory(key);
+            if (Array.isArray(hist)) {
+              for (let _i = hist.length - 1; _i >= 0; _i--) {
+                if (hist[_i]?.role === "user") { lastUser = String(hist[_i]?.content || ""); break; }
+              }
+            }
+          } catch {}
+          if (lastUser) {
+            fs.writeFileSync(path.join(pdir, "pending-turn.json"), JSON.stringify({ text: lastUser, ts: Date.now(), retries: 0 }), "utf8");
+            this.logDebug("takeover-marker-scritto", { sessionKey: key, textLen: lastUser.length });
+          }
+        } catch (e: any) { this.logDebug("takeover-marker-errore", { sessionKey: key, error: e?.message }); }
         try { const piOwned = this.#active.get(key); if (piOwned) { try { (piOwned as any).dispose?.(); } catch {} this.#active.delete(key); this.logDebug("takeover-sessione-rilasciata", { sessionKey: key }); } } catch {}
         try { this.#sendToWs(ws, { type: "done", sessionKey: key, stopReason: "stopped", text: "" }); } catch {}
         return;
