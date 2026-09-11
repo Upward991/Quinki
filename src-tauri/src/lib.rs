@@ -2236,7 +2236,8 @@ fn quick_chat_register_shortcut(app: &tauri::AppHandle) {
       let reload_item = MenuItem::with_id(app, "reload_quinki", "Reload Quinki", true, None::<&str>)?;
       let restart_item = MenuItem::with_id(app, "restart", "Restart Quinki", true, None::<&str>)?;
       let quit_item = MenuItem::with_id(app, "quit", "Quit Quinki", true, None::<&str>)?;
-      let menu = Menu::with_items(app, &[&show_item, &reload_item, &restart_item, &quit_item])?;
+      let tray_sep = PredefinedMenuItem::separator(app)?;
+      let menu = Menu::with_items(app, &[&show_item, &reload_item, &restart_item, &tray_sep, &quit_item])?;
 
       let tray_img = tauri::image::Image::from_bytes(include_bytes!("../icons/tray-icon.png"))
           .unwrap_or_else(|_| app.default_window_icon().unwrap().clone());
@@ -2304,18 +2305,30 @@ fn quick_chat_register_shortcut(app: &tauri::AppHandle) {
         });
       }
 
-      // === Menu applicazione: solo About + Check for Update (via Hide/Quit/Edit/Window) ===
+      // === Menu applicazione: originale (About/Hide/Quit + Edit + Window) con
+      // Check for Update come ultima voce ===
       {
         let app_name = if is_expert_mode() { "App Expert" } else { "Quinki" };
         let about = PredefinedMenuItem::about(app, Some(app_name), None)?;
         let sep = PredefinedMenuItem::separator(app)?;
+        let hide = PredefinedMenuItem::hide(app, None)?;
+        let quit_noaccel = MenuItem::with_id(app, "app-quit", format!("Quit {}", app_name), true, None::<&str>)?;
         let check_item = MenuItem::with_id(app, "app-check-update", "Check for Update…", true, None::<&str>)?;
-        let sep2 = PredefinedMenuItem::separator(app)?;
-        // Close Window con Cmd+W: senza questa voce il shortcut muore (macOS lo
-        // legge dal menu). Il close passa dal QuitConfirmGate come sempre.
+        let app_sub = Submenu::with_items(app, app_name, true, &[&about, &sep, &hide, &sep, &quit_noaccel, &check_item])?;
+
+        let undo = PredefinedMenuItem::undo(app, None)?;
+        let redo = PredefinedMenuItem::redo(app, None)?;
+        let cut = PredefinedMenuItem::cut(app, None)?;
+        let copy = PredefinedMenuItem::copy(app, None)?;
+        let paste = PredefinedMenuItem::paste(app, None)?;
+        let select_all = PredefinedMenuItem::select_all(app, None)?;
+        let edit_sub = Submenu::with_items(app, "Edit", true, &[&undo, &redo, &sep, &cut, &copy, &paste, &select_all])?;
+
+        let min = PredefinedMenuItem::minimize(app, None)?;
         let close_win = PredefinedMenuItem::close_window(app, None)?;
-        let app_sub = Submenu::with_items(app, app_name, true, &[&about, &sep, &check_item, &sep2, &close_win])?;
-        let menu = Menu::with_items(app, &[&app_sub])?;
+        let window_sub = Submenu::with_items(app, "Window", true, &[&min, &close_win])?;
+
+        let menu = Menu::with_items(app, &[&app_sub, &edit_sub, &window_sub])?;
         let _ = app.set_menu(menu.clone());
         app.on_menu_event(move |app, event| {
           if event.id() == "app-check-update" {
