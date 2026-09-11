@@ -985,17 +985,14 @@ fn check_for_update_dialog(app: tauri::AppHandle) {
 }
 
 #[tauri::command]
-fn apply_update(dmg_url: String, sync_expert: bool) -> Result<String, String> {
-    // Manual update from Settings → Versions. Downloads the released DMG from GitHub,
-    // installs the MAIN app (with backup), optionally syncs the App Expert,
-    // then restarts the main app. NEVER touches anything else.
+fn download_update_file(dmg_url: String) -> Result<String, String> {
+    // Scarica la DMG in ~/.quinki/update/ e restituisce il percorso.
+    // Il frontend guida gli stages (download → install → restart) per la barra di caricamento.
     let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
     let upd = format!("{}/.quinki/update", home);
     let _ = std::fs::create_dir_all(&upd);
     let dmg = format!("{}/Quinki-update.dmg", upd);
     let _ = std::fs::remove_file(&dmg);
-
-    // 1) download the DMG
     let st = std::process::Command::new("curl")
         .args(["-L", "-s", "-o", &dmg, &dmg_url])
         .status()
@@ -1003,14 +1000,19 @@ fn apply_update(dmg_url: String, sync_expert: bool) -> Result<String, String> {
     if !st.success() {
         return Err("download failed".to_string());
     }
+    Ok(dmg)
+}
 
-    // 2) mount the DMG
+#[tauri::command]
+fn install_downloaded_update(dmg_path: String, sync_expert: bool) -> Result<String, String> {
+    // Monta la DMG, installa la MAIN app (con backup), opzionalmente sincronizza
+    // l'App Expert, smonta. NON riavvia: il riavvio è gestito dopo la conferma.
     let out = std::process::Command::new("hdiutil")
-        .args(["attach", "-nobrowse", &dmg])
+        .args(["attach", "-nobrowse", &dmg_path])
         .output()
         .map_err(|e| format!("mount failed: {}", e))?;
     if !out.status.success() {
-        return Err(".mount failed".to_string());
+        return Err("mount failed".to_string());
     }
     let text = String::from_utf8_lossy(&out.stdout).to_string();
     let mount = text
@@ -1022,24 +1024,22 @@ fn apply_update(dmg_url: String, sync_expert: bool) -> Result<String, String> {
     if mount.is_empty() {
         return Err("could not find mount point".to_string());
     }
-    let src = format!("{}/Quinki.app", mount);
-    if !std::path::Path::new(&src).exists() {
+    let src_app = format!("{}/Quinki.app", mount);
+    if !std::path::Path::new(&src_app).exists() {
         let _ = std::process::Command::new("hdiutil").args(["detach", &mount]).status();
         return Err("Quinki.app not found in DMG".to_string());
     }
 
-    // 3) install main (backup + ditto)
     let main = "/Applications/Quinki.app";
     if std::path::Path::new(main).exists() {
         let _ = std::fs::remove_dir_all(format!("{}.bak", main));
         std::fs::rename(main, format!("{}.bak", main)).map_err(|e| format!("backup failed: {}", e))?;
     }
     std::process::Command::new("ditto")
-        .args([&src, main])
+        .args([&src_app, main])
         .status()
         .map_err(|e| format!("install failed: {}", e))?;
 
-    // 4) optional sync App Expert
     if sync_expert {
         let exp = "/Applications/App Expert.app";
         if std::path::Path::new(exp).exists()
@@ -1056,28 +1056,44 @@ fn apply_update(dmg_url: String, sync_expert: bool) -> Result<String, String> {
                     &format!("{}/Contents/Resources/resources/sidecar", exp),
                 ])
                 .status();
-            // Scrivi il flag di riavvio: così l'App Expert mostra il badge
-            // "App synced. Restart to apply!" in alto a destra (vera conferma del sync).
+            let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
             let flag = format!("{}/.quinki/.expert-needs-restart", home);
             let _ = std::fs::write(&flag, "1");
         }
     }
 
-    // 5) unmount + cleanup (but keep the dmg for re-install if needed)
     let _ = std::process::Command::new("hdiutil").args(["detach", &mount]).status();
+    Ok("Update installed. Ready to restart.".to_string())
+}
 
-    // 6) detached restart: kill main sidecar + main process, then reopen
+#[tauri::command]
+fn restart_after_update() -> Result<String, String> {
+    // Chiude e riapre ENTRAMBE le app se aperte: main sempre, Expert solo se era aperta.
+    let expert_open = std::process::Command::new("sh")
+        .args(["-c", "pgrep -f '/Applications/App Expert.app' >/dev/null 2>&1"])
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false);
+    let script = if expert_open {
+        "sleep 1; lsof -ti:9182 | xargs kill -9 2>/dev/null; lsof -ti:9183 | xargs kill -9 2>/dev/null; pkill -f '/Applications/Quinki.app/Contents/MacOS/quinki' 2>/dev/null; pkill -f '/Applications/App Expert.app/Contents/MacOS/quinki' 2>/dev/null; sleep 1; open /Applications/Quinki.app; open '/Applications/App Expert.app'"
+    } else {
+        "sleep 1; lsof -ti:9182 | xargs kill -9 2>/dev/null; pkill -f '/Applications/Quinki.app/Contents/MacOS/quinki' 2>/dev/null; sleep 1; open /Applications/Quinki.app"
+    };
     let _ = std::process::Command::new("nohup")
-        .args([
-            "sh", "-c",
-            &format!("sleep 1; lsof -ti:9182 | xargs kill -9 2>/dev/null; pkill -f \"/Applications/Quinki.app/Contents/MacOS/quinki\" 2>/dev/null; sleep 1; open /Applications/Quinki.app"),
-        ])
+        .args(["sh", "-c", script])
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
         .spawn()
         .map_err(|e| format!("restart spawn failed: {}", e))?;
+    Ok("Restarting Quinki and App Expert (if open).".to_string())
+}
 
-    Ok("Update applied. Quinki is restarting.".to_string())
+#[tauri::command]
+fn apply_update(dmg_url: String, sync_expert: bool) -> Result<String, String> {
+    // Compat: flusso completo in un colpo (usato dal menu nativo)
+    let dmg_path = download_update_file(dmg_url)?;
+    install_downloaded_update(dmg_path, sync_expert)?;
+    restart_after_update()
 }
 
 
@@ -2049,6 +2065,9 @@ pub fn run() {
         install_main_app,
         restart_main_app,
         apply_update,
+        download_update_file,
+        install_downloaded_update,
+        restart_after_update,
         quit_expert_app,
         quit_app,
         hide_to_tray,
