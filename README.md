@@ -1,6 +1,6 @@
 # Quinki
 
-https://github.com/user-attachments/assets/924f89b7-bdd2-4dc7-93d7-f29f3b9a6c37
+![Quinki in action](https://raw.githubusercontent.com/Upward991/Quinki/gh-pages/media/hello-demo.gif)
 
 **AI agents, chats and tools on your desktop.**
 
@@ -8,9 +8,7 @@ Quinki is a native desktop app for AI work: parallel multi-agent chats, schedule
 
 ## Demos
 
-**Chat: multi-agent + plan/build** (2:44). A single agent first, then a team: the Orchestrator delegates to Coder and Web Researcher in parallel.
-
-https://github.com/user-attachments/assets/fd5805f8-d3b3-46b9-9647-71d5c54e3247
+https://github.com/user-attachments/assets/bd586281-bdfa-471d-8a90-4659b238a889
 
 ![macOS](https://img.shields.io/badge/macOS-Apple%20Silicon-blue)
 ![Version](https://img.shields.io/badge/version-1.0.0--beta.1-orange)
