@@ -3426,7 +3426,13 @@ class PiBridge {
           // venivano rubati durante le finestre di restart.
           if (isExpertAppProcessRunning()) { this.logDebug("recovery-skip", { sessionKey: sk, reason: "expert-app-processo-vivo" }); continue; }
           if (isExpertAlive()) { this.logDebug("recovery-skip", { sessionKey: sk, reason: "app-expert-non-expert-sidecar" }); continue; }
-          const confirmedDead = await isExpertConfirmedDead(15000);
+          // FIX (11 set, utente): app Expert CHIUSA → NESSUN restart sta arrivando —
+          // la grazia lunga (15s) proteggeva le finestre di restart del sync, ma
+          // quelle avvengono SOLO con l'app APERTA (già skippata sopra). Con l'app
+          // chiusa, 15s erano un ritardo cieco: l'utente apriva la tab Expert nella
+          // main e per 15 secondi non vedeva lo streaming ("non prende lo streaming").
+          // Ora: 2s appena per confermare che è tutto davvero giù, poi adozione.
+          const confirmedDead = await isExpertConfirmedDead(2000);
           if (!confirmedDead) { this.logDebug("recovery-skip", { sessionKey: sk, reason: "app-expert-riapparso-durante-grace" }); continue; }
           this.logDebug("recovery-expert-down-main-recovers", { sessionKey: sk });
         }

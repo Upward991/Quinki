@@ -343,6 +343,33 @@ export function recoverOnWorker(sessionKey: string): boolean {
   return true;
 }
 
+// FIX (11 set — recovery nella main): chiedi al worker OWNER lo stato streaming
+// della SUA sessione. Il buffer vive nella memoria del worker: il main non lo
+// vede, e la lettura locale ritorna sempre null → il frontend, dopo un recovery,
+// non ripristinava MAI isStreaming (textbox sbloccata, stop morto, pill muta).
+// Con questo: la lettura locale fallisce → si chiede al worker (con timeout
+// corto: worker non pronto → null come prima, zero regressioni).
+export function snapshotOnWorker(sessionKey: string, method: string): Promise<any> {
+  if (!active) return Promise.resolve(null);
+  if (poolIndex() !== 0) return Promise.resolve(null); // solo il main router
+  const owner = ownerPool(sessionKey);
+  if (owner === 0) return Promise.resolve(null); // sessione del main → lettura locale
+  const sock = childSockets.get(owner);
+  if (!sock || sock.readyState !== 1) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    let done = false;
+    const t = setTimeout(() => { if (!done) { done = true; resolve(null); } }, 2500).unref?.();
+    try {
+      sendToChild(sock, method, { sessionKey }, (resp: any) => {
+        if (done) return;
+        done = true;
+        clearTimeout(t);
+        resolve(resp?.result ?? null);
+      });
+    } catch { resolve(null); }
+  });
+}
+
 // ─── routing ───────────────────────────────────────────────────────
 
 export function tryRoute(msg: any): boolean {

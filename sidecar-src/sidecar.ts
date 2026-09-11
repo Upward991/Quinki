@@ -23,7 +23,7 @@ import * as path from "node:path";
 import * as fs from "node:fs";
 import { homedir } from "node:os";
 import { spawn } from "node:child_process";
-import { initPoolRouter, tryRoute } from "./pool-router";
+import { initPoolRouter, tryRoute, snapshotOnWorker } from "./pool-router";
 import { refreshThinkingCapsEvolution } from "./providers";
 import { loadAllTabPlugins, reloadTabPlugin, unloadTabPlugin, tryHandleTabPluginRpc, tabDir } from "./tab-plugins";
 import {
@@ -579,9 +579,33 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   isExpertAlive: async () => ({ alive: isExpertAlive() }),
   // B4 POOL: stato per lo shrink del router (child idle → kill). Innocuo se non usato.
   poolStatus: async () => ({ active: piBridge ? piBridge.getStreamingSessionKeys().length : 0, streaming: piBridge ? (piBridge.getPoolStatus ? piBridge.getPoolStatus().streaming : 0) : 0 }),
-  getStreamingSnapshot: async (p) => piBridge!.getStreamingSnapshot(String(p.sessionKey || '')),
+  // FIX (11 set — recovery nella main): prima la lettura LOCALE (veloce, sempre
+  // stata lì); se è null e la sessione è di un worker, chiedila al LUI — il
+  // buffer streaming vive nella SUA memoria. Senza questo, dopo un recovery il
+  // frontend riceveva sempre null → isStreaming mai ripristinato → textbox
+  // sbloccata + stop morto + pill muta mentre lo streaming arrivava.
+  getStreamingSnapshot: async (p) => {
+    const sk = String(p.sessionKey || '');
+    const local = piBridge!.getStreamingSnapshot(sk);
+    if (local) return local;
+    try {
+      const remote = await snapshotOnWorker(sk, 'getStreamingSnapshot');
+      if (remote) return remote;
+    } catch {}
+    return local;
+  },
   getDelegations: async (p) => ({ delegations: piBridge ? piBridge.getDelegations(String(p.sessionKey || "")) : [] }),
-  getStreamingMessage: async (p) => ({ streaming: piBridge ? piBridge.getStreamingMessage(String(p.sessionKey)) : null }),
+  getStreamingMessage: async (p) => {
+    // FIX (11 set): stesso pattern del getStreamingSnapshot — fallback al worker owner.
+    const sk = String(p.sessionKey || '');
+    const local = { streaming: piBridge ? piBridge.getStreamingMessage(sk) : null };
+    if (local.streaming) return local;
+    try {
+      const remote = await snapshotOnWorker(sk, 'getStreamingMessage');
+      if (remote?.streaming) return remote;
+    } catch {}
+    return local;
+  },
 
   getDebugLog: async () => ({ log: piBridge!.getDebugLog() }),
   // B0.1 (S9): monitoring heap (bun:jsc)
