@@ -1853,6 +1853,10 @@ class PiBridge {
       if (p && typeof p.model === 'string' && p.model) { s.model = p.model; }
       if (p && typeof p.thinkingLevel === 'string' && p.thinkingLevel) { s.thinkingLevel = p.thinkingLevel; }
       if (p && typeof p.mode === 'string' && p.mode) { (s as any).mode = p.mode; }
+      // === POOL SYNC (11 set): allinea anche composizione agenti e override —
+      // senza questi, il #save del main riscrive valori stanti su disco ===
+      if (p && typeof p.agentId === 'string') { (s as any).agentId = p.agentId; }
+      if (p && p.agentOverrides && typeof p.agentOverrides === 'object') { (s as any).agentOverrides = p.agentOverrides; }
     } catch {}
   }
 
@@ -2752,7 +2756,14 @@ class PiBridge {
     // (thinking + vision del NUOVO modello) — l'utente non paga il costo di scoperta.
     probeSingleModelCaps(modelId).catch(() => {});
     const s = this.#entries.get(key);
-    if (s) { s.model = modelId; this.#save(); this.#writeSessionPrefs(key); }
+    if (s) {
+      s.model = modelId; this.#save(); this.#writeSessionPrefs(key);
+      // === POOL SYNC: il main aggiorna model dalla sua entry (stesso motivo di setMode) ===
+      try {
+        const send = (globalThis as any).__quinki_sendNotification;
+        if (send) send("session_updated", { sessionKey: key, model: modelId, mode: s.mode, thinkingLevel: s.thinkingLevel, label: s.label });
+      } catch {}
+    }
     // === B16: reset context usage al cambio modello ===
     if (prevModel && prevModel !== modelId) {
       this.logDebug("set-model-reset-context-usage", { sessionKey: key, prevModel, newModel: modelId });
@@ -2802,7 +2813,14 @@ class PiBridge {
     if (!pi) {
       // === Map "on" to a real level before pending ===
       if (level === 'on') level = pickDefaultThinkingLevel();
-      if (s) { s.thinkingLevel = level; this.#save(); this.#writeSessionPrefs(key); }
+      if (s) {
+        s.thinkingLevel = level; this.#save(); this.#writeSessionPrefs(key);
+        // === POOL SYNC (stesso motivo di setMode) ===
+        try {
+          const send = (globalThis as any).__quinki_sendNotification;
+          if (send) send("session_updated", { sessionKey: key, thinkingLevel: level, mode: s.mode, model: s.model, label: s.label });
+        } catch {}
+      }
       this.#pendingThinking.set(key, level);
       this.logDebug("set-thinking-pending", { sessionKey: key, level });
       this.#logThinkingMapResolved(key, level, null);
@@ -2834,6 +2852,11 @@ class PiBridge {
       if (s) {
         s.thinkingLevel = actualLevel;
         this.#save();
+        // === POOL SYNC (stesso motivo di setMode) ===
+        try {
+          const send = (globalThis as any).__quinki_sendNotification;
+          if (send) send("session_updated", { sessionKey: key, thinkingLevel: actualLevel, mode: s.mode, model: s.model, label: s.label });
+        } catch {}
         this.logDebug("set-thinking-saved", { sessionKey: key, requested: level, resolvedTo: actualLevel, savedAs: s.thinkingLevel, accepted, note: accepted ? "pi-thinks-applied" : "pi-thinks-ignored-keeping-user-intent" });
       }
       if (!accepted) {
@@ -3914,7 +3937,18 @@ Read this file to view it.` }] };
     const m = mode === "build" ? "build" : "plan";
     const s = this.#entries.get(key);
     this.logDebug("set-mode", { sessionKey: key, mode: m, entryFound: !!s });
-    if (s) { s.mode = m; this.#save(); this.#writeSessionPrefs(key); }
+    if (s) {
+      s.mode = m; this.#save(); this.#writeSessionPrefs(key);
+      // === POOL SYNC (11 set): notifica il cambio → il MAIN aggiorna la SUA entry.
+      // La UI legge getSessions dalla memoria del MAIN: senza questo, nelle sessioni
+      // possedute da un worker, il main resta con la mode stantia e la chat "torna
+      // a plan" a fine risposta. L'evento raggiunge: router (→ updateSessionFromEvent)
+      // + frontend (→ pill aggiornata live). ===
+      try {
+        const send = (globalThis as any).__quinki_sendNotification;
+        if (send) send("session_updated", { sessionKey: key, mode: m, model: s.model, thinkingLevel: s.thinkingLevel, label: s.label });
+      } catch {}
+    }
     const pi = this.#active.get(key);
     if (!pi) { this.#pendingMode.set(key, m); this.logDebug("set-mode-pending", { sessionKey: key, mode: m }); return; }
     try { this.#applyMode(pi, key, m); this.logDebug("set-mode-applied", { sessionKey: key, mode: m }); }
@@ -4118,7 +4152,16 @@ Read this file to view it.` }] };
   setChatAgents(key: string, agentIds: string) {
     const s = this.#entries.get(key);
     // Se l'entry non esiste in memoria la salviamo comunque nel meta file (e #load la riporterà)
-    if (s) { (s as any).agentId = agentIds || ''; this.#save(); }
+    if (s) {
+      (s as any).agentId = agentIds || ''; this.#save();
+      // === POOL SYNC: la composizione agenti della chat cambia sul worker —
+      // il main deve aggiornare la sua entry (altrimenti refreshSessionsForAgent
+      // e la UI lavorano su una lista agenti stantia) ===
+      try {
+        const send = (globalThis as any).__quinki_sendNotification;
+        if (send) send("session_updated", { sessionKey: key, agentId: agentIds || '', label: s.label });
+      } catch {}
+    }
     this.#writeChatMeta(key, { agentIds: agentIds || '' });
     // === USER INTENT (anti-loss): agents.json per-sessione, scritto SOLO dal main.
     // Un sidecar stantio (Expert vecchio) non conosce questo file → non può sovrascriverlo. ===
@@ -4155,6 +4198,11 @@ Read this file to view it.` }] };
     }
     if (Object.keys((s as any).agentOverrides).length === 0) delete (s as any).agentOverrides;
     this.#save();
+    // === POOL SYNC: gli override vivono sul worker — il main deve allinearsi ===
+    try {
+      const send = (globalThis as any).__quinki_sendNotification;
+      if (send) send("session_updated", { sessionKey: key, agentOverrides: (s as any).agentOverrides ?? {} });
+    } catch {}
     this.logDebug("set-agent-override", { sessionKey: key, agentId, model, thinkingLevel });
   }
 
