@@ -1104,7 +1104,7 @@ fn run_native_update_flow(app: tauri::AppHandle, dmg_url: String) {
     std::thread::spawn(move || {
         #[cfg(target_os = "macos")]
         {
-            upd_progress::show(&app, "Downloading update…");
+            upd_progress::show(&app, "Downloading…");
             let dmg_path = match download_update_file(dmg_url) {
                 Ok(p) => p,
                 Err(e) => {
@@ -1113,7 +1113,7 @@ fn run_native_update_flow(app: tauri::AppHandle, dmg_url: String) {
                     return;
                 }
             };
-            upd_progress::set_text(&app, "Installing update and syncing App Expert…");
+            upd_progress::set_text(&app, "Installing…");
             std::thread::sleep(std::time::Duration::from_millis(300));
             // sync_expert = true: il sync dell'App Expert è SEMPRE automatico
             if let Err(e) = install_downloaded_update(dmg_path, true) {
@@ -1168,30 +1168,63 @@ fn download_update_file(dmg_url: String) -> Result<String, String> {
     Ok(dmg)
 }
 
+// Stacca TUTTI i mount attualmente appesi dell'immagine dmg_path (self-healing:
+// un tentativo precedente fallito poteva lasciare la DMG attaccata, e hdiutil
+// attach della stessa immagine ritorna "Resource busy").
+fn detach_image_mounts(dmg_path: &str) {
+    let Ok(out) = std::process::Command::new("hdiutil").arg("info").output() else { return };
+    let text = String::from_utf8_lossy(&out.stdout).to_string();
+    let mut current_image = String::new();
+    let mut to_detach: Vec<String> = Vec::new();
+    for line in text.lines() {
+        let t = line.trim();
+        if let Some(rest) = t.strip_prefix("image-path") {
+            current_image = rest.trim_start_matches(':').trim().to_string();
+        } else if t.starts_with("/dev/") {
+            if let Some(mp) = t.split_whitespace().last() {
+                if current_image == dmg_path && mp.starts_with("/Volumes/") {
+                    to_detach.push(mp.to_string());
+                }
+            }
+        }
+    }
+    for mp in to_detach {
+        let _ = std::process::Command::new("hdiutil").args(["detach", &mp, "-force"]).status();
+    }
+}
+
 #[tauri::command]
 fn install_downloaded_update(dmg_path: String, sync_expert: bool) -> Result<String, String> {
-    // Monta la DMG, installa la MAIN app (con backup), opzionalmente sincronizza
-    // l'App Expert, smonta. NON riavvia: il riavvio è gestito dopo la conferma.
+    // Monta la DMG su un mount point FISSO, installa la MAIN app, opzionalmente
+    // sincronizza l'App Expert, smonta. NON riavvia: il riavvio è gestito dopo
+    // la conferma.
+    // FIX: mount point fisso (-mountpoint + -readonly). NON si parsa l'output di
+    // hdiutil attach: se il volume "Quinki" è già occupato da un mount fantasma
+    // (tentativi falliti), macOS monta su "/Volumes/Quinki 2" ecc. e il parsing
+    // split_whitespace().last() restituiva solo "2" → "Quinki.app not found in
+    // DMG". Con -mountpoint il percorso è deterministico e lo stale mount viene
+    // prima staccato.
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
+    let mount = format!("{}/.quinki/update/mnt", home);
+    // Self-healing: stacca i mount rimasti appesi di questa immagine (dopo un
+    // tentativo fallito hdiutil attach della STESSA immagine ritorna "Resource
+    // busy") e dell'eventuale mount fisso rimasto appeso da un crash.
+    detach_image_mounts(&dmg_path);
+    let _ = std::process::Command::new("hdiutil").args(["detach", &mount, "-force"]).output();
+    let _ = std::fs::remove_dir_all(&mount);
+    std::fs::create_dir_all(&mount).map_err(|e| format!("mount dir failed: {}", e))?;
     let out = std::process::Command::new("hdiutil")
-        .args(["attach", "-nobrowse", &dmg_path])
+        .args(["attach", "-nobrowse", "-readonly", "-mountpoint", &mount, &dmg_path])
         .output()
         .map_err(|e| format!("mount failed: {}", e))?;
     if !out.status.success() {
-        return Err("mount failed".to_string());
-    }
-    let text = String::from_utf8_lossy(&out.stdout).to_string();
-    let mount = text
-        .lines()
-        .last()
-        .and_then(|l| l.split_whitespace().last())
-        .unwrap_or("")
-        .to_string();
-    if mount.is_empty() {
-        return Err("could not find mount point".to_string());
+        let err = String::from_utf8_lossy(&out.stderr).trim().to_string();
+        let _ = std::process::Command::new("hdiutil").args(["detach", &mount, "-force"]).status();
+        return Err(format!("mount failed: {}", err));
     }
     let src_app = format!("{}/Quinki.app", mount);
     if !std::path::Path::new(&src_app).exists() {
-        let _ = std::process::Command::new("hdiutil").args(["detach", &mount]).status();
+        let _ = std::process::Command::new("hdiutil").args(["detach", &mount, "-force"]).status();
         return Err("Quinki.app not found in DMG".to_string());
     }
 
@@ -1227,7 +1260,7 @@ fn install_downloaded_update(dmg_path: String, sync_expert: bool) -> Result<Stri
         }
     }
 
-    let _ = std::process::Command::new("hdiutil").args(["detach", &mount]).status();
+    let _ = std::process::Command::new("hdiutil").args(["detach", &mount, "-force"]).status();
     Ok("Update installed. Ready to restart.".to_string())
 }
 
