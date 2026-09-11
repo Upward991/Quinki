@@ -4,7 +4,9 @@
 #
 # This is the ONLY install command the App Expert agent should use.
 # It is built so that it can NEVER touch the App Expert app:
-#   - backs up /Applications/Quinki.app (mv, not rm)
+#   - keeps exactly ONE backup of /Applications/Quinki.app (.bak, replaced at
+#     every install — never accumulates). This runs ONLY on the developer's Mac:
+#     the public update flow (install_downloaded_update) creates NO backup.
 #   - installs the new build (ditto)
 #   - kills ONLY port 9182 (the main sidecar) — never 9183
 #   - clears ONLY the main app webview caches

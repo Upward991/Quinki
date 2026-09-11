@@ -830,19 +830,11 @@ fn list_attachments(session_key: String) -> Result<Vec<serde_json::Value>, Strin
 #[tauri::command]
 fn install_main_app(build_path: String) -> Result<String, String> {
     // Safely install the main app WITHOUT touching the Expert app
-    // 1. Backup current main app
-    // 2. Install new build
-    // 3. Kill only the main sidecar (port 9182)
-    // 4. Restart main app
+    // 1. Install new build
+    // 2. Kill only the main sidecar (port 9182)
+    // 3. Restart main app
     
     let main_app = "/Applications/Quinki.app";
-    let backup = "/Applications/Quinki.app.bak";
-    
-    // Backup
-    if std::path::Path::new(main_app).exists() {
-        let _ = std::fs::remove_dir_all(backup);
-        std::fs::rename(main_app, backup).map_err(|e| format!("Backup failed: {}", e))?;
-    }
     
     // Install new build
     std::process::Command::new("ditto")
@@ -865,10 +857,6 @@ fn install_main_app(build_path: String) -> Result<String, String> {
     let _ = std::process::Command::new("open")
         .arg(main_app)
         .spawn();
-    
-    // Clean up backup
-    std::thread::sleep(std::time::Duration::from_secs(2));
-    let _ = std::fs::remove_dir_all(backup);
     
     Ok("Main app installed and restarted".to_string())
 }
