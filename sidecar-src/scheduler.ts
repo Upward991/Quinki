@@ -16,10 +16,12 @@ import { homedir } from "node:os";
 import { ExecutionEngine } from "./executor";
 
 export interface ScheduleWhen {
-  type: "once" | "daily" | "weekly" | "monthly";
-  at?: string;            // HH:MM locale (daily/weekly/monthly)
+  type: "once" | "daily" | "weekly" | "monthly" | "yearly" | "hourly" | "minutely";
+  at?: string;            // HH:MM locale (daily/weekly/monthly/yearly; hourly = minuto dell'ora)
   daysOfWeek?: number[];  // 1=Mon..7=Sun (weekly)
-  dayOfMonth?: number;    // 1..31 (monthly, clamp a fine mese)
+  dayOfMonth?: number;    // 1..31 (monthly, clamp a fine mese; yearly)
+  month?: number;          // 1..12 (yearly)
+  interval?: number;       // N: minutely→ogni N min, hourly→ogni N ore, daily→ogni N giorni, weekly→ogni N settimane
   date?: string;          // ISO (once)
 }
 
@@ -34,7 +36,8 @@ export interface Schedule {
   thinkingLevel?: string;
   text: string;
   owner: "main" | "expert";
-  when: ScheduleWhen;
+  when: ScheduleWhen;          // BACKWARD COMPAT: singola regola (vecchio formato)
+  rules?: ScheduleWhen[];      // NUOVO: lista di regole — il task scatta quando QUALSIASI regola si attiva
   enabled: boolean;
   catchUp?: boolean;
   lastFiredAt: number;
@@ -118,34 +121,119 @@ export class Scheduler {
   }
 
   // === Calcolo prossima occorrenza > afterTs ===
+  // Supporta: when singolo (backward compat) + rules[] (multi-rule, libertà totale)
   #parseAt(at: string): { h: number; m: number } {
     const p = String(at || "08:00").split(":");
     return { h: parseInt(p[0], 10) || 0, m: parseInt(p[1], 10) || 0 };
   }
 
+  #rulesOf(s: Schedule): ScheduleWhen[] {
+    if (Array.isArray(s.rules) && s.rules.length > 0) return s.rules;
+    return [s.when];
+  }
+
+  #isAllOnce(s: Schedule): boolean {
+    return this.#rulesOf(s).every((r: ScheduleWhen) => r.type === "once");
+  }
+
   #computeNext(s: Schedule, afterTs: number): number | null {
-    const when = s.when;
-    if (!when) return null;
+    const rules = this.#rulesOf(s);
+    // Multi-rule: prendi il SOONEST tra tutte le regole
+    let soonest: number | null = null;
+    for (const rule of rules) {
+      const next = this.#computeNextSingle(rule, s, afterTs);
+      if (next != null && (soonest == null || next < soonest)) soonest = next;
+    }
+    return soonest;
+  }
+
+  #computeNextSingle(when: ScheduleWhen, s: Schedule, afterTs: number): number | null {
+    if (!when || !when.type) return null;
+    const now = Date.now();
+    const interval = Math.max(1, Number(when.interval || 1));
+
+    // === MINUTELY: ogni N minuti da createdAt ===
+    if (when.type === "minutely") {
+      const created = s.createdAt || now;
+      const step = interval * 60000;
+      const elapsed = now - created;
+      const next = created + Math.ceil(elapsed / step) * step;
+      return next > afterTs ? next : null;
+    }
+
+    // === HOURLY: ogni N ore, al minuto specificato (default :00) ===
+    if (when.type === "hourly") {
+      const { m } = this.#parseAt(when.at || "00:00");
+      const step = interval * 3600000;
+      // allinea all'ora piena più vicina + minuto
+      const now2 = new Date(now);
+      now2.setMinutes(m, 0, 0);
+      let candidate = now2.getTime();
+      // se il candidato con interval è nel passato, avanz a step
+      while (candidate <= afterTs) candidate += step;
+      // riallinea al minuto dell'ora
+      const c = new Date(candidate);
+      c.setMinutes(m, 0, 0);
+      return c.getTime() > afterTs ? c.getTime() : c.getTime() + step;
+    }
+
+    // === ONCE: una data specifica ===
     if (when.type === "once") {
       const d = new Date(when.date || 0);
       if (isNaN(d.getTime())) return null;
       return d.getTime() > afterTs ? d.getTime() : null;
     }
+
+    // === DAILY: ogni N giorni (interval=1 default) all'ora 'at' ===
+    // === WEEKLY: giorni specifici, ogni N settimane ===
+    // === MONTHLY: giorno del mese ===
+    // === YEARLY: mese + giorno ===
     const { h, m } = this.#parseAt(when.at || "08:00");
     const base = new Date(); base.setHours(h, m, 0, 0);
-    for (let i = 0; i < 400; i++) {
+
+    // === YEARLY: mese + giorno ===
+    if (when.type === "yearly") {
+      const mo = Math.max(0, Math.min(11, Number(when.month || 1) - 1));
+      const dom = Math.max(1, Math.min(31, Number(when.dayOfMonth || 1)));
+      for (let y = 0; y < 3; y++) {
+        const cand = new Date(base.getFullYear() + y, mo, dom, h, m, 0, 0);
+        if (cand.getTime() > afterTs) return cand.getTime();
+      }
+      return null;
+    }
+
+    // === DAILY / WEEKLY / MONTHLY: itera giorni ===
+    const maxIter = when.type === "monthly" ? 800 : 400;
+    for (let i = 0; i < maxIter; i++) {
       const cand = new Date(base.getTime() + i * 86400000);
       if (cand.getTime() <= afterTs) continue;
-      if (when.type === "daily") return cand.getTime();
+
+      if (when.type === "daily") {
+        // ogni N giorni: verifica che la differenza da createdAt sia multiplo di interval
+        if (interval > 1) {
+          const createdDay = Math.floor((s.createdAt || now) / 86400000);
+          const candDay = Math.floor(cand.getTime() / 86400000);
+          if ((candDay - createdDay) % interval !== 0) continue;
+        }
+        return cand.getTime();
+      }
+
       if (when.type === "weekly") {
         const days = (when.daysOfWeek || [1, 2, 3, 4, 5]).map((d: any) => Number(d));
-        const jsDay = cand.getDay(); // 0=Dom
-        const dayNum = jsDay === 0 ? 7 : jsDay; // 1=Lun..7=Dom
-        if (days.includes(dayNum)) return cand.getTime();
+        const jsDay = cand.getDay();
+        const dayNum = jsDay === 0 ? 7 : jsDay;
+        if (!days.includes(dayNum)) continue;
+        // ogni N settimane: verifica la settimana relativa a createdAt
+        if (interval > 1) {
+          const createdWeek = Math.floor((s.createdAt || now) / (7 * 86400000));
+          const candWeek = Math.floor(cand.getTime() / (7 * 86400000));
+          if ((candWeek - createdWeek) % interval !== 0) continue;
+        }
+        return cand.getTime();
       }
+
       if (when.type === "monthly") {
         const dom = Number(when.dayOfMonth || 1);
-        // clamp al giorno valido del mese (31 feb → ultimo giorno)
         const candidateDay = new Date(cand.getFullYear(), cand.getMonth(), dom);
         if (candidateDay.getMonth() !== cand.getMonth()) {
           // dom non esiste in questo mese → salta
@@ -188,8 +276,8 @@ export class Scheduler {
     // === Aggiorna lo stato PRIMA del run: la schedule non è più in scadenza (niente doppio fire) ===
     const all = this.readSchedules();
     const idx = all.findIndex((x: Schedule) => x.id === s.id);
-    if (s.when.type === "once") {
-      // once → dopo il fire la schedule sparisce (l'esecuzione resta in history)
+    if (this.#isAllOnce(s)) {
+      // tutte regole once → dopo il fire la schedule sparisce (l'esecuzione resta in history)
       if (idx >= 0) all.splice(idx, 1);
     } else {
       s.nextFireAt = this.#computeNext(s, now);
@@ -231,9 +319,27 @@ export class Scheduler {
 
   // === RPC API ===
   createSchedule(p: any): { id: string; schedule: Schedule } {
+    const validTypes = ["once", "daily", "weekly", "monthly", "yearly", "hourly", "minutely"];
     const when: ScheduleWhen = p.when || {};
-    if (!["once", "daily", "weekly", "monthly"].includes(when.type as string)) {
-      throw new Error("when.type must be once|daily|weekly|monthly");
+    // Multi-rule: se p.rules è un array valido, 'when' può essere vuoto
+    let rules: ScheduleWhen[] | undefined = undefined;
+    if (Array.isArray(p.rules) && p.rules.length > 0) {
+      rules = p.rules.filter((r: any) => validTypes.includes(r?.type));
+      if (rules.length === 0) rules = undefined;
+    }
+    // Se né when né rules hanno un type valido → errore
+    if (!validTypes.includes(when.type as string) && !rules) {
+      throw new Error("when.type must be " + validTypes.join("|") + " (or pass rules[])");
+    }
+    // Se when è vuoto ma ci sono rules, usa la prima come 'when' per compat
+    if (!validTypes.includes(when.type as string) && rules) {
+      when.type = rules[0].type as any;
+      if (rules[0].at) when.at = rules[0].at;
+      if (rules[0].daysOfWeek) when.daysOfWeek = rules[0].daysOfWeek;
+      if (rules[0].dayOfMonth) when.dayOfMonth = rules[0].dayOfMonth;
+      if (rules[0].month) when.month = rules[0].month;
+      if (rules[0].interval) when.interval = rules[0].interval;
+      if (rules[0].date) when.date = rules[0].date;
     }
     const id = `sch_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     let rawIds: any = p.agentIds;
@@ -254,6 +360,7 @@ export class Scheduler {
       text: String(p.text || ""),
       owner: p.owner === "expert" ? "expert" : this.#owner,
       when,
+      rules,
       enabled: p.enabled !== false,
       catchUp: p.catchUp !== false,
       lastFiredAt: 0,
@@ -289,9 +396,10 @@ export class Scheduler {
     if (p.model !== undefined) s.model = p.model || undefined;
     if (p.thinkingLevel !== undefined) s.thinkingLevel = p.thinkingLevel || undefined;
     if (p.text !== undefined) s.text = String(p.text);
-    if (p.when !== undefined) {
-      s.when = { ...s.when, ...p.when } as ScheduleWhen;
-      // se cambia 'when', ricalcola; mantieni lastFiredAt per non rifare il passato in doppio
+    if (p.when !== undefined || p.rules !== undefined) {
+      if (p.when !== undefined) s.when = { ...s.when, ...p.when } as ScheduleWhen;
+      if (Array.isArray(p.rules)) s.rules = p.rules as ScheduleWhen[];
+      // se cambia 'when'/'rules', ricalcola; mantieni lastFiredAt per non rifare il passato in doppio
       s.nextFireAt = this.#computeNext(s, s.lastFiredAt || 0);
     }
     if (p.enabled !== undefined) s.enabled = !!p.enabled;
@@ -325,8 +433,8 @@ export class Scheduler {
     const now = Date.now();
     // === Aggiorna lo stato PRIMA del fire: il #scan event-driven non deve rifare la task ===
     const idx = all.findIndex((x: Schedule) => x.id === s.id);
-    if (s.when.type === "once") {
-      // once → dopo Run now la schedule sparisce (l'esecuzione resta in history)
+    if (this.#isAllOnce(s)) {
+      // tutte once → dopo Run now la schedule sparisce (l'esecuzione resta in history)
       if (idx >= 0) all.splice(idx, 1);
     } else {
       s.nextFireAt = this.#computeNext(s, now);

@@ -4941,13 +4941,15 @@ Read this file to view it.` }] };
     return defineTool({
       name: "schedule_task",
       label: "Schedule task",
-      description: "Schedule an autonomous task that runs later or on a recurring basis (once, daily, weekly, monthly). Use it when the user asks to run something at a specific time or repeatedly (e.g. 'tomorrow at 7am do X', 'every morning at 8 run Y'). The task runs automatically at the chosen time; if the app is closed at that moment, it runs as soon as possible afterwards (late, never skipped).",
-      promptSnippet: "schedule_task: schedule a task for automatic execution at a chosen time/recurrence",
+      description: "Schedule an autonomous task that runs later or on a recurring basis with FULL flexibility. Supports: once (specific date), minutely (every N minutes), hourly (every N hours), daily (every day or every N days), weekly (specific days of week, optionally every N weeks), monthly (day of month), yearly (month+day). You can ALSO pass multiple rules with the 'rules' parameter: the task fires when ANY rule triggers (e.g. Wednesday at 19:49 AND Saturday at 20:50). If the app is closed at fire time, the task runs as soon as possible afterwards (late, never skipped).",
+      promptSnippet: "schedule_task: schedule a task for automatic execution — flexible recurrence (minutes, hours, days, weeks, months, years, multi-rule)",
       promptGuidelines: [
         "When the user asks to do something later or on a schedule, use schedule_task instead of doing it now.",
         "CURRENT DATE AND TIME (use this to compute when dates/times): " + new Date().toString() + " (ISO: " + new Date().toISOString() + ").",
-        "when.type: once = specific date; daily = every day at HH:MM; weekly = specific weekdays; monthly = specific day of month.",
+        "when.type options: once (specific date+time), minutely (every N minutes via interval), hourly (every N hours via interval, optional at for minute of hour), daily (at HH:MM, optional interval for every N days), weekly (daysOfWeek 1=Monday..7=Sunday, optional interval for every N weeks), monthly (dayOfMonth 1-31), yearly (month 1-12 + dayOfMonth).",
         "at is LOCAL time in 24h HH:MM (e.g. 07:00). For weekly, daysOfWeek uses 1=Monday ... 7=Sunday.",
+        "interval: N (e.g. type=minutely interval=15 = every 15 minutes; type=hourly interval=4 = every 4 hours; type=daily interval=3 = every 3 days; type=weekly interval=2 = every 2 weeks).",
+        "rules: array of when objects for MULTI-RULE schedules. The task fires when ANY rule triggers. Example: rules=[{type:'weekly',daysOfWeek:[3],at:'19:49'},{type:'weekly',daysOfWeek:[6],at:'20:50'}] = Wednesday at 19:49 AND Saturday at 20:50.",
         "text must be the exact task the agent must perform when it fires.",
         "agentIds: optional. The system automatically assigns the task to the agent that schedules it. Only set agentIds if the user explicitly names a different agent.",
         "If the user asks for a specific model or thinking level for the task, pass model and thinkingLevel.",
@@ -4956,17 +4958,28 @@ Read this file to view it.` }] };
       parameters: Type.Object({
         title: Type.Optional(Type.String({ description: "Short label for the scheduled task" })),
         text: Type.String({ description: "The exact task/prompt to execute when the schedule fires" }),
-        when: Type.Object({
-          type: Type.Union([Type.Literal("once"), Type.Literal("daily"), Type.Literal("weekly"), Type.Literal("monthly")], { description: "once | daily | weekly | monthly" }),
-          at: Type.Optional(Type.String({ description: "Local time HH:MM (24h), e.g. 07:00 (daily/weekly/monthly)" })),
+        when: Type.Optional(Type.Object({
+          type: Type.Union([Type.Literal("once"), Type.Literal("minutely"), Type.Literal("hourly"), Type.Literal("daily"), Type.Literal("weekly"), Type.Literal("monthly"), Type.Literal("yearly")], { description: "once | minutely | hourly | daily | weekly | monthly | yearly" }),
+          at: Type.Optional(Type.String({ description: "Local time HH:MM 24h (daily/weekly/monthly/yearly); minute of hour for hourly (e.g. '00:30' = :30 of each hour)" })),
+          interval: Type.Optional(Type.Number({ description: "N: every N minutes (minutely), every N hours (hourly), every N days (daily), every N weeks (weekly). Default 1." })),
           daysOfWeek: Type.Optional(Type.Array(Type.Number(), { description: "1=Monday ... 7=Sunday (weekly)" })),
-          dayOfMonth: Type.Optional(Type.Number({ description: "Day of month 1-31 (monthly)" })),
+          dayOfMonth: Type.Optional(Type.Number({ description: "Day of month 1-31 (monthly, yearly)" })),
+          month: Type.Optional(Type.Number({ description: "Month 1-12 (yearly)" })),
           date: Type.Optional(Type.String({ description: "ISO date+time for once, e.g. 2026-08-10T07:00:00" })),
-        }),
+        })),
+        rules: Type.Optional(Type.Array(Type.Object({
+          type: Type.Union([Type.Literal("once"), Type.Literal("minutely"), Type.Literal("hourly"), Type.Literal("daily"), Type.Literal("weekly"), Type.Literal("monthly"), Type.Literal("yearly")]),
+          at: Type.Optional(Type.String({ description: "Local time HH:MM" })),
+          interval: Type.Optional(Type.Number({ description: "N interval" })),
+          daysOfWeek: Type.Optional(Type.Array(Type.Number())),
+          dayOfMonth: Type.Optional(Type.Number()),
+          month: Type.Optional(Type.Number()),
+          date: Type.Optional(Type.String()),
+        }), { description: "Multiple rules: task fires when ANY rule triggers. Leave 'when' empty if using this." })),
         agentIds: Type.Optional(Type.Union([Type.String(), Type.Array(Type.String())], { description: "Agent(s) to run the task, default ['orchestrator']" })),
         workingDir: Type.Optional(Type.String({ description: "Working directory for the task" })),
         mode: Type.Optional(Type.String({ description: "plan or build (default build)" })),
-        model: Type.Optional(Type.String({ description: "Model to run this task with (e.g. 'deepseek/deepseek-v4-flash-0731'). Only if the user specifies one." })),
+        model: Type.Optional(Type.String({ description: "Model to run this task with. Only if the user specifies one." })),
         thinkingLevel: Type.Optional(Type.String({ description: "Thinking level: off | low | medium | high | xhigh. Only if the user specifies one." })),
       }),
       async execute(toolCallId: string, params: any, signal: any, onUpdate: any, ctx: any): Promise<any> {
@@ -4991,12 +5004,24 @@ Read this file to view it.` }] };
           const srcLabel = (self.#entries.get(sessionKey) as any)?.label || sessionKey;
           const r = self.#scheduleHandler({ ...params, sourceSession: { key: sessionKey, label: srcLabel } });
           const when = params.when || {};
-          let whenText = `type=${when.type}`;
-          if (when.type === "once" && when.date) whenText += ` at ${when.date}`;
-          else if (when.at) {
-            whenText += ` at ${when.at}`;
-            if (when.type === "weekly") whenText += ` (days ${(when.daysOfWeek || []).join(",")})`;
-            if (when.type === "monthly") whenText += ` (day ${when.dayOfMonth})`;
+          const rules = Array.isArray(params.rules) ? params.rules : [];
+          const describeWhen = (w: any): string => {
+            let t = `${w.type}`;
+            if (w.interval && w.interval > 1) t += ` every ${w.interval}${w.type === 'minutely' ? ' min' : w.type === 'hourly' ? ' h' : w.type === 'daily' ? ' days' : w.type === 'weekly' ? ' weeks' : ''}`;
+            if (w.type === "once" && w.date) t += ` at ${w.date}`;
+            else if (w.at) {
+              t += ` at ${w.at}`;
+              if (w.type === "weekly" && w.daysOfWeek) t += ` (days ${(w.daysOfWeek || []).join(",")})`;
+              if (w.type === "monthly" && w.dayOfMonth) t += ` (day ${w.dayOfMonth})`;
+              if (w.type === "yearly" && w.month) t += ` (month ${w.month}, day ${w.dayOfMonth})`;
+            }
+            return t;
+          };
+          let whenText: string;
+          if (rules.length > 0) {
+            whenText = rules.map((r: any) => describeWhen(r)).join(" AND ");
+          } else {
+            whenText = describeWhen(when);
           }
           self.logDebug("schedule-task-created", { sessionKey, scheduleId: r?.id, whenText, text: params.text?.substring(0, 200) });
           return { content: [{ type: "text", text: `Task scheduled successfully. Schedule ID: ${r?.id}. When: ${whenText}. It runs automatically; if the app is closed at that time it will run as soon as possible afterwards.` }] };
