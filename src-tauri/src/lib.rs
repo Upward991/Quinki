@@ -891,21 +891,35 @@ fn restart_main_app() -> Result<String, String> {
 
 
 // === Update check con dialoghi nativi macOS (menu App → Check for Update) ===
+// NSAlert custom SENZA icona: rfd non permette di controllare l'icona e il
+// default mostrava il "?" generico. Qui l'icona è una NSImage vuota.
+#[cfg(target_os = "macos")]
+fn show_alert_no_icon(mtm: objc2::MainThreadMarker, title: &str, message: &str, buttons: &[&str]) -> usize {
+    use objc2_app_kit::{NSAlert, NSAlertStyle, NSImage, NSApplication};
+    let alert = unsafe { NSAlert::new(mtm) };
+    alert.setAlertStyle(NSAlertStyle::Informational);
+    unsafe {
+        let empty = unsafe { NSImage::new() };
+        alert.setIcon(Some(&empty));
+        alert.setMessageText(&objc2_foundation::NSString::from_str(title));
+        alert.setInformativeText(&objc2_foundation::NSString::from_str(message));
+        for b in buttons {
+            alert.addButtonWithTitle(&objc2_foundation::NSString::from_str(b));
+        }
+    }
+    let res = alert.runModal();
+    // NSAlertFirstButtonReturn = 1000
+    (res as usize).saturating_sub(1000)
+}
+
 fn check_for_update_dialog(app: tauri::AppHandle) {
-    use tauri_plugin_dialog::DialogExt;
     let app_c = app.clone();
-    // Il fetch resta su un thread secondario (curl blocca), ma i DIALOGHI
-    // vengono mostrati sul MAIN THREAD: NSAlert creato fuori dal main thread
-    // perde il contesto app (icona mancante).
     std::thread::spawn(move || {
+        // Fetch su thread secondario (curl), alert sul main thread SENZA icona
         let out = std::process::Command::new("curl")
             .args(["-fsSL", "https://api.github.com/repos/Upward991/Quinki/releases?per_page=1"])
             .output();
-        let app_name = if is_expert_mode() { "App Expert" } else { "Quinki" }.to_string();
-        let current = app_c.package_info().version.to_string();
-        let app_name2 = app_name.clone();
-        let app_for_main = app_c.clone();
-        let result: Option<(String, String)> = out.ok().and_then(|o| {
+        let result_full: Option<(String, String)> = out.ok().and_then(|o| {
             let json: serde_json::Value = serde_json::from_slice(&o.stdout).unwrap_or(serde_json::Value::Null);
             json.as_array().and_then(|a| a.first()).and_then(|first| {
                 let tag = first.get("tag_name").and_then(|t| t.as_str()).unwrap_or("").to_string();
@@ -921,48 +935,48 @@ fn check_for_update_dialog(app: tauri::AppHandle) {
                 Some((tag, dmg_url))
             })
         });
-        let app_for_run = app_for_main.clone();
-        let _ = app_for_run.run_on_main_thread(move || {
-            let app = app_for_main;
-            let app_name = app_name2;
-            match result {
-                None => {
-                    app.dialog().message("Could not check for updates (network error).").title(app_name).show(|_| {});
-                }
-                Some((tag, dmg_url)) => {
-                    let latest = tag.trim_start_matches('v').to_string();
-                    if latest.is_empty() {
-                        app.dialog().message("Could not check for updates (unexpected response).").title(app_name).show(|_| {});
-                        return;
+        let current = app_c.package_info().version.to_string();
+        let result = result_full.clone();
+
+        let (tx, rx) = std::sync::mpsc::channel::<usize>();
+        let _ = app_c.run_on_main_thread(move || {
+            unsafe {
+                let Some(mtm) = objc2::MainThreadMarker::new() else { return; };
+                let app_name = if is_expert_mode() { "App Expert" } else { "Quinki" };
+                match result {
+                    None => {
+                        show_alert_no_icon(mtm, &app_name, "Could not check for updates (network error).", &["OK"]);
+                        let _ = tx.send(99);
                     }
-                    if latest != current && latest > current {
-                        let dmg = dmg_url.clone();
-                        let expert = is_expert_mode();
-                        app.dialog()
-                            .message(format!("Quinki {} is available (you have v{}). Update now?", latest, current))
-                            .title("Update available")
-                            .buttons(tauri_plugin_dialog::MessageDialogButtons::OkCancelCustom("Update now".into(), "Later".into()))
-                            .show(move |update_now| {
-                                if update_now {
-                                    std::thread::spawn(move || {
-                                        match apply_update(dmg, expert) {
-                                            Ok(_) => { /* apply_update riavvia la main app in detach */ }
-                                            Err(e) => {
-                                                use tauri_plugin_dialog::DialogExt;
-                                                app.dialog().message(format!("Update failed: {}", e)).title("Update failed").show(|_| {});
-                                            }
-                                        }
-                                    });
-                                }
-                            });
-                    } else {
-                        app.dialog().message(format!("You're up to date (v{}).", current)).title(app_name).show(|_| {});
+                    Some((tag, dmg_url)) => {
+                        let latest = tag.trim_start_matches('v').to_string();
+                        if latest.is_empty() || (latest == current || latest < current) {
+                            show_alert_no_icon(mtm, &app_name, &format!("You're up to date (v{}).", current), &["OK"]);
+                            let _ = tx.send(99);
+                        } else {
+                            let choice = show_alert_no_icon(
+                                mtm,
+                                "Update available",
+                                &format!("Quinki {} is available (you have v{}). Update now?", latest, current),
+                                &["Update now", "Later"],
+                            );
+                            let _ = tx.send(choice);
+                        }
                     }
                 }
             }
         });
+        // Attendi il risultato dell'alert (0 = "Update now" premuto)
+        if let Ok(0) = rx.recv() {
+            if let Some((_, dmg_url)) = result_full {
+                std::thread::spawn(move || {
+                    let _ = apply_update(dmg_url, false);
+                });
+            }
+        }
     });
 }
+
 #[tauri::command]
 fn apply_update(dmg_url: String, sync_expert: bool) -> Result<String, String> {
     // Manual update from Settings → Versions. Downloads the released DMG from GitHub,
