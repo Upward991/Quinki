@@ -1,18 +1,18 @@
 # Quinki
 
-![Quinki in action](https://github.com/Upward991/Quinki/releases/download/v1.0.0-beta.1/hello-demo.gif)
+![Quinki in action](https://raw.githubusercontent.com/Upward991/Quinki/gh-pages/media/hello-demo.gif)
 
 **AI agents, chats and tools on your desktop.**
 
 Quinki is a native desktop app for AI work: parallel multi-agent chats, scheduled jobs, a Market of community-built tools, and the App Expert to extend the app from inside it. Everything stays on your machine.
 
-▶ **[Watch the full chat demo: multi-agent delegation and plan/build mode (2:44)](https://github.com/Upward991/Quinki/releases/download/v1.0.0-beta.1/chat-demo.mp4)**
+▶ **[Watch the full chat demo: multi-agent delegation and plan/build mode (2:44)](https://raw.githubusercontent.com/Upward991/Quinki/gh-pages/media/chat-demo.mp4)**
 
 ## Demos
 
 **Chat: multi-agent + plan/build** (2:44). A single agent first, then a team: the Orchestrator delegates to Coder and Web Researcher in parallel.
 
-[![Chat demo](screenshots/chat-demo.jpg)](https://github.com/Upward991/Quinki/releases/download/v1.0.0-beta.1/chat-demo.mp4)
+[![Chat demo](screenshots/chat-demo.jpg)](https://raw.githubusercontent.com/Upward991/Quinki/gh-pages/media/chat-demo.mp4)
 
 ![macOS](https://img.shields.io/badge/macOS-Apple%20Silicon-blue)
 ![Version](https://img.shields.io/badge/version-1.0.0--beta.1-orange)
@@ -145,11 +145,9 @@ Found a bug? [Open an issue](https://github.com/Upward991/Quinki/issues) with:
 - What happened vs what you expected
 - macOS version and model used
 
-Or write to [quinki.inbox@gmail.com](mailto:quinki.inbox@gmail.com).
-
 ## Contact
 
-**Quinki**: [quinki.inbox@gmail.com](mailto:quinki.inbox@gmail.com)
+Questions or feedback? [Contact](mailto:quinki.inbox@gmail.com)
 
 ## License
 
