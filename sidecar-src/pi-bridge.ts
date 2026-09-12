@@ -3553,7 +3553,19 @@ class PiBridge {
               // nel jsonl, il turno era già stato completato → NESSUN autoprompt (anti-fantasma:
               // copre anche i marker stantii scritti prima di questo fix).
               if (hasOrig) {
-                const answered = hist.slice(uIdx + 1).some((m: any) => m.role === "assistant" && (m as any).done !== false);
+                // FIX (12 set — RECOVERY MUORE DURANTE I TOOL CALL): il vecchio check
+                // "c'è ALMENO UN assistant dopo il messaggio utente → già risposto"
+                // era vero per i turni semplici, ma durante una catena tool-call pi
+                // scrive UN assistant PER OGNI GIRO (stopReason:"toolUse", senza mai
+                // il campo done) MENTRE il turno è ancora in corsa → il check vedeva
+                // "già risposto", skippava il recovery e CANCELLAVA il marker:
+                // qualsiasi riavvio (Cmd+Q, install, crash) durante un tool call
+                // uccideva il turno per sempre. Ora: il turno è "risposto" SOLO se
+                // l'ULTIMO assistant termina con la risposta finale (stop/length).
+                // toolUse, error, o nessun assistant = turno incompleto → recupera.
+                // Stessa definizione di "turnCompleted" già usata dall'agent-end (8059).
+                const lastA = [...hist.slice(uIdx + 1)].reverse().find((m: any) => m.role === "assistant");
+                const answered = !!lastA && (lastA.stopReason === "stop" || lastA.stopReason === "length");
                 if (answered) {
                   this.logDebug("recovery-skip", { sessionKey: sk, reason: "already-answered" });
                   try { const mp2 = path.join(this.#piSessionDir(sk), "pending-turn.json"); if (fs.existsSync(mp2)) fs.unlinkSync(mp2); } catch {}
