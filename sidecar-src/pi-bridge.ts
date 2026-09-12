@@ -9311,11 +9311,19 @@ export async function renameProvider(oldName: string, newName: string): Promise<
         newProviders[k] = v;
       }
     }
+    // FIX (12 set — BUG RINOMINA = COPIA): il rename non deve lasciare il vecchio
+    // nome. L'anti-loss di writeProvidersConfig preserva i provider che non sono
+    // nella config in arrivo (anti-drop accidentale) — ma nel rename il VECCHIO è
+    // stato intenzionalmente sostituito dal NUOVO: senza la marcatura, l'anti-loss
+    // lo preservava → doppione col nome vecchio accanto al nuovo, a ogni rename.
+    (newProviders[oldKey] as any) = { ...(newProviders[oldKey] as any) };
     const fullConfig: ProvidersConfig = {
       providers: newProviders,
       defaultModel: existing.defaultModel,
       defaultThinking: existing.defaultThinking,
     };
+    // providerDelete=true SOLO sul vecchio nome: l'anti-loss NON lo preserva.
+    (fullConfig.providers[oldKey] as any) = { ...(oldCfg as any), providerDelete: true };
     writeProvidersConfig(fullConfig);
     await syncModelsJson(fullConfig);
       // UNIVERSAL CAPS PROBE (29 ago): scopre thinking/vision REALI in background
