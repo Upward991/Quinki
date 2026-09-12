@@ -2,6 +2,11 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { encryptString, decryptString, isEncrypted } from "./crypto";
+// Catalogo modelli Anthropic del vendor (auto-generato): usato come lista di
+// fallback per gli endpoint Anthropic-compat (CCR) che NON espongono /v1/models.
+// I router CCR mappano i nomi claude-* sui modelli configurati — la stessa
+// convenzione di Claude Code. Import build-time: bun lo bundle nel binario.
+import { ANTHROPIC_MODELS } from "./vendor/@earendil-works/pi-ai/dist/providers/anthropic.models.js";
 
 const agentDir = process.env.QUINKI_AGENT_DIR || join(homedir(), ".pi", "agent");
 const providersPath = join(agentDir, "quinki-providers.json");
@@ -301,6 +306,84 @@ export function getSafeProvidersConfig(): SafeProvidersConfig {
   };
 }
 
+// === PROBE ANTHROPIC-COMPATIBLE (11 set) ===
+// Riconosce un endpoint che parla formato Anthropic (CCR, LiteLLM, GLM/Kimi
+// claude-compat, new-api…). Strategia (nessuna UI nuova: Base URL + chiave bastano):
+//   1. GET {base}/models (e {base}/v1/models) con header x-api-key: se risponde,
+//      è Anthropic → i modelli arrivano dalla risposta e api="anthropic-messages".
+//   2. Se /models non esiste (CCR tipicamente espone SOLO /v1/messages): POST
+//      {base}/v1/messages con body minimo. Status 400/422 = la ROTTA esiste e ha
+//      processato il body (modello "probe" non valido) → Anthropic. 401/403 NON
+//      bastano a dichiarare il formato (sarebbe un errore anche per una chiave
+//      sbagliata su un endpoint OpenAI). In questo caso la lista modelli è il
+//      catalogo Anthropic del vendor (i router mappano i nomi claude-*).
+// Ritorna null se l'endpoint NON è Anthropic (il chiamante prosegue come prima).
+async function tryAnthropicCompatible(
+  providerName: string,
+  baseUrl: string,
+  apiKey: string
+): Promise<FetchedModel[] | null> {
+  const anthHeaders: Record<string, string> = {
+    "x-api-key": apiKey || "none",
+    "anthropic-version": "2023-06-01",
+    "Content-Type": "application/json",
+  };
+  const base = (baseUrl || "").replace(/\/+$/, "").replace(/\/models\/?$/, "");
+  if (!base) return null;
+
+  // 1) GET /models — con e senza /v1 (l'utente può incollare entrambe le forme)
+  const modelUrls = base.endsWith("/v1")
+    ? [`${base}/models`]
+    : [`${base}/v1/models`, `${base}/models`];
+  for (const u of modelUrls) {
+    try {
+      const r = await fetch(u, { headers: anthHeaders });
+      if (!r.ok) continue;
+      const d = await r.json();
+      const list = Array.isArray(d?.data) ? d.data : [];
+      if (list.length > 0) {
+        setProviderApiFormat(providerName, "anthropic-messages");
+        process.stderr.write(`[providers] tryAnthropicCompatible: ${providerName} RICONOSCIUTO Anthropic (GET ${u} → ${list.length} modelli)`);
+        return list.map((m: any) => ({
+          id: String(m.id || m.name || ""),
+          name: String(m.display_name || m.id || m.name || ""),
+          contextWindow: m.context_window || m.contextWindow || undefined,
+          reasoning: true,
+          input: ["text", "image"],
+        })).filter((m: any) => m.id);
+      }
+    } catch {}
+  }
+
+  // 2) POST /v1/messages — CCR e endpoint senza /models
+  const msgUrls = base.endsWith("/v1")
+    ? [`${base}/messages`]
+    : [`${base}/v1/messages`];
+  for (const u of msgUrls) {
+    try {
+      const r = await fetch(u, {
+        method: "POST",
+        headers: anthHeaders,
+        body: JSON.stringify({ model: "probe", max_tokens: 1, messages: [{ role: "user", content: "hi" }] }),
+      });
+      if (r.status === 400 || r.status === 422) {
+        setProviderApiFormat(providerName, "anthropic-messages");
+        const models = Object.values(ANTHROPIC_MODELS as Record<string, any>).map((m: any) => ({
+          id: String(m.id),
+          name: String(m.name || m.id),
+          contextWindow: m.contextWindow || undefined,
+          reasoning: m.reasoning !== false,
+          input: m.input || ["text", "image"],
+        }));
+        process.stderr.write(`[providers] tryAnthropicCompatible: ${providerName} RICONOSCIUTO Anthropic (POST ${u} → ${r.status}) → catalogo vendor: ${models.length} modelli`);
+        return models;
+      }
+    } catch {}
+  }
+
+  return null;
+}
+
 export async function fetchProviderModels(
   providerName: string,
   baseUrl: string,
@@ -380,6 +463,11 @@ export async function fetchProviderModels(
     const res = await fetch(modelsUrl, { headers });
     process.stderr.write(`[providers] fetchProviderModels: ${providerName} status=${res.status} contentType=${res.headers.get("content-type")}`);
     if (!res.ok) {
+      // === PROBE ANTHROPIC (11 set): l'endpoint NON parla OpenAI. Può essere un
+      // endpoint Anthropic-compatible (CCR / LiteLLM / GLM / Kimi claude-compat):
+      // riconosce la lingua e NON fallisce — la UI resta identica (Base URL + chiave).
+      const anthRes = await tryAnthropicCompatible(providerName, baseUrl, apiKey);
+      if (anthRes) return anthRes;
       const errText = await res.text();
       process.stderr.write(`[providers] fetchProviderModels: ${providerName} ERROR ${res.status}: ${errText.substring(0, 500)}`);
       throw new Error(`${providerName} responded ${res.status}`);
@@ -428,6 +516,8 @@ export async function fetchProviderModels(
       };
     });
     process.stderr.write(`[providers] fetchProviderModels: ${providerName} returned ${models.length} models (${models.filter((m: any) => (m.input || []).includes("image")).length} with vision)`);
+    // Self-correcting: l'endpoint ha risposto in OpenAI → il campo api lo conferma
+    setProviderApiFormat(providerName, "openai-completions");
     return models;
   } catch (e) {
     process.stderr.write(`[providers] fetchProviderModels error for ${providerName}: ${e}`);
@@ -480,6 +570,29 @@ export function ensureBuiltinProviders(config: ProvidersConfig): ProvidersConfig
     prov.Ollama = { enabled: true, baseUrl: "http://127.0.0.1:11434/v1", apiKey: "", enabledModels: [] };
   }
   return cfg;
+}
+
+// === FORMATO API dei provider custom (11 set): OpenAI-compatible vs Anthropic-compatible ===
+// Il campo `api` di models.json esiste già e syncModelsJson lo PRESERVA
+// (`api: oldProvider.api || "openai-completions"`). Questo helper lo scrive quando
+// il probe di fetchProviderModels riconosce la lingua dell'endpoint. La UI NON cambia:
+// l'utente incolla Base URL + chiave come ha sempre fatto — la lingua si riconosce da sola.
+// MAI sui provider builtin (Anthropic nativo ha la sua api "anthropic-messages" + OAuth).
+export function setProviderApiFormat(providerName: string, api: string): void {
+  try {
+    const builtins = Object.keys(DEFAULT_CONFIG.providers || {});
+    if (builtins.includes(providerName)) return;
+    let existing: any = { providers: {} };
+    if (existsSync(modelsPath)) existing = JSON.parse(readFileSync(modelsPath, "utf8"));
+    if (!existing.providers) existing.providers = {};
+    const cur = existing.providers[providerName] || {};
+    if (cur.api === api) return;
+    existing.providers[providerName] = { ...cur, api };
+    writeFileSync(modelsPath, JSON.stringify(existing, null, 2), "utf8");
+    process.stderr.write(`[providers] setProviderApiFormat: ${providerName} → api=${api}`);
+  } catch (e: any) {
+    process.stderr.write(`[providers] setProviderApiFormat error: ${e?.message || e}`);
+  }
 }
 
 export async function testProviderConnection(
