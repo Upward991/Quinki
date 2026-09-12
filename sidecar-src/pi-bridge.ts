@@ -6464,6 +6464,46 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     return null;
   }
 
+  // ── FIX (12 set — CHAT BRICKATE DA IMMAGINI CUMULATIVE) ──
+  // Ogni turno rispedisce la STORIA INTERA al provider. Screenshot Retina letti
+  // dal tool read: 0.3-4.6 MB l'uno in base64; dopo ~7 screenshot la richiesta
+  // supera il limite del gateway del provider (~16MB, stile nginx) → 400 "failed
+  // to read request body" → la chat muore PER SEMPRE (ogni retry rispedisce lo
+  // stesso corpo). Fix: prima di ogni turno, nel contesto IN MEMORIA tengo solo
+  // le ultime N immagini; le più vecchie diventano una nota testuale. Il file
+  // sessione NON viene modificato (la UI continua a mostrare la storia completa).
+  #capHistoryImages(sk: string, pi: any): void {
+    try {
+      const msgs = (pi?.agent?.state?.messages || []) as any[];
+      if (!msgs.length) return;
+      const imgBlocks: any[] = [];
+      for (const m of msgs) {
+        const c = m?.content;
+        if (!Array.isArray(c)) continue;
+        for (const b of c) {
+          if (b && b.type === "image" && typeof b.data === "string" && b.data.length > 0) imgBlocks.push(b);
+        }
+      }
+      const max = 3;
+      if (imgBlocks.length <= max) return;
+      const keep = new Set<any>(imgBlocks.slice(-max));
+      let stripped = 0;
+      let savedChars = 0;
+      for (const b of imgBlocks) {
+        if (keep.has(b)) continue;
+        savedChars += b.data?.length || 0;
+        b.type = "text";
+        b.text = "[image removed from context: already analyzed in an earlier turn; stripped to keep the request under the provider request-size limit]";
+        delete b.data;
+        delete b.mimeType;
+        stripped++;
+      }
+      if (stripped > 0) this.logDebug("context-images-capped", { sessionKey: sk, stripped, kept: max, savedBase64Chars: savedChars });
+    } catch (e: any) {
+      this.logDebug("context-images-cap-error", { sessionKey: sk, error: e?.message || String(e) });
+    }
+  }
+
   async send(ws: any, data: { sessionKey: string; text: string; files?: { name: string; type: string; path?: string; data?: string }[]; workingDirs?: string[]; skillNames?: { agentId: string; skillName: string }[]; attachments?: { originalName: string; path: string; uuid: string; size?: number }[]; taskClips?: { id: string; label: string; text: string }[] }) {
     const sk = data.sessionKey;
     // === MESSAGE-ACK (29 ago, richiesta utente: 'running non mi dà nessuna garanzia
@@ -6965,6 +7005,10 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     } catch (e: any) {
       this.logDebug("send-preflight-error", { sessionKey: sk, error: e?.message || String(e) });
     }
+
+    // === FIX (12 set): budget immagini nel contesto — le chat con molti screenshot
+    // non devono più superare il limite di dimensione della richiesta del provider ===
+    this.#capHistoryImages(sk, pi);
 
     // Log effettivo dello stato del thinking al momento del prompt
     const piThinkingAtPrompt = (() => { try { return pi.thinkingLevel; } catch { return undefined; } })();

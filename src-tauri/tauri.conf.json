@@ -178,7 +178,8 @@
       "resources/expert-icon.icns",
       "resources/sidecar/package.json",
       "resources/tcc-check",
-      "resources/sidecar/version.txt"
+      "resources/sidecar/version.txt",
+      "resources/sidecar/photon_rs_bg.wasm"
     ]
   }
 }

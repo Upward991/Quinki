@@ -32,6 +32,13 @@ fi
 # and macOS re-prompts for permissions (Screen Recording etc.) after every update.
 codesign --force --sign - --identifier "com.quinki.sidecar" quinki-sidecar-ws
 cp quinki-sidecar-ws ../src-tauri/resources/sidecar/
+# Photon WASM: la compressione immagini (resize JPEG/PNG) lo cerca ACCANTO AL
+# BINARIO (photon.js: path.dirname(process.execPath)). Senza, resizeImage ritorna
+# null e le immagini sarebbero SCARTATE invece che compresse.
+if [ -f node_modules/@silvia-odwyer/photon-node/photon_rs_bg.wasm ]; then
+  cp node_modules/@silvia-odwyer/photon-node/photon_rs_bg.wasm ../src-tauri/resources/sidecar/
+  echo "[build-sidecar] photon wasm copied next to the binary"
+fi
 
 echo "[build-sidecar] binary compiled and copied to src-tauri/resources/sidecar/"
 # sanity: the binary must NOT contain the raw secret in plaintext when built from a clean machine,

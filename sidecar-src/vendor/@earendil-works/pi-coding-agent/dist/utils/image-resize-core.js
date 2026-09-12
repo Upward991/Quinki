@@ -1,7 +1,7 @@
 import { applyExifOrientation } from "./exif-orientation.js";
 import { loadPhoton } from "./photon.js";
 // 4.5MB of base64 payload. Provides headroom below Anthropic's 5MB limit.
-const DEFAULT_MAX_BYTES = 4.5 * 1024 * 1024;
+const DEFAULT_MAX_BYTES = 600 * 1024;
 const DEFAULT_OPTIONS = {
     maxWidth: 2000,
     maxHeight: 2000,
