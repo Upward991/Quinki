@@ -5,10 +5,11 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 
 /**
  * Ollama account + cloud usage, Option A layout: one usage card, NO separator
- * lines. Session/weekly usage with percentage bars and reset countdowns
+ * lines. ONE "Monthly usage" bar (frazione del credito mensile incluso, nuovo
+ * formato API ollama.com 17 set) con a destra il credito consumato in $ (frazione
+ * x credito di base del piano, letto da POST /api/me Plan) e reset countdown
  * ("(estimated)" until an actual reset is observed), extra usage in dollars,
- * bullet-list ranking of models by request count, "Open ollama.com/settings"
- * button. Same window/pin behavior as OpenRouter (freccetta + win-usage).
+ * "Open ollama.com/settings" button. Same window/pin behavior as OpenRouter.
  */
 
 function fmtCountdown(sec: number) {
@@ -21,6 +22,9 @@ function fmtCountdown(sec: number) {
   return `${m}m`
 }
 const fmtPct = (u: number) => `${Math.round(u * 1000) / 10}%`
+// credito consumato in $ (frazione x credito di base del piano); se il piano non
+// ha un credito noto (es. free/starter) ricade sulla percentuale
+const fmtMonthlyVal = (m: any) => (m && typeof m.usedUsd === 'number') ? `$${m.usedUsd.toFixed(2)}` : fmtPct(m?.usage || 0)
 
 /** Usage-only card (shared between the provider toggle and the usage window). */
 export function OllamaUsageCard(props: {
@@ -84,7 +88,6 @@ export function OllamaUsageCard(props: {
       </div>
     )
   }
-  const ranking = (models: any[]) => [...(models || [])].sort((a, b) => (b.request_count || 0) - (a.request_count || 0))
 
   return (
     <div ref={rootRef} style={isWindow ? { width: '100%', padding: '16px', paddingTop: '8px', boxSizing: 'border-box' } : { backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', padding: '10px 12px' }}>
@@ -111,24 +114,14 @@ export function OllamaUsageCard(props: {
         </div>
       </div>
 
-      {/* Session */}
+      {/* Monthly (nuovo formato ollama.com: limits.monthly = frazione del credito mensile incluso) */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px' }}>
-        <div style={{ ...label, width: '52px', flexShrink: 0, fontSize: '12px' }}>Session</div>
-        {bar(usage?.session?.usage || 0)}
-        <div style={{ ...val, width: '48px', textAlign: 'right', flexShrink: 0 }}>{usage ? fmtPct(usage.session?.usage || 0) : '...'}</div>
+        <div style={{ ...label, flexShrink: 0, fontSize: '12px' }}>Monthly usage</div>
+        {bar(usage?.monthly?.usage || 0)}
+        <div style={{ ...val, width: '48px', textAlign: 'right', flexShrink: 0, color: usage && (usage.monthly?.usage || 0) > 0.9 ? 'var(--q-accent-danger)' : 'var(--q-text)' }}>{usage ? fmtMonthlyVal(usage.monthly) : '...'}</div>
       </div>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '2px' }}>
-        {usage && <div style={{ ...label, fontSize: '11px' }}>resets in {fmtCountdown(usage.session?.resetInSec || 0)}{usage.session?.estimated ? ' (estimated)' : ''}</div>}
-      </div>
-
-      {/* Weekly */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
-        <div style={{ ...label, width: '52px', flexShrink: 0, fontSize: '12px' }}>Weekly</div>
-        {bar(usage?.weekly?.usage || 0)}
-        <div style={{ ...val, width: '48px', textAlign: 'right', flexShrink: 0, color: usage && (usage.weekly?.usage || 0) > 0.9 ? 'var(--q-accent-danger)' : 'var(--q-text)' }}>{usage ? fmtPct(usage.weekly?.usage || 0) : '...'}</div>
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '2px' }}>
-        {usage && <div style={{ ...label, fontSize: '11px' }}>resets in {fmtCountdown(usage.weekly?.resetInSec || 0)}{usage.weekly?.estimated ? ' (estimated)' : ''}</div>}
+        {usage && <div style={{ ...label, fontSize: '11px' }}>resets in {fmtCountdown(usage.monthly?.resetInSec || 0)}{usage.monthly?.estimated ? ' (estimated)' : ''}</div>}
       </div>
 
       {/* Extra usage */}

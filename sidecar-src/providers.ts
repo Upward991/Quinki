@@ -1161,15 +1161,18 @@ export interface OllamaCloudUsage {
   ok: boolean;
   error?: string;
   activity?: { cost?: string; models?: { name: string; cost?: string }[] };
-  session?: { usage: number; models: { name: string; request_count: number }[]; resetInSec: number; estimated: boolean };
-  weekly?: { usage: number; models: { name: string; request_count: number }[]; resetInSec: number; estimated: boolean };
+  monthly?: { usage: number; usedUsd?: number; baseUsd?: number; plan?: string; resetInSec: number; estimated: boolean };
 }
 
-const SESSION_WINDOW_MS = 5 * 60 * 60 * 1000;   // 5h
-const WEEKLY_WINDOW_MS = 7 * 24 * 60 * 60 * 1000; // 7d
+// FIX (17 set — ollama.com nuovo sistema usage): l'API ora espone SOLO limits.monthly
+// (frazione del credito mensile incluso, 0-1) + activity (extra usage $ oltre il piano).
+// Niente piu' session(5h)/weekly(7d). Il credito di base dipende dal piano, che leggiamo
+// da POST /api/me (campo Plan). Mappa aggiornata al pricing ollama.com del 17 set.
+const MONTHLY_WINDOW_MS = 30 * 24 * 60 * 60 * 1000; // ~30g (stima; il reset reale = stesso giorno del mese dell'abbonamento)
+const OLLAMA_PLAN_CREDIT_USD: Record<string, number> = { pro: 60, max: 300, team: 1000 };
 const ollamaStatsPath = join(agentDir, "quinki-ollama-stats.json");
 
-interface OllamaStats { lastSession?: number; lastWeekly?: number; sessionAnchor?: number; weeklyAnchor?: number }
+interface OllamaStats { lastMonthly?: number; monthlyAnchor?: number }
 function readOllamaStats(): OllamaStats {
   try { return JSON.parse(readFileSync(ollamaStatsPath, "utf8")); } catch { return {}; }
 }
@@ -1206,28 +1209,6 @@ export function clearOllamaCloudKey(): void {
   try { writeOllamaStats({}); } catch {}
 }
 
-// prossimo confine della griglia UTC 5h (00/05/10/15/20 UTC)
-function nextSessionGridBoundary(now: number): number {
-  const d = new Date(now);
-  const h = d.getUTCHours();
-  const nextSlot = (Math.floor(h / 5) + 1) * 5; // 5,10,15,20,25→(0 del giorno dopo)
-  const out = new Date(d);
-  out.setUTCHours(nextSlot % 24, 0, 0, 0);
-  if (nextSlot >= 24) out.setUTCDate(out.getUTCDate() + 1);
-  return out.getTime();
-}
-
-// prossimo lunedì 00:00 UTC
-function nextMondayUtc(now: number): number {
-  const d = new Date(now);
-  const day = d.getUTCDay(); // 0=dom,1=lun
-  const out = new Date(d);
-  out.setUTCHours(0, 0, 0, 0);
-  const daysToMonday = ((8 - day) % 7) || 7; // se lunedì → 7
-  out.setUTCDate(out.getUTCDate() + daysToMonday);
-  return out.getTime();
-}
-
 export async function getOllamaCloudUsage(): Promise<OllamaCloudUsage> {
   try {
     const cfg = readProvidersConfig();
@@ -1237,49 +1218,39 @@ export async function getOllamaCloudUsage(): Promise<OllamaCloudUsage> {
     const res = await fetch("https://ollama.com/api/usage", { headers: { Authorization: `Bearer ${key}` } });
     if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
     const data: any = await res.json();
+    const nowM = data?.limits?.monthly?.usage;
+    if (typeof nowM !== "number") return { ok: false, error: "unexpected_usage_shape" };
 
-    // reset-sync: se usage scende tra due poll → reset osservato → ancora = ora
+    // piano + credito mensile incluso (POST /api/me → Plan)
+    let plan = ""; let baseUsd: number | undefined;
+    try {
+      const r2 = await fetch("https://ollama.com/api/me", { method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: "{}" });
+      if (r2.ok) {
+        const me: any = await r2.json();
+        plan = String(me?.Plan || "").toLowerCase();
+        baseUsd = OLLAMA_PLAN_CREDIT_USD[plan];
+      }
+    } catch {}
+
+    // reset-sync (mensile): se usage scende tra due poll → reset osservato → ancora = ora
     const stats = readOllamaStats();
-    const nowS = data?.limits?.session?.usage;
-    const nowW = data?.limits?.weekly?.usage;
-    if (typeof nowS === "number" && typeof stats.lastSession === "number" && nowS < stats.lastSession - 1e-9) {
-      stats.sessionAnchor = Date.now();
+    if (typeof stats.lastMonthly === "number" && nowM < stats.lastMonthly - 1e-9) {
+      stats.monthlyAnchor = Date.now();
     }
-    if (typeof nowW === "number" && typeof stats.lastWeekly === "number" && nowW < stats.lastWeekly - 1e-9) {
-      stats.weeklyAnchor = Date.now();
-    }
-    stats.lastSession = typeof nowS === "number" ? nowS : stats.lastSession;
-    stats.lastWeekly = typeof nowW === "number" ? nowW : stats.lastWeekly;
-    writeOllamaStats(stats);
+    stats.lastMonthly = nowM;
+    writeOllamaStats({ lastMonthly: stats.lastMonthly, monthlyAnchor: stats.monthlyAnchor });
 
+    // reset stimato: anchor osservato + ~30g, altrimenti +30g da ora (estimated)
     const now = Date.now();
-    // session
-    let sessionResetAt: number, sessionEstimated: boolean;
-    if (stats.sessionAnchor) { sessionResetAt = stats.sessionAnchor + SESSION_WINDOW_MS; sessionEstimated = false; }
-    else { sessionResetAt = nextSessionGridBoundary(now); sessionEstimated = true; }
-    // weekly
-    let weeklyResetAt: number, weeklyEstimated: boolean;
-    if (stats.weeklyAnchor) { weeklyResetAt = stats.weeklyAnchor + WEEKLY_WINDOW_MS; weeklyEstimated = false; }
-    else { weeklyResetAt = nextMondayUtc(now); weeklyEstimated = true; }
-    // se il countdown calcolato è scaduto (poll salta un reset), stima col default
-    if (sessionResetAt <= now) { sessionResetAt = nextSessionGridBoundary(now); sessionEstimated = true; }
-    if (weeklyResetAt <= now) { weeklyResetAt = nextMondayUtc(now); weeklyEstimated = true; }
+    let resetAt = (stats.monthlyAnchor || now) + MONTHLY_WINDOW_MS;
+    if (resetAt <= now) resetAt = now + MONTHLY_WINDOW_MS;
+    const estimated = !stats.monthlyAnchor;
 
+    const usedUsd = typeof baseUsd === "number" ? Math.round(nowM * baseUsd * 100) / 100 : undefined;
     return {
       ok: true,
       activity: data?.activity ? { cost: data.activity.cost, models: data.activity.models } : undefined,
-      session: {
-        usage: typeof nowS === "number" ? nowS : 0,
-        models: data?.limits?.session?.models || [],
-        resetInSec: Math.max(0, Math.round((sessionResetAt - now) / 1000)),
-        estimated: sessionEstimated,
-      },
-      weekly: {
-        usage: typeof nowW === "number" ? nowW : 0,
-        models: data?.limits?.weekly?.models || [],
-        resetInSec: Math.max(0, Math.round((weeklyResetAt - now) / 1000)),
-        estimated: weeklyEstimated,
-      },
+      monthly: { usage: nowM, usedUsd, baseUsd, plan, resetInSec: Math.max(0, Math.round((resetAt - now) / 1000)), estimated },
     };
   } catch (e: any) {
     return { ok: false, error: String(e?.message || e) };
