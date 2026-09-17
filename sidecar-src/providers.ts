@@ -1168,7 +1168,41 @@ export interface OllamaCloudUsage {
 // (frazione del credito mensile incluso, 0-1) + activity (extra usage $ oltre il piano).
 // Niente piu' session(5h)/weekly(7d). Il credito di base dipende dal piano, che leggiamo
 // da POST /api/me (campo Plan). Mappa aggiornata al pricing ollama.com del 17 set.
+// Fallback se la pricing page non e' raggiungibile; i valori "reali" arrivano da
+// getOllamaPlanCredits() che parsa ollama.com/pricing (fonte di verita', si aggiorna
+// da sola se Ollama cambia importi o aggiunge piani).
 const OLLAMA_PLAN_CREDIT_USD: Record<string, number> = { pro: 60, max: 300, team: 1000 };
+const ollamaPlanCreditsPath = join(agentDir, "quinki-ollama-plan-credits.json");
+const PLAN_CREDITS_TTL_MS = 24 * 60 * 60 * 1000;
+
+interface OllamaPlanCreditsCache { fetchedAt?: number; credits?: Record<string, number> }
+
+async function getOllamaPlanCredits(): Promise<Record<string, number>> {
+  let cache: OllamaPlanCreditsCache = {};
+  try { cache = JSON.parse(readFileSync(ollamaPlanCreditsPath, "utf8")); } catch {}
+  const fresh = !!(cache.fetchedAt && Date.now() - cache.fetchedAt < PLAN_CREDITS_TTL_MS && cache.credits && Object.keys(cache.credits).length > 0);
+  if (fresh) return { ...OLLAMA_PLAN_CREDIT_USD, ...cache.credits };
+  try {
+    const r = await fetch("https://ollama.com/pricing");
+    if (r.ok) {
+      const html = await r.text();
+      const text = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+      const out: Record<string, number> = {};
+      const re = /\$([\d,]+) of usage credits per month[^$]*?Get ([A-Za-z]+)/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(text))) {
+        const amount = parseInt(String(m[1]).replace(/,/g, ""), 10);
+        if (amount > 0) out[String(m[2]).toLowerCase()] = amount;
+      }
+      if (Object.keys(out).length > 0) {
+        try { writeFileSync(ollamaPlanCreditsPath, JSON.stringify({ fetchedAt: Date.now(), credits: out }, null, 2)); } catch {}
+        return { ...OLLAMA_PLAN_CREDIT_USD, ...out };
+      }
+    }
+  } catch {}
+  return { ...OLLAMA_PLAN_CREDIT_USD, ...(cache.credits || {}) };
+}
+
 const ollamaStatsPath = join(agentDir, "quinki-ollama-stats.json");
 
 // monthlyDay = giorno del mese (UTC) in cui avviene il reset mensile dell'account.
@@ -1238,14 +1272,17 @@ export async function getOllamaCloudUsage(): Promise<OllamaCloudUsage> {
     const nowM = data?.limits?.monthly?.usage;
     if (typeof nowM !== "number") return { ok: false, error: "unexpected_usage_shape" };
 
-    // piano + credito mensile incluso (POST /api/me → Plan)
+    // piano + credito mensile incluso (POST /api/me → Plan; importi dalla pricing page)
     let plan = ""; let baseUsd: number | undefined;
     try {
       const r2 = await fetch("https://ollama.com/api/me", { method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: "{}" });
       if (r2.ok) {
         const me: any = await r2.json();
         plan = String(me?.Plan || "").toLowerCase();
-        baseUsd = OLLAMA_PLAN_CREDIT_USD[plan];
+        if (plan) {
+          const credits = await getOllamaPlanCredits();
+          baseUsd = credits[plan];
+        }
       }
     } catch {}
 
