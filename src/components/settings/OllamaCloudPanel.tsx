@@ -22,9 +22,18 @@ function fmtCountdown(sec: number) {
   return `${m}m`
 }
 const fmtPct = (u: number) => `${Math.round(u * 1000) / 10}%`
-// credito consumato in $ (frazione x credito di base del piano); se il piano non
-// ha un credito noto (es. free/starter) ricade sulla percentuale
-const fmtMonthlyVal = (m: any) => (m && typeof m.usedUsd === 'number') ? `$${m.usedUsd.toFixed(2)}` : fmtPct(m?.usage || 0)
+// formato identico al sito ollama.com: "$2.10 of $300 used" (frazione x credito di
+// base del piano); se il piano non ha un credito noto (es. free/starter) ricade sulla %
+const fmtMonthlyVal = (m: any) => {
+  if (m && typeof m.usedUsd === 'number' && typeof m.baseUsd === 'number') {
+    return `$${m.usedUsd.toFixed(2)} of $${m.baseUsd.toLocaleString('en-US')} used`
+  }
+  return fmtPct(m?.usage || 0)
+}
+const fmtMonthlyReset = (m: any) => {
+  if (typeof m?.resetInSec === 'number') return `resets in ${fmtCountdown(m.resetInSec)}${m?.estimated ? ' (estimated)' : ''}`
+  return `resets monthly${m?.estimated ? ' (estimated)' : ''}`
+}
 
 /** Usage-only card (shared between the provider toggle and the usage window). */
 export function OllamaUsageCard(props: {
@@ -118,10 +127,10 @@ export function OllamaUsageCard(props: {
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px' }}>
         <div style={{ ...label, flexShrink: 0, fontSize: '12px' }}>Monthly usage</div>
         {bar(usage?.monthly?.usage || 0)}
-        <div style={{ ...val, width: '48px', textAlign: 'right', flexShrink: 0, color: usage && (usage.monthly?.usage || 0) > 0.9 ? 'var(--q-accent-danger)' : 'var(--q-text)' }}>{usage ? fmtMonthlyVal(usage.monthly) : '...'}</div>
+        <div style={{ ...val, fontSize: '12px', textAlign: 'right', flexShrink: 0, color: usage && (usage.monthly?.usage || 0) > 0.9 ? 'var(--q-accent-danger)' : 'var(--q-text)' }}>{usage ? fmtMonthlyVal(usage.monthly) : '...'}</div>
       </div>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '2px' }}>
-        {usage && <div style={{ ...label, fontSize: '11px' }}>resets in {fmtCountdown(usage.monthly?.resetInSec || 0)}{usage.monthly?.estimated ? ' (estimated)' : ''}</div>}
+        {usage && <div style={{ ...label, fontSize: '11px' }}>{fmtMonthlyReset(usage.monthly)}</div>}
       </div>
 
       {/* Extra usage */}

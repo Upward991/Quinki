@@ -1161,18 +1161,35 @@ export interface OllamaCloudUsage {
   ok: boolean;
   error?: string;
   activity?: { cost?: string; models?: { name: string; cost?: string }[] };
-  monthly?: { usage: number; usedUsd?: number; baseUsd?: number; plan?: string; resetInSec: number; estimated: boolean };
+  monthly?: { usage: number; usedUsd?: number; baseUsd?: number; plan?: string; resetInSec: number | null; estimated: boolean };
 }
 
 // FIX (17 set — ollama.com nuovo sistema usage): l'API ora espone SOLO limits.monthly
 // (frazione del credito mensile incluso, 0-1) + activity (extra usage $ oltre il piano).
 // Niente piu' session(5h)/weekly(7d). Il credito di base dipende dal piano, che leggiamo
 // da POST /api/me (campo Plan). Mappa aggiornata al pricing ollama.com del 17 set.
-const MONTHLY_WINDOW_MS = 30 * 24 * 60 * 60 * 1000; // ~30g (stima; il reset reale = stesso giorno del mese dell'abbonamento)
 const OLLAMA_PLAN_CREDIT_USD: Record<string, number> = { pro: 60, max: 300, team: 1000 };
 const ollamaStatsPath = join(agentDir, "quinki-ollama-stats.json");
 
-interface OllamaStats { lastMonthly?: number; monthlyAnchor?: number }
+// monthlyDay = giorno del mese (UTC) in cui avviene il reset mensile dell'account.
+// Ollama resetta "lo stesso giorno del mese dell'abbonamento": non lo espone via API,
+// quindi lo IMPARIAMO per osservazione (quando la frazione cala, quel giorno e' il reset).
+interface OllamaStats { lastMonthly?: number; monthlyDay?: number }
+
+// prossima occorrenza del giorno monthlyDay (clamp ai mesi corti)
+function nextResetAt(dayUTC: number, now: number): number {
+  const base = new Date(now);
+  const compute = (year: number, month: number) => {
+    const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+    return Date.UTC(year, month, Math.min(dayUTC, daysInMonth), 0, 0, 0, 0);
+  };
+  let t = compute(base.getUTCFullYear(), base.getUTCMonth());
+  if (t <= now) {
+    const nextM = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + 1, 1));
+    t = compute(nextM.getUTCFullYear(), nextM.getUTCMonth());
+  }
+  return t;
+}
 function readOllamaStats(): OllamaStats {
   try { return JSON.parse(readFileSync(ollamaStatsPath, "utf8")); } catch { return {}; }
 }
@@ -1232,25 +1249,24 @@ export async function getOllamaCloudUsage(): Promise<OllamaCloudUsage> {
       }
     } catch {}
 
-    // reset-sync (mensile): se usage scende tra due poll → reset osservato → ancora = ora
+    // reset-sync: se la frazione cala tra due poll → reset osservato → il giorno UTC di
+    // adesso e' il giorno di reset dell'abbonamento (fisso per i mesi successivi)
     const stats = readOllamaStats();
     if (typeof stats.lastMonthly === "number" && nowM < stats.lastMonthly - 1e-9) {
-      stats.monthlyAnchor = Date.now();
+      stats.monthlyDay = new Date().getUTCDate();
     }
     stats.lastMonthly = nowM;
-    writeOllamaStats({ lastMonthly: stats.lastMonthly, monthlyAnchor: stats.monthlyAnchor });
+    writeOllamaStats(stats);
 
-    // reset stimato: anchor osservato + ~30g, altrimenti +30g da ora (estimated)
     const now = Date.now();
-    let resetAt = (stats.monthlyAnchor || now) + MONTHLY_WINDOW_MS;
-    if (resetAt <= now) resetAt = now + MONTHLY_WINDOW_MS;
-    const estimated = !stats.monthlyAnchor;
+    const resetInSec = stats.monthlyDay ? Math.max(0, Math.round((nextResetAt(stats.monthlyDay, now) - now) / 1000)) : null;
+    const estimated = !stats.monthlyDay;
 
     const usedUsd = typeof baseUsd === "number" ? Math.round(nowM * baseUsd * 100) / 100 : undefined;
     return {
       ok: true,
       activity: data?.activity ? { cost: data.activity.cost, models: data.activity.models } : undefined,
-      monthly: { usage: nowM, usedUsd, baseUsd, plan, resetInSec: Math.max(0, Math.round((resetAt - now) / 1000)), estimated },
+      monthly: { usage: nowM, usedUsd, baseUsd, plan, resetInSec, estimated },
     };
   } catch (e: any) {
     return { ok: false, error: String(e?.message || e) };
