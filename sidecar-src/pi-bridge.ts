@@ -4293,6 +4293,43 @@ Read this file to view it.` }] };
     return (s as any)?.messageTaskClips || {};
   }
 
+  // === FIX (22 set): ri-key chips sul messaggio utente REALE ===
+  // I store messageAttachments/messageSkills/messageTaskClips erano chiavati solo per
+  // testo (o mid) → al reload il merge per testo falliva a testo vuoto. Qui, appena il
+  // messaggio utente è nella sessione pi, copiamo l'entry sulle chiavi id e ts-<ts>
+  // (le stesse che il mapping UI già usa per messageAgents).
+  #rekeyMessageChips(sk: string, mid: string | undefined, text: string, pi: any): void {
+    const doRekey = (): boolean => {
+      try {
+        const msgs = (pi?.agent?.state?.messages || []) as any[];
+        let lastU: any = null;
+        for (let i = msgs.length - 1; i >= 0; i--) { if (msgs[i]?.role === "user") { lastU = msgs[i]; break; } }
+        if (!lastU) return false;
+        const realTs = typeof lastU.timestamp === "number" ? lastU.timestamp : 0;
+        if (!(realTs && Date.now() - realTs < 30000)) return false; // non è il messaggio di questo send
+        const entry: any = this.#entries.get(sk);
+        if (!entry) return true;
+        const textKey = String(text || "").substring(0, 200);
+        let moved = 0;
+        for (const storeName of ["messageAttachments", "messageSkills", "messageTaskClips"] as const) {
+          const store: any = entry[storeName];
+          if (!store) continue;
+          const src = (mid && store[mid]) || (textKey && store[textKey]);
+          if (!src) continue;
+          if (lastU.id) store[lastU.id] = src;
+          store["ts-" + realTs] = src;
+          moved++;
+        }
+        if (moved > 0) {
+          try { this.#save(); } catch {}
+          this.logDebug("chips-rekey", { sessionKey: sk, realId: lastU.id || null, realTs, moved });
+        }
+        return true;
+      } catch { return false; }
+    };
+    if (!doRekey()) { try { setTimeout(() => { try { doRekey(); } catch {} }, 600); } catch {} }
+  }
+
   setMessageAttachments(key: string, messageId: string, attachments: any[], messageText?: string) {
     const s = this.#entries.get(key);
     if (s && attachments && attachments.length > 0) {
@@ -6529,7 +6566,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     }
   }
 
-  async send(ws: any, data: { sessionKey: string; text: string; files?: { name: string; type: string; path?: string; data?: string }[]; workingDirs?: string[]; skillNames?: { agentId: string; skillName: string }[]; attachments?: { originalName: string; path: string; uuid: string; size?: number }[]; taskClips?: { id: string; label: string; text: string }[] }) {
+  async send(ws: any, data: { sessionKey: string; text: string; files?: { name: string; type: string; path?: string; data?: string }[]; workingDirs?: string[]; skillNames?: { agentId: string; skillName: string }[]; attachments?: { originalName: string; path: string; uuid: string; size?: number }[]; taskClips?: { id: string; label: string; text: string }[]; messageId?: string }) {
     const sk = data.sessionKey;
     // === MESSAGE-ACK (29 ago, richiesta utente: 'running non mi dà nessuna garanzia
     // che il messaggio sia arrivato'): PRIMA riga del send — conferma IMMEDIATA al
@@ -7250,6 +7287,11 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
         if (this.#stoppedSessions.has(sk)) return;
         try {
           await pi.sendUserMessage(content, { deliverAs: "followUp" });
+          // FIX (22 set): le chips (allegati/skill/clip) salvate per testo/mid vengono
+          // ri-chiavate sull'ID e sul TS REALI del messaggio utente appena scritto: al
+          // reload il lookup per testo falliva per i messaggi a TESTO VUOTO (solo
+          // allegato) o con testi duplicati → le chips sparivano dalle bubble.
+          this.#rekeyMessageChips(sk, data.messageId, data.text, pi);
           return;
         } catch (err: any) {
           const msg = String(err?.message || err);

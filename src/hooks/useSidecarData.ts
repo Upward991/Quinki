@@ -208,9 +208,12 @@ function mergeHistoryMessages(history: any): any[] {
       const text = typeof m.content === 'string' ? m.content :
         (Array.isArray(m.content) ? m.content.map((b: any) => b?.text || '').join('') : '');
       const textKey = text.substring(0, 200);
-      const skills = msgSkills[textKey];
-      const clips = msgTaskClips[textKey];
-      const atts = msgAttachments[textKey];
+      // FIX (22 set): fallback su id e ts-<ts> del messaggio — le chips NON devono mai
+      // sparire (messaggi a solo allegato = testo vuoto, testi duplicati, ecc.).
+      const tsMs = (() => { try { return new Date(m.timestamp as any).getTime() || 0; } catch { return 0; } })();
+      const skills = msgSkills[textKey] || (m.id ? msgSkills[m.id] : undefined) || (tsMs ? msgSkills['ts-' + tsMs] : undefined);
+      const clips = msgTaskClips[textKey] || (m.id ? msgTaskClips[m.id] : undefined) || (tsMs ? msgTaskClips['ts-' + tsMs] : undefined);
+      const atts = msgAttachments[textKey] || (m.id ? msgAttachments[m.id] : undefined) || (tsMs ? msgAttachments['ts-' + tsMs] : undefined);
       if (skills || clips || atts) {
         return { ...m, skillNames: skills, taskClips: clips, attachments: atts };
       }
