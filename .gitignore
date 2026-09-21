@@ -75,3 +75,4 @@ sidecar-src/quinki-ws-bridge
 
 # Repo annidato (market): mai tracciare nel repo principale
 quinki-market/
+dist-web/

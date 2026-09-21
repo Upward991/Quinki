@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "node scripts/bundle-sidecar.mjs && tsc --noEmit && vite build",
+ "build:web": "vite build -c vite.config.web.ts",
     "lint": "oxlint",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit"

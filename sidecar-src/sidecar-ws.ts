@@ -2,8 +2,8 @@ import { WebSocketServer } from "ws";
 import * as http from "node:http";
 import { spawn } from "node:child_process";
 import { homedir } from "node:os";
-import { join } from "node:path";
-import { existsSync, readFileSync } from "node:fs";
+import { join, dirname, extname, normalize } from "node:path";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { EventEmitter } from "node:events";
 // Import STATICO (bundled dal compilatore): il top-level di sidecar.ts è side-effect-free,
 // il bootstrap gira DOPO l'avvio del WS server (vedi bootSidecar() sotto).
@@ -74,6 +74,73 @@ function readGhClientSecret(): string {
 const GH_CLIENT_SECRET: string = readGhClientSecret();
 (globalThis as any).__quinki_oauth_state = { token: "", pending: false, error: "" };
 
+// === WEB APP (F1): la stessa UI del desktop, servita sulla stessa porta del WS ===
+// La cartella "web" (build `vite build -c vite.config.web.ts`) vive accanto al
+// binario del sidecar (Quinki.app/Contents/Resources/sidecar/web). In dev si puo'
+// forzare con QUINKI_WEB_DIR. Se la cartella non esiste, tutto resta identico a prima.
+const WEB_DIR = (() => {
+  try {
+    const env = String(process.env.QUINKI_WEB_DIR || "");
+    if (env && existsSync(env)) return normalize(env);
+    const exeDir = dirname(process.execPath || "");
+    if (exeDir) {
+      const cand = join(exeDir, "web");
+      if (existsSync(cand)) return normalize(cand);
+      const dev = join(exeDir, "..", "resources", "sidecar", "web");
+      if (existsSync(dev)) return normalize(dev);
+    }
+  } catch {}
+  return "";
+})();
+const WEB_MIME: Record<string, string> = {
+  ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".mjs": "text/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8", ".json": "application/json", ".map": "application/json",
+  ".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp",
+  ".gif": "image/gif", ".ico": "image/x-icon", ".woff": "font/woff", ".woff2": "font/woff2", ".ttf": "font/ttf",
+  ".wasm": "application/wasm", ".txt": "text/plain; charset=utf-8",
+};
+const WEB_VERSION = (() => {
+  try {
+    const p = join(dirname(process.execPath || ""), "version.txt");
+    if (existsSync(p)) return String(readFileSync(p, "utf8")).trim().slice(0, 40);
+  } catch {}
+  return "";
+})();
+const WEB_IS_EXPERT = String(process.env.QUINKI_ROLE || "").toLowerCase() === "expert" || Number(process.env.QUINKI_WS_PORT || "9182") === 9183;
+
+function serveWebApp(req: any, res: any, url: string): boolean {
+  if (!WEB_DIR) return false;
+  let rel = url.split("?")[0].split("#")[0];
+  try { rel = decodeURIComponent(rel); } catch {}
+  if (rel === "/" || rel === "") rel = "/index.html";
+  if (!extname(rel)) rel = "/index.html"; // SPA fallback
+  const full = normalize(join(WEB_DIR, rel));
+  if (!full.startsWith(WEB_DIR)) return false; // traversal guard
+  if (!existsSync(full)) return false;
+  try { if (!statSync(full).isFile()) return false; } catch { return false; }
+  const ext = extname(full).toLowerCase();
+  const isIndex = full.endsWith("index.html");
+  let body = readFileSync(full);
+  if (isIndex) {
+    // Payload per il frontend: server WS (stesso host del browser, anche dietro
+    // reverse proxy) + ruolo + versione. Il token arrivera' qui (F0.1).
+    const proto = String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim();
+    const host = String(req.headers["host"] || `127.0.0.1:${PORT}`);
+    const payload: any = { web: true, server: `${proto === "https" ? "wss" : "ws"}://${host}`, expert: WEB_IS_EXPERT };
+    if (WEB_VERSION) payload.version = WEB_VERSION;
+    const tag = `<script>window.__QUINKI__=${JSON.stringify(payload)};</script>`;
+    const html = body.toString("utf8");
+    body = Buffer.from(html.includes("</head>") ? html.replace("</head>", tag + "</head>") : tag + html, "utf8");
+  }
+  res.writeHead(200, {
+    "Content-Type": WEB_MIME[ext] || "application/octet-stream",
+    "Content-Length": body.length,
+    "Cache-Control": isIndex ? "no-store" : "public, max-age=3600",
+  });
+  res.end(req.method === "HEAD" ? undefined : body);
+  return true;
+}
+
 const httpServer = http.createServer((req: any, res: any) => {
   const url = String(req.url || "");
   if (url.startsWith("/callback")) {
@@ -102,6 +169,10 @@ const httpServer = http.createServer((req: any, res: any) => {
       res.end("<html><body style='font-family:sans-serif;background:#0f0f13;color:#e6e6e6;display:flex;align-items:center;justify-content:center;height:100vh'><p>Authorization failed (no code). Close this tab.</p></body></html>");
     }
     return;
+  }
+  // === WEB APP (F1): la stessa UI del desktop, servita sulla stessa porta del WS ===
+  if (req.method === "GET" || req.method === "HEAD") {
+    try { if (serveWebApp(req, res, url)) return; } catch {}
   }
   res.writeHead(404); res.end();
 });
