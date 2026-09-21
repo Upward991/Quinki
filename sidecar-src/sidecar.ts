@@ -456,6 +456,27 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     if (p.skillNames && p.skillNames.length > 0) {
       piBridge!.setMessageSkills(sk, mid, p.skillNames, p.text);
     }
+    // FIX (22 set): allegati dalla cartella draft (__welcome__, welcome/quick chat senza
+    // sessione) → SPOSTATI nella cartella della sessione PRIMA di registrarli: il path
+    // definitivo finisce nei metadata e nel blocco ATTACHED FILES. Gli allegati già nella
+    // cartella della sessione non vengono toccati (rename solo se la destinazione differisce).
+    if (p.attachments && p.attachments.length > 0) {
+      try {
+        const sessAttDir = path.join(agentDir, "attachments", sk);
+        fs.mkdirSync(sessAttDir, { recursive: true });
+        for (const att of p.attachments) {
+          try {
+            const src = String(att?.path || '');
+            if (!src || !fs.existsSync(src)) continue;
+            const dest = path.join(sessAttDir, path.basename(src));
+            if (path.resolve(src) !== path.resolve(dest)) {
+              try { fs.renameSync(src, dest); } catch { try { fs.copyFileSync(src, dest); fs.unlinkSync(src); } catch {} }
+              (att as any).path = dest;
+            }
+          } catch {}
+        }
+      } catch {}
+    }
     if (p.attachments && p.attachments.length > 0) {
       piBridge!.setMessageAttachments(sk, mid, p.attachments, p.text);
     }

@@ -104,7 +104,8 @@ export function Composer(props: ComposerProps) {
 
   useEffect(() => { setMentionIdx(0) }, [mentionFilter])
 
-  const canSend = text.trim().length > 0 && !props.isStreaming && !(props as any).isCompacting
+  // FIX (22 set): un allegato da solo (senza testo) DEVE poter partire.
+  const canSend = (text.trim().length > 0 || pendingAttachments.length > 0) && !props.isStreaming && !(props as any).isCompacting
   const canSteer = text.trim().length > 0 && props.isStreaming && !(props as any).isCompacting
 
   const handleSteer = () => {
@@ -149,15 +150,13 @@ export function Composer(props: ComposerProps) {
   }
 
   // === Attachment handling ===
-  // In welcome mode (chat non ancora iniziata) non esiste una sessione: la crea on-demand
-  // (onEnsureSession) così gli allegati funzionano anche PRIMA del primo invio.
+  // FIX (22 set): in welcome/quick chat NIENTE sessione creata all'allegato (creava
+  // una chat vuota in sidebar). Gli allegati vanno nella cartella draft __welcome__;
+  // al primo invio il sidecar li sposta nella cartella della sessione vera (che nasce
+  // al send, come per i messaggi di solo testo).
   const resolveSessionKey = async (): Promise<string> => {
     if (props.sessionKey) return props.sessionKey
-    if (props.onEnsureSession) {
-      const k = await props.onEnsureSession()
-      if (k) return k
-    }
-    return ''
+    return '__welcome__'
   }
 
   const handlePickFiles = async () => {
