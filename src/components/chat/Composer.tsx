@@ -163,7 +163,7 @@ export function Composer(props: ComposerProps) {
   const handlePickFiles = async () => {
     setAttachMenuOpen(false)
     const key = await resolveSessionKey()
-    if (!key) return
+    if (!key) { try { (window as any).__reportFrontendError?.('attach-no-session', 'handlePickFiles: resolveSessionKey ha restituito vuoto') } catch {}; return }
     try {
       const paths = await invoke('pick_files') as string[]
       if (!paths || paths.length === 0) return
@@ -227,7 +227,7 @@ export function Composer(props: ComposerProps) {
     // Path-based (from native file picker)
     (window as any).__quinkiAddAttachment = async (filePath: string) => {
       const key = await resolveSessionKey()
-      if (!key) return
+      if (!key) { try { (window as any).__reportFrontendError?.('attach-no-session', 'drop(path): resolveSessionKey ha restituito vuoto') } catch {}; return }
       setCopyingFile(true)
       try {
         const result = await invoke('copy_to_attachments', { srcPath: filePath, sessionKey: key }) as any
@@ -246,7 +246,7 @@ export function Composer(props: ComposerProps) {
     // Content-based (from HTML5 drag-drop — no file path available in WKWebView)
     (window as any).__quinkiAddAttachmentFromContent = async (fileName: string, contentB64: string) => {
       const key = await resolveSessionKey()
-      if (!key) return
+      if (!key) { try { (window as any).__reportFrontendError?.('attach-no-session', 'drop(content): resolveSessionKey ha restituito vuoto') } catch {}; return }
       // Check for dup BEFORE copying
       let isDup = false
       setPendingAttachments(prev => { isDup = prev.some(a => a.originalName === fileName); return prev })
