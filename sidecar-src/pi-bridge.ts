@@ -721,6 +721,23 @@ class PiBridge {
               else if (backup && (backup as any)[m] !== undefined && (backup as any)[m] !== null) (d as any)[f] = (backup as any)[m];
             }
           }
+          // === FIX (22 set): unione PER-CHIAVE degli store chip (anti-clobber tra processi) ===
+          // Il recovery sopra è tutto-o-niente per campo: se la nostra memoria ha una copia
+          // PARZIALE (es. {u-...} ma non la chiave ts-... scritta dal worker col re-key),
+          // riscriveva la copia intera cancellando le chiavi degli altri processi.
+          // Qui, prima di salvare, uniamo dal disco le chiavi mancanti (la memoria vince).
+          try {
+            if (diskE) {
+              for (const f of ["messageAgents", "messageThinking", "messageSkills", "messageTaskClips", "messageAttachments"]) {
+                const dv = (diskE as any)[f];
+                if (!dv || typeof dv !== "object") continue;
+                if (!(d as any)[f] || typeof (d as any)[f] !== "object") { (d as any)[f] = dv; continue; }
+                for (const ck of Object.keys(dv)) {
+                  if (!(ck in (d as any)[f])) (d as any)[f][ck] = dv[ck];
+                }
+              }
+            }
+          } catch {}
           // agentId: un sidecar stantio NON deve ridurre la lista agenti già salvata nel backup
           try {
             if (d && (backup as any)?.agentIds) {
@@ -4293,41 +4310,92 @@ Read this file to view it.` }] };
     return (s as any)?.messageTaskClips || {};
   }
 
-  // === FIX (22 set): ri-key chips sul messaggio utente REALE ===
+  // === FIX (22 set, v2): ri-key chips sul messaggio utente REALE ===
   // I store messageAttachments/messageSkills/messageTaskClips erano chiavati solo per
-  // testo (o mid) → al reload il merge per testo falliva a testo vuoto. Qui, appena il
-  // messaggio utente è nella sessione pi, copiamo l'entry sulle chiavi id e ts-<ts>
-  // (le stesse che il mapping UI già usa per messageAgents).
+  // testo (o mid) → al reload il lookup per testo falliva a testo vuoto. Qui copiamo
+  // l'entry sulle chiavi id `m-...` e ts-<ts> ESATTE che il frontend vedrà (stessa
+  // pipeline di getHistory: tail del .jsonl + buildSessionContext + mapMessage).
+  // v2: sendUserMessage risolve a FINE turno (a volte >30s dopo) → il vecchio cap di
+  // freschezza 30s scartava il re-key nei turni lunghi. L'appartenenza del messaggio si
+  // verifica col timestamp del mid (u-<ms>-<rand>): il messaggio utente è scritto nel
+  // .jsonl al momento del send → ts ≈ ms del mid (finestra ±5s, si prende il più vicino).
   #rekeyMessageChips(sk: string, mid: string | undefined, text: string, pi: any): void {
+    const midMs = (() => { const m = /^u-(\d+)-/.exec(String(mid || "")); return m ? parseInt(m[1], 10) : 0; })();
     const doRekey = (): boolean => {
       try {
-        const msgs = (pi?.agent?.state?.messages || []) as any[];
-        let lastU: any = null;
-        for (let i = msgs.length - 1; i >= 0; i--) { if (msgs[i]?.role === "user") { lastU = msgs[i]; break; } }
-        if (!lastU) return false;
-        const realTs = typeof lastU.timestamp === "number" ? lastU.timestamp : 0;
-        if (!(realTs && Date.now() - realTs < 30000)) return false; // non è il messaggio di questo send
         const entry: any = this.#entries.get(sk);
         if (!entry) return true;
         const textKey = String(text || "").substring(0, 200);
+        const CHIP_STORES = ["messageAttachments", "messageSkills", "messageTaskClips"] as const;
+        const srcOf = (n: typeof CHIP_STORES[number]) => (entry[n] && ((mid && entry[n][mid]) || (textKey && entry[n][textKey]))) || null;
+        if (!CHIP_STORES.some((n) => srcOf(n))) return true; // niente da ri-keyare
+        let realTs = 0; let realId: string | undefined;
+        // 1) messaggio ESATTO del frontend: tail del .jsonl + pipeline di getHistory
+        try {
+          const dir = this.#piSessionDir(sk);
+          if (fs.existsSync(dir)) {
+            const files = fs.readdirSync(dir).filter((f: string) => f.endsWith(".jsonl"));
+            if (files.length > 0) {
+              const tail = this.#readSessionTail(path.join(dir, files[0]), 300);
+              if (tail.length > 0) {
+                const byId = new Map<any, any>();
+                for (const e of tail) if (e?.id) byId.set(e.id, e);
+                let leafId: string | undefined;
+                for (let i = tail.length - 1; i >= 0; i--) { const e = tail[i]; if (e?.type === "message") { leafId = e.id; break; } }
+                const ctx = this.#sdk.buildSessionContext(tail, leafId, byId) || { messages: [] };
+                let best: any = null; let bestDiff = Infinity;
+                for (const m of (ctx.messages || []) as any[]) {
+                  if (m?.role !== "user") continue;
+                  const ts = typeof m.timestamp === "number" ? m.timestamp : (m.timestamp ? new Date(m.timestamp).getTime() : 0);
+                  if (!ts) continue;
+                  if (midMs) { const diff = Math.abs(ts - midMs); if (diff <= 5000 && diff < bestDiff) { bestDiff = diff; best = m; } }
+                  else if (Date.now() - ts < 600000) { best = m; }
+                }
+                if (best) { const mapped = this.#mapMessage(best, entry?.thinkingLevel, sk)[0]; realTs = typeof mapped?.timestamp === "number" ? mapped.timestamp : 0; realId = mapped?.id; }
+              }
+            }
+          }
+        } catch {}
+        // 2) fallback: stato pi (senza cap 30s: risolve a fine turno)
+        if (!realTs) {
+          try {
+            const msgs = (pi?.agent?.state?.messages || []) as any[];
+            for (let i = msgs.length - 1; i >= 0; i--) {
+              const m = msgs[i]; if (m?.role !== "user") continue;
+              const ts = typeof m.timestamp === "number" ? m.timestamp : 0;
+              if (!ts) continue;
+              if (midMs ? Math.abs(ts - midMs) <= 5000 : (Date.now() - ts < 600000)) { realTs = ts; realId = realId || m.id; break; }
+            }
+          } catch {}
+        }
+        if (!realTs) return false; // messaggio non ancora visibile → riprova
         let moved = 0;
-        for (const storeName of ["messageAttachments", "messageSkills", "messageTaskClips"] as const) {
+        for (const storeName of CHIP_STORES) {
           const store: any = entry[storeName];
-          if (!store) continue;
-          const src = (mid && store[mid]) || (textKey && store[textKey]);
+          const src = srcOf(storeName);
           if (!src) continue;
-          if (lastU.id) store[lastU.id] = src;
+          if (realId) store[realId] = src;
           store["ts-" + realTs] = src;
           moved++;
         }
         if (moved > 0) {
           try { this.#save(); } catch {}
-          this.logDebug("chips-rekey", { sessionKey: sk, realId: lastU.id || null, realTs, moved });
+          this.logDebug("chips-rekey", { sessionKey: sk, realId: realId || null, realTs, midMs, moved });
         }
         return true;
       } catch { return false; }
     };
-    if (!doRekey()) { try { setTimeout(() => { try { doRekey(); } catch {} }, 600); } catch {} }
+    let attemptNo = 0;
+    const attempt = () => {
+      attemptNo++;
+      let done = false;
+      try { done = doRekey(); } catch {}
+      if (!done) {
+        if (attemptNo <= 3) { try { setTimeout(attempt, [600, 2000, 5000][attemptNo - 1] || 5000); } catch {} }
+        else { try { this.logDebug("chips-rekey-skip", { sessionKey: sk, mid: mid || null, midMs }); } catch {} }
+      }
+    };
+    attempt();
   }
 
   setMessageAttachments(key: string, messageId: string, attachments: any[], messageText?: string) {
@@ -4344,6 +4412,27 @@ Read this file to view it.` }] };
   getMessageAttachments(key: string): Record<string, any[]> {
     const s = this.#entries.get(key);
     return (s as any)?.messageAttachments || {};
+  }
+
+  // === FIX (22 set): store chip letti dal FILE (fonte condivisa tra processi) ===
+  // Il send gira su un worker del pool, ma getHistory è servito dal processo main:
+  // la sua copia in memoria delle entries è stantia/vuota → le chip sparivano al
+  // reload anche se il worker le aveva salvate. quinki-sessions.json è l'unica fonte
+  // condivisa: qui si legge il file e si unisce con la memoria (la memoria vince:
+  // è più fresca nel processo che ha appena scritto).
+  getChipsStores(key: string): { messageSkills: Record<string, any[]>; messageTaskClips: Record<string, any[]>; messageAttachments: Record<string, any[]> } {
+    const names = ["messageSkills", "messageTaskClips", "messageAttachments"] as const;
+    const out: any = { messageSkills: {}, messageTaskClips: {}, messageAttachments: {} };
+    const mem = this.#entries.get(key) as any;
+    for (const n of names) out[n] = { ...(mem?.[n] || {}) };
+    try {
+      if (fs.existsSync(SESSION_FILE)) {
+        const disk = JSON.parse(fs.readFileSync(SESSION_FILE, "utf8"));
+        const e = Array.isArray(disk) ? disk.find((x: any) => x && x.key === key) : null;
+        if (e) for (const n of names) out[n] = { ...(e[n] || {}), ...out[n] };
+      }
+    } catch {}
+    return out;
   }
 
   // === Reload session: dispose Pi + il prossimo send riapre rileggendo il .jsonl aggiornato ===
