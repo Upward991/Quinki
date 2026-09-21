@@ -72,3 +72,6 @@ oauth.conf
 sidecar-src/quinki-sidecar
 sidecar-src/quinki-ws-bridge
 .vercel/
+
+# Repo annidato (market): mai tracciare nel repo principale
+quinki-market/
