@@ -1232,7 +1232,13 @@ class PiBridge {
     }
 
     if (role === "user" || role === "system") {
-      return [{ id, role, content: this.#parseContent(content), timestamp: ts, done: true }];
+      let txt = this.#parseContent(content);
+      // Il blocco ATTACHED FILES replicato nel messaggio è contesto per il modello,
+      // non testo scritto dall'utente: la bubble resta pulita.
+      if (role === "user" && txt.includes("=== ATTACHED FILES ===")) {
+        txt = txt.replace(/=== ATTACHED FILES ===[\s\S]*?=== END ATTACHED FILES ===\n?/, "").trim();
+      }
+      return [{ id, role, content: txt, timestamp: ts, done: true }];
     }
 
     if (role === "toolResult") {
@@ -6426,13 +6432,20 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     }
     // === Specific attachments for this message ===
     if (attachments && attachments.length > 0) {
-      prompt += `\n\n=== ATTACHED FILES ===\nThe user attached the following file(s) in this message:`;
-      for (const att of attachments) {
-        prompt += `\n- ${att.originalName} → ${att.path}`;
-      }
-      prompt += `\nUse the \`read\` tool to access these files. If a file is too large, use \`read\` with offset/limit.\n=== END ATTACHED FILES ===`;
+      prompt += `\n\n` + this.#attachedFilesBlock(attachments);
     }
     return prompt;
+  }
+
+  // === Blocco ATTACHED FILES VERBATIM (identico al system prompt) ===
+  // Riusato in due posti: (1) system prompt come oggi, (2) PRIMO elemento del
+  // messaggio utente (fix 18 set) così il modello lo vede SEMPRE, anche a messaggio
+  // vuoto — il system prompt è lungo e la nota ci si perde dentro.
+  #attachedFilesBlock(attachments: { originalName: string; path: string }[]): string {
+    let block = `=== ATTACHED FILES ===\nThe user attached the following file(s) in this message:`;
+    for (const att of attachments) block += `\n- ${att.originalName} → ${att.path}`;
+    block += `\nUse the \`read\` tool to access these files. If a file is too large, use \`read\` with offset/limit.\n=== END ATTACHED FILES ===`;
+    return block;
   }
 
   #readAgentConfig(agentId: string): any {
@@ -7035,6 +7048,12 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
 
     // === D: build content con supporto completo file ===
     const { content } = await this.#buildUserMessage(data.text, data.files);
+    // === FIX (18 set): blocco ATTACHED FILES anche NEL MESSAGGIO UTENTE, all'INIZIO ===
+    // Verbatim, identico al system prompt. A messaggio vuoto è l'unico contenuto:
+    // il modello riceve SEMPRE la lista allegati. Niente inline/reas automatici.
+    if (data.attachments && data.attachments.length > 0) {
+      content.unshift({ type: "text", text: this.#attachedFilesBlock(data.attachments) });
+    }
     // === FASE 0: log diagnostico del payload costruito ===
     this.logDebug("stream-send-payload", {
       sessionKey: sk,
