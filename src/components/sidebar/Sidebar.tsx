@@ -677,7 +677,7 @@ function ContextMenu({ x, y, item, multiSelect, selectedCount, onClose, onRename
           <>
             <MenuItem label="Rename" onClick={onRename} />
             {!isFolder && <MenuItem label="Select chat" onClick={onSelect} />}
-            {!isFolder && <MenuItem label="Open in separate window" onClick={onOpenWindow} />}
+            {(!isFolder && !!(window as any).__TAURI_INTERNALS__) && <MenuItem label="Open in separate window" onClick={onOpenWindow} />}
             {isFolder && <MenuItem label="New subfolder" onClick={onNewSubfolder} />}
             <MenuItem label={isFolder ? 'Delete folder' : 'Delete chat'} color="var(--q-accent-danger)" onClick={onDelete} />
             {isFolder && <MenuItem label="Delete folder with contents" color="var(--q-accent-danger)" onClick={() => onDeleteFolder(true)} />}

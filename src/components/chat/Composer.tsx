@@ -60,6 +60,15 @@ interface ComposerProps {
   onBackToMenu?: () => void
 }
 
+// Telefono web: layout mobile o puntatore coarse fuori da Tauri.
+function isPhoneWeb(): boolean {
+  try {
+    if ((window as any).__TAURI_INTERNALS__) return false
+    if (window.innerWidth <= 600) return true
+    return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches)
+  } catch { return false }
+}
+
 export function Composer(props: ComposerProps) {
   const [text, setText] = useState('')
   const [slashMenuOpen, setSlashMenuOpen] = useState(false)
@@ -303,7 +312,9 @@ export function Composer(props: ComposerProps) {
       if (e.key === 'Escape') { e.preventDefault(); setSlashMenuOpen(false); return }
     }
     e.key === 'Enter' && e.ctrlKey && (e.preventDefault(), handleSteer())
-    e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && (e.preventDefault(), handleSend())
+    // Sul telefono (= web + schermo piccolo) Invio va a capo: si invia SOLO col
+    // tasto nella text box. Sul desktop Invio continua a inviare come sempre.
+    e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !isPhoneWeb() && (e.preventDefault(), handleSend())
     // Esc: se sta generando → STOP (come il tasto stop). Altrimenti chiude i menu.
     // MAI cancellare il testo del composer: l'utente che preme Esc per fermare
     // la generazione non deve perdere quello che ha scritto (bug gravissimo).
@@ -387,8 +398,8 @@ export function Composer(props: ComposerProps) {
           items={[
             { icon: <Paperclip size={18} />, label: 'Attach new file', onSelect: () => { setAttachMenuOpen(false); handlePickFiles() } },
             { icon: <Clock size={18} />, label: 'Previously sent', onSelect: () => handleShowExisting() },
-            { icon: <Folder size={18} />, label: 'Open attachments folder', onSelect: () => { setAttachMenuOpen(false); handleOpenAttachmentsFolder() } },
-            ...(props.sessionKey ? [{ icon: <Folder size={18} />, label: 'Open session files folder', onSelect: async () => { setAttachMenuOpen(false); try { await invoke('open_longhorizon_folder', { sessionKey: props.sessionKey }) } catch (e: any) { console.error('open_longhorizon_folder:', e) } } }] : []),
+            ...(isPhoneWeb() ? [] : [{ icon: <Folder size={18} />, label: 'Open attachments folder', onSelect: () => { setAttachMenuOpen(false); handleOpenAttachmentsFolder() } }]),
+            ...((!isPhoneWeb() && props.sessionKey) ? [{ icon: <Folder size={18} />, label: 'Open session files folder', onSelect: async () => { setAttachMenuOpen(false); try { await invoke('open_longhorizon_folder', { sessionKey: props.sessionKey }) } catch (e: any) { console.error('open_longhorizon_folder:', e) } } }] : []),
           ]}
         />
       ) : attachMenuOpen && (
@@ -675,8 +686,8 @@ function AttachMenu({ view, existingFiles, onPickFiles, onOpenFolder, onShowExis
             <div style={{ display: 'flex', flexDirection: 'column', padding: '0 16px 4px 16px', gap: '2px' }}>
               <AttachOptionRow icon={<Paperclip size={18} />} label="Attach new file" onClick={onPickFiles} />
               <AttachOptionRow icon={<Clock size={18} />} label="Previously sent" onClick={onShowExisting} />
-              <AttachOptionRow icon={<Folder size={18} />} label="Open attachments folder" onClick={onOpenFolder} />
-              {onSessionFiles && <AttachOptionRow icon={<Folder size={18} />} label="Open session files folder" onClick={onSessionFiles} />}
+              {!isPhoneWeb() && <AttachOptionRow icon={<Folder size={18} />} label="Open attachments folder" onClick={onOpenFolder} />}
+              {(onSessionFiles && !isPhoneWeb()) && <AttachOptionRow icon={<Folder size={18} />} label="Open session files folder" onClick={onSessionFiles} />}
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '16px 16px 12px 16px' }}>
               <AttachModalBtn label="Cancel" onClick={onClose} danger />

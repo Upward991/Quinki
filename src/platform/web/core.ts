@@ -27,6 +27,33 @@ export async function invoke(cmd: string, args?: Any): Promise<Any> {
       } catch {}
       return null
     }
+    case 'export_chat_file': {
+      // In web l'export scarica il file dal browser (stesso percorso della app:
+      // .md / .html generati dalla UI).
+      try {
+        const content = String(args?.content || '')
+        const filename = String(args?.filename || 'quinki-export.txt')
+        const ext = String(args?.extension || '').toLowerCase()
+        const mime = ext === 'html' ? 'text/html' : ext === 'md' ? 'text/markdown' : 'text/plain'
+        const blob = new Blob([content], { type: mime + ';charset=utf-8' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = filename
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        setTimeout(() => URL.revokeObjectURL(url), 3000)
+        return filename
+      } catch { return null }
+    }
+    case 'copy_to_clipboard': {
+      try {
+        const text = String(args?.text ?? '')
+        await navigator.clipboard.writeText(text)
+      } catch {}
+      return null
+    }
     case 'get_window_label':
       return 'main'
     case 'is_autostart_enabled':
