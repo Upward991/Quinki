@@ -187,13 +187,13 @@ export function RemoteAccessSection() {
   // Durante il flusso di sign-in (signingIn) o con authUrl presente non lo e'.
   const loggedIn = ready || (enabled && !status.authUrl && !signingIn)
   const statusLine = signingIn
-    ? 'Waiting for the sign-in… finish it in the browser, then come back here.'
+    ? 'Waiting for the login… finish it in the browser, then come back here.'
     : ready
-      ? 'You are signed in with Tailscale.'
+      ? 'You are logged in with Tailscale.'
       : status.authUrl
-        ? 'Not signed in yet: press the button and finish the sign-in in the browser.'
+        ? 'Not logged in yet: press the button and finish the login in the browser.'
         : enabled
-          ? 'You are signed in with Tailscale.'
+          ? 'You are logged in with Tailscale.'
           : 'Not started yet: press the button above.'
 
   return (
@@ -234,9 +234,9 @@ export function RemoteAccessSection() {
       <div style={stepRow}>
         <div style={stepNum}>1</div>
         <div style={stepTxt}>
-          Sign in with Tailscale and authorize this Mac. No account yet? You create it right there, free (Google, GitHub or email).
+          Log in with Tailscale and authorize this Mac. No account yet? You create it right there, free (Google, GitHub or email).
         </div>
-        <button style={rowBtn} onClick={signIn} {...hoverAccent}>Sign in with Tailscale</button>
+        <button style={rowBtn} onClick={signIn} {...hoverAccent}>Log in with Tailscale</button>
         {loggedIn && (
           <button
             style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)', cursor: 'pointer', flexShrink: 0 }}
