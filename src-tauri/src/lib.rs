@@ -2573,6 +2573,7 @@ fn remote_token_rotate() -> String {
 fn copy_to_clipboard(text: String) -> Result<(), String> {
     // Nelle webview Tauri navigator.clipboard non e' disponibile (contesto non sicuro)
     use std::io::Write;
+    let _ = std::fs::write("/tmp/quinki-clipboard-last.txt", &text);
     let mut child = std::process::Command::new("pbcopy")
         .stdin(std::process::Stdio::piped())
         .spawn()

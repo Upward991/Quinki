@@ -56,11 +56,24 @@ export function RemoteAccessSection() {
       setTimeout(() => setErr(''), 4000)
       return
     }
-    try { await invoke('copy_to_clipboard', { text }) } catch {
-      try { await navigator.clipboard.writeText(text) } catch {}
+    let ok = false
+    try { await invoke('copy_to_clipboard', { text }); ok = true } catch {}
+    if (!ok) { try { await navigator.clipboard.writeText(text); ok = true } catch {} }
+    if (!ok) {
+      // fallback universale nelle webview
+      try {
+        const ta = document.createElement('textarea')
+        ta.value = text
+        ta.style.position = 'fixed'
+        ta.style.left = '-9999px'
+        document.body.appendChild(ta)
+        ta.focus(); ta.select()
+        ok = document.execCommand('copy')
+        document.body.removeChild(ta)
+      } catch {}
     }
-    setCopied(which)
-    setTimeout(() => setCopied(''), 1500)
+    if (ok) { setCopied(which); setTimeout(() => setCopied(''), 1500) }
+    else { setErr('Copy failed on this system.'); setTimeout(() => setErr(''), 4000) }
   }
 
   const normHost = () => hostname.trim().replace(/^https?:\/\//i, '').replace(/\/.*$/, '')
