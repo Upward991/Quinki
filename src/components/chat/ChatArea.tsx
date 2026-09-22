@@ -183,6 +183,8 @@ export function ChatArea(props: ChatAreaProps) {
   const [composerH, setComposerH] = useState(0)
   // Mobile: il tasto "Attach files" del menu in alto apre il flusso allegati del Composer
   const [attachSignal, setAttachSignal] = useState(0)
+  // Mobile: dal menu allegati, Back torna al menu principale della chat
+  const [menuSignal, setMenuSignal] = useState(0)
   // === A2.8: Task Timeline ===
   const { call: sidecarCall, chatLoading } = useSidecarContext()
   const sessionIdKey = props.session?.id || ''
@@ -683,6 +685,7 @@ export function ChatArea(props: ChatAreaProps) {
           sidebarOpen={props.sidebarOpen}
           onToggleSidebar={props.onToggleSidebar}
           onAttachFiles={() => setAttachSignal(s => s + 1)}
+          menuSignal={menuSignal}
           hideSidebarToggle={props.hideSidebarToggle}
           isExpertApp={props.isExpertApp}
           showRollback={props.showRollback}
@@ -784,6 +787,7 @@ export function ChatArea(props: ChatAreaProps) {
               onModelChange={props.onModelSelect} onModeChange={props.onModeChange}
               onThinkingChange={t => props.onThinkingChange(t)} welcomeMode={true}
               attachSignal={attachSignal}
+              onBackToMenu={() => setMenuSignal(s => s + 1)}
               longHorizon={props.longHorizon} longHorizonStatus={props.longHorizonStatus} longHorizonPhase={props.longHorizonPhase}
               longHorizonPlanProposed={(() => { const la = [...(props.messages || [])].reverse().find((m: any) => m.role === 'assistant' && m.content); return !!la && String(typeof la.content === 'string' ? la.content : '').includes('- [') })()}
               onLongHorizon={props.onLongHorizon} onRequestPlan={props.onRequestPlan}
@@ -903,6 +907,7 @@ export function ChatArea(props: ChatAreaProps) {
               onModelChange={props.onModelSelect} onModeChange={props.onModeChange}
               onThinkingChange={t => props.onThinkingChange(t)} welcomeMode={false}
               attachSignal={attachSignal}
+              onBackToMenu={() => setMenuSignal(s => s + 1)}
               longHorizon={props.longHorizon} longHorizonStatus={props.longHorizonStatus} longHorizonPhase={props.longHorizonPhase}
               longHorizonPlanProposed={(() => { const la = [...(props.messages || [])].reverse().find((m: any) => m.role === 'assistant' && m.content); return !!la && String(typeof la.content === 'string' ? la.content : '').includes('- [') })()}
               onLongHorizon={props.onLongHorizon} onRequestPlan={props.onRequestPlan}

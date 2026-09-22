@@ -57,6 +57,7 @@ interface ComposerProps {
   onHeightChange?: (h: number) => void
   onHeightChangeNow?: (h: number) => void
   attachSignal?: number
+  onBackToMenu?: () => void
 }
 
 export function Composer(props: ComposerProps) {
@@ -370,6 +371,7 @@ export function Composer(props: ComposerProps) {
           open={attachMenuOpen}
           onClose={() => { setAttachMenuOpen(false); setAttachMenuView('main') }}
           onViewBack={() => setAttachMenuView('main')}
+          onBack={() => { setAttachMenuOpen(false); setAttachMenuView('main'); props.onBackToMenu && props.onBackToMenu() }}
           view={attachMenuView === 'existing' ? (
             <div style={{ padding: '0 0 8px 0' }}>
               {existingAttachments.length === 0 ? (

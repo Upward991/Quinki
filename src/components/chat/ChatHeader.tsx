@@ -54,6 +54,7 @@ interface ChatHeaderProps {
   notifyMode?: string
   onSetNotifyMode?: (mode: string) => void
   onAttachFiles?: () => void
+  menuSignal?: number
 }
 
 export function ChatHeader(props: ChatHeaderProps) {
@@ -95,6 +96,14 @@ export function ChatHeader(props: ChatHeaderProps) {
   const mob = useLayout().mode === 'mobile'
   const [menuOpen, setMenuOpen] = useState(false)
   const [menuView, setMenuView] = useState<'context' | 'search' | 'export' | 'notify' | null>(null)
+  const lastMenuSignal = useRef(0)
+  useEffect(() => {
+    if (props.menuSignal && props.menuSignal !== lastMenuSignal.current) {
+      lastMenuSignal.current = props.menuSignal
+      setMenuView(null)
+      setMenuOpen(true)
+    }
+  }, [props.menuSignal])
 
   const fmt = (n: number) => {
     if (n >= 1000000) { const m = Math.round(n / 100000) / 10; return m % 1 === 0 ? `${m}M` : `${m.toFixed(1)}M` }
@@ -184,31 +193,31 @@ export function ChatHeader(props: ChatHeaderProps) {
                       }
                       return agents.map(agent => (
                       <div key={agent.id} style={{ padding: '0 8px 8px 8px' }} onContextMenu={e => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, agentId: agent.id }) }}>
-                        <div style={{ padding: '8px 8px 8px 12px', borderRadius: 'var(--radius-md)', minHeight: '40px', cursor: 'pointer', display: 'flex', flexDirection: 'column', justifyContent: agent.id === 'orchestrator' ? 'center' : 'flex-start' }}
+                        <div style={{ padding: mob ? '14px 10px 14px 14px' : '8px 8px 8px 12px', borderRadius: 'var(--radius-md)', minHeight: mob ? '60px' : '40px', cursor: 'pointer', display: 'flex', flexDirection: 'column', justifyContent: agent.id === 'orchestrator' ? 'center' : 'flex-start' }}
                           onClick={() => { if (multiSelect) { const s = new Set(selectedForRemoval); if (s.has(agent.id)) s.delete(agent.id); else s.add(agent.id); setSelectedForRemoval(s) } }}
                           onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)' }}
                           onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}>
                           {/* Agent name */}
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Bot size={16} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', display: 'flex', flexShrink: 0 }} />
-                            <span onClick={(e) => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.stopPropagation(); setConfigModalAgent(agent.id) } }} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-danger)' : 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', flex: 1, lineHeight: '16px', cursor: multiSelect && selectedForRemoval.has(agent.id) ? 'default' : 'pointer' }}>{agent.name}</span>
+                            <Bot size={mob ? 20 : 16} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', display: 'flex', flexShrink: 0 }} />
+                            <span onClick={(e) => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.stopPropagation(); setConfigModalAgent(agent.id) } }} data-mob-big="1" style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-danger)' : 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', flex: 1, lineHeight: '16px', cursor: multiSelect && selectedForRemoval.has(agent.id) ? 'default' : 'pointer' }}>{agent.name}</span>
                           </div>
                           {/* Model + Thinking (not for orchestrator) */}
                           {agent.id !== 'orchestrator' && (
                             <>
-                              <div style={{ height: '6px' }} />
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '24px', cursor: multiSelect && selectedForRemoval.has(agent.id) ? 'default' : 'pointer' }}
+                              <div style={{ height: mob ? '12px' : '6px' }} />
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: mob ? '30px' : '24px', cursor: multiSelect && selectedForRemoval.has(agent.id) ? 'default' : 'pointer' }}
                                 onMouseEnter={e => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.currentTarget.querySelectorAll('span,svg').forEach((el: any) => el.style.color = 'var(--q-text)') } }}
                                 onMouseLeave={e => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.currentTarget.querySelectorAll('span,svg').forEach((el: any) => el.style.color = 'var(--q-text-tertiary)') } }}>
-                                <Cpu size={14} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', display: 'flex', flexShrink: 0 }} />
-                                <span onClick={(e) => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.stopPropagation(); setModelPickerFor(agent.id) } }} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', lineHeight: '14px', cursor: multiSelect && selectedForRemoval.has(agent.id) ? 'default' : 'pointer' }}>{props.agentOverrides?.[agent.id]?.model || 'Chat default'}</span>
+                                <Cpu size={mob ? 18 : 14} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', display: 'flex', flexShrink: 0 }} />
+                                <span onClick={(e) => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.stopPropagation(); setModelPickerFor(agent.id) } }} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', fontSize: mob ? '15px' : '12px', fontFamily: 'var(--font-interface)', lineHeight: mob ? '18px' : '14px', cursor: multiSelect && selectedForRemoval.has(agent.id) ? 'default' : 'pointer' }}>{props.agentOverrides?.[agent.id]?.model || 'Chat default'}</span>
                               </div>
-                              <div style={{ height: '4px' }} />
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '24px', cursor: multiSelect && selectedForRemoval.has(agent.id) ? 'default' : 'pointer' }}
+                              <div style={{ height: mob ? '10px' : '4px' }} />
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: mob ? '30px' : '24px', cursor: multiSelect && selectedForRemoval.has(agent.id) ? 'default' : 'pointer' }}
                                 onMouseEnter={e => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.currentTarget.querySelectorAll('span,svg').forEach((el: any) => el.style.color = 'var(--q-text)') } }}
                                 onMouseLeave={e => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.currentTarget.querySelectorAll('span,svg').forEach((el: any) => el.style.color = 'var(--q-text-tertiary)') } }}>
-                                <Brain size={14} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', display: 'flex', flexShrink: 0 }} />
-                                <span onClick={(e) => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.stopPropagation(); setThinkingPickerFor(agent.id) } }} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', lineHeight: '14px', cursor: multiSelect && selectedForRemoval.has(agent.id) ? 'default' : 'pointer' }}>
+                                <Brain size={mob ? 18 : 14} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', display: 'flex', flexShrink: 0 }} />
+                                <span onClick={(e) => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.stopPropagation(); setThinkingPickerFor(agent.id) } }} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', fontSize: mob ? '15px' : '12px', fontFamily: 'var(--font-interface)', lineHeight: mob ? '18px' : '14px', cursor: multiSelect && selectedForRemoval.has(agent.id) ? 'default' : 'pointer' }}>
                                   {props.agentOverrides?.[agent.id]?.thinkingLevel ? (props.agentOverrides[agent.id].thinkingLevel === 'off' ? 'Off' : 'On') : 'Chat default'}
                                 </span>
                               </div>
@@ -761,6 +770,7 @@ function AgentPickerModal({ agents, initialSelected, onClose, onAdd }: {
   onClose: () => void
   onAdd: (ids: string[]) => void
 }) {
+  const mob = useLayout().mode === 'mobile'
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [query, setQuery] = useState('')
   // NASCONDI gli agenti già in chat
@@ -828,6 +838,7 @@ export function ModelPickerModal({ currentModel, models, onClose, onConfirm }: {
   onClose: () => void
   onConfirm: (model: string | null) => void
 }) {
+  const mob = useLayout().mode === 'mobile'
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<string | null>(currentModel || null)
   const overlayRef = useRef<HTMLDivElement>(null)
@@ -893,6 +904,7 @@ export function ModelPickerModal({ currentModel, models, onClose, onConfirm }: {
 
 // ── Thinking picker modal — exact Flutter _ThinkingPickerDialog copy ──
 export function ThinkingPickerModal({ currentThinking, chatThinkingLevel, onClose, onConfirm }: { currentThinking: string; chatThinkingLevel: string; onClose: () => void; onConfirm: (level: string | null) => void }) {
+  const mob = useLayout().mode === 'mobile'
   const [selected, setSelected] = useState<string | null>(currentThinking || null)
   const overlayRef = useRef<HTMLDivElement>(null)
   useEffect(() => {

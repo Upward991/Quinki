@@ -41,12 +41,13 @@ export function SheetRow({ icon, label, value, onClick }: {
   )
 }
 
-export function BottomSheet({ open, onClose, items, view, onViewBack, title }: {
+export function BottomSheet({ open, onClose, items, view, onViewBack, onBack, title }: {
   open: boolean
   onClose: () => void
   items: SheetItem[]
   view?: React.ReactNode | null
   onViewBack?: () => void
+  onBack?: () => void
   title?: string
 }) {
   const [sel, setSel] = useState(0)
@@ -79,13 +80,13 @@ export function BottomSheet({ open, onClose, items, view, onViewBack, title }: {
           if (dy > 80) onClose()
         }}
         style={{
-          position: 'absolute', left: 0, right: 0, top: 0, bottom: 0,
+          position: 'absolute', left: 0, right: 0, bottom: 0,
           backgroundColor: 'var(--q-bg-panel)',
-          borderRadius: 0,
+          borderRadius: 'var(--radius-lg) var(--radius-lg) 0 0',
           boxShadow: 'var(--shadow-modal)',
           paddingBottom: 'calc(4px + env(safe-area-inset-bottom, 0px))',
           transform: dragY > 0 ? `translateY(${dragY}px)` : 'none',
-          display: 'flex', flexDirection: 'column', transition: 'none',
+          display: 'flex', flexDirection: 'column', maxHeight: '100dvh', transition: 'none',
         }}
       >
         <div style={{ width: '40px', height: '4px', borderRadius: '2px', backgroundColor: 'rgba(255,255,255,0.13)', margin: '8px auto 8px auto', flexShrink: 0 }} />
@@ -94,9 +95,9 @@ export function BottomSheet({ open, onClose, items, view, onViewBack, title }: {
         )}
 
         {view ? (
-          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 8px 4px 8px' }}>{view}</div>
+          <div style={{ minHeight: 0, overflowY: 'auto', padding: '0 8px 4px 8px' }}>{view}</div>
         ) : (
-          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 8px 4px 8px' }}>
+          <div style={{ minHeight: 0, overflowY: 'auto', padding: '0 8px 4px 8px' }}>
             {items.map((it, i) => (
               <div
                 key={it.label}
@@ -114,12 +115,12 @@ export function BottomSheet({ open, onClose, items, view, onViewBack, title }: {
         <div style={{ padding: '8px 16px 10px 16px', display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
           <ArrowBtn icon={ChevronUp} onClick={() => setSel(s => Math.max(0, s - 1))} />
           <ArrowBtn icon={ChevronDown} onClick={() => setSel(s => Math.min(items.length - 1, s + 1))} />
-          <ArrowBtn icon={ChevronLeft} onClick={() => { if (view) { onViewBack?.() } else { onClose() } }} />
+          <ArrowBtn icon={ChevronLeft} onClick={() => { if (view) { onViewBack?.() } else if (onBack) { onBack() } else { onClose() } }} />
           <ArrowBtn icon={ChevronRight} onClick={() => { if (!view) activate(sel) }} />
           <span style={{ flex: 1 }} />
           <NavTextBtn label="Close" danger onClick={onClose} />
           <div style={{ width: '8px' }} />
-          <NavTextBtn label="Back" accent onClick={() => { if (view) { onViewBack?.() } else { onClose() } }} />
+          <NavTextBtn label="Back" accent onClick={() => { if (view) { onViewBack?.() } else if (onBack) { onBack() } else { onClose() } }} />
         </div>
       </div>
     </div>
