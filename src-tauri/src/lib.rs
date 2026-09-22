@@ -2563,6 +2563,19 @@ fn remote_token_rotate() -> String {
 }
 
 #[tauri::command]
+fn copy_to_clipboard(text: String) -> Result<(), String> {
+    // Nelle webview Tauri navigator.clipboard non e' disponibile (contesto non sicuro)
+    use std::io::Write;
+    let mut child = std::process::Command::new("pbcopy")
+        .stdin(std::process::Stdio::piped())
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    if let Some(mut si) = child.stdin.take() { let _ = si.write_all(text.as_bytes()); }
+    let _ = child.wait();
+    Ok(())
+}
+
+#[tauri::command]
 fn get_remote_token() -> String {
     let home = std::env::var("HOME").unwrap_or_default();
     let p = format!("{}/.quinki/remote.json", home);
@@ -2650,6 +2663,7 @@ pub fn run() {
         remote_tunnel_stop,
         get_lan_ip,
         get_remote_token,
+        copy_to_clipboard,
         remote_devices_list,
         remote_device_revoke,
         remote_token_rotate,

@@ -46,7 +46,10 @@ export function RemoteAccessSection() {
 
 
   const copy = async (text: string, which: string) => {
-    try { await navigator.clipboard.writeText(text) } catch {}
+    if (!text) return
+    try { await invoke('copy_to_clipboard', { text }) } catch {
+      try { await navigator.clipboard.writeText(text) } catch {}
+    }
     setCopied(which)
     setTimeout(() => setCopied(''), 1500)
   }
@@ -131,7 +134,7 @@ export function RemoteAccessSection() {
           <button style={rowBtn} onClick={() => copy(withToken(status.url), 'tun')}
             onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }}
             onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }}>
-            {copied === 'tun' ? 'Copied' : 'Copy pairing link'}
+            {copied === 'tun' ? 'Copied' : 'Copy'}
           </button>
         )}
         {status.running && (
@@ -185,7 +188,7 @@ export function RemoteAccessSection() {
 
       <div style={{ height: '8px' }} />
       <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>
-        “Copy pairing link” gives a link that already contains the token: open it once on the phone and the device is remembered for good (it survives updates, reinstalls and restarts). The secure link is HTTPS: open it and use “Install app” to keep Quinki as a real app with its icon.
+        “Copy” gives a link that already contains the token: open it once on the phone and the device is remembered for good (it survives updates, reinstalls and restarts). The secure link is HTTPS: open it and use “Install app” to keep Quinki as a real app with its icon.
       </div>
       {err && <div style={{ color: 'var(--q-accent-danger)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginTop: '6px' }}>{err}</div>}
 
