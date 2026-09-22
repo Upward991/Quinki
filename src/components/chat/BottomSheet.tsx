@@ -14,14 +14,16 @@ export interface SheetItem {
   icon?: React.ReactNode
   label: string
   value?: string
+  valueColor?: string
   onSelect: () => void
 }
 
 // Riga standard del menu (usata sia dagli item sia dalle viste interne)
-export function SheetRow({ icon, label, value, onClick }: {
+export function SheetRow({ icon, label, value, valueColor, onClick }: {
   icon?: React.ReactNode
   label: string
   value?: string
+  valueColor?: string
   onClick: () => void
 }) {
   return (
@@ -36,7 +38,7 @@ export function SheetRow({ icon, label, value, onClick }: {
         ? <span style={{ color: 'var(--q-text-secondary)', display: 'flex', flexShrink: 0 }}>{icon}</span>
         : <span style={{ width: '20px', flexShrink: 0 }} />}
       <span style={{ flex: 1, minWidth: 0, color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
-      {value && <span style={{ color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-code)', flexShrink: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'right', maxWidth: '58%' }}>{value}</span>}
+      {value && <span style={{ color: valueColor || 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-code)', flexShrink: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'right', maxWidth: '58%' }}>{value}</span>}
     </div>
   )
 }
@@ -64,7 +66,7 @@ export function BottomSheet({ open, onClose, items, view, onViewBack, onBack, ti
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 500 }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 100 }}>
       <div onClick={onClose} style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.55)' }} />
       <div
         style={{
@@ -108,7 +110,7 @@ export function BottomSheet({ open, onClose, items, view, onViewBack, onBack, ti
                 onMouseEnter={() => setSel(i)}
                 style={{ backgroundColor: sel === i ? 'rgba(255,255,255,0.06)' : 'transparent', borderRadius: 'var(--radius-md)', transition: 'none' }}
               >
-                <SheetRow icon={it.icon} label={it.label} value={it.value} onClick={() => activate(i)} />
+                <SheetRow icon={it.icon} label={it.label} value={it.value} valueColor={it.valueColor} onClick={() => activate(i)} />
               </div>
             ))}
           </div>

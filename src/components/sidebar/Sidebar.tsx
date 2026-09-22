@@ -5,7 +5,8 @@ import {
   DragOverlay, useDroppable, useDraggable,
 } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
-import { Folder, FolderOpen, MessageSquare, MessageSquarePlus, FolderAdd, Bell, BellOff, Checklist } from '../icons'
+import { Folder, FolderOpen, MessageSquare, MessageSquarePlus, FolderAdd, Bell, BellOff, Checklist, X } from '../icons'
+import { useLayout } from '../../platform/layout'
 
 interface SidebarProps {
   sessions: any[]
@@ -21,6 +22,7 @@ interface SidebarProps {
   onDeleteFolder?: (id: string, withContents: boolean) => void
   onMoveSession?: (id: string, folderId: string | null, order: number) => void
   onMoveFolder?: (id: string, parentId: string | null, order: number) => void
+  onCloseSidebar?: () => void
 }
 
 // === Drop zone computation (same as Flutter) ===
@@ -52,6 +54,7 @@ function canAccept(sessions: any[], dragItem: any, targetId: string): boolean {
 }
 
 export function Sidebar(props: SidebarProps) {
+  const mob = useLayout().mode === 'mobile'
   const { sessions: e, activeSessionId: t, onSelectSession: n, onNewSession: r,
     onToggleFolder: i, onReorder: a, welcomeMode: o } = props
 
@@ -326,6 +329,19 @@ export function Sidebar(props: SidebarProps) {
           >
             <FolderAdd size={20} />
           </button>
+          {mob && props.onCloseSidebar && (
+            <button
+              onClick={() => props.onCloseSidebar?.()}
+              title="Close"
+              style={{
+                width: '40px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer',
+                backgroundColor: 'transparent', color: 'var(--q-text-secondary)', padding: 0, flexShrink: 0,
+              }}
+            >
+              <X size={20} />
+            </button>
+          )}
         </div>
       </div>
 

@@ -485,7 +485,7 @@ export function Composer(props: ComposerProps) {
         {/* Textarea */}
         <textarea
           ref={textareaRef}
-          autoFocus={props.welcomeMode ? true : undefined}
+          autoFocus={props.welcomeMode && !mob ? true : undefined}
           value={text}
           onChange={e => {
             const val = e.target.value

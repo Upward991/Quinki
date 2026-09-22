@@ -96,7 +96,7 @@ export function ChatHeader(props: ChatHeaderProps) {
   const mob = useLayout().mode === 'mobile'
   const [menuOpen, setMenuOpen] = useState(false)
   const [menuView, setMenuView] = useState<'context' | 'search' | 'export' | 'notify' | null>(null)
-  const [menuStandalone, setMenuStandalone] = useState(false)
+  const [menuStandalone] = useState(false)
   const lastMenuSignal = useRef(0)
   useEffect(() => {
     if (props.menuSignal && props.menuSignal !== lastMenuSignal.current) {
@@ -264,7 +264,7 @@ export function ChatHeader(props: ChatHeaderProps) {
         )}
 
         {/* Panel 2: Sidebar toggle — hidden entirely in sub-windows (mobile: dentro il menu) */}
-        {!mob && !isExpert && !props.hideSidebarToggle && (
+        {!isExpert && !props.hideSidebarToggle && (
           <>
             <div style={panelStyle}>
               <IconBtn icon={PanelLeft} onClick={props.onToggleSidebar} title={props.sidebarOpen ? 'Hide sidebar' : 'Show sidebar'} />
@@ -284,7 +284,7 @@ export function ChatHeader(props: ChatHeaderProps) {
             </span>
 
           {/* A3: campanella notifiche (accanto al titolo) */}
-          {!props.welcomeMode && (
+          {!mob && !props.welcomeMode && (
             <div style={{ position: 'relative', flexShrink: 0 }}>
               <button
                 ref={bellRef}
@@ -530,7 +530,7 @@ export function ChatHeader(props: ChatHeaderProps) {
                     <div style={{ width: '4px', flexShrink: 0 }} />
                     <Search size={16} style={{ color: 'var(--q-text-tertiary)', flexShrink: 0 }} />
                     <div style={{ width: '8px', flexShrink: 0 }} />
-                    <input type="text" placeholder="Search in messages..." autoFocus value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                    <input type="text" placeholder="Search in messages..." autoFocus={!mob} value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
                       style={{ flex: 1, minWidth: 0, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0', margin: '0' }} />
                     <button onClick={() => setSearchQuery('')}
                       style={{ background: 'none', border: 'none', cursor: searchQuery ? 'pointer' : 'default', padding: '8px', color: searchQuery ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)', fontSize: '14px', opacity: searchQuery ? 1 : 0.3, lineHeight: '1', flexShrink: 0 }}>✕</button>
@@ -573,23 +573,24 @@ export function ChatHeader(props: ChatHeaderProps) {
           )}
         </div>
 
-        {/* Panel 4: Agent dropdown */}
+        {/* Panel 4: Agent dropdown (solo desktop: su mobile e' nel menu) */}
+        {!mob && (<>
         <div style={{ width: '8px', flexShrink: 0 }} />
         <div style={panelStyle}>
           <div style={{ position: 'relative' }}>
             <IconBtn icon={Bot} onClick={props.onToggleAgentDropdown} title="Show agents" />
-            {props.agentDropdownOpen && (mob ? (
-          <BottomSheet open onClose={props.onToggleAgentDropdown} onViewBack={props.onToggleAgentDropdown} items={[]} view={agentPanelBody} />
-        ) : (
+            {props.agentDropdownOpen && (
+
               <>
                 <div style={overlayStyle} onClick={() => { props.onToggleAgentDropdown(); setMultiSelect(false); setSelectedForRemoval(new Set()) }} />
                 <div style={{ ...popupStyle, top: 'calc(100% + 16px)', right: '-8px', minWidth: '260px', maxWidth: '300px', minHeight: '50vh', maxHeight: '70vh', border: '1px solid var(--q-border)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
 {agentPanelBody}
               </div>
               </>
-            ))}
+            )}
           </div>
         </div>
+        </>)}
       </div>
 
       {/* Export modal — Flutter AlertDialog: bgElevated, radiusXl, NO border, all TextButtons coral */}
@@ -649,7 +650,18 @@ export function ChatHeader(props: ChatHeaderProps) {
       
       {/* Sync success */}
 
-      {/* Mobile chat menu — bottom sheet (contesto, export, ricerca, ricarica, sidebar, allegati) */}
+      {/* Mobile: menu agenti (dal basso) */}
+      {mob && (
+        <BottomSheet
+          open={props.agentDropdownOpen}
+          onClose={props.onToggleAgentDropdown}
+          onViewBack={props.onToggleAgentDropdown}
+          items={[]}
+          view={agentPanelBody}
+        />
+      )}
+
+      {/* Mobile chat menu — bottom sheet (agenti, contesto, notifiche, export, ricerca, ricarica, allegati) */}
       <BottomSheet
         open={menuOpen}
         onClose={() => { setMenuOpen(false); setMenuView(null); setMenuStandalone(false) }}
@@ -711,8 +723,9 @@ export function ChatHeader(props: ChatHeaderProps) {
           </div>
         ) : null}
         items={[
-          { icon: <PanelLeft size={18} />, label: 'Open sidebar', onSelect: () => { setMenuOpen(false); if (!props.sidebarOpen) props.onToggleSidebar() } },
-          { icon: <DataUsage size={18} />, label: 'Context usage', value: ctxValueFull, onSelect: () => setMenuView('context') },
+          { icon: <Bot size={18} />, label: 'Agents', onSelect: () => { setMenuOpen(false); props.onToggleAgentDropdown() } },
+          { icon: <DataUsage size={18} />, label: 'Context usage', value: ctxValueFull, valueColor: ctxColor, onSelect: () => setMenuView('context') },
+          { icon: props.notifyMode === 'none' ? <BellOff size={18} /> : <Bell size={18} />, label: 'Notifications', onSelect: () => setMenuView('notify') },
           { icon: <Download size={18} />, label: 'Export chat', onSelect: () => setMenuView('export') },
           { icon: <Search size={18} />, label: 'Search messages', onSelect: () => setMenuView('search') },
           { icon: <RefreshCw size={18} />, label: 'Reload chat', onSelect: () => { setMenuOpen(false); props.onReload?.() } },
@@ -780,8 +793,8 @@ function AgentPickerModal({ agents, initialSelected, onClose, onAdd, embedded }:
   const filtered = available.filter(a => a.name.toLowerCase().includes(query.toLowerCase()))
   const toggle = (id: string) => setSelected(prev => { const s = new Set(prev); if (s.has(id)) s.delete(id); else s.add(id); return s })
   return (
-    <div style={embedded ? { display: 'flex', flexDirection: 'column' } : { position: 'fixed', inset: 0, zIndex: mob ? 900 : 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: mob ? 'stretch' : 'center', justifyContent: 'center' }} onClick={onClose}>
-      <div style={embedded ? { backgroundColor: 'transparent', width: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' } : mob ? { backgroundColor: 'var(--q-bg-panel)', borderRadius: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' } : { backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '500px', maxHeight: '500px', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+      <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '500px', maxHeight: '500px', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div style={{ padding: '16px', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
           <span style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', flex: 1 }}>Add agents to chat</span>
@@ -791,7 +804,7 @@ function AgentPickerModal({ agents, initialSelected, onClose, onAdd, embedded }:
           <div style={{ display: 'flex', alignItems: 'center', paddingLeft: '10px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-md)' }}>
             <Search size={14} style={{ color: 'var(--q-text-tertiary)', flexShrink: 0 }} />
             <div style={{ width: '8px', flexShrink: 0 }} />
-            <input type="text" placeholder="Search..." value={query} onChange={e => setQuery(e.target.value)} autoFocus
+            <input type="text" placeholder="Search..." value={query} onChange={e => setQuery(e.target.value)} autoFocus={!mob}
               style={{ flex: 1, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '8px 0' }} />
           </div>
         </div>
@@ -859,8 +872,8 @@ export function ModelPickerModal({ currentModel, models, onClose, onConfirm, emb
   const fmtCtx = (cw?: number) => { if (!cw || cw === 0) return '—'; if (cw >= 1000000) { const m = Math.round(cw / 100000) / 10; return m % 1 === 0 ? `${m}M` : `${m.toFixed(1)}M` }; if (cw >= 1000) return `${Math.floor(cw / 1000)}K`; return `${cw}` }
 
   return (
-    <div ref={overlayRef} style={embedded ? { display: 'flex', flexDirection: 'column' } : { position: 'fixed', inset: 0, zIndex: mob ? 900 : 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: mob ? 'stretch' : 'center', justifyContent: 'center' }} onClick={onClose}>
-      <div style={embedded ? { backgroundColor: 'transparent', width: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' } : mob ? { backgroundColor: 'var(--q-bg-panel)', borderRadius: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' } : { backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '480px', height: '80vh', maxHeight: '500px', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+    <div ref={overlayRef} style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+      <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '480px', height: '80vh', maxHeight: '500px', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
         <div style={{ padding: '12px 16px', backgroundColor: 'var(--q-bg-panel)', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
           <Cpu size={18} style={{ color: 'var(--q-tab-accent)', flexShrink: 0 }} />
           <div style={{ width: '8px', flexShrink: 0 }} />
@@ -920,8 +933,8 @@ export function ThinkingPickerModal({ currentThinking, chatThinkingLevel, onClos
   const effectiveLevel = chatThinkingLevel && chatThinkingLevel !== 'off' ? chatThinkingLevel : 'xhigh'
   const options: { value: string | null; label: string }[] = [{ value: null, label: 'Chat default' }, { value: 'on', label: 'On' }, { value: 'off', label: 'Off' }]
   return (
-    <div ref={overlayRef} style={embedded ? { display: 'flex', flexDirection: 'column' } : { position: 'fixed', inset: 0, zIndex: mob ? 900 : 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: mob ? 'stretch' : 'center', justifyContent: 'center' }} onClick={onClose}>
-      <div style={embedded ? { backgroundColor: 'transparent', width: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' } : mob ? { backgroundColor: 'var(--q-bg-panel)', borderRadius: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' } : { backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '380px', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+    <div ref={overlayRef} style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+      <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '380px', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
         <div style={{ padding: '12px 16px', backgroundColor: 'var(--q-bg-panel)', display: 'flex', alignItems: 'center' }}>
           <Brain size={18} style={{ color: 'var(--q-tab-accent)', flexShrink: 0 }} />
           <div style={{ width: '8px', flexShrink: 0 }} />

@@ -3,6 +3,9 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useSidecarContext } from '../shared/AppShell'
 import { Archive, BookOpen, Bot, ChevronDown, ChevronUp, Copy, FileText, Home, Info, Package, Palette, Pencil, Plug, Plus, Power, Save, Search, Settings, Shield, Trash, Wrench, X } from '../icons'
 
+// Mobile web: MAI tastiera automatica quando si aprono i menu
+const noAutoFocus = () => { try { return !(globalThis as any).__TAURI_INTERNALS__ && window.innerWidth <= 600 } catch { return false } }
+
 // ============================================================
 // AgentsPanel — full rewrite with sidecar wiring
 // ============================================================
@@ -1073,7 +1076,7 @@ export function AgentRow({ agent, isExpanded, isRenaming, onToggle, onStartRenam
       React.createElement(Bot, { size: 16, style: { color: 'var(--q-accent-secondary)', flexShrink: 0 } }),
       React.createElement('div', { style: { width: '8px', flexShrink: 0 } }),
       isRenaming
-        ? React.createElement('input', { type: 'text', defaultValue: agent.name, autoFocus: true, onBlur: e => onCommitRename(e.target.value), onKeyDown: e => { if (e.key === 'Enter') onCommitRename(e.target.value); }, onClick: e => e.stopPropagation(), style: { flex: 1, color: 'var(--q-text)', fontSize: '14px', fontWeight: 600, fontFamily: 'var(--font-interface)', backgroundColor: 'transparent', border: 'none', outline: 'none', padding: '0' } })
+        ? React.createElement('input', { type: 'text', defaultValue: agent.name, autoFocus: !noAutoFocus(), onBlur: e => onCommitRename(e.target.value), onKeyDown: e => { if (e.key === 'Enter') onCommitRename(e.target.value); }, onClick: e => e.stopPropagation(), style: { flex: 1, color: 'var(--q-text)', fontSize: '14px', fontWeight: 600, fontFamily: 'var(--font-interface)', backgroundColor: 'transparent', border: 'none', outline: 'none', padding: '0' } })
         : React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }, children: [
             React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '14px', fontWeight: 600, fontFamily: 'var(--font-interface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, children: agent.name }),
             canRename && React.createElement('button', { onClick: e => { e.stopPropagation(); onStartRename(); }, style: { background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex', flexShrink: 0 }, children: React.createElement(Pencil, { size: 13, style: { color: 'var(--q-text-tertiary)' } }) })
@@ -1372,7 +1375,7 @@ function IconButton({ icon, onClick, title }) {
 function NewAgentForm({ onCreate, onCancel }) {
   const [name, setName] = useState('');
   return React.createElement(React.Fragment, { children: [
-    React.createElement('input', { type: 'text', placeholder: 'Agent name...', autoFocus: true, value: name, onChange: e => setName(e.target.value), style: { width: '100%', height: '36px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none', marginBottom: '16px' }, onKeyDown: e => { if (e.key === 'Enter' && name.trim()) onCreate(name); } }),
+    React.createElement('input', { type: 'text', placeholder: 'Agent name...', autoFocus: !noAutoFocus(), value: name, onChange: e => setName(e.target.value), style: { width: '100%', height: '36px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none', marginBottom: '16px' }, onKeyDown: e => { if (e.key === 'Enter' && name.trim()) onCreate(name); } }),
     ConfirmButtons({ onCancel, onConfirm: () => onCreate(name), confirmLabel: 'Create' })
   ]});
 }
@@ -1382,7 +1385,7 @@ function CreateSkillForm({ onCreate, onCancel }) {
   const [desc, setDesc] = useState('');
   const [content, setContent] = useState('');
   return React.createElement(React.Fragment, { children: [
-    React.createElement('input', { type: 'text', placeholder: 'Skill name (e.g. code-review)', autoFocus: true, value: name, onChange: e => setName(e.target.value), style: { width: '100%', height: '36px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none', marginBottom: '8px' } }),
+    React.createElement('input', { type: 'text', placeholder: 'Skill name (e.g. code-review)', autoFocus: !noAutoFocus(), value: name, onChange: e => setName(e.target.value), style: { width: '100%', height: '36px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none', marginBottom: '8px' } }),
     React.createElement('input', { type: 'text', placeholder: 'Short description', value: desc, onChange: e => setDesc(e.target.value), style: { width: '100%', height: '36px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none', marginBottom: '8px' } }),
     React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginBottom: '4px' }, children: 'SKILL.md content' }),
     React.createElement('textarea', { placeholder: 'Write skill instructions here...', value: content, onChange: e => setContent(e.target.value), style: { width: '100%', flex: 1, minHeight: '120px', maxHeight: '250px', backgroundColor: 'var(--q-bg-code)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', color: 'var(--q-text)', fontSize: '13px', fontFamily: 'monospace', lineHeight: 1.5, padding: '8px 12px', outline: 'none', resize: 'none', marginBottom: '16px' } }),
@@ -1394,7 +1397,7 @@ function InstallSkillForm({ onInstall, onCancel }) {
   const [pkg, setPkg] = useState('');
   return React.createElement(React.Fragment, { children: [
     React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginBottom: '8px' }, children: 'Install a skill from any source: GitHub repo (user/repo), direct URL to a .md file, or git URL. Will clone and copy SKILL.md.' }),
-    React.createElement('input', { type: 'text', placeholder: 'user/repo, https://.../SKILL.md, or git URL', autoFocus: true, value: pkg, onChange: e => setPkg(e.target.value), style: { width: '100%', height: '36px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none', marginBottom: '16px' }, onKeyDown: e => { if (e.key === 'Enter' && pkg.trim()) onInstall(pkg); } }),
+    React.createElement('input', { type: 'text', placeholder: 'user/repo, https://.../SKILL.md, or git URL', autoFocus: !noAutoFocus(), value: pkg, onChange: e => setPkg(e.target.value), style: { width: '100%', height: '36px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none', marginBottom: '16px' }, onKeyDown: e => { if (e.key === 'Enter' && pkg.trim()) onInstall(pkg); } }),
     ConfirmButtons({ onCancel, onConfirm: () => onInstall(pkg), confirmLabel: 'Install skill' })
   ]});
 }
@@ -1402,7 +1405,7 @@ function InstallSkillForm({ onInstall, onCancel }) {
 function NewFileForm({ onCreate, onCancel }) {
   const [fileName, setFileName] = useState('');
   return React.createElement(React.Fragment, { children: [
-    React.createElement('input', { type: 'text', placeholder: 'File name (e.g. NOTES.md)', autoFocus: true, value: fileName, onChange: e => setFileName(e.target.value), style: { width: '100%', height: '36px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none', marginBottom: '16px' }, onKeyDown: e => { if (e.key === 'Enter' && fileName.trim()) onCreate(fileName); } }),
+    React.createElement('input', { type: 'text', placeholder: 'File name (e.g. NOTES.md)', autoFocus: !noAutoFocus(), value: fileName, onChange: e => setFileName(e.target.value), style: { width: '100%', height: '36px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none', marginBottom: '16px' }, onKeyDown: e => { if (e.key === 'Enter' && fileName.trim()) onCreate(fileName); } }),
     ConfirmButtons({ onCancel, onConfirm: () => onCreate(fileName), confirmLabel: 'Create' })
   ]});
 }
