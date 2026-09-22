@@ -125,6 +125,20 @@ export function RemoteAccessSection() {
     setBusy(false)
   }
 
+  // Start: avvia (o riavvia) la web app. Sempre disponibile, non apre il
+  // browser: serve a "far partire" la cosa e a riprovare se qualcosa non torna.
+  const startTunnel = async () => {
+    if (busy) return
+    setBusy(true); setErr('')
+    try {
+      if (status.url && !status.url.includes('.ts.net')) { try { await invoke('remote_tunnel_stop') } catch {} }
+      const url: any = await invoke('remote_tunnel_start', { port: 9182, hostname: '' })
+      setEnabled(true)
+      setStatus(prev => ({ running: !!url, url: String(url || ''), authUrl: prev.authUrl || '' }))
+    } catch (e: any) { setErr(String((e && e.message) ? e.message : e)) }
+    setBusy(false)
+  }
+
   const doLogout = async () => {
     setConfirmAct(null); setBusy(true); setErr('')
     try {
@@ -236,6 +250,7 @@ export function RemoteAccessSection() {
         <div style={stepTxt}>
           Log in with Tailscale and authorize this Mac. No account yet? You create it right there, free (Google, GitHub or email).
         </div>
+        <button style={rowBtn} onClick={startTunnel} {...hoverAccent}>Start</button>
         <button style={rowBtn} onClick={signIn} {...hoverAccent}>Log in with Tailscale</button>
         {loggedIn && (
           <button
