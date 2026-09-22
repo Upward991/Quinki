@@ -1092,36 +1092,58 @@ function CameraIcon({ size = 18 }: { size?: number }) {
   )
 }
 
-// ── Fotocamera in-app: anteprima dal vivo + scatto. Niente app esterna = niente reload. ──
+// ── Fotocamera in-app stile nativa: anteprima a tutto schermo, X in alto,
+//    flash + cambio camera in alto a destra, pallino di scatto al centro in basso.
+//    Niente app esterna = niente reload e niente file persi. ──
 function CameraCaptureModal({ onClose, onDone }: { onClose: () => void; onDone: (blob: Blob, name: string) => void }) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const [error, setError] = useState('')
+  const [facing, setFacing] = useState<'environment' | 'user'>('environment')
+  const [torchOn, setTorchOn] = useState(false)
+  const [torchSupported, setTorchSupported] = useState(false)
+  const [pressed, setPressed] = useState(false)
+
+  const startStream = async (mode: 'environment' | 'user') => {
+    try { streamRef.current?.getTracks().forEach(t => t.stop()) } catch {}
+    let stream: MediaStream
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: mode, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false })
+    } catch {
+      stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+    }
+    streamRef.current = stream
+    const v = videoRef.current
+    if (v) { v.srcObject = stream; v.play().catch(() => {}) }
+    try {
+      const track: any = stream.getVideoTracks()[0]
+      const caps = track && track.getCapabilities ? track.getCapabilities() : {}
+      setTorchSupported(!!(caps && caps.torch))
+    } catch { setTorchSupported(false) }
+    setTorchOn(false)
+  }
 
   useEffect(() => {
-    let cancelled = false
-    const start = async () => {
-      try {
-        let stream: MediaStream
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false })
-        } catch {
-          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-        }
-        if (cancelled) { stream.getTracks().forEach(t => t.stop()); return }
-        streamRef.current = stream
-        const v = videoRef.current
-        if (v) { v.srcObject = stream; v.play().catch(() => {}) }
-      } catch {
-        if (!cancelled) setError('Camera not available. Allow camera access for this app and try again.')
-      }
-    }
-    start()
-    return () => {
-      cancelled = true
-      try { streamRef.current?.getTracks().forEach(t => t.stop()) } catch {}
-    }
+    startStream('environment').catch(() => setError('Camera not available. Allow camera access for this app and try again.'))
+    return () => { try { streamRef.current?.getTracks().forEach(t => t.stop()) } catch {} }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const flip = async () => {
+    const next: 'environment' | 'user' = facing === 'environment' ? 'user' : 'environment'
+    setFacing(next)
+    try { await startStream(next) } catch { setError('Camera not available. Allow camera access for this app and try again.') }
+  }
+
+  const toggleTorch = async () => {
+    try {
+      const track: any = streamRef.current?.getVideoTracks()[0]
+      if (!track) return
+      const on = !torchOn
+      await track.applyConstraints({ advanced: [{ torch: on }] })
+      setTorchOn(on)
+    } catch {}
+  }
 
   const capture = () => {
     const v = videoRef.current
@@ -1132,6 +1154,8 @@ function CameraCaptureModal({ onClose, onDone }: { onClose: () => void; onDone: 
       c.height = v.videoHeight
       const ctx = c.getContext('2d')
       if (!ctx) return
+      // selfie: salvo specchiato come lo vedi nell'anteprima
+      if (facing === 'user') { ctx.translate(c.width, 0); ctx.scale(-1, 1) }
       ctx.drawImage(v, 0, 0, c.width, c.height)
       c.toBlob((blob) => {
         if (blob) onDone(blob, 'photo-' + Date.now() + '.jpg')
@@ -1146,33 +1170,88 @@ function CameraCaptureModal({ onClose, onDone }: { onClose: () => void; onDone: 
           <div style={{ color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', textAlign: 'center', maxWidth: '320px', lineHeight: 1.6 }}>{error}</div>
         </div>
       ) : (
-        <video ref={videoRef} autoPlay playsInline muted style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', backgroundColor: '#000' }} />
+        <video ref={videoRef} autoPlay playsInline muted style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', backgroundColor: '#000', transform: facing === 'user' ? 'scaleX(-1)' : 'none' }} />
       )}
-      <div style={{
-        position: 'absolute', left: 0, right: 0, bottom: 0,
-        padding: '16px', paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
-        background: 'linear-gradient(to top, rgba(0,0,0,0.6), rgba(0,0,0,0))',
-      }}>
-        <button
-          onPointerDown={(e: any) => { try { e.preventDefault() } catch {} }}
-          onClick={onClose}
-          onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }}
-          onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
-          style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', fontWeight: 400, cursor: 'pointer', transition: 'none' }}>
-          Close
-        </button>
-        {!error && (
+
+      {/* Barra in alto: X a sinistra, flash + cambio camera a destra */}
+      {!error && (
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0,
+          padding: '16px', paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          background: 'linear-gradient(to bottom, rgba(0,0,0,0.5), rgba(0,0,0,0))',
+        }}>
+          <CameraRoundBtn onClick={onClose} label="Close">
+            <CameraXIcon />
+          </CameraRoundBtn>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {torchSupported && (
+              <CameraRoundBtn onClick={toggleTorch} label="Flash" active={torchOn}>
+                <CameraBoltIcon />
+              </CameraRoundBtn>
+            )}
+            <CameraRoundBtn onClick={flip} label="Switch camera">
+              <CameraFlipIcon />
+            </CameraRoundBtn>
+          </div>
+        </div>
+      )}
+
+      {/* Pallino di scatto, centro in basso */}
+      {!error && (
+        <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 28px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <button
-            onPointerDown={(e: any) => { try { e.preventDefault() } catch {} }}
+            onPointerDown={(e: any) => { try { e.preventDefault() } catch {}; setPressed(true) }}
+            onPointerUp={() => setPressed(false)}
+            onPointerLeave={() => setPressed(false)}
             onClick={capture}
-            onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }}
-            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }}
-            style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '13px', fontFamily: 'var(--font-interface)', fontWeight: 600, cursor: 'pointer', transition: 'none' }}>
-            Capture
+            aria-label="Capture"
+            style={{ width: '78px', height: '78px', borderRadius: '999px', border: '4px solid #fff', backgroundColor: 'transparent', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <span style={{ width: pressed ? '52px' : '62px', height: pressed ? '52px' : '62px', borderRadius: '999px', backgroundColor: '#fff', display: 'block' }} />
           </button>
-        )}
-      </div>
+        </div>
+      )}
     </div>
+  )
+}
+
+// ── Bottone tondo stile fotocamera (44px, sfondo scuro traslucido) ──
+function CameraRoundBtn({ onClick, label, active, children }: { onClick: () => void; label: string; active?: boolean; children: React.ReactNode }) {
+  return (
+    <button
+      aria-label={label}
+      onPointerDown={(e: any) => { try { e.preventDefault() } catch {} }}
+      onClick={onClick}
+      style={{ width: '44px', height: '44px', borderRadius: '999px', border: 'none', backgroundColor: active ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.35)', color: active ? '#000' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0, transition: 'none' }}
+    >
+      {children}
+    </button>
+  )
+}
+
+function CameraXIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 6 6 18M6 6l12 12" />
+    </svg>
+  )
+}
+
+function CameraBoltIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M13 2 3 14h7l-1 8 11-14h-7l1-8z" />
+    </svg>
+  )
+}
+
+function CameraFlipIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12a9 9 0 0 1-9 9 9 9 0 0 1-7.5-4M3 12a9 9 0 0 1 9-9 9 9 0 0 1 7.5 4" />
+      <path d="M21 3v5h-5" />
+      <path d="M3 21v-5h5" />
+    </svg>
   )
 }
