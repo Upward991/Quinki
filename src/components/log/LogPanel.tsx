@@ -71,11 +71,15 @@ export function LogPanel(props: LogPanelProps) {
     }
   }
 
-  // Scroll to a log entry
+  // Scroll to a log entry, CENTRATO nella finestra: scrollIntoView su mobile non
+  // centra (stesso fix della ricerca nelle chat) -> calcolo manuale sul contenitore.
   function scrollToEntry(idx: number) {
-    if (!bodyRef.current) return
-    const el = bodyRef.current.children[idx] as HTMLElement
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const c = bodyRef.current
+    if (!c) return
+    const el = c.children[idx] as HTMLElement
+    if (!el) return
+    const target = el.offsetTop - (c.clientHeight / 2) + (el.offsetHeight / 2)
+    c.scrollTo({ top: Math.max(0, target), behavior: 'smooth' })
   }
 
   // LOG iniziale SEMPRE + aggiornamenti LIVE SOLO se abilitato (tasto Live, default OFF → app leggera)
