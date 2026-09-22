@@ -1117,14 +1117,16 @@ function CameraCaptureModal({ onClose, onDone }: { onClose: () => void; onDone: 
   const zoomCapsRef = useRef<{ min: number; max: number } | null>(null)
   const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map())
   const pinchRef = useRef<{ dist: number; zoom: number } | null>(null)
+  const torchProbedRef = useRef(false)
+  const torchDeviceRef = useRef<string | null>(null)
   // iOS non espone il torch (Apple): li' il tasto flash non ha senso e non lo mostro
   const isIOS = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent)
 
-  const startStream = async (mode: 'environment' | 'user') => {
+  const startStream = async (mode: 'environment' | 'user', deviceId?: string | null) => {
     try { streamRef.current?.getTracks().forEach(t => t.stop()) } catch {}
     let stream: MediaStream
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: mode, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false })
+      stream = await navigator.mediaDevices.getUserMedia({ video: deviceId ? { deviceId: { exact: deviceId }, width: { ideal: 1920 }, height: { ideal: 1080 } } : { facingMode: mode, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false })
     } catch {
       stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false })
     }
@@ -1154,7 +1156,7 @@ function CameraCaptureModal({ onClose, onDone }: { onClose: () => void; onDone: 
   const flip = async () => {
     const next: 'environment' | 'user' = facing === 'environment' ? 'user' : 'environment'
     setFacing(next)
-    try { await startStream(next) } catch { setError('Camera not available. Allow camera access for this app and try again.') }
+    try { await startStream(next, next === 'environment' ? torchDeviceRef.current : null) } catch { setError('Camera not available. Allow camera access for this app and try again.') }
   }
 
   const applyTorch = async (on: boolean): Promise<boolean> => {
@@ -1188,8 +1190,57 @@ function CameraCaptureModal({ onClose, onDone }: { onClose: () => void; onDone: 
     return false
   }
 
+  // Sonda: su molti Android ci sono piu' camere posteriori e SOLO UNA ha il flash
+  // (Chrome puo' aprire quella sbagliata -> caps.torch null). Provo ogni camera e
+  // uso quella col torch; se nessuna ce l'ha, il flash non e' controllabile dal browser.
+  const probeTorchCamera = async (): Promise<string | null> => {
+    const found: any[] = []
+    try {
+      const devs = await navigator.mediaDevices.enumerateDevices()
+      const cams = devs.filter(d => d.kind === 'videoinput')
+      for (const d of cams) {
+        let st: MediaStream | null = null
+        try {
+          st = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: d.deviceId } }, audio: false })
+          const tr: any = st.getVideoTracks()[0]
+          const cp: any = tr && tr.getCapabilities ? tr.getCapabilities() : {}
+          const has = !!(cp && cp.torch)
+          found.push({ i: d.deviceId.slice(0, 6), label: String(d.label || '').slice(0, 22), torch: has })
+          if (has) {
+            try { st.getTracks().forEach(t => t.stop()) } catch {}
+            reportCam('camera-probe', JSON.stringify({ cams: cams.length, found, picked: d.deviceId.slice(0, 6) }))
+            return d.deviceId
+          }
+        } catch (e: any) {
+          found.push({ i: d.deviceId.slice(0, 6), err: String(e?.name || e?.message || e).slice(0, 30) })
+        }
+        try { st?.getTracks().forEach(t => t.stop()) } catch {}
+      }
+    } catch (e: any) { reportCam('camera-probe', 'enumerate err ' + String(e?.message || e)); return null }
+    // ultima chance: apri chiedendo direttamente torch:true
+    try {
+      const st = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', torch: true } as any, audio: false })
+      const tr: any = st.getVideoTracks()[0]
+      const stt: any = tr && tr.getSettings ? tr.getSettings() : {}
+      const okT = !!(stt && stt.torch)
+      reportCam('camera-probe', JSON.stringify({ cams: found.length, found, directTorch: okT }))
+      try { st.getTracks().forEach(t => t.stop()) } catch {}
+      if (okT) return (stt.deviceId as string) || null
+    } catch {}
+    reportCam('camera-probe', JSON.stringify({ cams: found.length, found, none: true }))
+    return null
+  }
+
   const toggleTorch = async () => {
     const on = !torchOn
+    if (on && !torchProbedRef.current) {
+      torchProbedRef.current = true
+      const id = await probeTorchCamera()
+      if (id) {
+        torchDeviceRef.current = id
+        try { await startStream(facing, id) } catch {}
+      }
+    }
     const ok = await applyTorch(on)
     if (ok) setTorchOn(on)
   }
