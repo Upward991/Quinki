@@ -550,6 +550,7 @@ function TransitionZone({ entry, isActive }: any) {
 
 // === Sortable Row ===
 function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, renameVal, dropZone, dropLabel, onSelect, onHover, onContextMenu, onRenameStart, onRenameChange, onRenameCommit, onRenameCancel, isOverlay, isSelected, multiSelect, notifyMode, onSetNotifyMode }: any) {
+  const mob = useLayout().mode === 'mobile'
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: item.id, disabled: !!isOverlay })
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: item.id, disabled: !!isOverlay })
 
