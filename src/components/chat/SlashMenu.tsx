@@ -464,38 +464,22 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
         else if (pc === 'disable') { title = 'Disable Long Horizon?'; desc = 'The support agent will stop guiding the session, the mode toggle will be unlocked, and the normal slash commands will be restored.'; actionLabel = 'Disable' }
         else if (pc === 'pause') { title = 'Pause Long Horizon?'; desc = 'If you pause, you will return to the discussion phase. You can discuss changes, then resume the plan.'; actionLabel = 'Pause' }
         return (
-          <div style={{ padding: '12px 16px' }}>
-            {typeof window !== 'undefined' && window.innerWidth <= 600 && (
-              <div style={{ padding: '8px 16px 4px 16px', display: 'flex', alignItems: 'center' }}>
-                <button
-                  onClick={() => setMode('main')}
-                  style={{ width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', border: 'none', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', cursor: 'pointer', padding: 0 }}>
-                  <ChevronLeft size={28} />
-                </button>
-              </div>
-            )}
-            <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', marginBottom: '6px' }}>{title}</div>
-            <div style={{ color: 'var(--q-text-secondary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginBottom: '10px', lineHeight: 1.6 }}>{desc}</div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', padding: '4px 0 10px 0' }}>
-              <HoverTextBtn
-                label="Cancel"
-                onClick={() => setMode('main')}
-                textColor="var(--q-accent-danger)"
-                hoverTextColor="var(--q-accent-danger)"
-                hoverBg="rgba(255,255,255,0.06)"
-              />
-              <HoverTextBtn
-                label={actionLabel}
-                highlighted={focusConfirm}
-                onClick={() => { if (pc) doLhAction(pc); }}
-                borderColor="var(--q-tab-accent)"
-                textColor="var(--q-tab-accent)"
-                hoverTextColor="var(--q-bg)"
-                hoverBg="var(--q-tab-accent)"
-                fontWeight={600}
-              />
+          <>
+            <div style={{ padding: '12px 16px' }}>
+              <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', marginBottom: '6px' }}>{title}</div>
+              <div style={{ color: 'var(--q-text-secondary)', fontSize: '12px', fontFamily: 'var(--font-interface)', lineHeight: 1.6 }}>{desc}</div>
             </div>
-          </div>
+            <NavBar
+              focusConfirm={focusConfirm}
+              onUp={() => setFocusConfirm(false)}
+              onDown={() => setFocusConfirm(true)}
+              onLeft={() => setFocusConfirm(false)}
+              onRight={() => setFocusConfirm(true)}
+              onConfirm={() => { if (pc) doLhAction(pc) }}
+              onClose={() => setMode('main')}
+              onBack={() => setMode('main')}
+            />
+          </>
         )
       })()}
 
@@ -616,39 +600,23 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
 
       {/* Reset confirm mode */}
       {mode === 'reset_confirm' && (
-        <div style={{ padding: '12px 16px' }}>
-            {typeof window !== 'undefined' && window.innerWidth <= 600 && (
-              <div style={{ padding: '8px 16px 4px 16px', display: 'flex', alignItems: 'center' }}>
-                <button
-                  onClick={() => setMode('main')}
-                  style={{ width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', border: 'none', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', cursor: 'pointer', padding: 0 }}>
-                  <ChevronLeft size={28} />
-                </button>
-              </div>
-            )}
-          <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', marginBottom: '4px' }}>
-            Reset session? All messages will be deleted.
+        <>
+          <div style={{ padding: '12px 16px' }}>
+            <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)' }}>
+              Reset session? All messages will be deleted.
+            </div>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', padding: '4px 0 10px 0' }}>
-            <HoverTextBtn
-              label="Cancel"
-              onClick={() => setMode('main')}
-              textColor="var(--q-accent-danger)"
-              hoverTextColor="var(--q-accent-danger)"
-              hoverBg="rgba(255,255,255,0.06)"
-            />
-            <HoverTextBtn
-              label="Reset"
-              highlighted={focusConfirm}
-              onClick={() => { props.onReset(); props.onClose() }}
-              borderColor="var(--q-tab-accent)"
-              textColor="var(--q-tab-accent)"
-              hoverTextColor="var(--q-bg)"
-              hoverBg="var(--q-tab-accent)"
-              fontWeight={600}
-            />
-          </div>
-        </div>
+          <NavBar
+            focusConfirm={focusConfirm}
+            onUp={() => setFocusConfirm(false)}
+            onDown={() => setFocusConfirm(true)}
+            onLeft={() => setFocusConfirm(false)}
+            onRight={() => setFocusConfirm(true)}
+            onConfirm={() => { props.onReset(); props.onClose() }}
+            onClose={() => setMode('main')}
+            onBack={() => setMode('main')}
+          />
+        </>
       )}
     </div>
   )
