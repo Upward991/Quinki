@@ -2652,7 +2652,12 @@ async fn remote_tunnel_start(port: Option<u16>, hostname: Option<String>) -> Res
     let p = port.unwrap_or(9182);
     let host = hostname.unwrap_or_default();
     let res = tunnel_start_blocking(p, host.clone());
-    if res.is_ok() { save_remote_state(true, host); }
+    if let Ok(u) = res.as_ref() {
+        // Con url vuota (nodo in attesa di login) NON toccare lo stato:
+        // il drain ha gia' scritto {enabled:true, authUrl} e un salvataggio
+        // qui cancellerebbe l'authUrl mostrato in Impostazioni.
+        if !u.is_empty() { save_remote_state(true, host); }
+    }
     res
 }
 

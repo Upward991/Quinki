@@ -1,14 +1,19 @@
 // ============================================================
 // Web app / Remote access — Impostazioni.
-// Quinki raggiungibile dal telefono o da un altro computer:
-//   - link stabile integrato: nodo Tailscale embedded (tsnet) + Funnel,
-//     nessuna installazione di sistema, link permanente <nome>.ts.net
-//   - fallback: tunnel Cloudflare (quick o dominio proprio, "Advanced")
-// L'accesso resta protetto dal token/pairing: il link e' solo la "porta".
+// Setup guidato: l'app porta l'utente sulle pagine giuste (account Tailscale,
+// consolle per Funnel) con i bottoni. Nessun campo di testo da riempire.
+//
+// Meccanica: nodo Tailscale embedded (tsnet) + Funnel = link stabile
+// <nome>.ts.net per sempre, nessuna installazione di sistema e niente app
+// sul telefono. L'accesso resta protetto dal token/pairing: il link e' la porta.
+// Fallback automatico: tunnel Cloudflare se il binario tsnet non c'e'.
 // ============================================================
 import React, { useEffect, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { Globe } from '../icons'
+
+const URL_SIGNUP = 'https://login.tailscale.com/start'
+const URL_ADMIN_DNS = 'https://login.tailscale.com/admin/dns'
 
 export function RemoteAccessSection() {
   const [status, setStatus] = useState<{ running: boolean; url: string; authUrl?: string }>({ running: false, url: '' })
@@ -18,10 +23,8 @@ export function RemoteAccessSection() {
   const [token, setToken] = useState('')
   const [devices, setDevices] = useState<any[]>([])
   const [rotating, setRotating] = useState(false)
-  const [confirmAct, setConfirmAct] = useState<null | 'token' | 'link' | 'revoke'>(null)
+  const [confirmAct, setConfirmAct] = useState<null | 'token' | 'revoke'>(null)
   const [revokeId, setRevokeId] = useState('')
-  const [hostname, setHostname] = useState('')
-  const [showAdvanced, setShowAdvanced] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -38,10 +41,6 @@ export function RemoteAccessSection() {
         const d: any = await invoke('remote_devices_list')
         if (!cancelled && Array.isArray(d)) setDevices(d)
       } catch {}
-      try {
-        const st: any = await invoke('remote_tunnel_state')
-        if (!cancelled && st && st.hostname) setHostname(String(st.hostname))
-      } catch {}
     })()
     const iv = setInterval(async () => {
       try {
@@ -56,13 +55,14 @@ export function RemoteAccessSection() {
     return () => { cancelled = true; clearInterval(iv) }
   }, [])
 
-
   // link di pairing = URL + token (il token resta comunque la chiave d'accesso)
   const withToken = (base: string) => (base && token ? `${base}/?token=${token}` : base)
 
+  const openUrl = (url: string) => { invoke('open_url', { url }).catch(() => {}) }
+
   const copy = async (text: string, which: string) => {
     if (!text) {
-      setErr('Nothing to copy yet: enable the secure link first (or wait for it to start).')
+      setErr('Nothing to copy yet: start the secure link first.')
       setTimeout(() => setErr(''), 4000)
       return
     }
@@ -70,7 +70,6 @@ export function RemoteAccessSection() {
     try { await invoke('copy_to_clipboard', { text }); ok = true } catch {}
     if (!ok) { try { await navigator.clipboard.writeText(text); ok = true } catch {} }
     if (!ok) {
-      // fallback universale nelle webview
       try {
         const ta = document.createElement('textarea')
         ta.value = text
@@ -86,12 +85,11 @@ export function RemoteAccessSection() {
     else { setErr('Copy failed on this system.'); setTimeout(() => setErr(''), 4000) }
   }
 
-  const normHost = () => hostname.trim().replace(/^https?:\/\//i, '').replace(/\/.*$/, '')
   const start = async () => {
     setBusy(true); setErr('')
     try {
-      const url: any = await invoke('remote_tunnel_start', { port: 9182, hostname: normHost() })
-      setStatus({ running: !!url, url: String(url || '') })
+      const url: any = await invoke('remote_tunnel_start', { port: 9182, hostname: '' })
+      setStatus(prev => ({ running: !!url, url: String(url || ''), authUrl: prev.authUrl || '' }))
     } catch (e: any) {
       setErr(String(e?.message || e))
     }
@@ -106,6 +104,18 @@ export function RemoteAccessSection() {
     } catch (e: any) {
       setErr(String(e?.message || e))
     }
+    setBusy(false)
+  }
+
+  // Riavvia il nodo (usato per: ricontrollare dopo il setup, passare dal link
+  // temporaneo a quello stabile). Senza conferma: non c'e' nulla da rompere.
+  const restart = async () => {
+    setBusy(true); setErr('')
+    try {
+      await invoke('remote_tunnel_stop')
+      const url: any = await invoke('remote_tunnel_start', { port: 9182, hostname: '' })
+      setStatus(prev => ({ running: !!url, url: String(url || ''), authUrl: prev.authUrl || '' }))
+    } catch (e: any) { setErr(String(e?.message || e)) }
     setBusy(false)
   }
 
@@ -136,16 +146,19 @@ export function RemoteAccessSection() {
     try { const t: any = await invoke('remote_token_rotate'); if (t) setToken(String(t)) } catch {}
     setRotating(false)
   }
-  const doRefreshLink = async () => {
-    setConfirmAct(null); setBusy(true); setErr('')
-    try {
-      await invoke('remote_tunnel_stop')
-      const url: any = await invoke('remote_tunnel_start', { port: 9182, hostname: normHost() })
-      setStatus({ running: !!url, url: String(url || '') })
-    } catch (e: any) { setErr(String(e?.message || e)) }
-    setBusy(false)
-  }
   const fmtWhen = (ms: number) => { try { return ms ? new Date(ms).toLocaleString() : '—' } catch { return '—' } }
+
+  const stepNum: React.CSSProperties = {
+    width: '20px', height: '20px', borderRadius: '50%', flexShrink: 0,
+    backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    color: 'var(--q-text-secondary)', fontSize: '11px', fontFamily: 'var(--font-code)',
+  }
+  const stepRow: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: '10px', padding: '5px 0' }
+  const stepTxt: React.CSSProperties = { flex: 1, minWidth: 0, color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }
+
+  const stable = status.url.includes('.ts.net')
+  const showSetup = !status.running && !status.authUrl
 
   return (
     <div id="settings-webapp" style={{ width: '100%', marginBottom: '12px', padding: '14px 18px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)' }}>
@@ -154,100 +167,98 @@ export function RemoteAccessSection() {
         <span style={{ color: 'var(--q-text)', fontSize: '15px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>Web app</span>
       </div>
       <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginTop: '4px' }}>
-        Use Quinki from your phone or another computer. Same sessions, same data as this Mac. Works while Quinki is running.
-      </div>
-      <div style={{ height: '6px' }} />
-      <div style={{ color: 'var(--q-accent-warning)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>
-        Open the secure link on your phone to use Quinki from anywhere (same sessions, same data as this Mac). Use “Install app” to keep it as a real app with its icon.
+        Use Quinki from your phone or another computer: same sessions, same data as this Mac, while Quinki is running. On the phone, use “Install app” to keep Quinki as a real app with its icon.
       </div>
 
-      <div style={{ height: '12px' }} />
-      {!!status.authUrl && (
+      {showSetup && (
         <>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', border: '1px solid var(--q-accent-warning)', borderRadius: 'var(--radius-md)', backgroundColor: 'rgba(255,180,80,0.08)' }}>
-            <div style={{ flex: 1, minWidth: 0, color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>
-              <b>One-time sign in needed</b>: open the link, log in with your Tailscale account and this Mac gets its permanent secure link.
-            </div>
-            <button style={rowBtn} onClick={() => { invoke('open_url', { url: status.authUrl }).catch(() => {}) }}>Open</button>
-            <button style={rowBtn} onClick={() => copy(String(status.authUrl || ''), 'auth')}>{copied === 'auth' ? 'Copied' : 'Copy'}</button>
-          </div>
           <div style={{ height: '12px' }} />
+          <div style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Setup, one time only</div>
+          <div style={{ height: '4px' }} />
+          <div style={stepRow}>
+            <div style={stepNum}>1</div>
+            <div style={stepTxt}>Create a free Tailscale account. It links your phone to this Mac, nothing gets installed on the phone.</div>
+            <button style={rowBtn} onClick={() => openUrl(URL_SIGNUP)}>Create account</button>
+          </div>
+          <div style={stepRow}>
+            <div style={stepNum}>2</div>
+            <div style={stepTxt}>In the Tailscale admin console open the DNS page and turn on “HTTPS Certificates” and “Funnel”.</div>
+            <button style={rowBtn} onClick={() => openUrl(URL_ADMIN_DNS)}>Open admin console</button>
+          </div>
+          <div style={stepRow}>
+            <div style={stepNum}>3</div>
+            <div style={stepTxt}>Start the secure link here. This Mac gets one permanent address, it never changes.</div>
+            <button style={rowBtn} disabled={busy} onClick={start}>{busy ? '…' : 'Start secure link'}</button>
+          </div>
         </>
       )}
-      <div style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Secure link</div>
-      <div style={{ height: '6px' }} />
-      {showAdvanced && (
+
+      {!status.running && !!status.authUrl && (
         <>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ ...urlBox, color: 'var(--q-text)' }}>
-              <input
-                value={hostname}
-                onChange={e => setHostname(e.target.value)}
-                placeholder="your-domain.com"
-                style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-code)' }}
-              />
-            </div>
+          <div style={{ height: '12px' }} />
+          <div style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Almost there: finish the two steps</div>
+          <div style={{ height: '4px' }} />
+          <div style={stepRow}>
+            <div style={stepNum}>1</div>
+            <div style={stepTxt}>Sign in with your Tailscale account (create it right there if you don’t have one yet). This authorizes this Mac.</div>
+            <button style={rowBtn} onClick={() => openUrl(String(status.authUrl))}>Sign in</button>
+          </div>
+          <div style={stepRow}>
+            <div style={stepNum}>2</div>
+            <div style={stepTxt}>In the admin console DNS page, turn on “HTTPS Certificates” and “Funnel”.</div>
+            <button style={rowBtn} onClick={() => openUrl(URL_ADMIN_DNS)}>Open admin console</button>
           </div>
           <div style={{ height: '4px' }} />
           <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>
-            Advanced (alternative): use your own Cloudflare domain as the secure link (needs a domain added to your Cloudflare account). Not needed with the built-in stable link.
+            The permanent link appears here automatically, about a minute after both steps.
           </div>
-          <div style={{ height: '6px' }} />
+          <div style={{ height: '8px' }} />
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button style={rowBtn} disabled={busy} onClick={restart}>{busy ? '…' : 'Check now'}</button>
+            <button style={{ ...rowBtn, borderColor: 'var(--q-border)', color: 'var(--q-text-secondary)' }} disabled={busy} onClick={stop}>Cancel setup</button>
+          </div>
         </>
       )}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <div style={urlBox}>{status.running && status.url ? status.url : (busy ? 'starting…' : 'not active')}</div>
-        {status.running && status.url && (
-          <button style={rowBtn} onClick={() => copy(withToken(status.url), 'tun')}
-            onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }}
-            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }}>
-            {copied === 'tun' ? 'Copied' : 'Copy'}
-          </button>
-        )}
-        {status.running && (
-          <button style={rowBtn} disabled={busy} onClick={() => setConfirmAct('link')}
-            onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }}
-            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }}>
-            Refresh
-          </button>
-        )}
-        <button style={rowBtn} disabled={busy} onClick={status.running ? stop : start}
-          onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }}
-          onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }}>
-          {busy ? '…' : status.running ? 'Disable' : 'Enable'}
-        </button>
-      </div>
-      {status.running && status.url && (
+
+      {status.running && (
         <>
+          <div style={{ height: '12px' }} />
+          <div style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Secure link</div>
+          <div style={{ height: '6px' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={urlBox}>{status.url || (busy ? 'starting…' : 'not active')}</div>
+            <button style={rowBtn} onClick={() => copy(withToken(status.url), 'tun')}>{copied === 'tun' ? 'Copied' : 'Copy'}</button>
+            <button style={{ ...rowBtn, borderColor: 'var(--q-border)', color: 'var(--q-text-secondary)' }} disabled={busy} onClick={stop}>{busy ? '…' : 'Disable'}</button>
+          </div>
           <div style={{ height: '6px' }} />
           <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>
-            {status.url.includes('.ts.net')
-              ? 'Stable link (built into the app): it never changes, not even after updates or restarts of this Mac.'
-              : 'This is a temporary link: it can change if the tunnel restarts. Press Refresh to switch to the built-in stable link.'}
+            {stable
+              ? 'Permanent link: it never changes, not even after updates or restarts of this Mac. Open it once on your phone and install Quinki from there.'
+              : 'Temporary link: it can change if the tunnel restarts.'}
           </div>
+          {!stable && (
+            <>
+              <div style={{ height: '8px' }} />
+              <button style={rowBtn} disabled={busy} onClick={restart}>{busy ? '…' : 'Switch to the permanent link'}</button>
+            </>
+          )}
         </>
       )}
+
       <div style={{ height: '16px' }} />
       <div style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Access token</div>
       <div style={{ height: '6px' }} />
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <div style={urlBox}>{token || '—'}</div>
-        <button style={rowBtn} disabled={!token} onClick={() => copy(token, 'tok')}
-          onMouseEnter={e => { if (token) { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' } }}
-          onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }}>
-          {copied === 'tok' ? 'Copied' : 'Copy'}
-        </button>
-        <button style={rowBtn} disabled={rotating} onClick={() => setConfirmAct('token')}
-          onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }}
-          onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }}>
-          {rotating ? '…' : 'Refresh'}
-        </button>
+        <button style={rowBtn} disabled={!token} onClick={() => copy(token, 'tok')}>{copied === 'tok' ? 'Copied' : 'Copy'}</button>
+        <button style={{ ...rowBtn, borderColor: 'var(--q-border)', color: 'var(--q-text-secondary)' }} disabled={rotating} onClick={() => setConfirmAct('token')}>{rotating ? '…' : 'Refresh'}</button>
       </div>
       <div style={{ height: '6px' }} />
-      <div onClick={() => setShowAdvanced(v => !v)} style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', cursor: 'pointer', textDecoration: 'underline' }}>
-        {showAdvanced ? 'Hide advanced options' : 'Advanced options'}
+      <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>
+        The “Copy” link above already contains this token: open it once on the phone and the device is remembered for good.
       </div>
-      <div style={{ height: '12px' }} />
+
+      <div style={{ height: '16px' }} />
       <div style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Paired devices</div>
       <div style={{ height: '6px' }} />
       {devices.length === 0 && (
@@ -266,11 +277,6 @@ export function RemoteAccessSection() {
           </button>
         </div>
       ))}
-
-      <div style={{ height: '8px' }} />
-      <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>
-        “Copy” gives a link that already contains the token: open it once on the phone and the device is remembered for good (it survives updates, reinstalls and restarts). The stable link never changes, so the installed app keeps working across updates and restarts of this Mac.
-      </div>
       {err && <div style={{ color: 'var(--q-accent-danger)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginTop: '6px' }}>{err}</div>}
 
       {confirmAct && (
@@ -278,14 +284,12 @@ export function RemoteAccessSection() {
           onClick={(e: any) => { if (e.target === e.currentTarget) setConfirmAct(null) }}>
           <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', padding: '24px', maxWidth: '420px', width: '90%', boxShadow: 'var(--shadow-modal)' }}>
             <div style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '8px' }}>
-              {confirmAct === 'token' ? 'Refresh access token?' : confirmAct === 'revoke' ? 'Revoke this device?' : 'Get a new secure link?'}
+              {confirmAct === 'token' ? 'Refresh access token?' : 'Revoke this device?'}
             </div>
             <div style={{ color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', lineHeight: 1.5, marginBottom: '16px' }}>
               {confirmAct === 'token'
                 ? 'Old pairing links stop working. Devices already paired keep working.'
-                : confirmAct === 'revoke'
-                  ? 'This device loses access immediately. You can pair it again with a new pairing link.'
-                  : 'The tunnel restarts and a fresh link is generated (the built-in stable link stays the same). Devices already paired keep working.'}
+                : 'This device loses access immediately. You can pair it again with a new pairing link.'}
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
               <button onClick={() => setConfirmAct(null)}
@@ -294,7 +298,7 @@ export function RemoteAccessSection() {
                 style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>
                 Cancel
               </button>
-              <button onClick={confirmAct === 'token' ? doRotateToken : confirmAct === 'revoke' ? doRevoke : doRefreshLink}
+              <button onClick={confirmAct === 'token' ? doRotateToken : doRevoke}
                 onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }}
                 onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }}
                 style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>
