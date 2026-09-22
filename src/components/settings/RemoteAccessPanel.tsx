@@ -1,13 +1,15 @@
 // ============================================================
 // Web app / Remote access — Impostazioni.
 //
-// UNA SOLA VIA: Tailscale (nodo embedded, niente da installare, niente app
-// sul telefono). Il link permanente <nome>.ts.net non cambia mai.
-// Setup utente ridotto al minimo e spiegato chiaramente:
-//   1. Sign in with Tailscale  -> apre la pagina, autorizza il Mac
-//   2. Open admin console      -> accende "HTTPS Certificates" e "Funnel"
-// Il link appare da solo quando entrambi sono fatti.
-// Log out: esce da Tailscale e cancella l'iscrizione di questo Mac.
+// PANNELLO STATICO: non sparisce mai niente.
+//   - i 2 step restano sempre visibili (numeri sempre "1" e "2", neutri)
+//   - il bottone [Sign in with Tailscale] resta SEMPRE presente
+//   - Log out e' un bottone SEPARATO (compare quando sei dentro, non
+//     sostituisce mai il sign in)
+//   - il link permanente compare in cima quando e' pronto
+//
+// Meccanica: nodo Tailscale embedded (tsnet) + Funnel = link stabile
+// <nome>.ts.net per sempre. Unica via, niente alternative.
 // ============================================================
 import React, { useEffect, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
@@ -92,21 +94,17 @@ export function RemoteAccessSection() {
     else { setErr('Copy failed on this system.'); setTimeout(() => setErr(''), 4000) }
   }
 
-  // Sign in with Tailscale: UN click. Avvia/riavvia il nodo se serve, aspetta
-  // il link di autorizzazione e apre il browser da solo. Se il nodo e' gia'
-  // iscritto (o il link e' gia' pronto) NON si mette in attesa: niente
-  // pulsanti bloccati per decine di secondi.
+  // Sign in with Tailscale: UN click. Se il nodo non gira lo avvia, aspetta il
+  // link di autorizzazione e apre il browser da solo. Il bottone NON si tocca
+  // mai: niente '…', niente disabled, niente sostituzioni.
   const signIn = async () => {
+    if (busy) return
     setBusy(true); setSigningIn(true); setErr('')
     try {
-      // se c'e' ancora un link vecchio/temporaneo, ripartiamo pulito col nodo
-      if (status.url && !status.url.includes('.ts.net')) {
-        try { await invoke('remote_tunnel_stop') } catch {}
-      }
       const url: any = await invoke('remote_tunnel_start', { port: 9182, hostname: '' })
       setEnabled(true)
       setStatus(prev => ({ running: !!url, url: String(url || ''), authUrl: prev.authUrl || '' }))
-      if (url) { setSigningIn(false); setBusy(false); return } // gia' pronto: niente attesa
+      if (url) { setSigningIn(false); setBusy(false); return } // gia' pronto
       let auth = String(status.authUrl || '')
       for (let i = 0; i < 16 && !auth; i++) {
         await new Promise(r => setTimeout(r, 500))
@@ -118,7 +116,7 @@ export function RemoteAccessSection() {
           setStatus({ running: !!s?.running, url: u, authUrl: auth })
         } catch {}
       }
-      if (auth) { openUrl(auth); setTimeout(() => setSigningIn(false), 1000) }
+      if (auth) { openUrl(auth); setTimeout(() => setSigningIn(false), 1200) }
       else { setSigningIn(false) }
     } catch (e: any) {
       setSigningIn(false)
@@ -141,6 +139,16 @@ export function RemoteAccessSection() {
     padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)',
     backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '13px', fontWeight: 600,
     fontFamily: 'var(--font-interface)', cursor: 'pointer', flexShrink: 0,
+  }
+  // Hover di casa: bottoni azione = riempimento pieno + testo scuro;
+  // bottoni secondari/distruttivi = velo bianco.
+  const hoverAccent = {
+    onMouseEnter: (e: any) => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' },
+    onMouseLeave: (e: any) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' },
+  }
+  const hoverNeutral = {
+    onMouseEnter: (e: any) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' },
+    onMouseLeave: (e: any) => { e.currentTarget.style.backgroundColor = 'transparent' },
   }
   const urlBox: React.CSSProperties = {
     flex: 1, minWidth: 0, color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-code)',
@@ -175,8 +183,16 @@ export function RemoteAccessSection() {
   const fmtWhen = (ms: number) => { try { return ms ? new Date(ms).toLocaleString() : '—' } catch { return '—' } }
 
   const ready = !!status.url && status.url.includes('.ts.net')
-  const needsSignIn = !ready && !signingIn && !!status.authUrl
-  const step1Done = !ready && !signingIn && enabled && !status.authUrl && !status.url
+  const signedIn = enabled && !status.authUrl && !signingIn && !ready
+  const statusLine = signingIn
+    ? 'Waiting for the sign-in… finish it in the browser, then come back here.'
+    : ready
+      ? 'You are signed in with Tailscale.'
+      : status.authUrl
+        ? 'Not signed in yet: press the button and finish the sign-in in the browser.'
+        : enabled
+          ? 'You are signed in with Tailscale.'
+          : 'Not started yet: press the button above.'
 
   return (
     <div id="settings-webapp" style={{ width: '100%', marginBottom: '12px', padding: '14px 18px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)' }}>
@@ -184,63 +200,66 @@ export function RemoteAccessSection() {
         <Globe size={16} style={{ color: 'var(--q-text-secondary)', flexShrink: 0 }} />
         <span style={{ color: 'var(--q-text)', fontSize: '15px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>Web app</span>
       </div>
+      <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginTop: '4px' }}>
+        Use Quinki from your phone or another computer: same sessions, same data as this Mac, while Quinki is running. On the phone, use “Install app” to keep Quinki as a real app with its icon.
+      </div>
+
       {!!err && (
-        <div style={{ marginBottom: '8px', padding: '8px 12px', border: '1px solid var(--q-accent-danger)', borderRadius: 'var(--radius-sm)', backgroundColor: 'rgba(255,80,80,0.08)', color: 'var(--q-accent-danger)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>{err}</div>
+        <div style={{ marginTop: '8px', padding: '8px 12px', border: '1px solid var(--q-accent-danger)', borderRadius: 'var(--radius-sm)', backgroundColor: 'rgba(255,80,80,0.08)', color: 'var(--q-accent-danger)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>{err}</div>
       )}
 
-      {/* ---------- tutto pronto: il link ---------- */}
+      {/* ---------- link permanente (compare qui quando e' pronto) ---------- */}
       {ready && (
         <>
-          <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginTop: '4px' }}>
-            Quinki is online: open the link below on your phone or another computer to use it from anywhere (same sessions, same data as this Mac). On the phone, use “Install app” to keep it as a real app with its icon.
-          </div>
           <div style={{ height: '12px' }} />
           <div style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Your permanent link</div>
           <div style={{ height: '6px' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div style={urlBox}>{status.url}</div>
-            <button style={rowBtn} onClick={() => copy(withToken(status.url), 'tun')}>{copied === 'tun' ? 'Copied' : 'Copy'}</button>
+            <button style={rowBtn} {...hoverAccent} onClick={() => copy(withToken(status.url), 'tun')}>{copied === 'tun' ? 'Copied' : 'Copy'}</button>
           </div>
           <div style={{ height: '6px' }} />
           <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>
             This link never changes, not even after updates or restarts of this Mac.
           </div>
-          <div style={{ height: '10px' }} />
-          <button style={{ ...rowBtn, borderColor: 'var(--q-border)', color: 'var(--q-accent-danger)' }} disabled={busy} onClick={() => setConfirmAct('logout')}>Log out</button>
         </>
       )}
 
-      {/* ---------- setup guidato ---------- */}
-      {!ready && (
+      {/* ---------- setup: sempre visibile, mai nascosto ---------- */}
+      <div style={{ height: '12px' }} />
+      <div style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Setup, one time only (2 steps)</div>
+      <div style={{ height: '2px' }} />
+      <div style={stepRow}>
+        <div style={stepNum}>1</div>
+        <div style={stepTxt}>
+          Sign in with Tailscale and authorize this Mac. No account yet? You create it right there, free (Google, GitHub or email).
+        </div>
+        <button style={rowBtn} {...hoverAccent} onClick={signIn}>Sign in with Tailscale</button>
+      </div>
+      <div style={stepRow}>
+        <div style={stepNum}>2</div>
+        <div style={stepTxt}>
+          In the Tailscale admin console, on the DNS page, turn on “HTTPS Certificates” and “Funnel”. This makes the link reachable from your phone.
+        </div>
+        <button style={rowBtn} {...hoverAccent} onClick={() => openUrl(URL_ADMIN_DNS)}>Open admin console</button>
+      </div>
+      <div style={{ height: '4px' }} />
+      <div style={{ color: 'var(--q-text-secondary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>
+        {statusLine}
+      </div>
+      <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginTop: '2px' }}>
+        The permanent link appears above when both steps are done. You can do them in any order.
+      </div>
+
+      {/* ---------- Log out: bottone separato, non sostituisce mai il sign in ---------- */}
+      {(enabled || ready) && (
         <>
-          <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginTop: '4px' }}>
-            To use Quinki from your phone or another computer, sign in with Tailscale. It creates a private, free connection between your devices. Nothing gets installed on the phone.
-          </div>
-          <div style={{ height: '12px' }} />
-          <div style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Setup, one time only (2 steps)</div>
-          <div style={{ height: '2px' }} />
-          <div style={stepRow}>
-            <div style={stepNum}>{step1Done ? '✓' : '1'}</div>
-            <div style={stepTxt}>
-              {signingIn
-                ? 'Waiting for the sign-in… finish it in the browser, then come back here.'
-                : step1Done
-                  ? 'Signed in. (You can press the button again any time.)'
-                  : 'Sign in with Tailscale and authorize this Mac. No account yet? You create it right there, free (Google, GitHub or email).'}
-            </div>
-            <button style={rowBtn} disabled={busy} onClick={signIn}>{busy ? '…' : 'Sign in with Tailscale'}</button>
-          </div>
-          <div style={stepRow}>
-            <div style={stepNum}>2</div>
-            <div style={stepTxt}>
-              In the Tailscale admin console, on the DNS page, turn on “HTTPS Certificates” and “Funnel”. This makes the link reachable from your phone.
-            </div>
-            <button style={rowBtn} onClick={() => openUrl(URL_ADMIN_DNS)}>Open admin console</button>
-          </div>
-          <div style={{ height: '4px' }} />
-          <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>
-            The permanent link appears here by itself when both steps are done. You can also do them in any order.
-          </div>
+          <div style={{ height: '10px' }} />
+          <button style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)', cursor: 'pointer' }}
+            onClick={() => setConfirmAct('logout')}
+            {...hoverNeutral}>
+            Log out
+          </button>
         </>
       )}
 
@@ -249,8 +268,8 @@ export function RemoteAccessSection() {
       <div style={{ height: '6px' }} />
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <div style={urlBox}>{token || '—'}</div>
-        <button style={rowBtn} disabled={!token} onClick={() => copy(token, 'tok')}>{copied === 'tok' ? 'Copied' : 'Copy'}</button>
-        <button style={{ ...rowBtn, borderColor: 'var(--q-border)', color: 'var(--q-text-secondary)' }} disabled={rotating} onClick={() => setConfirmAct('token')}>{rotating ? '…' : 'Refresh'}</button>
+        <button style={rowBtn} {...hoverAccent} disabled={!token} onClick={() => copy(token, 'tok')}>{copied === 'tok' ? 'Copied' : 'Copy'}</button>
+        <button style={{ ...rowBtn, borderColor: 'var(--q-border)', color: 'var(--q-text-secondary)' }} {...hoverNeutral} disabled={rotating} onClick={() => setConfirmAct('token')}>{rotating ? '…' : 'Refresh'}</button>
       </div>
       <div style={{ height: '6px' }} />
       <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>
