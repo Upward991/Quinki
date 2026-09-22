@@ -324,7 +324,6 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
         right: '0',
         zIndex: 50,
         backgroundColor: 'var(--q-bg-panel)',
-        border: '1px solid var(--q-border)',
         borderRadius: 'var(--radius-lg)',
         boxShadow: 'var(--shadow-floating)',
         maxHeight: maxH > 0 ? maxH + 'px' : 'min(640px, calc(100dvh - 130px))',
