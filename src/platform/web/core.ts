@@ -82,6 +82,15 @@ export async function invoke(cmd: string, args?: Any): Promise<Any> {
         return out.length ? out : null
       } catch { return null }
     }
+    case 'copy_to_attachments': {
+      // Web: il file e' stato caricato sul Mac; ora entra SUBITO nella cartella
+      // allegati della sessione (stesso nome <uuid>-<nome> del desktop), via sidecar.
+      try {
+        const call = (globalThis as Any).__sidecarCall
+        if (!call) return null
+        return await call('copyToAttachments', { srcPath: String(args?.srcPath || ''), sessionKey: String(args?.sessionKey || '') })
+      } catch { return null }
+    }
     case 'get_window_label':
       return 'main'
     case 'is_autostart_enabled':
@@ -110,3 +119,43 @@ export async function invoke(cmd: string, args?: Any): Promise<Any> {
 export async function convertFileSrc(filePath: string): Promise<string> {
   return filePath
 }
+
+
+// === PUSH (web app / PWA): richiesta automatica del permesso + subscription ===
+// Le notifiche arrivano anche quando la web app e' chiusa (push del browser).
+try {
+  const w = globalThis as Any
+  const hasPush = typeof navigator !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in (w as any) && w.Notification
+  if (hasPush) {
+    const doSetup = async () => {
+      try {
+        if (Notification.permission === 'default') {
+          const p = await Notification.requestPermission()
+          if (p !== 'granted') return
+        }
+        if (Notification.permission !== 'granted') return
+        const reg = await navigator.serviceWorker.ready
+        let sub: any = await reg.pushManager.getSubscription()
+        if (!sub) {
+          const call = w.__sidecarCall
+          if (!call) return
+          const kr: any = await call('pushGetKey', {})
+          const pub = kr && (kr.key || kr.publicKey)
+          if (!pub) return
+          const pad = pub.replace(/-/g, '+').replace(/_/g, '/')
+          const raw = atob(pad)
+          const arr = new Uint8Array(raw.length)
+          for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i)
+          sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: arr })
+        }
+        if (sub && w.__sidecarCall) await w.__sidecarCall('pushSubscribe', { subscription: sub.toJSON() })
+      } catch {}
+    }
+    // Richiesta automatica: subito, e comunque al primo gesto (compatibile con tutti i browser)
+    let kicked = false
+    const kick = () => { if (kicked) return; kicked = true; doSetup() }
+    try { setTimeout(kick, 4000) } catch {}
+    window.addEventListener('pointerdown', kick, { once: true })
+    window.addEventListener('keydown', kick, { once: true })
+  }
+} catch {}

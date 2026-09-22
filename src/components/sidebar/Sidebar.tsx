@@ -318,6 +318,20 @@ export function Sidebar(props: SidebarProps) {
             <MessageSquarePlus size={20} />
           </button>
           <button
+            onClick={() => { props.onCreateFolder?.(); setFolderFlash(true); setTimeout(() => setFolderFlash(false), 600) }}
+            onMouseEnter={() => setHovered('folder')}
+            onMouseLeave={() => setHovered(null)}
+            style={{
+              width: '40px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer',
+              backgroundColor: hovered === 'folder' ? 'var(--q-hover)' : 'transparent',
+              color: folderFlash ? 'var(--q-accent-folder-open)' : hovered === 'folder' ? 'var(--q-text)' : 'var(--q-text-secondary)',
+              padding: 0, flexShrink: 0, transform: hovered === 'folder' ? 'scale(1.02)' : 'scale(1)',
+            }}
+          >
+            <FolderAdd size={20} />
+          </button>
+          <button
             onClick={() => { try { props.onGoHome?.() } catch {} }}
             onMouseEnter={() => setHovered('home')}
             onMouseLeave={() => setHovered(null)}
@@ -331,20 +345,6 @@ export function Sidebar(props: SidebarProps) {
             title="Home"
           >
             <Home size={20} />
-          </button>
-          <button
-            onClick={() => { props.onCreateFolder?.(); setFolderFlash(true); setTimeout(() => setFolderFlash(false), 600) }}
-            onMouseEnter={() => setHovered('folder')}
-            onMouseLeave={() => setHovered(null)}
-            style={{
-              width: '40px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer',
-              backgroundColor: hovered === 'folder' ? 'var(--q-hover)' : 'transparent',
-              color: folderFlash ? 'var(--q-accent-folder-open)' : hovered === 'folder' ? 'var(--q-text)' : 'var(--q-text-secondary)',
-              padding: 0, flexShrink: 0, transform: hovered === 'folder' ? 'scale(1.02)' : 'scale(1)',
-            }}
-          >
-            <FolderAdd size={20} />
           </button>
         </div>
       </div>
@@ -570,7 +570,7 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
         {...attributes}
         {...listeners}
         onClick={onSelect}
-        onContextMenu={(e: any) => { e.preventDefault(); e.stopPropagation(); onContextMenu(e.clientX, e.clientY) }}
+        onContextMenu={(e: any) => { e.preventDefault(); e.stopPropagation(); try { if (window.matchMedia('(pointer: coarse)').matches) return } catch {} onContextMenu(e.clientX, e.clientY) }}
         style={{
           paddingLeft: `${depth * 12 + 10}px`, paddingRight: '8px', paddingTop: '6px', paddingBottom: '6px',
           minHeight: '36px', borderRadius: 'var(--radius-md)',
@@ -618,6 +618,21 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
         {item.unread && !isActive && (
           <span style={{ backgroundColor: '#ffffff', color: '#000000', fontSize: '12px', fontWeight: 600, fontFamily: 'var(--font-interface)', borderRadius: '999px', padding: '4px 8px', minWidth: '18px', textAlign: 'center', flexShrink: 0, lineHeight: '1' }}>
             {item.messageCount || 0}
+          </span>
+        )}
+        {/* Menu chat (⋯): apre il modale rename/select/delete. Il long-press sulle righe
+            resta libero per il drag & drop (col dito). */}
+        {!isFolder && !renaming && (
+          <span
+            onPointerDown={(e: any) => e.stopPropagation()}
+            onMouseDown={(e: any) => e.stopPropagation()}
+            onClick={(e: any) => { e.stopPropagation(); try { const r = e.currentTarget.getBoundingClientRect(); onContextMenu(r.left, r.bottom) } catch {} }}
+            onMouseEnter={(e: any) => { e.currentTarget.style.color = 'var(--q-text)'; e.currentTarget.style.opacity = '1' }}
+            onMouseLeave={(e: any) => { e.currentTarget.style.color = 'var(--q-text-tertiary)'; e.currentTarget.style.opacity = '1' }}
+            style={{ display: 'inline-flex', flexShrink: 0, cursor: 'pointer', color: 'var(--q-text-tertiary)', opacity: 1, padding: '3px', borderRadius: 'var(--radius-sm)' }}
+            title="Chat menu"
+          >
+            <span style={{ fontSize: '16px', lineHeight: '1', fontWeight: 700 }}>⋯</span>
           </span>
         )}
         {/* A3: campanella notifiche (solo chat, dentro la clip) — nascosta durante il rename per non spostarsi */}

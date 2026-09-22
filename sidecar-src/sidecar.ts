@@ -22,6 +22,7 @@
 import * as path from "node:path";
 import * as fs from "node:fs";
 import { homedir } from "node:os";
+import * as webpush from "web-push";
 import { spawn } from "node:child_process";
 import { initPoolRouter, tryRoute, snapshotOnWorker } from "./pool-router";
 import { refreshThinkingCapsEvolution } from "./providers";
@@ -197,6 +198,43 @@ function readDefaultAgentId(): string {
 }
 const authPath = path.join(agentDir, "auth.json");
 const modelsPath = path.join(agentDir, "models.json");
+// === PUSH: VAPID + invio (app chiusa inclusa) ===
+function getVapidKeys(): { publicKey: string; privateKey: string } {
+  const f = path.join(homedir(), '.quinki', 'push-vapid.json');
+  try {
+    const j = JSON.parse(fs.readFileSync(f, 'utf8'));
+    if (j && j.publicKey && j.privateKey) return j;
+  } catch {}
+  const keys = webpush.generateVAPIDKeys();
+  try { fs.writeFileSync(f, JSON.stringify(keys, null, 2)); } catch {}
+  return keys;
+}
+function sendWebPush(entry: any) {
+  const sk = String(entry?.sessionKey || '');
+  try {
+    const mf = path.join(homedir(), '.quinki', 'push-mutes.json');
+    let mutes: Record<string, any> = {};
+    try { mutes = JSON.parse(fs.readFileSync(mf, 'utf8')) || {}; } catch {}
+    if (sk && mutes[sk]) return;
+  } catch {}
+  try {
+    const sf = path.join(homedir(), '.quinki', 'push-subs.json');
+    let subs: any[] = [];
+    try { subs = JSON.parse(fs.readFileSync(sf, 'utf8')) || []; } catch {}
+    if (!subs.length) return;
+    const vapid = getVapidKeys();
+    webpush.setVapidDetails('mailto:quinki@localhost', vapid.publicKey, vapid.privateKey);
+    const payload = JSON.stringify({
+      title: String(entry?.title || 'Quinki'),
+      body: String(entry?.body || ''),
+      sessionKey: sk,
+    });
+    for (const sub of subs) {
+      webpush.sendNotification(sub, payload).catch(() => {});
+    }
+  } catch {}
+}
+
 const attachmentsDir = path.join(agentDir, "quinki-attachments");
 const settingsFile = path.join(agentDir, "quinki-settings.json");
 const agentsDir = path.join(agentDir, "agents");
@@ -420,7 +458,18 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   getReadState: async (p) => ({ state: piBridge!.getReadState(String(p.sessionKey || "")) }),
   getAllReadStates: async () => ({ states: piBridge!.getAllReadStates() }),
   setReadState: async (p) => ({ state: piBridge!.setReadState(String(p.sessionKey || ""), p.patch || {}) }),
-  setNotifyMode: async (p) => ({ state: piBridge!.setNotifyMode(String(p.sessionKey || ""), String(p.mode || "none")) }),
+  setNotifyMode: async (p) => {
+    try {
+      const sk = String(p.sessionKey || "");
+      const mode = String(p.mode || "none");
+      const mf = path.join(homedir(), '.quinki', 'push-mutes.json');
+      let mutes: Record<string, any> = {};
+      try { mutes = JSON.parse(fs.readFileSync(mf, 'utf8')) || {}; } catch {}
+      if (mode === 'none') mutes[sk] = true; else delete mutes[sk];
+      fs.writeFileSync(mf, JSON.stringify(mutes, null, 2));
+    } catch {}
+    return { state: piBridge!.setNotifyMode(String(p.sessionKey || ""), String(p.mode || "none")) };
+  },
   getDefaultNotifyMode: async () => ({ mode: piBridge!.getDefaultNotifyMode() }),
   setDefaultNotifyMode: async (p) => ({ mode: piBridge!.setDefaultNotifyMode(String(p.mode || "none")) }),
   getUnreadCounts: async () => ({ counts: piBridge!.getUnreadCounts() }),
@@ -813,6 +862,59 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   },
 
   // === P3: metodi IPC mancanti (settings/providers/attachments/folders/update/preflight) ===
+  // === PUSH (web app / PWA): notifiche anche ad app chiusa ===
+  pushGetKey: async () => {
+    try { return { key: getVapidKeys().publicKey }; } catch { return { key: "" }; }
+  },
+  pushSubscribe: async (p) => {
+    try {
+      const f = path.join(homedir(), '.quinki', 'push-subs.json');
+      let subs: any[] = [];
+      try { subs = JSON.parse(fs.readFileSync(f, 'utf8')) || []; } catch {}
+      const sub = p?.subscription;
+      if (!sub || !sub.endpoint) return { ok: false };
+      subs = subs.filter((x) => x && x.endpoint !== sub.endpoint);
+      subs.push(sub);
+      fs.writeFileSync(f, JSON.stringify(subs, null, 2));
+      return { ok: true, count: subs.length };
+    } catch { return { ok: false }; }
+  },
+  pushUnsubscribe: async (p) => {
+    try {
+      const f = path.join(homedir(), '.quinki', 'push-subs.json');
+      let subs: any[] = [];
+      try { subs = JSON.parse(fs.readFileSync(f, 'utf8')) || []; } catch {}
+      const ep = String(p?.endpoint || '');
+      subs = subs.filter((x) => x && x.endpoint !== ep);
+      fs.writeFileSync(f, JSON.stringify(subs, null, 2));
+      return { ok: true };
+    } catch { return { ok: false }; }
+  },
+  // Come il comando desktop copy_to_attachments: il file entra SUBITO nella
+  // cartella allegati della sessione (stesso nome <uuid>-<nome>), così il
+  // system prompt e le clip del modello restano identici in ogni caso.
+  copyToAttachments: async (p) => {
+    try {
+      const src = String(p?.srcPath || '');
+      const sk = String(p?.sessionKey || '');
+      if (!src || !sk) return null;
+      const dir = path.join(homedir(), '.quinki', 'attachments', sk);
+      fs.mkdirSync(dir, { recursive: true });
+      const originalName = path.basename(src);
+      const now = Date.now();
+      const uuid = now.toString(16) + Math.floor(Math.random() * 0xffffffff).toString(16);
+      const unique = uuid + '-' + originalName;
+      const dest = path.join(dir, unique);
+      fs.copyFileSync(src, dest);
+      // se viene dal temp della web app, ripulisci l'originale
+      try {
+        if (src.includes(path.join('.quinki', 'web-uploads'))) fs.rmSync(src, { force: true });
+      } catch {}
+      let size = 0;
+      try { size = fs.statSync(dest).size; } catch {}
+      return { originalName, path: dest, uuid, size };
+    } catch { return null; }
+  },
   getSettings: async () => {
     const base = getSettings();
     let clientPrefs: any = null;
@@ -1443,7 +1545,7 @@ async function bootstrap() {
       process.stderr.write(`[sidecar-marker] pool-child-parent-watchdog: ${origPpid}\n`);
     }
     // === A3: broadcast notifiche al frontend (DOPO la creazione di piBridge!) ===
-    try { piBridge.setNotificationBroadcast?.((entry: any) => { try { sendNotification("notification", entry); } catch {} }); } catch {}
+    try { piBridge.setNotificationBroadcast?.((entry: any) => { try { sendNotification("notification", entry); } catch {} try { sendWebPush(entry); } catch {} }); } catch {}
     try { piBridge.setReadStateBroadcast?.((key: string) => { try { sendNotification("read_state_changed", { sessionKey: key }); } catch {} }); } catch {}
 
 
