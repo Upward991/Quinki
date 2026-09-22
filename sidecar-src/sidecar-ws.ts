@@ -350,7 +350,7 @@ const wss = new WebSocketServer({
     try { if (ws.readyState === 1) ws.send(line); } catch { try { clients.delete(ws); } catch {} }
   }
 };
-httpServer.listen(PORT);
+httpServer.listen(PORT, "127.0.0.1"); // F0: solo loopback. L'accesso da fuori passa SOLO dal tunnel (cloudflared e' locale); la LAN e' volutamente chiusa.
 const clients = new Set<any>();
 (globalThis as any).__quinki_ws_clients = clients; // per il fallback stdout
 

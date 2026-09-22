@@ -11,7 +11,6 @@ import { Globe } from '../icons'
 
 export function RemoteAccessSection() {
   const [status, setStatus] = useState<{ running: boolean; url: string }>({ running: false, url: '' })
-  const [lanIp, setLanIp] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [copied, setCopied] = useState('')
@@ -26,10 +25,6 @@ export function RemoteAccessSection() {
       try {
         const s: any = await invoke('remote_tunnel_status')
         if (!cancelled && s) setStatus({ running: !!s.running, url: String(s.url || '') })
-      } catch {}
-      try {
-        const ip: any = await invoke('get_lan_ip')
-        if (!cancelled && ip) setLanIp(String(ip))
       } catch {}
       try {
         const t: any = await invoke('get_remote_token')
@@ -49,7 +44,6 @@ export function RemoteAccessSection() {
     return () => { cancelled = true; clearInterval(iv) }
   }, [])
 
-  const lanUrl = lanIp ? `http://${lanIp}:9182` : ''
 
   const copy = async (text: string, which: string) => {
     try { await navigator.clipboard.writeText(text) } catch {}
@@ -129,19 +123,7 @@ export function RemoteAccessSection() {
       </div>
 
       <div style={{ height: '12px' }} />
-      <div style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Same Wi-Fi (LAN)</div>
-      <div style={{ height: '6px' }} />
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <div style={urlBox}>{lanUrl || 'no network address found'}</div>
-        <button style={rowBtn} disabled={!lanUrl} onClick={() => copy(lanUrl, 'lan')}
-          onMouseEnter={e => { if (lanUrl) { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' } }}
-          onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }}>
-          {copied === 'lan' ? 'Copied' : 'Copy'}
-        </button>
-      </div>
-
-      <div style={{ height: '16px' }} />
-      <div style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>From anywhere (secure link)</div>
+      <div style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Secure link</div>
       <div style={{ height: '6px' }} />
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <div style={urlBox}>{status.running && status.url ? status.url : (busy ? 'starting…' : 'not active')}</div>
@@ -156,7 +138,7 @@ export function RemoteAccessSection() {
           <button style={rowBtn} disabled={busy} onClick={() => setConfirmAct('link')}
             onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }}
             onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }}>
-            Refresh link
+            Refresh
           </button>
         )}
         <button style={rowBtn} disabled={busy} onClick={status.running ? stop : start}
@@ -175,16 +157,12 @@ export function RemoteAccessSection() {
           onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }}>
           {copied === 'tok' ? 'Copied' : 'Copy'}
         </button>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <button style={rowBtn} disabled={rotating} onClick={() => setConfirmAct('token')}
           onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }}
           onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }}>
-          {rotating ? '…' : 'Refresh token'}
+          {rotating ? '…' : 'Refresh'}
         </button>
-        <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>Old pairing links stop working. Paired devices keep working.</span>
       </div>
-
       <div style={{ height: '16px' }} />
       <div style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Paired devices</div>
       <div style={{ height: '6px' }} />
