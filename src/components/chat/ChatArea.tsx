@@ -893,7 +893,7 @@ export function ChatArea(props: ChatAreaProps) {
           </div>
 
           {/* Composer — flexShrink 0 so it stays visible */}
-          <div style={{ paddingTop: '8px', flexShrink: 0 }}>
+          <div style={{ paddingTop: '8px', paddingBottom: 'env(safe-area-inset-bottom, 0px)', flexShrink: 0 }}>
             <Composer
               providers={props.providers} selectedModel={props.selectedModel} mode={props.mode}
               thinking={props.thinking} contextTokens={props.contextTokens} contextWindow={props.contextWindow}

@@ -5,9 +5,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import type { Session, Agent } from '../../types'
-import { Home, PanelLeft, MessageSquare, Download, Search, RefreshCw, Bot, Calendar, Clock, ChevronDown, ChevronUp, Cpu, Brain, Network, X, Checklist, RotateCcw, Bell, BellOff, Paperclip, Menu } from '../icons'
+import { Home, PanelLeft, MessageSquare, Download, Search, RefreshCw, Bot, Calendar, Clock, ChevronDown, ChevronUp, Cpu, Brain, Network, X, Checklist, RotateCcw, Bell, BellOff, Paperclip, Menu, DataUsage, FileText } from '../icons'
 import { useLayout } from '../../platform/layout'
-import { BottomSheet } from './BottomSheet'
+import { BottomSheet, SheetRow } from './BottomSheet'
 import { invoke } from '@tauri-apps/api/core'
 import { AgentConfigModal } from './AgentConfigModal'
 
@@ -94,7 +94,7 @@ export function ChatHeader(props: ChatHeaderProps) {
   // === Mobile (visione telefono): un solo tasto menu + bottom sheet ===
   const mob = useLayout().mode === 'mobile'
   const [menuOpen, setMenuOpen] = useState(false)
-  const [menuView, setMenuView] = useState<'context' | 'search' | null>(null)
+  const [menuView, setMenuView] = useState<'context' | 'search' | 'export' | 'notify' | null>(null)
 
   const fmt = (n: number) => {
     if (n >= 1000000) { const m = Math.round(n / 100000) / 10; return m % 1 === 0 ? `${m}M` : `${m.toFixed(1)}M` }
@@ -139,6 +139,88 @@ export function ChatHeader(props: ChatHeaderProps) {
     zIndex: 200,
     backgroundColor: 'transparent',
   }
+
+  // Contenuto del pannello agenti: su mobile si apre DENTRO il bottom sheet
+  // (come ogni altro menu della chat), su desktop nel popup ancorato come prima.
+  const agentPanelBody = (
+    <>
+                  {/* Add agent + Orchestrator */}
+                  <div style={{ padding: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <button onClick={() => setAddAgentOpen(true)} style={{ flex: 1, height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: '13px', transition: 'none' }}
+                      onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)'; e.currentTarget.style.color = 'var(--q-text)' }}
+                      onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-text-secondary)' }}>
+                      <Bot size={20} style={{ display: 'flex', flexShrink: 0 }} /> <span style={{ lineHeight: '1' }}>Add agent</span>
+                    </button>
+                    <button onClick={() => { if (!props.selectedAgentIds.includes('orchestrator')) props.onAgentToggle('orchestrator') }} style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: props.selectedAgentIds.includes('orchestrator') ? 'var(--q-text-tertiary)' : 'var(--q-text-secondary)', opacity: props.selectedAgentIds.includes('orchestrator') ? 0.4 : 1, transition: 'none' }}
+                      onMouseEnter={e => { if (!props.selectedAgentIds.includes('orchestrator')) { e.currentTarget.style.backgroundColor = 'var(--q-hover)'; e.currentTarget.style.color = 'var(--q-text)' } }}
+                      onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = props.selectedAgentIds.includes('orchestrator') ? 'var(--q-text-tertiary)' : 'var(--q-text-secondary)' }}>
+                      <Network size={20} />
+                    </button>
+                  </div>
+                  {/* Search field */}
+                  <div style={{ padding: '4px 8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', paddingLeft: '12px', paddingRight: '8px' }}>
+                      <Search size={16} style={{ color: 'var(--q-text-tertiary)', flexShrink: 0 }} />
+                      <div style={{ width: '8px', flexShrink: 0 }} />
+                      <input type="text" placeholder="Search agent..." value={agentQuery} onChange={e => setAgentQuery(e.target.value)} style={{ flex: 1, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0', margin: '0' }} />
+                      <div style={{ width: '4px', flexShrink: 0 }} />
+                      <span onClick={() => setAgentQuery('')} style={{ color: 'var(--q-text-tertiary)', fontSize: '14px', opacity: agentQuery ? 1 : 0.3, cursor: agentQuery ? 'pointer' : 'default', padding: '4px' }}>✕</span>
+                    </div>
+                  </div>
+                  {/* Agent list */}
+                  <div ref={agentListRef} onWheel={(e: any) => { e.preventDefault(); e.stopPropagation(); if (agentListRef.current) agentListRef.current.scrollTop += e.deltaY }} style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+                    {(() => {
+                      const agents = (props.agents || [])
+                        .filter(a => props.selectedAgentIds.includes(a.id) && (!agentQuery || a.name.toLowerCase().includes(agentQuery.toLowerCase())))
+                        .sort((a, b) => a.id === 'orchestrator' ? -1 : b.id === 'orchestrator' ? 1 : 0)
+                      if (agents.length === 0) {
+                        return (
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, minHeight: '200px', padding: '24px 8px', textAlign: 'center' }}>
+                            <span style={{ color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)', lineHeight: '1.5' }}>
+                              No agents in chat.<br />Click "Add agent" to add one.
+                            </span>
+                          </div>
+                        )
+                      }
+                      return agents.map(agent => (
+                      <div key={agent.id} style={{ padding: '0 8px 8px 8px' }} onContextMenu={e => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, agentId: agent.id }) }}>
+                        <div style={{ padding: '8px 8px 8px 12px', borderRadius: 'var(--radius-md)', minHeight: '40px', cursor: 'pointer', display: 'flex', flexDirection: 'column', justifyContent: agent.id === 'orchestrator' ? 'center' : 'flex-start' }}
+                          onClick={() => { if (multiSelect) { const s = new Set(selectedForRemoval); if (s.has(agent.id)) s.delete(agent.id); else s.add(agent.id); setSelectedForRemoval(s) } }}
+                          onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)' }}
+                          onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}>
+                          {/* Agent name */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Bot size={16} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', display: 'flex', flexShrink: 0 }} />
+                            <span onClick={(e) => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.stopPropagation(); setConfigModalAgent(agent.id) } }} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-danger)' : 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', flex: 1, lineHeight: '16px', cursor: multiSelect && selectedForRemoval.has(agent.id) ? 'default' : 'pointer' }}>{agent.name}</span>
+                          </div>
+                          {/* Model + Thinking (not for orchestrator) */}
+                          {agent.id !== 'orchestrator' && (
+                            <>
+                              <div style={{ height: '6px' }} />
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '24px', cursor: multiSelect && selectedForRemoval.has(agent.id) ? 'default' : 'pointer' }}
+                                onMouseEnter={e => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.currentTarget.querySelectorAll('span,svg').forEach((el: any) => el.style.color = 'var(--q-text)') } }}
+                                onMouseLeave={e => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.currentTarget.querySelectorAll('span,svg').forEach((el: any) => el.style.color = 'var(--q-text-tertiary)') } }}>
+                                <Cpu size={14} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', display: 'flex', flexShrink: 0 }} />
+                                <span onClick={(e) => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.stopPropagation(); setModelPickerFor(agent.id) } }} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', lineHeight: '14px', cursor: multiSelect && selectedForRemoval.has(agent.id) ? 'default' : 'pointer' }}>{props.agentOverrides?.[agent.id]?.model || 'Chat default'}</span>
+                              </div>
+                              <div style={{ height: '4px' }} />
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '24px', cursor: multiSelect && selectedForRemoval.has(agent.id) ? 'default' : 'pointer' }}
+                                onMouseEnter={e => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.currentTarget.querySelectorAll('span,svg').forEach((el: any) => el.style.color = 'var(--q-text)') } }}
+                                onMouseLeave={e => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.currentTarget.querySelectorAll('span,svg').forEach((el: any) => el.style.color = 'var(--q-text-tertiary)') } }}>
+                                <Brain size={14} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', display: 'flex', flexShrink: 0 }} />
+                                <span onClick={(e) => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.stopPropagation(); setThinkingPickerFor(agent.id) } }} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', lineHeight: '14px', cursor: multiSelect && selectedForRemoval.has(agent.id) ? 'default' : 'pointer' }}>
+                                  {props.agentOverrides?.[agent.id]?.thinkingLevel ? (props.agentOverrides[agent.id].thinkingLevel === 'off' ? 'Off' : 'On') : 'Chat default'}
+                                </span>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                    })()}
+                  </div>
+                </>
+  )
 
   return (
     <>
@@ -197,6 +279,7 @@ export function ChatHeader(props: ChatHeaderProps) {
               <button
                 ref={bellRef}
                 onClick={() => {
+                  if (mob) { setMenuView('notify'); setMenuOpen(true); return }
                   if (notifMenuOpen) { setNotifMenuOpen(false); return }
                   const rect = bellRef.current?.getBoundingClientRect()
                   const mw = 190, mh = 150, pad = 8
@@ -475,9 +558,7 @@ export function ChatHeader(props: ChatHeaderProps) {
           {mob && (
             <>
               <div style={{ width: '8px', flexShrink: 0 }} />
-              <div style={panelStyle}>
-                <IconBtn icon={Menu} onClick={() => { setMenuView(null); setMenuOpen(true) }} title="Menu" />
-              </div>
+              <IconBtn icon={Menu} onClick={() => { setMenuView(null); setMenuOpen(true) }} title="Menu" />
             </>
           )}
         </div>
@@ -487,88 +568,16 @@ export function ChatHeader(props: ChatHeaderProps) {
         <div style={panelStyle}>
           <div style={{ position: 'relative' }}>
             <IconBtn icon={Bot} onClick={props.onToggleAgentDropdown} title="Show agents" />
-            {props.agentDropdownOpen && (
+            {props.agentDropdownOpen && (mob ? (
+          <BottomSheet open onClose={props.onToggleAgentDropdown} onViewBack={() => {}} items={[]} view={agentPanelBody} />
+        ) : (
               <>
                 <div style={overlayStyle} onClick={() => { props.onToggleAgentDropdown(); setMultiSelect(false); setSelectedForRemoval(new Set()) }} />
                 <div style={{ ...popupStyle, top: 'calc(100% + 16px)', right: '-8px', minWidth: '260px', maxWidth: '300px', minHeight: '50vh', maxHeight: '70vh', border: '1px solid var(--q-border)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                  {/* Add agent + Orchestrator */}
-                  <div style={{ padding: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <button onClick={() => setAddAgentOpen(true)} style={{ flex: 1, height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: '13px', transition: 'none' }}
-                      onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)'; e.currentTarget.style.color = 'var(--q-text)' }}
-                      onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-text-secondary)' }}>
-                      <Bot size={20} style={{ display: 'flex', flexShrink: 0 }} /> <span style={{ lineHeight: '1' }}>Add agent</span>
-                    </button>
-                    <button onClick={() => { if (!props.selectedAgentIds.includes('orchestrator')) props.onAgentToggle('orchestrator') }} style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: props.selectedAgentIds.includes('orchestrator') ? 'var(--q-text-tertiary)' : 'var(--q-text-secondary)', opacity: props.selectedAgentIds.includes('orchestrator') ? 0.4 : 1, transition: 'none' }}
-                      onMouseEnter={e => { if (!props.selectedAgentIds.includes('orchestrator')) { e.currentTarget.style.backgroundColor = 'var(--q-hover)'; e.currentTarget.style.color = 'var(--q-text)' } }}
-                      onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = props.selectedAgentIds.includes('orchestrator') ? 'var(--q-text-tertiary)' : 'var(--q-text-secondary)' }}>
-                      <Network size={20} />
-                    </button>
-                  </div>
-                  {/* Search field */}
-                  <div style={{ padding: '4px 8px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', paddingLeft: '12px', paddingRight: '8px' }}>
-                      <Search size={16} style={{ color: 'var(--q-text-tertiary)', flexShrink: 0 }} />
-                      <div style={{ width: '8px', flexShrink: 0 }} />
-                      <input type="text" placeholder="Search agent..." value={agentQuery} onChange={e => setAgentQuery(e.target.value)} style={{ flex: 1, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0', margin: '0' }} />
-                      <div style={{ width: '4px', flexShrink: 0 }} />
-                      <span onClick={() => setAgentQuery('')} style={{ color: 'var(--q-text-tertiary)', fontSize: '14px', opacity: agentQuery ? 1 : 0.3, cursor: agentQuery ? 'pointer' : 'default', padding: '4px' }}>✕</span>
-                    </div>
-                  </div>
-                  {/* Agent list */}
-                  <div ref={agentListRef} onWheel={(e: any) => { e.preventDefault(); e.stopPropagation(); if (agentListRef.current) agentListRef.current.scrollTop += e.deltaY }} style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-                    {(() => {
-                      const agents = (props.agents || [])
-                        .filter(a => props.selectedAgentIds.includes(a.id) && (!agentQuery || a.name.toLowerCase().includes(agentQuery.toLowerCase())))
-                        .sort((a, b) => a.id === 'orchestrator' ? -1 : b.id === 'orchestrator' ? 1 : 0)
-                      if (agents.length === 0) {
-                        return (
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, minHeight: '200px', padding: '24px 8px', textAlign: 'center' }}>
-                            <span style={{ color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)', lineHeight: '1.5' }}>
-                              No agents in chat.<br />Click "Add agent" to add one.
-                            </span>
-                          </div>
-                        )
-                      }
-                      return agents.map(agent => (
-                      <div key={agent.id} style={{ padding: '0 8px 8px 8px' }} onContextMenu={e => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, agentId: agent.id }) }}>
-                        <div style={{ padding: '8px 8px 8px 12px', borderRadius: 'var(--radius-md)', minHeight: '40px', cursor: 'pointer', display: 'flex', flexDirection: 'column', justifyContent: agent.id === 'orchestrator' ? 'center' : 'flex-start' }}
-                          onClick={() => { if (multiSelect) { const s = new Set(selectedForRemoval); if (s.has(agent.id)) s.delete(agent.id); else s.add(agent.id); setSelectedForRemoval(s) } }}
-                          onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)' }}
-                          onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}>
-                          {/* Agent name */}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Bot size={16} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', display: 'flex', flexShrink: 0 }} />
-                            <span onClick={(e) => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.stopPropagation(); setConfigModalAgent(agent.id) } }} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-danger)' : 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', flex: 1, lineHeight: '16px', cursor: multiSelect && selectedForRemoval.has(agent.id) ? 'default' : 'pointer' }}>{agent.name}</span>
-                          </div>
-                          {/* Model + Thinking (not for orchestrator) */}
-                          {agent.id !== 'orchestrator' && (
-                            <>
-                              <div style={{ height: '6px' }} />
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '24px', cursor: multiSelect && selectedForRemoval.has(agent.id) ? 'default' : 'pointer' }}
-                                onMouseEnter={e => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.currentTarget.querySelectorAll('span,svg').forEach((el: any) => el.style.color = 'var(--q-text)') } }}
-                                onMouseLeave={e => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.currentTarget.querySelectorAll('span,svg').forEach((el: any) => el.style.color = 'var(--q-text-tertiary)') } }}>
-                                <Cpu size={14} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', display: 'flex', flexShrink: 0 }} />
-                                <span onClick={(e) => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.stopPropagation(); setModelPickerFor(agent.id) } }} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', lineHeight: '14px', cursor: multiSelect && selectedForRemoval.has(agent.id) ? 'default' : 'pointer' }}>{props.agentOverrides?.[agent.id]?.model || 'Chat default'}</span>
-                              </div>
-                              <div style={{ height: '4px' }} />
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '24px', cursor: multiSelect && selectedForRemoval.has(agent.id) ? 'default' : 'pointer' }}
-                                onMouseEnter={e => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.currentTarget.querySelectorAll('span,svg').forEach((el: any) => el.style.color = 'var(--q-text)') } }}
-                                onMouseLeave={e => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.currentTarget.querySelectorAll('span,svg').forEach((el: any) => el.style.color = 'var(--q-text-tertiary)') } }}>
-                                <Brain size={14} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', display: 'flex', flexShrink: 0 }} />
-                                <span onClick={(e) => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.stopPropagation(); setThinkingPickerFor(agent.id) } }} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', lineHeight: '14px', cursor: multiSelect && selectedForRemoval.has(agent.id) ? 'default' : 'pointer' }}>
-                                  {props.agentOverrides?.[agent.id]?.thinkingLevel ? (props.agentOverrides[agent.id].thinkingLevel === 'off' ? 'Off' : 'On') : 'Chat default'}
-                                </span>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    ))
-                    })()}
-                  </div>
-                </div>
+{agentPanelBody}
+              </div>
               </>
-            )}
+            ))}
           </div>
         </div>
       </div>
@@ -680,13 +689,23 @@ export function ChatHeader(props: ChatHeaderProps) {
               <button onClick={() => setSearchTime('')} style={{ background: 'none', border: 'none', cursor: searchTime ? 'pointer' : 'default', padding: '8px', color: searchTime ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)', fontSize: '14px', opacity: searchTime ? 1 : 0.3, lineHeight: '1', flexShrink: 0 }}>✕</button>
             </div>
           </div>
+        ) : menuView === 'export' ? (
+          <div style={{ padding: '0 0 8px 0' }}>
+            <SheetRow icon={<FileText size={18} />} label="Markdown (.md)" onClick={() => { setMenuOpen(false); setMenuView(null); props.onExport('md') }} />
+            <SheetRow icon={<FileText size={18} />} label="HTML (.html)" onClick={() => { setMenuOpen(false); setMenuView(null); props.onExport('html') }} />
+          </div>
+        ) : menuView === 'notify' ? (
+          <div style={{ padding: '0 0 8px 0' }}>
+            <SheetRow icon={<BellOff size={18} />} label="Muted" onClick={() => { setMenuOpen(false); setMenuView(null); props.onSetNotifyMode?.('none') }} />
+            <SheetRow icon={<Bell size={18} />} label="All notifications" onClick={() => { setMenuOpen(false); setMenuView(null); props.onSetNotifyMode?.('all') }} />
+          </div>
         ) : null}
         items={[
-          { label: 'Context usage', value: ctxValueFull, onSelect: () => setMenuView('context') },
-          { icon: <Download size={18} />, label: 'Export chat', onSelect: () => { setMenuOpen(false); setExportOpen(true) } },
+          { icon: <PanelLeft size={18} />, label: 'Open sidebar', onSelect: () => { setMenuOpen(false); if (!props.sidebarOpen) props.onToggleSidebar() } },
+          { icon: <DataUsage size={18} />, label: 'Context usage', value: ctxValueFull, onSelect: () => setMenuView('context') },
+          { icon: <Download size={18} />, label: 'Export chat', onSelect: () => setMenuView('export') },
           { icon: <Search size={18} />, label: 'Search messages', onSelect: () => setMenuView('search') },
           { icon: <RefreshCw size={18} />, label: 'Reload chat', onSelect: () => { setMenuOpen(false); props.onReload?.() } },
-          { icon: <PanelLeft size={18} />, label: 'Open sidebar', onSelect: () => { setMenuOpen(false); if (!props.sidebarOpen) props.onToggleSidebar() } },
           { icon: <Paperclip size={18} />, label: 'Attach files', onSelect: () => { setMenuOpen(false); props.onAttachFiles?.() } },
         ]}
       />

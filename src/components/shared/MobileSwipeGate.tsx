@@ -20,7 +20,7 @@ export function MobileSwipeGate({ mob, sidebarOpen, onOpenSidebar, onCloseSideba
       if (!t) return
       x0 = t.clientX
       y0 = t.clientY
-      edge = t.clientX <= 32
+      edge = t.clientX <= 90
     }
     const onEnd = (e: TouchEvent) => {
       if (x0 == null) return
@@ -32,9 +32,9 @@ export function MobileSwipeGate({ mob, sidebarOpen, onOpenSidebar, onCloseSideba
       const fromEdge = edge
       x0 = null
       edge = false
-      if (dy > 60 || Math.abs(dx) < 60) return
-      if (!sidebarOpen && fromEdge && dx > 60) { try { onOpenSidebar() } catch {} }
-      else if (sidebarOpen && dx < -60) { try { onCloseSidebar() } catch {} }
+      if (dy > 70 || Math.abs(dx) < 50) return
+      if (!sidebarOpen && fromEdge && dx > 50) { try { onOpenSidebar() } catch {} }
+      else if (sidebarOpen && dx < -50) { try { onCloseSidebar() } catch {} }
     }
     window.addEventListener('touchstart', onStart, { passive: true })
     window.addEventListener('touchend', onEnd, { passive: true })

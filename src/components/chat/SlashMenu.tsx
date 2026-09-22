@@ -689,11 +689,15 @@ function NavBar({ focusConfirm, onUp, onDown, onLeft, onRight, onConfirm, onClos
 // ── Arrow button: 6px padding, 14px icon ──
 function ArrowBtn({ icon: Icon, onClick }: { icon: React.FC<{ size?: number; style?: React.CSSProperties }>; onClick: () => void }) {
   const [hovered, setHovered] = useState(false)
+  const _t = useRef<any>(null)
+  // Touch: senza hover il tocco lascia il fondo visibile un attimo (feedback)
+  const flash = () => { setHovered(true); try { clearTimeout(_t.current) } catch {}; _t.current = setTimeout(() => setHovered(false), 350) }
   return (
     <button
-      onClick={onClick}
+      onClick={() => { flash(); onClick() }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onTouchStart={flash}
       style={{
         padding: '6px', border: 'none', cursor: 'pointer', borderRadius: 'var(--radius-sm)',
         backgroundColor: hovered ? 'rgba(255,255,255,0.06)' : 'transparent',

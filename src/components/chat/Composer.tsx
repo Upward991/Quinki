@@ -11,6 +11,7 @@ import { useLayout } from '../../platform/layout'
 import type { Provider, Agent, ChatMode, ThinkingLevel } from '../../types'
 import { Paperclip, ChevronUp, ChevronDown, Bot, X, Clock, Folder, FileText } from '../icons'
 import { SlashMenu, type SlashMenuRef } from './SlashMenu'
+import { BottomSheet, SheetRow } from './BottomSheet'
 
 export interface Attachment {
   originalName: string
@@ -364,7 +365,30 @@ export function Composer(props: ComposerProps) {
         <MentionPicker agents={filteredAgents} selectedIdx={mentionIdx} onSelect={selectAgent} onClose={() => { setMentionOpen(false); setMentionFilter('') }} />
       )}
       {/* Attachment menu */}
-      {attachMenuOpen && (
+      {mob ? (
+        <BottomSheet
+          open={attachMenuOpen}
+          onClose={() => { setAttachMenuOpen(false); setAttachMenuView('main') }}
+          onViewBack={() => setAttachMenuView('main')}
+          view={attachMenuView === 'existing' ? (
+            <div style={{ padding: '0 0 8px 0' }}>
+              {existingAttachments.length === 0 ? (
+                <div style={{ padding: '20px', color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)', textAlign: 'center' }}>No attachments in this chat yet.</div>
+              ) : (
+                existingAttachments.map((f: any, i: number) => (
+                  <SheetRow key={i} icon={<FileText size={18} />} label={String(f.originalName || 'file')} onClick={() => handleReAttach(f)} />
+                ))
+              )}
+            </div>
+          ) : null}
+          items={[
+            { icon: <Paperclip size={18} />, label: 'Attach new file', onSelect: () => { setAttachMenuOpen(false); handlePickFiles() } },
+            { icon: <Clock size={18} />, label: 'Previously sent', onSelect: () => handleShowExisting() },
+            { icon: <Folder size={18} />, label: 'Open attachments folder', onSelect: () => { setAttachMenuOpen(false); handleOpenAttachmentsFolder() } },
+            ...(props.sessionKey ? [{ icon: <Folder size={18} />, label: 'Open session files folder', onSelect: async () => { setAttachMenuOpen(false); try { await invoke('open_longhorizon_folder', { sessionKey: props.sessionKey }) } catch (e: any) { console.error('open_longhorizon_folder:', e) } } }] : []),
+          ]}
+        />
+      ) : attachMenuOpen && (
         <AttachMenu
           view={attachMenuView}
           existingFiles={existingAttachments}

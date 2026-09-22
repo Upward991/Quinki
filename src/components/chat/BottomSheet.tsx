@@ -1,9 +1,10 @@
 // ============================================================
 // BottomSheet — forma standard dei menu della chat in visione mobile.
 // Direttiva utente (22 set): i menu/dropdown/modali della chat si aprono dal BASSO
-// (stile Discord), con la barra di navigazione IDENTICA a quella del menu slash
-// (4 frecce + Close con la grafica del Cancel). Si chiude trascinando giù,
-// col tasto Close o toccando il backdrop.
+// (stile Discord) con la grafica dei floating panel; barra di navigazione IDENTICA
+// al menu slash: 4 frecce + Close (grafica del Cancel) + Back (grafica del Confirm,
+// per tornare indietro tra le viste del menu). Si chiude trascinando giù, col tasto
+// Close o toccando il backdrop.
 // ============================================================
 
 import { useEffect, useRef, useState } from 'react'
@@ -14,6 +15,30 @@ export interface SheetItem {
   label: string
   value?: string
   onSelect: () => void
+}
+
+// Riga standard del menu (usata sia dagli item sia dalle viste interne)
+export function SheetRow({ icon, label, value, onClick }: {
+  icon?: React.ReactNode
+  label: string
+  value?: string
+  onClick: () => void
+}) {
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 12px',
+        borderRadius: 'var(--radius-md)', cursor: 'pointer', transition: 'none',
+      }}
+    >
+      {icon
+        ? <span style={{ color: 'var(--q-text-secondary)', display: 'flex', flexShrink: 0 }}>{icon}</span>
+        : <span style={{ width: '18px', flexShrink: 0 }} />}
+      <span style={{ flex: 1, minWidth: 0, color: 'var(--q-text)', fontSize: '15px', fontFamily: 'var(--font-interface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+      {value && <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-code)', flexShrink: 0, whiteSpace: 'nowrap' }}>{value}</span>}
+    </div>
+  )
 }
 
 export function BottomSheet({ open, onClose, items, view, onViewBack, title }: {
@@ -29,7 +54,6 @@ export function BottomSheet({ open, onClose, items, view, onViewBack, title }: {
   const startY = useRef<number | null>(null)
 
   useEffect(() => { if (open) { setSel(0); setDragY(0) } }, [open])
-  useEffect(() => { if (!open) setDragY(0) }, [open])
 
   if (!open) return null
 
@@ -56,7 +80,7 @@ export function BottomSheet({ open, onClose, items, view, onViewBack, title }: {
         }}
         style={{
           position: 'absolute', left: 0, right: 0, bottom: 0,
-          backgroundColor: 'var(--q-bg-elevated)',
+          backgroundColor: 'var(--q-bg-panel)',
           borderRadius: 'var(--radius-lg) var(--radius-lg) 0 0',
           boxShadow: 'var(--shadow-modal)',
           paddingBottom: 'calc(4px + env(safe-area-inset-bottom, 0px))',
@@ -78,55 +102,84 @@ export function BottomSheet({ open, onClose, items, view, onViewBack, title }: {
                 key={it.label}
                 onClick={() => activate(i)}
                 onMouseEnter={() => setSel(i)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 12px',
-                  borderRadius: 'var(--radius-md)', cursor: 'pointer',
-                  backgroundColor: sel === i ? 'rgba(255,255,255,0.06)' : 'transparent', transition: 'none',
-                }}
+                style={{ backgroundColor: sel === i ? 'rgba(255,255,255,0.06)' : 'transparent', borderRadius: 'var(--radius-md)', transition: 'none' }}
               >
-                {it.icon
-                  ? <span style={{ color: 'var(--q-text-secondary)', display: 'flex', flexShrink: 0 }}>{it.icon}</span>
-                  : <span style={{ width: '18px', flexShrink: 0 }} />}
-                <span style={{ flex: 1, minWidth: 0, color: 'var(--q-text)', fontSize: '15px', fontFamily: 'var(--font-interface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.label}</span>
-                {it.value && <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-code)', flexShrink: 0, whiteSpace: 'nowrap' }}>{it.value}</span>}
+                <SheetRow icon={it.icon} label={it.label} value={it.value} onClick={() => activate(i)} />
               </div>
             ))}
           </div>
         )}
 
-        {/* NavBar — identica al menu slash (4 frecce + Close al posto di Cancel) */}
+        {/* NavBar — identica al menu slash (4 frecce + Close=Cancel + Back=Confirm) */}
         <div style={{ padding: '8px 16px 10px 16px', display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
           <ArrowBtn icon={ChevronUp} onClick={() => setSel(s => Math.max(0, s - 1))} />
           <ArrowBtn icon={ChevronDown} onClick={() => setSel(s => Math.min(items.length - 1, s + 1))} />
           <ArrowBtn icon={ChevronLeft} onClick={() => { if (view) { onViewBack?.() } else { onClose() } }} />
           <ArrowBtn icon={ChevronRight} onClick={() => { if (!view) activate(sel) }} />
           <span style={{ flex: 1 }} />
-          <button
-            onClick={onClose}
-            style={{
-              padding: '7px 16px', borderRadius: 'var(--radius-sm)', cursor: 'pointer',
-              border: '1px solid var(--q-border)', backgroundColor: 'transparent',
-              color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', transition: 'none',
-            }}
-          >
-            Close
-          </button>
+          <NavTextBtn label="Close" danger onClick={onClose} />
+          <div style={{ width: '8px' }} />
+          <NavTextBtn label="Back" accent onClick={() => { if (view) onViewBack?.() }} />
         </div>
       </div>
     </div>
   )
 }
 
+// Frecce della barra: su touch NON c'è hover → il tocco lascia il fondo hover
+// visibile per un attimo (feedback come sul computer)
 function ArrowBtn({ icon: Icon, onClick }: { icon: React.FC<{ size?: number; style?: React.CSSProperties }>; onClick: () => void }) {
+  const [hovered, setHovered] = useState(false)
+  const t = useRef<any>(null)
+  const flash = () => {
+    setHovered(true)
+    try { clearTimeout(t.current) } catch {}
+    t.current = setTimeout(() => setHovered(false), 350)
+  }
   return (
     <button
-      onClick={onClick}
+      onClick={() => { flash(); onClick() }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onTouchStart={flash}
       style={{
         padding: '6px', border: 'none', cursor: 'pointer', borderRadius: 'var(--radius-sm)',
-        backgroundColor: 'transparent', color: 'var(--q-text-secondary)', display: 'flex', alignItems: 'center', transition: 'none',
+        backgroundColor: hovered ? 'rgba(255,255,255,0.06)' : 'transparent',
+        color: hovered ? 'var(--q-text)' : 'var(--q-text-secondary)',
+        display: 'flex', alignItems: 'center', transition: 'none',
       }}
     >
       <Icon size={14} />
+    </button>
+  )
+}
+
+// Tasti della barra: Close = grafica Cancel del menu slash, Back = grafica Confirm
+function NavTextBtn({ label, danger, accent, onClick }: { label: string; danger?: boolean; accent?: boolean; onClick: () => void }) {
+  const [hovered, setHovered] = useState(false)
+  const t = useRef<any>(null)
+  const flash = () => {
+    setHovered(true)
+    try { clearTimeout(t.current) } catch {}
+    t.current = setTimeout(() => setHovered(false), 350)
+  }
+  const textColor = danger ? 'var(--q-accent-danger)' : accent ? 'var(--q-tab-accent)' : 'var(--q-text-secondary)'
+  const hoverText = danger ? 'var(--q-accent-danger)' : accent ? 'var(--q-bg)' : 'var(--q-text)'
+  return (
+    <button
+      onClick={() => { flash(); onClick() }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onTouchStart={flash}
+      style={{
+        padding: '7px 16px', borderRadius: 'var(--radius-sm)', cursor: 'pointer',
+        border: `1px solid ${accent ? 'var(--q-tab-accent)' : 'var(--q-border)'}`,
+        backgroundColor: hovered ? (accent ? 'var(--q-tab-accent)' : 'rgba(255,255,255,0.06)') : 'transparent',
+        color: hovered ? hoverText : textColor,
+        fontSize: '13px', fontFamily: 'var(--font-interface)', fontWeight: accent ? 600 : 400, transition: 'none',
+      }}
+    >
+      {label}
     </button>
   )
 }

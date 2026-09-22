@@ -507,3 +507,10 @@ textarea::-webkit-resizer {
     width: 0 !important;
     height: 0 !important;
 }
+
+/* === Mobile (22 set): l'altezza dell'app segue la barra dinamica del browser ===
+   Su iOS/Android la barra in basso copriva la text box in fondo alla chat:
+   100vh include l'area dietro la barra, 100dvh no. Desktop invariato (dvh == vh). */
+@supports (height: 100dvh) {
+  .h-screen { height: 100dvh; }
+}
