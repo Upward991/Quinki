@@ -2280,6 +2280,116 @@ fn ensure_cloudflared() -> Result<String, String> {
     cloudflared_path().ok_or_else(|| "cloudflared non trovato dopo il download".to_string())
 }
 
+fn remote_state_file() -> String {
+    format!("{}/.quinki/remote-state.json", std::env::var("HOME").unwrap_or_default())
+}
+
+fn save_remote_state(enabled: bool, hostname: String) {
+    let st = serde_json::json!({ "enabled": enabled, "hostname": hostname });
+    let _ = std::fs::write(remote_state_file(), serde_json::to_string_pretty(&st).unwrap_or_default());
+}
+
+fn load_remote_state() -> (bool, String) {
+    if let Ok(txt) = std::fs::read_to_string(remote_state_file()) {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&txt) {
+            let en = v.get("enabled").and_then(|x| x.as_bool()).unwrap_or(false);
+            let hn = v.get("hostname").and_then(|x| x.as_str()).unwrap_or("").to_string();
+            return (en, hn);
+        }
+    }
+    (false, String::new())
+}
+
+/// Avvia il tunnel: con hostname -> tunnel CON NOME (dominio Cloudflare dell'utente,
+/// link corto e stabile); senza -> quick tunnel (link casuale).
+/// Se serve, fa il login Cloudflare (apre il browser) e crea/instrada il tunnel.
+fn tunnel_start_blocking(port: u16, hostname: String) -> Result<String, String> {
+    {
+        let g = TUNNEL.lock().map_err(|e| e.to_string())?;
+        if let Some((_, u)) = g.as_ref() { return Ok(u.clone()); }
+    }
+    let exe = ensure_cloudflared()?;
+
+    if hostname.is_empty() {
+        // ---- quick tunnel ----
+        let mut child = std::process::Command::new(&exe)
+            .args(["tunnel", "--url", &format!("http://127.0.0.1:{}", port), "--no-autoupdate"])
+            .stdout(Stdio::piped()).stderr(Stdio::piped())
+            .spawn().map_err(|e| e.to_string())?;
+        let pidf = format!("{}/.quinki/tunnel.pid", std::env::var("HOME").unwrap_or_default());
+        let _ = std::fs::write(&pidf, child.id().to_string());
+        let mut url = String::new();
+        if let Some(er) = child.stderr.take() {
+            use std::io::{BufRead, BufReader};
+            let mut br = BufReader::new(er);
+            let mut line = String::new();
+            let start = std::time::Instant::now();
+            while start.elapsed().as_secs() < 30 {
+                line.clear();
+                match br.read_line(&mut line) {
+                    Ok(0) => break,
+                    Ok(_) => {
+                        if line.contains("trycloudflare.com") {
+                            for tok in line.split_whitespace() {
+                                let t = tok.trim();
+                                let t = t.trim_end_matches(|c: char| !(c.is_ascii_alphanumeric() || c == '/' || c == ':' || c == '.' || c == '-'));
+                                if t.starts_with("https://") && t.contains("trycloudflare.com") { url = t.to_string(); break; }
+                            }
+                            if !url.is_empty() { break; }
+                        }
+                    }
+                    Err(_) => break,
+                }
+            }
+            std::thread::spawn(move || { let mut sink = String::new(); loop { sink.clear(); match br.read_line(&mut sink) { Ok(0) => break, Ok(_) => {} Err(_) => break } } });
+        }
+        if url.is_empty() { let _ = child.kill(); return Err("URL del tunnel non trovato".into()); }
+        let mut g = TUNNEL.lock().map_err(|e| e.to_string())?;
+        *g = Some((child, url.clone()));
+        return Ok(url);
+    }
+
+    // ---- tunnel con nome (dominio dell'utente) ----
+    let home = std::env::var("HOME").unwrap_or_default();
+    let cert = format!("{}/.cloudflared/cert.pem", home);
+    if !std::path::Path::new(&cert).exists() {
+        // login: apre il browser e attende l'autorizzazione dell'utente
+        let mut lg = std::process::Command::new(&exe).args(["tunnel", "login"]).spawn().map_err(|e| e.to_string())?;
+        std::thread::sleep(std::time::Duration::from_secs(2));
+        let _ = std::process::Command::new("open").arg("https://dash.cloudflare.com/argotunnel").status();
+        let start = std::time::Instant::now();
+        loop {
+            match lg.try_wait().map_err(|e| e.to_string())? {
+                Some(st) => { if !st.success() { std::thread::sleep(std::time::Duration::from_secs(1)); } break; }
+                None => { if start.elapsed().as_secs() > 240 { let _ = lg.kill(); return Err("login Cloudflare non completato".into()); } std::thread::sleep(std::time::Duration::from_secs(1)); }
+            }
+        }
+        // l'autorizzazione browser puo' essere piu' lenta dello spawn: attesa breve del cert
+        for _ in 0..30 { if std::path::Path::new(&cert).exists() { break; } std::thread::sleep(std::time::Duration::from_secs(2)); }
+        if !std::path::Path::new(&cert).exists() { return Err("autorizzazione Cloudflare non completata".into()); }
+    }
+    // crea (o riusa) il tunnel "quinki"
+    let _ = std::process::Command::new(&exe).args(["tunnel", "create", "quinki"]).status();
+    // instrada il DNS (ignora l'errore se il record esiste gia')
+    let _ = std::process::Command::new(&exe).args(["tunnel", "route", "dns", "quinki", &hostname]).status();
+    // avvia
+    let mut child = std::process::Command::new(&exe)
+        .args(["tunnel", "--no-autoupdate", "run", "quinki"])
+        .stdout(Stdio::piped()).stderr(Stdio::piped())
+        .spawn().map_err(|e| e.to_string())?;
+    let pidf = format!("{}/.quinki/tunnel.pid", home);
+    let _ = std::fs::write(&pidf, child.id().to_string());
+    if let Some(er) = child.stderr.take() {
+        use std::io::{BufRead, BufReader};
+        let mut br = BufReader::new(er);
+        std::thread::spawn(move || { let mut sink = String::new(); loop { sink.clear(); match br.read_line(&mut sink) { Ok(0) => break, Ok(_) => {} Err(_) => break } } });
+    }
+    let url = format!("https://{}", hostname);
+    let mut g = TUNNEL.lock().map_err(|e| e.to_string())?;
+    *g = Some((child, url.clone()));
+    Ok(url)
+}
+
 fn tunnel_stop_inner() {
     if let Ok(mut g) = TUNNEL.lock() {
         if let Some((mut c, _)) = g.take() { let _ = c.kill(); }
@@ -2305,7 +2415,29 @@ fn remote_tunnel_status() -> serde_json::Value {
 }
 
 #[tauri::command]
-async fn remote_tunnel_start(port: Option<u16>) -> Result<String, String> {
+async fn remote_tunnel_start(port: Option<u16>, hostname: Option<String>) -> Result<String, String> {
+    let p = port.unwrap_or(9182);
+    let host = hostname.unwrap_or_default();
+    let res = tunnel_start_blocking(p, host.clone());
+    if res.is_ok() { save_remote_state(true, host); }
+    res
+}
+
+#[tauri::command]
+async fn remote_tunnel_autostart() -> Result<String, String> {
+    let (enabled, hostname) = load_remote_state();
+    if !enabled { return Ok(String::new()); }
+    tunnel_start_blocking(9182, hostname)
+}
+
+#[tauri::command]
+fn remote_tunnel_state() -> serde_json::Value {
+    let (enabled, hostname) = load_remote_state();
+    serde_json::json!({ "enabled": enabled, "hostname": hostname })
+}
+
+#[allow(dead_code)]
+async fn remote_tunnel_start_legacy(port: Option<u16>) -> Result<String, String> {
     {
         let g = TUNNEL.lock().map_err(|e| e.to_string())?;
         if let Some((_, u)) = g.as_ref() { return Ok(u.clone()); }
@@ -2369,7 +2501,65 @@ async fn remote_tunnel_start(port: Option<u16>) -> Result<String, String> {
 #[tauri::command]
 fn remote_tunnel_stop() -> Result<(), String> {
     tunnel_stop_inner();
+    let (_, hostname) = load_remote_state();
+    save_remote_state(false, hostname);
     Ok(())
+}
+
+fn random_hex(n: usize) -> String {
+    use std::io::Read;
+    let mut buf = vec![0u8; n];
+    if let Ok(mut f) = std::fs::File::open("/dev/urandom") { let _ = f.read_exact(&mut buf); }
+    buf.iter().map(|b| format!("{:02x}", b)).collect()
+}
+
+#[tauri::command]
+fn remote_devices_list() -> serde_json::Value {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let p = format!("{}/.quinki/remote-devices.json", home);
+    let mut out: Vec<serde_json::Value> = Vec::new();
+    if let Ok(txt) = std::fs::read_to_string(&p) {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&txt) {
+            if let Some(arr) = v.as_array() {
+                for d in arr {
+                    out.push(serde_json::json!({
+                        "id": d.get("id").and_then(|x| x.as_str()).unwrap_or(""),
+                        "name": d.get("name").and_then(|x| x.as_str()).unwrap_or("Device"),
+                        "createdAt": d.get("createdAt").and_then(|x| x.as_u64()).unwrap_or(0),
+                        "lastSeen": d.get("lastSeen").and_then(|x| x.as_u64()).unwrap_or(0),
+                    }));
+                }
+            }
+        }
+    }
+    serde_json::json!(out)
+}
+
+#[tauri::command]
+fn remote_device_revoke(id: String) -> Result<(), String> {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let p = format!("{}/.quinki/remote-devices.json", home);
+    if let Ok(txt) = std::fs::read_to_string(&p) {
+        if let Ok(mut v) = serde_json::from_str::<serde_json::Value>(&txt) {
+            if let Some(arr) = v.as_array_mut() {
+                arr.retain(|d| d.get("id").and_then(|x| x.as_str()) != Some(id.as_str()));
+            }
+            let _ = std::fs::write(&p, serde_json::to_string_pretty(&v).unwrap_or_default());
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn remote_token_rotate() -> String {
+    // Rigenera il token MASTER: i vecchi link di pairing smettono di funzionare,
+    // ma i dispositivi gia' accoppiati NON vengono toccati (hanno token propri).
+    let home = std::env::var("HOME").unwrap_or_default();
+    let p = format!("{}/.quinki/remote.json", home);
+    let tok = random_hex(24);
+    let st = serde_json::json!({ "token": tok });
+    let _ = std::fs::write(&p, serde_json::to_string_pretty(&st).unwrap_or_default());
+    tok
 }
 
 #[tauri::command]
@@ -2445,13 +2635,24 @@ pub fn run() {
     } else {
       ".window-state.json".to_string()
     };
+    // === WEB APP: se il tunnel era abilitato, riparte da solo all'avvio (in background) ===
+    std::thread::spawn(|| {
+        let (enabled, hostname) = load_remote_state();
+        if enabled { let _ = tunnel_start_blocking(9182, hostname); }
+    });
+
     let app = tauri::Builder::default()
     .invoke_handler(tauri::generate_handler![
         remote_tunnel_status,
         remote_tunnel_start,
+        remote_tunnel_autostart,
+        remote_tunnel_state,
         remote_tunnel_stop,
         get_lan_ip,
         get_remote_token,
+        remote_devices_list,
+        remote_device_revoke,
+        remote_token_rotate,
         set_window_bg_color,
         __drag_window,
         __toggle_maximize,

@@ -116,17 +116,21 @@ const WEB_IS_EXPERT = String(process.env.QUINKI_ROLE || "").toLowerCase() === "e
 // ATTENZIONE: il traffico del tunnel arriva DA 127.0.0.1 (cloudflared gira sul Mac)
 // → i proxy che iniettano x-forwarded-for/cf-connecting-ip NON sono loopback.
 const REMOTE_FILE = join(AGENT_DIR, "remote.json");
-const REMOTE_TOKEN: string = (() => {
+let _remoteTokenCache = { at: 0, v: "" };
+function remoteToken(): string {
+  const now = Date.now();
+  if (_remoteTokenCache.v && now - _remoteTokenCache.at < 1000) return _remoteTokenCache.v;
   try {
     if (existsSync(REMOTE_FILE)) {
       const j = JSON.parse(readFileSync(REMOTE_FILE, "utf8"));
-      if (j && typeof j.token === "string" && j.token.length >= 16) return j.token;
+      if (j && typeof j.token === "string" && j.token.length >= 16) { _remoteTokenCache = { at: now, v: j.token }; return j.token; }
     }
   } catch {}
   const tok = randomBytes(24).toString("hex");
   try { writeFileSync(REMOTE_FILE, JSON.stringify({ token: tok, createdAt: new Date().toISOString() }, null, 2)); } catch {}
+  _remoteTokenCache = { at: now, v: tok };
   return tok;
-})();
+}
 
 function isLoopbackReq(req: any): boolean {
   try {
@@ -152,9 +156,67 @@ function tokenFromReq(req: any, url: string): string {
 function tokenOk(t: string): boolean {
   try {
     const a = Buffer.from(String(t));
-    const b = Buffer.from(REMOTE_TOKEN);
+    const b = Buffer.from(remoteToken());
     return a.length === b.length && timingSafeEqual(a, b);
   } catch { return false; }
+}
+
+// === DISPOSITIVI ACCOPPIATI ===
+// Ogni dispositivo ha il SUO token (mai piu' quello master): revoca per dispositivo,
+// e il refresh del token master NON scollega i dispositivi gia' accoppiati.
+// Il file vive in ~/.quinki → sopravvive a update/reinstall/riavvii dell'app.
+const DEVICES_FILE = join(AGENT_DIR, "remote-devices.json");
+type RemoteDevice = { id: string; name: string; token: string; createdAt: number; lastSeen: number };
+
+function loadDevices(): RemoteDevice[] {
+  try {
+    if (existsSync(DEVICES_FILE)) {
+      const j = JSON.parse(readFileSync(DEVICES_FILE, "utf8"));
+      if (Array.isArray(j)) return j.filter((d: any) => d && typeof d.token === "string");
+    }
+  } catch {}
+  return [];
+}
+function saveDevices(list: RemoteDevice[]): void {
+  try { writeFileSync(DEVICES_FILE, JSON.stringify(list, null, 2)); } catch {}
+}
+function deviceNameFromUA(ua: string): string {
+  const u = String(ua || "");
+  const os = /iPhone/.test(u) ? "iPhone" : /iPad/.test(u) ? "iPad" : /Android/.test(u) ? "Android" : /Macintosh/.test(u) ? "Mac" : /Windows/.test(u) ? "Windows" : /Linux/.test(u) ? "Linux" : "Device";
+  const br = /Edg\//.test(u) ? "Edge" : /Chrome\//.test(u) ? "Chrome" : /Safari\//.test(u) ? "Safari" : /Firefox\//.test(u) ? "Firefox" : "Browser";
+  return os + " · " + br;
+}
+function findDeviceByToken(t: string): RemoteDevice | null {
+  const list = loadDevices();
+  for (const d of list) {
+    try {
+      const a = Buffer.from(String(t)); const b = Buffer.from(d.token);
+      if (a.length === b.length && timingSafeEqual(a, b)) return d;
+    } catch {}
+  }
+  return null;
+}
+function touchDevice(id: string): void {
+  const list = loadDevices();
+  const d = list.find(x => x.id === id);
+  if (!d) return;
+  if (Date.now() - (d.lastSeen || 0) < 60000) return; // non scrivere a ogni richiesta
+  d.lastSeen = Date.now();
+  saveDevices(list);
+}
+// Accoppia (o riaccoppia) un dispositivo: se ha gia' un cookie valido lo riusa,
+// altrimenti crea una nuova voce (dedup per user-agent visto di recente).
+function pairDevice(req: any): string {
+  const ua = String((req.headers && req.headers["user-agent"]) || "");
+  const list = loadDevices();
+  const now = Date.now();
+  const same = list.find(d => d.name === deviceNameFromUA(ua) && now - (d.lastSeen || 0) < 24 * 3600 * 1000);
+  if (same) { same.lastSeen = now; saveDevices(list); return same.token; }
+  const token = randomBytes(24).toString("hex");
+  const d: RemoteDevice = { id: randomBytes(6).toString("hex"), name: deviceNameFromUA(ua), token, createdAt: now, lastSeen: now };
+  list.push(d);
+  saveDevices(list);
+  return token;
 }
 function pairingPage(): string {
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -239,15 +301,18 @@ const httpServer = http.createServer((req: any, res: any) => {
   try {
     if (!isLoopbackReq(req) && !url.startsWith("/callback")) {
       const t = tokenFromReq(req, url);
-      if (tokenOk(t)) {
-        if (url.includes("token=")) {
-          res.writeHead(302, {
-            "Set-Cookie": `quinki_token=${encodeURIComponent(REMOTE_TOKEN)}; Path=/; Max-Age=31536000; SameSite=Lax`,
-            "Location": "/",
-          });
-          res.end();
-          return;
-        }
+      const dev = t ? findDeviceByToken(t) : null;
+      if (dev) {
+        touchDevice(dev.id);
+      } else if (tokenOk(t)) {
+        // token master = link di pairing: crea il dispositivo e passa al suo token
+        const dt = pairDevice(req);
+        res.writeHead(302, {
+          "Set-Cookie": `quinki_token=${encodeURIComponent(dt)}; Path=/; Max-Age=31536000; SameSite=Lax`,
+          "Location": "/",
+        });
+        res.end();
+        return;
       } else {
         res.writeHead(401, { "Content-Type": "text/html; charset=utf-8" });
         res.end(pairingPage());
@@ -269,6 +334,8 @@ const wss = new WebSocketServer({
       if (isLoopbackReq(info.req)) return cb(true);
       const t = tokenFromReq(info.req, String(info.req.url || ""));
       if (tokenOk(t)) return cb(true);
+      const dev = t ? findDeviceByToken(t) : null;
+      if (dev) { touchDevice(dev.id); return cb(true); }
       return cb(false, 401, "Unauthorized");
     } catch { return cb(false, 401, "Unauthorized"); }
   },
