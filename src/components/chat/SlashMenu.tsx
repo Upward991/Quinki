@@ -46,7 +46,7 @@ interface Command {
   description: string
 }
 
-type Mode = 'main' | 'model' | 'thinking' | 'directory' | 'serverdir' | 'skill' | 'reset_confirm' | 'longhorizon' | 'lh_confirm'
+type Mode = 'main' | 'model' | 'thinking' | 'directory' | 'skill' | 'reset_confirm' | 'longhorizon' | 'lh_confirm'
 
 export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function SlashMenu(props, ref) {
   const [mode, setMode] = useState<Mode>('main')
@@ -183,10 +183,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
 
   const pickDirectory = async () => {
     try {
-      const path = (typeof window !== 'undefined' && window.innerWidth <= 600)
-        ? '' // sul telefono: apre il browser delle cartelle del Mac (ServerDirPicker)
-        : await invoke<string>('pick_directory')
-      if (typeof window !== 'undefined' && window.innerWidth <= 600) { setMode('serverdir'); return }
+      const path = await invoke<string>('pick_directory')
       if (path && path !== 'cancelled') {
         setDirectories([path])
         const call = (window as any).__sidecarCall
@@ -307,33 +304,17 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
         backgroundColor: 'var(--q-bg-panel)',
         borderRadius: 'var(--radius-lg)',
         boxShadow: 'var(--shadow-floating)',
-        maxHeight: 'min(400px, 45dvh)',
+        maxHeight: 'min(640px, calc(100dvh - 130px))',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
       }}
     >
-      {/* Server directory picker (telefono): esplora le cartelle del Mac */}
-      {mode === 'serverdir' && (
-        <ServerDirPicker
-          onClose={() => setMode('directory')}
-          onPick={async (p: string) => {
-            try {
-              const call = (window as any).__sidecarCall
-              const sk = (props as any).sessionKey || ''
-              if (sk && call) await call('setWorkingDir', { sessionKey: sk, path: p })
-              setDirectories(prev => (prev.includes(p) ? prev : [p, ...prev]))
-            } catch {}
-            setMode('directory')
-          }}
-        />
-      )}
-
       {/* Main mode */}
       {mode === 'main' && (
         <>
           <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
-            {filteredCommands.map((cmd, idx) => (
+            {filteredCommands.filter((c: any) => !(window.innerWidth <= 600 && c.id === 'directory')).map((cmd, idx) => (
               <MainMenuItem
                 key={cmd.id}
                 label={cmd.label}
@@ -679,24 +660,65 @@ function MenuItem({ label, isSelected, isChecked, trailing, onHover, onTap }: {
 function NavBar({ focusConfirm, onUp, onDown, onLeft, onRight, onConfirm, onClose }: {
   focusConfirm: boolean; onUp: () => void; onDown: () => void; onLeft: () => void; onRight: () => void; onConfirm: () => void; onClose: () => void
 }) {
-  // Semplificato (richiesta utente): una sola freccia indietro grande a sinistra + Close.
-  // Le frecce direzionali erano inutili: l'evidenziazione non si vedeva col dito.
+  const small = typeof window !== 'undefined' && window.innerWidth <= 600
+  // TELEFONO: solo la freccia indietro grande + Cancel + Confirm (Confirm serve!).
+  // DESKTOP: navbar originale intatta (4 frecce + Cancel + Confirm).
+  if (small) {
+    return (
+      <div style={{ padding: '8px 16px 10px 16px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <button
+          onClick={onClose}
+          onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = 'var(--q-text)' }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-text-secondary)' }}
+          style={{ width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', border: 'none', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', cursor: 'pointer', flexShrink: 0, padding: 0 }}>
+          <ChevronLeft size={28} />
+        </button>
+        <span style={{ flex: 1 }} />
+        <HoverTextBtn
+          label="Cancel"
+          onClick={onClose}
+          textColor="var(--q-accent-danger)"
+          hoverTextColor="var(--q-accent-danger)"
+          hoverBg="rgba(255,255,255,0.06)"
+        />
+        <div style={{ width: '8px' }} />
+        <HoverTextBtn
+          label="Confirm"
+          highlighted={focusConfirm}
+          onClick={onConfirm}
+          borderColor="var(--q-tab-accent)"
+          textColor="var(--q-tab-accent)"
+          hoverTextColor="var(--q-bg)"
+          hoverBg="var(--q-tab-accent)"
+          fontWeight={600}
+        />
+      </div>
+    )
+  }
   return (
     <div style={{ padding: '8px 16px 10px 16px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-      <button
-        onClick={onClose}
-        onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = 'var(--q-text)' }}
-        onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-text-secondary)' }}
-        style={{ width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', border: 'none', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', cursor: 'pointer', flexShrink: 0, padding: 0 }}>
-        <ChevronLeft size={28} />
-      </button>
+      <ArrowBtn icon={ChevronUp} onClick={onUp} />
+      <ArrowBtn icon={ChevronDown} onClick={onDown} />
+      <ArrowBtn icon={ChevronLeft} onClick={onLeft} />
+      <ArrowBtn icon={ChevronRight} onClick={onRight} />
       <span style={{ flex: 1 }} />
       <HoverTextBtn
-        label="Close"
+        label="Cancel"
         onClick={onClose}
         textColor="var(--q-accent-danger)"
         hoverTextColor="var(--q-accent-danger)"
         hoverBg="rgba(255,255,255,0.06)"
+      />
+      <div style={{ width: '8px' }} />
+      <HoverTextBtn
+        label="Confirm"
+        highlighted={focusConfirm}
+        onClick={onConfirm}
+        borderColor="var(--q-tab-accent)"
+        textColor="var(--q-tab-accent)"
+        hoverTextColor="var(--q-bg)"
+        hoverBg="var(--q-tab-accent)"
+        fontWeight={600}
       />
     </div>
   )

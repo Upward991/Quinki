@@ -563,7 +563,7 @@ export function Composer(props: ComposerProps) {
 
         {/* Bottom bar */}
         <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', height: '32px', marginTop: '8px' }}>
-          <SlashBtn color="var(--q-tab-accent)" onClick={() => { setSlashMenuOpen(true); setSlashFilter(''); if (!text.startsWith('/')) { /* don't clear text, just open menu */ } textareaRef.current?.focus() }} />
+          <SlashBtn color="var(--q-tab-accent)" onClick={() => { setSlashMenuOpen(true); setSlashFilter(''); if (!text.startsWith('/')) { /* don't clear text, just open menu */ } if (!isPhoneWeb()) { textareaRef.current?.focus() } }} />
           <div style={{ width: '4px', flexShrink: 0 }} />
           <ModeButton mode={props.mode} onChange={props.onModeChange} longHorizon={props.longHorizon} />
           
