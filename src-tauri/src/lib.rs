@@ -2284,9 +2284,20 @@ fn remote_state_file() -> String {
     format!("{}/.quinki/remote-state.json", std::env::var("HOME").unwrap_or_default())
 }
 
-fn save_remote_state(enabled: bool, hostname: String) {
-    let st = serde_json::json!({ "enabled": enabled, "hostname": hostname });
+fn save_remote_state_full(enabled: bool, hostname: String, url: String, pid: Option<u32>) {
+    let st = serde_json::json!({
+        "enabled": enabled,
+        "hostname": hostname,
+        "url": url,
+        "pid": pid.map(|p| p as u64),
+    });
     let _ = std::fs::write(remote_state_file(), serde_json::to_string_pretty(&st).unwrap_or_default());
+}
+
+fn save_remote_state(enabled: bool, hostname: String) {
+    let url = load_remote_state_url();
+    let pid = load_remote_state_pid();
+    save_remote_state_full(enabled, hostname, if enabled { url } else { String::new() }, if enabled { pid } else { None });
 }
 
 fn load_remote_state() -> (bool, String) {
@@ -2300,6 +2311,43 @@ fn load_remote_state() -> (bool, String) {
     (false, String::new())
 }
 
+fn load_remote_state_url() -> String {
+    if let Ok(txt) = std::fs::read_to_string(remote_state_file()) {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&txt) {
+            return v.get("url").and_then(|x| x.as_str()).unwrap_or("").to_string();
+        }
+    }
+    String::new()
+}
+
+fn load_remote_state_pid() -> Option<u32> {
+    if let Ok(txt) = std::fs::read_to_string(remote_state_file()) {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&txt) {
+            return v.get("pid").and_then(|x| x.as_u64()).map(|p| p as u32);
+        }
+    }
+    None
+}
+
+fn pid_alive(pid: u32) -> bool {
+    if pid == 0 { return false; }
+    unsafe { libc::kill(pid as i32, 0) == 0 }
+}
+
+/// Tunnel gia' attivo (anche se avviato da una sessione precedente dell'app)?
+fn running_tunnel_from_state() -> Option<String> {
+    let (enabled, _) = load_remote_state();
+    if !enabled { return None; }
+    let pid = load_remote_state_pid();
+    if let Some(p) = pid {
+        if pid_alive(p) {
+            let url = load_remote_state_url();
+            if !url.is_empty() { return Some(url); }
+        }
+    }
+    None
+}
+
 /// Avvia il tunnel: con hostname -> tunnel CON NOME (dominio Cloudflare dell'utente,
 /// link corto e stabile); senza -> quick tunnel (link casuale).
 /// Se serve, fa il login Cloudflare (apre il browser) e crea/instrada il tunnel.
@@ -2308,6 +2356,8 @@ fn tunnel_start_blocking(port: u16, hostname: String) -> Result<String, String> 
         let g = TUNNEL.lock().map_err(|e| e.to_string())?;
         if let Some((_, u)) = g.as_ref() { return Ok(u.clone()); }
     }
+    // tunnel ancora vivo da una sessione precedente (app chiusa/aggiornata/reinstallata)? riusalo
+    if let Some(u) = running_tunnel_from_state() { return Ok(u); }
     let exe = ensure_cloudflared()?;
 
     if hostname.is_empty() {
@@ -2344,8 +2394,11 @@ fn tunnel_start_blocking(port: u16, hostname: String) -> Result<String, String> 
             std::thread::spawn(move || { let mut sink = String::new(); loop { sink.clear(); match br.read_line(&mut sink) { Ok(0) => break, Ok(_) => {} Err(_) => break } } });
         }
         if url.is_empty() { let _ = child.kill(); return Err("URL del tunnel non trovato".into()); }
+        let pid = child.id();
         let mut g = TUNNEL.lock().map_err(|e| e.to_string())?;
         *g = Some((child, url.clone()));
+        drop(g);
+        save_remote_state_full(true, String::new(), url.clone(), Some(pid));
         return Ok(url);
     }
 
@@ -2392,8 +2445,11 @@ fn tunnel_start_blocking(port: u16, hostname: String) -> Result<String, String> 
         std::thread::spawn(move || { let mut sink = String::new(); loop { sink.clear(); match br.read_line(&mut sink) { Ok(0) => break, Ok(_) => {} Err(_) => break } } });
     }
     let url = format!("https://{}", hostname);
+    let pid = child.id();
     let mut g = TUNNEL.lock().map_err(|e| e.to_string())?;
     *g = Some((child, url.clone()));
+    drop(g);
+    save_remote_state_full(true, hostname.clone(), url.clone(), Some(pid));
     Ok(url)
 }
 
@@ -2417,6 +2473,10 @@ fn remote_tunnel_status() -> serde_json::Value {
         if let Some((_, url)) = g.as_ref() {
             return serde_json::json!({ "running": true, "url": url });
         }
+    }
+    // tunnel persistente avviato da una sessione precedente
+    if let Some(u) = running_tunnel_from_state() {
+        return serde_json::json!({ "running": true, "url": u });
     }
     serde_json::json!({ "running": false, "url": "" })
 }
@@ -2659,7 +2719,9 @@ pub fn run() {
     // === WEB APP: se il tunnel era abilitato, riparte da solo all'avvio (in background) ===
     std::thread::spawn(|| {
         let (enabled, hostname) = load_remote_state();
-        if enabled { let _ = tunnel_start_blocking(9182, hostname); }
+        if !enabled { return; }
+        if running_tunnel_from_state().is_some() { return; } // gia' vivo: stesso link
+        let _ = tunnel_start_blocking(9182, hostname);
     });
 
     let app = tauri::Builder::default()
@@ -3242,7 +3304,6 @@ fn quick_chat_register_shortcut(app: &tauri::AppHandle) {
         } else {
           // SHOULD_EXIT (tray quit confermato / modale "Quit App") → kill backend PRIMA di uscire
           kill_backend();
-          tunnel_stop_inner(); // il tunnel non deve restare appeso se l'app si chiude
           let pid_file = if is_expert_mode() {
         format!("{}/.quinki-expert-app.pid", std::env::var("HOME").unwrap_or_default())
     } else {
