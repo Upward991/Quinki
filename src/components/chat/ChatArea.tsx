@@ -939,7 +939,7 @@ export function ChatArea(props: ChatAreaProps) {
                   onChange={e => { setSearchQuery(e.target.value); setCurrentMatch(e.target.value.trim() && hasDateFilter ? 0 : -1) }}
                   onKeyDown={e => { if (e.key === 'Escape') { setSearchOpen(false); setSearchQuery('') } }}
                   style={{ flex: 1, minWidth: 0, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0', margin: '0' }} />
-                <button onClick={() => { if (searchQuery) setSearchQuery(''); else setSearchOpen(false) }}
+                <button onClick={() => setSearchQuery('')}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px', color: 'var(--q-text-secondary)', fontSize: '14px', lineHeight: '1', flexShrink: 0 }}>✕</button>
                 <span style={{ color: matches.length > 0 ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-code)', whiteSpace: 'nowrap', opacity: matches.length > 0 ? 1 : 0.3, flexShrink: 0 }}>{matches.length > 0 ? (currentMatch < 0 ? matches.length : currentMatch + 1) + '/' + matches.length : '0/0'}</span>
                 <div style={{ width: '8px', flexShrink: 0 }} />
@@ -962,6 +962,14 @@ export function ChatArea(props: ChatAreaProps) {
                   style={{ flex: 1, minWidth: 0, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', padding: '0', margin: '0' }} />
                 <button onClick={() => setSearchTime('')} style={{ background: 'none', border: 'none', cursor: searchTime ? 'pointer' : 'default', padding: '8px', color: searchTime ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)', fontSize: '14px', opacity: searchTime ? 1 : 0.3, lineHeight: '1', flexShrink: 0 }}>✕</button>
               </div>
+              <div style={{ height: '8px' }} />
+              <button
+                onClick={() => { setSearchOpen(false); setSearchQuery(''); setSearchDate(''); setSearchTime('') }}
+                onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }}
+                onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
+                style={{ width: '100%', padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>
+                Close
+              </button>
             </div>
           )}
           {/* Composer — flexShrink 0 so it stays visible */}

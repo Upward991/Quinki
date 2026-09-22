@@ -633,7 +633,7 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
         )}
         {/* Menu chat (⋯): apre il modale rename/select/delete. Il long-press sulle righe
             resta libero per il drag & drop (col dito). */}
-        {mob && !isFolder && !renaming && (
+        {mob && !renaming && (
           <span
             onPointerDown={(e: any) => e.stopPropagation()}
             onMouseDown={(e: any) => e.stopPropagation()}
