@@ -1276,7 +1276,7 @@ function CameraCaptureModal({ onClose, onDone }: { onClose: () => void; onDone: 
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             {!isIOS && (
               <CameraRoundBtn onClick={toggleTorch} label="Flash" active={torchOn}>
-                <CameraBoltIcon />
+                <CameraBoltIcon filled={torchOn} />
               </CameraRoundBtn>
             )}
             <CameraRoundBtn onClick={flip} label="Switch camera">
@@ -1337,9 +1337,9 @@ function CameraXIcon() {
   )
 }
 
-function CameraBoltIcon() {
+function CameraBoltIcon({ filled }: { filled?: boolean }) {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M13 2 3 14h7l-1 8 11-14h-7l1-8z" />
     </svg>
   )
