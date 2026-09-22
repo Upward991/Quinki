@@ -19,6 +19,7 @@ export function RemoteAccessSection() {
   const [rotating, setRotating] = useState(false)
   const [confirmAct, setConfirmAct] = useState<null | 'token' | 'link'>(null)
   const [hostname, setHostname] = useState('')
+  const [showAdvanced, setShowAdvanced] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -154,23 +155,25 @@ export function RemoteAccessSection() {
       <div style={{ height: '12px' }} />
       <div style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Secure link</div>
       <div style={{ height: '6px' }} />
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <div style={{ ...urlBox, color: 'var(--q-text)' }}>
-          <input
-            value={hostname}
-            onChange={e => setHostname(e.target.value)}
-            placeholder="optional domain for a permanent link (e.g. quinki.yourdomain.com)"
-            style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-code)' }}
-          />
-        </div>
-      </div>
-      <div style={{ height: '4px' }} />
-      <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>
-        {hostname.trim()
-          ? 'Permanent link on your domain: it never changes, devices stay paired forever (also after updates).'
-          : 'Without a domain the link is random and changes at every restart. A domain gives a permanent link.'}
-      </div>
-      <div style={{ height: '6px' }} />
+      {showAdvanced && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ ...urlBox, color: 'var(--q-text)' }}>
+              <input
+                value={hostname}
+                onChange={e => setHostname(e.target.value)}
+                placeholder="your-domain.com"
+                style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-code)' }}
+              />
+            </div>
+          </div>
+          <div style={{ height: '4px' }} />
+          <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>
+            Advanced: on your own domain the link never changes (not even after a Mac reboot).
+          </div>
+          <div style={{ height: '6px' }} />
+        </>
+      )}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <div style={urlBox}>{status.running && status.url ? status.url : (busy ? 'starting…' : 'not active')}</div>
         {status.running && status.url && (
@@ -209,7 +212,11 @@ export function RemoteAccessSection() {
           {rotating ? '…' : 'Refresh'}
         </button>
       </div>
-      <div style={{ height: '16px' }} />
+      <div style={{ height: '6px' }} />
+      <div onClick={() => setShowAdvanced(v => !v)} style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', cursor: 'pointer', textDecoration: 'underline' }}>
+        {showAdvanced ? 'Hide advanced options' : 'Advanced options'}
+      </div>
+      <div style={{ height: '12px' }} />
       <div style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Paired devices</div>
       <div style={{ height: '6px' }} />
       {devices.length === 0 && (
