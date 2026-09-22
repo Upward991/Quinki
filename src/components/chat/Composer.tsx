@@ -1092,6 +1092,16 @@ function CameraIcon({ size = 18 }: { size?: number }) {
   )
 }
 
+// Diagnostico fotocamera: scrive nel log del Mac (frontend-errors.jsonl) cosi' vedo
+// dal vero cosa risponde il telefono su torch/zoom.
+function reportCam(kind: string, message: string) {
+  try {
+    const call = (globalThis as any).__sidecarCall
+    if (call) { try { call('logFrontendError', { kind, message }) } catch {}; return }
+  } catch {}
+  try { (window as any).__reportFrontendError?.(kind, message) } catch {}
+}
+
 // ── Fotocamera in-app stile nativa: anteprima a tutto schermo, X in alto,
 //    flash + cambio camera in alto a destra, pallino di scatto al centro in basso,
 //    zoom con pinch a due dita. Niente app esterna = niente reload. ──
@@ -1130,6 +1140,7 @@ function CameraCaptureModal({ onClose, onDone }: { onClose: () => void; onDone: 
       const track: any = stream.getVideoTracks()[0]
       const caps = track && track.getCapabilities ? track.getCapabilities() : {}
       zoomCapsRef.current = caps && caps.zoom ? { min: Number(caps.zoom.min) || 1, max: Number(caps.zoom.max) || 1 } : null
+      try { reportCam('camera-caps', JSON.stringify({ ua: String(navigator.userAgent).slice(0, 220), facing: mode, caps, settings: track && track.getSettings ? track.getSettings() : null })) } catch {}
     } catch { zoomCapsRef.current = null }
     setTorchOn(false)
   }
@@ -1149,18 +1160,29 @@ function CameraCaptureModal({ onClose, onDone }: { onClose: () => void; onDone: 
   const applyTorch = async (on: boolean): Promise<boolean> => {
     const track: any = streamRef.current?.getVideoTracks()[0]
     if (!track) return false
+    let advErr = ''
     try {
       await track.applyConstraints({ advanced: [{ torch: on }] })
+      reportCam('camera-torch', JSON.stringify({ on, route: 'advanced', ok: true }))
       return true
-    } catch {}
+    } catch (e: any) { advErr = String(e?.name || e?.message || e) }
+    let basicErr = ''
+    try {
+      await track.applyConstraints({ torch: on } as any)
+      reportCam('camera-torch', JSON.stringify({ on, route: 'basic', ok: true, advErr }))
+      return true
+    } catch (e: any) { basicErr = String(e?.name || e?.message || e) }
+    let icErr = ''
     try {
       const IC: any = (window as any).ImageCapture
-      if (IC) {
+      if (!IC) { icErr = 'ImageCapture missing' } else {
         const ic = new IC(track)
         await ic.setOptions({ fillLightMode: on ? 'torch' : 'off' })
+        reportCam('camera-torch', JSON.stringify({ on, route: 'imagecapture', ok: true, advErr, basicErr }))
         return true
       }
-    } catch {}
+    } catch (e: any) { icErr = String(e?.name || e?.message || e) }
+    reportCam('camera-torch', JSON.stringify({ on, ok: false, advErr, basicErr, icErr }))
     return false
   }
 
