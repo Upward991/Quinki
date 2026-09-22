@@ -55,6 +55,27 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
   const [pendingLhCmd, setPendingLhCmd] = useState<string | null>(null)
   const [focusAdd, setFocusAdd] = useState(false)
   const [pendingModel, setPendingModel] = useState(props.selectedModel)
+  // Altezza REALE disponibile misurata sopra il compositore: il menu non esce MAI
+  // dalla finestra (con o senza tastiera).
+  const rootRef = useRef<HTMLDivElement | null>(null)
+  const [maxH, setMaxH] = useState(0)
+  useEffect(() => {
+    const measure = () => {
+      try {
+        const el = rootRef.current
+        if (!el || !el.parentElement) return
+        setMaxH(Math.max(160, Math.floor(el.parentElement.getBoundingClientRect().top - 16)))
+      } catch {}
+    }
+    measure()
+    try { window.addEventListener('resize', measure) } catch {}
+    let vv: any = null
+    try { vv = (window as any).visualViewport; if (vv) vv.addEventListener('resize', measure) } catch {}
+    return () => {
+      try { window.removeEventListener('resize', measure) } catch {}
+      try { if (vv) vv.removeEventListener('resize', measure) } catch {}
+    }
+  }, [])
   const [pendingThinking, setPendingThinking] = useState(props.thinking)
   const [directories, setDirectories] = useState<string[]>([])
   const [skills, setSkills] = useState<any[]>([])
@@ -295,6 +316,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
 
   return (
     <div
+      ref={rootRef}
       style={{
         position: 'absolute',
         bottom: 'calc(100% + 8px)',
@@ -304,7 +326,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
         backgroundColor: 'var(--q-bg-panel)',
         borderRadius: 'var(--radius-lg)',
         boxShadow: 'var(--shadow-floating)',
-        maxHeight: 'min(640px, calc(100dvh - 130px))',
+        maxHeight: maxH > 0 ? maxH + 'px' : 'min(640px, calc(100dvh - 130px))',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
@@ -345,6 +367,11 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
             onConfirm={confirm}
             onClose={props.onClose}
           />
+            onBack={() => {
+              if (focusConfirm) { setFocusConfirm(false); return }
+              if (mode !== 'main') { setMode('main'); return }
+              try { props.onClose() } catch {}
+            }}
         </>
       )}
 
@@ -658,7 +685,7 @@ function MenuItem({ label, isSelected, isChecked, trailing, onHover, onTap }: {
 
 // ── NavBar: 4 arrows + Cancel + Confirm ──
 function NavBar({ focusConfirm, onUp, onDown, onLeft, onRight, onConfirm, onClose }: {
-  focusConfirm: boolean; onUp: () => void; onDown: () => void; onLeft: () => void; onRight: () => void; onConfirm: () => void; onClose: () => void
+  focusConfirm: boolean; onUp: () => void; onDown: () => void; onLeft: () => void; onRight: () => void; onConfirm: () => void; onClose: () => void; onBack?: () => void
 }) {
   const small = typeof window !== 'undefined' && window.innerWidth <= 600
   // TELEFONO: solo la freccia indietro grande + Cancel + Confirm (Confirm serve!).
@@ -667,7 +694,7 @@ function NavBar({ focusConfirm, onUp, onDown, onLeft, onRight, onConfirm, onClos
     return (
       <div style={{ padding: '8px 16px 10px 16px', display: 'flex', alignItems: 'center', gap: '4px' }}>
         <button
-          onClick={onClose}
+          onClick={() => { if (onBack) onBack(); else onClose() }}
           onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = 'var(--q-text)' }}
           onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-text-secondary)' }}
           style={{ width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', border: 'none', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', cursor: 'pointer', flexShrink: 0, padding: 0 }}>
