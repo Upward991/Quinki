@@ -246,9 +246,10 @@ function serveWebApp(req: any, res: any, url: string): boolean {
   if (!existsSync(full)) return false;
   try { if (!statSync(full).isFile()) return false; } catch { return false; }
   const ext = extname(full).toLowerCase();
-  const isIndex = full.endsWith("index.html") || full.endsWith("sw.js");
+  const isHtml = full.endsWith("index.html");
+  const noStore = isHtml || full.endsWith("sw.js"); // sw.js: mai cache, ma MAI iniettare HTML!
   let body = readFileSync(full);
-  if (isIndex) {
+  if (isHtml) {
     // Payload per il frontend: server WS (stesso host del browser, anche dietro
     // reverse proxy) + ruolo + versione. Il token arrivera' qui (F0.1).
     const proto = String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim();
@@ -262,7 +263,7 @@ function serveWebApp(req: any, res: any, url: string): boolean {
   res.writeHead(200, {
     "Content-Type": WEB_MIME[ext] || "application/octet-stream",
     "Content-Length": body.length,
-    "Cache-Control": isIndex ? "no-store" : "public, max-age=3600",
+    "Cache-Control": noStore ? "no-store" : "public, max-age=3600",
   });
   res.end(req.method === "HEAD" ? undefined : body);
   return true;
