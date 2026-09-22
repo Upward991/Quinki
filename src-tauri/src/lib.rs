@@ -2883,22 +2883,13 @@ pub fn run() {
       ".window-state.json".to_string()
     };
     // === WEB APP: se il tunnel era abilitato, riparte da solo all'avvio (in background) ===
+    // Nota: NON migriamo automaticamente a tsnet. Il passaggio al link stabile
+    // avviene quando l'utente preme Enable/Refresh nel pannello (esplicito),
+    // cosi' il vecchio tunnel resta su fino a che il nuovo e' pronto.
     std::thread::spawn(|| {
         let (enabled, hostname) = load_remote_state();
         if !enabled { return; }
-        if running_tunnel_from_state().is_some() {
-            // Migrazione a tsnet: se disponiamo del nodo embedded ma il link
-            // attivo non e' un .ts.net (vecchio quick tunnel), passiamo al
-            // link stabile una volta sola.
-            if tsnet_bin_path().is_some() {
-                let url = load_remote_state_url();
-                if !url.is_empty() && !url.contains(".ts.net") {
-                    tunnel_stop_inner();
-                    let _ = tunnel_start_blocking(9182, hostname);
-                }
-            }
-            return; // gia' vivo
-        }
+        if running_tunnel_from_state().is_some() { return; } // gia' vivo: stesso link
         let _ = tunnel_start_blocking(9182, hostname);
     });
 
