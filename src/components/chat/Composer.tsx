@@ -867,7 +867,7 @@ function SmallIconBtn({ children }: { children: React.ReactNode }) {
 function SlashBtn({ color, onClick }: { color: string; onClick: () => void }) {
   const [hovered, setHovered] = useState(false)
   return (
-    <button onClick={onClick} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+    <button onPointerDown={(e: any) => { try { e.preventDefault() } catch {} }} onClick={onClick} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
       style={{
         width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
         borderRadius: 'var(--radius-md)',

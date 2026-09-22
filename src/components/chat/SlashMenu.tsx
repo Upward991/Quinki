@@ -465,6 +465,15 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
         else if (pc === 'pause') { title = 'Pause Long Horizon?'; desc = 'If you pause, you will return to the discussion phase. You can discuss changes, then resume the plan.'; actionLabel = 'Pause' }
         return (
           <div style={{ padding: '12px 16px' }}>
+            {typeof window !== 'undefined' && window.innerWidth <= 600 && (
+              <div style={{ padding: '8px 16px 4px 16px', display: 'flex', alignItems: 'center' }}>
+                <button
+                  onClick={() => setMode('main')}
+                  style={{ width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', border: 'none', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', cursor: 'pointer', padding: 0 }}>
+                  <ChevronLeft size={28} />
+                </button>
+              </div>
+            )}
             <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', marginBottom: '6px' }}>{title}</div>
             <div style={{ color: 'var(--q-text-secondary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginBottom: '10px', lineHeight: 1.6 }}>{desc}</div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', padding: '4px 0 10px 0' }}>
@@ -608,6 +617,15 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
       {/* Reset confirm mode */}
       {mode === 'reset_confirm' && (
         <div style={{ padding: '12px 16px' }}>
+            {typeof window !== 'undefined' && window.innerWidth <= 600 && (
+              <div style={{ padding: '8px 16px 4px 16px', display: 'flex', alignItems: 'center' }}>
+                <button
+                  onClick={() => setMode('main')}
+                  style={{ width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', border: 'none', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', cursor: 'pointer', padding: 0 }}>
+                  <ChevronLeft size={28} />
+                </button>
+              </div>
+            )}
           <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', marginBottom: '4px' }}>
             Reset session? All messages will be deleted.
           </div>
@@ -704,7 +722,7 @@ function MenuItem({ label, isSelected, isChecked, trailing, onHover, onTap }: {
 }
 
 // ── NavBar: 4 arrows + Cancel + Confirm ──
-function NavBar({ focusConfirm, onUp, onDown, onLeft, onRight, onConfirm, onClose }: {
+function NavBar({ focusConfirm, onUp, onDown, onLeft, onRight, onConfirm, onClose, onBack }: {
   focusConfirm: boolean; onUp: () => void; onDown: () => void; onLeft: () => void; onRight: () => void; onConfirm: () => void; onClose: () => void; onBack?: () => void
 }) {
   const small = typeof window !== 'undefined' && window.innerWidth <= 600
