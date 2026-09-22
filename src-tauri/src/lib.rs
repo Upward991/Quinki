@@ -2724,6 +2724,44 @@ pub fn run() {
         let _ = tunnel_start_blocking(9182, hostname);
     });
 
+    // === WEB APP: watchdog del tunnel (ogni 60s) ===
+    // Il quick tunnel puo' morire (processo morto) o restare "vivo ma disconnesso":
+    // in entrambi i casi il link diventa irraggiungibile. Qui lo riavviamo da soli.
+    std::thread::spawn(|| {
+        let mut fails = 0u32;
+        loop {
+            std::thread::sleep(std::time::Duration::from_secs(60));
+            let (enabled, hostname) = load_remote_state();
+            if !enabled { fails = 0; continue; }
+            let url = load_remote_state_url();
+            let alive = load_remote_state_pid().map(pid_alive).unwrap_or(false);
+            if !alive {
+                let _ = tunnel_start_blocking(9182, hostname);
+                fails = 0;
+                continue;
+            }
+            // raggiungibilita' dal pubblico (curl; 2xx/3xx/4xx = raggiungibile)
+            let reachable = if url.is_empty() { true } else {
+                std::process::Command::new("curl")
+                    .args(["-s", "-o", "/dev/null", "-m", "12", "-w", "%{http_code}", &url])
+                    .output()
+                    .map(|o| {
+                        let c = String::from_utf8_lossy(&o.stdout).trim().to_string();
+                        c.starts_with('2') || c.starts_with('3') || c.starts_with('4')
+                    })
+                    .unwrap_or(false)
+            };
+            if reachable { fails = 0; continue; }
+            fails += 1;
+            if fails >= 3 {
+                // 3 controlli falliti di fila (3 minuti): riavvia il tunnel
+                tunnel_stop_inner();
+                let _ = tunnel_start_blocking(9182, hostname);
+                fails = 0;
+            }
+        }
+    });
+
     let app = tauri::Builder::default()
     .invoke_handler(tauri::generate_handler![
         remote_tunnel_status,
