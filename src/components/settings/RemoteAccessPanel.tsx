@@ -17,7 +17,8 @@ export function RemoteAccessSection() {
   const [token, setToken] = useState('')
   const [devices, setDevices] = useState<any[]>([])
   const [rotating, setRotating] = useState(false)
-  const [confirmAct, setConfirmAct] = useState<null | 'token' | 'link'>(null)
+  const [confirmAct, setConfirmAct] = useState<null | 'token' | 'link' | 'revoke'>(null)
+  const [revokeId, setRevokeId] = useState('')
   const [hostname, setHostname] = useState('')
   const [showAdvanced, setShowAdvanced] = useState(false)
 
@@ -45,6 +46,10 @@ export function RemoteAccessSection() {
       try {
         const s2: any = await invoke('remote_tunnel_status')
         if (!cancelled && s2) setStatus(prev => (prev.running === !!s2.running && prev.url === String(s2.url || '')) ? prev : { running: !!s2.running, url: String(s2.url || '') })
+      } catch {}
+      try {
+        const d2: any = await invoke('remote_devices_list')
+        if (!cancelled && Array.isArray(d2)) setDevices(prev => JSON.stringify(prev) === JSON.stringify(d2) ? prev : d2)
       } catch {}
     }, 3000)
     return () => { cancelled = true; clearInterval(iv) }
@@ -118,7 +123,10 @@ export function RemoteAccessSection() {
   const refreshDevices = async () => {
     try { const d: any = await invoke('remote_devices_list'); if (Array.isArray(d)) setDevices(d) } catch {}
   }
-  const revoke = async (id: string) => {
+  const doRevoke = async () => {
+    const id = revokeId
+    setConfirmAct(null); setRevokeId('')
+    if (!id) return
     try { await invoke('remote_device_revoke', { id }) } catch {}
     refreshDevices()
   }
@@ -228,7 +236,7 @@ export function RemoteAccessSection() {
             <div style={{ color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</div>
             <div style={{ color: 'var(--q-text-tertiary)', fontSize: '11px', fontFamily: 'var(--font-code)' }}>added {fmtWhen(d.createdAt)} · last seen {fmtWhen(d.lastSeen)}</div>
           </div>
-          <button style={{ ...rowBtn, borderColor: 'var(--q-border)', color: 'var(--q-accent-danger)' }} onClick={() => revoke(d.id)}
+          <button style={{ ...rowBtn, borderColor: 'var(--q-border)', color: 'var(--q-accent-danger)' }} onClick={() => { setRevokeId(d.id); setConfirmAct('revoke') }}
             onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }}
             onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}>
             Revoke
@@ -247,12 +255,14 @@ export function RemoteAccessSection() {
           onClick={(e: any) => { if (e.target === e.currentTarget) setConfirmAct(null) }}>
           <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', padding: '24px', maxWidth: '420px', width: '90%', boxShadow: 'var(--shadow-modal)' }}>
             <div style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '8px' }}>
-              {confirmAct === 'token' ? 'Refresh access token?' : 'Get a new secure link?'}
+              {confirmAct === 'token' ? 'Refresh access token?' : confirmAct === 'revoke' ? 'Revoke this device?' : 'Get a new secure link?'}
             </div>
             <div style={{ color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', lineHeight: 1.5, marginBottom: '16px' }}>
               {confirmAct === 'token'
                 ? 'Old pairing links stop working. Devices already paired keep working.'
-                : 'The secure link changes: open the new pairing link once on the devices you use. Devices already paired keep working.'}
+                : confirmAct === 'revoke'
+                  ? 'This device loses access immediately. You can pair it again with a new pairing link.'
+                  : 'The secure link changes: open the new pairing link once on the devices you use. Devices already paired keep working.'}
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
               <button onClick={() => setConfirmAct(null)}
@@ -261,7 +271,7 @@ export function RemoteAccessSection() {
                 style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>
                 Cancel
               </button>
-              <button onClick={confirmAct === 'token' ? doRotateToken : doRefreshLink}
+              <button onClick={confirmAct === 'token' ? doRotateToken : confirmAct === 'revoke' ? doRevoke : doRefreshLink}
                 onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }}
                 onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }}
                 style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>
