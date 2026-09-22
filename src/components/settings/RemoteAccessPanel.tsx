@@ -236,15 +236,14 @@ export function RemoteAccessSection() {
         <div style={stepTxt}>
           Sign in with Tailscale and authorize this Mac. No account yet? You create it right there, free (Google, GitHub or email).
         </div>
-        {loggedIn ? (
+        <button style={rowBtn} onClick={signIn} {...hoverAccent}>Sign in with Tailscale</button>
+        {loggedIn && (
           <button
             style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)', cursor: 'pointer', flexShrink: 0 }}
             onClick={() => setConfirmAct('logout')}
             {...hoverNeutral}>
             Log out
           </button>
-        ) : (
-          <button style={rowBtn} {...hoverAccent} onClick={signIn}>Sign in with Tailscale</button>
         )}
       </div>
       <div style={stepRow}>
