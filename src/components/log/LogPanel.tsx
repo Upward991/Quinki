@@ -694,11 +694,13 @@ export function LogPanel(props: LogPanelProps) {
         <BottomSheet
           open={filtersSheet}
           onClose={() => setFiltersSheet(false)}
-          items={['error', 'warn', 'ui', ...moreFilters].map((level) => ({
-            label: level,
-            value: activeFilters.has(level) ? 'on' : 'off',
-            onSelect: () => toggleFilter(level),
-          }))}
+          onViewBack={() => setFiltersSheet(false)}
+          items={[]}
+          view={
+            <div style={{ padding: '8px 8px 6px 8px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+              {['error', 'warn', 'ui', ...moreFilters].map((level) => <FilterPill key={level} level={level} />)}
+            </div>
+          }
         />
       )}
       {mob && (
