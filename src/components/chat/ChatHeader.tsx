@@ -655,7 +655,7 @@ export function ChatHeader(props: ChatHeaderProps) {
         <BottomSheet
           open={props.agentDropdownOpen}
           onClose={props.onToggleAgentDropdown}
-          onViewBack={props.onToggleAgentDropdown}
+          onViewBack={() => { props.onToggleAgentDropdown(); setMenuView(null); setMenuOpen(true) }}
           items={[]}
           view={agentPanelBody}
         />
