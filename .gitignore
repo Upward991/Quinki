@@ -76,3 +76,5 @@ sidecar-src/quinki-ws-bridge
 # Repo annidato (market): mai tracciare nel repo principale
 quinki-market/
 dist-web/
+# Build artifact (copiato da build-app.sh)
+src-tauri/resources/sidecar/web/
