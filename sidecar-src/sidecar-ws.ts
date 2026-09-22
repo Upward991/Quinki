@@ -218,6 +218,11 @@ function pairDevice(req: any): string {
   saveDevices(list);
   return token;
 }
+// File pubblici: identità PWA + bundle statico (nessun dato sensibile; la sicurezza
+// resta su pagina app e WebSocket). Chrome li scarica SENZA credenziali durante il
+// controllo di installazione: se rispondono 401 la PWA "cannot be installed".
+const PUBLIC_PATH = /^\/(manifest\.webmanifest|sw\.js|quinki-logo\.png|favicon\.ico|icons\/|assets\/)/;
+
 function pairingPage(): string {
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Quinki — pair this device</title><style>
@@ -300,7 +305,8 @@ const httpServer = http.createServer((req: any, res: any) => {
   }
   // === F0.1: auth per i client remoti (loopback esente) ===
   try {
-    if (!isLoopbackReq(req) && !url.startsWith("/callback")) {
+    const pathOnly = url.split("?")[0];
+    if (!isLoopbackReq(req) && !url.startsWith("/callback") && !PUBLIC_PATH.test(pathOnly)) {
       const t = tokenFromReq(req, url);
       const dev = t ? findDeviceByToken(t) : null;
       const accept = String(req.headers["accept"] || "");
@@ -323,8 +329,15 @@ const httpServer = http.createServer((req: any, res: any) => {
         }
         try { res.setHeader("Set-Cookie", `quinki_token=${encodeURIComponent(dt)}; Path=/; Max-Age=31536000; SameSite=Lax`); } catch {}
       } else {
-        res.writeHead(401, { "Content-Type": "text/html; charset=utf-8" });
-        res.end(pairingPage());
+        // pagina app -> pairing (200: e' un documento valido, il controllo di
+        // installazione non deve fallire; l'accesso ai dati resta protetto dal token)
+        if (isDoc) {
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+          res.end(pairingPage());
+        } else {
+          res.writeHead(401, { "Content-Type": "text/plain; charset=utf-8" });
+          res.end("Unauthorized");
+        }
         return;
       }
     }
