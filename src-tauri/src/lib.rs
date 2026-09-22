@@ -2393,6 +2393,12 @@ fn tunnel_start_tsnet_blocking(bin: String, port: u16) -> Result<String, String>
                         save_remote_state_auth(String::new(), au.clone(), Some(pid2));
                         let _ = tx.send(format!("auth:{}", au));
                     }
+                    "funnel-pending" => {
+                        // Iscritto ma Funnel non ancora acceso: passo 1 completato.
+                        // Riscrivo lo stato senza authUrl (l'account ormai c'e').
+                        save_remote_state_full(true, String::new(), String::new(), Some(pid2));
+                        let _ = tx.send("funnel-pending".to_string());
+                    }
                     "running" => {
                         let u = v.get("url").and_then(|x| x.as_str()).unwrap_or("").to_string();
                         if !u.is_empty() {
@@ -2438,6 +2444,12 @@ fn tunnel_start_tsnet_blocking(bin: String, port: u16) -> Result<String, String>
                     return Ok(u);
                 }
                 if msg.starts_with("auth:") {
+                    let u = String::new();
+                    let mut g = TUNNEL.lock().map_err(|e| e.to_string())?;
+                    *g = Some((child, u.clone()));
+                    return Ok(u);
+                }
+                if msg == "funnel-pending" {
                     let u = String::new();
                     let mut g = TUNNEL.lock().map_err(|e| e.to_string())?;
                     *g = Some((child, u.clone()));
