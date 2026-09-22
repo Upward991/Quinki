@@ -179,8 +179,8 @@ export function HomeView({activePanel, onSelectPanel}: {onSelectPanel: (panel: s
       React.createElement('div',
         {style:{display:'flex', alignItems:'center', justifyContent:'center', gap:'12px', marginBottom:'20px'}},
         React.createElement('img', {src:'/quinki-logo.png', style:{width:'40px', height:'40px'}}),
-        React.createElement('div', {style:{color:'var(--q-text)', fontSize:'22px', fontWeight:700, fontFamily:'var(--font-interface)'}},
-          greeting + ', welcome to Quinki!'
+        React.createElement('div', {style:{color:'var(--q-text)', fontSize: mob ? '20px' : '22px', fontWeight:700, fontFamily:'var(--font-interface)', textAlign:'center'}},
+          mob ? [greeting + ',', React.createElement('br', {key:'br'}), 'welcome to Quinki!'] : greeting + ', welcome to Quinki!'
         )
       ),
       // Ricerca + Market
