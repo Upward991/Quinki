@@ -242,10 +242,6 @@ export function RemoteAccessSection() {
         Use Quinki from your phone or another computer: same sessions, same data as this Mac, while Quinki is running. On the phone, use “Install app” to keep Quinki as a real app with its icon.
       </div>
 
-      {!!err && (
-        <div style={{ marginTop: '8px', padding: '8px 12px', border: '1px solid var(--q-accent-danger)', borderRadius: 'var(--radius-sm)', backgroundColor: 'rgba(255,80,80,0.08)', color: 'var(--q-accent-danger)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>{err}</div>
-      )}
-
       {/* ---------- setup: sempre visibile, mai nascosto ---------- */}
       <div style={{ height: '12px' }} />
       <div style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Setup, one time only (2 steps)</div>
@@ -283,6 +279,9 @@ export function RemoteAccessSection() {
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <button style={rowBtn} onClick={showAccessLink} {...hoverAccent}>Show access link</button>
         <button style={{ ...rowBtn, borderColor: 'var(--q-border)', color: 'var(--q-text-secondary)' }} onClick={openQr} {...hoverNeutral}>QR code</button>
+        {!!err && (
+          <span style={{ color: 'var(--q-accent-danger)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>{err}</span>
+        )}
       </div>
       {(ready || linkShown) && (
         <>
