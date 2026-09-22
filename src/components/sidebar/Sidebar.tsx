@@ -329,19 +329,6 @@ export function Sidebar(props: SidebarProps) {
           >
             <FolderAdd size={20} />
           </button>
-          {mob && props.onCloseSidebar && (
-            <button
-              onClick={() => props.onCloseSidebar?.()}
-              title="Close"
-              style={{
-                width: '40px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer',
-                backgroundColor: 'transparent', color: 'var(--q-text-secondary)', padding: 0, flexShrink: 0,
-              }}
-            >
-              <X size={20} />
-            </button>
-          )}
         </div>
       </div>
 

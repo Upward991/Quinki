@@ -96,7 +96,7 @@ export function ChatHeader(props: ChatHeaderProps) {
   const mob = useLayout().mode === 'mobile'
   const [menuOpen, setMenuOpen] = useState(false)
   const [menuView, setMenuView] = useState<'context' | 'search' | 'export' | 'notify' | null>(null)
-  const [menuStandalone] = useState(false)
+  const [menuStandalone, setMenuStandalone] = useState(false)
   const lastMenuSignal = useRef(0)
   useEffect(() => {
     if (props.menuSignal && props.menuSignal !== lastMenuSignal.current) {
