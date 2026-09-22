@@ -1093,16 +1093,22 @@ function CameraIcon({ size = 18 }: { size?: number }) {
 }
 
 // ── Fotocamera in-app stile nativa: anteprima a tutto schermo, X in alto,
-//    flash + cambio camera in alto a destra, pallino di scatto al centro in basso.
-//    Niente app esterna = niente reload e niente file persi. ──
+//    flash + cambio camera in alto a destra, pallino di scatto al centro in basso,
+//    zoom con pinch a due dita. Niente app esterna = niente reload. ──
 function CameraCaptureModal({ onClose, onDone }: { onClose: () => void; onDone: (blob: Blob, name: string) => void }) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const [error, setError] = useState('')
   const [facing, setFacing] = useState<'environment' | 'user'>('environment')
   const [torchOn, setTorchOn] = useState(false)
-  const [torchSupported, setTorchSupported] = useState(false)
   const [pressed, setPressed] = useState(false)
+  const [zoomLabel, setZoomLabel] = useState('')
+  const zoomRef = useRef(1)
+  const zoomCapsRef = useRef<{ min: number; max: number } | null>(null)
+  const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map())
+  const pinchRef = useRef<{ dist: number; zoom: number } | null>(null)
+  // iOS non espone il torch (Apple): li' il tasto flash non ha senso e non lo mostro
+  const isIOS = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent)
 
   const startStream = async (mode: 'environment' | 'user') => {
     try { streamRef.current?.getTracks().forEach(t => t.stop()) } catch {}
@@ -1115,11 +1121,16 @@ function CameraCaptureModal({ onClose, onDone }: { onClose: () => void; onDone: 
     streamRef.current = stream
     const v = videoRef.current
     if (v) { v.srcObject = stream; v.play().catch(() => {}) }
+    // zoom: se il telefono espone i limiti, il pinch diventa attivo
+    zoomRef.current = 1
+    setZoomLabel('')
+    pinchRef.current = null
+    pointersRef.current.clear()
     try {
       const track: any = stream.getVideoTracks()[0]
       const caps = track && track.getCapabilities ? track.getCapabilities() : {}
-      setTorchSupported(!!(caps && caps.torch))
-    } catch { setTorchSupported(false) }
+      zoomCapsRef.current = caps && caps.zoom ? { min: Number(caps.zoom.min) || 1, max: Number(caps.zoom.max) || 1 } : null
+    } catch { zoomCapsRef.current = null }
     setTorchOn(false)
   }
 
@@ -1135,14 +1146,63 @@ function CameraCaptureModal({ onClose, onDone }: { onClose: () => void; onDone: 
     try { await startStream(next) } catch { setError('Camera not available. Allow camera access for this app and try again.') }
   }
 
+  const applyTorch = async (on: boolean): Promise<boolean> => {
+    const track: any = streamRef.current?.getVideoTracks()[0]
+    if (!track) return false
+    try {
+      await track.applyConstraints({ advanced: [{ torch: on }] })
+      return true
+    } catch {}
+    try {
+      const IC: any = (window as any).ImageCapture
+      if (IC) {
+        const ic = new IC(track)
+        await ic.setOptions({ fillLightMode: on ? 'torch' : 'off' })
+        return true
+      }
+    } catch {}
+    return false
+  }
+
   const toggleTorch = async () => {
+    const on = !torchOn
+    const ok = await applyTorch(on)
+    if (ok) setTorchOn(on)
+  }
+
+  const applyZoom = (z: number) => {
     try {
       const track: any = streamRef.current?.getVideoTracks()[0]
-      if (!track) return
-      const on = !torchOn
-      await track.applyConstraints({ advanced: [{ torch: on }] })
-      setTorchOn(on)
+      track?.applyConstraints({ advanced: [{ zoom: z }] }).catch(() => {})
     } catch {}
+  }
+
+  const onPointerDown = (e: any) => {
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    if (pointersRef.current.size === 2) {
+      const pts = Array.from(pointersRef.current.values())
+      pinchRef.current = { dist: Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y), zoom: zoomRef.current }
+    }
+  }
+
+  const onPointerMove = (e: any) => {
+    if (!pointersRef.current.has(e.pointerId)) return
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    const p = pinchRef.current
+    const caps = zoomCapsRef.current
+    if (!p || !caps || pointersRef.current.size < 2 || p.dist <= 0) return
+    const pts = Array.from(pointersRef.current.values())
+    const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)
+    let z = p.zoom * (dist / p.dist)
+    z = Math.min(caps.max, Math.max(caps.min, z))
+    zoomRef.current = z
+    setZoomLabel(z > 1.02 ? 'x' + (Math.round(z * 10) / 10) : '')
+    applyZoom(z)
+  }
+
+  const endPointer = (e: any) => {
+    pointersRef.current.delete(e.pointerId)
+    if (pointersRef.current.size < 2) pinchRef.current = null
   }
 
   const capture = () => {
@@ -1164,7 +1224,14 @@ function CameraCaptureModal({ onClose, onDone }: { onClose: () => void; onDone: 
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 500, backgroundColor: '#000' }}>
+    <div
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={endPointer}
+      onPointerCancel={endPointer}
+      onPointerLeave={endPointer}
+      style={{ position: 'fixed', inset: 0, zIndex: 500, backgroundColor: '#000', touchAction: 'none' }}
+    >
       {error ? (
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
           <div style={{ color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', textAlign: 'center', maxWidth: '320px', lineHeight: 1.6 }}>{error}</div>
@@ -1185,7 +1252,7 @@ function CameraCaptureModal({ onClose, onDone }: { onClose: () => void; onDone: 
             <CameraXIcon />
           </CameraRoundBtn>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {torchSupported && (
+            {!isIOS && (
               <CameraRoundBtn onClick={toggleTorch} label="Flash" active={torchOn}>
                 <CameraBoltIcon />
               </CameraRoundBtn>
@@ -1195,6 +1262,16 @@ function CameraCaptureModal({ onClose, onDone }: { onClose: () => void; onDone: 
             </CameraRoundBtn>
           </div>
         </div>
+      )}
+
+      {/* Indicatore zoom (compare solo quando ingrandisci col pinch) */}
+      {!error && zoomLabel && (
+        <div style={{
+          position: 'absolute', left: '50%', transform: 'translateX(-50%)',
+          bottom: 'calc(env(safe-area-inset-bottom, 0px) + 128px)',
+          padding: '4px 12px', borderRadius: '999px', backgroundColor: 'rgba(0,0,0,0.55)',
+          color: '#fff', fontSize: '13px', fontFamily: 'var(--font-interface)', fontWeight: 600,
+        }}>{zoomLabel}</div>
       )}
 
       {/* Pallino di scatto, centro in basso */}
