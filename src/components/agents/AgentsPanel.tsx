@@ -822,7 +822,7 @@ export function AgentsPanel(props) {
     ]}),
 
     // Create skill
-    showCreateSkill && React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 210, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: () => setShowCreateSkill(false), children:
+    showCreateSkill && React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 210, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: (e) => { if (e.target === e.currentTarget) setShowCreateSkill(false) }, children:
       React.createElement('div', { style: { backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', animation: 'modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '520px', width: '90%', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }, onClick: e => e.stopPropagation(), children: [
         React.createElement('div', { style: { color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '16px' }, children: 'Create new skill' }),
         React.createElement(CreateSkillForm, { onCreate: doCreateSkill, onCancel: () => setShowCreateSkill(false) })
@@ -936,7 +936,7 @@ export function AgentsPanel(props) {
     ]}),
 
     // Error modal
-    errorModal && React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 210, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: () => setErrorModal(null), children:
+    errorModal && React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 210, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: (e) => { if (e.target === e.currentTarget) setErrorModal(null) }, children:
       React.createElement('div', { style: { backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', animation: 'modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '500px', width: '90%' }, onClick: e => e.stopPropagation(), children: [
         React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }, children: [
           React.createElement('svg', { width: '18', height: '18', viewBox: '0 0 24 24', fill: 'none', stroke: 'var(--q-accent-danger)', strokeWidth: '2', strokeLinecap: 'round', strokeLinejoin: 'round', children: [
@@ -951,7 +951,7 @@ export function AgentsPanel(props) {
         }),
         React.createElement('div', { style: { display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px' }, children: [
           React.createElement('button', { onClick: () => { navigator.clipboard.writeText(errorModal); }, className: 'q-hover-btn', style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', transition: 'none' }, children: [React.createElement(Copy, { size: 16 }), ' Copy'] }),
-          React.createElement('button', { onClick: () => setErrorModal(null), onMouseEnter: e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }, onMouseLeave: e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)' }, children: 'Close' })
+          React.createElement('button', { onClick: (e) => { if (e.target === e.currentTarget) setErrorModal(null) }, onMouseEnter: e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }, onMouseLeave: e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)' }, children: 'Close' })
         ]})
       ]})
     })
@@ -1308,7 +1308,7 @@ export function AddItemsModal({ title, items, initialSelected, onClose, onConfir
     });
   };
 
-  return React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 210, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: onClose, onWheel: (e: any) => e.stopPropagation(), children:
+  return React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 210, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: (e) => { if (e.target === e.currentTarget) onClose() }, onWheel: (e: any) => e.stopPropagation(), children:
     React.createElement('div', { style: { backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', maxWidth: 'min(780px, 92vw)', maxHeight: 'min(85vh, 800px)', width: '92%', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-modal)', animation: 'modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)' }, onClick: e => e.stopPropagation(), children: [
       // Header — NO X (c'è Cancel nel footer), NO separator (31 ago)
       React.createElement('div', { style: { padding: '16px 16px 8px 16px', display: 'flex', alignItems: 'center' }, children: [
@@ -1340,7 +1340,7 @@ export function AddItemsModal({ title, items, initialSelected, onClose, onConfir
         React.createElement('button', { className: 'q-press', onClick: () => setSelected(new Set(filtered.map(i => i.name))), disabled: filtered.length === 0, style: { background: 'none', border: 'none', cursor: filtered.length === 0 ? 'default' : 'pointer', color: filtered.length === 0 ? 'var(--q-text-tertiary)' : 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }, children: 'Select all' }),
         React.createElement('button', { className: 'q-press', onClick: () => setSelected(new Set()), disabled: selected.size === 0, style: { background: 'none', border: 'none', cursor: selected.size === 0 ? 'default' : 'pointer', color: selected.size === 0 ? 'var(--q-text-tertiary)' : 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }, children: 'Deselect' }),
         React.createElement('span', { style: { flex: 1 } }),
-        React.createElement('button', { onClick: onClose, onMouseEnter: e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }, onMouseLeave: e => { e.currentTarget.style.backgroundColor = 'transparent' }, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'Cancel' }),
+        React.createElement('button', { onClick: (e) => { if (e.target === e.currentTarget) onClose() }, onMouseEnter: e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }, onMouseLeave: e => { e.currentTarget.style.backgroundColor = 'transparent' }, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'Cancel' }),
         React.createElement('div', { style: { width: '8px' } }),
         React.createElement('button', { onClick: () => onConfirm([...selected]), disabled: selected.size === 0, onMouseEnter: e => { if (selected.size > 0) { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' } }, onMouseLeave: e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', cursor: selected.size === 0 ? 'default' : 'pointer', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)', opacity: selected.size === 0 ? 0.5 : 1 }, children: [`Add (`, selected.size, `)`] })
       ]})
@@ -1349,7 +1349,7 @@ export function AddItemsModal({ title, items, initialSelected, onClose, onConfir
 }
 
 export function Modal({ onClose, title, children }) {
-  return React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 210, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: onClose, children:
+  return React.createElement('div', { style: { position: 'fixed', inset: 0, zIndex: 210, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: (e) => { if (e.target === e.currentTarget) onClose() }, children:
     React.createElement('div', { style: { backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', animation: 'modalEnter 250ms cubic-bezier(0.16, 1, 0.3, 1)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '420px', width: '90%' }, onClick: e => e.stopPropagation(), children: [
       React.createElement('div', { style: { color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '16px' }, children: title }),
       children
@@ -1520,7 +1520,7 @@ export function McpInstallModal({ onClose, onInstalled }) {
       React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: '11px', fontFamily: 'var(--font-interface)', marginTop: '4px', marginBottom: '12px', lineHeight: 1.4 }, children: 'Args = extra parameters passed to the server when launched. E.g. for the Filesystem server these are the folders it can access.' })
     ]}),
     React.createElement('div', { style: { display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px', marginTop: '4px' }, children: [
-      React.createElement('button', { onClick: onClose, onMouseEnter: e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }, onMouseLeave: e => { e.currentTarget.style.backgroundColor = 'transparent' }, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'Cancel' }),
+      React.createElement('button', { onClick: (e) => { if (e.target === e.currentTarget) onClose() }, onMouseEnter: e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }, onMouseLeave: e => { e.currentTarget.style.backgroundColor = 'transparent' }, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'Cancel' }),
       React.createElement('button', { onClick: doInstall, disabled: busy, onMouseEnter: e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }, onMouseLeave: e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)', opacity: busy ? 0.6 : 1 }, children: busy ? (type === 'package' ? 'Installing...' : 'Adding...') : 'Install' })
     ]})
   ]});

@@ -1,4 +1,5 @@
 import React from 'react'
+import { useLayout } from '../../platform/layout'
 import { useState, useCallback, useEffect } from 'react'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragOverlay } from '@dnd-kit/core'
 import { SortableContext, rectSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
@@ -11,7 +12,8 @@ import { getHomeTabs, saveTabOrder, loadHomeColumns, saveHomeColumns, serializeI
 // A4.1 — Home registry-driven: benvenuto + ricerca + Marketplace + riordino drag&drop
 // Layout: tutto centrato; griglia tab responsive (auto-fill) che si adatta alla larghezza.
 
-export function HomeView({onSelectPanel}: {onSelectPanel: (panel: string) => void}) {
+export function HomeView({activePanel, onSelectPanel}: {onSelectPanel: (panel: string) => void}) {
+  const mob = useLayout().mode === 'mobile'
   const { call: rpcCall, connected } = useSidecarContext()
   const [ctxMenu, setCtxMenu] = useState<{x: number, y: number, card: any} | null>(null)
   const [query, setQuery] = useState('')
@@ -105,7 +107,7 @@ export function HomeView({onSelectPanel}: {onSelectPanel: (panel: string) => voi
   // colonne effettive: AUTO (0) → quante ce ne stanno; altrimenti min(impostate, quante ce ne stanno)
   const cardW = 160, gap = 10
   const maxFit = Math.max(1, Math.floor((winW - 64) / (cardW + gap)))
-  const effColumns = columns === 0 ? maxFit : Math.min(columns, maxFit)
+  const effColumns = mob ? 2 : (columns === 0 ? maxFit : Math.min(columns, maxFit))
 
   const onContext = useCallback((e: React.MouseEvent, card: any) => {
     if (card.id === 'chat' || card.id === 'expert') return
@@ -163,12 +165,12 @@ export function HomeView({onSelectPanel}: {onSelectPanel: (panel: string) => voi
   // ── OPZIONE B CORRETTA: la sezione sta al CENTRO e SALE con le card;
   // quando il blocco riempie l'altezza, si blocca in alto e parte lo scroll ──
   React.createElement('div',
-    {style:{flex:1, minHeight:0, overflowY:'auto', display:'flex', flexDirection:'column', boxSizing:'border-box'}},
+    {style:{flex:1, minHeight:0, overflowY:'auto', overflowX:'hidden', display:'flex', flexDirection:'column', boxSizing:'border-box'}},
     // Spacer superiore (si comprime quando il blocco cresce → la sezione sale)
     React.createElement('div', {style:{flex:1, minHeight:0}}),
     // Sezione superiore: sticky — resta al centro finché c'è spazio, poi si blocca in alto
     React.createElement('div',
-      {style:{flexShrink:0, position:'sticky', top:0, zIndex:10, width:'100%', backgroundColor:'transparent', display:'flex', flexDirection:'column', alignItems:'center', padding:'0 32px 28px 32px', boxSizing:'border-box'}},
+      {style:{flexShrink:0, position:'sticky', top:0, zIndex:10, width:'100%', backgroundColor:'transparent', display:'flex', flexDirection:'column', alignItems:'center', padding: mob ? '0 12px 24px 12px' : '0 32px 28px 32px', boxSizing:'border-box'}},
       // Wrapper con sfondo UI (var(--q-bg), abbinato ai temi): copre benvenuto+searchbox
       // + pochi px sotto. Il padding sotto resta TRASPARENTE (distanza senza tagli).
       React.createElement('div',
@@ -216,13 +218,13 @@ export function HomeView({onSelectPanel}: {onSelectPanel: (panel: string) => voi
     ),
     // Card
     React.createElement('div',
-      {style:{flexShrink:0, padding:'0 32px 56px 32px', boxSizing:'border-box', display:'flex', justifyContent:'center'}},
+      {style:{flexShrink:0, padding: mob ? '0 12px 48px 12px' : '0 32px 56px 32px', boxSizing:'border-box', display:'flex', justifyContent:'center', width:'100%'}},
       React.createElement(DndContext,
         { sensors, collisionDetection: closestCenter, onDragStart: handleDragStart, onDragEnd: handleDragEnd },
         React.createElement(SortableContext,
           { items: filtered.map((t: any) => t.id), strategy: rectSortingStrategy },
           React.createElement('div',
-            {style:{display:'grid', gridTemplateColumns:`repeat(${effColumns}, 160px)`, gap:'10px'}},
+            {style:{display:'grid', gridTemplateColumns: mob ? 'repeat(2, minmax(0, 1fr))' : `repeat(${effColumns}, 160px)`, gap:'10px'}},
             filtered.map((card: any, idx: number) =>
               React.createElement(SortableHomeCard, {
                 key: card.id, card, idx, onSelectPanel, onContext
@@ -308,6 +310,7 @@ function SortableHomeCard({card, idx, onSelectPanel, onContext}: any) {
 }
 
 function HomeCard({card, idx, onSelectPanel, onContext, floating}: any) {
+  const mob = useLayout().mode === 'mobile'
   const [hovered, setHovered] = useState(false)
   const Icon = card.icon
   return React.createElement('button',
@@ -317,7 +320,7 @@ function HomeCard({card, idx, onSelectPanel, onContext, floating}: any) {
       onMouseEnter: () => setHovered(true),
       onMouseLeave: () => setHovered(false),
       style: {
-        width:'160px', height:'110px', backgroundColor:'var(--q-bg-panel)',
+        width: mob ? '100%' : '160px', height:'110px', backgroundColor:'var(--q-bg-panel)',
         borderRadius:'var(--radius-lg)',
         border:`1px solid ${(hovered || floating) ? 'var(--q-border-strong)' : 'var(--q-border)'}`,
         boxShadow: (hovered || floating) ? '0 0 0 1px var(--q-border-strong), 0 0 24px rgba(157, 139, 217, 0.06), inset 0 1px 0 rgba(255,255,255,0.02)' : 'var(--shadow-floating)',

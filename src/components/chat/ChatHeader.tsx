@@ -597,12 +597,12 @@ export function ChatHeader(props: ChatHeaderProps) {
 
 
       {exportOpen && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setExportOpen(false)}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={(e: any) => { if (e.target === e.currentTarget) setExportOpen(false) }}>
           <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', overflow: 'hidden', maxWidth: '380px' }} onClick={e => e.stopPropagation()}>
             <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', padding: '14px 18px' }}>Export chat</div>
             <div style={{ color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', lineHeight: 1.4, padding: '14px 18px' }}>Choose export format:</div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '0 16px 12px 16px' }}>
-              <ExportBtn label="Cancel" color="var(--q-accent-danger)" hoverRgb="217,107,107" onClick={() => setExportOpen(false)} />
+              <ExportBtn label="Cancel" color="var(--q-accent-danger)" hoverRgb="217,107,107" onClick={(e: any) => { if (e.target === e.currentTarget) setExportOpen(false) }} />
               <div style={{ width: '8px', flexShrink: 0 }} />
               <ExportBtn label="Markdown (.md)" color="var(--q-tab-accent)" hoverRgb="181,199,224" onClick={() => {  setExportOpen(false); props.onExport('md') }} />
               <ExportBtn label="HTML (.html)" color="var(--q-tab-accent)" hoverRgb="181,199,224" onClick={() => {  setExportOpen(false); props.onExport('html') }} />
@@ -793,7 +793,7 @@ function AgentPickerModal({ agents, initialSelected, onClose, onAdd, embedded }:
   const filtered = available.filter(a => a.name.toLowerCase().includes(query.toLowerCase()))
   const toggle = (id: string) => setSelected(prev => { const s = new Set(prev); if (s.has(id)) s.delete(id); else s.add(id); return s })
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={(e: any) => { if (e.target === e.currentTarget) onClose() }}>
       <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '500px', maxHeight: '500px', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div style={{ padding: '16px', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
@@ -872,7 +872,7 @@ export function ModelPickerModal({ currentModel, models, onClose, onConfirm, emb
   const fmtCtx = (cw?: number) => { if (!cw || cw === 0) return '—'; if (cw >= 1000000) { const m = Math.round(cw / 100000) / 10; return m % 1 === 0 ? `${m}M` : `${m.toFixed(1)}M` }; if (cw >= 1000) return `${Math.floor(cw / 1000)}K`; return `${cw}` }
 
   return (
-    <div ref={overlayRef} style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+    <div ref={overlayRef} style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={(e: any) => { if (e.target === e.currentTarget) onClose() }}>
       <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '480px', height: '80vh', maxHeight: '500px', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
         <div style={{ padding: '12px 16px', backgroundColor: 'var(--q-bg-panel)', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
           <Cpu size={18} style={{ color: 'var(--q-tab-accent)', flexShrink: 0 }} />
@@ -933,7 +933,7 @@ export function ThinkingPickerModal({ currentThinking, chatThinkingLevel, onClos
   const effectiveLevel = chatThinkingLevel && chatThinkingLevel !== 'off' ? chatThinkingLevel : 'xhigh'
   const options: { value: string | null; label: string }[] = [{ value: null, label: 'Chat default' }, { value: 'on', label: 'On' }, { value: 'off', label: 'Off' }]
   return (
-    <div ref={overlayRef} style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+    <div ref={overlayRef} style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={(e: any) => { if (e.target === e.currentTarget) onClose() }}>
       <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '380px', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
         <div style={{ padding: '12px 16px', backgroundColor: 'var(--q-bg-panel)', display: 'flex', alignItems: 'center' }}>
           <Brain size={18} style={{ color: 'var(--q-tab-accent)', flexShrink: 0 }} />

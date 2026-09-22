@@ -67,7 +67,7 @@ export function BottomSheet({ open, onClose, items, view, onViewBack, onBack, ti
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 100 }}>
-      <div onClick={onClose} style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.55)' }} />
+      <div onClick={(e) => { if (e.target === e.currentTarget) onClose() }} style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.55)' }} />
       <div
         style={{
           position: 'absolute', left: 0, right: 0, bottom: 0,

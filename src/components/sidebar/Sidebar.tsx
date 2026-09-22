@@ -5,7 +5,8 @@ import {
   DragOverlay, useDroppable, useDraggable,
 } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
-import { Folder, FolderOpen, MessageSquare, MessageSquarePlus, FolderAdd, Bell, BellOff, Checklist, X } from '../icons'
+import { Folder, FolderOpen, MessageSquare, MessageSquarePlus, FolderAdd, Bell, BellOff, Checklist } from '../icons'
+import { BottomSheet } from '../chat/BottomSheet'
 import { useLayout } from '../../platform/layout'
 
 interface SidebarProps {
@@ -470,13 +471,22 @@ export function Sidebar(props: SidebarProps) {
           onDeleteSelected={() => { setDelConfirmMulti(true); setContextMenu(null) }}
         />
       )}
-      {notifMenu && (
+      {notifMenu && (mob ? (
+        <BottomSheet
+          open
+          onClose={() => setNotifMenu(null)}
+          items={[
+            { icon: <BellOff size={18} />, label: 'Muted', onSelect: () => { props.onSetNotifyMode && props.onSetNotifyMode(notifMenu.sessionKey, 'none'); setNotifMenu(null) } },
+            { icon: <Bell size={18} />, label: 'All notifications', onSelect: () => { props.onSetNotifyMode && props.onSetNotifyMode(notifMenu.sessionKey, 'all'); setNotifMenu(null) } },
+          ]}
+        />
+      ) : (
         <NotificationMenu
           x={notifMenu.x} y={notifMenu.y} current={notifMenu.mode}
           onClose={() => setNotifMenu(null)}
           onPick={(mode: string) => { props.onSetNotifyMode && props.onSetNotifyMode(notifMenu.sessionKey, mode); setNotifMenu(null) }}
         />
-      )}
+      ))}
 
       {/* Delete confirmation modal */}
       {delConfirm && (
@@ -632,7 +642,7 @@ function NotificationMenu({ x, y, current, onClose, onPick }: any) {
   if (top < pad) top = pad
   return (
     <>
-      <div style={{ position: 'fixed', inset: 0, zIndex: 200 }} onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose() }} />
+      <div style={{ position: 'fixed', inset: 0, zIndex: 200 }} onClick={(e: any) => { if (e.target === e.currentTarget) onClose() }} onContextMenu={(e) => { e.preventDefault(); onClose() }} />
       <div style={{ position: 'fixed', left, top, zIndex: 210, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '4px 0', minWidth: '180px' }}>
         <MenuItem label="Muted" icon={<BellOff size={14} />} onClick={() => onPick('none')} />
         <MenuItem label="All notifications" icon={<Bell size={14} />} onClick={() => onPick('all')} />
@@ -652,7 +662,7 @@ function ContextMenu({ x, y, item, multiSelect, selectedCount, onClose, onRename
   if (top < pad) top = pad
   return (
     <>
-      <div style={{ position: 'fixed', inset: 0, zIndex: 200 }} onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose() }} />
+      <div style={{ position: 'fixed', inset: 0, zIndex: 200 }} onClick={(e: any) => { if (e.target === e.currentTarget) onClose() }} onContextMenu={(e) => { e.preventDefault(); onClose() }} />
       <div style={{
         position: 'fixed', left, top,
         zIndex: 210, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)',

@@ -601,7 +601,7 @@ function SessionFilesModal({ sessionKey, onClose }: { sessionKey: string; onClos
     <button onClick={() => { setTab(t); setEditing(null); setDiff('') }} style={{ padding: '6px 12px', borderRadius: 'var(--radius-sm)', border: 'none', cursor: 'pointer', backgroundColor: tab === t ? 'var(--q-tab-accent)' : 'transparent', color: tab === t ? 'var(--q-bg)' : 'var(--q-text-secondary)', fontSize: 13, fontWeight: tab === t ? 600 : 400, fontFamily: 'var(--font-interface)' }}>{label}</button>
   )
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 300, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 300, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={(e: any) => { if (e.target === e.currentTarget) onClose() }}>
       <div style={{ backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', width: '640px', maxWidth: '92vw', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
         <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 8, borderBottom: '1px solid var(--q-border)', flexShrink: 0 }}>
           <FileText size={16} style={{ color: 'var(--q-tab-accent)' }} />
@@ -666,7 +666,7 @@ function AttachMenu({ view, existingFiles, onPickFiles, onOpenFolder, onShowExis
   onSessionFiles?: () => void
 }) {
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={(e: any) => { if (e.target === e.currentTarget) onClose() }}>
       <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
         {view === 'main' ? (
           <>
