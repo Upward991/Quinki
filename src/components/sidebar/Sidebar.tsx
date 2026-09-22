@@ -5,7 +5,7 @@ import {
   DragOverlay, useDroppable, useDraggable,
 } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
-import { Folder, FolderOpen, MessageSquare, MessageSquarePlus, FolderAdd, Bell, BellOff, Checklist } from '../icons'
+import { Folder, FolderOpen, MessageSquare, MessageSquarePlus, FolderAdd, Bell, BellOff, Checklist, Home } from '../icons'
 import { BottomSheet } from '../chat/BottomSheet'
 import { useLayout } from '../../platform/layout'
 
@@ -24,6 +24,7 @@ interface SidebarProps {
   onMoveSession?: (id: string, folderId: string | null, order: number) => void
   onMoveFolder?: (id: string, parentId: string | null, order: number) => void
   onCloseSidebar?: () => void
+  onGoHome?: () => void
 }
 
 // === Drop zone computation (same as Flutter) ===
@@ -317,6 +318,21 @@ export function Sidebar(props: SidebarProps) {
             <MessageSquarePlus size={20} />
           </button>
           <button
+            onClick={() => { try { props.onGoHome?.() } catch {} }}
+            onMouseEnter={() => setHovered('home')}
+            onMouseLeave={() => setHovered(null)}
+            style={{
+              width: '40px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer',
+              backgroundColor: hovered === 'home' ? 'var(--q-hover)' : 'transparent',
+              color: hovered === 'home' ? 'var(--q-text)' : 'var(--q-text-secondary)',
+              padding: 0,
+            }}
+            title="Home"
+          >
+            <Home size={20} />
+          </button>
+          <button
             onClick={() => { props.onCreateFolder?.(); setFolderFlash(true); setTimeout(() => setFolderFlash(false), 600) }}
             onMouseEnter={() => setHovered('folder')}
             onMouseLeave={() => setHovered(null)}
@@ -471,22 +487,13 @@ export function Sidebar(props: SidebarProps) {
           onDeleteSelected={() => { setDelConfirmMulti(true); setContextMenu(null) }}
         />
       )}
-      {notifMenu && (mob ? (
-        <BottomSheet
-          open
-          onClose={() => setNotifMenu(null)}
-          items={[
-            { icon: <BellOff size={18} />, label: 'Muted', onSelect: () => { props.onSetNotifyMode && props.onSetNotifyMode(notifMenu.sessionKey, 'none'); setNotifMenu(null) } },
-            { icon: <Bell size={18} />, label: 'All notifications', onSelect: () => { props.onSetNotifyMode && props.onSetNotifyMode(notifMenu.sessionKey, 'all'); setNotifMenu(null) } },
-          ]}
-        />
-      ) : (
+      {notifMenu && (
         <NotificationMenu
           x={notifMenu.x} y={notifMenu.y} current={notifMenu.mode}
           onClose={() => setNotifMenu(null)}
           onPick={(mode: string) => { props.onSetNotifyMode && props.onSetNotifyMode(notifMenu.sessionKey, mode); setNotifMenu(null) }}
         />
-      ))}
+      )}
 
       {/* Delete confirmation modal */}
       {delConfirm && (
@@ -609,7 +616,7 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
 
         {/* Unread badge */}
         {item.unread && !isActive && (
-          <span style={{ backgroundColor: '#ffffff', color: '#000000', fontSize: '12px', fontWeight: 600, fontFamily: 'var(--font-interface)', borderRadius: '999px', padding: '4px 8px', minWidth: '18px', textAlign: 'center', flexShrink: 0, lineHeight: '1' }}>
+          <span style={{ backgroundColor: 'var(--q-tab-accent)', color: 'var(--q-bg)', fontSize: '11px', fontWeight: 700, fontFamily: 'var(--font-interface)', borderRadius: '999px', padding: '3px 7px', minWidth: '18px', textAlign: 'center', flexShrink: 0, lineHeight: '1' }}>
             {item.messageCount || 0}
           </span>
         )}

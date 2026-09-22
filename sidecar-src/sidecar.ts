@@ -813,7 +813,22 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   },
 
   // === P3: metodi IPC mancanti (settings/providers/attachments/folders/update/preflight) ===
-  getSettings: async () => getSettings(),
+  getSettings: async () => {
+    const base = getSettings();
+    let clientPrefs: any = null;
+    try { clientPrefs = JSON.parse(fs.readFileSync(path.join(homedir(), '.quinki', 'client-prefs.json'), 'utf8')); } catch {}
+    return { ...(base || {}), clientPrefs };
+  },
+  // Publish delle preferenze visive del desktop (tema + temi installati): la web
+  // app le legge da qui e si vede identica all'app sul Mac.
+  setClientPrefs: async (p) => {
+    try {
+      const dir = path.join(homedir(), '.quinki');
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, 'client-prefs.json'), JSON.stringify(p || {}, null, 2));
+      return { ok: true };
+    } catch { return { ok: false }; }
+  },
   // Publish: legge i file di una tab installata (manifest + bundle + server) dal disco
   readTabPackageFiles: async (p) => {
     try {
