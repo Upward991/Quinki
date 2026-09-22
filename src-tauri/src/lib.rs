@@ -2294,6 +2294,165 @@ fn save_remote_state_full(enabled: bool, hostname: String, url: String, pid: Opt
     let _ = std::fs::write(remote_state_file(), serde_json::to_string_pretty(&st).unwrap_or_default());
 }
 
+/// Stato con link di login Tailscale (primo avvio tsnet, stato "auth-required").
+fn save_remote_state_auth(url: String, auth_url: String, pid: Option<u32>) {
+    let st = serde_json::json!({
+        "enabled": true,
+        "hostname": "",
+        "url": url,
+        "authUrl": auth_url,
+        "pid": pid.map(|p| p as u64),
+    });
+    let _ = std::fs::write(remote_state_file(), serde_json::to_string_pretty(&st).unwrap_or_default());
+}
+
+fn load_remote_state_authurl() -> String {
+    if let Ok(txt) = std::fs::read_to_string(remote_state_file()) {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&txt) {
+            return v.get("authUrl").and_then(|x| x.as_str()).unwrap_or("").to_string();
+        }
+    }
+    String::new()
+}
+
+// ==== Tailscale in userspace (tsnet) ====
+// Nodo Tailscale embedded: nessuna installazione di sistema, nessuna app sul
+// telefono. Il binario e' bundlato nell'app; il link e' stabile per sempre
+// (<nome>.<tailnet>.ts.net) e l'accesso resta protetto dal token di Quinki.
+
+/// Percorso del binario tsnet-tunnel: bundle Resources -> dev -> ~/.quinki/bin.
+fn tsnet_bin_path() -> Option<String> {
+    use std::path::{Path, PathBuf};
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(macos) = exe.parent() {
+            let res: PathBuf = macos.join("../Resources/resources/tsnet-tunnel");
+            if res.exists() { return Some(res.to_string_lossy().to_string()); }
+        }
+    }
+    let dev = Path::new("src-tauri/resources/tsnet-tunnel");
+    if dev.exists() { return Some(dev.to_string_lossy().to_string()); }
+    let home = std::env::var("HOME").unwrap_or_default();
+    let local = format!("{}/.quinki/bin/tsnet-tunnel", home);
+    if Path::new(&local).exists() { return Some(local); }
+    None
+}
+
+/// Nome del nodo (hostname) persistente: generato UNA volta, poi il link resta
+/// identico per sempre. File dedicato per non confonderlo con l'hostname
+/// Cloudflare (dominio opzionale dell'utente).
+fn ts_node_hostname() -> String {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let f = format!("{}/.quinki/ts-node.json", home);
+    if let Ok(txt) = std::fs::read_to_string(&f) {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&txt) {
+            if let Some(h) = v.get("hostname").and_then(|x| x.as_str()) {
+                if !h.is_empty() { return h.to_string(); }
+            }
+        }
+    }
+    let h = format!("quinki-{}", random_hex(6));
+    let _ = std::fs::write(&f, serde_json::json!({ "hostname": h }).to_string());
+    h
+}
+
+/// Avvia il tunnel via nodo tsnet embedded (Funnel su :443).
+/// In attesa di login (primo avvio) salva l'authUrl nello stato e ritorna Ok(""):
+/// il pannello Impostazioni mostra il link per autenticare.
+fn tunnel_start_tsnet_blocking(bin: String, port: u16) -> Result<String, String> {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let hostname = ts_node_hostname();
+    let mut child = std::process::Command::new(&bin)
+        .args([
+            "-hostname", &hostname,
+            "-target", &format!("127.0.0.1:{}", port),
+            "-state-dir", &format!("{}/.quinki/tsnet", home),
+            "-authkey-file", &format!("{}/.quinki/ts-authkey", home),
+        ])
+        .stdout(Stdio::piped()).stderr(Stdio::piped())
+        .spawn().map_err(|e| format!("tsnet-tunnel: {}", e))?;
+    let pid = child.id();
+    let pidf = format!("{}/.quinki/tunnel.pid", home);
+    let _ = std::fs::write(&pidf, pid.to_string());
+
+    // stdout: una riga JSON per evento. Il drain resta attivo per tutta la vita
+    // del processo: quando l'utente completa il login arriva "running" e lo
+    // stato viene aggiornato con il link definitivo (anche a pannello chiuso).
+    let (tx, rx) = std::sync::mpsc::channel::<String>();
+    if let Some(out) = child.stdout.take() {
+        use std::io::{BufRead, BufReader};
+        let pid2 = pid;
+        std::thread::spawn(move || {
+            let br = BufReader::new(out);
+            for line in br.lines() {
+                let Ok(line) = line else { break };
+                let Ok(v) = serde_json::from_str::<serde_json::Value>(&line) else { continue };
+                let st = v.get("status").and_then(|x| x.as_str()).unwrap_or("");
+                match st {
+                    "auth-required" => {
+                        let au = v.get("authUrl").and_then(|x| x.as_str()).unwrap_or("").to_string();
+                        save_remote_state_auth(String::new(), au.clone(), Some(pid2));
+                        let _ = tx.send(format!("auth:{}", au));
+                    }
+                    "running" => {
+                        let u = v.get("url").and_then(|x| x.as_str()).unwrap_or("").to_string();
+                        if !u.is_empty() {
+                            save_remote_state_full(true, String::new(), u.clone(), Some(pid2));
+                            let _ = tx.send(format!("url:{}", u));
+                        }
+                    }
+                    "error" => {
+                        let e = v.get("error").and_then(|x| x.as_str()).unwrap_or("errore tsnet").to_string();
+                        let _ = tx.send(format!("err:{}", e));
+                        break;
+                    }
+                    _ => {}
+                }
+            }
+        });
+    }
+    if let Some(er) = child.stderr.take() {
+        use std::io::{BufRead, BufReader};
+        std::thread::spawn(move || {
+            let br = BufReader::new(er);
+            for _ in br.lines() {}
+        });
+    }
+
+    // Prima risposta utile entro 40s (login interattivo incluso: se serve il
+    // login rispondiamo subito con authUrl, il drain continua in background).
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(40);
+    loop {
+        let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+        if remaining.is_zero() {
+            // ancora "starting": teniamo vivo il processo, stato senza url
+            let mut g = TUNNEL.lock().map_err(|e| e.to_string())?;
+            *g = Some((child, String::new()));
+            return Ok(String::new());
+        }
+        match rx.recv_timeout(remaining) {
+            Ok(msg) => {
+                if let Some(u) = msg.strip_prefix("url:") {
+                    let u = u.to_string();
+                    let mut g = TUNNEL.lock().map_err(|e| e.to_string())?;
+                    *g = Some((child, u.clone()));
+                    return Ok(u);
+                }
+                if msg.starts_with("auth:") {
+                    let u = String::new();
+                    let mut g = TUNNEL.lock().map_err(|e| e.to_string())?;
+                    *g = Some((child, u.clone()));
+                    return Ok(u);
+                }
+                if let Some(e) = msg.strip_prefix("err:") {
+                    let _ = child.kill();
+                    return Err(e.to_string());
+                }
+            }
+            Err(_) => continue,
+        }
+    }
+}
+
 fn save_remote_state(enabled: bool, hostname: String) {
     let url = load_remote_state_url();
     let pid = load_remote_state_pid();
@@ -2335,14 +2494,15 @@ fn pid_alive(pid: u32) -> bool {
 }
 
 /// Tunnel gia' attivo (anche se avviato da una sessione precedente dell'app)?
+/// Con url vuota ma processo vivo = nodo tsnet in attesa di login: vale come
+/// "attivo" per non fare doppi avvii.
 fn running_tunnel_from_state() -> Option<String> {
     let (enabled, _) = load_remote_state();
     if !enabled { return None; }
     let pid = load_remote_state_pid();
     if let Some(p) = pid {
         if pid_alive(p) {
-            let url = load_remote_state_url();
-            if !url.is_empty() { return Some(url); }
+            return Some(load_remote_state_url());
         }
     }
     None
@@ -2358,6 +2518,11 @@ fn tunnel_start_blocking(port: u16, hostname: String) -> Result<String, String> 
     }
     // tunnel ancora vivo da una sessione precedente (app chiusa/aggiornata/reinstallata)? riusalo
     if let Some(u) = running_tunnel_from_state() { return Ok(u); }
+    // Con tsnet attivo il "tunnel con nome" non serve: il nodo embedded gestisce
+    // da solo link stabile + Funnel. Cloudflared resta come fallback.
+    if let Some(bin) = tsnet_bin_path() {
+        return tunnel_start_tsnet_blocking(bin, port);
+    }
     let exe = ensure_cloudflared()?;
 
     if hostname.is_empty() {
@@ -2469,14 +2634,15 @@ fn tunnel_stop_inner() {
 
 #[tauri::command]
 fn remote_tunnel_status() -> serde_json::Value {
+    let auth = load_remote_state_authurl();
     if let Ok(g) = TUNNEL.lock() {
         if let Some((_, url)) = g.as_ref() {
-            return serde_json::json!({ "running": true, "url": url });
+            return serde_json::json!({ "running": !url.is_empty(), "url": url, "authUrl": auth });
         }
     }
     // tunnel persistente avviato da una sessione precedente
     if let Some(u) = running_tunnel_from_state() {
-        return serde_json::json!({ "running": true, "url": u });
+        return serde_json::json!({ "running": true, "url": u, "authUrl": auth });
     }
     serde_json::json!({ "running": false, "url": "" })
 }
@@ -2720,7 +2886,19 @@ pub fn run() {
     std::thread::spawn(|| {
         let (enabled, hostname) = load_remote_state();
         if !enabled { return; }
-        if running_tunnel_from_state().is_some() { return; } // gia' vivo: stesso link
+        if running_tunnel_from_state().is_some() {
+            // Migrazione a tsnet: se disponiamo del nodo embedded ma il link
+            // attivo non e' un .ts.net (vecchio quick tunnel), passiamo al
+            // link stabile una volta sola.
+            if tsnet_bin_path().is_some() {
+                let url = load_remote_state_url();
+                if !url.is_empty() && !url.contains(".ts.net") {
+                    tunnel_stop_inner();
+                    let _ = tunnel_start_blocking(9182, hostname);
+                }
+            }
+            return; // gia' vivo
+        }
         let _ = tunnel_start_blocking(9182, hostname);
     });
 

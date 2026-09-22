@@ -11,4 +11,10 @@ npx vite build -c vite.config.web.ts
 rm -rf src-tauri/resources/sidecar/web && mkdir -p src-tauri/resources/sidecar/web
 cp -R dist-web/. src-tauri/resources/sidecar/web/
 bash scripts/build-sidecar.sh
+# Tunnel stabile (tsnet): nodo Tailscale in userspace dentro l'app.
+# Ricompila se c'e' Go, altrimenti usa il binario gia' compilato.
+if command -v go >/dev/null 2>&1 || [ -x /opt/homebrew/bin/go ]; then
+  ( cd tools/tsnet-tunnel && PATH="/opt/homebrew/bin:$PATH" go build -o tsnet-tunnel . )
+fi
+cp tools/tsnet-tunnel/tsnet-tunnel src-tauri/resources/tsnet-tunnel
 npx tauri build

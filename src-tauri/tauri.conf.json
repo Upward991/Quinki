@@ -180,7 +180,8 @@
       "resources/tcc-check",
       "resources/sidecar/version.txt",
       "resources/sidecar/photon_rs_bg.wasm",
-    "resources/sidecar/web/**/*"
+      "resources/sidecar/web/**/*",
+      "resources/tsnet-tunnel"
     ]
   }
 }

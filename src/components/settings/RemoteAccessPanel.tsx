@@ -10,7 +10,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { Globe } from '../icons'
 
 export function RemoteAccessSection() {
-  const [status, setStatus] = useState<{ running: boolean; url: string }>({ running: false, url: '' })
+  const [status, setStatus] = useState<{ running: boolean; url: string; authUrl?: string }>({ running: false, url: '' })
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [copied, setCopied] = useState('')
@@ -27,7 +27,7 @@ export function RemoteAccessSection() {
     ;(async () => {
       try {
         const s: any = await invoke('remote_tunnel_status')
-        if (!cancelled && s) setStatus({ running: !!s.running, url: String(s.url || '') })
+        if (!cancelled && s) setStatus({ running: !!s.running, url: String(s.url || ''), authUrl: String(s.authUrl || '') })
       } catch {}
       try {
         const t: any = await invoke('get_remote_token')
@@ -45,7 +45,7 @@ export function RemoteAccessSection() {
     const iv = setInterval(async () => {
       try {
         const s2: any = await invoke('remote_tunnel_status')
-        if (!cancelled && s2) setStatus(prev => (prev.running === !!s2.running && prev.url === String(s2.url || '')) ? prev : { running: !!s2.running, url: String(s2.url || '') })
+        if (!cancelled && s2) setStatus(prev => (prev.running === !!s2.running && prev.url === String(s2.url || '') && (prev.authUrl || '') === String(s2.authUrl || '')) ? prev : { running: !!s2.running, url: String(s2.url || ''), authUrl: String(s2.authUrl || '') })
       } catch {}
       try {
         const d2: any = await invoke('remote_devices_list')
@@ -90,7 +90,7 @@ export function RemoteAccessSection() {
     setBusy(true); setErr('')
     try {
       const url: any = await invoke('remote_tunnel_start', { port: 9182, hostname: normHost() })
-      setStatus({ running: true, url: String(url || '') })
+      setStatus({ running: !!url, url: String(url || '') })
     } catch (e: any) {
       setErr(String(e?.message || e))
     }
@@ -101,7 +101,7 @@ export function RemoteAccessSection() {
     setBusy(true); setErr('')
     try {
       await invoke('remote_tunnel_stop')
-      setStatus({ running: false, url: '' })
+      setStatus({ running: false, url: '', authUrl: '' })
     } catch (e: any) {
       setErr(String(e?.message || e))
     }
@@ -140,7 +140,7 @@ export function RemoteAccessSection() {
     try {
       await invoke('remote_tunnel_stop')
       const url: any = await invoke('remote_tunnel_start', { port: 9182, hostname: normHost() })
-      setStatus({ running: true, url: String(url || '') })
+      setStatus({ running: !!url, url: String(url || '') })
     } catch (e: any) { setErr(String(e?.message || e)) }
     setBusy(false)
   }
@@ -161,6 +161,18 @@ export function RemoteAccessSection() {
       </div>
 
       <div style={{ height: '12px' }} />
+      {!!status.authUrl && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', border: '1px solid var(--q-accent-warning)', borderRadius: 'var(--radius-md)', backgroundColor: 'rgba(255,180,80,0.08)' }}>
+            <div style={{ flex: 1, minWidth: 0, color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>
+              <b>One-time sign in needed</b>: open the link, log in with your Tailscale account and this Mac gets its permanent secure link.
+            </div>
+            <button style={rowBtn} onClick={() => { invoke('open_url', { url: status.authUrl }).catch(() => {}) }}>Open</button>
+            <button style={rowBtn} onClick={() => copy(String(status.authUrl || ''), 'auth')}>{copied === 'auth' ? 'Copied' : 'Copy'}</button>
+          </div>
+          <div style={{ height: '12px' }} />
+        </>
+      )}
       <div style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Secure link</div>
       <div style={{ height: '6px' }} />
       {showAdvanced && (

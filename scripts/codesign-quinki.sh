@@ -55,6 +55,12 @@ if [ -d "$SIDECAR_DIR" ]; then
   done
 fi
 
+# 1b) tsnet-tunnel (nodo Tailscale embedded): stesso trattamento del sidecar.
+TSNET_BIN="$APP/Contents/Resources/resources/tsnet-tunnel"
+if [ -f "$TSNET_BIN" ]; then
+  codesign --force --sign "$SIGN_ID" --identifier com.quinki.tsnet "$TSNET_BIN" 2>/dev/null     && echo "[codesign] signed tsnet-tunnel"
+fi
+
 # 2) Sign the bundle itself (identifier comes from Info.plist:
 #    com.quinki.app / com.quinki.app.expert). No hardened runtime on
 #    purpose: the bun-compiled sidecar needs JIT and without
