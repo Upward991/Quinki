@@ -310,6 +310,7 @@ export function Sidebar(props: SidebarProps) {
       {/* Header buttons */}
       <div style={{ padding: '8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {mob && (
           <button
             onClick={() => { try { props.onGoHome?.() } catch {} }}
             onMouseEnter={() => setHovered('home')}
@@ -325,6 +326,7 @@ export function Sidebar(props: SidebarProps) {
           >
             <Home size={20} />
           </button>
+          )}
           <button
             onClick={() => { r(); setNewChatFlash(true); setTimeout(() => setNewChatFlash(false), 600) }}
             onMouseEnter={() => setHovered('newchat')}
@@ -630,7 +632,7 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
         )}
         {/* Menu chat (⋯): apre il modale rename/select/delete. Il long-press sulle righe
             resta libero per il drag & drop (col dito). */}
-        {!isFolder && !renaming && (
+        {mob && !isFolder && !renaming && (
           <span
             onPointerDown={(e: any) => e.stopPropagation()}
             onMouseDown={(e: any) => e.stopPropagation()}

@@ -514,3 +514,12 @@ textarea::-webkit-resizer {
 @supports (height: 100dvh) {
   .h-screen { height: 100dvh; }
 }
+
+
+/* === Android: niente popup di selezione/copia/anteprima link al tocco o long-press ===
+   (il long-press serve al drag&drop e il tocco ai bottoni: il popup del browser rompeva tutto).
+   Input e textarea restano selezionabili. */
+html, body { -webkit-touch-callout: none; }
+body { -webkit-user-select: none; user-select: none; }
+a, img { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; pointer-events: auto; }
+input, textarea, [contenteditable="true"] { -webkit-user-select: text !important; user-select: text !important; -webkit-touch-callout: default !important; }

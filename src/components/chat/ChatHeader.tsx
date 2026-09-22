@@ -727,7 +727,7 @@ export function ChatHeader(props: ChatHeaderProps) {
           { icon: <DataUsage size={18} />, label: 'Context usage', value: ctxValueFull, valueColor: ctxColor, onSelect: () => setMenuView('context') },
           { icon: props.notifyMode === 'none' ? <BellOff size={18} /> : <Bell size={18} />, label: 'Notifications', onSelect: () => setMenuView('notify') },
           { icon: <Download size={18} />, label: 'Export chat', onSelect: () => setMenuView('export') },
-          { icon: <Search size={18} />, label: 'Search messages', onSelect: () => setMenuView('search') },
+          { icon: <Search size={18} />, label: 'Search messages', onSelect: () => { setMenuOpen(false); setMenuView(null); try { window.dispatchEvent(new CustomEvent('quinki-open-search')) } catch {} } },
           { icon: <RefreshCw size={18} />, label: 'Reload chat', onSelect: () => { setMenuOpen(false); props.onReload?.() } },
           { icon: <Paperclip size={18} />, label: 'Attach files', onSelect: () => { setMenuOpen(false); props.onAttachFiles?.() } },
         ]}

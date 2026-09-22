@@ -159,3 +159,17 @@ try {
     window.addEventListener('keydown', kick, { once: true })
   }
 } catch {}
+
+
+// === Android: sul tocco, il long-press su un link apriva "copia URL"/anteprima ===
+// Lo sopprimiamo SOLO sui dispositivi touch (il desktop col tasto destro resta intatto).
+try {
+  if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(pointer: coarse)').matches) {
+    document.addEventListener('contextmenu', function (e: any) {
+      try {
+        const t = e.target
+        if (t && t.closest && t.closest('a')) { e.preventDefault(); e.stopPropagation() }
+      } catch {}
+    }, true)
+  }
+} catch {} // contextmenu-linkguard
