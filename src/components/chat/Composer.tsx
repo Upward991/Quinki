@@ -247,13 +247,12 @@ export function Composer(props: ComposerProps) {
   // apriva l'app fotocamera -> Android ricreava la PWA al ritorno (reload) e il file
   // andava perso. Cosi' resta tutto in pagina: scatto -> stesso upload dei file ->
   // copy_to_attachments -> chip. Zero reload, zero app esterne.
-  const handleCameraPhoto = async (blob: Blob, name: string) => {
-    setCameraOpen(false)
+  const handleCameraFile = async (f: File) => {
     const key = await resolveSessionKey()
     if (!key) return
     setCopyingFile(true)
     try {
-      const r = await fetch('/upload?name=' + encodeURIComponent(name), { method: 'POST', body: blob })
+      const r = await fetch('/upload?name=' + encodeURIComponent(f.name || ('photo-' + Date.now() + '.jpg')), { method: 'POST', body: f })
       const j: any = await r.json().catch(() => null)
       if (j && j.ok && j.path) {
         const result = await invoke('copy_to_attachments', { srcPath: String(j.path), sessionKey: key }) as any
@@ -274,6 +273,49 @@ export function Composer(props: ComposerProps) {
       setCopyingFile(false)
     }
   }
+
+  const handleCameraPhoto = async (blob: Blob, name: string) => {
+    setCameraOpen(false)
+    try { await handleCameraFile(new File([blob], name, { type: 'image/jpeg' })) } catch { await handleCameraFile(blob as any) }
+  }
+
+  // Fotocamera DI SISTEMA: input file nativo con capture -> apre l'app fotocamera del
+  // telefono (flash/zoom/HDR nativi). Il rischio e' il reload della PWA al ritorno:
+  // lascio una spia in localStorage e al prossimo avvio il log mi dice se la foto e'
+  // arrivata o se e' stata persa dal reload.
+  const handleSystemCamera = () => {
+    setAttachMenuOpen(false)
+    try {
+      localStorage.setItem('quinki-camera-pending', String(Date.now()))
+      const inp = document.createElement('input')
+      inp.type = 'file'
+      inp.accept = 'image/*'
+      ;(inp as any).capture = 'environment'
+      inp.style.display = 'none'
+      document.body.appendChild(inp)
+      const done = (f?: File | null) => {
+        try { inp.remove() } catch {}
+        try { localStorage.removeItem('quinki-camera-pending') } catch {}
+        if (f) { reportCam('camera-system', 'file arrived: ' + String(f.name) + ' ' + String(f.size) + ' bytes'); handleCameraFile(f) }
+        else { reportCam('camera-system', 'no file (cancelled or lost)') }
+      }
+      inp.onchange = () => done(inp.files && inp.files[0])
+      try { (inp as any).oncancel = () => done(null) } catch {}
+      inp.click()
+    } catch (e: any) { reportCam('camera-system-err', String(e?.message || e)) }
+  }
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('quinki-camera-pending')
+      if (raw) {
+        const dt = Date.now() - Number(raw || 0)
+        if (dt < 180000) reportCam('camera-system-return', 'reload detected after system camera, no file delivered (dt=' + dt + 'ms)')
+        localStorage.removeItem('quinki-camera-pending')
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleOpenAttachmentsFolder = async () => {
     setAttachMenuOpen(false)
@@ -463,6 +505,7 @@ export function Composer(props: ComposerProps) {
           items={[
             { icon: <Paperclip size={18} />, label: 'Attach new file', onSelect: () => { setAttachMenuOpen(false); handlePickFiles() } },
             { icon: <CameraIcon size={18} />, label: 'Take photo', onSelect: () => { setAttachMenuOpen(false); setCameraOpen(true) } },
+            { icon: <CameraIcon size={18} />, label: 'System camera', onSelect: handleSystemCamera },
             { icon: <Clock size={18} />, label: 'Previously sent', onSelect: () => handleShowExisting() },
             ...(isPhoneWeb() ? [] : [{ icon: <Folder size={18} />, label: 'Open attachments folder', onSelect: () => { setAttachMenuOpen(false); handleOpenAttachmentsFolder() } }]),
             ...((!isPhoneWeb() && props.sessionKey) ? [{ icon: <Folder size={18} />, label: 'Open session files folder', onSelect: async () => { setAttachMenuOpen(false); try { await invoke('open_longhorizon_folder', { sessionKey: props.sessionKey }) } catch (e: any) { console.error('open_longhorizon_folder:', e) } } }] : []),
