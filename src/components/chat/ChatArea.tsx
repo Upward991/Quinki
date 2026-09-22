@@ -9,7 +9,7 @@ import { getContrastColor } from '../../utils/contrast'
 import { MessageBubble } from './MessageBubble'
 import { ChatHeader } from './ChatHeader'
 import { Composer } from './Composer'
-import { ArrowDown, Checklist, ChevronDown, ChevronRight, ChevronUp, Copy, Paperclip, X, Bot } from '../icons'
+import {ArrowDown, Checklist, ChevronDown, ChevronRight, ChevronUp, Copy, Paperclip, X, Bot, Search} from '../icons'
 import { useSidecarContext } from '../shared/AppShell'
 import type { Message, Session, Agent, Provider, ChatMode, ThinkingLevel } from '../../types'
 
@@ -183,6 +183,39 @@ export function ChatArea(props: ChatAreaProps) {
   const [composerH, setComposerH] = useState(0)
   // Mobile: il tasto "Attach files" del menu in alto apre il flusso allegati del Composer
   const [attachSignal, setAttachSignal] = useState(0)
+  // Mobile: ricerca in basso AL POSTO della text box (niente sheet, niente oscuramento)
+  const [searchOpen, setSearchOpen] = useState(false)
+  useEffect(() => {
+    const fn = () => setSearchOpen(true)
+    window.addEventListener('quinki-open-search', fn)
+    return () => window.removeEventListener('quinki-open-search', fn)
+  }, [])
+  // Navigazione fra i match (stessa logica del header, usata dalla barra in basso)
+  const goToMatch = (dir: 'prev' | 'next') => {
+    if (searchQuery.trim()) {
+      if (matches.length === 0) return
+      const start = currentMatch < 0 ? matches.length - 1 : currentMatch
+      const next = dir === 'next' ? (start + 1) % matches.length : (start - 1 + matches.length) % matches.length
+      if (dir === 'next' && next === 0 && start === matches.length - 1) props.onLoadOlder?.()
+      if (dir === 'prev' && next === matches.length - 1 && start === 0) props.onLoadOlder?.()
+      setCurrentMatch(next)
+      const match = matches[next]
+      if (match) {
+        const msgEl = scrollRef.current?.querySelector(`[data-msg-idx="${match.msgIdx}"]`)
+        if (msgEl) msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    } else {
+      if (dateMatchCount === 0) return
+      const start = dateMatchIdx < 0 ? dateMatchCount - 1 : dateMatchIdx
+      const next = dir === 'next' ? (start + 1) % dateMatchCount : (start - 1 + dateMatchCount) % dateMatchCount
+      setDateMatchIdx(next)
+      const mi = dateMatchIndices[next]
+      if (mi !== undefined) {
+        const msgEl = scrollRef.current?.querySelector(`[data-msg-idx="${mi}"]`)
+        if (msgEl) msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    }
+  }
   // Mobile: dal menu allegati, Back torna al menu principale della chat
   const [menuSignal, setMenuSignal] = useState(0)
   // === A2.8: Task Timeline ===
@@ -897,6 +930,25 @@ export function ChatArea(props: ChatAreaProps) {
             {taskStripBar}
           </div>
 
+          {searchOpen && (
+            <div style={{ position: 'fixed', left: '8px', right: '8px', bottom: 'calc(env(safe-area-inset-bottom, 0px) + 8px)', zIndex: 90, backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px' }}>
+              <Search size={16} style={{ color: 'var(--q-text-tertiary)', flexShrink: 0 }} />
+              <input
+                type="text"
+                placeholder="Search in messages..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Escape') { setSearchOpen(false); setSearchQuery('') } }}
+                style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}
+              />
+              <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-code)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                {searchQuery.trim() ? (matches.length > 0 ? matches.length + (matches.length === 1 ? ' match' : ' matches') : '0/0') : ''}
+              </span>
+              <button onClick={() => goToMatch('prev')} style={{ background: 'none', border: 'none', cursor: matches.length ? 'pointer' : 'default', padding: '2px', color: matches.length ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)', opacity: matches.length ? 1 : 0.3, lineHeight: 0, flexShrink: 0, display: 'flex' }}><ChevronUp size={16} /></button>
+              <button onClick={() => goToMatch('next')} style={{ background: 'none', border: 'none', cursor: matches.length ? 'pointer' : 'default', padding: '2px', color: matches.length ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)', opacity: matches.length ? 1 : 0.3, lineHeight: 0, flexShrink: 0, display: 'flex' }}><ChevronDown size={16} /></button>
+              <button onClick={() => { setSearchOpen(false); setSearchQuery('') }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: 'var(--q-text-tertiary)', fontSize: '14px', lineHeight: 1, flexShrink: 0 }}>✕</button>
+            </div>
+          )}
           {/* Composer — flexShrink 0 so it stays visible */}
           <div style={{ paddingTop: '8px', paddingBottom: 'env(safe-area-inset-bottom, 0px)', flexShrink: 0 }}>
             <Composer

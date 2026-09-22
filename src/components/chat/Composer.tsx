@@ -94,7 +94,7 @@ export function Composer(props: ComposerProps) {
   // === Mobile (visione telefono) ===
   // La graffetta esce dalla text box: l'allegato si apre dal menu in alto.
   const mob = useLayout().mode === 'mobile'
-  const lastAttachSignal = useRef(0)
+  const lastAttachSignal = useRef(props.attachSignal || 0)
   useEffect(() => {
     if (props.attachSignal && props.attachSignal !== lastAttachSignal.current) {
       lastAttachSignal.current = props.attachSignal

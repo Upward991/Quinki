@@ -210,13 +210,14 @@ function getVapidKeys(): { publicKey: string; privateKey: string } {
   return keys;
 }
 function sendWebPush(entry: any) {
-  const sk = String(entry?.sessionKey || '');
+  const sk = String(entry?.kind === 'task_complete' ? (entry?.sourceSession?.key || '') : (entry?.sessionKey || ''));
+  // REGOLA (identica al desktop): push SOLO se la chat non e' mutata.
+  // La fonte di verita' e' lo stato di lettura del piBridge (notifyMode).
   try {
-    const mf = path.join(homedir(), '.quinki', 'push-mutes.json');
-    let mutes: Record<string, any> = {};
-    try { mutes = JSON.parse(fs.readFileSync(mf, 'utf8')) || {}; } catch {}
-    if (sk && mutes[sk]) return;
-  } catch {}
+    const st = (piBridge as any)?.getAllReadStates ? (piBridge as any).getAllReadStates() : null;
+    const mode = st && sk ? (st[sk] && st[sk].notifyMode) || 'none' : 'none';
+    if (mode === 'none') return;
+  } catch { return }
   try {
     const sf = path.join(homedir(), '.quinki', 'push-subs.json');
     let subs: any[] = [];
@@ -225,8 +226,8 @@ function sendWebPush(entry: any) {
     const vapid = getVapidKeys();
     webpush.setVapidDetails('mailto:quinki@localhost', vapid.publicKey, vapid.privateKey);
     const payload = JSON.stringify({
-      title: String(entry?.title || 'Quinki'),
-      body: String(entry?.body || ''),
+      title: entry?.kind === 'task_complete' ? 'Task executed' : (sk === '__app_expert__' ? 'App Expert' : 'Quinki'),
+      body: String(entry?.body || entry?.label || 'A response arrived'),
       sessionKey: sk,
     });
     for (const sub of subs) {

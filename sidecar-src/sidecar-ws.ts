@@ -3,7 +3,7 @@ import * as http from "node:http";
 import { spawn } from "node:child_process";
 import { homedir } from "node:os";
 import { join, dirname, extname, normalize } from "node:path";
-import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync, writeFileSync, mkdirSync } from "node:fs";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { EventEmitter } from "node:events";
 // Import STATICO (bundled dal compilatore): il top-level di sidecar.ts è side-effect-free,
@@ -351,9 +351,9 @@ const httpServer = http.createServer((req: any, res: any) => {
     try {
       const q = new URLSearchParams(url.split("?")[1] || "");
       const rawName = (q.get("name") || "file").replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120) || "file";
-      const dir = path.join(process.env.HOME || "/tmp", ".quinki", "web-uploads", Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8));
-      fs.mkdirSync(dir, { recursive: true });
-      const dest = path.join(dir, rawName);
+      const dir = join(process.env.HOME || "/tmp", ".quinki", "web-uploads", Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8));
+      mkdirSync(dir, { recursive: true });
+      const dest = join(dir, rawName);
       const chunks: Buffer[] = [];
       let size = 0;
       let tooBig = false;
@@ -365,7 +365,7 @@ const httpServer = http.createServer((req: any, res: any) => {
       req.on("end", () => {
         if (tooBig) { res.writeHead(413); res.end("too big"); return; }
         try {
-          fs.writeFileSync(dest, Buffer.concat(chunks));
+          writeFileSync(dest, Buffer.concat(chunks));
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ ok: true, path: dest }));
         } catch (e: any) {

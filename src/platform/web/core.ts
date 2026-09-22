@@ -18,7 +18,7 @@ export async function invoke(cmd: string, args?: Any): Promise<Any> {
         const title = String(args?.title || 'Quinki')
         const body = String(args?.body || args?.message || '')
         if ((window as Any).Notification && Notification.permission === 'granted') {
-          const n = new Notification(title, { body })
+          const n = new Notification(title, { body, icon: '/icons/icon-192.png', badge: '/icons/icon-192.png' })
           n.onclick = () => { try { window.focus() } catch {} }
         }
       } catch {}
