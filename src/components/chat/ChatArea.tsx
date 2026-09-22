@@ -190,6 +190,20 @@ export function ChatArea(props: ChatAreaProps) {
     window.addEventListener('quinki-open-search', fn)
     return () => window.removeEventListener('quinki-open-search', fn)
   }, [])
+  // Centratura VERA: su mobile scrollIntoView non centra (keyboard/container).
+  // Calcoliamo lo scroll del container a mano: il match va al centro dello schermo.
+  const scrollMsgIdxToCenter = (mi: number) => {
+    try {
+      const c: any = scrollRef.current
+      if (!c) return
+      const el: any = c.querySelector('[data-msg-idx="' + mi + '"]')
+      if (!el) return
+      const cr = c.getBoundingClientRect()
+      const er = el.getBoundingClientRect()
+      const top = Math.max(0, c.scrollTop + (er.top - cr.top) - (cr.height - er.height) / 2)
+      try { c.scrollTo({ top, behavior: 'smooth' }) } catch { c.scrollTop = top }
+    } catch {}
+  }
   // Navigazione fra i match (stessa logica del header, usata dalla barra in basso)
   const goToMatch = (dir: 'prev' | 'next') => {
     if (searchQuery.trim()) {
@@ -201,8 +215,7 @@ export function ChatArea(props: ChatAreaProps) {
       setCurrentMatch(next)
       const match = matches[next]
       if (match) {
-        const msgEl = scrollRef.current?.querySelector(`[data-msg-idx="${match.msgIdx}"]`)
-        if (msgEl) msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        scrollMsgIdxToCenter(match.msgIdx)
       }
     } else {
       if (dateMatchCount === 0) return
@@ -211,8 +224,7 @@ export function ChatArea(props: ChatAreaProps) {
       setDateMatchIdx(next)
       const mi = dateMatchIndices[next]
       if (mi !== undefined) {
-        const msgEl = scrollRef.current?.querySelector(`[data-msg-idx="${mi}"]`)
-        if (msgEl) msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        scrollMsgIdxToCenter(mi)
       }
     }
   }
@@ -622,15 +634,13 @@ export function ChatArea(props: ChatAreaProps) {
     // Text search: scroll to text match
     if (matches.length > 0 && activeMatchIdx >= 0 && activeMatchIdx < matches.length) {
       const match = matches[activeMatchIdx]
-      const msgEl = scrollRef.current?.querySelector(`[data-msg-idx="${match.msgIdx}"]`)
-      if (msgEl) msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      scrollMsgIdxToCenter(match.msgIdx)
       return
     }
     // Date-only: scroll to first matching message
     if (!searchQuery.trim() && hasDateFilter && dateMatchIndices.length > 0) {
       const mi = dateMatchIndices[Math.min(dateMatchIdx, dateMatchIndices.length - 1)]
-      const msgEl = scrollRef.current?.querySelector(`[data-msg-idx="${mi}"]`)
-      if (msgEl) msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      scrollMsgIdxToCenter(mi)
     }
   }, [searchQuery, searchDate, searchTime, activeMatchIdx, dateFirstMatch, dateMatchIdx])
 
@@ -760,8 +770,7 @@ export function ChatArea(props: ChatAreaProps) {
               setCurrentMatch(next)
               const match = matches[next]
               if (match) {
-                const msgEl = scrollRef.current?.querySelector(`[data-msg-idx="${match.msgIdx}"]`)
-                if (msgEl) msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                scrollMsgIdxToCenter(match.msgIdx)
               }
             } else {
               if (dateMatchCount === 0) return
@@ -770,8 +779,7 @@ export function ChatArea(props: ChatAreaProps) {
               setDateMatchIdx(next)
               const mi = dateMatchIndices[next]
               if (mi !== undefined) {
-                const msgEl = scrollRef.current?.querySelector(`[data-msg-idx="${mi}"]`)
-                if (msgEl) msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                scrollMsgIdxToCenter(mi)
               }
             }
             // Scroll to the matched message
@@ -961,15 +969,16 @@ export function ChatArea(props: ChatAreaProps) {
                   onChange={e => { setSearchTime(e.target.value); setCurrentMatch(-1); setDateMatchIdx(0) }}
                   style={{ flex: 1, minWidth: 0, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', padding: '0', margin: '0' }} />
                 <button onClick={() => setSearchTime('')} style={{ background: 'none', border: 'none', cursor: searchTime ? 'pointer' : 'default', padding: '8px', color: searchTime ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)', fontSize: '14px', opacity: searchTime ? 1 : 0.3, lineHeight: '1', flexShrink: 0 }}>✕</button>
+                <div style={{ width: '8px', flexShrink: 0 }} />
+                <button
+                  onClick={() => { setSearchOpen(false); setSearchQuery(''); setSearchDate(''); setSearchTime('') }}
+                  onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }}
+                  onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
+                  style={{ padding: '5px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', cursor: 'pointer', flexShrink: 0, lineHeight: '1.2' }}>
+                  Close
+                </button>
               </div>
-              <div style={{ height: '8px' }} />
-              <button
-                onClick={() => { setSearchOpen(false); setSearchQuery(''); setSearchDate(''); setSearchTime('') }}
-                onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }}
-                onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
-                style={{ width: '100%', padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>
-                Close
-              </button>
+
             </div>
           )}
           {/* Composer — flexShrink 0 so it stays visible */}
