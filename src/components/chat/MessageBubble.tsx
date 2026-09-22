@@ -4,12 +4,15 @@
 // ============================================================
 
 import React, { useState, useEffect, useRef, memo } from 'react'
+import { createPortal } from 'react-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
 import 'highlight.js/styles/github-dark.css'
 import type { Message, DelegationBlock, ThinkingBlock, ToolCall, ToolResult, CompactionInfo } from '../../types'
-import { Copy, Check, Info, ChevronRight } from '../icons'
+import { Copy, Check, Info, ChevronRight, Bot, Cpu, Brain } from '../icons'
+import { useLayout } from '../../platform/layout'
+import { BottomSheet } from './BottomSheet'
 import { invoke } from '@tauri-apps/api/core'
 
 // Highlight search matches in text
@@ -544,6 +547,7 @@ function Footer({ content, timestamp, agentName, agentModel, thinkingLevel, thin
   content: string; timestamp: string; agentName?: string; agentModel?: string; thinkingLevel?: string; thinkingTranslated?: string; sentEffort?: string; reasoningUsed?: boolean; reasoningTokens?: number; onCopy?: (t: string) => void
 }) {
   const [infoOpen, setInfoOpen] = useState(false)
+  const mob = useLayout().mode === 'mobile'
 
   const displayThinking = (() => {
     // Il livello OSSERVATO: quello che il modello ha usato DAVVERO in questa risposta.
@@ -582,7 +586,7 @@ function Footer({ content, timestamp, agentName, agentModel, thinkingLevel, thin
       </span>
       {(agentName || agentModel || thinkingLevel) && (
         <button
-          onClick={() => setInfoOpen(!infoOpen)}
+          onClick={() => { if (mob) { setInfoOpen(true) } else { setInfoOpen(!infoOpen) } }}
           title="Info"
           onMouseEnter={e => { e.currentTarget.style.color = 'var(--q-text)' }}
           onMouseLeave={e => { e.currentTarget.style.color = 'var(--q-text-tertiary)' }}
@@ -591,7 +595,19 @@ function Footer({ content, timestamp, agentName, agentModel, thinkingLevel, thin
           <Info size={16} />
         </button>
       )}
-      {infoOpen && infoParts.length > 0 && (
+      {mob && createPortal(
+        <BottomSheet
+          open={infoOpen}
+          onClose={() => setInfoOpen(false)}
+          items={[
+            ...(agentName ? [{ icon: <Bot size={18} />, label: 'Agent', value: String(agentName), onSelect: () => setInfoOpen(false) }] : []),
+            ...(agentModel ? [{ icon: <Cpu size={18} />, label: 'Model', value: String(agentModel), onSelect: () => setInfoOpen(false) }] : []),
+            ...((thinkingLevel || sentEffort || reasoningUsed !== undefined) ? [{ icon: <Brain size={18} />, label: 'Thinking', value: displayThinking, onSelect: () => setInfoOpen(false) }] : []),
+          ]}
+        />,
+        document.body
+      )}
+      {!mob && infoOpen && infoParts.length > 0 && (
         <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', lineHeight: '16px', display: 'flex', alignItems: 'center' }}>
           {infoParts.join(' · ')}
         </span>

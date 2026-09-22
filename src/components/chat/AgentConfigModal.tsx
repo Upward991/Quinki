@@ -153,7 +153,7 @@ export function AgentConfigModal({ agentId, agents = [], onClose }: { agentId: s
   return (
     <>
       {/* Modal overlay */}
-      <div style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: mob ? 'stretch' : 'center', justifyContent: 'center' }} onClick={onClose}>
+      <div style={{ position: 'fixed', inset: 0, zIndex: mob ? 900 : 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: mob ? 'stretch' : 'center', justifyContent: 'center' }} onClick={onClose}>
         {/* Modal container */}
         <div style={mob ? { backgroundColor: 'var(--q-bg-panel)', borderRadius: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' } : { backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '700px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-modal)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
           {/* Header */}
@@ -222,7 +222,7 @@ export function AgentConfigModal({ agentId, agents = [], onClose }: { agentId: s
       )}
 
       {addFileAgent && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 210, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setAddFileAgent(null)}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: mob ? 950 : 210, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setAddFileAgent(null)}>
           <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '400px', width: '90%' }} onClick={e => e.stopPropagation()}>
             <div style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', marginBottom: '12px' }}>New file</div>
             <input type="text" placeholder="file.txt" autoFocus onKeyDown={(e) => { if (e.key === 'Enter') { const v = (e.target as HTMLInputElement).value.trim(); if (v) doCreateFile(addFileAgent, v) } }} style={{ width: '100%', padding: '8px 12px', backgroundColor: 'var(--q-bg)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-md)', outline: 'none', marginBottom: '16px' }} />

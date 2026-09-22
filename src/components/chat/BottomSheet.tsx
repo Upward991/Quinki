@@ -36,7 +36,7 @@ export function SheetRow({ icon, label, value, onClick }: {
         ? <span style={{ color: 'var(--q-text-secondary)', display: 'flex', flexShrink: 0 }}>{icon}</span>
         : <span style={{ width: '20px', flexShrink: 0 }} />}
       <span style={{ flex: 1, minWidth: 0, color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
-      {value && <span style={{ color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-code)', flexShrink: 0, whiteSpace: 'nowrap' }}>{value}</span>}
+      {value && <span style={{ color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-code)', flexShrink: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'right', maxWidth: '58%' }}>{value}</span>}
     </div>
   )
 }
@@ -67,18 +67,6 @@ export function BottomSheet({ open, onClose, items, view, onViewBack, onBack, ti
     <div style={{ position: 'fixed', inset: 0, zIndex: 500 }}>
       <div onClick={onClose} style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.55)' }} />
       <div
-        onTouchStart={e => { startY.current = e.touches[0].clientY }}
-        onTouchMove={e => {
-          if (startY.current == null) return
-          const dy = e.touches[0].clientY - startY.current
-          if (dy > 0) setDragY(dy)
-        }}
-        onTouchEnd={e => {
-          const dy = e.changedTouches[0].clientY - (startY.current || 0)
-          startY.current = null
-          setDragY(0)
-          if (dy > 80) onClose()
-        }}
         style={{
           position: 'absolute', left: 0, right: 0, bottom: 0,
           backgroundColor: 'var(--q-bg-panel)',
@@ -89,7 +77,23 @@ export function BottomSheet({ open, onClose, items, view, onViewBack, onBack, ti
           display: 'flex', flexDirection: 'column', maxHeight: '100dvh', transition: 'none',
         }}
       >
-        <div style={{ width: '40px', height: '4px', borderRadius: '2px', backgroundColor: 'rgba(255,255,255,0.13)', margin: '8px auto 8px auto', flexShrink: 0 }} />
+        <div
+          onTouchStart={e => { startY.current = e.touches[0].clientY }}
+          onTouchMove={e => {
+            if (startY.current == null) return
+            const dy = e.touches[0].clientY - startY.current
+            if (dy > 0) setDragY(dy)
+          }}
+          onTouchEnd={e => {
+            const dy = e.changedTouches[0].clientY - (startY.current || 0)
+            startY.current = null
+            setDragY(0)
+            if (dy > 70) onClose()
+          }}
+          style={{ padding: '10px 0 6px 0', flexShrink: 0, touchAction: 'none' }}
+        >
+          <div style={{ width: '40px', height: '4px', borderRadius: '2px', backgroundColor: 'rgba(255,255,255,0.13)', margin: '0 auto' }} />
+        </div>
         {title && (
           <div style={{ color: 'var(--q-text-tertiary)', fontSize: '10px', fontWeight: 600, letterSpacing: '0.8px', fontFamily: 'var(--font-code)', textAlign: 'center', marginBottom: '4px', flexShrink: 0 }}>{title}</div>
         )}
@@ -101,7 +105,6 @@ export function BottomSheet({ open, onClose, items, view, onViewBack, onBack, ti
             {items.map((it, i) => (
               <div
                 key={it.label}
-                onClick={() => activate(i)}
                 onMouseEnter={() => setSel(i)}
                 style={{ backgroundColor: sel === i ? 'rgba(255,255,255,0.06)' : 'transparent', borderRadius: 'var(--radius-md)', transition: 'none' }}
               >
@@ -144,13 +147,13 @@ function ArrowBtn({ icon: Icon, onClick }: { icon: React.FC<{ size?: number; sty
       onMouseLeave={() => setHovered(false)}
       onTouchStart={flash}
       style={{
-        padding: '8px', border: 'none', cursor: 'pointer', borderRadius: 'var(--radius-sm)',
+        padding: '6px', border: 'none', cursor: 'pointer', borderRadius: 'var(--radius-sm)',
         backgroundColor: hovered ? 'rgba(255,255,255,0.06)' : 'transparent',
         color: hovered ? 'var(--q-text)' : 'var(--q-text-secondary)',
         display: 'flex', alignItems: 'center', transition: 'none',
       }}
     >
-      <Icon size={16} />
+      <Icon size={14} />
     </button>
   )
 }
@@ -173,11 +176,11 @@ function NavTextBtn({ label, danger, accent, onClick }: { label: string; danger?
       onMouseLeave={() => setHovered(false)}
       onTouchStart={flash}
       style={{
-        padding: '10px 18px', borderRadius: 'var(--radius-sm)', cursor: 'pointer',
+        padding: '7px 14px', borderRadius: 'var(--radius-sm)', cursor: 'pointer',
         border: `1px solid ${accent ? 'var(--q-tab-accent)' : 'var(--q-border)'}`,
         backgroundColor: hovered ? (accent ? 'var(--q-tab-accent)' : 'rgba(255,255,255,0.06)') : 'transparent',
         color: hovered ? hoverText : textColor,
-        fontSize: '14px', fontFamily: 'var(--font-interface)', fontWeight: accent ? 600 : 400, transition: 'none',
+        fontSize: '13px', fontFamily: 'var(--font-interface)', fontWeight: accent ? 600 : 400, transition: 'none',
       }}
     >
       {label}

@@ -96,6 +96,7 @@ export function ChatHeader(props: ChatHeaderProps) {
   const mob = useLayout().mode === 'mobile'
   const [menuOpen, setMenuOpen] = useState(false)
   const [menuView, setMenuView] = useState<'context' | 'search' | 'export' | 'notify' | null>(null)
+  const [menuStandalone, setMenuStandalone] = useState(false)
   const lastMenuSignal = useRef(0)
   useEffect(() => {
     if (props.menuSignal && props.menuSignal !== lastMenuSignal.current) {
@@ -288,7 +289,7 @@ export function ChatHeader(props: ChatHeaderProps) {
               <button
                 ref={bellRef}
                 onClick={() => {
-                  if (mob) { setMenuView('notify'); setMenuOpen(true); return }
+                  if (mob) { setMenuStandalone(true); setMenuView('notify'); setMenuOpen(true); return }
                   if (notifMenuOpen) { setNotifMenuOpen(false); return }
                   const rect = bellRef.current?.getBoundingClientRect()
                   const mw = 190, mh = 150, pad = 8
@@ -567,7 +568,7 @@ export function ChatHeader(props: ChatHeaderProps) {
           {mob && (
             <>
               <div style={{ width: '8px', flexShrink: 0 }} />
-              <IconBtn icon={Menu} onClick={() => { setMenuView(null); setMenuOpen(true) }} title="Menu" />
+              <IconBtn icon={Menu} onClick={() => { setMenuStandalone(false); setMenuView(null); setMenuOpen(true) }} title="Menu" />
             </>
           )}
         </div>
@@ -578,7 +579,7 @@ export function ChatHeader(props: ChatHeaderProps) {
           <div style={{ position: 'relative' }}>
             <IconBtn icon={Bot} onClick={props.onToggleAgentDropdown} title="Show agents" />
             {props.agentDropdownOpen && (mob ? (
-          <BottomSheet open onClose={props.onToggleAgentDropdown} onViewBack={() => {}} items={[]} view={agentPanelBody} />
+          <BottomSheet open onClose={props.onToggleAgentDropdown} onViewBack={props.onToggleAgentDropdown} items={[]} view={agentPanelBody} />
         ) : (
               <>
                 <div style={overlayStyle} onClick={() => { props.onToggleAgentDropdown(); setMultiSelect(false); setSelectedForRemoval(new Set()) }} />
@@ -651,8 +652,8 @@ export function ChatHeader(props: ChatHeaderProps) {
       {/* Mobile chat menu — bottom sheet (contesto, export, ricerca, ricarica, sidebar, allegati) */}
       <BottomSheet
         open={menuOpen}
-        onClose={() => { setMenuOpen(false); setMenuView(null) }}
-        onViewBack={() => setMenuView(null)}
+        onClose={() => { setMenuOpen(false); setMenuView(null); setMenuStandalone(false) }}
+        onViewBack={() => { if (menuStandalone) { setMenuOpen(false); setMenuView(null); setMenuStandalone(false) } else { setMenuView(null) } }}
         view={menuView === 'context' ? (
           <div style={{ padding: '0 8px 8px 8px' }}>
             <div style={{ textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: '10px', fontWeight: 600, letterSpacing: '0.8px', fontFamily: 'var(--font-code)', marginBottom: '6px' }}>CONTEXT</div>
@@ -764,11 +765,12 @@ function IconBtn({ icon: Icon, onClick, title, activeBg }: { icon: React.FC<{ si
 
 
 // ── Agent picker modal — fedele a _AgentPickerDialog Flutter: header, search, checkbox, footer ──
-function AgentPickerModal({ agents, initialSelected, onClose, onAdd }: {
+function AgentPickerModal({ agents, initialSelected, onClose, onAdd, embedded }: {
   agents: Agent[]
   initialSelected?: string[]
   onClose: () => void
   onAdd: (ids: string[]) => void
+  embedded?: boolean
 }) {
   const mob = useLayout().mode === 'mobile'
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -778,8 +780,8 @@ function AgentPickerModal({ agents, initialSelected, onClose, onAdd }: {
   const filtered = available.filter(a => a.name.toLowerCase().includes(query.toLowerCase()))
   const toggle = (id: string) => setSelected(prev => { const s = new Set(prev); if (s.has(id)) s.delete(id); else s.add(id); return s })
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: mob ? 'stretch' : 'center', justifyContent: 'center' }} onClick={onClose}>
-      <div style={mob ? { backgroundColor: 'var(--q-bg-panel)', borderRadius: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' } : { backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '500px', maxHeight: '500px', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+    <div style={embedded ? { display: 'flex', flexDirection: 'column' } : { position: 'fixed', inset: 0, zIndex: mob ? 900 : 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: mob ? 'stretch' : 'center', justifyContent: 'center' }} onClick={onClose}>
+      <div style={embedded ? { backgroundColor: 'transparent', width: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' } : mob ? { backgroundColor: 'var(--q-bg-panel)', borderRadius: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' } : { backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '500px', maxHeight: '500px', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div style={{ padding: '16px', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
           <span style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', flex: 1 }}>Add agents to chat</span>
@@ -832,11 +834,12 @@ function AgentPickerModal({ agents, initialSelected, onClose, onAdd }: {
 }
 
 // ── Model picker modal — exact Flutter _ModelPickerDialog copy ──
-export function ModelPickerModal({ currentModel, models, onClose, onConfirm }: {
+export function ModelPickerModal({ currentModel, models, onClose, onConfirm, embedded }: {
   currentModel: string
   models: { id: string; name: string; contextWindow?: number; provider: string }[]
   onClose: () => void
   onConfirm: (model: string | null) => void
+  embedded?: boolean
 }) {
   const mob = useLayout().mode === 'mobile'
   const [search, setSearch] = useState('')
@@ -856,8 +859,8 @@ export function ModelPickerModal({ currentModel, models, onClose, onConfirm }: {
   const fmtCtx = (cw?: number) => { if (!cw || cw === 0) return '—'; if (cw >= 1000000) { const m = Math.round(cw / 100000) / 10; return m % 1 === 0 ? `${m}M` : `${m.toFixed(1)}M` }; if (cw >= 1000) return `${Math.floor(cw / 1000)}K`; return `${cw}` }
 
   return (
-    <div ref={overlayRef} style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: mob ? 'stretch' : 'center', justifyContent: 'center' }} onClick={onClose}>
-      <div style={mob ? { backgroundColor: 'var(--q-bg-panel)', borderRadius: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' } : { backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '480px', height: '80vh', maxHeight: '500px', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+    <div ref={overlayRef} style={embedded ? { display: 'flex', flexDirection: 'column' } : { position: 'fixed', inset: 0, zIndex: mob ? 900 : 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: mob ? 'stretch' : 'center', justifyContent: 'center' }} onClick={onClose}>
+      <div style={embedded ? { backgroundColor: 'transparent', width: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' } : mob ? { backgroundColor: 'var(--q-bg-panel)', borderRadius: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' } : { backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '480px', height: '80vh', maxHeight: '500px', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
         <div style={{ padding: '12px 16px', backgroundColor: 'var(--q-bg-panel)', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
           <Cpu size={18} style={{ color: 'var(--q-tab-accent)', flexShrink: 0 }} />
           <div style={{ width: '8px', flexShrink: 0 }} />
@@ -903,7 +906,7 @@ export function ModelPickerModal({ currentModel, models, onClose, onConfirm }: {
 }
 
 // ── Thinking picker modal — exact Flutter _ThinkingPickerDialog copy ──
-export function ThinkingPickerModal({ currentThinking, chatThinkingLevel, onClose, onConfirm }: { currentThinking: string; chatThinkingLevel: string; onClose: () => void; onConfirm: (level: string | null) => void }) {
+export function ThinkingPickerModal({ currentThinking, chatThinkingLevel, onClose, onConfirm, embedded }: { currentThinking: string; chatThinkingLevel: string; onClose: () => void; onConfirm: (level: string | null) => void; embedded?: boolean }) {
   const mob = useLayout().mode === 'mobile'
   const [selected, setSelected] = useState<string | null>(currentThinking || null)
   const overlayRef = useRef<HTMLDivElement>(null)
@@ -917,8 +920,8 @@ export function ThinkingPickerModal({ currentThinking, chatThinkingLevel, onClos
   const effectiveLevel = chatThinkingLevel && chatThinkingLevel !== 'off' ? chatThinkingLevel : 'xhigh'
   const options: { value: string | null; label: string }[] = [{ value: null, label: 'Chat default' }, { value: 'on', label: 'On' }, { value: 'off', label: 'Off' }]
   return (
-    <div ref={overlayRef} style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: mob ? 'stretch' : 'center', justifyContent: 'center' }} onClick={onClose}>
-      <div style={mob ? { backgroundColor: 'var(--q-bg-panel)', borderRadius: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' } : { backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '380px', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+    <div ref={overlayRef} style={embedded ? { display: 'flex', flexDirection: 'column' } : { position: 'fixed', inset: 0, zIndex: mob ? 900 : 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: mob ? 'stretch' : 'center', justifyContent: 'center' }} onClick={onClose}>
+      <div style={embedded ? { backgroundColor: 'transparent', width: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' } : mob ? { backgroundColor: 'var(--q-bg-panel)', borderRadius: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' } : { backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '380px', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
         <div style={{ padding: '12px 16px', backgroundColor: 'var(--q-bg-panel)', display: 'flex', alignItems: 'center' }}>
           <Brain size={18} style={{ color: 'var(--q-tab-accent)', flexShrink: 0 }} />
           <div style={{ width: '8px', flexShrink: 0 }} />

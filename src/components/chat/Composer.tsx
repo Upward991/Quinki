@@ -323,8 +323,9 @@ export function Composer(props: ComposerProps) {
   const total = props.contextTokens + typedTokens
   const pct = props.contextWindow > 0 ? (total / props.contextWindow) * 100 : 0
   const counterColor = pct >= 80 ? 'var(--q-accent-danger)' : pct >= 50 ? 'var(--q-accent-warning)' : 'var(--q-text-tertiary)'
+  // Mobile: solo la percentuale intera (la text box deve restare libera per le status pill)
   const counterText = props.contextWindow > 0
-    ? `${fmt(total)}/${fmt(props.contextWindow)} (${Math.floor(pct)}% ± ${Math.ceil(pct * 0.05 + 1)}%)`
+    ? (mob ? `${Math.floor(pct)}%` : `${fmt(total)}/${fmt(props.contextWindow)} (${Math.floor(pct)}% ± ${Math.ceil(pct * 0.05 + 1)}%)`)
     : `${fmt(total)} tokens`
 
   return (
