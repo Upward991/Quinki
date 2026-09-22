@@ -224,7 +224,7 @@ export function HomeView({activePanel, onSelectPanel}: {onSelectPanel: (panel: s
         React.createElement(SortableContext,
           { items: filtered.map((t: any) => t.id), strategy: rectSortingStrategy },
           React.createElement('div',
-            {style:{display:'grid', gridTemplateColumns: mob ? 'repeat(2, minmax(0, 1fr))' : `repeat(${effColumns}, 160px)`, gap:'10px'}},
+            {style:{display:'grid', width:'100%', gridTemplateColumns: mob ? 'repeat(2, minmax(0, 1fr))' : `repeat(${effColumns}, 160px)`, gap:'10px', boxSizing:'border-box'}},
             filtered.map((card: any, idx: number) =>
               React.createElement(SortableHomeCard, {
                 key: card.id, card, idx, onSelectPanel, onContext

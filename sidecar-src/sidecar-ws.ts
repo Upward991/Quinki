@@ -119,7 +119,7 @@ function serveWebApp(req: any, res: any, url: string): boolean {
   if (!existsSync(full)) return false;
   try { if (!statSync(full).isFile()) return false; } catch { return false; }
   const ext = extname(full).toLowerCase();
-  const isIndex = full.endsWith("index.html");
+  const isIndex = full.endsWith("index.html") || full.endsWith("sw.js");
   let body = readFileSync(full);
   if (isIndex) {
     // Payload per il frontend: server WS (stesso host del browser, anche dietro

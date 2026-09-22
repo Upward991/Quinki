@@ -133,6 +133,15 @@ document.addEventListener('contextmenu', (e) => {
     _ctxEl = menu
 }, { capture: true })
 
+// === PWA (web app): service worker per l'installazione come app vera su Android/desktop.
+// Solo in modalita' web (mai nella app Tauri) e solo su contesti http/https.
+try {
+  const isTauri = !!(globalThis as any).__TAURI_INTERNALS__
+  if (!isTauri && typeof navigator !== 'undefined' && 'serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+    window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => {}) })
+  }
+} catch {}
+
 console.log('About to render App')
 createRoot(document.getElementById('root')!).render(
   React.createElement(ErrorBoundary, null, React.createElement(App))
