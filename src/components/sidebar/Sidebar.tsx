@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import {
-  DndContext, closestCenter, rectIntersection, pointerWithin, PointerSensor, TouchSensor, useSensor, useSensors,
+  DndContext, closestCenter, rectIntersection, pointerWithin, MouseSensor, TouchSensor, useSensor, useSensors,
   DragOverlay, useDroppable, useDraggable,
 } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
@@ -120,7 +120,14 @@ export function Sidebar(props: SidebarProps) {
 
   const dragRef = useRef<any>(null)
   const [activeDragItem, setActiveDragItem] = useState<any>(null)
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }), useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }))
+  // MouseSensor (solo mouse) + TouchSensor (solo dito, long-press 250ms):
+  // con il PointerSensor il touch veniva intercettato subito e lo scroll
+  // rubava il gesto, uccidendo il drag. Cosi' invece: swipe veloce = scroll,
+  // pressione lunga = trascina.
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } })
+  )
 
   // Build flat display list with transition zones
   const flatList: { item: any; depth: number; isTransition?: boolean; transitionParentId?: string | null; transitionLabel?: string }[] = []
