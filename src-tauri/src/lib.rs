@@ -2909,16 +2909,34 @@ pub fn run() {
                 fails = 0;
                 continue;
             }
-            // raggiungibilita' dal pubblico (curl; 2xx/3xx/4xx = raggiungibile)
+            // raggiungibilita' dal pubblico: risolvo su 1.1.1.1 (il resolver
+            // locale a volte non risolve i domini trycloudflare appena creati
+            // = falsi negativi) e chiedo direttamente all'edge. 2xx/3xx/4xx ok.
             let reachable = if url.is_empty() { true } else {
-                std::process::Command::new("curl")
-                    .args(["-s", "-o", "/dev/null", "-m", "12", "-w", "%{http_code}", &url])
+                let host = url.trim_start_matches("https://").split('/').next().unwrap_or("").to_string();
+                let ip = std::process::Command::new("/usr/bin/dig")
+                    .args(["+short", "@1.1.1.1", &host])
                     .output()
-                    .map(|o| {
-                        let c = String::from_utf8_lossy(&o.stdout).trim().to_string();
-                        c.starts_with('2') || c.starts_with('3') || c.starts_with('4')
+                    .ok()
+                    .and_then(|o| {
+                        String::from_utf8_lossy(&o.stdout)
+                            .lines()
+                            .map(|l| l.trim().to_string())
+                            .find(|l| l.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false))
                     })
-                    .unwrap_or(false)
+                    .unwrap_or_default();
+                if ip.is_empty() {
+                    true // resolver esterno non raggiungibile: non e' un fallimento
+                } else {
+                    std::process::Command::new("curl")
+                        .args(["-s", "-o", "/dev/null", "-m", "12", "-w", "%{http_code}", "--resolve", &format!("{}:443:{}", host, ip), &url])
+                        .output()
+                        .map(|o| {
+                            let c = String::from_utf8_lossy(&o.stdout).trim().to_string();
+                            c.starts_with('2') || c.starts_with('3') || c.starts_with('4')
+                        })
+                        .unwrap_or(false)
+                }
             };
             if reachable { fails = 0; continue; }
             fails += 1;
