@@ -1140,13 +1140,28 @@ function CameraCaptureModal({ onClose, onDone }: { onClose: () => void; onDone: 
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 500, backgroundColor: 'rgba(0,0,0,0.92)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '16px', gap: '12px' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 500, backgroundColor: '#000' }}>
       {error ? (
-        <div style={{ color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', textAlign: 'center', maxWidth: '320px', lineHeight: 1.6 }}>{error}</div>
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+          <div style={{ color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', textAlign: 'center', maxWidth: '320px', lineHeight: 1.6 }}>{error}</div>
+        </div>
       ) : (
-        <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', maxWidth: '420px', maxHeight: '70vh', borderRadius: 'var(--radius-lg)', backgroundColor: '#000', objectFit: 'cover' }} />
+        <video ref={videoRef} autoPlay playsInline muted style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', backgroundColor: '#000' }} />
       )}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div style={{
+        position: 'absolute', left: 0, right: 0, bottom: 0,
+        padding: '16px', paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
+        background: 'linear-gradient(to top, rgba(0,0,0,0.6), rgba(0,0,0,0))',
+      }}>
+        <button
+          onPointerDown={(e: any) => { try { e.preventDefault() } catch {} }}
+          onClick={onClose}
+          onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
+          style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', fontWeight: 400, cursor: 'pointer', transition: 'none' }}>
+          Close
+        </button>
         {!error && (
           <button
             onPointerDown={(e: any) => { try { e.preventDefault() } catch {} }}
@@ -1157,14 +1172,6 @@ function CameraCaptureModal({ onClose, onDone }: { onClose: () => void; onDone: 
             Capture
           </button>
         )}
-        <button
-          onPointerDown={(e: any) => { try { e.preventDefault() } catch {} }}
-          onClick={onClose}
-          onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }}
-          onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
-          style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', fontWeight: 400, cursor: 'pointer', transition: 'none' }}>
-          Close
-        </button>
       </div>
     </div>
   )
