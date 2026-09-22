@@ -1,7 +1,7 @@
 import React from 'react'
 import { useLayout } from '../../platform/layout'
 import { useState, useCallback, useEffect } from 'react'
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragOverlay } from '@dnd-kit/core'
+import { DndContext, closestCenter, MouseSensor, TouchSensor, useSensor, useSensors, DragOverlay } from '@dnd-kit/core'
 import { SortableContext, rectSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { invoke } from '@tauri-apps/api/core'
@@ -120,7 +120,13 @@ export function HomeView({activePanel, onSelectPanel}: {onSelectPanel: (panel: s
   // PointerSensor (funziona con dragDropEnabled nativo, che uccide l'HTML5 DnD su
   // macOS) + DragOverlay (la card SEGUE IL CURSORE durante il drag). ===
   const [activeCardId, setActiveCardId] = useState<string | null>(null)
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
+  // Telefono (web app): TouchSensor con delay 250ms = tieni premuto per riordinare,
+  // swipe normale per scorrere (stessa combo provata per le chat in sidebar).
+  // Mouse: MouseSensor. Prima c'era PointerSensor: su touch lo scroll rubava il gesto.
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
+  )
 
   const handleDragStart = useCallback((e: any) => {
     setActiveCardId(String(e.active?.id || '') || null)
@@ -302,7 +308,7 @@ function SortableHomeCard({card, idx, onSelectPanel, onContext}: any) {
   return React.createElement('div',
     {
       ref: setNodeRef,
-      style: { transform: CSS.Transform.toString(transform), transition: transition || 'none', opacity: isDragging ? 0.3 : 1 },
+      style: { transform: CSS.Transform.toString(transform), transition: transition || 'none', opacity: isDragging ? 0.3 : 1, touchAction: 'manipulation' },
       ...attributes, ...listeners
     },
     React.createElement(HomeCard, { card, idx, onSelectPanel, onContext }, card.id)
