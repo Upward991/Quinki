@@ -345,7 +345,6 @@ export function RemoteAccessSection() {
                 {qrData && <img src={qrData} width={220} height={220} alt="QR code" />}
               </div>
             </div>
-            <div style={{ ...urlBox, width: '100%', marginBottom: '14px' }}>{withToken(status.url)}</div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
               <button onClick={() => setQrOpen(false)}
                 onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }}
