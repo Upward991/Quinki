@@ -183,7 +183,9 @@ export function RemoteAccessSection() {
   const fmtWhen = (ms: number) => { try { return ms ? new Date(ms).toLocaleString() : '—' } catch { return '—' } }
 
   const ready = !!status.url && status.url.includes('.ts.net')
-  const signedIn = enabled && !status.authUrl && !signingIn && !ready
+  // "davvero entrato": link pronto OPPURE nodo iscritto e nessun login pendente.
+  // Durante il flusso di sign-in (signingIn) o con authUrl presente non lo e'.
+  const loggedIn = ready || (enabled && !status.authUrl && !signingIn)
   const statusLine = signingIn
     ? 'Waiting for the sign-in… finish it in the browser, then come back here.'
     : ready
@@ -234,7 +236,16 @@ export function RemoteAccessSection() {
         <div style={stepTxt}>
           Sign in with Tailscale and authorize this Mac. No account yet? You create it right there, free (Google, GitHub or email).
         </div>
-        <button style={rowBtn} {...hoverAccent} onClick={signIn}>Sign in with Tailscale</button>
+        {loggedIn ? (
+          <button
+            style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)', cursor: 'pointer', flexShrink: 0 }}
+            onClick={() => setConfirmAct('logout')}
+            {...hoverNeutral}>
+            Log out
+          </button>
+        ) : (
+          <button style={rowBtn} {...hoverAccent} onClick={signIn}>Sign in with Tailscale</button>
+        )}
       </div>
       <div style={stepRow}>
         <div style={stepNum}>2</div>
@@ -250,18 +261,6 @@ export function RemoteAccessSection() {
       <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginTop: '2px' }}>
         The permanent link appears above when both steps are done. You can do them in any order.
       </div>
-
-      {/* ---------- Log out: bottone separato, non sostituisce mai il sign in ---------- */}
-      {(enabled || ready) && (
-        <>
-          <div style={{ height: '10px' }} />
-          <button style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)', cursor: 'pointer' }}
-            onClick={() => setConfirmAct('logout')}
-            {...hoverNeutral}>
-            Log out
-          </button>
-        </>
-      )}
 
       <div style={{ height: '16px' }} />
       <div style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Access token</div>
