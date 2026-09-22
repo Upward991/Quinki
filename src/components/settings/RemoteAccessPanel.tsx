@@ -50,6 +50,9 @@ export function RemoteAccessSection() {
   }, [])
 
 
+  // link di pairing = URL + token (il token resta comunque la chiave d'accesso)
+  const withToken = (base: string) => (base && token ? `${base}/?token=${token}` : base)
+
   const copy = async (text: string, which: string) => {
     if (!text) {
       setErr('Nothing to copy yet: enable the secure link first (or wait for it to start).')
