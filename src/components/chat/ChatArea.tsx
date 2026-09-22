@@ -181,6 +181,8 @@ export function ChatArea(props: ChatAreaProps) {
   // il pin si rinsalda e lo scroll automatico riprende.
   const pinnedRef = useRef(true)
   const [composerH, setComposerH] = useState(0)
+  // Mobile: il tasto "Attach files" del menu in alto apre il flusso allegati del Composer
+  const [attachSignal, setAttachSignal] = useState(0)
   // === A2.8: Task Timeline ===
   const { call: sidecarCall, chatLoading } = useSidecarContext()
   const sessionIdKey = props.session?.id || ''
@@ -680,6 +682,7 @@ export function ChatArea(props: ChatAreaProps) {
           onHomeClick={props.onHomeClick}
           sidebarOpen={props.sidebarOpen}
           onToggleSidebar={props.onToggleSidebar}
+          onAttachFiles={() => setAttachSignal(s => s + 1)}
           hideSidebarToggle={props.hideSidebarToggle}
           isExpertApp={props.isExpertApp}
           showRollback={props.showRollback}
@@ -898,6 +901,7 @@ export function ChatArea(props: ChatAreaProps) {
               onSend={handleSend} onStop={props.onStop} onSteer={props.onSteer}
               onModelChange={props.onModelSelect} onModeChange={props.onModeChange}
               onThinkingChange={t => props.onThinkingChange(t)} welcomeMode={false}
+              attachSignal={attachSignal}
               longHorizon={props.longHorizon} longHorizonStatus={props.longHorizonStatus} longHorizonPhase={props.longHorizonPhase}
               longHorizonPlanProposed={(() => { const la = [...(props.messages || [])].reverse().find((m: any) => m.role === 'assistant' && m.content); return !!la && String(typeof la.content === 'string' ? la.content : '').includes('- [') })()}
               onLongHorizon={props.onLongHorizon} onRequestPlan={props.onRequestPlan}

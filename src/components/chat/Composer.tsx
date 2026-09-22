@@ -7,6 +7,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { getContrastColor } from '../../utils/contrast'
+import { useLayout } from '../../platform/layout'
 import type { Provider, Agent, ChatMode, ThinkingLevel } from '../../types'
 import { Paperclip, ChevronUp, ChevronDown, Bot, X, Clock, Folder, FileText } from '../icons'
 import { SlashMenu, type SlashMenuRef } from './SlashMenu'
@@ -54,6 +55,7 @@ interface ComposerProps {
   onEnsureSession?: () => Promise<string | null>
   onHeightChange?: (h: number) => void
   onHeightChangeNow?: (h: number) => void
+  attachSignal?: number
 }
 
 export function Composer(props: ComposerProps) {
@@ -77,6 +79,18 @@ export function Composer(props: ComposerProps) {
   const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([])
   const [attachMenuOpen, setAttachMenuOpen] = useState(false)
   const [attachMenuView, setAttachMenuView] = useState<'main' | 'existing'>('main')
+
+  // === Mobile (visione telefono) ===
+  // La graffetta esce dalla text box: l'allegato si apre dal menu in alto.
+  const mob = useLayout().mode === 'mobile'
+  const lastAttachSignal = useRef(0)
+  useEffect(() => {
+    if (props.attachSignal && props.attachSignal !== lastAttachSignal.current) {
+      lastAttachSignal.current = props.attachSignal
+      setAttachMenuOpen(true)
+      setAttachMenuView('main')
+    }
+  }, [props.attachSignal])
   const [sessionFilesOpen, setSessionFilesOpen] = useState(false)
   const [existingAttachments, setExistingAttachments] = useState<any[]>([])
   const [copyingFile, setCopyingFile] = useState(false)
@@ -495,8 +509,10 @@ export function Composer(props: ComposerProps) {
               <StatusPill label={props.statusLabel} kind={props.statusKind || 'thinking'} />
             ) : null}
           </div>
+          {!mob && (<>
           <AttachBtn onClick={() => { setAttachMenuOpen(true); setAttachMenuView('main') }} title="Attach file"><Paperclip size={20} /></AttachBtn>
           <div style={{ width: '8px', flexShrink: 0 }} />
+          </>)}
           <StopBtn color="var(--q-accent-danger)" onClick={props.isStreaming ? props.onStop : () => {}} />
           <div style={{ width: '8px', flexShrink: 0 }} />
           {props.onSteer && (

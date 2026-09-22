@@ -5,7 +5,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import type { Session, Agent } from '../../types'
-import { Home, PanelLeft, MessageSquare, Download, Search, RefreshCw, Bot, Calendar, Clock, ChevronDown, ChevronUp, Cpu, Brain, Network, X, Checklist, RotateCcw, Bell, BellOff } from '../icons'
+import { Home, PanelLeft, MessageSquare, Download, Search, RefreshCw, Bot, Calendar, Clock, ChevronDown, ChevronUp, Cpu, Brain, Network, X, Checklist, RotateCcw, Bell, BellOff, Paperclip, Menu } from '../icons'
+import { useLayout } from '../../platform/layout'
+import { BottomSheet } from './BottomSheet'
 import { invoke } from '@tauri-apps/api/core'
 import { AgentConfigModal } from './AgentConfigModal'
 
@@ -51,6 +53,7 @@ interface ChatHeaderProps {
   onMatchNavigate?: (dir: 'prev' | 'next') => void
   notifyMode?: string
   onSetNotifyMode?: (mode: string) => void
+  onAttachFiles?: () => void
 }
 
 export function ChatHeader(props: ChatHeaderProps) {
@@ -88,6 +91,11 @@ export function ChatHeader(props: ChatHeaderProps) {
   const [addAgentOpen, setAddAgentOpen] = useState(false)
   const [agentQuery, setAgentQuery] = useState('')
 
+  // === Mobile (visione telefono): un solo tasto menu + bottom sheet ===
+  const mob = useLayout().mode === 'mobile'
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [menuView, setMenuView] = useState<'context' | 'search' | null>(null)
+
   const fmt = (n: number) => {
     if (n >= 1000000) { const m = Math.round(n / 100000) / 10; return m % 1 === 0 ? `${m}M` : `${m.toFixed(1)}M` }
     if (n >= 1000) return `${Math.floor(n / 1000)}K`
@@ -95,6 +103,11 @@ export function ChatHeader(props: ChatHeaderProps) {
   }
   const ctxPercent = props.contextWindow > 0 ? Math.floor((props.contextTokens / props.contextWindow) * 100) : 0
   const ctxColor = ctxPercent >= 80 ? 'var(--q-accent-danger)' : ctxPercent >= 50 ? 'var(--q-accent-warning)' : 'var(--q-text)'
+  // Formato IDENTICO al contatore del composer (con ± percentuale di errore)
+  const ctxPct = props.contextWindow > 0 ? (props.contextTokens / props.contextWindow) * 100 : 0
+  const ctxValueFull = props.contextWindow > 0
+    ? `${fmt(props.contextTokens)}/${fmt(props.contextWindow)} (${Math.floor(ctxPct)}% ± ${Math.ceil(ctxPct * 0.05 + 1)}%)`
+    : `0/${fmt(props.contextWindow)} (0%)`
 
   const panelStyle: React.CSSProperties = {
     backgroundColor: 'var(--q-bg-panel)',
@@ -158,8 +171,8 @@ export function ChatHeader(props: ChatHeaderProps) {
           </>
         )}
 
-        {/* Panel 2: Sidebar toggle — hidden entirely in sub-windows */}
-        {!isExpert && !props.hideSidebarToggle && (
+        {/* Panel 2: Sidebar toggle — hidden entirely in sub-windows (mobile: dentro il menu) */}
+        {!mob && !isExpert && !props.hideSidebarToggle && (
           <>
             <div style={panelStyle}>
               <IconBtn icon={PanelLeft} onClick={props.onToggleSidebar} title={props.sidebarOpen ? 'Hide sidebar' : 'Show sidebar'} />
@@ -220,10 +233,12 @@ export function ChatHeader(props: ChatHeaderProps) {
 
           {/* Context counter — inside its own position:relative wrapper */}
           <div style={{ position: 'relative' }}>
+            {!mob && (
             <button onClick={() => setContextOpen(!contextOpen)}
               style={{ color: ctxColor, fontFamily: 'var(--font-code)', fontSize: '13px', padding: '4px 8px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: contextOpen ? 'var(--q-hover)' : 'transparent', whiteSpace: 'nowrap', flexShrink: 0 }}>
               {props.contextTokens > 0 ? `${fmt(props.contextTokens)}/${fmt(props.contextWindow)} (${ctxPercent}%)` : `0/${fmt(props.contextWindow)} (0%)`}
             </button>
+            )}
             {contextOpen && (
               <>
                 <div style={overlayStyle} onClick={() => setContextOpen(false)} />
@@ -404,7 +419,8 @@ export function ChatHeader(props: ChatHeaderProps) {
         </div>
       )}
 
-{/* Export */}
+{/* Export — mobile: dentro il menu in basso */}
+          {!mob && (<>
           <div style={{ width: '8px', flexShrink: 0 }} />
           <IconBtn icon={Download} onClick={() => {  setExportOpen(true) }} title="Export chat" />
 
@@ -453,6 +469,17 @@ export function ChatHeader(props: ChatHeaderProps) {
 
           <div style={{ width: '8px', flexShrink: 0 }} />
           <IconBtn icon={RefreshCw} onClick={() => props.onReload?.()} title="Reload chat" />
+          </>)}
+
+          {/* Mobile: un solo tasto menu al posto di contesto/export/cerca/ricarica/allegati */}
+          {mob && (
+            <>
+              <div style={{ width: '8px', flexShrink: 0 }} />
+              <div style={panelStyle}>
+                <IconBtn icon={Menu} onClick={() => { setMenuView(null); setMenuOpen(true) }} title="Menu" />
+              </div>
+            </>
+          )}
         </div>
 
         {/* Panel 4: Agent dropdown */}
@@ -602,7 +629,67 @@ export function ChatHeader(props: ChatHeaderProps) {
       {/* Sync confirmation modal */}
       
       {/* Sync success */}
-      
+
+      {/* Mobile chat menu — bottom sheet (contesto, export, ricerca, ricarica, sidebar, allegati) */}
+      <BottomSheet
+        open={menuOpen}
+        onClose={() => { setMenuOpen(false); setMenuView(null) }}
+        onViewBack={() => setMenuView(null)}
+        view={menuView === 'context' ? (
+          <div style={{ padding: '0 8px 8px 8px' }}>
+            <div style={{ textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: '10px', fontWeight: 600, letterSpacing: '0.8px', fontFamily: 'var(--font-code)', marginBottom: '6px' }}>CONTEXT</div>
+            <CtxRow label="Total" value={props.contextWindow.toLocaleString('en-US')} />
+            <CtxRow label="Input" value={(props.contextInput || 0).toLocaleString('en-US')} />
+            <CtxRow label="Output" value={(props.contextOutput || 0).toLocaleString('en-US')} />
+            <CtxRow label="Used" value={props.contextTokens.toLocaleString('en-US')} />
+            <CtxRow label="Percent" value={`${((props.contextTokens / props.contextWindow) * 100).toFixed(1)}%`} />
+            <div style={{ height: '14px' }} />
+            <div style={{ textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: '10px', fontWeight: 600, letterSpacing: '0.8px', fontFamily: 'var(--font-code)', marginBottom: '6px' }}>COMPACTION</div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginBottom: '8px' }}>
+              <input type="checkbox" checked={!!props.compactionAuto} onChange={e => props.onCompactionChange?.(e.target.checked)} style={{ accentColor: 'var(--q-tab-accent)' }} />
+              <span style={{ color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>Auto-compaction (80%)</span>
+            </label>
+            <CompactionBtn onClick={props.onCompact} />
+          </div>
+        ) : menuView === 'search' ? (
+          <div style={{ padding: '0 8px 8px 8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <Search size={16} style={{ color: 'var(--q-text-tertiary)', flexShrink: 0 }} />
+              <div style={{ width: '8px', flexShrink: 0 }} />
+              <input type="text" placeholder="Search in messages..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                style={{ flex: 1, minWidth: 0, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0', margin: '0' }} />
+              <button onClick={() => setSearchQuery('')}
+                style={{ background: 'none', border: 'none', cursor: searchQuery ? 'pointer' : 'default', padding: '8px', color: searchQuery ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)', fontSize: '14px', opacity: searchQuery ? 1 : 0.3, lineHeight: '1', flexShrink: 0 }}>✕</button>
+              <span style={{ color: matchCount > 0 ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-code)', whiteSpace: 'nowrap', opacity: matchCount > 0 ? 1 : 0.3, flexShrink: 0 }}>{matchCount > 0 ? (currentMatch + 1) + '/' + matchCount : '0/0'}</span>
+              <div style={{ width: '8px', flexShrink: 0 }} />
+              <button onClick={() => props.onMatchNavigate?.('prev')} style={{ background: 'none', border: 'none', cursor: matchCount > 0 ? 'pointer' : 'default', padding: '0', color: matchCount > 0 ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)', opacity: matchCount > 0 ? 1 : 0.3, lineHeight: '0', flexShrink: 0, display: 'flex' }}><ChevronUp size={16} /></button>
+              <button onClick={() => props.onMatchNavigate?.('next')} style={{ background: 'none', border: 'none', cursor: matchCount > 0 ? 'pointer' : 'default', padding: '0', color: matchCount > 0 ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)', opacity: matchCount > 0 ? 1 : 0.3, lineHeight: '0', flexShrink: 0, display: 'flex' }}><ChevronDown size={16} /></button>
+            </div>
+            <div style={{ height: '8px' }} />
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <Calendar size={16} style={{ color: 'var(--q-text-tertiary)', flexShrink: 0 }} />
+              <div style={{ width: '8px', flexShrink: 0 }} />
+              <input type="text" placeholder="dd/mm/yyyy" value={searchDate} onChange={e => setSearchDate(e.target.value)}
+                style={{ flex: 1, minWidth: 0, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', padding: '0', margin: '0' }} />
+              <button onClick={() => setSearchDate('')} style={{ background: 'none', border: 'none', cursor: searchDate ? 'pointer' : 'default', padding: '8px', color: searchDate ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)', fontSize: '14px', opacity: searchDate ? 1 : 0.3, lineHeight: '1', flexShrink: 0 }}>✕</button>
+              <div style={{ width: '8px', flexShrink: 0 }} />
+              <Clock size={16} style={{ color: 'var(--q-text-tertiary)', flexShrink: 0 }} />
+              <div style={{ width: '8px', flexShrink: 0 }} />
+              <input type="text" placeholder="hh:mm:ss" value={searchTime} onChange={e => setSearchTime(e.target.value)}
+                style={{ flex: 1, minWidth: 0, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', padding: '0', margin: '0' }} />
+              <button onClick={() => setSearchTime('')} style={{ background: 'none', border: 'none', cursor: searchTime ? 'pointer' : 'default', padding: '8px', color: searchTime ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)', fontSize: '14px', opacity: searchTime ? 1 : 0.3, lineHeight: '1', flexShrink: 0 }}>✕</button>
+            </div>
+          </div>
+        ) : null}
+        items={[
+          { label: 'Context usage', value: ctxValueFull, onSelect: () => setMenuView('context') },
+          { icon: <Download size={18} />, label: 'Export chat', onSelect: () => { setMenuOpen(false); setExportOpen(true) } },
+          { icon: <Search size={18} />, label: 'Search messages', onSelect: () => setMenuView('search') },
+          { icon: <RefreshCw size={18} />, label: 'Reload chat', onSelect: () => { setMenuOpen(false); props.onReload?.() } },
+          { icon: <PanelLeft size={18} />, label: 'Open sidebar', onSelect: () => { setMenuOpen(false); if (!props.sidebarOpen) props.onToggleSidebar() } },
+          { icon: <Paperclip size={18} />, label: 'Attach files', onSelect: () => { setMenuOpen(false); props.onAttachFiles?.() } },
+        ]}
+      />
     </>
   )
 }
