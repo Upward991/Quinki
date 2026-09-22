@@ -2354,9 +2354,8 @@ fn tunnel_start_blocking(port: u16, hostname: String) -> Result<String, String> 
     let cert = format!("{}/.cloudflared/cert.pem", home);
     if !std::path::Path::new(&cert).exists() {
         // login: apre il browser e attende l'autorizzazione dell'utente
+        // cloudflared apre da solo la pagina di autorizzazione nel browser
         let mut lg = std::process::Command::new(&exe).args(["tunnel", "login"]).spawn().map_err(|e| e.to_string())?;
-        std::thread::sleep(std::time::Duration::from_secs(2));
-        let _ = std::process::Command::new("open").arg("https://dash.cloudflare.com/argotunnel").status();
         let start = std::time::Instant::now();
         loop {
             match lg.try_wait().map_err(|e| e.to_string())? {
@@ -2370,11 +2369,19 @@ fn tunnel_start_blocking(port: u16, hostname: String) -> Result<String, String> 
     }
     // crea (o riusa) il tunnel "quinki"
     let _ = std::process::Command::new(&exe).args(["tunnel", "create", "quinki"]).status();
-    // instrada il DNS (ignora l'errore se il record esiste gia')
+    // instrada il DNS (il comando fallisce anche se il record esiste gia': verifichiamo col DNS)
     let _ = std::process::Command::new(&exe).args(["tunnel", "route", "dns", "quinki", &hostname]).status();
-    // avvia
+    let resolves = std::process::Command::new("/usr/bin/dig")
+        .args(["+short", &hostname])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_default();
+    if resolves.is_empty() {
+        return Err(format!("The domain {} does not resolve: make sure the domain is added to your Cloudflare account (Cloudflare dashboard → Websites).", hostname));
+    }
+    // avvia (con --url: l'ingresso punta al sidecar locale)
     let mut child = std::process::Command::new(&exe)
-        .args(["tunnel", "--no-autoupdate", "run", "quinki"])
+        .args(["tunnel", "--no-autoupdate", "--url", &format!("http://127.0.0.1:{}", port), "run", "quinki"])
         .stdout(Stdio::piped()).stderr(Stdio::piped())
         .spawn().map_err(|e| e.to_string())?;
     let pidf = format!("{}/.quinki/tunnel.pid", home);

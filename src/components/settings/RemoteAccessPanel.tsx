@@ -18,6 +18,7 @@ export function RemoteAccessSection() {
   const [devices, setDevices] = useState<any[]>([])
   const [rotating, setRotating] = useState(false)
   const [confirmAct, setConfirmAct] = useState<null | 'token' | 'link'>(null)
+  const [hostname, setHostname] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -34,6 +35,10 @@ export function RemoteAccessSection() {
         const d: any = await invoke('remote_devices_list')
         if (!cancelled && Array.isArray(d)) setDevices(d)
       } catch {}
+      try {
+        const st: any = await invoke('remote_tunnel_state')
+        if (!cancelled && st && st.hostname) setHostname(String(st.hostname))
+      } catch {}
     })()
     const iv = setInterval(async () => {
       try {
@@ -46,7 +51,11 @@ export function RemoteAccessSection() {
 
 
   const copy = async (text: string, which: string) => {
-    if (!text) return
+    if (!text) {
+      setErr('Nothing to copy yet: enable the secure link first (or wait for it to start).')
+      setTimeout(() => setErr(''), 4000)
+      return
+    }
     try { await invoke('copy_to_clipboard', { text }) } catch {
       try { await navigator.clipboard.writeText(text) } catch {}
     }
@@ -54,10 +63,11 @@ export function RemoteAccessSection() {
     setTimeout(() => setCopied(''), 1500)
   }
 
+  const normHost = () => hostname.trim().replace(/^https?:\/\//i, '').replace(/\/.*$/, '')
   const start = async () => {
     setBusy(true); setErr('')
     try {
-      const url: any = await invoke('remote_tunnel_start', { port: 9182 })
+      const url: any = await invoke('remote_tunnel_start', { port: 9182, hostname: normHost() })
       setStatus({ running: true, url: String(url || '') })
     } catch (e: any) {
       setErr(String(e?.message || e))
@@ -104,7 +114,7 @@ export function RemoteAccessSection() {
     setConfirmAct(null); setBusy(true); setErr('')
     try {
       await invoke('remote_tunnel_stop')
-      const url: any = await invoke('remote_tunnel_start', { port: 9182 })
+      const url: any = await invoke('remote_tunnel_start', { port: 9182, hostname: normHost() })
       setStatus({ running: true, url: String(url || '') })
     } catch (e: any) { setErr(String(e?.message || e)) }
     setBusy(false)
@@ -127,6 +137,23 @@ export function RemoteAccessSection() {
 
       <div style={{ height: '12px' }} />
       <div style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Secure link</div>
+      <div style={{ height: '6px' }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ ...urlBox, color: 'var(--q-text)' }}>
+          <input
+            value={hostname}
+            onChange={e => setHostname(e.target.value)}
+            placeholder="optional domain for a permanent link (e.g. quinki.yourdomain.com)"
+            style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-code)' }}
+          />
+        </div>
+      </div>
+      <div style={{ height: '4px' }} />
+      <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>
+        {hostname.trim()
+          ? 'Permanent link on your domain: it never changes, devices stay paired forever (also after updates).'
+          : 'Without a domain the link is random and changes at every restart. A domain gives a permanent link.'}
+      </div>
       <div style={{ height: '6px' }} />
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <div style={urlBox}>{status.running && status.url ? status.url : (busy ? 'starting…' : 'not active')}</div>
