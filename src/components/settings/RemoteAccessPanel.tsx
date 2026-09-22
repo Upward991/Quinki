@@ -7,6 +7,7 @@
 // ============================================================
 import React, { useEffect, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
+import { Globe } from '../icons'
 
 export function RemoteAccessSection() {
   const [status, setStatus] = useState<{ running: boolean; url: string }>({ running: false, url: '' })
@@ -80,9 +81,7 @@ export function RemoteAccessSection() {
   return (
     <div id="settings-webapp" style={{ width: '100%', marginBottom: '12px', padding: '14px 18px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--q-text-secondary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-          <circle cx="12" cy="12" r="10" /><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" /><path d="M2 12h20" />
-        </svg>
+        <Globe size={16} style={{ color: 'var(--q-text-secondary)', flexShrink: 0 }} />
         <span style={{ color: 'var(--q-text)', fontSize: '15px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>Web app</span>
       </div>
       <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginTop: '4px' }}>

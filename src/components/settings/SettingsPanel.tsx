@@ -8,10 +8,10 @@ import { invoke } from '@tauri-apps/api/core'
 import React from 'react'
 import { useState, useRef, useEffect } from 'react'
 import { useSidecarContext } from '../shared/AppShell'
-import { Archive, Bell, BellOff, RotateCcw, Calendar, Check, Checklist, ChevronDown, ChevronRight, ChevronUp, Copy, Folder, Home, Info, Keyboard, MessageSquare, Palette, Paperclip, Plug, Plus, Power, RefreshCw, Save, Search, Settings, Shield, Sync, Trash } from '../icons'
+import { Archive, Bell, BellOff, RotateCcw, Calendar, Check, Checklist, ChevronDown, ChevronRight, ChevronUp, Copy, Folder, Home, Info, Keyboard, MessageSquare, Palette, Paperclip, Plug, Plus, Power, RefreshCw, Save, Search, Settings, Shield, Sync, Trash, Globe} from '../icons'
 import { getHomeTabs, loadHomeColumns, saveHomeColumns, persistHomeConfig } from '../../tabs'
 
-var Ih=[{id:'settings-providers',icon:Plug,label:'Providers & models'},{id:'settings-defaults',icon:Settings,label:'Global defaults'},{id:'settings-compaction',icon:Archive,label:'Compaction'},{id:'settings-shortcuts',icon:Keyboard,label:'Shortcuts'},{id:'settings-theme',icon:Palette,label:'Theme'},{id:'settings-attachments',icon:Paperclip,label:'Attachments'},{id:'settings-expert-sync',icon:RotateCcw,label:'App Expert'},{id:'settings-app-permissions',icon:Shield,label:'App Permissions'},{id:'settings-notifications',icon:Bell,label:'Notifications'},{id:'settings-webapp',icon:Info,label:'Web app'},{id:'settings-versions',icon:Info,label:'Versions'}];
+var Ih=[{id:'settings-providers',icon:Plug,label:'Providers & models'},{id:'settings-defaults',icon:Settings,label:'Global defaults'},{id:'settings-compaction',icon:Archive,label:'Compaction'},{id:'settings-shortcuts',icon:Keyboard,label:'Shortcuts'},{id:'settings-theme',icon:Palette,label:'Theme'},{id:'settings-attachments',icon:Paperclip,label:'Attachments'},{id:'settings-expert-sync',icon:RotateCcw,label:'App Expert'},{id:'settings-app-permissions',icon:Shield,label:'App Permissions'},{id:'settings-notifications',icon:Bell,label:'Notifications'},{id:'settings-webapp',icon:Globe,label:'Web app'},{id:'settings-versions',icon:Info,label:'Versions'}];
 var Lh=['off','xhigh'];
 
 let _inv;try{_inv=require('@tauri-apps/api/core')}catch{_inv={invoke:()=>{}}}
