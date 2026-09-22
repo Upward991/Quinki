@@ -14,6 +14,7 @@
 import React, { useEffect, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { Globe } from '../icons'
+import QRCode from 'qrcode'
 
 const URL_ADMIN_DNS = 'https://login.tailscale.com/admin/dns'
 
@@ -28,6 +29,9 @@ export function RemoteAccessSection() {
   const [devices, setDevices] = useState<any[]>([])
   const [rotating, setRotating] = useState(false)
   const [confirmAct, setConfirmAct] = useState<null | 'token' | 'revoke' | 'logout'>(null)
+  const [linkShown, setLinkShown] = useState(false)
+  const [qrOpen, setQrOpen] = useState(false)
+  const [qrData, setQrData] = useState('')
   const [revokeId, setRevokeId] = useState('')
 
   useEffect(() => {
@@ -137,6 +141,24 @@ export function RemoteAccessSection() {
       setStatus(prev => ({ running: !!url, url: String(url || ''), authUrl: prev.authUrl || '' }))
     } catch (e: any) { setErr(String((e && e.message) ? e.message : e)) }
     setBusy(false)
+  }
+
+  // Show access link: fa apparire il field del link (e se serve avvia il nodo).
+  const showAccessLink = async () => {
+    setLinkShown(true)
+    if (ready) return
+    await startTunnel()
+  }
+
+  // QR code: modale con QR temporaneo del link di accesso (col token):
+  // lo scansiona col telefono e la web app si apre gia' autenticata.
+  const openQr = async () => {
+    if (!status.url) { setErr('The access link is not ready yet.'); setTimeout(() => setErr(''), 4000); return }
+    try {
+      const data = await QRCode.toDataURL(withToken(status.url), { width: 520, margin: 1, color: { dark: '#000000', light: '#ffffff' } })
+      setQrData(data)
+      setQrOpen(true)
+    } catch (e: any) { setErr('QR generation failed: ' + String((e && e.message) ? e.message : e)) }
   }
 
   const doLogout = async () => {
@@ -258,15 +280,18 @@ export function RemoteAccessSection() {
         The permanent link appears below when both steps are done. You can do them in any order.
       </div>
       <div style={{ height: '12px' }} />
-      <button style={rowBtn} onClick={startTunnel} {...hoverAccent}>Start</button>
-      {ready && (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <button style={rowBtn} onClick={showAccessLink} {...hoverAccent}>Show access link</button>
+        <button style={{ ...rowBtn, borderColor: 'var(--q-border)', color: 'var(--q-text-secondary)' }} onClick={openQr} {...hoverNeutral}>QR code</button>
+      </div>
+      {(ready || linkShown) && (
         <>
           <div style={{ height: '10px' }} />
           <div style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Your permanent link</div>
           <div style={{ height: '6px' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={urlBox}>{status.url}</div>
-            <button style={rowBtn} onClick={() => copy(withToken(status.url), 'tun')} {...hoverAccent}>{copied === 'tun' ? 'Copied' : 'Copy'}</button>
+            <div style={urlBox}>{status.url || 'starting…'}</div>
+            <button style={rowBtn} {...hoverAccent} onClick={() => copy(withToken(status.url), 'tun')}>{copied === 'tun' ? 'Copied' : 'Copy'}</button>
           </div>
           <div style={{ height: '6px' }} />
           <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>
@@ -307,6 +332,32 @@ export function RemoteAccessSection() {
           </button>
         </div>
       ))}
+
+      {qrOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 400, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={(e: any) => { if (e.target === e.currentTarget) setQrOpen(false) }}>
+          <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', padding: '24px', maxWidth: '420px', width: '90%', boxShadow: 'var(--shadow-modal)' }}>
+            <div style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '8px' }}>Open on your phone</div>
+            <div style={{ color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', lineHeight: 1.5, marginBottom: '12px' }}>
+              Scan this with your phone camera: Quinki opens on the phone already signed in, nothing to type.
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '4px 0 10px 0' }}>
+              <div style={{ backgroundColor: '#ffffff', padding: '10px', borderRadius: 'var(--radius-md)' }}>
+                {qrData && <img src={qrData} width={220} height={220} alt="QR code" />}
+              </div>
+            </div>
+            <div style={{ ...urlBox, width: '100%', marginBottom: '14px' }}>{withToken(status.url)}</div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button onClick={() => setQrOpen(false)}
+                onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }}
+                onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
+                style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {confirmAct && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 400, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
