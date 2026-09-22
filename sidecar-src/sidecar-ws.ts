@@ -3,7 +3,8 @@ import * as http from "node:http";
 import { spawn } from "node:child_process";
 import { homedir } from "node:os";
 import { join, dirname, extname, normalize } from "node:path";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import { EventEmitter } from "node:events";
 // Import STATICO (bundled dal compilatore): il top-level di sidecar.ts è side-effect-free,
 // il bootstrap gira DOPO l'avvio del WS server (vedi bootSidecar() sotto).
@@ -108,6 +109,70 @@ const WEB_VERSION = (() => {
 })();
 const WEB_IS_EXPERT = String(process.env.QUINKI_ROLE || "").toLowerCase() === "expert" || Number(process.env.QUINKI_WS_PORT || "9182") === 9183;
 
+// === F0.1 REMOTE AUTH (modello OpenClaw: auth "token" di default per i client remoti) ===
+// Il token vive in ~/.quinki/remote.json (creato al primo avvio). I client LOOPBACK
+// (app desktop, worker del pool) sono esenti; tutto il resto (LAN e tunnel) deve
+// presentare il token: ?token=... (una volta, imposta il cookie) oppure il cookie.
+// ATTENZIONE: il traffico del tunnel arriva DA 127.0.0.1 (cloudflared gira sul Mac)
+// → i proxy che iniettano x-forwarded-for/cf-connecting-ip NON sono loopback.
+const REMOTE_FILE = join(AGENT_DIR, "remote.json");
+const REMOTE_TOKEN: string = (() => {
+  try {
+    if (existsSync(REMOTE_FILE)) {
+      const j = JSON.parse(readFileSync(REMOTE_FILE, "utf8"));
+      if (j && typeof j.token === "string" && j.token.length >= 16) return j.token;
+    }
+  } catch {}
+  const tok = randomBytes(24).toString("hex");
+  try { writeFileSync(REMOTE_FILE, JSON.stringify({ token: tok, createdAt: new Date().toISOString() }, null, 2)); } catch {}
+  return tok;
+})();
+
+function isLoopbackReq(req: any): boolean {
+  try {
+    const h = req.headers || {};
+    if (h["x-forwarded-for"] || h["cf-connecting-ip"] || h["x-real-ip"] || h["x-forwarded-proto"]) return false;
+    const addr = String(req.socket && req.socket.remoteAddress || "");
+    return addr === "127.0.0.1" || addr === "::1" || addr === "::ffff:127.0.0.1";
+  } catch { return false; }
+}
+function tokenFromReq(req: any, url: string): string {
+  try {
+    const q = new URL(url, "http://localhost");
+    const t = q.searchParams.get("token");
+    if (t) return t;
+  } catch {}
+  try {
+    const c = String((req.headers && req.headers.cookie) || "");
+    const m = /quinki_token=([^;]+)/.exec(c);
+    if (m) return decodeURIComponent(m[1]);
+  } catch {}
+  return "";
+}
+function tokenOk(t: string): boolean {
+  try {
+    const a = Buffer.from(String(t));
+    const b = Buffer.from(REMOTE_TOKEN);
+    return a.length === b.length && timingSafeEqual(a, b);
+  } catch { return false; }
+}
+function pairingPage(): string {
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quinki — pair this device</title><style>
+body{margin:0;height:100vh;display:flex;align-items:center;justify-content:center;background:#040406;color:#e8e8ec;font-family:-apple-system,Geist,sans-serif}
+form{display:flex;flex-direction:column;gap:12px;width:min(340px,86vw)}
+h1{font-size:17px;margin:0 0 4px 0}p{color:#888892;font-size:13px;margin:0 0 6px 0;line-height:1.5}
+input{height:40px;border-radius:10px;border:1px solid #ffffff14;background:#0e0e10;color:#e8e8ec;padding:0 12px;font-size:14px;outline:none}
+button{height:40px;border-radius:8px;border:1px solid #7aa2f7;background:transparent;color:#7aa2f7;font-size:14px;font-weight:600;cursor:pointer}
+</style></head><body><form method="get" action="/">
+<h1>Pair this device</h1>
+<p>Paste the access token shown in Quinki → Settings → Web app on the Mac. You do this only once per device.</p>
+<input name="token" placeholder="access token" autocomplete="off" autofocus>
+<button type="submit">Connect</button>
+</form></body></html>`;
+}
+
+
 function serveWebApp(req: any, res: any, url: string): boolean {
   if (!WEB_DIR) return false;
   let rel = url.split("?")[0].split("#")[0];
@@ -170,13 +235,44 @@ const httpServer = http.createServer((req: any, res: any) => {
     }
     return;
   }
+  // === F0.1: auth per i client remoti (loopback esente) ===
+  try {
+    if (!isLoopbackReq(req) && !url.startsWith("/callback")) {
+      const t = tokenFromReq(req, url);
+      if (tokenOk(t)) {
+        if (url.includes("token=")) {
+          res.writeHead(302, {
+            "Set-Cookie": `quinki_token=${encodeURIComponent(REMOTE_TOKEN)}; Path=/; Max-Age=31536000; SameSite=Lax`,
+            "Location": "/",
+          });
+          res.end();
+          return;
+        }
+      } else {
+        res.writeHead(401, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(pairingPage());
+        return;
+      }
+    }
+  } catch {}
+
   // === WEB APP (F1): la stessa UI del desktop, servita sulla stessa porta del WS ===
   if (req.method === "GET" || req.method === "HEAD") {
     try { if (serveWebApp(req, res, url)) return; } catch {}
   }
   res.writeHead(404); res.end();
 });
-const wss = new WebSocketServer({ server: httpServer });
+const wss = new WebSocketServer({
+  server: httpServer,
+  verifyClient: (info: any, cb: (ok: boolean, code?: number, message?: string) => void) => {
+    try {
+      if (isLoopbackReq(info.req)) return cb(true);
+      const t = tokenFromReq(info.req, String(info.req.url || ""));
+      if (tokenOk(t)) return cb(true);
+      return cb(false, 401, "Unauthorized");
+    } catch { return cb(false, 401, "Unauthorized"); }
+  },
+});
 
 // === BROADCAST DIRETTO (29 ago — router pool redesign): funzione esplicita,
 // senza passare dall'indirezione stdout. Ogni client protetto singolarmente:

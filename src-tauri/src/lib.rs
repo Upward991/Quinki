@@ -2230,6 +2230,173 @@ fn quick_chat_open(app: &tauri::AppHandle) {
     }
 }
 
+
+// ============================================================
+// WEB APP / ACCESSO REMOTO (F0) — tutto DENTRO l'app.
+// cloudflared: cercato in ~/.quinki/bin, poi nel PATH; se manca viene scaricato
+// dall'app (curl+tar). Nessun programma da installare a mano dall'utente.
+// ============================================================
+use std::process::{Child, Stdio};
+use std::sync::Mutex as StdMutex;
+
+static TUNNEL: StdMutex<Option<(Child, String)>> = StdMutex::new(None);
+
+fn cloudflared_path() -> Option<String> {
+    use std::path::Path;
+    let home = std::env::var("HOME").unwrap_or_default();
+    let local = format!("{}/.quinki/bin/cloudflared", home);
+    if Path::new(&local).exists() { return Some(local); }
+    if let Ok(out) = std::process::Command::new("which").arg("cloudflared").output() {
+        if out.status.success() {
+            let p = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            if !p.is_empty() { return Some(p); }
+        }
+    }
+    None
+}
+
+fn ensure_cloudflared() -> Result<String, String> {
+    if let Some(p) = cloudflared_path() { return Ok(p); }
+    let home = std::env::var("HOME").unwrap_or_default();
+    let dir = format!("{}/.quinki/bin", home);
+    let _ = std::fs::create_dir_all(&dir);
+    let arch = if cfg!(target_arch = "aarch64") { "arm64" } else { "amd64" };
+    let url = format!(
+        "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-darwin-{}.tgz",
+        arch
+    );
+    let tmp = format!("{}/cloudflared-dl.tgz", dir);
+    let dl = std::process::Command::new("curl")
+        .args(["-L", "--fail", "-o", &tmp, &url])
+        .status()
+        .map_err(|e| format!("curl: {}", e))?;
+    if !dl.success() { return Err("download cloudflared non riuscito".into()); }
+    let ex = std::process::Command::new("tar")
+        .args(["-xzf", &tmp, "-C", &dir])
+        .status()
+        .map_err(|e| format!("tar: {}", e))?;
+    if !ex.success() { return Err("estrazione cloudflared non riuscita".into()); }
+    let _ = std::fs::remove_file(&tmp);
+    cloudflared_path().ok_or_else(|| "cloudflared non trovato dopo il download".to_string())
+}
+
+fn tunnel_stop_inner() {
+    if let Ok(mut g) = TUNNEL.lock() {
+        if let Some((mut c, _)) = g.take() { let _ = c.kill(); }
+    }
+    let home = std::env::var("HOME").unwrap_or_default();
+    let pidf = format!("{}/.quinki/tunnel.pid", home);
+    if let Ok(txt) = std::fs::read_to_string(&pidf) {
+        if let Ok(pid) = txt.trim().parse::<i32>() {
+            unsafe { libc::kill(pid, 15); }
+        }
+        let _ = std::fs::remove_file(&pidf);
+    }
+}
+
+#[tauri::command]
+fn remote_tunnel_status() -> serde_json::Value {
+    if let Ok(g) = TUNNEL.lock() {
+        if let Some((_, url)) = g.as_ref() {
+            return serde_json::json!({ "running": true, "url": url });
+        }
+    }
+    serde_json::json!({ "running": false, "url": "" })
+}
+
+#[tauri::command]
+async fn remote_tunnel_start(port: Option<u16>) -> Result<String, String> {
+    {
+        let g = TUNNEL.lock().map_err(|e| e.to_string())?;
+        if let Some((_, u)) = g.as_ref() { return Ok(u.clone()); }
+    }
+    let exe = ensure_cloudflared()?;
+    let p = port.unwrap_or(9182);
+    let mut child = std::process::Command::new(exe)
+        .args(["tunnel", "--url", &format!("http://127.0.0.1:{}", p), "--no-autoupdate"])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    let pidf = format!("{}/.quinki/tunnel.pid", std::env::var("HOME").unwrap_or_default());
+    let _ = std::fs::write(&pidf, child.id().to_string());
+    // Leggi lo stderr finche' non compare l'URL del tunnel (max 30s)
+    let mut url = String::new();
+    if let Some(er) = child.stderr.take() {
+        use std::io::{BufRead, BufReader};
+        let mut br = BufReader::new(er);
+        let mut line = String::new();
+        let start = std::time::Instant::now();
+        while start.elapsed().as_secs() < 30 {
+            line.clear();
+            match br.read_line(&mut line) {
+                Ok(0) => break,
+                Ok(_) => {
+                    if line.contains("trycloudflare.com") {
+                        for tok in line.split_whitespace() {
+                            let t = tok.trim();
+                            let t = t.trim_end_matches(|c: char| !(c.is_ascii_alphanumeric() || c == '/' || c == ':' || c == '.' || c == '-'));
+                            if t.starts_with("https://") && t.contains("trycloudflare.com") {
+                                url = t.to_string();
+                                break;
+                            }
+                        }
+                        if !url.is_empty() { break; }
+                    }
+                }
+                Err(_) => break,
+            }
+        }
+        // continua a drenare lo stderr in background (evita il blocco del pipe)
+        std::thread::spawn(move || {
+            let mut sink = String::new();
+            loop {
+                sink.clear();
+                match br.read_line(&mut sink) {
+                    Ok(0) => break,
+                    Ok(_) => {}
+                    Err(_) => break,
+                }
+            }
+        });
+    }
+    if url.is_empty() { let _ = child.kill(); return Err("URL del tunnel non trovato".into()); }
+    let mut g = TUNNEL.lock().map_err(|e| e.to_string())?;
+    *g = Some((child, url.clone()));
+    Ok(url)
+}
+
+#[tauri::command]
+fn remote_tunnel_stop() -> Result<(), String> {
+    tunnel_stop_inner();
+    Ok(())
+}
+
+#[tauri::command]
+fn get_remote_token() -> String {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let p = format!("{}/.quinki/remote.json", home);
+    if let Ok(txt) = std::fs::read_to_string(&p) {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&txt) {
+            if let Some(t) = v.get("token").and_then(|x| x.as_str()) { return t.to_string(); }
+        }
+    }
+    String::new()
+}
+
+#[tauri::command]
+fn get_lan_ip() -> String {
+    for iface in ["en0", "en1", "en2"] {
+        if let Ok(out) = std::process::Command::new("/usr/sbin/ipconfig").args(["getifaddr", iface]).output() {
+            if out.status.success() {
+                let ip = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                if !ip.is_empty() { return ip; }
+            }
+        }
+    }
+    String::new()
+}
+
 pub fn run() {
     // === Single instance check ===
     // If the app is already running, focus the existing window and exit
@@ -2280,6 +2447,11 @@ pub fn run() {
     };
     let app = tauri::Builder::default()
     .invoke_handler(tauri::generate_handler![
+        remote_tunnel_status,
+        remote_tunnel_start,
+        remote_tunnel_stop,
+        get_lan_ip,
+        get_remote_token,
         set_window_bg_color,
         __drag_window,
         __toggle_maximize,
@@ -2847,6 +3019,7 @@ fn quick_chat_register_shortcut(app: &tauri::AppHandle) {
         } else {
           // SHOULD_EXIT (tray quit confermato / modale "Quit App") → kill backend PRIMA di uscire
           kill_backend();
+          tunnel_stop_inner(); // il tunnel non deve restare appeso se l'app si chiude
           let pid_file = if is_expert_mode() {
         format!("{}/.quinki-expert-app.pid", std::env::var("HOME").unwrap_or_default())
     } else {
