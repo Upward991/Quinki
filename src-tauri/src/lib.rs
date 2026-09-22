@@ -2680,6 +2680,19 @@ async fn remote_tunnel_autostart() -> Result<String, String> {
     tunnel_start_blocking(9182, hostname)
 }
 
+/// Log out da Tailscale: ferma il nodo, cancella l'iscrizione e lo stato.
+/// Alla prossima accensione si rifa' il sign-in da capo (nuovo nodo).
+#[tauri::command]
+fn remote_logout() -> Result<(), String> {
+    tunnel_stop_inner();
+    let home = std::env::var("HOME").unwrap_or_default();
+    let _ = std::fs::remove_dir_all(format!("{}/.quinki/tsnet", home));
+    let _ = std::fs::remove_file(format!("{}/.quinki/ts-node.json", home));
+    let _ = std::fs::remove_file(format!("{}/.quinki/tunnel.pid", home));
+    let _ = std::fs::remove_file(remote_state_file());
+    Ok(())
+}
+
 #[tauri::command]
 fn remote_tunnel_state() -> serde_json::Value {
     let (enabled, hostname) = load_remote_state();
@@ -2992,6 +3005,7 @@ pub fn run() {
         open_longhorizon_folder,
         open_general_attachments_folder,
         open_url,
+        remote_logout,
         open_system_settings,
         check_tcc_status,
         read_expert_tcc_status,
