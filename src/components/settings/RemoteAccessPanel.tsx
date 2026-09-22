@@ -93,7 +93,9 @@ export function RemoteAccessSection() {
   }
 
   // Sign in with Tailscale: UN click. Avvia/riavvia il nodo se serve, aspetta
-  // il link di autorizzazione e apre il browser da solo.
+  // il link di autorizzazione e apre il browser da solo. Se il nodo e' gia'
+  // iscritto (o il link e' gia' pronto) NON si mette in attesa: niente
+  // pulsanti bloccati per decine di secondi.
   const signIn = async () => {
     setBusy(true); setSigningIn(true); setErr('')
     try {
@@ -104,22 +106,23 @@ export function RemoteAccessSection() {
       const url: any = await invoke('remote_tunnel_start', { port: 9182, hostname: '' })
       setEnabled(true)
       setStatus(prev => ({ running: !!url, url: String(url || ''), authUrl: prev.authUrl || '' }))
+      if (url) { setSigningIn(false); setBusy(false); return } // gia' pronto: niente attesa
       let auth = String(status.authUrl || '')
-      if (!auth) {
-        for (let i = 0; i < 40 && !auth; i++) {
-          await new Promise(r => setTimeout(r, 500))
-          try {
-            const s: any = await invoke('remote_tunnel_status')
-            auth = String(s?.authUrl || '')
-            setStatus({ running: !!s?.running, url: String(s?.url || ''), authUrl: auth })
-          } catch {}
-        }
+      for (let i = 0; i < 16 && !auth; i++) {
+        await new Promise(r => setTimeout(r, 500))
+        try {
+          const s: any = await invoke('remote_tunnel_status')
+          const u = String(s?.url || '')
+          if (u) { setStatus({ running: true, url: u, authUrl: '' }); break }
+          auth = String(s?.authUrl || '')
+          setStatus({ running: !!s?.running, url: u, authUrl: auth })
+        } catch {}
       }
       if (auth) { openUrl(auth); setTimeout(() => setSigningIn(false), 1000) }
-      else { setSigningIn(false) } // gia' iscritto: niente login da fare
+      else { setSigningIn(false) }
     } catch (e: any) {
       setSigningIn(false)
-      setErr(String(e?.message || e))
+      setErr(String((e && e.message) ? e.message : e))
     }
     setBusy(false)
   }
@@ -130,7 +133,7 @@ export function RemoteAccessSection() {
       await invoke('remote_logout')
       setEnabled(false)
       setStatus({ running: false, url: '', authUrl: '' })
-    } catch (e: any) { setErr(String(e?.message || e)) }
+    } catch (e: any) { setErr('Log out failed: ' + String((e && e.message) ? e.message : e)) }
     setBusy(false)
   }
 
@@ -182,6 +185,9 @@ export function RemoteAccessSection() {
         <Globe size={16} style={{ color: 'var(--q-text-secondary)', flexShrink: 0 }} />
         <span style={{ color: 'var(--q-text)', fontSize: '15px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>Web app</span>
       </div>
+      {!!err && (
+        <div style={{ marginBottom: '8px', padding: '8px 12px', border: '1px solid var(--q-accent-danger)', borderRadius: 'var(--radius-sm)', backgroundColor: 'rgba(255,80,80,0.08)', color: 'var(--q-accent-danger)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>{err}</div>
+      )}
 
       {/* ---------- tutto pronto: il link ---------- */}
       {ready && (
@@ -279,7 +285,6 @@ export function RemoteAccessSection() {
           </button>
         </div>
       ))}
-      {err && <div style={{ color: 'var(--q-accent-danger)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginTop: '6px' }}>{err}</div>}
 
       {confirmAct && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 400, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
