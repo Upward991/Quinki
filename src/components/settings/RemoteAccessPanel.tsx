@@ -148,13 +148,12 @@ export function RemoteAccessSection() {
     padding: '0 12px', height: '34px', display: 'flex', alignItems: 'center', overflow: 'hidden',
     textOverflow: 'ellipsis', whiteSpace: 'nowrap',
   }
-  const stepNum = (state: 'done' | 'now' | 'todo'): React.CSSProperties => ({
+  const stepNum: React.CSSProperties = {
     width: '20px', height: '20px', borderRadius: '50%', flexShrink: 0,
-    backgroundColor: state === 'done' ? 'var(--q-tab-accent)' : 'var(--q-bg-elevated)',
-    border: '1px solid ' + (state === 'done' ? 'var(--q-tab-accent)' : state === 'now' ? 'var(--q-tab-accent)' : 'var(--q-border)'),
+    backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    color: state === 'done' ? 'var(--q-bg)' : 'var(--q-text-secondary)', fontSize: '11px', fontFamily: 'var(--font-code)',
-  })
+    color: 'var(--q-text-secondary)', fontSize: '11px', fontFamily: 'var(--font-code)',
+  }
   const stepRow: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0' }
   const stepTxt: React.CSSProperties = { flex: 1, minWidth: 0, color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', lineHeight: 1.45 }
 
@@ -221,20 +220,18 @@ export function RemoteAccessSection() {
           <div style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Setup, one time only (2 steps)</div>
           <div style={{ height: '2px' }} />
           <div style={stepRow}>
-            <div style={stepNum(step1Done ? 'done' : 'now')}>{step1Done ? '✓' : '1'}</div>
+            <div style={stepNum}>{step1Done ? '✓' : '1'}</div>
             <div style={stepTxt}>
               {signingIn
                 ? 'Waiting for the sign-in… finish it in the browser, then come back here.'
                 : step1Done
-                  ? 'You are signed in.'
+                  ? 'Signed in. (You can press the button again any time.)'
                   : 'Sign in with Tailscale and authorize this Mac. No account yet? You create it right there, free (Google, GitHub or email).'}
             </div>
-            {!step1Done && (
-              <button style={rowBtn} disabled={busy} onClick={signIn}>{busy ? '…' : 'Sign in with Tailscale'}</button>
-            )}
+            <button style={rowBtn} disabled={busy} onClick={signIn}>{busy ? '…' : 'Sign in with Tailscale'}</button>
           </div>
           <div style={stepRow}>
-            <div style={stepNum('todo')}>2</div>
+            <div style={stepNum}>2</div>
             <div style={stepTxt}>
               In the Tailscale admin console, on the DNS page, turn on “HTTPS Certificates” and “Funnel”. This makes the link reachable from your phone.
             </div>
@@ -244,12 +241,6 @@ export function RemoteAccessSection() {
           <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>
             The permanent link appears here by itself when both steps are done. You can also do them in any order.
           </div>
-          {enabled && (
-            <>
-              <div style={{ height: '10px' }} />
-              <button style={{ ...rowBtn, borderColor: 'var(--q-border)', color: 'var(--q-accent-danger)' }} disabled={busy} onClick={() => setConfirmAct('logout')}>Log out</button>
-            </>
-          )}
         </>
       )}
 
