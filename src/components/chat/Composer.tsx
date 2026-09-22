@@ -1140,7 +1140,7 @@ function CameraCaptureModal({ onClose, onDone }: { onClose: () => void; onDone: 
       const track: any = stream.getVideoTracks()[0]
       const caps = track && track.getCapabilities ? track.getCapabilities() : {}
       zoomCapsRef.current = caps && caps.zoom ? { min: Number(caps.zoom.min) || 1, max: Number(caps.zoom.max) || 1 } : null
-      try { reportCam('camera-caps', JSON.stringify({ ua: String(navigator.userAgent).slice(0, 220), facing: mode, caps, settings: track && track.getSettings ? track.getSettings() : null })) } catch {}
+      try { reportCam('camera-caps', JSON.stringify({ ua: String(navigator.userAgent).slice(0, 100), torch: caps.torch ?? null, zoom: caps.zoom ? [caps.zoom.min, caps.zoom.max] : null, fillLightMode: caps.fillLightMode ?? null, imageCapture: typeof (window as any).ImageCapture !== 'undefined' })) } catch {}
     } catch { zoomCapsRef.current = null }
     setTorchOn(false)
   }
@@ -1169,7 +1169,9 @@ function CameraCaptureModal({ onClose, onDone }: { onClose: () => void; onDone: 
     let basicErr = ''
     try {
       await track.applyConstraints({ torch: on } as any)
-      reportCam('camera-torch', JSON.stringify({ on, route: 'basic', ok: true, advErr }))
+      let applied = null
+      try { applied = !!(track.getSettings && track.getSettings().torch) } catch {}
+      reportCam('camera-torch', JSON.stringify({ on, route: 'basic', ok: true, applied, advErr }))
       return true
     } catch (e: any) { basicErr = String(e?.name || e?.message || e) }
     let icErr = ''
@@ -1227,22 +1229,36 @@ function CameraCaptureModal({ onClose, onDone }: { onClose: () => void; onDone: 
     if (pointersRef.current.size < 2) pinchRef.current = null
   }
 
-  const capture = () => {
+  const capture = async () => {
     const v = videoRef.current
-    if (!v || !v.videoWidth) return
-    try {
-      const c = document.createElement('canvas')
-      c.width = v.videoWidth
-      c.height = v.videoHeight
-      const ctx = c.getContext('2d')
-      if (!ctx) return
-      // selfie: salvo specchiato come lo vedi nell'anteprima
-      if (facing === 'user') { ctx.translate(c.width, 0); ctx.scale(-1, 1) }
-      ctx.drawImage(v, 0, 0, c.width, c.height)
-      c.toBlob((blob) => {
-        if (blob) onDone(blob, 'photo-' + Date.now() + '.jpg')
-      }, 'image/jpeg', 0.85)
-    } catch {}
+    if (!v) return
+    let blob: Blob | null = null
+    // Flash ON: scatto con l'API nativa della fotocamera -> il LED spara sul fotogramma
+    // (il constraint torch da solo su molti Android viene accettato ma ignorato).
+    if (torchOn && facing === 'environment') {
+      try {
+        const track: any = streamRef.current?.getVideoTracks()[0]
+        const IC: any = (window as any).ImageCapture
+        if (track && IC) {
+          const ic = new IC(track)
+          blob = await ic.takePhoto({ fillLightMode: 'flash' })
+        }
+      } catch (e: any) { reportCam('camera-takeflash', String(e?.name || e?.message || e)) }
+    }
+    if (!blob) {
+      if (!v.videoWidth) return
+      try {
+        const c = document.createElement('canvas')
+        c.width = v.videoWidth
+        c.height = v.videoHeight
+        const ctx = c.getContext('2d')
+        if (!ctx) return
+        if (facing === 'user') { ctx.translate(c.width, 0); ctx.scale(-1, 1) }
+        ctx.drawImage(v, 0, 0, c.width, c.height)
+        blob = await new Promise<Blob | null>((res) => { c.toBlob((b) => res(b), 'image/jpeg', 0.85) })
+      } catch {}
+    }
+    if (blob) onDone(blob, 'photo-' + Date.now() + '.jpg')
   }
 
   return (
