@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -127,14 +128,23 @@ func main() {
 	}
 	fqdn := strings.TrimSuffix(st.Self.DNSName, ".")
 	publicURL := "https://" + fqdn
-	emit(statusMsg{Status: "running", URL: publicURL})
 
 	// Funnel: porta 443 (l'unica "bella" consentita insieme a 8443 e 10000).
-	ln, err := srv.ListenFunnel("tcp", ":443")
-	if err != nil {
-		emit(statusMsg{Status: "error", Error: "funnel: " + err.Error()})
-		os.Exit(1)
+	// Se l'utente non ha ancora acceso Funnel nella console, riproviamo ogni 30s
+	// invece di uscire: appena accende l'interruttore il link parte da solo.
+	var ln net.Listener
+	var errLn error
+	for {
+		ln, errLn = srv.ListenFunnel("tcp", ":443")
+		if errLn == nil {
+			break
+		}
+		emit(statusMsg{Status: "funnel-pending"})
+		time.Sleep(30 * time.Second)
 	}
+	// "running" solo quando il Funnel e' davvero attivo: cosi' il link in
+	// Impostazioni compare solo quando e' raggiungibile.
+	emit(statusMsg{Status: "running", URL: publicURL})
 
 	targetURL := &url.URL{Scheme: "http", Host: *target}
 	proxy := &httputil.ReverseProxy{

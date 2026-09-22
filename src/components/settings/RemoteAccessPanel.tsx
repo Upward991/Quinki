@@ -238,8 +238,24 @@ export function RemoteAccessSection() {
           </div>
           {!stable && (
             <>
-              <div style={{ height: '8px' }} />
-              <button style={rowBtn} disabled={busy} onClick={restart}>{busy ? '…' : 'Switch to the permanent link'}</button>
+              <div style={{ height: '12px' }} />
+              <div style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Get the permanent link</div>
+              <div style={{ height: '4px' }} />
+              <div style={stepRow}>
+                <div style={stepNum}>1</div>
+                <div style={stepTxt}>Create a free Tailscale account. It links your phone to this Mac, nothing gets installed on the phone.</div>
+                <button style={rowBtn} onClick={() => openUrl(URL_SIGNUP)}>Create account</button>
+              </div>
+              <div style={stepRow}>
+                <div style={stepNum}>2</div>
+                <div style={stepTxt}>In the Tailscale admin console open the DNS page and turn on “HTTPS Certificates” and “Funnel”.</div>
+                <button style={rowBtn} onClick={() => openUrl(URL_ADMIN_DNS)}>Open admin console</button>
+              </div>
+              <div style={stepRow}>
+                <div style={stepNum}>3</div>
+                <div style={stepTxt}>Switch now: the app asks you to sign in, then the permanent link appears here by itself.</div>
+                <button style={rowBtn} disabled={busy} onClick={restart}>{busy ? '…' : 'Switch to the permanent link'}</button>
+              </div>
             </>
           )}
         </>
