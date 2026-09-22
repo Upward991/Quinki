@@ -2,6 +2,9 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { useSidecarContext } from '../shared/AppShell'
 import { Home, Terminal, Search, ChevronDown, ChevronUp, Download, Copy, RefreshCw, Trash, ArrowDown, Pulse } from '../icons'
+import { Filter, Menu } from '../icons'
+import { BottomSheet } from '../chat/BottomSheet'
+import { useLayout } from '../../platform/layout'
 
 interface LogEntry {
   ts: number
@@ -33,6 +36,9 @@ export function LogPanel(props: LogPanelProps) {
   const [historyMatches, setHistoryMatches] = useState<any[]>([])
   const bodyRef = useRef<HTMLDivElement>(null)
   const { call, notify, connected } = useSidecarContext()
+  const mob = useLayout().mode === 'mobile'
+  const [filtersSheet, setFiltersSheet] = useState(false)
+  const [actionsSheet, setActionsSheet] = useState(false)
 
   // Highlight match in golden (same as Settings)
   function hlLog(q: string, entryIdx: number) {
@@ -387,6 +393,7 @@ export function LogPanel(props: LogPanelProps) {
           <div style={{ width: '8px', flexShrink: 0 }} />
           <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>({filtered.length})</span>
           <div style={{ width: '8px', flexShrink: 0 }} />
+          {!mob && <>
           <FilterPill level="error" />
           <div style={{ width: '8px', flexShrink: 0 }} />
           <FilterPill level="warn" />
@@ -431,8 +438,10 @@ export function LogPanel(props: LogPanelProps) {
               {moreFilters.map((level) => <FilterPill key={level} level={level} />)}
             </div>
           </div>
-          <div style={{ width: '8px', flexShrink: 0 }} />
+          </>}
+          {mob && <><IconBtn icon={Filter} onClick={() => setFiltersSheet(true)} /><div style={{ width: '8px', flexShrink: 0 }} /></>}
           <span style={{ flex: 1 }} />
+          {!mob && <>
           <HeaderBtn label="export all" icon={<Download size={14} />} onClick={() => setShowExport(true)} />
           <div style={{ width: '4px', flexShrink: 0 }} />
           <HeaderBtn label="copy" icon={<Copy size={14} />} onClick={() => {
@@ -455,6 +464,8 @@ export function LogPanel(props: LogPanelProps) {
           }} />
           <div style={{ width: '4px', flexShrink: 0 }} />
           <HeaderBtn label="clear" icon={<Trash size={14} />} onClick={() => setShowClear(true)} />
+          </>}
+          {mob && <IconBtn icon={Menu} onClick={() => setActionsSheet(true)} />}
         </div>
       </div>
 
@@ -480,20 +491,20 @@ export function LogPanel(props: LogPanelProps) {
                 onMouseEnter={() => setHoveredIdx(i)}
                 onMouseLeave={() => setHoveredIdx(null)}
                 style={{
-                  width: '100%', padding: '16px', marginBottom: '12px', borderRadius: 'var(--radius-lg)',
+                  width: '100%', padding: '16px', marginBottom: '12px', borderRadius: 'var(--radius-lg)', overflowWrap: 'anywhere', wordBreak: 'break-word', minWidth: 0,
                   backgroundColor: colors.bg, boxShadow: 'var(--shadow-floating)', position: 'relative',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', minWidth: 0 }}>
                   <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-code)', flexShrink: 0 }}>
                     {fmtTimestampFull(e.ts)}
                   </span>
-                  <span style={{ color: colors.tag, fontSize: '12px', fontFamily: 'var(--font-code)', fontWeight: 600, flexShrink: 0 }}>
+                  <span style={{ color: colors.tag, fontSize: '12px', fontFamily: 'var(--font-code)', fontWeight: 600, minWidth: 0, wordBreak: 'break-all' }}>
                     [{e.tag}]
                   </span>
                 </div>
                 {payload ? (
-                  <div style={{ marginTop: '4px', color: colors.text, fontSize: '14px', fontFamily: 'var(--font-interface)', lineHeight: 1.65, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                  <div style={{ marginTop: '4px', color: colors.text, fontSize: '14px', fontFamily: 'var(--font-interface)', lineHeight: 1.65, whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere', minWidth: 0, maxWidth: '100%' }}>
                     {payload}
                   </div>
                 ) : null}
@@ -672,9 +683,36 @@ export function LogPanel(props: LogPanelProps) {
                 setEntries([])
                 setShowClear(false)
               }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }} style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>Clear</button>
+
             </div>
           </div>
         </div>
+      )}
+
+      {/* TELEFONO: stessi elementi della testata, in menu dal basso */}
+      {mob && (
+        <BottomSheet
+          open={filtersSheet}
+          onClose={() => setFiltersSheet(false)}
+          items={['error', 'warn', 'ui', ...moreFilters].map((level) => ({
+            label: level,
+            value: activeFilters.has(level) ? 'on' : 'off',
+            onSelect: () => toggleFilter(level),
+          }))}
+        />
+      )}
+      {mob && (
+        <BottomSheet
+          open={actionsSheet}
+          onClose={() => setActionsSheet(false)}
+          items={[
+            { icon: <Download size={18} />, label: 'export all', onSelect: () => { setActionsSheet(false); setShowExport(true) } },
+            { icon: <Copy size={18} />, label: 'copy', onSelect: () => { setActionsSheet(false); const md = filtered.map((e) => `### [${deriveLevel(e.tag)}] ${fmtTimestampFull(e.ts)}\n**Tag:** ${e.tag}\n\n${formatPayload(e.data)}\n`).join(`\n---\n\n`); navigator.clipboard.writeText(md) } },
+            { icon: <RefreshCw size={18} />, label: 'refresh', onSelect: () => { setActionsSheet(false); if (call) { call('getFullDebugLog', {}).then((r: any) => { if (r && r.log) setEntries(r.log.slice(-100)) }).catch(() => {}) } } },
+            { icon: <Pulse size={18} />, label: 'live', value: liveMode ? 'on' : 'off', onSelect: () => { const nv = !liveMode; setLiveMode(nv); if (nv && call) { call('getFullDebugLog', {}).then((r: any) => { if (r && r.log) setEntries(r.log.slice(-100)) }).catch(() => {}) } } },
+            { icon: <Trash size={18} />, label: 'clear', onSelect: () => { setActionsSheet(false); setShowClear(true) } },
+          ]}
+        />
       )}
     </div>
   )
