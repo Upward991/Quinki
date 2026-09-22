@@ -783,6 +783,7 @@ export function ChatArea(props: ChatAreaProps) {
               onSend={handleSend} onStop={props.onStop} onSteer={props.onSteer}
               onModelChange={props.onModelSelect} onModeChange={props.onModeChange}
               onThinkingChange={t => props.onThinkingChange(t)} welcomeMode={true}
+              attachSignal={attachSignal}
               longHorizon={props.longHorizon} longHorizonStatus={props.longHorizonStatus} longHorizonPhase={props.longHorizonPhase}
               longHorizonPlanProposed={(() => { const la = [...(props.messages || [])].reverse().find((m: any) => m.role === 'assistant' && m.content); return !!la && String(typeof la.content === 'string' ? la.content : '').includes('- [') })()}
               onLongHorizon={props.onLongHorizon} onRequestPlan={props.onRequestPlan}

@@ -28,15 +28,15 @@ export function SheetRow({ icon, label, value, onClick }: {
     <div
       onClick={onClick}
       style={{
-        display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 12px',
+        display: 'flex', alignItems: 'center', gap: '14px', padding: '16px 14px',
         borderRadius: 'var(--radius-md)', cursor: 'pointer', transition: 'none',
       }}
     >
       {icon
         ? <span style={{ color: 'var(--q-text-secondary)', display: 'flex', flexShrink: 0 }}>{icon}</span>
-        : <span style={{ width: '18px', flexShrink: 0 }} />}
-      <span style={{ flex: 1, minWidth: 0, color: 'var(--q-text)', fontSize: '15px', fontFamily: 'var(--font-interface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
-      {value && <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-code)', flexShrink: 0, whiteSpace: 'nowrap' }}>{value}</span>}
+        : <span style={{ width: '20px', flexShrink: 0 }} />}
+      <span style={{ flex: 1, minWidth: 0, color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+      {value && <span style={{ color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-code)', flexShrink: 0, whiteSpace: 'nowrap' }}>{value}</span>}
     </div>
   )
 }
@@ -79,13 +79,13 @@ export function BottomSheet({ open, onClose, items, view, onViewBack, title }: {
           if (dy > 80) onClose()
         }}
         style={{
-          position: 'absolute', left: 0, right: 0, bottom: 0,
+          position: 'absolute', left: 0, right: 0, top: 0, bottom: 0,
           backgroundColor: 'var(--q-bg-panel)',
-          borderRadius: 'var(--radius-lg) var(--radius-lg) 0 0',
+          borderRadius: 0,
           boxShadow: 'var(--shadow-modal)',
           paddingBottom: 'calc(4px + env(safe-area-inset-bottom, 0px))',
           transform: dragY > 0 ? `translateY(${dragY}px)` : 'none',
-          display: 'flex', flexDirection: 'column', maxHeight: '82dvh', transition: 'none',
+          display: 'flex', flexDirection: 'column', transition: 'none',
         }}
       >
         <div style={{ width: '40px', height: '4px', borderRadius: '2px', backgroundColor: 'rgba(255,255,255,0.13)', margin: '8px auto 8px auto', flexShrink: 0 }} />
@@ -94,9 +94,9 @@ export function BottomSheet({ open, onClose, items, view, onViewBack, title }: {
         )}
 
         {view ? (
-          <div style={{ overflowY: 'auto', padding: '0 8px 4px 8px' }}>{view}</div>
+          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 8px 4px 8px' }}>{view}</div>
         ) : (
-          <div style={{ overflowY: 'auto', padding: '0 8px 4px 8px' }}>
+          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 8px 4px 8px' }}>
             {items.map((it, i) => (
               <div
                 key={it.label}
@@ -119,7 +119,7 @@ export function BottomSheet({ open, onClose, items, view, onViewBack, title }: {
           <span style={{ flex: 1 }} />
           <NavTextBtn label="Close" danger onClick={onClose} />
           <div style={{ width: '8px' }} />
-          <NavTextBtn label="Back" accent onClick={() => { if (view) onViewBack?.() }} />
+          <NavTextBtn label="Back" accent onClick={() => { if (view) { onViewBack?.() } else { onClose() } }} />
         </div>
       </div>
     </div>
@@ -143,13 +143,13 @@ function ArrowBtn({ icon: Icon, onClick }: { icon: React.FC<{ size?: number; sty
       onMouseLeave={() => setHovered(false)}
       onTouchStart={flash}
       style={{
-        padding: '6px', border: 'none', cursor: 'pointer', borderRadius: 'var(--radius-sm)',
+        padding: '8px', border: 'none', cursor: 'pointer', borderRadius: 'var(--radius-sm)',
         backgroundColor: hovered ? 'rgba(255,255,255,0.06)' : 'transparent',
         color: hovered ? 'var(--q-text)' : 'var(--q-text-secondary)',
         display: 'flex', alignItems: 'center', transition: 'none',
       }}
     >
-      <Icon size={14} />
+      <Icon size={16} />
     </button>
   )
 }
@@ -172,11 +172,11 @@ function NavTextBtn({ label, danger, accent, onClick }: { label: string; danger?
       onMouseLeave={() => setHovered(false)}
       onTouchStart={flash}
       style={{
-        padding: '7px 16px', borderRadius: 'var(--radius-sm)', cursor: 'pointer',
+        padding: '10px 18px', borderRadius: 'var(--radius-sm)', cursor: 'pointer',
         border: `1px solid ${accent ? 'var(--q-tab-accent)' : 'var(--q-border)'}`,
         backgroundColor: hovered ? (accent ? 'var(--q-tab-accent)' : 'rgba(255,255,255,0.06)') : 'transparent',
         color: hovered ? hoverText : textColor,
-        fontSize: '13px', fontFamily: 'var(--font-interface)', fontWeight: accent ? 600 : 400, transition: 'none',
+        fontSize: '14px', fontFamily: 'var(--font-interface)', fontWeight: accent ? 600 : 400, transition: 'none',
       }}
     >
       {label}

@@ -3,8 +3,10 @@ import { AgentRow } from '../agents/AgentsPanel'
 import { AddItemsModal, FileEditor, Modal, ConfirmButtons } from '../agents/AgentsPanel'
 import { useSidecarContext } from '../shared/AppShell'
 import type { Agent } from '../../types'
+import { useLayout } from '../../platform/layout'
 
 export function AgentConfigModal({ agentId, agents = [], onClose }: { agentId: string; agents?: Agent[]; onClose: () => void }) {
+  const mob = useLayout().mode === 'mobile'
   const { call } = useSidecarContext()
   const [agent, setAgent] = useState<Agent | null>(agents.find(a => a.id === agentId) || null)
   const [skills, setSkills] = useState<any[]>([])
@@ -151,9 +153,9 @@ export function AgentConfigModal({ agentId, agents = [], onClose }: { agentId: s
   return (
     <>
       {/* Modal overlay */}
-      <div style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: mob ? 'stretch' : 'center', justifyContent: 'center' }} onClick={onClose}>
         {/* Modal container */}
-        <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '700px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-modal)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+        <div style={mob ? { backgroundColor: 'var(--q-bg-panel)', borderRadius: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' } : { backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '700px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-modal)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
           {/* Header */}
           <div style={{ padding: '12px 16px', backgroundColor: 'var(--q-bg-panel)', borderBottom: '1px solid var(--q-border)', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
             <span style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>{agent.name}</span>
