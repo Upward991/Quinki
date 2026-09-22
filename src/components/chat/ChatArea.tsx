@@ -9,7 +9,7 @@ import { getContrastColor } from '../../utils/contrast'
 import { MessageBubble } from './MessageBubble'
 import { ChatHeader } from './ChatHeader'
 import { Composer } from './Composer'
-import {ArrowDown, Checklist, ChevronDown, ChevronRight, ChevronUp, Copy, Paperclip, X, Bot, Search} from '../icons'
+import {ArrowDown, Checklist, ChevronDown, ChevronRight, ChevronUp, Copy, Paperclip, X, Bot, Search, Calendar, Clock} from '../icons'
 import { useSidecarContext } from '../shared/AppShell'
 import type { Message, Session, Agent, Provider, ChatMode, ThinkingLevel } from '../../types'
 
@@ -931,22 +931,37 @@ export function ChatArea(props: ChatAreaProps) {
           </div>
 
           {searchOpen && (
-            <div style={{ position: 'fixed', left: '8px', right: '8px', bottom: 'calc(env(safe-area-inset-bottom, 0px) + 8px)', zIndex: 90, backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px' }}>
-              <Search size={16} style={{ color: 'var(--q-text-tertiary)', flexShrink: 0 }} />
-              <input
-                type="text"
-                placeholder="Search in messages..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Escape') { setSearchOpen(false); setSearchQuery('') } }}
-                style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}
-              />
-              <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-code)', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                {searchQuery.trim() ? (matches.length > 0 ? matches.length + (matches.length === 1 ? ' match' : ' matches') : '0/0') : ''}
-              </span>
-              <button onClick={() => goToMatch('prev')} style={{ background: 'none', border: 'none', cursor: matches.length ? 'pointer' : 'default', padding: '2px', color: matches.length ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)', opacity: matches.length ? 1 : 0.3, lineHeight: 0, flexShrink: 0, display: 'flex' }}><ChevronUp size={16} /></button>
-              <button onClick={() => goToMatch('next')} style={{ background: 'none', border: 'none', cursor: matches.length ? 'pointer' : 'default', padding: '2px', color: matches.length ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)', opacity: matches.length ? 1 : 0.3, lineHeight: 0, flexShrink: 0, display: 'flex' }}><ChevronDown size={16} /></button>
-              <button onClick={() => { setSearchOpen(false); setSearchQuery('') }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: 'var(--q-text-tertiary)', fontSize: '14px', lineHeight: 1, flexShrink: 0 }}>✕</button>
+            <div style={{ position: 'fixed', left: '8px', right: '8px', bottom: 'calc(env(safe-area-inset-bottom, 0px) + 8px)', zIndex: 90, backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)', padding: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <Search size={16} style={{ color: 'var(--q-text-tertiary)', flexShrink: 0 }} />
+                <div style={{ width: '8px', flexShrink: 0 }} />
+                <input type="text" placeholder="Search in messages..." value={searchQuery}
+                  onChange={e => { setSearchQuery(e.target.value); setCurrentMatch(e.target.value.trim() && hasDateFilter ? 0 : -1) }}
+                  onKeyDown={e => { if (e.key === 'Escape') { setSearchOpen(false); setSearchQuery('') } }}
+                  style={{ flex: 1, minWidth: 0, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0', margin: '0' }} />
+                <button onClick={() => { if (searchQuery) setSearchQuery(''); else setSearchOpen(false) }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px', color: 'var(--q-text-secondary)', fontSize: '14px', lineHeight: '1', flexShrink: 0 }}>✕</button>
+                <span style={{ color: matches.length > 0 ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-code)', whiteSpace: 'nowrap', opacity: matches.length > 0 ? 1 : 0.3, flexShrink: 0 }}>{matches.length > 0 ? (currentMatch < 0 ? matches.length : currentMatch + 1) + '/' + matches.length : '0/0'}</span>
+                <div style={{ width: '8px', flexShrink: 0 }} />
+                <button onClick={() => goToMatch('prev')} style={{ background: 'none', border: 'none', cursor: matches.length > 0 ? 'pointer' : 'default', padding: '0', color: matches.length > 0 ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)', opacity: matches.length > 0 ? 1 : 0.3, lineHeight: '0', flexShrink: 0, display: 'flex' }}><ChevronUp size={16} /></button>
+                <button onClick={() => goToMatch('next')} style={{ background: 'none', border: 'none', cursor: matches.length > 0 ? 'pointer' : 'default', padding: '0', color: matches.length > 0 ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)', opacity: matches.length > 0 ? 1 : 0.3, lineHeight: '0', flexShrink: 0, display: 'flex' }}><ChevronDown size={16} /></button>
+              </div>
+              <div style={{ height: '8px' }} />
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <Calendar size={16} style={{ color: 'var(--q-text-tertiary)', flexShrink: 0 }} />
+                <div style={{ width: '8px', flexShrink: 0 }} />
+                <input type="text" placeholder="dd/mm/yyyy" value={searchDate}
+                  onChange={e => { setSearchDate(e.target.value); setCurrentMatch(-1); setDateMatchIdx(0) }}
+                  style={{ flex: 1, minWidth: 0, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', padding: '0', margin: '0' }} />
+                <button onClick={() => setSearchDate('')} style={{ background: 'none', border: 'none', cursor: searchDate ? 'pointer' : 'default', padding: '8px', color: searchDate ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)', fontSize: '14px', opacity: searchDate ? 1 : 0.3, lineHeight: '1', flexShrink: 0 }}>✕</button>
+                <div style={{ width: '8px', flexShrink: 0 }} />
+                <Clock size={16} style={{ color: 'var(--q-text-tertiary)', flexShrink: 0 }} />
+                <div style={{ width: '8px', flexShrink: 0 }} />
+                <input type="text" placeholder="hh:mm:ss" value={searchTime}
+                  onChange={e => { setSearchTime(e.target.value); setCurrentMatch(-1); setDateMatchIdx(0) }}
+                  style={{ flex: 1, minWidth: 0, backgroundColor: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', padding: '0', margin: '0' }} />
+                <button onClick={() => setSearchTime('')} style={{ background: 'none', border: 'none', cursor: searchTime ? 'pointer' : 'default', padding: '8px', color: searchTime ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)', fontSize: '14px', opacity: searchTime ? 1 : 0.3, lineHeight: '1', flexShrink: 0 }}>✕</button>
+              </div>
             </div>
           )}
           {/* Composer — flexShrink 0 so it stays visible */}

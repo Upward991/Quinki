@@ -304,6 +304,21 @@ export function Sidebar(props: SidebarProps) {
       <div style={{ padding: '8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button
+            onClick={() => { try { props.onGoHome?.() } catch {} }}
+            onMouseEnter={() => setHovered('home')}
+            onMouseLeave={() => setHovered(null)}
+            style={{
+              width: '40px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer',
+              backgroundColor: hovered === 'home' ? 'var(--q-hover)' : 'transparent',
+              color: hovered === 'home' ? 'var(--q-text)' : 'var(--q-text-secondary)',
+              padding: 0,
+            }}
+            title="Home"
+          >
+            <Home size={20} />
+          </button>
+          <button
             onClick={() => { r(); setNewChatFlash(true); setTimeout(() => setNewChatFlash(false), 600) }}
             onMouseEnter={() => setHovered('newchat')}
             onMouseLeave={() => setHovered(null)}
@@ -330,21 +345,6 @@ export function Sidebar(props: SidebarProps) {
             }}
           >
             <FolderAdd size={20} />
-          </button>
-          <button
-            onClick={() => { try { props.onGoHome?.() } catch {} }}
-            onMouseEnter={() => setHovered('home')}
-            onMouseLeave={() => setHovered(null)}
-            style={{
-              width: '40px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer',
-              backgroundColor: hovered === 'home' ? 'var(--q-hover)' : 'transparent',
-              color: hovered === 'home' ? 'var(--q-text)' : 'var(--q-text-secondary)',
-              padding: 0,
-            }}
-            title="Home"
-          >
-            <Home size={20} />
           </button>
         </div>
       </div>
@@ -578,6 +578,7 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
           border: 'none',
           cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
           opacity: isDragging && !isOverlay ? 0.15 : 1, boxSizing: 'border-box',
+          touchAction: 'manipulation', userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none',
           boxShadow: isOverlay ? '0 8px 16px rgba(0,0,0,0.5)' : 'none',
         }}
       >
