@@ -324,6 +324,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
         right: '0',
         zIndex: 50,
         backgroundColor: 'var(--q-bg-panel)',
+        border: '1px solid var(--q-border)',
         borderRadius: 'var(--radius-lg)',
         boxShadow: 'var(--shadow-floating)',
         maxHeight: maxH > 0 ? maxH + 'px' : 'min(640px, calc(100dvh - 130px))',
@@ -366,12 +367,12 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
             }}
             onConfirm={confirm}
             onClose={props.onClose}
-          />
-            onBack={() => {
-              if (focusConfirm) { setFocusConfirm(false); return }
-              if (mode !== 'main') { setMode('main'); return }
+                      onBack={() => {
+              if (typeof focusConfirm !== 'undefined' && focusConfirm) { try { setFocusConfirm(false) } catch {} return }
+              if (typeof mode !== 'undefined' && mode !== 'main') { try { setMode('main') } catch {} return }
               try { props.onClose() } catch {}
             }}
+          />
         </>
       )}
 
@@ -409,6 +410,11 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
             onRight={() => { const m = modelFlatIndex[selectedIdx]; if (m) { setPendingModel(m); setFocusConfirm(true) } }}
             onConfirm={confirm}
             onClose={props.onClose}
+                      onBack={() => {
+              if (typeof focusConfirm !== 'undefined' && focusConfirm) { try { setFocusConfirm(false) } catch {} return }
+              if (typeof mode !== 'undefined' && mode !== 'main') { try { setMode('main') } catch {} return }
+              try { props.onClose() } catch {}
+            }}
           />
         </>
       )}
@@ -440,6 +446,11 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
             onRight={() => { setPendingThinking(selectedIdx === 0 ? 'on' : 'off'); setFocusConfirm(true) }}
             onConfirm={confirm}
             onClose={props.onClose}
+                      onBack={() => {
+              if (typeof focusConfirm !== 'undefined' && focusConfirm) { try { setFocusConfirm(false) } catch {} return }
+              if (typeof mode !== 'undefined' && mode !== 'main') { try { setMode('main') } catch {} return }
+              try { props.onClose() } catch {}
+            }}
           />
         </>
       )}
@@ -523,6 +534,11 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
             onRight={() => { const flat = skillGroups.flatMap((g: any) => g.skills.map((s: any) => ({ ...s, agentId: g.agentId, agentName: g.agentName }))); const s = flat[selectedIdx]; if (s) selectSkill(s, s.agentId, s.agentName) }}
             onConfirm={confirmSkill}
             onClose={props.onClose}
+                      onBack={() => {
+              if (typeof focusConfirm !== 'undefined' && focusConfirm) { try { setFocusConfirm(false) } catch {} return }
+              if (typeof mode !== 'undefined' && mode !== 'main') { try { setMode('main') } catch {} return }
+              try { props.onClose() } catch {}
+            }}
           />
         </>
       )}
@@ -581,6 +597,11 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
             onRight={() => { if (focusAdd) { pickDirectory() } else if (!focusConfirm) setFocusAdd(true) }}
             onConfirm={confirm}
             onClose={props.onClose}
+                      onBack={() => {
+              if (typeof focusConfirm !== 'undefined' && focusConfirm) { try { setFocusConfirm(false) } catch {} return }
+              if (typeof mode !== 'undefined' && mode !== 'main') { try { setMode('main') } catch {} return }
+              try { props.onClose() } catch {}
+            }}
           />
         </>
       )}

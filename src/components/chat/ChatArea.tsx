@@ -939,7 +939,7 @@ export function ChatArea(props: ChatAreaProps) {
           </div>
 
           {searchOpen && (
-            <div style={{ position: 'fixed', left: '8px', right: '8px', bottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)', zIndex: 90, backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)', padding: '8px' }}>
+            <div style={{ position: 'fixed', left: '8px', right: '8px', bottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)', zIndex: 90, backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)', padding: '8px' }}>
               <div style={{ display: 'flex', alignItems: 'center' }}>
                 <Search size={16} style={{ color: 'var(--q-text-tertiary)', flexShrink: 0 }} />
                 <div style={{ width: '8px', flexShrink: 0 }} />
