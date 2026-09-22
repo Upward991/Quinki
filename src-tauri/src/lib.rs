@@ -2946,6 +2946,7 @@ pub fn run() {
     // avviene quando l'utente preme Enable/Refresh nel pannello (esplicito),
     // cosi' il vecchio tunnel resta su fino a che il nuovo e' pronto.
     std::thread::spawn(|| {
+        if is_expert_mode() { return; } // il tunnel lo gestisce SOLO l'app principale
         let (enabled, hostname) = load_remote_state();
         if !enabled { return; }
         if running_tunnel_from_state().is_some() { return; } // gia' vivo: stesso link
@@ -2957,6 +2958,10 @@ pub fn run() {
     // - non raggiungibile da TUTTI gli edge per 2 tick di fila -> riavvio (~1 min)
     // - ogni evento finisce in ~/.quinki/tunnel-watchdog.log (diagnosi)
     std::thread::spawn(|| {
+        // IMPORTANTE: solo l'app PRINCIPALE gestisce il tunnel. L'App Expert ha il
+        // suo processo ma condivide ~/.quinki: senza questo guard il suo watchdog
+        // riavviava il tunnel senza il binario Tailscale (fallback Cloudflare = link morto).
+        if is_expert_mode() { return; }
         let home = std::env::var("HOME").unwrap_or_default();
         let log_path = format!("{}/.quinki/tunnel-watchdog.log", home);
         let log = move |msg: &str| {
