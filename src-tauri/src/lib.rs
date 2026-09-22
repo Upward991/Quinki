@@ -2500,6 +2500,35 @@ fn load_remote_state_pid() -> Option<u32> {
     None
 }
 
+/// Vero se il link risponde da ALMENO un edge pubblico (2xx/3xx/4xx contano).
+/// Controlla fino a 3 IP: un edge lento non deve far riavviare un tunnel sano.
+fn url_reachable_any_edge(url: &str) -> bool {
+    let host = url.trim_start_matches("https://").split('/').next().unwrap_or("").to_string();
+    if host.is_empty() { return true; }
+    let out = std::process::Command::new("/usr/bin/dig")
+        .args(["+short", "@1.1.1.1", &host])
+        .output();
+    let ips: Vec<String> = match out {
+        Ok(o) => String::from_utf8_lossy(&o.stdout)
+            .lines()
+            .map(|l| l.trim().to_string())
+            .filter(|l| l.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false))
+            .collect(),
+        Err(_) => return true,
+    };
+    if ips.is_empty() { return true; } // resolver esterno giu': non e' un fallimento
+    for ip in ips.iter().take(3) {
+        if let Ok(o) = std::process::Command::new("curl")
+            .args(["-s", "-o", "/dev/null", "-m", "6", "-w", "%{http_code}", "--resolve", &format!("{}:443:{}", host, ip), url])
+            .output()
+        {
+            let c = String::from_utf8_lossy(&o.stdout).trim().to_string();
+            if c.starts_with('2') || c.starts_with('3') || c.starts_with('4') { return true; }
+        }
+    }
+    false
+}
+
 fn pid_alive(pid: u32) -> bool {
     if pid == 0 { return false; }
     unsafe { libc::kill(pid as i32, 0) == 0 }
@@ -2923,55 +2952,39 @@ pub fn run() {
         let _ = tunnel_start_blocking(9182, hostname);
     });
 
-    // === WEB APP: watchdog del tunnel (ogni 60s) ===
-    // Il quick tunnel puo' morire (processo morto) o restare "vivo ma disconnesso":
-    // in entrambi i casi il link diventa irraggiungibile. Qui lo riavviamo da soli.
+    // === WEB APP: watchdog del tunnel (ogni 30s, affidabilita' massima) ===
+    // - processo morto -> riavvio immediato
+    // - non raggiungibile da TUTTI gli edge per 2 tick di fila -> riavvio (~1 min)
+    // - ogni evento finisce in ~/.quinki/tunnel-watchdog.log (diagnosi)
     std::thread::spawn(|| {
+        let home = std::env::var("HOME").unwrap_or_default();
+        let log_path = format!("{}/.quinki/tunnel-watchdog.log", home);
+        let log = move |msg: &str| {
+            use std::io::Write;
+            let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+            if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&log_path) {
+                let _ = writeln!(f, "[{}] {}", secs, msg);
+            }
+        };
         let mut fails = 0u32;
         loop {
-            std::thread::sleep(std::time::Duration::from_secs(60));
+            std::thread::sleep(std::time::Duration::from_secs(30));
             let (enabled, hostname) = load_remote_state();
             if !enabled { fails = 0; continue; }
             let url = load_remote_state_url();
             let alive = load_remote_state_pid().map(pid_alive).unwrap_or(false);
             if !alive {
-                let _ = tunnel_start_blocking(9182, hostname);
+                log("process dead: restarting tunnel");
+                if tunnel_start_blocking(9182, hostname).is_err() { log("restart failed"); }
                 fails = 0;
                 continue;
             }
-            // raggiungibilita' dal pubblico: risolvo su 1.1.1.1 (il resolver
-            // locale a volte non risolve i domini trycloudflare appena creati
-            // = falsi negativi) e chiedo direttamente all'edge. 2xx/3xx/4xx ok.
-            let reachable = if url.is_empty() { true } else {
-                let host = url.trim_start_matches("https://").split('/').next().unwrap_or("").to_string();
-                let ip = std::process::Command::new("/usr/bin/dig")
-                    .args(["+short", "@1.1.1.1", &host])
-                    .output()
-                    .ok()
-                    .and_then(|o| {
-                        String::from_utf8_lossy(&o.stdout)
-                            .lines()
-                            .map(|l| l.trim().to_string())
-                            .find(|l| l.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false))
-                    })
-                    .unwrap_or_default();
-                if ip.is_empty() {
-                    true // resolver esterno non raggiungibile: non e' un fallimento
-                } else {
-                    std::process::Command::new("curl")
-                        .args(["-s", "-o", "/dev/null", "-m", "12", "-w", "%{http_code}", "--resolve", &format!("{}:443:{}", host, ip), &url])
-                        .output()
-                        .map(|o| {
-                            let c = String::from_utf8_lossy(&o.stdout).trim().to_string();
-                            c.starts_with('2') || c.starts_with('3') || c.starts_with('4')
-                        })
-                        .unwrap_or(false)
-                }
-            };
-            if reachable { fails = 0; continue; }
+            if url.is_empty() { fails = 0; continue; }
+            if url_reachable_any_edge(&url) { fails = 0; continue; }
             fails += 1;
-            if fails >= 3 {
-                // 3 controlli falliti di fila (3 minuti): riavvia il tunnel
+            log(&format!("unreachable from all edges ({} consecutive)", fails));
+            if fails >= 2 {
+                log("restarting tunnel after 2 unreachable checks");
                 tunnel_stop_inner();
                 let _ = tunnel_start_blocking(9182, hostname);
                 fails = 0;
