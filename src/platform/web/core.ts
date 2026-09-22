@@ -17,7 +17,10 @@ export async function invoke(cmd: string, args?: Any): Promise<Any> {
       try {
         const title = String(args?.title || 'Quinki')
         const body = String(args?.body || args?.message || '')
-        if ((window as Any).Notification && Notification.permission === 'granted') new Notification(title, { body })
+        if ((window as Any).Notification && Notification.permission === 'granted') {
+          const n = new Notification(title, { body })
+          n.onclick = () => { try { window.focus() } catch {} }
+        }
       } catch {}
       return null
     }
@@ -53,6 +56,31 @@ export async function invoke(cmd: string, args?: Any): Promise<Any> {
         await navigator.clipboard.writeText(text)
       } catch {}
       return null
+    }
+    case 'pick_files': {
+      // Web: scelta file dal browser -> upload al sidecar (stessa origine, cookie
+      // del dispositivo) -> ritorna i percorsi locali come farebbe il desktop.
+      try {
+        const files: File[] = await new Promise((resolve) => {
+          const inp = document.createElement('input')
+          inp.type = 'file'
+          inp.multiple = true
+          inp.style.display = 'none'
+          document.body.appendChild(inp)
+          inp.onchange = () => resolve(Array.from(inp.files || []))
+          inp.oncancel = () => resolve([])
+          inp.click()
+        })
+        const out: string[] = []
+        for (const f of files) {
+          try {
+            const r = await fetch('/upload?name=' + encodeURIComponent(f.name), { method: 'POST', body: f })
+            const j: any = await r.json().catch(() => null)
+            if (j && j.ok && j.path) out.push(String(j.path))
+          } catch {}
+        }
+        return out.length ? out : null
+      } catch { return null }
     }
     case 'get_window_label':
       return 'main'

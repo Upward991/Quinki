@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import {
-  DndContext, closestCenter, rectIntersection, pointerWithin, PointerSensor, useSensor, useSensors,
+  DndContext, closestCenter, rectIntersection, pointerWithin, PointerSensor, TouchSensor, useSensor, useSensors,
   DragOverlay, useDroppable, useDraggable,
 } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
@@ -120,7 +120,7 @@ export function Sidebar(props: SidebarProps) {
 
   const dragRef = useRef<any>(null)
   const [activeDragItem, setActiveDragItem] = useState<any>(null)
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }), useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }))
 
   // Build flat display list with transition zones
   const flatList: { item: any; depth: number; isTransition?: boolean; transitionParentId?: string | null; transitionLabel?: string }[] = []
@@ -616,7 +616,7 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
 
         {/* Unread badge */}
         {item.unread && !isActive && (
-          <span style={{ backgroundColor: 'var(--q-tab-accent)', color: 'var(--q-bg)', fontSize: '11px', fontWeight: 700, fontFamily: 'var(--font-interface)', borderRadius: '999px', padding: '3px 7px', minWidth: '18px', textAlign: 'center', flexShrink: 0, lineHeight: '1' }}>
+          <span style={{ backgroundColor: '#ffffff', color: '#000000', fontSize: '12px', fontWeight: 600, fontFamily: 'var(--font-interface)', borderRadius: '999px', padding: '4px 8px', minWidth: '18px', textAlign: 'center', flexShrink: 0, lineHeight: '1' }}>
             {item.messageCount || 0}
           </span>
         )}

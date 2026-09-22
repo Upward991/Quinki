@@ -343,6 +343,42 @@ const httpServer = http.createServer((req: any, res: any) => {
     }
   } catch {}
 
+  // === UPLOAD (F1): allegati dal browser/telefono -> file sul Mac ===
+  // Autenticato dal gate qui sopra (cookie del dispositivo). Il nome arriva in
+  // query, i byte nel body: il file finisce in ~/.quinki/web-uploads/<id>/ e
+  // torna il percorso locale, che il flusso allegati tratterà come al solito.
+  if (req.method === "POST" && url.startsWith("/upload")) {
+    try {
+      const q = new URLSearchParams(url.split("?")[1] || "");
+      const rawName = (q.get("name") || "file").replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120) || "file";
+      const dir = path.join(process.env.HOME || "/tmp", ".quinki", "web-uploads", Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8));
+      fs.mkdirSync(dir, { recursive: true });
+      const dest = path.join(dir, rawName);
+      const chunks: Buffer[] = [];
+      let size = 0;
+      let tooBig = false;
+      req.on("data", (c: Buffer) => {
+        size += c.length;
+        if (size > 200 * 1024 * 1024) { tooBig = true; try { req.destroy(); } catch {} return; }
+        chunks.push(c);
+      });
+      req.on("end", () => {
+        if (tooBig) { res.writeHead(413); res.end("too big"); return; }
+        try {
+          fs.writeFileSync(dest, Buffer.concat(chunks));
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ ok: true, path: dest }));
+        } catch (e: any) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ ok: false, error: String(e) }));
+        }
+      });
+    } catch {
+      res.writeHead(500); res.end("upload error");
+    }
+    return;
+  }
+
   // === WEB APP (F1): la stessa UI del desktop, servita sulla stessa porta del WS ===
   if (req.method === "GET" || req.method === "HEAD") {
     try { if (serveWebApp(req, res, url)) return; } catch {}
