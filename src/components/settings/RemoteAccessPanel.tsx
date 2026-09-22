@@ -224,23 +224,6 @@ export function RemoteAccessSection() {
         <div style={{ marginTop: '8px', padding: '8px 12px', border: '1px solid var(--q-accent-danger)', borderRadius: 'var(--radius-sm)', backgroundColor: 'rgba(255,80,80,0.08)', color: 'var(--q-accent-danger)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>{err}</div>
       )}
 
-      {/* ---------- link permanente (compare qui quando e' pronto) ---------- */}
-      {ready && (
-        <>
-          <div style={{ height: '12px' }} />
-          <div style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Your permanent link</div>
-          <div style={{ height: '6px' }} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={urlBox}>{status.url}</div>
-            <button style={rowBtn} {...hoverAccent} onClick={() => copy(withToken(status.url), 'tun')}>{copied === 'tun' ? 'Copied' : 'Copy'}</button>
-          </div>
-          <div style={{ height: '6px' }} />
-          <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>
-            This link never changes, not even after updates or restarts of this Mac.
-          </div>
-        </>
-      )}
-
       {/* ---------- setup: sempre visibile, mai nascosto ---------- */}
       <div style={{ height: '12px' }} />
       <div style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Setup, one time only (2 steps)</div>
@@ -250,7 +233,6 @@ export function RemoteAccessSection() {
         <div style={stepTxt}>
           Log in with Tailscale and authorize this Mac. No account yet? You create it right there, free (Google, GitHub or email).
         </div>
-        <button style={rowBtn} onClick={startTunnel} {...hoverAccent}>Start</button>
         <button style={rowBtn} onClick={signIn} {...hoverAccent}>Log in with Tailscale</button>
         {loggedIn && (
           <button
@@ -273,8 +255,25 @@ export function RemoteAccessSection() {
         {statusLine}
       </div>
       <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginTop: '2px' }}>
-        The permanent link appears above when both steps are done. You can do them in any order.
+        The permanent link appears below when both steps are done. You can do them in any order.
       </div>
+      <div style={{ height: '12px' }} />
+      <button style={rowBtn} onClick={startTunnel} {...hoverAccent}>Start</button>
+      {ready && (
+        <>
+          <div style={{ height: '10px' }} />
+          <div style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Your permanent link</div>
+          <div style={{ height: '6px' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={urlBox}>{status.url}</div>
+            <button style={rowBtn} onClick={() => copy(withToken(status.url), 'tun')} {...hoverAccent}>{copied === 'tun' ? 'Copied' : 'Copy'}</button>
+          </div>
+          <div style={{ height: '6px' }} />
+          <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>
+            This link never changes, not even after updates or restarts of this Mac.
+          </div>
+        </>
+      )}
 
       <div style={{ height: '16px' }} />
       <div style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Access token</div>
