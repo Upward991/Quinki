@@ -85,7 +85,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
     { id: 'thinking', label: '/Thinking', description: 'Change thinking' },
     { id: 'directory', label: '/Directory', description: 'Working directory' },
     { id: 'skill', label: '/Skill', description: 'Activate a skill' },
-    { id: 'longhorizon', label: '/longhorizon', description: 'Activate or disable Long Horizon mode. When active, only Long Horizon slash commands are available.' },
+    { id: 'longhorizon', label: '/LongHorizon', description: 'Activate or disable Long Horizon mode. When active, only Long Horizon slash commands are available.' },
     { id: 'reset', label: '/Reset', description: 'Clear messages. Keeps model, directory and settings.' },
   ]
 
@@ -304,7 +304,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
         backgroundColor: 'var(--q-bg-panel)',
         borderRadius: 'var(--radius-lg)',
         boxShadow: 'var(--shadow-floating)',
-        maxHeight: '400px',
+        maxHeight: 'min(400px, 45dvh)',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
@@ -314,7 +314,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
       {mode === 'main' && (
         <>
           <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
-            {filteredCommands.map((cmd, idx) => (
+            {filteredCommands.filter((c: any) => !(window.innerWidth <= 600 && c.id === 'directory')).map((cmd, idx) => (
               <MainMenuItem
                 key={cmd.id}
                 label={cmd.label}
@@ -595,6 +595,7 @@ function MainMenuItem({ label, description, isSelected, onHover, onTap }: {
 }) {
   const [hovered, setHovered] = useState(false)
   const showHighlight = hovered || isSelected
+  const small = typeof window !== 'undefined' && window.innerWidth <= 600
   return (
     <div
       onClick={onTap}
@@ -606,13 +607,15 @@ function MainMenuItem({ label, description, isSelected, onHover, onTap }: {
         borderRadius: 'var(--radius-sm)',
         cursor: 'pointer',
         display: 'flex',
-        alignItems: 'center',
+        flexDirection: small ? 'column' : 'row',
+        alignItems: small ? 'flex-start' : 'center',
+        gap: small ? '4px' : '0',
         transition: 'none',
       }}
     >
       <span style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)' }}>{label}</span>
-      <span style={{ flex: 1 }} />
-      <span style={{ color: 'var(--q-text-tertiary)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>{description}</span>
+      {!small && <span style={{ flex: 1 }} />}
+      <span style={{ color: 'var(--q-text-tertiary)', fontSize: small ? '13px' : '14px', fontFamily: 'var(--font-interface)', flexShrink: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: small ? 'normal' : 'nowrap', textAlign: small ? 'left' : 'right', lineHeight: small ? 1.35 : undefined }}>{description}</span>
     </div>
   )
 }
@@ -657,30 +660,24 @@ function MenuItem({ label, isSelected, isChecked, trailing, onHover, onTap }: {
 function NavBar({ focusConfirm, onUp, onDown, onLeft, onRight, onConfirm, onClose }: {
   focusConfirm: boolean; onUp: () => void; onDown: () => void; onLeft: () => void; onRight: () => void; onConfirm: () => void; onClose: () => void
 }) {
+  // Semplificato (richiesta utente): una sola freccia indietro grande a sinistra + Close.
+  // Le frecce direzionali erano inutili: l'evidenziazione non si vedeva col dito.
   return (
     <div style={{ padding: '8px 16px 10px 16px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-      <ArrowBtn icon={ChevronUp} onClick={onUp} />
-      <ArrowBtn icon={ChevronDown} onClick={onDown} />
-      <ArrowBtn icon={ChevronLeft} onClick={onLeft} />
-      <ArrowBtn icon={ChevronRight} onClick={onRight} />
+      <button
+        onClick={onClose}
+        onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = 'var(--q-text)' }}
+        onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-text-secondary)' }}
+        style={{ width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', border: 'none', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', cursor: 'pointer', flexShrink: 0, padding: 0 }}>
+        <ChevronLeft size={28} />
+      </button>
       <span style={{ flex: 1 }} />
       <HoverTextBtn
-        label="Cancel"
+        label="Close"
         onClick={onClose}
         textColor="var(--q-accent-danger)"
         hoverTextColor="var(--q-accent-danger)"
         hoverBg="rgba(255,255,255,0.06)"
-      />
-      <div style={{ width: '8px' }} />
-      <HoverTextBtn
-        label="Confirm"
-        highlighted={focusConfirm}
-        onClick={onConfirm}
-        borderColor="var(--q-tab-accent)"
-        textColor="var(--q-tab-accent)"
-        hoverTextColor="var(--q-bg)"
-        hoverBg="var(--q-tab-accent)"
-        fontWeight={600}
       />
     </div>
   )

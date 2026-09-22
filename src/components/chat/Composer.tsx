@@ -88,6 +88,38 @@ export function Composer(props: ComposerProps) {
     return () => window.removeEventListener('quinki-task-clip', onClip)
   }, [])
   const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([])
+
+  // Persistenza dei chip allegati: se la pagina si ricarica (Android, ritorno
+  // dalla fotocamera) i chip non si perdono e la foto resta allegata.
+  useEffect(() => {
+    try {
+      const k = 'quinki-pending-att-' + (props.sessionKey || '__welcome__')
+      if (pendingAttachments.length > 0) localStorage.setItem(k, JSON.stringify(pendingAttachments))
+      else localStorage.removeItem(k)
+    } catch {}
+  }, [pendingAttachments, props.sessionKey])
+  useEffect(() => {
+    (async () => {
+      try {
+        const k = 'quinki-pending-att-' + (props.sessionKey || '__welcome__')
+        const raw = localStorage.getItem(k)
+        if (!raw) return
+        const list = JSON.parse(raw)
+        if (!Array.isArray(list) || list.length === 0) return
+        const fixed: any[] = []
+        for (const a of list) {
+          try {
+            if (a && a.path && String(a.path).indexOf('web-uploads') >= 0 && props.sessionKey) {
+              const res: any = await invoke('copy_to_attachments', { srcPath: a.path, sessionKey: props.sessionKey })
+              if (res) { fixed.push({ originalName: res.originalName, path: res.path, uuid: res.uuid, size: res.size }); continue }
+            }
+          } catch {}
+          fixed.push(a)
+        }
+        if (fixed.length > 0) setPendingAttachments(prev => (prev.length > 0 ? prev : fixed))
+      } catch {}
+    })()
+  }, [props.sessionKey])
   const [attachMenuOpen, setAttachMenuOpen] = useState(false)
   const [attachMenuView, setAttachMenuView] = useState<'main' | 'existing'>('main')
 
@@ -879,7 +911,7 @@ function ModeButton({ mode, onChange, longHorizon }: { mode: ChatMode; onChange:
   if (longHorizon) {
     // Long Horizon attivo: bloccato, non si può cambiare modalità
     return (
-      <button title="Long Horizon active — use /longhorizon to disable"
+      <button title="Long Horizon active — use /LongHorizon to disable"
         onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
         style={{
           width: 'auto', padding: '0 10px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',

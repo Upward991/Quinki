@@ -381,7 +381,7 @@ export class LongHorizon {
   // Imposta il piano (markdown con unità) — chiamato dopo l'approvazione
   setPlan(sk: string, planMd: string): { ok: boolean; error?: string } {
     const st = this.#states.get(sk);
-    if (!st || !st.active) return { ok: false, error: "Long Horizon not active. Use /longhorizon first." };
+    if (!st || !st.active) return { ok: false, error: "Long Horizon not active. Use /LongHorizon first." };
     const units: LHUnit[] = [];
     let goal = "";
     for (const line of String(planMd || "").split("\n")) {
