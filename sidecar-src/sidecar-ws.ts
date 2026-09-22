@@ -302,17 +302,25 @@ const httpServer = http.createServer((req: any, res: any) => {
     if (!isLoopbackReq(req) && !url.startsWith("/callback")) {
       const t = tokenFromReq(req, url);
       const dev = t ? findDeviceByToken(t) : null;
+      const accept = String(req.headers["accept"] || "");
+      const isDoc = accept.includes("text/html") || url === "/" || url.startsWith("/?");
+      const hasQueryToken = /[?&]token=/.test(url);
       if (dev) {
         touchDevice(dev.id);
       } else if (tokenOk(t)) {
-        // token master = link di pairing: crea il dispositivo e passa al suo token
+        // token MASTER: serve SEMPRE (manifest/icone/service worker non devono mai
+        // prendere un redirect, altrimenti Chrome non puo' installare la PWA).
+        // Solo per le PAGINE: imposta/aggiorna il cookie col token del dispositivo.
         const dt = pairDevice(req);
-        res.writeHead(302, {
-          "Set-Cookie": `quinki_token=${encodeURIComponent(dt)}; Path=/; Max-Age=31536000; SameSite=Lax`,
-          "Location": "/",
-        });
-        res.end();
-        return;
+        if (hasQueryToken && isDoc) {
+          res.writeHead(302, {
+            "Set-Cookie": `quinki_token=${encodeURIComponent(dt)}; Path=/; Max-Age=31536000; SameSite=Lax`,
+            "Location": "/",
+          });
+          res.end();
+          return;
+        }
+        try { res.setHeader("Set-Cookie", `quinki_token=${encodeURIComponent(dt)}; Path=/; Max-Age=31536000; SameSite=Lax`); } catch {}
       } else {
         res.writeHead(401, { "Content-Type": "text/html; charset=utf-8" });
         res.end(pairingPage());
