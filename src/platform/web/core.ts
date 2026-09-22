@@ -91,6 +91,14 @@ export async function invoke(cmd: string, args?: Any): Promise<Any> {
         return await call('copyToAttachments', { srcPath: String(args?.srcPath || ''), sessionKey: String(args?.sessionKey || '') })
       } catch { return null }
     }
+    case 'list_dirs': {
+      // Web: l'elenco cartelle lo fa il sidecar (che gira sul Mac)
+      try {
+        const call = (globalThis as Any).__sidecarCall
+        if (!call) return null
+        return await call('listDirs', { path: String(args?.path || ''), sessionKey: String(args?.sessionKey || '') })
+      } catch { return null }
+    }
     case 'get_window_label':
       return 'main'
     case 'is_autostart_enabled':

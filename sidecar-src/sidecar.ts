@@ -916,6 +916,32 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
       return { originalName, path: dest, uuid, size };
     } catch { return null; }
   },
+  // === /Directory dal telefono: esplora le cartelle del Mac ===
+  // (il sidecar gira sul computer: la web app non vede il file system, lo fa lui)
+  listDirs: async (p) => {
+    try {
+      const home = homedir();
+      let dir = String(p?.path || "");
+      if (!dir) {
+        try {
+          const sk = String(p?.sessionKey || "");
+          const meta: any = sk ? await (piBridge as any).getSessionMeta(sk) : null;
+          if (meta && meta.workingDir) dir = String(meta.workingDir);
+        } catch {}
+        if (!dir) dir = home;
+      }
+      dir = path.resolve(dir);
+      const entries = fs.readdirSync(dir, { withFileTypes: true })
+        .filter((e: any) => { try { return e.isDirectory() && !e.name.startsWith(".") } catch { return false } })
+        .map((e: any) => e.name)
+        .sort((a: string, b: string) => a.toLowerCase().localeCompare(b.toLowerCase()))
+        .slice(0, 500);
+      const parent = dir === "/" ? "" : path.dirname(dir);
+      return { ok: true, path: dir, parent, dirs: entries };
+    } catch (e: any) {
+      return { ok: false, error: String(e?.message || e) };
+    }
+  },
   getSettings: async () => {
     const base = getSettings();
     let clientPrefs: any = null;

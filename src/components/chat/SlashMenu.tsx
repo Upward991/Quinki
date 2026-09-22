@@ -46,7 +46,7 @@ interface Command {
   description: string
 }
 
-type Mode = 'main' | 'model' | 'thinking' | 'directory' | 'skill' | 'reset_confirm' | 'longhorizon' | 'lh_confirm'
+type Mode = 'main' | 'model' | 'thinking' | 'directory' | 'serverdir' | 'skill' | 'reset_confirm' | 'longhorizon' | 'lh_confirm'
 
 export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function SlashMenu(props, ref) {
   const [mode, setMode] = useState<Mode>('main')
@@ -183,7 +183,10 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
 
   const pickDirectory = async () => {
     try {
-      const path = await invoke<string>('pick_directory')
+      const path = (typeof window !== 'undefined' && window.innerWidth <= 600)
+        ? '' // sul telefono: apre il browser delle cartelle del Mac (ServerDirPicker)
+        : await invoke<string>('pick_directory')
+      if (typeof window !== 'undefined' && window.innerWidth <= 600) { setMode('serverdir'); return }
       if (path && path !== 'cancelled') {
         setDirectories([path])
         const call = (window as any).__sidecarCall
@@ -310,11 +313,27 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
         overflow: 'hidden',
       }}
     >
+      {/* Server directory picker (telefono): esplora le cartelle del Mac */}
+      {mode === 'serverdir' && (
+        <ServerDirPicker
+          onClose={() => setMode('directory')}
+          onPick={async (p: string) => {
+            try {
+              const call = (window as any).__sidecarCall
+              const sk = (props as any).sessionKey || ''
+              if (sk && call) await call('setWorkingDir', { sessionKey: sk, path: p })
+              setDirectories(prev => (prev.includes(p) ? prev : [p, ...prev]))
+            } catch {}
+            setMode('directory')
+          }}
+        />
+      )}
+
       {/* Main mode */}
       {mode === 'main' && (
         <>
           <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
-            {filteredCommands.filter((c: any) => !(window.innerWidth <= 600 && c.id === 'directory')).map((cmd, idx) => (
+            {filteredCommands.map((cmd, idx) => (
               <MainMenuItem
                 key={cmd.id}
                 label={cmd.label}
@@ -731,5 +750,50 @@ function HoverTextBtn({ label, highlighted, onClick, borderColor, textColor, hov
     >
       {label}
     </button>
+  )
+}
+
+// ── Server directory picker (telefono): il sidecar elenca le cartelle del Mac ──
+function ServerDirPicker({ onClose, onPick }: { onClose: () => void; onPick: (p: string) => void }) {
+  const [data, setData] = useState<any>(null)
+  const [busy, setBusy] = useState(false)
+  const load = async (p: string) => {
+    setBusy(true)
+    try {
+      const r: any = await invoke('list_dirs', { path: p })
+      if (r && r.ok) setData(r)
+    } catch {}
+    setBusy(false)
+  }
+  useEffect(() => { load('') }, [])
+  const dirs: string[] = (data && data.dirs) || []
+  return (
+    <div style={{ position: 'absolute', inset: 0, zIndex: 10, backgroundColor: 'var(--q-bg-panel)', display: 'flex', flexDirection: 'column', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+      <div style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--q-border)' }}>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-secondary)', padding: '4px', display: 'flex' }}><ChevronLeft size={22} /></button>
+        <span style={{ flex: 1, minWidth: 0, color: 'var(--q-text-secondary)', fontSize: '12px', fontFamily: 'var(--font-code)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data ? data.path : 'Loading…'}</span>
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
+        {data && data.parent && (
+          <div onClick={() => load(data.parent)} style={{ padding: '10px 16px', color: 'var(--q-text-secondary)', fontSize: '15px', fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>.. (up)</div>
+        )}
+        {dirs.map((d) => (
+          <div key={d} onClick={() => load((data.path === '/' ? '' : data.path) + '/' + d)} style={{ padding: '10px 16px', color: 'var(--q-text)', fontSize: '15px', fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>{d}</div>
+        ))}
+        {!busy && data && dirs.length === 0 && (
+          <div style={{ padding: '12px 16px', color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>No subfolders</div>
+        )}
+      </div>
+      <div style={{ padding: '8px 12px', display: 'flex', gap: '8px', borderTop: '1px solid var(--q-border)' }}>
+        <button onClick={() => data && onPick(data.path)} disabled={!data}
+          style={{ flex: 1, padding: '10px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '14px', fontWeight: 600, fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>
+          Use this folder
+        </button>
+        <button onClick={onClose}
+          style={{ padding: '10px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '14px', fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>
+          Cancel
+        </button>
+      </div>
+    </div>
   )
 }
