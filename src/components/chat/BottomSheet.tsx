@@ -56,20 +56,6 @@ export function BottomSheet({ open, onClose, items, view, onViewBack, onBack, ti
   const [dragY, setDragY] = useState(0)
   const startY = useRef<number | null>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
-  // Il pannello comunica la sua altezza all'app: la chat si solleva sopra di lui
-  // (come fa la text box) invece di finirci dietro. Vale anche per il search:
-  // gli elementi evidenziati restano visibili e scorrevoli.
-  useEffect(() => {
-    const el = panelRef.current
-    const clear = () => { try { document.documentElement.style.setProperty('--q-sheet-h', '0px') } catch {} }
-    if (!open || !el) { clear(); return }
-    const set = () => { try { document.documentElement.style.setProperty('--q-sheet-h', el.offsetHeight + 'px') } catch {} }
-    set()
-    let ro: any = null
-    try { ro = new ResizeObserver(() => set()); ro.observe(el) } catch {}
-    return () => { try { ro && ro.disconnect() } catch {}; clear() }
-  }, [open])
-
   useEffect(() => { if (open) { setSel(0); setDragY(0) } }, [open])
 
   if (!open) return null
