@@ -88,6 +88,7 @@ export function Composer(props: ComposerProps) {
     return () => window.removeEventListener('quinki-task-clip', onClip)
   }, [])
   const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([])
+  const [cameraOpen, setCameraOpen] = useState(false)
 
   // Persistenza dei chip allegati: se la pagina si ricarica (Android, ritorno
   // dalla fotocamera) i chip non si perdono e la foto resta allegata.
@@ -237,6 +238,38 @@ export function Composer(props: ComposerProps) {
       }
     } catch (e: any) {
       if (e !== 'cancelled') console.error('pick_files error:', e)
+    } finally {
+      setCopyingFile(false)
+    }
+  }
+
+  // FOTO dalla fotocamera del telefono (in-app, getUserMedia): l'input file nativo
+  // apriva l'app fotocamera -> Android ricreava la PWA al ritorno (reload) e il file
+  // andava perso. Cosi' resta tutto in pagina: scatto -> stesso upload dei file ->
+  // copy_to_attachments -> chip. Zero reload, zero app esterne.
+  const handleCameraPhoto = async (blob: Blob, name: string) => {
+    setCameraOpen(false)
+    const key = await resolveSessionKey()
+    if (!key) return
+    setCopyingFile(true)
+    try {
+      const r = await fetch('/upload?name=' + encodeURIComponent(name), { method: 'POST', body: blob })
+      const j: any = await r.json().catch(() => null)
+      if (j && j.ok && j.path) {
+        const result = await invoke('copy_to_attachments', { srcPath: String(j.path), sessionKey: key }) as any
+        if (result) {
+          setPendingAttachments(prev => [...prev, {
+            originalName: result.originalName,
+            path: result.path,
+            uuid: result.uuid,
+            size: result.size,
+          }])
+        }
+      } else {
+        console.error('camera upload failed', j)
+      }
+    } catch (e: any) {
+      console.error('camera upload error:', e)
     } finally {
       setCopyingFile(false)
     }
@@ -429,6 +462,7 @@ export function Composer(props: ComposerProps) {
           ) : null}
           items={[
             { icon: <Paperclip size={18} />, label: 'Attach new file', onSelect: () => { setAttachMenuOpen(false); handlePickFiles() } },
+            { icon: <CameraIcon size={18} />, label: 'Take photo', onSelect: () => { setAttachMenuOpen(false); setCameraOpen(true) } },
             { icon: <Clock size={18} />, label: 'Previously sent', onSelect: () => handleShowExisting() },
             ...(isPhoneWeb() ? [] : [{ icon: <Folder size={18} />, label: 'Open attachments folder', onSelect: () => { setAttachMenuOpen(false); handleOpenAttachmentsFolder() } }]),
             ...((!isPhoneWeb() && props.sessionKey) ? [{ icon: <Folder size={18} />, label: 'Open session files folder', onSelect: async () => { setAttachMenuOpen(false); try { await invoke('open_longhorizon_folder', { sessionKey: props.sessionKey }) } catch (e: any) { console.error('open_longhorizon_folder:', e) } } }] : []),
@@ -447,6 +481,8 @@ export function Composer(props: ComposerProps) {
           onSessionFiles={async () => { setAttachMenuOpen(false); if (props.sessionKey) { try { await invoke('open_longhorizon_folder', { sessionKey: props.sessionKey }) } catch (e: any) { console.error('open_longhorizon_folder:', e) } } }}
         />
       )}
+
+      {cameraOpen && <CameraCaptureModal onClose={() => setCameraOpen(false)} onDone={handleCameraPhoto} />}
 
       <div style={{
         backgroundColor: 'var(--q-bg-panel)',
@@ -1044,5 +1080,92 @@ function StatusPill({ label, kind }: { label: string; kind: string }) {
     <span style={{ color, fontSize: '12px', fontFamily: 'var(--font-code)', lineHeight: '1', whiteSpace: 'nowrap' }}>
       {label}
     </span>
+  )
+}
+// ── Icona fotocamera (stessa linea delle altre icone) ──
+function CameraIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+      <circle cx="12" cy="13" r="4" />
+    </svg>
+  )
+}
+
+// ── Fotocamera in-app: anteprima dal vivo + scatto. Niente app esterna = niente reload. ──
+function CameraCaptureModal({ onClose, onDone }: { onClose: () => void; onDone: (blob: Blob, name: string) => void }) {
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    const start = async () => {
+      try {
+        let stream: MediaStream
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false })
+        } catch {
+          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+        }
+        if (cancelled) { stream.getTracks().forEach(t => t.stop()); return }
+        streamRef.current = stream
+        const v = videoRef.current
+        if (v) { v.srcObject = stream; v.play().catch(() => {}) }
+      } catch {
+        if (!cancelled) setError('Camera not available. Allow camera access for this app and try again.')
+      }
+    }
+    start()
+    return () => {
+      cancelled = true
+      try { streamRef.current?.getTracks().forEach(t => t.stop()) } catch {}
+    }
+  }, [])
+
+  const capture = () => {
+    const v = videoRef.current
+    if (!v || !v.videoWidth) return
+    try {
+      const c = document.createElement('canvas')
+      c.width = v.videoWidth
+      c.height = v.videoHeight
+      const ctx = c.getContext('2d')
+      if (!ctx) return
+      ctx.drawImage(v, 0, 0, c.width, c.height)
+      c.toBlob((blob) => {
+        if (blob) onDone(blob, 'photo-' + Date.now() + '.jpg')
+      }, 'image/jpeg', 0.85)
+    } catch {}
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 500, backgroundColor: 'rgba(0,0,0,0.92)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '16px', gap: '12px' }}>
+      {error ? (
+        <div style={{ color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', textAlign: 'center', maxWidth: '320px', lineHeight: 1.6 }}>{error}</div>
+      ) : (
+        <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', maxWidth: '420px', maxHeight: '70vh', borderRadius: 'var(--radius-lg)', backgroundColor: '#000', objectFit: 'cover' }} />
+      )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {!error && (
+          <button
+            onPointerDown={(e: any) => { try { e.preventDefault() } catch {} }}
+            onClick={capture}
+            onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }}
+            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }}
+            style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '13px', fontFamily: 'var(--font-interface)', fontWeight: 600, cursor: 'pointer', transition: 'none' }}>
+            Capture
+          </button>
+        )}
+        <button
+          onPointerDown={(e: any) => { try { e.preventDefault() } catch {} }}
+          onClick={onClose}
+          onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
+          style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', fontWeight: 400, cursor: 'pointer', transition: 'none' }}>
+          Close
+        </button>
+      </div>
+    </div>
   )
 }

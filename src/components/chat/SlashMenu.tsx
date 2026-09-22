@@ -700,6 +700,7 @@ function NavBar({ focusConfirm, onUp, onDown, onLeft, onRight, onConfirm, onClos
     return (
       <div style={{ padding: '8px 16px 10px 16px', display: 'flex', alignItems: 'center', gap: '4px' }}>
         <button
+          onPointerDown={(e: any) => { try { e.preventDefault() } catch {} }}
           onClick={() => { if (onBack) onBack(); else onClose() }}
           onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = 'var(--q-text)' }}
           onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-text-secondary)' }}
@@ -791,6 +792,7 @@ function HoverTextBtn({ label, highlighted, onClick, borderColor, textColor, hov
   const active = hovered || highlighted
   return (
     <button
+      onPointerDown={(e: any) => { try { e.preventDefault() } catch {} }}
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
