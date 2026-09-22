@@ -1,9 +1,10 @@
 // ============================================================
-// Web app / Remote access (F0) — Impostazioni.
+// Web app / Remote access — Impostazioni.
 // Quinki raggiungibile dal telefono o da un altro computer:
-//   - stessa Wi-Fi (LAN): link diretto http://<ip-del-mac>:9182
-//   - da fuori casa: tunnel Cloudflare gestito DENTRO l'app (nessun programma
-//     da installare a mano: se manca, cloudflared viene scaricato dall'app)
+//   - link stabile integrato: nodo Tailscale embedded (tsnet) + Funnel,
+//     nessuna installazione di sistema, link permanente <nome>.ts.net
+//   - fallback: tunnel Cloudflare (quick o dominio proprio, "Advanced")
+// L'accesso resta protetto dal token/pairing: il link e' solo la "porta".
 // ============================================================
 import React, { useEffect, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
@@ -157,7 +158,7 @@ export function RemoteAccessSection() {
       </div>
       <div style={{ height: '6px' }} />
       <div style={{ color: 'var(--q-accent-warning)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>
-        To install Quinki as a real app on a phone, use the secure HTTPS link below (plain local links can only create a shortcut).
+        Open the secure link on your phone to use Quinki from anywhere (same sessions, same data as this Mac). Use “Install app” to keep it as a real app with its icon.
       </div>
 
       <div style={{ height: '12px' }} />
@@ -189,7 +190,7 @@ export function RemoteAccessSection() {
           </div>
           <div style={{ height: '4px' }} />
           <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>
-            Advanced: on your own domain the link never changes (not even after a Mac reboot).
+            Advanced (alternative): use your own Cloudflare domain as the secure link (needs a domain added to your Cloudflare account). Not needed with the built-in stable link.
           </div>
           <div style={{ height: '6px' }} />
         </>
@@ -216,6 +217,16 @@ export function RemoteAccessSection() {
           {busy ? '…' : status.running ? 'Disable' : 'Enable'}
         </button>
       </div>
+      {status.running && status.url && (
+        <>
+          <div style={{ height: '6px' }} />
+          <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>
+            {status.url.includes('.ts.net')
+              ? 'Stable link (built into the app): it never changes, not even after updates or restarts of this Mac.'
+              : 'This is a temporary link: it can change if the tunnel restarts. Press Refresh to switch to the built-in stable link.'}
+          </div>
+        </>
+      )}
       <div style={{ height: '16px' }} />
       <div style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Access token</div>
       <div style={{ height: '6px' }} />
@@ -258,7 +269,7 @@ export function RemoteAccessSection() {
 
       <div style={{ height: '8px' }} />
       <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>
-        “Copy” gives a link that already contains the token: open it once on the phone and the device is remembered for good (it survives updates, reinstalls and restarts). The secure link is HTTPS: open it and use “Install app” to keep Quinki as a real app with its icon.
+        “Copy” gives a link that already contains the token: open it once on the phone and the device is remembered for good (it survives updates, reinstalls and restarts). The stable link never changes, so the installed app keeps working across updates and restarts of this Mac.
       </div>
       {err && <div style={{ color: 'var(--q-accent-danger)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginTop: '6px' }}>{err}</div>}
 
@@ -274,7 +285,7 @@ export function RemoteAccessSection() {
                 ? 'Old pairing links stop working. Devices already paired keep working.'
                 : confirmAct === 'revoke'
                   ? 'This device loses access immediately. You can pair it again with a new pairing link.'
-                  : 'The secure link changes: open the new pairing link once on the devices you use. Devices already paired keep working.'}
+                  : 'The tunnel restarts and a fresh link is generated (the built-in stable link stays the same). Devices already paired keep working.'}
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
               <button onClick={() => setConfirmAct(null)}
