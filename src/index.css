@@ -544,6 +544,10 @@ input, textarea, [contenteditable="true"] { -webkit-user-select: text !important
   #q-settings div[id="settings-expert-sync"],
   #q-settings div[id="settings-app-permissions"],
   #q-settings div[id="settings-webapp"] { display: none !important }
+  /* Agents Tasks sul telefono */
+  #q-tasks span { font-size: 12px !important; line-height: 1.45 !important }
+  #q-tasks input, #q-tasks textarea, #q-tasks select { font-size: 12px !important }
+  #q-tasks button { font-size: 12px !important }
   /* Agents sul telefono: stessa cura della tab impostazioni */
   #q-agents .q-scroll { padding: 4px 8px 0 8px !important }
   #q-agents div[id^="sec-"] { margin-bottom: 8px !important }
