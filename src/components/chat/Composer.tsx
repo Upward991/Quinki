@@ -1070,6 +1070,9 @@ function ModeButton({ mode, onChange, longHorizon }: { mode: ChatMode; onChange:
 // ── Attach button — 32x32 icon button ──
 // Tasto dettatura: stessa forma/dimensioni di AttachBtn (32x32, hover var(--q-hover)).
 // Mentre registra l'icona diventa rossa; mentre trascrive e' attenuato.
+// Tasto dettatura: GRAFICAMENTE IDENTICO al tasto invio (32x32, radius 8px, pieno
+// accent-darker, hover accent, colore di contrasto). Rosso mentre registra,
+// attenuato mentre trascrive.
 function MicBtn({ recState, onClick }: { recState: 'idle' | 'rec' | 'busy'; onClick: () => void }) {
   const [hovered, setHovered] = useState(false)
   const busy = recState === 'busy'
@@ -1080,12 +1083,12 @@ function MicBtn({ recState, onClick }: { recState: 'idle' | 'rec' | 'busy'; onCl
       onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
       style={{
         width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        borderRadius: 'var(--radius-md)',
+        borderRadius: '8px',
         border: 'none', cursor: busy ? 'default' : 'pointer',
-        backgroundColor: hovered && !busy ? 'var(--q-hover)' : 'transparent',
-        color: rec ? 'var(--q-accent-danger)' : busy ? 'var(--q-text-tertiary)' : hovered ? 'var(--q-text)' : 'var(--q-text-secondary)',
+        backgroundColor: rec ? 'var(--q-accent-danger)' : (hovered && !busy) ? 'rgba(255,255,255,0.08)' : 'var(--q-hover)',
+        color: rec ? getContrastColor('--q-accent-danger') : 'var(--q-text-tertiary)',
         flexShrink: 0, padding: '0',
-        transition: 'none', opacity: busy ? 0.5 : 1,
+        transition: 'none', opacity: busy ? 0.8 : 1,
       }}>
       <MicIcon />
     </button>
