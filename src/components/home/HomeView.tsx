@@ -193,14 +193,14 @@ export function HomeView({activePanel, onSelectPanel}: {onSelectPanel: (panel: s
       React.createElement('div',
         {style:{display:'flex', alignItems:'center', gap:'8px', marginBottom:'4px', width:'100%', maxWidth:'500px'}},
         React.createElement('div',
-          {style:{flex:1, display:'flex', alignItems:'center', gap:'8px', backgroundColor:'var(--q-bg-panel)', border:'1px solid var(--q-border)', borderRadius:'var(--radius-md)', padding:'0 12px', height:'38px'}},
+          {style:{flex:1, minWidth:0, display:'flex', alignItems:'center', gap:'8px', backgroundColor:'var(--q-bg-panel)', border:'1px solid var(--q-border)', borderRadius:'var(--radius-md)', padding:'0 12px', height:'38px'}},
           React.createElement(Search, {size:16, style:{color:'var(--q-text-tertiary)', flexShrink:0}}),
           React.createElement('input',
             {
               value: query,
               onChange: (e: any) => setQuery(e.target.value),
               placeholder: 'Search tabs…',
-              style:{flex:1, background:'transparent', border:'none', outline:'none', color:'var(--q-text)', fontSize:'14px', fontFamily:'var(--font-interface)'}
+              style:{flex:1, minWidth:0, background:'transparent', border:'none', outline:'none', color:'var(--q-text)', fontSize:'14px', fontFamily:'var(--font-interface)'}
             }
           ),
           query && React.createElement('button',
