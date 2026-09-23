@@ -254,6 +254,48 @@ export function Composer(props: ComposerProps) {
     try { recRef.current?.mr.stop() } catch {}
     setRecState('busy')
   }
+
+  // === SHORTCUT DETTATURA (desktop): default "tap Alt" (premi e rilascia senza
+  // altri tasti: cosi Alt+Tab non attiva nulla). I combo (es. Control+D) partono
+  // al keydown. Configurabile in Settings -> Shortcuts.
+  const recStateRef = useRef(recState)
+  recStateRef.current = recState
+  const startRef = useRef(startRec)
+  startRef.current = startRec
+  const stopRef = useRef(stopRec)
+  stopRef.current = stopRec
+  useEffect(() => {
+    const getSc = () => { try { return localStorage.getItem('quinki-dictation-shortcut') || 'Alt' } catch { return 'Alt' } }
+    const isModCode = (c: string) => c.startsWith('Alt') || c.startsWith('Control') || c.startsWith('Meta') || c.startsWith('Shift')
+    let modDown = false
+    let otherPressed = false
+    const toggle = () => { if (recStateRef.current === 'busy') return; if (recStateRef.current === 'rec') stopRef.current(); else startRef.current() }
+    const onDown = (ev: KeyboardEvent) => {
+      const sc = getSc()
+      if (modDown && !isModCode(ev.code)) otherPressed = true
+      if (isModCode(ev.code)) { if (!modDown) { modDown = true; otherPressed = false } return }
+      if (sc.includes('+')) {
+        const parts = sc.split('+'); const key = parts[parts.length - 1]
+        const need = { meta: parts.includes('Meta'), ctrl: parts.includes('Control'), alt: parts.includes('Alt'), shift: parts.includes('Shift') }
+        if (ev.metaKey === need.meta && ev.ctrlKey === need.ctrl && ev.altKey === need.alt && ev.shiftKey === need.shift) {
+          const code = ev.code
+          const ok = code === key || (key.length === 1 ? code === 'Key' + key || code === 'Digit' + key : false)
+          if (ok) { ev.preventDefault(); toggle() }
+        }
+      }
+    }
+    const onUp = (ev: KeyboardEvent) => {
+      const sc = getSc()
+      if (!sc.includes('+') && isModCode(ev.code) && modDown && !otherPressed) {
+        const norm = ev.code === 'AltLeft' || ev.code === 'AltRight' ? 'Alt' : ev.code === 'ControlLeft' || ev.code === 'ControlRight' ? 'Control' : ev.code === 'ShiftLeft' || ev.code === 'ShiftRight' ? 'Shift' : ev.code === 'MetaLeft' || ev.code === 'MetaRight' ? 'Meta' : ev.code
+        if (norm === sc) toggle()
+      }
+      if (isModCode(ev.code)) { modDown = false; otherPressed = false }
+    }
+    window.addEventListener('keydown', onDown)
+    window.addEventListener('keyup', onUp)
+    return () => { window.removeEventListener('keydown', onDown); window.removeEventListener('keyup', onUp) }
+  }, [])
   const canSteer = text.trim().length > 0 && props.isStreaming && !(props as any).isCompacting
 
   const handleSteer = () => {
