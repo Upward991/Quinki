@@ -523,3 +523,18 @@ html, body { -webkit-touch-callout: none; }
 body { -webkit-user-select: none; user-select: none; }
 a, img { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; pointer-events: auto; }
 input, textarea, [contenteditable="true"] { -webkit-user-select: text !important; user-select: text !important; -webkit-touch-callout: default !important; }
+
+
+/* === Settings sul telefono: tutto un po' piu' piccolo, per farcelo entrare === */
+@media (max-width: 640px) {
+  #q-settings .q-scroll { padding: 4px 8px 0 8px !important }
+  #q-settings div[id^="settings-"] {
+    padding: 10px 12px !important;
+    margin-bottom: 8px !important;
+  }
+  #q-settings span { font-size: 12px !important; line-height: 1.45 !important }
+  #q-settings input, #q-settings textarea, #q-settings select { font-size: 12px !important; padding: 4px 8px !important }
+  #q-settings button { font-size: 12px !important }
+  #q-settings-drawer > div { padding: 8px 12px !important; margin-bottom: 2px !important }
+  #q-settings-drawer span { font-size: 14px !important }
+}
