@@ -1,7 +1,8 @@
 import React from 'react'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useSidecarContext } from '../shared/AppShell'
-import { Archive, BookOpen, Bot, ChevronDown, ChevronUp, Copy, FileText, Home, Info, Package, Palette, Pencil, Plug, Plus, Power, Save, Search, Settings, Shield, Trash, Wrench, X } from '../icons'
+import { BottomSheet } from '../chat/BottomSheet'
+import { Archive, BookOpen, Bot, ChevronDown, ChevronUp, Copy, FileText, Home, Info, Package, Palette, Pencil, Plug, Plus, Power, Save, Search, Settings, Shield, Trash, Wrench, X, PanelLeft } from '../icons'
 
 // Mobile web: MAI tastiera automatica quando si aprono i menu
 const noAutoFocus = () => { try { return !(globalThis as any).__TAURI_INTERNALS__ && window.innerWidth <= 600 } catch { return false } }
@@ -13,6 +14,11 @@ const noAutoFocus = () => { try { return !(globalThis as any).__TAURI_INTERNALS_
 export function AgentsPanel(props) {
   const { call } = useSidecarContext();
   const { agents = [], refreshAgents, onSelectPanel, onDefaultAgentChange } = props;
+  // TELEFONO: stessa cura della tab impostazioni. La nav interna (220px) sparisce,
+  // si apre a tutto schermo col tasto in testata (a destra di Home) e si chiude
+  // toccando una voce. I menu a tendina diventano fogli dal basso.
+  const mob = typeof window !== 'undefined' && window.innerWidth <= 600;
+  const [navOpen, setNavOpen] = useState(false);
 
   // --- State ---
   const [skills, setSkills] = useState([]);
@@ -618,13 +624,18 @@ export function AgentsPanel(props) {
     alignItems: 'center'
   };
 
-  return React.createElement('div', { className: 'h-full flex', children: [
-    // Sidebar a SINISTRA (fuori dal contenuto, come la tab impostazioni)
-    React.createElement('div', { style: { width: '220px', flexShrink: 0, paddingRight: '8px', height: '100%' }, children:
-      React.createElement('div', { style: { height: '100%', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)', padding: '8px', overflowY: 'auto' }, children: [
-        agentsNav.map(n => React.createElement(AgentsNavItem, { key: n.id, item: n, onTap: () => scrollToSection(n.id) }))
-      ]})
-    }),
+  const navItems = agentsNav.map(n => React.createElement(AgentsNavItem, { key: n.id, item: n, onTap: () => { scrollToSection(n.id); setNavOpen(false); } }));
+  const navDesktop = React.createElement('div', { style: { width: '220px', flexShrink: 0, paddingRight: '8px', height: '100%' }, children:
+    React.createElement('div', { style: { height: '100%', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)', padding: '8px', overflowY: 'auto' }, children: agentsNav.map(n => React.createElement(AgentsNavItem, { key: n.id, item: n, onTap: () => scrollToSection(n.id) })) })
+  });
+  const navDrawer = React.createElement('div', { id: 'q-agents-drawer', style: { position: 'fixed', inset: 0, zIndex: 300, backgroundColor: 'var(--q-bg)', padding: '8px', overflowY: 'auto' }, children: [
+    React.createElement(AgentsNavItem, { key: 'head', item: { id: 'agents-current', icon: Bot, label: 'Agents' }, onTap: () => setNavOpen(false) }),
+    ...navItems
+  ] });
+
+  return React.createElement('div', { className: 'h-full flex', id: 'q-agents', children: [
+    // Sidebar a SINISTRA (desktop). Sul telefono: drawer a tutto schermo.
+    mob ? (navOpen ? navDrawer : null) : navDesktop,
     // Colonna principale: maxWidth centrato DENTRO
     React.createElement('div', { className: 'h-full flex flex-col', style: { flex: 1, minWidth: 0 }, children: [
       React.createElement('div', { className: 'flex flex-col', style: { maxWidth: 'var(--spacing-chat-max)', margin: '0 auto', width: '100%', flex: 1, minHeight: 0 }, children: [
@@ -635,6 +646,15 @@ export function AgentsPanel(props) {
           React.createElement(IconButton, { icon: Home, onClick: () => onSelectPanel('home'), title: 'Home' })
         }),
         React.createElement('div', { style: { width: '8px', flexShrink: 0 } }),
+        // Tasto nav (solo telefono, a destra di Home; sparisce a drawer aperto)
+        mob && !navOpen
+          ? React.createElement(React.Fragment, null, [
+              React.createElement('div', { key: 'navbtn', style: headerStyle, children:
+                React.createElement(IconButton, { icon: PanelLeft, onClick: () => setNavOpen(true), title: 'Menu' })
+              }),
+              React.createElement('div', { key: 'navsp', style: { width: '8px', flexShrink: 0 } })
+            ])
+          : null,
         // Title bar
         React.createElement('div', { style: { ...headerStyle, flex: 1 }, children: [
           React.createElement('div', { style: { width: '8px', flexShrink: 0 } }),
@@ -666,7 +686,18 @@ export function AgentsPanel(props) {
                 React.createElement(ChevronDown, { size: 14, style: { color: 'var(--q-text-tertiary)', flexShrink: 0 } })
               ]
             }),
-            defaultMenuOpen && React.createElement(React.Fragment, null, [
+            defaultMenuOpen && mob && React.createElement(BottomSheet, {
+              open: true,
+              onClose: () => setDefaultMenuOpen(false),
+              hideBack: true,
+              items: agents.map((a: any) => ({
+                icon: React.createElement(Bot, { size: 18 }),
+                label: String(a.name || a.id),
+                value: a.id === defaultAgentId ? 'selected' : undefined,
+                onSelect: () => { doSetDefaultAgent(a.id); setDefaultMenuOpen(false) }
+              }))
+            }),
+            defaultMenuOpen && !mob && React.createElement(React.Fragment, null, [
               React.createElement('div', { key: 'ov', style: { position: 'fixed', inset: 0, zIndex: 998, backgroundColor: 'transparent' }, onClick: () => setDefaultMenuOpen(false), onContextMenu: (e: any) => { e.preventDefault(); setDefaultMenuOpen(false) } }),
               React.createElement('div', { key: 'menu', style: { position: 'fixed', left: defaultMenuPos.x, top: defaultMenuPos.y, zIndex: 999, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '4px 0', minWidth: '200px', maxHeight: '320px', overflowY: 'auto' }, children: agents.map((a: any) => React.createElement(DefaultAgentMenuItem, { key: a.id, agent: a, isSelected: a.id === defaultAgentId, onSelect: (id: string) => { doSetDefaultAgent(id); setDefaultMenuOpen(false) } })) })
             ])
