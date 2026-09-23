@@ -169,9 +169,15 @@ export function Composer(props: ComposerProps) {
   // Desktop: comando Tauri -> helper swift. Web/telefono: shim -> POST /transcribe.
   const [recState, setRecState] = useState<'idle' | 'rec' | 'busy'>('idle')
   const recRef = useRef<{ mr: MediaRecorder; stream: MediaStream; chunks: Blob[] } | null>(null)
+  const recSelRef = useRef<{ start: number; end: number }>({ start: 0, end: 0 })
 
   const startRec = async () => {
     try {
+      // Se l'utente ha evidenziato del testo, la trascrizione LO SOSTITUIRA'.
+      try {
+        const ta: any = textareaRef.current
+        recSelRef.current = ta ? { start: ta.selectionStart || 0, end: ta.selectionEnd || 0 } : { start: 0, end: 0 }
+      } catch { recSelRef.current = { start: 0, end: 0 } }
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       const mr = new MediaRecorder(stream)
       const chunks: Blob[] = []
@@ -185,8 +191,15 @@ export function Composer(props: ComposerProps) {
           const res: any = await invoke('transcribe_audio', { wav: arr })
           const clean = String(res || '').trim()
           if (clean) {
-            setText(prev => prev + ((prev && !prev.endsWith(' ') && !prev.endsWith('\n')) ? ' ' : '') + clean)
-            setTimeout(() => textareaRef.current?.focus(), 0)
+            const sel = recSelRef.current
+            setText(prev => {
+              const sIdx = Math.max(0, Math.min(sel.start, prev.length))
+              const eIdx = Math.max(0, Math.min(sel.end, prev.length))
+              if (eIdx > sIdx) return prev.slice(0, sIdx) + clean + prev.slice(eIdx)
+              return prev + ((prev && !prev.endsWith(' ') && !prev.endsWith('\n')) ? ' ' : '') + clean
+            })
+            // Sul telefono NON apriamo la tastiera: il testo arriva e basta.
+            if (!isPhoneWeb()) setTimeout(() => textareaRef.current?.focus(), 0)
           }
         } catch (e: any) {
           console.error('dictation error:', e)
@@ -1085,10 +1098,10 @@ function MicBtn({ recState, onClick }: { recState: 'idle' | 'rec' | 'busy'; onCl
         width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
         borderRadius: '8px',
         border: 'none', cursor: busy ? 'default' : 'pointer',
-        backgroundColor: rec ? 'var(--q-accent-danger)' : (hovered && !busy) ? 'rgba(255,255,255,0.08)' : 'var(--q-hover)',
-        color: rec ? getContrastColor('--q-accent-danger') : 'var(--q-text-tertiary)',
+        backgroundColor: rec ? 'var(--q-accent-danger)' : busy ? 'var(--q-accent-warning)' : (hovered ? 'rgba(255,255,255,0.08)' : 'var(--q-hover)'),
+        color: rec ? getContrastColor('--q-accent-danger') : busy ? getContrastColor('--q-accent-warning') : 'var(--q-text-tertiary)',
         flexShrink: 0, padding: '0',
-        transition: 'none', opacity: busy ? 0.8 : 1,
+        transition: 'none',
       }}>
       <MicIcon />
     </button>
@@ -1259,7 +1272,7 @@ async function blobToWav16k(blob: Blob): Promise<Blob> {
 // ── Icona microfono ──
 function MicIcon() {
   return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <rect x="9" y="2.5" width="6" height="11" rx="3" />
       <path d="M5 10.5a7 7 0 0 0 14 0" />
       <path d="M12 17.5V21" />
