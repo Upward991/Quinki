@@ -535,6 +535,15 @@ input, textarea, [contenteditable="true"] { -webkit-user-select: text !important
   #q-settings span { font-size: 12px !important; line-height: 1.45 !important }
   #q-settings input, #q-settings textarea, #q-settings select { font-size: 12px !important; padding: 4px 8px !important }
   #q-settings button { font-size: 12px !important }
+
+  html, body { overflow-x: hidden !important }
+  #q-settings .q-scroll { overflow-x: hidden !important }
+  #q-settings div[id^="settings-"] { overflow-x: hidden !important }
+  #q-settings div[id="settings-shortcuts"],
+  #q-settings div[id="settings-attachments"],
+  #q-settings div[id="settings-expert-sync"],
+  #q-settings div[id="settings-app-permissions"],
+  #q-settings div[id="settings-webapp"] { display: none !important }
   #q-settings-drawer > div { padding: 8px 12px !important; margin-bottom: 2px !important }
   #q-settings-drawer span { font-size: 14px !important }
 }

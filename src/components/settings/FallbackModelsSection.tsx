@@ -66,9 +66,9 @@ export function FallbackModelsSection(props: {
       </div>
 
       {fallbacks.map((fb, idx) => (
-        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', ...rowStyle }}>
-          <div style={{ ...labelStyle, minWidth: '92px', marginBottom: 0 }}>Fallback {idx + 1}</div>
-          <div style={{ flex: 1 }}>
+        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', minWidth: 0, ...rowStyle }}>
+          <div style={{ ...labelStyle, minWidth: '72px', marginBottom: 0 }}>Fallback {idx + 1}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <Gh
               label={fb || 'Select fallback model'}
               items={allModels}
