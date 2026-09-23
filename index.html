@@ -13,7 +13,10 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <meta name="apple-mobile-web-app-title" content="Quinki" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&display=swap" rel="stylesheet" />
+    <!-- Font self-hosted: niente chiamate esterne, niente blocchi di render -->
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/Geist-latin.woff2" crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/GeistMono-latin.woff2" crossorigin />
+    <link rel="stylesheet" href="/fonts/fonts.css" />
     <title>Quinki</title>
     <style>
       input[type="checkbox"] {
