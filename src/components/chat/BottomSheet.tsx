@@ -43,7 +43,7 @@ export function SheetRow({ icon, label, value, valueColor, onClick }: {
   )
 }
 
-export function BottomSheet({ open, onClose, items, view, onViewBack, onBack, title, hideBack }: {
+export function BottomSheet({ open, onClose, items, view, onViewBack, onBack, title, hideBack, hideNav }: {
   open: boolean
   onClose: () => void
   items: SheetItem[]
@@ -52,6 +52,7 @@ export function BottomSheet({ open, onClose, items, view, onViewBack, onBack, ti
   onBack?: () => void
   title?: string
   hideBack?: boolean
+  hideNav?: boolean
 }) {
   const [sel, setSel] = useState(0)
   const [dragY, setDragY] = useState(0)
@@ -120,7 +121,7 @@ export function BottomSheet({ open, onClose, items, view, onViewBack, onBack, ti
 
         {/* NavBar: una sola freccia indietro (grande, a sinistra) + Close.
             Le frecce su/giù erano inutili (nessun evidenziato visibile al dito). */}
-        <div style={{ padding: '8px 16px 10px 16px', display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+        {!hideNav && <div style={{ padding: '8px 16px 10px 16px', display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
           {!hideBack && <button
             onClick={() => { if (view) { onViewBack?.() } else if (onBack) { onBack() } else { onClose() } }}
             onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = 'var(--q-text)' }}
@@ -130,7 +131,7 @@ export function BottomSheet({ open, onClose, items, view, onViewBack, onBack, ti
           </button>}
           <span style={{ flex: 1 }} />
           <NavTextBtn label="Close" danger onClick={onClose} />
-        </div>
+        </div>}
       </div>
     </div>
   )
