@@ -671,10 +671,17 @@ export function Composer(props: ComposerProps) {
             backgroundColor: 'transparent', color: 'var(--q-text)',
             fontSize: '16px', lineHeight: '24px', fontFamily: 'var(--font-interface)',
             resize: 'none', outline: 'none', border: '1px solid transparent', WebkitAppearance: 'none',
-            padding: '8px', caretColor: 'var(--q-tab-accent)',
+            padding: '8px', paddingRight: '46px', caretColor: 'var(--q-tab-accent)',
           }}
           rows={1}
         />
+
+        {/* Dettatura: SEMPRE sopra il tasto invio, ancorato al bordo inferiore della
+            box: se il testo alza la textbox lui non si muove. Stessa forma/dimensioni
+            degli altri tasti (32x32, radius-md). Icona rossa mentre registra. */}
+        <div style={{ position: 'absolute', right: '8px', bottom: '64px', zIndex: 3 }}>
+          <MicBtn recState={recState} onClick={recState === 'busy' ? () => {} : (recState === 'rec' ? stopRec : startRec)} />
+        </div>
 
         {/* Bottom bar */}
         <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', height: '32px', marginTop: '8px' }}>
@@ -703,8 +710,6 @@ export function Composer(props: ComposerProps) {
           {props.onSteer && (
             <SteerButton enabled={canSteer} onClick={handleSteer} />
           )}
-          <div style={{ width: '8px', flexShrink: 0 }} />
-          <MicBtn recState={recState} onClick={recState === 'busy' ? () => {} : (recState === 'rec' ? stopRec : startRec)} />
           <div style={{ width: '8px', flexShrink: 0 }} />
           <SendButton enabled={canSend} onClick={handleSend} />
         </div>
