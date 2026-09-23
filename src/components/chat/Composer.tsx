@@ -168,6 +168,10 @@ export function Composer(props: ComposerProps) {
   // Tocco -> registro (tasto rosso) -> ritocco -> WAV 16k nel composer.
   // Desktop: comando Tauri -> helper swift. Web/telefono: shim -> POST /transcribe.
   const [recState, setRecState] = useState<'idle' | 'rec' | 'busy'>('idle')
+  const [speaking, setSpeaking] = useState(false)   // VAD: verde mentre parli
+  const vadTimerRef = useRef<any>(null)
+  const acRef = useRef<any>(null)
+  const lastVoiceRef = useRef(0)
   const recRef = useRef<{ mr: MediaRecorder; stream: MediaStream; chunks: Blob[] } | null>(null)
   const recSelRef = useRef<{ start: number; end: number }>({ start: 0, end: 0 })
 
@@ -179,10 +183,37 @@ export function Composer(props: ComposerProps) {
         recSelRef.current = ta ? { start: ta.selectionStart || 0, end: ta.selectionEnd || 0 } : { start: 0, end: 0 }
       } catch { recSelRef.current = { start: 0, end: 0 } }
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      // VAD leggero: livello RMS 10 volte al secondo -> verde quando parli.
+      try {
+        const AC: any = (window as any).AudioContext || (window as any).webkitAudioContext
+        const ac = new AC()
+        const src = ac.createMediaStreamSource(stream)
+        const an = ac.createAnalyser()
+        an.fftSize = 512
+        src.connect(an)
+        acRef.current = ac
+        const buf = new Uint8Array(an.fftSize)
+        vadTimerRef.current = setInterval(() => {
+          try {
+            an.getByteTimeDomainData(buf)
+            let sum = 0
+            for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; sum += v * v }
+            const rms = Math.sqrt(sum / buf.length)
+            const now = Date.now()
+            if (rms > 0.02) lastVoiceRef.current = now
+            setSpeaking(now - lastVoiceRef.current < 300)
+          } catch {}
+        }, 100)
+      } catch (e) { console.error('vad error:', e) }
       const mr = new MediaRecorder(stream)
       const chunks: Blob[] = []
       mr.ondataavailable = (e: any) => { if (e.data && e.data.size) chunks.push(e.data) }
       mr.onstop = async () => {
+        try { if (vadTimerRef.current) clearInterval(vadTimerRef.current) } catch {}
+        vadTimerRef.current = null
+        setSpeaking(false)
+        try { acRef.current?.close() } catch {}
+        acRef.current = null
         try { stream.getTracks().forEach(t => t.stop()) } catch {}
         try {
           const blob = new Blob(chunks, { type: (chunks[0] && chunks[0].type) || 'audio/webm' })
@@ -213,6 +244,9 @@ export function Composer(props: ComposerProps) {
       setRecState('rec')
     } catch (e: any) {
       console.error('mic error:', e)
+      try { if (vadTimerRef.current) clearInterval(vadTimerRef.current) } catch {}
+      vadTimerRef.current = null
+      setSpeaking(false)
       setRecState('idle')
     }
   }
@@ -693,7 +727,7 @@ export function Composer(props: ComposerProps) {
             box: se il testo alza la textbox lui non si muove. Stessa forma/dimensioni
             degli altri tasti (32x32, radius-md). Icona rossa mentre registra. */}
         <div style={{ position: 'absolute', right: '8px', bottom: '52px', zIndex: 3 }}>
-          <MicBtn recState={recState} onClick={recState === 'busy' ? () => {} : (recState === 'rec' ? stopRec : startRec)} />
+          <MicBtn recState={recState} speaking={speaking} onClick={recState === 'busy' ? () => {} : (recState === 'rec' ? stopRec : startRec)} />
         </div>
 
         {/* Bottom bar */}
@@ -1086,7 +1120,7 @@ function ModeButton({ mode, onChange, longHorizon }: { mode: ChatMode; onChange:
 // Tasto dettatura: GRAFICAMENTE IDENTICO al tasto invio (32x32, radius 8px, pieno
 // accent-darker, hover accent, colore di contrasto). Rosso mentre registra,
 // attenuato mentre trascrive.
-function MicBtn({ recState, onClick }: { recState: 'idle' | 'rec' | 'busy'; onClick: () => void }) {
+function MicBtn({ recState, speaking, onClick }: { recState: 'idle' | 'rec' | 'busy'; speaking?: boolean; onClick: () => void }) {
   const [hovered, setHovered] = useState(false)
   const busy = recState === 'busy'
   const rec = recState === 'rec'
@@ -1098,8 +1132,8 @@ function MicBtn({ recState, onClick }: { recState: 'idle' | 'rec' | 'busy'; onCl
         width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
         borderRadius: '8px',
         border: 'none', cursor: busy ? 'default' : 'pointer',
-        backgroundColor: rec ? 'var(--q-accent-danger)' : busy ? 'var(--q-accent-warning)' : (hovered ? 'rgba(255,255,255,0.08)' : 'var(--q-hover)'),
-        color: rec ? getContrastColor('--q-accent-danger') : busy ? getContrastColor('--q-accent-warning') : 'var(--q-text-tertiary)',
+        backgroundColor: (rec && speaking) ? 'var(--q-accent-success)' : rec ? 'var(--q-accent-danger)' : busy ? 'var(--q-accent-warning)' : (hovered ? 'rgba(255,255,255,0.08)' : 'var(--q-hover)'),
+        color: (rec && speaking) ? getContrastColor('--q-accent-success') : rec ? getContrastColor('--q-accent-danger') : busy ? getContrastColor('--q-accent-warning') : 'var(--q-text-tertiary)',
         flexShrink: 0, padding: '0',
         transition: 'none',
       }}>
