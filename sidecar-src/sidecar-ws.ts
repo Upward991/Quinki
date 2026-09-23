@@ -1,4 +1,5 @@
 import { WebSocketServer } from "ws";
+import { gzipSync } from "zlib";
 import * as http from "node:http";
 import { spawn } from "node:child_process";
 import { homedir } from "node:os";
@@ -245,6 +246,8 @@ button{height:40px;border-radius:8px;border:1px solid #7aa2f7;background:transpa
 }
 
 
+const _gzCache = new Map<string, { key: string; buf: Buffer }>();
+
 function serveWebApp(req: any, res: any, url: string): boolean {
   if (!WEB_DIR) return false;
   let rel = url.split("?")[0].split("#")[0];
@@ -258,6 +261,8 @@ function serveWebApp(req: any, res: any, url: string): boolean {
   const ext = extname(full).toLowerCase();
   const isHtml = full.endsWith("index.html");
   const noStore = isHtml || full.endsWith("sw.js"); // sw.js: mai cache, ma MAI iniettare HTML!
+  const compressible = ["js", "css", "html", "json", "svg", "webmanifest", "txt"].includes(ext.replace(/^\./, ""));
+  const acceptsGz = String(req.headers["accept-encoding"] || "").toLowerCase().includes("gzip");
   let body = readFileSync(full);
   if (isHtml) {
     // Payload per il frontend: server WS (stesso host del browser, anche dietro
@@ -270,10 +275,36 @@ function serveWebApp(req: any, res: any, url: string): boolean {
     const html = body.toString("utf8");
     body = Buffer.from(html.includes("</head>") ? html.replace("</head>", tag + "</head>") : tag + html, "utf8");
   }
+  // gzip per i testi (il bundle e' grande: 1.4MB -> ~350KB). Con cache in memoria
+  // per file (chiave = size+mtime): la prima richiesta comprime, le altre no.
+  let useGz = false;
+  if (compressible && acceptsGz && body.length > 1024) {
+    if (isHtml) {
+      body = gzipSync(body);
+    } else {
+      try {
+        const st = statSync(full);
+        const key = st.size + ":" + st.mtimeMs;
+        const hit = _gzCache.get(full);
+        if (hit && hit.key === key) body = hit.buf;
+        else {
+          const buf = gzipSync(body);
+          _gzCache.set(full, { key, buf });
+          if (_gzCache.size > 80) { const first = _gzCache.keys().next().value; if (first) _gzCache.delete(first); }
+          body = buf;
+        }
+      } catch { body = gzipSync(body); }
+    }
+    useGz = true;
+  }
+  // Cache: assets con hash nel nome = immutabili per sempre; il resto 1 giorno;
+  // html/sw.js mai (cosi' la web app prende sempre l'ultima versione).
+  const hashed = rel.startsWith("/assets/");
   res.writeHead(200, {
     "Content-Type": WEB_MIME[ext] || "application/octet-stream",
     "Content-Length": body.length,
-    "Cache-Control": noStore ? "no-store" : "public, max-age=3600",
+    "Cache-Control": noStore ? "no-store" : hashed ? "public, max-age=31536000, immutable" : "public, max-age=86400",
+    ...(useGz ? { "Content-Encoding": "gzip", "Vary": "Accept-Encoding" } : {}),
   });
   res.end(req.method === "HEAD" ? undefined : body);
   return true;
