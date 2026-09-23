@@ -177,7 +177,7 @@ function SidecarVersionsRows(){
   )
 }
 
-function QUpToDate(){let[v,setV]=useState(null);useEffect(()=>{try{import(`@tauri-apps/api/app`).then(async function(m){let ver=await m.getVersion();if(ver)setV(`v`+ver.replace(/^v/,``))})}catch{}},[]);return React.createElement(`div`,{style:{color:`var(--q-accent-success)`,fontSize:`13px`,fontFamily:`var(--font-interface)`},children:v?[`You're up to date (`,v,`).`]:`You are up to date.`})}
+function QUpToDate(){let[v,setV]=useState(null);useEffect(()=>{try{import(`@tauri-apps/api/app`).then(async function(m){let ver=await m.getVersion();if(ver&&!/^(web|unknown)$/i.test(ver)&&!/^[0-9a-f]{7,40}$/i.test(ver))setV(`v`+ver.replace(/^v/,``))})}catch{}},[]);return React.createElement(`div`,{style:{color:`var(--q-accent-success)`,fontSize:`13px`,fontFamily:`var(--font-interface)`},children:v?[`You're up to date (`,v,`).`]:`You are up to date.`})}
 
 function QVerRow(){let[v,setV]=useState(`v1.0.0-beta.2`);useEffect(()=>{try{import(`@tauri-apps/api/app`).then(async function(m){let ver=await m.getVersion();if(ver)setV(`v`+ver.replace(/^v/,``))})}catch{}},[]);return React.createElement(Jh,{label:`Quinki`,value:v})}
 

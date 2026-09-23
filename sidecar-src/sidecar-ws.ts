@@ -102,7 +102,12 @@ const WEB_MIME: Record<string, string> = {
 };
 const WEB_VERSION = (() => {
   try {
-    const p = join(dirname(process.execPath || ""), "version.txt");
+    const dir = dirname(process.execPath || "");
+    // app-version.txt = versione vera dell'app (es. 1.0.0-beta.15).
+    // version.txt = git hash (serve all'Expert per il confronto): usato solo come fallback.
+    const p1 = join(dir, "app-version.txt");
+    if (existsSync(p1)) return String(readFileSync(p1, "utf8")).trim().slice(0, 40);
+    const p = join(dir, "version.txt");
     if (existsSync(p)) return String(readFileSync(p, "utf8")).trim().slice(0, 40);
   } catch {}
   return "";

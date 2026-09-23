@@ -55,6 +55,13 @@ GIT_HASH=$(git -C "$(dirname "$0")/.." rev-parse --short HEAD 2>/dev/null || ech
 if [ -n "$GIT_HASH" ]; then
   echo "$GIT_HASH" > "$MAIN_APP/Contents/Resources/resources/sidecar/version.txt"
   echo "[install-main] version.txt -> $GIT_HASH"
+  # 2a3) app-version.txt: la VERSIONE VERA dell'app (version.txt = git hash, serve
+  #      all'Expert). La web app la legge da qui (window.__QUINKI__.version).
+  APP_VER="$(grep -m1 '"version"' src-tauri/tauri.conf.json | sed 's/.*"version": *"//; s/".*//')"
+  if [ -n "$APP_VER" ]; then
+    echo "$APP_VER" > "$MAIN_APP/Contents/Resources/resources/sidecar/app-version.txt"
+    echo "[install-main] app-version.txt -> $APP_VER"
+  fi
 fi
 
 # 2b) Sign with the STABLE self-signed identity ("Quinki Self-Signing").
