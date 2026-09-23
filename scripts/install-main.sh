@@ -89,9 +89,10 @@ fi
 pkill -f "/Applications/Quinki.app/Contents/MacOS/quinki" 2>/dev/null || true
 sleep 1
 
-# 4) Clear main app webview caches only
-rm -rf "$HOME_DIR/Library/WebKit/com.quinki.app" \
-       "$HOME_DIR/Library/Caches/com.quinki.app" \
+# 4) Clear ONLY network caches. NEVER remove the WebKit WebsiteData dir: it
+#    holds the user settings, shortcuts, themes, tokens and the webview
+#    permission grants (microphone). They must survive every update.
+rm -rf "$HOME_DIR/Library/Caches/com.quinki.app" \
        "$HOME_DIR/Library/HTTPStorages/com.quinki.app" 2>/dev/null || true
 
 # 5) Reopen main app

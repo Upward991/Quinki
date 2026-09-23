@@ -847,10 +847,12 @@ fn install_main_app(build_path: String) -> Result<String, String> {
         .args(["-c", "lsof -ti:9182 | xargs kill -9 2>/dev/null"])
         .output();
     
-    // Clear webview caches
+    // Clear ONLY network caches. NEVER the WebKit WebsiteData dir: it holds the
+    // user settings, shortcuts, themes and the webview permission grants
+    // (microphone) which must survive every update.
     let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
-    let _ = std::fs::remove_dir_all(format!("{}/Library/WebKit/com.quinki.app", home));
     let _ = std::fs::remove_dir_all(format!("{}/Library/Caches/com.quinki.app", home));
+    let _ = std::fs::remove_dir_all(format!("{}/Library/HTTPStorages/com.quinki.app", home));
     
     // Restart main app
     std::thread::sleep(std::time::Duration::from_secs(1));
@@ -2198,6 +2200,37 @@ fn get_quick_chat_shortcut() -> String {
     cur
 }
 
+// === Dettatura: shortcut CONDIVISO tra main ed Expert (file in ~/.quinki) ===
+// Cosi' si cambia una volta sola e vale per entrambe le app, e sopravvive a
+// update/reinstalli (non sta piu' nel localStorage, che veniva azzerato).
+#[tauri::command]
+fn dictation_shortcut_get() -> String {
+    let home = std::env::var("HOME").unwrap_or_default();
+    std::fs::read_to_string(format!("{}/.quinki/dictation-shortcut.txt", home))
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "AltRight".to_string())
+}
+
+#[tauri::command]
+fn dictation_shortcut_set(shortcut: String) -> Result<(), String> {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let dir = format!("{}/.quinki", home);
+    let _ = std::fs::create_dir_all(&dir);
+    std::fs::write(format!("{}/dictation-shortcut.txt", dir), &shortcut).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn dictation_shortcut_init(legacy: String) -> String {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let path = format!("{}/.quinki/dictation-shortcut.txt", home);
+    if !std::path::Path::new(&path).exists() && !legacy.trim().is_empty() {
+        let _ = std::fs::write(&path, legacy.trim());
+    }
+    dictation_shortcut_get()
+}
+
 #[tauri::command]
 fn suspend_quick_chat_shortcut(app: tauri::AppHandle) -> Result<(), String> {
     // SOSPENDI il global shortcut durante il recording — altrimenti premere per
@@ -3156,6 +3189,9 @@ pub fn run() {
         get_quick_chat_shortcut,
         set_quick_chat_shortcut,
         suspend_quick_chat_shortcut,
+        dictation_shortcut_get,
+        dictation_shortcut_set,
+        dictation_shortcut_init,
         send_notification,
         request_notification_permission,
         request_expert_notification_permission,
@@ -3347,6 +3383,30 @@ fn quick_chat_register_shortcut(app: &tauri::AppHandle) {
     let _ = quick_chat_register_attempt(&gs, &shortcut_str);
 }
 
+// Sorveglia il file dello shortcut Quick Chat: se un'altra app (main/Expert)
+// lo cambia, questo processo riregistra il tasto entro pochi secondi, cosi'
+// il nuovo tasto funziona in ENTRAMBE le app senza riavviarle.
+fn quick_chat_watch_shortcut(app: tauri::AppHandle) {
+    std::thread::spawn(move || {
+        let home = std::env::var("HOME").unwrap_or_default();
+        let path = format!("{}/.quinki/quick-chat-shortcut.txt", home);
+        let mtime = |p: &str| std::fs::metadata(p).and_then(|m| m.modified()).ok();
+        let mut last = mtime(&path);
+        loop {
+            std::thread::sleep(std::time::Duration::from_secs(5));
+            let cur = mtime(&path);
+            if cur != last {
+                last = cur;
+                use tauri_plugin_global_shortcut::GlobalShortcutExt;
+                let gs = app.global_shortcut();
+                let s = get_quick_chat_shortcut();
+                let _ = gs.unregister_all();
+                let _ = quick_chat_register_attempt(&gs, &s);
+            }
+        }
+    });
+}
+
       // === Tray icon (main app only — Expert app has no tray) ===
       if !is_expert_mode() {
       let show_item = MenuItem::with_id(app, "show", "Show Quinki", true, None::<&str>)?;
@@ -3419,6 +3479,7 @@ fn quick_chat_register_shortcut(app: &tauri::AppHandle) {
         std::thread::spawn(move || {
           std::thread::sleep(std::time::Duration::from_millis(2000));
           quick_chat_register_shortcut(&app_handle);
+          quick_chat_watch_shortcut(app_handle.clone());
         });
       }
 

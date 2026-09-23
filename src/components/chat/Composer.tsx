@@ -266,8 +266,27 @@ export function Composer(props: ComposerProps) {
   startRef.current = startRec
   const stopRef = useRef(stopRec)
   stopRef.current = stopRec
+  // Shortcut CONDIVISO (file ~/.quinki/dictation-shortcut.txt): cambiarlo in
+  // una app vale anche per l'altra, e sopravvive a update/reinstalli.
+  const dictScRef = useRef('AltRight')
   useEffect(() => {
-    const getSc = () => { try { const v = localStorage.getItem('quinki-dictation-shortcut') || 'AltRight'; return v === 'Alt' ? 'AltRight' : v } catch { return 'AltRight' } }
+    let alive = true
+    const norm = (v: any) => (typeof v === 'string' && v && v !== 'Alt') ? v : 'AltRight'
+    try {
+      let legacy = ''
+      try { legacy = localStorage.getItem('quinki-dictation-shortcut') || '' } catch {}
+      invoke('dictation_shortcut_init', { legacy }).then((v: any) => { if (alive) dictScRef.current = norm(v) }).catch(() => {})
+    } catch {}
+    let timer: any = null
+    if (!isPhoneWeb()) {
+      timer = setInterval(() => {
+        try { invoke('dictation_shortcut_get').then((v: any) => { const n = norm(v); if (n !== dictScRef.current) dictScRef.current = n }).catch(() => {}) } catch {}
+      }, 3000)
+    }
+    return () => { alive = false; if (timer) clearInterval(timer) }
+  }, [])
+  useEffect(() => {
+    const getSc = () => dictScRef.current || 'AltRight'
     const isModCode = (c: string) => c.startsWith('Alt') || c.startsWith('Control') || c.startsWith('Meta') || c.startsWith('Shift')
     const modGroup = (c: string) => c.startsWith('Alt') ? 'alt' : c.startsWith('Control') ? 'ctrl' : c.startsWith('Shift') ? 'shift' : 'meta'
     const held: Record<string, string> = { alt: '', ctrl: '', shift: '', meta: '' }
