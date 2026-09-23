@@ -255,9 +255,11 @@ export function Composer(props: ComposerProps) {
     setRecState('busy')
   }
 
-  // === SHORTCUT DETTATURA (desktop): default "tap Alt" (premi e rilascia senza
-  // altri tasti: cosi Alt+Tab non attiva nulla). I combo (es. Control+D) partono
-  // al keydown. Configurabile in Settings -> Shortcuts.
+  // === SHORTCUT DETTATURA (desktop): default "tap Alt destro" (premi e rilascia
+  // il tasto destro senza altri tasti: cosi Alt+Tab non attiva nulla e il tasto
+  // sinistro resta libero per la Quick Chat). Distingue i tasti doppi:
+  // AltLeft/AltRight, ControlLeft/ControlRight, ShiftLeft/Right, MetaLeft/Right.
+  // I combo (es. ControlLeft+D) partono al keydown. Settings -> Shortcuts.
   const recStateRef = useRef(recState)
   recStateRef.current = recState
   const startRef = useRef(startRec)
@@ -265,19 +267,33 @@ export function Composer(props: ComposerProps) {
   const stopRef = useRef(stopRec)
   stopRef.current = stopRec
   useEffect(() => {
-    const getSc = () => { try { return localStorage.getItem('quinki-dictation-shortcut') || 'Alt' } catch { return 'Alt' } }
+    const getSc = () => { try { const v = localStorage.getItem('quinki-dictation-shortcut') || 'AltRight'; return v === 'Alt' ? 'AltRight' : v } catch { return 'AltRight' } }
     const isModCode = (c: string) => c.startsWith('Alt') || c.startsWith('Control') || c.startsWith('Meta') || c.startsWith('Shift')
+    const modGroup = (c: string) => c.startsWith('Alt') ? 'alt' : c.startsWith('Control') ? 'ctrl' : c.startsWith('Shift') ? 'shift' : 'meta'
+    const held: Record<string, string> = { alt: '', ctrl: '', shift: '', meta: '' }
     let modDown = false
     let otherPressed = false
     const toggle = () => { if (recStateRef.current === 'busy') return; if (recStateRef.current === 'rec') stopRef.current(); else startRef.current() }
+    const codeMatches = (sc: string, code: string) => {
+      if (sc === 'Alt') return code === 'AltLeft' || code === 'AltRight'
+      if (sc === 'Control') return code === 'ControlLeft' || code === 'ControlRight'
+      if (sc === 'Shift') return code === 'ShiftLeft' || code === 'ShiftRight'
+      if (sc === 'Meta') return code === 'MetaLeft' || code === 'MetaRight'
+      return sc === code
+    }
     const onDown = (ev: KeyboardEvent) => {
       const sc = getSc()
-      if (modDown && !isModCode(ev.code)) otherPressed = true
-      if (isModCode(ev.code)) { if (!modDown) { modDown = true; otherPressed = false } return }
+      if (isModCode(ev.code)) { held[modGroup(ev.code)] = ev.code; if (!modDown) { modDown = true; otherPressed = false } return }
+      if (modDown) otherPressed = true
       if (sc.includes('+')) {
         const parts = sc.split('+'); const key = parts[parts.length - 1]
         const need = { meta: parts.includes('Meta'), ctrl: parts.includes('Control'), alt: parts.includes('Alt'), shift: parts.includes('Shift') }
-        if (ev.metaKey === need.meta && ev.ctrlKey === need.ctrl && ev.altKey === need.alt && ev.shiftKey === need.shift) {
+        const sideOk =
+          !parts.some(p => (p === 'AltLeft' || p === 'AltRight') && !(ev.altKey && held.alt === p)) &&
+          !parts.some(p => (p === 'ControlLeft' || p === 'ControlRight') && !(ev.ctrlKey && held.ctrl === p)) &&
+          !parts.some(p => (p === 'ShiftLeft' || p === 'ShiftRight') && !(ev.shiftKey && held.shift === p)) &&
+          !parts.some(p => (p === 'MetaLeft' || p === 'MetaRight') && !(ev.metaKey && held.meta === p))
+        if (ev.metaKey === need.meta && ev.ctrlKey === need.ctrl && ev.altKey === need.alt && ev.shiftKey === need.shift && sideOk) {
           const code = ev.code
           const ok = code === key || (key.length === 1 ? code === 'Key' + key || code === 'Digit' + key : false)
           if (ok) { ev.preventDefault(); toggle() }
@@ -286,11 +302,8 @@ export function Composer(props: ComposerProps) {
     }
     const onUp = (ev: KeyboardEvent) => {
       const sc = getSc()
-      if (!sc.includes('+') && isModCode(ev.code) && modDown && !otherPressed) {
-        const norm = ev.code === 'AltLeft' || ev.code === 'AltRight' ? 'Alt' : ev.code === 'ControlLeft' || ev.code === 'ControlRight' ? 'Control' : ev.code === 'ShiftLeft' || ev.code === 'ShiftRight' ? 'Shift' : ev.code === 'MetaLeft' || ev.code === 'MetaRight' ? 'Meta' : ev.code
-        if (norm === sc) toggle()
-      }
-      if (isModCode(ev.code)) { modDown = false; otherPressed = false }
+      if (!sc.includes('+') && isModCode(ev.code) && modDown && !otherPressed && codeMatches(sc, ev.code)) toggle()
+      if (isModCode(ev.code)) { held[modGroup(ev.code)] = ''; modDown = false; otherPressed = false }
     }
     window.addEventListener('keydown', onDown)
     window.addEventListener('keyup', onUp)

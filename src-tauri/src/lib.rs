@@ -2139,23 +2139,77 @@ fn get_window_label(window: tauri::WebviewWindow) -> String {
     window.label().to_string()
 }
 
-// === Quick Chat: shortcut configurabile (31 ago) ===
+// === Quick Chat: shortcut configurabile (31 ago) — lati dei tasti (24 set) ===
+// Il livello globale di sistema (Carbon su macOS) NON distingue il tasto
+// sinistro da quello destro: al momento della registrazione GLOBALE i lati
+// vengono rimossi (downgrade). La distinzione resta salvata e visibile in
+// Settings; la dettatura (in-app) la applica davvero (default: tap Alt destro).
+fn quick_chat_downgrade(shortcut: &str) -> String {
+    shortcut
+        .replace("AltLeft", "Alt")
+        .replace("AltRight", "Alt")
+        .replace("ControlLeft", "Control")
+        .replace("ControlRight", "Control")
+        .replace("ShiftLeft", "Shift")
+        .replace("ShiftRight", "Shift")
+        .replace("MetaLeft", "Command")
+        .replace("MetaRight", "Command")
+}
+
+fn quick_chat_hotkey_handler(
+    app: &tauri::AppHandle,
+    _s: &tauri_plugin_global_shortcut::Shortcut,
+    event: tauri_plugin_global_shortcut::ShortcutEvent,
+) {
+    if event.state == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+        quick_chat_open(app);
+    }
+}
+
+fn quick_chat_register_attempt(
+    gs: &tauri_plugin_global_shortcut::GlobalShortcut<tauri::Wry>,
+    shortcut: &str,
+) -> Result<(), String> {
+    if gs.on_shortcut(shortcut, quick_chat_hotkey_handler).is_ok() {
+        return Ok(());
+    }
+    let d = quick_chat_downgrade(shortcut);
+    if d != shortcut {
+        gs.on_shortcut(d.as_str(), quick_chat_hotkey_handler)
+            .map(|_| ())
+            .map_err(|e| format!("Failed to register shortcut: {}", e))
+    } else {
+        Err(format!("Failed to register shortcut: {}", shortcut))
+    }
+}
+
 #[tauri::command]
 fn get_quick_chat_shortcut() -> String {
     let home = std::env::var("HOME").unwrap_or_default();
-    std::fs::read_to_string(format!("{}/.quinki/quick-chat-shortcut.txt", home))
+    let path = format!("{}/.quinki/quick-chat-shortcut.txt", home);
+    let cur = std::fs::read_to_string(&path)
         .map(|s| s.trim().to_string())
-        .unwrap_or_else(|_| "Option+Space".to_string())
+        .unwrap_or_default();
+    // Migrazione: i vecchi default generici diventano "Alt sinistro + Spazio".
+    if cur.is_empty() || cur == "Option+Space" || cur == "Alt+Space" {
+        let _ = std::fs::write(&path, "AltLeft+Space");
+        return "AltLeft+Space".to_string();
+    }
+    cur
 }
 
 #[tauri::command]
 fn suspend_quick_chat_shortcut(app: tauri::AppHandle) -> Result<(), String> {
-    // SOSPENDI il global shortcut durante il recording — altrimenti premere
-    // Option+Space per registrarlo APRIREBBE anche la Quick Chat (doppio effetto).
+    // SOSPENDI il global shortcut durante il recording — altrimenti premere per
+    // registrarlo APRIREBBE anche la Quick Chat (doppio effetto).
     use tauri_plugin_global_shortcut::GlobalShortcutExt;
     let gs = app.global_shortcut();
     let current = get_quick_chat_shortcut();
     let _ = gs.unregister(current.as_str());
+    let d = quick_chat_downgrade(&current);
+    if d != current {
+        let _ = gs.unregister(d.as_str());
+    }
     Ok(())
 }
 
@@ -2163,23 +2217,19 @@ fn suspend_quick_chat_shortcut(app: tauri::AppHandle) -> Result<(), String> {
 fn set_quick_chat_shortcut(app: tauri::AppHandle, shortcut: String) -> Result<String, String> {
     use tauri_plugin_global_shortcut::GlobalShortcutExt;
     let gs = app.global_shortcut();
-    // Deregistra il VECCHIO shortcut
+    // Deregistra il VECCHIO shortcut (esatto e declassato)
     let old = get_quick_chat_shortcut();
     let _ = gs.unregister(old.as_str());
-    // Registra il NUOVO
-    match gs.on_shortcut(shortcut.as_str(), move |app, _s, event| {
-        if event.state == tauri_plugin_global_shortcut::ShortcutState::Pressed {
-            quick_chat_open(app);
-        }
-    }) {
-        Ok(_) => {
-            // Salva su file
-            let home = std::env::var("HOME").unwrap_or_default();
-            let _ = std::fs::write(format!("{}/.quinki/quick-chat-shortcut.txt", home), &shortcut);
-            Ok(shortcut)
-        }
-        Err(e) => Err(format!("Failed to register shortcut: {}", e)),
+    let dold = quick_chat_downgrade(&old);
+    if dold != old {
+        let _ = gs.unregister(dold.as_str());
     }
+    // Registra il NUOVO: prima esatto, poi senza lati (limite del SO)
+    quick_chat_register_attempt(&gs, &shortcut)?;
+    // Salva l'ORIGINALE (con i lati): la UI lo mostra, il downgrade avviene qui
+    let home = std::env::var("HOME").unwrap_or_default();
+    let _ = std::fs::write(format!("{}/.quinki/quick-chat-shortcut.txt", home), &shortcut);
+    Ok(shortcut)
 }
 
 // === Quick Chat: finestra per domande al volo (31 ago) — TOP-LEVEL per essere accessibile dai comandi ===
@@ -3289,19 +3339,12 @@ pub fn run() {
 // La finestra mostra la welcome chat; quando l'utente manda un messaggio,
 // la sessione viene creata e la chat continua NELLA FINESTRA.
 
-// Registra lo shortcut globale per Quick Chat (default: Option+Space)
+// Registra lo shortcut globale per Quick Chat (default: Alt sinistro + Spazio)
 fn quick_chat_register_shortcut(app: &tauri::AppHandle) {
     use tauri_plugin_global_shortcut::GlobalShortcutExt;
     let gs = app.global_shortcut();
-    // Leggi lo shortcut salvato (default: Option+Space = alt+Space)
-    let shortcut_str = std::fs::read_to_string(format!("{}/.quinki/quick-chat-shortcut.txt", std::env::var("HOME").unwrap_or_default()))
-        .map(|s| s.trim().to_string())
-        .unwrap_or_else(|_| "Option+Space".to_string());
-    let _ = gs.on_shortcut(shortcut_str.as_str(), move |app, _shortcut, event| {
-        if event.state == tauri_plugin_global_shortcut::ShortcutState::Pressed {
-            quick_chat_open(app);
-        }
-    });
+    let shortcut_str = get_quick_chat_shortcut();
+    let _ = quick_chat_register_attempt(&gs, &shortcut_str);
 }
 
       // === Tray icon (main app only — Expert app has no tray) ===
