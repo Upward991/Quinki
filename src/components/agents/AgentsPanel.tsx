@@ -628,9 +628,11 @@ export function AgentsPanel(props) {
   const navDesktop = React.createElement('div', { style: { width: '220px', flexShrink: 0, paddingRight: '8px', height: '100%' }, children:
     React.createElement('div', { style: { height: '100%', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)', padding: '8px', overflowY: 'auto' }, children: agentsNav.map(n => React.createElement(AgentsNavItem, { key: n.id, item: n, onTap: () => scrollToSection(n.id) })) })
   });
-  const navDrawer = React.createElement('div', { id: 'q-agents-drawer', style: { position: 'fixed', inset: 0, zIndex: 300, backgroundColor: 'var(--q-bg)', padding: '8px', overflowY: 'auto' }, children: [
-    React.createElement(AgentsNavItem, { key: 'head', item: { id: 'agents-current', icon: Bot, label: 'Agents' }, onTap: () => setNavOpen(false) }),
-    ...navItems
+  const navDrawer = React.createElement('div', { id: 'q-agents-drawer', style: { position: 'fixed', inset: 0, zIndex: 300, backgroundColor: 'var(--q-bg)', padding: '8px', display: 'flex', flexDirection: 'column' }, children: [
+    React.createElement('div', { style: { flex: 1, minHeight: 0, overflowY: 'auto' }, children: navItems }),
+    React.createElement('div', { style: { padding: '8px 4px 0 4px', display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }, children:
+      React.createElement('button', { onClick: () => setNavOpen(false), onMouseEnter: (e: any) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }, onMouseLeave: (e: any) => { e.currentTarget.style.backgroundColor = 'transparent' }, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', cursor: 'pointer' }, children: 'Close' })
+    })
   ] });
 
   return React.createElement('div', { className: 'h-full flex', id: 'q-agents', children: [
