@@ -679,7 +679,7 @@ export function Composer(props: ComposerProps) {
         {/* Dettatura: SEMPRE sopra il tasto invio, ancorato al bordo inferiore della
             box: se il testo alza la textbox lui non si muove. Stessa forma/dimensioni
             degli altri tasti (32x32, radius-md). Icona rossa mentre registra. */}
-        <div style={{ position: 'absolute', right: '8px', bottom: '64px', zIndex: 3 }}>
+        <div style={{ position: 'absolute', right: '8px', bottom: '52px', zIndex: 3 }}>
           <MicBtn recState={recState} onClick={recState === 'busy' ? () => {} : (recState === 'rec' ? stopRec : startRec)} />
         </div>
 
