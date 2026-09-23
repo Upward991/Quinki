@@ -84,7 +84,7 @@ function FilterChip({ label, values, options, onChange }: { label: string; value
       React.createElement('span', { key: 't', style: { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, label),
       open ? React.createElement(ChevronDown, { key: 'a', size: 14, style: { flexShrink: 0, color: has ? 'var(--q-tab-accent)' : undefined } }) : React.createElement(ChevronRight, { key: 'a', size: 14, style: { flexShrink: 0, color: has ? 'var(--q-tab-accent)' : undefined } }),
     ]),
-    (open && mob) ? React.createElement(BottomSheet, { key: 'sh', open: true, onClose: () => setOpen(false), hideBack: true, items: [],
+    (open && mob) ? React.createElement(BottomSheet, { key: 'sh', open: true, onClose: () => setOpen(false), hideBack: true, hideNav: true, items: [],
       view: React.createElement(React.Fragment, null, [
         React.createElement('div', { key: 'list', style: { maxHeight: '55vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 3, padding: '0 4px' } },
           filtered.length === 0 ? [React.createElement('div', { key: 'e', style: { color: 'var(--q-text-tertiary)', fontSize: 14, fontFamily: 'var(--font-interface)', padding: '8px 10px' } }, 'No options')] :
