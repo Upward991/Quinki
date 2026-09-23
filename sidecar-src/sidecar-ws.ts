@@ -2,9 +2,9 @@ import { WebSocketServer } from "ws";
 import { gzipSync } from "zlib";
 import * as http from "node:http";
 import { spawn } from "node:child_process";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join, dirname, extname, normalize } from "node:path";
-import { existsSync, readFileSync, statSync, writeFileSync, mkdirSync } from "node:fs";
+import { existsSync, readFileSync, statSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { EventEmitter } from "node:events";
 // Import STATICO (bundled dal compilatore): il top-level di sidecar.ts è side-effect-free,
@@ -248,6 +248,19 @@ button{height:40px;border-radius:8px;border:1px solid #7aa2f7;background:transpa
 
 const _gzCache = new Map<string, { key: string; buf: Buffer }>();
 
+// Path del binario helper per la dettatura (compilato da tools/dictation-helper,
+// spedito accanto al sidecar nel bundle; in dev si usa la build locale).
+function dictationBinPath(): string {
+  const exeDir = dirname(process.execPath || "");
+  const cands = [
+    join(exeDir, "..", "dictation-helper", "dictate"),
+    join(exeDir, "dictation-helper", "dictate"),
+    join(process.cwd(), "tools", "dictation-helper", ".build", "release", "dictate"),
+  ];
+  for (const c of cands) { try { if (existsSync(c)) return c; } catch {} }
+  return cands[0];
+}
+
 function serveWebApp(req: any, res: any, url: string): boolean {
   if (!WEB_DIR) return false;
   let rel = url.split("?")[0].split("#")[0];
@@ -378,6 +391,56 @@ const httpServer = http.createServer((req: any, res: any) => {
       }
     }
   } catch {}
+
+  // === DETTATURA (locale): l'audio arriva dal composer (WAV 16k mono, prodotto
+  // dal browser col decoder + encoder WAV in JS). Il sidecar lancia l'helper swift
+  // (Parakeet v3 via FluidAudio, CoreML/ANE): prima esecuzione in assoluto ~1 min
+  // (compilazione CoreML), poi ~0.2s. Risponde {ok, text}. Autenticato dal gate sopra.
+  if (req.method === "POST" && url.startsWith("/transcribe")) {
+    try {
+      const chunks: Buffer[] = [];
+      let size = 0;
+      let tooBig = false;
+      req.on("data", (c: Buffer) => {
+        size += c.length;
+        if (size > 40 * 1024 * 1024) { tooBig = true; try { req.destroy(); } catch {} return; }
+        chunks.push(c);
+      });
+      req.on("end", () => {
+        if (tooBig) { res.writeHead(413, { "Content-Type": "application/json" }); res.end(JSON.stringify({ ok: false, error: "audio too big" })); return; }
+        const buf = Buffer.concat(chunks);
+        if (buf.length < 200) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ ok: false, error: "empty audio" })); return; }
+        const tmp = join(tmpdir(), "quinki-dict-" + Date.now().toString(36) + ".wav");
+        try { writeFileSync(tmp, buf); } catch (e: any) { res.writeHead(500, { "Content-Type": "application/json" }); res.end(JSON.stringify({ ok: false, error: "write failed" })); return; }
+        let child: any = null;
+        try {
+          child = spawn(dictationBinPath(), ["transcribe", tmp]);
+        } catch (e: any) {
+          try { rmSync(tmp, { force: true }); } catch {}
+          res.writeHead(500, { "Content-Type": "application/json" }); res.end(JSON.stringify({ ok: false, error: "helper spawn failed" })); return;
+        }
+        let out = "", err = "";
+        child.stdout.on("data", (d: any) => { out += d.toString(); });
+        child.stderr.on("data", (d: any) => { err += d.toString(); });
+        const timer = setTimeout(() => { try { child.kill(); } catch {} }, 300000);
+        child.on("close", (code: number) => {
+          clearTimeout(timer);
+          try { rmSync(tmp, { force: true }); } catch {}
+          const text = String(out || "").trim();
+          if (code === 0 && text) {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ ok: true, text }));
+          } else {
+            res.writeHead(500, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ ok: false, error: String(err || ("exit " + code)).slice(-300) }));
+          }
+        });
+      });
+    } catch (e: any) {
+      try { res.writeHead(500, { "Content-Type": "application/json" }); res.end(JSON.stringify({ ok: false, error: String(e?.message || e) })); } catch {}
+    }
+    return;
+  }
 
   // === UPLOAD (F1): allegati dal browser/telefono -> file sul Mac ===
   // Autenticato dal gate qui sopra (cookie del dispositivo). Il nome arriva in

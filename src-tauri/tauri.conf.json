@@ -181,7 +181,8 @@
       "resources/sidecar/version.txt",
       "resources/sidecar/photon_rs_bg.wasm",
       "resources/sidecar/web/**/*",
-      "resources/tsnet-tunnel"
+      "resources/tsnet-tunnel",
+      "resources/dictation-helper/dictate"
     ]
   }
 }

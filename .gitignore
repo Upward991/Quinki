@@ -78,3 +78,6 @@ quinki-market/
 dist-web/
 # Build artifact (copiato da build-app.sh)
 src-tauri/resources/sidecar/web/
+
+# Swift build dir della dettatura
+tools/dictation-helper/.build/

@@ -82,6 +82,18 @@ export async function invoke(cmd: string, args?: Any): Promise<Any> {
         return out.length ? out : null
       } catch { return null }
     }
+    case 'transcribe_audio': {
+      // Web: il WAV (16k mono) va al sidecar, che lancia l'helper locale sul Mac.
+      try {
+        const arr = (args?.wav || []) as number[]
+        const blob = new Blob([new Uint8Array(arr)], { type: 'audio/wav' })
+        const r = await fetch('/transcribe', { method: 'POST', body: blob })
+        const j: any = await r.json().catch(() => null)
+        if (j && j.ok) return String(j.text || '')
+        console.error('transcribe_audio failed:', j)
+        return ''
+      } catch (e) { console.error('transcribe_audio error:', e); return '' }
+    }
     case 'copy_to_attachments': {
       // Web: il file e' stato caricato sul Mac; ora entra SUBITO nella cartella
       // allegati della sessione (stesso nome <uuid>-<nome> del desktop), via sidecar.

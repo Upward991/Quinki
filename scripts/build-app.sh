@@ -16,6 +16,16 @@ if [ -f public/quinki-logo-small.png ]; then
 fi
 cp -R dist-web/. src-tauri/resources/sidecar/web/
 bash scripts/build-sidecar.sh
+# Dettatura locale (Parakeet TDT v3 via FluidAudio): compila l'helper swift e lo
+# spedisce accanto al sidecar, stesso schema del tunnel.
+if [ -x /usr/bin/swift ] || command -v swift >/dev/null 2>&1; then
+  ( cd tools/dictation-helper && PATH="/opt/homebrew/bin:$PATH" /usr/bin/swift build -c release ) || true
+fi
+if [ -x tools/dictation-helper/.build/release/dictate ]; then
+  mkdir -p src-tauri/resources/dictation-helper
+  cp tools/dictation-helper/.build/release/dictate src-tauri/resources/dictation-helper/dictate
+  echo "[build-app] dictation helper included"
+fi
 # Tunnel stabile (tsnet): nodo Tailscale in userspace dentro l'app.
 # Ricompila se c'e' Go, altrimenti usa il binario gia' compilato.
 if command -v go >/dev/null 2>&1 || [ -x /opt/homebrew/bin/go ]; then

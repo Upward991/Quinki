@@ -163,6 +163,50 @@ export function Composer(props: ComposerProps) {
 
   // FIX (22 set): un allegato da solo (senza testo) DEVE poter partire.
   const canSend = (text.trim().length > 0 || pendingAttachments.length > 0) && !props.isStreaming && !(props as any).isCompacting
+
+  // === DETTATURA (Parakeet v3, in locale sul Mac) ===
+  // Tocco -> registro (tasto rosso) -> ritocco -> WAV 16k nel composer.
+  // Desktop: comando Tauri -> helper swift. Web/telefono: shim -> POST /transcribe.
+  const [recState, setRecState] = useState<'idle' | 'rec' | 'busy'>('idle')
+  const recRef = useRef<{ mr: MediaRecorder; stream: MediaStream; chunks: Blob[] } | null>(null)
+
+  const startRec = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const mr = new MediaRecorder(stream)
+      const chunks: Blob[] = []
+      mr.ondataavailable = (e: any) => { if (e.data && e.data.size) chunks.push(e.data) }
+      mr.onstop = async () => {
+        try { stream.getTracks().forEach(t => t.stop()) } catch {}
+        try {
+          const blob = new Blob(chunks, { type: (chunks[0] && chunks[0].type) || 'audio/webm' })
+          const wav = await blobToWav16k(blob)
+          const arr = Array.from(new Uint8Array(await wav.arrayBuffer()))
+          const res: any = await invoke('transcribe_audio', { wav: arr })
+          const clean = String(res || '').trim()
+          if (clean) {
+            setText(prev => prev + ((prev && !prev.endsWith(' ') && !prev.endsWith('\n')) ? ' ' : '') + clean)
+            setTimeout(() => textareaRef.current?.focus(), 0)
+          }
+        } catch (e: any) {
+          console.error('dictation error:', e)
+        } finally {
+          setRecState('idle')
+          recRef.current = null
+        }
+      }
+      mr.start()
+      recRef.current = { mr, stream, chunks }
+      setRecState('rec')
+    } catch (e: any) {
+      console.error('mic error:', e)
+      setRecState('idle')
+    }
+  }
+  const stopRec = () => {
+    try { recRef.current?.mr.stop() } catch {}
+    setRecState('busy')
+  }
   const canSteer = text.trim().length > 0 && props.isStreaming && !(props as any).isCompacting
 
   const handleSteer = () => {
@@ -523,6 +567,7 @@ export function Composer(props: ComposerProps) {
         borderRadius: 'var(--radius-lg)',
         boxShadow: 'var(--shadow-floating)',
         padding: '8px',
+        position: 'relative',
         display: 'flex',
         flexDirection: 'column',
         ...(props.longHorizon ? { border: '1px solid var(--q-accent-longhorizon)', boxShadow: '0 0 0 1px var(--q-accent-longhorizon), var(--shadow-floating)' } : {}),
@@ -658,6 +703,8 @@ export function Composer(props: ComposerProps) {
           {props.onSteer && (
             <SteerButton enabled={canSteer} onClick={handleSteer} />
           )}
+          <div style={{ width: '8px', flexShrink: 0 }} />
+          <MicBtn recState={recState} onClick={recState === 'busy' ? () => {} : (recState === 'rec' ? stopRec : startRec)} />
           <div style={{ width: '8px', flexShrink: 0 }} />
           <SendButton enabled={canSend} onClick={handleSend} />
         </div>
@@ -1016,6 +1063,30 @@ function ModeButton({ mode, onChange, longHorizon }: { mode: ChatMode; onChange:
 }
 
 // ── Attach button — 32x32 icon button ──
+// Tasto dettatura: stessa forma/dimensioni di AttachBtn (32x32, hover var(--q-hover)).
+// Mentre registra l'icona diventa rossa; mentre trascrive e' attenuato.
+function MicBtn({ recState, onClick }: { recState: 'idle' | 'rec' | 'busy'; onClick: () => void }) {
+  const [hovered, setHovered] = useState(false)
+  const busy = recState === 'busy'
+  const rec = recState === 'rec'
+  return (
+    <button onPointerDown={(e: any) => { try { e.preventDefault() } catch {} }} onClick={onClick}
+      title={rec ? 'Stop and transcribe' : busy ? 'Transcribing…' : 'Dictate'}
+      onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+      style={{
+        width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        borderRadius: 'var(--radius-md)',
+        border: 'none', cursor: busy ? 'default' : 'pointer',
+        backgroundColor: hovered && !busy ? 'var(--q-hover)' : 'transparent',
+        color: rec ? 'var(--q-accent-danger)' : busy ? 'var(--q-text-tertiary)' : hovered ? 'var(--q-text)' : 'var(--q-text-secondary)',
+        flexShrink: 0, padding: '0',
+        transition: 'none', opacity: busy ? 0.5 : 1,
+      }}>
+      <MicIcon />
+    </button>
+  )
+}
+
 function AttachBtn({ children, onClick, title }: { children: React.ReactNode; onClick: () => void; title?: string }) {
   const [hovered, setHovered] = useState(false)
   return (
@@ -1134,4 +1205,56 @@ function reportCam(kind: string, message: string) {
     if (call) { try { call('logFrontendError', { kind, message }) } catch {}; return }
   } catch {}
   try { (window as any).__reportFrontendError?.(kind, message) } catch {}
+}
+
+
+// ── Dettatura: decodifica l'audio registrato e lo converte in WAV 16k mono (PCM16).
+// L'helper sul Mac vuole esattamente questo: nessun ffmpeg, nessun formato strano.
+async function blobToWav16k(blob: Blob): Promise<Blob> {
+  const ab = await blob.arrayBuffer()
+  const AC: any = (window as any).AudioContext || (window as any).webkitAudioContext
+  const ctx = new AC()
+  const audio: AudioBuffer = await new Promise((resolve, reject) => {
+    try { ctx.decodeAudioData(ab, resolve, reject) } catch (e) { reject(e) }
+  })
+  const sr = 16000
+  const len = Math.max(1, Math.round(audio.duration * sr))
+  const ch0 = audio.getChannelData(0)
+  const ch1 = audio.numberOfChannels > 1 ? audio.getChannelData(1) : null
+  const out = new Float32Array(len)
+  for (let i = 0; i < len; i++) {
+    const t = (i / sr) * audio.sampleRate
+    const i0 = Math.floor(t)
+    const i1 = Math.min(audio.length - 1, i0 + 1)
+    const f = t - i0
+    const a0 = ch0[i0] * (1 - f) + ch0[i1] * f
+    const a1 = ch1 ? ch1[i0] * (1 - f) + ch1[i1] * f : a0
+    out[i] = (a0 + a1) / 2
+  }
+  const buf = new ArrayBuffer(44 + len * 2)
+  const dv = new DataView(buf)
+  const ws = (o: number, str: string) => { for (let i = 0; i < str.length; i++) dv.setUint8(o + i, str.charCodeAt(i)) }
+  ws(0, 'RIFF'); dv.setUint32(4, 36 + len * 2, true); ws(8, 'WAVE'); ws(12, 'fmt ')
+  dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true)
+  dv.setUint32(24, sr, true); dv.setUint32(28, sr * 2, true); dv.setUint16(32, 2, true); dv.setUint16(34, 16, true)
+  ws(36, 'data'); dv.setUint32(40, len * 2, true)
+  let o = 44
+  for (let i = 0; i < len; i++) {
+    const v = Math.max(-1, Math.min(1, out[i]))
+    dv.setInt16(o, v < 0 ? v * 0x8000 : v * 0x7fff, true)
+    o += 2
+  }
+  try { ctx.close() } catch {}
+  return new Blob([buf], { type: 'audio/wav' })
+}
+
+// ── Icona microfono ──
+function MicIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="9" y="2.5" width="6" height="11" rx="3" />
+      <path d="M5 10.5a7 7 0 0 0 14 0" />
+      <path d="M12 17.5V21" />
+    </svg>
+  )
 }

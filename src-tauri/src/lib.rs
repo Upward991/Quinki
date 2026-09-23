@@ -2337,6 +2337,40 @@ fn tsnet_bin_path() -> Option<String> {
     None
 }
 
+/// Path dell'helper di dettatura (swift, FluidAudio/Parakeet v3). Stesso schema del tsnet.
+fn dictation_bin_path() -> Option<String> {
+    use std::path::{Path, PathBuf};
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(macos) = exe.parent() {
+            let res: PathBuf = macos.join("../Resources/resources/dictation-helper/dictate");
+            if res.exists() { return Some(res.to_string_lossy().to_string()); }
+        }
+    }
+    let dev = Path::new("tools/dictation-helper/.build/release/dictate");
+    if dev.exists() { return Some(dev.to_string_lossy().to_string()); }
+    None
+}
+
+/// Dettatura locale: WAV 16k mono -> testo (Parakeet v3 via FluidAudio, CoreML/ANE).
+#[tauri::command]
+fn transcribe_audio(wav: Vec<u8>) -> Result<String, String> {
+    use std::io::Write;
+    let bin = dictation_bin_path().ok_or_else(|| "dictation helper not found".to_string())?;
+    let mut path = std::env::temp_dir();
+    path.push(format!("quinki-dict-{}.wav", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0)));
+    {
+        let mut f = std::fs::File::create(&path).map_err(|e| e.to_string())?;
+        f.write_all(&wav).map_err(|e| e.to_string())?;
+    }
+    let out = std::process::Command::new(bin).arg("transcribe").arg(&path).output().map_err(|e| e.to_string())?;
+    let _ = std::fs::remove_file(&path);
+    if !out.status.success() {
+        let err = String::from_utf8_lossy(&out.stderr).to_string();
+        return Err(err.chars().rev().take(300).collect::<String>().chars().rev().collect());
+    }
+    Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
+}
+
 /// Nome del nodo (hostname) persistente: generato UNA volta, poi il link resta
 /// identico per sempre. File dedicato per non confonderlo con l'hostname
 /// Cloudflare (dominio opzionale dell'utente).
@@ -2998,7 +3032,7 @@ pub fn run() {
     });
 
     let app = tauri::Builder::default()
-    .invoke_handler(tauri::generate_handler![
+    .invoke_handler(tauri::generate_handler![transcribe_audio, 
         remote_tunnel_status,
         remote_tunnel_start,
         remote_tunnel_autostart,
