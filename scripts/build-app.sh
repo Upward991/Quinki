@@ -9,6 +9,11 @@ npx vite build
 # Vive accanto al binario del sidecar nell'app bundle (Resources/sidecar/web).
 npx vite build -c vite.config.web.ts
 rm -rf src-tauri/resources/sidecar/web && mkdir -p src-tauri/resources/sidecar/web
+# Web only: logo leggero (il desktop tiene l'originale 870px). La web app passa
+# dal tunnel: questo file si scarica una volta sola e resta in cache.
+if [ -f public/quinki-logo-small.png ]; then
+  cp public/quinki-logo-small.png dist-web/quinki-logo.png
+fi
 cp -R dist-web/. src-tauri/resources/sidecar/web/
 bash scripts/build-sidecar.sh
 # Tunnel stabile (tsnet): nodo Tailscale in userspace dentro l'app.
