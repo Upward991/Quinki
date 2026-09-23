@@ -86,10 +86,6 @@ function FilterChip({ label, values, options, onChange }: { label: string; value
     ]),
     (open && mob) ? React.createElement(BottomSheet, { key: 'sh', open: true, onClose: () => setOpen(false), hideBack: true, items: [],
       view: React.createElement(React.Fragment, null, [
-        React.createElement('div', { key: 'top', style: { display: 'flex', alignItems: 'center', gap: 8, padding: '0 8px 8px 8px' } }, [
-          React.createElement('input', { key: 'i', value: q, onChange: (e: any) => setQ(e.target.value), placeholder: 'Search ' + label.toLowerCase() + '...', style: { flex: 1, minWidth: 0, height: 36, padding: '0 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)', boxSizing: 'border-box' } }),
-          React.createElement('button', { key: 'cl', onClick: () => { onChange([]); setOpen(false) }, style: { height: 36, flexShrink: 0, padding: '0 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-accent-danger)', cursor: 'pointer', fontSize: 13, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap' } }, 'Clear'),
-        ]),
         React.createElement('div', { key: 'list', style: { maxHeight: '55vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 3, padding: '0 4px' } },
           filtered.length === 0 ? [React.createElement('div', { key: 'e', style: { color: 'var(--q-text-tertiary)', fontSize: 14, fontFamily: 'var(--font-interface)', padding: '8px 10px' } }, 'No options')] :
             filtered.map(o => React.createElement('label', { key: o, style: { display: 'flex', alignItems: 'center', gap: 8, padding: '10px 8px', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: 15, fontFamily: 'var(--font-interface)', color: 'var(--q-text)', backgroundColor: values.includes(o) ? 'var(--q-active)' : 'transparent' } }, [
@@ -97,6 +93,11 @@ function FilterChip({ label, values, options, onChange }: { label: string; value
               React.createElement('span', { key: 'l' }, o),
             ])),
         ),
+        React.createElement('div', { key: 'btm', style: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 8px 0 8px' } }, [
+          React.createElement('input', { key: 'i', value: q, onChange: (e: any) => setQ(e.target.value), placeholder: 'Search ' + label.toLowerCase() + '...', style: { flex: 1, minWidth: 0, height: 36, padding: '0 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)', boxSizing: 'border-box' } }),
+          React.createElement('button', { key: 'cl', onClick: () => onChange([]), style: { height: 36, flexShrink: 0, padding: '0 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-accent-danger)', cursor: 'pointer', fontSize: 13, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap' } }, 'Clear'),
+          React.createElement('button', { key: 'cx', onClick: () => setOpen(false), style: { height: 36, flexShrink: 0, padding: '0 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'transparent', color: 'var(--q-accent-danger)', cursor: 'pointer', fontSize: 13, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap' } }, 'Close'),
+        ]),
       ])
     }) : (open ? React.createElement(React.Fragment, { key: 'm' }, [
       React.createElement('div', { key: 'o', style: { position: 'fixed', inset: 0, zIndex: 150 }, onClick: () => setOpen(false) }),
@@ -177,8 +178,8 @@ function MenuItem({ label, color, onClick }: any) {
 }
 function ViewContextMenu({ x, y, item, multiSelect, selectedCount, onClose, onRename, onSelect, onDelete, onDeselectAll, onDeleteSelected }: any) {
   return React.createElement(React.Fragment, null, [
-    React.createElement('div', { key: 'o', style: { position: 'fixed', inset: 0, zIndex: 200 }, onClick: onClose, onContextMenu: (e: any) => { e.preventDefault(); onClose() } }),
-    React.createElement('div', { key: 'm', style: { position: 'fixed', left: Math.min(x, window.innerWidth - 200), top: Math.min(y, window.innerHeight - 250), zIndex: 210, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '4px 0', minWidth: '180px' } }, [
+    React.createElement('div', { key: 'o', style: { position: 'fixed', inset: 0, zIndex: 400 }, onClick: onClose, onContextMenu: (e: any) => { e.preventDefault(); onClose() } }),
+    React.createElement('div', { key: 'm', style: { position: 'fixed', left: Math.min(x, window.innerWidth - 200), top: Math.min(y, window.innerHeight - 250), zIndex: 1200, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '4px 0', minWidth: '180px' } }, [
       multiSelect
         ? [React.createElement(MenuItem, { key: 'ds', label: 'Deselect all', onClick: onDeselectAll }), selectedCount > 0 ? React.createElement(MenuItem, { key: 'dl', label: 'Delete ' + selectedCount + ' view' + (selectedCount > 1 ? 's' : ''), color: 'var(--q-accent-danger)', onClick: onDeleteSelected }) : null]
         : [React.createElement(MenuItem, { key: 'rn', label: 'Rename', onClick: onRename }), React.createElement(MenuItem, { key: 'sl', label: 'Select view', onClick: onSelect }), React.createElement(MenuItem, { key: 'dl', label: 'Delete view', color: 'var(--q-accent-danger)', onClick: onDelete })],
@@ -707,7 +708,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const viewSidebar = React.createElement('div', { key: 'vsb', style: (mob && navOpen) ? { position: 'fixed', inset: 0, width: '100%', zIndex: 300, backgroundColor: 'var(--q-bg)', display: 'flex', flexDirection: 'column', overflow: 'hidden' } : { position: 'absolute', top: 0, bottom: 0, left: 0, width: sideW, zIndex: 40, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)', display: 'flex', flexDirection: 'column', overflow: 'hidden' } }, [
     React.createElement('div', { key: 'hdr', style: { padding: '8px' } }, [
       React.createElement('div', { key: 'row', style: { display: 'flex', alignItems: 'center', gap: 8 } }, [
-        React.createElement('button', { key: 'all', title: 'All views', onClick: () => setActiveId(views.find(v => v.id === BASE_ID)?.id || views[0]?.id || BASE_ID), onMouseEnter: () => setAllHover(true), onMouseLeave: () => setAllHover(false), style: { flex: 1, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: allHover ? 'var(--q-hover)' : 'transparent', color: isAllActive ? 'var(--q-tab-accent)' : allHover ? 'var(--q-text)' : 'var(--q-text-secondary)', padding: 0 } }, [React.createElement(Checklist, { key: 'i', size: 18 }), React.createElement('span', { key: 't', style: { fontSize: 14, fontWeight: 600, fontFamily: 'var(--font-interface)' } }, 'All')]),
+        React.createElement('button', { key: 'all', title: 'All views', onClick: () => { setActiveId(views.find(v => v.id === BASE_ID)?.id || views[0]?.id || BASE_ID); if (mob) setNavOpen(false) }, onMouseEnter: () => setAllHover(true), onMouseLeave: () => setAllHover(false), style: { flex: 1, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: allHover ? 'var(--q-hover)' : 'transparent', color: isAllActive ? 'var(--q-tab-accent)' : allHover ? 'var(--q-text)' : 'var(--q-text-secondary)', padding: 0 } }, [React.createElement(Checklist, { key: 'i', size: 18 }), React.createElement('span', { key: 't', style: { fontSize: 14, fontWeight: 600, fontFamily: 'var(--font-interface)' } }, 'All')]),
         React.createElement(RowBtn, { key: 'add', title: 'New view', onClick: addView, color: newViewFlash ? 'var(--q-tab-accent)' : undefined }, React.createElement(Plus, { size: 18 })),
       ]),
     ]),
