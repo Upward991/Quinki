@@ -561,13 +561,14 @@ export function MarketplaceView({ onSelectPanel, refreshAgents }: Props) {
 
   // ── Home del sito: trend / più scaricati / consigliati ──
   const showHome = view === 'home'
+  const mob = typeof window !== 'undefined' && window.innerWidth <= 600
 
-  return React.createElement('div', { style: { height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
-    React.createElement('div', { style: { padding: '16px 32px 0 32px' } },
-      React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '10px', maxWidth: '1280px', margin: '0 auto', width: '100%' } },
+  return React.createElement('div', { id: 'q-market', style: { height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
+    React.createElement('div', { style: { padding: mob ? '12px 12px 0 12px' : '16px 32px 0 32px' } },
+      React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '10px', maxWidth: '1280px', margin: '0 auto', width: '100%', flexWrap: 'wrap' } },
       React.createElement(Store, { size: 18, style: { color: 'var(--mp-accent)' } }),
       React.createElement('span', { style: { color: 'var(--mp-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)' } }, 'Market'),
-      React.createElement('div', { style: { flex: 1, maxWidth: '320px', display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'var(--mp-panel)', border: '1px solid var(--mp-border)', borderRadius: 'var(--radius-md)', padding: '0 12px', height: '34px', marginLeft: '16px' } },
+      React.createElement('div', { style: mob ? { flex: '1 1 100%', minWidth: 0, display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'var(--mp-panel)', border: '1px solid var(--mp-border)', borderRadius: 'var(--radius-md)', padding: '0 12px', height: '34px', marginTop: '2px', order: 9 } : { flex: 1, maxWidth: '320px', display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'var(--mp-panel)', border: '1px solid var(--mp-border)', borderRadius: 'var(--radius-md)', padding: '0 12px', height: '34px', marginLeft: '16px' } },
         React.createElement(Search, { size: 14, style: { color: 'var(--mp-text-tertiary)', flexShrink: 0 } }),
         React.createElement('input', {
           value: query,
@@ -589,7 +590,7 @@ export function MarketplaceView({ onSelectPanel, refreshAgents }: Props) {
       }, React.createElement(Bot, { size: 15 }), 'Quinki')
       )
     ),
-    degraded && React.createElement('div', { style: { padding: '8px 32px 0 32px' } },
+    degraded && React.createElement('div', { style: { padding: mob ? '8px 12px 0 12px' : '8px 32px 0 32px' } },
       React.createElement('div', { style: { maxWidth: '1280px', margin: '0 auto', width: '100%', display: 'flex', alignItems: 'flex-start', gap: '10px', backgroundColor: 'rgba(210,153,34,0.08)', border: '1px solid rgba(210,153,34,0.35)', borderRadius: 'var(--radius-md)', padding: '10px 14px' } },
         React.createElement(ShieldCheck, { size: 15, style: { color: 'var(--mp-warning)', flexShrink: 0, marginTop: '1px' } }),
         React.createElement('span', { style: { color: 'var(--mp-text-secondary)', fontSize: '12px', fontFamily: 'var(--font-interface)', lineHeight: 1.5 } },
@@ -598,8 +599,8 @@ export function MarketplaceView({ onSelectPanel, refreshAgents }: Props) {
         )
       )
     ),
-    React.createElement('div', { style: { padding: '12px 32px' } },
-      React.createElement('div', { style: { display: 'flex', gap: '4px', maxWidth: '1280px', margin: '0 auto', width: '100%' } },
+    React.createElement('div', { style: { padding: mob ? '10px 12px' : '12px 32px' } },
+      React.createElement('div', { style: mob ? { display: 'flex', gap: '6px', maxWidth: '1280px', margin: '0 auto', width: '100%', overflowX: 'auto', flexWrap: 'nowrap', paddingBottom: '2px' } : { display: 'flex', gap: '4px', maxWidth: '1280px', margin: '0 auto', width: '100%' } },
       (['home', 'tabs', 'agents', 'skills', 'mcp', 'themes'] as const).map((k) => {
         const catKey2 = k === 'tabs' ? 'tab' : k === 'skills' ? 'skill' : k === 'agents' ? 'agent' : k === 'themes' ? 'theme' : k
         // I conteggi seguono i FILTRI (repo selezionati + hide installed)
