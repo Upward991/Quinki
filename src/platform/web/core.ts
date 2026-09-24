@@ -9,7 +9,13 @@ export async function invoke(cmd: string, args?: Any): Promise<Any> {
     case 'open_url': {
       try {
         const u = String(args?.url || args || '')
-        if (u) window.open(u, '_blank', 'noopener,noreferrer')
+        if (u) {
+          // Dentro le app Android (UA marcato QuinkiApp): window.open e' bloccato
+          // nel WebView. Assegna location: lo shell intercetta i link esterni e li
+          // apre nel browser di sistema (download APK compresi).
+          if (navigator.userAgent.includes('QuinkiApp')) window.location.href = u
+          else window.open(u, '_blank', 'noopener,noreferrer')
+        }
       } catch {}
       return null
     }

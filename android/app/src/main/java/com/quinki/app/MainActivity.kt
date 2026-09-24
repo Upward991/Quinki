@@ -155,7 +155,17 @@ class MainActivity : AppCompatActivity() {
         web.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val url = request.url.toString()
-                if (url.startsWith("mailto:") || url.startsWith("tel:")) {
+                if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                    try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } catch (e: Exception) { }
+                    return true
+                }
+                // Link verso un host diverso dall'app: apri nel browser di sistema
+                // (download di APK compresi). L'app resta sul suo link.
+                val selfHost = try {
+                    Uri.parse(getSharedPreferences("quinki", Context.MODE_PRIVATE).getString("link", "") ?: "").host
+                } catch (e: Exception) { null }
+                val thisHost = request.url.host
+                if (thisHost != null && selfHost != null && thisHost != selfHost) {
                     try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } catch (e: Exception) { }
                     return true
                 }
@@ -197,6 +207,11 @@ class MainActivity : AppCompatActivity() {
                 }
                 if (grants.isNotEmpty()) request.grant(grants.toTypedArray()) else request.deny()
             }
+        }
+
+        web.setDownloadListener { url, _, _, _, _ ->
+            // Rete di sicurezza per i download diretti (es. .apk): browser di sistema.
+            try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } catch (e: Exception) { }
         }
 
         findViewById<Button>(R.id.scanButton).setOnClickListener {
