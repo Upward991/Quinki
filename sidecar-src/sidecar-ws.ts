@@ -278,14 +278,26 @@ function serveWebApp(req: any, res: any, url: string): boolean {
   const acceptsGz = String(req.headers["accept-encoding"] || "").toLowerCase().includes("gzip");
   let body = readFileSync(full);
   if (isHtml) {
+    // Pagina Expert: o il sidecar E' l'Expert (app Expert), o e' la pagina
+    // aperta col parametro ?expert=1 (secondo link web dedicato). In quel caso
+    // il frontend parte direttamente in modalita' Expert e la pagina porta
+    // l'identita' PWA propria: manifest, icona e nome "Quinki Expert".
+    const isExpertPage = WEB_IS_EXPERT || /[?&]expert=1(?:&|$)/.test(String(req.url || ""));
     // Payload per il frontend: server WS (stesso host del browser, anche dietro
     // reverse proxy) + ruolo + versione. Il token arrivera' qui (F0.1).
     const proto = String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim();
     const host = String(req.headers["host"] || `127.0.0.1:${PORT}`);
-    const payload: any = { web: true, server: `${proto === "https" ? "wss" : "ws"}://${host}`, expert: WEB_IS_EXPERT };
+    const payload: any = { web: true, server: `${proto === "https" ? "wss" : "ws"}://${host}`, expert: isExpertPage };
     if (WEB_VERSION) payload.version = WEB_VERSION;
     const tag = `<script>window.__QUINKI__=${JSON.stringify(payload)};</script>`;
-    const html = body.toString("utf8");
+    let html = body.toString("utf8");
+    if (isExpertPage) {
+      html = html
+        .replace("/icons/apple-touch-icon.png", "/icons/expert-apple-touch.png")
+        .replace("/manifest.webmanifest", "/manifest-expert.webmanifest")
+        .replace('content="Quinki"', 'content="Quinki Expert"')
+        .replace("<title>Quinki</title>", "<title>Quinki Expert</title>");
+    }
     body = Buffer.from(html.includes("</head>") ? html.replace("</head>", tag + "</head>") : tag + html, "utf8");
   }
   // gzip per i testi (il bundle e' grande: 1.4MB -> ~350KB). Con cache in memoria
