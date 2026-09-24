@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { AgentRow } from '../agents/AgentsPanel'
-import { AddItemsModal, FileEditor, Modal, ConfirmButtons } from '../agents/AgentsPanel'
+import { AddItemsModal, FileEditor, Modal, ConfirmButtons, NewFileForm } from '../agents/AgentsPanel'
 import { useSidecarContext } from '../shared/AppShell'
 import type { Agent } from '../../types'
 import { useLayout } from '../../platform/layout'
@@ -221,18 +221,9 @@ export function AgentConfigModal({ agentId, agents = [], onClose }: { agentId: s
         <FileEditor agentId={fileEditor.agentId} skillName={fileEditor.skillName} fileName={fileEditor.fileName} onClose={() => setFileEditor(null)} />
       )}
 
-      {addFileAgent && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 210, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setAddFileAgent(null)}>
-          <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '400px', width: '90%' }} onClick={e => e.stopPropagation()}>
-            <div style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', marginBottom: '12px' }}>New file</div>
-            <input type="text" placeholder="file.txt" autoFocus={!mob} onKeyDown={(e) => { if (e.key === 'Enter') { const v = (e.target as HTMLInputElement).value.trim(); if (v) doCreateFile(addFileAgent, v) } }} style={{ width: '100%', padding: '8px 12px', backgroundColor: 'var(--q-bg)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-md)', outline: 'none', marginBottom: '16px' }} />
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              <button onClick={() => setAddFileAgent(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-accent-danger)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '4px 8px' }}>Cancel</button>
-              <button onClick={(e) => { const input = (e.currentTarget.parentElement?.previousElementSibling as HTMLInputElement); if (input?.value?.trim()) doCreateFile(addFileAgent, input.value.trim()) }} style={{ padding: '4px 16px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-tab-accent)', color: 'var(--q-bg)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Create</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {addFileAgent && Modal({ onClose: () => setAddFileAgent(null), title: 'New file', children: [
+        React.createElement(NewFileForm, { onCreate: (fileName: string) => doCreateFile(addFileAgent, fileName), onCancel: () => setAddFileAgent(null) })
+      ]})}
     </>
   )
 }

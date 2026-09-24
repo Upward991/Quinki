@@ -52,6 +52,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
   const [mode, setMode] = useState<Mode>('main')
   const [selectedIdx, setSelectedIdx] = useState(0)
   const [focusConfirm, setFocusConfirm] = useState(false)
+  const [pendingDir, setPendingDir] = useState<{ path: string; from: string; files: number } | null>(null)
   const [pendingLhCmd, setPendingLhCmd] = useState<string | null>(null)
   const [focusAdd, setFocusAdd] = useState(false)
   const [pendingModel, setPendingModel] = useState(props.selectedModel)
@@ -210,6 +211,10 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
         const call = (window as any).__sidecarCall
         const sk = props.sessionKey || ''
         if (call && sk) {
+          // Se la cartella attuale ha file: prima il modale Move/Keep.
+          let files = 0, from = ''
+          try { const r = await call('listWorkingDirs', { sessionKey: sk }); files = r?.currentFiles || 0; from = r?.current || '' } catch {}
+          if (files > 0 && from && from !== path) { setPendingDir({ path, from, files }); return }
           await call('setWorkingDir', { sessionKey: sk, path })
         } else {
           // Nessuna sessione ancora (welcome chat): salva come DEFAULT per le nuove chat
@@ -851,6 +856,30 @@ function ServerDirPicker({ onClose, onPick }: { onClose: () => void; onPick: (p:
           Cancel
         </button>
       </div>
+      {pendingDir && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 400, backgroundColor: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setPendingDir(null)}>
+          <div style={{ backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '20px 24px', maxWidth: '440px', width: '90%' }} onClick={e => e.stopPropagation()}>
+            <div style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '8px' }}>Move the chat files?</div>
+            <div style={{ color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', lineHeight: 1.5, marginBottom: '16px' }}>
+              This chat has {pendingDir.files} file{pendingDir.files === 1 ? '' : 's'} in its folder. Move them to the new working directory, or keep them in the old one?
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button onClick={async () => { const d = pendingDir; setPendingDir(null); try { const call = (window as any).__sidecarCall; const sk = props.sessionKey || ''; if (call && sk) await call('setWorkingDir', { sessionKey: sk, path: d.path }) } catch {} setFocusConfirm(true) }}
+                onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }}
+                onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
+                style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>
+                Keep in the old folder
+              </button>
+              <button onClick={async () => { const d = pendingDir; setPendingDir(null); try { await invoke('move_workdir_contents', { from: d.from, to: d.path }); const call = (window as any).__sidecarCall; const sk = props.sessionKey || ''; if (call && sk) await call('setWorkingDir', { sessionKey: sk, path: d.path }) } catch {} setFocusConfirm(true) }}
+                onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }}
+                onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }}
+                style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>
+                Move
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

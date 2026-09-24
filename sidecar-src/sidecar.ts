@@ -453,8 +453,10 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
       const dirs = [...set]
         .filter(d => { try { return fs.existsSync(d) } catch { return false } })
         .map(d => ({ path: d, current: d === cur }));
-      return { current: cur, dirs };
-    } catch { return { current: "", dirs: [] } }
+      let currentFiles = 0;
+      try { currentFiles = cur ? fs.readdirSync(cur).length : 0 } catch { currentFiles = 0 }
+      return { current: cur, dirs, currentFiles };
+    } catch { return { current: "", dirs: [], currentFiles: 0 } }
   },
   setWorkingDir: async (p) => {
     piBridge!.setWorkingDir(String(p.sessionKey), String(p.path));

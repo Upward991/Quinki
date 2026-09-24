@@ -1435,7 +1435,7 @@ function InstallSkillForm({ onInstall, onCancel }) {
   ]});
 }
 
-function NewFileForm({ onCreate, onCancel }) {
+export function NewFileForm({ onCreate, onCancel }) {
   const [fileName, setFileName] = useState('');
   return React.createElement(React.Fragment, { children: [
     React.createElement('input', { type: 'text', placeholder: 'File name (e.g. NOTES.md)', autoFocus: !noAutoFocus(), value: fileName, onChange: e => setFileName(e.target.value), style: { width: '100%', height: '36px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', padding: '0 12px', outline: 'none', marginBottom: '16px' }, onKeyDown: e => { if (e.key === 'Enter' && fileName.trim()) onCreate(fileName); } }),

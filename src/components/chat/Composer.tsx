@@ -9,7 +9,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { getContrastColor } from '../../utils/contrast'
 import { useLayout } from '../../platform/layout'
 import type { Provider, Agent, ChatMode, ThinkingLevel } from '../../types'
-import { Paperclip, ChevronUp, ChevronDown, Bot, X, Clock, Folder, FileText } from '../icons'
+import { Paperclip, ChevronUp, ChevronDown, Bot, X, Clock, Folder, FolderOpen, FileText } from '../icons'
 import { SlashMenu, type SlashMenuRef } from './SlashMenu'
 import { BottomSheet, SheetRow } from './BottomSheet'
 
@@ -121,7 +121,20 @@ export function Composer(props: ComposerProps) {
     })()
   }, [props.sessionKey])
   const [attachMenuOpen, setAttachMenuOpen] = useState(false)
-  const [attachMenuView, setAttachMenuView] = useState<'main' | 'existing'>('main')
+  const [attachMenuView, setAttachMenuView] = useState<'main' | 'existing' | 'workdirs'>('main')
+  const [workdirs, setWorkdirs] = useState<any[]>([])
+  const handleShowWorkdirs = async () => {
+    try {
+      const call = (window as any).__sidecarCall
+      const sk = props.sessionKey || ''
+      if (call && sk) { const r = await call('listWorkingDirs', { sessionKey: sk }); setWorkdirs(Array.isArray(r?.dirs) ? r.dirs : []) }
+    } catch {}
+    setAttachMenuView('workdirs')
+  }
+  const handleOpenWorkdir = async (path: string) => {
+    setAttachMenuOpen(false); setAttachMenuView('main')
+    try { await invoke('open_working_dir_folder', { path }) } catch (e: any) { console.error('open_working_dir_folder:', e) }
+  }
 
   // === Mobile (visione telefono) ===
   // La graffetta esce dalla text box: l'allegato si apre dal menu in alto.
@@ -686,6 +699,7 @@ export function Composer(props: ComposerProps) {
             { icon: <Clock size={18} />, label: 'Previously sent', onSelect: () => handleShowExisting() },
             ...(isPhoneWeb() ? [] : [{ icon: <Folder size={18} />, label: 'Open attachments folder', onSelect: () => { setAttachMenuOpen(false); handleOpenAttachmentsFolder() } }]),
             ...((!isPhoneWeb() && props.sessionKey) ? [{ icon: <Folder size={18} />, label: 'Open session files folder', onSelect: async () => { setAttachMenuOpen(false); try { await invoke('open_longhorizon_folder', { sessionKey: props.sessionKey }) } catch (e: any) { console.error('open_longhorizon_folder:', e) } } }] : []),
+            ...((!isPhoneWeb() && props.sessionKey) ? [{ icon: <FolderOpen size={18} />, label: 'Working directories', onSelect: () => handleShowWorkdirs() }] : []),
           ]}
         />
       ) : attachMenuOpen && (
@@ -695,6 +709,9 @@ export function Composer(props: ComposerProps) {
           onPickFiles={handlePickFiles}
           onOpenFolder={handleOpenAttachmentsFolder}
           onShowExisting={handleShowExisting}
+          onShowWorkdirs={handleShowWorkdirs}
+          onOpenWorkdir={handleOpenWorkdir}
+          workdirs={workdirs}
           onReAttach={handleReAttach}
           onBack={() => setAttachMenuView('main')}
           onClose={() => { setAttachMenuOpen(false); setAttachMenuView('main') }}
@@ -959,12 +976,15 @@ function SessionFilesModal({ sessionKey, onClose }: { sessionKey: string; onClos
 }
 
 // ── Attachment modal (centered — matches app modal style) ──
-function AttachMenu({ view, existingFiles, onPickFiles, onOpenFolder, onShowExisting, onReAttach, onBack, onClose, onSessionFiles }: {
-  view: 'main' | 'existing'
+function AttachMenu({ view, existingFiles, workdirs, onPickFiles, onOpenFolder, onShowExisting, onShowWorkdirs, onOpenWorkdir, onReAttach, onBack, onClose, onSessionFiles }: {
+  view: 'main' | 'existing' | 'workdirs'
   existingFiles: any[]
+  workdirs: any[]
   onPickFiles: () => void
   onOpenFolder: () => void
   onShowExisting: () => void
+  onShowWorkdirs: () => void
+  onOpenWorkdir: (path: string) => void
   onReAttach: (file: any) => void
   onBack: () => void
   onClose: () => void
@@ -982,6 +1002,32 @@ function AttachMenu({ view, existingFiles, onPickFiles, onOpenFolder, onShowExis
               <AttachOptionRow icon={<Clock size={18} />} label="Previously sent" onClick={onShowExisting} />
               {!isPhoneWeb() && <AttachOptionRow icon={<Folder size={18} />} label="Open attachments folder" onClick={onOpenFolder} />}
               {(onSessionFiles && !isPhoneWeb()) && <AttachOptionRow icon={<Folder size={18} />} label="Open session files folder" onClick={onSessionFiles} />}
+              {!isPhoneWeb() && <AttachOptionRow icon={<FolderOpen size={18} />} label="Working directories" onClick={onShowWorkdirs} />}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '16px 16px 12px 16px' }}>
+              <AttachModalBtn label="Cancel" onClick={onClose} danger />
+            </div>
+          </>
+        ) : view === 'workdirs' ? (
+          <>
+            <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', padding: '14px 18px' }}>Working directories</div>
+            <div style={{ maxHeight: '260px', overflowY: 'auto', padding: '0 16px 4px 16px' }}>
+              {workdirs.length === 0 ? (
+                <div style={{ padding: '20px', color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)', textAlign: 'center' }}>No working directories yet.</div>
+              ) : (
+                workdirs.map((d: any, i: number) => (
+                  <div key={i} onClick={() => onOpenWorkdir(d.path)}
+                    onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }}
+                    onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
+                    style={{ padding: '10px 12px', borderRadius: 'var(--radius-sm)', cursor: 'pointer', borderLeft: d.current ? '2px solid var(--q-tab-accent)' : '2px solid transparent' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ color: d.current ? 'var(--q-text)' : 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', fontWeight: d.current ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{String(d.path || '').split('/').filter(Boolean).pop() || d.path}</span>
+                      {d.current && <span style={{ color: 'var(--q-tab-accent)', fontSize: '11px', fontFamily: 'var(--font-interface)', flexShrink: 0 }}>Current</span>}
+                    </div>
+                    <div style={{ color: 'var(--q-text-tertiary)', fontSize: '11px', fontFamily: 'var(--font-code)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '2px' }}>{d.path}</div>
+                  </div>
+                ))
+              )}
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '16px 16px 12px 16px' }}>
               <AttachModalBtn label="Cancel" onClick={onClose} danger />
