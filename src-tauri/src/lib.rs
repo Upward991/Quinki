@@ -3364,6 +3364,15 @@ pub fn run() {
         terminate_delegate::install(app.handle().clone());
       }
 
+      // === NOTIFICHE: il DELEGATE di presentazione va installato SEMPRE all'avvio ===
+      // Prima esisteva SOLO dentro il percorso del flag di test dell'Expert: nell'uso
+      // normale, con l'app davanti, macOS scartava i banner in silenzio (nessun errore,
+      // nessun record, nessun popup — verificato con la traccia notif-trace.log).
+      #[cfg(target_os = "macos")]
+      {
+        setup_notification_delegate(app.handle());
+      }
+
       // TEST BRIDGE: JS-injection nella webview (solo QUINKI_TEST_BRIDGE=1)
       start_test_bridge(app.handle().clone());
 
