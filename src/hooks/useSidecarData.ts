@@ -1174,7 +1174,11 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     const t = setTimeout(() => {
       try {
         ;(window as any).__quinkiPendingSession = undefined
-        window.dispatchEvent(new CustomEvent('quinki-switch-session-mobile', { detail: { sessionKey: p } }))
+        if (typeof (window as any).__quinkiMobileSwitchD === 'function') {
+          window.dispatchEvent(new CustomEvent('quinki-switch-session-mobile', { detail: { sessionKey: p } }))
+        } else {
+          selectSession(p)
+        }
       } catch {}
     }, 1200)
     return () => clearTimeout(t)
@@ -1187,7 +1191,11 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
         if (!sk) return
         // La navigazione VERA (mobile inclusa) vive in App (funzione D): sul
         // telefono selectSession da sola non cambia schermata.
-        window.dispatchEvent(new CustomEvent('quinki-switch-session-mobile', { detail: { sessionKey: sk } }))
+        if (typeof (window as any).__quinkiMobileSwitchD === 'function') {
+          window.dispatchEvent(new CustomEvent('quinki-switch-session-mobile', { detail: { sessionKey: sk } }))
+        } else {
+          selectSession(sk)
+        }
         try { (window as any).__reportFrontendError?.('opensession-select', 'sk=' + sk) } catch {}
       } catch (e: any) { try { (window as any).__reportFrontendError?.('opensession-fail', String(e?.message || e)) } catch {} }
     }
