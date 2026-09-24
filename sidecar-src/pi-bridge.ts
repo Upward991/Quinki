@@ -334,8 +334,27 @@ class PiBridge {
   // sessione ha la SUA (~/.quinki/workdir/<chiave>), come per gli attachments.
   #autoWorkDir(key: string): string {
     const safe = String(key || "session").replace(/[^a-zA-Z0-9_-]/g, "_");
-    const p = path.join(homedir(), ".quinki", "workdir", safe);
-    try { fs.mkdirSync(p, { recursive: true }); } catch {}
+    // Nome legato alla NOSTRA app: quinki-<resto della chiave> (prima era "pi-...",
+    // che sembrava di un'altra app).
+    const friendly = safe.startsWith("pi-") ? "quinki-" + safe.slice(3) : safe;
+    const p = path.join(homedir(), ".quinki", "workdir", friendly);
+    const legacy = path.join(homedir(), ".quinki", "workdir", safe);
+    try {
+      fs.mkdirSync(p, { recursive: true });
+      // MIGRAZIONE: la vecchia cartella pi-* coi file della chat -> nuova. I file
+      // non si perdono MAI (rename; fallback copia).
+      if (legacy !== p) {
+        try {
+          if (fs.existsSync(legacy)) {
+            for (const n of fs.readdirSync(legacy)) {
+              const src = path.join(legacy, n), dst = path.join(p, n);
+              if (fs.existsSync(dst)) continue;
+              try { fs.renameSync(src, dst); } catch { try { if (fs.statSync(src).isFile()) fs.copyFileSync(src, dst) } catch {} }
+            }
+          }
+        } catch {}
+      }
+    } catch {}
     return p;
   }
   autoWorkDirFor(key: string): string { return this.#autoWorkDir(key); }
