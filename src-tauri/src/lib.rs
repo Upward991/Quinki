@@ -2871,6 +2871,10 @@ fn remote_logout(target: Option<String>) -> Result<(), String> {
     let _ = std::fs::remove_file(tunnel_pid_file(&t));
     let _ = std::fs::remove_file(remote_state_file(&t));
     let _ = std::fs::remove_file(remote_state_file("expert"));
+    // Le push della web app vivono lato sidecar (push-subs.json) e continuavano
+    // ad arrivare al telefono anche dopo il logout: azzerale qui.
+    let home = std::env::var("HOME").unwrap_or_default();
+    let _ = std::fs::write(format!("{}/.quinki/push-subs.json", home), "[]");
     Ok(())
 }
 
