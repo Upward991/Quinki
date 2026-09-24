@@ -764,7 +764,7 @@ export function Composer(props: ComposerProps) {
           <div style={{ backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '20px 24px', maxWidth: '440px', width: '90%' }} onClick={e => e.stopPropagation()}>
             <div style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '8px' }}>Directory already in use</div>
             <div style={{ color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', lineHeight: 1.5, marginBottom: '16px' }}>
-              This directory is already used by the chat "{sharedDirWarn.ownerLabel}". Both chats will see and change the same files.
+              This directory is already used by other chats. Its files will be shared: every chat using it will see and change the same files, and moved files end up together in the same folder.
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
               <button onClick={() => setSharedDirWarn(null)}

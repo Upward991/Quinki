@@ -40,7 +40,11 @@ const idleSince = new Map<number, number>();
 const ROUTABLE = new Set([
   "setModel", "setThinking", "setMode", "setAgent", "setChatAgents",
   "setAgentOverride", "getAgentOverrides", "injectErrorExchange",
-  "reloadSession", "setWorkingDir", "resetSession", "setSessionCompaction",
+  // setWorkingDir NON e' piu' routato (24 set): e' file-first (scrive chat-meta +
+  // shared) quindi il router puo' eseguirlo lui. Prima andava al worker owner ma
+  // una chat NUOVA non ha ancora un worker: la RPC restava appesa e la rimozione
+  // della directory non attecchiva MAI (debug: zero chiamate nei log).
+  "reloadSession", "resetSession", "setSessionCompaction",
   "abort", "abortCompaction", "stopStream", "sendMessage", "steer", "injectClip",
   "compactSession",
   "setSessionFallbacks",
