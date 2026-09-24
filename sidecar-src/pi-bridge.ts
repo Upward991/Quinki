@@ -2159,7 +2159,7 @@ class PiBridge {
       thinkingLevel = s?.thinkingLevel;
       availableThinkingLevels = ["off", "low", "medium", "high"];
     }
-    const effWd = this.#cwdOverride.get(key) || this.effectiveWorkDir(key) || '';
+    const effWd = this.effectiveWorkDir(key) || this.#cwdOverride.get(key) || '';
     let hist: string[] = [];
     try {
       const metaH = this.#readChatMeta(key).workdirHistory;
@@ -3231,7 +3231,7 @@ class PiBridge {
         sm._quinkiNextHidden = true;
         // Rebuild del system prompt PRIMA di triggerare: la nuova fase deve essere nel contesto
         try {
-          const effCwd = this.#cwdOverride.get(sessionKey) ?? (this.#entries.get(sessionKey) as any)?.workingDir ?? this.#autoWorkDir(sessionKey);
+          const effCwd = this.effectiveWorkDir(sessionKey) || this.#cwdOverride.get(sessionKey) || this.#autoWorkDir(sessionKey);
           const sessionMode = this.#entries.get(sessionKey)?.mode || "plan";
           const built = this.#buildSystemPrompt(sessionKey, effCwd, undefined, sessionMode, undefined, undefined, undefined);
           pi.agent.state.systemPrompt = built;
@@ -3302,7 +3302,7 @@ class PiBridge {
     fs.mkdirSync(sessionDir, { recursive: true });
 
     const effCwdEntry = (this.#entries.get(key) as any)?.workingDir
-    const effectiveCwd = this.#cwdOverride.get(key) ?? effCwdEntry ?? this.#autoWorkDir(key);
+    const effectiveCwd = this.effectiveWorkDir(key) || this.#cwdOverride.get(key) || effCwdEntry || this.#autoWorkDir(key);
     let sm: any;
     const files = fs.readdirSync(sessionDir).filter((f: string) => f.endsWith(".jsonl"));
     if (files.length > 0) {
@@ -4266,7 +4266,7 @@ Read this file to view it.` }] };
   }
 
   getEffectiveCwd(key: string): string {
-    return this.#cwdOverride.get(key) ?? (this.#entries.get(key) as any)?.workingDir ?? this.#autoWorkDir(key);
+    return this.effectiveWorkDir(key) || this.#cwdOverride.get(key) || this.#autoWorkDir(key);
   }
 
   setLongHorizonPhase(key: string, phase: string) {
@@ -4346,7 +4346,19 @@ Read this file to view it.` }] };
     try {
       const oldDir = this.effectiveWorkDir(key) || this.#cwdOverride.get(key) || this.#autoWorkDir(key);
       const target = newPath && newPath.length > 0 ? newPath : "";
-      if (oldDir && oldDir !== target) this.#pushWorkdirHistory(key, oldDir);
+      if (target) {
+        // CAMBIO directory: la vecchia diventa una "passata" (riapribile).
+        if (oldDir && oldDir !== target) this.#pushWorkdirHistory(key, oldDir);
+      } else {
+        // RIMOZIONE directory: non e' una "passata", sparisce dall'elenco.
+        // La puliamo anche dalla storia (self-heal delle voci vecchie).
+        try {
+          const meta = this.#readChatMeta(key);
+          const hist: string[] = Array.isArray(meta.workdirHistory) ? meta.workdirHistory.filter((d: string) => d !== oldDir) : [];
+          this.#writeChatMeta(key, { workdirHistory: hist });
+          this.#updateSessionFile(key, (e) => { e.workdirHistory = hist; });
+        } catch {}
+      }
     } catch {}
     const pi = this.#active.get(key);
     if (pi) {
