@@ -272,6 +272,13 @@ class MainActivity : AppCompatActivity() {
         if (prefs.getInt("lastVersionCode", 0) != BuildConfig.VERSION_CODE) {
             prefs.edit().putInt("lastVersionCode", BuildConfig.VERSION_CODE).apply()
             try { web.clearCache(true) } catch (e: Exception) { }
+            // Service worker vecchio? Via: cosi' la pagina arriva sempre fresca.
+            try {
+                web.evaluateJavascript(
+                    "(async()=>{try{const rs=await navigator.serviceWorker.getRegistrations();for(const r of rs){await r.unregister()}}catch(e){}})()",
+                    null
+                )
+            } catch (e: Exception) { }
         }
         val link = prefs.getString("link", "") ?: ""
         val token = prefs.getString("token", "") ?: ""
@@ -357,7 +364,15 @@ class MainActivity : AppCompatActivity() {
                     prefs.edit().putString("webVersion", v).apply()
                 } else if (known != v) {
                     prefs.edit().putString("webVersion", v).apply()
-                    runOnUiThread { try { web.reload() } catch (e: Exception) { } }
+                    // Reload SENZA cache: la cache del WebView serviva la pagina
+                    // vecchia anche dopo il reload (il bug "non cambia mai niente").
+                    runOnUiThread {
+                        try {
+                            web.settings.cacheMode = WebSettings.LOAD_NO_CACHE
+                            web.reload()
+                            web.postDelayed({ try { web.settings.cacheMode = WebSettings.LOAD_DEFAULT } catch (e: Exception) { } }, 4000)
+                        } catch (e: Exception) { }
+                    }
                 }
             } catch (e: Exception) { }
         }.start()
