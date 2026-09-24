@@ -314,7 +314,6 @@ fn open_attachments_folder(session_key: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-#[tauri::command]
 fn open_working_dir_folder(path: String) -> Result<(), String> {
     // Apre nel Finder la workdir della chat (attiva o passata, scelta dal menu clip).
     if !std::path::Path::new(&path).exists() { return Err("folder not found".to_string()); }
