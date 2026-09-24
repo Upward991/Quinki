@@ -764,7 +764,7 @@ export function Composer(props: ComposerProps) {
           <div style={{ backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '20px 24px', maxWidth: '440px', width: '90%' }} onClick={e => e.stopPropagation()}>
             <div style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '8px' }}>Directory already in use</div>
             <div style={{ color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', lineHeight: 1.5, marginBottom: '16px' }}>
-              This directory is already used by other chats. If you switch to it, those chats share the same files. If you pick Move in the next step, this chat's files are moved into this folder, together with the files of the other chats.
+              This directory is already used by other chats. If you switch to it, all those chats share the same files.
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
               <button onClick={() => setSharedDirWarn(null)}
@@ -787,22 +787,16 @@ export function Composer(props: ComposerProps) {
       {pendingWorkdir && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 400, backgroundColor: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setPendingWorkdir(null)}>
           <div style={{ backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '20px 24px', maxWidth: '440px', width: '90%' }} onClick={e => e.stopPropagation()}>
-            <div style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '8px' }}>Move the chat files?</div>
+            <div style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '8px' }}>Files are not moved</div>
             <div style={{ color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', lineHeight: 1.5, marginBottom: '16px' }}>
-              This chat has {pendingWorkdir.files} file{pendingWorkdir.files === 1 ? '' : 's'} in its folder. Move them to the new working directory, or keep them in the old one?
+              This chat has {pendingWorkdir.files} file{pendingWorkdir.files === 1 ? '' : 's'} in the previous folder. They stay where they are. To move them, open Working directories, open the previous folder from the list and move the files by hand.
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
               <button onClick={async () => { const d = pendingWorkdir; setPendingWorkdir(null); try { const call = (window as any).__sidecarCall; if (call) await call('setWorkingDir', { sessionKey: d.sessionKey, path: d.apply }) } catch {} }}
-                onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }}
-                onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
-                style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>
-                Keep in the old folder
-              </button>
-              <button onClick={async () => { const d = pendingWorkdir; setPendingWorkdir(null); try { await invoke('move_workdir_contents', { from: d.from, to: d.to }); const call = (window as any).__sidecarCall; if (call) await call('setWorkingDir', { sessionKey: d.sessionKey, path: d.apply }) } catch {} }}
                 onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }}
                 onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }}
                 style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>
-                Move
+                OK
               </button>
             </div>
           </div>
