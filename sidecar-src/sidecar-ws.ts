@@ -193,6 +193,9 @@ function saveDevices(list: RemoteDevice[]): void {
 }
 function deviceNameFromUA(ua: string): string {
   const u = String(ua || "");
+  // App Android native: nomi dedicati, cosi' non collidono col browser del telefono
+  if (/QuinkiAppExpert\//.test(u)) return "App Expert · Android";
+  if (/QuinkiApp\//.test(u)) return "Quinki · Android";
   const os = /iPhone/.test(u) ? "iPhone" : /iPad/.test(u) ? "iPad" : /Android/.test(u) ? "Android" : /Macintosh/.test(u) ? "Mac" : /Windows/.test(u) ? "Windows" : /Linux/.test(u) ? "Linux" : "Device";
   const br = /Edg\//.test(u) ? "Edge" : /Chrome\//.test(u) ? "Chrome" : /Safari\//.test(u) ? "Safari" : /Firefox\//.test(u) ? "Firefox" : "Browser";
   return os + " · " + br;
@@ -378,6 +381,7 @@ const httpServer = http.createServer((req: any, res: any) => {
       const accept = String(req.headers["accept"] || "");
       const isDoc = accept.includes("text/html") || url === "/" || url.startsWith("/?");
       const hasQueryToken = /[?&]token=/.test(url);
+      const appHeader = String(req.headers["x-quinki-app"] || "") === "1";
       if (dev) {
         touchDevice(dev.id);
       } else if (tokenOk(t)) {
@@ -397,7 +401,12 @@ const httpServer = http.createServer((req: any, res: any) => {
       } else {
         // pagina app -> pairing (200: e' un documento valido, il controllo di
         // installazione non deve fallire; l'accesso ai dati resta protetto dal token)
-        if (isDoc) {
+        if (isDoc && appHeader) {
+          // App Android non accoppiata: 401 esplicito, cosi' l'app mostra la sua
+          // schermata di abbinamento interna invece della pagina web.
+          res.writeHead(401, { "Content-Type": "text/plain; charset=utf-8" });
+          res.end("Unauthorized");
+        } else if (isDoc) {
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
           res.end(pairingPage());
         } else {

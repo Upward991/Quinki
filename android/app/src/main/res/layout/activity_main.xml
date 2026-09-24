@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#040406">
@@ -22,23 +23,34 @@
             android:layout_height="wrap_content"
             android:gravity="center_horizontal"
             android:orientation="vertical"
-            android:padding="28dp">
+            android:paddingStart="28dp"
+            android:paddingEnd="28dp"
+            android:paddingTop="40dp"
+            android:paddingBottom="40dp">
+
+            <ImageView
+                android:layout_width="120dp"
+                android:layout_height="120dp"
+                android:layout_marginBottom="20dp"
+                android:contentDescription="@string/app_name"
+                android:src="@drawable/config_logo" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="48dp"
                 android:text="@string/app_name"
                 android:textColor="#e8e8ec"
-                android:textSize="26sp"
+                android:textSize="22sp"
                 android:textStyle="bold" />
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:layout_marginBottom="26dp"
-                android:text="Connect this app to Quinki on your Mac. Open Quinki on the Mac, then Settings, Web app, and scan the QR code or paste the link and the access token shown there."
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="24dp"
+                android:gravity="center_horizontal"
+                android:lineSpacingExtra="3dp"
+                android:text="Connect to Quinki on your Mac. Open Quinki there, go to Settings, Web app, and scan the QR code. Or type the link and the access token shown in the same panel."
                 android:textColor="#888892"
                 android:textSize="13sp" />
 
@@ -47,8 +59,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="46dp"
                 android:autofillHints=""
-                android:background="#0e0e10"
-                android:hint="Link (https://… )"
+                android:background="@drawable/bg_field"
+                android:hint="Link (https://…)"
                 android:inputType="textUri"
                 android:paddingStart="14dp"
                 android:paddingEnd="14dp"
@@ -60,9 +72,9 @@
                 android:id="@+id/tokenInput"
                 android:layout_width="match_parent"
                 android:layout_height="46dp"
-                android:layout_marginTop="10dp"
+                android:layout_marginTop="12dp"
                 android:autofillHints=""
-                android:background="#0e0e10"
+                android:background="@drawable/bg_field"
                 android:hint="Access token"
                 android:inputType="textVisiblePassword"
                 android:paddingStart="14dp"
@@ -75,9 +87,11 @@
                 android:id="@+id/scanButton"
                 android:layout_width="match_parent"
                 android:layout_height="46dp"
-                android:layout_marginTop="18dp"
-                android:background="#0e0e10"
+                android:layout_marginTop="24dp"
+                android:background="@drawable/btn_outline"
+                android:stateListAnimator="@null"
                 android:text="Scan QR code"
+                android:textAllCaps="false"
                 android:textColor="#7aa2f7"
                 android:textSize="14sp"
                 android:textStyle="bold" />
@@ -86,9 +100,11 @@
                 android:id="@+id/connectButton"
                 android:layout_width="match_parent"
                 android:layout_height="46dp"
-                android:layout_marginTop="10dp"
-                android:background="#7aa2f7"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/btn_filled"
+                android:stateListAnimator="@null"
                 android:text="Connect"
+                android:textAllCaps="false"
                 android:textColor="#040406"
                 android:textSize="14sp"
                 android:textStyle="bold" />
@@ -97,7 +113,8 @@
                 android:id="@+id/statusText"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
+                android:layout_marginTop="16dp"
+                android:gravity="center_horizontal"
                 android:text=""
                 android:textColor="#e0566a"
                 android:textSize="13sp" />

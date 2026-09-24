@@ -10,7 +10,7 @@ android {
     defaultConfig {
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
+        versionCode = 2
         versionName = "1.0.0"
     }
 
@@ -20,11 +20,13 @@ android {
             dimension = "role"
             applicationId = "com.quinki.app"
             resValue("string", "app_name", "Quinki")
+            resValue("string", "ua_marker", "QuinkiApp/1.0")
         }
         create("expert") {
             dimension = "role"
             applicationId = "com.quinki.expert"
             resValue("string", "app_name", "App Expert")
+            resValue("string", "ua_marker", "QuinkiAppExpert/1.0")
         }
     }
 

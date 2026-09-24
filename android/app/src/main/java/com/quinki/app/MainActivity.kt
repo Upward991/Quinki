@@ -24,12 +24,15 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 
-// Quinki Android shell: loads the web app from the user's own tunnel link,
-// pairs itself with the access token (typed or scanned from the QR code),
-// keeps cookies persistent so the pairing survives restarts.
+// Quinki for Android: loads the Quinki web app from the user's own tunnel
+// link, pairs with the access token (typed or scanned from the QR code in
+// Quinki on the Mac) and keeps the session alive like a real app.
 class MainActivity : AppCompatActivity() {
 
     private lateinit var web: WebView
@@ -39,7 +42,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var statusText: TextView
 
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
-    private var retriedPair = false
 
     private val scanLauncher = registerForActivityResult(ScanContract()) { result ->
         val contents = result.contents
@@ -72,6 +74,17 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // Draw edge to edge but keep content clear of the status bar and of the
+        // navigation bar (top and bottom insets applied automatically).
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        val root = findViewById<View>(R.id.root)
+        ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
+            v.setPadding(bars.left, bars.top, bars.right, maxOf(bars.bottom, ime.bottom))
+            insets
+        }
+
         web = findViewById(R.id.web)
         configPanel = findViewById(R.id.configPanel)
         linkInput = findViewById(R.id.linkInput)
@@ -90,6 +103,7 @@ class MainActivity : AppCompatActivity() {
             useWideViewPort = true
             mediaPlaybackRequiresUserGesture = false
             mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+            userAgentString = userAgentString + " " + getString(R.string.ua_marker)
         }
 
         web.webViewClient = object : WebViewClient() {
@@ -107,18 +121,12 @@ class MainActivity : AppCompatActivity() {
                     val prefs = getSharedPreferences("quinki", Context.MODE_PRIVATE)
                     val link = prefs.getString("link", "") ?: ""
                     val token = prefs.getString("token", "") ?: ""
-                    if (!retriedPair && link.isNotEmpty() && token.isNotEmpty()) {
-                        retriedPair = true
-                        view.loadUrl(pairUrl(link, token))
-                    } else {
-                        showConfig(link, token, "Pairing failed. Check the link and the token.")
-                    }
+                    showConfig(link, token, "Pairing expired or revoked. Tap Connect to pair again.")
                 }
             }
 
             override fun onPageFinished(view: WebView, url: String) {
                 CookieManager.getInstance().flush()
-                retriedPair = false
             }
         }
 
@@ -153,13 +161,23 @@ class MainActivity : AppCompatActivity() {
         if (link.isNotEmpty() && token.isNotEmpty()) {
             configPanel.visibility = View.GONE
             web.visibility = View.VISIBLE
-            web.loadUrl(link)
+            loadApp(link)
         } else {
             showConfig(link, token, "")
         }
     }
 
     private fun pairUrl(link: String, token: String): String = "$link/?token=" + Uri.encode(token)
+
+    // Extra header so the server answers 401 (instead of the pairing page) when
+    // this app is not paired: the app can then show its own Connect screen.
+    private fun loadUrlWithAppHeader(url: String) {
+        web.loadUrl(url, mapOf("X-Quinki-App" to "1"))
+    }
+
+    private fun loadApp(link: String) {
+        loadUrlWithAppHeader(link)
+    }
 
     private fun doConnect() {
         val link = linkInput.text.toString().trim().trimEnd('/')
@@ -177,8 +195,7 @@ class MainActivity : AppCompatActivity() {
         statusText.text = ""
         configPanel.visibility = View.GONE
         web.visibility = View.VISIBLE
-        retriedPair = false
-        web.loadUrl(pairUrl(link, token))
+        loadUrlWithAppHeader(pairUrl(link, token))
     }
 
     private fun applyQr(contents: String) {
@@ -207,7 +224,7 @@ class MainActivity : AppCompatActivity() {
     private fun launchScanner() {
         val options = ScanOptions()
             .setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-            .setPrompt("Scan the Quinki QR code")
+            .setPrompt("Scan the QR code shown in Quinki on your Mac")
             .setBeepEnabled(false)
             .setOrientationLocked(false)
         scanLauncher.launch(options)

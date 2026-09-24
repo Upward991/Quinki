@@ -5,4 +5,12 @@
         <item name="android:statusBarColor">#040406</item>
         <item name="android:navigationBarColor">#040406</item>
     </style>
+
+    <!-- Tema dello scanner QR: nero, fullscreen, stessi colori dell'app -->
+    <style name="zxing_CaptureTheme" parent="android:Theme.Material.NoActionBar.Fullscreen">
+        <item name="android:windowBackground">#000000</item>
+        <item name="android:statusBarColor">#000000</item>
+        <item name="android:navigationBarColor">#000000</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
 </resources>
