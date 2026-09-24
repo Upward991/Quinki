@@ -223,9 +223,10 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
           // SOLO lista locale: il cambio si APPLICA alla CONFERMA del menu (dopo
           // il modale Move/Keep del Composer). Prima si applicava subito al pick.
         } else {
-          // Nessuna sessione ancora (welcome): non si salva più un default GLOBALE
-          // (faceva nascere tutte le chat nella stessa cartella). Il pick viene
-          // applicato alla chat quando esiste; da welcome si ignora.
+          // Nessuna sessione ancora (welcome): la directory scelta ORA verra'
+          // applicata alla chat che stai per iniziare (una volta sola, niente
+          // eredita per le successive).
+          try { (window as any).__quinkiPendingWorkdir = path } catch {}
         }
         setFocusAdd(false)
         setFocusConfirm(true)

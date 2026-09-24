@@ -1179,10 +1179,16 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
           if (dm) createParams.model = dm
           if (dt) createParams.thinkingLevel = dt
           createParams.mode = dmode
-          // NIENTE workdir globale ereditata dalle chat nuove (24 set): ogni chat
-          // nasce con la SUA cartella di default (~/.quinki/workdir/quinki-<key>).
-          // Prima un "defaultWorkingDir" salvato una volta faceva nascere TUTTE le
-          // chat nella stessa cartella condivisa.
+          // Welcome: se hai scelto una directory PRIMA di iniziare la chat, la
+          // nuova sessione parte con quella. UNA VOLTA SOLA: consumata qui, la
+          // chat successiva NON la eredita (mai default globali).
+          try {
+            const pend = (window as any).__quinkiPendingWorkdir
+            if (pend && typeof pend === 'string' && pend.length > 0) {
+              createParams.workingDir = pend
+              ;(window as any).__quinkiPendingWorkdir = ''
+            }
+          } catch {}
           const createResult = await call('createSession', createParams)
           if (createResult?.key || createResult?.sessionKey) {
             sk = createResult.key || createResult.sessionKey
