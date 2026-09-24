@@ -227,7 +227,7 @@ function pairDevice(req: any): string {
 // File pubblici: identità PWA + bundle statico (nessun dato sensibile; la sicurezza
 // resta su pagina app e WebSocket). Chrome li scarica SENZA credenziali durante il
 // controllo di installazione: se rispondono 401 la PWA "cannot be installed".
-const PUBLIC_PATH = /^\/(manifest\.webmanifest|sw\.js|quinki-logo\.png|favicon\.ico|icons\/|assets\/|fonts\/)/;
+const PUBLIC_PATH = /^\/(manifest\.webmanifest|manifest-expert\.webmanifest|sw\.js|quinki-logo\.png|favicon\.ico|icons\/|assets\/|fonts\/)/;
 
 function pairingPage(): string {
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
