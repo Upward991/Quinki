@@ -1116,8 +1116,6 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
   // DESKTOP: dichiara al sidecar la chat in visione (finestra attiva e chat aperta):
   // cosi' il TELEFONO non riceve notifiche per una chat che stai gia' guardando sul Mac.
   useEffect(() => {
-    const call = (window as any).__sidecarCall
-    if (!call) return
     const send = () => {
       try {
         const focused = document.hasFocus() && !document.body.classList.contains('win-inactive')
@@ -1139,7 +1137,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
         window.removeEventListener('blur', send)
       } catch {}
     }
-  }, [activeSessionId])
+  }, [activeSessionId, call])
 
   // Telefono: segnala al servizio nativo quale chat stai guardando (e se l'app
   // e' visibile): la notifica NON arriva per quella chat, esattamente come sul Mac.
