@@ -2454,19 +2454,41 @@ fn load_remote_state_authurl(t: &str) -> String {
 // telefono. Il binario e' bundlato nell'app; il link e' stabile per sempre
 // (<nome>.<tailnet>.ts.net) e l'accesso resta protetto dal token di Quinki.
 
-/// Percorso del binario tsnet-tunnel: bundle Resources -> dev -> ~/.quinki/bin.
+/// Percorso del binario tsnet-tunnel: SEMPRE ~/.quinki/bin/tsnet-tunnel (copiato
+/// fresco dal bundle a ogni chiamata). Percorso NEUTRO: in Monitoraggio Attività
+/// il processo non appare più come "Quinki" (dopo il quit dell'app il tunnel
+/// col path del bundle sembrava "l'app rimasta in background"). La copia
+/// locale viene aggiornata SOLO se il bundle supporta -target2: mai regressioni.
 fn tsnet_bin_path() -> Option<String> {
     use std::path::{Path, PathBuf};
+    let home = std::env::var("HOME").unwrap_or_default();
+    let local = format!("{}/.quinki/bin/tsnet-tunnel", home);
+    let supports_t2 = |p: &str| -> bool {
+        std::process::Command::new(p).arg("-h").output().map(|o| {
+            let blob = format!("{}{}", String::from_utf8_lossy(&o.stdout), String::from_utf8_lossy(&o.stderr));
+            blob.contains("target2")
+        }).unwrap_or(false)
+    };
+    let mut bundle: Option<String> = None;
     if let Ok(exe) = std::env::current_exe() {
         if let Some(macos) = exe.parent() {
             let res: PathBuf = macos.join("../Resources/resources/tsnet-tunnel");
-            if res.exists() { return Some(res.to_string_lossy().to_string()); }
+            if res.exists() { bundle = Some(res.to_string_lossy().to_string()); }
         }
     }
-    let dev = Path::new("src-tauri/resources/tsnet-tunnel");
-    if dev.exists() { return Some(dev.to_string_lossy().to_string()); }
-    let home = std::env::var("HOME").unwrap_or_default();
-    let local = format!("{}/.quinki/bin/tsnet-tunnel", home);
+    if bundle.is_none() {
+        let dev = Path::new("src-tauri/resources/tsnet-tunnel");
+        if dev.exists() { bundle = Some(dev.to_string_lossy().to_string()); }
+    }
+    if let Some(b) = bundle {
+        if supports_t2(&b) {
+            if let Some(dir) = Path::new(&local).parent() { let _ = std::fs::create_dir_all(dir); }
+            let _ = std::fs::copy(&b, &local);
+            return Some(local);
+        }
+        if Path::new(&local).exists() && supports_t2(&local) { return Some(local); }
+        return Some(b);
+    }
     if Path::new(&local).exists() { return Some(local); }
     None
 }
