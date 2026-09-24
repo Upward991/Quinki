@@ -114,6 +114,11 @@ const WEB_VERSION = (() => {
   return "";
 })();
 const WEB_IS_EXPERT = String(process.env.QUINKI_ROLE || "").toLowerCase() === "expert" || Number(process.env.QUINKI_WS_PORT || "9182") === 9183;
+// Cookie di accesso: nome DIVERSO per main ed Expert. I cookie NON conoscono le
+// porte: stesso host = un solo cassetto per nome, e main/Expert si SOVRASCRIVEVANO
+// a vicenda (il pair di una spegneva l'altra; il revoke pure). La main tiene il
+// nome storico (le coppie esistenti restano valide), l'Expert usa il suo.
+const COOKIE_NAME = WEB_IS_EXPERT ? "quinki_token_x" : "quinki_token";
 
 // === F0.1 REMOTE AUTH (modello OpenClaw: auth "token" di default per i client remoti) ===
 // Il token vive in ~/.quinki/remote.json (creato al primo avvio). I client LOOPBACK
@@ -154,7 +159,7 @@ function tokenFromReq(req: any, url: string): string {
   } catch {}
   try {
     const c = String((req.headers && req.headers.cookie) || "");
-    const m = /quinki_token=([^;]+)/.exec(c);
+    const m = new RegExp(COOKIE_NAME + "=([^;]+)").exec(c);
     if (m) return decodeURIComponent(m[1]);
   } catch {}
   return "";
@@ -382,13 +387,13 @@ const httpServer = http.createServer((req: any, res: any) => {
         const dt = pairDevice(req);
         if (hasQueryToken && isDoc) {
           res.writeHead(302, {
-            "Set-Cookie": `quinki_token=${encodeURIComponent(dt)}; Path=/; Max-Age=31536000; SameSite=Lax`,
+            "Set-Cookie": `${COOKIE_NAME}=${encodeURIComponent(dt)}; Path=/; Max-Age=31536000; SameSite=Lax`,
             "Location": "/",
           });
           res.end();
           return;
         }
-        try { res.setHeader("Set-Cookie", `quinki_token=${encodeURIComponent(dt)}; Path=/; Max-Age=31536000; SameSite=Lax`); } catch {}
+        try { res.setHeader("Set-Cookie", `${COOKIE_NAME}=${encodeURIComponent(dt)}; Path=/; Max-Age=31536000; SameSite=Lax`); } catch {}
       } else {
         // pagina app -> pairing (200: e' un documento valido, il controllo di
         // installazione non deve fallire; l'accesso ai dati resta protetto dal token)
