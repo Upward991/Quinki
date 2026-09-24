@@ -1,6 +1,6 @@
 {
-  "name": "Quinki Expert",
-  "short_name": "Quinki Expert",
+  "name": "App Expert",
+  "short_name": "App Expert",
   "description": "Quinki App Expert, remotely",
   "start_url": "/?expert=1",
   "scope": "/",

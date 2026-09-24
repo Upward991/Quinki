@@ -295,8 +295,8 @@ function serveWebApp(req: any, res: any, url: string): boolean {
       html = html
         .replace("/icons/apple-touch-icon.png", "/icons/expert-apple-touch.png")
         .replace("/manifest.webmanifest", "/manifest-expert.webmanifest")
-        .replace('content="Quinki"', 'content="Quinki Expert"')
-        .replace("<title>Quinki</title>", "<title>Quinki Expert</title>");
+        .replace('content="Quinki"', 'content="App Expert"')
+        .replace("<title>Quinki</title>", "<title>App Expert</title>");
     }
     body = Buffer.from(html.includes("</head>") ? html.replace("</head>", tag + "</head>") : tag + html, "utf8");
   }
