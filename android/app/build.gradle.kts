@@ -10,8 +10,8 @@ android {
     defaultConfig {
         minSdk = 26
         targetSdk = 35
-        versionCode = 29
-        versionName = "1.0.0-beta.23e"
+        versionCode = 30
+        versionName = "1.0.0-beta.23f"
     }
 
     flavorDimensions += "role"
@@ -61,5 +61,5 @@ dependencies {
     implementation("androidx.activity:activity-ktx:1.9.3")
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
     implementation("com.google.zxing:core:3.5.3")
-    implementation("com.google.firebase:firebase-messaging:24.1.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 }

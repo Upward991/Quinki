@@ -128,22 +128,7 @@ const COOKIE_NAME = WEB_IS_EXPERT ? "quinki_token_x" : "quinki_token";
 // → i proxy che iniettano x-forwarded-for/cf-connecting-ip NON sono loopback.
 const REMOTE_FILE = join(AGENT_DIR, WEB_IS_EXPERT ? "remote-expert.json" : "remote.json");
 
-// === FCM del PRODOTTO: config + chiave viaggiano DENTRO Quinki (resources del
-// sidecar) e al primo avvio finiscono in ~/.quinki. Cosi' ogni utente ha le
-// notifiche funzionanti senza fare nulla. Se i file non esistono: tutto spento. ===
-try {
-  const rsDir = dirname(process.execPath || "");
-  for (const f of ["fcm-public-config.json", "fcm-relay.json"]) {
-    const dst = join(String(process.env.HOME || ""), ".quinki", f);
-    if (!dst.startsWith("/")) continue;
-    if (!existsSync(dst)) {
-      const src = join(rsDir, f);
-      if (existsSync(src)) {
-        try { writeFileSync(dst, readFileSync(src)); process.stderr.write(`[fcm] ${f} installato dai resources\n`); } catch {}
-      }
-    }
-  }
-} catch {}
+
 let _remoteTokenCache = { at: 0, v: "" };
 function remoteToken(): string {
   const now = Date.now();
@@ -463,19 +448,6 @@ const httpServer = http.createServer((req: any, res: any) => {
     }
   } catch {}
 
-  // Config FCM pubblica per le app Android (dal progetto Firebase dell'utente).
-  if (req.method === "GET" && url.startsWith("/fcm-config")) {
-    try {
-      const home5 = String(process.env.HOME || "");
-      const cfg = JSON.parse(readFileSync(join(home5, ".quinki", "fcm-public-config.json"), "utf8"));
-      res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
-      res.end(JSON.stringify(cfg));
-    } catch {
-      try { res.writeHead(404, { "Content-Type": "application/json" }); res.end('{}'); } catch {}
-    }
-    return;
-  }
-
   // Log diagnostico dall'app web (telefono): ~/.quinki/webapp-log.jsonl
   if (req.method === "POST" && url.startsWith("/log")) {
     try {
@@ -641,6 +613,17 @@ stdoutEmitter.on("line", (line: string) => {
 wss.on("connection", (ws, req: any) => {
   clients.add(ws);
   (ws as any).isAlive = true;
+  // Coda notifiche push (per il servizio nativo degli APK): le ultime 24h.
+  try {
+    const q = (globalThis as any).__quinkiPushQueue || [];
+    for (const p of q) {
+      try {
+        if (Date.now() - (Number(p?.ts) || 0) < 24 * 3600 * 1000) {
+          ws.send(JSON.stringify({ jsonrpc: "2.0", method: "push_notify", params: p }));
+        }
+      } catch {}
+    }
+  } catch {}
   // Chi e' questa connessione? (device token -> id): serve a legare le push al
   // dispositivo, cosi' al Revoke spariscono quelle del device rimosso.
   try {

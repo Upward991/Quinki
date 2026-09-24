@@ -57,17 +57,7 @@ class MainActivity : AppCompatActivity() {
         @Volatile var instance: MainActivity? = null
     }
 
-    fun webViewInstance(): WebView? = try { web } catch (e: Exception) { null }
-    private var fcmToken: String = ""
 
-    fun onFcmToken(token: String) {
-        fcmToken = token
-        runOnUiThread {
-            try {
-                web.evaluateJavascript("window.__quinkiFcmToken && window.__quinkiFcmToken(" + org.json.JSONObject.quote(token) + ")", null)
-            } catch (e: Exception) { }
-        }
-    }
 
     private lateinit var web: WebView
     private lateinit var configPanel: View
@@ -185,26 +175,6 @@ class MainActivity : AppCompatActivity() {
         // Ponte nativo per il PORTAPAPELES: il WebView Android non ha l'API
         // clipboard, quindi l'app web lo legge da qui (esposto solo getClipboard).
         web.addJavascriptInterface(object {
-            // === FCM: config dall'app web (niente google-services.json a build time) ===
-            @android.webkit.JavascriptInterface
-            fun initFcm(appId: String, projectId: String, apiKey: String, senderId: String) {
-                try {
-                    com.google.firebase.FirebaseApp.initializeApp(this@MainActivity, com.google.firebase.FirebaseOptions.Builder()
-                        .setApplicationId(appId)
-                        .setProjectId(projectId)
-                        .setApiKey(apiKey)
-                        .setGcmSenderId(senderId)
-                        .build())
-                    com.google.firebase.messaging.FirebaseMessaging.getInstance().token
-                        .addOnCompleteListener { t ->
-                            if (t.isSuccessful && t.result != null) onFcmToken(t.result!!)
-                        }
-                } catch (e: Exception) { }
-            }
-
-            @android.webkit.JavascriptInterface
-            fun getPushToken(): String = fcmToken
-
             @android.webkit.JavascriptInterface
             fun getClipboard(): String {
                 return try {
@@ -335,8 +305,27 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) { }
 
         handleNotificationIntent(intent)
+        // Servizio push nativo (connessione diretta col Mac) + esenzione batteria:
+        // senza esenzione Android sospende la rete in Doze e le notifiche tardano.
+        if (link.isNotEmpty() && token.isNotEmpty()) {
+            PushService.start(this)
+            requestBatteryExemptionOnce()
+        }
         checkForUpdate()
         checkWebVersion(true)
+    }
+
+    private fun requestBatteryExemptionOnce() {
+        try {
+            val prefs = getSharedPreferences("quinki", Context.MODE_PRIVATE)
+            if (prefs.getBoolean("batteryAsked", false)) return
+            val pm = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+            if (pm.isIgnoringBatteryOptimizations(packageName)) { prefs.edit().putBoolean("batteryAsked", true).apply(); return }
+            prefs.edit().putBoolean("batteryAsked", true).apply()
+            val i = Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+            i.data = android.net.Uri.parse("package:$packageName")
+            startActivity(i)
+        } catch (e: Exception) { }
     }
 
     override fun onNewIntent(intent: Intent) {

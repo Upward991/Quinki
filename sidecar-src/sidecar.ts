@@ -269,10 +269,13 @@ function sendWebPush(entry: any) {
   } catch {}
 }
 
-// === FCM (app Android native): stessa logica della push web, destinatari = token FCM. ===
-// Tutto spento se ~/.quinki/fcm-service-account.json non esiste (arriva con Firebase).
-let _fcmAccess = { at: 0, token: "" };
-function sendFcm(entry: any): void {
+
+// === PUSH NATIVO (servizio degli APK): la notifica va ai client WS collegati
+// (il servizio del telefono ascolta come la web app). Coda ultimi 30 (24h) per
+// chi era offline: nulla si perde per brevi disconnessioni.
+const _pushQueue: any[] = [];
+(globalThis as any).__quinkiPushQueue = _pushQueue;
+function pushNotifyOut(entry: any): void {
   try {
     const sk = String(entry?.kind === 'task_complete' ? (entry?.sourceSession?.key || '') : (entry?.sessionKey || ''));
     try {
@@ -280,30 +283,6 @@ function sendFcm(entry: any): void {
       const mode = st && sk ? (st[sk] && st[sk].notifyMode) || 'none' : 'none';
       if (mode === 'none') return;
     } catch { return }
-    const home = homedir();
-    const tf = path.join(home, '.quinki', isExpertSidecar() ? 'fcm-tokens-expert.json' : 'fcm-tokens.json');
-    let toks: any[] = [];
-    try { toks = JSON.parse(fs.readFileSync(tf, 'utf8')) || []; } catch {}
-    if (!toks.length) return;
-    // UNICO percorso, identico per il proprietario e per ogni utente: il
-    // "postino" (relay del prodotto, Cloudflare Worker) tiene la chiave e invia.
-    // Nel prodotto NON esiste nessuna chiave e nessun percorso speciale.
-    let relayUrl = "";
-    try {
-      const rj = JSON.parse(fs.readFileSync(path.join(home, '.quinki', 'fcm-relay.json'), 'utf8'));
-      relayUrl = String(rj?.url || "");
-    } catch {}
-    if (!relayUrl) return; // relay non ancora configurato: spento per TUTTI allo stesso modo
-    for (const t of toks.slice(0, 10)) {
-      const tok = String(t?.token || '');
-      if (!tok) continue;
-      fetch(relayUrl.replace(/\/$/, '') + '/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ target: tok, title, body, sessionKey: sk }),
-      }).catch(() => {});
-    }
-    return;
     let title = entry?.kind === 'task_complete' ? 'Task executed' : (sk === '__app_expert__' ? 'App Expert' : '');
     if (!title) {
       try {
@@ -313,7 +292,11 @@ function sendFcm(entry: any): void {
       } catch { title = 'New response'; }
     }
     const body = String(entry?.body || entry?.label || 'A response arrived');
-      } catch {}
+    const params = { title, body, sessionKey: sk, ts: Date.now() };
+    _pushQueue.push(params);
+    while (_pushQueue.length > 30) _pushQueue.shift();
+    try { (globalThis as any).__quinki_broadcast?.({ jsonrpc: '2.0', method: 'push_notify', params }); } catch {}
+  } catch {}
 }
 
 const attachmentsDir = path.join(agentDir, "quinki-attachments");
@@ -1042,20 +1025,6 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
       return { ok: true, count: subs.length };
     } catch { return { ok: false }; }
   },
-  registerFcmToken: async (p) => {
-    try {
-      const token = String(p?.token || '');
-      if (!token) return { ok: false };
-      const f = path.join(homedir(), '.quinki', isExpertSidecar() ? 'fcm-tokens-expert.json' : 'fcm-tokens.json');
-      let arr: any[] = [];
-      try { arr = JSON.parse(fs.readFileSync(f, 'utf8')) || []; } catch {}
-      if (!Array.isArray(arr)) arr = [];
-      arr = arr.filter((x: any) => x && x.token !== token);
-      arr.push({ token, createdAt: Date.now(), ua: String(p?.ua || '').slice(0, 120) });
-      fs.writeFileSync(f, JSON.stringify(arr, null, 2));
-      return { ok: true, count: arr.length };
-    } catch { return { ok: false }; }
-  },
   pushUnsubscribe: async (p) => {
     try {
       const f = path.join(homedir(), '.quinki', 'push-subs.json');
@@ -1748,7 +1717,7 @@ async function bootstrap() {
       process.stderr.write(`[sidecar-marker] pool-child-parent-watchdog: ${origPpid}\n`);
     }
     // === A3: broadcast notifiche al frontend (DOPO la creazione di piBridge!) ===
-    try { piBridge.setNotificationBroadcast?.((entry: any) => { try { sendNotification("notification", entry); } catch {} try { sendWebPush(entry); } catch {} try { sendFcm(entry); } catch {} }); } catch {}
+    try { piBridge.setNotificationBroadcast?.((entry: any) => { try { sendNotification("notification", entry); } catch {} try { sendWebPush(entry); } catch {} try { pushNotifyOut(entry); } catch {} }); } catch {}
     try { piBridge.setReadStateBroadcast?.((key: string) => { try { sendNotification("read_state_changed", { sessionKey: key }); } catch {} }); } catch {}
 
 
