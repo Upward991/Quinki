@@ -285,26 +285,25 @@ function sendFcm(entry: any): void {
     let toks: any[] = [];
     try { toks = JSON.parse(fs.readFileSync(tf, 'utf8')) || []; } catch {}
     if (!toks.length) return;
-    const saPath = path.join(home, '.quinki', 'fcm-service-account.json');
-    // RELAY (prodotto): il postino Cloudflare tiene la chiave e invia lui.
+    // UNICO percorso, identico per il proprietario e per ogni utente: il
+    // "postino" (relay del prodotto, Cloudflare Worker) tiene la chiave e invia.
+    // Nel prodotto NON esiste nessuna chiave e nessun percorso speciale.
     let relayUrl = "";
     try {
       const rj = JSON.parse(fs.readFileSync(path.join(home, '.quinki', 'fcm-relay.json'), 'utf8'));
       relayUrl = String(rj?.url || "");
     } catch {}
-    if (relayUrl) {
-      for (const t of toks.slice(0, 10)) {
-        const tok = String(t?.token || '');
-        if (!tok) continue;
-        fetch(relayUrl.replace(/\/$/, '') + '/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ target: tok, title, body, sessionKey: sk }),
-        }).catch(() => {});
-      }
-      return;
+    if (!relayUrl) return; // relay non ancora configurato: spento per TUTTI allo stesso modo
+    for (const t of toks.slice(0, 10)) {
+      const tok = String(t?.token || '');
+      if (!tok) continue;
+      fetch(relayUrl.replace(/\/$/, '') + '/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target: tok, title, body, sessionKey: sk }),
+      }).catch(() => {});
     }
-    if (!fs.existsSync(saPath)) return;
+    return;
     let title = entry?.kind === 'task_complete' ? 'Task executed' : (sk === '__app_expert__' ? 'App Expert' : '');
     if (!title) {
       try {
@@ -314,48 +313,7 @@ function sendFcm(entry: any): void {
       } catch { title = 'New response'; }
     }
     const body = String(entry?.body || entry?.label || 'A response arrived');
-    void (async () => {
-      try {
-        const sa = JSON.parse(fs.readFileSync(saPath, 'utf8'));
-        const now = Math.floor(Date.now() / 1000);
-        if (!_fcmAccess.token || Date.now() - _fcmAccess.at > 45 * 60 * 1000) {
-          const b64 = (o: any) => Buffer.from(JSON.stringify(o)).toString('base64url');
-          const unsigned = b64({ alg: 'RS256', typ: 'JWT' }) + '.' + b64({
-            iss: sa.client_email,
-            scope: 'https://www.googleapis.com/auth/firebase.messaging',
-            aud: 'https://oauth2.googleapis.com/token',
-            iat: now, exp: now + 3600,
-          });
-          const sig = createSign('RSA-SHA256').update(unsigned).sign(String(sa.private_key));
-          const jwt = unsigned + '.' + sig.toString('base64url');
-          const r = await fetch('https://oauth2.googleapis.com/token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: 'grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=' + encodeURIComponent(jwt),
-          });
-          const j: any = await r.json();
-          _fcmAccess = { at: Date.now(), token: String(j?.access_token || '') };
-        }
-        if (!_fcmAccess.token) return;
-        for (const t of toks.slice(0, 10)) {
-          const tok = String(t?.token || '');
-          if (!tok) continue;
-          fetch(`https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`, {
-            method: 'POST',
-            headers: { Authorization: 'Bearer ' + _fcmAccess.token, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              message: {
-                token: tok,
-                notification: { title, body },
-                data: { sessionKey: sk },
-                android: { priority: 'high', notification: { channel_id: 'quinki' } },
-              },
-            }),
-          }).catch(() => {});
-        }
       } catch {}
-    })();
-  } catch {}
 }
 
 const attachmentsDir = path.join(agentDir, "quinki-attachments");

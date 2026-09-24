@@ -35,6 +35,7 @@ if [ -d fcm ]; then
   # SOLO la config pubblica (appId/apiKey del progetto): la CHIAVE DI INVIO non
   # entra MAI nel prodotto (vive nel relay Cloudflare, tools/fcm-relay).
   cp fcm/fcm-public-config.json src-tauri/resources/sidecar/ 2>/dev/null || true
+  cp fcm/fcm-relay.json src-tauri/resources/sidecar/ 2>/dev/null || true
   echo "[build-app] FCM product config included (public only)"
 fi
 bash scripts/build-sidecar.sh
