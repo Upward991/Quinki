@@ -9,6 +9,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useLayout } from '../../platform/layout'
 import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from '../icons'
 
 export interface SheetItem {
@@ -55,6 +56,10 @@ export function BottomSheet({ open, onClose, items, view, onViewBack, onBack, ti
   hideBack?: boolean
   hideNav?: boolean
 }) {
+  // Telefono: l'evidenziato delle voci nasce dall'hover/tastiera (non esiste
+  // sul telefono) -> mai mostrato. Desktop invariato.
+  const { mode } = useLayout()
+  const isPhone = mode === 'mobile'
   const [sel, setSel] = useState(0)
   const [dragY, setDragY] = useState(0)
   const startY = useRef<number | null>(null)
@@ -77,7 +82,7 @@ export function BottomSheet({ open, onClose, items, view, onViewBack, onBack, ti
       <div
         ref={panelRef as any}
         style={{
-          position: 'absolute', left: 0, right: 0, bottom: 0,
+          position: 'absolute', left: isPhone ? '8px' : 0, right: isPhone ? '8px' : 0, bottom: 0,
           backgroundColor: 'var(--q-bg-panel)',
           borderRadius: 'var(--radius-lg) var(--radius-lg) 0 0',
           boxShadow: 'var(--shadow-modal)',
@@ -115,7 +120,7 @@ export function BottomSheet({ open, onClose, items, view, onViewBack, onBack, ti
               <div
                 key={it.label}
                 onMouseEnter={() => setSel(i)}
-                style={{ backgroundColor: sel === i ? 'rgba(255,255,255,0.06)' : 'transparent', borderRadius: 'var(--radius-md)', transition: 'none' }}
+                style={{ backgroundColor: !isPhone && sel === i ? 'rgba(255,255,255,0.06)' : 'transparent', borderRadius: 'var(--radius-md)', transition: 'none' }}
               >
                 <SheetRow icon={it.icon} label={it.label} value={it.value} valueColor={it.valueColor} onClick={() => activate(i)} />
               </div>

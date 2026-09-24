@@ -3,6 +3,7 @@
 // Forwarded ref exposes: navUp, navDown, navLeft, navRight, navEnter
 // ============================================================
 
+import { useLayout } from '../../platform/layout'
 import { useState, useImperativeHandle, forwardRef, useRef, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import type { Provider } from '../../types'
@@ -50,6 +51,9 @@ type Mode = 'main' | 'model' | 'thinking' | 'directory' | 'skill' | 'reset_confi
 
 export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function SlashMenu(props, ref) {
   const [mode, setMode] = useState<Mode>('main')
+  // Telefono: la selezione evidenziata esiste per la navigazione da TASTIERA
+  // sul desktop; sul telefono non deve mai apparire.
+  const isPhoneLayout = useLayout().mode === 'mobile'
   const [selectedIdx, setSelectedIdx] = useState(0)
   const [focusConfirm, setFocusConfirm] = useState(false)
   const [pendingLhCmd, setPendingLhCmd] = useState<string | null>(null)
@@ -354,7 +358,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
                 key={cmd.id}
                 label={cmd.label}
                 description={cmd.description}
-                isSelected={idx === selectedIdx}
+                isSelected={idx === selectedIdx && !isPhoneLayout}
                 onHover={() => setSelectedIdx(idx)}
                 onTap={() => {
                   if (panelCmdIds.has(cmd.id)) { openPanel(cmd.id); return }
@@ -403,7 +407,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
                     <MenuItem
                       key={m.id}
                       label={m.id}
-                      isSelected={idx === selectedIdx}
+                      isSelected={idx === selectedIdx && !isPhoneLayout}
                       isChecked={m.id === pendingModel}
                       trailing={`${fmtCtx(m.contextWindow)} ctx`}
                       onHover={() => setSelectedIdx(idx)}
@@ -437,14 +441,14 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
           <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
             <MenuItem
               label={`On`}
-              isSelected={selectedIdx === 0}
+              isSelected={selectedIdx === 0 && !isPhoneLayout}
               isChecked={pendingThinking !== 'off'}
               onHover={() => setSelectedIdx(0)}
               onTap={() => { setPendingThinking('on'); setFocusConfirm(true) }}
             />
             <MenuItem
               label="Off"
-              isSelected={selectedIdx === 1}
+              isSelected={selectedIdx === 1 && !isPhoneLayout}
               isChecked={pendingThinking === 'off'}
               onHover={() => setSelectedIdx(1)}
               onTap={() => { setPendingThinking('off'); setFocusConfirm(true) }}
@@ -519,7 +523,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
                       <MenuItem
                         key={group.agentId + '-' + skill.name}
                         label={skill.name}
-                        isSelected={idx === selectedIdx}
+                        isSelected={idx === selectedIdx && !isPhoneLayout}
                         isChecked={pendingSkill?.skillName === skill.name && pendingSkill?.agentId === group.agentId}
                         trailing={skill.description?.slice(0, 40)}
                         onHover={() => setSelectedIdx(idx)}

@@ -17,10 +17,23 @@ try {
   const touchDevice = (window.matchMedia && window.matchMedia('(hover: none)').matches) ||
     ('ontouchstart' in window) || ((navigator as any).maxTouchPoints || 0) > 0
   if (touchDevice) {
+    // Regola utente: sul TELEFONO l'hover non esiste (non c'e' un mouse che
+    // passa senza cliccare). Fermiamo gli eventi mouse/pointer in capture prima
+    // che React li veda: cio' che accade al CLICK resta, l'hover no.
     const swallow = (e: Event) => { e.stopPropagation() }
-    for (const t of ['mouseenter', 'mouseleave', 'mouseover', 'mouseout']) {
+    for (const t of ['mouseenter', 'mouseleave', 'mouseover', 'mouseout', 'pointerenter', 'pointerleave', 'pointerover', 'pointerout']) {
       document.addEventListener(t, swallow, true)
     }
+    // Classe sul <html>: le regole CSS :hover vengono spente SOLO qui (il
+    // WebView Android mente su (hover:none), quindi le media query non bastano).
+    try {
+      const mark = () => {
+        const narrow = window.innerWidth <= 600
+        document.documentElement.classList.toggle('q-phone', !('__TAURI_INTERNALS__' in window) && narrow)
+      }
+      mark()
+      window.addEventListener('resize', mark)
+    } catch {}
   }
 } catch {}
 
