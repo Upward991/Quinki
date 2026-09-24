@@ -18,7 +18,7 @@ import QRCode from 'qrcode'
 
 const URL_ADMIN_DNS = 'https://login.tailscale.com/admin/dns'
 
-export function RemoteAccessSection() {
+export function RemoteAccessSection({ target = 'main' }: { target?: string } = {}) {
   const [status, setStatus] = useState<{ running: boolean; url: string; authUrl?: string }>({ running: false, url: '' })
   const [enabled, setEnabled] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -38,36 +38,36 @@ export function RemoteAccessSection() {
     let cancelled = false
     const load = async () => {
       try {
-        const s: any = await invoke('remote_tunnel_status')
+        const s: any = await invoke('remote_tunnel_status', { target })
         if (!cancelled && s) setStatus({ running: !!s.running, url: String(s.url || ''), authUrl: String(s.authUrl || '') })
       } catch {}
       try {
-        const st: any = await invoke('remote_tunnel_state')
+        const st: any = await invoke('remote_tunnel_state', { target })
         if (!cancelled && st) setEnabled(!!st.enabled)
       } catch {}
     }
     ;(async () => {
       await load()
       try {
-        const t: any = await invoke('get_remote_token')
+        const t: any = await invoke('get_remote_token', { target })
         if (!cancelled && t) setToken(String(t))
       } catch {}
       try {
-        const d: any = await invoke('remote_devices_list')
+        const d: any = await invoke('remote_devices_list', { target })
         if (!cancelled && Array.isArray(d)) setDevices(d)
       } catch {}
     })()
     const iv = setInterval(async () => {
       try {
-        const s2: any = await invoke('remote_tunnel_status')
+        const s2: any = await invoke('remote_tunnel_status', { target })
         if (!cancelled && s2) setStatus(prev => (prev.running === !!s2.running && prev.url === String(s2.url || '') && (prev.authUrl || '') === String(s2.authUrl || '')) ? prev : { running: !!s2.running, url: String(s2.url || ''), authUrl: String(s2.authUrl || '') })
       } catch {}
       try {
-        const st2: any = await invoke('remote_tunnel_state')
+        const st2: any = await invoke('remote_tunnel_state', { target })
         if (!cancelled && st2) setEnabled(!!st2.enabled)
       } catch {}
       try {
-        const d2: any = await invoke('remote_devices_list')
+        const d2: any = await invoke('remote_devices_list', { target })
         if (!cancelled && Array.isArray(d2)) setDevices(prev => JSON.stringify(prev) === JSON.stringify(d2) ? prev : d2)
       } catch {}
     }, 3000)
@@ -105,7 +105,7 @@ export function RemoteAccessSection() {
     if (busy) return
     setBusy(true); setSigningIn(true); setErr('')
     try {
-      const url: any = await invoke('remote_tunnel_start', { port: 9182, hostname: '' })
+      const url: any = await invoke('remote_tunnel_start', { port: 9182, hostname: '', target })
       setEnabled(true)
       setStatus(prev => ({ running: !!url, url: String(url || ''), authUrl: prev.authUrl || '' }))
       if (url) { setSigningIn(false); setBusy(false); return } // gia' pronto
@@ -113,7 +113,7 @@ export function RemoteAccessSection() {
       for (let i = 0; i < 16 && !auth; i++) {
         await new Promise(r => setTimeout(r, 500))
         try {
-          const s: any = await invoke('remote_tunnel_status')
+          const s: any = await invoke('remote_tunnel_status', { target })
           const u = String(s?.url || '')
           if (u) { setStatus({ running: true, url: u, authUrl: '' }); break }
           auth = String(s?.authUrl || '')
@@ -135,8 +135,8 @@ export function RemoteAccessSection() {
     if (busy) return
     setBusy(true); setErr('')
     try {
-      if (status.url && !status.url.includes('.ts.net')) { try { await invoke('remote_tunnel_stop') } catch {} }
-      const url: any = await invoke('remote_tunnel_start', { port: 9182, hostname: '' })
+      if (status.url && !status.url.includes('.ts.net')) { try { await invoke('remote_tunnel_stop', { target }) } catch {} }
+      const url: any = await invoke('remote_tunnel_start', { port: 9182, hostname: '', target })
       setEnabled(true)
       setStatus(prev => ({ running: !!url, url: String(url || ''), authUrl: prev.authUrl || '' }))
     } catch (e: any) { setErr(String((e && e.message) ? e.message : e)) }
@@ -164,7 +164,7 @@ export function RemoteAccessSection() {
   const doLogout = async () => {
     setConfirmAct(null); setBusy(true); setErr('')
     try {
-      await invoke('remote_logout')
+      await invoke('remote_logout', { target })
       setEnabled(false)
       setStatus({ running: false, url: '', authUrl: '' })
     } catch (e: any) { setErr('Log out failed: ' + String((e && e.message) ? e.message : e)) }
@@ -202,18 +202,18 @@ export function RemoteAccessSection() {
   const stepTxt: React.CSSProperties = { flex: 1, minWidth: 0, color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', lineHeight: 1.45 }
 
   const refreshDevices = async () => {
-    try { const d: any = await invoke('remote_devices_list'); if (Array.isArray(d)) setDevices(d) } catch {}
+    try { const d: any = await invoke('remote_devices_list', { target }); if (Array.isArray(d)) setDevices(d) } catch {}
   }
   const doRevoke = async () => {
     const id = revokeId
     setConfirmAct(null); setRevokeId('')
     if (!id) return
-    try { await invoke('remote_device_revoke', { id }) } catch {}
+    try { await invoke('remote_device_revoke', { id, target }) } catch {}
     refreshDevices()
   }
   const doRotateToken = async () => {
     setConfirmAct(null); setRotating(true)
-    try { const t: any = await invoke('remote_token_rotate'); if (t) setToken(String(t)) } catch {}
+    try { const t: any = await invoke('remote_token_rotate', { target }); if (t) setToken(String(t)) } catch {}
     setRotating(false)
   }
   const fmtWhen = (ms: number) => { try { return ms ? new Date(ms).toLocaleString() : '—' } catch { return '—' } }
@@ -233,10 +233,10 @@ export function RemoteAccessSection() {
           : 'Not started yet: press the button above.'
 
   return (
-    <div id="settings-webapp" style={{ width: '100%', marginBottom: '12px', padding: '14px 18px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)' }}>
+    <div id={target === 'expert' ? 'settings-webapp-expert' : 'settings-webapp'} style={{ width: '100%', marginBottom: '12px', padding: '14px 18px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
         <Globe size={16} style={{ color: 'var(--q-text-secondary)', flexShrink: 0 }} />
-        <span style={{ color: 'var(--q-text)', fontSize: '15px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>Web app</span>
+        <span style={{ color: 'var(--q-text)', fontSize: '15px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>{target === 'expert' ? 'Expert web app' : 'Web app'}</span>
       </div>
       <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginTop: '4px' }}>
         Use Quinki from your phone or another computer: same sessions, same data as this Mac, while Quinki is running. On the phone, use “Install app” to keep Quinki as a real app with its icon.

@@ -2367,46 +2367,51 @@ fn ensure_cloudflared() -> Result<String, String> {
 // Stesso codice per entrambe le app, file diversi: cosi' l'Expert ha il SUO
 // nodo Tailscale, il SUO hostname e il SUO link, indipendente dalla main
 // (che l'utente riavvia/reinstalla continuamente con l'Expert).
-// Token e dispositivi: file PROPRI per main ed Expert (link e pairing separati,
-// come per il tunnel: l'Expert e' indipendente in tutto).
-fn remote_token_file() -> String {
-    let name = if is_expert_mode() { "remote-expert.json" } else { "remote.json" };
+// Token, dispositivi e stato del tunnel: file SEPARATI per target ("main"/"expert").
+// La MAIN gestisce ENTRAMBI i link dai suoi Impostazioni (sezione Web app).
+// L'app Expert (quando gira) sorveglia solo il proprio. Nodo Tailscale, link,
+// token e dispositivi sono indipendenti: la main puo' essere riavviata e
+// reinstallata quanto si vuole, il link Expert resta su.
+fn mode_target() -> &'static str {
+    if is_expert_mode() { "expert" } else { "main" }
+}
+fn remote_token_file(t: &str) -> String {
+    let name = if t == "expert" { "remote-expert.json" } else { "remote.json" };
     format!("{}/.quinki/{}", std::env::var("HOME").unwrap_or_default(), name)
 }
-fn remote_devices_file() -> String {
-    let name = if is_expert_mode() { "remote-devices-expert.json" } else { "remote-devices.json" };
+fn remote_devices_file(t: &str) -> String {
+    let name = if t == "expert" { "remote-devices-expert.json" } else { "remote-devices.json" };
+    format!("{}/.quinki/{}", std::env::var("HOME").unwrap_or_default(), name)
+}
+fn remote_state_file(t: &str) -> String {
+    let name = if t == "expert" { "remote-state-expert.json" } else { "remote-state.json" };
+    format!("{}/.quinki/{}", std::env::var("HOME").unwrap_or_default(), name)
+}
+fn ts_node_file(t: &str) -> String {
+    let name = if t == "expert" { "ts-node-expert.json" } else { "ts-node.json" };
+    format!("{}/.quinki/{}", std::env::var("HOME").unwrap_or_default(), name)
+}
+fn tsnet_state_dir(t: &str) -> String {
+    let name = if t == "expert" { "tsnet-expert" } else { "tsnet" };
+    format!("{}/.quinki/{}", std::env::var("HOME").unwrap_or_default(), name)
+}
+fn tunnel_pid_file(t: &str) -> String {
+    let name = if t == "expert" { "tunnel-expert.pid" } else { "tunnel.pid" };
     format!("{}/.quinki/{}", std::env::var("HOME").unwrap_or_default(), name)
 }
 
-fn remote_state_file() -> String {
-    let name = if is_expert_mode() { "remote-state-expert.json" } else { "remote-state.json" };
-    format!("{}/.quinki/{}", std::env::var("HOME").unwrap_or_default(), name)
-}
-fn ts_node_file() -> String {
-    let name = if is_expert_mode() { "ts-node-expert.json" } else { "ts-node.json" };
-    format!("{}/.quinki/{}", std::env::var("HOME").unwrap_or_default(), name)
-}
-fn tsnet_state_dir() -> String {
-    let name = if is_expert_mode() { "tsnet-expert" } else { "tsnet" };
-    format!("{}/.quinki/{}", std::env::var("HOME").unwrap_or_default(), name)
-}
-fn tunnel_pid_file() -> String {
-    let name = if is_expert_mode() { "tunnel-expert.pid" } else { "tunnel.pid" };
-    format!("{}/.quinki/{}", std::env::var("HOME").unwrap_or_default(), name)
-}
-
-fn save_remote_state_full(enabled: bool, hostname: String, url: String, pid: Option<u32>) {
+fn save_remote_state_full(t: &str, enabled: bool, hostname: String, url: String, pid: Option<u32>) {
     let st = serde_json::json!({
         "enabled": enabled,
         "hostname": hostname,
         "url": url,
         "pid": pid.map(|p| p as u64),
     });
-    let _ = std::fs::write(remote_state_file(), serde_json::to_string_pretty(&st).unwrap_or_default());
+    let _ = std::fs::write(remote_state_file(t), serde_json::to_string_pretty(&st).unwrap_or_default());
 }
 
 /// Stato con link di login Tailscale (primo avvio tsnet, stato "auth-required").
-fn save_remote_state_auth(url: String, auth_url: String, pid: Option<u32>) {
+fn save_remote_state_auth(t: &str, url: String, auth_url: String, pid: Option<u32>) {
     let st = serde_json::json!({
         "enabled": true,
         "hostname": "",
@@ -2414,11 +2419,11 @@ fn save_remote_state_auth(url: String, auth_url: String, pid: Option<u32>) {
         "authUrl": auth_url,
         "pid": pid.map(|p| p as u64),
     });
-    let _ = std::fs::write(remote_state_file(), serde_json::to_string_pretty(&st).unwrap_or_default());
+    let _ = std::fs::write(remote_state_file(t), serde_json::to_string_pretty(&st).unwrap_or_default());
 }
 
-fn load_remote_state_authurl() -> String {
-    if let Ok(txt) = std::fs::read_to_string(remote_state_file()) {
+fn load_remote_state_authurl(t: &str) -> String {
+    if let Ok(txt) = std::fs::read_to_string(remote_state_file(t)) {
         if let Ok(v) = serde_json::from_str::<serde_json::Value>(&txt) {
             return v.get("authUrl").and_then(|x| x.as_str()).unwrap_or("").to_string();
         }
@@ -2485,9 +2490,9 @@ fn transcribe_audio(wav: Vec<u8>) -> Result<String, String> {
 /// Nome del nodo (hostname) persistente: generato UNA volta, poi il link resta
 /// identico per sempre. File dedicato per non confonderlo con l'hostname
 /// Cloudflare (dominio opzionale dell'utente).
-fn ts_node_hostname() -> String {
-    let home = std::env::var("HOME").unwrap_or_default();
-    let f = ts_node_file();
+fn ts_node_hostname(t: &str) -> String {
+    let _home = std::env::var("HOME").unwrap_or_default();
+    let f = ts_node_file(t);
     if let Ok(txt) = std::fs::read_to_string(&f) {
         if let Ok(v) = serde_json::from_str::<serde_json::Value>(&txt) {
             if let Some(h) = v.get("hostname").and_then(|x| x.as_str()) {
@@ -2495,7 +2500,7 @@ fn ts_node_hostname() -> String {
             }
         }
     }
-    let h = format!("{}-{}", if is_expert_mode() { "quinki-expert" } else { "quinki" }, random_hex(6));
+    let h = format!("{}-{}", if t == "expert" { "quinki-expert" } else { "quinki" }, random_hex(6));
     let _ = std::fs::write(&f, serde_json::json!({ "hostname": h }).to_string());
     h
 }
@@ -2503,20 +2508,88 @@ fn ts_node_hostname() -> String {
 /// Avvia il tunnel via nodo tsnet embedded (Funnel su :443).
 /// In attesa di login (primo avvio) salva l'authUrl nello stato e ritorna Ok(""):
 /// il pannello Impostazioni mostra il link per autenticare.
-fn tunnel_start_tsnet_blocking(bin: String, port: u16) -> Result<String, String> {
+/// Una riga JSON del tunnel -> aggiorna lo stato del target. Ritorna il
+/// messaggio da mandare al canale (auth:/funnel-pending/url:/err:).
+fn tunnel_status_save(t: &str, line: &str, pid: u32) -> Option<String> {
+    let v: serde_json::Value = serde_json::from_str(line).ok()?;
+    let st = v.get("status").and_then(|x| x.as_str()).unwrap_or("");
+    match st {
+        "auth-required" => {
+            let au = v.get("authUrl").and_then(|x| x.as_str()).unwrap_or("").to_string();
+            save_remote_state_auth(t, String::new(), au.clone(), Some(pid));
+            Some(format!("auth:{}", au))
+        }
+        "funnel-pending" => {
+            save_remote_state_full(t, true, String::new(), String::new(), Some(pid));
+            Some("funnel-pending".to_string())
+        }
+        "running" => {
+            let u = v.get("url").and_then(|x| x.as_str()).unwrap_or("").to_string();
+            if !u.is_empty() { save_remote_state_full(t, true, String::new(), u.clone(), Some(pid)); }
+            Some(format!("url:{}", u))
+        }
+        "error" => {
+            let e = v.get("error").and_then(|x| x.as_str()).unwrap_or("errore tsnet").to_string();
+            Some(format!("err:{}", e))
+        }
+        _ => None,
+    }
+}
+
+fn tunnel_start_tsnet_blocking(t: &str, bin: String, port: u16) -> Result<String, String> {
     let home = std::env::var("HOME").unwrap_or_default();
-    let hostname = ts_node_hostname();
+    let hostname = ts_node_hostname(t);
+    let args: Vec<String> = vec![
+        "-hostname".into(), hostname.clone(),
+        "-target".into(), format!("127.0.0.1:{}", port),
+        "-state-dir".into(), tsnet_state_dir(t),
+        "-authkey-file".into(), format!("{}/.quinki/ts-authkey", home),
+    ];
+    let pidf = tunnel_pid_file(t);
+
+    // Expert: processo STACCATO (setsid + log su file): non muore mai quando la
+    // main si riavvia o viene reinstallata. Lo stato viene letto dal tailer.
+    if t == "expert" {
+        let log_path = format!("{}/.quinki/tunnel-expert.log", home);
+        let lf = std::fs::OpenOptions::new().create(true).append(true).open(&log_path).map_err(|e| e.to_string())?;
+        let start_len = lf.metadata().map(|m| m.len()).unwrap_or(0);
+        let mut cmd = std::process::Command::new(&bin);
+        cmd.args(&args).stdin(Stdio::null())
+            .stdout(Stdio::from(lf.try_clone().map_err(|e| e.to_string())?))
+            .stderr(Stdio::from(lf));
+        use std::os::unix::process::CommandExt;
+        unsafe { cmd.pre_exec(|| { libc::setsid(); Ok(()) }); }
+        let child = cmd.spawn().map_err(|e| format!("tsnet-tunnel: {}", e))?;
+        let pid = child.id();
+        let _ = std::fs::write(&pidf, pid.to_string());
+        save_remote_state_full(t, true, hostname.clone(), String::new(), Some(pid));
+        let t2 = t.to_string();
+        std::thread::spawn(move || {
+            use std::io::{Read, Seek, SeekFrom};
+            let mut pos = start_len;
+            loop {
+                if let Ok(mut f) = std::fs::File::open(&log_path) {
+                    let len = f.metadata().map(|m| m.len()).unwrap_or(0);
+                    if len > pos {
+                        let _ = f.seek(SeekFrom::Start(pos));
+                        let mut s = String::new();
+                        let _ = f.read_to_string(&mut s);
+                        pos = len;
+                        for line in s.lines() { tunnel_status_save(&t2, line, pid); }
+                    }
+                }
+                if !pid_alive(pid) { break; }
+                std::thread::sleep(std::time::Duration::from_millis(500));
+            }
+        });
+        return Ok(String::new());
+    }
+
     let mut child = std::process::Command::new(&bin)
-        .args([
-            "-hostname", &hostname,
-            "-target", &format!("127.0.0.1:{}", port),
-            "-state-dir", &tsnet_state_dir(),
-            "-authkey-file", &format!("{}/.quinki/ts-authkey", home),
-        ])
+        .args(&args)
         .stdout(Stdio::piped()).stderr(Stdio::piped())
         .spawn().map_err(|e| format!("tsnet-tunnel: {}", e))?;
     let pid = child.id();
-    let pidf = tunnel_pid_file();
     let _ = std::fs::write(&pidf, pid.to_string());
 
     // stdout: una riga JSON per evento. Il drain resta attivo per tutta la vita
@@ -2526,6 +2599,7 @@ fn tunnel_start_tsnet_blocking(bin: String, port: u16) -> Result<String, String>
     if let Some(out) = child.stdout.take() {
         use std::io::{BufRead, BufReader};
         let pid2 = pid;
+        let t2 = t.to_string();
         std::thread::spawn(move || {
             let br = BufReader::new(out);
             for line in br.lines() {
@@ -2535,19 +2609,19 @@ fn tunnel_start_tsnet_blocking(bin: String, port: u16) -> Result<String, String>
                 match st {
                     "auth-required" => {
                         let au = v.get("authUrl").and_then(|x| x.as_str()).unwrap_or("").to_string();
-                        save_remote_state_auth(String::new(), au.clone(), Some(pid2));
+                        save_remote_state_auth(&t2, String::new(), au.clone(), Some(pid2));
                         let _ = tx.send(format!("auth:{}", au));
                     }
                     "funnel-pending" => {
                         // Iscritto ma Funnel non ancora acceso: passo 1 completato.
                         // Riscrivo lo stato senza authUrl (l'account ormai c'e').
-                        save_remote_state_full(true, String::new(), String::new(), Some(pid2));
+                        save_remote_state_full(&t2, true, String::new(), String::new(), Some(pid2));
                         let _ = tx.send("funnel-pending".to_string());
                     }
                     "running" => {
                         let u = v.get("url").and_then(|x| x.as_str()).unwrap_or("").to_string();
                         if !u.is_empty() {
-                            save_remote_state_full(true, String::new(), u.clone(), Some(pid2));
+                            save_remote_state_full(&t2, true, String::new(), u.clone(), Some(pid2));
                             let _ = tx.send(format!("url:{}", u));
                         }
                     }
@@ -2610,14 +2684,14 @@ fn tunnel_start_tsnet_blocking(bin: String, port: u16) -> Result<String, String>
     }
 }
 
-fn save_remote_state(enabled: bool, hostname: String) {
-    let url = load_remote_state_url();
-    let pid = load_remote_state_pid();
-    save_remote_state_full(enabled, hostname, if enabled { url } else { String::new() }, if enabled { pid } else { None });
+fn save_remote_state(t: &str, enabled: bool, hostname: String) {
+    let url = load_remote_state_url(t);
+    let pid = load_remote_state_pid(t);
+    save_remote_state_full(t, enabled, hostname, if enabled { url } else { String::new() }, if enabled { pid } else { None });
 }
 
-fn load_remote_state() -> (bool, String) {
-    if let Ok(txt) = std::fs::read_to_string(remote_state_file()) {
+fn load_remote_state(t: &str) -> (bool, String) {
+    if let Ok(txt) = std::fs::read_to_string(remote_state_file(t)) {
         if let Ok(v) = serde_json::from_str::<serde_json::Value>(&txt) {
             let en = v.get("enabled").and_then(|x| x.as_bool()).unwrap_or(false);
             let hn = v.get("hostname").and_then(|x| x.as_str()).unwrap_or("").to_string();
@@ -2627,8 +2701,8 @@ fn load_remote_state() -> (bool, String) {
     (false, String::new())
 }
 
-fn load_remote_state_url() -> String {
-    if let Ok(txt) = std::fs::read_to_string(remote_state_file()) {
+fn load_remote_state_url(t: &str) -> String {
+    if let Ok(txt) = std::fs::read_to_string(remote_state_file(t)) {
         if let Ok(v) = serde_json::from_str::<serde_json::Value>(&txt) {
             return v.get("url").and_then(|x| x.as_str()).unwrap_or("").to_string();
         }
@@ -2636,8 +2710,8 @@ fn load_remote_state_url() -> String {
     String::new()
 }
 
-fn load_remote_state_pid() -> Option<u32> {
-    if let Ok(txt) = std::fs::read_to_string(remote_state_file()) {
+fn load_remote_state_pid(t: &str) -> Option<u32> {
+    if let Ok(txt) = std::fs::read_to_string(remote_state_file(t)) {
         if let Ok(v) = serde_json::from_str::<serde_json::Value>(&txt) {
             return v.get("pid").and_then(|x| x.as_u64()).map(|p| p as u32);
         }
@@ -2682,13 +2756,13 @@ fn pid_alive(pid: u32) -> bool {
 /// Tunnel gia' attivo (anche se avviato da una sessione precedente dell'app)?
 /// Con url vuota ma processo vivo = nodo tsnet in attesa di login: vale come
 /// "attivo" per non fare doppi avvii.
-fn running_tunnel_from_state() -> Option<String> {
-    let (enabled, _) = load_remote_state();
+fn running_tunnel_from_state(t: &str) -> Option<String> {
+    let (enabled, _) = load_remote_state(t);
     if !enabled { return None; }
-    let pid = load_remote_state_pid();
+    let pid = load_remote_state_pid(t);
     if let Some(p) = pid {
         if pid_alive(p) {
-            return Some(load_remote_state_url());
+            return Some(load_remote_state_url(t));
         }
     }
     None
@@ -2697,20 +2771,20 @@ fn running_tunnel_from_state() -> Option<String> {
 /// Avvia il tunnel: con hostname -> tunnel CON NOME (dominio Cloudflare dell'utente,
 /// link corto e stabile); senza -> quick tunnel (link casuale).
 /// Se serve, fa il login Cloudflare (apre il browser) e crea/instrada il tunnel.
-fn tunnel_start_blocking(port: u16, hostname: String) -> Result<String, String> {
-    // L'App Expert ha il SUO link (web app Expert indipendente): il suo tunnel
-    // punta al suo sidecar (9183), qualunque porta arrivi dalla UI.
-    let port = if is_expert_mode() { 9183 } else { port };
+fn tunnel_start_blocking(t: &str, port: u16, hostname: String) -> Result<String, String> {
+    // L'Expert ha il SUO link: il suo tunnel punta al suo sidecar (9183),
+    // qualunque porta arrivi dalla UI.
+    let port = if t == "expert" { 9183 } else { port };
     {
         let g = TUNNEL.lock().map_err(|e| e.to_string())?;
         if let Some((_, u)) = g.as_ref() { return Ok(u.clone()); }
     }
     // tunnel ancora vivo da una sessione precedente (app chiusa/aggiornata/reinstallata)? riusalo
-    if let Some(u) = running_tunnel_from_state() { return Ok(u); }
+    if let Some(u) = running_tunnel_from_state(t) { return Ok(u); }
     // Con tsnet attivo il "tunnel con nome" non serve: il nodo embedded gestisce
     // da solo link stabile + Funnel. Cloudflared resta come fallback.
     if let Some(bin) = tsnet_bin_path() {
-        return tunnel_start_tsnet_blocking(bin, port);
+        return tunnel_start_tsnet_blocking(t, bin, port);
     }
     let exe = ensure_cloudflared()?;
 
@@ -2720,7 +2794,7 @@ fn tunnel_start_blocking(port: u16, hostname: String) -> Result<String, String> 
             .args(["tunnel", "--url", &format!("http://127.0.0.1:{}", port), "--no-autoupdate"])
             .stdout(Stdio::piped()).stderr(Stdio::piped())
             .spawn().map_err(|e| e.to_string())?;
-        let pidf = tunnel_pid_file();
+        let pidf = tunnel_pid_file(t);
         let _ = std::fs::write(&pidf, child.id().to_string());
         let mut url = String::new();
         if let Some(er) = child.stderr.take() {
@@ -2752,7 +2826,7 @@ fn tunnel_start_blocking(port: u16, hostname: String) -> Result<String, String> 
         let mut g = TUNNEL.lock().map_err(|e| e.to_string())?;
         *g = Some((child, url.clone()));
         drop(g);
-        save_remote_state_full(true, String::new(), url.clone(), Some(pid));
+        save_remote_state_full(t, true, String::new(), url.clone(), Some(pid));
         return Ok(url);
     }
 
@@ -2791,7 +2865,7 @@ fn tunnel_start_blocking(port: u16, hostname: String) -> Result<String, String> 
         .args(["tunnel", "--no-autoupdate", "--url", &format!("http://127.0.0.1:{}", port), "run", "quinki"])
         .stdout(Stdio::piped()).stderr(Stdio::piped())
         .spawn().map_err(|e| e.to_string())?;
-    let pidf = tunnel_pid_file();
+    let pidf = tunnel_pid_file(t);
     let _ = std::fs::write(&pidf, child.id().to_string());
     if let Some(er) = child.stderr.take() {
         use std::io::{BufRead, BufReader};
@@ -2803,16 +2877,15 @@ fn tunnel_start_blocking(port: u16, hostname: String) -> Result<String, String> 
     let mut g = TUNNEL.lock().map_err(|e| e.to_string())?;
     *g = Some((child, url.clone()));
     drop(g);
-    save_remote_state_full(true, hostname.clone(), url.clone(), Some(pid));
+    save_remote_state_full(t, true, hostname.clone(), url.clone(), Some(pid));
     Ok(url)
 }
 
-fn tunnel_stop_inner() {
+fn tunnel_stop_inner(t: &str) {
     if let Ok(mut g) = TUNNEL.lock() {
         if let Some((mut c, _)) = g.take() { let _ = c.kill(); }
     }
-    let home = std::env::var("HOME").unwrap_or_default();
-    let pidf = tunnel_pid_file();
+    let pidf = tunnel_pid_file(t);
     if let Ok(txt) = std::fs::read_to_string(&pidf) {
         if let Ok(pid) = txt.trim().parse::<i32>() {
             unsafe { libc::kill(pid, 15); }
@@ -2822,58 +2895,63 @@ fn tunnel_stop_inner() {
 }
 
 #[tauri::command]
-fn remote_tunnel_status() -> serde_json::Value {
-    let auth = load_remote_state_authurl();
+fn remote_tunnel_status(target: Option<String>) -> serde_json::Value {
+    let t = target.unwrap_or_else(|| "main".to_string());
+    let auth = load_remote_state_authurl(&t);
+    if t == "main" {
     if let Ok(g) = TUNNEL.lock() {
         if let Some((_, url)) = g.as_ref() {
             return serde_json::json!({ "running": !url.is_empty(), "url": url, "authUrl": auth });
         }
     }
-    // tunnel persistente avviato da una sessione precedente
-    if let Some(u) = running_tunnel_from_state() {
+    }
+    // tunnel persistente (o staccato, per l'Expert) avviato anche a app chiusa
+    if let Some(u) = running_tunnel_from_state(&t) {
         return serde_json::json!({ "running": true, "url": u, "authUrl": auth });
     }
-    serde_json::json!({ "running": false, "url": "" })
+    serde_json::json!({ "running": false, "url": "", "authUrl": auth })
 }
 
 #[tauri::command]
-async fn remote_tunnel_start(port: Option<u16>, hostname: Option<String>) -> Result<String, String> {
+async fn remote_tunnel_start(target: Option<String>, port: Option<u16>, hostname: Option<String>) -> Result<String, String> {
+    let t = target.unwrap_or_else(|| "main".to_string());
     let p = port.unwrap_or(9182);
     let host = hostname.unwrap_or_default();
-    let res = tunnel_start_blocking(p, host.clone());
+    let res = tunnel_start_blocking(&t, p, host.clone());
     if let Ok(u) = res.as_ref() {
         // Con url vuota (nodo in attesa di login) NON toccare lo stato:
         // il drain ha gia' scritto {enabled:true, authUrl} e un salvataggio
         // qui cancellerebbe l'authUrl mostrato in Impostazioni.
-        if !u.is_empty() { save_remote_state(true, host); }
+        if !u.is_empty() { save_remote_state(&t, true, host); }
     }
     res
 }
 
 #[tauri::command]
-async fn remote_tunnel_autostart() -> Result<String, String> {
-    let (enabled, hostname) = load_remote_state();
+async fn remote_tunnel_autostart(target: Option<String>) -> Result<String, String> {
+    let t = target.unwrap_or_else(|| "main".to_string());
+    let (enabled, hostname) = load_remote_state(&t);
     if !enabled { return Ok(String::new()); }
-    tunnel_start_blocking(9182, hostname)
+    tunnel_start_blocking(&t, 9182, hostname)
 }
 
 /// Log out da Tailscale: ferma il nodo, cancella l'iscrizione e lo stato.
 /// Alla prossima accensione si rifa' il sign-in da capo (nuovo nodo).
 #[tauri::command]
-fn remote_logout() -> Result<(), String> {
-    tunnel_stop_inner();
-    let home = std::env::var("HOME").unwrap_or_default();
-    let _ = std::fs::remove_dir_all(tsnet_state_dir());
-    let _ = std::fs::remove_file(ts_node_file());
-    let _ = std::fs::remove_file(tunnel_pid_file());
-    let _ = home;
-    let _ = std::fs::remove_file(remote_state_file());
+fn remote_logout(target: Option<String>) -> Result<(), String> {
+    let t = target.unwrap_or_else(|| "main".to_string());
+    tunnel_stop_inner(&t);
+    let _ = std::fs::remove_dir_all(tsnet_state_dir(&t));
+    let _ = std::fs::remove_file(ts_node_file(&t));
+    let _ = std::fs::remove_file(tunnel_pid_file(&t));
+    let _ = std::fs::remove_file(remote_state_file(&t));
     Ok(())
 }
 
 #[tauri::command]
-fn remote_tunnel_state() -> serde_json::Value {
-    let (enabled, hostname) = load_remote_state();
+fn remote_tunnel_state(target: Option<String>) -> serde_json::Value {
+    let t = target.unwrap_or_else(|| "main".to_string());
+    let (enabled, hostname) = load_remote_state(&t);
     serde_json::json!({ "enabled": enabled, "hostname": hostname })
 }
 
@@ -2940,10 +3018,11 @@ async fn remote_tunnel_start_legacy(port: Option<u16>) -> Result<String, String>
 }
 
 #[tauri::command]
-fn remote_tunnel_stop() -> Result<(), String> {
-    tunnel_stop_inner();
-    let (_, hostname) = load_remote_state();
-    save_remote_state(false, hostname);
+fn remote_tunnel_stop(target: Option<String>) -> Result<(), String> {
+    let t = target.unwrap_or_else(|| "main".to_string());
+    tunnel_stop_inner(&t);
+    let (_, hostname) = load_remote_state(&t);
+    save_remote_state(&t, false, hostname);
     Ok(())
 }
 
@@ -2955,9 +3034,9 @@ fn random_hex(n: usize) -> String {
 }
 
 #[tauri::command]
-fn remote_devices_list() -> serde_json::Value {
-    let home = std::env::var("HOME").unwrap_or_default();
-    let p = remote_devices_file();
+fn remote_devices_list(target: Option<String>) -> serde_json::Value {
+    let t = target.unwrap_or_else(|| "main".to_string());
+    let p = remote_devices_file(&t);
     let mut out: Vec<serde_json::Value> = Vec::new();
     if let Ok(txt) = std::fs::read_to_string(&p) {
         if let Ok(v) = serde_json::from_str::<serde_json::Value>(&txt) {
@@ -2977,9 +3056,9 @@ fn remote_devices_list() -> serde_json::Value {
 }
 
 #[tauri::command]
-fn remote_device_revoke(id: String) -> Result<(), String> {
-    let home = std::env::var("HOME").unwrap_or_default();
-    let p = remote_devices_file();
+fn remote_device_revoke(target: Option<String>, id: String) -> Result<(), String> {
+    let t = target.unwrap_or_else(|| "main".to_string());
+    let p = remote_devices_file(&t);
     if let Ok(txt) = std::fs::read_to_string(&p) {
         if let Ok(mut v) = serde_json::from_str::<serde_json::Value>(&txt) {
             if let Some(arr) = v.as_array_mut() {
@@ -2992,11 +3071,11 @@ fn remote_device_revoke(id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn remote_token_rotate() -> String {
+fn remote_token_rotate(target: Option<String>) -> String {
     // Rigenera il token MASTER: i vecchi link di pairing smettono di funzionare,
     // ma i dispositivi gia' accoppiati NON vengono toccati (hanno token propri).
-    let home = std::env::var("HOME").unwrap_or_default();
-    let p = remote_token_file();
+    let t = target.unwrap_or_else(|| "main".to_string());
+    let p = remote_token_file(&t);
     let tok = random_hex(24);
     let st = serde_json::json!({ "token": tok });
     let _ = std::fs::write(&p, serde_json::to_string_pretty(&st).unwrap_or_default());
@@ -3018,9 +3097,9 @@ fn copy_to_clipboard(text: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn get_remote_token() -> String {
-    let home = std::env::var("HOME").unwrap_or_default();
-    let p = remote_token_file();
+fn get_remote_token(target: Option<String>) -> String {
+    let t = target.unwrap_or_else(|| "main".to_string());
+    let p = remote_token_file(&t);
     if let Ok(txt) = std::fs::read_to_string(&p) {
         if let Ok(v) = serde_json::from_str::<serde_json::Value>(&txt) {
             if let Some(t) = v.get("token").and_then(|x| x.as_str()) { return t.to_string(); }
@@ -3095,12 +3174,16 @@ pub fn run() {
     // avviene quando l'utente preme Enable/Refresh nel pannello (esplicito),
     // cosi' il vecchio tunnel resta su fino a che il nuovo e' pronto.
     std::thread::spawn(|| {
-        // Ogni app (main / Expert) gestisce IL SUO tunnel: stato separato,
-        // nodo e link separati. L'Expert resta su anche quando la main si riavvia.
-        let (enabled, hostname) = load_remote_state();
-        if !enabled { return; }
-        if running_tunnel_from_state().is_some() { return; } // gia' vivo: stesso link
-        let _ = tunnel_start_blocking(9182, hostname);
+        // La MAIN gestisce ENTRAMBI i tunnel (main + Expert): quello dell'Expert
+        // e' staccato e sopravvive ai riavvii/reinstall della main. L'app Expert
+        // (quando gira) sorveglia solo il proprio.
+        let tl: Vec<&str> = if is_expert_mode() { vec!["expert"] } else { vec!["main", "expert"] };
+        for t in tl {
+            let (enabled, hostname) = load_remote_state(t);
+            if !enabled { continue; }
+            if running_tunnel_from_state(t).is_some() { continue; } // gia' vivo
+            let _ = tunnel_start_blocking(t, 9182, hostname);
+        }
     });
 
     // === WEB APP: watchdog del tunnel (ogni 30s, affidabilita' massima) ===
@@ -3118,28 +3201,32 @@ pub fn run() {
                 let _ = writeln!(f, "[{}] {}", secs, msg);
             }
         };
-        let mut fails = 0u32;
+        let tl: Vec<&str> = if is_expert_mode() { vec!["expert"] } else { vec!["main", "expert"] };
+        let mut mf = std::collections::HashMap::<&str, u32>::new();
         loop {
             std::thread::sleep(std::time::Duration::from_secs(30));
-            let (enabled, hostname) = load_remote_state();
-            if !enabled { fails = 0; continue; }
-            let url = load_remote_state_url();
-            let alive = load_remote_state_pid().map(pid_alive).unwrap_or(false);
-            if !alive {
-                log("process dead: restarting tunnel");
-                if tunnel_start_blocking(9182, hostname).is_err() { log("restart failed"); }
-                fails = 0;
-                continue;
-            }
-            if url.is_empty() { fails = 0; continue; }
-            if url_reachable_any_edge(&url) { fails = 0; continue; }
-            fails += 1;
-            log(&format!("unreachable from all edges ({} consecutive)", fails));
-            if fails >= 2 {
-                log("restarting tunnel after 2 unreachable checks");
-                tunnel_stop_inner();
-                let _ = tunnel_start_blocking(9182, hostname);
-                fails = 0;
+            for t in &tl {
+                let (enabled, hostname) = load_remote_state(t);
+                if !enabled { mf.insert(t, 0); continue; }
+                let url = load_remote_state_url(t);
+                let alive = load_remote_state_pid(t).map(pid_alive).unwrap_or(false);
+                if !alive {
+                    log(&format!("[{}] process dead: restarting tunnel", t));
+                    if tunnel_start_blocking(t, 9182, hostname).is_err() { log(&format!("[{}] restart failed", t)); }
+                    mf.insert(t, 0);
+                    continue;
+                }
+                if url.is_empty() { mf.insert(t, 0); continue; }
+                if url_reachable_any_edge(&url) { mf.insert(t, 0); continue; }
+                let fails = mf.get(t).copied().unwrap_or(0) + 1;
+                mf.insert(t, fails);
+                log(&format!("[{}] unreachable from all edges ({} consecutive)", t, fails));
+                if fails >= 2 {
+                    log(&format!("[{}] restarting tunnel after 2 unreachable checks", t));
+                    tunnel_stop_inner(t);
+                    let _ = tunnel_start_blocking(t, 9182, hostname);
+                    mf.insert(t, 0);
+                }
             }
         }
     });
