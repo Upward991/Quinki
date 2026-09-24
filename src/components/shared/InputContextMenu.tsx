@@ -1,3 +1,5 @@
+// NOTA: questo componente NON e' piu' montato (App.tsx: '/* InputContextMenu rimosso */').
+// Il menu contestuale vero vive in src/main.tsx. File tenuto solo come riferimento.
 import React, { useState, useEffect, useRef } from 'react'
 import { useLayout } from '../../platform/layout'
 

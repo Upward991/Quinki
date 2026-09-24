@@ -168,9 +168,11 @@ document.addEventListener('contextmenu', (e) => {
 
     const menu = document.createElement('div')
     menu.style.cssText = 'position:fixed;z-index:99999;background:var(--q-bg-panel,#252528);border:1px solid var(--q-border,#4a4a50);border-radius:8px;padding:4px 0;box-shadow:0 4px 20px rgba(0,0,0,0.5);min-width:180px;font-family:var(--font-interface,-apple-system,sans-serif);font-size:13px;user-select:none'
+    // Telefono (senza Tauri): le scorciatoie da tastiera non esistono -> mai mostrate.
+    const _isPhone = ('ontouchstart' in window) || ((navigator as any).maxTouchPoints || 0) > 0
     const mkItem = (label: string, sc: string, fn: () => void, enabled: boolean) => {
         const d = document.createElement('div')
-        d.innerHTML = `<span>${label}</span><span style="color:var(--q-text-tertiary,#888);font-size:11px;margin-left:auto;padding-left:24px">${sc}</span>`
+        d.innerHTML = `<span>${label}</span>` + (_isPhone ? '' : `<span style="color:var(--q-text-tertiary,#888);font-size:11px;margin-left:auto;padding-left:24px">${sc}</span>`)
         d.style.cssText = `display:flex;align-items:center;padding:6px 14px;cursor:${enabled ? 'pointer' : 'default'};color:${enabled ? 'var(--q-text,#e6e6e6)' : 'var(--q-text-tertiary,#666)'};white-space:nowrap`
         if (enabled) {
             d.onmouseenter = () => { d.style.background = 'rgba(255,255,255,0.06)' }
@@ -185,8 +187,32 @@ document.addEventListener('contextmenu', (e) => {
         const w = window as any
         const start = el.selectionStart ?? 0, end = el.selectionEnd ?? 0
         const insert = (text: string) => { el.focus(); el.setSelectionRange(start, end); document.execCommand('insertText', false, text) }
+        try { w.__reportFrontendError?.('paste', 'menu-paste') } catch {}
+        // 1) APP ANDROID: il WebView non ha l'API clipboard -> ponte nativo.
+        try {
+            const nat = w.QuinkiNative
+            if (nat && typeof nat.getClipboard === 'function') {
+                const t = String(nat.getClipboard() || '')
+                try { w.__reportFrontendError?.('paste', 'branch=native len=' + t.length) } catch {}
+                if (t) insert(t)
+                return
+            }
+            try { w.__reportFrontendError?.('paste', 'branch=no-bridge') } catch {}
+        } catch (e: any) {
+            try { w.__reportFrontendError?.('paste', 'native-err ' + String(e?.message || e)) } catch {}
+        }
+        // 2) DESKTOP (Tauri)
         if (w.__TAURI_INTERNALS__ && w.__TAURI_INTERNALS__.invoke) {
             w.__TAURI_INTERNALS__.invoke('plugin:clipboard-manager|read_text').then((t: string) => insert(t)).catch(() => {})
+            return
+        }
+        // 3) BROWSER/PWA
+        try {
+            navigator.clipboard.readText().then((t: string) => insert(t)).catch((e: any) => {
+                try { w.__reportFrontendError?.('paste', 'clipboard-fail ' + String(e?.message || e)) } catch {}
+            })
+        } catch (e: any) {
+            try { w.__reportFrontendError?.('paste', 'clipboard-throw ' + String(e?.message || e)) } catch {}
         }
     }, true)
     mkItem('Select All', '⌘A', () => { el.select() }, true)
