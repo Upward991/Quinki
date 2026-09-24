@@ -37,6 +37,7 @@ import {
 import {
   PiBridge,
   setPiBridgeInstance,
+  isExpertSidecar,
   getSystemPromptIPC,
   getStreamingStatusIPC,
   getSettings,
@@ -223,14 +224,43 @@ function sendWebPush(entry: any) {
     let subs: any[] = [];
     try { subs = JSON.parse(fs.readFileSync(sf, 'utf8')) || []; } catch {}
     if (!subs.length) return;
+    // === PUSH MIRATA (24 set): ogni notifica va SOLO alla PWA della stessa app.
+    // Il ruolo si legge dalla sub (campo role) o, per le sub storiche senza tag,
+    // dal file device in cui compare il suo dev id (main vs expert). Prima si
+    // mandava a TUTTE le sub: il telefono riceveva il doppione (main + expert).
+    const myRole = isExpertSidecar() ? 'expert' : 'main';
+    const roleOf = (sub: any): string => {
+      try {
+        if (sub?.role === 'expert' || sub?.role === 'main') return sub.role;
+        const dev = String(sub?.dev || '');
+        if (!dev) return 'unknown';
+        const home = homedir();
+        const inFile = (p: string) => { try { const a = JSON.parse(fs.readFileSync(p, 'utf8')); return Array.isArray(a) && a.some((x: any) => x?.id === dev); } catch { return false; } };
+        if (inFile(path.join(home, '.quinki', 'remote-devices-expert.json'))) return 'expert';
+        if (inFile(path.join(home, '.quinki', 'remote-devices.json'))) return 'main';
+      } catch {}
+      return 'unknown';
+    };
+    const targets = subs.filter((s: any) => { const r = roleOf(s); return r === myRole || r === 'unknown'; });
+    if (!targets.length) return;
     const vapid = getVapidKeys();
     webpush.setVapidDetails('mailto:quinki@localhost', vapid.publicKey, vapid.privateKey);
+    // Titolo IDENTICO al desktop: nome della chat (App Expert per la chat expert,
+    // "Task executed" per i task), fallback "A response arrived / New response".
+    let title = entry?.kind === 'task_complete' ? 'Task executed' : (sk === '__app_expert__' ? 'App Expert' : '');
+    if (!title) {
+      try {
+        const ss = (piBridge as any)?.getSessions?.() || [];
+        const ses = ss.find?.((x: any) => x?.id === sk);
+        title = ses?.title || 'New response';
+      } catch { title = 'New response'; }
+    }
     const payload = JSON.stringify({
-      title: entry?.kind === 'task_complete' ? 'Task executed' : (sk === '__app_expert__' ? 'App Expert' : 'Quinki'),
+      title,
       body: String(entry?.body || entry?.label || 'A response arrived'),
       sessionKey: sk,
     });
-    for (const sub of subs) {
+    for (const sub of targets) {
       webpush.sendNotification(sub, payload).catch(() => {});
     }
   } catch {}
@@ -875,6 +905,10 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
       const sub = p?.subscription;
       if (!sub || !sub.endpoint) return { ok: false };
       if (p?.__dev) { try { sub.dev = String(p.__dev); } catch {} }
+      // Ruolo della web app che ha sottoscritto (main vs Expert): la push di una
+      // chat va SOLO alla PWA della stessa app (prima andava a entrambe -> il
+      // telefono riceveva il doppione).
+      try { sub.role = isExpertSidecar() ? 'expert' : 'main'; } catch {}
       subs = subs.filter((x) => x && x.endpoint !== sub.endpoint);
       subs.push(sub);
       fs.writeFileSync(f, JSON.stringify(subs, null, 2));

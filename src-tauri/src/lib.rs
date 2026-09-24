@@ -562,6 +562,19 @@ fn setup_notification_delegate(app: &tauri::AppHandle) {
     }
 }
 
+// Traccia diagnosi notifiche (la scrive il comando reale send_notification):
+// entry, errore di consegna e stato del permesso. Serve a capire dove muore la
+// catena su macOS 27 senza indovinare.
+fn notif_trace(msg: &str) {
+    if let Ok(home) = std::env::var("HOME") {
+        use std::io::Write;
+        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(format!("{}/.quinki/notif-trace.log", home)) {
+            let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+            let _ = writeln!(f, "[{}] {}", secs, msg);
+        }
+    }
+}
+
 fn send_macos_notification(title: &str, body: &str, subtitle: &str) {
     // UNUserNotificationCenter (mostra con firma corretta) + fallback osascript (firma ad-hoc)
     #[cfg(target_os = "macos")]
@@ -596,6 +609,7 @@ fn send_macos_notification(title: &str, body: &str, subtitle: &str) {
 
 #[tauri::command]
 fn send_notification(app: tauri::AppHandle, title: String, body: String, subtitle: Option<String>, session_key: Option<String>) -> Result<(), String> {
+    notif_trace(&format!("ENTER: title={:?} body_len={} sk={:?}", title, body.len(), session_key));
     send_macos_notification(&title, &body, subtitle.as_deref().unwrap_or(""));
     // Il plugin usa notify_rust (osascript) che NON mostra notifiche per questa app.
     // Implementiamo la consegna REALE con UNUserNotificationCenter.
@@ -628,13 +642,18 @@ fn send_notification(app: tauri::AppHandle, title: String, body: String, subtitl
             let id_ns: *mut Object = msg_send![class!(NSString), stringWithUTF8String: id_c.as_ptr()];
             let nil_obj: *mut Object = std::ptr::null_mut();
             let req: *mut Object = msg_send![class!(UNNotificationRequest), requestWithIdentifier: id_ns content: content trigger: nil_obj];
-            // Log dell'errore di consegna (se c'è)
-            let block = block::ConcreteBlock::new(move |error: *mut Object| { let _ = error; });
+            // Log dell'errore di consegna (se c'è) — TRACCIA REALE su file
+            let block = block::ConcreteBlock::new(move |error: *mut Object| {
+                notif_trace(&format!("DELIVERY error_present={}", !error.is_null()));
+            });
             let block = block.copy();
             let block_ptr: *mut std::ffi::c_void = &*block as *const _ as *mut std::ffi::c_void;
             let _: () = msg_send![center, addNotificationRequest: req withCompletionHandler: block_ptr];
             // Check dello stato del permesso (0=notDetermined 1=denied 2=authorized 3=provisional)
-            let pblock = block::ConcreteBlock::new(move |settings: *mut Object| { let _ = settings; });
+            let pblock = block::ConcreteBlock::new(move |settings: *mut Object| {
+                let st: u64 = msg_send![settings, authorizationStatus];
+                notif_trace(&format!("AUTH status={} (0=notDet 1=denied 2=authorized 3=provisional)", st));
+            });
             let pblock = pblock.copy();
             let pblock_ptr: *mut std::ffi::c_void = &*pblock as *const _ as *mut std::ffi::c_void;
             let _: () = msg_send![center, getNotificationSettingsWithCompletionHandler: pblock_ptr];
