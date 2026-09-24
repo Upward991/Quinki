@@ -502,8 +502,11 @@ fn setup_notification_delegate(app: &tauri::AppHandle) {
         fn objc_registerClassPair(cls: *mut Object);
     }
     unsafe extern "C" fn will_present(_this: *mut Object, _cmd: Sel, _center: *mut Object, _notification: *mut Object, completion: *mut c_void) {
-        // UNNotificationPresentationOptionBanner=4, Sound=1, Badge=2
-        let options: u64 = 4 | 1 | 2;
+        // macOS 27: i valori VECCHI non mostrano più il banner (la notifica finiva
+        // muta nel centro notifiche: presented=0 nel db di usernoted). Costanti vere:
+        // Banner = 1<<4 = 16, List = 1<<3 = 8; Alert = 1<<2 = 4 (legacy, per macOS
+        // vecchi), Sound = 1, Badge = 2. Passiamo tutto: compatibilità totale.
+        let options: u64 = 16 | 8 | 4 | 1 | 2;
         let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
         let block = &*(completion as *const block::Block<(u64,), ()>);
         block.call((options,));
