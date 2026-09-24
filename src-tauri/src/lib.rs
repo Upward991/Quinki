@@ -1829,6 +1829,26 @@ fn count_items(dir: &str) -> usize {
 }
 
 #[tauri::command]
+/// True se l'ALTRA app (main vs Expert) e' in esecuzione. Il pattern e' quello
+/// preciso col /quinki finale: non matcha il tunnel ne' i sidecar.
+fn other_app_running() -> bool {
+    let pat = if is_expert_mode() { "Quinki.app/Contents/MacOS/quinki" } else { "App Expert.app/Contents/MacOS/quinki" };
+    std::process::Command::new("/usr/bin/pgrep").args(["-f", pat]).status().map(|s| s.success()).unwrap_or(false)
+}
+
+/// ULTIMA app in uscita: spegne il TUNNEL (nessuna app aperta = nessun ponte,
+/// zero processi in background). Con l'altra app ancora viva il tunnel resta:
+/// la sua web app continua a funzionare. All'apertura di una qualsiasi delle
+/// due, l'autostart/watchdog lo riavvia da solo.
+fn maybe_stop_tunnel_last_out() {
+    if other_app_running() { return; }
+    std::thread::sleep(std::time::Duration::from_millis(700)); // margine: l'altra app potrebbe aver appena chiuso
+    if other_app_running() { return; }
+    let _ = std::process::Command::new("/usr/bin/pkill").args(["-TERM", "-f", "tsnet-tunnel"]).status();
+    let home = std::env::var("HOME").unwrap_or_default();
+    let _ = std::fs::remove_file(format!("{}/.quinki/tunnel.pid", home));
+}
+
 fn kill_backend() {
     // SINCRONO (status()): il kill DEVE essere completato prima di uscire, altrimenti
     // il sidecar sopravvive alla chiusura (race). Copre tutte le vie di quit.
@@ -1949,6 +1969,7 @@ fn native_restart_confirm(_app_name: &str) -> bool { true }
 fn quit_app(app: tauri::AppHandle) {
     // Chiude TUTTO: backend + app (usato dal modale Cmd+Q → "Quit App")
     kill_backend();
+    maybe_stop_tunnel_last_out();
     SHOULD_EXIT.store(true, Ordering::SeqCst);
     let home = std::env::var("HOME").unwrap_or_default();
     let pid_file = if is_expert_mode() { format!("{}/.quinki-expert-app.pid", home) } else { format!("{}/.quinki-app.pid", home) };
@@ -2017,6 +2038,7 @@ fn hide_to_tray(app: tauri::AppHandle) {
 fn quit_expert_app(app: tauri::AppHandle) {
     // Kill watchdog PRIMA (niente race di riaccensione), poi sidecar
     kill_backend();
+    maybe_stop_tunnel_last_out();
     SHOULD_EXIT.store(true, Ordering::SeqCst);
     app.exit(0);
 }
@@ -3549,6 +3571,7 @@ fn quick_chat_watch_shortcut(app: tauri::AppHandle) {
               // Il quit dal tray chiude TUTTO (app + backend) → conferma nativa macOS
               if native_quit_confirm("Quinki") {
                 kill_backend();
+                maybe_stop_tunnel_last_out();
                 SHOULD_EXIT.store(true, Ordering::SeqCst);
                 app.exit(0);
               }

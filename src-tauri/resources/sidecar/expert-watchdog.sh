@@ -11,6 +11,13 @@ while true; do
     echo "$(date): App Expert not running, watchdog exits and cleans up" >> "$LOG"
     pkill -9 -f 'App Expert.app/Contents/Resources/resources/sidecar/quinki-sidecar-w[s]' 2>/dev/null
     lsof -ti:9183 2>/dev/null | xargs kill -9 2>/dev/null
+    # ULTIMA app in uscita (vale anche per morte brutale): spegni anche il TUNNEL.
+    sleep 2
+    if ! pgrep -f "Quinki.app/Contents/MacOS/quinki" > /dev/null 2>&1; then
+      pkill -TERM -f 'tsnet-tunnel' 2>/dev/null
+      rm -f "$HOME/.quinki/tunnel.pid"
+      echo "$(date): no app running, tunnel stopped" >> "$LOG"
+    fi
     exit 0
   fi
   if ! lsof -ti:9183 > /dev/null 2>&1; then

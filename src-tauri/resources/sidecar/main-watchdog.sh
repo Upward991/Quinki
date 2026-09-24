@@ -19,6 +19,15 @@ while true; do
     echo "$(date): Main app not running, main-watchdog exits and cleans up" >> "$LOG"
     pkill -9 -f 'Quinki.app/Contents/Resources/resources/sidecar/quinki-sidecar-w[s]' 2>/dev/null
     lsof -ti:9182 2>/dev/null | xargs kill -9 2>/dev/null
+    # ULTIMA app in uscita (vale anche per morte brutale): spegni anche il TUNNEL.
+    # Nessuna app aperta = nessun ponte = zero processi in background. Alla
+    # riapertura di una qualsiasi delle due app il watchdog lo riavvia da solo.
+    sleep 2
+    if ! pgrep -f "App Expert.app/Contents/MacOS/quinki" > /dev/null 2>&1; then
+      pkill -TERM -f 'tsnet-tunnel' 2>/dev/null
+      rm -f "$HOME/.quinki/tunnel.pid"
+      echo "$(date): no app running, tunnel stopped" >> "$LOG"
+    fi
     exit 0
   fi
   if ! lsof -ti:9182 > /dev/null 2>&1; then
