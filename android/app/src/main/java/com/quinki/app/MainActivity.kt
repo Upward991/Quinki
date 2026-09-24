@@ -71,6 +71,7 @@ class MainActivity : AppCompatActivity() {
     private var updateChecked = false
     private var downloadId = -1L
     private var pendingSessionKey: String = ""
+    private var loadRetries = 0
 
     private val scanLauncher = registerForActivityResult(ScanContract()) { result ->
         val contents = result.contents
@@ -215,6 +216,17 @@ class MainActivity : AppCompatActivity() {
                 return false
             }
 
+            override fun onReceivedError(view: WebView, request: WebResourceRequest, error: android.webkit.WebResourceError) {
+                try {
+                    if (request.isForMainFrame && loadRetries < 3) {
+                        loadRetries++
+                        view.postDelayed({
+                            try { loadUrlWithAppHeader(getSharedPreferences("quinki", Context.MODE_PRIVATE).getString("link", "") ?: "") } catch (e: Exception) { }
+                        }, 1500)
+                    }
+                } catch (e: Exception) { }
+            }
+
             override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, errorResponse: WebResourceResponse) {
                 if (errorResponse.statusCode == 401 && request.isForMainFrame) {
                     val prefs = getSharedPreferences("quinki", Context.MODE_PRIVATE)
@@ -225,6 +237,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun onPageFinished(view: WebView, url: String) {
+                loadRetries = 0
                 CookieManager.getInstance().flush()
                 ensurePermissions()
                 // Apri la chat della notifica appena l'app è carica (retry inclusi).

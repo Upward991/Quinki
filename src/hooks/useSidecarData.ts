@@ -1119,7 +1119,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     const send = () => {
       try {
         const focused = document.hasFocus() && !document.body.classList.contains('win-inactive')
-        call('setClientWatching', { sessionKey: String(activeSessionId || ''), watching: focused && document.visibilityState === 'visible' })
+        call('setClientWatching', { sessionKey: String(activeSessionId || ''), watching: focused && document.visibilityState === 'visible' }).catch(() => {})
       } catch {}
     }
     send()
