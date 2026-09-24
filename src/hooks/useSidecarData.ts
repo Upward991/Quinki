@@ -856,11 +856,19 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
                 const body = p.label || 'Task completed'
                 invoke('send_notification', { title, body: '\n' + body, sessionKey: sk }).catch(() => {})
               } else {
-                // Chat: titolo = nome chat (App Expert per la sessione expert), body = anteprima risposta
-                const sess = sessionsRef.current.find((s: any) => s.id === sk)
-                const title = sk === '__app_expert__' ? 'App Expert' : (sess?.title || 'New response')
-                const body = p.body || 'A response arrived'
-                invoke('send_notification', { title, body: '\n' + body, sessionKey: sk }).catch(() => {})
+                // OPZIONE C (scelta utente): popup su TUTTO tranne quando stai
+                // guardando PROPRIO la chat che risponde (app in primo piano + chat
+                // attiva). App dietro o app su un'ALTRA chat -> popup.
+                const watchingThisChat = (() => {
+                  try { return document.hasFocus() && sk === activeSessionIdRef.current } catch { return false }
+                })()
+                if (!watchingThisChat) {
+                  // Chat: titolo = nome chat (App Expert per la sessione expert), body = anteprima risposta
+                  const sess = sessionsRef.current.find((s: any) => s.id === sk)
+                  const title = sk === '__app_expert__' ? 'App Expert' : (sess?.title || 'New response')
+                  const body = p.body || 'A response arrived'
+                  invoke('send_notification', { title, body: '\n' + body, sessionKey: sk }).catch(() => {})
+                }
               }
             }
           }).catch(() => {})

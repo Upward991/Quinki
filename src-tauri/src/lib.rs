@@ -511,6 +511,7 @@ fn setup_notification_delegate(app: &tauri::AppHandle) {
         let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
         let block = &*(completion as *const block::Block<(u64,), ()>);
         block.call((options,));
+        notif_trace(&format!("DELEGATE: completion chiamata con opts={}", options));
     }
     // CLICK sulla notifica → estrae la sessionKey da userInfo → focus + apre la chat
     unsafe extern "C" fn did_receive(_this: *mut Object, _cmd: Sel, _center: *mut Object, response: *mut Object, completion: *mut c_void) {
