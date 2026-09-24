@@ -81,3 +81,5 @@ src-tauri/resources/sidecar/web/
 
 # Swift build dir della dettatura
 tools/dictation-helper/.build/
+fcm/fcm-service-account.json
+src-tauri/resources/sidecar/fcm-service-account.json

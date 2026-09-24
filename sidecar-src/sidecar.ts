@@ -286,6 +286,24 @@ function sendFcm(entry: any): void {
     try { toks = JSON.parse(fs.readFileSync(tf, 'utf8')) || []; } catch {}
     if (!toks.length) return;
     const saPath = path.join(home, '.quinki', 'fcm-service-account.json');
+    // RELAY (prodotto): il postino Cloudflare tiene la chiave e invia lui.
+    let relayUrl = "";
+    try {
+      const rj = JSON.parse(fs.readFileSync(path.join(home, '.quinki', 'fcm-relay.json'), 'utf8'));
+      relayUrl = String(rj?.url || "");
+    } catch {}
+    if (relayUrl) {
+      for (const t of toks.slice(0, 10)) {
+        const tok = String(t?.token || '');
+        if (!tok) continue;
+        fetch(relayUrl.replace(/\/$/, '') + '/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target: tok, title, body, sessionKey: sk }),
+        }).catch(() => {});
+      }
+      return;
+    }
     if (!fs.existsSync(saPath)) return;
     let title = entry?.kind === 'task_complete' ? 'Task executed' : (sk === '__app_expert__' ? 'App Expert' : '');
     if (!title) {

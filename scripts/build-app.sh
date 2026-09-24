@@ -32,8 +32,10 @@ echo "[build-app] web version: $WV"
 # accanto al sidecar). Gli utenti NON devono configurare nulla.
 if [ -d fcm ]; then
   mkdir -p src-tauri/resources/sidecar
-  cp fcm/*.json src-tauri/resources/sidecar/ 2>/dev/null || true
-  echo "[build-app] FCM product config included"
+  # SOLO la config pubblica (appId/apiKey del progetto): la CHIAVE DI INVIO non
+  # entra MAI nel prodotto (vive nel relay Cloudflare, tools/fcm-relay).
+  cp fcm/fcm-public-config.json src-tauri/resources/sidecar/ 2>/dev/null || true
+  echo "[build-app] FCM product config included (public only)"
 fi
 bash scripts/build-sidecar.sh
 # Dettatura locale (Parakeet TDT v3 via FluidAudio): compila l'helper swift e lo

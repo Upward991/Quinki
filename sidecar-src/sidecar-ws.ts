@@ -133,7 +133,7 @@ const REMOTE_FILE = join(AGENT_DIR, WEB_IS_EXPERT ? "remote-expert.json" : "remo
 // notifiche funzionanti senza fare nulla. Se i file non esistono: tutto spento. ===
 try {
   const rsDir = dirname(process.execPath || "");
-  for (const f of ["fcm-public-config.json", "fcm-service-account.json"]) {
+  for (const f of ["fcm-public-config.json"]) {
     const dst = join(String(process.env.HOME || ""), ".quinki", f);
     if (!dst.startsWith("/")) continue;
     if (!existsSync(dst)) {
