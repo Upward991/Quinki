@@ -874,6 +874,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
       try { subs = JSON.parse(fs.readFileSync(f, 'utf8')) || []; } catch {}
       const sub = p?.subscription;
       if (!sub || !sub.endpoint) return { ok: false };
+      if (p?.__dev) { try { sub.dev = String(p.__dev); } catch {} }
       subs = subs.filter((x) => x && x.endpoint !== sub.endpoint);
       subs.push(sub);
       fs.writeFileSync(f, JSON.stringify(subs, null, 2));

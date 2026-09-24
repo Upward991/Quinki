@@ -550,14 +550,22 @@ stdoutEmitter.on("line", (line: string) => {
   }
 });
 
-wss.on("connection", (ws) => {
+wss.on("connection", (ws, req: any) => {
   clients.add(ws);
   (ws as any).isAlive = true;
+  // Chi e' questa connessione? (device token -> id): serve a legare le push al
+  // dispositivo, cosi' al Revoke spariscono quelle del device rimosso.
+  try {
+    const t = tokenFromReq(req, String(req?.url || ""));
+    const dev = t ? findDeviceByToken(t) : null;
+    (ws as any).__devId = dev ? dev.id : "";
+  } catch { (ws as any).__devId = ""; }
   ws.on("pong", () => { (ws as any).isAlive = true; });
   ws.on("close", () => { clients.delete(ws); });
   ws.on("message", (data) => {
     try {
       const msg = JSON.parse(data.toString());
+      try { if (msg && msg.params && typeof msg.params === "object") msg.params.__dev = (ws as any).__devId || ""; } catch {}
       // registrata con orario su stderr (catturato dal watchdog log). Alla prossima
       const line = JSON.stringify(msg);
       const handleLine = (globalThis as any).__quinki_handleLine;

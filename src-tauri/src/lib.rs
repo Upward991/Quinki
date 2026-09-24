@@ -2989,6 +2989,17 @@ fn remote_devices_list(target: Option<String>) -> serde_json::Value {
 fn remote_device_revoke(target: Option<String>, id: String) -> Result<(), String> {
     let t = target.unwrap_or_else(|| "main".to_string());
     let p = remote_devices_file(&t);
+    // Le push di QUEL dispositivo non devono piu' arrivare: rimuovi le sue
+    // subscription (taggate con dev = id al momento della sottoscrizione).
+    let psf = format!("{}/.quinki/push-subs.json", std::env::var("HOME").unwrap_or_default());
+    if let Ok(txt) = std::fs::read_to_string(&psf) {
+        if let Ok(mut v) = serde_json::from_str::<serde_json::Value>(&txt) {
+            if let Some(arr) = v.as_array_mut() {
+                arr.retain(|s| s.get("dev").and_then(|x| x.as_str()) != Some(id.as_str()));
+            }
+            let _ = std::fs::write(&psf, serde_json::to_string_pretty(&v).unwrap_or_default());
+        }
+    }
     if let Ok(txt) = std::fs::read_to_string(&p) {
         if let Ok(mut v) = serde_json::from_str::<serde_json::Value>(&txt) {
             if let Some(arr) = v.as_array_mut() {
