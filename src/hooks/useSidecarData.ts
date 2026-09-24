@@ -868,6 +868,11 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
                   const title = sk === '__app_expert__' ? 'App Expert' : (sess?.title || 'New response')
                   const body = p.body || 'A response arrived'
                   invoke('send_notification', { title, body: '\n' + body, sessionKey: sk }).catch(() => {})
+                  // Se l'app e' in primo piano il banner macOS non si vede (limite
+                  // macOS 27): stesso popup dentro la finestra (toast in-app).
+                  if (document.hasFocus()) {
+                    try { window.dispatchEvent(new CustomEvent('quinki-inapp-toast', { detail: { title, body, sk } })) } catch {}
+                  }
                 }
               }
             }
@@ -1111,6 +1116,16 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
       console.error('Failed to load session:', e)
     }
   }, [ready, call])
+
+  // Apertura chat dal TOAST in-app (click): stesso intento del banner macOS.
+  useEffect(() => {
+    const onOpen = (ev: any) => {
+      const sk = ev?.detail
+      if (sk && typeof sk === 'string') { try { selectSession(sk) } catch {} }
+    }
+    window.addEventListener('quinki-open-session', onOpen)
+    return () => window.removeEventListener('quinki-open-session', onOpen)
+  }, [selectSession])
 
   const injectErrorMessages = useCallback((userText: string, errorContent: string) => {
     setMessages(prev => [...prev,
