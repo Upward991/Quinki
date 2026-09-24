@@ -327,6 +327,18 @@ class PiBridge {
   #pendingThinking = new Map<string, string>();
   #pendingMode = new Map<string, string>();
   #cwdOverride = new Map<string, string>();
+
+  // === CARTELLA DI LAVORO AUTO PER SESSIONE (fix 24 set) ===
+  // Prima ogni chat senza workdir propria usava UNA cartella condivisa
+  // (~/.quinki/workdir): le chat nuove vedevano i file delle vecchie. Ora ogni
+  // sessione ha la SUA (~/.quinki/workdir/<chiave>), come per gli attachments.
+  #autoWorkDir(key: string): string {
+    const safe = String(key || "session").replace(/[^a-zA-Z0-9_-]/g, "_");
+    const p = path.join(homedir(), ".quinki", "workdir", safe);
+    try { fs.mkdirSync(p, { recursive: true }); } catch {}
+    return p;
+  }
+  autoWorkDirFor(key: string): string { return this.#autoWorkDir(key); }
   #pendingDelegationSkills = new Map<string, { agentId: string; skillName: string }[]>();
   #pendingDelegationAttachments = new Map<string, { originalName: string; path: string; uuid: string; size?: number }[]>();  // override cwd per cambio dir mid-sessione
   #scheduleHandler: ((params: any) => any) | null = null;  // A2.2: callback verso il Scheduler (settato da sidecar.ts)
@@ -2127,7 +2139,7 @@ class PiBridge {
       thinkingLevel = s?.thinkingLevel;
       availableThinkingLevels = ["off", "low", "medium", "high"];
     }
-    return { model, thinkingLevel, availableThinkingLevels, mode, agentId: (s as any)?.agentId, agentOverrides: (s as any)?.agentOverrides || {}, workingDir: this.#cwdOverride.get(key) || '', label: s?.label, fallbackModels: (s as any)?.fallbackModels || [] };
+    return { model, thinkingLevel, availableThinkingLevels, mode, agentId: (s as any)?.agentId, agentOverrides: (s as any)?.agentOverrides || {}, workingDir: this.#cwdOverride.get(key) || '', workdirHistory: (s as any)?.workdirHistory || [], label: s?.label, fallbackModels: (s as any)?.fallbackModels || [] };
   }
 
   setSessionFallbacks(key: string, models: string[]): { ok: boolean } {
@@ -3188,7 +3200,7 @@ class PiBridge {
         sm._quinkiNextHidden = true;
         // Rebuild del system prompt PRIMA di triggerare: la nuova fase deve essere nel contesto
         try {
-          const effCwd = this.#cwdOverride.get(sessionKey) ?? (this.#entries.get(sessionKey) as any)?.workingDir ?? this.#cwd;
+          const effCwd = this.#cwdOverride.get(sessionKey) ?? (this.#entries.get(sessionKey) as any)?.workingDir ?? this.#autoWorkDir(sessionKey);
           const sessionMode = this.#entries.get(sessionKey)?.mode || "plan";
           const built = this.#buildSystemPrompt(sessionKey, effCwd, undefined, sessionMode, undefined, undefined, undefined);
           pi.agent.state.systemPrompt = built;
@@ -3259,7 +3271,7 @@ class PiBridge {
     fs.mkdirSync(sessionDir, { recursive: true });
 
     const effCwdEntry = (this.#entries.get(key) as any)?.workingDir
-    const effectiveCwd = this.#cwdOverride.get(key) ?? (effCwdEntry || this.#cwd);
+    const effectiveCwd = this.#cwdOverride.get(key) ?? effCwdEntry ?? this.#autoWorkDir(key);
     let sm: any;
     const files = fs.readdirSync(sessionDir).filter((f: string) => f.endsWith(".jsonl"));
     if (files.length > 0) {
@@ -4182,7 +4194,7 @@ Read this file to view it.` }] };
   }
 
   getEffectiveCwd(key: string): string {
-    return this.#cwdOverride.get(key) ?? (this.#entries.get(key) as any)?.workingDir ?? this.#cwd;
+    return this.#cwdOverride.get(key) ?? (this.#entries.get(key) as any)?.workingDir ?? this.#autoWorkDir(key);
   }
 
   setLongHorizonPhase(key: string, phase: string) {
@@ -4257,6 +4269,18 @@ Read this file to view it.` }] };
   // la sessione viene riaperta (SessionManager.open con cwdOverride) preservando il .jsonl
   // (history). Risolve: "sposto la cartella e devo ricominciare da capo" → non più.
   setWorkingDir(key: string, newPath: string) {
+    // STORIA workdir: la cartella che stiamo lasciando finisce nella lista
+    // (riapribile dal menu clip; le cartelle eliminate spariscono da sole).
+    try {
+      const oldDir = this.#cwdOverride.get(key) ?? (this.#entries.get(key) as any)?.workingDir ?? this.#autoWorkDir(key);
+      const s0 = this.#entries.get(key);
+      if (s0 && oldDir && oldDir !== newPath) {
+        const hist: string[] = Array.isArray((s0 as any).workdirHistory) ? (s0 as any).workdirHistory : [];
+        const next = [...hist.filter(d => d !== oldDir && d !== newPath), oldDir].slice(-20);
+        (s0 as any).workdirHistory = next;
+        this.#save();
+      }
+    } catch {}
     const pi = this.#active.get(key);
     if (pi) {
       try { (pi as any).dispose?.(); } catch (e: any) { this.logDebug("set-working-dir-dispose-error", { sessionKey: key, error: e?.message }); }

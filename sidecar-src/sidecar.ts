@@ -440,6 +440,22 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     piBridge!.logDebug("session-reloaded", { sessionKey: p.sessionKey });
     return { sessionKey: p.sessionKey };
   },
+  // Lista delle workdir della chat (attuale evidenziata + passate riapribili).
+  // Le cartelle non più esistenti su disco NON compaiono.
+  listWorkingDirs: async (p) => {
+    try {
+      const key = String(p?.sessionKey || "");
+      const meta = piBridge!.getSessionMeta(key);
+      const cur = (meta?.workingDir && meta.workingDir.length > 0) ? meta.workingDir : piBridge!.autoWorkDirFor(key);
+      const set = new Set<string>();
+      set.add(cur);
+      for (const d of ((meta as any)?.workdirHistory || [])) if (typeof d === "string" && d) set.add(d);
+      const dirs = [...set]
+        .filter(d => { try { return fs.existsSync(d) } catch { return false } })
+        .map(d => ({ path: d, current: d === cur }));
+      return { current: cur, dirs };
+    } catch { return { current: "", dirs: [] } }
+  },
   setWorkingDir: async (p) => {
     piBridge!.setWorkingDir(String(p.sessionKey), String(p.path));
     piBridge!.logDebug("working-dir-changed", { sessionKey: p.sessionKey, path: p.path });

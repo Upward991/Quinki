@@ -314,6 +314,42 @@ fn open_attachments_folder(session_key: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+#[tauri::command]
+fn open_working_dir_folder(path: String) -> Result<(), String> {
+    // Apre nel Finder la workdir della chat (attiva o passata, scelta dal menu clip).
+    if !std::path::Path::new(&path).exists() { return Err("folder not found".to_string()); }
+    std::process::Command::new("open").arg(&path).status().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn move_workdir_contents(from: String, to: String) -> Result<serde_json::Value, String> {
+    // Sposta i file della cartella chat verso la nuova workdir (opzione Move del
+    // modale). I file già presenti nella destinazione vengono SALTATI.
+    let src = std::path::PathBuf::from(&from);
+    let dst = std::path::PathBuf::from(&to);
+    if !src.is_dir() { return Ok(serde_json::json!({ "moved": 0, "skipped": 0 })); }
+    std::fs::create_dir_all(&dst).map_err(|e| e.to_string())?;
+    let mut moved = 0u32;
+    let mut skipped = 0u32;
+    if let Ok(rd) = std::fs::read_dir(&src) {
+        for entry in rd.flatten() {
+            let target = dst.join(entry.file_name());
+            if target.exists() { skipped += 1; continue; }
+            if std::fs::rename(entry.path(), &target).is_ok() { moved += 1; }
+            else {
+                let p = entry.path();
+                if p.is_file() && std::fs::copy(&p, &target).is_ok() {
+                    let _ = std::fs::remove_file(&p);
+                    moved += 1;
+                } else { skipped += 1; }
+            }
+        }
+    }
+    Ok(serde_json::json!({ "moved": moved, "skipped": skipped }))
+}
+
+#[tauri::command]
 fn open_longhorizon_folder(session_key: String) -> Result<(), String> {
     let home = std::env::var("HOME").unwrap_or_default();
     let dir = format!("{}/.quinki/longhorizon/{}", home, session_key);
@@ -3305,6 +3341,8 @@ pub fn run() {
         save_attachment_content,
         open_attachments_folder,
         open_longhorizon_folder,
+        open_working_dir_folder,
+        move_workdir_contents,
         open_general_attachments_folder,
         open_url,
         remote_logout,
