@@ -440,6 +440,43 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     piBridge!.logDebug("session-reloaded", { sessionKey: p.sessionKey });
     return { sessionKey: p.sessionKey };
   },
+  // Protezione: questa directory e' gia' usata da un'ALTRA chat? (protegge dalla
+  // fusione di due chat nella stessa cartella). Cerca nel file condiviso + nei
+  // meta per-chat su disco; esclude la chat richiedente.
+  workDirOwner: async (p) => {
+    try {
+      const pathWanted = String(p?.path || "");
+      const myKey = String(p?.sessionKey || "");
+      if (!pathWanted) return { owner: null };
+      const home = homedir();
+      // 1) file condiviso
+      try {
+        const sf = path.join(home, ".quinki", "quinki-sessions.json");
+        const arr = JSON.parse(fs.readFileSync(sf, "utf8"));
+        if (Array.isArray(arr)) {
+          const e = arr.find((x: any) => x && x.key !== myKey && x.workingDir === pathWanted);
+          if (e) return { owner: { key: e.key, label: e.label || e.key } };
+        }
+      } catch {}
+      // 2) meta per-chat (verita' piu' recente)
+      try {
+        const base = path.join(home, ".quinki", "sessions");
+        for (const agent of fs.readdirSync(base)) {
+          const adj = path.join(base, agent);
+          let keys: string[] = [];
+          try { keys = fs.readdirSync(adj); } catch { continue; }
+          for (const k of keys) {
+            if (k === myKey) continue;
+            try {
+              const meta = JSON.parse(fs.readFileSync(path.join(adj, k, "chat-meta.json"), "utf8"));
+              if (meta && meta.workingDir === pathWanted) return { owner: { key: k, label: meta.label || k } };
+            } catch {}
+          }
+        }
+      } catch {}
+      return { owner: null };
+    } catch { return { owner: null } }
+  },
   // Lista delle workdir della chat (attuale evidenziata + passate riapribili).
   // Le cartelle non più esistenti su disco NON compaiono.
   listWorkingDirs: async (p) => {

@@ -143,6 +143,17 @@ export function Composer(props: ComposerProps) {
     try { await invoke('open_working_dir_folder', { path }) } catch (e: any) { console.error('open_working_dir_folder:', e) }
   }
   const [pendingWorkdir, setPendingWorkdir] = useState<{ apply: string; from: string; to: string; files: number; sessionKey: string } | null>(null)
+  const [sharedDirWarn, setSharedDirWarn] = useState<{ ownerLabel: string; path: string; sessionKey: string } | null>(null)
+  const applyWorkdir = async (sk: string, path: string) => {
+    const call = (window as any).__sidecarCall
+    if (!call) return
+    let files = 0, from = '', def = ''
+    try { const r = await call('listWorkingDirs', { sessionKey: sk }); files = r?.currentFiles || 0; from = r?.current || ''; def = r?.defaultPath || '' } catch {}
+    const to = path || def
+    if (!to) return
+    if (files > 0 && from && from !== to) { setPendingWorkdir({ apply: path, from, to, files, sessionKey: sk }); return }
+    try { await call('setWorkingDir', { sessionKey: sk, path }) } catch {}
+  }
   useEffect(() => {
     const onPicked = async (ev: any) => {
       const d = ev?.detail || {}
@@ -150,13 +161,14 @@ export function Composer(props: ComposerProps) {
       if (!sk) return
       const call = (window as any).__sidecarCall
       if (!call) return
-      let files = 0, from = '', def = ''
-      try { const r = await call('listWorkingDirs', { sessionKey: sk }); files = r?.currentFiles || 0; from = r?.current || ''; def = r?.defaultPath || '' } catch {}
-      // path vuoto = directory TOLTA dalla chat -> si torna alla DEFAULT.
-      const to = path || def
-      if (!to) return
-      if (files > 0 && from && from !== to) { setPendingWorkdir({ apply: path, from, to, files, sessionKey: sk }); return }
-      try { await call('setWorkingDir', { sessionKey: sk, path }) } catch {}
+      // PROTEZIONE: directory gia' usata da un'ALTRA chat -> avviso prima di tutto.
+      if (path) {
+        try {
+          const o = await call('workDirOwner', { path, sessionKey: sk })
+          if (o?.owner) { setSharedDirWarn({ ownerLabel: String(o.owner.label || o.owner.key || ''), path, sessionKey: sk }); return }
+        } catch {}
+      }
+      await applyWorkdir(sk, path)
     }
     window.addEventListener('quinki-workdir-picked', onPicked)
     return () => window.removeEventListener('quinki-workdir-picked', onPicked)
@@ -746,6 +758,32 @@ export function Composer(props: ComposerProps) {
       )}
 
       {/* Move/Keep: cambio workdir quando la cartella attuale ha file */}
+      {/* Avviso: directory gia' usata da un'altra chat (rischio fusione file) */}
+      {sharedDirWarn && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 400, backgroundColor: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setSharedDirWarn(null)}>
+          <div style={{ backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '20px 24px', maxWidth: '440px', width: '90%' }} onClick={e => e.stopPropagation()}>
+            <div style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '8px' }}>Directory already in use</div>
+            <div style={{ color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', lineHeight: 1.5, marginBottom: '16px' }}>
+              This directory is already used by the chat "{sharedDirWarn.ownerLabel}". Both chats will see and change the same files.
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button onClick={() => setSharedDirWarn(null)}
+                onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }}
+                onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
+                style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button onClick={async () => { const w = sharedDirWarn; setSharedDirWarn(null); await applyWorkdir(w.sessionKey, w.path) }}
+                onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }}
+                onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }}
+                style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>
+                Use anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {pendingWorkdir && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 400, backgroundColor: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setPendingWorkdir(null)}>
           <div style={{ backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '20px 24px', maxWidth: '440px', width: '90%' }} onClick={e => e.stopPropagation()}>
