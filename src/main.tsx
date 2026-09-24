@@ -5,6 +5,20 @@ import App from './App'
 import { installScrollAnywhere } from './scrollAnywhere'
 installScrollAnywhere()
 
+// === TELEFONO (touch): niente hover ===
+// Gli onMouseEnter/onMouseLeave inline di React restavano "appiccicati" dopo un
+// tap (fondo hover visibile fino al tocco successivo). Su dispositivi senza
+// hover fermiamo gli eventi mouse in fase di capture, prima che React li veda:
+// sul computer (hover: hover) non cambia assolutamente nulla.
+try {
+  if (window.matchMedia && window.matchMedia('(hover: none)').matches) {
+    const swallow = (e: Event) => { e.stopPropagation() }
+    for (const t of ['mouseenter', 'mouseleave', 'mouseover', 'mouseout']) {
+      document.addEventListener(t, swallow, true)
+    }
+  }
+} catch {}
+
 // === INSTRUMENTAZIONE TEST (04 set): ogni errore React/JS del frontend finisce al sidecar
 // → ~/.quinki/frontend-errors.jsonl — verificabile da remoto durante i test end-to-end.
 let _feWs: WebSocket | null = null

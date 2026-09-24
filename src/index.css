@@ -280,7 +280,7 @@ a { color: var(--q-accent-info-bright); text-decoration: none; }
 /* Caret (cursore testo) = accent della tab corrente, ovunque */
 input, textarea, [contenteditable] { caret-color: var(--q-tab-accent); }
 
-a:hover { text-decoration: underline; }
+@media (hover: hover) { a:hover { text-decoration: underline; } }
 h1, h2, h3, h4, h5, h6 { letter-spacing: -0.01em; }
 
 /* Focus — no outline, clean */
@@ -342,8 +342,10 @@ input:focus, textarea:focus, button:focus { box-shadow: none; outline: none; }
 
 
 
+@media (hover: hover) {
 .q-hover-btn:hover {
   background-color: var(--q-hover) !important;
+}
 }
 
 
@@ -451,7 +453,7 @@ body.win-inactive *:not(.sidebar-item):not(.sortable-row) {
   font-size: 13px; font-weight: 600; font-family: var(--font-interface);
   cursor: pointer; transition: none;
 }
-.mp-btn:hover { background-color: var(--mp-accent); color: var(--mp-bg); }
+@media (hover: hover) { .mp-btn:hover { background-color: var(--mp-accent); color: var(--mp-bg); } }
 .mp-btn-back {
   display: flex; align-items: center; gap: 6px; padding: 7px 14px;
   border-radius: var(--radius-sm); border: 1px solid var(--mp-border-strong);
@@ -459,7 +461,7 @@ body.win-inactive *:not(.sidebar-item):not(.sortable-row) {
   font-size: 13px; font-weight: 600; font-family: var(--font-interface);
   cursor: pointer; transition: none;
 }
-.mp-btn-back:hover { background-color: var(--mp-elevated); }
+@media (hover: hover) { .mp-btn-back:hover { background-color: var(--mp-elevated); } }
 .mp-btn-active {
   display: flex; align-items: center; gap: 6px; padding: 7px 14px;
   border-radius: var(--radius-sm); border: 1px solid var(--mp-accent);
@@ -474,7 +476,7 @@ body.win-inactive *:not(.sidebar-item):not(.sortable-row) {
   font-size: 12px; font-family: var(--font-interface);
   cursor: pointer; transition: none;
 }
-.mp-btn-danger:hover { background-color: rgba(217,107,107,0.12); }
+@media (hover: hover) { .mp-btn-danger:hover { background-color: rgba(217,107,107,0.12); } }
 
 /* Filtri sezioni (stile pill della Home): neutri, solo l'attivo è accent */
 .mp-filter {
@@ -484,7 +486,7 @@ body.win-inactive *:not(.sidebar-item):not(.sortable-row) {
   font-size: 12px; font-weight: 400; font-family: var(--font-interface);
   cursor: pointer; transition: none;
 }
-.mp-filter:hover { background-color: var(--mp-elevated); color: var(--mp-text); }
+@media (hover: hover) { .mp-filter:hover { background-color: var(--mp-elevated); color: var(--mp-text); } }
 .mp-filter-active {
   display: flex; align-items: center; gap: 6px; padding: 6px 14px;
   border-radius: var(--radius-sm); border: 1px solid var(--mp-accent);
@@ -498,7 +500,7 @@ body.win-inactive *:not(.sidebar-item):not(.sortable-row) {
   border: 2px solid var(--mp-panel); background-color: var(--mp-accent); color: var(--mp-bg);
   display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;
 }
-.mp-btn-avatar:hover { background-color: var(--mp-accent-strong); }
+@media (hover: hover) { .mp-btn-avatar:hover { background-color: var(--mp-accent-strong); } }
 
 /* FIX (31 ago): WebKit mostra un resize handle (pixel bianco) in basso a destra
    del textarea anche con resize:none. Questo lo nasconde completamente. */

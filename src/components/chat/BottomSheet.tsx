@@ -8,6 +8,7 @@
 // ============================================================
 
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from '../icons'
 
 export interface SheetItem {
@@ -67,7 +68,10 @@ export function BottomSheet({ open, onClose, items, view, onViewBack, onBack, ti
     if (it) { try { it.onSelect() } catch {} }
   }
 
-  return (
+  // Portal su <body>: il fixed non deve mai ancorarsi a contenitori con
+  // transform (es. le porte a swipe della chat mobile), altrimenti il foglio
+  // finisce fuori dallo schermo a destra e a sinistra.
+  return createPortal((
     <div style={{ position: 'fixed', inset: 0, zIndex: 100 }}>
       <div onClick={(e) => { if (e.target === e.currentTarget) onClose() }} style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.55)' }} />
       <div
@@ -134,7 +138,7 @@ export function BottomSheet({ open, onClose, items, view, onViewBack, onBack, ti
         </div>}
       </div>
     </div>
-  )
+  ), document.body)
 }
 
 // Frecce della barra: su touch NON c'è hover → il tocco lascia il fondo hover
