@@ -103,17 +103,24 @@ export function InputContextMenu() {
       const nat = w.QuinkiNative
       if (nat && typeof nat.getClipboard === 'function') {
         const t = String(nat.getClipboard() || '')
+        try { (w as any).__reportFrontendError?.('paste', 'branch=native len=' + t.length) } catch {}
         if (t) insert(t)
         return
       }
-    } catch {}
+      try { (w as any).__reportFrontendError?.('paste', 'branch=no-bridge hasNative=' + !!nat) } catch {}
+    } catch (e: any) {
+      try { (w as any).__reportFrontendError?.('paste', 'branch=native-err ' + String(e?.message || e)) } catch {}
+    }
     // 2) Tauri clipboard plugin (affidabile in WKWebView)
     if (w.__TAURI_INTERNALS__ && w.__invoke) {
       w.__invoke('plugin:clipboard-manager|read_text')
         .then((n: string) => insert(n))
         .catch(() => {})
     } else {
-      navigator.clipboard.readText().then(insert).catch(() => {})
+      try { (w as any).__reportFrontendError?.('paste', 'branch=clipboard-api') } catch {}
+      navigator.clipboard.readText().then((t: string) => { try { (w as any).__reportFrontendError?.('paste', 'clipboard-ok len=' + String(t || '').length) } catch {} insert(t) }).catch((e: any) => {
+        try { (w as any).__reportFrontendError?.('paste', 'clipboard-fail ' + String(e?.message || e)) } catch {}
+      })
     }
   }
 

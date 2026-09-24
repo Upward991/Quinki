@@ -76,6 +76,29 @@ function reportFrontendError(kind: string, message: string, stack?: string) {
   } catch {}
 }
 ;(window as any).__reportFrontendError = reportFrontendError
+
+// HELLO: al caricamento della pagina il telefono dice al Mac chi e' e in che
+// layout sta girando (diagnosi remota: niente piu' indovinelli).
+try {
+  if (!(globalThis as any).__TAURI_INTERNALS__) {
+    setTimeout(() => {
+      try {
+        fetch('/log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({
+            kind: 'hello',
+            message: 'w=' + window.innerWidth + ' touch=' + (('ontouchstart' in window) || ((navigator as any).maxTouchPoints || 0) > 0) +
+              ' override=' + (localStorage.getItem('quinki-layout') || 'auto') +
+              ' qphone=' + document.documentElement.classList.contains('q-phone'),
+            stack: '', ua: navigator.userAgent,
+          }),
+        }).catch(() => {})
+      } catch {}
+    }, 1200)
+  }
+} catch {}
 ;(window as any).onerror = (msg: any, src: any, line: any, col: any, err: any) => {
   reportFrontendError('onerror', String(msg) + ' @ ' + String(src) + ':' + line + ':' + col, err?.stack)
 }
