@@ -54,6 +54,11 @@ export function useLayout(): { mode: 'mobile' | 'desktop'; override: LayoutMode 
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
-  const mode: 'mobile' | 'desktop' = override === 'auto' ? (!isTauriRuntime() && narrow ? 'mobile' : 'desktop') : override
+  // TELEFONO (touch + stretto): SEMPRE layout mobile, qualunque override sia
+  // stato salvato in passato (un test vecchio con ?layout=desktop teneva il
+  // telefono bloccato sul layout desktop: tutti i fix mobile invisibili).
+  const isTouch = (() => { try { return ('ontouchstart' in window) || ((navigator as any).maxTouchPoints || 0) > 0 } catch { return false } })()
+  const forcePhone = !isTauriRuntime() && narrow && isTouch
+  const mode: 'mobile' | 'desktop' = forcePhone ? 'mobile' : (override === 'auto' ? (!isTauriRuntime() && narrow ? 'mobile' : 'desktop') : override)
   return { mode, override }
 }
