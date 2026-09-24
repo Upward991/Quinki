@@ -1471,15 +1471,15 @@ fn sync_expert_app() -> Result<String, String> {
     let ts_bk = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0);
     let backup_dir = format!("{}/expert-{}", backup_root, ts_bk);
     let expert_bin = format!("{}/Contents/MacOS/quinki", expert_app);
-    let expert_sidecar = format!("{}/Contents/Resources/resources/sidecar", expert_app);
+    let expert_resources = format!("{}/Contents/Resources/resources", expert_app);
     if std::path::Path::new(&expert_bin).exists() {
         let _ = std::fs::create_dir_all(&backup_dir);
         let _ = std::fs::copy(&expert_bin, format!("{}/quinki", backup_dir));
     }
-    if std::path::Path::new(&expert_sidecar).exists() {
+    if std::path::Path::new(&expert_resources).exists() {
         let _ = std::fs::create_dir_all(&backup_dir);
         let _ = std::process::Command::new("ditto")
-            .args([&expert_sidecar, &format!("{}/sidecar", backup_dir)])
+            .args([&expert_resources, &format!("{}/resources", backup_dir)])
             .status();
     }
     // Mantieni solo gli ultimi 5 backup
@@ -1499,17 +1499,19 @@ fn sync_expert_app() -> Result<String, String> {
     let main_bin = format!("{}/Contents/MacOS/quinki", main_app);
     std::fs::copy(&main_bin, &expert_bin).map_err(|e| format!("Binary copy failed: {}", e))?;
     
-    // Copy sidecar resources con controllo di successo (prima l'esito NON era
-    // controllato → il sync poteva dichiararsi completo anche se ditto falliva)
-    let main_sidecar = format!("{}/Contents/Resources/resources/sidecar", main_app);
+    // Copy di TUTTA la cartella resources (sidecar + tsnet-tunnel + dictation-helper
+    // + tcc-check). Prima si copiava SOLO il sidecar: l'Expert restava col tunnel
+    // VECCHIO (senza -target2) e a main chiusa il suo watchdog riavviava il tunnel
+    // con un flag sconosciuto -> usage -> exit: link Expert giu' per sempre.
+    let main_resources = format!("{}/Contents/Resources/resources", main_app);
     
-    let _ = std::fs::remove_dir_all(&expert_sidecar);
+    let _ = std::fs::remove_dir_all(&expert_resources);
     let ditto_st = std::process::Command::new("ditto")
-        .args([&main_sidecar, &expert_sidecar])
+        .args([&main_resources, &expert_resources])
         .status()
-        .map_err(|e| format!("Sidecar copy failed: {}", e))?;
+        .map_err(|e| format!("Resources copy failed: {}", e))?;
     if !ditto_st.success() {
-        return Err("Sidecar copy failed (ditto). Nothing was marked as synced.".to_string());
+        return Err("Resources copy failed (ditto). Nothing was marked as synced.".to_string());
     }
     
     // Verifica reale che i file esistano e non siano vuoti
@@ -1517,9 +1519,21 @@ fn sync_expert_app() -> Result<String, String> {
     if !bin_ok {
         return Err("Sync failed: Expert binary is missing or empty after copy.".to_string());
     }
-    let sidecar_bin = format!("{}/quinki-sidecar-ws", expert_sidecar);
+    let sidecar_bin = format!("{}/sidecar/quinki-sidecar-ws", expert_resources);
     if !std::path::Path::new(&sidecar_bin).exists() {
         return Err("Sync failed: Expert sidecar binary is missing after copy.".to_string());
+    }
+    // Verifica REALE: il tunnel copiato deve conoscere il flag -target2 (senza,
+    // i riavvii del tunnel a main chiusa falliscono e il link Expert muore).
+    let tun_bin = format!("{}/tsnet-tunnel", expert_resources);
+    match std::process::Command::new(&tun_bin).arg("-h").output() {
+        Ok(o) => {
+            let blob = format!("{}{}", String::from_utf8_lossy(&o.stdout), String::from_utf8_lossy(&o.stderr));
+            if !blob.contains("target2") {
+                return Err("Sync failed: Expert tsnet-tunnel is outdated (no -target2 support after copy).".to_string());
+            }
+        }
+        Err(_) => return Err("Sync failed: Expert tsnet-tunnel is missing or not executable after copy.".to_string()),
     }
     
     // FIX nome: il sync DEVE aggiornare anche CFBundleName/DisplayName (altrimenti
@@ -2654,7 +2668,10 @@ fn url_reachable_any_edge(url: &str) -> bool {
             .output()
         {
             let c = String::from_utf8_lossy(&o.stdout).trim().to_string();
-            if c.starts_with('2') || c.starts_with('3') || c.starts_with('4') { return true; }
+            // QUALSIASI risposta HTTP (anche 5xx) = il tunnel e' VIVO e sta servendo:
+            // un 502 significa "edge up, backend locale giu'" (es. main chiusa), NON
+            // "tunnel rotto". Solo nessuna risposta (000) = irraggiungibile vero.
+            if !c.is_empty() && c != "000" { return true; }
         }
     }
     false
@@ -3163,6 +3180,7 @@ pub fn run() {
             if fails >= 2 {
                 log("restarting tunnel after 2 unreachable checks");
                 tunnel_stop_inner(t);
+                std::thread::sleep(std::time::Duration::from_secs(3));
                 let _ = tunnel_start_blocking(t, 9182, hostname);
                 fails = 0;
             }
