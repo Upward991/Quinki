@@ -82,6 +82,7 @@ function reportFrontendError(kind: string, message: string, stack?: string) {
     // Memoria del tap: se l'app non e' ancora connessa al Mac, la riapriamo
     // appena pronta (il servizio nativo ritenta comunque piu' volte).
     ;(window as any).__quinkiPendingSession = sk
+    try { reportFrontendError('opensession-in', 'sk=' + sk) } catch {}
     window.dispatchEvent(new CustomEvent('quinki-switch-session', { detail: { sessionKey: sk } }))
   } catch {}
 }

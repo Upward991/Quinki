@@ -1184,8 +1184,8 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     const domSwitch = (ev: any) => {
       try {
         const sk = String(ev?.detail?.sessionKey || '')
-        if (sk) selectSession(sk)
-      } catch {}
+        if (sk) { selectSession(sk); try { (window as any).__reportFrontendError?.('opensession-select', 'sk=' + sk) } catch {} }
+      } catch (e: any) { try { (window as any).__reportFrontendError?.('opensession-fail', String(e?.message || e)) } catch {} }
     }
     try { window.addEventListener('quinki-switch-session', domSwitch) } catch {}
     return () => { try { window.removeEventListener('quinki-switch-session', domSwitch) } catch {} }

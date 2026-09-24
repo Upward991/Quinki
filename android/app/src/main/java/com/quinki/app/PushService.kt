@@ -42,6 +42,12 @@ class PushService : Service() {
         @Volatile private var activeSk = ""
         @Volatile private var activeVisible = false
         @Volatile private var activeAt = 0L
+        fun debugLog(message: String) {
+            try { instance?.sendDebug("notification-tap: " + message) } catch (e: Exception) { }
+        }
+
+        @Volatile private var instance: PushService? = null
+
         fun setActiveChat(sk: String, visible: Boolean) {
             activeSk = sk
             activeVisible = visible
@@ -89,6 +95,7 @@ class PushService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        instance = this
         createChannels()
         try {
             if (Build.VERSION.SDK_INT >= 29) {
@@ -123,6 +130,12 @@ class PushService : Service() {
 
     private fun cancelNotif(sk: String) {
         try { NotificationManagerCompat.from(this).cancel(sk.hashCode()) } catch (e: Exception) { }
+    }
+
+    fun sendDebug(message: String) {
+        try {
+            rpc("logFrontendError", JSONObject().put("kind", "quinki-debug").put("message", message))
+        } catch (e: Exception) { }
     }
 
     private fun rpc(method: String, params: JSONObject) {

@@ -347,6 +347,7 @@ class MainActivity : AppCompatActivity() {
     private fun handleNotificationIntent(intent: Intent?) {
         val sk = try { intent?.getStringExtra("sessionKey") } catch (e: Exception) { null }
         if (!sk.isNullOrEmpty()) {
+            try { PushService.debugLog("intent ricevuto sk=" + sk) } catch (e: Exception) { }
             pendingSessionKey = sk
             // Tentativi ripetuti: l'app web impiega qualche secondo a connettersi
             // al WS; il primo tentativo utile vince, gli altri sono innocui.
@@ -364,6 +365,7 @@ class MainActivity : AppCompatActivity() {
                 "window.__quinkiOpenSession && window.__quinkiOpenSession(" + org.json.JSONObject.quote(sk) + ")",
                 null
             )
+            try { PushService.debugLog("iniezione fatta sk=" + sk) } catch (e: Exception) { }
         } catch (e: Exception) { }
     }
 
