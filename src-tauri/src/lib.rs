@@ -2510,7 +2510,7 @@ fn ts_node_hostname(t: &str) -> String {
 /// il pannello Impostazioni mostra il link per autenticare.
 /// Una riga JSON del tunnel -> aggiorna lo stato del target. Ritorna il
 /// messaggio da mandare al canale (auth:/funnel-pending/url:/err:).
-fn tunnel_status_save(t: &str, line: &str, pid: u32) -> Option<String> {
+fn tunnel_status_save(t: &str, hostname: &str, line: &str, pid: u32) -> Option<String> {
     let v: serde_json::Value = serde_json::from_str(line).ok()?;
     let st = v.get("status").and_then(|x| x.as_str()).unwrap_or("");
     match st {
@@ -2520,13 +2520,19 @@ fn tunnel_status_save(t: &str, line: &str, pid: u32) -> Option<String> {
             Some(format!("auth:{}", au))
         }
         "funnel-pending" => {
-            save_remote_state_full(t, true, String::new(), String::new(), Some(pid));
+            save_remote_state_full(t, true, hostname.to_string(), String::new(), Some(pid));
             Some("funnel-pending".to_string())
         }
         "running" => {
             let u = v.get("url").and_then(|x| x.as_str()).unwrap_or("").to_string();
-            if !u.is_empty() { save_remote_state_full(t, true, String::new(), u.clone(), Some(pid)); }
+            if !u.is_empty() { save_remote_state_full(t, true, hostname.to_string(), u.clone(), Some(pid)); }
             Some(format!("url:{}", u))
+        }
+        "running2" => {
+            // Secondo link (web app Expert) sullo STESSO nodo: :8443 -> sidecar Expert.
+            let u2 = v.get("url").and_then(|x| x.as_str()).unwrap_or("").to_string();
+            if !u2.is_empty() { save_remote_state_full("expert", true, hostname.to_string(), u2.clone(), Some(pid)); }
+            Some(format!("url2:{}", u2))
         }
         "error" => {
             let e = v.get("error").and_then(|x| x.as_str()).unwrap_or("errore tsnet").to_string();
@@ -2542,148 +2548,50 @@ fn tunnel_start_tsnet_blocking(t: &str, bin: String, port: u16) -> Result<String
     let args: Vec<String> = vec![
         "-hostname".into(), hostname.clone(),
         "-target".into(), format!("127.0.0.1:{}", port),
+        "-target2".into(), "127.0.0.1:9183".into(),
         "-state-dir".into(), tsnet_state_dir(t),
         "-authkey-file".into(), format!("{}/.quinki/ts-authkey", home),
     ];
     let pidf = tunnel_pid_file(t);
 
-    // Expert: processo STACCATO (setsid + log su file): non muore mai quando la
-    // main si riavvia o viene reinstallata. Lo stato viene letto dal tailer.
-    if t == "expert" {
-        let log_path = format!("{}/.quinki/tunnel-expert.log", home);
-        let lf = std::fs::OpenOptions::new().create(true).append(true).open(&log_path).map_err(|e| e.to_string())?;
-        let start_len = lf.metadata().map(|m| m.len()).unwrap_or(0);
-        let mut cmd = std::process::Command::new(&bin);
-        cmd.args(&args).stdin(Stdio::null())
-            .stdout(Stdio::from(lf.try_clone().map_err(|e| e.to_string())?))
-            .stderr(Stdio::from(lf));
-        use std::os::unix::process::CommandExt;
-        unsafe { cmd.pre_exec(|| { libc::setsid(); Ok(()) }); }
-        let child = cmd.spawn().map_err(|e| format!("tsnet-tunnel: {}", e))?;
-        let pid = child.id();
-        let _ = std::fs::write(&pidf, pid.to_string());
-        save_remote_state_full(t, true, hostname.clone(), String::new(), Some(pid));
-        let t2 = t.to_string();
-        std::thread::spawn(move || {
-            use std::io::{Read, Seek, SeekFrom};
-            let mut pos = start_len;
-            loop {
-                if let Ok(mut f) = std::fs::File::open(&log_path) {
-                    let len = f.metadata().map(|m| m.len()).unwrap_or(0);
-                    if len > pos {
-                        let _ = f.seek(SeekFrom::Start(pos));
-                        let mut s = String::new();
-                        let _ = f.read_to_string(&mut s);
-                        pos = len;
-                        for line in s.lines() { tunnel_status_save(&t2, line, pid); }
-                    }
-                }
-                if !pid_alive(pid) { break; }
-                std::thread::sleep(std::time::Duration::from_millis(500));
-            }
-        });
-        return Ok(String::new());
-    }
-
-    let mut child = std::process::Command::new(&bin)
-        .args(&args)
-        .stdout(Stdio::piped()).stderr(Stdio::piped())
-        .spawn().map_err(|e| format!("tsnet-tunnel: {}", e))?;
+    // Tunnel STACCATO (setsid + log su file): NON appartiene alla main.
+    // Sopravvive a chiusure, riavvii e reinstall: la web app Expert resta su
+    // anche quando la main e' chiusa. Lo stato lo aggiorna il tailer del log.
+    let log_path = format!("{}/.quinki/tunnel.log", home);
+    let lf = std::fs::OpenOptions::new().create(true).append(true).open(&log_path).map_err(|e| e.to_string())?;
+    let start_len = lf.metadata().map(|m| m.len()).unwrap_or(0);
+    let mut cmd = std::process::Command::new(&bin);
+    cmd.args(&args).stdin(Stdio::null())
+        .stdout(Stdio::from(lf.try_clone().map_err(|e| e.to_string())?))
+        .stderr(Stdio::from(lf));
+    use std::os::unix::process::CommandExt;
+    unsafe { cmd.pre_exec(|| { libc::setsid(); Ok(()) }); }
+    let child = cmd.spawn().map_err(|e| format!("tsnet-tunnel: {}", e))?;
     let pid = child.id();
     let _ = std::fs::write(&pidf, pid.to_string());
-
-    // stdout: una riga JSON per evento. Il drain resta attivo per tutta la vita
-    // del processo: quando l'utente completa il login arriva "running" e lo
-    // stato viene aggiornato con il link definitivo (anche a pannello chiuso).
-    let (tx, rx) = std::sync::mpsc::channel::<String>();
-    if let Some(out) = child.stdout.take() {
-        use std::io::{BufRead, BufReader};
-        let pid2 = pid;
-        let t2 = t.to_string();
-        std::thread::spawn(move || {
-            let br = BufReader::new(out);
-            for line in br.lines() {
-                let Ok(line) = line else { break };
-                let Ok(v) = serde_json::from_str::<serde_json::Value>(&line) else { continue };
-                let st = v.get("status").and_then(|x| x.as_str()).unwrap_or("");
-                match st {
-                    "auth-required" => {
-                        let au = v.get("authUrl").and_then(|x| x.as_str()).unwrap_or("").to_string();
-                        save_remote_state_auth(&t2, String::new(), au.clone(), Some(pid2));
-                        let _ = tx.send(format!("auth:{}", au));
-                    }
-                    "funnel-pending" => {
-                        // Iscritto ma Funnel non ancora acceso: passo 1 completato.
-                        // Riscrivo lo stato senza authUrl (l'account ormai c'e').
-                        save_remote_state_full(&t2, true, String::new(), String::new(), Some(pid2));
-                        let _ = tx.send("funnel-pending".to_string());
-                    }
-                    "running" => {
-                        let u = v.get("url").and_then(|x| x.as_str()).unwrap_or("").to_string();
-                        if !u.is_empty() {
-                            save_remote_state_full(&t2, true, String::new(), u.clone(), Some(pid2));
-                            let _ = tx.send(format!("url:{}", u));
-                        }
-                    }
-                    "error" => {
-                        let e = v.get("error").and_then(|x| x.as_str()).unwrap_or("errore tsnet").to_string();
-                        let _ = tx.send(format!("err:{}", e));
-                        break;
-                    }
-                    _ => {}
+    save_remote_state_full(t, true, hostname.clone(), String::new(), Some(pid));
+    let t2 = t.to_string();
+    let host2 = hostname.clone();
+    std::thread::spawn(move || {
+        use std::io::{Read, Seek, SeekFrom};
+        let mut pos = start_len;
+        loop {
+            if let Ok(mut f) = std::fs::File::open(&log_path) {
+                let len = f.metadata().map(|m| m.len()).unwrap_or(0);
+                if len > pos {
+                    let _ = f.seek(SeekFrom::Start(pos));
+                    let mut s = String::new();
+                    let _ = f.read_to_string(&mut s);
+                    pos = len;
+                    for line in s.lines() { tunnel_status_save(&t2, &host2, line, pid); }
                 }
             }
-        });
-    }
-    if let Some(er) = child.stderr.take() {
-        use std::io::{BufRead, BufReader};
-        std::thread::spawn(move || {
-            let br = BufReader::new(er);
-            for _ in br.lines() {}
-        });
-    }
-
-    // Prima risposta utile entro 40s (login interattivo incluso: se serve il
-    // login rispondiamo subito con authUrl, il drain continua in background).
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(40);
-    loop {
-        let remaining = deadline.saturating_duration_since(std::time::Instant::now());
-        if remaining.is_zero() {
-            // ancora "starting": teniamo vivo il processo, stato senza url
-            let mut g = TUNNEL.lock().map_err(|e| e.to_string())?;
-            *g = Some((child, String::new()));
-            return Ok(String::new());
+            if !pid_alive(pid) { break; }
+            std::thread::sleep(std::time::Duration::from_millis(500));
         }
-        match rx.recv_timeout(remaining) {
-            Ok(msg) => {
-                if let Some(u) = msg.strip_prefix("url:") {
-                    let u = u.to_string();
-                    let mut g = TUNNEL.lock().map_err(|e| e.to_string())?;
-                    *g = Some((child, u.clone()));
-                    return Ok(u);
-                }
-                if msg.starts_with("auth:") {
-                    let u = String::new();
-                    let mut g = TUNNEL.lock().map_err(|e| e.to_string())?;
-                    *g = Some((child, u.clone()));
-                    return Ok(u);
-                }
-                if msg == "funnel-pending" {
-                    let u = String::new();
-                    let mut g = TUNNEL.lock().map_err(|e| e.to_string())?;
-                    *g = Some((child, u.clone()));
-                    return Ok(u);
-                }
-                if let Some(e) = msg.strip_prefix("err:") {
-                    let _ = child.kill();
-                    return Err(e.to_string());
-                }
-            }
-            Err(_) => continue,
-        }
-    }
+    });
+    Ok(String::new())
 }
-
 fn save_remote_state(t: &str, enabled: bool, hostname: String) {
     let url = load_remote_state_url(t);
     let pid = load_remote_state_pid(t);
@@ -2904,6 +2812,12 @@ fn tunnel_stop_inner(t: &str) {
 #[tauri::command]
 fn remote_tunnel_status(target: Option<String>) -> serde_json::Value {
     let t = target.unwrap_or_else(|| "main".to_string());
+    if t == "expert" {
+        // Link Expert: secondo link dello stesso nodo (salvato da "running2").
+        let url2 = load_remote_state_url("expert");
+        let auth = load_remote_state_authurl("main");
+        return serde_json::json!({ "running": !url2.is_empty(), "url": url2, "authUrl": auth });
+    }
     let auth = load_remote_state_authurl(&t);
     if t == "main" {
     if let Ok(g) = TUNNEL.lock() {
@@ -2921,7 +2835,10 @@ fn remote_tunnel_status(target: Option<String>) -> serde_json::Value {
 
 #[tauri::command]
 async fn remote_tunnel_start(target: Option<String>, port: Option<u16>, hostname: Option<String>) -> Result<String, String> {
-    let t = target.unwrap_or_else(|| "main".to_string());
+    // UN SOLO tunnel/nodo per entrambi i link (main su :443, Expert su :8443):
+    // qualunque parte del pannello avvia sempre questo.
+    let _ = target;
+    let t = "main".to_string();
     let p = port.unwrap_or(9182);
     let host = hostname.unwrap_or_default();
     let res = tunnel_start_blocking(&t, p, host.clone());
@@ -2946,19 +2863,21 @@ async fn remote_tunnel_autostart(target: Option<String>) -> Result<String, Strin
 /// Alla prossima accensione si rifa' il sign-in da capo (nuovo nodo).
 #[tauri::command]
 fn remote_logout(target: Option<String>) -> Result<(), String> {
-    let t = target.unwrap_or_else(|| "main".to_string());
+    let _ = target; // un solo nodo: il logout vale per entrambi i link
+    let t = "main".to_string();
     tunnel_stop_inner(&t);
     let _ = std::fs::remove_dir_all(tsnet_state_dir(&t));
     let _ = std::fs::remove_file(ts_node_file(&t));
     let _ = std::fs::remove_file(tunnel_pid_file(&t));
     let _ = std::fs::remove_file(remote_state_file(&t));
+    let _ = std::fs::remove_file(remote_state_file("expert"));
     Ok(())
 }
 
 #[tauri::command]
 fn remote_tunnel_state(target: Option<String>) -> serde_json::Value {
-    let t = target.unwrap_or_else(|| "main".to_string());
-    let (enabled, hostname) = load_remote_state(&t);
+    let _ = target; // stesso tunnel per main ed Expert
+    let (enabled, hostname) = load_remote_state("main");
     serde_json::json!({ "enabled": enabled, "hostname": hostname })
 }
 
@@ -3181,15 +3100,11 @@ pub fn run() {
     // avviene quando l'utente preme Enable/Refresh nel pannello (esplicito),
     // cosi' il vecchio tunnel resta su fino a che il nuovo e' pronto.
     std::thread::spawn(|| {
-        // La MAIN gestisce ENTRAMBI i tunnel (main + Expert): quello dell'Expert
-        // e' staccato e sopravvive ai riavvii/reinstall della main. L'app Expert
-        // (quando gira) sorveglia solo il proprio.
-        let tl: Vec<&str> = if is_expert_mode() { vec!["expert"] } else { vec!["main", "expert"] };
-        for t in tl {
-            let (enabled, hostname) = load_remote_state(t);
-            if !enabled { continue; }
-            if running_tunnel_from_state(t).is_some() { continue; } // gia' vivo
-            let _ = tunnel_start_blocking(t, 9182, hostname);
+        // Un solo tunnel (staccato) per entrambi i link: lo avvia/sorveglia
+        // l'app in esecuzione (main o Expert), idempotente sul pid.
+        let (enabled, hostname) = load_remote_state("main");
+        if enabled && running_tunnel_from_state("main").is_none() {
+            let _ = tunnel_start_blocking("main", 9182, hostname);
         }
     });
 
@@ -3208,32 +3123,29 @@ pub fn run() {
                 let _ = writeln!(f, "[{}] {}", secs, msg);
             }
         };
-        let tl: Vec<&str> = if is_expert_mode() { vec!["expert"] } else { vec!["main", "expert"] };
-        let mut mf = std::collections::HashMap::<&str, u32>::new();
+        let t = "main";
+        let mut fails = 0u32;
         loop {
             std::thread::sleep(std::time::Duration::from_secs(30));
-            for t in &tl {
-                let (enabled, hostname) = load_remote_state(t);
-                if !enabled { mf.insert(t, 0); continue; }
-                let url = load_remote_state_url(t);
-                let alive = load_remote_state_pid(t).map(pid_alive).unwrap_or(false);
-                if !alive {
-                    log(&format!("[{}] process dead: restarting tunnel", t));
-                    if tunnel_start_blocking(t, 9182, hostname).is_err() { log(&format!("[{}] restart failed", t)); }
-                    mf.insert(t, 0);
-                    continue;
-                }
-                if url.is_empty() { mf.insert(t, 0); continue; }
-                if url_reachable_any_edge(&url) { mf.insert(t, 0); continue; }
-                let fails = mf.get(t).copied().unwrap_or(0) + 1;
-                mf.insert(t, fails);
-                log(&format!("[{}] unreachable from all edges ({} consecutive)", t, fails));
-                if fails >= 2 {
-                    log(&format!("[{}] restarting tunnel after 2 unreachable checks", t));
-                    tunnel_stop_inner(t);
-                    let _ = tunnel_start_blocking(t, 9182, hostname);
-                    mf.insert(t, 0);
-                }
+            let (enabled, hostname) = load_remote_state(t);
+            if !enabled { fails = 0; continue; }
+            let url = load_remote_state_url(t);
+            let alive = load_remote_state_pid(t).map(pid_alive).unwrap_or(false);
+            if !alive {
+                log("process dead: restarting tunnel");
+                if tunnel_start_blocking(t, 9182, hostname).is_err() { log("restart failed"); }
+                fails = 0;
+                continue;
+            }
+            if url.is_empty() { fails = 0; continue; }
+            if url_reachable_any_edge(&url) { fails = 0; continue; }
+            fails += 1;
+            log(&format!("unreachable from all edges ({} consecutive)", fails));
+            if fails >= 2 {
+                log("restarting tunnel after 2 unreachable checks");
+                tunnel_stop_inner(t);
+                let _ = tunnel_start_blocking(t, 9182, hostname);
+                fails = 0;
             }
         }
     });

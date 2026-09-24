@@ -55,6 +55,7 @@ func emit(m statusMsg) {
 func main() {
 	hostname := flag.String("hostname", "quinki", "nome del nodo (diventa <nome>.<tailnet>.ts.net)")
 	target := flag.String("target", "127.0.0.1:9182", "indirizzo locale del sidecar")
+	target2 := flag.String("target2", "", "secondo indirizzo (web app Expert), esposto su :8443 sullo stesso nodo")
 	stateDir := flag.String("state-dir", "", "cartella stato del nodo (identita' persistente)")
 	authKeyFile := flag.String("authkey-file", "", "file con la auth key Tailscale")
 	flag.Parse()
@@ -146,31 +147,54 @@ func main() {
 	// Impostazioni compare solo quando e' raggiungibile.
 	emit(statusMsg{Status: "running", URL: publicURL})
 
-	targetURL := &url.URL{Scheme: "http", Host: *target}
-	proxy := &httputil.ReverseProxy{
-		Rewrite: func(pr *httputil.ProxyRequest) {
-			pr.SetURL(targetURL)
-			// Host = hostname pubblico: il sidecar ci costruisce dentro il
-			// payload window.__QUINKI__ (server ws/wss) del client web.
-			pr.Out.Host = pr.In.Host
-			pr.SetXForwarded()
-			// Funnel termina il TLS: diciamo al sidecar che siamo in https,
-			// cosi' il web client usa wss:// e il cookie Secure resta valido.
-			pr.Out.Header.Set("X-Forwarded-Proto", "https")
-		},
-		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
-			w.WriteHeader(http.StatusBadGateway)
-			fmt.Fprintf(w, "quinki tunnel error: %v", err)
-		},
+	makeProxy := func(tgt string) *httputil.ReverseProxy {
+		targetURL := &url.URL{Scheme: "http", Host: tgt}
+		return &httputil.ReverseProxy{
+			Rewrite: func(pr *httputil.ProxyRequest) {
+				pr.SetURL(targetURL)
+				// Host = hostname pubblico: il sidecar ci costruisce dentro il
+				// payload window.__QUINKI__ (server ws/wss) del client web.
+				pr.Out.Host = pr.In.Host
+				pr.SetXForwarded()
+				// Funnel termina il TLS: diciamo al sidecar che siamo in https,
+				// cosi' il web client usa wss:// e il cookie Secure resta valido.
+				pr.Out.Header.Set("X-Forwarded-Proto", "https")
+			},
+			ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
+				w.WriteHeader(http.StatusBadGateway)
+				fmt.Fprintf(w, "quinki tunnel error: %v", err)
+			},
+		}
 	}
 
-	httpSrv := &http.Server{Handler: proxy}
+	httpSrv := &http.Server{Handler: makeProxy(*target)}
 	go func() {
 		if err := httpSrv.Serve(ln); err != nil && err != http.ErrServerClosed {
 			emit(statusMsg{Status: "error", Error: err.Error()})
 			os.Exit(1)
 		}
 	}()
+
+	// Secondo link sullo STESSO nodo: la web app Expert su :8443 -> target2.
+	// Un solo login Tailscale, un solo Funnel da attivare, due link distinti.
+	var httpSrv2 *http.Server
+	if *target2 != "" {
+		var ln2 net.Listener
+		var errLn2 error
+		for {
+			ln2, errLn2 = srv.ListenFunnel("tcp", ":8443")
+			if errLn2 == nil { break }
+			emit(statusMsg{Status: "funnel-pending"})
+			time.Sleep(30 * time.Second)
+		}
+		emit(statusMsg{Status: "running2", URL: publicURL + ":8443"})
+		httpSrv2 = &http.Server{Handler: makeProxy(*target2)}
+		go func() {
+			if err := httpSrv2.Serve(ln2); err != nil && err != http.ErrServerClosed {
+				emit(statusMsg{Status: "error", Error: err.Error()})
+			}
+		}()
+	}
 
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
@@ -179,4 +203,7 @@ func main() {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	httpSrv.Shutdown(shutdownCtx)
+	if httpSrv2 != nil {
+		httpSrv2.Shutdown(shutdownCtx)
+	}
 }
