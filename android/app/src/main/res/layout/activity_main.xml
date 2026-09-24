@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#040406">
+
+    <WebView
+        android:id="@+id/web"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone" />
+
+    <ScrollView
+        android:id="@+id/configPanel"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:padding="28dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="48dp"
+                android:text="@string/app_name"
+                android:textColor="#e8e8ec"
+                android:textSize="26sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:layout_marginBottom="26dp"
+                android:text="Connect this app to Quinki on your Mac. Open Quinki on the Mac, then Settings, Web app, and scan the QR code or paste the link and the access token shown there."
+                android:textColor="#888892"
+                android:textSize="13sp" />
+
+            <EditText
+                android:id="@+id/linkInput"
+                android:layout_width="match_parent"
+                android:layout_height="46dp"
+                android:autofillHints=""
+                android:background="#0e0e10"
+                android:hint="Link (https://… )"
+                android:inputType="textUri"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:textColor="#e8e8ec"
+                android:textColorHint="#5a5a64"
+                android:textSize="14sp" />
+
+            <EditText
+                android:id="@+id/tokenInput"
+                android:layout_width="match_parent"
+                android:layout_height="46dp"
+                android:layout_marginTop="10dp"
+                android:autofillHints=""
+                android:background="#0e0e10"
+                android:hint="Access token"
+                android:inputType="textVisiblePassword"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:textColor="#e8e8ec"
+                android:textColorHint="#5a5a64"
+                android:textSize="14sp" />
+
+            <Button
+                android:id="@+id/scanButton"
+                android:layout_width="match_parent"
+                android:layout_height="46dp"
+                android:layout_marginTop="18dp"
+                android:background="#0e0e10"
+                android:text="Scan QR code"
+                android:textColor="#7aa2f7"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/connectButton"
+                android:layout_width="match_parent"
+                android:layout_height="46dp"
+                android:layout_marginTop="10dp"
+                android:background="#7aa2f7"
+                android:text="Connect"
+                android:textColor="#040406"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/statusText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:text=""
+                android:textColor="#e0566a"
+                android:textSize="13sp" />
+        </LinearLayout>
+    </ScrollView>
+</FrameLayout>
