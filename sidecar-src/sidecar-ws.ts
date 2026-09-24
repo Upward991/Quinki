@@ -613,13 +613,16 @@ stdoutEmitter.on("line", (line: string) => {
 wss.on("connection", (ws, req: any) => {
   clients.add(ws);
   (ws as any).isAlive = true;
+  // Locali (desktop, loopback) vs remoti (telefono/tunnel): serve alla regola
+  // "se stai guardando la chat sul Mac, il telefono non riceve nulla".
+  try { (ws as any).__isLocal = isLoopbackReq(req) } catch { (ws as any).__isLocal = false }
   // Coda notifiche push (per il servizio nativo degli APK): le ultime 24h e
   // SOLO quelle mai consegnate (senza il flag, ogni riconnessione le ripeteva).
   try {
     const q = (globalThis as any).__quinkiPushQueue || [];
     for (const p of q) {
       try {
-        if (p && !p.delivered && Date.now() - (Number(p?.ts) || 0) < 24 * 3600 * 1000) {
+        if (p && !p.delivered && Date.now() - (Number(p?.ts) || 0) < 10 * 60 * 1000) {
           p.delivered = true;
           ws.send(JSON.stringify({ jsonrpc: "2.0", method: "push_notify", params: p }));
         }
@@ -638,7 +641,7 @@ wss.on("connection", (ws, req: any) => {
   ws.on("message", (data) => {
     try {
       const msg = JSON.parse(data.toString());
-      try { if (msg && msg.params && typeof msg.params === "object") msg.params.__dev = (ws as any).__devId || ""; } catch {}
+      try { if (msg && msg.params && typeof msg.params === "object") { msg.params.__dev = (ws as any).__devId || ""; msg.params.__local = !!(ws as any).__isLocal; } } catch {}
       // registrata con orario su stderr (catturato dal watchdog log). Alla prossima
       const line = JSON.stringify(msg);
       const handleLine = (globalThis as any).__quinki_handleLine;

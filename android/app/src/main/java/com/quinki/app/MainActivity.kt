@@ -70,6 +70,7 @@ class MainActivity : AppCompatActivity() {
     private var askedPermissions = false
     private var updateChecked = false
     private var downloadId = -1L
+    private var pendingSessionKey: String = ""
 
     private val scanLauncher = registerForActivityResult(ScanContract()) { result ->
         val contents = result.contents
@@ -226,6 +227,8 @@ class MainActivity : AppCompatActivity() {
             override fun onPageFinished(view: WebView, url: String) {
                 CookieManager.getInstance().flush()
                 ensurePermissions()
+                // Apri la chat della notifica appena l'app è carica (retry inclusi).
+                if (pendingSessionKey.isNotEmpty()) injectOpenSession(pendingSessionKey)
             }
 
             override fun onRenderProcessGone(view: WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean {
@@ -344,14 +347,24 @@ class MainActivity : AppCompatActivity() {
     private fun handleNotificationIntent(intent: Intent?) {
         val sk = try { intent?.getStringExtra("sessionKey") } catch (e: Exception) { null }
         if (!sk.isNullOrEmpty()) {
-            try {
-                web.postDelayed({
-                    try {
-                        web.evaluateJavascript("window.__quinkiOpenSession && window.__quinkiOpenSession(" + org.json.JSONObject.quote(sk!!) + ")", null)
-                    } catch (e: Exception) { }
-                }, 2500)
-            } catch (e: Exception) { }
+            pendingSessionKey = sk
+            // Tentativi ripetuti: l'app web impiega qualche secondo a connettersi
+            // al WS; il primo tentativo utile vince, gli altri sono innocui.
+            for (delay in longArrayOf(1200, 3000, 6000, 10000, 15000)) {
+                try {
+                    web.postDelayed({ injectOpenSession(sk) }, delay)
+                } catch (e: Exception) { }
+            }
         }
+    }
+
+    private fun injectOpenSession(sk: String) {
+        try {
+            web.evaluateJavascript(
+                "window.__quinkiOpenSession && window.__quinkiOpenSession(" + org.json.JSONObject.quote(sk) + ")",
+                null
+            )
+        } catch (e: Exception) { }
     }
 
     private fun pairUrl(link: String, token: String): String = "$link/?token=" + Uri.encode(token)

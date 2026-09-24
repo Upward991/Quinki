@@ -220,6 +220,8 @@ function sendWebPush(entry: any) {
     const mode = st && sk ? (st[sk] && st[sk].notifyMode) || 'none' : 'none';
     if (mode === 'none') return;
   } catch { return }
+  // Stessa regola cross-device anche per la web push (PWA del telefono).
+  if (_watchState.watching && _watchState.sk === sk && Date.now() - _watchState.at < 90000) return;
   try {
     const sf = path.join(homedir(), '.quinki', 'push-subs.json');
     let subs: any[] = [];
@@ -273,6 +275,8 @@ function sendWebPush(entry: any) {
 // === PUSH NATIVO (servizio degli APK): la notifica va ai client WS collegati
 // (il servizio del telefono ascolta come la web app). Coda ultimi 30 (24h) per
 // chi era offline: nulla si perde per brevi disconnessioni.
+// Stato "sto guardando la chat sul Mac" (solo client locali); scade da solo.
+let _watchState = { sk: "", watching: false, at: 0 };
 const _pushQueue: any[] = [];
 (globalThis as any).__quinkiPushQueue = _pushQueue;
 function pushNotifyOut(entry: any): void {
@@ -283,6 +287,8 @@ function pushNotifyOut(entry: any): void {
       const mode = st && sk ? (st[sk] && st[sk].notifyMode) || 'none' : 'none';
       if (mode === 'none') return;
     } catch { return }
+    // Se sul Mac stai GUARDANDO questa chat, il telefono resta zitto (regola utente: identica al comportamento del computer).
+    if (_watchState.watching && _watchState.sk === sk && Date.now() - _watchState.at < 90000) return;
     let title = entry?.kind === 'task_complete' ? 'Task executed' : (sk === '__app_expert__' ? 'App Expert' : '');
     if (!title) {
       try {
@@ -599,6 +605,14 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   getReadState: async (p) => ({ state: piBridge!.getReadState(String(p.sessionKey || "")) }),
   getAllReadStates: async () => ({ states: piBridge!.getAllReadStates() }),
   setReadState: async (p) => ({ state: piBridge!.setReadState(String(p.sessionKey || ""), p.patch || {}) }),
+  setClientWatching: async (p) => {
+    try {
+      // Solo i client LOCALI (desktop) possono dichiarare la chat in visione.
+      if (!p?.__local) return { ok: false };
+      _watchState = { sk: String(p?.sessionKey || ''), watching: !!p?.watching, at: Date.now() };
+      return { ok: true };
+    } catch { return { ok: false }; }
+  },
   setNotifyMode: async (p) => {
     try {
       const sk = String(p.sessionKey || "");

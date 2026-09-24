@@ -1113,6 +1113,34 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
   }, [ready, call])
 
   // === CLICK sulla notifica macOS -> apre la chat di provenienza ===
+  // DESKTOP: dichiara al sidecar la chat in visione (finestra attiva e chat aperta):
+  // cosi' il TELEFONO non riceve notifiche per una chat che stai gia' guardando sul Mac.
+  useEffect(() => {
+    const call = (window as any).__sidecarCall
+    if (!call) return
+    const send = () => {
+      try {
+        const focused = document.hasFocus() && !document.body.classList.contains('win-inactive')
+        call('setClientWatching', { sessionKey: String(activeSessionId || ''), watching: focused && document.visibilityState === 'visible' })
+      } catch {}
+    }
+    send()
+    const t = setInterval(send, 20000)
+    try {
+      document.addEventListener('visibilitychange', send)
+      window.addEventListener('focus', send)
+      window.addEventListener('blur', send)
+    } catch {}
+    return () => {
+      clearInterval(t)
+      try {
+        document.removeEventListener('visibilitychange', send)
+        window.removeEventListener('focus', send)
+        window.removeEventListener('blur', send)
+      } catch {}
+    }
+  }, [activeSessionId])
+
   // Telefono: segnala al servizio nativo quale chat stai guardando (e se l'app
   // e' visibile): la notifica NON arriva per quella chat, esattamente come sul Mac.
   useEffect(() => {
@@ -1139,6 +1167,21 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
 
   // Web/telefono: tap sulla NOTIFICA nativa -> apre la chat giusta (evento DOM,
   // gemello dell'evento Tauri usato sul desktop).
+  // Tap sulla notifica con app appena avviata: appena connessi, riapre la chat
+  // pendente (foglio di riapertura dal tap nativo).
+  useEffect(() => {
+    if (!connected) return
+    const p = String((window as any).__quinkiPendingSession || '')
+    if (!p) return
+    const t = setTimeout(() => {
+      try {
+        ;(window as any).__quinkiPendingSession = undefined
+        selectSession(p)
+      } catch {}
+    }, 1200)
+    return () => clearTimeout(t)
+  }, [connected, selectSession])
+
   useEffect(() => {
     const domSwitch = (ev: any) => {
       try {

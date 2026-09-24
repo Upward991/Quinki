@@ -78,7 +78,12 @@ function reportFrontendError(kind: string, message: string, stack?: string) {
 ;(window as any).__reportFrontendError = reportFrontendError
 
 ;(window as any).__quinkiOpenSession = (sk: string) => {
-  try { window.dispatchEvent(new CustomEvent('quinki-switch-session', { detail: { sessionKey: sk } })) } catch {}
+  try {
+    // Memoria del tap: se l'app non e' ancora connessa al Mac, la riapriamo
+    // appena pronta (il servizio nativo ritenta comunque piu' volte).
+    ;(window as any).__quinkiPendingSession = sk
+    window.dispatchEvent(new CustomEvent('quinki-switch-session', { detail: { sessionKey: sk } }))
+  } catch {}
 }
 
 // HELLO: al caricamento della pagina il telefono dice al Mac chi e' e in che
