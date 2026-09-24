@@ -214,7 +214,9 @@ function RemoteAccessLinkPart({ target, label }: { target: string; label: string
           <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', padding: '24px', maxWidth: '420px', width: '90%', boxShadow: 'var(--shadow-modal)' }}>
             <div style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '8px' }}>QR code</div>
             <div style={{ color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', lineHeight: 1.5, marginBottom: '10px' }}>
-              Scan this with your phone camera: Quinki opens on the phone already signed in, nothing to type.
+              {target === 'expert'
+                ? 'Scan this with your phone camera: App Expert opens on the phone already signed in, nothing to type.'
+                : 'Scan this with your phone camera: Quinki opens on the phone already signed in, nothing to type.'}
             </div>
             <div style={{ display: 'flex', justifyContent: 'center', padding: '4px 0 10px 0' }}>
               <div style={{ backgroundColor: '#ffffff', padding: '10px', borderRadius: 'var(--radius-md)' }}>
