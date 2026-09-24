@@ -174,6 +174,8 @@ export function Composer(props: ComposerProps) {
   const lastVoiceRef = useRef(0)
   const recRef = useRef<{ mr: MediaRecorder; stream: MediaStream; chunks: Blob[] } | null>(null)
   const startingRef = useRef(false)
+  // True quando l'utente ha chiesto lo stop: dopo, il primo chunk non accende piu' il rosso.
+  const stoppedRef = useRef(false)
   const recSelRef = useRef<{ start: number; end: number }>({ start: 0, end: 0 })
 
   const startRec = async () => {
@@ -181,6 +183,7 @@ export function Composer(props: ComposerProps) {
     // tocco viene ignorato: niente doppie registrazioni nascoste.
     if (startingRef.current || recRef.current) return
     startingRef.current = true
+    stoppedRef.current = false
     try {
       // Se l'utente ha evidenziato del testo, la trascrizione LO SOSTITUIRA'.
       try {
@@ -212,7 +215,16 @@ export function Composer(props: ComposerProps) {
       } catch (e) { console.error('vad error:', e) }
       const mr = new MediaRecorder(stream)
       const chunks: Blob[] = []
-      mr.ondataavailable = (e: any) => { if (e.data && e.data.size) chunks.push(e.data) }
+      let gotAudio = false
+      // ROSSO = l'audio sta DAVVERO scorrendo: il tasto si accende solo quando
+      // arriva il primo blocco GIA' REGISTRATO (MediaRecorder impiega 150-300ms
+      // ad avviarsi davvero: accendere prima faceva perdere le prime parole).
+      mr.ondataavailable = (e: any) => {
+        if (e.data && e.data.size) {
+          chunks.push(e.data)
+          if (!gotAudio && !stoppedRef.current) { gotAudio = true; setRecState('rec') }
+        }
+      }
       mr.onstop = async () => {
         try { if (vadTimerRef.current) clearInterval(vadTimerRef.current) } catch {}
         vadTimerRef.current = null
@@ -244,9 +256,8 @@ export function Composer(props: ComposerProps) {
           recRef.current = null
         }
       }
-      mr.start()
+      mr.start(150)
       recRef.current = { mr, stream, chunks }
-      setRecState('rec')
     } catch (e: any) {
       console.error('mic error:', e)
       try { if (vadTimerRef.current) clearInterval(vadTimerRef.current) } catch {}
@@ -258,6 +269,7 @@ export function Composer(props: ComposerProps) {
     }
   }
   const stopRec = () => {
+    stoppedRef.current = true
     try { recRef.current?.mr.stop() } catch {}
     setRecState('busy')
   }
