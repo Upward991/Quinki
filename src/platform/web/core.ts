@@ -116,11 +116,17 @@ export async function invoke(cmd: string, args?: Any): Promise<Any> {
     case 'is_autostart_enabled':
       return false
     case 'get_quick_chat_shortcut':
-      return 'Option+Space'
+      return 'AltLeft+Space'
     case 'check_expert_running':
-    case 'check_expert_installed':
     case 'check_expert_backup_exists':
       return false
+    case 'check_expert_installed':
+      // In the web app there is NO "install the Expert app" flow: the Expert
+      // lives on the Mac that runs the backend. Returning false made the app
+      // believe it was not installed and show the install readme modal every
+      // time the App Expert tab was opened on the phone / web. Treat it as
+      // installed; the desktop app keeps its real check.
+      return true
     default:
       // Desktop-only command (updater, tray, window controls, expert sync, local
       // files). No-op in web: log once per command to keep the console readable.
