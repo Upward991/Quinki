@@ -135,6 +135,21 @@ export function Composer(props: ComposerProps) {
     setAttachMenuOpen(false); setAttachMenuView('main')
     try { await invoke('open_working_dir_folder', { path }) } catch (e: any) { console.error('open_working_dir_folder:', e) }
   }
+  const [pendingWorkdir, setPendingWorkdir] = useState<{ path: string; from: string; files: number; sessionKey: string } | null>(null)
+  useEffect(() => {
+    const onPicked = async (ev: any) => {
+      const d = ev?.detail || {}
+      const sk = String(d.sessionKey || ''); const path = String(d.path || '')
+      if (!sk || !path) return
+      const call = (window as any).__sidecarCall
+      let files = 0, from = ''
+      try { const r = await call('listWorkingDirs', { sessionKey: sk }); files = r?.currentFiles || 0; from = r?.current || '' } catch {}
+      if (files > 0 && from && from !== path) { setPendingWorkdir({ path, from, files, sessionKey: sk }); return }
+      try { await call('setWorkingDir', { sessionKey: sk, path }) } catch {}
+    }
+    window.addEventListener('quinki-workdir-picked', onPicked)
+    return () => window.removeEventListener('quinki-workdir-picked', onPicked)
+  }, [])
 
   // === Mobile (visione telefono) ===
   // La graffetta esce dalla text box: l'allegato si apre dal menu in alto.
@@ -1016,21 +1031,13 @@ function AttachMenu({ view, existingFiles, workdirs, onPickFiles, onOpenFolder, 
                 <div style={{ padding: '20px', color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)', textAlign: 'center' }}>No working directories yet.</div>
               ) : (
                 workdirs.map((d: any, i: number) => (
-                  <div key={i} onClick={() => onOpenWorkdir(d.path)}
-                    onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }}
-                    onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
-                    style={{ padding: '10px 12px', borderRadius: 'var(--radius-sm)', cursor: 'pointer', borderLeft: d.current ? '2px solid var(--q-tab-accent)' : '2px solid transparent' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ color: d.current ? 'var(--q-text)' : 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', fontWeight: d.current ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{String(d.path || '').split('/').filter(Boolean).pop() || d.path}</span>
-                      {d.current && <span style={{ color: 'var(--q-tab-accent)', fontSize: '11px', fontFamily: 'var(--font-interface)', flexShrink: 0 }}>Current</span>}
-                    </div>
-                    <div style={{ color: 'var(--q-text-tertiary)', fontSize: '11px', fontFamily: 'var(--font-code)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '2px' }}>{d.path}</div>
-                  </div>
+                  <WorkdirRow key={i} dir={d} onClick={() => onOpenWorkdir(d.path)} />
                 ))
               )}
             </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '16px 16px 12px 16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px', padding: '16px 16px 12px 16px' }}>
               <AttachModalBtn label="Cancel" onClick={onClose} danger />
+              <AttachModalBtn label="Back" onClick={onBack} />
             </div>
           </>
         ) : (
@@ -1090,6 +1097,22 @@ function AttachModalBtn({ label, onClick, danger }: { label: string; onClick: ()
       }}>
       {label}
     </button>
+  )
+}
+
+// ── Folder row in "Working directories" list (come le righe degli attachment) ──
+function WorkdirRow({ dir, onClick }: { dir: any; onClick: () => void }) {
+  const [hovered, setHovered] = useState(false)
+  const name = String(dir?.path || '').split('/').filter(Boolean).pop() || dir?.path || ''
+  return (
+    <div onClick={onClick} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+      style={{ padding: '10px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', borderRadius: 'var(--radius-md)', backgroundColor: hovered ? 'var(--q-hover)' : 'transparent', transition: 'none' }}>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--q-tab-accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+      </svg>
+      <span style={{ color: dir?.current ? 'var(--q-tab-accent)' : 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: dir?.current ? 600 : 400 }}>{name}</span>
+      <span style={{ color: 'var(--q-text-tertiary)', fontSize: '11px', fontFamily: 'var(--font-code)', flexShrink: 0, maxWidth: '45%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dir?.path}</span>
+    </div>
   )
 }
 
