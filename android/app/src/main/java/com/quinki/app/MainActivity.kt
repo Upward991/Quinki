@@ -176,6 +176,11 @@ class MainActivity : AppCompatActivity() {
         // clipboard, quindi l'app web lo legge da qui (esposto solo getClipboard).
         web.addJavascriptInterface(object {
             @android.webkit.JavascriptInterface
+            fun setActiveChat(sk: String, visible: Boolean) {
+                try { PushService.setActiveChat(String(sk), visible) } catch (e: Exception) { }
+            }
+
+            @android.webkit.JavascriptInterface
             fun getClipboard(): String {
                 return try {
                     val cm = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager

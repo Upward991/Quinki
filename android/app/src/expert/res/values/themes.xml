@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="QuinkiTheme" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">#08080b</item>
+        <item name="android:statusBarColor">#08080b</item>
+        <item name="android:navigationBarColor">#08080b</item>
+        <item name="colorAccent">#D9A066</item>
+        <item name="android:colorAccent">#D9A066</item>
+    </style>
+</resources>

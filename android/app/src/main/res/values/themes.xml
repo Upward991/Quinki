@@ -4,6 +4,8 @@
         <item name="android:windowBackground">#08080b</item>
         <item name="android:statusBarColor">#08080b</item>
         <item name="android:navigationBarColor">#08080b</item>
+        <item name="colorAccent">#9D8BD9</item>
+        <item name="android:colorAccent">#9D8BD9</item>
     </style>
 
     <!-- Tema dello scanner QR: nero, fullscreen, stessi colori dell'app -->

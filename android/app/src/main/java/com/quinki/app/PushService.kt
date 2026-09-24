@@ -37,6 +37,17 @@ class PushService : Service() {
         private const val SERVICE_NOTIF_ID = 1
         private const val REPLY_KEY = "reply_text"
 
+        // Chat attiva segnalata dall'app web (stessa regola del Mac: silenzio
+        // SOLO se stai guardando proprio quella chat in quel momento).
+        @Volatile private var activeSk = ""
+        @Volatile private var activeVisible = false
+        @Volatile private var activeAt = 0L
+        fun setActiveChat(sk: String, visible: Boolean) {
+            activeSk = sk
+            activeVisible = visible
+            activeAt = System.currentTimeMillis()
+        }
+
         fun start(context: Context) {
             try {
                 val i = Intent(context, PushService::class.java)
@@ -164,6 +175,8 @@ class PushService : Service() {
 
     private fun showNotification(titleIn: String, body: String, sk: String) {
         try {
+            // Se stai guardando QUESTA chat sul telefono, niente notifica (come sul Mac).
+            if (activeVisible && sk == activeSk && System.currentTimeMillis() - activeAt < 60000) return
             val title = titleIn.ifEmpty { appName }
             val id = sk.ifEmpty { title }.hashCode()
 
@@ -194,6 +207,7 @@ class PushService : Service() {
                 .setContentIntent(openPi)
                 .setAutoCancel(true)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setColor(if (packageName.endsWith(".expert")) 0xFFD9A066.toInt() else 0xFF9D8BD9.toInt())
                 .setOnlyAlertOnce(false)
                 .addAction(0, "Mute", mutePi)
                 .addAction(0, "Mark read", readPi)

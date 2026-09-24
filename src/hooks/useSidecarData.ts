@@ -1113,6 +1113,30 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
   }, [ready, call])
 
   // === CLICK sulla notifica macOS -> apre la chat di provenienza ===
+  // Telefono: segnala al servizio nativo quale chat stai guardando (e se l'app
+  // e' visibile): la notifica NON arriva per quella chat, esattamente come sul Mac.
+  useEffect(() => {
+    const send = () => {
+      try {
+        const nat = (window as any).QuinkiNative
+        if (nat && nat.setActiveChat) nat.setActiveChat(String(activeSessionId || ''), document.visibilityState === 'visible')
+      } catch {}
+    }
+    send()
+    try {
+      document.addEventListener('visibilitychange', send)
+      window.addEventListener('focus', send)
+      window.addEventListener('blur', send)
+    } catch {}
+    return () => {
+      try {
+        document.removeEventListener('visibilitychange', send)
+        window.removeEventListener('focus', send)
+        window.removeEventListener('blur', send)
+      } catch {}
+    }
+  }, [activeSessionId])
+
   // Web/telefono: tap sulla NOTIFICA nativa -> apre la chat giusta (evento DOM,
   // gemello dell'evento Tauri usato sul desktop).
   useEffect(() => {

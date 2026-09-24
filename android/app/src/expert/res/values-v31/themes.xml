@@ -5,5 +5,7 @@
         <item name="android:statusBarColor">#08080b</item>
         <item name="android:navigationBarColor">#08080b</item>
         <item name="android:windowSplashScreenBackground">#08080B</item>
+        <item name="colorAccent">#D9A066</item>
+        <item name="android:colorAccent">#D9A066</item>
     </style>
 </resources>
