@@ -544,7 +544,6 @@ input, textarea, [contenteditable="true"] { -webkit-user-select: text !important
   #q-settings div[id="settings-expert-sync"],
   #q-settings div[id="settings-app-permissions"],
   #q-settings div[id="settings-webapp"] { display: none !important }
-  #q-settings div[id="settings-webapp-expert"] { display: none !important }
   /* Agents Tasks sul telefono */
   #q-tasks span { font-size: 12px !important; line-height: 1.45 !important }
   #q-tasks input, #q-tasks textarea, #q-tasks select { font-size: 12px !important }

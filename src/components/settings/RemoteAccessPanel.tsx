@@ -18,7 +18,7 @@ import QRCode from 'qrcode'
 
 const URL_ADMIN_DNS = 'https://login.tailscale.com/admin/dns'
 
-export function RemoteAccessSection({ target = 'main' }: { target?: string } = {}) {
+function RemoteAccessPart({ target = 'main' }: { target?: string } = {}) {
   const [status, setStatus] = useState<{ running: boolean; url: string; authUrl?: string }>({ running: false, url: '' })
   const [enabled, setEnabled] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -233,13 +233,9 @@ export function RemoteAccessSection({ target = 'main' }: { target?: string } = {
           : 'Not started yet: press the button above.'
 
   return (
-    <div id={target === 'expert' ? 'settings-webapp-expert' : 'settings-webapp'} style={{ width: '100%', marginBottom: '12px', padding: '14px 18px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-        <Globe size={16} style={{ color: 'var(--q-text-secondary)', flexShrink: 0 }} />
-        <span style={{ color: 'var(--q-text)', fontSize: '15px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>{target === 'expert' ? 'Expert web app' : 'Web app'}</span>
-      </div>
-      <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginTop: '4px' }}>
-        Use Quinki from your phone or another computer: same sessions, same data as this Mac, while Quinki is running. On the phone, use “Install app” to keep Quinki as a real app with its icon.
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px', marginBottom: '2px' }}>
+        <span style={{ color: 'var(--q-text)', fontSize: '14px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>{target === 'expert' ? 'Expert web app' : 'Main web app'}</span>
       </div>
 
       {/* ---------- setup: sempre visibile, mai nascosto ---------- */}
@@ -388,6 +384,23 @@ export function RemoteAccessSection({ target = 'main' }: { target?: string } = {
           </div>
         </div>
       )}
+    </>
+  )
+}
+
+export function RemoteAccessSection() {
+  return (
+    <div id="settings-webapp" style={{ width: '100%', marginBottom: '12px', padding: '14px 18px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+        <Globe size={16} style={{ color: 'var(--q-text-secondary)', flexShrink: 0 }} />
+        <span style={{ color: 'var(--q-text)', fontSize: '15px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>Web app</span>
+      </div>
+      <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginTop: '4px' }}>
+        Use Quinki from your phone or another computer: same sessions, same data as this Mac, while Quinki is running. On the phone, use “Install app” to keep Quinki as a real app with its icon.
+      </div>
+      <RemoteAccessPart target="main" />
+      <div style={{ height: '1px', backgroundColor: 'var(--q-border)', margin: '12px 0' }} />
+      <RemoteAccessPart target="expert" />
     </div>
   )
 }
