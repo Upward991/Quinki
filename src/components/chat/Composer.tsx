@@ -173,9 +173,14 @@ export function Composer(props: ComposerProps) {
   const acRef = useRef<any>(null)
   const lastVoiceRef = useRef(0)
   const recRef = useRef<{ mr: MediaRecorder; stream: MediaStream; chunks: Blob[] } | null>(null)
+  const startingRef = useRef(false)
   const recSelRef = useRef<{ start: number; end: number }>({ start: 0, end: 0 })
 
   const startRec = async () => {
+    // Finche' il microfono NON e' aperto (tasto ancora non rosso) un secondo
+    // tocco viene ignorato: niente doppie registrazioni nascoste.
+    if (startingRef.current || recRef.current) return
+    startingRef.current = true
     try {
       // Se l'utente ha evidenziato del testo, la trascrizione LO SOSTITUIRA'.
       try {
@@ -248,6 +253,8 @@ export function Composer(props: ComposerProps) {
       vadTimerRef.current = null
       setSpeaking(false)
       setRecState('idle')
+    } finally {
+      startingRef.current = false
     }
   }
   const stopRec = () => {
@@ -1207,7 +1214,7 @@ function MicBtn({ recState, speaking, onClick }: { recState: 'idle' | 'rec' | 'b
         borderRadius: '8px',
         border: 'none', cursor: busy ? 'default' : 'pointer',
         backgroundColor: (rec && speaking) ? 'var(--q-accent-success)' : rec ? 'var(--q-accent-danger)' : busy ? 'var(--q-accent-warning)' : (hovered ? 'rgba(255,255,255,0.08)' : 'var(--q-hover)'),
-        color: (rec && speaking) ? getContrastColor('--q-accent-success') : rec ? getContrastColor('--q-accent-danger') : busy ? getContrastColor('--q-accent-warning') : 'var(--q-text-tertiary)',
+        color: (rec && speaking) ? getContrastColor('--q-accent-success') : (rec || busy) ? getContrastColor('--q-accent-warning') : 'var(--q-text-tertiary)',
         flexShrink: 0, padding: '0',
         transition: 'none',
       }}>
