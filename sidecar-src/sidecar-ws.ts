@@ -127,6 +127,23 @@ const COOKIE_NAME = WEB_IS_EXPERT ? "quinki_token_x" : "quinki_token";
 // ATTENZIONE: il traffico del tunnel arriva DA 127.0.0.1 (cloudflared gira sul Mac)
 // → i proxy che iniettano x-forwarded-for/cf-connecting-ip NON sono loopback.
 const REMOTE_FILE = join(AGENT_DIR, WEB_IS_EXPERT ? "remote-expert.json" : "remote.json");
+
+// === FCM del PRODOTTO: config + chiave viaggiano DENTRO Quinki (resources del
+// sidecar) e al primo avvio finiscono in ~/.quinki. Cosi' ogni utente ha le
+// notifiche funzionanti senza fare nulla. Se i file non esistono: tutto spento. ===
+try {
+  const rsDir = dirname(process.execPath || "");
+  for (const f of ["fcm-public-config.json", "fcm-service-account.json"]) {
+    const dst = join(String(process.env.HOME || ""), ".quinki", f);
+    if (!dst.startsWith("/")) continue;
+    if (!existsSync(dst)) {
+      const src = join(rsDir, f);
+      if (existsSync(src)) {
+        try { writeFileSync(dst, readFileSync(src)); process.stderr.write(`[fcm] ${f} installato dai resources\n`); } catch {}
+      }
+    }
+  }
+} catch {}
 let _remoteTokenCache = { at: 0, v: "" };
 function remoteToken(): string {
   const now = Date.now();

@@ -28,6 +28,13 @@ WV=$(shasum -a 256 dist-web/index.html | awk '{print substr($1,1,12)}')
 echo "$WV" > src-tauri/resources/sidecar/version.txt
 echo "$WV" > src-tauri/resources/sidecar/web/version.txt
 echo "[build-app] web version: $WV" 
+# FCM del prodotto: se fcm/ esiste nel repo, viaggia dentro l'app (resources
+# accanto al sidecar). Gli utenti NON devono configurare nulla.
+if [ -d fcm ]; then
+  mkdir -p src-tauri/resources/sidecar
+  cp fcm/*.json src-tauri/resources/sidecar/ 2>/dev/null || true
+  echo "[build-app] FCM product config included"
+fi
 bash scripts/build-sidecar.sh
 # Dettatura locale (Parakeet TDT v3 via FluidAudio): compila l'helper swift e lo
 # spedisce accanto al sidecar, stesso schema del tunnel.
