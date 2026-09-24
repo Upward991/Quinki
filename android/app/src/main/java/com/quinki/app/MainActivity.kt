@@ -275,7 +275,10 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.connectButton).setOnClickListener { doConnect() }
 
         try {
-            ContextCompat.registerReceiver(this, downloadReceiver, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE), ContextCompat.RECEIVER_NOT_EXPORTED)
+            // RECEIVER_EXPORTED: il broadcast del provider DownloadManager (processo
+            // separato) NON arriva con NOT_EXPORTED su Android 13+ (bug noto: il
+            // download finiva ma l'installazione non partiva mai).
+            ContextCompat.registerReceiver(this, downloadReceiver, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE), ContextCompat.RECEIVER_EXPORTED)
         } catch (e: Exception) { }
 
         val prefs = getSharedPreferences("quinki", Context.MODE_PRIVATE)
@@ -652,7 +655,7 @@ class MainActivity : AppCompatActivity() {
             val request = DownloadManager.Request(Uri.parse(url)).apply {
                 setTitle("Quinki update $tag")
                 setMimeType("application/vnd.android.package-archive")
-                setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
+                setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                 setDestinationInExternalFilesDir(this@MainActivity, null, "quinki-update.apk")
             }
             val dm = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
@@ -677,6 +680,34 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         web.onResume()
         if (web.visibility == View.VISIBLE) checkWebVersion()
+        checkPendingDownload()
+    }
+
+    // Se l'APK è stato scaricato ma il broadcast di fine download si è perso
+    // (o l'utente è tornato nell'app), apri l'installer comunque.
+    private var installedOpened = false
+    private fun checkPendingDownload() {
+        try {
+            if (downloadId < 0) return
+            val dm = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+            val q = DownloadManager.Query().setFilterById(downloadId)
+            val c = dm.query(q) ?: return
+            if (!c.moveToFirst()) return
+            val status = c.getInt(c.getColumnIndex(DownloadManager.COLUMN_STATUS))
+            if (status == DownloadManager.STATUS_SUCCESSFUL && !installedOpened) {
+                installedOpened = true
+                val uri = dm.getUriForDownloadedFile(downloadId)
+                if (uri != null) {
+                    val i = Intent(Intent.ACTION_VIEW).apply {
+                        setDataAndType(uri, "application/vnd.android.package-archive")
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    try { startActivity(i) } catch (e: Exception) { }
+                }
+            } else if (status == DownloadManager.STATUS_FAILED) {
+                downloadId = -1L
+            }
+        } catch (e: Exception) { }
     }
 
     override fun onDestroy() {
