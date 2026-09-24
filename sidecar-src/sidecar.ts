@@ -447,8 +447,10 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
       const key = String(p?.sessionKey || "");
       const meta = piBridge!.getSessionMeta(key);
       const cur = (meta?.workingDir && meta.workingDir.length > 0) ? meta.workingDir : piBridge!.autoWorkDirFor(key);
+      const defaultPath = piBridge!.autoWorkDirFor(key);
       const set = new Set<string>();
       set.add(cur);
+      set.add(defaultPath); // la DEFAULT della chat: sempre visibile in lista
       for (const d of ((meta as any)?.workdirHistory || [])) if (typeof d === "string" && d) set.add(d);
       // ORDINE: la cartella ATTUALE sempre in fondo all'elenco (le passate sopra).
       const others = [...set].filter(d => d !== cur);
@@ -458,9 +460,6 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
         .map(d => ({ path: d, current: d === cur }));
       let currentFiles = 0;
       try { currentFiles = cur ? fs.readdirSync(cur).length : 0 } catch { currentFiles = 0 }
-      // La cartella di DEFAULT della chat viene RIGENERATA qui se manca (mai
-      // eliminata: la chat ci torna quando togli la directory).
-      const defaultPath = piBridge!.autoWorkDirFor(key);
       return { current: cur, dirs, currentFiles, defaultPath };
     } catch { return { current: "", dirs: [], currentFiles: 0, defaultPath: "" } }
   },

@@ -594,8 +594,20 @@ class PiBridge {
           // Merge folderId and order from the file (not in session files, only in quinki-sessions.json)
           if (s.folderId !== undefined) (existing as any).folderId = s.folderId;
           if (typeof s.order === 'number') (existing as any).order = s.order;
-          // Restore workingDir from disk to cwdOverride
-          if (s.workingDir) {
+          // Restore workingDir: il chat-meta per-sessione è AUTHORITATIVE (anche
+          // "" = tolta: si torna alla default). Il file condiviso può essere stantio.
+          try {
+            const metaWd = this.#readChatMeta(s.key).workingDir;
+            if (metaWd !== undefined) {
+              if (metaWd) this.#cwdOverride.set(s.key, String(metaWd));
+              else this.#cwdOverride.delete(s.key);
+              (existing as any).workingDir = metaWd || undefined;
+            } else if (s.workingDir) {
+              this.#cwdOverride.set(s.key, s.workingDir);
+              (existing as any).workingDir = s.workingDir;
+            }
+          } catch {}
+          if (false && s.workingDir) {
             this.#cwdOverride.set(s.key, s.workingDir);
             (existing as any).workingDir = s.workingDir;
           }
@@ -2139,7 +2151,18 @@ class PiBridge {
       thinkingLevel = s?.thinkingLevel;
       availableThinkingLevels = ["off", "low", "medium", "high"];
     }
-    return { model, thinkingLevel, availableThinkingLevels, mode, agentId: (s as any)?.agentId, agentOverrides: (s as any)?.agentOverrides || {}, workingDir: this.#cwdOverride.get(key) || '', workdirHistory: (s as any)?.workdirHistory || [], label: s?.label, fallbackModels: (s as any)?.fallbackModels || [] };
+    const effWd = this.#cwdOverride.get(key) || this.effectiveWorkDir(key) || '';
+    let hist: string[] = [];
+    try {
+      const metaH = this.#readChatMeta(key).workdirHistory;
+      if (Array.isArray(metaH) && metaH.length > 0) hist = metaH;
+      else {
+        const data = JSON.parse(fs.readFileSync(SESSION_FILE, "utf8"));
+        const e = (Array.isArray(data) ? data : []).find((x: any) => x && x.key === key);
+        if (e && Array.isArray((e as any).workdirHistory)) hist = (e as any).workdirHistory;
+      }
+    } catch {}
+    return { model, thinkingLevel, availableThinkingLevels, mode, agentId: (s as any)?.agentId, agentOverrides: (s as any)?.agentOverrides || {}, workingDir: effWd, workdirHistory: hist, label: s?.label, fallbackModels: (s as any)?.fallbackModels || [] };
   }
 
   setSessionFallbacks(key: string, models: string[]): { ok: boolean } {
@@ -4041,6 +4064,47 @@ Read this file to view it.` }] };
   // Non chiama #applyMode. Solo persistenza per sopravvivere al riavvio.
   // Persiste agenti/workingDir ANCHE nel file meta della cartella di sessione:
   // così sopravvivono anche se quinki-sessions.json viene sovrascritto dall'altra app.
+  // === WORKDIR: verità dai FILE (mai dalla memoria del processo: il router e i
+  // worker hanno entry diverse e la scrittura in memoria non arrivava mai su disco).
+  #readChatMeta(key: string): any {
+    try {
+      const p = path.join(this.#piSessionDir(key), "chat-meta.json");
+      return JSON.parse(fs.readFileSync(p, "utf8"));
+    } catch { return {}; }
+  }
+  #updateSessionFile(key: string, mutate: (s: any) => void) {
+    try {
+      const data = JSON.parse(fs.readFileSync(SESSION_FILE, "utf8"));
+      const arr = Array.isArray(data) ? data : [];
+      const e = arr.find((x: any) => x && x.key === key);
+      if (e) { mutate(e); fs.writeFileSync(SESSION_FILE, JSON.stringify(arr, null, 2), "utf8"); }
+    } catch {}
+  }
+  // Cartella EFFETTIVA della chat: il chat-meta.json per-sessione vince (anche ""
+  // = tornata alla default), altrimenti il file condiviso, altrimenti la default.
+  effectiveWorkDir(key: string): string {
+    try {
+      const meta = this.#readChatMeta(key);
+      if (meta && meta.workingDir !== undefined) return String(meta.workingDir || "");
+    } catch {}
+    try {
+      const data = JSON.parse(fs.readFileSync(SESSION_FILE, "utf8"));
+      const e = (Array.isArray(data) ? data : []).find((x: any) => x && x.key === key);
+      if (e && e.workingDir) return String(e.workingDir);
+    } catch {}
+    return "";
+  }
+  #pushWorkdirHistory(key: string, dir: string) {
+    if (!dir) return;
+    try {
+      const meta = this.#readChatMeta(key);
+      const hist: string[] = Array.isArray(meta.workdirHistory) ? meta.workdirHistory : [];
+      const next = [...hist.filter((d: string) => d !== dir), dir].slice(-20);
+      this.#writeChatMeta(key, { workdirHistory: next });
+      this.#updateSessionFile(key, (e) => { e.workdirHistory = next; });
+    } catch {}
+  }
+
   #writeChatMeta(key: string, patch: Record<string, any>) {
     try {
       const dir = this.#piSessionDir(key);
@@ -4269,17 +4333,12 @@ Read this file to view it.` }] };
   // la sessione viene riaperta (SessionManager.open con cwdOverride) preservando il .jsonl
   // (history). Risolve: "sposto la cartella e devo ricominciare da capo" → non più.
   setWorkingDir(key: string, newPath: string) {
-    // STORIA workdir: la cartella che stiamo lasciando finisce nella lista
-    // (riapribile dal menu clip; le cartelle eliminate spariscono da sole).
+    // STORIA workdir: la cartella che stiamo lasciando finisce nella lista (sui
+    // FILE, non in memoria: il processo che esegue il cambio non ha sempre l'entry).
     try {
-      const oldDir = this.#cwdOverride.get(key) ?? (this.#entries.get(key) as any)?.workingDir ?? this.#autoWorkDir(key);
-      const s0 = this.#entries.get(key);
-      if (s0 && oldDir && oldDir !== newPath) {
-        const hist: string[] = Array.isArray((s0 as any).workdirHistory) ? (s0 as any).workdirHistory : [];
-        const next = [...hist.filter(d => d !== oldDir && d !== newPath), oldDir].slice(-20);
-        (s0 as any).workdirHistory = next;
-        this.#save();
-      }
+      const oldDir = this.effectiveWorkDir(key) || this.#cwdOverride.get(key) || this.#autoWorkDir(key);
+      const target = newPath && newPath.length > 0 ? newPath : "";
+      if (oldDir && oldDir !== target) this.#pushWorkdirHistory(key, oldDir);
     } catch {}
     const pi = this.#active.get(key);
     if (pi) {
@@ -4288,15 +4347,16 @@ Read this file to view it.` }] };
     }
     if (newPath && newPath.length > 0) {
       this.#cwdOverride.set(key, newPath);
-      // Persist to session entry + meta file per-sessione (sopravvive a wipe del metadata condiviso)
       const s = this.#entries.get(key);
       if (s) { (s as any).workingDir = newPath; this.#save(); }
       this.#writeChatMeta(key, { workingDir: newPath });
+      this.#updateSessionFile(key, (e) => { e.workingDir = newPath; });
     } else {
       this.#cwdOverride.delete(key);
       const s = this.#entries.get(key);
       if (s) { (s as any).workingDir = undefined; this.#save(); }
       this.#writeChatMeta(key, { workingDir: "" });
+      this.#updateSessionFile(key, (e) => { delete e.workingDir; });
     }
     this.logDebug("set-working-dir", { sessionKey: key, newPath: newPath || "(default)" });
   }
