@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { useLayout } from '../../platform/layout'
 
 // Context Menu CUSTOM per input/textarea — stile Quinki (dark theme).
 // Sostituisce COMPLETAMENTE il menu nativo WKWebView (preventDefault capture).
@@ -8,6 +9,9 @@ import React, { useState, useEffect, useRef } from 'react'
 type MenuState = { x: number; y: number; el: HTMLInputElement | HTMLTextAreaElement } | null
 
 export function InputContextMenu() {
+  // Vista TELEFONO: niente scorciatoie da tastiera nel menu (non esistono li').
+  const { mode } = useLayout()
+  const isPhone = mode === 'mobile'
   const [menu, setMenu] = useState<MenuState>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -94,7 +98,16 @@ export function InputContextMenu() {
       el.setSelectionRange(start + text.length, start + text.length)
       el.dispatchEvent(new Event('input', { bubbles: true }))
     }
-    // Tauri clipboard plugin (affidabile in WKWebView)
+    // 1) App ANDROID: il WebView non espone l'API clipboard -> ponte nativo.
+    try {
+      const nat = w.QuinkiNative
+      if (nat && typeof nat.getClipboard === 'function') {
+        const t = String(nat.getClipboard() || '')
+        if (t) insert(t)
+        return
+      }
+    } catch {}
+    // 2) Tauri clipboard plugin (affidabile in WKWebView)
     if (w.__TAURI_INTERNALS__ && w.__invoke) {
       w.__invoke('plugin:clipboard-manager|read_text')
         .then((n: string) => insert(n))
@@ -141,7 +154,7 @@ export function InputContextMenu() {
           onClick={(e) => { e.stopPropagation(); setMenu(null); if (item.enabled) item.fn() }}
         >
           <span>{item.label}</span>
-          <span style={scStyle}>{item.sc}</span>
+          {!isPhone && <span style={scStyle}>{item.sc}</span>}
         </div>
       ))}
     </div>

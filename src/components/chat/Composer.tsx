@@ -302,6 +302,7 @@ export function Composer(props: ComposerProps) {
           }
         } catch (e: any) {
           console.error('dictation error:', e)
+          try { (window as any).__reportFrontendError?.('dictation-error', String(e?.name || '') + ' ' + String(e?.message || e)) } catch {}
         } finally {
           setRecState('idle')
           recRef.current = null
@@ -311,6 +312,7 @@ export function Composer(props: ComposerProps) {
       recRef.current = { mr, stream, chunks }
     } catch (e: any) {
       console.error('mic error:', e)
+      try { (window as any).__reportFrontendError?.('mic-error', String(e?.name || '') + ' ' + String(e?.message || e)) } catch {}
       try { if (vadTimerRef.current) clearInterval(vadTimerRef.current) } catch {}
       vadTimerRef.current = null
       setSpeaking(false)

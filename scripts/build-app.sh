@@ -15,6 +15,12 @@ if [ -f public/quinki-logo-small.png ]; then
   cp public/quinki-logo-small.png dist-web/quinki-logo.png
 fi
 cp -R dist-web/. src-tauri/resources/sidecar/web/
+# APK Android scaricabili dal tunnel (percorso pubblico /apk/): sempre vivi,
+# niente dipendenza da server locali.
+if [ -d android/dist ]; then
+  mkdir -p src-tauri/resources/sidecar/web/apk
+  cp android/dist/*.apk src-tauri/resources/sidecar/web/apk/ 2>/dev/null || true
+fi
 bash scripts/build-sidecar.sh
 # Dettatura locale (Parakeet TDT v3 via FluidAudio): compila l'helper swift e lo
 # spedisce accanto al sidecar, stesso schema del tunnel.

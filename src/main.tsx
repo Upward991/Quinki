@@ -49,6 +49,18 @@ function reportFrontendError(kind: string, message: string, stack?: string) {
     _feQueue.push({ id: 'fe-' + Date.now(), method: 'logFrontendError', params: { kind, message, stack: stack || '' } })
     _feFlush()
   } catch {}
+  // WEB/TELEFONO: niente WS locale -> manda al sidecar via tunnel. Gli errori
+  // del telefono finiscono in ~/.quinki/webapp-log.jsonl sul Mac.
+  try {
+    if (!(globalThis as any).__TAURI_INTERNALS__) {
+      fetch('/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ kind, message, stack: stack || '', ua: navigator.userAgent }),
+      }).catch(() => {})
+    }
+  } catch {}
 }
 ;(window as any).__reportFrontendError = reportFrontendError
 ;(window as any).onerror = (msg: any, src: any, line: any, col: any, err: any) => {

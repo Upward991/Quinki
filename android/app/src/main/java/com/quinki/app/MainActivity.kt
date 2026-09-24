@@ -158,6 +158,18 @@ class MainActivity : AppCompatActivity() {
             userAgentString = userAgentString + " " + appMarker
         }
 
+        // Ponte nativo per il PORTAPAPELES: il WebView Android non ha l'API
+        // clipboard, quindi l'app web lo legge da qui (esposto solo getClipboard).
+        web.addJavascriptInterface(object {
+            @android.webkit.JavascriptInterface
+            fun getClipboard(): String {
+                return try {
+                    val cm = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                    cm.primaryClip?.getItemAt(0)?.coerceToText(this@MainActivity)?.toString() ?: ""
+                } catch (e: Exception) { "" }
+            }
+        }, "QuinkiNative")
+
         // Il sistema puo' uccidere il renderer del WebView quando apri altre app
         // pesanti (es. il browser): teniamolo prioritario e ripristiniamo la
         // pagina da soli se succede.

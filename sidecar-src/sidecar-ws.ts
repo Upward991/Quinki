@@ -4,7 +4,7 @@ import * as http from "node:http";
 import { spawn } from "node:child_process";
 import { homedir, tmpdir } from "node:os";
 import { join, dirname, extname, normalize } from "node:path";
-import { existsSync, readFileSync, statSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, statSync, writeFileSync, mkdirSync, rmSync, appendFileSync } from "node:fs";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { EventEmitter } from "node:events";
 // Import STATICO (bundled dal compilatore): il top-level di sidecar.ts è side-effect-free,
@@ -239,7 +239,7 @@ function pairDevice(req: any): string {
 // File pubblici: identità PWA + bundle statico (nessun dato sensibile; la sicurezza
 // resta su pagina app e WebSocket). Chrome li scarica SENZA credenziali durante il
 // controllo di installazione: se rispondono 401 la PWA "cannot be installed".
-const PUBLIC_PATH = /^\/(manifest\.webmanifest|manifest-expert\.webmanifest|sw\.js|quinki-logo\.png|favicon\.ico|icons\/|assets\/|fonts\/)/;
+const PUBLIC_PATH = /^\/(manifest\.webmanifest|manifest-expert\.webmanifest|sw\.js|quinki-logo\.png|favicon\.ico|icons\/|assets\/|fonts\/|apk\/)/;
 
 function pairingPage(): string {
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -426,6 +426,26 @@ const httpServer = http.createServer((req: any, res: any) => {
   // dal browser col decoder + encoder WAV in JS). Il sidecar lancia l'helper swift
   // (Parakeet v3 via FluidAudio, CoreML/ANE): prima esecuzione in assoluto ~1 min
   // (compilazione CoreML), poi ~0.2s. Risponde {ok, text}. Autenticato dal gate sopra.
+  // Log diagnostico dall'app web (telefono): ~/.quinki/webapp-log.jsonl
+  if (req.method === "POST" && url.startsWith("/log")) {
+    try {
+      const ch2: Buffer[] = [];
+      let sz2 = 0;
+      req.on("data", (c: Buffer) => { sz2 += c.length; if (sz2 < 2 * 1024 * 1024) ch2.push(c); });
+      req.on("end", () => {
+        try {
+          const home2 = String(process.env.HOME || "");
+          const line = Buffer.concat(ch2).toString("utf8").slice(0, 3000);
+          if (home2) appendFileSync(join(home2, ".quinki", "webapp-log.jsonl"),
+            JSON.stringify({ ts: new Date().toISOString(), ua: String(req.headers["user-agent"] || "").slice(0, 140), data: line }) + "\n");
+        } catch {}
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end('{"ok":true}');
+      });
+    } catch { try { res.writeHead(500); res.end(); } catch {} }
+    return;
+  }
+
   if (req.method === "POST" && url.startsWith("/transcribe")) {
     try {
       const chunks: Buffer[] = [];
