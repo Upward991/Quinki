@@ -2750,7 +2750,14 @@ fn url_reachable_any_edge(url: &str) -> bool {
 
 fn pid_alive(pid: u32) -> bool {
     if pid == 0 { return false; }
-    unsafe { libc::kill(pid as i32, 0) == 0 }
+    if unsafe { libc::kill(pid as i32, 0) } != 0 { return false; }
+    // Uno ZOMBIE risponde a kill(0) ma e' morto (il padre non l'ha ancora
+    // raccolto): senza questo controllo il watchdog lo credeva vivo e non
+    // riavviava mai il tunnel (era il blocco del link Expert).
+    if let Ok(out) = std::process::Command::new("ps").args(["-p", &pid.to_string(), "-o", "stat="]).output() {
+        if String::from_utf8_lossy(&out.stdout).trim().starts_with('Z') { return false; }
+    }
+    true
 }
 
 /// Tunnel gia' attivo (anche se avviato da una sessione precedente dell'app)?
