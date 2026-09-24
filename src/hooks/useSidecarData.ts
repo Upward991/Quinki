@@ -1113,6 +1113,19 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
   }, [ready, call])
 
   // === CLICK sulla notifica macOS -> apre la chat di provenienza ===
+  // Web/telefono: tap sulla NOTIFICA nativa -> apre la chat giusta (evento DOM,
+  // gemello dell'evento Tauri usato sul desktop).
+  useEffect(() => {
+    const domSwitch = (ev: any) => {
+      try {
+        const sk = String(ev?.detail?.sessionKey || '')
+        if (sk) selectSession(sk)
+      } catch {}
+    }
+    try { window.addEventListener('quinki-switch-session', domSwitch) } catch {}
+    return () => { try { window.removeEventListener('quinki-switch-session', domSwitch) } catch {} }
+  }, [selectSession])
+
   // Il Rust emette "switch-session" col sessionKey salvato in userInfo: senza
   // questo listener il click apriva la finestra ma NON cambiava chat.
   useEffect(() => {

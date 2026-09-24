@@ -20,6 +20,7 @@
 //   (pi_check_config, pi_create_config, get_history, update_last_read).
 
 import * as path from "node:path";
+import { createSign } from "node:crypto";
 import * as fs from "node:fs";
 import { homedir } from "node:os";
 import * as webpush from "web-push";
@@ -265,6 +266,77 @@ function sendWebPush(entry: any) {
     for (const sub of targets) {
       webpush.sendNotification(sub, payload).catch(() => {});
     }
+  } catch {}
+}
+
+// === FCM (app Android native): stessa logica della push web, destinatari = token FCM. ===
+// Tutto spento se ~/.quinki/fcm-service-account.json non esiste (arriva con Firebase).
+let _fcmAccess = { at: 0, token: "" };
+function sendFcm(entry: any): void {
+  try {
+    const sk = String(entry?.kind === 'task_complete' ? (entry?.sourceSession?.key || '') : (entry?.sessionKey || ''));
+    try {
+      const st = (piBridge as any)?.getAllReadStates ? (piBridge as any).getAllReadStates() : null;
+      const mode = st && sk ? (st[sk] && st[sk].notifyMode) || 'none' : 'none';
+      if (mode === 'none') return;
+    } catch { return }
+    const home = homedir();
+    const tf = path.join(home, '.quinki', isExpertSidecar() ? 'fcm-tokens-expert.json' : 'fcm-tokens.json');
+    let toks: any[] = [];
+    try { toks = JSON.parse(fs.readFileSync(tf, 'utf8')) || []; } catch {}
+    if (!toks.length) return;
+    const saPath = path.join(home, '.quinki', 'fcm-service-account.json');
+    if (!fs.existsSync(saPath)) return;
+    let title = entry?.kind === 'task_complete' ? 'Task executed' : (sk === '__app_expert__' ? 'App Expert' : '');
+    if (!title) {
+      try {
+        const ss = (piBridge as any)?.getSessions?.() || [];
+        const ses = ss.find?.((x: any) => (x?.key === sk) || (x?.id === sk));
+        title = ses?.label || ses?.title || 'New response';
+      } catch { title = 'New response'; }
+    }
+    const body = String(entry?.body || entry?.label || 'A response arrived');
+    void (async () => {
+      try {
+        const sa = JSON.parse(fs.readFileSync(saPath, 'utf8'));
+        const now = Math.floor(Date.now() / 1000);
+        if (!_fcmAccess.token || Date.now() - _fcmAccess.at > 45 * 60 * 1000) {
+          const b64 = (o: any) => Buffer.from(JSON.stringify(o)).toString('base64url');
+          const unsigned = b64({ alg: 'RS256', typ: 'JWT' }) + '.' + b64({
+            iss: sa.client_email,
+            scope: 'https://www.googleapis.com/auth/firebase.messaging',
+            aud: 'https://oauth2.googleapis.com/token',
+            iat: now, exp: now + 3600,
+          });
+          const sig = createSign('RSA-SHA256').update(unsigned).sign(String(sa.private_key));
+          const jwt = unsigned + '.' + sig.toString('base64url');
+          const r = await fetch('https://oauth2.googleapis.com/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=' + encodeURIComponent(jwt),
+          });
+          const j: any = await r.json();
+          _fcmAccess = { at: Date.now(), token: String(j?.access_token || '') };
+        }
+        if (!_fcmAccess.token) return;
+        for (const t of toks.slice(0, 10)) {
+          const tok = String(t?.token || '');
+          if (!tok) continue;
+          fetch(`https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`, {
+            method: 'POST',
+            headers: { Authorization: 'Bearer ' + _fcmAccess.token, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: {
+                token: tok,
+                notification: { title, body },
+                data: { sessionKey: sk },
+                android: { priority: 'high', notification: { channel_id: 'quinki' } },
+              },
+            }),
+          }).catch(() => {});
+        }
+      } catch {}
+    })();
   } catch {}
 }
 
@@ -994,6 +1066,20 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
       return { ok: true, count: subs.length };
     } catch { return { ok: false }; }
   },
+  registerFcmToken: async (p) => {
+    try {
+      const token = String(p?.token || '');
+      if (!token) return { ok: false };
+      const f = path.join(homedir(), '.quinki', isExpertSidecar() ? 'fcm-tokens-expert.json' : 'fcm-tokens.json');
+      let arr: any[] = [];
+      try { arr = JSON.parse(fs.readFileSync(f, 'utf8')) || []; } catch {}
+      if (!Array.isArray(arr)) arr = [];
+      arr = arr.filter((x: any) => x && x.token !== token);
+      arr.push({ token, createdAt: Date.now(), ua: String(p?.ua || '').slice(0, 120) });
+      fs.writeFileSync(f, JSON.stringify(arr, null, 2));
+      return { ok: true, count: arr.length };
+    } catch { return { ok: false }; }
+  },
   pushUnsubscribe: async (p) => {
     try {
       const f = path.join(homedir(), '.quinki', 'push-subs.json');
@@ -1686,7 +1772,7 @@ async function bootstrap() {
       process.stderr.write(`[sidecar-marker] pool-child-parent-watchdog: ${origPpid}\n`);
     }
     // === A3: broadcast notifiche al frontend (DOPO la creazione di piBridge!) ===
-    try { piBridge.setNotificationBroadcast?.((entry: any) => { try { sendNotification("notification", entry); } catch {} try { sendWebPush(entry); } catch {} }); } catch {}
+    try { piBridge.setNotificationBroadcast?.((entry: any) => { try { sendNotification("notification", entry); } catch {} try { sendWebPush(entry); } catch {} try { sendFcm(entry); } catch {} }); } catch {}
     try { piBridge.setReadStateBroadcast?.((key: string) => { try { sendNotification("read_state_changed", { sessionKey: key }); } catch {} }); } catch {}
 
 

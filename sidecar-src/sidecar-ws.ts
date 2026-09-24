@@ -446,6 +446,19 @@ const httpServer = http.createServer((req: any, res: any) => {
     }
   } catch {}
 
+  // Config FCM pubblica per le app Android (dal progetto Firebase dell'utente).
+  if (req.method === "GET" && url.startsWith("/fcm-config")) {
+    try {
+      const home5 = String(process.env.HOME || "");
+      const cfg = JSON.parse(readFileSync(join(home5, ".quinki", "fcm-public-config.json"), "utf8"));
+      res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+      res.end(JSON.stringify(cfg));
+    } catch {
+      try { res.writeHead(404, { "Content-Type": "application/json" }); res.end('{}'); } catch {}
+    }
+    return;
+  }
+
   // Log diagnostico dall'app web (telefono): ~/.quinki/webapp-log.jsonl
   if (req.method === "POST" && url.startsWith("/log")) {
     try {

@@ -53,6 +53,22 @@ import java.net.URL
 // app needs, and updates itself from the GitHub release of this project.
 class MainActivity : AppCompatActivity() {
 
+    companion object {
+        @Volatile var instance: MainActivity? = null
+    }
+
+    fun webViewInstance(): WebView? = try { web } catch (e: Exception) { null }
+    private var fcmToken: String = ""
+
+    fun onFcmToken(token: String) {
+        fcmToken = token
+        runOnUiThread {
+            try {
+                web.evaluateJavascript("window.__quinkiFcmToken && window.__quinkiFcmToken(" + org.json.JSONObject.quote(token) + ")", null)
+            } catch (e: Exception) { }
+        }
+    }
+
     private lateinit var web: WebView
     private lateinit var configPanel: View
     private lateinit var linkInput: EditText
@@ -124,6 +140,7 @@ class MainActivity : AppCompatActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        instance = this
         setContentView(R.layout.activity_main)
 
         WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -168,6 +185,26 @@ class MainActivity : AppCompatActivity() {
         // Ponte nativo per il PORTAPAPELES: il WebView Android non ha l'API
         // clipboard, quindi l'app web lo legge da qui (esposto solo getClipboard).
         web.addJavascriptInterface(object {
+            // === FCM: config dall'app web (niente google-services.json a build time) ===
+            @android.webkit.JavascriptInterface
+            fun initFcm(appId: String, projectId: String, apiKey: String, senderId: String) {
+                try {
+                    com.google.firebase.FirebaseApp.initializeApp(this@MainActivity, com.google.firebase.FirebaseOptions.Builder()
+                        .setApplicationId(appId)
+                        .setProjectId(projectId)
+                        .setApiKey(apiKey)
+                        .setGcmSenderId(senderId)
+                        .build())
+                    com.google.firebase.messaging.FirebaseMessaging.getInstance().token
+                        .addOnCompleteListener { t ->
+                            if (t.isSuccessful && t.result != null) onFcmToken(t.result!!)
+                        }
+                } catch (e: Exception) { }
+            }
+
+            @android.webkit.JavascriptInterface
+            fun getPushToken(): String = fcmToken
+
             @android.webkit.JavascriptInterface
             fun getClipboard(): String {
                 return try {
@@ -290,8 +327,34 @@ class MainActivity : AppCompatActivity() {
             showConfig(link, token, "")
         }
 
+        try {
+            val ch = android.app.NotificationChannel("quinki", "Quinki", android.app.NotificationManager.IMPORTANCE_HIGH)
+            ch.description = "Quinki notifications"
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+            nm.createNotificationChannel(ch)
+        } catch (e: Exception) { }
+
+        handleNotificationIntent(intent)
         checkForUpdate()
         checkWebVersion(true)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleNotificationIntent(intent)
+    }
+
+    private fun handleNotificationIntent(intent: Intent?) {
+        val sk = try { intent?.getStringExtra("sessionKey") } catch (e: Exception) { null }
+        if (!sk.isNullOrEmpty()) {
+            try {
+                web.postDelayed({
+                    try {
+                        web.evaluateJavascript("window.__quinkiOpenSession && window.__quinkiOpenSession(" + org.json.JSONObject.quote(sk!!) + ")", null)
+                    } catch (e: Exception) { }
+                }, 2500)
+            } catch (e: Exception) { }
+        }
     }
 
     private fun pairUrl(link: String, token: String): String = "$link/?token=" + Uri.encode(token)
@@ -624,6 +687,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        instance = null
         try { unregisterReceiver(downloadReceiver) } catch (e: Exception) { }
     }
 }

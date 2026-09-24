@@ -77,6 +77,36 @@ function reportFrontendError(kind: string, message: string, stack?: string) {
 }
 ;(window as any).__reportFrontendError = reportFrontendError
 
+// === FCM (app Android): config dal Mac, token nativo, registrazione al sidecar. ===
+try {
+  if (navigator.userAgent.includes('QuinkiApp')) {
+    setTimeout(async () => {
+      try {
+        const r = await fetch('/fcm-config', { credentials: 'same-origin' })
+        if (!r.ok) return
+        const cfg: any = await r.json()
+        const nat: any = (window as any).QuinkiNative
+        if (cfg?.appId && nat?.initFcm) {
+          nat.initFcm(String(cfg.appId), String(cfg.projectId), String(cfg.apiKey), String(cfg.senderId))
+          try { reportFrontendError('fcm', 'init sent') } catch {}
+        }
+      } catch {}
+    }, 1500)
+  }
+} catch {}
+;(window as any).__quinkiFcmToken = (t: string) => {
+  try {
+    if (!t) return
+    try { reportFrontendError('fcm', 'token len=' + String(t).length) } catch {}
+    const call = (window as any).__sidecarCall
+    if (call) call('registerFcmToken', { token: t, ua: navigator.userAgent })
+  } catch {}
+}
+;(window as any).__quinkiFcm = () => { /* in app aperta il WS ha gia' aggiornato la UI */ }
+;(window as any).__quinkiOpenSession = (sk: string) => {
+  try { window.dispatchEvent(new CustomEvent('quinki-switch-session', { detail: { sessionKey: sk } })) } catch {}
+}
+
 // HELLO: al caricamento della pagina il telefono dice al Mac chi e' e in che
 // layout sta girando (diagnosi remota: niente piu' indovinelli).
 try {
