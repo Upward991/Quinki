@@ -249,10 +249,12 @@ function sendWebPush(entry: any) {
     // "Task executed" per i task), fallback "A response arrived / New response".
     let title = entry?.kind === 'task_complete' ? 'Task executed' : (sk === '__app_expert__' ? 'App Expert' : '');
     if (!title) {
+      // Nel sidecar il titolo della chat vive in `label` e la chiave in `key`
+      // (la prima versione cercava id/title -> fallback "New response").
       try {
         const ss = (piBridge as any)?.getSessions?.() || [];
-        const ses = ss.find?.((x: any) => x?.id === sk);
-        title = ses?.title || 'New response';
+        const ses = ss.find?.((x: any) => (x?.key === sk) || (x?.id === sk));
+        title = ses?.label || ses?.title || 'New response';
       } catch { title = 'New response'; }
     }
     const payload = JSON.stringify({

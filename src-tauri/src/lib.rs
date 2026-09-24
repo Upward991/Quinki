@@ -506,7 +506,7 @@ fn setup_notification_delegate(app: &tauri::AppHandle) {
         // muta nel centro notifiche: presented=0 nel db di usernoted). Costanti vere:
         // Banner = 1<<4 = 16, List = 1<<3 = 8; Alert = 1<<2 = 4 (legacy, per macOS
         // vecchi), Sound = 1, Badge = 2. Passiamo tutto: compatibilità totale.
-        let options: u64 = 16 | 8 | 4 | 1 | 2;
+        let options: u64 = 16 | 8 | 2 | 1;
         let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
         let block = &*(completion as *const block::Block<(u64,), ()>);
         block.call((options,));
