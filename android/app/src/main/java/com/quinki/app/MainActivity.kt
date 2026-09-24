@@ -3,12 +3,18 @@ package com.quinki.app
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.AlertDialog
+import android.app.Dialog
 import android.app.DownloadManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.graphics.Typeface
+import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.GradientDrawable
+import android.view.Gravity
+import android.view.Window
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -475,15 +481,97 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
+    // Modale di aggiornamento nella grafica dell'app (pannello scuro, bordo
+    // sottile, Install accent pieno, Later neutro) — coerente col resto.
     private fun promptUpdate(tag: String, url: String) {
         try {
-            AlertDialog.Builder(this)
-                .setTitle("Update available")
-                .setMessage("Version $tag is available. You have ${BuildConfig.VERSION_NAME}. Install it now?")
-                .setPositiveButton("Install") { _, _ -> startUpdateDownload(tag, url) }
-                .setNegativeButton("Later", null)
-                .show()
-        } catch (e: Exception) { }
+            val d = resources.displayMetrics.density
+            fun dp(v: Int) = (v * d).toInt()
+
+            val dlg = Dialog(this)
+            dlg.requestWindowFeature(Window.FEATURE_NO_TITLE)
+
+            val panel = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(24), dp(22), dp(24), dp(18))
+                background = GradientDrawable().apply {
+                    setColor(0xFF0F0F13.toInt())
+                    cornerRadius = dp(12).toFloat()
+                    setStroke(dp(1), 0x1FFFFFFF)
+                }
+            }
+
+            panel.addView(TextView(this).apply {
+                text = (if (packageName.endsWith(".expert")) "App Expert update" else "Quinki update")
+                setTextColor(0xFFE8E8EC.toInt())
+                textSize = 16f
+                setTypeface(typeface, Typeface.BOLD)
+            })
+            panel.addView(TextView(this).apply {
+                text = "Version $tag is available. You have ${BuildConfig.VERSION_NAME}. Install it now? It is a rare one: most fixes arrive automatically."
+                setTextColor(0xFF888892.toInt())
+                textSize = 14f
+                setPadding(0, dp(10), 0, dp(20))
+                setLineSpacing(dp(3).toFloat(), 1f)
+            })
+
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.END
+            }
+            val later = TextView(this).apply {
+                text = "Later"
+                setTextColor(0xFF888892.toInt())
+                textSize = 13f
+                setPadding(dp(16), dp(9), dp(16), dp(9))
+                background = GradientDrawable().apply {
+                    setColor(0x00000000)
+                    cornerRadius = dp(8).toFloat()
+                    setStroke(dp(1), 0x33FFFFFF)
+                }
+                isClickable = true
+                setOnClickListener { dlg.dismiss() }
+            }
+            val install = TextView(this).apply {
+                text = "Install"
+                setTextColor(0xFF040406.toInt())
+                textSize = 13f
+                setTypeface(typeface, Typeface.BOLD)
+                setPadding(dp(16), dp(9), dp(16), dp(9))
+                background = GradientDrawable().apply {
+                    setColor(0xFF7AA2F7.toInt())
+                    cornerRadius = dp(8).toFloat()
+                }
+                isClickable = true
+                setOnClickListener {
+                    dlg.dismiss()
+                    startUpdateDownload(tag, url)
+                }
+            }
+            row.addView(later, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { rightMargin = dp(8) })
+            row.addView(install)
+            panel.addView(row)
+
+            dlg.setContentView(panel)
+            dlg.window?.setBackgroundDrawable(ColorDrawable(0x00000000))
+            try {
+                dlg.window?.setLayout((resources.displayMetrics.widthPixels * 0.88).toInt(), LinearLayout.LayoutParams.WRAP_CONTENT)
+            } catch (e: Exception) { }
+            dlg.show()
+        } catch (e: Exception) {
+            // fallback di sicurezza: dialogo di sistema
+            try {
+                AlertDialog.Builder(this)
+                    .setTitle("Update available")
+                    .setMessage("Version $tag is available. You have ${BuildConfig.VERSION_NAME}. Install it now?")
+                    .setPositiveButton("Install") { _, _ -> startUpdateDownload(tag, url) }
+                    .setNegativeButton("Later", null)
+                    .show()
+            } catch (e2: Exception) { }
+        }
     }
 
     private fun startUpdateDownload(tag: String, url: String) {
