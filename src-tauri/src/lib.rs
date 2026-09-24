@@ -1824,9 +1824,13 @@ fn kill_backend() {
           .arg("pkill -f 'start-expert.sh' 2>/dev/null; pkill -f expert-watchdog 2>/dev/null; sleep 0.2; lsof -ti:9183 | xargs kill -9 2>/dev/null; pkill -9 -f 'App Expert.app/Contents/Resources/resources/sidecar/quinki-sidecar-w[s]' 2>/dev/null; true")
           .status();
     } else {
-        // Sidecar main: porta 9182 + percorso binario (bracket trick per non matchare la shell stessa)
+        // Sidecar main: PRIMA il watchdog (sennò risveglia subito il sidecar e
+        // l'app sembra "restare aperta in background"), poi la porta 9182 e i
+        // processi del sidecar (pool worker inclusi, bracket trick per la shell).
+        // Il TUNNEL resta vivo di proposito: e' il ponte della web app (anche
+        // Expert a main chiusa). Si spegne solo col Log out.
         let _ = std::process::Command::new("sh").arg("-c")
-          .arg("lsof -ti:9182 | xargs kill -9 2>/dev/null; pkill -9 -f 'Quinki.app/Contents/Resources/resources/sidecar/quinki-sidecar-w[s]' 2>/dev/null; true")
+          .arg("pkill -f 'main-watchdog' 2>/dev/null; sleep 0.2; lsof -ti:9182 | xargs kill -9 2>/dev/null; pkill -9 -f 'Quinki.app/Contents/Resources/resources/sidecar/quinki-sidecar-w[s]' 2>/dev/null; true")
           .status();
     }
 }
