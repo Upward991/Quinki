@@ -1170,7 +1170,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
   // Tap sulla notifica con app appena avviata: appena connessi, riapre la chat
   // pendente (foglio di riapertura dal tap nativo).
   useEffect(() => {
-    if (!connected) return
+    if (!ready) return
     const p = String((window as any).__quinkiPendingSession || '')
     if (!p) return
     const t = setTimeout(() => {
@@ -1180,7 +1180,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
       } catch {}
     }, 1200)
     return () => clearTimeout(t)
-  }, [connected, selectSession])
+  }, [ready, selectSession])
 
   useEffect(() => {
     const domSwitch = (ev: any) => {
