@@ -764,7 +764,7 @@ export function Composer(props: ComposerProps) {
           <div style={{ backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '20px 24px', maxWidth: '440px', width: '90%' }} onClick={e => e.stopPropagation()}>
             <div style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '8px' }}>Directory already in use</div>
             <div style={{ color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', lineHeight: 1.5, marginBottom: '16px' }}>
-              This directory is already used by other chats. If you switch to it, all those chats share the same files.
+              Other chats already work in this folder. If you use it too, all these chats share the same files: what one chat creates, changes or deletes, the others see immediately. If you want this chat to keep its own files, tap Cancel and use its own folder.
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
               <button onClick={() => setSharedDirWarn(null)}
@@ -787,9 +787,9 @@ export function Composer(props: ComposerProps) {
       {pendingWorkdir && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 400, backgroundColor: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setPendingWorkdir(null)}>
           <div style={{ backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '20px 24px', maxWidth: '440px', width: '90%' }} onClick={e => e.stopPropagation()}>
-            <div style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '8px' }}>Files are not moved</div>
+            <div style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '8px' }}>Files stay in the old folder</div>
             <div style={{ color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', lineHeight: 1.5, marginBottom: '16px' }}>
-              This chat has {pendingWorkdir.files} file{pendingWorkdir.files === 1 ? '' : 's'} in the previous folder. They stay where they are. To move them, open Working directories, open the previous folder from the list and move the files by hand.
+              This chat has {pendingWorkdir.files} file{pendingWorkdir.files === 1 ? '' : 's'} in its old folder. Nothing was moved: the file{pendingWorkdir.files === 1 ? '' : 's'} {pendingWorkdir.files === 1 ? 'is' : 'are'} still in the old folder. If you want {pendingWorkdir.files === 1 ? 'it' : 'them'} in the new folder, open the clip menu, tap Working directories, open the old folder and move the file{pendingWorkdir.files === 1 ? '' : 's'} by hand.
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
               <button onClick={async () => { const d = pendingWorkdir; setPendingWorkdir(null); try { const call = (window as any).__sidecarCall; if (call) await call('setWorkingDir', { sessionKey: d.sessionKey, path: d.apply }) } catch {} }}

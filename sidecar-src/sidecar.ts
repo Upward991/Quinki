@@ -458,7 +458,13 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
           if (e) return { owner: { key: e.key, label: e.label || e.key } };
         }
       } catch {}
-      // 2) meta per-chat (verita' piu' recente)
+      // 2) meta per-chat (verita' piu' recente) — escluse le chat ELIMINATE
+      // (i loro meta restano su disco: senza filtro risultavano ancora "in uso").
+      let deleted = new Set<string>();
+      try {
+        const dt = JSON.parse(fs.readFileSync(path.join(home, ".quinki", "quinki-deleted-sessions.json"), "utf8"));
+        if (Array.isArray(dt)) deleted = new Set(dt.map((x: any) => String(x)));
+      } catch {}
       try {
         const base = path.join(home, ".quinki", "sessions");
         for (const agent of fs.readdirSync(base)) {
@@ -466,7 +472,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
           let keys: string[] = [];
           try { keys = fs.readdirSync(adj); } catch { continue; }
           for (const k of keys) {
-            if (k === myKey) continue;
+            if (k === myKey || deleted.has(k)) continue;
             try {
               const meta = JSON.parse(fs.readFileSync(path.join(adj, k, "chat-meta.json"), "utf8"));
               if (meta && meta.workingDir === pathWanted) return { owner: { key: k, label: meta.label || k } };
