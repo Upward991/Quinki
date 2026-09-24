@@ -2,7 +2,6 @@ import React from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App'
-import { InAppNotification } from './components/shared/InAppNotification'
 import { installScrollAnywhere } from './scrollAnywhere'
 installScrollAnywhere()
 
@@ -145,8 +144,5 @@ try {
 
 console.log('About to render App')
 createRoot(document.getElementById('root')!).render(
-  React.createElement(React.Fragment, null,
-    React.createElement(ErrorBoundary, null, React.createElement(App)),
-    React.createElement(InAppNotification)
-  )
+  React.createElement(ErrorBoundary, null, React.createElement(App))
 )

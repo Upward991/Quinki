@@ -509,9 +509,13 @@ fn setup_notification_delegate(app: &tauri::AppHandle) {
         // vecchi), Sound = 1, Badge = 2. Passiamo tutto: compatibilità totale.
         let options: u64 = 16 | 8 | 2 | 1;
         let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
-        let block = &*(completion as *const block::Block<(u64,), ()>);
-        block.call((options,));
-        notif_trace(&format!("DELEGATE: completion chiamata con opts={}", options));
+        // CHIAMATA NATIVA della completion (layout ObjC: isa=0, flags/reserved=8,
+        // invoke=16): la libreria Rust vecchia poteva passare un valore sbagliato e
+        // macOS riceveva "opzioni=0" -> nessun banner in primo piano.
+        let invoke: unsafe extern "C" fn(*mut std::ffi::c_void, u64) =
+            std::mem::transmute(*(completion as *const usize).add(2));
+        invoke(completion, options);
+        notif_trace(&format!("DELEGATE: completion NATIVA chiamata con opts={}", options));
     }
     // CLICK sulla notifica → estrae la sessionKey da userInfo → focus + apre la chat
     unsafe extern "C" fn did_receive(_this: *mut Object, _cmd: Sel, _center: *mut Object, response: *mut Object, completion: *mut c_void) {
