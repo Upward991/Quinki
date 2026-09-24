@@ -187,6 +187,16 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
     }
     if (mode === 'model') props.onSelectModel(pendingModel)
     else if (mode === 'thinking') props.onSelectThinking(pendingThinking)
+    else if (mode === 'directory') {
+      // CONFERMA del menu: qui si applica. path vuoto = directory tolta dalla
+      // chat -> si torna alla DEFAULT (rigenerata dal sidecar se mancava).
+      const sk = props.sessionKey || ''
+      const path = directories[0] || ''
+      const call = (window as any).__sidecarCall
+      if (call && sk) window.dispatchEvent(new CustomEvent('quinki-workdir-picked', { detail: { path, sessionKey: sk } }))
+      props.onClose()
+      return
+    }
     props.onClose()
   }
 
@@ -210,9 +220,8 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
         const call = (window as any).__sidecarCall
         const sk = props.sessionKey || ''
         if (call && sk) {
-          // Il cambio passa dal Composer (sempre montato): li' c'e' il check dei
-          // file + il modale Move/Keep. Qui si avvisa e basta.
-          window.dispatchEvent(new CustomEvent('quinki-workdir-picked', { detail: { path, sessionKey: sk } }))
+          // SOLO lista locale: il cambio si APPLICA alla CONFERMA del menu (dopo
+          // il modale Move/Keep del Composer). Prima si applicava subito al pick.
         } else {
           // Nessuna sessione ancora (welcome chat): salva come DEFAULT per le nuove chat
           try { const st = JSON.parse(localStorage.getItem('quinki-settings') || '{}'); st.defaultWorkingDir = path; localStorage.setItem('quinki-settings', JSON.stringify(st)) } catch {}

@@ -135,16 +135,20 @@ export function Composer(props: ComposerProps) {
     setAttachMenuOpen(false); setAttachMenuView('main')
     try { await invoke('open_working_dir_folder', { path }) } catch (e: any) { console.error('open_working_dir_folder:', e) }
   }
-  const [pendingWorkdir, setPendingWorkdir] = useState<{ path: string; from: string; files: number; sessionKey: string } | null>(null)
+  const [pendingWorkdir, setPendingWorkdir] = useState<{ apply: string; from: string; to: string; files: number; sessionKey: string } | null>(null)
   useEffect(() => {
     const onPicked = async (ev: any) => {
       const d = ev?.detail || {}
       const sk = String(d.sessionKey || ''); const path = String(d.path || '')
-      if (!sk || !path) return
+      if (!sk) return
       const call = (window as any).__sidecarCall
-      let files = 0, from = ''
-      try { const r = await call('listWorkingDirs', { sessionKey: sk }); files = r?.currentFiles || 0; from = r?.current || '' } catch {}
-      if (files > 0 && from && from !== path) { setPendingWorkdir({ path, from, files, sessionKey: sk }); return }
+      if (!call) return
+      let files = 0, from = '', def = ''
+      try { const r = await call('listWorkingDirs', { sessionKey: sk }); files = r?.currentFiles || 0; from = r?.current || ''; def = r?.defaultPath || '' } catch {}
+      // path vuoto = directory TOLTA dalla chat -> si torna alla DEFAULT.
+      const to = path || def
+      if (!to) return
+      if (files > 0 && from && from !== to) { setPendingWorkdir({ apply: path, from, to, files, sessionKey: sk }); return }
       try { await call('setWorkingDir', { sessionKey: sk, path }) } catch {}
     }
     window.addEventListener('quinki-workdir-picked', onPicked)
@@ -743,13 +747,13 @@ export function Composer(props: ComposerProps) {
               This chat has {pendingWorkdir.files} file{pendingWorkdir.files === 1 ? '' : 's'} in its folder. Move them to the new working directory, or keep them in the old one?
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              <button onClick={async () => { const d = pendingWorkdir; setPendingWorkdir(null); try { const call = (window as any).__sidecarCall; if (call) await call('setWorkingDir', { sessionKey: d.sessionKey, path: d.path }) } catch {} }}
+              <button onClick={async () => { const d = pendingWorkdir; setPendingWorkdir(null); try { const call = (window as any).__sidecarCall; if (call) await call('setWorkingDir', { sessionKey: d.sessionKey, path: d.apply }) } catch {} }}
                 onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }}
                 onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
                 style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>
                 Keep in the old folder
               </button>
-              <button onClick={async () => { const d = pendingWorkdir; setPendingWorkdir(null); try { await invoke('move_workdir_contents', { from: d.from, to: d.path }); const call = (window as any).__sidecarCall; if (call) await call('setWorkingDir', { sessionKey: d.sessionKey, path: d.path }) } catch {} }}
+              <button onClick={async () => { const d = pendingWorkdir; setPendingWorkdir(null); try { await invoke('move_workdir_contents', { from: d.from, to: d.to }); const call = (window as any).__sidecarCall; if (call) await call('setWorkingDir', { sessionKey: d.sessionKey, path: d.apply }) } catch {} }}
                 onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }}
                 onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }}
                 style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>
