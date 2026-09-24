@@ -10,10 +10,16 @@ export async function invoke(cmd: string, args?: Any): Promise<Any> {
       try {
         const u = String(args?.url || args || '')
         if (u) {
-          // Dentro le app Android (UA marcato QuinkiApp): window.open e' bloccato
-          // nel WebView. Assegna location: lo shell intercetta i link esterni e li
-          // apre nel browser di sistema (download APK compresi).
-          if (navigator.userAgent.includes('QuinkiApp')) window.location.href = u
+          // REGOLA FISSA: i link si aprono SEMPRE nel browser di default del
+          // dispositivo, mai dentro l'app.
+          // - App Android (UA marcato QuinkiApp): window.open e' bloccato nel
+          //   WebView; assegna location -> lo shell intercetta e apre il browser
+          //   di sistema (download APK compresi).
+          // - PWA installata (standalone, iOS/Android): navigare un'origine
+          //   esterna fa aprire Safari/Chrome, mai la vista interna.
+          // - Browser normale: nuova scheda, come sempre.
+          const standalone = (navigator as Any).standalone === true || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
+          if (navigator.userAgent.includes('QuinkiApp') || standalone) window.location.href = u
           else window.open(u, '_blank', 'noopener,noreferrer')
         }
       } catch {}
