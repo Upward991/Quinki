@@ -613,12 +613,14 @@ stdoutEmitter.on("line", (line: string) => {
 wss.on("connection", (ws, req: any) => {
   clients.add(ws);
   (ws as any).isAlive = true;
-  // Coda notifiche push (per il servizio nativo degli APK): le ultime 24h.
+  // Coda notifiche push (per il servizio nativo degli APK): le ultime 24h e
+  // SOLO quelle mai consegnate (senza il flag, ogni riconnessione le ripeteva).
   try {
     const q = (globalThis as any).__quinkiPushQueue || [];
     for (const p of q) {
       try {
-        if (Date.now() - (Number(p?.ts) || 0) < 24 * 3600 * 1000) {
+        if (p && !p.delivered && Date.now() - (Number(p?.ts) || 0) < 24 * 3600 * 1000) {
+          p.delivered = true;
           ws.send(JSON.stringify({ jsonrpc: "2.0", method: "push_notify", params: p }));
         }
       } catch {}
