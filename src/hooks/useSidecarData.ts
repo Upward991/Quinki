@@ -1112,6 +1112,21 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     }
   }, [ready, call])
 
+  // === CLICK sulla notifica macOS -> apre la chat di provenienza ===
+  // Il Rust emette "switch-session" col sessionKey salvato in userInfo: senza
+  // questo listener il click apriva la finestra ma NON cambiava chat.
+  useEffect(() => {
+    let un: (() => void) | undefined
+    let dead = false
+    import('@tauri-apps/api/event').then(({ listen }) => {
+      listen('switch-session', (e: any) => {
+        const sk = e?.payload
+        if (sk && typeof sk === 'string') { try { selectSession(sk) } catch {} }
+      }).then((u: any) => { if (dead) { try { u?.() } catch {} } else { un = u } }).catch(() => {})
+    }).catch(() => {})
+    return () => { dead = true; try { un?.() } catch {} }
+  }, [selectSession])
+
   const injectErrorMessages = useCallback((userText: string, errorContent: string) => {
     setMessages(prev => [...prev,
       { id: `msg-${Date.now()}`, role: 'user' as const, content: userText, timestamp: new Date().toISOString(), tokensIn: Math.ceil(userText.length / 4) },
