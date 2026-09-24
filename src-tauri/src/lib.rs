@@ -581,7 +581,7 @@ fn notif_trace(msg: &str) {
     }
 }
 
-fn send_macos_notification(title: &str, body: &str, subtitle: &str) {
+fn send_macos_notification(title: &str, body: &str, subtitle: &str, session_key: Option<&str>) {
     // UNUserNotificationCenter (mostra con firma corretta) + fallback osascript (firma ad-hoc)
     #[cfg(target_os = "macos")]
     {
@@ -600,6 +600,18 @@ fn send_macos_notification(title: &str, body: &str, subtitle: &str) {
                     if let Ok(sub_c) = CString::new(subtitle) {
                         let sub_ns: *mut Object = msg_send![class!(NSString), stringWithUTF8String: sub_c.as_ptr()];
                         let _: () = msg_send![content, setSubtitle: sub_ns];
+                    }
+                }
+                // userInfo: la sessionKey serve al CLICK sulla notifica per aprire la
+                // chat di provenienza (il listener Rust la legge in did_receive).
+                if let Some(sk) = session_key {
+                    if let Ok(sk_c) = CString::new(sk) {
+                        let sk_ns: *mut Object = msg_send![class!(NSString), stringWithUTF8String: sk_c.as_ptr()];
+                        let key_c = CString::new("sessionKey").unwrap_or_default();
+                        let key_ns: *mut Object = msg_send![class!(NSString), stringWithUTF8String: key_c.as_ptr()];
+                        let dict: *mut Object = msg_send![class!(NSMutableDictionary), new];
+                        let _: () = msg_send![dict, setObject: sk_ns forKey: key_ns];
+                        let _: () = msg_send![content, setUserInfo: dict];
                     }
                 }
                 let uid = format!("quinki-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0));
@@ -624,7 +636,7 @@ fn send_notification(app: tauri::AppHandle, title: String, body: String, subtitl
     notif_trace(&format!("ENTER: title={:?} body_len={} sk={:?}", title, body.len(), session_key));
     // UNICO invio (send_macos_notification): il vecchio blocco duplicato qui sotto
     // rimetteva un secondo request con lo stesso id e poteva incasinare la coda.
-    send_macos_notification(&title, &body, subtitle.as_deref().unwrap_or(""));
+    send_macos_notification(&title, &body, subtitle.as_deref().unwrap_or(""), session_key.as_deref());
     if true { let _ = &app; return Ok(()); }
     // Il plugin usa notify_rust (osascript) che NON mostra notifiche per questa app.
     // Implementiamo la consegna REALE con UNUserNotificationCenter.
@@ -3442,7 +3454,7 @@ pub fn run() {
             }
             if std::path::Path::new(&flag_test).exists() {
               let _ = std::fs::remove_file(&flag_test);
-              send_macos_notification("App Expert", "Test notification — if you see this, App Expert notifications work!", "");
+              send_macos_notification("App Expert", "Test notification — if you see this, App Expert notifications work!", "", None);
             }
           }
         });
