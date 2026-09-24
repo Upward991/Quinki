@@ -2367,6 +2367,17 @@ fn ensure_cloudflared() -> Result<String, String> {
 // Stesso codice per entrambe le app, file diversi: cosi' l'Expert ha il SUO
 // nodo Tailscale, il SUO hostname e il SUO link, indipendente dalla main
 // (che l'utente riavvia/reinstalla continuamente con l'Expert).
+// Token e dispositivi: file PROPRI per main ed Expert (link e pairing separati,
+// come per il tunnel: l'Expert e' indipendente in tutto).
+fn remote_token_file() -> String {
+    let name = if is_expert_mode() { "remote-expert.json" } else { "remote.json" };
+    format!("{}/.quinki/{}", std::env::var("HOME").unwrap_or_default(), name)
+}
+fn remote_devices_file() -> String {
+    let name = if is_expert_mode() { "remote-devices-expert.json" } else { "remote-devices.json" };
+    format!("{}/.quinki/{}", std::env::var("HOME").unwrap_or_default(), name)
+}
+
 fn remote_state_file() -> String {
     let name = if is_expert_mode() { "remote-state-expert.json" } else { "remote-state.json" };
     format!("{}/.quinki/{}", std::env::var("HOME").unwrap_or_default(), name)
@@ -2946,7 +2957,7 @@ fn random_hex(n: usize) -> String {
 #[tauri::command]
 fn remote_devices_list() -> serde_json::Value {
     let home = std::env::var("HOME").unwrap_or_default();
-    let p = format!("{}/.quinki/remote-devices.json", home);
+    let p = remote_devices_file();
     let mut out: Vec<serde_json::Value> = Vec::new();
     if let Ok(txt) = std::fs::read_to_string(&p) {
         if let Ok(v) = serde_json::from_str::<serde_json::Value>(&txt) {
@@ -2968,7 +2979,7 @@ fn remote_devices_list() -> serde_json::Value {
 #[tauri::command]
 fn remote_device_revoke(id: String) -> Result<(), String> {
     let home = std::env::var("HOME").unwrap_or_default();
-    let p = format!("{}/.quinki/remote-devices.json", home);
+    let p = remote_devices_file();
     if let Ok(txt) = std::fs::read_to_string(&p) {
         if let Ok(mut v) = serde_json::from_str::<serde_json::Value>(&txt) {
             if let Some(arr) = v.as_array_mut() {
@@ -2985,7 +2996,7 @@ fn remote_token_rotate() -> String {
     // Rigenera il token MASTER: i vecchi link di pairing smettono di funzionare,
     // ma i dispositivi gia' accoppiati NON vengono toccati (hanno token propri).
     let home = std::env::var("HOME").unwrap_or_default();
-    let p = format!("{}/.quinki/remote.json", home);
+    let p = remote_token_file();
     let tok = random_hex(24);
     let st = serde_json::json!({ "token": tok });
     let _ = std::fs::write(&p, serde_json::to_string_pretty(&st).unwrap_or_default());
@@ -3009,7 +3020,7 @@ fn copy_to_clipboard(text: String) -> Result<(), String> {
 #[tauri::command]
 fn get_remote_token() -> String {
     let home = std::env::var("HOME").unwrap_or_default();
-    let p = format!("{}/.quinki/remote.json", home);
+    let p = remote_token_file();
     if let Ok(txt) = std::fs::read_to_string(&p) {
         if let Ok(v) = serde_json::from_str::<serde_json::Value>(&txt) {
             if let Some(t) = v.get("token").and_then(|x| x.as_str()) { return t.to_string(); }

@@ -121,7 +121,7 @@ const WEB_IS_EXPERT = String(process.env.QUINKI_ROLE || "").toLowerCase() === "e
 // presentare il token: ?token=... (una volta, imposta il cookie) oppure il cookie.
 // ATTENZIONE: il traffico del tunnel arriva DA 127.0.0.1 (cloudflared gira sul Mac)
 // → i proxy che iniettano x-forwarded-for/cf-connecting-ip NON sono loopback.
-const REMOTE_FILE = join(AGENT_DIR, "remote.json");
+const REMOTE_FILE = join(AGENT_DIR, WEB_IS_EXPERT ? "remote-expert.json" : "remote.json");
 let _remoteTokenCache = { at: 0, v: "" };
 function remoteToken(): string {
   const now = Date.now();
@@ -171,7 +171,7 @@ function tokenOk(t: string): boolean {
 // Ogni dispositivo ha il SUO token (mai piu' quello master): revoca per dispositivo,
 // e il refresh del token master NON scollega i dispositivi gia' accoppiati.
 // Il file vive in ~/.quinki → sopravvive a update/reinstall/riavvii dell'app.
-const DEVICES_FILE = join(AGENT_DIR, "remote-devices.json");
+const DEVICES_FILE = join(AGENT_DIR, WEB_IS_EXPERT ? "remote-devices-expert.json" : "remote-devices.json");
 type RemoteDevice = { id: string; name: string; token: string; createdAt: number; lastSeen: number };
 
 function loadDevices(): RemoteDevice[] {
