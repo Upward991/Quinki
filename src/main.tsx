@@ -11,7 +11,12 @@ installScrollAnywhere()
 // hover fermiamo gli eventi mouse in fase di capture, prima che React li veda:
 // sul computer (hover: hover) non cambia assolutamente nulla.
 try {
-  if (window.matchMedia && window.matchMedia('(hover: none)').matches) {
+  // NOTA: il WebView Android dichiara (hover: hover) anche senza mouse (bug
+  // noto) -> uniamo la media query col touch reale, cosi' sui telefoni gli
+  // hover non restano mai appiccicati. Sul desktop non cambia nulla.
+  const touchDevice = (window.matchMedia && window.matchMedia('(hover: none)').matches) ||
+    ('ontouchstart' in window) || ((navigator as any).maxTouchPoints || 0) > 0
+  if (touchDevice) {
     const swallow = (e: Event) => { e.stopPropagation() }
     for (const t of ['mouseenter', 'mouseleave', 'mouseover', 'mouseout']) {
       document.addEventListener(t, swallow, true)
