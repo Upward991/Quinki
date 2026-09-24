@@ -86,9 +86,11 @@ try {
         if (!r.ok) return
         const cfg: any = await r.json()
         const nat: any = (window as any).QuinkiNative
-        if (cfg?.appId && nat?.initFcm) {
-          nat.initFcm(String(cfg.appId), String(cfg.projectId), String(cfg.apiKey), String(cfg.senderId))
-          try { reportFrontendError('fcm', 'init sent') } catch {}
+        const isExpertApp = navigator.userAgent.includes('QuinkiAppExpert')
+        const appId = String(isExpertApp ? (cfg.appIdExpert || '') : (cfg.appIdMain || cfg.appId || ''))
+        if (appId && cfg.projectId && nat?.initFcm) {
+          nat.initFcm(appId, String(cfg.projectId), String(cfg.apiKey), String(cfg.senderId))
+          try { reportFrontendError('fcm', 'init sent ' + (isExpertApp ? 'expert' : 'main')) } catch {}
         }
       } catch {}
     }, 1500)
