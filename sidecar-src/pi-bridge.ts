@@ -4346,19 +4346,9 @@ Read this file to view it.` }] };
     try {
       const oldDir = this.effectiveWorkDir(key) || this.#cwdOverride.get(key) || this.#autoWorkDir(key);
       const target = newPath && newPath.length > 0 ? newPath : "";
-      if (target) {
-        // CAMBIO directory: la vecchia diventa una "passata" (riapribile).
-        if (oldDir && oldDir !== target) this.#pushWorkdirHistory(key, oldDir);
-      } else {
-        // RIMOZIONE directory: non e' una "passata", sparisce dall'elenco.
-        // La puliamo anche dalla storia (self-heal delle voci vecchie).
-        try {
-          const meta = this.#readChatMeta(key);
-          const hist: string[] = Array.isArray(meta.workdirHistory) ? meta.workdirHistory.filter((d: string) => d !== oldDir) : [];
-          this.#writeChatMeta(key, { workdirHistory: hist });
-          this.#updateSessionFile(key, (e) => { e.workdirHistory = hist; });
-        } catch {}
-      }
+      // La CRONOLOGIA non si perde MAI: sia al cambio sia alla rimozione, la
+      // cartella lasciata finisce tra le "passate" (riapribile dal menu).
+      if (oldDir && oldDir !== target) this.#pushWorkdirHistory(key, oldDir);
     } catch {}
     const pi = this.#active.get(key);
     if (pi) {
