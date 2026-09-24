@@ -277,6 +277,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         checkForUpdate()
+        checkWebVersion(true)
     }
 
     private fun pairUrl(link: String, token: String): String = "$link/?token=" + Uri.encode(token)
@@ -324,6 +325,35 @@ class MainActivity : AppCompatActivity() {
         if (linkInput.text.isNullOrEmpty()) linkInput.setText(link)
         if (tokenInput.text.isNullOrEmpty()) tokenInput.setText(token)
         statusText.text = message
+    }
+
+    // === La pagina in memoria puo' essere VECCHIA: a ogni apertura confrontiamo
+    // la versione del bundle sul Mac (/version.txt) e ci ricarichiamo da soli
+    // quando cambia. Cosi' i fix della web app arrivano SEMPRE, senza reinstalli.
+    private var lastVersionCheck = 0L
+    private fun checkWebVersion(force: Boolean = false) {
+        if (!force && System.currentTimeMillis() - lastVersionCheck < 30000) return
+        lastVersionCheck = System.currentTimeMillis()
+        val prefs = getSharedPreferences("quinki", Context.MODE_PRIVATE)
+        val link = prefs.getString("link", "") ?: ""
+        if (link.isEmpty()) return
+        Thread {
+            try {
+                val conn = URL("$link/version.txt").openConnection() as HttpURLConnection
+                conn.connectTimeout = 6000
+                conn.readTimeout = 6000
+                conn.setRequestProperty("User-Agent", "QuinkiApp")
+                val v = conn.inputStream.bufferedReader().readText().trim().take(40)
+                if (v.isEmpty()) return@Thread
+                val known = prefs.getString("webVersion", "") ?: ""
+                if (known.isEmpty()) {
+                    prefs.edit().putString("webVersion", v).apply()
+                } else if (known != v) {
+                    prefs.edit().putString("webVersion", v).apply()
+                    runOnUiThread { try { web.reload() } catch (e: Exception) { } }
+                }
+            } catch (e: Exception) { }
+        }.start()
     }
 
     private fun launchScanner() {
@@ -485,6 +515,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         web.onResume()
+        if (web.visibility == View.VISIBLE) checkWebVersion()
     }
 
     override fun onDestroy() {

@@ -21,6 +21,13 @@ if [ -d android/dist ]; then
   mkdir -p src-tauri/resources/sidecar/web/apk
   cp android/dist/*.apk src-tauri/resources/sidecar/web/apk/ 2>/dev/null || true
 fi
+# Versione del bundle web (hash di index.html): le app Android la controllano a
+# ogni apertura e si RICARICANO da sole quando il Mac ha qualcosa di nuovo.
+# Le due copie: sidecar/ = payload pagina; web/ = scaricabile da /version.txt.
+WV=$(shasum -a 256 dist-web/index.html | awk '{print substr($1,1,12)}')
+echo "$WV" > src-tauri/resources/sidecar/version.txt
+echo "$WV" > src-tauri/resources/sidecar/web/version.txt
+echo "[build-app] web version: $WV" 
 bash scripts/build-sidecar.sh
 # Dettatura locale (Parakeet TDT v3 via FluidAudio): compila l'helper swift e lo
 # spedisce accanto al sidecar, stesso schema del tunnel.
