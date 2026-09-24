@@ -426,6 +426,26 @@ const httpServer = http.createServer((req: any, res: any) => {
   // dal browser col decoder + encoder WAV in JS). Il sidecar lancia l'helper swift
   // (Parakeet v3 via FluidAudio, CoreML/ANE): prima esecuzione in assoluto ~1 min
   // (compilazione CoreML), poi ~0.2s. Risponde {ok, text}. Autenticato dal gate sopra.
+  // Registro richieste (diagnostica remota del telefono): vediamo dal Mac chi
+  // chiede cosa, con quale versione dell'app e quale UA.
+  try {
+    const pathOnly2 = url.split("?")[0];
+    if (req.method === "GET" && (pathOnly2 === "/" || pathOnly2 === "/index.html" || pathOnly2 === "/version.txt")) {
+      const home3 = String(process.env.HOME || "");
+      if (home3) {
+        const logP = join(home3, ".quinki", "req-log.jsonl");
+        try { if (existsSync(logP) && statSync(logP).size > 300000) writeFileSync(logP, ""); } catch {}
+        appendFileSync(logP, JSON.stringify({
+          ts: new Date().toISOString(),
+          port: PORT,
+          path: pathOnly2,
+          app: String(req.headers["x-quinki-app"] || ""),
+          ua: String(req.headers["user-agent"] || "").slice(-160),
+        }) + "\n");
+      }
+    }
+  } catch {}
+
   // Log diagnostico dall'app web (telefono): ~/.quinki/webapp-log.jsonl
   if (req.method === "POST" && url.startsWith("/log")) {
     try {
