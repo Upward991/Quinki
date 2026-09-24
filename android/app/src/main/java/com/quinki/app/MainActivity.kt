@@ -143,9 +143,12 @@ class MainActivity : AppCompatActivity() {
             javaScriptEnabled = true
             domStorageEnabled = true
             databaseEnabled = true
-            // Mai zoom-out "overview": la pagina resta larga quanto lo schermo,
-            // cosi' nulla (nemmeno i menu) puo' finire oltre i bordi.
-            useWideViewPort = false
+            // Combo GIUSTA per una web app responsive:
+            // - useWideViewPort=true: Android RISPETTA il viewport meta (width=device-width).
+            //   Con false la pagina viene disegnata a 980px -> layout desktop sul telefono
+            //   (menu tagliati, niente UI mobile). Era il bug.
+            // - loadWithOverviewMode=false: mai zoom-out per far entrare i contenuti.
+            useWideViewPort = true
             loadWithOverviewMode = false
             mediaPlaybackRequiresUserGesture = false
             mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
