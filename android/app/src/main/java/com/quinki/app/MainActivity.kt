@@ -177,7 +177,7 @@ class MainActivity : AppCompatActivity() {
         web.addJavascriptInterface(object {
             @android.webkit.JavascriptInterface
             fun setActiveChat(sk: String, visible: Boolean) {
-                try { PushService.setActiveChat(String(sk), visible) } catch (e: Exception) { }
+                try { PushService.setActiveChat(sk, visible) } catch (e: Exception) { }
             }
 
             @android.webkit.JavascriptInterface
