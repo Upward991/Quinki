@@ -502,6 +502,7 @@ fn setup_notification_delegate(app: &tauri::AppHandle) {
         fn objc_registerClassPair(cls: *mut Object);
     }
     unsafe extern "C" fn will_present(_this: *mut Object, _cmd: Sel, _center: *mut Object, _notification: *mut Object, completion: *mut c_void) {
+        notif_trace("DELEGATE: will_present chiamato — rispondo Banner|List|Sound|Badge");
         // macOS 27: i valori VECCHI non mostrano più il banner (la notifica finiva
         // muta nel centro notifiche: presented=0 nel db di usernoted). Costanti vere:
         // Banner = 1<<4 = 16, List = 1<<3 = 8; Alert = 1<<2 = 4 (legacy, per macOS
@@ -596,11 +597,17 @@ fn send_macos_notification(title: &str, body: &str, subtitle: &str) {
                         let _: () = msg_send![content, setSubtitle: sub_ns];
                     }
                 }
-                if let Ok(id_c) = CString::new("quinki-notif") {
+                let uid = format!("quinki-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0));
+                if let Ok(id_c) = CString::new(uid) {
                     let id_ns: *mut Object = msg_send![class!(NSString), stringWithUTF8String: id_c.as_ptr()];
                     let nil_obj: *mut Object = std::ptr::null_mut();
                     let req: *mut Object = msg_send![class!(UNNotificationRequest), requestWithIdentifier: id_ns content: content trigger: nil_obj];
-                    let _: () = msg_send![center, addNotificationRequest: req withCompletionHandler: nil_obj];
+                    let block = block::ConcreteBlock::new(move |error: *mut Object| {
+                        notif_trace(&format!("DELIVERY(macos_notif) error_present={}", !error.is_null()));
+                    });
+                    let block = block.copy();
+                    let block_ptr: *mut std::ffi::c_void = &*block as *const _ as *mut std::ffi::c_void;
+                    let _: () = msg_send![center, addNotificationRequest: req withCompletionHandler: block_ptr];
                 }
             }
         }
@@ -610,7 +617,10 @@ fn send_macos_notification(title: &str, body: &str, subtitle: &str) {
 #[tauri::command]
 fn send_notification(app: tauri::AppHandle, title: String, body: String, subtitle: Option<String>, session_key: Option<String>) -> Result<(), String> {
     notif_trace(&format!("ENTER: title={:?} body_len={} sk={:?}", title, body.len(), session_key));
+    // UNICO invio (send_macos_notification): il vecchio blocco duplicato qui sotto
+    // rimetteva un secondo request con lo stesso id e poteva incasinare la coda.
     send_macos_notification(&title, &body, subtitle.as_deref().unwrap_or(""));
+    if true { let _ = &app; return Ok(()); }
     // Il plugin usa notify_rust (osascript) che NON mostra notifiche per questa app.
     // Implementiamo la consegna REALE con UNUserNotificationCenter.
     #[cfg(target_os = "macos")]
@@ -638,7 +648,8 @@ fn send_notification(app: tauri::AppHandle, title: String, body: String, subtitl
                     let _: () = msg_send![content, setUserInfo: dict];
                 }
             }
-            let id_c = CString::new("quinki-notif").map_err(|e| e.to_string())?;
+            let uid2 = format!("quinki-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0));
+            let id_c = CString::new(uid2).map_err(|e| e.to_string())?;
             let id_ns: *mut Object = msg_send![class!(NSString), stringWithUTF8String: id_c.as_ptr()];
             let nil_obj: *mut Object = std::ptr::null_mut();
             let req: *mut Object = msg_send![class!(UNNotificationRequest), requestWithIdentifier: id_ns content: content trigger: nil_obj];
