@@ -193,9 +193,13 @@ function saveDevices(list: RemoteDevice[]): void {
 }
 function deviceNameFromUA(ua: string): string {
   const u = String(ua || "");
-  // App Android native: nomi dedicati, cosi' non collidono col browser del telefono
-  if (/QuinkiAppExpert\//.test(u)) return "App Expert · Android";
-  if (/QuinkiApp\//.test(u)) return "Quinki · Android";
+  // App Android native: nome dedicato CON versione, cosi' dal pannello si vede
+  // quale build sta girando davvero sul telefono.
+  const appM = u.match(/(QuinkiAppExpert|QuinkiApp)\/([^\s;)]+)/);
+  if (appM) {
+    const label = appM[1] === "QuinkiAppExpert" ? "App Expert" : "Quinki";
+    return label + " · Android · v" + appM[2];
+  }
   const os = /iPhone/.test(u) ? "iPhone" : /iPad/.test(u) ? "iPad" : /Android/.test(u) ? "Android" : /Macintosh/.test(u) ? "Mac" : /Windows/.test(u) ? "Windows" : /Linux/.test(u) ? "Linux" : "Device";
   const br = /Edg\//.test(u) ? "Edge" : /Chrome\//.test(u) ? "Chrome" : /Safari\//.test(u) ? "Safari" : /Firefox\//.test(u) ? "Firefox" : "Browser";
   return os + " · " + br;

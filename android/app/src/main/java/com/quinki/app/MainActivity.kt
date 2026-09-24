@@ -152,8 +152,16 @@ class MainActivity : AppCompatActivity() {
             loadWithOverviewMode = false
             mediaPlaybackRequiresUserGesture = false
             mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
-            userAgentString = userAgentString + " " + getString(R.string.ua_marker)
+            // Marcatore con la VERSIONE esatta dell'APK: sul Mac la lista
+            // dispositivi mostra quale build sta girando sul telefono.
+            val appMarker = (if (packageName.endsWith(".expert")) "QuinkiAppExpert" else "QuinkiApp") + "/" + BuildConfig.VERSION_NAME
+            userAgentString = userAgentString + " " + appMarker
         }
+
+        // Il sistema puo' uccidere il renderer del WebView quando apri altre app
+        // pesanti (es. il browser): teniamolo prioritario e ripristiniamo la
+        // pagina da soli se succede.
+        try { web.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false) } catch (e: Exception) { }
 
         web.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
@@ -187,6 +195,18 @@ class MainActivity : AppCompatActivity() {
             override fun onPageFinished(view: WebView, url: String) {
                 CookieManager.getInstance().flush()
                 ensurePermissions()
+            }
+
+            override fun onRenderProcessGone(view: WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean {
+                // Renderer morto (pressione di memoria): ricarica subito la stessa
+                // pagina invece di lasciare l'app bloccata/riavviata.
+                try {
+                    val link = getSharedPreferences("quinki", Context.MODE_PRIVATE).getString("link", "") ?: ""
+                    if (link.isNotEmpty() && web.visibility == View.VISIBLE) {
+                        view.loadUrl(link, mapOf("X-Quinki-App" to "1"))
+                    }
+                } catch (e: Exception) { }
+                return true
             }
         }
 
@@ -228,6 +248,12 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) { }
 
         val prefs = getSharedPreferences("quinki", Context.MODE_PRIVATE)
+        // Prima apertura dopo un aggiornamento: svuota la cache HTTP cosi' la web
+        // app arriva sempre fresca (i cookie NON si toccano).
+        if (prefs.getInt("lastVersionCode", 0) != BuildConfig.VERSION_CODE) {
+            prefs.edit().putInt("lastVersionCode", BuildConfig.VERSION_CODE).apply()
+            try { web.clearCache(true) } catch (e: Exception) { }
+        }
         val link = prefs.getString("link", "") ?: ""
         val token = prefs.getString("token", "") ?: ""
         if (link.isNotEmpty() && token.isNotEmpty()) {
