@@ -599,6 +599,7 @@ function Footer({ content, timestamp, agentName, agentModel, thinkingLevel, thin
         <BottomSheet
           open={infoOpen}
           onClose={() => setInfoOpen(false)}
+          hideBack
           items={[
             ...(agentName ? [{ icon: <Bot size={18} />, label: 'Agent', value: String(agentName), onSelect: () => setInfoOpen(false) }] : []),
             ...(agentModel ? [{ icon: <Cpu size={18} />, label: 'Model', value: String(agentModel), onSelect: () => setInfoOpen(false) }] : []),
