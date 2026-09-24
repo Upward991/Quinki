@@ -2363,8 +2363,25 @@ fn ensure_cloudflared() -> Result<String, String> {
     cloudflared_path().ok_or_else(|| "cloudflared non trovato dopo il download".to_string())
 }
 
+// === Percorsi dello stato del tunnel: SEPARATI tra main ed Expert ===
+// Stesso codice per entrambe le app, file diversi: cosi' l'Expert ha il SUO
+// nodo Tailscale, il SUO hostname e il SUO link, indipendente dalla main
+// (che l'utente riavvia/reinstalla continuamente con l'Expert).
 fn remote_state_file() -> String {
-    format!("{}/.quinki/remote-state.json", std::env::var("HOME").unwrap_or_default())
+    let name = if is_expert_mode() { "remote-state-expert.json" } else { "remote-state.json" };
+    format!("{}/.quinki/{}", std::env::var("HOME").unwrap_or_default(), name)
+}
+fn ts_node_file() -> String {
+    let name = if is_expert_mode() { "ts-node-expert.json" } else { "ts-node.json" };
+    format!("{}/.quinki/{}", std::env::var("HOME").unwrap_or_default(), name)
+}
+fn tsnet_state_dir() -> String {
+    let name = if is_expert_mode() { "tsnet-expert" } else { "tsnet" };
+    format!("{}/.quinki/{}", std::env::var("HOME").unwrap_or_default(), name)
+}
+fn tunnel_pid_file() -> String {
+    let name = if is_expert_mode() { "tunnel-expert.pid" } else { "tunnel.pid" };
+    format!("{}/.quinki/{}", std::env::var("HOME").unwrap_or_default(), name)
 }
 
 fn save_remote_state_full(enabled: bool, hostname: String, url: String, pid: Option<u32>) {
@@ -2459,7 +2476,7 @@ fn transcribe_audio(wav: Vec<u8>) -> Result<String, String> {
 /// Cloudflare (dominio opzionale dell'utente).
 fn ts_node_hostname() -> String {
     let home = std::env::var("HOME").unwrap_or_default();
-    let f = format!("{}/.quinki/ts-node.json", home);
+    let f = ts_node_file();
     if let Ok(txt) = std::fs::read_to_string(&f) {
         if let Ok(v) = serde_json::from_str::<serde_json::Value>(&txt) {
             if let Some(h) = v.get("hostname").and_then(|x| x.as_str()) {
@@ -2467,7 +2484,7 @@ fn ts_node_hostname() -> String {
             }
         }
     }
-    let h = format!("quinki-{}", random_hex(6));
+    let h = format!("{}-{}", if is_expert_mode() { "quinki-expert" } else { "quinki" }, random_hex(6));
     let _ = std::fs::write(&f, serde_json::json!({ "hostname": h }).to_string());
     h
 }
@@ -2482,13 +2499,13 @@ fn tunnel_start_tsnet_blocking(bin: String, port: u16) -> Result<String, String>
         .args([
             "-hostname", &hostname,
             "-target", &format!("127.0.0.1:{}", port),
-            "-state-dir", &format!("{}/.quinki/tsnet", home),
+            "-state-dir", &tsnet_state_dir(),
             "-authkey-file", &format!("{}/.quinki/ts-authkey", home),
         ])
         .stdout(Stdio::piped()).stderr(Stdio::piped())
         .spawn().map_err(|e| format!("tsnet-tunnel: {}", e))?;
     let pid = child.id();
-    let pidf = format!("{}/.quinki/tunnel.pid", home);
+    let pidf = tunnel_pid_file();
     let _ = std::fs::write(&pidf, pid.to_string());
 
     // stdout: una riga JSON per evento. Il drain resta attivo per tutta la vita
@@ -2670,6 +2687,9 @@ fn running_tunnel_from_state() -> Option<String> {
 /// link corto e stabile); senza -> quick tunnel (link casuale).
 /// Se serve, fa il login Cloudflare (apre il browser) e crea/instrada il tunnel.
 fn tunnel_start_blocking(port: u16, hostname: String) -> Result<String, String> {
+    // L'App Expert ha il SUO link (web app Expert indipendente): il suo tunnel
+    // punta al suo sidecar (9183), qualunque porta arrivi dalla UI.
+    let port = if is_expert_mode() { 9183 } else { port };
     {
         let g = TUNNEL.lock().map_err(|e| e.to_string())?;
         if let Some((_, u)) = g.as_ref() { return Ok(u.clone()); }
@@ -2689,7 +2709,7 @@ fn tunnel_start_blocking(port: u16, hostname: String) -> Result<String, String> 
             .args(["tunnel", "--url", &format!("http://127.0.0.1:{}", port), "--no-autoupdate"])
             .stdout(Stdio::piped()).stderr(Stdio::piped())
             .spawn().map_err(|e| e.to_string())?;
-        let pidf = format!("{}/.quinki/tunnel.pid", std::env::var("HOME").unwrap_or_default());
+        let pidf = tunnel_pid_file();
         let _ = std::fs::write(&pidf, child.id().to_string());
         let mut url = String::new();
         if let Some(er) = child.stderr.take() {
@@ -2760,7 +2780,7 @@ fn tunnel_start_blocking(port: u16, hostname: String) -> Result<String, String> 
         .args(["tunnel", "--no-autoupdate", "--url", &format!("http://127.0.0.1:{}", port), "run", "quinki"])
         .stdout(Stdio::piped()).stderr(Stdio::piped())
         .spawn().map_err(|e| e.to_string())?;
-    let pidf = format!("{}/.quinki/tunnel.pid", home);
+    let pidf = tunnel_pid_file();
     let _ = std::fs::write(&pidf, child.id().to_string());
     if let Some(er) = child.stderr.take() {
         use std::io::{BufRead, BufReader};
@@ -2781,7 +2801,7 @@ fn tunnel_stop_inner() {
         if let Some((mut c, _)) = g.take() { let _ = c.kill(); }
     }
     let home = std::env::var("HOME").unwrap_or_default();
-    let pidf = format!("{}/.quinki/tunnel.pid", home);
+    let pidf = tunnel_pid_file();
     if let Ok(txt) = std::fs::read_to_string(&pidf) {
         if let Ok(pid) = txt.trim().parse::<i32>() {
             unsafe { libc::kill(pid, 15); }
@@ -2832,9 +2852,10 @@ async fn remote_tunnel_autostart() -> Result<String, String> {
 fn remote_logout() -> Result<(), String> {
     tunnel_stop_inner();
     let home = std::env::var("HOME").unwrap_or_default();
-    let _ = std::fs::remove_dir_all(format!("{}/.quinki/tsnet", home));
-    let _ = std::fs::remove_file(format!("{}/.quinki/ts-node.json", home));
-    let _ = std::fs::remove_file(format!("{}/.quinki/tunnel.pid", home));
+    let _ = std::fs::remove_dir_all(tsnet_state_dir());
+    let _ = std::fs::remove_file(ts_node_file());
+    let _ = std::fs::remove_file(tunnel_pid_file());
+    let _ = home;
     let _ = std::fs::remove_file(remote_state_file());
     Ok(())
 }
@@ -3063,7 +3084,8 @@ pub fn run() {
     // avviene quando l'utente preme Enable/Refresh nel pannello (esplicito),
     // cosi' il vecchio tunnel resta su fino a che il nuovo e' pronto.
     std::thread::spawn(|| {
-        if is_expert_mode() { return; } // il tunnel lo gestisce SOLO l'app principale
+        // Ogni app (main / Expert) gestisce IL SUO tunnel: stato separato,
+        // nodo e link separati. L'Expert resta su anche quando la main si riavvia.
         let (enabled, hostname) = load_remote_state();
         if !enabled { return; }
         if running_tunnel_from_state().is_some() { return; } // gia' vivo: stesso link
@@ -3075,12 +3097,9 @@ pub fn run() {
     // - non raggiungibile da TUTTI gli edge per 2 tick di fila -> riavvio (~1 min)
     // - ogni evento finisce in ~/.quinki/tunnel-watchdog.log (diagnosi)
     std::thread::spawn(|| {
-        // IMPORTANTE: solo l'app PRINCIPALE gestisce il tunnel. L'App Expert ha il
-        // suo processo ma condivide ~/.quinki: senza questo guard il suo watchdog
-        // riavviava il tunnel senza il binario Tailscale (fallback Cloudflare = link morto).
-        if is_expert_mode() { return; }
+        // Ogni app sorveglia il SUO tunnel (stato e log separati per main/Expert).
         let home = std::env::var("HOME").unwrap_or_default();
-        let log_path = format!("{}/.quinki/tunnel-watchdog.log", home);
+        let log_path = format!("{}/.quinki/tunnel-watchdog{}.log", home, if is_expert_mode() { "-expert" } else { "" });
         let log = move |msg: &str| {
             use std::io::Write;
             let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);

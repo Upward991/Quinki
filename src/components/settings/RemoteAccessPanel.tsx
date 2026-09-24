@@ -75,7 +75,6 @@ export function RemoteAccessSection() {
   }, [])
 
   const withToken = (base: string) => (base && token ? `${base}/?token=${token}` : base)
-  const withExpertToken = (base: string) => (base && token ? `${base}/?expert=1&token=${token}` : base ? `${base}/?expert=1` : base)
   const openUrl = (url: string) => { invoke('open_url', { url }).catch(() => {}) }
 
   const copy = async (text: string, which: string) => {
@@ -153,11 +152,10 @@ export function RemoteAccessSection() {
 
   // QR code: modale con QR temporaneo del link di accesso (col token):
   // lo scansiona col telefono e la web app si apre gia' autenticata.
-  const openQr = async (which: 'main' | 'expert' = 'main') => {
+  const openQr = async () => {
     if (!status.url) { setErr('The access link is not ready yet.'); setTimeout(() => setErr(''), 4000); return }
     try {
-      const target = which === 'expert' ? withExpertToken(status.url) : withToken(status.url)
-      const data = await QRCode.toDataURL(target, { width: 520, margin: 1, color: { dark: '#000000', light: '#ffffff' } })
+      const data = await QRCode.toDataURL(withToken(status.url), { width: 520, margin: 1, color: { dark: '#000000', light: '#ffffff' } })
       setQrData(data)
       setQrOpen(true)
     } catch (e: any) { setErr('QR generation failed: ' + String((e && e.message) ? e.message : e)) }
@@ -280,7 +278,7 @@ export function RemoteAccessSection() {
       <div style={{ height: '12px' }} />
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <button style={rowBtn} onClick={showAccessLink} {...hoverAccent}>Show access link</button>
-        <button style={{ ...rowBtn, borderColor: 'var(--q-border)', color: 'var(--q-text-secondary)' }} onClick={() => openQr()} {...hoverNeutral}>QR code</button>
+        <button style={{ ...rowBtn, borderColor: 'var(--q-border)', color: 'var(--q-text-secondary)' }} onClick={openQr} {...hoverNeutral}>QR code</button>
         {!!err && (
           <span style={{ color: 'var(--q-accent-danger)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>{err}</span>
         )}
@@ -297,22 +295,6 @@ export function RemoteAccessSection() {
           <div style={{ height: '6px' }} />
           <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>
             This link never changes, not even after updates or restarts of this Mac.
-          </div>
-        </>
-      )}
-      {(ready || linkShown) && (
-        <>
-          <div style={{ height: '10px' }} />
-          <div style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Expert web app link</div>
-          <div style={{ height: '6px' }} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={urlBox}>{status.url ? status.url + '/?expert=1' : 'starting…'}</div>
-            <button style={rowBtn} {...hoverAccent} onClick={() => copy(withExpertToken(status.url), 'exp')}>{copied === 'exp' ? 'Copied' : 'Copy'}</button>
-            <button style={{ ...rowBtn, borderColor: 'var(--q-border)', color: 'var(--q-text-secondary)' }} onClick={() => openQr('expert')} {...hoverNeutral}>QR code</button>
-          </div>
-          <div style={{ height: '6px' }} />
-          <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>
-            Opens the App Expert directly. Add it to your phone home screen: it gets its own icon and name.
           </div>
         </>
       )}
