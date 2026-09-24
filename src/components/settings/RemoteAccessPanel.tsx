@@ -229,7 +229,7 @@ function RemoteAccessPart({ target = 'main' }: { target?: string } = {}) {
       : status.authUrl
         ? 'Not logged in yet: press the button and finish the login in the browser.'
         : enabled
-          ? 'You are logged in with Tailscale.'
+          ? 'Connected. Waiting for the link: if it does not appear by itself, enable Funnel for this device in the Tailscale admin console (DNS page).'
           : 'Not started yet: press the button above.'
 
   return (
