@@ -127,7 +127,14 @@ export function Composer(props: ComposerProps) {
     try {
       const call = (window as any).__sidecarCall
       const sk = props.sessionKey || ''
-      if (call && sk) { const r = await call('listWorkingDirs', { sessionKey: sk }); setWorkdirs(Array.isArray(r?.dirs) ? r.dirs : []) }
+      if (call && sk) {
+        const r = await call('listWorkingDirs', { sessionKey: sk })
+        setWorkdirs(Array.isArray(r?.dirs) ? r.dirs : [])
+        // Vecchia cartella pi-* con file: chiedi col modale (mai spostamenti muti).
+        if (r?.legacyDir && r?.defaultPath) {
+          setPendingWorkdir({ apply: '', from: r.legacyDir, to: r.defaultPath, files: r.legacyFiles || 1, sessionKey: sk })
+        }
+      }
     } catch {}
     setAttachMenuView('workdirs')
   }

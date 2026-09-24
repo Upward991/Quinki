@@ -460,8 +460,19 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
         .map(d => ({ path: d, current: d === cur }));
       let currentFiles = 0;
       try { currentFiles = cur ? fs.readdirSync(cur).length : 0 } catch { currentFiles = 0 }
-      return { current: cur, dirs, currentFiles, defaultPath };
-    } catch { return { current: "", dirs: [], currentFiles: 0, defaultPath: "" } }
+      // Legacy (vecchio nome pi-*): se ha ancora file, il frontend chiede col
+      // modale se spostarli nella nuova cartella della chat. Mai automatico.
+      let legacyDir = "";
+      let legacyFiles = 0;
+      try {
+        const legacy = path.join(homedir(), ".quinki", "workdir", String(key || "").replace(/[^a-zA-Z0-9_-]/g, "_"));
+        if (legacy !== defaultPath && fs.existsSync(legacy)) {
+          const items = fs.readdirSync(legacy).filter((n) => !n.startsWith("."));
+          if (items.length > 0) { legacyDir = legacy; legacyFiles = items.length; }
+        }
+      } catch {}
+      return { current: cur, dirs, currentFiles, defaultPath, legacyDir, legacyFiles };
+    } catch { return { current: "", dirs: [], currentFiles: 0, defaultPath: "", legacyDir: "", legacyFiles: 0 } }
   },
   setWorkingDir: async (p) => {
     piBridge!.setWorkingDir(String(p.sessionKey), String(p.path));

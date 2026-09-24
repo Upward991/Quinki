@@ -339,22 +339,11 @@ class PiBridge {
     const friendly = safe.startsWith("pi-") ? "quinki-" + safe.slice(3) : safe;
     const p = path.join(homedir(), ".quinki", "workdir", friendly);
     const legacy = path.join(homedir(), ".quinki", "workdir", safe);
-    try {
-      fs.mkdirSync(p, { recursive: true });
-      // MIGRAZIONE: la vecchia cartella pi-* coi file della chat -> nuova. I file
-      // non si perdono MAI (rename; fallback copia).
-      if (legacy !== p) {
-        try {
-          if (fs.existsSync(legacy)) {
-            for (const n of fs.readdirSync(legacy)) {
-              const src = path.join(legacy, n), dst = path.join(p, n);
-              if (fs.existsSync(dst)) continue;
-              try { fs.renameSync(src, dst); } catch { try { if (fs.statSync(src).isFile()) fs.copyFileSync(src, dst) } catch {} }
-            }
-          }
-        } catch {}
-      }
-    } catch {}
+    // NESSUN spostamento automatico dei file: se la vecchia cartella pi-* ha
+    // file, il frontend lo scopre via listWorkingDirs (campo legacyDir) e chiede
+    // col MODALE Move/Keep. L'utente decide sempre.
+    try { fs.mkdirSync(p, { recursive: true }); } catch {}
+    void legacy;
     return p;
   }
   autoWorkDirFor(key: string): string { return this.#autoWorkDir(key); }
