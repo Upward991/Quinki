@@ -54,16 +54,21 @@ const stepNum: React.CSSProperties = {
 }
 const stepRow: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 0' }
 const stepTxt: React.CSSProperties = { flex: 1, minWidth: 0, color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', lineHeight: 1.45 }
+const dangerBtn: React.CSSProperties = {
+  padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)',
+  backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontWeight: 600,
+  fontFamily: 'var(--font-interface)', cursor: 'pointer', flexShrink: 0,
+}
 
-// Una delle due parti (Main / Expert): link + Copy + QR + token + dispositivi.
-// Il setup (login + console) e' in comune, sopra: UN login, due link.
-function RemoteAccessLinkPart({ target }: { target: string }) {
+// Una delle due parti (Main / Expert): Show access link + link + QR + token + dispositivi.
+function RemoteAccessLinkPart({ target, label }: { target: string; label: string }) {
   const [status, setStatus] = useState<{ running: boolean; url: string; authUrl?: string }>({ running: false, url: '' })
   const [token, setToken] = useState('')
   const [devices, setDevices] = useState<any[]>([])
   const [copied, setCopied] = useState('')
   const [rotating, setRotating] = useState(false)
   const [confirmAct, setConfirmAct] = useState<null | 'token' | 'revoke'>(null)
+  const [linkShown, setLinkShown] = useState(false)
   const [qrOpen, setQrOpen] = useState(false)
   const [qrData, setQrData] = useState('')
   const [revokeId, setRevokeId] = useState('')
@@ -74,7 +79,7 @@ function RemoteAccessLinkPart({ target }: { target: string }) {
     const load = async () => {
       try {
         const s: any = await invoke('remote_tunnel_status', { target })
-        if (!cancelled && s) setStatus(prev => (prev.running === !!s.running && prev.url === String(s.url || '')) ? prev : { running: !!s.running, url: String(s.url || ''), authUrl: String(s.authUrl || '') })
+        if (!cancelled && s) setStatus(prev => (prev.running === !!s.running && prev.url === String(s.url || '') && (prev.authUrl || '') === String(s.authUrl || '')) ? prev : { running: !!s.running, url: String(s.url || ''), authUrl: String(s.authUrl || '') })
       } catch {}
     }
     ;(async () => {
@@ -112,8 +117,15 @@ function RemoteAccessLinkPart({ target }: { target: string }) {
     else { setErr('Copy failed on this system.'); setTimeout(() => setErr(''), 4000) }
   }
 
+  // Show access link: fa apparire il field del link (e se serve avvia il nodo).
+  const showAccessLink = async () => {
+    setLinkShown(true)
+    if (status.url) return
+    try { await invoke('remote_tunnel_start', { port: 9182, hostname: '', target }) } catch {}
+  }
+
   const openQr = async () => {
-    if (!status.url) { setErr('The link is not ready yet.'); setTimeout(() => setErr(''), 4000); return }
+    if (!status.url) { setErr('The access link is not ready yet.'); setTimeout(() => setErr(''), 4000); return }
     try {
       const data = await QRCode.toDataURL(withToken(status.url), { width: 520, margin: 1, color: { dark: '#000000', light: '#ffffff' } })
       setQrData(data)
@@ -124,13 +136,13 @@ function RemoteAccessLinkPart({ target }: { target: string }) {
   const refreshDevices = async () => {
     try { const d: any = await invoke('remote_devices_list', { target }); if (Array.isArray(d)) setDevices(d) } catch {}
   }
-  const rotate = async () => {
+  const doRotateToken = async () => {
     setConfirmAct(null)
     setRotating(true)
     try { const t: any = await invoke('remote_token_rotate', { target }); if (t) setToken(String(t)) } catch {}
     setRotating(false)
   }
-  const revoke = async () => {
+  const doRevoke = async () => {
     try { await invoke('remote_device_revoke', { id: revokeId, target }) } catch {}
     setConfirmAct(null)
     refreshDevices()
@@ -139,20 +151,31 @@ function RemoteAccessLinkPart({ target }: { target: string }) {
   return (
     <>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px', marginBottom: '2px' }}>
-        <span style={{ color: 'var(--q-text)', fontSize: '14px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>{target === 'expert' ? 'Expert web app' : 'Main web app'}</span>
+        <span style={{ color: 'var(--q-text)', fontSize: '14px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>{label}</span>
       </div>
-      <div style={{ height: '8px' }} />
+      <div style={{ height: '12px' }} />
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <div style={urlBox}>{status.url || 'starting…'}</div>
-        <button style={rowBtn} {...hoverAccent} onClick={() => copy(withToken(status.url), 'link')}>{copied === 'link' ? 'Copied' : 'Copy'}</button>
-        <button style={{ ...rowBtn, borderColor: 'var(--q-border)', color: 'var(--q-text-secondary)' }} {...hoverNeutral} onClick={openQr}>QR code</button>
+        <button style={rowBtn} onClick={showAccessLink} {...hoverAccent}>Show access link</button>
+        <button style={{ ...rowBtn, borderColor: 'var(--q-border)', color: 'var(--q-text-secondary)' }} onClick={openQr} {...hoverNeutral}>QR code</button>
+        {!!err && (
+          <span style={{ color: 'var(--q-accent-danger)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>{err}</span>
+        )}
       </div>
-      <div style={{ height: '6px' }} />
-      <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>
-        {target === 'expert'
-          ? 'Opens the App Expert directly. Add it to your phone home screen: it installs as “Quinki Expert” with its own icon.'
-          : 'This link never changes, not even after updates or restarts of this Mac.'}
-      </div>
+      {(status.url || linkShown) && (
+        <>
+          <div style={{ height: '10px' }} />
+          <div style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Your permanent link</div>
+          <div style={{ height: '6px' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={urlBox}>{status.url || 'starting…'}</div>
+            <button style={rowBtn} {...hoverAccent} onClick={() => copy(withToken(status.url), 'tun')}>{copied === 'tun' ? 'Copied' : 'Copy'}</button>
+          </div>
+          <div style={{ height: '6px' }} />
+          <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>
+            This link never changes, not even after updates or restarts of this Mac.
+          </div>
+        </>
+      )}
 
       <div style={{ height: '16px' }} />
       <div style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Access token</div>
@@ -179,24 +202,19 @@ function RemoteAccessLinkPart({ target }: { target: string }) {
             <div style={{ color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</div>
             <div style={{ color: 'var(--q-text-tertiary)', fontSize: '11px', fontFamily: 'var(--font-code)' }}>added {fmtWhen(d.createdAt)} · last seen {fmtWhen(d.lastSeen)}</div>
           </div>
-          <button style={{ ...rowBtn, borderColor: 'var(--q-border)', color: 'var(--q-accent-danger)' }} onClick={() => { setRevokeId(d.id); setConfirmAct('revoke') }} {...hoverNeutral}>
+          <button style={dangerBtn} onClick={() => { setRevokeId(d.id); setConfirmAct('revoke') }} {...hoverNeutral}>
             Revoke
           </button>
         </div>
       ))}
-      {!!err && (
-        <div style={{ color: 'var(--q-accent-danger)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginTop: '4px' }}>{err}</div>
-      )}
 
       {qrOpen && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 400, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           onClick={(e: any) => { if (e.target === e.currentTarget) setQrOpen(false) }}>
-          <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', padding: '20px', maxWidth: '420px', width: '90%' }}>
-            <div style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '8px' }}>
-              {target === 'expert' ? 'Quinki Expert QR code' : 'QR code'}
-            </div>
+          <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', padding: '24px', maxWidth: '420px', width: '90%', boxShadow: 'var(--shadow-modal)' }}>
+            <div style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '8px' }}>QR code</div>
             <div style={{ color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', lineHeight: 1.5, marginBottom: '10px' }}>
-              Scan this with your phone camera: {target === 'expert' ? 'Quinki Expert' : 'Quinki'} opens on the phone already signed in, nothing to type.
+              Scan this with your phone camera: Quinki opens on the phone already signed in, nothing to type.
             </div>
             <div style={{ display: 'flex', justifyContent: 'center', padding: '4px 0 10px 0' }}>
               <div style={{ backgroundColor: '#ffffff', padding: '10px', borderRadius: 'var(--radius-md)' }}>
@@ -204,49 +222,30 @@ function RemoteAccessLinkPart({ target }: { target: string }) {
               </div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              <button onClick={() => setQrOpen(false)} {...hoverNeutral}
-                style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>
+              <button onClick={() => setQrOpen(false)} {...hoverNeutral} style={dangerBtn}>
                 Close
               </button>
             </div>
           </div>
         </div>
       )}
-      {confirmAct === 'token' && (
+      {confirmAct && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 400, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           onClick={(e: any) => { if (e.target === e.currentTarget) setConfirmAct(null) }}>
-          <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', padding: '20px', maxWidth: '420px', width: '90%' }}>
-            <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', marginBottom: '8px' }}>Create a new token?</div>
-            <div style={{ color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', marginBottom: '16px' }}>
-              Devices already paired keep working. Links containing the previous token stop working.
+          <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', padding: '24px', maxWidth: '420px', width: '90%', boxShadow: 'var(--shadow-modal)' }}>
+            <div style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '8px' }}>
+              {confirmAct === 'token' ? 'Refresh access token?' : 'Revoke this device?'}
+            </div>
+            <div style={{ color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', lineHeight: 1.5, marginBottom: '16px' }}>
+              {confirmAct === 'token'
+                ? 'Old pairing links stop working. Devices already paired keep working.'
+                : 'This device loses access immediately. You can pair it again with a new pairing link.'}
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              <button onClick={() => setConfirmAct(null)} {...hoverNeutral}
-                style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>
+              <button onClick={() => setConfirmAct(null)} {...hoverNeutral} style={dangerBtn}>
                 Cancel
               </button>
-              <button onClick={rotate} {...hoverAccent}
-                style={rowBtn}>
-                Confirm
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {confirmAct === 'revoke' && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 400, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          onClick={(e: any) => { if (e.target === e.currentTarget) setConfirmAct(null) }}>
-          <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', padding: '20px', maxWidth: '420px', width: '90%' }}>
-            <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', marginBottom: '8px' }}>Remove this device?</div>
-            <div style={{ color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', marginBottom: '16px' }}>
-              The device will need the link with the token again to reconnect.
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              <button onClick={() => setConfirmAct(null)} {...hoverNeutral}
-                style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>
-                Cancel
-              </button>
-              <button onClick={revoke} {...hoverAccent} style={rowBtn}>
+              <button onClick={confirmAct === 'token' ? doRotateToken : doRevoke} {...hoverAccent} style={rowBtn}>
                 Confirm
               </button>
             </div>
@@ -263,7 +262,7 @@ export function RemoteAccessSection() {
   const [busy, setBusy] = useState(false)
   const [signingIn, setSigningIn] = useState(false)
   const [err, setErr] = useState('')
-  const [confirmLogout, setConfirmLogout] = useState(false)
+  const [confirmAct, setConfirmAct] = useState<null | 'logout'>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -312,15 +311,8 @@ export function RemoteAccessSection() {
     setBusy(false)
   }
 
-  const startTunnel = async () => {
-    if (busy) return
-    setBusy(true); setErr('')
-    try { await invoke('remote_tunnel_start', { port: 9182, hostname: '', target: 'main' }) } catch (e: any) { setErr(String((e && e.message) ? e.message : e)) }
-    setBusy(false)
-  }
-
   const doLogout = async () => {
-    setConfirmLogout(false); setBusy(true); setErr('')
+    setConfirmAct(null); setBusy(true); setErr('')
     try {
       await invoke('remote_logout', { target: 'main' })
       setEnabled(false)
@@ -338,7 +330,7 @@ export function RemoteAccessSection() {
       : status.authUrl
         ? 'Not logged in yet: press the button and finish the login in the browser.'
         : enabled
-          ? 'Connected. Waiting for the link: if it does not appear by itself, enable Funnel for this device in the Tailscale admin console (DNS page).'
+          ? 'You are logged in with Tailscale.'
           : 'Not started yet: press the button above.'
 
   return (
@@ -351,7 +343,7 @@ export function RemoteAccessSection() {
         Use Quinki from your phone or another computer: same sessions, same data as this Mac, while Quinki is running. On the phone, use “Install app” to keep Quinki as a real app with its icon.
       </div>
 
-      {/* ---------- setup: UNO, vale per entrambi i link ---------- */}
+      {/* ---------- setup: uno solo, vale per entrambi i link ---------- */}
       <div style={{ height: '12px' }} />
       <div style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>Setup, one time only (2 steps)</div>
       <div style={{ height: '2px' }} />
@@ -360,48 +352,48 @@ export function RemoteAccessSection() {
         <div style={stepTxt}>
           Log in with Tailscale and authorize this Mac. No account yet? You create it right there, free (Google, GitHub or email).
         </div>
-        <button style={rowBtn} {...hoverAccent} onClick={signIn}>Sign in with Tailscale</button>
+        <button style={rowBtn} onClick={signIn} {...hoverAccent}>Log in with Tailscale</button>
+        {loggedIn && (
+          <button style={dangerBtn} onClick={() => setConfirmAct('logout')} {...hoverNeutral}>
+            Log out
+          </button>
+        )}
       </div>
       <div style={stepRow}>
         <div style={stepNum}>2</div>
         <div style={stepTxt}>
-          In the Tailscale admin console, on the DNS page, turn on “HTTPS Certificates” and “Funnel”. This makes the links reachable from your phone.
+          In the Tailscale admin console, on the DNS page, turn on “HTTPS Certificates” and “Funnel”. This makes the link reachable from your phone.
         </div>
-        <button style={{ ...rowBtn, borderColor: 'var(--q-border)', color: 'var(--q-text-secondary)' }} {...hoverNeutral} onClick={() => openUrl(URL_ADMIN_DNS)}>Open admin console</button>
+        <button style={rowBtn} {...hoverAccent} onClick={() => openUrl(URL_ADMIN_DNS)}>Open admin console</button>
       </div>
       <div style={{ height: '4px' }} />
       <div style={{ color: 'var(--q-text-secondary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>
         {statusLine}
       </div>
-      <div style={{ height: '10px' }} />
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <button style={rowBtn} {...hoverAccent} disabled={busy} onClick={startTunnel}>Start / refresh</button>
-        {loggedIn && (
-          <button style={{ ...rowBtn, borderColor: 'var(--q-border)', color: 'var(--q-accent-danger)' }} {...hoverNeutral} onClick={() => setConfirmLogout(true)}>
-            Log out
-          </button>
-        )}
-        {!!err && (
-          <span style={{ color: 'var(--q-accent-danger)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>{err}</span>
-        )}
+      <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginTop: '2px' }}>
+        The permanent link appears below when both steps are done. You can do them in any order.
       </div>
+      {!!err && (
+        <div style={{ color: 'var(--q-accent-danger)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginTop: '4px' }}>{err}</div>
+      )}
 
       <div style={{ height: '1px', backgroundColor: 'var(--q-border)', margin: '14px 0 0 0' }} />
-      <RemoteAccessLinkPart target="main" />
+      <RemoteAccessLinkPart target="main" label="Main web app" />
       <div style={{ height: '1px', backgroundColor: 'var(--q-border)', margin: '14px 0 0 0' }} />
-      <RemoteAccessLinkPart target="expert" />
+      <RemoteAccessLinkPart target="expert" label="Expert web app" />
 
-      {confirmLogout && (
+      {confirmAct === 'logout' && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 400, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          onClick={(e: any) => { if (e.target === e.currentTarget) setConfirmLogout(false) }}>
-          <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', padding: '20px', maxWidth: '420px', width: '90%' }}>
-            <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', marginBottom: '8px' }}>Log out of Tailscale?</div>
-            <div style={{ color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', marginBottom: '16px' }}>
-              Both links stop working until you sign in again.
+          onClick={(e: any) => { if (e.target === e.currentTarget) setConfirmAct(null) }}>
+          <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', padding: '24px', maxWidth: '420px', width: '90%', boxShadow: 'var(--shadow-modal)' }}>
+            <div style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '8px' }}>
+              Log out from Tailscale?
+            </div>
+            <div style={{ color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', lineHeight: 1.5, marginBottom: '16px' }}>
+              The permanent link stops working and this Mac leaves your Tailscale network. You can sign in again at any time (a new link will be created).
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              <button onClick={() => setConfirmLogout(false)} {...hoverNeutral}
-                style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>
+              <button onClick={() => setConfirmAct(null)} {...hoverNeutral} style={dangerBtn}>
                 Cancel
               </button>
               <button onClick={doLogout} {...hoverAccent} style={rowBtn}>
