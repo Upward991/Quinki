@@ -39,20 +39,18 @@ export interface TuiOptions {
   sessionDir: string;
 }
 
-/** Centered window column (like the app: content column centered in the window). */
+/** App-window column: symmetric margins only (app chat area = window minus padding). */
 class CenterBox {
   child: any;
-  maxWidth: number;
-  constructor(child: any, maxWidth = 100) {
+  constructor(child: any) {
     this.child = child;
-    this.maxWidth = maxWidth;
   }
   render(width: number): string[] {
-    const outer = Math.max(0, Math.min(2, Math.floor((width - 40) / 2)));
-    const colW = Math.max(40, Math.min(width - outer * 2, this.maxWidth));
+    const colW = Math.max(20, Math.min(width - 4, 112));
     const left = Math.floor((width - colW) / 2);
-    const right = width - colW - left;
-    const lines = this.child?.render(colW) || [];
+    const right = Math.max(0, width - colW - left);
+    const inner = colW;
+    const lines = this.child?.render(inner) || [];
     const l = " ".repeat(left);
     const r = " ".repeat(right);
     return lines.map((line: string) => l + line + r);
@@ -62,6 +60,47 @@ class CenterBox {
       this.child?.invalidate?.();
     } catch {}
   }
+}
+
+/** Floating-panel block: padded, painted full-width background (no border), app style. */
+class BgBlock {
+  child: any;
+  pad: number;
+  paint: (s: string) => string;
+  constructor(child: any, pad: number, paint: (s: string) => string) {
+    this.child = child;
+    this.pad = pad;
+    this.paint = paint;
+  }
+  render(width: number): string[] {
+    const inner = Math.max(1, width - this.pad * 2);
+    const lines = this.child?.render(inner) || [];
+    const l = " ".repeat(this.pad);
+    const r = " ".repeat(this.pad);
+    return lines.map((line: string) => {
+      const fill = " ".repeat(Math.max(0, inner - visibleWidth(line)));
+      return this.paint(l + line + fill + r);
+    });
+  }
+  invalidate() {
+    try {
+      this.child?.invalidate?.();
+    } catch {}
+  }
+}
+
+/** One line, horizontally centered in the column. */
+class CenteredLine {
+  line: string;
+  constructor(line: string) {
+    this.line = line;
+  }
+  render(width: number): string[] {
+    const w = visibleWidth(this.line);
+    const pad = Math.max(0, Math.floor((width - w) / 2));
+    return [" ".repeat(pad) + this.line];
+  }
+  invalidate() {}
 }
 
 /** Full-width divider line (app's header separator look). */
@@ -118,20 +157,11 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     copyOnSelect: true,
   });
 
-  // Header (fixed, top): title … ctx counter, with the app-style divider under it.
-  const titleText = new Text("", 1, 0);
-  const ctxText = new Text("", 1, 0);
-  const headerRow = new HStack([
-    { component: titleText, grow: 1 },
-    { component: ctxText, basis: "auto", grow: 0 },
-  ]);
-  const header = new VStack([
-    { component: headerRow, basis: "auto", grow: 0, shrink: 0, minSize: 1 },
-    { component: new Spacer(1), basis: "auto", grow: 0, shrink: 0, minSize: 1 },
-    { component: new RuleLine() as any, basis: "auto", grow: 0, shrink: 0, minSize: 1 },
-    { component: new Spacer(1), basis: "auto", grow: 0, shrink: 0, minSize: 1 },
-  ]);
-  titleText.setText(fg(C.text, "\u25cf") + " " + fg(C.primary, "quinki") + fg(C.textSecondary, "  \u00b7 New chat"));
+  // Header (fixed, top): chat icon + title ONLY, drawn as a floating-panel block
+  // (plain background color, no border) — same width as the composer and chat.
+  const titleText = new Text("", 0, 0);
+  const header = new BgBlock(titleText, 1, (s: string) => bg(C.bgPanel, s));
+  titleText.setText(fg(C.textSecondary, "\u25a4") + " " + fg(C.text, "New chat"));
 
   // Chat transcript (scrolls, grows)
   const content = new Container();
@@ -149,22 +179,37 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     },
   };
   const editor = new Editor(ui as any, editorTheme, { paddingX: 1 });
+  try {
+    (editor as any).bgFn = (s: string) => bg(C.bgPanel, s);
+  } catch {}
 
-  const root = new VStack([
-    { component: new CenterBox(header) as any, basis: "auto", grow: 0, shrink: 0, minSize: 1 },
-    { component: new CenterBox(scroll) as any, basis: 0, grow: 1, shrink: 1, minSize: 1 },
-    { component: new CenterBox(editor) as any, basis: "auto", grow: 0, shrink: 1, minSize: 5 },
-    { component: new Spacer(1), basis: "auto", grow: 0, shrink: 0, minSize: 1 },
-  ]);
+  const boxWrap = new CenterBox(editor) as any;
+  const applyLayout = (welcome: boolean) => {
+    try {
+      const headerWrap = new CenterBox(header) as any;
+      const root = welcome
+        ? new VStack([
+            { component: headerWrap, basis: "auto", grow: 0, shrink: 0, minSize: 1 },
+            { component: new Spacer(1) as any, basis: 0, grow: 1, shrink: 1, minSize: 0 },
+            { component: boxWrap, basis: "auto", grow: 0, shrink: 1, minSize: 5 },
+            { component: new CenterBox(welcomeBlock) as any, basis: "auto", grow: 0, shrink: 0, minSize: 1 },
+            { component: new Spacer(1) as any, basis: 0, grow: 1, shrink: 1, minSize: 0 },
+          ])
+        : new VStack([
+            { component: headerWrap, basis: "auto", grow: 0, shrink: 0, minSize: 1 },
+            { component: new CenterBox(scroll) as any, basis: 0, grow: 1, shrink: 1, minSize: 1 },
+            { component: boxWrap, basis: "auto", grow: 0, shrink: 1, minSize: 5 },
+          ]);
+      ui.setLayoutRoot(root as any);
+      ui.requestRender();
+    } catch {}
+  };
 
   for (const c of [header, scroll, editor]) {
     try {
       ui.addChild(c as any);
     } catch {}
   }
-  try {
-    ui.setLayoutRoot(root as any);
-  } catch {}
   try {
     ui.setFocus(editor as any);
   } catch {}
@@ -179,7 +224,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   let assistantText = "";
   let thinkingRow: any = null;
   let thinkingText = "";
-  const welcomeEls: any[] = [];
+  let welcomeShown = true;
 
   const accent = C.info; // --q-tab-accent in the main app
   const accentDarker = blend(accent, "#000000", 0.82); // --q-tab-accent-darker
@@ -205,16 +250,15 @@ export async function runTui(opts: TuiOptions): Promise<void> {
 
     const chip = (enabled: boolean, glyph: string) =>
       enabled
-        ? bg(accentDarker, fg(C.bg, ` ${glyph} `))
+        ? bg(accentDarker, fg(C.bg, ` ${bold(glyph)} `))
         : bg(C.bgElevated, fg(C.textTertiary, ` ${glyph} `));
     const steerEnabled = streaming && hasText();
     const sendEnabled = hasText() && !streaming;
-    const attach = fg(C.textSecondary, " + ");
-    const stop = fg(C.danger, " \u25a0 ");
-    const steer = chip(steerEnabled, "\u21e2");
+    const stop = bg(C.bgElevated, fg(C.danger, " \u25a0 "));
+    const steer = chip(steerEnabled, "\u21c8"); // double chevron up (app steer icon)
     const send = chip(sendEnabled, "\u2191");
-    // Perfectly symmetric: four identical 3-wide cells, single-space gaps.
-    const right = `${attach} ${stop} ${steer} ${send}`;
+    // Perfectly symmetric: three identical 3-wide cells, single-space gaps.
+    const right = `${stop} ${steer} ${send}`;
 
     const lw = visibleWidth(left);
     const rw = visibleWidth(right);
@@ -225,27 +269,19 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     (editor as any).footerLine = (w: number) => buildBarLine(w);
   } catch {}
 
-  // Welcome block (shown while the transcript is empty — removed on first send).
+  // Welcome: ONLY the box (centered vertically + horizontally) with the key
+  // hints UNDER it. No info block — nothing invented.
+  let welcomeBlock: any = null;
   try {
-    let settings: any = {};
-    try {
-      settings = JSON.parse(fs.readFileSync(path.join(opts.agentDir, "settings.json"), "utf8"));
-    } catch {}
-    const modelId = session?.model?.id || settings.defaultModel || "";
-    const thinking = session?.thinkingLevel || settings.defaultThinkingLevel || "";
-    const label = (s: string) => fg(C.textTertiary, s);
-    const val = (s: string) => fg(C.textSecondary, s);
-    welcomeEls.push(new Text("", 0, 0));
-    welcomeEls.push(
-      new Text(fg(C.primary, "quinki") + label("  \u00b7  your agents, your chats \u2014 from the terminal"), 1, 0)
-    );
-    welcomeEls.push(new Text("", 0, 0));
-    welcomeEls.push(new Text(label("cwd       ") + val(opts.cwd), 1, 0));
-    welcomeEls.push(new Text(label("model     ") + val(modelId), 1, 0));
-    welcomeEls.push(new Text(label("thinking  ") + val(thinking) + label("     mode  ") + val(mode === "plan" ? "Plan" : "Build"), 1, 0));
-    welcomeEls.push(new Text("", 0, 0));
-    welcomeEls.push(new Text(label("Enter send \u00b7 Esc stop \u00b7 Tab mode \u00b7 / commands"), 1, 0));
-    for (const el of welcomeEls) content.addChild(el);
+    const hint =
+      fg(C.textTertiary, "Enter to send") +
+      fg(C.textTertiary, "  \u00b7  ") +
+      fg(C.textTertiary, "Esc to stop") +
+      fg(C.textTertiary, "  \u00b7  ") +
+      fg(C.textTertiary, "Tab to change mode") +
+      fg(C.textTertiary, "  \u00b7  ") +
+      fg(C.textTertiary, "/ commands");
+    welcomeBlock = new CenteredLine(hint);
   } catch {}
 
   const mdTheme = {
@@ -282,12 +318,6 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   };
 
   const updateBar = () => {
-    const pct = ctxWindow > 0 ? (ctxTokens / ctxWindow) * 100 : 0;
-    try {
-      ctxText.setText(
-        fg(counterColor(pct), `${fmtTok(ctxTokens)}/${fmtTok(ctxWindow)} (${Math.floor(pct)}% \u00b1 ${Math.ceil(pct * 0.05 + 1)}%)`)
-      );
-    } catch {}
     try {
       ui.requestRender();
     } catch {}
@@ -381,13 +411,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     const t = (text || "").trim();
     if (!t || streaming) return;
     editor.setText("");
-    if (welcomeEls.length) {
-      for (const el of welcomeEls) {
-        try {
-          content.removeChild(el);
-        } catch {}
-      }
-      welcomeEls.length = 0;
+    if (welcomeShown) {
+      welcomeShown = false;
+      applyLayout(false);
     }
     content.addChild(new Text(t, 2, 1, (s: string) => bg(C.bubbleUser, s)));
     scrollToEnd();
@@ -435,6 +461,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
 
   updateBar();
   updateCtx();
+  applyLayout(true);
 
   try {
     ui.start();

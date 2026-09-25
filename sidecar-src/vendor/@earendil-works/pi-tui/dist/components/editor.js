@@ -373,8 +373,7 @@ export class Editor {
     render(width) {
         const maxPadding = Math.max(0, Math.floor((width - 1) / 2));
         const paddingX = Math.min(this.paddingX, maxPadding);
-        // QUINKI PATCH (25 set): reserve 2 columns for the rounded side borders.
-        const contentWidth = Math.max(1, width - 2 - paddingX * 2);
+        const contentWidth = Math.max(1, width - paddingX * 2);
         // Layout width: with padding the cursor can overflow into it,
         // without padding we reserve 1 column for the cursor.
         const layoutWidth = Math.max(1, contentWidth - (paddingX ? 0 : 1));
@@ -408,14 +407,9 @@ export class Editor {
         const leftPadding = " ".repeat(paddingX);
         const rightPadding = leftPadding;
         // Render top border (with scroll indicator if scrolled down)
-        // QUINKI PATCH (25 set): rounded corners + side borders (app composer look).
-        if (this.scrollOffset > 0) {
-            const border = createScrollBorder("↑", this.scrollOffset, Math.max(1, width - 2));
-            result.push(this.borderColor("╭" + border + "╮"));
-        }
-        else {
-            result.push(this.borderColor("╭" + "─".repeat(Math.max(0, width - 2)) + "╮"));
-        }
+        // QUINKI PATCH (25 set, iter6): floating-panel block — NO borders, full-width background.
+        const qPaint = (s) => (typeof this.bgFn === "function" ? this.bgFn(s) : s);
+        result.push(qPaint(" ".repeat(width)));
         // Render each visible layout line
         // Emit hardware cursor marker when focused so TUI can position the
         // hardware cursor for IME candidate-window placement even while
@@ -460,30 +454,21 @@ export class Editor {
             // Calculate padding based on actual visible width
             const padding = " ".repeat(Math.max(0, contentWidth - lineVisibleWidth));
             const lineRightPadding = cursorInPadding ? rightPadding.slice(1) : rightPadding;
-            // QUINKI PATCH (25 set): side borders.
-            result.push(this.borderColor("│") + `${leftPadding}${displayText}${padding}${lineRightPadding}` + this.borderColor("│"));
+            // QUINKI PATCH (25 set, iter6): painted full-width line.
+            result.push(qPaint(`${leftPadding}${displayText}${padding}${lineRightPadding}`));
         }
-        // QUINKI PATCH (25 set): one breathing interior line + optional footer row inside the box.
-        result.push(this.borderColor("│") + " ".repeat(Math.max(0, width - 2)) + this.borderColor("│"));
-        // QUINKI PATCH (25 set): footer row rendered INSIDE the box (app composer bar).
+        // QUINKI PATCH (25 set, iter6): breathing line + footer row + bottom padding, all painted.
+        result.push(qPaint(" ".repeat(width)));
         if (typeof this.footerLine === "function") {
             try {
                 const fl = String(this.footerLine(contentWidth) ?? "");
                 const flw = visibleWidth(fl);
                 const flPad = " ".repeat(Math.max(0, contentWidth - flw));
-                result.push(this.borderColor("│") + `${leftPadding}${fl}${flPad}${rightPadding}` + this.borderColor("│"));
+                result.push(qPaint(`${leftPadding}${fl}${flPad}${rightPadding}`));
             }
             catch { }
         }
-        // Render bottom border (with scroll indicator if more content below)
-        const linesBelow = layoutLines.length - (this.scrollOffset + visibleLines.length);
-        if (linesBelow > 0) {
-            const border = createScrollBorder("↓", linesBelow, Math.max(1, width - 2));
-            result.push(this.borderColor("╰" + border + "╯"));
-        }
-        else {
-            result.push(this.borderColor("╰" + "─".repeat(Math.max(0, width - 2)) + "╯"));
-        }
+        result.push(qPaint(" ".repeat(width)));
         // Add autocomplete list if active
         if (this.autocompleteState && this.autocompleteList) {
             const autocompleteResult = this.autocompleteList.render(contentWidth);
