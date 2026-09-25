@@ -1149,12 +1149,17 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
       } catch {}
     }
     send()
+    // Battito ogni 20s: il servizio nativo silenzia la notifica per la chat in
+    // visione, ma il permesso scade dopo 60s — senza battito il silenzio
+    // moriva dopo un minuto di visione continua.
+    const t = setInterval(send, 20000)
     try {
       document.addEventListener('visibilitychange', send)
       window.addEventListener('focus', send)
       window.addEventListener('blur', send)
     } catch {}
     return () => {
+      clearInterval(t)
       try {
         document.removeEventListener('visibilitychange', send)
         window.removeEventListener('focus', send)

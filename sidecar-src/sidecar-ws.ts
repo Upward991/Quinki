@@ -616,6 +616,10 @@ wss.on("connection", (ws, req: any) => {
   // Locali (desktop, loopback) vs remoti (telefono/tunnel): serve alla regola
   // "se stai guardando la chat sul Mac, il telefono non riceve nulla".
   try { (ws as any).__isLocal = isLoopbackReq(req) } catch { (ws as any).__isLocal = false }
+  // Id univoco della connessione: lo stato "sto guardando QUALE chat" e' PER
+  // CLIENTE (prima c'era un solo posto e ogni client locale lo sovrascriveva:
+  // Mac + finestre + browser di test si pestavano i piedi ogni 20s).
+  try { (ws as any).__cid = "c" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36) } catch {}
   // Coda notifiche push (per il servizio nativo degli APK): le ultime 24h e
   // SOLO quelle mai consegnate (senza il flag, ogni riconnessione le ripeteva).
   try {
@@ -637,11 +641,11 @@ wss.on("connection", (ws, req: any) => {
     (ws as any).__devId = dev ? dev.id : "";
   } catch { (ws as any).__devId = ""; }
   ws.on("pong", () => { (ws as any).isAlive = true; });
-  ws.on("close", () => { clients.delete(ws); });
+  ws.on("close", () => { clients.delete(ws); try { const del = (globalThis as any).__quinkiWatchCleanup; if (del) del((ws as any).__cid); } catch {} });
   ws.on("message", (data) => {
     try {
       const msg = JSON.parse(data.toString());
-      try { if (msg && msg.params && typeof msg.params === "object") { msg.params.__dev = (ws as any).__devId || ""; msg.params.__local = !!(ws as any).__isLocal; } } catch {}
+      try { if (msg && msg.params && typeof msg.params === "object") { msg.params.__dev = (ws as any).__devId || ""; msg.params.__local = !!(ws as any).__isLocal; msg.params.__clientId = (ws as any).__cid || ""; } } catch {}
       // registrata con orario su stderr (catturato dal watchdog log). Alla prossima
       const line = JSON.stringify(msg);
       const handleLine = (globalThis as any).__quinki_handleLine;
@@ -659,7 +663,7 @@ wss.on("connection", (ws, req: any) => {
       }
     } catch(e) { stderr("Error: " + e); }
   });
-  ws.on("close", () => { clients.delete(ws); });
+  ws.on("close", () => { clients.delete(ws); try { const del = (globalThis as any).__quinkiWatchCleanup; if (del) del((ws as any).__cid); } catch {} });
 });
 
 // Coda dei messaggi arrivati durante il boot: svuotata appena handleLine esiste

@@ -221,7 +221,7 @@ function sendWebPush(entry: any) {
     if (mode === 'none') return;
   } catch { return }
   // Stessa regola cross-device anche per la web push (PWA del telefono).
-  if (_watchState.watching && _watchState.sk === sk && Date.now() - _watchState.at < 90000) return;
+  if (isWatched(sk)) return;
   try {
     const sf = path.join(homedir(), '.quinki', 'push-subs.json');
     let subs: any[] = [];
@@ -276,7 +276,19 @@ function sendWebPush(entry: any) {
 // (il servizio del telefono ascolta come la web app). Coda ultimi 30 (24h) per
 // chi era offline: nulla si perde per brevi disconnessioni.
 // Stato "sto guardando la chat sul Mac" (solo client locali); scade da solo.
-let _watchState = { sk: "", watching: false, at: 0 };
+const _watchStates = new Map<string, { sk: string; watching: boolean; at: number }>();
+try { (globalThis as any).__quinkiWatchCleanup = (cid: any) => { try { _watchStates.delete(String(cid || "")) } catch {} } } catch {}
+// Silenzio cross-device: la chat e' "in visione" se ALMENO UN client locale
+// (Mac/finestre) la sta guardando con finestra attiva, con battito <90s.
+function isWatched(sk: string): boolean {
+  try {
+    const now = Date.now();
+    for (const e of _watchStates.values()) {
+      if (e && e.watching && e.sk === sk && now - e.at < 90000) return true;
+    }
+  } catch {}
+  return false;
+}
 const _pushQueue: any[] = [];
 (globalThis as any).__quinkiPushQueue = _pushQueue;
 function pushNotifyOut(entry: any): void {
@@ -288,7 +300,7 @@ function pushNotifyOut(entry: any): void {
       if (mode === 'none') return;
     } catch { return }
     // Se sul Mac stai GUARDANDO questa chat, il telefono resta zitto (regola utente: identica al comportamento del computer).
-    if (_watchState.watching && _watchState.sk === sk && Date.now() - _watchState.at < 90000) return;
+    if (isWatched(sk)) return;
     let title = entry?.kind === 'task_complete' ? 'Task executed' : (sk === '__app_expert__' ? 'App Expert' : '');
     if (!title) {
       try {
@@ -608,8 +620,11 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   setClientWatching: async (p) => {
     try {
       // Solo i client LOCALI (desktop) possono dichiarare la chat in visione.
+      // Stato PER CLIENTE: cosi' una finestra chiusa/inattiva non cancella cio'
+      // che il client principale sta guardando.
       if (!p?.__local) return { ok: false };
-      _watchState = { sk: String(p?.sessionKey || ''), watching: !!p?.watching, at: Date.now() };
+      const cid = String(p?.__clientId || "anon");
+      _watchStates.set(cid, { sk: String(p?.sessionKey || ''), watching: !!p?.watching, at: Date.now() });
       return { ok: true };
     } catch { return { ok: false }; }
   },
