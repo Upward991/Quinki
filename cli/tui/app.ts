@@ -28,6 +28,7 @@ import {
   CombinedAutocompleteProvider,
   matchesKey,
   isKeyRelease,
+  getCellDimensions,
   visibleWidth,
 } from "../../sidecar-src/vendor/@earendil-works/pi-tui/dist/index.js";
 
@@ -50,7 +51,20 @@ class CenterBox {
     this.child = child;
   }
   render(width: number): string[] {
-    const colW = Math.max(8, Math.min(width - 4, 168));
+    // Pixel cap (user request: 1500px) — uses the REAL font cell width when
+    // the terminal reports it (CSI 16 t), else falls back to 168 columns.
+    let capCols = 168;
+    try {
+      const d: any = getCellDimensions?.() || {};
+      const wpx = d?.widthPx || 0;
+      if (wpx > 0) capCols = Math.floor(1500 / wpx);
+    } catch {}
+    // ALWAYS an EVEN column: the centered elements (brand "Quinki", box,
+    // menu) then land EXACTLY on the center — no half-column drift on odd
+    // terminal widths.
+    let colW = Math.min(width - 4, capCols);
+    if (colW % 2 !== 0) colW -= 1;
+    colW = Math.max(8, colW);
     const left = Math.max(0, Math.floor((width - colW) / 2));
     const right = Math.max(0, width - colW - left);
     const inner = colW;
