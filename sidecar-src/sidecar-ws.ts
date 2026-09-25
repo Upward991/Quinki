@@ -575,9 +575,21 @@ const wss = new WebSocketServer({
 // una socket morta viene espulsa e NON uccide la riga per gli altri.
 (globalThis as any).__quinki_broadcast = (payload: any) => {
   const line = typeof payload === "string" ? payload : JSON.stringify(payload);
+  let toRemote = false;
   for (const ws of clients) {
-    try { if (ws.readyState === 1) ws.send(line); } catch { try { clients.delete(ws); } catch {} }
+    try {
+      if (ws.readyState === 1) {
+        if ((ws as any).__isLocal === false) toRemote = true;
+        ws.send(line);
+      }
+    } catch { try { clients.delete(ws); } catch {} }
   }
+  // Push consegnata LIVE al telefono -> segna consegnata: senza questo la
+  // riconnessione successiva (tunnel, ~ogni minuto) la rigiocava => la STESSA
+  // notifica ricompariva come "vecchia".
+  try {
+    if (toRemote && payload && payload.method === "push_notify" && payload.params) payload.params.delivered = true;
+  } catch {}
 };
 httpServer.listen(PORT, "127.0.0.1"); // F0: solo loopback. L'accesso da fuori passa SOLO dal tunnel (cloudflared e' locale); la LAN e' volutamente chiusa.
 const clients = new Set<any>();
@@ -626,7 +638,7 @@ wss.on("connection", (ws, req: any) => {
     const q = (globalThis as any).__quinkiPushQueue || [];
     for (const p of q) {
       try {
-        if (p && !p.delivered && Date.now() - (Number(p?.ts) || 0) < 10 * 60 * 1000) {
+        if ((ws as any).__isLocal === false && p && !p.delivered && Date.now() - (Number(p?.ts) || 0) < 10 * 60 * 1000) {
           // RI-CONTROLLO al momento della consegna: se nel frattempo la chat e'
           // stata messa in mute O la stai guardando (Mac), NON va consegnata.
           // (Prima la coda veniva rigiocata cieca: notifiche vecchie che
