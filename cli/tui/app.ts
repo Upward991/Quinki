@@ -26,6 +26,7 @@ import {
   Container,
   Spacer,
   CombinedAutocompleteProvider,
+  matchesKey,
   visibleWidth,
 } from "../../sidecar-src/vendor/@earendil-works/pi-tui/dist/index.js";
 
@@ -278,26 +279,25 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       ],
     },
   ];
-  try {
-    const fdPath = fs.existsSync(path.join(opts.agentDir, "bin", "fd"))
-      ? path.join(opts.agentDir, "bin", "fd")
-      : undefined;
-    (editor as any).setAutocompleteProvider(
-      new (CombinedAutocompleteProvider as any)(commands, opts.cwd, fdPath)
-    );
-    (editor as any).setAutocompleteMaxVisible?.(8);
-  } catch {}
+  // The slash menu is OURS (rendered via editor.menuLinesFn): it never writes
+  // command text into the box — navigation and options live in the menu only.
 
   // Tab = toggle plan/build (app behaviour), intercepted at the TUI level.
   try {
     ui.addInputListener((data: string) => {
-      if (data === "\t" || data === "\x1b[9u" || data === "\x1b[9;1u") {
+      const isTab = data === "\t" || data === "\x1b[9u" || data === "\x1b[9;1u";
+      if (isTab) {
         toggleModeRef?.();
         return { consume: true };
       }
-      if (data === "\x1b") {
-        // Esc: flash its hint violet for a moment (not consumed — the editor
-        // still handles stop / menu-cancel).
+      const isEnter = data === "\r" || data === "\n";
+      const isEsc = data === "\x1b";
+      const isUp = data === "\x1b[A" || matchesKey(data, "up");
+      const isDown = data === "\x1b[B" || matchesKey(data, "down");
+      const isLeft = data === "\x1b[D" || matchesKey(data, "left");
+      const isRight = data === "\x1b[C" || matchesKey(data, "right");
+      const menuNow = menuOpenRef?.() ?? false;
+      if (isEsc) {
         escFlashUntil = Date.now() + 450;
         try {
           ui.requestRender();
@@ -307,86 +307,35 @@ export async function runTui(opts: TuiOptions): Promise<void> {
             ui.requestRender();
           } catch {}
         }, 500);
-      }
-      if (data === "\r" || data === "\n") {
-        // Menu open: Enter CONFIRMS immediately — handled entirely by us (the
-        // list selection can be stale while filtering; the TYPED command is the
-        // source of truth). No text lingers in the box, nothing in the chat.
-        const menuOpen = !!((editor as any)?.autocompleteState && (editor as any)?.autocompleteList);
-        if (menuOpen) {
-          try {
-            const t = editor.getText();
-            const inSub = t.includes(" ");
-            if (inSub) {
-              const sel = (editor as any)?.autocompleteList?.getSelectedItem?.();
-              const val = sel?.value ?? sel?.name;
-              if (val) {
-                const base = t.trimEnd().split(" ")[0];
-                editor.setText("");
-                (editor as any).cancelAutocomplete?.();
-                handleSlashRef?.(base + " " + val);
-                return { consume: true };
-              }
-            } else {
-              const typed = t.trimEnd().startsWith("/") ? t.trimEnd().slice(1).trim() : "";
-              let name = commands.some((c) => c.name === typed) ? typed : "";
-              if (!name) {
-                const sel = (editor as any)?.autocompleteList?.getSelectedItem?.();
-                name = sel?.value ?? sel?.name ?? "";
-              }
-              const cmd = name ? commands.find((c) => c.name === name) : null;
-              if (cmd) {
-                if (typeof (cmd as any).getArgumentCompletions === "function") {
-                  editor.setText("/" + name + " ");
-                  (editor as any).tryTriggerAutocomplete?.();
-                } else {
-                  editor.setText("");
-                  (editor as any).cancelAutocomplete?.();
-                  handleSlashRef?.("/" + name);
-                }
-                return { consume: true };
-              }
-            }
-          } catch {}
-        }
-      }
-      if (data === "\x1b[D" || data === "\x1b[C") {
-        // Menu open: LEFT = back, RIGHT = forward (app-style submenu navigation).
-        const menuOpen = !!((editor as any)?.autocompleteState && (editor as any)?.autocompleteList);
-        if (menuOpen) {
-          try {
-            const t = editor.getText();
-            const base = t.trimEnd().split(" ")[0]; // e.g. "/thinking"
-            const inSub = t.includes(" "); // trailing space = we are inside a submenu
-            if (data === "\x1b[C") {
-              if (!inSub) {
-                // Open the submenu of the TYPED command (list selection can lag
-                // behind while typing); fall back to the selection on bare "/".
-                const typedName = t.trimEnd().startsWith("/") ? t.trimEnd().slice(1).trim() : "";
-                let cmdName = typedName;
-                if (!cmdName) {
-                  const sel = (editor as any)?.autocompleteList?.getSelectedItem?.();
-                  cmdName = sel?.value ?? sel?.name ?? "";
-                }
-                if (cmdName) {
-                  editor.setText("/" + cmdName + " ");
-                  (editor as any).tryTriggerAutocomplete?.();
-                }
-              } else {
-                const sel = (editor as any)?.autocompleteList?.getSelectedItem?.();
-                const val = sel?.value ?? sel?.name;
-                if (val) {
-                  editor.setText(base + " " + val + " ");
-                  (editor as any).tryTriggerAutocomplete?.();
-                }
-              }
-            } else if (inSub) {
-              // back to the main menu (no close)
-              editor.setText(base);
-              (editor as any).tryTriggerAutocomplete?.();
-            }
-          } catch {}
+        if (menuNow) {
+          menuNavRef?.("escape");
           return { consume: true };
+        }
+        return undefined;
+      }
+      if (menuNow) {
+        if (isUp || isDown || isLeft || isRight || isEnter) {
+          menuNavRef?.(isUp ? "up" : isDown ? "down" : isLeft ? "left" : isRight ? "right" : "enter");
+          return { consume: true };
+        }
+        if (menuSub) {
+          // Typing inside a submenu filters the options — never writes in the box.
+          if (data.length === 1 && data >= " " && data !== "\x7f") {
+            menuSubFilter += data;
+            menuSel = 0;
+            try {
+              ui.requestRender();
+            } catch {}
+            return { consume: true };
+          }
+          if (data === "\x7f" || data === "\x08") {
+            menuSubFilter = menuSubFilter.slice(0, -1);
+            menuSel = 0;
+            try {
+              ui.requestRender();
+            } catch {}
+            return { consume: true };
+          }
         }
       }
       return undefined;
@@ -436,6 +385,13 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   let toggleModeRef: (() => void) | null = null;
   let handleSlashRef: ((raw: string) => void) | null = null;
   let escFlashUntil = 0;
+  // Slash menu (OURS — app-style; it NEVER writes command text into the box).
+  let menuSub: string | null = null; // command name while inside its submenu
+  let menuSubFilter = ""; // filter typed inside a submenu
+  let menuSel = 0; // selected row
+  let menuLastFilter = ""; // to reset the selection when the filter changes
+  let menuOpenRef: (() => boolean) | null = null;
+  let menuNavRef: ((a: "up" | "down" | "left" | "right" | "enter" | "escape") => void) | null = null;
 
   const toggleMode = () => {
     mode = mode === "plan" ? "build" : "plan";
@@ -519,7 +475,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   const buildHintLine = (width: number): string => {
     const lit = (s: string) => bold(fg(C.primary, s));
     const quiet = (s: string) => fg(C.textTertiary, s);
-    const menuActive = !!((editor as any)?.autocompleteState && (editor as any)?.autocompleteList);
+    const menuActive = menuOpenRef?.() ?? false;
     const canSend = hasText() && !streaming && !menuActive;
     const canSteer = streaming && hasText();
     const escLit = Date.now() < escFlashUntil;
@@ -775,6 +731,161 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     } catch {}
   };
   handleSlashRef = handleSlash;
+
+  // --- slash menu (OURS) --------------------------------------------------------
+  // Navigation lives in the MENU only: selecting/confirming writes NOTHING in the
+  // box (the typed text is the only thing that ever appears there). Mirrors the
+  // app's SlashMenu + NavBar: ↑ ↓ move, ← back, → forward, Enter confirm,
+  // Esc cancel (back one level, then close).
+  const capitalize = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+  const editorText = () => {
+    try {
+      return editor.getText();
+    } catch {
+      return "";
+    }
+  };
+  const subItems = (name: string): any[] => {
+    const cmd: any = commands.find((c) => c.name === name);
+    if (!cmd || typeof cmd.getArgumentCompletions !== "function") return [];
+    try {
+      const raw = cmd.getArgumentCompletions(menuSubFilter) || [];
+      const f = menuSubFilter.toLowerCase();
+      if (!f) return raw;
+      return raw.filter(
+        (i: any) =>
+          String(i.value ?? "").toLowerCase().startsWith(f) ||
+          String(i.label ?? "").toLowerCase().startsWith(f)
+      );
+    } catch {
+      return [];
+    }
+  };
+  const mainItems = (): any[] => {
+    const t0 = editorText();
+    const f = t0.startsWith("/") ? t0.slice(1).toLowerCase() : "";
+    return commands
+      .filter((c) => c.name.toLowerCase().startsWith(f))
+      .map((c) => ({ value: c.name, label: "/" + capitalize(c.name), description: (c as any).description || "" }));
+  };
+  const menuOpen = (): boolean => {
+    if (menuSub) return true;
+    return editorText().startsWith("/");
+  };
+  const menuNav = (a: "up" | "down" | "left" | "right" | "enter" | "escape") => {
+    try {
+      if (!menuOpen()) return;
+      const items = menuSub ? subItems(menuSub) : mainItems();
+      if (a === "escape") {
+        if (menuSub) {
+          menuSub = null;
+          menuSubFilter = "";
+          menuSel = 0;
+        } else {
+          try {
+            editor.setText("");
+          } catch {}
+          menuSel = 0;
+        }
+      } else if (a === "up") {
+        menuSel = Math.max(0, menuSel - 1);
+      } else if (a === "down") {
+        menuSel = Math.min(Math.max(0, items.length - 1), menuSel + 1);
+      } else if (a === "left") {
+        if (menuSub) {
+          menuSub = null;
+          menuSubFilter = "";
+          menuSel = 0;
+        }
+      } else {
+        // right / enter = Confirm: run the option, open the submenu, or run the command.
+        const it: any = items[menuSel];
+        if (!it) return;
+        if (menuSub) {
+          const cmdName = menuSub;
+          menuSub = null;
+          menuSubFilter = "";
+          menuSel = 0;
+          try {
+            editor.setText("");
+          } catch {}
+          handleSlashRef?.("/" + cmdName + " " + String(it.value ?? it.label ?? ""));
+        } else {
+          const cmd: any = commands.find((c) => c.name === it.value);
+          if (cmd && typeof cmd.getArgumentCompletions === "function") {
+            menuSub = cmd.name;
+            menuSubFilter = "";
+            menuSel = 0;
+          } else if (cmd) {
+            try {
+              editor.setText("");
+            } catch {}
+            menuSel = 0;
+            handleSlashRef?.("/" + cmd.name);
+          }
+        }
+      }
+      try {
+        ui.requestRender();
+      } catch {}
+    } catch {}
+  };
+  const buildMenuRows = (w: number): string[] => {
+    try {
+      const t = editorText();
+      if (menuSub && !t.startsWith("/")) {
+        menuSub = null;
+        menuSubFilter = "";
+        menuSel = 0;
+      }
+      const mainOpen = !menuSub && t.startsWith("/");
+      if (!mainOpen && !menuSub) return [];
+      let items: any[];
+      if (menuSub) {
+        items = subItems(menuSub);
+      } else {
+        const f = t.slice(1).toLowerCase();
+        if (f !== menuLastFilter) {
+          menuLastFilter = f;
+          menuSel = 0;
+        }
+        items = mainItems();
+      }
+      if (items.length === 0) return [];
+      if (menuSel >= items.length) menuSel = items.length - 1;
+      if (menuSel < 0) menuSel = 0;
+      const rows: string[] = [];
+      for (let i = 0; i < items.length; i++) {
+        const it = items[i];
+        let label = String(it.label ?? it.value ?? "");
+        let desc = String(it.description ?? "");
+        if (visibleWidth(label) > w - 2) label = label.slice(0, Math.max(0, w - 2));
+        if (visibleWidth(label) + 2 + visibleWidth(desc) > w) {
+          const room = w - visibleWidth(label) - 2;
+          desc = room > 0 ? desc.slice(0, room) : "";
+        }
+        const gap = Math.max(1, w - visibleWidth(label) - visibleWidth(desc));
+        const rowPlain = label + " ".repeat(gap) + desc;
+        if (i === menuSel) rows.push(bg(C.primary, fg(C.bgPanel, rowPlain)));
+        else rows.push(fg(C.textSecondary, label) + " ".repeat(gap) + fg(C.textTertiary, desc));
+      }
+      // Blank separator, then the footer on ONE row (app NavBar style):
+      // left ↑ ↓ ← → (navigation) — right Cancel (Esc, red) · Confirm (Enter, violet).
+      rows.push("");
+      const left = fg(C.textSecondary, "\u2191 \u2193 \u2190 \u2192");
+      const right = fg(C.danger, "Cancel") + "  " + bold(fg(C.primary, "Confirm"));
+      const gw = Math.max(1, w - visibleWidth(left) - visibleWidth(right));
+      rows.push(left + " ".repeat(gw) + right);
+      return rows;
+    } catch {
+      return [];
+    }
+  };
+  try {
+    (editor as any).menuLinesFn = (w: number) => buildMenuRows(w);
+  } catch {}
+  menuOpenRef = () => menuOpen();
+  menuNavRef = menuNav;
 
   // --- input -------------------------------------------------------------------
   const shutdown = () => {

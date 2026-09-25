@@ -476,34 +476,23 @@ export class Editor {
             catch { }
         }
         result.push(qEdge() + qPaint(" ".repeat(width - 2)) + qEdgeR());
-        // QUINKI PATCH (25 set): the command menu is a floating panel ABOVE the box:
-        // same width, same background, 1-row gap; padded rows; blank row then footer rows.
-        if (this.autocompleteState && this.autocompleteList) {
-            const autocompleteResult = this.autocompleteList.render(contentWidth);
-            const acPadRow = " " + qPaint(" ".repeat(width - 2)) + " ";
-            const acLines = [acPadRow];
-            for (const line of autocompleteResult) {
-                const lineWidth = visibleWidth(line);
-                const linePadding = " ".repeat(Math.max(0, contentWidth - lineWidth));
-                acLines.push(" " + qPaint(`${leftPadding}${line}${linePadding}${rightPadding}`) + " ");
-            }
-            if (typeof this.menuFooterFn === "function") {
-                try {
-                    // blank separator row, then the footer rows (array of strings)
-                    acLines.push(acPadRow);
-                    const rawFooter = this.menuFooterFn(contentWidth);
-                    const footerRows = Array.isArray(rawFooter) ? rawFooter : [String(rawFooter ?? "")];
-                    for (const fr of footerRows) {
-                        const f = String(fr ?? "");
-                        const fw = visibleWidth(f);
-                        const fPad = " ".repeat(Math.max(0, contentWidth - fw));
-                        acLines.push(" " + qPaint(`${leftPadding}${f}${fPad}${rightPadding}`) + " ");
+        // QUINKI PATCH (25 set): OUR slash menu panel above the box (driven by menuLinesFn).
+        if (typeof this.menuLinesFn === "function") {
+            try {
+                const rows = this.menuLinesFn(contentWidth);
+                if (Array.isArray(rows) && rows.length > 0) {
+                    const acPadRow = " " + qPaint(" ".repeat(width - 2)) + " ";
+                    const acLines = [acPadRow];
+                    for (const line of rows) {
+                        const lws = visibleWidth(line);
+                        const lp = " ".repeat(Math.max(0, contentWidth - lws));
+                        acLines.push(" " + qPaint(`${leftPadding}${line}${lp}${rightPadding}`) + " ");
                     }
+                    acLines.push(acPadRow);
+                    result.unshift(...acLines, "");
                 }
-                catch { }
             }
-            acLines.push(acPadRow);
-            result.unshift(...acLines, "");
+            catch { }
         }
         return result;
     }
