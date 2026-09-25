@@ -189,6 +189,15 @@ class MainActivity : AppCompatActivity() {
                     cm.primaryClip?.getItemAt(0)?.coerceToText(this@MainActivity)?.toString() ?: ""
                 } catch (e: Exception) { "" }
             }
+
+            @android.webkit.JavascriptInterface
+            fun closeApp() {
+                // Restart dell'App Expert premuto dal telefono: chiudi l'app qui
+                // (il servizio notifiche resta vivo -> nessuna notifica persa).
+                runOnUiThread {
+                    try { finishAndRemoveTask() } catch (e: Exception) { try { finish() } catch (e2: Exception) { } }
+                }
+            }
         }, "QuinkiNative")
 
         // Il sistema puo' uccidere il renderer del WebView quando apri altre app
