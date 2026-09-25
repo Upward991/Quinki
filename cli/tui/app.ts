@@ -11,6 +11,7 @@
 // =============================================================================
 
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { execSync } from "node:child_process";
 
@@ -216,6 +217,15 @@ function fmtTok(n: number): string {
   return String(Math.round(n));
 }
 
+function fmtWhen(ms: number): string {
+  try {
+    const d = new Date(ms || 0);
+    return `${d.getDate()}/${d.getMonth() + 1} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  } catch {
+    return "";
+  }
+}
+
 export async function runTui(opts: TuiOptions): Promise<void> {
   const key = "cli-" + Date.now().toString(36);
   const sessionDirForKey = path.join(opts.sessionDir, key);
@@ -228,7 +238,11 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     agentDir: opts.agentDir,
     sessionManager: sm,
   });
-  const session: any = res?.session || res;
+  let session: any = res?.session || res;
+  // Mutable run state — reset / directory switch / chat switch rebuild these.
+  let currentCwd = opts.cwd;
+  let currentSessionDir = sessionDirForKey;
+  let currentKey = key;
 
   // Auth fallback: provider keys live in models.json (same as the sidecar).
   try {
@@ -256,6 +270,13 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   const titleText = new Text("", 0, 0);
   const header = new BgBlock(titleText, 1, (s: string) => bg(C.bgPanel, s), 1);
   titleText.setText(fg(C.textSecondary, "\u25a4") + " " + fg(C.text, "New chat"));
+  const setChatTitle = (title: string) => {
+    const t = title && title.trim() ? title.trim() : "New chat";
+    try {
+      titleText.setText(fg(C.textSecondary, "\u25a4") + " " + fg(C.text, t));
+      ui.requestRender();
+    } catch {}
+  };
 
   // Chat transcript (scrolls, grows)
   const content = new Container();
@@ -280,6 +301,24 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   // Slash commands — ONLY commands that actually work, ALL silently (no chat
   // output). Commands with options open an app-style submenu (argument list).
   const commands = [
+    {
+      name: "model",
+      description: "Change model",
+      getArgumentCompletions: (prefix: string) => {
+        const items: any[] = [];
+        try {
+          const models: any[] = session.modelRuntime?.getAvailableSnapshot?.() || [];
+          for (const m of models) {
+            const id = String(m?.id ?? "");
+            if (!id) continue;
+            const prov = String(m?.provider ?? "");
+            const cur = session?.model?.id === id && String(session?.model?.provider ?? "") === prov;
+            items.push({ value: id, label: id, description: (cur ? "current \u00b7 " : "") + prov });
+          }
+        } catch {}
+        return items.filter((i) => i.value.toLowerCase().startsWith(prefix.toLowerCase()));
+      },
+    },
     {
       name: "thinking",
       description: "Thinking: on / off",
@@ -308,6 +347,112 @@ export async function runTui(opts: TuiOptions): Promise<void> {
             : { value: "enable", label: "enable autocompaction", description: "Auto-compaction is currently OFF" },
         ];
         return items.filter((i) => i.value.startsWith(prefix) || i.label.startsWith(prefix));
+      },
+    },
+    {
+      name: "directory",
+      description: "Working directory",
+      getArgumentCompletions: (prefix: string) => {
+        const items: any[] = [];
+        const home = os.homedir();
+        const p = prefix.trim();
+        const push = (v: string, l: string, d: string) => {
+          if (!items.some((x) => x.value === v)) items.push({ value: v, label: l, description: d });
+        };
+        // the typed path comes first (it mirrors what you are writing)
+        if (p) push(p, p, "use this path");
+        push(currentCwd, currentCwd === home ? "~" : currentCwd, "current directory");
+        const parent = path.dirname(currentCwd);
+        if (parent && parent !== currentCwd) push(parent, parent, "parent directory");
+        push(home, "~", "home directory");
+        return items.filter(
+          (i) => p === "" || i.label.toLowerCase().startsWith(p.toLowerCase()) || i.value.toLowerCase().startsWith(p.toLowerCase())
+        );
+      },
+    },
+    {
+      name: "skill",
+      description: "Activate a skill",
+      getArgumentCompletions: (prefix: string) => {
+        const items: any[] = [];
+        try {
+          const sdir = path.join(opts.agentDir, "skills");
+          for (const d of fs.readdirSync(sdir)) {
+            const p2 = path.join(sdir, d, "SKILL.md");
+            if (!fs.existsSync(p2)) continue;
+            let desc = "";
+            try {
+              const txt = fs.readFileSync(p2, "utf8");
+              const fm = txt.match(/^---\s*\n([\s\S]*?)\n---/);
+              if (fm) {
+                const dm = fm[1].match(/^description:\s*(.+)$/m);
+                if (dm) desc = dm[1].trim();
+              }
+            } catch {}
+            items.push({ value: d, label: d, description: desc || "skill" });
+          }
+        } catch {}
+        return items.filter((i) => i.value.toLowerCase().startsWith(prefix.toLowerCase()));
+      },
+    },
+    {
+      name: "reset",
+      description: "Clear messages. Keeps model, directory and settings.",
+      getArgumentCompletions: () => [
+        { value: "confirm", label: "yes, clear all messages", description: "Reset session? All messages will be deleted." },
+        { value: "cancel", label: "no, keep everything", description: "Keep the conversation as it is" },
+      ],
+    },
+    {
+      name: "sessions",
+      description: "Switch to another chat",
+      getArgumentCompletions: (prefix: string) => {
+        const items: any[] = [];
+        const labels: Record<string, string> = {};
+        try {
+          const raw = JSON.parse(fs.readFileSync(path.join(opts.agentDir, "quinki-sessions.json"), "utf8"));
+          if (Array.isArray(raw)) {
+            for (const s of raw) {
+              const k = String(s?.key ?? "");
+              if (!k) continue;
+              labels[k] = String(s?.label || "");
+              if (k === currentKey || k === "__app_expert__" || k.startsWith("__exec_")) continue;
+              items.push({ value: k, label: labels[k] || k, description: "chat \u00b7 " + fmtWhen(Number(s?.lastActivity) || 0) });
+            }
+          }
+        } catch {}
+        try {
+          const sdir = path.join(opts.agentDir, "sessions", "quinki");
+          const cliItems: any[] = [];
+          for (const d of fs.readdirSync(sdir)) {
+            if (!d.startsWith("cli-") || d === currentKey) continue;
+            const dp = path.join(sdir, d);
+            let has = false;
+            let mtime = 0;
+            try {
+              const st = fs.statSync(dp);
+              mtime = st.mtimeMs;
+              for (const f of fs.readdirSync(dp)) if (f.endsWith(".jsonl")) { has = true; break; }
+            } catch {}
+            if (!has) continue; // empty throwaway runs are never listed (no dead items)
+            cliItems.push({ value: d, label: labels[d] || d, description: "cli \u00b7 " + fmtWhen(mtime), mtime });
+          }
+          cliItems.sort((a: any, b: any) => b.mtime - a.mtime);
+          for (const c of cliItems) {
+            delete c.mtime;
+            items.push(c);
+          }
+        } catch {}
+        const p = prefix.toLowerCase();
+        return items.filter((i) => i.label.toLowerCase().includes(p) || i.value.toLowerCase().includes(p));
+      },
+    },
+    {
+      name: "rename",
+      description: "Rename this chat",
+      getArgumentCompletions: (prefix: string) => {
+        const p = prefix.trim();
+        return p ? [{ value: p, label: p, description: "set this title" }] : [];
       },
     },
     { name: "reload", description: "Reload this chat (recover history, fix glitches)" },
@@ -492,7 +637,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     );
     const modelId = session?.model?.id || defaultModelId || "";
     const home = process.env.HOME || "";
-    const dir = home && opts.cwd.startsWith(home) ? "~" + opts.cwd.slice(home.length) : opts.cwd;
+    const dir = home && currentCwd.startsWith(home) ? "~" + currentCwd.slice(home.length) : currentCwd;
     const sep = fg(C.textTertiary, "  \u00b7  ");
     const quiet = (s: string) => fg(C.textTertiary, s);
     const modeStr = mode === "plan" ? fg(C.modePlan, "Plan") : fg(C.modeBuild, "Build");
@@ -639,7 +784,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   };
 
   // --- streaming events --------------------------------------------------------
-  session.subscribe((e: any) => {
+  const onSessionEvent = (e: any) => {
     try {
       if (e?.type === "agent_start") {
         streaming = true;
@@ -692,14 +837,39 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     try {
       ui.requestRender();
     } catch {}
-  });
+  };
+  session.subscribe(onSessionEvent);
 
   // --- slash commands -----------------------------------------------------------
+  /** All chat messages saved on disk (the session jsonl files), oldest first. */
+  const readSessionMessages = (): any[] => {
+    const out: any[] = [];
+    try {
+      const files = fs.readdirSync(currentSessionDir).filter((f: string) => f.endsWith(".jsonl")).sort();
+      for (const f of files) {
+        let txt = "";
+        try {
+          txt = fs.readFileSync(path.join(currentSessionDir, f), "utf8");
+        } catch {
+          continue;
+        }
+        for (const line of txt.split("\n")) {
+          if (!line.trim()) continue;
+          try {
+            const o = JSON.parse(line);
+            if (o?.type === "message" && o?.message?.role) out.push(o.message);
+          } catch {}
+        }
+      }
+    } catch {}
+    return out;
+  };
+
   /** Rebuild the transcript from the saved history (the /reload command). */
   const renderHistory = () => {
     try {
       content.clear();
-      const msgs: any[] = (session.messages || []) as any[];
+      const msgs: any[] = readSessionMessages();
       for (const m of msgs) {
         if (m.role === "user") {
           let t = "";
@@ -724,6 +894,94 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         }
       }
       scrollToEnd();
+    } catch {}
+  };
+
+  /** Rebuild the engine session in place — /reset (fresh chat), /directory
+   *  (new cwd, same chat), /sessions (another chat). The transcript follows. */
+  const recreateSession = async (o: { clearMessages?: boolean; newCwd?: string; newSessionDir?: string; newKey?: string }) => {
+    try {
+      streaming = false;
+      try {
+        session.dispose?.();
+      } catch {}
+      if (o.clearMessages) {
+        try {
+          for (const f of fs.readdirSync(currentSessionDir)) {
+            if (f.endsWith(".jsonl")) {
+              try {
+                fs.unlinkSync(path.join(currentSessionDir, f));
+              } catch {}
+            }
+          }
+        } catch {}
+      }
+      const dir = o.newSessionDir || currentSessionDir;
+      const cwd = o.newCwd || currentCwd;
+      fs.mkdirSync(dir, { recursive: true });
+      const sm2 = sdk.SessionManager.create(cwd, dir);
+      const res2: any = await sdk.createAgentSession({ cwd, agentDir: opts.agentDir, sessionManager: sm2 });
+      session = res2?.session || res2;
+      currentCwd = cwd;
+      currentSessionDir = dir;
+      if (o.newKey) currentKey = o.newKey;
+      // Runtime auth keys (the new engine instance starts clean).
+      try {
+        const modelsJson = JSON.parse(fs.readFileSync(path.join(opts.agentDir, "models.json"), "utf8"));
+        for (const [prov, pcfg] of Object.entries(modelsJson.providers || {})) {
+          const k = (pcfg as any)?.apiKey;
+          if (k && typeof k === "string" && k.length > 0) {
+            try {
+              session.modelRegistry?.authStorage?.setRuntimeApiKey?.(prov, k);
+            } catch {}
+          }
+        }
+      } catch {}
+      // When switching to an existing chat, apply its saved model/thinking/title.
+      if (o.newKey) {
+        try {
+          const raw = JSON.parse(fs.readFileSync(path.join(opts.agentDir, "quinki-sessions.json"), "utf8"));
+          const e2 = Array.isArray(raw) ? raw.find((s: any) => s?.key === currentKey) : null;
+          if (e2?.model) {
+            const models: any[] = session.modelRuntime?.getAvailableSnapshot?.() || [];
+            const m = models.find((x: any) => String(x?.id) === String(e2.model));
+            if (m) {
+              try {
+                await session.setModel(m);
+              } catch {}
+            }
+          }
+          if (typeof e2?.thinkingLevel === "string") {
+            thinkingOn = e2.thinkingLevel !== "off";
+            try {
+              session.setThinkingLevel?.(thinkingOn ? "xhigh" : "off");
+            } catch {}
+          }
+          setChatTitle(String(e2?.label || currentKey));
+        } catch {}
+      }
+      try {
+        session.setThinkingLevel?.(thinkingOn ? "xhigh" : "off");
+      } catch {}
+      try {
+        session.subscribe(onSessionEvent);
+      } catch {}
+      if (o.clearMessages) {
+        ctxTokens = 0;
+        ctxWindow = 0;
+        welcomeShown = true;
+        applyLayout(true);
+      } else {
+        if (welcomeShown) {
+          welcomeShown = false;
+          applyLayout(false);
+        }
+        renderHistory();
+      }
+      updateBar();
+      try {
+        ui.requestRender();
+      } catch {}
     } catch {}
   };
 
@@ -764,7 +1022,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       }
       case "export": {
         try {
-          const msgs: any[] = (session.messages || []) as any[];
+          const msgs: any[] = readSessionMessages();
           const out: string[] = ["# Quinki chat", ""];
           for (const m of msgs) {
             const role = m.role === "user" ? "You" : m.role === "assistant" ? "Quinki" : String(m.role);
@@ -779,8 +1037,99 @@ export async function runTui(opts: TuiOptions): Promise<void> {
             }
             if (text.trim()) out.push(`## ${role}`, "", text, "");
           }
-          const file = path.join(opts.cwd, `quinki-chat-${Date.now().toString(36)}.md`);
+          const file = path.join(currentCwd, `quinki-chat-${Date.now().toString(36)}.md`);
           fs.writeFileSync(file, out.join("\n"), "utf8");
+        } catch {}
+        break;
+      }
+      case "model": {
+        if (!arg) break;
+        try {
+          const models: any[] = session.modelRuntime?.getAvailableSnapshot?.() || [];
+          const m = models.find((x: any) => String(x?.id) === arg);
+          if (m) {
+            void (async () => {
+              try {
+                await session.setModel(m);
+              } catch {}
+              try {
+                updateBar();
+                ui.requestRender();
+              } catch {}
+            })();
+          }
+        } catch {}
+        break;
+      }
+      case "reset": {
+        if (arg !== "confirm") break;
+        void recreateSession({ clearMessages: true });
+        break;
+      }
+      case "directory": {
+        if (!arg) break;
+        const target = arg === "~" ? os.homedir() : arg;
+        let ok = false;
+        try {
+          ok = fs.statSync(target).isDirectory();
+        } catch {
+          ok = false;
+        }
+        if (!ok) break;
+        void recreateSession({ newCwd: path.resolve(target) });
+        break;
+      }
+      case "skill": {
+        if (!arg) break;
+        try {
+          if (welcomeShown) {
+            welcomeShown = false;
+            applyLayout(false);
+          }
+          void session.prompt(`Load the skill "${arg}" and follow its instructions.`);
+        } catch {}
+        break;
+      }
+      case "sessions": {
+        if (!arg) break;
+        const sdir = path.join(opts.agentDir, "sessions", "quinki");
+        const target = path.join(sdir, arg);
+        if (!fs.existsSync(target)) break;
+        void recreateSession({ newSessionDir: target, newKey: arg });
+        break;
+      }
+      case "rename": {
+        if (!arg) break;
+        try {
+          // register/rename in quinki-sessions.json — shared with the app
+          const sp = path.join(opts.agentDir, "quinki-sessions.json");
+          let list: any[] = [];
+          try {
+            list = JSON.parse(fs.readFileSync(sp, "utf8")) || [];
+          } catch {}
+          const idx = list.findIndex((s: any) => s?.key === currentKey);
+          if (idx >= 0) {
+            list[idx].label = arg;
+            list[idx].lastActivity = Date.now();
+          } else {
+            list.push({
+              key: currentKey,
+              label: arg,
+              createdAt: Date.now(),
+              lastActivity: Date.now(),
+              order: Date.now(),
+              folderId: null,
+              compactionAuto: true,
+              compactionThreshold: 80,
+              model: session?.model?.id || defaultModelId || "",
+              thinkingLevel: thinkingOn ? "xhigh" : "off",
+              mode,
+              agentId: null,
+              messageAgents: {},
+            });
+          }
+          fs.writeFileSync(sp, JSON.stringify(list, null, 2), "utf8");
+          setChatTitle(arg);
         } catch {}
         break;
       }
