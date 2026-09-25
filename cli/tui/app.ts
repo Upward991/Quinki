@@ -51,13 +51,14 @@ class CenterBox {
     this.child = child;
   }
   render(width: number): string[] {
-    // Pixel cap (user request: 1500px) — uses the REAL font cell width when
-    // the terminal reports it (CSI 16 t), else falls back to 168 columns.
-    let capCols = 168;
+    // Pixel cap — SAME AS THE APP: the chat column is --spacing-chat-max
+    // (1000px). Uses the REAL font cell width when the terminal reports it
+    // (CSI 16 t), else the default 9px cell.
+    let capCols = 111; // floor(1000 / 9)
     try {
       const d: any = getCellDimensions?.() || {};
       const wpx = d?.widthPx || 0;
-      if (wpx > 0) capCols = Math.floor(1500 / wpx);
+      if (wpx > 0) capCols = Math.floor(1000 / wpx);
     } catch {}
     // ALWAYS an EVEN column: the centered elements (brand "Quinki", box,
     // menu) then land EXACTLY on the center — no half-column drift on odd
@@ -146,6 +147,32 @@ class RuleLine {
     return [fg(C.border, "\u2500".repeat(Math.max(0, width)))];
   }
   invalidate() {}
+}
+
+/** Horizontal inset wrapper — replicates the app's transcript padding (16px per side). */
+class InsetBox {
+  child: any;
+  insetFn: () => number;
+  constructor(child: any, insetFn: () => number) {
+    this.child = child;
+    this.insetFn = insetFn;
+  }
+  render(width: number): string[] {
+    let inset = 2;
+    try {
+      inset = Math.max(0, this.insetFn() || 0);
+    } catch {}
+    const inner = Math.max(8, width - inset * 2);
+    const lines = this.child?.render(inner) || [];
+    const l = " ".repeat(inset);
+    const r = " ".repeat(inset);
+    return lines.map((line: string) => l + line + r);
+  }
+  invalidate() {
+    try {
+      this.child?.invalidate?.();
+    } catch {}
+  }
 }
 
 /** Welcome root: the box + hints, centered EXACTLY (manual math, both axes). */
@@ -368,6 +395,17 @@ export async function runTui(opts: TuiOptions): Promise<void> {
 
   const boxWrap = new CenterBox(editor) as any;
   let hintRow: any = null;
+  // App measures: the transcript scrolls inside a 16px horizontal padding
+  // (ChatArea: padding '16px 16px') — convert to terminal columns with the real
+  // cell width so the inset matches the app at every font size.
+  const qInsetCols = (): number => {
+    try {
+      const d: any = getCellDimensions?.() || {};
+      const wpx = d?.widthPx || 0;
+      if (wpx > 0) return Math.max(1, Math.round(16 / wpx));
+    } catch {}
+    return 2;
+  };
   const applyLayout = (welcome: boolean) => {
     try {
       const headerWrap = new CenterBox(header) as any;
@@ -376,7 +414,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         ? new WelcomeRoot(boxWrap, hintWrap, () => (ui as any)?.terminal?.rows || 24)
         : new VStack([
             { component: headerWrap, basis: "auto", grow: 0, shrink: 0, minSize: 1 },
-            { component: new CenterBox(scroll) as any, basis: 0, grow: 1, shrink: 1, minSize: 1 },
+            { component: new CenterBox(new InsetBox(scroll, qInsetCols)) as any, basis: 0, grow: 1, shrink: 1, minSize: 1 },
             { component: boxWrap, basis: "auto", grow: 0, shrink: 1, minSize: 5 },
             { component: hintWrap, basis: "auto", grow: 0, shrink: 0, minSize: 1 },
           ]);
