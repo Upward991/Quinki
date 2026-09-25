@@ -852,7 +852,9 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
             if (mode !== 'none') {
               if (p.kind === 'task_complete') {
                 try {
-                  const wt = document.hasFocus() && sk === activeSessionIdRef.current
+                  const wt = document.documentElement.classList.contains('q-phone')
+                    ? (document.visibilityState === 'visible' && sk === String((window as any).__quinkiViewingSk || ''))
+                    : (document.hasFocus() && sk === activeSessionIdRef.current)
                   if (wt && p?.pushId) { call('cancelPhonePush', { pushId: p.pushId }).catch(() => {}) }
                 } catch {}
                 // Task: titolo = "Task executed", body = nome della task
@@ -864,7 +866,15 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
                 // guardando PROPRIO la chat che risponde (app in primo piano + chat
                 // attiva). App dietro o app su un'ALTRA chat -> popup.
                 const watchingThisChat = (() => {
-                  try { return document.hasFocus() && sk === activeSessionIdRef.current } catch { return false }
+                  try {
+                    // TELEFONO: hasFocus mente SEMPRE (prova dal log: vero anche in
+                    // background) -> usa i segnali onesti: schermo visibile + chat
+                    // davvero a schermo. MAC: invariato.
+                    if (document.documentElement.classList.contains('q-phone')) {
+                      return document.visibilityState === 'visible' && sk === String((window as any).__quinkiViewingSk || '')
+                    }
+                    return document.hasFocus() && sk === activeSessionIdRef.current
+                  } catch { return false }
                 })()
                 // LA STESSA RIGA decide anche la push del telefono: se la chat
                 // e' in visione (qui o sul telefono), la push viene annullata.
