@@ -139,6 +139,16 @@ export async function invoke(cmd: string, args?: Any): Promise<Any> {
       // time the App Expert tab was opened on the phone / web. Treat it as
       // installed; the desktop app keeps its real check.
       return true
+    case 'restart_expert_app': {
+      // TELEFONO/WEB: riavvia DAVVERO l'app Expert sul Mac che ospita il
+      // backend. Stesso meccanismo del pulsante sul Mac: flag su disco che
+      // l'app Expert consuma e si riavvia da sola appena il turno e' finito.
+      try {
+        const call = (globalThis as Any).__sidecarCall
+        if (call) await call('restartExpertApp', {})
+      } catch {}
+      return null
+    }
     default:
       // Desktop-only command (updater, tray, window controls, expert sync, local
       // files). No-op in web: log once per command to keep the console readable.

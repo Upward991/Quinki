@@ -661,6 +661,15 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   getReadState: async (p) => ({ state: piBridge!.getReadState(String(p.sessionKey || "")) }),
   getAllReadStates: async () => ({ states: piBridge!.getAllReadStates() }),
   setReadState: async (p) => ({ state: piBridge!.setReadState(String(p.sessionKey || ""), p.patch || {}) }),
+  // Riavvio dell'app Expert richiesto dal TELEFONO (web): identico al comando
+  // del Mac — scrive il flag che l'app Expert polla e consuma a turno finito.
+  restartExpertApp: async () => {
+    try {
+      const flag = path.join(homedir(), '.quinki', '.expert-needs-restart');
+      fs.writeFileSync(flag, '1');
+      return { ok: true };
+    } catch (e: any) { return { ok: false, error: String(e?.message || e) }; }
+  },
   cancelPhonePush: async (p) => {
     try {
       const id = String(p?.pushId || '');
