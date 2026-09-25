@@ -24,7 +24,7 @@ import { createSign } from "node:crypto";
 import * as fs from "node:fs";
 import { homedir } from "node:os";
 import * as webpush from "web-push";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { initPoolRouter, tryRoute, snapshotOnWorker } from "./pool-router";
 import { refreshThinkingCapsEvolution } from "./providers";
 import { loadAllTabPlugins, reloadTabPlugin, unloadTabPlugin, tryHandleTabPluginRpc, tabDir } from "./tab-plugins";
@@ -668,6 +668,85 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
       const flag = path.join(homedir(), '.quinki', '.expert-needs-restart');
       fs.writeFileSync(flag, '1');
       return { ok: true };
+    } catch (e: any) { return { ok: false, error: String(e?.message || e) }; }
+  },
+  // === App Expert dal TELEFONO: sincronizza/ripristina l'app sul Mac ===
+  // Replica ESATTA dei comandi Rust (stesse verifiche, stesso backup, stessa firma).
+  checkExpertNeedsRestart: async () => {
+    try { return { pending: fs.existsSync(path.join(homedir(), '.quinki', '.expert-needs-restart')) }; } catch { return { pending: false }; }
+  },
+  checkExpertBackupExists: async () => {
+    try {
+      const root = path.join(homedir(), '.quinki', 'backups');
+      if (!fs.existsSync(root)) return { exists: false };
+      const any = fs.readdirSync(root).some((n) => n.startsWith('expert-'));
+      return { exists: any };
+    } catch { return { exists: false }; }
+  },
+  syncExpertApp: async () => {
+    try {
+      const mainApp = '/Applications/Quinki.app';
+      const expertApp = '/Applications/App Expert.app';
+      if (!fs.existsSync(mainApp)) return { ok: false, error: 'Quinki.app not found.' };
+      if (!fs.existsSync(expertApp)) return { ok: false, error: 'App Expert.app not found. Install it first.' };
+      // Health guard: la Main deve essere VIVA (mai sincronizzare una build rotta).
+      try {
+        const probe = spawnSync('bash', ['-c', 'exec 3<>/dev/tcp/127.0.0.1/9182 && exec 3>&- && echo ok'], { timeout: 3000 });
+        if (!(probe.status === 0 && String(probe.stdout || '').includes('ok'))) {
+          return { ok: false, error: 'The main app sidecar is not responding. Fix the main app before syncing.' };
+        }
+      } catch { return { ok: false, error: 'Main app health probe failed.' }; }
+      const eksBin = path.join(expertApp, 'Contents/MacOS/quinki');
+      const eksRes = path.join(expertApp, 'Contents/Resources/resources');
+      // Backup della versione corrente dell'Expert (per rollback).
+      const bkRoot = path.join(homedir(), '.quinki', 'backups');
+      const bk = path.join(bkRoot, 'expert-' + Date.now());
+      try { fs.mkdirSync(bk, { recursive: true }); } catch {}
+      if (fs.existsSync(eksBin)) { try { fs.copyFileSync(eksBin, path.join(bk, 'quinki')); } catch {} }
+      if (fs.existsSync(eksRes)) { try { spawnSync('ditto', [eksRes, path.join(bk, 'resources')]); } catch {} }
+      try {
+        const dirs = fs.readdirSync(bkRoot).filter((n) => n.startsWith('expert-')).sort();
+        while (dirs.length > 5) { const old = dirs.shift()!; try { fs.rmSync(path.join(bkRoot, old), { recursive: true, force: true }); } catch {} }
+      } catch {}
+      // Copia binario.
+      try { fs.copyFileSync(path.join(mainApp, 'Contents/MacOS/quinki'), eksBin); } catch (e: any) { return { ok: false, error: 'Binary copy failed: ' + String(e?.message || e) }; }
+      // Copia TUTTA la cartella resources (ditto).
+      try { fs.rmSync(eksRes, { recursive: true, force: true }); } catch {}
+      const dittoSt = spawnSync('ditto', [path.join(mainApp, 'Contents/Resources/resources'), eksRes]);
+      if (dittoSt.status !== 0) return { ok: false, error: 'Resources copy failed (ditto).' };
+      // Verifiche REALI (le stesse del Mac).
+      try { if (!(fs.existsSync(eksBin) && fs.statSync(eksBin).size > 0)) return { ok: false, error: 'Sync failed: Expert binary is missing or empty after copy.' }; } catch { return { ok: false, error: 'Sync failed: binary verify error.' }; }
+      if (!fs.existsSync(path.join(eksRes, 'sidecar', 'quinki-sidecar-ws'))) return { ok: false, error: 'Sync failed: Expert sidecar binary is missing after copy.' };
+      try {
+        const t = spawnSync(path.join(eksRes, 'tsnet-tunnel'), ['-h'], { timeout: 5000 });
+        const blob = String(t.stdout || '') + String(t.stderr || '');
+        if (!blob.includes('target2')) return { ok: false, error: 'Sync failed: Expert tsnet-tunnel is outdated (no -target2).' };
+      } catch { return { ok: false, error: 'Sync failed: tsnet-tunnel check error.' }; }
+      // Flag: l'app Expert sul Mac si riavvia da sola appena e' idle.
+      try { fs.writeFileSync(path.join(homedir(), '.quinki', '.expert-needs-restart'), '1'); } catch {}
+      return { ok: true, message: 'Expert app synced. Restart to apply.' };
+    } catch (e: any) { return { ok: false, error: String(e?.message || e) }; }
+  },
+  rollbackExpertApp: async () => {
+    try {
+      const bkRoot = path.join(homedir(), '.quinki', 'backups');
+      if (!fs.existsSync(bkRoot)) return { ok: false, error: 'No backups found. Sync the Expert at least once first.' };
+      const dirs = fs.readdirSync(bkRoot).filter((n) => n.startsWith('expert-')).sort();
+      const latest = dirs.length ? path.join(bkRoot, dirs[dirs.length - 1]) : '';
+      if (!latest) return { ok: false, error: 'No backups found. Sync the Expert at least once first.' };
+      const expertApp = '/Applications/App Expert.app';
+      if (!fs.existsSync(expertApp)) return { ok: false, error: 'App Expert.app not found.' };
+      const eksBin = path.join(expertApp, 'Contents/MacOS/quinki');
+      const eksSidecar = path.join(expertApp, 'Contents/Resources/resources/sidecar');
+      try { fs.copyFileSync(path.join(latest, 'quinki'), eksBin); } catch (e: any) { return { ok: false, error: 'Binary restore failed: ' + String(e?.message || e) }; }
+      try { fs.rmSync(eksSidecar, { recursive: true, force: true }); } catch {}
+      const dittoSt = spawnSync('ditto', [path.join(latest, 'sidecar'), eksSidecar]);
+      if (dittoSt.status !== 0) return { ok: false, error: 'Sidecar restore failed (ditto).' };
+      // Re-sign (firma stale dopo il ripristino -> TCC si rompe).
+      try {
+        spawnSync('codesign', ['--force', '--sign', '-', '--identifier', 'com.quinki.app.expert', '--requirements', '=designated => identifier "com.quinki.app.expert"', '--deep', expertApp], { timeout: 60000 });
+      } catch {}
+      return { ok: true, message: 'App Expert rolled back to the previous version.' };
     } catch (e: any) { return { ok: false, error: String(e?.message || e) }; }
   },
   cancelPhonePush: async (p) => {

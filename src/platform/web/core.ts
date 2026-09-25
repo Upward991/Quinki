@@ -130,8 +130,29 @@ export async function invoke(cmd: string, args?: Any): Promise<Any> {
     case 'get_quick_chat_shortcut':
       return 'AltLeft+Space'
     case 'check_expert_running':
-    case 'check_expert_backup_exists':
       return false
+    case 'check_expert_backup_exists': {
+      try { const call = (globalThis as Any).__sidecarCall; if (call) { const r = await call('checkExpertBackupExists', {}); return !!(r && r.exists) } } catch {}
+      return false
+    }
+    case 'check_expert_needs_restart': {
+      try { const call = (globalThis as Any).__sidecarCall; if (call) { const r = await call('checkExpertNeedsRestart', {}); return !!(r && r.pending) } } catch {}
+      return false
+    }
+    case 'sync_expert_app': {
+      const call = (globalThis as Any).__sidecarCall
+      if (!call) throw new Error('Not connected')
+      const r = await call('syncExpertApp', {})
+      if (r && r.ok) return String(r.message || 'Expert app synced. Restart to apply.')
+      throw new Error(String((r && r.error) || 'Sync failed'))
+    }
+    case 'rollback_expert_app': {
+      const call = (globalThis as Any).__sidecarCall
+      if (!call) throw new Error('Not connected')
+      const r = await call('rollbackExpertApp', {})
+      if (r && r.ok) return String(r.message || 'App Expert rolled back.')
+      throw new Error(String((r && r.error) || 'Rollback failed'))
+    }
     case 'check_expert_installed':
       // In the web app there is NO "install the Expert app" flow: the Expert
       // lives on the Mac that runs the backend. Returning false made the app
