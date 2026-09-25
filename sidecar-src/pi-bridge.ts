@@ -4532,6 +4532,32 @@ Read this file to view it.` }] };
   // === Reload session: dispose Pi + il prossimo send riapre rileggendo il .jsonl aggiornato ===
   // Usato dopo injectErrorExchange per far "vedere" al modello i messaggi iniettati.
   #imagesStripped = new Map<string, number>();
+  #thinkingReprompts = new Map<string, number>();
+
+  // Pulisce le immagini dalla catena IN MEMORIA dell'SDK (sessionManager.getEntries).
+  // E' la copia che il worker usa per il PROSSIMO turno: pulirla qui = il prossimo
+  // tentativo dell'autoprompt parte senza immagini, SENZA reload ne' attese.
+  #stripImagesInMemory(key: string): number {
+    let replaced = 0;
+    try {
+      const pi: any = this.#active.get(key);
+      const sm: any = pi?.sessionManager;
+      const entries: any[] = (sm && typeof sm.getEntries === "function") ? sm.getEntries() : [];
+      const clean = (content: any): any => {
+        if (!Array.isArray(content)) return content;
+        return content.map((p: any) => {
+          if (p && p.type === "image") { replaced++; return { type: "text", text: "[image removed: the current model does not support images]" }; }
+          return p;
+        });
+      };
+      for (const e of entries) {
+        if (!e || typeof e !== "object") continue;
+        if (e.message && typeof e.message === "object" && e.message.content !== undefined) e.message.content = clean(e.message.content);
+        if (Array.isArray(e.content)) e.content = clean(e.content);
+      }
+    } catch (e2: any) { try { this.logDebug("strip-images-memory-error", { key, error: e2?.message }); } catch {} }
+    return replaced;
+  }
 
   // === 400 "model does not support image input": MAI bloccare una chat ===
   // Sostituisce TUTTE le parti immagine salvate nella sessione (screenshot
@@ -8260,20 +8286,15 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
                 const imgTries = this.#imagesStripped.get(key) || 0;
                 if (imgErr && imgTries < 2) {
                   this.#imagesStripped.set(key, imgTries + 1);
-                  const nImgs = this.#stripImagesForKey(key);
-                  this.logDebug("auto-strip-images", { sessionKey: key, replaced: nImgs, try: imgTries + 1, error: errMsg.slice(0, 120) });
-                  // Il reload va fatto a turno COMPLETAMENTE finito (1.5s): se il
-                  // buffer di streaming e' ancora attivo il dispose verrebbe
-                  // saltato e le immagini resterebbero in memoria -> loop di 400.
-                  setTimeout(() => {
-                    if (this.#stoppedSessions.has(key)) return;
-                    try { this.reloadSession(key); } catch {}
-                    const fakeWs = { readyState: 1, constructor: { OPEN: 1 }, send: () => {} };
-                    this.send(fakeWs, { sessionKey: key, text: "The previous request failed because the current model cannot receive images. All images have been removed from the context. Please continue and complete your response without them." }, 2000);
-                  }, 1500);
+                  const nFile = this.#stripImagesForKey(key);          // su disco (persistenza + altri processi)
+                  const nMem = this.#stripImagesInMemory(key);          // nella catena VIVA del worker (effetto IMMEDIATO)
+                  this.logDebug("auto-strip-images", { sessionKey: key, file: nFile, mem: nMem, try: imgTries + 1, error: errMsg.slice(0, 120) });
+                  // L'autoprompt ESISTENTE deve ripartire (come deve rimanere): sblocco
+                  // la sua guardia cosi' il prossimo tentativo usa il contesto pulito.
+                  try { this.#rePrompted.delete(key); } catch {}
                 }
               } catch {}
-              const retryable = /overloaded|503|429|rate.?limit|service.?unavailable|server.?error|temporarily|too many requests/i.test(errMsg);
+              const retryable = /overloaded|503|429|rate.?limit|service.?unavailable|server.?error|temporarily|too many requests|does not support image|image input/i.test(errMsg);
               if (retryable && !this.#rePrompted.has(key) && !this.#stoppedSessions.has(key)) {
                 this.#rePrompted.add(key);
                 this.logDebug("auto-reprompt-scheduled", { sessionKey: key, error: errMsg.slice(0, 120) });
@@ -8559,6 +8580,34 @@ if (!turnCompleted && lastStopReason && lastStopReason !== "toolUse" && !this.#s
                 }
               } catch {}
               this.appendNotification({ kind: "chat_message", sessionKey: key, title: "New response", body: respText.slice(0, 100) || "A response arrived" });
+            } catch {}
+            // Turno CHIUSO col solo thinking (niente testo, niente tool): impossibile
+            // e inaccettabile -> l'autoprompt lo copre (max 3 di fila, reset su turno buono).
+            try {
+              const _msgs: any[] = (e as any).messages || [];
+              let _last: any = null;
+              for (let _i = _msgs.length - 1; _i >= 0; _i--) { const _m = _msgs[_i]; if (_m && _m.role === "assistant") { _last = _m; break; } }
+              const _parts: any[] = (_last && Array.isArray(_last.content)) ? _last.content : [];
+              const _hasThinking = _parts.some((b: any) => b && b.type === "thinking" && String(b.thinking || "").length > 0);
+              const _hasText = _parts.some((b: any) => b && b.type === "text" && String(b.text || "").trim().length > 0);
+              const _hasTool = _parts.some((b: any) => b && (b.type === "toolCall" || b.type === "toolResult"));
+              if (_last && _hasThinking && !_hasText && !_hasTool) {
+                const _n = this.#thinkingReprompts.get(key) || 0;
+                if (_n < 3 && !this.#stoppedSessions.has(key)) {
+                  this.#thinkingReprompts.set(key, _n + 1);
+                  this.logDebug("thinking-only-reprompt", { sessionKey: key, try: _n + 1 });
+                  setTimeout(() => {
+                    if (this.#stoppedSessions.has(key)) return;
+                    const fakeWs = { readyState: 1, constructor: { OPEN: 1 }, send: () => {} };
+                    this.send(fakeWs, { sessionKey: key, text: "Your previous response ended right after the thinking block without any output. A turn cannot end with thinking alone: continue now and produce your actual output (text answer or a tool call)." }, 2000);
+                  }, 1500);
+                } else if (_n >= 3) {
+                  this.logDebug("thinking-only-reprompt-exhausted", { sessionKey: key });
+                }
+              } else {
+                // turno buono -> azzera il contatore dei thinking-bloccati
+                if (this.#thinkingReprompts.has(key)) this.#thinkingReprompts.delete(key);
+              }
             } catch {}
           }
           ws.send(JSON.stringify({ type: "typing_stop_broadcast", sessionKey: key }));
