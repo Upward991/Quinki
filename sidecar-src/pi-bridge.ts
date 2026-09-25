@@ -4531,6 +4531,50 @@ Read this file to view it.` }] };
 
   // === Reload session: dispose Pi + il prossimo send riapre rileggendo il .jsonl aggiornato ===
   // Usato dopo injectErrorExchange per far "vedere" al modello i messaggi iniettati.
+  #imagesStripped = new Set<string>();
+
+  // === 400 "model does not support image input": MAI bloccare una chat ===
+  // Sostituisce TUTTE le parti immagine salvate nella sessione (screenshot
+  // dell'agente, allegati) con un segnaposto testuale, poi la chat riprende.
+  #stripImagesForKey(key: string): number {
+    let replaced = 0;
+    try {
+      const dir = this.#piSessionDir(key);
+      if (!fs.existsSync(dir)) return 0;
+      const files = fs.readdirSync(dir).filter((f: string) => f.endsWith(".jsonl"));
+      for (const f of files) {
+        const fp = path.join(dir, f);
+        let raw = "";
+        try { raw = fs.readFileSync(fp, "utf8"); } catch { continue; }
+        if (!raw.includes('"image"')) continue;
+        let changed = false;
+        const out = raw.split("\n").map((ln: string) => {
+          if (!ln.includes('"image"')) return ln;
+          try {
+            const d = JSON.parse(ln);
+            const conv = (content: any): any => {
+              if (!Array.isArray(content)) return content;
+              return content.map((p: any) => {
+                if (p && p.type === "image") {
+                  replaced++; changed = true;
+                  return { type: "text", text: "[image removed: the current model does not support images]" };
+                }
+                return p;
+              });
+            };
+            if (d && d.message && typeof d.message === "object" && d.message.content !== undefined) d.message.content = conv(d.message.content);
+            if (d && Array.isArray(d.content)) d.content = conv(d.content);
+            return JSON.stringify(d);
+          } catch { return ln; }
+        });
+        if (changed) {
+          try { fs.writeFileSync(fp + ".tmp", out.join("\n"), "utf8"); fs.renameSync(fp + ".tmp", fp); } catch {}
+        }
+      }
+    } catch (e: any) { try { this.logDebug("strip-images-error", { key, error: e?.message }); } catch {} }
+    return replaced;
+  }
+
   reloadSession(key: string) {
     const pi = this.#active.get(key);
     if (pi) {
@@ -8209,6 +8253,22 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
               // L'SDK ritenta già 3 volte con backoff; qui, se ha fallito comunque, ri-promptiamo
               // la sessione una sola volta dopo 30s (il provider potrebbe essersi liberato).
               const errMsg = String((e.message as any).errorMessage);
+              // 400 immagini: il modello attuale non vede le immagini -> le togliamo
+              // dal contesto (segnaposto), ricarichiamo la sessione e riprendiamo da soli.
+              try {
+                const imgErr = /does not support image|image input is not supported|unsupported.*image|image.*not.*support|no vision|without vision/i.test(errMsg);
+                if (imgErr && !this.#imagesStripped.has(key)) {
+                  this.#imagesStripped.add(key);
+                  const nImgs = this.#stripImagesForKey(key);
+                  this.logDebug("auto-strip-images", { sessionKey: key, replaced: nImgs, error: errMsg.slice(0, 120) });
+                  try { this.reloadSession(key); } catch {}
+                  setTimeout(() => {
+                    if (this.#stoppedSessions.has(key)) return;
+                    const fakeWs = { readyState: 1, constructor: { OPEN: 1 }, send: () => {} };
+                    this.send(fakeWs, { sessionKey: key, text: "The previous request failed because the current model cannot receive images. All images have been removed from the context. Please continue and complete your response without them." }, 2000);
+                  }, 1500);
+                }
+              } catch {}
               const retryable = /overloaded|503|429|rate.?limit|service.?unavailable|server.?error|temporarily|too many requests/i.test(errMsg);
               if (retryable && !this.#rePrompted.has(key) && !this.#stoppedSessions.has(key)) {
                 this.#rePrompted.add(key);
