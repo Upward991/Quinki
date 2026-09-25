@@ -851,6 +851,10 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
             const mode = r?.state?.notifyMode || 'none'
             if (mode !== 'none') {
               if (p.kind === 'task_complete') {
+                try {
+                  const wt = document.hasFocus() && sk === activeSessionIdRef.current
+                  if (wt && p?.pushId) { call('cancelPhonePush', { pushId: p.pushId }).catch(() => {}) }
+                } catch {}
                 // Task: titolo = "Task executed", body = nome della task
                 const title = 'Task executed'
                 const body = p.label || 'Task completed'
@@ -862,6 +866,11 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
                 const watchingThisChat = (() => {
                   try { return document.hasFocus() && sk === activeSessionIdRef.current } catch { return false }
                 })()
+                // LA STESSA RIGA decide anche la push del telefono: se la chat
+                // e' in visione (qui o sul telefono), la push viene annullata.
+                if (watchingThisChat && p?.pushId) {
+                  try { call('cancelPhonePush', { pushId: p.pushId }).catch(() => {}) } catch {}
+                }
                 if (!watchingThisChat) {
                   // Chat: titolo = nome chat (App Expert per la sessione expert), body = anteprima risposta
                   const sess = sessionsRef.current.find((s: any) => s.id === sk)
@@ -1115,65 +1124,11 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
   // === CLICK sulla notifica macOS -> apre la chat di provenienza ===
   // DESKTOP: dichiara al sidecar la chat in visione (finestra attiva e chat aperta):
   // cosi' il TELEFONO non riceve notifiche per una chat che stai gia' guardando sul Mac.
-  const lastFocRef = useRef(0)
-  useEffect(() => {
-    const send = () => {
-      try {
-        const isFoc = document.hasFocus() && !document.body.classList.contains('win-inactive')
-        if (isFoc) { try { lastFocRef.current = Date.now() } catch {} }
-        // "Sto guardando la chat" = finestra attiva O lasciata da meno di 90s.
-        // Il gesto di prendere il telefono per controllare faceva perdere il
-        // focus al Mac -> "watched=false" -> notifica: era LA causa del
-        // silenzio intermittente.
-        const recentlyFocused = isFoc || (Date.now() - (lastFocRef.current || 0) < 90000)
-        call('setClientWatching', { sessionKey: String(activeSessionId || ''), watching: recentlyFocused && document.visibilityState === 'visible' }).catch(() => {})
-      } catch {}
-    }
-    send()
-    const t = setInterval(send, 20000)
-    try {
-      document.addEventListener('visibilitychange', send)
-      window.addEventListener('focus', send)
-      window.addEventListener('blur', send)
-    } catch {}
-    return () => {
-      clearInterval(t)
-      try {
-        document.removeEventListener('visibilitychange', send)
-        window.removeEventListener('focus', send)
-        window.removeEventListener('blur', send)
-      } catch {}
-    }
-  }, [activeSessionId, call])
+  // NOTA: la dichiarazione "sto guardando la chat" e' stata spostata in App
+  // (dipende anche dalla SCHERMATA mostrata: Home/cartelle = non stai guardando).
+  // Regola utente: chat aperta e visibile = stai guardando, ISTANTANEO, senza grazia.
 
-  // Telefono: segnala al servizio nativo quale chat stai guardando (e se l'app
-  // e' visibile): la notifica NON arriva per quella chat, esattamente come sul Mac.
-  useEffect(() => {
-    const send = () => {
-      try {
-        const nat = (window as any).QuinkiNative
-        if (nat && nat.setActiveChat) nat.setActiveChat(String(activeSessionId || ''), document.visibilityState === 'visible')
-      } catch {}
-    }
-    send()
-    // Battito ogni 20s: il servizio nativo silenzia la notifica per la chat in
-    // visione, ma il permesso scade dopo 60s — senza battito il silenzio
-    // moriva dopo un minuto di visione continua.
-    const t = setInterval(send, 20000)
-    try {
-      document.addEventListener('visibilitychange', send)
-      window.addEventListener('focus', send)
-      window.addEventListener('blur', send)
-    } catch {}
-    return () => {
-      clearInterval(t)
-      try {
-        document.removeEventListener('visibilitychange', send)
-        window.removeEventListener('focus', send)
-        window.removeEventListener('blur', send)
-      } catch {}
-    }
-  }, [activeSessionId])
+  // NOTA: anche setActiveChat del telefono e' in App (vede la schermata).
 
   // Web/telefono: tap sulla NOTIFICA nativa -> apre la chat giusta (evento DOM,
   // gemello dell'evento Tauri usato sul desktop).

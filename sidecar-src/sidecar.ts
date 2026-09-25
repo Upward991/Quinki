@@ -336,6 +336,7 @@ function pdbg(ev: string, data: any): void {
   } catch {}
 }
 try { (globalThis as any).__quinkiPushDbg = pdbg } catch {}
+const _pushCancels = new Set<string>();
 const _pushQueue: any[] = [];
 (globalThis as any).__quinkiPushQueue = _pushQueue;
 function pushNotifyOut(entry: any): void {
@@ -660,6 +661,13 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   getReadState: async (p) => ({ state: piBridge!.getReadState(String(p.sessionKey || "")) }),
   getAllReadStates: async () => ({ states: piBridge!.getAllReadStates() }),
   setReadState: async (p) => ({ state: piBridge!.setReadState(String(p.sessionKey || ""), p.patch || {}) }),
+  cancelPhonePush: async (p) => {
+    try {
+      const id = String(p?.pushId || '');
+      if (id) { _pushCancels.add(id); pdbg('cancel', { pushId: id }); }
+      return { ok: true };
+    } catch { return { ok: false }; }
+  },
   setClientWatching: async (p) => {
     try {
       // Solo i client LOCALI (desktop) possono dichiarare la chat in visione.
@@ -1791,7 +1799,26 @@ async function bootstrap() {
       process.stderr.write(`[sidecar-marker] pool-child-parent-watchdog: ${origPpid}\n`);
     }
     // === A3: broadcast notifiche al frontend (DOPO la creazione di piBridge!) ===
-    try { piBridge.setNotificationBroadcast?.((entry: any) => { try { sendNotification("notification", entry); } catch {} try { sendWebPush(entry); } catch {} try { pushNotifyOut(entry); } catch {} }); } catch {}
+    try { piBridge.setNotificationBroadcast?.((entry: any) => {
+      try {
+        // La push al telefono si decide con LA STESSA RIGA che decide la
+        // notifica macOS (watchingThisChat, valutata live dal web AL MOMENTO
+        // dell'evento). Qui: id + timer breve; se il web (Mac o telefono)
+        // risponde "la sto guardando" -> cancelPhonePush -> niente push.
+        const pid = 'pp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+        (entry as any).pushId = pid;
+        try { sendNotification("notification", entry); } catch {}
+        try { sendWebPush(entry); } catch {}
+        setTimeout(() => {
+          try {
+            const canceled = _pushCancels.has(pid);
+            _pushCancels.delete(pid);
+            pdbg('deliver-timer', { sk: String(entry?.sessionKey || entry?.sourceSession?.key || ''), canceled });
+            if (!canceled) pushNotifyOut(entry);
+          } catch {}
+        }, 2500);
+      } catch { try { pushNotifyOut(entry) } catch {} }
+    }); } catch {}
     try { piBridge.setReadStateBroadcast?.((key: string) => { try { sendNotification("read_state_changed", { sessionKey: key }); } catch {} }); } catch {}
 
 
