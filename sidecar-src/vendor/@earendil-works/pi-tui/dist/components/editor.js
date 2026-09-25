@@ -475,16 +475,17 @@ export class Editor {
             catch { }
         }
         result.push(qEdge() + qPaint(" ".repeat(width - 1)));
-        // QUINKI PATCH (25 set): the command menu appears ABOVE the box (edge column kept free).
+        // QUINKI PATCH (25 set): the command menu is a floating panel ABOVE the box:
+        // same width, same background, 1-row gap between menu and box.
         if (this.autocompleteState && this.autocompleteList) {
             const autocompleteResult = this.autocompleteList.render(contentWidth + 1);
             const acLines = [];
             for (const line of autocompleteResult) {
                 const lineWidth = visibleWidth(line);
                 const linePadding = " ".repeat(Math.max(0, contentWidth + 1 - lineWidth));
-                acLines.push(` ${leftPadding}${line}${linePadding}${rightPadding}`);
+                acLines.push(" " + qPaint(`${leftPadding}${line}${linePadding}${rightPadding}`));
             }
-            result.unshift(...acLines);
+            result.unshift(...acLines, "");
         }
         return result;
     }

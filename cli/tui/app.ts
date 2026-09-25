@@ -48,8 +48,8 @@ class CenterBox {
     this.child = child;
   }
   render(width: number): string[] {
-    const colW = Math.max(20, Math.min(width - 8, 168));
-    const left = Math.floor((width - colW) / 2);
+    const colW = Math.max(8, Math.min(width - 4, 168));
+    const left = Math.max(0, Math.floor((width - colW) / 2));
     const right = Math.max(0, width - colW - left);
     const inner = colW;
     const lines = this.child?.render(inner) || [];
@@ -222,9 +222,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   const editorTheme = {
     borderColor: (s: string) => fg(C.border, s),
     selectList: {
-      selectedPrefix: (s: string) => fg(C.primary, s),
-      selectedText: (s: string) => fg(C.text, s),
-      description: (s: string) => fg(C.textSecondary, s),
+      selectedPrefix: (s: string) => bold(fg(C.primary, s)),
+      selectedText: (s: string) => bold(fg(C.primary, s)),
+      description: (s: string) => fg(C.textTertiary, s),
       scrollInfo: (s: string) => fg(C.textTertiary, s),
       noMatch: (s: string) => fg(C.textTertiary, s),
     },
@@ -234,9 +234,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     (editor as any).bgFn = (s: string) => bg(C.bgPanel, s);
   } catch {}
 
-  // Slash commands — ONLY commands that actually work in the TUI.
+  // Slash commands — ONLY commands that actually work, and NONE of them writes
+  // into the chat: they change state silently (visible in the status bar).
   const commands = [
-    { name: "help", description: "Show commands and key hints" },
     { name: "mode", description: "Toggle plan/build (or: /mode plan | /mode build)" },
     { name: "thinking", description: "Toggle thinking on/off (on = always max)" },
     { name: "copy", description: "Copy the last reply to the clipboard" },
@@ -346,9 +346,8 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     }
   };
 
-  /** The composer bar (inside the box): pure INFORMATION — model, thinking,
-   *  working directory, mode + context counter. No dead buttons: in a TUI the
-   *  keyboard (Enter/Esc/Tab, "/") does the actions. */
+  /** The composer bar (inside the box): LEFT-aligned, all at the same brightness
+   *  (the ctx-counter brightness): mode · ctx · model · thinking · directory. */
   const buildBarLine = (width: number): string => {
     const pct = ctxWindow > 0 ? (ctxTokens / ctxWindow) * 100 : 0;
     const ctxStr = fg(
@@ -359,19 +358,19 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     const home = process.env.HOME || "";
     const dir = home && opts.cwd.startsWith(home) ? "~" + opts.cwd.slice(home.length) : opts.cwd;
     const sep = fg(C.textTertiary, "  \u00b7  ");
+    const quiet = (s: string) => fg(C.textTertiary, s);
     const modeStr = mode === "plan" ? fg(C.modePlan, "Plan") : fg(C.modeBuild, "Build");
-    const left =
+    return (
       modeStr +
       sep +
-      fg(C.textSecondary, modelId) +
+      ctxStr +
       sep +
-      fg(C.textSecondary, "thinking " + (thinkingOn ? "on" : "off")) +
+      quiet(modelId) +
       sep +
-      fg(C.textTertiary, dir);
-    const lw = visibleWidth(left);
-    const rw = visibleWidth(ctxStr);
-    const gap = Math.max(1, width - lw - rw);
-    return left + " ".repeat(gap) + ctxStr;
+      quiet("thinking " + (thinkingOn ? "on" : "off")) +
+      sep +
+      quiet(dir)
+    );
   };
   try {
     (editor as any).footerLine = (w: number) => buildBarLine(w);
@@ -389,22 +388,20 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   //   Esc       -> flashes lit right when pressed
   const buildHintLine = (width: number): string => {
     const lit = (s: string) => bold(fg(C.primary, s));
-    const key = (s: string) => fg(C.textSecondary, s);
+    const quiet = (s: string) => fg(C.textTertiary, s);
     const menuActive = !!((editor as any)?.autocompleteState && (editor as any)?.autocompleteList);
     const canSend = hasText() && !streaming;
     const canSteer = streaming && hasText();
     const escLit = Date.now() < escFlashUntil;
 
-    const left = menuActive
-      ? lit("/command")
-      : fg(C.primary, "/") + fg(C.textTertiary, "command");
+    const left = menuActive ? lit("/command") : quiet("/command");
     const sep = fg(C.textTertiary, "  \u00b7  ");
     const right =
-      (canSteer ? lit("Ctrl+Enter") : key("Ctrl+Enter")) +
+      (escLit ? lit("Esc") : quiet("Esc")) +
       sep +
-      (escLit ? lit("Esc") : key("Esc")) +
+      (canSteer ? lit("Ctrl+Enter") : quiet("Ctrl+Enter")) +
       sep +
-      (canSend ? lit("Enter") : key("Enter"));
+      (canSend ? lit("Enter") : quiet("Enter"));
     const lw = visibleWidth(left);
     const rw = visibleWidth(right);
     const gap = Math.max(1, width - lw - rw);
@@ -530,28 +527,13 @@ export async function runTui(opts: TuiOptions): Promise<void> {
 
   // --- slash commands -----------------------------------------------------------
   const handleSlash = (raw: string) => {
-    // Leaving the welcome view so command output is visible.
-    if (welcomeShown) {
-      welcomeShown = false;
-      applyLayout(false);
-    }
     const parts = raw.slice(1).split(/\s+/);
     const cmd = (parts.shift() || "").toLowerCase();
     const arg = parts.join(" ").trim();
     switch (cmd) {
-      case "help": {
-        addRow(fg(C.textSecondary, "Commands"));
-        for (const c of commands) {
-          addRow(fg(C.info, "/" + c.name) + "  " + fg(C.textTertiary, c.description), 1);
-        }
-        addRow("");
-        addRow(fg(C.textTertiary, "Enter to send \u00b7 Esc to stop \u00b7 Tab to change mode"), 1);
-        break;
-      }
       case "mode": {
         if (arg === "plan" || arg === "build") mode = arg;
         else toggleMode();
-        addRow(fg(C.textTertiary, "mode: " + (mode === "plan" ? "Plan" : "Build")), 1);
         break;
       }
       case "thinking": {
@@ -559,19 +541,13 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         try {
           session.setThinkingLevel?.(thinkingOn ? "xhigh" : "off");
         } catch {}
-        addRow(fg(C.textTertiary, "thinking: " + (thinkingOn ? "on" : "off")), 1);
         break;
       }
       case "copy": {
-        if (!lastAssistantText) {
-          addRow(fg(C.textTertiary, "nothing to copy"), 1);
-          break;
-        }
-        try {
-          execSync("pbcopy", { input: lastAssistantText });
-          addRow(fg(C.textTertiary, "copied"), 1);
-        } catch {
-          addRow(fg(C.danger, "copy failed"), 1);
+        if (lastAssistantText) {
+          try {
+            execSync("pbcopy", { input: lastAssistantText });
+          } catch {}
         }
         break;
       }
@@ -594,22 +570,17 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           }
           const file = path.join(opts.cwd, `quinki-chat-${Date.now().toString(36)}.md`);
           fs.writeFileSync(file, out.join("\n"), "utf8");
-          addRow(fg(C.textTertiary, "exported: " + file), 1);
-        } catch (err: any) {
-          addRow(fg(C.danger, "export failed: " + truncate(String(err?.message || err), 80)), 1);
-        }
+        } catch {}
         break;
       }
       case "quit": {
         shutdown();
         break;
       }
-      default: {
-        addRow(fg(C.textTertiary, "unknown command: /" + cmd), 1);
-        break;
-      }
     }
-    scrollToEnd();
+    try {
+      ui.requestRender();
+    } catch {}
   };
 
   // --- input -------------------------------------------------------------------

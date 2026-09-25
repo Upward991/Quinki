@@ -88,7 +88,8 @@ export class SelectList {
         }
     }
     renderItem(item, isSelected, width, descriptionSingleLine, primaryColumnWidth) {
-        const prefix = isSelected ? "→ " : "  ";
+        // QUINKI PATCH (25 set): selection indicator = dot (no navigation arrow).
+        const prefix = isSelected ? "\u2022 " : "  ";
         const prefixWidth = visibleWidth(prefix);
         if (descriptionSingleLine && width > 40) {
             const effectivePrimaryColumnWidth = Math.max(1, Math.min(primaryColumnWidth, width - prefixWidth - 4));
@@ -100,10 +101,12 @@ export class SelectList {
             const remainingWidth = width - descriptionStart - 2; // -2 for safety
             if (remainingWidth > MIN_DESCRIPTION_WIDTH) {
                 const truncatedDesc = truncateToWidth(descriptionSingleLine, remainingWidth, "");
+                // QUINKI PATCH (25 set): descriptions right-aligned (app-like panel).
+                const qFill = " ".repeat(Math.max(1, width - prefixWidth - truncatedValueWidth - visibleWidth(truncatedDesc)));
                 if (isSelected) {
-                    return this.theme.selectedText(`${prefix}${truncatedValue}${spacing}${truncatedDesc}`);
+                    return this.theme.selectedText(`${prefix}${truncatedValue}${qFill}${truncatedDesc}`);
                 }
-                const descText = this.theme.description(spacing + truncatedDesc);
+                const descText = this.theme.description(qFill + truncatedDesc);
                 return prefix + truncatedValue + descText;
             }
         }
