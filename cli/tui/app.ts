@@ -252,16 +252,19 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       getArgumentCompletions: (prefix: string) => {
         const auto = (() => {
           try {
-            return !!((session as any).getCompactionEnabled?.() ?? (session as any).settingsManager?.getCompactionEnabled?.());
+            return !!((session as any).autoCompactionEnabled ?? (session as any).settingsManager?.getCompactionEnabled?.());
           } catch {
             return false;
           }
         })();
-        return [
-          { value: "now", label: "now", description: "Compact the conversation now" },
-          { value: "enable", label: "enable", description: "Enable auto-compaction" + (auto ? "  (currently on)" : "") },
-          { value: "disable", label: "disable", description: "Disable auto-compaction" + (!auto ? "  (currently off)" : "") },
-        ].filter((i) => i.value.startsWith(prefix));
+        // Contextual toggle: only the opposite of the current auto state.
+        const items = [
+          { value: "now", label: "compact now", description: "Compact the conversation now" },
+          auto
+            ? { value: "disable", label: "disable autocompaction", description: "Auto-compaction is currently ON" }
+            : { value: "enable", label: "enable autocompaction", description: "Auto-compaction is currently OFF" },
+        ];
+        return items.filter((i) => i.value.startsWith(prefix) || i.label.startsWith(prefix));
       },
     },
     { name: "reload", description: "Reload this chat (recover history, fix glitches)" },
@@ -304,6 +307,87 @@ export async function runTui(opts: TuiOptions): Promise<void> {
             ui.requestRender();
           } catch {}
         }, 500);
+      }
+      if (data === "\r" || data === "\n") {
+        // Menu open: Enter CONFIRMS immediately — handled entirely by us (the
+        // list selection can be stale while filtering; the TYPED command is the
+        // source of truth). No text lingers in the box, nothing in the chat.
+        const menuOpen = !!((editor as any)?.autocompleteState && (editor as any)?.autocompleteList);
+        if (menuOpen) {
+          try {
+            const t = editor.getText();
+            const inSub = t.includes(" ");
+            if (inSub) {
+              const sel = (editor as any)?.autocompleteList?.getSelectedItem?.();
+              const val = sel?.value ?? sel?.name;
+              if (val) {
+                const base = t.trimEnd().split(" ")[0];
+                editor.setText("");
+                (editor as any).cancelAutocomplete?.();
+                handleSlashRef?.(base + " " + val);
+                return { consume: true };
+              }
+            } else {
+              const typed = t.trimEnd().startsWith("/") ? t.trimEnd().slice(1).trim() : "";
+              let name = commands.some((c) => c.name === typed) ? typed : "";
+              if (!name) {
+                const sel = (editor as any)?.autocompleteList?.getSelectedItem?.();
+                name = sel?.value ?? sel?.name ?? "";
+              }
+              const cmd = name ? commands.find((c) => c.name === name) : null;
+              if (cmd) {
+                if (typeof (cmd as any).getArgumentCompletions === "function") {
+                  editor.setText("/" + name + " ");
+                  (editor as any).tryTriggerAutocomplete?.();
+                } else {
+                  editor.setText("");
+                  (editor as any).cancelAutocomplete?.();
+                  handleSlashRef?.("/" + name);
+                }
+                return { consume: true };
+              }
+            }
+          } catch {}
+        }
+      }
+      if (data === "\x1b[D" || data === "\x1b[C") {
+        // Menu open: LEFT = back, RIGHT = forward (app-style submenu navigation).
+        const menuOpen = !!((editor as any)?.autocompleteState && (editor as any)?.autocompleteList);
+        if (menuOpen) {
+          try {
+            const t = editor.getText();
+            const base = t.trimEnd().split(" ")[0]; // e.g. "/thinking"
+            const inSub = t.includes(" "); // trailing space = we are inside a submenu
+            if (data === "\x1b[C") {
+              if (!inSub) {
+                // Open the submenu of the TYPED command (list selection can lag
+                // behind while typing); fall back to the selection on bare "/".
+                const typedName = t.trimEnd().startsWith("/") ? t.trimEnd().slice(1).trim() : "";
+                let cmdName = typedName;
+                if (!cmdName) {
+                  const sel = (editor as any)?.autocompleteList?.getSelectedItem?.();
+                  cmdName = sel?.value ?? sel?.name ?? "";
+                }
+                if (cmdName) {
+                  editor.setText("/" + cmdName + " ");
+                  (editor as any).tryTriggerAutocomplete?.();
+                }
+              } else {
+                const sel = (editor as any)?.autocompleteList?.getSelectedItem?.();
+                const val = sel?.value ?? sel?.name;
+                if (val) {
+                  editor.setText(base + " " + val + " ");
+                  (editor as any).tryTriggerAutocomplete?.();
+                }
+              }
+            } else if (inSub) {
+              // back to the main menu (no close)
+              editor.setText(base);
+              (editor as any).tryTriggerAutocomplete?.();
+            }
+          } catch {}
+          return { consume: true };
+        }
       }
       return undefined;
     });
@@ -350,6 +434,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     defaultModelId = s.defaultModel || "";
   } catch {}
   let toggleModeRef: (() => void) | null = null;
+  let handleSlashRef: ((raw: string) => void) | null = null;
   let escFlashUntil = 0;
 
   const toggleMode = () => {
@@ -408,22 +493,20 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     (editor as any).footerLine = (w: number) => buildBarLine(w);
   } catch {}
   try {
-    // Thin mode-colored left edge on the box (opencode style): Plan pink / Build orange.
+    // Thin edges on the box: LEFT = mode color (Plan pink / Build orange),
+    // RIGHT = violet accent (always lit).
     (editor as any).edgeFn = () => fg(mode === "plan" ? C.modePlan : C.modeBuild, "\u258f");
+    (editor as any).edgeRightFn = () => fg(C.primary, "\u2595");
   } catch {}
   try {
-    // Menu footer (inside the slash panel): Enter select (accent) · Esc cancel
-    // (turns red right when Esc is pressed).
+    // Menu footer (two rows): left ← (back) / → (forward); right Esc (red,
+    // closes) · Enter (violet, selects).
     (editor as any).menuFooterFn = (w: number) => {
-      const escLit = Date.now() < escFlashUntil;
-      const right =
-        fg(C.primary, "Enter") +
-        fg(C.textTertiary, " select") +
-        fg(C.textTertiary, "  \u00b7  ") +
-        (escLit ? fg(C.danger, "Esc cancel") : fg(C.textTertiary, "Esc cancel"));
+      const right = fg(C.danger, "Esc") + fg(C.textTertiary, "  ") + fg(C.primary, "Enter");
       const rw = visibleWidth(right);
-      const gap = Math.max(1, w - rw);
-      return " ".repeat(gap) + right;
+      const row1 = fg(C.primary, "\u2190") + " ".repeat(Math.max(1, w - 1 - rw)) + right;
+      const row2 = fg(C.primary, "\u2192");
+      return [row1, row2];
     };
   } catch {}
 
@@ -440,19 +523,39 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     const canSend = hasText() && !streaming && !menuActive;
     const canSteer = streaming && hasText();
     const escLit = Date.now() < escFlashUntil;
+    const textNow = (() => {
+      try {
+        return editor.getText().trim();
+      } catch {
+        return "";
+      }
+    })();
+    // A complete slash command waiting to be run -> Enter is FILLED (violet bg).
+    const cmdReady = !menuActive && textNow.startsWith("/") && textNow.length > 1;
 
     const left = menuActive ? lit("/command") : quiet("/command");
     const sep = fg(C.textTertiary, "  \u00b7  ");
+    const enterKey = cmdReady
+      ? bold(bg(C.primary, fg(C.bgPanel, " Enter ")))
+      : canSend
+        ? lit("Enter")
+        : quiet("Enter");
     const right =
       (escLit ? lit("Esc") : quiet("Esc")) +
       sep +
       (canSteer ? lit("Ctrl+Enter") : quiet("Ctrl+Enter")) +
       sep +
-      (canSend ? lit("Enter") : quiet("Enter"));
+      enterKey;
+
+    // "Quinki" always lit violet, perfectly centered in the row.
+    const brand = fg(C.primary, "Quinki");
     const lw = visibleWidth(left);
     const rw = visibleWidth(right);
-    const gap = Math.max(1, width - lw - rw);
-    return left + " ".repeat(gap) + right;
+    const bw = 6;
+    const start = Math.max(lw + 1, Math.floor((width - bw) / 2));
+    const gap1 = Math.max(1, start - lw);
+    const gap2 = Math.max(1, width - start - bw - rw);
+    return left + " ".repeat(gap1) + brand + " ".repeat(gap2) + right;
   };
   try {
     hintRow = new FnLine((w: number) => buildHintLine(w));
@@ -623,7 +726,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
             void Promise.resolve(session.compact?.()).catch(() => {});
           } else if (arg === "enable" || arg === "disable") {
             const en = arg === "enable";
-            if (typeof (session as any).setCompactionEnabled === "function") (session as any).setCompactionEnabled(en);
+            if (typeof (session as any).setAutoCompactionEnabled === "function") (session as any).setAutoCompactionEnabled(en);
             else {
               const sm: any = (session as any).settingsManager;
               if (sm && typeof sm.setCompactionEnabled === "function") sm.setCompactionEnabled(en);
@@ -671,11 +774,14 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       ui.requestRender();
     } catch {}
   };
+  handleSlashRef = handleSlash;
 
   // --- input -------------------------------------------------------------------
   const shutdown = () => {
     try {
-      ui.stop();
+      // preserveScreen: true -> clean exit (do NOT re-print the last frame
+      // into the main buffer — the terminal must come back clean).
+      ui.stop({ preserveScreen: true } as any);
     } catch {}
     try {
       process.exit(0);
