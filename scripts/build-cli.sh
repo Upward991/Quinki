@@ -30,6 +30,8 @@ mkdir -p cli/dist/theme cli/dist/assets
 # Theme + assets next to the binary (resolved from the executable directory)
 cp "$VENDOR"/theme/*.json cli/dist/theme/
 cp "$VENDOR"/assets/* cli/dist/assets/ 2>/dev/null || true
+# Quinki theme becomes the DEFAULT dark theme (same hex values as the app)
+cp cli/theme/quinki-dark.json cli/dist/theme/dark.json
 
 # Version: always aligned with the app (src-tauri/tauri.conf.json)
 VERSION=$(python3 -c "import json;print(json.load(open('src-tauri/tauri.conf.json'))['version'])")
