@@ -88,8 +88,8 @@ export class SelectList {
         }
     }
     renderItem(item, isSelected, width, descriptionSingleLine, primaryColumnWidth) {
-        // QUINKI PATCH (25 set): selection indicator = dot (no navigation arrow).
-        const prefix = isSelected ? "\u2022 " : "  ";
+        // QUINKI PATCH (25 set): no selection glyph — the whole selected row is highlighted.
+        const prefix = "  ";
         const prefixWidth = visibleWidth(prefix);
         if (descriptionSingleLine && width > 40) {
             const effectivePrimaryColumnWidth = Math.max(1, Math.min(primaryColumnWidth, width - prefixWidth - 4));

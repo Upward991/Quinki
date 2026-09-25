@@ -222,8 +222,8 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   const editorTheme = {
     borderColor: (s: string) => fg(C.border, s),
     selectList: {
-      selectedPrefix: (s: string) => bold(fg(C.primary, s)),
-      selectedText: (s: string) => bold(fg(C.primary, s)),
+      selectedPrefix: (s: string) => bg(C.primary, fg(C.bgPanel, s)),
+      selectedText: (s: string) => bg(C.primary, fg(C.bgPanel, s)),
       description: (s: string) => fg(C.textTertiary, s),
       scrollInfo: (s: string) => fg(C.textTertiary, s),
       noMatch: (s: string) => fg(C.textTertiary, s),
@@ -234,14 +234,46 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     (editor as any).bgFn = (s: string) => bg(C.bgPanel, s);
   } catch {}
 
-  // Slash commands — ONLY commands that actually work, and NONE of them writes
-  // into the chat: they change state silently (visible in the status bar).
+  // Slash commands — ONLY commands that actually work, ALL silently (no chat
+  // output). Commands with options open an app-style submenu (argument list).
   const commands = [
-    { name: "mode", description: "Toggle plan/build (or: /mode plan | /mode build)" },
-    { name: "thinking", description: "Toggle thinking on/off (on = always max)" },
-    { name: "copy", description: "Copy the last reply to the clipboard" },
+    {
+      name: "thinking",
+      description: "Thinking: on (max) / off",
+      getArgumentCompletions: (prefix: string) =>
+        [
+          { value: "on", label: "on", description: "Thinking ON \u2014 always the maximum level" },
+          { value: "off", label: "off", description: "Thinking OFF" },
+        ].filter((i) => i.value.startsWith(prefix)),
+    },
+    {
+      name: "compaction",
+      description: "Compact now, or toggle auto-compaction",
+      getArgumentCompletions: (prefix: string) => {
+        const auto = (() => {
+          try {
+            return !!((session as any).getCompactionEnabled?.() ?? (session as any).settingsManager?.getCompactionEnabled?.());
+          } catch {
+            return false;
+          }
+        })();
+        return [
+          { value: "now", label: "now", description: "Compact the conversation now" },
+          { value: "enable", label: "enable", description: "Enable auto-compaction" + (auto ? "  (currently on)" : "") },
+          { value: "disable", label: "disable", description: "Disable auto-compaction" + (!auto ? "  (currently off)" : "") },
+        ].filter((i) => i.value.startsWith(prefix));
+      },
+    },
+    { name: "reload", description: "Reload this chat (recover history, fix glitches)" },
     { name: "export", description: "Export this chat as Markdown" },
-    { name: "quit", description: "Exit quinki" },
+    {
+      name: "quit",
+      description: "Exit quinki (asks for confirmation)",
+      getArgumentCompletions: () => [
+        { value: "yes", label: "yes", description: "Yes, exit quinki" },
+        { value: "no", label: "no", description: "No, keep it open" },
+      ],
+    },
   ];
   try {
     const fdPath = fs.existsSync(path.join(opts.agentDir, "bin", "fd"))
@@ -379,6 +411,21 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     // Thin mode-colored left edge on the box (opencode style): Plan pink / Build orange.
     (editor as any).edgeFn = () => fg(mode === "plan" ? C.modePlan : C.modeBuild, "\u258f");
   } catch {}
+  try {
+    // Menu footer (inside the slash panel): Enter select (accent) · Esc cancel
+    // (turns red right when Esc is pressed).
+    (editor as any).menuFooterFn = (w: number) => {
+      const escLit = Date.now() < escFlashUntil;
+      const right =
+        fg(C.primary, "Enter") +
+        fg(C.textTertiary, " select") +
+        fg(C.textTertiary, "  \u00b7  ") +
+        (escLit ? fg(C.danger, "Esc cancel") : fg(C.textTertiary, "Esc cancel"));
+      const rw = visibleWidth(right);
+      const gap = Math.max(1, w - rw);
+      return " ".repeat(gap) + right;
+    };
+  } catch {}
 
   // Keyboard hint row — ALWAYS under the text box, with dynamic violet
   // illumination (the TUI accent = home violet):
@@ -390,7 +437,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     const lit = (s: string) => bold(fg(C.primary, s));
     const quiet = (s: string) => fg(C.textTertiary, s);
     const menuActive = !!((editor as any)?.autocompleteState && (editor as any)?.autocompleteList);
-    const canSend = hasText() && !streaming;
+    const canSend = hasText() && !streaming && !menuActive;
     const canSteer = streaming && hasText();
     const escLit = Date.now() < escFlashUntil;
 
@@ -526,29 +573,71 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   });
 
   // --- slash commands -----------------------------------------------------------
+  /** Rebuild the transcript from the saved history (the /reload command). */
+  const renderHistory = () => {
+    try {
+      content.clear();
+      const msgs: any[] = (session.messages || []) as any[];
+      for (const m of msgs) {
+        if (m.role === "user") {
+          let t = "";
+          const c = m.content;
+          if (typeof c === "string") t = c;
+          else if (Array.isArray(c)) t = c.filter((b: any) => b?.type === "text").map((b: any) => b.text).join("\n");
+          if (t.trim()) content.addChild(new Text(t, 2, 1, (s: string) => bg(C.bubbleUser, s)));
+        } else if (m.role === "assistant") {
+          const c = m.content;
+          let think = "";
+          let text = "";
+          if (Array.isArray(c)) {
+            for (const b of c) {
+              if (b?.type === "text") text += b.text || "";
+              else if (b?.type === "thinking" || b?.type === "reasoning") think += b.thinking || b.text || "";
+            }
+          } else if (typeof c === "string") {
+            text = c;
+          }
+          if (think.trim()) content.addChild(new Text(collapsed(C.thinking, "\u25b8 Thinking \u00b7 " + truncate(think, 80)), 1, 0));
+          if (text.trim()) content.addChild(new Markdown(text, 1, 0, mdTheme));
+        }
+      }
+      scrollToEnd();
+    } catch {}
+  };
+
   const handleSlash = (raw: string) => {
     const parts = raw.slice(1).split(/\s+/);
     const cmd = (parts.shift() || "").toLowerCase();
     const arg = parts.join(" ").trim();
     switch (cmd) {
-      case "mode": {
-        if (arg === "plan" || arg === "build") mode = arg;
-        else toggleMode();
-        break;
-      }
       case "thinking": {
-        thinkingOn = !thinkingOn;
+        thinkingOn = arg === "off" ? false : arg === "on" ? true : !thinkingOn;
         try {
           session.setThinkingLevel?.(thinkingOn ? "xhigh" : "off");
         } catch {}
         break;
       }
-      case "copy": {
-        if (lastAssistantText) {
-          try {
-            execSync("pbcopy", { input: lastAssistantText });
-          } catch {}
+      case "compaction": {
+        try {
+          if (arg === "now") {
+            void Promise.resolve(session.compact?.()).catch(() => {});
+          } else if (arg === "enable" || arg === "disable") {
+            const en = arg === "enable";
+            if (typeof (session as any).setCompactionEnabled === "function") (session as any).setCompactionEnabled(en);
+            else {
+              const sm: any = (session as any).settingsManager;
+              if (sm && typeof sm.setCompactionEnabled === "function") sm.setCompactionEnabled(en);
+            }
+          }
+        } catch {}
+        break;
+      }
+      case "reload": {
+        if (welcomeShown) {
+          welcomeShown = false;
+          applyLayout(false);
         }
+        renderHistory();
         break;
       }
       case "export": {
@@ -574,7 +663,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         break;
       }
       case "quit": {
-        shutdown();
+        if (arg === "yes") shutdown();
         break;
       }
     }

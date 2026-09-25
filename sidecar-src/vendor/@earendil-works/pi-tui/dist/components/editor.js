@@ -476,15 +476,26 @@ export class Editor {
         }
         result.push(qEdge() + qPaint(" ".repeat(width - 1)));
         // QUINKI PATCH (25 set): the command menu is a floating panel ABOVE the box:
-        // same width, same background, 1-row gap between menu and box.
+        // same width, same background, 1-row gap; padded rows; footer hints row.
         if (this.autocompleteState && this.autocompleteList) {
             const autocompleteResult = this.autocompleteList.render(contentWidth + 1);
-            const acLines = [];
+            const acPadRow = " " + qPaint(" ".repeat(width - 1));
+            const acLines = [acPadRow];
             for (const line of autocompleteResult) {
                 const lineWidth = visibleWidth(line);
                 const linePadding = " ".repeat(Math.max(0, contentWidth + 1 - lineWidth));
                 acLines.push(" " + qPaint(`${leftPadding}${line}${linePadding}${rightPadding}`));
             }
+            if (typeof this.menuFooterFn === "function") {
+                try {
+                    const mf = String(this.menuFooterFn(contentWidth + 1) ?? "");
+                    const mfw = visibleWidth(mf);
+                    const mfPad = " ".repeat(Math.max(0, contentWidth + 1 - mfw));
+                    acLines.push(" " + qPaint(`${leftPadding}${mf}${mfPad}${rightPadding}`));
+                }
+                catch { }
+            }
+            acLines.push(acPadRow);
             result.unshift(...acLines, "");
         }
         return result;
@@ -557,6 +568,8 @@ export class Editor {
                 if (selected && this.autocompleteProvider) {
                     this.pushUndoSnapshot();
                     this.lastAction = null;
+                    // QUINKI PATCH (25 set): recompute the prefix fresh (stale-prefix race).
+                    this.autocompletePrefix = this.qFreshPrefix();
                     const result = this.autocompleteProvider.applyCompletion(this.state.lines, this.state.cursorLine, this.state.cursorCol, selected, this.autocompletePrefix);
                     this.state.lines = result.lines;
                     this.state.cursorLine = result.cursorLine;
@@ -572,13 +585,21 @@ export class Editor {
                 if (selected && this.autocompleteProvider) {
                     this.pushUndoSnapshot();
                     this.lastAction = null;
+                    // QUINKI PATCH (25 set): recompute the prefix fresh (stale-prefix race).
+                    this.autocompletePrefix = this.qFreshPrefix();
                     const result = this.autocompleteProvider.applyCompletion(this.state.lines, this.state.cursorLine, this.state.cursorCol, selected, this.autocompletePrefix);
                     this.state.lines = result.lines;
                     this.state.cursorLine = result.cursorLine;
                     this.setCursorCol(result.cursorCol);
                     if (this.autocompletePrefix.startsWith("/")) {
+                        // QUINKI PATCH (25 set): selecting a slash command does NOT submit —
+                        // re-open the menu for the command's options (app-style submenu).
+                        // Commands without options just close the menu; Enter again runs them.
                         this.cancelAutocomplete();
-                        // Fall through to submit
+                        if (this.onChange)
+                            this.onChange(this.getText());
+                        this.tryTriggerAutocomplete();
+                        return;
                     }
                     else {
                         this.cancelAutocomplete();
@@ -1823,6 +1844,16 @@ export class Editor {
     }
     tryTriggerAutocomplete(explicitTab = false) {
         this.requestAutocomplete({ force: false, explicitTab });
+    }
+    /** QUINKI PATCH (25 set): fresh autocomplete prefix from the current line
+     *  (the tracked this.autocompletePrefix can lag behind async requests). */
+    qFreshPrefix() {
+        const cur = (this.state.lines[this.state.cursorLine] || "").slice(0, this.state.cursorCol);
+        if (cur.startsWith("/")) {
+            const sp = cur.indexOf(" ");
+            return sp === -1 ? cur : cur.slice(sp + 1);
+        }
+        return this.autocompletePrefix;
     }
     handleTabCompletion() {
         if (!this.autocompleteProvider)

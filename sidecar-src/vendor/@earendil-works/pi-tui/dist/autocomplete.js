@@ -216,7 +216,7 @@ export class CombinedAutocompleteProvider {
                     const fullDesc = hint ? (desc ? `${hint} — ${desc}` : hint) : desc;
                     return {
                         name,
-                        label: name,
+                        label: "/" + name, // QUINKI PATCH (25 set): commands shown with the slash symbol
                         description: fullDesc || undefined,
                     };
                 });
@@ -288,7 +288,7 @@ export class CombinedAutocompleteProvider {
         if (prefix.startsWith("@")) {
             // This is a file attachment completion
             // Don't add space after directories so user can continue autocompleting
-            const isDirectory = item.label.endsWith("/");
+            const isDirectory = String(item.label || item.value || "").endsWith("/"); // QUINKI PATCH: label may be missing
             const suffix = isDirectory ? "" : " ";
             const newLine = `${beforePrefix + item.value}${suffix}${adjustedAfterCursor}`;
             const newLines = [...lines];
@@ -308,7 +308,7 @@ export class CombinedAutocompleteProvider {
             const newLine = beforePrefix + item.value + adjustedAfterCursor;
             const newLines = [...lines];
             newLines[cursorLine] = newLine;
-            const isDirectory = item.label.endsWith("/");
+            const isDirectory = String(item.label || item.value || "").endsWith("/"); // QUINKI PATCH: label may be missing
             const hasTrailingQuote = item.value.endsWith('"');
             const cursorOffset = isDirectory && hasTrailingQuote ? item.value.length - 1 : item.value.length;
             return {
