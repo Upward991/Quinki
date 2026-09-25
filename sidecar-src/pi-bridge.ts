@@ -4531,7 +4531,7 @@ Read this file to view it.` }] };
 
   // === Reload session: dispose Pi + il prossimo send riapre rileggendo il .jsonl aggiornato ===
   // Usato dopo injectErrorExchange per far "vedere" al modello i messaggi iniettati.
-  #imagesStripped = new Set<string>();
+  #imagesStripped = new Map<string, number>();
 
   // === 400 "model does not support image input": MAI bloccare una chat ===
   // Sostituisce TUTTE le parti immagine salvate nella sessione (screenshot
@@ -8257,13 +8257,17 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
               // dal contesto (segnaposto), ricarichiamo la sessione e riprendiamo da soli.
               try {
                 const imgErr = /does not support image|image input is not supported|unsupported.*image|image.*not.*support|no vision|without vision/i.test(errMsg);
-                if (imgErr && !this.#imagesStripped.has(key)) {
-                  this.#imagesStripped.add(key);
+                const imgTries = this.#imagesStripped.get(key) || 0;
+                if (imgErr && imgTries < 2) {
+                  this.#imagesStripped.set(key, imgTries + 1);
                   const nImgs = this.#stripImagesForKey(key);
-                  this.logDebug("auto-strip-images", { sessionKey: key, replaced: nImgs, error: errMsg.slice(0, 120) });
-                  try { this.reloadSession(key); } catch {}
+                  this.logDebug("auto-strip-images", { sessionKey: key, replaced: nImgs, try: imgTries + 1, error: errMsg.slice(0, 120) });
+                  // Il reload va fatto a turno COMPLETAMENTE finito (1.5s): se il
+                  // buffer di streaming e' ancora attivo il dispose verrebbe
+                  // saltato e le immagini resterebbero in memoria -> loop di 400.
                   setTimeout(() => {
                     if (this.#stoppedSessions.has(key)) return;
+                    try { this.reloadSession(key); } catch {}
                     const fakeWs = { readyState: 1, constructor: { OPEN: 1 }, send: () => {} };
                     this.send(fakeWs, { sessionKey: key, text: "The previous request failed because the current model cannot receive images. All images have been removed from the context. Please continue and complete your response without them." }, 2000);
                   }, 1500);
