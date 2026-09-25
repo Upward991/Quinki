@@ -1,0 +1,10 @@
+/Users/andreamaddalena/Projects/Quinki/shell/src-tauri/target/debug/deps/litemap-30d04d36707c9327.d: /Users/andreamaddalena/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.3/src/lib.rs /Users/andreamaddalena/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.3/src/map.rs /Users/andreamaddalena/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.3/src/store/mod.rs /Users/andreamaddalena/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.3/src/store/slice_impl.rs
+
+/Users/andreamaddalena/Projects/Quinki/shell/src-tauri/target/debug/deps/liblitemap-30d04d36707c9327.rlib: /Users/andreamaddalena/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.3/src/lib.rs /Users/andreamaddalena/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.3/src/map.rs /Users/andreamaddalena/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.3/src/store/mod.rs /Users/andreamaddalena/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.3/src/store/slice_impl.rs
+
+/Users/andreamaddalena/Projects/Quinki/shell/src-tauri/target/debug/deps/liblitemap-30d04d36707c9327.rmeta: /Users/andreamaddalena/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.3/src/lib.rs /Users/andreamaddalena/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.3/src/map.rs /Users/andreamaddalena/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.3/src/store/mod.rs /Users/andreamaddalena/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.3/src/store/slice_impl.rs
+
+/Users/andreamaddalena/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.3/src/lib.rs:
+/Users/andreamaddalena/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.3/src/map.rs:
+/Users/andreamaddalena/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.3/src/store/mod.rs:
+/Users/andreamaddalena/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.3/src/store/slice_impl.rs:
