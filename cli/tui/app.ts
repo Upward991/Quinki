@@ -210,7 +210,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   const editorTheme = {
     borderColor: (s: string) => fg(C.border, s),
     selectList: {
-      selectedPrefix: (s: string) => fg(C.info, s),
+      selectedPrefix: (s: string) => fg(C.primary, s),
       selectedText: (s: string) => fg(C.text, s),
       description: (s: string) => fg(C.textSecondary, s),
       scrollInfo: (s: string) => fg(C.textTertiary, s),
@@ -302,8 +302,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   let thinkingText = "";
   let welcomeShown = true;
 
-  const accent = C.info; // --q-tab-accent in the main app
-  const accentDarker = blend(accent, "#000000", 0.82); // --q-tab-accent-darker
+  // TUI accent = VIOLET (the app's home/primary accent — deliberately different
+  // from the chat's blue, so the CLI is its own thing).
+  const accent = C.primary;
 
   const hasText = () => {
     try {
@@ -326,12 +327,13 @@ export async function runTui(opts: TuiOptions): Promise<void> {
 
     const chip = (enabled: boolean, glyph: string) =>
       enabled
-        ? bgKeepPanel(accentDarker, fg(C.bg, ` ${bold(glyph)} `))
+        ? bgKeepPanel(accent, fg(C.bg, ` ${bold(glyph)} `))
         : bgKeepPanel(C.bgElevated, fg(C.textTertiary, ` ${glyph} `));
     const steerEnabled = streaming && hasText();
     const sendEnabled = hasText() && !streaming;
-    const stop = bgKeepPanel(C.bgElevated, fg(C.danger, " \u25a0 "));
-    const steer = chip(steerEnabled, "\u21c8"); // double chevron up (app steer icon)
+    // Stop: red square with a visible outline (app button has a border box).
+    const stop = fg(C.border, "\u258c") + fg(C.danger, "\u25a0") + fg(C.border, "\u2590");
+    const steer = chip(steerEnabled, "\u219f"); // upwards two-headed arrow (app steer icon)
     const send = chip(sendEnabled, "\u2191");
     // Perfectly symmetric: three identical 3-wide cells, single-space gaps.
     const right = `${stop} ${steer} ${send}`;
