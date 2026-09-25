@@ -866,7 +866,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         thinkingText = "";
         if (e?.message?.stopReason === "error") setStatus("Failed", "failed");
       } else if (e?.type === "auto_retry_start") {
-        setStatus(`Retrying ${e.attempt || 1}/${e.maxAttempts || 6}`, "retrying");
+        setStatus(`Retrying ${e.attempt || 1}/${e.maxAttempts || 3}`, "retrying");
       } else if (e?.type === "auto_retry_end") {
         if (e.success) setStatus("Running", "running");
         else setStatus("Failed", "failed");
