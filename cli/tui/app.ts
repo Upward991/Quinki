@@ -600,6 +600,16 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   let menuLastFilter = ""; // to reset the selection when the filter changes
   let menuOpenRef: (() => boolean) | null = null;
   let menuNavRef: ((a: "up" | "down" | "left" | "right" | "enter" | "escape") => void) | null = null;
+  // Status pill (app-style): Running (teal) / Compacting (blue) / Failed (red).
+  let statusLabel = "";
+  let statusKind = "";
+  const setStatus = (label: string, kind: string) => {
+    statusLabel = label;
+    statusKind = kind;
+    try {
+      ui.requestRender();
+    } catch {}
+  };
 
   const toggleMode = () => {
     mode = mode === "plan" ? "build" : "plan";
@@ -641,7 +651,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     const sep = fg(C.textTertiary, "  \u00b7  ");
     const quiet = (s: string) => fg(C.textTertiary, s);
     const modeStr = mode === "plan" ? fg(C.modePlan, "Plan") : fg(C.modeBuild, "Build");
-    return (
+    const bar =
       modeStr +
       sep +
       ctxStr +
@@ -650,8 +660,25 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       sep +
       quiet("thinking " + (thinkingOn ? "on" : "off")) +
       sep +
-      quiet(dir)
-    );
+      quiet(dir);
+    // Status pill (app-style): same row as the info, right-aligned — visible
+    // only while the engine streams / compacts (Failed stays until next turn).
+    const pillOn = !!statusLabel && (streaming || statusKind === "compacting" || statusKind === "failed");
+    if (!pillOn) return bar;
+    const statusColor: Record<string, string> = {
+      running: C.statusRunning,
+      compacting: C.statusCompacting,
+      failed: C.danger,
+      retrying: C.modeBuild,
+      thinking: C.thinking,
+      writing: C.statusWriting,
+      tool_call: C.toolCall,
+      tool_result: C.toolResult,
+      tool_error: C.danger,
+    };
+    const pill = fg(statusColor[statusKind] || C.text, statusLabel);
+    const gap = Math.max(1, width - visibleWidth(bar) - visibleWidth(pill));
+    return bar + " ".repeat(gap) + pill;
   };
   try {
     (editor as any).footerLine = (w: number) => buildBarLine(w);
@@ -788,6 +815,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     try {
       if (e?.type === "agent_start") {
         streaming = true;
+        setStatus("Running", "running");
         updateBar();
       } else if (
         e?.type === "message_update" &&
@@ -828,8 +856,14 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         assistantText = "";
         thinkingRow = null;
         thinkingText = "";
+        if (e?.message?.stopReason === "error") setStatus("Failed", "failed");
+      } else if (e?.type === "compaction_start") {
+        setStatus("Compacting", "compacting");
+      } else if (e?.type === "compaction_end") {
+        if (statusKind === "compacting") setStatus("", "");
       } else if (e?.type === "agent_end") {
         streaming = false;
+        if (statusKind !== "failed") setStatus("", "");
         updateCtx();
         updateBar();
       }
@@ -902,6 +936,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   const recreateSession = async (o: { clearMessages?: boolean; newCwd?: string; newSessionDir?: string; newKey?: string }) => {
     try {
       streaming = false;
+      setStatus("", "");
       try {
         session.dispose?.();
       } catch {}
@@ -1000,7 +1035,14 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       case "compaction": {
         try {
           if (arg === "now") {
-            void Promise.resolve(session.compact?.()).catch(() => {});
+            // The pill comes from the compaction_start/end events (also covers
+            // auto-compaction); the finally() is the safety net (a failed/too-small
+            // compaction must never leave the pill stuck).
+            void Promise.resolve(session.compact?.())
+              .catch(() => {})
+              .finally(() => {
+                if (statusKind === "compacting") setStatus("", "");
+              });
           } else if (arg === "enable" || arg === "disable") {
             const en = arg === "enable";
             if (typeof (session as any).setAutoCompactionEnabled === "function") (session as any).setAutoCompactionEnabled(en);
