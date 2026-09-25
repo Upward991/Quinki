@@ -147,8 +147,16 @@ export function estimateContextTokens(messages) {
     for (let i = usageInfo.index + 1; i < messages.length; i++) {
         trailingTokens += estimateTokens(messages[i]);
     }
+    // PATCH (Quinki): il provider puo' NON conteggiare (bene) le immagini nel suo
+    // usage -> il % restava al 60% col contesto reale al 100%. Ora si prende il
+    // MAGGIORE tra uso reale e la nostra stima completa (testo BPE + immagini +
+    // ogni altro binario): il % e la compaction vedono SEMPRE il peso vero.
+    let ownAll = 0;
+    for (let i = 0; i <= usageInfo.index && i < messages.length; i++) {
+        ownAll += estimateTokens(messages[i]);
+    }
     return {
-        tokens: usageTokens + trailingTokens,
+        tokens: Math.max(usageTokens + trailingTokens, ownAll + trailingTokens),
         usageTokens,
         trailingTokens,
         lastUsageIndex: usageInfo.index,
@@ -167,6 +175,16 @@ export function shouldCompact(contextTokens, contextWindow, settings) {
 // ============================================================================
 const ESTIMATED_IMAGE_CHARS = 4800;
 function estimateTextAndImageContentChars(content) {
+    // PATCH (Quinki): immagini/altri binari col peso reale.
+    if (typeof content === "string") return content.length;
+    var _c = 0;
+    for (const block of content) {
+        if (block.type === "text" && block.text) _c += block.text.length;
+        else if ((block.type === "image" || (block.data && typeof block.data === "string"))) _c += (typeof block.data === "string" ? Math.max(4000, Math.min(80000, block.data.length)) : 4000);
+    }
+    return _c;
+}
+function estimateTextAndImageContentChars_QUINKI_UNUSED(content) {
     if (typeof content === "string") {
         return content.length;
     }
@@ -227,6 +245,12 @@ export function estimateTokens(message) {
     }
     return 0;
 }
+function estimateBinaryTokens(data) {
+    // ~400 caratteri base64 per token; clamp ragionevole per qualunque formato.
+    const len = typeof data === "string" ? data.length : 0;
+    if (len <= 0) return 1000;
+    return Math.max(1000, Math.min(20000, Math.ceil(len / 400)));
+}
 function estimateTextAndImageContentTokens(content) {
     if (typeof content === "string") {
         return bpeTokens(content);
@@ -237,7 +261,14 @@ function estimateTextAndImageContentTokens(content) {
             tokens += bpeTokens(block.text);
         }
         else if (block.type === "image") {
-            tokens += Math.ceil(ESTIMATED_IMAGE_CHARS / 4);
+            // PATCH (Quinki): stima REALE dalla dimensione (prima era un valore fisso
+            // minuscolo -> il % del contesto e la compaction NON vedevano le immagini:
+            // 60% mostrato mentre il contesto vero era al 100%).
+            tokens += estimateBinaryTokens(block.data);
+        }
+        else if (typeof block.data === "string" && block.data.length > 0) {
+            // Formati futuri (audio, video, pdf...): conteggiati comunque.
+            tokens += estimateBinaryTokens(block.data);
         }
     }
     return tokens;
