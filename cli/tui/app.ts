@@ -331,6 +331,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           if (data.length === 1 && data >= " " && data !== "\x7f") {
             menuSubFilter += data;
             menuSel = 0;
+            menuConfirmFocus = false;
             try {
               ui.requestRender();
             } catch {}
@@ -339,6 +340,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           if (data === "\x7f" || data === "\x08" || matchesKey(data, "backspace")) {
             menuSubFilter = menuSubFilter.slice(0, -1);
             menuSel = 0;
+            menuConfirmFocus = false;
             try {
               ui.requestRender();
             } catch {}
@@ -397,6 +399,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   let menuSub: string | null = null; // command name while inside its submenu
   let menuSubFilter = ""; // filter typed inside a submenu
   let menuSel = 0; // selected row
+  let menuConfirmFocus = false; // → focused the Confirm action (app NavBar focusConfirm)
   let menuLastFilter = ""; // to reset the selection when the filter changes
   let menuOpenRef: (() => boolean) | null = null;
   let menuNavRef: ((a: "up" | "down" | "left" | "right" | "enter" | "escape") => void) | null = null;
@@ -785,7 +788,10 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       if (!menuOpen()) return;
       const items = menuSub ? subItems(menuSub) : mainItems();
       if (a === "escape") {
-        if (menuSub) {
+        if (menuConfirmFocus) {
+          // First Esc: leave the Confirm focus (stay in the menu).
+          menuConfirmFocus = false;
+        } else if (menuSub) {
           menuSub = null;
           menuSubFilter = "";
           menuSel = 0;
@@ -796,29 +802,39 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           menuSel = 0;
         }
       } else if (a === "up") {
+        menuConfirmFocus = false;
         menuSel = Math.max(0, menuSel - 1);
       } else if (a === "down") {
+        menuConfirmFocus = false;
         menuSel = Math.min(Math.max(0, items.length - 1), menuSel + 1);
       } else if (a === "left") {
+        menuConfirmFocus = false;
         if (menuSub) {
           menuSub = null;
           menuSubFilter = "";
           menuSel = 0;
         }
       } else if (a === "right") {
-        // Forward ONLY — it NEVER confirms: just open the submenu when there is one.
-        // When the menus run out, → does nothing (Enter is the confirmer).
-        if (!menuSub) {
+        // Forward ONLY — it NEVER executes. At the end of the levels it FOCUSES
+        // Confirm (violet filled, like the app's NavBar focusConfirm); Enter runs.
+        if (menuConfirmFocus) {
+          // Already focused: stays lit (Enter confirms).
+        } else if (menuSub) {
+          menuConfirmFocus = true; // option = terminal level
+        } else {
           const it: any = items[menuSel];
           const cmd: any = it ? commands.find((c) => c.name === it.value) : null;
           if (cmd && typeof cmd.getArgumentCompletions === "function") {
             menuSub = cmd.name;
             menuSubFilter = "";
             menuSel = 0;
+          } else if (cmd) {
+            menuConfirmFocus = true; // command without options: end of the road
           }
         }
       } else {
         // enter = Confirm: run the option, open the submenu, or run the command.
+        menuConfirmFocus = false;
         const it: any = items[menuSel];
         if (!it) return;
         if (menuSub) {
@@ -857,9 +873,13 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         menuSub = null;
         menuSubFilter = "";
         menuSel = 0;
+        menuConfirmFocus = false;
       }
       const mainOpen = !menuSub && t.startsWith("/");
-      if (!mainOpen && !menuSub) return [];
+      if (!mainOpen && !menuSub) {
+        menuConfirmFocus = false;
+        return [];
+      }
       let items: any[];
       if (menuSub) {
         items = subItems(menuSub);
@@ -868,6 +888,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         if (f !== menuLastFilter) {
           menuLastFilter = f;
           menuSel = 0;
+          menuConfirmFocus = false;
         }
         items = mainItems();
       }
@@ -890,23 +911,14 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         else rows.push(fg(C.textSecondary, label) + " ".repeat(gap) + fg(C.textTertiary, desc));
       }
       // Blank separator, then the footer on ONE row (app NavBar style):
-      // left ↑ ↓ ← → (navigation) — right Esc (red) · Confirm (filled violet
-      // like the selected slash rows when Enter would execute; plain violet
-      // while forward is still available).
+      // left ↑ ↓ ← → (navigation) — right Esc (red) · Confirm (filled violet,
+      // like the selected slash rows, while FOCUSED via → — Enter runs it).
       rows.push("");
-      const selIt: any = items.length ? items[Math.min(menuSel, items.length - 1)] : null;
-      let confirmReady = false;
-      if (menuSub) {
-        confirmReady = true; // inside a submenu Enter executes the option
-      } else if (selIt) {
-        const cmd: any = commands.find((c) => c.name === selIt.value);
-        confirmReady = !!cmd && typeof cmd.getArgumentCompletions !== "function";
-      }
       const left = fg(C.textSecondary, "\u2191 \u2193 \u2190 \u2192");
       const right =
         fg(C.danger, "Esc") +
         "  " +
-        (confirmReady ? bold(bg(C.primary, fg(C.bgPanel, " Confirm "))) : fg(C.primary, "Confirm"));
+        (menuConfirmFocus ? bold(bg(C.primary, fg(C.bgPanel, " Confirm "))) : fg(C.primary, "Confirm"));
       const gw = Math.max(1, w - visibleWidth(left) - visibleWidth(right));
       rows.push(left + " ".repeat(gw) + right);
       return rows;
