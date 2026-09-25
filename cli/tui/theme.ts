@@ -68,6 +68,17 @@ export const dimStyle = (s: string) => (colorEnabled ? `\x1b[2m${s}\x1b[22m` : s
 /** Collapsed row color: 50% of the base color over the screen bg (like the app). */
 export const collapsed = (color: string, s: string) => fg(blend(color, C.bg, 0.5), s);
 
+// --- panel-aware background (keeps the floating-panel bg after the cell) -------
+const PANEL_RGB = (() => {
+  const h = C.bgPanel.replace("#", "");
+  return `${parseInt(h.slice(0, 2), 16)};${parseInt(h.slice(2, 4), 16)};${parseInt(h.slice(4, 6), 16)}`;
+})();
+
+/** Like bg(), but restores the panel background instead of the terminal default
+ *  (inside the composer/header blocks the row background must stay uniform). */
+export const bgKeepPanel = (color: string, s: string) =>
+  colorEnabled ? `\x1b[48;2;${hexToRgb(color).join(";")}m${s}\x1b[48;2;${PANEL_RGB}m` : s;
+
 /** Context counter color — same thresholds and colors as the app. */
 export function counterColor(pct: number): string {
   if (pct >= 80) return C.danger;

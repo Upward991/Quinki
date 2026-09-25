@@ -408,7 +408,11 @@ export class Editor {
         const rightPadding = leftPadding;
         // Render top border (with scroll indicator if scrolled down)
         // QUINKI PATCH (25 set, iter6): floating-panel block — NO borders, full-width background.
-        const qPaint = (s) => (typeof this.bgFn === "function" ? this.bgFn(s) : s);
+        const qPaint = (raw) => {
+            // Keep the panel background even through inner full resets (cursor cells use \x1b[0m).
+            const s = String(raw).replace(/\x1b\[0m/g, "\x1b[22m\x1b[23m\x1b[24m\x1b[27m\x1b[39m");
+            return typeof this.bgFn === "function" ? this.bgFn(s) : s;
+        };
         result.push(qPaint(" ".repeat(width)));
         // Render each visible layout line
         // Emit hardware cursor marker when focused so TUI can position the

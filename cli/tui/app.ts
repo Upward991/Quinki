@@ -12,6 +12,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { execSync } from "node:child_process";
 
 import {
   TuiAltScreen,
@@ -24,10 +25,11 @@ import {
   ScrollView,
   Container,
   Spacer,
+  CombinedAutocompleteProvider,
   visibleWidth,
 } from "../../sidecar-src/vendor/@earendil-works/pi-tui/dist/index.js";
 
-import { C, fg, bg, collapsed, counterColor, blend, bold } from "./theme";
+import { C, fg, bg, bgKeepPanel, collapsed, counterColor, blend, bold } from "./theme";
 
 // Engine (bundled at build time — literal specifiers only).
 import * as sdk from "../../sidecar-src/vendor/@earendil-works/pi-coding-agent/dist/index.js";
@@ -46,7 +48,7 @@ class CenterBox {
     this.child = child;
   }
   render(width: number): string[] {
-    const colW = Math.max(20, Math.min(width - 4, 112));
+    const colW = Math.max(20, Math.min(width - 8, 168));
     const left = Math.floor((width - colW) / 2);
     const right = Math.max(0, width - colW - left);
     const inner = colW;
@@ -67,20 +69,27 @@ class BgBlock {
   child: any;
   pad: number;
   paint: (s: string) => string;
-  constructor(child: any, pad: number, paint: (s: string) => string) {
+  padY: number;
+  constructor(child: any, pad: number, paint: (s: string) => string, padY = 0) {
     this.child = child;
     this.pad = pad;
     this.paint = paint;
+    this.padY = padY;
   }
   render(width: number): string[] {
     const inner = Math.max(1, width - this.pad * 2);
     const lines = this.child?.render(inner) || [];
     const l = " ".repeat(this.pad);
     const r = " ".repeat(this.pad);
-    return lines.map((line: string) => {
+    const out: string[] = [];
+    const blank = this.paint(" ".repeat(width));
+    for (let i = 0; i < this.padY; i++) out.push(blank);
+    for (const line of lines) {
       const fill = " ".repeat(Math.max(0, inner - visibleWidth(line)));
-      return this.paint(l + line + fill + r);
-    });
+      out.push(this.paint(l + line + fill + r));
+    }
+    for (let i = 0; i < this.padY; i++) out.push(blank);
+    return out;
   }
   invalidate() {
     try {
@@ -109,6 +118,36 @@ class RuleLine {
     return [fg(C.border, "\u2500".repeat(Math.max(0, width)))];
   }
   invalidate() {}
+}
+
+/** Welcome root: the box + hints, centered EXACTLY (manual math, both axes). */
+class WelcomeRoot {
+  box: any;
+  hint: any;
+  termFn: () => number;
+  constructor(box: any, hint: any, termFn: () => number) {
+    this.box = box;
+    this.hint = hint;
+    this.termFn = termFn;
+  }
+  render(width: number): string[] {
+    const rows = Math.max(12, this.termFn() || 24);
+    const boxLines = this.box?.render(width) || [];
+    const hintLines = this.hint?.render(width) || [];
+    const group = boxLines.length + 1 + hintLines.length;
+    const top = Math.max(0, Math.floor((rows - group) / 2));
+    const out: string[] = [];
+    for (let i = 0; i < top; i++) out.push("");
+    out.push(...boxLines, "", ...hintLines);
+    while (out.length < rows) out.push("");
+    return out;
+  }
+  invalidate() {
+    try {
+      this.box?.invalidate?.();
+      this.hint?.invalidate?.();
+    } catch {}
+  }
 }
 
 function truncate(s: string, n: number): string {
@@ -160,7 +199,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   // Header (fixed, top): chat icon + title ONLY, drawn as a floating-panel block
   // (plain background color, no border) — same width as the composer and chat.
   const titleText = new Text("", 0, 0);
-  const header = new BgBlock(titleText, 1, (s: string) => bg(C.bgPanel, s));
+  const header = new BgBlock(titleText, 1, (s: string) => bg(C.bgPanel, s), 1);
   titleText.setText(fg(C.textSecondary, "\u25a4") + " " + fg(C.text, "New chat"));
 
   // Chat transcript (scrolls, grows)
@@ -183,18 +222,44 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     (editor as any).bgFn = (s: string) => bg(C.bgPanel, s);
   } catch {}
 
+  // Slash commands — ONLY commands that actually work in the TUI.
+  const commands = [
+    { name: "help", description: "Show commands and key hints" },
+    { name: "mode", description: "Toggle plan/build (or: /mode plan | /mode build)" },
+    { name: "thinking", description: "Toggle thinking on/off (on = always max)" },
+    { name: "copy", description: "Copy the last reply to the clipboard" },
+    { name: "export", description: "Export this chat as Markdown" },
+    { name: "quit", description: "Exit quinki" },
+  ];
+  try {
+    const fdPath = fs.existsSync(path.join(opts.agentDir, "bin", "fd"))
+      ? path.join(opts.agentDir, "bin", "fd")
+      : undefined;
+    (editor as any).setAutocompleteProvider(
+      new (CombinedAutocompleteProvider as any)(commands, opts.cwd, fdPath)
+    );
+    (editor as any).setAutocompleteMaxVisible?.(8);
+  } catch {}
+
+  // Tab = toggle plan/build (app behaviour), intercepted at the TUI level.
+  try {
+    ui.addInputListener((data: string) => {
+      if (data === "\t" || data === "\x1b[9u" || data === "\x1b[9;1u") {
+        toggleModeRef?.();
+        return { consume: true };
+      }
+      return undefined;
+    });
+  } catch {}
+
   const boxWrap = new CenterBox(editor) as any;
+  let welcomeRootRef: any = null;
   const applyLayout = (welcome: boolean) => {
     try {
       const headerWrap = new CenterBox(header) as any;
       const root = welcome
-        ? new VStack([
-            { component: headerWrap, basis: "auto", grow: 0, shrink: 0, minSize: 1 },
-            { component: new Spacer(1) as any, basis: 0, grow: 1, shrink: 1, minSize: 0 },
-            { component: boxWrap, basis: "auto", grow: 0, shrink: 1, minSize: 5 },
-            { component: new CenterBox(welcomeBlock) as any, basis: "auto", grow: 0, shrink: 0, minSize: 1 },
-            { component: new Spacer(1) as any, basis: 0, grow: 1, shrink: 1, minSize: 0 },
-          ])
+        ? (welcomeRootRef ||
+            new WelcomeRoot(boxWrap, new CenterBox(welcomeBlock) as any, () => (ui as any)?.terminal?.rows || 24))
         : new VStack([
             { component: headerWrap, basis: "auto", grow: 0, shrink: 0, minSize: 1 },
             { component: new CenterBox(scroll) as any, basis: 0, grow: 1, shrink: 1, minSize: 1 },
@@ -216,9 +281,20 @@ export async function runTui(opts: TuiOptions): Promise<void> {
 
   // --- state ------------------------------------------------------------------
   let streaming = false;
-  const mode: "plan" | "build" = "build";
+  let mode: "plan" | "build" = "plan"; // app-like default: Plan
+  let thinkingOn = true; // On = always max level (engine semantics)
   let ctxTokens = 0;
   let ctxWindow = 0;
+  let lastAssistantText = "";
+  let toggleModeRef: (() => void) | null = null;
+
+  const toggleMode = () => {
+    mode = mode === "plan" ? "build" : "plan";
+    try {
+      ui.requestRender();
+    } catch {}
+  };
+  toggleModeRef = toggleMode;
 
   let assistant: any = null;
   let assistantText = "";
@@ -244,17 +320,17 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       counterColor(pct),
       `${fmtTok(ctxTokens)}/${fmtTok(ctxWindow)} (${Math.floor(pct)}% \u00b1 ${Math.ceil(pct * 0.05 + 1)}%)`
     );
-    const slash = ` ${bg(accent, fg(C.bg, " / "))} `;
+    const slash = ` ${bgKeepPanel(accent, fg(C.bg, " / "))} `;
     const modeStr = mode === "plan" ? fg(C.modePlan, "Plan") : bold(fg(C.modeBuild, "Build"));
     const left = `${slash}  ${modeStr}   ${ctxStr}`;
 
     const chip = (enabled: boolean, glyph: string) =>
       enabled
-        ? bg(accentDarker, fg(C.bg, ` ${bold(glyph)} `))
-        : bg(C.bgElevated, fg(C.textTertiary, ` ${glyph} `));
+        ? bgKeepPanel(accentDarker, fg(C.bg, ` ${bold(glyph)} `))
+        : bgKeepPanel(C.bgElevated, fg(C.textTertiary, ` ${glyph} `));
     const steerEnabled = streaming && hasText();
     const sendEnabled = hasText() && !streaming;
-    const stop = bg(C.bgElevated, fg(C.danger, " \u25a0 "));
+    const stop = bgKeepPanel(C.bgElevated, fg(C.danger, " \u25a0 "));
     const steer = chip(steerEnabled, "\u21c8"); // double chevron up (app steer icon)
     const send = chip(sendEnabled, "\u2191");
     // Perfectly symmetric: three identical 3-wide cells, single-space gaps.
@@ -382,6 +458,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         const col = isErr ? C.danger : C.toolResult;
         addRow(collapsed(col, `\u25b8 Tool result \u00b7 ${name}${isErr ? " \u00b7 error" : ""}`));
       } else if (e?.type === "message_end" && e?.message?.role === "assistant") {
+        if (assistantText) lastAssistantText = assistantText;
         assistant = null;
         assistantText = "";
         thinkingRow = null;
@@ -397,6 +474,90 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     } catch {}
   });
 
+  // --- slash commands -----------------------------------------------------------
+  const handleSlash = (raw: string) => {
+    // Leaving the welcome view so command output is visible.
+    if (welcomeShown) {
+      welcomeShown = false;
+      applyLayout(false);
+    }
+    const parts = raw.slice(1).split(/\s+/);
+    const cmd = (parts.shift() || "").toLowerCase();
+    const arg = parts.join(" ").trim();
+    switch (cmd) {
+      case "help": {
+        addRow(fg(C.textSecondary, "Commands"));
+        for (const c of commands) {
+          addRow(fg(C.info, "/" + c.name) + "  " + fg(C.textTertiary, c.description), 1);
+        }
+        addRow("");
+        addRow(fg(C.textTertiary, "Enter to send \u00b7 Esc to stop \u00b7 Tab to change mode"), 1);
+        break;
+      }
+      case "mode": {
+        if (arg === "plan" || arg === "build") mode = arg;
+        else toggleMode();
+        addRow(fg(C.textTertiary, "mode: " + (mode === "plan" ? "Plan" : "Build")), 1);
+        break;
+      }
+      case "thinking": {
+        thinkingOn = !thinkingOn;
+        try {
+          session.setThinkingLevel?.(thinkingOn ? "xhigh" : "off");
+        } catch {}
+        addRow(fg(C.textTertiary, "thinking: " + (thinkingOn ? "on" : "off")), 1);
+        break;
+      }
+      case "copy": {
+        if (!lastAssistantText) {
+          addRow(fg(C.textTertiary, "nothing to copy"), 1);
+          break;
+        }
+        try {
+          execSync("pbcopy", { input: lastAssistantText });
+          addRow(fg(C.textTertiary, "copied"), 1);
+        } catch {
+          addRow(fg(C.danger, "copy failed"), 1);
+        }
+        break;
+      }
+      case "export": {
+        try {
+          const msgs: any[] = (session.messages || []) as any[];
+          const out: string[] = ["# Quinki chat", ""];
+          for (const m of msgs) {
+            const role = m.role === "user" ? "You" : m.role === "assistant" ? "Quinki" : String(m.role);
+            let text = "";
+            const c = m.content;
+            if (typeof c === "string") text = c;
+            else if (Array.isArray(c)) {
+              text = c
+                .filter((b: any) => b?.type === "text")
+                .map((b: any) => b.text)
+                .join("\n");
+            }
+            if (text.trim()) out.push(`## ${role}`, "", text, "");
+          }
+          const file = path.join(opts.cwd, `quinki-chat-${Date.now().toString(36)}.md`);
+          fs.writeFileSync(file, out.join("\n"), "utf8");
+          addRow(fg(C.textTertiary, "exported: " + file), 1);
+        } catch (err: any) {
+          addRow(fg(C.danger, "export failed: " + truncate(String(err?.message || err), 80)), 1);
+        }
+        break;
+      }
+      case "quit": {
+        shutdown();
+        break;
+      }
+      default: {
+        addRow(fg(C.textTertiary, "unknown command: /" + cmd), 1);
+        break;
+      }
+    }
+    scrollToEnd();
+  };
+
   // --- input -------------------------------------------------------------------
   const shutdown = () => {
     try {
@@ -409,6 +570,13 @@ export async function runTui(opts: TuiOptions): Promise<void> {
 
   editor.onSubmit = (text: string) => {
     const t = (text || "").trim();
+    if (t.startsWith("/")) {
+      try {
+        editor.setText("");
+      } catch {}
+      handleSlash(t);
+      return;
+    }
     if (!t || streaming) return;
     editor.setText("");
     if (welcomeShown) {
