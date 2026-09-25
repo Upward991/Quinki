@@ -49,4 +49,15 @@ try {
   // best-effort: not critical for local use
 }
 
-await sdkMain.main(process.argv.slice(2));
+// --- 4. Project trust: trust by default (same zero-friction behavior as the app)
+// The SDK prompts "Trust project folder?" when a folder looks like it has
+// project resources — and running from $HOME hits that because ~/.quinki (the
+// data dir) literally sits there. The app never asks; the CLI shouldn't either.
+// Users can still opt back in to the prompt with --no-approve.
+const argv = process.argv.slice(2);
+const hasTrustFlag = argv.some(
+  (a) => a === "--approve" || a === "-a" || a === "--no-approve" || a === "-na"
+);
+const args = hasTrustFlag ? argv : [...argv, "--approve"];
+
+await sdkMain.main(args);
