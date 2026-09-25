@@ -360,13 +360,20 @@ class MainActivity : AppCompatActivity() {
     private fun handleNotificationIntent(intent: Intent?) {
         val sk = try { intent?.getStringExtra("sessionKey") } catch (e: Exception) { null }
         if (!sk.isNullOrEmpty()) {
+            // BUG (provato): senza questo, l'intent restava attaccato all'activity
+            // e OGNI resume/recreate riapriva la chat della VECCHIA notifica,
+            // spostando l'utente mentre era in un'altra chat.
+            try { intent?.removeExtra("sessionKey") } catch (e: Exception) { }
             try { PushService.debugLog("intent ricevuto sk=" + sk) } catch (e: Exception) { }
             pendingSessionKey = sk
             // Tentativi ripetuti: l'app web impiega qualche secondo a connettersi
-            // al WS; il primo tentativo utile vince, gli altri sono innocui.
+            // al WS. Ogni tentativo si ferma se: (a) l'iniezione e' gia' riuscita
+            // (pendingSessionKey svuotato), (b) l'utente nel frattempo ha aperto
+            // un'altra chat (pendingSessionKey diverso).
+            val gen = sk
             for (delay in longArrayOf(1200, 3000, 6000, 10000, 15000)) {
                 try {
-                    web.postDelayed({ injectOpenSession(sk) }, delay)
+                    web.postDelayed({ if (pendingSessionKey == gen) injectOpenSession(gen) }, delay)
                 } catch (e: Exception) { }
             }
         }
@@ -375,8 +382,15 @@ class MainActivity : AppCompatActivity() {
     private fun injectOpenSession(sk: String) {
         try {
             web.evaluateJavascript(
-                "window.__quinkiOpenSession && window.__quinkiOpenSession(" + org.json.JSONObject.quote(sk) + ")",
-                null
+                "(typeof window.__quinkiOpenSession === 'function' ? (window.__quinkiOpenSession(" + org.json.JSONObject.quote(sk) + "), 'ok') : 'no')",
+                { r ->
+                    try {
+                        if (r != null && r.contains("ok")) {
+                            // Consumata: ferma la scaletta e il reinject a ogni load.
+                            if (pendingSessionKey == sk) pendingSessionKey = ""
+                        }
+                    } catch (e: Exception) { }
+                }
             )
             try { PushService.debugLog("iniezione fatta sk=" + sk) } catch (e: Exception) { }
         } catch (e: Exception) { }

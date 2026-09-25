@@ -39,13 +39,13 @@ function TaskResultToggle({ run, sessionKey, defaultOpen, showClip }: { run: any
           <button onClick={(e) => { e.stopPropagation(); try { let respText = ''; for (const m of run.messages || []) { if (m.role === 'assistant' && m.content) respText += (m.content || '') + '\n\n' } const text = respText.trim() || run.label; window.dispatchEvent(new CustomEvent('quinki-task-clip', { detail: { id: run.id, label: run.label, text } })) } catch {} }}
             onMouseEnter={() => setClipHovered(true)} onMouseLeave={() => setClipHovered(false)}
             title="Clip to chat"
-            style={{ opacity: hovered ? 1 : 0, background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: 'var(--radius-sm)', color: clipHovered ? color : 'var(--q-text-tertiary)' }}>
+            style={{ opacity: (hovered || document.documentElement.classList.contains(`q-phone`)) ? 1 : 0, background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: 'var(--radius-sm)', color: clipHovered ? color : 'var(--q-text-tertiary)' }}>
             <Paperclip size={14} />
           </button>
           )}
           <button onClick={(e) => { e.stopPropagation(); try { let fullText = ''; for (const m of run.messages || []) { fullText += (m.role === 'user' ? 'User: ' : 'Agent: ') + (m.content || '') + '\n' } navigator.clipboard.writeText(fullText) } catch {} }}
             onMouseEnter={() => setCopyHovered(true)} onMouseLeave={() => setCopyHovered(false)}
-            style={{ opacity: hovered ? 1 : 0, background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: 'var(--radius-sm)', color: copyHovered ? color : 'var(--q-text-tertiary)' }}>
+            style={{ opacity: (hovered || document.documentElement.classList.contains(`q-phone`)) ? 1 : 0, background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: 'var(--radius-sm)', color: copyHovered ? color : 'var(--q-text-tertiary)' }}>
             <Copy size={14} />
           </button>
         </div>

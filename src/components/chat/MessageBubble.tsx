@@ -371,7 +371,7 @@ function CodeBlock({ children }: { children: React.ReactNode }) {
           background: 'none', border: 'none', cursor: 'pointer',
           color: btnHovered ? 'var(--q-text)' : 'var(--q-text-tertiary)', padding: '4px',
           display: 'flex', alignItems: 'center', borderRadius: 'var(--radius-sm)',
-          opacity: hovered ? 1 : 0,
+          opacity: (hovered || document.documentElement.classList.contains(`q-phone`)) ? 1 : 0,
         }}>
         <Copy size={14} />
       </button>
@@ -424,7 +424,7 @@ function GenericToggle({ label, content, baseColor, baseColorRgb, isItalic, bold
           {!preview && <span style={{ flex: 1 }} />}
           <button onClick={(e) => { e.stopPropagation(); try { navigator.clipboard.writeText(content) } catch {} }}
             onMouseEnter={() => setCopyHovered(true)} onMouseLeave={() => setCopyHovered(false)}
-            style={{ opacity: hovered ? 1 : 0, background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: 'var(--radius-sm)', color: copyHovered ? color : `rgba(${baseColorRgb}, 0.60)` }}>
+            style={{ opacity: (hovered || document.documentElement.classList.contains(`q-phone`)) ? 1 : 0, background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: 'var(--radius-sm)', color: copyHovered ? color : `rgba(${baseColorRgb}, 0.60)` }}>
             <Copy size={14} />
           </button>
         </div>
@@ -493,7 +493,7 @@ function DelegationBlockView({ delegation, timestamp, streaming, onCopy, searchQ
             navigator.clipboard.writeText(fullText)
           } catch {} }}
             onMouseEnter={() => setCopyHovered(true)} onMouseLeave={() => setCopyHovered(false)}
-            style={{ opacity: hovered ? 1 : 0, background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: 'var(--radius-sm)', color: copyHovered ? color : `rgba(${baseColorRgb}, 0.60)` }}>
+            style={{ opacity: (hovered || document.documentElement.classList.contains(`q-phone`)) ? 1 : 0, background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: 'var(--radius-sm)', color: copyHovered ? color : `rgba(${baseColorRgb}, 0.60)` }}>
             <Copy size={14} />
           </button>
         </div>
