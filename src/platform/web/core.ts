@@ -142,15 +142,19 @@ export async function invoke(cmd: string, args?: Any): Promise<Any> {
     case 'sync_expert_app': {
       const call = (globalThis as Any).__sidecarCall
       if (!call) throw new Error('Not connected')
-      const r = await call('syncExpertApp', {})
+      // TIMEOUT: se la risposta si perde (il sidecar si riavvia subito dopo il
+      // sync), il modale NON deve restare appeso per sempre.
+      const r: Any = await Promise.race([call('syncExpertApp', {}), new Promise((res) => setTimeout(() => res(null), 120000))])
       if (r && r.ok) return String(r.message || 'Expert app synced. Restart to apply.')
+      if (r === null) return 'Sync requested. The App Expert is updating.'
       throw new Error(String((r && r.error) || 'Sync failed'))
     }
     case 'rollback_expert_app': {
       const call = (globalThis as Any).__sidecarCall
       if (!call) throw new Error('Not connected')
-      const r = await call('rollbackExpertApp', {})
+      const r: Any = await Promise.race([call('rollbackExpertApp', {}), new Promise((res) => setTimeout(() => res(null), 120000))])
       if (r && r.ok) return String(r.message || 'App Expert rolled back.')
+      if (r === null) return 'Rollback requested. The App Expert is updating.'
       throw new Error(String((r && r.error) || 'Rollback failed'))
     }
     case 'check_expert_installed':
@@ -164,9 +168,11 @@ export async function invoke(cmd: string, args?: Any): Promise<Any> {
       // TELEFONO/WEB: riavvia DAVVERO l'app Expert sul Mac che ospita il
       // backend. Stesso meccanismo del pulsante sul Mac: flag su disco che
       // l'app Expert consuma e si riavvia da sola appena il turno e' finito.
+      // TIMEOUT 6s: il restart fa morire il sidecar che sta rispondendo -> la
+      // risposta puo' perdersi -> senza timeout il modale restava appeso.
       try {
         const call = (globalThis as Any).__sidecarCall
-        if (call) await call('restartExpertApp', {})
+        if (call) await Promise.race([call('restartExpertApp', {}), new Promise((res) => setTimeout(res, 6000))])
       } catch {}
       return null
     }

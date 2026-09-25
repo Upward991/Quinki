@@ -666,7 +666,9 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   restartExpertApp: async () => {
     try {
       const flag = path.join(homedir(), '.quinki', '.expert-needs-restart');
-      fs.writeFileSync(flag, '1');
+      // 300ms: la risposta a questo comando parte PRIMA che l'app Expert
+      // self-restarti (uccidendo il sidecar) — cosi' la risposta non si perde.
+      setTimeout(() => { try { fs.writeFileSync(flag, '1'); } catch {} }, 300);
       return { ok: true };
     } catch (e: any) { return { ok: false, error: String(e?.message || e) }; }
   },
@@ -722,8 +724,9 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
         const blob = String(t.stdout || '') + String(t.stderr || '');
         if (!blob.includes('target2')) return { ok: false, error: 'Sync failed: Expert tsnet-tunnel is outdated (no -target2).' };
       } catch { return { ok: false, error: 'Sync failed: tsnet-tunnel check error.' }; }
-      // Flag: l'app Expert sul Mac si riavvia da sola appena e' idle.
-      try { fs.writeFileSync(path.join(homedir(), '.quinki', '.expert-needs-restart'), '1'); } catch {}
+      // Flag (ritardato 800ms): la risposta del sync parte prima del riavvio
+      // dell'Expert, che ucciderebbe il sidecar a meta' risposta.
+      setTimeout(() => { try { fs.writeFileSync(path.join(homedir(), '.quinki', '.expert-needs-restart'), '1'); } catch {} }, 800);
       return { ok: true, message: 'Expert app synced. Restart to apply.' };
     } catch (e: any) { return { ok: false, error: String(e?.message || e) }; }
   },
