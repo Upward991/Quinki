@@ -27,6 +27,7 @@ import {
   Spacer,
   CombinedAutocompleteProvider,
   matchesKey,
+  isKeyRelease,
   visibleWidth,
 } from "../../sidecar-src/vendor/@earendil-works/pi-tui/dist/index.js";
 
@@ -240,7 +241,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   const commands = [
     {
       name: "thinking",
-      description: "Thinking: on (max) / off",
+      description: "Thinking: on / off",
       getArgumentCompletions: (prefix: string) =>
         [
           { value: "on", label: "on", description: "Thinking ON \u2014 always the maximum level" },
@@ -285,13 +286,20 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   // Tab = toggle plan/build (app behaviour), intercepted at the TUI level.
   try {
     ui.addInputListener((data: string) => {
-      const isTab = data === "\t" || data === "\x1b[9u" || data === "\x1b[9;1u";
+      // Kitty-capable terminals also report key RELEASE events (e.g. "\x1b[1;1:3C"):
+      // they must NEVER be treated as a second press — ↓ would jump two rows and
+      // → would confirm & close the menu at once. Drop them all.
+      if (isKeyRelease(data)) {
+        return { consume: true };
+      }
+      const isTab =
+        data === "\t" || data === "\x1b[9u" || data === "\x1b[9;1u" || matchesKey(data, "tab");
       if (isTab) {
         toggleModeRef?.();
         return { consume: true };
       }
-      const isEnter = data === "\r" || data === "\n";
-      const isEsc = data === "\x1b";
+      const isEnter = data === "\r" || data === "\n" || matchesKey(data, "enter");
+      const isEsc = data === "\x1b" || matchesKey(data, "escape");
       const isUp = data === "\x1b[A" || matchesKey(data, "up");
       const isDown = data === "\x1b[B" || matchesKey(data, "down");
       const isLeft = data === "\x1b[D" || matchesKey(data, "left");
@@ -328,7 +336,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
             } catch {}
             return { consume: true };
           }
-          if (data === "\x7f" || data === "\x08") {
+          if (data === "\x7f" || data === "\x08" || matchesKey(data, "backspace")) {
             menuSubFilter = menuSubFilter.slice(0, -1);
             menuSel = 0;
             try {
