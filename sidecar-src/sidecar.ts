@@ -724,6 +724,16 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
         const blob = String(t.stdout || '') + String(t.stderr || '');
         if (!blob.includes('target2')) return { ok: false, error: 'Sync failed: Expert tsnet-tunnel is outdated (no -target2).' };
       } catch { return { ok: false, error: 'Sync failed: tsnet-tunnel check error.' }; }
+      // === PASSI FINALI (parita' ESATTA col sync del Mac — erano mancanti e il
+      // 03:46 ha lasciato l'app Expert con la firma ROTTA -> niente piu' pop-up) ===
+      try {
+        const plist = path.join(expertApp, 'Contents/Info.plist');
+        spawnSync('/usr/libexec/PlistBuddy', ['-c', 'Set :CFBundleName App Expert', plist]);
+        spawnSync('/usr/libexec/PlistBuddy', ['-c', 'Set :CFBundleDisplayName App Expert', plist]);
+      } catch {}
+      try {
+        spawnSync('codesign', ['--force', '--sign', '-', '--identifier', 'com.quinki.app.expert', '--requirements', '=designated => identifier "com.quinki.app.expert"', '--deep', expertApp], { timeout: 60000 });
+      } catch {}
       // Flag (ritardato 800ms): la risposta del sync parte prima del riavvio
       // dell'Expert, che ucciderebbe il sidecar a meta' risposta.
       setTimeout(() => { try { fs.writeFileSync(path.join(homedir(), '.quinki', '.expert-needs-restart'), '1'); } catch {} }, 800);
