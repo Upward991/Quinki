@@ -373,7 +373,9 @@ export class Editor {
     render(width) {
         const maxPadding = Math.max(0, Math.floor((width - 1) / 2));
         const paddingX = Math.min(this.paddingX, maxPadding);
-        const contentWidth = Math.max(1, width - paddingX * 2);
+        // QUINKI PATCH (25 set): thin mode-colored left edge (opencode style) — rows are width-1 wide.
+        const qEdge = () => (typeof this.edgeFn === "function" ? String(this.edgeFn() ?? "") : "");
+        const contentWidth = Math.max(1, width - 1 - paddingX * 2);
         // Layout width: with padding the cursor can overflow into it,
         // without padding we reserve 1 column for the cursor.
         const layoutWidth = Math.max(1, contentWidth - (paddingX ? 0 : 1));
@@ -413,7 +415,7 @@ export class Editor {
             const s = String(raw).replace(/\x1b\[0m/g, "\x1b[22m\x1b[23m\x1b[24m\x1b[27m\x1b[39m");
             return typeof this.bgFn === "function" ? this.bgFn(s) : s;
         };
-        result.push(qPaint(" ".repeat(width)));
+        result.push(qEdge() + qPaint(" ".repeat(width - 1)));
         // Render each visible layout line
         // Emit hardware cursor marker when focused so TUI can position the
         // hardware cursor for IME candidate-window placement even while
@@ -458,29 +460,31 @@ export class Editor {
             // Calculate padding based on actual visible width
             const padding = " ".repeat(Math.max(0, contentWidth - lineVisibleWidth));
             const lineRightPadding = cursorInPadding ? rightPadding.slice(1) : rightPadding;
-            // QUINKI PATCH (25 set, iter6): painted full-width line.
-            result.push(qPaint(`${leftPadding}${displayText}${padding}${lineRightPadding}`));
+            // QUINKI PATCH (25 set, iter6): painted full-width line (edge on the left).
+            result.push(qEdge() + qPaint(`${leftPadding}${displayText}${padding}${lineRightPadding}`));
         }
         // QUINKI PATCH (25 set, iter6): breathing line + footer row + bottom padding, all painted.
-        result.push(qPaint(" ".repeat(width)));
+        result.push(qEdge() + qPaint(" ".repeat(width - 1)));
         if (typeof this.footerLine === "function") {
             try {
                 const fl = String(this.footerLine(contentWidth) ?? "");
                 const flw = visibleWidth(fl);
                 const flPad = " ".repeat(Math.max(0, contentWidth - flw));
-                result.push(qPaint(`${leftPadding}${fl}${flPad}${rightPadding}`));
+                result.push(qEdge() + qPaint(`${leftPadding}${fl}${flPad}${rightPadding}`));
             }
             catch { }
         }
-        result.push(qPaint(" ".repeat(width)));
-        // Add autocomplete list if active
+        result.push(qEdge() + qPaint(" ".repeat(width - 1)));
+        // QUINKI PATCH (25 set): the command menu appears ABOVE the box (edge column kept free).
         if (this.autocompleteState && this.autocompleteList) {
-            const autocompleteResult = this.autocompleteList.render(contentWidth);
+            const autocompleteResult = this.autocompleteList.render(contentWidth + 1);
+            const acLines = [];
             for (const line of autocompleteResult) {
                 const lineWidth = visibleWidth(line);
-                const linePadding = " ".repeat(Math.max(0, contentWidth - lineWidth));
-                result.push(`${leftPadding}${line}${linePadding}${rightPadding}`);
+                const linePadding = " ".repeat(Math.max(0, contentWidth + 1 - lineWidth));
+                acLines.push(` ${leftPadding}${line}${linePadding}${rightPadding}`);
             }
+            result.unshift(...acLines);
         }
         return result;
     }

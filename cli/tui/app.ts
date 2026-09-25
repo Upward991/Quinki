@@ -98,6 +98,18 @@ class BgBlock {
   }
 }
 
+/** One full-width row built by a function (hints row, etc.). */
+class FnLine {
+  fn: (w: number) => string;
+  constructor(fn: (w: number) => string) {
+    this.fn = fn;
+  }
+  render(width: number): string[] {
+    return [this.fn(width)];
+  }
+  invalidate() {}
+}
+
 /** One line, horizontally centered in the column. */
 class CenteredLine {
   line: string;
@@ -248,22 +260,36 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         toggleModeRef?.();
         return { consume: true };
       }
+      if (data === "\x1b") {
+        // Esc: flash its hint violet for a moment (not consumed — the editor
+        // still handles stop / menu-cancel).
+        escFlashUntil = Date.now() + 450;
+        try {
+          ui.requestRender();
+        } catch {}
+        setTimeout(() => {
+          try {
+            ui.requestRender();
+          } catch {}
+        }, 500);
+      }
       return undefined;
     });
   } catch {}
 
   const boxWrap = new CenterBox(editor) as any;
-  let welcomeRootRef: any = null;
+  let hintRow: any = null;
   const applyLayout = (welcome: boolean) => {
     try {
       const headerWrap = new CenterBox(header) as any;
+      const hintWrap = new CenterBox(hintRow) as any;
       const root = welcome
-        ? (welcomeRootRef ||
-            new WelcomeRoot(boxWrap, new CenterBox(welcomeBlock) as any, () => (ui as any)?.terminal?.rows || 24))
+        ? new WelcomeRoot(boxWrap, hintWrap, () => (ui as any)?.terminal?.rows || 24)
         : new VStack([
             { component: headerWrap, basis: "auto", grow: 0, shrink: 0, minSize: 1 },
             { component: new CenterBox(scroll) as any, basis: 0, grow: 1, shrink: 1, minSize: 1 },
             { component: boxWrap, basis: "auto", grow: 0, shrink: 1, minSize: 5 },
+            { component: hintWrap, basis: "auto", grow: 0, shrink: 0, minSize: 1 },
           ]);
       ui.setLayoutRoot(root as any);
       ui.requestRender();
@@ -286,7 +312,13 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   let ctxTokens = 0;
   let ctxWindow = 0;
   let lastAssistantText = "";
+  let defaultModelId = "";
+  try {
+    const s: any = JSON.parse(fs.readFileSync(path.join(opts.agentDir, "settings.json"), "utf8"));
+    defaultModelId = s.defaultModel || "";
+  } catch {}
   let toggleModeRef: (() => void) | null = null;
+  let escFlashUntil = 0;
 
   const toggleMode = () => {
     mode = mode === "plan" ? "build" : "plan";
@@ -314,52 +346,72 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     }
   };
 
-  /** The composer bar, rendered inside the box (app button order + colors). */
+  /** The composer bar (inside the box): pure INFORMATION — model, thinking,
+   *  working directory, mode + context counter. No dead buttons: in a TUI the
+   *  keyboard (Enter/Esc/Tab, "/") does the actions. */
   const buildBarLine = (width: number): string => {
     const pct = ctxWindow > 0 ? (ctxTokens / ctxWindow) * 100 : 0;
     const ctxStr = fg(
       counterColor(pct),
       `${fmtTok(ctxTokens)}/${fmtTok(ctxWindow)} (${Math.floor(pct)}% \u00b1 ${Math.ceil(pct * 0.05 + 1)}%)`
     );
-    const slash = ` ${bgKeepPanel(accent, fg(C.bg, " / "))} `;
-    const modeStr = mode === "plan" ? fg(C.modePlan, "Plan") : bold(fg(C.modeBuild, "Build"));
-    const left = `${slash}  ${modeStr}   ${ctxStr}`;
+    const modelId = session?.model?.id || defaultModelId || "";
+    const home = process.env.HOME || "";
+    const dir = home && opts.cwd.startsWith(home) ? "~" + opts.cwd.slice(home.length) : opts.cwd;
+    const sep = fg(C.textTertiary, "  \u00b7  ");
+    const modeStr = mode === "plan" ? fg(C.modePlan, "Plan") : fg(C.modeBuild, "Build");
+    const left =
+      modeStr +
+      sep +
+      fg(C.textSecondary, modelId) +
+      sep +
+      fg(C.textSecondary, "thinking " + (thinkingOn ? "on" : "off")) +
+      sep +
+      fg(C.textTertiary, dir);
+    const lw = visibleWidth(left);
+    const rw = visibleWidth(ctxStr);
+    const gap = Math.max(1, width - lw - rw);
+    return left + " ".repeat(gap) + ctxStr;
+  };
+  try {
+    (editor as any).footerLine = (w: number) => buildBarLine(w);
+  } catch {}
+  try {
+    // Thin mode-colored left edge on the box (opencode style): Plan pink / Build orange.
+    (editor as any).edgeFn = () => fg(mode === "plan" ? C.modePlan : C.modeBuild, "\u258f");
+  } catch {}
 
-    const chip = (enabled: boolean, glyph: string) =>
-      enabled
-        ? bgKeepPanel(accent, fg(C.bg, ` ${bold(glyph)} `))
-        : bgKeepPanel(C.bgElevated, fg(C.textTertiary, ` ${glyph} `));
-    const steerEnabled = streaming && hasText();
-    const sendEnabled = hasText() && !streaming;
-    // Stop: red square with a visible outline (app button has a border box).
-    const stop = fg(C.border, "\u258c") + fg(C.danger, "\u25a0") + fg(C.border, "\u2590");
-    const steer = chip(steerEnabled, "\u219f"); // upwards two-headed arrow (app steer icon)
-    const send = chip(sendEnabled, "\u2191");
-    // Perfectly symmetric: three identical 3-wide cells, single-space gaps.
-    const right = `${stop} ${steer} ${send}`;
+  // Keyboard hint row — ALWAYS under the text box, with dynamic violet
+  // illumination (the TUI accent = home violet):
+  //   /command  -> lit while the slash menu is open
+  //   Enter     -> lit when a message can be sent
+  //   Ctrl+Enter-> lit while steering is possible (generating + text)
+  //   Esc       -> flashes lit right when pressed
+  const buildHintLine = (width: number): string => {
+    const lit = (s: string) => bold(fg(C.primary, s));
+    const key = (s: string) => fg(C.textSecondary, s);
+    const menuActive = !!((editor as any)?.autocompleteState && (editor as any)?.autocompleteList);
+    const canSend = hasText() && !streaming;
+    const canSteer = streaming && hasText();
+    const escLit = Date.now() < escFlashUntil;
 
+    const left = menuActive
+      ? lit("/command")
+      : fg(C.primary, "/") + fg(C.textTertiary, "command");
+    const sep = fg(C.textTertiary, "  \u00b7  ");
+    const right =
+      (canSteer ? lit("Ctrl+Enter") : key("Ctrl+Enter")) +
+      sep +
+      (escLit ? lit("Esc") : key("Esc")) +
+      sep +
+      (canSend ? lit("Enter") : key("Enter"));
     const lw = visibleWidth(left);
     const rw = visibleWidth(right);
     const gap = Math.max(1, width - lw - rw);
     return left + " ".repeat(gap) + right;
   };
   try {
-    (editor as any).footerLine = (w: number) => buildBarLine(w);
-  } catch {}
-
-  // Welcome: ONLY the box (centered vertically + horizontally) with the key
-  // hints UNDER it. No info block — nothing invented.
-  let welcomeBlock: any = null;
-  try {
-    const hint =
-      fg(C.textTertiary, "Enter to send") +
-      fg(C.textTertiary, "  \u00b7  ") +
-      fg(C.textTertiary, "Esc to stop") +
-      fg(C.textTertiary, "  \u00b7  ") +
-      fg(C.textTertiary, "Tab to change mode") +
-      fg(C.textTertiary, "  \u00b7  ") +
-      fg(C.textTertiary, "/ commands");
-    welcomeBlock = new CenteredLine(hint);
+    hintRow = new FnLine((w: number) => buildHintLine(w));
   } catch {}
 
   const mdTheme = {
