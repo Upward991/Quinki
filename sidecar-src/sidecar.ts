@@ -283,7 +283,7 @@ try { (globalThis as any).__quinkiWatchCleanup = (cid: any) => { try { _watchSta
 // I processi dei pool (i turni girano li') hanno una Map PROPRIA e vuota:
 // senza condivisione il pool vedeva SEMPRE watched=false e la notifica
 // partiva anche se stavi guardando la chat. Ora lo stato e' anche su file.
-function _watchFilePath(): string { return path.join(homedir(), '.quinki', 'push-watch.json'); }
+function _watchFilePath(): string { return path.join(homedir(), '.quinki', isExpertSidecar() ? 'push-watch-expert.json' : 'push-watch.json'); }
 let _watchFileCache: { at: number; data: any[] } = { at: 0, data: [] };
 function _watchFileRead(): any[] {
   try {
