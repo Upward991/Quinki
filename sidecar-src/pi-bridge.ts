@@ -8599,7 +8599,7 @@ if (!turnCompleted && lastStopReason && lastStopReason !== "toolUse" && !this.#s
                   setTimeout(() => {
                     if (this.#stoppedSessions.has(key)) return;
                     const fakeWs = { readyState: 1, constructor: { OPEN: 1 }, send: () => {} };
-                    this.send(fakeWs, { sessionKey: key, text: "Your previous response ended right after the thinking block without any output. A turn cannot end with thinking alone: continue now and produce your actual output (text answer or a tool call)." }, 2000);
+                    this.send(fakeWs, { sessionKey: key, text: "The app was interrupted while processing. Please continue and complete your response." }, 2000);
                   }, 1500);
                 } else if (_n >= 3) {
                   this.logDebug("thinking-only-reprompt-exhausted", { sessionKey: key });
