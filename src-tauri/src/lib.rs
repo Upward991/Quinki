@@ -1672,10 +1672,20 @@ fn rollback_expert_app() -> Result<String, String> {
     // Ripristina binario
     std::fs::copy(format!("{}/quinki", latest), &expert_bin)
         .map_err(|e| format!("Binary restore failed: {}", e))?;
-    // Ripristina sidecar
+    // Ripristina sidecar — FIX: i backup contengono resources/sidecar (non
+    // sidecar/): il percorso vecchio falliva DOPO aver cancellato l'attuale.
+    // Ora: prima si verifica che la sorgente esista, POI si tocca l'Expert.
+    let src_sidecar = if std::path::Path::new(&format!("{}/resources/sidecar", latest)).exists() {
+        format!("{}/resources/sidecar", latest)
+    } else {
+        format!("{}/sidecar", latest)
+    };
+    if !std::path::Path::new(&src_sidecar).exists() {
+        return Err("Backup has no sidecar to restore. Nothing was changed.".to_string());
+    }
     let _ = std::fs::remove_dir_all(&expert_sidecar);
     let ditto_st = std::process::Command::new("ditto")
-        .args([&format!("{}/sidecar", latest), &expert_sidecar])
+        .args([&src_sidecar, &expert_sidecar])
         .status()
         .map_err(|e| format!("Sidecar restore failed: {}", e))?;
     if !ditto_st.success() {
