@@ -752,8 +752,12 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
       const eksBin = path.join(expertApp, 'Contents/MacOS/quinki');
       const eksSidecar = path.join(expertApp, 'Contents/Resources/resources/sidecar');
       try { fs.copyFileSync(path.join(latest, 'quinki'), eksBin); } catch (e: any) { return { ok: false, error: 'Binary restore failed: ' + String(e?.message || e) }; }
+      // FIX: i backup contengono resources/sidecar — prima si verifica, POI si tocca.
+      const srcCand = [path.join(latest, 'resources', 'sidecar'), path.join(latest, 'sidecar')];
+      const srcSidecar = srcCand.find((c) => { try { return fs.existsSync(c); } catch { return false; } });
+      if (!srcSidecar) return { ok: false, error: 'Backup has no sidecar to restore. Nothing was changed.' };
       try { fs.rmSync(eksSidecar, { recursive: true, force: true }); } catch {}
-      const dittoSt = spawnSync('ditto', [path.join(latest, 'sidecar'), eksSidecar]);
+      const dittoSt = spawnSync('ditto', [srcSidecar, eksSidecar]);
       if (dittoSt.status !== 0) return { ok: false, error: 'Sidecar restore failed (ditto).' };
       // Re-sign (firma stale dopo il ripristino -> TCC si rompe).
       try {
