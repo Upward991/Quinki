@@ -1,13 +1,13 @@
 // =============================================================================
-// Quinki CLI — OUR terminal UI (T1)
+// Quinki CLI — OUR terminal UI (T1, iteration 2)
 //
 // Layout mirrors the app window:
-//   ┌ header ───────────────────────────── (fixed, top)
-//   │ chat transcript (scrolls, grows)
-//   └ composer box + bar ───────────────── (fixed, bottom)
+//   app-style margins around everything; header (top, fixed); chat transcript
+//   (scrolls); composer box (bottom, fixed) with the button bar INSIDE the
+//   rounded box — exactly like the app's composer.
 //
-// Engine: the vendored Pi SDK (invisible). No pi UI, no pi commands — only
-// what we decided. Colors: the app's exact palette (see theme.ts).
+// Engine: the vendored Pi SDK (invisible). No pi UI, no pi commands, no emoji
+// icons — only text glyphs and the app's exact palette (see theme.ts).
 // =============================================================================
 
 import fs from "node:fs";
@@ -23,12 +23,13 @@ import {
   Editor,
   ScrollView,
   Container,
+  Spacer,
+  visibleWidth,
 } from "../../sidecar-src/vendor/@earendil-works/pi-tui/dist/index.js";
 
-import { C, fg, bg, collapsed, counterColor } from "./theme";
+import { C, fg, bg, collapsed, counterColor, blend, bold } from "./theme";
 
-// Engine (bundled at build time — literal specifiers only: dynamic imports with
-// variables cannot be resolved inside the compiled binary).
+// Engine (bundled at build time — literal specifiers only).
 import * as sdk from "../../sidecar-src/vendor/@earendil-works/pi-coding-agent/dist/index.js";
 import * as compaction from "../../sidecar-src/vendor/@earendil-works/pi-coding-agent/dist/core/compaction/compaction.js";
 
@@ -38,9 +39,42 @@ export interface TuiOptions {
   sessionDir: string;
 }
 
+/** Centered window column (like the app: content column centered in the window). */
+class CenterBox {
+  child: any;
+  maxWidth: number;
+  constructor(child: any, maxWidth = 100) {
+    this.child = child;
+    this.maxWidth = maxWidth;
+  }
+  render(width: number): string[] {
+    const outer = Math.max(0, Math.min(2, Math.floor((width - 40) / 2)));
+    const colW = Math.max(40, Math.min(width - outer * 2, this.maxWidth));
+    const left = Math.floor((width - colW) / 2);
+    const right = width - colW - left;
+    const lines = this.child?.render(colW) || [];
+    const l = " ".repeat(left);
+    const r = " ".repeat(right);
+    return lines.map((line: string) => l + line + r);
+  }
+  invalidate() {
+    try {
+      this.child?.invalidate?.();
+    } catch {}
+  }
+}
+
+/** Full-width divider line (app's header separator look). */
+class RuleLine {
+  render(width: number): string[] {
+    return [fg(C.border, "\u2500".repeat(Math.max(0, width)))];
+  }
+  invalidate() {}
+}
+
 function truncate(s: string, n: number): string {
   const t = s.replace(/\s+/g, " ").trim();
-  return t.length > n ? t.slice(0, n - 1) + "…" : t;
+  return t.length > n ? t.slice(0, n - 1) + "\u2026" : t;
 }
 
 function fmtTok(n: number): string {
@@ -53,9 +87,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   const key = "cli-" + Date.now().toString(36);
   const sessionDirForKey = path.join(opts.sessionDir, key);
   fs.mkdirSync(sessionDirForKey, { recursive: true });
+
   // --- engine (invisible): the same SDK the sidecar/app use -----------------
   const sm = sdk.SessionManager.create(opts.cwd, sessionDirForKey);
-
   const res: any = await sdk.createAgentSession({
     cwd: opts.cwd,
     agentDir: opts.agentDir,
@@ -84,12 +118,18 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     copyOnSelect: true,
   });
 
-  // Header (fixed, top): session title … context counter
+  // Header (fixed, top): title … ctx counter, with the app-style divider under it.
   const titleText = new Text("", 1, 0);
   const ctxText = new Text("", 1, 0);
-  const header = new HStack([
+  const headerRow = new HStack([
     { component: titleText, grow: 1 },
     { component: ctxText, basis: "auto", grow: 0 },
+  ]);
+  const header = new VStack([
+    { component: headerRow, basis: "auto", grow: 0, shrink: 0, minSize: 1 },
+    { component: new Spacer(1), basis: "auto", grow: 0, shrink: 0, minSize: 1 },
+    { component: new RuleLine() as any, basis: "auto", grow: 0, shrink: 0, minSize: 1 },
+    { component: new Spacer(1), basis: "auto", grow: 0, shrink: 0, minSize: 1 },
   ]);
   titleText.setText(fg(C.text, "\u25cf") + " " + fg(C.primary, "quinki") + fg(C.textSecondary, "  \u00b7 New chat"));
 
@@ -97,7 +137,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   const content = new Container();
   const scroll = new ScrollView(content);
 
-  // Composer (fixed, bottom): editor box + bar
+  // Composer (fixed, bottom): rounded box with the bar INSIDE (app look)
   const editorTheme = {
     borderColor: (s: string) => fg(C.border, s),
     selectList: {
@@ -110,24 +150,14 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   };
   const editor = new Editor(ui as any, editorTheme, { paddingX: 1 });
 
-  const barLeft = new Text("", 1, 0);
-  const barRight = new Text("", 1, 0);
-  const bar = new HStack([
-    { component: barLeft, grow: 1 },
-    { component: barRight, basis: "auto", grow: 0 },
-  ]);
-  const dock = new VStack([
-    { component: editor, basis: "auto", grow: 0, shrink: 1, minSize: 3 },
-    { component: bar, basis: "auto", grow: 0, shrink: 0, minSize: 1 },
-  ]);
-
   const root = new VStack([
-    { component: header, basis: "auto", grow: 0, shrink: 0, minSize: 1 },
-    { component: scroll, basis: 0, grow: 1, shrink: 1, minSize: 1 },
-    { component: dock, basis: "auto", grow: 0, shrink: 1, minSize: 5 },
+    { component: new CenterBox(header) as any, basis: "auto", grow: 0, shrink: 0, minSize: 1 },
+    { component: new CenterBox(scroll) as any, basis: 0, grow: 1, shrink: 1, minSize: 1 },
+    { component: new CenterBox(editor) as any, basis: "auto", grow: 0, shrink: 1, minSize: 5 },
+    { component: new Spacer(1), basis: "auto", grow: 0, shrink: 0, minSize: 1 },
   ]);
 
-  for (const c of [header, scroll, dock]) {
+  for (const c of [header, scroll, editor]) {
     try {
       ui.addChild(c as any);
     } catch {}
@@ -141,7 +171,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
 
   // --- state ------------------------------------------------------------------
   let streaming = false;
-  let mode: "plan" | "build" = "build";
+  const mode: "plan" | "build" = "build";
   let ctxTokens = 0;
   let ctxWindow = 0;
 
@@ -149,6 +179,74 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   let assistantText = "";
   let thinkingRow: any = null;
   let thinkingText = "";
+  const welcomeEls: any[] = [];
+
+  const accent = C.info; // --q-tab-accent in the main app
+  const accentDarker = blend(accent, "#000000", 0.82); // --q-tab-accent-darker
+
+  const hasText = () => {
+    try {
+      return editor.getText().trim().length > 0;
+    } catch {
+      return false;
+    }
+  };
+
+  /** The composer bar, rendered inside the box (app button order + colors). */
+  const buildBarLine = (width: number): string => {
+    const pct = ctxWindow > 0 ? (ctxTokens / ctxWindow) * 100 : 0;
+    const ctxStr = fg(
+      counterColor(pct),
+      `${fmtTok(ctxTokens)}/${fmtTok(ctxWindow)} (${Math.floor(pct)}% \u00b1 ${Math.ceil(pct * 0.05 + 1)}%)`
+    );
+    const slash = ` ${bg(accent, fg(C.bg, " / "))} `;
+    const modeStr = mode === "plan" ? fg(C.modePlan, "Plan") : bold(fg(C.modeBuild, "Build"));
+    const left = `${slash}  ${modeStr}   ${ctxStr}`;
+
+    const chip = (enabled: boolean, glyph: string) =>
+      enabled
+        ? bg(accentDarker, fg(C.bg, ` ${glyph} `))
+        : bg(C.bgElevated, fg(C.textTertiary, ` ${glyph} `));
+    const steerEnabled = streaming && hasText();
+    const sendEnabled = hasText() && !streaming;
+    const attach = fg(C.textSecondary, " + ");
+    const stop = fg(C.danger, " \u25a0 ");
+    const steer = chip(steerEnabled, "\u21e2");
+    const send = chip(sendEnabled, "\u2191");
+    // Perfectly symmetric: four identical 3-wide cells, single-space gaps.
+    const right = `${attach} ${stop} ${steer} ${send}`;
+
+    const lw = visibleWidth(left);
+    const rw = visibleWidth(right);
+    const gap = Math.max(1, width - lw - rw);
+    return left + " ".repeat(gap) + right;
+  };
+  try {
+    (editor as any).footerLine = (w: number) => buildBarLine(w);
+  } catch {}
+
+  // Welcome block (shown while the transcript is empty — removed on first send).
+  try {
+    let settings: any = {};
+    try {
+      settings = JSON.parse(fs.readFileSync(path.join(opts.agentDir, "settings.json"), "utf8"));
+    } catch {}
+    const modelId = session?.model?.id || settings.defaultModel || "";
+    const thinking = session?.thinkingLevel || settings.defaultThinkingLevel || "";
+    const label = (s: string) => fg(C.textTertiary, s);
+    const val = (s: string) => fg(C.textSecondary, s);
+    welcomeEls.push(new Text("", 0, 0));
+    welcomeEls.push(
+      new Text(fg(C.primary, "quinki") + label("  \u00b7  your agents, your chats \u2014 from the terminal"), 1, 0)
+    );
+    welcomeEls.push(new Text("", 0, 0));
+    welcomeEls.push(new Text(label("cwd       ") + val(opts.cwd), 1, 0));
+    welcomeEls.push(new Text(label("model     ") + val(modelId), 1, 0));
+    welcomeEls.push(new Text(label("thinking  ") + val(thinking) + label("     mode  ") + val(mode === "plan" ? "Plan" : "Build"), 1, 0));
+    welcomeEls.push(new Text("", 0, 0));
+    welcomeEls.push(new Text(label("Enter send \u00b7 Esc stop \u00b7 Tab mode \u00b7 / commands"), 1, 0));
+    for (const el of welcomeEls) content.addChild(el);
+  } catch {}
 
   const mdTheme = {
     heading: (s: string) => fg(C.text, s),
@@ -185,31 +283,20 @@ export async function runTui(opts: TuiOptions): Promise<void> {
 
   const updateBar = () => {
     const pct = ctxWindow > 0 ? (ctxTokens / ctxWindow) * 100 : 0;
-    const ctxStr = fg(
-      counterColor(pct),
-      `${fmtTok(ctxTokens)}/${fmtTok(ctxWindow)} (${Math.floor(pct)}% \u00b1 ${Math.ceil(pct * 0.05 + 1)}%)`
-    );
-    const modeStr = mode === "plan" ? fg(C.modePlan, "Plan") : fg(C.modeBuild, "\ud83d\udd28 Build");
-    barLeft.setText(`${fg(C.info, "/")}   ${modeStr}   ${ctxStr}`);
     try {
-      ctxText.setText(ctxStr);
+      ctxText.setText(
+        fg(counterColor(pct), `${fmtTok(ctxTokens)}/${fmtTok(ctxWindow)} (${Math.floor(pct)}% \u00b1 ${Math.ceil(pct * 0.05 + 1)}%)`)
+      );
     } catch {}
-    barRight.setText(
-      `${fg(C.textTertiary, "\ud83d\udcce")}  ${streaming ? fg(C.danger, "\u23f9") : fg(C.textTertiary, "\u23f9")}  ${fg(
-        C.textTertiary,
-        "\u21e2"
-      )}  ${fg(C.textTertiary, "\u2191")} `
-    );
+    try {
+      ui.requestRender();
+    } catch {}
   };
 
   const updateCtx = () => {
     try {
       const model = session.model;
-      const w =
-        model?.contextWindow ||
-        model?.contextWindowTokens ||
-        model?.contextLength ||
-        0;
+      const w = model?.contextWindow || model?.contextWindowTokens || model?.contextLength || 0;
       if (typeof w === "number" && w > 0) ctxWindow = w;
       let tokens = 0;
       try {
@@ -222,7 +309,6 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       } catch {}
       if (tokens > 0) ctxTokens = tokens;
       updateBar();
-      ui.requestRender();
     } catch {}
   };
 
@@ -258,7 +344,6 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       } else if (e?.type === "tool_execution_start") {
         const name = e.toolName || e.name || e.tool?.name || "tool";
         addRow(collapsed(C.toolCall, `\u25b8 Tool call \u00b7 ${name}`));
-        // next text after a tool starts a new assistant block
         assistant = null;
         assistantText = "";
       } else if (e?.type === "tool_execution_end") {
@@ -296,8 +381,15 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     const t = (text || "").trim();
     if (!t || streaming) return;
     editor.setText("");
-    const bubbleText = t;
-    content.addChild(new Text(bubbleText, 2, 1, (s: string) => bg(C.bubbleUser, s)));
+    if (welcomeEls.length) {
+      for (const el of welcomeEls) {
+        try {
+          content.removeChild(el);
+        } catch {}
+      }
+      welcomeEls.length = 0;
+    }
+    content.addChild(new Text(t, 2, 1, (s: string) => bg(C.bubbleUser, s)));
     scrollToEnd();
     streaming = true;
     updateBar();
@@ -313,6 +405,13 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       updateBar();
     }
   };
+  try {
+    (editor as any).onChange = () => {
+      try {
+        ui.requestRender();
+      } catch {}
+    };
+  } catch {}
 
   try {
     editor.onAction?.("app.interrupt", () => {
@@ -340,7 +439,6 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   try {
     ui.start();
   } catch (err) {
-    // If the TUI cannot start, surface the error instead of hanging silently.
     process.stderr.write("quinki: could not start the terminal UI: " + String((err as any)?.message || err) + "\n");
     process.exit(1);
   }

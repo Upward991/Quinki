@@ -373,7 +373,8 @@ export class Editor {
     render(width) {
         const maxPadding = Math.max(0, Math.floor((width - 1) / 2));
         const paddingX = Math.min(this.paddingX, maxPadding);
-        const contentWidth = Math.max(1, width - paddingX * 2);
+        // QUINKI PATCH (25 set): reserve 2 columns for the rounded side borders.
+        const contentWidth = Math.max(1, width - 2 - paddingX * 2);
         // Layout width: with padding the cursor can overflow into it,
         // without padding we reserve 1 column for the cursor.
         const layoutWidth = Math.max(1, contentWidth - (paddingX ? 0 : 1));
@@ -382,6 +383,8 @@ export class Editor {
         const horizontal = this.borderColor("─");
         // Layout the text
         const layoutLines = this.layoutText(layoutWidth);
+        // QUINKI PATCH (25 set): placeholder support (app's "Write a message...").
+        const isEmptyText = this.state.lines.length === 1 && (this.state.lines[0] || "").length === 0;
         // Calculate max visible lines: 30% of terminal height, minimum 5 lines
         const terminalRows = this.tui.terminal.rows;
         const maxVisibleLines = Math.max(5, Math.floor(terminalRows * 0.3));
@@ -405,12 +408,13 @@ export class Editor {
         const leftPadding = " ".repeat(paddingX);
         const rightPadding = leftPadding;
         // Render top border (with scroll indicator if scrolled down)
+        // QUINKI PATCH (25 set): rounded corners + side borders (app composer look).
         if (this.scrollOffset > 0) {
-            const border = createScrollBorder("↑", this.scrollOffset, width);
-            result.push(this.borderColor(border));
+            const border = createScrollBorder("↑", this.scrollOffset, Math.max(1, width - 2));
+            result.push(this.borderColor("╭" + border + "╮"));
         }
         else {
-            result.push(horizontal.repeat(width));
+            result.push(this.borderColor("╭" + "─".repeat(Math.max(0, width - 2)) + "╮"));
         }
         // Render each visible layout line
         // Emit hardware cursor marker when focused so TUI can position the
@@ -448,20 +452,37 @@ export class Editor {
                     }
                 }
             }
+            // QUINKI PATCH (25 set): placeholder text when the editor is empty.
+            if (isEmptyText && layoutLine === visibleLines[0]) {
+                displayText = `${emitCursorMarker ? CURSOR_MARKER : ""}\x1b[7m \x1b[0m\x1b[38;2;88;88;96mWrite a message...\x1b[39m`;
+                lineVisibleWidth = 1 + 18; // cursor space + "Write a message..." (18 chars)
+            }
             // Calculate padding based on actual visible width
             const padding = " ".repeat(Math.max(0, contentWidth - lineVisibleWidth));
             const lineRightPadding = cursorInPadding ? rightPadding.slice(1) : rightPadding;
-            // Render the line (no side borders, just horizontal lines above and below)
-            result.push(`${leftPadding}${displayText}${padding}${lineRightPadding}`);
+            // QUINKI PATCH (25 set): side borders.
+            result.push(this.borderColor("│") + `${leftPadding}${displayText}${padding}${lineRightPadding}` + this.borderColor("│"));
+        }
+        // QUINKI PATCH (25 set): one breathing interior line + optional footer row inside the box.
+        result.push(this.borderColor("│") + " ".repeat(Math.max(0, width - 2)) + this.borderColor("│"));
+        // QUINKI PATCH (25 set): footer row rendered INSIDE the box (app composer bar).
+        if (typeof this.footerLine === "function") {
+            try {
+                const fl = String(this.footerLine(contentWidth) ?? "");
+                const flw = visibleWidth(fl);
+                const flPad = " ".repeat(Math.max(0, contentWidth - flw));
+                result.push(this.borderColor("│") + `${leftPadding}${fl}${flPad}${rightPadding}` + this.borderColor("│"));
+            }
+            catch { }
         }
         // Render bottom border (with scroll indicator if more content below)
         const linesBelow = layoutLines.length - (this.scrollOffset + visibleLines.length);
         if (linesBelow > 0) {
-            const border = createScrollBorder("↓", linesBelow, width);
-            result.push(this.borderColor(border));
+            const border = createScrollBorder("↓", linesBelow, Math.max(1, width - 2));
+            result.push(this.borderColor("╰" + border + "╯"));
         }
         else {
-            result.push(horizontal.repeat(width));
+            result.push(this.borderColor("╰" + "─".repeat(Math.max(0, width - 2)) + "╯"));
         }
         // Add autocomplete list if active
         if (this.autocompleteState && this.autocompleteList) {

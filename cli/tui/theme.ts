@@ -18,7 +18,7 @@ export const C = {
   text: "#e8e8ec",
   textSecondary: "#888892",
   textTertiary: "#585860",
-  border: "#2e2e36", // ~ var(--q-border) #ffffff0f over bg #08080b
+  border: "#3a3a44", // ~ var(--q-border) #ffffff0f, brightened for terminal legibility
   bg: "#08080b",
   bgPanel: "#0f0f13",
   bgElevated: "#16161b",
