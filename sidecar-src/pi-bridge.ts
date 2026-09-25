@@ -4537,6 +4537,72 @@ Read this file to view it.` }] };
   // Pulisce le immagini dalla catena IN MEMORIA dell'SDK (sessionManager.getEntries).
   // E' la copia che il worker usa per il PROSSIMO turno: pulirla qui = il prossimo
   // tentativo dell'autoprompt parte senza immagini, SENZA reload ne' attese.
+  // Tiene SOLO le ultime N immagini (default 3) nel contesto: le piu' vecchie
+  // diventano segnaposto testo — sia in memoria (richieste) sia su file (persistenza).
+  #pruneImagesKeepLast(key: string, keep: number = 3): { replaced: number; over: boolean } {
+    let replaced = 0; let over = false;
+    try {
+      const mk = (): string => "[older image removed: only the last " + keep + " images are kept in context]";
+      const pi: any = this.#active.get(key);
+      const sm: any = pi?.sessionManager;
+      const entries: any[] = (sm && typeof sm.getEntries === "function") ? sm.getEntries() : [];
+      let seen = 0;
+      const conv = (content: any): void => {
+        if (!Array.isArray(content)) return;
+        for (let i = content.length - 1; i >= 0; i--) {
+          const p = content[i];
+          if (p && p.type === "image") {
+            seen++;
+            if (seen > keep) { content[i] = { type: "text", text: mk() }; replaced++; }
+          }
+        }
+      };
+      for (let i = entries.length - 1; i >= 0; i--) {
+        const e = entries[i]; if (!e || typeof e !== "object") continue;
+        if (e.message && typeof e.message === "object" && e.message.content !== undefined) conv(e.message.content);
+        if (Array.isArray(e.content)) conv(e.content);
+      }
+      over = seen > keep;
+      if (over) {
+        const dir = this.#piSessionDir(key);
+        if (fs.existsSync(dir)) {
+          const files = fs.readdirSync(dir).filter((f: string) => f.endsWith(".jsonl"));
+          for (const f of files) {
+            const fp = path.join(dir, f);
+            let raw = ""; try { raw = fs.readFileSync(fp, "utf8"); } catch { continue; }
+            if (!raw.includes('"image"')) continue;
+            const lines = raw.split("\n");
+            let fseen = 0; let changed = false;
+            const out = lines.slice();
+            for (let li = lines.length - 1; li >= 0; li--) {
+              const ln = lines[li];
+              if (!ln.includes('"image"')) continue;
+              try {
+                const d = JSON.parse(ln);
+                let touched = false;
+                const convF = (content: any): void => {
+                  if (!Array.isArray(content)) return;
+                  for (let i = content.length - 1; i >= 0; i--) {
+                    const p = content[i];
+                    if (p && p.type === "image") {
+                      fseen++;
+                      if (fseen > keep) { content[i] = { type: "text", text: mk() }; touched = true; }
+                    }
+                  }
+                };
+                if (d && d.message && typeof d.message === "object" && d.message.content !== undefined) convF(d.message.content);
+                if (d && Array.isArray(d.content)) convF(d.content);
+                if (touched) { out[li] = JSON.stringify(d); changed = true; }
+              } catch {}
+            }
+            if (changed) { try { fs.writeFileSync(fp + ".tmp", out.join("\n"), "utf8"); fs.renameSync(fp + ".tmp", fp); } catch {} }
+          }
+        }
+      }
+    } catch (e: any) { try { this.logDebug("prune-images-error", { key, error: e?.message }); } catch {} }
+    return { replaced, over };
+  }
+
   #stripImagesInMemory(key: string): number {
     let replaced = 0;
     try {
@@ -6884,6 +6950,11 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     const effEntryWd = (this.#entries.get(sk) as any)?.workingDir
     const effectiveCwd = this.#cwdOverride.get(sk) ?? ((data.workingDirs && data.workingDirs.length > 0) ? data.workingDirs[0] : (effEntryWd || this.#cwd));
     this.#lastEffectiveCwd.set(sk, effectiveCwd);
+    // Max 3 immagini nel contesto: le piu' vecchie diventano segnaposto (prima del turno).
+    try {
+      const _p = this.#pruneImagesKeepLast(sk, 3);
+      if (_p.replaced > 0 || _p.over) this.logDebug("prune-images-keep3", { sessionKey: sk, replaced: _p.replaced, over: _p.over });
+    } catch {}
 
     this.logDebug("msg-in", {
       effectiveCwd,
