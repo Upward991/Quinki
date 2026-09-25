@@ -11,6 +11,7 @@
 // versa once write-paths are wired). Zero migration in both directions.
 // =============================================================================
 
+import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -59,5 +60,42 @@ const hasTrustFlag = argv.some(
   (a) => a === "--approve" || a === "-a" || a === "--no-approve" || a === "-na"
 );
 const args = hasTrustFlag ? argv : [...argv, "--approve"];
+
+// --- 5. Quiet startup: no skills listing / conflict diagnostics clutter -----
+// Same settings store as the app (syncSettingsJson preserves unknown keys, so
+// this survives app-side writes). Only set when the user never chose a value.
+try {
+  const settingsPath = path.join(AGENT_DIR, "settings.json");
+  let settings: any = {};
+  try {
+    settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+  } catch {}
+  if (settings.quietStartup === undefined) {
+    settings.quietStartup = true;
+    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), "utf8");
+  }
+} catch {
+  // best-effort
+}
+
+// --- 6. Terminal chrome: Quinki background + window title, restored on exit --
+// OSC 11 sets the terminal background to the app's bg color (#08080b); OSC 111
+// resets it on exit. Unsupported terminals ignore these harmlessly.
+// Opt out with QUINKI_CLI_NO_BG=1.
+if (process.stdout.isTTY && !process.env.QUINKI_CLI_NO_BG) {
+  const termWrite = (sq: string) => {
+    try {
+      process.stdout.write(sq);
+    } catch {}
+  };
+  termWrite("\x1b]11;#08080b\x07");
+  termWrite("\x1b]2;quinki\x07");
+  const restore = () => termWrite("\x1b]111\x07");
+  process.on("exit", restore);
+  process.on("SIGTERM", () => {
+    restore();
+    process.exit(143);
+  });
+}
 
 await sdkMain.main(args);

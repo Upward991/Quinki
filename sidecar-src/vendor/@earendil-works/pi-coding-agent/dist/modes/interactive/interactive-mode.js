@@ -732,8 +732,9 @@ export class InteractiveMode {
                 hint("app.tools.expand", "more"),
             ].join(theme.fg("muted", " · "));
             const compactOnboarding = theme.fg("dim", `Press ${keyText("app.tools.expand")} to show full startup help and loaded resources.`);
-            const onboarding = theme.fg("dim", `Pi can explain its own features and look up its docs. Ask it how to use or extend Pi.`);
-            this.builtInHeader = new ExpandableText(() => `${logo}\n${compactInstructions}\n${compactOnboarding}\n\n${onboarding}`, () => `${logo}\n${expandedInstructions}\n\n${onboarding}`, this.getStartupExpansionState(), 1, 0);
+            // QUINKI PATCH (25 set): upstream pi onboarding line removed — the header stays clean/branded.
+            const onboarding = "";
+            this.builtInHeader = new ExpandableText(() => `${logo}\n${compactInstructions}\n${compactOnboarding}`, () => `${logo}\n${expandedInstructions}`, this.getStartupExpansionState(), 1, 0);
             // Setup UI layout
             this.headerContainer.addChild(new Spacer(1));
             this.headerContainer.addChild(this.builtInHeader);
@@ -1289,7 +1290,8 @@ export class InteractiveMode {
         // Resource rendering is idempotent; chat clears no longer clear this separate container.
         this.loadedResourcesContainer.clear();
         const showListing = options?.force || this.options.verbose || !this.settingsManager.getQuietStartup();
-        const showDiagnostics = showListing || options?.showDiagnosticsWhenQuiet === true;
+        // QUINKI PATCH (25 set): diagnostics (e.g. duplicate-skill notices) no longer force-show in quiet startup.
+        const showDiagnostics = showListing;
         if (!showListing && !showDiagnostics) {
             return;
         }
