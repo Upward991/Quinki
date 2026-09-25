@@ -1115,11 +1115,18 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
   // === CLICK sulla notifica macOS -> apre la chat di provenienza ===
   // DESKTOP: dichiara al sidecar la chat in visione (finestra attiva e chat aperta):
   // cosi' il TELEFONO non riceve notifiche per una chat che stai gia' guardando sul Mac.
+  const lastFocRef = useRef(0)
   useEffect(() => {
     const send = () => {
       try {
-        const focused = document.hasFocus() && !document.body.classList.contains('win-inactive')
-        call('setClientWatching', { sessionKey: String(activeSessionId || ''), watching: focused && document.visibilityState === 'visible' }).catch(() => {})
+        const isFoc = document.hasFocus() && !document.body.classList.contains('win-inactive')
+        if (isFoc) { try { lastFocRef.current = Date.now() } catch {} }
+        // "Sto guardando la chat" = finestra attiva O lasciata da meno di 90s.
+        // Il gesto di prendere il telefono per controllare faceva perdere il
+        // focus al Mac -> "watched=false" -> notifica: era LA causa del
+        // silenzio intermittente.
+        const recentlyFocused = isFoc || (Date.now() - (lastFocRef.current || 0) < 90000)
+        call('setClientWatching', { sessionKey: String(activeSessionId || ''), watching: recentlyFocused && document.visibilityState === 'visible' }).catch(() => {})
       } catch {}
     }
     send()

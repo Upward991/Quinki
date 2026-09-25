@@ -280,11 +280,36 @@ const _watchStates = new Map<string, { sk: string; watching: boolean; at: number
 try { (globalThis as any).__quinkiWatchCleanup = (cid: any) => { try { _watchStates.delete(String(cid || "")) } catch {} } } catch {}
 // Silenzio cross-device: la chat e' "in visione" se ALMENO UN client locale
 // (Mac/finestre) la sta guardando con finestra attiva, con battito <90s.
+// I processi dei pool (i turni girano li') hanno una Map PROPRIA e vuota:
+// senza condivisione il pool vedeva SEMPRE watched=false e la notifica
+// partiva anche se stavi guardando la chat. Ora lo stato e' anche su file.
+function _watchFilePath(): string { return path.join(homedir(), '.quinki', 'push-watch.json'); }
+let _watchFileCache: { at: number; data: any[] } = { at: 0, data: [] };
+function _watchFileRead(): any[] {
+  try {
+    if (Date.now() - _watchFileCache.at < 1000) return _watchFileCache.data;
+    let arr: any[] = [];
+    try { const j = JSON.parse(fs.readFileSync(_watchFilePath(), 'utf8')); if (Array.isArray(j)) arr = j; } catch {}
+    _watchFileCache = { at: Date.now(), data: arr };
+    return arr;
+  } catch { return []; }
+}
+function _watchFileWrite(): void {
+  try {
+    const now = Date.now();
+    const arr: any[] = [];
+    for (const [cid, e] of _watchStates) { if (e && now - e.at < 180000) arr.push({ cid, sk: e.sk, watching: e.watching, at: e.at }); }
+    fs.writeFileSync(_watchFilePath(), JSON.stringify(arr), 'utf8');
+  } catch {}
+}
 function isWatched(sk: string): boolean {
   try {
     const now = Date.now();
     for (const e of _watchStates.values()) {
       if (e && e.watching && e.sk === sk && now - e.at < 90000) return true;
+    }
+    for (const e of _watchFileRead()) {
+      if (e && e.watching && e.sk === sk && now - (Number(e.at) || 0) < 90000) return true;
     }
   } catch {}
   return false;
@@ -644,6 +669,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
       const cid = String(p?.__clientId || "anon");
       _watchStates.set(cid, { sk: String(p?.sessionKey || ''), watching: !!p?.watching, at: Date.now() });
       pdbg('watch', { cid, sk: String(p?.sessionKey || ''), w: !!p?.watching });
+      _watchFileWrite();
       return { ok: true };
     } catch { return { ok: false }; }
   },
