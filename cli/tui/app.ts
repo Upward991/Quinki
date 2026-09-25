@@ -805,8 +805,20 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           menuSubFilter = "";
           menuSel = 0;
         }
+      } else if (a === "right") {
+        // Forward ONLY — it NEVER confirms: just open the submenu when there is one.
+        // When the menus run out, → does nothing (Enter is the confirmer).
+        if (!menuSub) {
+          const it: any = items[menuSel];
+          const cmd: any = it ? commands.find((c) => c.name === it.value) : null;
+          if (cmd && typeof cmd.getArgumentCompletions === "function") {
+            menuSub = cmd.name;
+            menuSubFilter = "";
+            menuSel = 0;
+          }
+        }
       } else {
-        // right / enter = Confirm: run the option, open the submenu, or run the command.
+        // enter = Confirm: run the option, open the submenu, or run the command.
         const it: any = items[menuSel];
         if (!it) return;
         if (menuSub) {
@@ -878,10 +890,23 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         else rows.push(fg(C.textSecondary, label) + " ".repeat(gap) + fg(C.textTertiary, desc));
       }
       // Blank separator, then the footer on ONE row (app NavBar style):
-      // left ↑ ↓ ← → (navigation) — right Cancel (Esc, red) · Confirm (Enter, violet).
+      // left ↑ ↓ ← → (navigation) — right Esc (red) · Confirm (filled violet
+      // like the selected slash rows when Enter would execute; plain violet
+      // while forward is still available).
       rows.push("");
+      const selIt: any = items.length ? items[Math.min(menuSel, items.length - 1)] : null;
+      let confirmReady = false;
+      if (menuSub) {
+        confirmReady = true; // inside a submenu Enter executes the option
+      } else if (selIt) {
+        const cmd: any = commands.find((c) => c.name === selIt.value);
+        confirmReady = !!cmd && typeof cmd.getArgumentCompletions !== "function";
+      }
       const left = fg(C.textSecondary, "\u2191 \u2193 \u2190 \u2192");
-      const right = fg(C.danger, "Cancel") + "  " + bold(fg(C.primary, "Confirm"));
+      const right =
+        fg(C.danger, "Esc") +
+        "  " +
+        (confirmReady ? bold(bg(C.primary, fg(C.bgPanel, " Confirm "))) : fg(C.primary, "Confirm"));
       const gw = Math.max(1, w - visibleWidth(left) - visibleWidth(right));
       rows.push(left + " ".repeat(gw) + right);
       return rows;
