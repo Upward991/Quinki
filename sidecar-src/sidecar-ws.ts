@@ -627,8 +627,17 @@ wss.on("connection", (ws, req: any) => {
     for (const p of q) {
       try {
         if (p && !p.delivered && Date.now() - (Number(p?.ts) || 0) < 10 * 60 * 1000) {
-          p.delivered = true;
-          ws.send(JSON.stringify({ jsonrpc: "2.0", method: "push_notify", params: p }));
+          // RI-CONTROLLO al momento della consegna: se nel frattempo la chat e'
+          // stata messa in mute O la stai guardando (Mac), NON va consegnata.
+          // (Prima la coda veniva rigiocata cieca: notifiche vecchie che
+          // riapparivano mentre guardavi la chat.)
+          let ok = true; let why: any = {};
+          try { const d = (globalThis as any).__quinkiPushDecision; if (d) { why = d(String(p?.sessionKey || '')); ok = !!why.ok; } } catch {}
+          try { (globalThis as any).__quinkiPushDbg?.('replay', { sk: String(p?.sessionKey || ''), ok, mode: why?.mode, watched: why?.watched }); } catch {}
+          if (!ok) { p.delivered = true; } else {
+            p.delivered = true;
+            ws.send(JSON.stringify({ jsonrpc: "2.0", method: "push_notify", params: p }));
+          }
         }
       } catch {}
     }

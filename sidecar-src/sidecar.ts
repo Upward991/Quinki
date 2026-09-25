@@ -289,18 +289,36 @@ function isWatched(sk: string): boolean {
   } catch {}
   return false;
 }
+// Decisione unica di push (usata SIA all'evento SIA al replay della coda):
+// - mute della chat (notifyMode 'none') -> niente
+// - chat in visione su un client locale (Mac) -> niente
+function pushDecision(sk: string): { ok: boolean; mode: string; watched: boolean } {
+  let mode = 'none';
+  try {
+    const st = (piBridge as any)?.getAllReadStates ? (piBridge as any).getAllReadStates() : null;
+    mode = st && sk ? (st[sk] && st[sk].notifyMode) || 'none' : 'none';
+  } catch {}
+  const watched = isWatched(sk);
+  return { ok: mode !== 'none' && !watched, mode, watched };
+}
+try { (globalThis as any).__quinkiPushDecision = pushDecision } catch {}
+// Diagnostica: ogni decisione push finisce in ~/.quinki/push-debug.log
+function pdbg(ev: string, data: any): void {
+  try {
+    const f = path.join(homedir(), '.quinki', 'push-debug.log');
+    try { if (fs.existsSync(f) && fs.statSync(f).size > 512 * 1024) fs.writeFileSync(f, ''); } catch {}
+    fs.appendFileSync(f, JSON.stringify({ t: new Date().toISOString(), ev, ...data }) + "\n", 'utf8');
+  } catch {}
+}
+try { (globalThis as any).__quinkiPushDbg = pdbg } catch {}
 const _pushQueue: any[] = [];
 (globalThis as any).__quinkiPushQueue = _pushQueue;
 function pushNotifyOut(entry: any): void {
   try {
     const sk = String(entry?.kind === 'task_complete' ? (entry?.sourceSession?.key || '') : (entry?.sessionKey || ''));
-    try {
-      const st = (piBridge as any)?.getAllReadStates ? (piBridge as any).getAllReadStates() : null;
-      const mode = st && sk ? (st[sk] && st[sk].notifyMode) || 'none' : 'none';
-      if (mode === 'none') return;
-    } catch { return }
-    // Se sul Mac stai GUARDANDO questa chat, il telefono resta zitto (regola utente: identica al comportamento del computer).
-    if (isWatched(sk)) return;
+    const _d = pushDecision(sk);
+    pdbg('fire', { sk, mode: _d.mode, watched: _d.watched, ok: _d.ok });
+    if (!_d.ok) return;
     let title = entry?.kind === 'task_complete' ? 'Task executed' : (sk === '__app_expert__' ? 'App Expert' : '');
     if (!title) {
       try {
@@ -625,6 +643,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
       if (!p?.__local) return { ok: false };
       const cid = String(p?.__clientId || "anon");
       _watchStates.set(cid, { sk: String(p?.sessionKey || ''), watching: !!p?.watching, at: Date.now() });
+      pdbg('watch', { cid, sk: String(p?.sessionKey || ''), w: !!p?.watching });
       return { ok: true };
     } catch { return { ok: false }; }
   },
