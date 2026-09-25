@@ -606,6 +606,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   const setStatus = (label: string, kind: string) => {
     statusLabel = label;
     statusKind = kind;
+    // NOTE: NEVER requestImmediateRender() here — events arrive inside the
+    // engine dispatch and an immediate render is RE-ENTRANT (stale/corrupted
+    // frames). The scheduled requestRender is the safe path (verified).
     try {
       ui.requestRender();
     } catch {}
@@ -663,11 +666,13 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       quiet(dir);
     // Status pill (app-style): same row as the info, right-aligned — visible
     // only while the engine streams / compacts (Failed stays until next turn).
-    const pillOn = !!statusLabel && (streaming || statusKind === "compacting" || statusKind === "failed");
+    const pillOn =
+      !!statusLabel && (streaming || statusKind === "compacting" || statusKind === "failed" || statusKind === "sending");
     if (!pillOn) return bar;
     const statusColor: Record<string, string> = {
       running: C.statusRunning,
       compacting: C.statusCompacting,
+      sending: C.modePlanDim,
       failed: C.danger,
       retrying: C.modeBuild,
       thinking: C.thinking,
@@ -824,6 +829,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       ) {
         const ame = e.assistantMessageEvent;
         if (ame.type === "text_delta") {
+          setStatus("Writing", "writing");
           if (!assistant) {
             assistant = new Markdown("", 1, 0, mdTheme);
             content.addChild(assistant);
@@ -832,6 +838,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           assistant.setText(assistantText);
           scrollToEnd();
         } else if (ame.type === "thinking_delta") {
+          setStatus("Thinking", "thinking");
           thinkingText += ame.delta || "";
           if (!thinkingRow) {
             thinkingRow = new Text("", 1, 0);
@@ -841,6 +848,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           scrollToEnd();
         }
       } else if (e?.type === "tool_execution_start") {
+        setStatus("Tool call", "tool_call");
         const name = e.toolName || e.name || e.tool?.name || "tool";
         addRow(collapsed(C.toolCall, `\u25b8 Tool call \u00b7 ${name}`));
         assistant = null;
@@ -857,10 +865,19 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         thinkingRow = null;
         thinkingText = "";
         if (e?.message?.stopReason === "error") setStatus("Failed", "failed");
+      } else if (e?.type === "auto_retry_start") {
+        setStatus(`Retrying ${e.attempt || 1}/${e.maxAttempts || 6}`, "retrying");
+      } else if (e?.type === "auto_retry_end") {
+        if (e.success) setStatus("Running", "running");
+        else setStatus("Failed", "failed");
       } else if (e?.type === "compaction_start") {
         setStatus("Compacting", "compacting");
       } else if (e?.type === "compaction_end") {
         if (statusKind === "compacting") setStatus("", "");
+        // App-style compaction toggle IN CHAT: ineffective (orange) / effective (blue).
+        const noop = !!e.errorMessage;
+        addRow(collapsed(noop ? C.expert : C.info, `\u25b8 Compaction \u00b7 ${noop ? "ineffective" : "effective"}`));
+        scrollToEnd();
       } else if (e?.type === "agent_end") {
         streaming = false;
         if (statusKind !== "failed") setStatus("", "");
@@ -876,7 +893,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
 
   // --- slash commands -----------------------------------------------------------
   /** All chat messages saved on disk (the session jsonl files), oldest first. */
-  const readSessionMessages = (): any[] => {
+  const readSessionEntries = (): any[] => {
     const out: any[] = [];
     try {
       const files = fs.readdirSync(currentSessionDir).filter((f: string) => f.endsWith(".jsonl")).sort();
@@ -891,20 +908,27 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           if (!line.trim()) continue;
           try {
             const o = JSON.parse(line);
-            if (o?.type === "message" && o?.message?.role) out.push(o.message);
+            if (o?.type === "message" && o?.message?.role) out.push({ kind: "message", message: o.message });
+            else if (o?.type === "compaction") out.push({ kind: "compaction" });
           } catch {}
         }
       }
     } catch {}
     return out;
   };
+  const readSessionMessages = (): any[] => readSessionEntries().filter((x: any) => x.kind === "message").map((x: any) => x.message);
 
   /** Rebuild the transcript from the saved history (the /reload command). */
   const renderHistory = () => {
     try {
       content.clear();
-      const msgs: any[] = readSessionMessages();
-      for (const m of msgs) {
+      for (const en of readSessionEntries()) {
+        if (en.kind === "compaction") {
+          // File compactions are always REAL (noop ones never reach the file).
+          content.addChild(new Text(collapsed(C.info, "\u25b8 Compaction \u00b7 effective"), 1, 0));
+          continue;
+        }
+        const m = en.message;
         if (m.role === "user") {
           let t = "";
           const c = m.content;
@@ -1407,6 +1431,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     content.addChild(new Text(t, 2, 1, (s: string) => bg(C.bubbleUser, s)));
     scrollToEnd();
     streaming = true;
+    setStatus("Sending", "sending");
     updateBar();
     try {
       void Promise.resolve(session.prompt(t)).catch((err: any) => {

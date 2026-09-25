@@ -623,6 +623,7 @@ export class TuiBase extends Container {
             // where even setTimeout(0) can take a full 16 ms tick on Windows.
             this.requestImmediateRender();
         }
+
     }
     consumeOsc11BackgroundResponse(data) {
         if (this.pendingOsc11BackgroundReplies <= 0) {
