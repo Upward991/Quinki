@@ -2944,7 +2944,7 @@ dependencies = [
 
 [[package]]
 name = "quinki"
-version = "1.0.0-beta.1"
+version = "1.0.0-beta.29"
 dependencies = [
  "base64 0.22.1",
  "block",

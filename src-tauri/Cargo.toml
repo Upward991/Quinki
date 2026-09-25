@@ -1,6 +1,6 @@
 [package]
 name = "quinki"
-version = "1.0.0-beta.1"
+version = "1.0.0-beta.29"
 description = "Quinki — AI agent dashboard"
 authors = ["you"]
 license = ""
