@@ -854,11 +854,13 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           menuSel = 0;
         }
       } else if (a === "up") {
+        // Wrap-around like the app: from the FIRST item UP goes to the LAST.
         menuConfirmFocus = false;
-        menuSel = Math.max(0, menuSel - 1);
+        if (items.length > 0) menuSel = (menuSel - 1 + items.length) % items.length;
       } else if (a === "down") {
+        // Wrap-around like the app: from the LAST item DOWN goes to the FIRST.
         menuConfirmFocus = false;
-        menuSel = Math.min(Math.max(0, items.length - 1), menuSel + 1);
+        if (items.length > 0) menuSel = (menuSel + 1) % items.length;
       } else if (a === "left") {
         menuConfirmFocus = false;
         if (menuSub) {
