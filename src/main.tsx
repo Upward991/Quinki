@@ -109,6 +109,23 @@ try {
     }, 1200)
   }
 } catch {}
+// DIAGNOSI TELEFONO (temporaneo): cosa dice il WebView Android quando l'app va
+// in background o viene chiusa? (sospetto: visibility/hasFocus restano "visibili")
+try {
+  if (!(globalThis as any).__TAURI_INTERNALS__) {
+    const _pvLog = (why: string) => {
+      try {
+        reportFrontendError('phone-vis', why + ' vis=' + document.visibilityState + ' hasFocus=' + document.hasFocus() + ' hidden=' + document.hidden)
+      } catch {}
+    }
+    for (const ev of ['visibilitychange', 'pagehide', 'pageshow', 'freeze', 'resume', 'blur', 'focus', 'stopped']) {
+      try { window.addEventListener(ev, () => _pvLog('win:' + ev), true) } catch {}
+      try { document.addEventListener(ev, () => _pvLog('doc:' + ev), true) } catch {}
+    }
+    try { setTimeout(() => _pvLog('load'), 1500) } catch {}
+    try { setInterval(() => _pvLog('tick60'), 60000) } catch {}
+  }
+} catch {}
 ;(window as any).onerror = (msg: any, src: any, line: any, col: any, err: any) => {
   reportFrontendError('onerror', String(msg) + ' @ ' + String(src) + ':' + line + ':' + col, err?.stack)
 }
