@@ -386,15 +386,15 @@ export class Markdown {
                     const highlightedLines = this.theme.highlightCode(token.text, token.lang);
                     const plainLines = String(token.text || "").split(String.fromCharCode(10));
                     highlightedLines.forEach((hlLine, hi) => {
-                        const rawLen = (plainLines[hi] ?? "").length + 2;
-                        lines.push(this.theme.codeBlock("  " + hlLine + " ".repeat(Math.max(0, width - 2 - rawLen))));
+                        const visLen = String(hlLine).replace(new RegExp(String.fromCharCode(27) + "\\[[0-9;]*m", "g"), "").length;
+                        lines.push(this.theme.codeBlock("  " + hlLine + " ".repeat(Math.max(0, width - 2 - visLen))));
                     });
                 }
                 else {
                     // Split code by newlines and style each line
                     const codeLines = token.text.split("\n");
                     for (const codeLine of codeLines) {
-                        lines.push(this.theme.codeBlock("  " + codeLine + " ".repeat(Math.max(0, width - 2 - codeLine.length - 2))));
+                        lines.push(this.theme.codeBlock("  " + codeLine + " ".repeat(Math.max(0, width - 2 - codeLine.length))));
                     }
                 }
                 lines.push(this.theme.codeBlock(" ".repeat(Math.max(10, width))));
