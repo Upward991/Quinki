@@ -378,7 +378,7 @@ class ToggleBlock {
             for (const line of wrapPlain(String(ch.v || ""), inner)) out.push(" " + fg(this.color, "\u2502 ") + fg(C.text, line));
           }
         } else if (ch && ch.t === "footer") {
-          const line = ch.date + (infoOpen ? "  \u00b7  Info: " + ch.info : "");
+          const line = ch.date + (infoOpen ? " \u00b7 Info: " + ch.info : "");
           out.push(" " + fg(this.color, "\u2502 ") + fg(C.textTertiary, line));
         } else if (ch && ch.t === "toggle") {
           for (const ln of ch.v.render(Math.max(6, width - 3))) out.push(" " + fg(this.color, "\u2502 ") + ln);
@@ -424,7 +424,7 @@ class FooterRow {
     // No glyph at all: with Ctrl+F the info simply appears as "Info: ..."
     // written next to the time.
     const left = " " + this.dateStr;
-    const full = this.showInfo && infoOpen ? left + "  \u00b7  Info: " + this.infoStr : left;
+    const full = this.showInfo && infoOpen ? left + " \u00b7 Info: " + this.infoStr : left;
     const out = full.length > width ? full.slice(0, Math.max(1, width - 1)) + "\u2026" : full;
     return [fg(C.textTertiary, out)];
   }
@@ -1535,7 +1535,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       `${fmtTok(ctxTokens)}/${fmtTok(ctxWindow)} (${Math.floor(pct)}% \u00b1 ${Math.ceil(pct * 0.05 + 1)}%)`
     );
     const modelId = wsModelId || defaultModelId || "";
-    const sep = fg(C.textTertiary, "  \u00b7  ");
+    const sep = fg(C.textTertiary, " \u00b7 ");
     const quiet = (s: string) => fg(C.textTertiary, s);
     const modeStr = mode === "plan" ? fg(C.modePlan, "Plan") : fg(C.modeBuild, "Build");
     const bar =
@@ -1602,15 +1602,15 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       // Toggle navigation ON: its keys replace the chat ones (close left, open right).
       const leftN =
         lit("Toggle Nav (Ctrl+T)") +
-        fg(C.textTertiary, "  \u00b7  ") +
+        fg(C.textTertiary, " \u00b7 ") +
         fg(C.danger, "Esc") +
-        fg(C.textTertiary, "  \u00b7  ") +
+        fg(C.textTertiary, " \u00b7 ") +
         quiet("Info (Ctrl+F)");
       const rightN =
         sec("Move (\u2191\u2193)") +
-        fg(C.textTertiary, "  \u00b7  ") +
+        fg(C.textTertiary, " \u00b7 ") +
         sec("Close (\u2190)") +
-        fg(C.textTertiary, "  \u00b7  ") +
+        fg(C.textTertiary, " \u00b7 ") +
         sec("Open (\u2192)");
       const brandN = fg(C.primary, "\u2502") + " " + fg(C.primary, "Quinki") + " " + fg(C.primary, "\u2502");
       const lwN = visibleWidth(leftN);
@@ -1635,11 +1635,11 @@ export async function runTui(opts: TuiOptions): Promise<void> {
 
     const left =
       (menuActive ? lit("Menu (/)") : quiet("Menu (/)")) +
-      fg(C.textTertiary, "  \u00b7  ") +
+      fg(C.textTertiary, " \u00b7 ") +
       quiet("Toggle Nav (Ctrl+T)") +
-      fg(C.textTertiary, "  \u00b7  ") +
+      fg(C.textTertiary, " \u00b7 ") +
       quiet("Info (Ctrl+F)");
-    const sep = fg(C.textTertiary, "  \u00b7  ");
+    const sep = fg(C.textTertiary, " \u00b7 ");
     const stopKey = streaming ? bold(fg(C.danger, "Stop (Esc)")) : quiet("Stop (Esc)");
     const steerKey = canSteer ? lit("Steer (Ctrl+Enter)") : quiet("Steer (Ctrl+Enter)");
     const sendKey = cmdReady
