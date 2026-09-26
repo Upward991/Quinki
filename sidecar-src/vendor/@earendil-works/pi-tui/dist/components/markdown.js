@@ -384,12 +384,11 @@ export class Markdown {
                 lines.push("  " + this.theme.codeBlock(" ".repeat(Math.max(10, width - 4))) + "  ");
                 if (this.theme.highlightCode) {
                     const highlightedLines = this.theme.highlightCode(token.text, token.lang);
-                    const plainLines = String(token.text || "").replace(/\n$/, "").split("\n");
+                    const plainLines = String(token.text || "").split(String.fromCharCode(10));
                     highlightedLines.forEach((hlLine, hi) => {
                         const rawLen = (plainLines[hi] ?? "").length + 4;
                         lines.push("  " + this.theme.codeBlock(hlLine + " ".repeat(Math.max(0, width - 4 - rawLen))) + "  ");
-                    });${hlLine}`);
-                    }
+                    });
                 }
                 else {
                     // Split code by newlines and style each line
