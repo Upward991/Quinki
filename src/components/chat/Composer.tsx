@@ -647,7 +647,7 @@ export function Composer(props: ComposerProps) {
       if (e.key === 'ArrowLeft') { e.preventDefault(); slashMenuRef.current?.navLeft(); return }
       if (e.key === 'ArrowRight') { e.preventDefault(); slashMenuRef.current?.navRight(); return }
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); slashMenuRef.current?.navEnter(); return }
-      if (e.key === 'Escape') { e.preventDefault(); setSlashMenuOpen(false); return }
+      if (e.key === 'Escape') { e.preventDefault(); setSlashMenuOpen(false); if (text.trim().startsWith('/')) setText(''); return }
     }
     e.key === 'Enter' && e.ctrlKey && (e.preventDefault(), handleSteer())
     // Sul telefono (= web + schermo piccolo) Invio va a capo: si invia SOLO col
@@ -656,7 +656,7 @@ export function Composer(props: ComposerProps) {
     // Esc: se sta generando → STOP (come il tasto stop). Altrimenti chiude i menu.
     // MAI cancellare il testo del composer: l'utente che preme Esc per fermare
     // la generazione non deve perdere quello che ha scritto (bug gravissimo).
-    e.key === 'Escape' && (props.isStreaming ? (e.preventDefault(), props.onStop()) : (setSlashMenuOpen(false), setMentionOpen(false), setAttachMenuOpen(false)))
+    e.key === 'Escape' && (props.isStreaming ? (e.preventDefault(), props.onStop()) : (setSlashMenuOpen(false), setMentionOpen(false), setAttachMenuOpen(false), text.trim().startsWith('/') && setText('')))
     // Tab: toggle Plan/Build (non inserire tab nel testo)
     // stopPropagation: il ChatArea ha UN handler globale Tab (29 ago) — senza stop,
     // l'evento sale e fa un SECONDO toggle (plan→build→plan = nessun cambio).

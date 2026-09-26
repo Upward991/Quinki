@@ -1959,7 +1959,7 @@ fn kill_backend() {
         // Il TUNNEL resta vivo di proposito: e' il ponte della web app (anche
         // Expert a main chiusa). Si spegne solo col Log out.
         let _ = std::process::Command::new("sh").arg("-c")
-          .arg("pkill -f 'main-watchdog' 2>/dev/null; sleep 0.2; lsof -ti:9182 | xargs kill -9 2>/dev/null; pkill -9 -f 'Quinki.app/Contents/Resources/resources/sidecar/quinki-sidecar-w[s]' 2>/dev/null; true")
+          .arg("pkill -f 'main-watchdog' 2>/dev/null; sleep 0.2; if ! lsof -i:9182 2>/dev/null | grep -q ESTABLISHED; then lsof -ti:9182 | xargs kill -9 2>/dev/null; pkill -9 -f 'Quinki.app/Contents/Resources/resources/sidecar/quinki-sidecar-w[s]' 2>/dev/null; fi; true")
           .status();
     }
 }

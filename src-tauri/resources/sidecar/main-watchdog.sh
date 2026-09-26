@@ -17,8 +17,13 @@ while true; do
   # via di morte (SIGTERM, kill -9, crash; il quit normale ha gia' kill_backend).
   if ! pgrep -f "Quinki.app/Contents/MacOS/quinki" > /dev/null 2>&1; then
     echo "$(date): Main app not running, main-watchdog exits and cleans up" >> "$LOG"
-    pkill -9 -f 'Quinki.app/Contents/Resources/resources/sidecar/quinki-sidecar-w[s]' 2>/dev/null
-    lsof -ti:9182 2>/dev/null | xargs kill -9 2>/dev/null
+    # CLI-aware: do NOT kill the sidecar while a CLI client is still connected.
+    if ! lsof -i:9182 2>/dev/null | grep -q ESTABLISHED; then
+      pkill -9 -f 'Quinki.app/Contents/Resources/resources/sidecar/quinki-sidecar-w[s]' 2>/dev/null
+      lsof -ti:9182 2>/dev/null | xargs kill -9 2>/dev/null
+    else
+      echo "$(date): CLI connected on 9182 - sidecar left alive" >> "$LOG"
+    fi
     # ULTIMA app in uscita (vale anche per morte brutale): spegni anche il TUNNEL.
     # Nessuna app aperta = nessun ponte = zero processi in background. Alla
     # riapertura di una qualsiasi delle due app il watchdog lo riavvia da solo.
