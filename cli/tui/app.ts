@@ -1760,8 +1760,8 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           .call("getContextUsage", { sessionKey: currentKey }, 15000)
           .then((r: any) => {
             const u = r?.usage || {};
-            const used = Number(u.input || 0) + Number(u.output || 0);
-            if (used > 0) ctxTokens = used;
+            const tk = Number(u.tokens ?? (Number(u.input || 0) + Number(u.output || 0)));
+            if (tk > 0) ctxTokens = tk;
             if (Number(u.contextWindow || 0) > 0) ctxWindow = Number(u.contextWindow);
             else {
               const mm = availableModels().find((x: any) => String(x?.id) === wsModelId);
@@ -1796,10 +1796,15 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         }
       } else if (method === "context_usage") {
         if (p.usage) {
-          const used = Number(p.usage.input || 0) + Number(p.usage.output || 0);
-          if (used > 0) ctxTokens = used;
-          const mm = availableModels().find((x: any) => String(x?.id) === wsModelId);
-          if (mm?.contextWindow) ctxWindow = Number(mm.contextWindow);
+          const u: any = p.usage;
+          // Payload shape: {tokens, contextWindow, percent} (same source as the app).
+          const tk = Number(u.tokens ?? (Number(u.input || 0) + Number(u.output || 0)));
+          if (tk > 0) ctxTokens = tk;
+          if (Number(u.contextWindow || 0) > 0) ctxWindow = Number(u.contextWindow);
+          else {
+            const mm = availableModels().find((x: any) => String(x?.id) === wsModelId);
+            if (mm?.contextWindow) ctxWindow = Number(mm.contextWindow);
+          }
           updateBar();
         }
       }
