@@ -2995,9 +2995,20 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       void (async () => {
         try {
           await sc.call("ensureSession", { sessionKey: sk, label: "Chat" }, 20000);
+          // Sync the engine with the session's REAL configuration: agents in the
+          // chat (default quinki), mode, model and thinking — otherwise the
+          // runtime runs a bare session without the user's tools/skills/MCP.
+          await sc.call("setChatAgents", { sessionKey: sk, agentIds: sessionAgentIds().join(",") }, 20000);
           await sc.call(
             "sendMessage",
-            { sessionKey: sk, text: t, ...(skills.length ? { skillNames: skills } : {}) },
+            {
+              sessionKey: sk,
+              text: t,
+              ...(skills.length ? { skillNames: skills } : {}),
+              ...(wsModelId ? { model: wsModelId } : {}),
+              thinkingLevel: thinkingOn ? "xhigh" : "off",
+              mode,
+            },
             600000
           );
         } catch (err) {
