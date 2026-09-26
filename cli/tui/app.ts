@@ -1297,14 +1297,16 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       // app's scroll-up loading), then keep the view near the newly loaded part.
       if (data === "\x1b[5~" || matchesKey(data, "pageup")) {
         try {
-          const st: any = (globalThis as any).__quinkiScroll?.state || {};
-          const top = Number(st.scrollTop || 0);
+          const sv: any = (globalThis as any).__quinkiScroll;
+          const top = Number(sv?.scrollTop || 0); // scrollTop is a GETTER
           const allN = readSessionEntries().length;
           if (top <= 12 && allN > histLimit) {
+            // Load 50 older messages and KEEP the reading position (disable the
+            // end-follow so the view does not jump to the bottom).
             histLimit += 50;
             renderHistory();
             try {
-              (globalThis as any).__quinkiScroll?.scrollTo?.(Math.min(80, Number((globalThis as any).__quinkiScroll?.state?.maxScrollTop || 0)));
+              sv?.scrollTo?.(90, { disableFollow: true });
             } catch {}
             ui.requestRender();
             return { consume: true };
