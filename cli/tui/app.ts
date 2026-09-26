@@ -777,10 +777,11 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       seq: 3,
       hidden: () => welcomeShown,
       getArgumentCompletions: (prefix: string) => {
-        const p = prefix.trim();
-        // Always show the field so it is clear where to type the new name.
-        return p
-          ? [{ value: p, label: p, description: "set this title" }]
+        // The typed text IS the new name — raw (spaces, deletions included), never
+        // trimmed: the item must keep matching the live menu filter, otherwise the
+        // menu flickers closed and the name gets lost.
+        return prefix
+          ? [{ value: prefix, label: prefix, description: "set this title" }]
           : [{ value: "", label: "type the new name\u2026", description: "then Enter to set it" }];
       },
     },
