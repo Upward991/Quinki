@@ -64,6 +64,7 @@ export const bg = (color: string, s: string) =>
 
 export const bold = (s: string) => (colorEnabled ? `\x1b[1m${s}\x1b[22m` : s);
 export const dimStyle = (s: string) => (colorEnabled ? `\x1b[2m${s}\x1b[22m` : s);
+export const italicStyle = (s: string) => (colorEnabled ? `\x1b[3m${s}\x1b[23m` : s);
 
 /** Collapsed row color: 50% of the base color over the screen bg (like the app). */
 export const collapsed = (color: string, s: string) => fg(blend(color, C.bg, 0.5), s);

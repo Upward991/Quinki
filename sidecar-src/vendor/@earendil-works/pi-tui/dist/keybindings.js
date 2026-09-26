@@ -112,12 +112,13 @@ export const TUI_KEYBINDINGS = {
         defaultKeys: [],
         description: "Scroll viewport down one line",
     },
+    // QUINKI PATCH: ctrl+up/down freed for the toggle navigation (prompt-jump unused).
     "tui.altScreen.previousPrompt": {
-        defaultKeys: ["ctrl+shift+up", "ctrl+up"],
+        defaultKeys: [],
         description: "Jump to previous semantic prompt",
     },
     "tui.altScreen.nextPrompt": {
-        defaultKeys: ["ctrl+shift+down", "ctrl+down"],
+        defaultKeys: [],
         description: "Jump to next semantic prompt",
     },
     "tui.altScreen.search": {

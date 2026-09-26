@@ -33,7 +33,7 @@ import {
   visibleWidth,
 } from "../../sidecar-src/vendor/@earendil-works/pi-tui/dist/index.js";
 
-import { C, fg, bg, bgKeepPanel, collapsed, counterColor, blend, bold } from "./theme";
+import { C, fg, bg, bgKeepPanel, collapsed, counterColor, blend, bold, italicStyle } from "./theme";
 
 // Engine (bundled at build time — literal specifiers only).
 import * as sdk from "../../sidecar-src/vendor/@earendil-works/pi-coding-agent/dist/index.js";
@@ -226,6 +226,79 @@ function fmtWhen(ms: number): string {
   }
 }
 
+/** Word-wrap a plain (ANSI-free) string to a visible width. */
+function wrapPlain(s: string, width: number): string[] {
+  const out: string[] = [];
+  const w = Math.max(4, width);
+  for (const raw of String(s || "").split("\n")) {
+    if (raw.length === 0) {
+      out.push("");
+      continue;
+    }
+    let line = "";
+    for (const word of raw.split(" ")) {
+      if (!line) line = word;
+      else if (line.length + 1 + word.length <= w) line += " " + word;
+      else {
+        out.push(line);
+        line = word;
+      }
+    }
+    if (line) out.push(line);
+  }
+  return out;
+}
+
+/**
+ * App-style toggle block (MessageBubble GenericToggle, terminal replica):
+ *  - collapsed: ▸ + dimmed label/color + grey preview (first line, 80 chars)
+ *  - open: ▾ + full-color label + body rows with a left vertical bar (2px in the app)
+ *  - ToolToggle style: label + BOLD tool name (no separator dot)
+ *  - Thinking: italic body
+ *  - selected (Ctrl+up/down): full color even when collapsed
+ */
+class ToggleBlock {
+  label: string;
+  boldName: string;
+  color: string;
+  body: string;
+  italic: boolean;
+  open = false;
+  selected = false;
+  constructor(o: { label: string; boldName?: string; color: string; body?: string; italic?: boolean; open?: boolean }) {
+    this.label = o.label;
+    this.boldName = o.boldName || "";
+    this.color = o.color;
+    this.body = o.body || "";
+    this.italic = !!o.italic;
+    this.open = !!o.open;
+  }
+  setBody(s: string) {
+    this.body = s;
+  }
+  render(width: number): string[] {
+    const col = this.open || this.selected ? this.color : blend(this.color, C.bg, 0.5);
+    const arrow = this.open ? "\u25be" : "\u25b8";
+    let head = fg(col, arrow + " ") + fg(col, this.label);
+    if (this.boldName) head += " " + bold(fg(col, this.boldName));
+    if (!this.open) {
+      const first = String(this.body || "").split("\n")[0] || "";
+      const preview = first.length > 80 ? first.slice(0, 79) + "\u2026" : first;
+      if (preview.trim()) head += "  " + fg(C.textTertiary, preview);
+    }
+    const out = [head];
+    if (this.open && this.body) {
+      const inner = Math.max(6, width - 3);
+      for (const line of wrapPlain(this.body, inner)) {
+        const styled = this.italic ? italicStyle(fg(this.color, line)) : fg(this.color, line);
+        out.push(fg(this.color, "\u2502 ") + styled);
+      }
+    }
+    return out;
+  }
+  invalidate() {}
+}
+
 export async function runTui(opts: TuiOptions): Promise<void> {
   const key = "cli-" + Date.now().toString(36);
   const sessionDirForKey = path.join(opts.sessionDir, key);
@@ -267,13 +340,30 @@ export async function runTui(opts: TuiOptions): Promise<void> {
 
   // Header (fixed, top): chat icon + title ONLY, drawn as a floating-panel block
   // (plain background color, no border) — same width as the composer and chat.
-  const titleText = new Text("", 0, 0);
-  const header = new BgBlock(titleText, 1, (s: string) => bg(C.bgPanel, s), 1);
-  titleText.setText(fg(C.textSecondary, "\u25a4") + " " + fg(C.text, "New chat"));
-  const setChatTitle = (title: string) => {
-    const t = title && title.trim() ? title.trim() : "New chat";
+  // Header (fixed, top): chat title on the LEFT, working directory on the RIGHT
+  // (no icon), drawn as a floating-panel block.
+  let headerTitle = "New chat";
+  const fmtDirShort = (): string => {
     try {
-      titleText.setText(fg(C.textSecondary, "\u25a4") + " " + fg(C.text, t));
+      const home = process.env.HOME || "";
+      return home && currentCwd.startsWith(home) ? "~" + currentCwd.slice(home.length) : currentCwd;
+    } catch {
+      return "";
+    }
+  };
+  const titleText = new FnLine((w: number) => {
+    const t = fg(C.text, headerTitle);
+    const dir = fmtDirShort();
+    const tw = visibleWidth(t);
+    const dw = visibleWidth(dir);
+    if (!dir) return t;
+    const gap = Math.max(1, w - tw - dw);
+    return t + " ".repeat(gap) + fg(C.textTertiary, dir);
+  });
+  const header = new BgBlock(titleText, 1, (s: string) => bg(C.bgPanel, s), 1);
+  const setChatTitle = (title: string) => {
+    headerTitle = title && title.trim() ? title.trim() : "New chat";
+    try {
       ui.requestRender();
     } catch {}
   };
@@ -485,6 +575,40 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   // The slash menu is OURS (rendered via editor.menuLinesFn): it never writes
   // command text into the box — navigation and options live in the menu only.
 
+  // --- toggle blocks (app-style) -----------------------------------------------
+  // Ctrl+Up/Down selects a toggle, Enter opens/closes it, Esc deselects.
+  const toggles: ToggleBlock[] = [];
+  let selToggle = -1;
+  const registerToggle = (t: ToggleBlock) => {
+    toggles.push(t);
+    return t;
+  };
+  const selectToggle = (dir: number) => {
+    try {
+      if (toggles.length === 0) return;
+      if (selToggle < 0) selToggle = dir > 0 ? 0 : toggles.length - 1;
+      else selToggle = Math.max(0, Math.min(toggles.length - 1, selToggle + dir));
+      toggles.forEach((t, i) => (t.selected = i === selToggle));
+      ui.requestRender();
+    } catch {}
+  };
+  const activateToggle = () => {
+    try {
+      if (selToggle < 0 || !toggles[selToggle]) return;
+      toggles[selToggle].open = !toggles[selToggle].open;
+      ui.requestRender();
+    } catch {}
+  };
+  const clearToggleSel = (): boolean => {
+    if (selToggle < 0) return false;
+    selToggle = -1;
+    try {
+      toggles.forEach((t) => (t.selected = false));
+      ui.requestRender();
+    } catch {}
+    return true;
+  };
+
   // Tab = toggle plan/build (app behaviour), intercepted at the TUI level.
   try {
     ui.addInputListener((data: string) => {
@@ -507,6 +631,13 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       const isLeft = data === "\x1b[D" || matchesKey(data, "left");
       const isRight = data === "\x1b[C" || matchesKey(data, "right");
       const menuNow = menuOpenRef?.() ?? false;
+      // Toggle navigation (only when the slash menu is closed).
+      const isCtrlUp = data === "\x1b[1;5A" || matchesKey(data, "ctrl+up");
+      const isCtrlDown = data === "\x1b[1;5B" || matchesKey(data, "ctrl+down");
+      if (!menuNow && (isCtrlUp || isCtrlDown)) {
+        selectToggle(isCtrlUp ? -1 : 1);
+        return { consume: true };
+      }
       if (isEsc) {
         escFlashUntil = Date.now() + 450;
         try {
@@ -521,7 +652,12 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           menuNavRef?.("escape");
           return { consume: true };
         }
+        if (clearToggleSel()) return { consume: true };
         return undefined;
+      }
+      if (!menuNow && isEnter && selToggle >= 0) {
+        activateToggle();
+        return { consume: true };
       }
       if (menuNow) {
         if (isUp || isDown || isLeft || isRight || isEnter) {
@@ -672,8 +808,6 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       `${fmtTok(ctxTokens)}/${fmtTok(ctxWindow)} (${Math.floor(pct)}% \u00b1 ${Math.ceil(pct * 0.05 + 1)}%)`
     );
     const modelId = session?.model?.id || defaultModelId || "";
-    const home = process.env.HOME || "";
-    const dir = home && currentCwd.startsWith(home) ? "~" + currentCwd.slice(home.length) : currentCwd;
     const sep = fg(C.textTertiary, "  \u00b7  ");
     const quiet = (s: string) => fg(C.textTertiary, s);
     const modeStr = mode === "plan" ? fg(C.modePlan, "Plan") : fg(C.modeBuild, "Build");
@@ -684,9 +818,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       sep +
       quiet(modelId) +
       sep +
-      quiet("thinking " + (thinkingOn ? "on" : "off")) +
-      sep +
-      quiet(dir);
+      quiet("thinking " + (thinkingOn ? "on" : "off"));
     // Status pill (app-style): same row as the info, right-aligned — visible
     // only while the engine streams / compacts (Failed stays until next turn).
     const pillOn =
@@ -811,7 +943,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   let blockCount = 0;
   const pushBlock = (comp: any) => {
     try {
-      if (blockCount > 0) content.addChild(new Text("", 0, 0));
+      if (blockCount > 0) content.addChild(new Text(" ", 0, 0));
       content.addChild(comp);
       blockCount++;
     } catch {}
@@ -874,36 +1006,52 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           setStatus("Thinking", "thinking");
           thinkingText += ame.delta || "";
           if (!thinkingRow) {
-            thinkingRow = pushBlock(new Text("", 1, 0));
+            // Open while streaming; collapses at message end (app behaviour).
+            thinkingRow = registerToggle(new ToggleBlock({ label: "Thinking", color: C.thinking, italic: true, open: true }));
+            pushBlock(thinkingRow);
           }
-          // OPEN while streaming (full reasoning), collapsed at the end — app behaviour.
-          thinkingRow.setText(collapsed(C.thinking, thinkingText));
+          thinkingRow.setBody(thinkingText);
           scrollToEnd();
         }
       } else if (e?.type === "tool_execution_start") {
         setStatus("Tool call", "tool_call");
         const name = e.toolName || e.name || e.tool?.name || "tool";
+        const args: any = e.args || e.arguments || e.input || {};
+        let body = "";
+        try {
+          body = JSON.stringify(args, null, 0) || "";
+        } catch {}
         if (/delegate/i.test(name)) {
-          const args: any = e.args || e.arguments || e.input || {};
           const target = String(args?.agentId || args?.agent || args?.to || "").trim();
-          addRow(collapsed(C.delegation, `\u25b8 Delegation${target ? " \u00b7 " + target : ""}`));
+          pushBlock(registerToggle(new ToggleBlock({ label: "Delegation", boldName: target, color: C.delegation, body })));
         } else {
-          addRow(collapsed(C.toolCall, `\u25b8 Tool call \u00b7 ${name}`));
+          pushBlock(registerToggle(new ToggleBlock({ label: "Tool call", boldName: name, color: C.toolCall, body })));
         }
         assistant = null;
         assistantText = "";
       } else if (e?.type === "tool_execution_end") {
         const name = e.toolName || e.name || e.tool?.name || "tool";
         const isErr = !!e.isError;
-        const col = isErr ? C.danger : C.toolResult;
-        addRow(collapsed(col, `\u25b8 Tool result \u00b7 ${name}${isErr ? " \u00b7 error" : ""}`));
+        const r: any = e.result;
+        let body = "";
+        try {
+          if (typeof r === "string") body = r;
+          else if (Array.isArray(r?.content)) body = r.content.filter((x: any) => x?.type === "text").map((x: any) => x.text).join("\n");
+          else if (typeof r?.content === "string") body = r.content;
+          else if (r != null) body = JSON.stringify(r, null, 0);
+        } catch {}
+        pushBlock(
+          registerToggle(
+            new ToggleBlock({ label: isErr ? "Tool error" : "Tool result", boldName: name, color: isErr ? C.danger : C.toolResult, body })
+          )
+        );
       } else if (e?.type === "message_end" && e?.message?.role === "assistant") {
         if (assistantText) lastAssistantText = assistantText;
         assistant = null;
         assistantText = "";
-        if (thinkingRow && thinkingText) {
-          // Thinking finished: collapse it to the one-liner.
-          thinkingRow.setText(collapsed(C.thinking, "\u25b8 Thinking \u00b7 " + truncate(thinkingText, 80)));
+        if (thinkingRow) {
+          // Thinking finished: collapse the toggle.
+          thinkingRow.open = false;
         }
         thinkingRow = null;
         thinkingText = "";
@@ -917,9 +1065,18 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         setStatus("Compacting", "compacting");
       } else if (e?.type === "compaction_end") {
         if (statusKind === "compacting") setStatus("", "");
-        // App-style compaction toggle IN CHAT: ineffective (orange) / effective (blue).
+        // App-style compaction toggle: ineffective (orange) / effective (blue).
         const noop = !!e.errorMessage;
-        addRow(collapsed(noop ? C.expert : C.info, `\u25b8 Compaction \u00b7 ${noop ? "ineffective" : "effective"}`));
+        pushBlock(
+          registerToggle(
+            new ToggleBlock({
+              label: "Compaction",
+              boldName: noop ? "ineffective" : "effective",
+              color: noop ? C.expert : C.info,
+              body: String(e.summary || e.errorMessage || ""),
+            })
+          )
+        );
         scrollToEnd();
       } else if (e?.type === "agent_end") {
         streaming = false;
@@ -966,10 +1123,12 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     try {
       content.clear();
       blockCount = 0;
+      toggles.length = 0;
+      selToggle = -1;
       for (const en of readSessionEntries()) {
         if (en.kind === "compaction") {
           // File compactions are always REAL (noop ones never reach the file).
-          pushBlock(new Text(collapsed(C.info, "\u25b8 Compaction \u00b7 effective"), 1, 0));
+          pushBlock(registerToggle(new ToggleBlock({ label: "Compaction", boldName: "effective", color: C.info })));
           continue;
         }
         const m = en.message;
@@ -982,7 +1141,12 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         } else if (m.role === "toolResult") {
           const nm = String(m.toolName || "tool");
           const err = !!m.isError;
-          pushBlock(new Text(collapsed(err ? C.danger : C.toolResult, `\u25b8 Tool result \u00b7 ${nm}${err ? " \u00b7 error" : ""}`), 1, 0));
+          let body = "";
+          try {
+            if (typeof m.content === "string") body = m.content;
+            else if (Array.isArray(m.content)) body = m.content.filter((x: any) => x?.type === "text").map((x: any) => x.text).join("\n");
+          } catch {}
+          pushBlock(registerToggle(new ToggleBlock({ label: err ? "Tool error" : "Tool result", boldName: nm, color: err ? C.danger : C.toolResult, body })));
         } else if (m.role === "assistant") {
           const c = m.content;
           let think = "";
@@ -997,17 +1161,26 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           } else if (typeof c === "string") {
             text = c;
           }
-          if (think.trim()) pushBlock(new Text(collapsed(C.thinking, "\u25b8 Thinking \u00b7 " + truncate(think, 80)), 1, 0));
-          for (const nm of calls)
-            pushBlock(
-              new Text(
-                /delegate/i.test(nm)
-                  ? collapsed(C.delegation, "\u25b8 Delegation")
-                  : collapsed(C.toolCall, `\u25b8 Tool call \u00b7 ${nm}`),
-                1,
-                0
-              )
-            );
+          if (think.trim()) pushBlock(registerToggle(new ToggleBlock({ label: "Thinking", color: C.thinking, italic: true, body: think })));
+          if (Array.isArray(c)) {
+            for (const b of c) {
+              if (b?.type !== "toolCall") continue;
+              const nm = String(b.name || b.toolName || "tool");
+              let body = "";
+              try {
+                body = JSON.stringify(b.arguments || {}, null, 0) || "";
+              } catch {}
+              pushBlock(
+                registerToggle(
+                  new ToggleBlock(
+                    /delegate/i.test(nm)
+                      ? { label: "Delegation", color: C.delegation, body }
+                      : { label: "Tool call", boldName: nm, color: C.toolCall, body }
+                  )
+                )
+              );
+            }
+          }
           if (text.trim()) pushBlock(new Markdown(text, 1, 0, mdTheme));
         }
       }
