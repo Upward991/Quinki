@@ -1838,10 +1838,43 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   let wsToolArgs = "";
   let wsToolToggle: any = null;
   let lastUserPush = { text: "", ts: 0 };
-  let histLimit = 50; // rendered messages (app starts at ~50, scrolling up loads more)
+  let histLimit = 50;
+  let histMsgs: any[] | null = null; // server-normalized history (the app's way)
+
+  /** Ask the SIDECAR for the history — the exact source the app uses: correct
+   *  order, blocks normalized, footers with the real agent/model/level. */
+  const loadServerHistory = async (beforeTs?: number): Promise<boolean> => {
+    if (!scOn) return false;
+    try {
+      if (typeof beforeTs === "number" && beforeTs > 0) {
+        const r = await sc.call("getHistoryBefore", { sessionKey: currentKey, ts: beforeTs, limit: 100 }, 30000);
+        const more = Array.isArray(r?.messages) ? r.messages : [];
+        if (histMsgs && more.length) histMsgs = more.concat(histMsgs);
+        return more.length > 0;
+      }
+      const r = await sc.call("getHistory", { sessionKey: currentKey, limit: 100 }, 30000);
+      histMsgs = Array.isArray(r?.messages) ? r.messages : [];
+      return histMsgs.length > 0;
+    } catch {
+      return false;
+    }
+  };
   // The vendored ScrollView calls this when the user scrolls to the very top.
   (globalThis as any).__qLoadOlder = () => {
     try {
+      if (histMsgs) {
+        const first = histMsgs[0];
+        const ts = Date.parse(String(first?.timestamp || "")) || 0;
+        void loadServerHistory(ts).then((ok) => {
+          if (!ok) return;
+          renderHistory();
+          try {
+            (globalThis as any).__quinkiScroll?.scrollTo?.(60, { disableFollow: true });
+          } catch {}
+          ui.requestRender();
+        });
+        return;
+      }
       const allN = readSessionEntries().length;
       if (allN <= histLimit) return;
       histLimit += 50;
@@ -2134,6 +2167,49 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       selToggle = -1;
       // The file is a TREE: the conversation order is the active branch (last
       // entry -> parents), exactly what the app shows. Flat order misorders.
+      if (histMsgs) {
+        // SERVER history (getHistory) — same rendering order as the app.
+        for (const m of histMsgs) {
+          if (m?.role === "user") {
+            const t = typeof m.content === "string" ? m.content : "";
+            if (t.trim()) pushBlock(new UserBubble(t, fmtFooterDate(Date.parse(m.timestamp || "") || Date.now())));
+          } else if (m?.role === "tool_result") {
+            pushBlock(registerToggle(new ToggleBlock({ label: m.isError ? "Tool error" : "Tool result", boldName: String(m.toolName || "tool"), color: m.isError ? C.danger : C.toolResult, body: String(m.content || "") })));
+          } else if (m?.role === "delegation") {
+            const tg = new ToggleBlock({ label: "Delegation to", boldName: String(m.agentName || ""), color: C.delegation, open: false });
+            const task = String(m.delegatedMessage || "").trim();
+            if (task) tg.children.push({ t: "bubble", v: task });
+            try {
+              for (const b of Array.isArray(m.content) ? m.content : []) {
+                if (b?.type === "thinking" || b?.type === "reasoning") tg.children.push({ t: "toggle", v: new ToggleBlock({ label: "Thinking", color: C.thinking, italic: true, body: String(b.thinking || b.text || "") }) });
+                else if (b?.type === "text") tg.children.push({ t: "text", v: String(b.text || "") });
+                else if (b?.type === "toolCall") {
+                  let tb = "";
+                  try {
+                    tb = JSON.stringify(b.arguments || {}, null, 0) || "";
+                  } catch {}
+                  tg.children.push({ t: "toggle", v: new ToggleBlock({ label: "Tool call", boldName: String(b.name || b.toolName || "tool"), color: C.toolCall, body: tb }) });
+                } else if (b?.type === "toolResult") {
+                  const rb = typeof b.content === "string" ? b.content : Array.isArray(b.content) ? b.content.filter((x: any) => x?.type === "text").map((x: any) => x.text).join("\n") : "";
+                  tg.children.push({ t: "toggle", v: new ToggleBlock({ label: b.isError ? "Tool error" : "Tool result", boldName: String(b.toolName || b.name || "tool"), color: b.isError ? C.danger : C.toolResult, body: rb }) });
+                }
+              }
+            } catch {}
+            pushBlock(registerToggle(tg));
+          } else if (m?.role === "assistant") {
+            if (m?.reasoning) pushBlock(registerToggle(new ToggleBlock({ label: "Thinking", color: C.thinking, italic: true, body: String(m.reasoning) })));
+            const txt = typeof m.content === "string" ? m.content : "";
+            if (m?.isCompactionSummary) pushBlock(registerToggle(new ToggleBlock({ label: "Compaction", boldName: "effective", color: C.info })));
+            if (txt.trim()) {
+              pushBlock(new Markdown(txt, 1, 0, mdTheme));
+              const an = String(m.agentName || sessionAgentIds()[0] || "quinki");
+              pushBlock(new FooterRow(fmtFooterDate(Date.parse(m.timestamp || "") || Date.now()), agentDisplayName(an) + " \u00b7 " + String(m.model || defaultModelId || "") + " \u00b7 " + levelLabel(String(m.thinkingLevel || "off")), true));
+            }
+          }
+        }
+        scrollToEnd();
+        return;
+      }
       const allEntries = readSessionEntries() as any[];
       if (allEntries.length === 0) {
         // Nothing readable: keep the current transcript (never wipe the chat).
@@ -2366,11 +2442,27 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         session.subscribe(onSessionEvent);
       } catch {}
       if (o.clearMessages) {
+        histMsgs = null;
         ctxTokens = 0;
         ctxWindow = 0;
         welcomeShown = true;
         applyLayout(true);
       } else {
+        histMsgs = null;
+        void loadServerHistory().then(() => {
+          try {
+            const hasAny = !!(histMsgs && histMsgs.length);
+            if (!hasAny) {
+              renderHistory();
+            } else {
+              if (welcomeShown) {
+                welcomeShown = false;
+                applyLayout(false);
+              }
+              renderHistory();
+            }
+          } catch {}
+        });
         // Empty target chat (New chat, /delete, empty switch): land on the HOME
         // screen — the welcome composer — exactly like opening the TUI.
         const hasMsgs = readSessionEntries().some((en: any) => en?.kind === "message" || en?.message);
