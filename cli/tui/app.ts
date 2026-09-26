@@ -440,11 +440,12 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     const dw = visibleWidth(dir);
     let mid: string;
     if (dir) {
-      const gap = Math.max(1, wc - tw - dw - 6);
-      // Panel spans BAR TO BAR (approved): the inner separations are panel too.
-      mid = headerBg("  ") + headerBg(t) + headerBg(" ".repeat(gap)) + headerBg(fg(C.textTertiary, dir)) + headerBg("  ");
+      // Title one column closer to the left bar, directory one column closer to
+      // the right bar (panel and violet bars untouched): 1 inner col each side.
+      const gap = Math.max(1, wc - tw - dw - 4);
+      mid = headerBg(" ") + headerBg(t) + headerBg(" ".repeat(gap)) + headerBg(fg(C.textTertiary, dir)) + headerBg(" ");
     } else {
-      mid = headerBg("  ") + headerBg(t) + headerBg(" ".repeat(Math.max(1, wc - tw - 6))) + headerBg("  ");
+      mid = headerBg(" ") + headerBg(t) + headerBg(" ".repeat(Math.max(1, wc - tw - 4))) + headerBg(" ");
     }
     return centerRow(w, L + mid + R, wc);
   });
