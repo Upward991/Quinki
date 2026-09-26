@@ -456,36 +456,9 @@ const fmtFooterDate = (ms: number): string => {
 };
 
 export async function runTui(opts: TuiOptions): Promise<void> {
-  // Resume the most recently used CLI chat (like the app reopens a chat with its
-  // history): only a brand-new conversation if the user asks for /sessions New chat.
-  const key = (() => {
-    try {
-      const raw = JSON.parse(fs.readFileSync(path.join(opts.agentDir, "quinki-sessions.json"), "utf8"));
-      const mine = (Array.isArray(raw) ? raw : []).filter((x: any) => String(x?.key || "").startsWith("cli-"));
-      let bestKey = "";
-      let bestTs = 0;
-      for (const e of mine) {
-        const k = String(e?.key || "");
-        if (!k) continue;
-        let ts = 0;
-        try {
-          const dir = path.join(opts.sessionDir, k);
-          for (const f of fs.readdirSync(dir)) {
-            if (!f.endsWith(".jsonl")) continue;
-            const m = fs.statSync(path.join(dir, f)).mtimeMs;
-            if (m > ts) ts = m;
-          }
-        } catch {}
-        if (!ts) ts = Number(e?.lastActivity) || Number(e?.createdAt) || 0;
-        if (ts > bestTs) {
-          bestTs = ts;
-          bestKey = k;
-        }
-      }
-      if (bestKey) return bestKey;
-    } catch {}
-    return "cli-" + Date.now().toString(36);
-  })();
+  // Startup: always a FRESH cli session with the welcome (no resume): every
+  // existing chat — including the last used one — stays visible in /sessions.
+  const key = "cli-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   // The REAL session dir (the sidecar's own files — the same the app uses).
   const realSessionDir = path.join(opts.sessionDir, key);
   // The local SDK session is a leftover from the pre-sidecar era: it must NEVER
