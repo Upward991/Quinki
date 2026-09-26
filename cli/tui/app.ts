@@ -277,6 +277,7 @@ class ToggleBlock {
   italic: boolean;
   open = false;
   selected = false;
+  children: any[] = []; // nested content: {t:"text",v:string} | {t:"toggle",v:ToggleBlock}
   constructor(o: { label: string; boldName?: string; color: string; body?: string; italic?: boolean; open?: boolean }) {
     this.label = o.label;
     this.boldName = o.boldName || "";
@@ -299,14 +300,24 @@ class ToggleBlock {
       if (preview.trim()) head += "  " + fg(C.textTertiary, preview);
     }
     const out = [head];
-    if (this.open && this.body) {
+    if (this.open) {
       const inner = Math.max(6, width - 3);
       // The vertical bar starts right under the header, on an EMPTY first row,
       // then the body follows (applies to every toggle).
       out.push(fg(this.color, "\u2502".padEnd(Math.max(1, width))));
-      for (const line of wrapPlain(this.body, inner)) {
-        const styled = this.italic ? italicStyle(fg(this.color, line)) : fg(this.color, line);
-        out.push(fg(this.color, "\u2502 ") + styled);
+      if (this.body) {
+        for (const line of wrapPlain(this.body, inner)) {
+          const styled = this.italic ? italicStyle(fg(this.color, line)) : fg(this.color, line);
+          out.push(fg(this.color, "\u2502 ") + styled);
+        }
+      }
+      // Nested content (delegation): nested toggles + text, inside the border.
+      for (const ch of this.children || []) {
+        if (ch && ch.t === "text") {
+          for (const line of wrapPlain(String(ch.v || ""), inner)) out.push(fg(this.color, "\u2502 ") + fg(C.textSecondary, line));
+        } else if (ch && ch.t === "toggle") {
+          for (const ln of ch.v.render(Math.max(6, width - 2))) out.push(fg(this.color, "\u2502 ") + ln);
+        }
       }
     }
     return out;
@@ -849,11 +860,23 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       if (found >= 0) scroll.scrollTo(Math.max(0, found - 2));
     } catch {}
   };
+  // Flattened toggle tree: a toggle then, when OPEN, its nested children — the
+  // Ctrl+T navigation walks exactly this (nested delegation included).
+  const flatToggles = (): any[] => {
+    const out: any[] = [];
+    const walk = (t: any) => {
+      out.push(t);
+      if (t.open) for (const c of t.children || []) if (c && c.t === "toggle") walk(c.v);
+    };
+    for (const t of toggles) walk(t);
+    return out;
+  };
   const enterToggleNav = () => {
     navMode = true;
-    if (toggles.length > 0) {
-      selToggle = toggles.length - 1;
-      toggles.forEach((t, i) => (t.selected = i === selToggle));
+    const fl = flatToggles();
+    if (fl.length > 0) {
+      selToggle = fl.length - 1;
+      fl.forEach((t, i) => (t.selected = i === selToggle));
       scrollToggleIntoView(selToggle);
     }
     ui.requestRender();
@@ -861,7 +884,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   const exitToggleNav = () => {
     navMode = false;
     selToggle = -1;
-    toggles.forEach((t) => {
+    flatToggles().forEach((t) => {
       t.open = false;
       t.selected = false;
     });
@@ -872,16 +895,18 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     else enterToggleNav();
   };
   const moveToggleSel = (dir: number) => {
-    if (toggles.length === 0) return;
-    if (selToggle < 0) selToggle = toggles.length - 1;
-    else selToggle = Math.max(0, Math.min(toggles.length - 1, selToggle + dir));
-    toggles.forEach((t, i) => (t.selected = i === selToggle));
+    const fl = flatToggles();
+    if (fl.length === 0) return;
+    if (selToggle < 0) selToggle = fl.length - 1;
+    else selToggle = Math.max(0, Math.min(fl.length - 1, selToggle + dir));
+    fl.forEach((t, i) => (t.selected = i === selToggle));
     scrollToggleIntoView(selToggle);
     ui.requestRender();
   };
   const setToggleOpen = (open: boolean) => {
-    if (selToggle < 0 || !toggles[selToggle]) return;
-    toggles[selToggle].open = open;
+    const fl = flatToggles();
+    if (selToggle < 0 || !fl[selToggle]) return;
+    fl[selToggle].open = open;
     scrollToggleIntoView(selToggle);
     ui.requestRender();
   };
@@ -958,13 +983,34 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         toggleModeRef?.();
         return { consume: true };
       }
-      const isEnter = data === "\r" || data === "\n" || matchesKey(data, "enter");
+      const isEnter = data === "\r" || matchesKey(data, "enter");
+      const isCtrlEnter = data === "\n" || data === "\x1b[13;5u" || matchesKey(data, "ctrl+enter");
       const isEsc = data === "\x1b" || matchesKey(data, "escape");
       const isUp = data === "\x1b[A" || matchesKey(data, "up");
       const isDown = data === "\x1b[B" || matchesKey(data, "down");
       const isLeft = data === "\x1b[D" || matchesKey(data, "left");
       const isRight = data === "\x1b[C" || matchesKey(data, "right");
       const menuNow = menuOpenRef?.() ?? false;
+      if (isCtrlEnter && !menuNow && streaming) {
+        // Steer: send a new instruction into the RUNNING turn.
+        const txt = editorText().trim();
+        if (txt) {
+          try {
+            editor.setText("");
+          } catch {}
+          pushBlock(new Text(txt, 2, 1, (s: string) => bg(C.bubbleUser, s)));
+          scrollToEnd();
+          if (scOn) {
+            void sc.call("steer", { sessionKey: currentKey, text: txt }, 20000).catch(() => {});
+          } else {
+            try {
+              void Promise.resolve((session as any).steer?.(txt)).catch(() => {});
+            } catch {}
+          }
+          ui.requestRender();
+        }
+        return { consume: true };
+      }
       if (isEsc) {
         if (menuNow) {
           menuNavRef?.("escape");
@@ -1071,6 +1117,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   let toggleModeRef: (() => void) | null = null;
   let handleSlashRef: ((raw: string) => void) | null = null;
   // Slash menu (OURS — app-style; it NEVER writes command text into the box).
+  let menuError = ""; // error shown INSIDE the slash menu (never in the chat)
   let menuStack: string[] = []; // open menu path: [], [cmd] or ["agent", ...deeper levels]
   let lastNavA = ""; // last navigation direction (duplicate-event collapse)
   let lastNavT = 0;
@@ -1435,11 +1482,60 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   // SDK events onSessionEvent already handles, so the CLI renders identically.
   let wsToolName = "";
   let wsToolArgs = "";
+  // Live delegations: messageId -> open delegation toggle. Nested stream events
+  // (thinking, text, tool calls of the DELEGATED agent) go INSIDE the toggle —
+  // exactly like the app's delegation block.
+  const delegToggles = new Map<string, any>();
+  const routeNested = (tg: any, t: string, p: any) => {
+    if (!tg) return;
+    const kids: any[] = (tg.children = tg.children || []);
+    const last: any = kids[kids.length - 1];
+    if (t === "thinking_delta" || t === "thinking" || t === "thinking_start") {
+      if (!last || last.t !== "toggle" || last.v.label !== "Thinking") {
+        kids.push({ t: "toggle", v: new ToggleBlock({ label: "Thinking", color: C.thinking, italic: true, open: true }) });
+      }
+      const th = kids[kids.length - 1].v;
+      th.setBody(String(th.body || "") + String(p.delta || p.content || ""));
+    } else if (t === "text_delta" || t === "text" || t === "text_start") {
+      if (!last || last.t !== "text") kids.push({ t: "text", v: "" });
+      kids[kids.length - 1].v += String(p.delta || p.content || "");
+    } else if (t === "toolcall_start") {
+      kids.push({ t: "toggle", v: new ToggleBlock({ label: "Tool call", boldName: String(p.toolName || p.delta || "tool"), color: C.toolCall, body: "" }) });
+    } else if (t === "toolcall_delta") {
+      const c = kids[kids.length - 1];
+      if (c && c.t === "toggle") c.v.setBody(String(c.v.body || "") + String(p.delta || p.content || ""));
+    } else if (t === "toolcall_end") {
+      // Arguments complete (they already accumulated through the deltas).
+    } else if (t === "tool_result") {
+      kids.push({
+        t: "toggle",
+        v: new ToggleBlock({
+          label: p.isError ? "Tool error" : "Tool result",
+          boldName: String(p.toolName || "tool"),
+          color: p.isError ? C.danger : C.toolResult,
+          body: String(p.content || ""),
+        }),
+      });
+    }
+    try {
+      ui.requestRender();
+    } catch {}
+  };
   const onWsEvent = (method: string, p: any) => {
     try {
       if (p?.sessionKey && p.sessionKey !== currentKey) return;
       if (method === "stream_event") {
         const t = p.eventType || p.type;
+        // Nested delegation stream: stays INSIDE the delegation toggle.
+        if (p.messageId && delegToggles.has(String(p.messageId)) && t !== "delegation_end") {
+          routeNested(delegToggles.get(String(p.messageId)), t, p);
+          return;
+        }
+        if (t === "delegation_end") {
+          const tg = delegToggles.get(String(p.messageId || ""));
+          if (tg) tg.open = false;
+          return;
+        }
         if (t === "text_delta" || t === "text" || t === "text_start") {
           if (p.delta || p.content) {
             onSessionEvent({
@@ -1459,6 +1555,20 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         } else if (t === "toolcall_start") {
           wsToolName = String(p.toolName || p.delta || "tool");
           wsToolArgs = "";
+          if (/delegate/i.test(wsToolName)) {
+            // Delegation toggle: OPEN while streaming, nested chat inside.
+            let target = "";
+            const tg = new ToggleBlock({ label: "Delegation", boldName: target, color: C.delegation, open: true });
+            tg.children = [];
+            delegToggles.set(String(p.messageId || ""), tg);
+            pushBlock(registerToggle(tg));
+            assistant = null;
+            assistantText = "";
+            try {
+              scrollToEnd();
+              ui.requestRender();
+            } catch {}
+          }
         } else if (t === "toolcall_delta") {
           wsToolArgs += String(p.delta || p.content || "");
         } else if (t === "toolcall_end") {
@@ -1468,7 +1578,19 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           } catch {
             args = {};
           }
-          onSessionEvent({ type: "tool_execution_start", toolName: wsToolName || String(p.toolName || "tool"), args });
+          if (/delegate/i.test(wsToolName)) {
+            // Fill in the delegated agent name on the delegation toggle.
+            const tg = delegToggles.get(String(p.messageId || ""));
+            const tgt = String(args?.agentId || args?.agent || args?.to || "").trim();
+            if (tg && tgt) {
+              tg.boldName = tgt;
+              try {
+                ui.requestRender();
+              } catch {}
+            }
+          } else {
+            onSessionEvent({ type: "tool_execution_start", toolName: wsToolName || String(p.toolName || "tool"), args });
+          }
         } else if (t === "auto_retry_start") {
           onSessionEvent({ type: "auto_retry_start", attempt: p.attempt || 1, maxAttempts: p.maxAttempts || 3 });
         } else if (t === "auto_retry_end") {
@@ -1479,6 +1601,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           onSessionEvent({ type: "compaction_end", summary: p.summary, errorMessage: p.errorMessage });
         }
       } else if (method === "tool_result") {
+        if (/delegate/i.test(String(p.toolName || ""))) return; // nested content already shown
         onSessionEvent({
           type: "tool_execution_end",
           toolName: p.toolName || "tool",
@@ -2115,11 +2238,15 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       if (value === "remove") {
         // Executed only with Confirm lit (mandatory pass — no double confirm).
         if (sessionAgentIds().length <= 1) {
-          addRow(fg(C.textTertiary, "A chat must have at least one agent. You can add more, but you cannot remove the last one."));
+          // Error INSIDE the slash menu: never in the chat (context pollution).
+          menuError = "A chat must have at least one agent. You can add more, but you cannot remove the last one.";
+          menuConfirmFocus = true;
         } else {
           removeAgentFromSession(agentId);
+          menuStack = ["agent"]; // back to the agents-in-this-chat list
         }
         menuSel = 0;
+        menuSubFilter = "";
         return;
       }
       if (value === "model" || value === "thinking") {
@@ -2218,6 +2345,14 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   const menuNav = (a: "up" | "down" | "left" | "right" | "enter" | "escape") => {
     try {
       if (!menuOpen()) return;
+      // A menu error is showing: any key dismisses it and brings back the menu.
+      if (menuError) {
+        menuError = "";
+        try {
+          ui.requestRender();
+        } catch {}
+        return;
+      }
       // Some terminals deliver ONE key press as MULTIPLE events (press + release
       // echo, both recognized). Collapse identical navigations arriving within
       // 40ms: one press always means exactly one step (human repeats are slower).
@@ -2237,6 +2372,14 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         return from;
       };
       if (a === "escape") {
+        if (menuError) {
+          // Dismiss the error: back to the menu you came from.
+          menuError = "";
+          try {
+            ui.requestRender();
+          } catch {}
+          return;
+        }
         // Esc closes the WHOLE slash menu instantly (one press, from any level).
         menuStack = [];
         menuSubFilter = "";
@@ -2358,6 +2501,17 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   const buildMenuRows = (w: number): string[] => {
     try {
       const t = editorText();
+      if (menuError && menuStack.length > 0) {
+        // Error INSIDE the menu: red rule above, red text, Confirm to go back.
+        const rowsE: string[] = [fg(C.danger, "\u2500".repeat(Math.max(1, Math.min(w, 56))))];
+        for (const ln of wrapPlain(menuError, Math.max(10, w))) rowsE.push(fg(C.danger, ln));
+        rowsE.push("");
+        const leftE = fg(C.textSecondary, "\u2191 \u2193 \u2190 \u2192");
+        const rightE = menuConfirmFocus ? bold(bg(C.primary, fg(C.bgPanel, " Confirm "))) : fg(C.primary, "Confirm");
+        const gwE = Math.max(1, w - visibleWidth(leftE) - visibleWidth(rightE));
+        rowsE.push(leftE + " ".repeat(gwE) + rightE);
+        return rowsE;
+      }
       if (menuStack.length > 0 && !t.startsWith("/")) {
         menuStack = [];
         menuSubFilter = "";
