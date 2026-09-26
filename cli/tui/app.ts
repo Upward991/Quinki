@@ -1698,20 +1698,6 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         } else if (t === "toolcall_start") {
           wsToolName = String(p.toolName || p.delta || "tool");
           wsToolArgs = "";
-          if (/delegate/i.test(wsToolName)) {
-            // Delegation toggle: OPEN while streaming, nested chat inside.
-            let target = "";
-            const tg = new ToggleBlock({ label: "Delegation", boldName: target, color: C.delegation, open: true });
-            tg.children = [];
-            delegToggles.set(String(p.messageId || ""), tg);
-            pushBlock(registerToggle(tg));
-            assistant = null;
-            assistantText = "";
-            try {
-              scrollToEnd();
-              ui.requestRender();
-            } catch {}
-          }
         } else if (t === "toolcall_delta") {
           wsToolArgs += String(p.delta || p.content || "");
         } else if (t === "toolcall_end") {
@@ -1721,21 +1707,25 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           } catch {
             args = {};
           }
+          // App order: tool call toggle ALWAYS first (delegations included), then
+          // the delegation toggle, then the tool result. Nothing is replaced.
+          onSessionEvent({ type: "tool_execution_start", toolName: wsToolName || String(p.toolName || "tool"), args });
           if (/delegate/i.test(wsToolName)) {
-            // Fill in the delegated agent name + the task (the delegating agent's
-            // message): both show inside the delegation, like the app.
-            const tg = delegToggles.get(String(p.messageId || ""));
+            // "Delegation to <agent>" (bold), OPEN while streaming, whole mini-chat
+            // inside — exactly like the original app.
             const tgt = String(args?.agentId || args?.agent || args?.to || "").trim();
-            if (tg) {
-              if (tgt) tg.boldName = tgt;
-              const task = String(args?.task || args?.prompt || args?.message || args?.instructions || args?.text || "").trim();
-              if (task) (tg.children = tg.children || []).unshift({ t: "bubble", v: task });
-              try {
-                ui.requestRender();
-              } catch {}
-            }
-          } else {
-            onSessionEvent({ type: "tool_execution_start", toolName: wsToolName || String(p.toolName || "tool"), args });
+            const tg = new ToggleBlock({ label: "Delegation to", boldName: tgt, color: C.delegation, open: true });
+            tg.children = [];
+            const task = String(args?.task || args?.prompt || args?.message || args?.instructions || args?.text || "").trim();
+            if (task) tg.children.push({ t: "bubble", v: task });
+            delegToggles.set(String(p.messageId || ""), tg);
+            pushBlock(registerToggle(tg));
+            assistant = null;
+            assistantText = "";
+            try {
+              scrollToEnd();
+              ui.requestRender();
+            } catch {}
           }
         } else if (t === "auto_retry_start") {
           onSessionEvent({ type: "auto_retry_start", attempt: p.attempt || 1, maxAttempts: p.maxAttempts || 3 });
@@ -1747,7 +1737,6 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           onSessionEvent({ type: "compaction_end", summary: p.summary, errorMessage: p.errorMessage });
         }
       } else if (method === "tool_result") {
-        if (/delegate/i.test(String(p.toolName || ""))) return; // nested content already shown
         onSessionEvent({
           type: "tool_execution_end",
           toolName: p.toolName || "tool",
@@ -2114,6 +2103,11 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           }
           const file = path.join(currentCwd, `quinki-chat-${Date.now().toString(36)}.md`);
           fs.writeFileSync(file, out.join("\n"), "utf8");
+          // Visible confirmation: the path (before, the command looked dead).
+          addRow(fg(C.info, "\u25b8 exported \u00b7 " + file));
+          try {
+            scrollToEnd();
+          } catch {}
         } catch {}
         break;
       }
