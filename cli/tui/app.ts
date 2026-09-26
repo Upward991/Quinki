@@ -342,7 +342,7 @@ class ToggleBlock {
           // width inside the delegation border, panel background, padding, markdown.
           try {
             const th = (globalThis as any).__qMd;
-            const innerW = Math.max(8, width - 3);
+            const innerW = Math.max(8, width - 4);
             let lines: string[] = [];
             if (th) {
               if (!ch._md) ch._md = new Markdown(String(ch.v || ""), 0, 0, th);
@@ -2508,16 +2508,20 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         histMsgs = null;
         void loadServerHistory().then(() => {
           try {
-            const hasAny = !!(histMsgs && histMsgs.length);
-            if (!hasAny) {
-              renderHistory();
-            } else {
-              if (welcomeShown) {
-                welcomeShown = false;
-                applyLayout(false);
-              }
-              renderHistory();
+            if (histMsgs && histMsgs.length && welcomeShown) {
+              welcomeShown = false;
+              applyLayout(false);
             }
+            renderHistory();
+            // ALWAYS end at the last message: once now, once after the layout
+            // settles (the async load can land after the first pin).
+            scrollToEnd();
+            setTimeout(() => {
+              try {
+                scrollToEnd();
+                ui.requestRender();
+              } catch {}
+            }, 250);
           } catch {}
         });
         // Empty target chat (New chat, /delete, empty switch): land on the HOME
