@@ -1776,7 +1776,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
             if (mk && e0?.messageAgents?.[mk]) agentName = String(e0.messageAgents[mk]);
             if (mk && e0?.messageThinking?.[mk]) lvl = String(e0.messageThinking[mk]);
           } catch {}
-          pushBlock(new FooterRow(fmtFooterDate(Date.now()), agentDisplayName(agentName) + " \u00b7 " + (wsModelId || "default") + " \u00b7 " + levelLabel(lvl), true));
+          pushBlock(new FooterRow(fmtFooterDate(Date.now()), agentDisplayName(agentName) + " \u00b7 " + (wsModelId || defaultModelId || "") + " \u00b7 " + levelLabel(lvl), true));
         } catch {}
         }
         if (e?.message?.stopReason === "error") setStatus("Failed", "failed");
@@ -2193,7 +2193,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
               pushBlock(
                 new FooterRow(
                   fmtFooterDate(mts || Date.now()),
-                  agentDisplayName(an) + " \u00b7 " + String(e0?.model || wsModelId || "default") + " \u00b7 " + levelLabel(lv),
+                  agentDisplayName(an) + " \u00b7 " + String(e0?.model || wsModelId || defaultModelId || "") + " \u00b7 " + levelLabel(lv),
                   true
                 )
               );
