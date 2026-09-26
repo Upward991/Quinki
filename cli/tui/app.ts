@@ -486,8 +486,13 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     } catch {}
     return "cli-" + Date.now().toString(36);
   })();
-  const sessionDirForKey = path.join(opts.sessionDir, key);
+  // The REAL session dir (the sidecar's own files — the same the app uses).
+  const realSessionDir = path.join(opts.sessionDir, key);
+  // The local SDK session is a leftover from the pre-sidecar era: it must NEVER
+  // write into the real dir (that polluted the app's files). Throwaway location.
+  const sessionDirForKey = path.join(os.tmpdir(), "quinki-cli-local", key);
   fs.mkdirSync(sessionDirForKey, { recursive: true });
+  fs.mkdirSync(realSessionDir, { recursive: true });
 
   // --- engine (invisible): the same SDK the sidecar/app use -----------------
   const sm = sdk.SessionManager.create(opts.cwd, sessionDirForKey);
@@ -499,7 +504,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   let session: any = res?.session || res;
   // Mutable run state — reset / directory switch / chat switch rebuild these.
   let currentCwd = opts.cwd;
-  let currentSessionDir = sessionDirForKey;
+  let currentSessionDir = realSessionDir; // reads: the sidecar's files
   let currentKey = key;
 
   // --- sidecar link: run the chat in the REAL Quinki runtime (the same session
@@ -2235,7 +2240,8 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           }
         } catch {}
       }
-      const dir = o.newSessionDir || currentSessionDir;
+      const realDir = o.newSessionDir || currentSessionDir;
+      const dir = path.join(os.tmpdir(), "quinki-cli-local", path.basename(realDir) + "-" + Date.now().toString(36));
       // App chats keep their own working directory in the session entry: honor it.
       let cwd = o.newCwd || currentCwd;
       if (!o.newCwd && o.newKey) {
@@ -2251,7 +2257,10 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       const res2: any = await sdk.createAgentSession({ cwd, agentDir: opts.agentDir, sessionManager: sm2 });
       session = res2?.session || res2;
       currentCwd = cwd;
-      currentSessionDir = dir;
+      currentSessionDir = realDir;
+      try {
+        fs.mkdirSync(realDir, { recursive: true });
+      } catch {}
       if (o.newKey) currentKey = o.newKey;
       // Runtime auth keys (the new engine instance starts clean).
       try {
