@@ -342,7 +342,7 @@ class ToggleBlock {
           // width inside the delegation border, panel background, padding, markdown.
           try {
             const th = (globalThis as any).__qMd;
-            const innerW = Math.max(8, width - 6);
+            const innerW = Math.max(8, width - 3);
             let lines: string[] = [];
             if (th) {
               if (!ch._md) ch._md = new Markdown(String(ch.v || ""), 0, 0, th);
@@ -355,6 +355,11 @@ class ToggleBlock {
             out.push(" " + fg(this.color, "\u2502 ") + bg(C.bubbleUser, " ".repeat(innerW)));
             for (const ln of lines) out.push(full(ln));
             out.push(" " + fg(this.color, "\u2502 ") + bg(C.bubbleUser, " ".repeat(innerW)));
+            if (this._taskFooterDate) {
+              const line = this._taskFooterDate + (infoOpen && this._taskFooterInfo ? "  \u00b7  Info: " + this._taskFooterInfo : "");
+              out.push(" " + fg(this.color, "\u2502 ") + bg(C.bubbleUser, "  " + fg(C.textSecondary, line) + " ".repeat(Math.max(0, innerW - 2 - visibleWidth(line))) + "  "));
+              out.push(" " + fg(this.color, "\u2502 ") + bg(C.bubbleUser, " ".repeat(innerW)));
+            }
           } catch {}
         } else if (ch && ch.t === "text") {
           // Markdown rendering INSIDE the toggle — identical to the normal chat.
@@ -2204,11 +2209,8 @@ export async function runTui(opts: TuiOptions): Promise<void> {
             } catch {}
             try {
               const dts = Number(m.timestamp) || Date.now();
-              tg.children.push({
-                t: "footer",
-                date: fmtFooterDate(dts),
-                info: agentDisplayName(String(m.agentName || "")) + " \u00b7 " + String(m.agentModel || m.model || defaultModelId || "") + " \u00b7 " + levelLabel(String(m.thinkingLevel || "off")),
-              });
+              tg._taskFooterDate = fmtFooterDate(dts);
+              tg._taskFooterInfo = agentDisplayName(String(m.agentName || "")) + " \u00b7 " + String(m.agentModel || m.model || defaultModelId || "") + " \u00b7 " + levelLabel(String(m.thinkingLevel || "off"));
             } catch {}
             pushBlock(registerToggle(tg));
           } else if (m?.role === "assistant") {
