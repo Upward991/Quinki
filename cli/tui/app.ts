@@ -604,6 +604,8 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   let wsSkillGroups: any[] = [];
   let wsModelId = "";
   let wsSessions: any[] = [];
+  let lastSessKick = 0;
+  let lastSkillKick = 0;
   const refreshSessions = () => {
     if (!scOn) return;
     void sc
@@ -614,6 +616,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         // Keep the open chat's title in sync: renames made in the app arrive here.
         const me = list.find((s: any) => String(s?.key || s?.id) === currentKey);
         if (me?.label) setChatTitle(String(me.label));
+        try {
+          ui.requestRender();
+        } catch {}
       })
       .catch(() => {});
   };
@@ -623,6 +628,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       .call("listChatSkills", { agentIds: sessionAgentIds() }, 20000)
       .then((r: any) => {
         wsSkillGroups = Array.isArray(r?.groups) ? r.groups : [];
+        try {
+          ui.requestRender();
+        } catch {}
       })
       .catch(() => {});
   };
@@ -738,6 +746,10 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       seq: 9,
       hidden: () => skillGroupsCached().length === 0,
       getArgumentCompletions: (prefix: string) => {
+        if (scOn && Date.now() - lastSkillKick > 1500) {
+          lastSkillKick = Date.now();
+          refreshSkillGroups();
+        }
         const items: any[] = [];
         const p = prefix.toLowerCase();
         for (const g of skillGroupsCached()) {
@@ -754,8 +766,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       description: "Clear messages. Keeps model, directory and settings.",
       seq: 11,
       getArgumentCompletions: () => [
-        { value: "confirm", label: "yes, clear all messages", description: "Reset session? All messages will be deleted." },
-        { value: "cancel", label: "no, keep everything", description: "Keep the conversation as it is" },
+        { value: "confirm", label: "", notice: "Reset this chat? All messages will be deleted. Model, directory and settings stay." },
       ],
     },
     {
@@ -766,6 +777,12 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         const items: any[] = [];
         const labels: Record<string, string> = {};
         if (scOn && wsSessions.length) {
+          // Opening the menu refreshes the list RIGHT AWAY (throttled): fresh data
+          // appears in place — no need to open/close the menu twice.
+          if (Date.now() - lastSessKick > 1500) {
+            lastSessKick = Date.now();
+            refreshSessions();
+          }
           // Live authority: the sidecar's own list — chats deleted or renamed in
           // the app are reflected here at once (no ghost entries).
           for (const s of wsSessions) {
@@ -855,7 +872,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       seq: 12,
       hidden: () => welcomeShown,
       getArgumentCompletions: () => [
-        { value: "confirm", label: "confirm", description: "Delete this chat forever" },
+        { value: "confirm", label: "", notice: "Delete this chat? The chat and all its messages will be deleted forever." },
       ],
     },
     {
@@ -2634,6 +2651,14 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           // first row (the menu already opens with its own space).
           if (rows.length > 0) rows.push("");
           rows.push(fg(C.textSecondary, label));
+          rows.push("");
+          continue;
+        }
+        if ((it as any).notice) {
+          // Confirmation notice (reset/delete): a message instead of an option —
+          // confirm with → then Enter (mandatory Confirm).
+          if (rows.length > 0) rows.push("");
+          for (const ln of wrapPlain(String((it as any).notice), Math.max(10, w))) rows.push(fg(C.textSecondary, ln));
           rows.push("");
           continue;
         }
