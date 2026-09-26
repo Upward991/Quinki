@@ -748,7 +748,19 @@ export async function runTui(opts: TuiOptions): Promise<void> {
               if (!k) continue;
               labels[k] = String(s?.label || "");
               if (k === currentKey || k === "__app_expert__" || k.startsWith("__exec_")) continue;
-              const ts = Number(s?.lastActivity) || Number(s?.createdAt) || 0;
+              const ts0 = Number(s?.lastActivity) || Number(s?.createdAt) || 0;
+              // "Last used" = the session file mtime: it beats stale entry
+              // bookkeeping (CLI chats, chats touched by the app, etc.).
+              let ts = 0;
+              try {
+                const dp = path.join(opts.agentDir, "sessions", "quinki", k);
+                for (const f of fs.readdirSync(dp)) {
+                  if (!f.endsWith(".jsonl")) continue;
+                  const m = fs.statSync(path.join(dp, f)).mtimeMs;
+                  if (m > ts) ts = m;
+                }
+              } catch {}
+              if (!ts) ts = ts0;
               items.push({ value: k, label: labels[k] || k, description: "chat \u00b7 " + fmtWhen(ts), ts });
             }
           }
