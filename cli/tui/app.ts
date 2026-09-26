@@ -298,8 +298,15 @@ class ToggleBlock {
     if (this.boldName) head += " " + bold(fg(col, this.boldName));
     if (!this.open) {
       const first = String(this.body || "").split("\n")[0] || "";
-      const preview = first.length > 80 ? first.slice(0, 79) + "\u2026" : first;
-      if (preview.trim()) head += "  " + fg(C.textTertiary, preview);
+      if (first.trim()) {
+        // The preview MUST fit the row: it is cut on the room actually left by
+        // the header, so a collapsed toggle never spills out of the chat area.
+        const room = width - visibleWidth(head) - 2;
+        if (room > 8) {
+          const preview = first.length > room ? first.slice(0, Math.max(1, room - 1)) + "\u2026" : first;
+          if (preview.trim()) head += "  " + fg(C.textTertiary, preview);
+        }
+      }
     }
     const out = [head];
     if (this.open) {
