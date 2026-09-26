@@ -459,7 +459,7 @@ function DelegationBlockView({ delegation, timestamp, streaming, onCopy, searchQ
   const [collapsed, setCollapsed] = useState(true)
   const [hovered, setHovered] = useState(false)
   const [copyHovered, setCopyHovered] = useState(false)
-  useEffect(() => { if (streaming === true) setCollapsed(false); else if (streaming === false) setCollapsed(true) }, [streaming])
+  useEffect(() => { if (streaming === false) setCollapsed(true) }, [streaming])
 
   const baseColor = 'var(--q-delegation)'
   const baseColorRgb = '201, 112, 132'
