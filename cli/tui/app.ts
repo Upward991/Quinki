@@ -395,7 +395,7 @@ class FooterRow {
     this.showInfo = showInfo;
   }
   render(width: number): string[] {
-    const box = bg(C.text, fg(C.bg, " i "));
+    const box = bg(C.textTertiary, fg(C.bg, " i "));
     const left = " " + this.dateStr + (this.showInfo ? "  " + box : "");
     const full = this.showInfo && infoOpen ? left + "  " + this.infoStr : left;
     const out = full.length > width ? full.slice(0, Math.max(1, width - 1)) + "\u2026" : full;
@@ -414,9 +414,22 @@ class UserBubble {
   }
   render(width: number): string[] {
     const inner = Math.max(6, width - 6);
-    const out = wrapPlain(this.text, inner).map((l) => bg(C.bubbleUser, "  " + l + "  "));
-    out.push(bg(C.bubbleUser, " ".repeat(Math.max(2, width - 2))));
-    out.push(bg(C.bubbleUser, "  " + fg(C.textSecondary, this.dateStr) + "  "));
+    const lines = wrapPlain(this.text, inner);
+    // Uniform compact rectangle: every line (text, spacer, footer) is the same
+    // width = the longest line — no ragged bubble.
+    let wMax = 0;
+    for (const l of [...lines, this.dateStr]) {
+      const wl = visibleWidth(l);
+      if (wl > wMax) wMax = wl;
+    }
+    const boxW = Math.min(width - 2, wMax + 4);
+    const pad = (t: string) => {
+      const fill = Math.max(0, boxW - 2 - visibleWidth(t) - 2);
+      return bg(C.bubbleUser, "  " + t + " ".repeat(fill + 2));
+    };
+    const out = lines.map((l) => pad(l));
+    out.push(bg(C.bubbleUser, " ".repeat(boxW)));
+    out.push(bg(C.bubbleUser, "  " + fg(C.textSecondary, this.dateStr) + " ".repeat(Math.max(2, boxW - 4 - visibleWidth(this.dateStr) + 2))));
     return out;
   }
   invalidate() {}
