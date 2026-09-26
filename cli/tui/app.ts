@@ -2251,6 +2251,20 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           }
         }
       } catch {}
+      // Real context of the opened chat (persistent %, like the app).
+      try {
+        void sc
+          .call("getContextUsage", { sessionKey: currentKey }, 15000)
+          .then((r: any) => {
+            const u = r?.usage || {};
+            ctxTokens = Number(u.tokens ?? 0);
+            if (Number(u.contextWindow || 0) > 0) ctxWindow = Number(u.contextWindow);
+            try {
+              ui.requestRender();
+            } catch {}
+          })
+          .catch(() => {});
+      } catch {}
       // When switching to an existing chat, apply its saved model/thinking/title.
       if (o.newKey) {
         try {
@@ -3283,23 +3297,23 @@ export async function runTui(opts: TuiOptions): Promise<void> {
 
   updateBar();
   updateCtx();
-  // Resume: a chat with history opens WITH its history (like the app) — the
-  // welcome screen only for a brand-new conversation.
-  let resumed = false;
+  // Startup = WELCOME (like opening the app). Histories load when a chat is
+  // opened from /sessions, and its real context fills in right away.
+  applyLayout(true);
   try {
-    const hasMsgs = readSessionEntries().some((en: any) => en?.kind === "message" || en?.message);
-    if (hasMsgs) {
-      resumed = true;
-      welcomeShown = false;
-      applyLayout(false);
-      renderHistory();
-      try {
-        const e0 = readSessionsList().find((x: any) => x?.key === currentKey);
-        if (e0?.label) headerTitle = String(e0.label);
-      } catch {}
-    }
+    void sc
+      .call("getContextUsage", { sessionKey: currentKey }, 15000)
+      .then((r: any) => {
+        const u = r?.usage || {};
+        const tk = Number(u.tokens ?? 0);
+        if (tk > 0) ctxTokens = tk;
+        if (Number(u.contextWindow || 0) > 0) ctxWindow = Number(u.contextWindow);
+        try {
+          ui.requestRender();
+        } catch {}
+      })
+      .catch(() => {});
   } catch {}
-  if (!resumed) applyLayout(true);
 
   try {
     ui.start();
