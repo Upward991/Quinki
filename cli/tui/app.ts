@@ -412,7 +412,7 @@ class FooterRow {
     // No glyph at all: with Ctrl+F the info simply appears as "Info: ..."
     // written next to the time.
     const left = " " + this.dateStr;
-    const full = this.showInfo && infoOpen ? left + "  Info: " + this.infoStr : left;
+    const full = this.showInfo && infoOpen ? left + "  \u00b7  Info: " + this.infoStr : left;
     const out = full.length > width ? full.slice(0, Math.max(1, width - 1)) + "\u2026" : full;
     return [fg(C.textTertiary, out)];
   }
