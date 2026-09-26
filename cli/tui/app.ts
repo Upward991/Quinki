@@ -2184,7 +2184,12 @@ export async function runTui(opts: TuiOptions): Promise<void> {
             const t = typeof m.content === "string" ? m.content : Array.isArray(m.content) ? m.content.filter((x: any) => x?.type === "text").map((x: any) => x.text).join("\n") : "";
             if (t.trim()) pushBlock(new UserBubble(t, fmtFooterDate(Number(m.timestamp) || Date.now())));
           } else if (m?.role === "tool_call" || m?.role === "toolCall") {
-            pushBlock(registerToggle(new ToggleBlock({ label: "Tool call", boldName: String(m.toolName || m.name || "tool"), color: C.toolCall, body: String(m.input || m.arguments || m.content || "") })));
+            let tcb = "";
+            try {
+              const ta = m.toolArgs ?? m.arguments ?? m.input ?? "";
+              tcb = typeof ta === "string" ? ta : JSON.stringify(ta, null, 0) || "";
+            } catch {}
+            pushBlock(registerToggle(new ToggleBlock({ label: "Tool call", boldName: String(m.toolName || m.name || "tool"), color: C.toolCall, body: tcb })));
           } else if (m?.role === "tool_result") {
             pushBlock(registerToggle(new ToggleBlock({ label: m.isError ? "Tool error" : "Tool result", boldName: String(m.toolName || "tool"), color: m.isError ? C.danger : C.toolResult, body: String(m.content || "") })));
           } else if (m?.role === "delegation") {
@@ -2193,17 +2198,25 @@ export async function runTui(opts: TuiOptions): Promise<void> {
             if (task) tg.children.push({ t: "bubble", v: task });
             try {
               for (const b of Array.isArray(m.content) ? m.content : []) {
-                if (b?.type === "thinking" || b?.type === "reasoning") tg.children.push({ t: "toggle", v: new ToggleBlock({ label: "Thinking", color: C.thinking, italic: true, body: String(b.thinking || b.text || "") }) });
-                else if (b?.type === "text") tg.children.push({ t: "text", v: String(b.text || "") });
-                else if (b?.type === "toolCall") {
+                const blk: any = b || {};
+                const bType = String(blk.type || "");
+                const bToolName = blk.toolName || blk.name || blk.tool;
+                // Raw blocks carry NO "type": detect by their fields (thinking/text/
+                // tool args/tool result) — nothing may disappear or duplicate.
+                if (bType === "thinking" || bType === "reasoning" || (typeof blk.thinking === "string" && !bToolName)) {
+                  tg.children.push({ t: "toggle", v: new ToggleBlock({ label: "Thinking", color: C.thinking, italic: true, body: String(blk.thinking || blk.text || "") }) });
+                } else if (bType === "toolResult" || blk.toolCallId || blk.isError !== undefined && blk.content !== undefined) {
+                  const rb = typeof blk.content === "string" ? blk.content : Array.isArray(blk.content) ? blk.content.filter((x: any) => x?.type === "text" || typeof x?.text === "string").map((x: any) => x.text).join("\n") : "";
+                  tg.children.push({ t: "toggle", v: new ToggleBlock({ label: blk.isError ? "Tool error" : "Tool result", boldName: String(bToolName || "tool"), color: blk.isError ? C.danger : C.toolResult, body: rb }) });
+                } else if (bType === "toolCall" || bType === "tool_call" || (bToolName && (blk.toolArgs !== undefined || blk.arguments !== undefined || blk.args !== undefined))) {
                   let tb = "";
                   try {
-                    tb = JSON.stringify(b.arguments || {}, null, 0) || "";
+                    const ta = blk.toolArgs ?? blk.arguments ?? blk.args ?? {};
+                    tb = typeof ta === "string" ? ta : JSON.stringify(ta, null, 0) || "";
                   } catch {}
-                  tg.children.push({ t: "toggle", v: new ToggleBlock({ label: "Tool call", boldName: String(b.name || b.toolName || "tool"), color: C.toolCall, body: tb }) });
-                } else if (b?.type === "toolResult") {
-                  const rb = typeof b.content === "string" ? b.content : Array.isArray(b.content) ? b.content.filter((x: any) => x?.type === "text").map((x: any) => x.text).join("\n") : "";
-                  tg.children.push({ t: "toggle", v: new ToggleBlock({ label: b.isError ? "Tool error" : "Tool result", boldName: String(b.toolName || b.name || "tool"), color: b.isError ? C.danger : C.toolResult, body: rb }) });
+                  tg.children.push({ t: "toggle", v: new ToggleBlock({ label: "Tool call", boldName: String(bToolName || "tool"), color: C.toolCall, body: tb }) });
+                } else if (bType === "text" || typeof blk.text === "string") {
+                  tg.children.push({ t: "text", v: String(blk.text || "") });
                 }
               }
             } catch {}
