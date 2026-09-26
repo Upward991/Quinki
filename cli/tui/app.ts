@@ -278,7 +278,6 @@ class ToggleBlock {
   open = false;
   selected = false;
   children: any[] = []; // nested content: {t:"text",v:string} | {t:"toggle",v:ToggleBlock}
-  info = false; // message-info toggle (Ctrl+I opens/closes them all)
   constructor(o: { label: string; boldName?: string; color: string; body?: string; italic?: boolean; open?: boolean }) {
     this.label = o.label;
     this.boldName = o.boldName || "";
@@ -378,6 +377,52 @@ class ToggleBlock {
   }
   invalidate() {}
 }
+
+// Message footer — exact app format: "26 September 2026, 21:51:39  i  Agent · model · Max".
+// By default only date/time + the (i); Ctrl+I reveals the info part on ALL footers.
+let infoOpen = false;
+export const toggleInfo = (): boolean => {
+  infoOpen = !infoOpen;
+  return infoOpen;
+};
+class FooterRow {
+  dateStr: string;
+  infoStr: string;
+  constructor(dateStr: string, infoStr: string) {
+    this.dateStr = dateStr;
+    this.infoStr = infoStr;
+  }
+  render(width: number): string[] {
+    const left = " " + this.dateStr + "  " + "\u24d8";
+    const full = infoOpen ? left + "  " + this.infoStr : left;
+    const out = full.length > width ? full.slice(0, Math.max(1, width - 1)) + "\u2026" : full;
+    return [fg(C.textTertiary, out)];
+  }
+  invalidate() {}
+}
+
+// Thinking level label exactly like the app (the SDK's own names).
+const levelLabel = (lvl: string): string => {
+  const k = String(lvl || "").toLowerCase();
+  if (k === "xhigh") return "Max";
+  if (k === "high") return "High";
+  if (k === "medium") return "Medium";
+  if (k === "low") return "Low";
+  if (k === "minimal") return "Minimal";
+  if (k === "off" || !k) return "Off";
+  return String(lvl);
+};
+
+const fmtFooterDate = (ms: number): string => {
+  try {
+    const d = new Date(ms);
+    const ds = d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+    const ts = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    return ds + ", " + ts;
+  } catch {
+    return "";
+  }
+};
 
 export async function runTui(opts: TuiOptions): Promise<void> {
   const key = "cli-" + Date.now().toString(36);
@@ -680,6 +725,16 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       }
     } catch {}
     return best;
+  };
+  // The entry's per-message key for the LAST message (ts-<ms>): the same key
+  // the app uses in messageAgents / messageThinking.
+  const lastMsgKey = (k: string): string => {
+    try {
+      const ts = lastMsgTs(path.join(opts.agentDir, "sessions", "quinki", k));
+      return ts ? "ts-" + ts : "";
+    } catch {
+      return "";
+    }
   };
   const availableModels = (): any[] => {
     try {
@@ -1138,12 +1193,10 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         toggleNavMode();
         return { consume: true };
       }
-      // Ctrl+I (kitty: CSI 105;5u) = open/close ALL message Info toggles at once.
+      // Ctrl+I (kitty: CSI 105;5u) = reveal/hide the info part on ALL footers.
       if ((data === "\x1b[105;5u" || matchesKey(data, "ctrl+i")) && !navMode && !(menuOpenRef?.() ?? false)) {
         try {
-          const infos = flatToggles().filter((t: any) => t.info);
-          const anyOpen = infos.some((t: any) => t.open);
-          infos.forEach((t: any) => (t.open = !anyOpen));
+          toggleInfo();
           ui.requestRender();
         } catch {}
         return { consume: true };
@@ -1636,19 +1689,18 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         }
         thinkingRow = null;
         thinkingText = "";
-        // Message footer: time + date, then the Info toggle (agent/model/thinking).
+        // Message footer (exact app format): date/time + i, with the agent/model/
+        // level actually used (from the entry's messageAgents/messageThinking).
         try {
-          const d = new Date();
-          const hh = String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
-          const dd = String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0") + "/" + d.getFullYear();
-          addRow(fg(C.textTertiary, "\u25b8 " + hh + "  \u00b7  " + dd));
-          const info = new ToggleBlock({
-            label: "Info",
-            color: C.info,
-            body: "Agent: " + (sessionAgentIds()[0] || "quinki") + " \u00b7 Model: " + (wsModelId || "default") + " \u00b7 Thinking: " + (thinkingOn ? "on (xhigh)" : "off"),
-          });
-          info.info = true;
-          pushBlock(registerToggle(info));
+          let agentName = sessionAgentIds()[0] || "quinki";
+          let lvl = thinkingOn ? "xhigh" : "off";
+          try {
+            const e0 = readSessionsList().find((s: any) => s?.key === currentKey);
+            const mk = lastMsgKey(currentKey);
+            if (mk && e0?.messageAgents?.[mk]) agentName = String(e0.messageAgents[mk]);
+            if (mk && e0?.messageThinking?.[mk]) lvl = String(e0.messageThinking[mk]);
+          } catch {}
+          pushBlock(new FooterRow(fmtFooterDate(Date.now()), agentName + " \u00b7 " + (wsModelId || "default") + " \u00b7 " + levelLabel(lvl)));
         } catch {}
         if (e?.message?.stopReason === "error") setStatus("Failed", "failed");
       } else if (e?.type === "auto_retry_start") {
@@ -2272,7 +2324,12 @@ export async function runTui(opts: TuiOptions): Promise<void> {
                 .trim();
               if (r) target = r;
             }
-          } catch {}
+          } catch (e: any) {
+            // Distinguish CANCEL (write NOTHING) from dialog unavailable (fallback).
+            const msg = String(e?.stderr || e?.message || "");
+            if (/user canceled|User canceled|-128/i.test(msg)) target = "__cancel__";
+          }
+          if (target === "__cancel__") break;
           if (!target) target = path.join(os.homedir(), "Downloads", defName);
           fs.writeFileSync(target, out.join("\n"), "utf8");
         } catch {}
@@ -3020,6 +3077,10 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     }
     pushBlock(new Text(t, 2, 1, (s: string) => bg(C.bubbleUser, s)));
     scrollToEnd();
+    // User message footer (date/time + i) — same as the app.
+    try {
+      pushBlock(new FooterRow(fmtFooterDate(Date.now()), "You \u00b7 " + (wsModelId || "default") + " \u00b7 " + levelLabel(thinkingOn ? "xhigh" : "off")));
+    } catch {}
     if (scOn) {
       // Live path: the sidecar runs the turn (agents, custom tools, delegation)
       // and the app sees this exact chat streaming in real time.
