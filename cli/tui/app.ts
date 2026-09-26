@@ -385,6 +385,20 @@ export const toggleInfo = (): boolean => {
   infoOpen = !infoOpen;
   return infoOpen;
 };
+const bgHard = (color: string, s: string): string => {
+  // Absolute-black code background that survives the syntax highlight resets.
+  try {
+    const hx = (color || "").replace("#", "");
+    const r = parseInt(hx.slice(0, 2), 16) || 0;
+    const g = parseInt(hx.slice(2, 4), 16) || 0;
+    const b = parseInt(hx.slice(4, 6), 16) || 0;
+    const pre = `\x1b[48;2;${r};${g};${b}m`;
+    return pre + String(s).replace(/\x1b\[0m/g, "\x1b[0m" + pre) + "\x1b[0m";
+  } catch {
+    return String(s);
+  }
+};
+
 class FooterRow {
   dateStr: string;
   infoStr: string;
@@ -1286,7 +1300,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           const st: any = (globalThis as any).__quinkiScroll?.state || {};
           const top = Number(st.scrollTop || 0);
           const allN = readSessionEntries().length;
-          if (top <= 2 && allN > histLimit) {
+          if (top <= 12 && allN > histLimit) {
             histLimit += 50;
             renderHistory();
             try {
@@ -1626,7 +1640,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     link: (s: string) => fg(C.info, s),
     linkUrl: (s: string) => fg(C.textTertiary, s),
     code: (s: string) => fg(C.text, s),
-    codeBlock: (s: string) => bg(C.bg, fg(C.text, s)),
+    codeBlock: (s: string) => bgHard("#000000", fg(C.text, s)),
     codeBlockBorder: (s: string) => "", // fences removed: clean black block
     quote: (s: string) => fg(C.textSecondary, s),
     quoteBorder: (s: string) => fg(C.border, s),
