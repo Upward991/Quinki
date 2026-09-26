@@ -426,17 +426,18 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     const dw = visibleWidth(dir);
     let mid: string;
     if (dir) {
-      const gap = Math.max(1, w - tw - dw - 8);
+      const gap = Math.max(1, w - tw - dw - 10);
       mid = headerBg(" ") + headerBg(t) + headerBg(" ".repeat(gap)) + headerBg(fg(C.textTertiary, dir)) + headerBg(" ");
     } else {
-      mid = headerBg(" ") + headerBg(t) + headerBg(" ".repeat(Math.max(1, w - tw - 8))) + headerBg(" ");
+      mid = headerBg(" ") + headerBg(t) + headerBg(" ".repeat(Math.max(1, w - tw - 10))) + headerBg(" ");
     }
-    return " " + L + " " + mid + " " + R + " ";
+    return "  " + L + " " + mid + " " + R + "  ";
   });
   // The header is THREE rows tall (empty / text / empty): the violet bars run the
-  // whole height, outside the panel, with one black column beyond each of them.
+  // whole height, outside the panel, with TWO black columns beyond each of them —
+  // the exact same margins (and total width) as the text box.
   const headerPad = new FnLine(
-    (w: number) => " " + fg(C.primary, "\u258f") + " " + headerBg(" ".repeat(Math.max(0, w - 6))) + " " + fg(C.primary, "\u2595") + " "
+    (w: number) => "  " + fg(C.primary, "\u258f") + " " + headerBg(" ".repeat(Math.max(0, w - 8))) + " " + fg(C.primary, "\u2595") + "  "
   );
   const header = new VStack([headerPad, titleText, headerPad] as any) as any;
   const setChatTitle = (title: string) => {
