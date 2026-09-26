@@ -2179,7 +2179,6 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       // entry -> parents), exactly what the app shows. Flat order misorders.
       if (histMsgs) {
         // SERVER history (getHistory) — same rendering order as the app.
-        (globalThis as any).__qDelegSeen = new Set();
         for (const m of histMsgs) {
           if (m?.role === "user") {
             const t = typeof m.content === "string" ? m.content : Array.isArray(m.content) ? m.content.filter((x: any) => x?.type === "text").map((x: any) => x.text).join("\n") : "";
@@ -2194,15 +2193,6 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           } else if (m?.role === "tool_result") {
             pushBlock(registerToggle(new ToggleBlock({ label: m.isError ? "Tool error" : "Tool result", boldName: String(m.toolName || "tool"), color: m.isError ? C.danger : C.toolResult, body: String(m.content || "") })));
           } else if (m?.role === "delegation") {
-            // Dedupe: a reload may carry the same delegation twice — render once.
-            const _did = String(m.id || "");
-            if (_did) {
-              if ((globalThis as any).__qDelegSeen?.has(_did)) {
-                continue;
-              }
-              (globalThis as any).__qDelegSeen = (globalThis as any).__qDelegSeen || new Set();
-              (globalThis as any).__qDelegSeen.add(_did);
-            }
             const tg = new ToggleBlock({ label: "Delegation to", boldName: String(m.agentName || ""), color: C.delegation, open: false });
             const task = String(m.delegatedMessage || "").trim();
             if (task) tg.children.push({ t: "bubble", v: task });

@@ -5893,6 +5893,20 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     this.#sendToWs(ws, { type: "stream_event", sessionKey: sk, eventType: "delegation_end", messageId: delegationId, agentName, response: responseText, model: delModel, thinkingLevel: delThinking });
 
     // Save delegation for persistence
+    // FIX (27 set): the collector can run twice over the same final content
+    // (think/text appended twice -> [think,text,think,text] in the file and in
+    // the app). Drop exact duplicates before writing the delegation entry.
+    try {
+      const seenD: any = {};
+      const dedup: any[] = [];
+      for (const b of delegationContent) {
+        const k = String(b?.type || "") + "\u0000" + String(b?.text || "") + "\u0000" + String(b?.thinking || "");
+        if (seenD[k]) continue;
+        seenD[k] = 1;
+        dedup.push(b);
+      }
+      delegationContent = dedup;
+    } catch {}
     this.#appendDelegationToJsonl(sk, { id: delegationId, agentName, delegatedMessage: data.text, content: delegationContent, timestamp: Date.now(), model: delModel, thinkingLevel: delThinking });
 
     // Save agentName for this message
@@ -6556,6 +6570,20 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
             }
           } catch (e2: any) { self.logDebug("delegate-entries-error", { error: e2?.message }); }
           // Save delegation for persistence
+              // FIX (27 set): the collector can run twice over the same final content
+    // (think/text appended twice -> [think,text,think,text] in the file and in
+    // the app). Drop exact duplicates before writing the delegation entry.
+    try {
+      const seenD: any = {};
+      const dedup: any[] = [];
+      for (const b of delegationContent) {
+        const k = String(b?.type || "") + "\u0000" + String(b?.text || "") + "\u0000" + String(b?.thinking || "");
+        if (seenD[k]) continue;
+        seenD[k] = 1;
+        dedup.push(b);
+      }
+      delegationContent = dedup;
+    } catch {}
           self.#appendDelegationToJsonl(sessionKey, { id: delegationId, agentName: agent_name, delegatedMessage: task, content: delegationContent, timestamp: Date.now(), model: delModel, thinkingLevel: delThinking });
           // Cleanup: dispose sessione temporanea + remove from #active
           self.#active.delete(tempKey);
