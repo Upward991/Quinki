@@ -422,7 +422,15 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     const gap = Math.max(1, w - tw - dw);
     return t + " ".repeat(gap) + fg(C.textTertiary, dir);
   });
-  const header = new BgBlock(titleText, 1, (s: string) => bg(C.bgPanel, s), 1);
+  // Same vertical bars as the composer (the violet of the box's right edge):
+  // they flank the header on the left and on the right.
+  const headerL = new FnLine(() => fg(C.primary, "\u258f"));
+  const headerR = new FnLine(() => fg(C.primary, "\u2595"));
+  const header = new HStack([
+    headerL,
+    new BgBlock(titleText, 1, (s: string) => bg(C.bgPanel, s), 1),
+    headerR,
+  ] as any);
   const setChatTitle = (title: string) => {
     headerTitle = title && title.trim() ? title.trim() : "New chat";
     try {
