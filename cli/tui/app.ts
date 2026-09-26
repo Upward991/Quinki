@@ -395,11 +395,29 @@ class FooterRow {
     this.showInfo = showInfo;
   }
   render(width: number): string[] {
-    const box = bg(C.bgPanel, fg(C.textSecondary, " i "));
+    const box = bg(C.text, fg(C.bg, " i "));
     const left = " " + this.dateStr + (this.showInfo ? "  " + box : "");
     const full = this.showInfo && infoOpen ? left + "  " + this.infoStr : left;
     const out = full.length > width ? full.slice(0, Math.max(1, width - 1)) + "\u2026" : full;
     return [fg(C.textTertiary, out)];
+  }
+  invalidate() {}
+}
+
+// User bubble: text + ONE blank bubble line + a LIGHTER footer, all inside the bubble.
+class UserBubble {
+  text: string;
+  dateStr: string;
+  constructor(text: string, dateStr: string) {
+    this.text = text;
+    this.dateStr = dateStr;
+  }
+  render(width: number): string[] {
+    const inner = Math.max(6, width - 6);
+    const out = wrapPlain(this.text, inner).map((l) => bg(C.bubbleUser, "  " + l + "  "));
+    out.push(bg(C.bubbleUser, " ".repeat(Math.max(2, width - 2))));
+    out.push(bg(C.bubbleUser, "  " + fg(C.textSecondary, this.dateStr) + "  "));
+    return out;
   }
   invalidate() {}
 }
@@ -1693,8 +1711,11 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         }
         thinkingRow = null;
         thinkingText = "";
-        // Message footer (exact app format): date/time + i, with the agent/model/
-        // level actually used (from the entry's messageAgents/messageThinking).
+        // Message footer (exact app format): ONLY after a real text — never after
+        // a tool/toggle, never for an aborted stream (app behaviour).
+        const hadText = lastAssistantText.trim();
+        lastAssistantText = "";
+        if (hadText && e?.message?.stopReason !== "aborted") {
         try {
           let agentName = sessionAgentIds()[0] || "quinki";
           let lvl = thinkingOn ? "xhigh" : "off";
@@ -1706,6 +1727,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           } catch {}
           pushBlock(new FooterRow(fmtFooterDate(Date.now()), agentDisplayName(agentName) + " \u00b7 " + (wsModelId || "default") + " \u00b7 " + levelLabel(lvl), true));
         } catch {}
+        }
         if (e?.message?.stopReason === "error") setStatus("Failed", "failed");
       } else if (e?.type === "auto_retry_start") {
         setStatus(`Retrying ${e.attempt || 1}/${e.maxAttempts || 3}`, "retrying");
@@ -1748,6 +1770,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   let wsToolName = "";
   let wsToolArgs = "";
   let wsToolToggle: any = null;
+  let lastUserPush = { text: "", ts: 0 };
   // Live delegations: messageId -> open delegation toggle. Nested stream events
   // (thinking, text, tool calls of the DELEGATED agent) go INSIDE the toggle —
   // exactly like the app's delegation block.
@@ -1880,7 +1903,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       } else if (method === "streaming_started") {
         onSessionEvent({ type: "agent_start" });
       } else if (method === "done") {
-        onSessionEvent({ type: "message_end", message: { role: "assistant" } });
+        onSessionEvent({ type: "message_end", message: { role: "assistant", stopReason: p?.stopReason } });
       } else if (method === "streaming_stopped") {
         onSessionEvent({ type: "agent_end" });
         refreshSkillGroups();
@@ -1991,9 +2014,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           if (!line.trim()) continue;
           try {
             const o = JSON.parse(line);
-            if (o?.type === "message" && o?.message?.role) out.push({ kind: "message", message: o.message });
-            else if (o?.type === "compaction") out.push({ kind: "compaction" });
-            else if (o?.type === "delegation" && o?.delegationData) out.push({ kind: "delegation", data: o.delegationData });
+            if (o?.type === "message" && o?.message?.role) out.push({ kind: "message", message: o.message, id: o.id, pid: o.parentId });
+            else if (o?.type === "compaction") out.push({ kind: "compaction", id: o.id, pid: o.parentId });
+            else if (o?.type === "delegation" && o?.delegationData) out.push({ kind: "delegation", data: o.delegationData, id: o.id, pid: o.parentId });
           } catch {}
         }
       }
@@ -2009,7 +2032,23 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       blockCount = 0;
       toggles.length = 0;
       selToggle = -1;
-      for (const en of readSessionEntries()) {
+      // The file is a TREE: the conversation order is the active branch (last
+      // entry -> parents), exactly what the app shows. Flat order misorders.
+      const all = readSessionEntries() as any[];
+      const byId = new Map<string, any>();
+      for (const e of all) if (e.id) byId.set(String(e.id), e);
+      let chain: any[] = all;
+      if (all.length) {
+        let cur: any = all[all.length - 1];
+        const walked: any[] = [];
+        let guard = 0;
+        while (cur && guard++ < 5000) {
+          walked.push(cur);
+          cur = cur.pid ? byId.get(String(cur.pid)) : null;
+        }
+        if (walked.length > 1) chain = walked.reverse();
+      }
+      for (const en of chain) {
         if (en.kind === "compaction") {
           // File compactions are always REAL (noop ones never reach the file).
           pushBlock(registerToggle(new ToggleBlock({ label: "Compaction", boldName: "effective", color: C.info })));
@@ -3087,9 +3126,13 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     pushBlock(new Text(t, 2, 1, (s: string) => bg(C.bubbleUser, s)));
     scrollToEnd();
     // User bubble with the footer INSIDE it (no info glyph on user messages).
+    // Dedupe: some terminals deliver Enter twice (press+release) — never two bubbles.
     {
-      const dateStr = fmtFooterDate(Date.now());
-      pushBlock(new Text(t + "\n" + dateStr, 2, 1, (s: string) => bg(C.bubbleUser, s)));
+      const now = Date.now();
+      if (!(lastUserPush.text === t && now - lastUserPush.ts < 2000)) {
+        lastUserPush = { text: t, ts: now };
+        pushBlock(new UserBubble(t, fmtFooterDate(now)));
+      }
     }
     if (scOn) {
       // Live path: the sidecar runs the turn (agents, custom tools, delegation)
