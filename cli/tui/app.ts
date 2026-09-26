@@ -1608,7 +1608,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     link: (s: string) => fg(C.info, s),
     linkUrl: (s: string) => fg(C.textTertiary, s),
     code: (s: string) => fg(C.text, s),
-    codeBlock: (s: string) => fg(C.text, s),
+    codeBlock: (s: string) => bg(C.bg, fg(C.text, s)),
     codeBlockBorder: (s: string) => fg(C.border, s),
     quote: (s: string) => fg(C.textSecondary, s),
     quoteBorder: (s: string) => fg(C.border, s),
@@ -2086,15 +2086,16 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       selToggle = -1;
       // The file is a TREE: the conversation order is the active branch (last
       // entry -> parents), exactly what the app shows. Flat order misorders.
-      const all = readSessionEntries() as any[];
-      if (all.length === 0) {
+      const allEntries = readSessionEntries() as any[];
+      if (allEntries.length === 0) {
         // Nothing readable: keep the current transcript (never wipe the chat).
         scrollToEnd();
         return;
       }
-      // FLAT, exactly like the app reads the session: every entry of every file
-      // in file order — nothing is dropped (the tree walk skipped pre-compaction
-      // messages; the app shows them all).
+      // FLAT like the app — with the app's own cap: the last 200 entries
+      // (getHistory shows the last 200; rendering thousands of blocks would
+      // freeze the TUI).
+      const all = allEntries.length > 200 ? allEntries.slice(allEntries.length - 200) : allEntries;
       for (const en of all) {
         if (en.kind === "compaction") {
           // File compactions are always REAL (noop ones never reach the file).
