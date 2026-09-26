@@ -1912,11 +1912,22 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         welcomeShown = true;
         applyLayout(true);
       } else {
-        if (welcomeShown) {
-          welcomeShown = false;
-          applyLayout(false);
+        // Empty target chat (New chat, /delete, empty switch): land on the HOME
+        // screen — the welcome composer — exactly like opening the TUI.
+        const hasMsgs = readSessionEntries().some((en: any) => en?.kind === "message" || en?.message);
+        if (!hasMsgs) {
+          renderHistory(); // clears the old transcript
+          ctxTokens = 0;
+          ctxWindow = 0;
+          welcomeShown = true;
+          applyLayout(true);
+        } else {
+          if (welcomeShown) {
+            welcomeShown = false;
+            applyLayout(false);
+          }
+          renderHistory();
         }
-        renderHistory();
       }
       updateBar();
       try {
