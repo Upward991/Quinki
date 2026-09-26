@@ -2105,7 +2105,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           const c = m.content;
           if (typeof c === "string") t = c;
           else if (Array.isArray(c)) t = c.filter((b: any) => b?.type === "text").map((b: any) => b.text).join("\n");
-          if (t.trim()) pushBlock(new Text(t, 2, 1, (s: string) => bg(C.bubbleUser, s)));
+          if (t.trim()) pushBlock(new UserBubble(t, fmtFooterDate(Date.parse(m.timestamp || "") || Date.now())));
         } else if (m.role === "toolResult") {
           const nm = String(m.toolName || "tool");
           const err = !!m.isError;
@@ -2143,7 +2143,28 @@ export async function runTui(opts: TuiOptions): Promise<void> {
               );
             }
           }
-          if (text.trim()) pushBlock(new Markdown(text, 1, 0, mdTheme));
+          if (text.trim()) {
+            pushBlock(new Markdown(text, 1, 0, mdTheme));
+            // Footer persisted from the file: date from the message timestamp,
+            // agent/model/level from the entry (same source as the app).
+            try {
+              const e0 = readSessionsList().find((s: any) => s?.key === currentKey);
+              let an = sessionAgentIds()[0] || "quinki";
+              let lv = "off";
+              const mid = String(m.id || "");
+              const mts = Date.parse(m.timestamp || "") || 0;
+              const mk = mid && e0?.messageAgents?.[mid] ? mid : mts ? "ts-" + mts : "";
+              if (mk && e0?.messageAgents?.[mk]) an = String(e0.messageAgents[mk]);
+              if (mk && e0?.messageThinking?.[mk]) lv = String(e0.messageThinking[mk]);
+              pushBlock(
+                new FooterRow(
+                  fmtFooterDate(mts || Date.now()),
+                  agentDisplayName(an) + " \u00b7 " + String(e0?.model || wsModelId || "default") + " \u00b7 " + levelLabel(lv),
+                  true
+                )
+              );
+            } catch {}
+          }
         }
       }
       scrollToEnd();
