@@ -589,54 +589,69 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   // Ctrl+Up/Down selects a toggle, Enter opens/closes it, Esc deselects.
   const toggles: ToggleBlock[] = [];
   let selToggle = -1;
+  let navMode = false;
   const registerToggle = (t: ToggleBlock) => {
     toggles.push(t);
     return t;
   };
-  // Ctrl+O = review cursor: walks BACKWARD through the toggles (newest first),
-  // opening each one and closing the previous. Press repeatedly to go back in
-  // history. Esc stops the review (leaves the toggle open).
-  const toggleReview = () => {
+  /** Scroll the viewport so the given toggle is visible (heights estimated). */
+  const scrollToggleIntoView = (idx: number) => {
     try {
-      if (toggles.length === 0) return;
-      if (selToggle >= 0 && toggles[selToggle]) {
-        toggles[selToggle].open = false;
-        toggles[selToggle].selected = false;
+      if (idx < 0 || !toggles[idx]) return;
+      if (idx === toggles.length - 1) {
+        scroll.scrollToEnd();
+        return;
       }
-      selToggle = selToggle <= 0 ? toggles.length - 1 : selToggle - 1;
-      toggles[selToggle].open = true;
-      toggles[selToggle].selected = true;
-      // Bring the opened toggle into view (heights estimated from the render).
-      try {
-        if (selToggle === toggles.length - 1) {
-          scroll.scrollToEnd();
-        } else {
-          const w = lastInsetInner || 80;
-          let row = 0;
-          let found = -1;
-          for (const ch of (content as any).children || []) {
-            if (ch === toggles[selToggle]) {
-              found = row;
-              break;
-            }
-            try {
-              row += ((ch as any).render(w) || []).length;
-            } catch {}
-          }
-          if (found >= 0) scroll.scrollTo(Math.max(0, found - 2));
+      const w = lastInsetInner || 80;
+      let row = 0;
+      let found = -1;
+      for (const ch of (content as any).children || []) {
+        if (ch === toggles[idx]) {
+          found = row;
+          break;
         }
-      } catch {}
-      ui.requestRender();
+        try {
+          row += ((ch as any).render(w) || []).length;
+        } catch {}
+      }
+      if (found >= 0) scroll.scrollTo(Math.max(0, found - 2));
     } catch {}
   };
-  const clearToggleSel = (): boolean => {
-    if (selToggle < 0) return false;
+  const enterToggleNav = () => {
+    navMode = true;
+    if (toggles.length > 0) {
+      selToggle = toggles.length - 1;
+      toggles.forEach((t, i) => (t.selected = i === selToggle));
+      scrollToggleIntoView(selToggle);
+    }
+    ui.requestRender();
+  };
+  const exitToggleNav = () => {
+    navMode = false;
     selToggle = -1;
-    try {
-      toggles.forEach((t) => (t.selected = false));
-      ui.requestRender();
-    } catch {}
-    return true;
+    toggles.forEach((t) => {
+      t.open = false;
+      t.selected = false;
+    });
+    ui.requestRender();
+  };
+  const toggleNavMode = () => {
+    if (navMode) exitToggleNav();
+    else enterToggleNav();
+  };
+  const moveToggleSel = (dir: number) => {
+    if (toggles.length === 0) return;
+    if (selToggle < 0) selToggle = toggles.length - 1;
+    else selToggle = Math.max(0, Math.min(toggles.length - 1, selToggle + dir));
+    toggles.forEach((t, i) => (t.selected = i === selToggle));
+    scrollToggleIntoView(selToggle);
+    ui.requestRender();
+  };
+  const setToggleOpen = (open: boolean) => {
+    if (selToggle < 0 || !toggles[selToggle]) return;
+    toggles[selToggle].open = open;
+    scrollToggleIntoView(selToggle);
+    ui.requestRender();
   };
 
   // Tab = toggle plan/build (app behaviour), intercepted at the TUI level.
@@ -646,6 +661,37 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       // they must NEVER be treated as a second press — ↓ would jump two rows and
       // → would confirm & close the menu at once. Drop them all.
       if (isKeyRelease(data)) {
+        return { consume: true };
+      }
+      // Ctrl+T = toggle navigation mode: ↑↓ move between toggles, → opens,
+      // ← closes, Esc exits and closes them all (modal: other keys swallowed).
+      const isCtrlT = data === "\x14" || matchesKey(data, "ctrl+t");
+      if (isCtrlT && !(menuOpenRef?.() ?? false)) {
+        toggleNavMode();
+        return { consume: true };
+      }
+      if (navMode && !(menuOpenRef?.() ?? false)) {
+        const isUpN = data === "\x1b[A" || matchesKey(data, "up");
+        const isDownN = data === "\x1b[B" || matchesKey(data, "down");
+        const isLeftN = data === "\x1b[D" || matchesKey(data, "left");
+        const isRightN = data === "\x1b[C" || matchesKey(data, "right");
+        const isEscN = data === "\x1b" || matchesKey(data, "escape");
+        if (isEscN) {
+          exitToggleNav();
+          return { consume: true };
+        }
+        if (isUpN || isDownN) {
+          moveToggleSel(isUpN ? -1 : 1);
+          return { consume: true };
+        }
+        if (isRightN) {
+          setToggleOpen(true);
+          return { consume: true };
+        }
+        if (isLeftN) {
+          setToggleOpen(false);
+          return { consume: true };
+        }
         return { consume: true };
       }
       const isTab =
@@ -661,12 +707,6 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       const isLeft = data === "\x1b[D" || matchesKey(data, "left");
       const isRight = data === "\x1b[C" || matchesKey(data, "right");
       const menuNow = menuOpenRef?.() ?? false;
-      // Ctrl+O: review the toggles backwards (Mac-safe: Ctrl+arrows are Mission Control).
-      const isCtrlO = data === "\x0f" || matchesKey(data, "ctrl+o");
-      if (!menuNow && isCtrlO) {
-        toggleReview();
-        return { consume: true };
-      }
       if (isEsc) {
         escFlashUntil = Date.now() + 450;
         try {
@@ -681,7 +721,6 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           menuNavRef?.("escape");
           return { consume: true };
         }
-        if (clearToggleSel()) return { consume: true };
         return undefined;
       }
       if (menuNow) {
@@ -895,6 +934,26 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   const buildHintLine = (width: number): string => {
     const lit = (s: string) => bold(fg(C.primary, s));
     const quiet = (s: string) => fg(C.textTertiary, s);
+    if (navMode) {
+      // Toggle navigation mode is ON: show its keys instead of the chat ones.
+      const leftN = lit("toggle nav");
+      const sepN = fg(C.textTertiary, "  \u00b7  ");
+      const rightN =
+        fg(C.textSecondary, "\u2191\u2193 move") +
+        sepN +
+        fg(C.textSecondary, "\u2192 open") +
+        sepN +
+        fg(C.textSecondary, "\u2190 close") +
+        sepN +
+        fg(C.danger, "Esc");
+      const brandN = fg(C.primary, "Quinki");
+      const lwN = visibleWidth(leftN);
+      const rwN = visibleWidth(rightN);
+      const startN = Math.max(lwN + 1, Math.floor((width - 6) / 2));
+      const g1N = Math.max(1, startN - lwN);
+      const g2N = Math.max(1, width - startN - 6 - rwN);
+      return leftN + " ".repeat(g1N) + brandN + " ".repeat(g2N) + rightN;
+    }
     const menuActive = menuOpenRef?.() ?? false;
     const canSend = hasText() && !streaming && !menuActive;
     const canSteer = streaming && hasText();
