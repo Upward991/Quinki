@@ -297,7 +297,18 @@ class ToggleBlock {
     let head = " " + fg(col, arrow + " ") + fg(col, this.label);
     if (this.boldName) head += " " + bold(fg(col, this.boldName));
     if (!this.open) {
-      const first = String(this.body || "").split("\n")[0] || "";
+      let src = String(this.body || "");
+      if (!src.trim()) {
+        // Delegation toggles carry no body: the preview comes from the first
+        // child (the task / the delegated agent's text).
+        for (const ch of this.children || []) {
+          if (ch && (ch.t === "text" || ch.t === "bubble")) {
+            src = String(ch.v || "");
+            break;
+          }
+        }
+      }
+      const first = String(src).split("\n")[0] || "";
       if (first.trim()) {
         // The preview MUST fit the row: it is cut on the room actually left by
         // the header, so a collapsed toggle never spills out of the chat area.
@@ -326,7 +337,19 @@ class ToggleBlock {
           // Mini user bubble (the task the delegating agent sent).
           for (const line of wrapPlain(String(ch.v || ""), inner)) out.push(" " + fg(this.color, "\u2502 ") + bg(C.bubbleUser, " " + line + " "));
         } else if (ch && ch.t === "text") {
-          for (const line of wrapPlain(String(ch.v || ""), inner)) out.push(" " + fg(this.color, "\u2502 ") + fg(C.text, line));
+          // Markdown rendering INSIDE the toggle — identical to the normal chat.
+          try {
+            const th = (globalThis as any).__qMd;
+            if (th) {
+              if (!ch._md) ch._md = new Markdown(String(ch.v || ""), 0, 0, th);
+              else ch._md.setText?.(String(ch.v || ""));
+              for (const ln of ch._md.render(Math.max(6, width - 4))) out.push(" " + fg(this.color, "\u2502 ") + ln);
+            } else {
+              for (const line of wrapPlain(String(ch.v || ""), inner)) out.push(" " + fg(this.color, "\u2502 ") + fg(C.text, line));
+            }
+          } catch {
+            for (const line of wrapPlain(String(ch.v || ""), inner)) out.push(" " + fg(this.color, "\u2502 ") + fg(C.text, line));
+          }
         } else if (ch && ch.t === "toggle") {
           for (const ln of ch.v.render(Math.max(6, width - 3))) out.push(" " + fg(this.color, "\u2502 ") + ln);
         }
@@ -1527,6 +1550,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           setStatus("Writing", "writing");
           if (!assistant) {
             assistant = pushBlock(new Markdown("", 1, 0, mdTheme));
+            (globalThis as any).__qMd = mdTheme; // nested toggles render markdown too
           }
           assistantText += ame.delta || "";
           assistant.setText(assistantText);
@@ -1550,12 +1574,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         try {
           body = JSON.stringify(args, null, 0) || "";
         } catch {}
-        if (/delegate/i.test(name)) {
-          const target = String(args?.agentId || args?.agent || args?.to || "").trim();
-          pushBlock(registerToggle(new ToggleBlock({ label: "Delegation", boldName: target, color: C.delegation, body })));
-        } else {
-          pushBlock(registerToggle(new ToggleBlock({ label: "Tool call", boldName: name, color: C.toolCall, body })));
-        }
+        // The tool call toggle is ALWAYS a plain tool call (delegations included):
+        // the delegation toggle is a SEPARATE block, created right below it.
+        pushBlock(registerToggle(new ToggleBlock({ label: "Tool call", boldName: name, color: C.toolCall, body })));
         assistant = null;
         assistantText = "";
       } else if (e?.type === "tool_execution_end") {
