@@ -331,8 +331,12 @@ class ToggleBlock {
           out.push(" " + fg(this.color, "\u2502 ") + styled);
         }
       }
-      // Nested content (delegation): nested toggles + text, inside the border.
+      // Nested content (delegation): nested toggles + text, inside the border —
+      // with a blank bordered row between children (the normal chat's cadence).
+      let firstChild = true;
       for (const ch of this.children || []) {
+        if (!firstChild) out.push(" " + fg(this.color, "\u2502".padEnd(Math.max(1, width - 1))));
+        firstChild = false;
         if (ch && ch.t === "bubble") {
           // Mini user bubble (the task the delegating agent sent).
           for (const line of wrapPlain(String(ch.v || ""), inner)) out.push(" " + fg(this.color, "\u2502 ") + bg(C.bubbleUser, " " + line + " "));
@@ -1760,6 +1764,11 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           onSessionEvent({ type: "compaction_end", summary: p.summary, errorMessage: p.errorMessage });
         }
       } else if (method === "tool_result") {
+        // The delegate's tool result means that delegation is over: close its
+        // toggle automatically, exactly like a thinking toggle at message end.
+        if (/delegate/i.test(String(p.toolName || ""))) {
+          for (const tg of delegToggles.values()) tg.open = false;
+        }
         onSessionEvent({
           type: "tool_execution_end",
           toolName: p.toolName || "tool",
