@@ -338,22 +338,24 @@ class ToggleBlock {
         if (!firstChild) out.push(" " + fg(this.color, "\u2502".padEnd(Math.max(1, width - 1))));
         firstChild = false;
         if (ch && ch.t === "bubble") {
-          // The delegating agent's task: rendered EXACTLY like the user's bubble
-          // (panel background, padding, markdown inside).
+          // The delegating agent's task: IDENTICAL to the user's bubble — full
+          // width inside the delegation border, panel background, padding, markdown.
           try {
             const th = (globalThis as any).__qMd;
+            const innerW = Math.max(8, width - 6);
             let lines: string[] = [];
             if (th) {
               if (!ch._md) ch._md = new Markdown(String(ch.v || ""), 0, 0, th);
               else ch._md.setText?.(String(ch.v || ""));
-              lines = ch._md.render(Math.max(6, width - 6));
+              lines = ch._md.render(innerW - 2);
             } else {
-              lines = wrapPlain(String(ch.v || ""), inner);
+              lines = wrapPlain(String(ch.v || ""), Math.max(6, innerW - 2));
             }
-            for (const ln of lines) out.push(" " + fg(this.color, "\u2502 ") + bg(C.bubbleUser, " " + ln + " "));
-          } catch {
-            for (const line of wrapPlain(String(ch.v || ""), inner)) out.push(" " + fg(this.color, "\u2502 ") + bg(C.bubbleUser, " " + line + " "));
-          }
+            const full = (t: string) => " " + fg(this.color, "\u2502 ") + bg(C.bubbleUser, "  " + t + " ".repeat(Math.max(2, innerW - 2 - visibleWidth(t) + 2)));
+            out.push(" " + fg(this.color, "\u2502 ") + bg(C.bubbleUser, " ".repeat(innerW)));
+            for (const ln of lines) out.push(full(ln));
+            out.push(" " + fg(this.color, "\u2502 ") + bg(C.bubbleUser, " ".repeat(innerW)));
+          } catch {}
         } else if (ch && ch.t === "text") {
           // Markdown rendering INSIDE the toggle — identical to the normal chat.
           try {
@@ -1864,7 +1866,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     try {
       if (histMsgs) {
         const first = histMsgs[0];
-        const ts = Date.parse(String(first?.timestamp || "")) || 0;
+        const ts = Number(first?.timestamp) || 0;
         void loadServerHistory(ts).then((ok) => {
           if (!ok) return;
           renderHistory();
@@ -2172,7 +2174,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         for (const m of histMsgs) {
           if (m?.role === "user") {
             const t = typeof m.content === "string" ? m.content : Array.isArray(m.content) ? m.content.filter((x: any) => x?.type === "text").map((x: any) => x.text).join("\n") : "";
-            if (t.trim()) pushBlock(new UserBubble(t, fmtFooterDate(Date.parse(m.timestamp || "") || Date.now())));
+            if (t.trim()) pushBlock(new UserBubble(t, fmtFooterDate(Number(m.timestamp) || Date.now())));
+          } else if (m?.role === "tool_call" || m?.role === "toolCall") {
+            pushBlock(registerToggle(new ToggleBlock({ label: "Tool call", boldName: String(m.toolName || m.name || "tool"), color: C.toolCall, body: String(m.input || m.arguments || m.content || "") })));
           } else if (m?.role === "tool_result") {
             pushBlock(registerToggle(new ToggleBlock({ label: m.isError ? "Tool error" : "Tool result", boldName: String(m.toolName || "tool"), color: m.isError ? C.danger : C.toolResult, body: String(m.content || "") })));
           } else if (m?.role === "delegation") {
@@ -2227,8 +2231,12 @@ export async function runTui(opts: TuiOptions): Promise<void> {
             }
             if (txt.trim()) {
               pushBlock(new Markdown(txt, 1, 0, mdTheme));
-              const an = String(m.agentName || sessionAgentIds()[0] || "quinki");
-              pushBlock(new FooterRow(fmtFooterDate(Date.parse(m.timestamp || "") || Date.now()), agentDisplayName(an) + " \u00b7 " + String(m.model || defaultModelId || "") + " \u00b7 " + levelLabel(String(m.thinkingLevel || "off")), true));
+              // Agent: the message's own, else the session's PRIMARY agent
+              // (orchestrator wins when present — same rule as the engine).
+              const ids = sessionAgentIds();
+              const primary = ids.find((x) => x === "orchestrator") || ids[0] || "quinki";
+              const an = String(m.agentName || primary);
+              pushBlock(new FooterRow(fmtFooterDate(Number(m.timestamp) || Date.now()), agentDisplayName(an) + " \u00b7 " + String(m.model || defaultModelId || "") + " \u00b7 " + levelLabel(String(m.thinkingLevel || "off")), true));
             }
           }
         }
