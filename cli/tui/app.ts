@@ -416,19 +416,19 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   const titleText = new FnLine((w: number) => {
     const t = fg(C.text, headerTitle);
     const dir = fmtDirShort();
-    // Violet vertical bars on the LEFT and RIGHT of the header text row — same
-    // glyphs and accent as the composer box.
+    // Exactly like the composer box: one black column of padding, THEN the violet
+    // bar, then a space, the text, a space, the bar, one black column.
     const L = fg(C.primary, "\u258f");
     const R = fg(C.primary, "\u2595");
-    const tw = visibleWidth(t) + 3; // left bar + space, trailing space before R
+    const tw = visibleWidth(t);
     const dw = visibleWidth(dir);
-    if (!dir) return L + " " + t + " ".repeat(Math.max(1, w - tw)) + R;
-    const gap = Math.max(1, w - tw - dw);
-    return L + " " + t + " ".repeat(gap) + fg(C.textTertiary, dir) + " " + R;
+    if (!dir) return " " + L + " " + t + " ".repeat(Math.max(1, w - tw - 6)) + " " + R + " ";
+    const gap = Math.max(1, w - tw - dw - 6);
+    return " " + L + " " + t + " ".repeat(gap) + fg(C.textTertiary, dir) + " " + R + " ";
   });
   // The header is THREE rows tall (empty / text / empty) and the violet bars run
-  // the whole height, exactly like the text box.
-  const headerPad = new FnLine((w: number) => fg(C.primary, "\u258f") + " ".repeat(Math.max(0, w - 2)) + fg(C.primary, "\u2595"));
+  // the whole height, inset by the same black column of the composer box.
+  const headerPad = new FnLine((w: number) => " " + fg(C.primary, "\u258f") + " ".repeat(Math.max(0, w - 4)) + fg(C.primary, "\u2595") + " ");
   const header = new BgBlock(new VStack([headerPad, titleText, headerPad] as any) as any, 0, (s: string) => bg(C.bgPanel, s), 0);
   const setChatTitle = (title: string) => {
     headerTitle = title && title.trim() ? title.trim() : "New chat";
