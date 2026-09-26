@@ -603,6 +603,20 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   };
   let wsSkillGroups: any[] = [];
   let wsModelId = "";
+  let wsSessions: any[] = [];
+  const refreshSessions = () => {
+    if (!scOn) return;
+    void sc
+      .call("listSessions", {}, 20000)
+      .then((r: any) => {
+        const list = Array.isArray(r?.sessions) ? r.sessions : [];
+        wsSessions = list;
+        // Keep the open chat's title in sync: renames made in the app arrive here.
+        const me = list.find((s: any) => String(s?.key || s?.id) === currentKey);
+        if (me?.label) setChatTitle(String(me.label));
+      })
+      .catch(() => {});
+  };
   const refreshSkillGroups = () => {
     if (!scOn) return;
     void sc
@@ -751,6 +765,31 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       getArgumentCompletions: (prefix: string) => {
         const items: any[] = [];
         const labels: Record<string, string> = {};
+        if (scOn && wsSessions.length) {
+          // Live authority: the sidecar's own list — chats deleted or renamed in
+          // the app are reflected here at once (no ghost entries).
+          for (const s of wsSessions) {
+            const k = String(s?.key || s?.id || "");
+            if (!k || k === currentKey || k === "__app_expert__" || k.startsWith("__exec_")) continue;
+            let ts = Number(s?.lastActivity) || Number(s?.createdAt) || 0;
+            try {
+              const dp = path.join(opts.agentDir, "sessions", "quinki", k);
+              for (const f of fs.readdirSync(dp)) {
+                if (!f.endsWith(".jsonl")) continue;
+                const m = fs.statSync(path.join(dp, f)).mtimeMs;
+                if (m > ts) ts = m;
+              }
+            } catch {}
+            items.push({ value: k, label: String(s?.label || k), description: "chat \u00b7 " + fmtWhen(ts), ts });
+          }
+          items.sort((a: any, b: any) => (b.ts || 0) - (a.ts || 0));
+          for (const it of items) delete it.ts;
+          if (!welcomeShown) {
+            items.unshift({ value: "__new__", label: "New chat", description: "Start a fresh conversation" });
+          }
+          const p0 = prefix.toLowerCase();
+          return items.filter((i) => i.label.toLowerCase().includes(p0) || i.value.toLowerCase().includes(p0));
+        }
         try {
           const raw = JSON.parse(fs.readFileSync(path.join(opts.agentDir, "quinki-sessions.json"), "utf8"));
           if (Array.isArray(raw)) {
@@ -811,14 +850,23 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     { name: "reload", description: "Reload this chat (recover history, fix glitches)", seq: 4 },
     { name: "export", description: "Export this chat as Markdown", seq: 10 },
     {
+      name: "delete",
+      description: "Delete this chat",
+      seq: 12,
+      hidden: () => welcomeShown,
+      getArgumentCompletions: () => [
+        { value: "confirm", label: "confirm", description: "Delete this chat forever" },
+      ],
+    },
+    {
       name: "settings",
       description: "Settings",
-      seq: 12,
+      seq: 13,
     },
     {
       name: "quit",
       description: "Exit quinki (asks for confirmation)",
-      seq: 13,
+      seq: 14,
       getArgumentCompletions: () => [
         { value: "yes", label: "yes", description: "Yes, exit quinki" },
         { value: "no", label: "no", description: "No, keep it open" },
@@ -1615,6 +1663,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       } else if (method === "streaming_stopped") {
         onSessionEvent({ type: "agent_end" });
         refreshSkillGroups();
+        refreshSessions();
       } else if (method === "agent_status") {
         const k = String(p.status || "");
         if (k === "retrying") setStatus("Retrying " + (p.attempt || 1) + "/" + (p.maxAttempts || 3), "retrying");
@@ -1649,7 +1698,20 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     } catch {}
   };
   sc.onEvent(onWsEvent);
-  if (scOn) setTimeout(() => { try { refreshSkillGroups(); } catch {} }, 1200);
+  if (scOn) {
+    setTimeout(() => {
+      try {
+        refreshSkillGroups();
+        refreshSessions();
+      } catch {}
+    }, 1200);
+    // Periodic refresh: chats deleted or renamed in the app disappear/appear here.
+    setInterval(() => {
+      try {
+        refreshSessions();
+      } catch {}
+    }, 10000);
+  }
 
   // --- slash commands -----------------------------------------------------------
   /** All chat messages saved on disk (the session jsonl files), oldest first. */
@@ -2030,6 +2092,21 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           fs.writeFileSync(sp, JSON.stringify(list, null, 2), "utf8");
           setChatTitle(arg);
         } catch {}
+        break;
+      }
+      case "delete": {
+        if (arg !== "confirm" || welcomeShown) break;
+        const dk = currentKey;
+        if (scOn) void sc.call("deleteSession", { sessionKey: dk }, 30000).catch(() => {});
+        try {
+          writeSessionsList(readSessionsList().filter((s: any) => s?.key !== dk));
+        } catch {}
+        try {
+          fs.rmSync(path.join(opts.sessionDir, dk), { recursive: true, force: true });
+        } catch {}
+        // Land on a fresh welcome chat.
+        const nk = "cli-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        void recreateSession({ newSessionDir: path.join(opts.sessionDir, nk), newKey: nk });
         break;
       }
       case "quit": {
