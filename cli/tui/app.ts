@@ -395,8 +395,9 @@ class FooterRow {
     this.showInfo = showInfo;
   }
   render(width: number): string[] {
-    // Small circled i (a dot, not a box), same intensity as the footer text.
-    const box = fg(C.textTertiary, "\u24d8");
+    // Filled dot: the circled i drawn in the background colour on a solid
+    // tertiary cell — same graphical weight as before, but round and small.
+    const box = bg(C.textTertiary, fg(C.bg, "\u24d8"));
     const left = " " + this.dateStr + (this.showInfo ? "  " + box : "");
     const full = this.showInfo && infoOpen ? left + "  " + this.infoStr : left;
     const out = full.length > width ? full.slice(0, Math.max(1, width - 1)) + "\u2026" : full;
