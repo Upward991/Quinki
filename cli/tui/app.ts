@@ -395,7 +395,8 @@ class FooterRow {
     this.showInfo = showInfo;
   }
   render(width: number): string[] {
-    const box = bg(C.textTertiary, fg(C.bg, " i "));
+    // Small circled i (a dot, not a box), same intensity as the footer text.
+    const box = fg(C.textTertiary, "\u24d8");
     const left = " " + this.dateStr + (this.showInfo ? "  " + box : "");
     const full = this.showInfo && infoOpen ? left + "  " + this.infoStr : left;
     const out = full.length > width ? full.slice(0, Math.max(1, width - 1)) + "\u2026" : full;
