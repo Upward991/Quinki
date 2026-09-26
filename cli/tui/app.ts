@@ -356,7 +356,9 @@ class ToggleBlock {
             for (const ln of lines) out.push(full(ln));
             out.push(" " + fg(this.color, "\u2502 ") + bg(C.bubbleUser, " ".repeat(innerW)));
             if (this._taskFooterDate) {
-              const line = this._taskFooterDate + (infoOpen && this._taskFooterInfo ? "  \u00b7  Info: " + this._taskFooterInfo : "");
+              // Date only — NO Info here: this is an agent bubble (the sender of
+              // the delegation), and user/agent bubbles never carry Info.
+              const line = this._taskFooterDate;
               out.push(" " + fg(this.color, "\u2502 ") + bg(C.bubbleUser, "  " + fg(C.textSecondary, line) + " ".repeat(Math.max(0, innerW - 2 - visibleWidth(line)))));
               out.push(" " + fg(this.color, "\u2502 ") + bg(C.bubbleUser, " ".repeat(innerW)));
             }
