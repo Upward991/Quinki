@@ -889,6 +889,21 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   // Tab = toggle plan/build (app behaviour), intercepted at the TUI level.
   try {
     ui.addInputListener((data: string) => {
+      // Escape sequences can be SPLIT across reads ("\x1b[1;1" then "C…"): hold
+      // an unfinished tail (ESC + "[…") and prepend it to the next read, so the
+      // arrow is recognized on its FIRST press (a lone ESC key stays untouched).
+      {
+        const raw = pendingKeys + String(data);
+        pendingKeys = "";
+        const m = raw.match(/\x1b(\[[0-9;:]*)?$/);
+        if (m && m[0].includes("[") && m[0].length < 12) {
+          pendingKeys = m[0];
+          data = raw.slice(0, raw.length - m[0].length);
+        } else {
+          data = raw;
+        }
+        if (!data) return { consume: true };
+      }
       // Kitty-capable terminals report press AND release in the SAME read:
       // "\x1b[1;1C\x1b[1;1:3C". Strip every release (":3" event form) and use
       // what remains: otherwise the chunk matches no key at all and the first
@@ -1057,6 +1072,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   let handleSlashRef: ((raw: string) => void) | null = null;
   // Slash menu (OURS — app-style; it NEVER writes command text into the box).
   let menuStack: string[] = []; // open menu path: [], [cmd] or ["agent", ...deeper levels]
+  let lastNavA = ""; // last navigation direction (duplicate-event collapse)
+  let lastNavT = 0;
+  let pendingKeys = ""; // unfinished escape tail held across reads
   let menuSubFilter = ""; // filter typed inside a submenu
   let menuSel = 0; // selected row
   let menuConfirmFocus = false; // → focused the Confirm action (app NavBar focusConfirm)
@@ -2200,6 +2218,15 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   const menuNav = (a: "up" | "down" | "left" | "right" | "enter" | "escape") => {
     try {
       if (!menuOpen()) return;
+      // Some terminals deliver ONE key press as MULTIPLE events (press + release
+      // echo, both recognized). Collapse identical navigations arriving within
+      // 40ms: one press always means exactly one step (human repeats are slower).
+      if (a !== "enter" && a !== "escape") {
+        const now = Date.now();
+        if (a === lastNavA && now - lastNavT < 40) return;
+        lastNavA = a;
+        lastNavT = now;
+      }
       const items = applyFilter(levelItems(menuStack));
       const stepSel = (from: number, dir: number): number => {
         let i = from;
