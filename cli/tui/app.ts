@@ -2086,32 +2086,10 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         scrollToEnd();
         return;
       }
-      // A session is split across MULTIPLE files (one per run): walk the active
-      // branch of EACH file and concatenate — the whole conversation appears.
-      const filesSeen: string[] = [];
-      for (const e of all) {
-        const f = String(e.file || "");
-        if (f && !filesSeen.includes(f)) filesSeen.push(f);
-      }
-      let chain: any[] = [];
-      for (const f of filesSeen) {
-        const fe = all.filter((e: any) => String(e.file || "") === f);
-        const byId = new Map<string, any>();
-        for (const e of fe) if (e.id) byId.set(String(e.id), e);
-        let part: any[] = fe;
-        if (fe.length) {
-          let cur: any = fe[fe.length - 1];
-          const walked: any[] = [];
-          let guard = 0;
-          while (cur && guard++ < 5000) {
-            walked.push(cur);
-            cur = cur.pid ? byId.get(String(cur.pid)) : null;
-          }
-          if (walked.length > 1) part = walked.reverse();
-        }
-        chain = chain.concat(part);
-      }
-      for (const en of chain) {
+      // FLAT, exactly like the app reads the session: every entry of every file
+      // in file order — nothing is dropped (the tree walk skipped pre-compaction
+      // messages; the app shows them all).
+      for (const en of all) {
         if (en.kind === "compaction") {
           // File compactions are always REAL (noop ones never reach the file).
           pushBlock(registerToggle(new ToggleBlock({ label: "Compaction", boldName: "effective", color: C.info })));
