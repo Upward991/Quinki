@@ -151,6 +151,7 @@ class RuleLine {
 }
 
 /** Horizontal inset wrapper — replicates the app's transcript padding (16px per side). */
+let lastInsetInner = 0;
 class InsetBox {
   child: any;
   insetFn: () => number;
@@ -164,6 +165,7 @@ class InsetBox {
       inset = Math.max(0, this.insetFn() || 0);
     } catch {}
     const inner = Math.max(8, width - inset * 2);
+    lastInsetInner = inner;
     const lines = this.child?.render(inner) || [];
     const l = " ".repeat(inset);
     const r = " ".repeat(inset);
@@ -247,6 +249,14 @@ function wrapPlain(s: string, width: number): string[] {
     if (line) out.push(line);
   }
   return out;
+}
+
+/** A real blank separator row (pi-tui Text skips whitespace-only strings). */
+class BlankRow {
+  render(width: number): string[] {
+    return [" ".repeat(Math.max(1, width))];
+  }
+  invalidate() {}
 }
 
 /**
@@ -583,19 +593,39 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     toggles.push(t);
     return t;
   };
-  const selectToggle = (dir: number) => {
+  // Ctrl+O = review cursor: walks BACKWARD through the toggles (newest first),
+  // opening each one and closing the previous. Press repeatedly to go back in
+  // history. Esc stops the review (leaves the toggle open).
+  const toggleReview = () => {
     try {
       if (toggles.length === 0) return;
-      if (selToggle < 0) selToggle = dir > 0 ? 0 : toggles.length - 1;
-      else selToggle = Math.max(0, Math.min(toggles.length - 1, selToggle + dir));
-      toggles.forEach((t, i) => (t.selected = i === selToggle));
-      ui.requestRender();
-    } catch {}
-  };
-  const activateToggle = () => {
-    try {
-      if (selToggle < 0 || !toggles[selToggle]) return;
-      toggles[selToggle].open = !toggles[selToggle].open;
+      if (selToggle >= 0 && toggles[selToggle]) {
+        toggles[selToggle].open = false;
+        toggles[selToggle].selected = false;
+      }
+      selToggle = selToggle <= 0 ? toggles.length - 1 : selToggle - 1;
+      toggles[selToggle].open = true;
+      toggles[selToggle].selected = true;
+      // Bring the opened toggle into view (heights estimated from the render).
+      try {
+        if (selToggle === toggles.length - 1) {
+          scroll.scrollToEnd();
+        } else {
+          const w = lastInsetInner || 80;
+          let row = 0;
+          let found = -1;
+          for (const ch of (content as any).children || []) {
+            if (ch === toggles[selToggle]) {
+              found = row;
+              break;
+            }
+            try {
+              row += ((ch as any).render(w) || []).length;
+            } catch {}
+          }
+          if (found >= 0) scroll.scrollTo(Math.max(0, found - 2));
+        }
+      } catch {}
       ui.requestRender();
     } catch {}
   };
@@ -631,11 +661,10 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       const isLeft = data === "\x1b[D" || matchesKey(data, "left");
       const isRight = data === "\x1b[C" || matchesKey(data, "right");
       const menuNow = menuOpenRef?.() ?? false;
-      // Toggle navigation (only when the slash menu is closed).
-      const isCtrlUp = data === "\x1b[1;5A" || matchesKey(data, "ctrl+up");
-      const isCtrlDown = data === "\x1b[1;5B" || matchesKey(data, "ctrl+down");
-      if (!menuNow && (isCtrlUp || isCtrlDown)) {
-        selectToggle(isCtrlUp ? -1 : 1);
+      // Ctrl+O: review the toggles backwards (Mac-safe: Ctrl+arrows are Mission Control).
+      const isCtrlO = data === "\x0f" || matchesKey(data, "ctrl+o");
+      if (!menuNow && isCtrlO) {
+        toggleReview();
         return { consume: true };
       }
       if (isEsc) {
@@ -654,10 +683,6 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         }
         if (clearToggleSel()) return { consume: true };
         return undefined;
-      }
-      if (!menuNow && isEnter && selToggle >= 0) {
-        activateToggle();
-        return { consume: true };
       }
       if (menuNow) {
         if (isUp || isDown || isLeft || isRight || isEnter) {
@@ -943,7 +968,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   let blockCount = 0;
   const pushBlock = (comp: any) => {
     try {
-      if (blockCount > 0) content.addChild(new Text(" ", 0, 0));
+      if (blockCount > 0) content.addChild(new BlankRow());
       content.addChild(comp);
       blockCount++;
     } catch {}
