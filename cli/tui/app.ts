@@ -15,6 +15,8 @@ import os from "node:os";
 import path from "node:path";
 import { execSync } from "node:child_process";
 
+import { Sc } from "./sc";
+
 import {
   TuiAltScreen,
   ProcessTerminal,
@@ -330,6 +332,22 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   let currentSessionDir = sessionDirForKey;
   let currentKey = key;
 
+  // --- sidecar link: run the chat in the REAL Quinki runtime (the same session
+  // the app uses — agents, skills, delegation, live sync). Falls back to the
+  // bare SDK session when the app/sidecar is not running. ---------------------
+  const sc = new Sc("ws://127.0.0.1:" + (process.env.QUINKI_SIDECAR_PORT || "9182"));
+  const scOn = await sc.connect(Number(process.env.QUINKI_SIDECAR_CONNECT_MS || 900));
+  const pendingSkills: string[] = [];
+  const stopTurn = () => {
+    if (scOn) {
+      void sc.call("abort", { sessionKey: currentKey }, 15000).catch(() => {});
+      return;
+    }
+    try {
+      void Promise.resolve((session as any).abort?.()).catch(() => {});
+    } catch {}
+  };
+
   // Auth fallback: provider keys live in models.json (same as the sidecar).
   try {
     const modelsJson = JSON.parse(fs.readFileSync(path.join(opts.agentDir, "models.json"), "utf8"));
@@ -557,7 +575,26 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     } catch {}
     return out;
   };
+  let wsSkillGroups: any[] = [];
+  let wsModelId = "";
+  const refreshSkillGroups = () => {
+    if (!scOn) return;
+    void sc
+      .call("listChatSkills", { agentIds: sessionAgentIds() }, 20000)
+      .then((r: any) => {
+        wsSkillGroups = Array.isArray(r?.groups) ? r.groups : [];
+      })
+      .catch(() => {});
+  };
   const skillGroupsCached = () => {
+    if (wsSkillGroups.length) {
+      // Live path: groups come from the sidecar (exactly what the app lists).
+      return wsSkillGroups.map((g: any) => ({
+        agentId: g.agentId,
+        agentName: String(g.agentName || g.name || agentDisplayName(String(g.agentId || ""))),
+        skills: Array.isArray(g.skills) ? g.skills : [],
+      }));
+    }
     const groups: any[] = [];
     for (const id of chatAgentIds()) {
       const sk = injectableSkillsFor(id);
@@ -579,19 +616,26 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       name: "model",
       description: "Change model",
       seq: 5,
-      getArgumentCompletions: (prefix: string) => {
+      getArgumentCompletions: () => {
+        // Grouped by provider with separators — same layout as the per-agent
+        // model menu. The order of providers and models mirrors the app config
+        // (quinki-providers.json) so every change there is reflected here.
         const items: any[] = [];
         try {
-          const models: any[] = availableModels();
-          for (const m of models) {
+          let lastProv = "";
+          for (const m of availableModels()) {
             const id = String(m?.id ?? "");
             if (!id) continue;
             const prov = String(m?.provider ?? "");
+            if (prov && prov !== lastProv) {
+              items.push({ value: "__sep_prov_" + prov, label: prov, separator: true });
+              lastProv = prov;
+            }
             const cur = session?.model?.id === id && String(session?.model?.provider ?? "") === prov;
             items.push({ value: id, label: id, description: (cur ? "current \u00b7 " : "") + prov });
           }
         } catch {}
-        return items.filter((i) => i.value.toLowerCase().startsWith(prefix.toLowerCase()));
+        return items;
       },
     },
     {
@@ -713,6 +757,8 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         // Most recent first — CLI-only ordering (handier from the slash menu).
         items.sort((a: any, b: any) => (b.ts || 0) - (a.ts || 0));
         for (const it of items) delete it.ts;
+        // New chat always on top: back to the welcome composer without quitting.
+        items.unshift({ value: "__new__", label: "New chat", description: "Start a fresh conversation" });
         const p = prefix.toLowerCase();
         return items.filter((i) => i.label.toLowerCase().includes(p) || i.value.toLowerCase().includes(p));
       },
@@ -879,22 +925,18 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       const isRight = data === "\x1b[C" || matchesKey(data, "right");
       const menuNow = menuOpenRef?.() ?? false;
       if (isEsc) {
-        // Only the CHAT Esc (stop) flashes RED: with the menu open, Esc belongs
-        // to the menu's own nav bar (which already shows its red Esc).
-        if (!menuNow) escFlashUntil = Date.now() + 450;
-        try {
-          ui.requestRender();
-        } catch {}
-        setTimeout(() => {
-          try {
-            ui.requestRender();
-          } catch {}
-        }, 500);
         if (menuNow) {
           menuNavRef?.("escape");
           return { consume: true };
         }
-        return undefined;
+        if (streaming) {
+          // Esc STOPS the running turn (the hint row lights Stop (Esc) red for
+          // the whole duration of the stream).
+          try {
+            stopTurn();
+          } catch {}
+        }
+        return { consume: true };
       }
       if (menuNow) {
         if (isUp || isDown || isLeft || isRight || isEnter) {
@@ -987,7 +1029,6 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   } catch {}
   let toggleModeRef: (() => void) | null = null;
   let handleSlashRef: ((raw: string) => void) | null = null;
-  let escFlashUntil = 0;
   // Slash menu (OURS — app-style; it NEVER writes command text into the box).
   let menuStack: string[] = []; // open menu path: [], [cmd] or ["agent", ...deeper levels]
   let menuSubFilter = ""; // filter typed inside a submenu
@@ -1123,7 +1164,6 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     const menuActive = menuOpenRef?.() ?? false;
     const canSend = hasText() && !streaming && !menuActive;
     const canSteer = streaming && hasText();
-    const escLit = Date.now() < escFlashUntil;
     const textNow = (() => {
       try {
         return editor.getText().trim();
@@ -1139,7 +1179,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       fg(C.textTertiary, "  \u00b7  ") +
       quiet("Toggle Nav (Ctrl+T)");
     const sep = fg(C.textTertiary, "  \u00b7  ");
-    const stopKey = escLit ? bold(fg(C.danger, "Stop (Esc)")) : quiet("Stop (Esc)");
+    const stopKey = streaming ? bold(fg(C.danger, "Stop (Esc)")) : quiet("Stop (Esc)");
     const steerKey = canSteer ? lit("Steer (Ctrl+Enter)") : quiet("Steer (Ctrl+Enter)");
     const sendKey = cmdReady
       ? bold(bg(C.primary, fg(C.bgPanel, " Send (Enter) ")))
@@ -1340,6 +1380,95 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     } catch {}
   };
   session.subscribe(onSessionEvent);
+
+  // --- sidecar events -> the same renderer -------------------------------------
+  // The sidecar broadcasts the app's flat event shapes; they are mapped onto the
+  // SDK events onSessionEvent already handles, so the CLI renders identically.
+  let wsToolName = "";
+  let wsToolArgs = "";
+  const onWsEvent = (method: string, p: any) => {
+    try {
+      if (p?.sessionKey && p.sessionKey !== currentKey) return;
+      if (method === "stream_event") {
+        const t = p.eventType || p.type;
+        if (t === "text_delta" || t === "text" || t === "text_start") {
+          if (p.delta || p.content) {
+            onSessionEvent({
+              type: "message_update",
+              message: { role: "assistant" },
+              assistantMessageEvent: { type: "text_delta", delta: String(p.delta || p.content || "") },
+            });
+          }
+        } else if (t === "thinking_delta" || t === "thinking" || t === "thinking_start") {
+          if (p.delta || p.content) {
+            onSessionEvent({
+              type: "message_update",
+              message: { role: "assistant" },
+              assistantMessageEvent: { type: "thinking_delta", delta: String(p.delta || p.content || "") },
+            });
+          }
+        } else if (t === "toolcall_start") {
+          wsToolName = String(p.toolName || p.delta || "tool");
+          wsToolArgs = "";
+        } else if (t === "toolcall_delta") {
+          wsToolArgs += String(p.delta || p.content || "");
+        } else if (t === "toolcall_end") {
+          let args: any = {};
+          try {
+            args = wsToolArgs ? JSON.parse(wsToolArgs) : {};
+          } catch {
+            args = {};
+          }
+          onSessionEvent({ type: "tool_execution_start", toolName: wsToolName || String(p.toolName || "tool"), args });
+        } else if (t === "auto_retry_start") {
+          onSessionEvent({ type: "auto_retry_start", attempt: p.attempt || 1, maxAttempts: p.maxAttempts || 3 });
+        } else if (t === "auto_retry_end") {
+          onSessionEvent({ type: "auto_retry_end", success: !!p.success });
+        } else if (t === "compaction_start") {
+          onSessionEvent({ type: "compaction_start" });
+        } else if (t === "compaction_end") {
+          onSessionEvent({ type: "compaction_end", summary: p.summary, errorMessage: p.errorMessage });
+        }
+      } else if (method === "tool_result") {
+        onSessionEvent({
+          type: "tool_execution_end",
+          toolName: p.toolName || "tool",
+          isError: !!p.isError,
+          result: { content: [{ type: "text", text: String(p.content || "") }] },
+        });
+      } else if (method === "streaming_started") {
+        onSessionEvent({ type: "agent_start" });
+      } else if (method === "done") {
+        onSessionEvent({ type: "message_end", message: { role: "assistant" } });
+      } else if (method === "streaming_stopped") {
+        onSessionEvent({ type: "agent_end" });
+        refreshSkillGroups();
+      } else if (method === "agent_status") {
+        const k = String(p.status || "");
+        if (k === "retrying") setStatus("Retrying " + (p.attempt || 1) + "/" + (p.maxAttempts || 3), "retrying");
+        else if (k === "running") setStatus("Running", "running");
+        else if (k === "thinking") setStatus("Thinking", "thinking");
+        else if (k === "writing") setStatus("Writing", "writing");
+        else if (k === "tool") setStatus("Tool call", "tool_call");
+        else if (k === "compacting") setStatus("Compacting", "compacting");
+        else if (k === "failed") setStatus("Failed", "failed");
+      } else if (method === "session_meta") {
+        if (p.model) wsModelId = String(p.model);
+        if (typeof p.thinkingLevel === "string") thinkingOn = p.thinkingLevel !== "off";
+        updateBar();
+      } else if (method === "context_usage") {
+        if (p.usage) {
+          const used = Number(p.usage.input || 0) + Number(p.usage.output || 0);
+          if (used > 0) ctxTokens = used;
+          const mm = availableModels().find((x: any) => String(x?.id) === wsModelId);
+          if (mm?.contextWindow) ctxWindow = Number(mm.contextWindow);
+          updateBar();
+        }
+      }
+    } catch {}
+  };
+  sc.onEvent(onWsEvent);
+  if (scOn) setTimeout(() => { try { refreshSkillGroups(); } catch {} }, 1200);
 
   // --- slash commands -----------------------------------------------------------
   /** All chat messages saved on disk (the session jsonl files), oldest first. */
@@ -1543,6 +1672,10 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     switch (cmd) {
       case "thinking": {
         thinkingOn = arg === "off" ? false : arg === "on" ? true : !thinkingOn;
+        if (scOn) {
+          void sc.call("setThinking", { sessionKey: currentKey, thinkingLevel: thinkingOn ? "xhigh" : "off" }, 20000).catch(() => {});
+          break;
+        }
         try {
           session.setThinkingLevel?.(thinkingOn ? "xhigh" : "off");
         } catch {}
@@ -1602,6 +1735,11 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       }
       case "model": {
         if (!arg) break;
+        if (scOn) {
+          wsModelId = arg;
+          void sc.call("setModel", { sessionKey: currentKey, model: arg }, 60000).catch(() => {});
+          break;
+        }
         try {
           const models: any[] = session.modelRuntime?.getAvailableSnapshot?.() || [];
           const m = models.find((x: any) => String(x?.id) === arg);
@@ -1621,6 +1759,11 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       }
       case "reset": {
         if (arg !== "confirm") break;
+        if (scOn) {
+          void sc.call("resetSession", { sessionKey: currentKey }, 60000).catch(() => {});
+          void recreateSession({});
+          break;
+        }
         void recreateSession({ clearMessages: true });
         break;
       }
@@ -1639,6 +1782,14 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       }
       case "skill": {
         if (!arg) break;
+        if (scOn) {
+          // Live path: the skill rides the NEXT message (the app's chip flow).
+          // The engine injects it into the system prompt, one-shot.
+          pendingSkills.push(arg);
+          addRow(fg(C.primary, "\u25b8 skill armed \u00b7 " + arg + " \u00b7 sent with your next message"));
+          refreshSkillGroups();
+          break;
+        }
         try {
           if (welcomeShown) {
             welcomeShown = false;
@@ -1652,6 +1803,12 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       }
       case "sessions": {
         if (!arg) break;
+        if (arg === "__new__") {
+          // Fresh conversation: brand-new cli session, welcome composer back.
+          const nk = "cli-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+          void recreateSession({ newSessionDir: path.join(opts.sessionDir, nk), newKey: nk });
+          break;
+        }
         const sdir = path.join(opts.agentDir, "sessions", "quinki");
         const target = path.join(sdir, arg);
         if (!fs.existsSync(target)) break;
@@ -1660,6 +1817,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       }
       case "rename": {
         if (!arg) break;
+        if (scOn) void sc.call("renameSession", { sessionKey: currentKey, label: arg }, 20000).catch(() => {});
         try {
           // register/rename in quinki-sessions.json — shared with the app
           const sp = path.join(opts.agentDir, "quinki-sessions.json");
@@ -1821,9 +1979,16 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         { value: "off", label: "Off", description: cur === "off" ? "current" : "Thinking disabled" },
       ];
     }
-    return []; // "remove" = confirm-only level (its message row is rendered below)
+    return [];
   };
   const addAgentToSession = (id: string) => {
+    if (scOn) {
+      // Live path: the sidecar updates its memory AND the session entry.
+      const ids = sessionAgentIds();
+      if (!ids.includes(id)) ids.push(id);
+      void sc.call("setChatAgents", { sessionKey: currentKey, agentIds: ids.join(",") }, 20000).catch(() => {});
+      return;
+    }
     mutateSessionEntry((e: any) => {
       const ids = String(e.agentId || "")
         .split(",")
@@ -1835,6 +2000,11 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     });
   };
   const removeAgentFromSession = (id: string) => {
+    if (scOn) {
+      const ids = sessionAgentIds().filter((x: string) => x !== id);
+      void sc.call("setChatAgents", { sessionKey: currentKey, agentIds: ids.join(",") }, 20000).catch(() => {});
+      return;
+    }
     mutateSessionEntry((e: any) => {
       const ids = String(e.agentId || "")
         .split(",")
@@ -1855,7 +2025,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     }
     if (stack.length === 2 && stack[1] === "#add") return null; // direct action
     if (stack.length === 2) {
-      if (it.value === "model" || it.value === "thinking" || it.value === "remove") return String(it.value);
+      if (it.value === "model" || it.value === "thinking") return String(it.value);
       return null;
     }
     return null;
@@ -1884,11 +2054,20 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     }
     if (stack.length === 2) {
       const agentId = stack[1];
-      if (value === "remove" || value === "model" || value === "thinking") {
+      if (value === "remove") {
+        // Executed only with Confirm lit (mandatory pass — no double confirm).
+        if (sessionAgentIds().length <= 1) {
+          addRow(fg(C.textTertiary, "A chat must have at least one agent. You can add more, but you cannot remove the last one."));
+        } else {
+          removeAgentFromSession(agentId);
+        }
+        menuSel = 0;
+        return;
+      }
+      if (value === "model" || value === "thinking") {
         menuStack = ["agent", agentId, value];
         menuSubFilter = "";
         menuSel = 0;
-        if (value === "remove") menuConfirmFocus = true; // Confirm lights: Enter removes
       }
       // "config": agent configuration menu — staged, silently ignored for now.
       return;
@@ -1900,6 +2079,11 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         removeAgentFromSession(agentId);
         menuStack = ["agent"];
       } else if (lv3 === "model") {
+        if (scOn) {
+          void sc
+            .call("setAgentOverride", { sessionKey: currentKey, agentId, model: value === "__chat_default__" ? null : value }, 20000)
+            .catch(() => {});
+        }
         mutateSessionEntry((e: any) => {
           if (!e.agentOverrides) e.agentOverrides = {};
           const o = e.agentOverrides[agentId] || {};
@@ -1910,6 +2094,11 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         });
         menuStack = ["agent", agentId];
       } else if (lv3 === "thinking") {
+        if (scOn) {
+          void sc
+            .call("setAgentOverride", { sessionKey: currentKey, agentId, thinkingLevel: value === "__chat_default__" ? null : value }, 20000)
+            .catch(() => {});
+        }
         mutateSessionEntry((e: any) => {
           if (!e.agentOverrides) e.agentOverrides = {};
           const o = e.agentOverrides[agentId] || {};
@@ -2002,8 +2191,11 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         menuConfirmFocus = false;
         if (items.length > 0) menuSel = stepSel(menuSel, 1);
       } else if (a === "left") {
-        menuConfirmFocus = false;
-        if (menuStack.length > 0) {
+        if (menuConfirmFocus) {
+          // Confirm is treated as the LAST level: ← goes back to the options
+          // of the menu you are in (they light up again).
+          menuConfirmFocus = false;
+        } else if (menuStack.length > 0) {
           menuStack.pop();
           menuSubFilter = "";
           menuSel = 0;
@@ -2040,35 +2232,59 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           }
         }
       } else {
-        // enter = Confirm: run the option, open the submenu, or run the command.
-        menuConfirmFocus = false;
-        const last = menuStack[menuStack.length - 1];
-        const it: any = last === "remove" ? { value: "remove" } : items[menuSel];
-        if (!it || it.separator) return;
-        if (menuStack[0] === "agent") {
-          // The agent menus NEVER close: every action returns to its parent level.
-          agentActivate(String(it.value));
-        } else if (menuStack.length > 0) {
-          const cmdName = menuStack[0];
-          menuStack = [];
-          menuSubFilter = "";
-          menuSel = 0;
-          try {
-            editor.setText("");
-          } catch {}
-          handleSlashRef?.("/" + cmdName + " " + String(it.value ?? it.label ?? ""));
+        // enter — app rules: Enter NEVER confirms directly. On a terminal option
+        // the first Enter (or →) only LIGHTS the Confirm button; a second Enter,
+        // with Confirm lit, executes. Opening a submenu is navigation, not a
+        // confirmation, so that still happens on the first Enter.
+        const it: any = items[menuSel];
+        if (!menuConfirmFocus) {
+          if (!it || it.separator) return;
+          if (menuStack[0] === "agent") {
+            const deeper = agentLevelFor(it);
+            if (deeper) {
+              menuStack.push(deeper);
+              menuSubFilter = "";
+              menuSel = 0;
+            } else {
+              menuConfirmFocus = true; // Confirm lights: Enter again executes
+            }
+          } else if (menuStack.length > 0) {
+            menuConfirmFocus = true; // terminal option of a submenu
+          } else {
+            const cmd: any = commands.find((c) => c.name === it.value);
+            if (cmd && typeof cmd.getArgumentCompletions === "function") {
+              menuStack = [cmd.name];
+              menuSubFilter = "";
+              menuSel = 0;
+            } else if (cmd) {
+              menuConfirmFocus = true; // no options: Confirm first, then run
+            }
+          }
         } else {
-          const cmd: any = commands.find((c) => c.name === it.value);
-          if (cmd && typeof cmd.getArgumentCompletions === "function") {
-            menuStack = [cmd.name];
+          // Confirm is LIT: this Enter executes the selection.
+          menuConfirmFocus = false;
+          if (!it || it.separator) return;
+          if (menuStack[0] === "agent") {
+            // The agent menus NEVER close: every action returns to its parent level.
+            agentActivate(String(it.value));
+          } else if (menuStack.length > 0) {
+            const cmdName = menuStack[0];
+            menuStack = [];
             menuSubFilter = "";
             menuSel = 0;
-          } else if (cmd) {
             try {
               editor.setText("");
             } catch {}
-            menuSel = 0;
-            handleSlashRef?.("/" + cmd.name);
+            handleSlashRef?.("/" + cmdName + " " + String(it.value ?? it.label ?? ""));
+          } else {
+            const cmd: any = commands.find((c) => c.name === it.value);
+            if (cmd) {
+              try {
+                editor.setText("");
+              } catch {}
+              menuSel = 0;
+              handleSlashRef?.("/" + cmd.name);
+            }
           }
         }
       }
@@ -2103,16 +2319,6 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         }
         items = mainItems();
       }
-      // Confirm-only level ("Remove agent"): a message row instead of options.
-      if (menuStack.length > 0 && menuStack[menuStack.length - 1] === "remove") {
-        const nm = agentDisplayName(menuStack[1] || "");
-        const rows2: string[] = ["", fg(C.textSecondary, 'Remove "' + nm + '" from this chat?'), ""];
-        const left2 = fg(C.textSecondary, "\u2191 \u2193 \u2190 \u2192");
-        const right2 = menuConfirmFocus ? bold(bg(C.primary, fg(C.bgPanel, " Confirm "))) : fg(C.primary, "Confirm");
-        const gw2 = Math.max(1, w - visibleWidth(left2) - visibleWidth(right2));
-        rows2.push(left2 + " ".repeat(gw2) + right2);
-        return rows2;
-      }
       if (items.length === 0) return [];
       if (menuSel >= items.length) menuSel = items.length - 1;
       if (menuSel < 0) menuSel = 0;
@@ -2130,9 +2336,10 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         let label = String(it.label ?? it.value ?? "");
         let desc = String(it.description ?? "");
         if ((it as any).separator) {
-          // Group separator (agent name): not selectable, no highlight — with
-          // one blank row of padding above and below.
-          rows.push("");
+          // Group separator (agent name): not selectable, no highlight — with one
+          // blank row of padding below and one ABOVE, skipped when it is the very
+          // first row (the menu already opens with its own space).
+          if (rows.length > 0) rows.push("");
           rows.push(fg(C.textSecondary, label));
           rows.push("");
           continue;
@@ -2198,6 +2405,33 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     }
     pushBlock(new Text(t, 2, 1, (s: string) => bg(C.bubbleUser, s)));
     scrollToEnd();
+    if (scOn) {
+      // Live path: the sidecar runs the turn (agents, custom tools, delegation)
+      // and the app sees this exact chat streaming in real time.
+      streaming = true;
+      setStatus("Sending", "sending");
+      updateBar();
+      const sk = currentKey;
+      const skills = pendingSkills.splice(0);
+      const fail = (err: any) => {
+        addRow(fg(C.danger, "\u25b8 error \u00b7 " + truncate(String(err?.message || err), 120)));
+        streaming = false;
+        updateBar();
+      };
+      void (async () => {
+        try {
+          await sc.call("ensureSession", { sessionKey: sk, label: "Chat" }, 20000);
+          await sc.call(
+            "sendMessage",
+            { sessionKey: sk, text: t, ...(skills.length ? { skillNames: skills } : {}) },
+            600000
+          );
+        } catch (err) {
+          fail(err);
+        }
+      })();
+      return;
+    }
     streaming = true;
     setStatus("Sending", "sending");
     updateBar();
