@@ -280,7 +280,13 @@ export async function runTui(opts: TuiOptions): Promise<void> {
 
   // Chat transcript (scrolls, grows)
   const content = new Container();
-  const scroll = new ScrollView(content);
+  // The ScrollView must be a DIRECT layout child (the layout only recognizes it
+  // through [LAYOUT_NODE]): it gets updateLayout/follow/wheel from the engine.
+  // The centering + inset live INSIDE it, around the transcript content.
+  const scroll = new ScrollView(new CenterBox(new InsetBox(content, () => qInsetCols())) as any, { follow: "end" } as any);
+  try {
+    (globalThis as any).__quinkiScroll = scroll;
+  } catch {}
 
   // Composer (fixed, bottom): rounded box with the bar INSIDE (app look)
   const editorTheme = {
@@ -381,14 +387,20 @@ export async function runTui(opts: TuiOptions): Promise<void> {
             const p2 = path.join(sdir, d, "SKILL.md");
             if (!fs.existsSync(p2)) continue;
             let desc = "";
+            let injectOnly = false;
             try {
               const txt = fs.readFileSync(p2, "utf8");
               const fm = txt.match(/^---\s*\n([\s\S]*?)\n---/);
               if (fm) {
                 const dm = fm[1].match(/^description:\s*(.+)$/m);
                 if (dm) desc = dm[1].trim();
+                // Same filter as the app (listChatSkills): only the skills the
+                // model CANNOT invoke by itself — they need explicit injection.
+                injectOnly =
+                  /^disable-model-invocation:\s*true/mi.test(fm[1]) || /^user-invocable:\s*true/mi.test(fm[1]);
               }
             } catch {}
+            if (!injectOnly) continue;
             items.push({ value: d, label: d, description: desc || "skill" });
           }
         } catch {}
@@ -450,9 +462,13 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     {
       name: "rename",
       description: "Rename this chat",
+      hidden: () => welcomeShown,
       getArgumentCompletions: (prefix: string) => {
         const p = prefix.trim();
-        return p ? [{ value: p, label: p, description: "set this title" }] : [];
+        // Always show the field so it is clear where to type the new name.
+        return p
+          ? [{ value: p, label: p, description: "set this title" }]
+          : [{ value: "", label: "type the new name\u2026", description: "then Enter to set it" }];
       },
     },
     { name: "reload", description: "Reload this chat (recover history, fix glitches)" },
@@ -555,12 +571,20 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     try {
       const headerWrap = new CenterBox(header) as any;
       const hintWrap = new CenterBox(hintRow) as any;
+      // App-matching spacing: a padding row under the heading, a padding row
+      // above the text box, and the separator line between the box and the
+      // hint row.
+      const blank = () => new FnLine(() => " ");
+      const sepRow = new CenterBox(new FnLine((w: number) => fg(C.border, "\u2500".repeat(Math.max(0, w))))) as any;
       const root = welcome
         ? new WelcomeRoot(boxWrap, hintWrap, () => (ui as any)?.terminal?.rows || 24)
         : new VStack([
             { component: headerWrap, basis: "auto", grow: 0, shrink: 0, minSize: 1 },
-            { component: new CenterBox(new InsetBox(scroll, qInsetCols)) as any, basis: 0, grow: 1, shrink: 1, minSize: 1 },
+            { component: blank(), basis: "auto", grow: 0, shrink: 0, minSize: 1 },
+            { component: scroll as any, basis: 0, grow: 1, shrink: 1, minSize: 1 },
+            { component: blank(), basis: "auto", grow: 0, shrink: 1, minSize: 0 },
             { component: boxWrap, basis: "auto", grow: 0, shrink: 1, minSize: 5 },
+            { component: sepRow, basis: "auto", grow: 0, shrink: 0, minSize: 1 },
             { component: hintWrap, basis: "auto", grow: 0, shrink: 0, minSize: 1 },
           ]);
       ui.setLayoutRoot(root as any);
@@ -783,9 +807,20 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     } catch {}
   };
 
+  // Transcript blocks get one blank separator row between them — the app's
+  // inter-message spacing (MessageBubble margin 8px).
+  let blockCount = 0;
+  const pushBlock = (comp: any) => {
+    try {
+      if (blockCount > 0) content.addChild(new Text("", 0, 0));
+      content.addChild(comp);
+      blockCount++;
+    } catch {}
+    return comp;
+  };
+
   const addRow = (styled: string, indent = 1) => {
-    const row = new Text(styled, indent, 0);
-    content.addChild(row);
+    const row = pushBlock(new Text(styled, indent, 0));
     scrollToEnd();
     return row;
   };
@@ -831,8 +866,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         if (ame.type === "text_delta") {
           setStatus("Writing", "writing");
           if (!assistant) {
-            assistant = new Markdown("", 1, 0, mdTheme);
-            content.addChild(assistant);
+            assistant = pushBlock(new Markdown("", 1, 0, mdTheme));
           }
           assistantText += ame.delta || "";
           assistant.setText(assistantText);
@@ -841,16 +875,22 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           setStatus("Thinking", "thinking");
           thinkingText += ame.delta || "";
           if (!thinkingRow) {
-            thinkingRow = new Text("", 1, 0);
-            content.addChild(thinkingRow);
+            thinkingRow = pushBlock(new Text("", 1, 0));
           }
-          thinkingRow.setText(collapsed(C.thinking, "\u25b8 Thinking \u00b7 " + truncate(thinkingText, 80)));
+          // OPEN while streaming (full reasoning), collapsed at the end — app behaviour.
+          thinkingRow.setText(collapsed(C.thinking, thinkingText));
           scrollToEnd();
         }
       } else if (e?.type === "tool_execution_start") {
         setStatus("Tool call", "tool_call");
         const name = e.toolName || e.name || e.tool?.name || "tool";
-        addRow(collapsed(C.toolCall, `\u25b8 Tool call \u00b7 ${name}`));
+        if (/delegate/i.test(name)) {
+          const args: any = e.args || e.arguments || e.input || {};
+          const target = String(args?.agentId || args?.agent || args?.to || "").trim();
+          addRow(collapsed(C.delegation, `\u25b8 Delegation${target ? " \u00b7 " + target : ""}`));
+        } else {
+          addRow(collapsed(C.toolCall, `\u25b8 Tool call \u00b7 ${name}`));
+        }
         assistant = null;
         assistantText = "";
       } else if (e?.type === "tool_execution_end") {
@@ -862,6 +902,10 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         if (assistantText) lastAssistantText = assistantText;
         assistant = null;
         assistantText = "";
+        if (thinkingRow && thinkingText) {
+          // Thinking finished: collapse it to the one-liner.
+          thinkingRow.setText(collapsed(C.thinking, "\u25b8 Thinking \u00b7 " + truncate(thinkingText, 80)));
+        }
         thinkingRow = null;
         thinkingText = "";
         if (e?.message?.stopReason === "error") setStatus("Failed", "failed");
@@ -922,10 +966,11 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   const renderHistory = () => {
     try {
       content.clear();
+      blockCount = 0;
       for (const en of readSessionEntries()) {
         if (en.kind === "compaction") {
           // File compactions are always REAL (noop ones never reach the file).
-          content.addChild(new Text(collapsed(C.info, "\u25b8 Compaction \u00b7 effective"), 1, 0));
+          pushBlock(new Text(collapsed(C.info, "\u25b8 Compaction \u00b7 effective"), 1, 0));
           continue;
         }
         const m = en.message;
@@ -934,21 +979,37 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           const c = m.content;
           if (typeof c === "string") t = c;
           else if (Array.isArray(c)) t = c.filter((b: any) => b?.type === "text").map((b: any) => b.text).join("\n");
-          if (t.trim()) content.addChild(new Text(t, 2, 1, (s: string) => bg(C.bubbleUser, s)));
+          if (t.trim()) pushBlock(new Text(t, 2, 1, (s: string) => bg(C.bubbleUser, s)));
+        } else if (m.role === "toolResult") {
+          const nm = String(m.toolName || "tool");
+          const err = !!m.isError;
+          pushBlock(new Text(collapsed(err ? C.danger : C.toolResult, `\u25b8 Tool result \u00b7 ${nm}${err ? " \u00b7 error" : ""}`), 1, 0));
         } else if (m.role === "assistant") {
           const c = m.content;
           let think = "";
           let text = "";
+          const calls: string[] = [];
           if (Array.isArray(c)) {
             for (const b of c) {
               if (b?.type === "text") text += b.text || "";
               else if (b?.type === "thinking" || b?.type === "reasoning") think += b.thinking || b.text || "";
+              else if (b?.type === "toolCall") calls.push(String(b.name || b.toolName || "tool"));
             }
           } else if (typeof c === "string") {
             text = c;
           }
-          if (think.trim()) content.addChild(new Text(collapsed(C.thinking, "\u25b8 Thinking \u00b7 " + truncate(think, 80)), 1, 0));
-          if (text.trim()) content.addChild(new Markdown(text, 1, 0, mdTheme));
+          if (think.trim()) pushBlock(new Text(collapsed(C.thinking, "\u25b8 Thinking \u00b7 " + truncate(think, 80)), 1, 0));
+          for (const nm of calls)
+            pushBlock(
+              new Text(
+                /delegate/i.test(nm)
+                  ? collapsed(C.delegation, "\u25b8 Delegation")
+                  : collapsed(C.toolCall, `\u25b8 Tool call \u00b7 ${nm}`),
+                1,
+                0
+              )
+            );
+          if (text.trim()) pushBlock(new Markdown(text, 1, 0, mdTheme));
         }
       }
       scrollToEnd();
@@ -976,7 +1037,16 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         } catch {}
       }
       const dir = o.newSessionDir || currentSessionDir;
-      const cwd = o.newCwd || currentCwd;
+      // App chats keep their own working directory in the session entry: honor it.
+      let cwd = o.newCwd || currentCwd;
+      if (!o.newCwd && o.newKey) {
+        try {
+          const raw0 = JSON.parse(fs.readFileSync(path.join(opts.agentDir, "quinki-sessions.json"), "utf8"));
+          const e0 = Array.isArray(raw0) ? raw0.find((s: any) => s?.key === o.newKey) : null;
+          const wd = String(e0?.workingDir || "");
+          if (wd && fs.existsSync(wd) && fs.statSync(wd).isDirectory()) cwd = wd;
+        } catch {}
+      }
       fs.mkdirSync(dir, { recursive: true });
       const sm2 = sdk.SessionManager.create(cwd, dir);
       const res2: any = await sdk.createAgentSession({ cwd, agentDir: opts.agentDir, sessionManager: sm2 });
@@ -1152,7 +1222,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
             welcomeShown = false;
             applyLayout(false);
           }
-          void session.prompt(`Load the skill "${arg}" and follow its instructions.`);
+          // The engine expands "/<skill>" as a skill command: the skill content
+          // is injected one-shot — the same mechanism the app uses.
+          void session.prompt("/" + arg);
         } catch {}
         break;
       }
@@ -1243,6 +1315,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     const t0 = editorText();
     const f = t0.startsWith("/") ? t0.slice(1).toLowerCase() : "";
     return commands
+      .filter((c) => !(c as any).hidden?.())
       .filter((c) => c.name.toLowerCase().startsWith(f))
       .map((c) => ({ value: c.name, label: "/" + capitalize(c.name), description: (c as any).description || "" }));
   };
@@ -1428,7 +1501,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       welcomeShown = false;
       applyLayout(false);
     }
-    content.addChild(new Text(t, 2, 1, (s: string) => bg(C.bubbleUser, s)));
+    pushBlock(new Text(t, 2, 1, (s: string) => bg(C.bubbleUser, s)));
     scrollToEnd();
     streaming = true;
     setStatus("Sending", "sending");

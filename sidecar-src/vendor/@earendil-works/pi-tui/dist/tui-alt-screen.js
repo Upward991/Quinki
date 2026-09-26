@@ -126,7 +126,11 @@ export class TuiAltScreen extends TuiBase {
         return this.layoutRoot ? [this.layoutRoot] : this.children;
     }
     getPrimaryScrollView() {
-        return this.currentLayout?.primaryScrollView ?? this.implicitScrollView;
+        // QUINKI PATCH: our custom layout wrappers (CenterBox/InsetBox) hide the
+        // ScrollView from the layout scan and the fallback implicitScrollView is
+        // an EMPTY phantom document (wheel/PgUp were scrolling that). The app
+        // registers its real transcript scroll on globalThis — prefer it.
+        return globalThis.__quinkiScroll ?? this.currentLayout?.primaryScrollView ?? this.implicitScrollView;
     }
     beforeTerminalStart() {
         this.stopSelectionAutoScroll();
