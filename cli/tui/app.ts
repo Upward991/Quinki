@@ -388,13 +388,16 @@ export const toggleInfo = (): boolean => {
 class FooterRow {
   dateStr: string;
   infoStr: string;
-  constructor(dateStr: string, infoStr: string) {
+  showInfo: boolean;
+  constructor(dateStr: string, infoStr: string, showInfo = true) {
     this.dateStr = dateStr;
     this.infoStr = infoStr;
+    this.showInfo = showInfo;
   }
   render(width: number): string[] {
-    const left = " " + this.dateStr + "  " + "\u24d8";
-    const full = infoOpen ? left + "  " + this.infoStr : left;
+    const box = bg(C.bgPanel, fg(C.textSecondary, " i "));
+    const left = " " + this.dateStr + (this.showInfo ? "  " + box : "");
+    const full = this.showInfo && infoOpen ? left + "  " + this.infoStr : left;
     const out = full.length > width ? full.slice(0, Math.max(1, width - 1)) + "\u2026" : full;
     return [fg(C.textTertiary, out)];
   }
@@ -410,7 +413,7 @@ const levelLabel = (lvl: string): string => {
   if (k === "low") return "Low";
   if (k === "minimal") return "Minimal";
   if (k === "off" || !k) return "Off";
-  return String(lvl);
+  return String(lvl).charAt(0).toUpperCase() + String(lvl).slice(1);
 };
 
 const fmtFooterDate = (ms: number): string => {
@@ -1228,6 +1231,17 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       const isTab =
         data === "\t" || data === "\x1b[9u" || data === "\x1b[9;1u" || matchesKey(data, "tab");
       if (isTab) {
+        // Tab = reveal/hide the info part on ALL footers at once (Ctrl+I arrives
+        // as Tab in most terminals).
+        try {
+          toggleInfo();
+          ui.requestRender();
+        } catch {}
+        return { consume: true };
+      }
+      const isCtrlB = data === "\x02" || matchesKey(data, "ctrl+b");
+      if (isCtrlB && !(menuOpenRef?.() ?? false)) {
+        // Plan/Build toggle moved here.
         toggleModeRef?.();
         return { consume: true };
       }
@@ -1523,7 +1537,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       fg(C.textTertiary, "  \u00b7  ") +
       quiet("Toggle Nav (Ctrl+T)") +
       fg(C.textTertiary, "  \u00b7  ") +
-      quiet("Info (Ctrl+I)");
+      quiet("Info (Tab)");
     const sep = fg(C.textTertiary, "  \u00b7  ");
     const stopKey = streaming ? bold(fg(C.danger, "Stop (Esc)")) : quiet("Stop (Esc)");
     const steerKey = canSteer ? lit("Steer (Ctrl+Enter)") : quiet("Steer (Ctrl+Enter)");
@@ -1700,7 +1714,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
             if (mk && e0?.messageAgents?.[mk]) agentName = String(e0.messageAgents[mk]);
             if (mk && e0?.messageThinking?.[mk]) lvl = String(e0.messageThinking[mk]);
           } catch {}
-          pushBlock(new FooterRow(fmtFooterDate(Date.now()), agentName + " \u00b7 " + (wsModelId || "default") + " \u00b7 " + levelLabel(lvl)));
+          pushBlock(new FooterRow(fmtFooterDate(Date.now()), agentDisplayName(agentName) + " \u00b7 " + (wsModelId || "default") + " \u00b7 " + levelLabel(lvl), true));
         } catch {}
         if (e?.message?.stopReason === "error") setStatus("Failed", "failed");
       } else if (e?.type === "auto_retry_start") {
@@ -1743,6 +1757,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   // SDK events onSessionEvent already handles, so the CLI renders identically.
   let wsToolName = "";
   let wsToolArgs = "";
+  let wsToolToggle: any = null;
   // Live delegations: messageId -> open delegation toggle. Nested stream events
   // (thinking, text, tool calls of the DELEGATED agent) go INSIDE the toggle —
   // exactly like the app's delegation block.
@@ -1795,6 +1810,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         if (t === "delegation_end") {
           const tg = delegToggles.get(String(p.messageId || ""));
           if (tg) tg.open = false;
+          try {
+            ui.requestRender();
+          } catch {}
           return;
         }
         if (t === "text_delta" || t === "text" || t === "text_start") {
@@ -1816,37 +1834,38 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         } else if (t === "toolcall_start") {
           wsToolName = String(p.toolName || p.delta || "tool");
           wsToolArgs = "";
+          // Chronological (app): the tool call toggle appears the moment the call
+          // starts; its arguments fill in on the deltas; toolcall_end is not the
+          // result (that arrives as the separate tool_result notification).
+          assistant = null;
+          assistantText = "";
+          wsToolToggle = new ToggleBlock({ label: "Tool call", boldName: wsToolName, color: C.toolCall, body: "" });
+          pushBlock(registerToggle(wsToolToggle));
+          try {
+            scrollToEnd();
+            ui.requestRender();
+          } catch {}
         } else if (t === "toolcall_delta") {
           wsToolArgs += String(p.delta || p.content || "");
-        } else if (t === "toolcall_end") {
-          let args: any = {};
           try {
-            args = wsToolArgs ? JSON.parse(wsToolArgs) : {};
-          } catch {
-            args = {};
-          }
-          // App order: tool call toggle ALWAYS first (delegations included), then
-          // the delegation toggle, then the tool result. Nothing is replaced.
-          onSessionEvent({ type: "tool_execution_start", toolName: wsToolName || String(p.toolName || "tool"), args });
-          if (/delegate/i.test(wsToolName)) {
-            // "Delegation to <agent>" (bold), OPEN while streaming, whole mini-chat
-            // inside — exactly like the original app.
-            // The tool's real parameters are agent_name + task (verified in
-            // pi-bridge): agent_name is what must show in bold.
-            const tgt = String(args?.agent_name || args?.agentId || args?.agent || "").trim();
-            const tg = new ToggleBlock({ label: "Delegation to", boldName: tgt, color: C.delegation, open: false });
-            tg.children = [];
-            const task = String(args?.task || args?.prompt || args?.message || args?.instructions || args?.text || "").trim();
-            if (task) tg.children.push({ t: "bubble", v: task });
-            delegToggles.set(String(p.messageId || ""), tg);
-            pushBlock(registerToggle(tg));
-            assistant = null;
-            assistantText = "";
-            try {
-              scrollToEnd();
-              ui.requestRender();
-            } catch {}
-          }
+            wsToolToggle?.setBody(wsToolArgs);
+            ui.requestRender();
+          } catch {}
+        } else if (t === "toolcall_end") {
+          // Args complete — nothing to do here (app behaviour).
+        } else if (t === "delegation_start") {
+          // App order: "Delegation to <agentName>" (bold) right after its tool
+          // call, CLOSED by default, with the task bubble inside.
+          const tgt = String(p.agentName || "").trim();
+          const tg = new ToggleBlock({ label: "Delegation to", boldName: tgt, color: C.delegation, open: false });
+          const task = String(p.task || "").trim();
+          if (task) tg.children.push({ t: "bubble", v: task });
+          delegToggles.set(String(p.messageId || ""), tg);
+          pushBlock(registerToggle(tg));
+          try {
+            scrollToEnd();
+            ui.requestRender();
+          } catch {}
         } else if (t === "auto_retry_start") {
           onSessionEvent({ type: "auto_retry_start", attempt: p.attempt || 1, maxAttempts: p.maxAttempts || 3 });
         } else if (t === "auto_retry_end") {
@@ -3077,10 +3096,11 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     }
     pushBlock(new Text(t, 2, 1, (s: string) => bg(C.bubbleUser, s)));
     scrollToEnd();
-    // User message footer (date/time + i) — same as the app.
-    try {
-      pushBlock(new FooterRow(fmtFooterDate(Date.now()), "You \u00b7 " + (wsModelId || "default") + " \u00b7 " + levelLabel(thinkingOn ? "xhigh" : "off")));
-    } catch {}
+    // User bubble with the footer INSIDE it (no info glyph on user messages).
+    {
+      const dateStr = fmtFooterDate(Date.now());
+      pushBlock(new Text(t + "\n" + dateStr, 2, 1, (s: string) => bg(C.bubbleUser, s)));
+    }
     if (scOn) {
       // Live path: the sidecar runs the turn (agents, custom tools, delegation)
       // and the app sees this exact chat streaming in real time.
