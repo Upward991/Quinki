@@ -1286,6 +1286,15 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           setToggleOpen(false);
           return { consume: true };
         }
+        // Ctrl+F keeps working in toggle-nav: reveal/hide the info on footers
+        // (the delegation footers must behave exactly like the chat ones).
+        if (data === "\x06" || matchesKey(data, "ctrl+f")) {
+          try {
+            toggleInfo();
+            ui.requestRender();
+          } catch {}
+          return { consume: true };
+        }
         return { consume: true };
       }
       const isTab =
@@ -1296,7 +1305,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         return { consume: true };
       }
       // Ctrl+F = reveal/hide the info part on ALL footers at once.
-      if ((data === "\x06" || matchesKey(data, "ctrl+f")) && !navMode && !(menuOpenRef?.() ?? false)) {
+      if ((data === "\x06" || matchesKey(data, "ctrl+f")) && !(menuOpenRef?.() ?? false)) {
         try {
           toggleInfo();
           ui.requestRender();
@@ -1589,7 +1598,12 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     const sec = (s: string) => fg(C.textSecondary, s);
     if (navMode) {
       // Toggle navigation ON: its keys replace the chat ones (close left, open right).
-      const leftN = lit("Toggle Nav (Ctrl+T)") + fg(C.textTertiary, "  \u00b7  ") + fg(C.danger, "Esc");
+      const leftN =
+        lit("Toggle Nav (Ctrl+T)") +
+        fg(C.textTertiary, "  \u00b7  ") +
+        fg(C.danger, "Esc") +
+        fg(C.textTertiary, "  \u00b7  ") +
+        quiet("Info (Ctrl+F)");
       const rightN =
         sec("Move (\u2191\u2193)") +
         fg(C.textTertiary, "  \u00b7  ") +
