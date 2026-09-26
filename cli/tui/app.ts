@@ -1847,12 +1847,12 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     if (!scOn) return false;
     try {
       if (typeof beforeTs === "number" && beforeTs > 0) {
-        const r = await sc.call("getHistoryBefore", { sessionKey: currentKey, ts: beforeTs, limit: 100 }, 30000);
+        const r = await sc.call("getHistoryBefore", { sessionKey: currentKey, ts: beforeTs, limit: 50 }, 30000);
         const more = Array.isArray(r?.messages) ? r.messages : [];
         if (histMsgs && more.length) histMsgs = more.concat(histMsgs);
         return more.length > 0;
       }
-      const r = await sc.call("getHistory", { sessionKey: currentKey, limit: 100 }, 30000);
+      const r = await sc.call("getHistory", { sessionKey: currentKey, limit: 50 }, 30000);
       histMsgs = Array.isArray(r?.messages) ? r.messages : [];
       return histMsgs.length > 0;
     } catch {
@@ -2171,7 +2171,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         // SERVER history (getHistory) — same rendering order as the app.
         for (const m of histMsgs) {
           if (m?.role === "user") {
-            const t = typeof m.content === "string" ? m.content : "";
+            const t = typeof m.content === "string" ? m.content : Array.isArray(m.content) ? m.content.filter((x: any) => x?.type === "text").map((x: any) => x.text).join("\n") : "";
             if (t.trim()) pushBlock(new UserBubble(t, fmtFooterDate(Date.parse(m.timestamp || "") || Date.now())));
           } else if (m?.role === "tool_result") {
             pushBlock(registerToggle(new ToggleBlock({ label: m.isError ? "Tool error" : "Tool result", boldName: String(m.toolName || "tool"), color: m.isError ? C.danger : C.toolResult, body: String(m.content || "") })));
@@ -2198,8 +2198,33 @@ export async function runTui(opts: TuiOptions): Promise<void> {
             pushBlock(registerToggle(tg));
           } else if (m?.role === "assistant") {
             if (m?.reasoning) pushBlock(registerToggle(new ToggleBlock({ label: "Thinking", color: C.thinking, italic: true, body: String(m.reasoning) })));
-            const txt = typeof m.content === "string" ? m.content : "";
             if (m?.isCompactionSummary) pushBlock(registerToggle(new ToggleBlock({ label: "Compaction", boldName: "effective", color: C.info })));
+            // Content: a plain string OR blocks (text / toolCall / thinking) — the
+            // app's own message format. Nothing may disappear.
+            let txt = "";
+            const pushToolCall = (name: string, args: any) => {
+              let tb = "";
+              try {
+                tb = JSON.stringify(args || {}, null, 0) || "";
+              } catch {}
+              pushBlock(registerToggle(new ToggleBlock({ label: "Tool call", boldName: String(name || "tool"), color: C.toolCall, body: tb })));
+            };
+            if (typeof m.content === "string") {
+              txt = m.content;
+            } else if (Array.isArray(m.content)) {
+              for (const b of m.content) {
+                if (b?.type === "text") txt += String(b.text || "");
+                else if (b?.type === "thinking" || b?.type === "reasoning") pushBlock(registerToggle(new ToggleBlock({ label: "Thinking", color: C.thinking, italic: true, body: String(b.thinking || b.text || "") })));
+                else if (b?.type === "toolCall" || b?.type === "tool_call" || b?.type === "toolCallStart") pushToolCall(b.name || b.toolName, b.arguments || b.args);
+                else if (b?.type === "toolResult" || b?.type === "tool_result") {
+                  const rb = typeof b.content === "string" ? b.content : Array.isArray(b.content) ? b.content.filter((x: any) => x?.type === "text").map((x: any) => x.text).join("\n") : "";
+                  pushBlock(registerToggle(new ToggleBlock({ label: b.isError ? "Tool error" : "Tool result", boldName: String(b.toolName || b.name || "tool"), color: b.isError ? C.danger : C.toolResult, body: rb })));
+                }
+              }
+            }
+            if (Array.isArray(m.toolCalls)) {
+              for (const tc of m.toolCalls) pushToolCall(tc?.name || tc?.toolName, tc?.arguments || tc?.args || tc?.input);
+            }
             if (txt.trim()) {
               pushBlock(new Markdown(txt, 1, 0, mdTheme));
               const an = String(m.agentName || sessionAgentIds()[0] || "quinki");
