@@ -1424,10 +1424,17 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   let ctxWindow = 0;
   let lastAssistantText = "";
   let defaultModelId = "";
+  // The app's own source of truth: quinki-providers.json (settings as fallback).
   try {
-    const s: any = JSON.parse(fs.readFileSync(path.join(opts.agentDir, "settings.json"), "utf8"));
-    defaultModelId = s.defaultModel || "";
+    const cf: any = JSON.parse(fs.readFileSync(path.join(opts.agentDir, "quinki-providers.json"), "utf8"));
+    defaultModelId = cf?.defaultModel || "";
   } catch {}
+  if (!defaultModelId) {
+    try {
+      const st: any = JSON.parse(fs.readFileSync(path.join(opts.agentDir, "settings.json"), "utf8"));
+      defaultModelId = st?.defaultModel || "";
+    } catch {}
+  }
   let toggleModeRef: (() => void) | null = null;
   let handleSlashRef: ((raw: string) => void) | null = null;
   // Slash menu (OURS — app-style; it NEVER writes command text into the box).
