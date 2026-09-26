@@ -292,7 +292,9 @@ class ToggleBlock {
   render(width: number): string[] {
     const col = this.open || this.selected ? this.color : blend(this.color, C.bg, 0.5);
     const arrow = this.open ? "\u25be" : "\u25b8";
-    let head = fg(col, arrow + " ") + fg(col, this.label);
+    // 1-col left margin, same as the Markdown text block: the arrow lines up
+    // with the first letter of the writing and the right edge matches the text.
+    let head = " " + fg(col, arrow + " ") + fg(col, this.label);
     if (this.boldName) head += " " + bold(fg(col, this.boldName));
     if (!this.open) {
       const first = String(this.body || "").split("\n")[0] || "";
@@ -301,22 +303,22 @@ class ToggleBlock {
     }
     const out = [head];
     if (this.open) {
-      const inner = Math.max(6, width - 3);
+      const inner = Math.max(6, width - 4);
       // The vertical bar starts right under the header, on an EMPTY first row,
       // then the body follows (applies to every toggle).
-      out.push(fg(this.color, "\u2502".padEnd(Math.max(1, width))));
+      out.push(" " + fg(this.color, "\u2502".padEnd(Math.max(1, width - 1))));
       if (this.body) {
         for (const line of wrapPlain(this.body, inner)) {
           const styled = this.italic ? italicStyle(fg(this.color, line)) : fg(this.color, line);
-          out.push(fg(this.color, "\u2502 ") + styled);
+          out.push(" " + fg(this.color, "\u2502 ") + styled);
         }
       }
       // Nested content (delegation): nested toggles + text, inside the border.
       for (const ch of this.children || []) {
         if (ch && ch.t === "text") {
-          for (const line of wrapPlain(String(ch.v || ""), inner)) out.push(fg(this.color, "\u2502 ") + fg(C.textSecondary, line));
+          for (const line of wrapPlain(String(ch.v || ""), inner)) out.push(" " + fg(this.color, "\u2502 ") + fg(C.textSecondary, line));
         } else if (ch && ch.t === "toggle") {
-          for (const ln of ch.v.render(Math.max(6, width - 2))) out.push(fg(this.color, "\u2502 ") + ln);
+          for (const ln of ch.v.render(Math.max(6, width - 3))) out.push(" " + fg(this.color, "\u2502 ") + ln);
         }
       }
     }
