@@ -413,7 +413,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       return "";
     }
   };
-  const headerBg = (s: string) => bg(C.bgPanel, s);
+  const headerBg = (s: string) => bgKeepPanel(C.bgPanel, s);
   // The composer box spans at most ~1000px (the chat max) and is centered — the
   // header must match it column for column.
   const chatMaxCols = (): number => {
@@ -441,17 +441,19 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     let mid: string;
     if (dir) {
       const gap = Math.max(1, wc - tw - dw - 6);
-      mid = headerBg(t) + headerBg(" ".repeat(gap)) + headerBg(fg(C.textTertiary, dir));
+      // The panel spans BAR TO BAR: the two inner padding columns on each side
+      // are panel too (exactly like the composer box) — no black gap inside.
+      mid = headerBg("  ") + headerBg(t) + headerBg(" ".repeat(gap)) + headerBg(fg(C.textTertiary, dir)) + headerBg("  ");
     } else {
-      mid = headerBg(t) + headerBg(" ".repeat(Math.max(1, wc - tw - 6)));
+      mid = headerBg("  ") + headerBg(t) + headerBg(" ".repeat(Math.max(1, wc - tw - 6))) + headerBg("  ");
     }
-    return centerRow(w, L + "  " + mid + "  " + R, wc);
+    return centerRow(w, L + mid + R, wc);
   });
   // The header is THREE rows tall (empty / text / empty): the violet bars run the
   // whole height, exactly like the composer box.
   const headerPad = new FnLine((w: number) => {
     const wc = Math.min(w, chatMaxCols());
-    return centerRow(w, fg(C.primary, "\u258f") + "  " + headerBg(" ".repeat(Math.max(0, wc - 6))) + "  " + fg(C.primary, "\u2595"), wc);
+    return centerRow(w, fg(C.primary, "\u258f") + headerBg(" ".repeat(Math.max(0, wc - 2))) + fg(C.primary, "\u2595"), wc);
   });
   const header = new VStack([headerPad, titleText, headerPad] as any) as any;
   const setChatTitle = (title: string) => {
