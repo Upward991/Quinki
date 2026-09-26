@@ -359,21 +359,28 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   // the app uses — agents, skills, delegation, live sync). Falls back to the
   // bare SDK session when the app/sidecar is not running. ---------------------
   const sc = new Sc("ws://127.0.0.1:" + (process.env.QUINKI_SIDECAR_PORT || "9182"));
-  let scOn = await sc.connect(Number(process.env.QUINKI_SIDECAR_CONNECT_MS || 900));
-  if (!scOn) {
-    // The app is not running: launch the installed sidecar ourselves (detached),
-    // so the TUI works standalone and shares the same engine when the app opens.
+  // The app's watchdog KILLS the shared sidecar when the app quits (port 9182).
+  // The TUI must survive that: it spawns the installed sidecar itself and the
+  // client keeps reconnecting — engine back within seconds.
+  const spawnSidecar = () => {
     try {
       const sh = "/Applications/Quinki.app/Contents/Resources/resources/sidecar/start.sh";
       if (fs.existsSync(sh)) {
         const p = spawn(sh, [], { detached: true, stdio: "ignore", cwd: path.dirname(sh), env: process.env as any });
         p.unref?.();
-        for (let i = 0; i < 20 && !scOn; i++) {
-          await new Promise((r) => setTimeout(r, 400));
-          scOn = await sc.connect(700);
-        }
+        return true;
       }
     } catch {}
+    return false;
+  };
+  let scOn = await sc.connect(Number(process.env.QUINKI_SIDECAR_CONNECT_MS || 900));
+  if (!scOn) {
+    if (spawnSidecar()) {
+      for (let i = 0; i < 20 && !scOn; i++) {
+        await new Promise((r) => setTimeout(r, 400));
+        scOn = await sc.connect(700);
+      }
+    }
   }
   const pendingSkills: string[] = [];
   const stopTurn = () => {
@@ -1824,6 +1831,16 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         refreshSessions();
       } catch {}
     }, 10000);
+    // Engine watchdog: if the sidecar died (e.g. the app's quit watchdog kills
+    // port 9182), bring it back up so the TUI never goes dead.
+    setInterval(() => {
+      try {
+        if (!sc.connected) {
+          spawnSidecar();
+          void sc.connect(800).catch(() => {});
+        }
+      } catch {}
+    }, 6000);
   }
 
   // --- slash commands -----------------------------------------------------------
