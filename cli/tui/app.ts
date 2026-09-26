@@ -456,7 +456,36 @@ const fmtFooterDate = (ms: number): string => {
 };
 
 export async function runTui(opts: TuiOptions): Promise<void> {
-  const key = "cli-" + Date.now().toString(36);
+  // Resume the most recently used CLI chat (like the app reopens a chat with its
+  // history): only a brand-new conversation if the user asks for /sessions New chat.
+  const key = (() => {
+    try {
+      const raw = JSON.parse(fs.readFileSync(path.join(opts.agentDir, "quinki-sessions.json"), "utf8"));
+      const mine = (Array.isArray(raw) ? raw : []).filter((x: any) => String(x?.key || "").startsWith("cli-"));
+      let bestKey = "";
+      let bestTs = 0;
+      for (const e of mine) {
+        const k = String(e?.key || "");
+        if (!k) continue;
+        let ts = 0;
+        try {
+          const dir = path.join(opts.sessionDir, k);
+          for (const f of fs.readdirSync(dir)) {
+            if (!f.endsWith(".jsonl")) continue;
+            const m = fs.statSync(path.join(dir, f)).mtimeMs;
+            if (m > ts) ts = m;
+          }
+        } catch {}
+        if (!ts) ts = Number(e?.lastActivity) || Number(e?.createdAt) || 0;
+        if (ts > bestTs) {
+          bestTs = ts;
+          bestKey = k;
+        }
+      }
+      if (bestKey) return bestKey;
+    } catch {}
+    return "cli-" + Date.now().toString(36);
+  })();
   const sessionDirForKey = path.join(opts.sessionDir, key);
   fs.mkdirSync(sessionDirForKey, { recursive: true });
 
