@@ -1490,7 +1490,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       counterColor(pct),
       `${fmtTok(ctxTokens)}/${fmtTok(ctxWindow)} (${Math.floor(pct)}% \u00b1 ${Math.ceil(pct * 0.05 + 1)}%)`
     );
-    const modelId = wsModelId || session?.model?.id || defaultModelId || "";
+    const modelId = wsModelId || defaultModelId || "";
     const sep = fg(C.textTertiary, "  \u00b7  ");
     const quiet = (s: string) => fg(C.textTertiary, s);
     const modeStr = mode === "plan" ? fg(C.modePlan, "Plan") : fg(C.modeBuild, "Build");
