@@ -414,31 +414,45 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     }
   };
   const headerBg = (s: string) => bg(C.bgPanel, s);
+  // The composer box spans at most ~1000px (the chat max) and is centered — the
+  // header must match it column for column.
+  const chatMaxCols = (): number => {
+    try {
+      const d: any = getCellDimensions?.() || {};
+      const wpx = d?.widthPx || 0;
+      if (wpx > 0) return Math.max(20, Math.round(1000 / wpx));
+    } catch {}
+    return 110;
+  };
+  const centerRow = (w: number, row: string, wc: number): string => {
+    const pad = Math.max(0, Math.floor((w - wc) / 2));
+    return " ".repeat(pad) + row + " ".repeat(Math.max(0, w - pad - wc));
+  };
   const titleText = new FnLine((w: number) => {
     const t = fg(C.text, headerTitle);
     const dir = fmtDirShort();
-    // EXACT composer layout: black padding col · violet bar · space · PANEL
-    // (title + gap + directory) · space · violet bar · black padding col.
-    // The bars are OUTSIDE the panel, at the very edges, same as the text box.
+    const wc = Math.min(w, chatMaxCols());
+    // EXACT box layout: violet bar, TWO black columns, panel content, TWO black
+    // columns, violet bar — same width as the composer, same margins.
     const L = fg(C.primary, "\u258f");
     const R = fg(C.primary, "\u2595");
     const tw = visibleWidth(t);
     const dw = visibleWidth(dir);
     let mid: string;
     if (dir) {
-      const gap = Math.max(1, w - tw - dw - 10);
-      mid = headerBg(" ") + headerBg(t) + headerBg(" ".repeat(gap)) + headerBg(fg(C.textTertiary, dir)) + headerBg(" ");
+      const gap = Math.max(1, wc - tw - dw - 6);
+      mid = headerBg(t) + headerBg(" ".repeat(gap)) + headerBg(fg(C.textTertiary, dir));
     } else {
-      mid = headerBg(" ") + headerBg(t) + headerBg(" ".repeat(Math.max(1, w - tw - 10))) + headerBg(" ");
+      mid = headerBg(t) + headerBg(" ".repeat(Math.max(1, wc - tw - 6)));
     }
-    return "  " + L + " " + mid + " " + R + "  ";
+    return centerRow(w, L + "  " + mid + "  " + R, wc);
   });
   // The header is THREE rows tall (empty / text / empty): the violet bars run the
-  // whole height, outside the panel, with TWO black columns beyond each of them —
-  // the exact same margins (and total width) as the text box.
-  const headerPad = new FnLine(
-    (w: number) => "  " + fg(C.primary, "\u258f") + " " + headerBg(" ".repeat(Math.max(0, w - 8))) + " " + fg(C.primary, "\u2595") + "  "
-  );
+  // whole height, exactly like the composer box.
+  const headerPad = new FnLine((w: number) => {
+    const wc = Math.min(w, chatMaxCols());
+    return centerRow(w, fg(C.primary, "\u258f") + "  " + headerBg(" ".repeat(Math.max(0, wc - 6))) + "  " + fg(C.primary, "\u2595"), wc);
+  });
   const header = new VStack([headerPad, titleText, headerPad] as any) as any;
   const setChatTitle = (title: string) => {
     headerTitle = title && title.trim() ? title.trim() : "New chat";
