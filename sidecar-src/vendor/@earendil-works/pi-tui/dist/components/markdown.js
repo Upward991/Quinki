@@ -380,25 +380,23 @@ export class Markdown {
                 break;
             }
             case "code": {
-                const indent = this.theme.codeBlockIndent ?? "  ";
-                lines.push(this.theme.codeBlockBorder(`\`\`\`${token.lang || ""}`));
+                // Quinki style: a full-width block with the bubble philosophy —
+                // absolute-black background, 2 columns of padding, no fences.
+                const innerW = Math.max(10, width - 4);
+                const raw = String(token.text || "").replace(/\n$/, "").split("\n");
+                const padLine = (l) => "  " + l + " ".repeat(Math.max(0, innerW - l.length)) + "  ";
+                lines.push(this.theme.codeBlock(" ".repeat(Math.max(10, width - 2))));
                 if (this.theme.highlightCode) {
-                    const highlightedLines = this.theme.highlightCode(token.text, token.lang);
-                    for (const hlLine of highlightedLines) {
-                        lines.push(`${indent}${hlLine}`);
+                    for (const hlLine of this.theme.highlightCode(raw.join("\n"), token.lang)) {
+                        lines.push(this.theme.codeBlock(padLine(hlLine)));
+                    }
+                } else {
+                    for (const l of raw) {
+                        lines.push(this.theme.codeBlock(padLine(l)));
                     }
                 }
-                else {
-                    // Split code by newlines and style each line
-                    const codeLines = token.text.split("\n");
-                    for (const codeLine of codeLines) {
-                        lines.push(`${indent}${this.theme.codeBlock(codeLine)}`);
-                    }
-                }
-                lines.push(this.theme.codeBlockBorder("```"));
-                if (nextTokenType && nextTokenType !== "space") {
-                    lines.push(""); // Add spacing after code blocks (unless space token follows)
-                }
+                // no language label, no closing fence
+            }
                 break;
             }
             case "list": {
