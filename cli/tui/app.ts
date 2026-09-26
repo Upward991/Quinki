@@ -1609,7 +1609,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     linkUrl: (s: string) => fg(C.textTertiary, s),
     code: (s: string) => fg(C.text, s),
     codeBlock: (s: string) => bg(C.bg, fg(C.text, s)),
-    codeBlockBorder: (s: string) => fg(C.border, s),
+    codeBlockBorder: (s: string) => "", // fences removed: clean black block
     quote: (s: string) => fg(C.textSecondary, s),
     quoteBorder: (s: string) => fg(C.border, s),
     hr: (s: string) => fg(C.border, s),
