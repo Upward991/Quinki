@@ -395,11 +395,10 @@ class FooterRow {
     this.showInfo = showInfo;
   }
   render(width: number): string[] {
-    // Filled dot: the circled i drawn in the background colour on a solid
-    // tertiary cell — same graphical weight as before, but round and small.
-    const box = bg(C.textTertiary, fg(C.bg, "\u24d8"));
-    const left = " " + this.dateStr + (this.showInfo ? "  " + box : "");
-    const full = this.showInfo && infoOpen ? left + "  " + this.infoStr : left;
+    // No glyph at all: with Ctrl+F the info simply appears as "Info: ..."
+    // written next to the time.
+    const left = " " + this.dateStr;
+    const full = this.showInfo && infoOpen ? left + "  Info: " + this.infoStr : left;
     const out = full.length > width ? full.slice(0, Math.max(1, width - 1)) + "\u2026" : full;
     return [fg(C.textTertiary, out)];
   }
@@ -3284,7 +3283,23 @@ export async function runTui(opts: TuiOptions): Promise<void> {
 
   updateBar();
   updateCtx();
-  applyLayout(true);
+  // Resume: a chat with history opens WITH its history (like the app) — the
+  // welcome screen only for a brand-new conversation.
+  let resumed = false;
+  try {
+    const hasMsgs = readSessionEntries().some((en: any) => en?.kind === "message" || en?.message);
+    if (hasMsgs) {
+      resumed = true;
+      welcomeShown = false;
+      applyLayout(false);
+      renderHistory();
+      try {
+        const e0 = readSessionsList().find((x: any) => x?.key === currentKey);
+        if (e0?.label) headerTitle = String(e0.label);
+      } catch {}
+    }
+  } catch {}
+  if (!resumed) applyLayout(true);
 
   try {
     ui.start();
