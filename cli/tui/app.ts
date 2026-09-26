@@ -2055,9 +2055,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           if (!line.trim()) continue;
           try {
             const o = JSON.parse(line);
-            if (o?.type === "message" && o?.message?.role) out.push({ kind: "message", message: o.message, id: o.id, pid: o.parentId });
-            else if (o?.type === "compaction") out.push({ kind: "compaction", id: o.id, pid: o.parentId });
-            else if (o?.type === "delegation" && o?.delegationData) out.push({ kind: "delegation", data: o.delegationData, id: o.id, pid: o.parentId });
+            if (o?.type === "message" && o?.message?.role) out.push({ kind: "message", message: o.message, id: o.id, pid: o.parentId, file: f });
+            else if (o?.type === "compaction") out.push({ kind: "compaction", id: o.id, pid: o.parentId, file: f });
+            else if (o?.type === "delegation" && o?.delegationData) out.push({ kind: "delegation", data: o.delegationData, id: o.id, pid: o.parentId, file: f });
           } catch {}
         }
       }
@@ -2081,18 +2081,30 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         scrollToEnd();
         return;
       }
-      const byId = new Map<string, any>();
-      for (const e of all) if (e.id) byId.set(String(e.id), e);
-      let chain: any[] = all;
-      if (all.length) {
-        let cur: any = all[all.length - 1];
-        const walked: any[] = [];
-        let guard = 0;
-        while (cur && guard++ < 5000) {
-          walked.push(cur);
-          cur = cur.pid ? byId.get(String(cur.pid)) : null;
+      // A session is split across MULTIPLE files (one per run): walk the active
+      // branch of EACH file and concatenate — the whole conversation appears.
+      const filesSeen: string[] = [];
+      for (const e of all) {
+        const f = String(e.file || "");
+        if (f && !filesSeen.includes(f)) filesSeen.push(f);
+      }
+      let chain: any[] = [];
+      for (const f of filesSeen) {
+        const fe = all.filter((e: any) => String(e.file || "") === f);
+        const byId = new Map<string, any>();
+        for (const e of fe) if (e.id) byId.set(String(e.id), e);
+        let part: any[] = fe;
+        if (fe.length) {
+          let cur: any = fe[fe.length - 1];
+          const walked: any[] = [];
+          let guard = 0;
+          while (cur && guard++ < 5000) {
+            walked.push(cur);
+            cur = cur.pid ? byId.get(String(cur.pid)) : null;
+          }
+          if (walked.length > 1) part = walked.reverse();
         }
-        if (walked.length > 1) chain = walked.reverse();
+        chain = chain.concat(part);
       }
       for (const en of chain) {
         if (en.kind === "compaction") {
@@ -2540,8 +2552,17 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       case "sessions": {
         if (!arg) break;
         if (arg === "__new__") {
-          // Fresh conversation: brand-new cli session, welcome composer back.
+          // Fresh conversation: brand-new cli session, welcome composer back —
+          // with the DEFAULT parameters (mode/thinking/model are NOT inherited).
           const nk = "cli-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+          try {
+            const st = JSON.parse(fs.readFileSync(path.join(opts.agentDir, "settings.json"), "utf8")) || {};
+            mode = st.defaultMode === "build" ? "build" : "plan";
+            thinkingOn = String(st.defaultThinking || "xhigh") !== "off";
+          } catch {}
+          modelExplicit = false;
+          thinkingExplicit = false;
+          wsModelId = "";
           void recreateSession({ newSessionDir: path.join(opts.sessionDir, nk), newKey: nk });
           break;
         }
