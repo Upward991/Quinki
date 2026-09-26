@@ -417,7 +417,118 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       const ids = String(e?.agentId || "").split(",").map((s: string) => s.trim()).filter(Boolean);
       if (ids.length) return ids;
     } catch {}
-    return ["orchestrator"];
+    return ["quinki"];
+  };
+  // --- session entry: agents in this chat + per-agent overrides --------------
+  // Same data the app uses: agentId (comma list) and agentOverrides[agentId] = {model, thinkingLevel}.
+  const DEFAULT_CHAT_AGENT = "quinki";
+  const sessionsFile = () => path.join(opts.agentDir, "quinki-sessions.json");
+  const readSessionsList = (): any[] => {
+    try {
+      return JSON.parse(fs.readFileSync(sessionsFile(), "utf8")) || [];
+    } catch {
+      return [];
+    }
+  };
+  const writeSessionsList = (list: any[]) => {
+    try {
+      fs.writeFileSync(sessionsFile(), JSON.stringify(list, null, 2), "utf8");
+    } catch {}
+  };
+  const ensureSessionEntry = (): void => {
+    try {
+      const list = readSessionsList();
+      if (list.some((s: any) => s?.key === currentKey)) return;
+      list.push({
+        key: currentKey,
+        label: "Chat",
+        createdAt: Date.now(),
+        lastActivity: Date.now(),
+        order: Date.now(),
+        folderId: null,
+        compactionAuto: true,
+        compactionThreshold: 80,
+        model: (session as any)?.model?.id || "",
+        thinkingLevel: thinkingOn ? "xhigh" : "off",
+        mode,
+        agentId: null,
+        messageAgents: {},
+      });
+      writeSessionsList(list);
+    } catch {}
+  };
+  const mutateSessionEntry = (fn: (e: any) => void) => {
+    try {
+      ensureSessionEntry();
+      const list = readSessionsList();
+      const idx = list.findIndex((s: any) => s?.key === currentKey);
+      if (idx < 0) return;
+      fn(list[idx]);
+      list[idx].lastActivity = Date.now();
+      writeSessionsList(list);
+    } catch {}
+  };
+  const sessionAgentIds = (): string[] => {
+    try {
+      const e = readSessionsList().find((s: any) => s?.key === currentKey);
+      const ids = String(e?.agentId || "")
+        .split(",")
+        .map((s: string) => s.trim())
+        .filter(Boolean);
+      if (ids.length) return ids;
+    } catch {}
+    return [DEFAULT_CHAT_AGENT];
+  };
+  const sessionAgentOverrides = (): Record<string, any> => {
+    try {
+      const e = readSessionsList().find((s: any) => s?.key === currentKey);
+      return (e?.agentOverrides || {}) as Record<string, any>;
+    } catch {
+      return {};
+    }
+  };
+  const agentConfigOf = (id: string): any => {
+    try {
+      return JSON.parse(fs.readFileSync(path.join(opts.agentDir, "agents", id, "config.json"), "utf8")) || {};
+    } catch {
+      return {};
+    }
+  };
+  const agentDisplayName = (id: string): string =>
+    String(agentConfigOf(id)?.name || (id === "orchestrator" ? "Orchestrator" : id));
+  const agentIdsKnown = (): string[] => {
+    try {
+      return fs
+        .readdirSync(path.join(opts.agentDir, "agents"))
+        .filter((d: string) => fs.existsSync(path.join(opts.agentDir, "agents", d, "config.json")));
+    } catch {
+      return [];
+    }
+  };
+  // Model list: the SDK snapshot when ready, otherwise the provider config
+  // (a fresh chat has no runtime snapshot yet — welcome chat included).
+  const availableModels = (): any[] => {
+    try {
+      const s = session.modelRuntime?.getAvailableSnapshot?.() || [];
+      if (s.length) return s;
+    } catch {}
+    try {
+      const cfg = JSON.parse(fs.readFileSync(path.join(opts.agentDir, "quinki-providers.json"), "utf8"));
+      const out: any[] = [];
+      for (const [name, pc] of Object.entries(cfg?.providers || {}) as any[]) {
+        if (!pc?.enabled) continue;
+        const md: any[] = Array.isArray(pc?.modelData) ? pc.modelData : [];
+        const em: string[] = Array.isArray(pc?.enabledModels) ? pc.enabledModels : [];
+        if (md.length) {
+          for (const m of md) out.push({ id: String(m?.id || ""), name: String(m?.name || m?.id || ""), provider: name });
+        } else {
+          for (const id of em) out.push({ id: String(id), name: String(id), provider: name });
+        }
+      }
+      return out;
+    } catch {
+      return [];
+    }
   };
   const injectableSkillsFor = (agentId: string): any[] => {
     const out: any[] = [];
@@ -471,7 +582,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       getArgumentCompletions: (prefix: string) => {
         const items: any[] = [];
         try {
-          const models: any[] = session.modelRuntime?.getAvailableSnapshot?.() || [];
+          const models: any[] = availableModels();
           for (const m of models) {
             const id = String(m?.id ?? "");
             if (!id) continue;
@@ -578,13 +689,13 @@ export async function runTui(opts: TuiOptions): Promise<void> {
               if (!k) continue;
               labels[k] = String(s?.label || "");
               if (k === currentKey || k === "__app_expert__" || k.startsWith("__exec_")) continue;
-              items.push({ value: k, label: labels[k] || k, description: "chat \u00b7 " + fmtWhen(Number(s?.lastActivity) || 0) });
+              const ts = Number(s?.lastActivity) || Number(s?.createdAt) || 0;
+              items.push({ value: k, label: labels[k] || k, description: "chat \u00b7 " + fmtWhen(ts), ts });
             }
           }
         } catch {}
         try {
           const sdir = path.join(opts.agentDir, "sessions", "quinki");
-          const cliItems: any[] = [];
           for (const d of fs.readdirSync(sdir)) {
             if (!d.startsWith("cli-") || d === currentKey) continue;
             const dp = path.join(sdir, d);
@@ -596,45 +707,21 @@ export async function runTui(opts: TuiOptions): Promise<void> {
               for (const f of fs.readdirSync(dp)) if (f.endsWith(".jsonl")) { has = true; break; }
             } catch {}
             if (!has) continue; // empty throwaway runs are never listed (no dead items)
-            cliItems.push({ value: d, label: labels[d] || d, description: "cli \u00b7 " + fmtWhen(mtime), mtime });
-          }
-          cliItems.sort((a: any, b: any) => b.mtime - a.mtime);
-          for (const c of cliItems) {
-            delete c.mtime;
-            items.push(c);
+            items.push({ value: d, label: labels[d] || d, description: "cli \u00b7 " + fmtWhen(mtime), ts: mtime });
           }
         } catch {}
+        // Most recent first — CLI-only ordering (handier from the slash menu).
+        items.sort((a: any, b: any) => (b.ts || 0) - (a.ts || 0));
+        for (const it of items) delete it.ts;
         const p = prefix.toLowerCase();
         return items.filter((i) => i.label.toLowerCase().includes(p) || i.value.toLowerCase().includes(p));
       },
     },
     {
       name: "agent",
-      description: "Agents in this chat",
+      description: "Agents in this session",
       seq: 2,
-      getArgumentCompletions: (prefix: string) => {
-        const items: any[] = [];
-        try {
-          const adir = path.join(opts.agentDir, "agents");
-          for (const id of fs.readdirSync(adir)) {
-            const cf = path.join(adir, id, "config.json");
-            if (!fs.existsSync(cf)) continue;
-            let cfg: any = {};
-            try {
-              cfg = JSON.parse(fs.readFileSync(cf, "utf8"));
-            } catch {}
-            const nm = String(cfg?.name || id);
-            const bits: string[] = [];
-            if (cfg?.model) bits.push(String(cfg.model));
-            if (cfg?.thinkingLevel) bits.push("thinking " + String(cfg.thinkingLevel));
-            const nSk = Array.isArray(cfg?.skills) ? cfg.skills.length : 0;
-            if (nSk) bits.push(nSk + " skill" + (nSk === 1 ? "" : "s"));
-            items.push({ value: id, label: nm, description: bits.join(" \u00b7 ") });
-          }
-        } catch {}
-        const p = prefix.toLowerCase();
-        return items.filter((i) => i.value.toLowerCase().startsWith(p) || i.label.toLowerCase().startsWith(p));
-      },
+      getArgumentCompletions: () => agentMenuItems(),
     },
     {
       name: "rename",
@@ -652,9 +739,14 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     { name: "reload", description: "Reload this chat (recover history, fix glitches)", seq: 4 },
     { name: "export", description: "Export this chat as Markdown", seq: 10 },
     {
+      name: "settings",
+      description: "Settings",
+      seq: 12,
+    },
+    {
       name: "quit",
       description: "Exit quinki (asks for confirmation)",
-      seq: 12,
+      seq: 13,
       getArgumentCompletions: () => [
         { value: "yes", label: "yes", description: "Yes, exit quinki" },
         { value: "no", label: "no", description: "No, keep it open" },
@@ -787,7 +879,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       const isRight = data === "\x1b[C" || matchesKey(data, "right");
       const menuNow = menuOpenRef?.() ?? false;
       if (isEsc) {
-        escFlashUntil = Date.now() + 450;
+        // Only the CHAT Esc (stop) flashes RED: with the menu open, Esc belongs
+        // to the menu's own nav bar (which already shows its red Esc).
+        if (!menuNow) escFlashUntil = Date.now() + 450;
         try {
           ui.requestRender();
         } catch {}
@@ -807,7 +901,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           menuNavRef?.(isUp ? "up" : isDown ? "down" : isLeft ? "left" : isRight ? "right" : "enter");
           return { consume: true };
         }
-        if (menuSub) {
+        if (menuStack.length > 0) {
           // Typing inside a submenu filters the options — never writes in the box.
           if (data.length === 1 && data >= " " && data !== "\x7f") {
             menuSubFilter += data;
@@ -895,7 +989,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   let handleSlashRef: ((raw: string) => void) | null = null;
   let escFlashUntil = 0;
   // Slash menu (OURS — app-style; it NEVER writes command text into the box).
-  let menuSub: string | null = null; // command name while inside its submenu
+  let menuStack: string[] = []; // open menu path: [], [cmd] or ["agent", ...deeper levels]
   let menuSubFilter = ""; // filter typed inside a submenu
   let menuSel = 0; // selected row
   let menuConfirmFocus = false; // → focused the Confirm action (app NavBar focusConfirm)
@@ -1018,12 +1112,12 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       // Toggle navigation ON: its keys replace the chat ones (close left, open right).
       const leftN = lit("Toggle Nav (Ctrl+T)") + fg(C.textTertiary, "  \u00b7  ") + sec("Move (\u2191\u2193)") + fg(C.textTertiary, "  \u00b7  ") + sec("Close (\u2190)");
       const rightN = sec("Open (\u2192)") + fg(C.textTertiary, "  \u00b7  ") + fg(C.danger, "Esc");
-      const brandN = fg(C.primary, "\u2500\u2500\u2500") + " " + fg(C.primary, "Quinki") + " " + fg(C.primary, "\u2500\u2500\u2500");
+      const brandN = fg(C.primary, "\u2502") + " " + fg(C.primary, "Quinki") + " " + fg(C.primary, "\u2502");
       const lwN = visibleWidth(leftN);
       const rwN = visibleWidth(rightN);
-      const startN = Math.max(lwN + 1, Math.floor((width - 14) / 2));
+      const startN = Math.max(lwN + 1, Math.floor((width - 10) / 2));
       const g1N = Math.max(1, startN - lwN);
-      const g2N = Math.max(1, width - startN - 14 - rwN);
+      const g2N = Math.max(1, width - startN - 10 - rwN);
       return leftN + " ".repeat(g1N) + brandN + " ".repeat(g2N) + rightN;
     }
     const menuActive = menuOpenRef?.() ?? false;
@@ -1054,11 +1148,11 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         : quiet("Send (Enter)");
     const right = stopKey + sep + steerKey + sep + sendKey;
 
-    // "─── Quinki ───" — brand centered with violet divider lines around it.
-    const brand = fg(C.primary, "\u2500\u2500\u2500") + " " + fg(C.primary, "Quinki") + " " + fg(C.primary, "\u2500\u2500\u2500");
+    // "│ Quinki │" — brand centered between two violet vertical bars.
+    const brand = fg(C.primary, "\u2502") + " " + fg(C.primary, "Quinki") + " " + fg(C.primary, "\u2502");
     const lw = visibleWidth(left);
     const rw = visibleWidth(right);
-    const bw = 14;
+    const bw = 10;
     const start = Math.max(lw + 1, Math.floor((width - bw) / 2));
     const gap1 = Math.max(1, start - lw);
     const gap2 = Math.max(1, width - start - bw - rw);
@@ -1623,8 +1717,221 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       return "";
     }
   };
-  const subItems = (name: string): any[] => {
-    const cmd: any = commands.find((c) => c.name === name);
+  // --- /agent menu (levels) ----------------------------------------------------
+  const agentMenuItems = (): any[] => {
+    const ids = sessionAgentIds();
+    const ovs = sessionAgentOverrides();
+    const out: any[] = [{ value: "#add", label: "Add agent", description: "Add an agent to this chat" }];
+    if (!ids.includes("orchestrator")) {
+      out.push({
+        value: "#orch",
+        label: "Add orchestrator",
+        description: "A single agent that orchestrates the others",
+      });
+    }
+    out.push({ value: "__sep_in_session", label: "Agents in this session", separator: true });
+    for (const id of ids) {
+      const ov = ovs[id] || {};
+      const bits: string[] = [];
+      if (id !== "orchestrator") {
+        bits.push(ov.model ? String(ov.model) : "Chat default");
+        bits.push(
+          ov.thinkingLevel
+            ? ov.thinkingLevel === "off"
+              ? "Off"
+              : ov.thinkingLevel === "on"
+                ? "On"
+                : String(ov.thinkingLevel)
+            : "Chat default"
+        );
+      }
+      out.push({ value: id, label: agentDisplayName(id), description: bits.join(" \u00b7 ") });
+    }
+    return out;
+  };
+  const agentLevelItems = (stack: string[]): any[] => {
+    if (stack.length <= 1) return agentMenuItems();
+    const ids = sessionAgentIds();
+    if (stack[1] === "#add") {
+      const out: any[] = [];
+      for (const id of agentIdsKnown()) {
+        if (id === "orchestrator" || ids.includes(id)) continue;
+        const cfg = agentConfigOf(id);
+        const bits: string[] = [];
+        if (cfg?.model) bits.push(String(cfg.model));
+        if (cfg?.thinkingLevel) bits.push("thinking " + String(cfg.thinkingLevel));
+        const nSk = Array.isArray(cfg?.skills) ? cfg.skills.length : 0;
+        if (nSk) bits.push(nSk + " skill" + (nSk === 1 ? "" : "s"));
+        out.push({ value: id, label: agentDisplayName(id), description: bits.join(" \u00b7 ") });
+      }
+      return out;
+    }
+    const agentId = stack[1];
+    const ov = sessionAgentOverrides()[agentId] || {};
+    if (stack.length === 2) {
+      const out: any[] = [];
+      if (agentId !== "orchestrator") {
+        out.push({ value: "model", label: "Model", description: ov.model ? String(ov.model) : "Chat default" });
+        out.push({
+          value: "thinking",
+          label: "Thinking",
+          description: ov.thinkingLevel
+            ? ov.thinkingLevel === "off"
+              ? "Off"
+              : ov.thinkingLevel === "on"
+                ? "On"
+                : String(ov.thinkingLevel)
+            : "Chat default",
+        });
+      }
+      out.push({ value: "config", label: "Agent configuration", description: "Prompt, skills, files" });
+      out.push({ value: "remove", label: "Remove agent", description: "" });
+      return out;
+    }
+    const lv3 = stack[2];
+    if (lv3 === "model") {
+      const out: any[] = [
+        { value: "__chat_default__", label: "Chat default", description: ov.model ? "Use the chat model" : "current" },
+      ];
+      let models: any[] = [];
+      try {
+        models = availableModels();
+      } catch {}
+      let lastProv = "";
+      for (const m of models) {
+        const prov = String(m?.provider || "");
+        if (prov && prov !== lastProv) {
+          out.push({ value: "__sep_prov_" + prov, label: prov, separator: true });
+          lastProv = prov;
+        }
+        const cur = !!ov.model && String(ov.model) === String(m?.id);
+        out.push({
+          value: String(m?.id || ""),
+          label: String(m?.name || m?.id || ""),
+          description: (cur ? "current \u00b7 " : "") + prov,
+        });
+      }
+      return out;
+    }
+    if (lv3 === "thinking") {
+      const cur = String(ov.thinkingLevel || "");
+      return [
+        { value: "__chat_default__", label: "Chat default", description: cur === "" ? "current" : "Use the chat setting" },
+        { value: "on", label: "On", description: cur === "on" ? "current" : "Default thinking level" },
+        { value: "off", label: "Off", description: cur === "off" ? "current" : "Thinking disabled" },
+      ];
+    }
+    return []; // "remove" = confirm-only level (its message row is rendered below)
+  };
+  const addAgentToSession = (id: string) => {
+    mutateSessionEntry((e: any) => {
+      const ids = String(e.agentId || "")
+        .split(",")
+        .map((s: string) => s.trim())
+        .filter(Boolean);
+      const base = ids.length ? ids : [DEFAULT_CHAT_AGENT];
+      if (!base.includes(id)) base.push(id);
+      e.agentId = base.join(",");
+    });
+  };
+  const removeAgentFromSession = (id: string) => {
+    mutateSessionEntry((e: any) => {
+      const ids = String(e.agentId || "")
+        .split(",")
+        .map((s: string) => s.trim())
+        .filter(Boolean);
+      const base = ids.length ? ids : [DEFAULT_CHAT_AGENT];
+      if (base.length <= 1) return; // guard: a chat always has at least one agent
+      e.agentId = base.filter((x: string) => x !== id).join(",");
+      if (e.agentOverrides && e.agentOverrides[id]) delete e.agentOverrides[id];
+    });
+  };
+  const agentLevelFor = (it: any): string | null => {
+    const stack = menuStack;
+    if (stack.length === 1) {
+      if (it.value === "#add") return "#add";
+      if (it.value === "#orch") return null; // direct action
+      return String(it.value);
+    }
+    if (stack.length === 2 && stack[1] === "#add") return null; // direct action
+    if (stack.length === 2) {
+      if (it.value === "model" || it.value === "thinking" || it.value === "remove") return String(it.value);
+      return null;
+    }
+    return null;
+  };
+  const agentActivate = (value: string) => {
+    const stack = [...menuStack];
+    if (stack.length === 1) {
+      if (value === "#add") {
+        menuStack = ["agent", "#add"];
+      } else if (value === "#orch") {
+        addAgentToSession("orchestrator");
+      } else {
+        menuStack = ["agent", value];
+      }
+      menuSubFilter = "";
+      menuSel = 0;
+      return;
+    }
+    if (stack.length === 2 && stack[1] === "#add") {
+      // Added: back to the previous menu, where the agent now appears.
+      addAgentToSession(value);
+      menuStack = ["agent"];
+      menuSubFilter = "";
+      menuSel = 0;
+      return;
+    }
+    if (stack.length === 2) {
+      const agentId = stack[1];
+      if (value === "remove" || value === "model" || value === "thinking") {
+        menuStack = ["agent", agentId, value];
+        menuSubFilter = "";
+        menuSel = 0;
+        if (value === "remove") menuConfirmFocus = true; // Confirm lights: Enter removes
+      }
+      // "config": agent configuration menu — staged, silently ignored for now.
+      return;
+    }
+    if (stack.length === 3) {
+      const agentId = stack[1];
+      const lv3 = stack[2];
+      if (lv3 === "remove") {
+        removeAgentFromSession(agentId);
+        menuStack = ["agent"];
+      } else if (lv3 === "model") {
+        mutateSessionEntry((e: any) => {
+          if (!e.agentOverrides) e.agentOverrides = {};
+          const o = e.agentOverrides[agentId] || {};
+          if (value === "__chat_default__") delete o.model;
+          else o.model = value;
+          if (!o.model && !o.thinkingLevel) delete e.agentOverrides[agentId];
+          else e.agentOverrides[agentId] = o;
+        });
+        menuStack = ["agent", agentId];
+      } else if (lv3 === "thinking") {
+        mutateSessionEntry((e: any) => {
+          if (!e.agentOverrides) e.agentOverrides = {};
+          const o = e.agentOverrides[agentId] || {};
+          if (value === "__chat_default__") delete o.thinkingLevel;
+          else o.thinkingLevel = value;
+          if (!o.model && !o.thinkingLevel) delete e.agentOverrides[agentId];
+          else e.agentOverrides[agentId] = o;
+        });
+        menuStack = ["agent", agentId];
+      } else {
+        menuStack = ["agent", agentId];
+      }
+      menuSubFilter = "";
+      menuSel = 0;
+      menuConfirmFocus = false;
+      return;
+    }
+  };
+  const levelItems = (stack: string[]): any[] => {
+    if (stack.length === 0) return mainItems();
+    if (stack[0] === "agent") return agentLevelItems(stack);
+    const cmd: any = commands.find((c) => c.name === stack[0]);
     if (!cmd || typeof cmd.getArgumentCompletions !== "function") return [];
     try {
       const raw = cmd.getArgumentCompletions(menuSubFilter) || [];
@@ -1639,6 +1946,15 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       return [];
     }
   };
+  const applyFilter = (items: any[]): any[] => {
+    const f = menuSubFilter.toLowerCase();
+    if (!f) return items;
+    return items.filter(
+      (i: any) =>
+        !i.separator &&
+        (String(i.value ?? "").toLowerCase().startsWith(f) || String(i.label ?? "").toLowerCase().startsWith(f))
+    );
+  };
   const mainItems = (): any[] => {
     const t0 = editorText();
     const f = t0.startsWith("/") ? t0.slice(1).toLowerCase() : "";
@@ -1649,13 +1965,13 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       .map((c) => ({ value: c.name, label: "/" + capitalize(c.name), description: (c as any).description || "" }));
   };
   const menuOpen = (): boolean => {
-    if (menuSub) return true;
+    if (menuStack.length > 0) return true;
     return editorText().startsWith("/");
   };
   const menuNav = (a: "up" | "down" | "left" | "right" | "enter" | "escape") => {
     try {
       if (!menuOpen()) return;
-      const items = menuSub ? subItems(menuSub) : mainItems();
+      const items = applyFilter(levelItems(menuStack));
       const stepSel = (from: number, dir: number): number => {
         let i = from;
         for (let n = 0; n < items.length; n++) {
@@ -1668,8 +1984,8 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         if (menuConfirmFocus) {
           // First Esc: leave the Confirm focus (stay in the menu).
           menuConfirmFocus = false;
-        } else if (menuSub) {
-          menuSub = null;
+        } else if (menuStack.length > 0) {
+          menuStack.pop();
           menuSubFilter = "";
           menuSel = 0;
         } else {
@@ -1687,8 +2003,8 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         if (items.length > 0) menuSel = stepSel(menuSel, 1);
       } else if (a === "left") {
         menuConfirmFocus = false;
-        if (menuSub) {
-          menuSub = null;
+        if (menuStack.length > 0) {
+          menuStack.pop();
           menuSubFilter = "";
           menuSel = 0;
         }
@@ -1697,13 +2013,26 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         // Confirm (violet filled, like the app's NavBar focusConfirm); Enter runs.
         if (menuConfirmFocus) {
           // Already focused: stays lit (Enter confirms).
-        } else if (menuSub) {
-          menuConfirmFocus = true; // option = terminal level
+        } else if (menuStack.length > 0) {
+          const it: any = items[menuSel];
+          const last = menuStack[menuStack.length - 1];
+          if (last === "remove") {
+            menuConfirmFocus = true; // confirm-only level
+          } else if (it && !it.separator) {
+            const deeper = agentLevelFor(it);
+            if (deeper) {
+              menuStack.push(deeper);
+              menuSubFilter = "";
+              menuSel = 0;
+            } else {
+              menuConfirmFocus = true; // option = terminal level
+            }
+          }
         } else {
           const it: any = items[menuSel];
           const cmd: any = it ? commands.find((c) => c.name === it.value) : null;
           if (cmd && typeof cmd.getArgumentCompletions === "function") {
-            menuSub = cmd.name;
+            menuStack = [cmd.name];
             menuSubFilter = "";
             menuSel = 0;
           } else if (cmd) {
@@ -1713,11 +2042,15 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       } else {
         // enter = Confirm: run the option, open the submenu, or run the command.
         menuConfirmFocus = false;
-        const it: any = items[menuSel];
+        const last = menuStack[menuStack.length - 1];
+        const it: any = last === "remove" ? { value: "remove" } : items[menuSel];
         if (!it || it.separator) return;
-        if (menuSub) {
-          const cmdName = menuSub;
-          menuSub = null;
+        if (menuStack[0] === "agent") {
+          // The agent menus NEVER close: every action returns to its parent level.
+          agentActivate(String(it.value));
+        } else if (menuStack.length > 0) {
+          const cmdName = menuStack[0];
+          menuStack = [];
           menuSubFilter = "";
           menuSel = 0;
           try {
@@ -1727,7 +2060,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         } else {
           const cmd: any = commands.find((c) => c.name === it.value);
           if (cmd && typeof cmd.getArgumentCompletions === "function") {
-            menuSub = cmd.name;
+            menuStack = [cmd.name];
             menuSubFilter = "";
             menuSel = 0;
           } else if (cmd) {
@@ -1747,20 +2080,20 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   const buildMenuRows = (w: number): string[] => {
     try {
       const t = editorText();
-      if (menuSub && !t.startsWith("/")) {
-        menuSub = null;
+      if (menuStack.length > 0 && !t.startsWith("/")) {
+        menuStack = [];
         menuSubFilter = "";
         menuSel = 0;
         menuConfirmFocus = false;
       }
-      const mainOpen = !menuSub && t.startsWith("/");
-      if (!mainOpen && !menuSub) {
+      const mainOpen = menuStack.length === 0 && t.startsWith("/");
+      if (!mainOpen && menuStack.length === 0) {
         menuConfirmFocus = false;
         return [];
       }
       let items: any[];
-      if (menuSub) {
-        items = subItems(menuSub);
+      if (menuStack.length > 0) {
+        items = applyFilter(levelItems(menuStack));
       } else {
         const f = t.slice(1).toLowerCase();
         if (f !== menuLastFilter) {
@@ -1769,6 +2102,16 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           menuConfirmFocus = false;
         }
         items = mainItems();
+      }
+      // Confirm-only level ("Remove agent"): a message row instead of options.
+      if (menuStack.length > 0 && menuStack[menuStack.length - 1] === "remove") {
+        const nm = agentDisplayName(menuStack[1] || "");
+        const rows2: string[] = ["", fg(C.textSecondary, 'Remove "' + nm + '" from this chat?'), ""];
+        const left2 = fg(C.textSecondary, "\u2191 \u2193 \u2190 \u2192");
+        const right2 = menuConfirmFocus ? bold(bg(C.primary, fg(C.bgPanel, " Confirm "))) : fg(C.primary, "Confirm");
+        const gw2 = Math.max(1, w - visibleWidth(left2) - visibleWidth(right2));
+        rows2.push(left2 + " ".repeat(gw2) + right2);
+        return rows2;
       }
       if (items.length === 0) return [];
       if (menuSel >= items.length) menuSel = items.length - 1;
@@ -1787,8 +2130,11 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         let label = String(it.label ?? it.value ?? "");
         let desc = String(it.description ?? "");
         if ((it as any).separator) {
-          // Group separator (agent name): not selectable, no highlight.
+          // Group separator (agent name): not selectable, no highlight — with
+          // one blank row of padding above and below.
+          rows.push("");
           rows.push(fg(C.textSecondary, label));
+          rows.push("");
           continue;
         }
         if (visibleWidth(label) > w - 2) label = label.slice(0, Math.max(0, w - 2));
