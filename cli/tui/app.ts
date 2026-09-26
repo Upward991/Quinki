@@ -2059,7 +2059,24 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       for (const f of files) {
         let txt = "";
         try {
-          txt = fs.readFileSync(path.join(currentSessionDir, f), "utf8");
+          // Huge sessions (tens of MB): read the TAIL only — instant open, last
+          // messages (exactly what the app's getHistory shows), no UI freeze.
+          const fp = path.join(currentSessionDir, f);
+          const size = fs.statSync(fp).size;
+          const MAX = 4 * 1024 * 1024;
+          if (size > MAX) {
+            const fd = fs.openSync(fp, "r");
+            try {
+              const buf = Buffer.alloc(MAX);
+              fs.readSync(fd, buf, 0, MAX, size - MAX);
+              txt = buf.toString("utf8");
+              txt = txt.slice(txt.indexOf("\n") + 1); // drop the partial first line
+            } finally {
+              fs.closeSync(fd);
+            }
+          } else {
+            txt = fs.readFileSync(fp, "utf8");
+          }
         } catch {
           continue;
         }
