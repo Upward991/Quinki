@@ -1196,14 +1196,6 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         toggleNavMode();
         return { consume: true };
       }
-      // Ctrl+I (kitty: CSI 105;5u) = reveal/hide the info part on ALL footers.
-      if ((data === "\x1b[105;5u" || matchesKey(data, "ctrl+i")) && !navMode && !(menuOpenRef?.() ?? false)) {
-        try {
-          toggleInfo();
-          ui.requestRender();
-        } catch {}
-        return { consume: true };
-      }
       if (navMode && !(menuOpenRef?.() ?? false)) {
         const isUpN = data === "\x1b[A" || matchesKey(data, "up");
         const isDownN = data === "\x1b[B" || matchesKey(data, "down");
@@ -1231,18 +1223,16 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       const isTab =
         data === "\t" || data === "\x1b[9u" || data === "\x1b[9;1u" || matchesKey(data, "tab");
       if (isTab) {
-        // Tab = reveal/hide the info part on ALL footers at once (Ctrl+I arrives
-        // as Tab in most terminals).
+        // Tab = Plan/Build toggle (NEVER change this).
+        toggleModeRef?.();
+        return { consume: true };
+      }
+      // Ctrl+F = reveal/hide the info part on ALL footers at once.
+      if ((data === "\x06" || matchesKey(data, "ctrl+f")) && !navMode && !(menuOpenRef?.() ?? false)) {
         try {
           toggleInfo();
           ui.requestRender();
         } catch {}
-        return { consume: true };
-      }
-      const isCtrlB = data === "\x02" || matchesKey(data, "ctrl+b");
-      if (isCtrlB && !(menuOpenRef?.() ?? false)) {
-        // Plan/Build toggle moved here.
-        toggleModeRef?.();
         return { consume: true };
       }
       const isEnter = data === "\r" || matchesKey(data, "enter");
@@ -1537,7 +1527,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       fg(C.textTertiary, "  \u00b7  ") +
       quiet("Toggle Nav (Ctrl+T)") +
       fg(C.textTertiary, "  \u00b7  ") +
-      quiet("Info (Tab)");
+      quiet("Info (Ctrl+F)");
     const sep = fg(C.textTertiary, "  \u00b7  ");
     const stopKey = streaming ? bold(fg(C.danger, "Stop (Esc)")) : quiet("Stop (Esc)");
     const steerKey = canSteer ? lit("Steer (Ctrl+Enter)") : quiet("Steer (Ctrl+Enter)");
