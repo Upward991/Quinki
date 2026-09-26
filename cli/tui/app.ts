@@ -1485,7 +1485,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       counterColor(pct),
       `${fmtTok(ctxTokens)}/${fmtTok(ctxWindow)} (${Math.floor(pct)}% \u00b1 ${Math.ceil(pct * 0.05 + 1)}%)`
     );
-    const modelId = session?.model?.id || defaultModelId || "";
+    const modelId = wsModelId || session?.model?.id || defaultModelId || "";
     const sep = fg(C.textTertiary, "  \u00b7  ");
     const quiet = (s: string) => fg(C.textTertiary, s);
     const modeStr = mode === "plan" ? fg(C.modePlan, "Plan") : fg(C.modeBuild, "Build");
@@ -1496,7 +1496,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       sep +
       quiet(modelId) +
       sep +
-      quiet("thinking " + (thinkingOn ? "on" : "off"));
+      quiet("Thinking: " + (thinkingOn ? "On" : "Off"));
     // Status pill (app-style): same row as the info, right-aligned — visible
     // only while the engine streams / compacts (Failed stays until next turn).
     const pillOn =
