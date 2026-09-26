@@ -351,7 +351,7 @@ class ToggleBlock {
             } else {
               lines = wrapPlain(String(ch.v || ""), Math.max(6, innerW - 2));
             }
-            const full = (t: string) => " " + fg(this.color, "\u2502 ") + bg(C.bubbleUser, "  " + t + " ".repeat(Math.max(2, innerW - 2 - visibleWidth(t) + 2)));
+            const full = (t: string) => " " + fg(this.color, "\u2502 ") + bg(C.bubbleUser, "  " + t + " ".repeat(Math.max(0, innerW - 2 - visibleWidth(t))));
             out.push(" " + fg(this.color, "\u2502 ") + bg(C.bubbleUser, " ".repeat(innerW)));
             for (const ln of lines) out.push(full(ln));
             out.push(" " + fg(this.color, "\u2502 ") + bg(C.bubbleUser, " ".repeat(innerW)));
@@ -370,6 +370,9 @@ class ToggleBlock {
           } catch {
             for (const line of wrapPlain(String(ch.v || ""), inner)) out.push(" " + fg(this.color, "\u2502 ") + fg(C.text, line));
           }
+        } else if (ch && ch.t === "footer") {
+          const line = ch.date + (infoOpen ? "  \u00b7  Info: " + ch.info : "");
+          out.push(" " + fg(this.color, "\u2502 ") + fg(C.textTertiary, line));
         } else if (ch && ch.t === "toggle") {
           for (const ln of ch.v.render(Math.max(6, width - 3))) out.push(" " + fg(this.color, "\u2502 ") + ln);
         }
@@ -2199,6 +2202,14 @@ export async function runTui(opts: TuiOptions): Promise<void> {
                 }
               }
             } catch {}
+            try {
+              const dts = Number(m.timestamp) || Date.now();
+              tg.children.push({
+                t: "footer",
+                date: fmtFooterDate(dts),
+                info: agentDisplayName(String(m.agentName || "")) + " \u00b7 " + String(m.agentModel || m.model || defaultModelId || "") + " \u00b7 " + levelLabel(String(m.thinkingLevel || "off")),
+              });
+            } catch {}
             pushBlock(registerToggle(tg));
           } else if (m?.role === "assistant") {
             if (m?.reasoning) pushBlock(registerToggle(new ToggleBlock({ label: "Thinking", color: C.thinking, italic: true, body: String(m.reasoning) })));
@@ -2233,9 +2244,20 @@ export async function runTui(opts: TuiOptions): Promise<void> {
               pushBlock(new Markdown(txt, 1, 0, mdTheme));
               // Agent: the message's own, else the session's PRIMARY agent
               // (orchestrator wins when present — same rule as the engine).
-              const ids = sessionAgentIds();
-              const primary = ids.find((x) => x === "orchestrator") || ids[0] || "quinki";
-              const an = String(m.agentName || primary);
+              let an = String(m.agentName || "");
+              try {
+                if (!an) {
+                  const e0 = readSessionsList().find((x: any) => x?.key === currentKey);
+                  const mid = String(m.id || "");
+                  const mts = Number(m.timestamp) || 0;
+                  const mk = mid && e0?.messageAgents?.[mid] ? mid : mts ? "ts-" + mts : "";
+                  if (mk && e0?.messageAgents?.[mk]) an = String(e0.messageAgents[mk]);
+                }
+              } catch {}
+              if (!an) {
+                const ids = sessionAgentIds();
+                an = ids.find((x) => x === "orchestrator") || ids[0] || "quinki";
+              }
               pushBlock(new FooterRow(fmtFooterDate(Number(m.timestamp) || Date.now()), agentDisplayName(an) + " \u00b7 " + String(m.model || defaultModelId || "") + " \u00b7 " + levelLabel(String(m.thinkingLevel || "off")), true));
             }
           }

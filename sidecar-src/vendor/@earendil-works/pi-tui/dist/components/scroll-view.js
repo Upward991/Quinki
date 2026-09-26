@@ -119,7 +119,7 @@ export class ScrollView extends Container {
             return;
         }
         const moved = next !== this.currentScrollTop;
-        this.currentScrollTop = next;
+         this.currentScrollTop = next; try { if (next <= 2 && typeof globalThis.__qLoadOlder === "function") { const f = globalThis.__qLoadOlder; globalThis.__qLoadOlder = null; setTimeout(() => { try { f(); } catch {} globalThis.__qLoadOlder = f; }, 10); } } catch {}
         this.followingEnd = nextFollowingEnd;
         this.followSuppressedAtEnd = nextFollowSuppressedAtEnd;
         if (moved)
@@ -135,7 +135,7 @@ export class ScrollView extends Container {
         const next = Math.max(0, Math.min(maxScrollTop, start + requested));
         const moved = next - start;
         const wasFollowingEnd = this.followingEnd;
-        this.currentScrollTop = next;
+         this.currentScrollTop = next; try { if (next <= 2 && typeof globalThis.__qLoadOlder === "function") { const f = globalThis.__qLoadOlder; globalThis.__qLoadOlder = null; setTimeout(() => { try { f(); } catch {} globalThis.__qLoadOlder = f; }, 10); } } catch {}
         this.followingEnd = this.followEnd && next === maxScrollTop;
         this.followSuppressedAtEnd = false;
         if (moved !== 0)
@@ -158,7 +158,7 @@ export class ScrollView extends Container {
     scrollToEnd() {
         const next = Math.max(0, this.contentHeight - this.currentViewportHeight);
         const changed = this.currentScrollTop !== next || this.followingEnd !== this.followEnd;
-        this.currentScrollTop = next;
+         this.currentScrollTop = next; try { if (next <= 2 && typeof globalThis.__qLoadOlder === "function") { const f = globalThis.__qLoadOlder; globalThis.__qLoadOlder = null; setTimeout(() => { try { f(); } catch {} globalThis.__qLoadOlder = f; }, 10); } } catch {}
         this.followingEnd = this.followEnd;
         this.followSuppressedAtEnd = false;
         if (changed) {
