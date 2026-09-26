@@ -416,21 +416,18 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   const titleText = new FnLine((w: number) => {
     const t = fg(C.text, headerTitle);
     const dir = fmtDirShort();
-    const tw = visibleWidth(t);
+    // Violet vertical bars on the LEFT and RIGHT of the header row — the same
+    // glyphs and accent as the composer box, flush with the panel edges.
+    const L = fg(C.primary, "\u258f");
+    const R = fg(C.primary, "\u2595");
+    const tw = visibleWidth(t) + 3; // left bar + space, trailing space before R
     const dw = visibleWidth(dir);
-    if (!dir) return t;
+    if (!dir) return L + " " + t + " ".repeat(Math.max(1, w - tw)) + R;
     const gap = Math.max(1, w - tw - dw);
-    return t + " ".repeat(gap) + fg(C.textTertiary, dir);
+    return L + " " + t + " ".repeat(gap) + fg(C.textTertiary, dir) + " " + R;
   });
-  // Same vertical bars as the composer (the violet of the box's right edge):
-  // they flank the header on the left and on the right.
-  const headerL = new FnLine(() => fg(C.primary, "\u258f"));
-  const headerR = new FnLine(() => fg(C.primary, "\u2595"));
-  const header = new HStack([
-    headerL,
-    new BgBlock(titleText, 1, (s: string) => bg(C.bgPanel, s), 1),
-    headerR,
-  ] as any);
+  // Bars run edge-to-edge: no horizontal padding on the panel.
+  const header = new BgBlock(titleText, 0, (s: string) => bg(C.bgPanel, s), 0);
   const setChatTitle = (title: string) => {
     headerTitle = title && title.trim() ? title.trim() : "New chat";
     try {
