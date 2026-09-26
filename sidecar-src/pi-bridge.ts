@@ -8366,7 +8366,14 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
                 }
               } catch {}
               const retryable = /overloaded|503|429|rate.?limit|service.?unavailable|server.?error|temporarily|too many requests|does not support image|image input/i.test(errMsg);
-              if (retryable && !this.#rePrompted.has(key) && !this.#stoppedSessions.has(key)) {
+              // FALLBACK-ELIGIBLE errors are handled by the MODEL FALLBACK at
+              // agent_end (switch to the user's fallback list + replay of the last
+              // user message): the auto-reprompt must NOT also fire (double prompt).
+              // 500 included: Ollama Cloud deepseek-v4.1-flash dies with Internal
+              // Server Error at ~60% context — after the engine's 3 retries the
+              // fallback must take over.
+              const fbEligible = /401|402|403|500|502|503|504|internal.?server|insufficient|credit|quota|not.?found|not.?available|model.?not|unauthorized|authentication|service.?unavailable|timeout|timed.?out|econnrefused|fetch.?failed|network|enotfound|dns|connection|refused|unreachable|socket/i.test(errMsg);
+              if (retryable && !fbEligible && !this.#rePrompted.has(key) && !this.#stoppedSessions.has(key)) {
                 this.#rePrompted.add(key);
                 this.logDebug("auto-reprompt-scheduled", { sessionKey: key, error: errMsg.slice(0, 120) });
                 // FIX (01 set): 2 secondi invece di 30. Il provider ha il tempo di
@@ -8515,7 +8522,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
                 if (_files.length === 0) return false;
                 const _lines = fs.readFileSync(path.join(_dir, _files[0]), "utf8").trim().split("\n").filter(Boolean);
                 const _last = _lines[_lines.length - 1] ? JSON.parse(_lines[_lines.length - 1]) : null;
-                return /401|402|403|insufficient|credit|quota|not.?found|not.?available|model.?not|unauthorized|authentication|timeout|timed.?out|econnrefused|fetch.?failed|network|enotfound|dns|connection|refused|unreachable|socket|502|503|504|service.?unavailable/i.test(String(_last?.message?.errorMessage || _last?.message?.error || ""));
+                return /401|402|403|500|internal.?server|insufficient|credit|quota|not.?found|not.?available|model.?not|unauthorized|authentication|timeout|timed.?out|econnrefused|fetch.?failed|network|enotfound|dns|connection|refused|unreachable|socket|502|503|504|service.?unavailable/i.test(String(_last?.message?.errorMessage || _last?.message?.error || ""));
               } catch { return false; }
             })();
             let fallbackSwitched = false;
