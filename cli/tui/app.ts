@@ -680,6 +680,15 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   };
   const writeSessionsList = (list: any[]) => {
     try {
+      // SAFETY: never let a write SHRINK the shared sessions file except for an
+      // explicit single delete — a race with another writer (sidecar #save) or a
+      // failed read must NEVER wipe entries (a lost entry = lost chat).
+      let prevN = -1;
+      try {
+        const prev = JSON.parse(fs.readFileSync(sessionsFile(), "utf8"));
+        prevN = Array.isArray(prev) ? prev.length : -1;
+      } catch {}
+      if (Array.isArray(list) && prevN >= 0 && list.length < prevN - 1) return;
       fs.writeFileSync(sessionsFile(), JSON.stringify(list, null, 2), "utf8");
     } catch {}
   };
