@@ -1279,6 +1279,24 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         } catch {}
         return { consume: true };
       }
+      // PgUp while at the TOP of the transcript: load 50 older messages (like the
+      // app's scroll-up loading), then keep the view near the newly loaded part.
+      if (data === "\x1b[5~" || matchesKey(data, "pageup")) {
+        try {
+          const st: any = (globalThis as any).__quinkiScroll?.state || {};
+          const top = Number(st.scrollTop || 0);
+          const allN = readSessionEntries().length;
+          if (top <= 2 && allN > histLimit) {
+            histLimit += 50;
+            renderHistory();
+            try {
+              (globalThis as any).__quinkiScroll?.scrollTo?.(Math.min(80, Number((globalThis as any).__quinkiScroll?.state?.maxScrollTop || 0)));
+            } catch {}
+            ui.requestRender();
+            return { consume: true };
+          }
+        } catch {}
+      }
       const isEnter = data === "\r" || matchesKey(data, "enter");
       const isCtrlEnter = data === "\n" || data === "\x1b[13;5u" || matchesKey(data, "ctrl+enter");
       const isEsc = data === "\x1b" || matchesKey(data, "escape");
@@ -1804,6 +1822,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   let wsToolArgs = "";
   let wsToolToggle: any = null;
   let lastUserPush = { text: "", ts: 0 };
+  let histLimit = 50; // rendered messages (app starts at ~50, scrolling up loads more)
   let modelExplicit = false; // user picked a model with /model
   let thinkingExplicit = false; // user toggled thinking with /thinking
   // Live delegations: messageId -> open delegation toggle. Nested stream events
@@ -2092,10 +2111,22 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         scrollToEnd();
         return;
       }
-      // FLAT like the app — with the app's own cap: the last 200 entries
-      // (getHistory shows the last 200; rendering thousands of blocks would
-      // freeze the TUI).
-      const all = allEntries.length > 200 ? allEntries.slice(allEntries.length - 200) : allEntries;
+      // FLAT like the app, with the app's window: the last histLimit messages
+      // (50 at open; scrolling up loads more — see the PgUp handler).
+      let cutIdx = 0;
+      {
+        let seen = 0;
+        for (let i = allEntries.length - 1; i >= 0; i--) {
+          if (allEntries[i]?.kind === "message" || allEntries[i]?.message) {
+            seen++;
+            if (seen >= histLimit) {
+              cutIdx = i;
+              break;
+            }
+          }
+        }
+      }
+      const all = cutIdx > 0 ? allEntries.slice(cutIdx) : allEntries;
       for (const en of all) {
         if (en.kind === "compaction") {
           // File compactions are always REAL (noop ones never reach the file).
