@@ -2,6 +2,8 @@
 // The CLI speaks the SAME JSON-RPC protocol as the app frontend: chats run in
 // the real Quinki runtime (agents, skills, delegation, custom tools) and stay
 // in sync with the app in real time — instead of a bare SDK session.
+// Auto-reconnects: the app restarting (which restarts its sidecar) must never
+// kill the TUI session.
 export class Sc {
   ws: any = null;
   connected = false;
@@ -9,11 +11,13 @@ export class Sc {
   #nextId = 1;
   #pending = new Map<number, { resolve: (v: any) => void; reject: (e: any) => void }>();
   #events: Array<(method: string, params: any) => void> = [];
+  #reconnecting = false;
 
   constructor(url: string) {
     this.#url = url;
   }
 
+  // One-shot connect attempt (used at boot and while spawning the sidecar).
   connect(timeoutMs = 900): Promise<boolean> {
     return new Promise((resolve) => {
       let done = false;
@@ -42,6 +46,14 @@ export class Sc {
         };
         ws.onclose = () => {
           this.connected = false;
+          for (const [, p] of this.#pending) {
+            try {
+              p.reject(new Error("sidecar connection lost"));
+            } catch {}
+          }
+          this.#pending.clear();
+          // The app (re)starting its sidecar must not kill the TUI: keep trying.
+          this.#scheduleReconnect();
         };
         ws.onmessage = (ev: any) => {
           let msg: any;
@@ -71,6 +83,24 @@ export class Sc {
         finish(false);
       }
     });
+  }
+
+  #scheduleReconnect() {
+    if (this.#reconnecting) return;
+    this.#reconnecting = true;
+    const tick = async () => {
+      if (this.connected) {
+        this.#reconnecting = false;
+        return;
+      }
+      const ok = await this.connect(800);
+      if (ok) {
+        this.#reconnecting = false;
+        return;
+      }
+      setTimeout(tick, 1500);
+    };
+    setTimeout(tick, 1200);
   }
 
   onEvent(cb: (method: string, params: any) => void) {

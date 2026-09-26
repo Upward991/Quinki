@@ -13,7 +13,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { execSync } from "node:child_process";
+import { execSync, spawn } from "node:child_process";
 
 import { Sc } from "./sc";
 
@@ -336,7 +336,22 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   // the app uses — agents, skills, delegation, live sync). Falls back to the
   // bare SDK session when the app/sidecar is not running. ---------------------
   const sc = new Sc("ws://127.0.0.1:" + (process.env.QUINKI_SIDECAR_PORT || "9182"));
-  const scOn = await sc.connect(Number(process.env.QUINKI_SIDECAR_CONNECT_MS || 900));
+  let scOn = await sc.connect(Number(process.env.QUINKI_SIDECAR_CONNECT_MS || 900));
+  if (!scOn) {
+    // The app is not running: launch the installed sidecar ourselves (detached),
+    // so the TUI works standalone and shares the same engine when the app opens.
+    try {
+      const sh = "/Applications/Quinki.app/Contents/Resources/sidecar/start.sh";
+      if (fs.existsSync(sh)) {
+        const p = spawn(sh, [], { detached: true, stdio: "ignore", cwd: path.dirname(sh), env: process.env as any });
+        p.unref?.();
+        for (let i = 0; i < 20 && !scOn; i++) {
+          await new Promise((r) => setTimeout(r, 400));
+          scOn = await sc.connect(700);
+        }
+      }
+    } catch {}
+  }
   const pendingSkills: string[] = [];
   const stopTurn = () => {
     if (scOn) {
@@ -738,27 +753,14 @@ export async function runTui(opts: TuiOptions): Promise<void> {
             }
           }
         } catch {}
-        try {
-          const sdir = path.join(opts.agentDir, "sessions", "quinki");
-          for (const d of fs.readdirSync(sdir)) {
-            if (!d.startsWith("cli-") || d === currentKey) continue;
-            const dp = path.join(sdir, d);
-            let has = false;
-            let mtime = 0;
-            try {
-              const st = fs.statSync(dp);
-              mtime = st.mtimeMs;
-              for (const f of fs.readdirSync(dp)) if (f.endsWith(".jsonl")) { has = true; break; }
-            } catch {}
-            if (!has) continue; // empty throwaway runs are never listed (no dead items)
-            items.push({ value: d, label: labels[d] || d, description: "cli \u00b7 " + fmtWhen(mtime), ts: mtime });
-          }
-        } catch {}
         // Most recent first — CLI-only ordering (handier from the slash menu).
         items.sort((a: any, b: any) => (b.ts || 0) - (a.ts || 0));
         for (const it of items) delete it.ts;
-        // New chat always on top: back to the welcome composer without quitting.
-        items.unshift({ value: "__new__", label: "New chat", description: "Start a fresh conversation" });
+        // New chat on top — but only when already inside a chat (on the welcome
+        // composer there is nothing to "start": it IS the new chat).
+        if (!welcomeShown) {
+          items.unshift({ value: "__new__", label: "New chat", description: "Start a fresh conversation" });
+        }
         const p = prefix.toLowerCase();
         return items.filter((i) => i.label.toLowerCase().includes(p) || i.value.toLowerCase().includes(p));
       },
@@ -1151,8 +1153,13 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     const sec = (s: string) => fg(C.textSecondary, s);
     if (navMode) {
       // Toggle navigation ON: its keys replace the chat ones (close left, open right).
-      const leftN = lit("Toggle Nav (Ctrl+T)") + fg(C.textTertiary, "  \u00b7  ") + sec("Move (\u2191\u2193)") + fg(C.textTertiary, "  \u00b7  ") + sec("Close (\u2190)");
-      const rightN = sec("Open (\u2192)") + fg(C.textTertiary, "  \u00b7  ") + fg(C.danger, "Esc");
+      const leftN = lit("Toggle Nav (Ctrl+T)") + fg(C.textTertiary, "  \u00b7  ") + fg(C.danger, "Esc");
+      const rightN =
+        sec("Move (\u2191\u2193)") +
+        fg(C.textTertiary, "  \u00b7  ") +
+        sec("Close (\u2190)") +
+        fg(C.textTertiary, "  \u00b7  ") +
+        sec("Open (\u2192)");
       const brandN = fg(C.primary, "\u2502") + " " + fg(C.primary, "Quinki") + " " + fg(C.primary, "\u2502");
       const lwN = visibleWidth(leftN);
       const rwN = visibleWidth(rightN);
@@ -2170,19 +2177,14 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         return from;
       };
       if (a === "escape") {
-        if (menuConfirmFocus) {
-          // First Esc: leave the Confirm focus (stay in the menu).
-          menuConfirmFocus = false;
-        } else if (menuStack.length > 0) {
-          menuStack.pop();
-          menuSubFilter = "";
-          menuSel = 0;
-        } else {
-          try {
-            editor.setText("");
-          } catch {}
-          menuSel = 0;
-        }
+        // Esc closes the WHOLE slash menu instantly (one press, from any level).
+        menuStack = [];
+        menuSubFilter = "";
+        menuSel = 0;
+        menuConfirmFocus = false;
+        try {
+          editor.setText("");
+        } catch {}
       } else if (a === "up") {
         // Wrap-around like the app; separator rows are skipped.
         menuConfirmFocus = false;
@@ -2207,10 +2209,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           // Already focused: stays lit (Enter confirms).
         } else if (menuStack.length > 0) {
           const it: any = items[menuSel];
-          const last = menuStack[menuStack.length - 1];
-          if (last === "remove") {
-            menuConfirmFocus = true; // confirm-only level
-          } else if (it && !it.separator) {
+          if (it && !it.separator) {
             const deeper = agentLevelFor(it);
             if (deeper) {
               menuStack.push(deeper);
