@@ -315,8 +315,11 @@ class ToggleBlock {
       }
       // Nested content (delegation): nested toggles + text, inside the border.
       for (const ch of this.children || []) {
-        if (ch && ch.t === "text") {
-          for (const line of wrapPlain(String(ch.v || ""), inner)) out.push(" " + fg(this.color, "\u2502 ") + fg(C.textSecondary, line));
+        if (ch && ch.t === "bubble") {
+          // Mini user bubble (the task the delegating agent sent).
+          for (const line of wrapPlain(String(ch.v || ""), inner)) out.push(" " + fg(this.color, "\u2502 ") + bg(C.bubbleUser, " " + line + " "));
+        } else if (ch && ch.t === "text") {
+          for (const line of wrapPlain(String(ch.v || ""), inner)) out.push(" " + fg(this.color, "\u2502 ") + fg(C.text, line));
         } else if (ch && ch.t === "toggle") {
           for (const ln of ch.v.render(Math.max(6, width - 3))) out.push(" " + fg(this.color, "\u2502 ") + ln);
         }
@@ -553,6 +556,42 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   };
   // Model list: the SDK snapshot when ready, otherwise the provider config
   // (a fresh chat has no runtime snapshot yet — welcome chat included).
+  // Recency = the TIMESTAMP OF THE LAST MESSAGE inside the session file — never
+  // when the chat was merely viewed or touched. Reads the tail of the .jsonl.
+  const lastMsgTs = (dir: string): number => {
+    let best = 0;
+    try {
+      for (const f of fs.readdirSync(dir)) {
+        if (!f.endsWith(".jsonl")) continue;
+        const fp = path.join(dir, f);
+        const size = fs.statSync(fp).size;
+        const len = Math.min(16000, size);
+        if (len <= 0) continue;
+        const fd = fs.openSync(fp, "r");
+        let txt = "";
+        try {
+          const buf = Buffer.alloc(len);
+          fs.readSync(fd, buf, 0, len, size - len);
+          txt = buf.toString("utf8");
+        } finally {
+          fs.closeSync(fd);
+        }
+        const lines = txt.split("\n");
+        for (let i = lines.length - 1; i >= 0 && i > lines.length - 40; i--) {
+          const ln = lines[i].trim();
+          if (!ln) continue;
+          try {
+            const ob = JSON.parse(ln);
+            const t = Date.parse(ob?.timestamp || ob?.ts || ob?.message?.timestamp || "");
+            if (t > best) best = t;
+            if (best) break; // last complete message found
+          } catch {}
+        }
+        if (best) break;
+      }
+    } catch {}
+    return best;
+  };
   const availableModels = (): any[] => {
     try {
       const s = session.modelRuntime?.getAvailableSnapshot?.() || [];
@@ -790,15 +829,11 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           for (const s of wsSessions) {
             const k = String(s?.key || s?.id || "");
             if (!k || k === currentKey || k === "__app_expert__" || k.startsWith("__exec_")) continue;
-            let ts = Number(s?.lastActivity) || Number(s?.createdAt) || 0;
+            let ts = 0;
             try {
-              const dp = path.join(opts.agentDir, "sessions", "quinki", k);
-              for (const f of fs.readdirSync(dp)) {
-                if (!f.endsWith(".jsonl")) continue;
-                const m = fs.statSync(path.join(dp, f)).mtimeMs;
-                if (m > ts) ts = m;
-              }
+              ts = lastMsgTs(path.join(opts.agentDir, "sessions", "quinki", k));
             } catch {}
+            if (!ts) ts = Number(s?.lastActivity) || Number(s?.createdAt) || 0;
             items.push({ value: k, label: String(s?.label || k), description: "chat \u00b7 " + fmtWhen(ts), ts });
           }
           items.sort((a: any, b: any) => (b.ts || 0) - (a.ts || 0));
@@ -818,16 +853,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
               labels[k] = String(s?.label || "");
               if (k === currentKey || k === "__app_expert__" || k.startsWith("__exec_")) continue;
               const ts0 = Number(s?.lastActivity) || Number(s?.createdAt) || 0;
-              // "Last used" = the session file mtime: it beats stale entry
-              // bookkeeping (CLI chats, chats touched by the app, etc.).
               let ts = 0;
               try {
-                const dp = path.join(opts.agentDir, "sessions", "quinki", k);
-                for (const f of fs.readdirSync(dp)) {
-                  if (!f.endsWith(".jsonl")) continue;
-                  const m = fs.statSync(path.join(dp, f)).mtimeMs;
-                  if (m > ts) ts = m;
-                }
+                ts = lastMsgTs(path.join(opts.agentDir, "sessions", "quinki", k));
               } catch {}
               if (!ts) ts = ts0;
               items.push({ value: k, label: labels[k] || k, description: "chat \u00b7 " + fmtWhen(ts), ts });
@@ -1646,11 +1674,14 @@ export async function runTui(opts: TuiOptions): Promise<void> {
             args = {};
           }
           if (/delegate/i.test(wsToolName)) {
-            // Fill in the delegated agent name on the delegation toggle.
+            // Fill in the delegated agent name + the task (the delegating agent's
+            // message): both show inside the delegation, like the app.
             const tg = delegToggles.get(String(p.messageId || ""));
             const tgt = String(args?.agentId || args?.agent || args?.to || "").trim();
-            if (tg && tgt) {
-              tg.boldName = tgt;
+            if (tg) {
+              if (tgt) tg.boldName = tgt;
+              const task = String(args?.task || args?.prompt || args?.message || args?.instructions || args?.text || "").trim();
+              if (task) (tg.children = tg.children || []).unshift({ t: "bubble", v: task });
               try {
                 ui.requestRender();
               } catch {}
