@@ -413,23 +413,19 @@ class UserBubble {
     this.dateStr = dateStr;
   }
   render(width: number): string[] {
-    const inner = Math.max(6, width - 6);
+    const inner = Math.max(6, width - 4);
     const lines = wrapPlain(this.text, inner);
-    // Uniform compact rectangle: every line (text, spacer, footer) is the same
-    // width = the longest line — no ragged bubble.
-    let wMax = 0;
-    for (const l of [...lines, this.dateStr]) {
-      const wl = visibleWidth(l);
-      if (wl > wMax) wMax = wl;
-    }
-    const boxW = Math.min(width - 2, wMax + 4);
-    const pad = (t: string) => {
-      const fill = Math.max(0, boxW - 2 - visibleWidth(t) - 2);
+    const full = (t: string) => {
+      const fill = Math.max(0, inner - visibleWidth(t));
       return bg(C.bubbleUser, "  " + t + " ".repeat(fill + 2));
     };
-    const out = lines.map((l) => pad(l));
-    out.push(bg(C.bubbleUser, " ".repeat(boxW)));
-    out.push(bg(C.bubbleUser, "  " + fg(C.textSecondary, this.dateStr) + " ".repeat(Math.max(2, boxW - 4 - visibleWidth(this.dateStr) + 2))));
+    const blank = () => bg(C.bubbleUser, " ".repeat(width));
+    const out: string[] = [];
+    out.push(blank()); // top padding row
+    for (const l of lines) out.push(full(l));
+    out.push(blank()); // spacer before the footer
+    out.push(bg(C.bubbleUser, "  " + fg(C.textSecondary, this.dateStr) + " ".repeat(Math.max(2, inner - visibleWidth(this.dateStr) + 2))));
+    out.push(blank()); // bottom padding row
     return out;
   }
   invalidate() {}
@@ -2048,6 +2044,11 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       // The file is a TREE: the conversation order is the active branch (last
       // entry -> parents), exactly what the app shows. Flat order misorders.
       const all = readSessionEntries() as any[];
+      if (all.length === 0) {
+        // Nothing readable: keep the current transcript (never wipe the chat).
+        scrollToEnd();
+        return;
+      }
       const byId = new Map<string, any>();
       for (const e of all) if (e.id) byId.set(String(e.id), e);
       let chain: any[] = all;
@@ -2212,6 +2213,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
                 await session.setModel(m);
               } catch {}
             }
+          }
+          if (e2?.mode === "plan" || e2?.mode === "build") {
+            mode = e2.mode; // per-chat mode, exactly like the app
           }
           if (typeof e2?.thinkingLevel === "string") {
             thinkingOn = e2.thinkingLevel !== "off";
