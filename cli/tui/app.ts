@@ -413,23 +413,32 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       return "";
     }
   };
+  const headerBg = (s: string) => bg(C.bgPanel, s);
   const titleText = new FnLine((w: number) => {
     const t = fg(C.text, headerTitle);
     const dir = fmtDirShort();
-    // Exactly like the composer box: one black column of padding, THEN the violet
-    // bar, then a space, the text, a space, the bar, one black column.
+    // EXACT composer layout: black padding col · violet bar · space · PANEL
+    // (title + gap + directory) · space · violet bar · black padding col.
+    // The bars are OUTSIDE the panel, at the very edges, same as the text box.
     const L = fg(C.primary, "\u258f");
     const R = fg(C.primary, "\u2595");
     const tw = visibleWidth(t);
     const dw = visibleWidth(dir);
-    if (!dir) return " " + L + " " + t + " ".repeat(Math.max(1, w - tw - 6)) + " " + R + " ";
-    const gap = Math.max(1, w - tw - dw - 6);
-    return " " + L + " " + t + " ".repeat(gap) + fg(C.textTertiary, dir) + " " + R + " ";
+    let mid: string;
+    if (dir) {
+      const gap = Math.max(1, w - tw - dw - 8);
+      mid = headerBg(" ") + headerBg(t) + headerBg(" ".repeat(gap)) + headerBg(fg(C.textTertiary, dir)) + headerBg(" ");
+    } else {
+      mid = headerBg(" ") + headerBg(t) + headerBg(" ".repeat(Math.max(1, w - tw - 8))) + headerBg(" ");
+    }
+    return " " + L + " " + mid + " " + R + " ";
   });
-  // The header is THREE rows tall (empty / text / empty) and the violet bars run
-  // the whole height, inset by the same black column of the composer box.
-  const headerPad = new FnLine((w: number) => " " + fg(C.primary, "\u258f") + " ".repeat(Math.max(0, w - 4)) + fg(C.primary, "\u2595") + " ");
-  const header = new BgBlock(new VStack([headerPad, titleText, headerPad] as any) as any, 0, (s: string) => bg(C.bgPanel, s), 0);
+  // The header is THREE rows tall (empty / text / empty): the violet bars run the
+  // whole height, outside the panel, with one black column beyond each of them.
+  const headerPad = new FnLine(
+    (w: number) => " " + fg(C.primary, "\u258f") + " " + headerBg(" ".repeat(Math.max(0, w - 6))) + " " + fg(C.primary, "\u2595") + " "
+  );
+  const header = new VStack([headerPad, titleText, headerPad] as any) as any;
   const setChatTitle = (title: string) => {
     headerTitle = title && title.trim() ? title.trim() : "New chat";
     try {
