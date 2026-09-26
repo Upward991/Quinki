@@ -381,23 +381,23 @@ export class Markdown {
             }
             case "code": {
                 const indent = this.theme.codeBlockIndent ?? "  ";
-                lines.push("  " + this.theme.codeBlock(" ".repeat(Math.max(10, width - 4))) + "  ");
+                lines.push(this.theme.codeBlock(" ".repeat(Math.max(10, width))));
                 if (this.theme.highlightCode) {
                     const highlightedLines = this.theme.highlightCode(token.text, token.lang);
                     const plainLines = String(token.text || "").split(String.fromCharCode(10));
                     highlightedLines.forEach((hlLine, hi) => {
-                        const rawLen = (plainLines[hi] ?? "").length + 4;
-                        lines.push("  " + this.theme.codeBlock(hlLine + " ".repeat(Math.max(0, width - 4 - rawLen))) + "  ");
+                        const rawLen = (plainLines[hi] ?? "").length + 2;
+                        lines.push(this.theme.codeBlock("  " + hlLine + " ".repeat(Math.max(0, width - 2 - rawLen))));
                     });
                 }
                 else {
                     // Split code by newlines and style each line
                     const codeLines = token.text.split("\n");
                     for (const codeLine of codeLines) {
-                        lines.push("  " + this.theme.codeBlock(codeLine + " ".repeat(Math.max(0, width - 6 - codeLine.length))) + "  ");
+                        lines.push(this.theme.codeBlock("  " + codeLine + " ".repeat(Math.max(0, width - 2 - codeLine.length - 2))));
                     }
                 }
-                lines.push("  " + this.theme.codeBlock(" ".repeat(Math.max(10, width - 4))) + "  ");
+                lines.push(this.theme.codeBlock(" ".repeat(Math.max(10, width))));
                 if (nextTokenType && nextTokenType !== "space") {
                     lines.push(""); // Add spacing after code blocks (unless space token follows)
                 }
