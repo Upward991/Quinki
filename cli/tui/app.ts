@@ -299,6 +299,9 @@ class ToggleBlock {
     const out = [head];
     if (this.open && this.body) {
       const inner = Math.max(6, width - 3);
+      // The vertical bar starts right under the header, on an EMPTY first row,
+      // then the body follows (applies to every toggle).
+      out.push(fg(this.color, "\u2502".padEnd(Math.max(1, width))));
       for (const line of wrapPlain(this.body, inner)) {
         const styled = this.italic ? italicStyle(fg(this.color, line)) : fg(this.color, line);
         out.push(fg(this.color, "\u2502 ") + styled);
@@ -404,12 +407,67 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     (editor as any).bgFn = (s: string) => bg(C.bgPanel, s);
   } catch {}
 
+  // /skill — app semantics (like listChatSkills): only the skills the model CANNOT
+  // invoke by itself (disable-model-invocation || user-invocable), grouped by the
+  // agents of THIS chat with a separator row carrying the agent name.
+  const chatAgentIds = (): string[] => {
+    try {
+      const raw = JSON.parse(fs.readFileSync(path.join(opts.agentDir, "quinki-sessions.json"), "utf8"));
+      const e = Array.isArray(raw) ? raw.find((s: any) => s?.key === currentKey) : null;
+      const ids = String(e?.agentId || "").split(",").map((s: string) => s.trim()).filter(Boolean);
+      if (ids.length) return ids;
+    } catch {}
+    return ["orchestrator"];
+  };
+  const injectableSkillsFor = (agentId: string): any[] => {
+    const out: any[] = [];
+    try {
+      const cf = path.join(opts.agentDir, "agents", agentId, "config.json");
+      if (!fs.existsSync(cf)) return out;
+      const cfg = JSON.parse(fs.readFileSync(cf, "utf8"));
+      const listed: string[] = Array.isArray(cfg?.skills) ? cfg.skills.map((s: any) => String(s)) : [];
+      const sdir = path.join(opts.agentDir, "skills");
+      for (const name of listed) {
+        const p2 = path.join(sdir, name, "SKILL.md");
+        if (!fs.existsSync(p2)) continue;
+        let desc = "";
+        let injectOnly = false;
+        try {
+          const txt = fs.readFileSync(p2, "utf8");
+          const fm = txt.match(/^---\s*\n([\s\S]*?)\n---/);
+          if (fm) {
+            const dm = fm[1].match(/^description:\s*(.+)$/m);
+            if (dm) desc = dm[1].trim();
+            injectOnly = /^disable-model-invocation:\s*true/mi.test(fm[1]) || /^user-invocable:\s*true/mi.test(fm[1]);
+          }
+        } catch {}
+        if (injectOnly) out.push({ name, description: desc });
+      }
+    } catch {}
+    return out;
+  };
+  const skillGroupsCached = () => {
+    const groups: any[] = [];
+    for (const id of chatAgentIds()) {
+      const sk = injectableSkillsFor(id);
+      if (!sk.length) continue;
+      let an = id;
+      try {
+        const cfg = JSON.parse(fs.readFileSync(path.join(opts.agentDir, "agents", id, "config.json"), "utf8"));
+        an = String(cfg?.name || id);
+      } catch {}
+      groups.push({ agentId: id, agentName: an, skills: sk });
+    }
+    return groups;
+  };
+
   // Slash commands — ONLY commands that actually work, ALL silently (no chat
   // output). Commands with options open an app-style submenu (argument list).
   const commands = [
     {
       name: "model",
       description: "Change model",
+      seq: 5,
       getArgumentCompletions: (prefix: string) => {
         const items: any[] = [];
         try {
@@ -428,6 +486,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     {
       name: "thinking",
       description: "Thinking: on / off",
+      seq: 6,
       getArgumentCompletions: (prefix: string) =>
         [
           { value: "on", label: "on", description: "Thinking ON \u2014 always the maximum level" },
@@ -437,6 +496,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     {
       name: "compaction",
       description: "Compact now, or toggle auto-compaction",
+      seq: 7,
       getArgumentCompletions: (prefix: string) => {
         const auto = (() => {
           try {
@@ -458,6 +518,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     {
       name: "directory",
       description: "Working directory",
+      seq: 8,
       getArgumentCompletions: (prefix: string) => {
         const items: any[] = [];
         const home = os.homedir();
@@ -479,37 +540,24 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     {
       name: "skill",
       description: "Activate a skill",
+      seq: 9,
+      hidden: () => skillGroupsCached().length === 0,
       getArgumentCompletions: (prefix: string) => {
         const items: any[] = [];
-        try {
-          const sdir = path.join(opts.agentDir, "skills");
-          for (const d of fs.readdirSync(sdir)) {
-            const p2 = path.join(sdir, d, "SKILL.md");
-            if (!fs.existsSync(p2)) continue;
-            let desc = "";
-            let injectOnly = false;
-            try {
-              const txt = fs.readFileSync(p2, "utf8");
-              const fm = txt.match(/^---\s*\n([\s\S]*?)\n---/);
-              if (fm) {
-                const dm = fm[1].match(/^description:\s*(.+)$/m);
-                if (dm) desc = dm[1].trim();
-                // Same filter as the app (listChatSkills): only the skills the
-                // model CANNOT invoke by itself — they need explicit injection.
-                injectOnly =
-                  /^disable-model-invocation:\s*true/mi.test(fm[1]) || /^user-invocable:\s*true/mi.test(fm[1]);
-              }
-            } catch {}
-            if (!injectOnly) continue;
-            items.push({ value: d, label: d, description: desc || "skill" });
-          }
-        } catch {}
-        return items.filter((i) => i.value.toLowerCase().startsWith(prefix.toLowerCase()));
+        const p = prefix.toLowerCase();
+        for (const g of skillGroupsCached()) {
+          const skills = g.skills.filter((s: any) => s.name.toLowerCase().startsWith(p));
+          if (skills.length === 0) continue;
+          items.push({ value: "__sep_" + g.agentId, label: g.agentName, description: "", separator: true });
+          for (const s of skills) items.push({ value: s.name, label: s.name, description: s.description || "skill" });
+        }
+        return items;
       },
     },
     {
       name: "reset",
       description: "Clear messages. Keeps model, directory and settings.",
+      seq: 11,
       getArgumentCompletions: () => [
         { value: "confirm", label: "yes, clear all messages", description: "Reset session? All messages will be deleted." },
         { value: "cancel", label: "no, keep everything", description: "Keep the conversation as it is" },
@@ -518,6 +566,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     {
       name: "sessions",
       description: "Switch to another chat",
+      seq: 1,
       getArgumentCompletions: (prefix: string) => {
         const items: any[] = [];
         const labels: Record<string, string> = {};
@@ -560,8 +609,37 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       },
     },
     {
+      name: "agent",
+      description: "Agents in this chat",
+      seq: 2,
+      getArgumentCompletions: (prefix: string) => {
+        const items: any[] = [];
+        try {
+          const adir = path.join(opts.agentDir, "agents");
+          for (const id of fs.readdirSync(adir)) {
+            const cf = path.join(adir, id, "config.json");
+            if (!fs.existsSync(cf)) continue;
+            let cfg: any = {};
+            try {
+              cfg = JSON.parse(fs.readFileSync(cf, "utf8"));
+            } catch {}
+            const nm = String(cfg?.name || id);
+            const bits: string[] = [];
+            if (cfg?.model) bits.push(String(cfg.model));
+            if (cfg?.thinkingLevel) bits.push("thinking " + String(cfg.thinkingLevel));
+            const nSk = Array.isArray(cfg?.skills) ? cfg.skills.length : 0;
+            if (nSk) bits.push(nSk + " skill" + (nSk === 1 ? "" : "s"));
+            items.push({ value: id, label: nm, description: bits.join(" \u00b7 ") });
+          }
+        } catch {}
+        const p = prefix.toLowerCase();
+        return items.filter((i) => i.value.toLowerCase().startsWith(p) || i.label.toLowerCase().startsWith(p));
+      },
+    },
+    {
       name: "rename",
       description: "Rename this chat",
+      seq: 3,
       hidden: () => welcomeShown,
       getArgumentCompletions: (prefix: string) => {
         const p = prefix.trim();
@@ -571,11 +649,12 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           : [{ value: "", label: "type the new name\u2026", description: "then Enter to set it" }];
       },
     },
-    { name: "reload", description: "Reload this chat (recover history, fix glitches)" },
-    { name: "export", description: "Export this chat as Markdown" },
+    { name: "reload", description: "Reload this chat (recover history, fix glitches)", seq: 4 },
+    { name: "export", description: "Export this chat as Markdown", seq: 10 },
     {
       name: "quit",
       description: "Exit quinki (asks for confirmation)",
+      seq: 12,
       getArgumentCompletions: () => [
         { value: "yes", label: "yes", description: "Yes, exit quinki" },
         { value: "no", label: "no", description: "No, keep it open" },
@@ -934,24 +1013,17 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   const buildHintLine = (width: number): string => {
     const lit = (s: string) => bold(fg(C.primary, s));
     const quiet = (s: string) => fg(C.textTertiary, s);
+    const sec = (s: string) => fg(C.textSecondary, s);
     if (navMode) {
-      // Toggle navigation mode is ON: show its keys instead of the chat ones.
-      const leftN = lit("toggle nav");
-      const sepN = fg(C.textTertiary, "  \u00b7  ");
-      const rightN =
-        fg(C.textSecondary, "\u2191\u2193 move") +
-        sepN +
-        fg(C.textSecondary, "\u2192 open") +
-        sepN +
-        fg(C.textSecondary, "\u2190 close") +
-        sepN +
-        fg(C.danger, "Esc");
-      const brandN = fg(C.primary, "Quinki");
+      // Toggle navigation ON: its keys replace the chat ones (close left, open right).
+      const leftN = lit("Toggle Nav (Ctrl+T)") + fg(C.textTertiary, "  \u00b7  ") + sec("Move (\u2191\u2193)") + fg(C.textTertiary, "  \u00b7  ") + sec("Close (\u2190)");
+      const rightN = sec("Open (\u2192)") + fg(C.textTertiary, "  \u00b7  ") + fg(C.danger, "Esc");
+      const brandN = fg(C.primary, "\u2500\u2500\u2500") + " " + fg(C.primary, "Quinki") + " " + fg(C.primary, "\u2500\u2500\u2500");
       const lwN = visibleWidth(leftN);
       const rwN = visibleWidth(rightN);
-      const startN = Math.max(lwN + 1, Math.floor((width - 6) / 2));
+      const startN = Math.max(lwN + 1, Math.floor((width - 14) / 2));
       const g1N = Math.max(1, startN - lwN);
-      const g2N = Math.max(1, width - startN - 6 - rwN);
+      const g2N = Math.max(1, width - startN - 14 - rwN);
       return leftN + " ".repeat(g1N) + brandN + " ".repeat(g2N) + rightN;
     }
     const menuActive = menuOpenRef?.() ?? false;
@@ -968,25 +1040,25 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     // A complete slash command waiting to be run -> Enter is FILLED (violet bg).
     const cmdReady = !menuActive && textNow.startsWith("/") && textNow.length > 1;
 
-    const left = menuActive ? lit("/command") : quiet("/command");
+    const left =
+      (menuActive ? lit("Menu (/)") : quiet("Menu (/)")) +
+      fg(C.textTertiary, "  \u00b7  ") +
+      quiet("Toggle Nav (Ctrl+T)");
     const sep = fg(C.textTertiary, "  \u00b7  ");
-    const enterKey = cmdReady
-      ? bold(bg(C.primary, fg(C.bgPanel, " Enter ")))
+    const stopKey = escLit ? bold(fg(C.danger, "Stop (Esc)")) : quiet("Stop (Esc)");
+    const steerKey = canSteer ? lit("Steer (Ctrl+Enter)") : quiet("Steer (Ctrl+Enter)");
+    const sendKey = cmdReady
+      ? bold(bg(C.primary, fg(C.bgPanel, " Send (Enter) ")))
       : canSend
-        ? lit("Enter")
-        : quiet("Enter");
-    const right =
-      (escLit ? lit("Esc") : quiet("Esc")) +
-      sep +
-      (canSteer ? lit("Ctrl+Enter") : quiet("Ctrl+Enter")) +
-      sep +
-      enterKey;
+        ? lit("Send (Enter)")
+        : quiet("Send (Enter)");
+    const right = stopKey + sep + steerKey + sep + sendKey;
 
-    // "Quinki" always lit violet, perfectly centered in the row.
-    const brand = fg(C.primary, "Quinki");
+    // "─── Quinki ───" — brand centered with violet divider lines around it.
+    const brand = fg(C.primary, "\u2500\u2500\u2500") + " " + fg(C.primary, "Quinki") + " " + fg(C.primary, "\u2500\u2500\u2500");
     const lw = visibleWidth(left);
     const rw = visibleWidth(right);
-    const bw = 6;
+    const bw = 14;
     const start = Math.max(lw + 1, Math.floor((width - bw) / 2));
     const gap1 = Math.max(1, start - lw);
     const gap2 = Math.max(1, width - start - bw - rw);
@@ -1570,7 +1642,8 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   const mainItems = (): any[] => {
     const t0 = editorText();
     const f = t0.startsWith("/") ? t0.slice(1).toLowerCase() : "";
-    return commands
+    return [...commands]
+      .sort((a, b) => (((a as any).seq ?? 99) as number) - (((b as any).seq ?? 99) as number))
       .filter((c) => !(c as any).hidden?.())
       .filter((c) => c.name.toLowerCase().startsWith(f))
       .map((c) => ({ value: c.name, label: "/" + capitalize(c.name), description: (c as any).description || "" }));
@@ -1583,6 +1656,14 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     try {
       if (!menuOpen()) return;
       const items = menuSub ? subItems(menuSub) : mainItems();
+      const stepSel = (from: number, dir: number): number => {
+        let i = from;
+        for (let n = 0; n < items.length; n++) {
+          i = (i + dir + items.length) % items.length;
+          if (!(items[i] as any)?.separator) return i;
+        }
+        return from;
+      };
       if (a === "escape") {
         if (menuConfirmFocus) {
           // First Esc: leave the Confirm focus (stay in the menu).
@@ -1598,13 +1679,12 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           menuSel = 0;
         }
       } else if (a === "up") {
-        // Wrap-around like the app: from the FIRST item UP goes to the LAST.
+        // Wrap-around like the app; separator rows are skipped.
         menuConfirmFocus = false;
-        if (items.length > 0) menuSel = (menuSel - 1 + items.length) % items.length;
+        if (items.length > 0) menuSel = stepSel(menuSel, -1);
       } else if (a === "down") {
-        // Wrap-around like the app: from the LAST item DOWN goes to the FIRST.
         menuConfirmFocus = false;
-        if (items.length > 0) menuSel = (menuSel + 1) % items.length;
+        if (items.length > 0) menuSel = stepSel(menuSel, 1);
       } else if (a === "left") {
         menuConfirmFocus = false;
         if (menuSub) {
@@ -1634,7 +1714,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         // enter = Confirm: run the option, open the submenu, or run the command.
         menuConfirmFocus = false;
         const it: any = items[menuSel];
-        if (!it) return;
+        if (!it || it.separator) return;
         if (menuSub) {
           const cmdName = menuSub;
           menuSub = null;
@@ -1693,11 +1773,24 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       if (items.length === 0) return [];
       if (menuSel >= items.length) menuSel = items.length - 1;
       if (menuSel < 0) menuSel = 0;
+      if ((items[menuSel] as any)?.separator) {
+        for (let i = 0; i < items.length; i++) {
+          if (!(items[i] as any).separator) {
+            menuSel = i;
+            break;
+          }
+        }
+      }
       const rows: string[] = [];
       for (let i = 0; i < items.length; i++) {
         const it = items[i];
         let label = String(it.label ?? it.value ?? "");
         let desc = String(it.description ?? "");
+        if ((it as any).separator) {
+          // Group separator (agent name): not selectable, no highlight.
+          rows.push(fg(C.textSecondary, label));
+          continue;
+        }
         if (visibleWidth(label) > w - 2) label = label.slice(0, Math.max(0, w - 2));
         if (visibleWidth(label) + 2 + visibleWidth(desc) > w) {
           const room = w - visibleWidth(label) - 2;
