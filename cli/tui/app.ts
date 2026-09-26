@@ -1741,7 +1741,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
             // The tool's real parameters are agent_name + task (verified in
             // pi-bridge): agent_name is what must show in bold.
             const tgt = String(args?.agent_name || args?.agentId || args?.agent || "").trim();
-            const tg = new ToggleBlock({ label: "Delegation to", boldName: tgt, color: C.delegation, open: true });
+            const tg = new ToggleBlock({ label: "Delegation to", boldName: tgt, color: C.delegation, open: false });
             tg.children = [];
             const task = String(args?.task || args?.prompt || args?.message || args?.instructions || args?.text || "").trim();
             if (task) tg.children.push({ t: "bubble", v: task });
@@ -1859,6 +1859,14 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         if (!sc.connected) {
           spawnSidecar();
           void sc.connect(800).catch(() => {});
+          if (streaming) {
+            // Engine lost mid-turn: never leave the pill stuck on Running.
+            streaming = false;
+            setStatus("", "");
+            try {
+              ui.requestRender();
+            } catch {}
+          }
         }
       } catch {}
     }, 6000);
@@ -1883,6 +1891,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
             const o = JSON.parse(line);
             if (o?.type === "message" && o?.message?.role) out.push({ kind: "message", message: o.message });
             else if (o?.type === "compaction") out.push({ kind: "compaction" });
+            else if (o?.type === "delegation" && o?.delegationData) out.push({ kind: "delegation", data: o.delegationData });
           } catch {}
         }
       }
@@ -1902,6 +1911,37 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         if (en.kind === "compaction") {
           // File compactions are always REAL (noop ones never reach the file).
           pushBlock(registerToggle(new ToggleBlock({ label: "Compaction", boldName: "effective", color: C.info })));
+          continue;
+        }
+        if (en.kind === "delegation") {
+          // Delegation entry: "Delegation to <agent>" CLOSED, with the whole
+          // mini-chat inside (task bubble + thinking/text/tools of the delegate).
+          const dd: any = en.data || {};
+          const tg = new ToggleBlock({ label: "Delegation to", boldName: String(dd.agentName || ""), color: C.delegation, open: false });
+          const task = String(dd.delegatedMessage || "").trim();
+          if (task) tg.children.push({ t: "bubble", v: task });
+          try {
+            for (const b of Array.isArray(dd.content) ? dd.content : []) {
+              if (b?.type === "thinking" || b?.type === "reasoning") {
+                tg.children.push({ t: "toggle", v: new ToggleBlock({ label: "Thinking", color: C.thinking, italic: true, body: String(b.thinking || b.text || "") }) });
+              } else if (b?.type === "text") {
+                tg.children.push({ t: "text", v: String(b.text || "") });
+              } else if (b?.type === "toolCall") {
+                let tb = "";
+                try {
+                  tb = JSON.stringify(b.arguments || {}, null, 0) || "";
+                } catch {}
+                tg.children.push({ t: "toggle", v: new ToggleBlock({ label: "Tool call", boldName: String(b.name || b.toolName || "tool"), color: C.toolCall, body: tb }) });
+              } else if (b?.type === "toolResult") {
+                let rb = "";
+                try {
+                  rb = typeof b.content === "string" ? b.content : Array.isArray(b.content) ? b.content.filter((x: any) => x?.type === "text").map((x: any) => x.text).join("\n") : "";
+                } catch {}
+                tg.children.push({ t: "toggle", v: new ToggleBlock({ label: b.isError ? "Tool error" : "Tool result", boldName: String(b.toolName || b.name || "tool"), color: b.isError ? C.danger : C.toolResult, body: rb }) });
+              }
+            }
+          } catch {}
+          pushBlock(registerToggle(tg));
           continue;
         }
         const m = en.message;
@@ -1944,13 +1984,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
                 body = JSON.stringify(b.arguments || {}, null, 0) || "";
               } catch {}
               pushBlock(
-                registerToggle(
-                  new ToggleBlock(
-                    /delegate/i.test(nm)
-                      ? { label: "Delegation", color: C.delegation, body }
-                      : { label: "Tool call", boldName: nm, color: C.toolCall, body }
-                  )
-                )
+                registerToggle(new ToggleBlock({ label: "Tool call", boldName: nm, color: C.toolCall, body }))
               );
             }
           }
@@ -2118,20 +2152,63 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       }
       case "export": {
         try {
-          const msgs: any[] = readSessionMessages();
+          // FULL export like the app: user messages, assistant text, thinking,
+          // tool calls, tool results, delegations (agent + task + inner chat),
+          // compactions — everything that is inside the conversation.
           const out: string[] = ["# Quinki chat", ""];
-          for (const m of msgs) {
-            const role = m.role === "user" ? "You" : m.role === "assistant" ? "Quinki" : String(m.role);
-            let text = "";
-            const c = m.content;
-            if (typeof c === "string") text = c;
-            else if (Array.isArray(c)) {
-              text = c
-                .filter((b: any) => b?.type === "text")
-                .map((b: any) => b.text)
-                .join("\n");
+          for (const en of readSessionEntries()) {
+            if (en.kind === "compaction") {
+              out.push("---", "*Compaction*", "");
+              continue;
             }
-            if (text.trim()) out.push(`## ${role}`, "", text, "");
+            if (en.kind === "delegation") {
+              const dd: any = en.data || {};
+              out.push("### Delegation to " + String(dd.agentName || ""), "");
+              out.push("**Task:** " + String(dd.delegatedMessage || ""), "");
+              try {
+                for (const b of Array.isArray(dd.content) ? dd.content : []) {
+                  if (b?.type === "thinking" || b?.type === "reasoning") out.push(String(b.thinking || b.text || ""), "");
+                  else if (b?.type === "text") out.push(String(b.text || ""), "");
+                  else if (b?.type === "toolCall") {
+                    let j = "";
+                    try {
+                      j = JSON.stringify(b.arguments || {}, null, 2);
+                    } catch {}
+                    out.push("**Tool call \u00b7 " + String(b.name || b.toolName || "tool") + "**", "```json", j, "```", "");
+                  } else if (b?.type === "toolResult") {
+                    const rb = typeof b.content === "string" ? b.content : Array.isArray(b.content) ? b.content.filter((x: any) => x?.type === "text").map((x: any) => x.text).join("\n") : "";
+                    out.push("**" + (b.isError ? "Tool error" : "Tool result") + " \u00b7 " + String(b.toolName || b.name || "tool") + "**", rb, "");
+                  }
+                }
+              } catch {}
+              continue;
+            }
+            const m = en.message;
+            if (m.role === "user") {
+              const c = m.content;
+              const t = typeof c === "string" ? c : Array.isArray(c) ? c.filter((b: any) => b?.type === "text").map((b: any) => b.text).join("\n") : "";
+              if (t.trim()) out.push("## You", "", t, "");
+            } else if (m.role === "toolResult") {
+              const rb = typeof m.content === "string" ? m.content : Array.isArray(m.content) ? m.content.filter((x: any) => x?.type === "text").map((x: any) => x.text).join("\n") : "";
+              out.push("**" + (m.isError ? "Tool error" : "Tool result") + " \u00b7 " + String(m.toolName || "tool") + "**", rb, "");
+            } else if (m.role === "assistant") {
+              const c = m.content;
+              if (typeof c === "string") {
+                if (c.trim()) out.push("## Quinki", "", c, "");
+              } else if (Array.isArray(c)) {
+                for (const b of c) {
+                  if (b?.type === "thinking" || b?.type === "reasoning") out.push(String(b.thinking || b.text || ""), "");
+                  else if (b?.type === "text") out.push(String(b.text || ""), "");
+                  else if (b?.type === "toolCall") {
+                    let j = "";
+                    try {
+                      j = JSON.stringify(b.arguments || {}, null, 2);
+                    } catch {}
+                    out.push("**Tool call \u00b7 " + String(b.name || b.toolName || "tool") + "**", "```json", j, "```", "");
+                  }
+                }
+              }
+            }
           }
           // Native "save as" dialog, then NOTHING in the chat: the dialog itself
           // is the feedback. Default location: Downloads.
