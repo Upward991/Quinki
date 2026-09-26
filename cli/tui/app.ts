@@ -3136,10 +3136,8 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       welcomeShown = false;
       applyLayout(false);
     }
-    pushBlock(new Text(t, 2, 1, (s: string) => bg(C.bubbleUser, s)));
-    scrollToEnd();
     // User bubble with the footer INSIDE it (no info glyph on user messages).
-    // Dedupe: some terminals deliver Enter twice (press+release) — never two bubbles.
+    // ONE push only — the old plain Text bubble was removed (it doubled).
     {
       const now = Date.now();
       if (!(lastUserPush.text === t && now - lastUserPush.ts < 2000)) {
