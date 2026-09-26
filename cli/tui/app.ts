@@ -2217,6 +2217,16 @@ export async function runTui(opts: TuiOptions): Promise<void> {
                   tg.children.push({ t: "toggle", v: new ToggleBlock({ label: "Tool call", boldName: String(bToolName || "tool"), color: C.toolCall, body: tb }) });
                 } else if (bType === "text" || typeof blk.text === "string") {
                   tg.children.push({ t: "text", v: String(blk.text || "") });
+                  // Footer right after the delegate's response — the SAME real
+                  // per-message data as the chat (block timestamp, agent/model/level).
+                  try {
+                    const bts = Number(blk.timestamp) || Number(m.timestamp) || Date.now();
+                    tg.children.push({
+                      t: "footer",
+                      date: fmtFooterDate(bts),
+                      info: agentDisplayName(String(m.agentName || "")) + " \u00b7 " + String(m.agentModel || m.model || "") + " \u00b7 " + levelLabel(String(m.thinkingLevel || "off")),
+                    });
+                  } catch {}
                 }
               }
             } catch {}
