@@ -278,6 +278,7 @@ class ToggleBlock {
   open = false;
   selected = false;
   children: any[] = []; // nested content: {t:"text",v:string} | {t:"toggle",v:ToggleBlock}
+  info = false; // message-info toggle (Ctrl+I opens/closes them all)
   constructor(o: { label: string; boldName?: string; color: string; body?: string; italic?: boolean; open?: boolean }) {
     this.label = o.label;
     this.boldName = o.boldName || "";
@@ -338,8 +339,22 @@ class ToggleBlock {
         if (!firstChild) out.push(" " + fg(this.color, "\u2502".padEnd(Math.max(1, width - 1))));
         firstChild = false;
         if (ch && ch.t === "bubble") {
-          // Mini user bubble (the task the delegating agent sent).
-          for (const line of wrapPlain(String(ch.v || ""), inner)) out.push(" " + fg(this.color, "\u2502 ") + bg(C.bubbleUser, " " + line + " "));
+          // The delegating agent's task: rendered EXACTLY like the user's bubble
+          // (panel background, padding, markdown inside).
+          try {
+            const th = (globalThis as any).__qMd;
+            let lines: string[] = [];
+            if (th) {
+              if (!ch._md) ch._md = new Markdown(String(ch.v || ""), 0, 0, th);
+              else ch._md.setText?.(String(ch.v || ""));
+              lines = ch._md.render(Math.max(6, width - 6));
+            } else {
+              lines = wrapPlain(String(ch.v || ""), inner);
+            }
+            for (const ln of lines) out.push(" " + fg(this.color, "\u2502 ") + bg(C.bubbleUser, " " + ln + " "));
+          } catch {
+            for (const line of wrapPlain(String(ch.v || ""), inner)) out.push(" " + fg(this.color, "\u2502 ") + bg(C.bubbleUser, " " + line + " "));
+          }
         } else if (ch && ch.t === "text") {
           // Markdown rendering INSIDE the toggle — identical to the normal chat.
           try {
@@ -892,7 +907,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       getArgumentCompletions: (prefix: string) => {
         const items: any[] = [];
         const labels: Record<string, string> = {};
-        if (scOn && wsSessions.length) {
+        if (scOn) {
           // Opening the menu refreshes the list RIGHT AWAY (throttled): fresh data
           // appears in place — no need to open/close the menu twice.
           if (Date.now() - lastSessKick > 1500) {
@@ -1121,6 +1136,16 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       const isCtrlT = data === "\x14" || matchesKey(data, "ctrl+t");
       if (isCtrlT && !(menuOpenRef?.() ?? false)) {
         toggleNavMode();
+        return { consume: true };
+      }
+      // Ctrl+I (kitty: CSI 105;5u) = open/close ALL message Info toggles at once.
+      if ((data === "\x1b[105;5u" || matchesKey(data, "ctrl+i")) && !navMode && !(menuOpenRef?.() ?? false)) {
+        try {
+          const infos = flatToggles().filter((t: any) => t.info);
+          const anyOpen = infos.some((t: any) => t.open);
+          infos.forEach((t: any) => (t.open = !anyOpen));
+          ui.requestRender();
+        } catch {}
         return { consume: true };
       }
       if (navMode && !(menuOpenRef?.() ?? false)) {
@@ -1443,7 +1468,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     const left =
       (menuActive ? lit("Menu (/)") : quiet("Menu (/)")) +
       fg(C.textTertiary, "  \u00b7  ") +
-      quiet("Toggle Nav (Ctrl+T)");
+      quiet("Toggle Nav (Ctrl+T)") +
+      fg(C.textTertiary, "  \u00b7  ") +
+      quiet("Info (Ctrl+I)");
     const sep = fg(C.textTertiary, "  \u00b7  ");
     const stopKey = streaming ? bold(fg(C.danger, "Stop (Esc)")) : quiet("Stop (Esc)");
     const steerKey = canSteer ? lit("Steer (Ctrl+Enter)") : quiet("Steer (Ctrl+Enter)");
@@ -1609,6 +1636,20 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         }
         thinkingRow = null;
         thinkingText = "";
+        // Message footer: time + date, then the Info toggle (agent/model/thinking).
+        try {
+          const d = new Date();
+          const hh = String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+          const dd = String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0") + "/" + d.getFullYear();
+          addRow(fg(C.textTertiary, "\u25b8 " + hh + "  \u00b7  " + dd));
+          const info = new ToggleBlock({
+            label: "Info",
+            color: C.info,
+            body: "Agent: " + (sessionAgentIds()[0] || "quinki") + " \u00b7 Model: " + (wsModelId || "default") + " \u00b7 Thinking: " + (thinkingOn ? "on (xhigh)" : "off"),
+          });
+          info.info = true;
+          pushBlock(registerToggle(info));
+        } catch {}
         if (e?.message?.stopReason === "error") setStatus("Failed", "failed");
       } else if (e?.type === "auto_retry_start") {
         setStatus(`Retrying ${e.attempt || 1}/${e.maxAttempts || 3}`, "retrying");
