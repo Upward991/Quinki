@@ -2270,7 +2270,10 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         } else if (menuStack.length > 0) {
           const it: any = items[menuSel];
           if (it && !it.separator) {
-            const deeper = agentLevelFor(it);
+            // ONLY the agent menu has deeper levels. Every other submenu is a
+            // terminal list: → must light the Confirm directly, never push a
+            // ghost level out of the item value.
+            const deeper = menuStack[0] === "agent" ? agentLevelFor(it) : null;
             if (deeper) {
               menuStack.push(deeper);
               menuSubFilter = "";
