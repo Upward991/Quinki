@@ -571,11 +571,10 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     try {
       const headerWrap = new CenterBox(header) as any;
       const hintWrap = new CenterBox(hintRow) as any;
-      // App-matching spacing: a padding row under the heading, a padding row
-      // above the text box, and the separator line between the box and the
+      // App-matching spacing (PADDING only — no visible rules): a blank row
+      // under the heading, one above the text box, one between the box and the
       // hint row.
       const blank = () => new FnLine(() => " ");
-      const sepRow = new CenterBox(new FnLine((w: number) => fg(C.border, "\u2500".repeat(Math.max(0, w))))) as any;
       const root = welcome
         ? new WelcomeRoot(boxWrap, hintWrap, () => (ui as any)?.terminal?.rows || 24)
         : new VStack([
@@ -584,7 +583,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
             { component: scroll as any, basis: 0, grow: 1, shrink: 1, minSize: 1 },
             { component: blank(), basis: "auto", grow: 0, shrink: 1, minSize: 0 },
             { component: boxWrap, basis: "auto", grow: 0, shrink: 1, minSize: 5 },
-            { component: sepRow, basis: "auto", grow: 0, shrink: 0, minSize: 1 },
+            { component: blank(), basis: "auto", grow: 0, shrink: 1, minSize: 0 },
             { component: hintWrap, basis: "auto", grow: 0, shrink: 0, minSize: 1 },
           ]);
       ui.setLayoutRoot(root as any);
