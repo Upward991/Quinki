@@ -1713,7 +1713,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           if (/delegate/i.test(wsToolName)) {
             // "Delegation to <agent>" (bold), OPEN while streaming, whole mini-chat
             // inside — exactly like the original app.
-            const tgt = String(args?.agentId || args?.agent || args?.to || "").trim();
+            // The tool's real parameters are agent_name + task (verified in
+            // pi-bridge): agent_name is what must show in bold.
+            const tgt = String(args?.agent_name || args?.agentId || args?.agent || "").trim();
             const tg = new ToggleBlock({ label: "Delegation to", boldName: tgt, color: C.delegation, open: true });
             tg.children = [];
             const task = String(args?.task || args?.prompt || args?.message || args?.instructions || args?.text || "").trim();
@@ -2101,13 +2103,30 @@ export async function runTui(opts: TuiOptions): Promise<void> {
             }
             if (text.trim()) out.push(`## ${role}`, "", text, "");
           }
-          const file = path.join(currentCwd, `quinki-chat-${Date.now().toString(36)}.md`);
-          fs.writeFileSync(file, out.join("\n"), "utf8");
-          // Visible confirmation: the path (before, the command looked dead).
-          addRow(fg(C.info, "\u25b8 exported \u00b7 " + file));
+          // Native "save as" dialog, then NOTHING in the chat: the dialog itself
+          // is the feedback. Default location: Downloads.
+          const defName = `quinki-chat-${Date.now().toString(36)}.md`;
+          let target = "";
           try {
-            scrollToEnd();
+            if (process.platform === "darwin") {
+              const r = execSync(
+                `osascript -e 'POSIX path of (choose file name with prompt "Export chat" default name "${defName}" default location (path to downloads folder))'`,
+                { stdio: ["ignore", "pipe", "ignore"] }
+              )
+                .toString()
+                .trim();
+              if (r) target = r;
+            } else if (process.platform === "linux") {
+              const r = execSync(`zenity --file-selection --save --filename="$HOME/Downloads/${defName}"`, {
+                stdio: ["ignore", "pipe", "ignore"],
+              })
+                .toString()
+                .trim();
+              if (r) target = r;
+            }
           } catch {}
+          if (!target) target = path.join(os.homedir(), "Downloads", defName);
+          fs.writeFileSync(target, out.join("\n"), "utf8");
         } catch {}
         break;
       }
