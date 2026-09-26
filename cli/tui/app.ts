@@ -1839,6 +1839,19 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   let wsToolToggle: any = null;
   let lastUserPush = { text: "", ts: 0 };
   let histLimit = 50; // rendered messages (app starts at ~50, scrolling up loads more)
+  // The vendored ScrollView calls this when the user scrolls to the very top.
+  (globalThis as any).__qLoadOlder = () => {
+    try {
+      const allN = readSessionEntries().length;
+      if (allN <= histLimit) return;
+      histLimit += 50;
+      renderHistory();
+      try {
+        (globalThis as any).__quinkiScroll?.scrollTo?.(60, { disableFollow: true });
+      } catch {}
+      ui.requestRender();
+    } catch {}
+  };
   let modelExplicit = false; // user picked a model with /model
   let thinkingExplicit = false; // user toggled thinking with /thinking
   // Live delegations: messageId -> open delegation toggle. Nested stream events

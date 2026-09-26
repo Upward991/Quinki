@@ -96,6 +96,21 @@ export class ScrollView extends Container {
         const requested = Number.isFinite(scrollTop) ? Math.trunc(scrollTop) : this.currentScrollTop;
         const maxScrollTop = Math.max(0, this.contentHeight - this.currentViewportHeight);
         const next = Math.max(0, Math.min(maxScrollTop, requested));
+        // Quinki: hitting the TOP with more history available asks for older
+        // messages (50 at a time) — wheel, PgUp and arrow keys all funnel here.
+        try {
+          const prevTop = Number(this.currentScrollTop || 0);
+          if (next <= 2 && prevTop > next && typeof globalThis.__qLoadOlder === "function") {
+            const fn = globalThis.__qLoadOlder;
+            globalThis.__qLoadOlder = null;
+            setTimeout(() => {
+              try {
+                fn();
+              } catch {}
+              globalThis.__qLoadOlder = fn;
+            }, 10);
+          }
+        } catch {}
         const nextFollowSuppressedAtEnd = options.disableFollow === true && next === maxScrollTop;
         const nextFollowingEnd = !nextFollowSuppressedAtEnd && this.followEnd && next === maxScrollTop;
         if (next === this.currentScrollTop &&
