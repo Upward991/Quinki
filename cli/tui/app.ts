@@ -680,6 +680,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   let wsSessions: any[] = [];
   let lastSessKick = 0;
   let lastSkillKick = 0;
+  let titleLocked = false; // user renamed: auto-title must not overwrite it
   const refreshSessions = () => {
     if (!scOn) return;
     void sc
@@ -1747,6 +1748,23 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         onSessionEvent({ type: "agent_end" });
         refreshSkillGroups();
         refreshSessions();
+        // Real context numbers from the same source the app uses.
+        void sc
+          .call("getContextUsage", { sessionKey: currentKey }, 15000)
+          .then((r: any) => {
+            const u = r?.usage || {};
+            const used = Number(u.input || 0) + Number(u.output || 0);
+            if (used > 0) ctxTokens = used;
+            if (Number(u.contextWindow || 0) > 0) ctxWindow = Number(u.contextWindow);
+            else {
+              const mm = availableModels().find((x: any) => String(x?.id) === wsModelId);
+              if (mm?.contextWindow) ctxWindow = Number(mm.contextWindow);
+            }
+            try {
+              ui.requestRender();
+            } catch {}
+          })
+          .catch(() => {});
       } else if (method === "agent_status") {
         const k = String(p.status || "");
         if (k === "retrying") setStatus("Retrying " + (p.attempt || 1) + "/" + (p.maxAttempts || 3), "retrying");
@@ -1762,9 +1780,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         updateBar();
       } else if (method === "session_updated") {
         // Auto-generated title (and state) from the runtime: the CLI header
-        // renames itself exactly like the app.
+        // renames itself exactly like the app — unless the user renamed it.
         if (p.sessionKey === currentKey) {
-          if (p.label) setChatTitle(String(p.label));
+          if (p.label && !titleLocked) setChatTitle(String(p.label));
           if (p.model) wsModelId = String(p.model);
           if (typeof p.thinkingLevel === "string") thinkingOn = p.thinkingLevel !== "off";
           updateBar();
@@ -2154,7 +2172,19 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       }
       case "rename": {
         if (!arg) break;
+        titleLocked = true; // no auto-title may overwrite the user's rename
         if (scOn) void sc.call("renameSession", { sessionKey: currentKey, label: arg }, 20000).catch(() => {});
+        // Anti-loss store the runtime itself honours (chat-meta.json): survives
+        // worker auto-title, reinstalls and shared-file overwrites.
+        try {
+          const mp = path.join(opts.agentDir, "chat-meta.json");
+          let meta: any = {};
+          try {
+            meta = JSON.parse(fs.readFileSync(mp, "utf8")) || {};
+          } catch {}
+          meta[currentKey] = { ...(meta[currentKey] || {}), label: arg };
+          fs.writeFileSync(mp, JSON.stringify(meta, null, 2), "utf8");
+        } catch {}
         try {
           // register/rename in quinki-sessions.json — shared with the app
           const sp = path.join(opts.agentDir, "quinki-sessions.json");
