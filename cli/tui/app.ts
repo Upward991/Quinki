@@ -341,7 +341,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     // The app is not running: launch the installed sidecar ourselves (detached),
     // so the TUI works standalone and shares the same engine when the app opens.
     try {
-      const sh = "/Applications/Quinki.app/Contents/Resources/sidecar/start.sh";
+      const sh = "/Applications/Quinki.app/Contents/Resources/resources/sidecar/start.sh";
       if (fs.existsSync(sh)) {
         const p = spawn(sh, [], { detached: true, stdio: "ignore", cwd: path.dirname(sh), env: process.env as any });
         p.unref?.();
@@ -1463,6 +1463,15 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         if (p.model) wsModelId = String(p.model);
         if (typeof p.thinkingLevel === "string") thinkingOn = p.thinkingLevel !== "off";
         updateBar();
+      } else if (method === "session_updated") {
+        // Auto-generated title (and state) from the runtime: the CLI header
+        // renames itself exactly like the app.
+        if (p.sessionKey === currentKey) {
+          if (p.label) setChatTitle(String(p.label));
+          if (p.model) wsModelId = String(p.model);
+          if (typeof p.thinkingLevel === "string") thinkingOn = p.thinkingLevel !== "off";
+          updateBar();
+        }
       } else if (method === "context_usage") {
         if (p.usage) {
           const used = Number(p.usage.input || 0) + Number(p.usage.output || 0);
