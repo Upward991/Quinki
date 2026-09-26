@@ -1810,6 +1810,8 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   let wsToolArgs = "";
   let wsToolToggle: any = null;
   let lastUserPush = { text: "", ts: 0 };
+  let modelExplicit = false; // user picked a model with /model
+  let thinkingExplicit = false; // user toggled thinking with /thinking
   // Live delegations: messageId -> open delegation toggle. Nested stream events
   // (thinking, text, tool calls of the DELEGATED agent) go INSIDE the toggle —
   // exactly like the app's delegation block.
@@ -2335,6 +2337,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       case "thinking": {
         thinkingOn = arg === "off" ? false : arg === "on" ? true : !thinkingOn;
         if (scOn) {
+          thinkingExplicit = true;
           void sc.call("setThinking", { sessionKey: currentKey, thinkingLevel: thinkingOn ? "xhigh" : "off" }, 20000).catch(() => {});
           break;
         }
@@ -2469,6 +2472,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         if (!arg) break;
         if (scOn) {
           wsModelId = arg;
+          modelExplicit = true;
           void sc.call("setModel", { sessionKey: currentKey, model: arg }, 60000).catch(() => {});
           break;
         }
@@ -3240,8 +3244,10 @@ export async function runTui(opts: TuiOptions): Promise<void> {
               sessionKey: sk,
               text: t,
               ...(skills.length ? { skillNames: skills } : {}),
-              ...(wsModelId ? { model: wsModelId } : {}),
-              thinkingLevel: thinkingOn ? "xhigh" : "off",
+              // Only what the USER changed here: otherwise the session/app
+              // defaults decide (no forced model, no forced thinking).
+              ...(modelExplicit && wsModelId ? { model: wsModelId } : {}),
+              ...(thinkingExplicit ? { thinkingLevel: thinkingOn ? "xhigh" : "off" } : {}),
               mode,
             },
             600000
