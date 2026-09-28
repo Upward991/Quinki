@@ -91,6 +91,19 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
       .then((r: any) => { if (r?.defaultPath) setDefaultDir(String(r.defaultPath)) })
       .catch(() => {})
   }, [props.sessionKey])
+  // The current directory is the FIRST row and must change INSTANTLY in the open
+  // menu when a directory is applied (guard fallback, picker, anything).
+  useEffect(() => {
+    const onPicked = (ev: any) => {
+      try {
+        const p = String(ev?.detail?.path || '')
+        if (!p) return
+        setDirectories((d: string[]) => [p, ...d.filter((x: string) => x !== p)])
+      } catch {}
+    }
+    window.addEventListener('quinki-workdir-picked', onPicked)
+    return () => window.removeEventListener('quinki-workdir-picked', onPicked)
+  }, [])
   const [skills, setSkills] = useState<any[]>([])
   const [skillGroups, setSkillGroups] = useState<any[]>([])
   const [skillsLoading, setSkillsLoading] = useState(false)
