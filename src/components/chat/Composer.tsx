@@ -817,10 +817,23 @@ export function Composer(props: ComposerProps) {
               <button onClick={async () => {
                 const g = dirGuard
                 setDirGuard(null)
-                if (!g || g.kind !== 'fallback' || !g.defaultDir) return
-                // Same flow as a directory change: apply the default + the usual dialog.
+                if (!g || g.kind !== 'fallback') return
+                const call = (window as any).__sidecarCall
+                const sk = g.sessionKey || props.sessionKey
+                // Ask the sidecar for the default FRESH (it may not have reached the
+                // menu): the chat must really switch to its default directory.
+                let dd = g.defaultDir
+                if (!dd && call && sk) {
+                  try {
+                    const r = await call('listWorkingDirs', { sessionKey: sk })
+                    dd = String(r?.defaultPath || '')
+                  } catch {}
+                }
+                if (!dd || !sk) return
+                // Same flow as picking a directory: applies it (and shows the usual
+                // move/shared dialogs when needed).
                 try {
-                  window.dispatchEvent(new CustomEvent('quinki-workdir-picked', { detail: { path: g.defaultDir, sessionKey: g.sessionKey || props.sessionKey } }))
+                  window.dispatchEvent(new CustomEvent('quinki-workdir-picked', { detail: { path: dd, sessionKey: sk } }))
                 } catch {}
               }}
                 onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }}
