@@ -143,6 +143,7 @@ export function Composer(props: ComposerProps) {
     try { await invoke('open_working_dir_folder', { path }) } catch (e: any) { console.error('open_working_dir_folder:', e) }
   }
   const [pendingWorkdir, setPendingWorkdir] = useState<{ apply: string; from: string; to: string; files: number; sessionKey: string } | null>(null)
+  const [dirGuard, setDirGuard] = useState<{ kind: 'fallback' | 'nodelete'; dir: string; defaultDir: string; sessionKey?: string } | null>(null)
   const [sharedDirWarn, setSharedDirWarn] = useState<{ ownerLabel: string; path: string; sessionKey: string } | null>(null)
   const applyWorkdir = async (sk: string, path: string) => {
     const call = (window as any).__sidecarCall
@@ -171,7 +172,14 @@ export function Composer(props: ComposerProps) {
       await applyWorkdir(sk, path)
     }
     window.addEventListener('quinki-workdir-picked', onPicked)
-    return () => window.removeEventListener('quinki-workdir-picked', onPicked)
+    const onDirGuard = (ev: any) => {
+      try {
+        const d = ev?.detail || {}
+        setDirGuard({ kind: d.kind === 'nodelete' ? 'nodelete' : 'fallback', dir: String(d.dir || ''), defaultDir: String(d.defaultDir || ''), sessionKey: d.sessionKey })
+      } catch {}
+    }
+    window.addEventListener('quinki-dir-guard', onDirGuard)
+    return () => { window.removeEventListener('quinki-workdir-picked', onPicked); window.removeEventListener('quinki-dir-guard', onDirGuard) }
   }, [])
 
   // === Mobile (visione telefono) ===
@@ -780,6 +788,45 @@ export function Composer(props: ComposerProps) {
                 onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }}
                 style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>
                 Use anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {dirGuard && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 400, backgroundColor: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setDirGuard(null)}>
+          <div style={{ backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '20px 24px', maxWidth: '440px', width: '90%' }} onClick={e => e.stopPropagation()}>
+            <div style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '8px' }}>
+              {dirGuard.kind === 'fallback' ? 'A chat needs a directory' : 'Default directory'}
+            </div>
+            <div style={{ color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', lineHeight: 1.5, marginBottom: '16px' }}>
+              {dirGuard.kind === 'fallback'
+                ? 'A chat cannot work without a directory. This chat will return to its default directory.'
+                : 'You cannot remove the default directory. You can only change it.'}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              {dirGuard.kind === 'fallback' && (
+                <button onClick={() => setDirGuard(null)}
+                  onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }}
+                  onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
+                  style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>
+                  Cancel
+                </button>
+              )}
+              <button onClick={async () => {
+                const g = dirGuard
+                setDirGuard(null)
+                if (!g || g.kind !== 'fallback' || !g.defaultDir) return
+                // Same flow as a directory change: apply the default + the usual dialog.
+                try {
+                  window.dispatchEvent(new CustomEvent('quinki-workdir-picked', { detail: { path: g.defaultDir, sessionKey: g.sessionKey || props.sessionKey } }))
+                } catch {}
+              }}
+                onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }}
+                onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }}
+                style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>
+                OK
               </button>
             </div>
           </div>

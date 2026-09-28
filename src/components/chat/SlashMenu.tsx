@@ -83,8 +83,6 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
   const [pendingThinking, setPendingThinking] = useState(props.thinking)
   const [directories, setDirectories] = useState<string[]>([])
   const [defaultDir, setDefaultDir] = useState<string>('')
-  const [dirGuard, setDirGuard] = useState<null | 'fallback' | 'nodelete'>(null)
-  const [pendingRemovedDir, setPendingRemovedDir] = useState<string>('')
   useEffect(() => {
     const call = (window as any).__sidecarCall
     if (!call || !props.sessionKey) return
@@ -585,12 +583,16 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
                     </div>
                     <button
                       onClick={() => {
-                        if (defaultDir && dir === defaultDir) {
-                          setDirGuard('nodelete')
-                          return
-                        }
-                        setPendingRemovedDir(dir)
-                        setDirGuard('fallback')
+                        try {
+                          window.dispatchEvent(new CustomEvent('quinki-dir-guard', {
+                            detail: {
+                              kind: defaultDir && dir === defaultDir ? 'nodelete' : 'fallback',
+                              dir,
+                              defaultDir,
+                              sessionKey: props.sessionKey,
+                            },
+                          }))
+                        } catch {}
                       }}
                       style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: 'var(--q-text-tertiary)', display: 'flex', flexShrink: 0 }}
                     >
@@ -634,52 +636,6 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
             }}
           />
         </>
-      )}
-
-      {dirGuard && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 20, backgroundColor: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-lg)' }}>
-          <div style={{ backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', padding: '16px 20px', maxWidth: '340px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', lineHeight: 1.5 }}>
-              {dirGuard === 'fallback'
-                ? 'A chat cannot work without a directory. This chat will return to its default directory.'
-                : 'You cannot remove the default directory. You can only change it.'}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              {dirGuard === 'fallback' && (
-                <button
-                  onClick={() => { setDirGuard(null); setPendingRemovedDir('') }}
-                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }}
-                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}
-                  style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', cursor: 'pointer', transition: 'none' }}
-                >
-                  Cancel
-                </button>
-              )}
-              <button
-                onClick={() => {
-                  const wasFallback = dirGuard === 'fallback'
-                  const removed = pendingRemovedDir
-                  setDirGuard(null)
-                  setPendingRemovedDir('')
-                  if (!wasFallback) return
-                  if (removed) setDirectories((d: string[]) => d.filter((d2: string) => d2 !== removed))
-                  // Fallback to the default: the normal directory-change flow applies
-                  // it and shows the move dialog (same as picking a directory).
-                  if (defaultDir) {
-                    try {
-                      window.dispatchEvent(new CustomEvent('quinki-workdir-picked', { detail: { path: defaultDir, sessionKey: props.sessionKey } }))
-                    } catch {}
-                  }
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }}
-                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }}
-                style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)', cursor: 'pointer', transition: 'none' }}
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
       {/* Reset confirm mode */}
