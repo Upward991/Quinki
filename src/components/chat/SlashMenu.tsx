@@ -86,12 +86,13 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
   const [dirGuard, setDirGuard] = useState<null | 'fallback' | 'nodelete'>(null)
   const [pendingRemovedDir, setPendingRemovedDir] = useState<string>('')
   useEffect(() => {
+    const call = (window as any).__sidecarCall
     if (!call || !props.sessionKey) return
     Promise.resolve()
       .then(() => call('listWorkingDirs', { sessionKey: props.sessionKey }))
       .then((r: any) => { if (r?.defaultPath) setDefaultDir(String(r.defaultPath)) })
       .catch(() => {})
-  }, [call, props.sessionKey])
+  }, [props.sessionKey])
   const [skills, setSkills] = useState<any[]>([])
   const [skillGroups, setSkillGroups] = useState<any[]>([])
   const [skillsLoading, setSkillsLoading] = useState(false)
