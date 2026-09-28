@@ -831,9 +831,10 @@ export function Composer(props: ComposerProps) {
                 }
                 if (!dd || !sk) return
                 // Same flow as picking a directory: applies it (and shows the usual
-                // move/shared dialogs when needed).
+                // move/shared dialogs when needed). removedDir travels along so the
+                // open menu can REPLACE that row instead of adding a new one.
                 try {
-                  window.dispatchEvent(new CustomEvent('quinki-workdir-picked', { detail: { path: dd, sessionKey: sk } }))
+                  window.dispatchEvent(new CustomEvent('quinki-workdir-picked', { detail: { path: dd, sessionKey: sk, removedDir: g.dir || '' } }))
                 } catch {}
               }}
                 onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }}

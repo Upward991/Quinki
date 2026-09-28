@@ -97,8 +97,14 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
     const onPicked = (ev: any) => {
       try {
         const p = String(ev?.detail?.path || '')
+        const removed = String(ev?.detail?.removedDir || '')
         if (!p) return
-        setDirectories((d: string[]) => [p, ...d.filter((x: string) => x !== p)])
+        setDirectories((d: string[]) => {
+          // TRUE replacement: the removed directory disappears from the list and
+          // the new one takes the top slot (the current one) — never an addition.
+          const base = removed ? d.filter((x: string) => x !== removed) : d
+          return [p, ...base.filter((x: string) => x !== p)]
+        })
       } catch {}
     }
     window.addEventListener('quinki-workdir-picked', onPicked)
