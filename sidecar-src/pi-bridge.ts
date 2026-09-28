@@ -605,14 +605,27 @@ class PiBridge {
           // Restore workingDir: il chat-meta per-sessione è AUTHORITATIVE (anche
           // "" = tolta: si torna alla default). Il file condiviso può essere stantio.
           try {
+            const GENERAL_WD2 = path.join(homedir(), ".quinki", "workdir");
+            const isGeneral2 = (v: any) => {
+              const t = String(v || "").replace(/\/+$/, "").replace(/^~/, homedir());
+              return !!t && t === GENERAL_WD2;
+            };
             const metaWd = this.#readChatMeta(s.key).workingDir;
-            if (metaWd !== undefined) {
-              if (metaWd) this.#cwdOverride.set(s.key, String(metaWd));
-              else this.#cwdOverride.delete(s.key);
-              (existing as any).workingDir = metaWd || undefined;
-            } else if (s.workingDir) {
-              this.#cwdOverride.set(s.key, s.workingDir);
-              (existing as any).workingDir = s.workingDir;
+            let useDir = "";
+            if (metaWd !== undefined && metaWd && !isGeneral2(metaWd)) useDir = String(metaWd);
+            else if (metaWd === undefined && s.workingDir && !isGeneral2(String(s.workingDir))) useDir = String(s.workingDir);
+            if (useDir) {
+              this.#cwdOverride.set(s.key, useDir);
+              (existing as any).workingDir = useDir;
+            } else {
+              // Removed, empty, or the shared general folder: a chat must NEVER run
+              // without its own workdir -> (re)assign the chat OWN folder and persist
+              // it in chat-meta + the session entry, EVERY time the chat starts.
+              const own = this.#autoWorkDir(s.key);
+              this.#cwdOverride.set(s.key, own);
+              (existing as any).workingDir = own;
+              try { this.#writeChatMeta(s.key, { workingDir: own }); } catch {}
+              try { this.#updateSessionFile(s.key, (e: any) => { e.workingDir = own; }); } catch {}
             }
           } catch {}
           if (false && s.workingDir) {
@@ -4091,14 +4104,27 @@ Read this file to view it.` }] };
   // Cartella EFFETTIVA della chat: il chat-meta.json per-sessione vince (anche ""
   // = tornata alla default), altrimenti il file condiviso, altrimenti la default.
   effectiveWorkDir(key: string): string {
+    // A chat NEVER works in the shared general folder (~/.quinki/workdir): that
+    // value (or empty) falls through to the chat's OWN auto folder, always.
+    const GENERAL_WD = path.join(homedir(), ".quinki", "workdir");
+    const isGeneral = (v: any) => {
+      const t = String(v || "").replace(/\/+$/, "").replace(/^~/, homedir());
+      return !!t && t === GENERAL_WD;
+    };
     try {
       const meta = this.#readChatMeta(key);
-      if (meta && meta.workingDir !== undefined) return String(meta.workingDir || "");
+      if (meta && meta.workingDir !== undefined) {
+        const v = String(meta.workingDir || "");
+        if (v && !isGeneral(v)) return v;
+      }
     } catch {}
     try {
       const data = JSON.parse(fs.readFileSync(SESSION_FILE, "utf8"));
       const e = (Array.isArray(data) ? data : []).find((x: any) => x && x.key === key);
-      if (e && e.workingDir) return String(e.workingDir);
+      if (e && e.workingDir) {
+        const v = String(e.workingDir);
+        if (!isGeneral(v)) return v;
+      }
     } catch {}
     return "";
   }
