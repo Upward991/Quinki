@@ -597,11 +597,16 @@ const clients = new Set<any>();
 
 // FIX A4.3: heartbeat — chiude i client morti (niente accumulo di connessioni stale)
 const hb = setInterval(() => {
+  // MAI terminare un client silenzioso: il telefono puo' tacere (rete lenta,
+  // dettatura, sospensione) senza essere morto. Il ping resta solo come keep-warm
+  // del tunnel; la pulizia dei socket morti la fa la scrittura fallita per-client.
+  let pending = 0;
   for (const ws of clients) {
-    if ((ws as any).isAlive === false) { try { ws.terminate(); } catch {} clients.delete(ws); continue; }
+    if ((ws as any).isAlive === false) pending++;
     (ws as any).isAlive = false;
     try { ws.ping(); } catch {}
   }
+  try { stderr("[hb] clients=" + clients.size + " pongPending=" + pending + " (quiet clients are NEVER terminated)"); } catch {}
 }, 30000);
 try { (hb as any).unref?.(); } catch {}
 

@@ -71,6 +71,21 @@ function isPhoneWeb(): boolean {
 
 export function Composer(props: ComposerProps) {
   const [text, setText] = useState('')
+  // Draft persistence: reloads and connection drops must NEVER lose what you
+  // are typing/dictating. Stored per session, restored automatically.
+  const draftKey = 'quinki-draft-' + (props.sessionKey || '__welcome__')
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem(draftKey)
+      if (v) setText(v)
+    } catch {}
+  }, [draftKey])
+  useEffect(() => {
+    try {
+      if (text) localStorage.setItem(draftKey, text)
+      else localStorage.removeItem(draftKey)
+    } catch {}
+  }, [text, draftKey])
   const [slashMenuOpen, setSlashMenuOpen] = useState(false)
   const [slashFilter, setSlashFilter] = useState('')
   const [mentionOpen, setMentionOpen] = useState(false)

@@ -327,6 +327,7 @@ class PiBridge {
   #pendingThinking = new Map<string, string>();
   #pendingMode = new Map<string, string>();
   #cwdOverride = new Map<string, string>();
+  #lastStatuses = new Map<string, any>();
 
   // === CARTELLA DI LAVORO AUTO PER SESSIONE (fix 24 set) ===
   // Prima ogni chat senza workdir propria usava UNA cartella condivisa
@@ -3885,6 +3886,7 @@ Read this file to view it.` }] };
   }
 
   #sendToWs(ws: any, payload: any) {
+    try { if (payload && payload.type === "agent_status" && payload.sessionKey) this.#lastStatuses.set(String(payload.sessionKey), payload); } catch {}
     // FIX DEFINITIVO (01 set): TUTTI gli eventi da #sendToWs vanno in formato
     // JSON-RPC {method: ..., params: ...}. Prima il payload grezzo {type: ...}
     // era inviato direttamente al WS → il frontend dispatcha SOLO msg.method →
@@ -4185,7 +4187,7 @@ Read this file to view it.` }] };
       this.logDebug("stale-buffer-dropped", { sessionKey: key, ageMs: Date.now() - buf.ts });
       return null;
     }
-    return { ...buf };
+    return { ...buf, status: this.#lastStatuses.get(key) || null };
   }
 
   // === A2.11B: rileva lo stato TCC (per la sezione macOS Permissions) ===

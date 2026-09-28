@@ -19,7 +19,7 @@ function useSidecar(url: string = 'ws://127.0.0.1:9182') {
       if (closed) return
       const ws = new WebSocket(url)
       wsRef.current = ws
-      ws.onopen = () => { setReady(true); setError(null) }
+      ws.onopen = () => { setReady(true); setError(null); try { (window as any).__qEverConnected = true } catch {} }
       ws.onmessage = (ev) => {
         let msg: any
         try { msg = JSON.parse(ev.data) } catch { return }
@@ -991,7 +991,12 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
       // (contesto enorme: il modello sta ancora caricando/generando il primo token).
       if (snap) {
         setIsStreaming(true)
-        setStatusLabel('Running'); setStatusKind('running')
+        // Compaction in corso: è l'UNICO status che non veniva recuperato.
+        if (snap.status && String(snap.status.status || '') === 'compacting') {
+          setIsCompacting(true); setStatusLabel('Compacting'); setStatusKind('compacting')
+        } else {
+          setStatusLabel('Running'); setStatusKind('running')
+        }
         if (snap.text || snap.thinking || (snap.toolCalls && snap.toolCalls.length > 0)) {
           const blocks: any[] = []
           if (snap.thinking) blocks.push({ type: 'thinking', content: snap.thinking })
