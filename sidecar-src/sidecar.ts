@@ -951,7 +951,36 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   },
 
   steer: async (p) => {
-    piBridge!.steer(new FakeWebSocket(), { sessionKey: String(p.sessionKey), text: p.text });
+    // Steer con ALLEGATI: identico al messaggio normale (copia in attachments/<sk>/
+    // + blocco "ATTACHED FILES" nel testo, che il modello legge col tool `read`).
+    let steerText = String(p.text || "");
+    const steerAtts = Array.isArray(p.attachments) ? p.attachments : [];
+    if (steerAtts.length > 0) {
+      const sk = String(p.sessionKey);
+      try {
+        const sessAttDir = path.join(agentDir, "attachments", sk);
+        fs.mkdirSync(sessAttDir, { recursive: true });
+        for (const att of steerAtts) {
+          try {
+            const src = String(att?.path || '');
+            if (!src || !fs.existsSync(src)) continue;
+            const dest = path.join(sessAttDir, path.basename(src));
+            if (path.resolve(src) !== path.resolve(dest)) {
+              try { fs.renameSync(src, dest); } catch { try { fs.copyFileSync(src, dest); fs.unlinkSync(src); } catch {} }
+              (att as any).path = dest;
+            }
+          } catch {}
+        }
+      } catch {}
+      try { piBridge!.setMessageAttachments(sk, `steer-${Date.now()}`, steerAtts, steerText); } catch {}
+      let sec = "\n\n=== ATTACHED FILES ===\nThe user attached the following file(s):";
+      for (const att of steerAtts) {
+        sec += `\n- ${(att as any)?.name || (att as any)?.originalName || path.basename(String((att as any)?.path || ''))} → ${(att as any)?.path}`;
+      }
+      sec += "\nUse the `read` tool to access these files. If a file is too large, use `read` with offset/limit.\n=== END ATTACHED FILES ===";
+      steerText += sec;
+    }
+    piBridge!.steer(new FakeWebSocket(), { sessionKey: String(p.sessionKey), text: steerText });
     return {};
   },
 

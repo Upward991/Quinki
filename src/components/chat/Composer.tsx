@@ -33,7 +33,7 @@ interface ComposerProps {
   statusKind?: string
   onSend: (text: string, opts?: { skillNames?: { agentId: string; skillName: string; agentName?: string }[]; attachments?: Attachment[]; taskClips?: { id: string; label: string; text: string }[] }) => void
   onStop: () => void
-  onSteer?: (text: string) => void
+  onSteer?: (text: string, opts?: { attachments?: any[]; taskClips?: any[] }) => void
   longHorizon?: boolean
   longHorizonStatus?: string
   longHorizonPhase?: string
@@ -412,8 +412,15 @@ export function Composer(props: ComposerProps) {
 
   const handleSteer = () => {
     if (canSteer && props.onSteer) {
-      props.onSteer(text.trim())
+      // Steer must behave EXACTLY like a normal message: attachments and task
+      // clips travel with it and the chips are cleared afterwards.
+      props.onSteer(text.trim(), {
+        attachments: pendingAttachments.length > 0 ? pendingAttachments : undefined,
+        taskClips: pendingTaskClips.length > 0 ? pendingTaskClips : undefined,
+      })
       setText('')
+      setPendingAttachments([])
+      setPendingTaskClips([])
     }
   }
 
