@@ -8531,7 +8531,17 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
             for (let i = msgs.length - 1; i > lastUserIdx; i--) {
               const m = msgs[i];
               if (m?.role === "assistant") {
-                turnCompleted = m.stopReason === "stop" || m.stopReason === "length";
+                // FIX (28 set): un turno che finisce "pulito" MA SENZA NESSUN TESTO
+                // non è completato (il provider è morto durante il thinking: stopReason
+                // stop/length senza contenuto). Senza questa condizione il marker veniva
+                // CANCELLATO -> nessun autoprompt possibile (caso chat Dokkan).
+                let _hasText = false;
+                try {
+                  const _c: any = (m as any).content;
+                  if (typeof _c === "string") _hasText = _c.trim().length > 0;
+                  else if (Array.isArray(_c)) _hasText = _c.some((b: any) => typeof b?.text === "string" && b.text.trim().length > 0);
+                } catch {}
+                turnCompleted = (m.stopReason === "stop" || m.stopReason === "length") && _hasText;
                 lastStopReason = String(m.stopReason || "");
                 break;
               }
