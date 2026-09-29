@@ -1481,7 +1481,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
   // ── Session settings ──
   const steerMessage = useCallback(async (text: string, opts?: { attachments?: any[]; taskClips?: any[] }) => {
     const sk = activeSessionId || activeSessionIdRef.current || ''
-    if (!sk || !text.trim()) return
+    if (!sk || (!text.trim() && !(opts?.attachments && opts.attachments.length))) return
     const userMsg = { id: `msg-${Date.now()}`, role: 'user' as const, content: text.trim(), timestamp: new Date().toISOString(), tokensIn: Math.ceil(text.length / 4), attachments: opts?.attachments, taskClips: opts?.taskClips } as any
     setMessages(prev => [...prev, userMsg])
     try { await call('steer', { sessionKey: sk, text: text.trim(), attachments: opts?.attachments, taskClips: opts?.taskClips }) } catch (e) { console.error('steer:', e) }

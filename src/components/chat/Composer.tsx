@@ -408,7 +408,7 @@ export function Composer(props: ComposerProps) {
     window.addEventListener('keyup', onUp)
     return () => { window.removeEventListener('keydown', onDown); window.removeEventListener('keyup', onUp) }
   }, [])
-  const canSteer = text.trim().length > 0 && props.isStreaming && !(props as any).isCompacting
+  const canSteer = (text.trim().length > 0 || pendingAttachments.length > 0) && props.isStreaming && !(props as any).isCompacting
 
   const handleSteer = () => {
     if (canSteer && props.onSteer) {
