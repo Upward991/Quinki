@@ -4175,6 +4175,34 @@ Read this file to view it.` }] };
 
   // === Snapshot dello streaming in corso: per mostrare il messaggio parziale quando
   // il frontend si riconnette a metà turno (dopo crash/riavvio). ===
+  // === LIVE STALL GUARD (28 set) ===
+  // NO new timer: piggybacks on the existing WS heartbeat (sidecar-ws, every 30s).
+  // RULE: a turn that STARTED producing (writing/thinking/tool) and then goes silent
+  // for >60s is stalled provider-side -> the same recovery as on-open fires ONE
+  // autoprompt, WHETHER the chat is being watched or not. Empty buffers are legit
+  // long loads (never touched); 90s+ buffers are dropped by the stale guard anyway.
+  #stallFired = new Map<string, number>();
+  checkStalledTurns(): number {
+    let fired = 0;
+    try {
+      const now = Date.now();
+      for (const [sk, buf] of this.#streamingBuffers) {
+        const b: any = buf || {};
+        const ts = Number(b.ts || 0);
+        const hasContent = !!(String(b.text || "").trim() || String(b.thinking || "").trim() || ((b.toolCalls || []) as any[]).length > 0);
+        if (!ts || !hasContent) continue;
+        const age = now - ts;
+        if (age > 60000 && age < 90000 && this.#stallFired.get(sk) !== ts) {
+          this.#stallFired.set(sk, ts);
+          fired++;
+          this.logDebug("live-stall-recover", { sessionKey: sk, ageMs: age });
+          this.recoverPendingTurns(sk).catch(() => {});
+        }
+      }
+    } catch {}
+    return fired;
+  }
+
   getStreamingSnapshot(key: string): any | null {
     const buf = this.#streamingBuffers.get(key);
     if (!buf) return null;

@@ -607,6 +607,9 @@ const hb = setInterval(() => {
     try { ws.ping(); } catch {}
   }
   try { stderr("[hb] clients=" + clients.size + " pongPending=" + pending + " (quiet clients are NEVER terminated)"); } catch {}
+  // LIVE STALL GUARD: while a turn is streaming, >60s with NO events = the provider
+  // stalled -> ONE autoprompt (the same recovery as on-open), even mid-watch.
+  try { (globalThis as any).__quinki_piBridge?.checkStalledTurns?.(); } catch {}
 }, 30000);
 try { (hb as any).unref?.(); } catch {}
 
