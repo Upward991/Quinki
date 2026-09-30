@@ -3887,6 +3887,11 @@ Read this file to view it.` }] };
 
   #sendToWs(ws: any, payload: any) {
     try { if (payload && payload.type === "agent_status" && payload.sessionKey) this.#lastStatuses.set(String(payload.sessionKey), payload); } catch {}
+    try {
+      // The pill dies at the end of a turn: clear the tracked status so a lingering
+      // buffer can be told apart from a live one (status gone = turn dead).
+      if (payload && (payload.type === "done" || payload.type === "streaming_stopped") && payload.sessionKey) this.#lastStatuses.delete(String(payload.sessionKey));
+    } catch {}
     // FIX DEFINITIVO (01 set): TUTTI gli eventi da #sendToWs vanno in formato
     // JSON-RPC {method: ..., params: ...}. Prima il payload grezzo {type: ...}
     // era inviato direttamente al WS → il frontend dispatcha SOLO msg.method →
@@ -4185,26 +4190,17 @@ Read this file to view it.` }] };
   checkStalledTurns(): number {
     let fired = 0;
     try {
-      const now = Date.now();
-      for (const [sk, buf] of this.#streamingBuffers) {
-        const b: any = buf || {};
-        const ts = Number(b.ts || 0);
-        const hasContent = !!(String(b.text || "").trim() || String(b.thinking || "").trim() || ((b.toolCalls || []) as any[]).length > 0);
-        if (!ts || !hasContent) continue;
-        // A RUNNING TOOL (or a client retry) produces NO stream events while it
-        // works — a long bash/read is NOT a stall. Never autoprompt in these states.
-        const st = String((this.#lastStatuses.get(sk) || {}).status || "");
-        if (st === "tool" || st === "retrying") continue;
-        // Belt and braces: the buffer itself knows the phase (set on toolcall_start,
-        // cleared on the next phase/tool result) — tool_call in progress = healthy.
-        if (String(b.currentPhase || "") === "tool_call") continue;
-        const age = now - ts;
-        if (age > 60000 && age < 90000 && this.#stallFired.get(sk) !== ts) {
-          this.#stallFired.set(sk, ts);
-          fired++;
-          this.logDebug("live-stall-recover", { sessionKey: sk, ageMs: age });
-          this.recoverPendingTurns(sk).catch(() => {});
-        }
+      for (const [sk] of this.#streamingBuffers) {
+        // STATUS-DRIVEN ONLY (rule): the status pill IS the heartbeat. Any status
+        // (running/thinking/writing/tool/…) means the turn is ALIVE and may last
+        // as long as it wants. Only when the buffer exists but the STATUS IS GONE
+        // the turn is dead -> recovery. No time thresholds whatsoever.
+        const st = this.#lastStatuses.get(sk);
+        const stKind = String((st || {}).status || "");
+        if (st && stKind) continue;
+        fired++;
+        this.logDebug("status-gap-recover", { sessionKey: sk });
+        this.recoverPendingTurns(sk).catch(() => {});
       }
     } catch {}
     return fired;
@@ -4217,7 +4213,7 @@ Read this file to view it.` }] };
     // non riceve aggiornamenti da >90s il turno NON è più vivo (abort che non ha
     // generato agent_end, fallimento silenzioso) → NON è streaming: cancellalo e
     // ritorna null. La UI non deve dipingere MAI un fantasma in 'Running'.
-    if (buf.ts && Date.now() - buf.ts > 90000) {
+    if (buf.ts && Date.now() - buf.ts > 300000) {
       this.#streamingBuffers.delete(key);
       this.logDebug("stale-buffer-dropped", { sessionKey: key, ageMs: Date.now() - buf.ts });
       return null;
@@ -8735,6 +8731,14 @@ if (!turnCompleted && lastStopReason && lastStopReason !== "toolUse" && !this.#s
               }
             } else {
               this.logDebug("marker-keep-turn-not-complete", { sessionKey: key, where: "agent_end", isExpert: isExp, turnCompleted, markerTurnStarted, sameMessage });
+              // RULE: no turn can end before a writing. The turn DIED (event-driven!):
+              // fire the recovery IMMEDIATELY — no timer guessing involved.
+              try {
+                if (!turnCompleted && markerTurnStarted) {
+                  this.logDebug("auto-recover-on-dead-turn", { sessionKey: key });
+                  setTimeout(() => { this.recoverPendingTurns(key).catch(() => {}); }, 1500);
+                }
+              } catch {}
             }
           }
           // === A3: notifica chat — quando un turno completa (risposta arrivata) ===
