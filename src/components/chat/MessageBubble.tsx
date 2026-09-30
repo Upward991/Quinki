@@ -142,7 +142,7 @@ function UserMessage({ message, onCopy, searchQuery, activeOcc, isDateMatch }: {
       <div style={{ color: 'var(--q-bubble-user-text)', fontSize: '14px', lineHeight: 1.5, fontFamily: 'var(--font-interface)', fontWeight: 500, whiteSpace: 'pre-wrap', wordBreak: 'break-word', userSelect: 'text', WebkitUserSelect: 'text' }}>
         {rendered}
       </div>
-      <Footer content={message.content || ""} timestamp={message.timestamp} onCopy={onCopy} sentEffort={(message as any).sentEffort} reasoningUsed={(message as any).reasoningUsed} reasoningTokens={(message as any).reasoningTokens} />
+      <Footer content={message.content || ""} timestamp={((message as any).completedAt ? new Date((message as any).completedAt).toISOString() : message.timestamp)} onCopy={onCopy} sentEffort={(message as any).sentEffort} reasoningUsed={(message as any).reasoningUsed} reasoningTokens={(message as any).reasoningTokens} />
     </div>
   )
 }
@@ -259,7 +259,7 @@ function AssistantMessage({ message, onCopy, searchQuery, activeOcc, isDateMatch
           </div>
           <Footer
             content={message.errorContent}
-            timestamp={message.timestamp}
+            timestamp={((message as any).completedAt ? new Date((message as any).completedAt).toISOString() : message.timestamp)}
             agentName={message.agentName}
             agentModel={message.agentModel}
             thinkingLevel={message.thinkingLevel}
@@ -278,7 +278,7 @@ function AssistantMessage({ message, onCopy, searchQuery, activeOcc, isDateMatch
           {!message.isStreaming && (
             <Footer
               content={message.content}
-              timestamp={message.timestamp}
+              timestamp={((message as any).completedAt ? new Date((message as any).completedAt).toISOString() : message.timestamp)}
               agentName={message.agentName}
               agentModel={message.agentModel}
               thinkingLevel={message.thinkingLevel}
@@ -294,7 +294,7 @@ function AssistantMessage({ message, onCopy, searchQuery, activeOcc, isDateMatch
       {message.compaction?.map((comp, i) => (
         <CompactionToggle key={`comp-${i}`} content={comp.content || ""} isNoop={comp.isNoop} />
       ))}
-      {message.delegations?.map((d, i) => <DelegationBlockView key={`d-${i}`} delegation={d} timestamp={message.timestamp} onCopy={onCopy} searchQuery={searchQuery} activeOcc={activeOcc} />)}
+      {message.delegations?.map((d, i) => <DelegationBlockView key={`d-${i}`} delegation={d} timestamp={((message as any).completedAt ? new Date((message as any).completedAt).toISOString() : message.timestamp)} onCopy={onCopy} searchQuery={searchQuery} activeOcc={activeOcc} />)}
     </div>
   )
 }

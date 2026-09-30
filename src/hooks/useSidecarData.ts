@@ -688,7 +688,7 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
           let lastIdx = -1
           for (let i = prev.length - 1; i >= 0; i--) { if (prev[i].role === 'assistant') { lastIdx = i; break } }
           if (lastIdx < 0) return prev
-          return prev.map((m, i) => i === lastIdx ? { ...m, isStreaming: false, model: model || m.model, agentModel: model || m.agentModel, agentName: agentName || m.agentName, thinkingLevel: thinkingLevel || m.thinkingLevel, thinkingTranslated: thinkingTranslated, sentEffort: sentEffort, reasoningUsed: reasoningUsed, reasoningTokens: reasoningTokens || m.thinkingTranslated, content: text || m.content } : m)
+          return prev.map((m, i) => i === lastIdx ? { ...m, isStreaming: false, completedAt: Date.now(), model: model || m.model, agentModel: model || m.agentModel, agentName: agentName || m.agentName, thinkingLevel: thinkingLevel || m.thinkingLevel, thinkingTranslated: thinkingTranslated, sentEffort: sentEffort, reasoningUsed: reasoningUsed, reasoningTokens: reasoningTokens || m.thinkingTranslated, content: text || m.content } : m)
         })
       }
     })
