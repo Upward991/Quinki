@@ -488,6 +488,13 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
     }
     // Blocchi cronologici: thinking N volte (una per turno), tool_call, tool_result — nell'ORDINE in cui arrivano
     const pushBlock = (msg: any, block: any) => {
+      // SEAL (28 set): il writing precedente è finito (arriva thinking/tool/…) →
+      // timbra il blocco testo con l'ora di FINE, così il suo footer è reale.
+      try {
+        const _bl = (msg as any)?.blocks || [];
+        const _prev = _bl[_bl.length - 1];
+        if (_prev && _prev.type === 'text' && !_prev.completedAt) _prev.completedAt = Date.now();
+      } catch {}
       const blocks = [...(msg.blocks || [])]
       const lastB = blocks[blocks.length - 1]
       if (block.type === 'thinking' && lastB?.type === 'thinking') {
@@ -688,7 +695,16 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
           let lastIdx = -1
           for (let i = prev.length - 1; i >= 0; i--) { if (prev[i].role === 'assistant') { lastIdx = i; break } }
           if (lastIdx < 0) return prev
-          return prev.map((m, i) => i === lastIdx ? { ...m, isStreaming: false, completedAt: Date.now(), model: model || m.model, agentModel: model || m.agentModel, agentName: agentName || m.agentName, thinkingLevel: thinkingLevel || m.thinkingLevel, thinkingTranslated: thinkingTranslated, sentEffort: sentEffort, reasoningUsed: reasoningUsed, reasoningTokens: reasoningTokens || m.thinkingTranslated, content: text || m.content } : m)
+          return prev.map((m, i) => {
+            if (i !== lastIdx) return m
+            let blocks = (m as any).blocks
+            try {
+              if (Array.isArray(blocks) && blocks.length > 0) {
+                blocks = blocks.map((b: any, bi: number) => (bi === blocks.length - 1 && b?.type === 'text' && !b.completedAt) ? { ...b, completedAt: Date.now() } : b)
+              }
+            } catch {}
+            return { ...m, blocks, isStreaming: false, completedAt: Date.now(), timestamp: new Date().toISOString(), model: model || m.model, agentModel: model || m.agentModel, agentName: agentName || m.agentName, thinkingLevel: thinkingLevel || m.thinkingLevel, thinkingTranslated: thinkingTranslated, sentEffort: sentEffort, reasoningUsed: reasoningUsed, reasoningTokens: reasoningTokens || m.thinkingTranslated, content: text || m.content }
+          })
         })
       }
     })
@@ -696,6 +712,23 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
     const unsubStreamStop = subscribe('streaming_stopped', (p: any) => {
       const sk = p?.sessionKey || activeSessionIdRef.current || ''
       setStreamingState(sk, { isStreaming: false, statusLabel: '', statusKind: '' })
+      // FIX (28 set): il footer mostra l'ora di FINE anche dal vivo (prima si vedeva
+      // solo dopo il reload). Timbra l'ultimo messaggio assistant appena il turno
+      // si chiude in modo naturale (mai su stop dell'utente/errore).
+      try {
+        const _sr = String(p?.stopReason || '');
+        if (_sr !== 'aborted' && _sr !== 'user_stop') {
+          setMessages(prev => {
+            let li = -1
+            for (let i = prev.length - 1; i >= 0; i--) { if (prev[i].role === 'assistant') { li = i; break } }
+            if (li < 0) return prev
+            const cur: any = prev[li]
+            if (!cur || cur.isError || !String(cur.content || '').trim()) return prev
+            if (cur.completedAt) return prev
+            return prev.map((m, i) => i === li ? { ...m, completedAt: Date.now(), timestamp: new Date().toISOString() } : m)
+          })
+        }
+      } catch {}
       if (p?.sessionKey && p.sessionKey !== activeSessionIdRef.current) return
       // FIX (31 ago): NON azzerare la pill se siamo in RECOVERY ("Recovering").
       // Il backend manda streaming_stopped per chiudere il turno INTERROTTO, poi

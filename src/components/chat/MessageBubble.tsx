@@ -219,7 +219,7 @@ function renderBlocks(blocks: any[], opts: { isError?: boolean; isStreaming?: bo
           {showFooter && (
             <Footer
               content={b.content || ''}
-              timestamp={timestamp}
+              timestamp={b.completedAt ? new Date(b.completedAt).toISOString() : timestamp}
               agentName={agentName}
               agentModel={agentModel}
               thinkingLevel={thinkingLevel}
