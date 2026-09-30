@@ -168,7 +168,7 @@ function mergeHistoryMessages(history: any): any[] {
       content: m.content || '',
       timestamp: m.timestamp || new Date().toISOString(),
       thinking: m.reasoning || m.thinking,
-      agentName: m.agentName, agentModel: m.model, thinkingLevel: m.thinkingLevel, thinkingTranslated: m.thinkingTranslated || '', sentEffort: m.sentEffort, reasoningUsed: m.reasoningUsed, reasoningTokens: m.reasoningTokens,
+      agentName: m.agentName || primaryAgentName(), agentModel: m.model, thinkingLevel: m.thinkingLevel, thinkingTranslated: m.thinkingTranslated || '', sentEffort: m.sentEffort, reasoningUsed: m.reasoningUsed, reasoningTokens: m.reasoningTokens,
       tokensIn: m.tokensIn, tokensOut: m.tokensOut,
       isCompacted: m.isCompacted, isError: m.isError,
       errorType: m.errorType, errorContent: m.errorContent,
@@ -703,7 +703,7 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
                 blocks = blocks.map((b: any, bi: number) => (bi === blocks.length - 1 && b?.type === 'text' && !b.completedAt) ? { ...b, completedAt: Date.now() } : b)
               }
             } catch {}
-            return { ...m, blocks, isStreaming: false, completedAt: Date.now(), timestamp: new Date().toISOString(), model: model || m.model, agentModel: model || m.agentModel, agentName: agentName || m.agentName, thinkingLevel: thinkingLevel || m.thinkingLevel, thinkingTranslated: thinkingTranslated, sentEffort: sentEffort, reasoningUsed: reasoningUsed, reasoningTokens: reasoningTokens || m.thinkingTranslated, content: text || m.content }
+            return { ...m, blocks, isStreaming: false, completedAt: Date.now(), timestamp: new Date().toISOString(), model: model || m.model, agentModel: model || m.agentModel, agentName: agentName || m.agentName || primaryAgentName(), thinkingLevel: thinkingLevel || m.thinkingLevel, thinkingTranslated: thinkingTranslated, sentEffort: sentEffort, reasoningUsed: reasoningUsed, reasoningTokens: reasoningTokens || m.thinkingTranslated, content: text || m.content }
           })
         })
       }
@@ -1512,6 +1512,17 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
   }, [ready, call, activeSessionId, selectSession])
 
   // ── Session settings ──
+  // Primary-agent name for footer fallbacks: orchestrator when present, else the
+  // first agent of the chat. Used ONLY when a message carries no agent of its own.
+  const primaryAgentName = useCallback((): string => {
+    try {
+      const ids = (chatAgentIdsRef.current && chatAgentIdsRef.current.length ? chatAgentIdsRef.current : chatAgentIds) || []
+      const pick = ids.find((x: string) => x === 'orchestrator') || ids[0]
+      const ag = (agents || []).find((a: any) => a.id === pick)
+      return String(ag?.name || pick || '')
+    } catch { return '' }
+  }, [agents, chatAgentIds])
+
   const steerMessage = useCallback(async (text: string, opts?: { attachments?: any[]; taskClips?: any[] }) => {
     const sk = activeSessionId || activeSessionIdRef.current || ''
     if (!sk || (!text.trim() && !(opts?.attachments && opts.attachments.length))) return

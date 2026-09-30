@@ -283,7 +283,6 @@ function AssistantMessage({ message, onCopy, searchQuery, activeOcc, isDateMatch
               agentModel={message.agentModel}
               thinkingLevel={message.thinkingLevel}
               thinkingTranslated={(message as any).thinkingTranslated}
-            thinkingTranslated={(message as any).thinkingTranslated}
               onCopy={onCopy}
             />
           )}
