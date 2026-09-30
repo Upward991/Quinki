@@ -168,7 +168,7 @@ function mergeHistoryMessages(history: any): any[] {
       content: m.content || '',
       timestamp: m.timestamp || new Date().toISOString(),
       thinking: m.reasoning || m.thinking,
-      agentName: m.agentName || primaryAgentName(), agentModel: m.model, thinkingLevel: m.thinkingLevel, thinkingTranslated: m.thinkingTranslated || '', sentEffort: m.sentEffort, reasoningUsed: m.reasoningUsed, reasoningTokens: m.reasoningTokens,
+      agentName: m.agentName, agentModel: m.model, thinkingLevel: m.thinkingLevel, thinkingTranslated: m.thinkingTranslated || '', sentEffort: m.sentEffort, reasoningUsed: m.reasoningUsed, reasoningTokens: m.reasoningTokens,
       tokensIn: m.tokensIn, tokensOut: m.tokensOut,
       isCompacted: m.isCompacted, isError: m.isError,
       errorType: m.errorType, errorContent: m.errorContent,
