@@ -4191,6 +4191,13 @@ Read this file to view it.` }] };
         const ts = Number(b.ts || 0);
         const hasContent = !!(String(b.text || "").trim() || String(b.thinking || "").trim() || ((b.toolCalls || []) as any[]).length > 0);
         if (!ts || !hasContent) continue;
+        // A RUNNING TOOL (or a client retry) produces NO stream events while it
+        // works — a long bash/read is NOT a stall. Never autoprompt in these states.
+        const st = String((this.#lastStatuses.get(sk) || {}).status || "");
+        if (st === "tool" || st === "retrying") continue;
+        // Belt and braces: the buffer itself knows the phase (set on toolcall_start,
+        // cleared on the next phase/tool result) — tool_call in progress = healthy.
+        if (String(b.currentPhase || "") === "tool_call") continue;
         const age = now - ts;
         if (age > 60000 && age < 90000 && this.#stallFired.get(sk) !== ts) {
           this.#stallFired.set(sk, ts);
