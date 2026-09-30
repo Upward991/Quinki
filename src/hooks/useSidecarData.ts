@@ -1516,7 +1516,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
   // first agent of the chat. Used ONLY when a message carries no agent of its own.
   const primaryAgentName = useCallback((): string => {
     try {
-      const ids = (chatAgentIdsRef.current && chatAgentIdsRef.current.length ? chatAgentIdsRef.current : chatAgentIds) || []
+      const ids = chatAgentIds || []
       const pick = ids.find((x: string) => x === 'orchestrator') || ids[0]
       const ag = (agents || []).find((a: any) => a.id === pick)
       return String(ag?.name || pick || '')
