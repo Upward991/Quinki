@@ -3468,10 +3468,11 @@ const readProvidersCfg = (): any => {
       }
       case "directory": {
         const dArg = String(arg || "");
-        if (dArg === "__dir_change") { pickFolder(); break; }
+        try { require("fs").appendFileSync("/tmp/q-dir-trace.log", new Date().toISOString() + " dir arg=" + JSON.stringify(dArg) + "\n"); } catch {}
+        if (dArg === "__dir_change") { try { require("fs").appendFileSync("/tmp/q-dir-trace.log", "  -> pickFolder\n"); } catch {} pickFolder(); break; }
         if (dArg === "confirm") { applyDirChange(dirPendingChange); break; }
         if (dArg.startsWith("__dir_use:")) {
-          // Enter = OPEN that folder (current or old — same action).
+          try { require("fs").appendFileSync("/tmp/q-dir-trace.log", "  -> openFolder " + dArg.slice(10) + "\n"); } catch {}
           openFolder(dArg.slice(10));
           break;
         }
@@ -4031,18 +4032,50 @@ const readProvidersCfg = (): any => {
       }
       if (menuStack.length > 0) {
         const cmdName = menuStack[0];
+        if (cmdName === "skill") {
+          const vS = String(it.value ?? "");
+          if (vS && !vS.startsWith("__")) {
+            try {
+              const chS = qTokenAdd(vS, "skill");
+              const curS = String(editor.getText() || "");
+              editor.setText(curS + (curS && !curS.endsWith(" ") ? " " : "") + chS + " ");
+            } catch {}
+          }
+          try { ui.requestRender(); } catch {}
+          return;
+        }
         if (cmdName === "attachments") {
           const vA = String(it.value ?? "");
           if (vA.startsWith("__at_file:")) {
+            // Tab = attach ANOTHER one (multi) — chips accumulate, menu stays.
             const fpA = vA.slice(10);
-            try { if (fs.existsSync(fpA)) { try { const stD = stageAttachment(fpA); if (stD) pendingAttachments.push(stD as any); } catch {} } } catch {}
+            try {
+              if (fs.existsSync(fpA)) {
+                const stD = stageAttachment(fpA) || { path: fpA, originalName: require("path").basename(fpA) };
+                pendingAttachments.push(stD as any);
+                const chD = qTokenAdd((stD as any).originalName, "attachment", (stD as any).path);
+                const curD = String(editor.getText() || "");
+                editor.setText(curD + (curD && !curD.endsWith(" ") ? " " : "") + chD + " ");
+              }
+            } catch {}
           } else if (vA === "__at_new") {
             try {
               const cpB = require("child_process");
               cpB.execFile("/usr/bin/osascript", ["-e", 'POSIX path of (choose file with prompt "Choose a file to attach")'], { timeout: 180000 }, (errB: any, outB: string) => {
                 if (errB) return;
                 const fB = String(outB || "").trim();
-                if (fB) { try { const stB = stageAttachment(fB); if (stB) pendingAttachments.push(stB as any); } catch {} try { ui.requestRender(); } catch {} }
+                if (fB) {
+                  try {
+                    const stB = stageAttachment(fB);
+                    if (stB) {
+                      pendingAttachments.push(stB as any);
+                      const chB = qTokenAdd((stB as any).originalName, "attachment", (stB as any).path);
+                      const curB = String(editor.getText() || "");
+                      editor.setText(curB + (curB && !curB.endsWith(" ") ? " " : "") + chB + " ");
+                    }
+                  } catch {}
+                  try { ui.requestRender(); } catch {}
+                }
               });
             } catch {}
           } else if (vA === "__at_open") {
