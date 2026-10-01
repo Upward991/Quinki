@@ -2833,7 +2833,14 @@ const readProvidersCfg = (): any => {
         for (const m of histMsgs) {
           if (m?.role === "user") {
             const t = typeof m.content === "string" ? m.content : Array.isArray(m.content) ? m.content.filter((x: any) => x?.type === "text").map((x: any) => x.text).join("\n") : "";
-            if (t.trim()) pushBlock(new UserBubble(t, fmtFooterDate(Number(m.timestamp) || Date.now())));
+            const chipsH: Array<{ kind: string; name: string }> = [];
+            try {
+              const attsH = Array.isArray(m.attachments) ? m.attachments : [];
+              for (const a of attsH) chipsH.push({ kind: "attachment", name: String((a as any)?.originalName || require("path").basename(String((a as any)?.path || ""))) });
+              const sks = Array.isArray((m as any).skillNames) ? (m as any).skillNames : [];
+              for (const sk of sks) chipsH.push({ kind: "skill", name: String((sk as any)?.skillName || sk) });
+            } catch {}
+            if (t.trim() || chipsH.length) pushBlock(new UserBubble(t, fmtFooterDate(Number(m.timestamp) || Date.now()), chipsH));
           } else if (m?.role === "tool_call" || m?.role === "toolCall") {
             let tcb = "";
             try {
@@ -3451,7 +3458,7 @@ const readProvidersCfg = (): any => {
             cpA.execFile("/usr/bin/osascript", ["-e", 'POSIX path of (choose file with prompt "Choose a file to attach")'], { timeout: 180000 }, (errA: any, outA: string) => {
               if (errA) return;
               const fA = String(outA || "").trim();
-              if (fA) { pendingAttachments.push({ path: fA }); try { ui.requestRender(); } catch {} }
+              if (fA) { pendingAttachments.push({ path: fA, originalName: require("path").basename(fA) } as any); try { ui.requestRender(); } catch {} }
             });
           } catch {}
           break;
@@ -3988,14 +3995,14 @@ const readProvidersCfg = (): any => {
           const vA = String(it.value ?? "");
           if (vA.startsWith("__at_file:")) {
             const fpA = vA.slice(10);
-            try { if (fs.existsSync(fpA)) { pendingAttachments.push({ path: fpA }); } } catch {}
+            try { if (fs.existsSync(fpA)) { pendingAttachments.push({ path: fpA, originalName: require("path").basename(fpA) } as any); } } catch {}
           } else if (vA === "__at_new") {
             try {
               const cpB = require("child_process");
               cpB.execFile("/usr/bin/osascript", ["-e", 'POSIX path of (choose file with prompt "Choose a file to attach")'], { timeout: 180000 }, (errB: any, outB: string) => {
                 if (errB) return;
                 const fB = String(outB || "").trim();
-                if (fB) { pendingAttachments.push({ path: fB }); try { ui.requestRender(); } catch {} }
+                if (fB) { pendingAttachments.push({ path: fB, originalName: require("path").basename(fB) } as any); try { ui.requestRender(); } catch {} }
               });
             } catch {}
           } else if (vA === "__at_open") {
@@ -4852,7 +4859,7 @@ const applySettingsPatch = (patch: any) => {
         sendText = String(t)
           .replace(/(?:^|\s)\u25b8([^\s\u25b8]+)/g, (_m: string, nm: string) => {
             const name = String(nm);
-            if (attPathByName[name] && fs.existsSync(attPathByName[name])) atts.push({ path: attPathByName[name] });
+            if (attPathByName[name] && fs.existsSync(attPathByName[name])) atts.push({ path: attPathByName[name], originalName: name } as any);
             else skills.push(name);
             return "";
           })
