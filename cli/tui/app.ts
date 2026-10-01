@@ -1209,11 +1209,11 @@ const readProvidersCfg = (): any => {
     ];
     // API key row only for providers without an account login (custom/legacy).
     try {
-      if (!["OpenRouter", "Anthropic", "xAI", "Ollama"].includes(name)) {
+      if (!["OpenRouter", "Anthropic", "OpenAI", "GitHub Copilot", "xAI", "Ollama"].includes(name)) {
         out2.push({ value: "key", label: "API key", description: wsKeyStatus[name] === true ? "set" : (wsKeyStatus[name] === false ? "not set" : "checking\u2026") });
       }
     } catch {}
-    if (["OpenRouter", "Anthropic", "xAI"].includes(name)) {
+    if (["OpenRouter", "Anthropic", "OpenAI", "GitHub Copilot", "xAI"].includes(name)) {
       const conn = wsKeyStatus[name] === true;
       out2.push({
         value: "login",
@@ -4040,7 +4040,7 @@ const cmd: any = commands.find((c) => c.name === it.value);
     if (sub && !sub3) {
       if (value === "toggle") { patchProvider(pname, (p) => { p.enabled = !p.enabled; }); }
       if (value === "login") {
-        const SUBMAP: Record<string, string> = {"Anthropic":"anthropic","xAI":"xai"};
+        const SUBMAP: Record<string, string> = {"Anthropic":"anthropic","OpenAI":"openai-codex","GitHub Copilot":"github-copilot","xAI":"xai"};
         const subId = SUBMAP[pname];
         try {
           const pr = subId === "__openrouter__" ? sc.call("openRouterLogin", {}, 310000)
