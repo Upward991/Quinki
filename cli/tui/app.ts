@@ -4375,6 +4375,20 @@ const applySettingsPatch = (patch: any) => {
 
   try {
     ui.start();
+
+    // Re-assert the terminal background AFTER the UI is live and force a full
+    // repaint: some terminals only apply the OSC 11 colour on a later run,
+    // which made the background look wrong on the very first launch.
+    try {
+      const setBg = () => {
+        try { process.stdout.write("\x1b]11;#08080b\x07"); } catch {}
+        try { (ui as any).requestRender?.(); } catch {}
+        try { if ((ui as any).fullRedrawRequested !== undefined) (ui as any).fullRedrawRequested = true; } catch {}
+      };
+      setBg();
+      setTimeout(setBg, 400);
+      setTimeout(setBg, 1500);
+    } catch {}
   } catch (err) {
     process.stderr.write("quinki: could not start the terminal UI: " + String((err as any)?.message || err) + "\n");
     process.exit(1);
