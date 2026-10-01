@@ -199,6 +199,8 @@ const QPIX: Record<string, string[]> = {
   "m": ["000000", "000000", "110110", "101010", "101010", "101010", "101010", "000000"],
   "t": ["001000", "001000", "011100", "001000", "001000", "001010", "000100", "000000"],
   "!": ["001000", "001000", "001000", "001000", "000000", "001000", "000000", "000000"],
+  "W": ["100010", "100010", "101010", "101010", "101010", "110110", "100010", "000000"],
+  "Q": ["011100", "100010", "100010", "100010", "100010", "011100", "000100", "000100"],
   " ": ["000000", "000000", "000000", "000000", "000000", "000000", "000000", "000000"],
 };
 const pixWord = (word: string, V: (t: string) => string): string[] => {
@@ -219,9 +221,11 @@ const pixWord = (word: string, V: (t: string) => string): string[] => {
   return rows;
 };
 const bigBrand = (): string[] => {
-  const V = (t: string) => bold(fg(C.primary, t));
-  const w = pixWord("welcome to Quinki", V);
-  return [w[0], w[1], w[2], w[3]];
+  const VIOLET = (t: string) => bold(fg(C.primary, t)); // only the brand is violet
+  const PLAIN = (t: string) => fg(C.text, t);
+  const a = pixWord("welcome to ", PLAIN);
+  const b = pixWord("Quinki!", VIOLET);
+  return [a[0] + b[0], a[1] + b[1], a[2] + b[2], a[3] + b[3]];
 };
 const HERO_ART = (): string[] => {
   const brand = bigBrand();
