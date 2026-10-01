@@ -3508,7 +3508,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
             // ONLY the agent menu has deeper levels. Every other submenu is a
             // terminal list: → must light the Confirm directly, never push a
             // ghost level out of the item value.
-            const deeper = menuStack[0] === "agentinsession" ? agentLevelFor(it) : (menuStack[0] === "settings" ? String(it.value) : null);
+            const deeper = menuStack[0] === "agentinsession" ? agentLevelFor(it) : (menuStack[0] === "settings" ? settingsDeeper(it) : null);
             if (deeper) {
               menuStack.push(deeper);
               menuSubFilter = "";
@@ -3537,7 +3537,14 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         if (!menuConfirmFocus) {
           if (!it || it.separator) return;
           if (menuStack[0] === "settings") {
-            settingsActivate(String(it.value));
+            const deeper = settingsDeeper(it);
+            if (deeper) {
+              menuStack.push(deeper);
+              menuSubFilter = "";
+              menuSel = 0;
+            } else {
+              menuConfirmFocus = true; // terminal option: light the Confirm
+            }
             try { ui.requestRender(); } catch {}
             return;
           } else if (menuStack[0] === "agentinsession") {
@@ -3566,7 +3573,11 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           // Confirm is LIT: this Enter executes the selection.
           menuConfirmFocus = false;
           if (!it || it.separator) return;
-          if (menuStack[0] === "agentinsession") {
+          if (menuStack[0] === "settings") {
+            settingsActivate(String(it.value));
+            try { ui.requestRender(); } catch {}
+            return;
+          } else if (menuStack[0] === "agentinsession") {
             // The agent menus NEVER close: every action returns to its parent level.
             agentActivate(String(it.value));
           } else if (menuStack.length > 0) {
@@ -3595,57 +3606,41 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       } catch {}
     } catch {}
   };
+  const settingsDeeper = (it: any): string | null => {
+    const lv = menuStack[1] || "", sub = menuStack[2] || "", sub3 = menuStack[3] || "";
+    const v = String(it?.value || "");
+    if (!lv) return ["defaults", "shortcuts", "attachments", "expert", "providers", "version"].includes(v) ? v : null;
+    if (lv === "defaults" && !sub) return (v === "model" || v === "thinking") ? v : null;
+    if (lv === "providers" && !sub) return v.startsWith("prov:") ? v : null;
+    if (lv === "providers" && sub && !sub3) return (v === "key" || v === "baseurl" || v === "models") ? v : null;
+    return null;
+  };
+
   const settingsActivate = (value: string) => {
-    const lv = menuStack[1] || "";
-    const sub = menuStack[2] || "";
-    if (!lv) {
-      if (["defaults", "shortcuts", "attachments", "expert", "providers", "version"].includes(value)) {
-        menuStack = ["settings", value]; menuSubFilter = ""; menuSel = 0; menuConfirmFocus = false;
-      }
-      return;
-    }
-    if (lv === "defaults" && !sub) {
-      if (value === "model" || value === "thinking") {
-        menuStack = ["settings", "defaults", value]; menuSubFilter = ""; menuSel = 0; menuConfirmFocus = false;
-      }
-      return;
-    }
-    if (lv === "defaults" && sub === "model" && !value.startsWith("__")) {
-      applySettingsPatch({ defaultModel: value });
-      menuStack = ["settings", "defaults"]; menuSubFilter = ""; menuSel = 0;
-      return;
-    }
-    if (lv === "defaults" && sub === "thinking") {
-      applySettingsPatch({ defaultThinkingLevel: value });
-      menuStack = ["settings", "defaults"]; menuSubFilter = ""; menuSel = 0;
-      return;
-    }
-    if (lv === "providers") {
-    const sub2 = menuStack[2] || "";
-    const sub3 = menuStack[3] || "";
-    if (!sub2) {
-      if (value.startsWith("prov:")) { menuStack = ["settings", "providers", value]; menuSubFilter = ""; menuSel = 0; menuConfirmFocus = false; }
-      return;
-    }
-    const pname = String(sub2).replace(/^prov:/, "");
-    if (!sub3) {
+  const lv = menuStack[1] || "";
+  const sub = menuStack[2] || "";
+  const sub3 = menuStack[3] || "";
+  if (lv === "defaults" && sub === "model" && value && !value.startsWith("__")) { applySettingsPatch({ defaultModel: value }); return; }
+  if (lv === "defaults" && sub === "thinking" && value) { applySettingsPatch({ defaultThinkingLevel: value }); return; }
+  if (lv === "providers") {
+    const pname = String(sub || "").replace(/^prov:/, "");
+    if (!sub && value.startsWith("prov:")) return; // navigation handled by settingsDeeper
+    if (sub && !sub3) {
       if (value === "toggle") { patchProvider(pname, (p) => { p.enabled = !p.enabled; }); return; }
-      if (value === "key" || value === "baseurl" || value === "models") { menuStack = ["settings", "providers", sub2, value]; menuSubFilter = ""; menuSel = 0; menuConfirmFocus = false; return; }
       return;
     }
-    if (sub3 === "models") {
-      if (value.startsWith("mdl:")) {
-        const id = value.slice(4);
-        patchProvider(pname, (p) => { const e = new Set(p.enabledModels || []); if (e.has(id)) e.delete(id); else e.add(id); p.enabledModels = Array.from(e); });
-      }
+    if (sub3 === "models" && value.startsWith("mdl:")) {
+      const id = value.slice(4);
+      patchProvider(pname, (p) => { const e = new Set(p.enabledModels || []); if (e.has(id)) e.delete(id); else e.add(id); p.enabledModels = Array.from(e); });
       return;
     }
     if (sub3 === "key" && value && !value.startsWith("__")) { patchProvider(pname, (p) => { p.apiKey = value; }); return; }
     if (sub3 === "baseurl" && value && !value.startsWith("__")) { patchProvider(pname, (p) => { p.baseUrl = value; }); return; }
     return;
   }
-  };
-  const applySettingsPatch = (patch: any) => {
+  // read-only pages: nothing to execute
+};
+const applySettingsPatch = (patch: any) => {
     try {
       const call = (globalThis as any).__sidecarCall;
       if (!call) return;
