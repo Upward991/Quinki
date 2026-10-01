@@ -375,8 +375,8 @@ function CodeBlock({ children }: { children: React.ReactNode }) {
         <Copy size={14} />
       </button>
       {/* Code content */}
-      <pre style={{ padding: '12px', overflow: 'auto', margin: 0, backgroundColor: 'transparent !important' }}>
-        <code style={{ fontFamily: 'var(--font-code)', fontSize: '13px', lineHeight: 1.6, backgroundColor: 'transparent !important' }}>
+      <pre style={{ padding: '12px', overflow: 'hidden', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere', margin: 0, backgroundColor: 'transparent !important' }}>
+        <code style={{ fontFamily: 'var(--font-code)', fontSize: '13px', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere', display: 'block', backgroundColor: 'transparent !important' }}>
           {children}
         </code>
       </pre>
