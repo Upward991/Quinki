@@ -2209,6 +2209,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
                 "",
               ];
             },
+            invalidate() {},
           });
         } catch {}
       }
