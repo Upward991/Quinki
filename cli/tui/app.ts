@@ -1173,14 +1173,12 @@ const readProvidersCfg = (): any => {
       const rows = all.map((mm: any) => {
         const id = String(mm?.id || "");
         const on = en.includes(id);
-        return { value: "mdl:" + id, label: (on ? "\u25cf " : "\u25cb ") + id, description: (on ? "on" : "off") + (mm.name ? " \u00b7 " + String(mm.name) : ""), _on: on ? 0 : 1, _id: id };
+        return { value: "mdl:" + id, label: (on ? "\u25cf " : "\u25cb ") + id, description: (on ? "on" : "off") + (mm.name ? " \u00b7 " + String(mm.name) : ""), _rank: on ? en.indexOf(id) : 9999, _id: id };
       });
-      // SELECTED ONES ON TOP, one under the other (easy to deselect); cursor follows.
-      const wasCur = String((menuItemsCache[menuSel] || {}).value || "");
-      rows.sort((a: any, b: any) => (a._on - b._on) || a._id.localeCompare(b._id));
-      rows.forEach((r: any) => { delete r._on; delete r._id; });
-      const ni = rows.findIndex((r: any) => r.value === wasCur);
-      menuSel = ni >= 0 ? ni : Math.min(menuSel, Math.max(0, rows.length - 1));
+      // Selected first, in SELECTION order (the enabledModels array); the rest after.
+      // The CURSOR stays at the same index (it does not jump up with the item).
+      rows.sort((a: any, b: any) => (a._rank - b._rank) || a._id.localeCompare(b._id));
+      rows.forEach((r: any) => { delete r._rank; delete r._id; });
       return rows;
     }
     if (stack[3] === "key") {
