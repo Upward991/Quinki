@@ -4006,9 +4006,17 @@ const readProvidersCfg = (): any => {
 
   };
 
+  let lastSelectAt = 0;
   const menuNav = (a: "up" | "down" | "left" | "right" | "enter" | "escape" | "select") => {
 
     if (a === "select") {
+      // The editor hook AND the app input listener both fire on one Tab press:
+      // without this dedupe a dot was toggled on and off in the same instant.
+      try {
+        const nowS = Date.now();
+        if (nowS - lastSelectAt < 120) return;
+        lastSelectAt = nowS;
+      } catch {}
 
       try {
         const its: any = menuItemsCache || [];
@@ -4611,12 +4619,9 @@ const applySettingsPatch = (patch: any) => {
         let label = String(it.label ?? it.value ?? "");
         let desc = String(it.description ?? "");
         if ((it as any).separator) {
-          // Group separator (agent name): not selectable, no highlight — with one
-          // blank row of padding below and one ABOVE, skipped when it is the very
-          // first row (the menu already opens with its own space).
-          if (rows.length > 0) rows.push("");
+          // Group separator: ONE line only (no blank padding — too much space).
+          if (!label) continue;
           rows.push(fg(C.textSecondary, label));
-          rows.push("");
           continue;
         }
         if ((it as any).notice) {
