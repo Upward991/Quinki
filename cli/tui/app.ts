@@ -3269,7 +3269,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     const lv3 = stack[2];
     if (lv3 === "model") {
       const out: any[] = [
-        { value: "__chat_default__", label: "Chat default", description: ov.model ? "Use the chat model" : "current" },
+        { value: "__chat_default__", label: (ov.model ? "\u25cb " : "\u25cf ") + "Chat default", description: "Use the chat model" },
       ];
       let models: any[] = [];
       try {
@@ -3294,9 +3294,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     if (lv3 === "thinking") {
       const cur = String(ov.thinkingLevel || "");
       return [
-        { value: "__chat_default__", label: "Chat default", description: cur === "" ? "current" : "Use the chat setting" },
-        { value: "on", label: "On", description: cur === "on" ? "current" : "Default thinking level" },
-        { value: "off", label: "Off", description: cur === "off" ? "current" : "Thinking disabled" },
+        { value: "__chat_default__", label: (cur === "" ? "\u25cf " : "\u25cb ") + "Chat default", description: "Use the chat setting" },
+        { value: "on", label: (cur === "on" ? "\u25cf " : "\u25cb ") + "On", description: "Always max" },
+        { value: "off", label: (cur === "off" ? "\u25cf " : "\u25cb ") + "Off", description: "Disabled" },
       ];
     }
     return [];
@@ -3597,27 +3597,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           menuSel = 0;
         }
       } else if (a === "right") {
-        // Forward ONLY — it NEVER executes. At the end of the levels it FOCUSES
-        // Confirm (violet filled, like the app's NavBar focusConfirm); Enter runs.
-        if (menuConfirmFocus) {
-          // Already focused: stays lit (Enter confirms).
-        } else if (menuStack.length > 0) {
-          const it: any = items[menuSel];
-          if (it && !it.separator) {
-            // ONLY the agent menu has deeper levels. Every other submenu is a
-            // terminal list: → must light the Confirm directly, never push a
-            // ghost level out of the item value.
-            const deeper = menuStack[0] === "agentinsession" ? agentLevelFor(it) : (menuStack[0] === "settings" ? settingsDeeper(it) : null);
-            if (deeper) {
-              menuStack.push(deeper);
-              menuSubFilter = "";
-              menuSel = 0;
-              // entering the fallbacks editor: seed the selection with the saved ones
-              try {
-                if (deeper === "fallbacks") {
-                  const cur = (() => { try { const ff = readSettingsFile().defaultFallbackModels; if (Array.isArray(ff)) return ff; } catch {} return []; })();
-                  menuMarked = new Set<string>(cur.map((x: any) => String(x)));
-                } else {
+      // MENU 2.0: the right arrow is the SAME as Enter (navigate or execute).
+      menuNav("enter");
+    } else {
                   menuMarked = new Set<string>();
                 }
               } catch {}
@@ -3686,7 +3668,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
                 }
               } catch {}
             } else {
-              menuConfirmFocus = true; // Confirm lights: Enter again executes
+              agentActivate(String(it.value)); // MENU 2.0: Enter executes
             }
           } else if (menuStack.length > 0) {
             agentActivate(String(it.value)); // MENU 2.0: Enter executes of a submenu
@@ -3698,7 +3680,12 @@ export async function runTui(opts: TuiOptions): Promise<void> {
               menuSel = 0;
               if (cmd.name === "settings") { try { fetchSettings(); fetchAllModels(); } catch {} }
             } else if (cmd) {
-              menuConfirmFocus = true; // no options: Confirm first, then run
+              // MENU 2.0: run it directly.
+              try { editor.setText(""); } catch {}
+              menuSel = 0;
+              handleSlashRef?.("/" + cmd.name);
+              try { ui.requestRender(); } catch {}
+              return;
             }
           }
         } else {
