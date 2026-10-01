@@ -3570,7 +3570,8 @@ export async function runTui(opts: TuiOptions): Promise<void> {
 
         const inFbLv = menuStack[1] === "defaults" && menuStack[2] === "fallbacks";
 
-        return inFbLv ? true : ((inModelsLv || inProvLv) ? false : !settingsDeeper(cur));
+        const inDefModelLv = menuStack[1] === "defaults" && menuStack[2] === "model";
+        return (inFbLv || inDefModelLv || inModelsLv || inProvLv) ? false : !settingsDeeper(cur);
 
       }
 
@@ -3638,6 +3639,11 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         } else if (inFallbacks && it && !it.separator) {
           const v = String(it.value || "");
           if (menuMarked.has(v)) menuMarked.delete(v); else menuMarked.add(v);
+          try {
+            const order = Array.from(menuMarked);
+            void sc.call('setDefaultFallbacks', { defaultFallbackModels: order }, 20000).catch(() => {});
+            wsSettings = { ...(wsSettings || {}), defaultFallbackModels: order };
+          } catch {}
         }
       } catch {}
       try { ui.requestRender(); } catch {}
@@ -4094,7 +4100,7 @@ const applySettingsPatch = (patch: any) => {
       // like the selected slash rows, while FOCUSED via → — Enter runs it).
       rows.push("");
       const left = fg(C.textSecondary, "\u2191 \u2193 \u2190 \u2192");
-      const hasMulti = (menuStack[0] === "model") || (menuStack[0] === "settings" && (menuStack[3] === "models" || (menuStack[1] === "defaults" && menuStack[2] === "fallbacks") || (menuStack[1] === "providers" && !menuStack[2])));
+      const hasMulti = (menuStack[0] === "model" || menuStack[0] === "thinking") || (menuStack[0] === "settings" && (menuStack[3] === "models" || (menuStack[1] === "defaults" && (menuStack[2] === "fallbacks" || menuStack[2] === "model")) || (menuStack[1] === "providers" && !menuStack[2])));
       // Confirm appears ONLY when the highlighted option actually RUNS something
       // (navigation items and read-only pages do not show it).
       let needsConfirm = menuConfirmFocus;
