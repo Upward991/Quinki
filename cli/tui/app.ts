@@ -2305,7 +2305,9 @@ const readProvidersCfg = (): any => {
         // the delegation toggle is a SEPARATE block, created right below it.
         pushBlock(registerToggle(new ToggleBlock({ label: "Tool call", boldName: name, color: C.toolCall, body })));
         assistant = null;
-        assistantText = "";
+        // NOTE: do NOT reset assistantText here — the text before a tool belongs to
+        // the SAME assistant message; resetting it made the message_end footer skip
+        // every message that was followed by a tool call.
       } else if (e?.type === "tool_execution_end") {
         const name = e.toolName || e.name || e.tool?.name || "tool";
         const isErr = !!e.isError;
