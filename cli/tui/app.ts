@@ -4018,6 +4018,7 @@ const readProvidersCfg = (): any => {
 
   let lastSelectAt = 0;
   const menuNav = (a: "up" | "down" | "left" | "right" | "enter" | "escape" | "select") => {
+    if (a === "select") { try { require("fs").appendFileSync("/tmp/q-tab-trace.log", new Date().toISOString() + " select stack=" + JSON.stringify(menuStack) + " sel=" + menuSel + "\n"); } catch {} }
 
     if (a === "select") {
       // The editor hook AND the app input listener both fire on one Tab press:
