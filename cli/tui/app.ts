@@ -2335,6 +2335,7 @@ const readProvidersCfg = (): any => {
         // Message footer (exact app format): ONLY after a real text — never after
         // a tool/toggle, never for an aborted stream (app behaviour).
         const hadText = lastAssistantText.trim();
+        try { require("fs").appendFileSync("/tmp/q-footer-trace.log", new Date().toISOString() + " msg_end role=" + String(e?.message?.role) + " hadText=" + JSON.stringify(hadText.slice(0, 40)) + " last=" + JSON.stringify(String(lastAssistantText).slice(0, 40)) + " stop=" + String(e?.message?.stopReason) + "\n"); } catch {}
         lastAssistantText = "";
         if (hadText && e?.message?.stopReason !== "aborted") {
         try {
