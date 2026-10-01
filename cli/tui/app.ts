@@ -194,11 +194,21 @@ class WelcomeRoot {
     const rows = Math.max(12, this.termFn() || 24);
     const boxLines = this.box?.render(width) || [];
     const hintLines = this.hint?.render(width) || [];
-    const group = boxLines.length + 1 + hintLines.length;
+    // App-home greeting ABOVE the text box: time-based, same words, "Quinki" in
+    // the violet brand (recomputed every render so it stays truthful).
+    let greet: string[] = [];
+    try {
+      const h = new Date().getHours();
+      const g = h >= 5 && h < 12 ? "Good morning" : h >= 12 && h < 18 ? "Good afternoon" : "Good evening";
+      const pad = " ".repeat(Math.max(2, Math.floor(width / 8)));
+      greet = ["", pad + bold(fg(C.text, g + ".")), pad + fg(C.textSecondary, "Welcome to ") + bold(fg(C.primary, "Quinki"))];
+    } catch {}
+    const group = greet.length + boxLines.length + 2 + hintLines.length;
     const top = Math.max(0, Math.floor((rows - group) / 2));
     const out: string[] = [];
     for (let i = 0; i < top; i++) out.push("");
-    out.push(...boxLines, "", ...hintLines);
+    out.push(...greet);
+    out.push("", ...boxLines, "", ...hintLines);
     while (out.length < rows) out.push("");
     return out;
   }
@@ -2192,27 +2202,6 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       blockCount = 0;
       toggles.length = 0;
       selToggle = -1;
-      // WELCOME: the app-home greeting above the text box — time-based, same words,
-      // with "Quinki" in the violet accent (big and airy, like the home).
-      if (welcomeShown) {
-        try {
-          const _h = new Date().getHours();
-          const _g = _h >= 5 && _h < 12 ? "Good morning" : _h >= 12 && _h < 18 ? "Good afternoon" : "Good evening";
-          pushBlock({
-            render: (w: number) => {
-              const pad = " ".repeat(Math.max(2, Math.floor(w / 8)));
-              return [
-                "",
-                "",
-                pad + bold(fg(C.text, _g + ".")),
-                pad + fg(C.textSecondary, "Welcome to ") + bold(fg(C.primary, "Quinki")),
-                "",
-              ];
-            },
-            invalidate() {},
-          });
-        } catch {}
-      }
       // The file is a TREE: the conversation order is the active branch (last
       // entry -> parents), exactly what the app shows. Flat order misorders.
       if (histMsgs) {
