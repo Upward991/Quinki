@@ -1204,8 +1204,10 @@ const readProvidersCfg = (): any => {
       { value: "__hdr_" + name, label: name, description: "", separator: true },
       { value: "models", label: "Models", description: String((p.enabledModels || []).length) + " on" + (totalM > 0 ? " \u00b7 " + totalM + " available" : " \u00b7 loading\u2026") },
       { value: "baseurl", label: "Base URL", description: String(p.baseUrl || "not set") },
-      { value: "key", label: "API key", description: wsKeyStatus[name] === true ? "set" : (wsKeyStatus[name] === false ? "not set" : "checking\u2026") },
     ];
+    if (name !== "OpenRouter") {
+      out2.push({ value: "key", label: "API key", description: wsKeyStatus[name] === true ? "set" : (wsKeyStatus[name] === false ? "not set" : "checking\u2026") });
+    }
     if (name === "OpenRouter") {
       out2.push({ value: "login", label: "Connect OpenRouter", description: "sign in via browser (shared with the app)" });
     }
