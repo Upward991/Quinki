@@ -213,6 +213,7 @@ const pixWord = (word: string, V: (t: string) => string): string[] => {
   for (let r = 0; r < 4; r++) {
     let out = "";
     for (let j = 0; j < word.length; j++) {
+      if (word[j] === " ") { out += "   "; continue; } // FIXED word gap (symmetric between all words)
       const bm = QPIX[word[j]] || QPIX[" "];
       const [x0, x1] = glyphBounds(bm); // trim empty side columns -> even spacing
       for (let x = x0; x <= x1; x++) {
