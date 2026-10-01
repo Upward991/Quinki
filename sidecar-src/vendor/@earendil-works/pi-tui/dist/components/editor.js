@@ -491,7 +491,7 @@ export class Editor {
                         acLines.push(" " + qPaint(`${leftPadding}${line}${lp}${rightPadding}`) + " ");
                     }
                     acLines.push(acPadRow);
-                    result.unshift(...acLines, "");
+                    result.unshift(...acLines);
                 }
             }
             catch { }
