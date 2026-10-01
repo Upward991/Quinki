@@ -3552,6 +3552,37 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       }
     } catch {}
   };
+
+  const needsConfirmFor = (cur: any): boolean => {
+
+    if (!cur || cur.separator) return false;
+
+    try {
+
+      if (menuStack[0] === "agentinsession") return !agentLevelFor(cur);
+
+      if (menuStack[0] === "settings") {
+
+        const inModelsLv = menuStack[3] === "models";
+
+        const inProvLv = menuStack[1] === "providers" && !menuStack[2];
+
+        const inFbLv = menuStack[1] === "defaults" && menuStack[2] === "fallbacks";
+
+        return inFbLv ? true : ((inModelsLv || inProvLv) ? false : !settingsDeeper(cur));
+
+      }
+
+      if (menuStack.length > 0) return menuStack[0] !== "model";
+
+      const c2: any = commands.find((c) => c.name === cur.value);
+
+      return !(c2 && typeof c2.getArgumentCompletions === "function");
+
+    } catch { return false; }
+
+  };
+
   const menuNav = (a: "up" | "down" | "left" | "right" | "enter" | "escape" | "select") => {
 
     if (a === "select") {
@@ -3716,6 +3747,14 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           }
         }
       } else {
+        // MENU 2.0: Enter is active ONLY when the bar shows Confirm (Enter).
+        try {
+          const curIt: any = (menuItemsCache || [])[menuSel];
+          if (!needsConfirmFor(curIt)) {
+            try { ui.requestRender(); } catch {}
+            return;
+          }
+        } catch {}
         // enter — app rules: Enter NEVER confirms directly. On a terminal option
         // the first Enter (or →) only LIGHTS the Confirm button; a second Enter,
         // with Confirm lit, executes. Opening a submenu is navigation, not a
@@ -4053,20 +4092,7 @@ const applySettingsPatch = (patch: any) => {
       let needsConfirm = menuConfirmFocus;
       try {
         const cur: any = items[menuSel];
-        if (cur && !cur.separator) {
-          if (menuStack[0] === "agentinsession") needsConfirm = !agentLevelFor(cur);
-          else if (menuStack[0] === "settings") {
-            const inModelsLv = menuStack[3] === "models";
-            const inProvLv = menuStack[1] === "providers" && !menuStack[2];
-            const inFbLv = menuStack[1] === "defaults" && menuStack[2] === "fallbacks";
-            needsConfirm = inFbLv ? true : ((inModelsLv || inProvLv) ? false : !settingsDeeper(cur));
-          }
-          else if (menuStack.length > 0) needsConfirm = menuStack[0] !== "model";
-          else {
-            const c2: any = commands.find((c: any) => c.name === cur.value);
-            needsConfirm = !(c2 && typeof c2.getArgumentCompletions === "function");
-          }
-        }
+        needsConfirm = needsConfirmFor(cur);
       } catch {}
       const right =
         fg(C.danger, "Close (Esc)") +
