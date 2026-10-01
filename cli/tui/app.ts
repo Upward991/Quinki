@@ -623,7 +623,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   const openFolder = (folder: string) => {
     try {
       const cp = require("child_process");
-      const opener = process.platform === "darwin" ? "open" : (process.platform === "win32" ? "explorer" : "xdg-open");
+      const opener = process.platform === "darwin" ? "/usr/bin/open" : (process.platform === "win32" ? "explorer" : "/usr/bin/xdg-open");
       cp.spawn(opener, [folder], { detached: true, stdio: "ignore" }).unref();
     } catch {}
   };
@@ -4778,6 +4778,7 @@ const applySettingsPatch = (patch: any) => {
   menuNavRef = menuNav;
   try {
     (globalThis as any).__qMenuSelect = () => {
+      try { require("fs").appendFileSync("/tmp/q-tab-trace.log", new Date().toISOString() + " hop2 qMenuSelect stack=" + JSON.stringify(menuStack) + "\n"); } catch {}
       try {
         if (menuStack && menuStack.length > 0) {
           menuNav("select");
