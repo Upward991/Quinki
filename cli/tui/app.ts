@@ -615,7 +615,8 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       // exactly like the normal CLI does with Quinki.app. The port comes from
       // QUINKI_SIDECAR_PORT (9183 for the expert), passed through the env.
       const candidates = QEXPERT
-        ? ["/Applications/App Expert.app/Contents/Resources/resources/sidecar/start.sh",
+        ? ["/Applications/App Expert.app/Contents/Resources/resources/sidecar/start-expert.sh",
+           "/Applications/App Expert.app/Contents/Resources/resources/sidecar/start.sh",
            "/Applications/Quinki.app/Contents/Resources/resources/sidecar/start.sh"]
         : ["/Applications/Quinki.app/Contents/Resources/resources/sidecar/start.sh",
            "/Applications/App Expert.app/Contents/Resources/resources/sidecar/start.sh"];
