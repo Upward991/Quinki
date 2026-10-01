@@ -4395,10 +4395,19 @@ const applySettingsPatch = (patch: any) => {
 
   try {
     // App Expert mode: straight into the session (no welcome): load the expert
-    // history immediately so the CLI opens on the real conversation.
+    // history (the SAME conversation as the app). Retry until the sidecar link
+    // is up: at boot the websocket may not be connected yet.
     if (QEXPERT) {
       welcomeShown = false;
-      void loadServerHistory().then(() => { try { ui.requestRender(); } catch {} });
+      let __qxTries = 0;
+      const __qxLoad = () => {
+        __qxTries++;
+        void loadServerHistory().then((ok) => {
+          try { ui.requestRender(); } catch {}
+          if (!ok && __qxTries < 12) setTimeout(__qxLoad, 1200);
+        }).catch(() => { if (__qxTries < 12) setTimeout(__qxLoad, 1200); });
+      };
+      __qxLoad();
     }
 
     ui.start();
