@@ -1698,7 +1698,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         sec("Close (\u2190)") +
         fg(C.textTertiary, " \u00b7 ") +
         sec("Open (\u2192)");
-      const brandN = fg(C.primary, "\u2502") + " " + fg(C.primary, "\uD83D\uDC7E") + " " + fg(C.primary, "\u2502");
+      const brandN = fg(C.primary, "\u2502") + " " + fg(C.text, "\u25c9\u25c9") + " " + fg(C.primary, "\u2502");
       const lwN = visibleWidth(leftN);
       const rwN = visibleWidth(rightN);
       const startN = Math.max(lwN + 1, Math.floor((width - 10) / 2));
@@ -1736,7 +1736,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     const right = stopKey + sep + steerKey + sep + sendKey;
 
     // "│ Quinki │" — brand centered between two violet vertical bars.
-    const brand = fg(C.primary, "\u2502") + " " + fg(C.primary, "\uD83D\uDC7E") + " " + fg(C.primary, "\u2502");
+    const brand = fg(C.primary, "\u2502") + " " + fg(C.text, "\u25c9\u25c9") + " " + fg(C.primary, "\u2502");
     const lw = visibleWidth(left);
     const rw = visibleWidth(right);
     const bw = 6;
