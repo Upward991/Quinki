@@ -196,7 +196,21 @@ export class TuiAltScreen extends TuiBase {
             for (let row = 0; row < __qTotalRows; row++) {
                 if (row > 0)
                     buffer += "\r\n";
-                buffer += `\r\x1b[48;2;8;8;11m\x1b[2K${this.lastDocument[row] ?? ""}\x1b[49m`;
+                {
+                    const __ln = this.lastDocument[row] ?? "";
+                    // The visible text with ANSI stripped: count the trailing spaces.
+                    // Those cells carried no colour (escape resets in between defeat
+                    // plain detection) -> overpaint them with bg-coloured spaces using
+                    // an absolute column jump. Bulletproof in every terminal.
+                    let __vis = "";
+                    try { __vis = __ln.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, "").replace(/\x1b\][^\x07]*\x07/g, ""); } catch { __vis = __ln; }
+                    const __t = (__vis.match(/[ \t]*$/) || [""])[0].length;
+                    let __pad = 0;
+                    try { __pad = Math.max(0, width - visibleWidth(__ln)); } catch { __pad = 0; }
+                    const __fix = __t + __pad;
+                    const __over = __fix > 0 ? `\x1b[${Math.max(1, width - __fix + 1)}G\x1b[48;2;8;8;11m${" ".repeat(__fix)}` : "";
+                    buffer += `\r\x1b[48;2;8;8;11m\x1b[2K${__ln}${__over}\x1b[49m`;
+                }
             }
             buffer += `\x1b[0m${ENABLE_AUTOWRAP}\r\n\x1b[?25h${END_SYNCHRONIZED_OUTPUT}`;
             this.terminal.write(buffer);
@@ -1177,16 +1191,13 @@ export class TuiAltScreen extends TuiBase {
             if (!fullRedraw && !imagesNeedRedraw && screen[row] === this.previousScreen[row])
                 continue;
             {
-                // No overpaint: rows with their own panel colours must NOT be
-                // repainted with the base background (that punched holes in the
-                // menu). The plain [2K fill + per-row bg is enough.
                 const __ln = preparedKittyScreen.lines[row] ?? "";
-                // 2K clears BEFORE the content; explicit bg-coloured padding fills
-                // the rest of the width (panel rows leave a plain tail otherwise).
-                let __lvw = 0;
-                try { __lvw = visibleWidth(__ln); } catch { __lvw = 0; }
-                const __lpad = Math.max(0, width - __lvw);
-                buffer += `\x1b[${row + 1};1H\x1b[48;2;8;8;11m\x1b[2K${__ln}${__lpad > 0 ? "\x1b[48;2;8;8;11m" + " ".repeat(__lpad) : ""}\x1b[49m`;
+                let __vis = "";
+                try { __vis = __ln.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, "").replace(/\x1b\][^\x07]*\x07/g, ""); } catch { __vis = __ln; }
+                const __t = (__vis.match(/[ \t]*$/) || [""])[0].length;
+                const __fix = __t;
+                const __over = __fix > 0 ? `\x1b[${Math.max(1, width - __fix + 1)}G\x1b[48;2;8;8;11m${" ".repeat(__fix)}` : "";
+                buffer += `\x1b[${row + 1};1H\x1b[48;2;8;8;11m\x1b[2K${__ln}${__over}\x1b[49m`;
             }
         }
         if (cursorPos) {

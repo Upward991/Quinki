@@ -479,29 +479,17 @@ export class Editor {
         // QUINKI PATCH (25 set): OUR slash menu panel above the box (driven by menuLinesFn).
         if (typeof this.menuLinesFn === "function") {
             try {
-                const rows = this.menuLinesFn(width - 4);
+                const rows = this.menuLinesFn(contentWidth);
                 if (Array.isArray(rows) && rows.length > 0) {
-                    // Solid panel rows, exactly the box width (no empty rows around).
-                    // NOTE: whitespace-only strings get dropped by the renderer, so the
-                    // pad rows keep a plain space OUTSIDE the painter.
-                    // \u200b (zero-width space) at the END anchors every row: whitespace-
-                    // only strings get dropped downstream; a trailing invisible zero-width
-                    // char keeps them alive WITHOUT shifting the left edge (alignment).
-                    // Blank rows above/below the menu (the page background shows: a real
-                    // row of space), anchored by the zero-width space so they survive.
-                    const acPadRow = "\u200b";
+                    const acPadRow = " " + qPaint(" ".repeat(width - 2)) + " ";
                     const acLines = [acPadRow];
-                    const acEdgeL = qEdge();
-                    const acEdgeR = typeof this.edgeRightFn === "function" ? String(this.edgeRightFn() ?? "") : acEdgeL;
                     for (const line of rows) {
-                        // EXACTLY like the composer rows: edge + padded content + edge.
-                        // Same width, panel background contained inside the borders.
                         const lws = visibleWidth(line);
-                        const lp = " ".repeat(Math.max(0, (width - 4) - lws));
-                        acLines.push(acEdgeL + qPaint(" " + line + lp + " ") + acEdgeR + "\u200b");
+                        const lp = " ".repeat(Math.max(0, contentWidth - lws));
+                        acLines.push(" " + qPaint(`${leftPadding}${line}${lp}${rightPadding}`) + " ");
                     }
                     acLines.push(acPadRow);
-                    result.unshift(...acLines);
+                    result.unshift(...acLines, "");
                 }
             }
             catch { }

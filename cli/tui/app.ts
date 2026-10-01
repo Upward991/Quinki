@@ -4094,7 +4094,7 @@ const applySettingsPatch = (patch: any) => {
         rowsE.push("");
         const leftE = fg(C.textSecondary, "\u2191 \u2193 \u2190 \u2192");
         const rightE = menuConfirmFocus ? bold(bg(C.primary, fg(C.bgPanel, " Confirm "))) : fg(C.primary, "Confirm");
-        const gwE = Math.max(1, w - 4 - visibleWidth(leftE) - visibleWidth(rightE));
+        const gwE = Math.max(1, w - visibleWidth(leftE) - visibleWidth(rightE));
         rowsE.push(leftE + " ".repeat(gwE) + rightE);
         return rowsE;
       }
@@ -4134,12 +4134,6 @@ const applySettingsPatch = (patch: any) => {
         }
       }
       const rows: string[] = [];
-      // The slash menu is a SOLID floating panel (exactly like the app:
-      // background var(--q-bg-panel) for every row of the window, no holes).
-      // Pure content rows: the EDITOR frames them exactly like the composer
-      // (left edge ▏ + panel background + right edge ▕), so every row has the
-      // same width and the background never spills past the box.
-      const winRow = (s2: string) => s2 + " ".repeat(Math.max(0, w - visibleWidth(s2))) + "\u200b";
       const MAXWIN = 12;
       const winStart = Math.max(0, Math.min(Math.max(0, items.length - MAXWIN), menuSel - Math.floor(MAXWIN / 2)));
       const winEnd = Math.min(items.length, winStart + MAXWIN);
@@ -4151,17 +4145,17 @@ const applySettingsPatch = (patch: any) => {
           // Group separator (agent name): not selectable, no highlight — with one
           // blank row of padding below and one ABOVE, skipped when it is the very
           // first row (the menu already opens with its own space).
-          if (rows.length > 0) rows.push(winRow(""));
-          rows.push(winRow(fg(C.textSecondary, label)));
-          rows.push(winRow(""));
+          if (rows.length > 0) rows.push("");
+          rows.push(fg(C.textSecondary, label));
+          rows.push("");
           continue;
         }
         if ((it as any).notice) {
           // Confirmation notice (reset/delete): a message instead of an option —
           // confirm with → then Enter (mandatory Confirm).
-          if (rows.length > 0) rows.push(winRow(""));
-          for (const ln of wrapPlain(String((it as any).notice), Math.max(10, w - 4))) rows.push(winRow(fg(C.textSecondary, ln)));
-          rows.push(winRow(""));
+          if (rows.length > 0) rows.push("");
+          for (const ln of wrapPlain(String((it as any).notice), Math.max(10, w))) rows.push(fg(C.textSecondary, ln));
+          rows.push("");
           continue;
         }
         if (menuMarked.has(String((it as any).value ?? "")) && !(menuStack[0] === "settings" && menuStack[1] === "defaults" && menuStack[2] === "fallbacks")) label = "\u2713 " + label;
@@ -4170,15 +4164,15 @@ const applySettingsPatch = (patch: any) => {
           const room = w - visibleWidth(label) - 2;
           desc = room > 0 ? desc.slice(0, room) : "";
         }
-        const gap = Math.max(1, w - 4 - visibleWidth(label) - visibleWidth(desc));
-        const rowPlain = " " + label + " ".repeat(gap) + desc + " ";
-        if (i === menuSel) rows.push(winRow(bg(C.primary, fg(C.bgPanel, rowPlain))));
-        else rows.push(winRow(fg(C.textSecondary, label) + " ".repeat(gap) + fg(C.textTertiary, desc)));
+        const gap = Math.max(1, w - visibleWidth(label) - visibleWidth(desc));
+        const rowPlain = label + " ".repeat(gap) + desc;
+        if (i === menuSel) rows.push(bg(C.primary, fg(C.bgPanel, rowPlain)));
+        else rows.push(fg(C.textSecondary, label) + " ".repeat(gap) + fg(C.textTertiary, desc));
       }
       // Blank separator, then the footer on ONE row (app NavBar style):
       // left ↑ ↓ ← → (navigation) — right Esc (red) · Confirm (filled violet,
       // like the selected slash rows, while FOCUSED via → — Enter runs it).
-      rows.push(winRow(""));
+      rows.push("");
       const canBack = (menuStack || []).length > 0;
       let canFwd = false;
       try {
@@ -4210,7 +4204,7 @@ const applySettingsPatch = (patch: any) => {
         "  " +
         (hasMulti ? fg(C.modeBuild, "Select (Tab)") + "  " : "") +
         (needsConfirm ? (menuConfirmFocus ? bold(bg(C.primary, fg(C.bgPanel, " Confirm (Enter) "))) : fg(C.primary, "Confirm (Enter)")) : "");
-      const gw = Math.max(1, w - 4 - visibleWidth(left) - visibleWidth(right));
+      const gw = Math.max(1, w - visibleWidth(left) - visibleWidth(right));
       rows.push(left + " ".repeat(gw) + right);
       return rows;
     } catch {
