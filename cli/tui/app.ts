@@ -1432,12 +1432,16 @@ const readProvidersCfg = (): any => {
           items.push({ value: "confirm", label: "", notice: dirPendingFiles + " file(s) remain in the previous folder. They stay there \u2014 move them yourself if you need them." });
           return items;
         }
-        items.push({ value: "__dir_open", label: "\u25cf " + cur, description: "Enter: open this folder" });
-        items.push({ value: "__dir_change", label: "Change folder\u2026", description: "native macOS folder picker" });
-        for (const dd of (Array.isArray(qDirs?.dirs) ? qDirs.dirs : [])) {
+        items.push({ value: "__dir_change", label: "Change directory\u2026", description: "" });
+        items.push({ value: "__dir_sep1", label: "", separator: true });
+        items.push({ value: "__dir_hdr", label: "List of directories", separator: true });
+        const dirsAll: any[] = Array.isArray(qDirs?.dirs) ? qDirs.dirs.slice() : [];
+        dirsAll.sort((a: any, b: any) => (a?.current === b?.current ? 0 : (a?.current ? -1 : 1)));
+        if (!dirsAll.length && cur) dirsAll.push({ path: cur, current: true });
+        for (const dd of dirsAll) {
           const dp = String(dd?.path || "");
-          if (!dp || dd?.current) continue;
-          items.push({ value: "__dir_set:" + dp, label: "\u25cb " + dp, description: "Tab: use it again \u00b7 Enter: open" });
+          if (!dp) continue;
+          items.push({ value: "__dir_use:" + dp, label: (dd?.current ? "\u25cf " : "\u25cb ") + dp, description: "" });
         }
         // Manual typing still works: the typed path is offered as-is.
         if (p && !p.startsWith("__")) items.unshift({ value: p, label: p, description: "use this path" });
@@ -3384,11 +3388,10 @@ const readProvidersCfg = (): any => {
       }
       case "directory": {
         const dArg = String(arg || "");
-        if (dArg === "__dir_open") { openFolder(String(qDirs?.current || currentCwd || "")); break; }
         if (dArg === "__dir_change") { pickFolder(); break; }
         if (dArg === "confirm") { applyDirChange(dirPendingChange); break; }
-        if (dArg.startsWith("__dir_set:")) {
-          // Enter on a history row = open that folder (the primary click).
+        if (dArg.startsWith("__dir_use:")) {
+          // Enter = OPEN that folder (current or old — same action).
           openFolder(dArg.slice(10));
           break;
         }
@@ -3968,10 +3971,19 @@ const readProvidersCfg = (): any => {
           try { ui.requestRender(); } catch {}
           return;
         }
+
         if (cmdName === "directory") {
-          // Tab on a history row = use that folder again (the dot moves, menu stays).
+          // Tab on a directory row = move the chat there (dot moves, menu stays;
+          // files warning via the same in-menu confirm).
           const vD = String(it.value ?? "");
-          if (vD.startsWith("__dir_set:")) { applyDirChange(vD.slice(10)); }
+          if (vD.startsWith("__dir_use:")) {
+            const tD = vD.slice(10);
+            const oldD = String(qDirs?.current || currentCwd || "");
+            let nD = 0;
+            try { nD = require("fs").readdirSync(oldD).filter((x: string) => !x.startsWith(".")).length; } catch {}
+            if (nD > 0 && tD !== oldD) { dirPendingChange = tD; dirPendingFiles = nD; try { editor.setText("/directory"); } catch {} }
+            else applyDirChange(tD);
+          }
           try { ui.requestRender(); } catch {}
           return;
         }
