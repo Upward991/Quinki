@@ -4160,8 +4160,8 @@ const cmd: any = commands.find((c) => c.name === it.value);
     return;
   }
   if (lv === "thinking") {
-    const thA = String(wsSettings?.defaultThinkingLevel || "xhigh");
-    applySettingsPatch({ defaultThinkingLevel: thA === "off" ? "xhigh" : "off" });
+    // Click "On"/"Off" = set exactly that (not a blind toggle).
+    applySettingsPatch({ defaultThinkingLevel: value === "off" ? "off" : "xhigh" });
     return;
   }
   if (lv === "fallbacks") {
