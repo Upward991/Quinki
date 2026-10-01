@@ -67,6 +67,13 @@ export const dimStyle = (s: string) => (colorEnabled ? `\x1b[2m${s}\x1b[22m` : s
 export const italicStyle = (s: string) => (colorEnabled ? `\x1b[3m${s}\x1b[23m` : s);
 
 /** Collapsed row color: 50% of the base color over the screen bg (like the app). */
+/** Set the floating-panel background for the following cells (keeps the char as-is). */
+const PANEL_RGB_Q = (() => {
+  const h = C.bgPanel.replace("#", "");
+  return `${parseInt(h.slice(0, 2), 16)};${parseInt(h.slice(2, 4), 16)};${parseInt(h.slice(4, 6), 16)}`;
+})();
+export const panelBgWrap = (s2: string) => (colorEnabled ? `\x1b[48;2;${PANEL_RGB_Q}m${s2}` : s2);
+
 export const collapsed = (color: string, s: string) => fg(blend(color, C.bg, 0.5), s);
 
 // --- panel-aware background (keeps the floating-panel bg after the cell) -------
