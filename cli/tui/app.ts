@@ -4728,7 +4728,13 @@ const applySettingsPatch = (patch: any) => {
       handleSlash(t);
       return;
     }
-    if (!t || streaming) return;
+    if (streaming) {
+      // The editor clears its state BEFORE calling onSubmit: during a generation
+      // Enter must do NOTHING — put the text back where it was (same look).
+      try { editor.setText(String(text || "")); } catch {}
+      return;
+    }
+    if (!t) return;
     editor.setText("");
     if (welcomeShown) {
       welcomeShown = false;
