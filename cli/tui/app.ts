@@ -527,13 +527,21 @@ class FooterRow {
 class UserBubble {
   text: string;
   dateStr: string;
-  constructor(text: string, dateStr: string) {
+  chips: Array<{ kind: string; name: string }>;
+  constructor(text: string, dateStr: string, chips?: Array<{ kind: string; name: string }>) {
     this.text = text;
     this.dateStr = dateStr;
+    this.chips = Array.isArray(chips) ? chips : [];
   }
   render(width: number): string[] {
     const inner = Math.max(6, width - 4);
     const lines = wrapPlain(this.text, inner);
+    if (!this.text.trim() && this.chips.length) lines.length = 0;
+    // The clips stay visible in the bubble (colored like the app's tabs).
+    for (const ch of this.chips) {
+      const col = ch.kind === "skill" ? "#c97084" : "#7aa2f7";
+      lines.push(fg(col, "\u25b8 " + ch.name));
+    }
     const full = (t: string) => {
       const fill = Math.max(0, inner - visibleWidth(t));
       return bg(C.bubbleUser, "  " + t + " ".repeat(fill + 2));
@@ -4824,7 +4832,7 @@ const applySettingsPatch = (patch: any) => {
       const now = Date.now();
       if (!(lastUserPush.text === t && now - lastUserPush.ts < 2000)) {
         lastUserPush = { text: t, ts: now };
-        pushBlock(new UserBubble(t, fmtFooterDate(now)));
+        pushBlock(new UserBubble(sendText || t, fmtFooterDate(now), _chipNames));
       }
     }
     if (scOn || (sc as any).connected) {
@@ -4852,6 +4860,11 @@ const applySettingsPatch = (patch: any) => {
       } catch { sendText = t; }
       try { pendingSkills.splice(0); pendingAttachments.splice(0); } catch {}
       try { ui.requestRender(); } catch {}
+      var _chipNames: Array<{ kind: string; name: string }> = [];
+      try {
+        for (const sk3 of skills) _chipNames.push({ kind: "skill", name: String(sk3) });
+        for (const at3 of atts) _chipNames.push({ kind: "attachment", name: require("path").basename(String((at3 as any)?.path || "")) });
+      } catch {}
       const fail = (err: any) => {
         addRow(fg(C.danger, "\u25b8 error \u00b7 " + truncate(String(err?.message || err), 120)));
         streaming = false;
@@ -4868,7 +4881,7 @@ const applySettingsPatch = (patch: any) => {
             "sendMessage",
             {
               sessionKey: sk,
-              text: sendText || t,
+              text: sendText,
               ...(skills.length ? { skillNames: skills } : {}),
               ...(atts.length ? { attachments: atts } : {}),
               // Only what the USER changed here: otherwise the session/app
