@@ -4136,9 +4136,10 @@ const applySettingsPatch = (patch: any) => {
       const rows: string[] = [];
       // The slash menu is a SOLID floating panel (exactly like the app:
       // background var(--q-bg-panel) for every row of the window, no holes).
-      // Each menu row is a BORDERED row like the composer: ▏ ... ▕ (plus the
-      // panel background inside, so the menu reads as one solid box).
-      const winRow = (s2: string) => panelBgWrap(fg(C.primary, "\u258f")) + bg(C.bgPanel, s2 + " ".repeat(Math.max(0, w - 2 - visibleWidth(s2)))) + panelBgWrap(fg(C.primary, "\u2595")) + "\u200b";
+      // Pure content rows: the EDITOR frames them exactly like the composer
+      // (left edge ▏ + panel background + right edge ▕), so every row has the
+      // same width and the background never spills past the box.
+      const winRow = (s2: string) => s2 + " ".repeat(Math.max(0, w - visibleWidth(s2))) + "\u200b";
       const MAXWIN = 12;
       const winStart = Math.max(0, Math.min(Math.max(0, items.length - MAXWIN), menuSel - Math.floor(MAXWIN / 2)));
       const winEnd = Math.min(items.length, winStart + MAXWIN);

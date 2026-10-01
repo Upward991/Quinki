@@ -479,7 +479,7 @@ export class Editor {
         // QUINKI PATCH (25 set): OUR slash menu panel above the box (driven by menuLinesFn).
         if (typeof this.menuLinesFn === "function") {
             try {
-                const rows = this.menuLinesFn(width - 2);
+                const rows = this.menuLinesFn(width - 4);
                 if (Array.isArray(rows) && rows.length > 0) {
                     // Solid panel rows, exactly the box width (no empty rows around).
                     // NOTE: whitespace-only strings get dropped by the renderer, so the
@@ -491,10 +491,14 @@ export class Editor {
                     // row of space), anchored by the zero-width space so they survive.
                     const acPadRow = "\u200b";
                     const acLines = [acPadRow];
+                    const acEdgeL = qEdge();
+                    const acEdgeR = typeof this.edgeRightFn === "function" ? String(this.edgeRightFn() ?? "") : acEdgeL;
                     for (const line of rows) {
+                        // EXACTLY like the composer rows: edge + padded content + edge.
+                        // Same width, panel background contained inside the borders.
                         const lws = visibleWidth(line);
-                        const lp = " ".repeat(Math.max(0, width - lws));
-                        acLines.push(qPaint(`${line}${lp}`) + "\u200b");
+                        const lp = " ".repeat(Math.max(0, (width - 4) - lws));
+                        acLines.push(acEdgeL + qPaint(" " + line + lp + " ") + acEdgeR + "\u200b");
                     }
                     acLines.push(acPadRow);
                     result.unshift(...acLines);
