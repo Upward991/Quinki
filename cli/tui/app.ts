@@ -201,29 +201,10 @@ const bigBrand = (): string[] => {
   });
   return rows;
 };
-const mascotRender = (): string[] => {
-  const P = (t: string) => fg(C.primary, t);
-  const S = (t: string) => fg(C.modeBuild, t);
-  const W = (t: string) => fg(C.text, t);
-  return [
-    "   " + S("\u2726") + "    ",
-    " \u259f" + P("\u2588\u2588\u2588\u2588") + "\u2599 ",
-    " \u2588" + W("\u25c9") + P("\u2588\u2588") + W("\u25c9") + P("\u2588") + " ",
-    " \u2599" + P("\u2588\u2588\u2588\u2588") + "\u259f ",
-  ];
-};
+
 const HERO_ART = (): string[] => {
   const brand = bigBrand();
-  const m = mascotRender();
-  const GAP = "  ";
-  const LEFT = "  ";
-  return [
-    LEFT + m[0] + GAP + brand[0],
-    LEFT + m[1] + GAP + brand[1],
-    LEFT + m[2] + GAP + brand[2],
-    LEFT + m[3] + GAP + brand[3],
-    "",
-  ];
+  return [brand[0], brand[1], brand[2], brand[3], ""];
 };
 class WelcomeRoot {
   box: any;
