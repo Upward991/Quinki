@@ -1067,13 +1067,17 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     const lastLv = stack[stack.length - 1];
     if (stack[2] === "model") return modelPickerItems(String(readProvidersCfg().defaultModel || defaultModelId || ""));
     if (lastLv === "addfallback") return modelPickerItems("", (Array.isArray(wsSettings?.defaultFallbackModels) ? wsSettings.defaultFallbackModels : []));
+    const fbFromFile = (): any[] => {
+      try { const ff = readSettingsFile().defaultFallbackModels; if (Array.isArray(ff)) return ff; } catch {}
+      return Array.isArray(wsSettings?.defaultFallbackModels) ? wsSettings.defaultFallbackModels : [];
+    };
     if (stack[2] === "fallbacks") {
-      const fb = Array.isArray(wsSettings?.defaultFallbackModels) ? wsSettings.defaultFallbackModels : [];
+      const fb = fbFromFile();
       const out: any[] = fb.map((id: any, i: number) => ({ value: "fb:" + String(id), label: String(id), description: "fallback " + (i + 1) }));
       out.push({ value: "__addfallback", label: "\uff0b Add fallback", description: "pick a model" });
       return out;
     }
-    const fbN = Array.isArray(wsSettings?.defaultFallbackModels) ? wsSettings.defaultFallbackModels.length : 0;
+    const fbN = fbFromFile().length;
     const th = String(wsSettings?.defaultThinkingLevel || readProvidersCfg().defaultThinking || "xhigh");
     return [
       { value: "model", label: "Default model", description: String((readProvidersCfg().defaultModel) || defaultModelId || "") },
@@ -1600,6 +1604,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         } catch {}
       }
       const isEnter = data === "\r" || matchesKey(data, "enter");
+      const isSpace = data === " ";
       const isCtrlEnter = data === "\n" || data === "\x1b[13;5u" || matchesKey(data, "ctrl+enter");
       const isEsc = data === "\x1b" || matchesKey(data, "escape");
       const isUp = data === "\x1b[A" || matchesKey(data, "up");
@@ -1643,7 +1648,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       }
       if (menuNow) {
         if (isUp || isDown || isLeft || isRight || isEnter) {
-          menuNavRef?.(isUp ? "up" : isDown ? "down" : isLeft ? "left" : isRight ? "right" : "enter");
+          menuNavRef?.(isSpace ? "space" : isUp ? "up" : isDown ? "down" : isLeft ? "left" : isRight ? "right" : "enter");
           return { consume: true };
         }
         if (menuStack.length > 0) {
@@ -1741,7 +1746,8 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   let handleSlashRef: ((raw: string) => void) | null = null;
   // Slash menu (OURS — app-style; it NEVER writes command text into the box).
   let menuError = ""; // error shown INSIDE the slash menu (never in the chat)
-  let menuStack: string[] = []; // open menu path: [], [cmd] or ["agent", ...deeper levels]
+  let menuStack: string[] = [];
+  let menuMarked = new Set<string>(); // open menu path: [], [cmd] or ["agent", ...deeper levels]
   let lastNavA = ""; // last navigation direction (duplicate-event collapse)
   let lastNavT = 0;
   let pendingKeys = ""; // unfinished escape tail held across reads
@@ -1750,7 +1756,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   let menuConfirmFocus = false; // → focused the Confirm action (app NavBar focusConfirm)
   let menuLastFilter = ""; // to reset the selection when the filter changes
   let menuOpenRef: (() => boolean) | null = null;
-  let menuNavRef: ((a: "up" | "down" | "left" | "right" | "enter" | "escape") => void) | null = null;
+  let menuNavRef: ((a: "up" | "down" | "left" | "right" | "enter" | "escape" | "space") => void) | null = null;
   // Status pill (app-style): Running (teal) / Compacting (blue) / Failed (red).
   let statusLabel = "";
   let statusKind = "";
@@ -3457,7 +3463,19 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     if (menuStack.length > 0) return true;
     return editorText().startsWith("/");
   };
-  const menuNav = (a: "up" | "down" | "left" | "right" | "enter" | "escape") => {
+  const menuNav = (a: "up" | "down" | "left" | "right" | "enter" | "escape" | "space") => {
+    if (a === "space") {
+      try {
+        const its: any = (typeof items !== "undefined" ? items : []);
+        const it: any = its[menuSel];
+        if (menuStack[0] === "settings" && menuStack[3] === "models" && it && !it.separator) {
+          const v = String(it.value || "");
+          if (menuMarked.has(v)) menuMarked.delete(v); else menuMarked.add(v);
+        }
+      } catch {}
+      try { ui.requestRender(); } catch {}
+      return;
+    }
     try {
       if (!menuOpen()) return;
       // A menu error is showing: any key dismisses it and brings back the menu.
@@ -3749,20 +3767,19 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     const pname = String(sub || "").replace(/^prov:/, "");
     if (sub && !sub3) { if (value === "toggle") { patchProvider(pname, (p) => { p.enabled = !p.enabled; }); } return; }
     if (sub3 === "models") {
+      if (menuMarked.size > 0) {
+        const ids = Array.from(menuMarked).filter((v: string) => v.startsWith("mdl:")).map((v: string) => v.slice(4));
+        if (ids.length > 0) {
+          patchProvider(pname, (p) => { const e = new Set(p.enabledModels || []); for (const id of ids) { if (e.has(id)) e.delete(id); else e.add(id); } p.enabledModels = Array.from(e); });
+        }
+        menuMarked.clear();
+        return;
+      }
       if (value.startsWith("mdl:")) {
         const id = value.slice(4);
         patchProvider(pname, (p) => { const e = new Set(p.enabledModels || []); if (e.has(id)) e.delete(id); else e.add(id); p.enabledModels = Array.from(e); });
         return;
       }
-      if (value && !value.startsWith("__")) {
-        patchProvider(pname, (p) => {
-          const md = p.modelData || (p.modelData = []);
-          if (!md.some((x: any) => String(x.id) === value)) md.push({ id: value, name: value });
-          const e = new Set(p.enabledModels || []); e.add(value); p.enabledModels = Array.from(e);
-        });
-        menuSubFilter = ""; menuSel = 0;
-      }
-      return;
     }
     if (sub3 === "key" && value && !value.startsWith("__")) { patchProvider(pname, (p) => { p.apiKey = value; }); return; }
     if (sub3 === "baseurl" && value && !value.startsWith("__")) { patchProvider(pname, (p) => { p.baseUrl = value; }); return; }
@@ -3855,6 +3872,7 @@ const applySettingsPatch = (patch: any) => {
           rows.push("");
           continue;
         }
+        if (menuMarked.has(String((it as any).value ?? ""))) label = "\u2713 " + label;
         if (visibleWidth(label) > w - 2) label = label.slice(0, Math.max(0, w - 2));
         if (visibleWidth(label) + 2 + visibleWidth(desc) > w) {
           const room = w - visibleWidth(label) - 2;
@@ -3870,10 +3888,12 @@ const applySettingsPatch = (patch: any) => {
       // like the selected slash rows, while FOCUSED via → — Enter runs it).
       rows.push("");
       const left = fg(C.textSecondary, "\u2191 \u2193 \u2190 \u2192");
+      const hasMulti = menuStack[0] === "settings" && menuStack[3] === "models";
       const right =
-        fg(C.danger, "Esc") +
+        fg(C.danger, "Close (Esc)") +
         "  " +
-        (menuConfirmFocus ? bold(bg(C.primary, fg(C.bgPanel, " Confirm "))) : fg(C.primary, "Confirm"));
+        (hasMulti ? fg(C.modeBuild, "Select (Space)") + "  " : "") +
+        (menuConfirmFocus ? bold(bg(C.primary, fg(C.bgPanel, " Confirm (Enter) "))) : fg(C.primary, "Confirm (Enter)"));
       const gw = Math.max(1, w - visibleWidth(left) - visibleWidth(right));
       rows.push(left + " ".repeat(gw) + right);
       return rows;
