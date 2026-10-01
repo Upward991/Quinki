@@ -2493,7 +2493,7 @@ const readProvidersCfg = (): any => {
         const em = String(p?.message || "Unknown error");
         pushBlock(
           registerToggle(
-            new ToggleBlock({ label: "Error", boldName: "", color: C.expert, body: em, open: true })
+            new ToggleBlock({ label: "Error", boldName: "", color: C.danger, body: em, open: true })
           )
         );
         scrollToEnd();
