@@ -481,14 +481,15 @@ export class Editor {
             try {
                 const rows = this.menuLinesFn(contentWidth);
                 if (Array.isArray(rows) && rows.length > 0) {
-                    // Solid panel rows, EXACTLY the box width (no stray spaces or
-                    // empty rows around: the menu must look like the app's panel).
-                    const acPadRow = qPaint(" ".repeat(width));
+                    // Solid panel rows, exactly the box width (no empty rows around).
+                    // NOTE: whitespace-only strings get dropped by the renderer, so the
+                    // pad rows keep a plain space OUTSIDE the painter.
+                    const acPadRow = " " + qPaint(" ".repeat(Math.max(1, width - 2))) + " ";
                     const acLines = [acPadRow];
                     for (const line of rows) {
                         const lws = visibleWidth(line);
-                        const lp = " ".repeat(Math.max(0, width - lws));
-                        acLines.push(qPaint(`${line}${lp}`));
+                        const lp = " ".repeat(Math.max(0, width - 2 - lws));
+                        acLines.push(" " + qPaint(`${line}${lp}`) + " ");
                     }
                     acLines.push(acPadRow);
                     result.unshift(...acLines);
