@@ -574,6 +574,16 @@ const fmtFooterDate = (ms: number): string => {
 };
 
 export async function runTui(opts: TuiOptions): Promise<void> {
+  // Survival guard: the sidecar dying (app closed) must NEVER kill this process.
+  // Errors from the websocket/link are handled by the reconnect loop instead.
+  try {
+    process.on("uncaughtException", (e: any) => {
+      try { require("fs").appendFileSync("/tmp/q-cli-survive.log", String(e?.stack || e) + "\n"); } catch {}
+    });
+    process.on("unhandledRejection", (e: any) => {
+      try { require("fs").appendFileSync("/tmp/q-cli-survive.log", "rejection: " + String(e?.stack || e) + "\n"); } catch {}
+    });
+  } catch {}
   // Startup: always a FRESH cli session with the welcome (no resume): every
   // existing chat — including the last used one — stays visible in /sessions.
   const key = QEXPERT
