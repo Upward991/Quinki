@@ -692,6 +692,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   const pendingSkills: string[] = [];
   const pendingAttachments: Array<{ path: string }> = [];
   const attPathByName: Record<string, string> = {}; // inline token name -> real file
+  // Clip colors = the app's tab accents: skill -> Agents tab, attachment -> Chat tab.
+  const Q_CLIP_SKILL = "#c97084";  // --q-accent-secondary (Agents)
+  const Q_CLIP_ATT = "#7aa2f7";    // --q-accent-info (Chat)
   const stopTurn = () => {
     if (scOn) {
       void sc.call("abort", { sessionKey: currentKey }, 15000).catch(() => {});
@@ -1449,15 +1452,14 @@ const readProvidersCfg = (): any => {
       },
     },
     {
-      name: "attach",
-      description: "Attach a file to the message",
+      name: "attachments",
+      description: "Attachments: new file, folder, last sent",
       seq: 9,
       getArgumentCompletions: () => {
         const items: any[] = [];
         const sdir = path.join(os.homedir(), ".quinki", "attachments", String(currentKey || ""));
-        items.push({ value: "__at_new", label: "Attach new file\u2026", description: "native file picker" });
+        items.push({ value: "__at_new", label: "Attach new file\u2026", description: "" });
         items.push({ value: "__at_open", label: "Open attachments folder", description: sdir.replace(os.homedir(), "~") });
-        // ONE separator: the header row already renders as blank + label + blank.
         items.push({ value: "__at_hdr", label: "Last attachments", separator: true });
         try {
           const fsc = require("fs");
@@ -1472,7 +1474,7 @@ const readProvidersCfg = (): any => {
           if (!files.length) items.push({ value: "__at_none", label: "No attachments yet", description: "attach one with Enter" });
           for (const f of files) {
             const full = path.join(sdir, f.n);
-            items.push({ value: "__at_file:" + full, label: f.n, description: "Enter: attach it again" });
+            items.push({ value: "__at_file:" + full, label: f.n, description: "" });
           }
         } catch { items.push({ value: "__at_none", label: "No attachments yet", description: "" }); }
         return items;
@@ -2110,6 +2112,31 @@ const readProvidersCfg = (): any => {
     // Chips live INSIDE the text as inline tokens ("\u25b8name"): no bar above the
     // box, no X — move the cursor around them and delete them like text.
     (editor as any).qChipsFn = () => "";
+    // ATOMIC chips: backspace ON a "\u25b8token" deletes the WHOLE token at once.
+    (editor as any).qAtomicDelete = () => {
+      try {
+        const st: any = (editor as any).state;
+        if (!st || !Array.isArray(st.lines)) return false;
+        const line = String(st.lines[st.cursorLine] ?? "");
+        const col = Number(st.cursorCol) || 0;
+        // Find a token that ENDS at the cursor (or the cursor sits inside it).
+        const re = /\u25b8[^\s\u25b8]+/g;
+        let m: RegExpExecArray | null;
+        while ((m = re.exec(line))) {
+          const a = m.index;
+          const b = m.index + m[0].length;
+          if (col > a && col <= b) {
+            const nline = line.slice(0, a) + line.slice(b);
+            st.lines[st.cursorLine] = nline;
+            try { editor.setCursorCol(a); } catch {}
+            try { if (typeof (editor as any).onChange === "function") (editor as any).onChange(editor.getText()); } catch {}
+            try { ui.requestRender(); } catch {}
+            return true;
+          }
+        }
+      } catch {}
+      return false;
+    };
   } catch {}
   try {
     // Menu footer (two rows): left ← (back) / → (forward); right Esc (red,
@@ -3407,7 +3434,7 @@ const readProvidersCfg = (): any => {
         applyDirChange(target);
         break;
       }
-      case "attach": {
+      case "attachments": {
         const aArg = String(arg || "");
         if (aArg === "__at_new") {
           // Native macOS file picker (same feel as the folder picker).
@@ -3949,7 +3976,7 @@ const readProvidersCfg = (): any => {
       }
       if (menuStack.length > 0) {
         const cmdName = menuStack[0];
-        if (cmdName === "attach") {
+        if (cmdName === "attachments") {
           const vA = String(it.value ?? "");
           if (vA.startsWith("__at_file:")) {
             const fpA = vA.slice(10);

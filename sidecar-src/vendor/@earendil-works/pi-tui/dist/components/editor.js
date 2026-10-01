@@ -645,6 +645,9 @@ export class Editor {
             return;
         }
         if (kb.matches(data, "tui.editor.deleteCharBackward") || matchesKey(data, "shift+backspace")) {
+            // QUINKI PATCH (T343): atomic chips — if the app says the cursor is on a
+            // token ("\u25b8name"), delete the WHOLE token (one keypress).
+            try { if (typeof this.qAtomicDelete === "function" && this.qAtomicDelete() === true) return; } catch {}
             this.handleBackspace();
             return;
         }
