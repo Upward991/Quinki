@@ -2192,6 +2192,26 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       blockCount = 0;
       toggles.length = 0;
       selToggle = -1;
+      // WELCOME: the app-home greeting above the text box — time-based, same words,
+      // with "Quinki" in the violet accent (big and airy, like the home).
+      if (welcomeShown) {
+        try {
+          const _h = new Date().getHours();
+          const _g = _h >= 5 && _h < 12 ? "Good morning" : _h >= 12 && _h < 18 ? "Good afternoon" : "Good evening";
+          pushBlock({
+            render: (w: number) => {
+              const pad = " ".repeat(Math.max(2, Math.floor(w / 8)));
+              return [
+                "",
+                "",
+                pad + bold(fg(C.text, _g + ".")),
+                pad + fg(C.textSecondary, "Welcome to ") + bold(fg(C.primary, "Quinki")),
+                "",
+              ];
+            },
+          });
+        } catch {}
+      }
       // The file is a TREE: the conversation order is the active branch (last
       // entry -> parents), exactly what the app shows. Flat order misorders.
       if (histMsgs) {
