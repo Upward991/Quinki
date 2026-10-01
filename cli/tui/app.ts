@@ -1591,23 +1591,6 @@ const readProvidersCfg = (): any => {
         if (gv.__qInputRing.length > 25) gv.__qInputRing.shift();
         try { require("fs").writeFileSync("/tmp/q-cli-input-ring.json", JSON.stringify(gv.__qInputRing, null, 1)); } catch {}
       } catch {}
-      // Trace + filter: terminal FOCUS sequences (\x1b[I / \x1b[O) arrive when
-      // the app window closes and must NEVER be treated as keys (they were
-      // confirming the /quit notice and killing the CLI).
-      try {
-        if (typeof data === "string" && data.includes("\x1b[")) {
-          if (data.includes("\x1b[I") || data.includes("\x1b[O") || /\x1b\[[0-9;]*t/.test(data)) {
-            try { require("fs").appendFileSync("/tmp/q-cli-survive.log", "filtered control seq: " + JSON.stringify(data) + "\n"); } catch {}
-            // Focus ([I / [O) AND window-operation reports ([...t, e.g.
-            // [6;17;8t sent by the terminal when the app window closes): must
-            // never reach the menu as keystrokes.
-            const cleaned = data.replace(/\x1b\[I|\x1b\[O|\x1b\[[0-9;]*t/g, "");
-            if (cleaned.length === 0) return { consume: true } as any;
-            data = cleaned;
-            return { data };
-          }
-        }
-      } catch {}
       // Escape sequences can be SPLIT across reads ("\x1b[1;1" then "C…"): hold
       // an unfinished tail (ESC + "[…") and prepend it to the next read, so the
       // arrow is recognized on its FIRST press (a lone ESC key stays untouched).
@@ -1623,6 +1606,17 @@ const readProvidersCfg = (): any => {
         }
         if (!data) return { consume: true };
       }
+      // Filter control sequences AFTER the split-recomposition (they arrive in
+      // two reads when the app window closes: \x1b[6;17;8 + t): the parser was
+      // treating them as keystrokes and confirming the /quit notice.
+      try {
+        if (typeof data === "string" && /\x1b\[I|\x1b\[O|\x1b\[[0-9;]*t/.test(data)) {
+          try { require("fs").appendFileSync("/tmp/q-cli-survive.log", "filtered control seq (post-merge): " + JSON.stringify(data) + "\n"); } catch {}
+          const cleaned = data.replace(/\x1b\[I|\x1b\[O|\x1b\[[0-9;]*t/g, "");
+          if (cleaned.length === 0) return { consume: true } as any;
+          return { data: cleaned };
+        }
+      } catch {}
       // Kitty-capable terminals report press AND release in the SAME read:
       // "\x1b[1;1C\x1b[1;1:3C". Strip every release (":3" event form) and use
       // what remains: otherwise the chunk matches no key at all and the first
