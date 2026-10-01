@@ -4417,6 +4417,8 @@ const applySettingsPatch = (patch: any) => {
         void loadServerHistory().then((ok) => {
           try { if (ok) { renderHistory(); scrollToEnd(); } } catch {}
           try { ui.requestRender(); } catch {}
+          // The ScrollView settles a moment later (layout): re-pin to the bottom.
+          try { if (ok) { setTimeout(scrollToEnd, 250); setTimeout(scrollToEnd, 900); setTimeout(scrollToEnd, 2000); } } catch {}
           if (!ok && __qxTries < 12) setTimeout(__qxLoad, 1200);
         }).catch(() => { if (__qxTries < 12) setTimeout(__qxLoad, 1200); });
       };
