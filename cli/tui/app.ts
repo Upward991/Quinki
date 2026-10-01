@@ -4134,6 +4134,9 @@ const applySettingsPatch = (patch: any) => {
         }
       }
       const rows: string[] = [];
+      // The slash menu is a SOLID floating panel (exactly like the app:
+      // background var(--q-bg-panel) for every row of the window, no holes).
+      const winRow = (s2: string) => bg(C.bgPanel, s2 + " ".repeat(Math.max(0, w - visibleWidth(s2))));
       const MAXWIN = 12;
       const winStart = Math.max(0, Math.min(Math.max(0, items.length - MAXWIN), menuSel - Math.floor(MAXWIN / 2)));
       const winEnd = Math.min(items.length, winStart + MAXWIN);
@@ -4145,17 +4148,17 @@ const applySettingsPatch = (patch: any) => {
           // Group separator (agent name): not selectable, no highlight — with one
           // blank row of padding below and one ABOVE, skipped when it is the very
           // first row (the menu already opens with its own space).
-          if (rows.length > 0) rows.push("");
-          rows.push(fg(C.textSecondary, label));
-          rows.push("");
+          if (rows.length > 0) rows.push(winRow(""));
+          rows.push(winRow(fg(C.textSecondary, label)));
+          rows.push(winRow(""));
           continue;
         }
         if ((it as any).notice) {
           // Confirmation notice (reset/delete): a message instead of an option —
           // confirm with → then Enter (mandatory Confirm).
-          if (rows.length > 0) rows.push("");
-          for (const ln of wrapPlain(String((it as any).notice), Math.max(10, w))) rows.push(fg(C.textSecondary, ln));
-          rows.push("");
+          if (rows.length > 0) rows.push(winRow(""));
+          for (const ln of wrapPlain(String((it as any).notice), Math.max(10, w))) rows.push(winRow(fg(C.textSecondary, ln)));
+          rows.push(winRow(""));
           continue;
         }
         if (menuMarked.has(String((it as any).value ?? "")) && !(menuStack[0] === "settings" && menuStack[1] === "defaults" && menuStack[2] === "fallbacks")) label = "\u2713 " + label;
@@ -4166,13 +4169,13 @@ const applySettingsPatch = (patch: any) => {
         }
         const gap = Math.max(1, w - visibleWidth(label) - visibleWidth(desc));
         const rowPlain = label + " ".repeat(gap) + desc;
-        if (i === menuSel) rows.push(bg(C.primary, fg(C.bgPanel, rowPlain)));
-        else rows.push(fg(C.textSecondary, label) + " ".repeat(gap) + fg(C.textTertiary, desc));
+        if (i === menuSel) rows.push(winRow(bg(blend("#ffffff", C.bgPanel, 0.06), fg(C.text, label) + " ".repeat(gap) + fg(C.textSecondary, desc))));
+        else rows.push(winRow(fg(C.textSecondary, label) + " ".repeat(gap) + fg(C.textTertiary, desc)));
       }
       // Blank separator, then the footer on ONE row (app NavBar style):
       // left ↑ ↓ ← → (navigation) — right Esc (red) · Confirm (filled violet,
       // like the selected slash rows, while FOCUSED via → — Enter runs it).
-      rows.push("");
+      rows.push(winRow(""));
       const canBack = (menuStack || []).length > 0;
       let canFwd = false;
       try {
