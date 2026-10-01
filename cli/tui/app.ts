@@ -3753,9 +3753,10 @@ const readProvidersCfg = (): any => {
 
         const inProvLv = menuStack[1] === "providers" && !menuStack[2];
 
-        const inFbLv = menuStack[1] === "defaults" && menuStack[2] === "fallbacks";
-
-        const inDefModelLv = menuStack[1] === "defaults" && (menuStack[2] === "model" || menuStack[2] === "thinking");
+        // UPDATED with the flattened menu (T315): the levels are now top-level
+        // "model" / "fallbacks" / "thinking" — the old nested paths kept as alias.
+        const inFbLv = menuStack[1] === "fallbacks" || (menuStack[1] === "defaults" && menuStack[2] === "fallbacks");
+        const inDefModelLv = menuStack[1] === "model" || menuStack[1] === "thinking" || (menuStack[1] === "defaults" && (menuStack[2] === "model" || menuStack[2] === "thinking"));
         return (inFbLv || inDefModelLv || inModelsLv || inProvLv) ? false : !settingsDeeper(cur);
 
       }
