@@ -486,16 +486,17 @@ export class Editor {
                     // EVERY menu row is normalised to the SAME visible width
                     // (contentWidth + the two paddings): no row ends at a different
                     // column, so there are no "holes" of different sizes.
-                    const acPadRow = qPaint(`\x1b[38;2;58;58;68m${leftPadding}${"\u2500".repeat(contentWidth)}${rightPadding}\x1b[39m`);
+                    const acPadRow = qPaint(`\x1b[38;2;58;58;68m${"\u2500".repeat(Math.max(1, width - 2))}\x1b[39m`);
                     const acLines = [acPadRow];
                     for (const line of rows) {
                         let lws = visibleWidth(line);
                         let vis = line;
+                        const qTarget = Math.max(1, width - 2);
                         try {
-                            if (lws > contentWidth) { vis = sliceByColumn(line, 0, contentWidth, true); lws = visibleWidth(vis); }
+                            if (lws > qTarget) { vis = sliceByColumn(line, 0, qTarget, true); lws = visibleWidth(vis); }
                         } catch {}
-                        const lp = " ".repeat(Math.max(0, contentWidth - lws));
-                        acLines.push(qPaint(`${leftPadding}${vis}${lp}${rightPadding}`));
+                        const lp = " ".repeat(Math.max(0, qTarget - lws));
+                        acLines.push(qPaint(`${vis}${lp}`));
                     }
                     acLines.push(acPadRow);
                     result.unshift(...acLines);
