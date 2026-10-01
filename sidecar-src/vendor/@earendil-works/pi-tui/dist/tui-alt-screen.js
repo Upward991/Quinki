@@ -1193,7 +1193,7 @@ export class TuiAltScreen extends TuiBase {
             {
                 const __ln = preparedKittyScreen.lines[row] ?? "";
                 // Dark terminal -> paint NOTHING (its own background shows through).
-                if ((globalThis.__Q_PAINT_BG) === false) {
+                if ((globalThis.__Q_PAINT_BG) === false || process.env.Q_NO_BG === "1") {
                     buffer += `\x1b[${row + 1};1H\x1b[2K${__ln}\x1b[49m`;
                     continue;
                 }
