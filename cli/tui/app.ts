@@ -182,21 +182,22 @@ class InsetBox {
 
 /** Welcome root: the box + hints, centered EXACTLY (manual math, both axes). */
 
-// === HERO (app-home replica): mascot + greeting + big "Quinki" (5-row shadow font) ===
+// === HERO: mascot + big "QUINKI" (pure-block font: only \u2588 and spaces) ===
 const QFONT: Record<string, string[]> = {
-  "Q": [" \u2588\u2588\u2588\u2588\u2588\u2588\u2557 ", "\u2588\u2588\u2554\u2550\u2550\u2550\u2588\u2588\u2557", "\u2588\u2588\u2551   \u2588\u2588\u2551", "\u255a\u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255d", " \u255a\u2550\u2550\u2550\u2550\u2550\u255d "],
-  "U": ["\u2588\u2588\u2557   \u2588\u2588\u2557", "\u2588\u2588\u2551   \u2588\u2588\u2551", "\u2588\u2588\u2551   \u2588\u2588\u2551", "\u255a\u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255d", " \u255a\u2550\u2550\u2550\u2550\u2550\u255d "],
-  "I": ["\u2588\u2588\u2557", "\u2588\u2588\u2551", "\u2588\u2588\u2551", "\u2588\u2588\u2551", "\u255a\u2550\u255d"],
-  "N": ["\u2588\u2588\u2588\u2557   \u2588\u2588\u2557", "\u2588\u2588\u2588\u2588\u2557  \u2588\u2588\u2551", "\u2588\u2588\u2554\u2588\u2588\u2557 \u2588\u2588\u2551", "\u2588\u2588\u2551\u255a\u2588\u2588\u2557\u2588\u2588\u2551", "\u2588\u2588\u2551 \u255a\u2588\u2588\u2588\u2588\u2551"],
-  "K": ["\u2588\u2588\u2557  \u2588\u2588\u2557", "\u2588\u2588\u2551 \u2588\u2588\u2554\u255d", "\u2588\u2588\u2588\u2588\u2588\u2554\u255d ", "\u2588\u2588\u2554\u2550\u2588\u2588\u2557 ", "\u2588\u2588\u2551  \u2588\u2588\u2557"],
-  "!": ["\u2588\u2588\u2557", "\u2588\u2588\u2551", "\u2588\u2588\u2551", "\u255a\u2550\u255d", "\u2588\u2588\u2557"],
+  "Q": [" \u2588\u2588\u2588\u2588\u2588 ", "\u2588\u2588   \u2588\u2588", "\u2588\u2588 \u2588 \u2588\u2588", " \u2588\u2588\u2588\u2588\u2588 "],
+  "U": ["\u2588\u2588   \u2588\u2588", "\u2588\u2588   \u2588\u2588", "\u2588\u2588   \u2588\u2588", " \u2588\u2588\u2588\u2588\u2588 "],
+  "I": ["\u2588\u2588\u2588\u2588\u2588\u2588 ", "  \u2588\u2588   ", "  \u2588\u2588   ", "\u2588\u2588\u2588\u2588\u2588\u2588 "],
+  "N": ["\u2588\u2588   \u2588\u2588", "\u2588\u2588\u2588  \u2588\u2588", "\u2588\u2588 \u2588 \u2588\u2588", "\u2588\u2588   \u2588\u2588"],
+  "K": ["\u2588\u2588 \u2588\u2588  ", "\u2588\u2588\u2588\u2588   ", "\u2588\u2588 \u2588\u2588  ", "\u2588\u2588  \u2588\u2588 "],
+  "!": [" \u2588\u2588    ", " \u2588\u2588    ", " \u2588\u2588    ", " \u2588\u2588    "],
 };
 const bigBrand = (): string[] => {
-  const rows = ["", "", "", "", ""];
-  const glyphs = "QUINKI!".split("");
+  const V = (t: string) => bold(fg(C.primary, t));
+  const rows = ["", "", "", ""];
+  const glyphs = "QUINKI".split("");
   glyphs.forEach((ch, i) => {
-    const g = QFONT[ch] || [" ", " ", " ", " ", " "];
-    for (let r = 0; r < 5; r++) rows[r] += g[r] + (i === glyphs.length - 1 ? "" : " ");
+    const g = QFONT[ch] || [" ", " ", " ", " "];
+    for (let r = 0; r < 4; r++) rows[r] += V(g[r]) + (i === glyphs.length - 1 ? "" : " ");
   });
   return rows;
 };
@@ -209,22 +210,18 @@ const mascotRender = (): string[] => {
     " \u259f" + P("\u2588\u2588\u2588\u2588") + "\u2599 ",
     " \u2588" + W("\u25c9") + P("\u2588\u2588") + W("\u25c9") + P("\u2588") + " ",
     " \u2599" + P("\u2588\u2588\u2588\u2588") + "\u259f ",
-    "        ",
   ];
 };
-const HERO_ART = (greeting: string): string[] => {
+const HERO_ART = (): string[] => {
   const brand = bigBrand();
   const m = mascotRender();
   const GAP = "  ";
   const LEFT = "  ";
-  const INDENT = "        " + GAP; // aligns under the brand (mascot width + gap)
   return [
-    LEFT + m[0] + GAP + fg(C.textSecondary, greeting + ", welcome to"),
-    LEFT + m[1] + GAP + brand[0],
-    LEFT + m[2] + GAP + brand[1],
-    LEFT + m[3] + GAP + brand[2],
-    LEFT + m[4] + GAP + brand[3],
-    INDENT + brand[4],
+    LEFT + m[0] + GAP + brand[0],
+    LEFT + m[1] + GAP + brand[1],
+    LEFT + m[2] + GAP + brand[2],
+    LEFT + m[3] + GAP + brand[3],
     "",
   ];
 };
@@ -250,7 +247,7 @@ class WelcomeRoot {
       // EXACT app-home line: "Good morning, welcome to Quinki!"
       const plain = g + ", welcome to Quinki!";
       const boxW = boxLines.length > 0 ? Math.max(...boxLines.map((l: string) => visibleWidth(String(l)))) : width;
-      const hero = HERO_ART(g);                       // mascot + big 3-row letters
+      const hero = HERO_ART();                       // mascot + big 3-row letters
       const heroW = Math.max(...hero.map((l) => visibleWidth(String(l))));
       if (heroW + 4 <= Math.min(width, boxW + 24) && boxW >= heroW) {
         // Big app-home replica (mascot on the left, double-size text).
