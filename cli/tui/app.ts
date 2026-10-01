@@ -198,6 +198,7 @@ const QPIX: Record<string, string[]> = {
   "o": ["000000", "000000", "011100", "100010", "100010", "100010", "011100", "000000"],
   "m": ["000000", "000000", "110110", "101010", "101010", "101010", "101010", "000000"],
   "t": ["001000", "001000", "011100", "001000", "001000", "001010", "000100", "000000"],
+  "!": ["001000", "001000", "001000", "001000", "000000", "001000", "000000", "000000"],
   " ": ["000000", "000000", "000000", "000000", "000000", "000000", "000000", "000000"],
 };
 const pixWord = (word: string, V: (t: string) => string): string[] => {
@@ -219,13 +220,12 @@ const pixWord = (word: string, V: (t: string) => string): string[] => {
 };
 const bigBrand = (): string[] => {
   const V = (t: string) => bold(fg(C.primary, t));
-  const l1 = pixWord("welcome to", V);
-  const l2 = pixWord("quinki", V);
-  return [l1[0], l1[1], l1[2], l1[3], l2[0], l2[1], l2[2], l2[3]];
+  const w = pixWord("Quinki!", V);
+  return [w[0], w[1], w[2], w[3]];
 };
 const HERO_ART = (): string[] => {
   const brand = bigBrand();
-  return [brand[0], brand[1], brand[2], brand[3], brand[4], brand[5], brand[6], brand[7], ""];
+  return [brand[0], brand[1], brand[2], brand[3], ""];
 };
 
 
