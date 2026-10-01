@@ -1050,12 +1050,12 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     if (stack[2] === "model") return modelPickerItems(String(readProvidersCfg().defaultModel || defaultModelId || ""));
     if (lastLv === "addfallback") return modelPickerItems("", (Array.isArray(wsSettings?.defaultFallbackModels) ? wsSettings.defaultFallbackModels : []));
     if (stack[2] === "fallbacks") {
-      const fb = Array.isArray(wsSettings?.defaultFallbackModels) ? wsSettings.fallbackModels : [];
+      const fb = Array.isArray(wsSettings?.defaultFallbackModels) ? wsSettings.defaultFallbackModels : [];
       const out: any[] = fb.map((id: any, i: number) => ({ value: "fb:" + String(id), label: String(id), description: "fallback " + (i + 1) }));
       out.push({ value: "__addfallback", label: "\uff0b Add fallback", description: "pick a model" });
       return out;
     }
-    const fbN = Array.isArray(wsSettings?.defaultFallbackModels) ? wsSettings.fallbackModels.length : 0;
+    const fbN = Array.isArray(wsSettings?.defaultFallbackModels) ? wsSettings.defaultFallbackModels.length : 0;
     const th = String(wsSettings?.defaultThinkingLevel || readProvidersCfg().defaultThinking || "xhigh");
     return [
       { value: "model", label: "Default model", description: String((readProvidersCfg().defaultModel) || defaultModelId || "") },
@@ -3679,7 +3679,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     }
     if (sub === "addfallback") {
       if (value && !value.startsWith("__")) {
-        const cur = Array.isArray(wsSettings?.defaultFallbackModels) ? wsSettings.fallbackModels.slice() : [];
+        const cur = Array.isArray(wsSettings?.defaultFallbackModels) ? wsSettings.defaultFallbackModels.slice() : [];
         if (!cur.includes(value)) cur.push(value);
         try { const call = (globalThis as any).__sidecarCall; if (call) call('setDefaultFallbacks', { fallbacks: cur }).catch(() => {}); } catch {}
         wsSettings = { ...(wsSettings || {}), defaultFallbackModels: cur };
@@ -3689,7 +3689,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     }
     if (sub === "fallbacks" && value.startsWith("fb:")) {
       const id = value.slice(3);
-      const cur = (Array.isArray(wsSettings?.defaultFallbackModels) ? wsSettings.fallbackModels : []).filter((x: any) => String(x) !== id);
+      const cur = (Array.isArray(wsSettings?.defaultFallbackModels) ? wsSettings.defaultFallbackModels : []).filter((x: any) => String(x) !== id);
       try { const call = (globalThis as any).__sidecarCall; if (call) call('setDefaultFallbacks', { fallbacks: cur }).catch(() => {}); } catch {}
       wsSettings = { ...(wsSettings || {}), defaultFallbackModels: cur };
       return;
