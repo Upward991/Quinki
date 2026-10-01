@@ -3523,6 +3523,18 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       }
       if (menuStack.length > 0) {
         const cmdName = menuStack[0];
+        if (cmdName === "model") {
+          // /model is a select-list: apply and STAY (like Tab).
+          const v = String(it.value ?? "");
+          try {
+            if (v && !v.startsWith("__")) {
+              if (!currentKey || welcomeShown) { pendingModelId = v; }
+              else { wsModelId = v; void sc.call("setModel", { sessionKey: currentKey, model: v }, 60000).catch(() => {}); }
+            }
+          } catch {}
+          try { ui.requestRender(); } catch {}
+          return;
+        }
         menuStack = [];
         menuSubFilter = "";
         menuSel = 0;
@@ -3565,7 +3577,16 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           return;
         }
         if (inCliModel && it && !it.separator && String(it.value || "")) {
-          try { const cmdName = "model"; menuStack = []; menuSubFilter = ""; menuSel = 0; try { editor.setText(""); } catch {} handleSlashRef?.("/" + cmdName + " " + String(it.value)); } catch {}
+          // Apply the model and STAY in the menu (the ● moves, the bar updates).
+          const v = String(it.value);
+          try {
+            if (!currentKey || welcomeShown) {
+              pendingModelId = v;
+            } else {
+              wsModelId = v;
+              void sc.call("setModel", { sessionKey: currentKey, model: v }, 60000).catch(() => {});
+            }
+          } catch {}
           try { ui.requestRender(); } catch {}
           return;
         }
