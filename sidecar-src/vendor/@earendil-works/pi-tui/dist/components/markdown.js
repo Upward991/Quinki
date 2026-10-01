@@ -381,21 +381,26 @@ export class Markdown {
             }
             case "code": {
                 const indent = this.theme.codeBlockIndent ?? "  ";
+                const __qMaxW = Math.max(10, width - 2);
+                // QUINKI: wrap long code lines INSIDE the block (a chat must never
+                // scroll sideways). ANSI-safe wrapping via sliceByColumn.
+                const __qPushCode = (raw) => {
+                    let wrapped;
+                    try { wrapped = wrapTextWithAnsi(String(raw), __qMaxW); } catch { wrapped = [String(raw)]; }
+                    if (!Array.isArray(wrapped) || wrapped.length === 0) wrapped = [""];
+                    for (const wl of wrapped) {
+                        lines.push(this.theme.codeBlock("  " + wl + " ".repeat(Math.max(0, __qMaxW - visibleWidth(wl)))));
+                    }
+                };
                 lines.push(this.theme.codeBlock(" ".repeat(Math.max(10, width))));
                 if (this.theme.highlightCode) {
                     const highlightedLines = this.theme.highlightCode(token.text, token.lang);
-                    const plainLines = String(token.text || "").split(String.fromCharCode(10));
-                    highlightedLines.forEach((hlLine, hi) => {
-                        const visLen = String(hlLine).replace(new RegExp(String.fromCharCode(27) + "\\[[0-9;]*m", "g"), "").length;
-                        lines.push(this.theme.codeBlock("  " + hlLine + " ".repeat(Math.max(0, width - 2 - visLen))));
-                    });
+                    for (const hlLine of highlightedLines) { __qPushCode(hlLine); }
                 }
                 else {
                     // Split code by newlines and style each line
                     const codeLines = token.text.split("\n");
-                    for (const codeLine of codeLines) {
-                        lines.push(this.theme.codeBlock("  " + codeLine + " ".repeat(Math.max(0, width - 2 - codeLine.length))));
-                    }
+                    for (const codeLine of codeLines) { __qPushCode(codeLine); }
                 }
                 lines.push(this.theme.codeBlock(" ".repeat(Math.max(10, width))));
                 if (nextTokenType && nextTokenType !== "space") {

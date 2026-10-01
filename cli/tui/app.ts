@@ -2002,7 +2002,7 @@ const readProvidersCfg = (): any => {
     const brand = welcomeShown ? "" : fg(C.primary, "\u2502") + " " + fg(C.primary, QEXPERT ? "App Expert" : "Quinki") + " " + fg(C.primary, "\u2502");
     const lw = visibleWidth(left);
     const rw = visibleWidth(right);
-    const bw = welcomeShown ? 0 : 10;
+    const bw = welcomeShown ? 0 : visibleWidth(brand); // REAL brand width (App Expert is longer than Quinki)
     const start = Math.max(lw + 1, Math.floor((width - bw) / 2));
     const gap1 = Math.max(1, start - lw);
     const gap2 = Math.max(1, width - start - bw - rw);
