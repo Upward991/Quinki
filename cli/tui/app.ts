@@ -1827,7 +1827,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     const modelId = wsModelId || defaultModelId || "";
     const sep = fg(C.textTertiary, " \u00b7 ");
     const quiet = (s: string) => fg(C.textTertiary, s);
-    const modeStr = mode === "plan" ? fg(C.modePlan, "Plan") : fg(C.modeBuild, "Build");
+    const modeStr = mode === "plan" ? fg(C.modePlan, "Plan (Tab)") : fg(C.modeBuild, "Build (Tab)");
     const bar =
       modeStr +
       sep +
@@ -1922,16 +1922,16 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     })();
     // A complete slash command waiting to be run -> Enter is FILLED (violet bg).
     const cmdReady = !menuActive && textNow.startsWith("/") && textNow.length > 1;
-
-    const left =
-      (menuActive ? lit("Menu (/)") : quiet("Menu (/)")) +
-      fg(C.textTertiary, " \u00b7 ") +
-      quiet("Toggle Nav (Ctrl+T)") +
-      fg(C.textTertiary, " \u00b7 ") +
-      quiet("Info (Ctrl+F)");
+    const left = welcomeShown
+      ? (menuActive ? lit("Menu (/)") : quiet("Menu (/)"))
+      : (menuActive ? lit("Menu (/)") : quiet("Menu (/)")) +
+        fg(C.textTertiary, " \u00b7 ") +
+        quiet("Toggle Nav (Ctrl+T)") +
+        fg(C.textTertiary, " \u00b7 ") +
+        quiet("Info (Ctrl+F)");
     const sep = fg(C.textTertiary, " \u00b7 ");
-    const stopKey = streaming ? bold(fg(C.danger, "Stop (Esc)")) : quiet("Stop (Esc)");
-    const steerKey = canSteer ? lit("Steer (Ctrl+Enter)") : quiet("Steer (Ctrl+Enter)");
+    const stopKey = welcomeShown ? "" : (streaming ? bold(fg(C.danger, "Stop (Esc)")) : quiet("Stop (Esc)"));
+    const steerKey = welcomeShown ? "" : (canSteer ? lit("Steer (Ctrl+Enter)") : quiet("Steer (Ctrl+Enter)"));
     const sendKey = cmdReady
       ? bold(bg(C.primary, fg(C.bgPanel, " Send (Enter) ")))
       : canSend
