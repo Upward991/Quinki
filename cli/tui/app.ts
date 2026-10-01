@@ -1205,11 +1205,15 @@ const readProvidersCfg = (): any => {
       { value: "models", label: "Models", description: String((p.enabledModels || []).length) + " on" + (totalM > 0 ? " \u00b7 " + totalM + " available" : " \u00b7 loading\u2026") },
       { value: "baseurl", label: "Base URL", description: String(p.baseUrl || "not set") },
     ];
-    if (name !== "OpenRouter") {
-      out2.push({ value: "key", label: "API key", description: wsKeyStatus[name] === true ? "set" : (wsKeyStatus[name] === false ? "not set" : "checking\u2026") });
-    }
-    if (name === "OpenRouter") {
-      out2.push({ value: "login", label: "Connect OpenRouter", description: "sign in via browser (shared with the app)" });
+    // API key row only for providers without an account login (custom/legacy).
+    try {
+      const known = ["OpenRouter", "Anthropic", "OpenAI", "GitHub Copilot", "xAI", "Ollama"];
+      if (!known.includes(name)) {
+        out2.push({ value: "key", label: "API key", description: wsKeyStatus[name] === true ? "set" : (wsKeyStatus[name] === false ? "not set" : "checking\u2026") });
+      }
+    } catch {}
+    if (name !== "Ollama") {
+      out2.push({ value: "login", label: "Connect " + name, description: "sign in via browser (shared with the app)" });
     }
     return out2;
   }
@@ -4029,7 +4033,16 @@ const cmd: any = commands.find((c) => c.name === it.value);
     const pname = String(sub || "").replace(/^prov:/, "");
     if (sub && !sub3) {
       if (value === "toggle") { patchProvider(pname, (p) => { p.enabled = !p.enabled; }); }
-      if (value === "login") { try { void sc.call("openRouterLogin", {}, 310000).then(() => { try { wsKeyStatus[pname] = true; } catch {} try { ui.requestRender(); } catch {} }).catch(() => {}); } catch {} return; }
+      if (value === "login") {
+        const SUBMAP: Record<string, string> = {"OpenRouter": "__openrouter__", "Anthropic": "anthropic", "OpenAI": "codex", "GitHub Copilot": "github-copilot", "xAI": "xai"};
+        const subId = SUBMAP[pname];
+        try {
+          const pr = subId === "__openrouter__" ? sc.call("openRouterLogin", {}, 310000)
+            : (subId ? sc.call("subscriptionLogin", { providerId: subId }, 310000) : Promise.resolve(null));
+          void pr.then(() => { try { wsKeyStatus[pname] = true; } catch {} try { ui.requestRender(); } catch {} }).catch(() => {});
+        } catch {}
+        return;
+      }
       return;
     }
     if (sub3 === "models") {
