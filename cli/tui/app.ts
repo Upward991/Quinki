@@ -1170,12 +1170,18 @@ const readProvidersCfg = (): any => {
         if (id && !seen[id]) { seen[id] = 1; all.push(mm); }
       }
       const en = p.enabledModels || [];
-      const out: any[] = all.map((mm: any) => {
+      const rows = all.map((mm: any) => {
         const id = String(mm?.id || "");
         const on = en.includes(id);
-        return { value: "mdl:" + id, label: (on ? "\u25cf " : "\u25cb ") + id, description: (on ? "on" : "off") + (mm.name ? " \u00b7 " + String(mm.name) : "") };
+        return { value: "mdl:" + id, label: (on ? "\u25cf " : "\u25cb ") + id, description: (on ? "on" : "off") + (mm.name ? " \u00b7 " + String(mm.name) : ""), _on: on ? 0 : 1, _id: id };
       });
-      return out;
+      // SELECTED ONES ON TOP, one under the other (easy to deselect); cursor follows.
+      const wasCur = String((menuItemsCache[menuSel] || {}).value || "");
+      rows.sort((a: any, b: any) => (a._on - b._on) || a._id.localeCompare(b._id));
+      rows.forEach((r: any) => { delete r._on; delete r._id; });
+      const ni = rows.findIndex((r: any) => r.value === wasCur);
+      menuSel = ni >= 0 ? ni : Math.min(menuSel, Math.max(0, rows.length - 1));
+      return rows;
     }
     if (stack[3] === "key") {
       const k = String(p.apiKey || "");
@@ -3911,6 +3917,7 @@ const cmd: any = commands.find((c) => c.name === it.value);
       wsProviderAt[name] = Date.now();
       void sc.call('fetchProviderModels', { providerName: name, baseUrl: baseUrl || '', apiKey: apiKey || '' }, 45000).then((r: any) => {
         const list = Array.isArray(r) ? r : (Array.isArray(r?.models) ? r.models : ((r && r.data && Array.isArray(r.data)) ? r.data : []));
+      try { require("fs").appendFileSync("/tmp/q-cli-fetch.log", JSON.stringify({ name, len: list.length, sample: list.slice(0, 3) }) + "\n"); } catch {}
         if (list.length > 0) { wsProviderModels[name] = list.map((x: any) => (typeof x === 'string' ? { id: x } : x)); try { ui.requestRender(); } catch {} }
       }).catch(() => {});
     } catch {}
