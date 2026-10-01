@@ -196,7 +196,12 @@ export class TuiAltScreen extends TuiBase {
             for (let row = 0; row < __qTotalRows; row++) {
                 if (row > 0)
                     buffer += "\r\n";
-                buffer += `\r\x1b[48;2;8;8;11m\x1b[2K${this.lastDocument[row] ?? ""}\x1b[49m`;
+                {
+                    const __ln = this.lastDocument[row] ?? "";
+                    let __pad = 0;
+                    try { __pad = Math.max(0, width - visibleWidth(__ln)); } catch { __pad = 0; }
+                    buffer += `\r\x1b[48;2;8;8;11m\x1b[2K${__ln}${__pad > 0 ? "\x1b[48;2;8;8;11m" + " ".repeat(__pad) : ""}\x1b[49m`;
+                }
             }
             buffer += `\x1b[0m${ENABLE_AUTOWRAP}\r\n\x1b[?25h${END_SYNCHRONIZED_OUTPUT}`;
             this.terminal.write(buffer);
