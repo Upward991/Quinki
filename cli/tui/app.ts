@@ -184,16 +184,23 @@ class InsetBox {
 
 // === HERO: mascot + big "QUINKI" (pure-block font: only \u2588 and spaces) ===
 // === HERO: "quinki" in a half-block pixel font (each cell = 2 vertical pixels) ===
+// === HERO: "welcome to quinki" in the half-block pixel font ===
 const QPIX: Record<string, string[]> = {
   "q": ["011100", "100010", "100010", "100010", "100010", "011100", "000100", "000100"],
   "u": ["000000", "000000", "100010", "100010", "100010", "100110", "011010", "000000"],
   "i": ["001000", "000000", "011000", "001000", "001000", "001000", "011100", "000000"],
   "n": ["000000", "000000", "111000", "100100", "100010", "100010", "100010", "000000"],
   "k": ["100000", "100000", "101100", "110000", "101000", "100100", "100010", "000000"],
+  "w": ["000000", "000000", "100010", "100010", "101010", "101010", "010100", "000000"],
+  "e": ["000000", "000000", "011100", "100010", "111110", "100000", "011100", "000000"],
+  "l": ["011000", "001000", "001000", "001000", "001000", "001000", "011100", "000000"],
+  "c": ["000000", "000000", "011100", "100010", "100000", "100010", "011100", "000000"],
+  "o": ["000000", "000000", "011100", "100010", "100010", "100010", "011100", "000000"],
+  "m": ["000000", "000000", "110110", "101010", "101010", "101010", "101010", "000000"],
+  "t": ["001000", "001000", "011100", "001000", "001000", "001010", "000100", "000000"],
+  " ": ["000000", "000000", "000000", "000000", "000000", "000000", "000000", "000000"],
 };
-const bigBrand = (): string[] => {
-  const V = (t: string) => bold(fg(C.primary, t));
-  const word = "quinki";
+const pixWord = (word: string, V: (t: string) => string): string[] => {
   const rows: string[] = [];
   for (let r = 0; r < 4; r++) {
     let out = "";
@@ -210,10 +217,17 @@ const bigBrand = (): string[] => {
   }
   return rows;
 };
+const bigBrand = (): string[] => {
+  const V = (t: string) => bold(fg(C.primary, t));
+  const l1 = pixWord("welcome to", V);
+  const l2 = pixWord("quinki", V);
+  return [l1[0], l1[1], l1[2], l1[3], l2[0], l2[1], l2[2], l2[3]];
+};
 const HERO_ART = (): string[] => {
   const brand = bigBrand();
-  return [brand[0], brand[1], brand[2], brand[3], ""];
+  return [brand[0], brand[1], brand[2], brand[3], brand[4], brand[5], brand[6], brand[7], ""];
 };
+
 
 class WelcomeRoot {
   box: any;
