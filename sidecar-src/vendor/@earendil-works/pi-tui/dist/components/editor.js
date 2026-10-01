@@ -1134,8 +1134,14 @@ export class Editor {
         this.lastAction = null;
         if (this.onChange)
             this.onChange("");
-        if (this.onSubmit)
-            this.onSubmit(result);
+        if (this.onSubmit) {
+            // QUINKI (T355): an exception in onSubmit must NEVER freeze the TUI.
+            try {
+                this.onSubmit(result);
+            } catch (err) {
+                try { require("fs").appendFileSync("/tmp/q-cli-errors.log", new Date().toISOString() + " onSubmit: " + String(err && err.stack || err) + "\n"); } catch {}
+            }
+        }
     }
     handleBackspace() {
         this.exitHistoryBrowsing();

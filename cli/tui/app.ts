@@ -4894,6 +4894,7 @@ const applySettingsPatch = (patch: any) => {
   };
 
   editor.onSubmit = (text: string) => {
+   try {
     const t = (text || "").trim();
     if (t.startsWith("/")) {
       try {
@@ -5001,6 +5002,13 @@ const applySettingsPatch = (patch: any) => {
       streaming = false;
       updateBar();
     }
+   } catch (outer: any) {
+     // Safety net: never freeze the CLI — log the real cause for diagnosis.
+     try { require("fs").appendFileSync("/tmp/q-cli-errors.log", new Date().toISOString() + " send: " + String(outer && outer.stack || outer) + "\n"); } catch {}
+     try { addRow(fg(C.danger, "\u25b8 error \u00b7 " + truncate(String(outer?.message || outer), 120))); } catch {}
+     streaming = false;
+     try { updateBar(); } catch {}
+   }
   };
   try {
     (editor as any).onChange = () => {
