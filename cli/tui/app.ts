@@ -691,6 +691,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   }
   const pendingSkills: string[] = [];
   const pendingAttachments: Array<{ path: string }> = [];
+  const attPathByName: Record<string, string> = {}; // inline token name -> real file
   const stopTurn = () => {
     if (scOn) {
       void sc.call("abort", { sessionKey: currentKey }, 15000).catch(() => {});
@@ -1709,16 +1710,8 @@ const readProvidersCfg = (): any => {
   // Tab = toggle plan/build (app behaviour), intercepted at the TUI level.
   try {
     ui.addInputListener((data: string) => {
-      // Backspace with an EMPTY textbox = remove the last chip (skill/attachment),
-      // exactly like deleting text.
-      try {
-        if ((data === "\x7f" || data === "\x08" || matchesKey(data, "backspace")) && (pendingSkills.length || pendingAttachments.length) && !String(editor.getText() || "")) {
-          if (pendingAttachments.length) pendingAttachments.pop();
-          else if (pendingSkills.length) pendingSkills.pop();
-          try { ui.requestRender(); } catch {}
-          return { consume: true };
-        }
-      } catch {}
+      // Backspace on empty box: chips are INLINE tokens now — the cursor already
+      // deletes them like text. Nothing special to do.
       // Trace EVERY input chunk (a ring of the last 25) so the exact bytes that
       // kill the CLI show up in the survive log.
       try {
@@ -2101,20 +2094,9 @@ const readProvidersCfg = (): any => {
     // RIGHT = violet accent (always lit).
     (editor as any).edgeFn = () => panelBgWrap(fg(mode === "plan" ? C.modePlan : C.modeBuild, "\u258f"));
     (editor as any).edgeRightFn = () => panelBgWrap(fg(C.primary, "\u2595")) + "\x1b[49m";
-    // LIVE chips INSIDE the box: armed skills + pending attachments (luminous bar).
-    (editor as any).qChipsFn = (w: number) => {
-      try {
-        const parts: string[] = [];
-        for (const sk2 of pendingSkills) parts.push(" \u25b8 " + sk2 + " \u2715 ");
-        for (const at2 of pendingAttachments) parts.push(" \u2b1a " + require("path").basename(String(at2.path)) + " \u2715 ");
-        if (!parts.length) return "";
-        let txt = parts.join(" ");
-        if (txt.length > w) txt = txt.slice(0, Math.max(0, w - 1)) + "\u2026";
-        const vis = txt.replace(/\x1b\[[0-9;]*m/g, "").length;
-        if (vis < w) txt += " ".repeat(w - vis);
-        return bg(C.primary, fg(C.bg, txt));
-      } catch { return ""; }
-    };
+    // Chips live INSIDE the text as inline tokens ("\u25b8name"): no bar above the
+    // box, no X — move the cursor around them and delete them like text.
+    (editor as any).qChipsFn = () => "";
   } catch {}
   try {
     // Menu footer (two rows): left ← (back) / → (forward); right Esc (red,
@@ -3407,7 +3389,13 @@ const readProvidersCfg = (): any => {
         if (aArg.startsWith("__at_file:")) {
           const fp = aArg.slice(10);
           try {
-            if (fs.existsSync(fp)) { pendingAttachments.push({ path: fp }); try { ui.requestRender(); } catch {} }
+            if (fs.existsSync(fp)) {
+              const nmA = path.basename(fp);
+              attPathByName[nmA] = fp;
+              const curA2 = String(editor.getText() || "");
+              editor.setText(curA2 + (curA2 && !curA2.endsWith(" ") ? " " : "") + "\u25b8" + nmA + " ");
+              ui.requestRender();
+            }
           } catch {}
           break;
         }
@@ -3415,8 +3403,11 @@ const readProvidersCfg = (): any => {
         const apath = path.resolve(aArg);
         try {
           if (path.isAbsolute(aArg) || fs.existsSync(apath)) {
-            pendingAttachments.push({ path: apath });
-            try { ui.requestRender(); } catch {}
+            const nmB = path.basename(apath);
+            attPathByName[nmB] = apath;
+            const curB = String(editor.getText() || "");
+            editor.setText(curB + (curB && !curB.endsWith(" ") ? " " : "") + "\u25b8" + nmB + " ");
+            ui.requestRender();
           }
         } catch {}
         break;
@@ -3426,8 +3417,12 @@ const readProvidersCfg = (): any => {
         if (scOn) {
           // Live path: the skill rides the NEXT message (the app's chip flow).
           // The engine injects it into the system prompt, one-shot.
-          pendingSkills.push(arg);
-          // The CHIP in the textbox is the only feedback (no chat toggle).
+          // Inline chip: a token in the TEXT (delete with the cursor like text).
+          try {
+            const tok = "\u25b8" + String(arg).trim() + " ";
+            const curTxt = String(editor.getText() || "");
+            editor.setText(curTxt + (curTxt && !curTxt.endsWith(" ") ? " " : "") + tok);
+          } catch {}
           refreshSkillGroups();
           try { ui.requestRender(); } catch {}
           break;
@@ -4756,8 +4751,23 @@ const applySettingsPatch = (patch: any) => {
       setStatus("Sending", "sending");
       updateBar();
       const sk = currentKey;
-      const skills = pendingSkills.splice(0);
-      const atts = pendingAttachments.splice(0);
+      // Inline chips: the "\u25b8name" tokens travel as params; the text goes clean
+      // (exactly what the sidecar/app expect).
+      let sendText = t;
+      const skills: string[] = [];
+      const atts: Array<{ path: string }> = [];
+      try {
+        sendText = String(t)
+          .replace(/(?:^|\s)\u25b8([^\s\u25b8]+)/g, (_m: string, nm: string) => {
+            const name = String(nm);
+            if (attPathByName[name] && fs.existsSync(attPathByName[name])) atts.push({ path: attPathByName[name] });
+            else skills.push(name);
+            return "";
+          })
+          .replace(/\s{2,}/g, " ")
+          .trim();
+      } catch { sendText = t; }
+      try { pendingSkills.splice(0); pendingAttachments.splice(0); } catch {}
       try { ui.requestRender(); } catch {}
       const fail = (err: any) => {
         addRow(fg(C.danger, "\u25b8 error \u00b7 " + truncate(String(err?.message || err), 120)));
@@ -4775,7 +4785,7 @@ const applySettingsPatch = (patch: any) => {
             "sendMessage",
             {
               sessionKey: sk,
-              text: t,
+              text: sendText || t,
               ...(skills.length ? { skillNames: skills } : {}),
               ...(atts.length ? { attachments: atts } : {}),
               // Only what the USER changed here: otherwise the session/app
