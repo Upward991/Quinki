@@ -1903,7 +1903,7 @@ const readProvidersCfg = (): any => {
     // Thin edges on the box: LEFT = mode color (Plan pink / Build orange),
     // RIGHT = violet accent (always lit).
     (editor as any).edgeFn = () => panelBgWrap(fg(mode === "plan" ? C.modePlan : C.modeBuild, "\u258f"));
-    (editor as any).edgeRightFn = () => panelBgWrap(fg(C.primary, "\u2595"));
+    (editor as any).edgeRightFn = () => panelBgWrap(fg(C.primary, "\u2595")) + "\x1b[49m";
   } catch {}
   try {
     // Menu footer (two rows): left ← (back) / → (forward); right Esc (red,
