@@ -1387,7 +1387,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           : [{ value: "", label: "type the new name\u2026", description: "then Enter to set it" }];
       },
     },
-    { name: "reload", description: "Reload this chat (recover history, fix glitches)", seq: 4 },
+    { name: "reload", description: "Reload this chat (recover history, fix glitches)", seq: 4, hidden: () => welcomeShown },
     { name: "export", description: "Export this chat as Markdown", seq: 10 },
     {
       name: "delete",
@@ -1824,7 +1824,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       counterColor(pct),
       `${fmtTok(ctxTokens)}/${fmtTok(ctxWindow)} (${Math.floor(pct)}% \u00b1 ${Math.ceil(pct * 0.05 + 1)}%)`
     );
-    const modelId = wsModelId || defaultModelId || "";
+    const modelId = (welcomeShown ? (defaultModelId || wsModelId) : (wsModelId || defaultModelId)) || "";
     const sep = fg(C.textTertiary, " \u00b7 ");
     const quiet = (s: string) => fg(C.textTertiary, s);
     const modeStr = mode === "plan" ? fg(C.modePlan, "Plan (Tab)") : fg(C.modeBuild, "Build (Tab)");
@@ -3492,6 +3492,25 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         const inModels = menuStack[0] === "settings" && menuStack[3] === "models";
         const inFallbacks = menuStack[0] === "settings" && menuStack[1] === "defaults" && menuStack[2] === "fallbacks";
         const inProviders = menuStack[0] === "settings" && menuStack[1] === "providers" && !menuStack[2];
+        // MENU 2.0: Tab acts on value-pickers too (model / thinking choices).
+        const inSettingsModel = menuStack[0] === "settings" && menuStack[1] === "defaults" && menuStack[2] === "model";
+        const inAgentPick = menuStack[0] === "agentinsession" && String(menuStack[2] || "").match(/^(model|thinking)$/);
+        const inCliModel = menuStack[0] === "model";
+        if (inSettingsModel && it && !it.separator && String(it.value || "") && !String(it.value).startsWith("__")) {
+          settingsActivate(String(it.value));
+          try { ui.requestRender(); } catch {}
+          return;
+        }
+        if (inAgentPick && it && !it.separator && String(it.value || "")) {
+          agentActivate(String(it.value));
+          try { ui.requestRender(); } catch {}
+          return;
+        }
+        if (inCliModel && it && !it.separator && String(it.value || "")) {
+          try { const cmdName = "model"; menuStack = []; menuSubFilter = ""; menuSel = 0; try { editor.setText(""); } catch {} handleSlashRef?.("/" + cmdName + " " + String(it.value)); } catch {}
+          try { ui.requestRender(); } catch {}
+          return;
+        }
         if (inProviders) {
           // INSTANT toggle of the provider under the cursor (no Confirm).
           const v = String(it?.value || "");
@@ -3631,7 +3650,6 @@ export async function runTui(opts: TuiOptions): Promise<void> {
               menuStack.push(deeper);
               menuSubFilter = "";
               menuSel = 0;
-              // entering the fallbacks editor: seed the selection with the saved ones
               try {
                 if (deeper === "fallbacks") {
                   const cur = (() => { try { const ff = readSettingsFile().defaultFallbackModels; if (Array.isArray(ff)) return ff; } catch {} return []; })();
@@ -3641,7 +3659,14 @@ export async function runTui(opts: TuiOptions): Promise<void> {
                 }
               } catch {}
             } else {
-              menuConfirmFocus = true; // terminal option: light the Confirm
+              // MENU 2.0: Enter EXECUTES directly (no more Confirm lighting).
+              if (menuStack[1] === "defaults" && menuStack[2] === "fallbacks") {
+                const order = Array.from(menuMarked);
+                try { void sc.call('setDefaultFallbacks', { defaultFallbackModels: order }, 20000).catch(() => {}); } catch {}
+                try { wsSettings = { ...(wsSettings || {}), defaultFallbackModels: order }; } catch {}
+              } else {
+                settingsActivate(String(it.value));
+              }
             }
             try { ui.requestRender(); } catch {}
             return;
@@ -3664,7 +3689,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
               menuConfirmFocus = true; // Confirm lights: Enter again executes
             }
           } else if (menuStack.length > 0) {
-            menuConfirmFocus = true; // terminal option of a submenu
+            agentActivate(String(it.value)); // MENU 2.0: Enter executes of a submenu
           } else {
             const cmd: any = commands.find((c) => c.name === it.value);
             if (cmd && typeof cmd.getArgumentCompletions === "function") {
