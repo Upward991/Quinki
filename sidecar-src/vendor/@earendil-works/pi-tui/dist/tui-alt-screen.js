@@ -166,7 +166,7 @@ export class TuiAltScreen extends TuiBase {
             term.startsWith("screen")
             ? ENABLE_BUTTON_MOTION_MOUSE
             : ENABLE_ALL_MOTION_MOUSE;
-        this.terminal.write(`${ENTER_ALT_SCREEN}${DISABLE_AUTOWRAP}${this.mouseEnabled ? mouseSequence : ""}\x1b[48;2;8;8;11m\x1b[2J\x1b[H\x1b[?25l`);
+        this.terminal.write(`${ENTER_ALT_SCREEN}${DISABLE_AUTOWRAP}${this.mouseEnabled ? mouseSequence : ""}\x1b[2J\x1b[H\x1b[?25l`);
     }
     beforeTerminalStop(_options) {
         this.closeSearch();
@@ -1178,11 +1178,11 @@ export class TuiAltScreen extends TuiBase {
             const clearImages = this.imageProtocol === "kitty" && hadUploadedKittyImages
                 ? deleteAllKittyPlacements()
                 : this.deleteKittyImages();
-            buffer += `${clearImages}\x1b[48;2;8;8;11m\x1b[2J`;
+            buffer += `${clearImages}\x1b[2J`;
         }
         else if (imagesNeedRedraw) {
             if (this.imageProtocol === "iterm2")
-                buffer += "\x1b[48;2;8;8;11m\x1b[2J";
+                buffer += "\x1b[2J";
             else if (this.imageProtocol === "kitty")
                 buffer += deleteAllKittyPlacements();
         }
@@ -1194,10 +1194,16 @@ export class TuiAltScreen extends TuiBase {
                 const __ln = preparedKittyScreen.lines[row] ?? "";
                 let __vis = "";
                 try { __vis = __ln.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, "").replace(/\x1b\][^\x07]*\x07/g, ""); } catch { __vis = __ln; }
-                const __t = (__vis.match(/[ \t]*$/) || [""])[0].length;
-                const __fix = __t;
-                const __over = __fix > 0 ? `\x1b[${Math.max(1, width - __fix + 1)}G\x1b[48;2;8;8;11m${" ".repeat(__fix)}` : "";
-                buffer += `\x1b[${row + 1};1H\x1b[48;2;8;8;11m\x1b[2K${__ln}${__over}\x1b[49m`;
+                // Paint the background ONLY behind rows with visible content.
+                // Empty rows are the UI spacers (menu gaps): they stay transparent
+                // and use the terminal's own background.
+                if (__vis.trim().length === 0) {
+                    buffer += `\x1b[${row + 1};1H\x1b[2K`;
+                } else {
+                    const __t = (__vis.match(/[ \t]*$/) || [""])[0].length;
+                    const __over = __t > 0 ? `\x1b[${Math.max(1, width - __t + 1)}G\x1b[48;2;8;8;11m${" ".repeat(__t)}` : "";
+                    buffer += `\x1b[${row + 1};1H\x1b[48;2;8;8;11m\x1b[2K${__ln}${__over}\x1b[49m`;
+                }
             }
         }
         if (cursorPos) {
