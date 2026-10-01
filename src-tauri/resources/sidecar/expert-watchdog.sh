@@ -9,8 +9,14 @@ while true; do
   # sidecar zombie per nessuna via di morte: SIGTERM, kill -9, crash).
   if ! pgrep -f "App Expert.app/Contents/MacOS/quinki" > /dev/null 2>&1; then
     echo "$(date): App Expert not running, watchdog exits and cleans up" >> "$LOG"
-    pkill -9 -f 'App Expert.app/Contents/Resources/resources/sidecar/quinki-sidecar-w[s]' 2>/dev/null
-    lsof -ti:9183 2>/dev/null | xargs kill -9 2>/dev/null
+    # CLI-aware: do NOT kill the sidecar while a CLI client is still connected
+    # (same mechanism as main-watchdog: the expert CLI keeps the session alive).
+    if ! lsof -i:9183 2>/dev/null | grep -q ESTABLISHED; then
+      pkill -9 -f 'App Expert.app/Contents/Resources/resources/sidecar/quinki-sidecar-w[s]' 2>/dev/null
+      lsof -ti:9183 2>/dev/null | xargs kill -9 2>/dev/null
+    else
+      echo "$(date): CLI connected on 9183 - expert sidecar left alive" >> "$LOG"
+    fi
     # ULTIMA app in uscita (vale anche per morte brutale): spegni anche il TUNNEL.
     sleep 2
     if ! pgrep -f "Quinki.app/Contents/MacOS/quinki" > /dev/null 2>&1; then
