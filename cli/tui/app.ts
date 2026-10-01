@@ -3590,6 +3590,7 @@ const readProvidersCfg = (): any => {
     if (stack.length <= 1) return agentMenuItems();
     const ids = sessionAgentIds();
     if (stack[1] === "#add") {
+      const order = Array.from(menuMarked);
       const out: any[] = [];
       for (const id of agentIdsKnown()) {
         if (id === "orchestrator" || ids.includes(id)) continue;
@@ -3599,7 +3600,8 @@ const readProvidersCfg = (): any => {
         if (cfg?.thinkingLevel) bits.push("thinking " + String(cfg.thinkingLevel));
         const nSk = Array.isArray(cfg?.skills) ? cfg.skills.length : 0;
         if (nSk) bits.push(nSk + " skill" + (nSk === 1 ? "" : "s"));
-        out.push({ value: id, label: agentDisplayName(id), description: bits.join(" \u00b7 ") });
+        const idxA = order.indexOf(id);
+        out.push({ value: id, label: (idxA >= 0 ? "\u25cf " + (idxA + 1) + ". " : "\u25cb ") + agentDisplayName(id), description: bits.join(" \u00b7 ") || "Tab: add (multiple OK)" });
       }
       return out;
     }
@@ -3659,6 +3661,20 @@ const readProvidersCfg = (): any => {
       ];
     }
     return [];
+  };
+  const toggleAgentInSession = (id: string) => {
+    // MULTI-SELECT (like the models): add or remove one agent, save immediately.
+    const ids = sessionAgentIds();
+    const has = ids.includes(id);
+    const next = has ? ids.filter((x: string) => x !== id) : [...ids, id];
+    const fin = next.length ? next : [DEFAULT_CHAT_AGENT]; // never leave it empty
+    if (scOn) {
+      void sc.call("setChatAgents", { sessionKey: currentKey, agentIds: fin.join(",") }, 20000).catch(() => {});
+    } else {
+      try { mutateSessionEntry((e: any) => { e.agentId = fin.join(","); }); } catch {}
+    }
+    try { refreshSessions(); } catch {}
+    try { ui.requestRender(); } catch {}
   };
   const addAgentToSession = (id: string) => {
     if (scOn) {
@@ -3865,6 +3881,17 @@ const readProvidersCfg = (): any => {
         return;
       }
       if (menuStack[0] === "agentinsession") {
+        if (menuStack[1] === "#add") {
+          // MULTI-SELECT: Tab toggles the dot (add/remove many agents at once) and
+          // saves right away — the dot order is the selection order.
+          const vSel = String(it.value ?? "");
+          if (vSel && !vSel.startsWith("#")) {
+            if (menuMarked.has(vSel)) menuMarked.delete(vSel); else menuMarked.add(vSel);
+            toggleAgentInSession(vSel);
+          }
+          try { ui.requestRender(); } catch {}
+          return;
+        }
         agentActivate(String(it.value));
         try { ui.requestRender(); } catch {}
         return;
