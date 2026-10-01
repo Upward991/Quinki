@@ -1203,6 +1203,16 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         // (quinki-providers.json) so every change there is reflected here.
         const items: any[] = [];
         try {
+          // First row: Chat default (the config default = the current while on the welcome).
+          try {
+            const dm = String(defaultModelId || "");
+            const hasSessionModel = !!(welcomeShown ? false : wsModelId);
+            items.push({
+              value: "__chat_default_model__",
+              label: (hasSessionModel ? "\u25cb " : "\u25cf ") + "Chat default",
+              description: dm ? ("now: " + dm) : "the config default",
+            });
+          } catch {}
           let lastProv = "";
           for (const m of availableModels()) {
             const id = String(m?.id ?? "");
@@ -3021,7 +3031,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         if (scOn) {
           wsModelId = arg;
           modelExplicit = true;
-          void sc.call("setModel", { sessionKey: currentKey, model: arg }, 60000).catch(() => {});
+          if (arg === "__chat_default_model__") { try { wsModelId = ""; } catch {} void sc.call("setModel", { sessionKey: currentKey, model: "" }, 30000).catch(() => {}); } else { void sc.call("setModel", { sessionKey: currentKey, model: arg }, 60000).catch(() => {}); }
           break;
         }
         try {
