@@ -4237,11 +4237,19 @@ const cmd: any = commands.find((c) => c.name === it.value);
     }
     if (sub3 === "delprov" && value === "confirm") {
       const pname3 = String(sub || "").replace(/^prov:/, "");
-      try { void sc.call("deleteProvider", { name: pname3 }, 20000); } catch {}
-      try { void sc.call("deleteApiKey", { service: pname3 }, 20000); } catch {}
-      try { menuItemsCache = null; } catch {}
+      const pr3 = Promise.all([
+        sc.call("deleteProvider", { name: pname3 }, 20000).catch(() => {}),
+        sc.call("deleteApiKey", { service: pname3 }, 20000).catch(() => {}),
+      ]);
       try { menuStack.pop(); menuStack.pop(); } catch {}
       try { ui.requestRender(); } catch {}
+      // THE REAL FIX: readProvidersCfg keeps qProvidersMem forever — invalidate it
+      // AFTER the sidecar really wrote the config, then re-render the list.
+      void Promise.resolve(pr3).then(() => {
+        try { qProvidersMem = null; } catch {}
+        try { menuItemsCache = null; } catch {}
+        try { ui.requestRender(); } catch {}
+      }).catch(() => {});
       return;
     }
     if (sub === "__addprov") {
