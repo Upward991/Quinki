@@ -4027,7 +4027,11 @@ const cmd: any = commands.find((c) => c.name === it.value);
       return;
     }
     const pname = String(sub || "").replace(/^prov:/, "");
-    if (sub && !sub3) { if (value === "toggle") { patchProvider(pname, (p) => { p.enabled = !p.enabled; }); } return; }
+    if (sub && !sub3) {
+      if (value === "toggle") { patchProvider(pname, (p) => { p.enabled = !p.enabled; }); }
+      if (value === "login") { try { void sc.call("openRouterLogin", {}, 310000).then(() => { try { wsKeyStatus[pname] = true; } catch {} try { ui.requestRender(); } catch {} }).catch(() => {}); } catch {} return; }
+      return;
+    }
     if (sub3 === "models") {
       if (menuMarked.size > 0) {
         const ids = Array.from(menuMarked).filter((v: string) => v.startsWith("mdl:")).map((v: string) => v.slice(4));
