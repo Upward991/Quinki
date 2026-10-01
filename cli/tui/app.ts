@@ -200,8 +200,13 @@ class WelcomeRoot {
     try {
       const h = new Date().getHours();
       const g = h >= 5 && h < 12 ? "Good morning" : h >= 12 && h < 18 ? "Good afternoon" : "Good evening";
-      const pad = " ".repeat(Math.max(2, Math.floor(width / 8)));
-      greet = ["", pad + bold(fg(C.text, g + ".")), pad + fg(C.textSecondary, "Welcome to ") + bold(fg(C.primary, "Quinki"))];
+      // EXACT app-home line (one row): "Good morning, welcome to Quinki!"
+      const plain = g + ", welcome to Quinki!";
+      const line = fg(C.textSecondary, g + ", welcome to ") + bold(fg(C.primary, "Quinki")) + fg(C.textSecondary, "!");
+      // Centered symmetrically to the TEXT BOX (not the terminal).
+      const boxW = boxLines.length > 0 ? Math.max(...boxLines.map((l: string) => visibleWidth(String(l)))) : width;
+      const pad = " ".repeat(Math.max(0, Math.floor((boxW - visibleWidth(plain)) / 2)));
+      greet = ["", pad + line];
     } catch {}
     const group = greet.length + boxLines.length + 2 + hintLines.length;
     const top = Math.max(0, Math.floor((rows - group) / 2));
