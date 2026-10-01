@@ -1206,7 +1206,12 @@ export class TuiAltScreen extends TuiBase {
                     __trail = (__plain.match(/[ \t]*$/) || [""])[0].length;
                 } catch {}
                 const __lpad = Math.max(0, __trail + Math.max(0, __tw - __lvw));
-                buffer += `\x1b[${row + 1};1H\x1b[48;2;8;8;11m\x1b[2K${__ln}${__lpad > 0 ? "\x1b[48;2;8;8;11m" + " ".repeat(__lpad) : ""}\x1b[49m`;
+                // Column jump so the pad lands ON those cells (the cursor may be past
+                // the line's end): overwrite the trailing area with bg spaces.
+                const __padSeq = __lpad > 0
+                    ? `\x1b[${Math.max(1, __tw - __lpad + 1)}G\x1b[48;2;8;8;11m${" ".repeat(__lpad)}`
+                    : "";
+                buffer += `\x1b[${row + 1};1H\x1b[48;2;8;8;11m\x1b[2K${__ln}${__padSeq}\x1b[49m`;
             }
         }
         if (cursorPos) {
