@@ -433,6 +433,12 @@ export class Editor {
         const emitCursorMarker = this.focused;
         for (const layoutLine of visibleLines) {
             let displayText = layoutLine.text;
+            // QUINKI (T351): token chars (U+E000..) render as colored chips.
+            try {
+                if (this.qTokenRender && /[\uE000-\uE0FF]/.test(displayText)) {
+                    displayText = displayText.replace(/[\uE000-\uE0FF]/g, (c) => String(this.qTokenRender(c) ?? c));
+                }
+            } catch {}
             let lineVisibleWidth = visibleWidth(layoutLine.text);
             let cursorInPadding = false;
             // Add cursor if this line has it

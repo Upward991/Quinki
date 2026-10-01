@@ -716,6 +716,29 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   // Clip colors = the app's tab accents: skill -> Agents tab, attachment -> Chat tab.
   const Q_CLIP_SKILL = "#c97084";  // --q-accent-secondary (Agents)
   const Q_CLIP_ATT = "#7aa2f7";    // --q-accent-info (Chat)
+  // NATIVE tokens: each chip is ONE invisible private char (U+E000+i) in the text
+  // (atomic for the cursor/backspace) rendered as a colored chip by the editor.
+  const qTokens: Array<{ ch: string; name: string; kind: string; path?: string }> = [];
+  const Q_TOKEN_CHARS = "\uE000\uE001\uE002\uE003\uE004\uE005\uE006\uE007\uE008\uE009\uE00A\uE00B\uE00C\uE00D\uE00E\uE00F\uE010\uE011\uE012\uE013\uE014\uE015\uE016\uE017\uE018\uE019\uE01A\uE01B\uE01C\uE01D";
+  const qTokenChar = (index: number) => Q_TOKEN_CHARS[index] || "\uE01D";
+  const qTokenAdd = (name: string, kind: string, path?: string) => {
+    const i = qTokens.length;
+    qTokens.push({ ch: qTokenChar(i), name, kind, path });
+    return qTokenChar(i);
+  };
+  const qTokenByCh = (ch: string) => qTokens.find((t) => t.ch === ch) || null;
+  const qTokenRender = (ch: string) => {
+    const t = qTokenByCh(ch);
+    if (!t) return ch;
+    const col = t.kind === "skill" ? Q_CLIP_SKILL : Q_CLIP_ATT;
+    // Violet/colored bar: accent background, bg-colored text.
+    const lbl = " " + t.name + " ";
+    const hex = col.replace("#", "");
+    const r = parseInt(hex.slice(0, 2), 16), g = parseInt(hex.slice(2, 4), 16), b = parseInt(hex.slice(4, 6), 16);
+    const bgc = C.bg.replace("#", "");
+    const br = parseInt(bgc.slice(0, 2), 16), bg2 = parseInt(bgc.slice(2, 4), 16), bb = parseInt(bgc.slice(4, 6), 16);
+    return `\x1b[48;2;${r};${g};${b}m\x1b[38;2;${br};${bg2};${bb}m${lbl}\x1b[49m\x1b[39m`;
+  };
   const stopTurn = () => {
     if (scOn) {
       void sc.call("abort", { sessionKey: currentKey }, 15000).catch(() => {});
@@ -2134,6 +2157,7 @@ const readProvidersCfg = (): any => {
     // Chips live INSIDE the text as inline tokens ("\u25b8name"): no bar above the
     // box, no X — move the cursor around them and delete them like text.
     (editor as any).qChipsFn = () => "";
+    (editor as any).qTokenRender = (ch: string) => qTokenRender(ch);
     // ATOMIC chips: backspace ON a "\u25b8token" deletes the WHOLE token at once.
     (editor as any).qAtomicDelete = () => {
       try {
@@ -3487,10 +3511,11 @@ const readProvidersCfg = (): any => {
           const fp = aArg.slice(10);
           try {
             if (fs.existsSync(fp)) {
-              const nmA = path.basename(fp);
-              attPathByName[nmA] = fp;
+              const stA2 = stageAttachment(fp) || { path: fp, originalName: path.basename(fp) };
+              try { pendingAttachments.push(stA2 as any); } catch {}
+              const chA = qTokenAdd((stA2 as any).originalName, "attachment", (stA2 as any).path);
               const curA2 = String(editor.getText() || "");
-              editor.setText(curA2 + (curA2 && !curA2.endsWith(" ") ? " " : "") + "\u25b8" + nmA + " ");
+              editor.setText(curA2 + (curA2 && !curA2.endsWith(" ") ? " " : "") + chA + " ");
               ui.requestRender();
             }
           } catch {}
@@ -3500,10 +3525,11 @@ const readProvidersCfg = (): any => {
         const apath = path.resolve(aArg);
         try {
           if (path.isAbsolute(aArg) || fs.existsSync(apath)) {
-            const nmB = path.basename(apath);
-            attPathByName[nmB] = apath;
+            const stB2 = stageAttachment(apath) || { path: apath, originalName: path.basename(apath) };
+            try { pendingAttachments.push(stB2 as any); } catch {}
+            const chB = qTokenAdd((stB2 as any).originalName, "attachment", (stB2 as any).path);
             const curB = String(editor.getText() || "");
-            editor.setText(curB + (curB && !curB.endsWith(" ") ? " " : "") + "\u25b8" + nmB + " ");
+            editor.setText(curB + (curB && !curB.endsWith(" ") ? " " : "") + chB + " ");
             ui.requestRender();
           }
         } catch {}
@@ -3514,11 +3540,11 @@ const readProvidersCfg = (): any => {
         if (scOn) {
           // Live path: the skill rides the NEXT message (the app's chip flow).
           // The engine injects it into the system prompt, one-shot.
-          // Inline chip: a token in the TEXT (delete with the cursor like text).
+          // Native chip: ONE invisible char in the text (atomic, colored).
           try {
-            const tok = "\u25b8" + String(arg).trim() + " ";
+            const chT = qTokenAdd(String(arg).trim(), "skill");
             const curTxt = String(editor.getText() || "");
-            editor.setText(curTxt + (curTxt && !curTxt.endsWith(" ") ? " " : "") + tok);
+            editor.setText(curTxt + (curTxt && !curTxt.endsWith(" ") ? " " : "") + chT + " ");
           } catch {}
           refreshSkillGroups();
           try { ui.requestRender(); } catch {}
@@ -4871,10 +4897,14 @@ const applySettingsPatch = (patch: any) => {
       const atts: Array<{ path: string }> = [];
       try {
         sendText = String(t)
-          .replace(/(?:^|\s)\u25b8([^\s\u25b8]+)/g, (_m: string, nm: string) => {
-            const name = String(nm);
-            if (attPathByName[name] && fs.existsSync(attPathByName[name])) atts.push({ path: attPathByName[name], originalName: name } as any);
-            else skills.push(name);
+          .replace(/[\uE000-\uE0FF]/g, (ch: string) => {
+            const tk = qTokenByCh(ch);
+            if (!tk) return "";
+            if (tk.kind === "skill") skills.push(tk.name);
+            else {
+              const pth = tk.path && fs.existsSync(tk.path) ? tk.path : (attPathByName[tk.name] || tk.path || "");
+              if (pth) atts.push({ path: pth, originalName: tk.name } as any);
+            }
             return "";
           })
           .replace(/\s{2,}/g, " ")
