@@ -4394,6 +4394,13 @@ const applySettingsPatch = (patch: any) => {
   } catch {}
 
   try {
+    // App Expert mode: straight into the session (no welcome): load the expert
+    // history immediately so the CLI opens on the real conversation.
+    if (QEXPERT) {
+      welcomeShown = false;
+      void loadServerHistory().then(() => { try { ui.requestRender(); } catch {} });
+    }
+
     ui.start();
 
     // Re-assert the terminal background AFTER the UI is live and force a full
