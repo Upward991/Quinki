@@ -88,3 +88,32 @@ export function counterColor(pct: number): string {
 }
 
 export const isColorEnabled = () => colorEnabled;
+
+// ---------------------------------------------------------------------------
+// App themes: the SAME background colors as src/index.css (data-theme presets).
+// The CLI follows the app's DEFAULT/ACTIVE theme: the app publishes it via
+// setClientPrefs and we read it back from getSettings -> clientPrefs.theme.
+// ---------------------------------------------------------------------------
+export const APP_THEME_BGS: Record<string, { bg: string; bgPanel: string; bgElevated: string }> = {
+  comfort: { bg: "#08080b", bgPanel: "#0f0f13", bgElevated: "#16161b" },
+  midnight: { bg: "#060608", bgPanel: "#0c0c10", bgElevated: "#121216" },
+  forest: { bg: "#08080a", bgPanel: "#0e0e10", bgElevated: "#141416" },
+  warm: { bg: "#0a0a0a", bgPanel: "#101010", bgElevated: "#161616" },
+  eclipse: { bg: "#040406", bgPanel: "#0a0a0c", bgElevated: "#101012" },
+};
+
+export function applyAppTheme(themeId: string | null | undefined): string {
+  const t = APP_THEME_BGS[String(themeId || "comfort")] || APP_THEME_BGS.comfort;
+  (C as any).bg = t.bg;
+  (C as any).bgPanel = t.bgPanel;
+  (C as any).bgElevated = t.bgElevated;
+  return t.bg;
+}
+
+export function hexToRgbTriplet(hex: string): string {
+  const h = String(hex || "#08080b").replace("#", "");
+  const r = parseInt(h.slice(0, 2), 16) || 0;
+  const g = parseInt(h.slice(2, 4), 16) || 0;
+  const b = parseInt(h.slice(4, 6), 16) || 0;
+  return `${r};${g};${b}`;
+}

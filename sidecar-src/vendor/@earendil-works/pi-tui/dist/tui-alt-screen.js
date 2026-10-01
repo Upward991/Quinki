@@ -195,7 +195,7 @@ export class TuiAltScreen extends TuiBase {
             for (let row = 0; row < this.lastDocument.length; row++) {
                 if (row > 0)
                     buffer += "\r\n";
-                buffer += `\r\x1b[48;2;8;8;11m\x1b[2K${this.lastDocument[row] ?? ""}\x1b[49m`;
+                buffer += `\r\x1b[48;2;${(globalThis.__Q_TUI_BG || "8;8;11")}m\x1b[2K${this.lastDocument[row] ?? ""}\x1b[49m`;
             }
             buffer += `\x1b[0m${ENABLE_AUTOWRAP}\r\n\x1b[?25h${END_SYNCHRONIZED_OUTPUT}`;
             this.terminal.write(buffer);
@@ -1175,7 +1175,7 @@ export class TuiAltScreen extends TuiBase {
         for (let row = 0; row < height; row++) {
             if (!fullRedraw && !imagesNeedRedraw && screen[row] === this.previousScreen[row])
                 continue;
-            buffer += `\x1b[${row + 1};1H\x1b[48;2;8;8;11m\x1b[2K${preparedKittyScreen.lines[row] ?? ""}\x1b[49m`;
+            buffer += `\x1b[${row + 1};1H\x1b[48;2;${(globalThis.__Q_TUI_BG || "8;8;11")}m\x1b[2K${preparedKittyScreen.lines[row] ?? ""}\x1b[49m`;
         }
         if (cursorPos) {
             buffer += `\x1b[${cursorPos.row + 1};${Math.min(width, cursorPos.col) + 1}H`;

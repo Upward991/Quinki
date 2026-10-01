@@ -35,7 +35,7 @@ import {
   visibleWidth,
 } from "../../sidecar-src/vendor/@earendil-works/pi-tui/dist/index.js";
 
-import { C, fg, bg, bgKeepPanel, collapsed, counterColor, blend, bold, italicStyle } from "./theme";
+import { C, fg, bg, bgKeepPanel, collapsed, counterColor, blend, bold, italicStyle , applyAppTheme, hexToRgbTriplet } from "./theme";
 
 // Engine (bundled at build time — literal specifiers only).
 import * as sdk from "../../sidecar-src/vendor/@earendil-works/pi-coding-agent/dist/index.js";
@@ -1048,6 +1048,13 @@ const readProvidersCfg = (): any => {
       // 2) the sidecar's view (may add more keys)
       const call = (globalThis as any).__sidecarCall;
       if (call) call('getSettings', {}).then((r: any) => {
+        try {
+          const tid = r?.clientPrefs?.theme || null;
+          const bgHex = applyAppTheme(tid);
+          (globalThis as any).__Q_TUI_BG = hexToRgbTriplet(bgHex);
+          try { process.stdout.write("\x1b]11;" + bgHex + "\x07"); } catch {}
+          try { ui.requestRender(); } catch {}
+        } catch {}
         if (r) {
           wsSettings = { ...(wsSettings || {}), ...r };
           // never let a missing key in the RPC response erase the file's fallbacks
