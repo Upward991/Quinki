@@ -273,7 +273,7 @@ class WelcomeRoot {
         greet = hero.map((l) => " ".repeat(off) + l);
       } else {
         // FALLBACK: the plain one-line greeting, centered on the text box.
-        const line = fg(C.textSecondary, g + ", welcome to ") + bold(fg(C.primary, "\uD83D\uDC7E")) + fg(C.textSecondary, "!");
+        const line = fg(C.textSecondary, g + ", welcome to ") + bold(fg(C.primary, "Quinki")) + fg(C.textSecondary, "!");
         const pad = " ".repeat(Math.max(0, Math.floor((boxW - visibleWidth(plain)) / 2)));
         greet = ["", pad + line];
       }
