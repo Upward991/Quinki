@@ -1080,7 +1080,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         if (it.separator) return it;
         const id = String(it.value || "");
         const idx = order.indexOf(id);
-        return { ...it, label: (idx >= 0 ? "\u2713 " + (idx + 1) + ". " : "") + String(it.label || id) };
+        return { ...it, label: (idx >= 0 ? "\u25cf " + (idx + 1) + ". " : "\u25cb ") + String(it.label || id) };
       });
     }
     const fbN = fbFromFile().length;
@@ -3965,7 +3965,7 @@ const applySettingsPatch = (patch: any) => {
       // like the selected slash rows, while FOCUSED via → — Enter runs it).
       rows.push("");
       const left = fg(C.textSecondary, "\u2191 \u2193 \u2190 \u2192");
-      const hasMulti = menuStack[0] === "settings" && (menuStack[1] === "defaults" && menuStack[2] === "fallbacks");
+      const hasMulti = menuStack[0] === "settings" && (menuStack[3] === "models" || (menuStack[1] === "defaults" && menuStack[2] === "fallbacks") || (menuStack[1] === "providers" && !menuStack[2]));
       // Confirm appears ONLY when the highlighted option actually RUNS something
       // (navigation items and read-only pages do not show it).
       let needsConfirm = menuConfirmFocus;
