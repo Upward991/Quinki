@@ -467,7 +467,7 @@ export class Editor {
         // QUINKI PATCH (25 set, iter6): breathing line + footer row + bottom padding, all painted.
         result.push(qEdge() + qPaint(" ".repeat(width - 2)) + qEdgeR());
         if (typeof this.footerLine === "function") {
-            try {
+            try { /* __qsel-editor */
                 const fl = String(this.footerLine(contentWidth) ?? "");
                 const flw = visibleWidth(fl);
                 const flPad = " ".repeat(Math.max(0, contentWidth - flw));
@@ -501,6 +501,7 @@ export class Editor {
         // because the editor consumes Tab for autocomplete first).
         try {
             if (data === "\t" && globalThis.__qMenuSelect) {
+                try { require("fs").appendFileSync("/tmp/q-cli-debug.log", JSON.stringify({ at: "editor-tab" }) + "\n"); } catch {}
                 if (globalThis.__qMenuSelect() === true) return;
             }
         } catch {}

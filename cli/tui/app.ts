@@ -1765,7 +1765,8 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   // Slash menu (OURS — app-style; it NEVER writes command text into the box).
   let menuError = ""; // error shown INSIDE the slash menu (never in the chat)
   let menuStack: string[] = [];
-  let menuMarked = new Set<string>(); // open menu path: [], [cmd] or ["agent", ...deeper levels]
+  let menuMarked = new Set<string>();
+  let menuItemsCache: any[] = []; // open menu path: [], [cmd] or ["agent", ...deeper levels]
   let lastNavA = ""; // last navigation direction (duplicate-event collapse)
   let lastNavT = 0;
   let pendingKeys = ""; // unfinished escape tail held across reads
@@ -3482,9 +3483,11 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     return editorText().startsWith("/");
   };
   const menuNav = (a: "up" | "down" | "left" | "right" | "enter" | "escape" | "select") => {
+    try { require("fs").appendFileSync("/tmp/q-cli-debug.log", JSON.stringify({ at: "menuNav", a, stack: JSON.stringify(menuStack || []) }) + "\n"); } catch {}
     if (a === "select") {
+      try { require("fs").appendFileSync("/tmp/q-cli-debug.log", JSON.stringify({ at: "select-branch", stack: JSON.stringify(menuStack || []), sel: menuSel }) + "\n"); } catch {}
       try {
-        const its: any = (typeof items !== "undefined" ? items : []);
+        const its: any = menuItemsCache || [];
         const it: any = its[menuSel];
         const inModels = menuStack[0] === "settings" && menuStack[3] === "models";
         const inFallbacks = menuStack[0] === "settings" && menuStack[1] === "defaults" && menuStack[2] === "fallbacks";
@@ -3913,6 +3916,7 @@ const applySettingsPatch = (patch: any) => {
         }
         items = mainItems();
       }
+      menuItemsCache = items; // menuNav actions use the SAME list the user sees
       if (items.length === 0) return [];
       if (menuSel >= items.length) menuSel = items.length - 1;
       if (menuSel < 0) menuSel = 0;
@@ -3949,7 +3953,7 @@ const applySettingsPatch = (patch: any) => {
           rows.push("");
           continue;
         }
-        if (menuMarked.has(String((it as any).value ?? ""))) label = "\u2713 " + label;
+        if (menuMarked.has(String((it as any).value ?? "")) && !(menuStack[0] === "settings" && menuStack[1] === "defaults" && menuStack[2] === "fallbacks")) label = "\u2713 " + label;
         if (visibleWidth(label) > w - 2) label = label.slice(0, Math.max(0, w - 2));
         if (visibleWidth(label) + 2 + visibleWidth(desc) > w) {
           const room = w - visibleWidth(label) - 2;
@@ -4006,12 +4010,18 @@ const applySettingsPatch = (patch: any) => {
   try {
     (globalThis as any).__qMenuSelect = () => {
       try {
+        const fs2 = require("fs");
+        fs2.appendFileSync("/tmp/q-cli-debug.log", JSON.stringify({ t: Date.now(), at: "qMenuSelect", menuStack: JSON.stringify(menuStack || []), sel: menuSel }) + "\n");
+      } catch {}
+      try {
         if (menuStack && menuStack.length > 0) {
           menuNav("select");
           try { ui.requestRender(); } catch {}
           return true;
         }
-      } catch {}
+      } catch (e2) {
+        try { require("fs").appendFileSync("/tmp/q-cli-debug.log", JSON.stringify({ at: "qMenuSelect-ERR", err: String(e2) }) + "\n"); } catch {}
+      }
       return false;
     };
   } catch {}
