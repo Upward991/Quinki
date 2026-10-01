@@ -77,9 +77,6 @@ const PANEL_RGB = (() => {
 
 /** Like bg(), but restores the panel background instead of the terminal default
  *  (inside the composer/header blocks the row background must stay uniform). */
-/** Set the floating-panel background for the following cells (keeps the char as-is). */
-export const panelBgWrap = (s: string) => (colorEnabled ? `\x1b[48;2;${PANEL_RGB}m${s}` : s);
-
 export const bgKeepPanel = (color: string, s: string) =>
   colorEnabled ? `\x1b[48;2;${hexToRgb(color).join(";")}m${s}\x1b[48;2;${PANEL_RGB}m` : s;
 
@@ -91,4 +88,3 @@ export function counterColor(pct: number): string {
 }
 
 export const isColorEnabled = () => colorEnabled;
-
