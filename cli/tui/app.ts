@@ -1619,11 +1619,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       // and OS (like the letter X did) -> truly universal. Consumed before the
       // filter -> nothing is ever typed into the command bar.
       // (X and F2/Insert kept as silent extras for muscle memory.)
-      const isSelect =
-        data === "\x13" || matchesKey(data, "ctrl+s") ||
-        data === "x" || data === "X" ||
-        matchesKey(data, "f2") || matchesKey(data, "insert") ||
-        /^\x1b(OQ|\[12[~u]|\[12;\d+[~u]|\[2[~u]|\[2;\d+u)$/.test(data);
+      const isSelect = false; // Tab is handled by the dedicated branch
       const isCtrlEnter = data === "\n" || data === "\x1b[13;5u" || matchesKey(data, "ctrl+enter");
       const isEsc = data === "\x1b" || matchesKey(data, "escape");
       const isUp = data === "\x1b[A" || matchesKey(data, "up");
@@ -1937,7 +1933,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       : canSend
         ? lit("Send (Enter)")
         : quiet("Send (Enter)");
-    const right = stopKey + sep + steerKey + sep + sendKey;
+    const right = [stopKey, steerKey, sendKey].filter((x) => x.length > 0).join(sep);
 
     // "│ Quinki │" — brand centered between two violet vertical bars.
     const brand = welcomeShown ? "" : fg(C.primary, "\u2502") + " " + fg(C.primary, "Quinki") + " " + fg(C.primary, "\u2502");
@@ -3990,7 +3986,7 @@ const applySettingsPatch = (patch: any) => {
       const right =
         fg(C.danger, "Close (Esc)") +
         "  " +
-        (hasMulti ? fg(C.modeBuild, "Select (Ctrl+S)") + "  " : "") +
+        (hasMulti ? fg(C.modeBuild, "Select (Tab)") + "  " : "") +
         (needsConfirm ? (menuConfirmFocus ? bold(bg(C.primary, fg(C.bgPanel, " Confirm (Enter) "))) : fg(C.primary, "Confirm (Enter)")) : "");
       const gw = Math.max(1, w - visibleWidth(left) - visibleWidth(right));
       rows.push(left + " ".repeat(gw) + right);
