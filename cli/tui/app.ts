@@ -4803,7 +4803,11 @@ const applySettingsPatch = (patch: any) => {
           rows.push("");
           continue;
         }
-        if (menuMarked.has(String((it as any).value ?? "")) && !(menuStack[0] === "settings" && menuStack[1] === "defaults" && menuStack[2] === "fallbacks")) label = "\u2713 " + label;
+        if (menuMarked.has(String((it as any).value ?? ""))) {
+          // Selected rows: filled dot (●), consistent with the app's pallini.
+          if (label.startsWith("\u25cb ")) label = "\u25cf " + label.slice(2);
+          else if (!label.startsWith("\u25cf")) label = "\u25cf " + label;
+        }
         if ((it as any)._lit) label = fg(C.primary, label);
         if (visibleWidth(label) > w - 2) label = label.slice(0, Math.max(0, w - 2));
         if (visibleWidth(label) + 2 + visibleWidth(desc) > w) {
