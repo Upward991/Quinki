@@ -4275,7 +4275,8 @@ const applySettingsPatch = (patch: any) => {
   } catch {}
 
   // --- input -------------------------------------------------------------------
-  const shutdown = () => {
+  const shutdown = (why?: string) => {
+    try { require("fs").appendFileSync("/tmp/q-cli-survive.log", "shutdown called: " + String(why || "") + "\n" + String(new Error().stack) + "\n"); } catch {}
     try {
       // preserveScreen: true -> clean exit (do NOT re-print the last frame
       // into the main buffer — the terminal must come back clean).

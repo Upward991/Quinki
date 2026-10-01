@@ -97,6 +97,9 @@ if (process.stdout.isTTY && !process.env.QUINKI_CLI_NO_BG) {
     try { require("fs").appendFileSync("/tmp/q-cli-survive.log", "SIGHUP received (ignored, surviving)\n"); } catch {}
     restore();
   });
+  process.on("SIGINT", () => {
+    try { require("fs").appendFileSync("/tmp/q-cli-survive.log", "SIGINT received (ignored, surviving)\n"); } catch {}
+  });
 }
 
 // --- 7. Route: interactive -> OUR TUI; everything else -> SDK modes ----------
