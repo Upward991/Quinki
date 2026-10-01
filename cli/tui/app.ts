@@ -1166,10 +1166,20 @@ const readProvidersCfg = (): any => {
       const out: any[] = [];
       for (const name of Object.keys(cfg.providers || {})) {
         const p = (cfg.providers || {})[name] || {};
+        // Totals per provider, ALWAYS visible (before opening the provider menu).
+        let provTotal = 0;
+        try {
+          const seenT: Record<string, number> = {};
+          for (const mm of (p.modelData || [])) { const id = String(mm?.id || ""); if (id) seenT[id] = 1; }
+          for (const mm of wsAllModels) { if (String(mm?.provider || "") !== name) continue; const id = String(mm?.id || ""); if (id) seenT[id] = 1; }
+          for (const mm of (wsProviderModels[name] || [])) { const id = String(mm?.id || ""); if (id) seenT[id] = 1; }
+          provTotal = Object.keys(seenT).length;
+          if (provTotal === 0) { try { fetchProviderCatalog(name, String(p.baseUrl || ""), ""); } catch {} }
+        } catch {}
         out.push({
           value: "prov:" + name,
           label: (p.enabled ? "\u25cf " : "\u25cb ") + name,
-          description: (p.enabled ? "enabled" : "disabled") + " \u00b7 " + String((p.enabledModels || []).length) + " on",
+          description: String((p.enabledModels || []).length) + " active" + (provTotal > 0 ? " \u00b7 " + provTotal + " total" : " \u00b7 loading\u2026"),
         });
       }
       out.push({ value: "__addprov", label: "\uff0b Add provider", description: "name, URL" });
@@ -1205,7 +1215,7 @@ const readProvidersCfg = (): any => {
       const rows = all.map((mm: any) => {
         const id = String(mm?.id || "");
         const on = en.includes(id);
-        return { value: "mdl:" + id, label: (on ? "\u25cf " : "\u25cb ") + id, description: (on ? "on" : "off") + (mm.name ? " \u00b7 " + String(mm.name) : ""), _rank: on ? en.indexOf(id) : 9999, _id: id };
+        return { value: "mdl:" + id, label: (on ? "\u25cf " : "\u25cb ") + id, description: mm.name ? String(mm.name) : "", _rank: on ? en.indexOf(id) : 9999, _id: id };
       });
       // Selected first, in SELECTION order (the enabledModels array); the rest after.
       // The CURSOR stays at the same index (it does not jump up with the item).
@@ -1239,11 +1249,11 @@ const readProvidersCfg = (): any => {
     ];
     // API key row only for providers without an account login (custom/legacy).
     try {
-      if (!["OpenRouter", "Anthropic", "xAI", "Ollama"].includes(name)) {
+      if (!["OpenRouter", "Anthropic", "xAI", "OpenAI", "GitHub Copilot", "Ollama"].includes(name)) {
         out2.push({ value: "key", label: "API key", description: wsKeyStatus[name] === true ? "set" : (wsKeyStatus[name] === false ? "not set" : "checking\u2026") });
       }
     } catch {}
-    if (["OpenRouter", "Anthropic", "xAI"].includes(name)) {
+    if (["OpenRouter", "Anthropic", "xAI", "OpenAI", "GitHub Copilot"].includes(name)) {
       const conn = wsKeyStatus[name] === true;
       out2.push({
         value: "login",
@@ -4158,7 +4168,7 @@ const cmd: any = commands.find((c) => c.name === it.value);
     if (sub && !sub3) {
       if (value === "toggle") { patchProvider(pname, (p) => { p.enabled = !p.enabled; }); }
       if (value === "login") {
-        const SUBMAP: Record<string, string> = {"Anthropic":"anthropic","xAI":"xai"};
+        const SUBMAP: Record<string, string> = {"Anthropic":"anthropic","xAI":"xai","OpenAI":"openai-codex","GitHub Copilot":"github-copilot","OpenRouter":"__openrouter__"};
         const subId = SUBMAP[pname];
         try {
           const pr = subId === "__openrouter__" ? sc.call("openRouterLogin", {}, 310000)
