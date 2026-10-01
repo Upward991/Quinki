@@ -3782,7 +3782,7 @@ const readProvidersCfg = (): any => {
         const inModels = menuStack[0] === "settings" && menuStack[3] === "models";
         const inFallbacks = menuStack[0] === "settings" && (menuStack[1] === "fallbacks" || (menuStack[1] === "defaults" && menuStack[2] === "fallbacks"));
         const inProviders = menuStack[0] === "settings" && menuStack[1] === "providers" && !menuStack[2];
-        if (menuStack[0] === "settings" && (menuStack[1] === "thinking" || (menuStack[1] === "defaults" && menuStack[2] === "thinking")) && !menuStack[2] !== false && it && !it.separator) {
+        if (menuStack[0] === "settings" && ((menuStack[1] === "thinking" && !menuStack[2]) || (menuStack[1] === "defaults" && menuStack[2] === "thinking")) && it && !it.separator) {
           const on = String(it.value) === "on";
           applySettingsPatch({ defaultThinkingLevel: on ? "xhigh" : "off" });
           try { ui.requestRender(); } catch {}
