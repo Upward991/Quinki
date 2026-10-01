@@ -3494,26 +3494,48 @@ export async function runTui(opts: TuiOptions): Promise<void> {
 
   const runItem = (it: any) => {
     try {
-            // Providers list: Confirm = toggle every marked provider at once.
-            if (menuStack[1] === "providers" && !menuStack[2] && menuMarked.size > 0) {
-              const names = Array.from(menuMarked).filter((v: string) => v.startsWith("prov:")).map((v: string) => v.slice(5));
-              for (const nm of names) { patchProvider(nm, (p) => { p.enabled = !p.enabled; }); }
-              menuMarked.clear();
-              try { ui.requestRender(); } catch {}
-              return;
-            }
-            // Fallbacks editor: Confirm = save the selection ORDER as the fallbacks.
-            if (menuStack[1] === "defaults" && menuStack[2] === "fallbacks") {
-              const order = Array.from(menuMarked);
-              try { void sc.call('setDefaultFallbacks', { defaultFallbackModels: order }, 20000).catch(() => {}); } catch {}
-              try { wsSettings = { ...(wsSettings || {}), defaultFallbackModels: order }; } catch {}
-              try { ui.requestRender(); } catch {}
-              return;
-            }
-            settingsActivate(String(it.value));
-            try { ui.requestRender(); } catch {}
-            return;
-          
+      if (!it || it.separator) return;
+      if (menuStack[0] === "settings") {
+        if (menuStack[1] === "providers" && !menuStack[2] && menuMarked.size > 0) {
+          const names = Array.from(menuMarked).filter((v: string) => v.startsWith("prov:")).map((v: string) => v.slice(5));
+          for (const nm of names) { patchProvider(nm, (pp) => { pp.enabled = !pp.enabled; }); }
+          menuMarked.clear();
+          try { ui.requestRender(); } catch {}
+          return;
+        }
+        if (menuStack[1] === "defaults" && menuStack[2] === "fallbacks") {
+          const order = Array.from(menuMarked);
+          try { void sc.call('setDefaultFallbacks', { defaultFallbackModels: order }, 20000).catch(() => {}); } catch {}
+          try { wsSettings = { ...(wsSettings || {}), defaultFallbackModels: order }; } catch {}
+          try { ui.requestRender(); } catch {}
+          return;
+        }
+        settingsActivate(String(it.value));
+        try { ui.requestRender(); } catch {}
+        return;
+      }
+      if (menuStack[0] === "agentinsession") {
+        agentActivate(String(it.value));
+        try { ui.requestRender(); } catch {}
+        return;
+      }
+      if (menuStack.length > 0) {
+        const cmdName = menuStack[0];
+        menuStack = [];
+        menuSubFilter = "";
+        menuSel = 0;
+        try { editor.setText(""); } catch {}
+        handleSlashRef?.("/" + cmdName + " " + String(it.value ?? it.label ?? ""));
+        try { ui.requestRender(); } catch {}
+        return;
+      }
+      const cmd: any = commands.find((c) => c.name === it.value);
+      if (cmd) {
+        try { editor.setText(""); } catch {}
+        menuSel = 0;
+        handleSlashRef?.("/" + cmd.name);
+        try { ui.requestRender(); } catch {}
+      }
     } catch {}
   };
   const menuNav = (a: "up" | "down" | "left" | "right" | "enter" | "escape" | "select") => {
@@ -4049,6 +4071,9 @@ const applySettingsPatch = (patch: any) => {
           try { ui.requestRender(); } catch {}
           return true;
         }
+        // Completions phase (typing "/command"): consume the Tab as well — the
+        // slash menu must NEVER close on Tab.
+        try { if (String(editorText() || "").startsWith("/")) return true; } catch {}
       } catch {}
       return false;
     };
