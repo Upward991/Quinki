@@ -273,7 +273,7 @@ class WelcomeRoot {
         greet = hero.map((l) => " ".repeat(off) + l);
       } else {
         // FALLBACK: the plain one-line greeting, centered on the text box.
-        const line = fg(C.textSecondary, g + ", welcome to ") + bold(fg(C.primary, "Quinki")) + fg(C.textSecondary, "!");
+        const line = fg(C.textSecondary, g + ", welcome to ") + bold(fg(C.primary, "\uD83D\uDC7E")) + fg(C.textSecondary, "!");
         const pad = " ".repeat(Math.max(0, Math.floor((boxW - visibleWidth(plain)) / 2)));
         greet = ["", pad + line];
       }
@@ -1698,7 +1698,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         sec("Close (\u2190)") +
         fg(C.textTertiary, " \u00b7 ") +
         sec("Open (\u2192)");
-      const brandN = fg(C.primary, "\u2502") + " " + fg(C.primary, "Quinki") + " " + fg(C.primary, "\u2502");
+      const brandN = fg(C.primary, "\u2502") + " " + fg(C.primary, "\uD83D\uDC7E") + " " + fg(C.primary, "\u2502");
       const lwN = visibleWidth(leftN);
       const rwN = visibleWidth(rightN);
       const startN = Math.max(lwN + 1, Math.floor((width - 10) / 2));
@@ -1736,10 +1736,10 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     const right = stopKey + sep + steerKey + sep + sendKey;
 
     // "│ Quinki │" — brand centered between two violet vertical bars.
-    const brand = fg(C.primary, "\u2502") + " " + fg(C.primary, "Quinki") + " " + fg(C.primary, "\u2502");
+    const brand = fg(C.primary, "\u2502") + " " + fg(C.primary, "\uD83D\uDC7E") + " " + fg(C.primary, "\u2502");
     const lw = visibleWidth(left);
     const rw = visibleWidth(right);
-    const bw = 10;
+    const bw = 6;
     const start = Math.max(lw + 1, Math.floor((width - bw) / 2));
     const gap1 = Math.max(1, start - lw);
     const gap2 = Math.max(1, width - start - bw - rw);
