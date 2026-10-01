@@ -1096,7 +1096,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       { value: "__s1", label: "Tab", description: "Plan / Build" },
       { value: "__s2", label: "Ctrl+T", description: "Toggle navigation" },
       { value: "__s3", label: "Ctrl+F", description: "Info on footers" },
-      { value: "__ins", label: "X", description: "Select in lists (multi)" },
+      { value: "__ins", label: "Ctrl+S", description: "Select in lists (multi)" },
       { value: "__s4", label: "Enter", description: "Send" },
       { value: "__s5", label: "Ctrl+Enter", description: "Steer while streaming" },
       { value: "__s6", label: "Esc", description: "Stop / close menu" },
@@ -1611,10 +1611,12 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         } catch {}
       }
       const isEnter = data === "\r" || matchesKey(data, "enter");
-      // SELECT KEY = "x": the ONLY kind of key that is byte-identical on EVERY
-      // terminal/OS (letters). Consumed before the filter -> nothing is typed.
-      // (F2/Insert kept as silent extras for muscle memory.)
+      // SELECT KEY = Ctrl+S: control keys send ONE identical byte on EVERY terminal
+      // and OS (like the letter X did) -> truly universal. Consumed before the
+      // filter -> nothing is ever typed into the command bar.
+      // (X and F2/Insert kept as silent extras for muscle memory.)
       const isSelect =
+        data === "\x13" || matchesKey(data, "ctrl+s") ||
         data === "x" || data === "X" ||
         matchesKey(data, "f2") || matchesKey(data, "insert") ||
         /^\x1b(OQ|\[12[~u]|\[12;\d+[~u]|\[2[~u]|\[2;\d+u)$/.test(data);
@@ -3973,7 +3975,7 @@ const applySettingsPatch = (patch: any) => {
       const right =
         fg(C.danger, "Close (Esc)") +
         "  " +
-        (hasMulti ? fg(C.modeBuild, "Select (X)") + "  " : "") +
+        (hasMulti ? fg(C.modeBuild, "Select (Ctrl+S)") + "  " : "") +
         (needsConfirm ? (menuConfirmFocus ? bold(bg(C.primary, fg(C.bgPanel, " Confirm (Enter) "))) : fg(C.primary, "Confirm (Enter)")) : "");
       const gw = Math.max(1, w - visibleWidth(left) - visibleWidth(right));
       rows.push(left + " ".repeat(gw) + right);
