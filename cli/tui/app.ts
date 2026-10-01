@@ -4614,8 +4614,10 @@ const applySettingsPatch = (patch: any) => {
         let label = String(it.label ?? it.value ?? "");
         let desc = String(it.description ?? "");
         if ((it as any).separator) {
-          // Group separator: ONE line only (no blank padding — too much space).
-          if (!label) continue;
+          // Labeled separator (headers like "Last attachments"): one line only.
+          // UNLABELED separators are pure dividers: keep ONE blank line (the
+          // visual separation users expect in every menu).
+          if (!label) { rows.push(""); continue; }
           rows.push(fg(C.textSecondary, label));
           continue;
         }
