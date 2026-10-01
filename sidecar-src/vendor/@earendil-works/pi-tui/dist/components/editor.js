@@ -487,7 +487,9 @@ export class Editor {
                     // \u200b (zero-width space) at the END anchors every row: whitespace-
                     // only strings get dropped downstream; a trailing invisible zero-width
                     // char keeps them alive WITHOUT shifting the left edge (alignment).
-                    const acPadRow = qPaint(" ".repeat(Math.max(1, width))) + "\u200b";
+                    // Blank rows above/below the menu (the page background shows: a real
+                    // row of space), anchored by the zero-width space so they survive.
+                    const acPadRow = "\u200b";
                     const acLines = [acPadRow];
                     for (const line of rows) {
                         const lws = visibleWidth(line);

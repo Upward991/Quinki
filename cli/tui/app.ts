@@ -4095,7 +4095,7 @@ const applySettingsPatch = (patch: any) => {
         const leftE = fg(C.textSecondary, "\u2191 \u2193 \u2190 \u2192");
         const rightE = menuConfirmFocus ? bold(bg(C.primary, fg(C.bgPanel, " Confirm "))) : fg(C.primary, "Confirm");
         const gwE = Math.max(1, w - 4 - visibleWidth(leftE) - visibleWidth(rightE));
-        rowsE.push("  " + leftE + " ".repeat(gwE) + rightE + "  ");
+        rowsE.push(leftE + " ".repeat(gwE) + rightE);
         return rowsE;
       }
       if (menuStack.length > 0 && !t.startsWith("/")) {
@@ -4136,7 +4136,9 @@ const applySettingsPatch = (patch: any) => {
       const rows: string[] = [];
       // The slash menu is a SOLID floating panel (exactly like the app:
       // background var(--q-bg-panel) for every row of the window, no holes).
-      const winRow = (s2: string) => bg(C.bgPanel, s2 + " ".repeat(Math.max(0, w - visibleWidth(s2)))) + "\u200b";
+      // Each menu row is a BORDERED row like the composer: ▏ ... ▕ (plus the
+      // panel background inside, so the menu reads as one solid box).
+      const winRow = (s2: string) => panelBgWrap(fg(C.primary, "\u258f")) + bg(C.bgPanel, s2 + " ".repeat(Math.max(0, w - 2 - visibleWidth(s2)))) + panelBgWrap(fg(C.primary, "\u2595")) + "\u200b";
       const MAXWIN = 12;
       const winStart = Math.max(0, Math.min(Math.max(0, items.length - MAXWIN), menuSel - Math.floor(MAXWIN / 2)));
       const winEnd = Math.min(items.length, winStart + MAXWIN);
@@ -4149,7 +4151,7 @@ const applySettingsPatch = (patch: any) => {
           // blank row of padding below and one ABOVE, skipped when it is the very
           // first row (the menu already opens with its own space).
           if (rows.length > 0) rows.push(winRow(""));
-          rows.push(winRow("  " + fg(C.textSecondary, label)));
+          rows.push(winRow(fg(C.textSecondary, label)));
           rows.push(winRow(""));
           continue;
         }
@@ -4157,7 +4159,7 @@ const applySettingsPatch = (patch: any) => {
           // Confirmation notice (reset/delete): a message instead of an option —
           // confirm with → then Enter (mandatory Confirm).
           if (rows.length > 0) rows.push(winRow(""));
-          for (const ln of wrapPlain(String((it as any).notice), Math.max(10, w - 4))) rows.push(winRow("  " + fg(C.textSecondary, ln)));
+          for (const ln of wrapPlain(String((it as any).notice), Math.max(10, w - 4))) rows.push(winRow(fg(C.textSecondary, ln)));
           rows.push(winRow(""));
           continue;
         }
@@ -4167,10 +4169,8 @@ const applySettingsPatch = (patch: any) => {
           const room = w - visibleWidth(label) - 2;
           desc = room > 0 ? desc.slice(0, room) : "";
         }
-        // Inner horizontal padding like the app (padding: 8px 16px -> 2 chars).
-        const PADW = 2;
-        const gap = Math.max(1, w - PADW * 2 - visibleWidth(label) - visibleWidth(desc));
-        const rowPlain = " ".repeat(PADW) + label + " ".repeat(gap) + desc + " ".repeat(PADW);
+        const gap = Math.max(1, w - 4 - visibleWidth(label) - visibleWidth(desc));
+        const rowPlain = " " + label + " ".repeat(gap) + desc + " ";
         if (i === menuSel) rows.push(winRow(bg(C.primary, fg(C.bgPanel, rowPlain))));
         else rows.push(winRow(fg(C.textSecondary, label) + " ".repeat(gap) + fg(C.textTertiary, desc)));
       }
@@ -4210,7 +4210,7 @@ const applySettingsPatch = (patch: any) => {
         (hasMulti ? fg(C.modeBuild, "Select (Tab)") + "  " : "") +
         (needsConfirm ? (menuConfirmFocus ? bold(bg(C.primary, fg(C.bgPanel, " Confirm (Enter) "))) : fg(C.primary, "Confirm (Enter)")) : "");
       const gw = Math.max(1, w - 4 - visibleWidth(left) - visibleWidth(right));
-      rows.push("  " + left + " ".repeat(gw) + right + "  ");
+      rows.push(left + " ".repeat(gw) + right);
       return rows;
     } catch {
       return [];
