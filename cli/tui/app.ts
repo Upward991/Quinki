@@ -948,6 +948,8 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   };
   let wsSkillGroups: any[] = [];
   let wsModelId = "";
+
+  let pendingModelId = ""; // model chosen on the welcome (applies to the new chat)
   let wsSessions: any[] = [];
   let lastSessKick = 0;
   let lastSkillKick = 0;
@@ -1213,9 +1215,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
               lastProv = prov;
             }
             const cur = welcomeShown
-              ? (id === String(defaultModelId || ""))
+              ? (id === String(pendingModelId || defaultModelId || ""))
               : (String(wsModelId || "") === id);
-            items.push({ value: id, label: id, description: (cur ? "current \u00b7 " : "") + prov });
+            items.push({ value: id, label: (cur ? "\u25cf " : "\u25cb ") + id, description: prov });
           }
         } catch {}
         return items;
@@ -1826,7 +1828,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       counterColor(pct),
       `${fmtTok(ctxTokens)}/${fmtTok(ctxWindow)} (${Math.floor(pct)}% \u00b1 ${Math.ceil(pct * 0.05 + 1)}%)`
     );
-    const modelId = (welcomeShown ? (defaultModelId || wsModelId) : (wsModelId || defaultModelId)) || "";
+    const modelId = (welcomeShown ? (pendingModelId || defaultModelId || wsModelId) : (wsModelId || defaultModelId)) || "";
     const sep = fg(C.textTertiary, " \u00b7 ");
     const quiet = (s: string) => fg(C.textTertiary, s);
     const modeStr = mode === "plan" ? fg(C.modePlan, "Plan (Tab)") : fg(C.modeBuild, "Build (Tab)");
@@ -3023,7 +3025,12 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         if (scOn) {
           wsModelId = arg;
           modelExplicit = true;
-          if (arg === "__chat_default_model__") { try { wsModelId = ""; } catch {} void sc.call("setModel", { sessionKey: currentKey, model: "" }, 30000).catch(() => {}); } else { void sc.call("setModel", { sessionKey: currentKey, model: arg }, 60000).catch(() => {}); }
+          if (!currentKey || welcomeShown) {
+            pendingModelId = String(arg || "");
+            try { ui.requestRender(); } catch {}
+          } else {
+            void sc.call("setModel", { sessionKey: currentKey, model: arg }, 60000).catch(() => {});
+          }
           break;
         }
         try {
@@ -3996,7 +4003,7 @@ const applySettingsPatch = (patch: any) => {
       // like the selected slash rows, while FOCUSED via → — Enter runs it).
       rows.push("");
       const left = fg(C.textSecondary, "\u2191 \u2193 \u2190 \u2192");
-      const hasMulti = menuStack[0] === "settings" && (menuStack[3] === "models" || (menuStack[1] === "defaults" && menuStack[2] === "fallbacks") || (menuStack[1] === "providers" && !menuStack[2]));
+      const hasMulti = (menuStack[0] === "model") || (menuStack[0] === "settings" && (menuStack[3] === "models" || (menuStack[1] === "defaults" && menuStack[2] === "fallbacks") || (menuStack[1] === "providers" && !menuStack[2])));
       // Confirm appears ONLY when the highlighted option actually RUNS something
       // (navigation items and read-only pages do not show it).
       let needsConfirm = menuConfirmFocus;
@@ -4010,7 +4017,7 @@ const applySettingsPatch = (patch: any) => {
             const inFbLv = menuStack[1] === "defaults" && menuStack[2] === "fallbacks";
             needsConfirm = inFbLv ? true : ((inModelsLv || inProvLv) ? false : !settingsDeeper(cur));
           }
-          else if (menuStack.length > 0) needsConfirm = true;
+          else if (menuStack.length > 0) needsConfirm = menuStack[0] !== "model";
           else {
             const c2: any = commands.find((c: any) => c.name === cur.value);
             needsConfirm = !(c2 && typeof c2.getArgumentCompletions === "function");
