@@ -2527,7 +2527,9 @@ const readProvidersCfg = (): any => {
           // starts; its arguments fill in on the deltas; toolcall_end is not the
           // result (that arrives as the separate tool_result notification).
           assistant = null;
-          assistantText = "";
+          // Do NOT reset assistantText (same bug/fix as tool_execution_start):
+          // the text written before the tool belongs to the same assistant
+          // message — resetting it killed the message_end footer.
           wsToolToggle = new ToggleBlock({ label: "Tool call", boldName: wsToolName, color: C.toolCall, body: "" });
           pushBlock(registerToggle(wsToolToggle));
           try {
