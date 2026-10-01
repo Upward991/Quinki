@@ -483,14 +483,19 @@ export class Editor {
                 if (Array.isArray(rows) && rows.length > 0) {
                     // Visible separator line instead of an empty row (background applies
                     // normally AND the separation stays readable). Border colour #3a3a44.
-                    const acPadRow = qPaint("\x1b[38;2;58;58;68m" + " " + "\u2500".repeat(Math.max(1, width - 4)) + " " + "\x1b[39m");
+                    // EVERY menu row is normalised to the SAME visible width
+                    // (contentWidth + the two paddings): no row ends at a different
+                    // column, so there are no "holes" of different sizes.
+                    const acPadRow = qPaint(`\x1b[38;2;58;58;68m${leftPadding}${"\u2500".repeat(contentWidth)}${rightPadding}\x1b[39m`);
                     const acLines = [acPadRow];
                     for (const line of rows) {
-                        const lws = visibleWidth(line);
+                        let lws = visibleWidth(line);
+                        let vis = line;
+                        try {
+                            if (lws > contentWidth) { vis = sliceByColumn(line, 0, contentWidth, true); lws = visibleWidth(vis); }
+                        } catch {}
                         const lp = " ".repeat(Math.max(0, contentWidth - lws));
-                        // Spaces INSIDE the painter: the panel background covers the whole
-                        // row and the left/right edges match the composer box exactly.
-                        acLines.push(qPaint(` ${leftPadding}${line}${lp}${rightPadding} `));
+                        acLines.push(qPaint(`${leftPadding}${vis}${lp}${rightPadding}`));
                     }
                     acLines.push(acPadRow);
                     result.unshift(...acLines);
