@@ -1003,6 +1003,78 @@ export async function runTui(opts: TuiOptions): Promise<void> {
 
   // Slash commands — ONLY commands that actually work, ALL silently (no chat
   // output). Commands with options open an app-style submenu (argument list).
+  // === /settings (app Settings tab, CLI edition) ===
+  let wsSettings: any = { defaultModel: "", defaultThinkingLevel: "" };
+  const fetchSettings = () => {
+    try {
+      const call = (globalThis as any).__sidecarCall;
+      if (call) call('getSettings', {}).then((r: any) => { if (r) wsSettings = r; try { ui.requestRender(); } catch {} }).catch(() => {});
+    } catch {}
+  };
+  const settingsMenuItems = (): any[] => {
+    return [
+      { value: "defaults", label: "Defaults", description: String(wsSettings?.defaultModel || "Chat default") },
+      { value: "shortcuts", label: "Shortcuts", description: "Keys" },
+      { value: "attachments", label: "Attachments storage", description: "Where files live" },
+      { value: "expert", label: "App Expert", description: "Expert app" },
+      { value: "providers", label: "Providers", description: "API keys, models" },
+      { value: "version", label: "Version", description: "Build info" },
+    ];
+  };
+  const settingsLevelItems = (stack: string[]): any[] => {
+    const lv = stack[1];
+    if (lv === "defaults") {
+    if (stack[2] === "model") {
+      const out: any[] = [];
+      let models: any[] = [];
+      try { models = availableModels(); } catch {}
+      let lastProv = "";
+      for (const m of models) {
+        const prov = String(m?.provider || "");
+        if (prov && prov !== lastProv) {
+          out.push({ value: "__prov-" + prov, label: "\u2014 " + prov, description: "" });
+          lastProv = prov;
+        }
+        out.push({ value: String(m?.id || ""), label: String(m?.id || ""), description: String(m?.name || "") });
+      }
+      return out;
+    }
+    if (stack[2] === "thinking") {
+      return ["off", "low", "medium", "high", "xhigh"].map((lv2) => ({ value: lv2, label: lv2, description: lv2 === String(wsSettings?.defaultThinkingLevel || "") ? "current" : "" }));
+    }
+    return [
+      { value: "model", label: "Default model", description: String(wsSettings?.defaultModel || "Chat default") },
+      { value: "thinking", label: "Default thinking", description: String(wsSettings?.defaultThinkingLevel || "xhigh") },
+    ];
+  }
+  if (lv === "shortcuts") {
+      return [
+        { value: "__s1", label: "Tab", description: "Plan / Build" },
+        { value: "__s2", label: "Ctrl+T", description: "Toggle navigation" },
+        { value: "__s3", label: "Ctrl+F", description: "Info on footers" },
+        { value: "__s4", label: "Enter", description: "Send" },
+        { value: "__s5", label: "Ctrl+Enter", description: "Steer while streaming" },
+        { value: "__s6", label: "Esc", description: "Stop / close menu" },
+        { value: "__s7", label: "Ctrl+C", description: "Quit quinki" },
+      ];
+    }
+    if (lv === "version") {
+      let appV = "?";
+      try { appV = String(require("fs").readFileSync(require("path").join(require("os").homedir(), ".quinki", "app-version.txt"), "utf8")).trim() || "?"; } catch {}
+      return [
+        { value: "__v1", label: "App", description: appV },
+        { value: "__v2", label: "CLI", description: "quinki cli" },
+        { value: "__v3", label: "Update", description: "quinki update" },
+      ];
+    }
+    if (lv === "providers") return [{ value: "__p0", label: "Providers", description: "coming next" }];
+    if (lv === "attachments") {
+      return [{ value: "__a0", label: "Attachments", description: "~/.quinki/attachments" }];
+    }
+    if (lv === "expert") return [{ value: "__e0", label: "App Expert", description: "~/.quinki/agents" }];
+    return settingsMenuItems();
+  };
+
   const commands = [
     {
       name: "model",
@@ -1213,6 +1285,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       name: "settings",
       description: "Settings",
       seq: 13,
+      getArgumentCompletions: () => settingsMenuItems(),
     },
     {
       name: "quit",
@@ -3351,7 +3424,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
             // ONLY the agent menu has deeper levels. Every other submenu is a
             // terminal list: → must light the Confirm directly, never push a
             // ghost level out of the item value.
-            const deeper = menuStack[0] === "agentinsession" ? agentLevelFor(it) : null;
+            const deeper = menuStack[0] === "agentinsession" ? agentLevelFor(it) : (menuStack[0] === "settings" ? settingsLevelItems(menuStack.concat(String(it.value))) : null);
             if (deeper) {
               menuStack.push(deeper);
               menuSubFilter = "";
@@ -3379,7 +3452,11 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         const it: any = items[menuSel];
         if (!menuConfirmFocus) {
           if (!it || it.separator) return;
-          if (menuStack[0] === "agentinsession") {
+          if (menuStack[0] === "settings") {
+            settingsActivate(String(it.value));
+            try { ui.requestRender(); } catch {}
+            return;
+          } else if (menuStack[0] === "agentinsession") {
             const deeper = agentLevelFor(it);
             if (deeper) {
               menuStack.push(deeper);
@@ -3433,6 +3510,45 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       } catch {}
     } catch {}
   };
+  const settingsActivate = (value: string) => {
+    const lv = menuStack[1] || "";
+    const sub = menuStack[2] || "";
+    if (!lv) {
+      if (["defaults", "shortcuts", "attachments", "expert", "providers", "version"].includes(value)) {
+        menuStack = ["settings", value]; menuSubFilter = ""; menuSel = 0; menuConfirmFocus = false;
+      }
+      return;
+    }
+    if (lv === "defaults" && !sub) {
+      if (value === "model" || value === "thinking") {
+        menuStack = ["settings", "defaults", value]; menuSubFilter = ""; menuSel = 0; menuConfirmFocus = false;
+      }
+      return;
+    }
+    if (lv === "defaults" && sub === "model" && !value.startsWith("__")) {
+      applySettingsPatch({ defaultModel: value });
+      menuStack = ["settings", "defaults"]; menuSubFilter = ""; menuSel = 0;
+      return;
+    }
+    if (lv === "defaults" && sub === "thinking") {
+      applySettingsPatch({ defaultThinkingLevel: value });
+      menuStack = ["settings", "defaults"]; menuSubFilter = ""; menuSel = 0;
+      return;
+    }
+  };
+  const applySettingsPatch = (patch: any) => {
+    try {
+      const call = (globalThis as any).__sidecarCall;
+      if (!call) return;
+      wsSettings = { ...(wsSettings || {}), ...patch };
+      call('getGlobalConfig', {}).then((r: any) => {
+        const cur = (r && (r.config || r)) || {};
+        call('updateGlobalConfig', { config: { ...cur, ...patch } }).catch(() => {});
+      }).catch(() => {});
+      call('setSettings', patch).catch(() => {});
+    } catch {}
+  };
+
   const buildMenuRows = (w: number): string[] => {
     try {
       const t = editorText();
