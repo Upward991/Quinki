@@ -35,7 +35,7 @@ import {
   visibleWidth,
 } from "../../sidecar-src/vendor/@earendil-works/pi-tui/dist/index.js";
 
-import { C, fg, bg, bgKeepPanel, collapsed, counterColor, blend, bold, italicStyle } from "./theme";
+import { C, fg, bg, bgKeepPanel, collapsed, counterColor, blend, bold, italicStyle , panelBgWrap } from "./theme";
 
 // Engine (bundled at build time — literal specifiers only).
 import * as sdk from "../../sidecar-src/vendor/@earendil-works/pi-coding-agent/dist/index.js";
@@ -1902,8 +1902,8 @@ const readProvidersCfg = (): any => {
   try {
     // Thin edges on the box: LEFT = mode color (Plan pink / Build orange),
     // RIGHT = violet accent (always lit).
-    (editor as any).edgeFn = () => fg(mode === "plan" ? C.modePlan : C.modeBuild, "\u258f");
-    (editor as any).edgeRightFn = () => fg(C.primary, "\u2595");
+    (editor as any).edgeFn = () => panelBgWrap(fg(mode === "plan" ? C.modePlan : C.modeBuild, "\u258f"));
+    (editor as any).edgeRightFn = () => panelBgWrap(fg(C.primary, "\u2595"));
   } catch {}
   try {
     // Menu footer (two rows): left ← (back) / → (forward); right Esc (red,
