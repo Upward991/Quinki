@@ -4115,8 +4115,8 @@ const cmd: any = commands.find((c) => c.name === it.value);
 
   let addProvStep = 0;
 
-  const wsKeyStatus: Record
-  let wsKeyStatusAt: Record<string, number> = {};<string, boolean> = {};
+  const wsKeyStatus: Record<string, boolean> = {};
+  let wsKeyStatusAt: Record<string, number> = {};
 
 
   const fetchKeyStatus = (provName: string, cfgKey: string) => {
