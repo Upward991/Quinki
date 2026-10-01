@@ -1237,6 +1237,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       name: "compaction",
       description: "Compact now, or toggle auto-compaction",
       seq: 7,
+      hidden: () => welcomeShown,
       getArgumentCompletions: (prefix: string) => {
         const auto = (() => {
           try {
@@ -1302,6 +1303,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       name: "reset",
       description: "Clear messages. Keeps model, directory and settings.",
       seq: 11,
+      hidden: () => welcomeShown,
       getArgumentCompletions: () => [
         { value: "confirm", label: "", notice: "Reset this chat? All messages will be deleted. Model, directory and settings stay." },
       ],
