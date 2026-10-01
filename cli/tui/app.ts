@@ -1596,9 +1596,12 @@ const readProvidersCfg = (): any => {
       // confirming the /quit notice and killing the CLI).
       try {
         if (typeof data === "string" && data.includes("\x1b[")) {
-          if (data.includes("\x1b[I") || data.includes("\x1b[O")) {
-            try { require("fs").appendFileSync("/tmp/q-cli-survive.log", "filtered focus seq: " + JSON.stringify(data) + "\n"); } catch {}
-            const cleaned = data.replace(/\x1b\[I|\x1b\[O/g, "");
+          if (data.includes("\x1b[I") || data.includes("\x1b[O") || /\x1b\[[0-9;]*t/.test(data)) {
+            try { require("fs").appendFileSync("/tmp/q-cli-survive.log", "filtered control seq: " + JSON.stringify(data) + "\n"); } catch {}
+            // Focus ([I / [O) AND window-operation reports ([...t, e.g.
+            // [6;17;8t sent by the terminal when the app window closes): must
+            // never reach the menu as keystrokes.
+            const cleaned = data.replace(/\x1b\[I|\x1b\[O|\x1b\[[0-9;]*t/g, "");
             if (cleaned.length === 0) return { consume: true } as any;
             data = cleaned;
             return { data };
