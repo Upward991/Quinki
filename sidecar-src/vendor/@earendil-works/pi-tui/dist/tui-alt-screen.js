@@ -1197,7 +1197,9 @@ export class TuiAltScreen extends TuiBase {
                 // (page #08080b + panels #0f0f13) with no third colour stripes.
                 let __lvw = 0;
                 try { __lvw = visibleWidth(__ln); } catch { __lvw = 0; }
-                const __lpad = Math.max(0, width - __lvw);
+                let __tw = width;
+                try { if (this.terminal && this.terminal.columns) __tw = this.terminal.columns; } catch {}
+                const __lpad = Math.max(0, __tw - __lvw);
                 buffer += `\x1b[${row + 1};1H\x1b[48;2;8;8;11m\x1b[2K${__ln}${__lpad > 0 ? "\x1b[48;2;8;8;11m" + " ".repeat(__lpad) : ""}\x1b[49m`;
             }
         }
