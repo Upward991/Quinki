@@ -166,7 +166,7 @@ export class TuiAltScreen extends TuiBase {
             term.startsWith("screen")
             ? ENABLE_BUTTON_MOTION_MOUSE
             : ENABLE_ALL_MOTION_MOUSE;
-        this.terminal.write(`${ENTER_ALT_SCREEN}${DISABLE_AUTOWRAP}${this.mouseEnabled ? mouseSequence : ""}\x1b[2J\x1b[H\x1b[?25l`);
+        this.terminal.write(`${ENTER_ALT_SCREEN}${DISABLE_AUTOWRAP}${this.mouseEnabled ? mouseSequence : ""}\x1b[48;2;8;8;11m\x1b[2J\x1b[H\x1b[?25l`);
     }
     beforeTerminalStop(_options) {
         this.closeSearch();
@@ -1163,11 +1163,11 @@ export class TuiAltScreen extends TuiBase {
             const clearImages = this.imageProtocol === "kitty" && hadUploadedKittyImages
                 ? deleteAllKittyPlacements()
                 : this.deleteKittyImages();
-            buffer += `${clearImages}\x1b[2J`;
+            buffer += `${clearImages}\x1b[48;2;8;8;11m\x1b[2J`;
         }
         else if (imagesNeedRedraw) {
             if (this.imageProtocol === "iterm2")
-                buffer += "\x1b[2J";
+                buffer += "\x1b[48;2;8;8;11m\x1b[2J";
             else if (this.imageProtocol === "kitty")
                 buffer += deleteAllKittyPlacements();
         }
