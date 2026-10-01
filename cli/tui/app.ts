@@ -1610,7 +1610,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         } catch {}
       }
       const isEnter = data === "\r" || matchesKey(data, "enter");
-      const isSelect = data === "+" || data === "\x13" || matchesKey(data, "ctrl+s");
+      const isSelect = data === "x" || data === "X";
       const isCtrlEnter = data === "\n" || data === "\x1b[13;5u" || matchesKey(data, "ctrl+enter");
       const isEsc = data === "\x1b" || matchesKey(data, "escape");
       const isUp = data === "\x1b[A" || matchesKey(data, "up");
@@ -3966,7 +3966,7 @@ const applySettingsPatch = (patch: any) => {
       const right =
         fg(C.danger, "Close (Esc)") +
         "  " +
-        (hasMulti ? fg(C.modeBuild, "Select (+)") + "  " : "") +
+        (hasMulti ? fg(C.modeBuild, "Select (X)") + "  " : "") +
         (needsConfirm ? (menuConfirmFocus ? bold(bg(C.primary, fg(C.bgPanel, " Confirm (Enter) "))) : fg(C.primary, "Confirm (Enter)")) : "");
       const gw = Math.max(1, w - visibleWidth(left) - visibleWidth(right));
       rows.push(left + " ".repeat(gw) + right);
