@@ -611,11 +611,20 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   // client keeps reconnecting — engine back within seconds.
   const spawnSidecar = () => {
     try {
-      const sh = "/Applications/Quinki.app/Contents/Resources/resources/sidecar/start.sh";
-      if (fs.existsSync(sh)) {
-        const p = spawn(sh, [], { detached: true, stdio: "ignore", cwd: path.dirname(sh), env: process.env as any });
-        p.unref?.();
-        return true;
+      // App Expert mode must revive ITS OWN sidecar (the expert app's start.sh),
+      // exactly like the normal CLI does with Quinki.app. The port comes from
+      // QUINKI_SIDECAR_PORT (9183 for the expert), passed through the env.
+      const candidates = QEXPERT
+        ? ["/Applications/App Expert.app/Contents/Resources/resources/sidecar/start.sh",
+           "/Applications/Quinki.app/Contents/Resources/resources/sidecar/start.sh"]
+        : ["/Applications/Quinki.app/Contents/Resources/resources/sidecar/start.sh",
+           "/Applications/App Expert.app/Contents/Resources/resources/sidecar/start.sh"];
+      for (const sh of candidates) {
+        if (fs.existsSync(sh)) {
+          const p = spawn(sh, [], { detached: true, stdio: "ignore", cwd: path.dirname(sh), env: process.env as any });
+          p.unref?.();
+          return true;
+        }
       }
     } catch {}
     return false;
