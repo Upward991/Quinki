@@ -1004,6 +1004,23 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   // Slash commands — ONLY commands that actually work, ALL silently (no chat
   // output). Commands with options open an app-style submenu (argument list).
   // === /settings (app Settings tab, CLI edition) ===
+  const qProvidersPath = (): string => {
+    try { return require("path").join(require("os").homedir(), ".quinki", "quinki-providers.json"); } catch { return ""; }
+  };
+  const readProvidersCfg = (): any => {
+    try { return JSON.parse(require("fs").readFileSync(qProvidersPath(), "utf8")) || {}; } catch { return {}; }
+  };
+  const patchProvider = (name: string, fn: (p: any) => void) => {
+    try {
+      const cfg = readProvidersCfg();
+      const provs = cfg.providers || (cfg.providers = {});
+      const p = provs[name] || (provs[name] = {});
+      fn(p);
+      const call = (globalThis as any).__sidecarCall;
+      if (call) call('setProvidersConfig', cfg).catch(() => {});
+    } catch {}
+  };
+
   let wsSettings: any = { defaultModel: "", defaultThinkingLevel: "" };
   const fetchSettings = () => {
     try {
@@ -1067,11 +1084,65 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         { value: "__v3", label: "Update", description: "quinki update" },
       ];
     }
-    if (lv === "providers") return [{ value: "__p0", label: "Providers", description: "coming next" }];
-    if (lv === "attachments") {
-      return [{ value: "__a0", label: "Attachments", description: "~/.quinki/attachments" }];
+    if (lv === "providers") {
+    const cfg = readProvidersCfg();
+    if (!stack[2]) {
+      const out: any[] = [];
+      for (const name of Object.keys(cfg.providers || {})) {
+        const p = (cfg.providers || {})[name] || {};
+        out.push({ value: "prov:" + name, label: name, description: (p.enabled ? "enabled" : "disabled") + " \u00b7 " + String((p.enabledModels || []).length) + " models" });
+      }
+      return out;
     }
-    if (lv === "expert") return [{ value: "__e0", label: "App Expert", description: "~/.quinki/agents" }];
+    const name = String(stack[2]).replace(/^prov:/, "");
+    const p = ((cfg.providers || {})[name]) || {};
+    if (stack[3] === "models") {
+      return (p.modelData || []).map((mm: any) => ({
+        value: "mdl:" + String(mm.id),
+        label: String(mm.id),
+        description: ((p.enabledModels || []).includes(mm.id) ? "on" : "off") + (mm.name ? " \u00b7 " + String(mm.name) : ""),
+      }));
+    }
+    if (stack[3] === "key") {
+      const k = String(p.apiKey || "");
+      const masked = k ? k.slice(0, 4) + "\u2026" + k.slice(-4) : "(not set)";
+      return [{ value: "__keyfield", label: "API key: " + masked, description: "type the new key, Enter to save" }];
+    }
+    if (stack[3] === "baseurl") {
+      return [{ value: "__urlfield", label: "Base URL: " + String(p.baseUrl || "(not set)"), description: "type the new URL, Enter to save" }];
+    }
+    return [
+      { value: "toggle", label: p.enabled ? "Disable" : "Enable", description: p.enabled ? "currently enabled" : "currently disabled" },
+      { value: "key", label: "API key", description: p.apiKey ? "set" : "not set" },
+      { value: "baseurl", label: "Base URL", description: String(p.baseUrl || "not set") },
+      { value: "models", label: "Models", description: String((p.enabledModels || []).length) + " enabled" },
+    ];
+  }
+    if (lv === "attachments") {
+    let files = 0, bytes = 0;
+    try {
+      const fs2 = require("fs"), path2 = require("path");
+      const base = path2.join(require("os").homedir(), ".quinki", "attachments");
+      const walk = (d: string) => { for (const e of fs2.readdirSync(d, { withFileTypes: true })) { const f = path2.join(d, e.name); if (e.isDirectory()) walk(f); else { files++; try { bytes += fs2.statSync(f).size; } catch {} } } };
+      if (fs2.existsSync(base)) walk(base);
+    } catch {}
+    return [
+      { value: "__at0", label: "Folder", description: "~/.quinki/attachments" },
+      { value: "__at1", label: "Files", description: String(files) },
+      { value: "__at2", label: "Size", description: (bytes / 1048576).toFixed(1) + " MB" },
+    ];
+  }
+    if (lv === "expert") {
+    let installed = "no";
+    try { if (require("fs").existsSync("/Applications/App Expert.app")) installed = "installed"; } catch {}
+    let agent = "no";
+    try { if (require("fs").existsSync(require("path").join(require("os").homedir(), ".quinki", "agents", "app-expert"))) agent = "ready"; } catch {}
+    return [
+      { value: "__ex0", label: "Expert app", description: installed },
+      { value: "__ex1", label: "Expert agent", description: agent },
+      { value: "__ex2", label: "Data", description: "~/.quinki (shared)" },
+    ];
+  }
     return settingsMenuItems();
   };
 
@@ -3536,6 +3607,30 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       menuStack = ["settings", "defaults"]; menuSubFilter = ""; menuSel = 0;
       return;
     }
+    if (lv === "providers") {
+    const sub2 = menuStack[2] || "";
+    const sub3 = menuStack[3] || "";
+    if (!sub2) {
+      if (value.startsWith("prov:")) { menuStack = ["settings", "providers", value]; menuSubFilter = ""; menuSel = 0; menuConfirmFocus = false; }
+      return;
+    }
+    const pname = String(sub2).replace(/^prov:/, "");
+    if (!sub3) {
+      if (value === "toggle") { patchProvider(pname, (p) => { p.enabled = !p.enabled; }); return; }
+      if (value === "key" || value === "baseurl" || value === "models") { menuStack = ["settings", "providers", sub2, value]; menuSubFilter = ""; menuSel = 0; menuConfirmFocus = false; return; }
+      return;
+    }
+    if (sub3 === "models") {
+      if (value.startsWith("mdl:")) {
+        const id = value.slice(4);
+        patchProvider(pname, (p) => { const e = new Set(p.enabledModels || []); if (e.has(id)) e.delete(id); else e.add(id); p.enabledModels = Array.from(e); });
+      }
+      return;
+    }
+    if (sub3 === "key" && value && !value.startsWith("__")) { patchProvider(pname, (p) => { p.apiKey = value; }); return; }
+    if (sub3 === "baseurl" && value && !value.startsWith("__")) { patchProvider(pname, (p) => { p.baseUrl = value; }); return; }
+    return;
+  }
   };
   const applySettingsPatch = (patch: any) => {
     try {
