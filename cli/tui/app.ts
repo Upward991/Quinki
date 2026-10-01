@@ -1394,8 +1394,8 @@ const readProvidersCfg = (): any => {
             }
             const cur = welcomeShown
               ? (id === String(pendingModelId || defaultModelId || ""))
-              : (String(wsModelId || "") === id);
-            items.push({ value: id, label: (cur ? "\u25cf " : "\u25cb ") + id, description: prov });
+              : (String(wsModelId || "") === id || (!wsModelId && id === String(defaultModelId || "")));
+            items.push({ value: id, label: (cur ? "\u25cf " : "\u25cb ") + id, description: prov, _lit: cur });
           }
         } catch {}
         return items;
@@ -1486,6 +1486,7 @@ const readProvidersCfg = (): any => {
           const fsc = require("fs");
           const files: Array<{ n: string; m: number }> = [];
           for (const n of fsc.readdirSync(sdir)) {
+            if (n.startsWith(".")) continue; // hidden files (.DS_Store…) never show
             try {
               const st = fsc.statSync(path.join(sdir, n));
               if (st.isFile()) files.push({ n, m: st.mtimeMs });
@@ -3977,7 +3978,7 @@ const readProvidersCfg = (): any => {
         }
         if (menuStack[1] === "defaults" && menuStack[2] === "fallbacks") {
           const order = Array.from(menuMarked);
-          try { void sc.call('setDefaultFallbacks', { defaultFallbackModels: order }, 20000).catch(() => {}); } catch {}
+          try { void sc.call('setSessionFallbacks', { sessionKey: currentKey, models: order }, 20000).catch(() => {}); } catch {}
           try { wsSettings = { ...(wsSettings || {}), defaultFallbackModels: order }; } catch {}
           try { ui.requestRender(); } catch {}
           return;
@@ -4178,7 +4179,7 @@ const readProvidersCfg = (): any => {
           if (menuMarked.has(v)) menuMarked.delete(v); else menuMarked.add(v);
           try {
             const order = Array.from(menuMarked);
-            void sc.call('setDefaultFallbacks', { defaultFallbackModels: order }, 20000).catch(() => {});
+            void sc.call('setSessionFallbacks', { sessionKey: currentKey, models: order }, 20000).catch(() => {});
             wsSettings = { ...(wsSettings || {}), defaultFallbackModels: order };
           } catch {}
         }
@@ -4534,7 +4535,7 @@ const cmd: any = commands.find((c) => c.name === it.value);
     if (value.startsWith("fb:")) {
       const idA = value.slice(3);
       const curA = (Array.isArray(wsSettings?.defaultFallbackModels) ? wsSettings.defaultFallbackModels : []).filter((x: any) => String(x) !== idA);
-      try { const call = (globalThis as any).__sidecarCall; if (call) call('setDefaultFallbacks', { fallbacks: curA }).catch(() => {}); } catch {}
+      try { const call = (globalThis as any).__sidecarCall; if (call) call('setSessionFallbacks', { sessionKey: currentKey, models: curA }).catch(() => {}); } catch {}
       wsSettings = { ...(wsSettings || {}), defaultFallbackModels: curA };
     }
     return;
@@ -4565,7 +4566,7 @@ const cmd: any = commands.find((c) => c.name === it.value);
     if (sub === "fallbacks" && value.startsWith("fb:")) {
       const id = value.slice(3);
       const cur = (Array.isArray(wsSettings?.defaultFallbackModels) ? wsSettings.defaultFallbackModels : []).filter((x: any) => String(x) !== id);
-      try { const call = (globalThis as any).__sidecarCall; if (call) call('setDefaultFallbacks', { fallbacks: cur }).catch(() => {}); } catch {}
+      try { const call = (globalThis as any).__sidecarCall; if (call) call('setSessionFallbacks', { sessionKey: currentKey, models: cur }).catch(() => {}); } catch {}
       wsSettings = { ...(wsSettings || {}), defaultFallbackModels: cur };
       return;
     }
