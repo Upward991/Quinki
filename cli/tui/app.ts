@@ -3622,8 +3622,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
                 }
               } catch {}
             } else {
-              menuNav("enter");
-              return;
+              menuConfirmFocus = true; // option = terminal level
             }
           }
         } else {
@@ -3634,8 +3633,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
             menuSubFilter = "";
             menuSel = 0;
           } else if (cmd) {
-            menuNav("enter");
-            return;
+            menuConfirmFocus = true; // command without options: end of the road
           }
         }
       } else {
@@ -3661,14 +3659,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
                 }
               } catch {}
             } else {
-              // MENU 2.0: Enter EXECUTES directly (no more Confirm lighting).
-              if (menuStack[1] === "defaults" && menuStack[2] === "fallbacks") {
-                const order = Array.from(menuMarked);
-                try { void sc.call('setDefaultFallbacks', { defaultFallbackModels: order }, 20000).catch(() => {}); } catch {}
-                try { wsSettings = { ...(wsSettings || {}), defaultFallbackModels: order }; } catch {}
-              } else {
-                settingsActivate(String(it.value));
-              }
+              menuConfirmFocus = true; // terminal option: Confirm lights, Enter runs it
             }
             try { ui.requestRender(); } catch {}
             return;
@@ -3688,7 +3679,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
                 }
               } catch {}
             } else {
-              agentActivate(String(it.value)); // MENU 2.0: Enter executes
+              menuConfirmFocus = true; // Confirm lights: Enter again executes
             }
           } else if (menuStack.length > 0) {
             agentActivate(String(it.value)); // MENU 2.0: Enter executes of a submenu
@@ -3700,11 +3691,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
               menuSel = 0;
               if (cmd.name === "settings") { try { fetchSettings(); fetchAllModels(); } catch {} }
             } else if (cmd) {
-              try { editor.setText(""); } catch {}
-              menuSel = 0;
-              handleSlashRef?.("/" + cmd.name);
-              try { ui.requestRender(); } catch {}
-              return;
+              menuConfirmFocus = true; // no options: Confirm first, then run
             }
           }
         } else {
