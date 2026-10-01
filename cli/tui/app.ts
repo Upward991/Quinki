@@ -689,8 +689,8 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     const wc = Math.min(w, chatMaxCols());
     // EXACT box layout: violet bar, TWO black columns, panel content, TWO black
     // columns, violet bar — same width as the composer, same margins.
-    const L = fg(C.primary, "\u258f");
-    const R = fg(C.primary, "\u2595");
+    const L = panelBgWrap(fg(C.primary, "\u258f"));
+    const R = panelBgWrap(fg(C.primary, "\u2595")) + "\x1b[49m";
     const tw = visibleWidth(t);
     const dw = visibleWidth(dir);
     let mid: string;
@@ -708,7 +708,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   // whole height, exactly like the composer box.
   const headerPad = new FnLine((w: number) => {
     const wc = Math.min(w, chatMaxCols());
-    return centerRow(w, fg(C.primary, "\u258f") + headerBg(" ".repeat(Math.max(0, wc - 2))) + fg(C.primary, "\u2595"), wc);
+    return centerRow(w, panelBgWrap(fg(C.primary, "\u258f")) + headerBg(" ".repeat(Math.max(0, wc - 2))) + panelBgWrap(fg(C.primary, "\u2595")) + "\x1b[49m", wc);
   });
   const header = new VStack([headerPad, titleText, headerPad] as any) as any;
   const setChatTitle = (title: string) => {
