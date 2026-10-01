@@ -1580,9 +1580,12 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       if (isTab) {
         // Tab = Plan/Build normally; when the slash menu is OPEN it becomes the
         // SELECT key (nothing else to do there — you cannot type a message anyway).
+        // The menu is "open" when a menu path is active (menuStack) OR the slash
+        // text is being typed — NOT only when the text starts with "/" (it gets
+        // cleared on Enter while the menu stays open).
         let menuIsOpen = false;
-        try { menuIsOpen = !!(menuOpenRef?.() ?? false); } catch {}
-        if (menuIsOpen) { try { menuNavRef?.("select"); } catch {} return { consume: true }; }
+        try { menuIsOpen = (menuStack && menuStack.length > 0) || !!(menuOpenRef?.() ?? false); } catch { menuIsOpen = !!(menuOpenRef?.() ?? false); }
+        if (menuIsOpen) { try { menuNavRef?.("select"); } catch {} try { ui.requestRender(); } catch {} return { consume: true }; }
         toggleModeRef?.();
         return { consume: true };
       }
