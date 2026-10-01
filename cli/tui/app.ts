@@ -535,8 +535,7 @@ class UserBubble {
   }
   render(width: number): string[] {
     const inner = Math.max(6, width - 4);
-    const lines = wrapPlain(this.text, inner);
-    if (!this.text.trim() && this.chips.length) lines.length = 0;
+    const lines = this.text.trim() ? wrapPlain(this.text, inner) : [];
     // The clips stay visible in the bubble (colored like the app's tabs).
     for (const ch of this.chips) {
       const col = ch.kind === "skill" ? "#c97084" : "#7aa2f7";
@@ -4903,7 +4902,7 @@ const applySettingsPatch = (patch: any) => {
             "sendMessage",
             {
               sessionKey: sk,
-              text: sendText,
+              text: sendText || (atts.length || skills.length ? "" : t),
               ...(skills.length ? { skillNames: skills } : {}),
               ...(atts.length ? { attachments: atts } : {}),
               // Only what the USER changed here: otherwise the session/app
