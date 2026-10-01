@@ -1192,9 +1192,13 @@ export class TuiAltScreen extends TuiBase {
                 continue;
             {
                 const __ln = preparedKittyScreen.lines[row] ?? "";
-                // Paint EVERY row with the page colour and pad to the full width,
-                // so there are no transparent cells anywhere: the exact app scheme
-                // (page #08080b + panels #0f0f13) with no third colour stripes.
+                // Dark terminal -> paint NOTHING (its own background shows through).
+                if ((globalThis.__Q_PAINT_BG) === false) {
+                    buffer += `\x1b[${row + 1};1H\x1b[2K${__ln}\x1b[49m`;
+                    continue;
+                }
+                // Otherwise: paint EVERY row with the page colour and pad to the full
+                // width: the exact app scheme (page #08080b + panels #0f0f13).
                 let __lvw = 0;
                 try { __lvw = visibleWidth(__ln); } catch { __lvw = 0; }
                 let __tw = width;

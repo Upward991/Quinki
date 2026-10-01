@@ -653,6 +653,28 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     copyOnSelect: true,
   });
 
+  // --- Background policy -------------------------------------------------------
+  // The terminal OWNS the background: ask it (OSC 11). If the terminal's own
+  // background is DARK we paint nothing at all (its colour shows through,
+  // seamlessly). Only on light/unknown terminals we paint the Quinki dark page
+  // so the UI stays readable.
+  setTimeout(() => {
+    try {
+      (ui as any).queryTerminalBackgroundColor({ timeoutMs: 700 }).then((c: any) => {
+        try {
+          const r = Number(c?.r ?? c?.red ?? NaN);
+          const g = Number(c?.g ?? c?.green ?? NaN);
+          const b = Number(c?.b ?? c?.blue ?? NaN);
+          if (Number.isFinite(r) && Number.isFinite(g) && Number.isFinite(b)) {
+            const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+            (globalThis as any).__Q_PAINT_BG = lum < 0.5 ? false : true;
+            try { ui.requestRender(); } catch {}
+          }
+        } catch {}
+      }).catch(() => {});
+    } catch {}
+  }, 600);
+
   // Header (fixed, top): chat icon + title ONLY, drawn as a floating-panel block
   // (plain background color, no border) — same width as the composer and chat.
   // Header (fixed, top): chat title on the LEFT, working directory on the RIGHT
