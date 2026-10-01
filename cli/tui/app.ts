@@ -1446,9 +1446,8 @@ const readProvidersCfg = (): any => {
         const sdir = path.join(os.homedir(), ".quinki", "attachments", String(currentKey || ""));
         items.push({ value: "__at_new", label: "Attach new file\u2026", description: "native file picker" });
         items.push({ value: "__at_open", label: "Open attachments folder", description: sdir.replace(os.homedir(), "~") });
-        items.push({ value: "__at_sep", label: "", separator: true });
+        // ONE separator row only (with the header) — no wasted blank space.
         items.push({ value: "__at_hdr", label: "Last attachments", separator: true });
-        items.push({ value: "__at_sep2", label: "", separator: true });
         try {
           const fsc = require("fs");
           const files: Array<{ n: string; m: number }> = [];
