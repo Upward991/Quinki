@@ -1603,6 +1603,9 @@ const readProvidersCfg = (): any => {
     {
       name: "settings",
       description: "Settings",
+      // Only from the welcome screen (and always in the App Expert CLI): inside a
+      // session the settings do not belong to the slash menu.
+      hidden: () => !welcomeShown && !QEXPERT,
       seq: 13,
       getArgumentCompletions: () => settingsMenuItems(),
     },
