@@ -3387,6 +3387,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   const levelItems = (stack: string[]): any[] => {
     if (stack.length === 0) return mainItems();
     if (stack[0] === "agentinsession") return agentLevelItems(stack);
+    if (stack[0] === "settings") return settingsLevelItems(stack);
     const cmd: any = commands.find((c) => c.name === stack[0]);
     if (!cmd || typeof cmd.getArgumentCompletions !== "function") return [];
     try {
@@ -3478,6 +3479,15 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         menuConfirmFocus = false;
         if (items.length > 0) menuSel = stepSel(menuSel, 1);
       } else if (a === "left") {
+          // /settings: left goes back one level (Esc closes the whole menu).
+          if (menuStack[0] === "settings" && menuStack.length > 1) {
+            menuStack.pop();
+            menuSubFilter = "";
+            menuSel = 0;
+            menuConfirmFocus = false;
+            try { ui.requestRender(); } catch {}
+            return;
+          }
         if (menuConfirmFocus) {
           // Confirm is treated as the LAST level: ← goes back to the options
           // of the menu you are in (they light up again).
@@ -3498,7 +3508,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
             // ONLY the agent menu has deeper levels. Every other submenu is a
             // terminal list: → must light the Confirm directly, never push a
             // ghost level out of the item value.
-            const deeper = menuStack[0] === "agentinsession" ? agentLevelFor(it) : (menuStack[0] === "settings" ? settingsLevelItems(menuStack.concat(String(it.value))) : null);
+            const deeper = menuStack[0] === "agentinsession" ? agentLevelFor(it) : (menuStack[0] === "settings" ? String(it.value) : null);
             if (deeper) {
               menuStack.push(deeper);
               menuSubFilter = "";
