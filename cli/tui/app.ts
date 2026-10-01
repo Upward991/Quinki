@@ -220,7 +220,7 @@ const pixWord = (word: string, V: (t: string) => string): string[] => {
 };
 const bigBrand = (): string[] => {
   const V = (t: string) => bold(fg(C.primary, t));
-  const w = pixWord("Quinki!", V);
+  const w = pixWord("welcome to Quinki", V);
   return [w[0], w[1], w[2], w[3]];
 };
 const HERO_ART = (): string[] => {
@@ -251,11 +251,11 @@ class WelcomeRoot {
       // EXACT app-home line: "Good morning, welcome to Quinki!"
       const plain = g + ", welcome to Quinki!";
       const boxW = boxLines.length > 0 ? Math.max(...boxLines.map((l: string) => visibleWidth(String(l)))) : width;
-      const hero = HERO_ART();                       // mascot + big 3-row letters
+      const hero = HERO_ART(); // big pixel word, one line
       const heroW = Math.max(...hero.map((l) => visibleWidth(String(l))));
-      if (heroW + 4 <= Math.min(width, boxW + 24) && boxW >= heroW) {
-        // Big app-home replica (mascot on the left, double-size text).
-        const off = Math.max(0, Math.floor((boxW - heroW) / 2));
+      if (heroW + 4 <= width) {
+        // Big app-home hero centered on the terminal.
+        const off = Math.max(0, Math.floor((width - heroW) / 2));
         greet = hero.map((l) => " ".repeat(off) + l);
       } else {
         // FALLBACK: the plain one-line greeting, centered on the text box.
