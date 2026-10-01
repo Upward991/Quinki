@@ -3490,8 +3490,11 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         const inModels = menuStack[0] === "settings" && menuStack[3] === "models";
         const inFallbacks = menuStack[0] === "settings" && menuStack[1] === "defaults" && menuStack[2] === "fallbacks";
         const inProviders = menuStack[0] === "settings" && menuStack[1] === "providers" && !menuStack[2];
-        if (inModels || inProviders) {
-          // INSTANT toggle: selecting a model/provider acts immediately (no Confirm).
+        if (inProviders) {
+          // INSTANT toggle of the provider under the cursor (no Confirm).
+          const v = String(it?.value || "");
+          if (v.startsWith("prov:")) { const nm = v.slice(5); patchProvider(nm, (pp) => { pp.enabled = !pp.enabled; }); }
+        } else if (inModels) {
           settingsActivate(String(it?.value || ""));
         } else if (inFallbacks && it && !it.separator) {
           const v = String(it.value || "");
