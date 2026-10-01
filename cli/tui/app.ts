@@ -4933,7 +4933,9 @@ const applySettingsPatch = (patch: any) => {
       const sk = currentKey;
       // Inline chips: the "\u25b8name" tokens travel as params; the text goes clean
       // (exactly what the sidecar/app expect).
-      let sendText = t;
+      // var (function-scoped): the async IIFE below closes over it — a `let` here
+      // hits the TDZ in the bundle and threw "sendText is not defined".
+      var sendText = t;
       const skills: string[] = [];
       const atts: Array<{ path: string }> = [];
       try {
