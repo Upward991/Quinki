@@ -495,7 +495,6 @@ export class Editor {
                         acLines.push("\u200b" + qPaint(`${line}${lp}`));
                     }
                     acLines.push(acPadRow);
-                    try { require("fs").appendFileSync("/tmp/qc-menu-debug.log", JSON.stringify({ n: acLines.length, widths: acLines.map(x => visibleWidth(x)) }) + "\n"); } catch {}
                     result.unshift(...acLines);
                 }
             }
