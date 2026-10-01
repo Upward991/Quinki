@@ -700,6 +700,20 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   const pendingSkills: string[] = [];
   const pendingAttachments: Array<{ path: string }> = [];
   const attPathByName: Record<string, string> = {}; // inline token name -> real file
+  // Like the app's copy_to_attachments: the file is COPIED into the session's
+  // attachments folder; the original stays where it is.
+  const stageAttachment = (src: string): { path: string; originalName: string } | null => {
+    try {
+      const fsc = require("fs"), pathc = require("path");
+      if (!src || !fsc.existsSync(src)) return null;
+      const name = pathc.basename(src);
+      const dir = pathc.join(require("os").homedir(), ".quinki", "attachments", String(currentKey || ""));
+      fsc.mkdirSync(dir, { recursive: true });
+      const dest = pathc.join(dir, name);
+      try { if (pathc.resolve(src) !== pathc.resolve(dest)) fsc.copyFileSync(src, dest); } catch {}
+      return { path: dest, originalName: name };
+    } catch { return null; }
+  };
   // Clip colors = the app's tab accents: skill -> Agents tab, attachment -> Chat tab.
   const Q_CLIP_SKILL = "#c97084";  // --q-accent-secondary (Agents)
   const Q_CLIP_ATT = "#7aa2f7";    // --q-accent-info (Chat)
@@ -3458,7 +3472,7 @@ const readProvidersCfg = (): any => {
             cpA.execFile("/usr/bin/osascript", ["-e", 'POSIX path of (choose file with prompt "Choose a file to attach")'], { timeout: 180000 }, (errA: any, outA: string) => {
               if (errA) return;
               const fA = String(outA || "").trim();
-              if (fA) { pendingAttachments.push({ path: fA, originalName: require("path").basename(fA) } as any); try { ui.requestRender(); } catch {} }
+              if (fA) { try { const stA = stageAttachment(fA); if (stA) pendingAttachments.push(stA as any); } catch {} try { ui.requestRender(); } catch {} }
             });
           } catch {}
           break;
@@ -3995,14 +4009,14 @@ const readProvidersCfg = (): any => {
           const vA = String(it.value ?? "");
           if (vA.startsWith("__at_file:")) {
             const fpA = vA.slice(10);
-            try { if (fs.existsSync(fpA)) { pendingAttachments.push({ path: fpA, originalName: require("path").basename(fpA) } as any); } } catch {}
+            try { if (fs.existsSync(fpA)) { try { const stD = stageAttachment(fpA); if (stD) pendingAttachments.push(stD as any); } catch {} } } catch {}
           } else if (vA === "__at_new") {
             try {
               const cpB = require("child_process");
               cpB.execFile("/usr/bin/osascript", ["-e", 'POSIX path of (choose file with prompt "Choose a file to attach")'], { timeout: 180000 }, (errB: any, outB: string) => {
                 if (errB) return;
                 const fB = String(outB || "").trim();
-                if (fB) { pendingAttachments.push({ path: fB, originalName: require("path").basename(fB) } as any); try { ui.requestRender(); } catch {} }
+                if (fB) { try { const stB = stageAttachment(fB); if (stB) pendingAttachments.push(stB as any); } catch {} try { ui.requestRender(); } catch {} }
               });
             } catch {}
           } else if (vA === "__at_open") {
