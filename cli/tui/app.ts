@@ -35,7 +35,7 @@ import {
   visibleWidth,
 } from "../../sidecar-src/vendor/@earendil-works/pi-tui/dist/index.js";
 
-import { C, fg, bg, bgKeepPanel, collapsed, counterColor, blend, bold, italicStyle , panelBgWrap } from "./theme";
+import { C, fg, bg, bgKeepPanel, collapsed, counterColor, blend, bold, italicStyle } from "./theme";
 
 // Engine (bundled at build time — literal specifiers only).
 import * as sdk from "../../sidecar-src/vendor/@earendil-works/pi-coding-agent/dist/index.js";
@@ -653,8 +653,6 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     copyOnSelect: true,
   });
 
-
-
   // Header (fixed, top): chat icon + title ONLY, drawn as a floating-panel block
   // (plain background color, no border) — same width as the composer and chat.
   // Header (fixed, top): chat title on the LEFT, working directory on the RIGHT
@@ -690,7 +688,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     // EXACT box layout: violet bar, TWO black columns, panel content, TWO black
     // columns, violet bar — same width as the composer, same margins.
     const L = fg(C.primary, "\u258f");
-    const R = panelBgWrap(fg(C.primary, "\u2595"));
+    const R = fg(C.primary, "\u2595");
     const tw = visibleWidth(t);
     const dw = visibleWidth(dir);
     let mid: string;
@@ -708,7 +706,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   // whole height, exactly like the composer box.
   const headerPad = new FnLine((w: number) => {
     const wc = Math.min(w, chatMaxCols());
-    return centerRow(w, panelBgWrap(fg(C.primary, "\u258f")) + headerBg(" ".repeat(Math.max(0, wc - 2))) + panelBgWrap(fg(C.primary, "\u2595")), wc);
+    return centerRow(w, fg(C.primary, "\u258f") + headerBg(" ".repeat(Math.max(0, wc - 2))) + fg(C.primary, "\u2595"), wc);
   });
   const header = new VStack([headerPad, titleText, headerPad] as any) as any;
   const setChatTitle = (title: string) => {
@@ -1902,8 +1900,8 @@ const readProvidersCfg = (): any => {
   try {
     // Thin edges on the box: LEFT = mode color (Plan pink / Build orange),
     // RIGHT = violet accent (always lit).
-    (editor as any).edgeFn = () => panelBgWrap(fg(mode === "plan" ? C.modePlan : C.modeBuild, "\u258f"));
-    (editor as any).edgeRightFn = () => panelBgWrap(fg(C.primary, "\u2595"));
+    (editor as any).edgeFn = () => fg(mode === "plan" ? C.modePlan : C.modeBuild, "\u258f");
+    (editor as any).edgeRightFn = () => fg(C.primary, "\u2595");
   } catch {}
   try {
     // Menu footer (two rows): left ← (back) / → (forward); right Esc (red,
@@ -4174,7 +4172,7 @@ const applySettingsPatch = (patch: any) => {
       // Blank separator, then the footer on ONE row (app NavBar style):
       // left ↑ ↓ ← → (navigation) — right Esc (red) · Confirm (filled violet,
       // like the selected slash rows, while FOCUSED via → — Enter runs it).
-      rows.push(fg(C.border, "\u2500".repeat(Math.max(1, w)))); // visible separator line
+      rows.push("");
       const canBack = (menuStack || []).length > 0;
       let canFwd = false;
       try {
@@ -4375,28 +4373,6 @@ const applySettingsPatch = (patch: any) => {
 
   try {
     ui.start();
-
-  // --- Background policy -------------------------------------------------------
-  // The terminal OWNS the background: ask it (OSC 11). If the terminal's own
-  // background is DARK we paint nothing at all (its colour shows through,
-  // seamlessly). Only on light/unknown terminals we paint the Quinki dark page
-  // so the UI stays readable.
-  setTimeout(() => {
-    try {
-      (ui as any).queryTerminalBackgroundColor({ timeoutMs: 2500 }).then((c: any) => {
-        try {
-          const r = Number(c?.r ?? c?.red ?? NaN);
-          const g = Number(c?.g ?? c?.green ?? NaN);
-          const b = Number(c?.b ?? c?.blue ?? NaN);
-          if (Number.isFinite(r) && Number.isFinite(g) && Number.isFinite(b)) {
-            const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
-            (globalThis as any).__Q_PAINT_BG = lum < 0.5 ? false : true;
-            try { ui.requestRender(); } catch {}
-          }
-        } catch {}
-      }).catch(() => {});
-    } catch {}
-  }, 900);
   } catch (err) {
     process.stderr.write("quinki: could not start the terminal UI: " + String((err as any)?.message || err) + "\n");
     process.exit(1);

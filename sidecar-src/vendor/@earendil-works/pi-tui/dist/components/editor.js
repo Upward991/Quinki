@@ -412,12 +412,8 @@ export class Editor {
         // Render top border (with scroll indicator if scrolled down)
         // QUINKI PATCH (25 set, iter6): floating-panel block — NO borders, full-width background.
         const qPaint = (raw) => {
-            // Keep the panel background through inner resets: \x1b[0m is expanded and
-            // \x1b[49m (background reset) is turned back into the panel background,
-            // otherwise the cells after a coloured span lose their colour ("holes").
-            const s = String(raw)
-                .replace(/\x1b\[0m/g, "\x1b[22m\x1b[23m\x1b[24m\x1b[27m\x1b[39m\x1b[48;2;15;15;19m")
-                .replace(/\x1b\[49m/g, "\x1b[48;2;15;15;19m");
+            // Keep the panel background even through inner full resets (cursor cells use \x1b[0m).
+            const s = String(raw).replace(/\x1b\[0m/g, "\x1b[22m\x1b[23m\x1b[24m\x1b[27m\x1b[39m");
             return typeof this.bgFn === "function" ? this.bgFn(s) : s;
         };
         result.push(qEdge() + qPaint(" ".repeat(width - 2)) + qEdgeR());
@@ -483,27 +479,17 @@ export class Editor {
         // QUINKI PATCH (25 set): OUR slash menu panel above the box (driven by menuLinesFn).
         if (typeof this.menuLinesFn === "function") {
             try {
-                const rows = this.menuLinesFn(width - 2);
+                const rows = this.menuLinesFn(contentWidth);
                 if (Array.isArray(rows) && rows.length > 0) {
-                    // Visible separator line instead of an empty row (background applies
-                    // normally AND the separation stays readable). Border colour #3a3a44.
-                    // EVERY menu row is normalised to the SAME visible width
-                    // (contentWidth + the two paddings): no row ends at a different
-                    // column, so there are no "holes" of different sizes.
-                    const acPadRow = qPaint(`\x1b[38;2;58;58;68m${"\u2500".repeat(Math.max(1, width))}\x1b[39m`);
+                    const acPadRow = " " + qPaint(" ".repeat(width - 2)) + " ";
                     const acLines = [acPadRow];
                     for (const line of rows) {
-                        let lws = visibleWidth(line);
-                        let vis = line;
-                        const qTarget = Math.max(1, width);
-                        try {
-                            if (lws > qTarget) { vis = sliceByColumn(line, 0, qTarget, true); lws = visibleWidth(vis); }
-                        } catch {}
-                        const lp = " ".repeat(Math.max(0, qTarget - lws));
-                        acLines.push(qPaint(`${vis}${lp}`));
+                        const lws = visibleWidth(line);
+                        const lp = " ".repeat(Math.max(0, contentWidth - lws));
+                        acLines.push(" " + qPaint(`${leftPadding}${line}${lp}${rightPadding}`) + " ");
                     }
                     acLines.push(acPadRow);
-                    result.unshift(...acLines);
+                    result.unshift(...acLines, "");
                 }
             }
             catch { }
