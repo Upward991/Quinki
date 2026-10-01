@@ -2295,6 +2295,9 @@ const readProvidersCfg = (): any => {
         const ame = e.assistantMessageEvent;
         if (ame.type === "text_delta") {
           setStatus("Writing", "writing");
+          // The thinking is OVER: close its toggle NOW (app behaviour), during the
+          // generation — not only when a tool starts.
+          if (thinkingRow) { thinkingRow.open = false; try { ui.requestRender(); } catch {} }
           if (!assistant) {
             assistant = pushBlock(new Markdown("", 1, 0, mdTheme));
             (globalThis as any).__qMd = mdTheme; // nested toggles render markdown too
@@ -2324,6 +2327,7 @@ const readProvidersCfg = (): any => {
         // The tool call toggle is ALWAYS a plain tool call (delegations included):
         // the delegation toggle is a SEPARATE block, created right below it.
         pushBlock(registerToggle(new ToggleBlock({ label: "Tool call", boldName: name, color: C.toolCall, body })));
+        if (thinkingRow) { thinkingRow.open = false; }
         // The writing just ENDED: seal its footer NOW, then a NEW writing starts.
         sealWritingFooter();
         assistant = null;
@@ -2523,6 +2527,8 @@ const readProvidersCfg = (): any => {
         }
         if (t === "text_delta" || t === "text" || t === "text_start") {
           if (p.delta || p.content) {
+            // Thinking done: close the toggle immediately (app behaviour).
+            if (thinkingRow) { thinkingRow.open = false; try { ui.requestRender(); } catch {} }
             onSessionEvent({
               type: "message_update",
               message: { role: "assistant" },
