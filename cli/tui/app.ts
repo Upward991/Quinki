@@ -634,7 +634,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   const pickFolder = () => {
     try {
       const cp = require("child_process");
-      cp.execFile("osascript", ["-e", 'POSIX path of (choose folder with prompt "Choose the folder for this chat")'], { timeout: 180000 }, (err: any, stdout: string) => {
+      cp.execFile("/usr/bin/osascript", ["-e", 'POSIX path of (choose folder with prompt "Choose the folder for this chat")'], { timeout: 180000 }, (err: any, stdout: string) => {
         if (err) { try { ui.requestRender(); } catch {} return; }
         const picked = String(stdout || "").trim().replace(/\/+$/, "");
         if (!picked) return;
@@ -1436,7 +1436,6 @@ const readProvidersCfg = (): any => {
           return items;
         }
         items.push({ value: "__dir_change", label: "Change directory\u2026", description: "" });
-        items.push({ value: "__dir_sep1", label: "", separator: true });
         items.push({ value: "__dir_hdr", label: "List of directories", separator: true });
         const dirsAll: any[] = Array.isArray(qDirs?.dirs) ? qDirs.dirs.slice() : [];
         dirsAll.sort((a: any, b: any) => (a?.current === b?.current ? 0 : (a?.current ? -1 : 1)));
@@ -1444,7 +1443,8 @@ const readProvidersCfg = (): any => {
         for (const dd of dirsAll) {
           const dp = String(dd?.path || "");
           if (!dp) continue;
-          items.push({ value: "__dir_use:" + dp, label: (dd?.current ? "\u25cf " : "\u25cb ") + dp, description: "" });
+          const isCur = !!dd?.current;
+          items.push({ value: "__dir_use:" + dp, label: (isCur ? "\u25cf " : "\u25cb ") + dp, description: "", _lit: isCur });
         }
         // Manual typing still works: the typed path is offered as-is.
         if (p && !p.startsWith("__")) items.unshift({ value: p, label: p, description: "use this path" });
@@ -3440,7 +3440,7 @@ const readProvidersCfg = (): any => {
           // Native macOS file picker (same feel as the folder picker).
           try {
             const cpA = require("child_process");
-            cpA.execFile("osascript", ["-e", 'POSIX path of (choose file with prompt "Choose a file to attach")'], { timeout: 180000 }, (errA: any, outA: string) => {
+            cpA.execFile("/usr/bin/osascript", ["-e", 'POSIX path of (choose file with prompt "Choose a file to attach")'], { timeout: 180000 }, (errA: any, outA: string) => {
               if (errA) return;
               const fA = String(outA || "").trim();
               if (fA) { pendingAttachments.push({ path: fA }); try { ui.requestRender(); } catch {} }
@@ -3984,7 +3984,7 @@ const readProvidersCfg = (): any => {
           } else if (vA === "__at_new") {
             try {
               const cpB = require("child_process");
-              cpB.execFile("osascript", ["-e", 'POSIX path of (choose file with prompt "Choose a file to attach")'], { timeout: 180000 }, (errB: any, outB: string) => {
+              cpB.execFile("/usr/bin/osascript", ["-e", 'POSIX path of (choose file with prompt "Choose a file to attach")'], { timeout: 180000 }, (errB: any, outB: string) => {
                 if (errB) return;
                 const fB = String(outB || "").trim();
                 if (fB) { pendingAttachments.push({ path: fB }); try { ui.requestRender(); } catch {} }
@@ -4710,6 +4710,7 @@ const applySettingsPatch = (patch: any) => {
           continue;
         }
         if (menuMarked.has(String((it as any).value ?? "")) && !(menuStack[0] === "settings" && menuStack[1] === "defaults" && menuStack[2] === "fallbacks")) label = "\u2713 " + label;
+        if ((it as any)._lit) label = fg(C.primary, label);
         if (visibleWidth(label) > w - 2) label = label.slice(0, Math.max(0, w - 2));
         if (visibleWidth(label) + 2 + visibleWidth(desc) > w) {
           const room = w - visibleWidth(label) - 2;
@@ -4742,7 +4743,7 @@ const applySettingsPatch = (patch: any) => {
       const canUD = nSelectable > 1;
       const AR = (ok: boolean, ch: string) => ok ? bold(fg(C.primary, ch)) : fg(C.textTertiary, ch);
       const left = AR(canUD, "\u2191") + " " + AR(canUD, "\u2193") + "  " + AR(canBack, "\u2190") + " " + AR(canFwd, "\u2192");
-      const hasMulti = (menuStack[0] === "model" || menuStack[0] === "thinking" || menuStack[0] === "agentinsession") || (menuStack[0] === "settings" && (menuStack[3] === "models" || menuStack[1] === "model" || menuStack[1] === "fallbacks" || menuStack[1] === "thinking" || (menuStack[1] === "defaults" && (menuStack[2] === "fallbacks" || menuStack[2] === "model" || menuStack[2] === "thinking")) || (menuStack[1] === "providers" && !menuStack[2])));
+      const hasMulti = (menuStack[0] === "model" || menuStack[0] === "thinking" || menuStack[0] === "agentinsession" || menuStack[0] === "directory" || menuStack[0] === "attachments") || (menuStack[0] === "settings" && (menuStack[3] === "models" || menuStack[1] === "model" || menuStack[1] === "fallbacks" || menuStack[1] === "thinking" || (menuStack[1] === "defaults" && (menuStack[2] === "fallbacks" || menuStack[2] === "model" || menuStack[2] === "thinking")) || (menuStack[1] === "providers" && !menuStack[2])));
       // Confirm appears ONLY when the highlighted option actually RUNS something
       // (navigation items and read-only pages do not show it).
       let needsConfirm = menuConfirmFocus;
