@@ -3016,7 +3016,7 @@ const readProvidersCfg = (): any => {
           } else if (arg === "enable" || arg === "disable") {
             const en = arg === "enable";
             if (scOn || (sc as any).connected) {
-              void sc.call("setSessionCompaction", { sessionKey: currentKey, enabled: en, threshold: 80 }, 20000).catch(() => {});
+              void sc.call("setSessionCompaction", { sessionKey: currentKey, auto: en, threshold: 80 }, 20000).catch(() => {});
             } else {
               if (typeof (session as any).setAutoCompactionEnabled === "function") (session as any).setAutoCompactionEnabled(en);
             }
