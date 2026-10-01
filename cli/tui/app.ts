@@ -3597,14 +3597,33 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           menuSel = 0;
         }
       } else if (a === "right") {
-      // MENU 2.0: the right arrow is the SAME as Enter (navigate or execute).
-      menuNav("enter");
-    } else {
+        // Forward ONLY — it NEVER executes. At the end of the levels it FOCUSES
+        // Confirm (violet filled, like the app's NavBar focusConfirm); Enter runs.
+        if (menuConfirmFocus) {
+          // Already focused: stays lit (Enter confirms).
+        } else if (menuStack.length > 0) {
+          const it: any = items[menuSel];
+          if (it && !it.separator) {
+            // ONLY the agent menu has deeper levels. Every other submenu is a
+            // terminal list: → must light the Confirm directly, never push a
+            // ghost level out of the item value.
+            const deeper = menuStack[0] === "agentinsession" ? agentLevelFor(it) : (menuStack[0] === "settings" ? settingsDeeper(it) : null);
+            if (deeper) {
+              menuStack.push(deeper);
+              menuSubFilter = "";
+              menuSel = 0;
+              // entering the fallbacks editor: seed the selection with the saved ones
+              try {
+                if (deeper === "fallbacks") {
+                  const cur = (() => { try { const ff = readSettingsFile().defaultFallbackModels; if (Array.isArray(ff)) return ff; } catch {} return []; })();
+                  menuMarked = new Set<string>(cur.map((x: any) => String(x)));
+                } else {
                   menuMarked = new Set<string>();
                 }
               } catch {}
             } else {
-              menuConfirmFocus = true; // option = terminal level
+              menuNav("enter");
+              return;
             }
           }
         } else {
@@ -3615,7 +3634,8 @@ export async function runTui(opts: TuiOptions): Promise<void> {
             menuSubFilter = "";
             menuSel = 0;
           } else if (cmd) {
-            menuConfirmFocus = true; // command without options: end of the road
+            menuNav("enter");
+            return;
           }
         }
       } else {
@@ -3680,7 +3700,6 @@ export async function runTui(opts: TuiOptions): Promise<void> {
               menuSel = 0;
               if (cmd.name === "settings") { try { fetchSettings(); fetchAllModels(); } catch {} }
             } else if (cmd) {
-              // MENU 2.0: run it directly.
               try { editor.setText(""); } catch {}
               menuSel = 0;
               handleSlashRef?.("/" + cmd.name);
