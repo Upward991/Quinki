@@ -666,7 +666,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       return "";
     }
   };
-  const headerBg = (s: string) => bgKeepPanel(C.bgPanel, s);
+  // Plain bg with a proper reset at the end: the grey bar must stop at the
+  // header box and NOT bleed to the right edge of the terminal.
+  const headerBg = (s: string) => bg(C.bgPanel, s);
   // The composer box spans at most ~1000px (the chat max) and is centered — the
   // header must match it column for column.
   const chatMaxCols = (): number => {
