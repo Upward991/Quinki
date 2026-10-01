@@ -1199,12 +1199,14 @@ const readProvidersCfg = (): any => {
       for (const mm of (wsProviderModels[name] || [])) { const id = String(mm?.id || ""); if (id) seen[id] = 1; }
       return Object.keys(seen).length;
     })();
-    return [
+    try { fetchKeyStatus(name, String(p.apiKey || "")); } catch {}
+    const out2: any[] = [
       { value: "__hdr_" + name, label: name, description: "", separator: true },
       { value: "models", label: "Models", description: String((p.enabledModels || []).length) + " on" + (totalM > 0 ? " \u00b7 " + totalM + " available" : " \u00b7 loading\u2026") },
       { value: "baseurl", label: "Base URL", description: String(p.baseUrl || "not set") },
-      { value: "key", label: "API key", description: p.apiKey ? "set" : "not set" },
+      { value: "key", label: "API key", description: wsKeyStatus[name] === true ? "set" : (wsKeyStatus[name] === false ? "not set" : "checking\u2026") },
     ];
+    return out2;
   }
   return settingsMenuItems();
 };
@@ -3934,6 +3936,30 @@ const cmd: any = commands.find((c) => c.name === it.value);
   };
 
   let addProvStep = 0;
+
+  const wsKeyStatus: Record<string, boolean> = {};
+
+
+  const fetchKeyStatus = (provName: string, cfgKey: string) => {
+
+
+    try {
+
+
+      if (cfgKey && String(cfgKey).length > 0 && String(cfgKey).length <= 300) { wsKeyStatus[provName] = true; return; }
+
+
+      const call2 = (globalThis as any).__sidecarCall;
+
+
+      if (call2) void call2('hasApiKey', { provider: provName }).then((r: any) => { wsKeyStatus[provName] = !!(r && (r.has ?? r.hasKey ?? r.ok)); try { ui.requestRender(); } catch {} }).catch(() => {});
+
+
+    } catch {}
+
+
+  };
+
   let addProvTmp: any = { name: "", baseUrl: "" };
 
   const settingsDeeper = (it: any): string | null => {
