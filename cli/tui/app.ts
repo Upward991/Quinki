@@ -183,28 +183,38 @@ class InsetBox {
 /** Welcome root: the box + hints, centered EXACTLY (manual math, both axes). */
 
 // === HERO: mascot + big "QUINKI" (pure-block font: only \u2588 and spaces) ===
-const QFONT: Record<string, string[]> = {
-  "Q": [" \u2588\u2588\u2588\u2588\u2588 ", "\u2588\u2588   \u2588\u2588", "\u2588\u2588   \u2588\u2588", " \u2588\u2588\u2588\u2588\u2588\u2588", "     \u2588\u2588 "],
-  "U": ["\u2588\u2588   \u2588\u2588", "\u2588\u2588   \u2588\u2588", "\u2588\u2588   \u2588\u2588", "\u2588\u2588   \u2588\u2588", " \u2588\u2588\u2588\u2588\u2588 "],
-  "I": ["\u2588\u2588\u2588\u2588\u2588\u2588 ", "  \u2588\u2588   ", "  \u2588\u2588   ", "  \u2588\u2588   ", "\u2588\u2588\u2588\u2588\u2588\u2588 "],
-  "N": ["\u2588\u2588   \u2588\u2588", "\u2588\u2588\u2588  \u2588\u2588", "\u2588\u2588 \u2588 \u2588\u2588", "\u2588\u2588  \u2588\u2588\u2588", "\u2588\u2588   \u2588\u2588"],
-  "K": ["\u2588\u2588  \u2588\u2588 ", "\u2588\u2588 \u2588\u2588  ", "\u2588\u2588\u2588\u2588   ", "\u2588\u2588 \u2588\u2588  ", "\u2588\u2588  \u2588\u2588 "],
+// === HERO: "quinki" in a half-block pixel font (each cell = 2 vertical pixels) ===
+const QPIX: Record<string, string[]> = {
+  "q": ["011100", "100010", "100010", "100010", "100010", "011100", "000100", "000100"],
+  "u": ["000000", "000000", "100010", "100010", "100010", "100110", "011010", "000000"],
+  "i": ["001000", "000000", "011000", "001000", "001000", "001000", "011100", "000000"],
+  "n": ["000000", "000000", "111000", "100100", "100010", "100010", "100010", "000000"],
+  "k": ["100000", "100000", "101100", "110000", "101000", "100100", "100010", "000000"],
 };
 const bigBrand = (): string[] => {
   const V = (t: string) => bold(fg(C.primary, t));
-  const rows = ["", "", "", "", ""];
-  const glyphs = "QUINKI".split("");
-  glyphs.forEach((ch, i) => {
-    const g = QFONT[ch] || [" ", " ", " ", " ", " "];
-    for (let r = 0; r < 5; r++) rows[r] += V(g[r]) + (i === glyphs.length - 1 ? "" : " ");
-  });
+  const word = "quinki";
+  const rows: string[] = [];
+  for (let r = 0; r < 4; r++) {
+    let out = "";
+    for (const ch of word.split("")) {
+      const bm = QPIX[ch] || QPIX[" "];
+      for (let x = 0; x < 6; x++) {
+        const top = bm[r * 2]?.[x] === "1";
+        const bot = bm[r * 2 + 1]?.[x] === "1";
+        out += top && bot ? V("\u2588") : top ? V("\u2580") : bot ? V("\u2584") : " ";
+      }
+      out += " ";
+    }
+    rows.push(out);
+  }
   return rows;
 };
-
 const HERO_ART = (): string[] => {
   const brand = bigBrand();
-  return [brand[0], brand[1], brand[2], brand[3], brand[4], ""];
+  return [brand[0], brand[1], brand[2], brand[3], ""];
 };
+
 class WelcomeRoot {
   box: any;
   hint: any;
