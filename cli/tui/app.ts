@@ -3483,9 +3483,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     return editorText().startsWith("/");
   };
   const menuNav = (a: "up" | "down" | "left" | "right" | "enter" | "escape" | "select") => {
-    try { require("fs").appendFileSync("/tmp/q-cli-debug.log", JSON.stringify({ at: "menuNav", a, stack: JSON.stringify(menuStack || []) }) + "\n"); } catch {}
+
     if (a === "select") {
-      try { require("fs").appendFileSync("/tmp/q-cli-debug.log", JSON.stringify({ at: "select-branch", stack: JSON.stringify(menuStack || []), sel: menuSel }) + "\n"); } catch {}
+
       try {
         const its: any = menuItemsCache || [];
         const it: any = its[menuSel];
@@ -4010,18 +4010,12 @@ const applySettingsPatch = (patch: any) => {
   try {
     (globalThis as any).__qMenuSelect = () => {
       try {
-        const fs2 = require("fs");
-        fs2.appendFileSync("/tmp/q-cli-debug.log", JSON.stringify({ t: Date.now(), at: "qMenuSelect", menuStack: JSON.stringify(menuStack || []), sel: menuSel }) + "\n");
-      } catch {}
-      try {
         if (menuStack && menuStack.length > 0) {
           menuNav("select");
           try { ui.requestRender(); } catch {}
           return true;
         }
-      } catch (e2) {
-        try { require("fs").appendFileSync("/tmp/q-cli-debug.log", JSON.stringify({ at: "qMenuSelect-ERR", err: String(e2) }) + "\n"); } catch {}
-      }
+      } catch {}
       return false;
     };
   } catch {}

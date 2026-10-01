@@ -501,7 +501,6 @@ export class Editor {
         // because the editor consumes Tab for autocomplete first).
         try {
             if (data === "\t" && globalThis.__qMenuSelect) {
-                try { require("fs").appendFileSync("/tmp/q-cli-debug.log", JSON.stringify({ at: "editor-tab" }) + "\n"); } catch {}
                 if (globalThis.__qMenuSelect() === true) return;
             }
         } catch {}
