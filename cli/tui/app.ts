@@ -2263,6 +2263,23 @@ const readProvidersCfg = (): any => {
     } catch {}
   };
 
+  // SEAL (like the app's T116): a writing ENDS when a new block starts — its
+  // footer shows THAT writing's end time, live during the turn.
+  const sealWritingFooter = () => {
+    try {
+      if (!assistantText.trim()) return;
+      let agentName = sessionAgentIds()[0] || "quinki";
+      let lvl = thinkingOn ? "xhigh" : "off";
+      try {
+        const e0 = readSessionsList().find((s: any) => s?.key === currentKey);
+        const mk = lastMsgKey(currentKey);
+        if (mk && e0?.messageAgents?.[mk]) agentName = String(e0.messageAgents[mk]);
+        if (mk && e0?.messageThinking?.[mk]) lvl = String(e0.messageThinking[mk]);
+      } catch {}
+      pushBlock(new FooterRow(fmtFooterDate(Date.now()), agentDisplayName(agentName) + " \u00b7 " + (wsModelId || defaultModelId || "") + " \u00b7 " + levelLabel(lvl), true));
+    } catch {}
+  };
+
   // --- streaming events --------------------------------------------------------
   const onSessionEvent = (e: any) => {
     try {
@@ -2307,10 +2324,10 @@ const readProvidersCfg = (): any => {
         // The tool call toggle is ALWAYS a plain tool call (delegations included):
         // the delegation toggle is a SEPARATE block, created right below it.
         pushBlock(registerToggle(new ToggleBlock({ label: "Tool call", boldName: name, color: C.toolCall, body })));
+        // The writing just ENDED: seal its footer NOW, then a NEW writing starts.
+        sealWritingFooter();
         assistant = null;
-        // NOTE: do NOT reset assistantText here — the text before a tool belongs to
-        // the SAME assistant message; resetting it made the message_end footer skip
-        // every message that was followed by a tool call.
+        assistantText = "";
       } else if (e?.type === "tool_execution_end") {
         const name = e.toolName || e.name || e.tool?.name || "tool";
         const isErr = !!e.isError;
@@ -2526,10 +2543,11 @@ const readProvidersCfg = (): any => {
           // Chronological (app): the tool call toggle appears the moment the call
           // starts; its arguments fill in on the deltas; toolcall_end is not the
           // result (that arrives as the separate tool_result notification).
+          // The writing just ENDED: seal its footer NOW (app behaviour), then the
+          // next text starts a NEW writing with its own footer.
+          sealWritingFooter();
           assistant = null;
-          // Do NOT reset assistantText (same bug/fix as tool_execution_start):
-          // the text written before the tool belongs to the same assistant
-          // message — resetting it killed the message_end footer.
+          assistantText = "";
           wsToolToggle = new ToggleBlock({ label: "Tool call", boldName: wsToolName, color: C.toolCall, body: "" });
           pushBlock(registerToggle(wsToolToggle));
           try {
