@@ -1072,10 +1072,16 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       return Array.isArray(wsSettings?.defaultFallbackModels) ? wsSettings.defaultFallbackModels : [];
     };
     if (stack[2] === "fallbacks") {
-      const fb = fbFromFile();
-      const out: any[] = fb.map((id: any, i: number) => ({ value: "fb:" + String(id), label: String(id), description: "fallback " + (i + 1) }));
-      out.push({ value: "__addfallback", label: "\uff0b Add fallback", description: "pick a model" });
-      return out;
+      // FULL model list: Space selects the fallbacks; the selection order IS the
+      // fallback order (1., 2., 3. ...). Deselect -> the rest re-rank.
+      const list = modelPickerItemsList();
+      const order = Array.from(menuMarked);
+      return list.map((it: any) => {
+        if (it.separator) return it;
+        const id = String(it.value || "");
+        const idx = order.indexOf(id);
+        return { ...it, label: (idx >= 0 ? "\u2713 " + (idx + 1) + ". " : "") + String(it.label || id) };
+      });
     }
     const fbN = fbFromFile().length;
     const th = String(wsSettings?.defaultThinkingLevel || readProvidersCfg().defaultThinking || "xhigh");
@@ -3468,7 +3474,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       try {
         const its: any = (typeof items !== "undefined" ? items : []);
         const it: any = its[menuSel];
-        if (menuStack[0] === "settings" && menuStack[3] === "models" && it && !it.separator) {
+        const inModels = menuStack[0] === "settings" && menuStack[3] === "models";
+        const inFallbacks = menuStack[0] === "settings" && menuStack[1] === "defaults" && menuStack[2] === "fallbacks";
+        if ((inModels || inFallbacks) && it && !it.separator) {
           const v = String(it.value || "");
           if (menuMarked.has(v)) menuMarked.delete(v); else menuMarked.add(v);
         }
@@ -3592,6 +3600,15 @@ export async function runTui(opts: TuiOptions): Promise<void> {
               menuStack.push(deeper);
               menuSubFilter = "";
               menuSel = 0;
+              // entering the fallbacks editor: seed the selection with the saved ones
+              try {
+                if (deeper === "fallbacks") {
+                  const cur = (() => { try { const ff = readSettingsFile().defaultFallbackModels; if (Array.isArray(ff)) return ff; } catch {} return []; })();
+                  menuMarked = new Set<string>(cur.map((x: any) => String(x)));
+                } else {
+                  menuMarked = new Set<string>();
+                }
+              } catch {}
             } else {
               menuConfirmFocus = true; // terminal option: light the Confirm
             }
@@ -3624,6 +3641,14 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           menuConfirmFocus = false;
           if (!it || it.separator) return;
           if (menuStack[0] === "settings") {
+            // Fallbacks editor: Confirm = save the selection ORDER as the fallbacks.
+            if (menuStack[1] === "defaults" && menuStack[2] === "fallbacks") {
+              const order = Array.from(menuMarked);
+              try { void sc.call('setDefaultFallbacks', { defaultFallbackModels: order }, 20000).catch(() => {}); } catch {}
+              try { wsSettings = { ...(wsSettings || {}), defaultFallbackModels: order }; } catch {}
+              try { ui.requestRender(); } catch {}
+              return;
+            }
             settingsActivate(String(it.value));
             try { ui.requestRender(); } catch {}
             return;
@@ -3656,6 +3681,19 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       } catch {}
     } catch {}
   };
+  const modelPickerItemsList = (): any[] => {
+    const out: any[] = [];
+    let models: any[] = [];
+    try { models = availableModels(); } catch {}
+    let lastProv = "";
+    for (const mm of models) {
+      const prov = String(mm?.provider || "");
+      if (prov && prov !== lastProv) { out.push({ value: "__sep_m_" + prov, label: prov, description: "", separator: true }); lastProv = prov; }
+      out.push({ value: String(mm?.id || ""), label: String(mm?.id || ""), description: String(mm?.name || "") });
+    }
+    return out;
+  };
+
   const modelPickerItems = (currentDefault: string = "", currentFallbacks: string[] = []): any[] => {
     const out: any[] = [];
     let models: any[] = [];
@@ -3733,14 +3771,8 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       }
       return;
     }
-    if (sub === "addfallback") {
-      if (value && !value.startsWith("__")) {
-        const cur = Array.isArray(wsSettings?.defaultFallbackModels) ? wsSettings.defaultFallbackModels.slice() : [];
-        if (!cur.includes(value)) cur.push(value);
-        try { const call = (globalThis as any).__sidecarCall; if (call) call('setDefaultFallbacks', { fallbacks: cur }).catch(() => {}); } catch {}
-        wsSettings = { ...(wsSettings || {}), defaultFallbackModels: cur };
-        menuStack = ["settings", "defaults", "fallbacks"]; menuSubFilter = ""; menuSel = 0;
-      }
+    if (sub === "fallbacks") {
+      if (menuMarked.size > 0 || true) { /* confirm saves the current selection order */ }
       return;
     }
     if (sub === "fallbacks" && value.startsWith("fb:")) {
@@ -3888,7 +3920,7 @@ const applySettingsPatch = (patch: any) => {
       // like the selected slash rows, while FOCUSED via → — Enter runs it).
       rows.push("");
       const left = fg(C.textSecondary, "\u2191 \u2193 \u2190 \u2192");
-      const hasMulti = menuStack[0] === "settings" && menuStack[3] === "models";
+      const hasMulti = menuStack[0] === "settings" && (menuStack[3] === "models" || (menuStack[1] === "defaults" && menuStack[2] === "fallbacks"));
       // Confirm appears ONLY when the highlighted option actually RUNS something
       // (navigation items and read-only pages do not show it).
       let needsConfirm = menuConfirmFocus;
