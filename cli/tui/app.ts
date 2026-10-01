@@ -4403,6 +4403,7 @@ const applySettingsPatch = (patch: any) => {
       const __qxLoad = () => {
         __qxTries++;
         void loadServerHistory().then((ok) => {
+          try { if (ok) renderHistory(); } catch {}
           try { ui.requestRender(); } catch {}
           if (!ok && __qxTries < 12) setTimeout(__qxLoad, 1200);
         }).catch(() => { if (__qxTries < 12) setTimeout(__qxLoad, 1200); });
