@@ -703,7 +703,9 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
                 blocks = blocks.map((b: any, bi: number) => (bi === blocks.length - 1 && b?.type === 'text' && !b.completedAt) ? { ...b, completedAt: Date.now() } : b)
               }
             } catch {}
-            return { ...m, blocks, isStreaming: false, completedAt: Date.now(), timestamp: new Date().toISOString(), model: model || m.model, agentModel: model || m.agentModel, agentName: agentName || m.agentName || primaryAgentName(), thinkingLevel: thinkingLevel || m.thinkingLevel, thinkingTranslated: thinkingTranslated, sentEffort: sentEffort, reasoningUsed: reasoningUsed, reasoningTokens: reasoningTokens || m.thinkingTranslated, content: text || m.content }
+            // NB: the message timestamp stays UNTOUCHED (history merges rely on it);
+            // completedAt is the display-only completion time.
+            return { ...m, blocks, isStreaming: false, completedAt: Date.now(), model: model || m.model, agentModel: model || m.agentModel, agentName: agentName || m.agentName || primaryAgentName(), thinkingLevel: thinkingLevel || m.thinkingLevel, thinkingTranslated: thinkingTranslated, sentEffort: sentEffort, reasoningUsed: reasoningUsed, reasoningTokens: reasoningTokens || m.thinkingTranslated, content: text || m.content }
           })
         })
       }
@@ -725,7 +727,7 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
             const cur: any = prev[li]
             if (!cur || cur.isError || !String(cur.content || '').trim()) return prev
             if (cur.completedAt) return prev
-            return prev.map((m, i) => i === li ? { ...m, completedAt: Date.now(), timestamp: new Date().toISOString() } : m)
+            return prev.map((m, i) => i === li ? { ...m, completedAt: Date.now() } : m)
           })
         }
       } catch {}
