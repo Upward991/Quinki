@@ -3473,6 +3473,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
               menuStack = [cmd.name];
               menuSubFilter = "";
               menuSel = 0;
+              if (cmd.name === "settings") { try { fetchSettings(); } catch {} }
             } else if (cmd) {
               menuConfirmFocus = true; // no options: Confirm first, then run
             }
