@@ -409,14 +409,6 @@ export class Editor {
         const result = [];
         const leftPadding = " ".repeat(paddingX);
         const rightPadding = leftPadding;
-        // QUINKI PATCH (1 ott): chips row (armed skills / attachments) INSIDE the
-        // box, above the panel — remove with backspace like text.
-        try {
-            if (typeof this.qChipsFn === "function") {
-                const qc = String(this.qChipsFn(width - 2) ?? "");
-                if (qc) result.push(qEdge() + qPaint(qc) + qEdgeR());
-            }
-        } catch {}
         // Render top border (with scroll indicator if scrolled down)
         // QUINKI PATCH (25 set, iter6): floating-panel block — NO borders, full-width background.
         const qPaint = (raw) => {
@@ -424,6 +416,15 @@ export class Editor {
             const s = String(raw).replace(/\x1b\[0m/g, "\x1b[22m\x1b[23m\x1b[24m\x1b[27m\x1b[39m");
             return typeof this.bgFn === "function" ? this.bgFn(s) : s;
         };
+        // QUINKI PATCH (1 ott, T325): chips row (armed skills / attachments) INSIDE
+        // the box — AFTER qPaint is defined (before this was a TDZ crash swallowed
+        // by try/catch, so the chips never showed).
+        try {
+            if (typeof this.qChipsFn === "function") {
+                const qc = String(this.qChipsFn(width - 2) ?? "");
+                if (qc) result.push(qEdge() + qPaint(qc) + qEdgeR());
+            }
+        } catch {}
         result.push(qEdge() + qPaint(" ".repeat(width - 2)) + qEdgeR());
         // Render each visible layout line
         // Emit hardware cursor marker when focused so TUI can position the

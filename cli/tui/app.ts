@@ -1441,32 +1441,15 @@ const readProvidersCfg = (): any => {
       name: "attach",
       description: "Attach a file to the message",
       seq: 9,
-      getArgumentCompletions: (prefix: string) => {
-        const items: any[] = [];
-        const p2 = prefix.trim();
-        try {
-          const fsc = require("fs");
-          const base2 = fsc.statSync(p2).isDirectory() ? p2 : currentCwd;
-          for (const n2 of fsc.readdirSync(base2).slice(0, 40)) {
-            if (n2.startsWith(".")) continue;
-            const full2 = require("path").join(base2, n2);
-            let isD2 = false; try { isD2 = fsc.statSync(full2).isDirectory(); } catch {}
-            items.push({ value: full2, label: (isD2 ? "\u25b8 " : "\u2b1a ") + n2, description: isD2 ? "folder" : "file" });
-          }
-        } catch {}
-        return p2 ? items.filter((i2: any) => String(i2.label).toLowerCase().includes(p2.toLowerCase())) : items;
-      },
-    },
-    {
-      name: "attachments",
-      description: "Session attachments: open folder or re-attach",
-      seq: 9,
       getArgumentCompletions: () => {
         const items: any[] = [];
         const sdir = path.join(os.homedir(), ".quinki", "attachments", String(currentKey || ""));
+        items.push({ value: "__at_new", label: "Attach new file\u2026", description: "native file picker" });
+        items.push({ value: "__at_open", label: "Open attachments folder", description: sdir.replace(os.homedir(), "~") });
+        items.push({ value: "__at_sep", label: "", separator: true });
+        items.push({ value: "__at_hdr", label: "Last attachments", separator: true });
+        items.push({ value: "__at_sep2", label: "", separator: true });
         try {
-          items.push({ value: "__at_open", label: "Open attachments folder", description: sdir.replace(os.homedir(), "~") });
-          items.push({ value: "__at_sep", label: "", separator: true });
           const fsc = require("fs");
           const files: Array<{ n: string; m: number }> = [];
           for (const n of fsc.readdirSync(sdir)) {
@@ -1476,14 +1459,12 @@ const readProvidersCfg = (): any => {
             } catch {}
           }
           files.sort((a, b) => b.m - a.m);
-          if (!files.length) items.push({ value: "__at_none", label: "No attachments yet", description: "send one with /attach" });
+          if (!files.length) items.push({ value: "__at_none", label: "No attachments yet", description: "attach one with Enter" });
           for (const f of files) {
             const full = path.join(sdir, f.n);
             items.push({ value: "__at_file:" + full, label: f.n, description: "Enter: attach it again" });
           }
-        } catch {
-          items.push({ value: "__at_open", label: "Open attachments folder", description: sdir.replace(os.homedir(), "~") });
-        }
+        } catch { items.push({ value: "__at_none", label: "No attachments yet", description: "" }); }
         return items;
       },
     },
@@ -3404,8 +3385,20 @@ const readProvidersCfg = (): any => {
         applyDirChange(target);
         break;
       }
-      case "attachments": {
+      case "attach": {
         const aArg = String(arg || "");
+        if (aArg === "__at_new") {
+          // Native macOS file picker (same feel as the folder picker).
+          try {
+            const cpA = require("child_process");
+            cpA.execFile("osascript", ["-e", 'POSIX path of (choose file with prompt "Choose a file to attach")'], { timeout: 180000 }, (errA: any, outA: string) => {
+              if (errA) return;
+              const fA = String(outA || "").trim();
+              if (fA) { pendingAttachments.push({ path: fA }); try { ui.requestRender(); } catch {} }
+            });
+          } catch {}
+          break;
+        }
         if (aArg === "__at_open") {
           const sdir2 = path.join(os.homedir(), ".quinki", "attachments", String(currentKey || ""));
           try { require("fs").mkdirSync(sdir2, { recursive: true }); } catch {}
@@ -3413,20 +3406,16 @@ const readProvidersCfg = (): any => {
           break;
         }
         if (aArg.startsWith("__at_file:")) {
-          // Re-attach: the chip appears in the textbox, the next message carries it.
           const fp = aArg.slice(10);
           try {
             if (fs.existsSync(fp)) { pendingAttachments.push({ path: fp }); try { ui.requestRender(); } catch {} }
           } catch {}
           break;
         }
-        break;
-      }
-      case "attach": {
-        if (!arg) break;
-        const apath = path.resolve(String(arg));
+        if (!aArg) break;
+        const apath = path.resolve(aArg);
         try {
-          if (path.isAbsolute(String(arg)) || fs.existsSync(apath)) {
+          if (path.isAbsolute(aArg) || fs.existsSync(apath)) {
             pendingAttachments.push({ path: apath });
             try { ui.requestRender(); } catch {}
           }
@@ -3882,11 +3871,20 @@ const readProvidersCfg = (): any => {
       }
       if (menuStack.length > 0) {
         const cmdName = menuStack[0];
-        if (cmdName === "attachments") {
+        if (cmdName === "attach") {
           const vA = String(it.value ?? "");
           if (vA.startsWith("__at_file:")) {
             const fpA = vA.slice(10);
             try { if (fs.existsSync(fpA)) { pendingAttachments.push({ path: fpA }); } } catch {}
+          } else if (vA === "__at_new") {
+            try {
+              const cpB = require("child_process");
+              cpB.execFile("osascript", ["-e", 'POSIX path of (choose file with prompt "Choose a file to attach")'], { timeout: 180000 }, (errB: any, outB: string) => {
+                if (errB) return;
+                const fB = String(outB || "").trim();
+                if (fB) { pendingAttachments.push({ path: fB }); try { ui.requestRender(); } catch {} }
+              });
+            } catch {}
           } else if (vA === "__at_open") {
             const sdir3 = path.join(os.homedir(), ".quinki", "attachments", String(currentKey || ""));
             try { require("fs").mkdirSync(sdir3, { recursive: true }); } catch {}
@@ -4560,7 +4558,8 @@ const applySettingsPatch = (patch: any) => {
         }
       }
       const rows: string[] = [];
-      const MAXWIN = 12;
+      let MAXWIN = 12;
+      try { MAXWIN = Math.max(8, Math.min(30, Math.floor(((ui as any)?.terminal?.rows || 40) * 0.45))); } catch {}
       const winStart = Math.max(0, Math.min(Math.max(0, items.length - MAXWIN), menuSel - Math.floor(MAXWIN / 2)));
       const winEnd = Math.min(items.length, winStart + MAXWIN);
       for (let i = winStart; i < winEnd; i++) {
