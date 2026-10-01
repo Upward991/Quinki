@@ -1200,6 +1200,16 @@ const readProvidersCfg = (): any => {
       return Object.keys(seen).length;
     })();
     try { fetchKeyStatus(name, String(p.apiKey || "")); } catch {}
+    const totalM = (() => {
+      try {
+        const seen: Record<string, any> = {};
+        let n2 = 0;
+        for (const mm of (p.modelData || [])) { const id = String(mm?.id || ""); if (id && !seen[id]) { seen[id] = 1; n2++; } }
+        for (const mm of wsAllModels) { if (String(mm?.provider || "") !== name) continue; const id = String(mm?.id || ""); if (id && !seen[id]) { seen[id] = 1; n2++; } }
+        for (const mm of (wsProviderModels[name] || [])) { const id = String(mm?.id || ""); if (id && !seen[id]) { seen[id] = 1; n2++; } }
+        return n2;
+      } catch { return 0; }
+    })();
     const out2: any[] = [
       { value: "__hdr_" + name, label: name, description: "", separator: true },
       { value: "models", label: "Models", description: String((p.enabledModels || []).length) + " on" + (totalM > 0 ? " \u00b7 " + totalM + " available" : " \u00b7 loading\u2026") },
