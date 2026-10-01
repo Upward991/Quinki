@@ -312,7 +312,7 @@ function fmtWhen(ms: number): string {
     const d = new Date(Number(ms));
     const M = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     const p2 = (n: number) => String(n).padStart(2, "0");
-    return d.getDate() + " " + M[d.getMonth()] + " \u00b7 " + p2(d.getHours()) + ":" + p2(d.getMinutes()) + ":" + p2(d.getSeconds());
+    return d.getDate() + " " + M[d.getMonth()] + " " + d.getFullYear() + " \u00b7 " + p2(d.getHours()) + ":" + p2(d.getMinutes()) + ":" + p2(d.getSeconds());
   } catch { return ""; }
 }
 
