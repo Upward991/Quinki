@@ -1394,7 +1394,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       },
     },
     { name: "reload", description: "Reload this chat (recover history, fix glitches)", seq: 4, hidden: () => welcomeShown },
-    { name: "export", description: "Export this chat as Markdown", seq: 10 },
+    { name: "export", description: "Export this chat as Markdown", seq: 10, hidden: () => welcomeShown },
     {
       name: "delete",
       description: "Delete this chat",
