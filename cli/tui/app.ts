@@ -2996,20 +2996,29 @@ const readProvidersCfg = (): any => {
       case "compaction": {
         try {
           if (arg === "now") {
-            // The pill comes from the compaction_start/end events (also covers
-            // auto-compaction); the finally() is the safety net (a failed/too-small
-            // compaction must never leave the pill stuck).
-            void Promise.resolve(session.compact?.())
-              .catch(() => {})
-              .finally(() => {
-                if (statusKind === "compacting") setStatus("", "");
-              });
+            // Sidecar RPC like the app (compactSession): the LOCAL engine was a
+            // fake empty session -> "session too small" on a 500k-token chat.
+            if (scOn || (sc as any).connected) {
+              setStatus("Compacting", "compacting");
+              try { ui.requestRender(); } catch {}
+              void sc.call("compactSession", { sessionKey: currentKey }, 600000)
+                .catch(() => {})
+                .finally(() => {
+                  if (statusKind === "compacting") setStatus("", "");
+                  try { loadServerHistory().then(() => { try { renderHistory(); scrollToEnd(); } catch {} }); } catch {}
+                  try { ui.requestRender(); } catch {}
+                });
+            } else {
+              void Promise.resolve(session.compact?.())
+                .catch(() => {})
+                .finally(() => { if (statusKind === "compacting") setStatus("", ""); });
+            }
           } else if (arg === "enable" || arg === "disable") {
             const en = arg === "enable";
-            if (typeof (session as any).setAutoCompactionEnabled === "function") (session as any).setAutoCompactionEnabled(en);
-            else {
-              const sm: any = (session as any).settingsManager;
-              if (sm && typeof sm.setCompactionEnabled === "function") sm.setCompactionEnabled(en);
+            if (scOn || (sc as any).connected) {
+              void sc.call("setSessionCompaction", { sessionKey: currentKey, enabled: en, threshold: 80 }, 20000).catch(() => {});
+            } else {
+              if (typeof (session as any).setAutoCompactionEnabled === "function") (session as any).setAutoCompactionEnabled(en);
             }
           }
         } catch {}
