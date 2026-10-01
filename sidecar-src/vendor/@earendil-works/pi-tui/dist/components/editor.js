@@ -479,7 +479,7 @@ export class Editor {
         // QUINKI PATCH (25 set): OUR slash menu panel above the box (driven by menuLinesFn).
         if (typeof this.menuLinesFn === "function") {
             try {
-                const rows = this.menuLinesFn(width - 2);
+                const rows = this.menuLinesFn(width);
                 if (Array.isArray(rows) && rows.length > 0) {
                     // Visible separator line instead of an empty row (background applies
                     // normally AND the separation stays readable). Border colour #3a3a44.

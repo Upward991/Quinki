@@ -1902,7 +1902,7 @@ const readProvidersCfg = (): any => {
   try {
     // Thin edges on the box: LEFT = mode color (Plan pink / Build orange),
     // RIGHT = violet accent (always lit).
-    (editor as any).edgeFn = () => fg(mode === "plan" ? C.modePlan : C.modeBuild, "\u258f");
+    (editor as any).edgeFn = () => panelBgWrap(fg(mode === "plan" ? C.modePlan : C.modeBuild, "\u258f"));
     (editor as any).edgeRightFn = () => panelBgWrap(fg(C.primary, "\u2595"));
   } catch {}
   try {
