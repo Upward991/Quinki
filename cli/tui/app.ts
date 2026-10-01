@@ -202,13 +202,20 @@ const QPIX: Record<string, string[]> = {
   "k": ["10000", "10000", "10010", "10100", "11000", "10100", "10010", "00000"],
   "!": ["01100", "01100", "01100", "01100", "00000", "01100", "00000", "00000"],
 };
+const glyphBounds = (bm: string[]): [number, number] => {
+  let a = 99, b = -1;
+  for (let r = 0; r < 8; r++) for (let x = 0; x < 5; x++) if (bm[r]?.[x] === "1") { a = Math.min(a, x); b = Math.max(b, x); }
+  if (b < 0) return [0, 0];
+  return [a, b];
+};
 const pixWord = (word: string, V: (t: string) => string): string[] => {
   const rows: string[] = [];
   for (let r = 0; r < 4; r++) {
     let out = "";
     for (let j = 0; j < word.length; j++) {
       const bm = QPIX[word[j]] || QPIX[" "];
-      for (let x = 0; x < 5; x++) {
+      const [x0, x1] = glyphBounds(bm); // trim empty side columns -> even spacing
+      for (let x = x0; x <= x1; x++) {
         const top = bm[r * 2]?.[x] === "1";
         const bot = bm[r * 2 + 1]?.[x] === "1";
         out += top && bot ? V("\u2588") : top ? V("\u2580") : bot ? V("\u2584") : " ";
