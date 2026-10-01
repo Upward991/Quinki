@@ -3889,11 +3889,26 @@ const applySettingsPatch = (patch: any) => {
       rows.push("");
       const left = fg(C.textSecondary, "\u2191 \u2193 \u2190 \u2192");
       const hasMulti = menuStack[0] === "settings" && menuStack[3] === "models";
+      // Confirm appears ONLY when the highlighted option actually RUNS something
+      // (navigation items and read-only pages do not show it).
+      let needsConfirm = menuConfirmFocus;
+      try {
+        const cur: any = items[menuSel];
+        if (cur && !cur.separator) {
+          if (menuStack[0] === "agentinsession") needsConfirm = !agentLevelFor(cur);
+          else if (menuStack[0] === "settings") needsConfirm = !settingsDeeper(cur);
+          else if (menuStack.length > 0) needsConfirm = true;
+          else {
+            const c2: any = commands.find((c: any) => c.name === cur.value);
+            needsConfirm = !(c2 && typeof c2.getArgumentCompletions === "function");
+          }
+        }
+      } catch {}
       const right =
         fg(C.danger, "Close (Esc)") +
         "  " +
         (hasMulti ? fg(C.modeBuild, "Select (Space)") + "  " : "") +
-        (menuConfirmFocus ? bold(bg(C.primary, fg(C.bgPanel, " Confirm (Enter) "))) : fg(C.primary, "Confirm (Enter)"));
+        (needsConfirm ? (menuConfirmFocus ? bold(bg(C.primary, fg(C.bgPanel, " Confirm (Enter) "))) : fg(C.primary, "Confirm (Enter)")) : "");
       const gw = Math.max(1, w - visibleWidth(left) - visibleWidth(right));
       rows.push(left + " ".repeat(gw) + right);
       return rows;
