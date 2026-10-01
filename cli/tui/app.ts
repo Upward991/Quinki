@@ -1158,6 +1158,20 @@ const readProvidersCfg = (): any => {
       { value: "__v3", label: "Update", description: "quinki update" },
     ];
   }
+  if (lv === "providers" && stack[3] === "delprov") {
+    const nm = String(stack[2] || "").replace(/^prov:/, "");
+    return [
+      { value: "delno", label: "Keep", description: "go back" },
+      { value: "confirm", label: "", notice: "Delete provider \u201c" + nm + "\u201d? Its models and saved keys will be removed. (Enter to confirm)" },
+    ];
+  }
+  if (lv === "providers" && stack[3] === "logout") {
+    const nm2 = String(stack[2] || "").replace(/^prov:/, "");
+    return [
+      { value: "lgno", label: "Keep", description: "go back" },
+      { value: "confirm", label: "", notice: "Sign out of " + nm2 + "? (Enter to confirm)" },
+    ];
+  }
   if (lv === "attachments") {
     let files = 0, bytes = 0;
     try {
@@ -1272,6 +1286,11 @@ const readProvidersCfg = (): any => {
         label: conn ? "\u25cf Connected" : "Connect " + name,
         description: conn ? "signed in \u00b7 Enter to reconnect" : "sign in via browser (shared with the app)",
       });
+      if (conn) out2.push({ value: "logout", label: "Sign out", description: "revoke the login for this provider" });
+    }
+    // Delete only for custom (non built-in) providers, like the app.
+    if (!["OpenRouter", "Anthropic", "xAI", "OpenAI", "GitHub Copilot", "Ollama"].includes(name)) {
+      out2.push({ value: "delprov", label: "Delete provider", description: "removes models and saved keys" });
     }
     return out2;
   }
@@ -4125,7 +4144,7 @@ const cmd: any = commands.find((c) => c.name === it.value);
   if (lv === "defaults" && !sub) return (v === "model" || v === "fallbacks" || v === "thinking") ? v : null;
   if (lv === "defaults" && sub === "fallbacks" && v === "__addfallback") return "addfallback";
   if (lv === "providers" && !sub) return (v.startsWith("prov:") || v === "__addprov") ? v : null;
-  if (lv === "providers" && sub && !sub3) return (v === "key" || v === "baseurl" || v === "models") ? v : null;
+  if (lv === "providers" && sub && !sub3) return (v === "key" || v === "baseurl" || v === "models" || v === "delprov" || v === "logout") ? v : null;
   return null;
 };
 
@@ -4206,6 +4225,27 @@ const cmd: any = commands.find((c) => c.name === it.value);
     return;
   }
   if (lv === "providers") {
+    if (sub3 === "logout" && value === "confirm") {
+      const pname2 = String(sub || "").replace(/^prov:/, "");
+      const SUBMAP2: Record<string, string> = {"Anthropic":"anthropic","xAI":"xai","OpenAI":"openai-codex","GitHub Copilot":"github-copilot","OpenRouter":"__openrouter__"};
+      const subId2 = SUBMAP2[pname2];
+      try {
+        const pr2 = subId2 === "__openrouter__" ? sc.call("openRouterLogout", {}, 30000)
+          : (subId2 ? sc.call("subscriptionLogout", { providerId: subId2 }, 30000) : Promise.resolve(null));
+        void Promise.resolve(pr2).then(() => { try { wsKeyStatus[pname2] = false; } catch {} try { ui.requestRender(); } catch {} }).catch(() => {});
+      } catch {}
+      try { menuStack.pop(); menuStack.pop(); } catch {}
+      return;
+    }
+    if (sub3 === "delprov" && value === "confirm") {
+      const pname3 = String(sub || "").replace(/^prov:/, "");
+      try { void sc.call("deleteProvider", { name: pname3 }, 20000); } catch {}
+      try { void sc.call("deleteApiKey", { service: pname3 }, 20000); } catch {}
+      try { menuItemsCache = null; } catch {}
+      try { menuStack.pop(); menuStack.pop(); } catch {}
+      try { ui.requestRender(); } catch {}
+      return;
+    }
     if (sub === "__addprov") {
       const typed = String(value || "");
       if (!typed || typed.startsWith("__")) return;
@@ -4220,6 +4260,8 @@ const cmd: any = commands.find((c) => c.name === it.value);
     const pname = String(sub || "").replace(/^prov:/, "");
     if (sub && !sub3) {
       if (value === "toggle") { patchProvider(pname, (p) => { p.enabled = !p.enabled; }); }
+      if (value === "logout") { return; }
+      if (value === "delprov") { return; }
       if (value === "login") {
         const SUBMAP: Record<string, string> = {"Anthropic":"anthropic","xAI":"xai","OpenAI":"openai-codex","GitHub Copilot":"github-copilot","OpenRouter":"__openrouter__"};
         const subId = SUBMAP[pname];
