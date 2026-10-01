@@ -1447,8 +1447,10 @@ const readProvidersCfg = (): any => {
         const sdir = path.join(os.homedir(), ".quinki", "attachments", String(currentKey || ""));
         items.push({ value: "__at_new", label: "Attach new file\u2026", description: "native file picker" });
         items.push({ value: "__at_open", label: "Open attachments folder", description: sdir.replace(os.homedir(), "~") });
-        // ONE separator row only (with the header) — no wasted blank space.
+        // Separator above AND below the header (as requested).
+        items.push({ value: "__at_sep1", label: "", separator: true });
         items.push({ value: "__at_hdr", label: "Last attachments", separator: true });
+        items.push({ value: "__at_sep2b", label: "", separator: true });
         try {
           const fsc = require("fs");
           const files: Array<{ n: string; m: number }> = [];
@@ -4614,11 +4616,12 @@ const applySettingsPatch = (patch: any) => {
         let label = String(it.label ?? it.value ?? "");
         let desc = String(it.description ?? "");
         if ((it as any).separator) {
-          // Labeled separator (headers like "Last attachments"): one line only.
-          // UNLABELED separators are pure dividers: keep ONE blank line (the
-          // visual separation users expect in every menu).
+          // The ORIGINAL, approved look: blank + label + blank. Unlabeled dividers
+          // are a single blank line.
           if (!label) { rows.push(""); continue; }
+          if (rows.length > 0) rows.push("");
           rows.push(fg(C.textSecondary, label));
+          rows.push("");
           continue;
         }
         if ((it as any).notice) {
