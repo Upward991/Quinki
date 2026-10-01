@@ -1154,6 +1154,7 @@ const readProvidersCfg = (): any => {
     const p = ((cfg.providers || {})[name]) || {};
     if (stack[3] === "models") {
       fetchAllModels();
+      // (the fetchProviderCatalog call follows below)
       // The FULL provider catalog (same RPC the app uses: OpenRouter /api/v1/models etc.)
       fetchProviderCatalog(name, String(p.baseUrl || ""), String(p.apiKey || ""));
       const seen: Record<string, any> = {};
@@ -1186,10 +1187,17 @@ const readProvidersCfg = (): any => {
       const typed = String(menuSubFilter || "");
       return [{ value: typed || "__urlfield", label: typed || ("Base URL: " + String(p.baseUrl || "not set")), description: typed ? "Enter to save" : "type the new URL" }];
     }
+    const totalM = (() => {
+      const seen: Record<string, number> = {};
+      for (const mm of (p.modelData || [])) { const id = String(mm?.id || ""); if (id) seen[id] = 1; }
+      for (const mm of (wsProviderModels[name] || [])) { const id = String(mm?.id || ""); if (id) seen[id] = 1; }
+      return Object.keys(seen).length;
+    })();
     return [
-      { value: "models", label: "Models", description: String((p.enabledModels || []).length) + " on" },
-      { value: "key", label: "API key", description: p.apiKey ? "set" : "not set" },
+      { value: "__hdr_" + name, label: name, description: "", separator: true },
+      { value: "models", label: "Models", description: String((p.enabledModels || []).length) + " on" + (totalM > 0 ? " \u00b7 " + totalM + " available" : " \u00b7 loading\u2026") },
       { value: "baseurl", label: "Base URL", description: String(p.baseUrl || "not set") },
+      { value: "key", label: "API key", description: p.apiKey ? "set" : "not set" },
     ];
   }
   return settingsMenuItems();
