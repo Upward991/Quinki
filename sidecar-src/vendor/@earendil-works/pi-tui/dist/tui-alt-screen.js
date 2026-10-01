@@ -1199,7 +1199,13 @@ export class TuiAltScreen extends TuiBase {
                 try { __lvw = visibleWidth(__ln); } catch { __lvw = 0; }
                 let __tw = width;
                 try { if (this.terminal && this.terminal.columns) __tw = this.terminal.columns; } catch {}
-                const __lpad = Math.max(0, __tw - __lvw);
+                // The line itself may END with uncoloured spaces: overwrite them too.
+                let __trail = 0;
+                try {
+                    const __plain = __ln.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, "").replace(/\x1b\][^\x07]*\x07/g, "");
+                    __trail = (__plain.match(/[ \t]*$/) || [""])[0].length;
+                } catch {}
+                const __lpad = Math.max(0, __trail + Math.max(0, __tw - __lvw));
                 buffer += `\x1b[${row + 1};1H\x1b[48;2;8;8;11m\x1b[2K${__ln}${__lpad > 0 ? "\x1b[48;2;8;8;11m" + " ".repeat(__lpad) : ""}\x1b[49m`;
             }
         }
