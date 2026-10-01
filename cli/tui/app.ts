@@ -3763,14 +3763,13 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           } else if (menuStack.length > 0) {
             runItem(it); // MENU 2.0: Enter executes (never navigates)
           } else {
-            const cmd: any = commands.find((c) => c.name === it.value);
-            if (cmd && typeof cmd.getArgumentCompletions === "function") {
-              menuStack = [cmd.name];
-              menuSubFilter = "";
+const cmd: any = commands.find((c) => c.name === it.value);
+            if (cmd) {
+              // MENU 2.0: Enter RUNS the command — it never opens its menu.
+              try { editor.setText(""); } catch {}
               menuSel = 0;
-              if (cmd.name === "settings") { try { fetchSettings(); fetchAllModels(); } catch {} }
-            } else if (cmd) {
-              runItem(it); // MENU 2.0: Enter executes
+              handleSlashRef?.("/" + cmd.name);
+              try { ui.requestRender(); } catch {}
             }
           }
         } else {
