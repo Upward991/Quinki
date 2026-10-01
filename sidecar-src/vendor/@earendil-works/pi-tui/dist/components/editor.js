@@ -409,6 +409,14 @@ export class Editor {
         const result = [];
         const leftPadding = " ".repeat(paddingX);
         const rightPadding = leftPadding;
+        // QUINKI PATCH (1 ott): chips row (armed skills / attachments) INSIDE the
+        // box, above the panel — remove with backspace like text.
+        try {
+            if (typeof this.qChipsFn === "function") {
+                const qc = String(this.qChipsFn(width - 2) ?? "");
+                if (qc) result.push(qEdge() + qPaint(qc) + qEdgeR());
+            }
+        } catch {}
         // Render top border (with scroll indicator if scrolled down)
         // QUINKI PATCH (25 set, iter6): floating-panel block — NO borders, full-width background.
         const qPaint = (raw) => {

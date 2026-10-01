@@ -690,6 +690,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     }
   }
   const pendingSkills: string[] = [];
+  const pendingAttachments: Array<{ path: string }> = [];
   const stopTurn = () => {
     if (scOn) {
       void sc.call("abort", { sessionKey: currentKey }, 15000).catch(() => {});
@@ -1437,6 +1438,26 @@ const readProvidersCfg = (): any => {
       },
     },
     {
+      name: "attach",
+      description: "Attach a file to the message",
+      seq: 9,
+      getArgumentCompletions: (prefix: string) => {
+        const items: any[] = [];
+        const p2 = prefix.trim();
+        try {
+          const fsc = require("fs");
+          const base2 = fsc.statSync(p2).isDirectory() ? p2 : currentCwd;
+          for (const n2 of fsc.readdirSync(base2).slice(0, 40)) {
+            if (n2.startsWith(".")) continue;
+            const full2 = require("path").join(base2, n2);
+            let isD2 = false; try { isD2 = fsc.statSync(full2).isDirectory(); } catch {}
+            items.push({ value: full2, label: (isD2 ? "\u25b8 " : "\u2b1a ") + n2, description: isD2 ? "folder" : "file" });
+          }
+        } catch {}
+        return p2 ? items.filter((i2: any) => String(i2.label).toLowerCase().includes(p2.toLowerCase())) : items;
+      },
+    },
+    {
       name: "skill",
       description: "Activate a skill",
       seq: 9,
@@ -1678,6 +1699,16 @@ const readProvidersCfg = (): any => {
   // Tab = toggle plan/build (app behaviour), intercepted at the TUI level.
   try {
     ui.addInputListener((data: string) => {
+      // Backspace with an EMPTY textbox = remove the last chip (skill/attachment),
+      // exactly like deleting text.
+      try {
+        if ((data === "\x7f" || data === "\x08" || matchesKey(data, "backspace")) && (pendingSkills.length || pendingAttachments.length) && !String(editor.getText() || "")) {
+          if (pendingAttachments.length) pendingAttachments.pop();
+          else if (pendingSkills.length) pendingSkills.pop();
+          try { ui.requestRender(); } catch {}
+          return { consume: true };
+        }
+      } catch {}
       // Trace EVERY input chunk (a ring of the last 25) so the exact bytes that
       // kill the CLI show up in the survive log.
       try {
@@ -2060,6 +2091,20 @@ const readProvidersCfg = (): any => {
     // RIGHT = violet accent (always lit).
     (editor as any).edgeFn = () => panelBgWrap(fg(mode === "plan" ? C.modePlan : C.modeBuild, "\u258f"));
     (editor as any).edgeRightFn = () => panelBgWrap(fg(C.primary, "\u2595")) + "\x1b[49m";
+    // LIVE chips INSIDE the box: armed skills + pending attachments (luminous bar).
+    (editor as any).qChipsFn = (w: number) => {
+      try {
+        const parts: string[] = [];
+        for (const sk2 of pendingSkills) parts.push(" \u25b8 " + sk2 + " \u2715 ");
+        for (const at2 of pendingAttachments) parts.push(" \u2b1a " + require("path").basename(String(at2.path)) + " \u2715 ");
+        if (!parts.length) return "";
+        let txt = parts.join(" ");
+        if (txt.length > w) txt = txt.slice(0, Math.max(0, w - 1)) + "\u2026";
+        const vis = txt.replace(/\x1b\[[0-9;]*m/g, "").length;
+        if (vis < w) txt += " ".repeat(w - vis);
+        return bg(C.primary, fg(C.bg, txt));
+      } catch { return ""; }
+    };
   } catch {}
   try {
     // Menu footer (two rows): left ← (back) / → (forward); right Esc (red,
@@ -3329,14 +3374,26 @@ const readProvidersCfg = (): any => {
         applyDirChange(target);
         break;
       }
+      case "attach": {
+        if (!arg) break;
+        const apath = path.resolve(String(arg));
+        try {
+          if (path.isAbsolute(String(arg)) || fs.existsSync(apath)) {
+            pendingAttachments.push({ path: apath });
+            try { ui.requestRender(); } catch {}
+          }
+        } catch {}
+        break;
+      }
       case "skill": {
         if (!arg) break;
         if (scOn) {
           // Live path: the skill rides the NEXT message (the app's chip flow).
           // The engine injects it into the system prompt, one-shot.
           pendingSkills.push(arg);
-          addRow(fg(C.primary, "\u25b8 skill armed \u00b7 " + arg + " \u00b7 sent with your next message"));
+          // The CHIP in the textbox is the only feedback (no chat toggle).
           refreshSkillGroups();
+          try { ui.requestRender(); } catch {}
           break;
         }
         try {
@@ -4585,6 +4642,8 @@ const applySettingsPatch = (patch: any) => {
       updateBar();
       const sk = currentKey;
       const skills = pendingSkills.splice(0);
+      const atts = pendingAttachments.splice(0);
+      try { ui.requestRender(); } catch {}
       const fail = (err: any) => {
         addRow(fg(C.danger, "\u25b8 error \u00b7 " + truncate(String(err?.message || err), 120)));
         streaming = false;
@@ -4603,6 +4662,7 @@ const applySettingsPatch = (patch: any) => {
               sessionKey: sk,
               text: t,
               ...(skills.length ? { skillNames: skills } : {}),
+              ...(atts.length ? { attachments: atts } : {}),
               // Only what the USER changed here: otherwise the session/app
               // defaults decide (no forced model, no forced thinking).
               ...(modelExplicit && wsModelId ? { model: wsModelId } : {}),
