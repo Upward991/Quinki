@@ -479,11 +479,11 @@ export class Editor {
         // QUINKI PATCH (25 set): OUR slash menu panel above the box (driven by menuLinesFn).
         if (typeof this.menuLinesFn === "function") {
             try {
-                const rows = this.menuLinesFn(width);
+                const rows = this.menuLinesFn(width - 2);
                 if (Array.isArray(rows) && rows.length > 0) {
                     // Visible separator line instead of an empty row (background applies
                     // normally AND the separation stays readable). Border colour #3a3a44.
-                    const acPadRow = " " + qPaint("\x1b[38;2;58;58;68m" + "\u2500".repeat(Math.max(1, width - 2)) + "\x1b[39m") + " ";
+                    const acPadRow = qPaint("\x1b[38;2;58;58;68m" + " " + "\u2500".repeat(Math.max(1, width - 4)) + " " + "\x1b[39m");
                     const acLines = [acPadRow];
                     for (const line of rows) {
                         const lws = visibleWidth(line);
