@@ -35,7 +35,7 @@ import {
   visibleWidth,
 } from "../../sidecar-src/vendor/@earendil-works/pi-tui/dist/index.js";
 
-import { C, fg, bg, bgKeepPanel, collapsed, counterColor, blend, bold, italicStyle } from "./theme";
+import { C, fg, bg, bgKeepPanel, collapsed, counterColor, blend, bold, italicStyle , panelBgWrap } from "./theme";
 
 // Engine (bundled at build time — literal specifiers only).
 import * as sdk from "../../sidecar-src/vendor/@earendil-works/pi-coding-agent/dist/index.js";
@@ -688,7 +688,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     // EXACT box layout: violet bar, TWO black columns, panel content, TWO black
     // columns, violet bar — same width as the composer, same margins.
     const L = fg(C.primary, "\u258f");
-    const R = fg(C.primary, "\u2595");
+    const R = panelBgWrap(fg(C.primary, "\u2595"));
     const tw = visibleWidth(t);
     const dw = visibleWidth(dir);
     let mid: string;
@@ -706,7 +706,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   // whole height, exactly like the composer box.
   const headerPad = new FnLine((w: number) => {
     const wc = Math.min(w, chatMaxCols());
-    return centerRow(w, fg(C.primary, "\u258f") + headerBg(" ".repeat(Math.max(0, wc - 2))) + fg(C.primary, "\u2595"), wc);
+    return centerRow(w, panelBgWrap(fg(C.primary, "\u258f")) + headerBg(" ".repeat(Math.max(0, wc - 2))) + panelBgWrap(fg(C.primary, "\u2595")), wc);
   });
   const header = new VStack([headerPad, titleText, headerPad] as any) as any;
   const setChatTitle = (title: string) => {
@@ -1901,7 +1901,7 @@ const readProvidersCfg = (): any => {
     // Thin edges on the box: LEFT = mode color (Plan pink / Build orange),
     // RIGHT = violet accent (always lit).
     (editor as any).edgeFn = () => fg(mode === "plan" ? C.modePlan : C.modeBuild, "\u258f");
-    (editor as any).edgeRightFn = () => fg(C.primary, "\u2595");
+    (editor as any).edgeRightFn = () => panelBgWrap(fg(C.primary, "\u2595"));
   } catch {}
   try {
     // Menu footer (two rows): left ← (back) / → (forward); right Esc (red,
