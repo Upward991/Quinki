@@ -192,10 +192,25 @@ export class TuiAltScreen extends TuiBase {
             const documentLines = this.render(width).map((line) => line.replace(OSC133_ZONE_PREFIX, ""));
             this.lastDocument = this.applyLineResets(documentLines.map((line) => line.replaceAll(CURSOR_MARKER, ""))).map((line) => (isImageLine(line) || visibleWidth(line) <= width ? line : sliceByColumn(line, 0, width, true)));
             let buffer = `${BEGIN_SYNCHRONIZED_OUTPUT}${EXIT_ALT_SCREEN}${DISABLE_AUTOWRAP}`;
-            for (let row = 0; row < this.lastDocument.length; row++) {
+            const __qTotalRows = Math.max(this.lastDocument.length, (typeof this.terminal.rows === "number" && this.terminal.rows > 0) ? this.terminal.rows : this.lastDocument.length);
+            for (let row = 0; row < __qTotalRows; row++) {
                 if (row > 0)
                     buffer += "\r\n";
-                buffer += `\r\x1b[2K${this.lastDocument[row] ?? ""}`;
+                {
+                    const __ln = this.lastDocument[row] ?? "";
+                    // The visible text with ANSI stripped: count the trailing spaces.
+                    // Those cells carried no colour (escape resets in between defeat
+                    // plain detection) -> overpaint them with bg-coloured spaces using
+                    // an absolute column jump. Bulletproof in every terminal.
+                    let __vis = "";
+                    try { __vis = __ln.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, "").replace(/\x1b\][^\x07]*\x07/g, ""); } catch { __vis = __ln; }
+                    const __t = (__vis.match(/[ \t]*$/) || [""])[0].length;
+                    let __pad = 0;
+                    try { __pad = Math.max(0, width - visibleWidth(__ln)); } catch { __pad = 0; }
+                    const __fix = __t + __pad;
+                    const __over = __fix > 0 ? `\x1b[${Math.max(1, width - __fix + 1)}G\x1b[48;2;8;8;11m${" ".repeat(__fix)}` : "";
+                    buffer += `\r\x1b[48;2;8;8;11m\x1b[2K${__ln}${__over}\x1b[49m`;
+                }
             }
             buffer += `\x1b[0m${ENABLE_AUTOWRAP}\r\n\x1b[?25h${END_SYNCHRONIZED_OUTPUT}`;
             this.terminal.write(buffer);
@@ -1175,7 +1190,21 @@ export class TuiAltScreen extends TuiBase {
         for (let row = 0; row < height; row++) {
             if (!fullRedraw && !imagesNeedRedraw && screen[row] === this.previousScreen[row])
                 continue;
-            buffer += `\x1b[${row + 1};1H\x1b[2K${preparedKittyScreen.lines[row] ?? ""}`;
+            {
+                const __ln = preparedKittyScreen.lines[row] ?? "";
+                let __vis = "";
+                try { __vis = __ln.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, "").replace(/\x1b\][^\x07]*\x07/g, ""); } catch { __vis = __ln; }
+                // Paint the background ONLY behind rows with visible content.
+                // Empty rows are the UI spacers (menu gaps): they stay transparent
+                // and use the terminal's own background.
+                if (__vis.trim().length === 0) {
+                    buffer += `\x1b[${row + 1};1H\x1b[2K`;
+                } else {
+                    const __t = (__vis.match(/[ \t]*$/) || [""])[0].length;
+                    const __over = __t > 0 ? `\x1b[${Math.max(1, width - __t + 1)}G\x1b[48;2;8;8;11m${" ".repeat(__t)}` : "";
+                    buffer += `\x1b[${row + 1};1H\x1b[48;2;8;8;11m\x1b[2K${__ln}${__over}\x1b[49m`;
+                }
+            }
         }
         if (cursorPos) {
             buffer += `\x1b[${cursorPos.row + 1};${Math.min(width, cursorPos.col) + 1}H`;
