@@ -1092,24 +1092,36 @@ const readProvidersCfg = (): any => {
     } catch {}
   };
   const settingsMenuItems = (): any[] => {
+    const thM = String(wsSettings?.defaultThinkingLevel || readProvidersCfg().defaultThinking || "xhigh");
+    const fbM = (Array.isArray(wsSettings?.defaultFallbackModels) ? wsSettings.defaultFallbackModels : []).length;
     return [
-      { value: "defaults", label: "Global defaults", description: String(wsSettings?.defaultModel || "") },
-        { value: "attachments", label: "Attachments storage", description: "Where files live" },
-        { value: "providers", label: "Providers", description: "API keys, models" },
-      { value: "version", label: "Version", description: "Build info" },
+      { value: "model", label: "Default model", description: String((readProvidersCfg().defaultModel) || defaultModelId || "") },
+      { value: "fallbacks", label: "Fallback models", description: fbM + " configured" },
+      { value: "thinking", label: "Thinking", description: thM === "off" ? "Off" : "On" },
+      { value: "attachments", label: "Attachments folder", description: "~/.quinki/attachments" },
+      { value: "providers", label: "Providers", description: "API keys, models" },
     ];
   };
   const settingsLevelItems = (stack: string[]): any[] => {
   const lv = stack[1];
-  if (lv === "defaults") {
+  if (lv === "model") return modelPickerItems(String(readProvidersCfg().defaultModel || defaultModelId || ""));
+  if (lv === "fallbacks" || lv === "thinking" || lv === "defaults") {
     const lastLv = stack[stack.length - 1];
+    if (lv === "thinking" || stack[2] === "thinking") {
+      const thX = String(wsSettings?.defaultThinkingLevel || readProvidersCfg().defaultThinking || "xhigh");
+      const isOffX = thX === "off";
+      return [
+        { value: "on", label: (isOffX ? "\u25cb " : "\u25cf ") + "On", description: "Always the maximum level" },
+        { value: "off", label: (isOffX ? "\u25cf " : "\u25cb ") + "Off", description: "Thinking disabled" },
+      ];
+    }
     if (stack[2] === "model") return modelPickerItems(String(readProvidersCfg().defaultModel || defaultModelId || ""));
     if (lastLv === "addfallback") return modelPickerItems("", (Array.isArray(wsSettings?.defaultFallbackModels) ? wsSettings.defaultFallbackModels : []));
     const fbFromFile = (): any[] => {
       try { const ff = readSettingsFile().defaultFallbackModels; if (Array.isArray(ff)) return ff; } catch {}
       return Array.isArray(wsSettings?.defaultFallbackModels) ? wsSettings.defaultFallbackModels : [];
     };
-    if (stack[2] === "fallbacks") {
+    if (lv === "fallbacks" || stack[2] === "fallbacks") {
       // FULL model list: Space selects the fallbacks; the selection order IS the
       // fallback order (1., 2., 3. ...). Deselect -> the rest re-rank.
       const list = modelPickerItemsList();
@@ -4108,7 +4120,8 @@ const cmd: any = commands.find((c) => c.name === it.value);
   const settingsDeeper = (it: any): string | null => {
   const lv = menuStack[1] || "", sub = menuStack[2] || "", sub3 = menuStack[3] || "";
   const v = String(it?.value || "");
-  if (!lv) return ["defaults", "attachments", "providers", "version"].includes(v) ? v : null;
+  if (!lv) return ["model", "fallbacks", "thinking", "providers", "defaults"].includes(v) ? v : null;
+  if (lv === "fallbacks" && v === "__addfallback") return "addfallback";
   if (lv === "defaults" && !sub) return (v === "model" || v === "fallbacks" || v === "thinking") ? v : null;
   if (lv === "defaults" && sub === "fallbacks" && v === "__addfallback") return "addfallback";
   if (lv === "providers" && !sub) return (v.startsWith("prov:") || v === "__addprov") ? v : null;
@@ -4120,6 +4133,46 @@ const cmd: any = commands.find((c) => c.name === it.value);
   const lv = menuStack[1] || "";
   const sub = menuStack[2] || "";
   const sub3 = menuStack[3] || "";
+  if (lv === "attachments") {
+    // Enter on the Attachments row = open the folder directly (like the app's
+    // Open button). Cross-platform spawn, detached.
+    try {
+      const fsA = require("fs"), pathA = require("path"), osA = require("os");
+      const baseA = pathA.join(osA.homedir(), ".quinki", "attachments");
+      try { fsA.mkdirSync(baseA, { recursive: true }); } catch {}
+      const cpA = require("child_process");
+      const opener = process.platform === "darwin" ? "open" : (process.platform === "win32" ? "explorer" : "xdg-open");
+      try { cpA.spawn(opener, [baseA], { detached: true, stdio: "ignore" }).unref(); } catch {}
+    } catch {}
+    return;
+  }
+  if (lv === "model") {
+    if (value && !value.startsWith("__")) {
+      applySettingsPatch({ defaultModel: value });
+      try {
+        const cfg = readProvidersCfg();
+        cfg.defaultModel = value;
+        const call = (globalThis as any).__sidecarCall;
+        if (call) call('setProvidersConfig', cfg).catch(() => {});
+        defaultModelId = value;
+      } catch {}
+    }
+    return;
+  }
+  if (lv === "thinking") {
+    const thA = String(wsSettings?.defaultThinkingLevel || "xhigh");
+    applySettingsPatch({ defaultThinkingLevel: thA === "off" ? "xhigh" : "off" });
+    return;
+  }
+  if (lv === "fallbacks") {
+    if (value.startsWith("fb:")) {
+      const idA = value.slice(3);
+      const curA = (Array.isArray(wsSettings?.defaultFallbackModels) ? wsSettings.defaultFallbackModels : []).filter((x: any) => String(x) !== idA);
+      try { const call = (globalThis as any).__sidecarCall; if (call) call('setDefaultFallbacks', { fallbacks: curA }).catch(() => {}); } catch {}
+      wsSettings = { ...(wsSettings || {}), defaultFallbackModels: curA };
+    }
+    return;
+  }
   if (lv === "defaults") {
     if (sub === "thinking") {
       const th = String(wsSettings?.defaultThinkingLevel || "xhigh");
