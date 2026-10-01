@@ -3639,9 +3639,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     if (sub === "model") { if (value && !value.startsWith("__")) applySettingsPatch({ defaultModel: value }); return; }
     if (sub === "addfallback") {
       if (value && !value.startsWith("__")) {
-        try { const call = (globalThis as any).__sidecarCall; if (call) call('setDefaultFallbacks', { fallbacks: value }).catch(() => {}); } catch {}
         const cur = Array.isArray(wsSettings?.fallbackModels) ? wsSettings.fallbackModels.slice() : [];
         if (!cur.includes(value)) cur.push(value);
+        try { const call = (globalThis as any).__sidecarCall; if (call) call('setDefaultFallbacks', { fallbacks: cur }).catch(() => {}); } catch {}
         wsSettings = { ...(wsSettings || {}), fallbackModels: cur };
         menuStack = ["settings", "defaults", "fallbacks"]; menuSubFilter = ""; menuSel = 0;
       }
@@ -3650,7 +3650,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     if (sub === "fallbacks" && value.startsWith("fb:")) {
       const id = value.slice(3);
       const cur = (Array.isArray(wsSettings?.fallbackModels) ? wsSettings.fallbackModels : []).filter((x: any) => String(x) !== id);
-      try { const call = (globalThis as any).__sidecarCall; if (call) call('setDefaultFallbacks', { fallbacks: cur.join(",") }).catch(() => {}); } catch {}
+      try { const call = (globalThis as any).__sidecarCall; if (call) call('setDefaultFallbacks', { fallbacks: cur }).catch(() => {}); } catch {}
       wsSettings = { ...(wsSettings || {}), fallbackModels: cur };
       return;
     }
