@@ -1120,12 +1120,18 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     const name = String(stack[2]).replace(/^prov:/, "");
     const p = ((cfg.providers || {})[name]) || {};
     if (stack[3] === "models") {
-      fetchAllModels(); // the FULL catalog of every provider (like the app's getModels)
+      fetchAllModels();
+      // The FULL provider catalog (same RPC the app uses: OpenRouter /api/v1/models etc.)
+      fetchProviderCatalog(name, String(p.baseUrl || ""), String(p.apiKey || ""));
       const seen: Record<string, any> = {};
       const all: any[] = [];
       for (const mm of (p.modelData || [])) { const id = String(mm?.id || ""); if (id && !seen[id]) { seen[id] = 1; all.push(mm); } }
       for (const mm of wsAllModels) {
         if (String(mm?.provider || "") !== name) continue;
+        const id = String(mm?.id || "");
+        if (id && !seen[id]) { seen[id] = 1; all.push(mm); }
+      }
+      for (const mm of (wsProviderModels[name] || [])) {
         const id = String(mm?.id || "");
         if (id && !seen[id]) { seen[id] = 1; all.push(mm); }
       }
@@ -3630,6 +3636,20 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     }
     return out;
   };
+  let wsProviderModels: Record<string, any[]> = {};
+  let wsProviderAt: Record<string, number> = {};
+  const fetchProviderCatalog = (name: string, baseUrl: string, apiKey: string) => {
+    try {
+      if (!name) return;
+      if (Date.now() - (wsProviderAt[name] || 0) < 30000 && (wsProviderModels[name] || []).length > 0) return;
+      wsProviderAt[name] = Date.now();
+      void sc.call('fetchProviderModels', { providerName: name, baseUrl: baseUrl || '', apiKey: apiKey || '' }, 45000).then((r: any) => {
+        const list = Array.isArray(r) ? r : (Array.isArray(r?.models) ? r.models : ((r && r.data && Array.isArray(r.data)) ? r.data : []));
+        if (list.length > 0) { wsProviderModels[name] = list.map((x: any) => (typeof x === 'string' ? { id: x } : x)); try { ui.requestRender(); } catch {} }
+      }).catch(() => {});
+    } catch {}
+  };
+
   let wsAllModels: any[] = [];
   let wsAllModelsAt = 0;
   const fetchAllModels = (force: boolean = false) => {
