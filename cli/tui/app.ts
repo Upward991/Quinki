@@ -1093,11 +1093,13 @@ const readProvidersCfg = (): any => {
   };
   const settingsMenuItems = (): any[] => {
     const thM = String(wsSettings?.defaultThinkingLevel || readProvidersCfg().defaultThinking || "xhigh");
-    const fbM = (Array.isArray(wsSettings?.defaultFallbackModels) ? wsSettings.defaultFallbackModels : []).length;
+    let fbM = 0;
+    try { const ff = readSettingsFile().defaultFallbackModels; if (Array.isArray(ff)) fbM = ff.length; } catch {}
+    if (!fbM && Array.isArray(wsSettings?.defaultFallbackModels)) fbM = wsSettings.defaultFallbackModels.length;
     return [
       { value: "model", label: "Default model", description: String((readProvidersCfg().defaultModel) || defaultModelId || "") },
       { value: "fallbacks", label: "Fallback models", description: fbM + " configured" },
-      { value: "thinking", label: "Thinking", description: thM === "off" ? "Off" : "On" },
+      { value: "thinking", label: "Default thinking", description: thM === "off" ? "Off" : "On" },
       { value: "attachments", label: "Attachments folder", description: "~/.quinki/attachments" },
       { value: "providers", label: "Providers", description: "API keys, models" },
     ];
@@ -1160,17 +1162,11 @@ const readProvidersCfg = (): any => {
   }
   if (lv === "providers" && stack[3] === "delprov") {
     const nm = String(stack[2] || "").replace(/^prov:/, "");
-    return [
-      { value: "delno", label: "Keep", description: "go back" },
-      { value: "confirm", label: "", notice: "Delete provider \u201c" + nm + "\u201d? Its models and saved keys will be removed. (Enter to confirm)" },
-    ];
+    return [{ value: "confirm", label: "", notice: "Delete provider \u201c" + nm + "\u201d? Its models and saved keys will be removed." }];
   }
   if (lv === "providers" && stack[3] === "logout") {
     const nm2 = String(stack[2] || "").replace(/^prov:/, "");
-    return [
-      { value: "lgno", label: "Keep", description: "go back" },
-      { value: "confirm", label: "", notice: "Sign out of " + nm2 + "? (Enter to confirm)" },
-    ];
+    return [{ value: "confirm", label: "", notice: "Sign out of " + nm2 + "?" }];
   }
   if (lv === "attachments") {
     let files = 0, bytes = 0;
