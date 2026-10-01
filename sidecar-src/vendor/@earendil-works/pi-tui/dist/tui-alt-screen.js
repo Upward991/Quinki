@@ -1181,9 +1181,12 @@ export class TuiAltScreen extends TuiBase {
                 // repainted with the base background (that punched holes in the
                 // menu). The plain [2K fill + per-row bg is enough.
                 const __ln = preparedKittyScreen.lines[row] ?? "";
-                // 2K clears BEFORE the content, K fills whatever the line did not
-                // cover (panel rows leave a tail on the right): always bg-coloured.
-                buffer += `\x1b[${row + 1};1H\x1b[48;2;8;8;11m\x1b[2K${__ln}\x1b[48;2;8;8;11m\x1b[K\x1b[49m`;
+                // 2K clears BEFORE the content; explicit bg-coloured padding fills
+                // the rest of the width (panel rows leave a plain tail otherwise).
+                let __lvw = 0;
+                try { __lvw = visibleWidth(__ln); } catch { __lvw = 0; }
+                const __lpad = Math.max(0, width - __lvw);
+                buffer += `\x1b[${row + 1};1H\x1b[48;2;8;8;11m\x1b[2K${__ln}${__lpad > 0 ? "\x1b[48;2;8;8;11m" + " ".repeat(__lpad) : ""}\x1b[49m`;
             }
         }
         if (cursorPos) {
