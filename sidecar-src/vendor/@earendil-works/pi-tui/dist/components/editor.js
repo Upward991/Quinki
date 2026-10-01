@@ -479,7 +479,7 @@ export class Editor {
         // QUINKI PATCH (25 set): OUR slash menu panel above the box (driven by menuLinesFn).
         if (typeof this.menuLinesFn === "function") {
             try {
-                const rows = this.menuLinesFn(contentWidth);
+                const rows = this.menuLinesFn(width - 2);
                 if (Array.isArray(rows) && rows.length > 0) {
                     // Solid panel rows, exactly the box width (no empty rows around).
                     // NOTE: whitespace-only strings get dropped by the renderer, so the
