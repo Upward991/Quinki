@@ -1775,7 +1775,7 @@ const readProvidersCfg = (): any => {
       // under the heading, one above the text box, one between the box and the
       // hint row.
       const blank = () => new FnLine(() => " ");
-      const root = welcome
+      const root = (welcome && !QEXPERT)
         ? new WelcomeRoot(boxWrap, hintWrap, () => (ui as any)?.terminal?.rows || 24)
         : new VStack([
             { component: headerWrap, basis: "auto", grow: 0, shrink: 0, minSize: 1 },
