@@ -3740,8 +3740,24 @@ const readProvidersCfg = (): any => {
       return;
     }
     if (stack.length === 2 && stack[1] === "#add") {
-      // Added: back to the previous menu, where the agent now appears.
-      addAgentToSession(value);
+      // CONFIRM: save the selected agents (dot order) — the clicked row included.
+      const sel = Array.from(menuMarked);
+      if (value && !value.startsWith("#") && !sel.includes(value)) sel.push(value);
+      if (sel.length) {
+        const fin = sel.filter((x) => agentIdsKnown().includes(x));
+        if (fin.length) {
+          if (scOn) {
+            const cur = sessionAgentIds();
+            const merged = [...cur];
+            for (const a of fin) if (!merged.includes(a)) merged.push(a);
+            void sc.call("setChatAgents", { sessionKey: currentKey, agentIds: merged.join(",") }, 20000).catch(() => {});
+          } else {
+            try { mutateSessionEntry((e: any) => { const cur = sessionAgentIds(); const merged = [...cur]; for (const a of fin) if (!merged.includes(a)) merged.push(a); e.agentId = merged.join(","); }); } catch {}
+          }
+          try { refreshSessions(); } catch {}
+        }
+      }
+      menuMarked = new Set<string>();
       menuStack = ["agentinsession"];
       menuSubFilter = "";
       menuSel = 0;
@@ -3882,12 +3898,11 @@ const readProvidersCfg = (): any => {
       }
       if (menuStack[0] === "agentinsession") {
         if (menuStack[1] === "#add") {
-          // MULTI-SELECT: Tab toggles the dot (add/remove many agents at once) and
-          // saves right away — the dot order is the selection order.
+          // SELECT first (Tab marks the dots), the CONFIRM (Enter) saves — the dot
+          // order is the selection order.
           const vSel = String(it.value ?? "");
           if (vSel && !vSel.startsWith("#")) {
             if (menuMarked.has(vSel)) menuMarked.delete(vSel); else menuMarked.add(vSel);
-            toggleAgentInSession(vSel);
           }
           try { ui.requestRender(); } catch {}
           return;
@@ -3963,7 +3978,10 @@ const readProvidersCfg = (): any => {
 
     try {
 
-      if (menuStack[0] === "agentinsession") return !agentLevelFor(cur);
+      if (menuStack[0] === "agentinsession") {
+        if (menuStack[1] === "#add") return menuMarked.size > 0; // Confirm appears after the Select
+        return !agentLevelFor(cur);
+      }
 
       if (menuStack[0] === "settings") {
 
@@ -4643,7 +4661,7 @@ const applySettingsPatch = (patch: any) => {
       const canUD = nSelectable > 1;
       const AR = (ok: boolean, ch: string) => ok ? bold(fg(C.primary, ch)) : fg(C.textTertiary, ch);
       const left = AR(canUD, "\u2191") + " " + AR(canUD, "\u2193") + "  " + AR(canBack, "\u2190") + " " + AR(canFwd, "\u2192");
-      const hasMulti = (menuStack[0] === "model" || menuStack[0] === "thinking") || (menuStack[0] === "settings" && (menuStack[3] === "models" || menuStack[1] === "model" || menuStack[1] === "fallbacks" || menuStack[1] === "thinking" || (menuStack[1] === "defaults" && (menuStack[2] === "fallbacks" || menuStack[2] === "model" || menuStack[2] === "thinking")) || (menuStack[1] === "providers" && !menuStack[2])));
+      const hasMulti = (menuStack[0] === "model" || menuStack[0] === "thinking" || menuStack[0] === "agentinsession") || (menuStack[0] === "settings" && (menuStack[3] === "models" || menuStack[1] === "model" || menuStack[1] === "fallbacks" || menuStack[1] === "thinking" || (menuStack[1] === "defaults" && (menuStack[2] === "fallbacks" || menuStack[2] === "model" || menuStack[2] === "thinking")) || (menuStack[1] === "providers" && !menuStack[2])));
       // Confirm appears ONLY when the highlighted option actually RUNS something
       // (navigation items and read-only pages do not show it).
       let needsConfirm = menuConfirmFocus;
