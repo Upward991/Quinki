@@ -166,7 +166,7 @@ export class TuiAltScreen extends TuiBase {
             term.startsWith("screen")
             ? ENABLE_BUTTON_MOTION_MOUSE
             : ENABLE_ALL_MOTION_MOUSE;
-        this.terminal.write(`${ENTER_ALT_SCREEN}${DISABLE_AUTOWRAP}${this.mouseEnabled ? mouseSequence : ""}\x1b[48;2;8;8;11m\x1b[2J\x1b[H\x1b[?25l`);
+        this.terminal.write(`${ENTER_ALT_SCREEN}${DISABLE_AUTOWRAP}${this.mouseEnabled ? mouseSequence : ""}\x1b[2J\x1b[H\x1b[?25l`);
     }
     beforeTerminalStop(_options) {
         this.closeSearch();
@@ -1163,11 +1163,11 @@ export class TuiAltScreen extends TuiBase {
             const clearImages = this.imageProtocol === "kitty" && hadUploadedKittyImages
                 ? deleteAllKittyPlacements()
                 : this.deleteKittyImages();
-            buffer += `${clearImages}\x1b[48;2;8;8;11m\x1b[2J`;
+            buffer += `${clearImages}\x1b[2J`;
         }
         else if (imagesNeedRedraw) {
             if (this.imageProtocol === "iterm2")
-                buffer += "\x1b[48;2;8;8;11m\x1b[2J";
+                buffer += "\x1b[2J";
             else if (this.imageProtocol === "kitty")
                 buffer += deleteAllKittyPlacements();
         }
@@ -1175,26 +1175,7 @@ export class TuiAltScreen extends TuiBase {
         for (let row = 0; row < height; row++) {
             if (!fullRedraw && !imagesNeedRedraw && screen[row] === this.previousScreen[row])
                 continue;
-            {
-                const __ln = preparedKittyScreen.lines[row] ?? "";
-                // tmux-proof: paint EVERY row explicitly with the page colour and
-                // overpaint the line's trailing cells (client-side drawing: no
-                // reliance on OSC 11, which tmux defers to the next client).
-                let __lvw = 0;
-                try { __lvw = visibleWidth(__ln); } catch { __lvw = 0; }
-                let __tw = width;
-                try { if (this.terminal && this.terminal.columns) __tw = this.terminal.columns; } catch {}
-                let __trail = 0;
-                try {
-                    const __plain = __ln.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, "").replace(/\x1b\][^\x07]*\x07/g, "");
-                    __trail = (__plain.match(/[ \t]*$/) || [""])[0].length;
-                } catch {}
-                const __lpad = Math.max(0, __trail + Math.max(0, __tw - __lvw));
-                const __padSeq = __lpad > 0
-                    ? `\x1b[${Math.max(1, __tw - __lpad + 1)}G\x1b[48;2;8;8;11m${" ".repeat(__lpad)}`
-                    : "";
-                buffer += `\x1b[${row + 1};1H\x1b[48;2;8;8;11m\x1b[2K${__ln}${__padSeq}\x1b[49m`;
-            }
+            buffer += `\x1b[${row + 1};1H\x1b[2K${preparedKittyScreen.lines[row] ?? ""}`;
         }
         if (cursorPos) {
             buffer += `\x1b[${cursorPos.row + 1};${Math.min(width, cursorPos.col) + 1}H`;

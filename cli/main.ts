@@ -76,6 +76,14 @@ if (process.stdout.isTTY && !process.env.QUINKI_CLI_NO_BG) {
     } catch {}
   };
   termWrite("\x1b]11;#08080b\x07");
+  // tmux defers OSC 11 to the next client: deliver it straight to the REAL
+  // terminal behind tmux via the DCS passthrough (no painting, just asking).
+  try {
+    if (process.env.TMUX) {
+      const osc = "\x1b]11;#08080b\x07";
+      termWrite("\x1bPtmux;\x1b" + osc + "\x1b\\");
+    }
+  } catch {}
   termWrite("\x1b]2;quinki\x07");
   const restore = () => termWrite("\x1b]111\x07");
   process.on("exit", restore);
