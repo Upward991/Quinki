@@ -1582,6 +1582,20 @@ const readProvidersCfg = (): any => {
   // Tab = toggle plan/build (app behaviour), intercepted at the TUI level.
   try {
     ui.addInputListener((data: string) => {
+      // Trace + filter: terminal FOCUS sequences (\x1b[I / \x1b[O) arrive when
+      // the app window closes and must NEVER be treated as keys (they were
+      // confirming the /quit notice and killing the CLI).
+      try {
+        if (typeof data === "string" && data.includes("\x1b[")) {
+          if (data.includes("\x1b[I") || data.includes("\x1b[O")) {
+            try { require("fs").appendFileSync("/tmp/q-cli-survive.log", "filtered focus seq: " + JSON.stringify(data) + "\n"); } catch {}
+            const cleaned = data.replace(/\x1b\[I|\x1b\[O/g, "");
+            if (cleaned.length === 0) return { consume: true } as any;
+            data = cleaned;
+            return { data };
+          }
+        }
+      } catch {}
       // Escape sequences can be SPLIT across reads ("\x1b[1;1" then "C…"): hold
       // an unfinished tail (ESC + "[…") and prepend it to the next read, so the
       // arrow is recognized on its FIRST press (a lone ESC key stays untouched).
