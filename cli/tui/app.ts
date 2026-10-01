@@ -1582,6 +1582,15 @@ const readProvidersCfg = (): any => {
   // Tab = toggle plan/build (app behaviour), intercepted at the TUI level.
   try {
     ui.addInputListener((data: string) => {
+      // Trace EVERY input chunk (a ring of the last 25) so the exact bytes that
+      // kill the CLI show up in the survive log.
+      try {
+        const gv: any = globalThis as any;
+        gv.__qInputRing = gv.__qInputRing || [];
+        gv.__qInputRing.push({ t: Date.now(), d: JSON.stringify(String(data)).slice(0, 120) });
+        if (gv.__qInputRing.length > 25) gv.__qInputRing.shift();
+        try { require("fs").writeFileSync("/tmp/q-cli-input-ring.json", JSON.stringify(gv.__qInputRing, null, 1)); } catch {}
+      } catch {}
       // Trace + filter: terminal FOCUS sequences (\x1b[I / \x1b[O) arrive when
       // the app window closes and must NEVER be treated as keys (they were
       // confirming the /quit notice and killing the CLI).
