@@ -1458,6 +1458,36 @@ const readProvidersCfg = (): any => {
       },
     },
     {
+      name: "attachments",
+      description: "Session attachments: open folder or re-attach",
+      seq: 9,
+      getArgumentCompletions: () => {
+        const items: any[] = [];
+        const sdir = path.join(os.homedir(), ".quinki", "attachments", String(currentKey || ""));
+        try {
+          items.push({ value: "__at_open", label: "Open attachments folder", description: sdir.replace(os.homedir(), "~") });
+          items.push({ value: "__at_sep", label: "", separator: true });
+          const fsc = require("fs");
+          const files: Array<{ n: string; m: number }> = [];
+          for (const n of fsc.readdirSync(sdir)) {
+            try {
+              const st = fsc.statSync(path.join(sdir, n));
+              if (st.isFile()) files.push({ n, m: st.mtimeMs });
+            } catch {}
+          }
+          files.sort((a, b) => b.m - a.m);
+          if (!files.length) items.push({ value: "__at_none", label: "No attachments yet", description: "send one with /attach" });
+          for (const f of files) {
+            const full = path.join(sdir, f.n);
+            items.push({ value: "__at_file:" + full, label: f.n, description: "Enter: attach it again" });
+          }
+        } catch {
+          items.push({ value: "__at_open", label: "Open attachments folder", description: sdir.replace(os.homedir(), "~") });
+        }
+        return items;
+      },
+    },
+    {
       name: "skill",
       description: "Activate a skill",
       seq: 9,
@@ -3374,6 +3404,24 @@ const readProvidersCfg = (): any => {
         applyDirChange(target);
         break;
       }
+      case "attachments": {
+        const aArg = String(arg || "");
+        if (aArg === "__at_open") {
+          const sdir2 = path.join(os.homedir(), ".quinki", "attachments", String(currentKey || ""));
+          try { require("fs").mkdirSync(sdir2, { recursive: true }); } catch {}
+          openFolder(sdir2);
+          break;
+        }
+        if (aArg.startsWith("__at_file:")) {
+          // Re-attach: the chip appears in the textbox, the next message carries it.
+          const fp = aArg.slice(10);
+          try {
+            if (fs.existsSync(fp)) { pendingAttachments.push({ path: fp }); try { ui.requestRender(); } catch {} }
+          } catch {}
+          break;
+        }
+        break;
+      }
       case "attach": {
         if (!arg) break;
         const apath = path.resolve(String(arg));
@@ -3834,6 +3882,19 @@ const readProvidersCfg = (): any => {
       }
       if (menuStack.length > 0) {
         const cmdName = menuStack[0];
+        if (cmdName === "attachments") {
+          const vA = String(it.value ?? "");
+          if (vA.startsWith("__at_file:")) {
+            const fpA = vA.slice(10);
+            try { if (fs.existsSync(fpA)) { pendingAttachments.push({ path: fpA }); } } catch {}
+          } else if (vA === "__at_open") {
+            const sdir3 = path.join(os.homedir(), ".quinki", "attachments", String(currentKey || ""));
+            try { require("fs").mkdirSync(sdir3, { recursive: true }); } catch {}
+            openFolder(sdir3);
+          }
+          try { ui.requestRender(); } catch {}
+          return;
+        }
         if (cmdName === "directory") {
           // Tab on a history row = use that folder again (the dot moves, menu stays).
           const vD = String(it.value ?? "");
