@@ -308,11 +308,12 @@ function fmtTok(n: number): string {
 
 function fmtWhen(ms: number): string {
   try {
-    const d = new Date(ms || 0);
-    return `${d.getDate()}/${d.getMonth() + 1} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-  } catch {
-    return "";
-  }
+    if (!ms) return "";
+    const d = new Date(Number(ms));
+    const M = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const p2 = (n: number) => String(n).padStart(2, "0");
+    return d.getDate() + " " + M[d.getMonth()] + " \u00b7 " + p2(d.getHours()) + ":" + p2(d.getMinutes()) + ":" + p2(d.getSeconds());
+  } catch { return ""; }
 }
 
 /** Word-wrap a plain (ANSI-free) string to a visible width. */
@@ -1332,7 +1333,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
               ts = lastMsgTs(path.join(opts.agentDir, "sessions", "quinki", k));
             } catch {}
             if (!ts) ts = Number(s?.lastActivity) || Number(s?.createdAt) || 0;
-            items.push({ value: k, label: String(s?.label || k), description: "chat \u00b7 " + fmtWhen(ts), ts });
+            items.push({ value: k, label: String(s?.label || k), description: fmtWhen(ts), ts });
           }
           items.sort((a: any, b: any) => (b.ts || 0) - (a.ts || 0));
           for (const it of items) delete it.ts;
@@ -1356,7 +1357,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
                 ts = lastMsgTs(path.join(opts.agentDir, "sessions", "quinki", k));
               } catch {}
               if (!ts) ts = ts0;
-              items.push({ value: k, label: labels[k] || k, description: "chat \u00b7 " + fmtWhen(ts), ts });
+              items.push({ value: k, label: labels[k] || k, description: fmtWhen(ts), ts });
             }
           }
         } catch {}
