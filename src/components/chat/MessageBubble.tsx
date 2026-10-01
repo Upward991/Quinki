@@ -316,7 +316,7 @@ function MarkdownContent({ text, isError, searchQuery, activeOcc }: { text: stri
           code: ({ children, className }) => {
             // If has className (inside pre/code block), render the code text with highlight
             if (className) {
-              return <code className={className} style={{ fontFamily: 'var(--font-code)', fontSize: '13px', lineHeight: 1.6 }}>{children}</code>
+              return <code className={className} style={{ fontFamily: 'var(--font-code)', fontSize: '13px', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere', display: 'block' }}>{children}</code>
             }
             // Inline code
             return <code style={{ backgroundColor: 'var(--q-bg-code)', padding: '2px 6px', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-code)', fontSize: '13px', color: 'var(--q-text)' }}>{children}</code>
