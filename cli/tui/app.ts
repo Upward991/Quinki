@@ -1196,7 +1196,8 @@ const readProvidersCfg = (): any => {
           for (const mm of wsAllModels) { if (String(mm?.provider || "") !== name) continue; const id = String(mm?.id || ""); if (id) seenT[id] = 1; }
           for (const mm of (wsProviderModels[name] || [])) { const id = String(mm?.id || ""); if (id) seenT[id] = 1; }
           provTotal = Object.keys(seenT).length;
-          if (provTotal === 0) { try { fetchProviderCatalog(name, String(p.baseUrl || ""), ""); } catch {} }
+          // Always refresh: the local modelData may be a tiny stale subset (2 vs 400).
+          try { fetchProviderCatalog(name, String(p.baseUrl || ""), ""); } catch {}
         } catch {}
         out.push({
           value: "prov:" + name,
@@ -3779,9 +3780,9 @@ const readProvidersCfg = (): any => {
         const its: any = menuItemsCache || [];
         const it: any = its[menuSel];
         const inModels = menuStack[0] === "settings" && menuStack[3] === "models";
-        const inFallbacks = menuStack[0] === "settings" && menuStack[1] === "defaults" && menuStack[2] === "fallbacks";
+        const inFallbacks = menuStack[0] === "settings" && (menuStack[1] === "fallbacks" || (menuStack[1] === "defaults" && menuStack[2] === "fallbacks"));
         const inProviders = menuStack[0] === "settings" && menuStack[1] === "providers" && !menuStack[2];
-        if (menuStack[0] === "settings" && menuStack[1] === "defaults" && menuStack[2] === "thinking" && it && !it.separator) {
+        if (menuStack[0] === "settings" && (menuStack[1] === "thinking" || (menuStack[1] === "defaults" && menuStack[2] === "thinking")) && !menuStack[2] !== false && it && !it.separator) {
           const on = String(it.value) === "on";
           applySettingsPatch({ defaultThinkingLevel: on ? "xhigh" : "off" });
           try { ui.requestRender(); } catch {}
@@ -3795,7 +3796,7 @@ const readProvidersCfg = (): any => {
           return;
         }
         // MENU 2.0: Tab acts on value-pickers too (model / thinking choices).
-        const inSettingsModel = menuStack[0] === "settings" && menuStack[1] === "defaults" && menuStack[2] === "model";
+        const inSettingsModel = menuStack[0] === "settings" && ((menuStack[1] === "model" && !menuStack[2]) || (menuStack[1] === "defaults" && menuStack[2] === "model"));
         const inAgentPick = menuStack[0] === "agentinsession" && String(menuStack[2] || "").match(/^(model|thinking)$/);
         const inCliModel = menuStack[0] === "model";
         if (inSettingsModel && it && !it.separator && String(it.value || "") && !String(it.value).startsWith("__")) {
@@ -4411,7 +4412,7 @@ const applySettingsPatch = (patch: any) => {
       const canUD = nSelectable > 1;
       const AR = (ok: boolean, ch: string) => ok ? bold(fg(C.primary, ch)) : fg(C.textTertiary, ch);
       const left = AR(canUD, "\u2191") + " " + AR(canUD, "\u2193") + "  " + AR(canBack, "\u2190") + " " + AR(canFwd, "\u2192");
-      const hasMulti = (menuStack[0] === "model" || menuStack[0] === "thinking") || (menuStack[0] === "settings" && (menuStack[3] === "models" || (menuStack[1] === "defaults" && (menuStack[2] === "fallbacks" || menuStack[2] === "model" || menuStack[2] === "thinking")) || (menuStack[1] === "providers" && !menuStack[2])));
+      const hasMulti = (menuStack[0] === "model" || menuStack[0] === "thinking") || (menuStack[0] === "settings" && (menuStack[3] === "models" || menuStack[1] === "model" || menuStack[1] === "fallbacks" || menuStack[1] === "thinking" || (menuStack[1] === "defaults" && (menuStack[2] === "fallbacks" || menuStack[2] === "model" || menuStack[2] === "thinking")) || (menuStack[1] === "providers" && !menuStack[2])));
       // Confirm appears ONLY when the highlighted option actually RUNS something
       // (navigation items and read-only pages do not show it).
       let needsConfirm = menuConfirmFocus;
