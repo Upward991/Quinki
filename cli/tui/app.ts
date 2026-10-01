@@ -3541,11 +3541,11 @@ const readProvidersCfg = (): any => {
         if (scOn) {
           // Live path: the skill rides the NEXT message (the app's chip flow).
           // The engine injects it into the system prompt, one-shot.
-          // Native chip: ONE invisible char in the text (atomic, colored).
+          // Inline token: "▸name" (atomic delete via qAtomicDelete, safe rendering).
           try {
-            const chT = qTokenAdd(String(arg).trim(), "skill");
+            const tok = "\u25b8" + String(arg).trim() + " ";
             const curTxt = String(editor.getText() || "");
-            editor.setText(curTxt + (curTxt && !curTxt.endsWith(" ") ? " " : "") + chT + " ");
+            editor.setText(curTxt + (curTxt && !curTxt.endsWith(" ") ? " " : "") + tok);
           } catch {}
           refreshSkillGroups();
           try { ui.requestRender(); } catch {}
@@ -4036,9 +4036,8 @@ const readProvidersCfg = (): any => {
           const vS = String(it.value ?? "");
           if (vS && !vS.startsWith("__")) {
             try {
-              const chS = qTokenAdd(vS, "skill");
               const curS = String(editor.getText() || "");
-              editor.setText(curS + (curS && !curS.endsWith(" ") ? " " : "") + chS + " ");
+              editor.setText(curS + (curS && !curS.endsWith(" ") ? " " : "") + "\u25b8" + vS + " ");
             } catch {}
           }
           try { ui.requestRender(); } catch {}
@@ -4053,9 +4052,10 @@ const readProvidersCfg = (): any => {
               if (fs.existsSync(fpA)) {
                 const stD = stageAttachment(fpA) || { path: fpA, originalName: require("path").basename(fpA) };
                 pendingAttachments.push(stD as any);
-                const chD = qTokenAdd((stD as any).originalName, "attachment", (stD as any).path);
+                const nmD = String((stD as any).originalName);
+                attPathByName[nmD] = String((stD as any).path);
                 const curD = String(editor.getText() || "");
-                editor.setText(curD + (curD && !curD.endsWith(" ") ? " " : "") + chD + " ");
+                editor.setText(curD + (curD && !curD.endsWith(" ") ? " " : "") + "\u25b8" + nmD + " ");
               }
             } catch {}
           } else if (vA === "__at_new") {
@@ -4069,9 +4069,10 @@ const readProvidersCfg = (): any => {
                     const stB = stageAttachment(fB);
                     if (stB) {
                       pendingAttachments.push(stB as any);
-                      const chB = qTokenAdd((stB as any).originalName, "attachment", (stB as any).path);
+                      const nmB2 = String((stB as any).originalName);
+                      attPathByName[nmB2] = String((stB as any).path);
                       const curB = String(editor.getText() || "");
-                      editor.setText(curB + (curB && !curB.endsWith(" ") ? " " : "") + chB + " ");
+                      editor.setText(curB + (curB && !curB.endsWith(" ") ? " " : "") + "\u25b8" + nmB2 + " ");
                     }
                   } catch {}
                   try { ui.requestRender(); } catch {}
@@ -4930,16 +4931,13 @@ const applySettingsPatch = (patch: any) => {
       const atts: Array<{ path: string }> = [];
       try {
         sendText = String(t)
-          .replace(/[\uE000-\uE0FF]/g, (ch: string) => {
-            const tk = qTokenByCh(ch);
-            if (!tk) return "";
-            if (tk.kind === "skill") skills.push(tk.name);
-            else {
-              const pth = tk.path && fs.existsSync(tk.path) ? tk.path : (attPathByName[tk.name] || tk.path || "");
-              if (pth) atts.push({ path: pth, originalName: tk.name } as any);
-            }
+          .replace(/(?:^|\s)\u25b8([^\s\u25b8]+)/g, (_m: string, nm: string) => {
+            const name = String(nm);
+            if (attPathByName[name] && fs.existsSync(attPathByName[name])) atts.push({ path: attPathByName[name], originalName: name } as any);
+            else skills.push(name);
             return "";
           })
+          .replace(/[\uE000-\uE0FF]/g, "")
           .replace(/\s{2,}/g, " ")
           .trim();
       } catch { sendText = t; }
