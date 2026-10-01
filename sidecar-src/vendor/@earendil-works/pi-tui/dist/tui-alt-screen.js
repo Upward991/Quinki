@@ -166,7 +166,7 @@ export class TuiAltScreen extends TuiBase {
             term.startsWith("screen")
             ? ENABLE_BUTTON_MOTION_MOUSE
             : ENABLE_ALL_MOTION_MOUSE;
-        this.terminal.write(`${ENTER_ALT_SCREEN}${DISABLE_AUTOWRAP}${this.mouseEnabled ? mouseSequence : ""}\x1b[2J\x1b[H\x1b[?25l`);
+        this.terminal.write(`${ENTER_ALT_SCREEN}${DISABLE_AUTOWRAP}${this.mouseEnabled ? mouseSequence : ""}\x1b[48;2;8;8;11m\x1b[2J\x1b[H\x1b[?25l`);
     }
     beforeTerminalStop(_options) {
         this.closeSearch();
@@ -192,7 +192,8 @@ export class TuiAltScreen extends TuiBase {
             const documentLines = this.render(width).map((line) => line.replace(OSC133_ZONE_PREFIX, ""));
             this.lastDocument = this.applyLineResets(documentLines.map((line) => line.replaceAll(CURSOR_MARKER, ""))).map((line) => (isImageLine(line) || visibleWidth(line) <= width ? line : sliceByColumn(line, 0, width, true)));
             let buffer = `${BEGIN_SYNCHRONIZED_OUTPUT}${EXIT_ALT_SCREEN}${DISABLE_AUTOWRAP}`;
-            for (let row = 0; row < this.lastDocument.length; row++) {
+            const __qTotalRows = Math.max(this.lastDocument.length, (typeof this.terminal.rows === "number" && this.terminal.rows > 0) ? this.terminal.rows : this.lastDocument.length);
+            for (let row = 0; row < __qTotalRows; row++) {
                 if (row > 0)
                     buffer += "\r\n";
                 buffer += `\r\x1b[48;2;8;8;11m\x1b[2K${this.lastDocument[row] ?? ""}\x1b[49m`;
@@ -1163,11 +1164,11 @@ export class TuiAltScreen extends TuiBase {
             const clearImages = this.imageProtocol === "kitty" && hadUploadedKittyImages
                 ? deleteAllKittyPlacements()
                 : this.deleteKittyImages();
-            buffer += `${clearImages}\x1b[2J`;
+            buffer += `${clearImages}\x1b[48;2;8;8;11m\x1b[2J`;
         }
         else if (imagesNeedRedraw) {
             if (this.imageProtocol === "iterm2")
-                buffer += "\x1b[2J";
+                buffer += "\x1b[48;2;8;8;11m\x1b[2J";
             else if (this.imageProtocol === "kitty")
                 buffer += deleteAllKittyPlacements();
         }
