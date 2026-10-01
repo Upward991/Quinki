@@ -1992,7 +1992,7 @@ const readProvidersCfg = (): any => {
       const leftN =
         lit("Toggle Nav (Ctrl+T)") +
         fg(C.textTertiary, " \u00b7 ") +
-        fg(C.danger, "Esc") +
+        fg(C.danger, "Close (Esc)") +
         fg(C.textTertiary, " \u00b7 ") +
         quiet("Info (Ctrl+F)");
       const rightN =
@@ -2594,8 +2594,12 @@ const readProvidersCfg = (): any => {
           if (!line.trim()) continue;
           try {
             const o = JSON.parse(line);
-            if (o?.type === "message" && o?.message?.role) out.push({ kind: "message", message: o.message, id: o.id, pid: o.parentId, file: f });
-            else if (o?.type === "compaction") out.push({ kind: "compaction", id: o.id, pid: o.parentId, file: f });
+            if (o?.type === "message" && o?.message?.role) {
+              const mm = o.message;
+              if (mm.isCompactionSummary || mm.isCompactionWarning) out.push({ kind: "compaction", id: o.id, pid: o.parentId, file: f, body: String(mm.content || ""), noop: !!mm.isCompactionWarning });
+              else out.push({ kind: "message", message: mm, id: o.id, pid: o.parentId, file: f });
+            }
+            else if (o?.type === "compaction") out.push({ kind: "compaction", id: o.id, pid: o.parentId, file: f, body: String(o.summary || "") });
             else if (o?.type === "delegation" && o?.delegationData) out.push({ kind: "delegation", data: o.delegationData, id: o.id, pid: o.parentId, file: f });
           } catch {}
         }
@@ -2751,8 +2755,8 @@ const readProvidersCfg = (): any => {
       const all = cutIdx > 0 ? allEntries.slice(cutIdx) : allEntries;
       for (const en of all) {
         if (en.kind === "compaction") {
-          // File compactions are always REAL (noop ones never reach the file).
-          pushBlock(registerToggle(new ToggleBlock({ label: "Compaction", boldName: "effective", color: C.info })));
+          const noopS = !!(en as any).noop;
+          pushBlock(registerToggle(new ToggleBlock({ label: "Compaction", boldName: noopS ? "ineffective" : "effective", color: noopS ? C.expert : C.info, body: String((en as any).body || "") })));
           continue;
         }
         if (en.kind === "delegation") {
