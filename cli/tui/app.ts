@@ -1030,98 +1030,53 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   };
   const settingsMenuItems = (): any[] => {
     return [
-      { value: "defaults", label: "Defaults", description: String(wsSettings?.defaultModel || "Chat default") },
+      { value: "defaults", label: "Global defaults", description: String(wsSettings?.defaultModel || "") },
       { value: "shortcuts", label: "Shortcuts", description: "Keys" },
       { value: "attachments", label: "Attachments storage", description: "Where files live" },
-      { value: "expert", label: "App Expert", description: "Expert app" },
-      { value: "providers", label: "Providers", description: "API keys, models" },
+        { value: "providers", label: "Providers", description: "API keys, models" },
       { value: "version", label: "Version", description: "Build info" },
     ];
   };
   const settingsLevelItems = (stack: string[]): any[] => {
-    const lv = stack[1];
-    if (lv === "defaults") {
-    if (stack[2] === "model") {
-      const out: any[] = [];
-      let models: any[] = [];
-      try { models = availableModels(); } catch {}
-      let lastProv = "";
-      for (const m of models) {
-        const prov = String(m?.provider || "");
-        if (prov && prov !== lastProv) {
-          out.push({ value: "__prov-" + prov, label: "\u2014 " + prov, description: "" });
-          lastProv = prov;
-        }
-        out.push({ value: String(m?.id || ""), label: String(m?.id || ""), description: String(m?.name || "") });
-      }
+  const lv = stack[1];
+  if (lv === "defaults") {
+    if (stack[2] === "model") return modelPickerItems();
+    if (stack[2] === "addfallback") return modelPickerItems();
+    if (stack[2] === "fallbacks") {
+      const fb = Array.isArray(wsSettings?.fallbackModels) ? wsSettings.fallbackModels : [];
+      const out: any[] = fb.map((id: any, i: number) => ({ value: "fb:" + String(id), label: String(id), description: "fallback " + (i + 1) }));
+      out.push({ value: "__addfallback", label: "\uff0b Add fallback", description: "pick a model" });
       return out;
     }
-    if (stack[2] === "thinking") {
-      return ["off", "low", "medium", "high", "xhigh"].map((lv2) => ({ value: lv2, label: lv2, description: lv2 === String(wsSettings?.defaultThinkingLevel || "") ? "current" : "" }));
-    }
+    const fbN = Array.isArray(wsSettings?.fallbackModels) ? wsSettings.fallbackModels.length : 0;
+    const th = String(wsSettings?.defaultThinkingLevel || "xhigh");
     return [
-      { value: "model", label: "Default model", description: String(wsSettings?.defaultModel || "Chat default") },
-      { value: "thinking", label: "Default thinking", description: String(wsSettings?.defaultThinkingLevel || "xhigh") },
+      { value: "model", label: "Default model", description: String(wsSettings?.defaultModel || "") },
+      { value: "fallbacks", label: "Fallback models", description: fbN + " configured" },
+      { value: "thinking", label: "Thinking", description: th === "off" ? "Off" : "On" },
     ];
   }
   if (lv === "shortcuts") {
-      return [
-        { value: "__s1", label: "Tab", description: "Plan / Build" },
-        { value: "__s2", label: "Ctrl+T", description: "Toggle navigation" },
-        { value: "__s3", label: "Ctrl+F", description: "Info on footers" },
-        { value: "__s4", label: "Enter", description: "Send" },
-        { value: "__s5", label: "Ctrl+Enter", description: "Steer while streaming" },
-        { value: "__s6", label: "Esc", description: "Stop / close menu" },
-        { value: "__s7", label: "Ctrl+C", description: "Quit quinki" },
-      ];
-    }
-    if (lv === "version") {
-      let appV = "?";
-      try { appV = String(require("fs").readFileSync(require("path").join(require("os").homedir(), ".quinki", "app-version.txt"), "utf8")).trim() || "?"; } catch {}
-      return [
-        { value: "__v1", label: "App", description: appV },
-        { value: "__v2", label: "CLI", description: "quinki cli" },
-        { value: "__v3", label: "Update", description: "quinki update" },
-      ];
-    }
-    if (lv === "providers") {
-    const cfg = readProvidersCfg();
-    if (!stack[2]) {
-      const out: any[] = [];
-      for (const name of Object.keys(cfg.providers || {})) {
-        const p = (cfg.providers || {})[name] || {};
-        out.push({ value: "prov:" + name, label: name, description: (p.enabled ? "enabled" : "disabled") + " \u00b7 " + String((p.enabledModels || []).length) + " models" });
-      }
-      return out;
-    }
-    const name = String(stack[2]).replace(/^prov:/, "");
-    const p = ((cfg.providers || {})[name]) || {};
-    if (stack[3] === "models") {
-      return (p.modelData || []).map((mm: any) => ({
-        value: "mdl:" + String(mm.id),
-        label: String(mm.id),
-        description: ((p.enabledModels || []).includes(mm.id) ? "on" : "off") + (mm.name ? " \u00b7 " + String(mm.name) : ""),
-      }));
-    }
-    if (stack[3] === "key") {
-      const k = String(p.apiKey || "");
-      const masked = k ? k.slice(0, 4) + "\u2026" + k.slice(-4) : "(not set)";
-      // The typed text IS the new key (same raw-field pattern as /rename).
-      const typed = String(menuSubFilter || "");
-      return [{ value: typed || "__keyfield", label: typed || ("API key: " + masked), description: typed ? "Enter to save" : "type the new key" }];
-    }
-    if (stack[3] === "baseurl") {
-      const typed = String(menuSubFilter || "");
-      return [{ value: typed || "__urlfield", label: typed || ("Base URL: " + String(p.baseUrl || "(not set)")), description: typed ? "Enter to save" : "type the new URL" }];
-    }
     return [
-      { value: "toggle", label: p.enabled ? "Disable" : "Enable", description: p.enabled ? "currently enabled" : "currently disabled" },
-      { value: "key", label: "API key", description: p.apiKey ? "set" : "not set" },
-      { value: "baseurl", label: "Base URL", description: String(p.baseUrl || "not set") },
-      { value: "models", label: "Models", description: String((p.enabledModels || []).length) + " enabled" },
+      { value: "__s1", label: "Tab", description: "Plan / Build" },
+      { value: "__s2", label: "Ctrl+T", description: "Toggle navigation" },
+      { value: "__s3", label: "Ctrl+F", description: "Info on footers" },
+      { value: "__s4", label: "Enter", description: "Send" },
+      { value: "__s5", label: "Ctrl+Enter", description: "Steer while streaming" },
+      { value: "__s6", label: "Esc", description: "Stop / close menu" },
+      { value: "__s7", label: "Ctrl+C", description: "Quit quinki" },
     ];
   }
-    if (lv === "attachments") {
+  if (lv === "version") {
+    let appV = "?";
+    try { appV = String(require("fs").readFileSync(require("path").join(require("os").homedir(), ".quinki", "app-version.txt"), "utf8")).trim() || "?"; } catch {}
+    return [
+      { value: "__v1", label: "App", description: appV },
+      { value: "__v2", label: "CLI", description: "quinki cli" },
+      { value: "__v3", label: "Update", description: "quinki update" },
+    ];
+  }
+  if (lv === "attachments") {
     let files = 0, bytes = 0;
     try {
       const fs2 = require("fs"), path2 = require("path");
@@ -1135,19 +1090,58 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       { value: "__at2", label: "Size", description: (bytes / 1048576).toFixed(1) + " MB" },
     ];
   }
-    if (lv === "expert") {
-    let installed = "no";
-    try { if (require("fs").existsSync("/Applications/App Expert.app")) installed = "installed"; } catch {}
-    let agent = "no";
-    try { if (require("fs").existsSync(require("path").join(require("os").homedir(), ".quinki", "agents", "app-expert"))) agent = "ready"; } catch {}
+  if (lv === "providers") {
+    const cfg = readProvidersCfg();
+    if (!stack[2]) {
+      const out: any[] = [];
+      for (const name of Object.keys(cfg.providers || {})) {
+        const p = (cfg.providers || {})[name] || {};
+        out.push({
+          value: "prov:" + name,
+          label: (p.enabled ? "\u25cf " : "\u25cb ") + name,
+          description: (p.enabled ? "enabled" : "disabled") + " \u00b7 " + String((p.enabledModels || []).length) + " models",
+        });
+      }
+      out.push({ value: "__addprov", label: "\uff0b Add custom provider", description: "name, URL" });
+      return out;
+    }
+    if (stack[2] === "__addprov") {
+      const typed = String(menuSubFilter || "");
+      const stepLabel = addProvStep === 0 ? "Provider name" : "Base URL";
+      return [{ value: typed || "__wiz", label: typed || (stepLabel + "\u2026"), description: typed ? "Enter to continue" : "type here" }];
+    }
+    const name = String(stack[2]).replace(/^prov:/, "");
+    const p = ((cfg.providers || {})[name]) || {};
+    if (stack[3] === "models") {
+      const out: any[] = [];
+      const en = p.enabledModels || [];
+      for (const mm of (p.modelData || [])) {
+        const on = en.includes(mm.id);
+        out.push({ value: "mdl:" + String(mm.id), label: (on ? "\u25cf " : "\u25cb ") + String(mm.id), description: (on ? "on" : "off") + (mm.name ? " \u00b7 " + String(mm.name) : "") });
+      }
+      const typed = String(menuSubFilter || "");
+      out.push({ value: typed || "__addmodel", label: typed || "\uff0b Add model", description: typed ? "Enter to add" : "type a model id" });
+      return out;
+    }
+    if (stack[3] === "key") {
+      const k = String(p.apiKey || "");
+      const masked = k ? k.slice(0, 4) + "\u2026" + k.slice(-4) : "not set";
+      const typed = String(menuSubFilter || "");
+      return [{ value: typed || "__keyfield", label: typed || ("API key: " + masked), description: typed ? "Enter to save" : "type the new key" }];
+    }
+    if (stack[3] === "baseurl") {
+      const typed = String(menuSubFilter || "");
+      return [{ value: typed || "__urlfield", label: typed || ("Base URL: " + String(p.baseUrl || "not set")), description: typed ? "Enter to save" : "type the new URL" }];
+    }
     return [
-      { value: "__ex0", label: "Expert app", description: installed },
-      { value: "__ex1", label: "Expert agent", description: agent },
-      { value: "__ex2", label: "Data", description: "~/.quinki (shared)" },
+      { value: "toggle", label: "Enabled", description: p.enabled ? "On" : "Off" },
+      { value: "key", label: "API key", description: p.apiKey ? "set" : "not set" },
+      { value: "baseurl", label: "Base URL", description: String(p.baseUrl || "not set") },
+      { value: "models", label: "Models", description: String((p.enabledModels || []).length) + " of " + String((p.modelData || []).length) + " on" },
     ];
   }
-    return settingsMenuItems();
-  };
+  return settingsMenuItems();
+};
 
   const commands = [
     {
@@ -3606,39 +3600,96 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       } catch {}
     } catch {}
   };
-  const settingsDeeper = (it: any): string | null => {
-    const lv = menuStack[1] || "", sub = menuStack[2] || "", sub3 = menuStack[3] || "";
-    const v = String(it?.value || "");
-    if (!lv) return ["defaults", "shortcuts", "attachments", "expert", "providers", "version"].includes(v) ? v : null;
-    if (lv === "defaults" && !sub) return (v === "model" || v === "thinking") ? v : null;
-    if (lv === "providers" && !sub) return v.startsWith("prov:") ? v : null;
-    if (lv === "providers" && sub && !sub3) return (v === "key" || v === "baseurl" || v === "models") ? v : null;
-    return null;
+  const modelPickerItems = (): any[] => {
+    const out: any[] = [];
+    let models: any[] = [];
+    try { models = availableModels(); } catch {}
+    let lastProv = "";
+    for (const mm of models) {
+      const prov = String(mm?.provider || "");
+      if (prov && prov !== lastProv) { out.push({ value: "__sep_m_" + prov, label: prov, description: "", separator: true }); lastProv = prov; }
+      out.push({ value: String(mm?.id || ""), label: String(mm?.id || ""), description: String(mm?.name || "") });
+    }
+    return out;
   };
+  let addProvStep = 0;
+  let addProvTmp: any = { name: "", baseUrl: "" };
+
+  const settingsDeeper = (it: any): string | null => {
+  const lv = menuStack[1] || "", sub = menuStack[2] || "", sub3 = menuStack[3] || "";
+  const v = String(it?.value || "");
+  if (!lv) return ["defaults", "shortcuts", "attachments", "providers", "version"].includes(v) ? v : null;
+  if (lv === "defaults" && !sub) return (v === "model" || v === "fallbacks" || v === "thinking") ? v : null;
+  if (lv === "defaults" && sub === "fallbacks" && v === "__addfallback") return "addfallback";
+  if (lv === "providers" && !sub) return (v.startsWith("prov:") || v === "__addprov") ? v : null;
+  if (lv === "providers" && sub && !sub3) return (v === "key" || v === "baseurl" || v === "models") ? v : null;
+  return null;
+};
 
   const settingsActivate = (value: string) => {
   const lv = menuStack[1] || "";
   const sub = menuStack[2] || "";
   const sub3 = menuStack[3] || "";
-  if (lv === "defaults" && sub === "model" && value && !value.startsWith("__")) { applySettingsPatch({ defaultModel: value }); return; }
-  if (lv === "defaults" && sub === "thinking" && value) { applySettingsPatch({ defaultThinkingLevel: value }); return; }
-  if (lv === "providers") {
-    const pname = String(sub || "").replace(/^prov:/, "");
-    if (!sub && value.startsWith("prov:")) return; // navigation handled by settingsDeeper
-    if (sub && !sub3) {
-      if (value === "toggle") { patchProvider(pname, (p) => { p.enabled = !p.enabled; }); return; }
+  if (lv === "defaults") {
+    if (sub === "thinking") {
+      const th = String(wsSettings?.defaultThinkingLevel || "xhigh");
+      applySettingsPatch({ defaultThinkingLevel: th === "off" ? "xhigh" : "off" });
       return;
     }
-    if (sub3 === "models" && value.startsWith("mdl:")) {
-      const id = value.slice(4);
-      patchProvider(pname, (p) => { const e = new Set(p.enabledModels || []); if (e.has(id)) e.delete(id); else e.add(id); p.enabledModels = Array.from(e); });
+    if (sub === "model") { if (value && !value.startsWith("__")) applySettingsPatch({ defaultModel: value }); return; }
+    if (sub === "addfallback") {
+      if (value && !value.startsWith("__")) {
+        try { const call = (globalThis as any).__sidecarCall; if (call) call('setDefaultFallbacks', { fallbacks: value }).catch(() => {}); } catch {}
+        const cur = Array.isArray(wsSettings?.fallbackModels) ? wsSettings.fallbackModels.slice() : [];
+        if (!cur.includes(value)) cur.push(value);
+        wsSettings = { ...(wsSettings || {}), fallbackModels: cur };
+        menuStack = ["settings", "defaults", "fallbacks"]; menuSubFilter = ""; menuSel = 0;
+      }
+      return;
+    }
+    if (sub === "fallbacks" && value.startsWith("fb:")) {
+      const id = value.slice(3);
+      const cur = (Array.isArray(wsSettings?.fallbackModels) ? wsSettings.fallbackModels : []).filter((x: any) => String(x) !== id);
+      try { const call = (globalThis as any).__sidecarCall; if (call) call('setDefaultFallbacks', { fallbacks: cur.join(",") }).catch(() => {}); } catch {}
+      wsSettings = { ...(wsSettings || {}), fallbackModels: cur };
+      return;
+    }
+    return;
+  }
+  if (lv === "providers") {
+    if (sub === "__addprov") {
+      const typed = String(value || "");
+      if (!typed || typed.startsWith("__")) return;
+      if (addProvStep === 0) { addProvTmp.name = typed; addProvStep = 1; menuSubFilter = ""; menuSel = 0; return; }
+      addProvTmp.baseUrl = typed;
+      const nm = String(addProvTmp.name || "");
+      if (nm) patchProvider(nm, (p) => { if (!p.baseUrl) p.baseUrl = addProvTmp.baseUrl; if (p.enabled === undefined) p.enabled = true; if (!p.enabledModels) p.enabledModels = []; if (!p.modelData) p.modelData = []; });
+      addProvStep = 0; addProvTmp = { name: "", baseUrl: "" };
+      menuStack = ["settings", "providers"]; menuSubFilter = ""; menuSel = 0;
+      return;
+    }
+    const pname = String(sub || "").replace(/^prov:/, "");
+    if (sub && !sub3) { if (value === "toggle") { patchProvider(pname, (p) => { p.enabled = !p.enabled; }); } return; }
+    if (sub3 === "models") {
+      if (value.startsWith("mdl:")) {
+        const id = value.slice(4);
+        patchProvider(pname, (p) => { const e = new Set(p.enabledModels || []); if (e.has(id)) e.delete(id); else e.add(id); p.enabledModels = Array.from(e); });
+        return;
+      }
+      if (value && !value.startsWith("__")) {
+        patchProvider(pname, (p) => {
+          const md = p.modelData || (p.modelData = []);
+          if (!md.some((x: any) => String(x.id) === value)) md.push({ id: value, name: value });
+          const e = new Set(p.enabledModels || []); e.add(value); p.enabledModels = Array.from(e);
+        });
+        menuSubFilter = ""; menuSel = 0;
+      }
       return;
     }
     if (sub3 === "key" && value && !value.startsWith("__")) { patchProvider(pname, (p) => { p.apiKey = value; }); return; }
     if (sub3 === "baseurl" && value && !value.startsWith("__")) { patchProvider(pname, (p) => { p.baseUrl = value; }); return; }
     return;
   }
-  // read-only pages: nothing to execute
 };
 const applySettingsPatch = (patch: any) => {
     try {
