@@ -4133,7 +4133,7 @@ const cmd: any = commands.find((c) => c.name === it.value);
   const lv = menuStack[1] || "";
   const sub = menuStack[2] || "";
   const sub3 = menuStack[3] || "";
-  if (lv === "attachments") {
+  if (value === "attachments" || lv === "attachments") {
     // Enter on the Attachments row = open the folder directly (like the app's
     // Open button). Cross-platform spawn, detached.
     try {
