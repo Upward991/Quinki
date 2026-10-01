@@ -2465,6 +2465,38 @@ const readProvidersCfg = (): any => {
         else if (k === "tool") setStatus("Tool call", "tool_call");
         else if (k === "compacting") setStatus("Compacting", "compacting");
         else if (k === "failed") setStatus("Failed", "failed");
+      } else if (method === "compaction_status") {
+        // THE MISSING PIECE (1 ott notte): the sidecar broadcasts compaction_status
+        // (start/end with summary/noop) as its own method — the CLI only listened
+        // inside stream_event, so neither the pill nor the toggle ever appeared.
+        const st = String(p?.status || "");
+        if (st === "start") {
+          setStatus("Compacting", "compacting");
+        } else if (st === "end" || st === "noop" || st === "error") {
+          if (statusKind === "compacting") setStatus("", "");
+          const noop = st === "noop";
+          pushBlock(
+            registerToggle(
+              new ToggleBlock({
+                label: "Compaction",
+                boldName: noop ? "ineffective" : "effective",
+                color: noop ? C.expert : C.info,
+                body: String(p.summary || p.message || p.errorMessage || ""),
+              })
+            )
+          );
+          scrollToEnd();
+        }
+      } else if (method === "error") {
+        // Errors from the runtime (500s etc.) must be VISIBLE in the CLI too.
+        setStatus("Failed", "failed");
+        const em = String(p?.message || "Unknown error");
+        pushBlock(
+          registerToggle(
+            new ToggleBlock({ label: "Error", boldName: "", color: C.expert, body: em, open: true })
+          )
+        );
+        scrollToEnd();
       } else if (method === "session_meta") {
         if (p.model) wsModelId = String(p.model);
         if (typeof p.thinkingLevel === "string") thinkingOn = p.thinkingLevel !== "off";
