@@ -1030,8 +1030,26 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   let wsSettings: any = { defaultModel: "", defaultThinkingLevel: "" };
   const fetchSettings = () => {
     try {
+      // 1) the file that BOTH the app and the CLI write = the source of truth
+      try {
+        const f = readSettingsFile();
+        wsSettings = { ...(wsSettings || {}), ...(f || {}) };
+        if (Array.isArray(f?.defaultFallbackModels)) wsSettings.defaultFallbackModels = f.defaultFallbackModels;
+      } catch {}
+      // 2) the sidecar's view (may add more keys)
       const call = (globalThis as any).__sidecarCall;
-      if (call) call('getSettings', {}).then((r: any) => { if (r) wsSettings = r; try { ui.requestRender(); } catch {} }).catch(() => {});
+      if (call) call('getSettings', {}).then((r: any) => {
+        if (r) {
+          wsSettings = { ...(wsSettings || {}), ...r };
+          // never let a missing key in the RPC response erase the file's fallbacks
+          try {
+            const f2 = readSettingsFile();
+            if (Array.isArray(f2?.defaultFallbackModels)) wsSettings.defaultFallbackModels = f2.defaultFallbackModels;
+          } catch {}
+          try { ui.requestRender(); } catch {}
+        }
+      }).catch(() => {});
+      try { ui.requestRender(); } catch {}
     } catch {}
   };
   const settingsMenuItems = (): any[] => {
