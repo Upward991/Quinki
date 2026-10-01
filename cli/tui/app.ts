@@ -1093,9 +1093,10 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       },
     },
     {
-      name: "agent",
+      name: "agentinsession",
       description: "Agents in this session",
       seq: 2,
+      hidden: () => welcomeShown,
       getArgumentCompletions: () => agentMenuItems(),
     },
     {
@@ -3064,11 +3065,11 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     const stack = [...menuStack];
     if (stack.length === 1) {
       if (value === "#add") {
-        menuStack = ["agent", "#add"];
+        menuStack = ["agentinsession", "#add"];
       } else if (value === "#orch") {
         addAgentToSession("orchestrator");
       } else {
-        menuStack = ["agent", value];
+        menuStack = ["agentinsession", value];
       }
       menuSubFilter = "";
       menuSel = 0;
@@ -3077,7 +3078,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     if (stack.length === 2 && stack[1] === "#add") {
       // Added: back to the previous menu, where the agent now appears.
       addAgentToSession(value);
-      menuStack = ["agent"];
+      menuStack = ["agentinsession"];
       menuSubFilter = "";
       menuSel = 0;
       return;
@@ -3092,14 +3093,14 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           menuConfirmFocus = true;
         } else {
           removeAgentFromSession(agentId);
-          menuStack = ["agent"]; // back to the agents-in-this-chat list
+          menuStack = ["agentinsession"]; // back to the agents-in-this-chat list
         }
         menuSel = 0;
         menuSubFilter = "";
         return;
       }
       if (value === "model" || value === "thinking") {
-        menuStack = ["agent", agentId, value];
+        menuStack = ["agentinsession", agentId, value];
         menuSubFilter = "";
         menuSel = 0;
       }
@@ -3111,7 +3112,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       const lv3 = stack[2];
       if (lv3 === "remove") {
         removeAgentFromSession(agentId);
-        menuStack = ["agent"];
+        menuStack = ["agentinsession"];
       } else if (lv3 === "model") {
         if (scOn) {
           void sc
@@ -3126,7 +3127,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           if (!o.model && !o.thinkingLevel) delete e.agentOverrides[agentId];
           else e.agentOverrides[agentId] = o;
         });
-        menuStack = ["agent", agentId];
+        menuStack = ["agentinsession", agentId];
       } else if (lv3 === "thinking") {
         if (scOn) {
           void sc
@@ -3141,9 +3142,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           if (!o.model && !o.thinkingLevel) delete e.agentOverrides[agentId];
           else e.agentOverrides[agentId] = o;
         });
-        menuStack = ["agent", agentId];
+        menuStack = ["agentinsession", agentId];
       } else {
-        menuStack = ["agent", agentId];
+        menuStack = ["agentinsession", agentId];
       }
       menuSubFilter = "";
       menuSel = 0;
@@ -3153,7 +3154,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   };
   const levelItems = (stack: string[]): any[] => {
     if (stack.length === 0) return mainItems();
-    if (stack[0] === "agent") return agentLevelItems(stack);
+    if (stack[0] === "agentinsession") return agentLevelItems(stack);
     const cmd: any = commands.find((c) => c.name === stack[0]);
     if (!cmd || typeof cmd.getArgumentCompletions !== "function") return [];
     try {
@@ -3265,7 +3266,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
             // ONLY the agent menu has deeper levels. Every other submenu is a
             // terminal list: → must light the Confirm directly, never push a
             // ghost level out of the item value.
-            const deeper = menuStack[0] === "agent" ? agentLevelFor(it) : null;
+            const deeper = menuStack[0] === "agentinsession" ? agentLevelFor(it) : null;
             if (deeper) {
               menuStack.push(deeper);
               menuSubFilter = "";
@@ -3293,7 +3294,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         const it: any = items[menuSel];
         if (!menuConfirmFocus) {
           if (!it || it.separator) return;
-          if (menuStack[0] === "agent") {
+          if (menuStack[0] === "agentinsession") {
             const deeper = agentLevelFor(it);
             if (deeper) {
               menuStack.push(deeper);
@@ -3318,7 +3319,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           // Confirm is LIT: this Enter executes the selection.
           menuConfirmFocus = false;
           if (!it || it.separator) return;
-          if (menuStack[0] === "agent") {
+          if (menuStack[0] === "agentinsession") {
             // The agent menus NEVER close: every action returns to its parent level.
             agentActivate(String(it.value));
           } else if (menuStack.length > 0) {
