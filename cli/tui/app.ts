@@ -1196,20 +1196,12 @@ const readProvidersCfg = (): any => {
     const totalM = (() => {
       const seen: Record<string, number> = {};
       for (const mm of (p.modelData || [])) { const id = String(mm?.id || ""); if (id) seen[id] = 1; }
+      for (const mm of wsAllModels) { if (String(mm?.provider || "") !== name) continue; const id = String(mm?.id || ""); if (id) seen[id] = 1; }
       for (const mm of (wsProviderModels[name] || [])) { const id = String(mm?.id || ""); if (id) seen[id] = 1; }
       return Object.keys(seen).length;
     })();
     try { fetchKeyStatus(name, String(p.apiKey || "")); } catch {}
-    const totalM = (() => {
-      try {
-        const seen: Record<string, any> = {};
-        let n2 = 0;
-        for (const mm of (p.modelData || [])) { const id = String(mm?.id || ""); if (id && !seen[id]) { seen[id] = 1; n2++; } }
-        for (const mm of wsAllModels) { if (String(mm?.provider || "") !== name) continue; const id = String(mm?.id || ""); if (id && !seen[id]) { seen[id] = 1; n2++; } }
-        for (const mm of (wsProviderModels[name] || [])) { const id = String(mm?.id || ""); if (id && !seen[id]) { seen[id] = 1; n2++; } }
-        return n2;
-      } catch { return 0; }
-    })();
+    try { fetchAllModels(); fetchProviderCatalog(name, String(p.baseUrl || ""), ""); } catch {}
     const out2: any[] = [
       { value: "__hdr_" + name, label: name, description: "", separator: true },
       { value: "models", label: "Models", description: String((p.enabledModels || []).length) + " on" + (totalM > 0 ? " \u00b7 " + totalM + " available" : " \u00b7 loading\u2026") },
@@ -1222,7 +1214,12 @@ const readProvidersCfg = (): any => {
       }
     } catch {}
     if (["OpenRouter", "Anthropic", "xAI"].includes(name)) {
-      out2.push({ value: "login", label: "Connect " + name, description: "sign in via browser (shared with the app)" });
+      const conn = wsKeyStatus[name] === true;
+      out2.push({
+        value: "login",
+        label: conn ? "\u25cf Connected" : "Connect " + name,
+        description: conn ? "signed in \u00b7 Enter to reconnect" : "sign in via browser (shared with the app)",
+      });
     }
     return out2;
   }
