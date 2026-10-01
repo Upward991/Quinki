@@ -4174,7 +4174,7 @@ const applySettingsPatch = (patch: any) => {
       // Blank separator, then the footer on ONE row (app NavBar style):
       // left ↑ ↓ ← → (navigation) — right Esc (red) · Confirm (filled violet,
       // like the selected slash rows, while FOCUSED via → — Enter runs it).
-      rows.push("");
+      rows.push(fg(C.border, "\u2500".repeat(Math.max(1, w)))); // visible separator line
       const canBack = (menuStack || []).length > 0;
       let canFwd = false;
       try {
