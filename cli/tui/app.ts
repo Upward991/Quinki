@@ -1124,7 +1124,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         out.push({
           value: "prov:" + name,
           label: (p.enabled ? "\u25cf " : "\u25cb ") + name,
-          description: (p.enabled ? "enabled" : "disabled") + " \u00b7 " + String((p.enabledModels || []).length) + " models",
+          description: (p.enabled ? "enabled" : "disabled") + " \u00b7 " + String((p.enabledModels || []).length) + " on",
         });
       }
       out.push({ value: "__addprov", label: "\uff0b Add provider", description: "name, URL" });
@@ -1175,7 +1175,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       { value: "toggle", label: "Enabled", description: p.enabled ? "On" : "Off" },
       { value: "key", label: "API key", description: p.apiKey ? "set" : "not set" },
       { value: "baseurl", label: "Base URL", description: String(p.baseUrl || "not set") },
-      { value: "models", label: "Models", description: String((p.enabledModels || []).length) + " of " + String((p.modelData || []).length) + " on" },
+      { value: "models", label: "Models", description: String((p.enabledModels || []).length) + " on" },
     ];
   }
   return settingsMenuItems();
@@ -3831,7 +3831,10 @@ const applySettingsPatch = (patch: any) => {
         }
       }
       const rows: string[] = [];
-      for (let i = 0; i < items.length; i++) {
+      const MAXWIN = 12;
+      const winStart = Math.max(0, Math.min(Math.max(0, items.length - MAXWIN), menuSel - Math.floor(MAXWIN / 2)));
+      const winEnd = Math.min(items.length, winStart + MAXWIN);
+      for (let i = winStart; i < winEnd; i++) {
         const it = items[i];
         let label = String(it.label ?? it.value ?? "");
         let desc = String(it.description ?? "");
