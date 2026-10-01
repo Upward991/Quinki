@@ -3183,7 +3183,7 @@ const readProvidersCfg = (): any => {
         break;
       }
       case "quit": {
-        if (arg === "yes") shutdown();
+        if (arg === "yes" || arg === "confirm") shutdown();
         break;
       }
     }
