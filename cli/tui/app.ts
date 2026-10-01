@@ -1040,8 +1040,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   const settingsLevelItems = (stack: string[]): any[] => {
   const lv = stack[1];
   if (lv === "defaults") {
+    const lastLv = stack[stack.length - 1];
     if (stack[2] === "model") return modelPickerItems();
-    if (stack[2] === "addfallback") return modelPickerItems();
+    if (lastLv === "addfallback") return modelPickerItems();
     if (stack[2] === "fallbacks") {
       const fb = Array.isArray(wsSettings?.fallbackModels) ? wsSettings.fallbackModels : [];
       const out: any[] = fb.map((id: any, i: number) => ({ value: "fb:" + String(id), label: String(id), description: "fallback " + (i + 1) }));
@@ -1049,9 +1050,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       return out;
     }
     const fbN = Array.isArray(wsSettings?.fallbackModels) ? wsSettings.fallbackModels.length : 0;
-    const th = String(wsSettings?.defaultThinkingLevel || "xhigh");
+    const th = String(wsSettings?.defaultThinkingLevel || readProvidersCfg().defaultThinking || "xhigh");
     return [
-      { value: "model", label: "Default model", description: String(wsSettings?.defaultModel || "") },
+      { value: "model", label: "Default model", description: String((readProvidersCfg().defaultModel) || defaultModelId || "") },
       { value: "fallbacks", label: "Fallback models", description: fbN + " configured" },
       { value: "thinking", label: "Thinking", description: th === "off" ? "Off" : "On" },
     ];
@@ -3636,7 +3637,19 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       applySettingsPatch({ defaultThinkingLevel: th === "off" ? "xhigh" : "off" });
       return;
     }
-    if (sub === "model") { if (value && !value.startsWith("__")) applySettingsPatch({ defaultModel: value }); return; }
+    if (sub === "model") {
+      if (value && !value.startsWith("__")) {
+        applySettingsPatch({ defaultModel: value });
+        try {
+          const cfg = readProvidersCfg();
+          cfg.defaultModel = value;
+          const call = (globalThis as any).__sidecarCall;
+          if (call) call('setProvidersConfig', cfg).catch(() => {});
+          defaultModelId = value;
+        } catch {}
+      }
+      return;
+    }
     if (sub === "addfallback") {
       if (value && !value.startsWith("__")) {
         const cur = Array.isArray(wsSettings?.fallbackModels) ? wsSettings.fallbackModels.slice() : [];
