@@ -1120,12 +1120,21 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     const name = String(stack[2]).replace(/^prov:/, "");
     const p = ((cfg.providers || {})[name]) || {};
     if (stack[3] === "models") {
-      const out: any[] = [];
-      const en = p.enabledModels || [];
-      for (const mm of (p.modelData || [])) {
-        const on = en.includes(mm.id);
-        out.push({ value: "mdl:" + String(mm.id), label: (on ? "\u25cf " : "\u25cb ") + String(mm.id), description: (on ? "on" : "off") + (mm.name ? " \u00b7 " + String(mm.name) : "") });
+      fetchAllModels(); // the FULL catalog of every provider (like the app's getModels)
+      const seen: Record<string, any> = {};
+      const all: any[] = [];
+      for (const mm of (p.modelData || [])) { const id = String(mm?.id || ""); if (id && !seen[id]) { seen[id] = 1; all.push(mm); } }
+      for (const mm of wsAllModels) {
+        if (String(mm?.provider || "") !== name) continue;
+        const id = String(mm?.id || "");
+        if (id && !seen[id]) { seen[id] = 1; all.push(mm); }
       }
+      const en = p.enabledModels || [];
+      const out: any[] = all.map((mm: any) => {
+        const id = String(mm?.id || "");
+        const on = en.includes(id);
+        return { value: "mdl:" + id, label: (on ? "\u25cf " : "\u25cb ") + id, description: (on ? "on" : "off") + (mm.name ? " \u00b7 " + String(mm.name) : "") };
+      });
       return out;
     }
     if (stack[3] === "key") {
@@ -3563,7 +3572,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
               menuStack = [cmd.name];
               menuSubFilter = "";
               menuSel = 0;
-              if (cmd.name === "settings") { try { fetchSettings(); } catch {} }
+              if (cmd.name === "settings") { try { fetchSettings(); fetchAllModels(); } catch {} }
             } else if (cmd) {
               menuConfirmFocus = true; // no options: Confirm first, then run
             }
@@ -3621,6 +3630,16 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     }
     return out;
   };
+  let wsAllModels: any[] = [];
+  let wsAllModelsAt = 0;
+  const fetchAllModels = (force: boolean = false) => {
+    if (!force && Date.now() - wsAllModelsAt < 30000 && wsAllModels.length > 0) return;
+    wsAllModelsAt = Date.now();
+    void sc.call('getModels', {}, 30000).then((r: any) => {
+      if (Array.isArray(r?.models)) { wsAllModels = r.models; try { ui.requestRender(); } catch {} }
+    }).catch(() => {});
+  };
+
   let addProvStep = 0;
   let addProvTmp: any = { name: "", baseUrl: "" };
 
