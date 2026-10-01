@@ -258,9 +258,10 @@ class WelcomeRoot {
       const hero = HERO_ART(); // big pixel word, one line
       const heroW = Math.max(...hero.map((l) => visibleWidth(String(l))));
       if (heroW + 4 <= width) {
-        // Centered on the TEXT BOX (clamped when the box is narrower).
-        const ref = boxW > 0 ? Math.max(boxW, heroW) : width;
-        const off = Math.max(0, Math.floor((Math.max(boxW, heroW) - heroW) / 2));
+        // Centered on the TEXT BOX; if the hero is wider than the box, center on
+        // the terminal (still symmetric, never flush-left).
+        const ref = heroW <= boxW ? boxW : width;
+        const off = Math.max(0, Math.floor((ref - heroW) / 2));
         greet = hero.map((l) => " ".repeat(off) + l);
       } else {
         // FALLBACK: the plain one-line greeting, centered on the text box.
