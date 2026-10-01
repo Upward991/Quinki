@@ -1192,18 +1192,13 @@ export class TuiAltScreen extends TuiBase {
                 continue;
             {
                 const __ln = preparedKittyScreen.lines[row] ?? "";
-                let __vis = "";
-                try { __vis = __ln.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, "").replace(/\x1b\][^\x07]*\x07/g, ""); } catch { __vis = __ln; }
-                // Paint the background ONLY behind rows with visible content.
-                // Empty rows are the UI spacers (menu gaps): they stay transparent
-                // and use the terminal's own background.
-                if (__vis.trim().length === 0) {
-                    buffer += `\x1b[${row + 1};1H\x1b[2K`;
-                } else {
-                    const __t = (__vis.match(/[ \t]*$/) || [""])[0].length;
-                    const __over = __t > 0 ? `\x1b[${Math.max(1, width - __t + 1)}G\x1b[48;2;8;8;11m${" ".repeat(__t)}` : "";
-                    buffer += `\x1b[${row + 1};1H\x1b[48;2;8;8;11m\x1b[2K${__ln}${__over}\x1b[49m`;
-                }
+                // Paint EVERY row with the page colour and pad to the full width,
+                // so there are no transparent cells anywhere: the exact app scheme
+                // (page #08080b + panels #0f0f13) with no third colour stripes.
+                let __lvw = 0;
+                try { __lvw = visibleWidth(__ln); } catch { __lvw = 0; }
+                const __lpad = Math.max(0, width - __lvw);
+                buffer += `\x1b[${row + 1};1H\x1b[48;2;8;8;11m\x1b[2K${__ln}${__lpad > 0 ? "\x1b[48;2;8;8;11m" + " ".repeat(__lpad) : ""}\x1b[49m`;
             }
         }
         if (cursorPos) {
