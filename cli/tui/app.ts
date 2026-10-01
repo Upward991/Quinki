@@ -3571,6 +3571,15 @@ export async function runTui(opts: TuiOptions): Promise<void> {
               menuStack.push(deeper);
               menuSubFilter = "";
               menuSel = 0;
+              // entering the fallbacks editor: seed the selection with the saved ones
+              try {
+                if (deeper === "fallbacks") {
+                  const cur = (() => { try { const ff = readSettingsFile().defaultFallbackModels; if (Array.isArray(ff)) return ff; } catch {} return []; })();
+                  menuMarked = new Set<string>(cur.map((x: any) => String(x)));
+                } else {
+                  menuMarked = new Set<string>();
+                }
+              } catch {}
             } else {
               menuConfirmFocus = true; // option = terminal level
             }
@@ -3620,6 +3629,15 @@ export async function runTui(opts: TuiOptions): Promise<void> {
               menuStack.push(deeper);
               menuSubFilter = "";
               menuSel = 0;
+              // entering the fallbacks editor: seed the selection with the saved ones
+              try {
+                if (deeper === "fallbacks") {
+                  const cur = (() => { try { const ff = readSettingsFile().defaultFallbackModels; if (Array.isArray(ff)) return ff; } catch {} return []; })();
+                  menuMarked = new Set<string>(cur.map((x: any) => String(x)));
+                } else {
+                  menuMarked = new Set<string>();
+                }
+              } catch {}
             } else {
               menuConfirmFocus = true; // Confirm lights: Enter again executes
             }
