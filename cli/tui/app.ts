@@ -1088,6 +1088,14 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     }
     const fbN = fbFromFile().length;
     const th = String(wsSettings?.defaultThinkingLevel || readProvidersCfg().defaultThinking || "xhigh");
+    if (stack[2] === "thinking") {
+      const th = String(wsSettings?.defaultThinkingLevel || readProvidersCfg().defaultThinking || "xhigh");
+      const isOff = th === "off";
+      return [
+        { value: "on", label: (isOff ? "\u25cb " : "\u25cf ") + "On", description: "Always the maximum level" },
+        { value: "off", label: (isOff ? "\u25cf " : "\u25cb ") + "Off", description: "Thinking disabled" },
+      ];
+    }
     return [
       { value: "model", label: "Default model", description: String((readProvidersCfg().defaultModel) || defaultModelId || "") },
       { value: "fallbacks", label: "Fallback models", description: fbN + " configured" },
@@ -3570,7 +3578,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
 
         const inFbLv = menuStack[1] === "defaults" && menuStack[2] === "fallbacks";
 
-        const inDefModelLv = menuStack[1] === "defaults" && menuStack[2] === "model";
+        const inDefModelLv = menuStack[1] === "defaults" && (menuStack[2] === "model" || menuStack[2] === "thinking");
         return (inFbLv || inDefModelLv || inModelsLv || inProvLv) ? false : !settingsDeeper(cur);
 
       }
@@ -3595,6 +3603,12 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         const inModels = menuStack[0] === "settings" && menuStack[3] === "models";
         const inFallbacks = menuStack[0] === "settings" && menuStack[1] === "defaults" && menuStack[2] === "fallbacks";
         const inProviders = menuStack[0] === "settings" && menuStack[1] === "providers" && !menuStack[2];
+        if (menuStack[0] === "settings" && menuStack[1] === "defaults" && menuStack[2] === "thinking" && it && !it.separator) {
+          const on = String(it.value) === "on";
+          applySettingsPatch({ defaultThinkingLevel: on ? "xhigh" : "off" });
+          try { ui.requestRender(); } catch {}
+          return;
+        }
         if (menuStack[0] === "thinking" && it && !it.separator) {
           const on = String(it.value) === "on";
           try { thinkingOn = on; } catch {}
@@ -3920,7 +3934,7 @@ const cmd: any = commands.find((c) => c.name === it.value);
   const lv = menuStack[1] || "", sub = menuStack[2] || "", sub3 = menuStack[3] || "";
   const v = String(it?.value || "");
   if (!lv) return ["defaults", "shortcuts", "attachments", "providers", "version"].includes(v) ? v : null;
-  if (lv === "defaults" && !sub) return (v === "model" || v === "fallbacks") ? v : null;
+  if (lv === "defaults" && !sub) return (v === "model" || v === "fallbacks" || v === "thinking") ? v : null;
   if (lv === "defaults" && sub === "fallbacks" && v === "__addfallback") return "addfallback";
   if (lv === "providers" && !sub) return (v.startsWith("prov:") || v === "__addprov") ? v : null;
   if (lv === "providers" && sub && !sub3) return (v === "key" || v === "baseurl" || v === "models") ? v : null;
@@ -4100,7 +4114,7 @@ const applySettingsPatch = (patch: any) => {
       // like the selected slash rows, while FOCUSED via → — Enter runs it).
       rows.push("");
       const left = fg(C.textSecondary, "\u2191 \u2193 \u2190 \u2192");
-      const hasMulti = (menuStack[0] === "model" || menuStack[0] === "thinking") || (menuStack[0] === "settings" && (menuStack[3] === "models" || (menuStack[1] === "defaults" && (menuStack[2] === "fallbacks" || menuStack[2] === "model")) || (menuStack[1] === "providers" && !menuStack[2])));
+      const hasMulti = (menuStack[0] === "model" || menuStack[0] === "thinking") || (menuStack[0] === "settings" && (menuStack[3] === "models" || (menuStack[1] === "defaults" && (menuStack[2] === "fallbacks" || menuStack[2] === "model" || menuStack[2] === "thinking")) || (menuStack[1] === "providers" && !menuStack[2])));
       // Confirm appears ONLY when the highlighted option actually RUNS something
       // (navigation items and read-only pages do not show it).
       let needsConfirm = menuConfirmFocus;
