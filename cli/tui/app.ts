@@ -181,6 +181,94 @@ class InsetBox {
 }
 
 /** Welcome root: the box + hints, centered EXACTLY (manual math, both axes). */
+
+// === BIG ASCII hero (app-home replica): 3-row font + the Quinki mascot ===
+const BIGFONT: Record<string, string[]> = (() => {
+  // Glyph cells: 3 rows, 3 columns (lowercase = x-height on the bottom 2 rows).
+  const G: Record<string, string[]> = {
+    " ": ["   ", "   ", "   "],
+    "!": [" █ ", " █ ", " · "],
+    ",": ["   ", "   ", " · "],
+    "A": ["▄▀▄", "█▀█", "▀ ▀"],
+    "C": ["▄▀▀", "█  ", "▀▀▀"],
+    "D": ["█▀▄", "█ █", "▀▀ "],
+    "E": ["█▀▀", "█▀▀", "▀▀▀"],
+    "G": ["▄▀▀", "█ █", "▀▀▀"],
+    "I": ["█", "█", "▀"],
+    "K": ["█ █", "█▀▄", "▀ ▀"],
+    "L": ["█  ", "█  ", "▀▀▀"],
+    "M": ["█▄█", "█ █", "▀ ▀"],
+    "N": ["█▄ █", "█ ▀█", "▀  ▀"],
+    "O": ["▄▀▄", "█ █", "▀▀▀"],
+    "Q": ["▄▀▄", "█ █", "▀▀▜"],
+    "R": ["█▀▄", "█▀▄", "▀ ▀"],
+    "T": ["▀█▀", " █ ", " ▀ "],
+    "U": ["█ █", "█ █", "▀▀▀"],
+    "W": ["█ █", "█▄█", "▀ ▀"],
+    "c": ["   ", "▄▀▀", "▀▀▀"],
+    "d": ["  █", "▄▀█", "▀▀▀"],
+    "e": ["   ", "▄▀▄", "▀▀▀"],
+    "g": ["   ", "▄▀█", "▀▀▀"],
+    "i": [" ▄ ", " █ ", " ▀ "],
+    "k": ["█ █", "█▀▄", "▀ ▀"],
+    "l": ["█", "█", "▀"],
+    "m": ["    ", "█▄█", "▀ ▀"],
+    "n": ["   ", "█▄▀", "▀ ▀"],
+    "o": ["   ", "▄▀▄", "▀▀▀"],
+    "r": ["   ", "█▀▄", "▀ ▀"],
+    "t": ["▄█▄", " █ ", " ▀ "],
+    "u": ["   ", "█ █", "▀▀▀"],
+    "w": ["    ", "█ █", "▀▀▀"],
+  };
+  return G;
+})();
+const bigRender = (text: string): string[] => {
+  const rows = ["", "", ""];
+  const glyphs = text.split("");
+  for (let gi = 0; gi < glyphs.length; gi++) {
+    const g = BIGFONT[glyphs[gi]] || BIGFONT[glyphs[gi].toUpperCase()] || BIGFONT[" "];
+    for (let r = 0; r < 3; r++) {
+      // letter-spacing only when the glyph is wider than 1 column
+      const sep = g[0].length > 1 ? " " : "";
+      rows[r] += g[r] + (gi === glyphs.length - 1 ? "" : sep);
+    }
+  }
+  return rows;
+};
+const MASCOT = [
+  "    \u2736    ".replace("\u2736", "\u2726"),
+  "  \u259f\u2588\u2588\u2588\u2588\u2599  ",
+  " \u2588\u25c9\u2588\u2588\u2588\u25c9\u2588 ",
+  "  \u2599\u2588\u2588\u2588\u2588\u259f  ",
+];
+const mascotRender = (): string[] => {
+  const P = C.primary, O = C.modeBuild || C.primary, W = C.text;
+  return [
+    "    " + O + "\u2726" + "\x1b[0m" + "    ",
+    "  " + P + "\u259f\u2588\u2588\u2588\u2588\u2599" + "\x1b[0m" + "  ",
+    " " + P + "\u2588" + "\x1b[0m" + W + "\u25c9" + "\x1b[0m" + P + "\u2588\u2588\u2588" + "\x1b[0m" + W + "\u25c9" + "\x1b[0m" + P + "\u2588" + "\x1b[0m" + " ",
+    "  " + P + "\u2599\u2588\u2588\u2588\u2588\u259f" + "\x1b[0m" + "  ",
+  ];
+};
+const HERO_ART = (greeting: string): string[] => {
+  // Mascot left (4 rows) + two big lines (3 rows each) — compact cells.
+  const l1 = bigRender(greeting + ",");
+  const l2 = bigRender("welcome to Quinki!");
+  const art = [l1[0], l1[1] + "  " + "", l1[2], l2[0], l2[1], l2[2]];
+  const m = mascotRender();
+  const pad = 9;
+  return [
+    "", "", "",
+    " ".repeat(pad) + m[0] + l1[0],
+    " ".repeat(pad) + m[1] + l1[1],
+    " ".repeat(pad) + m[2] + l1[2],
+    " ".repeat(pad) + m[3] + l2[0],
+    " ".repeat(pad + 9) + l2[1],
+    " ".repeat(pad + 9) + l2[2],
+    "",
+  ];
+};
+
 class WelcomeRoot {
   box: any;
   hint: any;
@@ -200,13 +288,21 @@ class WelcomeRoot {
     try {
       const h = new Date().getHours();
       const g = h >= 5 && h < 12 ? "Good morning" : h >= 12 && h < 18 ? "Good afternoon" : "Good evening";
-      // EXACT app-home line (one row): "Good morning, welcome to Quinki!"
+      // EXACT app-home line: "Good morning, welcome to Quinki!"
       const plain = g + ", welcome to Quinki!";
-      const line = fg(C.textSecondary, g + ", welcome to ") + bold(fg(C.primary, "Quinki")) + fg(C.textSecondary, "!");
-      // Centered symmetrically to the TEXT BOX (not the terminal).
       const boxW = boxLines.length > 0 ? Math.max(...boxLines.map((l: string) => visibleWidth(String(l)))) : width;
-      const pad = " ".repeat(Math.max(0, Math.floor((boxW - visibleWidth(plain)) / 2)));
-      greet = ["", pad + line];
+      const hero = HERO_ART(g);                       // mascot + big 3-row letters
+      const heroW = Math.max(...hero.map((l) => visibleWidth(String(l))));
+      if (heroW + 4 <= Math.min(width, boxW + 24) && boxW >= heroW) {
+        // Big app-home replica (mascot on the left, double-size text).
+        const off = Math.max(0, Math.floor((boxW - heroW) / 2));
+        greet = hero.map((l) => " ".repeat(off) + l);
+      } else {
+        // FALLBACK: the plain one-line greeting, centered on the text box.
+        const line = fg(C.textSecondary, g + ", welcome to ") + bold(fg(C.primary, "Quinki")) + fg(C.textSecondary, "!");
+        const pad = " ".repeat(Math.max(0, Math.floor((boxW - visibleWidth(plain)) / 2)));
+        greet = ["", pad + line];
+      }
     } catch {}
     const group = greet.length + boxLines.length + 2 + hintLines.length;
     const top = Math.max(0, Math.floor((rows - group) / 2));
