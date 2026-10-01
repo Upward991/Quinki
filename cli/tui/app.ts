@@ -182,6 +182,73 @@ class InsetBox {
 
 /** Welcome root: the box + hints, centered EXACTLY (manual math, both axes). */
 
+// === BIG ASCII hero (app-home replica): fixed-cell 3-row font + mascot ===
+const BIGFONT: Record<string, string[]> = {
+  " ": ["    ", "    ", "    "],
+  "!": [" \u2588  ", " \u2588  ", " \u2584  "],
+  ",": ["    ", "    ", " \u2584  "],
+  "A": ["\u2588\u2580\u2584 ", "\u2588\u2580\u2588 ", "\u2580 \u2580 "],
+  "D": ["\u2588\u2580\u2584 ", "\u2588 \u2588 ", "\u2580\u2580  "],
+  "G": ["\u2584\u2580\u2580 ", "\u2588 \u2588 ", "\u2580\u2580\u2580 "],
+  "I": ["\u2580\u2588\u2580 ", " \u2588  ", " \u2580  "],
+  "K": ["\u2588 \u2588 ", "\u2588\u2580\u2584 ", "\u2580 \u2580 "],
+  "L": ["\u2588   ", "\u2588   ", "\u2580\u2580\u2580 "],
+  "M": ["\u2588\u2584\u2588 ", "\u2588 \u2588 ", "\u2580 \u2580 "],
+  "N": ["\u2588\u2584 \u2588", "\u2588 \u2580\u2588", "\u2580  \u2580"],
+  "O": ["\u2584\u2580\u2584 ", "\u2588 \u2588 ", "\u2580\u2580\u2580 "],
+  "Q": ["\u2584\u2580\u2584 ", "\u2588 \u2588 ", "\u2580\u2580\u259c "],
+  "R": ["\u2588\u2580\u2584 ", "\u2588\u2580\u2584 ", "\u2580 \u2580 "],
+  "T": ["\u2580\u2588\u2580 ", " \u2588  ", " \u2580  "],
+  "U": ["\u2588 \u2588 ", "\u2588 \u2588 ", "\u2580\u2580\u2580 "],
+  "W": ["\u2588 \u2588 ", "\u2588\u2584\u2588 ", "\u2580 \u2580 "],
+  "c": ["    ", "\u2584\u2580\u2580 ", "\u2580\u2580\u2580 "],
+  "d": ["  \u2588 ", "\u2584\u2580\u2588 ", "\u2580\u2580\u2580 "],
+  "e": ["    ", "\u2584\u2580\u2584 ", "\u2580\u2580\u2580 "],
+  "g": ["    ", "\u2584\u2580\u2588 ", "\u2580\u2580\u2580 "],
+  "i": [" \u2584  ", " \u2588  ", " \u2580  "],
+  "k": ["\u2588 \u2588 ", "\u2588\u2580\u2584 ", "\u2580 \u2580 "],
+  "l": ["\u2588   ", "\u2588   ", "\u2580   "],
+  "m": ["    ", "\u2588\u2584\u2588 ", "\u2580 \u2580 "],
+  "n": ["    ", "\u2588\u2584\u2580 ", "\u2580 \u2580 "],
+  "o": ["    ", "\u2584\u2580\u2584 ", "\u2580\u2580\u2580 "],
+  "r": ["    ", "\u2588\u2580\u2584 ", "\u2580 \u2580 "],
+  "t": ["\u2584\u2588\u2584 ", " \u2588  ", " \u2580  "],
+  "u": ["    ", "\u2588 \u2588 ", "\u2580\u2580\u2580 "],
+  "w": ["    ", "\u2588 \u2588 ", "\u2580\u2580\u2580 "],
+};
+const bigRender = (text: string): string[] => {
+  const rows = ["", "", ""];
+  for (const ch of text.split("")) {
+    const g = BIGFONT[ch] || BIGFONT[ch.toUpperCase()] || BIGFONT[" "];
+    rows[0] += g[0]; rows[1] += g[1]; rows[2] += g[2];
+  }
+  return rows;
+};
+const mascotRender = (): string[] => {
+  const P = (t: string) => fg(C.primary, t);
+  const S = (t: string) => fg(C.modeBuild, t);
+  const W = (t: string) => fg(C.text, t);
+  return [
+    "   " + S("\u2726") + "    ",
+    " \u259f" + P("\u2588\u2588\u2588\u2588") + "\u2599 ",
+    " \u2588" + W("\u25c9") + P("\u2588\u2588") + W("\u25c9") + P("\u2588") + " ",
+    " \u2599" + P("\u2588\u2588\u2588\u2588") + "\u259f ",
+  ];
+};
+const HERO_ART = (greeting: string): string[] => {
+  const l1 = bigRender(greeting + ",");
+  const l2 = bigRender("welcome to Quinki!");
+  const m = mascotRender();
+  const GAP = "  ";
+  return [
+    "  " + m[0] + GAP + l1[0],
+    "  " + m[1] + GAP + l1[1],
+    "  " + m[2] + GAP + l1[2],
+    "  " + m[3] + GAP + l2[0],
+    "  " + "        " + GAP + l2[1],
+    "  " + "        " + GAP + l2[2],
+  ];
+};
 class WelcomeRoot {
   box: any;
   hint: any;
@@ -259,74 +326,7 @@ function wrapPlain(s: string, width: number): string[] {
   const out: string[] = [];
   const w = Math.max(4, width);
   for (const raw of String(s || "").split("\n")) {
-    if (raw.length === 0) // === BIG ASCII hero (app-home replica): fixed-cell 3-row font + mascot ===
-const BIGFONT: Record<string, string[]> = {
-  " ": ["    ", "    ", "    "],
-  "!": [" \u2588  ", " \u2588  ", " \u2584  "],
-  ",": ["    ", "    ", " \u2584  "],
-  "A": ["\u2588\u2580\u2584 ", "\u2588\u2580\u2588 ", "\u2580 \u2580 "],
-  "D": ["\u2588\u2580\u2584 ", "\u2588 \u2588 ", "\u2580\u2580  "],
-  "G": ["\u2584\u2580\u2580 ", "\u2588 \u2588 ", "\u2580\u2580\u2580 "],
-  "I": ["\u2580\u2588\u2580 ", " \u2588  ", " \u2580  "],
-  "K": ["\u2588 \u2588 ", "\u2588\u2580\u2584 ", "\u2580 \u2580 "],
-  "L": ["\u2588   ", "\u2588   ", "\u2580\u2580\u2580 "],
-  "M": ["\u2588\u2584\u2588 ", "\u2588 \u2588 ", "\u2580 \u2580 "],
-  "N": ["\u2588\u2584 \u2588", "\u2588 \u2580\u2588", "\u2580  \u2580"],
-  "O": ["\u2584\u2580\u2584 ", "\u2588 \u2588 ", "\u2580\u2580\u2580 "],
-  "Q": ["\u2584\u2580\u2584 ", "\u2588 \u2588 ", "\u2580\u2580\u259c "],
-  "R": ["\u2588\u2580\u2584 ", "\u2588\u2580\u2584 ", "\u2580 \u2580 "],
-  "T": ["\u2580\u2588\u2580 ", " \u2588  ", " \u2580  "],
-  "U": ["\u2588 \u2588 ", "\u2588 \u2588 ", "\u2580\u2580\u2580 "],
-  "W": ["\u2588 \u2588 ", "\u2588\u2584\u2588 ", "\u2580 \u2580 "],
-  "c": ["    ", "\u2584\u2580\u2580 ", "\u2580\u2580\u2580 "],
-  "d": ["  \u2588 ", "\u2584\u2580\u2588 ", "\u2580\u2580\u2580 "],
-  "e": ["    ", "\u2584\u2580\u2584 ", "\u2580\u2580\u2580 "],
-  "g": ["    ", "\u2584\u2580\u2588 ", "\u2580\u2580\u2580 "],
-  "i": [" \u2584  ", " \u2588  ", " \u2580  "],
-  "k": ["\u2588 \u2588 ", "\u2588\u2580\u2584 ", "\u2580 \u2580 "],
-  "l": ["\u2588   ", "\u2588   ", "\u2580   "],
-  "m": ["    ", "\u2588\u2584\u2588 ", "\u2580 \u2580 "],
-  "n": ["    ", "\u2588\u2584\u2580 ", "\u2580 \u2580 "],
-  "o": ["    ", "\u2584\u2580\u2584 ", "\u2580\u2580\u2580 "],
-  "r": ["    ", "\u2588\u2580\u2584 ", "\u2580 \u2580 "],
-  "t": ["\u2584\u2588\u2584 ", " \u2588  ", " \u2580  "],
-  "u": ["    ", "\u2588 \u2588 ", "\u2580\u2580\u2580 "],
-  "w": ["    ", "\u2588 \u2588 ", "\u2580\u2580\u2580 "],
-};
-const bigRender = (text: string): string[] => {
-  const rows = ["", "", ""];
-  for (const ch of text.split("")) {
-    const g = BIGFONT[ch] || BIGFONT[ch.toUpperCase()] || BIGFONT[" "];
-    rows[0] += g[0]; rows[1] += g[1]; rows[2] += g[2];
-  }
-  return rows;
-};
-const mascotRender = (): string[] => {
-  const P = (t: string) => fg(C.primary, t);
-  const S = (t: string) => fg(C.modeBuild, t);
-  const W = (t: string) => fg(C.text, t);
-  return [
-    "   " + S("\u2726") + "    ",
-    " \u259f" + P("\u2588\u2588\u2588\u2588") + "\u2599 ",
-    " \u2588" + W("\u25c9") + P("\u2588\u2588") + W("\u25c9") + P("\u2588") + " ",
-    " \u2599" + P("\u2588\u2588\u2588\u2588") + "\u259f ",
-  ];
-};
-const HERO_ART = (greeting: string): string[] => {
-  const l1 = bigRender(greeting + ",");
-  const l2 = bigRender("welcome to Quinki!");
-  const m = mascotRender();
-  const GAP = "  ";
-  return [
-    "  " + m[0] + GAP + l1[0],
-    "  " + m[1] + GAP + l1[1],
-    "  " + m[2] + GAP + l1[2],
-    "  " + m[3] + GAP + l2[0],
-    "  " + "        " + GAP + l2[1],
-    "  " + "        " + GAP + l2[2],
-  ];
-};
-{
+    if (raw.length === 0) {
       out.push("");
       continue;
     }
