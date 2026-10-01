@@ -1016,16 +1016,22 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   const qProvidersPath = (): string => {
     try { return require("path").join(require("os").homedir(), ".quinki", "quinki-providers.json"); } catch { return ""; }
   };
-  const readProvidersCfg = (): any => {
-    try { return JSON.parse(require("fs").readFileSync(qProvidersPath(), "utf8")) || {}; } catch { return {}; }
-  };
+  let qProvidersMem: any = null;
+const readProvidersCfg = (): any => {
+  try {
+    if (qProvidersMem) return qProvidersMem;
+    qProvidersMem = JSON.parse(require("fs").readFileSync(qProvidersPath(), "utf8")) || {};
+    return qProvidersMem;
+  } catch { return {}; }
+};
   const patchProvider = (name: string, fn: (p: any) => void) => {
     try {
       const cfg = readProvidersCfg();
       const provs = cfg.providers || (cfg.providers = {});
       const p = provs[name] || (provs[name] = {});
       fn(p);
-      const call = (globalThis as any).__sidecarCall;
+      qProvidersMem = cfg; // instant UI (no RPC wait)
+            const call = (globalThis as any).__sidecarCall;
       if (call) call('setProvidersConfig', cfg).catch(() => {});
     } catch {}
   };
@@ -1058,8 +1064,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   const settingsMenuItems = (): any[] => {
     return [
       { value: "defaults", label: "Global defaults", description: String(wsSettings?.defaultModel || "") },
-      { value: "shortcuts", label: "Shortcuts", description: "Keys" },
-      { value: "attachments", label: "Attachments storage", description: "Where files live" },
+        { value: "attachments", label: "Attachments storage", description: "Where files live" },
         { value: "providers", label: "Providers", description: "API keys, models" },
       { value: "version", label: "Version", description: "Build info" },
     ];
@@ -1100,18 +1105,6 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       { value: "model", label: "Default model", description: String((readProvidersCfg().defaultModel) || defaultModelId || "") },
       { value: "fallbacks", label: "Fallback models", description: fbN + " configured" },
       { value: "thinking", label: "Thinking", description: th === "off" ? "Off" : "On" },
-    ];
-  }
-  if (lv === "shortcuts") {
-    return [
-      { value: "__s1", label: "Tab", description: "Plan / Build" },
-      { value: "__s2", label: "Ctrl+T", description: "Toggle navigation" },
-      { value: "__s3", label: "Ctrl+F", description: "Info on footers" },
-      { value: "__ins", label: "Ctrl+S", description: "Select in lists (multi)" },
-      { value: "__s4", label: "Enter", description: "Send" },
-      { value: "__s5", label: "Ctrl+Enter", description: "Steer while streaming" },
-      { value: "__s6", label: "Esc", description: "Stop / close menu" },
-      { value: "__s7", label: "Ctrl+C", description: "Quit quinki" },
     ];
   }
   if (lv === "version") {
@@ -1194,10 +1187,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       return [{ value: typed || "__urlfield", label: typed || ("Base URL: " + String(p.baseUrl || "not set")), description: typed ? "Enter to save" : "type the new URL" }];
     }
     return [
-      { value: "toggle", label: "Enabled", description: p.enabled ? "On" : "Off" },
+      { value: "models", label: "Models", description: String((p.enabledModels || []).length) + " on" },
       { value: "key", label: "API key", description: p.apiKey ? "set" : "not set" },
       { value: "baseurl", label: "Base URL", description: String(p.baseUrl || "not set") },
-      { value: "models", label: "Models", description: String((p.enabledModels || []).length) + " on" },
     ];
   }
   return settingsMenuItems();
@@ -3933,7 +3925,7 @@ const cmd: any = commands.find((c) => c.name === it.value);
   const settingsDeeper = (it: any): string | null => {
   const lv = menuStack[1] || "", sub = menuStack[2] || "", sub3 = menuStack[3] || "";
   const v = String(it?.value || "");
-  if (!lv) return ["defaults", "shortcuts", "attachments", "providers", "version"].includes(v) ? v : null;
+  if (!lv) return ["defaults", "attachments", "providers", "version"].includes(v) ? v : null;
   if (lv === "defaults" && !sub) return (v === "model" || v === "fallbacks" || v === "thinking") ? v : null;
   if (lv === "defaults" && sub === "fallbacks" && v === "__addfallback") return "addfallback";
   if (lv === "providers" && !sub) return (v.startsWith("prov:") || v === "__addprov") ? v : null;
@@ -4113,7 +4105,22 @@ const applySettingsPatch = (patch: any) => {
       // left ↑ ↓ ← → (navigation) — right Esc (red) · Confirm (filled violet,
       // like the selected slash rows, while FOCUSED via → — Enter runs it).
       rows.push("");
-      const left = fg(C.textSecondary, "\u2191 \u2193 \u2190 \u2192");
+      const canBack = (menuStack || []).length > 0;
+      let canFwd = false;
+      try {
+        const curA: any = items[menuSel];
+        if (curA && !curA.separator) {
+          if (menuStack[0] === "agentinsession") canFwd = !!agentLevelFor(curA);
+          else if (menuStack[0] === "settings") canFwd = !!settingsDeeper(curA);
+          else if (menuStack.length > 0) canFwd = false;
+          else {
+            const cA: any = commands.find((c: any) => c.name === curA.value);
+            canFwd = !!(cA && typeof cA.getArgumentCompletions === "function");
+          }
+        }
+      } catch {}
+      const AR = (ok: boolean, ch: string) => ok ? bold(fg(C.primary, ch)) : fg(C.textTertiary, ch);
+      const left = AR(true, "\u2191") + " " + AR(true, "\u2193") + "  " + AR(canBack, "\u2190") + " " + AR(canFwd, "\u2192");
       const hasMulti = (menuStack[0] === "model" || menuStack[0] === "thinking") || (menuStack[0] === "settings" && (menuStack[3] === "models" || (menuStack[1] === "defaults" && (menuStack[2] === "fallbacks" || menuStack[2] === "model" || menuStack[2] === "thinking")) || (menuStack[1] === "providers" && !menuStack[2])));
       // Confirm appears ONLY when the highlighted option actually RUNS something
       // (navigation items and read-only pages do not show it).
