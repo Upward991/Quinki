@@ -223,7 +223,7 @@ const bigBrand = (): string[] => {
   const PLAIN = (t: string) => fg(C.text, t);
   const VIOLET = (t: string) => bold(fg(C.primary, t));
   const a = pixWord("Welcome to ", PLAIN);
-  const b = pixWord("Quinki!", VIOLET);
+  const b = pixWord("Quinki", VIOLET);
   return [a[0] + b[0], a[1] + b[1], a[2] + b[2], a[3] + b[3]];
 };
 const HERO_ART = (): string[] => {
