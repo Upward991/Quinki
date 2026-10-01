@@ -97,12 +97,12 @@ if (process.stdout.isTTY && !process.env.QUINKI_CLI_NO_BG) {
 // App Expert mode: `quinki expert` -> the SAME TUI, fixed to the expert session,
 // orange accent, no chat-management commands.
 try {
-  if (argv[0] === "expert") {
+  if (["expert", "appexpert", "quinkiexpert"].includes(String(argv[0] || ""))) {
     process.env.QUINKI_EXPERT = "1";
     process.env.QUINKI_SESSION_KEY = "__app_expert__";
   }
 } catch {}
-if ((argv.length === 0 || argv[0] === "expert") && process.stdout.isTTY && process.stdin.isTTY) {
+if ((argv.length === 0 || ["expert", "appexpert", "quinkiexpert"].includes(String(argv[0] || ""))) && process.stdout.isTTY && process.stdin.isTTY) {
   const { runTui } = await import("./tui/app");
   await runTui({ cwd: process.cwd(), agentDir: AGENT_DIR, sessionDir: SESSION_DIR });
 } else {
