@@ -595,6 +595,8 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   // the app uses — agents, skills, delegation, live sync). Falls back to the
   // bare SDK session when the app/sidecar is not running. ---------------------
   const sc = new Sc("ws://127.0.0.1:" + (process.env.QUINKI_SIDECAR_PORT || "9182"));
+  // The settings menu uses this channel; define it from the CLI's real RPC client.
+  try { (globalThis as any).__sidecarCall = (m: string, p?: any, t?: number) => sc.call(m, p || {}, t || 120000); } catch {}
   // The app's watchdog KILLS the shared sidecar when the app quits (port 9182).
   // The TUI must survive that: it spawns the installed sidecar itself and the
   // client keeps reconnecting — engine back within seconds.
@@ -1041,15 +1043,15 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   const lv = stack[1];
   if (lv === "defaults") {
     const lastLv = stack[stack.length - 1];
-    if (stack[2] === "model") return modelPickerItems();
-    if (lastLv === "addfallback") return modelPickerItems();
+    if (stack[2] === "model") return modelPickerItems(String(readProvidersCfg().defaultModel || defaultModelId || ""));
+    if (lastLv === "addfallback") return modelPickerItems("", (Array.isArray(wsSettings?.defaultFallbackModels) ? wsSettings.defaultFallbackModels : []));
     if (stack[2] === "fallbacks") {
-      const fb = Array.isArray(wsSettings?.fallbackModels) ? wsSettings.fallbackModels : [];
+      const fb = Array.isArray(wsSettings?.defaultFallbackModels) ? wsSettings.fallbackModels : [];
       const out: any[] = fb.map((id: any, i: number) => ({ value: "fb:" + String(id), label: String(id), description: "fallback " + (i + 1) }));
       out.push({ value: "__addfallback", label: "\uff0b Add fallback", description: "pick a model" });
       return out;
     }
-    const fbN = Array.isArray(wsSettings?.fallbackModels) ? wsSettings.fallbackModels.length : 0;
+    const fbN = Array.isArray(wsSettings?.defaultFallbackModels) ? wsSettings.fallbackModels.length : 0;
     const th = String(wsSettings?.defaultThinkingLevel || readProvidersCfg().defaultThinking || "xhigh");
     return [
       { value: "model", label: "Default model", description: String((readProvidersCfg().defaultModel) || defaultModelId || "") },
@@ -1103,7 +1105,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           description: (p.enabled ? "enabled" : "disabled") + " \u00b7 " + String((p.enabledModels || []).length) + " models",
         });
       }
-      out.push({ value: "__addprov", label: "\uff0b Add custom provider", description: "name, URL" });
+      out.push({ value: "__addprov", label: "\uff0b Add provider", description: "name, URL" });
       return out;
     }
     if (stack[2] === "__addprov") {
@@ -1120,8 +1122,6 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         const on = en.includes(mm.id);
         out.push({ value: "mdl:" + String(mm.id), label: (on ? "\u25cf " : "\u25cb ") + String(mm.id), description: (on ? "on" : "off") + (mm.name ? " \u00b7 " + String(mm.name) : "") });
       }
-      const typed = String(menuSubFilter || "");
-      out.push({ value: typed || "__addmodel", label: typed || "\uff0b Add model", description: typed ? "Enter to add" : "type a model id" });
       return out;
     }
     if (stack[3] === "key") {
@@ -3601,7 +3601,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       } catch {}
     } catch {}
   };
-  const modelPickerItems = (): any[] => {
+  const modelPickerItems = (currentDefault: string = "", currentFallbacks: string[] = []): any[] => {
     const out: any[] = [];
     let models: any[] = [];
     try { models = availableModels(); } catch {}
@@ -3609,7 +3609,11 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     for (const mm of models) {
       const prov = String(mm?.provider || "");
       if (prov && prov !== lastProv) { out.push({ value: "__sep_m_" + prov, label: prov, description: "", separator: true }); lastProv = prov; }
-      out.push({ value: String(mm?.id || ""), label: String(mm?.id || ""), description: String(mm?.name || "") });
+      const id = String(mm?.id || "");
+      const marks: string[] = [];
+      if (currentDefault && id === currentDefault) marks.push("default");
+      if (currentFallbacks.some((f: any) => String(f) === id)) marks.push("fallback");
+      out.push({ value: id, label: id, description: (marks.length ? marks.join(" \u00b7 ") + " \u00b7 " : "") + String(mm?.name || "") });
     }
     return out;
   };
@@ -3652,19 +3656,19 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     }
     if (sub === "addfallback") {
       if (value && !value.startsWith("__")) {
-        const cur = Array.isArray(wsSettings?.fallbackModels) ? wsSettings.fallbackModels.slice() : [];
+        const cur = Array.isArray(wsSettings?.defaultFallbackModels) ? wsSettings.fallbackModels.slice() : [];
         if (!cur.includes(value)) cur.push(value);
         try { const call = (globalThis as any).__sidecarCall; if (call) call('setDefaultFallbacks', { fallbacks: cur }).catch(() => {}); } catch {}
-        wsSettings = { ...(wsSettings || {}), fallbackModels: cur };
+        wsSettings = { ...(wsSettings || {}), defaultFallbackModels: cur };
         menuStack = ["settings", "defaults", "fallbacks"]; menuSubFilter = ""; menuSel = 0;
       }
       return;
     }
     if (sub === "fallbacks" && value.startsWith("fb:")) {
       const id = value.slice(3);
-      const cur = (Array.isArray(wsSettings?.fallbackModels) ? wsSettings.fallbackModels : []).filter((x: any) => String(x) !== id);
+      const cur = (Array.isArray(wsSettings?.defaultFallbackModels) ? wsSettings.fallbackModels : []).filter((x: any) => String(x) !== id);
       try { const call = (globalThis as any).__sidecarCall; if (call) call('setDefaultFallbacks', { fallbacks: cur }).catch(() => {}); } catch {}
-      wsSettings = { ...(wsSettings || {}), fallbackModels: cur };
+      wsSettings = { ...(wsSettings || {}), defaultFallbackModels: cur };
       return;
     }
     return;
