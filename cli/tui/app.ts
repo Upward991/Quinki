@@ -1229,8 +1229,8 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       seq: 6,
       getArgumentCompletions: (prefix: string) =>
         [
-          { value: "on", label: "on", description: "Thinking ON \u2014 always the maximum level" },
-          { value: "off", label: "off", description: "Thinking OFF" },
+          { value: "on", label: (thinkingOn ? "\u25cf " : "\u25cb ") + "On", description: "Always the maximum level" },
+          { value: "off", label: (thinkingOn ? "\u25cb " : "\u25cf ") + "Off", description: "Thinking OFF" },
         ].filter((i) => i.value.startsWith(prefix)),
     },
     {
@@ -3573,7 +3573,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
 
       }
 
-      if (menuStack.length > 0) return menuStack[0] !== "model";
+      if (menuStack.length > 0) return menuStack[0] !== "model" && menuStack[0] !== "thinking";
 
       const c2: any = commands.find((c) => c.name === cur.value);
 
@@ -3593,6 +3593,13 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         const inModels = menuStack[0] === "settings" && menuStack[3] === "models";
         const inFallbacks = menuStack[0] === "settings" && menuStack[1] === "defaults" && menuStack[2] === "fallbacks";
         const inProviders = menuStack[0] === "settings" && menuStack[1] === "providers" && !menuStack[2];
+        if (menuStack[0] === "thinking" && it && !it.separator) {
+          const on = String(it.value) === "on";
+          try { thinkingOn = on; } catch {}
+          if (currentKey) { void sc.call("setThinking", { sessionKey: currentKey, thinkingLevel: on ? "xhigh" : "off" }, 20000).catch(() => {}); }
+          try { ui.requestRender(); } catch {}
+          return;
+        }
         // MENU 2.0: Tab acts on value-pickers too (model / thinking choices).
         const inSettingsModel = menuStack[0] === "settings" && menuStack[1] === "defaults" && menuStack[2] === "model";
         const inAgentPick = menuStack[0] === "agentinsession" && String(menuStack[2] || "").match(/^(model|thinking)$/);
