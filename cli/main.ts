@@ -88,8 +88,14 @@ if (process.stdout.isTTY && !process.env.QUINKI_CLI_NO_BG) {
   const restore = () => termWrite("\x1b]111\x07");
   process.on("exit", restore);
   process.on("SIGTERM", () => {
+    // NOT fatal: when the app (or a watchdog) closes, the CLI must survive and
+    // let its websocket reconnect loop revive the sidecar. Only restore colours.
+    try { require("fs").appendFileSync("/tmp/q-cli-survive.log", "SIGTERM received (ignored, surviving)\n"); } catch {}
     restore();
-    process.exit(143);
+  });
+  process.on("SIGHUP", () => {
+    try { require("fs").appendFileSync("/tmp/q-cli-survive.log", "SIGHUP received (ignored, surviving)\n"); } catch {}
+    restore();
   });
 }
 
