@@ -1142,7 +1142,13 @@ const readProvidersCfg = (): any => {
   const settingsMenuItems = (): any[] => {
     const thM = String(wsSettings?.defaultThinkingLevel || readProvidersCfg().defaultThinking || "xhigh");
     let fbM = 0;
-    try { const ff = readSettingsFile().defaultFallbackModels; if (Array.isArray(ff)) fbM = ff.length; } catch {}
+    try {
+      // The REAL fallbacks live PER SESSION (s.fallbackModels) — the app reads them
+      // there too. Globals only as last resort.
+      const ent = readSessionsList().find((x: any) => x?.key === currentKey);
+      if (ent && Array.isArray(ent.fallbackModels)) fbM = ent.fallbackModels.length;
+    } catch {}
+    if (!fbM) { try { const ff = readSettingsFile().defaultFallbackModels; if (Array.isArray(ff)) fbM = ff.length; } catch {} }
     if (!fbM && Array.isArray(wsSettings?.defaultFallbackModels)) fbM = wsSettings.defaultFallbackModels.length;
     return [
       { value: "model", label: "Default model", description: String((readProvidersCfg().defaultModel) || defaultModelId || "") },
@@ -1447,10 +1453,8 @@ const readProvidersCfg = (): any => {
         const sdir = path.join(os.homedir(), ".quinki", "attachments", String(currentKey || ""));
         items.push({ value: "__at_new", label: "Attach new file\u2026", description: "native file picker" });
         items.push({ value: "__at_open", label: "Open attachments folder", description: sdir.replace(os.homedir(), "~") });
-        // Separator above AND below the header (as requested).
-        items.push({ value: "__at_sep1", label: "", separator: true });
+        // ONE separator: the header row already renders as blank + label + blank.
         items.push({ value: "__at_hdr", label: "Last attachments", separator: true });
-        items.push({ value: "__at_sep2b", label: "", separator: true });
         try {
           const fsc = require("fs");
           const files: Array<{ n: string; m: number }> = [];
@@ -3893,6 +3897,7 @@ const readProvidersCfg = (): any => {
         return;
       }
       if (menuStack[0] === "agentinsession") {
+        try { require("fs").appendFileSync("/tmp/q-tab-trace.log", new Date().toISOString() + " select stack=" + menuStack.join("/") + " sel=" + menuSel + " it=" + String(it?.value) + " n=" + String(menuMarked.size) + "\n"); } catch {}
         if (menuStack[1] === "#add") {
           // SELECT first (Tab marks the dots), the CONFIRM (Enter) saves — the dot
           // order is the selection order.
