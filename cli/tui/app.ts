@@ -3628,7 +3628,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   const lv = menuStack[1] || "", sub = menuStack[2] || "", sub3 = menuStack[3] || "";
   const v = String(it?.value || "");
   if (!lv) return ["defaults", "shortcuts", "attachments", "providers", "version"].includes(v) ? v : null;
-  if (lv === "defaults" && !sub) return (v === "model" || v === "fallbacks" || v === "thinking") ? v : null;
+  if (lv === "defaults" && !sub) return (v === "model" || v === "fallbacks") ? v : null;
   if (lv === "defaults" && sub === "fallbacks" && v === "__addfallback") return "addfallback";
   if (lv === "providers" && !sub) return (v.startsWith("prov:") || v === "__addprov") ? v : null;
   if (lv === "providers" && sub && !sub3) return (v === "key" || v === "baseurl" || v === "models") ? v : null;
