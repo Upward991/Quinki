@@ -1006,6 +1006,10 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   // Slash commands — ONLY commands that actually work, ALL silently (no chat
   // output). Commands with options open an app-style submenu (argument list).
   // === /settings (app Settings tab, CLI edition) ===
+  const readSettingsFile = (): any => {
+    try { return JSON.parse(require("fs").readFileSync(require("path").join(require("os").homedir(), ".quinki", "quinki-settings.json"), "utf8")) || {}; } catch { return {}; }
+  };
+
   const qProvidersPath = (): string => {
     try { return require("path").join(require("os").homedir(), ".quinki", "quinki-providers.json"); } catch { return ""; }
   };
