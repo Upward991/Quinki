@@ -1698,7 +1698,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         sec("Close (\u2190)") +
         fg(C.textTertiary, " \u00b7 ") +
         sec("Open (\u2192)");
-      const brandN = fg(C.primary, "\u2502") + " " + fg(C.text, "\u25c9\u25c9") + " " + fg(C.primary, "\u2502");
+      const brandN = welcomeShown ? "" : fg(C.primary, "\u2502") + " " + fg(C.primary, "Quinki") + " " + fg(C.primary, "\u2502");
       const lwN = visibleWidth(leftN);
       const rwN = visibleWidth(rightN);
       const startN = Math.max(lwN + 1, Math.floor((width - 10) / 2));
@@ -1736,10 +1736,10 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     const right = stopKey + sep + steerKey + sep + sendKey;
 
     // "│ Quinki │" — brand centered between two violet vertical bars.
-    const brand = fg(C.primary, "\u2502") + " " + fg(C.text, "\u25c9\u25c9") + " " + fg(C.primary, "\u2502");
+    const brand = welcomeShown ? "" : fg(C.primary, "\u2502") + " " + fg(C.primary, "Quinki") + " " + fg(C.primary, "\u2502");
     const lw = visibleWidth(left);
     const rw = visibleWidth(right);
-    const bw = 6;
+    const bw = welcomeShown ? 0 : 10;
     const start = Math.max(lw + 1, Math.floor((width - bw) / 2));
     const gap1 = Math.max(1, start - lw);
     const gap2 = Math.max(1, width - start - bw - rw);
