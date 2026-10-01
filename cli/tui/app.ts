@@ -1416,7 +1416,7 @@ const readProvidersCfg = (): any => {
       description: "Exit quinki (asks for confirmation)",
       seq: 14,
       getArgumentCompletions: () => [
-        { value: "confirm", label: "", notice: "Quit quinki? Active chats keep running in the background." },
+        { value: "confirm", label: "", notice: "Quit quinki?" },
       ],
     },
   ];
