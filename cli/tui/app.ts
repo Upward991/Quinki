@@ -3776,10 +3776,10 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       const prov = String(mm?.provider || "");
       if (prov && prov !== lastProv) { out.push({ value: "__sep_m_" + prov, label: prov, description: "", separator: true }); lastProv = prov; }
       const id = String(mm?.id || "");
-      const marks: string[] = [];
-      if (currentDefault && id === currentDefault) marks.push("default");
-      if (currentFallbacks.some((f: any) => String(f) === id)) marks.push("fallback");
-      out.push({ value: id, label: id, description: (marks.length ? marks.join(" \u00b7 ") + " \u00b7 " : "") + String(mm?.name || "") });
+      const isCur = currentDefault && id === currentDefault;
+      const isFb = currentFallbacks.some((f: any) => String(f) === id);
+      const dot = isCur || isFb ? "\u25cf " : "\u25cb ";
+      out.push({ value: id, label: dot + id, description: String(mm?.name || "") });
     }
     return out;
   };
