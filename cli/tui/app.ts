@@ -1206,6 +1206,9 @@ const readProvidersCfg = (): any => {
       { value: "baseurl", label: "Base URL", description: String(p.baseUrl || "not set") },
       { value: "key", label: "API key", description: wsKeyStatus[name] === true ? "set" : (wsKeyStatus[name] === false ? "not set" : "checking\u2026") },
     ];
+    if (name === "OpenRouter") {
+      out2.push({ value: "login", label: "Connect OpenRouter", description: "sign in via browser (shared with the app)" });
+    }
     return out2;
   }
   return settingsMenuItems();
