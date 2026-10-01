@@ -1190,7 +1190,15 @@ export class TuiAltScreen extends TuiBase {
         for (let row = 0; row < height; row++) {
             if (!fullRedraw && !imagesNeedRedraw && screen[row] === this.previousScreen[row])
                 continue;
-            buffer += `\x1b[${row + 1};1H\x1b[48;2;8;8;11m\x1b[2K${preparedKittyScreen.lines[row] ?? ""}\x1b[49m`;
+            {
+                const __ln = preparedKittyScreen.lines[row] ?? "";
+                let __vis = "";
+                try { __vis = __ln.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, "").replace(/\x1b\][^\x07]*\x07/g, ""); } catch { __vis = __ln; }
+                const __t = (__vis.match(/[ \t]*$/) || [""])[0].length;
+                const __fix = __t;
+                const __over = __fix > 0 ? `\x1b[${Math.max(1, width - __fix + 1)}G\x1b[48;2;8;8;11m${" ".repeat(__fix)}` : "";
+                buffer += `\x1b[${row + 1};1H\x1b[48;2;8;8;11m\x1b[2K${__ln}${__over}\x1b[49m`;
+            }
         }
         if (cursorPos) {
             buffer += `\x1b[${cursorPos.row + 1};${Math.min(width, cursorPos.col) + 1}H`;
