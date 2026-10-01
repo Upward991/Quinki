@@ -1578,7 +1578,11 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       const isTab =
         data === "\t" || data === "\x1b[9u" || data === "\x1b[9;1u" || matchesKey(data, "tab");
       if (isTab) {
-        // Tab = Plan/Build toggle (NEVER change this).
+        // Tab = Plan/Build normally; when the slash menu is OPEN it becomes the
+        // SELECT key (nothing else to do there — you cannot type a message anyway).
+        let menuIsOpen = false;
+        try { menuIsOpen = !!(menuOpenRef?.() ?? false); } catch {}
+        if (menuIsOpen) { try { menuNavRef?.("select"); } catch {} return { consume: true }; }
         toggleModeRef?.();
         return { consume: true };
       }
@@ -3486,7 +3490,10 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         const inModels = menuStack[0] === "settings" && menuStack[3] === "models";
         const inFallbacks = menuStack[0] === "settings" && menuStack[1] === "defaults" && menuStack[2] === "fallbacks";
         const inProviders = menuStack[0] === "settings" && menuStack[1] === "providers" && !menuStack[2];
-        if ((inModels || inFallbacks || inProviders) && it && !it.separator) {
+        if (inModels || inProviders) {
+          // INSTANT toggle: selecting a model/provider acts immediately (no Confirm).
+          settingsActivate(String(it?.value || ""));
+        } else if (inFallbacks && it && !it.separator) {
           const v = String(it.value || "");
           if (menuMarked.has(v)) menuMarked.delete(v); else menuMarked.add(v);
         }
@@ -3956,7 +3963,7 @@ const applySettingsPatch = (patch: any) => {
       // like the selected slash rows, while FOCUSED via → — Enter runs it).
       rows.push("");
       const left = fg(C.textSecondary, "\u2191 \u2193 \u2190 \u2192");
-      const hasMulti = menuStack[0] === "settings" && (menuStack[3] === "models" || (menuStack[1] === "defaults" && menuStack[2] === "fallbacks") || (menuStack[1] === "providers" && !menuStack[2]));
+      const hasMulti = menuStack[0] === "settings" && (menuStack[1] === "defaults" && menuStack[2] === "fallbacks");
       // Confirm appears ONLY when the highlighted option actually RUNS something
       // (navigation items and read-only pages do not show it).
       let needsConfirm = menuConfirmFocus;
@@ -3964,7 +3971,12 @@ const applySettingsPatch = (patch: any) => {
         const cur: any = items[menuSel];
         if (cur && !cur.separator) {
           if (menuStack[0] === "agentinsession") needsConfirm = !agentLevelFor(cur);
-          else if (menuStack[0] === "settings") needsConfirm = !settingsDeeper(cur);
+          else if (menuStack[0] === "settings") {
+            const inModelsLv = menuStack[3] === "models";
+            const inProvLv = menuStack[1] === "providers" && !menuStack[2];
+            const inFbLv = menuStack[1] === "defaults" && menuStack[2] === "fallbacks";
+            needsConfirm = inFbLv ? true : ((inModelsLv || inProvLv) ? false : !settingsDeeper(cur));
+          }
           else if (menuStack.length > 0) needsConfirm = true;
           else {
             const c2: any = commands.find((c: any) => c.name === cur.value);
