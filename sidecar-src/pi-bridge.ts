@@ -3900,9 +3900,11 @@ Read this file to view it.` }] };
     try {
       const jsonrpc = JSON.stringify({ jsonrpc: "2.0", method: payload?.type || "event", params: payload });
       const isPoolWorker = (globalThis as any).__quinki_poolIndex != null && (globalThis as any).__quinki_poolIndex > 0;
-      if (isPoolWorker) {
-        try { const bcast = (globalThis as any).__quinki_broadcast; if (bcast) bcast(JSON.parse(jsonrpc)); return; } catch {}
-      }
+      // FIX (1 ott sera): gli eventi del worker 0 andavano SOLO alla socket della
+      // sessione (l'app) — la CLI (altra socket) non riceveva MAI status,
+      // compaction, errori, autoprompt. Ora: SEMPRE broadcast a tutti i client
+      // (app E cli), su QUALSIASI worker. I client filtrano per sessionKey.
+      try { const bcast = (globalThis as any).__quinki_broadcast; if (bcast) { bcast(JSON.parse(jsonrpc)); return; } } catch {}
       const sk = payload?.sessionKey;
       let target = ws;
       if (sk) {
