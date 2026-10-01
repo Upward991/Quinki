@@ -4397,7 +4397,6 @@ const applySettingsPatch = (patch: any) => {
       }).catch(() => {});
     } catch {}
   }, 900);
-  try { require("fs").appendFileSync("/tmp/q-flag.log", "boot-query-scheduled\n"); } catch {}
   } catch (err) {
     process.stderr.write("quinki: could not start the terminal UI: " + String((err as any)?.message || err) + "\n");
     process.exit(1);
