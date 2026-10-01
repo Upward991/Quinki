@@ -1096,6 +1096,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       { value: "__s1", label: "Tab", description: "Plan / Build" },
       { value: "__s2", label: "Ctrl+T", description: "Toggle navigation" },
       { value: "__s3", label: "Ctrl+F", description: "Info on footers" },
+      { value: "__ins", label: "F2 / Insert", description: "Select in lists (multi)" },
       { value: "__s4", label: "Enter", description: "Send" },
       { value: "__s5", label: "Ctrl+Enter", description: "Steer while streaming" },
       { value: "__s6", label: "Esc", description: "Stop / close menu" },
@@ -1610,7 +1611,11 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         } catch {}
       }
       const isEnter = data === "\r" || matchesKey(data, "enter");
-      const isSelect = matchesKey(data, "f2") || data === "\x1bOQ" || data === "\x1b[12~";
+      // UNIVERSAL select key: F2 (every terminal/OS encodes it differently) + Insert
+      // (same code everywhere). Consumed before the filter, so nothing is typed.
+      const isSelect =
+        matchesKey(data, "f2") || matchesKey(data, "insert") ||
+        /^\x1b(OQ|\[12[~u]|\[12;\d+[~u]|\[2[~u]|\[2;\d+u)$/.test(data);
       const isCtrlEnter = data === "\n" || data === "\x1b[13;5u" || matchesKey(data, "ctrl+enter");
       const isEsc = data === "\x1b" || matchesKey(data, "escape");
       const isUp = data === "\x1b[A" || matchesKey(data, "up");
@@ -3966,7 +3971,7 @@ const applySettingsPatch = (patch: any) => {
       const right =
         fg(C.danger, "Close (Esc)") +
         "  " +
-        (hasMulti ? fg(C.modeBuild, "Select (F2)") + "  " : "") +
+        (hasMulti ? fg(C.modeBuild, "Select (F2/Ins)") + "  " : "") +
         (needsConfirm ? (menuConfirmFocus ? bold(bg(C.primary, fg(C.bgPanel, " Confirm (Enter) "))) : fg(C.primary, "Confirm (Enter)")) : "");
       const gw = Math.max(1, w - visibleWidth(left) - visibleWidth(right));
       rows.push(left + " ".repeat(gw) + right);
