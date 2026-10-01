@@ -412,8 +412,12 @@ export class Editor {
         // Render top border (with scroll indicator if scrolled down)
         // QUINKI PATCH (25 set, iter6): floating-panel block — NO borders, full-width background.
         const qPaint = (raw) => {
-            // Keep the panel background even through inner full resets (cursor cells use \x1b[0m).
-            const s = String(raw).replace(/\x1b\[0m/g, "\x1b[22m\x1b[23m\x1b[24m\x1b[27m\x1b[39m");
+            // Keep the panel background through inner resets: \x1b[0m is expanded and
+            // \x1b[49m (background reset) is turned back into the panel background,
+            // otherwise the cells after a coloured span lose their colour ("holes").
+            const s = String(raw)
+                .replace(/\x1b\[0m/g, "\x1b[22m\x1b[23m\x1b[24m\x1b[27m\x1b[39m\x1b[48;2;15;15;19m")
+                .replace(/\x1b\[49m/g, "\x1b[48;2;15;15;19m");
             return typeof this.bgFn === "function" ? this.bgFn(s) : s;
         };
         result.push(qEdge() + qPaint(" ".repeat(width - 2)) + qEdgeR());
