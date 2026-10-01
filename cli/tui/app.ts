@@ -1106,10 +1106,13 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     if (stack[3] === "key") {
       const k = String(p.apiKey || "");
       const masked = k ? k.slice(0, 4) + "\u2026" + k.slice(-4) : "(not set)";
-      return [{ value: "__keyfield", label: "API key: " + masked, description: "type the new key, Enter to save" }];
+      // The typed text IS the new key (same raw-field pattern as /rename).
+      const typed = String(menuSubFilter || "");
+      return [{ value: typed || "__keyfield", label: typed || ("API key: " + masked), description: typed ? "Enter to save" : "type the new key" }];
     }
     if (stack[3] === "baseurl") {
-      return [{ value: "__urlfield", label: "Base URL: " + String(p.baseUrl || "(not set)"), description: "type the new URL, Enter to save" }];
+      const typed = String(menuSubFilter || "");
+      return [{ value: typed || "__urlfield", label: typed || ("Base URL: " + String(p.baseUrl || "(not set)")), description: typed ? "Enter to save" : "type the new URL" }];
     }
     return [
       { value: "toggle", label: p.enabled ? "Disable" : "Enable", description: p.enabled ? "currently enabled" : "currently disabled" },
