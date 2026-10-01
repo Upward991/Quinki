@@ -1203,16 +1203,6 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         // (quinki-providers.json) so every change there is reflected here.
         const items: any[] = [];
         try {
-          // First row: Chat default (the config default = the current while on the welcome).
-          try {
-            const dm = String(defaultModelId || "");
-            const hasSessionModel = !!(welcomeShown ? false : wsModelId);
-            items.push({
-              value: "__chat_default_model__",
-              label: (hasSessionModel ? "\u25cb " : "\u25cf ") + "Chat default",
-              description: dm ? ("now: " + dm) : "the config default",
-            });
-          } catch {}
           let lastProv = "";
           for (const m of availableModels()) {
             const id = String(m?.id ?? "");
@@ -1222,7 +1212,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
               items.push({ value: "__sep_prov_" + prov, label: prov, separator: true });
               lastProv = prov;
             }
-            const cur = session?.model?.id === id && String(session?.model?.provider ?? "") === prov;
+            const cur = welcomeShown
+              ? (id === String(defaultModelId || ""))
+              : (String(wsModelId || "") === id);
             items.push({ value: id, label: id, description: (cur ? "current \u00b7 " : "") + prov });
           }
         } catch {}
@@ -3492,6 +3484,31 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     if (menuStack.length > 0) return true;
     return editorText().startsWith("/");
   };
+
+  const runItem = (it: any) => {
+    try {
+            // Providers list: Confirm = toggle every marked provider at once.
+            if (menuStack[1] === "providers" && !menuStack[2] && menuMarked.size > 0) {
+              const names = Array.from(menuMarked).filter((v: string) => v.startsWith("prov:")).map((v: string) => v.slice(5));
+              for (const nm of names) { patchProvider(nm, (p) => { p.enabled = !p.enabled; }); }
+              menuMarked.clear();
+              try { ui.requestRender(); } catch {}
+              return;
+            }
+            // Fallbacks editor: Confirm = save the selection ORDER as the fallbacks.
+            if (menuStack[1] === "defaults" && menuStack[2] === "fallbacks") {
+              const order = Array.from(menuMarked);
+              try { void sc.call('setDefaultFallbacks', { defaultFallbackModels: order }, 20000).catch(() => {}); } catch {}
+              try { wsSettings = { ...(wsSettings || {}), defaultFallbackModels: order }; } catch {}
+              try { ui.requestRender(); } catch {}
+              return;
+            }
+            settingsActivate(String(it.value));
+            try { ui.requestRender(); } catch {}
+            return;
+          
+    } catch {}
+  };
   const menuNav = (a: "up" | "down" | "left" | "right" | "enter" | "escape" | "select") => {
 
     if (a === "select") {
@@ -3632,7 +3649,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
                 }
               } catch {}
             } else {
-              menuConfirmFocus = true; // option = terminal level
+              // MENU 2.0: the right arrow only navigates; on terminal rows nothing.
             }
           }
         } else {
@@ -3643,7 +3660,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
             menuSubFilter = "";
             menuSel = 0;
           } else if (cmd) {
-            menuConfirmFocus = true; // command without options: end of the road
+            // MENU 2.0: nothing (Enter runs commands).
           }
         }
       } else {
@@ -3669,7 +3686,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
                 }
               } catch {}
             } else {
-              menuConfirmFocus = true; // terminal option: Confirm lights, Enter runs it
+              runItem(it); // MENU 2.0: Enter executes (never navigates)
             }
             try { ui.requestRender(); } catch {}
             return;
@@ -3689,10 +3706,10 @@ export async function runTui(opts: TuiOptions): Promise<void> {
                 }
               } catch {}
             } else {
-              menuConfirmFocus = true; // Confirm lights: Enter again executes
+              runItem(it); // MENU 2.0: Enter executes (never navigates)
             }
           } else if (menuStack.length > 0) {
-            agentActivate(String(it.value)); // MENU 2.0: Enter executes of a submenu
+            runItem(it); // MENU 2.0: Enter executes (never navigates)
           } else {
             const cmd: any = commands.find((c) => c.name === it.value);
             if (cmd && typeof cmd.getArgumentCompletions === "function") {
@@ -3701,7 +3718,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
               menuSel = 0;
               if (cmd.name === "settings") { try { fetchSettings(); fetchAllModels(); } catch {} }
             } else if (cmd) {
-              menuConfirmFocus = true; // no options: Confirm first, then run
+              runItem(it); // MENU 2.0: Enter executes
             }
           }
         } else {
@@ -3709,26 +3726,8 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           menuConfirmFocus = false;
           if (!it || it.separator) return;
           if (menuStack[0] === "settings") {
-            // Providers list: Confirm = toggle every marked provider at once.
-            if (menuStack[1] === "providers" && !menuStack[2] && menuMarked.size > 0) {
-              const names = Array.from(menuMarked).filter((v: string) => v.startsWith("prov:")).map((v: string) => v.slice(5));
-              for (const nm of names) { patchProvider(nm, (p) => { p.enabled = !p.enabled; }); }
-              menuMarked.clear();
-              try { ui.requestRender(); } catch {}
-              return;
-            }
-            // Fallbacks editor: Confirm = save the selection ORDER as the fallbacks.
-            if (menuStack[1] === "defaults" && menuStack[2] === "fallbacks") {
-              const order = Array.from(menuMarked);
-              try { void sc.call('setDefaultFallbacks', { defaultFallbackModels: order }, 20000).catch(() => {}); } catch {}
-              try { wsSettings = { ...(wsSettings || {}), defaultFallbackModels: order }; } catch {}
-              try { ui.requestRender(); } catch {}
-              return;
-            }
-            settingsActivate(String(it.value));
-            try { ui.requestRender(); } catch {}
-            return;
-          } else if (menuStack[0] === "agentinsession") {
+          runItem(it);
+        } else if (menuStack[0] === "agentinsession") {
             // The agent menus NEVER close: every action returns to its parent level.
             agentActivate(String(it.value));
           } else if (menuStack.length > 0) {
