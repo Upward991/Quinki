@@ -484,14 +484,18 @@ export class Editor {
                     // Solid panel rows, exactly the box width (no empty rows around).
                     // NOTE: whitespace-only strings get dropped by the renderer, so the
                     // pad rows keep a plain space OUTSIDE the painter.
-                    const acPadRow = " " + qPaint(" ".repeat(Math.max(1, width - 2))) + " ";
+                    // \u200b (zero-width space) anchors every row: whitespace-only
+                    // strings get dropped downstream, an invisible zero-width char keeps
+                    // them alive WITHOUT changing the visible layout.
+                    const acPadRow = "\u200b" + qPaint(" ".repeat(Math.max(1, width - 1)));
                     const acLines = [acPadRow];
                     for (const line of rows) {
                         const lws = visibleWidth(line);
-                        const lp = " ".repeat(Math.max(0, width - 2 - lws));
-                        acLines.push(" " + qPaint(`${line}${lp}`) + " ");
+                        const lp = " ".repeat(Math.max(0, width - 1 - lws));
+                        acLines.push("\u200b" + qPaint(`${line}${lp}`));
                     }
                     acLines.push(acPadRow);
+                    try { require("fs").appendFileSync("/tmp/qc-menu-debug.log", JSON.stringify({ n: acLines.length, widths: acLines.map(x => visibleWidth(x)) }) + "\n"); } catch {}
                     result.unshift(...acLines);
                 }
             }

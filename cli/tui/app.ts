@@ -4136,7 +4136,7 @@ const applySettingsPatch = (patch: any) => {
       const rows: string[] = [];
       // The slash menu is a SOLID floating panel (exactly like the app:
       // background var(--q-bg-panel) for every row of the window, no holes).
-      const winRow = (s2: string) => bg(C.bgPanel, s2 + " ".repeat(Math.max(0, w - visibleWidth(s2))));
+      const winRow = (s2: string) => "\u200b" + bg(C.bgPanel, s2 + " ".repeat(Math.max(0, w - 1 - visibleWidth(s2))));
       const MAXWIN = 12;
       const winStart = Math.max(0, Math.min(Math.max(0, items.length - MAXWIN), menuSel - Math.floor(MAXWIN / 2)));
       const winEnd = Math.min(items.length, winStart + MAXWIN);
