@@ -4012,7 +4012,7 @@ const cmd: any = commands.find((c) => c.name === it.value);
         return;
       }
     }
-    if (sub3 === "key" && value && !value.startsWith("__")) { patchProvider(pname, (p) => { p.apiKey = value; }); return; }
+    if (sub3 === "key" && value && !value.startsWith("__")) { if (String(value).length <= 300) { patchProvider(pname, (p) => { p.apiKey = String(value); }); } return; }
     if (sub3 === "baseurl" && value && !value.startsWith("__")) { patchProvider(pname, (p) => { p.baseUrl = value; }); return; }
     return;
   }
