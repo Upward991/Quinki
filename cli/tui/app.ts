@@ -1416,8 +1416,7 @@ const readProvidersCfg = (): any => {
       description: "Exit quinki (asks for confirmation)",
       seq: 14,
       getArgumentCompletions: () => [
-        { value: "yes", label: "yes", description: "Yes, exit quinki" },
-        { value: "no", label: "no", description: "No, keep it open" },
+        { value: "confirm", label: "", notice: "Quit quinki? Active chats keep running in the background." },
       ],
     },
   ];
@@ -4119,8 +4118,10 @@ const applySettingsPatch = (patch: any) => {
           }
         }
       } catch {}
+      const nSelectable = (() => { try { return (items || []).filter((x: any) => x && !x.separator).length; } catch { return 0; } })();
+      const canUD = nSelectable > 1;
       const AR = (ok: boolean, ch: string) => ok ? bold(fg(C.primary, ch)) : fg(C.textTertiary, ch);
-      const left = AR(true, "\u2191") + " " + AR(true, "\u2193") + "  " + AR(canBack, "\u2190") + " " + AR(canFwd, "\u2192");
+      const left = AR(canUD, "\u2191") + " " + AR(canUD, "\u2193") + "  " + AR(canBack, "\u2190") + " " + AR(canFwd, "\u2192");
       const hasMulti = (menuStack[0] === "model" || menuStack[0] === "thinking") || (menuStack[0] === "settings" && (menuStack[3] === "models" || (menuStack[1] === "defaults" && (menuStack[2] === "fallbacks" || menuStack[2] === "model" || menuStack[2] === "thinking")) || (menuStack[1] === "providers" && !menuStack[2])));
       // Confirm appears ONLY when the highlighted option actually RUNS something
       // (navigation items and read-only pages do not show it).
