@@ -198,9 +198,17 @@ export class TuiAltScreen extends TuiBase {
                     buffer += "\r\n";
                 {
                     const __ln = this.lastDocument[row] ?? "";
+                    // Split off the trailing whitespace: those cells are part of the
+                    // line but usually carry no colour -> they showed the terminal's
+                    // default background. Recolour them (and any leftover width) with
+                    // explicit bg-coloured spaces: bulletproof in every terminal.
+                    const __m = __ln.match(/^([\s\S]*?)([ \t]*)$/);
+                    const __body = __m ? __m[1] : __ln;
+                    const __tail = __m ? __m[2] : "";
                     let __pad = 0;
                     try { __pad = Math.max(0, width - visibleWidth(__ln)); } catch { __pad = 0; }
-                    buffer += `\r\x1b[48;2;8;8;11m\x1b[2K${__ln}${__pad > 0 ? "\x1b[48;2;8;8;11m" + " ".repeat(__pad) : ""}\x1b[49m`;
+                    const __spaces = __tail.length + __pad;
+                    buffer += `\r\x1b[48;2;8;8;11m\x1b[2K${__body}${__spaces > 0 ? "\x1b[48;2;8;8;11m" + " ".repeat(__spaces) : ""}\x1b[49m`;
                 }
             }
             buffer += `\x1b[0m${ENABLE_AUTOWRAP}\r\n\x1b[?25h${END_SYNCHRONIZED_OUTPUT}`;
