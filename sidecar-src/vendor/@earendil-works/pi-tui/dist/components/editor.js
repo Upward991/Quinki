@@ -488,7 +488,9 @@ export class Editor {
                     for (const line of rows) {
                         const lws = visibleWidth(line);
                         const lp = " ".repeat(Math.max(0, contentWidth - lws));
-                        acLines.push(" " + qPaint(`${leftPadding}${line}${lp}${rightPadding}`) + " ");
+                        // Spaces INSIDE the painter: the panel background covers the whole
+                        // row and the left/right edges match the composer box exactly.
+                        acLines.push(qPaint(` ${leftPadding}${line}${lp}${rightPadding} `));
                     }
                     acLines.push(acPadRow);
                     result.unshift(...acLines);
