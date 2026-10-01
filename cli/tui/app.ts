@@ -2678,8 +2678,19 @@ const readProvidersCfg = (): any => {
             } catch {}
             pushBlock(registerToggle(tg));
           } else if (m?.role === "assistant") {
+            if (m?.isCompactionSummary || m?.isCompactionWarning) {
+              // THE RPC PATH (the one actually used): the summary MUST live inside
+              // the toggle — body + skip the text, exactly like the app.
+              const nw = !!m?.isCompactionWarning;
+              pushBlock(registerToggle(new ToggleBlock({ label: "Compaction", boldName: nw ? "ineffective" : "effective", color: nw ? C.expert : C.info, body: String(m.content || "") })));
+              continue;
+            }
+            if (m?.isError && (m as any).errorContent) {
+              pushBlock(registerToggle(new ToggleBlock({ label: "Error", boldName: "", color: C.danger, body: String((m as any).errorContent), open: true })));
+              continue;
+            }
             if (m?.reasoning) pushBlock(registerToggle(new ToggleBlock({ label: "Thinking", color: C.thinking, italic: true, body: String(m.reasoning) })));
-            if (m?.isCompactionSummary) pushBlock(registerToggle(new ToggleBlock({ label: "Compaction", boldName: "effective", color: C.info })));
+
             // Content: a plain string OR blocks (text / toolCall / thinking) — the
             // app's own message format. Nothing may disappear.
             let txt = "";
