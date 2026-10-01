@@ -1610,7 +1610,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         } catch {}
       }
       const isEnter = data === "\r" || matchesKey(data, "enter");
-      const isSpace = data === " ";
+      const isSelect = data === "\x13" || matchesKey(data, "ctrl+s");
       const isCtrlEnter = data === "\n" || data === "\x1b[13;5u" || matchesKey(data, "ctrl+enter");
       const isEsc = data === "\x1b" || matchesKey(data, "escape");
       const isUp = data === "\x1b[A" || matchesKey(data, "up");
@@ -1654,7 +1654,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       }
       if (menuNow) {
         if (isUp || isDown || isLeft || isRight || isEnter) {
-          menuNavRef?.(isSpace ? "space" : isUp ? "up" : isDown ? "down" : isLeft ? "left" : isRight ? "right" : "enter");
+          menuNavRef?.(isSelect ? "select" : isUp ? "up" : isDown ? "down" : isLeft ? "left" : isRight ? "right" : "enter");
           return { consume: true };
         }
         if (menuStack.length > 0) {
@@ -1762,7 +1762,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   let menuConfirmFocus = false; // → focused the Confirm action (app NavBar focusConfirm)
   let menuLastFilter = ""; // to reset the selection when the filter changes
   let menuOpenRef: (() => boolean) | null = null;
-  let menuNavRef: ((a: "up" | "down" | "left" | "right" | "enter" | "escape" | "space") => void) | null = null;
+  let menuNavRef: ((a: "up" | "down" | "left" | "right" | "enter" | "escape" | "select") => void) | null = null;
   // Status pill (app-style): Running (teal) / Compacting (blue) / Failed (red).
   let statusLabel = "";
   let statusKind = "";
@@ -3469,14 +3469,15 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     if (menuStack.length > 0) return true;
     return editorText().startsWith("/");
   };
-  const menuNav = (a: "up" | "down" | "left" | "right" | "enter" | "escape" | "space") => {
-    if (a === "space") {
+  const menuNav = (a: "up" | "down" | "left" | "right" | "enter" | "escape" | "select") => {
+    if (a === "select") {
       try {
         const its: any = (typeof items !== "undefined" ? items : []);
         const it: any = its[menuSel];
         const inModels = menuStack[0] === "settings" && menuStack[3] === "models";
         const inFallbacks = menuStack[0] === "settings" && menuStack[1] === "defaults" && menuStack[2] === "fallbacks";
-        if ((inModels || inFallbacks) && it && !it.separator) {
+        const inProviders = menuStack[0] === "settings" && menuStack[1] === "providers" && !menuStack[2];
+        if ((inModels || inFallbacks || inProviders) && it && !it.separator) {
           const v = String(it.value || "");
           if (menuMarked.has(v)) menuMarked.delete(v); else menuMarked.add(v);
         }
@@ -3659,6 +3660,14 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           menuConfirmFocus = false;
           if (!it || it.separator) return;
           if (menuStack[0] === "settings") {
+            // Providers list: Confirm = toggle every marked provider at once.
+            if (menuStack[1] === "providers" && !menuStack[2] && menuMarked.size > 0) {
+              const names = Array.from(menuMarked).filter((v: string) => v.startsWith("prov:")).map((v: string) => v.slice(5));
+              for (const nm of names) { patchProvider(nm, (p) => { p.enabled = !p.enabled; }); }
+              menuMarked.clear();
+              try { ui.requestRender(); } catch {}
+              return;
+            }
             // Fallbacks editor: Confirm = save the selection ORDER as the fallbacks.
             if (menuStack[1] === "defaults" && menuStack[2] === "fallbacks") {
               const order = Array.from(menuMarked);
@@ -3938,7 +3947,7 @@ const applySettingsPatch = (patch: any) => {
       // like the selected slash rows, while FOCUSED via → — Enter runs it).
       rows.push("");
       const left = fg(C.textSecondary, "\u2191 \u2193 \u2190 \u2192");
-      const hasMulti = menuStack[0] === "settings" && (menuStack[3] === "models" || (menuStack[1] === "defaults" && menuStack[2] === "fallbacks"));
+      const hasMulti = menuStack[0] === "settings" && (menuStack[3] === "models" || (menuStack[1] === "defaults" && menuStack[2] === "fallbacks") || (menuStack[1] === "providers" && !menuStack[2]));
       // Confirm appears ONLY when the highlighted option actually RUNS something
       // (navigation items and read-only pages do not show it).
       let needsConfirm = menuConfirmFocus;
@@ -3957,7 +3966,7 @@ const applySettingsPatch = (patch: any) => {
       const right =
         fg(C.danger, "Close (Esc)") +
         "  " +
-        (hasMulti ? fg(C.modeBuild, "Select (Space)") + "  " : "") +
+        (hasMulti ? fg(C.modeBuild, "Select (Ctrl+S)") + "  " : "") +
         (needsConfirm ? (menuConfirmFocus ? bold(bg(C.primary, fg(C.bgPanel, " Confirm (Enter) "))) : fg(C.primary, "Confirm (Enter)")) : "");
       const gw = Math.max(1, w - visibleWidth(left) - visibleWidth(right));
       rows.push(left + " ".repeat(gw) + right);
