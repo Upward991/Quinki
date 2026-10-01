@@ -607,6 +607,46 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   let session: any = res?.session || res;
   // Mutable run state — reset / directory switch / chat switch rebuild these.
   let currentCwd = opts.cwd;
+  // /directory: live data from listWorkingDirs + pending change (files warning).
+  let qDirs: any = null;
+  let qDirsAt = 0;
+  let dirPendingChange = "";
+  let dirPendingFiles = 0;
+  const openFolder = (folder: string) => {
+    try {
+      const cp = require("child_process");
+      const opener = process.platform === "darwin" ? "open" : (process.platform === "win32" ? "explorer" : "xdg-open");
+      cp.spawn(opener, [folder], { detached: true, stdio: "ignore" }).unref();
+    } catch {}
+  };
+  const applyDirChange = (target: string) => {
+    const t = path.resolve(String(target || ""));
+    dirPendingChange = "";
+    dirPendingFiles = 0;
+    try {
+      const call = (globalThis as any).__sidecarCall;
+      if (call) void call("setWorkingDir", { sessionKey: currentKey, workingDir: t }, 30000).catch(() => {});
+    } catch {}
+    try { qDirs = null; qDirsAt = 0; } catch {}
+    try { void recreateSession({ newCwd: t }); } catch {}
+    try { ui.requestRender(); } catch {}
+  };
+  const pickFolder = () => {
+    try {
+      const cp = require("child_process");
+      cp.execFile("osascript", ["-e", 'POSIX path of (choose folder with prompt "Choose the folder for this chat")'], { timeout: 180000 }, (err: any, stdout: string) => {
+        if (err) { try { ui.requestRender(); } catch {} return; }
+        const picked = String(stdout || "").trim().replace(/\/+$/, "");
+        if (!picked) return;
+        const old = String(qDirs?.current || currentCwd || "");
+        let n = 0;
+        try { n = require("fs").readdirSync(old).filter((x: string) => !x.startsWith(".")).length; } catch {}
+        if (n > 0) { dirPendingChange = picked; dirPendingFiles = n; try { editor.setText("/directory"); } catch {} }
+        else applyDirChange(picked);
+        try { ui.requestRender(); } catch {}
+      });
+    } catch {}
+  };
   let currentSessionDir = realSessionDir; // reads: the sidecar's files
   let currentKey = key;
 
@@ -1368,20 +1408,32 @@ const readProvidersCfg = (): any => {
       seq: 8,
       getArgumentCompletions: (prefix: string) => {
         const items: any[] = [];
-        const home = os.homedir();
         const p = prefix.trim();
-        const push = (v: string, l: string, d: string) => {
-          if (!items.some((x) => x.value === v)) items.push({ value: v, label: l, description: d });
-        };
-        // the typed path comes first (it mirrors what you are writing)
-        if (p) push(p, p, "use this path");
-        push(currentCwd, currentCwd === home ? "~" : currentCwd, "current directory");
-        const parent = path.dirname(currentCwd);
-        if (parent && parent !== currentCwd) push(parent, parent, "parent directory");
-        push(home, "~", "home directory");
-        return items.filter(
-          (i) => p === "" || i.label.toLowerCase().startsWith(p.toLowerCase()) || i.value.toLowerCase().startsWith(p.toLowerCase())
-        );
+        // LIVE list from the sidecar (same data as the app: current + default + history).
+        try {
+          if (scOn && Date.now() - qDirsAt > 1500) {
+            qDirsAt = Date.now();
+            void sc.call("listWorkingDirs", { sessionKey: currentKey }, 15000)
+              .then((r: any) => { if (r && typeof r === "object") { qDirs = r; try { ui.requestRender(); } catch {} } })
+              .catch(() => {});
+          }
+        } catch {}
+        const cur = String(qDirs?.current || currentCwd || "");
+        // Pending change: show the warning notice first (/quit style).
+        if (dirPendingChange) {
+          items.push({ value: "confirm", label: "", notice: dirPendingFiles + " file(s) remain in the previous folder. They stay there \u2014 move them yourself if you need them." });
+          return items;
+        }
+        items.push({ value: "__dir_open", label: "\u25cf " + cur, description: "Enter: open this folder" });
+        items.push({ value: "__dir_change", label: "Change folder\u2026", description: "native macOS folder picker" });
+        for (const dd of (Array.isArray(qDirs?.dirs) ? qDirs.dirs : [])) {
+          const dp = String(dd?.path || "");
+          if (!dp || dd?.current) continue;
+          items.push({ value: "__dir_set:" + dp, label: "\u25cb " + dp, description: "Tab: use it again \u00b7 Enter: open" });
+        }
+        // Manual typing still works: the typed path is offered as-is.
+        if (p && !p.startsWith("__")) items.unshift({ value: p, label: p, description: "use this path" });
+        return items.filter((i: any) => !i.value.startsWith("__dir") || p === "" || !p.startsWith("__"));
       },
     },
     {
@@ -3256,8 +3308,17 @@ const readProvidersCfg = (): any => {
         break;
       }
       case "directory": {
-        if (!arg) break;
-        const target = arg === "~" ? os.homedir() : arg;
+        const dArg = String(arg || "");
+        if (dArg === "__dir_open") { openFolder(String(qDirs?.current || currentCwd || "")); break; }
+        if (dArg === "__dir_change") { pickFolder(); break; }
+        if (dArg === "confirm") { applyDirChange(dirPendingChange); break; }
+        if (dArg.startsWith("__dir_set:")) {
+          // Enter on a history row = open that folder (the primary click).
+          openFolder(dArg.slice(10));
+          break;
+        }
+        if (!dArg) break;
+        const target = dArg === "~" ? os.homedir() : dArg;
         let ok = false;
         try {
           ok = fs.statSync(target).isDirectory();
@@ -3265,7 +3326,7 @@ const readProvidersCfg = (): any => {
           ok = false;
         }
         if (!ok) break;
-        void recreateSession({ newCwd: path.resolve(target) });
+        applyDirChange(target);
         break;
       }
       case "skill": {
@@ -3716,6 +3777,13 @@ const readProvidersCfg = (): any => {
       }
       if (menuStack.length > 0) {
         const cmdName = menuStack[0];
+        if (cmdName === "directory") {
+          // Tab on a history row = use that folder again (the dot moves, menu stays).
+          const vD = String(it.value ?? "");
+          if (vD.startsWith("__dir_set:")) { applyDirChange(vD.slice(10)); }
+          try { ui.requestRender(); } catch {}
+          return;
+        }
         if (cmdName === "model") {
           // /model is a select-list: apply and STAY (like Tab).
           const v = String(it.value ?? "");
