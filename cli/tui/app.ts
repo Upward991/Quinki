@@ -1156,7 +1156,9 @@ const readProvidersCfg = (): any => {
       fetchAllModels();
       // (the fetchProviderCatalog call follows below)
       // The FULL provider catalog (same RPC the app uses: OpenRouter /api/v1/models etc.)
-      fetchProviderCatalog(name, String(p.baseUrl || ""), String(p.apiKey || ""));
+      // apiKey EMPTY on purpose: the sidecar recovers the key and returns the FULL
+      // public catalog (proven: 462 models on OpenRouter; passing the raw key gave 13).
+      fetchProviderCatalog(name, String(p.baseUrl || ""), "");
       const seen: Record<string, any> = {};
       const all: any[] = [];
       for (const mm of (p.modelData || [])) { const id = String(mm?.id || ""); if (id && !seen[id]) { seen[id] = 1; all.push(mm); } }
