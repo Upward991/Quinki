@@ -13,7 +13,6 @@ while true; do
     # (same mechanism as main-watchdog: the expert CLI keeps the session alive).
     if ! lsof -i:9183 2>/dev/null | grep -q ESTABLISHED; then
       pkill -9 -f 'App Expert.app/Contents/Resources/resources/sidecar/quinki-sidecar-w[s]' 2>/dev/null
-      lsof -ti:9183 2>/dev/null | xargs kill -9 2>/dev/null
     else
       echo "$(date): CLI connected on 9183 - expert sidecar left alive" >> "$LOG"
     fi

@@ -20,7 +20,6 @@ while true; do
     # CLI-aware: do NOT kill the sidecar while a CLI client is still connected.
     if ! lsof -i:9182 2>/dev/null | grep -q ESTABLISHED; then
       pkill -9 -f 'Quinki.app/Contents/Resources/resources/sidecar/quinki-sidecar-w[s]' 2>/dev/null
-      lsof -ti:9182 2>/dev/null | xargs kill -9 2>/dev/null
     else
       echo "$(date): CLI connected on 9182 - sidecar left alive" >> "$LOG"
     fi

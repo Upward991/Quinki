@@ -1257,7 +1257,7 @@ fn run_native_update_flow(app: tauri::AppHandle, dmg_url: String) {
                 // app esce da sola qui sotto (app.exit(0), stesso meccanismo del
                 // Restart del tray: quit pulito tipo Cmd+Q) e l'nohup la riapre.
                 let script = if expert_open {
-                    "sleep 1.5; pkill -f 'start-expert.sh' 2>/dev/null; pkill -f expert-watchdog 2>/dev/null; lsof -ti:9183 | xargs kill -9 2>/dev/null; pkill -9 -f '/Applications/App Expert.app/Contents/MacOS/quinki' 2>/dev/null; sleep 0.5; open /Applications/Quinki.app; sleep 1; open '/Applications/App Expert.app'"
+                    "sleep 1.5; pkill -f 'start-expert.sh' 2>/dev/null; pkill -f expert-watchdog 2>/dev/null; if ! lsof -i:9183 2>/dev/null | grep -q ESTABLISHED; then pkill -9 -f 'App Expert.app/Contents/Resources/resources/sidecar/quinki-sidecar-w[s]' 2>/dev/null; fi; pkill -9 -f '/Applications/App Expert.app/Contents/MacOS/quinki' 2>/dev/null; sleep 0.5; open /Applications/Quinki.app; sleep 1; open '/Applications/App Expert.app'"
                 } else {
                     "sleep 1.5; open /Applications/Quinki.app"
                 };
@@ -1418,7 +1418,7 @@ fn restart_after_update() -> Result<String, String> {
         .map(|s| s.success())
         .unwrap_or(false);
     let script = if expert_open {
-        "sleep 1; lsof -ti:9182 | xargs kill -9 2>/dev/null; lsof -ti:9183 | xargs kill -9 2>/dev/null; pkill -9 -f '/Applications/Quinki.app/Contents/MacOS/quinki' 2>/dev/null; pkill -9 -f '/Applications/App Expert.app/Contents/MacOS/quinki' 2>/dev/null; sleep 2; open /Applications/Quinki.app; open '/Applications/App Expert.app'"
+        "sleep 1; if ! lsof -i:9182 2>/dev/null | grep -q ESTABLISHED; then pkill -9 -f 'Quinki.app/Contents/Resources/resources/sidecar/quinki-sidecar-w[s]' 2>/dev/null; fi; if ! lsof -i:9183 2>/dev/null | grep -q ESTABLISHED; then pkill -9 -f 'App Expert.app/Contents/Resources/resources/sidecar/quinki-sidecar-w[s]' 2>/dev/null; fi; pkill -9 -f '/Applications/Quinki.app/Contents/MacOS/quinki' 2>/dev/null; pkill -9 -f '/Applications/App Expert.app/Contents/MacOS/quinki' 2>/dev/null; sleep 2; open /Applications/Quinki.app; open '/Applications/App Expert.app'"
     } else {
         "sleep 1; lsof -ti:9182 | xargs kill -9 2>/dev/null; pkill -9 -f '/Applications/Quinki.app/Contents/MacOS/quinki' 2>/dev/null; sleep 2; open /Applications/Quinki.app"
     };
@@ -1950,7 +1950,7 @@ fn kill_backend() {
     if is_expert_mode() {
         // Watchdog PRIMA (niente race di riaccensione), poi sidecar (porta + percorso binario)
         let _ = std::process::Command::new("sh").arg("-c")
-          .arg("pkill -f 'start-expert.sh' 2>/dev/null; pkill -f expert-watchdog 2>/dev/null; sleep 0.2; lsof -ti:9183 | xargs kill -9 2>/dev/null; pkill -9 -f 'App Expert.app/Contents/Resources/resources/sidecar/quinki-sidecar-w[s]' 2>/dev/null; true")
+          .arg("pkill -f 'start-expert.sh' 2>/dev/null; pkill -f expert-watchdog 2>/dev/null; sleep 0.2; if ! lsof -i:9183 2>/dev/null | grep -q ESTABLISHED; then pkill -9 -f 'App Expert.app/Contents/Resources/resources/sidecar/quinki-sidecar-w[s]' 2>/dev/null; fi; true")
           .status();
     } else {
         // Sidecar main: PRIMA il watchdog (sennò risveglia subito il sidecar e
