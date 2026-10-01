@@ -4290,7 +4290,7 @@ const applySettingsPatch = (patch: any) => {
         pushBlock(new UserBubble(t, fmtFooterDate(now)));
       }
     }
-    if (scOn) {
+    if (scOn || (sc as any).connected) {
       // Live path: the sidecar runs the turn (agents, custom tools, delegation)
       // and the app sees this exact chat streaming in real time.
       streaming = true;
@@ -4399,11 +4399,23 @@ const applySettingsPatch = (patch: any) => {
     // is up: at boot the websocket may not be connected yet.
     if (QEXPERT) {
       welcomeShown = false;
+      // Respect the session's own mode/thinking (synchronised with the app).
+      try {
+        const list = readSessionsList();
+        const entry = (list || []).find((x: any) => String(x?.key || "") === currentKey);
+        if (entry) {
+          if (entry.mode === "build" || entry.mode === "plan") mode = entry.mode;
+          if (entry.thinkingLevel && entry.thinkingLevel !== "off") thinkingOn = true;
+          else if (entry.thinkingLevel === "off") thinkingOn = false;
+          if (entry.model) { wsModelId = String(entry.model); }
+          updateBar();
+        }
+      } catch {}
       let __qxTries = 0;
       const __qxLoad = () => {
         __qxTries++;
         void loadServerHistory().then((ok) => {
-          try { if (ok) renderHistory(); } catch {}
+          try { if (ok) { renderHistory(); scrollToEnd(); } } catch {}
           try { ui.requestRender(); } catch {}
           if (!ok && __qxTries < 12) setTimeout(__qxLoad, 1200);
         }).catch(() => { if (__qxTries < 12) setTimeout(__qxLoad, 1200); });
