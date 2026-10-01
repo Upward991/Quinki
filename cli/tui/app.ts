@@ -1047,12 +1047,18 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     try { return require("path").join(require("os").homedir(), ".quinki", "quinki-providers.json"); } catch { return ""; }
   };
   let qProvidersMem: any = null;
+let qProvidersMtime = 0;
 const readProvidersCfg = (): any => {
   try {
-    if (qProvidersMem) return qProvidersMem;
-    qProvidersMem = JSON.parse(require("fs").readFileSync(qProvidersPath(), "utf8")) || {};
+    const pp = qProvidersPath();
+    let mt = 0;
+    try { mt = require("fs").statSync(pp).mtimeMs; } catch {}
+    // LIVE: se il file e' cambiato (app, sidecar, un'altra CLI) rileggi subito.
+    if (qProvidersMem && mt && mt === qProvidersMtime) return qProvidersMem;
+    qProvidersMtime = mt;
+    qProvidersMem = JSON.parse(require("fs").readFileSync(pp, "utf8")) || {};
     return qProvidersMem;
-  } catch { return {}; }
+  } catch { return qProvidersMem || {}; }
 };
   const patchProvider = (name: string, fn: (p: any) => void) => {
     try {
@@ -4118,6 +4124,10 @@ const cmd: any = commands.find((c) => c.name === it.value);
     try {
 
 
+      const nowT = Date.now();
+      const last = wsKeyStatusAt[provName] || 0;
+      if (nowT - last < 4000 && wsKeyStatus[provName] !== undefined) return; // TTL: near-live, no RPC loop
+      wsKeyStatusAt[provName] = nowT;
       if (cfgKey && String(cfgKey).length > 0 && String(cfgKey).length <= 300) { wsKeyStatus[provName] = true; return; }
 
 
