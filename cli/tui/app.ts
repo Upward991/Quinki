@@ -4003,6 +4003,18 @@ const applySettingsPatch = (patch: any) => {
   } catch {}
   menuOpenRef = () => menuOpen();
   menuNavRef = menuNav;
+  try {
+    (globalThis as any).__qMenuSelect = () => {
+      try {
+        if (menuStack && menuStack.length > 0) {
+          menuNav("select");
+          try { ui.requestRender(); } catch {}
+          return true;
+        }
+      } catch {}
+      return false;
+    };
+  } catch {}
 
   // --- input -------------------------------------------------------------------
   const shutdown = () => {

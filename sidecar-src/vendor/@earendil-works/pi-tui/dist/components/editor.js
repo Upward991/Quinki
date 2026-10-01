@@ -497,6 +497,13 @@ export class Editor {
         return result;
     }
     handleInput(data) {
+        // QUINKI: Tab = SELECT in the slash menus (the TUI listener never sees it
+        // because the editor consumes Tab for autocomplete first).
+        try {
+            if (data === "\t" && globalThis.__qMenuSelect) {
+                if (globalThis.__qMenuSelect() === true) return;
+            }
+        } catch {}
         const kb = getKeybindings();
         // Handle character jump mode (awaiting next character to jump to)
         if (this.jumpMode !== null) {
