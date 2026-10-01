@@ -182,6 +182,12 @@ class InsetBox {
 
 /** Welcome root: the box + hints, centered EXACTLY (manual math, both axes). */
 
+// === APP EXPERT MODE ========================================================
+// `quinki expert` runs the SAME interface, pinned to the App Expert session
+// (the one the app uses), with the expert ORANGE accent instead of the violet.
+const QEXPERT = process.env.QUINKI_EXPERT === "1";
+try { if (QEXPERT) (C as any).primary = C.expert; } catch {}
+
 // === HERO: mascot + big "QUINKI" (pure-block font: only \u2588 and spaces) ===
 // === HERO: "quinki" in a half-block pixel font (each cell = 2 vertical pixels) ===
 // === HERO: "welcome to quinki" in the half-block pixel font ===
@@ -230,8 +236,8 @@ const pixWord = (word: string, V: (t: string) => string): string[] => {
 const bigBrand = (): string[] => {
   const PLAIN = (t: string) => fg(C.text, t);
   const VIOLET = (t: string) => bold(fg(C.primary, t));
-  const a = pixWord("Welcome to ", PLAIN);
-  const b = pixWord("Quinki", VIOLET);
+  const a = pixWord(QEXPERT ? "Welcome to " : "Welcome to ", PLAIN);
+  const b = pixWord(QEXPERT ? "App Expert" : "Quinki", VIOLET);
   return [a[0] + b[0], a[1] + b[1], a[2] + b[2], a[3] + b[3]];
 };
 const HERO_ART = (): string[] => {
@@ -570,7 +576,9 @@ const fmtFooterDate = (ms: number): string => {
 export async function runTui(opts: TuiOptions): Promise<void> {
   // Startup: always a FRESH cli session with the welcome (no resume): every
   // existing chat — including the last used one — stays visible in /sessions.
-  const key = "cli-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const key = QEXPERT
+    ? (process.env.QUINKI_SESSION_KEY || "__app_expert__")
+    : "cli-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   // The REAL session dir (the sidecar's own files — the same the app uses).
   const realSessionDir = path.join(opts.sessionDir, key);
   // The local SDK session is a leftover from the pre-sidecar era: it must NEVER
@@ -1453,6 +1461,18 @@ const readProvidersCfg = (): any => {
       ],
     },
   ];
+
+  // App Expert mode: only the commands that make sense on the fixed expert
+  // session (no settings, no chat management, no directory picking).
+  try {
+    if (QEXPERT) {
+      const drop = ["settings", "sessions", "rename", "delete", "directory", "agentinsession"];
+      for (const dn of drop) {
+        const di = commands.findIndex((c: any) => c.name === dn);
+        if (di >= 0) commands.splice(di, 1);
+      }
+    }
+  } catch {}
   // The slash menu is OURS (rendered via editor.menuLinesFn): it never writes
   // command text into the box — navigation and options live in the menu only.
 
@@ -1979,7 +1999,7 @@ const readProvidersCfg = (): any => {
     const right = [stopKey, steerKey, sendKey].filter((x) => x.length > 0).join(sep);
 
     // "│ Quinki │" — brand centered between two violet vertical bars.
-    const brand = welcomeShown ? "" : fg(C.primary, "\u2502") + " " + fg(C.primary, "Quinki") + " " + fg(C.primary, "\u2502");
+    const brand = welcomeShown ? "" : fg(C.primary, "\u2502") + " " + fg(C.primary, QEXPERT ? "App Expert" : "Quinki") + " " + fg(C.primary, "\u2502");
     const lw = visibleWidth(left);
     const rw = visibleWidth(right);
     const bw = welcomeShown ? 0 : 10;

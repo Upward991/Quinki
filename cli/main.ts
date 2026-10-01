@@ -84,7 +84,7 @@ if (process.stdout.isTTY && !process.env.QUINKI_CLI_NO_BG) {
       termWrite("\x1bPtmux;\x1b" + osc + "\x1b\\");
     }
   } catch {}
-  termWrite("\x1b]2;quinki\x07");
+  termWrite("\x1b]2;" + (process.env.QUINKI_EXPERT === "1" ? "App Expert" : "quinki") + "\x07");
   const restore = () => termWrite("\x1b]111\x07");
   process.on("exit", restore);
   process.on("SIGTERM", () => {
@@ -94,7 +94,15 @@ if (process.stdout.isTTY && !process.env.QUINKI_CLI_NO_BG) {
 }
 
 // --- 7. Route: interactive -> OUR TUI; everything else -> SDK modes ----------
-if (argv.length === 0 && process.stdout.isTTY && process.stdin.isTTY) {
+// App Expert mode: `quinki expert` -> the SAME TUI, fixed to the expert session,
+// orange accent, no chat-management commands.
+try {
+  if (argv[0] === "expert") {
+    process.env.QUINKI_EXPERT = "1";
+    process.env.QUINKI_SESSION_KEY = "__app_expert__";
+  }
+} catch {}
+if ((argv.length === 0 || argv[0] === "expert") && process.stdout.isTTY && process.stdin.isTTY) {
   const { runTui } = await import("./tui/app");
   await runTui({ cwd: process.cwd(), agentDir: AGENT_DIR, sessionDir: SESSION_DIR });
 } else {
