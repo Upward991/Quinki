@@ -4201,9 +4201,6 @@ const readProvidersCfg = (): any => {
           if (menuStack[1] === "dirchange" || dirTypeMode) {
             if (vD === "__dir_pick") {
               pickFolder(); // the NATIVE macOS folder picker
-            } else if (vD === "__dir_type") {
-              dirTypeMode = true;
-              menuSubFilter = "";
             } else if (vD === "__dir_typed" || dirTypeMode) {
               const tp = menuSubFilter.trim();
               if (tp) applyDirChange(tp === "~" ? os.homedir() : tp);
@@ -4303,6 +4300,8 @@ const readProvidersCfg = (): any => {
 
   let lastSelectAt = 0;
   const menuNav = (a: "up" | "down" | "left" | "right" | "enter" | "escape" | "select") => {
+    // The path input only exists inside the directory submenu: anywhere else = off.
+    try { if (dirTypeMode && !(menuStack[0] === "directory" && menuStack[1] === "dirchange")) { dirTypeMode = false; menuSubFilter = ""; } } catch {}
     if (a === "select") { try { require("fs").appendFileSync("/tmp/q-tab-trace.log", new Date().toISOString() + " select stack=" + JSON.stringify(menuStack) + " sel=" + menuSel + "\n"); } catch {} }
 
     if (a === "select") {
@@ -4486,7 +4485,7 @@ const readProvidersCfg = (): any => {
           if (menuStack[0] === "directory" && menuStack[1] === "dirchange" && it && !it.separator) {
             const vR = String(it.value || "");
             if (vR === "__dir_pick") pickFolder();
-            else if (vR === "__dir_type") { dirTypeMode = true; menuSubFilter = ""; }
+            // "Type path…": -> does NOTHING (you just start typing right there).
             menuSel = 0;
             try { ui.requestRender(); } catch {}
             return;
@@ -5007,7 +5006,7 @@ const applySettingsPatch = (patch: any) => {
         if (curA && !curA.separator) {
           if (menuStack[0] === "agentinsession") canFwd = !!agentLevelFor(curA);
           else if (menuStack[0] === "settings") canFwd = !!settingsDeeper(curA);
-          else if (menuStack[0] === "directory") canFwd = menuStack[1] === "dirchange" || String(curA.value || "") === "__dir_change"; // -> opens the submenu / runs the action
+          else if (menuStack[0] === "directory") canFwd = menuStack[1] === "dirchange" ? (String(curA.value || "") === "__dir_pick") : (String(curA.value || "") === "__dir_change"); // -> only where it acts
           else if (menuStack.length > 0) canFwd = false;
           else {
             const cA: any = commands.find((c: any) => c.name === curA.value);
