@@ -2185,7 +2185,20 @@ const readProvidersCfg = (): any => {
               const a = m2m.index, b = m2m.index + m2m[0].length;
               if (isRight && col > a && col < b) { (editor as any).setCursorCol(b + (ln.charAt(b) === " " ? 1 : 0)); hopped = true; break; }
               if (isRight && col === a) { (editor as any).setCursorCol(b + (ln.charAt(b) === " " ? 1 : 0)); hopped = true; break; }
-              if (isLeft && col > a && col <= b + 1) { (editor as any).setCursorCol(Math.max(0, a - 1)); hopped = true; break; }
+              if (isLeft && col > a && col <= b + 1) {
+                if (a === 0) {
+                  // T441 — the user's recipe: the chip starts the line => INSERT a
+                  // space, shift the chip right by one and take that cell. The
+                  // cursor sits BEFORE the chip, never on its first letter.
+                  const nl3 = " " + ln;
+                  st.lines[st.cursorLine] = nl3;
+                  try { if (typeof (editor as any).onChange === "function") (editor as any).onChange(editor.getText()); } catch {}
+                  try { (editor as any).setCursorCol(0); } catch {}
+                } else {
+                  (editor as any).setCursorCol(a - 1);
+                }
+                hopped = true; break;
+              }
             }
             if (hopped) { try { ui.requestRender(); } catch {} return { consume: true }; }
           }
