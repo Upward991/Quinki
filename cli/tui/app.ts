@@ -4837,6 +4837,8 @@ const readProvidersCfg = (): any => {
             menuSubFilter = "";
             menuSel = 0;
             menuConfirmFocus = false;
+            // T439: backing out forgets the Tab marks.
+            try { menuMarked.clear(); } catch {}
             try { ui.requestRender(); } catch {}
             return;
           }
@@ -4848,6 +4850,9 @@ const readProvidersCfg = (): any => {
           menuStack.pop();
           menuSubFilter = "";
           menuSel = 0;
+          // T439: ← goes back one level (or closes the menu) WITHOUT confirming =
+          // the Tab marks are forgotten (reopening shows nothing selected).
+          try { menuMarked.clear(); } catch {}
         }
       } else if (a === "right") {
         // Forward ONLY — it NEVER executes. At the end of the levels it FOCUSES
