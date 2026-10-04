@@ -3209,10 +3209,21 @@ const readProvidersCfg = (): any => {
               for (const a of (Array.isArray(attsH) ? attsH : [])) chipsH.push({ kind: "attachment", name: String((a as any)?.originalName || require("path").basename(String((a as any)?.path || ""))) });
               for (const sk of (Array.isArray(sks) ? sks : [])) chipsH.push({ kind: "skill", name: String((sk as any)?.skillName || sk) });
               // THE SAVED DISPLAY TEXT: the bubble with the REAL inline clips, identical
-              // to the live one. chipsH stays only as the fallback for old messages.
+              // to the live one. Old messages (no displayText store) get an inline
+              // RECONSTRUCTION from the chips — same graphics AND order as the app's
+              // bubble (tokens first, then the text), never a separate chip row.
               const dtRaw = pick(histStores.displays);
-              const tDisp = (typeof dtRaw === "string" && dtRaw) ? dtRaw : t;
-              if (tDisp.trim() || chipsH.length) pushBlock(new UserBubble(tDisp, fmtFooterDate(Number(m.timestamp) || Date.now()), tDisp !== t ? [] : chipsH));
+              let tDisp = (typeof dtRaw === "string" && dtRaw) ? dtRaw : "";
+              let usedInline = !!tDisp;
+              if (!tDisp && chipsH.length) {
+                try {
+                  const toks = chipsH.map((c) => (c.kind === "skill" ? "Skill: " + c.name : "\u25b8" + c.name)).join(" ");
+                  tDisp = toks + (t.trim() ? " " + t : "");
+                  usedInline = true;
+                } catch { tDisp = t; usedInline = false; }
+              }
+              if (!tDisp) tDisp = t;
+              if (tDisp.trim() || chipsH.length) pushBlock(new UserBubble(tDisp, fmtFooterDate(Number(m.timestamp) || Date.now()), usedInline ? [] : chipsH));
             } catch { if (t.trim() || chipsH.length) pushBlock(new UserBubble(t, fmtFooterDate(Number(m.timestamp) || Date.now()), chipsH)); }
           } else if (m?.role === "tool_call" || m?.role === "toolCall") {
             let tcb = "";
