@@ -1519,7 +1519,7 @@ const readProvidersCfg = (): any => {
           if (!files.length) items.push({ value: "__at_none", label: "No attachments yet", description: "attach one with Enter" });
           for (const f of files) {
             const full = path.join(sdir, f.n);
-            items.push({ value: "__at_file:" + full, label: f.n, description: "" });
+            items.push({ value: "__at_file:" + full, label: "\u25cb " + f.n, description: "" });
           }
         } catch { items.push({ value: "__at_none", label: "No attachments yet", description: "" }); }
         return items;
@@ -3772,10 +3772,11 @@ const readProvidersCfg = (): any => {
           lastProv = prov;
         }
         const cur = !!ov.model && String(ov.model) === String(m?.id);
+        // GRAPHICALLY IDENTICAL to the main model menu: ●/○ dots (never violet).
         out.push({
           value: String(m?.id || ""),
-          label: String(m?.name || m?.id || ""),
-          description: (cur ? "current \u00b7 " : "") + prov,
+          label: (cur ? "\u25cf " : "\u25cb ") + String(m?.name || m?.id || ""),
+          description: prov,
         });
       }
       return out;
