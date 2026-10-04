@@ -477,7 +477,16 @@ export class Editor {
             const padding = " ".repeat(Math.max(0, contentWidth - lineVisibleWidth));
             const lineRightPadding = cursorInPadding ? rightPadding.slice(1) : rightPadding;
             // QUINKI PATCH (25 set, iter6): painted full-width line (edges both sides).
-            result.push(qEdge() + qPaint(`${leftPadding}${displayText}${padding}${lineRightPadding}`) + qEdgeR());
+            try {
+                if (this.qTokenStyle && /Skill:\s*[\w.-]+/.test(displayText)) {
+                    const styled = displayText.replace(/Skill:\s*[\w.-]+/g, (m2) => String(this.qTokenStyle(m2) ?? m2));
+                    result.push(qEdge() + qPaint(`${leftPadding}${styled}${padding}${lineRightPadding}`) + qEdgeR());
+                } else {
+                    result.push(qEdge() + qPaint(`${leftPadding}${displayText}${padding}${lineRightPadding}`) + qEdgeR());
+                }
+            } catch (e) {
+                result.push(qEdge() + qPaint(`${leftPadding}${displayText}${padding}${lineRightPadding}`) + qEdgeR());
+            }
         }
         // QUINKI PATCH (25 set, iter6): breathing line + footer row + bottom padding, all painted.
         result.push(qEdge() + qPaint(" ".repeat(width - 2)) + qEdgeR());

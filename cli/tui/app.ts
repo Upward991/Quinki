@@ -326,19 +326,24 @@ function fmtWhen(ms: number): string {
 function wrapPlain(s: string, width: number): string[] {
   const out: string[] = [];
   const w = Math.max(4, width);
+  // A word longer than the width (a PATH, a URL…) must be SPLIT, or it overflows
+  // every box (bubbles, menus, notices). Visible-width aware (CJK-safe).
+  const pushHard = (word: string) => {
+    let cur = "";
+    for (const g of [...word]) {
+      cur += g;
+      if (visibleWidth(cur) >= w) {
+        out.push(cur);
+        cur = "";
+      }
+    }
+    if (cur) out.push(cur);
+  };
   for (const raw of String(s || "").split("\n")) {
     if (raw.length === 0) {
       out.push("");
       continue;
     }
-    const pushHard = (word: string) => {
-      let cur = "";
-      for (const g of [...word]) {
-        cur += g;
-        if (visibleWidth(cur) >= w) { out.push(cur); cur = ""; }
-      }
-      if (cur) out.push(cur);
-    };
     let line = "";
     for (const word of raw.split(" ")) {
       if (!line) {
@@ -547,7 +552,18 @@ class UserBubble {
   }
   render(width: number): string[] {
     const inner = Math.max(6, width - 4);
-    const lines = this.text.trim() ? wrapPlain(this.text, inner) : [];
+    const hardWrap = (t: string, w: number): string[] => {
+      const out: string[] = [];
+      let cur = "";
+      for (const chG of [...t]) {
+        cur += chG;
+        if (visibleWidth(cur) >= w) { out.push(cur); cur = ""; }
+      }
+      if (cur) out.push(cur);
+      return out;
+    };
+    const lines: string[] = [];
+    for (const l of wrapPlain(this.text, inner)) lines.push(...hardWrap(l, inner));
     // The clips stay visible in the bubble (colored like the app's tabs).
     for (const ch of this.chips) {
       const col = ch.kind === "skill" ? "#c97084" : "#7aa2f7";
@@ -555,7 +571,14 @@ class UserBubble {
     }
     const full = (t: string) => {
       const fill = Math.max(0, inner - visibleWidth(t));
-      return bg(C.bubbleUser, "  " + t + " ".repeat(fill + 2));
+      // Clips styled exactly like the textbox (coral/blue bg, dark text), inline
+      // in their original order; then back to the bubble colors.
+      const painted = String(t).replace(/Skill:\s*[\w.-]+|\u25b8[^\s\u25b8]+/g, (m2: string) => {
+        const isSkill = m2.startsWith("Skill:");
+        const bgRgb = isSkill ? "201;112;132" : "122;162;247";
+        return "\x1b[48;2;" + bgRgb + "m\x1b[38;2;8;8;11m" + m2 + "\x1b[48;2;26;26;32m\x1b[38;2;232;232;236m";
+      });
+      return bg(C.bubbleUser, "  " + painted + " ".repeat(fill + 2));
     };
     const blank = () => bg(C.bubbleUser, " ".repeat(width));
     const out: string[] = [];
@@ -797,9 +820,16 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   const qTokenStyle = (tok: string): string => {
     try {
       const nm = tok.replace(/^\u25b8/, "").replace(/^Skill:\s*/, "");
-      // The ORIGINAL Agents tab accent (coral) as the chip background, bg-colored text.
-      const accent = QEXPERT ? "#d9a066" : "#c97084";
-      return "\x1b[48;2;201;112;132m\x1b[38;2;8;8;11m Skill: " + nm + " \x1b[0m";
+      // The ORIGINAL Agents tab accent (coral) as the chip background, dark text.
+      // The END re-applies the editor panel background + text color (otherwise the
+      // reset would kill the row paint after the chip).
+      return (
+        "\x1b[48;2;201;112;132m" +            // coral bg (original Agents tab)
+        "\x1b[38;2;8;8;11m" +                 // DARK text = the textbox background color
+        "Skill: " + nm +                       // solo il testo della clip
+        "\x1b[48;2;15;15;19m" +               // back to the PANEL bg (no black row!)
+        "\x1b[38;2;232;232;236m"              // back to the editor text color
+      );
     } catch { return tok; }
   };
   const qTokenRender = (ch: string) => {
@@ -960,7 +990,15 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   };
   const editor = new Editor(ui as any, editorTheme, { paddingX: 1 });
   try {
-    (editor as any).bgFn = (s: string) => bg(C.bgPanel, s);
+    // The chip styling is applied HERE (paint time): the editor's cursor/layout math
+    // already ran, so ANSI can never break a slice (the T412 leak).
+    (editor as any).bgFn = (s: string) =>
+      bg(
+        C.bgPanel,
+        String(s).replace(/Skill:\s*[\w.-]+|\u25b8[^\s\u25b8]+/g, (m2: string) =>
+          String((editor as any).qTokenStyle ? (editor as any).qTokenStyle(m2) : m2)
+        )
+      );
   } catch {}
 
   // /skill — app semantics (like listChatSkills): only the skills the model CANNOT
@@ -1964,8 +2002,12 @@ const readProvidersCfg = (): any => {
       // handlers know (otherwise the Tab is silently LOST: no select, no toggle).
       try {
         const norm = String(data)
-          .replace(/\x1b\[9;1:1u$/, "\t")
-          .replace(/\x1b\[9:1u$/, "\t");
+          .replace(/\x1b\[13;1:1u$/, "\r")     // Enter (kitty press)
+          .replace(/\x1b\[127;1:1u$/, "\x7f")  // Backspace (kitty press)
+          .replace(/\x1b\[9;1:1u$/, "\t")      // Tab (kitty press)
+          .replace(/\x1b\[9:1u$/, "\t")
+          .replace(/\x1b\[1;1:1([ABCD])$/, (_: string, c2: string) => "\x1b[" + c2) // arrows (press)
+          .replace(/\x1b\[1;1([ABCD])$/, (_: string, c2: string) => "\x1b[" + c2);   // arrows (plain kitty)
         if (norm !== data) data = norm;
       } catch {}
       // BRACKETED PASTE (\x1b[200~ … \x1b[201~): the terminal wraps Cmd+V like
@@ -2095,7 +2137,7 @@ const readProvidersCfg = (): any => {
           try {
             editor.setText("");
           } catch {}
-          pushBlock(new Text(txt, 2, 1, (s: string) => bg(C.bubbleUser, s)));
+          pushBlock(new UserBubble(txt, fmtFooterDate(Date.now())));
           scrollToEnd();
           if (scOn) {
             void sc.call("steer", { sessionKey: currentKey, text: txt }, 20000).catch(() => {});
@@ -2122,6 +2164,34 @@ const readProvidersCfg = (): any => {
         }
         return { consume: true };
       }
+      // Enter on a BARE "/" (menu phase, nothing typed after): clear the box.
+      try {
+        if (isEnter && menuStack.length === 0 && /^\/+$/.test(String(editorText()).trim())) {
+          editor.setText("");
+          try { ui.requestRender(); } catch {}
+          return { consume: true };
+        }
+      } catch {}
+      // Atomic chips: ← / → hop over a whole "Skill: name" clip (write before/after).
+      try {
+        if (!menuNow && (isLeft || isRight)) {
+          const st: any = (editor as any).state;
+          if (st && Array.isArray(st.lines)) {
+            const ln = String(st.lines[st.cursorLine] ?? "");
+            const col = Number(st.cursorCol) || 0;
+            const re = /(?:\u25b8[^\s\u25b8]+)|(?:Skill:\s*[\w.-]+)/g;
+            let m2m: RegExpExecArray | null;
+            let hopped = false;
+            while ((m2m = re.exec(ln))) {
+              const a = m2m.index, b = m2m.index + m2m[0].length;
+              if (isRight && col > a && col < b) { (editor as any).setCursorCol(b); hopped = true; break; }
+              if (isRight && col === a) { (editor as any).setCursorCol(b + (ln.charAt(b) === " " ? 1 : 0)); hopped = true; break; }
+              if (isLeft && col > a && col <= b + 1) { (editor as any).setCursorCol(a); hopped = true; break; }
+            }
+            if (hopped) { try { ui.requestRender(); } catch {} return { consume: true }; }
+          }
+        }
+      } catch {}
       if (menuNow) {
         try {
           if (menuStack[0] === "skill" || menuStack[0] === "attachments") {
@@ -2353,10 +2423,17 @@ const readProvidersCfg = (): any => {
     // box, no X — move the cursor around them and delete them like text.
     (editor as any).qChipsFn = () => "";
     (editor as any).qTokenRender = (ch: string) => qTokenRender(ch);
+    (editor as any).qTokenStyle = (m2: string): string => {
+      try {
+        return (
+          "\x1b[48;2;201;112;132m" + "\x1b[38;2;8;8;11m" + m2 +
+          "\x1b[48;2;15;15;19m" + "\x1b[38;2;232;232;236m"
+        );
+      } catch { return m2; }
+    };
     (editor as any).qTokenStyle = (tok: string) => qTokenStyle(tok);
     // ATOMIC chips: backspace ON a "\u25b8token" deletes the WHOLE token at once.
     (editor as any).qAtomicDelete = () => {
-      try { require("fs").appendFileSync("/tmp/q-dir-trace.log", new Date().toISOString() + " ATOMIC-CALL\n"); } catch {}
       try {
         const st: any = (editor as any).state;
         if (!st || !Array.isArray(st.lines)) return false;
@@ -5330,6 +5407,7 @@ const applySettingsPatch = (patch: any) => {
       return;
     }
     if (!t) return;
+    if (/^\/+$/.test(String(t).trim())) { editor.setText(""); try { ui.requestRender(); } catch {} return; }
     editor.setText("");
     if (welcomeShown) {
       welcomeShown = false;
@@ -5345,7 +5423,9 @@ const applySettingsPatch = (patch: any) => {
       const now = Date.now();
       if (!(lastUserPush.text === t && now - lastUserPush.ts < 2000)) {
         lastUserPush = { text: t, ts: now };
-        pushBlock(new UserBubble(sendText || t, fmtFooterDate(now), _chipNames));
+        // The bubble shows the ORIGINAL text: the clips stay INLINE, in the same
+        // order and look as the textbox.
+        pushBlock(new UserBubble(t, fmtFooterDate(now), []));
       }
     }
     if (scOn || (sc as any).connected) {
@@ -5405,7 +5485,6 @@ const applySettingsPatch = (patch: any) => {
           .replace(/\s{2,}/g, " ")
           .trim();
       } catch { sendText = t; }
-      try { require("fs").appendFileSync("/tmp/q-dir-trace.log", new Date().toISOString() + " SEND skills=" + JSON.stringify(skills) + " text=" + JSON.stringify(sendText) + "\n"); } catch {}
       try { pendingSkills.splice(0); pendingAttachments.splice(0); } catch {}
       try { for (const k of Object.keys(skillRefsByName)) delete skillRefsByName[k]; } catch {}
       try { ui.requestRender(); } catch {}
