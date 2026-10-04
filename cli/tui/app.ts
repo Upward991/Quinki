@@ -642,8 +642,21 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       cp.spawn(opener, [folder], { detached: true, stdio: "ignore" }).unref();
     } catch {}
   };
+  // The chat's default directory (same as the app): ~/.quinki/workdir — created
+  // on the spot if it is missing. A chat can NEVER be without a directory.
+  const defaultDirPath = (): string => path.join(os.homedir(), ".quinki", "workdir");
+  const ensureDir = (d: string): string => { try { require("fs").mkdirSync(d, { recursive: true }); } catch {} return d; };
   const applyDirChange = (target: string) => {
-    const t = path.resolve(String(target || ""));
+    let t = "";
+    try {
+      t = String(target || "").trim();
+      if (t === "~") t = os.homedir();
+      if (t.startsWith("~/")) t = path.join(os.homedir(), t.slice(2));
+      t = path.resolve(t);
+      let ok = false;
+      try { ok = require("fs").statSync(t).isDirectory(); } catch {}
+      if (!t || !ok) t = ensureDir(defaultDirPath()); // missing/deleted -> the default, recreated
+    } catch { t = ensureDir(defaultDirPath()); }
     dirPendingChange = "";
     dirPendingFiles = 0;
     try {
@@ -801,7 +814,13 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         sessDir = String(e0?.workingDir || "");
       } catch {}
       const cand = [String(qDirs?.current || ""), sessDir, String(currentCwd || ""), String(process.env.HOME || "")];
-      return cand.find((x) => x && x !== "undefined" && x !== "null") || "/";
+      const chosen = cand.find((x) => x && x !== "undefined" && x !== "null") || "/";
+      // The folder may have been deleted on the computer: the chat falls back to the
+      // default directory (recreated) — exactly like the app.
+      try {
+        if (!require("fs").statSync(chosen).isDirectory()) return ensureDir(defaultDirPath());
+      } catch { return ensureDir(defaultDirPath()); }
+      return chosen;
     } catch {
       return "/";
     }
@@ -4036,13 +4055,14 @@ const readProvidersCfg = (): any => {
     }
   };
   const dirChangeItems = (): any[] => {
-    if (dirTypeMode) {
-      const tp = menuSubFilter;
-      return [{ value: "__dir_typed", label: "Path: " + (tp || "\u2026"), description: tp ? "Enter: change the folder" : "Type or paste a folder path, then Enter" }];
-    }
+    // FIXED menu: both rows stay visible. Typing a path updates the second row live.
     return [
-      { value: "__dir_pick", label: "Select folder\u2026", description: "Open the macOS folder picker" },
-      { value: "__dir_type", label: "Type path\u2026", description: "Type or paste a folder path" },
+      { value: "__dir_pick", label: "Select folder\u2026", description: "Open the folder picker" },
+      {
+        value: "__dir_type",
+        label: dirTypeMode && menuSubFilter ? "Path: " + menuSubFilter : "Type path\u2026",
+        description: "Type or paste a folder path, then press Enter",
+      },
     ];
   };
   const levelItems = (stack: string[]): any[] => {
@@ -4066,7 +4086,7 @@ const readProvidersCfg = (): any => {
     }
   };
   const applyFilter = (items: any[]): any[] => {
-    if (dirTypeMode) return items; // the path input is never filtered away
+    if (dirTypeMode || (menuStack[0] === "directory" && menuStack[1] === "dirchange")) return items; // the typed path never filters the rows away
     const f = menuSubFilter.toLowerCase();
     if (!f) return items;
     return items.filter(
@@ -4200,14 +4220,15 @@ const readProvidersCfg = (): any => {
           try { require("fs").appendFileSync("/tmp/q-dir-trace.log", new Date().toISOString() + " dir ENTER it=" + JSON.stringify(vD) + " stack=" + menuStack.join("/") + " typeMode=" + dirTypeMode + "\n"); } catch {}
           if (menuStack[1] === "dirchange" || dirTypeMode) {
             if (vD === "__dir_pick") {
-              pickFolder(); // the NATIVE macOS folder picker
-            } else if (vD === "__dir_typed" || dirTypeMode) {
+              pickFolder(); // the folder picker
+            } else if ((vD === "__dir_type" || vD === "__dir_typed" || dirTypeMode) && menuSubFilter.trim()) {
               const tp = menuSubFilter.trim();
-              if (tp) applyDirChange(tp === "~" ? os.homedir() : tp);
+              applyDirChange(tp === "~" ? os.homedir() : tp);
               dirTypeMode = false;
               menuSubFilter = "";
               menuStack = ["directory"];
             }
+            // Type row with nothing typed: Enter does nothing.
           } else if (vD.startsWith("__dir_use:")) {
             try { require("fs").appendFileSync("/tmp/q-dir-trace.log", "  -> openFolder " + vD.slice(10) + "\n"); } catch {}
             openFolder(vD.slice(10));
@@ -4374,7 +4395,9 @@ const readProvidersCfg = (): any => {
             const oldD2 = currentDirAny();
             let nD2 = 0;
             try { nD2 = require("fs").readdirSync(oldD2).filter((x: string) => !x.startsWith(".")).length; } catch {}
-            if (nD2 > 0 && tD2 !== oldD2) { dirPendingChange = tD2; dirPendingFiles = nD2; }
+            if (tD2 === oldD2) {
+              // already the current folder: NOTHING (a chat always keeps its directory)
+            } else if (nD2 > 0) { dirPendingChange = tD2; dirPendingFiles = nD2; }
             else applyDirChange(tD2);
           }
           try { ui.requestRender(); } catch {}
@@ -4428,7 +4451,7 @@ const readProvidersCfg = (): any => {
         if (dirTypeMode) {
           dirTypeMode = false;
           menuSubFilter = "";
-          menuStack = ["directory"];
+          // stay in the submenu: Select folder / Type path remain available
           try { ui.requestRender(); } catch {}
           return;
         }
@@ -4483,10 +4506,7 @@ const readProvidersCfg = (): any => {
           const it: any = items[menuSel];
           // Directory submenu: -> runs the action (Select folder… / Type path…).
           if (menuStack[0] === "directory" && menuStack[1] === "dirchange" && it && !it.separator) {
-            const vR = String(it.value || "");
-            if (vR === "__dir_pick") pickFolder();
-            // "Type path…": -> does NOTHING (you just start typing right there).
-            menuSel = 0;
+            // -> does NOTHING in the submenu: the actions run on ENTER (user rule).
             try { ui.requestRender(); } catch {}
             return;
           }
@@ -5006,7 +5026,7 @@ const applySettingsPatch = (patch: any) => {
         if (curA && !curA.separator) {
           if (menuStack[0] === "agentinsession") canFwd = !!agentLevelFor(curA);
           else if (menuStack[0] === "settings") canFwd = !!settingsDeeper(curA);
-          else if (menuStack[0] === "directory") canFwd = menuStack[1] === "dirchange" ? (String(curA.value || "") === "__dir_pick") : (String(curA.value || "") === "__dir_change"); // -> only where it acts
+          else if (menuStack[0] === "directory") canFwd = menuStack[1] === "dirchange" ? false : (String(curA.value || "") === "__dir_change"); // -> lights only on Change directory
           else if (menuStack.length > 0) canFwd = false;
           else {
             const cA: any = commands.find((c: any) => c.name === curA.value);
