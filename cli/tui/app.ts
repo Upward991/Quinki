@@ -596,7 +596,16 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   // existing chat — including the last used one — stays visible in /sessions.
   const key = QEXPERT
     ? (process.env.QUINKI_SESSION_KEY || "__app_expert__")
-    : "cli-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    : (() => {
+        // RESUME the last CLI chat instead of creating a new empty "Chat" every
+        // launch (the empty chats pile up in the app otherwise).
+        try {
+          const list = JSON.parse(require("fs").readFileSync(path.join(require("os").homedir(), ".quinki", "quinki-sessions.json"), "utf8")) || [];
+          const lastCli = (Array.isArray(list) ? list : []).filter((x: any) => String(x?.key || "").startsWith("cli-")).sort((a: any, b: any) => (b?.lastActivity || 0) - (a?.lastActivity || 0))[0];
+          if (lastCli?.key) return String(lastCli.key);
+        } catch {}
+        return "cli-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      })();
   // The REAL session dir (the sidecar's own files — the same the app uses).
   const realSessionDir = path.join(opts.sessionDir, key);
   // The local SDK session is a leftover from the pre-sidecar era: it must NEVER
