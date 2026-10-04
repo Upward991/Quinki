@@ -468,13 +468,12 @@ export class Editor {
                     // lineVisibleWidth stays the same - we're replacing, not adding
                 }
                 else {
-                    // Cursor is at the end - add highlighted space (but right after a
-                    // chip: keep it invisible, the chip must stay clean).
-                    let afterChip = false;
-                    try { if (/Skill:\s*[\w.-]+\s?$/.test(before)) afterChip = true; } catch { }
-                    const cursor = afterChip ? marker : "\x1b[7m \x1b[0m";
+                    // Cursor is at the end: a VISIBLE block glued right after the last
+                    // char (after a chip too — T433: the insert has no trailing space,
+                    // so this block sits exactly next to the chip's last letter).
+                    const cursor = "\x1b[7m \x1b[0m";
                     displayText = before + cursor;
-                    if (!afterChip) lineVisibleWidth = lineVisibleWidth + 1;
+                    lineVisibleWidth = lineVisibleWidth + 1;
                     // If cursor overflows content width into the padding, flag it
                     if (lineVisibleWidth > contentWidth && paddingX > 0) {
                         cursorInPadding = true;
