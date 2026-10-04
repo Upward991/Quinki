@@ -990,15 +990,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   };
   const editor = new Editor(ui as any, editorTheme, { paddingX: 1 });
   try {
-    // The chip styling is applied HERE (paint time): the editor's cursor/layout math
-    // already ran, so ANSI can never break a slice (the T412 leak).
-    (editor as any).bgFn = (s: string) =>
-      bg(
-        C.bgPanel,
-        String(s).replace(/Skill:\s*[\w.-]+|\u25b8[^\s\u25b8]+/g, (m2: string) =>
-          String((editor as any).qTokenStyle ? (editor as any).qTokenStyle(m2) : m2)
-        )
-      );
+    (editor as any).bgFn = (s: string) => bg(C.bgPanel, s);
   } catch {}
 
   // /skill — app semantics (like listChatSkills): only the skills the model CANNOT
