@@ -1555,8 +1555,10 @@ const readProvidersCfg = (): any => {
         for (const dd of dirsAll) {
           const dp = String(dd?.path || "");
           if (!dp) continue;
-          const isCur = !!dd?.current;
-          items.push({ value: "__dir_use:" + dp, label: (isCur ? "\u25cf " : "\u25cb ") + dp, description: "", _lit: isCur });
+          const isCur = !!dd?.current || dp === currentDirAny();
+          // The dot of the CURRENT directory LIGHTS UP (accent on the bullet only —
+          // never on the path text).
+          items.push({ value: "__dir_use:" + dp, label: (isCur ? fg(C.primary, "\u25cf") + " " : "\u25cb ") + dp, description: "", _lit: isCur });
         }
         // Manual typing still works: the typed path is offered as-is.
         if (p && !p.startsWith("__")) items.unshift({ value: p, label: p, description: "use this path" });
@@ -4290,8 +4292,12 @@ const readProvidersCfg = (): any => {
       }
 
       if (menuStack[0] === "directory") {
-        if (menuStack[1]) return false; // submenu: no Confirm hint
         const vDir = String((cur as any)?.value || "");
+        if (menuStack[1] === "dirchange") {
+          // Select folder…: Enter opens the picker (Confirm VISIBLE).
+          // Type path…: Enter confirms — visible once a path is typed.
+          return vDir === "__dir_pick" || (vDir === "__dir_type" && !!menuSubFilter.trim());
+        }
         return vDir.startsWith("__dir_use:") || vDir === "confirm"; // Enter = open the folder
       }
       if (menuStack[0] === "settings") {
