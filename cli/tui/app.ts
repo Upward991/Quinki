@@ -4340,7 +4340,9 @@ const readProvidersCfg = (): any => {
   const clearSlashText = (): void => {
     try {
       const t0 = String(editor.getText() || "");
-      const t1 = t0.replace(/^\/[A-Za-z]+\s*/, "");
+      // Also a LONE "/" (or "///"): the slash menu counts ANY "/" as "open", so a
+      // leftover bare slash kept the menu lit forever (the user's bug).
+      const t1 = t0.replace(/^\/+[A-Za-z]*\s*/, "");
       if (t1 !== t0) editor.setText(t1);
     } catch {}
   };
@@ -4407,7 +4409,6 @@ const readProvidersCfg = (): any => {
       if (menuStack.length > 0) {
         const cmdName = menuStack[0];
         if (cmdName === "skill") {
-          try { require("fs").appendFileSync("/tmp/q-tab-trace.log", new Date().toISOString() + " SKILL-BRANCH reached, marked=" + menuMarked.size + "\n"); } catch {}
           // ENTER = put the SELECTED skills in the box (chips), then close+clean.
           // Each chip remembers WHICH AGENT owns that skill (the app's shape).
           try {
@@ -4867,7 +4868,6 @@ const readProvidersCfg = (): any => {
             }
           } catch {}
         }
-        try { require("fs").appendFileSync("/tmp/q-tab-trace.log", new Date().toISOString() + " ENTER it=" + JSON.stringify((items[menuSel]||{}).value) + " sep=" + !!((items[menuSel]||{}).separator) + " sel=" + menuSel + " marked=" + menuMarked.size + " focus=" + menuConfirmFocus + " text=" + JSON.stringify(String(editorText()).slice(0,20)) + "\n"); } catch {}
         // enter — app rules: Enter NEVER confirms directly. On a terminal option
         // the first Enter (or →) only LIGHTS the Confirm button; a second Enter,
         // with Confirm lit, executes. Opening a submenu is navigation, not a
