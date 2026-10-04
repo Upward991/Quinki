@@ -2345,7 +2345,6 @@ const readProvidersCfg = (): any => {
     (editor as any).qTokenStyle = (tok: string) => qTokenStyle(tok);
     // ATOMIC chips: backspace ON a "\u25b8token" deletes the WHOLE token at once.
     (editor as any).qAtomicDelete = () => {
-      try { require("fs").appendFileSync("/tmp/q-dir-trace.log", new Date().toISOString() + " ATOMIC-CALL\n"); } catch {}
       try {
         const st: any = (editor as any).state;
         if (!st || !Array.isArray(st.lines)) return false;
@@ -5394,7 +5393,6 @@ const applySettingsPatch = (patch: any) => {
           .replace(/\s{2,}/g, " ")
           .trim();
       } catch { sendText = t; }
-      try { require("fs").appendFileSync("/tmp/q-dir-trace.log", new Date().toISOString() + " SEND skills=" + JSON.stringify(skills) + " text=" + JSON.stringify(sendText) + "\n"); } catch {}
       try { pendingSkills.splice(0); pendingAttachments.splice(0); } catch {}
       try { for (const k of Object.keys(skillRefsByName)) delete skillRefsByName[k]; } catch {}
       try { ui.requestRender(); } catch {}
