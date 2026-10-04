@@ -5519,17 +5519,28 @@ const applySettingsPatch = (patch: any) => {
       try {
         sendText = String(t)
           .replace(/\bSkill:\s*([\w.-]+)/g, (_m: string, nm: string) => {
+            // The chip + directly-typed text merge ("quinki-marketciao"): the LONGEST
+            // known skill name wins; the remainder goes back into the message text.
+            let name = nm; let rest = "";
             try {
-              const q = skillRefsByName[nm];
+              const known = Object.keys(skillRefsByName).filter((k) => nm.startsWith(k) && k).sort((a, b) => b.length - a.length);
+              if (known.length && known[0] !== nm) { name = known[0]; rest = nm.slice(name.length); }
+            } catch {}
+            try {
+              const q = skillRefsByName[name];
               const ref = q && q.length ? q.shift() : null;
               if (ref) skillRefs.push(ref);
-              else skillRefs.push({ agentId: "", skillName: nm });
-              skills.push(nm);
-            } catch { skillRefs.push({ agentId: "", skillName: nm }); skills.push(nm); }
-            return "";
+              else skillRefs.push({ agentId: "", skillName: name });
+              skills.push(name);
+            } catch { skillRefs.push({ agentId: "", skillName: name }); skills.push(name); }
+            return rest;
           })
           .replace(/(?:^|\s)\u25b8([^\s\u25b8]+)/g, (_m: string, nm: string) => {
-            const name = String(nm);
+            let name = String(nm); let restA = "";
+            try {
+              const knownA = Object.keys(attPathByName).filter((k) => name.startsWith(k) && k).sort((a, b) => b.length - a.length);
+              if (knownA.length && knownA[0] !== name) { restA = name.slice(knownA[0].length); name = knownA[0]; }
+            } catch {}
             if (attPathByName[name] && fs.existsSync(attPathByName[name])) atts.push({ path: attPathByName[name], originalName: name } as any);
             else {
               skills.push(name);
@@ -5542,7 +5553,7 @@ const applySettingsPatch = (patch: any) => {
                 else skillRefs.push({ agentId: "", skillName: name });
               } catch { skillRefs.push({ agentId: "", skillName: name }); }
             }
-            return "";
+            return restA;
           })
           .replace(/[\uE000-\uE0FF]/g, "")
           .replace(/\s{2,}/g, " ")
