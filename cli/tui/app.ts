@@ -4848,6 +4848,14 @@ const readProvidersCfg = (): any => {
             }
           } catch {}
         }
+        // (belt) Enter on a bare slash with the command list open: clear too.
+        try {
+          if (menuStack.length === 0 && /^\/+$/.test(String(editorText()).trim())) {
+            editor.setText("");
+            try { ui.requestRender(); } catch {}
+            return;
+          }
+        } catch {}
         // enter — app rules: Enter NEVER confirms directly. On a terminal option
         // the first Enter (or →) only LIGHTS the Confirm button; a second Enter,
         // with Confirm lit, executes. Opening a submenu is navigation, not a
