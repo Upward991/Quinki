@@ -5235,6 +5235,15 @@ const applySettingsPatch = (patch: any) => {
       updateBar();
       const sk = currentKey;
       sessionEntryAllowed = true; // now the chat really exists (first message)
+      // Write the entry IMMEDIATELY (with the chosen folder): the headline shows
+      // the right directory from the very first render — no menu visit needed.
+      try {
+        if (pendingWorkingDir) {
+          mutateSessionEntry((e2: any) => { e2.workingDir = pendingWorkingDir; });
+        } else {
+          ensureSessionEntry();
+        }
+      } catch {}
       // Inline chips: the "\u25b8name" tokens travel as params; the text goes clean
       // (exactly what the sidecar/app expect).
       // var (function-scoped): the async IIFE below closes over it — a `let` here
