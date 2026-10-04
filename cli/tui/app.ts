@@ -2116,6 +2116,7 @@ const readProvidersCfg = (): any => {
 
   let assistant: any = null;
   let assistantText = "";
+  let lastDoneAgent = ""; // THE agent that actually replied (from the done event)
   let thinkingRow: any = null;
   let thinkingText = "";
   let welcomeShown = true;
@@ -2372,7 +2373,7 @@ const readProvidersCfg = (): any => {
   const sealWritingFooter = () => {
     try {
       if (!assistantText.trim()) return;
-      let agentName = sessionAgentIds()[0] || "quinki";
+      let agentName = lastDoneAgent || sessionAgentIds()[0] || "quinki";
       let lvl = thinkingOn ? "xhigh" : "off";
       try {
         const e0 = readSessionsList().find((s: any) => s?.key === currentKey);
@@ -2470,7 +2471,7 @@ const readProvidersCfg = (): any => {
         lastAssistantText = "";
         if (hadText && e?.message?.stopReason !== "aborted") {
         try {
-          let agentName = sessionAgentIds()[0] || "quinki";
+          let agentName = lastDoneAgent || sessionAgentIds()[0] || "quinki";
           let lvl = thinkingOn ? "xhigh" : "off";
           try {
             const e0 = readSessionsList().find((s: any) => s?.key === currentKey);
@@ -2712,6 +2713,9 @@ const readProvidersCfg = (): any => {
       } else if (method === "streaming_started") {
         onSessionEvent({ type: "agent_start" });
       } else if (method === "done") {
+        // The REAL agent that replied travels here (same as the app): remember it
+        // so the footer shows THAT agent, never the chat's whole list.
+        try { if (p?.agentName) lastDoneAgent = String(p.agentName); } catch {}
         onSessionEvent({ type: "message_end", message: { role: "assistant", stopReason: p?.stopReason } });
       } else if (method === "streaming_stopped") {
         onSessionEvent({ type: "agent_end" });
