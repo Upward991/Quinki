@@ -783,6 +783,14 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     return qTokenChar(i);
   };
   const qTokenByCh = (ch: string) => qTokens.find((t) => t.ch === ch) || null;
+  const qTokenStyle = (tok: string): string => {
+    try {
+      const nm = tok.replace(/^\u25b8/, "").replace(/^Skill:\s*/, "");
+      // The ORIGINAL Agents tab accent (coral) as the chip background, bg-colored text.
+      const accent = QEXPERT ? "#d9a066" : "#c97084";
+      return "\x1b[48;2;201;112;132m\x1b[38;2;8;8;11m Skill: " + nm + " \x1b[0m";
+    } catch { return tok; }
+  };
   const qTokenRender = (ch: string) => {
     const t = qTokenByCh(ch);
     if (!t) return ch;
@@ -2105,9 +2113,8 @@ const readProvidersCfg = (): any => {
       }
       if (menuNow) {
         try {
-          if (menuStack[0] === "skill" || menuStack[0] === "attachments" || menuStack[0] === "directory") {
-            if (String(editor.getText() || "").startsWith("/")) clearSlashText();
-            killAutocomplete();
+          if (menuStack[0] === "skill" || menuStack[0] === "attachments") {
+            killAutocomplete(); // the INTERNAL editor panel never overlaps our menu
           }
         } catch {}
         if (isUp || isDown || isLeft || isRight || isEnter) {
@@ -2335,21 +2342,26 @@ const readProvidersCfg = (): any => {
     // box, no X — move the cursor around them and delete them like text.
     (editor as any).qChipsFn = () => "";
     (editor as any).qTokenRender = (ch: string) => qTokenRender(ch);
+    (editor as any).qTokenStyle = (tok: string) => qTokenStyle(tok);
     // ATOMIC chips: backspace ON a "\u25b8token" deletes the WHOLE token at once.
     (editor as any).qAtomicDelete = () => {
+      try { require("fs").appendFileSync("/tmp/q-dir-trace.log", new Date().toISOString() + " ATOMIC-CALL\n"); } catch {}
       try {
         const st: any = (editor as any).state;
         if (!st || !Array.isArray(st.lines)) return false;
         const line = String(st.lines[st.cursorLine] ?? "");
         const col = Number(st.cursorCol) || 0;
         // Find a token that ENDS at the cursor (or the cursor sits inside it).
-        const re = /\u25b8[^\s\u25b8]+/g;
+        const re = /(?:\u25b8[^\s\u25b8]+)|(?:Skill:\s*[\w.-]+)/g;
         let m: RegExpExecArray | null;
         while ((m = re.exec(line))) {
           const a = m.index;
           const b = m.index + m[0].length;
-          if (col > a && col <= b) {
-            const nline = line.slice(0, a) + line.slice(b);
+          // The chips are followed by ONE space: the cursor right after it (b+1)
+          // must still count as "on the chip" (otherwise the space is deleted and
+          // the next word merges INTO the token).
+          if (col > a && col <= b + 1) {
+            const nline = line.slice(0, a) + (line.charAt(b) === " " ? line.slice(b + 1) : line.slice(b));
             st.lines[st.cursorLine] = nline;
             try { editor.setCursorCol(a); } catch {}
             try { if (typeof (editor as any).onChange === "function") (editor as any).onChange(editor.getText()); } catch {}
@@ -3698,8 +3710,6 @@ const readProvidersCfg = (): any => {
           menuStack = ["attachments"];
           menuSubFilter = "";
           menuSel = 0;
-          try { editor.setText(""); } catch {}
-          killAutocomplete();
           try { ui.requestRender(); } catch {}
           break;
         }
@@ -3753,12 +3763,12 @@ const readProvidersCfg = (): any => {
       case "skill": {
         if (!arg) {
           // /skill with NO argument: OPEN the skill menu (Enter works, like ->).
+          // The textbox is LEFT ALONE: "/skill" stays visible until the user
+          // CONFIRMS (Enter = chips) — it is cleared ONLY there.
           try { refreshSkillGroups(); } catch {}
           menuStack = ["skill"];
           menuSubFilter = "";
           menuSel = 0;
-          try { editor.setText(""); } catch {}
-          killAutocomplete();
           try { ui.requestRender(); } catch {}
           break;
         }
@@ -4225,6 +4235,15 @@ const readProvidersCfg = (): any => {
       .filter((c) => c.name.toLowerCase().startsWith(f))
       .map((c) => ({ value: c.name, label: "/" + capitalize(c.name), description: (c as any).description || "" }));
   };
+  const qCursorEnd = (): void => {
+    try {
+      const st: any = (editor as any).state;
+      if (st && Array.isArray(st.lines)) {
+        st.cursorLine = st.lines.length - 1;
+        (editor as any).setCursorCol(String(st.lines[st.cursorLine] || "").length);
+      }
+    } catch {}
+  };
   const killAutocomplete = (): void => {
     try {
       (editor as any).autocompleteState = undefined;
@@ -4304,7 +4323,8 @@ const readProvidersCfg = (): any => {
                 (skillRefsByName[nm] = skillRefsByName[nm] || []).push({ agentId: ag, skillName: nm, agentName: agentDisplayName(ag) });
               }
               const curS = String(editor.getText() || "");
-              editor.setText(curS + (curS && !curS.endsWith(" ") ? " " : "") + "\u25b8" + nm + " ");
+              editor.setText(curS + (curS && !curS.endsWith(" ") ? " " : "") + "Skill: " + nm + " ");
+              qCursorEnd();
             }
           } catch {}
           menuStack = [];
@@ -4332,6 +4352,7 @@ const readProvidersCfg = (): any => {
                   attPathByName[nmD] = String((stD as any).path);
                   const curD = String(editor.getText() || "");
                   editor.setText(curD + (curD && !curD.endsWith(" ") ? " " : "") + "\u25b8" + nmD + " ");
+                  qCursorEnd();
                 }
               }
             } catch {}
@@ -4620,7 +4641,7 @@ const readProvidersCfg = (): any => {
         return from;
       };
       if (a === "escape") {
-        try { if (menuStack.length > 0) clearSlashText(); } catch {}
+        // (the textbox is left ALONE: the user deletes "/skill" himself if he wants)
         if (dirTypeMode) {
           dirTypeMode = false;
           menuSubFilter = "";
@@ -4712,7 +4733,7 @@ const readProvidersCfg = (): any => {
             menuStack = [cmd.name];
             menuSubFilter = "";
             menuSel = 0;
-            try { if (cmd.name === "skill" || cmd.name === "attachments" || cmd.name === "directory") { clearSlashText(); killAutocomplete(); } } catch {}
+            try { if (cmd.name === "skill" || cmd.name === "attachments") killAutocomplete(); } catch {}
           } else if (cmd) {
             // MENU 2.0: nothing (Enter runs commands).
           }
@@ -5343,6 +5364,16 @@ const applySettingsPatch = (patch: any) => {
       const atts: Array<{ path: string }> = [];
       try {
         sendText = String(t)
+          .replace(/\bSkill:\s*([\w.-]+)/g, (_m: string, nm: string) => {
+            try {
+              const q = skillRefsByName[nm];
+              const ref = q && q.length ? q.shift() : null;
+              if (ref) skillRefs.push(ref);
+              else skillRefs.push({ agentId: "", skillName: nm });
+              skills.push(nm);
+            } catch { skillRefs.push({ agentId: "", skillName: nm }); skills.push(nm); }
+            return "";
+          })
           .replace(/(?:^|\s)\u25b8([^\s\u25b8]+)/g, (_m: string, nm: string) => {
             const name = String(nm);
             if (attPathByName[name] && fs.existsSync(attPathByName[name])) atts.push({ path: attPathByName[name], originalName: name } as any);
@@ -5363,6 +5394,7 @@ const applySettingsPatch = (patch: any) => {
           .replace(/\s{2,}/g, " ")
           .trim();
       } catch { sendText = t; }
+      try { require("fs").appendFileSync("/tmp/q-dir-trace.log", new Date().toISOString() + " SEND skills=" + JSON.stringify(skills) + " text=" + JSON.stringify(sendText) + "\n"); } catch {}
       try { pendingSkills.splice(0); pendingAttachments.splice(0); } catch {}
       try { for (const k of Object.keys(skillRefsByName)) delete skillRefsByName[k]; } catch {}
       try { ui.requestRender(); } catch {}
