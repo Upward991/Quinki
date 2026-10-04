@@ -2164,11 +2164,10 @@ const readProvidersCfg = (): any => {
         }
         return { consume: true };
       }
-      // Enter on a BARE "/" (menu phase, nothing typed after): clear the box.
+      // Enter on a BARE "/" (nothing chosen yet): ABSOLUTELY NOTHING — the panel
+      // and the text stay exactly as they are.
       try {
         if (isEnter && menuStack.length === 0 && /^\/+$/.test(String(editorText()).trim())) {
-          editor.setText("");
-          try { ui.requestRender(); } catch {}
           return { consume: true };
         }
       } catch {}
@@ -5431,7 +5430,6 @@ const applySettingsPatch = (patch: any) => {
       return;
     }
     if (!t) return;
-    if (/^\/+$/.test(String(t).trim())) { editor.setText(""); try { ui.requestRender(); } catch {} return; }
     editor.setText("");
     if (welcomeShown) {
       welcomeShown = false;
