@@ -763,6 +763,8 @@ export class Editor {
             }
             else {
                 this.moveCursor(-1, 0);
+                // QUINKI (T444): never rest inside a chip — same recipe as left/right.
+                try { if (typeof this.qSnapOutOfChip === "function") this.qSnapOutOfChip(); } catch { }
             }
             return;
         }
@@ -776,6 +778,8 @@ export class Editor {
             }
             else {
                 this.moveCursor(1, 0);
+                // QUINKI (T444): never rest inside a chip — same recipe as left/right.
+                try { if (typeof this.qSnapOutOfChip === "function") this.qSnapOutOfChip(); } catch { }
             }
             return;
         }

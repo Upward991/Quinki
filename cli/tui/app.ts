@@ -2464,6 +2464,35 @@ const readProvidersCfg = (): any => {
     };
     (editor as any).qTokenStyle = (tok: string) => qTokenStyle(tok);
     // ATOMIC chips: backspace ON a "\u25b8token" deletes the WHOLE token at once.
+    (editor as any).qSnapOutOfChip = () => {
+      try {
+        const st: any = (editor as any).state;
+        if (!st || !Array.isArray(st.lines)) return;
+        const line = String(st.lines[st.cursorLine] ?? "");
+        const col = Number(st.cursorCol) || 0;
+        const re = /(?:\u25b8[^\s\u25b8]+)|(?:Skill:\s*[\w.-]+)/g;
+        let m: RegExpExecArray | null;
+        while ((m = re.exec(line))) {
+          const a = m.index;
+          const b = m.index + m[0].length;
+          // Never rest inside a chip after an up/down move: land BEFORE it, with the
+          // SAME recipe as the arrows (insert the space when the chip starts the line).
+          if (col >= a && col < b) {
+            if (a === 0) {
+              const nl = " " + line;
+              st.lines[st.cursorLine] = nl;
+              try { if (typeof (editor as any).onChange === "function") (editor as any).onChange(editor.getText()); } catch {}
+              try { (editor as any).setCursorCol(0); } catch {}
+            } else {
+              try { (editor as any).setCursorCol(a - 1); } catch {}
+            }
+            try { ui.requestRender(); } catch {}
+            return;
+          }
+          if (col < a) break;
+        }
+      } catch {}
+    };
     (editor as any).qAtomicDelete = (forward?: boolean) => {
       try {
         const st: any = (editor as any).state;
@@ -2485,6 +2514,18 @@ const readProvidersCfg = (): any => {
               const nl2 = line.slice(0, a) + (line.charAt(b) === " " ? line.slice(b + 1) : line.slice(b));
               st.lines[st.cursorLine] = nl2;
               try { (editor as any).setCursorCol(a); } catch {}
+              try { if (typeof (editor as any).onChange === "function") (editor as any).onChange(editor.getText()); } catch {}
+              try { ui.requestRender(); } catch {}
+              return true;
+            }
+            // T444: ONE press from the cell right before the chip kills the whole chip
+            // (the auto space goes with it) — no more two-press dance.
+            if (col === a - 1) {
+              const eatSpace = (a > 0 && line.charAt(a - 1) === " ") ? 1 : 0;
+              const start = a - eatSpace;
+              const nl3 = line.slice(0, start) + (line.charAt(b) === " " ? line.slice(b + 1) : line.slice(b));
+              st.lines[st.cursorLine] = nl3;
+              try { (editor as any).setCursorCol(start); } catch {}
               try { if (typeof (editor as any).onChange === "function") (editor as any).onChange(editor.getText()); } catch {}
               try { ui.requestRender(); } catch {}
               return true;
