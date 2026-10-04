@@ -1573,14 +1573,9 @@ const readProvidersCfg = (): any => {
         let dirsAll: any[] = Array.isArray(qDirs?.dirs) ? qDirs.dirs.slice() : [];
         try {
           if (welcomeShown) {
-            // WELCOME: nothing is "current" — the directory is born with the chat.
-            // The list is just the preview: only a folder YOU pick gets the dot.
-            if (pendingWorkingDir) {
-              dirsAll = dirsAll.filter((d: any) => String(d?.path || "") !== pendingWorkingDir);
-              dirsAll = [{ path: pendingWorkingDir, current: true }, ...dirsAll.map((d: any) => ({ ...d, current: false }))];
-            } else {
-              dirsAll = dirsAll.map((d: any) => ({ ...d, current: false }));
-            }
+            // WELCOME: the chat hasn't started — there is NOTHING to list. Only a
+            // folder YOU pick right now shows up (with the dot), nothing else.
+            dirsAll = pendingWorkingDir ? [{ path: pendingWorkingDir, current: true }] : [];
           }
         } catch {}
         dirsAll.sort((a: any, b: any) => (a?.current === b?.current ? 0 : (a?.current ? -1 : 1)));
