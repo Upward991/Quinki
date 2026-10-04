@@ -2160,6 +2160,14 @@ const readProvidersCfg = (): any => {
         }
         return { consume: true };
       }
+      // Enter on a BARE "/" (menu phase, nothing typed after): clear the box.
+      try {
+        if (isEnter && menuStack.length === 0 && /^\/+$/.test(String(editorText()).trim())) {
+          editor.setText("");
+          try { ui.requestRender(); } catch {}
+          return { consume: true };
+        }
+      } catch {}
       // Atomic chips: ← / → hop over a whole "Skill: name" clip (write before/after).
       try {
         if (!menuNow && (isLeft || isRight)) {
@@ -2174,7 +2182,7 @@ const readProvidersCfg = (): any => {
               const a = m2m.index, b = m2m.index + m2m[0].length;
               if (isRight && col > a && col < b) { (editor as any).setCursorCol(b); hopped = true; break; }
               if (isRight && col === a) { (editor as any).setCursorCol(b + (ln.charAt(b) === " " ? 1 : 0)); hopped = true; break; }
-              if (isLeft && col > a && col <= b) { (editor as any).setCursorCol(a); hopped = true; break; }
+              if (isLeft && col > a && col <= b + 1) { (editor as any).setCursorCol(a); hopped = true; break; }
             }
             if (hopped) { try { ui.requestRender(); } catch {} return { consume: true }; }
           }
