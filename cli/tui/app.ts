@@ -1923,6 +1923,31 @@ const readProvidersCfg = (): any => {
       if (isKeyRelease(data)) {
         return { consume: true };
       }
+      // BRACKETED PASTE (\x1b[200~ … \x1b[201~): the terminal wraps Cmd+V like
+      // this. With a menu open the content MUST go into the menu FIELD (path,
+      // filters) — never into the editor textbox.
+      try {
+        if (typeof data === "string" && data.includes("\x1b[200~")) {
+          const inner = String(data)
+            .replace(/^\x1b\[200~/, "")
+            .replace(/\x1b\[201~/g, "")
+            .replace(/\r/g, "");
+          const clean0 = inner.split("").filter((ch) => ch >= " " && ch !== "\x7f").join("");
+          if (clean0 && menuOpenRef?.() && menuStack.length > 0) {
+            if (menuStack[0] === "directory" && menuStack[1] === "dirchange" && !dirTypeMode) {
+              dirTypeMode = true;
+              menuSubFilter = "";
+            }
+            menuSubFilter += clean0;
+            if (menuStack[0] === "directory" && menuStack[1] === "dirchange") menuSel = 1;
+            else menuSel = 0;
+            menuConfirmFocus = false;
+            try { ui.requestRender(); } catch {}
+            return { consume: true };
+          }
+          // No menu open: leave it to the editor (normal paste in the textbox).
+        }
+      } catch {}
       // Ctrl+T = toggle navigation mode: ↑↓ move between toggles, → opens,
       // ← closes, Esc exits and closes them all (modal: other keys swallowed).
       const isCtrlT = data === "\x14" || matchesKey(data, "ctrl+t");
