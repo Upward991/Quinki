@@ -400,7 +400,8 @@ class ToggleBlock {
           }
         }
       }
-      const first = String(src).split("\n")[0] || "";
+      // Strip ANSI (and the literal "[33m"-style escapes seen in pasted build logs)
+      const first = String(src).split("\n")[0].replace(/\x1b\[[0-9;]*m/g, "").replace(/\[\d{1,2}(;\d{1,2})*m/g, "").trim() || "";
       if (first.trim()) {
         // The preview MUST fit the row: it is cut on the room actually left by
         // the header, so a collapsed toggle never spills out of the chat area.
