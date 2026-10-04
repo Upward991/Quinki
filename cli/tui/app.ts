@@ -1651,8 +1651,9 @@ const readProvidersCfg = (): any => {
           if (skills.length === 0) continue;
           items.push({ value: "__sep_" + g.agentId, label: g.agentName, description: "", separator: true });
           for (const s of skills) {
-            const on = menuMarked.has(s.name);
-            items.push({ value: s.name, label: (on ? "\u25cf " : "\u25cb ") + s.name, description: s.description || "skill" });
+            const vv = "skill:" + g.agentId + ":" + s.name;
+            const on = menuMarked.has(vv);
+            items.push({ value: vv, label: (on ? "\u25cf " : "\u25cb ") + s.name, description: s.description || "skill" });
           }
         }
         return items;
@@ -2222,6 +2223,7 @@ const readProvidersCfg = (): any => {
   let menuMarked = new Set<string>();
   let dirTypeMode = false; // "Type path": the menu becomes a path input
   let pendingWorkingDir = ""; // /directory chosen in the welcome -> the new chat
+  const skillRefsByName: Record<string, Array<{ agentId: string; skillName: string; agentName: string }>> = {}; // skill chips: WHICH agent owns it
   let menuItemsCache: any[] = []; // open menu path: [], [cmd] or ["agent", ...deeper levels]
   let lastNavA = ""; // last navigation direction (duplicate-event collapse)
   let lastNavT = 0;
@@ -4251,9 +4253,18 @@ const readProvidersCfg = (): any => {
         const cmdName = menuStack[0];
         if (cmdName === "skill") {
           // ENTER = put the SELECTED skills in the box (chips), then close+clean.
+          // Each chip remembers WHICH AGENT owns that skill (the app's shape).
           try {
-            const names = Array.from(menuMarked).filter((v) => v && !String(v).startsWith("__"));
-            for (const nm of names) {
+            const vals = Array.from(menuMarked).filter((v) => String(v).startsWith("skill:"));
+            for (const vv of vals) {
+              const rest = String(vv).slice(6);
+              const i1 = rest.indexOf(":");
+              const ag = i1 > 0 ? rest.slice(0, i1) : "";
+              const nm = i1 > 0 ? rest.slice(i1 + 1) : rest;
+              if (!nm) continue;
+              if (ag) {
+                (skillRefsByName[nm] = skillRefsByName[nm] || []).push({ agentId: ag, skillName: nm, agentName: agentDisplayName(ag) });
+              }
               const curS = String(editor.getText() || "");
               editor.setText(curS + (curS && !curS.endsWith(" ") ? " " : "") + "\u25b8" + nm + " ");
             }
@@ -4484,7 +4495,7 @@ const readProvidersCfg = (): any => {
           // TAB = SELECT ONLY: mark the dot (multi OK). NOTHING goes in the box —
           // the chips are placed by ENTER (the user's rule).
           const vV = String(it.value ?? "");
-          if (menuStack[0] === "skill" && vV && !vV.startsWith("__")) {
+          if (menuStack[0] === "skill" && vV.startsWith("skill:")) {
             if (menuMarked.has(vV)) menuMarked.delete(vV); else menuMarked.add(vV);
           } else if (menuStack[0] === "attachments" && vV.startsWith("__at_file:")) {
             if (menuMarked.has(vV)) menuMarked.delete(vV); else menuMarked.add(vV);
@@ -5291,13 +5302,24 @@ const applySettingsPatch = (patch: any) => {
       // hits the TDZ in the bundle and threw "sendText is not defined".
       var sendText = t;
       const skills: string[] = [];
+      const skillRefs: Array<{ agentId: string; skillName: string; agentName?: string }> = [];
       const atts: Array<{ path: string }> = [];
       try {
         sendText = String(t)
           .replace(/(?:^|\s)\u25b8([^\s\u25b8]+)/g, (_m: string, nm: string) => {
             const name = String(nm);
             if (attPathByName[name] && fs.existsSync(attPathByName[name])) atts.push({ path: attPathByName[name], originalName: name } as any);
-            else skills.push(name);
+            else {
+              skills.push(name);
+              // The chip's REAL agent (the app's mechanism): queue -> ref; manual
+              // typing falls back to the chat's primary agent.
+              try {
+                const q = skillRefsByName[name];
+                const ref = q && q.length ? q.shift() : null;
+                if (ref) skillRefs.push(ref);
+                else skillRefs.push({ agentId: "", skillName: name });
+              } catch { skillRefs.push({ agentId: "", skillName: name }); }
+            }
             return "";
           })
           .replace(/[\uE000-\uE0FF]/g, "")
@@ -5306,6 +5328,7 @@ const applySettingsPatch = (patch: any) => {
       } catch { sendText = t; }
       try { require("fs").appendFileSync("/tmp/q-dir-trace.log", new Date().toISOString() + " send skills=" + JSON.stringify(skills) + " atts=" + JSON.stringify(atts.map((a) => a.originalName)) + " text=" + JSON.stringify(sendText) + "\n"); } catch {}
       try { pendingSkills.splice(0); pendingAttachments.splice(0); } catch {}
+      try { for (const k of Object.keys(skillRefsByName)) delete skillRefsByName[k]; } catch {}
       try { ui.requestRender(); } catch {}
       var _chipNames: Array<{ kind: string; name: string }> = [];
       try {
@@ -5334,13 +5357,13 @@ const applySettingsPatch = (patch: any) => {
             {
               sessionKey: sk,
               text: sendText || (atts.length || skills.length ? "" : t),
-              ...(skills.length
+              ...(skillRefs.length
                 ? {
                     // THE APP'S EXACT SHAPE: [{ agentId, skillName, agentName }] —
-                    // the sidecar destructures objects, plain strings were lost.
-                    skillNames: skills.map((n: string) => {
-                      const ag0 = String((sessionAgentIds().find((x: string) => x === "orchestrator") || sessionAgentIds()[0]) || "quinki");
-                      return { agentId: ag0, skillName: String(n), agentName: agentDisplayName(ag0) };
+                    // each skill goes to the agent that OWNS it (delegation/tag).
+                    skillNames: skillRefs.map((r) => {
+                      const ag0 = r.agentId || String((sessionAgentIds().find((x: string) => x === "orchestrator") || sessionAgentIds()[0]) || "quinki");
+                      return { agentId: ag0, skillName: String(r.skillName), agentName: r.agentName || agentDisplayName(ag0) };
                     }),
                   }
                 : {}),
