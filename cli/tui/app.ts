@@ -4240,32 +4240,18 @@ const readProvidersCfg = (): any => {
       if (menuStack.length > 0) {
         const cmdName = menuStack[0];
         if (cmdName === "skill") {
-          const vS = String(it.value ?? "");
-          if (vS && !vS.startsWith("__")) {
-            if (menuMarked.has(vS)) menuMarked.delete(vS); else menuMarked.add(vS);
-            try {
-              const curS = String(editor.getText() || "");
-              editor.setText(curS + (curS && !curS.endsWith(" ") ? " " : "") + "\u25b8" + vS + " ");
-            } catch {}
-          }
+          // Confirm (Enter): the chips are already in the box — Enter closes the menu.
+          menuStack = [];
+          menuSubFilter = "";
           try { ui.requestRender(); } catch {}
           return;
         }
         if (cmdName === "attachments") {
           const vA = String(it.value ?? "");
           if (vA.startsWith("__at_file:")) {
-            // Tab = attach ANOTHER one (multi) — chips accumulate, menu stays.
-            const fpA = vA.slice(10);
-            try {
-              if (fs.existsSync(fpA)) {
-                const stD = stageAttachment(fpA) || { path: fpA, originalName: require("path").basename(fpA) };
-                pendingAttachments.push(stD as any);
-                const nmD = String((stD as any).originalName);
-                attPathByName[nmD] = String((stD as any).path);
-                const curD = String(editor.getText() || "");
-                editor.setText(curD + (curD && !curD.endsWith(" ") ? " " : "") + "\u25b8" + nmD + " ");
-              }
-            } catch {}
+            // Confirm (Enter): the chip is in the box — Enter closes the menu.
+            menuStack = [];
+            menuSubFilter = "";
           } else if (vA === "__at_new") {
             try {
               const cpB = require("child_process");
@@ -4373,6 +4359,7 @@ const readProvidersCfg = (): any => {
         return false;
       }
 
+      if (menuStack[0] === "skill" || menuStack[0] === "attachments") return menuMarked.size > 0;
       if (menuStack[0] === "directory") {
         const vDir = String((cur as any)?.value || "");
         if (menuStack[1] === "dirchange") {
@@ -4452,6 +4439,46 @@ const readProvidersCfg = (): any => {
         }
         if (inAgentPick && it && !it.separator && String(it.value || "")) {
           agentActivate(String(it.value));
+          try { ui.requestRender(); } catch {}
+          return;
+        }
+        if ((menuStack[0] === "skill" || menuStack[0] === "attachments") && it && !it.separator) {
+          const vV = String(it.value ?? "");
+          const escRe = (t2: string) => new RegExp("\\s*\\u25b8" + t2.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*", "g");
+          if (menuStack[0] === "skill" && vV && !vV.startsWith("__")) {
+            try {
+              const curS = String(editor.getText() || "");
+              if (menuMarked.has(vV)) {
+                menuMarked.delete(vV);
+                editor.setText(curS.replace(escRe(vV), " ").trim());
+              } else {
+                menuMarked.add(vV);
+                editor.setText(curS + (curS && !curS.endsWith(" ") ? " " : "") + "\u25b8" + vV + " ");
+              }
+            } catch {}
+          } else if (menuStack[0] === "attachments" && vV.startsWith("__at_file:")) {
+            const fpA = vV.slice(10);
+            if (menuMarked.has(vV)) {
+              menuMarked.delete(vV);
+              try {
+                const nm0 = String(attPathByName && require("path").basename(fpA) || "");
+                const curS2 = String(editor.getText() || "");
+                editor.setText(curS2.replace(escRe(nm0 || require("path").basename(fpA)), " ").trim());
+              } catch {}
+            } else {
+              menuMarked.add(vV);
+              try {
+                if (fs.existsSync(fpA)) {
+                  const stD = stageAttachment(fpA) || { path: fpA, originalName: require("path").basename(fpA) };
+                  pendingAttachments.push(stD as any);
+                  const nmD = String((stD as any).originalName);
+                  attPathByName[nmD] = String((stD as any).path);
+                  const curD = String(editor.getText() || "");
+                  editor.setText(curD + (curD && !curD.endsWith(" ") ? " " : "") + "\u25b8" + nmD + " ");
+                }
+              } catch {}
+            }
+          }
           try { ui.requestRender(); } catch {}
           return;
         }
