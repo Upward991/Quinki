@@ -2183,9 +2183,9 @@ const readProvidersCfg = (): any => {
             let hopped = false;
             while ((m2m = re.exec(ln))) {
               const a = m2m.index, b = m2m.index + m2m[0].length;
-              if (isRight && col > a && col < b) { (editor as any).setCursorCol(b); hopped = true; break; }
+              if (isRight && col > a && col < b) { (editor as any).setCursorCol(b + (ln.charAt(b) === " " ? 1 : 0)); hopped = true; break; }
               if (isRight && col === a) { (editor as any).setCursorCol(b + (ln.charAt(b) === " " ? 1 : 0)); hopped = true; break; }
-              if (isLeft && col > a && col <= b + 1) { (editor as any).setCursorCol(a); hopped = true; break; }
+              if (isLeft && col > a && col <= b + 1) { (editor as any).setCursorCol(Math.max(0, a - 1)); hopped = true; break; }
             }
             if (hopped) { try { ui.requestRender(); } catch {} return { consume: true }; }
           }
@@ -2788,7 +2788,7 @@ const readProvidersCfg = (): any => {
   let lastUserPush = { text: "", ts: 0 };
   let histLimit = 50;
   let histMsgs: any[] | null = null; // server-normalized history (the app's way)
-  let histStores: { skills: any; atts: any } = { skills: {}, atts: {} };
+  let histStores: { skills: any; atts: any; displays: any } = { skills: {}, atts: {}, displays: {} };
 
   /** Ask the SIDECAR for the history — the exact source the app uses: correct
    *  order, blocks normalized, footers with the real agent/model/level. */
@@ -2808,6 +2808,7 @@ const readProvidersCfg = (): any => {
       histStores = {
         skills: (r && (r as any).messageSkills) || {},
         atts: (r && (r as any).messageAttachments) || {},
+        displays: (r && (r as any).messageDisplayTexts) || {},
       };
       return histMsgs.length > 0;
     } catch {
@@ -3207,8 +3208,12 @@ const readProvidersCfg = (): any => {
               const attsH = Array.isArray(m.attachments) && m.attachments.length ? m.attachments : pick(histStores.atts);
               for (const a of (Array.isArray(attsH) ? attsH : [])) chipsH.push({ kind: "attachment", name: String((a as any)?.originalName || require("path").basename(String((a as any)?.path || ""))) });
               for (const sk of (Array.isArray(sks) ? sks : [])) chipsH.push({ kind: "skill", name: String((sk as any)?.skillName || sk) });
-            } catch {}
-            if (t.trim() || chipsH.length) pushBlock(new UserBubble(t, fmtFooterDate(Number(m.timestamp) || Date.now()), chipsH));
+              // THE SAVED DISPLAY TEXT: the bubble with the REAL inline clips, identical
+              // to the live one. chipsH stays only as the fallback for old messages.
+              const dtRaw = pick(histStores.displays);
+              const tDisp = (typeof dtRaw === "string" && dtRaw) ? dtRaw : t;
+              if (tDisp.trim() || chipsH.length) pushBlock(new UserBubble(tDisp, fmtFooterDate(Number(m.timestamp) || Date.now()), tDisp !== t ? [] : chipsH));
+            } catch { if (t.trim() || chipsH.length) pushBlock(new UserBubble(t, fmtFooterDate(Number(m.timestamp) || Date.now()), chipsH)); }
           } else if (m?.role === "tool_call" || m?.role === "toolCall") {
             let tcb = "";
             try {
@@ -4454,7 +4459,8 @@ const readProvidersCfg = (): any => {
                 (skillRefsByName[nm] = skillRefsByName[nm] || []).push({ agentId: ag, skillName: nm, agentName: agentDisplayName(ag) });
               }
               const curS = String(editor.getText() || "");
-              editor.setText(curS + (curS && !curS.endsWith(" ") ? " " : "") + "Skill: " + nm + " ");
+              editor.setText(curS + (curS && !curS.endsWith(" ") ? " " : "") + "Skill: " + nm);
+              try { editor.setCursorCol(editor.getText().length); } catch {}
               qCursorEnd();
             }
           } catch {}
@@ -4480,7 +4486,8 @@ const readProvidersCfg = (): any => {
                   const nmD = String((stD as any).originalName);
                   attPathByName[nmD] = String((stD as any).path);
                   const curD = String(editor.getText() || "");
-                  editor.setText(curD + (curD && !curD.endsWith(" ") ? " " : "") + "\u25b8" + nmD + " ");
+                  editor.setText(curD + (curD && !curD.endsWith(" ") ? " " : "") + "\u25b8" + nmD);
+                  try { editor.setCursorCol(editor.getText().length); } catch {}
                   qCursorEnd();
                 }
               }
@@ -4503,7 +4510,8 @@ const readProvidersCfg = (): any => {
                       const nmB2 = String((stB as any).originalName);
                       attPathByName[nmB2] = String((stB as any).path);
                       const curB = String(editor.getText() || "");
-                      editor.setText(curB + (curB && !curB.endsWith(" ") ? " " : "") + "\u25b8" + nmB2 + " ");
+                      editor.setText(curB + (curB && !curB.endsWith(" ") ? " " : "") + "\u25b8" + nmB2);
+                      try { editor.setCursorCol(editor.getText().length); } catch {}
                     }
                   } catch {}
                   try { ui.requestRender(); } catch {}
@@ -5569,6 +5577,7 @@ const applySettingsPatch = (patch: any) => {
             {
               sessionKey: sk,
               text: sendText || (atts.length || skills.length ? "" : t),
+              ...(String(t).trim() !== String(sendText).trim() ? { displayText: String(t).trim() } : {}),
               ...(skillRefs.length
                 ? {
                     // THE APP'S EXACT SHAPE: [{ agentId, skillName, agentName }] —

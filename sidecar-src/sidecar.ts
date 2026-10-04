@@ -658,7 +658,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
 
   getModelContext: async (p) => ({ modelId: p.modelId, ...await piBridge!.getModelContext(p.modelId) }),
 
-  getHistory: async (p) => { const sk = String(p.sessionKey); let recovering = false; try { recovering = fs.existsSync(path.join(agentDir, "sessions", "quinki", sk, "pending-turn.json")); } catch {} try { piBridge!.logDebug("getHistory-recovering-flag", { sessionKey: sk, recovering, hasMarker: recovering }); } catch {} const chips = piBridge!.getChipsStores(sk); return { sessionKey: p.sessionKey, messages: piBridge!.getHistory(sk, typeof p.limit === "number" ? p.limit : undefined), messageSkills: chips.messageSkills, messageTaskClips: chips.messageTaskClips, messageAttachments: chips.messageAttachments, recovering } },
+  getHistory: async (p) => { const sk = String(p.sessionKey); let recovering = false; try { recovering = fs.existsSync(path.join(agentDir, "sessions", "quinki", sk, "pending-turn.json")); } catch {} try { piBridge!.logDebug("getHistory-recovering-flag", { sessionKey: sk, recovering, hasMarker: recovering }); } catch {} const chips = piBridge!.getChipsStores(sk); return { sessionKey: p.sessionKey, messages: piBridge!.getHistory(sk, typeof p.limit === "number" ? p.limit : undefined), messageSkills: chips.messageSkills, messageTaskClips: chips.messageTaskClips, messageAttachments: chips.messageAttachments, messageDisplayTexts: chips.messageDisplayTexts, recovering } },
   // B0.8: pagina precedente della storia + log
   getHistoryBefore: async (p) => ({ sessionKey: p.sessionKey, messages: piBridge!.getHistoryBefore(String(p.sessionKey), Number(p.ts || 0), typeof p.limit === "number" ? p.limit : undefined) }),
   getDebugLogBefore: async (p) => piBridge!.getDebugLogBefore(Number(p.from || 0), typeof p.limit === "number" ? p.limit : undefined),
@@ -841,6 +841,11 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     process.stderr.write('[SKILL-DEBUG] sendMessage received: skillNames=' + JSON.stringify(p.skillNames) + ' attachments=' + JSON.stringify(p.attachments) + '\n');
     if (p.skillNames && p.skillNames.length > 0) {
       piBridge!.setMessageSkills(sk, mid, p.skillNames, p.text);
+    }
+    // T433: the DISPLAY copy (raw text with the inline chip tokens) — the CLI's
+    // reloaded bubbles render exactly like the live ones.
+    if ((p as any).displayText) {
+      try { piBridge!.setMessageDisplayText(sk, mid, p.text, String((p as any).displayText)); } catch {}
     }
     // FIX (22 set): allegati dalla cartella draft (__welcome__, welcome/quick chat senza
     // sessione) → SPOSTATI nella cartella della sessione PRIMA di registrarli: il path

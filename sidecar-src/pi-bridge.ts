@@ -4476,6 +4476,18 @@ Read this file to view it.` }] };
     }
   }
 
+  setMessageDisplayText(key: string, messageId: string, messageText?: string, displayText?: string) {
+    const s = this.#entries.get(key);
+    if (s && displayText) {
+      if (!(s as any).messageDisplayTexts) (s as any).messageDisplayTexts = {};
+      const textKey = (messageText || "").substring(0, 200);
+      (s as any).messageDisplayTexts[textKey] = displayText;
+      if (messageId) (s as any).messageDisplayTexts[messageId] = displayText;
+      this.#save();
+      this.logDebug("set-message-displaytext", { sessionKey: key, textKey, len: displayText.length });
+    }
+  }
+
   getMessageSkills(key: string): Record<string, any[]> {
     const s = this.#entries.get(key);
     return (s as any)?.messageSkills || {};
@@ -4513,7 +4525,7 @@ Read this file to view it.` }] };
         const entry: any = this.#entries.get(sk);
         if (!entry) return true;
         const textKey = String(text || "").substring(0, 200);
-        const CHIP_STORES = ["messageAttachments", "messageSkills", "messageTaskClips"] as const;
+        const CHIP_STORES = ["messageAttachments", "messageSkills", "messageTaskClips", "messageDisplayTexts"] as const;
         const srcOf = (n: typeof CHIP_STORES[number]) => (entry[n] && ((mid && entry[n][mid]) || (textKey && entry[n][textKey]))) || null;
         if (!CHIP_STORES.some((n) => srcOf(n))) return true; // niente da ri-keyare
         let realTs = 0; let realId: string | undefined;
@@ -4607,9 +4619,9 @@ Read this file to view it.` }] };
   // reload anche se il worker le aveva salvate. quinki-sessions.json è l'unica fonte
   // condivisa: qui si legge il file e si unisce con la memoria (la memoria vince:
   // è più fresca nel processo che ha appena scritto).
-  getChipsStores(key: string): { messageSkills: Record<string, any[]>; messageTaskClips: Record<string, any[]>; messageAttachments: Record<string, any[]> } {
-    const names = ["messageSkills", "messageTaskClips", "messageAttachments"] as const;
-    const out: any = { messageSkills: {}, messageTaskClips: {}, messageAttachments: {} };
+  getChipsStores(key: string): { messageSkills: Record<string, any[]>; messageTaskClips: Record<string, any[]>; messageAttachments: Record<string, any[]>; messageDisplayTexts: Record<string, string> } {
+    const names = ["messageSkills", "messageTaskClips", "messageAttachments", "messageDisplayTexts"] as const;
+    const out: any = { messageSkills: {}, messageTaskClips: {}, messageAttachments: {}, messageDisplayTexts: {} };
     const mem = this.#entries.get(key) as any;
     for (const n of names) out[n] = { ...(mem?.[n] || {}) };
     try {
