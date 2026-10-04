@@ -4468,8 +4468,9 @@ Read this file to view it.` }] };
     if (s && skills && skills.length > 0) {
       if (!(s as any).messageSkills) (s as any).messageSkills = {};
       // Use message text (first 200 chars) as key — message IDs from Pi SDK don't match our mid
-      const textKey = (messageText || messageId || '').substring(0, 200);
-      (s as any).messageSkills[textKey] = skills;
+      const textKey = (messageText || '').substring(0, 200);
+      (s as any).messageSkills[textKey] = skills; // "" for chip-only messages
+      if (messageId) (s as any).messageSkills[messageId] = skills;
       this.#save();
       this.logDebug("set-message-skills", { sessionKey: key, textKey, skillCount: skills.length });
     }
@@ -4588,8 +4589,8 @@ Read this file to view it.` }] };
     const s = this.#entries.get(key);
     if (s && attachments && attachments.length > 0) {
       if (!(s as any).messageAttachments) (s as any).messageAttachments = {};
-      const textKey = (messageText || messageId || '').substring(0, 200);
-      (s as any).messageAttachments[textKey] = attachments;
+      const textKey = (messageText || '').substring(0, 200);
+      (s as any).messageAttachments[textKey] = attachments; if (messageId) (s as any).messageAttachments[messageId] = attachments;
       this.#save();
       this.logDebug("set-message-attachments", { sessionKey: key, textKey, attachmentCount: attachments.length });
     }

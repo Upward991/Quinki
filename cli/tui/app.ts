@@ -2788,6 +2788,7 @@ const readProvidersCfg = (): any => {
   let lastUserPush = { text: "", ts: 0 };
   let histLimit = 50;
   let histMsgs: any[] | null = null; // server-normalized history (the app's way)
+  let histStores: { skills: any; atts: any } = { skills: {}, atts: {} };
 
   /** Ask the SIDECAR for the history — the exact source the app uses: correct
    *  order, blocks normalized, footers with the real agent/model/level. */
@@ -2803,6 +2804,11 @@ const readProvidersCfg = (): any => {
       }
       const r = await sc.call("getHistory", { sessionKey: currentKey, limit: 50 }, 30000);
       histMsgs = Array.isArray(r?.messages) ? r.messages : [];
+      // THE CHIPS STORES (the app's mechanism): reloaded bubbles keep their clips.
+      histStores = {
+        skills: (r && (r as any).messageSkills) || {},
+        atts: (r && (r as any).messageAttachments) || {},
+      };
       return histMsgs.length > 0;
     } catch {
       return false;
@@ -3186,10 +3192,21 @@ const readProvidersCfg = (): any => {
             const t = typeof m.content === "string" ? m.content : Array.isArray(m.content) ? m.content.filter((x: any) => x?.type === "text").map((x: any) => x.text).join("\n") : "";
             const chipsH: Array<{ kind: string; name: string }> = [];
             try {
-              const attsH = Array.isArray(m.attachments) ? m.attachments : [];
-              for (const a of attsH) chipsH.push({ kind: "attachment", name: String((a as any)?.originalName || require("path").basename(String((a as any)?.path || ""))) });
-              const sks = Array.isArray((m as any).skillNames) ? (m as any).skillNames : [];
-              for (const sk of sks) chipsH.push({ kind: "skill", name: String((sk as any)?.skillName || sk) });
+              // The app's matching chain: textKey -> message id -> ts-<ts> -> "" (chip-only).
+              const textKey = String(t || "").substring(0, 200);
+              const tsMs = Number(m.timestamp) || 0;
+              const mid2 = m.id ? String(m.id) : "";
+              const pick = (store: any): any => (
+                (store && store[textKey]) ||
+                (mid2 && store && store[mid2]) ||
+                (tsMs && store && store["ts-" + tsMs]) ||
+                (store && store[""]) ||
+                undefined
+              );
+              const sks = Array.isArray((m as any).skillNames) && (m as any).skillNames.length ? (m as any).skillNames : pick(histStores.skills);
+              const attsH = Array.isArray(m.attachments) && m.attachments.length ? m.attachments : pick(histStores.atts);
+              for (const a of (Array.isArray(attsH) ? attsH : [])) chipsH.push({ kind: "attachment", name: String((a as any)?.originalName || require("path").basename(String((a as any)?.path || ""))) });
+              for (const sk of (Array.isArray(sks) ? sks : [])) chipsH.push({ kind: "skill", name: String((sk as any)?.skillName || sk) });
             } catch {}
             if (t.trim() || chipsH.length) pushBlock(new UserBubble(t, fmtFooterDate(Number(m.timestamp) || Date.now()), chipsH));
           } else if (m?.role === "tool_call" || m?.role === "toolCall") {
