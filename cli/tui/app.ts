@@ -4209,10 +4209,7 @@ const readProvidersCfg = (): any => {
             try { require("fs").appendFileSync("/tmp/q-dir-trace.log", "  -> openFolder " + vD.slice(10) + "\n"); } catch {}
             openFolder(vD.slice(10));
           } else if (vD === "__dir_change") {
-            menuStack.push("dirchange");
-            menuSubFilter = "";
-            menuSel = 0;
-            menuConfirmFocus = false;
+            // Enter does NOTHING on this row (only → opens the submenu — user rule).
           } else if (vD === "confirm") {
             applyDirChange(dirPendingChange);
           } else if (vD && !vD.startsWith("__")) {
@@ -4268,7 +4265,11 @@ const readProvidersCfg = (): any => {
         return false;
       }
 
-      if (menuStack[0] === "directory") return true; // Enter executes (open / change / pick)
+      if (menuStack[0] === "directory") {
+        if (menuStack[1]) return false; // submenu: no Confirm hint
+        const vDir = String((cur as any)?.value || "");
+        return vDir.startsWith("__dir_use:") || vDir === "confirm"; // Enter = open the folder
+      }
       if (menuStack[0] === "settings") {
 
         const inModelsLv = menuStack[3] === "models";
@@ -4475,11 +4476,20 @@ const readProvidersCfg = (): any => {
           // Already focused: stays lit (Enter confirms).
         } else if (menuStack.length > 0) {
           const it: any = items[menuSel];
+          // Directory submenu: -> runs the action (Select folder… / Type path…).
+          if (menuStack[0] === "directory" && menuStack[1] === "dirchange" && it && !it.separator) {
+            const vR = String(it.value || "");
+            if (vR === "__dir_pick") pickFolder();
+            else if (vR === "__dir_type") { dirTypeMode = true; menuSubFilter = ""; }
+            menuSel = 0;
+            try { ui.requestRender(); } catch {}
+            return;
+          }
           if (it && !it.separator) {
             // ONLY the agent menu has deeper levels. Every other submenu is a
             // terminal list: → must light the Confirm directly, never push a
             // ghost level out of the item value.
-            const deeper = menuStack[0] === "agentinsession" ? agentLevelFor(it) : (menuStack[0] === "settings" ? settingsDeeper(it) : null);
+            const deeper = menuStack[0] === "agentinsession" ? agentLevelFor(it) : (menuStack[0] === "settings" ? settingsDeeper(it) : (menuStack[0] === "directory" && !menuStack[1] && String(it.value) === "__dir_change" ? "dirchange" : null));
             if (deeper) {
               menuStack.push(deeper);
               menuSubFilter = "";
@@ -4516,6 +4526,13 @@ const readProvidersCfg = (): any => {
           dirTypeMode = false;
           menuSubFilter = "";
           menuStack = ["directory"];
+          try { ui.requestRender(); } catch {}
+          return;
+        }
+        if (menuStack[0] === "directory" && menuStack[1] === "dirchange" && !dirTypeMode) {
+          // Submenu actions run on Enter too (Select folder… / Type path…).
+          const itS: any = (menuItemsCache || [])[menuSel];
+          if (itS && !itS.separator) runItem(itS);
           try { ui.requestRender(); } catch {}
           return;
         }
@@ -4997,7 +5014,7 @@ const applySettingsPatch = (patch: any) => {
       const left = AR(canUD, "\u2191") + " " + AR(canUD, "\u2193") + "  " + AR(canBack, "\u2190") + " " + AR(canFwd, "\u2192");
       const inAddAgents = menuStack[0] === "agentinsession" && menuStack[1] === "#add";
       const inAgentPick2 = menuStack[0] === "agentinsession" && String(menuStack[2] || "").match(/^(model|thinking)$/);
-      const hasMulti = (menuStack[0] === "model" || menuStack[0] === "thinking" || inAddAgents || inAgentPick2 || menuStack[0] === "directory" || menuStack[0] === "attachments" || menuStack[0] === "skill") || (menuStack[0] === "settings" && (menuStack[3] === "models" || menuStack[1] === "model" || menuStack[1] === "fallbacks" || menuStack[1] === "thinking" || (menuStack[1] === "defaults" && (menuStack[2] === "fallbacks" || menuStack[2] === "model" || menuStack[2] === "thinking")) || (menuStack[1] === "providers" && !menuStack[2])));
+      const hasMulti = (menuStack[0] === "model" || menuStack[0] === "thinking" || inAddAgents || inAgentPick2 || (menuStack[0] === "directory" && !menuStack[1]) || menuStack[0] === "attachments" || menuStack[0] === "skill") || (menuStack[0] === "settings" && (menuStack[3] === "models" || menuStack[1] === "model" || menuStack[1] === "fallbacks" || menuStack[1] === "thinking" || (menuStack[1] === "defaults" && (menuStack[2] === "fallbacks" || menuStack[2] === "model" || menuStack[2] === "thinking")) || (menuStack[1] === "providers" && !menuStack[2])));
       // Confirm appears ONLY when the highlighted option actually RUNS something
       // (navigation items and read-only pages do not show it).
       let needsConfirm = menuConfirmFocus;
