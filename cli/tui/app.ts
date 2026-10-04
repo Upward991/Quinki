@@ -623,13 +623,15 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   // /directory: live data from listWorkingDirs + pending change (files warning).
   let qDirs: any = null;
   let qDirsAt = 0;
+  let qDirsKey = ""; // which session the qDirs data belongs to (stale-proof)
   const qDirsKick = () => {
     try {
       if (!scOn) return;
-      if (Date.now() - qDirsAt < 1500 && qDirs) return;
+      if (Date.now() - qDirsAt < 1500 && qDirs && qDirsKey === currentKey) return;
       qDirsAt = Date.now();
-      void sc.call("listWorkingDirs", { sessionKey: currentKey }, 15000)
-        .then((r: any) => { if (r && typeof r === "object") { qDirs = r; try { ui.requestRender(); } catch {} } })
+      const k0 = currentKey;
+      void sc.call("listWorkingDirs", { sessionKey: k0 }, 15000)
+        .then((r: any) => { if (r && typeof r === "object" && k0 === currentKey) { qDirs = r; qDirsKey = k0; try { ui.requestRender(); } catch {} } })
         .catch(() => {});
     } catch {}
   };
@@ -841,7 +843,8 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         const e0: any = readSessionsList().find((x: any) => x?.key === currentKey);
         sessDir = String(e0?.workingDir || "");
       } catch {}
-      const cand = [String((typeof welcomeShown !== "undefined" && welcomeShown && pendingWorkingDir) || ""), String(qDirs?.current || ""), sessDir, String(currentCwd || ""), String(process.env.HOME || "")];
+      const qCur = qDirsKey === currentKey ? String(qDirs?.current || "") : ""; // never a stale chat's dir
+      const cand = [String((typeof welcomeShown !== "undefined" && welcomeShown && pendingWorkingDir) || ""), qCur, sessDir, String(currentCwd || ""), String(process.env.HOME || "")];
       const chosen = cand.find((x) => x && x !== "undefined" && x !== "null") || "/";
       // The folder may have been deleted on the computer: the chat falls back to the
       // default directory (recreated) — exactly like the app.
@@ -5212,6 +5215,8 @@ const applySettingsPatch = (patch: any) => {
     if (welcomeShown) {
       welcomeShown = false;
       applyLayout(false);
+      // The new chat has its OWN directory data: drop the welcome's (stale) one.
+      try { qDirs = null; qDirsKey = ""; qDirsKick(); } catch {}
     }
     // User bubble with the footer INSIDE it (no info glyph on user messages).
     // ONE push only — the old plain Text bubble was removed (it doubled).
