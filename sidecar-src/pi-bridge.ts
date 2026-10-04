@@ -4407,6 +4407,12 @@ Read this file to view it.` }] };
   // la sessione viene riaperta (SessionManager.open con cwdOverride) preservando il .jsonl
   // (history). Risolve: "sposto la cartella e devo ricominciare da capo" → non più.
   setWorkingDir(key: string, newPath: string) {
+    // HARDENING: "undefined"/"null"/empty are NEVER a path — they mean "reset to
+    // the default folder" (a chat can never lose its directory).
+    {
+      const raw0 = String(newPath ?? '').trim();
+      if (raw0 === 'undefined' || raw0 === 'null' || raw0 === '') newPath = '';
+    }
     // STORIA workdir: la cartella che stiamo lasciando finisce nella lista (sui
     // FILE, non in memoria: il processo che esegue il cambio non ha sempre l'entry).
     try {

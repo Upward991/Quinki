@@ -457,7 +457,12 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     // senza entry, send() esce subito (no msg-in, nessuna risposta).
     const s = piBridge!.create(String(p.sessionKey), p.label || "Chat");
     // The directory chosen in the welcome travels into the new chat (persisted!).
-    if (p && p.workingDir) { try { piBridge!.setWorkingDir(s.key, String(p.workingDir)); } catch {} }
+    if (p && p.workingDir) {
+      const wd0 = String(p.workingDir).trim();
+      if (wd0 && wd0 !== 'undefined' && wd0 !== 'null') {
+        try { piBridge!.setWorkingDir(s.key, wd0); } catch {}
+      }
+    }
     return { sessionKey: p.sessionKey, label: s.label };
   },
   recoverSession: async (p) => {

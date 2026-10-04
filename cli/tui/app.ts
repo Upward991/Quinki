@@ -5210,7 +5210,7 @@ const applySettingsPatch = (patch: any) => {
       };
       void (async () => {
         try {
-          await sc.call("ensureSession", { sessionKey: sk, label: "Chat", workingDir: pendingWorkingDir || undefined }, 20000);
+          await sc.call("ensureSession", { sessionKey: sk, label: "Chat", workingDir: (pendingWorkingDir && pendingWorkingDir !== "undefined" ? pendingWorkingDir : undefined) }, 20000);
           // Sync the engine with the session's REAL configuration: agents in the
           // chat (default quinki), mode, model and thinking — otherwise the
           // runtime runs a bare session without the user's tools/skills/MCP.
