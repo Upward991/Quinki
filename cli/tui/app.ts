@@ -2095,7 +2095,10 @@ const readProvidersCfg = (): any => {
       }
       if (menuNow) {
         try {
-          if ((menuStack[0] === "skill" || menuStack[0] === "attachments" || menuStack[0] === "directory") && String(editor.getText() || "").startsWith("/")) clearSlashText();
+          if (menuStack[0] === "skill" || menuStack[0] === "attachments" || menuStack[0] === "directory") {
+            if (String(editor.getText() || "").startsWith("/")) clearSlashText();
+            killAutocomplete();
+          }
         } catch {}
         if (isUp || isDown || isLeft || isRight || isEnter) {
           menuNavRef?.(isSelect ? "select" : isUp ? "up" : isDown ? "down" : isLeft ? "left" : isRight ? "right" : "enter");
@@ -3681,6 +3684,15 @@ const readProvidersCfg = (): any => {
         break;
       }
       case "attachments": {
+        if (!arg) {
+          menuStack = ["attachments"];
+          menuSubFilter = "";
+          menuSel = 0;
+          try { editor.setText(""); } catch {}
+          killAutocomplete();
+          try { ui.requestRender(); } catch {}
+          break;
+        }
         const aArg = String(arg || "");
         if (aArg === "__at_new") {
           // Native macOS file picker (same feel as the folder picker).
@@ -3729,7 +3741,17 @@ const readProvidersCfg = (): any => {
         break;
       }
       case "skill": {
-        if (!arg) break;
+        if (!arg) {
+          // /skill with NO argument: OPEN the skill menu (Enter works, like ->).
+          try { refreshSkillGroups(); } catch {}
+          menuStack = ["skill"];
+          menuSubFilter = "";
+          menuSel = 0;
+          try { editor.setText(""); } catch {}
+          killAutocomplete();
+          try { ui.requestRender(); } catch {}
+          break;
+        }
         if (scOn) {
           // Live path: the skill rides the NEXT message (the app's chip flow).
           // The engine injects it into the system prompt, one-shot.
@@ -4192,6 +4214,12 @@ const readProvidersCfg = (): any => {
       .filter((c) => !(c as any).hidden?.())
       .filter((c) => c.name.toLowerCase().startsWith(f))
       .map((c) => ({ value: c.name, label: "/" + capitalize(c.name), description: (c as any).description || "" }));
+  };
+  const killAutocomplete = (): void => {
+    try {
+      (editor as any).autocompleteState = undefined;
+      (editor as any).autocompleteList = undefined;
+    } catch {}
   };
   const clearSlashText = (): void => {
     try {
@@ -4676,7 +4704,7 @@ const readProvidersCfg = (): any => {
             menuStack = [cmd.name];
             menuSubFilter = "";
             menuSel = 0;
-            try { if (cmd.name === "skill" || cmd.name === "attachments" || cmd.name === "directory") clearSlashText(); } catch {}
+            try { if (cmd.name === "skill" || cmd.name === "attachments" || cmd.name === "directory") { clearSlashText(); killAutocomplete(); } } catch {}
           } else if (cmd) {
             // MENU 2.0: nothing (Enter runs commands).
           }
