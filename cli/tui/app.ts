@@ -596,16 +596,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   // existing chat — including the last used one — stays visible in /sessions.
   const key = QEXPERT
     ? (process.env.QUINKI_SESSION_KEY || "__app_expert__")
-    : (() => {
-        // RESUME the last CLI chat instead of creating a new empty "Chat" every
-        // launch (the empty chats pile up in the app otherwise).
-        try {
-          const list = JSON.parse(require("fs").readFileSync(path.join(require("os").homedir(), ".quinki", "quinki-sessions.json"), "utf8")) || [];
-          const lastCli = (Array.isArray(list) ? list : []).filter((x: any) => String(x?.key || "").startsWith("cli-")).sort((a: any, b: any) => (b?.lastActivity || 0) - (a?.lastActivity || 0))[0];
-          if (lastCli?.key) return String(lastCli.key);
-        } catch {}
-        return "cli-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-      })();
+    : "cli-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   // The REAL session dir (the sidecar's own files — the same the app uses).
   const realSessionDir = path.join(opts.sessionDir, key);
   // The local SDK session is a leftover from the pre-sidecar era: it must NEVER
@@ -921,8 +912,10 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       fs.writeFileSync(sessionsFile(), JSON.stringify(list, null, 2), "utf8");
     } catch {}
   };
+  let sessionEntryAllowed = false; // becomes true on the first user action (send)
   const ensureSessionEntry = (): void => {
     try {
+      if (!sessionEntryAllowed) return; // the WELCOME chat never creates entries
       const list = readSessionsList();
       if (list.some((s: any) => s?.key === currentKey)) return;
       list.push({
@@ -4988,6 +4981,7 @@ const applySettingsPatch = (patch: any) => {
       setStatus("Sending", "sending");
       updateBar();
       const sk = currentKey;
+      sessionEntryAllowed = true; // now the chat really exists (first message)
       // Inline chips: the "\u25b8name" tokens travel as params; the text goes clean
       // (exactly what the sidecar/app expect).
       // var (function-scoped): the async IIFE below closes over it — a `let` here
