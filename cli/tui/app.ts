@@ -788,8 +788,11 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   let headerTitle = "New chat";
   const fmtDirShort = (): string => {
     try {
+      // THE CHAT's directory (the session's workingDir via listWorkingDirs), NOT
+      // the CLI's local cwd — this is what the header (top-right) must show.
+      const d = String(qDirs?.current || currentCwd || "");
       const home = process.env.HOME || "";
-      return home && currentCwd.startsWith(home) ? "~" + currentCwd.slice(home.length) : currentCwd;
+      return home && d.startsWith(home) ? "~" + d.slice(home.length) : d;
     } catch {
       return "";
     }
@@ -2133,13 +2136,6 @@ const readProvidersCfg = (): any => {
     const sep = fg(C.textTertiary, " \u00b7 ");
     const quiet = (s: string) => fg(C.textTertiary, s);
     const modeStr = mode === "plan" ? fg(C.modePlan, "Plan (Tab)") : fg(C.modeBuild, "Build (Tab)");
-    // The chat's directory (like the app's top-right): live, from listWorkingDirs.
-    const wdShown = (() => {
-      try {
-        const d = String(qDirs?.current || currentCwd || "");
-        return d ? d.replace(require("os").homedir(), "~") : "";
-      } catch { return ""; }
-    })();
     const bar =
       modeStr +
       sep +
@@ -2147,8 +2143,7 @@ const readProvidersCfg = (): any => {
       sep +
       quiet(modelId) +
       sep +
-      quiet("Thinking: " + (thinkingOn ? "On" : "Off")) +
-      (wdShown ? sep + quiet(wdShown) : "");
+      quiet("Thinking: " + (thinkingOn ? "On" : "Off"));
     // Status pill (app-style): same row as the info, right-aligned — visible
     // only while the engine streams / compacts (Failed stays until next turn).
     const pillOn =
@@ -2526,7 +2521,7 @@ const readProvidersCfg = (): any => {
   /** Ask the SIDECAR for the history — the exact source the app uses: correct
    *  order, blocks normalized, footers with the real agent/model/level. */
   const loadServerHistory = async (beforeTs?: number): Promise<boolean> => {
-    try { qDirsKick(); } catch {}
+    try { qDirs = null; qDirsKick(); } catch {}
     if (!scOn) return false;
     try {
       if (typeof beforeTs === "number" && beforeTs > 0) {
