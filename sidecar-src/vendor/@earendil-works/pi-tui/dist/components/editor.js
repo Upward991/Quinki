@@ -438,11 +438,6 @@ export class Editor {
                 if (this.qTokenRender && /[\uE000-\uE0FF]/.test(displayText)) {
                     displayText = displayText.replace(/[\uE000-\uE0FF]/g, (c) => String(this.qTokenRender(c) ?? c));
                 }
-                // QUINKI PATCH (T412): style the "Skill: name" / "\u25b8name" chips the
-                // app way (accent background). ANSI only: the visible width is unchanged.
-                if (this.qTokenStyle) {
-                    displayText = displayText.replace(/Skill:\s*[\w.-]+|\u25b8[^\s\u25b8]+/g, (m2) => String(this.qTokenStyle(m2) ?? m2));
-                }
             } catch {}
             let lineVisibleWidth = visibleWidth(layoutLine.text);
             let cursorInPadding = false;

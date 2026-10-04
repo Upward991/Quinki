@@ -326,6 +326,19 @@ function fmtWhen(ms: number): string {
 function wrapPlain(s: string, width: number): string[] {
   const out: string[] = [];
   const w = Math.max(4, width);
+  // A word longer than the width (a PATH, a URL…) must be SPLIT, or it overflows
+  // every box (bubbles, menus, notices). Visible-width aware (CJK-safe).
+  const pushHard = (word: string) => {
+    let cur = "";
+    for (const g of [...word]) {
+      cur += g;
+      if (visibleWidth(cur) >= w) {
+        out.push(cur);
+        cur = "";
+      }
+    }
+    if (cur) out.push(cur);
+  };
   for (const raw of String(s || "").split("\n")) {
     if (raw.length === 0) {
       out.push("");
@@ -333,11 +346,14 @@ function wrapPlain(s: string, width: number): string[] {
     }
     let line = "";
     for (const word of raw.split(" ")) {
-      if (!line) line = word;
-      else if (line.length + 1 + word.length <= w) line += " " + word;
+      if (!line) {
+        if (visibleWidth(word) > w) pushHard(word);
+        else line = word;
+      } else if (visibleWidth(line) + 1 + visibleWidth(word) <= w) line += " " + word;
       else {
         out.push(line);
-        line = word;
+        if (visibleWidth(word) > w) pushHard(word);
+        else line = word;
       }
     }
     if (line) out.push(line);
@@ -536,7 +552,18 @@ class UserBubble {
   }
   render(width: number): string[] {
     const inner = Math.max(6, width - 4);
-    const lines = this.text.trim() ? wrapPlain(this.text, inner) : [];
+    const hardWrap = (t: string, w: number): string[] => {
+      const out: string[] = [];
+      let cur = "";
+      for (const chG of [...t]) {
+        cur += chG;
+        if (visibleWidth(cur) >= w) { out.push(cur); cur = ""; }
+      }
+      if (cur) out.push(cur);
+      return out;
+    };
+    const lines: string[] = [];
+    for (const l of wrapPlain(this.text, inner)) lines.push(...hardWrap(l, inner));
     // The clips stay visible in the bubble (colored like the app's tabs).
     for (const ch of this.chips) {
       const col = ch.kind === "skill" ? "#c97084" : "#7aa2f7";
@@ -786,9 +813,14 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   const qTokenStyle = (tok: string): string => {
     try {
       const nm = tok.replace(/^\u25b8/, "").replace(/^Skill:\s*/, "");
-      // The ORIGINAL Agents tab accent (coral) as the chip background, bg-colored text.
-      const accent = QEXPERT ? "#d9a066" : "#c97084";
-      return "\x1b[48;2;201;112;132m\x1b[38;2;8;8;11m Skill: " + nm + " \x1b[0m";
+      // The ORIGINAL Agents tab accent (coral) as the chip background, dark text.
+      // The END re-applies the editor panel background + text color (otherwise the
+      // reset would kill the row paint after the chip).
+      return (
+        "\x1b[48;2;201;112;132m\x1b[38;2;8;8;11m" +
+        "Skill: " + nm +                       // SOLO il testo della clip (niente sfondo oltre)
+        "\x1b[49m\x1b[38;2;211;209;224m"      // back to the panel bg + editor text color
+      );
     } catch { return tok; }
   };
   const qTokenRender = (ch: string) => {
@@ -949,7 +981,15 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   };
   const editor = new Editor(ui as any, editorTheme, { paddingX: 1 });
   try {
-    (editor as any).bgFn = (s: string) => bg(C.bgPanel, s);
+    // The chip styling is applied HERE (paint time): the editor's cursor/layout math
+    // already ran, so ANSI can never break a slice (the T412 leak).
+    (editor as any).bgFn = (s: string) =>
+      bg(
+        C.bgPanel,
+        String(s).replace(/Skill:\s*[\w.-]+|\u25b8[^\s\u25b8]+/g, (m2: string) =>
+          String((editor as any).qTokenStyle ? (editor as any).qTokenStyle(m2) : m2)
+        )
+      );
   } catch {}
 
   // /skill — app semantics (like listChatSkills): only the skills the model CANNOT
@@ -2084,7 +2124,7 @@ const readProvidersCfg = (): any => {
           try {
             editor.setText("");
           } catch {}
-          pushBlock(new Text(txt, 2, 1, (s: string) => bg(C.bubbleUser, s)));
+          pushBlock(new UserBubble(txt, fmtFooterDate(Date.now())));
           scrollToEnd();
           if (scOn) {
             void sc.call("steer", { sessionKey: currentKey, text: txt }, 20000).catch(() => {});
