@@ -571,7 +571,14 @@ class UserBubble {
     }
     const full = (t: string) => {
       const fill = Math.max(0, inner - visibleWidth(t));
-      return bg(C.bubbleUser, "  " + t + " ".repeat(fill + 2));
+      // Clips styled exactly like the textbox (coral/blue bg, dark text), inline
+      // in their original order; then back to the bubble colors.
+      const painted = String(t).replace(/Skill:\s*[\w.-]+|\u25b8[^\s\u25b8]+/g, (m2: string) => {
+        const isSkill = m2.startsWith("Skill:");
+        const bgRgb = isSkill ? "201;112;132" : "122;162;247";
+        return "\x1b[48;2;" + bgRgb + "m\x1b[38;2;8;8;11m" + m2 + "\x1b[48;2;26;26;32m\x1b[38;2;232;232;236m";
+      });
+      return bg(C.bubbleUser, "  " + painted + " ".repeat(fill + 2));
     };
     const blank = () => bg(C.bubbleUser, " ".repeat(width));
     const out: string[] = [];
@@ -817,9 +824,11 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       // The END re-applies the editor panel background + text color (otherwise the
       // reset would kill the row paint after the chip).
       return (
-        "\x1b[48;2;201;112;132m\x1b[38;2;8;8;11m" +
-        "Skill: " + nm +                       // SOLO il testo della clip (niente sfondo oltre)
-        "\x1b[49m\x1b[38;2;211;209;224m"      // back to the panel bg + editor text color
+        "\x1b[48;2;201;112;132m" +            // coral bg (original Agents tab)
+        "\x1b[38;2;8;8;11m" +                 // DARK text = the textbox background color
+        "Skill: " + nm +                       // solo il testo della clip
+        "\x1b[48;2;15;15;19m" +               // back to the PANEL bg (no black row!)
+        "\x1b[38;2;232;232;236m"              // back to the editor text color
       );
     } catch { return tok; }
   };
@@ -2151,6 +2160,26 @@ const readProvidersCfg = (): any => {
         }
         return { consume: true };
       }
+      // Atomic chips: ← / → hop over a whole "Skill: name" clip (write before/after).
+      try {
+        if (!menuNow && (isLeft || isRight)) {
+          const st: any = (editor as any).state;
+          if (st && Array.isArray(st.lines)) {
+            const ln = String(st.lines[st.cursorLine] ?? "");
+            const col = Number(st.cursorCol) || 0;
+            const re = /(?:\u25b8[^\s\u25b8]+)|(?:Skill:\s*[\w.-]+)/g;
+            let m2m: RegExpExecArray | null;
+            let hopped = false;
+            while ((m2m = re.exec(ln))) {
+              const a = m2m.index, b = m2m.index + m2m[0].length;
+              if (isRight && col > a && col < b) { (editor as any).setCursorCol(b); hopped = true; break; }
+              if (isRight && col === a) { (editor as any).setCursorCol(b + (ln.charAt(b) === " " ? 1 : 0)); hopped = true; break; }
+              if (isLeft && col > a && col <= b) { (editor as any).setCursorCol(a); hopped = true; break; }
+            }
+            if (hopped) { try { ui.requestRender(); } catch {} return { consume: true }; }
+          }
+        }
+      } catch {}
       if (menuNow) {
         try {
           if (menuStack[0] === "skill" || menuStack[0] === "attachments") {
@@ -5358,6 +5387,7 @@ const applySettingsPatch = (patch: any) => {
       return;
     }
     if (!t) return;
+    if (/^\/+$/.test(String(t).trim())) { editor.setText(""); try { ui.requestRender(); } catch {} return; }
     editor.setText("");
     if (welcomeShown) {
       welcomeShown = false;
@@ -5373,7 +5403,9 @@ const applySettingsPatch = (patch: any) => {
       const now = Date.now();
       if (!(lastUserPush.text === t && now - lastUserPush.ts < 2000)) {
         lastUserPush = { text: t, ts: now };
-        pushBlock(new UserBubble(sendText || t, fmtFooterDate(now), _chipNames));
+        // The bubble shows the ORIGINAL text: the clips stay INLINE, in the same
+        // order and look as the textbox.
+        pushBlock(new UserBubble(t, fmtFooterDate(now), []));
       }
     }
     if (scOn || (sc as any).connected) {
