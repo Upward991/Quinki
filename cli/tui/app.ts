@@ -1674,7 +1674,9 @@ const readProvidersCfg = (): any => {
   // session (no settings, no chat management, no directory picking).
   try {
     if (QEXPERT) {
-      const drop = ["settings", "sessions", "rename", "delete", "directory", "agentinsession"];
+      // ONLY the chat-management commands are dropped in the Expert CLI: everything
+      // else (settings, directory, agents) works exactly like the normal CLI.
+      const drop = ["sessions", "rename", "delete"];
       for (const dn of drop) {
         const di = commands.findIndex((c: any) => c.name === dn);
         if (di >= 0) commands.splice(di, 1);
@@ -2117,6 +2119,13 @@ const readProvidersCfg = (): any => {
     const sep = fg(C.textTertiary, " \u00b7 ");
     const quiet = (s: string) => fg(C.textTertiary, s);
     const modeStr = mode === "plan" ? fg(C.modePlan, "Plan (Tab)") : fg(C.modeBuild, "Build (Tab)");
+    // The chat's directory (like the app's top-right): live, from listWorkingDirs.
+    const wdShown = (() => {
+      try {
+        const d = String(qDirs?.current || currentCwd || "");
+        return d ? d.replace(require("os").homedir(), "~") : "";
+      } catch { return ""; }
+    })();
     const bar =
       modeStr +
       sep +
@@ -2124,7 +2133,8 @@ const readProvidersCfg = (): any => {
       sep +
       quiet(modelId) +
       sep +
-      quiet("Thinking: " + (thinkingOn ? "On" : "Off"));
+      quiet("Thinking: " + (thinkingOn ? "On" : "Off")) +
+      (wdShown ? sep + quiet(wdShown) : "");
     // Status pill (app-style): same row as the info, right-aligned — visible
     // only while the engine streams / compacts (Failed stays until next turn).
     const pillOn =
