@@ -2185,6 +2185,20 @@ const readProvidersCfg = (): any => {
               const a = m2m.index, b = m2m.index + m2m[0].length;
               if (isRight && col > a && col < b) { (editor as any).setCursorCol(b + (ln.charAt(b) === " " ? 1 : 0)); hopped = true; break; }
               if (isRight && col === a) { (editor as any).setCursorCol(b + (ln.charAt(b) === " " ? 1 : 0)); hopped = true; break; }
+              if (isRight && a > 0 && col === a - 1) {
+                // From the cell right before the chip: remove the AUTO space if it is
+                // ours (the chip shifts back left) and jump PAST the chip.
+                if (qAutoSpace && qAutoSpace.line === st.cursorLine && qAutoSpace.col === col && qAutoSpace.text === ln) {
+                  const nl4 = ln.slice(1);
+                  st.lines[st.cursorLine] = nl4;
+                  qAutoSpace = null;
+                  try { if (typeof (editor as any).onChange === "function") (editor as any).onChange(editor.getText()); } catch {}
+                  try { (editor as any).setCursorCol(Math.max(0, b - 1)); } catch {}
+                } else {
+                  (editor as any).setCursorCol(b + (ln.charAt(b) === " " ? 1 : 0));
+                }
+                hopped = true; break;
+              }
               if (isLeft && col > a && col <= b + 1) {
                 if (a === 0) {
                   // T441 — the user's recipe: the chip starts the line => INSERT a
@@ -2192,6 +2206,7 @@ const readProvidersCfg = (): any => {
                   // cursor sits BEFORE the chip, never on its first letter.
                   const nl3 = " " + ln;
                   st.lines[st.cursorLine] = nl3;
+                  qAutoSpace = { line: st.cursorLine, col: 0, text: nl3 };
                   try { if (typeof (editor as any).onChange === "function") (editor as any).onChange(editor.getText()); } catch {}
                   try { (editor as any).setCursorCol(0); } catch {}
                 } else {
@@ -2334,6 +2349,10 @@ const readProvidersCfg = (): any => {
   let menuError = ""; // error shown INSIDE the slash menu (never in the chat)
   let menuStack: string[] = [];
   let menuMarked = new Set<string>();
+  // T442: remembers the space auto-inserted by the left arrow before a line-start
+  // chip, so the right arrow can REMOVE it (the round trip: <- shifts the chip
+  // right, -> shifts it back and jumps past it). Any text change invalidates it.
+  let qAutoSpace: { line: number; col: number; text: string } | null = null;
   let dirTypeMode = false; // "Type path": the menu becomes a path input
   let pendingWorkingDir = ""; // /directory chosen in the welcome -> the new chat
   const skillRefsByName: Record<string, Array<{ agentId: string; skillName: string; agentName: string }>> = {}; // skill chips: WHICH agent owns it
