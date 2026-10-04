@@ -4188,6 +4188,13 @@ const readProvidersCfg = (): any => {
       .filter((c) => c.name.toLowerCase().startsWith(f))
       .map((c) => ({ value: c.name, label: "/" + capitalize(c.name), description: (c as any).description || "" }));
   };
+  const clearSlashText = (): void => {
+    try {
+      const t0 = String(editor.getText() || "");
+      const t1 = t0.replace(/^\/[A-Za-z]+\s*/, "");
+      if (t1 !== t0) editor.setText(t1);
+    } catch {}
+  };
   const menuOpen = (): boolean => {
     if (menuStack.length > 0) return true;
     return editorText().startsWith("/");
@@ -4240,18 +4247,20 @@ const readProvidersCfg = (): any => {
       if (menuStack.length > 0) {
         const cmdName = menuStack[0];
         if (cmdName === "skill") {
-          // Confirm (Enter): the chips are already in the box — Enter closes the menu.
+          // Confirm (Enter): chips stay, the menu closes, the "/skill" text clears.
           menuStack = [];
           menuSubFilter = "";
+          clearSlashText();
           try { ui.requestRender(); } catch {}
           return;
         }
         if (cmdName === "attachments") {
           const vA = String(it.value ?? "");
           if (vA.startsWith("__at_file:")) {
-            // Confirm (Enter): the chip is in the box — Enter closes the menu.
+            // Confirm (Enter): chip stays, menu closes, "/attachments" text clears.
             menuStack = [];
             menuSubFilter = "";
+            clearSlashText();
           } else if (vA === "__at_new") {
             try {
               const cpB = require("child_process");
@@ -4479,6 +4488,10 @@ const readProvidersCfg = (): any => {
               } catch {}
             }
           }
+          // CLOSE and leave ONLY the clip in the box (no "/skill", no autocomplete).
+          menuStack = [];
+          menuSubFilter = "";
+          clearSlashText();
           try { ui.requestRender(); } catch {}
           return;
         }
@@ -4563,6 +4576,7 @@ const readProvidersCfg = (): any => {
         return from;
       };
       if (a === "escape") {
+        try { if (menuStack.length > 0) clearSlashText(); } catch {}
         if (dirTypeMode) {
           dirTypeMode = false;
           menuSubFilter = "";
@@ -5292,6 +5306,7 @@ const applySettingsPatch = (patch: any) => {
           .replace(/\s{2,}/g, " ")
           .trim();
       } catch { sendText = t; }
+      try { require("fs").appendFileSync("/tmp/q-dir-trace.log", new Date().toISOString() + " send skills=" + JSON.stringify(skills) + " atts=" + JSON.stringify(atts.map((a) => a.originalName)) + " text=" + JSON.stringify(sendText) + "\n"); } catch {}
       try { pendingSkills.splice(0); pendingAttachments.splice(0); } catch {}
       try { ui.requestRender(); } catch {}
       var _chipNames: Array<{ kind: string; name: string }> = [];
