@@ -5001,6 +5001,7 @@ const applySettingsPatch = (patch: any) => {
         if (curA && !curA.separator) {
           if (menuStack[0] === "agentinsession") canFwd = !!agentLevelFor(curA);
           else if (menuStack[0] === "settings") canFwd = !!settingsDeeper(curA);
+          else if (menuStack[0] === "directory") canFwd = menuStack[1] === "dirchange" || String(curA.value || "") === "__dir_change"; // -> opens the submenu / runs the action
           else if (menuStack.length > 0) canFwd = false;
           else {
             const cA: any = commands.find((c: any) => c.name === curA.value);
@@ -5022,10 +5023,21 @@ const applySettingsPatch = (patch: any) => {
         const cur: any = items[menuSel];
         needsConfirm = needsConfirmFor(cur);
       } catch {}
+      // Select (Tab) shows ONLY when the highlighted row can actually be selected
+      // (e.g. NOT on "Change directory…", NOT in the submenu).
+      const rowMultiOk = (() => { try {
+        const cu: any = items[menuSel];
+        if (!cu || cu.separator) return false;
+        const v = String(cu.value || "");
+        if (menuStack[0] === "directory") return v.startsWith("__dir_use:");
+        if (menuStack[0] === "attachments") return v.startsWith("__at_file:");
+        if (v.startsWith("__")) return false;
+        return true;
+      } catch { return false; } })();
       const right =
         fg(C.danger, "Close (Esc)") +
         "  " +
-        (hasMulti ? fg(C.modeBuild, "Select (Tab)") + "  " : "") +
+        ((hasMulti && rowMultiOk) ? fg(C.modeBuild, "Select (Tab)") + "  " : "") +
         (needsConfirm ? (menuConfirmFocus ? bold(bg(C.primary, fg(C.bgPanel, " Confirm (Enter) "))) : fg(C.primary, "Confirm (Enter)")) : "");
       const gw = Math.max(1, w - visibleWidth(left) - visibleWidth(right));
       rows.push(left + " ".repeat(gw) + right);
