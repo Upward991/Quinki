@@ -990,7 +990,15 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   };
   const editor = new Editor(ui as any, editorTheme, { paddingX: 1 });
   try {
-    (editor as any).bgFn = (s: string) => bg(C.bgPanel, s);
+    // Chip color, SURGICAL: only the "Skill: <name>" chips get the coral background
+    // (that prefix exists ONLY in the composer's chips — nothing else in the CLI).
+    (editor as any).bgFn = (s: string) =>
+      bg(
+        C.bgPanel,
+        String(s).replace(/Skill:\s*[\w.-]+/g, (m2: string) =>
+          "\x1b[48;2;201;112;132m\x1b[38;2;8;8;11m" + m2 + "\x1b[48;2;15;15;19m\x1b[38;2;232;232;236m"
+        )
+      );
   } catch {}
 
   // /skill — app semantics (like listChatSkills): only the skills the model CANNOT
