@@ -2194,6 +2194,11 @@ class PiBridge {
     this.#save();
     this.#writeSessionPrefs(key);
     this.logDebug("set-session-fallbacks", { sessionKey: key, list: (s as any).fallbackModels });
+    // INSTANT sync: broadcast to EVERY client (app + CLIs) the moment it changes.
+    try {
+      const bcast = (globalThis as any).__quinki_broadcast;
+      if (bcast) bcast({ jsonrpc: "2.0", method: "session_updated", params: { sessionKey: key, fallbackModels: (s as any).fallbackModels, label: (s as any).label } });
+    } catch {}
     return { ok: true };
   }
 

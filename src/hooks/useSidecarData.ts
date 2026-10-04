@@ -765,6 +765,7 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
         setSessions(prev => prev.map(s => s.id === p.sessionKey ? {
           ...s, title: p.label || s.title, model: p.model ?? s.model,
           thinkingLevel: p.thinkingLevel ?? s.thinkingLevel, mode: p.mode ?? s.mode,
+          fallbackModels: Array.isArray(p.fallbackModels) ? p.fallbackModels : (s as any).fallbackModels,
         } : s))
       } else {
         call('getFullState', {}).then((r: any) => { if (r?.sessions) setSessions(mapSessions(r.sessions)) }).catch(() => {})
