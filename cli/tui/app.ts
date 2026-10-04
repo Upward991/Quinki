@@ -4345,8 +4345,8 @@ const readProvidersCfg = (): any => {
       if (t1 !== t0) editor.setText(t1);
     } catch {}
   };
-  // CLOSE EVERYTHING: the menu levels, the filter, the confirm focus AND the
-  // "/command" text — the slash menu can never stay stuck open after a confirm.
+  // SKILLS ONLY: close the menu levels, the filter, the confirm focus AND the
+  // "/skill" text (the user's rule: the slash menu closes on the skills' confirm).
   const qCloseMenus = (): void => {
     try {
       menuStack = [];
@@ -4453,7 +4453,9 @@ const readProvidersCfg = (): any => {
                 }
               }
             } catch {}
-            qCloseMenus();
+            menuStack = [];
+            menuSubFilter = "";
+            menuSel = 0;
             menuMarked.clear();
           } else if (vA === "__at_new") {
             try {
