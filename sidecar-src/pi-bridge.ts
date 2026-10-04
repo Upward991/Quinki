@@ -1148,11 +1148,13 @@ class PiBridge {
             if (files.length > 0) {
               try {
                 const orphanLabel2 = this.#readLabelFromJsonl(d.name);
-                this.#entries.set(d.name, { key: d.name, label: orphanLabel2, createdAt: Date.now(), lastActivity: Date.now(), order: Date.now(), compactionAuto: true, compactionThreshold: 80, model: undefined as any, thinkingLevel: undefined as any, mode: "plan" } as any);
+                const dmt2 = (() => { try { return fs.statSync(path.join(SESSION_BASE, d.name)).mtimeMs; } catch { return Date.now(); } })();
+                this.#entries.set(d.name, { key: d.name, label: orphanLabel2, createdAt: dmt2, lastActivity: dmt2, order: dmt2, compactionAuto: true, compactionThreshold: 80, model: undefined as any, thinkingLevel: undefined as any, mode: "plan" } as any);
                 this.#save();
               } catch {}
               const orphanLabelOut2 = this.#readLabelFromJsonl(d.name);
-              out.push({ key: d.name, label: orphanLabelOut2, agentId: "pi", model: undefined as any, thinkingLevel: undefined as any, mode: "plan", lastActivity: Date.now(), order: Date.now() });
+              const dmt2b = (() => { try { return fs.statSync(path.join(SESSION_BASE, d.name)).mtimeMs; } catch { return Date.now(); } })();
+              out.push({ key: d.name, label: orphanLabelOut2, agentId: "pi", model: undefined as any, thinkingLevel: undefined as any, mode: "plan", lastActivity: dmt2b, order: dmt2b });
             }
           }
         }
@@ -1221,9 +1223,10 @@ class PiBridge {
               // === Adopt orphan: add to #entries so it survives restart ===
               try {
                 const orphanLabel = this.#readLabelFromJsonl(d.name);
+                const dmt = (() => { try { return fs.statSync(path.join(SESSION_BASE, d.name)).mtimeMs; } catch { return Date.now(); } })();
                 const orphanEntry = {
-                  key: d.name, label: orphanLabel, createdAt: Date.now(),
-                  lastActivity: Date.now(), order: Date.now(),
+                  key: d.name, label: orphanLabel, createdAt: dmt,
+                  lastActivity: dmt, order: dmt,
                   compactionAuto: c?.compactionAuto ?? true, compactionThreshold: c?.compactionThreshold ?? 80,
                   model: undefined as any, thinkingLevel: undefined as any, mode: "plan",
                 };
@@ -1231,7 +1234,8 @@ class PiBridge {
                 this.#save(); // persist immediately
               } catch {}
               const orphanLabelOut = this.#readLabelFromJsonl(d.name);
-              out.push({ key: d.name, label: orphanLabelOut, agentId: "pi", model: undefined as any, thinkingLevel: undefined as any, mode: "plan", lastActivity: Date.now(), order: orderByKey.get(d.name) ?? Date.now(), folderId: folderByKey.get(d.name) ?? null, compactionAuto: c?.compactionAuto, compactionThreshold: c?.compactionThreshold, workerPort: sessionWorkerPort(d.name) });
+              const dmtL = (() => { try { return fs.statSync(path.join(SESSION_BASE, d.name)).mtimeMs; } catch { return Date.now(); } })();
+              out.push({ key: d.name, label: orphanLabelOut, agentId: "pi", model: undefined as any, thinkingLevel: undefined as any, mode: "plan", lastActivity: dmtL, order: orderByKey.get(d.name) ?? dmtL, folderId: folderByKey.get(d.name) ?? null, compactionAuto: c?.compactionAuto, compactionThreshold: c?.compactionThreshold, workerPort: sessionWorkerPort(d.name) });
             }
           }
         }
