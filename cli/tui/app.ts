@@ -2380,6 +2380,7 @@ const readProvidersCfg = (): any => {
         if (mk && e0?.messageAgents?.[mk]) agentName = String(e0.messageAgents[mk]);
         if (mk && e0?.messageThinking?.[mk]) lvl = String(e0.messageThinking[mk]);
       } catch {}
+      agentName = String(agentName).split(",")[0].trim() || "quinki"; // ONE agent
       pushBlock(new FooterRow(fmtFooterDate(Date.now()), agentDisplayName(agentName) + " \u00b7 " + (wsModelId || defaultModelId || "") + " \u00b7 " + levelLabel(lvl), true));
     } catch {}
   };
@@ -3162,7 +3163,7 @@ const readProvidersCfg = (): any => {
               const mid = String(m.id || "");
               const mts = Date.parse(m.timestamp || "") || 0;
               const mk = mid && e0?.messageAgents?.[mid] ? mid : mts ? "ts-" + mts : "";
-              if (mk && e0?.messageAgents?.[mk]) an = String(e0.messageAgents[mk]);
+              if (mk && e0?.messageAgents?.[mk]) an = String(e0.messageAgents[mk]).split(",")[0].trim();
               if (mk && e0?.messageThinking?.[mk]) lv = String(e0.messageThinking[mk]);
               pushBlock(
                 new FooterRow(
