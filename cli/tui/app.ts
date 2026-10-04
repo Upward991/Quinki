@@ -5321,7 +5321,16 @@ const applySettingsPatch = (patch: any) => {
             {
               sessionKey: sk,
               text: sendText || (atts.length || skills.length ? "" : t),
-              ...(skills.length ? { skillNames: skills } : {}),
+              ...(skills.length
+                ? {
+                    // THE APP'S EXACT SHAPE: [{ agentId, skillName, agentName }] —
+                    // the sidecar destructures objects, plain strings were lost.
+                    skillNames: skills.map((n: string) => {
+                      const ag0 = String((sessionAgentIds().find((x: string) => x === "orchestrator") || sessionAgentIds()[0]) || "quinki");
+                      return { agentId: ag0, skillName: String(n), agentName: agentDisplayName(ag0) };
+                    }),
+                  }
+                : {}),
               ...(atts.length ? { attachments: atts } : {}),
               // Only what the USER changed here: otherwise the session/app
               // defaults decide (no forced model, no forced thinking).
