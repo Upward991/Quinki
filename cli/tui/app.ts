@@ -4651,8 +4651,10 @@ const readProvidersCfg = (): any => {
           const vV = String(it.value ?? "");
           if (menuStack[0] === "skill" && vV.startsWith("skill:")) {
             if (menuMarked.has(vV)) menuMarked.delete(vV); else menuMarked.add(vV);
+            if (menuMarked.size === 0) menuConfirmFocus = false; // no marks -> no Confirm
           } else if (menuStack[0] === "attachments" && vV.startsWith("__at_file:")) {
             if (menuMarked.has(vV)) menuMarked.delete(vV); else menuMarked.add(vV);
+            if (menuMarked.size === 0) menuConfirmFocus = false;
           }
           try { ui.requestRender(); } catch {}
           return;
@@ -4925,6 +4927,11 @@ const cmd: any = commands.find((c) => c.name === it.value);
           // Confirm is LIT: this Enter executes the selection.
           menuConfirmFocus = false;
           if (!it || it.separator) return;
+          if ((menuStack[0] === "skill" || menuStack[0] === "attachments") && menuMarked.size === 0) {
+            // NOTHING marked = no Confirm was shown = Enter does ABSOLUTELY NOTHING.
+            try { ui.requestRender(); } catch {}
+            return;
+          }
           if (menuStack[0] === "skill" || menuStack[0] === "attachments") {
             // The ONE chips path (it closes the menu AND clears the "/skill" text).
             runItem(it);
