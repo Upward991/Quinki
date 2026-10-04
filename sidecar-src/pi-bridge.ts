@@ -7381,6 +7381,17 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       }
       if (lhPhaseNow === "discussion" || lhPhaseNow === "planning") intendedMode = "plan";
       else if (lhPhaseNow === "running") intendedMode = "build";
+      // HONESTY: if the turn runs a mode DIFFERENT from the stored one, persist it
+      // and TELL the clients: the pill always shows the real mode (never a lie).
+      try {
+        const eMode = (s ?? this.#entries.get(sk)) as any;
+        if (eMode && eMode.mode !== intendedMode) {
+          eMode.mode = intendedMode;
+          const sendN = (globalThis as any).__quinki_sendNotification;
+          if (sendN) sendN("session_updated", { sessionKey: sk, mode: intendedMode, model: eMode.model, thinkingLevel: eMode.thinkingLevel, label: eMode.label });
+          this.logDebug("mode-send-forced", { sessionKey: sk, mode: intendedMode });
+        }
+      } catch {}
       this.#pendingMode.delete(sk);
       try { this.#applyMode(pi, sk, intendedMode, data.workingDirs, effectiveCwd, !!(resolvedAgentId && (resolvedAgentId === 'orchestrator' || this.#readAgentConfigFile(resolvedAgentId)?.tools?.includes('delegate_to_agent')))); this.logDebug("mode-applied-send", { sessionKey: sk, mode: intendedMode }); }
       catch (e: any) { this.logDebug("mode-apply-error", { sessionKey: sk, error: e?.message }); }

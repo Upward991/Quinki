@@ -1934,12 +1934,21 @@ const readProvidersCfg = (): any => {
           data = stripped;
         }
       }
-      // Kitty-capable terminals also report key RELEASE events (e.g. "\x1b[1;1:3C"):
+      // Kitty-capable terminals report key RELEASE events (e.g. "\x1b[1;1:3C"):
       // they must NEVER be treated as a second press — ↓ would jump two rows and
       // → would confirm & close the menu at once. Drop them all.
       if (isKeyRelease(data)) {
         return { consume: true };
       }
+      // Kitty-capable terminals ALSO send the PRESS with an explicit ":1" event
+      // marker — e.g. TAB = "\x1b[9;1:1u". Normalize it to the plain form the
+      // handlers know (otherwise the Tab is silently LOST: no select, no toggle).
+      try {
+        const norm = String(data)
+          .replace(/\x1b\[9;1:1u$/, "\t")
+          .replace(/\x1b\[9:1u$/, "\t");
+        if (norm !== data) data = norm;
+      } catch {}
       // BRACKETED PASTE (\x1b[200~ … \x1b[201~): the terminal wraps Cmd+V like
       // this. With a menu open the content MUST go into the menu FIELD (path,
       // filters) — never into the editor textbox.
@@ -3475,7 +3484,6 @@ const readProvidersCfg = (): any => {
   };
 
   const handleSlash = (raw: string) => {
-    try { require("fs").appendFileSync("/tmp/q-dir-trace.log", new Date().toISOString() + " handleSlash raw=" + JSON.stringify(raw) + "\n"); } catch {}
     const parts = raw.slice(1).split(/\s+/);
     const cmd = (parts.shift() || "").toLowerCase();
     const arg = parts.join(" ").trim();
@@ -4366,7 +4374,6 @@ const readProvidersCfg = (): any => {
           // Finder; on "Change directory…" -> the submenu (Select folder / Type path);
           // on the warning notice -> confirm the move. Tab (separate handler) moves.
           const vD = String(it.value ?? "");
-          try { require("fs").appendFileSync("/tmp/q-dir-trace.log", new Date().toISOString() + " dir ENTER it=" + JSON.stringify(vD) + " stack=" + menuStack.join("/") + " typeMode=" + dirTypeMode + "\n"); } catch {}
           if (menuStack[1] === "dirchange" || dirTypeMode) {
             if (vD === "__dir_pick") {
               pickFolder(); // the folder picker
@@ -4379,7 +4386,6 @@ const readProvidersCfg = (): any => {
             }
             // Type row with nothing typed: Enter does nothing.
           } else if (vD.startsWith("__dir_use:")) {
-            try { require("fs").appendFileSync("/tmp/q-dir-trace.log", "  -> openFolder " + vD.slice(10) + "\n"); } catch {}
             openFolder(vD.slice(10));
           } else if (vD === "__dir_change") {
             // Enter does NOTHING on this row (only → opens the submenu — user rule).
@@ -5110,12 +5116,9 @@ const applySettingsPatch = (patch: any) => {
         rowsE.push(leftE + " ".repeat(gwE) + rightE);
         return rowsE;
       }
-      if (menuStack.length > 0 && !t.startsWith("/")) {
-        menuStack = [];
-        menuSubFilter = "";
-        menuSel = 0;
-        menuConfirmFocus = false;
-      }
+      // NOTE: a menu opened by a command (skill/attachments/directory) lives with an
+      // EMPTY textbox: the old rule "no slash text -> close" was killing it right
+      // after the command cleared the box (the skill menu never survived). Gone.
       const mainOpen = menuStack.length === 0 && t.startsWith("/");
       if (!mainOpen && menuStack.length === 0) {
         menuConfirmFocus = false;
@@ -5360,7 +5363,6 @@ const applySettingsPatch = (patch: any) => {
           .replace(/\s{2,}/g, " ")
           .trim();
       } catch { sendText = t; }
-      try { require("fs").appendFileSync("/tmp/q-dir-trace.log", new Date().toISOString() + " send skills=" + JSON.stringify(skills) + " atts=" + JSON.stringify(atts.map((a) => a.originalName)) + " text=" + JSON.stringify(sendText) + "\n"); } catch {}
       try { pendingSkills.splice(0); pendingAttachments.splice(0); } catch {}
       try { for (const k of Object.keys(skillRefsByName)) delete skillRefsByName[k]; } catch {}
       try { ui.requestRender(); } catch {}
@@ -5376,7 +5378,6 @@ const applySettingsPatch = (patch: any) => {
       };
       void (async () => {
         try {
-          try { require("fs").appendFileSync("/tmp/q-dir-trace.log", new Date().toISOString() + " send ensureSession sk=" + sk + " pending=" + JSON.stringify(pendingWorkingDir) + "\n"); } catch {}
           await sc.call("ensureSession", { sessionKey: sk, label: "Chat", workingDir: (pendingWorkingDir && pendingWorkingDir !== "undefined" ? pendingWorkingDir : undefined) }, 20000);
           // Now the sidecar knows the session: fetch the real list for the header.
           try { qDirs = null; qDirsKey = ""; qDirsKick(); } catch {}
