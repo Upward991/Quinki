@@ -4,9 +4,10 @@
 #
 # This is the ONLY install command the App Expert agent should use.
 # It is built so that it can NEVER touch the App Expert app:
-#   - keeps exactly ONE backup of /Applications/Quinki.app (.bak, replaced at
-#     every install — never accumulates). This runs ONLY on the developer's Mac:
-#     the public update flow (install_downloaded_update) creates NO backup.
+#   - keeps exactly ONE backup of /Applications/Quinki.app, NEVER inside
+#     /Applications (it polluted the Applications folder): the backup lives in
+#     ~/.quinki/app-backups/Quinki.app.bak, replaced at every install. This runs
+#     ONLY on the developer's Mac: the public update flow creates NO backup.
 #   - installs the new build (ditto)
 #   - kills ONLY port 9182 (the main sidecar) — never 9183
 #   - clears ONLY the main app webview caches
@@ -39,9 +40,12 @@ fi
 
 # 1) Backup current main app (mv, never rm the live app)
 if [ -d "$MAIN_APP" ]; then
-  rm -rf "$MAIN_APP.bak" 2>/dev/null || true
-  mv "$MAIN_APP" "$MAIN_APP.bak"
-  echo "[install-main] Backed up existing app -> $MAIN_APP.bak"
+  BACKUP_DIR="$HOME/.quinki/app-backups"
+  mkdir -p "$BACKUP_DIR"
+  rm -rf "$BACKUP_DIR/Quinki.app.bak" 2>/dev/null || true   # clean any old visible backup
+  rm -rf "$BACKUP_DIR/Quinki.app.bak" 2>/dev/null || true
+  mv "$MAIN_APP" "$BACKUP_DIR/Quinki.app.bak"
+  echo "[install-main] Backed up existing app -> $BACKUP_DIR/Quinki.app.bak"
 fi
 
 # 2) Install new build
