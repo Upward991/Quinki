@@ -791,6 +791,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       // THE CHAT's directory (the session's workingDir via listWorkingDirs), NOT
       // the CLI's local cwd — this is what the header (top-right) must show.
       const d = String(qDirs?.current || currentCwd || "");
+      if (!d || d === "undefined" || d === "null") return "";
       const home = process.env.HOME || "";
       return home && d.startsWith(home) ? "~" + d.slice(home.length) : d;
     } catch {
@@ -3970,7 +3971,7 @@ const readProvidersCfg = (): any => {
           if (!o.model && !o.thinkingLevel) delete e.agentOverrides[agentId];
           else e.agentOverrides[agentId] = o;
         });
-        menuStack = ["agentinsession", agentId];
+        // STAY in this menu (the user goes back with ←): no auto-pop.
       } else if (lv3 === "thinking") {
         if (scOn) {
           void sc
@@ -3985,9 +3986,9 @@ const readProvidersCfg = (): any => {
           if (!o.model && !o.thinkingLevel) delete e.agentOverrides[agentId];
           else e.agentOverrides[agentId] = o;
         });
-        menuStack = ["agentinsession", agentId];
+        // STAY here too (no auto-pop).
       } else {
-        menuStack = ["agentinsession", agentId];
+        // STAY here too (no auto-pop).
       }
       menuSubFilter = "";
       menuSel = 0;
@@ -4291,6 +4292,8 @@ const readProvidersCfg = (): any => {
           try {
             const order = Array.from(menuMarked);
             void sc.call('setSessionFallbacks', { sessionKey: currentKey, models: order }, 20000).catch(() => {});
+            // ALSO the global (the app's Settings UI reads this file): right param!
+            void sc.call('setDefaultFallbacks', { models: order }, 20000).catch(() => {});
             wsSettings = { ...(wsSettings || {}), defaultFallbackModels: order };
           } catch {}
         }
