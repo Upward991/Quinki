@@ -463,7 +463,7 @@ export class Editor {
                             if (layoutLine.cursorPos >= mm3.index && layoutLine.cursorPos < mm3.index + mm3[0].length) { inChip = true; break; }
                         }
                     } catch { }
-                    const cursor = inChip ? marker : `\x1b[7m${firstGrapheme}\x1b[0m`;
+                    const cursor = inChip ? "" : `\x1b[7m${firstGrapheme}\x1b[0m`;
                     displayText = before + cursor + restAfter;
                     // lineVisibleWidth stays the same - we're replacing, not adding
                 }
