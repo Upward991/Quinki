@@ -5255,7 +5255,10 @@ const applySettingsPatch = (patch: any) => {
       };
       void (async () => {
         try {
+          try { require("fs").appendFileSync("/tmp/q-dir-trace.log", new Date().toISOString() + " send ensureSession sk=" + sk + " pending=" + JSON.stringify(pendingWorkingDir) + "\n"); } catch {}
           await sc.call("ensureSession", { sessionKey: sk, label: "Chat", workingDir: (pendingWorkingDir && pendingWorkingDir !== "undefined" ? pendingWorkingDir : undefined) }, 20000);
+          // The welcome preview CLEARS once the chat is born (the dir now lives in the chat).
+          try { if (pendingWorkingDir) pendingWorkingDir = ""; } catch {}
           // Sync the engine with the session's REAL configuration: agents in the
           // chat (default quinki), mode, model and thinking — otherwise the
           // runtime runs a bare session without the user's tools/skills/MCP.
