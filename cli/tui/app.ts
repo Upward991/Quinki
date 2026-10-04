@@ -2043,7 +2043,9 @@ const readProvidersCfg = (): any => {
               menuSubFilter = "";
             }
             menuSubFilter += data;
-            menuSel = 0;
+            // Directory path: the cursor STAYS on the path row (Confirm appears).
+            if (menuStack[0] === "directory" && menuStack[1] === "dirchange") menuSel = 1;
+            else menuSel = 0;
             menuConfirmFocus = false;
             try {
               ui.requestRender();
@@ -2051,8 +2053,15 @@ const readProvidersCfg = (): any => {
             return { consume: true };
           }
           if (data === "\x7f" || data === "\x08" || matchesKey(data, "backspace")) {
-            menuSubFilter = menuSubFilter.slice(0, -1);
-            menuSel = 0;
+            // backspace NEVER moves the selector: on the path field it deletes the
+            // last character; anywhere else in this menu it does nothing visible.
+            if (menuStack[0] === "directory" && menuStack[1] === "dirchange") {
+              menuSubFilter = menuSubFilter.slice(0, -1);
+              menuSel = 1; // stay on the path row
+            } else {
+              menuSubFilter = menuSubFilter.slice(0, -1);
+              menuSel = 0;
+            }
             menuConfirmFocus = false;
             try {
               ui.requestRender();
