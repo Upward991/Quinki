@@ -691,6 +691,14 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         if (err) { try { ui.requestRender(); } catch {} return; }
         const picked = String(stdout || "").trim().replace(/\/+$/, "");
         if (!picked) return;
+        // WELCOME: no chat yet, nothing to warn about — apply straight into the preview.
+        let isW = false;
+        try { isW = welcomeShown || !currentKey; } catch {}
+        if (isW) {
+          applyDirChange(picked);
+          try { ui.requestRender(); } catch {}
+          return;
+        }
         const old = String(qDirs?.current || currentCwd || "");
         let n = 0;
         try { n = require("fs").readdirSync(old).filter((x: string) => !x.startsWith(".")).length; } catch {}
