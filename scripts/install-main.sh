@@ -42,7 +42,7 @@ fi
 if [ -d "$MAIN_APP" ]; then
   BACKUP_DIR="$HOME/.quinki/app-backups"
   mkdir -p "$BACKUP_DIR"
-  rm -rf "$BACKUP_DIR/Quinki.app.bak" 2>/dev/null || true   # clean any old visible backup
+  rm -rf "$MAIN_APP.bak" 2>/dev/null || true   # clean any old visible backup
   rm -rf "$BACKUP_DIR/Quinki.app.bak" 2>/dev/null || true
   mv "$MAIN_APP" "$BACKUP_DIR/Quinki.app.bak"
   echo "[install-main] Backed up existing app -> $BACKUP_DIR/Quinki.app.bak"
