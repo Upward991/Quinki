@@ -2769,6 +2769,26 @@ const readProvidersCfg = (): any => {
           )
         );
         scrollToEnd();
+      } else if (method === "session_created" || method === "session_deleted") {
+        // INSTANT sync: a chat created/deleted anywhere (app, other CLI) shows here.
+        try { refreshSessions(); } catch {}
+        try { ui.requestRender(); } catch {}
+      } else if (method === "user_message") {
+        // A message sent from the app (or another CLI) into THIS chat: show it live.
+        try {
+          if (!p?.sessionKey || p.sessionKey === currentKey) {
+            const txt = String(p?.text || p?.content || "");
+            if (txt.trim()) { pushBlock(new UserBubble(txt, fmtFooterDate(Date.now()))); scrollToEnd(); try { ui.requestRender(); } catch {} }
+          }
+        } catch {}
+      } else if (method === "model_updated" || method === "models_list") {
+        // Provider/model changes anywhere: refresh the model bar live.
+        try { wsAllModels = Array.isArray(p?.models) ? p.models : wsAllModels; } catch {}
+        try { if (p?.model && p?.sessionKey === currentKey) wsModelId = String(p.model); } catch {}
+        try { ui.requestRender(); } catch {}
+      } else if (method === "thinking_updated") {
+        try { if (p?.sessionKey === currentKey && typeof p?.level === "string") { thinkingOn = String(p.level) !== "off"; updateBar(); } } catch {}
+        try { ui.requestRender(); } catch {}
       } else if (method === "session_meta") {
         if (p.model) wsModelId = String(p.model);
         if (typeof p.thinkingLevel === "string") thinkingOn = p.thinkingLevel !== "off";
@@ -2780,7 +2800,9 @@ const readProvidersCfg = (): any => {
           if (p.label && !titleLocked) setChatTitle(String(p.label));
           if (p.model) wsModelId = String(p.model);
           if (typeof p.thinkingLevel === "string") thinkingOn = p.thinkingLevel !== "off";
+          if (Array.isArray(p.fallbackModels)) { try { wsSettings = { ...(wsSettings || {}), defaultFallbackModels: p.fallbackModels }; } catch {} }
           updateBar();
+          try { ui.requestRender(); } catch {}
         }
       } else if (method === "context_usage") {
         if (p.usage) {
