@@ -5412,6 +5412,11 @@ const applySettingsPatch = (patch: any) => {
   editor.onSubmit = (text: string) => {
    try {
     const t = (text || "").trim();
+    if (/^\/+$/.test(t)) {
+      // Bare slash: NOTHING happens (the panel stays, the text stays).
+      try { editor.setText(String(text || "")); } catch {}
+      return;
+    }
     if (t.startsWith("/")) {
       try {
         editor.setText("");
