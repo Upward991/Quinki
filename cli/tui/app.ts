@@ -592,6 +592,11 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       try { require("fs").appendFileSync("/tmp/q-cli-survive.log", "rejection: " + String(e?.stack || e) + "\n"); } catch {}
     });
   } catch {}
+  // VERSION STAMP: proves which build is running (diagnosis of "nothing changes").
+  try {
+    const st = require("fs").statSync(process.execPath || "");
+    require("fs").appendFileSync("/tmp/q-cli-boot.log", new Date().toISOString() + " boot " + require("path").basename(String(process.execPath || "")) + " mtime=" + new Date(st.mtimeMs).toISOString() + " args=" + process.argv.slice(2).join(",") + "\n");
+  } catch {}
   // Startup: always a FRESH cli session with the welcome (no resume): every
   // existing chat — including the last used one — stays visible in /sessions.
   const key = QEXPERT
@@ -2472,6 +2477,7 @@ const readProvidersCfg = (): any => {
             if (mk && e0?.messageAgents?.[mk]) agentName = String(e0.messageAgents[mk]);
             if (mk && e0?.messageThinking?.[mk]) lvl = String(e0.messageThinking[mk]);
           } catch {}
+          agentName = String(agentName).split(",")[0].trim() || "quinki"; // ONE agent only
           pushBlock(new FooterRow(fmtFooterDate(Date.now()), agentDisplayName(agentName) + " \u00b7 " + (wsModelId || defaultModelId || "") + " \u00b7 " + levelLabel(lvl), true));
         } catch {}
         }
@@ -3151,7 +3157,7 @@ const readProvidersCfg = (): any => {
             // agent/model/level from the entry (same source as the app).
             try {
               const e0 = readSessionsList().find((s: any) => s?.key === currentKey);
-              let an = sessionAgentIds()[0] || "quinki";
+              let an = String(sessionAgentIds()[0] || "quinki").split(",")[0].trim();
               let lv = "off";
               const mid = String(m.id || "");
               const mts = Date.parse(m.timestamp || "") || 0;
