@@ -453,15 +453,28 @@ export class Editor {
                     const afterGraphemes = [...this.segment(after, "grapheme")];
                     const firstGrapheme = afterGraphemes[0]?.segment || "";
                     const restAfter = after.slice(firstGrapheme.length);
-                    const cursor = `\x1b[7m${firstGrapheme}\x1b[0m`;
-                    displayText = before + marker + cursor + restAfter;
+                    // QUINKI: inside a chip ("Skill: …") never invert — the inverted char
+                    // would kill the chip's background (the user's polish).
+                    let inChip = false;
+                    try {
+                        const re3 = /Skill:\s*[\w.-]+/g;
+                        let mm3;
+                        while ((mm3 = re3.exec(displayText))) {
+                            if (layoutLine.cursorPos >= mm3.index && layoutLine.cursorPos < mm3.index + mm3[0].length) { inChip = true; break; }
+                        }
+                    } catch { }
+                    const cursor = inChip ? marker : `\x1b[7m${firstGrapheme}\x1b[0m`;
+                    displayText = before + cursor + restAfter;
                     // lineVisibleWidth stays the same - we're replacing, not adding
                 }
                 else {
-                    // Cursor is at the end - add highlighted space
-                    const cursor = "\x1b[7m \x1b[0m";
-                    displayText = before + marker + cursor;
-                    lineVisibleWidth = lineVisibleWidth + 1;
+                    // Cursor is at the end - add highlighted space (but right after a
+                    // chip: keep it invisible, the chip must stay clean).
+                    let afterChip = false;
+                    try { if (/Skill:\s*[\w.-]+\s?$/.test(before)) afterChip = true; } catch { }
+                    const cursor = afterChip ? marker : "\x1b[7m \x1b[0m";
+                    displayText = before + cursor;
+                    if (!afterChip) lineVisibleWidth = lineVisibleWidth + 1;
                     // If cursor overflows content width into the padding, flag it
                     if (lineVisibleWidth > contentWidth && paddingX > 0) {
                         cursorInPadding = true;

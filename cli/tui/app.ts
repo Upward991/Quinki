@@ -4327,7 +4327,9 @@ const readProvidersCfg = (): any => {
       const st: any = (editor as any).state;
       if (st && Array.isArray(st.lines)) {
         st.cursorLine = st.lines.length - 1;
-        (editor as any).setCursorCol(String(st.lines[st.cursorLine] || "").length);
+        const ln = String(st.lines[st.cursorLine] || "");
+        // No visual gap: the cursor sits right after the chip, BEFORE the separator space.
+        (editor as any).setCursorCol(ln.endsWith(" ") ? ln.length - 1 : ln.length);
       }
     } catch {}
   };
