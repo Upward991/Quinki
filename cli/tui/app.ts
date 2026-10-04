@@ -644,8 +644,16 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   };
   // The chat's default directory (same as the app): ~/.quinki/workdir — created
   // on the spot if it is missing. A chat can NEVER be without a directory.
-  const defaultDirPath = (): string => path.join(os.homedir(), ".quinki", "workdir");
   const ensureDir = (d: string): string => { try { require("fs").mkdirSync(d, { recursive: true }); } catch {} return d; };
+  // EACH chat has ITS OWN folder under ~/.quinki/workdir — same formula as the
+  // sidecar (pi-XXX -> quinki-XXX; cli-XXX -> cli-XXX). The workdir root is just
+  // the container of all chats' folders, never a chat's directory.
+  const autoDirForKey = (k: string): string => {
+    const safe = String(k || "session").replace(/[^a-zA-Z0-9_-]/g, "_");
+    const friendly = safe.startsWith("pi-") ? "quinki-" + safe.slice(3) : safe;
+    return ensureDir(path.join(os.homedir(), ".quinki", "workdir", friendly));
+  };
+  const defaultDirPath = (): string => currentKey ? autoDirForKey(currentKey) : ensureDir(path.join(os.homedir(), ".quinki", "workdir"));
   const applyDirChange = (target: string) => {
     let t = "";
     try {
