@@ -1556,9 +1556,9 @@ const readProvidersCfg = (): any => {
           const dp = String(dd?.path || "");
           if (!dp) continue;
           const isCur = !!dd?.current || dp === currentDirAny();
-          // The dot of the CURRENT directory LIGHTS UP (accent on the bullet only —
-          // never on the path text).
-          items.push({ value: "__dir_use:" + dp, label: (isCur ? fg(C.primary, "\u25cf") + " " : "\u25cb ") + dp, description: "", _lit: isCur });
+          // EXACTLY the look of a selected model row: plain filled dot, no colors,
+          // no white text — just ● path.
+          items.push({ value: "__dir_use:" + dp, label: (isCur ? "\u25cf " : "\u25cb ") + dp, description: "" });
         }
         // Manual typing still works: the typed path is offered as-is.
         if (p && !p.startsWith("__")) items.unshift({ value: p, label: p, description: "use this path" });
