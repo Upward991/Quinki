@@ -617,6 +617,16 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   // /directory: live data from listWorkingDirs + pending change (files warning).
   let qDirs: any = null;
   let qDirsAt = 0;
+  const qDirsKick = () => {
+    try {
+      if (!scOn) return;
+      if (Date.now() - qDirsAt < 1500 && qDirs) return;
+      qDirsAt = Date.now();
+      void sc.call("listWorkingDirs", { sessionKey: currentKey }, 15000)
+        .then((r: any) => { if (r && typeof r === "object") { qDirs = r; try { ui.requestRender(); } catch {} } })
+        .catch(() => {});
+    } catch {}
+  };
   let dirPendingChange = "";
   let dirPendingFiles = 0;
   const openFolder = (folder: string) => {
@@ -648,7 +658,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         const old = String(qDirs?.current || currentCwd || "");
         let n = 0;
         try { n = require("fs").readdirSync(old).filter((x: string) => !x.startsWith(".")).length; } catch {}
-        if (n > 0) { dirPendingChange = picked; dirPendingFiles = n; try { editor.setText("/directory"); } catch {} }
+        if (n > 0) { dirPendingChange = picked; dirPendingFiles = n; try { /* no textbox pollution */ } catch {} }
         else applyDirChange(picked);
         try { ui.requestRender(); } catch {}
       });
@@ -2515,6 +2525,7 @@ const readProvidersCfg = (): any => {
   /** Ask the SIDECAR for the history — the exact source the app uses: correct
    *  order, blocks normalized, footers with the real agent/model/level. */
   const loadServerHistory = async (beforeTs?: number): Promise<boolean> => {
+    try { qDirsKick(); } catch {}
     if (!scOn) return false;
     try {
       if (typeof beforeTs === "number" && beforeTs > 0) {
@@ -4112,7 +4123,7 @@ const readProvidersCfg = (): any => {
             const oldD = String(qDirs?.current || currentCwd || "");
             let nD = 0;
             try { nD = require("fs").readdirSync(oldD).filter((x: string) => !x.startsWith(".")).length; } catch {}
-            if (nD > 0 && tD !== oldD) { dirPendingChange = tD; dirPendingFiles = nD; try { editor.setText("/directory"); } catch {} }
+            if (nD > 0 && tD !== oldD) { dirPendingChange = tD; dirPendingFiles = nD; try { /* no textbox pollution */ } catch {} }
             else applyDirChange(tD);
           }
           try { ui.requestRender(); } catch {}
