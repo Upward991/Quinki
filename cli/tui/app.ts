@@ -1541,7 +1541,10 @@ const readProvidersCfg = (): any => {
           const skills = g.skills.filter((s: any) => s.name.toLowerCase().startsWith(p));
           if (skills.length === 0) continue;
           items.push({ value: "__sep_" + g.agentId, label: g.agentName, description: "", separator: true });
-          for (const s of skills) items.push({ value: s.name, label: s.name, description: s.description || "skill" });
+          for (const s of skills) {
+            const on = menuMarked.has(s.name);
+            items.push({ value: s.name, label: (on ? "\u25cf " : "\u25cb ") + s.name, description: s.description || "skill" });
+          }
         }
         return items;
       },
@@ -4046,6 +4049,7 @@ const readProvidersCfg = (): any => {
         if (cmdName === "skill") {
           const vS = String(it.value ?? "");
           if (vS && !vS.startsWith("__")) {
+            if (menuMarked.has(vS)) menuMarked.delete(vS); else menuMarked.add(vS);
             try {
               const curS = String(editor.getText() || "");
               editor.setText(curS + (curS && !curS.endsWith(" ") ? " " : "") + "\u25b8" + vS + " ");
