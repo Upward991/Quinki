@@ -333,6 +333,22 @@ class PiBridge {
   // Prima ogni chat senza workdir propria usava UNA cartella condivisa
   // (~/.quinki/workdir): le chat nuove vedevano i file delle vecchie. Ora ogni
   // sessione ha la SUA (~/.quinki/workdir/<chiave>), come per gli attachments.
+  // The pool can hold a STALE in-memory entry (the session was saved by ANOTHER
+  // worker — e.g. ensureSession/setWorkingDir landed elsewhere). Before building a
+  // turn, re-read the session's workingDir from the FILE: the truth is on disk.
+  #refreshWorkdirFromDisk(key: string): void {
+    try {
+      const data = JSON.parse(fs.readFileSync(SESSION_FILE, "utf8"));
+      const e = (Array.isArray(data) ? data : []).find((x: any) => x && x.key === key);
+      const wd = e && typeof (e as any).workingDir === "string" ? String((e as any).workingDir) : "";
+      if (wd && wd !== "undefined" && wd !== "null") {
+        const ent = this.#entries.get(key);
+        if (ent) (ent as any).workingDir = wd;
+        if (!this.#cwdOverride.get(key)) this.#cwdOverride.set(key, wd);
+      }
+    } catch {}
+  }
+
   #autoWorkDir(key: string): string {
     const safe = String(key || "session").replace(/[^a-zA-Z0-9_-]/g, "_");
     // Nome legato alla NOSTRA app: quinki-<resto della chiave> (prima era "pi-...",
@@ -5708,8 +5724,12 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     const s = this.#entries.get(sk);
     if (!s) return;
 
+    this.#refreshWorkdirFromDisk(sk);
+    this.#refreshWorkdirFromDisk(sk);
     const effEntryWd = (this.#entries.get(sk) as any)?.workingDir
     const effectiveCwd = this.#cwdOverride.get(sk) ?? ((data.workingDirs && data.workingDirs.length > 0) ? data.workingDirs[0] : (effEntryWd || this.#cwd));
+    this.logDebug("turn-cwd", { sessionKey: sk, effectiveCwd, via: "sendMessage" });
+    this.logDebug("turn-cwd", { sessionKey: sk, effectiveCwd, via: "sendDirect" });
     this.#lastEffectiveCwd.set(sk, effectiveCwd);
 
     // Resolve agent config
