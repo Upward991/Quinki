@@ -2015,6 +2015,12 @@ const readProvidersCfg = (): any => {
         if (menuStack.length > 0) {
           // Typing inside a submenu filters the options — never writes in the box.
           if (data.length === 1 && data >= " " && data !== "\x7f") {
+            // Directory submenu: typing the path STARTS RIGHT HERE (no → needed):
+            // the row becomes "Path: …" and Enter confirms.
+            if (menuStack[0] === "directory" && menuStack[1] === "dirchange" && !dirTypeMode) {
+              dirTypeMode = true;
+              menuSubFilter = "";
+            }
             menuSubFilter += data;
             menuSel = 0;
             menuConfirmFocus = false;
