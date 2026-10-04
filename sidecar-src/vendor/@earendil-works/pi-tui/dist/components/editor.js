@@ -753,8 +753,12 @@ export class Editor {
         }
         // Arrow key navigation (with history support)
         if (kb.matches(data, "tui.editor.cursorUp")) {
+            // QUINKI (T445): the history must NEVER fire because the cursor happens to
+            // rest at column 0 (e.g. the auto-space cell before a chip): ↑ near a clip
+            // swaps the whole box for an old message — absurd. Only an EMPTY box (or an
+            // already-browsing history) starts the history; otherwise ↑ just moves.
             if (this.isOnFirstVisualLine() &&
-                (this.isEditorEmpty() || this.historyIndex > -1 || this.state.cursorCol === 0)) {
+                (this.isEditorEmpty() || this.historyIndex > -1)) {
                 this.navigateHistory(-1);
             }
             else if (this.isOnFirstVisualLine()) {
