@@ -2093,6 +2093,9 @@ const readProvidersCfg = (): any => {
         return { consume: true };
       }
       if (menuNow) {
+        try {
+          if ((menuStack[0] === "skill" || menuStack[0] === "attachments" || menuStack[0] === "directory") && String(editor.getText() || "").startsWith("/")) clearSlashText();
+        } catch {}
         if (isUp || isDown || isLeft || isRight || isEnter) {
           menuNavRef?.(isSelect ? "select" : isUp ? "up" : isDown ? "down" : isLeft ? "left" : isRight ? "right" : "enter");
           return { consume: true };
@@ -4247,20 +4250,46 @@ const readProvidersCfg = (): any => {
       if (menuStack.length > 0) {
         const cmdName = menuStack[0];
         if (cmdName === "skill") {
-          // Confirm (Enter): chips stay, the menu closes, the "/skill" text clears.
+          // ENTER = put the SELECTED skills in the box (chips), then close+clean.
+          try {
+            const names = Array.from(menuMarked).filter((v) => v && !String(v).startsWith("__"));
+            for (const nm of names) {
+              const curS = String(editor.getText() || "");
+              editor.setText(curS + (curS && !curS.endsWith(" ") ? " " : "") + "\u25b8" + nm + " ");
+            }
+          } catch {}
           menuStack = [];
           menuSubFilter = "";
           clearSlashText();
+          menuMarked.clear();
           try { ui.requestRender(); } catch {}
           return;
         }
         if (cmdName === "attachments") {
           const vA = String(it.value ?? "");
+          if (vA.startsWith("__at_file:") || vA.startsWith("__at_") === false && menuMarked.size > 0 && false) {
+            // (never reached — kept for clarity)
+          }
           if (vA.startsWith("__at_file:")) {
-            // Confirm (Enter): chip stays, menu closes, "/attachments" text clears.
+            // ENTER: ALL marked files go in the box (chips), then close+clean.
+            try {
+              const marked = Array.from(menuMarked).filter((v) => String(v).startsWith("__at_file:"));
+              for (const mv of marked) {
+                const fpA = String(mv).slice(10);
+                if (fs.existsSync(fpA)) {
+                  const stD = stageAttachment(fpA) || { path: fpA, originalName: require("path").basename(fpA) };
+                  pendingAttachments.push(stD as any);
+                  const nmD = String((stD as any).originalName);
+                  attPathByName[nmD] = String((stD as any).path);
+                  const curD = String(editor.getText() || "");
+                  editor.setText(curD + (curD && !curD.endsWith(" ") ? " " : "") + "\u25b8" + nmD + " ");
+                }
+              }
+            } catch {}
             menuStack = [];
             menuSubFilter = "";
             clearSlashText();
+            menuMarked.clear();
           } else if (vA === "__at_new") {
             try {
               const cpB = require("child_process");
@@ -4452,46 +4481,14 @@ const readProvidersCfg = (): any => {
           return;
         }
         if ((menuStack[0] === "skill" || menuStack[0] === "attachments") && it && !it.separator) {
+          // TAB = SELECT ONLY: mark the dot (multi OK). NOTHING goes in the box —
+          // the chips are placed by ENTER (the user's rule).
           const vV = String(it.value ?? "");
-          const escRe = (t2: string) => new RegExp("\\s*\\u25b8" + t2.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*", "g");
           if (menuStack[0] === "skill" && vV && !vV.startsWith("__")) {
-            try {
-              const curS = String(editor.getText() || "");
-              if (menuMarked.has(vV)) {
-                menuMarked.delete(vV);
-                editor.setText(curS.replace(escRe(vV), " ").trim());
-              } else {
-                menuMarked.add(vV);
-                editor.setText(curS + (curS && !curS.endsWith(" ") ? " " : "") + "\u25b8" + vV + " ");
-              }
-            } catch {}
+            if (menuMarked.has(vV)) menuMarked.delete(vV); else menuMarked.add(vV);
           } else if (menuStack[0] === "attachments" && vV.startsWith("__at_file:")) {
-            const fpA = vV.slice(10);
-            if (menuMarked.has(vV)) {
-              menuMarked.delete(vV);
-              try {
-                const nm0 = String(attPathByName && require("path").basename(fpA) || "");
-                const curS2 = String(editor.getText() || "");
-                editor.setText(curS2.replace(escRe(nm0 || require("path").basename(fpA)), " ").trim());
-              } catch {}
-            } else {
-              menuMarked.add(vV);
-              try {
-                if (fs.existsSync(fpA)) {
-                  const stD = stageAttachment(fpA) || { path: fpA, originalName: require("path").basename(fpA) };
-                  pendingAttachments.push(stD as any);
-                  const nmD = String((stD as any).originalName);
-                  attPathByName[nmD] = String((stD as any).path);
-                  const curD = String(editor.getText() || "");
-                  editor.setText(curD + (curD && !curD.endsWith(" ") ? " " : "") + "\u25b8" + nmD + " ");
-                }
-              } catch {}
-            }
+            if (menuMarked.has(vV)) menuMarked.delete(vV); else menuMarked.add(vV);
           }
-          // CLOSE and leave ONLY the clip in the box (no "/skill", no autocomplete).
-          menuStack = [];
-          menuSubFilter = "";
-          clearSlashText();
           try { ui.requestRender(); } catch {}
           return;
         }
@@ -4668,6 +4665,7 @@ const readProvidersCfg = (): any => {
             menuStack = [cmd.name];
             menuSubFilter = "";
             menuSel = 0;
+            try { if (cmd.name === "skill" || cmd.name === "attachments" || cmd.name === "directory") clearSlashText(); } catch {}
           } else if (cmd) {
             // MENU 2.0: nothing (Enter runs commands).
           }
