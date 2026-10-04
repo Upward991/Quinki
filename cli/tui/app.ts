@@ -4389,6 +4389,8 @@ const readProvidersCfg = (): any => {
       menuStack = [];
       menuSubFilter = "";
       menuSel = 0;
+      // T437: backing out / closing without confirming = the Tab marks are FORGOTTEN.
+      try { menuMarked.clear(); menuConfirmFocus = false; } catch {}
       menuConfirmFocus = false;
       clearSlashText();
     } catch {}
@@ -4459,7 +4461,7 @@ const readProvidersCfg = (): any => {
                 (skillRefsByName[nm] = skillRefsByName[nm] || []).push({ agentId: ag, skillName: nm, agentName: agentDisplayName(ag) });
               }
               const curS = String(editor.getText() || "");
-              editor.setText(curS + (curS && !curS.endsWith(" ") ? " " : "") + "Skill: " + nm);
+              editor.setText(String(curS).replace(/[ \t]+$/, "") + " " + "Skill: " + nm);
               try { editor.setCursorCol(editor.getText().length); } catch {}
               qCursorEnd();
             }
@@ -4486,7 +4488,7 @@ const readProvidersCfg = (): any => {
                   const nmD = String((stD as any).originalName);
                   attPathByName[nmD] = String((stD as any).path);
                   const curD = String(editor.getText() || "");
-                  editor.setText(curD + (curD && !curD.endsWith(" ") ? " " : "") + "\u25b8" + nmD);
+                  editor.setText(String(curD).replace(/[ \t]+$/, "") + " " + "\u25b8" + nmD);
                   try { editor.setCursorCol(editor.getText().length); } catch {}
                   qCursorEnd();
                 }
@@ -4495,6 +4497,8 @@ const readProvidersCfg = (): any => {
             menuStack = [];
             menuSubFilter = "";
             menuSel = 0;
+            // T437: backing out / closing without confirming = the Tab marks are FORGOTTEN.
+            try { menuMarked.clear(); menuConfirmFocus = false; } catch {}
             menuMarked.clear();
           } else if (vA === "__at_new") {
             try {
@@ -4510,7 +4514,7 @@ const readProvidersCfg = (): any => {
                       const nmB2 = String((stB as any).originalName);
                       attPathByName[nmB2] = String((stB as any).path);
                       const curB = String(editor.getText() || "");
-                      editor.setText(curB + (curB && !curB.endsWith(" ") ? " " : "") + "\u25b8" + nmB2);
+                      editor.setText(String(curB).replace(/[ \t]+$/, "") + " " + "\u25b8" + nmB2);
                       try { editor.setCursorCol(editor.getText().length); } catch {}
                     }
                   } catch {}
@@ -4571,6 +4575,8 @@ const readProvidersCfg = (): any => {
         menuStack = [];
         menuSubFilter = "";
         menuSel = 0;
+        // T437: backing out / closing without confirming = the Tab marks are FORGOTTEN.
+        try { menuMarked.clear(); menuConfirmFocus = false; } catch {}
         try { editor.setText(""); } catch {}
         handleSlashRef?.("/" + cmdName + " " + String(it.value ?? it.label ?? ""));
         try { ui.requestRender(); } catch {}
@@ -4800,6 +4806,8 @@ const readProvidersCfg = (): any => {
         menuStack = [];
         menuSubFilter = "";
         menuSel = 0;
+        // T437: backing out / closing without confirming = the Tab marks are FORGOTTEN.
+        try { menuMarked.clear(); menuConfirmFocus = false; } catch {}
         menuConfirmFocus = false;
         try {
           editor.setText("");
@@ -4985,6 +4993,8 @@ const cmd: any = commands.find((c) => c.name === it.value);
             menuStack = [];
             menuSubFilter = "";
             menuSel = 0;
+            // T437: backing out / closing without confirming = the Tab marks are FORGOTTEN.
+            try { menuMarked.clear(); menuConfirmFocus = false; } catch {}
             // NOTE: do NOT clear the textbox here — it wiped the chips the user had
             // just added from the menu (attachments/skills).
             handleSlashRef?.("/" + cmdName + " " + String(it.value ?? it.label ?? ""));
