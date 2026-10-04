@@ -2464,6 +2464,55 @@ const readProvidersCfg = (): any => {
     };
     (editor as any).qTokenStyle = (tok: string) => qTokenStyle(tok);
     // ATOMIC chips: backspace ON a "\u25b8token" deletes the WHOLE token at once.
+    (editor as any).qUpDownHop = (dir: "up" | "down") => {
+      try {
+        const st: any = (editor as any).state;
+        if (!st || !Array.isArray(st.lines)) return false;
+        const ln = String(st.lines[st.cursorLine] ?? "");
+        const col = Number(st.cursorCol) || 0;
+        const re = /(?:\u25b8[^\s\u25b8]+)|(?:Skill:\s*[\w.-]+)/g;
+        let m: RegExpExecArray | null;
+        while ((m = re.exec(ln))) {
+          const a = m.index, b = m.index + m[0].length;
+          const past = b + (ln.charAt(b) === " " ? 1 : 0);
+          if (dir === "up") {
+            // THE TWIN OF THE LEFT ARROW: from on/right of the chip -> land BEFORE it.
+            if (col > a && col <= b + 1) {
+              if (a === 0) {
+                const nl = " " + ln;
+                st.lines[st.cursorLine] = nl;
+                qAutoSpace = { line: st.cursorLine, col: 0, text: nl };
+                try { if (typeof (editor as any).onChange === "function") (editor as any).onChange(editor.getText()); } catch {}
+                try { (editor as any).setCursorCol(0); } catch {}
+              } else {
+                try { (editor as any).setCursorCol(a - 1); } catch {}
+              }
+              try { ui.requestRender(); } catch {}
+              return true;
+            }
+          } else {
+            // THE TWIN OF THE RIGHT ARROW: inside/at the chip -> past; from the cell
+            // right before -> the round trip (remove the auto space, cross over).
+            if (col > a && col < b) { try { (editor as any).setCursorCol(past); } catch {} try { ui.requestRender(); } catch {} return true; }
+            if (col === a) { try { (editor as any).setCursorCol(past); } catch {} try { ui.requestRender(); } catch {} return true; }
+            if (a > 0 && col === a - 1) {
+              if (qAutoSpace && qAutoSpace.line === st.cursorLine && qAutoSpace.col === col && qAutoSpace.text === ln) {
+                st.lines[st.cursorLine] = ln.slice(1);
+                qAutoSpace = null;
+                try { if (typeof (editor as any).onChange === "function") (editor as any).onChange(editor.getText()); } catch {}
+                try { (editor as any).setCursorCol(Math.max(0, b - 1)); } catch {}
+              } else {
+                try { (editor as any).setCursorCol(past); } catch {}
+              }
+              try { ui.requestRender(); } catch {}
+              return true;
+            }
+          }
+          if (col < a) break;
+        }
+      } catch {}
+      return false;
+    };
     (editor as any).qSnapOutOfChip = () => {
       try {
         const st: any = (editor as any).state;

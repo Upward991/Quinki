@@ -762,7 +762,9 @@ export class Editor {
                 this.navigateHistory(-1);
             }
             else if (this.isOnFirstVisualLine()) {
-                // Already at top - jump to start of line
+                // QUINKI (T446): at the top edge behave like the LEFT arrow near a
+                // chip (cross to its left side); otherwise jump to line start.
+                try { if (typeof this.qUpDownHop === "function" && this.qUpDownHop("up") === true) return; } catch { }
                 this.moveToLineStart();
             }
             else {
@@ -777,7 +779,9 @@ export class Editor {
                 this.navigateHistory(1);
             }
             else if (this.isOnLastVisualLine()) {
-                // Already at bottom - jump to end of line
+                // QUINKI (T446): at the bottom edge behave like the RIGHT arrow near
+                // a chip (cross to its right side); otherwise jump to line end.
+                try { if (typeof this.qUpDownHop === "function" && this.qUpDownHop("down") === true) return; } catch { }
                 this.moveToLineEnd();
             }
             else {
