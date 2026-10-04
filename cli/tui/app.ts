@@ -2059,22 +2059,30 @@ const readProvidersCfg = (): any => {
         }
         if (menuStack.length > 0) {
           // Typing inside a submenu filters the options — never writes in the box.
-          if (data.length === 1 && data >= " " && data !== "\x7f") {
-            // Directory submenu: typing the path STARTS RIGHT HERE (no → needed):
-            // the row becomes "Path: …" and Enter confirms.
-            if (menuStack[0] === "directory" && menuStack[1] === "dirchange" && !dirTypeMode) {
-              dirTypeMode = true;
-              menuSubFilter = "";
+          // PASTES (Cmd+V) arrive as MULTI-CHAR chunks: they go into the FIELD too,
+          // never into the editor textbox (otherwise you could never paste a path).
+          if (data.length >= 1 && !data.includes("\x1b")) {
+            const printable = String(data)
+              .split("")
+              .filter((ch) => ch >= " " && ch !== "\x7f")
+              .join("");
+            if (printable) {
+              // Directory submenu: typing/pasting the path STARTS RIGHT HERE:
+              // the row becomes "Path: …" and Enter confirms.
+              if (menuStack[0] === "directory" && menuStack[1] === "dirchange" && !dirTypeMode) {
+                dirTypeMode = true;
+                menuSubFilter = "";
+              }
+              menuSubFilter += printable;
+              // Directory path: the cursor STAYS on the path row (Confirm appears).
+              if (menuStack[0] === "directory" && menuStack[1] === "dirchange") menuSel = 1;
+              else menuSel = 0;
+              menuConfirmFocus = false;
+              try {
+                ui.requestRender();
+              } catch {}
+              return { consume: true };
             }
-            menuSubFilter += data;
-            // Directory path: the cursor STAYS on the path row (Confirm appears).
-            if (menuStack[0] === "directory" && menuStack[1] === "dirchange") menuSel = 1;
-            else menuSel = 0;
-            menuConfirmFocus = false;
-            try {
-              ui.requestRender();
-            } catch {}
-            return { consume: true };
           }
           if (data === "\x7f" || data === "\x08" || matchesKey(data, "backspace")) {
             // backspace NEVER moves the selector: on the path field it deletes the
