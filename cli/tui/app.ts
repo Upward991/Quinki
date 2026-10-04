@@ -791,15 +791,32 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   // Header (fixed, top): chat title on the LEFT, working directory on the RIGHT
   // (no icon), drawn as a floating-panel block.
   let headerTitle = "New chat";
+  // The chat's directory — NEVER empty, NEVER "undefined": sidecar current → the
+  // session's own workingDir → local cwd → HOME → "/". A chat always HAS a directory.
+  const currentDirAny = (): string => {
+    try {
+      let sessDir = "";
+      try {
+        const e0: any = readSessionsList().find((x: any) => x?.key === currentKey);
+        sessDir = String(e0?.workingDir || "");
+      } catch {}
+      const cand = [String(qDirs?.current || ""), sessDir, String(currentCwd || ""), String(process.env.HOME || "")];
+      return cand.find((x) => x && x !== "undefined" && x !== "null") || "/";
+    } catch {
+      return "/";
+    }
+  };
   const fmtDirShort = (): string => {
     try {
-      // THE CHAT's directory (the session's workingDir via listWorkingDirs), NOT
-      // the CLI's local cwd — this is what the header (top-right) must show.
-      const d = String(qDirs?.current || currentCwd || "");
-      if (!d || d === "undefined" || d === "null") return "";
+      const d = currentDirAny();
       const home = process.env.HOME || "";
       return home && d.startsWith(home) ? "~" + d.slice(home.length) : d;
     } catch {
+      return "/";
+    }
+  };
+  const _unusedFmtDirShortOld = (): string => {
+    try {
       return "";
     }
   };
@@ -1501,7 +1518,7 @@ const readProvidersCfg = (): any => {
               .catch(() => {});
           }
         } catch {}
-        const cur = String(qDirs?.current || currentCwd || "");
+        const cur = currentDirAny();
         // Pending change: show the warning notice first (/quit style).
         if (dirPendingChange) {
           items.push({ value: "confirm", label: "", notice: dirPendingFiles + " file(s) remain in the previous folder. They stay there \u2014 move them yourself if you need them." });
@@ -2151,14 +2168,8 @@ const readProvidersCfg = (): any => {
     const sep = fg(C.textTertiary, " \u00b7 ");
     const quiet = (s: string) => fg(C.textTertiary, s);
     const modeStr = mode === "plan" ? fg(C.modePlan, "Plan (Tab)") : fg(C.modeBuild, "Build (Tab)");
-    const bar =
-      modeStr +
-      sep +
-      ctxStr +
-      sep +
-      quiet(modelId) +
-      sep +
-      quiet("Thinking: " + (thinkingOn ? "On" : "Off"));
+    // Bar = mode + counter ONLY: model and thinking are read in the footer (like the app).
+    const bar = modeStr + sep + ctxStr;
     // Status pill (app-style): same row as the info, right-aligned — visible
     // only while the engine streams / compacts (Failed stays until next turn).
     const pillOn =
