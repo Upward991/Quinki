@@ -5283,6 +5283,9 @@ const applySettingsPatch = (patch: any) => {
               ...(modelExplicit && wsModelId ? { model: wsModelId } : {}),
               ...(thinkingExplicit ? { thinkingLevel: thinkingOn ? "xhigh" : "off" } : {}),
               mode,
+              // BELT: the chat's directory travels WITH the turn — the engine can
+              // never run in a stale folder (pool workers, mid-session changes).
+              ...(() => { try { const d0 = currentDirAny(); return d0 ? { workingDirs: [d0] } : {}; } catch { return {}; } })(),
             },
             600000
           );
