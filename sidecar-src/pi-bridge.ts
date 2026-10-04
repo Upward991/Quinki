@@ -1478,8 +1478,8 @@ class PiBridge {
   }
 
   getHistory(key: string, limit?: number) {
-    // B0.5: aprire una chat = attività → touch + sweep LRU
-    this.#touchSession(key);
+    // Opening a chat is NOT activity: lastActivity = the LAST MESSAGE's time only.
+    // (The touch here made every peeked chat jump to the top — the user's bug.)
     this.#sweepInactive();
     // Recovery ON-OPEN: se la sessione APERTA ha un turno interrotto, ri-promptata.
     // (Il boot recovery è stato rimosso: mai ri-promptare chat non guardate.)
