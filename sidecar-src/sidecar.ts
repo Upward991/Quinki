@@ -618,7 +618,9 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     } catch { return { current: "", dirs: [], currentFiles: 0, defaultPath: "", legacyDir: "", legacyFiles: 0 } }
   },
   setWorkingDir: async (p) => {
-    piBridge!.setWorkingDir(String(p.sessionKey), String(p.path));
+    // THE BUG: the app and the CLI BOTH send `workingDir`; this read `p.path`
+    // → String(undefined) = the literal "undefined" was saved. Accept both names.
+    piBridge!.setWorkingDir(String(p?.sessionKey || ''), String(p?.workingDir ?? p?.path ?? ''));
     piBridge!.logDebug("working-dir-changed", { sessionKey: p.sessionKey, path: p.path });
     return { sessionKey: p.sessionKey, path: p.path };
   },
