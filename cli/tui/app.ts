@@ -2002,8 +2002,12 @@ const readProvidersCfg = (): any => {
       // handlers know (otherwise the Tab is silently LOST: no select, no toggle).
       try {
         const norm = String(data)
-          .replace(/\x1b\[9;1:1u$/, "\t")
-          .replace(/\x1b\[9:1u$/, "\t");
+          .replace(/\x1b\[13;1:1u$/, "\r")     // Enter (kitty press)
+          .replace(/\x1b\[127;1:1u$/, "\x7f")  // Backspace (kitty press)
+          .replace(/\x1b\[9;1:1u$/, "\t")      // Tab (kitty press)
+          .replace(/\x1b\[9:1u$/, "\t")
+          .replace(/\x1b\[1;1:1([ABCD])$/, (_: string, c2: string) => "\x1b[" + c2) // arrows (press)
+          .replace(/\x1b\[1;1([ABCD])$/, (_: string, c2: string) => "\x1b[" + c2);   // arrows (plain kitty)
         if (norm !== data) data = norm;
       } catch {}
       // BRACKETED PASTE (\x1b[200~ … \x1b[201~): the terminal wraps Cmd+V like
