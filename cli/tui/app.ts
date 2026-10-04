@@ -2432,7 +2432,7 @@ const readProvidersCfg = (): any => {
     };
     (editor as any).qTokenStyle = (tok: string) => qTokenStyle(tok);
     // ATOMIC chips: backspace ON a "\u25b8token" deletes the WHOLE token at once.
-    (editor as any).qAtomicDelete = () => {
+    (editor as any).qAtomicDelete = (forward?: boolean) => {
       try {
         const st: any = (editor as any).state;
         if (!st || !Array.isArray(st.lines)) return false;
@@ -2447,6 +2447,18 @@ const readProvidersCfg = (): any => {
           // The chips are followed by ONE space: the cursor right after it (b+1)
           // must still count as "on the chip" (otherwise the space is deleted and
           // the next word merges INTO the token).
+          if (forward) {
+            // DELETE (forward): the cursor at the chip's START (or inside it) kills it whole.
+            if (col >= a && col < b) {
+              const nl2 = line.slice(0, a) + (line.charAt(b) === " " ? line.slice(b + 1) : line.slice(b));
+              st.lines[st.cursorLine] = nl2;
+              try { (editor as any).setCursorCol(a); } catch {}
+              try { if (typeof (editor as any).onChange === "function") (editor as any).onChange(editor.getText()); } catch {}
+              try { ui.requestRender(); } catch {}
+              return true;
+            }
+            continue;
+          }
           if (col > a && col <= b + 1) {
             const nline = line.slice(0, a) + (line.charAt(b) === " " ? line.slice(b + 1) : line.slice(b));
             st.lines[st.cursorLine] = nline;

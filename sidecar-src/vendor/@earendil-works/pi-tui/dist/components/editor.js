@@ -680,6 +680,8 @@ export class Editor {
             return;
         }
         if (kb.matches(data, "tui.editor.deleteCharForward") || matchesKey(data, "shift+delete")) {
+            // QUINKI (T431): the FORWARD delete on a chip deletes the WHOLE chip too.
+            try { if (typeof this.qAtomicDelete === "function" && this.qAtomicDelete(true) === true) return; } catch { }
             this.handleForwardDelete();
             return;
         }
