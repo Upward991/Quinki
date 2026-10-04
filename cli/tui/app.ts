@@ -824,6 +824,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   // The chat's directory — NEVER empty, NEVER "undefined": sidecar current → the
   // session's own workingDir → local cwd → HOME → "/". A chat always HAS a directory.
   const currentDirAny = (): string => {
+    // The WELCOME has NO directory: it is generated when the chat actually starts.
+    // Only an explicitly chosen folder (the preview box) shows up there.
+    try { if (welcomeShown) return pendingWorkingDir || ""; } catch {}
     try {
       let sessDir = "";
       try {
@@ -1569,13 +1572,19 @@ const readProvidersCfg = (): any => {
         items.push({ value: "__dir_hdr", label: "List of directories", separator: true });
         let dirsAll: any[] = Array.isArray(qDirs?.dirs) ? qDirs.dirs.slice() : [];
         try {
-          if (welcomeShown && pendingWorkingDir) {
-            dirsAll = dirsAll.filter((d: any) => String(d?.path || "") !== pendingWorkingDir);
-            dirsAll = [{ path: pendingWorkingDir, current: true }, ...dirsAll.map((d: any) => ({ ...d, current: false }))];
+          if (welcomeShown) {
+            // WELCOME: nothing is "current" — the directory is born with the chat.
+            // The list is just the preview: only a folder YOU pick gets the dot.
+            if (pendingWorkingDir) {
+              dirsAll = dirsAll.filter((d: any) => String(d?.path || "") !== pendingWorkingDir);
+              dirsAll = [{ path: pendingWorkingDir, current: true }, ...dirsAll.map((d: any) => ({ ...d, current: false }))];
+            } else {
+              dirsAll = dirsAll.map((d: any) => ({ ...d, current: false }));
+            }
           }
         } catch {}
         dirsAll.sort((a: any, b: any) => (a?.current === b?.current ? 0 : (a?.current ? -1 : 1)));
-        if (!dirsAll.length && cur) dirsAll.push({ path: cur, current: true });
+        if (!dirsAll.length && cur && !welcomeShown) dirsAll.push({ path: cur, current: true });
         for (const dd of dirsAll) {
           const dp = String(dd?.path || "");
           if (!dp) continue;
