@@ -456,6 +456,8 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     // Usato dall'Expert (chiave fissa __app_expert__) che NON passa da createSession:
     // senza entry, send() esce subito (no msg-in, nessuna risposta).
     const s = piBridge!.create(String(p.sessionKey), p.label || "Chat");
+    // The directory chosen in the welcome travels into the new chat (persisted!).
+    if (p && p.workingDir) { try { piBridge!.setWorkingDir(s.key, String(p.workingDir)); } catch {} }
     return { sessionKey: p.sessionKey, label: s.label };
   },
   recoverSession: async (p) => {

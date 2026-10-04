@@ -659,12 +659,21 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     } catch { t = ensureDir(defaultDirPath()); }
     dirPendingChange = "";
     dirPendingFiles = 0;
-    try {
-      const call = (globalThis as any).__sidecarCall;
-      if (call) void call("setWorkingDir", { sessionKey: currentKey, workingDir: t }, 30000).catch(() => {});
-    } catch {}
+    let isWelcome2 = false;
+    try { isWelcome2 = welcomeShown || !currentKey; } catch {}
+    if (isWelcome2) {
+      // No chat yet: the choice applies to the NEW chat (persisted at creation).
+      try { pendingWorkingDir = t; } catch {}
+    } else {
+      try {
+        const call = (globalThis as any).__sidecarCall;
+        if (call) void call("setWorkingDir", { sessionKey: currentKey, workingDir: t }, 30000).catch(() => {});
+      } catch {}
+      try { void recreateSession({ newCwd: t }); } catch {}
+    }
     try { qDirs = null; qDirsAt = 0; } catch {}
-    try { void recreateSession({ newCwd: t }); } catch {}
+    // ALWAYS back to the list: the new folder shows up marked (●).
+    try { menuStack = ["directory"]; menuSubFilter = ""; menuSel = 0; } catch {}
     try { ui.requestRender(); } catch {}
   };
   const pickFolder = () => {
@@ -813,7 +822,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         const e0: any = readSessionsList().find((x: any) => x?.key === currentKey);
         sessDir = String(e0?.workingDir || "");
       } catch {}
-      const cand = [String(qDirs?.current || ""), sessDir, String(currentCwd || ""), String(process.env.HOME || "")];
+      const cand = [String((typeof welcomeShown !== "undefined" && welcomeShown && pendingWorkingDir) || ""), String(qDirs?.current || ""), sessDir, String(currentCwd || ""), String(process.env.HOME || "")];
       const chosen = cand.find((x) => x && x !== "undefined" && x !== "null") || "/";
       // The folder may have been deleted on the computer: the chat falls back to the
       // default directory (recreated) — exactly like the app.
@@ -964,6 +973,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         folderId: null,
         compactionAuto: true,
         compactionThreshold: 80,
+        workingDir: pendingWorkingDir || undefined,
         model: (session as any)?.model?.id || "",
         thinkingLevel: thinkingOn ? "xhigh" : "off",
         mode,
@@ -1549,7 +1559,13 @@ const readProvidersCfg = (): any => {
         }
         items.push({ value: "__dir_change", label: "Change directory\u2026", description: "" });
         items.push({ value: "__dir_hdr", label: "List of directories", separator: true });
-        const dirsAll: any[] = Array.isArray(qDirs?.dirs) ? qDirs.dirs.slice() : [];
+        let dirsAll: any[] = Array.isArray(qDirs?.dirs) ? qDirs.dirs.slice() : [];
+        try {
+          if (welcomeShown && pendingWorkingDir) {
+            dirsAll = dirsAll.filter((d: any) => String(d?.path || "") !== pendingWorkingDir);
+            dirsAll = [{ path: pendingWorkingDir, current: true }, ...dirsAll.map((d: any) => ({ ...d, current: false }))];
+          }
+        } catch {}
         dirsAll.sort((a: any, b: any) => (a?.current === b?.current ? 0 : (a?.current ? -1 : 1)));
         if (!dirsAll.length && cur) dirsAll.push({ path: cur, current: true });
         for (const dd of dirsAll) {
@@ -2146,6 +2162,7 @@ const readProvidersCfg = (): any => {
   let menuStack: string[] = [];
   let menuMarked = new Set<string>();
   let dirTypeMode = false; // "Type path": the menu becomes a path input
+  let pendingWorkingDir = ""; // /directory chosen in the welcome -> the new chat
   let menuItemsCache: any[] = []; // open menu path: [], [cmd] or ["agent", ...deeper levels]
   let lastNavA = ""; // last navigation direction (duplicate-event collapse)
   let lastNavT = 0;
@@ -5193,7 +5210,7 @@ const applySettingsPatch = (patch: any) => {
       };
       void (async () => {
         try {
-          await sc.call("ensureSession", { sessionKey: sk, label: "Chat" }, 20000);
+          await sc.call("ensureSession", { sessionKey: sk, label: "Chat", workingDir: pendingWorkingDir || undefined }, 20000);
           // Sync the engine with the session's REAL configuration: agents in the
           // chat (default quinki), mode, model and thinking — otherwise the
           // runtime runs a bare session without the user's tools/skills/MCP.
