@@ -664,7 +664,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         const old = String(qDirs?.current || currentCwd || "");
         let n = 0;
         try { n = require("fs").readdirSync(old).filter((x: string) => !x.startsWith(".")).length; } catch {}
-        if (n > 0) { dirPendingChange = picked; dirPendingFiles = n; try { /* no textbox pollution */ } catch {} }
+        if (n > 0) { dirPendingChange = picked; dirPendingFiles = n; try { menuStack = ["directory"]; menuSubFilter = ""; menuSel = 0; } catch {} }
         else applyDirChange(picked);
         try { ui.requestRender(); } catch {}
       });
@@ -2109,6 +2109,7 @@ const readProvidersCfg = (): any => {
   let menuError = ""; // error shown INSIDE the slash menu (never in the chat)
   let menuStack: string[] = [];
   let menuMarked = new Set<string>();
+  let dirTypeMode = false; // "Type path": the menu becomes a path input
   let menuItemsCache: any[] = []; // open menu path: [], [cmd] or ["agent", ...deeper levels]
   let lastNavA = ""; // last navigation direction (duplicate-event collapse)
   let lastNavT = 0;
@@ -4028,7 +4029,18 @@ const readProvidersCfg = (): any => {
       return;
     }
   };
+  const dirChangeItems = (): any[] => {
+    if (dirTypeMode) {
+      const tp = menuSubFilter;
+      return [{ value: "__dir_typed", label: "Path: " + (tp || "\u2026"), description: tp ? "Enter: change the folder" : "Type or paste a folder path, then Enter" }];
+    }
+    return [
+      { value: "__dir_pick", label: "Select folder\u2026", description: "Open the macOS folder picker" },
+      { value: "__dir_type", label: "Type path\u2026", description: "Type or paste a folder path" },
+    ];
+  };
   const levelItems = (stack: string[]): any[] => {
+    if (stack[0] === "directory" && stack[1] === "dirchange") return dirChangeItems();
     if (stack.length === 0) return mainItems();
     if (stack[0] === "agentinsession") return agentLevelItems(stack);
     if (stack[0] === "settings") return settingsLevelItems(stack);
@@ -4048,6 +4060,7 @@ const readProvidersCfg = (): any => {
     }
   };
   const applyFilter = (items: any[]): any[] => {
+    if (dirTypeMode) return items; // the path input is never filtered away
     const f = menuSubFilter.toLowerCase();
     if (!f) return items;
     return items.filter(
@@ -4174,16 +4187,37 @@ const readProvidersCfg = (): any => {
         }
 
         if (cmdName === "directory") {
-          // Tab on a directory row = move the chat there (dot moves, menu stays;
-          // files warning via the same in-menu confirm).
+          // ENTER semantics (user rule): on a directory row -> OPEN THE FOLDER in
+          // Finder; on "Change directory…" -> the submenu (Select folder / Type path);
+          // on the warning notice -> confirm the move. Tab (separate handler) moves.
           const vD = String(it.value ?? "");
-          if (vD.startsWith("__dir_use:")) {
-            const tD = vD.slice(10);
-            const oldD = String(qDirs?.current || currentCwd || "");
-            let nD = 0;
-            try { nD = require("fs").readdirSync(oldD).filter((x: string) => !x.startsWith(".")).length; } catch {}
-            if (nD > 0 && tD !== oldD) { dirPendingChange = tD; dirPendingFiles = nD; try { /* no textbox pollution */ } catch {} }
-            else applyDirChange(tD);
+          try { require("fs").appendFileSync("/tmp/q-dir-trace.log", new Date().toISOString() + " dir ENTER it=" + JSON.stringify(vD) + " stack=" + menuStack.join("/") + " typeMode=" + dirTypeMode + "\n"); } catch {}
+          if (menuStack[1] === "dirchange" || dirTypeMode) {
+            if (vD === "__dir_pick") {
+              pickFolder(); // the NATIVE macOS folder picker
+            } else if (vD === "__dir_type") {
+              dirTypeMode = true;
+              menuSubFilter = "";
+            } else if (vD === "__dir_typed" || dirTypeMode) {
+              const tp = menuSubFilter.trim();
+              if (tp) applyDirChange(tp === "~" ? os.homedir() : tp);
+              dirTypeMode = false;
+              menuSubFilter = "";
+              menuStack = ["directory"];
+            }
+          } else if (vD.startsWith("__dir_use:")) {
+            try { require("fs").appendFileSync("/tmp/q-dir-trace.log", "  -> openFolder " + vD.slice(10) + "\n"); } catch {}
+            openFolder(vD.slice(10));
+          } else if (vD === "__dir_change") {
+            menuStack.push("dirchange");
+            menuSubFilter = "";
+            menuSel = 0;
+            menuConfirmFocus = false;
+          } else if (vD === "confirm") {
+            applyDirChange(dirPendingChange);
+          } else if (vD && !vD.startsWith("__")) {
+            applyDirChange(vD === "~" ? os.homedir() : vD);
+            menuStack = ["directory"];
           }
           try { ui.requestRender(); } catch {}
           return;
@@ -4234,6 +4268,7 @@ const readProvidersCfg = (): any => {
         return false;
       }
 
+      if (menuStack[0] === "directory") return true; // Enter executes (open / change / pick)
       if (menuStack[0] === "settings") {
 
         const inModelsLv = menuStack[3] === "models";
@@ -4325,6 +4360,19 @@ const readProvidersCfg = (): any => {
           if (v.startsWith("prov:")) { const nm = v.slice(5); patchProvider(nm, (pp) => { pp.enabled = !pp.enabled; }); }
         } else if (inModels) {
           settingsActivate(String(it?.value || ""));
+        } else if (menuStack[0] === "directory" && !menuStack[1] && it && !it.separator) {
+          // Tab on a directory row = MOVE the chat to that folder (dot moves).
+          const vD2 = String(it.value ?? "");
+          if (vD2.startsWith("__dir_use:")) {
+            const tD2 = vD2.slice(10);
+            const oldD2 = currentDirAny();
+            let nD2 = 0;
+            try { nD2 = require("fs").readdirSync(oldD2).filter((x: string) => !x.startsWith(".")).length; } catch {}
+            if (nD2 > 0 && tD2 !== oldD2) { dirPendingChange = tD2; dirPendingFiles = nD2; }
+            else applyDirChange(tD2);
+          }
+          try { ui.requestRender(); } catch {}
+          return;
         } else if (inFallbacks && it && !it.separator) {
           const v = String(it.value || "");
           if (menuMarked.has(v)) menuMarked.delete(v); else menuMarked.add(v);
@@ -4371,6 +4419,13 @@ const readProvidersCfg = (): any => {
         return from;
       };
       if (a === "escape") {
+        if (dirTypeMode) {
+          dirTypeMode = false;
+          menuSubFilter = "";
+          menuStack = ["directory"];
+          try { ui.requestRender(); } catch {}
+          return;
+        }
         if (menuError) {
           // Dismiss the error: back to the menu you came from.
           menuError = "";
@@ -4454,6 +4509,16 @@ const readProvidersCfg = (): any => {
           }
         }
       } else {
+        if (dirTypeMode) {
+          // Type path: Enter applies the typed/pasted folder.
+          const tp2 = menuSubFilter.trim();
+          if (tp2) applyDirChange(tp2 === "~" ? os.homedir() : tp2);
+          dirTypeMode = false;
+          menuSubFilter = "";
+          menuStack = ["directory"];
+          try { ui.requestRender(); } catch {}
+          return;
+        }
         // MENU 2.0: Enter is active ONLY when the bar shows Confirm (Enter).
         try {
           const curIt: any = (menuItemsCache || [])[menuSel];
