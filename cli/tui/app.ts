@@ -4345,6 +4345,17 @@ const readProvidersCfg = (): any => {
       if (t1 !== t0) editor.setText(t1);
     } catch {}
   };
+  // CLOSE EVERYTHING: the menu levels, the filter, the confirm focus AND the
+  // "/command" text — the slash menu can never stay stuck open after a confirm.
+  const qCloseMenus = (): void => {
+    try {
+      menuStack = [];
+      menuSubFilter = "";
+      menuSel = 0;
+      menuConfirmFocus = false;
+      clearSlashText();
+    } catch {}
+  };
   const menuOpen = (): boolean => {
     if (menuStack.length > 0) return true;
     return editorText().startsWith("/");
@@ -4415,9 +4426,7 @@ const readProvidersCfg = (): any => {
               qCursorEnd();
             }
           } catch {}
-          menuStack = [];
-          menuSubFilter = "";
-          clearSlashText();
+          qCloseMenus();
           menuMarked.clear();
           try { ui.requestRender(); } catch {}
           return;
@@ -4444,9 +4453,7 @@ const readProvidersCfg = (): any => {
                 }
               }
             } catch {}
-            menuStack = [];
-            menuSubFilter = "";
-            clearSlashText();
+            qCloseMenus();
             menuMarked.clear();
           } else if (vA === "__at_new") {
             try {
