@@ -884,7 +884,8 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   };
   const titleText = new FnLine((w: number) => {
     const t = fg(C.text, headerTitle);
-    const dir = fmtDirShort();
+    const dirFull = fmtDirShort();
+    const dir = dirFull ? "Directory: " + String(dirFull).replace(/\/+$/, "").split("/").pop() : "";
     const wc = Math.min(w, chatMaxCols());
     // EXACT box layout: violet bar, TWO black columns, panel content, TWO black
     // columns, violet bar — same width as the composer, same margins.
@@ -3474,6 +3475,7 @@ const readProvidersCfg = (): any => {
   };
 
   const handleSlash = (raw: string) => {
+    try { require("fs").appendFileSync("/tmp/q-dir-trace.log", new Date().toISOString() + " handleSlash raw=" + JSON.stringify(raw) + "\n"); } catch {}
     const parts = raw.slice(1).split(/\s+/);
     const cmd = (parts.shift() || "").toLowerCase();
     const arg = parts.join(" ").trim();
@@ -4727,14 +4729,18 @@ const readProvidersCfg = (): any => {
           try { ui.requestRender(); } catch {}
           return;
         }
-        // MENU 2.0: Enter is active ONLY when the bar shows Confirm (Enter).
-        try {
-          const curIt: any = (menuItemsCache || [])[menuSel];
-          if (!needsConfirmFor(curIt)) {
-            try { ui.requestRender(); } catch {}
-            return;
-          }
-        } catch {}
+        try { require("fs").appendFileSync("/tmp/q-dir-trace.log", new Date().toISOString() + " enter stack=" + JSON.stringify(menuStack) + " sel=" + menuSel + "\n"); } catch {}
+        // MENU 2.0: Enter is active ONLY when the bar shows Confirm (Enter) —
+        // EXCEPT on the command list (stack empty): there Enter RUNS the command.
+        if (menuStack.length > 0) {
+          try {
+            const curIt: any = (menuItemsCache || [])[menuSel];
+            if (!needsConfirmFor(curIt)) {
+              try { ui.requestRender(); } catch {}
+              return;
+            }
+          } catch {}
+        }
         // enter — app rules: Enter NEVER confirms directly. On a terminal option
         // the first Enter (or →) only LIGHTS the Confirm button; a second Enter,
         // with Confirm lit, executes. Opening a submenu is navigation, not a
