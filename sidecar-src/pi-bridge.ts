@@ -8377,7 +8377,10 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
                 ? e.message.content.length - textContent.length
                 : "n/a-array",
             });
-            const doneAgentId = this.#resolveAgentId(key);
+            // THE agent that replied: orchestrator when present, else the first of the
+            // chat (the app's own rule) — NEVER the whole joined list.
+            const _doneIds = String(this.#resolveAgentId(key) || '').split(',').map((x: string) => x.trim()).filter(Boolean);
+            const doneAgentId = _doneIds.find((x: string) => x === 'orchestrator') || _doneIds[0] || 'orchestrator';
             let doneAgentName = '';
             if (doneAgentId && doneAgentId !== 'orchestrator') {
               try { const doneCfg = this.#readAgentConfig(doneAgentId); doneAgentName = doneCfg?.name || doneAgentId; } catch {}

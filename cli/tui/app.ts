@@ -979,6 +979,12 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       return {};
     }
   };
+  // The ONE agent that replied (the app's rule): orchestrator wins when present,
+  // else the first of the chat. NEVER the whole joined list.
+  const oneAgentId = (v: any): string => {
+    const ids = String(v || "").split(",").map((x) => x.trim()).filter(Boolean);
+    return ids.find((x) => x === "orchestrator") || ids[0] || "quinki";
+  };
   const agentDisplayName = (id: string): string =>
     String(agentConfigOf(id)?.name || (id === "orchestrator" ? "Orchestrator" : id));
   const agentIdsKnown = (): string[] => {
@@ -2381,7 +2387,7 @@ const readProvidersCfg = (): any => {
         if (mk && e0?.messageAgents?.[mk]) agentName = String(e0.messageAgents[mk]);
         if (mk && e0?.messageThinking?.[mk]) lvl = String(e0.messageThinking[mk]);
       } catch {}
-      agentName = String(agentName).split(",")[0].trim() || "quinki"; // ONE agent
+      agentName = oneAgentId(agentName); // ONE agent
       pushBlock(new FooterRow(fmtFooterDate(Date.now()), agentDisplayName(agentName) + " \u00b7 " + (wsModelId || defaultModelId || "") + " \u00b7 " + levelLabel(lvl), true));
     } catch {}
   };
@@ -2479,7 +2485,7 @@ const readProvidersCfg = (): any => {
             if (mk && e0?.messageAgents?.[mk]) agentName = String(e0.messageAgents[mk]);
             if (mk && e0?.messageThinking?.[mk]) lvl = String(e0.messageThinking[mk]);
           } catch {}
-          agentName = String(agentName).split(",")[0].trim() || "quinki"; // ONE agent only
+          agentName = oneAgentId(agentName); // ONE agent only
           pushBlock(new FooterRow(fmtFooterDate(Date.now()), agentDisplayName(agentName) + " \u00b7 " + (wsModelId || defaultModelId || "") + " \u00b7 " + levelLabel(lvl), true));
         } catch {}
         }
@@ -2715,7 +2721,7 @@ const readProvidersCfg = (): any => {
       } else if (method === "done") {
         // The REAL agent that replied travels here (same as the app): remember it
         // so the footer shows THAT agent, never the chat's whole list.
-        try { if (p?.agentName) lastDoneAgent = String(p.agentName); } catch {}
+        try { if (p?.agentName) lastDoneAgent = oneAgentId(p.agentName); } catch {}
         onSessionEvent({ type: "message_end", message: { role: "assistant", stopReason: p?.stopReason } });
       } else if (method === "streaming_stopped") {
         onSessionEvent({ type: "agent_end" });
@@ -2773,11 +2779,8 @@ const readProvidersCfg = (): any => {
         // Errors from the runtime (500s etc.) must be VISIBLE in the CLI too.
         setStatus("Failed", "failed");
         const em = String(p?.message || "Unknown error");
-        pushBlock(
-          registerToggle(
-            new ToggleBlock({ label: "Error", boldName: "", color: C.danger, body: em, open: true })
-          )
-        );
+        // PLAIN red writing (like the app): errors are NEVER toggles.
+        pushBlock({ render: (w: number) => wrapPlain(em, Math.max(10, w)).map((ln: string) => fg(C.danger, ln)), invalidate: () => {} } as any);
         scrollToEnd();
       } else if (method === "session_created" || method === "session_deleted") {
         // INSTANT sync: a chat created/deleted anywhere (app, other CLI) shows here.
@@ -2976,7 +2979,7 @@ const readProvidersCfg = (): any => {
                     tg.children.push({
                       t: "footer",
                       date: fmtFooterDate(bts),
-                      info: agentDisplayName(String(m.agentName || "")) + " \u00b7 " + String(m.agentModel || m.model || "") + " \u00b7 " + levelLabel(String(m.thinkingLevel || "off")),
+                      info: agentDisplayName(oneAgentId(m.agentName)) + " \u00b7 " + String(m.agentModel || m.model || "") + " \u00b7 " + levelLabel(String(m.thinkingLevel || "off")),
                     });
                   } catch {}
                 }
@@ -2985,7 +2988,7 @@ const readProvidersCfg = (): any => {
             try {
               const dts = Number(m.timestamp) || Date.now();
               tg._taskFooterDate = fmtFooterDate(dts);
-              tg._taskFooterInfo = agentDisplayName(String(m.agentName || "")) + " \u00b7 " + String(m.agentModel || m.model || defaultModelId || "") + " \u00b7 " + levelLabel(String(m.thinkingLevel || "off"));
+              tg._taskFooterInfo = agentDisplayName(oneAgentId(m.agentName)) + " \u00b7 " + String(m.agentModel || m.model || defaultModelId || "") + " \u00b7 " + levelLabel(String(m.thinkingLevel || "off"));
             } catch {}
             pushBlock(registerToggle(tg));
           } else if (m?.role === "assistant") {
@@ -2997,7 +3000,9 @@ const readProvidersCfg = (): any => {
               continue;
             }
             if (m?.isError && (m as any).errorContent) {
-              pushBlock(registerToggle(new ToggleBlock({ label: "Error", boldName: "", color: C.danger, body: String((m as any).errorContent), open: true })));
+              const ec = String((m as any).errorContent);
+              // PLAIN red writing: never a toggle.
+              pushBlock({ render: (w: number) => wrapPlain(ec, Math.max(10, w)).map((ln: string) => fg(C.danger, ln)), invalidate: () => {} } as any);
               continue;
             }
             if (m?.reasoning) pushBlock(registerToggle(new ToggleBlock({ label: "Thinking", color: C.thinking, italic: true, body: String(m.reasoning) })));
@@ -3046,6 +3051,7 @@ const readProvidersCfg = (): any => {
                 const ids = sessionAgentIds();
                 an = ids.find((x) => x === "orchestrator") || ids[0] || "quinki";
               }
+              an = oneAgentId(an); // NEVER the joined list: ONE agent only
               pushBlock(new FooterRow(fmtFooterDate(Number(m.timestamp) || Date.now()), agentDisplayName(an) + " \u00b7 " + String(m.model || defaultModelId || "") + " \u00b7 " + levelLabel(String(m.thinkingLevel || "off")), true));
             }
           }
@@ -3167,7 +3173,7 @@ const readProvidersCfg = (): any => {
               const mid = String(m.id || "");
               const mts = Date.parse(m.timestamp || "") || 0;
               const mk = mid && e0?.messageAgents?.[mid] ? mid : mts ? "ts-" + mts : "";
-              if (mk && e0?.messageAgents?.[mk]) an = String(e0.messageAgents[mk]).split(",")[0].trim();
+              if (mk && e0?.messageAgents?.[mk]) an = oneAgentId(e0.messageAgents[mk]);
               if (mk && e0?.messageThinking?.[mk]) lv = String(e0.messageThinking[mk]);
               pushBlock(
                 new FooterRow(
