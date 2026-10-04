@@ -4442,9 +4442,8 @@ const cmd: any = commands.find((c) => c.name === it.value);
             menuStack = [];
             menuSubFilter = "";
             menuSel = 0;
-            try {
-              editor.setText("");
-            } catch {}
+            // NOTE: do NOT clear the textbox here — it wiped the chips the user had
+            // just added from the menu (attachments/skills).
             handleSlashRef?.("/" + cmdName + " " + String(it.value ?? it.label ?? ""));
           } else {
             const cmd: any = commands.find((c) => c.name === it.value);
@@ -4808,7 +4807,7 @@ const applySettingsPatch = (patch: any) => {
           if (label.startsWith("\u25cb ")) label = "\u25cf " + label.slice(2);
           else if (!label.startsWith("\u25cf")) label = "\u25cf " + label;
         }
-        if ((it as any)._lit) label = fg(C.primary, label);
+        // NEVER color labels: only the selector (bg) may be violet.
         if (visibleWidth(label) > w - 2) label = label.slice(0, Math.max(0, w - 2));
         if (visibleWidth(label) + 2 + visibleWidth(desc) > w) {
           const room = w - visibleWidth(label) - 2;
