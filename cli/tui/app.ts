@@ -4916,7 +4916,10 @@ const cmd: any = commands.find((c) => c.name === it.value);
           // Confirm is LIT: this Enter executes the selection.
           menuConfirmFocus = false;
           if (!it || it.separator) return;
-          if (menuStack[0] === "settings") {
+          if (menuStack[0] === "skill" || menuStack[0] === "attachments") {
+            // The ONE chips path (it closes the menu AND clears the "/skill" text).
+            runItem(it);
+          } else if (menuStack[0] === "settings") {
           runItem(it);
         } else if (menuStack[0] === "agentinsession") {
             // The agent menus NEVER close: every action returns to its parent level.
