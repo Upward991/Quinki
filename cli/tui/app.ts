@@ -844,7 +844,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         sessDir = String(e0?.workingDir || "");
       } catch {}
       const qCur = qDirsKey === currentKey ? String(qDirs?.current || "") : ""; // never a stale chat's dir
-      const cand = [String((typeof welcomeShown !== "undefined" && welcomeShown && pendingWorkingDir) || ""), qCur, sessDir, String(currentCwd || ""), String(process.env.HOME || "")];
+      const cand = [String((typeof welcomeShown !== "undefined" && welcomeShown && pendingWorkingDir) || ""), sessDir, qCur, String(currentCwd || ""), String(process.env.HOME || "")];
       const chosen = cand.find((x) => x && x !== "undefined" && x !== "null") || "/";
       // The folder may have been deleted on the computer: the chat falls back to the
       // default directory (recreated) — exactly like the app.
@@ -5216,7 +5216,9 @@ const applySettingsPatch = (patch: any) => {
       welcomeShown = false;
       applyLayout(false);
       // The new chat has its OWN directory data: drop the welcome's (stale) one.
-      try { qDirs = null; qDirsKey = ""; qDirsKick(); } catch {}
+      // (The refetch happens AFTER ensureSession — before that the sidecar would
+      // answer with the default folder, which then wrongly sticks in the header.)
+      try { qDirs = null; qDirsKey = ""; } catch {}
     }
     // User bubble with the footer INSIDE it (no info glyph on user messages).
     // ONE push only — the old plain Text bubble was removed (it doubled).
@@ -5279,6 +5281,8 @@ const applySettingsPatch = (patch: any) => {
         try {
           try { require("fs").appendFileSync("/tmp/q-dir-trace.log", new Date().toISOString() + " send ensureSession sk=" + sk + " pending=" + JSON.stringify(pendingWorkingDir) + "\n"); } catch {}
           await sc.call("ensureSession", { sessionKey: sk, label: "Chat", workingDir: (pendingWorkingDir && pendingWorkingDir !== "undefined" ? pendingWorkingDir : undefined) }, 20000);
+          // Now the sidecar knows the session: fetch the real list for the header.
+          try { qDirs = null; qDirsKey = ""; qDirsKick(); } catch {}
           // The welcome preview CLEARS once the chat is born (the dir now lives in the chat).
           try { if (pendingWorkingDir) pendingWorkingDir = ""; } catch {}
           // Sync the engine with the session's REAL configuration: agents in the
