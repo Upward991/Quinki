@@ -1226,6 +1226,18 @@ const readProvidersCfg = (): any => {
       try { ui.requestRender(); } catch {}
     } catch {}
   };
+  // Fallbacks source of truth (like the app): the SESSION's fallbackModels in a chat,
+  // the global defaultFallbackModels in the welcome. Never "nothing".
+  const fbSeedList = (): any[] => {
+    try {
+      if (currentKey && !welcomeShown) {
+        const e0: any = readSessionsList().find((x: any) => x?.key === currentKey);
+        if (e0 && Array.isArray(e0.fallbackModels)) return e0.fallbackModels;
+      }
+    } catch {}
+    try { const ff = readSettingsFile().defaultFallbackModels; if (Array.isArray(ff)) return ff; } catch {}
+    return Array.isArray(wsSettings?.defaultFallbackModels) ? wsSettings.defaultFallbackModels : [];
+  };
   const settingsMenuItems = (): any[] => {
     const thM = String(wsSettings?.defaultThinkingLevel || readProvidersCfg().defaultThinking || "xhigh");
     let fbM = 0;
@@ -1259,11 +1271,8 @@ const readProvidersCfg = (): any => {
       ];
     }
     if (stack[2] === "model") return modelPickerItems(String(readProvidersCfg().defaultModel || defaultModelId || ""));
-    if (lastLv === "addfallback") return modelPickerItems("", (Array.isArray(wsSettings?.defaultFallbackModels) ? wsSettings.defaultFallbackModels : []));
-    const fbFromFile = (): any[] => {
-      try { const ff = readSettingsFile().defaultFallbackModels; if (Array.isArray(ff)) return ff; } catch {}
-      return Array.isArray(wsSettings?.defaultFallbackModels) ? wsSettings.defaultFallbackModels : [];
-    };
+    if (lastLv === "addfallback") return modelPickerItems("", fbSeedList());
+    const _fbFromFileUnused = null;
     if (lv === "fallbacks" || stack[2] === "fallbacks") {
       // FULL model list: Space selects the fallbacks; the selection order IS the
       // fallback order (1., 2., 3. ...). Deselect -> the rest re-rank.
@@ -4072,10 +4081,16 @@ const readProvidersCfg = (): any => {
           try { ui.requestRender(); } catch {}
           return;
         }
-        if (menuStack[1] === "defaults" && menuStack[2] === "fallbacks") {
+        if (menuStack[1] === "fallbacks" || (menuStack[1] === "defaults" && menuStack[2] === "fallbacks")) {
+          // SAVE (Confirm/Enter or terminal row): the session (in a chat — the app reads
+          // it there) AND the global default (the app's Settings -> Fallback models).
           const order = Array.from(menuMarked);
-          try { void sc.call('setSessionFallbacks', { sessionKey: currentKey, models: order }, 20000).catch(() => {}); } catch {}
+          if (currentKey && !welcomeShown) {
+            try { void sc.call('setSessionFallbacks', { sessionKey: currentKey, models: order }, 20000).catch(() => {}); } catch {}
+          }
+          try { void sc.call('setDefaultFallbacks', { models: order }, 20000).catch(() => {}); } catch {}
           try { wsSettings = { ...(wsSettings || {}), defaultFallbackModels: order }; } catch {}
+          try { refreshSessions(); } catch {}
           try { ui.requestRender(); } catch {}
           return;
         }
@@ -4228,6 +4243,7 @@ const readProvidersCfg = (): any => {
         // UPDATED with the flattened menu (T315): the levels are now top-level
         // "model" / "fallbacks" / "thinking" — the old nested paths kept as alias.
         const inFbLv = menuStack[1] === "fallbacks" || (menuStack[1] === "defaults" && menuStack[2] === "fallbacks");
+        if (inFbLv) return menuMarked.size > 0; // Confirm (Enter) appears once a fallback is marked
         const inDefModelLv = menuStack[1] === "model" || menuStack[1] === "thinking" || (menuStack[1] === "defaults" && (menuStack[2] === "model" || menuStack[2] === "thinking"));
         return (inFbLv || inDefModelLv || inModelsLv || inProvLv) ? false : !settingsDeeper(cur);
 
@@ -4314,10 +4330,12 @@ const readProvidersCfg = (): any => {
           if (menuMarked.has(v)) menuMarked.delete(v); else menuMarked.add(v);
           try {
             const order = Array.from(menuMarked);
-            void sc.call('setSessionFallbacks', { sessionKey: currentKey, models: order }, 20000).catch(() => {});
-            // ALSO the global (the app's Settings UI reads this file): right param!
+            if (currentKey && !welcomeShown) {
+              void sc.call('setSessionFallbacks', { sessionKey: currentKey, models: order }, 20000).catch(() => {});
+            }
             void sc.call('setDefaultFallbacks', { models: order }, 20000).catch(() => {});
             wsSettings = { ...(wsSettings || {}), defaultFallbackModels: order };
+            refreshSessions();
           } catch {}
         }
       } catch {}
@@ -4414,7 +4432,7 @@ const readProvidersCfg = (): any => {
               // entering the fallbacks editor: seed the selection with the saved ones
               try {
                 if (deeper === "fallbacks") {
-                  const cur = (() => { try { const ff = readSettingsFile().defaultFallbackModels; if (Array.isArray(ff)) return ff; } catch {} return []; })();
+                  const cur = fbSeedList();
                   menuMarked = new Set<string>(cur.map((x: any) => String(x)));
                 } else {
                   menuMarked = new Set<string>();
@@ -4459,7 +4477,7 @@ const readProvidersCfg = (): any => {
               menuSel = 0;
               try {
                 if (deeper === "fallbacks") {
-                  const cur = (() => { try { const ff = readSettingsFile().defaultFallbackModels; if (Array.isArray(ff)) return ff; } catch {} return []; })();
+                  const cur = fbSeedList();
                   menuMarked = new Set<string>(cur.map((x: any) => String(x)));
                 } else {
                   menuMarked = new Set<string>();
@@ -4479,7 +4497,7 @@ const readProvidersCfg = (): any => {
               // entering the fallbacks editor: seed the selection with the saved ones
               try {
                 if (deeper === "fallbacks") {
-                  const cur = (() => { try { const ff = readSettingsFile().defaultFallbackModels; if (Array.isArray(ff)) return ff; } catch {} return []; })();
+                  const cur = fbSeedList();
                   menuMarked = new Set<string>(cur.map((x: any) => String(x)));
                 } else {
                   menuMarked = new Set<string>();
