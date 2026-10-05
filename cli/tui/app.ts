@@ -5777,14 +5777,11 @@ const readProvidersCfg = (): any => {
           } else if (menuStack.length > 0) {
             runItem(it); // MENU 2.0: Enter executes (never navigates)
           } else {
-const cmd: any = commands.find((c) => c.name === it.value);
-            if (cmd) {
-              // MENU 2.0: Enter RUNS the command — it never opens its menu.
-              try { editor.setText(""); } catch {}
-              menuSel = 0;
-              handleSlashRef?.("/" + cmd.name);
-              try { ui.requestRender(); } catch {}
-            }
+            // T514 (the user's rule): at the ROOT the bar shows NO Confirm, so the
+            // Enter must do ABSOLUTELY NOTHING. Commands open with the FORWARD
+            // arrow; a fully typed plain command ("/reload") is run by the
+            // bulletproof path above (the box must contain the real text).
+            try { ui.requestRender(); } catch {}
           }
         } else {
           // Confirm is LIT: this Enter executes the selection.
