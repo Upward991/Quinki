@@ -1353,7 +1353,15 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   // applied to the new session on the first send, then reset to the defaults.
   let qWelcomeAgents: string[] | null = null;
   const sessionAgentIds = (): string[] => {
-    try { if (welcomeShown && qWelcomeAgents && qWelcomeAgents.length) return [...qWelcomeAgents]; } catch {}
+    try {
+      if (welcomeShown) {
+        if (qWelcomeAgents && qWelcomeAgents.length) return [...qWelcomeAgents];
+        // T515: nothing picked in the welcome => the agent dropdown shows the
+        // CURRENT default agent for new chats (the app's welcome behavior).
+        const dfltW = String((wsSettings && (wsSettings as any).defaultAgentId) || "");
+        if (dfltW) return [dfltW];
+      }
+    } catch {}
     try {
       const e = readSessionsList().find((s: any) => s?.key === currentKey);
       const ids = String(e?.agentId || "")
@@ -1596,6 +1604,18 @@ const readProvidersCfg = (): any => {
       try {
         const f = readSettingsFile();
         wsSettings = { ...(wsSettings || {}), ...(f || {}) };
+      // T515: the GLOBAL config too (defaultAgentId, plan-mode flags): the welcome
+      // must show the new default even if the agents tab was never opened.
+      try {
+        const callB = (globalThis as any).__sidecarCall;
+        if (callB) callB('getGlobalConfig', {}).then((r: any) => {
+          try {
+            const cfgB = (r && (r.config || r)) || {};
+            wsSettings = { ...(wsSettings || {}), defaultAgentId: cfgB.defaultAgentId || (wsSettings || {}).defaultAgentId, planModeTools: cfgB.planModeTools || {}, planModeMcp: cfgB.planModeMcp || {} };
+          } catch {}
+          try { ui.requestRender(); } catch {}
+        }).catch(() => {});
+      } catch {}
         if (Array.isArray(f?.defaultFallbackModels)) wsSettings.defaultFallbackModels = f.defaultFallbackModels;
       } catch {}
       // 2) the sidecar's view (may add more keys)
@@ -6348,7 +6368,7 @@ const applySettingsPatch = (patch: any) => {
       // T489: snapshot BEFORE the reset — the send below reads it for setChatAgents.
       // (var: the async IIFE closes over it; a let here would hit the TDZ.)
       var qSendAgents: string[] | null = null;
-      try { if (qWelcomeAgents && qWelcomeAgents.length) qSendAgents = [...qWelcomeAgents]; } catch {}
+      try { if (welcomeShown) { const idsW = sessionAgentIds(); if (idsW.length) qSendAgents = [...idsW]; } } catch {}
       welcomeShown = false;
       applyLayout(false);
       qWelcomeAgents = null; // T487: the welcome pre-config is one-shot
