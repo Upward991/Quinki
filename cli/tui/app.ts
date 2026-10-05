@@ -582,7 +582,7 @@ class UserBubble {
         const isSkill = m2.startsWith("Skill:");
         const bgRgb = isSkill ? "201;112;132" : "122;162;247";
         // T449: attachment chips show ONLY the file name (no ▸ triangle — ugly).
-        const shown = isSkill ? m2 : m2.replace(/^\u25b8/, "");
+        const shown = m2; // T462: mai accorciare a render-time (coerenza con la textbox)
         return "\x1b[48;2;" + bgRgb + "m\x1b[38;2;8;8;11m" + shown + "\x1b[48;2;26;26;32m\x1b[38;2;232;232;236m";
       });
       return bg(C.bubbleUser, "  " + painted + " ".repeat(fill + 2));
