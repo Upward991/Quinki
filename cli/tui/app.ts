@@ -3471,7 +3471,7 @@ const readProvidersCfg = (): any => {
               let usedInline = !!tDisp;
               if (!tDisp && chipsH.length) { // T464: solo se il messaggio HA davvero le sue clip
                 try {
-                  const toks = chipsH.map((c) => (c.kind === "skill" ? "Skill: " + c.name : c.name)).join(" ");
+                  const toks = chipsH.map((c) => (c.kind === "skill" ? "Skill: " + c.name : "\u25b8" + c.name)).join(" ");
                   tDisp = toks + (t.trim() ? " " + t : "");
                   usedInline = true;
                 } catch { tDisp = t; usedInline = false; }
@@ -5957,7 +5957,21 @@ const applySettingsPatch = (patch: any) => {
             {
               sessionKey: sk,
               text: sendText || (atts.length || skills.length ? "" : t),
-              ...(String(t).trim() !== String(sendText).trim() ? { displayText: String(t).trim().replace(/\u25b8(?=\S)/g, "") } : {}),
+              ...(String(t).trim() !== String(sendText).trim() ? { displayText: (() => {
+              // Canonical saved copy: recognized attachment names carry the internal
+              // marker (context-free detection at reload — this is how the bubble
+              // knows to paint the chip background); the bubble strips it when
+              // drawing. The editor text itself stays bare (T462 rule).
+              let d2 = String(t).trim().replace(/\u25b8(?=\S)/g, "");
+              try {
+                const names2 = qAttNames().filter((n) => !!n && !/[\x00-\x1f\x7f]/.test(n)).sort((a, b) => b.length - a.length);
+                for (const n of names2) {
+                  const esc2 = n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+                  d2 = d2.replace(new RegExp("(^|\\s)(" + esc2 + ")(?=\\s|$)", "g"), (_m: string, sp: string) => sp + "\u25b8" + n);
+                }
+              } catch {}
+              return d2;
+            })() } : {}),
               ...(skillRefs.length
                 ? {
                     // THE APP'S EXACT SHAPE: [{ agentId, skillName, agentName }] —
