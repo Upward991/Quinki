@@ -1870,8 +1870,12 @@ const readProvidersCfg = (): any => {
       // APP EXPERT CLI ONLY (the CLI twin of the app's manual sync): copies the
       // MAIN app's binary + sidecar into App Expert.app. Hidden everywhere else.
       // FIRST in the list (seq 0): pulling in the latest build is the point of it.
+      // SAME logic as /quit and /reset: it asks for a confirm, then it does it.
       hidden: () => !QEXPERT,
       seq: 0,
+      getArgumentCompletions: () => [
+        { value: "confirm", label: "", notice: "Sync the App Expert and restart this CLI?" },
+      ],
     },
     { name: "export", description: "Export this chat as Markdown", seq: 10, hidden: () => welcomeShown },
     {
@@ -3912,6 +3916,7 @@ const readProvidersCfg = (): any => {
         // into App Expert.app, then restart this CLI (fresh sidecar, fresh code).
         // The result is ALWAYS a visible chat block: a pill alone proved too shy.
         if (!QEXPERT) break;
+        if (arg !== "confirm") break; // same gate as /quit and /reset
         try { require("fs").appendFileSync("/tmp/q-submit.log", new Date().toISOString() + " case syncexpert streaming=" + streaming + "\n"); } catch {}
         try {
           const MAIN_APP = "/Applications/Quinki.app";
