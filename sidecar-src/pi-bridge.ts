@@ -3488,6 +3488,22 @@ class PiBridge {
         const p = path.join(base, sk, "pending-turn.json");
         const hasMarker = fs.existsSync(p);
         this.logDebug("recovery-scan-session", { sessionKey: sk, hasMarker, isExpert });
+        // === T460 (regola utente): NIENTE RECOVERY SENZA IL MARKER VERO ===
+        // Il recovery on-open parte ad ogni getHistory (l'app che apre una chat o
+        // ne carica l'anteprima) => recoverOnWorker => SPAWN del worker owner.
+        // Aprire l'app faceva nascere un worker per ogni chat => 16 worker dal nulla.
+        // Il marker pending-turn.json = l'UNICA prova di un turno interrotto: senza
+        // marker non c'è nulla da recuperare e NON si spawna niente.
+        if (!hasMarker) { this.logDebug("recovery-skip", { sessionKey: sk, reason: "no-pending-marker" }); continue; }
+        // Belt: un marker più vecchio di 24h = fossile (interruzione di giorni fa):
+        // non ri-promptare chat antiche all'apertura dell'app.
+        try {
+          const mAge = Date.now() - fs.statSync(p).mtimeMs;
+          if (mAge > 24 * 60 * 60 * 1000) {
+            this.logDebug("recovery-skip", { sessionKey: sk, reason: "stale-marker-24h", ageMs: mAge });
+            continue;
+          }
+        } catch {}
         // === ESCLUSIVITA' OWNER (prima di getHistory — niente sessioni altrui in RAM) ===
         // L'Expert sidecar gestisce SOLO __app_expert__: le sessioni della main non
         // vengono nemmeno aperte/lette qui (prima chiamavamo getHistory su ogni
