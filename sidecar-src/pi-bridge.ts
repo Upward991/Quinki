@@ -376,6 +376,10 @@ class PiBridge {
   // === Multi-window streaming buffer: traccia il messaggio in streaming per sessione ===
   // Permette alle nuove finestre di recuperare il contenuto parziale quando aprono durante la generazione
   #streamingBuffers = new Map<string, { text: string; thinking: string; toolCalls: any[]; currentPhase: string | null; messageId: string | null; model: string | null; provider: string | null; stopReason: string | null; thinkingLevel: string | null; }>();
+  // T457 (regola utente): un TOOL in esecuzione (anche un bash da 10 minuti) NON
+  // streama ma è LAVORO VERO. Questa è la verità della status pill: la sessione è
+  // BUSY finché il tool non finisce. Usata dallo shrink del pool e dal recovery.
+  #toolBusy = new Set<string>();
   #lastEffectiveCwd = new Map<string, string>();  // ultimo effectiveCwd per sessione (per delega)
   #skillsMtime = new Map<string, number>();  // mtime .pi/skills/ al session-create (auto-reload skill, history preservata)
   // === A3: Notifiche — read-state per chat + log notifiche ===
@@ -1720,14 +1724,14 @@ class PiBridge {
       try {
         const dir = this.#piSessionDir(key);
         const files = fs.readdirSync(dir).filter((f: string) => f.endsWith(".jsonl"));
-        if (files.length === 0) { this.#streamingBuffers.delete(key); continue; }
+        if (files.length === 0) { this.#streamingBuffers.delete(key); try { this.#toolBusy.delete(key); } catch {} continue; }
         const tail = this.#readSessionTail(path.join(dir, files[0]), 1);
         const last = tail[tail.length - 1];
         const m = last?.message || last;
         // STRICT done === true: solo turni COMPLETATI. Mai un turno in streaming
         // (l'ultimo msg jsonl sarebbe user o assistant done=false/undefined).
         if (m?.role === "assistant" && m.done === true) {
-          this.#streamingBuffers.delete(key);
+          this.#streamingBuffers.delete(key); try { this.#toolBusy.delete(key); } catch {}
           this.logDebug("stale-streaming-buffer-cleaned", { sessionKey: key });
         }
       } catch {}
@@ -2049,7 +2053,7 @@ class PiBridge {
     } catch {}
     this.#active.delete(key);
     this.#unsubs.delete(key);
-    this.#streamingBuffers.delete(key);
+    this.#streamingBuffers.delete(key); try { this.#toolBusy.delete(key); } catch {}
     this.#responseTimers.delete(key);
     this.logDebug("session-lru-deactivated", { sessionKey: key, activeNow: this.#active.size });
     // JSC non restituisce i slab all'OS da solo → GC pieno async per rilasciare la RAM
@@ -2100,7 +2104,7 @@ class PiBridge {
     this.#pendingModels.delete(key);
     this.#pendingThinking.delete(key);
     this.#pendingMode.delete(key);
-    this.#streamingBuffers.delete(key);
+    this.#streamingBuffers.delete(key); try { this.#toolBusy.delete(key); } catch {}
   }
 
   remove(key: string) {
@@ -2114,7 +2118,7 @@ class PiBridge {
     this.#pendingModels.delete(key);
     this.#pendingThinking.delete(key);
     this.#pendingMode.delete(key);
-    this.#streamingBuffers.delete(key);
+    this.#streamingBuffers.delete(key); try { this.#toolBusy.delete(key); } catch {}
     this.#save();
     try {
       const dir = this.#piSessionDir(key);
@@ -2134,7 +2138,7 @@ class PiBridge {
     this.#pendingModels.delete(key);
     this.#pendingThinking.delete(key);
     this.#pendingMode.delete(key);
-    this.#streamingBuffers.delete(key);
+    this.#streamingBuffers.delete(key); try { this.#toolBusy.delete(key); } catch {}
     try {
       const dir = this.#piSessionDir(key);
       if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
@@ -2444,7 +2448,8 @@ class PiBridge {
 
   // === B4 POOL: stato per lo shrink del router (child idle → kill) ===
   getPoolStatus(): { active: number; streaming: number } {
-    return { active: this.#active.size, streaming: this.#streamingBuffers.size };
+    // T457: the tool-busy counts as busy — a long bash must NEVER look idle.
+    return { active: this.#active.size, streaming: this.#streamingBuffers.size + this.#toolBusy.size };
   }
 
   // === Multi-window: ritorna il messaggio in streaming corrente (contenuto parziale + fase) ===
@@ -3619,7 +3624,7 @@ class PiBridge {
           // se il session.isStreaming è true, la sessione è VIVA, non recuperarla.
           try {
             const _pi = this.#active.get(sk);
-            if (_pi && (_pi as any).isStreaming) {
+            if (_pi && ((_pi as any).isStreaming || this.#toolBusy.has(sk))) {
               const lastAct = this.#entries.get(sk)?.lastActivity || 0;
               const inactive = Date.now() - lastAct;
               if (inactive < 10000) {
@@ -3824,7 +3829,7 @@ class PiBridge {
       // Azzera la promise chain (senza, il prossimo messaggio si incatena alla promise morta)
       this.#prompts.delete(sk);
       this.#promptsAt.delete(sk);
-      this.#streamingBuffers.delete(sk);
+      this.#streamingBuffers.delete(sk); try { this.#toolBusy.delete(sk); } catch {}
       this.#responseTimers.delete(sk);
       this.logDebug("recovery-chain-reset", { sessionKey: sk, note: "promise chain cleared after timeout/error" });
       return false;
@@ -4241,7 +4246,7 @@ Read this file to view it.` }] };
     // generato agent_end, fallimento silenzioso) → NON è streaming: cancellalo e
     // ritorna null. La UI non deve dipingere MAI un fantasma in 'Running'.
     if (buf.ts && Date.now() - buf.ts > 300000) {
-      this.#streamingBuffers.delete(key);
+      this.#streamingBuffers.delete(key); try { this.#toolBusy.delete(key); } catch {}
       this.logDebug("stale-buffer-dropped", { sessionKey: key, ageMs: Date.now() - buf.ts });
       return null;
     }
@@ -4858,7 +4863,7 @@ Read this file to view it.` }] };
     this.#promptsAt.delete(key);         // timestamp chain
     this.#stoppedSessions.delete(key);   // guardia "stopped" — la sessione nuova non è stopped
     this.#rePrompted.delete(key);       // guardia re-prompt — la sessione nuova non è re-prompted
-    this.#streamingBuffers.delete(key);  // buffer di streaming (se rimasto sporco)
+    this.#streamingBuffers.delete(key); try { this.#toolBusy.delete(key); } catch {}  // buffer di streaming (se rimasto sporco)
     this.#responseTimers.delete(key);    // timer di response (se rimasto appeso)
     // FIX aggiuntivo: pulisci ANCHE i client MCP della sessione (cached in #mcpClients).
     // Senza questo, il secondo send dopo reset riusa il client MCP morto → hang infinito
@@ -5880,6 +5885,10 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     // Subscribe to temp session events → forward to main WS
     let delegationContent: any[] = [];
     const tempSub = tempPi.subscribe((e: any) => {
+      try {
+        if (e.type === "tool_execution_start") this.#toolBusy.add(sk);
+        else if (e.type === "tool_execution_end") this.#toolBusy.delete(sk);
+      } catch {}
       if (e.type === "tool_execution_start") {
         this.#sendToWs(ws, { type: "stream_event", sessionKey: sk, eventType: "toolcall_start", delta: e.toolName || "", messageId: delegationId });
         let argsStr = "";
@@ -6561,6 +6570,10 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
           // Direct forwarding with fs.writeSync — no queue, no delay
           const tempSub = tempPi.subscribe((e: any) => {
             const fwdWs = self.#wss.get(sessionKey);
+            try {
+              if (e.type === "tool_execution_start") self.#toolBusy.add(sessionKey);
+              else if (e.type === "tool_execution_end") self.#toolBusy.delete(sessionKey);
+            } catch {}
             if (e.type === "tool_execution_start") {
               self.#sendToWs(fwdWs, { type: "stream_event", sessionKey, eventType: "toolcall_start", delta: e.toolName || "", messageId: delegationId });
               let argsStr = "";
@@ -7981,7 +7994,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
         try {
           const buf = this.#streamingBuffers.get(sk);
           if (buf && (!buf.ts || Date.now() - buf.ts > 2000)) {
-            this.#streamingBuffers.delete(sk);
+            this.#streamingBuffers.delete(sk); try { this.#toolBusy.delete(sk); } catch {}
             this.#responseTimers.delete(sk);
             this.logDebug("stop-hard-cleanup", { sessionKey: sk, note: "agent_end non arrivato, pulizia forzata" });
             try { this.#sendToWs(this.#getSessionWs(sk), { type: "streaming_stopped", sessionKey: sk, stopReason: "aborted" }); } catch {}
@@ -8128,6 +8141,11 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     if (old) { try { old(); } catch {} }
 
     const sub = pi.subscribe(async (e: any) => {
+      // T457: the tool truth (the status pill): busy while a tool executes.
+      try {
+        if (e.type === "tool_execution_start") this.#toolBusy.add(key);
+        else if (e.type === "tool_execution_end") this.#toolBusy.delete(key);
+      } catch {}
       // FIX (29 ago — bug 'Running bloccato per sempre + streaming perso'): il
       // vecchio `if (!ws || !open) return;` BUTTAVA VIA TUTTI gli eventi del turno
       // quando il socket catturato era morto (app chiusa/riaperta a metà turno,
@@ -8871,7 +8889,7 @@ if (!turnCompleted && lastStopReason && lastStopReason !== "toolUse" && !this.#s
           // === A5: streaming stopped event ===
           this.#sendToWs(ws, { type: "streaming_stopped", sessionKey: key, stopReason: (e as any)?.stopReason || "unknown" });
           // === Multi-window: pulisci streaming buffer ===
-          this.#streamingBuffers.delete(key);
+          this.#streamingBuffers.delete(key); try { this.#toolBusy.delete(key); } catch {}
           // === CONFIG REFRESH DIFFERITO (29 ago): se un cambio di config agente è
           // arrivato mentre il turno girava, ORA è il momento sicuro: scarta la
           // sessione → il prossimo invio la ricrea coi tool nuovi.
