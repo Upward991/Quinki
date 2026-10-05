@@ -866,7 +866,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   };
   const qTokenStyle = (tok: string): string => {
     try {
-      const isAtt = tok.startsWith("\u25b8");
+      const isAtt = tok.startsWith("\u25b8") || (() => { try { return qAttNames().includes(tok); } catch { return false; } })();
       // Skill = coral (the original Agents tab accent); attachment = blue (#7aa2f7),
       // EXACTLY like the bubble's inline clips. Dark text = the textbox background.
       // The END re-applies the editor panel background + text color (otherwise the
@@ -5792,7 +5792,10 @@ const applySettingsPatch = (patch: any) => {
             } catch { skillRefs.push({ agentId: "", skillName: name }); skills.push(name); }
             return rest;
           })
-          .replace(new RegExp("(?:^|\\s)(?:\\u25b8)?(" + (qAttNames().filter((n) => !!n && !/[\\x00-\\x1f\\x7f]/.test(n)).map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") || "[^\\s\\u25b8]+") + ")", "g"), (_m: string, nm: string) => {
+          .replace(new RegExp("(?:^|\\s)(?:\\u25b8([^\\s\\u25b8]+)|(" + (qAttNames().filter((n) => !!n && !/[\\x00-\\x1f\\x7f]/.test(n)).map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") || "\\u0000NONE") + "))", "g"), (_m: string, nmTri: string, nmBare: string) => {
+            const nn = nmTri !== undefined ? nmTri : nmBare;
+            if (nn === undefined) return _m;
+            const nm = nn;
             let name = String(nm); let restA = "";
             try {
               const knownA = Object.keys(attPathByName).filter((k) => name.startsWith(k) && k).sort((a, b) => b.length - a.length);

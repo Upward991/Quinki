@@ -490,7 +490,7 @@ export class Editor {
             const lineRightPadding = cursorInPadding ? rightPadding.slice(1) : rightPadding;
             // QUINKI PATCH (25 set, iter6): painted full-width line (edges both sides).
             try {
-                if (this.qTokenStyle && (/Skill:\s*[\w.-]+|\u25b8[^\s\u25b8]+/.test(displayText))) {
+                if (this.qTokenStyle) { // T463: sempre (i nomi nudi sfuggivano al test statico)
                     const reS = (typeof this.qChipRe === "function" ? this.qChipRe() : /Skill:\s*[\w.-]+|\u25b8[^\s\u25b8]+/g);
                     const styled = displayText.replace(reS, (m2) => String(this.qTokenStyle(m2) ?? m2));
                     result.push(qEdge() + qPaint(`${leftPadding}${styled}${padding}${lineRightPadding}`) + qEdgeR());
