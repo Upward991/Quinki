@@ -3968,14 +3968,16 @@ const readProvidersCfg = (): any => {
         break;
       }
       case "reload": {
+        try { require("fs").appendFileSync("/tmp/q-reload-trace.log", new Date().toISOString() + " case reload key=" + currentKey + " welcome=" + welcomeShown + " scOn=" + scOn + "\n"); } catch {}
         if (welcomeShown) {
           welcomeShown = false;
           applyLayout(false);
         }
-        // T498: a REAL reload — the app's reloadSession does the work: ask the
-        // sidecar, then re-fetch history + chip stores and redraw. Before, this
-        // only re-rendered the stale local state (pressing Confirm did nothing).
-        try { void sc.call("reloadSession", { sessionKey: currentKey }, 20000).catch(() => {}); } catch {}
+        // T499: a REAL view reload — re-fetch history + chip stores from the
+        // sidecar and redraw. NO session dispose here: that is an engine op, and
+        // it can silently skip while a streaming buffer lingers (the guard in
+        // reloadSession) — which made the whole reload look dead. The view must
+        // always rebuild; the engine reloads by itself on the next send.
         try {
           void loadServerHistory().then(() => {
             try { renderHistory(); scrollToEnd(); } catch {}
