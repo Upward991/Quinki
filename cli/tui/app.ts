@@ -757,7 +757,11 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   // --- sidecar link: run the chat in the REAL Quinki runtime (the same session
   // the app uses — agents, skills, delegation, live sync). Falls back to the
   // bare SDK session when the app/sidecar is not running. ---------------------
-  const sc = new Sc("ws://127.0.0.1:" + (process.env.QUINKI_SIDECAR_PORT || "9182"));
+  // T475: the expert CLI must default to ITS OWN port (9183). Without this, any
+  // expert CLI missing the env var connected to the MAIN sidecar (usually dead
+  // when the main app is closed) => scOn false forever => the session never
+  // loaded (the restarted CLI came up empty).
+  const sc = new Sc("ws://127.0.0.1:" + (process.env.QUINKI_SIDECAR_PORT || (QEXPERT ? "9183" : "9182")));
   // The settings menu uses this channel; define it from the CLI's real RPC client.
   try { (globalThis as any).__sidecarCall = (m: string, p?: any, t?: number) => sc.call(m, p || {}, t || 120000); } catch {}
   // The app's watchdog KILLS the shared sidecar when the app quits (port 9182).
@@ -3040,7 +3044,8 @@ const readProvidersCfg = (): any => {
         displays: (r && (r as any).messageDisplayTexts) || {},
       };
       return histMsgs.length > 0;
-    } catch {
+    } catch (ee) {
+      try { require("fs").appendFileSync("/tmp/q-load.log", "  loadServerHistory ERROR: " + String(ee) + "\n"); } catch {}
       return false;
     }
   };
@@ -3916,7 +3921,7 @@ const readProvidersCfg = (): any => {
         // into App Expert.app, then restart this CLI (fresh sidecar, fresh code).
         // The result is ALWAYS a visible chat block: a pill alone proved too shy.
         if (!QEXPERT) break;
-        if (arg !== "confirm") break; // same gate as /quit and /reset
+        if (arg && arg !== "confirm") break; // direct Enter OR the confirm item
         try { require("fs").appendFileSync("/tmp/q-submit.log", new Date().toISOString() + " case syncexpert streaming=" + streaming + "\n"); } catch {}
         try {
           const MAIN_APP = "/Applications/Quinki.app";
@@ -6097,6 +6102,7 @@ const applySettingsPatch = (patch: any) => {
       let __qxTries = 0;
       const __qxLoad = () => {
         __qxTries++;
+        try { require("fs").appendFileSync("/tmp/q-load.log", new Date().toISOString() + " qxLoad try=" + __qxTries + " scOn=" + scOn + " connected=" + !!(sc as any).connected + " key=" + currentKey + "\n"); } catch {}
         void loadServerHistory().then((ok) => {
           try { if (ok) { renderHistory(); scrollToEnd(); } } catch {}
           try { ui.requestRender(); } catch {}
