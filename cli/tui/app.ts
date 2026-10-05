@@ -3972,7 +3972,16 @@ const readProvidersCfg = (): any => {
           welcomeShown = false;
           applyLayout(false);
         }
-        renderHistory();
+        // T498: a REAL reload — the app's reloadSession does the work: ask the
+        // sidecar, then re-fetch history + chip stores and redraw. Before, this
+        // only re-rendered the stale local state (pressing Confirm did nothing).
+        try { void sc.call("reloadSession", { sessionKey: currentKey }, 20000).catch(() => {}); } catch {}
+        try {
+          void loadServerHistory().then(() => {
+            try { renderHistory(); scrollToEnd(); } catch {}
+            try { (ui as any).requestImmediateRender?.(); } catch {}
+          });
+        } catch {}
         break;
       }
       case "syncexpert": {
