@@ -1132,6 +1132,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     } catch {}
   };
   // T508: the AGENTS tab data — the sidecar is the truth (same as the app).
+  let qAgentsInputMode: "" | "newagent" | "skillpkg" | "mcpmcp" = "";
   let qAgentsData: any[] = [];
   let qMcpData: any[] = [];
   let qToolsData: any[] = [];
@@ -1330,6 +1331,16 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       const out: any[] = [];
       for (const a of qAgentsData) { const id = String(a?.id || a?.name || ""); if (!id) continue; out.push({ value: "tola:" + nm + ":" + id, label: (agentToolsOf(id).includes(nm) ? "\u25cf " : "\u25cb ") + String(a?.name || id), description: id }); }
       return out;
+    }
+    if (sub === "__input") {
+      const label = qAgentsInputMode === "newagent" ? "Agent name: " + (menuSubFilter || "\u2026")
+        : qAgentsInputMode === "skillpkg" ? "Skill package: " + (menuSubFilter || "\u2026")
+        : "MCP source: " + (menuSubFilter || "\u2026");
+      return [{ value: "__go", label, description: "type, then Enter \u00b7 Esc cancels" }];
+    }
+    if (sub.startsWith("agdel:")) {
+      const id = sub.slice(6);
+      return [{ value: "agdel-go:" + id, label: "", notice: "Delete agent \u201c" + id + "\u201d? Its config and prompt will be removed." }];
     }
     return [];
   };
@@ -4417,6 +4428,7 @@ const readProvidersCfg = (): any => {
         // T506 — THE missing case: without it the bulletproof Enter found the
         // command but handleSlash fell through and the tab never opened.
         try { refreshAgentsTab(); } catch {}
+        try { qAgentsInputMode = ""; } catch {}
         if (!arg) {
           menuStack = ["agents"];
           menuSubFilter = "";
@@ -4982,7 +4994,7 @@ const readProvidersCfg = (): any => {
     }
   };
   const applyFilter = (items: any[]): any[] => {
-    if (dirTypeMode || (menuStack[0] === "directory" && menuStack[1] === "dirchange")) return items; // the typed path never filters the rows away
+    if (dirTypeMode || (menuStack[0] === "directory" && menuStack[1] === "dirchange") || (menuStack[0] === "agents" && (menuStack[1] === "__input" || String(menuStack[1] || "").startsWith("agdel:")))) return items; // typed input never filters the rows away
     const f = menuSubFilter.toLowerCase();
     if (!f) return items;
     return items.filter(
@@ -5105,8 +5117,47 @@ const readProvidersCfg = (): any => {
         return;
       }
       if (menuStack[0] === "agents") {
-        // T508: the Enter mirrors the Tab action on every toggle row.
+        // T508/509: the Enter mirrors the Tab action on every toggle row; the
+        // create/install/delete flows live here (typed input in the menu).
         const vAg = String(it?.value ?? "");
+        const callA = (globalThis as any).__sidecarCall;
+        if (vAg === "__newagent") { qAgentsInputMode = "newagent"; menuStack.push("__input"); menuSubFilter = ""; menuSel = 0; try { ui.requestRender(); } catch {} return; }
+        if (vAg === "__newskill") { qAgentsInputMode = "skillpkg"; menuStack.push("__input"); menuSubFilter = ""; menuSel = 0; try { ui.requestRender(); } catch {} return; }
+        if (vAg === "__newmcp") { qAgentsInputMode = "mcpmcp"; menuStack.push("__input"); menuSubFilter = ""; menuSel = 0; try { ui.requestRender(); } catch {} return; }
+        if (vAg === "__agdel") {
+          const st1 = String(menuStack[1] || "");
+          const agId = st1.startsWith("ag:") ? st1.slice(3) : "";
+          if (agId) { menuStack.push("agdel:" + agId); menuSubFilter = ""; menuSel = 0; try { ui.requestRender(); } catch {} }
+          return;
+        }
+        if (vAg.startsWith("agdel-go:")) {
+          const id = vAg.slice(9);
+          if (callA) callA('deleteAgent', { id }).then(() => { refreshAgentsTab(); }).catch(() => {});
+          qCloseMenus();
+          return;
+        }
+        if (vAg === "__go") {
+          const val = menuSubFilter.trim();
+          try {
+            if (qAgentsInputMode === "newagent" && val && callA) {
+              callA('createAgent', { name: val }).then(() => { refreshAgentsTab(); }).catch(() => {});
+            } else if (qAgentsInputMode === "skillpkg" && val && callA) {
+              callA('installSkill', { package: val }).then(() => { refreshAgentsTab(); }).catch(() => {});
+            } else if (qAgentsInputMode === "mcpmcp" && val && callA) {
+              const parts = val.split(/\s+/);
+              const first = parts[0] || "";
+              const isCmd = /^(npx|uvx|node|python3?|bun|deno|docker)$/.test(first);
+              const id = val.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || ('mcp-' + Date.now());
+              const params: any = isCmd
+                ? { id, name: id, type: 'command', command: first, args: parts.slice(1) }
+                : { id, name: id, type: 'package', source: val };
+              callA('addMcpServer', params).then(() => { refreshAgentsTab(); }).catch(() => {});
+            }
+          } catch {}
+          qAgentsInputMode = "";
+          qCloseMenus();
+          return;
+        }
         if (vAg.startsWith("def:") || vAg.startsWith("ast:") || vAg.startsWith("att:") || vAg.startsWith("amt:") || vAg.startsWith("ska:") || vAg.startsWith("mcpa:") || vAg.startsWith("tola:") || vAg.startsWith("pmt:") || vAg.startsWith("pmm:")) {
           try { agentAdminAction(vAg); } catch {}
           try { ui.requestRender(); } catch {}
@@ -5512,6 +5563,7 @@ const readProvidersCfg = (): any => {
         menuStack = [];
         menuSubFilter = "";
         menuSel = 0;
+        try { qAgentsInputMode = ""; } catch {}
         // T437: backing out / closing without confirming = the Tab marks are FORGOTTEN.
         try { menuMarked.clear(); menuConfirmFocus = false; } catch {}
         menuConfirmFocus = false;
