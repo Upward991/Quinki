@@ -1864,6 +1864,14 @@ const readProvidersCfg = (): any => {
       },
     },
     { name: "reload", description: "Reload this chat (recover history, fix glitches)", seq: 4, hidden: () => welcomeShown },
+    {
+      name: "syncexpert",
+      description: "Sync the App Expert with the latest Quinki build",
+      // APP EXPERT CLI ONLY (the CLI twin of the app's manual sync): copies the
+      // MAIN app's binary + sidecar into App Expert.app. Hidden everywhere else.
+      hidden: () => !QEXPERT,
+      seq: 15,
+    },
     { name: "export", description: "Export this chat as Markdown", seq: 10, hidden: () => welcomeShown },
     {
       name: "delete",
@@ -2508,12 +2516,13 @@ const readProvidersCfg = (): any => {
     // Status pill (app-style): same row as the info, right-aligned — visible
     // only while the engine streams / compacts (Failed stays until next turn).
     const pillOn =
-      !!statusLabel && (streaming || statusKind === "compacting" || statusKind === "failed" || statusKind === "sending");
+      !!statusLabel && (streaming || statusKind === "compacting" || statusKind === "failed" || statusKind === "sending" || statusKind === "syncing");
     if (!pillOn) return bar;
     const statusColor: Record<string, string> = {
       running: C.statusRunning,
       compacting: C.statusCompacting,
       sending: C.modePlanDim,
+      syncing: C.statusRunning,
       failed: C.danger,
       retrying: C.modeBuild,
       thinking: C.thinking,
@@ -3895,6 +3904,46 @@ const readProvidersCfg = (): any => {
           applyLayout(false);
         }
         renderHistory();
+        break;
+      }
+      case "syncexpert": {
+        // App Expert CLI ONLY — the same thing the app's "Sync Expert App" does:
+        // copy the MAIN app's binary + the whole sidecar folder into App Expert.app.
+        if (!QEXPERT) break;
+        try {
+          const MAIN_APP = "/Applications/Quinki.app";
+          const EXP_APP = "/Applications/App Expert.app";
+          const mainBin = path.join(MAIN_APP, "Contents", "MacOS", "quinki");
+          const expBin = path.join(EXP_APP, "Contents", "MacOS", "quinki");
+          const mainSide = path.join(MAIN_APP, "Contents", "Resources", "resources", "sidecar");
+          const expSide = path.join(EXP_APP, "Contents", "Resources", "resources", "sidecar");
+          if (!fs.existsSync(mainBin) || !fs.existsSync(expBin)) {
+            setStatus("Sync failed: apps not found in /Applications", "failed");
+            try { (ui as any).requestImmediateRender?.(); } catch {}
+            break;
+          }
+          qCloseMenus();
+          setStatus("Syncing the App Expert\u2026", "syncing");
+          // Immediate paint: without streaming there is no render ticker, so a
+          // scheduled render would only flush on the next keypress.
+          try { (ui as any).requestImmediateRender?.(); } catch {}
+          // Small delay so the pill paints before the (blocking) copy.
+          setTimeout(() => {
+            try {
+              fs.copyFileSync(mainBin, expBin);
+              fs.rmSync(expSide, { recursive: true, force: true });
+              const rr = require("child_process").spawnSync("/usr/bin/ditto", [mainSide, expSide]);
+              if (rr.status !== 0) throw new Error("ditto exit " + String(rr.status));
+              setStatus("App Expert synced. Restart it to apply the changes.", "syncing");
+              try { (ui as any).requestImmediateRender?.(); } catch {}
+            } catch (e2) {
+              setStatus("Sync failed: " + String(e2), "failed");
+              try { (ui as any).requestImmediateRender?.(); } catch {}
+            }
+          }, 60);
+        } catch (e) {
+          setStatus("Sync failed: " + String(e), "failed");
+        }
         break;
       }
       case "export": {
