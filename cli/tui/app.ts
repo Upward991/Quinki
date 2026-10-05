@@ -817,6 +817,15 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     return qTokenChar(i);
   };
   const qTokenByCh = (ch: string) => qTokens.find((t) => t.ch === ch) || null;
+  // T448: a REAL file path (Finder drop / pasted path) is NEVER a slash command:
+  // its leading "/" must not light the menu nor block the send.
+  const qIsFilePath = (t: string): boolean => {
+    try {
+      if (!t || !t.startsWith("/") || t.indexOf("\n") >= 0 || t.length > 4096) return false;
+      const f = require("fs");
+      return f.existsSync(t) && f.statSync(t).isFile();
+    } catch { return false; }
+  };
   const qTokenStyle = (tok: string): string => {
     try {
       const isAtt = tok.startsWith("\u25b8");
@@ -2033,6 +2042,38 @@ const readProvidersCfg = (): any => {
             try { ui.requestRender(); } catch {}
             return { consume: true };
           }
+          // T448: dropping files (Finder drag) or pasting path(s): each REAL file
+          // path becomes an ATTACHMENT with a chip in the box — ONLY the file name
+          // (never the path: its leading "/" would even light the slash menu and
+          // block the send entirely).
+          if (clean0) {
+            try {
+              const fsp = require("fs");
+              const cands = inner.split(/[\r\n]+/).map((x) => x.trim()).filter(Boolean);
+              const conv: string[] = [];
+              for (const cand of cands) {
+                const p0 = String(cand).replace(/\\ /g, " ");
+                if (!p0.startsWith("/")) continue;
+                let isF = false;
+                try { isF = fsp.existsSync(p0) && fsp.statSync(p0).isFile(); } catch {}
+                if (!isF) continue;
+                const stC = stageAttachment(p0) || { path: p0, originalName: require("path").basename(p0) };
+                try { pendingAttachments.push(stC as any); } catch {}
+                const nmC = String((stC as any).originalName);
+                attPathByName[nmC] = String((stC as any).path);
+                conv.push(nmC);
+              }
+              if (conv.length) {
+                let curE = String(editor.getText() || "");
+                for (const nmC of conv) curE = String(curE).replace(/[ \t]+$/, "") + " " + "\u25b8" + nmC;
+                editor.setText(curE);
+                try { editor.setCursorCol(editor.getText().length); } catch {}
+                qCursorEnd();
+                try { ui.requestRender(); } catch {}
+                return { consume: true };
+              }
+            } catch {}
+          }
           // No menu open: leave it to the editor (normal paste in the textbox).
         }
       } catch {}
@@ -2650,7 +2691,7 @@ const readProvidersCfg = (): any => {
       }
     })();
     // A complete slash command waiting to be run -> Enter is FILLED (violet bg).
-    const cmdReady = !menuActive && textNow.startsWith("/") && textNow.length > 1;
+    const cmdReady = !menuActive && textNow.startsWith("/") && textNow.length > 1 && !qIsFilePath(textNow);
     const left = welcomeShown
       ? (menuActive ? lit("Menu (/)") : quiet("Menu (/)"))
       : (menuActive ? lit("Menu (/)") : quiet("Menu (/)")) +
@@ -5442,7 +5483,7 @@ const applySettingsPatch = (patch: any) => {
       // NOTE: a menu opened by a command (skill/attachments/directory) lives with an
       // EMPTY textbox: the old rule "no slash text -> close" was killing it right
       // after the command cleared the box (the skill menu never survived). Gone.
-      const mainOpen = menuStack.length === 0 && t.startsWith("/");
+      const mainOpen = menuStack.length === 0 && t.startsWith("/") && !qIsFilePath(t);
       if (!mainOpen && menuStack.length === 0) {
         menuConfirmFocus = false;
         return [];
@@ -5585,7 +5626,7 @@ const applySettingsPatch = (patch: any) => {
         }
         // Completions phase (typing "/command"): consume the Tab as well — the
         // slash menu must NEVER close on Tab.
-        try { if (String(editorText() || "").startsWith("/")) return true; } catch {}
+        try { const e0 = String(editorText() || ""); if (e0.startsWith("/") && !qIsFilePath(e0)) return true; } catch {}
       } catch {}
       return false;
     };
@@ -5613,6 +5654,20 @@ const applySettingsPatch = (patch: any) => {
       return;
     }
     if (t.startsWith("/")) {
+      // T448 belt: a REAL file path typed/pasted plain = ATTACHMENT (chip it), not a command.
+      try {
+        const fsp2 = require("fs");
+        if (fsp2.existsSync(t) && fsp2.statSync(t).isFile()) {
+          const stE = stageAttachment(t) || { path: t, originalName: require("path").basename(t) };
+          try { pendingAttachments.push(stE as any); } catch {}
+          const nmE = String((stE as any).originalName);
+          attPathByName[nmE] = String((stE as any).path);
+          editor.setText("\u25b8" + nmE);
+          try { editor.setCursorCol(editor.getText().length); } catch {}
+          qCursorEnd();
+          return;
+        }
+      } catch {}
       try {
         editor.setText("");
       } catch {}
