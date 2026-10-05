@@ -1873,10 +1873,11 @@ const readProvidersCfg = (): any => {
       description: "Sync the App Expert with the latest Quinki build",
       // APP EXPERT CLI ONLY (the CLI twin of the app's manual sync): copies the
       // MAIN app's binary + sidecar into App Expert.app. Hidden everywhere else.
-      // FIRST in the list (seq 0): pulling in the latest build is the point of it.
-      // SAME logic as /quit and /reset: it asks for a confirm, then it does it.
+      // Next to /reset (the user's spot). SAME logic as /quit and /reset: it
+      // asks for a confirm, then it does it. NEVER automatic: this command is
+      // the ONLY sync there is — /quit and everything else never sync.
       hidden: () => !QEXPERT,
-      seq: 0,
+      seq: 11.5,
       getArgumentCompletions: () => [
         { value: "confirm", label: "", notice: "Sync the App Expert and restart this CLI?" },
       ],
@@ -3921,9 +3922,9 @@ const readProvidersCfg = (): any => {
         break;
       }
       case "syncexpert": {
-        // App Expert CLI ONLY — the full loop: sync the MAIN app's binary + sidecar
-        // into App Expert.app, then restart this CLI (fresh sidecar, fresh code).
-        // The result is ALWAYS a visible chat block: a pill alone proved too shy.
+        // App Expert CLI ONLY (never automatic, never anywhere else): sync the
+        // MAIN app's binary + sidecar into App Expert.app, then close this CLI
+        // exactly like /quit. The user reopens by hand — his choice, always.
         if (!QEXPERT) break;
         if (arg && arg !== "confirm") break; // direct Enter OR the confirm item
         try { require("fs").appendFileSync("/tmp/q-submit.log", new Date().toISOString() + " case syncexpert streaming=" + streaming + "\n"); } catch {}
@@ -3936,7 +3937,9 @@ const readProvidersCfg = (): any => {
           const expSide = path.join(EXP_APP, "Contents", "Resources", "resources", "sidecar");
           qCloseMenus();
           let syncErr = "";
-          if (!fs.existsSync(mainBin) || !fs.existsSync(expBin)) {
+          if (streaming) {
+            syncErr = "A turn is running: sync postponed. Run /syncexpert again when idle.";
+          } else if (!fs.existsSync(mainBin) || !fs.existsSync(expBin)) {
             syncErr = "Quinki.app or App Expert.app not found in /Applications";
           } else {
             try {
@@ -3947,22 +3950,12 @@ const readProvidersCfg = (): any => {
             } catch (eS) { syncErr = String(eS); }
           }
           try { require("fs").appendFileSync("/tmp/q-submit.log", "  sync done err=" + JSON.stringify(syncErr) + "\n"); } catch {}
-          // Only failures and the mid-turn postponement get a chat block: the
-          // success path shows itself by closing and reopening the CLI (nothing
-          // inside the text box, per the user's rule).
-          if (syncErr || streaming) {
+          if (syncErr) {
+            // Visible failure (a chat block; nothing ever lives in the text box).
             try {
               pushBlock(
                 registerToggle(
-                  new ToggleBlock({
-                    label: "Sync",
-                    boldName: syncErr ? "failed" : "postponed",
-                    color: syncErr ? C.danger : C.info,
-                    body: syncErr
-                      ? syncErr
-                      : "Files copied. A turn is running: restart postponed \u2014 run /syncexpert again when idle.",
-                    open: true,
-                  })
+                  new ToggleBlock({ label: "Sync", boldName: "failed", color: C.danger, body: syncErr, open: true })
                 )
               );
               scrollToEnd();
@@ -3970,41 +3963,9 @@ const readProvidersCfg = (): any => {
             try { (ui as any).requestImmediateRender?.(); } catch {}
             break;
           }
-          // KILL the old expert sidecar (verified pid) so the fresh CLI gets a fresh one.
-          try {
-            const pidRaw = String(require("fs").readFileSync(path.join(os.homedir(), ".quinki", ".sidecar-expert.pid"), "utf8") || "").trim();
-            const spid = parseInt(pidRaw, 10);
-            if (spid > 0) {
-              const chk = require("child_process").spawnSync("/bin/ps", ["-p", String(spid), "-o", "command="], { encoding: "utf8" });
-              if (String(chk.stdout || "").includes("quinki-sidecar-ws")) {
-                try { process.kill(spid, "SIGKILL"); } catch {}
-              }
-            }
-          } catch {}
-          // REVIVE the fresh sidecar BEFORE the relaunch: the new CLI fetches the
-          // session ONCE at boot — if it booted into a dead sidecar the chat came
-          // up empty (the user's bug). Start it ourselves and wait for the port.
-          try {
-            const cpS = require("child_process");
-            const PORT = String(process.env.QUINKI_SIDECAR_PORT || "9183");
-            const shExp = "/Applications/App Expert.app/Contents/Resources/resources/sidecar/start-expert.sh";
-            if (fs.existsSync(shExp)) {
-              cpS.spawn(shExp, [], { detached: true, stdio: "ignore", cwd: path.dirname(shExp), env: { ...process.env, QUINKI_POOL_EAGER: "0" } });
-            }
-            for (let i = 0; i < 16; i++) {
-              const p2 = cpS.spawnSync("/usr/bin/nc", ["-z", "127.0.0.1", PORT], { timeout: 1500 });
-              if (p2.status === 0) break;
-              cpS.spawnSync("/bin/sleep", ["0.5"]);
-            }
-          } catch {}
-          // CLOSE AND REOPEN (the user's flow): park the UI (terminal clean),
-          // print one line in the terminal, then hand the tty to a fresh expert
-          // CLI. The fresh process finds the revived sidecar on 9183 (the expert
-          // default) and loads the session.
-          try { (ui as any).stop({ preserveScreen: true } as any); } catch {}
-          try { process.stdout.write("App Expert synced \u2014 restarting the App Expert CLI\u2026\n"); } catch {}
-          try { require("child_process").spawnSync(process.execPath, ["expert"], { stdio: "inherit" }); } catch {}
-          try { process.exit(0); } catch {}
+          // CLOSE like /quit — the user reopens with `quinki expert` when he wants.
+          try { process.stdout.write("App Expert synced \u2014 closing. Reopen the App Expert CLI when you want.\n"); } catch {}
+          shutdown();
         } catch (e) {
           try {
             pushBlock(
