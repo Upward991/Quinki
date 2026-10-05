@@ -171,7 +171,14 @@ function mergeHistoryMessages(history: any): any[] {
       agentName: m.agentName, agentModel: m.model, thinkingLevel: m.thinkingLevel, thinkingTranslated: m.thinkingTranslated || '', sentEffort: m.sentEffort, reasoningUsed: m.reasoningUsed, reasoningTokens: m.reasoningTokens,
       tokensIn: m.tokensIn, tokensOut: m.tokensOut,
       isCompacted: m.isCompacted, isError: m.isError,
-      errorType: m.errorType, errorContent: m.errorContent,
+      errorType: m.errorType,
+      // T496: injected errors carry the text in content blocks (no errorContent):
+      // derive it so a RELOADED error stays RED like the live one, and clear the
+      // plain copy so it does not double-render (white + red).
+      ...(m.isError && !m.errorContent ? (() => {
+        const ecx = (typeof m.content === 'string' ? m.content : Array.isArray(m.content) ? m.content.filter((x: any) => x?.type === 'text').map((x: any) => x.text || '').join('\n') : '').trim()
+        return { errorContent: ecx || undefined, content: '' }
+      })() : { errorContent: m.errorContent }),
     }
     if (m.role === 'tool_call') {
       let last = merged[merged.length - 1]

@@ -3561,6 +3561,26 @@ const readProvidersCfg = (): any => {
               if (ec) {
                 // PLAIN red writing: never a toggle.
                 pushBlock({ render: (w: number) => wrapPlain(ec, Math.max(10, w)).map((ln: string) => fg(C.danger, ln)), invalidate: () => {} } as any);
+                // T496: the footer under the error too (every message in the app
+                // carries one): same agent/model/thinking rules as normal replies.
+                try {
+                  let anE = String(m.agentName || "");
+                  try {
+                    if (!anE) {
+                      const e0E = readSessionsList().find((x: any) => x?.key === currentKey);
+                      const midE = String(m.id || "");
+                      const mtsE = Number(m.timestamp) || 0;
+                      const mkE = midE && e0E?.messageAgents?.[midE] ? midE : mtsE ? "ts-" + mtsE : "";
+                      if (mkE && e0E?.messageAgents?.[mkE]) anE = String(e0E.messageAgents[mkE]);
+                    }
+                  } catch {}
+                  if (!anE) {
+                    const idsE = sessionAgentIds();
+                    anE = idsE.find((x) => x === "orchestrator") || idsE[0] || "quinki";
+                  }
+                  anE = oneAgentId(anE);
+                  pushBlock(new FooterRow(fmtFooterDate(Number(m.timestamp) || Date.now()), agentDisplayName(anE) + " \u00b7 " + String(m.model || defaultModelId || "") + " \u00b7 " + levelLabel(String(m.thinkingLevel || "off")), true));
+                } catch {}
                 continue;
               }
             }
