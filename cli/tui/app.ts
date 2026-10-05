@@ -4978,8 +4978,9 @@ const readProvidersCfg = (): any => {
         if (menuStack[1] === "#add") return menuMarked.size > 0;
         // T489: Add orchestrator shows Confirm (Enter adds it; the menu stays open).
         if (String((cur as any)?.value || "") === "#orch") return true;
-        // T488: Remove agent runs with the FORWARD arrow (no Confirm in the bar,
-        // exactly like /quit's notice). Its old confirm rule is gone.
+        // T490: Remove agent shows Confirm too (the user's rule: you press CONFIRM
+        // to remove, not the forward arrow).
+        if (String((cur as any)?.value || "") === "remove") return true;
         return false;
       }
 
@@ -5269,14 +5270,11 @@ const readProvidersCfg = (): any => {
                   menuMarked = new Set<string>();
                 }
               } catch {}
-            } else if (menuStack[0] === "agentinsession" && String((it as any)?.value || "") === "remove") {
-              // T488: forward arrow RUNS the removal (like /quit: no Confirm step).
-              // The last-agent guard still shows the warning instead of removing.
-              agentActivate("remove");
-              try { ui.requestRender(); } catch {}
-              return;
             } else {
-              // MENU 2.0: the right arrow only navigates; on terminal rows nothing.
+              // T490: on terminal rows the forward arrow LIGHTS the Confirm (the
+              // app's NavBar behavior) — the removal runs on Enter, never here.
+              menuConfirmFocus = true;
+              try { ui.requestRender(); } catch {}
             }
           }
         } else {
