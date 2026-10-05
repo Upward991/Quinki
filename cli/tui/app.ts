@@ -4570,7 +4570,15 @@ const readProvidersCfg = (): any => {
         const fin = sel.filter((x) => agentIdsKnown().includes(x));
         try { require("fs").appendFileSync("/tmp/q-agent-trace.log", "  fin=" + JSON.stringify(fin) + " known=" + JSON.stringify(agentIdsKnown().slice(0, 12)) + "\n"); } catch {}
         if (fin.length) {
-          if (scOn) {
+          if (welcomeShown) {
+            // T487: on the WELCOME the selection is one-shot state — no phantom
+            // session written; the first send's setChatAgents carries it over.
+            const cur = sessionAgentIds();
+            const merged = [...cur];
+            for (const a of fin) if (!merged.includes(a)) merged.push(a);
+            qWelcomeAgents = merged;
+            try { require("fs").appendFileSync("/tmp/q-agent-trace.log", "  welcome-selection merged=" + merged.join(",") + "\n"); } catch {}
+          } else if (scOn) {
             const cur = sessionAgentIds();
             const merged = [...cur];
             for (const a of fin) if (!merged.includes(a)) merged.push(a);
