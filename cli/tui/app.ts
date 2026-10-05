@@ -3405,12 +3405,11 @@ const readProvidersCfg = (): any => {
               const tsMs = Number(m.timestamp) || 0;
               const mid2 = m.id ? String(m.id) : "";
               const pick = (store: any): any => (
-                (store && store[textKey]) ||
+                (store && textKey && store[textKey]) ||
                 (mid2 && store && store[mid2]) ||
                 (tsMs && store && store["ts-" + tsMs]) ||
-                (store && store[""]) ||
                 undefined
-              );
+              ); // T464: NIENTE fallback "" (una skill finiva su OGNI messaggio)
               const sks = Array.isArray((m as any).skillNames) && (m as any).skillNames.length ? (m as any).skillNames : pick(histStores.skills);
               const attsH = Array.isArray(m.attachments) && m.attachments.length ? m.attachments : pick(histStores.atts);
               for (const a of (Array.isArray(attsH) ? attsH : [])) chipsH.push({ kind: "attachment", name: String((a as any)?.originalName || require("path").basename(String((a as any)?.path || ""))) });
@@ -3422,7 +3421,7 @@ const readProvidersCfg = (): any => {
               const dtRaw = pick(histStores.displays);
               let tDisp = (typeof dtRaw === "string" && dtRaw) ? dtRaw : "";
               let usedInline = !!tDisp;
-              if (!tDisp && chipsH.length) {
+              if (!tDisp && chipsH.length) { // T464: solo se il messaggio HA davvero le sue clip
                 try {
                   const toks = chipsH.map((c) => (c.kind === "skill" ? "Skill: " + c.name : "\u25b8" + c.name)).join(" ");
                   tDisp = toks + (t.trim() ? " " + t : "");
