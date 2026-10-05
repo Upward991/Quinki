@@ -117,11 +117,13 @@ export function sessionWorkerPort(key: string): number {
 // il redesign del router.
 function effectivePoolSize(): number {
   const envN = parseInt(process.env.QUINKI_POOL_SIZE || "", 10);
-  if (Number.isFinite(envN) && envN >= 1) return envN;
-  // Il sistema decide: quanti core hai, quanti worker massimi.
-  // Nessun cap artificiale (l'utente ha ragione: è inutile).
-  // Con lazy spawning, il numero REALE è sempre quello che serve.
-  return Math.max(1, os.cpus().length);
+  // T451: TETTO DURO a 8 (1 main + 7 worker). Il default "numero di core" era una
+  // bomba: una CLI che si spawna il sidecar senza env si prendeva 16 worker (i core
+  // del Mac dell'utente!) → 18 processi Quinki dal nulla.
+  if (Number.isFinite(envN) && envN >= 1) return Math.min(envN, 8);
+  // Il pool è una feature SOSPESA (vedi nota sopra): senza env = NESSUN pool (1).
+  // Il percorso diretto (pool=1) è provato affidabile al 100%.
+  return 1;
 }
 
 export function initPoolRouter(): void {
