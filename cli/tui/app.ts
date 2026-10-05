@@ -776,7 +776,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
            "/Applications/App Expert.app/Contents/Resources/resources/sidecar/start.sh"];
       for (const sh of candidates) {
         if (fs.existsSync(sh)) {
-          const p = spawn(sh, [], { detached: true, stdio: "ignore", cwd: path.dirname(sh), env: process.env as any });
+          const p = spawn(sh, [], { detached: true, stdio: "ignore", cwd: path.dirname(sh), env: { ...process.env, QUINKI_POOL_EAGER: "0" } as any });
           p.unref?.();
           return true;
         }

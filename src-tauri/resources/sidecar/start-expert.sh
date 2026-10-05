@@ -19,6 +19,10 @@ while [ $i -lt 8 ]; do
   i=$((i+1))
 done
 
+# T456 (regola utente): pool LAZY — i worker nascono SOLO quando una sessione li
+# richiede (tryRoute -> spawnChild) e muoiono dopo 5 min di inattività (shrink loop).
+# Zero worker all'avvio; recovery/autoprompt intatti (spawnano il worker che serve).
+export QUINKI_POOL_EAGER=0
 export GIGACAGE_ENABLED=0
 export BUN_OPTIONS=""
 exec "$DIR/quinki-sidecar-ws" >> "$LOG" 2>&1
