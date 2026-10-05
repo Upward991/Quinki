@@ -3027,7 +3027,11 @@ const readProvidersCfg = (): any => {
    *  order, blocks normalized, footers with the real agent/model/level. */
   const loadServerHistory = async (beforeTs?: number): Promise<boolean> => {
     try { qDirs = null; qDirsKick(); } catch {}
-    if (!scOn) return false;
+    // T477: scOn is set ONLY by the boot's first connect attempt: if the sidecar
+    // was still starting back then (e.g. right after /syncexpert restarted it),
+    // scOn stayed false forever and the session never loaded even though the ws
+    // reconnected. The live connection flag is the truth.
+    if (!scOn && !(sc as any).connected) return false;
     try {
       if (typeof beforeTs === "number" && beforeTs > 0) {
         const r = await sc.call("getHistoryBefore", { sessionKey: currentKey, ts: beforeTs, limit: 50 }, 30000);
