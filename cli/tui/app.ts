@@ -573,10 +573,12 @@ class UserBubble {
       const fill = Math.max(0, inner - visibleWidth(t));
       // Clips styled exactly like the textbox (coral/blue bg, dark text), inline
       // in their original order; then back to the bubble colors.
-      const painted = String(t).replace(/Skill:\s*[\w.-]+|\u25b8[^\s\u25b8]+/g, (m2: string) => {
+      const painted = String(t).replace(qTokRe(), (m2: string) => {
         const isSkill = m2.startsWith("Skill:");
         const bgRgb = isSkill ? "201;112;132" : "122;162;247";
-        return "\x1b[48;2;" + bgRgb + "m\x1b[38;2;8;8;11m" + m2 + "\x1b[48;2;26;26;32m\x1b[38;2;232;232;236m";
+        // T449: attachment chips show ONLY the file name (no ▸ triangle — ugly).
+        const shown = isSkill ? m2 : m2.replace(/^\u25b8/, "");
+        return "\x1b[48;2;" + bgRgb + "m\x1b[38;2;8;8;11m" + shown + "\x1b[48;2;26;26;32m\x1b[38;2;232;232;236m";
       });
       return bg(C.bubbleUser, "  " + painted + " ".repeat(fill + 2));
     };
@@ -817,6 +819,21 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     return qTokenChar(i);
   };
   const qTokenByCh = (ch: string) => qTokens.find((t) => t.ch === ch) || null;
+  // T449: the attachment tokens must match the KNOWN names (which can contain
+  // SPACES: "my report final.pdf") — longest first, then the generic fallback.
+  const qAttNames = (): string[] => {
+    try {
+      const nm = new Set<string>();
+      for (const k of Object.keys(attPathByName)) if (k) nm.add(k);
+      return Array.from(nm).sort((a, b) => b.length - a.length);
+    } catch { return []; }
+  };
+  const qTokReSrc = (): string => {
+    let names: string[] = [];
+    try { names = qAttNames().map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")); } catch {}
+    return "(?:\u25b8(?:" + (names.length ? names.join("|") + "|" : "") + "[^\s\u25b8]+))|(?:Skill:\s*[\w.-]+)";
+  };
+  const qTokRe = (): RegExp => new RegExp(qTokReSrc(), "g");
   // T448: a REAL file path (Finder drop / pasted path) is NEVER a slash command:
   // its leading "/" must not light the menu nor block the send.
   const qIsFilePath = (t: string): boolean => {
@@ -833,10 +850,12 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       // EXACTLY like the bubble's inline clips. Dark text = the textbox background.
       // The END re-applies the editor panel background + text color (otherwise the
       // reset would kill the row paint after the chip).
+      // T449: attachment chips show ONLY the file name (no triangle — ugly).
+      const shown = isAtt ? tok.replace(/^\u25b8/, "") : tok;
       return (
         (isAtt ? "\x1b[48;2;122;162;247m" : "\x1b[48;2;201;112;132m") +
         "\x1b[38;2;8;8;11m" +
-        tok +
+        shown +
         "\x1b[48;2;15;15;19m" +
         "\x1b[38;2;232;232;236m"
       );
@@ -2220,7 +2239,7 @@ const readProvidersCfg = (): any => {
           if (st && Array.isArray(st.lines)) {
             const ln = String(st.lines[st.cursorLine] ?? "");
             const col = Number(st.cursorCol) || 0;
-            const re = /(?:\u25b8[^\s\u25b8]+)|(?:Skill:\s*[\w.-]+)/g;
+            const re = qTokRe();
             let m2m: RegExpExecArray | null;
             let hopped = false;
             while ((m2m = re.exec(ln))) {
@@ -2512,7 +2531,7 @@ const readProvidersCfg = (): any => {
         if (!st || !Array.isArray(st.lines)) return false;
         const ln = String(st.lines[st.cursorLine] ?? "");
         const col = Number(st.cursorCol) || 0;
-        const re = /(?:\u25b8[^\s\u25b8]+)|(?:Skill:\s*[\w.-]+)/g;
+        const re = qTokRe();
         let m: RegExpExecArray | null;
         while ((m = re.exec(ln))) {
           const a = m.index, b = m.index + m[0].length;
@@ -2555,13 +2574,14 @@ const readProvidersCfg = (): any => {
       } catch {}
       return false;
     };
+    (editor as any).qChipRe = () => qTokRe();
     (editor as any).qSnapOutOfChip = () => {
       try {
         const st: any = (editor as any).state;
         if (!st || !Array.isArray(st.lines)) return;
         const line = String(st.lines[st.cursorLine] ?? "");
         const col = Number(st.cursorCol) || 0;
-        const re = /(?:\u25b8[^\s\u25b8]+)|(?:Skill:\s*[\w.-]+)/g;
+        const re = qTokRe();
         let m: RegExpExecArray | null;
         while ((m = re.exec(line))) {
           const a = m.index;
@@ -2591,7 +2611,7 @@ const readProvidersCfg = (): any => {
         const line = String(st.lines[st.cursorLine] ?? "");
         const col = Number(st.cursorCol) || 0;
         // Find a token that ENDS at the cursor (or the cursor sits inside it).
-        const re = /(?:\u25b8[^\s\u25b8]+)|(?:Skill:\s*[\w.-]+)/g;
+        const re = qTokRe();
         let m: RegExpExecArray | null;
         while ((m = re.exec(line))) {
           const a = m.index;
@@ -4011,15 +4031,7 @@ const readProvidersCfg = (): any => {
         }
         const aArg = String(arg || "");
         if (aArg === "__at_new") {
-          // Native macOS file picker (same feel as the folder picker).
-          try {
-            const cpA = require("child_process");
-            cpA.execFile("/usr/bin/osascript", ["-e", 'POSIX path of (choose file with prompt "Choose a file to attach")'], { timeout: 180000 }, (errA: any, outA: string) => {
-              if (errA) return;
-              const fA = String(outA || "").trim();
-              if (fA) { try { const stA = stageAttachment(fA); if (stA) pendingAttachments.push(stA as any); } catch {} try { ui.requestRender(); } catch {} }
-            });
-          } catch {}
+          qAttachNewFiles();
           break;
         }
         if (aArg === "__at_open") {
@@ -4548,6 +4560,38 @@ const readProvidersCfg = (): any => {
       (editor as any).autocompleteList = undefined;
     } catch {}
   };
+  const qAttachNewFiles = (): void => {
+    try {
+      const cp = require("child_process");
+      const scriptA = 'set theFiles to choose file with prompt "Choose files to attach" with multiple selections allowed\nset out to ""\nrepeat with f in theFiles\nset out to out & (POSIX path of f) & linefeed\nend repeat\nreturn out';
+      cp.execFile("/usr/bin/osascript", ["-e", scriptA], { timeout: 300000 }, (errA: any, outA: string) => {
+        try {
+          if (errA) return;
+          const fps = String(outA || "").split("\n").map((x) => x.trim()).filter(Boolean);
+          let curAdd = String(editor.getText() || "");
+          const before = curAdd;
+          for (const fp of fps) {
+            let isF = false;
+            try { isF = require("fs").existsSync(fp) && require("fs").statSync(fp).isFile(); } catch {}
+            if (!isF) continue;
+            const stA = stageAttachment(fp) || { path: fp, originalName: require("path").basename(fp) };
+            try { pendingAttachments.push(stA as any); } catch {}
+            const nmA = String((stA as any).originalName);
+            attPathByName[nmA] = String((stA as any).path);
+            curAdd = String(curAdd).replace(/[ \t]+$/, "") + " " + "\u25b8" + nmA;
+          }
+          if (curAdd !== before) {
+            editor.setText(curAdd);
+            try { editor.setCursorCol(editor.getText().length); } catch {}
+            qCursorEnd();
+          }
+          // T449: the menu closes immediately after attaching (the user's rule).
+          try { qCloseMenus(); } catch {}
+          try { ui.requestRender(); } catch {}
+        } catch {}
+      });
+    } catch {}
+  };
   const clearSlashText = (): void => {
     try {
       const t0 = String(editor.getText() || "");
@@ -4674,27 +4718,7 @@ const readProvidersCfg = (): any => {
             qCloseMenus();
             menuMarked.clear();
           } else if (vA === "__at_new") {
-            try {
-              const cpB = require("child_process");
-              cpB.execFile("/usr/bin/osascript", ["-e", 'POSIX path of (choose file with prompt "Choose a file to attach")'], { timeout: 180000 }, (errB: any, outB: string) => {
-                if (errB) return;
-                const fB = String(outB || "").trim();
-                if (fB) {
-                  try {
-                    const stB = stageAttachment(fB);
-                    if (stB) {
-                      pendingAttachments.push(stB as any);
-                      const nmB2 = String((stB as any).originalName);
-                      attPathByName[nmB2] = String((stB as any).path);
-                      const curB = String(editor.getText() || "");
-                      editor.setText(String(curB).replace(/[ \t]+$/, "") + " " + "\u25b8" + nmB2);
-                      try { editor.setCursorCol(editor.getText().length); } catch {}
-                    }
-                  } catch {}
-                  try { ui.requestRender(); } catch {}
-                }
-              });
-            } catch {}
+            qAttachNewFiles();
           } else if (vA === "__at_open") {
             const sdir3 = path.join(os.homedir(), ".quinki", "attachments", String(currentKey || ""));
             try { require("fs").mkdirSync(sdir3, { recursive: true }); } catch {}
@@ -5745,7 +5769,7 @@ const applySettingsPatch = (patch: any) => {
             } catch { skillRefs.push({ agentId: "", skillName: name }); skills.push(name); }
             return rest;
           })
-          .replace(/(?:^|\s)\u25b8([^\s\u25b8]+)/g, (_m: string, nm: string) => {
+          .replace(new RegExp("(?:^|\\s)\\u25b8(" + (qAttNames().map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") || "[^\\s\\u25b8]+") + "|[^\\s\\u25b8]+)", "g"), (_m: string, nm: string) => {
             let name = String(nm); let restA = "";
             try {
               const knownA = Object.keys(attPathByName).filter((k) => name.startsWith(k) && k).sort((a, b) => b.length - a.length);
