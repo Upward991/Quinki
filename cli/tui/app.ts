@@ -5654,6 +5654,9 @@ const readProvidersCfg = (): any => {
             menuSubFilter = "";
             menuSel = 0;
             try { if (cmd.name === "skill" || cmd.name === "attachments") killAutocomplete(); } catch {}
+            // T513 — THE user's flow (slash + selector + FORWARD): the arrow opens
+            // the menu WITHOUT the case, so the tab data must load right here.
+            try { if (cmd.name === "agents") refreshAgentsTab(); } catch {}
           } else if (cmd) {
             // MENU 2.0: nothing (Enter runs commands).
           }
@@ -6117,6 +6120,14 @@ const applySettingsPatch = (patch: any) => {
       // EMPTY textbox: the old rule "no slash text -> close" was killing it right
       // after the command cleared the box (the skill menu never survived). Gone.
       const mainOpen = menuStack.length === 0 && t.startsWith("/") && !qIsFilePath(t);
+      // T513: every time the agents menu is on screen, make sure the engine data
+      // is fresh (throttled; covers ALL the ways the menu can be opened).
+      try {
+        if (menuStack[0] === "agents" && Date.now() - (refreshAgentsTab as any)._last > 4000) {
+          (refreshAgentsTab as any)._last = Date.now();
+          refreshAgentsTab();
+        }
+      } catch {}
       // T503 — ONE list only: the editor's own autocomplete (vendored) used to run
       // in parallel with OUR menu; the arrows moved one highlight while Enter read
       // the other list, so Confirm on "reload" executed a different row (nothing).
@@ -6200,6 +6211,11 @@ const applySettingsPatch = (patch: any) => {
       let canFwd = false;
       try {
         const curA: any = items[menuSel];
+        if (!menuStack.length && curA && !curA.separator) {
+          // T513: at the root the arrow lights on commands that OPEN something.
+          const cR: any = (typeof commands !== "undefined" ? commands.find((c: any) => c.name === curA.value) : null);
+          if (cR && typeof cR.getArgumentCompletions === "function") canFwd = true;
+        }
         if (curA && !curA.separator) {
           if (menuStack[0] === "agentinsession") canFwd = !!agentLevelFor(curA); // T492: remove = no forward (nothing ahead)
           else if (menuStack[0] === "agents") {
