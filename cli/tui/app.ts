@@ -3951,8 +3951,8 @@ const readProvidersCfg = (): any => {
                   body: syncErr
                     ? syncErr
                     : (streaming
-                        ? "Files copied. A turn is running: restart postponed \u2014 run /syncexpert again when idle. Restart the App Expert to apply."
-                        : "Restarting the App Expert CLI in place\u2026"),
+                        ? "Files copied. A turn is running: sidecar restart and reload postponed \u2014 run /syncexpert again when idle."
+                        : "Sidecar restarted and the session reloaded in place. Restart the App Expert to apply the new build."),
                   open: true,
                 })
               )
@@ -3989,13 +3989,27 @@ const readProvidersCfg = (): any => {
               cpS.spawnSync("/bin/sleep", ["0.5"]);
             }
           } catch {}
-          // RESTART: park the UI (terminal restored), relaunch on the SAME tty.
-          setStatus("App Expert synced. Restarting the CLI\u2026", "syncing");
+          // RELOAD IN PLACE — never restart this process: the sync touches the
+          // APP only, never this CLI binary, and a fresh boot raced the sidecar
+          // (dead port at history-fetch time => empty chat). Reconnect + reload
+          // exactly like the boot and the /reload command do.
+          setStatus("App Expert synced. Reloading the session\u2026", "syncing");
           try { (ui as any).requestImmediateRender?.(); } catch {}
-          try { (ui as any).stop({ preserveScreen: true } as any); } catch {}
-          try { process.stdout.write("App Expert synced \u2014 restarting the App Expert CLI\u2026\n"); } catch {}
-          try { require("child_process").spawnSync(process.execPath, ["expert"], { stdio: "inherit" }); } catch {}
-          try { process.exit(0); } catch {}
+          try {
+            void (sc as any).connect(2000).then(async (ok: boolean) => {
+              try { if (ok) await loadServerHistory(); } catch {}
+              try {
+                if (histMsgs && histMsgs.length && welcomeShown) {
+                  welcomeShown = false;
+                  applyLayout(false);
+                }
+              } catch {}
+              try { renderHistory(); } catch {}
+              try { scrollToEnd(); } catch {}
+              try { setStatus("App Expert synced \u2014 session reloaded", "syncing"); } catch {}
+              try { (ui as any).requestImmediateRender?.(); } catch {}
+            });
+          } catch {}
         } catch (e) {
           setStatus("Sync failed: " + String(e), "failed");
           try { (ui as any).requestImmediateRender?.(); } catch {}
