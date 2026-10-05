@@ -3908,16 +3908,11 @@ const readProvidersCfg = (): any => {
         break;
       }
       case "syncexpert": {
-        // App Expert CLI ONLY — the full loop the user wants: sync the MAIN app's
-        // binary + sidecar into App Expert.app, kill the old expert sidecar
-        // (verified pid), then RESTART this CLI in place so the fresh process
-        // talks to a fresh sidecar (the old one kept the old binary in memory).
+        // App Expert CLI ONLY — the full loop: sync the MAIN app's binary + sidecar
+        // into App Expert.app, then restart this CLI (fresh sidecar, fresh code).
+        // The result is ALWAYS a visible chat block: a pill alone proved too shy.
         if (!QEXPERT) break;
-        if (streaming) {
-          setStatus("Sync unavailable while a turn is running", "failed");
-          try { (ui as any).requestImmediateRender?.(); } catch {}
-          break;
-        }
+        try { require("fs").appendFileSync("/tmp/q-submit.log", new Date().toISOString() + " case syncexpert streaming=" + streaming + "\n"); } catch {}
         try {
           const MAIN_APP = "/Applications/Quinki.app";
           const EXP_APP = "/Applications/App Expert.app";
@@ -3925,29 +3920,44 @@ const readProvidersCfg = (): any => {
           const expBin = path.join(EXP_APP, "Contents", "MacOS", "quinki");
           const mainSide = path.join(MAIN_APP, "Contents", "Resources", "resources", "sidecar");
           const expSide = path.join(EXP_APP, "Contents", "Resources", "resources", "sidecar");
-          if (!fs.existsSync(mainBin) || !fs.existsSync(expBin)) {
-            setStatus("Sync failed: apps not found in /Applications", "failed");
-            try { (ui as any).requestImmediateRender?.(); } catch {}
-            break;
-          }
           qCloseMenus();
           setStatus("Syncing the App Expert\u2026", "syncing");
           try { (ui as any).requestImmediateRender?.(); } catch {}
-          // 1. SYNC the app files (synchronous; APFS clone makes it fast).
           let syncErr = "";
-          try {
-            fs.copyFileSync(mainBin, expBin);
-            fs.rmSync(expSide, { recursive: true, force: true });
-            const rr = require("child_process").spawnSync("/usr/bin/ditto", [mainSide, expSide]);
-            if (rr.status !== 0) throw new Error("ditto exit " + String(rr.status));
-          } catch (eS) { syncErr = String(eS); }
-          if (syncErr) {
-            setStatus("Sync failed: " + syncErr, "failed");
-            try { (ui as any).requestImmediateRender?.(); } catch {}
-            break;
+          if (!fs.existsSync(mainBin) || !fs.existsSync(expBin)) {
+            syncErr = "Quinki.app or App Expert.app not found in /Applications";
+          } else {
+            try {
+              fs.copyFileSync(mainBin, expBin);
+              fs.rmSync(expSide, { recursive: true, force: true });
+              const rr = require("child_process").spawnSync("/usr/bin/ditto", [mainSide, expSide]);
+              if (rr.status !== 0) throw new Error("ditto exit " + String(rr.status));
+            } catch (eS) { syncErr = String(eS); }
           }
-          // 2. KILL the old expert sidecar (verified: the pid must really be a
-          //    quinki sidecar). The watchdog revives it fresh if the app needs it.
+          try { require("fs").appendFileSync("/tmp/q-submit.log", "  sync done err=" + JSON.stringify(syncErr) + "\n"); } catch {}
+          // VISIBLE in the chat no matter what (the user must never see "nothing").
+          try {
+            pushBlock(
+              registerToggle(
+                new ToggleBlock({
+                  label: "Sync",
+                  boldName: syncErr ? "failed" : "App Expert synced",
+                  color: syncErr ? C.danger : C.info,
+                  body: syncErr
+                    ? syncErr
+                    : (streaming
+                        ? "Files copied. A turn is running: restart postponed \u2014 run /syncexpert again when idle. Restart the App Expert to apply."
+                        : "Restarting the App Expert CLI in place\u2026"),
+                  open: true,
+                })
+              )
+            );
+            scrollToEnd();
+          } catch {}
+          try { (ui as any).requestImmediateRender?.(); } catch {}
+          if (syncErr) break;
+          if (streaming) break; // never kill the family mid-turn: files are copied, restart postponed
+          // KILL the old expert sidecar (verified pid) so the fresh CLI gets a fresh one.
           try {
             const pidRaw = String(require("fs").readFileSync(path.join(os.homedir(), ".quinki", ".sidecar-expert.pid"), "utf8") || "").trim();
             const spid = parseInt(pidRaw, 10);
@@ -3958,7 +3968,7 @@ const readProvidersCfg = (): any => {
               }
             }
           } catch {}
-          // 3. RESTART: park the UI (terminal restored), relaunch on the SAME tty.
+          // RESTART: park the UI (terminal restored), relaunch on the SAME tty.
           setStatus("App Expert synced. Restarting the CLI\u2026", "syncing");
           try { (ui as any).requestImmediateRender?.(); } catch {}
           try { (ui as any).stop({ preserveScreen: true } as any); } catch {}
@@ -5795,6 +5805,9 @@ const applySettingsPatch = (patch: any) => {
           qCursorEnd();
           return;
         }
+      } catch {}
+      try {
+        require("fs").appendFileSync("/tmp/q-submit.log", new Date().toISOString() + " submit " + JSON.stringify(t) + "\n");
       } catch {}
       try {
         editor.setText("");
