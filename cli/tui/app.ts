@@ -3931,8 +3931,6 @@ const readProvidersCfg = (): any => {
           const mainSide = path.join(MAIN_APP, "Contents", "Resources", "resources", "sidecar");
           const expSide = path.join(EXP_APP, "Contents", "Resources", "resources", "sidecar");
           qCloseMenus();
-          setStatus("Syncing the App Expert\u2026", "syncing");
-          try { (ui as any).requestImmediateRender?.(); } catch {}
           let syncErr = "";
           if (!fs.existsSync(mainBin) || !fs.existsSync(expBin)) {
             syncErr = "Quinki.app or App Expert.app not found in /Applications";
@@ -3945,28 +3943,29 @@ const readProvidersCfg = (): any => {
             } catch (eS) { syncErr = String(eS); }
           }
           try { require("fs").appendFileSync("/tmp/q-submit.log", "  sync done err=" + JSON.stringify(syncErr) + "\n"); } catch {}
-          // VISIBLE in the chat no matter what (the user must never see "nothing").
-          try {
-            pushBlock(
-              registerToggle(
-                new ToggleBlock({
-                  label: "Sync",
-                  boldName: syncErr ? "failed" : "App Expert synced",
-                  color: syncErr ? C.danger : C.info,
-                  body: syncErr
-                    ? syncErr
-                    : (streaming
-                        ? "Files copied. A turn is running: sidecar restart and reload postponed \u2014 run /syncexpert again when idle."
-                        : "Sidecar restarted and the session reloaded in place. Restart the App Expert to apply the new build."),
-                  open: true,
-                })
-              )
-            );
-            scrollToEnd();
-          } catch {}
-          try { (ui as any).requestImmediateRender?.(); } catch {}
-          if (syncErr) break;
-          if (streaming) break; // never kill the family mid-turn: files are copied, restart postponed
+          // Only failures and the mid-turn postponement get a chat block: the
+          // success path shows itself by closing and reopening the CLI (nothing
+          // inside the text box, per the user's rule).
+          if (syncErr || streaming) {
+            try {
+              pushBlock(
+                registerToggle(
+                  new ToggleBlock({
+                    label: "Sync",
+                    boldName: syncErr ? "failed" : "postponed",
+                    color: syncErr ? C.danger : C.info,
+                    body: syncErr
+                      ? syncErr
+                      : "Files copied. A turn is running: restart postponed \u2014 run /syncexpert again when idle.",
+                    open: true,
+                  })
+                )
+              );
+              scrollToEnd();
+            } catch {}
+            try { (ui as any).requestImmediateRender?.(); } catch {}
+            break;
+          }
           // KILL the old expert sidecar (verified pid) so the fresh CLI gets a fresh one.
           try {
             const pidRaw = String(require("fs").readFileSync(path.join(os.homedir(), ".quinki", ".sidecar-expert.pid"), "utf8") || "").trim();
@@ -3994,29 +3993,23 @@ const readProvidersCfg = (): any => {
               cpS.spawnSync("/bin/sleep", ["0.5"]);
             }
           } catch {}
-          // RELOAD IN PLACE — never restart this process: the sync touches the
-          // APP only, never this CLI binary, and a fresh boot raced the sidecar
-          // (dead port at history-fetch time => empty chat). Reconnect + reload
-          // exactly like the boot and the /reload command do.
-          setStatus("App Expert synced. Reloading the session\u2026", "syncing");
-          try { (ui as any).requestImmediateRender?.(); } catch {}
-          try {
-            void (sc as any).connect(2000).then(async (ok: boolean) => {
-              try { if (ok) await loadServerHistory(); } catch {}
-              try {
-                if (histMsgs && histMsgs.length && welcomeShown) {
-                  welcomeShown = false;
-                  applyLayout(false);
-                }
-              } catch {}
-              try { renderHistory(); } catch {}
-              try { scrollToEnd(); } catch {}
-              try { setStatus("App Expert synced \u2014 session reloaded", "syncing"); } catch {}
-              try { (ui as any).requestImmediateRender?.(); } catch {}
-            });
-          } catch {}
+          // CLOSE AND REOPEN (the user's flow): park the UI (terminal clean),
+          // print one line in the terminal, then hand the tty to a fresh expert
+          // CLI. The fresh process finds the revived sidecar on 9183 (the expert
+          // default) and loads the session.
+          try { (ui as any).stop({ preserveScreen: true } as any); } catch {}
+          try { process.stdout.write("App Expert synced \u2014 restarting the App Expert CLI\u2026\n"); } catch {}
+          try { require("child_process").spawnSync(process.execPath, ["expert"], { stdio: "inherit" }); } catch {}
+          try { process.exit(0); } catch {}
         } catch (e) {
-          setStatus("Sync failed: " + String(e), "failed");
+          try {
+            pushBlock(
+              registerToggle(
+                new ToggleBlock({ label: "Sync", boldName: "failed", color: C.danger, body: String(e), open: true })
+              )
+            );
+            scrollToEnd();
+          } catch {}
           try { (ui as any).requestImmediateRender?.(); } catch {}
         }
         break;
