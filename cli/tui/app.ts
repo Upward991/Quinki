@@ -1869,8 +1869,9 @@ const readProvidersCfg = (): any => {
       description: "Sync the App Expert with the latest Quinki build",
       // APP EXPERT CLI ONLY (the CLI twin of the app's manual sync): copies the
       // MAIN app's binary + sidecar into App Expert.app. Hidden everywhere else.
+      // FIRST in the list (seq 0): pulling in the latest build is the point of it.
       hidden: () => !QEXPERT,
-      seq: 15,
+      seq: 0,
     },
     { name: "export", description: "Export this chat as Markdown", seq: 10, hidden: () => welcomeShown },
     {
