@@ -1131,6 +1131,58 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       writeSessionsList(list);
     } catch {}
   };
+  // T505: the AGENTS tab (CLI twin of the app's AgentsPanel): top menu.
+  const agentAdminItems = (): any[] => {
+    let nAg = 0; try { nAg = agentIdsKnown().length; } catch {}
+    let nSk = 0; try { nSk = skillGroupsCached().reduce((n: number, g: any) => n + (g.skills?.length || 0), 0); } catch {}
+    const curDef = String((wsSettings && (wsSettings as any).defaultAgentId) || "quinki");
+    let defName = curDef; try { defName = agentDisplayName(curDef); } catch {}
+    return [
+      { value: "#def", label: "Default agent for new chats", description: defName },
+      { value: "#you", label: "Your agents", description: String(nAg) + " configured" },
+      { value: "#sk", label: "Skills", description: String(nSk) + " installed" },
+      { value: "#mcp", label: "MCP", description: "Manage MCP servers" },
+      { value: "#tools", label: "Tools", description: "Tools available to agents" },
+      { value: "#plan", label: "Plan mode", description: "Tools and MCP enabled in plan mode" },
+    ];
+  };
+  const agentAdminLevelItems = (stack: string[]): any[] => {
+    if (stack.length <= 1) return agentAdminItems();
+    const sub = stack[1];
+    if (sub === "#def") {
+      const cur = String((wsSettings && (wsSettings as any).defaultAgentId) || "quinki");
+      try {
+        return agentIdsKnown().map((id: string) => ({
+          value: "def:" + id,
+          label: (id === cur ? "\u25cf " : "\u25cb ") + agentDisplayName(id),
+          description: id === cur ? "current default" : "set as default",
+        }));
+      } catch { return []; }
+    }
+    if (sub === "#you") {
+      const out: any[] = [{ value: "__newagent", label: "\uff0b New agent", description: "Create a new agent" }];
+      out.push({ value: "__sep_you", label: "Your agents", separator: true });
+      try { for (const id of agentIdsKnown()) out.push({ value: "ag:" + id, label: agentDisplayName(id), description: id }); } catch {}
+      return out;
+    }
+    if (sub === "#plan") {
+      return [
+        { value: "#plantools", label: "Tools in plan mode", description: "Tool-by-tool toggles" },
+        { value: "#planmcp", label: "MCP in plan mode", description: "MCP-by-MCP toggles" },
+      ];
+    }
+    if (sub.startsWith("ag:")) {
+      const agId = sub.slice(3);
+      return [
+        { value: "ask:" + agId, label: "Skills", description: "Skills this agent can use" },
+        { value: "atk:" + agId, label: "Tools", description: "Tools this agent can use" },
+        { value: "amc:" + agId, label: "MCP", description: "MCP servers this agent can use" },
+        { value: "__agdel", label: "Delete agent", description: "" },
+      ];
+    }
+    // #sk / #mcp / #tools: filled by their own loaders in the next iterations.
+    return [];
+  };
   // T487: the WELCOME's agent selection (the app's welcome pre-config): one-shot,
   // applied to the new session on the first send, then reset to the defaults.
   let qWelcomeAgents: string[] | null = null;
@@ -1901,11 +1953,19 @@ const readProvidersCfg = (): any => {
     {
       name: "settings",
       description: "Settings",
-      // Only from the welcome screen (and always in the App Expert CLI): inside a
-      // session the settings do not belong to the slash menu.
-      hidden: () => !welcomeShown && !QEXPERT,
+      // T505: welcome-only AND main-CLI-only (the expert gets no settings at all).
+      hidden: () => !welcomeShown || QEXPERT,
       seq: 13,
       getArgumentCompletions: () => settingsMenuItems(),
+    },
+    {
+      name: "agents",
+      description: "Agents, skills, MCP, tools, plan mode",
+      // T505: the Agents tab in the CLI — welcome-only, main-CLI-only, right
+      // above /settings (the user's spot).
+      hidden: () => !welcomeShown || QEXPERT,
+      seq: 12.5,
+      getArgumentCompletions: () => agentAdminItems(),
     },
     {
       name: "quit",
@@ -4741,6 +4801,7 @@ const readProvidersCfg = (): any => {
     if (stack[0] === "directory" && stack[1] === "dirchange") return dirChangeItems();
     if (stack.length === 0) return mainItems();
     if (stack[0] === "agentinsession") return agentLevelItems(stack);
+    if (stack[0] === "agents") return agentAdminLevelItems(stack);
     if (stack[0] === "settings") return settingsLevelItems(stack);
     const cmd: any = commands.find((c) => c.name === stack[0]);
     if (!cmd || typeof cmd.getArgumentCompletions !== "function") return [];
@@ -4878,6 +4939,25 @@ const readProvidersCfg = (): any => {
         }
         settingsActivate(String(it.value));
         try { ui.requestRender(); } catch {}
+        return;
+      }
+      if (menuStack[0] === "agents") {
+        const vAg = String(it?.value ?? "");
+        if (vAg.startsWith("def:")) {
+          // T505: set the default agent for new chats (the app's Default agent menu).
+          applySettingsPatch({ defaultAgentId: vAg.slice(4) });
+          try { refreshSessions(); } catch {}
+          try { ui.requestRender(); } catch {}
+          return;
+        }
+        if (vAg === "__newagent") {
+          try { require("fs").appendFileSync("/tmp/q-agents-trace.log", new Date().toISOString() + " new-agent (next iteration)\n"); } catch {}
+          return;
+        }
+        if (vAg.startsWith("ask:") || vAg.startsWith("atk:") || vAg.startsWith("amc:")) {
+          try { require("fs").appendFileSync("/tmp/q-agents-trace.log", new Date().toISOString() + " open editor " + vAg + "\n"); } catch {}
+          return;
+        }
         return;
       }
       if (menuStack[0] === "agentinsession") {
@@ -5319,7 +5399,11 @@ const readProvidersCfg = (): any => {
             // ONLY the agent menu has deeper levels. Every other submenu is a
             // terminal list: → must light the Confirm directly, never push a
             // ghost level out of the item value.
-            const deeper = menuStack[0] === "agentinsession" ? agentLevelFor(it) : (menuStack[0] === "settings" ? settingsDeeper(it) : (menuStack[0] === "directory" && !menuStack[1] && String(it.value) === "__dir_change" ? "dirchange" : null));
+            let deeper = menuStack[0] === "agentinsession" ? agentLevelFor(it) : (menuStack[0] === "settings" ? settingsDeeper(it) : (menuStack[0] === "directory" && !menuStack[1] && String(it.value) === "__dir_change" ? "dirchange" : null));
+            if (menuStack[0] === "agents" && it && !it.separator) {
+              const vA = String(it.value || "");
+              if (vA === "#def" || vA === "#you" || vA === "#sk" || vA === "#mcp" || vA === "#tools" || vA === "#plan" || vA.startsWith("ag:")) deeper = vA;
+            }
             if (deeper) {
               menuStack.push(deeper);
               menuSubFilter = "";
@@ -5450,6 +5534,16 @@ const readProvidersCfg = (): any => {
               } catch {}
             } else {
               runItem(it); // MENU 2.0: Enter executes (never navigates)
+            }
+          } else if (menuStack[0] === "agents") {
+            const vA2 = String(it?.value || "");
+            if (vA2 === "#def" || vA2 === "#you" || vA2 === "#sk" || vA2 === "#mcp" || vA2 === "#tools" || vA2 === "#plan" || vA2.startsWith("ag:")) {
+              menuStack.push(vA2);
+              menuSubFilter = "";
+              menuSel = 0;
+              try { menuMarked = new Set<string>(); } catch {}
+            } else {
+              runItem(it);
             }
           } else if (menuStack.length > 0) {
             runItem(it); // MENU 2.0: Enter executes (never navigates)
