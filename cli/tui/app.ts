@@ -1131,6 +1131,69 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       writeSessionsList(list);
     } catch {}
   };
+  // T508: the AGENTS tab data — the sidecar is the truth (same as the app).
+  let qAgentsData: any[] = [];
+  let qMcpData: any[] = [];
+  let qToolsData: any[] = [];
+  const refreshAgentsTab = () => {
+    try {
+      const call = (globalThis as any).__sidecarCall;
+      if (!call) return;
+      call('listAgents', {}).then((r: any) => { try { qAgentsData = Array.isArray(r?.agents) ? r.agents : []; } catch {} try { ui.requestRender(); } catch {} }).catch(() => {});
+      call('listMcpServers', {}).then((r: any) => { try { qMcpData = Array.isArray(r?.servers) ? r.servers : []; } catch {} try { ui.requestRender(); } catch {} }).catch(() => {});
+      call('listTools', {}).then((r: any) => { try { qToolsData = Array.isArray(r?.tools) ? r.tools : []; } catch {} try { ui.requestRender(); } catch {} }).catch(() => {});
+      call('getGlobalConfig', {}).then((r: any) => {
+        try {
+          const cfg = (r && (r.config || r)) || {};
+          wsSettings = { ...(wsSettings || {}), defaultAgentId: cfg.defaultAgentId || (wsSettings || {}).defaultAgentId, planModeTools: cfg.planModeTools || {}, planModeMcp: cfg.planModeMcp || {} };
+        } catch {}
+        try { ui.requestRender(); } catch {}
+      }).catch(() => {});
+    } catch {}
+  };
+  const agentFieldOf = (id: string, field: string): string[] => {
+    try {
+      const a = qAgentsData.find((x: any) => x?.id === id || x?.name === id);
+      return ((a?.[field]) || []).map((s: any) => (typeof s === "string" ? s : s?.name)).filter(Boolean);
+    } catch { return []; }
+  };
+  const agentSkillsOf = (id: string) => agentFieldOf(id, "skills");
+  const agentToolsOf = (id: string) => agentFieldOf(id, "tools");
+  const agentMcpOf = (id: string) => agentFieldOf(id, "mcpServers");
+  const allSkillsList = (): string[] => {
+    try {
+      const st = new Set<string>();
+      for (const a of qAgentsData) for (const sk of (a?.skills || [])) { const n = typeof sk === "string" ? sk : sk?.name; if (n) st.add(String(n)); }
+      return Array.from(st).sort();
+    } catch { return []; }
+  };
+  const agentActivate = null; // marker (never used)
+  const agentAdminAction = (vAgT: string) => {
+    // T508: ONE action for every agents-tab row (Tab = select, Enter = same).
+    if (vAgT.startsWith("def:")) { applySettingsPatch({ defaultAgentId: vAgT.slice(4) }); try { refreshSessions(); } catch {} return; }
+    const tog = (id: string, nm: string, cur: string[], field: string) => {
+      const nx = cur.includes(nm) ? cur.filter((x) => x !== nm) : [...cur, nm];
+      patchAgent(id, field === "mcpServers" ? { mcpServers: nx } : (field === "tools" ? { tools: nx } : { skills: nx }));
+    };
+    if (vAgT.startsWith("ast:")) { const r = vAgT.slice(4); const i1 = r.indexOf(":"); const id = r.slice(0, i1); const nm = r.slice(i1 + 1); tog(id, nm, agentSkillsOf(id), "skills"); return; }
+    if (vAgT.startsWith("att:")) { const r = vAgT.slice(4); const i1 = r.indexOf(":"); const id = r.slice(0, i1); const nm = r.slice(i1 + 1); tog(id, nm, agentToolsOf(id), "tools"); return; }
+    if (vAgT.startsWith("amt:")) { const r = vAgT.slice(4); const i1 = r.indexOf(":"); const id = r.slice(0, i1); const nm = r.slice(i1 + 1); tog(id, nm, agentMcpOf(id), "mcpServers"); return; }
+    if (vAgT.startsWith("ska:")) { const r = vAgT.slice(4); const i1 = r.indexOf(":"); const nm = r.slice(0, i1); const id = r.slice(i1 + 1); tog(id, nm, agentSkillsOf(id), "skills"); return; }
+    if (vAgT.startsWith("mcpa:")) { const r = vAgT.slice(5); const i1 = r.indexOf(":"); const mid = r.slice(0, i1); const id = r.slice(i1 + 1); tog(id, mid, agentMcpOf(id), "mcpServers"); return; }
+    if (vAgT.startsWith("tola:")) { const r = vAgT.slice(5); const i1 = r.indexOf(":"); const nm = r.slice(0, i1); const id = r.slice(i1 + 1); tog(id, nm, agentToolsOf(id), "tools"); return; }
+    if (vAgT.startsWith("pmt:")) { const nm = vAgT.slice(4); const pm = { ...(((wsSettings as any)?.planModeTools) || {}) }; pm[nm] = !pm[nm]; applySettingsPatch({ planModeTools: pm }); return; }
+    if (vAgT.startsWith("pmm:")) { const id2 = vAgT.slice(4); const pm = { ...(((wsSettings as any)?.planModeMcp) || {}) }; pm[id2] = !pm[id2]; applySettingsPatch({ planModeMcp: pm }); return; }
+  };
+  const patchAgent = (id: string, config: any) => {
+    try {
+      const call = (globalThis as any).__sidecarCall;
+      if (!call) return;
+      call('updateAgent', { id, config }).then(() => { refreshAgentsTab(); }).catch(() => {});
+    } catch {}
+  };
+  const countAgentsWith = (list: string[], field: string) => {
+    try { return qAgentsData.filter((a: any) => agentFieldOf(a?.id || a?.name, field).some((x) => list.includes(x))).length; } catch { return 0; }
+  };
   // T505: the AGENTS tab (CLI twin of the app's AgentsPanel): top menu.
   const agentAdminItems = (): any[] => {
     let nAg = 0; try { nAg = agentIdsKnown().length; } catch {}
@@ -1166,21 +1229,109 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       return out;
     }
     if (sub === "#plan") {
+      const pmT = (wsSettings && (wsSettings as any).planModeTools) || {};
+      const pmM = (wsSettings && (wsSettings as any).planModeMcp) || {};
+      const nT = Object.keys(pmT).filter((k) => pmT[k]).length;
+      const nM = Object.keys(pmM).filter((k) => pmM[k]).length;
       return [
-        { value: "#plantools", label: "Tools in plan mode", description: "Tool-by-tool toggles" },
-        { value: "#planmcp", label: "MCP in plan mode", description: "MCP-by-MCP toggles" },
+        { value: "#plantools", label: "Tools in plan mode", description: String(nT) + " enabled" },
+        { value: "#planmcp", label: "MCP in plan mode", description: String(nM) + " enabled" },
       ];
+    }
+    if (sub === "#plantools") {
+      const pm = (wsSettings && (wsSettings as any).planModeTools) || {};
+      const out: any[] = [];
+      for (const t of qToolsData) {
+        const nm = String(t?.name || ""); if (!nm) continue;
+        out.push({ value: "pmt:" + nm, label: (pm[nm] ? "\u25cf " : "\u25cb ") + nm, description: t?.readOnly ? "read-only" : "" });
+      }
+      return out;
+    }
+    if (sub === "#planmcp") {
+      const pm = (wsSettings && (wsSettings as any).planModeMcp) || {};
+      const out: any[] = [];
+      for (const m of qMcpData) {
+        const id = String(m?.id || m?.name || ""); if (!id) continue;
+        out.push({ value: "pmm:" + id, label: (pm[id] ? "\u25cf " : "\u25cb ") + id, description: "" });
+      }
+      return out;
+    }
+    if (sub === "#sk") {
+      const out: any[] = [{ value: "__newskill", label: "\uff0b Install skill from internet", description: "coming next" }];
+      out.push({ value: "__sep_sk", label: "Installed skills", separator: true });
+      for (const nm of allSkillsList()) {
+        const n = countAgentsWith([nm], "skills");
+        out.push({ value: "sk:" + nm, label: nm, description: String(n) + " agent" + (n === 1 ? "" : "s") });
+      }
+      return out;
+    }
+    if (sub === "#mcp") {
+      const out: any[] = [{ value: "__newmcp", label: "\uff0b Install MCP server", description: "coming next" }];
+      out.push({ value: "__sep_mcp", label: "MCP servers", separator: true });
+      for (const m of qMcpData) {
+        const id = String(m?.id || m?.name || ""); if (!id) continue;
+        const n = countAgentsWith([id], "mcpServers");
+        out.push({ value: "mcp:" + id, label: id, description: (m?.enabled === false ? "disabled \u00b7 " : "") + String(n) + " agent" + (n === 1 ? "" : "s") });
+      }
+      return out;
+    }
+    if (sub === "#tools") {
+      const out: any[] = [{ value: "__sep_tools", label: "Tools", separator: true }];
+      for (const t of qToolsData) {
+        const nm = String(t?.name || ""); if (!nm) continue;
+        const n = countAgentsWith([nm], "tools");
+        out.push({ value: "tool:" + nm, label: nm, description: (t?.readOnly ? "read-only \u00b7 " : "") + String(n) + " agent" + (n === 1 ? "" : "s") });
+      }
+      return out;
     }
     if (sub.startsWith("ag:")) {
       const agId = sub.slice(3);
       return [
-        { value: "ask:" + agId, label: "Skills", description: "Skills this agent can use" },
-        { value: "atk:" + agId, label: "Tools", description: "Tools this agent can use" },
-        { value: "amc:" + agId, label: "MCP", description: "MCP servers this agent can use" },
+        { value: "ask:" + agId, label: "Skills", description: String(agentSkillsOf(agId).length) + " enabled" },
+        { value: "atk:" + agId, label: "Tools", description: String(agentToolsOf(agId).length) + " enabled" },
+        { value: "amc:" + agId, label: "MCP", description: String(agentMcpOf(agId).length) + " enabled" },
         { value: "__agdel", label: "Delete agent", description: "" },
       ];
     }
-    // #sk / #mcp / #tools: filled by their own loaders in the next iterations.
+    if (sub.startsWith("ask:")) {
+      const id = sub.slice(4);
+      const has = agentSkillsOf(id);
+      const out: any[] = [];
+      for (const nm of allSkillsList()) out.push({ value: "ast:" + id + ":" + nm, label: (has.includes(nm) ? "\u25cf " : "\u25cb ") + nm, description: has.includes(nm) ? "enabled" : "" });
+      return out;
+    }
+    if (sub.startsWith("atk:")) {
+      const id = sub.slice(4);
+      const has = agentToolsOf(id);
+      const out: any[] = [];
+      for (const t of qToolsData) { const nm = String(t?.name || ""); if (!nm) continue; out.push({ value: "att:" + id + ":" + nm, label: (has.includes(nm) ? "\u25cf " : "\u25cb ") + nm, description: t?.readOnly ? "read-only" : "" }); }
+      return out;
+    }
+    if (sub.startsWith("amc:")) {
+      const id = sub.slice(6);
+      const has = agentMcpOf(id);
+      const out: any[] = [];
+      for (const m of qMcpData) { const mid = String(m?.id || m?.name || ""); if (!mid) continue; out.push({ value: "amt:" + id + ":" + mid, label: (has.includes(mid) ? "\u25cf " : "\u25cb ") + mid, description: "" }); }
+      return out;
+    }
+    if (sub.startsWith("sk:")) {
+      const nm = sub.slice(3);
+      const out: any[] = [];
+      for (const a of qAgentsData) { const id = String(a?.id || a?.name || ""); if (!id) continue; out.push({ value: "ska:" + nm + ":" + id, label: (agentSkillsOf(id).includes(nm) ? "\u25cf " : "\u25cb ") + String(a?.name || id), description: id }); }
+      return out;
+    }
+    if (sub.startsWith("mcp:")) {
+      const mid = sub.slice(4);
+      const out: any[] = [];
+      for (const a of qAgentsData) { const id = String(a?.id || a?.name || ""); if (!id) continue; out.push({ value: "mcpa:" + mid + ":" + id, label: (agentMcpOf(id).includes(mid) ? "\u25cf " : "\u25cb ") + String(a?.name || id), description: id }); }
+      return out;
+    }
+    if (sub.startsWith("tool:")) {
+      const nm = sub.slice(5);
+      const out: any[] = [];
+      for (const a of qAgentsData) { const id = String(a?.id || a?.name || ""); if (!id) continue; out.push({ value: "tola:" + nm + ":" + id, label: (agentToolsOf(id).includes(nm) ? "\u25cf " : "\u25cb ") + String(a?.name || id), description: id }); }
+      return out;
+    }
     return [];
   };
   // T487: the WELCOME's agent selection (the app's welcome pre-config): one-shot,
@@ -4266,6 +4417,7 @@ const readProvidersCfg = (): any => {
       case "agents": {
         // T506 — THE missing case: without it the bulletproof Enter found the
         // command but handleSlash fell through and the tab never opened.
+        try { refreshAgentsTab(); } catch {}
         if (!arg) {
           menuStack = ["agents"];
           menuSubFilter = "";
@@ -4954,20 +5106,11 @@ const readProvidersCfg = (): any => {
         return;
       }
       if (menuStack[0] === "agents") {
+        // T508: the Enter mirrors the Tab action on every toggle row.
         const vAg = String(it?.value ?? "");
-        if (vAg.startsWith("def:")) {
-          // T505: set the default agent for new chats (the app's Default agent menu).
-          applySettingsPatch({ defaultAgentId: vAg.slice(4) });
-          try { refreshSessions(); } catch {}
+        if (vAg.startsWith("def:") || vAg.startsWith("ast:") || vAg.startsWith("att:") || vAg.startsWith("amt:") || vAg.startsWith("ska:") || vAg.startsWith("mcpa:") || vAg.startsWith("tola:") || vAg.startsWith("pmt:") || vAg.startsWith("pmm:")) {
+          try { agentAdminAction(vAg); } catch {}
           try { ui.requestRender(); } catch {}
-          return;
-        }
-        if (vAg === "__newagent") {
-          try { require("fs").appendFileSync("/tmp/q-agents-trace.log", new Date().toISOString() + " new-agent (next iteration)\n"); } catch {}
-          return;
-        }
-        if (vAg.startsWith("ask:") || vAg.startsWith("atk:") || vAg.startsWith("amc:")) {
-          try { require("fs").appendFileSync("/tmp/q-agents-trace.log", new Date().toISOString() + " open editor " + vAg + "\n"); } catch {}
           return;
         }
         return;
@@ -5132,6 +5275,11 @@ const readProvidersCfg = (): any => {
         if (String((cur as any)?.value || "") === "remove") return true;
         return false;
       }
+      if (menuStack[0] === "agents") {
+        // T507: the agents tab is all SELECTION (Tab = select, instant effect):
+        // never a Confirm in the bar.
+        return false;
+      }
       if (menuStack.length === 0) {
         // T502: plain commands at the root (reload/export/compact...) NEVER show
         // a Confirm — Enter simply runs them (the user: "the confirm doesn't work").
@@ -5241,6 +5389,14 @@ const readProvidersCfg = (): any => {
             if (menuMarked.has(vV)) menuMarked.delete(vV); else menuMarked.add(vV);
             if (menuMarked.size === 0) menuConfirmFocus = false;
           }
+          try { ui.requestRender(); } catch {}
+          return;
+        }
+        if (menuStack[0] === "agents" && it && !it.separator) {
+          // T507/508: Tab = SELECT with INSTANT effect (the app's value-pickers):
+          // default agent, agent skills/tools/mcp toggles, per-skill/mcp/tool agent
+          // toggles, plan-mode flags — one shared action.
+          try { agentAdminAction(String(it.value ?? "")); } catch {}
           try { ui.requestRender(); } catch {}
           return;
         }
@@ -5414,7 +5570,7 @@ const readProvidersCfg = (): any => {
             let deeper = menuStack[0] === "agentinsession" ? agentLevelFor(it) : (menuStack[0] === "settings" ? settingsDeeper(it) : (menuStack[0] === "directory" && !menuStack[1] && String(it.value) === "__dir_change" ? "dirchange" : null));
             if (menuStack[0] === "agents" && it && !it.separator) {
               const vA = String(it.value || "");
-              if (vA === "#def" || vA === "#you" || vA === "#sk" || vA === "#mcp" || vA === "#tools" || vA === "#plan" || vA.startsWith("ag:")) deeper = vA;
+              if (/^(#def|#you|#sk|#mcp|#tools|#plan|#plantools|#planmcp|ag:|ask:|atk:|amc:|sk:|mcp:|tool:)/.test(vA)) deeper = vA;
             }
             if (deeper) {
               menuStack.push(deeper);
@@ -5551,7 +5707,7 @@ const readProvidersCfg = (): any => {
             }
           } else if (menuStack[0] === "agents") {
             const vA2 = String(it?.value || "");
-            if (vA2 === "#def" || vA2 === "#you" || vA2 === "#sk" || vA2 === "#mcp" || vA2 === "#tools" || vA2 === "#plan" || vA2.startsWith("ag:")) {
+            if (/^(#def|#you|#sk|#mcp|#tools|#plan|#plantools|#planmcp|ag:|ask:|atk:|amc:|sk:|mcp:|tool:)/.test(vA2)) {
               menuStack.push(vA2);
               menuSubFilter = "";
               menuSel = 0;
@@ -6004,8 +6160,9 @@ const applySettingsPatch = (patch: any) => {
       const AR = (ok: boolean, ch: string) => ok ? bold(fg(C.primary, ch)) : fg(C.textTertiary, ch);
       const left = AR(canUD, "\u2191") + " " + AR(canUD, "\u2193") + "  " + AR(canBack, "\u2190") + " " + AR(canFwd, "\u2192");
       const inAddAgents = menuStack[0] === "agentinsession" && menuStack[1] === "#add";
+      const inAgentsTab = menuStack[0] === "agents"; // T507: all selection menus
       const inAgentPick2 = menuStack[0] === "agentinsession" && String(menuStack[2] || "").match(/^(model|thinking)$/);
-      const hasMulti = (menuStack[0] === "model" || menuStack[0] === "thinking" || inAddAgents || inAgentPick2 || (menuStack[0] === "directory" && !menuStack[1]) || menuStack[0] === "attachments" || menuStack[0] === "skill") || (menuStack[0] === "settings" && (menuStack[3] === "models" || menuStack[1] === "model" || menuStack[1] === "fallbacks" || menuStack[1] === "thinking" || (menuStack[1] === "defaults" && (menuStack[2] === "fallbacks" || menuStack[2] === "model" || menuStack[2] === "thinking")) || (menuStack[1] === "providers" && !menuStack[2])));
+      const hasMulti = (menuStack[0] === "model" || menuStack[0] === "thinking" || inAddAgents || inAgentsTab || inAgentPick2 || (menuStack[0] === "directory" && !menuStack[1]) || menuStack[0] === "attachments" || menuStack[0] === "skill") || (menuStack[0] === "settings" && (menuStack[3] === "models" || menuStack[1] === "model" || menuStack[1] === "fallbacks" || menuStack[1] === "thinking" || (menuStack[1] === "defaults" && (menuStack[2] === "fallbacks" || menuStack[2] === "model" || menuStack[2] === "thinking")) || (menuStack[1] === "providers" && !menuStack[2])));
       // Confirm appears ONLY when the highlighted option actually RUNS something
       // (navigation items and read-only pages do not show it).
       let needsConfirm = menuConfirmFocus;
