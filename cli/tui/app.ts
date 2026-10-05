@@ -4263,6 +4263,18 @@ const readProvidersCfg = (): any => {
         applyDirChange(target);
         break;
       }
+      case "agents": {
+        // T506 — THE missing case: without it the bulletproof Enter found the
+        // command but handleSlash fell through and the tab never opened.
+        if (!arg) {
+          menuStack = ["agents"];
+          menuSubFilter = "";
+          menuSel = 0;
+          try { ui.requestRender(); } catch {}
+          break;
+        }
+        break;
+      }
       case "agentinsession": {
         if (!arg) {
           // T483: /agentinsession + Enter opens the agents menu (Add agent on top),
@@ -5474,9 +5486,11 @@ const readProvidersCfg = (): any => {
         // user's exact /reload bug ("confirm does nothing").
         try {
           const typedT = String(editorText() || "").trim();
+          try { require("fs").appendFileSync("/tmp/q-bullet-trace.log", new Date().toISOString() + " bullet typed=" + JSON.stringify(typedT) + " mStack=" + menuStack.length + "\n"); } catch {}
           if (menuStack.length === 0 && /^\/[A-Za-z][A-Za-z0-9]*$/.test(typedT)) {
             const cName = typedT.slice(1).toLowerCase();
             const cCmd: any = commands.find((x: any) => x.name === cName);
+            try { require("fs").appendFileSync("/tmp/q-bullet-trace.log", "  match=" + (!!cCmd) + " name=" + cName + "\n"); } catch {}
             if (cCmd) {
               try { editor.setText(""); } catch {}
               menuSel = 0;
