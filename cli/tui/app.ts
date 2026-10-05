@@ -5042,6 +5042,11 @@ const readProvidersCfg = (): any => {
         if (String((cur as any)?.value || "") === "remove") return true;
         return false;
       }
+      if (menuStack.length === 0) {
+        // T502: plain commands at the root (reload/export/compact...) NEVER show
+        // a Confirm — Enter simply runs them (the user: "the confirm doesn't work").
+        return false;
+      }
 
       if (menuStack[0] === "attachments") {
         const vAt = String((cur as any)?.value || "");
@@ -5380,6 +5385,24 @@ const readProvidersCfg = (): any => {
         // the first Enter (or →) only LIGHTS the Confirm button; a second Enter,
         // with Confirm lit, executes. Opening a submenu is navigation, not a
         // confirmation, so that still happens on the first Enter.
+        // T502 — THE bulletproof path: if the box holds a plain command text
+        // ("/reload", no args) run it on the spot, no menu-item lookup at all.
+        // This covers every menu/selection/focus quirk in any terminal: the
+        // user's exact /reload bug ("confirm does nothing").
+        try {
+          const typedT = String(editorText() || "").trim();
+          if (menuStack.length === 0 && /^\/[A-Za-z][A-Za-z0-9]*$/.test(typedT)) {
+            const cName = typedT.slice(1).toLowerCase();
+            const cCmd: any = commands.find((x: any) => x.name === cName);
+            if (cCmd) {
+              try { editor.setText(""); } catch {}
+              menuSel = 0;
+              handleSlashRef?.("/" + cName);
+              try { ui.requestRender(); } catch {}
+              return;
+            }
+          }
+        } catch {}
         const it: any = items[menuSel];
         // T484: Add-agent list — with at least one dot marked, ENTER SAVES right
         // away (Tab selects, one Enter adds: the user's rule). Before, this Enter
