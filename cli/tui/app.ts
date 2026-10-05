@@ -2977,7 +2977,22 @@ const readProvidersCfg = (): any => {
           pushBlock(new FooterRow(fmtFooterDate(Date.now()), agentDisplayName(agentName) + " \u00b7 " + (wsModelId || defaultModelId || "") + " \u00b7 " + levelLabel(lvl), true));
         } catch {}
         }
-        if (e?.message?.stopReason === "error") setStatus("Failed", "failed");
+        if (e?.message?.stopReason === "error") {
+          // Provider/sidecar error — EXACTLY the app's format (MessageBubble):
+          // plain red text, pre-wrap, no box and no toggle, then the normal
+          // footer (agent · model · thinking). Never a pill in the text box.
+          const ec = String((e?.message as any)?.errorMessage || "").trim();
+          if (ec) {
+            try {
+              pushBlock({ render: (w: number) => wrapPlain(ec, Math.max(10, w)).map((ln: string) => fg(C.danger, ln)), invalidate: () => {} } as any);
+              let an2 = lastDoneAgent || sessionAgentIds()[0] || "quinki";
+              an2 = oneAgentId(an2);
+              pushBlock(new FooterRow(fmtFooterDate(Date.now()), agentDisplayName(an2) + " \u00b7 " + (wsModelId || defaultModelId || "") + " \u00b7 " + levelLabel(thinkingOn ? "xhigh" : "off"), true));
+              scrollToEnd();
+              try { (ui as any).requestImmediateRender?.(); } catch {}
+            } catch {}
+          }
+        }
       } else if (e?.type === "auto_retry_start") {
         setStatus(`Retrying ${e.attempt || 1}/${e.maxAttempts || 3}`, "retrying");
       } else if (e?.type === "auto_retry_end") {
@@ -3222,7 +3237,7 @@ const readProvidersCfg = (): any => {
         // The REAL agent that replied travels here (same as the app): remember it
         // so the footer shows THAT agent, never the chat's whole list.
         try { if (p?.agentName) lastDoneAgent = oneAgentId(p.agentName); } catch {}
-        onSessionEvent({ type: "message_end", message: { role: "assistant", stopReason: p?.stopReason } });
+        onSessionEvent({ type: "message_end", message: { role: "assistant", stopReason: p?.stopReason, errorMessage: p?.errorMessage } });
       } else if (method === "streaming_stopped") {
         onSessionEvent({ type: "agent_end" });
         refreshSkillGroups();
