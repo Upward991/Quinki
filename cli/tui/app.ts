@@ -5663,9 +5663,10 @@ const applySettingsPatch = (patch: any) => {
     try {
       const t = editorText();
       if (menuError && menuStack.length > 0) {
-        // Error INSIDE the menu: red rule above, red text, Confirm to go back.
-        const rowsE: string[] = [fg(C.danger, "\u2500".repeat(Math.max(1, Math.min(w, 56))))];
-        for (const ln of wrapPlain(menuError, Math.max(10, w))) rowsE.push(fg(C.danger, ln));
+        // T485: SAME style as a confirmation notice (the /quit "Quit quinki?"
+        // look): soft grey text, no red rule. Coherence, per the user.
+        const rowsE: string[] = [];
+        for (const ln of wrapPlain(menuError, Math.max(10, w))) rowsE.push(fg(C.textSecondary, ln));
         rowsE.push("");
         const leftE = fg(C.textSecondary, "\u2191 \u2193 \u2190 \u2192");
         const rightE = menuConfirmFocus ? bold(bg(C.primary, fg(C.bgPanel, " Confirm "))) : fg(C.primary, "Confirm");
