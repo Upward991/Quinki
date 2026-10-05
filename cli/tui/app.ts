@@ -5798,6 +5798,11 @@ const applySettingsPatch = (patch: any) => {
       // EMPTY textbox: the old rule "no slash text -> close" was killing it right
       // after the command cleared the box (the skill menu never survived). Gone.
       const mainOpen = menuStack.length === 0 && t.startsWith("/") && !qIsFilePath(t);
+      // T503 — ONE list only: the editor's own autocomplete (vendored) used to run
+      // in parallel with OUR menu; the arrows moved one highlight while Enter read
+      // the other list, so Confirm on "reload" executed a different row (nothing).
+      // While our slash menu is open, the editor's autocomplete is dead.
+      try { if (mainOpen || menuStack.length > 0) killAutocomplete(); } catch {}
       if (!mainOpen && menuStack.length === 0) {
         menuConfirmFocus = false;
         return [];
