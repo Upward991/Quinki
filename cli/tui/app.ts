@@ -4364,7 +4364,15 @@ const readProvidersCfg = (): any => {
   const agentMenuItems = (): any[] => {
     const ids = sessionAgentIds();
     const ovs = sessionAgentOverrides();
-    const out: any[] = [{ value: "#add", label: "Add agent", description: "Add an agent to this chat" }];
+    // T491: "Add agent" exists only while at least one agent can actually be
+    // added — an empty Add-agent submenu makes no sense. It comes back by itself
+    // when there is something to add again (the list is evaluated on every open).
+    let canAddAny = false;
+    try {
+      canAddAny = agentIdsKnown().some((id: string) => id !== "orchestrator" && !ids.includes(id));
+    } catch {}
+    const out: any[] = [];
+    if (canAddAny) out.push({ value: "#add", label: "Add agent", description: "Add an agent to this chat" });
     if (!ids.includes("orchestrator")) {
       out.push({
         value: "#orch",
