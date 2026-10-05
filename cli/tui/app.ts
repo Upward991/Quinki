@@ -3908,9 +3908,16 @@ const readProvidersCfg = (): any => {
         break;
       }
       case "syncexpert": {
-        // App Expert CLI ONLY — the same thing the app's "Sync Expert App" does:
-        // copy the MAIN app's binary + the whole sidecar folder into App Expert.app.
+        // App Expert CLI ONLY — the full loop the user wants: sync the MAIN app's
+        // binary + sidecar into App Expert.app, kill the old expert sidecar
+        // (verified pid), then RESTART this CLI in place so the fresh process
+        // talks to a fresh sidecar (the old one kept the old binary in memory).
         if (!QEXPERT) break;
+        if (streaming) {
+          setStatus("Sync unavailable while a turn is running", "failed");
+          try { (ui as any).requestImmediateRender?.(); } catch {}
+          break;
+        }
         try {
           const MAIN_APP = "/Applications/Quinki.app";
           const EXP_APP = "/Applications/App Expert.app";
@@ -3925,25 +3932,42 @@ const readProvidersCfg = (): any => {
           }
           qCloseMenus();
           setStatus("Syncing the App Expert\u2026", "syncing");
-          // Immediate paint: without streaming there is no render ticker, so a
-          // scheduled render would only flush on the next keypress.
           try { (ui as any).requestImmediateRender?.(); } catch {}
-          // Small delay so the pill paints before the (blocking) copy.
-          setTimeout(() => {
-            try {
-              fs.copyFileSync(mainBin, expBin);
-              fs.rmSync(expSide, { recursive: true, force: true });
-              const rr = require("child_process").spawnSync("/usr/bin/ditto", [mainSide, expSide]);
-              if (rr.status !== 0) throw new Error("ditto exit " + String(rr.status));
-              setStatus("App Expert synced. Restart it to apply the changes.", "syncing");
-              try { (ui as any).requestImmediateRender?.(); } catch {}
-            } catch (e2) {
-              setStatus("Sync failed: " + String(e2), "failed");
-              try { (ui as any).requestImmediateRender?.(); } catch {}
+          // 1. SYNC the app files (synchronous; APFS clone makes it fast).
+          let syncErr = "";
+          try {
+            fs.copyFileSync(mainBin, expBin);
+            fs.rmSync(expSide, { recursive: true, force: true });
+            const rr = require("child_process").spawnSync("/usr/bin/ditto", [mainSide, expSide]);
+            if (rr.status !== 0) throw new Error("ditto exit " + String(rr.status));
+          } catch (eS) { syncErr = String(eS); }
+          if (syncErr) {
+            setStatus("Sync failed: " + syncErr, "failed");
+            try { (ui as any).requestImmediateRender?.(); } catch {}
+            break;
+          }
+          // 2. KILL the old expert sidecar (verified: the pid must really be a
+          //    quinki sidecar). The watchdog revives it fresh if the app needs it.
+          try {
+            const pidRaw = String(require("fs").readFileSync(path.join(os.homedir(), ".quinki", ".sidecar-expert.pid"), "utf8") || "").trim();
+            const spid = parseInt(pidRaw, 10);
+            if (spid > 0) {
+              const chk = require("child_process").spawnSync("/bin/ps", ["-p", String(spid), "-o", "command="], { encoding: "utf8" });
+              if (String(chk.stdout || "").includes("quinki-sidecar-ws")) {
+                try { process.kill(spid, "SIGKILL"); } catch {}
+              }
             }
-          }, 60);
+          } catch {}
+          // 3. RESTART: park the UI (terminal restored), relaunch on the SAME tty.
+          setStatus("App Expert synced. Restarting the CLI\u2026", "syncing");
+          try { (ui as any).requestImmediateRender?.(); } catch {}
+          try { (ui as any).stop({ preserveScreen: true } as any); } catch {}
+          try { process.stdout.write("App Expert synced \u2014 restarting the App Expert CLI\u2026\n"); } catch {}
+          try { require("child_process").spawnSync(process.execPath, ["expert"], { stdio: "inherit" }); } catch {}
+          try { process.exit(0); } catch {}
         } catch (e) {
           setStatus("Sync failed: " + String(e), "failed");
+          try { (ui as any).requestImmediateRender?.(); } catch {}
         }
         break;
       }
