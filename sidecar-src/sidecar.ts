@@ -1931,6 +1931,16 @@ async function bootstrap() {
     // FIX POOL (31 ago): espone l'index del pool → #sendToWs sa di essere su un worker
     // e usa __quinki_broadcast (non il socket del router che perde gli eventi)
     (globalThis as any).__quinki_poolIndex = parseInt(process.env.QUINKI_POOL_INDEX || "0", 10) || 0;
+    // === T452 (regola utente): OGNI sidecar — main COMPRESO — muore col PADRE.
+    // App chiusa o terminale chiuso => il main esce in ~1s; i worker a ruota (stesso
+    // watchdog). Niente più orfani, niente più grace: morte istantanea.
+    {
+      const origPpidAll = process.ppid;
+      const tAll = setInterval(() => {
+        try { if (process.ppid !== origPpidAll) process.exit(0); } catch { process.exit(0); }
+      }, 1000);
+      try { (tAll as any).unref?.(); } catch {}
+    }
     // === B4 POOL: watchdog parent nei CHILD — se il main muore, il child esce
     // (altrimenti restano orfani e occupano la porta → EADDRINUSE al prossimo boot) ===
     if (isPoolChild) {
