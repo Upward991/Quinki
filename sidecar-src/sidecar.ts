@@ -1934,20 +1934,6 @@ async function bootstrap() {
     // === T452 (regola utente): OGNI sidecar — main COMPRESO — muore col PADRE.
     // App chiusa o terminale chiuso => il main esce in ~1s; i worker a ruota (stesso
     // watchdog). Niente più orfani, niente più grace: morte istantanea.
-    {
-      const origPpidAll = process.ppid;
-      const tAll = setInterval(() => {
-        try {
-          if (process.ppid !== origPpidAll) {
-            // Il padre è morto: esci SOLO se nessun client è attaccato (una CLI
-            // aperta non deve mai morire perché l'app è stata chiusa).
-            const _cl = (globalThis as any).__quinki_ws_clients;
-            if (!_cl || _cl.size === 0) process.exit(0);
-          }
-        } catch { process.exit(0); }
-      }, 1000);
-      try { (tAll as any).unref?.(); } catch {}
-    }
     // === B4 POOL: watchdog parent nei CHILD — se il main muore, il child esce
     // (altrimenti restano orfani e occupano la porta → EADDRINUSE al prossimo boot) ===
     if (isPoolChild) {

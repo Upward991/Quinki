@@ -604,6 +604,8 @@ const clients = new Set<any>();
     let idleMs = 0;
     const t = setInterval(() => {
       try {
+        // T459: SOLO l'idle conta per il main (niente ppid: il suo spawner è una
+        // shell watchdog che esce subito). Zero client per 5s => esci.
         if (clients.size === 0) {
           idleMs += 1000;
           if (idleMs >= 5000) {
