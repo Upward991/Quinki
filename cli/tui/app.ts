@@ -5039,6 +5039,18 @@ const readProvidersCfg = (): any => {
           try { ui.requestRender(); } catch {}
           return;
         }
+        if (menuStack[0] === "agentinsession" && menuStack[1] === "#add" && it && !it.separator) {
+          // T482: TAB works here too (the bar promised "Select (Tab)"): mark the dot,
+          // multi OK, dot order = priority order. Enter then saves (Confirm lights
+          // with at least one mark). Same mark as the click/runItem path.
+          const vV = String(it.value ?? "");
+          if (vV && !vV.startsWith("#")) {
+            if (menuMarked.has(vV)) menuMarked.delete(vV); else menuMarked.add(vV);
+            if (menuMarked.size === 0) menuConfirmFocus = false;
+          }
+          try { ui.requestRender(); } catch {}
+          return;
+        }
         if (inCliModel && it && !it.separator && String(it.value || "")) {
           // Apply the model and STAY in the menu (the ● moves, the bar updates).
           const v = String(it.value);
