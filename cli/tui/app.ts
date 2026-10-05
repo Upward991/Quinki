@@ -575,16 +575,17 @@ class UserBubble {
       lines.push(fg(col, "\u25b8 " + ch.name));
     }
     const full = (t: string) => {
-      const fill = Math.max(0, inner - visibleWidth(t));
       // Clips styled exactly like the textbox (coral/blue bg, dark text), inline
       // in their original order; then back to the bubble colors.
       const painted = String(t).replace((typeof __qTokReGlobal === "function" ? __qTokReGlobal() : /Skill:\s*[\w.-]+|\u25b8[^\s\u25b8]+/g), (m2: string) => {
         const isSkill = m2.startsWith("Skill:");
         const bgRgb = isSkill ? "201;112;132" : "122;162;247";
-        // T449: attachment chips show ONLY the file name (no ▸ triangle — ugly).
-        const shown = m2; // T462: mai accorciare a render-time (coerenza con la textbox)
+        // T480: NEVER the triangle, even for old messages saved with it: a
+        // "▸name" token shows as the bare name (the app's look).
+        const shown = isSkill ? m2 : m2.replace(/^\u25b8/, "");
         return "\x1b[48;2;" + bgRgb + "m\x1b[38;2;8;8;11m" + shown + "\x1b[48;2;26;26;32m\x1b[38;2;232;232;236m";
       });
+      const fill = Math.max(0, inner - visibleWidth(painted)); // width of the PAINTED text
       return bg(C.bubbleUser, "  " + painted + " ".repeat(fill + 2));
     };
     const blank = () => bg(C.bubbleUser, " ".repeat(width));
@@ -3470,7 +3471,7 @@ const readProvidersCfg = (): any => {
               let usedInline = !!tDisp;
               if (!tDisp && chipsH.length) { // T464: solo se il messaggio HA davvero le sue clip
                 try {
-                  const toks = chipsH.map((c) => (c.kind === "skill" ? "Skill: " + c.name : "\u25b8" + c.name)).join(" ");
+                  const toks = chipsH.map((c) => (c.kind === "skill" ? "Skill: " + c.name : c.name)).join(" ");
                   tDisp = toks + (t.trim() ? " " + t : "");
                   usedInline = true;
                 } catch { tDisp = t; usedInline = false; }
@@ -4210,9 +4211,10 @@ const readProvidersCfg = (): any => {
         if (scOn) {
           // Live path: the skill rides the NEXT message (the app's chip flow).
           // The engine injects it into the system prompt, one-shot.
-          // Inline token: "▸name" (atomic delete via qAtomicDelete, safe rendering).
+          // Inline token: the BARE name (T462 rule: no triangle anywhere; the
+          // known-name pattern keeps it atomic for qAtomicDelete).
           try {
-            const tok = "\u25b8" + String(arg).trim() + " ";
+            const tok = String(arg).trim() + " ";
             const curTxt = String(editor.getText() || "");
             editor.setText(curTxt + (curTxt && !curTxt.endsWith(" ") ? " " : "") + tok);
           } catch {}
@@ -5955,7 +5957,7 @@ const applySettingsPatch = (patch: any) => {
             {
               sessionKey: sk,
               text: sendText || (atts.length || skills.length ? "" : t),
-              ...(String(t).trim() !== String(sendText).trim() ? { displayText: String(t).trim() } : {}),
+              ...(String(t).trim() !== String(sendText).trim() ? { displayText: String(t).trim().replace(/\u25b8(?=\S)/g, "") } : {}),
               ...(skillRefs.length
                 ? {
                     // THE APP'S EXACT SHAPE: [{ agentId, skillName, agentName }] —
