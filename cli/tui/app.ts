@@ -4976,6 +4976,8 @@ const readProvidersCfg = (): any => {
         // something is marked. In the agent's own config menu: Confirm ONLY on
         // Remove agent (nav + remove — nothing else).
         if (menuStack[1] === "#add") return menuMarked.size > 0;
+        // T489: Add orchestrator shows Confirm (Enter adds it; the menu stays open).
+        if (String((cur as any)?.value || "") === "#orch") return true;
         // T488: Remove agent runs with the FORWARD arrow (no Confirm in the bar,
         // exactly like /quit's notice). Its old confirm rule is gone.
         return false;
@@ -5797,7 +5799,7 @@ const applySettingsPatch = (patch: any) => {
       try {
         const curA: any = items[menuSel];
         if (curA && !curA.separator) {
-          if (menuStack[0] === "agentinsession") canFwd = !!agentLevelFor(curA);
+          if (menuStack[0] === "agentinsession") canFwd = !!agentLevelFor(curA) || String(curA.value || "") === "remove"; // T489: Remove agent = forward runs it
           else if (menuStack[0] === "settings") canFwd = !!settingsDeeper(curA);
           else if (menuStack[0] === "directory") canFwd = menuStack[1] === "dirchange" ? false : (String(curA.value || "") === "__dir_change"); // -> lights only on Change directory
           else if (menuStack.length > 0) canFwd = false;
@@ -5920,6 +5922,10 @@ const applySettingsPatch = (patch: any) => {
     if (!t) return;
     editor.setText("");
     if (welcomeShown) {
+      // T489: snapshot BEFORE the reset — the send below reads it for setChatAgents.
+      // (var: the async IIFE closes over it; a let here would hit the TDZ.)
+      var qSendAgents: string[] | null = null;
+      try { if (qWelcomeAgents && qWelcomeAgents.length) qSendAgents = [...qWelcomeAgents]; } catch {}
       welcomeShown = false;
       applyLayout(false);
       qWelcomeAgents = null; // T487: the welcome pre-config is one-shot
@@ -6033,7 +6039,7 @@ const applySettingsPatch = (patch: any) => {
           // Sync the engine with the session's REAL configuration: agents in the
           // chat (default quinki), mode, model and thinking — otherwise the
           // runtime runs a bare session without the user's tools/skills/MCP.
-          await sc.call("setChatAgents", { sessionKey: sk, agentIds: sessionAgentIds().join(",") }, 20000);
+          await sc.call("setChatAgents", { sessionKey: sk, agentIds: (qSendAgents || sessionAgentIds()).join(",") }, 20000);
           await sc.call(
             "sendMessage",
             {
