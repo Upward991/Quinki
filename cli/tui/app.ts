@@ -1167,7 +1167,6 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       return Array.from(st).sort();
     } catch { return []; }
   };
-  const agentActivate = null; // marker (never used)
   const agentAdminAction = (vAgT: string) => {
     // T508: ONE action for every agents-tab row (Tab = select, Enter = same).
     if (vAgT.startsWith("def:")) { applySettingsPatch({ defaultAgentId: vAgT.slice(4) }); try { refreshSessions(); } catch {} return; }
