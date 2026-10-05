@@ -1356,9 +1356,10 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     try {
       if (welcomeShown) {
         if (qWelcomeAgents && qWelcomeAgents.length) return [...qWelcomeAgents];
-        // T515: nothing picked in the welcome => the agent dropdown shows the
-        // CURRENT default agent for new chats (the app's welcome behavior).
-        const dfltW = String((wsSettings && (wsSettings as any).defaultAgentId) || "");
+        // T516: nothing picked in the welcome => show the CURRENT default agent,
+        // read SYNCHRONOUSLY from the SAME FILE the app writes (quinki-settings.json):
+        // no async, no caches, immediate — exactly the app's welcome behavior.
+        const dfltW = String((wsSettings && (wsSettings as any).defaultAgentId) || readSettingsFile()?.defaultAgentId || "");
         if (dfltW) return [dfltW];
       }
     } catch {}
