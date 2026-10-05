@@ -4814,8 +4814,11 @@ Read this file to view it.` }] };
     const isoTs = new Date(ts).toISOString();
     const sessionDir = this.#piSessionDir(key);
     if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir, { recursive: true });
+    // T497: save to the errors store FIRST — even when no .jsonl exists yet
+    // (first message from the welcome): the gate's error must always be visible.
+    this.#saveError(key, { errorMessage: errorContent, timestamp: ts, model: undefined, agentName: undefined, thinkingLevel: undefined });
     const files = fs.readdirSync(sessionDir).filter((f: string) => f.endsWith(".jsonl"));
-    if (files.length === 0) return; // no session file yet
+    if (files.length === 0) { this.logDebug("inject-error-exchange-no-file", { sessionKey: key }); return; } // no session file yet: the store covers it
     const jsonlPath = path.join(sessionDir, files[0]);
     const lines = fs.readFileSync(jsonlPath, "utf8").trim().split("\n").filter((l: string) => l.trim());
     const lastLine = lines[lines.length - 1];
@@ -4844,8 +4847,7 @@ Read this file to view it.` }] };
     };
     fs.appendFileSync(jsonlPath, JSON.stringify(userEntry) + "\n" + JSON.stringify(errEntry) + "\n", "utf8");
 
-    // Also save to errors store
-    this.#saveError(key, { errorMessage: errorContent, timestamp: ts, model: undefined, agentName: undefined, thinkingLevel: undefined });
+    // (store already saved above — kept here as a harmless idempotent touch)
 
     // Dispose active session so next send() reloads from .jsonl
     const pi = this.#active.get(key);
