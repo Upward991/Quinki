@@ -4976,8 +4976,8 @@ const readProvidersCfg = (): any => {
         // something is marked. In the agent's own config menu: Confirm ONLY on
         // Remove agent (nav + remove — nothing else).
         if (menuStack[1] === "#add") return menuMarked.size > 0;
-        const vAg = String((cur as any)?.value || "");
-        if (vAg === "remove") return true;
+        // T488: Remove agent runs with the FORWARD arrow (no Confirm in the bar,
+        // exactly like /quit's notice). Its old confirm rule is gone.
         return false;
       }
 
@@ -5267,6 +5267,12 @@ const readProvidersCfg = (): any => {
                   menuMarked = new Set<string>();
                 }
               } catch {}
+            } else if (menuStack[0] === "agentinsession" && String((it as any)?.value || "") === "remove") {
+              // T488: forward arrow RUNS the removal (like /quit: no Confirm step).
+              // The last-agent guard still shows the warning instead of removing.
+              agentActivate("remove");
+              try { ui.requestRender(); } catch {}
+              return;
             } else {
               // MENU 2.0: the right arrow only navigates; on terminal rows nothing.
             }
