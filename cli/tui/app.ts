@@ -1131,7 +1131,11 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       writeSessionsList(list);
     } catch {}
   };
+  // T487: the WELCOME's agent selection (the app's welcome pre-config): one-shot,
+  // applied to the new session on the first send, then reset to the defaults.
+  let qWelcomeAgents: string[] | null = null;
   const sessionAgentIds = (): string[] => {
+    try { if (welcomeShown && qWelcomeAgents && qWelcomeAgents.length) return [...qWelcomeAgents]; } catch {}
     try {
       const e = readSessionsList().find((s: any) => s?.key === currentKey);
       const ids = String(e?.agentId || "")
@@ -1851,7 +1855,8 @@ const readProvidersCfg = (): any => {
       name: "agentinsession",
       description: "Agents in this session",
       seq: 2,
-      hidden: () => welcomeShown,
+      // T487: also on the WELCOME (like the app): pick agents before starting —
+      // the new session is born with them, then the welcome resets to defaults.
       getArgumentCompletions: () => agentMenuItems(),
     },
     {
@@ -4479,6 +4484,14 @@ const readProvidersCfg = (): any => {
     try { ui.requestRender(); } catch {}
   };
   const addAgentToSession = (id: string) => {
+    if (welcomeShown) {
+      const ids = sessionAgentIds();
+      if (!ids.includes(id)) ids.push(id);
+      qWelcomeAgents = ids;
+      try { refreshSessions(); } catch {}
+      try { ui.requestRender(); } catch {}
+      return;
+    }
     if (scOn) {
       // Live path: the sidecar updates its memory AND the session entry.
       const ids = sessionAgentIds();
@@ -4497,6 +4510,13 @@ const readProvidersCfg = (): any => {
     });
   };
   const removeAgentFromSession = (id: string) => {
+    if (welcomeShown) {
+      const ids = sessionAgentIds().filter((x: string) => x !== id);
+      qWelcomeAgents = ids.length ? ids : [DEFAULT_CHAT_AGENT];
+      try { refreshSessions(); } catch {}
+      try { ui.requestRender(); } catch {}
+      return;
+    }
     if (scOn) {
       const ids = sessionAgentIds().filter((x: string) => x !== id);
       void sc.call("setChatAgents", { sessionKey: currentKey, agentIds: ids.join(",") }, 20000).catch(() => {});
@@ -5672,8 +5692,10 @@ const applySettingsPatch = (patch: any) => {
         // look): lit arrows (← back, → lights the Confirm), red "Close (Esc)",
         // "Confirm (Enter)" with its filled background while focused.
         const ARE = (ok: boolean, ch: string) => ok ? bold(fg(C.primary, ch)) : fg(C.textTertiary, ch);
-        const leftE = ARE(false, "\u2191") + " " + ARE(false, "\u2193") + "  " + ARE(true, "\u2190") + " " + ARE(true, "\u2192");
-        const rightE = fg(C.danger, "Close (Esc)") + "  " + (menuConfirmFocus ? bold(bg(C.primary, fg(C.bgPanel, " Confirm (Enter) "))) : fg(C.primary, "Confirm (Enter)"));
+        // No forward here (there is nothing ahead) and NO focus background on the
+        // Confirm: the user wants it plain, like everywhere else.
+        const leftE = ARE(false, "\u2191") + " " + ARE(false, "\u2193") + "  " + ARE(true, "\u2190") + " " + ARE(false, "\u2192");
+        const rightE = fg(C.danger, "Close (Esc)") + "  " + fg(C.primary, "Confirm (Enter)");
         const gwE = Math.max(1, w - visibleWidth(leftE) - visibleWidth(rightE));
         rowsE.push(leftE + " ".repeat(gwE) + rightE);
         return rowsE;
@@ -5886,6 +5908,7 @@ const applySettingsPatch = (patch: any) => {
     if (welcomeShown) {
       welcomeShown = false;
       applyLayout(false);
+      qWelcomeAgents = null; // T487: the welcome pre-config is one-shot
       // The new chat has its OWN directory data: drop the welcome's (stale) one.
       // (The refetch happens AFTER ensureSession — before that the sidecar would
       // answer with the default folder, which then wrongly sticks in the header.)
