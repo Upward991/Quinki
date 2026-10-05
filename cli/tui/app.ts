@@ -3973,16 +3973,19 @@ const readProvidersCfg = (): any => {
           welcomeShown = false;
           applyLayout(false);
         }
-        // T499: a REAL view reload — re-fetch history + chip stores from the
-        // sidecar and redraw. NO session dispose here: that is an engine op, and
-        // it can silently skip while a streaming buffer lingers (the guard in
-        // reloadSession) — which made the whole reload look dead. The view must
-        // always rebuild; the engine reloads by itself on the next send.
+        // T500 — the APP's reload rule ("a reload must be VISIBLE"): clear the
+        // view at once, then a FULL re-open like selecting the chat (engine +
+        // history + stores + redraw). The app does clear + skeleton + selectSession;
+        // a bare re-render of identical pixels gave no signal (the user's bug).
         try {
-          void loadServerHistory().then(() => {
-            try { renderHistory(); scrollToEnd(); } catch {}
-            try { (ui as any).requestImmediateRender?.(); } catch {}
-          });
+          content.clear();
+          blockCount = 0;
+        } catch {}
+        try { (ui as any).requestImmediateRender?.(); } catch {}
+        try {
+          const sdirR = path.join(opts.agentDir, "sessions", "quinki");
+          const targetR = path.join(sdirR, currentKey);
+          void recreateSession({ newSessionDir: fs.existsSync(targetR) ? targetR : undefined, newKey: currentKey });
         } catch {}
         break;
       }
