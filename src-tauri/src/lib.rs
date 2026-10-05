@@ -2094,11 +2094,19 @@ fn native_restart_confirm(_app_name: &str) -> bool { true }
 fn quit_app(app: tauri::AppHandle) {
     // Chiude TUTTO: backend + app (usato dal modale Cmd+Q → "Quit App")
     kill_backend();
+    // T461 (regola utente): NIENTE in background dopo un quit. Visibilità a zero e
+    // tunnel spento se nessun'altra finestra Quinki è visibile.
+    q_set_visible(false);
+    q_tunnel_stop_if_none_visible();
     maybe_stop_tunnel_last_out();
     SHOULD_EXIT.store(true, Ordering::SeqCst);
     let home = std::env::var("HOME").unwrap_or_default();
     let pid_file = if is_expert_mode() { format!("{}/.quinki-expert-app.pid", home) } else { format!("{}/.quinki-app.pid", home) };
     let _ = std::fs::remove_file(&pid_file);
+    // UScita HARD garantita: app.exit è soft (un plugin/tray che pende lascia il
+    // processo vivo => il Dock mostra "running in background"). 800ms di grazia,
+    // poi exit duro. MAI più app zombie nel Dock.
+    std::thread::spawn(|| { std::thread::sleep(std::time::Duration::from_millis(800)); std::process::exit(0); });
     app.exit(0);
 }
 
@@ -2163,8 +2171,12 @@ fn hide_to_tray(app: tauri::AppHandle) {
 fn quit_expert_app(app: tauri::AppHandle) {
     // Kill watchdog PRIMA (niente race di riaccensione), poi sidecar
     kill_backend();
+    // T461: niente background dopo il quit (visibilità a zero + tunnel se serve)
+    q_set_visible(false);
+    q_tunnel_stop_if_none_visible();
     maybe_stop_tunnel_last_out();
     SHOULD_EXIT.store(true, Ordering::SeqCst);
+    std::thread::spawn(|| { std::thread::sleep(std::time::Duration::from_millis(800)); std::process::exit(0); });
     app.exit(0);
 }
 

@@ -835,10 +835,25 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   };
   const qTokReSrc = (): string => {
     let names: string[] = [];
-    try { names = qAttNames().map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")); } catch {}
-    return "(?:\u25b8(?:" + (names.length ? names.join("|") + "|" : "") + "[^\s\u25b8]+))|(?:Skill:\s*[\w.-]+)";
+    try {
+      names = qAttNames()
+        // T462: un nome con caratteri di CONTROLLO (newline/tab...) o troppo lungo
+        // rendeva la regex INVALIDA => hop/cancellazione atomica/cursore MORTI in
+        // silenzio (le pill si cancellavano lettera per lettera!). Filtro brutale.
+        .filter((n) => !!n && !/[\x00-\x1f\x7f]/.test(n) && n.length <= 200)
+        .map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+    } catch {}
+    // T462: le clip NUOVE sono il NOME NUDO (niente triangolo nel testo); le vecchie
+    // con ▸ restano riconosciute (compat). Ordine: nomi noti (più lunghi prima) -> ▸ -> skill.
+    const bare = names.length ? "(?:" + names.join("|") + ")" : "";
+    return "(?:" + (bare ? bare + "|" : "") + "\u25b8(?:[^\s\u25b8]+))|(?:Skill:\s*[\w.-]+)";
   };
-  const qTokRe = (): RegExp => new RegExp(qTokReSrc(), "g");
+  const qTokRe = (): RegExp => {
+    // T462: mai far esplodere i consumatori: se la regex dinamica è invalida per
+    // qualsiasi motivo, si torna al pattern statico (le pill continuano a vivere).
+    try { return new RegExp(qTokReSrc(), "g"); }
+    catch { return /(?:\u25b8[^\s\u25b8]+)|(?:Skill:\s*[\w.-]+)/g; }
+  };
   try { __qTokReGlobal = qTokRe; } catch {}
   // T448: a REAL file path (Finder drop / pasted path) is NEVER a slash command:
   // its leading "/" must not light the menu nor block the send.
@@ -856,8 +871,10 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       // EXACTLY like the bubble's inline clips. Dark text = the textbox background.
       // The END re-applies the editor panel background + text color (otherwise the
       // reset would kill the row paint after the chip).
-      // T449: attachment chips show ONLY the file name (no triangle — ugly).
-      const shown = isAtt ? tok.replace(/^\u25b8/, "") : tok;
+      // T462: la larghezza DEVE restare identica alla stringa reale, altrimenti il
+      // bordo della textbox si spezza (lo screenshot). Il triangolo non si nasconde
+      // più a render-time: dalle prossime clip non esiste proprio nel testo.
+      const shown = tok;
       return (
         (isAtt ? "\x1b[48;2;122;162;247m" : "\x1b[48;2;201;112;132m") +
         "\x1b[38;2;8;8;11m" +
@@ -2090,7 +2107,7 @@ const readProvidersCfg = (): any => {
               }
               if (conv.length) {
                 let curE = String(editor.getText() || "");
-                for (const nmC of conv) curE = String(curE).replace(/[ \t]+$/, "") + " " + "\u25b8" + nmC;
+                for (const nmC of conv) curE = String(curE).replace(/[ \t]+$/, "") + " " + nmC;
                 editor.setText(curE);
                 try { editor.setCursorCol(editor.getText().length); } catch {}
                 qCursorEnd();
@@ -4584,7 +4601,7 @@ const readProvidersCfg = (): any => {
             try { pendingAttachments.push(stA as any); } catch {}
             const nmA = String((stA as any).originalName);
             attPathByName[nmA] = String((stA as any).path);
-            curAdd = String(curAdd).replace(/[ \t]+$/, "") + " " + "\u25b8" + nmA;
+            curAdd = String(curAdd).replace(/[ \t]+$/, "") + " " + nmA;
           }
           if (curAdd !== before) {
             editor.setText(curAdd);
@@ -4713,7 +4730,7 @@ const readProvidersCfg = (): any => {
                   const nmD = String((stD as any).originalName);
                   attPathByName[nmD] = String((stD as any).path);
                   const curD = String(editor.getText() || "");
-                  editor.setText(String(curD).replace(/[ \t]+$/, "") + " " + "\u25b8" + nmD);
+                  editor.setText(String(curD).replace(/[ \t]+$/, "") + " " + nmD);
                   try { editor.setCursorCol(editor.getText().length); } catch {}
                   qCursorEnd();
                 }
@@ -5692,7 +5709,7 @@ const applySettingsPatch = (patch: any) => {
           try { pendingAttachments.push(stE as any); } catch {}
           const nmE = String((stE as any).originalName);
           attPathByName[nmE] = String((stE as any).path);
-          editor.setText("\u25b8" + nmE);
+          editor.setText(nmE);
           try { editor.setCursorCol(editor.getText().length); } catch {}
           qCursorEnd();
           return;
@@ -5775,7 +5792,7 @@ const applySettingsPatch = (patch: any) => {
             } catch { skillRefs.push({ agentId: "", skillName: name }); skills.push(name); }
             return rest;
           })
-          .replace(new RegExp("(?:^|\\s)\\u25b8(" + (qAttNames().map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") || "[^\\s\\u25b8]+") + "|[^\\s\\u25b8]+)", "g"), (_m: string, nm: string) => {
+          .replace(new RegExp("(?:^|\\s)(?:\\u25b8)?(" + (qAttNames().filter((n) => !!n && !/[\\x00-\\x1f\\x7f]/.test(n)).map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") || "[^\\s\\u25b8]+") + ")", "g"), (_m: string, nm: string) => {
             let name = String(nm); let restA = "";
             try {
               const knownA = Object.keys(attPathByName).filter((k) => name.startsWith(k) && k).sort((a, b) => b.length - a.length);
