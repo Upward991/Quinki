@@ -968,12 +968,9 @@ export function Composer(props: ComposerProps) {
             } else {
               setSlashMenuOpen(false); setSlashFilter('')
             }
-            // @mention detection
-            if (val.startsWith('@') && !val.includes(' ') && !val.includes('\n')) {
-              setMentionOpen(true); setMentionFilter(val.slice(1)); setSlashMenuOpen(false)
-            } else if (!val.startsWith('@')) {
-              setMentionOpen(false); setMentionFilter('')
-            }
+            // T493: @ tagging removed (the user's rule) — the mention picker
+            // never opens; the Orchestrator is the way to talk in multi-agent chats.
+            setMentionOpen(false); setMentionFilter('')
           }}
           onKeyDown={handleKeyDown}
           placeholder="Write a message..."

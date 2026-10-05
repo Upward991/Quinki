@@ -6040,6 +6040,17 @@ const applySettingsPatch = (patch: any) => {
           try { qDirs = null; qDirsKey = ""; qDirsKick(); } catch {}
           // The welcome preview CLEARS once the chat is born (the dir now lives in the chat).
           try { if (pendingWorkingDir) pendingWorkingDir = ""; } catch {}
+          // T493: multi-agent chats REQUIRE the Orchestrator (the app's new rule;
+          // @-tagging is gone). Same error the app shows, as a chat error message.
+          try {
+            const sendAgents = qSendAgents || sessionAgentIds();
+            if (sendAgents.length > 1 && !sendAgents.includes("orchestrator")) {
+              const errMsg = "This chat has multiple agents.\n\nTo send messages, add the Orchestrator to the chat.";
+              void sc.call("injectErrorExchange", { sessionKey: sk, userMessage: t, errorContent: errMsg, timestamp: Date.now() }).catch(() => {});
+              setTimeout(() => { void loadServerHistory().then(() => { try { renderHistory(); scrollToEnd(); } catch {} }); }, 250);
+              return;
+            }
+          } catch {}
           // Sync the engine with the session's REAL configuration: agents in the
           // chat (default quinki), mode, model and thinking — otherwise the
           // runtime runs a bare session without the user's tools/skills/MCP.
