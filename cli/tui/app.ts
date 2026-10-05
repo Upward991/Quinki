@@ -541,6 +541,11 @@ class FooterRow {
 }
 
 // User bubble: text + ONE blank bubble line + a LIGHTER footer, all inside the bubble.
+// T455: the UserBubble class lives OUTSIDE the main closure: it can't call the
+// closure-scoped qTokRe() (that caused "ReferenceError: qTokRe is not defined"
+// on EVERY render => the CLI crashed at startup). The app installs a bridge here.
+let __qTokReGlobal: (() => RegExp) | null = null;
+
 class UserBubble {
   text: string;
   dateStr: string;
@@ -573,7 +578,7 @@ class UserBubble {
       const fill = Math.max(0, inner - visibleWidth(t));
       // Clips styled exactly like the textbox (coral/blue bg, dark text), inline
       // in their original order; then back to the bubble colors.
-      const painted = String(t).replace(qTokRe(), (m2: string) => {
+      const painted = String(t).replace((typeof __qTokReGlobal === "function" ? __qTokReGlobal() : /Skill:\s*[\w.-]+|\u25b8[^\s\u25b8]+/g), (m2: string) => {
         const isSkill = m2.startsWith("Skill:");
         const bgRgb = isSkill ? "201;112;132" : "122;162;247";
         // T449: attachment chips show ONLY the file name (no ▸ triangle — ugly).
@@ -834,6 +839,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     return "(?:\u25b8(?:" + (names.length ? names.join("|") + "|" : "") + "[^\s\u25b8]+))|(?:Skill:\s*[\w.-]+)";
   };
   const qTokRe = (): RegExp => new RegExp(qTokReSrc(), "g");
+  try { __qTokReGlobal = qTokRe; } catch {}
   // T448: a REAL file path (Finder drop / pasted path) is NEVER a slash command:
   // its leading "/" must not light the menu nor block the send.
   const qIsFilePath = (t: string): boolean => {
