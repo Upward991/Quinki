@@ -3973,10 +3973,14 @@ const readProvidersCfg = (): any => {
           welcomeShown = false;
           applyLayout(false);
         }
-        // T500 — the APP's reload rule ("a reload must be VISIBLE"): clear the
-        // view at once, then a FULL re-open like selecting the chat (engine +
-        // history + stores + redraw). The app does clear + skeleton + selectSession;
-        // a bare re-render of identical pixels gave no signal (the user's bug).
+        // T501 — the user's exact rule: pressing Reload must IMMEDIATELY close
+        // the slash menu + the box, then visibly reload the chat. Everything is
+        // forced shut first (no menu may survive the press), then: clear the view,
+        // then a FULL re-open like selecting the chat (engine + history + stores).
+        try { qCloseMenus(); } catch {}
+        try { killAutocomplete(); } catch {}
+        try { editor.setText(""); } catch {}
+        try { menuStack = []; menuSubFilter = ""; menuSel = 0; } catch {}
         try {
           content.clear();
           blockCount = 0;
