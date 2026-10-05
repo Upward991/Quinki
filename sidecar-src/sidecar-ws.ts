@@ -606,8 +606,8 @@ const clients = new Set<any>();
       try {
         if (clients.size === 0) {
           idleMs += 1000;
-          if (idleMs >= 30000) {
-            try { process.stderr.write("[idle-exit] no ws clients for 30s — shutting down\n"); } catch {}
+          if (idleMs >= 5000) {
+            try { process.stderr.write("[idle-exit] no ws clients for 5s — shutting down\n"); } catch {}
             process.exit(0);
           }
         } else {
