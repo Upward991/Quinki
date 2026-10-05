@@ -3545,11 +3545,24 @@ const readProvidersCfg = (): any => {
               pushBlock(registerToggle(new ToggleBlock({ label: "Compaction", boldName: nw ? "ineffective" : "effective", color: nw ? C.expert : C.info, body: String(m.content || "") })));
               continue;
             }
-            if (m?.isError && (m as any).errorContent) {
-              const ec = String((m as any).errorContent);
-              // PLAIN red writing: never a toggle.
-              pushBlock({ render: (w: number) => wrapPlain(ec, Math.max(10, w)).map((ln: string) => fg(C.danger, ln)), invalidate: () => {} } as any);
-              continue;
+            if (m?.isError) {
+              // T495: errors arrive in TWO shapes — the #errors store carries
+              // errorContent; the injected jsonl entry carries the text in content
+              // blocks. BOTH must render RED (the app's rule). Before, only the
+              // first shape was caught and the injected error showed plain white.
+              let ec = String((m as any).errorContent || "").trim();
+              if (!ec) {
+                ec = (typeof m.content === "string"
+                  ? m.content
+                  : Array.isArray(m.content)
+                    ? m.content.filter((x: any) => x?.type === "text").map((x: any) => x.text || "").join("\n")
+                    : "").trim();
+              }
+              if (ec) {
+                // PLAIN red writing: never a toggle.
+                pushBlock({ render: (w: number) => wrapPlain(ec, Math.max(10, w)).map((ln: string) => fg(C.danger, ln)), invalidate: () => {} } as any);
+                continue;
+              }
             }
             if (m?.reasoning) pushBlock(registerToggle(new ToggleBlock({ label: "Thinking", color: C.thinking, italic: true, body: String(m.reasoning) })));
 
