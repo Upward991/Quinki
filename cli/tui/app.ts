@@ -819,16 +819,17 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   const qTokenByCh = (ch: string) => qTokens.find((t) => t.ch === ch) || null;
   const qTokenStyle = (tok: string): string => {
     try {
-      const nm = tok.replace(/^\u25b8/, "").replace(/^Skill:\s*/, "");
-      // The ORIGINAL Agents tab accent (coral) as the chip background, dark text.
+      const isAtt = tok.startsWith("\u25b8");
+      // Skill = coral (the original Agents tab accent); attachment = blue (#7aa2f7),
+      // EXACTLY like the bubble's inline clips. Dark text = the textbox background.
       // The END re-applies the editor panel background + text color (otherwise the
       // reset would kill the row paint after the chip).
       return (
-        "\x1b[48;2;201;112;132m" +            // coral bg (original Agents tab)
-        "\x1b[38;2;8;8;11m" +                 // DARK text = the textbox background color
-        "Skill: " + nm +                       // solo il testo della clip
-        "\x1b[48;2;15;15;19m" +               // back to the PANEL bg (no black row!)
-        "\x1b[38;2;232;232;236m"              // back to the editor text color
+        (isAtt ? "\x1b[48;2;122;162;247m" : "\x1b[48;2;201;112;132m") +
+        "\x1b[38;2;8;8;11m" +
+        tok +
+        "\x1b[48;2;15;15;19m" +
+        "\x1b[38;2;232;232;236m"
       );
     } catch { return tok; }
   };

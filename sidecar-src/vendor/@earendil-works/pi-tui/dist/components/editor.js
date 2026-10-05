@@ -457,7 +457,7 @@ export class Editor {
                     // would kill the chip's background (the user's polish).
                     let inChip = false;
                     try {
-                        const re3 = /Skill:\s*[\w.-]+/g;
+                        const re3 = /Skill:\s*[\w.-]+|\u25b8[^\s\u25b8]+/g;
                         let mm3;
                         while ((mm3 = re3.exec(displayText))) {
                             if (layoutLine.cursorPos >= mm3.index && layoutLine.cursorPos < mm3.index + mm3[0].length) { inChip = true; break; }
@@ -490,8 +490,8 @@ export class Editor {
             const lineRightPadding = cursorInPadding ? rightPadding.slice(1) : rightPadding;
             // QUINKI PATCH (25 set, iter6): painted full-width line (edges both sides).
             try {
-                if (this.qTokenStyle && /Skill:\s*[\w.-]+/.test(displayText)) {
-                    const styled = displayText.replace(/Skill:\s*[\w.-]+/g, (m2) => String(this.qTokenStyle(m2) ?? m2));
+                if (this.qTokenStyle && /Skill:\s*[\w.-]+|\u25b8[^\s\u25b8]+/.test(displayText)) {
+                    const styled = displayText.replace(/Skill:\s*[\w.-]+|\u25b8[^\s\u25b8]+/g, (m2) => String(this.qTokenStyle(m2) ?? m2));
                     result.push(qEdge() + qPaint(`${leftPadding}${styled}${padding}${lineRightPadding}`) + qEdgeR());
                 } else {
                     result.push(qEdge() + qPaint(`${leftPadding}${displayText}${padding}${lineRightPadding}`) + qEdgeR());
