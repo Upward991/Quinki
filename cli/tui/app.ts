@@ -6046,8 +6046,20 @@ const applySettingsPatch = (patch: any) => {
             const sendAgents = qSendAgents || sessionAgentIds();
             if (sendAgents.length > 1 && !sendAgents.includes("orchestrator")) {
               const errMsg = "This chat has multiple agents.\n\nTo send messages, add the Orchestrator to the chat.";
-              void sc.call("injectErrorExchange", { sessionKey: sk, userMessage: t, errorContent: errMsg, timestamp: Date.now() }).catch(() => {});
-              setTimeout(() => { void loadServerHistory().then(() => { try { renderHistory(); scrollToEnd(); } catch {} }); }, 250);
+              // T494: the send path already set streaming + "Sending" — undo both,
+              // or the status pill stayed stuck on sending forever.
+              try { streaming = false; } catch {}
+              try { setStatus("", ""); } catch {}
+              try { updateBar(); } catch {}
+              try { (ui as any).requestImmediateRender?.(); } catch {}
+              // Red error in the chat: wait for the inject RPC, then refresh (the
+              // history renderer paints isError+errorContent in red, like the app).
+              void sc.call("injectErrorExchange", { sessionKey: sk, userMessage: t, errorContent: errMsg, timestamp: Date.now() }).then(() => {
+                void loadServerHistory().then(() => {
+                  try { renderHistory(); scrollToEnd(); } catch {}
+                  try { (ui as any).requestImmediateRender?.(); } catch {}
+                });
+              }).catch(() => {});
               return;
             }
           } catch {}
