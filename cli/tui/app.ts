@@ -3973,6 +3973,22 @@ const readProvidersCfg = (): any => {
               }
             }
           } catch {}
+          // REVIVE the fresh sidecar BEFORE the relaunch: the new CLI fetches the
+          // session ONCE at boot — if it booted into a dead sidecar the chat came
+          // up empty (the user's bug). Start it ourselves and wait for the port.
+          try {
+            const cpS = require("child_process");
+            const PORT = String(process.env.QUINKI_SIDECAR_PORT || "9183");
+            const shExp = "/Applications/App Expert.app/Contents/Resources/resources/sidecar/start-expert.sh";
+            if (fs.existsSync(shExp)) {
+              cpS.spawn(shExp, [], { detached: true, stdio: "ignore", cwd: path.dirname(shExp), env: { ...process.env, QUINKI_POOL_EAGER: "0" } });
+            }
+            for (let i = 0; i < 16; i++) {
+              const p2 = cpS.spawnSync("/usr/bin/nc", ["-z", "127.0.0.1", PORT], { timeout: 1500 });
+              if (p2.status === 0) break;
+              cpS.spawnSync("/bin/sleep", ["0.5"]);
+            }
+          } catch {}
           // RESTART: park the UI (terminal restored), relaunch on the SAME tty.
           setStatus("App Expert synced. Restarting the CLI\u2026", "syncing");
           try { (ui as any).requestImmediateRender?.(); } catch {}
