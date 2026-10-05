@@ -1138,6 +1138,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   let qMcpData: any[] = [];
   let qToolsData: any[] = [];
   const refreshAgentsTab = () => {
+    try { require("fs").appendFileSync("/tmp/q-agents-data.log", new Date().toISOString() + " refreshAgentsTab ENTER call=" + (typeof (globalThis as any).__sidecarCall) + " scOn=" + (typeof scOn !== "undefined" ? scOn : "?") + "\n"); } catch {}
     try {
       const call = (globalThis as any).__sidecarCall;
       if (!call) return;
@@ -6201,6 +6202,12 @@ const applySettingsPatch = (patch: any) => {
         const curA: any = items[menuSel];
         if (curA && !curA.separator) {
           if (menuStack[0] === "agentinsession") canFwd = !!agentLevelFor(curA); // T492: remove = no forward (nothing ahead)
+          else if (menuStack[0] === "agents") {
+            // T512: the arrow lights when the row opens something (a section, an
+            // agent's editor, a per-skill agent list...) — never on the toggles.
+            const vF = String(curA.value || "");
+            canFwd = /^(#def|#you|#sk|#mcp|#tools|#plan|#plantools|#planmcp|ag:|ask:|atk:|amc:|sk:|mcp:|tool:)/.test(vF);
+          }
           else if (menuStack[0] === "settings") canFwd = !!settingsDeeper(curA);
           else if (menuStack[0] === "directory") canFwd = menuStack[1] === "dirchange" ? false : (String(curA.value || "") === "__dir_change"); // -> lights only on Change directory
           else if (menuStack.length > 0) canFwd = false;
@@ -6215,7 +6222,7 @@ const applySettingsPatch = (patch: any) => {
       const AR = (ok: boolean, ch: string) => ok ? bold(fg(C.primary, ch)) : fg(C.textTertiary, ch);
       const left = AR(canUD, "\u2191") + " " + AR(canUD, "\u2193") + "  " + AR(canBack, "\u2190") + " " + AR(canFwd, "\u2192");
       const inAddAgents = menuStack[0] === "agentinsession" && menuStack[1] === "#add";
-      const inAgentsTab = menuStack[0] === "agents"; // T507: all selection menus
+      const inAgentsTab = menuStack[0] === "agents" && menuStack.length >= 2 && /^(#def|#plantools|#planmcp|ask:|atk:|amc:|sk:|mcp:|tool:)/.test(String(menuStack[1] || "")); // T512: Select only where Tab truly selects
       const inAgentPick2 = menuStack[0] === "agentinsession" && String(menuStack[2] || "").match(/^(model|thinking)$/);
       const hasMulti = (menuStack[0] === "model" || menuStack[0] === "thinking" || inAddAgents || inAgentsTab || inAgentPick2 || (menuStack[0] === "directory" && !menuStack[1]) || menuStack[0] === "attachments" || menuStack[0] === "skill") || (menuStack[0] === "settings" && (menuStack[3] === "models" || menuStack[1] === "model" || menuStack[1] === "fallbacks" || menuStack[1] === "thinking" || (menuStack[1] === "defaults" && (menuStack[2] === "fallbacks" || menuStack[2] === "model" || menuStack[2] === "thinking")) || (menuStack[1] === "providers" && !menuStack[2])));
       // Confirm appears ONLY when the highlighted option actually RUNS something
