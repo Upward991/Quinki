@@ -1687,7 +1687,7 @@ const readProvidersCfg = (): any => {
           if (!files.length) items.push({ value: "__at_none", label: "No attachments yet", description: "attach one with Enter" });
           for (const f of files) {
             const full = path.join(sdir, f.n);
-            items.push({ value: "__at_file:" + full, label: "\u25cb " + f.n, description: "" });
+            items.push({ value: "__at_file:" + full, label: ((menuMarked.has("__at_file:" + full) ? "\u25cf " : "\u25cb ") + f.n), description: "" });
           }
         } catch { items.push({ value: "__at_none", label: "No attachments yet", description: "" }); }
         return items;
@@ -4628,11 +4628,9 @@ const readProvidersCfg = (): any => {
                 }
               }
             } catch {}
-            menuStack = [];
-            menuSubFilter = "";
-            menuSel = 0;
-            // T437: backing out / closing without confirming = the Tab marks are FORGOTTEN.
-            try { menuMarked.clear(); menuConfirmFocus = false; } catch {}
+            // T448: the SAME close as the skills — menu levels + filter + confirm
+            // focus + the "/attachments" text cleared (the user's rule).
+            qCloseMenus();
             menuMarked.clear();
           } else if (vA === "__at_new") {
             try {
@@ -4742,7 +4740,15 @@ const readProvidersCfg = (): any => {
         return false;
       }
 
-      if (menuStack[0] === "skill" || menuStack[0] === "attachments") return menuMarked.size > 0;
+      if (menuStack[0] === "attachments") {
+        const vAt = String((cur as any)?.value || "");
+        // P1 (T448): the ACTION rows always show "Confirm (Enter)" — Enter opens the
+        // native picker / the session's attachments folder. The FILE rows follow the
+        // skill rule: Confirm only once something is marked (Tab).
+        if (vAt === "__at_new" || vAt === "__at_open") return true;
+        return menuMarked.size > 0;
+      }
+      if (menuStack[0] === "skill") return menuMarked.size > 0;
       if (menuStack[0] === "directory") {
         const vDir = String((cur as any)?.value || "");
         if (menuStack[1] === "dirchange") {
