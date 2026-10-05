@@ -4149,6 +4149,18 @@ const readProvidersCfg = (): any => {
         applyDirChange(target);
         break;
       }
+      case "agentinsession": {
+        if (!arg) {
+          // T483: /agentinsession + Enter opens the agents menu (Add agent on top),
+          // exactly like /attachments does. Before, the Enter did nothing at all.
+          menuStack = ["agentinsession"];
+          menuSubFilter = "";
+          menuSel = 0;
+          try { ui.requestRender(); } catch {}
+          break;
+        }
+        break;
+      }
       case "attachments": {
         if (!arg) {
           menuStack = ["attachments"];
