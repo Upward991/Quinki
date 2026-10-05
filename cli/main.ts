@@ -94,9 +94,20 @@ if (process.stdout.isTTY && !process.env.QUINKI_CLI_NO_BG) {
     restore();
   });
   process.on("SIGHUP", () => {
-    try { require("fs").appendFileSync("/tmp/q-cli-survive.log", "SIGHUP received (ignored, surviving)\n"); } catch {}
+    // T450 (regola utente): terminale chiuso = la CLI DEVE morire. Il SIGHUP è il
+    // segnale della morte del terminale: ripristina e esci.
+    try { require("fs").appendFileSync("/tmp/q-cli-survive.log", "SIGHUP -> exiting\n"); } catch {}
     restore();
+    try { process.exit(0); } catch {}
   });
+  // T450: belt — la morte del terminale arriva anche come EOF/EIO dello stdin
+  // (chiusura brutale / pty uccisa): ripristina e esci.
+  try {
+    const qBye = () => { try { restore(); } catch {} try { process.exit(0); } catch {} };
+    process.stdin.on("end", qBye);
+    process.stdin.on("close", qBye);
+    process.stdin.on("error", qBye);
+  } catch {}
   process.on("SIGINT", () => {
     try { require("fs").appendFileSync("/tmp/q-cli-survive.log", "SIGINT received (ignored, surviving)\n"); } catch {}
   });

@@ -595,6 +595,30 @@ httpServer.listen(PORT, "127.0.0.1"); // F0: solo loopback. L'accesso da fuori p
 const clients = new Set<any>();
 (globalThis as any).__quinki_ws_clients = clients; // per il fallback stdout
 
+// === T450 IDLE-EXIT (regola utente): le UNICHE presenze sono i client ws (la webview
+// dell'app + le CLI). App chiusa E nessuna CLI => dopo 30s di grazia il sidecar esce
+// (copre anche i riavvii dell'app, che riconnettono in pochi secondi). I worker del
+// pool muoiono da soli: il loro parent-watchdog (ppid cambiato) li fa uscire.
+(function qIdleExit() {
+  try {
+    let idleMs = 0;
+    const t = setInterval(() => {
+      try {
+        if (clients.size === 0) {
+          idleMs += 1000;
+          if (idleMs >= 30000) {
+            try { process.stderr.write("[idle-exit] no ws clients for 30s — shutting down\n"); } catch {}
+            process.exit(0);
+          }
+        } else {
+          idleMs = 0;
+        }
+      } catch {}
+    }, 1000);
+    try { (t as any).unref?.(); } catch {}
+  } catch {}
+})();
+
 // FIX A4.3: heartbeat — chiude i client morti (niente accumulo di connessioni stale)
 const hb = setInterval(() => {
   // MAI terminare un client silenzioso: il telefono puo' tacere (rete lenta,
