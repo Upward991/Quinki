@@ -2238,6 +2238,7 @@ const readProvidersCfg = (): any => {
       const isLeft = data === "\x1b[D" || matchesKey(data, "left");
       const isRight = data === "\x1b[C" || matchesKey(data, "right");
       const menuNow = menuOpenRef?.() ?? false;
+      if (isEnter) { try { require("fs").appendFileSync("/tmp/q-enter-trace.log", new Date().toISOString() + " listener enter menuNow=" + menuNow + " text=" + JSON.stringify(String(editorText() || "").slice(0, 30)) + "\n"); } catch {} }
       if (isCtrlEnter && !menuNow && streaming) {
         // Steer: send a new instruction into the RUNNING turn.
         const txt = editorText().trim();
@@ -2272,13 +2273,10 @@ const readProvidersCfg = (): any => {
         }
         return { consume: true };
       }
-      // Enter on a BARE "/" (nothing chosen yet): ABSOLUTELY NOTHING — the panel
-      // and the text stay exactly as they are.
-      try {
-        if (isEnter && menuStack.length === 0 && /^\/+$/.test(String(editorText()).trim())) {
-          return { consume: true };
-        }
-      } catch {}
+      // T504 — THE BUG (the user's /reload): this early-return swallowed the Enter
+      // on a bare "/" BEFORE the menu ever saw it, so moving the selector onto a
+      // command and pressing Confirm did ABSOLUTELY NOTHING. The menu must handle
+      // that Enter (it executes the highlighted row).
       // Atomic chips: ← / → hop over a whole "Skill: name" clip (write before/after).
       try {
         if (!menuNow && (isLeft || isRight)) {
@@ -5093,6 +5091,7 @@ const readProvidersCfg = (): any => {
 
   let lastSelectAt = 0;
   const menuNav = (a: "up" | "down" | "left" | "right" | "enter" | "escape" | "select") => {
+    if (a === "enter") { try { require("fs").appendFileSync("/tmp/q-enter-trace.log", "  menuNav enter stack=" + JSON.stringify(menuStack) + " sel=" + menuSel + " items=" + (() => { try { return applyFilter(levelItems(menuStack)).length; } catch (e2) { return "THROW:" + String(e2); } })() + "\n"); } catch {} }
     // The path input only exists inside the directory submenu: anywhere else = off.
     try { if (dirTypeMode && !(menuStack[0] === "directory" && menuStack[1] === "dirchange")) { dirTypeMode = false; menuSubFilter = ""; } } catch {}
     if (a === "select") { try { require("fs").appendFileSync("/tmp/q-tab-trace.log", new Date().toISOString() + " select stack=" + JSON.stringify(menuStack) + " sel=" + menuSel + "\n"); } catch {} }
@@ -5934,6 +5933,7 @@ const applySettingsPatch = (patch: any) => {
   } catch {}
   menuOpenRef = () => menuOpen();
   menuNavRef = menuNav;
+  try { require("fs").appendFileSync("/tmp/q-enter-trace.log", new Date().toISOString() + " BOOT: menuNavRef ASSIGNED\n"); } catch {}
   try {
     (globalThis as any).__qMenuSelect = () => {
       try { require("fs").appendFileSync("/tmp/q-tab-trace.log", new Date().toISOString() + " hop2 qMenuSelect stack=" + JSON.stringify(menuStack) + "\n"); } catch {}
