@@ -5279,10 +5279,8 @@ const readProvidersCfg = (): any => {
                 }
               } catch {}
             } else {
-              // T490: on terminal rows the forward arrow LIGHTS the Confirm (the
-              // app's NavBar behavior) — the removal runs on Enter, never here.
-              menuConfirmFocus = true;
-              try { ui.requestRender(); } catch {}
+              // T492: no focus-the-Confirm logic here (it no longer exists in the
+              // menus): on terminal rows the forward arrow does nothing.
             }
           }
         } else {
@@ -5805,7 +5803,7 @@ const applySettingsPatch = (patch: any) => {
       try {
         const curA: any = items[menuSel];
         if (curA && !curA.separator) {
-          if (menuStack[0] === "agentinsession") canFwd = !!agentLevelFor(curA) || String(curA.value || "") === "remove"; // T489: Remove agent = forward runs it
+          if (menuStack[0] === "agentinsession") canFwd = !!agentLevelFor(curA); // T492: remove = no forward (nothing ahead)
           else if (menuStack[0] === "settings") canFwd = !!settingsDeeper(curA);
           else if (menuStack[0] === "directory") canFwd = menuStack[1] === "dirchange" ? false : (String(curA.value || "") === "__dir_change"); // -> lights only on Change directory
           else if (menuStack.length > 0) canFwd = false;
