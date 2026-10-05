@@ -1133,6 +1133,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   };
   // T508: the AGENTS tab data — the sidecar is the truth (same as the app).
   let qAgentsInputMode: "" | "newagent" | "skillpkg" | "mcpmcp" = "";
+  let qSkillsData: string[] = [];
   let qAgentsData: any[] = [];
   let qMcpData: any[] = [];
   let qToolsData: any[] = [];
@@ -1140,9 +1141,10 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     try {
       const call = (globalThis as any).__sidecarCall;
       if (!call) return;
-      call('listAgents', {}).then((r: any) => { try { qAgentsData = Array.isArray(r?.agents) ? r.agents : []; } catch {} try { ui.requestRender(); } catch {} }).catch(() => {});
-      call('listMcpServers', {}).then((r: any) => { try { qMcpData = Array.isArray(r?.servers) ? r.servers : []; } catch {} try { ui.requestRender(); } catch {} }).catch(() => {});
-      call('listTools', {}).then((r: any) => { try { qToolsData = Array.isArray(r?.tools) ? r.tools : []; } catch {} try { ui.requestRender(); } catch {} }).catch(() => {});
+      call('listAgents', {}).then((r: any) => { try { qAgentsData = Array.isArray(r?.agents) ? r.agents : []; } catch {} try { require("fs").appendFileSync("/tmp/q-agents-data.log", new Date().toISOString() + " listAgents=" + qAgentsData.length + "\n"); } catch {} try { ui.requestRender(); } catch {} }).catch((eA: any) => { try { require("fs").appendFileSync("/tmp/q-agents-data.log", " listAgents ERR " + String(eA?.message || eA) + "\n"); } catch {} });
+      call('listSkills', {}).then((r: any) => { try { const sk = Array.isArray(r?.skills) ? r.skills : []; qSkillsData = sk.map((x: any) => String(x?.name || x)).filter(Boolean); } catch {} try { require("fs").appendFileSync("/tmp/q-agents-data.log", new Date().toISOString() + " listSkills=" + qSkillsData.length + "\n"); } catch {} try { ui.requestRender(); } catch {} }).catch((eS: any) => { try { require("fs").appendFileSync("/tmp/q-agents-data.log", " listSkills ERR " + String(eS?.message || eS) + "\n"); } catch {} });
+      call('listMcpServers', {}).then((r: any) => { try { qMcpData = Array.isArray(r?.servers) ? r.servers : []; } catch {} try { require("fs").appendFileSync("/tmp/q-agents-data.log", new Date().toISOString() + " listMcpServers=" + qMcpData.length + " " + JSON.stringify(qMcpData.slice(0,3).map((m: any) => m?.id || m?.name)) + "\n"); } catch {} try { ui.requestRender(); } catch {} }).catch((eM: any) => { try { require("fs").appendFileSync("/tmp/q-agents-data.log", " listMcpServers ERR " + String(eM?.message || eM) + "\n"); } catch {} });
+      call('listTools', {}).then((r: any) => { try { qToolsData = Array.isArray(r?.tools) ? r.tools : []; } catch {} try { require("fs").appendFileSync("/tmp/q-agents-data.log", new Date().toISOString() + " listTools=" + qToolsData.length + "\n"); } catch {} try { ui.requestRender(); } catch {} }).catch((eT: any) => { try { require("fs").appendFileSync("/tmp/q-agents-data.log", " listTools ERR " + String(eT?.message || eT) + "\n"); } catch {} });
       call('getGlobalConfig', {}).then((r: any) => {
         try {
           const cfg = (r && (r.config || r)) || {};
@@ -1162,11 +1164,8 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   const agentToolsOf = (id: string) => agentFieldOf(id, "tools");
   const agentMcpOf = (id: string) => agentFieldOf(id, "mcpServers");
   const allSkillsList = (): string[] => {
-    try {
-      const st = new Set<string>();
-      for (const a of qAgentsData) for (const sk of (a?.skills || [])) { const n = typeof sk === "string" ? sk : sk?.name; if (n) st.add(String(n)); }
-      return Array.from(st).sort();
-    } catch { return []; }
+    // T510: ALL the installed skills (listSkills), never just the agents' union.
+    try { return [...qSkillsData].sort(); } catch { return []; }
   };
   const agentAdminAction = (vAgT: string) => {
     // T508: ONE action for every agents-tab row (Tab = select, Enter = same).
