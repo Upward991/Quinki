@@ -4402,7 +4402,7 @@ const readProvidersCfg = (): any => {
         const nSk = Array.isArray(cfg?.skills) ? cfg.skills.length : 0;
         if (nSk) bits.push(nSk + " skill" + (nSk === 1 ? "" : "s"));
         const idxA = order.indexOf(id);
-        out.push({ value: id, label: (idxA >= 0 ? "\u25cf " + (idxA + 1) + ". " : "\u25cb ") + agentDisplayName(id), description: bits.join(" \u00b7 ") || "Tab: add (multiple OK)" });
+        out.push({ value: id, label: (idxA >= 0 ? "\u25cf " : "\u25cb ") + agentDisplayName(id), description: bits.join(" \u00b7 ") || "Tab: add (multiple OK)" });
       }
       return out;
     }
@@ -4545,14 +4545,21 @@ const readProvidersCfg = (): any => {
       // CONFIRM: save the selected agents (dot order) — the clicked row included.
       const sel = Array.from(menuMarked);
       if (value && !value.startsWith("#") && !sel.includes(value)) sel.push(value);
+      try { require("fs").appendFileSync("/tmp/q-agent-trace.log", new Date().toISOString() + " confirm sel=" + JSON.stringify(sel) + " value=" + String(value) + " scOn=" + scOn + "\n"); } catch {}
       if (sel.length) {
         const fin = sel.filter((x) => agentIdsKnown().includes(x));
+        try { require("fs").appendFileSync("/tmp/q-agent-trace.log", "  fin=" + JSON.stringify(fin) + " known=" + JSON.stringify(agentIdsKnown().slice(0, 12)) + "\n"); } catch {}
         if (fin.length) {
           if (scOn) {
             const cur = sessionAgentIds();
             const merged = [...cur];
             for (const a of fin) if (!merged.includes(a)) merged.push(a);
-            void sc.call("setChatAgents", { sessionKey: currentKey, agentIds: merged.join(",") }, 20000).catch(() => {});
+            try { require("fs").appendFileSync("/tmp/q-agent-trace.log", "  calling setChatAgents merged=" + merged.join(",") + "\n"); } catch {}
+            void sc.call("setChatAgents", { sessionKey: currentKey, agentIds: merged.join(",") }, 20000).then(() => {
+              try { require("fs").appendFileSync("/tmp/q-agent-trace.log", "  setChatAgents OK\n"); } catch {}
+            }).catch((eE: any) => {
+              try { require("fs").appendFileSync("/tmp/q-agent-trace.log", "  setChatAgents ERROR: " + String(eE?.message || eE) + "\n"); } catch {}
+            });
           } else {
             try { mutateSessionEntry((e: any) => { const cur = sessionAgentIds(); const merged = [...cur]; for (const a of fin) if (!merged.includes(a)) merged.push(a); e.agentId = merged.join(","); }); } catch {}
           }
@@ -5283,6 +5290,15 @@ const readProvidersCfg = (): any => {
         // with Confirm lit, executes. Opening a submenu is navigation, not a
         // confirmation, so that still happens on the first Enter.
         const it: any = items[menuSel];
+        // T484: Add-agent list — with at least one dot marked, ENTER SAVES right
+        // away (Tab selects, one Enter adds: the user's rule). Before, this Enter
+        // fell into the runItem toggle and UNMARKED the row instead of saving.
+        if (menuStack[0] === "agentinsession" && menuStack[1] === "#add" && menuMarked.size > 0) {
+          try { require("fs").appendFileSync("/tmp/q-agent-trace.log", new Date().toISOString() + " enter-save marked=" + JSON.stringify(Array.from(menuMarked)) + " sel=" + menuSel + "\n"); } catch {}
+          if (it && !it.separator) agentActivate(String(it.value ?? ""));
+          try { ui.requestRender(); } catch {}
+          return;
+        }
         if (!menuConfirmFocus) {
           if (!it || it.separator) return;
           if (menuStack[0] === "settings") {
