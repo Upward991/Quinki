@@ -5668,8 +5668,12 @@ const applySettingsPatch = (patch: any) => {
         const rowsE: string[] = [];
         for (const ln of wrapPlain(menuError, Math.max(10, w))) rowsE.push(fg(C.textSecondary, ln));
         rowsE.push("");
-        const leftE = fg(C.textSecondary, "\u2191 \u2193 \u2190 \u2192");
-        const rightE = menuConfirmFocus ? bold(bg(C.primary, fg(C.bgPanel, " Confirm "))) : fg(C.primary, "Confirm");
+        // T486: the footer is EXACTLY the normal menu footer (the /quit confirm
+        // look): lit arrows (← back, → lights the Confirm), red "Close (Esc)",
+        // "Confirm (Enter)" with its filled background while focused.
+        const ARE = (ok: boolean, ch: string) => ok ? bold(fg(C.primary, ch)) : fg(C.textTertiary, ch);
+        const leftE = ARE(false, "\u2191") + " " + ARE(false, "\u2193") + "  " + ARE(true, "\u2190") + " " + ARE(true, "\u2192");
+        const rightE = fg(C.danger, "Close (Esc)") + "  " + (menuConfirmFocus ? bold(bg(C.primary, fg(C.bgPanel, " Confirm (Enter) "))) : fg(C.primary, "Confirm (Enter)"));
         const gwE = Math.max(1, w - visibleWidth(leftE) - visibleWidth(rightE));
         rowsE.push(leftE + " ".repeat(gwE) + rightE);
         return rowsE;
