@@ -36,7 +36,7 @@ mod terminate_delegate {
         } else {
             if let Some(app) = APP_HANDLE.get() {
                 if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.show();
+                    let _ = window.show(); crate::q_set_visible(true);
                     let _ = window.set_focus();
                 }
                 let _ = app.emit("quit_requested", ());
@@ -51,7 +51,7 @@ mod terminate_delegate {
     extern "C" fn application_should_handle_reopen(_this: &mut Object, _cmd: Sel, _app: *mut Object, _has_visible: i32) -> i32 {
         if let Some(app) = APP_HANDLE.get() {
             if let Some(window) = app.get_webview_window("main") {
-                let _ = window.show();
+                let _ = window.show(); crate::q_set_visible(true);
                 let _ = window.set_focus();
             }
             let _ = app.emit("app_reopened", ());
@@ -574,7 +574,7 @@ fn setup_notification_delegate(app: &tauri::AppHandle) {
                             if !sk.is_empty() {
                                 let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
                                 if let Some(win) = app.get_webview_window("main") {
-                                    let _ = win.show();
+                                    let _ = win.show(); q_set_visible(true);
                                     let _ = win.set_focus();
                                     let _ = win.emit("switch-session", &sk);
                                 }
@@ -1926,6 +1926,36 @@ fn count_items(dir: &str) -> usize {
 #[tauri::command]
 /// True se l'ALTRA app (main vs Expert) e' in esecuzione. Il pattern e' quello
 /// preciso col /quinki finale: non matcha il tunnel ne' i sidecar.
+// === T454 (regola utente): il tunnel del telefono vive SOLO se una finestra Quinki
+// è VISIBILE (la X = chiusa). "Visibile" è condiviso tra le due app via file-stato:
+// la main scrive .win-visible-main, l'expert .win-visible-expert.
+fn q_vis_file(expert_mode: bool) -> String {
+    let home = std::env::var("HOME").unwrap_or_default();
+    format!("{}/.quinki/.win-visible-{}", home, if expert_mode { "expert" } else { "main" })
+}
+fn q_set_visible(v: bool) {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let _ = std::fs::create_dir_all(format!("{}/.quinki", home));
+    let _ = std::fs::write(q_vis_file(is_expert_mode()), if v { "1" } else { "0" });
+}
+fn q_read_vis(expert_mode: bool) -> Option<bool> {
+    std::fs::read_to_string(q_vis_file(expert_mode)).ok().map(|s| s.trim() == "1")
+}
+fn q_any_app_visible() -> bool {
+    // la mia app: se il file non esiste ancora (primo avvio del nuovo build) = visibile.
+    let mine = q_read_vis(is_expert_mode()).unwrap_or(true);
+    // l'altra app: file assente (mai aggiornata / ancora avviata col build vecchio) = visibile.
+    let other = q_read_vis(!is_expert_mode()).unwrap_or(true);
+    mine || other
+}
+fn q_tunnel_stop_if_none_visible() {
+    if q_any_app_visible() { return; }
+    let _ = std::process::Command::new("/usr/bin/pkill").args(["-TERM", "-f", "tsnet-tunnel"]).status();
+    let home = std::env::var("HOME").unwrap_or_default();
+    let _ = std::fs::remove_file(format!("{}/.quinki/tunnel.pid", home));
+    let _ = std::fs::remove_file(format!("{}/.quinki/tunnel-expert.pid", home));
+}
+
 fn other_app_running() -> bool {
     let pat = if is_expert_mode() { "Quinki.app/Contents/MacOS/quinki" } else { "App Expert.app/Contents/MacOS/quinki" };
     std::process::Command::new("/usr/bin/pgrep").args(["-f", pat]).status().map(|s| s.success()).unwrap_or(false)
@@ -2087,7 +2117,7 @@ fn fs_frame_marker() -> String {
 }
 fn show_or_recreate_main(app: &tauri::AppHandle) {
   if let Some(window) = app.get_webview_window("main") {
-    let _ = window.show();
+    let _ = window.show(); q_set_visible(true);
     let _ = window.set_focus();
     return;
   }
@@ -2099,7 +2129,7 @@ fn show_or_recreate_main(app: &tauri::AppHandle) {
     if wc.label == "main" {
       if let Ok(builder) = tauri::WebviewWindowBuilder::from_config(app, &wc) {
         if let Ok(w) = builder.build() {
-          let _ = w.show();
+          let _ = w.show(); q_set_visible(true);
           let _ = w.set_focus();
           if let Ok(txt) = std::fs::read_to_string(fs_frame_marker()) {
             let p: Vec<i64> = txt.split(',').filter_map(|x| x.trim().parse().ok()).collect();
@@ -2183,7 +2213,7 @@ fn open_in_new_window(app: tauri::AppHandle, tab: String, _session: Option<Strin
     // Show existing window if it exists
     if let Some(window) = app.get_webview_window(&label) {
         eprintln!("[open_in_new_window] showing existing window");
-        let _ = window.show();
+        let _ = window.show(); q_set_visible(true);
         let _ = window.set_focus();
         return Ok(label);
     }
@@ -2200,7 +2230,7 @@ fn open_in_new_window(app: tauri::AppHandle, tab: String, _session: Option<Strin
             let window = builder.build()
                 .map_err(|e| { eprintln!("[open_in_new_window] build error: {}", e); e.to_string() })?;
             eprintln!("[open_in_new_window] window built, showing");
-            let _ = window.show();
+            let _ = window.show(); q_set_visible(true);
             let _ = window.set_focus();
             Ok(label)
         }
@@ -2220,7 +2250,7 @@ fn open_chat_in_window(app: tauri::AppHandle, session_key: String) -> Result<Str
     
     // Show existing window or create from config
     if let Some(window) = app.get_webview_window(&label) {
-        let _ = window.show();
+        let _ = window.show(); q_set_visible(true);
         let _ = window.set_focus();
         let _ = window.emit("switch-session", &session_key);
         return Ok(label);
@@ -2236,7 +2266,7 @@ fn open_chat_in_window(app: tauri::AppHandle, session_key: String) -> Result<Str
         let window = builder.build()
             .map_err(|e| e.to_string())?;
         window.eval(&format!("window.__chatSessionKey = '{}';", session_key.replace("'", "\\'"))).ok();
-        let _ = window.show();
+        let _ = window.show(); q_set_visible(true);
         let _ = window.set_focus();
         return Ok(label);
     }
@@ -2247,7 +2277,7 @@ fn open_chat_in_window(app: tauri::AppHandle, session_key: String) -> Result<Str
 #[tauri::command]
 fn focus_window(app: tauri::AppHandle, label: String) -> Result<(), String> {
     if let Some(window) = app.get_webview_window(&label) {
-        let _ = window.show();
+        let _ = window.show(); q_set_visible(true);
         let _ = window.set_focus();
         Ok(())
     } else {
@@ -2404,7 +2434,7 @@ fn set_quick_chat_shortcut(app: tauri::AppHandle, shortcut: String) -> Result<St
 fn quick_chat_open(app: &tauri::AppHandle) {
     // Se la finestra esiste già → focus
     if let Some(win) = app.get_webview_window("win-quick-chat") {
-        let _ = win.show();
+        let _ = win.show(); q_set_visible(true);
         let _ = win.set_focus();
         return;
     }
@@ -3433,6 +3463,7 @@ pub fn run() {
 // Protocollo: connecta a 127.0.0.1:9555, manda JS, chiudi — viene eval-ato.
 // ============================================================================
 .setup(move |app| {
+    q_set_visible(true); // T454: app che parte = finestra visibile
       // === FIX quit macOS: intercetta applicationShouldTerminate (Cmd+Q, dock, menu Apple) ===
       #[cfg(target_os = "macos")]
       {
@@ -3551,7 +3582,7 @@ pub fn run() {
             let handle = app.handle();
             if let Ok(builder) = tauri::WebviewWindowBuilder::from_config(handle, wc) {
               if let Ok(window) = builder.build() {
-                let _ = window.show();
+                let _ = window.show(); q_set_visible(true);
                 let _ = window.set_focus();
               }
             }
@@ -3889,6 +3920,9 @@ fn quick_chat_watch_shortcut(app: tauri::AppHandle) {
               api.prevent_close();
             } else {
               let _ = window.hide();
+              // T454: X = chiusa => il tunnel del telefono muore (se nessuna app visibile).
+              q_set_visible(false);
+              q_tunnel_stop_if_none_visible();
               api.prevent_close();
             }
           }
@@ -3903,6 +3937,9 @@ fn quick_chat_watch_shortcut(app: tauri::AppHandle) {
             api.prevent_close();
           } else {
             let _ = window.hide();
+            // T454: X = chiusa => il tunnel del telefono muore (se nessuna app visibile).
+            q_set_visible(false);
+            q_tunnel_stop_if_none_visible();
             api.prevent_close();
           }
         } else if window.label() != "main" {
@@ -3922,6 +3959,7 @@ fn quick_chat_watch_shortcut(app: tauri::AppHandle) {
     app.run(|_app_handle, event| {
       // Dock click → show window (Reopen event)
       if let tauri::RunEvent::Reopen { .. } = event {
+        q_set_visible(true); // T454: riaperta dal dock = visibile
         // FIX (01 set): finestra chiusa davvero (rosso da fullscreen) → ricreazione
         show_or_recreate_main(_app_handle);
       }
@@ -3933,7 +3971,7 @@ fn quick_chat_watch_shortcut(app: tauri::AppHandle) {
           // nella finestra invisibile → l'utente non vedeva la conferma.
           api.prevent_exit();
           if let Some(window) = _app_handle.get_webview_window("main") {
-            let _ = window.show();
+            let _ = window.show(); q_set_visible(true);
             let _ = window.set_focus();
           }
           let _ = _app_handle.emit("quit_requested", ());
