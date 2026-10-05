@@ -388,6 +388,14 @@ export function tryRoute(msg: any): boolean {
   if (owner === 0) return false; // sessione del main → handler locale
   const sock = childSockets.get(owner);
   if (!sock || sock.readyState !== 1) {
+    // === T458 (regola utente): SPAWN SOLO se la RPC fa LAVORARE la sessione ORA.
+    // Il sync di config dell'app all'apertura (setModel/setMode/setAgent/setChatAgents/
+    // fallbacks...) per un worker spento NON deve farlo nascere: un'apertura faceva
+    // nascere 16 worker. Il MAIN li applica in locale (le entry sono file-first: il
+    // worker le rilegge al suo prossimo spawn). I metodi che fanno girare un turno
+    // (sendMessage/steer/abort/compact...) invece spawnano SEMPRE.
+    const WORK_NOW = new Set(["sendMessage", "steer", "abort", "stopStream", "compactSession", "abortCompaction", "reloadSession", "resetSession", "injectClip", "injectSystemMessage"]);
+    if (!WORK_NOW.has(String(method || ""))) return false; // niente spawn: gestisce il main
     // child non pronto (mai partito / shrink / crash) → SPAWN LAZY + coda.
     // FIX 084 (03 set): una RPC instradata È "serve una sessione" → il respawn è
     // sempre legittimo, ANCHE per un child RETIRED (shrunk): il vecchio guard
