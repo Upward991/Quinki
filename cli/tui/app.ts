@@ -2655,7 +2655,10 @@ const readProvidersCfg = (): any => {
             // T444: ONE press from the cell right before the chip kills the whole chip
             // (the auto space goes with it) — no more two-press dance.
             if (col === a - 1) {
-              const eatSpace = (a > 0 && line.charAt(a - 1) === " ") ? 1 : 0;
+              // T466: mangia lo spazio precedente SOLO se è il NOSTRO auto-spazio
+              // (quello della ricetta <-). Quello dell'utente = si cancella da solo.
+              const isAuto = !!(qAutoSpace && qAutoSpace.line === st.cursorLine && qAutoSpace.col === (a - 1) && qAutoSpace.text === line);
+              const eatSpace = (a > 0 && line.charAt(a - 1) === " " && isAuto) ? 1 : 0;
               const start = a - eatSpace;
               const nl3 = line.slice(0, start) + (line.charAt(b) === " " ? line.slice(b + 1) : line.slice(b));
               st.lines[st.cursorLine] = nl3;
@@ -2667,7 +2670,9 @@ const readProvidersCfg = (): any => {
             continue;
           }
           if (col > a && col <= b + 1) {
-            const nline = line.slice(0, a) + (line.charAt(b) === " " ? line.slice(b + 1) : line.slice(b));
+            // T466 (regola utente): la pill = SOLO la pill. Il carattere/spazio che
+            // segue è roba SUA: prima si cancella quello (nativo), poi la pill.
+            const nline = line.slice(0, a) + line.slice(b);
             st.lines[st.cursorLine] = nline;
             try { editor.setCursorCol(a); } catch {}
             try { if (typeof (editor as any).onChange === "function") (editor as any).onChange(editor.getText()); } catch {}
