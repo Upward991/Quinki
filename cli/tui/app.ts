@@ -846,7 +846,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     // T462: le clip NUOVE sono il NOME NUDO (niente triangolo nel testo); le vecchie
     // con ▸ restano riconosciute (compat). Ordine: nomi noti (più lunghi prima) -> ▸ -> skill.
     const bare = names.length ? "(?:" + names.join("|") + ")" : "";
-    return "(?:" + (bare ? bare + "|" : "") + "\u25b8(?:[^\s\u25b8]+))|(?:Skill:\s*[\w.-]+)";
+    return "(?:" + (bare ? bare + "|" : "") + "\u25b8(?:[^\\s\u25b8]+))|(?:Skill:\\s*[\\w.-]+)";
   };
   const qTokRe = (): RegExp => {
     // T462: mai far esplodere i consumatori: se la regex dinamica è invalida per
