@@ -1195,16 +1195,21 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   };
   // T505: the AGENTS tab (CLI twin of the app's AgentsPanel): top menu.
   const agentAdminItems = (): any[] => {
-    let nAg = 0; try { nAg = agentIdsKnown().length; } catch {}
-    let nSk = 0; try { nSk = skillGroupsCached().reduce((n: number, g: any) => n + (g.skills?.length || 0), 0); } catch {}
+    // T511: ALL the counts come from the ENGINE data (the same the app shows),
+    // never from the old local caches: agents, skills, MCP, tools.
+    let nAg = qAgentsData.length;
+    if (!nAg) { try { nAg = agentIdsKnown().length; } catch {} }
+    const nSk = qSkillsData.length;
+    const nM = qMcpData.length;
+    const nT = qToolsData.length;
     const curDef = String((wsSettings && (wsSettings as any).defaultAgentId) || "quinki");
     let defName = curDef; try { defName = agentDisplayName(curDef); } catch {}
     return [
       { value: "#def", label: "Default agent for new chats", description: defName },
       { value: "#you", label: "Your agents", description: String(nAg) + " configured" },
       { value: "#sk", label: "Skills", description: String(nSk) + " installed" },
-      { value: "#mcp", label: "MCP", description: "Manage MCP servers" },
-      { value: "#tools", label: "Tools", description: "Tools available to agents" },
+      { value: "#mcp", label: "MCP", description: String(nM) + " servers" },
+      { value: "#tools", label: "Tools", description: String(nT) + " available" },
       { value: "#plan", label: "Plan mode", description: "Tools and MCP enabled in plan mode" },
     ];
   };
