@@ -1216,7 +1216,11 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   };
   const agentAdminLevelItems = (stack: string[]): any[] => {
     if (stack.length <= 1) return agentAdminItems();
-    const sub = stack[1];
+    // T518: THE bug — this was stack[1] (the FIRST sub-level): with 3 levels
+    // (["agents","#sk","sk:x"]) the view re-rendered the SAME #sk list, so the
+    // forward arrow "did nothing" and <- only popped one of the two copies,
+    // landing back on the same list with the top row (Install skill) selected.
+    const sub = stack[stack.length - 1];
     if (sub === "#def") {
       const cur = String((wsSettings && (wsSettings as any).defaultAgentId) || "quinki");
       try {
@@ -2292,6 +2296,7 @@ const readProvidersCfg = (): any => {
         }
         if (!data) return { consume: true };
       }
+      try { require("fs").appendFileSync("/tmp/q-filter-trace.log", new Date().toISOString() + " IN hex=" + Buffer.from(String(data), "utf8").toString("hex").slice(0,50) + " menu=" + (menuOpenRef?.() ?? false) + "\n"); } catch {}
       // Filter control sequences AFTER the split-recomposition (they arrive in
       // two reads when the app window closes: \x1b[6;17;8 + t): the parser was
       // treating them as keystrokes and confirming the /quit notice.
@@ -2484,6 +2489,10 @@ const readProvidersCfg = (): any => {
       const isDown = data === "\x1b[B" || matchesKey(data, "down");
       const isLeft = data === "\x1b[D" || matchesKey(data, "left");
       const isRight = data === "\x1b[C" || matchesKey(data, "right");
+      try {
+        const hex = Buffer.from(String(data), "utf8").toString("hex").slice(0, 60);
+        require("fs").appendFileSync("/tmp/q-keys-trace.log", new Date().toISOString() + " KEY hex=" + hex + " len=" + String(data).length + " isRight=" + isRight + " isDown=" + (data === "\x1b[B" || matchesKey(data, "down")) + " menuNow=" + (menuOpenRef?.() ?? false) + "\n");
+      } catch {}
       const menuNow = menuOpenRef?.() ?? false;
       if (isEnter) { try { require("fs").appendFileSync("/tmp/q-enter-trace.log", new Date().toISOString() + " listener enter menuNow=" + menuNow + " text=" + JSON.stringify(String(editorText() || "").slice(0, 30)) + "\n"); } catch {} }
       if (isCtrlEnter && !menuNow && streaming) {
@@ -5628,6 +5637,7 @@ const readProvidersCfg = (): any => {
           try { menuMarked.clear(); } catch {}
         }
       } else if (a === "right") {
+        try { require("fs").appendFileSync("/tmp/q-deep-trace.log", new Date().toISOString() + " RIGHT root=" + String(menuStack[0]||"-") + " stack=" + JSON.stringify(menuStack) + " sel=" + String(menuSel) + " itemsN=" + String(items.length) + " rowVal=" + JSON.stringify(String((items[menuSel]||{}).value||"")) + "\n"); } catch {}
         // Forward ONLY — it NEVER executes. At the end of the levels it FOCUSES
         // Confirm (violet filled, like the app's NavBar focusConfirm); Enter runs.
         if (menuConfirmFocus) {
@@ -5650,6 +5660,17 @@ const readProvidersCfg = (): any => {
               if (/^(#def|#you|#sk|#mcp|#tools|#plan|#plantools|#planmcp|ag:|ask:|atk:|amc:|sk:|mcp:|tool:)/.test(vA)) deeper = vA;
             }
             if (deeper) {
+              try { require("fs").appendFileSync("/tmp/q-deep-trace.log", new Date().toISOString() + " PUSH " + JSON.stringify({ root: menuStack[0], val: String(it.value||""), deeper }) + "\n"); } catch {}
+              // T517: NEVER push the same level twice in a row (kitty press+release
+              // could fire the arrow twice => ["agents","#sk","#sk"]: entering a
+              // skill looked dead and <- only removed one copy, staying on the
+              // same screen with the top row (Install) selected — the user's bug.
+              const _topSt = menuStack[menuStack.length - 1];
+              if (_topSt === deeper) {
+                try { require("fs").appendFileSync("/tmp/q-deep-trace.log", new Date().toISOString() + " PUSH-SKIP-dup " + deeper + "\n"); } catch {}
+                try { ui.requestRender(); } catch {}
+                return;
+              }
               menuStack.push(deeper);
               menuSubFilter = "";
               menuSel = 0;
