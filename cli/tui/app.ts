@@ -1551,6 +1551,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       const out: any[] = [...qHead("Skill: " + nm)];
       // T552: the skill's own file, same editor as the agents' PROMPT.md.
       out.push({ value: "askill:" + nm, label: "Skill file", description: "open SKILL.md (edit it)" });
+      out.push({ value: "__sep_skfilegap", label: "", separator: true }); // T553: blank row before the agents
       const outDel = { value: "__skdel", label: "Delete skill", description: "" };
       const agsSorted = qAgentsData.slice()
         .map((a: any) => ({ a, id: String(a?.id || a?.name || "") }))
