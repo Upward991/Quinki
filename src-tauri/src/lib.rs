@@ -97,6 +97,105 @@ fn is_expert_mode() -> bool {
     false
 }
 
+// ============================================================================
+// APP ICON (6 ott): icone pixel selezionabili (q per Main, E per Expert).
+// La scelta vive in ~/.quinki/app-icons.json {"main":"main-violet","expert":...}
+// (la scrive il sidecar via RPC setAppIcons; qui la si APPLICA: Dock, tray,
+// e icns copiato nel bundle per la persistenza dopo il riavvio).
+// ============================================================================
+static TRAY_HANDLE: StdMutex<Option<tauri::tray::TrayIcon>> = StdMutex::new(None);
+const ICON_VARIANTS: [&str; 6] = ["main-violet", "main-dark", "main-current", "expert-orange", "expert-dark", "expert-current"];
+
+fn app_icon_variant_ok(v: &str) -> bool { ICON_VARIANTS.contains(&v) }
+
+fn read_app_icon_choice(role: &str) -> Option<String> {
+    let home = std::env::var("HOME").ok()?;
+    let f = std::path::Path::new(&home).join(".quinki").join("app-icons.json");
+    let txt = std::fs::read_to_string(f).ok()?;
+    let v: serde_json::Value = serde_json::from_str(&txt).ok()?;
+    let s = v.get(role)?.as_str()?.to_string();
+    if app_icon_variant_ok(&s) { Some(s) } else { None }
+}
+
+fn app_icon_res(app: &tauri::AppHandle, variant: &str, ext: &str) -> Option<std::path::PathBuf> {
+    let dir = app.path().resource_dir().ok()?;
+    let p = dir.join("resources").join("icons").join("app").join(format!("{}.{}", variant, ext));
+    if p.exists() { Some(p) } else { None }
+}
+
+#[cfg(target_os = "macos")]
+fn set_dock_icon_from_file(p: &std::path::Path) -> Result<(), String> {
+    use objc::{class, msg_send, sel, sel_impl};
+    use objc::runtime::Object;
+    use std::ffi::CString;
+    unsafe {
+        let cpath = CString::new(p.to_string_lossy().as_bytes()).map_err(|e| e.to_string())?;
+        let nsstr: *mut Object = msg_send![class!(NSString), stringWithUTF8String: cpath.as_ptr()];
+        if nsstr.is_null() { return Err("NSString failed".into()); }
+        let img: *mut Object = msg_send![class!(NSImage), alloc];
+        let img: *mut Object = msg_send![img, initWithContentsOfFile: nsstr];
+        if img.is_null() { return Err("NSImage load failed".into()); }
+        let nsapp: *mut Object = msg_send![class!(NSApplication), sharedApplication];
+        let _: () = msg_send![nsapp, setApplicationIconImage: img];
+    }
+    Ok(())
+}
+#[cfg(not(target_os = "macos"))]
+fn set_dock_icon_from_file(_p: &std::path::Path) -> Result<(), String> { Ok(()) }
+
+#[cfg(target_os = "macos")]
+fn app_bundle_root() -> Option<std::path::PathBuf> {
+    let exe = std::env::current_exe().ok()?;
+    let mut cur: &std::path::Path = exe.parent()?;
+    loop {
+        if cur.extension().map(|e| e == "app").unwrap_or(false) { return Some(cur.to_path_buf()); }
+        cur = cur.parent()?;
+    }
+}
+#[cfg(not(target_os = "macos"))]
+fn app_bundle_root() -> Option<std::path::PathBuf> { None }
+
+fn persist_app_icon_icns(app: &tauri::AppHandle, variant: &str) {
+    #[cfg(target_os = "macos")]
+    {
+        let icns = match app_icon_res(app, variant, "icns") { Some(x) => x, None => return };
+        let bundle = match app_bundle_root() { Some(x) => x, None => return };
+        let dest = bundle.join("Contents").join("Resources").join("icon.icns");
+        let same = match (std::fs::read(&icns), std::fs::read(&dest)) {
+            (Ok(a), Ok(b)) => a == b,
+            _ => false,
+        };
+        if same { return; }
+        if std::fs::copy(&icns, &dest).is_ok() {
+            let now = std::time::SystemTime::now();
+            if let Ok(f) = std::fs::File::open(&dest) { let _ = f.set_modified(now); }
+            if let Ok(f) = std::fs::File::open(&bundle) { let _ = f.set_modified(now); }
+        }
+    }
+}
+
+fn apply_app_icon(app: &tauri::AppHandle, variant: &str) -> Result<(), String> {
+    if !app_icon_variant_ok(variant) { return Err(format!("unknown icon variant: {}", variant)); }
+    let png = app_icon_res(app, variant, "png").ok_or_else(|| "icon png not found".to_string())?;
+    set_dock_icon_from_file(&png)?;
+    if variant.starts_with("main-") {
+        if let Ok(guard) = TRAY_HANDLE.lock() {
+            if let Some(tray) = guard.as_ref() {
+                if let Some(tp) = app_icon_res(app, &format!("{}-tray", variant), "png") {
+                    if let Ok(img) = tauri::image::Image::from_path(&tp) { let _ = tray.set_icon(Some(img)); }
+                }
+            }
+        }
+    }
+    persist_app_icon_icns(app, variant);
+    Ok(())
+}
+
+#[tauri::command]
+fn set_app_icon(app: tauri::AppHandle, variant: String) -> Result<(), String> {
+    apply_app_icon(&app, &variant)
+}
+
 // MD5 di un file (usa il tool di sistema macOS `md5 -q`)
 fn file_md5(path: &str) -> Option<String> {
     let out = std::process::Command::new("md5").arg("-q").arg(path).output().ok()?;
@@ -3452,6 +3551,7 @@ pub fn run() {
         request_notification_permission,
         request_expert_notification_permission,
         send_expert_test_notification,
+        set_app_icon,
     ])
     .plugin(tauri_plugin_shell::init())
     .plugin(tauri_plugin_clipboard_manager::init())
@@ -3682,10 +3782,17 @@ fn quick_chat_watch_shortcut(app: tauri::AppHandle) {
       let tray_sep = PredefinedMenuItem::separator(app)?;
       let menu = Menu::with_items(app, &[&show_item, &reload_item, &restart_item, &tray_sep, &quit_item])?;
 
-      let tray_img = tauri::image::Image::from_bytes(include_bytes!("../icons/tray-icon.png"))
-          .unwrap_or_else(|_| app.default_window_icon().unwrap().clone());
+      // Icona tray = variante scelta dall'utente (persistita in app-icons.json)
+      let tray_variant = read_app_icon_choice("main")
+          .filter(|v| v.starts_with("main-"))
+          .unwrap_or_else(|| "main-violet".to_string());
+      let tray_img = app.path().resource_dir().ok()
+          .map(|d| d.join("resources").join("icons").join("app").join(format!("{}-tray.png", tray_variant)))
+          .and_then(|p| tauri::image::Image::from_path(p).ok())
+          .or_else(|| tauri::image::Image::from_bytes(include_bytes!("../icons/tray-icon.png")).ok())
+          .unwrap_or_else(|| app.default_window_icon().unwrap().clone());
 
-      let _tray = TrayIconBuilder::new()
+      let tray = TrayIconBuilder::new()
         .menu(&menu)
         .icon(tray_img)
         .icon_as_template(false)
@@ -3737,7 +3844,18 @@ fn quick_chat_watch_shortcut(app: tauri::AppHandle) {
           }
         })
         .build(app)?;
+      *TRAY_HANDLE.lock().unwrap() = Some(tray);
       } // end if !is_expert_mode()
+
+      // === APP ICON: applica SEMPRE la variante (scelta persistita o default) ===
+      // Così l'icona giusta vale già all'avvio anche se la cache del Dock è
+      // stantia (il set runtime la corregge subito) e l'icns viene riallineato.
+      {
+        let role = if is_expert_mode() { "expert" } else { "main" };
+        let default_variant = if role == "expert" { "expert-orange" } else { "main-violet" };
+        let v = read_app_icon_choice(role).unwrap_or_else(|| default_variant.to_string());
+        let _ = apply_app_icon(app.handle(), &v);
+      }
 
       // === Quick Chat: registra lo shortcut globale (default ⌥+Spazio) ===
       // Deve essere DOPO il plugin registration per funzionare.

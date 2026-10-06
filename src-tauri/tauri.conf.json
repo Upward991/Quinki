@@ -182,7 +182,8 @@
       "resources/sidecar/photon_rs_bg.wasm",
       "resources/sidecar/web/**/*",
       "resources/tsnet-tunnel",
-      "resources/dictation-helper/dictate"
+      "resources/dictation-helper/dictate",
+      "resources/icons/app/*"
     ]
   }
 }

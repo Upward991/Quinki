@@ -1663,6 +1663,29 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
       return {};
     }
   },
+  // === APP ICON (6 ott): scelta icone pixel (q/E) condivisa tra Main ed Expert.
+  // File unico ~/.quinki/app-icons.json scritto qui; il Rust delle due app la
+  // APPLICA all'avvio e a caldo (Dock, tray, icns nel bundle). ===
+  getAppIcons: async () => {
+    try {
+      const f = path.join(homedir(), '.quinki', 'app-icons.json');
+      if (!fs.existsSync(f)) return {};
+      return JSON.parse(fs.readFileSync(f, 'utf-8'));
+    } catch { return {}; }
+  },
+  setAppIcons: async (p) => {
+    try {
+      const dir = path.join(homedir(), '.quinki');
+      fs.mkdirSync(dir, { recursive: true });
+      const f = path.join(dir, 'app-icons.json');
+      let cur: any = {}; try { cur = JSON.parse(fs.readFileSync(f, 'utf-8')); } catch {}
+      const nxt: any = { ...cur };
+      if (typeof p?.main === 'string' && /^main-(violet|dark|current)$/.test(p.main)) nxt.main = p.main;
+      if (typeof p?.expert === 'string' && /^expert-(orange|dark|current)$/.test(p.expert)) nxt.expert = p.expert;
+      fs.writeFileSync(f, JSON.stringify(nxt, null, 2), 'utf-8');
+      return nxt;
+    } catch (e: any) { return { error: e.message }; }
+  },
   getHandoff: async (p) => { try { const f = path.join(homedir(), '.quinki', 'handoffs', String(p.chatKey || '').replace(/[^a-zA-Z0-9_-]/g, '_'), 'handoff.md'); if (!fs.existsSync(f)) return { content: '' }; return { content: fs.readFileSync(f, 'utf8') }; } catch (e: any) { return { content: '', error: e.message }; } },
   saveHandoff: async (p) => { try { const d = path.join(homedir(), '.quinki', 'handoffs', String(p.chatKey || '').replace(/[^a-zA-Z0-9_-]/g, '_')); fs.mkdirSync(d, { recursive: true }); fs.writeFileSync(path.join(d, 'handoff.md'), String(p.content || ''), 'utf8'); return { success: true }; } catch (e: any) { return { success: false, error: e.message }; } },
   getPlan: async (p) => { try { const f = path.join(homedir(), '.quinki', 'handoffs', String(p.chatKey || '').replace(/[^a-zA-Z0-9_-]/g, '_'), 'plan.md'); if (!fs.existsSync(f)) return { content: '' }; return { content: fs.readFileSync(f, 'utf8') }; } catch (e: any) { return { content: '', error: e.message }; } },
