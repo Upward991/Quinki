@@ -1087,7 +1087,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         },
       };
       const overlay = (ui as any).showOverlay(comp, { anchor: "center", width: "100%", height: "100%", margin: 1 });
-      qPromptModal = { overlay, inner, id, isNew };
+      qPromptModal = { overlay, inner, id, isNew, returnStack: [...menuStack], returnSel: menuSel }; // T540: come back here on close
       try { pushBlock(new Text(fg(C.textSecondary, (isNew ? "New agent \u201c" + isNew + "\u201d \u2014 write its PROMPT.md" : "PROMPT.md of " + agentDisplayName(id)) + " \u2014 Enter saves \u00b7 Esc cancels"), 1, 0)); } catch {}
       try { scrollToEnd(); ui.requestRender(); } catch {}
     } catch (e) {}
@@ -1098,8 +1098,16 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     try { m?.overlay?.hide(); } catch {}
     if (!saved) {
       try { pushBlock(new Text(fg(C.textSecondary, "Prompt edit cancelled."), 1, 0)); } catch {}
-      try { scrollToEnd(); ui.requestRender(); } catch {}
     }
+    // T540: back to the menu where the editor was opened from.
+    try {
+      if (m && Array.isArray(m.returnStack) && m.returnStack.length > 0) {
+        menuStack = [...m.returnStack];
+        menuSel = Number(m.returnSel) || 0;
+        menuSubFilter = "";
+      }
+    } catch {}
+    try { scrollToEnd(); ui.requestRender(); } catch {}
   };
   const qSavePromptEditor = () => {
     const m = qPromptModal;
@@ -5442,7 +5450,7 @@ const readProvidersCfg = (): any => {
         if (vAg.startsWith("aprompt:")) {
           const pid = vAg.slice(8);
           const call = (globalThis as any).__sidecarCall;
-          qCloseMenus();
+          // T540: keep the menu in the stack (restored when the editor closes).
           try { editor.setText(""); } catch {}
           if (call) {
             call("readAgentFile", { id: pid, filePath: "PROMPT.md" }).then((r: any) => {
