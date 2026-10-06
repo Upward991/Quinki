@@ -52,24 +52,33 @@ def bounds(g):
     cols = [c for row in g for c, ch in enumerate(row) if ch == "1"]
     return min(rows), max(rows), min(cols), max(cols)
 
-def render(v, size):
+def render(v, size, style="app"):
     spec = VARIANTS[v]
-    # fondo arrotondato con angoli morbidi (supersampling 4x), glifo PIXEL CRISP
+    # style: "app" = griglia icona macOS (contenuto ~80%, padding trasparente);
+    #        "tray" = full-bleed arrotondato; "pwa" = quadrato pieno (mascherano iOS/Android)
+    if style == "app":
+        inner = int(size * 0.80)
+    else:
+        inner = size
+    off = (size - inner) // 2
     S = 4
     bg = Image.new("RGBA", (size * S, size * S), (0, 0, 0, 0))
-    ImageDraw.Draw(bg).rounded_rectangle([0, 0, size * S - 1, size * S - 1],
-                                         radius=int(size * 0.22 * S), fill=spec["tile"])
+    if style == "pwa":
+        ImageDraw.Draw(bg).rectangle([0, 0, size * S - 1, size * S - 1], fill=spec["tile"])
+    else:
+        ImageDraw.Draw(bg).rounded_rectangle([off * S, off * S, (off + inner) * S - 1, (off + inner) * S - 1],
+                                             radius=int(inner * 0.22 * S), fill=spec["tile"])
     img = bg.resize((size, size), Image.LANCZOS)
     g = spec["glyph"]
     rows = len(g)
     b = bounds(g)
-    cell = max(1, round(size * 0.78 / 8))          # stessa cella per Q ed E
-    if cell * rows > size - 4:
+    cell = max(1, round(inner * 0.78 / 8))          # stessa cella per Q ed E
+    if cell * rows > inner - 4:
         cell = max(1, cell - 1)
     w = cell * (b[3] - b[2] + 1)
     h = cell * (b[1] - b[0] + 1)
-    ax = (size - w) // 2
-    ay = (size - h) // 2
+    ax = off + (inner - w) // 2
+    ay = off + (inner - h) // 2
     d = ImageDraw.Draw(img)
     for rr in range(b[0], b[1] + 1):
         for cc in range(b[2], b[3] + 1):
@@ -111,7 +120,7 @@ if not os.path.exists(os.path.join(RES, "expert-current.icns")):
 for v in VARIANTS:
     render(v, 1024).save(os.path.join(RES, v + ".png"))
     make_icns(v, os.path.join(RES, v + ".icns"))
-    render(v, 32).save(os.path.join(RES, v + "-tray.png"))
+    render(v, 32, "tray").save(os.path.join(RES, v + "-tray.png"))
     print("generata:", v)
 
 # 3) default del bundle: Main viola, Expert arancio
@@ -128,6 +137,18 @@ shutil.copy2(os.path.join(RES, "expert-orange.icns"), os.path.join(ROOT, "src-ta
 render("expert-orange", 1024).save(os.path.join(ICONS, "expert-icon.png"))
 render("expert-orange", 64).save(os.path.join(ICONS, "expert-tray-icon.png"))
 print("aggiornati i default del bundle (Main violet, Expert orange)")
+
+# 3b) ICONE PWA/TELEFONO (quadrato pieno: iOS e Android mascherano da soli):
+#     Main = q violet-bg, Expert = E orange-bg
+PUB = os.path.join(ROOT, "public")
+os.makedirs(os.path.join(PUB, "icons"), exist_ok=True)
+render("main-violet", 192, "pwa").save(os.path.join(PUB, "icons", "icon-192.png"))
+render("main-violet", 512, "pwa").save(os.path.join(PUB, "icons", "icon-512.png"))
+render("main-violet", 180, "pwa").save(os.path.join(PUB, "apple-touch-icon.png"))
+render("expert-orange", 192, "pwa").save(os.path.join(PUB, "icons", "expert-icon-192.png"))
+render("expert-orange", 512, "pwa").save(os.path.join(PUB, "icons", "expert-icon-512.png"))
+render("expert-orange", 180, "pwa").save(os.path.join(PUB, "icons", "expert-apple-touch.png"))
+print("icone PWA aggiornate (telefono): q viola (Main) + E arancio (Expert)")
 
 # 4) anteprime 64px per il selettore in Settings (data URL base64)
 def dataurl(im):

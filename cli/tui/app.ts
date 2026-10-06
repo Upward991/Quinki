@@ -234,11 +234,10 @@ const pixWord = (word: string, V: (t: string) => string): string[] => {
   return rows;
 };
 const bigBrand = (): string[] => {
-  const PLAIN = (t: string) => fg(C.text, t);
+  // SOLO il nome (niente "Welcome to"): richiesta utente 6 ott.
   const VIOLET = (t: string) => bold(fg(C.primary, t));
-  const a = pixWord(QEXPERT ? "Welcome to " : "Welcome to ", PLAIN);
   const b = pixWord(QEXPERT ? "App Expert" : "Quinki", VIOLET);
-  return [a[0] + b[0], a[1] + b[1], a[2] + b[2], a[3] + b[3]];
+  return [b[0], b[1], b[2], b[3]];
 };
 const HERO_ART = (): string[] => {
   const brand = bigBrand();
@@ -264,10 +263,8 @@ class WelcomeRoot {
     // the violet brand (recomputed every render so it stays truthful).
     let greet: string[] = [];
     try {
-      const h = new Date().getHours();
-      const g = h >= 5 && h < 12 ? "Good morning" : h >= 12 && h < 18 ? "Good afternoon" : "Good evening";
-      // EXACT app-home line: "Good morning, welcome to Quinki!"
-      const plain = g + ", welcome to Quinki!";
+      // Niente saluto (richiesta utente 6 ott): solo il nome in pixel/violet.
+      const plain = QEXPERT ? "App Expert" : "Quinki";
       const boxW = boxLines.length > 0 ? Math.max(...boxLines.map((l: string) => visibleWidth(String(l)))) : width;
       const hero = HERO_ART(); // big pixel word, one line
       const heroW = Math.max(...hero.map((l) => visibleWidth(String(l))));
@@ -278,8 +275,8 @@ class WelcomeRoot {
         const off = Math.max(0, Math.floor((ref - heroW) / 2));
         greet = hero.map((l) => " ".repeat(off) + l);
       } else {
-        // FALLBACK: the plain one-line greeting, centered on the text box.
-        const line = fg(C.textSecondary, g + ", welcome to ") + bold(fg(C.primary, "Quinki")) + fg(C.textSecondary, "!");
+        // FALLBACK terminal stretto: solo il nome, centrato sul text box.
+        const line = bold(fg(C.primary, plain));
         const pad = " ".repeat(Math.max(0, Math.floor((boxW - visibleWidth(plain)) / 2)));
         greet = ["", pad + line];
       }
