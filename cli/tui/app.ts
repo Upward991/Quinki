@@ -1049,13 +1049,18 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   try {
     // The chip styling is applied HERE (paint time): the editor's cursor/layout math
     // already ran, so ANSI can never break a slice (the T412 leak).
-    (editor as any).bgFn = (s: string) =>
-      bg(
+    (editor as any).bgFn = (s: string) => {
+      // T521: while the editor draws the slash MENU rows, no token painting at
+      // all (a title like "Skill: name" was being styled as the skill pill).
+      // The text box path (the pill) is untouched: same regex, same colors.
+      if ((editor as any).qMenuRendering) return bg(C.bgPanel, String(s));
+      return bg(
         C.bgPanel,
         String(s).replace(/Skill:\s*[\w.-]+|\u25b8[^\s\u25b8]+/g, (m2: string) =>
           String((editor as any).qTokenStyle ? (editor as any).qTokenStyle(m2) : m2)
         )
       );
+    };
   } catch {}
 
   // /skill — app semantics (like listChatSkills): only the skills the model CANNOT

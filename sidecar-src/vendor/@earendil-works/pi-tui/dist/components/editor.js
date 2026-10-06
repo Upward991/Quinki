@@ -520,11 +520,17 @@ export class Editor {
                 if (Array.isArray(rows) && rows.length > 0) {
                     const acPadRow = " " + qPaint(" ".repeat(width - 2)) + " ";
                     const acLines = [acPadRow];
+                    // QUINKI PATCH (6 ott, T521): the menu rows must NEVER go through
+                    // the token painter (bgFn) — a row like "Skill: name" was getting
+                    // the skill pill's background. Flag around THIS block only: the
+                    // text box chips/pill path stays byte-identical.
+                    try { this.qMenuRendering = true; } catch { }
                     for (const line of rows) {
                         const lws = visibleWidth(line);
                         const lp = " ".repeat(Math.max(0, contentWidth - lws));
                         acLines.push(" " + qPaint(`${leftPadding}${line}${lp}${rightPadding}`) + " ");
                     }
+                    try { this.qMenuRendering = false; } catch { }
                     acLines.push(acPadRow);
                     result.unshift(...acLines, "");
                 }
