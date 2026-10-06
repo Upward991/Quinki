@@ -54,7 +54,7 @@
   @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } }
   .demo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 12px; text-align: left; }
   @media (max-width: 820px) { .demo-grid { grid-template-columns: 1fr; } }
-  .demo-card video { display: block; width: 100%; border-radius: 8px; border: 1px solid #2a2a32; background: var(--q-panel); }
+  .demo-card img, .demo-card video { display: block; width: 100%; border-radius: 8px; border: 1px solid #2a2a32; background: var(--q-panel); }
   .demo-card h3 { margin: 12px 0 4px; font-size: 15px; }
   .demo-card p { color: var(--q-secondary); font-size: 13px; }
   .card { background: var(--q-panel); border: 1px solid var(--q-border); border-radius: var(--r-lg); padding: 18px; display: flex; flex-direction: column; gap: 8px; }
@@ -194,7 +194,7 @@
 
 <div class="wrap">
   <a class="shot-frame" href="https://github.com/Upward991/Quinki/releases/latest" target="_blank" rel="noopener">
-    <video autoplay muted loop playsinline src="media/hello-demo.mp4" oncontextmenu="return false" controlslist="nodownload"></video>
+    <img src="screenshots/app-main.png" alt="Quinki — the home">
   </a>
 </div>
 
@@ -284,9 +284,9 @@
   </div>
   <div class="demo-grid">
     <div class="card demo-card">
-      <video controls preload="metadata" src="media/chat-demo.mp4" oncontextmenu="return false" controlslist="nodownload" disablepictureinpicture></video>
-      <h3>Chat: multi-agent + plan/build</h3>
-      <p>A single agent first, then a team. The Orchestrator delegates to Coder and Web Researcher in parallel, with plan/build mode in between.</p>
+      <img src="screenshots/cli.png" alt="The Quinki CLI">
+      <h3>The CLI: your sessions in the terminal</h3>
+      <p>Same sessions, agents and skills as the app — install it with one command (top of this page). Standalone: it works without the app.</p>
     </div>
   </div>
 </section>
