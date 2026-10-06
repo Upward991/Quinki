@@ -280,15 +280,20 @@ export function Sidebar(props: SidebarProps) {
     // pin automatico — lasciando un item nella zona pinnata si pinna, lasciandolo
     // tra i normali si despinna. Solo primo livello (le annidate seguono la cartella).
     const dragTopLevel = !(dragItem as any).parentId
-    const tgtTopLevel = !(targetItem as any).parentId
-    if (dragTopLevel && tgtTopLevel && zone !== 'into') {
+    if (dragTopLevel) {
       const dP = !!(dragItem as any).pinned
-      const tP = !!(targetItem as any).pinned
-      if (!dP && tP) props.onSetPinned?.(dragItem.id, true)
-      if (dP && !tP) props.onSetPinned?.(dragItem.id, false)
+      // Il dividers E' la frontiera: sopra = pin, sotto = unpin.
       if (targetId === '__pinsep__') {
-        // Droppato sul DIVIDER: sopra = pin, sotto = unpin (il divider è la frontiera)
         props.onSetPinned?.(dragItem.id, zone === 'before')
+      } else {
+        const tgtTopLevel = !(targetItem as any).parentId
+        if (tgtTopLevel) {
+          const tP = !!(targetItem as any).pinned
+          // Target pinnato (anche "into" una cartella pinnata) = pin.
+          // Target normale (anche "into" una cartella normale) = unpin.
+          if (!dP && tP) props.onSetPinned?.(dragItem.id, true)
+          if (dP && !tP) props.onSetPinned?.(dragItem.id, false)
+        }
       }
     }
     const isFolder = targetItem.type === 'folder'
