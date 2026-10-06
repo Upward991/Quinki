@@ -1549,15 +1549,16 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     if (sub.startsWith("sk:")) {
       const nm = sub.slice(3);
       const out: any[] = [...qHead("Skill: " + nm)];
-      // T552: the skill's own file, same editor as the agents' PROMPT.md.
-      out.push({ value: "askill:" + nm, label: "Skill file", description: "open SKILL.md (edit it)" });
-      out.push({ value: "__sep_skfilegap", label: "", separator: true }); // T553: blank row before the agents
       const outDel = { value: "__skdel", label: "Delete skill", description: "" };
+      const outFile = { value: "askill:" + nm, label: "Skill file", description: "open SKILL.md (edit it)" }; // T554: moved below the agents
       const agsSorted = qAgentsData.slice()
         .map((a: any) => ({ a, id: String(a?.id || a?.name || "") }))
         .filter((x: any) => x.id)
         .sort((x: any, y: any) => (agentSkillsOf(y.id).includes(nm) ? 1 : 0) - (agentSkillsOf(x.id).includes(nm) ? 1 : 0));
       for (const x of agsSorted) out.push({ value: "ska:" + nm + ":" + x.id, label: (agentSkillsOf(x.id).includes(nm) ? "\u25cf " : "\u25cb ") + String(x.a?.name || x.id), description: x.id });
+      // T554: the skill's file BELOW the agents, isolated by blank rows.
+      out.push({ value: "__sep_skfilegap2", label: "", separator: true });
+      out.push(outFile);
       out.push({ value: "__sep_skdelgap", label: "", separator: true });
       out.push(outDel);
       return out;
