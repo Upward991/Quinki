@@ -2727,10 +2727,18 @@ const readProvidersCfg = (): any => {
       } catch {}
       // Ctrl+T = toggle navigation mode: ↑↓ move between toggles, → opens,
       // ← closes, Esc exits and closes them all (modal: other keys swallowed).
+      // 6 ott: HOLD-model — releasing Ctrl or Alt (kitty sends the modifier
+      // RELEASE events) exits the toggle nav by itself.
+      try {
+        if (navMode && /\x1b\[5744[0-9];[0-9;]*:3u$/.test(String(data))) {
+          exitToggleNav();
+          return { consume: true };
+        }
+      } catch {}
       // 6 ott: THE TOGGLE NAV IS ALWAYS AVAILABLE: Ctrl+Alt + the arrows.
       // (No on/off mode anymore; Ctrl+T is gone.)
       try {
-        const qCAM = String(data).match(/^\x1b\[1;7:?[13]?([ABCD])$/);
+        const qCAM = String(data).match(/^\x1b\[1;7:?[123]?([ABCD])$/); // press, repeat, release
         if (qCAM && !(menuOpenRef?.() ?? false) && navMode) {
           const d2 = qCAM[1];
           if (d2 === "A") moveToggleSel(-1);
