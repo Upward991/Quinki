@@ -221,6 +221,12 @@ export function Sidebar(props: SidebarProps) {
           zone = 'before'
         } else {
           zone = computeZone(relY, rect.height, isFolder)
+          // FIX (6 ott — finale): su una cartella APERTA, il drop sotto il titolo
+          // deve essere DENTRO ('into'), mai "Drop in Sidebar". L'uscita si fa
+          // passando SOPRA la cartella (before) o scendendo sotto l'ultimo figlio.
+          if (isFolder && zone === 'after' && expandedFolders.has(entry.item.id)) {
+            zone = 'into'
+          }
         }
         // FIX VERO (6 ott, trovato dallo screenshot: ReferenceError 'zone' usato
         // PRIMA della dichiarazione -> la sidebar CRASHAVA ad ogni drag, e ogni
