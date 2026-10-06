@@ -319,9 +319,13 @@ export function Sidebar(props: SidebarProps) {
     // pin automatico — lasciando un item nella zona pinnata si pinna, lasciandolo
     // tra i normali si despinna. Solo primo livello (le annidate seguono la cartella).
     const dragTopLevel = !(dragItem as any).parentId
-    if (dragTopLevel) {
-      const dP = !!(dragItem as any).pinned
-      const dOwn = (dragItem as any).ownPinned !== undefined ? !!(dragItem as any).ownPinned : dP
+    const dP = !!(dragItem as any).pinned
+    const dOwn = (dragItem as any).ownPinned !== undefined ? !!(dragItem as any).ownPinned : dP
+    // FIX (6 ott): la logica pin/unpin vale anche per un FIGLIO "ereditato"
+    // (dentro una cartella pinnata): quando lo tiri fuori deve poter atterrare
+    // nella sezione pinned (materializzando il pin), non sparire tra gli unpinned.
+    const canTogglePin = dragTopLevel || dP
+    if (canTogglePin) {
       // Il divider E' la frontiera: sopra = pin, sotto = unpin.
       if (targetId === '__pinsep__') {
         props.onSetPinned?.(dragItem.id, zone === 'before')
@@ -329,12 +333,7 @@ export function Sidebar(props: SidebarProps) {
         const tgtTopLevel = !(targetItem as any).parentId
         if (tgtTopLevel) {
           const tP = !!(targetItem as any).pinned
-          // Target pinnato = pin (anche "into" una cartella pinnata).
           if (!dP && tP) props.onSetPinned?.(dragItem.id, true)
-          // Uscita dalla zona pinned:
-          //  - pinnato DI SUO -> unpin
-          //  - pinnato EREDITATO (figlio di cartella pinnata) -> MATERIALIZZA il
-          //    pin (pinned=true): resta nella sezione pinned, nel punto del drop.
           if (dP && !tP) {
             if (dOwn) props.onSetPinned?.(dragItem.id, false)
             else props.onSetPinned?.(dragItem.id, true)
