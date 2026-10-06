@@ -66,6 +66,17 @@ curl -fsSL https://raw.githubusercontent.com/Upward991/quinki/main/install.sh | 
 2. Open the DMG and drag Quinki to Applications
 3. **Important**: On first launch, right-click Quinki.app → "Open" (bypass Gatekeeper)
 
+### CLI (standalone)
+
+The terminal companion — same sessions, agents and skills. Works **without the app**:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/Upward991/Quinki/main/install-cli.sh | sh
+quinki
+```
+
+> macOS (Apple Silicon) today; Windows and Linux builds land with the next release.
+
 > ⚠️ **Beta notice**: This is a beta release. The DMG is not notarized yet (requires Apple Developer Program). The curl-installer bypasses this issue. Notarization is a donation goal — help us reach it!
 
 ## Getting started
