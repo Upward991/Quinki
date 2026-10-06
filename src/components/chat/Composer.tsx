@@ -221,7 +221,8 @@ export function Composer(props: ComposerProps) {
   useEffect(() => { setMentionIdx(0) }, [mentionFilter])
 
   // FIX (22 set): un allegato da solo (senza testo) DEVE poter partire.
-  const canSend = (text.trim().length > 0 || pendingAttachments.length > 0) && !props.isStreaming && !(props as any).isCompacting
+  // 6 ott: SEND and STEER unified — during the generation the same button steers.
+  const canSend = (text.trim().length > 0 || pendingAttachments.length > 0) && !(props as any).isCompacting
 
   // === DETTATURA (Parakeet v3, in locale sul Mac) ===
   // Tocco -> registro (tasto rosso) -> ritocco -> WAV 16k nel composer.
@@ -425,7 +426,15 @@ export function Composer(props: ComposerProps) {
   }
 
   const handleSend = () => {
-    if (canSend) {
+    if (!canSend) return;
+    // During the generation the same button STEERS (identical payload).
+    if (props.isStreaming && props.onSteer) {
+      try { props.onSteer(text.trim(), { attachments: pendingAttachments, taskClips: (props as any).taskClips || [] } as any); } catch {}
+      setText('');
+      try { setPendingAttachments([]); } catch {}
+      return;
+    }
+    {
       props.onSend(text.trim(), {
         skillNames: pendingSkills.length > 0 ? pendingSkills.map(s => ({ agentId: s.agentId, skillName: s.skillName, agentName: s.agentName })) : undefined,
         attachments: pendingAttachments.length > 0 ? pendingAttachments : undefined,
@@ -979,17 +988,11 @@ export function Composer(props: ComposerProps) {
             backgroundColor: 'transparent', color: 'var(--q-text)',
             fontSize: '16px', lineHeight: '24px', fontFamily: 'var(--font-interface)',
             resize: 'none', outline: 'none', border: '1px solid transparent', WebkitAppearance: 'none',
-            padding: '8px', paddingRight: '46px', caretColor: 'var(--q-tab-accent)',
+            padding: '8px', paddingRight: '8px', caretColor: 'var(--q-tab-accent)',
           }}
           rows={1}
         />
 
-        {/* Dettatura: SEMPRE sopra il tasto invio, ancorato al bordo inferiore della
-            box: se il testo alza la textbox lui non si muove. Stessa forma/dimensioni
-            degli altri tasti (32x32, radius-md). Icona rossa mentre registra. */}
-        <div style={{ position: 'absolute', right: '8px', bottom: '52px', zIndex: 3 }}>
-          <MicBtn recState={recState} speaking={speaking} onClick={recState === 'busy' ? () => {} : (recState === 'rec' ? stopRec : startRec)} />
-        </div>
 
         {/* Bottom bar */}
         <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', height: '32px', marginTop: '8px' }}>
@@ -1015,9 +1018,7 @@ export function Composer(props: ComposerProps) {
           </>)}
           <StopBtn color="var(--q-accent-danger)" onClick={props.isStreaming ? props.onStop : () => {}} />
           <div style={{ width: '8px', flexShrink: 0 }} />
-          {props.onSteer && (
-            <SteerButton enabled={canSteer} onClick={handleSteer} />
-          )}
+          <MicBtn recState={recState} speaking={speaking} onClick={recState === 'busy' ? () => {} : (recState === 'rec' ? stopRec : startRec)} />
           <div style={{ width: '8px', flexShrink: 0 }} />
           <SendButton enabled={canSend} onClick={handleSend} />
         </div>

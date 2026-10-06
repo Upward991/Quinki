@@ -3341,8 +3341,8 @@ const readProvidersCfg = (): any => {
       return leftN + " ".repeat(g1N) + brandN + " ".repeat(g2N) + rightN;
     }
     const menuActive = menuOpenRef?.() ?? false;
-    const canSend = hasText() && !streaming && !menuActive;
-    const canSteer = streaming && hasText();
+    const canSend = hasText() && !menuActive; // 6 ott: unified — during the generation it steers
+    const canSteer = false; // gone: merged into Send
     const textNow = (() => {
       try {
         return editor.getText().trim();
@@ -6965,9 +6965,16 @@ const applySettingsPatch = (patch: any) => {
       return;
     }
     if (streaming) {
-      // The editor clears its state BEFORE calling onSubmit: during a generation
-      // Enter must do NOTHING — put the text back where it was (same look).
-      try { editor.setText(String(text || "")); } catch {}
+      // 6 ott: SEND and STEER unified — during the generation Enter STEERS
+      // (identical payload to Ctrl+Enter: bubble + steer call).
+      if (!t) return;
+      try { editor.setText(""); } catch {}
+      try { pushBlock(new UserBubble(t, fmtFooterDate(Date.now()))); } catch {}
+      try { scrollToEnd(); ui.requestRender(); } catch {}
+      try {
+        if (scOn) void sc.call("steer", { sessionKey: currentKey, text: t }, 20000).catch(() => {});
+        else void Promise.resolve((session as any).steer?.(t)).catch(() => {});
+      } catch {}
       return;
     }
     if (!t) return;
