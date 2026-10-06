@@ -40,6 +40,8 @@ export function HomeView({activePanel, onSelectPanel}: {onSelectPanel: (panel: s
           if (cur.length === 0) localStorage.setItem('quinki-installed-themes', JSON.stringify(hc.themes))
         } catch {}
       }
+      if (Array.isArray(hc.removedRepos)) { try { localStorage.setItem('quinki-default-repos-removed', JSON.stringify(hc.removedRepos)) } catch {} }
+      if (Array.isArray(hc.removedRepos)) { try { localStorage.setItem('quinki-default-repos-removed', JSON.stringify(hc.removedRepos)) } catch {} }
       if (Array.isArray(hc.repos) && hc.repos.length > 0) {
         try {
           const cur = JSON.parse(localStorage.getItem('quinki-my-repos') || '[]') || []

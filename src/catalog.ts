@@ -28,6 +28,7 @@ export interface CatalogItem {
   remoteRating?: number      // A4.4: rating dal market online
   remoteSkillPath?: string   // A4.4: path del SKILL.md nel repo (adattatore repo esterni)
   remoteRepoRawBase?: string // A4.4: base raw del repo (https://raw.githubusercontent.com/owner/repo/branch)
+  remoteNpmPackage?: string   // A4.4: package npm di un server MCP (repo tipo modelcontextprotocol/servers)
 }
 
 const Q = { bio: 'The team behind Quinki, the agent app that ships itself.' }

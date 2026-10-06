@@ -10,7 +10,7 @@ import { getStableCatalog, getRepoToken, setRepoToken } from '../../marketRemote
 import { getRegistry } from '../../registry'
 import { StoreCard } from './StoreCard'
 import { PublishPanel } from './PublishPanel'
-import { getMarketItems, loadInstalledTabs, uninstallCatalogTab, uninstallMarketItem, getUninstalledItems, getMyRepos, addMyRepo, removeMyRepo, persistHomeConfig } from '../../tabs'
+import { getMarketItems, loadInstalledTabs, uninstallCatalogTab, uninstallMarketItem, getUninstalledItems, getMyRepos, addMyRepo, removeMyRepo, persistHomeConfig, getDefaultRepos, getRemovedDefaultRepos, removeDefaultRepo, restoreDefaultRepos } from '../../tabs'
 
 type Section = 'installed' | 'updates' | 'following' | 'uploads' | 'uninstalled' | 'repos'
 
@@ -359,6 +359,17 @@ export function AccountPanel({ section, catalogItems, call, onSectionChange, onG
             React.createElement('span', { style: { flex: 1, color: 'var(--mp-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, 'quinki-market'),
             React.createElement('span', { style: { color: 'var(--mp-text-tertiary)', fontSize: '11px', fontFamily: 'var(--font-interface)' } }, 'always active')
           ),
+          getDefaultRepos().map((r) => React.createElement('div', { key: 'def-' + r.url, style: { backgroundColor: 'var(--mp-elevated)', border: '1px solid var(--mp-border)', borderRadius: 'var(--radius-sm)', padding: '10px 12px' } },
+            React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } },
+              React.createElement('span', { style: { flex: 1, color: 'var(--mp-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, r.label),
+              React.createElement('span', { style: { color: 'var(--mp-accent)', fontSize: '10px', fontFamily: 'var(--font-interface)', border: '1px solid var(--mp-accent)', borderRadius: '999px', padding: '1px 8px', flexShrink: 0 } }, 'Default'),
+              React.createElement('button', {
+                onClick: () => setRepoToRemove({ url: r.url, label: r.label, isDefault: true } as any),
+                title: 'Remove repo',
+                style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--mp-danger)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontFamily: 'var(--font-interface)' }
+              }, React.createElement(Trash, { size: 14 }), 'Remove')
+            )
+          )),
           getMyRepos().map((r) => React.createElement('div', { key: r.url, style: { backgroundColor: 'var(--mp-elevated)', border: '1px solid var(--mp-border)', borderRadius: 'var(--radius-sm)', padding: '8px 12px' } },
             React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } },
               React.createElement('span', { style: { flex: 1, color: 'var(--mp-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, r.label),
@@ -392,6 +403,10 @@ export function AccountPanel({ section, catalogItems, call, onSectionChange, onG
               }, 'Clear')
             )
           )),
+          getRemovedDefaultRepos().length > 0 && React.createElement('button', {
+            onClick: () => { restoreDefaultRepos(); persistHomeConfig(); if (onReposChanged) onReposChanged() },
+            style: { alignSelf: 'flex-start', padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--mp-accent)', backgroundColor: 'transparent', color: 'var(--mp-accent)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)', cursor: 'pointer' }
+          }, 'Restore default repos (' + getRemovedDefaultRepos().length + ')'),
           getMyRepos().length === 0 && React.createElement('div', { style: { color: 'var(--mp-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)', padding: '16px 0', textAlign: 'center' } }, 'No external repos yet. Add one above.')
         )
       ),
@@ -455,7 +470,7 @@ export function AccountPanel({ section, catalogItems, call, onSectionChange, onG
             onMouseLeave: (e: any) => { e.currentTarget.style.backgroundColor = 'transparent' }
           }, 'Cancel'),
           React.createElement('button', {
-            onClick: () => { removeMyRepo(repoToRemove.url); persistHomeConfig(); if (onReposChanged) onReposChanged(); setRepoToRemove(null) },
+            onClick: () => { if ((repoToRemove as any).isDefault) removeDefaultRepo(repoToRemove.url); else removeMyRepo(repoToRemove.url); persistHomeConfig(); if (onReposChanged) onReposChanged(); setRepoToRemove(null) },
             style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--mp-danger)', backgroundColor: 'transparent', color: 'var(--mp-danger)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)', cursor: 'pointer' },
             onMouseEnter: (e: any) => { e.currentTarget.style.backgroundColor = 'var(--mp-danger)'; e.currentTarget.style.color = 'var(--mp-bg)' },
             onMouseLeave: (e: any) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--mp-danger)' }

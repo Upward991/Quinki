@@ -4,7 +4,7 @@
 // espone un catalog.json con la stessa struttura. Se nessuna sorgente risponde →
 // il market è vuoto (come da modello: niente fallback al catalogo locale).
 import { findCatalogItem, type CatalogItem } from './catalog'
-import { getMyRepos } from './tabs'
+import { getMyRepos, DEFAULT_REPOS } from './tabs'
 
 // fetch con TIMEOUT: un repo lento/bloccato NON deve bloccare il market (AbortController)
 async function fetchJson(url: string, timeoutMs = 8000, token = ''): Promise<any> {
@@ -258,6 +258,7 @@ async function fetchGitHubSkills(url: string, label: string, token = ''): Promis
     const seenSkills = new Set<string>()
     const seenAgents = new Set<string>()
     const seenMcps = new Set<string>()
+    const npmCandidates: string[] = []
     const SKIP = new Set(['readme', 'template', 'license', 'contributing', 'changelog'])
     const downloads = Math.max(1, Math.round(stars / 10))
     const pathHash = (p: string) => { let h = 0; for (let i = 0; i < p.length; i++) { h = ((h << 5) - h + p.charCodeAt(i)) | 0 } return (h >>> 0).toString(36).slice(0, 4) }
@@ -297,6 +298,12 @@ async function fetchGitHubSkills(url: string, label: string, token = ''): Promis
         })
         continue
       }
+      // ── MCP via package.json (npm): es. modelcontextprotocol/servers → src/<name>/package.json ──
+      // Raccogliamo i candidati e li risolviamo DOPO il loop (fetch raw, niente rate limit API).
+      if (path === 'package.json' || /(^|\/)src\/[^/]+\/package\.json$/.test(path)) {
+        if (npmCandidates.length < 25) npmCandidates.push(path)
+        continue
+      }
       // ── MCP: file che finiscono in mcp.json (.mcp.json, n8n-mcp.json, browsermcp.json, ...) ──
       if (/(^|\/)[^/]*mcp\.json$/i.test(path)) {
         const seg = path.split('/')
@@ -312,6 +319,33 @@ async function fetchGitHubSkills(url: string, label: string, token = ''): Promis
           author: label, authorBio: '', version: '1.0.0', size: '0.1 MB',
           downloads, category: 'mcp', tags: [], panel: '', kind: 'stub',
           remoteMcpPath: path, remoteRepoRawBase: rawBase, remoteSource: url, remoteRating: stars > 0 ? 4.5 : 0,
+        })
+      }
+    }
+    // Risolvi i package.json candidati → item MCP npm (solo se il nome è un server MCP).
+    if (npmCandidates.length > 0) {
+      const seenPkg = new Set<string>()
+      const resolved = await Promise.all(npmCandidates.map(async (cp) => {
+        try {
+          const txt = await fetchText(rawBase + '/' + cp, 6000)
+          if (!txt) return null
+          const j = JSON.parse(txt)
+          const nm = String(j?.name || '')
+          if (!nm || seenPkg.has(nm)) return null
+          seenPkg.add(nm)
+          if (!/mcp|modelcontextprotocol/i.test(nm)) return null
+          return { path: cp, pkg: nm }
+        } catch { return null }
+      }))
+      for (const c of resolved) {
+        if (!c) continue
+        items.push({
+          id: 'ext-npmmcp-' + c.pkg.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + pathHash(c.path),
+          name: c.pkg, icon: '🔌', color: '#56b6c2', description: c.pkg + ' \u2014 MCP server from ' + label,
+          longDescription: 'npm package from ' + url + ' (' + c.path + ')',
+          author: label, authorBio: '', version: '1.0.0', size: '0.1 MB',
+          downloads, category: 'mcp', tags: [], panel: '', kind: 'stub',
+          remoteNpmPackage: c.pkg, remoteRepoRawBase: rawBase, remoteSource: url, remoteRating: stars > 0 ? 4.5 : 0,
         })
       }
     }
@@ -369,7 +403,7 @@ export async function fetchSkillResolved(base: string, path: string): Promise<{ 
 // CACHE INVALIDATION: quando la versione cambia, pulisci TUTTE le cache del market.
 // Così un update dell'app porta sempre un catalog fresco (fix per: catalog vecchio
 // con test-packages visibili anche dopo la pulizia del repo market).
-const MARKET_CACHE_VERSION = 'v2-clean-2026-09-08'
+const MARKET_CACHE_VERSION = 'v3-default-repos-2026-10-06'
 try {
   const storedV = localStorage.getItem('quinki-market-cache-version')
   if (storedV !== MARKET_CACHE_VERSION) {
@@ -414,7 +448,12 @@ export async function refreshRemoteCatalog(): Promise<CatalogItem[]> {
 }
 
 async function doFetchRemoteCatalog(): Promise<CatalogItem[]> {
-  const sources = [{ url: OFFICIAL_URL, label: 'quinki-market' }, ...getMyRepos().map(r => ({ url: r.url, label: r.label }))]
+  // Sorgenti: market ufficiale + REPO DI DEFAULT (curate, per tutti) + repo dell'utente.
+  const sources = [
+    { url: OFFICIAL_URL, label: 'quinki-market' },
+    ...DEFAULT_REPOS.map(r => ({ url: r.url, label: r.label })),
+    ...getMyRepos().map(r => ({ url: r.url, label: r.label })),
+  ]
   // PARALLELO con timeout per sorgente: un repo lento/bloccato non blocca gli altri.
   const results = await Promise.all(sources.map(async (src) => {
     let items: CatalogItem[] = []

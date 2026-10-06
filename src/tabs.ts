@@ -218,6 +218,37 @@ export function addMyRepo(url: string, label: string): boolean {
 export function removeMyRepo(url: string) {
   saveMyRepos(getMyRepos().filter(r => r.url !== url))
 }
+
+// === REPO DI DEFAULT (6 ott): sorgenti CURATE incluse per tutti, out of the box.
+// L'utente può rimuoverle dalla sezione repo e ripristinarle quando vuole. ===
+export const DEFAULT_REPOS: MyRepo[] = [
+  { url: 'https://github.com/anthropics/skills', label: 'Anthropic Skills', addedAt: 0 },
+  { url: 'https://github.com/modelcontextprotocol/servers', label: 'MCP Servers (official)', addedAt: 0 },
+  { url: 'https://github.com/wshobson/agents', label: 'Claude Agents', addedAt: 0 },
+]
+const DEFAULT_REPOS_REMOVED_KEY = 'quinki-default-repos-removed'
+export function getRemovedDefaultRepos(): string[] {
+  try {
+    const raw = localStorage.getItem(DEFAULT_REPOS_REMOVED_KEY)
+    if (raw) { const arr = JSON.parse(raw); if (Array.isArray(arr)) return arr.map((x: any) => cleanStr(x)).filter(Boolean) }
+  } catch {}
+  return []
+}
+export function saveRemovedDefaultRepos(list: string[]) {
+  try { localStorage.setItem(DEFAULT_REPOS_REMOVED_KEY, JSON.stringify(Array.from(new Set(list.map(cleanStr).filter(Boolean))))) } catch {}
+}
+export function getDefaultRepos(): MyRepo[] {
+  const removed = getRemovedDefaultRepos()
+  return DEFAULT_REPOS.filter(r => !removed.includes(r.url))
+}
+export function removeDefaultRepo(url: string) {
+  saveRemovedDefaultRepos([...getRemovedDefaultRepos(), cleanStr(url)])
+  try { localStorage.removeItem('quinki-src-cache-' + cleanStr(url)) } catch {}
+}
+export function restoreDefaultRepos() {
+  saveRemovedDefaultRepos([])
+  for (const r of DEFAULT_REPOS) { try { localStorage.removeItem('quinki-src-cache-' + r.url) } catch {} }
+}
 const UNINSTALLED_KEY = 'quinki-uninstalled-market'
 export function getUninstalledItems(): MarketItem[] {
   try {
@@ -282,7 +313,7 @@ export function persistHomeConfig() {
     try { themes = JSON.parse(localStorage.getItem('quinki-installed-themes') || '[]') || [] } catch {}
     let ghToken = ''
     try { ghToken = localStorage.getItem('quinki-github-token') || '' } catch {}
-    const hc = { columns: loadHomeColumns(), order: loadTabOrder(), tabs: serializeInstalledTabs(), market: getMarketItems(), themes, uninstalled: getUninstalledItems(), repos: getMyRepos(), registry: getRegistry(), githubToken: ghToken }
+    const hc = { columns: loadHomeColumns(), order: loadTabOrder(), tabs: serializeInstalledTabs(), market: getMarketItems(), themes, uninstalled: getUninstalledItems(), repos: getMyRepos(), registry: getRegistry(), githubToken: ghToken, removedRepos: getRemovedDefaultRepos() }
     const call: any = (window as any).__sidecarCall
     if (call && typeof call === 'function') call('saveSettings', { homeConfig: hc }).catch(() => {})
   } catch {}
@@ -328,6 +359,7 @@ export function restoreHomeConfig(call?: (method: string, params?: any) => Promi
       if (Array.isArray(hc.uninstalled) && hc.uninstalled.length > 0) {
         if (getUninstalledItems().length === 0) saveUninstalledItems(hc.uninstalled)
       }
+      if (Array.isArray(hc.removedRepos)) saveRemovedDefaultRepos(hc.removedRepos)
       if (Array.isArray(hc.repos) && hc.repos.length > 0) {
         // I repo sono gestiti DALL'UTENTE: il file è solo un backup per il caso reinstall
         // (localStorage pulito). Se la lista locale non è vuota, l'utente è l'autorità
