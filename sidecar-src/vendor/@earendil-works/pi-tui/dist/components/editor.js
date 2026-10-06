@@ -392,7 +392,7 @@ export class Editor {
         // QUINKI PATCH (6 ott, T535): the prompt editor can fill the WHOLE screen
         // (maxVisibleLines = 30% otherwise, which made the modal scroll at mid-screen).
         const maxVisibleLines = this.qFullHeight
-            ? Math.max(5, terminalRows - 8)
+            ? Math.max(5, terminalRows - 7)
             : Math.max(5, Math.floor(terminalRows * 0.3));
         // Find the cursor line index in layoutLines
         let cursorLineIndex = layoutLines.findIndex((line) => line.hasCursor);
@@ -493,7 +493,7 @@ export class Editor {
                 }
             }
             // QUINKI PATCH (25 set): placeholder text when the editor is empty.
-            if (isEmptyText && layoutLine === visibleLines[0]) {
+            if (isEmptyText && layoutLine === visibleLines[0] && !this.qNoPlaceholder) { // T537: the prompt editor shows nothing when empty
                 displayText = `${emitCursorMarker ? CURSOR_MARKER : ""}\x1b[7m \x1b[0m\x1b[38;2;88;88;96mWrite a message...\x1b[39m`;
                 lineVisibleWidth = 1 + 18; // cursor space + "Write a message..." (18 chars)
             }
