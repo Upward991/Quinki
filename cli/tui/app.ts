@@ -2561,6 +2561,7 @@ const readProvidersCfg = (): any => {
     ui.requestRender();
   };
   const exitToggleNav = () => {
+    try { require("fs").appendFileSync("/tmp/q-nav-trace.log", new Date().toISOString() + " EXIT-NAV caller=" + String(new Error().stack || "").split("\n").slice(1,4).join(" <- ") + "\n"); } catch {}
     navMode = false;
     selToggle = -1;
     flatToggles().forEach((t) => {
