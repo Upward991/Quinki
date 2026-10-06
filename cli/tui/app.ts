@@ -1065,6 +1065,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       };
       try { (inner as any).footerLine = hint; } catch {}
       try { (inner as any).onSubmit = () => { qSavePromptEditor(); }; } catch {}
+      try { (inner as any).qFullHeight = true; } catch {} // T535: the editor fills the whole CLI
       try { (inner as any).bgFn = (x: string) => bg(C.bgPanel, String(x)); } catch {}
       const comp: any = {
         handleInput(data: string) {
@@ -1078,12 +1079,8 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         render(width: number) {
           try {
             const lines = inner.render(width);
-            // T534: full-screen editor: pad to the whole terminal height with
-            // painted blank rows (the modal occupies the entire CLI).
-            let rows = 30;
-            try { rows = Number((ui as any)?.terminal?.rows) || Number((process.stdout as any).rows) || 30; } catch {}
-            const target = Math.max(6, rows - 2);
-            while (lines.length < target) lines.push((bg as any)(C.bgPanel, " ".repeat(Math.max(0, width))));
+            // T535: the inner editor already fills the screen (qFullHeight):
+            // its footer stays pinned at the bottom, text scrolls inside.
             return lines;
           } catch { return []; }
         },

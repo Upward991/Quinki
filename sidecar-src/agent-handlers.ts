@@ -78,7 +78,8 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
     writeAgentConfig(id, cfg);
     const promptPath = path.join(dir, "PROMPT.md");
     if (!fs.existsSync(promptPath)) {
-      fs.writeFileSync(promptPath, `# ${name}\n\nSei ${name}.\n`, "utf8");
+      // T535: a manually created agent starts with an EMPTY PROMPT.md (no template).
+      fs.writeFileSync(promptPath, "", "utf8");
     }
     return { ...cfg, directory: dir };
   }

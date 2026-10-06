@@ -389,7 +389,11 @@ export class Editor {
         const isEmptyText = this.state.lines.length === 1 && (this.state.lines[0] || "").length === 0;
         // Calculate max visible lines: 30% of terminal height, minimum 5 lines
         const terminalRows = this.tui.terminal.rows;
-        const maxVisibleLines = Math.max(5, Math.floor(terminalRows * 0.3));
+        // QUINKI PATCH (6 ott, T535): the prompt editor can fill the WHOLE screen
+        // (maxVisibleLines = 30% otherwise, which made the modal scroll at mid-screen).
+        const maxVisibleLines = this.qFullHeight
+            ? Math.max(5, terminalRows - 8)
+            : Math.max(5, Math.floor(terminalRows * 0.3));
         // Find the cursor line index in layoutLines
         let cursorLineIndex = layoutLines.findIndex((line) => line.hasCursor);
         if (cursorLineIndex === -1)
