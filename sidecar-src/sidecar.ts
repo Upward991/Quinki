@@ -1633,7 +1633,11 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
 
   saveUiState: async (p) => {
     try {
-      const f = path.join(homedir(), '.quinki', 'ui-state.json');
+      // FIX (6 ott): file PER-RUOLO. Main ed Expert sono due processi con due
+      // sidecar (9182/9183) ma scrivevano lo STESSO ui-state.json: i pin delle
+      // view di una app venivano sovrascritti dall'altra (bug "il pin sparisce").
+      const isExpert = String(process.env.QUINKI_ROLE || '').toLowerCase() === 'expert' || Number(process.env.QUINKI_WS_PORT || '9182') === 9183;
+      const f = path.join(homedir(), '.quinki', isExpert ? 'ui-state-expert.json' : 'ui-state.json');
       fs.mkdirSync(path.join(homedir(), '.quinki'), { recursive: true });
       fs.writeFileSync(f, JSON.stringify(p.state || {}, null, 2), 'utf-8');
       return { success: true };
@@ -1644,8 +1648,15 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   },
   getUiState: async () => {
     try {
-      const f = path.join(homedir(), '.quinki', 'ui-state.json');
-      if (!fs.existsSync(f)) return {};
+      const isExpert = String(process.env.QUINKI_ROLE || '').toLowerCase() === 'expert' || Number(process.env.QUINKI_WS_PORT || '9182') === 9183;
+      const f = path.join(homedir(), '.quinki', isExpert ? 'ui-state-expert.json' : 'ui-state.json');
+      if (!fs.existsSync(f)) {
+        // Migrazione soft: se il file per-ruolo non esiste ancora, adotta quello
+        // storico SOLO se contiene views (prima apertura dopo l'aggiornamento).
+        const legacy = path.join(homedir(), '.quinki', 'ui-state.json');
+        if (isExpert && fs.existsSync(legacy)) { try { const lg = JSON.parse(fs.readFileSync(legacy, 'utf-8')); if (lg && Array.isArray(lg.views) && lg.views.length) return lg; } catch {} }
+        return {};
+      }
       return JSON.parse(fs.readFileSync(f, 'utf-8'));
     } catch (e: any) {
       process.stderr.write(`[ui-state] load failed: ${e.message}\n`);
