@@ -5386,22 +5386,27 @@ const readProvidersCfg = (): any => {
           if (mid) { menuStack.push("mcpdel:" + mid); menuSubFilter = ""; menuSel = 0; try { ui.requestRender(); } catch {} }
           return;
         }
+        // T532: after a confirmed delete the menu does NOT close: back to the list
+        // right above (agents / skills / MCP), updated.
         if (vAg.startsWith("agdel-go:")) {
           const id = vAg.slice(9);
-          if (callA) callA('deleteAgent', { id }).then(() => { refreshAgentsTab(); }).catch(() => {});
-          qCloseMenus();
+          if (callA) callA('deleteAgent', { id }).then(() => { qPinNew = ""; refreshAgentsTab(); }).catch(() => {});
+          menuStack = ["agents", "#you"]; menuSubFilter = ""; menuSel = 0;
+          try { ui.requestRender(); } catch {}
           return;
         }
         if (vAg.startsWith("skdel-go:")) {
           const nm = vAg.slice(9);
-          if (callA) callA('deleteSkill', { name: nm }).then(() => { refreshAgentsTab(); }).catch(() => {});
-          qCloseMenus();
+          if (callA) callA('deleteSkill', { name: nm }).then(() => { qPinNew = ""; refreshAgentsTab(); }).catch(() => {});
+          menuStack = ["agents", "#sk"]; menuSubFilter = ""; menuSel = 0;
+          try { ui.requestRender(); } catch {}
           return;
         }
         if (vAg.startsWith("mcpdel-go:")) {
           const mid = vAg.slice(10);
-          if (callA) callA('removeMcpServer', { id: mid }).then(() => { refreshAgentsTab(); }).catch(() => {});
-          qCloseMenus();
+          if (callA) callA('removeMcpServer', { id: mid }).then(() => { qPinNew = ""; refreshAgentsTab(); }).catch(() => {});
+          menuStack = ["agents", "#mcp"]; menuSubFilter = ""; menuSel = 0;
+          try { ui.requestRender(); } catch {}
           return;
         }
         if (vAg === "__error-ok") {
