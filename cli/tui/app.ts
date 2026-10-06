@@ -1050,8 +1050,8 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   // A second Editor instance (its own state): Enter saves, "\" + Enter inserts a
   // newline, Esc cancels. The composer stays untouched (chat only).
   // =========================================================================
-  let qPromptModal: any = null; // { overlay, inner, id, isNew }
-  const qOpenPromptEditor = (id: string, isNew: string, content: string) => {
+  let qPromptModal: any = null; // { overlay, inner, id, isNew, target: "agent"|"skill" }
+  const qOpenPromptEditor = (id: string, isNew: string, content: string, target: "agent" | "skill" = "agent") => {
     try {
       const inner = new Editor(ui as any, editorTheme, { paddingX: 1 });
       try { inner.setText(String(content || "")); } catch {}
@@ -1101,8 +1101,11 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       // T547: the component itself paints the full terminal (page + 1-col/1-row
       // darker frames): anchor at 0,0 and cover everything.
       const overlay = (ui as any).showOverlay(comp, { anchor: "top-left", width: "100%", height: "100%", col: 0, row: 0, margin: 0 });
-      qPromptModal = { overlay, inner, id, isNew, returnStack: [...menuStack], returnSel: menuSel }; // T540: come back here on close
-      try { pushBlock(new Text(fg(C.textSecondary, (isNew ? "New agent \u201c" + isNew + "\u201d \u2014 write its PROMPT.md" : "PROMPT.md of " + agentDisplayName(id)) + " \u2014 Enter saves \u00b7 Esc cancels"), 1, 0)); } catch {}
+      qPromptModal = { overlay, inner, id, isNew, target, returnStack: [...menuStack], returnSel: menuSel }; // T540: come back here on close
+      try {
+        const what = target === "skill" ? "SKILL.md of " + id : (isNew ? "New agent \u201c" + isNew + "\u201d \u2014 write its PROMPT.md" : "PROMPT.md of " + agentDisplayName(id));
+        pushBlock(new Text(fg(C.textSecondary, what + " \u2014 Enter saves \u00b7 Esc cancels"), 1, 0));
+      } catch {}
       try { scrollToEnd(); ui.requestRender(); } catch {}
     } catch (e) {}
   };
@@ -1135,12 +1138,17 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     const call = (globalThis as any).__sidecarCall;
     qClosePromptEditor(true);
     if (call) {
-      try { require("fs").appendFileSync("/tmp/q-prompt-save.log", new Date().toISOString() + " writing id=" + m.id + " contentLen=" + content.length + "\n"); } catch {}
-      call("writeAgentFile", { id: m.id, filePath: "PROMPT.md", content }).then((r: any) => {
+      try { require("fs").appendFileSync("/tmp/q-prompt-save.log", new Date().toISOString() + " writing id=" + m.id + " target=" + String(m.target || "agent") + " contentLen=" + content.length + "\n"); } catch {}
+      const wCall = m.target === "skill"
+        ? call("writeSkillFile", { name: m.id, content })
+        : call("writeAgentFile", { id: m.id, filePath: "PROMPT.md", content });
+      wCall.then((r: any) => {
         qShowResult(r, () => {
-          try { pushBlock(new Text(fg(C.textSecondary, "PROMPT.md saved: " + (m.isNew || agentDisplayName(m.id))), 1, 0)); } catch {}
+          const doneMsg = m.target === "skill" ? "SKILL.md saved: " + m.id : "PROMPT.md saved: " + (m.isNew || agentDisplayName(m.id));
+          try { pushBlock(new Text(fg(C.textSecondary, doneMsg), 1, 0)); } catch {}
           try { scrollToEnd(); } catch {}
-          if (m.isNew) { const before = new Set(qAgentsData.map((a: any) => String(a?.id || a?.name))); qPinAndBack("agent", before, "#you"); }
+          if (m.isNew && m.target === "skill") { const beforeS = new Set(qSkillsData.map((x: any) => String(x?.name || x))); qPinAndBack("skill", beforeS, "#sk"); }
+          else if (m.isNew) { const before = new Set(qAgentsData.map((a: any) => String(a?.id || a?.name))); qPinAndBack("agent", before, "#you"); }
           else { refreshAgentsTab(); }
           try { ui.requestRender(); } catch {}
         });
@@ -1240,7 +1248,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     } catch {}
   };
   // T508: the AGENTS tab data — the sidecar is the truth (same as the app).
-  let qAgentsInputMode: "" | "newagent" | "skillpkg" | "mcpmcp" | "mcpsrc" | "mcpargs" = "";
+  let qAgentsInputMode: "" | "newagent" | "skillpkg" | "newskill" | "mcpmcp" | "mcpsrc" | "mcpargs" = "";
   // T525: MCP install (mirrors the app's McpInstallModal): type -> source/command -> args.
   // T530: operation errors show as the delete-style notice (read it, Enter, back).
   let qResultError = "";
@@ -1465,7 +1473,10 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       return out;
     }
     if (sub === "#sk") {
-      const out: any[] = [{ value: "__newskill", label: "\uff0b Install skill from internet", description: "then type the package name" }];
+      const out: any[] = [
+        { value: "__newskill", label: "\uff0b Install skill from internet", description: "then type the package name" },
+        { value: "__createskill", label: "\uff0b Create skill", description: "then type its name" },
+      ];
       out.push({ value: "__sep_sk", label: "Installed skills", separator: true });
       { const skL = allSkillsList().slice().sort((a: string, b: string) => (("skill:" + a) === qPinNew ? -1 : ("skill:" + b) === qPinNew ? 1 : 0));
       for (const nm of skL) {
@@ -1538,7 +1549,8 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     if (sub.startsWith("sk:")) {
       const nm = sub.slice(3);
       const out: any[] = [...qHead("Skill: " + nm)];
-      // T523: delete flow like /quit: -> opens the confirm modal.
+      // T552: the skill's own file, same editor as the agents' PROMPT.md.
+      out.push({ value: "askill:" + nm, label: "Skill file", description: "open SKILL.md (edit it)" });
       const outDel = { value: "__skdel", label: "Delete skill", description: "" };
       const agsSorted = qAgentsData.slice()
         .map((a: any) => ({ a, id: String(a?.id || a?.name || "") }))
@@ -1582,6 +1594,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     if (sub === "__input") {
       const label = qAgentsInputMode === "newagent" ? "Agent name: " + (menuSubFilter || "\u2026")
         : qAgentsInputMode === "skillpkg" ? "Skill package: " + (menuSubFilter || "\u2026")
+        : qAgentsInputMode === "newskill" ? "Skill name: " + (menuSubFilter || "\u2026")
         : qAgentsInputMode === "mcpsrc" ? (qMcpType === "url" ? "MCP url: " : qMcpType === "command" ? "MCP command: " : "MCP package: ") + (menuSubFilter || "\u2026")
         : qAgentsInputMode === "mcpargs" ? "MCP args (optional): " + (menuSubFilter || "\u2026")
         : "Type here: " + (menuSubFilter || "\u2026");
@@ -5466,6 +5479,25 @@ const readProvidersCfg = (): any => {
           try { ui.requestRender(); } catch {}
           return;
         }
+        if (vAg.startsWith("askill:")) {
+          const snm = vAg.slice(7);
+          const call = (globalThis as any).__sidecarCall;
+          if (call) {
+            call("readSkillFile", { name: snm }).then((r: any) => {
+              const content = String(r?.content ?? "");
+              qOpenPromptEditor(snm, "", content, "skill");
+            }).catch((e: any) => { qShowResult({ ok: false, error: String(e?.message || e) }, () => {}); });
+          }
+          return;
+        }
+        if (vAg === "__createskill") {
+          qAgentsInputMode = "newskill";
+          menuStack.push("__input");
+          menuSubFilter = "";
+          menuSel = 0;
+          try { ui.requestRender(); } catch {}
+          return;
+        }
         if (vAg.startsWith("aprompt:")) {
           const pid = vAg.slice(8);
           const call = (globalThis as any).__sidecarCall;
@@ -5579,6 +5611,16 @@ const readProvidersCfg = (): any => {
             qMcpInstall(qMcpSrc, val);
             qAgentsInputMode = "";
             return;
+          } else if (qAgentsInputMode === "newskill" && val && callA) {
+            qAgentsInputMode = "";
+            callA('createSkill', { name: val, description: '', content: '' }).then((r: any) => {
+              qShowResult(r, () => {
+                // T552: same as the agents: create, then the SKILL.md editor opens.
+                if (r && r.success === false) return;
+                qOpenPromptEditor(val, val, "", "skill");
+                refreshAgentsTab();
+              });
+            }).catch((e: any) => { qShowResult({ ok: false, error: String(e?.message || e) }, () => {}); });
           } else if (qAgentsInputMode === "skillpkg" && val && callA) {
               qAgentsInputMode = "";
               const beforeS = new Set(qSkillsData.map((x: any) => String(x?.name || x)));
@@ -5772,7 +5814,7 @@ const readProvidersCfg = (): any => {
         const lastLv = String(menuStack[menuStack.length - 1] || "");
         if (/^(agdel|skdel|mcpdel):/.test(lastLv) || lastLv === "__input" || lastLv === "__error") return true; // T530: + the error notice
         const v0a = String((cur as any)?.value || "");
-        if (v0a.startsWith("__mcpt_") || v0a.startsWith("aprompt:")) return true; // T549: New agent / Install = arrow only
+        if (v0a.startsWith("__mcpt_") || v0a.startsWith("aprompt:") || v0a.startsWith("askill:")) return true; // T549/T552: rows are arrow-only except the two file editors
         // T507: otherwise the agents tab is all SELECTION (Tab = select,
         // instant effect): never a Confirm in the bar.
         return false;
@@ -6070,7 +6112,8 @@ const readProvidersCfg = (): any => {
             if (menuStack[0] === "agents" && it && !it.separator) {
               const vA = String(it.value || "");
               if (/^(#def|#you|#sk|#mcp|#tools|#plan|#plantools|#planmcp|ag:|ask:|atk:|amc:|sk:|mcp:|tool:)/.test(vA)) deeper = vA;
-              if (vA.startsWith("aprompt:")) { try { agentAdminAction(vA); } catch {} return; }
+              if (vA.startsWith("aprompt:") || vA.startsWith("askill:")) { try { agentAdminAction(vA); } catch {} return; }
+              if (vA === "__createskill") { qAgentsInputMode = "newskill"; deeper = "__input"; }
               if (vA === "__newskill") { qAgentsInputMode = "skillpkg"; deeper = "__input"; }
               if (vA === "__newagent") { qAgentsInputMode = "newagent"; deeper = "__input"; }
               if (vA === "__newmcp") { deeper = "__mcpType"; }
@@ -6691,7 +6734,7 @@ const applySettingsPatch = (patch: any) => {
             // T512: the arrow lights when the row opens something (a section, an
             // agent's editor, a per-skill agent list...) — never on the toggles.
             const vF = String(curA.value || "");
-            canFwd = /^(#def|#you|#sk|#mcp|#tools|#plan|#plantools|#planmcp|ag:|ask:|atk:|amc:|sk:|mcp:|tool:|aprompt:)/.test(vF) || vF === "__agdel" || vF === "__skdel" || vF === "__mcpdel" || vF === "__newskill" || vF === "__newmcp" || vF === "__newagent" || vF.startsWith("__mcpt_"); // T524/T526: Delete rows + all ACTION rows light the arrow
+            canFwd = /^(#def|#you|#sk|#mcp|#tools|#plan|#plantools|#planmcp|ag:|ask:|atk:|amc:|sk:|mcp:|tool:|aprompt:|askill:)/.test(vF) || vF === "__agdel" || vF === "__skdel" || vF === "__mcpdel" || vF === "__newskill" || vF === "__newmcp" || vF === "__newagent" || vF.startsWith("__mcpt_"); // T524/T526: Delete rows + all ACTION rows light the arrow
           }
           else if (menuStack[0] === "settings") canFwd = !!settingsDeeper(curA);
           else if (menuStack[0] === "directory") canFwd = menuStack[1] === "dirchange" ? false : (String(curA.value || "") === "__dir_change"); // -> lights only on Change directory
