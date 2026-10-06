@@ -321,10 +321,10 @@ export function Sidebar(props: SidebarProps) {
     // MODELLO SEMPLICE (6 ott, riscrittura): la SEZIONE = DOVE LASCI L'ELEMENTO.
     // Sopra il divider -> pinned. Sotto il divider -> normale. Per QUALSIASI
     // elemento (chat, cartelle). Nient'altro: niente casi speciali, sempre uguale.
+    let sepBottom = -1
+    try { const r = itemRects.current.get('__pinsep__'); if (r) sepBottom = r.bottom } catch {}
+    const inPinned = sepBottom > 0 ? (pointerYRef.current <= sepBottom) : (targetId === '__pinsep__' ? zone === 'before' : !!(dragItem as any).pinned)
     if (zone !== 'into') {
-      let sepBottom = -1
-      try { const r = itemRects.current.get('__pinsep__'); if (r) sepBottom = r.bottom } catch {}
-      const inPinned = sepBottom > 0 ? (pointerYRef.current <= sepBottom) : (targetId === '__pinsep__' ? zone === 'before' : false)
       props.onSetPinned?.(dragItem.id, inPinned)
     }
     const isFolder = targetItem.type === 'folder'
@@ -336,7 +336,8 @@ export function Sidebar(props: SidebarProps) {
     } else if (zone === 'before') {
       const parentId = targetItem.parentId || null
       const tgtP = !!(targetItem as any).pinned
-      const siblings = e.filter(s => (s.parentId || null) === parentId && s.id !== dragItem.id && (parentId !== null || (!!(s as any).pinned === tgtP)))
+      const secP = inPinned !== undefined ? inPinned : tgtP
+      const siblings = e.filter(s => (s.parentId || null) === parentId && s.id !== dragItem.id && (parentId !== null || (!!(s as any).pinned === secP)))
       const higher = siblings.filter(s => (s.order || 0) > (targetItem.order || 0)).sort((a,b) => (a.order||0) - (b.order||0))
       const hi = higher.length > 0 ? higher[0].order : (targetItem.order || 0) + 1000
       const newOrder = ((targetItem.order || 0) + hi) / 2
@@ -345,7 +346,8 @@ export function Sidebar(props: SidebarProps) {
     } else if (zone === 'after') {
       const parentId = targetItem.parentId || null
       const tgtP = !!(targetItem as any).pinned
-      const siblings = e.filter(s => (s.parentId || null) === parentId && s.id !== dragItem.id && (parentId !== null || (!!(s as any).pinned === tgtP)))
+      const secP = inPinned !== undefined ? inPinned : tgtP
+      const siblings = e.filter(s => (s.parentId || null) === parentId && s.id !== dragItem.id && (parentId !== null || (!!(s as any).pinned === secP)))
       const lower = siblings.filter(s => (s.order || 0) < (targetItem.order || 0)).sort((a,b) => (b.order||0) - (a.order||0))
       const lo = lower.length > 0 ? lower[0].order : (targetItem.order || 0) - 1000
       const newOrder = ((targetItem.order || 0) + lo) / 2
