@@ -4256,7 +4256,15 @@ Read this file to view it.` }] };
 
   getStreamingSnapshot(key: string): any | null {
     const buf = this.#streamingBuffers.get(key);
-    if (!buf) return null;
+    if (!buf) {
+      // FIX (6 ott): compaction SENZA buffer di streaming (turno finito ma
+      // compaction automatica in corso, oppure app riaperta mentre compattava).
+      // Prima: null -> il frontend non recuperava MAI lo stato 'compacting'.
+      if (this.#compactingSessions.has(key)) {
+        return { text: "", thinking: "", toolCalls: [], ts: Date.now(), status: { status: "compacting" } };
+      }
+      return null;
+    }
     // STALE GUARD (29 ago — il bug 'Running eterno senza streaming'): se il buffer
     // non riceve aggiornamenti da >90s il turno NON è più vivo (abort che non ha
     // generato agent_end, fallimento silenzioso) → NON è streaming: cancellalo e

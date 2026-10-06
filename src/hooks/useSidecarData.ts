@@ -843,7 +843,7 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
         case 'thinking': setStatusLabel('Thinking'); setStatusKind('thinking'); break
         case 'writing': setStatusLabel('Writing'); setStatusKind('writing'); break
         case 'tool': setStatusLabel('Tool call'); setStatusKind('tool_call'); break
-        case 'compacting': setStatusLabel('Compacting'); setStatusKind('compacting'); break
+        case 'compacting': if (p?.sessionKey) setCompactingSessions(prev => new Set(prev).add(p.sessionKey)); setStatusLabel('Compacting'); setStatusKind('compacting'); break
         case 'retrying': setStatusLabel(`Retrying ${p.attempt || 1}/${p.maxAttempts || 6}`); setStatusKind('retrying'); break
         case 'failed': setStatusLabel('Failed'); setStatusKind('failed'); setIsStreaming(false); break
       }
@@ -954,7 +954,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
           setStatusLabel('Compacting'); setStatusKind('compacting')
         } else if (status === 'end' || status === 'error' || status === 'noop') {
           setCompactingSessions(prev => { const n = new Set(prev); n.delete(sk); return n })
-          if (activeSessionIdRef.current === sk) { setStatusLabel(''); setStatusKind('') }
+          if (activeSessionIdRef.current === sk) { setStatusLabel(''); setStatusKind(''); setIsCompacting(false) }
           if (status === 'end' && p.summary) {
             setMessages(prev => [...prev, { id: `compact-${Date.now()}`, role: 'assistant', content: p.summary, timestamp: new Date().toISOString(), isCompactionSummary: true }])
           }
@@ -1036,6 +1036,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
         setIsStreaming(true)
         // Compaction in corso: è l'UNICO status che non veniva recuperato.
         if (snap.status && String(snap.status.status || '') === 'compacting') {
+          setCompactingSessions(prev => new Set(prev).add(sessionKey))
           setIsCompacting(true); setStatusLabel('Compacting'); setStatusKind('compacting')
         } else {
           setStatusLabel('Running'); setStatusKind('running')
@@ -1510,6 +1511,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
 
   const compactSession = useCallback(async (sessionKey: string) => {
     if (!ready) return
+    setCompactingSessions(prev => new Set(prev).add(sessionKey))
     setIsCompacting(true); setStatusLabel('Compacting'); setStatusKind('compacting')
     try {
       const r = await call('compactSession', { sessionKey }, 600000)
@@ -1518,6 +1520,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
         await selectSession(sessionKey)
       }
     } catch (e) { console.error('compactSession:', e) }
+    setCompactingSessions(prev => { const n = new Set(prev); n.delete(sessionKey); return n })
     setIsCompacting(false); setStatusLabel(''); setStatusKind('')
   }, [ready, call, activeSessionId, selectSession])
 
