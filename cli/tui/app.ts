@@ -6788,9 +6788,7 @@ const applySettingsPatch = (patch: any) => {
             // T512: the arrow lights when the row opens something (a section, an
             // agent's editor, a per-skill agent list...) — never on the toggles.
             const vF = String(curA.value || "");
-            canFwd = /^(#def|#you|#sk|#mcp|#tools|#plan|#plantools|#planmcp|ag:|ask:|atk:|amc:|sk:|mcp:|tool:|aprompt:|askill:)/.test(vF)
-              || (menuStack[0] === "agentinsession" && !menuStack[1] && vF && vF !== "#add" && vF !== "#orch") // T565: agent rows
-              || (menuStack[0] === "agentinsession" && menuStack[1] !== "#add" && (vF === "model" || vF === "thinking" || vF === "config")) // T565: model/thinking/config || vF === "__agdel" || vF === "__skdel" || vF === "__mcpdel" || vF === "__newskill" || vF === "__newmcp" || vF === "__newagent" || vF.startsWith("__mcpt_"); // T524/T526: Delete rows + all ACTION rows light the arrow
+            canFwd = /^(#def|#you|#sk|#mcp|#tools|#plan|#plantools|#planmcp|ag:|ask:|atk:|amc:|sk:|mcp:|tool:|aprompt:|askill:)/.test(vF) || vF === "__agdel" || vF === "__skdel" || vF === "__mcpdel" || vF === "__newskill" || vF === "__newmcp" || vF === "__newagent" || vF.startsWith("__mcpt_"); // T566: restored the line broken by T565 (comment swallowed the Delete/action checks) — the in-session rows are handled by the agentLevelFor branch above
           }
           else if (menuStack[0] === "settings") canFwd = !!settingsDeeper(curA);
           else if (menuStack[0] === "directory") canFwd = menuStack[1] === "dirchange" ? false : (String(curA.value || "") === "__dir_change"); // -> lights only on Change directory
