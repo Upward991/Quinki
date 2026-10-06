@@ -2755,13 +2755,30 @@ const readProvidersCfg = (): any => {
       } catch {}
       // Ctrl+T = toggle navigation mode: ↑↓ move between toggles, → opens,
       // ← closes, Esc exits and closes them all (modal: other keys swallowed).
-      // 6 ott: HOLD-model — releasing Ctrl or Alt (kitty sends the modifier
-      // RELEASE events) exits the toggle nav by itself.
+      // 6 ott T580: INSTANT hold-model. With the flag "all keys" the modifier
+      // keys arrive alone: Ctrl(57441)/Alt(57443) press = nav ON (last toggle
+      // highlighted), either release = nav OFF, instantly.
       try {
-        if (navMode && (/\x1b\[5744[0-9];[0-9;]*:3u$/.test(String(data)) || /\x1b\[5744[0-9];[0-9;]*:3u/.test(String(data)))) {
-          exitToggleNav();
+        const dS = String(data);
+        const modPress = dS.match(/^\x1b\[(57441|57442|57443|57444)(?:;\d+)?(?::1)?u$/);
+        const modRel = dS.match(/^\x1b\[(57441|57442|57443|57444)(?:;\d+)?:3u$/);
+        if (modPress) {
+          const mods = (globalThis as any).__qMods || ((globalThis as any).__qMods = new Set());
+          mods.add(modPress[1]);
+          const hasCtrl = mods.has("57441") || mods.has("57442");
+          const hasAlt = mods.has("57443") || mods.has("57444");
+          if (hasCtrl && hasAlt && !navMode) enterToggleNav();
           return { consume: true };
         }
+        if (modRel) {
+          const mods = (globalThis as any).__qMods as Set<string> | undefined;
+          try { mods?.delete(modRel[1]); } catch {}
+          const stillCtrl = mods?.has("57441") || mods?.has("57442");
+          const stillAlt = mods?.has("57443") || mods?.has("57444");
+          if (navMode && (!stillCtrl || !stillAlt)) exitToggleNav();
+          return { consume: true };
+        }
+      } catch {}
       } catch {}
       // 6 ott: THE TOGGLE NAV IS ALWAYS AVAILABLE: Ctrl+Alt + the arrows.
       // (No on/off mode anymore; Ctrl+T is gone.)
