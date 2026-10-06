@@ -6,7 +6,8 @@ import { SortableContext, rectSortingStrategy, useSortable, arrayMove } from '@d
 import { CSS } from '@dnd-kit/utilities'
 import { invoke } from '@tauri-apps/api/core'
 import { useSidecarContext } from '../shared/AppShell'
-import { Bot, Store, Search, X } from '../icons'
+import { Bot } from '../icons'
+import { QuinkiWordmark } from './QuinkiWordmark'
 import { getHomeTabs, saveTabOrder, loadHomeColumns, saveHomeColumns, serializeInstalledTabs, saveInstalledTabs, getMarketItems, saveMarketItems } from '../../tabs'
 
 // A4.1 — Home registry-driven: benvenuto + ricerca + Marketplace + riordino drag&drop
@@ -16,7 +17,6 @@ export function HomeView({activePanel, onSelectPanel}: {onSelectPanel: (panel: s
   const mob = useLayout().mode === 'mobile'
   const { call: rpcCall, connected } = useSidecarContext()
   const [ctxMenu, setCtxMenu] = useState<{x: number, y: number, card: any} | null>(null)
-  const [query, setQuery] = useState('')
   const [tabs, setTabs] = useState<any[]>(() => getHomeTabs())
 
   // A4.3: ripristino ISTANTANEO dal file settings (senza aspettare il sidecar) —
@@ -150,21 +150,7 @@ export function HomeView({activePanel, onSelectPanel}: {onSelectPanel: (panel: s
     })
   }, [rpcCall, columns])
 
-  const filtered = query.trim()
-    ? tabs.filter(t => t.label.toLowerCase().includes(query.trim().toLowerCase()))
-    : tabs
-
-  const activeCard = activeCardId ? (filtered.find((t: any) => t.id === activeCardId) || null) : null
-
-  // Saluto in base all'ora locale: 5-12 morning, 12-18 afternoon, 18-5 evening.
-  // FIX (29 ago): non cambia in tempo reale se l'app resta aperta sulla Home
-  // (si vedeva 'Good evening' anche alle 8 di mattina). Ora si rivaluta ogni minuto.
-  const [hour, setHour] = React.useState(() => new Date().getHours())
-  React.useEffect(() => {
-    const iv = setInterval(() => setHour(new Date().getHours()), 60000)
-    return () => clearInterval(iv)
-  }, [])
-  const greeting = hour >= 5 && hour < 12 ? 'Good morning' : hour >= 12 && hour < 18 ? 'Good afternoon' : 'Good evening'
+  const activeCard = activeCardId ? (tabs.find((t: any) => t.id === activeCardId) || null) : null
 
   return React.createElement('div',
   {className:'h-full flex flex-col overflow-hidden', style:{backgroundColor:'var(--q-bg)'}},
@@ -177,49 +163,16 @@ export function HomeView({activePanel, onSelectPanel}: {onSelectPanel: (panel: s
     // Sezione superiore: sticky — resta al centro finché c'è spazio, poi si blocca in alto
     React.createElement('div',
       {style:{flexShrink:0, position:'sticky', top:0, zIndex:10, width:'100%', backgroundColor:'transparent', display:'flex', flexDirection:'column', alignItems:'center', padding: mob ? '0 12px 24px 12px' : '0 32px 28px 32px', boxSizing:'border-box'}},
-      // Wrapper con sfondo UI (var(--q-bg), abbinato ai temi): copre benvenuto+searchbox
+      // Wrapper con sfondo UI (var(--q-bg), abbinato ai temi): copre il wordmark
       // + pochi px sotto. Il padding sotto resta TRASPARENTE (distanza senza tagli).
       React.createElement('div',
         {style:{width:'100%', backgroundColor:'var(--q-bg)', display:'flex', flexDirection:'column', alignItems:'center', paddingTop:'24px', paddingBottom:'8px', boxSizing:'border-box'}},
-      // Benvenuto
+      // Wordmark pixel "Quinki" — IDENTICO al hero della CLI (richiesta utente 6 ott:
+      // via la mascotte e il saluto "good morning, welcome to Quinki").
       React.createElement('div',
-        {style:{display:'flex', alignItems:'center', justifyContent:'center', gap:'12px', marginBottom:'20px'}},
-        React.createElement('img', {src:'/quinki-logo.png', style:{width:'40px', height:'40px'}}),
-        React.createElement('div', {style:{color:'var(--q-text)', fontSize: mob ? '20px' : '22px', fontWeight:700, fontFamily:'var(--font-interface)', textAlign:'center'}},
-          mob ? [greeting + ',', React.createElement('br', {key:'br'}), 'welcome to Quinki!'] : greeting + ', welcome to Quinki!'
-        )
+        {style:{display:'flex', alignItems:'center', justifyContent:'center', marginBottom:'20px'}},
+        React.createElement(QuinkiWordmark, {size: mob ? 11 : 15})
       ),
-      // Ricerca + Market
-      React.createElement('div',
-        {style:{display:'flex', alignItems:'center', gap:'8px', marginBottom:'4px', width:'100%', maxWidth:'500px'}},
-        React.createElement('div',
-          {style:{flex:1, minWidth:0, display:'flex', alignItems:'center', gap:'8px', backgroundColor:'var(--q-bg-panel)', border:'1px solid var(--q-border)', borderRadius:'var(--radius-md)', padding:'0 12px', height:'38px'}},
-          React.createElement(Search, {size:16, style:{color:'var(--q-text-tertiary)', flexShrink:0}}),
-          React.createElement('input',
-            {
-              value: query,
-              onChange: (e: any) => setQuery(e.target.value),
-              placeholder: 'Search tabs…',
-              style:{flex:1, minWidth:0, background:'transparent', border:'none', outline:'none', color:'var(--q-text)', fontSize:'14px', fontFamily:'var(--font-interface)'}
-            }
-          ),
-          query && React.createElement('button',
-            {onClick: () => setQuery(''), style:{background:'none', border:'none', cursor:'pointer', color:'var(--q-text-tertiary)', display:'flex', padding:'2px'}},
-            React.createElement(X, {size:14})
-          )
-        ),
-        React.createElement('button',
-          {
-            onClick: () => onSelectPanel('market'),
-            title: 'Market',
-            onMouseEnter: (e: any) => { e.currentTarget.style.backgroundColor='var(--q-tab-accent)'; e.currentTarget.style.color='var(--q-bg)' },
-            onMouseLeave: (e: any) => { e.currentTarget.style.backgroundColor='transparent'; e.currentTarget.style.color='var(--q-tab-accent)' },
-            style:{display:'flex', alignItems:'center', gap:'6px', padding:'0 14px', height:'38px', borderRadius:'var(--radius-md)', border:'1px solid var(--q-tab-accent)', backgroundColor:'transparent', color:'var(--q-tab-accent)', cursor:'pointer', flexShrink:0, transition:'none', fontSize:'13px', fontWeight:600, fontFamily:'var(--font-interface)'}
-          },
-          React.createElement(Store, {size:16}),
-          'Market'
-        )
-      )
       )
     ),
     // Card
@@ -228,10 +181,10 @@ export function HomeView({activePanel, onSelectPanel}: {onSelectPanel: (panel: s
       React.createElement(DndContext,
         { sensors, collisionDetection: closestCenter, onDragStart: handleDragStart, onDragEnd: handleDragEnd },
         React.createElement(SortableContext,
-          { items: filtered.map((t: any) => t.id), strategy: rectSortingStrategy },
+          { items: tabs.map((t: any) => t.id), strategy: rectSortingStrategy },
           React.createElement('div',
             {style:{display:'grid', width: mob ? '100%' : undefined, gridTemplateColumns: mob ? 'repeat(2, minmax(0, 1fr))' : `repeat(${effColumns}, 160px)`, gap:'10px', boxSizing:'border-box'}},
-            filtered.map((card: any, idx: number) =>
+            tabs.map((card: any, idx: number) =>
               React.createElement(SortableHomeCard, {
                 key: card.id, card, idx, onSelectPanel, onContext
               }, card.id)

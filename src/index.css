@@ -164,6 +164,7 @@
   --q-accent-info: #7aa2f7;
   --q-accent-longhorizon: #8B7FD4;
   --q-accent-calendar: #7fd1c0;
+  --q-accent-market: #e879a8;
   /* Accent della tab corrente — impostato da App.tsx al cambio tab (expert=orange, chat=info, log=success, agents=secondary, settings=primary) */
   --q-tab-accent: var(--q-accent-info);
   --q-tab-accent-darker: color-mix(in srgb, var(--q-tab-accent) 82%, black);

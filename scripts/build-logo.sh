@@ -150,6 +150,72 @@ render("expert-orange", 512, "pwa").save(os.path.join(PUB, "icons", "expert-icon
 render("expert-orange", 180, "pwa").save(os.path.join(PUB, "icons", "expert-apple-touch.png"))
 print("icone PWA aggiornate (telefono): q viola (Main) + E arancio (Expert)")
 
+# 3c) ICONE ANDROID (APK): per flavor — quinki = q su viola, expert = E su arancio.
+#     - ic_launcher.png      = quadrato pieno (legacy, API<26)
+#     - ic_launcher_round    = cerchio pieno
+#     - ic_launcher_foreground = glifo trasparente nella SAFE ZONE (adaptive icon)
+#     - colors.xml (ic_launcher_background) = colore del tile
+AND = os.path.join(ROOT, "android", "app", "src")
+LAUNCHER = {"mdpi": 48, "hdpi": 72, "xhdpi": 96, "xxhdpi": 144, "xxxhdpi": 192}
+FG = {"mdpi": 108, "hdpi": 162, "xhdpi": 216, "xxhdpi": 324, "xxxhdpi": 432}
+FLAVOR_VARIANT = {"quinki": "main-violet", "expert": "expert-orange"}
+
+def android_glyph(v, size, scale):
+    spec = VARIANTS[v]
+    g = spec["glyph"]
+    b = bounds(g)
+    cell = max(1, round(size * scale / 8))
+    w = cell * (b[3] - b[2] + 1)
+    h = cell * (b[1] - b[0] + 1)
+    ax = (size - w) // 2
+    ay = (size - h) // 2
+    out = []
+    for rr in range(b[0], b[1] + 1):
+        for cc in range(b[2], b[3] + 1):
+            if g[rr][cc] == "1":
+                out.append((ax + (cc - b[2]) * cell, ay + (rr - b[0]) * cell, cell))
+    return out, spec["ink"]
+
+def android_icon(v, size, kind):
+    spec = VARIANTS[v]
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    if kind == "foreground":
+        rects, ink = android_glyph(v, size, 0.62)
+        for (x, y, c) in rects:
+            d.rectangle([x, y, x + c - 1, y + c - 1], fill=ink)
+    else:
+        if kind == "round":
+            d.ellipse([0, 0, size - 1, size - 1], fill=spec["tile"])
+            rects, ink = android_glyph(v, size, 0.60)
+        else:
+            d.rectangle([0, 0, size - 1, size - 1], fill=spec["tile"])
+            rects, ink = android_glyph(v, size, 0.78)
+        for (x, y, c) in rects:
+            d.rectangle([x, y, x + c - 1, y + c - 1], fill=ink)
+    return img
+
+def android_colors_hex(v):
+    t = VARIANTS[v]["tile"]
+    return "#%02X%02X%02X" % (t[0], t[1], t[2])
+
+for flavor, variant in FLAVOR_VARIANT.items():
+    base = os.path.join(AND, flavor, "res")
+    for dens, px in LAUNCHER.items():
+        ddir = os.path.join(base, "mipmap-" + dens)
+        os.makedirs(ddir, exist_ok=True)
+        android_icon(variant, px, "launcher").save(os.path.join(ddir, "ic_launcher.png"))
+        android_icon(variant, px, "round").save(os.path.join(ddir, "ic_launcher_round.png"))
+    for dens, px in FG.items():
+        ddir = os.path.join(base, "mipmap-" + dens)
+        os.makedirs(ddir, exist_ok=True)
+        android_icon(variant, px, "foreground").save(os.path.join(ddir, "ic_launcher_foreground.png"))
+    vdir = os.path.join(base, "values")
+    os.makedirs(vdir, exist_ok=True)
+    open(os.path.join(vdir, "colors.xml"), "w").write(
+        '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">%s</color>\n</resources>\n' % android_colors_hex(variant))
+    print("icone Android:", flavor, "->", android_colors_hex(variant))
+
 # 4) anteprime 64px per il selettore in Settings (data URL base64)
 def dataurl(im):
     buf = io.BytesIO(); im.save(buf, "PNG")

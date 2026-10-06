@@ -2,7 +2,7 @@
 // Le tab passano da hardcoded a registry-driven: qui stanno le tab BASE,
 // l'ordine (persistito in localStorage) e le tab installate (in A4.2 verranno
 // dal marketplace; per ora da localStorage come segnaposto).
-import { Bot, Terminal, MessageSquare, Settings, Checklist, BookOpen } from './components/icons'
+import { Bot, Terminal, MessageSquare, Settings, Checklist, BookOpen, Store } from './components/icons'
 import { getRegistry, saveRegistry } from './registry'
 import { findCatalogItem, resolveCatalogIcon } from './catalog'
 
@@ -24,6 +24,7 @@ export const baseTabs: HomeTab[] = [
   { id: 'agents',   icon: Bot,           label: 'Agents',       color: 'var(--q-accent-secondary)', panel: 'agents',   doubleBot: true,  base: true },
   { id: 'settings', icon: Settings,      label: 'Settings',     color: 'var(--q-accent-primary)',   panel: 'settings', doubleBot: false, base: true },
   { id: 'log',      icon: Terminal,      label: 'Log',          color: 'var(--q-accent-success)',   panel: 'log',      doubleBot: false, base: true },
+  { id: 'market',   icon: Store,         label: 'Market',       color: 'var(--q-accent-market)',    panel: 'market',   doubleBot: false, base: true },
 ]
 
 const ORDER_KEY = 'quinki-tab-order'
