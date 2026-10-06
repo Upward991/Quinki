@@ -122,6 +122,44 @@ export function AgentsPanel(props) {
     return () => { cancelled = true; };
   }, [call]);
 
+  // === LIVE SYNC (6 ott): the CLI (and anything else) writes the SAME files the
+  // engine serves: the panel follows within a few seconds, so a skill/MCP/tool
+  // toggled or deleted from the CLI shows here instantly-ish, and vice versa.
+  // Only setState when the data really changed (no flicker while editing).
+  useEffect(() => {
+    if (!call) return;
+    const j = (x: any) => { try { return JSON.stringify(x); } catch { return String(x); } };
+    const tick = async () => {
+      try {
+        const r1 = await call('listSkills', {});
+        if (r1?.skills) {
+          const next = r1.skills.map(s => ({ name: s.name || s, description: s.description || '', source: s.source || 'local' }));
+          setSkills(prev => j(prev) === j(next) ? prev : next);
+        }
+      } catch {}
+      try {
+        const r2 = await call('listTools', {});
+        if (r2?.tools) {
+          const next = r2.tools.map(t => ({ name: t.name, description: t.description || '', readOnly: t.readOnly || false }));
+          setTools(prev => j(prev) === j(next) ? prev : next);
+        }
+      } catch {}
+      try {
+        const r3 = await call('getGlobalConfig', {});
+        if (r3?.config?.planModeTools) setPlanModeTools(prev => j(prev) === j(r3.config.planModeTools) ? prev : r3.config.planModeTools);
+        if (r3?.config?.planModeMcp) setPlanModeMcp(prev => j(prev) === j(r3.config.planModeMcp) ? prev : r3.config.planModeMcp);
+        if (r3?.config?.defaultAgentId) setDefaultAgentId(prev => prev === r3.config.defaultAgentId ? prev : r3.config.defaultAgentId);
+      } catch {}
+      try {
+        const r4 = await call('listMcpServers', {});
+        if (r4?.servers) setMcpServers(prev => j(prev) === j(r4.servers) ? prev : r4.servers);
+      } catch {}
+      try { refreshAgents?.(); } catch {}
+    };
+    const iv = setInterval(tick, 4000);
+    return () => clearInterval(iv);
+  }, [call]);
+
   // --- Default agent for new chats ---
   const doSetDefaultAgent = async (agentId: string) => {
     setDefaultAgentId(agentId);
