@@ -2542,6 +2542,14 @@ const readProvidersCfg = (): any => {
     for (const t of toggles) walk(t);
     return out;
   };
+  let qNavTimer: any = null;
+  const qTouchNav = () => {
+    try { if (qNavTimer) clearTimeout(qNavTimer); } catch {}
+    qNavTimer = setTimeout(() => {
+      qNavTimer = null;
+      try { if (navMode) exitToggleNav(); } catch {}
+    }, 1500);
+  };
   const enterToggleNav = () => {
     navMode = true;
     const fl = flatToggles();
@@ -2747,21 +2755,27 @@ const readProvidersCfg = (): any => {
         const qCAM = String(data).match(/^\x1b\[1;7:?[123]?([ABCD])$/); // press, repeat, release
         if (qCAM && !(menuOpenRef?.() ?? false) && navMode) {
           const d2 = qCAM[1];
+          qTouchNav();
           if (d2 === "A") moveToggleSel(-1);
           else if (d2 === "B") moveToggleSel(1);
           else if (d2 === "C") setToggleOpen(true);
           else if (d2 === "D") setToggleOpen(false);
           return { consume: true };
         }
-        // first Ctrl+Alt+arrow of a session: enter the nav (select the last toggle)
+        // first Ctrl+Alt+arrow: enter the nav (selects the LAST toggle) + hold timer
         if (qCAM && !(menuOpenRef?.() ?? false) && !navMode) {
           enterToggleNav();
+          qTouchNav();
           const d2 = qCAM[1];
           if (d2 === "A") moveToggleSel(-1);
           else if (d2 === "B") moveToggleSel(1);
           else if (d2 === "C") setToggleOpen(true);
           else if (d2 === "D") setToggleOpen(false);
           return { consume: true };
+        }
+        // T579: any NON-ctrl-alt key = the user stopped holding -> exit at once
+        if (navMode && !qCAM) {
+          try { if (String(data).indexOf("\x1b[1;7") !== 0) { exitToggleNav(); } } catch {}
         }
       } catch {}
       const isCtrlT = false; // Ctrl+T removed: the nav is always on Ctrl+Alt+arrows
