@@ -2779,7 +2779,6 @@ const readProvidersCfg = (): any => {
           return { consume: true };
         }
       } catch {}
-      } catch {}
       // 6 ott: THE TOGGLE NAV IS ALWAYS AVAILABLE: Ctrl+Alt + the arrows.
       // (No on/off mode anymore; Ctrl+T is gone.)
       try {
