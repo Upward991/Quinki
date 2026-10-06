@@ -1625,6 +1625,17 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
   }, [ready, call])
 
   // ── Folders ──
+  // MOVE (6 ott): sposta una cartella (stesso meccanismo delle chat: update
+  // funzionale sul fresh state -> niente closure stantie che sovrascrivono il pin).
+  const moveFolder = useCallback((folderId: string, parentId: string | null, order: number) => {
+    if (!ready) return
+    setFolders(prev => {
+      const nf = prev.map(f => f.id === folderId ? { ...f, parentId, order } : f)
+      try { notify('setFolders', { folders: nf }) } catch {}
+      return nf
+    })
+  }, [ready, notify])
+
   // PIN (6 ott): pin di una cartella (store separato dalle sessioni).
   const setFolderPinned = useCallback((folderId: string, pinned: boolean, order?: number) => {
     setFolders(prev => {
@@ -1956,7 +1967,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     // Sidebar
     sidebarSessions,
     // Session management
-    setSessionPinned, setFolderPinned,
+    setSessionPinned, setFolderPinned, moveFolder,
     selectSession, loadOlderMessages, jumpToMessage, sendMessage, injectErrorMessages, steerMessage, stopStreaming, createSession, deleteSession, renameSession, deselectSession, refreshSessions,
     resetSession, reloadSession, moveSession, compactSession, ensureSession,
     // Session settings
