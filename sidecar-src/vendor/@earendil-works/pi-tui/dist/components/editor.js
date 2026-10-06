@@ -410,6 +410,14 @@ export class Editor {
         this.scrollOffset = Math.max(0, Math.min(this.scrollOffset, maxScrollOffset));
         // Get visible lines slice
         const visibleLines = layoutLines.slice(this.scrollOffset, this.scrollOffset + maxVisibleLines);
+        // QUINKI PATCH (6 ott, T536): with qFullHeight the box must be EXACTLY
+        // maxVisibleLines tall (pad with blank rows): the prompt modal fills the
+        // whole screen even when the text is a few lines.
+        if (this.qFullHeight) {
+            while (visibleLines.length < maxVisibleLines) {
+                visibleLines.push({ text: "", hasCursor: false });
+            }
+        }
         const result = [];
         const leftPadding = " ".repeat(paddingX);
         const rightPadding = leftPadding;
