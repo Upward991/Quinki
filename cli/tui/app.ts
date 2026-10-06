@@ -1064,7 +1064,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         return leftH + padH + rightH;
       };
       try { (inner as any).footerLine = hint; } catch {}
-      try { (inner as any).onSubmit = () => { qSavePromptEditor(); }; } catch {}
+      try { (inner as any).onSubmit = (text: string) => { qSavePromptEditor(String(text ?? "")); }; } catch {}
       try { (inner as any).qFullHeight = true; } catch {} // T535: the editor fills the whole CLI
       try { (inner as any).qNoPlaceholder = true; } catch {} // T537: no "Write a message..." when empty
       try { (inner as any).bgFn = (x: string) => bg(C.bgPanel, String(x)); } catch {}
@@ -1123,11 +1123,14 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     } catch {}
     try { scrollToEnd(); ui.requestRender(); } catch {}
   };
-  const qSavePromptEditor = () => {
+  const qSavePromptEditor = (submitted?: string) => {
     const m = qPromptModal;
     if (!m) return;
-    let content = "";
-    try { content = String(m.inner.getText() || ""); } catch {}
+    let content = String(submitted ?? "");
+    if (!content) {
+      // fallback (e.g. called from somewhere else): read the buffer
+      try { content = String(m.inner.getText() || ""); } catch {}
+    }
     const call = (globalThis as any).__sidecarCall;
     qClosePromptEditor(true);
     if (call) {
@@ -5764,7 +5767,7 @@ const readProvidersCfg = (): any => {
         const lastLv = String(menuStack[menuStack.length - 1] || "");
         if (/^(agdel|skdel|mcpdel):/.test(lastLv) || lastLv === "__input" || lastLv === "__error") return true; // T530: + the error notice
         const v0a = String((cur as any)?.value || "");
-        if (v0a === "__newskill" || v0a === "__newmcp" || v0a === "__newagent" || v0a.startsWith("__mcpt_") || v0a.startsWith("aprompt:")) return true;
+        if (v0a.startsWith("__mcpt_") || v0a.startsWith("aprompt:")) return true; // T549: New agent / Install = arrow only
         // T507: otherwise the agents tab is all SELECTION (Tab = select,
         // instant effect): never a Confirm in the bar.
         return false;
