@@ -5130,7 +5130,11 @@ const readProvidersCfg = (): any => {
     }
   };
   const applyFilter = (items: any[]): any[] => {
-    if (dirTypeMode || (menuStack[0] === "directory" && menuStack[1] === "dirchange") || (menuStack[0] === "agents" && (menuStack[1] === "__input" || String(menuStack[1] || "").startsWith("agdel:")))) return items; // typed input never filters the rows away
+    {
+      const lastF = String(menuStack[menuStack.length - 1] || "");
+      if (dirTypeMode || (menuStack[0] === "directory" && menuStack[1] === "dirchange") ||
+          (menuStack[0] === "agents" && (lastF === "__input" || lastF === "__mcpType" || /^(agdel|skdel|mcpdel):/.test(lastF)))) return items; // T527: typed input never filters the rows away (was menuStack[1]: broke the __input level)
+    }
     const f = menuSubFilter.toLowerCase();
     if (!f) return items;
     return items.filter(
@@ -5511,7 +5515,7 @@ const readProvidersCfg = (): any => {
         // T526: ACTION rows and ACTION levels show "Confirm (Enter)":
         // delete modals, the install/input levels, and the "+ New…/Install…" rows.
         const lastLv = String(menuStack[menuStack.length - 1] || "");
-        if (/^(agdel|skdel|mcpdel):/.test(lastLv) || lastLv === "__input" || lastLv === "__mcpType") return true;
+        if (/^(agdel|skdel|mcpdel):/.test(lastLv) || lastLv === "__input") return true; // T527: the MCP type picker = arrow only (no Confirm)
         const v0a = String((cur as any)?.value || "");
         if (v0a === "__newskill" || v0a === "__newmcp" || v0a === "__newagent" || v0a.startsWith("__mcpt_")) return true;
         // T507: otherwise the agents tab is all SELECTION (Tab = select,
