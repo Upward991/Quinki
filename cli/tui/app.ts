@@ -1312,8 +1312,8 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       const agId = sub.slice(3);
       return [...qHead("Agent: " + agentDisplayName(agId)),
         { value: "ask:" + agId, label: "Skills", description: String(agentSkillsOf(agId).length) + " enabled" },
-        { value: "atk:" + agId, label: "Tools", description: String(agentToolsOf(agId).length) + " enabled" },
         { value: "amc:" + agId, label: "MCP", description: String(agentMcpOf(agId).length) + " enabled" },
+        { value: "atk:" + agId, label: "Tools", description: String(agentToolsOf(agId).length) + " enabled" },
         { value: "__agdel", label: "Delete agent", description: "" },
       ];
     }
@@ -1347,21 +1347,26 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     if (sub.startsWith("sk:")) {
       const nm = sub.slice(3);
       const out: any[] = [...qHead("Skill: " + nm)];
+      // T523: delete flow like /quit: -> opens the confirm modal.
+      const outDel = { value: "__skdel", label: "Delete skill", description: "" };
       const agsSorted = qAgentsData.slice()
         .map((a: any) => ({ a, id: String(a?.id || a?.name || "") }))
         .filter((x: any) => x.id)
         .sort((x: any, y: any) => (agentSkillsOf(y.id).includes(nm) ? 1 : 0) - (agentSkillsOf(x.id).includes(nm) ? 1 : 0));
       for (const x of agsSorted) out.push({ value: "ska:" + nm + ":" + x.id, label: (agentSkillsOf(x.id).includes(nm) ? "\u25cf " : "\u25cb ") + String(x.a?.name || x.id), description: x.id });
+      out.push(outDel);
       return out;
     }
     if (sub.startsWith("mcp:")) {
       const mid = sub.slice(4);
       const out: any[] = [...qHead("MCP: " + mid)];
+      const outDel2 = { value: "__mcpdel", label: "Delete MCP server", description: "" };
       const agsSorted2 = qAgentsData.slice()
         .map((a: any) => ({ a, id: String(a?.id || a?.name || "") }))
         .filter((x: any) => x.id)
         .sort((x: any, y: any) => (agentMcpOf(y.id).includes(mid) ? 1 : 0) - (agentMcpOf(x.id).includes(mid) ? 1 : 0));
       for (const x of agsSorted2) out.push({ value: "mcpa:" + mid + ":" + x.id, label: (agentMcpOf(x.id).includes(mid) ? "\u25cf " : "\u25cb ") + String(x.a?.name || x.id), description: x.id });
+      out.push(outDel2);
       return out;
     }
     if (sub.startsWith("tool:")) {
@@ -1383,6 +1388,14 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     if (sub.startsWith("agdel:")) {
       const id = sub.slice(6);
       return [{ value: "agdel-go:" + id, label: "", notice: "Delete agent \u201c" + id + "\u201d? Its config and prompt will be removed." }];
+    }
+    if (sub.startsWith("skdel:")) {
+      const nm = sub.slice(6);
+      return [{ value: "skdel-go:" + nm, label: "", notice: "Delete skill \u201c" + nm + "\u201d? It will be removed from disk and from every agent." }];
+    }
+    if (sub.startsWith("mcpdel:")) {
+      const mid = sub.slice(7);
+      return [{ value: "mcpdel-go:" + mid, label: "", notice: "Delete MCP server \u201c" + mid + "\u201d? It will be removed from the config and from every agent." }];
     }
     return [];
   };
@@ -5204,9 +5217,35 @@ const readProvidersCfg = (): any => {
           if (agId) { menuStack.push("agdel:" + agId); menuSubFilter = ""; menuSel = 0; try { ui.requestRender(); } catch {} }
           return;
         }
+        // T523: Delete skill / Delete MCP: the SAME /quit-like flow — the forward
+        // arrow (and Enter) opens the confirmation modal, Enter on it deletes.
+        if (vAg === "__skdel") {
+          const st1 = String(menuStack[menuStack.length - 1] || "");
+          const nm = st1.startsWith("sk:") ? st1.slice(3) : "";
+          if (nm) { menuStack.push("skdel:" + nm); menuSubFilter = ""; menuSel = 0; try { ui.requestRender(); } catch {} }
+          return;
+        }
+        if (vAg === "__mcpdel") {
+          const st1 = String(menuStack[menuStack.length - 1] || "");
+          const mid = st1.startsWith("mcp:") ? st1.slice(4) : "";
+          if (mid) { menuStack.push("mcpdel:" + mid); menuSubFilter = ""; menuSel = 0; try { ui.requestRender(); } catch {} }
+          return;
+        }
         if (vAg.startsWith("agdel-go:")) {
           const id = vAg.slice(9);
           if (callA) callA('deleteAgent', { id }).then(() => { refreshAgentsTab(); }).catch(() => {});
+          qCloseMenus();
+          return;
+        }
+        if (vAg.startsWith("skdel-go:")) {
+          const nm = vAg.slice(9);
+          if (callA) callA('deleteSkill', { name: nm }).then(() => { refreshAgentsTab(); }).catch(() => {});
+          qCloseMenus();
+          return;
+        }
+        if (vAg.startsWith("mcpdel-go:")) {
+          const mid = vAg.slice(10);
+          if (callA) callA('removeMcpServer', { id: mid }).then(() => { refreshAgentsTab(); }).catch(() => {});
           qCloseMenus();
           return;
         }
@@ -5697,6 +5736,7 @@ const readProvidersCfg = (): any => {
             if (menuStack[0] === "agents" && it && !it.separator) {
               const vA = String(it.value || "");
               if (/^(#def|#you|#sk|#mcp|#tools|#plan|#plantools|#planmcp|ag:|ask:|atk:|amc:|sk:|mcp:|tool:)/.test(vA)) deeper = vA;
+              if (vA === "__agdel" || vA === "__skdel" || vA === "__mcpdel") deeper = vA; // T523: -> opens the confirm modal
             }
             if (deeper) {
               try { require("fs").appendFileSync("/tmp/q-deep-trace.log", new Date().toISOString() + " PUSH " + JSON.stringify({ root: menuStack[0], val: String(it.value||""), deeper }) + "\n"); } catch {}
