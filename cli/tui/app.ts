@@ -5047,7 +5047,6 @@ const readProvidersCfg = (): any => {
       const out: any[] = [];
       if (agentId !== "orchestrator") {
         out.push({ value: "model", label: "Model", description: ov.model ? String(ov.model) : "Chat default" });
-        out.push({ value: "__agentcfg", label: "Agent configuration", description: "skills, MCP, tools, prompt" }); // T556
         out.push({
           value: "thinking",
           label: "Thinking",
@@ -5183,7 +5182,7 @@ const readProvidersCfg = (): any => {
     if (stack.length === 2 && stack[1] === "#add") return null; // direct action
     if (stack.length === 2) {
       if (it.value === "model" || it.value === "thinking") return String(it.value);
-      if (it.value === "__agentcfg") return "ag:" + String(stack[1]); // T556: open the config tree
+      if (it.value === "config") return "ag:" + String(stack[1]); // T557: the existing (dead) row now opens the config tree
       return null;
     }
     return null;
@@ -5262,7 +5261,7 @@ const readProvidersCfg = (): any => {
         menuSubFilter = "";
         menuSel = 0;
       }
-      // "config": agent configuration menu — staged, silently ignored for now.
+      // "config" (Agent configuration): opens the shared config tree (T557).
       return;
     }
     if (stack.length === 3) {
