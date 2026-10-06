@@ -372,19 +372,20 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       if (!alive || !s) return
       if (typeof s.fullWidth === 'boolean') setFullWidth(s.fullWidth)
       if (s.openGroups && typeof s.openGroups === 'object') setOpenGroups(s.openGroups)
-      // FIX (6 ott): le VIEW vivono anche nel localStorage, SEMPRE aggiornato a ogni
-      // modifica (pin incluso). Il sidecar puo' essere indietro (saveUiState arriva
-      // dopo): se il local ha qualcosa, E' la verita' — il restore non deve
-      // sovrascrivere i pin appena fatti. Se non c'e' nulla in locale, si adotta
-      // lo stato del sidecar (primo sync su un browser nuovo).
-      let localHasViews = false
-      try {
-        const raw = localStorage.getItem(VIEWS_KEY)
-        if (raw) { const lv = normViews(JSON.parse(raw)); localHasViews = lv.length > 0
-          try { (window as any).__reportFrontendError?.('view-load', 'local=' + lv.filter((v: any) => v.pinned).map((v: any) => v.id).join('|') + ' sidecar=' + (Array.isArray(s.views) ? s.views.filter((v: any) => v.pinned).map((v: any) => v.id).join('|') : 'none')) } catch {}
-        }
-      } catch {}
-      if (!localHasViews && Array.isArray(s.views) && s.views.length) { const nv = normViews(s.views); setViews(nv); const want = s.activeId && nv.some((x: any) => x.id === s.activeId) ? s.activeId : nv[0].id; setActiveId(want) }
+      // FIX FINALE (6 ott, dai dati reali del log): nella DESKTOP il localStorage
+      // e' VOLATILE (si azzera) mentre il SIDECAR salva SEMPRE. Quindi il sidecar
+      // e' la verita' dei pin: si ripristina SEMPRE da lui (il locale integrato
+      // come fallback solo se il sidecar non ha views).
+      const localPins = (() => { try { const raw = localStorage.getItem(VIEWS_KEY); const lv = raw ? JSON.parse(raw) : []; return lv.filter((v: any) => v.pinned).map((v: any) => v.id).join('|') } catch { return '?' } })()
+      try { (window as any).__reportFrontendError?.('view-load', 'local=' + localPins + ' sidecar=' + (Array.isArray(s.views) ? s.views.filter((v: any) => v.pinned).map((v: any) => v.id).join('|') : 'none')) } catch {}
+      if (Array.isArray(s.views) && s.views.length) {
+        const nv = normViews(s.views)
+        setViews(nv)
+        const want = s.activeId && nv.some((x: any) => x.id === s.activeId) ? s.activeId : nv[0].id
+        setActiveId(want)
+        // Riallinea anche il locale (cosi' la web e la desktop restano coerenti)
+        try { localStorage.setItem(VIEWS_KEY, JSON.stringify(nv)) } catch {}
+      }
     }).catch(() => {})
     return () => { alive = false }
   }, [])
