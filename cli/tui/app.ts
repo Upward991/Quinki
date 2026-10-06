@@ -5213,7 +5213,7 @@ const readProvidersCfg = (): any => {
     if (stack.length === 2 && stack[1] === "#add") return null; // direct action
     if (stack.length === 2) {
       if (it.value === "model" || it.value === "thinking") return String(it.value);
-      if (it.value === "config") return "ag:" + String(stack[1]); // T557: the existing (dead) row now opens the config tree
+      if (it.value === "config") return "__copycfg:" + String(stack[1]); // T568: open the TAB's exact tree
       return null;
     }
     return null;
@@ -6184,6 +6184,18 @@ const readProvidersCfg = (): any => {
                 else if (vA === "__skdel" && stL.startsWith("sk:")) deeper = "skdel:" + stL.slice(3);
                 else if (vA === "__mcpdel" && stL.startsWith("mcp:")) deeper = "mcpdel:" + stL.slice(4);
               }
+            }
+            if (deeper && String(deeper).startsWith("__copycfg:")) {
+              // T568: THE COPY — enter the agents-tab tree with the SAME root the tab
+              // uses: from here on EVERY gate (arrow, Confirm, Tab, deeper levels)
+              // follows the identical code path as /agents > Your agents > an agent.
+              const cfgId = String(deeper).slice(10);
+              menuStack = ["agents", "ag:" + cfgId];
+              menuSubFilter = "";
+              menuSel = 0;
+              try { refreshAgentsTab(); } catch {}
+              try { ui.requestRender(); } catch {}
+              return;
             }
             if (deeper) {
               try { require("fs").appendFileSync("/tmp/q-deep-trace.log", new Date().toISOString() + " PUSH " + JSON.stringify({ root: menuStack[0], val: String(it.value||""), deeper }) + "\n"); } catch {}
