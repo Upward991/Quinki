@@ -216,7 +216,10 @@ export function Sidebar(props: SidebarProps) {
         const isParentRow = entry.item.id === parentIdOfDrag
         const isSibling = entry.item.parentId === parentIdOfDrag
         if (isParentRow) {
-          if (parentBlockBottom > 0 && pointerY <= parentBlockBottom) continue
+          // SULLA riga cartella: si esce solo passandole SOPRA (zona before).
+          // Sotto il titolo (dentro la riga o giu' fino ai figli) = ancora dentro.
+          const aboveRow = pointerY < rect.top
+          if (!aboveRow && parentBlockBottom > 0 && pointerY <= parentBlockBottom) continue
           passedParentBlock = true
         } else if (!isSibling) {
           if (parentBlockBottom > 0 && pointerY <= parentBlockBottom) continue
