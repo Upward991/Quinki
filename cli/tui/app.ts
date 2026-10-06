@@ -2548,7 +2548,7 @@ const readProvidersCfg = (): any => {
     qNavTimer = setTimeout(() => {
       qNavTimer = null;
       try { if (navMode) exitToggleNav("timer-1.5s"); } catch {}
-    }, 1500);
+    }, 4000); // T588: fallback only (the kitty release events are reliable)
   };
   const enterToggleNav = () => {
     navMode = true;
@@ -2806,16 +2806,10 @@ const readProvidersCfg = (): any => {
           else if (d2 === "D") setToggleOpen(false);
           return { consume: true };
         }
-        // T579: any NON-ctrl-alt key = the user stopped holding -> exit at once.
-        // EXCEPT Esc (the STOP must never touch the nav) and the modifier events.
-        if (navMode && !qCAM) {
-          try {
-            const dE = String(data);
-            const isEscKey = dE === "\x1b" || matchesKey(dE, "escape") || /^\x1b\[27(?:;\d+)*(?::1)?u$/.test(dE);
-            const isMod = /^\x1b\[5744[0-9]/.test(dE);
-            if (!isEscKey && !isMod && dE.indexOf("\x1b[1;7") !== 0) { exitToggleNav("any-key:" + JSON.stringify(dE.slice(0,12))); }
-          } catch {}
-        }
+        // T588: while navigating, NOTHING but Ctrl/Alt and the arrows matters.
+        // Every other key is simply ignored: the highlight NEVER goes away
+        // except on the modifier release (or the hold timer below).
+        qTouchNav();
       } catch {}
       const isCtrlT = false; // Ctrl+T removed: the nav is always on Ctrl+Alt+arrows
       if (isCtrlT && !(menuOpenRef?.() ?? false)) {
