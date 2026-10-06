@@ -321,17 +321,19 @@ export function Sidebar(props: SidebarProps) {
     const dragTopLevel = !(dragItem as any).parentId
     if (dragTopLevel) {
       const dP = !!(dragItem as any).pinned
-      // Il dividers E' la frontiera: sopra = pin, sotto = unpin.
+      const dOwn = (dragItem as any).ownPinned !== undefined ? !!(dragItem as any).ownPinned : dP
+      // Il divider E' la frontiera: sopra = pin, sotto = unpin.
       if (targetId === '__pinsep__') {
         props.onSetPinned?.(dragItem.id, zone === 'before')
       } else {
         const tgtTopLevel = !(targetItem as any).parentId
         if (tgtTopLevel) {
           const tP = !!(targetItem as any).pinned
-          // Target pinnato (anche "into" una cartella pinnata) = pin.
-          // Target normale (anche "into" una cartella normale) = unpin.
+          // Target pinnato = pin (anche "into" una cartella pinnata).
           if (!dP && tP) props.onSetPinned?.(dragItem.id, true)
-          if (dP && !tP) props.onSetPinned?.(dragItem.id, false)
+          // Unpin SOLO se l'elemento era pinnato DI SUO (ownPinned): un figlio
+          // "ereditato" da una cartella pinnata, trascinato fuori, RESTA pinnato.
+          if (dP && !tP && dOwn) props.onSetPinned?.(dragItem.id, false)
         }
       }
     }

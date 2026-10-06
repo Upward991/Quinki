@@ -1977,12 +1977,14 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     const chats = sessions.filter(s => s.id !== '__app_expert__').map(s => {
       const uc = unreadCounts[s.id]
       const total = uc ? (uc.messages || 0) + (uc.tasks || 0) : 0
-      return { ...s, pinned: effPinned(s), unread: total > 0, messageCount: total, notifyMode: notifyModes[s.id] || 'none' }
+      // ownPinned = il flag REALE dell'elemento (senza ereditarieta'): serve al
+      // drag per decidere se un'uscita dalla zona pinned deve despinnare o no.
+      return { ...s, pinned: effPinned(s), ownPinned: !!(s as any).pinned, unread: total > 0, messageCount: total, notifyMode: notifyModes[s.id] || 'none' }
     })
     const folderItems = (folders || []).map(f => ({
       id: f.id, title: f.title || f.name || 'Folder', type: 'folder' as const,
       isExpanded: !!f.isExpanded, parentId: f.parentId || null, order: f.order || Date.now(),
-      pinned: effPinned({ pinned: !!f.pinned, parentId: f.parentId }), pinnedOrder: (typeof f.pinnedOrder === 'number') ? f.pinnedOrder : undefined,
+      pinned: effPinned({ pinned: !!f.pinned, parentId: f.parentId }), ownPinned: !!f.pinned, pinnedOrder: (typeof f.pinnedOrder === 'number') ? f.pinnedOrder : undefined,
     }))
     return [...chats, ...folderItems].sort((a, b) => (b.order || 0) - (a.order || 0))
   }, [sessions, folders, unreadCounts, notifyModes])
