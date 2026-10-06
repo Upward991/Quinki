@@ -1139,6 +1139,30 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   // T508: the AGENTS tab data — the sidecar is the truth (same as the app).
   let qAgentsInputMode: "" | "newagent" | "skillpkg" | "mcpmcp" | "mcpsrc" | "mcpargs" = "";
   // T525: MCP install (mirrors the app's McpInstallModal): type -> source/command -> args.
+  // T529: the freshly created/installed item is PINNED at the top of its list,
+  // and after Confirm we go BACK to the list (menu stays open) — the attachment flow.
+  let qPinNew = "";
+  const qPinAndBack = (kind: "skill" | "mcp" | "agent", before: Set<string>, backTo: string) => {
+    try {
+      const call = (globalThis as any).__sidecarCall;
+      const method = kind === "skill" ? "listSkills" : kind === "mcp" ? "listMcpServers" : "listAgents";
+      const pick = (r: any): string => {
+        if (kind === "skill") { const f = (r?.skills || []).map((x: any) => x.name); return f.find((n: string) => n && !before.has(n)) || ""; }
+        if (kind === "mcp") { const f = (r?.servers || []).map((x: any) => String(x?.id || x?.name)); return f.find((n: string) => n && !before.has(n)) || ""; }
+        const f = (r?.agents || []).map((x: any) => String(x?.id || x?.name)); return f.find((n: string) => n && !before.has(n)) || "";
+      };
+      const finish = (newName: string) => {
+        qPinNew = newName ? (kind === "skill" ? "skill:" : kind === "mcp" ? "mcp:" : "ag:") + newName : "";
+        refreshAgentsTab();
+        menuStack = ["agents", backTo];
+        menuSubFilter = "";
+        menuSel = 0;
+        try { ui.requestRender(); } catch {}
+      };
+      if (call) call(method, {}).then((r: any) => finish(pick(r))).catch(() => finish(""));
+      else finish("");
+    } catch {}
+  };
   let qMcpType: "package" | "url" | "command" = "package";
   let qMcpSrc = "";
   const qMcpDerive = (src: string, type: string): string => {
@@ -1172,7 +1196,8 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         params.source = String(src).trim();
         if (type === "package" && args.length) params.args = args;
       }
-      if (call) call("addMcpServer", params).then(() => { refreshAgentsTab(); }).catch(() => {});
+      const before = new Set(qMcpData.map((x: any) => String(x?.id || x?.name)));
+      if (call) call("addMcpServer", params).then(() => { qPinAndBack("mcp", before, "#mcp"); }).catch(() => {});
     } catch {}
   };
   let qSkillsData: string[] = [];
@@ -1283,7 +1308,10 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     if (sub === "#you") {
       const out: any[] = [{ value: "__newagent", label: "\uff0b New agent", description: "Create a new agent" }];
       out.push({ value: "__sep_you", label: "Your agents", separator: true });
-      try { for (const id of agentIdsKnown()) out.push({ value: "ag:" + id, label: agentDisplayName(id), description: id }); } catch {}
+      try {
+        const agL = agentIdsKnown().slice().sort((a: string, b: string) => (("ag:" + a) === qPinNew ? -1 : ("ag:" + b) === qPinNew ? 1 : 0));
+        for (const id of agL) out.push({ value: "ag:" + id, label: agentDisplayName(id), description: id });
+      } catch {}
       return out;
     }
     if (sub === "#plan") {
@@ -1317,20 +1345,22 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     if (sub === "#sk") {
       const out: any[] = [{ value: "__newskill", label: "\uff0b Install skill from internet", description: "then type the package name" }];
       out.push({ value: "__sep_sk", label: "Installed skills", separator: true });
-      for (const nm of allSkillsList()) {
+      { const skL = allSkillsList().slice().sort((a: string, b: string) => (("skill:" + a) === qPinNew ? -1 : ("skill:" + b) === qPinNew ? 1 : 0));
+      for (const nm of skL) {
         const n = countAgentsWith([nm], "skills");
         out.push({ value: "sk:" + nm, label: nm, description: String(n) + " agent" + (n === 1 ? "" : "s") });
-      }
+      } }
       return out;
     }
     if (sub === "#mcp") {
       const out: any[] = [{ value: "__newmcp", label: "\uff0b Install MCP server", description: "choose package, URL or command" }];
       out.push({ value: "__sep_mcp", label: "MCP servers", separator: true });
-      for (const m of qMcpData) {
+      { const mcpL = qMcpData.slice().sort((a: any, b: any) => (("mcp:" + String(b?.id || b?.name)) === qPinNew ? 1 : ("mcp:" + String(a?.id || a?.name)) === qPinNew ? -1 : 0));
+      for (const m of mcpL) {
         const id = String(m?.id || m?.name || ""); if (!id) continue;
         const n = countAgentsWith([id], "mcpServers");
         out.push({ value: "mcp:" + id, label: id, description: (m?.enabled === false ? "disabled \u00b7 " : "") + String(n) + " agent" + (n === 1 ? "" : "s") });
-      }
+      } }
       return out;
     }
     if (sub === "#tools") {
@@ -5344,10 +5374,12 @@ const readProvidersCfg = (): any => {
           const val = menuSubFilter.trim();
           try {
             if (qAgentsInputMode === "newagent" && val && callA) {
-              callA('createAgent', { name: val }).then(() => { refreshAgentsTab(); }).catch(() => {});
+              qAgentsInputMode = "";
+              const beforeA = new Set(qAgentsData.map((a: any) => String(a?.id || a?.name)));
+              callA('createAgent', { name: val }).then(() => { qPinAndBack("agent", beforeA, "#you"); }).catch(() => {});
             } else if (qAgentsInputMode === "mcpsrc" && val && callA) {
             qMcpSrc = val;
-            if (qMcpType === "url") { qMcpInstall(val, ""); qCloseMenus(); return; }
+            if (qMcpType === "url") { qMcpInstall(val, ""); qAgentsInputMode = ""; return; }
             qAgentsInputMode = "mcpargs";
             menuSubFilter = "";
             try { ui.requestRender(); } catch {}
@@ -5355,10 +5387,11 @@ const readProvidersCfg = (): any => {
           } else if (qAgentsInputMode === "mcpargs" && callA) {
             qMcpInstall(qMcpSrc, val);
             qAgentsInputMode = "";
-            qCloseMenus();
             return;
           } else if (qAgentsInputMode === "skillpkg" && val && callA) {
-              callA('installSkill', { package: val }).then(() => { refreshAgentsTab(); }).catch(() => {});
+              qAgentsInputMode = "";
+              const beforeS = new Set(qSkillsData.map((x: any) => String(x?.name || x)));
+              callA('installSkill', { package: val }).then(() => { qPinAndBack("skill", beforeS, "#sk"); }).catch(() => {});
             } else if (qAgentsInputMode === "mcpmcp" && val && callA) {
               const parts = val.split(/\s+/);
               const first = parts[0] || "";
@@ -5370,6 +5403,7 @@ const readProvidersCfg = (): any => {
               callA('addMcpServer', params).then(() => { refreshAgentsTab(); }).catch(() => {});
             }
           } catch {}
+          if (qAgentsInputMode === "") return; // T529: an install/create branch already handled it (pin + back to list)
           qAgentsInputMode = "";
           qCloseMenus();
           return;
