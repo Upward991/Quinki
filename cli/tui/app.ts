@@ -5047,6 +5047,7 @@ const readProvidersCfg = (): any => {
       const out: any[] = [];
       if (agentId !== "orchestrator") {
         out.push({ value: "model", label: "Model", description: ov.model ? String(ov.model) : "Chat default" });
+        out.push({ value: "__agentcfg", label: "Agent configuration", description: "skills, MCP, tools, prompt" }); // T556
         out.push({
           value: "thinking",
           label: "Thinking",
@@ -5163,6 +5164,15 @@ const readProvidersCfg = (): any => {
       if (e.agentOverrides && e.agentOverrides[id]) delete e.agentOverrides[id];
     });
   };
+  // T556: true when we are inside an agent-configuration tree (tab agents, or the
+  // chat's in-session "Agent configuration").
+  const inAgentCfg = (): boolean => {
+    try {
+      if (menuStack[0] === "agents") return true;
+      if (menuStack[0] === "agentinsession" && menuStack.some((x) => String(x).startsWith("ag:"))) return true;
+    } catch {}
+    return false;
+  };
   const agentLevelFor = (it: any): string | null => {
     const stack = menuStack;
     if (stack.length === 1) {
@@ -5173,6 +5183,7 @@ const readProvidersCfg = (): any => {
     if (stack.length === 2 && stack[1] === "#add") return null; // direct action
     if (stack.length === 2) {
       if (it.value === "model" || it.value === "thinking") return String(it.value);
+      if (it.value === "__agentcfg") return "ag:" + String(stack[1]); // T556: open the config tree
       return null;
     }
     return null;
@@ -5318,7 +5329,11 @@ const readProvidersCfg = (): any => {
       return [{ value: "__rename-go", label: "Chat name: " + (menuSubFilter || "\u2026"), description: "type, then Enter \u00b7 Esc cancels" }];
     }
     if (stack.length === 0) return mainItems();
-    if (stack[0] === "agentinsession") return agentLevelItems(stack);
+    if (stack[0] === "agentinsession") {
+      // T556: "Agent configuration" inside the chat opens the SAME tree as the tab.
+      if (stack.length >= 3 && String(stack[stack.length - 1]).startsWith("ag:")) return agentAdminLevelItems(stack);
+      return agentLevelItems(stack);
+    }
     if (stack[0] === "agents") return agentAdminLevelItems(stack);
     if (stack[0] === "settings") return settingsLevelItems(stack);
     const cmd: any = commands.find((c) => c.name === stack[0]);
@@ -5810,7 +5825,7 @@ const readProvidersCfg = (): any => {
         if (String((cur as any)?.value || "") === "remove") return true;
         return false;
       }
-      if (menuStack[0] === "agents") {
+      if (inAgentCfg()) {
         // T526: ACTION rows and ACTION levels show "Confirm (Enter)":
         // delete modals, the install/input levels, and the "+ New…/Install…" rows.
         const lastLv = String(menuStack[menuStack.length - 1] || "");
@@ -5933,7 +5948,7 @@ const readProvidersCfg = (): any => {
           try { ui.requestRender(); } catch {}
           return;
         }
-        if (menuStack[0] === "agents" && it && !it.separator) {
+        if (inAgentCfg() && it && !it.separator) {
           // T507/508: Tab = SELECT with INSTANT effect (the app's value-pickers):
           // default agent, agent skills/tools/mcp toggles, per-skill/mcp/tool agent
           // toggles, plan-mode flags — one shared action.
@@ -6111,7 +6126,7 @@ const readProvidersCfg = (): any => {
             // terminal list: → must light the Confirm directly, never push a
             // ghost level out of the item value.
             let deeper = menuStack[0] === "agentinsession" ? agentLevelFor(it) : (menuStack[0] === "settings" ? settingsDeeper(it) : (menuStack[0] === "directory" && !menuStack[1] && String(it.value) === "__dir_change" ? "dirchange" : null));
-            if (menuStack[0] === "agents" && it && !it.separator) {
+            if (inAgentCfg() && it && !it.separator) {
               const vA = String(it.value || "");
               if (/^(#def|#you|#sk|#mcp|#tools|#plan|#plantools|#planmcp|ag:|ask:|atk:|amc:|sk:|mcp:|tool:)/.test(vA)) deeper = vA;
               if (vA.startsWith("aprompt:") || vA.startsWith("askill:")) { try { agentAdminAction(vA); } catch {} return; }
@@ -6754,7 +6769,7 @@ const applySettingsPatch = (patch: any) => {
       const inAddAgents = menuStack[0] === "agentinsession" && menuStack[1] === "#add";
       // T555: Select (Tab) shows ONLY when the highlighted ROW is really selectable
       // (dot rows / default agent / plan flags) — never on "Skill file", Delete… .
-      const inAgentsTab = menuStack[0] === "agents" && menuStack.length >= 2 && (() => {
+      const inAgentsTab = inAgentCfg() && menuStack.length >= 2 && (() => {
         try {
           const rowV = String(((items[menuSel] || {}) as any).value || "");
           return /^(def:|ast:|att:|amt:|ska:|mcpa:|tola:|pmt:|pmm:)/.test(rowV);
