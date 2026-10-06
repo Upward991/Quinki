@@ -515,6 +515,11 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
 
   // Toolbar: view dinamiche (base non eliminabile) + Filters + Search
   const addView = () => { const id = 'v' + Date.now(); const nv: ViewCfg = { id, name: 'View ' + (views.filter(v => v.id !== BASE_ID).length + 1), type: 'table', f: { q: '', status: 'all', agents: [], chats: [] } }; persist([views[0], nv, ...views.slice(1)]); setActiveId(id); setNewViewFlash(true); setTimeout(() => setNewViewFlash(false), 600) }
+  // PIN (6 ott): SOLO il flag. La vista pinnata va in cima da sola (partizione di
+  // display), le altre restano nella lista normale. L'ordine e' quello dell'array.
+  const setViewPinned = (id: string, pinned: boolean) => {
+    persist(views.map(x => x.id === id ? { ...x, pinned: !!pinned } : x))
+  }
   const renameView = (id: string, name: string) => { const nm = name.trim(); if (!nm) { setRenamingView(null); setRenameVal(''); return } persist(views.map(x => x.id === id ? { ...x, name: nm } : x)); setRenamingView(null); setRenameVal('') }
   const doDelete = (targets: ViewCfg[]) => { const ids = new Set(targets.map(t => t.id)); const rem = views.filter(x => !ids.has(x.id)); persist(rem); if (ids.has(activeId)) setActiveId(rem[0]?.id || BASE_ID); setDeleteViews(null); setMultiSel(false); setSelViews(new Set()) }
   const doDeleteTask = (t: { items: { id: string; kind: 'sched' | 'exec' }[] }) => { setDeleteTask(null); act(async () => { for (const it of t.items) { if (it.kind === 'sched') await call('deleteSchedule', { id: it.id }); else await call('deleteExecution', { executionId: it.id }) } setSelTasks(new Set()) }) }

@@ -199,9 +199,10 @@ export function Sidebar(props: SidebarProps) {
           zone = 'before'
         } else {
           zone = computeZone(relY, rect.height, isFolder)
-          if (isFolder && zone === 'after' && expandedFolders.has(entry.item.id)) {
-            zone = 'into'
-          }
+          // FIX (6 ott): l'"after" su una cartella APERTA era forzato a "into" ->
+          // era IMPOSSIBILE lasciare qualcosa SOTTO una cartella aperta (finiva
+          // sempre dentro). Ora vale la banda: 15% sopra = before, 85% sotto = after
+          // (fuori), banda centrale = into (dentro).
         }
         // Skip useless indicators: "after item above" and "before item below" (same position)
         const targetParentId = entry.item.parentId || null
