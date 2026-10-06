@@ -188,61 +188,8 @@ class InsetBox {
 const QEXPERT = process.env.QUINKI_EXPERT === "1";
 try { if (QEXPERT) (C as any).primary = C.expert; } catch {}
 
-// === HERO: mascot + big "QUINKI" (pure-block font: only \u2588 and spaces) ===
-// === HERO: "quinki" in a half-block pixel font (each cell = 2 vertical pixels) ===
-// === HERO: "welcome to quinki" in the half-block pixel font ===
-// === HERO: "Welcome to Quinki!" half-block pixel font (5px glyphs) ===
-const QPIX: Record<string, string[]> = {
-  "W": ["10001", "10001", "10101", "10101", "10101", "11011", "10001", "00000"],
-  "e": ["00000", "00000", "01110", "10001", "11111", "10000", "01110", "00000"],
-  "l": ["01100", "00100", "00100", "00100", "00100", "00100", "01110", "00000"],
-  "c": ["00000", "00000", "01110", "10001", "10000", "10001", "01110", "00000"],
-  "o": ["00000", "00000", "01110", "10001", "10001", "10001", "01110", "00000"],
-  "m": ["00000", "00000", "11011", "10101", "10101", "10101", "10101", "00000"],
-  "t": ["00100", "00100", "01110", "00100", "00100", "00101", "00010", "00000"],
-  " ": ["00000", "00000", "00000", "00000", "00000", "00000", "00000", "00000"],
-  "Q": ["01110", "10001", "10001", "10001", "10001", "01110", "00010", "00011"],
-  "u": ["00000", "00000", "10001", "10001", "10001", "10011", "01101", "00000"],
-  "i": ["00100", "00000", "01100", "00100", "00100", "00100", "01110", "00000"],
-  "n": ["00000", "00000", "10110", "11001", "10001", "10001", "10001", "00000"],
-  "k": ["10000", "10000", "10010", "10100", "11000", "10100", "10010", "00000"],
-  "!": ["01100", "01100", "01100", "01100", "00000", "01100", "00000", "00000"],
-};
-const glyphBounds = (bm: string[]): [number, number] => {
-  let a = 99, b = -1;
-  for (let r = 0; r < 8; r++) for (let x = 0; x < 5; x++) if (bm[r]?.[x] === "1") { a = Math.min(a, x); b = Math.max(b, x); }
-  if (b < 0) return [0, 0];
-  return [a, b];
-};
-const pixWord = (word: string, V: (t: string) => string): string[] => {
-  const rows: string[] = [];
-  for (let r = 0; r < 4; r++) {
-    let out = "";
-    for (let j = 0; j < word.length; j++) {
-      if (word[j] === " ") { out += "   "; continue; } // FIXED word gap (symmetric between all words)
-      const bm = QPIX[word[j]] || QPIX[" "];
-      const [x0, x1] = glyphBounds(bm); // trim empty side columns -> even spacing
-      for (let x = x0; x <= x1; x++) {
-        const top = bm[r * 2]?.[x] === "1";
-        const bot = bm[r * 2 + 1]?.[x] === "1";
-        out += top && bot ? V("\u2588") : top ? V("\u2580") : bot ? V("\u2584") : " ";
-      }
-      if (j < word.length - 1) out += " ";
-    }
-    rows.push(out);
-  }
-  return rows;
-};
-const bigBrand = (): string[] => {
-  // SOLO il nome (niente "Welcome to"): richiesta utente 6 ott.
-  const VIOLET = (t: string) => bold(fg(C.primary, t));
-  const b = pixWord(QEXPERT ? "App Expert" : "Quinki", VIOLET);
-  return [b[0], b[1], b[2], b[3]];
-};
-const HERO_ART = (): string[] => {
-  const brand = bigBrand();
-  return [brand[0], brand[1], brand[2], brand[3], ""];
-};
+// Wordmark pixel: RIMOSSO (richiesta utente 6 ott). L'archivio ESATTO
+// (codice + render + istruzioni di ripristino) è in cli/tui/quinki-wordmark.ts.
 
 
 
@@ -261,26 +208,9 @@ class WelcomeRoot {
     const hintLines = this.hint?.render(width) || [];
     // App-home greeting ABOVE the text box: time-based, same words, "Quinki" in
     // the violet brand (recomputed every render so it stays truthful).
-    let greet: string[] = [];
-    try {
-      // Niente saluto (richiesta utente 6 ott): solo il nome in pixel/violet.
-      const plain = QEXPERT ? "App Expert" : "Quinki";
-      const boxW = boxLines.length > 0 ? Math.max(...boxLines.map((l: string) => visibleWidth(String(l)))) : width;
-      const hero = HERO_ART(); // big pixel word, one line
-      const heroW = Math.max(...hero.map((l) => visibleWidth(String(l))));
-      if (heroW + 4 <= width) {
-        // Centered on the TEXT BOX; if the hero is wider than the box, center on
-        // the terminal (still symmetric, never flush-left).
-        const ref = heroW <= boxW ? boxW : width;
-        const off = Math.max(0, Math.floor((ref - heroW) / 2));
-        greet = hero.map((l) => " ".repeat(off) + l);
-      } else {
-        // FALLBACK terminal stretto: solo il nome, centrato sul text box.
-        const line = bold(fg(C.primary, plain));
-        const pad = " ".repeat(Math.max(0, Math.floor((boxW - visibleWidth(plain)) / 2)));
-        greet = ["", pad + line];
-      }
-    } catch {}
+    // Wordmark pixel RIMOSSO dalla welcome (6 ott, richiesta utente).
+    // Per rimetterlo ESATTAMENTE: cli/tui/quinki-wordmark.ts (istruzioni lì).
+    const greet: string[] = [];
     const group = greet.length + boxLines.length + 2 + hintLines.length;
     const top = Math.max(0, Math.floor((rows - group) / 2));
     const out: string[] = [];
