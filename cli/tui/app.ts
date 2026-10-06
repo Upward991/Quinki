@@ -1082,7 +1082,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
             // T547: THE PAGE. The inner box renders (width-2) wide; we wrap it with
             // exactly ONE column and ONE row of plain darker background on every
             // side, painting the full terminal so the chat behind never shows.
-            const innerW = Math.max(10, width - 2);
+            // T548: the inner box renders (askedWidth - 2) visible; ask for the FULL
+            // width so 1 + (w-2) + 1 = w exactly: the right column was 2 wide.
+            const innerW = Math.max(10, width);
             const lines = inner.render(innerW);
             const strip = () => bg(C.bg, " ".repeat(width));
             const out: string[] = [];
