@@ -2547,7 +2547,7 @@ const readProvidersCfg = (): any => {
     try { if (qNavTimer) clearTimeout(qNavTimer); } catch {}
     qNavTimer = setTimeout(() => {
       qNavTimer = null;
-      try { if (navMode) exitToggleNav(); } catch {}
+      try { if (navMode) exitToggleNav("timer-1.5s"); } catch {}
     }, 1500);
   };
   const enterToggleNav = () => {
@@ -2560,8 +2560,8 @@ const readProvidersCfg = (): any => {
     }
     ui.requestRender();
   };
-  const exitToggleNav = () => {
-    try { require("fs").appendFileSync("/tmp/q-nav-trace.log", new Date().toISOString() + " EXIT-NAV caller=" + String(new Error().stack || "").split("\n").slice(1,4).join(" <- ") + "\n"); } catch {}
+  const exitToggleNav = (reason?: string) => {
+    try { require("fs").appendFileSync("/tmp/q-nav-trace.log", new Date().toISOString() + " EXIT-NAV reason=" + String(reason || "?") + "\n"); } catch {}
     navMode = false;
     selToggle = -1;
     flatToggles().forEach((t) => {
@@ -2675,7 +2675,7 @@ const readProvidersCfg = (): any => {
           try { mods?.delete(modRel[1]); } catch {}
           const stillCtrl = mods?.has("57441") || mods?.has("57442");
           const stillAlt = mods?.has("57443") || mods?.has("57444");
-          if (navMode && (!stillCtrl || !stillAlt)) exitToggleNav();
+          if (navMode && (!stillCtrl || !stillAlt)) exitToggleNav("mod-release");
           return { consume: true };
         }
       } catch {}
@@ -2815,7 +2815,7 @@ const readProvidersCfg = (): any => {
             const dE = String(data);
             const isEscKey = dE === "\x1b" || matchesKey(dE, "escape");
             const isMod = /^\x1b\[5744[0-9]/.test(dE);
-            if (!isEscKey && !isMod && dE.indexOf("\x1b[1;7") !== 0) { exitToggleNav(); }
+            if (!isEscKey && !isMod && dE.indexOf("\x1b[1;7") !== 0) { exitToggleNav("any-key:" + JSON.stringify(dE.slice(0,12))); }
           } catch {}
         }
       } catch {}
