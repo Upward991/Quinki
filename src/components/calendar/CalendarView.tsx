@@ -172,9 +172,9 @@ function MiniSelect({ value, options, onChange }: { value: string; options: { va
   ])
 }
 
-function MenuItem({ label, color, onClick }: any) {
+function MenuItem({ label, color, onClick, icon }: any) {
   const [hovered, setHovered] = useState(false)
-  return React.createElement('button', { onClick, onMouseEnter: () => setHovered(true), onMouseLeave: () => setHovered(false), style: { display: 'flex', alignItems: 'center', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: hovered ? 'var(--q-hover)' : 'transparent', color: color || 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', textAlign: 'left' } }, label)
+  return React.createElement('button', { onClick, onMouseEnter: () => setHovered(true), onMouseLeave: () => setHovered(false), style: { display: 'flex', alignItems: 'center', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: hovered ? 'var(--q-hover)' : 'transparent', color: color || 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', textAlign: 'left' } }, [icon ? React.createElement('span', { key: 'i', style: { display: 'inline-flex', flexShrink: 0, marginRight: '6px' } }, icon) : null, label])
 }
 function ViewContextMenu({ x, y, item, multiSelect, selectedCount, onClose, onRename, onSelect, onDelete, onDeselectAll, onDeleteSelected, onTogglePin }: any) {
   return React.createElement(React.Fragment, null, [
