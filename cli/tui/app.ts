@@ -1067,6 +1067,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       try { (inner as any).onSubmit = () => { qSavePromptEditor(); }; } catch {}
       try { (inner as any).qFullHeight = true; } catch {} // T535: the editor fills the whole CLI
       try { (inner as any).qNoPlaceholder = true; } catch {} // T537: no "Write a message..." when empty
+      try { (inner as any).qTight = true; } catch {} // T538: exactly ONE row/col margin on every side (no inner breathing rows)
       try { (inner as any).bgFn = (x: string) => bg(C.bgPanel, String(x)); } catch {}
       const comp: any = {
         handleInput(data: string) {

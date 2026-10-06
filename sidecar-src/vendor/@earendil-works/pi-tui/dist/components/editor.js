@@ -392,7 +392,7 @@ export class Editor {
         // QUINKI PATCH (6 ott, T535): the prompt editor can fill the WHOLE screen
         // (maxVisibleLines = 30% otherwise, which made the modal scroll at mid-screen).
         const maxVisibleLines = this.qFullHeight
-            ? Math.max(5, terminalRows - 7)
+            ? Math.max(5, terminalRows - (this.qTight ? 3 : 7)) // T538: tight = margins(2) + footer(1)
             : Math.max(5, Math.floor(terminalRows * 0.3));
         // Find the cursor line index in layoutLines
         let cursorLineIndex = layoutLines.findIndex((line) => line.hasCursor);
@@ -437,7 +437,7 @@ export class Editor {
                 if (qc) result.push(qEdge() + qPaint(qc) + qEdgeR());
             }
         } catch {}
-        result.push(qEdge() + qPaint(" ".repeat(width - 2)) + qEdgeR());
+        if (!this.qTight) result.push(qEdge() + qPaint(" ".repeat(width - 2)) + qEdgeR()); // T538: no breathing row in tight mode
         // Render each visible layout line
         // Emit hardware cursor marker when focused so TUI can position the
         // hardware cursor for IME candidate-window placement even while
@@ -514,7 +514,7 @@ export class Editor {
             }
         }
         // QUINKI PATCH (25 set, iter6): breathing line + footer row + bottom padding, all painted.
-        result.push(qEdge() + qPaint(" ".repeat(width - 2)) + qEdgeR());
+        if (!this.qTight) result.push(qEdge() + qPaint(" ".repeat(width - 2)) + qEdgeR()); // T538: tight keeps only the footer row
         if (typeof this.footerLine === "function") {
             try { /* __qsel-editor */
                 const fl = String(this.footerLine(contentWidth) ?? "");
@@ -524,7 +524,7 @@ export class Editor {
             }
             catch { }
         }
-        result.push(qEdge() + qPaint(" ".repeat(width - 2)) + qEdgeR());
+        if (!this.qTight) result.push(qEdge() + qPaint(" ".repeat(width - 2)) + qEdgeR()); // T538: no bottom pad in tight mode
         // QUINKI PATCH (25 set): OUR slash menu panel above the box (driven by menuLinesFn).
         if (typeof this.menuLinesFn === "function") {
             try {
