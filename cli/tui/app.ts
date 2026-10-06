@@ -5736,7 +5736,14 @@ const readProvidersCfg = (): any => {
             if (menuStack[0] === "agents" && it && !it.separator) {
               const vA = String(it.value || "");
               if (/^(#def|#you|#sk|#mcp|#tools|#plan|#plantools|#planmcp|ag:|ask:|atk:|amc:|sk:|mcp:|tool:)/.test(vA)) deeper = vA;
-              if (vA === "__agdel" || vA === "__skdel" || vA === "__mcpdel") deeper = vA; // T523: -> opens the confirm modal
+              // T523: the forward arrow on the Delete rows opens the confirm modal
+              // DIRECTLY (push the "…del:<key>" level, exactly like Enter does).
+              {
+                const stL = String(menuStack[menuStack.length - 1] || "");
+                if (vA === "__agdel" && stL.startsWith("ag:")) deeper = "agdel:" + stL.slice(3);
+                else if (vA === "__skdel" && stL.startsWith("sk:")) deeper = "skdel:" + stL.slice(3);
+                else if (vA === "__mcpdel" && stL.startsWith("mcp:")) deeper = "mcpdel:" + stL.slice(4);
+              }
             }
             if (deeper) {
               try { require("fs").appendFileSync("/tmp/q-deep-trace.log", new Date().toISOString() + " PUSH " + JSON.stringify({ root: menuStack[0], val: String(it.value||""), deeper }) + "\n"); } catch {}
