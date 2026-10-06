@@ -1337,7 +1337,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       return out;
     }
     if (sub.startsWith("amc:")) {
-      const id = sub.slice(6);
+      const id = sub.slice(4); // T522: "amc:" is 4 chars (was 6 -> id "sign-researcher", an agent that does not exist: the Select did nothing)
       const has = agentMcpOf(id);
       const out: any[] = [...qHead("Agent: " + agentDisplayName(id) + " \u00b7 MCP")];
       const mcpSorted5 = qMcpData.slice().sort((a: any, b: any) => (has.includes(String(b?.id || b?.name)) ? 1 : 0) - (has.includes(String(a?.id || a?.name)) ? 1 : 0));
