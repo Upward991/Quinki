@@ -6130,7 +6130,11 @@ const readProvidersCfg = (): any => {
             if (inAgentCfg() && it && !it.separator) {
               const vA = String(it.value || "");
               if (/^(#def|#you|#sk|#mcp|#tools|#plan|#plantools|#planmcp|ag:|ask:|atk:|amc:|sk:|mcp:|tool:)/.test(vA)) deeper = vA;
-              if (vA.startsWith("aprompt:") || vA.startsWith("askill:")) { try { agentAdminAction(vA); } catch {} return; }
+              if (vA.startsWith("aprompt:") || vA.startsWith("askill:")) {
+                try { require("fs").appendFileSync("/tmp/q-agent-action.log", new Date().toISOString() + " ARROW-ACTION val=" + vA + "\n"); } catch {}
+                try { agentAdminAction(vA); } catch (eA: any) { try { require("fs").appendFileSync("/tmp/q-agent-action.log", new Date().toISOString() + " ARROW-ACTION ERR " + String(eA && eA.stack || eA) + "\n"); } catch {} }
+                return;
+              }
               if (vA.startsWith("ag:")) { try { refreshAgentsTab(); } catch {} } // T560: load the engine data the moment the config opens
               if (vA === "__createskill") { qAgentsInputMode = "newskill"; deeper = "__input"; }
               if (vA === "__newskill") { qAgentsInputMode = "skillpkg"; deeper = "__input"; }
