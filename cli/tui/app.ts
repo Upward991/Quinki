@@ -1137,7 +1137,44 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     } catch {}
   };
   // T508: the AGENTS tab data — the sidecar is the truth (same as the app).
-  let qAgentsInputMode: "" | "newagent" | "skillpkg" | "mcpmcp" = "";
+  let qAgentsInputMode: "" | "newagent" | "skillpkg" | "mcpmcp" | "mcpsrc" | "mcpargs" = "";
+  // T525: MCP install (mirrors the app's McpInstallModal): type -> source/command -> args.
+  let qMcpType: "package" | "url" | "command" = "package";
+  let qMcpSrc = "";
+  const qMcpDerive = (src: string, type: string): string => {
+    try {
+      if (type === "package") return (src.split("/").pop() || src).replace(/^server-/, "").replace(/^mcp-/, "");
+      if (type === "url") { try { const u = new URL(src.startsWith("http") ? src : "http://" + src); return u.hostname.replace(/^www\./, ""); } catch { return src; } }
+      const m = src.match(/@([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_.-]+)/);
+      if (m) {
+        const scope = m[1];
+        const pkg = m[2].replace(/@.*$/, "");
+        if (scope === "modelcontextprotocol") return pkg.replace(/^server-/, "").replace(/^mcp-/, "");
+        return scope + "-" + pkg;
+      }
+      return (src.trim().split(/\s+/)[0] || src).split("/").pop() || src;
+    } catch { return src; }
+  };
+  const qMcpInstall = (src: string, argsRaw: string): void => {
+    try {
+      const call = (globalThis as any).__sidecarCall;
+      const type = qMcpType;
+      const args = String(argsRaw || "").split(/[\n,]/).map((x: string) => x.trim()).filter(Boolean);
+      const name = qMcpDerive(String(src), type) || ("mcp-" + Date.now());
+      const id = name.toLowerCase().replace(/[^a-z0-9._-]+/g, "-") || ("mcp-" + Date.now());
+      const params: any = { id, name };
+      if (type === "command") {
+        params.type = "command";
+        params.command = String(src).trim();
+        if (args.length) params.args = args;
+      } else {
+        params.type = type;
+        params.source = String(src).trim();
+        if (type === "package" && args.length) params.args = args;
+      }
+      if (call) call("addMcpServer", params).then(() => { refreshAgentsTab(); }).catch(() => {});
+    } catch {}
+  };
   let qSkillsData: string[] = [];
   let qAgentsData: any[] = [];
   let qMcpData: any[] = [];
@@ -1382,9 +1419,18 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       for (const x of agsSorted3) out.push({ value: "tola:" + nm + ":" + x.id, label: (agentToolsOf(x.id).includes(nm) ? "\u25cf " : "\u25cb ") + String(x.a?.name || x.id), description: x.id });
       return out;
     }
+    if (sub === "__mcpType") {
+      return [
+        { value: "__mcpt_pkg", label: "Package (npm)", description: "e.g. @playwright/mcp" },
+        { value: "__mcpt_url", label: "URL (remote)", description: "https://example.com/mcp" },
+        { value: "__mcpt_cmd", label: "Command", description: "e.g. npx -y @some/mcp-server" },
+      ];
+    }
     if (sub === "__input") {
       const label = qAgentsInputMode === "newagent" ? "Agent name: " + (menuSubFilter || "\u2026")
         : qAgentsInputMode === "skillpkg" ? "Skill package: " + (menuSubFilter || "\u2026")
+        : qAgentsInputMode === "mcpsrc" ? (qMcpType === "url" ? "MCP url: " : qMcpType === "command" ? "MCP command: " : "MCP package: ") + (menuSubFilter || "\u2026")
+        : qAgentsInputMode === "mcpargs" ? "MCP args (optional): " + (menuSubFilter || "\u2026")
         : "MCP source: " + (menuSubFilter || "\u2026");
       return [{ value: "__go", label, description: "type, then Enter \u00b7 Esc cancels" }];
     }
@@ -5213,7 +5259,15 @@ const readProvidersCfg = (): any => {
         const callA = (globalThis as any).__sidecarCall;
         if (vAg === "__newagent") { qAgentsInputMode = "newagent"; menuStack.push("__input"); menuSubFilter = ""; menuSel = 0; try { ui.requestRender(); } catch {} return; }
         if (vAg === "__newskill") { qAgentsInputMode = "skillpkg"; menuStack.push("__input"); menuSubFilter = ""; menuSel = 0; try { ui.requestRender(); } catch {} return; }
-        if (vAg === "__newmcp") { qAgentsInputMode = "mcpmcp"; menuStack.push("__input"); menuSubFilter = ""; menuSel = 0; try { ui.requestRender(); } catch {} return; }
+        if (vAg === "__newmcp") { menuStack.push("__mcpType"); menuSubFilter = ""; menuSel = 0; try { ui.requestRender(); } catch {} return; }
+        if (vAg === "__mcpt_pkg" || vAg === "__mcpt_url" || vAg === "__mcpt_cmd") {
+          qMcpType = vAg === "__mcpt_url" ? "url" : vAg === "__mcpt_cmd" ? "command" : "package";
+          qMcpSrc = "";
+          qAgentsInputMode = "mcpsrc";
+          menuStack.push("__input"); menuSubFilter = ""; menuSel = 0;
+          try { ui.requestRender(); } catch {}
+          return;
+        }
         if (vAg === "__agdel") {
           const st1 = String(menuStack[1] || "");
           const agId = st1.startsWith("ag:") ? st1.slice(3) : "";
@@ -5257,7 +5311,19 @@ const readProvidersCfg = (): any => {
           try {
             if (qAgentsInputMode === "newagent" && val && callA) {
               callA('createAgent', { name: val }).then(() => { refreshAgentsTab(); }).catch(() => {});
-            } else if (qAgentsInputMode === "skillpkg" && val && callA) {
+            } else if (qAgentsInputMode === "mcpsrc" && val && callA) {
+            qMcpSrc = val;
+            if (qMcpType === "url") { qMcpInstall(val, ""); qCloseMenus(); return; }
+            qAgentsInputMode = "mcpargs";
+            menuSubFilter = "";
+            try { ui.requestRender(); } catch {}
+            return;
+          } else if (qAgentsInputMode === "mcpargs" && callA) {
+            qMcpInstall(qMcpSrc, val);
+            qAgentsInputMode = "";
+            qCloseMenus();
+            return;
+          } else if (qAgentsInputMode === "skillpkg" && val && callA) {
               callA('installSkill', { package: val }).then(() => { refreshAgentsTab(); }).catch(() => {});
             } else if (qAgentsInputMode === "mcpmcp" && val && callA) {
               const parts = val.split(/\s+/);
@@ -5442,8 +5508,12 @@ const readProvidersCfg = (): any => {
         return false;
       }
       if (menuStack[0] === "agents") {
-        // T507: the agents tab is all SELECTION (Tab = select, instant effect):
-        // never a Confirm in the bar.
+        // T525: the DELETE modals DO show "Confirm (Enter)" (without it the
+        // Enter would do nothing and the deletion was impossible to confirm).
+        const lastLv = String(menuStack[menuStack.length - 1] || "");
+        if (/^(agdel|skdel|mcpdel):/.test(lastLv)) return true;
+        // T507: otherwise the agents tab is all SELECTION (Tab = select,
+        // instant effect): never a Confirm in the bar.
         return false;
       }
       if (menuStack.length === 0) {
@@ -5739,6 +5809,12 @@ const readProvidersCfg = (): any => {
             if (menuStack[0] === "agents" && it && !it.separator) {
               const vA = String(it.value || "");
               if (/^(#def|#you|#sk|#mcp|#tools|#plan|#plantools|#planmcp|ag:|ask:|atk:|amc:|sk:|mcp:|tool:)/.test(vA)) deeper = vA;
+              if (vA === "__mcpt_pkg" || vA === "__mcpt_url" || vA === "__mcpt_cmd") {
+                qMcpType = vA === "__mcpt_url" ? "url" : vA === "__mcpt_cmd" ? "command" : "package";
+                qMcpSrc = "";
+                qAgentsInputMode = "mcpsrc";
+                deeper = "__input";
+              }
               // T523: the forward arrow on the Delete rows opens the confirm modal
               // DIRECTLY (push the "…del:<key>" level, exactly like Enter does).
               {
