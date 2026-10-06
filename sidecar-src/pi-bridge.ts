@@ -4758,7 +4758,12 @@ Read this file to view it.` }] };
     try {
       const pi: any = this.#active.get(key);
       const sm: any = pi?.sessionManager;
-      const entries: any[] = (sm && typeof sm.getEntries === "function") ? sm.getEntries() : [];
+      let entries: any[] = (sm && typeof sm.getEntries === "function") ? sm.getEntries() : [];
+      // QUINKI PATCH (6 ott): se sessionManager non ha entries (capita quando la
+      // sessione e' appena stata ricaricata) si usa la catena VIVA dell'agente:
+      // e' la stessa cosa che fa #capHistoryImages (funziona sempre).
+      const liveMsgs: any[] = (pi?.agent?.state?.messages || []);
+      if (liveMsgs.length > 0) entries = entries.concat(liveMsgs.map((m: any) => ({ message: m })));
       const clean = (content: any): any => {
         if (!Array.isArray(content)) return content;
         return content.map((p: any) => {
@@ -7903,7 +7908,19 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
         // === Immagini: ImageContent ===
         if (isImage) {
           const raw = f.data.includes(",") ? f.data.split(",")[1] : f.data;
-          contentArr.push({ type: "image", data: raw, mimeType: mime || "image/png" });
+          let outMime = mime || "image/png";
+          let outData = raw;
+          // QUINKI PATCH (6 ott): GIF/WebP/BMP da allegato -> PNG (i provider li rifiutano)
+          const baseM = (outMime.split(";")[0] || "").trim().toLowerCase();
+          if (baseM && baseM !== "image/png" && baseM !== "image/jpeg" && baseM !== "image/jpg") {
+            try {
+              const { convertImageBytesToPng } = await import("./vendor/@earendil-works/pi-coding-agent/dist/utils/image-convert.js");
+              const png = await convertImageBytesToPng(new Uint8Array(Buffer.from(raw, "base64")));
+              if (png && png.length > 0) { outData = Buffer.from(png).toString("base64"); outMime = "image/png"; }
+              else { contentArr.push({ type: "text", text: `\n[Immagine ${name}: formato ${baseM} non convertibile — immagine omessa]` }); continue; }
+            } catch { contentArr.push({ type: "text", text: `\n[Immagine ${name}: formato ${baseM} non convertibile — immagine omessa]` }); continue; }
+          }
+          contentArr.push({ type: "image", data: outData, mimeType: outMime });
           continue;
         }
 
@@ -8581,7 +8598,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
               // 400 immagini: il modello attuale non vede le immagini -> le togliamo
               // dal contesto (segnaposto), ricarichiamo la sessione e riprendiamo da soli.
               try {
-                const imgErr = /does not support image|image input is not supported|unsupported.*image|image.*not.*support|no vision|without vision|image_url|image.*only.?supported|only.?supported.*image|invalid.*content.?type|content.?type.*invalid|does not support.*image|support.*image.*input|image.*not.*allowed|multimodal|vision.*not/i.test(errMsg);
+                const imgErr = /invalid.*image|image.*invalid|does not support image|image input is not supported|unsupported.*image|image.*not.*support|no vision|without vision|image_url|image.*only.?supported|only.?supported.*image|invalid.*content.?type|content.?type.*invalid|support.*image.*input|image.*not.*allowed|multimodal|vision.*not/i.test(errMsg);
                 const imgTries = this.#imagesStripped.get(key) || 0;
                 if (imgErr && imgTries < 2) {
                   this.#imagesStripped.set(key, imgTries + 1);

@@ -10,10 +10,11 @@ function normalizeSupportedImageMimeType(mimeType) {
         case "image/jpeg":
         case "image/jpg":
             return "image/jpeg";
-        case "image/gif":
-            return "image/gif";
-        case "image/webp":
-            return "image/webp";
+        // QUINKI PATCH (6 ott): GIF/WebP/BMP NON passano piu' cosi' come sono.
+        // Ollama (e altri provider) rifiutano i GIF con "400 invalid image input"
+        // e la chat si brickava per sempre (ogni turno rispediva lo stesso GIF).
+        // Ora tutto cio' che non e' PNG/JPEG viene convertito in PNG via Photon:
+        // formato universale, accettato da ogni provider.
         default:
             return null;
     }
