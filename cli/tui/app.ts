@@ -1056,7 +1056,13 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       const inner = new Editor(ui as any, editorTheme, { paddingX: 1 });
       try { inner.setText(String(content || "")); } catch {}
       try { (inner as any).setCursorCol(0); } catch {}
-      const hint = () => fg(C.textSecondary, "Enter saves") + "  " + fg(C.textTertiary, "\u00b7") + "  " + fg(C.textSecondary, "\\ + Enter = new line") + "  " + fg(C.textTertiary, "\u00b7") + "  " + fg(C.danger, "Esc cancels");
+      const hint = (w: number) => {
+        const leftH = fg(C.textTertiary, "New line (Shift+Enter)");
+        const rightH = fg(C.danger, "Close (Esc)") + "  " + fg(C.primary, "Confirm (Enter)");
+        const lw = visibleWidth(leftH), rw = visibleWidth(rightH);
+        const padH = " ".repeat(Math.max(1, (Number(w) || 60) - lw - rw));
+        return leftH + padH + rightH;
+      };
       try { (inner as any).footerLine = hint; } catch {}
       try { (inner as any).onSubmit = () => { qSavePromptEditor(); }; } catch {}
       try { (inner as any).bgFn = (x: string) => bg(C.bgPanel, String(x)); } catch {}
@@ -1069,9 +1075,20 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           } catch {}
         },
         invalidate() { try { inner.invalidate?.(); } catch {} },
-        render(width: number) { try { return inner.render(width); } catch { return []; } },
+        render(width: number) {
+          try {
+            const lines = inner.render(width);
+            // T534: full-screen editor: pad to the whole terminal height with
+            // painted blank rows (the modal occupies the entire CLI).
+            let rows = 30;
+            try { rows = Number((ui as any)?.terminal?.rows) || Number((process.stdout as any).rows) || 30; } catch {}
+            const target = Math.max(6, rows - 2);
+            while (lines.length < target) lines.push((bg as any)(C.bgPanel, " ".repeat(Math.max(0, width))));
+            return lines;
+          } catch { return []; }
+        },
       };
-      const overlay = (ui as any).showOverlay(comp, { anchor: "center", width: "72%", minWidth: 46, margin: 2 });
+      const overlay = (ui as any).showOverlay(comp, { anchor: "center", width: "100%", height: "100%", margin: 1 });
       qPromptModal = { overlay, inner, id, isNew };
       try { pushBlock(new Text(fg(C.textSecondary, (isNew ? "New agent \u201c" + isNew + "\u201d \u2014 write its PROMPT.md" : "PROMPT.md of " + agentDisplayName(id)) + " \u2014 Enter saves \u00b7 Esc cancels"), 1, 0)); } catch {}
       try { scrollToEnd(); ui.requestRender(); } catch {}
@@ -2512,6 +2529,7 @@ const readProvidersCfg = (): any => {
         if (qPromptModal) {
           let d2 = String(data).replace(/\x1b\[[0-9;]*:3[0-9;:]*[A-Za-z~]/g, "");
           d2 = d2
+            .replace(/\x1b\[13;2u$/, "\n")
             .replace(/\x1b\[13;1:1u$/, "\r")
             .replace(/\x1b\[127;1:1u$/, "\x7f")
             .replace(/\x1b\[1;1:1([ABCD])$/, (_: string, c2: string) => "\x1b[" + c2)
