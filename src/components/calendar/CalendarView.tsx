@@ -211,7 +211,7 @@ function normalizeF(f: any): ViewCfg['f'] {
   else if (typeof f?.chat === 'string' && f.chat !== 'all') out.chats = [f.chat]
   return out
 }
-function normViews(v: any): ViewCfg[] { return (Array.isArray(v) ? v : []).map((x: any) => ({ id: x.id, name: x.name, type: x.type === 'board' ? 'board' : 'table', f: normalizeF(x.f) })) }
+function normViews(v: any): ViewCfg[] { return (Array.isArray(v) ? v : []).map((x: any) => ({ id: x.id, name: x.name, type: x.type === 'board' ? 'board' : 'table', f: normalizeF(x.f), pinned: !!x.pinned })) } // ⬅️ pinned DEVE sopravvivere (era stato mangiato: il pin spariva ad ogni restore)
 function loadViews(): ViewCfg[] { try { const s = localStorage.getItem(VIEWS_KEY); if (s) { const v = normViews(JSON.parse(s)); if (v.length) return v } } catch {} return [{ id: BASE_ID, name: 'All', type: 'table', f: { q: '', status: 'all', agents: [], chats: [] } }] }
 const DEFAULT_VIEWS: ViewCfg[] = [{ id: BASE_ID, name: 'All', type: 'table', f: { q: '', status: 'all', agents: [], chats: [] } }]
 
