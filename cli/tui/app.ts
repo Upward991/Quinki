@@ -5555,7 +5555,10 @@ const readProvidersCfg = (): any => {
               // editor opens (the box) with the fresh prompt: Enter saves it.
               callA('createAgent', { name: val }).then((r: any) => {
                 qShowResult(r, () => {
-                  const nid = String((r && (r.id || r.agentId)) || val);
+                  // T551: THE BUG — the engine answers {agent:{id:"…"}}: r.id was
+                  // undefined and we fell back to the NAME, writing PROMPT.md into a
+                  // phantom folder named like the agent.
+                  const nid = String((r && (r.agent?.id || r.id || r.agentId)) || val);
                   // T533: menu back to the list + the centered PROMPT.md editor opens.
                   const beforeM = new Set(qAgentsData.map((a: any) => String(a?.id || a?.name)));
                   menuStack = ["agents", "#you"]; menuSubFilter = ""; menuSel = 0;
