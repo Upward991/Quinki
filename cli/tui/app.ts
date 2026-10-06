@@ -2703,12 +2703,16 @@ const readProvidersCfg = (): any => {
         //   plain letter/number -> the char; ctrl+letter -> the control byte.
         // (The specials below keep working: they are matched first.)
         let pre = String(data);
-        pre = pre.replace(/\x1b\[(\d+)(?:;\d+(?::\d+)?)?u$/, (_m: string, cp: string) => {
+        pre = pre.replace(/\x1b\[(\d+)(?:;([0-9;]*))?(?::\d+)?u$/, (_m: string, cp: string, mods: string) => {
           try {
             const n = parseInt(cp, 10);
-            if (n >= 97 && n <= 122) return String.fromCharCode(n - 96); // ctrl+letter
+            const mod = String(mods || "");
+            const hasCtrl = /(?:^|;)5(?:;|$)/.test(mod) || /(?:^|;)6(?:;|$)/.test(mod) || /(?:^|;)7(?:;|$)/.test(mod) || /(?:^|;)8(?:;|$)/.test(mod);
+            if (n >= 97 && n <= 122 && hasCtrl) return String.fromCharCode(n - 96); // ctrl+letter ONLY
             if (n >= 32 && n <= 126) return String.fromCharCode(n);      // plain char
             if (n === 57441 || n === 57442 || n === 57443 || n === 57444) return _m; // modifier keys: keep raw
+            if (n === 27) return "\x1b";
+            if (n === 13) return "\r";
           } catch {}
           return _m;
         });
