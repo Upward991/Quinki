@@ -6661,7 +6661,7 @@ const applySettingsPatch = (patch: any) => {
   };
 
   const buildMenuRows = (w: number): string[] => {
-    try {
+    try { try { require("fs").appendFileSync("/tmp/q-tab2.log", new Date().toISOString() + " RENDER stack=" + JSON.stringify(menuStack) + " open=" + String(menuOpen()) + "\n"); } catch {}
       const t = editorText();
       if (menuError && menuStack.length > 0) {
         // T485: SAME style as a confirmation notice (the /quit "Quit quinki?"
@@ -6783,7 +6783,16 @@ const applySettingsPatch = (patch: any) => {
           if (cR && typeof cR.getArgumentCompletions === "function") canFwd = true;
         }
         if (curA && !curA.separator) {
-          if (menuStack[0] === "agentinsession") canFwd = !!agentLevelFor(curA); // T492: remove = no forward (nothing ahead)
+          if (menuStack[0] === "agentinsession") {
+            // T567: inside the in-session config the rows behave EXACTLY like the tab
+            // (the arrow must light on Prompt/Skills/MCP/Tools/…).
+            if (inAgentCfg()) {
+              const vF2 = String(curA.value || "");
+              canFwd = /^(ag:|ask:|atk:|amc:|sk:|mcp:|tool:|aprompt:|askill:|#def|#plantools|#planmcp)/.test(vF2) || vF2 === "__agdel" || vF2 === "__skdel" || vF2 === "__mcpdel" || vF2 === "__newskill" || vF2 === "__newmcp" || vF2 === "__newagent" || vF2 === "__createskill" || vF2.startsWith("__mcpt_");
+            } else {
+              canFwd = !!agentLevelFor(curA); // T492: remove = no forward (nothing ahead)
+            }
+          }
           else if (menuStack[0] === "agents") {
             // T512: the arrow lights when the row opens something (a section, an
             // agent's editor, a per-skill agent list...) — never on the toggles.
