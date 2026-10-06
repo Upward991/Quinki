@@ -5515,6 +5515,7 @@ const readProvidersCfg = (): any => {
           try { ui.requestRender(); } catch {}
           return;
         }
+        try { require("fs").appendFileSync("/tmp/q-agent-action.log", new Date().toISOString() + " ACTION vAg=" + vAg + " stack=" + JSON.stringify(menuStack) + "\n"); } catch {}
         if (vAg.startsWith("aprompt:")) {
           const pid = vAg.slice(8);
           const call = (globalThis as any).__sidecarCall;
