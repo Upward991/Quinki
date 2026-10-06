@@ -400,7 +400,13 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   // CANCELLAVA il primo (stessa famiglia del bug cartelle). Il salvataggio e'
   // centralizzato in un useEffect su views (niente side-effect nell'updater).
   const persistFn = (fn: (prev: ViewCfg[]) => ViewCfg[]) => {
-    setViews(prev => fn(prev))
+    setViews(prev => {
+      const nv = fn(prev)
+      // Salva SUBITO il valore calcolato (fuori dal render, in microtask):
+      // niente dipendenza dall'effect -> il pin non puo' perdersi.
+      try { setTimeout(() => { try { saveUi(fullWidth, nv) } catch {} }, 0) } catch {}
+      return nv
+    })
   }
   const patchF = (patch: Partial<ViewCfg['f']>) => { const v = { ...view, f: { ...view.f, ...patch } }; persist(views.map(x => x.id === v.id ? v : x)) }
 

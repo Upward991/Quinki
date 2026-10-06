@@ -1625,6 +1625,8 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
   }, [ready, call])
 
   // ── Folders ──
+  const foldersRef = useRef<any[]>([])
+  useEffect(() => { foldersRef.current = folders }, [folders])
   // MOVE (6 ott): sposta una cartella (stesso meccanismo delle chat: update
   // funzionale sul fresh state -> niente closure stantie che sovrascrivono il pin).
   const moveFolder = useCallback((folderId: string, parentId: string | null, order: number) => {
@@ -1637,11 +1639,24 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
   }, [ready, notify])
 
   // PIN (6 ott): pin di una cartella (store separato dalle sessioni).
+  // REGOLA UTENTE: pinnando una cartella, i FIGLI diventano pinned anche loro
+  // (il menu per loro non appare mai — ma il flag serve al drag: se li trascini
+  // fuori dalla cartella restano nella sezione pinned).
   const setFolderPinned = useCallback((folderId: string, pinned: boolean, order?: number) => {
     setFolders(prev => {
       const nf = prev.map(f => f.id === folderId ? { ...f, pinned: !!pinned, pinnedOrder: order ?? f.pinnedOrder } : f)
       try { notify('setFolders', { folders: nf }) } catch {}
       return nf
+    })
+    setSessions(prev => {
+      const childIds = new Set((foldersRef.current || []).filter((f: any) => f.parentId === folderId).map((f: any) => f.id))
+      const ns = prev.map(sx => {
+        const isChildSession = sx.folderId === folderId || sx.parentId === folderId
+        const isChildFolder = childIds.has(sx.id)
+        return (isChildSession || isChildFolder) ? ({ ...sx, pinned: !!pinned } as any) : sx
+      })
+      try { for (const sx of ns) { if (sx.folderId === folderId || sx.parentId === folderId) { notify('setSessionPinned', { sessionKey: sx.id, pinned: !!pinned }) } } } catch {}
+      return ns
     })
   }, [notify])
 
