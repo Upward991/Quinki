@@ -7630,6 +7630,23 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
           prev = Promise.resolve();
         }
       } catch {}
+    // === FIX (6 ott) VISION PRE-STRIP: cambio modello vision -> no-vision ===
+    // Il fix reattivo (400 "does not support image" -> strip) esiste, ma l'utente
+    // l'errore lo VEDE e con certi provider il messaggio 400 non matcha il pattern.
+    // Qui, PRIMA di costruire il turno: se il modello attivo dichiara input senza
+    // "image" (pi.model.input = ["text"]), le immagini nel contesto fanno 400
+    // matematico -> le sostituiamo SUBITO (in memoria + su disco), il turno parte pulito.
+    try {
+      const curInput = (pi.model as any)?.input;
+      if (Array.isArray(curInput) && curInput.length > 0 && !curInput.includes("image")) {
+        const nMem0 = this.#stripImagesInMemory(sk);
+        if (nMem0 > 0) {
+          const nFile0 = this.#stripImagesForKey(sk);
+          this.logDebug("pre-strip-images", { sessionKey: sk, model: (pi.model as any)?.id, mem: nMem0, file: nFile0, note: "modello senza vision: immagini rimosse dal contesto PRIMA del turno (fix cambio modello)" });
+        }
+      }
+    } catch (preStripErr) { try { this.logDebug("pre-strip-images-error", { sessionKey: sk, error: (preStripErr as any)?.message }); } catch {} }
+
     // === Aggiorna system prompt ad ogni messaggio (agenti possono cambiare mid-chat) ===
     try {
       let builtPrompt: string | undefined;
@@ -8548,7 +8565,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
               // 400 immagini: il modello attuale non vede le immagini -> le togliamo
               // dal contesto (segnaposto), ricarichiamo la sessione e riprendiamo da soli.
               try {
-                const imgErr = /does not support image|image input is not supported|unsupported.*image|image.*not.*support|no vision|without vision/i.test(errMsg);
+                const imgErr = /does not support image|image input is not supported|unsupported.*image|image.*not.*support|no vision|without vision|image_url|image.*only.?supported|only.?supported.*image|invalid.*content.?type|content.?type.*invalid|does not support.*image|support.*image.*input|image.*not.*allowed|multimodal|vision.*not/i.test(errMsg);
                 const imgTries = this.#imagesStripped.get(key) || 0;
                 if (imgErr && imgTries < 2) {
                   this.#imagesStripped.set(key, imgTries + 1);
