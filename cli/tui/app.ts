@@ -1380,6 +1380,30 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     if (vAgT.startsWith("tola:")) { const r = vAgT.slice(5); const i1 = r.indexOf(":"); const nm = r.slice(0, i1); const id = r.slice(i1 + 1); tog(id, nm, agentToolsOf(id), "tools"); return; }
     if (vAgT.startsWith("pmt:")) { const nm = vAgT.slice(4); const pm = { ...(((wsSettings as any)?.planModeTools) || {}) }; pm[nm] = !pm[nm]; applySettingsPatch({ planModeTools: pm }); return; }
     if (vAgT.startsWith("pmm:")) { const id2 = vAgT.slice(4); const pm = { ...(((wsSettings as any)?.planModeMcp) || {}) }; pm[id2] = !pm[id2]; applySettingsPatch({ planModeMcp: pm }); return; }
+    // T563 — THE bug: the shared action (arrow AND Enter AND Tab) did not know the
+    // file-open rows, so pressing -> on "Prompt"/"Skill file" exited silently.
+    if (vAgT.startsWith("aprompt:") || vAgT.startsWith("askill:")) { qAgentFileOpen(vAgT); return; }
+  };
+  // Opens PROMPT.md / SKILL.md in the full-screen editor (used by the shared action).
+  const qAgentFileOpen = (vAgF: string) => {
+    try {
+      const call = (globalThis as any).__sidecarCall;
+      if (vAgF.startsWith("aprompt:")) {
+        const pid = vAgF.slice(8);
+        if (call) {
+          call("readAgentFile", { id: pid, filePath: "PROMPT.md" }).then((r: any) => {
+            qOpenPromptEditor(pid, "", String(r?.content ?? ""), "agent");
+          }).catch((e: any) => { qShowResult({ ok: false, error: String(e?.message || e) }, () => {}); });
+        }
+      } else if (vAgF.startsWith("askill:")) {
+        const snm = vAgF.slice(7);
+        if (call) {
+          call("readSkillFile", { name: snm }).then((r: any) => {
+            qOpenPromptEditor(snm, "", String(r?.content ?? ""), "skill");
+          }).catch((e: any) => { qShowResult({ ok: false, error: String(e?.message || e) }, () => {}); });
+        }
+      }
+    } catch {}
   };
   const patchAgent = (id: string, config: any) => {
     try {
@@ -1510,15 +1534,19 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     }
     if (sub.startsWith("ag:")) {
       const agId = sub.slice(3);
-      try { require("fs").appendFileSync("/tmp/q-agents-data.log", new Date().toISOString() + " AG-MENU id=" + agId + " sk=" + agentSkillsOf(agId).length + " mcp=" + agentMcpOf(agId).length + " tk=" + agentToolsOf(agId).length + " dataN=" + qAgentsData.length + "\n"); } catch {}
-      return [...qHead("Agent: " + agentDisplayName(agId)),
+      const rows: any[] = [...qHead("Agent: " + agentDisplayName(agId)),
         { value: "aprompt:" + agId, label: "Prompt", description: "open PROMPT.md (edit it)" },
         { value: "ask:" + agId, label: "Skills", description: String(agentSkillsOf(agId).length) + " enabled" },
         { value: "amc:" + agId, label: "MCP", description: String(agentMcpOf(agId).length) + " enabled" },
         { value: "atk:" + agId, label: "Tools", description: String(agentToolsOf(agId).length) + " enabled" },
-        { value: "__sep_agdelgap", label: "", separator: true },
-        { value: "__agdel", label: "Delete agent", description: "" },
       ];
+      // T563: no Delete agent from the chat's in-session config (tab-only, per the user).
+      if (stack[0] !== "agentinsession") {
+        rows.push({ value: "__sep_agdelgap", label: "", separator: true });
+        rows.push({ value: "__agdel", label: "Delete agent", description: "" });
+      }
+      try { require("fs").appendFileSync("/tmp/q-agents-data.log", new Date().toISOString() + " AG-MENU id=" + agId + " sk=" + agentSkillsOf(agId).length + " mcp=" + agentMcpOf(agId).length + " tk=" + agentToolsOf(agId).length + " dataN=" + qAgentsData.length + "\n"); } catch {}
+      return rows;
     }
     if (sub.startsWith("ask:")) {
       const id = sub.slice(4);
