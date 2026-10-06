@@ -8,7 +8,12 @@ Quinki is a native desktop app for AI work: parallel multi-agent chats, schedule
 
 ![The Quinki home](screenshots/app-main.png)
 
-**The CLI.** The same sessions, agents and skills, in your terminal:
+**The CLI.** The same sessions, agents and skills, in your terminal. Standalone — no app required (macOS; Windows/Linux land next):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/Upward991/Quinki/main/install-cli.sh | sh
+quinki
+```
 
 ![The Quinki CLI](screenshots/cli.png)
 

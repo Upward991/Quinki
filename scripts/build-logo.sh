@@ -60,6 +60,8 @@ def render(v, size, style="app"):
         inner = int(size * 0.80)
     else:
         inner = size
+    # Scala del glifo per stile: le icone MOBILE (pwa) hanno più padding attorno
+    # alle lettere (le maschere Android/iOS tagliano i bordi -> mai far sbordare).
     off = (size - inner) // 2
     S = 4
     bg = Image.new("RGBA", (size * S, size * S), (0, 0, 0, 0))
@@ -72,7 +74,7 @@ def render(v, size, style="app"):
     g = spec["glyph"]
     rows = len(g)
     b = bounds(g)
-    cell = max(1, round(inner * 0.78 / 8))          # stessa cella per Q ed E
+    cell = max(1, round(inner * (0.58 if style == "pwa" else 0.78) / 8))  # pwa = più padding
     if cell * rows > inner - 4:
         cell = max(1, cell - 1)
     w = cell * (b[3] - b[2] + 1)
@@ -181,16 +183,16 @@ def android_icon(v, size, kind):
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     if kind == "foreground":
-        rects, ink = android_glyph(v, size, 0.62)
+        rects, ink = android_glyph(v, size, 0.55)
         for (x, y, c) in rects:
             d.rectangle([x, y, x + c - 1, y + c - 1], fill=ink)
     else:
         if kind == "round":
             d.ellipse([0, 0, size - 1, size - 1], fill=spec["tile"])
-            rects, ink = android_glyph(v, size, 0.60)
+            rects, ink = android_glyph(v, size, 0.50)
         else:
             d.rectangle([0, 0, size - 1, size - 1], fill=spec["tile"])
-            rects, ink = android_glyph(v, size, 0.78)
+            rects, ink = android_glyph(v, size, 0.62)
         for (x, y, c) in rects:
             d.rectangle([x, y, x + c - 1, y + c - 1], fill=ink)
     return img
