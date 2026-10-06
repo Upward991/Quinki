@@ -1052,6 +1052,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   // =========================================================================
   let qPromptModal: any = null; // { overlay, inner, id, isNew, target: "agent"|"skill" }
   const qOpenPromptEditor = (id: string, isNew: string, content: string, target: "agent" | "skill" = "agent") => {
+    try { require("fs").appendFileSync("/tmp/q-agent-action.log", new Date().toISOString() + " OPEN-EDITOR id=" + id + " target=" + target + " len=" + String(content || "").length + "\n"); } catch {}
     try {
       const inner = new Editor(ui as any, editorTheme, { paddingX: 1 });
       try { inner.setText(String(content || "")); } catch {}
@@ -1387,11 +1388,12 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   // Opens PROMPT.md / SKILL.md in the full-screen editor (used by the shared action).
   const qAgentFileOpen = (vAgF: string) => {
     try {
+      try { require("fs").appendFileSync("/tmp/q-agent-action.log", new Date().toISOString() + " FILE-OPEN vAg=" + vAgF + " call=" + String(typeof (globalThis as any).__sidecarCall) + "\n"); } catch {}
       const call = (globalThis as any).__sidecarCall;
       if (vAgF.startsWith("aprompt:")) {
         const pid = vAgF.slice(8);
         if (call) {
-          call("readAgentFile", { id: pid, filePath: "PROMPT.md" }).then((r: any) => {
+          call("readAgentFile", { id: pid, filePath: "PROMPT.md" }).then((r: any) => { try { require("fs").appendFileSync("/tmp/q-agent-action.log", new Date().toISOString() + " READ-OK len=" + String(r?.content || "").length + "\n"); } catch {}
             qOpenPromptEditor(pid, "", String(r?.content ?? ""), "agent");
           }).catch((e: any) => { qShowResult({ ok: false, error: String(e?.message || e) }, () => {}); });
         }
