@@ -6241,7 +6241,7 @@ const readProvidersCfg = (): any => {
             try { if (cmd.name === "skill" || cmd.name === "attachments") killAutocomplete(); } catch {}
             // T513 — THE user's flow (slash + selector + FORWARD): the arrow opens
             // the menu WITHOUT the case, so the tab data must load right here.
-            try { if (cmd.name === "agents") refreshAgentsTab(); } catch {}
+            try { if (cmd.name === "agents") { qCfgFromSession = false; refreshAgentsTab(); } } catch {} // T570: reset also via the arrow-opened tab
           } else if (cmd) {
             // MENU 2.0: nothing (Enter runs commands).
           }
