@@ -143,25 +143,20 @@ export function Sidebar(props: SidebarProps) {
   const normalTop = topItems.filter((s: any) => !s.pinned)
   // PIN (6 ott): anche le chat DENTRO le cartelle si possono pinnare: salgono in
   // cima (depth 0) e vengono SALTATE dentro la cartella per non apparire due volte.
-  const pinnedNested = e.filter((s: any) => s.pinned && s.parentId).sort((a: any, b: any) => {
-    const pa = (typeof a.pinnedOrder === 'number') ? a.pinnedOrder : 0
-    const pb = (typeof b.pinnedOrder === 'number') ? b.pinnedOrder : 0
-    return pa - pb
-  })
-  function buildList(items: any[], depth: number, skipPinnedChildren?: boolean) {
+  function buildList(items: any[], depth: number) {
     for (const item of items.sort((a, b) => (b.order || 0) - (a.order || 0))) {
       flatList.push({ item, depth })
       if (item.type === 'folder' && expandedFolders.has(item.id)) {
-        const children = e.filter(s => s.parentId === item.id && !(skipPinnedChildren && (s as any).pinned))
-        buildList(children, depth + 1, skipPinnedChildren)
+        const children = e.filter(s => s.parentId === item.id)
+        buildList(children, depth + 1)
       }
     }
   }
-  buildList([...pinnedTop, ...pinnedNested], 0, true)
-  if (pinnedTop.length > 0 || pinnedNested.length > 0) {
+  buildList(pinnedTop, 0)
+  if (pinnedTop.length > 0) {
     flatList.push({ item: { id: '__pinsep__', type: 'pinsep' }, depth: 0, isPinSep: true })
   }
-  buildList(normalTop, 0, true)
+  buildList(normalTop, 0)
 
   function handleDragStart(ev: any) {
     const item = flatList.find(f => f.item.id === ev.active.id)
@@ -278,9 +273,9 @@ export function Sidebar(props: SidebarProps) {
     const targetItem = e.find(s => s.id === targetId)
     if (!targetItem) { dragRef.current = null; setDropZone(null); setActiveDragItem(null); return }
     // PIN (6 ott): entrambi pinnati e di primo livello -> riordino nella sezione Pinned
-    const bothPinned = (dragItem as any).pinned && (targetItem as any).pinned
+    const bothPinned = (dragItem as any).pinned && (targetItem as any).pinned && !(dragItem as any).parentId && !(targetItem as any).parentId
     if (bothPinned && zone !== 'into') {
-      const pinned = e.filter((s: any) => s.pinned && s.id !== dragItem.id)
+      const pinned = e.filter((s: any) => s.pinned && !s.parentId && s.id !== dragItem.id)
         .sort((a: any, b: any) => ((typeof a.pinnedOrder === 'number' ? a.pinnedOrder : 0) - (typeof b.pinnedOrder === 'number' ? b.pinnedOrder : 0)) || ((b.order || 0) - (a.order || 0)))
       const tIdx = pinned.findIndex((s: any) => s.id === targetId)
       const tPo = typeof (targetItem as any).pinnedOrder === 'number' ? (targetItem as any).pinnedOrder : (tIdx >= 0 ? tIdx : 0)
@@ -762,7 +757,7 @@ function ContextMenu({ x, y, item, multiSelect, selectedCount, onClose, onRename
             {!isFolder && <MenuItem label="Select chat" onClick={onSelect} />}
             {(!isFolder && !!(window as any).__TAURI_INTERNALS__) && <MenuItem label="Open in separate window" onClick={onOpenWindow} />}
             {isFolder && <MenuItem label="New subfolder" onClick={onNewSubfolder} />}
-            <MenuItem label={item?.pinned ? 'Unpin' : 'Pin'} icon={React.createElement(Pin, { size: 15 })} onClick={onTogglePin} />
+            {(!item?.parentId || item?.pinned) && <MenuItem label={item?.pinned ? 'Unpin' : 'Pin'} icon={React.createElement(Pin, { size: 15 })} onClick={onTogglePin} />}
             <MenuItem label={isFolder ? 'Delete folder' : 'Delete chat'} color="var(--q-accent-danger)" onClick={onDelete} />
             {isFolder && <MenuItem label="Delete folder with contents" color="var(--q-accent-danger)" onClick={() => onDeleteFolder(true)} />}
           </>
