@@ -331,9 +331,14 @@ export function Sidebar(props: SidebarProps) {
           const tP = !!(targetItem as any).pinned
           // Target pinnato = pin (anche "into" una cartella pinnata).
           if (!dP && tP) props.onSetPinned?.(dragItem.id, true)
-          // Unpin SOLO se l'elemento era pinnato DI SUO (ownPinned): un figlio
-          // "ereditato" da una cartella pinnata, trascinato fuori, RESTA pinnato.
-          if (dP && !tP && dOwn) props.onSetPinned?.(dragItem.id, false)
+          // Uscita dalla zona pinned:
+          //  - pinnato DI SUO -> unpin
+          //  - pinnato EREDITATO (figlio di cartella pinnata) -> MATERIALIZZA il
+          //    pin (pinned=true): resta nella sezione pinned, nel punto del drop.
+          if (dP && !tP) {
+            if (dOwn) props.onSetPinned?.(dragItem.id, false)
+            else props.onSetPinned?.(dragItem.id, true)
+          }
         }
       }
     }
