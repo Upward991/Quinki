@@ -392,7 +392,7 @@ export class Editor {
         // QUINKI PATCH (6 ott, T535): the prompt editor can fill the WHOLE screen
         // (maxVisibleLines = 30% otherwise, which made the modal scroll at mid-screen).
         const maxVisibleLines = this.qFullHeight
-            ? Math.max(5, terminalRows - 7)
+            ? Math.max(5, terminalRows - 6) // T541: exactly 1 row margin top + 1 bottom in the full-screen modal
             : Math.max(5, Math.floor(terminalRows * 0.3));
         // Find the cursor line index in layoutLines
         let cursorLineIndex = layoutLines.findIndex((line) => line.hasCursor);
