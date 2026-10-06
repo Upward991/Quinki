@@ -404,6 +404,15 @@ class ToggleBlock {
     // with the first letter of the writing and the right edge matches the text.
     let head = " " + fg(col, arrow + " ") + fg(col, this.label);
     if (this.boldName) head += " " + bold(fg(col, this.boldName));
+    // 6 ott: while you navigate this toggle (Ctrl+Alt+arrows) it INVERTS:
+    // background = its own color, text = the CLI background. Each toggle has
+    // its own color, so you always see exactly which one you are on.
+    if (this.selected) {
+      try {
+        const seg = " " + arrow + " " + this.label + (this.boldName ? " " + this.boldName : "") + " ";
+        head = bg(this.color, fg(C.bg, bold(seg)));
+      } catch {}
+    }
     if (!this.open) {
       let src = String(this.body || "");
       if (!src.trim()) {
@@ -2442,6 +2451,12 @@ const readProvidersCfg = (): any => {
       ],
     },
     {
+      name: "shortcuts",
+      description: "all the keyboard shortcuts",
+      seq: 11.8,
+      hidden: () => false,
+    },
+    {
       name: "settings",
       description: "Settings",
       // T505: welcome-only AND main-CLI-only (the expert gets no settings at all).
@@ -2712,7 +2727,30 @@ const readProvidersCfg = (): any => {
       } catch {}
       // Ctrl+T = toggle navigation mode: ↑↓ move between toggles, → opens,
       // ← closes, Esc exits and closes them all (modal: other keys swallowed).
-      const isCtrlT = data === "\x14" || matchesKey(data, "ctrl+t");
+      // 6 ott: THE TOGGLE NAV IS ALWAYS AVAILABLE: Ctrl+Alt + the arrows.
+      // (No on/off mode anymore; Ctrl+T is gone.)
+      try {
+        const qCAM = String(data).match(/^\x1b\[1;7:?[13]?([ABCD])$/);
+        if (qCAM && !(menuOpenRef?.() ?? false) && navMode) {
+          const d2 = qCAM[1];
+          if (d2 === "A") moveToggleSel(-1);
+          else if (d2 === "B") moveToggleSel(1);
+          else if (d2 === "C") setToggleOpen(true);
+          else if (d2 === "D") setToggleOpen(false);
+          return { consume: true };
+        }
+        // first Ctrl+Alt+arrow of a session: enter the nav (select the last toggle)
+        if (qCAM && !(menuOpenRef?.() ?? false) && !navMode) {
+          enterToggleNav();
+          const d2 = qCAM[1];
+          if (d2 === "A") moveToggleSel(-1);
+          else if (d2 === "B") moveToggleSel(1);
+          else if (d2 === "C") setToggleOpen(true);
+          else if (d2 === "D") setToggleOpen(false);
+          return { consume: true };
+        }
+      } catch {}
+      const isCtrlT = false; // Ctrl+T removed: the nav is always on Ctrl+Alt+arrows
       if (isCtrlT && !(menuOpenRef?.() ?? false)) {
         toggleNavMode();
         return { consume: true };
@@ -3315,69 +3353,16 @@ const readProvidersCfg = (): any => {
   //   Ctrl+Enter-> lit while steering is possible (generating + text)
   //   Esc       -> flashes lit right when pressed
   const buildHintLine = (width: number): string => {
-    const lit = (s: string) => bold(fg(C.primary, s));
-    const quiet = (s: string) => fg(C.textTertiary, s);
-    const sec = (s: string) => fg(C.textSecondary, s);
-    if (navMode) {
-      // Toggle navigation ON: its keys replace the chat ones (close left, open right).
-      const leftN =
-        lit("Toggle Nav (Ctrl+T)") +
-        fg(C.textTertiary, " \u00b7 ") +
-        fg(C.danger, "Close (Esc)") +
-        fg(C.textTertiary, " \u00b7 ") +
-        quiet("Info (Ctrl+F)");
-      const rightN =
-        sec("Move (\u2191\u2193)") +
-        fg(C.textTertiary, " \u00b7 ") +
-        sec("Close (\u2190)") +
-        fg(C.textTertiary, " \u00b7 ") +
-        sec("Open (\u2192)");
-      const brandN = welcomeShown ? "" : fg(C.primary, "\u2502") + " " + fg(C.primary, "Quinki") + " " + fg(C.primary, "\u2502");
-      const lwN = visibleWidth(leftN);
-      const rwN = visibleWidth(rightN);
-      const startN = Math.max(lwN + 1, Math.floor((width - 10) / 2));
-      const g1N = Math.max(1, startN - lwN);
-      const g2N = Math.max(1, width - startN - 10 - rwN);
-      return leftN + " ".repeat(g1N) + brandN + " ".repeat(g2N) + rightN;
-    }
-    const menuActive = menuOpenRef?.() ?? false;
-    const canSend = hasText() && !menuActive; // 6 ott: unified — during the generation it steers
-    const canSteer = false; // gone: merged into Send
-    const textNow = (() => {
-      try {
-        return editor.getText().trim();
-      } catch {
-        return "";
-      }
-    })();
-    // A complete slash command waiting to be run -> Enter is FILLED (violet bg).
-    const cmdReady = !menuActive && textNow.startsWith("/") && textNow.length > 1 && !qIsFilePath(textNow);
-    const left = welcomeShown
-      ? (menuActive ? lit("Menu (/)") : quiet("Menu (/)"))
-      : (menuActive ? lit("Menu (/)") : quiet("Menu (/)")) +
-        fg(C.textTertiary, " \u00b7 ") +
-        quiet("Toggle Nav (Ctrl+T)") +
-        fg(C.textTertiary, " \u00b7 ") +
-        quiet("Info (Ctrl+F)");
-    const sep = fg(C.textTertiary, " \u00b7 ");
-    const stopKey = welcomeShown ? "" : (streaming ? bold(fg(C.danger, "Stop (Esc)")) : quiet("Stop (Esc)"));
-    const steerKey = welcomeShown ? "" : (canSteer ? lit("Steer (Ctrl+Enter)") : quiet("Steer (Ctrl+Enter)"));
-    const sendKey = cmdReady
-      ? bold(bg(C.primary, fg(C.bgPanel, " Send (Enter) ")))
-      : canSend
-        ? lit("Send (Enter)")
-        : quiet("Send (Enter)");
-    const right = [stopKey, steerKey, sendKey].filter((x) => x.length > 0).join(sep);
-
-    // "│ Quinki │" — brand centered between two violet vertical bars.
+    // 6 ott: ALL the shortcut hints under the textbox are gone (they live in
+    // /shortcuts now). The line keeps only the brand, centered.
+    return buildBrandLine(width);
+  };
+  const buildBrandLine = (width: number): string => {
+    // Only the centered brand remains: "| Quinki |".
     const brand = welcomeShown ? "" : fg(C.primary, "\u2502") + " " + fg(C.primary, QEXPERT ? "App Expert" : "Quinki") + " " + fg(C.primary, "\u2502");
-    const lw = visibleWidth(left);
-    const rw = visibleWidth(right);
-    const bw = welcomeShown ? 0 : visibleWidth(brand); // REAL brand width (App Expert is longer than Quinki)
-    const start = Math.max(lw + 1, Math.floor((width - bw) / 2));
-    const gap1 = Math.max(1, start - lw);
-    const gap2 = Math.max(1, width - start - bw - rw);
-    return left + " ".repeat(gap1) + brand + " ".repeat(gap2) + right;
+    const bw = visibleWidth(brand);
+    const start = Math.max(0, Math.floor((width - bw) / 2));
+    return " ".repeat(start) + brand;
   };
   try {
     hintRow = new FnLine((w: number) => buildHintLine(w));
@@ -4789,6 +4774,13 @@ const readProvidersCfg = (): any => {
         applyDirChange(target);
         break;
       }
+      case "shortcuts": {
+        menuStack = ["shortcuts"];
+        menuSubFilter = "";
+        menuSel = 0;
+        try { ui.requestRender(); } catch {}
+        break;
+      }
       case "agents": {
         // T506 — THE missing case: without it the bulletproof Enter found the
         // command but handleSlash fell through and the tab never opened.
@@ -5363,6 +5355,24 @@ const readProvidersCfg = (): any => {
       return [{ value: "__rename-go", label: "Chat name: " + (menuSubFilter || "\u2026"), description: "type, then Enter \u00b7 Esc cancels" }];
     }
     if (stack.length === 0) return mainItems();
+    if (stack[0] === "shortcuts") {
+      // The shortcuts list (read-only rows).
+      const R = (k: string, d: string) => ({ value: "__sc_" + k, label: k, description: d });
+      return [
+        { value: "__sep_scl1", label: "Chat", separator: true },
+        R("Send / Steer (Enter)", "during a reply the send becomes a steer"),
+        R("Stop (Esc)", "stops the running reply"),
+        R("Menu (/)", "opens the command menu; forward arrow enters"),
+        R("Close (Esc) \u00b7 Confirm (Enter) \u00b7 Select (Tab)", "in every menu"),
+        R("Info (Ctrl+F)", "show/hide the detailed footers"),
+        { value: "__sep_scl2", label: "Toggles (anytime, no mode)", separator: true },
+        R("Ctrl+Alt + \u2191 / \u2193", "move between the toggles (they invert)"),
+        R("Ctrl+Alt + \u2192 / \u2190", "open / close the selected toggle"),
+        { value: "__sep_scl3", label: "Editor", separator: true },
+        R("Shift+Enter", "new line (also \\ + Enter)"),
+        R("Attachments", "drag or paste a file: its name becomes a chip"),
+      ];
+    }
     if (stack[0] === "agentinsession") {
       // T556: "Agent configuration" inside the chat opens the SAME tree as the tab.
       if (stack.length >= 3 && String(stack[stack.length - 1]).startsWith("ag:")) return agentAdminLevelItems(stack);
@@ -5629,7 +5639,8 @@ const readProvidersCfg = (): any => {
           qCloseMenus();
           return;
         }
-        if (vAg === "__go") {
+        if (vAg.startsWith("__sc_")) { return; } // shortcuts list: read-only rows
+    if (vAg === "__go") {
           const val = menuSubFilter.trim();
           try {
             if (qAgentsInputMode === "newagent" && val && callA) {
