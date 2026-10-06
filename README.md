@@ -1,14 +1,16 @@
 # Quinki
 
-![Quinki in action](https://raw.githubusercontent.com/Upward991/Quinki/gh-pages/media/hello-demo.gif)
+<img src="screenshots/app-icon.png" width="76" alt="Quinki">
 
 **AI agents, chats and tools on your desktop.**
 
 Quinki is a native desktop app for AI work: parallel multi-agent chats, scheduled jobs, a Market of community-built tools, and the App Expert to extend the app from inside it. Everything stays on your machine.
 
-## Demos
+![The Quinki home](screenshots/app-main.png)
 
-https://github.com/user-attachments/assets/bd586281-bdfa-471d-8a90-4659b238a889
+**The CLI.** The same sessions, agents and skills, in your terminal:
+
+![The Quinki CLI](screenshots/cli.png)
 
 ![macOS](https://img.shields.io/badge/macOS-Apple%20Silicon-blue)
 [![Version](https://img.shields.io/github/v/release/Upward991/Quinki?include_prereleases&sort=semver&label=version&color=orange)](https://github.com/Upward991/Quinki/releases)
