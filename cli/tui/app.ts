@@ -1045,6 +1045,67 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       noMatch: (s: string) => fg(C.textTertiary, s),
     },
   };
+  // =========================================================================
+  // T533: THE PROMPT EDITOR — a dedicated modal overlay at the CENTER of the CLI.
+  // A second Editor instance (its own state): Enter saves, "\" + Enter inserts a
+  // newline, Esc cancels. The composer stays untouched (chat only).
+  // =========================================================================
+  let qPromptModal: any = null; // { overlay, inner, id, isNew }
+  const qOpenPromptEditor = (id: string, isNew: string, content: string) => {
+    try {
+      const inner = new Editor(ui as any, editorTheme, { paddingX: 1 });
+      try { inner.setText(String(content || "")); } catch {}
+      try { (inner as any).setCursorCol(0); } catch {}
+      const hint = () => fg(C.textSecondary, "Enter saves") + "  " + fg(C.textTertiary, "\u00b7") + "  " + fg(C.textSecondary, "\\ + Enter = new line") + "  " + fg(C.textTertiary, "\u00b7") + "  " + fg(C.danger, "Esc cancels");
+      try { (inner as any).footerLine = hint; } catch {}
+      try { (inner as any).onSubmit = () => { qSavePromptEditor(); }; } catch {}
+      try { (inner as any).bgFn = (x: string) => bg(C.bgPanel, String(x)); } catch {}
+      const comp: any = {
+        handleInput(data: string) {
+          try {
+            const d = String(data);
+            if (d === "\x1b" || matchesKey(d, "escape")) { qClosePromptEditor(false); return; }
+            inner.handleInput?.(d);
+          } catch {}
+        },
+        invalidate() { try { inner.invalidate?.(); } catch {} },
+        render(width: number) { try { return inner.render(width); } catch { return []; } },
+      };
+      const overlay = (ui as any).showOverlay(comp, { anchor: "center", width: "72%", minWidth: 46, margin: 2 });
+      qPromptModal = { overlay, inner, id, isNew };
+      try { pushBlock(new Text(fg(C.textSecondary, (isNew ? "New agent \u201c" + isNew + "\u201d \u2014 write its PROMPT.md" : "PROMPT.md of " + agentDisplayName(id)) + " \u2014 Enter saves \u00b7 Esc cancels"), 1, 0)); } catch {}
+      try { scrollToEnd(); ui.requestRender(); } catch {}
+    } catch (e) {}
+  };
+  const qClosePromptEditor = (saved: boolean) => {
+    const m = qPromptModal;
+    qPromptModal = null;
+    try { m?.overlay?.hide(); } catch {}
+    if (!saved) {
+      try { pushBlock(new Text(fg(C.textSecondary, "Prompt edit cancelled."), 1, 0)); } catch {}
+      try { scrollToEnd(); ui.requestRender(); } catch {}
+    }
+  };
+  const qSavePromptEditor = () => {
+    const m = qPromptModal;
+    if (!m) return;
+    let content = "";
+    try { content = String(m.inner.getText() || ""); } catch {}
+    const call = (globalThis as any).__sidecarCall;
+    qClosePromptEditor(true);
+    if (call) {
+      call("writeAgentFile", { id: m.id, filePath: "PROMPT.md", content }).then((r: any) => {
+        qShowResult(r, () => {
+          try { pushBlock(new Text(fg(C.textSecondary, "PROMPT.md saved: " + (m.isNew || agentDisplayName(m.id))), 1, 0)); } catch {}
+          try { scrollToEnd(); } catch {}
+          if (m.isNew) { const before = new Set(qAgentsData.map((a: any) => String(a?.id || a?.name))); qPinAndBack("agent", before, "#you"); }
+          else { refreshAgentsTab(); }
+          try { ui.requestRender(); } catch {}
+        });
+      }).catch((e: any) => { qShowResult({ ok: false, error: String(e?.message || e) }, () => {}); });
+    }
+  };
+
   const editor = new Editor(ui as any, editorTheme, { paddingX: 1 });
   try {
     // The chip styling is applied HERE (paint time): the editor's cursor/layout math
@@ -2445,6 +2506,20 @@ const readProvidersCfg = (): any => {
         if (!data) return { consume: true };
       }
       try { require("fs").appendFileSync("/tmp/q-filter-trace.log", new Date().toISOString() + " IN hex=" + Buffer.from(String(data), "utf8").toString("hex").slice(0,50) + " menu=" + (menuOpenRef?.() ?? false) + "\n"); } catch {}
+      // T533: while the PROMPT modal is open the input goes straight to it
+      // (kitty normalization only: release-strip + press-normalize).
+      try {
+        if (qPromptModal) {
+          let d2 = String(data).replace(/\x1b\[[0-9;]*:3[0-9;:]*[A-Za-z~]/g, "");
+          d2 = d2
+            .replace(/\x1b\[13;1:1u$/, "\r")
+            .replace(/\x1b\[127;1:1u$/, "\x7f")
+            .replace(/\x1b\[1;1:1([ABCD])$/, (_: string, c2: string) => "\x1b[" + c2)
+            .replace(/\x1b\[1;1([ABCD])$/, (_: string, c2: string) => "\x1b[" + c2);
+          if (d2.length === 0) return { consume: true };
+          return { data: d2 };
+        }
+      } catch {}
       // Filter control sequences AFTER the split-recomposition (they arrive in
       // two reads when the app window closes: \x1b[6;17;8 + t): the parser was
       // treating them as keystrokes and confirming the /quit notice.
@@ -5356,12 +5431,7 @@ const readProvidersCfg = (): any => {
           if (call) {
             call("readAgentFile", { id: pid, filePath: "PROMPT.md" }).then((r: any) => {
               const content = String(r?.content ?? "");
-              qPromptEdit = { id: pid, isNew: "" };
-              try { editor.setText(content); } catch {}
-              try { (editor as any).setCursorCol(editor.getText().length); } catch {}
-              try { qCursorEnd(); } catch {}
-              try { pushBlock(new Text(fg(C.textSecondary, "Editing PROMPT.md of " + agentDisplayName(pid) + " \u2014 Enter saves \u00b7 Esc cancels"), 1, 0)); } catch {}
-              try { scrollToEnd(); ui.requestRender(); } catch {}
+              qOpenPromptEditor(pid, "", content);
             }).catch((e: any) => { qShowResult({ ok: false, error: String(e?.message || e) }, () => {}); });
           }
           return;
@@ -5443,12 +5513,13 @@ const readProvidersCfg = (): any => {
               callA('createAgent', { name: val }).then((r: any) => {
                 qShowResult(r, () => {
                   const nid = String((r && (r.id || r.agentId)) || val);
-                  qPromptEdit = { id: nid, isNew: val };
-                  // T531: the menu MUST close here: the composer becomes the prompt editor.
-                  qCloseMenus();
-                  try { editor.setText(""); } catch {}
-                  try { pushBlock(new Text(fg(C.textSecondary, "New agent \u201c" + val + "\u201d \u2014 type its PROMPT.md \u00b7 Enter saves \u00b7 Esc skips"), 1, 0)); } catch {}
-                  try { scrollToEnd(); qCursorEnd(); ui.requestRender(); } catch {}
+                  // T533: menu back to the list + the centered PROMPT.md editor opens.
+                  const beforeM = new Set(qAgentsData.map((a: any) => String(a?.id || a?.name)));
+                  menuStack = ["agents", "#you"]; menuSubFilter = ""; menuSel = 0;
+                  refreshAgentsTab();
+                  qOpenPromptEditor(nid, val, "");
+                  try { ui.requestRender(); } catch {}
+                  void beforeM;
                 });
               }).catch((e: any) => { qShowResult({ ok: false, error: String(e?.message || e) }, () => {}); });
             } else if (qAgentsInputMode === "mcpsrc" && val && callA) {
