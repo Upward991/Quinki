@@ -1064,7 +1064,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         return leftH + padH + rightH;
       };
       try { (inner as any).footerLine = hint; } catch {}
-      try { (inner as any).onSubmit = (text: string) => { qSavePromptEditor(String(text ?? "")); }; } catch {}
+      try { (inner as any).onSubmit = (text: string) => { try { require("fs").appendFileSync("/tmp/q-prompt-save.log", new Date().toISOString() + " onSubmit len=" + String(text ?? "").length + "\n"); } catch {} qSavePromptEditor(String(text ?? "")); }; } catch {}
       try { (inner as any).qFullHeight = true; } catch {} // T535: the editor fills the whole CLI
       try { (inner as any).qNoPlaceholder = true; } catch {} // T537: no "Write a message..." when empty
       try { (inner as any).bgFn = (x: string) => bg(C.bgPanel, String(x)); } catch {}
@@ -1125,6 +1125,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   };
   const qSavePromptEditor = (submitted?: string) => {
     const m = qPromptModal;
+    try { require("fs").appendFileSync("/tmp/q-prompt-save.log", new Date().toISOString() + " save called modal=" + String(!!m) + " submittedLen=" + String(submitted ?? "").length + "\n"); } catch {}
     if (!m) return;
     let content = String(submitted ?? "");
     if (!content) {
@@ -1134,6 +1135,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     const call = (globalThis as any).__sidecarCall;
     qClosePromptEditor(true);
     if (call) {
+      try { require("fs").appendFileSync("/tmp/q-prompt-save.log", new Date().toISOString() + " writing id=" + m.id + " contentLen=" + content.length + "\n"); } catch {}
       call("writeAgentFile", { id: m.id, filePath: "PROMPT.md", content }).then((r: any) => {
         qShowResult(r, () => {
           try { pushBlock(new Text(fg(C.textSecondary, "PROMPT.md saved: " + (m.isNew || agentDisplayName(m.id))), 1, 0)); } catch {}
