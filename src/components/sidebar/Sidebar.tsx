@@ -266,7 +266,14 @@ export function Sidebar(props: SidebarProps) {
       return
     }
     
-    const targetItem = e.find(s => s.id === targetId)
+    let targetItem = e.find(s => s.id === targetId)
+    if (!targetItem && targetId === '__pinsep__') {
+      // Il DIVIDER è un elemento virtuale: si comporta come una chat "normale"
+      // appena sotto l'ultimo pinnato. Droppare sopra => pin, sotto => unpin.
+      const pinnedOnly = e.filter((x: any) => x.pinned && !x.parentId)
+      const minOrder = pinnedOnly.length ? Math.min(...pinnedOnly.map((x: any) => x.order || 0)) : (Date.now() + 1000)
+      targetItem = { id: '__pinsep__', type: 'pinsep', order: minOrder - 1, parentId: null } as any
+    }
     if (!targetItem) { dragRef.current = null; setDropZone(null); setActiveDragItem(null); return }
     // PIN (6 ott): la sezione Pinned e' SOLO un separatore visivo (in cima, order
     // condiviso). Il drag funziona ESATTAMENTE come sempre: l'unica magia e' il
@@ -279,6 +286,10 @@ export function Sidebar(props: SidebarProps) {
       const tP = !!(targetItem as any).pinned
       if (!dP && tP) props.onSetPinned?.(dragItem.id, true)
       if (dP && !tP) props.onSetPinned?.(dragItem.id, false)
+      if (targetId === '__pinsep__') {
+        // Droppato sul DIVIDER: sopra = pin, sotto = unpin (il divider è la frontiera)
+        props.onSetPinned?.(dragItem.id, zone === 'before')
+      }
     }
     const isFolder = targetItem.type === 'folder'
     
@@ -417,9 +428,24 @@ export function Sidebar(props: SidebarProps) {
               }
               return rows.map((r: any) => {
                 if (r.type === 'row' && r.item && r.item.type === 'pinsep') {
+                  const sepInd = dropZone?.id === '__pinsep__'
                   return (
-                    <div key="__pinsep_row__" data-pin-separator="1" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px 4px 12px' }}>
-                      <span style={{ flex: 1, height: '1px', backgroundColor: 'var(--q-border)' }} />
+                    <div key="__pinsep_row__" data-row-id="__pinsep__" data-pin-separator="1" style={{ display: 'flex', flexDirection: 'column', padding: '2px 12px 2px 12px' }}>
+                      {sepInd && dropZone?.zone === 'before' && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '18px' }}>
+                          <span style={{ flex: 1, height: '1px', backgroundColor: 'var(--q-tab-accent)' }} />
+                          <span style={{ color: 'var(--q-tab-accent)', fontSize: '11px', fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap' }}>Pin here</span>
+                          <span style={{ flex: 1, height: '1px', backgroundColor: 'var(--q-tab-accent)' }} />
+                        </div>
+                      )}
+                      <div style={{ flex: 1, height: '1px', backgroundColor: sepInd ? 'var(--q-tab-accent)' : 'var(--q-border)', margin: '5px 0' }} />
+                      {sepInd && dropZone?.zone === 'after' && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '18px' }}>
+                          <span style={{ flex: 1, height: '1px', backgroundColor: 'var(--q-tab-accent)' }} />
+                          <span style={{ color: 'var(--q-tab-accent)', fontSize: '11px', fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap' }}>Unpin here</span>
+                          <span style={{ flex: 1, height: '1px', backgroundColor: 'var(--q-tab-accent)' }} />
+                        </div>
+                      )}
                     </div>
                   )
                 }
