@@ -1168,20 +1168,16 @@ export function AgentRow({ agent, isExpanded, isRenaming, onToggle, onStartRenam
       })(),
       // Files
       React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }, children: [
-        React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }, children: ['File (', agent.files.length, ')'] }),
-        MiniButton({ label: 'Add file', onClick: onAddFile }),
-        agent.files.length > 0 && React.createElement(React.Fragment, { children: [
-          React.createElement('span', { style: { flex: 1 } }),
-          React.createElement('button', { onClick: () => onRemoveAll('files'), style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'Remove all' })
-        ]})
+        // PROMPT.md only: one file, no count, no Add file, no Remove all.
+        React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }, children: 'File' }),
+        React.createElement('span', { style: { flex: 1 } })
       ]}),
       agent.files.length === 0
         ? React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)', marginBottom: '8px' }, children: 'No files.' })
         : React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }, children: agent.files.map(f =>
             React.createElement('div', { key: f, onClick: () => onOpenFile(f), style: { display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 8px', borderRadius: '6px', border: 'none', backgroundColor: 'rgba(255, 255, 255, 0.04)', cursor: 'pointer' }, children: [
               React.createElement(FileText, { size: 14, style: { color: 'var(--q-tab-accent)' } }),
-              React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: f }),
-              React.createElement('button', { onClick: e => { e.stopPropagation(); onRemoveTag('file', f); }, style: { background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex' }, children: React.createElement(X, { size: 14, style: { color: 'var(--q-text-tertiary)' } }) })
+              React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: f })
             ]})
           )}
       ),
