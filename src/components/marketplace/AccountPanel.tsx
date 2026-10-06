@@ -289,7 +289,7 @@ export function AccountPanel({ section, catalogItems, call, onSectionChange, onG
               key: author,
               style: { display: 'flex', flexDirection: 'column', gap: '12px', backgroundColor: 'var(--mp-panel)', border: '1px solid var(--mp-border)', borderRadius: 'var(--radius-md)', padding: '18px', cursor: 'pointer', boxShadow: '0 1px 3px rgba(20,24,40,0.06)', transition: 'none' },
               onClick: () => onOpenDeveloper(author),
-              onMouseEnter: (e: any) => { e.currentTarget.style.borderColor = 'var(--mp-accent)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(157,139,217,0.25)' },
+              onMouseEnter: (e: any) => { e.currentTarget.style.borderColor = 'var(--mp-accent)'; e.currentTarget.style.boxShadow = '0 4px 16px color-mix(in srgb, var(--mp-accent) 25%, transparent)' },
               onMouseLeave: (e: any) => { e.currentTarget.style.borderColor = 'var(--mp-border)'; e.currentTarget.style.boxShadow = '0 1px 3px rgba(20,24,40,0.06)' }
             },
               React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '14px' } },
@@ -327,7 +327,7 @@ export function AccountPanel({ section, catalogItems, call, onSectionChange, onG
         React.createElement('div', { style: { color: 'var(--mp-text)', fontSize: '15px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '4px' } }, 'My Repos'),
         React.createElement('div', { style: { color: 'var(--mp-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginBottom: '12px' } }, 'Add external repositories as extra market sources. Each repo must expose a catalog.json with the Quinki package format.'),
         // Nota minimale (nessuna box): il limite è di GitHub, non nostro; token per-repo
-        React.createElement('div', { style: { display: 'flex', alignItems: 'flex-start', gap: '10px', backgroundColor: 'rgba(157,139,217,0.07)', border: '1px solid rgba(157,139,217,0.35)', borderRadius: 'var(--radius-md)', padding: '10px 14px', marginBottom: '12px' } },
+        React.createElement('div', { style: { display: 'flex', alignItems: 'flex-start', gap: '10px', backgroundColor: 'color-mix(in srgb, var(--mp-accent) 7%, transparent)', border: '1px solid color-mix(in srgb, var(--mp-accent) 35%, transparent)', borderRadius: 'var(--radius-md)', padding: '10px 14px', marginBottom: '12px' } },
           React.createElement(ShieldCheck, { size: 14, style: { color: 'var(--mp-accent)', flexShrink: 0, marginTop: '1px' } }),
           React.createElement('span', { style: { color: 'var(--mp-text-secondary)', fontSize: '12px', fontFamily: 'var(--font-interface)', lineHeight: 1.5 } }, 'Repos are read through GitHub\'s API (free limit 60 req/h: GitHub\'s limit, not Quinki\'s). The built-in quinki-market repo is not affected. You can set a GitHub token per repo (key icon): your own personal access token, or one the repo provides. A token raises that repo\'s limit to 5000/h. For private repos you don\'t have access to, the free limit applies.')
         ),
@@ -362,7 +362,6 @@ export function AccountPanel({ section, catalogItems, call, onSectionChange, onG
           getDefaultRepos().map((r) => React.createElement('div', { key: 'def-' + r.url, style: { backgroundColor: 'var(--mp-elevated)', border: '1px solid var(--mp-border)', borderRadius: 'var(--radius-sm)', padding: '10px 12px' } },
             React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } },
               React.createElement('span', { style: { flex: 1, color: 'var(--mp-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, r.label),
-              React.createElement('span', { style: { color: 'var(--mp-accent)', fontSize: '10px', fontFamily: 'var(--font-interface)', border: '1px solid var(--mp-accent)', borderRadius: '999px', padding: '1px 8px', flexShrink: 0 } }, 'Default'),
               React.createElement('button', {
                 onClick: () => setRepoToRemove({ url: r.url, label: r.label, isDefault: true } as any),
                 title: 'Remove repo',
@@ -406,8 +405,8 @@ export function AccountPanel({ section, catalogItems, call, onSectionChange, onG
           getRemovedDefaultRepos().length > 0 && React.createElement('button', {
             onClick: () => { restoreDefaultRepos(); persistHomeConfig(); if (onReposChanged) onReposChanged() },
             style: { alignSelf: 'flex-start', padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--mp-accent)', backgroundColor: 'transparent', color: 'var(--mp-accent)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)', cursor: 'pointer' }
-          }, 'Restore default repos (' + getRemovedDefaultRepos().length + ')'),
-          getMyRepos().length === 0 && React.createElement('div', { style: { color: 'var(--mp-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)', padding: '16px 0', textAlign: 'center' } }, 'No external repos yet. Add one above.')
+          }, 'Restore removed repos (' + getRemovedDefaultRepos().length + ')'),
+          getDefaultRepos().length === 0 && getMyRepos().length === 0 && React.createElement('div', { style: { color: 'var(--mp-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)', padding: '16px 0', textAlign: 'center' } }, 'No external repos yet. Add one above.')
         )
       ),
       section === 'settings' && React.createElement('div', {},

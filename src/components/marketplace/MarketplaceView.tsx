@@ -591,7 +591,7 @@ export function MarketplaceView({ onSelectPanel, refreshAgents }: Props) {
       )
     ),
     degraded && React.createElement('div', { style: { padding: mob ? '8px 12px 0 12px' : '8px 32px 0 32px' } },
-      React.createElement('div', { style: { maxWidth: '1280px', margin: '0 auto', width: '100%', display: 'flex', alignItems: 'flex-start', gap: '10px', backgroundColor: 'rgba(210,153,34,0.08)', border: '1px solid rgba(210,153,34,0.35)', borderRadius: 'var(--radius-md)', padding: '10px 14px' } },
+      React.createElement('div', { style: { maxWidth: '1280px', margin: '0 auto', width: '100%', display: 'flex', alignItems: 'flex-start', gap: '10px', backgroundColor: 'color-mix(in srgb, var(--mp-accent) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--mp-accent) 35%, transparent)', borderRadius: 'var(--radius-md)', padding: '10px 14px' } },
         React.createElement(ShieldCheck, { size: 15, style: { color: 'var(--mp-warning)', flexShrink: 0, marginTop: '1px' } }),
         React.createElement('span', { style: { color: 'var(--mp-text-secondary)', fontSize: '12px', fontFamily: 'var(--font-interface)', lineHeight: 1.5 } },
           React.createElement('b', { style: { color: 'var(--mp-warning)', fontWeight: 600 } }, 'Partial catalog'),

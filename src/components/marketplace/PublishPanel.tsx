@@ -555,7 +555,7 @@ export function PublishPanel({ call }: { call?: (method: string, params?: any, t
                       React.createElement('div', { style: { color: 'var(--q-text)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)' } }, item.name),
                       React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginTop: '3px', lineHeight: 1.45, whiteSpace: 'pre-wrap', wordBreak: 'break-word' } }, item.description || '')
                     ),
-                    React.createElement('input', { type: 'checkbox', onClick: (e: any) => e.stopPropagation(), checked: isSel, onChange: () => toggle(item), style: { accentColor: 'var(--q-tab-accent)', flexShrink: 0, marginTop: '2px' } })
+                    React.createElement('input', { type: 'checkbox', onClick: (e: any) => e.stopPropagation(), checked: isSel, onChange: () => toggle(item), style: { accentColor: 'var(--mp-accent)', flexShrink: 0, marginTop: '2px' } })
                   ]})
                 }
                 const section = (label: string, icon: string, items: any[]) => items.length === 0 ? null : React.createElement('div', { key: label, style: { marginTop: '14px', marginBottom: '4px' } },
@@ -571,7 +571,7 @@ export function PublishPanel({ call }: { call?: (method: string, params?: any, t
         React.createElement('div', { style: { padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '8px' } },
           React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', flex: 1 } }, selected.size + ' selected'),
           React.createElement('button', { onClick: () => setPickerOpen(false), onMouseEnter: (e: any) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }, onMouseLeave: (e: any) => { e.currentTarget.style.backgroundColor = 'transparent' }, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', cursor: 'pointer' } }, 'Cancel'),
-          React.createElement('button', { onClick: () => startPublishMany(created.filter((i: any) => selected.has(i.category + ':' + i.id))), disabled: selected.size === 0, onMouseEnter: (e: any) => { if (selected.size > 0) { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' } }, onMouseLeave: (e: any) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = selected.size === 0 ? 'var(--q-text-tertiary)' : 'var(--q-tab-accent)' }, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid ' + (selected.size === 0 ? 'var(--q-border)' : 'var(--q-tab-accent)'), backgroundColor: 'transparent', color: selected.size === 0 ? 'var(--q-text-tertiary)' : 'var(--q-tab-accent)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)', cursor: selected.size === 0 ? 'default' : 'pointer' } }, React.createElement(Upload, { size: 14 }), 'Publish selected (' + selected.size + ')')
+          React.createElement('button', { onClick: () => startPublishMany(created.filter((i: any) => selected.has(i.category + ':' + i.id))), disabled: selected.size === 0, onMouseEnter: (e: any) => { if (selected.size > 0) { e.currentTarget.style.backgroundColor = 'var(--mp-accent)'; e.currentTarget.style.color = 'var(--q-bg)' } }, onMouseLeave: (e: any) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = selected.size === 0 ? 'var(--q-text-tertiary)' : 'var(--mp-accent)' }, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid ' + (selected.size === 0 ? 'var(--q-border)' : 'var(--mp-accent)'), backgroundColor: 'transparent', color: selected.size === 0 ? 'var(--q-text-tertiary)' : 'var(--mp-accent)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)', cursor: selected.size === 0 ? 'default' : 'pointer' } }, React.createElement(Upload, { size: 14 }), 'Publish selected (' + selected.size + ')')
         )
       ]})
     }),
@@ -581,7 +581,7 @@ export function PublishPanel({ call }: { call?: (method: string, params?: any, t
       React.createElement('div', { style: { color: 'var(--mp-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginBottom: '10px' } }, 'Each item is published separately with its own version.'),
       React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', padding: '10px 12px', marginBottom: '8px', backgroundColor: 'var(--mp-bg)', border: '1px solid var(--mp-border)', borderRadius: 'var(--radius-md)' } },
 React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', flex: 1, minWidth: '220px' } },
-          React.createElement('input', { type: 'checkbox', onClick: (e: any) => e.stopPropagation(), checked: rightsConfirmed, onChange: (e: any) => setRightsConfirmed(e.target.checked), style: { accentColor: 'var(--q-tab-accent)', width: '15px', height: '15px', flexShrink: 0 } }),
+          React.createElement('input', { type: 'checkbox', onClick: (e: any) => e.stopPropagation(), checked: rightsConfirmed, onChange: (e: any) => setRightsConfirmed(e.target.checked), style: { accentColor: 'var(--mp-accent)', width: '15px', height: '15px', flexShrink: 0 } }),
           React.createElement('span', { style: { color: 'var(--mp-text-secondary)', fontSize: '12px', fontFamily: 'var(--font-interface)', lineHeight: 1.4 } }, 'I confirm I am the creator and owner of all content in this queue, take full responsibility for it, and agree to publish it under the MIT license.')
         )
       ),
@@ -617,7 +617,7 @@ React.createElement('label', { style: { display: 'flex', alignItems: 'center', g
 
     // ── LISTA PUBBLICATI ──
     removedItems.length > 0 && identity && React.createElement('div', { style: { marginBottom: '12px' } },
-      React.createElement('div', { style: { display: 'flex', alignItems: 'flex-start', gap: '10px', backgroundColor: 'rgba(210,153,34,0.08)', border: '1px solid rgba(210,153,34,0.35)', borderRadius: 'var(--radius-md)', padding: '10px 14px' } },
+      React.createElement('div', { style: { display: 'flex', alignItems: 'flex-start', gap: '10px', backgroundColor: 'color-mix(in srgb, var(--mp-accent) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--mp-accent) 35%, transparent)', borderRadius: 'var(--radius-md)', padding: '10px 14px' } },
         React.createElement(ShieldCheck, { size: 15, style: { color: 'var(--mp-warning)', flexShrink: 0, marginTop: '1px' } }),
         React.createElement('span', { style: { color: 'var(--mp-text-secondary)', fontSize: '12px', fontFamily: 'var(--font-interface)', lineHeight: 1.5, flex: 1 } },
           React.createElement('b', { style: { color: 'var(--mp-warning)', fontWeight: 600 } }, 'Removed from repo'),

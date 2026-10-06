@@ -226,6 +226,8 @@ export const DEFAULT_REPOS: MyRepo[] = [
   { url: 'https://github.com/anthropics/skills', label: 'Anthropic Skills', addedAt: 0 },
   { url: 'https://github.com/alirezarezvani/claude-skills', label: 'Claude Skills (alirezarezvani)', addedAt: 0 },
   { url: 'https://github.com/Jeffallan/claude-skills', label: 'Claude Skills (Jeffallan)', addedAt: 0 },
+  { url: 'https://github.com/obra/superpowers', label: 'Superpowers', addedAt: 0 },
+  { url: 'https://github.com/davila7/claude-code-templates', label: 'Claude Code Templates', addedAt: 0 },
   { url: 'https://github.com/modelcontextprotocol/servers', label: 'MCP Servers (official repo)', addedAt: 0 },
   { url: 'https://github.com/wshobson/agents', label: 'Claude Agents (wshobson)', addedAt: 0 },
   { url: 'https://github.com/contains-studio/agents', label: 'Contains Studio Agents', addedAt: 0, hint: { agentMdDepth: 1 } } as any,

@@ -21,7 +21,7 @@ export function renderItemIcon(icon: any, size: number, color: string) {
 export function StoreCard({ item, onOpen, onInstall, installed, onRemove, badge, action }: { item: CatalogItem, onOpen: () => void, onInstall?: () => void, installed: boolean, onRemove?: () => void, badge?: string, action?: { label: string, onClick: () => void, kind?: 'primary' | 'danger' } }) {
   return React.createElement('div', {
     onClick: onOpen,
-    onMouseEnter: (e: any) => { e.currentTarget.style.borderColor = 'var(--mp-accent)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(157,139,217,0.25)' },
+    onMouseEnter: (e: any) => { e.currentTarget.style.borderColor = 'var(--mp-accent)'; e.currentTarget.style.boxShadow = '0 4px 16px color-mix(in srgb, var(--mp-accent) 25%, transparent)' },
     onMouseLeave: (e: any) => { e.currentTarget.style.borderColor = 'var(--mp-border)'; e.currentTarget.style.boxShadow = '0 1px 3px rgba(20,24,40,0.06)' },
     style: { backgroundColor: 'var(--mp-panel)', border: '1px solid var(--mp-border)', borderRadius: 'var(--radius-md)', padding: '18px', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '12px', boxShadow: '0 1px 3px rgba(20,24,40,0.06)', transition: 'none' }
   },
