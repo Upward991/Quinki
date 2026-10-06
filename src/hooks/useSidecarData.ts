@@ -1960,15 +1960,29 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
   }, [ready, notify])
   // Merge sessions + folders into one list for sidebar (memoized — no flash on re-render)
   const sidebarSessions = useMemo(() => {
+    // PIN EFFETTIVO (6 ott): un elemento DENTRO una cartella pinnata e' pinnato
+    // anche lui (il menu non appare per i figli, ma il FLAG logico serve al drag:
+    // trascinandolo fuori deve restare nella sezione pinned, non finire unpinned).
+    const folderPinnedById = new Map<string, boolean>()
+    for (const f of (folders || [])) folderPinnedById.set(f.id, !!f.pinned)
+    const effPinned = (it: any): boolean => {
+      if (it.pinned) return true
+      const pid = it.folderId || it.parentId || null
+      if (!pid) return false
+      // risale la catena delle cartelle (annidamenti inclusi)
+      let cur = pid, hops = 0
+      while (cur && hops < 20) { if (folderPinnedById.get(cur)) return true; const par = (folders || []).find((f: any) => f.id === cur); cur = par?.parentId || null; hops++ }
+      return false
+    }
     const chats = sessions.filter(s => s.id !== '__app_expert__').map(s => {
       const uc = unreadCounts[s.id]
       const total = uc ? (uc.messages || 0) + (uc.tasks || 0) : 0
-      return { ...s, unread: total > 0, messageCount: total, notifyMode: notifyModes[s.id] || 'none' }
+      return { ...s, pinned: effPinned(s), unread: total > 0, messageCount: total, notifyMode: notifyModes[s.id] || 'none' }
     })
     const folderItems = (folders || []).map(f => ({
       id: f.id, title: f.title || f.name || 'Folder', type: 'folder' as const,
       isExpanded: !!f.isExpanded, parentId: f.parentId || null, order: f.order || Date.now(),
-      pinned: !!f.pinned, pinnedOrder: (typeof f.pinnedOrder === 'number') ? f.pinnedOrder : undefined,
+      pinned: effPinned({ pinned: !!f.pinned, parentId: f.parentId }), pinnedOrder: (typeof f.pinnedOrder === 'number') ? f.pinnedOrder : undefined,
     }))
     return [...chats, ...folderItems].sort((a, b) => (b.order || 0) - (a.order || 0))
   }, [sessions, folders, unreadCounts, notifyModes])
