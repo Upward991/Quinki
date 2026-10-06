@@ -2611,7 +2611,13 @@ const readProvidersCfg = (): any => {
         }
         if (!data) return { consume: true };
       }
-      try { require("fs").appendFileSync("/tmp/q-filter-trace.log", new Date().toISOString() + " IN hex=" + Buffer.from(String(data), "utf8").toString("hex").slice(0,50) + " menu=" + (menuOpenRef?.() ?? false) + "\n"); } catch {}
+      try {
+        const hx = Buffer.from(String(data), "utf8").toString("hex");
+        require("fs").appendFileSync("/tmp/q-filter-trace.log", new Date().toISOString() + " IN hex=" + hx.slice(0,50) + " menu=" + (menuOpenRef?.() ?? false) + "\n");
+        if (hx.includes("5744") || hx.includes("3a3375") || String(data).includes(":3u")) {
+          require("fs").appendFileSync("/tmp/q-modkeys.log", new Date().toISOString() + " MODKEY raw=" + JSON.stringify(String(data)) + " hex=" + hx + "\n");
+        }
+      } catch {}
       // T533: while the PROMPT modal is open the input goes straight to it
       // (kitty normalization only: release-strip + press-normalize).
       try {
@@ -2730,7 +2736,7 @@ const readProvidersCfg = (): any => {
       // 6 ott: HOLD-model — releasing Ctrl or Alt (kitty sends the modifier
       // RELEASE events) exits the toggle nav by itself.
       try {
-        if (navMode && /\x1b\[5744[0-9];[0-9;]*:3u$/.test(String(data))) {
+        if (navMode && (/\x1b\[5744[0-9];[0-9;]*:3u$/.test(String(data)) || /\x1b\[5744[0-9];[0-9;]*:3u/.test(String(data)))) {
           exitToggleNav();
           return { consume: true };
         }
