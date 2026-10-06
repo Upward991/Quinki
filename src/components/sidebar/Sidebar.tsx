@@ -318,25 +318,14 @@ export function Sidebar(props: SidebarProps) {
     // condiviso). Il drag funziona ESATTAMENTE come sempre: l'unica magia e' il
     // pin automatico — lasciando un item nella zona pinnata si pinna, lasciandolo
     // tra i normali si despinna. Solo primo livello (le annidate seguono la cartella).
-    const dragTopLevel = !(dragItem as any).parentId
-    const dP = !!(dragItem as any).pinned
-    const dOwn = (dragItem as any).ownPinned !== undefined ? !!(dragItem as any).ownPinned : dP
-    // FIX (6 ott — deterministico): la sezione di atterraggio si decide dalla
-    // POSIZIONE del puntatore rispetto al DIVIDER (prima dipendeva dalla riga
-    // che capitava sotto: "a volte si' a volte no").
-    //  - sopra il divider = sezione PINNED -> pin (materializza se ereditato);
-    //  - sotto il divider = sezione NORMALE -> unpin solo se pinnato di suo;
-    //    un figlio ereditato materializza (resta pinned, regola utente).
-    const sepBottom = (() => { try { const r = itemRects.current.get('__pinsep__'); return r ? r.bottom : -1 } catch { return -1 } })()
-    const droppedInPinned = sepBottom > 0 ? (pointerYRef.current <= sepBottom) : (targetId === '__pinsep__' || !!(targetItem as any).pinned)
-    const canTogglePin = dragTopLevel || dP
-    if (canTogglePin) {
-      if (droppedInPinned) {
-        if (!dP) props.onSetPinned?.(dragItem.id, true)
-      } else {
-        if (dOwn && dP) props.onSetPinned?.(dragItem.id, false)
-        else if (!dOwn && dP) props.onSetPinned?.(dragItem.id, true)
-      }
+    // MODELLO SEMPLICE (6 ott, riscrittura): la SEZIONE = DOVE LASCI L'ELEMENTO.
+    // Sopra il divider -> pinned. Sotto il divider -> normale. Per QUALSIASI
+    // elemento (chat, cartelle). Nient'altro: niente casi speciali, sempre uguale.
+    if (zone !== 'into') {
+      let sepBottom = -1
+      try { const r = itemRects.current.get('__pinsep__'); if (r) sepBottom = r.bottom } catch {}
+      const inPinned = sepBottom > 0 ? (pointerYRef.current <= sepBottom) : (targetId === '__pinsep__' ? zone === 'before' : false)
+      props.onSetPinned?.(dragItem.id, inPinned)
     }
     const isFolder = targetItem.type === 'folder'
     
