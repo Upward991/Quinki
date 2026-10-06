@@ -321,24 +321,21 @@ export function Sidebar(props: SidebarProps) {
     const dragTopLevel = !(dragItem as any).parentId
     const dP = !!(dragItem as any).pinned
     const dOwn = (dragItem as any).ownPinned !== undefined ? !!(dragItem as any).ownPinned : dP
-    // FIX (6 ott): la logica pin/unpin vale anche per un FIGLIO "ereditato"
-    // (dentro una cartella pinnata): quando lo tiri fuori deve poter atterrare
-    // nella sezione pinned (materializzando il pin), non sparire tra gli unpinned.
+    // FIX (6 ott — deterministico): la sezione di atterraggio si decide dalla
+    // POSIZIONE del puntatore rispetto al DIVIDER (prima dipendeva dalla riga
+    // che capitava sotto: "a volte si' a volte no").
+    //  - sopra il divider = sezione PINNED -> pin (materializza se ereditato);
+    //  - sotto il divider = sezione NORMALE -> unpin solo se pinnato di suo;
+    //    un figlio ereditato materializza (resta pinned, regola utente).
+    const sepBottom = (() => { try { const r = itemRects.current.get('__pinsep__'); return r ? r.bottom : -1 } catch { return -1 } })()
+    const droppedInPinned = sepBottom > 0 ? (pointerYRef.current <= sepBottom) : (targetId === '__pinsep__' || !!(targetItem as any).pinned)
     const canTogglePin = dragTopLevel || dP
     if (canTogglePin) {
-      // Il divider E' la frontiera: sopra = pin, sotto = unpin.
-      if (targetId === '__pinsep__') {
-        props.onSetPinned?.(dragItem.id, zone === 'before')
+      if (droppedInPinned) {
+        if (!dP) props.onSetPinned?.(dragItem.id, true)
       } else {
-        const tgtTopLevel = !(targetItem as any).parentId
-        if (tgtTopLevel) {
-          const tP = !!(targetItem as any).pinned
-          if (!dP && tP) props.onSetPinned?.(dragItem.id, true)
-          if (dP && !tP) {
-            if (dOwn) props.onSetPinned?.(dragItem.id, false)
-            else props.onSetPinned?.(dragItem.id, true)
-          }
-        }
+        if (dOwn && dP) props.onSetPinned?.(dragItem.id, false)
+        else if (!dOwn && dP) props.onSetPinned?.(dragItem.id, true)
       }
     }
     const isFolder = targetItem.type === 'folder'
@@ -807,7 +804,7 @@ function ContextMenu({ x, y, item, multiSelect, selectedCount, onClose, onRename
             {!isFolder && <MenuItem label="Select chat" onClick={onSelect} />}
             {(!isFolder && !!(window as any).__TAURI_INTERNALS__) && <MenuItem label="Open in separate window" onClick={onOpenWindow} />}
             {isFolder && <MenuItem label="New subfolder" onClick={onNewSubfolder} />}
-            {(!item?.parentId || item?.pinned) && <MenuItem label={item?.pinned ? 'Unpin' : 'Pin'} icon={React.createElement(Pin, { size: 15 })} onClick={onTogglePin} />}
+            {(!item?.parentId || item?.ownPinned) && <MenuItem label={item?.ownPinned ? 'Unpin' : 'Pin'} icon={React.createElement(Pin, { size: 15 })} onClick={onTogglePin} />}
             <MenuItem label={isFolder ? 'Delete folder' : 'Delete chat'} color="var(--q-accent-danger)" onClick={onDelete} />
             {isFolder && <MenuItem label="Delete folder with contents" color="var(--q-accent-danger)" onClick={() => onDeleteFolder(true)} />}
           </>
