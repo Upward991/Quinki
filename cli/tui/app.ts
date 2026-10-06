@@ -1091,7 +1091,10 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           } catch { return []; }
         },
       };
-      const overlay = (ui as any).showOverlay(comp, { anchor: "center", width: "100%", height: "100%", margin: 1 });
+      // T543: margin 0 + 100%: the overlay is the FULL terminal, so the box (which
+      // renders 2 cols narrower than asked) ends up with a 1-col/1-row gap on every
+      // side — measured: box was 114 wide on a 118-col terminal with margin 1.
+      const overlay = (ui as any).showOverlay(comp, { anchor: "center", width: "100%", height: "100%", margin: 0 });
       qPromptModal = { overlay, inner, id, isNew, returnStack: [...menuStack], returnSel: menuSel }; // T540: come back here on close
       try { pushBlock(new Text(fg(C.textSecondary, (isNew ? "New agent \u201c" + isNew + "\u201d \u2014 write its PROMPT.md" : "PROMPT.md of " + agentDisplayName(id)) + " \u2014 Enter saves \u00b7 Esc cancels"), 1, 0)); } catch {}
       try { scrollToEnd(); ui.requestRender(); } catch {}
