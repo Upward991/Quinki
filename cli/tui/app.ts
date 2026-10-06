@@ -2652,17 +2652,6 @@ const readProvidersCfg = (): any => {
           return { data: cleaned };
         }
       } catch {}
-      // Kitty-capable terminals report press AND release in the SAME read:
-      // "\x1b[1;1C\x1b[1;1:3C". Strip every release (":3" event form) and use
-      // what remains: otherwise the chunk matches no key at all and the first
-      // press is silently LOST — every action then seems to need two presses.
-      {
-        const stripped = String(data).replace(/\x1b\[[0-9;]*:3[0-9;:]*[A-Za-z~]/g, "");
-        if (stripped !== data) {
-          if (!stripped) return { consume: true };
-          data = stripped;
-        }
-      }
       // 6 ott T580: INSTANT hold-model. With the flag "all keys" the modifier
       // keys arrive alone: Ctrl(57441)/Alt(57443) press = nav ON (last toggle
       // highlighted), either release = nav OFF, instantly.
@@ -2687,6 +2676,17 @@ const readProvidersCfg = (): any => {
           return { consume: true };
         }
       } catch {}
+      // Kitty-capable terminals report press AND release in the SAME read:
+      // "\x1b[1;1C\x1b[1;1:3C". Strip every release (":3" event form) and use
+      // what remains: otherwise the chunk matches no key at all and the first
+      // press is silently LOST — every action then seems to need two presses.
+      {
+        const stripped = String(data).replace(/\x1b\[[0-9;]*:3[0-9;:]*[A-Za-z~]/g, "");
+        if (stripped !== data) {
+          if (!stripped) return { consume: true };
+          data = stripped;
+        }
+      }
       // Kitty-capable terminals report key RELEASE events (e.g. "\x1b[1;1:3C"):
       // they must NEVER be treated as a second press — ↓ would jump two rows and
       // → would confirm & close the menu at once. Drop them all.
