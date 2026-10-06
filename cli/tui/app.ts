@@ -1091,10 +1091,10 @@ export async function runTui(opts: TuiOptions): Promise<void> {
           } catch { return []; }
         },
       };
-      // T543: margin 0 + 100%: the overlay is the FULL terminal, so the box (which
-      // renders 2 cols narrower than asked) ends up with a 1-col/1-row gap on every
-      // side — measured: box was 114 wide on a 118-col terminal with margin 1.
-      const overlay = (ui as any).showOverlay(comp, { anchor: "center", width: "100%", height: "100%", margin: 0 });
+      // T544: the box renders 2 cols narrower than the asked width, and the centered
+      // anchor then looked decentered (left 0, right 4). Anchor it EXACTLY at col 1,
+      // row 1: with width/height 100% the box lands with a uniform 1 gap everywhere.
+      const overlay = (ui as any).showOverlay(comp, { anchor: "top-left", width: "100%", height: "100%", col: 1, row: 1, margin: 0 });
       qPromptModal = { overlay, inner, id, isNew, returnStack: [...menuStack], returnSel: menuSel }; // T540: come back here on close
       try { pushBlock(new Text(fg(C.textSecondary, (isNew ? "New agent \u201c" + isNew + "\u201d \u2014 write its PROMPT.md" : "PROMPT.md of " + agentDisplayName(id)) + " \u2014 Enter saves \u00b7 Esc cancels"), 1, 0)); } catch {}
       try { scrollToEnd(); ui.requestRender(); } catch {}
