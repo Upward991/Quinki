@@ -1510,6 +1510,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     }
     if (sub.startsWith("ag:")) {
       const agId = sub.slice(3);
+      try { require("fs").appendFileSync("/tmp/q-agents-data.log", new Date().toISOString() + " AG-MENU id=" + agId + " sk=" + agentSkillsOf(agId).length + " mcp=" + agentMcpOf(agId).length + " tk=" + agentToolsOf(agId).length + " dataN=" + qAgentsData.length + "\n"); } catch {}
       return [...qHead("Agent: " + agentDisplayName(agId)),
         { value: "aprompt:" + agId, label: "Prompt", description: "open PROMPT.md (edit it)" },
         { value: "ask:" + agId, label: "Skills", description: String(agentSkillsOf(agId).length) + " enabled" },
