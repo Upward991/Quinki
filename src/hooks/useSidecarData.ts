@@ -1625,6 +1625,15 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
   }, [ready, call])
 
   // ── Folders ──
+  // PIN (6 ott): pin di una cartella (store separato dalle sessioni).
+  const setFolderPinned = useCallback((folderId: string, pinned: boolean, order?: number) => {
+    setFolders(prev => {
+      const nf = prev.map(f => f.id === folderId ? { ...f, pinned: !!pinned, pinnedOrder: order ?? f.pinnedOrder } : f)
+      try { notify('setFolders', { folders: nf }) } catch {}
+      return nf
+    })
+  }, [notify])
+
   const updateFolders = useCallback((newFolders: any[]) => {
     if (!ready) return
     notify('setFolders', { folders: newFolders })
@@ -1933,6 +1942,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     const folderItems = (folders || []).map(f => ({
       id: f.id, title: f.title || f.name || 'Folder', type: 'folder' as const,
       isExpanded: !!f.isExpanded, parentId: f.parentId || null, order: f.order || Date.now(),
+      pinned: !!f.pinned, pinnedOrder: (typeof f.pinnedOrder === 'number') ? f.pinnedOrder : undefined,
     }))
     return [...chats, ...folderItems].sort((a, b) => (b.order || 0) - (a.order || 0))
   }, [sessions, folders, unreadCounts, notifyModes])
@@ -1946,7 +1956,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     // Sidebar
     sidebarSessions,
     // Session management
-    setSessionPinned,
+    setSessionPinned, setFolderPinned,
     selectSession, loadOlderMessages, jumpToMessage, sendMessage, injectErrorMessages, steerMessage, stopStreaming, createSession, deleteSession, renameSession, deselectSession, refreshSessions,
     resetSession, reloadSession, moveSession, compactSession, ensureSession,
     // Session settings
