@@ -6267,7 +6267,17 @@ const readProvidersCfg = (): any => {
             try { if (cmd.name === "agents") { qCfgFromSession = false; refreshAgentsTab(); } } catch {} // T570: reset also via the arrow-opened tab
             try { if (cmd.name === "shortcuts") { menuError = ""; menuStack = ["shortcuts"]; menuSubFilter = ""; menuSel = 0; } } catch {} // T573: arrow shows the list
           } else if (cmd) {
-            // MENU 2.0: nothing (Enter runs commands).
+            // MENU 2.0: nothing (Enter runs commands) — EXCEPT /shortcuts:
+            // it has no argument completions, so the arrow opener lives HERE.
+            try {
+              if (cmd.name === "shortcuts") {
+                menuError = "";
+                menuStack = ["shortcuts"];
+                menuSubFilter = "";
+                menuSel = 0;
+                try { ui.requestRender(); } catch {}
+              }
+            } catch {}
           }
         }
       } else {
