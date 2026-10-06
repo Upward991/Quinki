@@ -1481,7 +1481,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         : qAgentsInputMode === "skillpkg" ? "Skill package: " + (menuSubFilter || "\u2026")
         : qAgentsInputMode === "mcpsrc" ? (qMcpType === "url" ? "MCP url: " : qMcpType === "command" ? "MCP command: " : "MCP package: ") + (menuSubFilter || "\u2026")
         : qAgentsInputMode === "mcpargs" ? "MCP args (optional): " + (menuSubFilter || "\u2026")
-        : "MCP source: " + (menuSubFilter || "\u2026");
+        : "Type here: " + (menuSubFilter || "\u2026");
       return [{ value: "__go", label, description: "type, then Enter \u00b7 Esc cancels" }];
     }
     if (sub === "__error") {
@@ -5439,6 +5439,8 @@ const readProvidersCfg = (): any => {
                 qShowResult(r, () => {
                   const nid = String((r && (r.id || r.agentId)) || val);
                   qPromptEdit = { id: nid, isNew: val };
+                  // T531: the menu MUST close here: the composer becomes the prompt editor.
+                  qCloseMenus();
                   try { editor.setText(""); } catch {}
                   try { pushBlock(new Text(fg(C.textSecondary, "New agent \u201c" + val + "\u201d \u2014 type its PROMPT.md \u00b7 Enter saves \u00b7 Esc skips"), 1, 0)); } catch {}
                   try { scrollToEnd(); qCursorEnd(); ui.requestRender(); } catch {}
