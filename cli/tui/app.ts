@@ -2634,8 +2634,7 @@ const readProvidersCfg = (): any => {
           let d2 = String(data).replace(/\x1b\[[0-9;]*:3[0-9;:]*[A-Za-z~]/g, "");
           d2 = d2
             .replace(/\x1b\[13;2u$/, "\n")
-            .replace(/\x1b\[27;1:1u$/, "\x1b")
-            .replace(/\x1b\[27;1u$/, "\x1b")
+            .replace(/\x1b\[27(?:;\d+)*(?::1)?u$/, "\x1b")
             .replace(/\x1b\[13;1:1u$/, "\r")
             .replace(/\x1b\[127;1:1u$/, "\x7f")
             .replace(/\x1b\[1;1:1([ABCD])$/, (_: string, c2: string) => "\x1b[" + c2)
@@ -2715,8 +2714,7 @@ const readProvidersCfg = (): any => {
         });
         if (pre !== data) data = pre;
         const norm = String(data)
-          .replace(/\x1b\[27;1:1u$/, "\x1b")   // Esc (kitty press) — WAS MISSING (flag 15)
-          .replace(/\x1b\[27;1u$/, "\x1b")     // Esc (kitty plain)
+          .replace(/\x1b\[27(?:;\d+)*(?::1)?u$/, "\x1b")   // Esc kitty: ANY form (27;1u, 27;7u = Esc+Ctrl+Alt)
           .replace(/\x1b\[13;1:1u$/, "\r")     // Enter (kitty press)
           .replace(/\x1b\[127;1:1u$/, "\x7f")  // Backspace (kitty press)
           .replace(/\x1b\[9;1:1u$/, "\t")      // Tab (kitty press)
@@ -2813,7 +2811,7 @@ const readProvidersCfg = (): any => {
         if (navMode && !qCAM) {
           try {
             const dE = String(data);
-            const isEscKey = dE === "\x1b" || matchesKey(dE, "escape");
+            const isEscKey = dE === "\x1b" || matchesKey(dE, "escape") || /^\x1b\[27(?:;\d+)*(?::1)?u$/.test(dE);
             const isMod = /^\x1b\[5744[0-9]/.test(dE);
             if (!isEscKey && !isMod && dE.indexOf("\x1b[1;7") !== 0) { exitToggleNav("any-key:" + JSON.stringify(dE.slice(0,12))); }
           } catch {}
