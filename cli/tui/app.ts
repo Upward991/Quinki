@@ -3037,8 +3037,6 @@ const readProvidersCfg = (): any => {
             { component: scroll as any, basis: 0, grow: 1, shrink: 1, minSize: 1 },
             { component: blank(), basis: "auto", grow: 0, shrink: 1, minSize: 0 },
             { component: boxWrap, basis: "auto", grow: 0, shrink: 1, minSize: 5 },
-            { component: blank(), basis: "auto", grow: 0, shrink: 1, minSize: 0 },
-            { component: hintWrap, basis: "auto", grow: 0, shrink: 0, minSize: 1 },
           ]);
       ui.setLayoutRoot(root as any);
       ui.requestRender();
@@ -3377,7 +3375,9 @@ const readProvidersCfg = (): any => {
     return ""; // 6 ott: the brand under the textbox is gone too (user's call)
   };
   try {
-    hintRow = new FnLine((w: number) => buildHintLine(w));
+    // T573: the hint row is GONE (empty line removed): the textbox sits at the
+    // bottom edge, like the header sits at the top.
+    hintRow = new FnLine((w: number) => "");
   } catch {}
 
   const mdTheme = {
@@ -6251,6 +6251,7 @@ const readProvidersCfg = (): any => {
             // T513 — THE user's flow (slash + selector + FORWARD): the arrow opens
             // the menu WITHOUT the case, so the tab data must load right here.
             try { if (cmd.name === "agents") { qCfgFromSession = false; refreshAgentsTab(); } } catch {} // T570: reset also via the arrow-opened tab
+            try { if (cmd.name === "shortcuts") { menuError = ""; menuStack = ["shortcuts"]; menuSubFilter = ""; menuSel = 0; } } catch {} // T573: arrow shows the list
           } else if (cmd) {
             // MENU 2.0: nothing (Enter runs commands).
           }
@@ -6835,7 +6836,7 @@ const applySettingsPatch = (patch: any) => {
           else if (menuStack.length > 0) canFwd = false;
           else {
             const cA: any = commands.find((c: any) => c.name === curA.value);
-            canFwd = !!(cA && typeof cA.getArgumentCompletions === "function");
+            canFwd = !!(cA && typeof cA.getArgumentCompletions === "function") || (cA && cA.name === "shortcuts"); // T573: shortcuts opens the list too
           }
         }
       } catch {}
