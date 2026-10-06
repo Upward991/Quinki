@@ -164,7 +164,7 @@
   --q-accent-info: #7aa2f7;
   --q-accent-longhorizon: #8B7FD4;
   --q-accent-calendar: #7fd1c0;
-  --q-accent-market: #e879a8;
+  --q-accent-market: #f2c94c;
   /* Accent della tab corrente — impostato da App.tsx al cambio tab (expert=orange, chat=info, log=success, agents=secondary, settings=primary) */
   --q-tab-accent: var(--q-accent-info);
   --q-tab-accent-darker: color-mix(in srgb, var(--q-tab-accent) 82%, black);
@@ -437,8 +437,8 @@ body.win-inactive *:not(.sidebar-item):not(.sortable-row) {
   --mp-text: #e8e8ec;
   --mp-text-secondary: #888892;
   --mp-text-tertiary: #585860;
-  --mp-accent: #9d8bd9;
-  --mp-accent-strong: #b3a6e8;
+  --mp-accent: #f2c94c;
+  --mp-accent-strong: #f7d97b;
   --mp-success: #6bc46d;
   --mp-danger: #d96b6b;
   --mp-warning: #d29922;

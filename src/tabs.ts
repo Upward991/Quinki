@@ -22,9 +22,9 @@ export const baseTabs: HomeTab[] = [
   { id: 'chat',     icon: MessageSquare, label: 'Chat',         color: 'var(--q-accent-info)',      panel: 'chat',     doubleBot: false, base: true },
   { id: 'calendar', icon: Checklist,     label: 'Agents Tasks', color: 'var(--q-accent-calendar)',  panel: 'calendar', doubleBot: false, base: true },
   { id: 'agents',   icon: Bot,           label: 'Agents',       color: 'var(--q-accent-secondary)', panel: 'agents',   doubleBot: true,  base: true },
+  { id: 'market',   icon: Store,         label: 'Market',       color: 'var(--q-accent-market)',    panel: 'market',   doubleBot: false, base: true },
   { id: 'settings', icon: Settings,      label: 'Settings',     color: 'var(--q-accent-primary)',   panel: 'settings', doubleBot: false, base: true },
   { id: 'log',      icon: Terminal,      label: 'Log',          color: 'var(--q-accent-success)',   panel: 'log',      doubleBot: false, base: true },
-  { id: 'market',   icon: Store,         label: 'Market',       color: 'var(--q-accent-market)',    panel: 'market',   doubleBot: false, base: true },
 ]
 
 const ORDER_KEY = 'quinki-tab-order'
@@ -35,7 +35,18 @@ export function loadTabOrder(): string[] {
     const raw = localStorage.getItem(ORDER_KEY)
     if (raw) {
       const arr = JSON.parse(raw)
-      if (Array.isArray(arr)) return arr
+      if (Array.isArray(arr)) {
+        // MIGRAZIONE (6 ott): il Market è diventato tab; per chi ha già un ordine
+        // salvato lo mettiamo DI DEFAULT subito dopo Agents (mai in coda).
+        if (!arr.includes('market')) {
+          const out = arr.slice()
+          const ai = out.indexOf('agents')
+          if (ai >= 0) out.splice(ai + 1, 0, 'market')
+          else out.push('market')
+          return out
+        }
+        return arr
+      }
     }
   } catch {}
   return baseTabs.map(t => t.id)
