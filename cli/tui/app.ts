@@ -1214,6 +1214,13 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       { value: "#plan", label: "Plan mode", description: "Tools and MCP enabled in plan mode" },
     ];
   };
+  // T520b: the context header the user asked for: on every configuration list a
+  // title row + a blank spacer, so it is always clear WHICH agent's skills you
+  // are editing and in WHICH skill you are changing the agents.
+  const qHead = (text: string): any[] => [
+    { value: "__sep_head", label: text, separator: true },
+    { value: "__sep_gap", label: "", separator: true },
+  ];
   const agentAdminLevelItems = (stack: string[]): any[] => {
     if (stack.length <= 1) return agentAdminItems();
     // T518: THE bug — this was stack[1] (the FIRST sub-level): with 3 levels
@@ -1298,7 +1305,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     }
     if (sub.startsWith("ag:")) {
       const agId = sub.slice(3);
-      return [
+      return [...qHead("Agent: " + agentDisplayName(agId)),
         { value: "ask:" + agId, label: "Skills", description: String(agentSkillsOf(agId).length) + " enabled" },
         { value: "atk:" + agId, label: "Tools", description: String(agentToolsOf(agId).length) + " enabled" },
         { value: "amc:" + agId, label: "MCP", description: String(agentMcpOf(agId).length) + " enabled" },
@@ -1308,7 +1315,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     if (sub.startsWith("ask:")) {
       const id = sub.slice(4);
       const has = agentSkillsOf(id);
-      const out: any[] = [];
+      const out: any[] = [...qHead("Agent: " + agentDisplayName(id) + " \u00b7 Skills")];
       // T519: enabled items on top (the app sorts selected-first everywhere).
       const skillsSorted = allSkillsList().slice().sort((a: string, b: string) => (has.includes(b) ? 1 : 0) - (has.includes(a) ? 1 : 0));
       for (const nm of skillsSorted) out.push({ value: "ast:" + id + ":" + nm, label: (has.includes(nm) ? "\u25cf " : "\u25cb ") + nm, description: has.includes(nm) ? "enabled" : "" });
@@ -1317,7 +1324,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     if (sub.startsWith("atk:")) {
       const id = sub.slice(4);
       const has = agentToolsOf(id);
-      const out: any[] = [];
+      const out: any[] = [...qHead("Agent: " + agentDisplayName(id) + " \u00b7 Tools")];
       const toolsSorted4 = qToolsData.slice()
         .sort((a: any, b: any) => (b?.readOnly ? 1 : 0) - (a?.readOnly ? 1 : 0))
         .sort((a: any, b: any) => (has.includes(String(b?.name)) ? 1 : 0) - (has.includes(String(a?.name)) ? 1 : 0));
@@ -1327,14 +1334,14 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     if (sub.startsWith("amc:")) {
       const id = sub.slice(6);
       const has = agentMcpOf(id);
-      const out: any[] = [];
+      const out: any[] = [...qHead("Agent: " + agentDisplayName(id) + " \u00b7 MCP")];
       const mcpSorted5 = qMcpData.slice().sort((a: any, b: any) => (has.includes(String(b?.id || b?.name)) ? 1 : 0) - (has.includes(String(a?.id || a?.name)) ? 1 : 0));
       for (const m of mcpSorted5) { const mid = String(m?.id || m?.name || ""); if (!mid) continue; out.push({ value: "amt:" + id + ":" + mid, label: (has.includes(mid) ? "\u25cf " : "\u25cb ") + mid, description: "" }); }
       return out;
     }
     if (sub.startsWith("sk:")) {
       const nm = sub.slice(3);
-      const out: any[] = [];
+      const out: any[] = [...qHead("Skill: " + nm)];
       const agsSorted = qAgentsData.slice()
         .map((a: any) => ({ a, id: String(a?.id || a?.name || "") }))
         .filter((x: any) => x.id)
@@ -1344,7 +1351,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     }
     if (sub.startsWith("mcp:")) {
       const mid = sub.slice(4);
-      const out: any[] = [];
+      const out: any[] = [...qHead("MCP: " + mid)];
       const agsSorted2 = qAgentsData.slice()
         .map((a: any) => ({ a, id: String(a?.id || a?.name || "") }))
         .filter((x: any) => x.id)
@@ -1354,7 +1361,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     }
     if (sub.startsWith("tool:")) {
       const nm = sub.slice(5);
-      const out: any[] = [];
+      const out: any[] = [...qHead("Tool: " + nm)];
       const agsSorted3 = qAgentsData.slice()
         .map((a: any) => ({ a, id: String(a?.id || a?.name || "") }))
         .filter((x: any) => x.id)
