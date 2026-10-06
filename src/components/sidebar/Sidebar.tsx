@@ -134,12 +134,7 @@ export function Sidebar(props: SidebarProps) {
   const topItems = e.filter(s => !s.parentId).sort((a, b) => (b.order || 0) - (a.order || 0))
   // PIN (6 ott): i pinnati (chat o cartelle) vanno in cima in una sezione dedicata,
   // con ordine PROPRIO (pinnedOrder, drag and drop libero dentro la sezione).
-  const pinnedTop = topItems.filter((s: any) => s.pinned).sort((a: any, b: any) => {
-    const pa = (typeof a.pinnedOrder === 'number') ? a.pinnedOrder : 0
-    const pb = (typeof b.pinnedOrder === 'number') ? b.pinnedOrder : 0
-    if (pa !== pb) return pa - pb
-    return (b.order || 0) - (a.order || 0)
-  })
+  const pinnedTop = topItems.filter((s: any) => s.pinned)
   const normalTop = topItems.filter((s: any) => !s.pinned)
   // PIN (6 ott): anche le chat DENTRO le cartelle si possono pinnare: salgono in
   // cima (depth 0) e vengono SALTATE dentro la cartella per non apparire due volte.
@@ -272,58 +267,17 @@ export function Sidebar(props: SidebarProps) {
     
     const targetItem = e.find(s => s.id === targetId)
     if (!targetItem) { dragRef.current = null; setDropZone(null); setActiveDragItem(null); return }
-    // PIN (6 ott): TRASCINARE nella sezione Pinned = PIN AUTOMATICO.
-    // Trascinare FUORI (su un non-pinnato) = unpin automatico. Vale solo per il
-    // primo livello (le annidate non si pinnano mai, seguono la cartella).
-    const dragTopPinned = (dragItem as any).pinned && !(dragItem as any).parentId
-    const targetTopPinned = (targetItem as any).pinned && !(targetItem as any).parentId
+    // PIN (6 ott): la sezione Pinned e' SOLO un separatore visivo (in cima, order
+    // condiviso). Il drag funziona ESATTAMENTE come sempre: l'unica magia e' il
+    // pin automatico — lasciando un item nella zona pinnata si pinna, lasciandolo
+    // tra i normali si despinna. Solo primo livello (le annidate seguono la cartella).
     const dragTopLevel = !(dragItem as any).parentId
-    if (dragTopLevel && !dragTopPinned && targetTopPinned && zone !== 'into') {
-      // auto-pin alla posizione del target (midpoint sul pinnedOrder)
-      const pinned = e.filter((s: any) => s.pinned && !s.parentId && s.id !== dragItem.id)
-        .sort((a: any, b: any) => ((typeof a.pinnedOrder === 'number' ? a.pinnedOrder : 0) - (typeof b.pinnedOrder === 'number' ? b.pinnedOrder : 0)) || ((b.order || 0) - (a.order || 0)))
-      const tIdx = pinned.findIndex((s: any) => s.id === targetId)
-      const tPo = typeof (targetItem as any).pinnedOrder === 'number' ? (targetItem as any).pinnedOrder : (tIdx >= 0 ? tIdx : 0)
-      let newPo: number
-      if (zone === 'before') {
-        const prev = tIdx > 0 ? pinned[tIdx - 1] : null
-        const prevPo = prev ? (typeof (prev as any).pinnedOrder === 'number' ? (prev as any).pinnedOrder : (tIdx - 1)) : tPo - 2
-        newPo = (prevPo + tPo) / 2
-      } else {
-        const next = (tIdx >= 0 && tIdx < pinned.length - 1) ? pinned[tIdx + 1] : null
-        const nextPo = next ? (typeof (next as any).pinnedOrder === 'number' ? (next as any).pinnedOrder : (tIdx + 1)) : tPo + 2
-        newPo = (tPo + nextPo) / 2
-      }
-      props.onSetPinned?.(dragItem.id, true, newPo)
-      dragRef.current = null; setDropZone(null); setActiveDragItem(null)
-      requestAnimationFrame(() => setDropZone(null))
-      return
-    }
-    if (dragTopPinned && !targetTopPinned) {
-      // trascinata FUORI dalla sezione Pinned -> unpin automatico, poi posizionata normalmente
-      props.onSetPinned?.(dragItem.id, false)
-    }
-    // PIN (6 ott): entrambi pinnati e di primo livello -> riordino nella sezione Pinned
-    const bothPinned = dragTopPinned && targetTopPinned
-    if (bothPinned && zone !== 'into') {
-      const pinned = e.filter((s: any) => s.pinned && !s.parentId && s.id !== dragItem.id)
-        .sort((a: any, b: any) => ((typeof a.pinnedOrder === 'number' ? a.pinnedOrder : 0) - (typeof b.pinnedOrder === 'number' ? b.pinnedOrder : 0)) || ((b.order || 0) - (a.order || 0)))
-      const tIdx = pinned.findIndex((s: any) => s.id === targetId)
-      const tPo = typeof (targetItem as any).pinnedOrder === 'number' ? (targetItem as any).pinnedOrder : (tIdx >= 0 ? tIdx : 0)
-      let newPo: number
-      if (zone === 'before') {
-        const prev = tIdx > 0 ? pinned[tIdx - 1] : null
-        const prevPo = prev ? (typeof (prev as any).pinnedOrder === 'number' ? (prev as any).pinnedOrder : (tIdx - 1)) : tPo - 2
-        newPo = (prevPo + tPo) / 2
-      } else {
-        const next = (tIdx >= 0 && tIdx < pinned.length - 1) ? pinned[tIdx + 1] : null
-        const nextPo = next ? (typeof (next as any).pinnedOrder === 'number' ? (next as any).pinnedOrder : (tIdx + 1)) : tPo + 2
-        newPo = (tPo + nextPo) / 2
-      }
-      props.onSetPinned?.(dragItem.id, true, newPo)
-      dragRef.current = null; setDropZone(null); setActiveDragItem(null)
-      requestAnimationFrame(() => setDropZone(null))
-      return
+    const tgtTopLevel = !(targetItem as any).parentId
+    if (dragTopLevel && tgtTopLevel && zone !== 'into') {
+      const dP = !!(dragItem as any).pinned
+      const tP = !!(targetItem as any).pinned
+      if (!dP && tP) props.onSetPinned?.(dragItem.id, true)
+      if (dP && !tP) props.onSetPinned?.(dragItem.id, false)
     }
     const isFolder = targetItem.type === 'folder'
     
