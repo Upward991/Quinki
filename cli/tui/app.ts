@@ -1286,7 +1286,10 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     }
     if (sub === "#tools") {
       const out: any[] = [{ value: "__sep_tools", label: "Tools", separator: true }];
-      for (const t of qToolsData) {
+      // T519: read-only tools grouped together first (the engine list has "read"
+      // alone on top, then write/edit/bash, then the other read-only ones).
+      const toolsSorted = qToolsData.slice().sort((a: any, b: any) => (b?.readOnly ? 1 : 0) - (a?.readOnly ? 1 : 0));
+      for (const t of toolsSorted) {
         const nm = String(t?.name || ""); if (!nm) continue;
         const n = countAgentsWith([nm], "tools");
         out.push({ value: "tool:" + nm, label: nm, description: (t?.readOnly ? "read-only \u00b7 " : "") + String(n) + " agent" + (n === 1 ? "" : "s") });
@@ -1306,39 +1309,57 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       const id = sub.slice(4);
       const has = agentSkillsOf(id);
       const out: any[] = [];
-      for (const nm of allSkillsList()) out.push({ value: "ast:" + id + ":" + nm, label: (has.includes(nm) ? "\u25cf " : "\u25cb ") + nm, description: has.includes(nm) ? "enabled" : "" });
+      // T519: enabled items on top (the app sorts selected-first everywhere).
+      const skillsSorted = allSkillsList().slice().sort((a: string, b: string) => (has.includes(b) ? 1 : 0) - (has.includes(a) ? 1 : 0));
+      for (const nm of skillsSorted) out.push({ value: "ast:" + id + ":" + nm, label: (has.includes(nm) ? "\u25cf " : "\u25cb ") + nm, description: has.includes(nm) ? "enabled" : "" });
       return out;
     }
     if (sub.startsWith("atk:")) {
       const id = sub.slice(4);
       const has = agentToolsOf(id);
       const out: any[] = [];
-      for (const t of qToolsData) { const nm = String(t?.name || ""); if (!nm) continue; out.push({ value: "att:" + id + ":" + nm, label: (has.includes(nm) ? "\u25cf " : "\u25cb ") + nm, description: t?.readOnly ? "read-only" : "" }); }
+      const toolsSorted4 = qToolsData.slice()
+        .sort((a: any, b: any) => (b?.readOnly ? 1 : 0) - (a?.readOnly ? 1 : 0))
+        .sort((a: any, b: any) => (has.includes(String(b?.name)) ? 1 : 0) - (has.includes(String(a?.name)) ? 1 : 0));
+      for (const t of toolsSorted4) { const nm = String(t?.name || ""); if (!nm) continue; out.push({ value: "att:" + id + ":" + nm, label: (has.includes(nm) ? "\u25cf " : "\u25cb ") + nm, description: t?.readOnly ? "read-only" : "" }); }
       return out;
     }
     if (sub.startsWith("amc:")) {
       const id = sub.slice(6);
       const has = agentMcpOf(id);
       const out: any[] = [];
-      for (const m of qMcpData) { const mid = String(m?.id || m?.name || ""); if (!mid) continue; out.push({ value: "amt:" + id + ":" + mid, label: (has.includes(mid) ? "\u25cf " : "\u25cb ") + mid, description: "" }); }
+      const mcpSorted5 = qMcpData.slice().sort((a: any, b: any) => (has.includes(String(b?.id || b?.name)) ? 1 : 0) - (has.includes(String(a?.id || a?.name)) ? 1 : 0));
+      for (const m of mcpSorted5) { const mid = String(m?.id || m?.name || ""); if (!mid) continue; out.push({ value: "amt:" + id + ":" + mid, label: (has.includes(mid) ? "\u25cf " : "\u25cb ") + mid, description: "" }); }
       return out;
     }
     if (sub.startsWith("sk:")) {
       const nm = sub.slice(3);
       const out: any[] = [];
-      for (const a of qAgentsData) { const id = String(a?.id || a?.name || ""); if (!id) continue; out.push({ value: "ska:" + nm + ":" + id, label: (agentSkillsOf(id).includes(nm) ? "\u25cf " : "\u25cb ") + String(a?.name || id), description: id }); }
+      const agsSorted = qAgentsData.slice()
+        .map((a: any) => ({ a, id: String(a?.id || a?.name || "") }))
+        .filter((x: any) => x.id)
+        .sort((x: any, y: any) => (agentSkillsOf(y.id).includes(nm) ? 1 : 0) - (agentSkillsOf(x.id).includes(nm) ? 1 : 0));
+      for (const x of agsSorted) out.push({ value: "ska:" + nm + ":" + x.id, label: (agentSkillsOf(x.id).includes(nm) ? "\u25cf " : "\u25cb ") + String(x.a?.name || x.id), description: x.id });
       return out;
     }
     if (sub.startsWith("mcp:")) {
       const mid = sub.slice(4);
       const out: any[] = [];
-      for (const a of qAgentsData) { const id = String(a?.id || a?.name || ""); if (!id) continue; out.push({ value: "mcpa:" + mid + ":" + id, label: (agentMcpOf(id).includes(mid) ? "\u25cf " : "\u25cb ") + String(a?.name || id), description: id }); }
+      const agsSorted2 = qAgentsData.slice()
+        .map((a: any) => ({ a, id: String(a?.id || a?.name || "") }))
+        .filter((x: any) => x.id)
+        .sort((x: any, y: any) => (agentMcpOf(y.id).includes(mid) ? 1 : 0) - (agentMcpOf(x.id).includes(mid) ? 1 : 0));
+      for (const x of agsSorted2) out.push({ value: "mcpa:" + mid + ":" + x.id, label: (agentMcpOf(x.id).includes(mid) ? "\u25cf " : "\u25cb ") + String(x.a?.name || x.id), description: x.id });
       return out;
     }
     if (sub.startsWith("tool:")) {
       const nm = sub.slice(5);
       const out: any[] = [];
-      for (const a of qAgentsData) { const id = String(a?.id || a?.name || ""); if (!id) continue; out.push({ value: "tola:" + nm + ":" + id, label: (agentToolsOf(id).includes(nm) ? "\u25cf " : "\u25cb ") + String(a?.name || id), description: id }); }
+      const agsSorted3 = qAgentsData.slice()
+        .map((a: any) => ({ a, id: String(a?.id || a?.name || "") }))
+        .filter((x: any) => x.id)
+        .sort((x: any, y: any) => (agentToolsOf(y.id).includes(nm) ? 1 : 0) - (agentToolsOf(x.id).includes(nm) ? 1 : 0));
+      for (const x of agsSorted3) out.push({ value: "tola:" + nm + ":" + x.id, label: (agentToolsOf(x.id).includes(nm) ? "\u25cf " : "\u25cb ") + String(x.a?.name || x.id), description: x.id });
       return out;
     }
     if (sub === "__input") {
@@ -6277,7 +6298,7 @@ const applySettingsPatch = (patch: any) => {
       const AR = (ok: boolean, ch: string) => ok ? bold(fg(C.primary, ch)) : fg(C.textTertiary, ch);
       const left = AR(canUD, "\u2191") + " " + AR(canUD, "\u2193") + "  " + AR(canBack, "\u2190") + " " + AR(canFwd, "\u2192");
       const inAddAgents = menuStack[0] === "agentinsession" && menuStack[1] === "#add";
-      const inAgentsTab = menuStack[0] === "agents" && menuStack.length >= 2 && /^(#def|#plantools|#planmcp|ask:|atk:|amc:|sk:|mcp:|tool:)/.test(String(menuStack[1] || "")); // T512: Select only where Tab truly selects
+      const inAgentsTab = menuStack[0] === "agents" && menuStack.length >= 2 && /^(#def|#plantools|#planmcp|ask:|atk:|amc:|sk:|mcp:|tool:)/.test(String(menuStack[menuStack.length - 1] || "")); // T519: the LAST level (stack[1] broke 2-deep menus)
       const inAgentPick2 = menuStack[0] === "agentinsession" && String(menuStack[2] || "").match(/^(model|thinking)$/);
       const hasMulti = (menuStack[0] === "model" || menuStack[0] === "thinking" || inAddAgents || inAgentsTab || inAgentPick2 || (menuStack[0] === "directory" && !menuStack[1]) || menuStack[0] === "attachments" || menuStack[0] === "skill") || (menuStack[0] === "settings" && (menuStack[3] === "models" || menuStack[1] === "model" || menuStack[1] === "fallbacks" || menuStack[1] === "thinking" || (menuStack[1] === "defaults" && (menuStack[2] === "fallbacks" || menuStack[2] === "model" || menuStack[2] === "thinking")) || (menuStack[1] === "providers" && !menuStack[2])));
       // Confirm appears ONLY when the highlighted option actually RUNS something
