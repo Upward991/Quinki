@@ -2466,7 +2466,13 @@ const readProvidersCfg = (): any => {
         // cleared on Enter while the menu stays open).
         let menuIsOpen = false;
         try { menuIsOpen = (menuStack && menuStack.length > 0) || !!(menuOpenRef?.() ?? false); } catch { menuIsOpen = !!(menuOpenRef?.() ?? false); }
-        if (menuIsOpen) { try { menuNavRef?.("select"); } catch {} try { ui.requestRender(); } catch {} return { consume: true }; }
+        if (menuIsOpen) {
+          try { require("fs").appendFileSync("/tmp/q-tab2.log", new Date().toISOString() + " isTab->select stack=" + JSON.stringify(menuStack) + " refNull=" + String(!menuNavRef) + "\n"); } catch {}
+          try { menuNavRef?.("select"); } catch {}
+          try { ui.requestRender(); } catch {}
+          return { consume: true };
+        }
+        try { require("fs").appendFileSync("/tmp/q-tab2.log", new Date().toISOString() + " isTab->TOGGLE-MODE (menu closed!) stack=" + JSON.stringify(menuStack) + "\n"); } catch {}
         toggleModeRef?.();
         return { consume: true };
       }
