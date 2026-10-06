@@ -1094,10 +1094,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       // T544: the box renders 2 cols narrower than the asked width, and the centered
       // anchor then looked decentered (left 0, right 4). Anchor it EXACTLY at col 1,
       // row 1: with width/height 100% the box lands with a uniform 1 gap everywhere.
-      // T545: the box renders 114 on a 118-col terminal: the leftover 4 cannot be
-      // 1/1 (impossible), so anchor at col 2 / row 1 = the only SYMMETRIC placement
-      // (2 left, 2 right; 1 top, 1 bottom).
-      const overlay = (ui as any).showOverlay(comp, { anchor: "top-left", width: "100%", height: "100%", col: 2, row: 1, margin: 0 });
+      // T546: with margin 0 the overlay gets the FULL width (118), the box renders
+      // 116 => anchored at col 1 / row 1 the gap is exactly 1 on all four sides.
+      const overlay = (ui as any).showOverlay(comp, { anchor: "top-left", width: "100%", height: "100%", col: 1, row: 1, margin: 0 });
       qPromptModal = { overlay, inner, id, isNew, returnStack: [...menuStack], returnSel: menuSel }; // T540: come back here on close
       try { pushBlock(new Text(fg(C.textSecondary, (isNew ? "New agent \u201c" + isNew + "\u201d \u2014 write its PROMPT.md" : "PROMPT.md of " + agentDisplayName(id)) + " \u2014 Enter saves \u00b7 Esc cancels"), 1, 0)); } catch {}
       try { scrollToEnd(); ui.requestRender(); } catch {}
