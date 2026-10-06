@@ -187,9 +187,35 @@ export function Sidebar(props: SidebarProps) {
     const dragParentId = dragItem?.parentId || null
 
     // Simple iteration: find the first item where pointer <= item.bottom
+    // FIX (6 ott): per un elemento ANNIDATO, il drop "fuori" e' valido SOLO se il
+    // puntatore ha superato l'INTERO blocco della cartella (parent + figli visibili).
+    // Prima bastava scendere sotto il parent per uscire: gli elementi uscivano
+    // per sbaglio (visivamente erano ancora dentro).
+    let passedParentBlock = false
+    const parentIdOfDrag = dragItem?.parentId || null
+    let parentBlockBottom = -1
+    if (parentIdOfDrag) {
+      const pIdx = flatList.findIndex(f => f.item.id === parentIdOfDrag)
+      if (pIdx >= 0) {
+        for (let k = pIdx + 1; k < flatList.length; k++) {
+          const f = flatList[k]
+          if (f.item.parentId !== parentIdOfDrag) break
+          const r2 = itemRects.current.get(f.item.id)
+          if (r2) parentBlockBottom = Math.max(parentBlockBottom, r2.bottom)
+        }
+      }
+    }
     for (const entry of flatList) {
       const rect = itemRects.current.get(entry.item.id)
       if (!rect) continue
+      // Uscita dal blocco: consentita solo oltre l'ultimo figlio visibile
+      if (dragItem?.parentId) {
+        const isSibling = entry.item.parentId === parentIdOfDrag || entry.item.id === parentIdOfDrag
+        if (!isSibling) {
+          if (parentBlockBottom > 0 && pointerY <= parentBlockBottom) continue
+          passedParentBlock = true
+        }
+      }
       if (!canAccept(e, dragRef.current, entry.item.id)) continue
       if (pointerY <= rect.bottom) {
         const relY = pointerY - rect.top

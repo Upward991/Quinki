@@ -364,7 +364,14 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       if (!alive || !s) return
       if (typeof s.fullWidth === 'boolean') setFullWidth(s.fullWidth)
       if (s.openGroups && typeof s.openGroups === 'object') setOpenGroups(s.openGroups)
-      if (Array.isArray(s.views) && s.views.length) { const nv = normViews(s.views); setViews(nv); const want = s.activeId && nv.some((x: any) => x.id === s.activeId) ? s.activeId : nv[0].id; setActiveId(want) }
+      // FIX (6 ott): le VIEW vivono anche nel localStorage, SEMPRE aggiornato a ogni
+      // modifica (pin incluso). Il sidecar puo' essere indietro (saveUiState arriva
+      // dopo): se il local ha qualcosa, E' la verita' — il restore non deve
+      // sovrascrivere i pin appena fatti. Se non c'e' nulla in locale, si adotta
+      // lo stato del sidecar (primo sync su un browser nuovo).
+      let localHasViews = false
+      try { const raw = localStorage.getItem(VIEWS_KEY); if (raw) { const lv = normViews(JSON.parse(raw)); localHasViews = lv.length > 0 } } catch {}
+      if (!localHasViews && Array.isArray(s.views) && s.views.length) { const nv = normViews(s.views); setViews(nv); const want = s.activeId && nv.some((x: any) => x.id === s.activeId) ? s.activeId : nv[0].id; setActiveId(want) }
     }).catch(() => {})
     return () => { alive = false }
   }, [])
