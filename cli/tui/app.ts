@@ -3369,10 +3369,17 @@ const readProvidersCfg = (): any => {
     "\n" +
     "  Enter \u2014 send; during a reply it becomes a steer\n" +
     "  Esc \u2014 stop the running reply\n" +
-    "  / \u2014 open the command menu (the forward arrow enters)\n" +
-    "  Esc / Enter / Tab \u2014 Close / Confirm / Select inside every menu\n" +
+    "  / \u2014 open the command menu\n" +
     "  Tab \u2014 switch Plan / Build\n" +
     "  Ctrl+F \u2014 show/hide the detailed footers\n" +
+    "\n" +
+    "Menu navigation\n" +
+    "\n" +
+    "  \u2191 / \u2193 \u2014 move through the rows\n" +
+    "  \u2192 / \u2190 \u2014 forward / back one level (the forward arrow enters)\n" +
+    "  Esc \u2014 Close\n" +
+    "  Enter \u2014 Confirm (run / open)\n" +
+    "  Tab \u2014 Select (instant, on the ● rows)\n" +
     "\n" +
     "Toggles\n" +
     "\n" +
