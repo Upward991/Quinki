@@ -5059,7 +5059,7 @@ const readProvidersCfg = (): any => {
             : "Chat default",
         });
       }
-      out.push({ value: "config", label: "Agent configuration", description: "Prompt, skills, files" });
+      out.push({ value: "config", label: "Agent configuration", description: "Prompt, skills, MCP, tools" });
       out.push({ value: "remove", label: "Remove agent", description: "" });
       return out;
     }
@@ -6651,7 +6651,7 @@ const applySettingsPatch = (patch: any) => {
       // T513: every time the agents menu is on screen, make sure the engine data
       // is fresh (throttled; covers ALL the ways the menu can be opened).
       try {
-        if (menuStack[0] === "agents" && Date.now() - (refreshAgentsTab as any)._last > 4000) {
+        if (inAgentCfg() && Date.now() - (refreshAgentsTab as any)._last > 4000) {
           (refreshAgentsTab as any)._last = Date.now();
           refreshAgentsTab();
         }
