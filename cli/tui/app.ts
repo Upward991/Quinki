@@ -1139,6 +1139,25 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   // T508: the AGENTS tab data — the sidecar is the truth (same as the app).
   let qAgentsInputMode: "" | "newagent" | "skillpkg" | "mcpmcp" | "mcpsrc" | "mcpargs" = "";
   // T525: MCP install (mirrors the app's McpInstallModal): type -> source/command -> args.
+  // T530: operation errors show as the delete-style notice (read it, Enter, back).
+  let qResultError = "";
+  const qShowResult = (res: any, onOk: () => void) => {
+    try {
+      const bad = res && (res.ok === false || res.success === false);
+      if (bad) {
+        qResultError = String(res.error || res.message || res.detail || "The operation failed.");
+        menuStack.push("__error");
+        menuSubFilter = "";
+        menuSel = 0;
+        try { ui.requestRender(); } catch {}
+        return;
+      }
+    } catch {}
+    onOk();
+  };
+  // T530: PROMPT.md editor mode (the composer becomes the editor of the agent prompt).
+  let qPromptEdit: { id: string; isNew: string } | null = null;
+  const qPromptBanner = (id: string) => "Editing PROMPT.md of " + id + " \u2014 Enter saves \u00b7 Esc cancels";
   // T529: the freshly created/installed item is PINNED at the top of its list,
   // and after Confirm we go BACK to the list (menu stays open) — the attachment flow.
   let qPinNew = "";
@@ -1197,7 +1216,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         if (type === "package" && args.length) params.args = args;
       }
       const before = new Set(qMcpData.map((x: any) => String(x?.id || x?.name)));
-      if (call) call("addMcpServer", params).then(() => { qPinAndBack("mcp", before, "#mcp"); }).catch(() => {});
+      if (call) call("addMcpServer", params).then((r: any) => { qShowResult(r, () => qPinAndBack("mcp", before, "#mcp")); }).catch((e: any) => { qShowResult({ ok: false, error: String(e?.message || e) }, () => {}); });
     } catch {}
   };
   let qSkillsData: string[] = [];
@@ -1378,6 +1397,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     if (sub.startsWith("ag:")) {
       const agId = sub.slice(3);
       return [...qHead("Agent: " + agentDisplayName(agId)),
+        { value: "aprompt:" + agId, label: "Prompt", description: "open PROMPT.md (edit it)" },
         { value: "ask:" + agId, label: "Skills", description: String(agentSkillsOf(agId).length) + " enabled" },
         { value: "amc:" + agId, label: "MCP", description: String(agentMcpOf(agId).length) + " enabled" },
         { value: "atk:" + agId, label: "Tools", description: String(agentToolsOf(agId).length) + " enabled" },
@@ -1463,6 +1483,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         : qAgentsInputMode === "mcpargs" ? "MCP args (optional): " + (menuSubFilter || "\u2026")
         : "MCP source: " + (menuSubFilter || "\u2026");
       return [{ value: "__go", label, description: "type, then Enter \u00b7 Esc cancels" }];
+    }
+    if (sub === "__error") {
+      return [{ value: "__error-ok", label: "", notice: qResultError }];
     }
     if (sub.startsWith("agdel:")) {
       const id = sub.slice(6);
@@ -2616,6 +2639,15 @@ const readProvidersCfg = (): any => {
       const isSelect = false; // Tab is handled by the dedicated branch
       const isCtrlEnter = data === "\n" || data === "\x1b[13;5u" || matchesKey(data, "ctrl+enter");
       const isEsc = data === "\x1b" || matchesKey(data, "escape");
+      if (isEsc && qPromptEdit) {
+        const pe = qPromptEdit;
+        qPromptEdit = null;
+        try { editor.setText(""); } catch {}
+        try { pushBlock(new Text(fg(C.textSecondary, "Prompt edit cancelled (PROMPT.md unchanged)."), 1, 0)); } catch {}
+        if (pe.isNew) { const before = new Set(qAgentsData.map((a: any) => String(a?.id || a?.name))); qPinAndBack("agent", before, "#you"); }
+        try { scrollToEnd(); ui.requestRender(); } catch {}
+        return { consume: true };
+      }
       const isUp = data === "\x1b[A" || matchesKey(data, "up");
       const isDown = data === "\x1b[B" || matchesKey(data, "down");
       const isLeft = data === "\x1b[D" || matchesKey(data, "left");
@@ -5316,6 +5348,24 @@ const readProvidersCfg = (): any => {
           try { ui.requestRender(); } catch {}
           return;
         }
+        if (vAg.startsWith("aprompt:")) {
+          const pid = vAg.slice(8);
+          const call = (globalThis as any).__sidecarCall;
+          qCloseMenus();
+          try { editor.setText(""); } catch {}
+          if (call) {
+            call("readAgentFile", { id: pid, filePath: "PROMPT.md" }).then((r: any) => {
+              const content = String(r?.content ?? "");
+              qPromptEdit = { id: pid, isNew: "" };
+              try { editor.setText(content); } catch {}
+              try { (editor as any).setCursorCol(editor.getText().length); } catch {}
+              try { qCursorEnd(); } catch {}
+              try { pushBlock(new Text(fg(C.textSecondary, "Editing PROMPT.md of " + agentDisplayName(pid) + " \u2014 Enter saves \u00b7 Esc cancels"), 1, 0)); } catch {}
+              try { scrollToEnd(); ui.requestRender(); } catch {}
+            }).catch((e: any) => { qShowResult({ ok: false, error: String(e?.message || e) }, () => {}); });
+          }
+          return;
+        }
         if (vAg === "__agdel") {
           const st1 = String(menuStack[1] || "");
           const agId = st1.startsWith("ag:") ? st1.slice(3) : "";
@@ -5354,6 +5404,13 @@ const readProvidersCfg = (): any => {
           qCloseMenus();
           return;
         }
+        if (vAg === "__error-ok") {
+          menuStack.pop();
+          menuSubFilter = "";
+          menuSel = 0;
+          try { ui.requestRender(); } catch {}
+          return;
+        }
         if (vAg === "__rename-go") {
           const label = String(menuSubFilter || "").trim();
           if (label) {
@@ -5376,7 +5433,17 @@ const readProvidersCfg = (): any => {
             if (qAgentsInputMode === "newagent" && val && callA) {
               qAgentsInputMode = "";
               const beforeA = new Set(qAgentsData.map((a: any) => String(a?.id || a?.name)));
-              callA('createAgent', { name: val }).then(() => { qPinAndBack("agent", beforeA, "#you"); }).catch(() => {});
+              // T530: name confirmed -> the agent is created, then the PROMPT.md
+              // editor opens (the box) with the fresh prompt: Enter saves it.
+              callA('createAgent', { name: val }).then((r: any) => {
+                qShowResult(r, () => {
+                  const nid = String((r && (r.id || r.agentId)) || val);
+                  qPromptEdit = { id: nid, isNew: val };
+                  try { editor.setText(""); } catch {}
+                  try { pushBlock(new Text(fg(C.textSecondary, "New agent \u201c" + val + "\u201d \u2014 type its PROMPT.md \u00b7 Enter saves \u00b7 Esc skips"), 1, 0)); } catch {}
+                  try { scrollToEnd(); qCursorEnd(); ui.requestRender(); } catch {}
+                });
+              }).catch((e: any) => { qShowResult({ ok: false, error: String(e?.message || e) }, () => {}); });
             } else if (qAgentsInputMode === "mcpsrc" && val && callA) {
             qMcpSrc = val;
             if (qMcpType === "url") { qMcpInstall(val, ""); qAgentsInputMode = ""; return; }
@@ -5391,7 +5458,7 @@ const readProvidersCfg = (): any => {
           } else if (qAgentsInputMode === "skillpkg" && val && callA) {
               qAgentsInputMode = "";
               const beforeS = new Set(qSkillsData.map((x: any) => String(x?.name || x)));
-              callA('installSkill', { package: val }).then(() => { qPinAndBack("skill", beforeS, "#sk"); }).catch(() => {});
+              callA('installSkill', { package: val }).then((r: any) => { qShowResult(r, () => qPinAndBack("skill", beforeS, "#sk")); }).catch((e: any) => { qShowResult({ ok: false, error: String(e?.message || e) }, () => {}); });
             } else if (qAgentsInputMode === "mcpmcp" && val && callA) {
               const parts = val.split(/\s+/);
               const first = parts[0] || "";
@@ -5579,7 +5646,7 @@ const readProvidersCfg = (): any => {
         // T526: ACTION rows and ACTION levels show "Confirm (Enter)":
         // delete modals, the install/input levels, and the "+ New…/Install…" rows.
         const lastLv = String(menuStack[menuStack.length - 1] || "");
-        if (/^(agdel|skdel|mcpdel):/.test(lastLv) || lastLv === "__input") return true; // T527: the MCP type picker = arrow only (no Confirm)
+        if (/^(agdel|skdel|mcpdel):/.test(lastLv) || lastLv === "__input" || lastLv === "__error") return true; // T530: + the error notice
         const v0a = String((cur as any)?.value || "");
         if (v0a === "__newskill" || v0a === "__newmcp" || v0a === "__newagent" || v0a.startsWith("__mcpt_")) return true;
         // T507: otherwise the agents tab is all SELECTION (Tab = select,
@@ -6585,6 +6652,32 @@ const applySettingsPatch = (patch: any) => {
   };
 
   editor.onSubmit = (text: string) => {
+   if (qPromptEdit) {
+    // T530: the composer is the PROMPT.md editor: Enter saves (writeAgentFile),
+    // then back to normal; errors show as the delete-style notice.
+    const pe = qPromptEdit;
+    const content = String(text || "");
+    qPromptEdit = null;
+    try { editor.setText(""); } catch {}
+    const call = (globalThis as any).__sidecarCall;
+    if (call) {
+      call("writeAgentFile", { id: pe.id, filePath: "PROMPT.md", content }).then((r: any) => {
+        qShowResult(r, () => {
+          try { pushBlock(new Text(fg(C.accentSuccess || C.textSecondary, "PROMPT.md saved: " + agentDisplayName(pe.id)), 1, 0)); } catch {}
+          try { scrollToEnd(); } catch {}
+          if (pe.isNew) {
+            const before = new Set(qAgentsData.map((a: any) => String(a?.id || a?.name)));
+            qPinAndBack("agent", before, "#you");
+          } else {
+            refreshAgentsTab();
+          }
+          try { ui.requestRender(); } catch {}
+        });
+      }).catch((e: any) => { qShowResult({ ok: false, error: String(e?.message || e) }, () => {}); });
+    }
+    try { ui.requestRender(); } catch {}
+    return;
+   }
    try {
     const t = (text || "").trim();
     if (/^\/+$/.test(t)) {
