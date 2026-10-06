@@ -6752,7 +6752,14 @@ const applySettingsPatch = (patch: any) => {
       const AR = (ok: boolean, ch: string) => ok ? bold(fg(C.primary, ch)) : fg(C.textTertiary, ch);
       const left = AR(canUD, "\u2191") + " " + AR(canUD, "\u2193") + "  " + AR(canBack, "\u2190") + " " + AR(canFwd, "\u2192");
       const inAddAgents = menuStack[0] === "agentinsession" && menuStack[1] === "#add";
-      const inAgentsTab = menuStack[0] === "agents" && menuStack.length >= 2 && /^(#def|#plantools|#planmcp|ask:|atk:|amc:|sk:|mcp:|tool:)/.test(String(menuStack[menuStack.length - 1] || "")); // T519: the LAST level (stack[1] broke 2-deep menus)
+      // T555: Select (Tab) shows ONLY when the highlighted ROW is really selectable
+      // (dot rows / default agent / plan flags) — never on "Skill file", Delete… .
+      const inAgentsTab = menuStack[0] === "agents" && menuStack.length >= 2 && (() => {
+        try {
+          const rowV = String(((items[menuSel] || {}) as any).value || "");
+          return /^(def:|ast:|att:|amt:|ska:|mcpa:|tola:|pmt:|pmm:)/.test(rowV);
+        } catch { return false; }
+      })();
       const inAgentPick2 = menuStack[0] === "agentinsession" && String(menuStack[2] || "").match(/^(model|thinking)$/);
       const hasMulti = (menuStack[0] === "model" || menuStack[0] === "thinking" || inAddAgents || inAgentsTab || inAgentPick2 || (menuStack[0] === "directory" && !menuStack[1]) || menuStack[0] === "attachments" || menuStack[0] === "skill") || (menuStack[0] === "settings" && (menuStack[3] === "models" || menuStack[1] === "model" || menuStack[1] === "fallbacks" || menuStack[1] === "thinking" || (menuStack[1] === "defaults" && (menuStack[2] === "fallbacks" || menuStack[2] === "model" || menuStack[2] === "thinking")) || (menuStack[1] === "providers" && !menuStack[2])));
       // Confirm appears ONLY when the highlighted option actually RUNS something
