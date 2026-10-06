@@ -3352,17 +3352,29 @@ const readProvidersCfg = (): any => {
   //   Enter     -> lit when a message can be sent
   //   Ctrl+Enter-> lit while steering is possible (generating + text)
   //   Esc       -> flashes lit right when pressed
+  const qShortcutsText = (): string =>
+    "Chat\n" +
+    "  Send / Steer (Enter) \u2014 during a reply the send becomes a steer\n" +
+    "  Stop (Esc) \u2014 stops the running reply\n" +
+    "  Menu (/) \u2014 opens the command menu; the forward arrow enters\n" +
+    "  Close (Esc) \u00b7 Confirm (Enter) \u00b7 Select (Tab) \u2014 inside every menu\n" +
+    "  Info (Ctrl+F) \u2014 show/hide the detailed footers\n" +
+    "\n" +
+    "Toggles (anytime, no mode)\n" +
+    "  Ctrl+Alt + \u2191 / \u2193 \u2014 move between the toggles (they invert)\n" +
+    "  Ctrl+Alt + \u2192 / \u2190 \u2014 open / close the selected toggle\n" +
+    "\n" +
+    "Editor\n" +
+    "  Shift+Enter \u2014 new line (also \\ + Enter)\n" +
+    "  Attachments \u2014 drag or paste a file: its name becomes a chip";
+
   const buildHintLine = (width: number): string => {
     // 6 ott: ALL the shortcut hints under the textbox are gone (they live in
     // /shortcuts now). The line keeps only the brand, centered.
     return buildBrandLine(width);
   };
   const buildBrandLine = (width: number): string => {
-    // Only the centered brand remains: "| Quinki |".
-    const brand = welcomeShown ? "" : fg(C.primary, "\u2502") + " " + fg(C.primary, QEXPERT ? "App Expert" : "Quinki") + " " + fg(C.primary, "\u2502");
-    const bw = visibleWidth(brand);
-    const start = Math.max(0, Math.floor((width - bw) / 2));
-    return " ".repeat(start) + brand;
+    return ""; // 6 ott: the brand under the textbox is gone too (user's call)
   };
   try {
     hintRow = new FnLine((w: number) => buildHintLine(w));
@@ -5356,22 +5368,8 @@ const readProvidersCfg = (): any => {
     }
     if (stack.length === 0) return mainItems();
     if (stack[0] === "shortcuts") {
-      // The shortcuts list (read-only rows).
-      const R = (k: string, d: string) => ({ value: "__sc_" + k, label: k, description: d });
-      return [
-        { value: "__sep_scl1", label: "Chat", separator: true },
-        R("Send / Steer (Enter)", "during a reply the send becomes a steer"),
-        R("Stop (Esc)", "stops the running reply"),
-        R("Menu (/)", "opens the command menu; forward arrow enters"),
-        R("Close (Esc) \u00b7 Confirm (Enter) \u00b7 Select (Tab)", "in every menu"),
-        R("Info (Ctrl+F)", "show/hide the detailed footers"),
-        { value: "__sep_scl2", label: "Toggles (anytime, no mode)", separator: true },
-        R("Ctrl+Alt + \u2191 / \u2193", "move between the toggles (they invert)"),
-        R("Ctrl+Alt + \u2192 / \u2190", "open / close the selected toggle"),
-        { value: "__sep_scl3", label: "Editor", separator: true },
-        R("Shift+Enter", "new line (also \\ + Enter)"),
-        R("Attachments", "drag or paste a file: its name becomes a chip"),
-      ];
+      // Read-only view (the /quit-style notice): you look at it, Close (Esc).
+      return [{ value: "__sc_view", label: "", notice: qShortcutsText() }];
     }
     if (stack[0] === "agentinsession") {
       // T556: "Agent configuration" inside the chat opens the SAME tree as the tab.
@@ -6703,8 +6701,13 @@ const applySettingsPatch = (patch: any) => {
         const ARE = (ok: boolean, ch: string) => ok ? bold(fg(C.primary, ch)) : fg(C.textTertiary, ch);
         // No forward here (there is nothing ahead) and NO focus background on the
         // Confirm: the user wants it plain, like everywhere else.
-        const leftE = ARE(false, "\u2191") + " " + ARE(false, "\u2193") + "  " + ARE(true, "\u2190") + " " + ARE(false, "\u2192");
-        const rightE = fg(C.danger, "Close (Esc)") + "  " + fg(C.primary, "Confirm (Enter)");
+        const scView = String(menuStack[0] || "") === "shortcuts";
+        const leftE = scView
+          ? ""
+          : ARE(false, "\u2191") + " " + ARE(false, "\u2193") + "  " + ARE(true, "\u2190") + " " + ARE(false, "\u2192");
+        const rightE = scView
+          ? fg(C.danger, "Close (Esc)") // shortcuts: read-only, nothing to confirm
+          : fg(C.danger, "Close (Esc)") + "  " + fg(C.primary, "Confirm (Enter)");
         const gwE = Math.max(1, w - visibleWidth(leftE) - visibleWidth(rightE));
         rowsE.push(leftE + " ".repeat(gwE) + rightE);
         return rowsE;
