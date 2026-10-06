@@ -1522,7 +1522,17 @@ export function McpInstallModal({ onClose, onInstalled }) {
   const [msg, setMsg] = useState(null);
 
   const deriveName = (src) => {
-    if (type === 'package') return (src.split('/').pop() || src).replace(/^server-/, '').replace(/^mcp-/, '');
+    if (type === 'package') {
+      // FIX (6 ott): "@hostinger/mcp" dava nome "mcp" (garbage). Un pacchetto con
+      // scope -> "scope-pkg" (come nel ramo command); modelcontextprotocol resta il caso speciale.
+      const mm = src.match(/^@([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_.-]+)$/);
+      if (mm) {
+        const pkg = mm[2].replace(/@.*$/, '');
+        if (mm[1] === 'modelcontextprotocol') return pkg.replace(/^server-/, '').replace(/^mcp-/, '');
+        return mm[1] + '-' + pkg;
+      }
+      return (src.split('/').pop() || src).replace(/^server-/, '').replace(/^mcp-/, '');
+    }
     if (type === 'url') { try { const u = new URL(src.startsWith('http') ? src : 'http://' + src); return u.hostname.replace(/^www\./, ''); } catch { return src; } }
     if (type === 'command') {
       // Estrai scope+pacchetto dal comando (es. "npx -y @playwright/mcp@latest" → "playwright-mcp")

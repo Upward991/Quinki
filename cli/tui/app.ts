@@ -1307,7 +1307,15 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   let qMcpSrc = "";
   const qMcpDerive = (src: string, type: string): string => {
     try {
-      if (type === "package") return (src.split("/").pop() || src).replace(/^server-/, "").replace(/^mcp-/, "");
+      if (type === "package") {
+        const mm = src.match(/^@([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_.-]+)$/);
+        if (mm) {
+          const pkg2 = mm[2].replace(/@.*$/, "");
+          if (mm[1] === "modelcontextprotocol") return pkg2.replace(/^server-/, "").replace(/^mcp-/, "");
+          return mm[1] + "-" + pkg2;
+        }
+        return (src.split("/").pop() || src).replace(/^server-/, "").replace(/^mcp-/, "");
+      }
       if (type === "url") { try { const u = new URL(src.startsWith("http") ? src : "http://" + src); return u.hostname.replace(/^www\./, ""); } catch { return src; } }
       const m = src.match(/@([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_.-]+)/);
       if (m) {
