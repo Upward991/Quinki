@@ -6,7 +6,7 @@ import { ModelPickerModal, ThinkingPickerModal } from '../chat/ChatHeader'
 import { MessageBubble } from '../chat/MessageBubble'
 import { ChatArea } from '../chat/ChatArea'
 import { mergeHistoryMessages } from '../../utils/history'
-import { Home, Checklist, Play, X, RotateCcw, Trash2, Search, Plus, Filter, Check, ChevronDown, ChevronRight, PanelLeft, MessageSquare, Maximize, Minimize } from '../icons'
+import { Home, Checklist, Play, X, RotateCcw, Trash2, Search, Plus, Filter, Check, ChevronDown, ChevronRight, PanelLeft, MessageSquare, Maximize, Minimize , Pin } from '../icons'
 import { BottomSheet } from '../chat/BottomSheet'
 
 const STATUS_COLOR: Record<string, string> = {
@@ -182,7 +182,7 @@ function ViewContextMenu({ x, y, item, multiSelect, selectedCount, onClose, onRe
     React.createElement('div', { key: 'm', style: { position: 'fixed', left: Math.min(x, window.innerWidth - 200), top: Math.min(y, window.innerHeight - 250), zIndex: 1200, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '4px 0', minWidth: '180px' } }, [
       multiSelect
         ? [React.createElement(MenuItem, { key: 'ds', label: 'Deselect all', onClick: onDeselectAll }), selectedCount > 0 ? React.createElement(MenuItem, { key: 'dl', label: 'Delete ' + selectedCount + ' view' + (selectedCount > 1 ? 's' : ''), color: 'var(--q-accent-danger)', onClick: onDeleteSelected }) : null]
-        : [React.createElement(MenuItem, { key: 'rn', label: 'Rename', onClick: onRename }), React.createElement(MenuItem, { key: 'sl', label: 'Select view', onClick: onSelect }), React.createElement(MenuItem, { key: 'pn', label: item?.pinned ? 'Unpin' : 'Pin', onClick: onTogglePin }), React.createElement(MenuItem, { key: 'dl', label: 'Delete view', color: 'var(--q-accent-danger)', onClick: onDelete })],
+        : [React.createElement(MenuItem, { key: 'rn', label: 'Rename', onClick: onRename }), React.createElement(MenuItem, { key: 'sl', label: 'Select view', onClick: onSelect }), React.createElement(MenuItem, { key: 'pn', label: item?.pinned ? 'Unpin' : 'Pin', icon: React.createElement(Pin, { size: 15 }), onClick: onTogglePin }), React.createElement(MenuItem, { key: 'dl', label: 'Delete view', color: 'var(--q-accent-danger)', onClick: onDelete })],
     ]),
   ])
 }

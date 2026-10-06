@@ -434,15 +434,15 @@ export function Sidebar(props: SidebarProps) {
                       {sepInd && dropZone?.zone === 'before' && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '18px' }}>
                           <span style={{ flex: 1, height: '1px', backgroundColor: 'var(--q-tab-accent)' }} />
-                          <span style={{ color: 'var(--q-tab-accent)', fontSize: '11px', fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap' }}>Pin here</span>
+                          <span style={{ color: 'var(--q-tab-accent)', fontSize: '11px', fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap' }}>Drop here</span>
                           <span style={{ flex: 1, height: '1px', backgroundColor: 'var(--q-tab-accent)' }} />
                         </div>
                       )}
-                      <div style={{ flex: 1, height: '1px', backgroundColor: sepInd ? 'var(--q-tab-accent)' : 'var(--q-border)', margin: '5px 0' }} />
+                      <div style={{ height: '1px', width: '100%', backgroundColor: sepInd ? 'var(--q-tab-accent)' : 'var(--q-border)', margin: '8px 0' }} />
                       {sepInd && dropZone?.zone === 'after' && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '18px' }}>
                           <span style={{ flex: 1, height: '1px', backgroundColor: 'var(--q-tab-accent)' }} />
-                          <span style={{ color: 'var(--q-tab-accent)', fontSize: '11px', fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap' }}>Unpin here</span>
+                          <span style={{ color: 'var(--q-tab-accent)', fontSize: '11px', fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap' }}>Drop here</span>
                           <span style={{ flex: 1, height: '1px', backgroundColor: 'var(--q-tab-accent)' }} />
                         </div>
                       )}
