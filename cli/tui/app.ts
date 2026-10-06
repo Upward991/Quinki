@@ -1314,6 +1314,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         { value: "ask:" + agId, label: "Skills", description: String(agentSkillsOf(agId).length) + " enabled" },
         { value: "amc:" + agId, label: "MCP", description: String(agentMcpOf(agId).length) + " enabled" },
         { value: "atk:" + agId, label: "Tools", description: String(agentToolsOf(agId).length) + " enabled" },
+        { value: "__sep_agdelgap", label: "", separator: true },
         { value: "__agdel", label: "Delete agent", description: "" },
       ];
     }
@@ -1354,6 +1355,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         .filter((x: any) => x.id)
         .sort((x: any, y: any) => (agentSkillsOf(y.id).includes(nm) ? 1 : 0) - (agentSkillsOf(x.id).includes(nm) ? 1 : 0));
       for (const x of agsSorted) out.push({ value: "ska:" + nm + ":" + x.id, label: (agentSkillsOf(x.id).includes(nm) ? "\u25cf " : "\u25cb ") + String(x.a?.name || x.id), description: x.id });
+      out.push({ value: "__sep_skdelgap", label: "", separator: true });
       out.push(outDel);
       return out;
     }
@@ -1366,6 +1368,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         .filter((x: any) => x.id)
         .sort((x: any, y: any) => (agentMcpOf(y.id).includes(mid) ? 1 : 0) - (agentMcpOf(x.id).includes(mid) ? 1 : 0));
       for (const x of agsSorted2) out.push({ value: "mcpa:" + mid + ":" + x.id, label: (agentMcpOf(x.id).includes(mid) ? "\u25cf " : "\u25cb ") + String(x.a?.name || x.id), description: x.id });
+      out.push({ value: "__sep_mcpdelgap", label: "", separator: true });
       out.push(outDel2);
       return out;
     }
@@ -6347,7 +6350,7 @@ const applySettingsPatch = (patch: any) => {
             // T512: the arrow lights when the row opens something (a section, an
             // agent's editor, a per-skill agent list...) — never on the toggles.
             const vF = String(curA.value || "");
-            canFwd = /^(#def|#you|#sk|#mcp|#tools|#plan|#plantools|#planmcp|ag:|ask:|atk:|amc:|sk:|mcp:|tool:)/.test(vF);
+            canFwd = /^(#def|#you|#sk|#mcp|#tools|#plan|#plantools|#planmcp|ag:|ask:|atk:|amc:|sk:|mcp:|tool:)/.test(vF) || vF === "__agdel" || vF === "__skdel" || vF === "__mcpdel"; // T524: the forward arrow lights on the Delete rows too (it opens the confirm modal)
           }
           else if (menuStack[0] === "settings") canFwd = !!settingsDeeper(curA);
           else if (menuStack[0] === "directory") canFwd = menuStack[1] === "dirchange" ? false : (String(curA.value || "") === "__dir_change"); // -> lights only on Change directory
