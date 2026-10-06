@@ -235,6 +235,10 @@ interface SessionEntry {
   messageSkills?: Record<string, { agentId: string; skillName: string; agentName?: string }[]>;
   messageTaskClips?: Record<string, { id: string; label: string; text: string }[]>;
   messageAttachments?: Record<string, { originalName: string; path: string; uuid: string; size?: number }[]>;
+  // PIN (6 ott): la chat (o la cartella) pinnata in cima alla sidebar, con ordine
+  // proprio nella sezione Pinned (drag and drop libero).
+  pinned?: boolean;
+  pinnedOrder?: number;
 }
 
 type ProbeResult = { levels: string[]; map: Record<string, string>; ollamaLevels: string[] };
@@ -1932,6 +1936,18 @@ class PiBridge {
     // USER INTENT (anti-loss): label per-sessione in chat-meta.json — sopravvive
     // a reinstall/aggiornamento e a sovrascritture del file condiviso da altri processi.
     this.#writeChatMeta(key, { label });
+  }
+
+  // PIN (6 ott): pinna/sblocca una sessione (chat o cartella — le cartelle vivono
+  // nello stesso store) con ordine dedicato nella sezione Pinned.
+  setPinned(key: string, pinned: boolean, pinnedOrder?: number) {
+    const s = this.#entries.get(key);
+    if (s) {
+      (s as any).pinned = !!pinned;
+      if (typeof pinnedOrder === 'number') (s as any).pinnedOrder = pinnedOrder;
+      this.#save();
+    }
+    try { this.#writeChatMeta(key, { pinned: !!pinned, pinnedOrder: typeof pinnedOrder === 'number' ? pinnedOrder : undefined } as any); } catch {}
   }
 
   // A4.3 POOL SYNC: il worker rinomina/aggiorna la sessione — il MAIN deve

@@ -481,6 +481,14 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     return { sessionKey: p.sessionKey, label: p.label };
   },
 
+  // PIN (6 ott): pinna in cima (sezione Pinned) una chat o una cartella.
+  setSessionPinned: async (p) => {
+    const pinned = !!p.pinned;
+    piBridge!.setPinned(String(p.sessionKey), pinned, typeof p.order === "number" ? p.order : undefined);
+    piBridge!.logDebug("session-pinned", { sessionKey: p.sessionKey, pinned });
+    return { sessionKey: p.sessionKey, pinned };
+  },
+
   deleteSession: async (p) => {
     try { longHorizon.disable(String(p.sessionKey || '')); } catch {}
     piBridge!.remove(p.sessionKey);

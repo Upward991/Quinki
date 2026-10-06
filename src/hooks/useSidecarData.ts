@@ -1509,6 +1509,12 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     call('moveSession', { sessionKey, folderId, order }, 2000).catch(() => {})
   }, [ready, call])
 
+  // PIN (6 ott): pinna/sblocca in cima (ottimistico: la UI si aggiorna subito).
+  const setSessionPinned = useCallback((sessionKey: string, pinned: boolean, order?: number) => {
+    setSessions(prev => prev.map(s => s.id === sessionKey ? ({ ...s, pinned, pinnedOrder: order ?? (s as any).pinnedOrder } as any) : s))
+    call('setSessionPinned', { sessionKey, pinned, order }, 4000).catch(() => {})
+  }, [ready, call])
+
   const compactSession = useCallback(async (sessionKey: string) => {
     if (!ready) return
     setCompactingSessions(prev => new Set(prev).add(sessionKey))
@@ -1940,6 +1946,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     // Sidebar
     sidebarSessions,
     // Session management
+    setSessionPinned,
     selectSession, loadOlderMessages, jumpToMessage, sendMessage, injectErrorMessages, steerMessage, stopStreaming, createSession, deleteSession, renameSession, deselectSession, refreshSessions,
     resetSession, reloadSession, moveSession, compactSession, ensureSession,
     // Session settings

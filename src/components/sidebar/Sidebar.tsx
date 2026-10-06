@@ -5,7 +5,7 @@ import {
   DragOverlay, useDroppable, useDraggable,
 } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
-import { Folder, FolderOpen, MessageSquare, MessageSquarePlus, FolderAdd, Bell, BellOff, Checklist, Home } from '../icons'
+import { Folder, FolderOpen, MessageSquare, MessageSquarePlus, FolderAdd, Bell, BellOff, Checklist, Home, Pin } from '../icons'
 import { BottomSheet } from '../chat/BottomSheet'
 import { useLayout } from '../../platform/layout'
 
@@ -130,8 +130,17 @@ export function Sidebar(props: SidebarProps) {
   )
 
   // Build flat display list with transition zones
-  const flatList: { item: any; depth: number; isTransition?: boolean; transitionParentId?: string | null; transitionLabel?: string }[] = []
+  const flatList: { item: any; depth: number; isTransition?: boolean; transitionParentId?: string | null; transitionLabel?: string; isPinSep?: boolean }[] = []
   const topItems = e.filter(s => !s.parentId).sort((a, b) => (b.order || 0) - (a.order || 0))
+  // PIN (6 ott): i pinnati (chat o cartelle) vanno in cima in una sezione dedicata,
+  // con ordine PROPRIO (pinnedOrder, drag and drop libero dentro la sezione).
+  const pinnedTop = topItems.filter((s: any) => s.pinned).sort((a: any, b: any) => {
+    const pa = (typeof a.pinnedOrder === 'number') ? a.pinnedOrder : 0
+    const pb = (typeof b.pinnedOrder === 'number') ? b.pinnedOrder : 0
+    if (pa !== pb) return pa - pb
+    return (b.order || 0) - (a.order || 0)
+  })
+  const normalTop = topItems.filter((s: any) => !s.pinned)
   function buildList(items: any[], depth: number) {
     for (const item of items.sort((a, b) => (b.order || 0) - (a.order || 0))) {
       flatList.push({ item, depth })
@@ -141,7 +150,11 @@ export function Sidebar(props: SidebarProps) {
       }
     }
   }
-  buildList(topItems, 0)
+  buildList(pinnedTop, 0)
+  if (pinnedTop.length > 0) {
+    flatList.push({ item: { id: '__pinsep__', type: 'pinsep' }, depth: 0, isPinSep: true })
+  }
+  buildList(normalTop, 0)
 
   function handleDragStart(ev: any) {
     const item = flatList.find(f => f.item.id === ev.active.id)
@@ -257,6 +270,28 @@ export function Sidebar(props: SidebarProps) {
     
     const targetItem = e.find(s => s.id === targetId)
     if (!targetItem) { dragRef.current = null; setDropZone(null); setActiveDragItem(null); return }
+    // PIN (6 ott): entrambi pinnati e di primo livello -> riordino nella sezione Pinned
+    const bothPinned = (dragItem as any).pinned && (targetItem as any).pinned && !(dragItem as any).parentId && !(targetItem as any).parentId
+    if (bothPinned && zone !== 'into') {
+      const pinned = e.filter((s: any) => s.pinned && !s.parentId && s.id !== dragItem.id)
+        .sort((a: any, b: any) => ((typeof a.pinnedOrder === 'number' ? a.pinnedOrder : 0) - (typeof b.pinnedOrder === 'number' ? b.pinnedOrder : 0)) || ((b.order || 0) - (a.order || 0)))
+      const tIdx = pinned.findIndex((s: any) => s.id === targetId)
+      const tPo = typeof (targetItem as any).pinnedOrder === 'number' ? (targetItem as any).pinnedOrder : (tIdx >= 0 ? tIdx : 0)
+      let newPo: number
+      if (zone === 'before') {
+        const prev = tIdx > 0 ? pinned[tIdx - 1] : null
+        const prevPo = prev ? (typeof (prev as any).pinnedOrder === 'number' ? (prev as any).pinnedOrder : (tIdx - 1)) : tPo - 2
+        newPo = (prevPo + tPo) / 2
+      } else {
+        const next = (tIdx >= 0 && tIdx < pinned.length - 1) ? pinned[tIdx + 1] : null
+        const nextPo = next ? (typeof (next as any).pinnedOrder === 'number' ? (next as any).pinnedOrder : (tIdx + 1)) : tPo + 2
+        newPo = (tPo + nextPo) / 2
+      }
+      props.onSetPinned?.(dragItem.id, true, newPo)
+      dragRef.current = null; setDropZone(null); setActiveDragItem(null)
+      requestAnimationFrame(() => setDropZone(null))
+      return
+    }
     const isFolder = targetItem.type === 'folder'
     
     if (zone === 'into' && isFolder) {
@@ -393,6 +428,13 @@ export function Sidebar(props: SidebarProps) {
                 }
               }
               return rows.map((r: any) => {
+                if (r.type === 'row' && r.item && r.item.type === 'pinsep') {
+                  return (
+                    <div key="__pinsep_row__" data-pin-separator="1" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px 4px 12px' }}>
+                      <span style={{ flex: 1, height: '1px', backgroundColor: 'var(--q-border)' }} />
+                    </div>
+                  )
+                }
                 if (r.type === 'ind') {
                   return (
                     <div key={r.key} className="q-cv-item" style={{
@@ -490,6 +532,7 @@ export function Sidebar(props: SidebarProps) {
           onSelect={() => { setMultiSelect(true); setSelected(new Set([contextMenu.item.id])); setContextMenu(null) }}
           onOpenWindow={() => { if (contextMenu.item.type !== 'folder') { const chatId = contextMenu.item.id; try { invoke('open_chat_in_window', { sessionKey: chatId }).catch(() => {}); if (chatId === props.activeSessionId) { props.onNewSession(); } } catch {} } setContextMenu(null) }}
           onDelete={() => { setDelConfirm(contextMenu.item); setContextMenu(null) }}
+          onTogglePin={() => { const it: any = contextMenu.item; props.onSetPinned?.(it.id, !it.pinned); setContextMenu(null) }}
           onNewSubfolder={() => { props.onCreateFolder?.(contextMenu.item.id); setContextMenu(null) }}
           onDeleteFolder={(withContents: boolean) => { props.onDeleteFolder?.(contextMenu.item.id, withContents); setContextMenu(null) }}
           onDeselectAll={() => { setMultiSelect(false); setSelected(new Set()); setContextMenu(null) }}
@@ -685,7 +728,7 @@ function NotificationMenu({ x, y, current, onClose, onPick }: any) {
 }
 
 // === Context Menu ===
-function ContextMenu({ x, y, item, multiSelect, selectedCount, onClose, onRename, onSelect, onOpenWindow, onDelete, onNewSubfolder, onDeleteFolder, onDeselectAll, onDeleteSelected }: any) {
+function ContextMenu({ x, y, item, multiSelect, selectedCount, onClose, onRename, onSelect, onOpenWindow, onDelete, onTogglePin, onNewSubfolder, onDeleteFolder, onDeselectAll, onDeleteSelected }: any) {
   const isFolder = item.type === 'folder'
   const mw = 200, mh = 250, pad = 8
   let left = x, top = y
@@ -712,6 +755,9 @@ function ContextMenu({ x, y, item, multiSelect, selectedCount, onClose, onRename
             {!isFolder && <MenuItem label="Select chat" onClick={onSelect} />}
             {(!isFolder && !!(window as any).__TAURI_INTERNALS__) && <MenuItem label="Open in separate window" onClick={onOpenWindow} />}
             {isFolder && <MenuItem label="New subfolder" onClick={onNewSubfolder} />}
+            <div style={{ height: '1px', backgroundColor: 'var(--q-border)', margin: '4px 0' }} />
+            <MenuItem label={item?.pinned ? 'Unpin' : 'Pin'} icon={React.createElement(Pin, { size: 15 })} onClick={onTogglePin} />
+            <div style={{ height: '1px', backgroundColor: 'var(--q-border)', margin: '4px 0' }} />
             <MenuItem label={isFolder ? 'Delete folder' : 'Delete chat'} color="var(--q-accent-danger)" onClick={onDelete} />
             {isFolder && <MenuItem label="Delete folder with contents" color="var(--q-accent-danger)" onClick={() => onDeleteFolder(true)} />}
           </>
