@@ -38,7 +38,7 @@ cp -R dist-web/. src-tauri/resources/sidecar/web/
 echo "$WV" > src-tauri/resources/sidecar/version.txt
 
 echo "[sync-web] 4/4 — copio nelle app INSTALLATE (Main + Expert)..."
-for APP in "/Applications/Quinki.app" "/Applications/Quinki Expert.app"; do
+for APP in "/Applications/Quinki.app" "/Applications/App Expert.app"; do
   if [ -d "$APP" ]; then
     DEST="$APP/Contents/Resources/resources/sidecar/web"
     if [ -d "$DEST" ]; then
