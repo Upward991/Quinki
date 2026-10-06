@@ -2673,6 +2673,20 @@ const readProvidersCfg = (): any => {
       // marker — e.g. TAB = "\x1b[9;1:1u". Normalize it to the plain form the
       // handlers know (otherwise the Tab is silently LOST: no select, no toggle).
       try {
+        // T580: flag 8 active -> EVERY key arrives as CSI-u. Normalize back:
+        //   plain letter/number -> the char; ctrl+letter -> the control byte.
+        // (The specials below keep working: they are matched first.)
+        let pre = String(data);
+        pre = pre.replace(/\x1b\[(\d+)(?:;\d+(?::\d+)?)?u$/, (_m: string, cp: string) => {
+          try {
+            const n = parseInt(cp, 10);
+            if (n >= 97 && n <= 122) return String.fromCharCode(n - 96); // ctrl+letter
+            if (n >= 32 && n <= 126) return String.fromCharCode(n);      // plain char
+            if (n === 57441 || n === 57442 || n === 57443 || n === 57444) return _m; // modifier keys: keep raw
+          } catch {}
+          return _m;
+        });
+        if (pre !== data) data = pre;
         const norm = String(data)
           .replace(/\x1b\[13;1:1u$/, "\r")     // Enter (kitty press)
           .replace(/\x1b\[127;1:1u$/, "\x7f")  // Backspace (kitty press)

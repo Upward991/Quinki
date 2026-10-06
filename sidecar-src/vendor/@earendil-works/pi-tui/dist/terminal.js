@@ -10,7 +10,9 @@ const TERMINAL_PROGRESS_KEEPALIVE_MS = 1000;
 const TERMINAL_PROGRESS_ACTIVE_SEQUENCE = "\x1b]9;4;3\x07";
 const TERMINAL_PROGRESS_CLEAR_SEQUENCE = "\x1b]9;4;0\x07";
 const NATIVE_SHIFT_ENTER_SEQUENCE = "\x1b[13;2u";
-const DESIRED_KITTY_KEYBOARD_PROTOCOL_FLAGS = 7;
+// QUINKI (6 ott, T580): flag 8 added (report ALL keys as escape codes) so the
+// modifier keys (Ctrl/Alt) are reported on their own: instant toggle-nav on/off.
+const DESIRED_KITTY_KEYBOARD_PROTOCOL_FLAGS = 15;
 const KEYBOARD_PROTOCOL_RESPONSE_FRAGMENT_TIMEOUT_MS = 150;
 const KITTY_KEYBOARD_PROTOCOL_QUERY = `\x1b[>${DESIRED_KITTY_KEYBOARD_PROTOCOL_FLAGS}u\x1b[?u\x1b[c`;
 export function parseKeyboardProtocolNegotiationSequence(sequence) {
