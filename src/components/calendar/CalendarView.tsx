@@ -385,6 +385,9 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
         setActiveId(want)
         // Riallinea anche il locale (cosi' la web e la desktop restano coerenti)
         try { localStorage.setItem(VIEWS_KEY, JSON.stringify(nv)) } catch {}
+        // E RI-SALVA lo stato adottato sul sidecar: cosi' il prossimo giro trova
+        // SEMPRE quello che stai vedendo ora (fix "tolgo la tab e rimetto").
+        try { call('saveUiState', { state: { fullWidth: (() => { try { return localStorage.getItem('quinki-tasks-fullwidth') === '1' } catch { return false } })(), views: nv, activeId: want, openGroups } }).catch(() => {}) } catch {}
       }
     }).catch(() => {})
     return () => { alive = false }
