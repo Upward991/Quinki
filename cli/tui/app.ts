@@ -1079,24 +1079,26 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         invalidate() { try { inner.invalidate?.(); } catch {} },
         render(width: number) {
           try {
-            const lines = inner.render(width);
-            try {
-              const termRows = Number((ui as any)?.terminal?.rows) || 0;
-              const termCols = Number((ui as any)?.terminal?.columns) || 0;
-              require("fs").appendFileSync("/tmp/q-modal-measure.log", JSON.stringify({ w: width, cols: termCols, rows: termRows, boxLines: lines.length, boxWidthOfFirst: String(lines[0] || "").replace(/\x1b\[[0-9;]*m/g, "").length }) + "\n");
-            } catch {}
-            // T535: the inner editor already fills the screen (qFullHeight):
-            // its footer stays pinned at the bottom, text scrolls inside.
-            return lines;
+            // T547: THE PAGE. The inner box renders (width-2) wide; we wrap it with
+            // exactly ONE column and ONE row of plain darker background on every
+            // side, painting the full terminal so the chat behind never shows.
+            const innerW = Math.max(10, width - 2);
+            const lines = inner.render(innerW);
+            const strip = () => bg(C.bg, " ".repeat(width));
+            const out: string[] = [];
+            out.push(strip()); // top: 1 row of darker background
+            for (const l of lines) out.push(bg(C.bg, " ") + l + bg(C.bg, " ")); // sides: 1 col each
+            out.push(strip()); // bottom: 1 row
+            return out;
           } catch { return []; }
         },
       };
       // T544: the box renders 2 cols narrower than the asked width, and the centered
       // anchor then looked decentered (left 0, right 4). Anchor it EXACTLY at col 1,
       // row 1: with width/height 100% the box lands with a uniform 1 gap everywhere.
-      // T546: with margin 0 the overlay gets the FULL width (118), the box renders
-      // 116 => anchored at col 1 / row 1 the gap is exactly 1 on all four sides.
-      const overlay = (ui as any).showOverlay(comp, { anchor: "top-left", width: "100%", height: "100%", col: 1, row: 1, margin: 0 });
+      // T547: the component itself paints the full terminal (page + 1-col/1-row
+      // darker frames): anchor at 0,0 and cover everything.
+      const overlay = (ui as any).showOverlay(comp, { anchor: "top-left", width: "100%", height: "100%", col: 0, row: 0, margin: 0 });
       qPromptModal = { overlay, inner, id, isNew, returnStack: [...menuStack], returnSel: menuSel }; // T540: come back here on close
       try { pushBlock(new Text(fg(C.textSecondary, (isNew ? "New agent \u201c" + isNew + "\u201d \u2014 write its PROMPT.md" : "PROMPT.md of " + agentDisplayName(id)) + " \u2014 Enter saves \u00b7 Esc cancels"), 1, 0)); } catch {}
       try { scrollToEnd(); ui.requestRender(); } catch {}
