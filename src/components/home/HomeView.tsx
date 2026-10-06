@@ -7,7 +7,6 @@ import { CSS } from '@dnd-kit/utilities'
 import { invoke } from '@tauri-apps/api/core'
 import { useSidecarContext } from '../shared/AppShell'
 import { Bot } from '../icons'
-import { QuinkiWordmark } from './QuinkiWordmark'
 import { getHomeTabs, saveTabOrder, loadHomeColumns, saveHomeColumns, serializeInstalledTabs, saveInstalledTabs, getMarketItems, saveMarketItems } from '../../tabs'
 
 // A4.1 — Home registry-driven: benvenuto + ricerca + Marketplace + riordino drag&drop
@@ -160,21 +159,6 @@ export function HomeView({activePanel, onSelectPanel}: {onSelectPanel: (panel: s
     {style:{flex:1, minHeight:0, overflowY:'auto', overflowX:'hidden', display:'flex', flexDirection:'column', boxSizing:'border-box'}},
     // Spacer superiore (si comprime quando il blocco cresce → la sezione sale)
     React.createElement('div', {style:{flex:1, minHeight:0}}),
-    // Sezione superiore: sticky — resta al centro finché c'è spazio, poi si blocca in alto
-    React.createElement('div',
-      {style:{flexShrink:0, position:'sticky', top:0, zIndex:10, width:'100%', backgroundColor:'transparent', display:'flex', flexDirection:'column', alignItems:'center', padding: mob ? '0 12px 24px 12px' : '0 32px 28px 32px', boxSizing:'border-box'}},
-      // Wrapper con sfondo UI (var(--q-bg), abbinato ai temi): copre il wordmark
-      // + pochi px sotto. Il padding sotto resta TRASPARENTE (distanza senza tagli).
-      React.createElement('div',
-        {style:{width:'100%', backgroundColor:'var(--q-bg)', display:'flex', flexDirection:'column', alignItems:'center', paddingTop:'24px', paddingBottom:'8px', boxSizing:'border-box'}},
-      // Wordmark pixel "Quinki" — IDENTICO al hero della CLI (richiesta utente 6 ott:
-      // via la mascotte e il saluto "good morning, welcome to Quinki").
-      React.createElement('div',
-        {style:{display:'flex', alignItems:'center', justifyContent:'center', marginBottom:'20px'}},
-        React.createElement(QuinkiWordmark, {size: mob ? 11 : 15})
-      ),
-      )
-    ),
     // Card
     React.createElement('div',
       {style:{flexShrink:0, padding: mob ? '0 12px 48px 12px' : '0 32px 56px 32px', boxSizing:'border-box', display:'flex', justifyContent:'center', width:'100%'}},
