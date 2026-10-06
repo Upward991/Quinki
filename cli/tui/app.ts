@@ -4694,7 +4694,14 @@ const readProvidersCfg = (): any => {
         break;
       }
       case "rename": {
-        if (!arg) break;
+        if (!arg) {
+          // T528: no argument -> the menu becomes the input field (directory-style).
+          menuStack = ["rename", "__rename"];
+          menuSubFilter = "";
+          menuSel = 0;
+          try { ui.requestRender(); } catch {}
+          break;
+        }
         titleLocked = true; // no auto-title may overwrite the user's rename
         if (scOn) void sc.call("renameSession", { sessionKey: currentKey, label: arg }, 20000).catch(() => {});
         // Anti-loss store the runtime itself honours (chat-meta.json): survives
@@ -5110,6 +5117,11 @@ const readProvidersCfg = (): any => {
   };
   const levelItems = (stack: string[]): any[] => {
     if (stack[0] === "directory" && stack[1] === "dirchange") return dirChangeItems();
+    // T528: the session rename, DIRECTORY-STYLE: the field lives in the menu
+    // (type/paste freely, no editor autocomplete), Enter confirms.
+    if (stack[stack.length - 1] === "__rename") {
+      return [{ value: "__rename-go", label: "Chat name: " + (menuSubFilter || "\u2026"), description: "type, then Enter \u00b7 Esc cancels" }];
+    }
     if (stack.length === 0) return mainItems();
     if (stack[0] === "agentinsession") return agentLevelItems(stack);
     if (stack[0] === "agents") return agentAdminLevelItems(stack);
@@ -5133,7 +5145,8 @@ const readProvidersCfg = (): any => {
     {
       const lastF = String(menuStack[menuStack.length - 1] || "");
       if (dirTypeMode || (menuStack[0] === "directory" && menuStack[1] === "dirchange") ||
-          (menuStack[0] === "agents" && (lastF === "__input" || lastF === "__mcpType" || /^(agdel|skdel|mcpdel):/.test(lastF)))) return items; // T527: typed input never filters the rows away (was menuStack[1]: broke the __input level)
+          lastF === "__rename" ||
+          (menuStack[0] === "agents" && (lastF === "__input" || lastF === "__mcpType" || /^(agdel|skdel|mcpdel):/.test(lastF)))) return items; // T527/T528: typed input never filters the rows away
     }
     const f = menuSubFilter.toLowerCase();
     if (!f) return items;
@@ -5256,6 +5269,7 @@ const readProvidersCfg = (): any => {
         try { ui.requestRender(); } catch {}
         return;
       }
+      if (String(menuStack[menuStack.length - 1] || "") === "__rename") return true; // T528: the rename field confirms with Enter
       if (menuStack[0] === "agents") {
         // T508/509: the Enter mirrors the Tab action on every toggle row; the
         // create/install/delete flows live here (typed input in the menu).
@@ -5307,6 +5321,22 @@ const readProvidersCfg = (): any => {
         if (vAg.startsWith("mcpdel-go:")) {
           const mid = vAg.slice(10);
           if (callA) callA('removeMcpServer', { id: mid }).then(() => { refreshAgentsTab(); }).catch(() => {});
+          qCloseMenus();
+          return;
+        }
+        if (vAg === "__rename-go") {
+          const label = String(menuSubFilter || "").trim();
+          if (label) {
+            titleLocked = true;
+            if (scOn) void sc.call("renameSession", { sessionKey: currentKey, label }, 20000).catch(() => {});
+            try {
+              const mp = path.join(opts.agentDir, "chat-meta.json");
+              let meta: any = {};
+              try { meta = JSON.parse(fs.readFileSync(mp, "utf8")) || {}; } catch {}
+              meta[currentKey] = { ...(meta[currentKey] || {}), label };
+              fs.writeFileSync(mp, JSON.stringify(meta, null, 2), "utf8");
+            } catch {}
+          }
           qCloseMenus();
           return;
         }
