@@ -394,6 +394,7 @@ export class Editor {
         const maxVisibleLines = this.qFullHeight
             ? Math.max(5, terminalRows - 6) // T541: exactly 1 row margin top + 1 bottom in the full-screen modal
             : Math.max(5, Math.floor(terminalRows * 0.3));
+        if (this.qFullHeight) { try { require("fs").appendFileSync("/tmp/q-modal-measure.log", JSON.stringify({ rows: terminalRows, maxVisible: maxVisibleLines, contentLines: layoutLines.length }) + "\n"); } catch {} }
         // Find the cursor line index in layoutLines
         let cursorLineIndex = layoutLines.findIndex((line) => line.hasCursor);
         if (cursorLineIndex === -1)

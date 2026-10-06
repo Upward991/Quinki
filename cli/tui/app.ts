@@ -1080,6 +1080,11 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         render(width: number) {
           try {
             const lines = inner.render(width);
+            try {
+              const termRows = Number((ui as any)?.terminal?.rows) || 0;
+              const termCols = Number((ui as any)?.terminal?.columns) || 0;
+              require("fs").appendFileSync("/tmp/q-modal-measure.log", JSON.stringify({ w: width, cols: termCols, rows: termRows, boxLines: lines.length, boxWidthOfFirst: String(lines[0] || "").replace(/\x1b\[[0-9;]*m/g, "").length }) + "\n");
+            } catch {}
             // T535: the inner editor already fills the screen (qFullHeight):
             // its footer stays pinned at the bottom, text scrolls inside.
             return lines;
