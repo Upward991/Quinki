@@ -216,10 +216,10 @@ export function Sidebar(props: SidebarProps) {
         const isParentRow = entry.item.id === parentIdOfDrag
         const isSibling = entry.item.parentId === parentIdOfDrag
         if (isParentRow) {
-          // SULLA riga cartella: si esce solo passandole SOPRA (zona before).
-          // Sotto il titolo (dentro la riga o giu' fino ai figli) = ancora dentro.
-          const aboveRow = pointerY < rect.top
-          if (!aboveRow && parentBlockBottom > 0 && pointerY <= parentBlockBottom) continue
+          // SULLA riga cartella (FIX 6 ott v2): la banda centrale (into) lascia
+          // DENTRO (drop sul titolo = dentro la cartella); l'"after" (sotto la riga,
+          // verso i figli) resta dentro; si esce solo passandole SOPRA (before).
+          if (zone === 'after') continue
           passedParentBlock = true
         } else if (!isSibling) {
           if (parentBlockBottom > 0 && pointerY <= parentBlockBottom) continue
