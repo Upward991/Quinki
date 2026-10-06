@@ -1319,12 +1319,30 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       return (src.trim().split(/\s+/)[0] || src).split("/").pop() || src;
     } catch { return src; }
   };
+  // T592: parità app — se incolli il README intero ("# Install globally from npm
+  // npm install -g @hostinger/mcp") estraiamo SOLO il nome del pacchetto.
+  const qCleanNpm = (raw: string): string => {
+    try {
+      let s = String(raw || "").trim();
+      const lines = s.split(/\n+/).map((x: string) => x.trim()).filter(Boolean);
+      for (const ln of lines) {
+        const m = ln.match(/(?:npm|bun|yarn|pnpm)\s+(?:install|add|i)\s+(?:-g\s+|--global\s+)?(@?[a-z0-9@._/+-]+)/i);
+        if (m) return m[1];
+      }
+      s = s.replace(/#[^\n]*/g, " ").replace(/\b(?:npm|bun|yarn|pnpm)\s+(?:install|add|i)\b/gi, " ").replace(/(?:^|\s)(?:-g|--global)(?=\s|$)/g, " ").replace(/["'`]/g, " ");
+      s = s.replace(/\b(?:globally|global|from|with|or|package)\b/gi, " ");
+      const toks = s.split(/\s+/).filter(Boolean);
+      const pkg = toks.find((t: string) => /^@?[a-z0-9][a-z0-9@._/+-]*$/i.test(t));
+      return pkg || s.trim();
+    } catch { return String(raw || "").trim(); }
+  };
   const qMcpInstall = (src: string, argsRaw: string): void => {
     try {
       const call = (globalThis as any).__sidecarCall;
       const type = qMcpType;
+      const cleanSrc = type === "package" ? qCleanNpm(src) : String(src).trim();
       const args = String(argsRaw || "").split(/[\n,]/).map((x: string) => x.trim()).filter(Boolean);
-      const name = qMcpDerive(String(src), type) || ("mcp-" + Date.now());
+      const name = qMcpDerive(cleanSrc, type) || ("mcp-" + Date.now());
       const id = name.toLowerCase().replace(/[^a-z0-9._-]+/g, "-") || ("mcp-" + Date.now());
       const params: any = { id, name };
       if (type === "command") {
@@ -1333,7 +1351,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         if (args.length) params.args = args;
       } else {
         params.type = type;
-        params.source = String(src).trim();
+        params.source = cleanSrc;
         if (type === "package" && args.length) params.args = args;
       }
       const before = new Set(qMcpData.map((x: any) => String(x?.id || x?.name)));

@@ -1538,10 +1538,29 @@ export function McpInstallModal({ onClose, onInstalled }) {
     return src;
   };
   const autoName = () => {
-    const src = type === 'command' ? cmd : source;
+    const src = type === 'command' ? cmd : (type === 'package' ? cleanNpmSource(source) : source);
     return src.trim() ? deriveName(src) : '';
   };
   const handleSource = (v) => setSource(v);
+  // FIX (6 ott): nel campo "Package (npm)" la gente incolla il blocco del README
+  // ("# Install globally from npm  npm install -g @hostinger/mcp") e bun prova a
+  // installare un pacchetto chiamato "#". Qui estraiamo SOLO il nome del pacchetto.
+  const cleanNpmSource = (raw: string) => {
+    let s = String(raw || '').trim();
+    const lines = s.split(/\n+/).map(x => x.trim()).filter(Boolean);
+    for (const ln of lines) {
+      const m = ln.match(/(?:npm|bun|yarn|pnpm)\s+(?:install|add|i)\s+(?:-g\s+|--global\s+)?(@?[a-z0-9@._/+-]+)/i);
+      if (m) return m[1];
+    }
+    s = s.replace(/#[^\n]*/g, ' ');
+    s = s.replace(/\b(?:npm|bun|yarn|pnpm)\s+(?:install|add|i)\b/gi, ' ');
+    s = s.replace(/(?:^|\s)(?:-g|--global)(?=\s|$)/g, ' ');
+    s = s.replace(/[\u201c\u201d\u2018\u2019"`']/g, ' ');
+    s = s.replace(/\b(?:globally|global|from|with|or|package|npm|bun|yarn|pnpm)\b/gi, ' ');
+    const toks = s.split(/\s+/).map(x => x.trim()).filter(Boolean);
+    const pkg = toks.find(t => /^@?[a-z0-9][a-z0-9@._/+-]*$/i.test(t));
+    return pkg || s.trim();
+  };
   const handleCmd = (v) => setCmd(v);
   const switchType = (t) => { setType(t); setSource(''); setCmd(''); setArgs(''); };
 
@@ -1559,7 +1578,7 @@ export function McpInstallModal({ onClose, onInstalled }) {
         if (args) params.args = args.split(/[\n,]/).map(x => x.trim()).filter(Boolean);
       } else {
         params.type = type;
-        params.source = source.trim();
+        params.source = (type === 'package' ? cleanNpmSource(source) : source.trim());
         if (type === 'package' && args) params.args = args.split(',').map(x => x.trim()).filter(Boolean);
       }
       const res = await call('addMcpServer', params);
@@ -1573,7 +1592,7 @@ export function McpInstallModal({ onClose, onInstalled }) {
   };
 
   return Modal({ onClose, title: 'Install MCP server', children: [
-    msg && React.createElement('div', { style: { color: 'var(--q-accent-warning)', fontSize: '13px', fontFamily: 'var(--font-interface)', marginBottom: '12px' }, children: msg }),
+    msg && React.createElement('div', { style: { color: 'var(--q-accent-warning)', fontSize: '12px', fontFamily: 'var(--font-code)', marginBottom: '12px', whiteSpace: 'pre-wrap', wordBreak: 'break-all', overflowWrap: 'anywhere', maxHeight: '160px', overflowY: 'auto', width: '100%', boxSizing: 'border-box', lineHeight: 1.45 } , children: msg }),
     React.createElement('div', { style: { display: 'flex', gap: '8px', marginBottom: '10px' }, children: [
       React.createElement('button', { onClick: () => switchType('package'), style: { flex: 1, padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid ' + (type === 'package' ? 'var(--q-tab-accent)' : 'var(--q-border)'), cursor: 'pointer', backgroundColor: type === 'package' ? 'var(--q-tab-accent)' : 'transparent', color: type === 'package' ? 'var(--q-bg)' : 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'Package (npm)' }),
       React.createElement('button', { onClick: () => switchType('url'), style: { flex: 1, padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid ' + (type === 'url' ? 'var(--q-tab-accent)' : 'var(--q-border)'), cursor: 'pointer', backgroundColor: type === 'url' ? 'var(--q-tab-accent)' : 'transparent', color: type === 'url' ? 'var(--q-bg)' : 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'URL (remote)' }),
