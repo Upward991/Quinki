@@ -350,7 +350,8 @@ export function Sidebar(props: SidebarProps) {
       else { props.onMoveSession?.(dragItem.id, targetId, newOrder) }
     } else if (zone === 'before') {
       const parentId = targetItem.parentId || null
-      const siblings = e.filter(s => s.parentId === parentId && s.id !== dragItem.id)
+      const tgtP = !!(targetItem as any).pinned
+      const siblings = e.filter(s => (s.parentId || null) === parentId && s.id !== dragItem.id && (parentId !== null || (!!(s as any).pinned === tgtP)))
       const higher = siblings.filter(s => (s.order || 0) > (targetItem.order || 0)).sort((a,b) => (a.order||0) - (b.order||0))
       const hi = higher.length > 0 ? higher[0].order : (targetItem.order || 0) + 1000
       const newOrder = ((targetItem.order || 0) + hi) / 2
@@ -358,7 +359,8 @@ export function Sidebar(props: SidebarProps) {
       else { props.onMoveSession?.(dragItem.id, parentId, newOrder) }
     } else if (zone === 'after') {
       const parentId = targetItem.parentId || null
-      const siblings = e.filter(s => s.parentId === parentId && s.id !== dragItem.id)
+      const tgtP = !!(targetItem as any).pinned
+      const siblings = e.filter(s => (s.parentId || null) === parentId && s.id !== dragItem.id && (parentId !== null || (!!(s as any).pinned === tgtP)))
       const lower = siblings.filter(s => (s.order || 0) < (targetItem.order || 0)).sort((a,b) => (b.order||0) - (a.order||0))
       const lo = lower.length > 0 ? lower[0].order : (targetItem.order || 0) - 1000
       const newOrder = ((targetItem.order || 0) + lo) / 2
