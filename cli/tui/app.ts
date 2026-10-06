@@ -5648,7 +5648,7 @@ const readProvidersCfg = (): any => {
         const lastLv = String(menuStack[menuStack.length - 1] || "");
         if (/^(agdel|skdel|mcpdel):/.test(lastLv) || lastLv === "__input" || lastLv === "__error") return true; // T530: + the error notice
         const v0a = String((cur as any)?.value || "");
-        if (v0a === "__newskill" || v0a === "__newmcp" || v0a === "__newagent" || v0a.startsWith("__mcpt_")) return true;
+        if (v0a === "__newskill" || v0a === "__newmcp" || v0a === "__newagent" || v0a.startsWith("__mcpt_") || v0a.startsWith("aprompt:")) return true;
         // T507: otherwise the agents tab is all SELECTION (Tab = select,
         // instant effect): never a Confirm in the bar.
         return false;
@@ -5946,6 +5946,7 @@ const readProvidersCfg = (): any => {
             if (menuStack[0] === "agents" && it && !it.separator) {
               const vA = String(it.value || "");
               if (/^(#def|#you|#sk|#mcp|#tools|#plan|#plantools|#planmcp|ag:|ask:|atk:|amc:|sk:|mcp:|tool:)/.test(vA)) deeper = vA;
+              if (vA.startsWith("aprompt:")) { try { agentAdminAction(vA); } catch {} return; }
               if (vA === "__newskill") { qAgentsInputMode = "skillpkg"; deeper = "__input"; }
               if (vA === "__newagent") { qAgentsInputMode = "newagent"; deeper = "__input"; }
               if (vA === "__newmcp") { deeper = "__mcpType"; }
@@ -6566,7 +6567,7 @@ const applySettingsPatch = (patch: any) => {
             // T512: the arrow lights when the row opens something (a section, an
             // agent's editor, a per-skill agent list...) — never on the toggles.
             const vF = String(curA.value || "");
-            canFwd = /^(#def|#you|#sk|#mcp|#tools|#plan|#plantools|#planmcp|ag:|ask:|atk:|amc:|sk:|mcp:|tool:)/.test(vF) || vF === "__agdel" || vF === "__skdel" || vF === "__mcpdel" || vF === "__newskill" || vF === "__newmcp" || vF === "__newagent" || vF.startsWith("__mcpt_"); // T524/T526: Delete rows + all ACTION rows light the arrow
+            canFwd = /^(#def|#you|#sk|#mcp|#tools|#plan|#plantools|#planmcp|ag:|ask:|atk:|amc:|sk:|mcp:|tool:|aprompt:)/.test(vF) || vF === "__agdel" || vF === "__skdel" || vF === "__mcpdel" || vF === "__newskill" || vF === "__newmcp" || vF === "__newagent" || vF.startsWith("__mcpt_"); // T524/T526: Delete rows + all ACTION rows light the arrow
           }
           else if (menuStack[0] === "settings") canFwd = !!settingsDeeper(curA);
           else if (menuStack[0] === "directory") canFwd = menuStack[1] === "dirchange" ? false : (String(curA.value || "") === "__dir_change"); // -> lights only on Change directory
