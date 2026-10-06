@@ -378,7 +378,12 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       // sovrascrivere i pin appena fatti. Se non c'e' nulla in locale, si adotta
       // lo stato del sidecar (primo sync su un browser nuovo).
       let localHasViews = false
-      try { const raw = localStorage.getItem(VIEWS_KEY); if (raw) { const lv = normViews(JSON.parse(raw)); localHasViews = lv.length > 0 } } catch {}
+      try {
+        const raw = localStorage.getItem(VIEWS_KEY)
+        if (raw) { const lv = normViews(JSON.parse(raw)); localHasViews = lv.length > 0
+          try { (window as any).__reportFrontendError?.('view-load', 'local=' + lv.filter((v: any) => v.pinned).map((v: any) => v.id).join('|') + ' sidecar=' + (Array.isArray(s.views) ? s.views.filter((v: any) => v.pinned).map((v: any) => v.id).join('|') : 'none')) } catch {}
+        }
+      } catch {}
       if (!localHasViews && Array.isArray(s.views) && s.views.length) { const nv = normViews(s.views); setViews(nv); const want = s.activeId && nv.some((x: any) => x.id === s.activeId) ? s.activeId : nv[0].id; setActiveId(want) }
     }).catch(() => {})
     return () => { alive = false }
@@ -540,6 +545,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   // PIN (6 ott): SOLO il flag. La vista pinnata va in cima da sola (partizione di
   // display), le altre restano nella lista normale. L'ordine e' quello dell'array.
   const setViewPinned = (id: string, pinned: boolean) => {
+    try { (window as any).__reportFrontendError?.('view-pin-click', 'id=' + id + ' pinned=' + pinned + ' localBefore=' + String((() => { try { const raw = localStorage.getItem(VIEWS_KEY); const lv = raw ? JSON.parse(raw) : []; return lv.filter((v: any) => v.pinned).map((v: any) => v.id).join('|') } catch { return '?' } })())) } catch {}
     persistFn(prev => prev.map(x => x.id === id ? { ...x, pinned: !!pinned } : x))
   }
   const renameView = (id: string, name: string) => { const nm = name.trim(); if (!nm) { setRenamingView(null); setRenameVal(''); return } persist(views.map(x => x.id === id ? { ...x, name: nm } : x)); setRenamingView(null); setRenameVal('') }

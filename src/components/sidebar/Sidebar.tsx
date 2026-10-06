@@ -208,10 +208,17 @@ export function Sidebar(props: SidebarProps) {
     for (const entry of flatList) {
       const rect = itemRects.current.get(entry.item.id)
       if (!rect) continue
-      // Uscita dal blocco: consentita solo oltre l'ultimo figlio visibile
+      // Uscita dal blocco: consentita solo oltre l'ultimo figlio visibile.
+      // Il target "sotto il titolo della cartella" (l'after della riga cartella)
+      // e' ANCORA DENTRO: si esce solo quando il puntatore ha superato TUTTI i
+      // figli visibili della cartella.
       if (dragItem?.parentId) {
-        const isSibling = entry.item.parentId === parentIdOfDrag || entry.item.id === parentIdOfDrag
-        if (!isSibling) {
+        const isParentRow = entry.item.id === parentIdOfDrag
+        const isSibling = entry.item.parentId === parentIdOfDrag
+        if (isParentRow) {
+          if (parentBlockBottom > 0 && pointerY <= parentBlockBottom) continue
+          passedParentBlock = true
+        } else if (!isSibling) {
           if (parentBlockBottom > 0 && pointerY <= parentBlockBottom) continue
           passedParentBlock = true
         }
