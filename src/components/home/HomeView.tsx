@@ -163,7 +163,7 @@ export function HomeView({activePanel, onSelectPanel}: {onSelectPanel: (panel: s
     React.createElement('div', {style:{flex:1, minHeight:0}}),
     // Card
     React.createElement('div',
-      {style:{flexShrink:0, padding: mob ? '0 12px 48px 12px' : '0 32px 56px 32px', boxSizing:'border-box', display:'flex', justifyContent:'center', width:'100%'}},
+      {style:{flexShrink:0, padding: mob ? '48px 12px 48px 12px' : '56px 32px 56px 32px', boxSizing:'border-box', display:'flex', justifyContent:'center', width:'100%'}},
       React.createElement(DndContext,
         { sensors, collisionDetection: closestCenter, onDragStart: handleDragStart, onDragEnd: handleDragEnd },
         React.createElement(SortableContext,
@@ -188,11 +188,6 @@ export function HomeView({activePanel, onSelectPanel}: {onSelectPanel: (panel: s
     ),
     // Spacer inferiore
     React.createElement('div', {style:{flex:1, minHeight:0}})
-  ),
-  // ── BARRA INFERIORE (29 ago): barra di PADDING — le opzioni (hint drag,
-  // colonne, tutorial) vivono ora in Settings → Global defaults → Home ──
-  React.createElement('div',
-    {style:{flexShrink:0, height:'25px', width:'100%', boxSizing:'border-box', backgroundColor:'var(--q-bg)'}}
   ),
   // ── Custom context menu + Marketplace ──
 ctxMenu && React.createElement(React.Fragment, null,
