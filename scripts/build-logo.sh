@@ -74,7 +74,11 @@ def render(v, size, style="app"):
     g = spec["glyph"]
     rows = len(g)
     b = bounds(g)
-    cell = max(1, round(inner * (0.58 if style == "pwa" else 0.78) / 8))  # pwa = più padding
+    if style == "pwa":
+        # MOBILE: stessa ALTEZZA per la q (8 righe) e la E (7 righe) -> stesso padding!
+        cell = max(1, round(inner * 0.48 / rows))
+    else:
+        cell = max(1, round(inner * 0.78 / 8))  # mac/tray: base 8 righe (invariata)
     if cell * rows > inner - 4:
         cell = max(1, cell - 1)
     w = cell * (b[3] - b[2] + 1)
@@ -163,10 +167,12 @@ FG = {"mdpi": 108, "hdpi": 162, "xhdpi": 216, "xxhdpi": 324, "xxxhdpi": 432}
 FLAVOR_VARIANT = {"quinki": "main-violet", "expert": "expert-orange"}
 
 def android_glyph(v, size, scale):
+    # scale = frazione di ALTEZZA del glifo (per righe reali: q 8, E 7) -> padding UGUALE
     spec = VARIANTS[v]
     g = spec["glyph"]
     b = bounds(g)
-    cell = max(1, round(size * scale / 8))
+    rows = len(g)
+    cell = max(1, round(size * scale / rows))
     w = cell * (b[3] - b[2] + 1)
     h = cell * (b[1] - b[0] + 1)
     ax = (size - w) // 2
@@ -183,16 +189,16 @@ def android_icon(v, size, kind):
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     if kind == "foreground":
-        rects, ink = android_glyph(v, size, 0.55)
+        rects, ink = android_glyph(v, size, 0.50)
         for (x, y, c) in rects:
             d.rectangle([x, y, x + c - 1, y + c - 1], fill=ink)
     else:
         if kind == "round":
             d.ellipse([0, 0, size - 1, size - 1], fill=spec["tile"])
-            rects, ink = android_glyph(v, size, 0.50)
+            rects, ink = android_glyph(v, size, 0.46)
         else:
             d.rectangle([0, 0, size - 1, size - 1], fill=spec["tile"])
-            rects, ink = android_glyph(v, size, 0.62)
+            rects, ink = android_glyph(v, size, 0.56)
         for (x, y, c) in rects:
             d.rectangle([x, y, x + c - 1, y + c - 1], fill=ink)
     return img
@@ -201,8 +207,34 @@ def android_colors_hex(v):
     t = VARIANTS[v]["tile"]
     return "#%02X%02X%02X" % (t[0], t[1], t[2])
 
+NOTIF = {"mdpi": 24, "hdpi": 36, "xhdpi": 48, "xxhdpi": 72, "xxxhdpi": 96}
+
+def notif_icon(v, size):
+    # small icon notifiche: glifo BIANCO su trasparente (Android lo tinge da solo)
+    g = VARIANTS[v]["glyph"]
+    b = bounds(g)
+    rows = len(g)
+    cell = max(1, round(size * 0.72 / rows))
+    w = cell * (b[3] - b[2] + 1); h = cell * (b[1] - b[0] + 1)
+    ax = (size - w) // 2; ay = (size - h) // 2
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0)); d = ImageDraw.Draw(img)
+    for rr in range(b[0], b[1] + 1):
+        for cc in range(b[2], b[3] + 1):
+            if g[rr][cc] == "1":
+                d.rectangle([ax + (cc - b[2]) * cell, ay + (rr - b[0]) * cell,
+                             ax + (cc - b[2]) * cell + cell - 1, ay + (rr - b[0]) * cell + cell - 1],
+                            fill=(255, 255, 255, 255))
+    return img
+
 for flavor, variant in FLAVOR_VARIANT.items():
     base = os.path.join(AND, flavor, "res")
+    # ic_stat_quinki: il flavor quinki usa la res di MAIN (condivisa), expert ha la sua
+    notif_base = os.path.join(AND, "expert", "res") if flavor == "expert" else os.path.join(AND, "main", "res")
+    for dens, px in NOTIF.items():
+        ddir = os.path.join(notif_base, "drawable-" + dens)
+        os.makedirs(ddir, exist_ok=True)
+        notif_icon(variant, px).save(os.path.join(ddir, "ic_stat_quinki.png"))
+    print("icone notifica:", flavor, "->", notif_base)
     for dens, px in LAUNCHER.items():
         ddir = os.path.join(base, "mipmap-" + dens)
         os.makedirs(ddir, exist_ok=True)

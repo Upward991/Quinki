@@ -68,7 +68,8 @@ curl -fsSL https://raw.githubusercontent.com/Upward991/quinki/main/install.sh | 
 
 ### CLI (standalone)
 
-The terminal companion — same sessions, agents and skills. Works **without the app**:
+The terminal companion — same sessions, agents and skills. Works **without the app**.
+**Installing the Quinki app also installs this command automatically** (`quinki` lands in `~/.local/bin`, PATH handled):
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/Upward991/Quinki/main/install-cli.sh | sh

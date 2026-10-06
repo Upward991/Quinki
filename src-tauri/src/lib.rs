@@ -191,6 +191,51 @@ fn apply_app_icon(app: &tauri::AppHandle, variant: &str) -> Result<(), String> {
     Ok(())
 }
 
+// === CLI AUTOMATICA (richiesta utente 7 ott): la app porta dentro il binario
+// `quinki` e lo installa da sola in ~/.local/bin (+ PATH in ~/.zshrc la prima
+// volta), così chi installa l'app ha ANCHE la CLI senza fare niente. Ad ogni
+// avvio riallinea il binario se la versione (dimensione) è diversa. ===
+fn install_bundled_cli(app: &tauri::AppHandle) {
+    #[cfg(target_os = "macos")]
+    {
+        let res = match app.path().resource_dir() { Ok(r) => r, Err(_) => return };
+        let src = res.join("resources").join("cli").join("quinki");
+        if !src.exists() { return; }
+        let home = match std::env::var("HOME") { Ok(h) if !h.is_empty() => h, _ => return };
+        let dir = std::path::Path::new(&home).join(".local").join("bin");
+        let _ = std::fs::create_dir_all(&dir);
+        let dst = dir.join("quinki");
+        let need = match (std::fs::metadata(&src), std::fs::metadata(&dst)) {
+            (Ok(a), Ok(b)) => a.len() != b.len(),
+            (Ok(_), Err(_)) => true,
+            _ => false,
+        };
+        if need {
+            if std::fs::copy(&src, &dst).is_ok() {
+                use std::os::unix::fs::PermissionsExt;
+                let _ = std::fs::set_permissions(&dst, std::fs::Permissions::from_mode(0o755));
+            }
+        }
+        // PATH: una sola riga marker nei rc dell'utente (se ~/.local/bin manca dal PATH)
+        let in_path = std::env::var("PATH").map(|pp| pp.split(':').any(|x| x == dir.to_string_lossy().as_ref())).unwrap_or(false);
+        if !in_path {
+            for rc in [".zshrc", ".bashrc"] {
+                let rcp = std::path::Path::new(&home).join(rc);
+                if rcp.exists() {
+                    let txt = std::fs::read_to_string(&rcp).unwrap_or_default();
+                    if !txt.contains("# quinki-cli") {
+                        if let Ok(mut f) = std::fs::OpenOptions::new().append(true).open(&rcp) {
+                            use std::io::Write;
+                            let _ = writeln!(f, "\n# quinki-cli\nexport PATH=\"{}/.local/bin:$PATH\"", home);
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+    }
+}
+
 #[tauri::command]
 fn set_app_icon(app: tauri::AppHandle, variant: String) -> Result<(), String> {
     apply_app_icon(&app, &variant)
@@ -3856,6 +3901,9 @@ fn quick_chat_watch_shortcut(app: tauri::AppHandle) {
         let v = read_app_icon_choice(role).unwrap_or_else(|| default_variant.to_string());
         let _ = apply_app_icon(app.handle(), &v);
       }
+
+      // === CLI: installa/riallinea il comando `quinki` (auto, silenzioso) ===
+      install_bundled_cli(app.handle());
 
       // === Quick Chat: registra lo shortcut globale (default ⌥+Spazio) ===
       // Deve essere DOPO il plugin registration per funzionare.

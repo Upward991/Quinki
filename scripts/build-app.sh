@@ -29,6 +29,13 @@ echo "$WV" > src-tauri/resources/sidecar/version.txt
 echo "$WV" > src-tauri/resources/sidecar/web/version.txt
 echo "[build-app] web version: $WV" 
 bash scripts/build-sidecar.sh
+
+# CLI: compila (se serve) e copia nel bundle → l'app installa il comando `quinki` da sola
+if [ ! -x cli/dist/quinki ]; then
+  ( cd cli && "$HOME/.bun/bin/bun" build main.ts --target=bun --outfile=dist/quinki ) || echo "[build-app] WARN: CLI build failed"
+fi
+mkdir -p src-tauri/resources/cli
+cp cli/dist/quinki src-tauri/resources/cli/quinki 2>/dev/null || echo "[build-app] WARN: CLI missing (auto-install skipped)" 
 # Dettatura locale (Parakeet TDT v3 via FluidAudio): compila l'helper swift e lo
 # spedisce accanto al sidecar, stesso schema del tunnel.
 if [ -x /usr/bin/swift ] || command -v swift >/dev/null 2>&1; then
