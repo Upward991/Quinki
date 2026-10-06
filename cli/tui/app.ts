@@ -1315,7 +1315,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       return out;
     }
     if (sub === "#sk") {
-      const out: any[] = [{ value: "__newskill", label: "\uff0b Install skill from internet", description: "coming next" }];
+      const out: any[] = [{ value: "__newskill", label: "\uff0b Install skill from internet", description: "then type the package name" }];
       out.push({ value: "__sep_sk", label: "Installed skills", separator: true });
       for (const nm of allSkillsList()) {
         const n = countAgentsWith([nm], "skills");
@@ -1324,7 +1324,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       return out;
     }
     if (sub === "#mcp") {
-      const out: any[] = [{ value: "__newmcp", label: "\uff0b Install MCP server", description: "coming next" }];
+      const out: any[] = [{ value: "__newmcp", label: "\uff0b Install MCP server", description: "choose package, URL or command" }];
       out.push({ value: "__sep_mcp", label: "MCP servers", separator: true });
       for (const m of qMcpData) {
         const id = String(m?.id || m?.name || ""); if (!id) continue;
@@ -5508,10 +5508,12 @@ const readProvidersCfg = (): any => {
         return false;
       }
       if (menuStack[0] === "agents") {
-        // T525: the DELETE modals DO show "Confirm (Enter)" (without it the
-        // Enter would do nothing and the deletion was impossible to confirm).
+        // T526: ACTION rows and ACTION levels show "Confirm (Enter)":
+        // delete modals, the install/input levels, and the "+ New…/Install…" rows.
         const lastLv = String(menuStack[menuStack.length - 1] || "");
-        if (/^(agdel|skdel|mcpdel):/.test(lastLv)) return true;
+        if (/^(agdel|skdel|mcpdel):/.test(lastLv) || lastLv === "__input" || lastLv === "__mcpType") return true;
+        const v0a = String((cur as any)?.value || "");
+        if (v0a === "__newskill" || v0a === "__newmcp" || v0a === "__newagent" || v0a.startsWith("__mcpt_")) return true;
         // T507: otherwise the agents tab is all SELECTION (Tab = select,
         // instant effect): never a Confirm in the bar.
         return false;
@@ -5809,6 +5811,9 @@ const readProvidersCfg = (): any => {
             if (menuStack[0] === "agents" && it && !it.separator) {
               const vA = String(it.value || "");
               if (/^(#def|#you|#sk|#mcp|#tools|#plan|#plantools|#planmcp|ag:|ask:|atk:|amc:|sk:|mcp:|tool:)/.test(vA)) deeper = vA;
+              if (vA === "__newskill") { qAgentsInputMode = "skillpkg"; deeper = "__input"; }
+              if (vA === "__newagent") { qAgentsInputMode = "newagent"; deeper = "__input"; }
+              if (vA === "__newmcp") { deeper = "__mcpType"; }
               if (vA === "__mcpt_pkg" || vA === "__mcpt_url" || vA === "__mcpt_cmd") {
                 qMcpType = vA === "__mcpt_url" ? "url" : vA === "__mcpt_cmd" ? "command" : "package";
                 qMcpSrc = "";
@@ -6426,7 +6431,7 @@ const applySettingsPatch = (patch: any) => {
             // T512: the arrow lights when the row opens something (a section, an
             // agent's editor, a per-skill agent list...) — never on the toggles.
             const vF = String(curA.value || "");
-            canFwd = /^(#def|#you|#sk|#mcp|#tools|#plan|#plantools|#planmcp|ag:|ask:|atk:|amc:|sk:|mcp:|tool:)/.test(vF) || vF === "__agdel" || vF === "__skdel" || vF === "__mcpdel"; // T524: the forward arrow lights on the Delete rows too (it opens the confirm modal)
+            canFwd = /^(#def|#you|#sk|#mcp|#tools|#plan|#plantools|#planmcp|ag:|ask:|atk:|amc:|sk:|mcp:|tool:)/.test(vF) || vF === "__agdel" || vF === "__skdel" || vF === "__mcpdel" || vF === "__newskill" || vF === "__newmcp" || vF === "__newagent" || vF.startsWith("__mcpt_"); // T524/T526: Delete rows + all ACTION rows light the arrow
           }
           else if (menuStack[0] === "settings") canFwd = !!settingsDeeper(curA);
           else if (menuStack[0] === "directory") canFwd = menuStack[1] === "dirchange" ? false : (String(curA.value || "") === "__dir_change"); // -> lights only on Change directory
