@@ -2818,11 +2818,8 @@ const readProvidersCfg = (): any => {
         const isDownN = data === "\x1b[B" || matchesKey(data, "down");
         const isLeftN = data === "\x1b[D" || matchesKey(data, "left");
         const isRightN = data === "\x1b[C" || matchesKey(data, "right");
-        const isEscN = data === "\x1b" || matchesKey(data, "escape");
-        if (isEscN) {
-          exitToggleNav();
-          return { consume: true };
-        }
+        // 6 ott: Esc no longer touches the nav (it exits on the modifier release
+        // alone): here Esc stays the normal STOP like everywhere else.
         if (isUpN || isDownN) {
           moveToggleSel(isUpN ? -1 : 1);
           return { consume: true };
