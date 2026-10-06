@@ -2803,9 +2803,15 @@ const readProvidersCfg = (): any => {
           else if (d2 === "D") setToggleOpen(false);
           return { consume: true };
         }
-        // T579: any NON-ctrl-alt key = the user stopped holding -> exit at once
+        // T579: any NON-ctrl-alt key = the user stopped holding -> exit at once.
+        // EXCEPT Esc (the STOP must never touch the nav) and the modifier events.
         if (navMode && !qCAM) {
-          try { if (String(data).indexOf("\x1b[1;7") !== 0) { exitToggleNav(); } } catch {}
+          try {
+            const dE = String(data);
+            const isEscKey = dE === "\x1b" || matchesKey(dE, "escape");
+            const isMod = /^\x1b\[5744[0-9]/.test(dE);
+            if (!isEscKey && !isMod && dE.indexOf("\x1b[1;7") !== 0) { exitToggleNav(); }
+          } catch {}
         }
       } catch {}
       const isCtrlT = false; // Ctrl+T removed: the nav is always on Ctrl+Alt+arrows
