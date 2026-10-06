@@ -77,6 +77,35 @@ export async function installMarketPackage(item: CatalogItem, call: MarketCall, 
         hashContent(txt).then((h) => recordInstall({ id: item.id, category: 'mcp', source: src, author: item.author, version: item.version || '1.0.0', hash: h })).catch(() => {})
       }
     } catch {}
+  } else if ((item as any).remoteUrl && !(item as any).remoteNpmPackage) {
+    // MCP hosted (remote URL, streamable-http): nessuna install, registra l'URL.
+    try {
+      if (call) {
+        const sid = item.id.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').slice(0, 64)
+        await call('addMcpServer', { id: sid, name: item.name, type: 'url', source: String((item as any).remoteUrl) }).catch(() => {})
+        try {
+          const map = JSON.parse(localStorage.getItem('quinki-mcp-mapping') || '{}') || {}
+          map[item.id] = [sid]
+          localStorage.setItem('quinki-mcp-mapping', JSON.stringify(map))
+        } catch {}
+        hashContent(String((item as any).remoteUrl)).then((h) => recordInstall({ id: item.id, category: 'mcp', source: src, author: item.author, version: item.version || '1.0.0', hash: h })).catch(() => {})
+      }
+    } catch {}
+  } else if ((item as any).remotePypiPackage && !(item as any).remoteNpmPackage) {
+    // MCP PyPI: install via `uvx <pkg>` (richiede uv installato).
+    try {
+      const pkg = String((item as any).remotePypiPackage)
+      if (call) {
+        const sid = item.id.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').slice(0, 64)
+        await call('addMcpServer', { id: sid, name: item.name, type: 'command', command: ['uvx', pkg], args: [], env: {} }).catch(() => {})
+        try {
+          const map = JSON.parse(localStorage.getItem('quinki-mcp-mapping') || '{}') || {}
+          map[item.id] = [sid]
+          localStorage.setItem('quinki-mcp-mapping', JSON.stringify(map))
+        } catch {}
+        hashContent(pkg).then((h) => recordInstall({ id: item.id, category: 'mcp', source: src, author: item.author, version: item.version || '1.0.0', hash: h })).catch(() => {})
+      }
+    } catch {}
   } else if ((item as any).remoteNpmPackage) {
     // MCP da package npm (repo tipo modelcontextprotocol/servers): registra il server
     // col meccanismo NATIVO dei pacchetti (stessa strada dell'install manuale da npm).

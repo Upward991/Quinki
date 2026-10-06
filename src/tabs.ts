@@ -222,9 +222,14 @@ export function removeMyRepo(url: string) {
 // === REPO DI DEFAULT (6 ott): sorgenti CURATE incluse per tutti, out of the box.
 // L'utente può rimuoverle dalla sezione repo e ripristinarle quando vuole. ===
 export const DEFAULT_REPOS: MyRepo[] = [
+  { url: 'https://raw.githubusercontent.com/Upward991/quinki-defaults/main/catalog.json', label: 'MCP Registry (official)', addedAt: 0 },
   { url: 'https://github.com/anthropics/skills', label: 'Anthropic Skills', addedAt: 0 },
-  { url: 'https://github.com/modelcontextprotocol/servers', label: 'MCP Servers (official)', addedAt: 0 },
-  { url: 'https://github.com/wshobson/agents', label: 'Claude Agents', addedAt: 0 },
+  { url: 'https://github.com/alirezarezvani/claude-skills', label: 'Claude Skills (alirezarezvani)', addedAt: 0 },
+  { url: 'https://github.com/Jeffallan/claude-skills', label: 'Claude Skills (Jeffallan)', addedAt: 0 },
+  { url: 'https://github.com/modelcontextprotocol/servers', label: 'MCP Servers (official repo)', addedAt: 0 },
+  { url: 'https://github.com/wshobson/agents', label: 'Claude Agents (wshobson)', addedAt: 0 },
+  { url: 'https://github.com/contains-studio/agents', label: 'Contains Studio Agents', addedAt: 0, hint: { agentMdDepth: 1 } } as any,
+  { url: 'https://github.com/VoltAgent/awesome-claude-code-subagents', label: 'VoltAgent Subagents', addedAt: 0, hint: { agentMdDepth: 2 } } as any,
 ]
 const DEFAULT_REPOS_REMOVED_KEY = 'quinki-default-repos-removed'
 export function getRemovedDefaultRepos(): string[] {

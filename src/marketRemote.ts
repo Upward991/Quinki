@@ -88,7 +88,14 @@ function remoteToItem(cat: string, r: any, local: CatalogItem | undefined, sourc
     remoteDownloadUrl: r.downloadUrl,
     remoteSource: source,
     remoteRating: typeof r.rating === 'number' ? r.rating : 0,
-  }
+    // Pass-through dei campi di INSTALL (dal catalog.json remoto: MCP npm/pypi/url)
+    remoteNpmPackage: r.remoteNpmPackage,
+    remotePypiPackage: r.remotePypiPackage,
+    remoteUrl: r.remoteUrl,
+    remoteMcpPath: r.remoteMcpPath,
+    remoteSkillPath: r.remoteSkillPath,
+    remoteRepoRawBase: r.remoteRepoRawBase,
+  } as CatalogItem
 }
 
 // Fetch di UNA sorgente (catalog.json). Fallback silenzioso → [].
@@ -232,7 +239,7 @@ async function fetchGitHubSkillsHtml(url: string, label: string, branch = 'main'
   return items
 }
 
-async function fetchGitHubSkills(url: string, label: string, token = ''): Promise<CatalogItem[]> {
+async function fetchGitHubSkills(url: string, label: string, token = '', hint?: { agentMdDepth?: number }): Promise<CatalogItem[]> {
   const rep = extractRepo(url)
   if (!rep) return []
   try {
@@ -259,7 +266,7 @@ async function fetchGitHubSkills(url: string, label: string, token = ''): Promis
     const seenAgents = new Set<string>()
     const seenMcps = new Set<string>()
     const npmCandidates: string[] = []
-    const SKIP = new Set(['readme', 'template', 'license', 'contributing', 'changelog'])
+    const SKIP = new Set(['readme', 'template', 'license', 'contributing', 'changelog', 'claude', 'agents', 'index'])
     const downloads = Math.max(1, Math.round(stars / 10))
     const pathHash = (p: string) => { let h = 0; for (let i = 0; i < p.length; i++) { h = ((h << 5) - h + p.charCodeAt(i)) | 0 } return (h >>> 0).toString(36).slice(0, 4) }
     for (const t of (tree.tree || [])) {
@@ -284,7 +291,10 @@ async function fetchGitHubSkills(url: string, label: string, token = ''): Promis
         continue
       }
       // ── AGENTS: file .md dentro una cartella agents/ ──
-      if (/\/agents?\/[^/]+\.md$/i.test(path) && !path.toLowerCase().endsWith('skill.md')) {
+      // + HINT per-repo (repo curati con layout a categorie): N livelli di profondità.
+      const hintDepth = hint && hint.agentMdDepth ? hint.agentMdDepth : 0
+      const hintMatch = hintDepth > 0 && new RegExp('^([^/]+/){' + hintDepth + '}[^/]+\\.md$').test(path)
+      if ((/\/agents?\/[^/]+\.md$/i.test(path) || hintMatch) && !path.toLowerCase().endsWith('skill.md')) {
         const segs = path.split('/')
         const name = (segs[segs.length - 1] || '').replace(/\.md$/i, '')
         if (!name || SKIP.has(name.toLowerCase())) continue
@@ -450,9 +460,9 @@ export async function refreshRemoteCatalog(): Promise<CatalogItem[]> {
 async function doFetchRemoteCatalog(): Promise<CatalogItem[]> {
   // Sorgenti: market ufficiale + REPO DI DEFAULT (curate, per tutti) + repo dell'utente.
   const sources = [
-    { url: OFFICIAL_URL, label: 'quinki-market' },
-    ...DEFAULT_REPOS.map(r => ({ url: r.url, label: r.label })),
-    ...getMyRepos().map(r => ({ url: r.url, label: r.label })),
+    { url: OFFICIAL_URL, label: 'quinki-market', hint: undefined as any },
+    ...DEFAULT_REPOS.map(r => ({ url: r.url, label: r.label, hint: (r as any).hint })),
+    ...getMyRepos().map(r => ({ url: r.url, label: r.label, hint: (r as any).hint })),
   ]
   // PARALLELO con timeout per sorgente: un repo lento/bloccato non blocca gli altri.
   const results = await Promise.all(sources.map(async (src) => {
@@ -464,7 +474,7 @@ async function doFetchRemoteCatalog(): Promise<CatalogItem[]> {
       if (/catalog\.json/.test(src.url) && /raw\.githubusercontent/.test(src.url)) {
         items = await fetchSource(src.url)
       }
-      if (items.length === 0) items = await fetchGitHubSkills(src.url, src.label, getRepoToken(src.url))
+      if (items.length === 0) items = await fetchGitHubSkills(src.url, src.label, getRepoToken(src.url), (src as any).hint)
     } else {
       items = await fetchSource(src.url)
     }
