@@ -1386,6 +1386,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     if (vAgT.startsWith("aprompt:") || vAgT.startsWith("askill:")) { qAgentFileOpen(vAgT); return; }
   };
   // Opens PROMPT.md / SKILL.md in the full-screen editor (used by the shared action).
+  // T569: true while the config tree (stack "agents") was entered FROM the chat's
+  // Agent configuration — the Delete agent row stays tab-only.
+  let qCfgFromSession = false;
   const qAgentFileOpen = (vAgF: string) => {
     try {
       try { require("fs").appendFileSync("/tmp/q-agent-action.log", new Date().toISOString() + " FILE-OPEN vAg=" + vAgF + " call=" + String(typeof (globalThis as any).__sidecarCall) + "\n"); } catch {}
@@ -1542,8 +1545,8 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         { value: "amc:" + agId, label: "MCP", description: String(agentMcpOf(agId).length) + " enabled" },
         { value: "atk:" + agId, label: "Tools", description: String(agentToolsOf(agId).length) + " enabled" },
       ];
-      // T563: no Delete agent from the chat's in-session config (tab-only, per the user).
-      if (stack[0] !== "agentinsession") {
+      // T563/T569: no Delete agent when the tree was entered from the chat.
+      if (stack[0] !== "agentinsession" && !qCfgFromSession) {
         rows.push({ value: "__sep_agdelgap", label: "", separator: true });
         rows.push({ value: "__agdel", label: "Delete agent", description: "" });
       }
@@ -4789,6 +4792,7 @@ const readProvidersCfg = (): any => {
       case "agents": {
         // T506 — THE missing case: without it the bulletproof Enter found the
         // command but handleSlash fell through and the tab never opened.
+        qCfgFromSession = false; // T569: the real tab shows the Delete row
         try { refreshAgentsTab(); } catch {}
         try { qAgentsInputMode = ""; } catch {}
         if (!arg) {
@@ -6190,6 +6194,7 @@ const readProvidersCfg = (): any => {
               // uses: from here on EVERY gate (arrow, Confirm, Tab, deeper levels)
               // follows the identical code path as /agents > Your agents > an agent.
               const cfgId = String(deeper).slice(10);
+              qCfgFromSession = true; // T569: hide Delete agent in this session-entered tree
               menuStack = ["agents", "ag:" + cfgId];
               menuSubFilter = "";
               menuSel = 0;
