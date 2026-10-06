@@ -212,20 +212,6 @@ export function Sidebar(props: SidebarProps) {
       // Il target "sotto il titolo della cartella" (l'after della riga cartella)
       // e' ANCORA DENTRO: si esce solo quando il puntatore ha superato TUTTI i
       // figli visibili della cartella.
-      if (dragItem?.parentId) {
-        const isParentRow = entry.item.id === parentIdOfDrag
-        const isSibling = entry.item.parentId === parentIdOfDrag
-        if (isParentRow) {
-          // SULLA riga cartella (FIX 6 ott v2): la banda centrale (into) lascia
-          // DENTRO (drop sul titolo = dentro la cartella); l'"after" (sotto la riga,
-          // verso i figli) resta dentro; si esce solo passandole SOPRA (before).
-          if (zone === 'after') continue
-          passedParentBlock = true
-        } else if (!isSibling) {
-          if (parentBlockBottom > 0 && pointerY <= parentBlockBottom) continue
-          passedParentBlock = true
-        }
-      }
       if (!canAccept(e, dragRef.current, entry.item.id)) continue
       if (pointerY <= rect.bottom) {
         const relY = pointerY - rect.top
@@ -235,10 +221,21 @@ export function Sidebar(props: SidebarProps) {
           zone = 'before'
         } else {
           zone = computeZone(relY, rect.height, isFolder)
-          // FIX (6 ott): l'"after" su una cartella APERTA era forzato a "into" ->
-          // era IMPOSSIBILE lasciare qualcosa SOTTO una cartella aperta (finiva
-          // sempre dentro). Ora vale la banda: 15% sopra = before, 85% sotto = after
-          // (fuori), banda centrale = into (dentro).
+        }
+        // FIX VERO (6 ott, trovato dallo screenshot: ReferenceError 'zone' usato
+        // PRIMA della dichiarazione -> la sidebar CRASHAVA ad ogni drag, e ogni
+        // fix sembrava "non fare nulla"). Regole per un elemento ANNIDATO:
+        //  - riga CARTELLA: 'into' = dentro (drop sul titolo); 'before' (sopra) = esce;
+        //    'after' (sotto la riga, verso i figli) = resta dentro.
+        //  - tra i FRATELLI = dentro; sotto TUTTI i figli visibili = esce.
+        if (dragItem?.parentId) {
+          const isParentRow = entry.item.id === parentIdOfDrag
+          const isSibling = entry.item.parentId === parentIdOfDrag
+          if (isParentRow) {
+            if (zone !== 'before') continue
+          } else if (!isSibling) {
+            if (parentBlockBottom > 0 && pointerY <= parentBlockBottom) continue
+          }
         }
         // Skip useless indicators: "after item above" and "before item below" (same position)
         const targetParentId = entry.item.parentId || null
