@@ -6130,6 +6130,7 @@ const readProvidersCfg = (): any => {
               const vA = String(it.value || "");
               if (/^(#def|#you|#sk|#mcp|#tools|#plan|#plantools|#planmcp|ag:|ask:|atk:|amc:|sk:|mcp:|tool:)/.test(vA)) deeper = vA;
               if (vA.startsWith("aprompt:") || vA.startsWith("askill:")) { try { agentAdminAction(vA); } catch {} return; }
+              if (vA.startsWith("ag:")) { try { refreshAgentsTab(); } catch {} } // T560: load the engine data the moment the config opens
               if (vA === "__createskill") { qAgentsInputMode = "newskill"; deeper = "__input"; }
               if (vA === "__newskill") { qAgentsInputMode = "skillpkg"; deeper = "__input"; }
               if (vA === "__newagent") { qAgentsInputMode = "newagent"; deeper = "__input"; }
@@ -6652,7 +6653,8 @@ const applySettingsPatch = (patch: any) => {
       // T513: every time the agents menu is on screen, make sure the engine data
       // is fresh (throttled; covers ALL the ways the menu can be opened).
       try {
-        if (inAgentCfg() && Date.now() - (refreshAgentsTab as any)._last > 4000) {
+        if (inAgentCfg() && !(refreshAgentsTab as any)._last) { (refreshAgentsTab as any)._last = Date.now(); refreshAgentsTab(); }
+        else if (inAgentCfg() && Date.now() - (refreshAgentsTab as any)._last > 4000) {
           (refreshAgentsTab as any)._last = Date.now();
           refreshAgentsTab();
         }
