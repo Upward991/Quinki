@@ -30,7 +30,7 @@ function ExpertAppIcon({ size = 28 }: any) {
 
 // Le 6 tab base — NON eliminabili, solo riordinabili
 export const baseTabs: HomeTab[] = [
-  { id: 'chat',     icon: MessageSquare, label: 'Chat',         color: 'var(--q-accent-info)',      panel: 'chat',     doubleBot: false, base: true },
+  { id: 'chat',     icon: MessageSquare, label: 'Sessions',     color: 'var(--q-accent-info)',      panel: 'chat',     doubleBot: false, base: true },
   { id: 'calendar', icon: Checklist,     label: 'Agents Tasks', color: 'var(--q-accent-calendar)',  panel: 'calendar', doubleBot: false, base: true },
   { id: 'agents',   icon: Bot,           label: 'Agents',       color: 'var(--q-accent-secondary)', panel: 'agents',   doubleBot: true,  base: true },
   { id: 'market',   icon: Store,         label: 'Market',       color: 'var(--q-accent-market)',    panel: 'market',   doubleBot: false, base: true },

@@ -13,7 +13,7 @@ const VISITED_KEY = 'quinki-visited-tabs'
 
 const STEPS: { tab: string; title: string; body: string; tip?: string }[] = [
   { tab: 'home', title: 'Home', body: 'Your workspace. Sessions, folders and quick access to the Market.' },
-  { tab: 'chat', title: 'Chat', body: 'Talk to your agents. Pick an agent, choose a model and send a message. You need a provider to run models, you will set it up in the next step.' },
+  { tab: 'chat', title: 'Sessions', body: 'Talk to your agents. Pick an agent, choose a model and send a message. You need a provider to run models, you will set it up in the next step.' },
   {
     tab: 'settings', title: 'Settings', body: 'This tab is where you configure everything: providers, models, themes and app settings.\n\nThe most important thing here is the provider: without one, you cannot use any model or chat.\n\nOpen each provider to sign in with your existing account: use the subscription you already have (ChatGPT, Claude, GitHub Copilot, Grok) or set up Ollama for free local models.',
     tip: 'Free or very cheap models can give poor results. If things do not work as expected, try a better model first.'
