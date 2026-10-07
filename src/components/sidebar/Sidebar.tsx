@@ -321,23 +321,18 @@ export function Sidebar(props: SidebarProps) {
     // MODELLO SEMPLICE (6 ott, riscrittura): la SEZIONE = DOVE LASCI L'ELEMENTO.
     // Sopra il divider -> pinned. Sotto il divider -> normale. Per QUALSIASI
     // elemento (chat, cartelle). Nient'altro: niente casi speciali, sempre uguale.
-    let sepBottom = -1
-    try { const r = itemRects.current.get('__pinsep__'); if (r) sepBottom = r.bottom } catch {}
     const sepIdx = flatList.findIndex(f => f.item.id === '__pinsep__')
     const targetIdx = flatList.findIndex(f => f.item.id === targetId)
     const wasPinned = !!(dragItem as any).pinned
-    // ISTERESI (8 ott): un pinnato NON si despinna per un pelo (margine 22px sotto
-    // il divider). FIX (7 ott): se il rect del divider manca, la decisione si prende
-    // dalla POSIZIONE in lista del target (sopra il divider = sezione pinned) —
-    // prima, senza rect, un pinnato non poteva MAI uscire dalla sezione.
-    // Drop SUL chip del divisore: decide la ZONA (sopra la linea = pinned, sotto = normale),
-    // cosi' "appena sotto la linea" = prima posizione della sezione normale, e "appena
-    // sopra" = ultima posizione della sezione pinned.
-    const inPinned = (targetId === '__pinsep__')
-      ? (zone === 'before')
-      : (sepBottom > 0
-          ? (wasPinned ? (pointerYRef.current <= sepBottom + 22) : (pointerYRef.current <= sepBottom))
-          : (sepIdx >= 0 && targetIdx >= 0 ? targetIdx < sepIdx : wasPinned))
+    // SEZIONE DI DESTINAZIONE (7 ott notte — fix "non unpinna e torna nella sezione pin"):
+    // si guarda DOVE finirebbe l'elemento (indice di inserimento: prima del target,
+    // o subito dopo) rispetto alla LINEA del divisore — esattamente cio' che
+    // l'indicatore mostra all'utente mentre trascina. Niente piu' margini a pixel:
+    // il vecchio margine di 22px considerava ancora "pinned" i drop fatti appena
+    // sotto la linea (il punto naturale per uscire) -> niente unpin, e la matematica
+    // lo rimetteva tra i pinnati.
+    const insertIdx = targetIdx >= 0 ? (zone === 'after' ? targetIdx + 1 : targetIdx) : -1
+    const inPinned = (sepIdx >= 0 && insertIdx >= 0) ? (insertIdx <= sepIdx) : wasPinned
     if (zone !== 'into') {
       if (inPinned !== wasPinned) {
         if (inPinned && !wasPinned) {
