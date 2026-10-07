@@ -15,7 +15,7 @@
     --r-sm: 6px; --r-md: 8px; --r-lg: 16px;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; transition: none !important; }
-  body { min-height: 100vh; display: flex; flex-direction: column; padding-bottom: 48px; background: var(--q-bg); color: var(--q-text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  body { min-height: 100vh; display: flex; flex-direction: column; padding-bottom: 24px; background: var(--q-bg); color: var(--q-text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
   a { color: inherit; text-decoration: none; }
   .wrap { max-width: 920px; margin: 0 auto; padding: 0 24px; }
   svg.lucide { width: 16px; height: 16px; }
@@ -67,6 +67,8 @@
   .ib-plain .ib-desc { font-size: 13px; }
   .ib-plain .ib-actions { text-align: center; }
   .mob-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; text-align: center; }
+  .mob-2col .ib-actions { margin-top: 16px; }
+  .ib-pane[data-os="mobile"] { padding-bottom: 4px; }
   .mob-h { font-size: 12.5px; font-weight: 700; color: var(--q-text); }
   .combo { max-width: 880px; margin: 40px auto 0; background: var(--q-panel); border: 1px solid var(--q-border); border-radius: var(--r-lg); overflow: hidden; }
   .combo-top { padding: 12px 14px 14px; }
@@ -103,7 +105,7 @@
     .combo-foot { padding: 12px 12px 14px; }
     .cf-links { gap: 6px 12px; }
     .cf-bottom { gap: 6px 12px; }
-    body { padding-bottom: 24px; }
+    body { padding-bottom: 12px; }
   }
 
   /* Hero v2 (7 ott): [icona + claim] a riga, box install con selettore App/CLI sotto */
