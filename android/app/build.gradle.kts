@@ -10,8 +10,8 @@ android {
     defaultConfig {
         minSdk = 26
         targetSdk = 35
-        versionCode = 48
-        versionName = "1.0.0-beta.38"
+        versionCode = 49
+        versionName = "1.0.0-beta.39"
     }
 
     flavorDimensions += "role"
