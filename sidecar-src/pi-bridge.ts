@@ -4698,6 +4698,10 @@ Read this file to view it.` }] };
   // Usato dopo injectErrorExchange per far "vedere" al modello i messaggi iniettati.
   #imagesStripped = new Map<string, number>();
   #thinkingReprompts = new Map<string, number>();
+  // PURGE UNIVERSALE PRE-RETRY (7 ott 2026): chiave presente = in questo turno
+  // abbiamo appena ripulito le immagini e il retry pulito e' GIA' in volo ->
+  // il fallback di modello deve aspettare il prossimo errore (ultima risorsa).
+  #preRetryPurged = new Set<string>();
 
   // Pulisce le immagini dalla catena IN MEMORIA dell'SDK (sessionManager.getEntries).
   // E' la copia che il worker usa per il PROSSIMO turno: pulirla qui = il prossimo
@@ -8610,19 +8614,25 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
               // L'SDK ritenta già 3 volte con backoff; qui, se ha fallito comunque, ri-promptiamo
               // la sessione una sola volta dopo 30s (il provider potrebbe essersi liberato).
               const errMsg = String((e.message as any).errorMessage);
-              // 400 immagini: il modello attuale non vede le immagini -> le togliamo
-              // dal contesto (segnaposto), ricarichiamo la sessione e riprendiamo da soli.
+              // PURGE UNIVERSALE PRE-RETRY (7 ott 2026 — richiesta utente): su QUALSIASI
+              // errore del provider (non piu' solo i 400 "vision"), se il contesto contiene
+              // ancora parti non-testo (immagini), le togliamo con un segnaposto. Cosi' il
+              // PRIMO retrying riparte pulito (solo testo) su TUTTI i modelli — stesso
+              // meccanismo dei 400, ora error-agnostic. Max 2 pulizie per turno.
+              let purgedNow = false;
               try {
-                const imgErr = /invalid.*image|image.*invalid|does not support image|image input is not supported|unsupported.*image|image.*not.*support|no vision|without vision|image_url|image.*only.?supported|only.?supported.*image|invalid.*content.?type|content.?type.*invalid|support.*image.*input|image.*not.*allowed|multimodal|vision.*not/i.test(errMsg);
                 const imgTries = this.#imagesStripped.get(key) || 0;
-                if (imgErr && imgTries < 2) {
-                  this.#imagesStripped.set(key, imgTries + 1);
+                if (imgTries < 2) {
                   const nFile = this.#stripImagesForKey(key);          // su disco (persistenza + altri processi)
                   const nMem = this.#stripImagesInMemory(key);          // nella catena VIVA del worker (effetto IMMEDIATO)
-                  this.logDebug("auto-strip-images", { sessionKey: key, file: nFile, mem: nMem, try: imgTries + 1, error: errMsg.slice(0, 120) });
-                  // L'autoprompt ESISTENTE deve ripartire (come deve rimanere): sblocco
-                  // la sua guardia cosi' il prossimo tentativo usa il contesto pulito.
-                  try { this.#rePrompted.delete(key); } catch {}
+                  if (nFile > 0 || nMem > 0) {
+                    purgedNow = true;
+                    this.#imagesStripped.set(key, imgTries + 1);
+                    this.logDebug("auto-strip-images", { sessionKey: key, file: nFile, mem: nMem, try: imgTries + 1, note: "purge universale su errore provider (retry pulito prima del fallback)", error: errMsg.slice(0, 120) });
+                    // L'autoprompt ESISTENTE deve ripartire (come deve rimanere): sblocco
+                    // la sua guardia cosi' il prossimo tentativo usa il contesto pulito.
+                    try { this.#rePrompted.delete(key); } catch {}
+                  }
                 }
               } catch {}
               const retryable = /overloaded|503|429|rate.?limit|service.?unavailable|server.?error|temporarily|too many requests|does not support image|image input/i.test(errMsg);
@@ -8632,10 +8642,15 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
               // 500 included: Ollama Cloud deepseek-v4.1-flash dies with Internal
               // Server Error at ~60% context — after the engine's 3 retries the
               // fallback must take over.
+              // ECCEZIONE (7 ott): se abbiamo APPENA ripulito le immagini (purgedNow), il
+              // retry pulito sullo STESSO modello parte PRIMA del fallback — il fallback
+              // resta l'ultima risorsa (scatta al prossimo errore, senza piu' nulla da pulire).
+              // Vedi #preRetryPurged in agent_end.
               const fbEligible = /401|402|403|500|502|503|504|internal.?server|insufficient|credit|quota|not.?found|not.?available|model.?not|unauthorized|authentication|service.?unavailable|timeout|timed.?out|econnrefused|fetch.?failed|network|enotfound|dns|connection|refused|unreachable|socket/i.test(errMsg);
-              if (retryable && !fbEligible && !this.#rePrompted.has(key) && !this.#stoppedSessions.has(key)) {
+              if ((purgedNow || (retryable && !fbEligible)) && !this.#rePrompted.has(key) && !this.#stoppedSessions.has(key)) {
                 this.#rePrompted.add(key);
-                this.logDebug("auto-reprompt-scheduled", { sessionKey: key, error: errMsg.slice(0, 120) });
+                if (purgedNow) this.#preRetryPurged.add(key);
+                this.logDebug("auto-reprompt-scheduled", { sessionKey: key, purged: purgedNow, error: errMsg.slice(0, 120) });
                 // FIX (01 set): 2 secondi invece di 30. Il provider ha il tempo di
                 // "respirare" ma l'utente vede il recovery partire SUBITO (la pill
                 // Recovering appare immediatamente, l'autoprompt arriva entro 2s).
@@ -8797,7 +8812,13 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
             })();
             let fallbackSwitched = false;
             const _fbTried0 = this.#fallbackTried.get(key) || [];
-            if (!turnCompleted && lastStopReason === "error" && authFlag && !this.#stoppedSessions.has(key) && _fbTried0.length < 8) {
+            // Consuma il flag di purge pre-retry (7 ott): se in QUESTO turno abbiamo
+            // appena ripulito le immagini e il retry pulito e' gia' in volo, il
+            // fallback NON scatta adesso — prima il modello attuale ha la sua chance
+            // col contesto leggero. Se anche il retry pulito fallisce, il prossimo
+            // errore (senza piu' nulla da pulire) fa scattare il fallback come sempre.
+            const purgedThisRound = this.#preRetryPurged.delete(key);
+            if (!turnCompleted && lastStopReason === "error" && authFlag && !this.#stoppedSessions.has(key) && _fbTried0.length < 8 && !purgedThisRound) {
               try {
                 const _tried = this.#fallbackTried.get(key) || [];
                 const _flist = ((this.#entries.get(key) as any)?.fallbackModels || []) as string[];
@@ -8889,6 +8910,9 @@ if (!turnCompleted && lastStopReason && lastStopReason !== "toolUse" && !this.#s
             // i marker vecchi → il driver li vedeva → autoprompt per messaggi GIÀ RISPOSTI
             // (gli "autoprompt insensati" dopo turni regolari — riprodotto 5 volte live).
             if (turnCompleted) {
+              // Turno completato: reset del budget di purge immagini (per-turno, non
+              // piu' a vita: la pulizia deve SEMPRE poter ripartire al prossimo giro).
+              try { this.#imagesStripped.delete(key); this.#preRetryPurged.delete(key); } catch {}
               // FIX (07 set) FALLBACK TOTALE no-drift: a fine turno il modello di sessione
               // torna quello ORIGINALE (mai drift permanente sui fallback provati)
               const _origModel = this.#fallbackOriginalModel.get(key);
