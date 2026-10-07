@@ -356,7 +356,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const [fullWidth, setFullWidth] = useState(() => { try { return localStorage.getItem('quinki-tasks-fullwidth') === '1' } catch { return false } })
   const saveUi = (fw: boolean, v: ViewCfg[]) => {
     try { localStorage.setItem('quinki-tasks-fullwidth', fw ? '1' : '0'); localStorage.setItem(VIEWS_KEY, JSON.stringify(v)) } catch {}
-    call('saveUiState', { state: { fullWidth: fw, views: v, activeId, openGroups } }).catch(() => {})
+    call('saveUiState', { state: { fullWidth: fw, views: v, activeId, openGroups, sideMode } }).catch(() => {})
   }
   // SALVATAGGIO CENTRALIZZATO: ogni cambio di views/fullWidth viene persistito
   // (localStorage sincrono + sidecar). Sorgente unica: lo stato REALE, mai copie.
@@ -364,7 +364,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   useEffect(() => {
     if (firstSaveRef.current) { firstSaveRef.current = false; return }
     try { saveUi(fullWidth, views) } catch {}
-  }, [views, fullWidth])
+  }, [views, fullWidth, sideMode])
 
   useEffect(() => {
     let alive = true
@@ -372,6 +372,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       if (!alive || !s) return
       if (typeof s.fullWidth === 'boolean') setFullWidth(s.fullWidth)
       if (s.openGroups && typeof s.openGroups === 'object') setOpenGroups(s.openGroups)
+      if (s.sideMode === 'open' || s.sideMode === 'hidden' || s.sideMode === 'peek') setSideMode(s.sideMode)
       // FIX FINALE (6 ott, dai dati reali del log): nella DESKTOP il localStorage
       // e' VOLATILE (si azzera) mentre il SIDECAR salva SEMPRE. Quindi il sidecar
       // e' la verita' dei pin: si ripristina SEMPRE da lui (il locale integrato
@@ -387,7 +388,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
         try { localStorage.setItem(VIEWS_KEY, JSON.stringify(nv)) } catch {}
         // E RI-SALVA lo stato adottato sul sidecar: cosi' il prossimo giro trova
         // SEMPRE quello che stai vedendo ora (fix "tolgo la tab e rimetto").
-        try { call('saveUiState', { state: { fullWidth: (() => { try { return localStorage.getItem('quinki-tasks-fullwidth') === '1' } catch { return false } })(), views: nv, activeId: want, openGroups } }).catch(() => {}) } catch {}
+        try { call('saveUiState', { state: { fullWidth: (() => { try { return localStorage.getItem('quinki-tasks-fullwidth') === '1' } catch { return false } })(), views: nv, activeId: want, openGroups, sideMode: (s.sideMode === 'hidden' || s.sideMode === 'peek') ? s.sideMode : 'open' } }).catch(() => {}) } catch {}
       }
     }).catch(() => {})
     return () => { alive = false }
@@ -551,12 +552,22 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       if (e.button !== 0) return
       const t = e.target as HTMLElement
       if (t.closest('button, input, a, [role="button"]')) return
-      const el = tblWrapRef.current
+      const el = e.currentTarget as HTMLDivElement
       if (!el) return
       panRef.current = { startX: e.clientX, startScroll: el.scrollLeft, active: true, moved: false }
       setPanning(true)
     }
-    return React.createElement('div', { key: 'tbl', ref: tblWrapRef, onMouseDown: startPan, style: { width: '100%', overflowX: 'auto', cursor: panning ? 'grabbing' : 'grab', userSelect: panning ? 'none' : 'text' } }, React.createElement('table', { style: { borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed', margin: '0 auto', width: '100%', minWidth: renderCols.reduce((a, k) => a + colW(k), 0) } }, [React.createElement('thead', { key: 'th' }, thead), React.createElement('tbody', { key: 'tb' }, tbody.length ? tbody : React.createElement('tr', { key: 'e' }, React.createElement('td', { colSpan: renderCols.length, style: { padding: 16, textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', borderBottom: '1px solid var(--q-border-solid)' } }, 'No tasks in this group.')))]))
+    // #7ott: lo scroll orizzontale e' CONDIVISO tra i tre gruppi: muovi una tabella,
+    // le altre la seguono (larghezze colonne identiche = stesso scrollWidth).
+    const onTblScroll = (e: React.UIEvent<HTMLDivElement>) => {
+      const el = e.currentTarget as HTMLDivElement
+      const all = document.querySelectorAll('[data-tbl-scroll]')
+      for (let i = 0; i < all.length; i++) {
+        const x = all[i] as HTMLDivElement
+        if (x !== el && Math.abs(x.scrollLeft - el.scrollLeft) > 0.5) x.scrollLeft = el.scrollLeft
+      }
+    }
+    return React.createElement('div', { key: 'tbl', 'data-tbl-scroll': '1', onMouseDown: startPan, onScroll: onTblScroll, style: { width: '100%', overflowX: 'auto', cursor: panning ? 'grabbing' : 'grab', userSelect: panning ? 'none' : 'text' } }, React.createElement('table', { style: { borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed', margin: '0 auto', width: '100%', minWidth: renderCols.reduce((a, k) => a + colW(k), 0) } }, [React.createElement('thead', { key: 'th' }, thead), React.createElement('tbody', { key: 'tb' }, tbody.length ? tbody : React.createElement('tr', { key: 'e' }, React.createElement('td', { colSpan: renderCols.length, style: { padding: 16, textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', borderBottom: '1px solid var(--q-border-solid)' } }, 'No tasks in this group.')))]))
   }
 
   // Vista TABLE = toggle per status (Notion group-by-status)
