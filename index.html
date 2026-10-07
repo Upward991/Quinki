@@ -45,21 +45,17 @@
   /* Hero v2 (7 ott): [icona + claim] a riga, box install con selettore App/CLI sotto */
   .hero-row { display: flex; align-items: center; justify-content: center; gap: 26px; text-align: left; }
   .hero-icon { width: 104px; height: 104px; border-radius: 24px; flex-shrink: 0; }
-  .install-box { max-width: 680px; margin: 36px auto 0; background: var(--q-panel); border: 1px solid var(--q-border); border-radius: var(--r-lg); text-align: left; overflow: hidden; }
-  .ib-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px 0; }
+  .install-box { max-width: 780px; margin: 36px auto 0; background: var(--q-panel); border: 1px solid var(--q-border); border-radius: var(--r-lg); text-align: left; overflow: hidden; }
+  .ib-head { display: flex; align-items: center; gap: 10px; padding: 12px 14px 0; }
   .ib-tabs { display: inline-flex; gap: 3px; background: var(--q-elevated); border: 1px solid var(--q-border); border-radius: var(--r-md); padding: 3px; }
   .ib-tab { background: none; border: 1px solid transparent; color: var(--q-secondary); font-size: 12.5px; font-weight: 600; padding: 4px 16px; border-radius: 5px; cursor: pointer; font-family: inherit; }
   .ib-tab.on { background: var(--q-bg); border-color: var(--q-border); color: var(--q-accent); }
-  .ib-badge { color: var(--q-tertiary); font-size: 11.5px; }
-  .ib-pane { padding: 14px; }
-  .ib-title { font-size: 15px; font-weight: 700; }
-  .ib-desc { color: var(--q-secondary); font-size: 13px; margin-top: 5px; line-height: 1.55; }
-  .ib-cmd { display: flex; align-items: flex-start; gap: 10px; margin-top: 13px; background: var(--q-bg); border: 1px solid var(--q-border); border-radius: var(--r-md); padding: 10px 10px 10px 13px; }
-  .ib-cmd-$ { color: var(--q-tertiary); font-family: 'SF Mono', ui-monospace, Menlo, monospace; font-size: 11.5px; line-height: 1.5; }
-  .ib-cmd code { flex: 1; min-width: 0; font-family: 'SF Mono', ui-monospace, Menlo, monospace; font-size: 11.5px; color: var(--q-text); white-space: normal; word-break: break-all; line-height: 1.5; }
+  .ib-pane { padding: 12px 14px 14px; }
+  .ib-cmd { display: flex; align-items: center; gap: 10px; background: var(--q-bg); border: 1px solid var(--q-border); border-radius: var(--r-md); padding: 9px 9px 9px 12px; }
+  .ib-cmd code { flex: 1; min-width: 0; font-family: 'SF Mono', ui-monospace, Menlo, monospace; font-size: 11.5px; color: var(--q-text); white-space: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .ib-cmd code::-webkit-scrollbar { display: none; }
   .ib-copy { flex-shrink: 0; background: none; border: 1px solid var(--q-border); color: var(--q-secondary); font-size: 12px; font-weight: 600; padding: 4px 13px; border-radius: var(--r-sm); cursor: pointer; font-family: inherit; }
   .ib-copy:hover { border-color: var(--q-accent); color: var(--q-accent); }
-  .ib-actions { margin-top: 13px; }
   @media (max-width: 640px) {
     .hero-row { flex-direction: column; gap: 16px; text-align: center; }
     .hero-icon { width: 88px; height: 88px; }
@@ -198,7 +194,7 @@
 <section class="hero wrap">
   <div class="hero-row">
     <img class="hero-icon" src="quinki-icon.png" alt="Quinki">
-    <h1>AI Agents.<br><span class="ac">As simple as possible!</span></h1>
+    <h1>Quinki, AI Agents.<br><span class="ac">As simple as possible!</span></h1>
   </div>
   <div class="install-box">
     <div class="ib-head">
@@ -206,21 +202,15 @@
         <button type="button" class="ib-tab on" data-pane="app">App</button>
         <button type="button" class="ib-tab" data-pane="cli">CLI</button>
       </div>
-      <span class="ib-badge">macOS · Apple Silicon</span>
     </div>
     <div class="ib-pane" id="pane-app">
-      <div class="ib-title">Quinki for macOS</div>
-      <div class="ib-desc">The full desktop app — multi-agent chats, tasks, the Market. Installing the app also installs the CLI automatically.</div>
-      <div class="ib-cmd"><span class="ib-cmd-$">$</span><code id="cmd-app">curl -fsSL https://raw.githubusercontent.com/Upward991/Quinki/main/install.sh | sh</code><button type="button" class="ib-copy" data-copy="cmd-app">Copy</button></div>
-      <div class="ib-actions"><a class="btn" href="https://github.com/Upward991/Quinki/releases/latest" target="_blank" rel="noopener">Download .dmg instead</a></div>
+      <div class="ib-cmd"><code id="cmd-app">curl -fsSL https://raw.githubusercontent.com/Upward991/Quinki/main/install.sh | sh</code><button type="button" class="ib-copy" data-copy="cmd-app">Copy</button></div>
     </div>
     <div class="ib-pane" id="pane-cli" hidden>
-      <div class="ib-title">Quinki CLI</div>
-      <div class="ib-desc">The same Quinki in your terminal — same sessions, agents and skills. Works standalone, without the app.</div>
-      <div class="ib-cmd"><span class="ib-cmd-$">$</span><code id="cmd-cli">curl -fsSL https://raw.githubusercontent.com/Upward991/Quinki/main/install-cli.sh | sh</code><button type="button" class="ib-copy" data-copy="cmd-cli">Copy</button></div>
+      <div class="ib-cmd"><code id="cmd-cli">curl -fsSL https://raw.githubusercontent.com/Upward991/Quinki/main/install-cli.sh | sh</code><button type="button" class="ib-copy" data-copy="cmd-cli">Copy</button></div>
     </div>
   </div>
-  <div class="soon-note">macOS, Apple Silicon, beta. Not notarized yet: right-click and Open on first launch.</div>
+  <div class="soon-note">macOS, Apple Silicon, beta. Installing the app also installs the CLI automatically.</div>
 </section>
 
 <div class="wrap">
