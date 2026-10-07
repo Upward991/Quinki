@@ -1511,7 +1511,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
 
   // PIN (6 ott): pinna/sblocca in cima (ottimistico: la UI si aggiorna subito).
   const setSessionPinned = useCallback((sessionKey: string, pinned: boolean, order?: number) => {
-    setSessions(prev => prev.map(s => s.id === sessionKey ? ({ ...s, pinned, pinnedOrder: order ?? (s as any).pinnedOrder } as any) : s))
+    setSessions(prev => prev.map(s => s.id === sessionKey ? ({ ...s, pinned, pinnedOrder: order ?? (s as any).pinnedOrder, order: (pinned && typeof order === 'number') ? order : (s as any).order } as any) : s))
     call('setSessionPinned', { sessionKey, pinned, order }, 4000).catch(() => {})
   }, [ready, call])
 

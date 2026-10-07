@@ -1186,7 +1186,10 @@ class PiBridge {
       return {
         key: s.key, label: s.label, agentId: s.agentId || "",
         model: s.model, thinkingLevel: s.thinkingLevel, mode: s.mode,
-        lastActivity: s.lastActivity, order: orderByKey.get(s.key) ?? s.lastActivity,
+        lastActivity: s.lastActivity,
+        order: orderByKey.get(s.key) ?? (typeof (s as any).order === "number" ? (s as any).order : s.lastActivity),
+        pinned: !!(s as any).pinned,
+        pinnedOrder: (typeof (s as any).pinnedOrder === "number" ? (s as any).pinnedOrder : undefined),
         folderId: folderByKey.get(s.key) ?? null,
         compactionAuto: c?.compactionAuto,
         compactionThreshold: c?.compactionThreshold,
@@ -1944,7 +1947,7 @@ class PiBridge {
     const s = this.#entries.get(key);
     if (s) {
       (s as any).pinned = !!pinned;
-      if (typeof pinnedOrder === 'number') (s as any).pinnedOrder = pinnedOrder;
+      if (typeof pinnedOrder === 'number') { (s as any).pinnedOrder = pinnedOrder; (s as any).order = pinnedOrder; }
       this.#save();
     }
     try { this.#writeChatMeta(key, { pinned: !!pinned, pinnedOrder: typeof pinnedOrder === 'number' ? pinnedOrder : undefined } as any); } catch {}

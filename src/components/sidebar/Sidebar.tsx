@@ -323,9 +323,23 @@ export function Sidebar(props: SidebarProps) {
     // elemento (chat, cartelle). Nient'altro: niente casi speciali, sempre uguale.
     let sepBottom = -1
     try { const r = itemRects.current.get('__pinsep__'); if (r) sepBottom = r.bottom } catch {}
-    const inPinned = sepBottom > 0 ? (pointerYRef.current <= sepBottom) : (targetId === '__pinsep__' ? zone === 'before' : !!(dragItem as any).pinned)
+    const wasPinned = !!(dragItem as any).pinned
+    // ISTERESI (8 ott): un pinnato NON si despinna per un pelo. Vale solo se il
+    // puntatore e' CHIARAMENTE sotto il divider (margine 22px).
+    const inPinned = sepBottom > 0
+      ? (wasPinned ? (pointerYRef.current <= sepBottom + 22) : (pointerYRef.current <= sepBottom))
+      : (targetId === '__pinsep__' ? zone === 'before' : wasPinned)
     if (zone !== 'into') {
       props.onSetPinned?.(dragItem.id, inPinned)
+    }
+    // Diventare pinnati adesso = SEMPRE in cima (nessuna matematica di posizione).
+    // Il riordino libero resta per chi e' gia' pinnato.
+    if (inPinned && !wasPinned) {
+      dragRef.current = null
+      setDropZone(null)
+      setActiveDragItem(null)
+      requestAnimationFrame(() => setDropZone(null))
+      return
     }
     const isFolder = targetItem.type === 'folder'
     
