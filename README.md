@@ -2,28 +2,86 @@
 
 <img src="screenshots/app-icon.png" width="76" alt="Quinki">
 
-**AI agents, chats and tools on your desktop.**
+**Quinki, AI Agents: As simple as possible!**
 
-Quinki is a native desktop app for AI work: parallel multi-agent chats, scheduled jobs, a Market of community-built tools, and the App Expert to extend the app from inside it. Everything stays on your machine.
-
-![The Quinki home](screenshots/app-main.png)
-
-**The CLI.** The same sessions, agents and skills, in your terminal. Standalone — no app required (macOS; Windows/Linux land next):
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/Upward991/Quinki/main/install-cli.sh | sh
-quinki
-```
-
-![The Quinki CLI](screenshots/cli.png)
+A native desktop app for AI work: parallel multi-agent chats, scheduled tasks, a Market of community-built tools, and the App Expert to extend the app from inside it. Everything stays on your machine.
 
 ![macOS](https://img.shields.io/badge/macOS-Apple%20Silicon-blue)
+![Android](https://img.shields.io/badge/Android-APK-orange)
 [![Version](https://img.shields.io/github/v/release/Upward991/Quinki?include_prereleases&sort=semver&label=version&color=orange)](https://github.com/Upward991/Quinki/releases)
 ![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 
+## Install
+
+### App (macOS)
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/Upward991/Quinki/main/install.sh | sh
+```
+
+Installing the app also installs the CLI automatically (`quinki` lands in `~/.local/bin`, PATH handled). Prefer a manual install? Download the `.dmg` from [Releases](https://github.com/Upward991/Quinki/releases), drag the app to Applications, and on first launch right-click it and choose Open.
+
+### CLI (standalone)
+
+The same sessions, agents and skills, in your terminal. Works without the app:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/Upward991/Quinki/main/install-cli.sh | sh
+```
+
+### Mobile and web
+
+- **Android**: install the APK from [Releases](https://github.com/Upward991/Quinki/releases) (`Quinki_Android_*.apk`, and the companion `Quinki_Expert_Android_*.apk`).
+- **iOS and any browser**: Quinki serves its own web UI (Settings, Web app). Open it from the phone, then Share, Add to Home Screen. It works on Android too, next to the APK.
+- **Windows and Linux**: native builds come after macOS. The web UI already works everywhere.
+
+> Re-running the installer always installs the latest release. New builds are published as new releases with notes on the [Releases](https://github.com/Upward991/Quinki/releases) page.
+
+## Inside Quinki
+
+**Home.** One click to everything: your sessions, tasks, agents, market, settings and log, in a grid you can rearrange.
+
+![The Quinki home](screenshots/home.png)
+
+**Sessions.** Chats with your agents. Parallel sessions with visible delegation blocks, folders and notifications.
+
+![Sessions](screenshots/sessions.png)
+
+**Agents Tasks.** A calendar of agent work: scheduled jobs and running tasks, visible at a glance.
+
+![Agents Tasks](screenshots/agents-tasks.png)
+
+**Agents.** Create and manage your agents: prompts, tools, skills and models.
+
+![Agents](screenshots/agents.png)
+
+**Market.** Install skills, agents, tabs, MCP servers and themes from the built-in Market.
+
+![Market](screenshots/market.png)
+
+**Settings.** Providers and models, themes, remote access, app updates and more.
+
+![Settings](screenshots/settings.png)
+
+**App Expert.** The separate companion app: your in-house developer that reads Quinki code, makes changes, builds and installs.
+
+![App Expert](screenshots/expert.png)
+
+**Log.** A live debug log, so you always see what the app is doing under the hood.
+
+![Log](screenshots/log.png)
+
+**CLI.** The whole Quinki in your terminal. Same sessions, agents and skills as the app.
+
+![The Quinki CLI](screenshots/cli.png)
+
+**CLI, slash menu.** Type / for the command menu: same actions, same look as the app.
+
+![CLI slash menu](screenshots/cli-slash.png)
+
 ## What is Quinki?
 
-Quinki is a desktop app with tabs: chat with AI agents, schedule tasks, browse the Market, manage your agents — all in one place. Create your own tabs with the App Expert, publish them to the Market, and install community-built tools. Everything runs locally on your Mac.
+Quinki is a desktop app with tabs: chat with AI agents, schedule tasks, browse the Market, manage your agents, all in one place. Create your own tabs with the App Expert, publish them to the Market, and install community-built tools. Everything runs locally on your Mac.
 
 ### Providers (built-in)
 
@@ -49,36 +107,7 @@ Quinki is a desktop app with tabs: chat with AI agents, schedule tasks, browse t
 - **App Expert** — a built-in agent that can modify and improve Quinki itself
 - **File Attachments** — drag files into chat, the model reads them
 - **Themes** — 7 built-in themes, custom themes from the market
-
-## Install
-
-### Beta (recommended)
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/Upward991/quinki/main/install.sh | sh
-```
-
-> **Updates**: re-running the command above always installs the latest release. New builds are published as new releases, and the changelog is on the [Releases](https://github.com/Upward991/Quinki/releases) page.
-
-### From DMG
-
-1. Download the latest DMG from [Releases](https://github.com/Upward991/Quinki/releases)
-2. Open the DMG and drag Quinki to Applications
-3. **Important**: On first launch, right-click Quinki.app → "Open" (bypass Gatekeeper)
-
-### CLI (standalone)
-
-The terminal companion — same sessions, agents and skills. Works **without the app**.
-**Installing the Quinki app also installs this command automatically** (`quinki` lands in `~/.local/bin`, PATH handled):
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/Upward991/Quinki/main/install-cli.sh | sh
-quinki
-```
-
-> macOS (Apple Silicon) today; Windows and Linux builds land with the next release.
-
-> ⚠️ **Beta notice**: This is a beta release. The DMG is not notarized yet (requires Apple Developer Program). The curl-installer bypasses this issue. Notarization is a donation goal — help us reach it!
+- **CLI** — the same Quinki in your terminal, sharing sessions, agents and skills
 
 ## Getting started
 
@@ -94,26 +123,22 @@ quinki
 
 The [Quinki Market](https://github.com/Upward991/quinki-market) is the official package repository — browse it from within the app (Market tab).
 
-### Recommended market sources
+### Default sources (preinstalled)
 
-The Quinki Market can browse external GitHub repositories. Add these to get 250+ skills and MCP servers instantly:
-
-### Skills
-
-| Repository | Skills | Best for |
-|-----------|--------|----------|
-| [anthropics/skills](https://github.com/anthropics/skills) | 20 | Official Anthropic skills: canvas design, algorithmic art, brand guidelines |
-| [bergside/awesome-design-skills](https://github.com/bergside/awesome-design-skills) | 67 | UI/UX design, branding, layout, visual design |
-| [gamedev-skills/awesome-gamedev-agent-skills](https://github.com/gamedev-skills/awesome-gamedev-agent-skills) | 74 | Game development: Godot, Unity, Unreal, Phaser |
-| [SnailSploit/Claude-Red](https://github.com/SnailSploit/Claude-Red) | 78 | Security testing, pentesting, red teaming |
-| [obra/superpowers](https://github.com/obra/superpowers) | 14 | Development workflow: TDD, debugging, code review |
-| [elementalsouls/Claude-OSINT](https://github.com/elementalsouls/Claude-OSINT) | 10 | OSINT, reconnaissance, information gathering |
-
-### MCP servers
+Quinki ships with a set of sources already configured. Remove them or add your own at any time:
 
 | Repository | Contents |
 |-----------|----------|
+| [modelcontextprotocol/registry](https://registry.modelcontextprotocol.io) | The official MCP registry, around 1,200 installable MCP servers |
+| [anthropics/skills](https://github.com/anthropics/skills) | Official Anthropic skills: canvas design, algorithmic art, brand guidelines |
+| [alirezarezvani/claude-skills](https://github.com/alirezarezvani/claude-skills) | 800+ Claude skills across many domains |
+| [obra/superpowers](https://github.com/obra/superpowers) | Development workflow: TDD, debugging, code review |
+| [davila7/claude-code-templates](https://github.com/davila7/claude-code-templates) | 900+ templates and components for Claude Code |
 | [modelcontextprotocol/servers](https://github.com/modelcontextprotocol/servers) | Official MCP servers: filesystem, git, search, memory, and more |
+| [wshobson/agents](https://github.com/wshobson/agents) | 200 production-ready agent definitions |
+| [contains-studio/agents](https://github.com/contains-studio/agents) | 37 specialist agents for product teams |
+| [VoltAgent/awesome-claude-code-subagents](https://github.com/VoltAgent/awesome-claude-code-subagents) | A large collection of Claude Code subagents |
+| [Jeffallan/claude-skills](https://github.com/Jeffallan/claude-skills) | 60+ focused Claude skills |
 
 ### How to add
 
@@ -121,7 +146,7 @@ In Quinki, go to **Market → My Repos → Add** and paste the repo name (e.g. `
 
 ## App Expert
 
-Quinki can modify and improve itself. Open the **App Expert** tab, set the source code directory (clone this repo), and tell it what to fix or build. It commits, builds, and installs — with your confirmation at every step.
+Quinki can modify and improve itself. Open the **App Expert** tab, set the source code directory (clone this repo), and tell it what to fix or build. It commits, builds, and installs, with your confirmation at every step.
 
 ## System requirements
 
@@ -133,8 +158,8 @@ Quinki can modify and improve itself. Open the **App Expert** tab, set the sourc
 
 ```bash
 # Clone
-git clone https://github.com/Upward991/quinki.git
-cd quinki
+git clone https://github.com/Upward991/Quinki.git
+cd Quinki
 
 # Install dependencies
 bun install
