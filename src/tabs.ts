@@ -17,11 +17,11 @@ export interface HomeTab {
   base: boolean
 }
 
-// Icona della tab App Expert = l'icona dell'app App Expert (tile arancio + E pixel,
-// lo stesso artwork del bundle .app / del telefono). Stessa geometria della griglia icone.
+// Icona della tab App Expert = l'icona dell'app App Expert STILE DOCK
+// (tile arancio con angoli arrotondati, la stessa che si vede nel Dock).
 function ExpertAppIcon({ size = 28 }: any) {
   return React.createElement('img', {
-    src: '/icons/expert-icon-192.png',
+    src: '/icons/expert-app-icon.png',
     alt: '',
     draggable: false,
     style: { width: size, height: size, display: 'block', pointerEvents: 'none', userSelect: 'none' },

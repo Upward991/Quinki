@@ -155,6 +155,9 @@ render("expert-orange", 192, "pwa").save(os.path.join(PUB, "icons", "expert-icon
 render("expert-orange", 512, "pwa").save(os.path.join(PUB, "icons", "expert-icon-512.png"))
 render("expert-orange", 180, "pwa").save(os.path.join(PUB, "icons", "expert-apple-touch.png"))
 print("icone PWA aggiornate (telefono): q viola (Main) + E arancio (Expert)")
+# Icona stile DOCK (angoli arrotondati, griglia macOS) per la web/card in-home:
+render("expert-orange", 192, "app").save(os.path.join(PUB, "icons", "expert-app-icon.png"))
+print("extra: expert-app-icon.png (stile dock, per la card App Expert in home)")
 
 # 3c) ICONE ANDROID (APK): per flavor — quinki = q su viola, expert = E su arancio.
 #     - ic_launcher.png      = quadrato pieno (legacy, API<26)
