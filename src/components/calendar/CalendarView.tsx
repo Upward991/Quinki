@@ -502,9 +502,50 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
 
   // Tabella per un gruppo (header colonne + righe) — la stessa struttura in ogni toggle
   const COL_MIN: Record<string, number> = { title: 180, agent: 110, chat: 140, mt: 140, when: 130, actions: 90 }
+  // #7ott: larghezze colonne CONDIVISE tra i gruppi (Scheduled/running/Executed).
+  // Misurate su TUTTE le righe filtrate (canvas, stessa tipografia delle celle) e
+  // applicate identiche a ogni tabella: se un gruppo ha contenuto piu' largo,
+  // gli altri si adattano.
+  const cellFont = '13.5px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+  const measureCol = (() => {
+    let ctx: CanvasRenderingContext2D | null = null
+    return (str: string, bold = false) => {
+      try {
+        if (!ctx) ctx = document.createElement('canvas').getContext('2d')
+        if (!ctx) return String(str || '').length * 7.7
+        ctx.font = (bold ? '700 ' : '') + cellFont
+        return Math.ceil(ctx.measureText(String(str || '')).width)
+      } catch { return String(str || '').length * 7.7 }
+    }
+  })()
+  const colWidths: Record<string, number> = (() => {
+    const w: Record<string, number> = {}
+    const keys = ['title', 'agent', 'chat', 'type', 'when', 'mt', 'actions']
+    for (const k of keys) w[k] = COL_MIN[k] || 80
+    for (const i of filtered) {
+      const t = (k: string): string => {
+        if (k === 'title') return i.title || ''
+        if (k === 'agent') return i.agent || ''
+        if (k === 'chat') return i.chat || ''
+        if (k === 'type') return i.type || ''
+        if (k === 'when') return '07 October 2026'
+        if (k === 'mt') { const m = String((i as any).model || ''); const th = String((i as any).thinkingLevel || ''); return m.length >= th.length ? m : th }
+        return ''
+      }
+      for (const k of keys) { if (k !== 'actions') w[k] = Math.max(w[k], measureCol(t(k)) + 26) }
+    }
+    for (const k of ['title', 'agent', 'chat', 'type', 'when', 'mt']) {
+      const c = COLS.find(x => x.key === k)
+      if (c && c.label) w[k] = Math.max(w[k], measureCol(c.label, true) + 26)
+    }
+    w.title = Math.min(w.title, 420); w.when = Math.min(w.when, 180); w.mt = Math.min(w.mt, 200); w.chat = Math.min(w.chat, 220); w.agent = Math.min(w.agent, 200)
+    w.actions = Math.max(w.actions, 100)
+    return w
+  })()
+  const colW = (k: string) => (k === 'sel' ? 52 : (colWidths[k] || COL_MIN[k] || 80))
   const tableFor = (rows: Item[]) => {
     const renderCols = ['sel', ...cols.filter(x => x !== 'actions'), 'actions']
-    const thead = React.createElement('tr', { key: 'thr' }, renderCols.map((k, idx) => { const c = COLS.find(x => x.key === k); const isLastCol = idx === renderCols.length - 1; if (k === 'sel') return React.createElement('th', { key: k, style: { padding: '9px 12px', minWidth: 52, borderBottom: '1px solid var(--q-border-solid)', borderRight: '1px solid var(--q-border-solid)' } }, React.createElement(Checklist, { key: 'i', size: 15, style: { color: 'var(--q-text-tertiary)' } })); if (k === 'actions') return React.createElement('th', { key: k, style: { padding: '9px 12px', color: 'var(--q-text-secondary)', fontSize: 13.5, fontWeight: 700, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap', userSelect: 'none', minWidth: COL_MIN.actions, borderBottom: '1px solid var(--q-border-solid)' } }, 'Actions'); return React.createElement('th', { key: k, onClick: () => toggleSort(k), style: { padding: '9px 12px', cursor: 'grab', color: 'var(--q-text-secondary)', fontSize: 13.5, fontWeight: 700, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap', userSelect: 'none', minWidth: COL_MIN[k] || 80, borderBottom: '1px solid var(--q-border-solid)', borderRight: isLastCol ? 'none' : '1px solid var(--q-border-solid)' } }, c ? c.label : '') }))
+    const thead = React.createElement('tr', { key: 'thr' }, renderCols.map((k, idx) => { const c = COLS.find(x => x.key === k); const isLastCol = idx === renderCols.length - 1; if (k === 'sel') return React.createElement('th', { key: k, style: { padding: '9px 12px', width: colW('sel'), minWidth: 52, borderBottom: '1px solid var(--q-border-solid)', borderRight: '1px solid var(--q-border-solid)' } }, React.createElement(Checklist, { key: 'i', size: 15, style: { color: 'var(--q-text-tertiary)' } })); if (k === 'actions') return React.createElement('th', { key: k, style: { padding: '9px 12px', color: 'var(--q-text-secondary)', fontSize: 13.5, fontWeight: 700, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap', userSelect: 'none', width: colW('actions'), minWidth: COL_MIN.actions, borderBottom: '1px solid var(--q-border-solid)' } }, 'Actions'); return React.createElement('th', { key: k, onClick: () => toggleSort(k), style: { padding: '9px 12px', cursor: 'grab', color: 'var(--q-text-secondary)', fontSize: 13.5, fontWeight: 700, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap', userSelect: 'none', width: colW(k), minWidth: COL_MIN[k] || 80, borderBottom: '1px solid var(--q-border-solid)', borderRight: isLastCol ? 'none' : '1px solid var(--q-border-solid)' } }, c ? c.label : '') }))
     const tbody = rows.map((i, ri) => React.createElement('tr', { key: i.id, onMouseEnter: () => setHoverRow(i.id), onMouseLeave: () => setHoverRow(null), style: { backgroundColor: hoverRow === i.id ? 'var(--q-hover)' : 'transparent', transition: 'none' } }, renderCols.map((k, idx) => { const isLast = ri === rows.length - 1; const isLastCol = idx === renderCols.length - 1; if (k === 'sel') { return React.createElement('td', { key: k, style: cellStyle('left', isLast, isLastCol) }, React.createElement(CheckBox, { key: 'cb', checked: selTasks.has(i.id), onToggle: () => setSelTasks(prev => { const n = new Set(prev); if (n.has(i.id)) n.delete(i.id); else n.add(i.id); return n }) })) } if (k === 'title') { return React.createElement('td', { key: k, style: cellStyle('left', isLast, isLastCol) }, React.createElement('span', { key: 't', style: { color: 'var(--q-text)', whiteSpace: 'normal', overflow: 'hidden' } }, i.title)) } if (k === 'actions') { return React.createElement('td', { key: k, style: cellStyle('left', isLast, isLastCol) }, actions(i)) } return React.createElement('td', { key: k, style: cellStyle('left', isLast, isLastCol) }, cellVal(i, k)) })))
     const startPan = (e: React.MouseEvent) => {
       if (e.button !== 0) return
@@ -515,7 +556,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       panRef.current = { startX: e.clientX, startScroll: el.scrollLeft, active: true, moved: false }
       setPanning(true)
     }
-    return React.createElement('div', { key: 'tbl', ref: tblWrapRef, onMouseDown: startPan, style: { width: '100%', overflowX: 'auto', cursor: panning ? 'grabbing' : 'grab', userSelect: panning ? 'none' : 'text' } }, React.createElement('table', { style: { borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'auto', margin: '0 auto' } }, [React.createElement('thead', { key: 'th' }, thead), React.createElement('tbody', { key: 'tb' }, tbody.length ? tbody : React.createElement('tr', { key: 'e' }, React.createElement('td', { colSpan: renderCols.length, style: { padding: 16, textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', borderBottom: '1px solid var(--q-border-solid)' } }, 'No tasks in this group.')))]))
+    return React.createElement('div', { key: 'tbl', ref: tblWrapRef, onMouseDown: startPan, style: { width: '100%', overflowX: 'auto', cursor: panning ? 'grabbing' : 'grab', userSelect: panning ? 'none' : 'text' } }, React.createElement('table', { style: { borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed', margin: '0 auto', width: '100%', minWidth: renderCols.reduce((a, k) => a + colW(k), 0) } }, [React.createElement('thead', { key: 'th' }, thead), React.createElement('tbody', { key: 'tb' }, tbody.length ? tbody : React.createElement('tr', { key: 'e' }, React.createElement('td', { colSpan: renderCols.length, style: { padding: 16, textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', borderBottom: '1px solid var(--q-border-solid)' } }, 'No tasks in this group.')))]))
   }
 
   // Vista TABLE = toggle per status (Notion group-by-status)
