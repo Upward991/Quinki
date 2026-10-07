@@ -2,6 +2,7 @@
 // Le tab passano da hardcoded a registry-driven: qui stanno le tab BASE,
 // l'ordine (persistito in localStorage) e le tab installate (in A4.2 verranno
 // dal marketplace; per ora da localStorage come segnaposto).
+import React from 'react'
 import { Bot, Terminal, MessageSquare, Settings, Checklist, BookOpen, Store } from './components/icons'
 import { getRegistry, saveRegistry } from './registry'
 import { findCatalogItem, resolveCatalogIcon } from './catalog'
@@ -16,9 +17,20 @@ export interface HomeTab {
   base: boolean
 }
 
+// Icona della tab App Expert = l'icona dell'app App Expert (tile arancio + E pixel,
+// lo stesso artwork del bundle .app / del telefono). Stessa geometria della griglia icone.
+function ExpertAppIcon({ size = 28 }: any) {
+  return React.createElement('img', {
+    src: '/icons/expert-icon-192.png',
+    alt: '',
+    draggable: false,
+    style: { width: size, height: size, display: 'block', pointerEvents: 'none', userSelect: 'none' },
+  })
+}
+
 // Le 6 tab base — NON eliminabili, solo riordinabili
 export const baseTabs: HomeTab[] = [
-  { id: 'expert',   icon: Bot,           label: 'App Expert',   color: 'var(--q-accent-orange)',    panel: 'expert',   doubleBot: false, base: true },
+  { id: 'expert',   icon: ExpertAppIcon, label: 'App Expert',   color: 'var(--q-accent-orange)',    panel: 'expert',   doubleBot: false, base: true },
   { id: 'chat',     icon: MessageSquare, label: 'Chat',         color: 'var(--q-accent-info)',      panel: 'chat',     doubleBot: false, base: true },
   { id: 'calendar', icon: Checklist,     label: 'Agents Tasks', color: 'var(--q-accent-calendar)',  panel: 'calendar', doubleBot: false, base: true },
   { id: 'agents',   icon: Bot,           label: 'Agents',       color: 'var(--q-accent-secondary)', panel: 'agents',   doubleBot: true,  base: true },
