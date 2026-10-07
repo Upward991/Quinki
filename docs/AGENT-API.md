@@ -81,3 +81,18 @@ for, and the plugin ecosystem openly accepts custom endpoints.
 - Today, without waiting for the Agent API: an Obsidian MCP server lets Quinki agents read and write
   the vault through any MCP client setup we already support.
 - Later option: a small "Quinki" Obsidian plugin as the polished front door.
+
+## Open-source Notion alternatives (verified, October 2026)
+
+Exodus from Notion is a real 2026 theme ("Leaving Notion" guides everywhere). The serious
+self-hosted alternatives: AppFlowy, AFFiNE, SiYuan, Anytype, Outline.
+
+- **AppFlowy**: the closest to Notion (blocks, databases) and the most faithful migration path.
+  Wired **Ollama as a first-class** local AI (2025 release), so prompts stay private.
+- **SiYuan**: self-hosted, and its AI accepts **any OpenAI-compatible endpoint**. That is the
+  Agent API slot, straight in.
+- One 2026 guide about these tools puts it perfectly: they are "the agentic layer those tools
+  miss". That missing layer is exactly what Quinki sells.
+
+Useful follow-up idea: give the Agent API an **Ollama-compatible mode** too (`/api/chat`), so apps
+that only speak Ollama also work out of the box.
