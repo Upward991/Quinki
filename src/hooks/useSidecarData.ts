@@ -1510,10 +1510,38 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
   }, [ready, call])
 
   // PIN (6 ott): pinna/sblocca in cima (ottimistico: la UI si aggiorna subito).
+  // PIN (8 ott): la VERITA' del pin vive nell'interfaccia (qui) + file impostazioni
+  // con fusione. Il backend non puo' piu' riscriverlo: nessun polling lo tocca.
+  const [pinnedKeys, setPinnedKeys] = useState<Set<string>>(new Set())
+  const pinSeededRef = useRef(false)
+  useEffect(() => {
+    if (!ready || pinSeededRef.current) return
+    call('getUiState').then((st: any) => {
+      if (st && Array.isArray(st.pinnedKeys)) {
+        pinSeededRef.current = true
+        setPinnedKeys(new Set(st.pinnedKeys))
+        return
+      }
+      if (!sessions || sessions.length === 0) return // aspetta il primo payload
+      const seed = sessions.filter((s: any) => (s as any).pinned).map((s: any) => s.id)
+      pinSeededRef.current = true
+      setPinnedKeys(new Set(seed))
+      try { call('saveUiState', { state: { pinnedKeys: seed } }).catch(() => {}) } catch {}
+    }).catch(() => {})
+  }, [ready, sessions])
+
+  const persistPins = useCallback((next: Set<string>) => {
+    try { call('saveUiState', { state: { pinnedKeys: Array.from(next) } }).catch(() => {}) } catch {}
+  }, [call])
+
   const setSessionPinned = useCallback((sessionKey: string, pinned: boolean, order?: number) => {
     setSessions(prev => prev.map(s => s.id === sessionKey ? ({ ...s, pinned, pinnedOrder: order ?? (s as any).pinnedOrder, order: (pinned && typeof order === 'number') ? order : (s as any).order } as any) : s))
+    const next = new Set(pinnedKeys)
+    if (pinned) next.add(sessionKey); else next.delete(sessionKey)
+    setPinnedKeys(next)
+    persistPins(next)
     call('setSessionPinned', { sessionKey, pinned, order }, 4000).catch(() => {})
-  }, [ready, call])
+  }, [ready, call, pinnedKeys, persistPins])
 
   const compactSession = useCallback(async (sessionKey: string) => {
     if (!ready) return
@@ -1643,6 +1671,10 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
   // (il menu per loro non appare mai — ma il flag serve al drag: se li trascini
   // fuori dalla cartella restano nella sezione pinned).
   const setFolderPinned = useCallback((folderId: string, pinned: boolean, order?: number) => {
+    const next = new Set(pinnedKeys)
+    if (pinned) next.add(folderId); else next.delete(folderId)
+    setPinnedKeys(next)
+    persistPins(next)
     setFolders(prev => {
       const nf = prev.map(f => f.id === folderId ? { ...f, pinned: !!pinned, pinnedOrder: order ?? f.pinnedOrder } : f)
       try { notify('setFolders', { folders: nf }) } catch {}
@@ -1979,15 +2011,16 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
       const total = uc ? (uc.messages || 0) + (uc.tasks || 0) : 0
       // ownPinned = il flag REALE dell'elemento (senza ereditarieta'): serve al
       // drag per decidere se un'uscita dalla zona pinned deve despinnare o no.
-      return { ...s, pinned: effPinned(s), ownPinned: !!(s as any).pinned, unread: total > 0, messageCount: total, notifyMode: notifyModes[s.id] || 'none' }
+      // La VERITA' del pin = pinnedKeys (interfaccia) O ereditarieta' cartella.
+      return { ...s, pinned: pinnedKeys.has(s.id) || effPinned(s), ownPinned: pinnedKeys.has(s.id) || !!(s as any).pinned, unread: total > 0, messageCount: total, notifyMode: notifyModes[s.id] || 'none' }
     })
     const folderItems = (folders || []).map(f => ({
       id: f.id, title: f.title || f.name || 'Folder', type: 'folder' as const,
       isExpanded: !!f.isExpanded, parentId: f.parentId || null, order: f.order || Date.now(),
-      pinned: effPinned({ pinned: !!f.pinned, parentId: f.parentId }), ownPinned: !!f.pinned, pinnedOrder: (typeof f.pinnedOrder === 'number') ? f.pinnedOrder : undefined,
+      pinned: pinnedKeys.has(f.id) || effPinned({ pinned: !!f.pinned, parentId: f.parentId }), ownPinned: pinnedKeys.has(f.id) || !!f.pinned, pinnedOrder: (typeof f.pinnedOrder === 'number') ? f.pinnedOrder : undefined,
     }))
     return [...chats, ...folderItems].sort((a, b) => (b.order || 0) - (a.order || 0))
-  }, [sessions, folders, unreadCounts, notifyModes])
+  }, [sessions, folders, unreadCounts, notifyModes, pinnedKeys])
 
   return {
     // State

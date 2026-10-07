@@ -1639,7 +1639,12 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
       const isExpert = String(process.env.QUINKI_ROLE || '').toLowerCase() === 'expert' || Number(process.env.QUINKI_WS_PORT || '9182') === 9183;
       const f = path.join(homedir(), '.quinki', isExpert ? 'ui-state-expert.json' : 'ui-state.json');
       fs.mkdirSync(path.join(homedir(), '.quinki'), { recursive: true });
-      fs.writeFileSync(f, JSON.stringify(p.state || {}, null, 2), 'utf-8');
+      // FIX (8 ott): FUSIONE invece di sovrascrittura. Prima ogni componente che salvava
+      // (calendario ecc.) cancellava i campi degli altri: "il pin sparisce".
+      let prev: any = {};
+      try { if (fs.existsSync(f)) prev = JSON.parse(fs.readFileSync(f, 'utf-8')) || {}; } catch {}
+      const merged = { ...prev, ...(p.state || {}) };
+      fs.writeFileSync(f, JSON.stringify(merged, null, 2), 'utf-8');
       return { success: true };
     } catch (e: any) {
       process.stderr.write(`[ui-state] save failed: ${e.message}\n`);
