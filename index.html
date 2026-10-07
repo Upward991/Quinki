@@ -57,10 +57,21 @@
   .g-arrow svg { width: 15px; height: 15px; }
   .ib-desc-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
   .ib-desc { color: var(--q-secondary); font-size: 12.5px; line-height: 1.5; }
-  .ib-ver { color: var(--q-tertiary); font-size: 11.5px; white-space: nowrap; }
+  .gh-mini { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: 1px solid var(--q-border); border-radius: 8px; color: var(--q-secondary); }
+  .gh-mini:hover { color: var(--q-accent); border-color: var(--q-accent); }
+  .gh-mini svg { width: 15px; height: 15px; }
+  .ib-beta { color: var(--q-tertiary); font-size: 11px; border: 1px solid var(--q-border); border-radius: 5px; padding: 2px 7px; }
   .combo { max-width: 880px; margin: 36px auto 0; background: var(--q-panel); border: 1px solid var(--q-border); border-radius: var(--r-lg); overflow: hidden; }
   .combo-top { padding: 12px 14px 14px; }
   .combo-gal { padding: 0 14px 14px; }
+  .combo-foot { border-top: 1px solid var(--q-border); padding: 12px 14px 14px; }
+  .cf-links { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+  .cf-links a { color: var(--q-secondary); font-size: 12.5px; }
+  .cf-links a:hover { color: var(--q-text); }
+  .cf-bottom { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 8px; }
+  .cf-bottom span, .cf-bottom a { color: var(--q-tertiary); font-size: 11.5px; }
+  .cf-bottom a { text-decoration: underline; }
+  .cf-bottom a:hover { color: var(--q-secondary); }
 
   /* Hero v2 (7 ott): [icona + claim] a riga, box install con selettore App/CLI sotto */
   .hero-row { display: flex; align-items: center; justify-content: center; gap: 26px; text-align: left; }
@@ -194,20 +205,6 @@
 </head>
 <body>
 
-<header>
-  <div class="wrap hinner">
-    <img class="hlogo" src="quinki-icon.svg" alt="Quinki">
-    <span class="hname">Quinki</span>
-    <span class="hbeta">beta</span>
-    <nav>
-      <a href="https://github.com/Upward991/Quinki" class="gh">
-        <svg class="lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>
-        GitHub
-      </a>
-    </nav>
-  </div>
-</header>
-
 <section class="hero wrap">
   <div class="hero-row">
     <img class="hero-icon" src="quinki-icon.png" alt="Quinki">
@@ -219,19 +216,23 @@
   <div class="combo">
     <div class="combo-top">
       <div class="ib-head">
-        <div class="ib-tabs">
-          <button type="button" class="ib-tab ib-kind on" data-kind="app">App</button>
-          <button type="button" class="ib-tab ib-kind" data-kind="cli">CLI</button>
-        </div>
-        <div class="ib-tabs ib-oftabs">
-          <button type="button" class="ib-tab ib-os on" data-os="macos">macOS</button>
-          <button type="button" class="ib-tab ib-os" data-os="windows">Windows</button>
-          <button type="button" class="ib-tab ib-os" data-os="linux">Linux</button>
-        </div>
+      <a class="gh-mini" href="https://github.com/Upward991/Quinki" target="_blank" rel="noopener" title="GitHub"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg></a>
+      <div class="ib-tabs">
+        <button type="button" class="ib-tab ib-kind on" data-kind="app">App</button>
+        <button type="button" class="ib-tab ib-kind" data-kind="cli">CLI</button>
       </div>
-      <div id="pane-app">
+      <span class="ib-beta">beta</span>
+      <div class="ib-tabs ib-oftabs">
+        <button type="button" class="ib-tab ib-os on" data-os="macos">macOS</button>
+        <button type="button" class="ib-tab ib-os" data-os="windows">Windows</button>
+        <button type="button" class="ib-tab ib-os" data-os="linux">Linux</button>
+        <button type="button" class="ib-tab ib-os" data-os="android">Android</button>
+        <button type="button" class="ib-tab ib-os" data-os="ios">iOS</button>
+      </div>
+    </div>
+    <div id="pane-app">
         <div class="ib-pane" data-os="macos">
-          <div class="ib-desc-row"><span class="ib-desc">The macOS app. Apple Silicon, in beta. Installing the app also installs the CLI automatically.</span><span class="ib-ver" id="boxver-app">latest</span></div>
+          <div class="ib-desc-row"><span class="ib-desc">The macOS app. Apple Silicon, in beta. Installing the app also installs the CLI automatically.</span></div>
           <div class="ib-cmd"><code id="cmd-app">curl -fsSL https://raw.githubusercontent.com/Upward991/Quinki/main/install.sh | sh</code><button type="button" class="ib-copy" data-copy="cmd-app">Copy</button></div>
         </div>
         <div class="ib-pane" data-os="windows" hidden>
@@ -240,16 +241,29 @@
         <div class="ib-pane" data-os="linux" hidden>
           <div class="ib-soon">Coming soon</div>
         </div>
+        <div class="ib-pane" data-os="android" hidden>
+          <div class="ib-desc-row"><span class="ib-desc">The Android app ships as an APK. The web app works here too: open your Quinki in the browser and add it to the home screen.</span></div>
+          <div class="ib-actions"><a class="btn" id="apk-latest" href="https://github.com/Upward991/Quinki/releases/latest" target="_blank" rel="noopener">Download .apk</a></div>
+        </div>
+        <div class="ib-pane" data-os="ios" hidden>
+          <div class="ib-desc-row"><span class="ib-desc">No native app for iOS yet. Install the web app instead: open your Quinki in Safari, tap Share and choose Add to Home Screen.</span></div>
+        </div>
       </div>
       <div id="pane-cli" hidden>
         <div class="ib-pane" data-os="macos">
-          <div class="ib-desc-row"><span class="ib-desc">The same Quinki in your terminal. Same sessions, agents and skills. Works standalone, no sudo.</span><span class="ib-ver" id="boxver-cli">latest</span></div>
+          <div class="ib-desc-row"><span class="ib-desc">The same Quinki in your terminal. Same sessions, agents and skills. Works standalone, no sudo.</span></div>
           <div class="ib-cmd"><code id="cmd-cli">curl -fsSL https://raw.githubusercontent.com/Upward991/Quinki/main/install-cli.sh | sh</code><button type="button" class="ib-copy" data-copy="cmd-cli">Copy</button></div>
         </div>
         <div class="ib-pane" data-os="windows" hidden>
           <div class="ib-soon">Coming soon</div>
         </div>
         <div class="ib-pane" data-os="linux" hidden>
+          <div class="ib-soon">Coming soon</div>
+        </div>
+        <div class="ib-pane" data-os="android" hidden>
+          <div class="ib-soon">Coming soon</div>
+        </div>
+        <div class="ib-pane" data-os="ios" hidden>
           <div class="ib-soon">Coming soon</div>
         </div>
       </div>
@@ -268,34 +282,24 @@
         </div>
       </div>
     </div>
+    <div class="combo-foot">
+      <div class="cf-links">
+        <a href="https://github.com/Upward991/Quinki/blob/main/docs/USER-GUIDE.md" target="_blank" rel="noopener">User guide</a>
+        <a href="https://github.com/Upward991/Quinki/blob/main/docs/ARCHITECTURE.md" target="_blank" rel="noopener">Architecture</a>
+        <a href="https://github.com/Upward991/Quinki/blob/main/docs/MARKET.md" target="_blank" rel="noopener">Market guide</a>
+        <a href="https://github.com/Upward991/Quinki" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/Upward991/quinki-market" target="_blank" rel="noopener">Market repo</a>
+        <a href="https://github.com/Upward991/Quinki/issues" target="_blank" rel="noopener">Issues</a>
+      </div>
+      <div class="cf-bottom">
+        <span>&copy; 2026 Quinki, AGPL-3.0 license</span>
+        <a href="#" onclick="openContact(event)">Contact</a>
+        <a href="https://github.com/Upward991/Quinki/blob/main/README.md" target="_blank" rel="noopener">About</a>
+        <span>Bundled with the Pi SDK (MIT), powered by your own AI subscriptions</span>
+      </div>
+    </div>
   </div>
 </div>
-
-<footer>
-  <div class="wrap">
-    <div class="frow">
-      <div class="fbrand">
-        <img src="quinki-icon.svg" alt="Quinki">
-        <div>
-          <span class="fname">Quinki</span>
-        </div>
-      </div>
-      <div class="flinks">
-        <a href="https://github.com/Upward991/Quinki/blob/main/docs/USER-GUIDE.md">User guide</a>
-        <a href="https://github.com/Upward991/Quinki/blob/main/docs/ARCHITECTURE.md">Architecture</a>
-        <a href="https://github.com/Upward991/Quinki/blob/main/docs/MARKET.md">Market guide</a>
-        <a href="https://github.com/Upward991/Quinki">GitHub</a>
-        <a href="https://github.com/Upward991/quinki-market">Market repo</a>
-        <a href="https://github.com/Upward991/Quinki/issues">Issues</a>
-      </div>
-    </div>
-    <div class="fbottom">
-      <span>© 2026 Quinki, AGPL-3.0 license · <a href="#" onclick="openContact(event)" style="color:inherit;text-decoration:underline">Contact</a></span>
-      <span><a href="https://github.com/Upward991/Quinki/blob/main/README.md">About</a> · Bundled with the Pi SDK (MIT)</span>
-    </div>
-  </div>
-</footer>
-
 <!-- Contact modal -->
 <div id="contact-modal" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;" onclick="if(event.target===this)closeContact()">
   <div style="background:var(--q-panel);border:1px solid var(--q-border);border-radius:var(--r-lg);padding:24px;width:90%;max-width:420px;">
@@ -366,10 +370,12 @@ document.addEventListener('keydown', function(e) { if (e.key === 'Escape') close
       var rel = Array.isArray(list) ? list[0] : null;
       if (!rel || !rel.tag_name) return;
       var ver = rel.tag_name.replace(/^v/, '');
-      var va = document.getElementById('boxver-app');
-      if (va && ver) va.textContent = 'v' + ver;
-      var vc = document.getElementById('boxver-cli');
-      if (vc && ver) vc.textContent = 'v' + ver;
+      var apk = null;
+      for (var j = 0; j < (rel.assets || []).length; j++) {
+        if (/Android.*\.apk$/i.test(rel.assets[j].name)) { apk = rel.assets[j]; break; }
+      }
+      var apkBtn = document.getElementById('apk-latest');
+      if (apkBtn && apk && apk.browser_download_url) apkBtn.href = apk.browser_download_url;
       var dmg = null;
       for (var i = 0; i < (rel.assets || []).length; i++) {
         if (/\.dmg$/i.test(rel.assets[i].name)) { dmg = rel.assets[i]; break; }
