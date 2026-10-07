@@ -378,7 +378,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       // e' la verita' dei pin: si ripristina SEMPRE da lui (il locale integrato
       // come fallback solo se il sidecar non ha views).
       const localPins = (() => { try { const raw = localStorage.getItem(VIEWS_KEY); const lv = raw ? JSON.parse(raw) : []; return lv.filter((v: any) => v.pinned).map((v: any) => v.id).join('|') } catch { return '?' } })()
-      try { (window as any).__reportFrontendError?.('view-load', 'local=' + localPins + ' sidecar=' + (Array.isArray(s.views) ? s.views.filter((v: any) => v.pinned).map((v: any) => v.id).join('|') : 'none')) } catch {}
+      // (traccia debug rimossa)
       if (Array.isArray(s.views) && s.views.length) {
         const nv = normViews(s.views)
         setViews(nv)
@@ -607,8 +607,11 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   // PIN (6 ott): SOLO il flag. La vista pinnata va in cima da sola (partizione di
   // display), le altre restano nella lista normale. L'ordine e' quello dell'array.
   const setViewPinned = (id: string, pinned: boolean) => {
-    try { (window as any).__reportFrontendError?.('view-pin-click', 'id=' + id + ' pinned=' + pinned + ' localBefore=' + String((() => { try { const raw = localStorage.getItem(VIEWS_KEY); const lv = raw ? JSON.parse(raw) : []; return lv.filter((v: any) => v.pinned).map((v: any) => v.id).join('|') } catch { return '?' } })())) } catch {}
-    persistFn(prev => prev.map(x => x.id === id ? { ...x, pinned: !!pinned } : x))
+    // 8 ott: salvataggio IMMEDIATO (il sidecar fonde, non sovrascrive) — il pin
+    // della view non puo' piu' essere perso da un giro di polling o da un altro save.
+    const next = views.map(x => x.id === id ? { ...x, pinned: !!pinned } : x)
+    persistFn(() => next)
+    try { call('saveUiState', { state: { fullWidth, views: next, activeId, openGroups, sideMode } }).catch(() => {}) } catch {}
   }
   const renameView = (id: string, name: string) => { const nm = name.trim(); if (!nm) { setRenamingView(null); setRenameVal(''); return } persist(views.map(x => x.id === id ? { ...x, name: nm } : x)); setRenamingView(null); setRenameVal('') }
   const doDelete = (targets: ViewCfg[]) => { const ids = new Set(targets.map(t => t.id)); const rem = views.filter(x => !ids.has(x.id)); persist(rem); if (ids.has(activeId)) setActiveId(rem[0]?.id || BASE_ID); setDeleteViews(null); setMultiSel(false); setSelViews(new Set()) }
