@@ -763,6 +763,7 @@ class PiBridge {
           ["agentId", "agentIds"], ["workingDir", "workingDir"], ["model", "model"], ["thinkingLevel", "thinkingLevel"],
           ["mode", "mode"], ["agentOverrides", "agentOverrides"], ["messageAgents", "messageAgents"], ["messageThinking", "messageThinking"],
           ["messageSkills", "messageSkills"], ["messageTaskClips", "messageTaskClips"], ["messageAttachments", "messageAttachments"], ["compactionAuto", "compactionAuto"], ["compactionThreshold", "compactionThreshold"], ["folderId", "folderId"],
+          ["pinned", "pinned"], ["pinnedOrder", "pinnedOrder"],
         ];
         for (const d of data) {
           // Backup per-sessione COMPLETO (l'Expert NON lo tocca): fonte di recovery se file/chat-meta vengono svuotati
