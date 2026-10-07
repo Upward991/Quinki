@@ -174,3 +174,56 @@ dd451637-45eb-4b44-bb6a-afd44a155916, c60ec807-60fd-4d4b-802b-cd38fe2b0050,
 1. **GitHub (main):** `https://github.com/ollama/ollama/issues/new` — paste Title + Body above.
 2. **Discord (officially faster for cloud):** `https://discord.gg/ollama` — 2-line message: model, condition (image + >655K), 2-3 refs, link to the issue.
 3. Possibly support@ollama.com with the same text.
+
+---
+
+## App-side fix (implemented & verified, 2026-10-07)
+
+While the server bug is open, Quinki now handles it (and any provider error) gracefully:
+
+- **Universal pre-retry image purge**: on ANY provider error, if the context still contains
+  images, they are replaced with text placeholders (in memory + on disk, max 2 per turn).
+  The first retry therefore runs text-only on every model — same mechanism the vision-400
+  path always used, now error-agnostic.
+- **Fallback held one round** (`#preRetryPurged`): the model fallback no longer fires on the
+  first error after a purge — the clean retry on the same model gets its chance first.
+- **Recovery blocked for the round** (`#rePrompted`): the recovery machinery does not resume
+  a session the SDK is already retrying internally (was producing a duplicate answer).
+- If the clean retry fails too, the next error falls back exactly as before. No loops.
+
+Verified live on the installed app (throwaway session, `deepseek-v4.1-flash:cloud`,
+1 image + ~660k server tokens): HTTP 500 -> purge -> SDK retry (clean) -> **one** final answer
+(`stopReason: stop`), zero fallback, zero duplicates.
+
+Refs from the app-side runs (2026-10-07, UTC): 7cd59b77-feee-42d8-abfb-511d450d41cd (raw HTTP),
+edad3a38-ed98-4402-a0f2-4d20ff2605c9, 6e910a7d-5e81-4077-b4a2-9cd6a93494ec,
+4c418e2f-6a9b-4335-8579-19f45af30889, c85114ed-4473-48f5-bc87-59641cadc5b4.
+
+## GitHub issue (opened 2026-10-07)
+
+**https://github.com/ollama/ollama/issues/18853** (ollama/ollama #18853)
+
+## Email draft (send to support@ollama.com)
+
+Subject: Server-side bug: deepseek-v4.1-flash:cloud returns HTTP 500 for image prompts over ~655k tokens (repro + refs inside)
+
+Hi Ollama team,
+
+a short report of a deterministic server-side bug on ollama.com that we hit in production
+129 times between Sep 19 and Oct 7, 2026.
+
+Model: deepseek-v4.1-flash:cloud. Any request that contains an image AND exceeds ~655,360
+prompt tokens (640x1024 = 62.5% of the declared 1,048,576 context) returns HTTP 500
+{"message":"Internal Server Error (ref: ...)","type":"api_error"}. A 1x1 PNG (67 bytes) is
+enough to trigger it. The same payload without the image returns 200 at 660,836 tokens. The
+failure comes back in ~1.9 s, i.e. before inference starts (validation path). The same image
+on glm-5.3-flash:cloud passes fine at 665,327 tokens.
+
+Full report, minimal reproduction script and server refs:
+https://github.com/ollama/ollama/issues/18853
+
+Recent refs for your logs: 7cd59b77-feee-42d8-abfb-511d450d41cd,
+edad3a38-ed98-4402-a0f2-4d20ff2605c9, c85114ed-4473-48f5-bc87-59641cadc5b4,
+4c418e2f-6a9b-4335-8579-19f45af30889
+
+Thank you!
