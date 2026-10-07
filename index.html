@@ -15,7 +15,7 @@
     --r-sm: 6px; --r-md: 8px; --r-lg: 16px;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; transition: none !important; }
-  body { min-height: 100vh; display: flex; flex-direction: column; background: var(--q-bg); color: var(--q-text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  body { min-height: 100vh; display: flex; flex-direction: column; padding-bottom: 48px; background: var(--q-bg); color: var(--q-text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
   a { color: inherit; text-decoration: none; }
   .wrap { max-width: 920px; margin: 0 auto; padding: 0 24px; }
   svg.lucide { width: 16px; height: 16px; }
@@ -31,7 +31,7 @@
   nav a.gh { display: flex; align-items: center; gap: 6px; color: var(--q-text); font-weight: 600; }
   nav a.gh svg { width: 15px; height: 15px; }
 
-  .hero { padding: 72px 0 56px; text-align: center; }
+  .hero { padding: 40px 0 0; text-align: center; }
   h1 { font-size: 36px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
   h1 .ac { color: var(--q-accent); }
   .sub { font-size: 15px; color: var(--q-secondary); max-width: 560px; margin: 14px auto 28px; line-height: 1.65; }
@@ -66,7 +66,9 @@
   .ib-plain .ib-desc-row { justify-content: center; text-align: center; }
   .ib-plain .ib-desc { font-size: 13px; }
   .ib-plain .ib-actions { text-align: center; }
-  .combo { max-width: 880px; margin: 36px auto 0; background: var(--q-panel); border: 1px solid var(--q-border); border-radius: var(--r-lg); overflow: hidden; }
+  .mob-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; text-align: center; }
+  .mob-h { font-size: 12.5px; font-weight: 700; color: var(--q-text); }
+  .combo { max-width: 880px; margin: 40px auto 0; background: var(--q-panel); border: 1px solid var(--q-border); border-radius: var(--r-lg); overflow: hidden; }
   .combo-top { padding: 12px 14px 14px; }
   .combo-gal { padding: 0 14px 14px; }
   .combo-foot { border-top: 1px solid var(--q-border); padding: 12px 14px 14px; }
@@ -77,6 +79,32 @@
   .cf-bottom span, .cf-bottom a { color: var(--q-tertiary); font-size: 11.5px; }
   .cf-bottom a { text-decoration: underline; }
   .cf-bottom a:hover { color: var(--q-secondary); }
+
+  /* MOBILE (browser del telefono): riga selettori che va a capo, OS su una riga
+     scorrevole, testi e box piu' compatti, niente overflow orizzontale. */
+  @media (max-width: 640px) {
+    .hero { padding: 28px 0 0; }
+    .combo { margin-top: 28px; }
+    .combo-top { padding: 10px 10px 12px; }
+    .ib-head { gap: 6px 8px; }
+    .ib-oftabs { order: 9; flex-basis: 100%; width: 100%; min-width: 0; box-sizing: border-box; overflow-x: auto; scrollbar-width: none; }
+    .mob-2col { grid-template-columns: 1fr; gap: 14px; }
+    .ib-oftabs::-webkit-scrollbar { display: none; }
+    .ib-head .gh-btn { margin-left: 0; }
+    .ib-tab { padding: 0 11px; }
+    .ib-cmd { padding: 8px 8px 8px 10px; }
+    .ib-cmd code { font-size: 10.5px; }
+    .ib-copy { padding: 4px 10px; }
+    .ib-soon { padding: 10px 12px; }
+    .ib-plain .ib-desc { font-size: 12.5px; }
+    .combo-gal { padding: 0 10px 12px; }
+    .g-cap { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .g-nav { margin-left: 0; }
+    .combo-foot { padding: 12px 12px 14px; }
+    .cf-links { gap: 6px 12px; }
+    .cf-bottom { gap: 6px 12px; }
+    body { padding-bottom: 24px; }
+  }
 
   /* Hero v2 (7 ott): [icona + claim] a riga, box install con selettore App/CLI sotto */
   .hero-row { display: flex; align-items: center; justify-content: center; gap: 26px; text-align: left; }
@@ -231,8 +259,7 @@
         <button type="button" class="ib-tab ib-os on" data-os="macos">macOS</button>
         <button type="button" class="ib-tab ib-os" data-os="windows">Windows</button>
         <button type="button" class="ib-tab ib-os" data-os="linux">Linux</button>
-        <button type="button" class="ib-tab ib-os" data-os="android">Android</button>
-        <button type="button" class="ib-tab ib-os" data-os="ios">iOS</button>
+        <button type="button" class="ib-tab ib-os" data-os="mobile">Mobile</button>
       </div>
     </div>
     <div id="pane-app">
@@ -246,12 +273,18 @@
         <div class="ib-pane" data-os="linux" hidden>
           <div class="ib-soon">Coming soon</div>
         </div>
-        <div class="ib-pane ib-plain" data-os="android" hidden>
-          <div class="ib-desc-row"><span class="ib-desc">The Android app ships as an APK. The web app works here too: open your Quinki in the browser and add it to the home screen.</span></div>
-          <div class="ib-actions"><a class="btn" id="apk-latest" href="https://github.com/Upward991/Quinki/releases/latest" target="_blank" rel="noopener">Download .apk</a></div>
-        </div>
-        <div class="ib-pane ib-plain" data-os="ios" hidden>
-          <div class="ib-desc-row"><span class="ib-desc">No native app for iOS yet. Install the web app instead: open your Quinki in Safari, tap Share and choose Add to Home Screen.</span></div>
+        <div class="ib-pane" data-os="mobile" hidden>
+          <div class="mob-2col">
+            <div>
+              <div class="mob-h">Android</div>
+              <div class="ib-desc">The app ships as an APK. The web app works here too: open your Quinki in the browser and add it to the home screen.</div>
+              <div class="ib-actions"><a class="btn" id="apk-latest" href="https://github.com/Upward991/Quinki/releases/latest" target="_blank" rel="noopener">Download .apk</a></div>
+            </div>
+            <div>
+              <div class="mob-h">iOS</div>
+              <div class="ib-desc">No native app yet. Install the web app: open your Quinki in Safari, tap Share and choose Add to Home Screen.</div>
+            </div>
+          </div>
         </div>
       </div>
       <div id="pane-cli" hidden>
@@ -265,10 +298,7 @@
         <div class="ib-pane" data-os="linux" hidden>
           <div class="ib-soon">Coming soon</div>
         </div>
-        <div class="ib-pane" data-os="android" hidden>
-          <div class="ib-soon">Coming soon</div>
-        </div>
-        <div class="ib-pane" data-os="ios" hidden>
+        <div class="ib-pane" data-os="mobile" hidden>
           <div class="ib-soon">Coming soon</div>
         </div>
       </div>
