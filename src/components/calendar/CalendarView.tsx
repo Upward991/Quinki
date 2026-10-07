@@ -278,7 +278,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const [sideW, setSideW] = useState(260)
   const [draggingSide, setDraggingSide] = useState(false)
   const tblWrapRef = useRef<HTMLDivElement | null>(null)
-  const panRef = useRef<{ startX: number; startScroll: number; active: boolean; moved: boolean }>({ startX: 0, startScroll: 0, active: false, moved: false })
+  const panRef = useRef<{ el: HTMLDivElement | null; startX: number; startScroll: number; active: boolean; moved: boolean }>({ el: null, startX: 0, startScroll: 0, active: false, moved: false })
   const [panning, setPanning] = useState(false)
   const suppressClickRef = useRef(false)
   const [newViewFlash, setNewViewFlash] = useState(false)
@@ -309,7 +309,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   useEffect(() => {
     if (!panning) return
     const onMove = (e: MouseEvent) => {
-      const el = tblWrapRef.current
+      const el = panRef.current.el
       if (!el || !panRef.current.active) return
       const dx = e.clientX - panRef.current.startX
       if (Math.abs(dx) > 3) panRef.current.moved = true
@@ -554,7 +554,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       if (t.closest('button, input, a, [role="button"]')) return
       const el = e.currentTarget as HTMLDivElement
       if (!el) return
-      panRef.current = { startX: e.clientX, startScroll: el.scrollLeft, active: true, moved: false }
+      panRef.current = { el, startX: e.clientX, startScroll: el.scrollLeft, active: true, moved: false }
       setPanning(true)
     }
     // #7ott: lo scroll orizzontale e' CONDIVISO tra i tre gruppi: muovi una tabella,
