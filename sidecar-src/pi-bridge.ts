@@ -8649,6 +8649,12 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
               const fbEligible = /401|402|403|500|502|503|504|internal.?server|insufficient|credit|quota|not.?found|not.?available|model.?not|unauthorized|authentication|service.?unavailable|timeout|timed.?out|econnrefused|fetch.?failed|network|enotfound|dns|connection|refused|unreachable|socket/i.test(errMsg);
               if (purgedNow && fbEligible) {
                 this.#preRetryPurged.add(key);
+                // Blocca le riprender della recovery per QUESTO turno: il retry INTERNO
+                // dell'SDK (ora col contesto appena pulito) riprende da solo — la
+                // recovery riprenderebbe una sessione gia' viva = SECONDA risposta
+                // doppia (visto nel test del 7 ott). La guardia si azzera al prossimo
+                // invio (send) o alla prossima pulizia: nessun blocco permanente.
+                this.#rePrompted.add(key);
                 this.logDebug("pre-retry-purge-fallback-hold", { sessionKey: key, note: "retry pulito sullo stesso modello prima del fallback (hold di un giro)" });
               }
               // L'autoprompt 2s resta SOLO per gli errori che nessuno riprende da solo
