@@ -44,19 +44,17 @@
   footer { margin-top: auto; }
 
   /* Gallery / showcase (7 ott) */
-  .gallery-box { max-width: 880px; margin: 0 auto; background: var(--q-panel); border: 1px solid var(--q-border); border-radius: var(--r-lg); overflow: hidden; }
-  .g-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px 12px; flex-wrap: wrap; }
-  .g-count { color: var(--q-tertiary); font-size: 12px; }
-  .g-stage { position: relative; padding: 0; }
-  .g-img { display: block; width: 100%; background: var(--q-bg); }
-  .g-arrow { position: absolute; top: 50%; transform: translateY(-50%); width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--q-border); background: rgba(8,8,11,0.72); color: var(--q-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; }
-  .g-arrow:hover { color: var(--q-accent); border-color: var(--q-accent); }
-  .g-arrow svg { width: 15px; height: 15px; }
-  .g-prev { left: 24px; }
-  .g-next { right: 24px; }
-  .g-cap { padding: 12px 16px 14px; }
+  .gallery-box { max-width: 880px; margin: 0 auto; }
+  .g-head { display: flex; align-items: center; gap: 10px; padding: 0 0 12px; flex-wrap: wrap; }
+  .g-img { display: block; width: 100%; border-radius: 12px; background: var(--q-bg); }
+  .g-cap { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 2px 0; flex-wrap: wrap; }
   .g-title { font-size: 14px; font-weight: 700; }
   .g-desc { color: var(--q-secondary); font-size: 12.5px; margin-top: 3px; line-height: 1.5; }
+  .g-nav { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+  .g-count { color: var(--q-tertiary); font-size: 12px; margin-right: 4px; }
+  .g-arrow { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--q-border); background: none; color: var(--q-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; }
+  .g-arrow:hover { color: var(--q-accent); border-color: var(--q-accent); }
+  .g-arrow svg { width: 15px; height: 15px; }
   .ib-desc-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
   .ib-desc { color: var(--q-secondary); font-size: 12.5px; line-height: 1.5; }
   .ib-ver { color: var(--q-tertiary); font-size: 11.5px; white-space: nowrap; }
@@ -261,16 +259,18 @@
         <button type="button" class="ib-tab g-kind on" data-kind="app">App</button>
         <button type="button" class="ib-tab g-kind" data-kind="cli">CLI</button>
       </div>
-      <span class="g-count"><span id="g-idx">1</span> / <span id="g-total">7</span></span>
     </div>
-    <div class="g-stage">
-      <button type="button" class="g-arrow g-prev" aria-label="Previous"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
-      <img class="g-img" id="g-img" src="screenshots/home.png" alt="Quinki home">
-      <button type="button" class="g-arrow g-next" aria-label="Next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
-    </div>
+    <img class="g-img" id="g-img" src="screenshots/home.png" alt="Quinki home">
     <div class="g-cap">
-      <div class="g-title" id="g-title">Home</div>
-      <div class="g-desc" id="g-desc">One click to everything: your sessions, tasks, agents, market, settings and log, in a grid you can rearrange.</div>
+      <div>
+        <div class="g-title" id="g-title">Home</div>
+        <div class="g-desc" id="g-desc">One click to everything: your sessions, tasks, agents, market, settings and log, in a grid you can rearrange.</div>
+      </div>
+      <div class="g-nav">
+        <span class="g-count"><span id="g-idx">1</span> / <span id="g-total">7</span></span>
+        <button type="button" class="g-arrow g-prev" aria-label="Previous"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+        <button type="button" class="g-arrow g-next" aria-label="Next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
+      </div>
     </div>
   </div>
 </section>
