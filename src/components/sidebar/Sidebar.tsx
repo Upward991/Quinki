@@ -323,18 +323,66 @@ export function Sidebar(props: SidebarProps) {
     // elemento (chat, cartelle). Nient'altro: niente casi speciali, sempre uguale.
     let sepBottom = -1
     try { const r = itemRects.current.get('__pinsep__'); if (r) sepBottom = r.bottom } catch {}
+    const sepIdx = flatList.findIndex(f => f.item.id === '__pinsep__')
+    const targetIdx = flatList.findIndex(f => f.item.id === targetId)
     const wasPinned = !!(dragItem as any).pinned
-    // ISTERESI (8 ott): un pinnato NON si despinna per un pelo. Vale solo se il
-    // puntatore e' CHIARAMENTE sotto il divider (margine 22px).
-    const inPinned = sepBottom > 0
-      ? (wasPinned ? (pointerYRef.current <= sepBottom + 22) : (pointerYRef.current <= sepBottom))
-      : (targetId === '__pinsep__' ? zone === 'before' : wasPinned)
+    // ISTERESI (8 ott): un pinnato NON si despinna per un pelo (margine 22px sotto
+    // il divider). FIX (7 ott): se il rect del divider manca, la decisione si prende
+    // dalla POSIZIONE in lista del target (sopra il divider = sezione pinned) —
+    // prima, senza rect, un pinnato non poteva MAI uscire dalla sezione.
+    // Drop SUL chip del divisore: decide la ZONA (sopra la linea = pinned, sotto = normale),
+    // cosi' "appena sotto la linea" = prima posizione della sezione normale, e "appena
+    // sopra" = ultima posizione della sezione pinned.
+    const inPinned = (targetId === '__pinsep__')
+      ? (zone === 'before')
+      : (sepBottom > 0
+          ? (wasPinned ? (pointerYRef.current <= sepBottom + 22) : (pointerYRef.current <= sepBottom))
+          : (sepIdx >= 0 && targetIdx >= 0 ? targetIdx < sepIdx : wasPinned))
     if (zone !== 'into') {
-      props.onSetPinned?.(dragItem.id, inPinned)
+      if (inPinned !== wasPinned) {
+        if (inPinned && !wasPinned) {
+          // PIN COL DRAG A POSIZIONE (richiesta utente 7 ott): il DnD lascia
+          // l'elemento DOVE lo si lascia — solo il TASTO Pin va in prima posizione
+          // (Date.now). Prima si finiva SEMPRE in cima senza matematica: ora calcolo
+          // l'ordine di destinazione DENTRO la sezione pinned e lo passo al pin.
+          let destOrder: number | null = null
+          try {
+            const tOrder = (targetItem.order || 0)
+            const pinnedSibs = e.filter(s => !s.parentId && s.id !== dragItem.id && s.type !== 'pinsep' && !!(s as any).pinned)
+            if (targetItem.type === 'pinsep') {
+              // drop sopra il divider = posizione FINALE della sezione pinned
+              const minO = pinnedSibs.length ? Math.min(...pinnedSibs.map((x: any) => x.order || 0)) : tOrder
+              destOrder = minO - 100
+            } else if (zone === 'before') {
+              const higher = pinnedSibs.filter(s => (s.order || 0) > tOrder).sort((a, b) => (a.order || 0) - (b.order || 0))
+              const hi = higher.length > 0 ? higher[0].order : tOrder + 1000
+              destOrder = (tOrder + hi) / 2
+            } else if (zone === 'after') {
+              const lower = pinnedSibs.filter(s => (s.order || 0) < tOrder).sort((a, b) => (b.order || 0) - (a.order || 0))
+              const lo = lower.length > 0 ? lower[0].order : tOrder - 1000
+              destOrder = (tOrder + lo) / 2
+            }
+          } catch {}
+          props.onSetPinned?.(dragItem.id, true, destOrder ?? undefined)
+          dragRef.current = null
+          setDropZone(null)
+          setActiveDragItem(null)
+          requestAnimationFrame(() => setDropZone(null))
+          return
+        }
+        // Era pinnato e finisce nella sezione normale -> UNPIN. La matematica sotto
+        // (zone before/after con inPinned=false) lo posiziona DOVE lo si e' lasciato.
+        props.onSetPinned?.(dragItem.id, false)
+      }
     }
-    // Diventare pinnati adesso = SEMPRE in cima (nessuna matematica di posizione).
-    // Il riordino libero resta per chi e' gia' pinnato.
-    if (inPinned && !wasPinned) {
+    // Drop sul chip del divider (appena SOTTO) = PRIMA posizione della sezione
+    // normale (in cima). Col vecchio order virtuale del divisore finiva in fondo.
+    if (targetItem.type === 'pinsep' && zone === 'after') {
+      const normalSibs = e.filter(s => !s.parentId && s.id !== dragItem.id && s.type !== 'pinsep' && !(s as any).pinned)
+      const maxO = normalSibs.length ? Math.max(...normalSibs.map((x: any) => x.order || 0)) : 0
+      const newOrder = maxO + 100
+      if (dragItem.type === 'folder') { props.onMoveFolder?.(dragItem.id, null, newOrder) }
+      else { props.onMoveSession?.(dragItem.id, null, newOrder) }
       dragRef.current = null
       setDropZone(null)
       setActiveDragItem(null)

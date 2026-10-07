@@ -1516,19 +1516,25 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
   const pinSeededRef = useRef(false)
   useEffect(() => {
     if (!ready || pinSeededRef.current) return
+    if (!sessions || sessions.length === 0) return // aspetta il primo payload (serve per il merge)
     call('getUiState').then((st: any) => {
-      if (st && Array.isArray(st.pinnedKeys)) {
-        pinSeededRef.current = true
-        setPinnedKeys(new Set(st.pinnedKeys))
-        return
-      }
-      if (!sessions || sessions.length === 0) return // aspetta il primo payload
+      const fromUi: string[] = (st && Array.isArray(st.pinnedKeys)) ? st.pinnedKeys : []
+      const fromSessions: string[] = sessions.filter((s: any) => (s as any).pinned).map((s: any) => s.id)
+      const fromFolders: string[] = (folders || []).filter((f: any) => (f as any).pinned).map((f: any) => f.id)
+      // MERGE (una volta sola, retrocompat): da qui in poi la VERITA' del pin e'
+      // SOLO pinnedKeys — il flag del payload non lo puo' piu' resuscitare.
+      const merged = Array.from(new Set([...fromUi, ...fromSessions, ...fromFolders]))
+      pinSeededRef.current = true
+      setPinnedKeys(new Set(merged))
+      try { call('saveUiState', { state: { pinnedKeys: merged } }).catch(() => {}) } catch {}
+    }).catch(() => {
+      if (!sessions || sessions.length === 0) return
       const seed = sessions.filter((s: any) => (s as any).pinned).map((s: any) => s.id)
       pinSeededRef.current = true
       setPinnedKeys(new Set(seed))
       try { call('saveUiState', { state: { pinnedKeys: seed } }).catch(() => {}) } catch {}
-    }).catch(() => {})
-  }, [ready, sessions])
+    })
+  }, [ready, sessions, folders])
 
   const persistPins = useCallback((next: Set<string>) => {
     try { call('saveUiState', { state: { pinnedKeys: Array.from(next) } }).catch(() => {}) } catch {}
@@ -1676,7 +1682,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     setPinnedKeys(next)
     persistPins(next)
     setFolders(prev => {
-      const nf = prev.map(f => f.id === folderId ? { ...f, pinned: !!pinned, pinnedOrder: order ?? f.pinnedOrder } : f)
+      const nf = prev.map(f => f.id === folderId ? { ...f, pinned: !!pinned, pinnedOrder: order ?? f.pinnedOrder, order: (pinned && typeof order === 'number') ? order : f.order } : f)
       try { notify('setFolders', { folders: nf }) } catch {}
       return nf
     })
@@ -1992,32 +1998,31 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
   }, [ready, notify])
   // Merge sessions + folders into one list for sidebar (memoized — no flash on re-render)
   const sidebarSessions = useMemo(() => {
-    // PIN EFFETTIVO (6 ott): un elemento DENTRO una cartella pinnata e' pinnato
-    // anche lui (il menu non appare per i figli, ma il FLAG logico serve al drag:
-    // trascinandolo fuori deve restare nella sezione pinned, non finire unpinned).
-    const folderPinnedById = new Map<string, boolean>()
-    for (const f of (folders || [])) folderPinnedById.set(f.id, !!f.pinned)
+    // PIN (7 ott — architettura FINALE): la VERITA' del pin e' SOLO pinnedKeys
+    // (interfaccia + file impostazioni). Il flag del payload NON puo' piu'
+    // resuscitare un pin appena tolto — era il "non riesco a spostarlo in
+    // sezione normale": il backend restava true e il DnD sembrava non fare nulla.
+    // Il flag del payload serve SOLO al seed iniziale (merge, una volta sola).
     const effPinned = (it: any): boolean => {
-      if (it.pinned) return true
+      if (pinnedKeys.has(it.id)) return true
       const pid = it.folderId || it.parentId || null
       if (!pid) return false
-      // risale la catena delle cartelle (annidamenti inclusi)
+      // risale la catena delle cartelle (annidamenti inclusi) — solo via pinnedKeys
       let cur = pid, hops = 0
-      while (cur && hops < 20) { if (folderPinnedById.get(cur)) return true; const par = (folders || []).find((f: any) => f.id === cur); cur = par?.parentId || null; hops++ }
+      while (cur && hops < 20) { if (pinnedKeys.has(cur)) return true; const par = (folders || []).find((f: any) => f.id === cur); cur = par?.parentId || null; hops++ }
       return false
     }
     const chats = sessions.filter(s => s.id !== '__app_expert__').map(s => {
       const uc = unreadCounts[s.id]
       const total = uc ? (uc.messages || 0) + (uc.tasks || 0) : 0
-      // ownPinned = il flag REALE dell'elemento (senza ereditarieta'): serve al
-      // drag per decidere se un'uscita dalla zona pinned deve despinnare o no.
-      // La VERITA' del pin = pinnedKeys (interfaccia) O ereditarieta' cartella.
-      return { ...s, pinned: pinnedKeys.has(s.id) || effPinned(s), ownPinned: pinnedKeys.has(s.id) || !!(s as any).pinned, unread: total > 0, messageCount: total, notifyMode: notifyModes[s.id] || 'none' }
+      // ownPinned = il pin PROPRIO dell'elemento (senza ereditarieta'): serve al
+      // drag/menu. La VERITA' del pin = pinnedKeys.
+      return { ...s, pinned: effPinned(s), ownPinned: pinnedKeys.has(s.id), unread: total > 0, messageCount: total, notifyMode: notifyModes[s.id] || 'none' }
     })
     const folderItems = (folders || []).map(f => ({
       id: f.id, title: f.title || f.name || 'Folder', type: 'folder' as const,
       isExpanded: !!f.isExpanded, parentId: f.parentId || null, order: f.order || Date.now(),
-      pinned: pinnedKeys.has(f.id) || effPinned({ pinned: !!f.pinned, parentId: f.parentId }), ownPinned: pinnedKeys.has(f.id) || !!f.pinned, pinnedOrder: (typeof f.pinnedOrder === 'number') ? f.pinnedOrder : undefined,
+      pinned: effPinned(f), ownPinned: pinnedKeys.has(f.id), pinnedOrder: (typeof f.pinnedOrder === 'number') ? f.pinnedOrder : undefined,
     }))
     return [...chats, ...folderItems].sort((a, b) => (b.order || 0) - (a.order || 0))
   }, [sessions, folders, unreadCounts, notifyModes, pinnedKeys])
