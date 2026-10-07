@@ -67,3 +67,17 @@ that are adding "bring your own agent" slots.
 
 Reverse direction, for reference: tools like notion2api wrap Notion AI into an OpenAI-compatible API.
 That is the opposite of what we need.
+
+## Obsidian (verified, October 2026)
+
+Perfect target, the opposite of Notion: the app is free for personal use, there is no vendor AI to pay
+for, and the plugin ecosystem openly accepts custom endpoints.
+
+- **Copilot for Obsidian**: "Use OpenAI, Anthropic, Google, LM Studio, Ollama, or any OpenAI-compatible
+  endpoint. Your own keys." It also runs external coding agents (opencode, Claude Code, Codex) inside
+  the vault. A Quinki agent as "the model" plugs straight in.
+- **Smart Composer**, **Text Generator**, **Local GPT**, **Smart Connections**: all support custom or
+  local endpoints; the community guides are built around running your own models privately.
+- Today, without waiting for the Agent API: an Obsidian MCP server lets Quinki agents read and write
+  the vault through any MCP client setup we already support.
+- Later option: a small "Quinki" Obsidian plugin as the polished front door.
