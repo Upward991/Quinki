@@ -15,7 +15,7 @@
     --r-sm: 6px; --r-md: 8px; --r-lg: 16px;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; transition: none !important; }
-  body { background: var(--q-bg); color: var(--q-text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  body { min-height: 100vh; display: flex; flex-direction: column; background: var(--q-bg); color: var(--q-text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
   a { color: inherit; text-decoration: none; }
   .wrap { max-width: 920px; margin: 0 auto; padding: 0 24px; }
   svg.lucide { width: 16px; height: 16px; }
@@ -41,6 +41,7 @@
   .btn.ghost { border-color: var(--q-border); color: var(--q-text); }
   .btn.ghost:hover { background: var(--q-elevated); }
   .soon-note { margin-top: 14px; color: var(--q-tertiary); font-size: 12.5px; }
+  footer { margin-top: auto; }
 
   /* Hero v2 (7 ott): [icona + claim] a riga, box install con selettore App/CLI sotto */
   .hero-row { display: flex; align-items: center; justify-content: center; gap: 26px; text-align: left; }
@@ -180,11 +181,6 @@
     <span class="hname">Quinki</span>
     <span class="hbeta">beta</span>
     <nav>
-      <a href="#features">Features</a>
-      <a href="#market">Market</a>
-      <a href="#download">Download</a>
-      <a href="#roadmap">Roadmap</a>
-      <a href="#" onclick="openContact(event)">Contact</a>
       <a href="https://github.com/Upward991/Quinki" class="gh">
         <svg class="lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>
         GitHub
@@ -196,7 +192,7 @@
 <section class="hero wrap">
   <div class="hero-row">
     <img class="hero-icon" src="quinki-icon.png" alt="Quinki">
-    <h1>Quinki, AI Agents.<br><span class="ac">As simple as possible!</span></h1>
+    <h1>Quinki, AI Agents<br><span class="ac">As simple as possible!</span></h1>
   </div>
   <div class="install-box">
     <div class="ib-head">
@@ -234,189 +230,6 @@
     </div>
   </div>
   <div class="soon-note">macOS, Apple Silicon, beta. Installing the app also installs the CLI automatically.</div>
-</section>
-
-<div class="wrap">
-  <a class="shot-frame" href="https://github.com/Upward991/Quinki/releases/latest" target="_blank" rel="noopener">
-    <img src="screenshots/app-main.png" alt="Quinki — the home">
-  </a>
-</div>
-
-<section class="wrap block" id="features">
-  <div class="sec-head">
-    <h2>What makes it different</h2>
-    <p class="sec-sub">Quinki is not a chat window. It is a work interface where agents act on your machine: visibly, on schedule, in parallel.</p>
-  </div>
-  <div class="grid">
-    <div class="card">
-      <div class="top">
-        <svg class="lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-        <h3>The App Expert</h3>
-      </div>
-      <p>A separate companion app that reads Quinki's own architecture docs and helps you update, fix and extend the app from inside it, with sync and rollback built into the UI. Your in-app development agent.</p>
-    </div>
-    <div class="card">
-      <div class="top">
-        <svg class="lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-        <h3>A native desktop app</h3>
-      </div>
-      <p>A real interface for AI work: multi-agent chats with visible delegation blocks, session folders, multi-window, exports, themes, per-chat notifications, a debug log viewer.</p>
-    </div>
-    <div class="card">
-      <div class="top">
-        <svg class="lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-        <h3>100+ parallel sessions</h3>
-      </div>
-      <p>A multi-process sidecar pool, auto-tuned to your CPU. 100 concurrent streaming sessions tested end-to-end: 0 errors, 0 RPC timeouts.</p>
-    </div>
-    <div class="card">
-      <div class="top">
-        <svg class="lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        <h3>Works while you sleep</h3>
-      </div>
-      <p>Schedule agent jobs for any hour with the built-in H24 scheduler. Crash recovery and stuck-turn detection keep long jobs alive across restarts.</p>
-    </div>
-    <div class="card">
-      <div class="top">
-        <svg class="lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-        <h3>The Market</h3>
-      </div>
-      <p>Install community tools in one click: tabs, skills, agents, MCP servers, themes. Publish yours in minutes, with fork, PR and automatic validation (structure, static scan, secret detection, VirusTotal).</p>
-    </div>
-    <div class="card">
-      <div class="top">
-        <svg class="lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-1.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z"/><line x1="9" y1="21" x2="15" y2="21"/></svg>
-        <h3>Universal thinking</h3>
-      </div>
-      <p>One toggle. Every model always uses the maximum reasoning level its provider supports: ChatGPT, Claude, GitHub Copilot, Grok, OpenRouter, Ollama or any OpenAI-compatible endpoint.</p>
-    </div>
-    <div class="card">
-      <div class="top">
-        <svg class="lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
-        <h3>Your subscriptions</h3>
-      </div>
-      <p>Sign in with the account you already pay for: ChatGPT Plus/Pro, Claude Pro/Max, GitHub Copilot, or SuperGrok. No API keys, no extra billing. Plus Ollama (free, local) and OpenRouter (pay-per-use).</p>
-    </div>
-    <div class="card">
-      <div class="top">
-        <svg class="lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-        <h3>Privacy by design</h3>
-      </div>
-      <p>No servers, no telemetry, no accounts required. Everything lives in <code style="background:var(--q-elevated);padding:1px 5px;border-radius:4px;font-size:12px;">~/.quinki/</code> and chats go only to the provider you configure. AGPL-3.0.</p>
-    </div>
-    <div class="card">
-      <div class="top">
-        <svg class="lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/></svg>
-        <h3>Community tabs</h3>
-      </div>
-      <p>Build your own tab, such as a knowledge base, notes, an RSS reader or an email manager, with the App Expert, and publish it. Quinki becomes a platform of community-built AI tools.</p>
-    </div>
-    <div class="card">
-      <div class="top">
-        <svg class="lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        <h3>Multi-agent orchestration</h3>
-      </div>
-      <p>Tag agents with @name, or let the Orchestrator delegate across specialized agents. Delegation blocks stream live and cost zero context in the main conversation.</p>
-    </div>
-  </div>
-</section>
-
-<section class="wrap block" id="demo">
-  <div class="sec-head">
-    <h2>See it in action</h2>
-    <p class="sec-sub">Real chats, real work. Nothing staged.</p>
-  </div>
-  <div class="demo-grid">
-    <div class="card demo-card">
-      <img src="screenshots/cli.png" alt="The Quinki CLI">
-      <h3>The CLI: your sessions in the terminal</h3>
-      <p>Same sessions, agents and skills as the app — install it with one command (top of this page). Standalone: it works without the app.</p>
-    </div>
-  </div>
-</section>
-
-<section class="wrap block" id="market">
-  <div class="sec-head">
-    <h2>The Market</h2>
-    <p class="sec-sub">A catalog of community-built tools. <b style="color:var(--q-text);">Tabs</b> are its heart: small AI apps, like knowledge bases, notes panels, RSS readers and email managers, that anyone can build inside Quinki with the App Expert and publish for everyone. Multi-repo support lets you add your own GitHub repos as extra catalogs.</p>
-  </div>
-  <div class="grid" style="margin-top:24px;">
-    <div class="card">
-      <div class="top"><h3>Tabs</h3></div>
-      <p>Small AI apps inside Quinki: knowledge bases, notes panels, RSS readers, email managers. Build yours with the App Expert, publish it for everyone.</p>
-    </div>
-    <div class="card">
-      <div class="top"><h3>Agents</h3></div>
-      <p>Ready-to-use agents with their own prompts, models and tool assignments. Install and chat immediately.</p>
-    </div>
-    <div class="card">
-      <div class="top"><h3>Skills</h3></div>
-      <p>Knowledge modules injected into agent prompts when needed. Install from the Market or write your own.</p>
-    </div>
-    <div class="card">
-      <div class="top"><h3>MCP servers</h3></div>
-      <p>Tool integrations through the Model Context Protocol: connect external services to your agents.</p>
-    </div>
-    <div class="card">
-      <div class="top"><h3>Themes</h3></div>
-      <p>Color themes for the whole app, created by the community and applied with one click.</p>
-    </div>
-    <div class="card">
-      <div class="top"><h3>Multi-repo</h3></div>
-      <p>Add your own GitHub repos as extra catalogs. Your packages, one app, no searching around the web.</p>
-    </div>
-  </div>
-</section>
-
-<section class="wrap block" id="download">
-  <div class="sec-head">
-    <h2>Download</h2>
-    <p class="sec-sub">Quinki <span id="app-version">1.0.0-beta.8</span> for macOS. No installer wizard: drag the app, launch it.</p>
-  </div>
-  <div class="dl-cards">
-    <a class="dl ready" id="dl-latest" href="https://github.com/Upward991/Quinki/releases" target="_blank" rel="noopener">
-      <svg class="ico lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      <div><div class="os">macOS</div><div class="sub">Apple Silicon · DMG · free</div></div>
-      <!-- FUTURE: detect the visitor's platform (macOS/Windows/Linux/mobile) and show the matching download button -->
-      <span class="dl-btn">Latest</span>
-    </a>
-    <div class="dl soon">
-      <svg class="ico lucide" viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>
-      <div><div class="os">Windows</div><div class="sub">10/11 · x64</div></div>
-      <span class="badge-soon">Coming soon</span>
-    </div>
-    <div class="dl soon">
-      <svg class="ico lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-      <div><div class="os">Linux</div><div class="sub">AppImage · x64</div></div>
-      <span class="badge-soon">Coming soon</span>
-    </div>
-    <div class="dl soon">
-      <svg class="ico lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
-      <div><div class="os">iOS & Android</div><div class="sub">native + web app</div></div>
-      <span class="badge-soon">Coming soon</span>
-    </div>
-  </div>
-  <div class="mobile-line">
-    <svg class="ico lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
-    <div><div class="os">Mobile: native apps + web app, coming soon</div><div class="sub">Our own interface for your phone. In the future, agents can also be exposed as bots on WhatsApp, Telegram and Discord.</div></div>
-  </div>
-</section>
-
-<section class="wrap block" id="roadmap">
-  <div class="sec-head">
-    <h2>Roadmap</h2>
-    <p class="sec-sub">Quinki is in active beta. This is what's coming, in order.</p>
-  </div>
-  <div class="rlist">
-    <div class="ritem"><svg class="ico lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span class="rt">1.0.0 stable</span><span class="rs">after the first beta feedback cycle</span></div>
-    <div class="ritem"><svg class="ico lucide" viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg><span class="rt">Windows & Linux</span><span class="rs">first priority after launch</span></div>
-    <div class="ritem"><svg class="ico lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg><span class="rt">Mobile app + web app</span><span class="rs">our own interface for your phone</span></div>
-    <div class="ritem"><svg class="ico lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg><span class="rt">Agent gateway</span><span class="rs">expose agents as bots on WhatsApp, Telegram, Discord</span></div>
-    <div class="ritem"><svg class="ico lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span class="rt">Sandboxing</span><span class="rs">isolated execution backends</span></div>
-    <div class="ritem"><svg class="ico lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg><span class="rt">Voice</span><span class="rs">talk to your agents from the text box</span></div>
-    <div class="ritem"><svg class="ico lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg><span class="rt">Image generation</span><span class="rs">built into agent workflows</span></div>
-    <div class="ritem"><svg class="ico lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="12" y1="4" x2="12" y2="20"/></svg><span class="rt">Account sync</span><span class="rs">your agents and settings across machines</span></div>
-  </div>
 </section>
 
 <footer>
