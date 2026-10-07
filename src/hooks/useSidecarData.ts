@@ -1690,7 +1690,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
       try { for (const sx of ns) { if (sx.folderId === folderId || sx.parentId === folderId) { notify('setSessionPinned', { sessionKey: sx.id, pinned: !!pinned }) } } } catch {}
       return ns
     })
-  }, [notify])
+  }, [notify, pinnedKeys, persistPins])
 
   const updateFolders = useCallback((newFolders: any[]) => {
     if (!ready) return
