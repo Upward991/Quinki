@@ -46,7 +46,8 @@
   .hero-row { display: flex; align-items: center; justify-content: center; gap: 26px; text-align: left; }
   .hero-icon { width: 104px; height: 104px; border-radius: 24px; flex-shrink: 0; }
   .install-box { max-width: 780px; margin: 36px auto 0; background: var(--q-panel); border: 1px solid var(--q-border); border-radius: var(--r-lg); text-align: left; overflow: hidden; }
-  .ib-head { display: flex; align-items: center; gap: 10px; padding: 12px 14px 0; }
+  .ib-head { display: flex; align-items: center; gap: 10px; padding: 12px 14px 0; flex-wrap: wrap; }
+  .ib-oftabs { margin-left: auto; }
   .ib-tabs { display: inline-flex; gap: 3px; background: var(--q-elevated); border: 1px solid var(--q-border); border-radius: var(--r-md); padding: 3px; }
   .ib-tab { background: none; border: 1px solid transparent; color: var(--q-secondary); font-size: 12.5px; font-weight: 600; padding: 4px 16px; border-radius: 5px; cursor: pointer; font-family: inherit; }
   .ib-tab.on { background: var(--q-bg); border-color: var(--q-border); color: var(--q-accent); }
@@ -56,6 +57,7 @@
   .ib-cmd code::-webkit-scrollbar { display: none; }
   .ib-copy { flex-shrink: 0; background: none; border: 1px solid var(--q-border); color: var(--q-secondary); font-size: 12px; font-weight: 600; padding: 4px 13px; border-radius: var(--r-sm); cursor: pointer; font-family: inherit; }
   .ib-copy:hover { border-color: var(--q-accent); color: var(--q-accent); }
+  .ib-soon { border: 1px dashed var(--q-border); border-radius: var(--r-md); padding: 9px 12px; color: var(--q-tertiary); font-size: 12px; font-weight: 600; text-align: center; }
   @media (max-width: 640px) {
     .hero-row { flex-direction: column; gap: 16px; text-align: center; }
     .hero-icon { width: 88px; height: 88px; }
@@ -199,15 +201,36 @@
   <div class="install-box">
     <div class="ib-head">
       <div class="ib-tabs">
-        <button type="button" class="ib-tab on" data-pane="app">App</button>
-        <button type="button" class="ib-tab" data-pane="cli">CLI</button>
+        <button type="button" class="ib-tab ib-kind on" data-kind="app">App</button>
+        <button type="button" class="ib-tab ib-kind" data-kind="cli">CLI</button>
+      </div>
+      <div class="ib-tabs ib-oftabs">
+        <button type="button" class="ib-tab ib-os on" data-os="macos">macOS</button>
+        <button type="button" class="ib-tab ib-os" data-os="windows">Windows</button>
+        <button type="button" class="ib-tab ib-os" data-os="linux">Linux</button>
       </div>
     </div>
-    <div class="ib-pane" id="pane-app">
-      <div class="ib-cmd"><code id="cmd-app">curl -fsSL https://raw.githubusercontent.com/Upward991/Quinki/main/install.sh | sh</code><button type="button" class="ib-copy" data-copy="cmd-app">Copy</button></div>
+    <div id="pane-app">
+      <div class="ib-pane" data-os="macos">
+        <div class="ib-cmd"><code id="cmd-app">curl -fsSL https://raw.githubusercontent.com/Upward991/Quinki/main/install.sh | sh</code><button type="button" class="ib-copy" data-copy="cmd-app">Copy</button></div>
+      </div>
+      <div class="ib-pane" data-os="windows" hidden>
+        <div class="ib-soon">Coming soon</div>
+      </div>
+      <div class="ib-pane" data-os="linux" hidden>
+        <div class="ib-soon">Coming soon</div>
+      </div>
     </div>
-    <div class="ib-pane" id="pane-cli" hidden>
-      <div class="ib-cmd"><code id="cmd-cli">curl -fsSL https://raw.githubusercontent.com/Upward991/Quinki/main/install-cli.sh | sh</code><button type="button" class="ib-copy" data-copy="cmd-cli">Copy</button></div>
+    <div id="pane-cli" hidden>
+      <div class="ib-pane" data-os="macos">
+        <div class="ib-cmd"><code id="cmd-cli">curl -fsSL https://raw.githubusercontent.com/Upward991/Quinki/main/install-cli.sh | sh</code><button type="button" class="ib-copy" data-copy="cmd-cli">Copy</button></div>
+      </div>
+      <div class="ib-pane" data-os="windows" hidden>
+        <div class="ib-soon">Coming soon</div>
+      </div>
+      <div class="ib-pane" data-os="linux" hidden>
+        <div class="ib-soon">Coming soon</div>
+      </div>
     </div>
   </div>
   <div class="soon-note">macOS, Apple Silicon, beta. Installing the app also installs the CLI automatically.</div>
@@ -506,16 +529,22 @@ document.addEventListener('keydown', function(e) { if (e.key === 'Escape') close
 </script>
 <script>
 (function(){
-  var tabs = document.querySelectorAll('.ib-tab');
-  for (var i = 0; i < tabs.length; i++) {
-    (function(t){
-      t.addEventListener('click', function(){
-        for (var j = 0; j < tabs.length; j++) tabs[j].classList.toggle('on', tabs[j] === t);
-        document.getElementById('pane-app').hidden = t.getAttribute('data-pane') !== 'app';
-        document.getElementById('pane-cli').hidden = t.getAttribute('data-pane') !== 'cli';
-      });
-    })(tabs[i]);
+  var state = { kind: 'app', os: 'macos' };
+  function render(){
+    var kinds = document.querySelectorAll('.ib-kind');
+    for (var i = 0; i < kinds.length; i++) kinds[i].classList.toggle('on', kinds[i].getAttribute('data-kind') === state.kind);
+    var oss = document.querySelectorAll('.ib-os');
+    for (var j = 0; j < oss.length; j++) oss[j].classList.toggle('on', oss[j].getAttribute('data-os') === state.os);
+    document.getElementById('pane-app').hidden = state.kind !== 'app';
+    document.getElementById('pane-cli').hidden = state.kind !== 'cli';
+    var panes = document.querySelectorAll('.ib-pane');
+    for (var k = 0; k < panes.length; k++) panes[k].hidden = panes[k].getAttribute('data-os') !== state.os;
   }
+  var kinds = document.querySelectorAll('.ib-kind');
+  for (var i = 0; i < kinds.length; i++) (function(b){ b.addEventListener('click', function(){ state.kind = b.getAttribute('data-kind'); render(); }); })(kinds[i]);
+  var oss = document.querySelectorAll('.ib-os');
+  for (var j = 0; j < oss.length; j++) (function(b){ b.addEventListener('click', function(){ state.os = b.getAttribute('data-os'); render(); }); })(oss[j]);
+  render();
   var copies = document.querySelectorAll('.ib-copy');
   for (var k = 0; k < copies.length; k++) {
     (function(b){
