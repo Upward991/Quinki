@@ -54,3 +54,16 @@ MVP: about 2 days. Phase 2 (sessions): 3 to 5 more days.
 ## Naming
 
 Feature: "Agent API". Standalone: same binary with a flag.
+
+## Notion (verified, October 2026)
+
+Notion AI has no native BYOK and no custom OpenAI endpoint. But Notion's Custom Agents platform has an
+**External Agents API**: an agent you built yourself can be registered and used inside Notion
+(Notion's own video: "use the External Agents API to bring in one you've built yourself").
+
+So a phase-3 adapter is possible: Quinki agents registered as Notion external agents, with a thin
+translator between Notion's protocol and our agent runs. The same pattern exists for other platforms
+that are adding "bring your own agent" slots.
+
+Reverse direction, for reference: tools like notion2api wrap Notion AI into an OpenAI-compatible API.
+That is the opposite of what we need.
