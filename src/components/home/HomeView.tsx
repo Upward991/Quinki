@@ -7,7 +7,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { invoke } from '@tauri-apps/api/core'
 import { useSidecarContext } from '../shared/AppShell'
 import { Bot } from '../icons'
-import { getHomeTabs, saveTabOrder, loadHomeColumns, saveHomeColumns, serializeInstalledTabs, saveInstalledTabs, getMarketItems, saveMarketItems } from '../../tabs'
+import { getHomeTabs, saveTabOrder, migrateTabOrder, loadHomeColumns, saveHomeColumns, serializeInstalledTabs, saveInstalledTabs, getMarketItems, saveMarketItems } from '../../tabs'
 
 // A4.1 — Home registry-driven: benvenuto + ricerca + Marketplace + riordino drag&drop
 // Layout: tutto centrato; griglia tab responsive (auto-fill) che si adatta alla larghezza.
@@ -26,7 +26,7 @@ export function HomeView({activePanel, onSelectPanel}: {onSelectPanel: (panel: s
       if (cancelled || !s || !s.homeConfig) return
       const hc = s.homeConfig
       if (typeof hc.columns === 'number') { setColumns(hc.columns); saveHomeColumns(hc.columns) }
-      if (Array.isArray(hc.order)) { saveTabOrder(hc.order); setTabs(getHomeTabs()) }
+      if (Array.isArray(hc.order)) { saveTabOrder(migrateTabOrder(hc.order)); setTabs(getHomeTabs()) }
       if (Array.isArray(hc.tabs) && hc.tabs.length > 0) { saveInstalledTabs(hc.tabs); setTabs(getHomeTabs()) }
       if (Array.isArray(hc.market) && hc.market.length > 0) {
         const curM = getMarketItems()
@@ -84,7 +84,7 @@ export function HomeView({activePanel, onSelectPanel}: {onSelectPanel: (panel: s
         if (s && s.homeConfig) {
           const hc = s.homeConfig
           if (typeof hc.columns === 'number') { setColumns(hc.columns); saveHomeColumns(hc.columns) }
-          if (Array.isArray(hc.order)) { saveTabOrder(hc.order); setTabs(getHomeTabs()) }
+          if (Array.isArray(hc.order)) { saveTabOrder(migrateTabOrder(hc.order)); setTabs(getHomeTabs()) }
           if (Array.isArray(hc.tabs) && hc.tabs.length > 0) { saveInstalledTabs(hc.tabs); setTabs(getHomeTabs()) }
         }
         // Se le tab installate dal settings non sono ancora visibili, riprova

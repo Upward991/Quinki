@@ -30,17 +30,31 @@ function ExpertAppIcon({ size = 28 }: any) {
 
 // Le 6 tab base — NON eliminabili, solo riordinabili
 export const baseTabs: HomeTab[] = [
-  { id: 'expert',   icon: ExpertAppIcon, label: 'App Expert',   color: 'var(--q-accent-orange)',    panel: 'expert',   doubleBot: false, base: true },
   { id: 'chat',     icon: MessageSquare, label: 'Chat',         color: 'var(--q-accent-info)',      panel: 'chat',     doubleBot: false, base: true },
   { id: 'calendar', icon: Checklist,     label: 'Agents Tasks', color: 'var(--q-accent-calendar)',  panel: 'calendar', doubleBot: false, base: true },
   { id: 'agents',   icon: Bot,           label: 'Agents',       color: 'var(--q-accent-secondary)', panel: 'agents',   doubleBot: true,  base: true },
   { id: 'market',   icon: Store,         label: 'Market',       color: 'var(--q-accent-market)',    panel: 'market',   doubleBot: false, base: true },
   { id: 'settings', icon: Settings,      label: 'Settings',     color: 'var(--q-accent-primary)',   panel: 'settings', doubleBot: false, base: true },
+  { id: 'expert',   icon: ExpertAppIcon, label: 'App Expert',   color: 'var(--q-accent-orange)',    panel: 'expert',   doubleBot: false, base: true },
   { id: 'log',      icon: Terminal,      label: 'Log',          color: 'var(--q-accent-success)',   panel: 'log',      doubleBot: false, base: true },
 ]
 
 const ORDER_KEY = 'quinki-tab-order'
 const INSTALLED_KEY = 'quinki-installed-tabs'
+
+// MIGRAZIONE (7 ott): la tab App Expert ora sta DOPO Settings di default.
+// Chi ha il vecchio ordine di default salvato (expert in testa) viene spostato;
+// chi l'ha riordinato a mano in un altro modo resta come sta.
+export function migrateTabOrder(order: string[]): string[] {
+  if (Array.isArray(order) && order[0] === 'expert') {
+    const out = order.filter((id: string) => id !== 'expert')
+    const si = out.indexOf('settings')
+    if (si >= 0) out.splice(si + 1, 0, 'expert')
+    else out.push('expert')
+    return out
+  }
+  return order
+}
 
 export function loadTabOrder(): string[] {
   try {
@@ -48,16 +62,16 @@ export function loadTabOrder(): string[] {
     if (raw) {
       const arr = JSON.parse(raw)
       if (Array.isArray(arr)) {
+        let out = migrateTabOrder(arr)
         // MIGRAZIONE (6 ott): il Market è diventato tab; per chi ha già un ordine
         // salvato lo mettiamo DI DEFAULT subito dopo Agents (mai in coda).
-        if (!arr.includes('market')) {
-          const out = arr.slice()
+        if (!out.includes('market')) {
+          out = out.slice()
           const ai = out.indexOf('agents')
           if (ai >= 0) out.splice(ai + 1, 0, 'market')
           else out.push('market')
-          return out
         }
-        return arr
+        return out
       }
     }
   } catch {}
