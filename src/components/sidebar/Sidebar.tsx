@@ -373,6 +373,10 @@ export function Sidebar(props: SidebarProps) {
         // Era pinnato e finisce nella sezione normale -> UNPIN. La matematica sotto
         // (zone before/after con inPinned=false) lo posiziona DOVE lo si e' lasciato.
         props.onSetPinned?.(dragItem.id, false)
+      } else if (inPinned && wasPinned && !(dragItem as any).ownPinned && zone !== 'into' && !(targetItem.parentId)) {
+        // Era pinnato per EREDITARIETA' (dentro una cartella pinnata) e sta uscendo
+        // al primo livello: senza un pin esplicito la sezione normale se lo riprende.
+        props.onSetPinned?.(dragItem.id, true)
       }
     }
     // Drop sul chip del divider (appena SOTTO) = PRIMA posizione della sezione
