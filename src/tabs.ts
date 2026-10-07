@@ -19,7 +19,7 @@ export interface HomeTab {
 
 // Icona della tab App Expert = l'icona dell'app App Expert STILE DOCK
 // (tile arancio con angoli arrotondati, la stessa che si vede nel Dock).
-function ExpertAppIcon({ size = 28 }: any) {
+export function ExpertAppIcon({ size = 28 }: any) {
   return React.createElement('img', {
     src: '/icons/expert-app-icon.png',
     alt: '',

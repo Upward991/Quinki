@@ -10,6 +10,7 @@ import { MessageBubble } from './MessageBubble'
 import { ChatHeader } from './ChatHeader'
 import { Composer } from './Composer'
 import {ArrowDown, Checklist, ChevronDown, ChevronRight, ChevronUp, Copy, Paperclip, X, Bot, Search, Calendar, Clock} from '../icons'
+import { ExpertAppIcon } from '../../tabs'
 import { useSidecarContext } from '../shared/AppShell'
 import type { Message, Session, Agent, Provider, ChatMode, ThinkingLevel } from '../../types'
 
@@ -680,7 +681,7 @@ export function ChatArea(props: ChatAreaProps) {
       <div className="h-full flex flex-col" style={{ maxWidth: 'var(--spacing-chat-max)', margin: '0 auto', width: '100%', position: 'relative' }}>
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ maxWidth: '420px', textAlign: 'center', padding: '24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px' }}><Bot size={40} style={{ color: 'var(--q-accent-orange)' }} /></div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px' }}><ExpertAppIcon size={40} /></div>
             <div style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '8px' }}>App Expert is running in its own window</div>
             <div style={{ color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', lineHeight: 1.6, marginBottom: '16px' }}>The Expert session is loaded there. Use the App Expert app to chat with it. Close the Expert app first if you want to use this in-app tab instead.</div>
             <button onClick={() => { try { props.onSelectPanel('home') } catch {} }}
