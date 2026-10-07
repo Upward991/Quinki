@@ -8647,9 +8647,17 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
               // resta l'ultima risorsa (scatta al prossimo errore, senza piu' nulla da pulire).
               // Vedi #preRetryPurged in agent_end.
               const fbEligible = /401|402|403|500|502|503|504|internal.?server|insufficient|credit|quota|not.?found|not.?available|model.?not|unauthorized|authentication|service.?unavailable|timeout|timed.?out|econnrefused|fetch.?failed|network|enotfound|dns|connection|refused|unreachable|socket/i.test(errMsg);
-              if ((purgedNow || (retryable && !fbEligible)) && !this.#rePrompted.has(key) && !this.#stoppedSessions.has(key)) {
+              if (purgedNow && fbEligible) {
+                this.#preRetryPurged.add(key);
+                this.logDebug("pre-retry-purge-fallback-hold", { sessionKey: key, note: "retry pulito sullo stesso modello prima del fallback (hold di un giro)" });
+              }
+              // L'autoprompt 2s resta SOLO per gli errori che nessuno riprende da solo
+              // (400 vision ecc.: l'SDK non li ritenta, storicamente funziona cosi').
+              // Per gli errori "fbEligible" (500, 503...: li coprono la recovery e
+              // Long Horizon — ora col contesto appena pulito) NON aggiungiamo un
+              // secondo prompt: era la fonte della DOPPIA risposta nel test del 7 ott.
+              if (!fbEligible && (purgedNow || retryable) && !this.#rePrompted.has(key) && !this.#stoppedSessions.has(key)) {
                 this.#rePrompted.add(key);
-                if (purgedNow) this.#preRetryPurged.add(key);
                 this.logDebug("auto-reprompt-scheduled", { sessionKey: key, purged: purgedNow, error: errMsg.slice(0, 120) });
                 // FIX (01 set): 2 secondi invece di 30. Il provider ha il tempo di
                 // "respirare" ma l'utente vede il recovery partire SUBITO (la pill
