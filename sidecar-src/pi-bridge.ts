@@ -1858,6 +1858,8 @@ class PiBridge {
     // e perde il nome (il worker non sa che è una sessione esistente).
     let fileOrder: number | undefined;
     let fileLabel: string | undefined;
+    let filePinned: boolean | undefined;
+    let filePinnedOrder: number | undefined;
     let filePrefs: any = null;
     try {
       if (fs.existsSync(SESSION_FILE)) {
@@ -1866,6 +1868,9 @@ class PiBridge {
         if (found) {
           if (typeof found.order === "number") fileOrder = found.order;
           if (typeof found.label === "string" && found.label.trim()) fileLabel = found.label;
+          // PIN: il worker che si sveglia all'apertura eredita ANCHE il pin dal file.
+          if ((found as any).pinned === true) filePinned = true;
+          if (typeof (found as any).pinnedOrder === "number") filePinnedOrder = (found as any).pinnedOrder;
           // FIX 084 (03 set): eredita ANCHE mode/model/thinkingLevel/agentId/workingDir/
           // compaction dall'entry esistente sul file. Prima ereditava SOLO order/label →
           // quando il frontend chiama ensureSession per una chat appena creata con
@@ -1898,6 +1903,8 @@ class PiBridge {
       // (per le sessioni ESISTENTI l'order arriva dal file → l'ordine manuale resta)
       lastActivity: now,
       order: fileOrder ?? now,
+      pinned: filePinned,
+      pinnedOrder: filePinnedOrder,
       // === Fix 3/B5: inizializza dal globale, NON undefined ===
       compactionAuto: globalAuto,
       compactionThreshold: 80,
