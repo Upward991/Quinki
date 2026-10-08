@@ -96,3 +96,27 @@ self-hosted alternatives: AppFlowy, AFFiNE, SiYuan, Anytype, Outline.
 
 Useful follow-up idea: give the Agent API an **Ollama-compatible mode** too (`/api/chat`), so apps
 that only speak Ollama also work out of the box.
+
+## Verified consumers — who can plug into the Agent API (checked 8 Oct 2026)
+
+All three accept a custom OpenAI-compatible endpoint. This is the confirmation that the
+Agent API is the single piece that unlocks "use our agents inside other apps":
+
+| App | Custom OpenAI-compatible endpoint | How | Notes |
+|---|---|---|---|
+| **Obsidian** | YES | Copilot plugin: "any OpenAI-compatible endpoint, your own keys" (+ Smart Composer, Text Generator) | easiest setup: URL + key + model name |
+| **SiYuan** | YES | built-in "custom OpenAI-compatible provider" in AI settings (their own repo confirms aimlapi.com works this way) | easy setup |
+| **AFFiNE (self-hosted)** | YES (fiddly) | BYOK with custom endpoint: `copilot.byok.allowCustomEndpoint` config + Admin toggle | known rough edges: config.json, CORS externalUrl, undocumented failure modes (issues Sep 2026) |
+| **Notion** | NO (gated today) | External Agents API exists ("even the ones you built yourself") but: alpha/waitlist -> partner beta (Claude, Cursor), usage on Notion Credits, Business/Enterprise plans | revisit when they open self-serve |
+
+### What the Agent API must expose (MVP, for these consumers)
+- `GET /v1/models` -> one entry per exposed agent (agent id as the model id).
+- `POST /v1/chat/completions` -> runs that agent, SSE streaming, standard OpenAI response shape.
+- Auth: token (remote-devices mechanism), server on the Mac (localhost + tailnet via the
+  existing tunnel), allow-list of agents to expose.
+
+### Test plan (user tests, one app at a time)
+1. `quinki serve` + token; verify `curl /v1/models`.
+2. Obsidian + Copilot -> paste URL/key, pick an agent, chat.
+3. SiYuan -> AI settings, custom provider -> same.
+4. AFFiNE self-hosted -> BYOK config (allow custom endpoint) -> same.
