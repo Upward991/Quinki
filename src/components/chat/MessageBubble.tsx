@@ -327,7 +327,11 @@ function MarkdownContent({ text, isError, searchQuery, activeOcc }: { text: stri
           li: ({ children, className }) => <li className={className} style={{ marginBottom: '4px', color: 'var(--q-text)', listStyle: className?.includes('task-list-item') ? 'none' : undefined }}>{hl(children)}</li>,
           input: ({ checked, disabled }) => <input type="checkbox" checked={!!checked} disabled={!!disabled} style={{ marginRight: '8px', accentColor: 'var(--q-tab-accent)', verticalAlign: 'middle' }} />,
           table: ({ children }) => (
-            <div style={{ overflowX: 'hidden', margin: '0 0 12px 0' }}>
+            // Tabelle nelle chat (7 ott — bug web app): PRIMA overflowX:"hidden" tagliava
+            // le tabelle larghe senza alcun modo di raggiungere le colonne nascoste.
+            // Ora scorrono in orizzontale: swipe col dito (telefono), trackpad, drag col
+            // mouse — la tabella si vede SEMPRE per intero.
+            <div data-chat-table-scroll="1" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehaviorX: 'contain', touchAction: 'pan-x pan-y', maxWidth: '100%', margin: '0 0 12px 0' }}>
               <table style={{ width: 'auto', borderCollapse: 'collapse', fontSize: '13px', fontFamily: 'var(--font-interface)', border: '1px solid var(--q-border)' }}>{children}</table>
             </div>
           ),
