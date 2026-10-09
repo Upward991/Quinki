@@ -32,6 +32,7 @@ import {
   readMcpServers,
   saveMcpServers,
   installPackageServer,
+  prettifyMcpName,
   mcpInstallDir,
   killServerProcs,
 } from "./mcp";
@@ -1145,6 +1146,13 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
           }
         } catch {}
       }
+    }
+    // Nomi leggibili (fix 9-10 ott 2026): migra i vecchi nomi-slug dei server MCP
+    // ("notionhq-notion-mcp-server" -> "Notion"). Sicuro: gli agenti referenziano gli MCP
+    // per id, il nome è solo visuale — quindi la rinomina automatica non rompe nulla.
+    for (const s of servers) {
+      const pretty = prettifyMcpName(s.name);
+      if (pretty && pretty !== s.name) { s.name = pretty; changed = true; }
     }
     if (changed) saveMcpServers(servers);
     return { servers };

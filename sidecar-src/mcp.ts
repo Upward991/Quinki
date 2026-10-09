@@ -378,3 +378,20 @@ export function mcpResultToText(res: any): string {
   if (res.isError && parts.length === 0) parts.push("(server returned an error)");
   return parts.filter(Boolean).join("\n") || "(empty result)";
 }
+// Nomi leggibili per i server MCP (fix 9-10 ott 2026): "notionhq-notion-mcp-server" -> "Notion".
+// Gemella di src/mcpNaming.ts (stessa logica, vive anche nel sidecar per la migrazione automatica).
+export function prettifyMcpName(raw: string): string {
+  const s = String(raw || "").trim();
+  if (!s) return s;
+  if (/\s/.test(s) || /[A-Z]/.test(s)) return s;
+  const parts = s.replace(/^@/, "").replace(/[/_.]+/g, "-").toLowerCase().split("-").filter(Boolean);
+  while (parts.length > 1 && /^(com|io|net|org|dev|app)$/.test(parts[0])) parts.shift();
+  while (parts.length > 1 && /^(mcp|server)$/.test(parts[parts.length - 1])) parts.pop();
+  while (parts.length > 1 && /^(mcp|server)$/.test(parts[0])) parts.shift();
+  if (parts.length > 1) {
+    const a = parts[0].replace(/hq$/, "");
+    if (a.length >= 3 && parts[1].startsWith(a)) parts.shift();
+  }
+  if (!parts.length) return s;
+  return parts.map((w) => (w.length <= 3 ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1))).join(" ");
+}

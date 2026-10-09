@@ -38,7 +38,7 @@ export async function installMarketPackage(item: CatalogItem, call: MarketCall, 
       const r = await fetchSkillResolved((item as any).remoteRepoRawBase, (item as any).remoteAgentPath)
       const md = r?.content || ''
       if (call && md) {
-        let nm = item.name
+        let nm = prettifyMcpName(item.name)
         const fm = md.match(/^---\n([\s\S]*?)\n---/)
         if (fm) {
           const dm = fm[1].match(/^name\s*:\s*["']?(.+?)["']?\s*$/m)

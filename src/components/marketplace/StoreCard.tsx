@@ -3,6 +3,7 @@
 import React from 'react'
 import { Check, Bot, BookOpen, Plug, Palette, Package } from '../icons'
 import type { CatalogItem } from '../../catalog'
+import { prettifyMcpName } from '../../mcpNaming'
 
 // Icone del Market = le STESSE icone della app (richiesta utente 9 ott): robottino per
 // gli agenti, libro per le skill, spina per gli MCP, palette per i temi — MAI più emoji
@@ -55,7 +56,7 @@ export function StoreCard({ item, onOpen, onInstall, installed, onRemove, badge,
         renderItemIcon(categoryIcon(item.category), 26, categoryColor(item.category))
       ),
       React.createElement('div', { style: { flex: 1, minWidth: 0 } },
-        React.createElement('div', { style: { color: 'var(--mp-text)', fontSize: '16px', fontWeight: 700, fontFamily: 'var(--font-interface)', lineHeight: 1.3 } }, item.name),
+        React.createElement('div', { style: { color: 'var(--mp-text)', fontSize: '16px', fontWeight: 700, fontFamily: 'var(--font-interface)', lineHeight: 1.3 } }, prettifyMcpName(item.name)),
         React.createElement('div', { style: { color: 'var(--mp-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginTop: '3px', lineHeight: 1.4 } }, item.author + ' · v' + item.version)
       ),
       action
