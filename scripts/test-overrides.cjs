@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-const WebSocket = require('/Users/andreamaddalena/Projects/Quinki/sidecar-src/node_modules/ws');
+const path = require('path');
+const WebSocket = require(path.join(__dirname, '..', 'sidecar-src', 'node_modules', 'ws'));
 const { readFileSync } = require('fs');
 
 const WS_URL = 'ws://127.0.0.1:9182';

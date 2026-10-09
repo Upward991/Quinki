@@ -9,7 +9,7 @@
 
 | Cosa | Dove | Copia di sicurezza |
 |---|---|---|
-| Codice sorgente (repo) | `/Users/andreamaddalena/Projects/Quinki` | GitHub `origin/main` (push) + **tag `pre-B0`** |
+| Codice sorgente (repo) | `~/Projects/Quinki` | GitHub `origin/main` (push) + **tag `pre-B0`** |
 | App installata main | `/Applications/Quinki.app` | `~/Backups/quinki-pre-B0-*/Quinki.app` (ditto) |
 | App installata Expert | `/Applications/App Expert.app` | `~/Backups/quinki-pre-B0-*/App Expert.app` (ditto) |
 | Dati utente (`~/.quinki`) | sessioni, agenti, skill, config, auth, read-state, notifiche, attachments | `~/Backups/quinki-pre-B0-*/quinki-data/` (rsync, esclusi log/cache/backups) |
@@ -20,7 +20,7 @@
 
 ### Caso A — codice (se una modifica rompe il repo)
 ```bash
-cd /Users/andreamaddalena/Projects/Quinki
+cd ~/Projects/Quinki
 git checkout pre-B0        # o: git reset --hard pre-B0
 ```
 (Tutto quello che viene dopo B0 è comunque committato fase per fase: ogni fase ha il suo commit e si può fare `git revert`/`checkout` della singola fase.)
@@ -47,7 +47,7 @@ open "/Applications/App Expert.app"
 
 ### Caso B — dati utente (se qualcosa corrompe ~/.quinki)
 ```bash
-BK=/Users/andreamaddalena/Backups/quinki-pre-B0-20260820-132159
+BK=~/Backups/quinki-pre-B0-20260820-132159
 # PRIMA ferma le app (main + expert) — con quit dal modale, NON kill-and-pray
 cp -a ~/.quinki ~/.quinki-corrotto   # salva lo stato rotto per diagnosi
 rsync -a --delete "$BK/quinki-data/" ~/.quinki/
@@ -67,7 +67,7 @@ open /Applications/Quinki.app
 
 ## 4. VERIFICA DELLO STATO ATTUALE (comando)
 ```bash
-cd /Users/andreamaddalena/Projects/Quinki && git status --short && git log --oneline -1
+cd ~/Projects/Quinki && git status --short && git log --oneline -1
 cat /Applications/Quinki.app/Contents/Resources/resources/sidecar/version.txt
 ```
 Atteso: working tree pulito, HEAD = `57e3df95`, version main = `215311c0`.

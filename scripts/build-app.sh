@@ -35,7 +35,10 @@ if [ ! -x cli/dist/quinki ]; then
   ( cd cli && "$HOME/.bun/bin/bun" build main.ts --target=bun --outfile=dist/quinki ) || echo "[build-app] WARN: CLI build failed"
 fi
 mkdir -p src-tauri/resources/cli
-cp cli/dist/quinki src-tauri/resources/cli/quinki 2>/dev/null || echo "[build-app] WARN: CLI missing (auto-install skipped)" 
+cp cli/dist/quinki src-tauri/resources/cli/quinki 2>/dev/null || echo "[build-app] WARN: CLI missing (auto-install skipped)"
+# Privacy: neutralizza eventuali path di build dentro il binario + wasm per il fallback photon
+python3 scripts/strip-personal-paths.py cli/dist/quinki src-tauri/resources/cli/quinki 2>/dev/null || true
+cp sidecar-src/node_modules/@silvia-odwyer/photon-node/photon_rs_bg.wasm src-tauri/resources/cli/photon_rs_bg.wasm 2>/dev/null || true 
 # Dettatura locale (Parakeet TDT v3 via FluidAudio): compila l'helper swift e lo
 # spedisce accanto al sidecar, stesso schema del tunnel.
 if [ -x /usr/bin/swift ] || command -v swift >/dev/null 2>&1; then
@@ -44,12 +47,14 @@ fi
 if [ -x tools/dictation-helper/.build/release/dictate ]; then
   mkdir -p src-tauri/resources/dictation-helper
   cp tools/dictation-helper/.build/release/dictate src-tauri/resources/dictation-helper/dictate
+  python3 scripts/strip-personal-paths.py src-tauri/resources/dictation-helper/dictate 2>/dev/null || true
   echo "[build-app] dictation helper included"
 fi
 # Tunnel stabile (tsnet): nodo Tailscale in userspace dentro l'app.
 # Ricompila se c'e' Go, altrimenti usa il binario gia' compilato.
 if command -v go >/dev/null 2>&1 || [ -x /opt/homebrew/bin/go ]; then
-  ( cd tools/tsnet-tunnel && PATH="/opt/homebrew/bin:$PATH" go build -o tsnet-tunnel . )
+  ( cd tools/tsnet-tunnel && PATH="/opt/homebrew/bin:$PATH" go build -trimpath -o tsnet-tunnel . )
 fi
 cp tools/tsnet-tunnel/tsnet-tunnel src-tauri/resources/tsnet-tunnel
+python3 scripts/strip-personal-paths.py tools/tsnet-tunnel/tsnet-tunnel src-tauri/resources/tsnet-tunnel 2>/dev/null || true
 npx tauri build

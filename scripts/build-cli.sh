@@ -27,6 +27,11 @@ mkdir -p cli/dist/theme cli/dist/assets
 
 "$BUN" build --compile --target=bun-darwin-arm64 cli/main.ts --outfile cli/dist/quinki
 
+# Privacy: neutralizza gli username di build incorporati da bun (__dirname inline).
+python3 scripts/strip-personal-paths.py cli/dist/quinki 2>/dev/null || true
+# Fallback photon: il wasm deve stare accanto al binario (vedi photon.js nel vendor).
+cp sidecar-src/node_modules/@silvia-odwyer/photon-node/photon_rs_bg.wasm cli/dist/ 2>/dev/null || true
+
 # Theme + assets next to the binary (resolved from the executable directory)
 cp "$VENDOR"/theme/*.json cli/dist/theme/
 cp "$VENDOR"/assets/* cli/dist/assets/ 2>/dev/null || true

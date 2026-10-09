@@ -3,7 +3,7 @@
 # Run this if the design is lost or after any change to source files
 set -e
 
-PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BACKUP_DIR="$PROJECT_DIR/.deep-cosmos-backup"
 LOGBUILD_DIR="/tmp/logpanel-build"
 
@@ -44,7 +44,7 @@ logFunc = logFunc.replace(/\buseEffect\(/g, "v.useEffect(");
 var icons = {"__HOME__":"Et","__ACTIVITY__":"It","__SEARCH__":"Lt","__CHEVRONDOWN__":"sn","__CHEVRONUP__":"cn","__CHEVRONRIGHT__":"un","__CHECK__":"Bt","__COPY__":"Vt","__DOWNLOAD__":"Ut","__REFRESH__":"Gt","__TRASH__":"Ht"};
 for (var p in icons) { logFunc = logFunc.replace(new RegExp('"'+p+'"',"g"), icons[p]); logFunc = logFunc.replace(new RegExp(p,"g"), icons[p]); }
 
-var cosmos = fs.readFileSync("/Users/andreamaddalena/Projects/Quinki/dist/assets/index-DTnRbIdn.js", "utf8");
+var cosmos = fs.readFileSync(process.env.PROJECT_DIR + "/dist/assets/index-DTnRbIdn.js", "utf8");
 var rgStart = cosmos.indexOf("function rg(e){");
 var rgEnd = cosmos.indexOf("function ig", rgStart);
 var patched = cosmos.substring(0, rgStart) + logFunc + cosmos.substring(rgEnd);
@@ -64,7 +64,7 @@ patched = patched.replace("(0,z.jsx)(an,{size:16,style:{color:`var(--q-text-tert
 
 try { new Function(patched); console.log("✅ JS valid"); }
 catch(e) { console.log("❌ Error:", e.message.substring(0, 200)); process.exit(1); }
-fs.writeFileSync("/Users/andreamaddalena/Projects/Quinki/dist/assets/index-DTnRbIdn.js", patched);
+fs.writeFileSync(process.env.PROJECT_DIR + "/dist/assets/index-DTnRbIdn.js", patched);
 console.log("All patches applied! Size: " + patched.length);
 NODEEOF
 

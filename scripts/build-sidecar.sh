@@ -27,6 +27,8 @@ else
   echo "[build-sidecar] no oauth.conf found → building without secret (runtime file fallback only)"
   bun build --compile --target=bun-darwin-arm64 sidecar-ws.ts --outfile quinki-sidecar-ws
 fi
+# Privacy: neutralizza gli username di build incorporati da bun (__dirname inline).
+python3 ../scripts/strip-personal-paths.py quinki-sidecar-ws 2>/dev/null || true
 # Sign the sidecar binary with a stable identifier (bun default is "a.out").
 # Without this, TCC cannot attribute the sidecar process to the app bundle
 # and macOS re-prompts for permissions (Screen Recording etc.) after every update.
