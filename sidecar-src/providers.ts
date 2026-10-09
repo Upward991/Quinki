@@ -1265,7 +1265,8 @@ export function clearOllamaCloudKey(): void {
 // ne' activity — era il "unexpected_usage_shape"). Il consumo del CICLO mensile =
 // somma dei bucket dal giorno di reset piu' recente (giorno UTC, come l'API): il giorno
 // e' quello imparato/verificato per account (osservazione storica; CreatedAt NON coincide
-// col giorno di fatturazione — verificato). Se manca: totale finestra 30d come stima.
+// col giorno di fatturazione — verificato). Il conteggio parte dal giorno SUCCESSIVO
+// (primo giorno pieno del nuovo ciclo). Se manca il giorno: totale finestra 30d come stima.
 // Il vecchio formato resta supportato finche' il server non lo dismette del tutto.
 // Il piano arriva da POST /api/me con cache giornaliera (1 richiesta invece di 2 a ogni
 // poll: l'API e' rate-limited e risponde 429 se interrogata troppo spesso).
@@ -1320,7 +1321,10 @@ export async function getOllamaCloudUsage(): Promise<OllamaCloudUsage> {
     let cycleUsd = 0;
     if (stats.monthlyDay && bucketsIn.length) {
       const dnow = new Date(now);
-      const day = stats.monthlyDay;
+      // Il contatore di ollama.com riparte dal PRIMO GIORNO PIENO dopo la data di reset
+      // (verificato al centesimo: somma dal 21 = il numero mostrato dal sito). Quindi il
+      // giorno di inizio conteggio = giorno di reset + 1 (con wrap di mese).
+      const day = (stats.monthlyDay % 31) + 1;
       const dim = (y: number, m: number) => new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
       let startMs = Date.UTC(dnow.getUTCFullYear(), dnow.getUTCMonth(), Math.min(day, dim(dnow.getUTCFullYear(), dnow.getUTCMonth())));
       if (startMs > now) {
