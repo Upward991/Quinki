@@ -1,8 +1,27 @@
 // StoreCard.tsx — card degli elementi del Market (usata ovunque: home, account,
 // pagina sviluppatore). IDENTICA in ogni punto: tutte le info sempre visibili.
 import React from 'react'
-import { Check } from '../icons'
+import { Check, Bot, BookOpen, Plug, Palette, Package } from '../icons'
 import type { CatalogItem } from '../../catalog'
+
+// Icone del Market = le STESSE icone della app (richiesta utente 9 ott): robottino per
+// gli agenti, libro per le skill, spina per gli MCP, palette per i temi — MAI più emoji
+// casuali per item. Stesso schema della tab Agents.
+export function categoryIcon(category: string): any {
+  switch (category) {
+    case 'agent': return Bot
+    case 'skill': return BookOpen
+    case 'mcp': return Plug
+    case 'theme': return Palette
+    default: return Package
+  }
+}
+const CATEGORY_COLOR: Record<string, string> = {
+  agent: '#9d8bd9', skill: '#7aa2f7', mcp: '#56b6c2', theme: '#d9a066', tab: '#e879a8',
+}
+export function categoryColor(category: string): string {
+  return CATEGORY_COLOR[category] || '#888'
+}
 
 export function fmt(n: number): string {
   if (n >= 1000) return (n / 1000).toFixed(1).replace('.0', '') + 'k'
@@ -27,7 +46,7 @@ export function StoreCard({ item, onOpen, onInstall, installed, onRemove, badge,
   },
     React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '14px' } },
       React.createElement('div', { style: { width: '52px', height: '52px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--mp-elevated)', border: '1px solid var(--mp-border-strong)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: 'inset 0 0 0 1px ' + item.color } },
-        renderItemIcon(item.icon, 26, item.color)
+        renderItemIcon(categoryIcon(item.category), 26, categoryColor(item.category))
       ),
       React.createElement('div', { style: { flex: 1, minWidth: 0 } },
         React.createElement('div', { style: { color: 'var(--mp-text)', fontSize: '16px', fontWeight: 700, fontFamily: 'var(--font-interface)', lineHeight: 1.3 } }, item.name),

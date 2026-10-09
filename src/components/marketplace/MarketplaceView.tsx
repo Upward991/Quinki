@@ -6,7 +6,7 @@
 import React from 'react'
 import { useState, useEffect, useRef } from 'react'
 import { Store, Search, X, Check, Download, RefreshCw, Trash2, ChevronLeft, ShieldCheck, Home, User, Bot, ChevronDown, Filter, Tune } from '../icons'
-import { StoreCard, fmt, renderItemIcon } from './StoreCard'
+import { StoreCard, fmt, renderItemIcon, categoryIcon, categoryColor } from './StoreCard'
 import { installCatalogTab, uninstallCatalogTab, updateCatalogTab, isInstalledTab, persistHomeConfig, isMarketItemInstalled, installMarketItem, uninstallMarketItem, getMarketItems, loadInstalledTabs, getUninstalledItems, addUninstalledItem, removeUninstalledItem, saveUninstalledItems } from '../../tabs'
 import { findTabPackage } from '../../tabs/runtimePackages'
 import { fetchRemoteCatalog, refreshRemoteCatalog, getMergedCatalog, fetchSkillResolved, getRemoteStatus, setRemoteToken } from '../../marketRemote'
@@ -481,7 +481,7 @@ export function MarketplaceView({ onSelectPanel, refreshAgents }: Props) {
         React.createElement('div', { style: { maxWidth: '1280px', width: '100%', margin: '0 auto' } },
         React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' } },
           React.createElement('div', { style: { width: '64px', height: '64px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--mp-elevated)', border: '1px solid var(--mp-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 } },
-            renderItemIcon(detail.icon, 32, detail.color)
+            renderItemIcon(categoryIcon(detail.category), 32, categoryColor(detail.category))
           ),
           React.createElement('div', { style: { flex: 1, minWidth: 0 } },
             React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' } },

@@ -190,7 +190,12 @@ async function fetchFallbackRaw(rawBase: string, url: string, label: string, sta
 
 // Fallback SENZA API: legge la pagina HTML di GitHub (non conta nel rate limit)
 // ed estrae le cartelle skill (formato comune: <dir>/SKILL.md).
-async function fetchGitHubSkillsHtml(url: string, label: string, branch = 'main'): Promise<CatalogItem[]> {
+async function fetchGitHubSkillsHtml(url: string, label: string, branch = 'main', kind?: string): Promise<CatalogItem[]> {
+  // FIX (9 ott): il fallback HTML conosce SOLO la struttura skills/ → per i repo di
+  // agenti/MCP etichettare tutto come "skill" era SBAGLIATO (item nella categoria
+  // sbagliata). Per quei repo: niente fallback HTML (meglio la cache scaduta o il dato
+  // mancante che un dato sbagliato).
+  if (kind === 'agent' || kind === 'mcp') return []
   const rep = extractRepo(url)
   if (!rep) return []
   const items: CatalogItem[] = []
@@ -239,7 +244,7 @@ async function fetchGitHubSkillsHtml(url: string, label: string, branch = 'main'
   return items
 }
 
-async function fetchGitHubSkills(url: string, label: string, token = '', hint?: { agentMdDepth?: number }): Promise<CatalogItem[]> {
+async function fetchGitHubSkills(url: string, label: string, token = '', hint?: { agentMdDepth?: number; kind?: string }): Promise<CatalogItem[]> {
   const rep = extractRepo(url)
   if (!rep) return []
   try {
@@ -251,9 +256,9 @@ async function fetchGitHubSkills(url: string, label: string, token = '', hint?: 
       // (non conta nel rate limit), poi i path raw più comuni.
       remoteDegraded = true
       remoteDegradedReason = 'GitHub API rate limit (60 requests/hour, free) — showing fallback/partial data. This is GitHub\'s limit, not Quinki\'s. It resets every hour.'
-      const fbHtml = await fetchGitHubSkillsHtml(url, label, 'main')
+      const fbHtml = await fetchGitHubSkillsHtml(url, label, 'main', hint?.kind)
       if (fbHtml.length > 0) return fbHtml
-      const fbHtml2 = await fetchGitHubSkillsHtml(url, label, 'master')
+      const fbHtml2 = await fetchGitHubSkillsHtml(url, label, 'master', hint?.kind)
       if (fbHtml2.length > 0) return fbHtml2
       const fbMain = await fetchFallbackRaw(`https://raw.githubusercontent.com/${rep.owner}/${rep.repo}/main`, url, label, 0)
       if (fbMain.length > 0) return fbMain
@@ -426,13 +431,18 @@ try {
   }
 } catch {}
 
-const CACHE_TTL = 30 * 60 * 1000
-function srcCacheGet(url: string): CatalogItem[] | null {
+// TTL alzato a 6h (9 ott): i cataloghi dei repo cambiano raramente e ogni refresh
+// consuma le API di GitHub (60/h gratis) → con 30 min il market entrava in rate-limit
+// e mostrava dati parziali/fallback (item che "si spostavano"). La versione
+// (MARKET_CACHE_VERSION) invalida comunque tutte le cache a ogni update dell'app.
+const CACHE_TTL = 6 * 60 * 60 * 1000
+function srcCacheGet(url: string, allowStale = false): CatalogItem[] | null {
   try {
     const raw = localStorage.getItem('quinki-src-cache-' + url)
     if (!raw) return null
     const d = JSON.parse(raw)
-    if (!d || typeof d.ts !== 'number' || Date.now() - d.ts > CACHE_TTL) return null
+    if (!d || typeof d.ts !== 'number') return null
+    if (!allowStale && Date.now() - d.ts > CACHE_TTL) return null
     return Array.isArray(d.items) ? d.items : null
   } catch { return null }
 }
@@ -468,16 +478,20 @@ async function doFetchRemoteCatalog(): Promise<CatalogItem[]> {
   const results = await Promise.all(sources.map(async (src) => {
     let items: CatalogItem[] = []
     const cached = srcCacheGet(src.url)
-    if (cached) {
-      items = cached
-    } else if (isGitHubUrl(src.url)) {
-      if (/catalog\.json/.test(src.url) && /raw\.githubusercontent/.test(src.url)) {
+    if (!cached) {
+      if (isGitHubUrl(src.url)) {
+        if (/catalog\.json/.test(src.url) && /raw\.githubusercontent/.test(src.url)) {
+          items = await fetchSource(src.url)
+        }
+        if (items.length === 0) items = await fetchGitHubSkills(src.url, src.label, getRepoToken(src.url), (src as any).hint)
+      } else {
         items = await fetchSource(src.url)
       }
-      if (items.length === 0) items = await fetchGitHubSkills(src.url, src.label, getRepoToken(src.url), (src as any).hint)
-    } else {
-      items = await fetchSource(src.url)
     }
+    // FIX (9 ott): se il fetch live fallisce (rate-limit/rete) NON far sparire gli item:
+    // usa la cache SCADUTA (ultimo dato buono). I "3-4 item che si spostavano" erano
+    // sorgenti rate-limited che entravano/usavano fallback a metà.
+    if (items.length === 0) items = srcCacheGet(src.url, true) || []
     if (!cached) srcCacheSet(src.url, items)
     return { label: src.label, items }
   }))
