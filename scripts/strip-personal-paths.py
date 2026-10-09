@@ -2,36 +2,43 @@
 """Neutralize build-machine personal paths baked inside compiled binaries.
 
 Some tools bake absolute build paths into compiled binaries (bun inlines CJS
-__dirname; Swift debug info embeds source paths). This replaces the developer's
-username with a neutral SAME-LENGTH placeholder: pure in-place byte replacement,
-binary layout never changes and runtime behavior is unaffected (the vendored
-photon loader already redirects missing wasm reads to the executable directory).
+__dirname; Swift and Go debug info embeds source paths). This replaces the
+current user's username with a neutral SAME-LENGTH placeholder: pure in-place
+byte replacement, so the binary layout never changes and runtime behavior is
+unaffected. On macOS the ad-hoc signature is re-applied after patching.
 
 Usage: python3 scripts/strip-personal-paths.py <binary> [<binary> ...]
 """
+import getpass
 import sys
 
-NEUTRAL = b"quinki-buildenv"
-TARGETS = [b"andreamaddalena"]
+
+def neutral_for(name):
+    base = b"quinki-buildenv"
+    return (base * 4)[: len(name)]
+
 
 def neutralize(path):
+    try:
+        target = getpass.getuser().encode()
+    except Exception:
+        return 0
+    if len(target) < 3:
+        return 0
+    neutral = neutral_for(target)
     with open(path, "rb") as f:
         data = f.read()
-    total = 0
-    for t in TARGETS:
-        assert len(t) == len(NEUTRAL), "placeholder must be same length"
-        n = data.count(t)
-        if n:
-            data = data.replace(t, NEUTRAL)
-            total += n
-    if total:
-        with open(path, "wb") as f:
-            f.write(data)
-        # macOS arm64: la firma ad-hoc e' stata invalidata dal patch -> la riapplichiamo.
-        if sys.platform == "darwin":
-            import subprocess
-            subprocess.run(["codesign", "--force", "--sign", "-", path], capture_output=True)
-    return total
+    n = data.count(target)
+    if not n:
+        return 0
+    with open(path, "wb") as f:
+        f.write(data.replace(target, neutral))
+    # macOS: il patch invalida la firma ad-hoc -> la riapplichiamo subito.
+    if sys.platform == "darwin":
+        import subprocess
+        subprocess.run(["codesign", "--force", "--sign", "-", path], capture_output=True)
+    return n
+
 
 rc = 0
 for p in sys.argv[1:]:
