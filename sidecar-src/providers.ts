@@ -97,6 +97,10 @@ export function readProvidersConfig(): ProvidersConfig {
         needsMigration = true;
       } else if (isEncrypted(apiKey)) {
         apiKey = decryptString(apiKey);
+        // FIX (9 ott): chiavi cifrate PIU' volte (un vecchio ri-salvataggio le cifrava
+        // due volte) -> decifra a strati finche' serve (max 3). Senza, "enc:v1:..."
+        // restava nel Bearer e ogni chiamata dava 401 (caso OpenRouter).
+        for (let g = 0; g < 3 && isEncrypted(apiKey); g++) apiKey = decryptString(apiKey);
       }
       providers[name] = {
         enabled: !!pc.enabled,
@@ -186,7 +190,9 @@ export function writeProvidersConfig(config: ProvidersConfig): void {
     for (const [name, pcfg] of Object.entries(config.providers)) {
       const pc = pcfg as any;
       if (pc.providerDelete === true) continue; // FIX (01 set): provider esplicitamente eliminato — NON riscrivere
-      let apiKeyToStore = pc.apiKey ? encryptString(String(pc.apiKey)) : "";
+      // FIX (9 ott): se il valore in arrivo e' GIA' cifrato, salvalo cosi' com'e':
+      // ri-cifrarlo lo rovinava (doppio strato -> 401).
+      let apiKeyToStore = pc.apiKey ? (isEncrypted(String(pc.apiKey)) ? String(pc.apiKey) : encryptString(String(pc.apiKey))) : "";
       const existingKey = existing.providers[name]?.apiKey || "";
       // FIX CRITICO 084 (03 set): una chiave MASCherata ("sk-o••••••••") NON è una chiave!
       // getSafeProvidersConfig restituisce placeholder mascherati al frontend, che li
@@ -1275,7 +1281,8 @@ export async function getOllamaCloudUsage(): Promise<OllamaCloudUsage> {
     const cfg = readProvidersConfig();
     const enc = (cfg.providers as any).Ollama?.cloudApiKey;
     if (!enc) return { ok: false, error: "no_key" };
-    const key = isEncrypted(enc) ? decryptString(enc) : enc;
+    let key = isEncrypted(enc) ? decryptString(enc) : enc;
+    for (let g = 0; g < 3 && isEncrypted(key); g++) key = decryptString(key);
     const res = await fetch("https://ollama.com/api/usage?range=30d", { headers: { Authorization: `Bearer ${key}` } });
     if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
     const data: any = await res.json();
