@@ -160,6 +160,7 @@
     "macOSPrivateApi": true
   },
   "bundle": {
+    "targets": ["app"],
     "active": true,
     "targets": "all",
     "icon": [
