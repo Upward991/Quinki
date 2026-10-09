@@ -6,6 +6,7 @@ import { findTabPackage } from './tabs/runtimePackages'
 import { findPackageBundle } from './catalogPackages'
 import { recordInstall, hashContent } from './registry'
 import { fetchSkillResolved } from './marketRemote'
+import { prettifyMcpName } from './mcpNaming'
 import type { CatalogItem } from './catalog'
 
 export type MarketCall = (method: string, params?: any, timeout?: number) => Promise<any>
@@ -64,7 +65,7 @@ export async function installMarketPackage(item: CatalogItem, call: MarketCall, 
           const s = scfg as any
           const sid = (item.id + '-' + sname).toLowerCase().replace(/[^a-z0-9._-]+/g, '-').slice(0, 64)
           nativeIds.push(sid)
-          const sname2 = serverEntries.length > 1 ? item.name + ' (' + sname + ')' : item.name
+          const sname2 = serverEntries.length > 1 ? prettifyMcpName(item.name) + ' (' + sname + ')' : prettifyMcpName(item.name)
           if (typeof s === 'string') call('addMcpServer', { id: sid, name: sname2, type: 'url', source: s }).catch(() => {})
           else if (s && s.url) call('addMcpServer', { id: sid, name: sname2, type: 'url', source: s.url }).catch(() => {})
           else if (s && s.command) call('addMcpServer', { id: sid, name: sname2, type: 'command', command: Array.isArray(s.command) ? s.command : String(s.command), args: s.args || [], env: s.env || {} }).catch(() => {})
@@ -82,7 +83,7 @@ export async function installMarketPackage(item: CatalogItem, call: MarketCall, 
     try {
       if (call) {
         const sid = item.id.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').slice(0, 64)
-        await call('addMcpServer', { id: sid, name: item.name, type: 'url', source: String((item as any).remoteUrl) }).catch(() => {})
+        await call('addMcpServer', { id: sid, name: prettifyMcpName(item.name), type: 'url', source: String((item as any).remoteUrl) }).catch(() => {})
         try {
           const map = JSON.parse(localStorage.getItem('quinki-mcp-mapping') || '{}') || {}
           map[item.id] = [sid]
@@ -97,7 +98,7 @@ export async function installMarketPackage(item: CatalogItem, call: MarketCall, 
       const pkg = String((item as any).remotePypiPackage)
       if (call) {
         const sid = item.id.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').slice(0, 64)
-        await call('addMcpServer', { id: sid, name: item.name, type: 'command', command: ['uvx', pkg], args: [], env: {} }).catch(() => {})
+        await call('addMcpServer', { id: sid, name: prettifyMcpName(item.name), type: 'command', command: ['uvx', pkg], args: [], env: {} }).catch(() => {})
         try {
           const map = JSON.parse(localStorage.getItem('quinki-mcp-mapping') || '{}') || {}
           map[item.id] = [sid]
@@ -113,7 +114,7 @@ export async function installMarketPackage(item: CatalogItem, call: MarketCall, 
       const pkg = String((item as any).remoteNpmPackage)
       if (call) {
         const sid = item.id.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').slice(0, 64)
-        await call('addMcpServer', { id: sid, name: item.name, type: 'package', source: pkg }).catch(() => {})
+        await call('addMcpServer', { id: sid, name: prettifyMcpName(item.name), type: 'package', source: pkg }).catch(() => {})
         try {
           const map = JSON.parse(localStorage.getItem('quinki-mcp-mapping') || '{}') || {}
           map[item.id] = [sid]

@@ -1,6 +1,7 @@
 import React from 'react'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useSidecarContext } from '../shared/AppShell'
+import { prettifyMcpName } from '../../mcpNaming'
 import { BottomSheet } from '../chat/BottomSheet'
 import { Archive, BookOpen, Bot, ChevronDown, ChevronUp, Copy, FileText, Home, Info, Package, Palette, Pencil, Plug, Plus, Power, Save, Search, Settings, Shield, Trash, Wrench, X, PanelLeft } from '../icons'
 
@@ -1518,6 +1519,7 @@ export function McpInstallModal({ onClose, onInstalled }) {
   const [source, setSource] = useState('');
   const [cmd, setCmd] = useState('');
   const [args, setArgs] = useState('');
+  const [envText, setEnvText] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(null);
 
@@ -1549,7 +1551,7 @@ export function McpInstallModal({ onClose, onInstalled }) {
   };
   const autoName = () => {
     const src = type === 'command' ? cmd : (type === 'package' ? cleanNpmSource(source) : source);
-    return src.trim() ? deriveName(src) : '';
+    return src.trim() ? prettifyMcpName(deriveName(src)) : '';
   };
   const handleSource = (v) => setSource(v);
   // FIX (6 ott): nel campo "Package (npm)" la gente incolla il blocco del README
@@ -1579,8 +1581,11 @@ export function McpInstallModal({ onClose, onInstalled }) {
     if (type !== 'command' && !source.trim()) { setMsg('Source is required.'); return; }
     setBusy(true); setMsg(null);
     try {
-      const finalName = autoName() || 'mcp-' + Date.now();
-      const id = finalName.toLowerCase().replace(/[^a-z0-9._-]+/g, '-') || 'mcp-' + Date.now();
+      // Nome mostrato = umano ("Notion"); id = slug tecnico stabile ("notionhq-notion-mcp-server").
+      const srcForId = type === 'command' ? cmd : (type === 'package' ? cleanNpmSource(source) : source);
+      const rawSlug = srcForId.trim() ? deriveName(srcForId) : '';
+      const finalName = (rawSlug && prettifyMcpName(rawSlug)) || 'mcp-' + Date.now();
+      const id = (rawSlug || finalName).toLowerCase().replace(/[^a-z0-9._-]+/g, '-') || 'mcp-' + Date.now();
       const params = { id, name: finalName };
       if (type === 'command') {
         params.type = 'command';
@@ -1591,6 +1596,10 @@ export function McpInstallModal({ onClose, onInstalled }) {
         params.source = (type === 'package' ? cleanNpmSource(source) : source.trim());
         if (type === 'package' && args) params.args = args.split(',').map(x => x.trim()).filter(Boolean);
       }
+      // Env opzionale: KEY=value per riga (es. NOTION_TOKEN=ntn_...).
+      const env: Record<string, string> = {};
+      envText.split(/\n+/).forEach((line) => { const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/); if (m && m[2]) env[m[1]] = m[2]; });
+      if (Object.keys(env).length) params.env = env;
       const res = await call('addMcpServer', params);
       if (res?.ok === false) { setMsg('Install failed: ' + (res.error || 'unknown error')); setBusy(false); return; }
       // Traccia l'MCP come CREATO dall'utente (per il filtro publish)
@@ -1614,6 +1623,10 @@ export function McpInstallModal({ onClose, onInstalled }) {
     (type !== 'url') && React.createElement(React.Fragment, { children: [
       React.createElement(FieldTextarea, { placeholder: 'Args (optional)\nOne per line, or comma separated.\nExample for Filesystem:\n/Users/andrea/Documents\n/tmp', value: args, onChange: setArgs }),
       React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: '11px', fontFamily: 'var(--font-interface)', marginTop: '4px', marginBottom: '12px', lineHeight: 1.4 }, children: 'Args = extra parameters passed to the server when launched. E.g. for the Filesystem server these are the folders it can access.' })
+    ]}),
+    React.createElement(React.Fragment, { children: [
+      React.createElement(FieldTextarea, { placeholder: 'Env (optional) — one KEY=value per line, e.g.\nNOTION_TOKEN=ntn_xxx', value: envText, onChange: setEnvText }),
+      React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: '11px', fontFamily: 'var(--font-interface)', marginTop: '4px', marginBottom: '12px', lineHeight: 1.4 }, children: 'Env = environment variables passed to the server at launch (API keys, tokens). Stored locally in your Quinki config.' })
     ]}),
     React.createElement('div', { style: { display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px', marginTop: '4px' }, children: [
       React.createElement('button', { onClick: (e) => { if (e.target === e.currentTarget) onClose() }, onMouseEnter: e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }, onMouseLeave: e => { e.currentTarget.style.backgroundColor = 'transparent' }, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'Cancel' }),
