@@ -83,7 +83,6 @@ src-tauri/resources/sidecar/web/
 tools/dictation-helper/.build/
 fcm/fcm-service-account.json
 src-tauri/resources/sidecar/fcm-service-account.json
-shell/src-tauri/target/
 
 # Internal dev notes (private — never publish)
 /internal/
