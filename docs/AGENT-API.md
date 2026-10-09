@@ -123,44 +123,36 @@ piece that unlocks "use our agents inside other apps". Evidence from the officia
    if AFFiNE runs in Docker on the Mac: use the Mac's LAN IP or host.docker.internal) -> BYOK ->
    add key (OpenAI-compatible route) -> chat.
 
-## Obsidian integration paths — full landscape (verified 9 Oct 2026)
 
-Beyond Copilot's custom endpoint, Obsidian now offers several official/community bridges. Ranked by
-usefulness for Quinki:
+## Obsidian integration — full options menu (verified 9 Oct 2026)
 
-1. **Official Obsidian CLI** (Obsidian 1.12+): "Anything you can do in Obsidian you can do from
-   the command line." Enable in Settings -> General -> Command line interface (needs the 1.12.7+
-   installer; the app must be running). Commands: daily, search, read, create (with templates),
-   tasks, tags, diff, plus developer commands: devtools, plugin:reload, dev:screenshot, and
-   **eval code="..."** (runs JavaScript in the app). The docs say explicitly these exist so
-   "agentic coding tools can automatically test and debug". This is the sanctioned automation
-   surface -> our agents (and the App Expert itself) can drive Obsidian through it.
-2. **obsidian-agent-client** (community, ~2.4k stars): brings AI agents into Obsidian via
-   **Agent Client Protocol (ACP)** — Claude Code, Codex, Gemini CLI run inside Obsidian.
-   If our CLI/agents could speak ACP, Quinki agents would run inside Obsidian like they do.
-   Worth investigating: what the plugin needs to launch a custom agent.
-3. **Local REST API plugin** (+ MCP): HTTP bridge + built-in MCP server; app-side control
-   (read/write, commands) for MCP clients. Good for network/MCP integrations.
-4. **NotesMD CLI** (ex "obsidian-cli", renamed after the official CLI shipped): file-only vault
-   operations without Obsidian running. Redundant for us (we already have raw filesystem).
+### A. Chat with your own endpoint (Ollama / OpenAI-compatible), NO external CLIs
+- **Smart Composer** (glowingjade, ~2.3k stars): vault-aware chat, providers incl. "Ollama, LM Studio,
+  any other OpenAI-compatible", one-click edits, custom system prompts, templates. Last update
+  Feb 2026 (stable). An actively-forked variant exists (laguna821/obsidian_smart_composer_Achmage).
+- **Copilot V4 Quick Chat**: BYOK/Ollama works there (the agent-first "Agent Chat" is the part that
+  requires opencode/Claude Code/Codex).
+- **Text Generator** (~2k stars, maintained), **Local GPT** (updated daily, Ollama/local),
+  **SystemSculpt** (AI toolkit). BMO Chatbot is dead (2024).
 
-## Copilot V4 architecture (verified 9 Oct 2026) — how to plug in both ways
+### B. OUR agents inside Obsidian via ACP — the definitive route (no third parties)
+- **obsidian-agent-client** (~2.4k stars, active): chat with any ACP agent in the sidebar, editor
+  tabs, floating windows; @-mentions of notes; permission prompts; MCP + skills inherited from the
+  agent; edit diffs; session manager. Presets: Claude Code, Codex, Gemini CLI, Mistral Vibe,
+  OpenCode, Kiro, Hermes, **Pi**, Grok Build — **plus any ACP-compatible agent as a custom entry**.
+- **`pi-acp`** (npm): official-style "ACP adapter for pi coding agent" — spawns `pi --mode rpc`
+  (binary found on PATH) and bridges to ACP. Our vendored SDK **already contains `runRpcMode`**
+  ("headless operation... used for embedding the agent in other applications").
+- Therefore the plan for "Quinki agents in Obsidian":
+  1. Expose `quinki --mode rpc` in our CLI (the SDK provides the engine; small addition).
+  2. Provide a `pi` shim on PATH pointing to our binary (or a tiny fork of pi-acp).
+  3. Add a custom ACP entry in obsidian-agent-client -> our agents run inside Obsidian with tools,
+     permissions, MCP and skills. Effort: about half a day including testing.
+- Same ACP door also works in Zed/other ACP editors.
 
-Copilot V4 is agent-first: the main experience "Agent Chat" runs ON TOP of a CLI agent
-(opencode / Claude Code / Codex) that reads the vault with tools and approvals. That is why
-first-run pushes users to install an agent. The classic lightweight chat is **Quick Chat**.
+### C. Our own Obsidian plugin (optional, later)
+Full control and possibly Intelligent UI rendering inside notes — only if we outgrow B.
 
-Model sources (from their docs):
-- Copilot-hosted models: Quick Chat + opencode.
-- **Your API key or endpoint (BYOK): Quick Chat + opencode** (when opencode supports the provider).
-- Claude Code / Codex models: only inside their own CLIs (billing on the user's CLI account).
-- Custom providers appear in opencode as "Provider name/Model name".
-
-Consequences for the Quinki Agent API:
-1. **Quick Chat route** (simple): add the Agent API as a BYOK chat provider -> chat with agents
-   in the lightweight UI (also the mobile chat).
-2. **opencode route** (full): opencode accepts custom OpenAI-compatible providers -> add the
-   Agent API as a provider -> Agent Chat (tools, approvals, skills, vault access) runs on OUR
-   agents. Copilot can install/manage opencode itself from Settings -> Basic -> Agents.
-Both doors documented by the vendor. Also noted: their vault instructions use **AGENTS.md**
-files, and their Miyo server connects across devices via **Tailscale** — same patterns we use.
+### D. If we ever leave Obsidian
+SiYuan (custom OpenAI-compatible provider + petal plugin API), AppFlowy (Ollama first-class),
+AFFiNE self-hosted (BYOK + allowCustomEndpoint). Notion stays gated.
