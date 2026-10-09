@@ -1264,7 +1264,8 @@ export function clearOllamaCloudKey(): void {
 // + un bucket PER GIORNO (finestre valide: 24h / 7d / 30d; niente piu' limits.monthly
 // ne' activity — era il "unexpected_usage_shape"). Il consumo del CICLO mensile =
 // somma dei bucket dal giorno di reset piu' recente (giorno UTC, come l'API): il giorno
-// e' quello imparato storicamente o, per account nuovi, il giorno di creazione account.
+// e' quello imparato/verificato per account (osservazione storica; CreatedAt NON coincide
+// col giorno di fatturazione — verificato). Se manca: totale finestra 30d come stima.
 // Il vecchio formato resta supportato finche' il server non lo dismette del tutto.
 // Il piano arriva da POST /api/me con cache giornaliera (1 richiesta invece di 2 a ogni
 // poll: l'API e' rate-limited e risponde 429 se interrogata troppo spesso).
@@ -1287,10 +1288,6 @@ export async function getOllamaCloudUsage(): Promise<OllamaCloudUsage> {
           const me: any = await r2.json();
           stats.plan = String(me?.Plan || "").toLowerCase();
           stats.planFetchedAt = Date.now();
-          if (!stats.monthlyDay && me?.CreatedAt) {
-            const d = new Date(me.CreatedAt);
-            if (!isNaN(d.getTime())) stats.monthlyDay = d.getUTCDate();
-          }
         }
       } catch {}
     }
@@ -1336,6 +1333,7 @@ export async function getOllamaCloudUsage(): Promise<OllamaCloudUsage> {
       }
       cycleUsd = Math.round(cycleUsd * 100) / 100;
     } else {
+      // giorno di reset sconosciuto: totale della finestra 30d come stima
       cycleUsd = Math.round((Number(data?.totals?.usage_usd) || 0) * 100) / 100;
     }
     const estimated = !stats.monthlyDay;
