@@ -143,3 +143,24 @@ usefulness for Quinki:
    (read/write, commands) for MCP clients. Good for network/MCP integrations.
 4. **NotesMD CLI** (ex "obsidian-cli", renamed after the official CLI shipped): file-only vault
    operations without Obsidian running. Redundant for us (we already have raw filesystem).
+
+## Copilot V4 architecture (verified 9 Oct 2026) — how to plug in both ways
+
+Copilot V4 is agent-first: the main experience "Agent Chat" runs ON TOP of a CLI agent
+(opencode / Claude Code / Codex) that reads the vault with tools and approvals. That is why
+first-run pushes users to install an agent. The classic lightweight chat is **Quick Chat**.
+
+Model sources (from their docs):
+- Copilot-hosted models: Quick Chat + opencode.
+- **Your API key or endpoint (BYOK): Quick Chat + opencode** (when opencode supports the provider).
+- Claude Code / Codex models: only inside their own CLIs (billing on the user's CLI account).
+- Custom providers appear in opencode as "Provider name/Model name".
+
+Consequences for the Quinki Agent API:
+1. **Quick Chat route** (simple): add the Agent API as a BYOK chat provider -> chat with agents
+   in the lightweight UI (also the mobile chat).
+2. **opencode route** (full): opencode accepts custom OpenAI-compatible providers -> add the
+   Agent API as a provider -> Agent Chat (tools, approvals, skills, vault access) runs on OUR
+   agents. Copilot can install/manage opencode itself from Settings -> Basic -> Agents.
+Both doors documented by the vendor. Also noted: their vault instructions use **AGENTS.md**
+files, and their Miyo server connects across devices via **Tailscale** — same patterns we use.
