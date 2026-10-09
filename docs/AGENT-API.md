@@ -122,3 +122,24 @@ piece that unlocks "use our agents inside other apps". Evidence from the officia
 4. **AFFiNE self-hosted**: config.json `allowCustomEndpoint: true` (+ `allowPrivateEndpoint: true`
    if AFFiNE runs in Docker on the Mac: use the Mac's LAN IP or host.docker.internal) -> BYOK ->
    add key (OpenAI-compatible route) -> chat.
+
+## Obsidian integration paths — full landscape (verified 9 Oct 2026)
+
+Beyond Copilot's custom endpoint, Obsidian now offers several official/community bridges. Ranked by
+usefulness for Quinki:
+
+1. **Official Obsidian CLI** (Obsidian 1.12+): "Anything you can do in Obsidian you can do from
+   the command line." Enable in Settings -> General -> Command line interface (needs the 1.12.7+
+   installer; the app must be running). Commands: daily, search, read, create (with templates),
+   tasks, tags, diff, plus developer commands: devtools, plugin:reload, dev:screenshot, and
+   **eval code="..."** (runs JavaScript in the app). The docs say explicitly these exist so
+   "agentic coding tools can automatically test and debug". This is the sanctioned automation
+   surface -> our agents (and the App Expert itself) can drive Obsidian through it.
+2. **obsidian-agent-client** (community, ~2.4k stars): brings AI agents into Obsidian via
+   **Agent Client Protocol (ACP)** — Claude Code, Codex, Gemini CLI run inside Obsidian.
+   If our CLI/agents could speak ACP, Quinki agents would run inside Obsidian like they do.
+   Worth investigating: what the plugin needs to launch a custom agent.
+3. **Local REST API plugin** (+ MCP): HTTP bridge + built-in MCP server; app-side control
+   (read/write, commands) for MCP clients. Good for network/MCP integrations.
+4. **NotesMD CLI** (ex "obsidian-cli", renamed after the official CLI shipped): file-only vault
+   operations without Obsidian running. Redundant for us (we already have raw filesystem).
