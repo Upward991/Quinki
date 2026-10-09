@@ -16,8 +16,14 @@ export function categoryIcon(category: string): any {
     default: return Package
   }
 }
+// Colori di categoria (richiesta utente 9 ott): agent = accent della tab Agents,
+// skill = blu info (ok così), MCP = accent della tab Log, tema = arancio.
 const CATEGORY_COLOR: Record<string, string> = {
-  agent: '#9d8bd9', skill: '#7aa2f7', mcp: '#56b6c2', theme: '#d9a066', tab: '#e879a8',
+  agent: 'var(--q-accent-secondary)',
+  skill: 'var(--q-accent-info)',
+  mcp: 'var(--q-accent-success)',
+  theme: '#d9a066',
+  tab: '#e879a8',
 }
 export function categoryColor(category: string): string {
   return CATEGORY_COLOR[category] || '#888'
@@ -45,7 +51,7 @@ export function StoreCard({ item, onOpen, onInstall, installed, onRemove, badge,
     style: { backgroundColor: 'var(--mp-panel)', border: '1px solid var(--mp-border)', borderRadius: 'var(--radius-md)', padding: '18px', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '12px', boxShadow: '0 1px 3px rgba(20,24,40,0.06)', transition: 'none' }
   },
     React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '14px' } },
-      React.createElement('div', { style: { width: '52px', height: '52px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--mp-elevated)', border: '1px solid var(--mp-border-strong)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: 'inset 0 0 0 1px ' + item.color } },
+      React.createElement('div', { style: { width: '52px', height: '52px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--mp-elevated)', border: '1px solid var(--mp-border-strong)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: 'inset 0 0 0 1px ' + categoryColor(item.category) } },
         renderItemIcon(categoryIcon(item.category), 26, categoryColor(item.category))
       ),
       React.createElement('div', { style: { flex: 1, minWidth: 0 } },

@@ -480,7 +480,7 @@ export function MarketplaceView({ onSelectPanel, refreshAgents }: Props) {
       React.createElement('div', { style: { flex: 1, overflowY: 'auto', padding: '32px', boxSizing: 'border-box' } },
         React.createElement('div', { style: { maxWidth: '1280px', width: '100%', margin: '0 auto' } },
         React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' } },
-          React.createElement('div', { style: { width: '64px', height: '64px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--mp-elevated)', border: '1px solid var(--mp-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 } },
+          React.createElement('div', { style: { width: '64px', height: '64px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--mp-elevated)', border: '1px solid var(--mp-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: 'inset 0 0 0 1px ' + categoryColor(detail.category) } },
             renderItemIcon(categoryIcon(detail.category), 32, categoryColor(detail.category))
           ),
           React.createElement('div', { style: { flex: 1, minWidth: 0 } },
