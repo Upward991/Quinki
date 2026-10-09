@@ -1208,7 +1208,7 @@ const ollamaStatsPath = join(agentDir, "quinki-ollama-stats.json");
 // monthlyDay = giorno del mese (UTC) in cui avviene il reset mensile dell'account.
 // Ollama resetta "lo stesso giorno del mese dell'abbonamento": non lo espone via API,
 // quindi lo IMPARIAMO per osservazione (quando la frazione cala, quel giorno e' il reset).
-interface OllamaStats { lastMonthly?: number; monthlyDay?: number }
+interface OllamaStats { lastMonthly?: number; monthlyDay?: number; plan?: string; planFetchedAt?: number }
 
 // prossima occorrenza del giorno monthlyDay (clamp ai mesi corti)
 function nextResetAt(dayUTC: number, now: number): number {
@@ -1260,55 +1260,100 @@ export function clearOllamaCloudKey(): void {
   try { writeOllamaStats({}); } catch {}
 }
 
+// FORMATO API USAGE (aggiornato 9 ott 2026): /api/usage?range=30d espone totals.usage_usd
+// + un bucket PER GIORNO (finestre valide: 24h / 7d / 30d; niente piu' limits.monthly
+// ne' activity — era il "unexpected_usage_shape"). Il consumo del CICLO mensile =
+// somma dei bucket dal giorno di reset piu' recente (giorno UTC, come l'API): il giorno
+// e' quello imparato storicamente o, per account nuovi, il giorno di creazione account.
+// Il vecchio formato resta supportato finche' il server non lo dismette del tutto.
+// Il piano arriva da POST /api/me con cache giornaliera (1 richiesta invece di 2 a ogni
+// poll: l'API e' rate-limited e risponde 429 se interrogata troppo spesso).
 export async function getOllamaCloudUsage(): Promise<OllamaCloudUsage> {
   try {
     const cfg = readProvidersConfig();
     const enc = (cfg.providers as any).Ollama?.cloudApiKey;
     if (!enc) return { ok: false, error: "no_key" };
     const key = isEncrypted(enc) ? decryptString(enc) : enc;
-    const res = await fetch("https://ollama.com/api/usage", { headers: { Authorization: `Bearer ${key}` } });
+    const res = await fetch("https://ollama.com/api/usage?range=30d", { headers: { Authorization: `Bearer ${key}` } });
     if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
     const data: any = await res.json();
-    const nowM = data?.limits?.monthly?.usage;
-    if (typeof nowM !== "number") return { ok: false, error: "unexpected_usage_shape" };
 
-    // piano + credito mensile incluso (POST /api/me → Plan; importi dalla pricing page)
-    let plan = ""; let baseUsd: number | undefined;
-    try {
-      const r2 = await fetch("https://ollama.com/api/me", { method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: "{}" });
-      if (r2.ok) {
-        const me: any = await r2.json();
-        plan = String(me?.Plan || "").toLowerCase();
-        if (plan) {
-          const credits = await getOllamaPlanCredits();
-          baseUsd = credits[plan];
-        }
-      }
-    } catch {}
-
-    // reset-sync: se la frazione cala tra due poll → reset osservato → il giorno UTC di
-    // adesso e' il giorno di reset dell'abbonamento (fisso per i mesi successivi)
     const stats = readOllamaStats();
-    if (typeof stats.lastMonthly === "number" && nowM < stats.lastMonthly - 1e-9) {
-      stats.monthlyDay = new Date().getUTCDate();
+    const DAY_MS = 24 * 3600 * 1000;
+    if (!stats.plan || !stats.planFetchedAt || Date.now() - stats.planFetchedAt > DAY_MS) {
+      try {
+        const r2 = await fetch("https://ollama.com/api/me", { method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: "{}" });
+        if (r2.ok) {
+          const me: any = await r2.json();
+          stats.plan = String(me?.Plan || "").toLowerCase();
+          stats.planFetchedAt = Date.now();
+          if (!stats.monthlyDay && me?.CreatedAt) {
+            const d = new Date(me.CreatedAt);
+            if (!isNaN(d.getTime())) stats.monthlyDay = d.getUTCDate();
+          }
+        }
+      } catch {}
     }
-    stats.lastMonthly = nowM;
-    writeOllamaStats(stats);
+    const plan = stats.plan || "";
+    let baseUsd: number | undefined;
+    if (plan) { try { baseUsd = (await getOllamaPlanCredits())[plan]; } catch {} }
 
     const now = Date.now();
     const resetInSec = stats.monthlyDay ? Math.max(0, Math.round((nextResetAt(stats.monthlyDay, now) - now) / 1000)) : null;
-    const estimated = !stats.monthlyDay;
 
-    const usedUsd = typeof baseUsd === "number" ? Math.round(nowM * baseUsd * 100) / 100 : undefined;
+    // FORMATO VECCHIO (fino a set 2026): limits.monthly.usage = frazione del credito incluso.
+    const legacyM = data?.limits?.monthly?.usage;
+    if (typeof legacyM === "number") {
+      if (typeof stats.lastMonthly === "number" && legacyM < stats.lastMonthly - 1e-9) stats.monthlyDay = new Date().getUTCDate();
+      stats.lastMonthly = legacyM;
+      writeOllamaStats(stats);
+      const usedUsd = typeof baseUsd === "number" ? Math.round(legacyM * baseUsd * 100) / 100 : undefined;
+      return {
+        ok: true,
+        activity: data?.activity ? { cost: data.activity.cost, models: data.activity.models } : undefined,
+        monthly: { usage: legacyM, usedUsd, baseUsd, plan, resetInSec, estimated: !stats.monthlyDay },
+      };
+    }
+
+    // FORMATO NUOVO (ott 2026): bucket giornalieri; somma dal giorno di reset piu' recente.
+    const bucketsIn: any[] = Array.isArray(data?.buckets) ? data.buckets : [];
+    if (!bucketsIn.length && typeof data?.totals?.usage_usd !== "number") {
+      return { ok: false, error: "unexpected_usage_shape" };
+    }
+    let cycleUsd = 0;
+    if (stats.monthlyDay && bucketsIn.length) {
+      const dnow = new Date(now);
+      const day = stats.monthlyDay;
+      const dim = (y: number, m: number) => new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+      let startMs = Date.UTC(dnow.getUTCFullYear(), dnow.getUTCMonth(), Math.min(day, dim(dnow.getUTCFullYear(), dnow.getUTCMonth())));
+      if (startMs > now) {
+        const pv = new Date(Date.UTC(dnow.getUTCFullYear(), dnow.getUTCMonth() - 1, 1));
+        startMs = Date.UTC(pv.getUTCFullYear(), pv.getUTCMonth(), Math.min(day, dim(pv.getUTCFullYear(), pv.getUTCMonth())));
+      }
+      for (const b of bucketsIn) {
+        const t = Date.parse(String(b?.from || ""));
+        if (!isNaN(t) && t >= startMs) cycleUsd += Number(b?.usage_usd) || 0;
+      }
+      cycleUsd = Math.round(cycleUsd * 100) / 100;
+    } else {
+      cycleUsd = Math.round((Number(data?.totals?.usage_usd) || 0) * 100) / 100;
+    }
+    const estimated = !stats.monthlyDay;
+    stats.lastMonthly = cycleUsd; // campo storico allineato (debug)
+    writeOllamaStats(stats);
+
+    const usage = typeof baseUsd === "number" && baseUsd > 0 ? Math.min(1, cycleUsd / baseUsd) : 0;
+    const extra = typeof baseUsd === "number" ? Math.max(0, Math.round((cycleUsd - baseUsd) * 100) / 100) : undefined;
     return {
       ok: true,
-      activity: data?.activity ? { cost: data.activity.cost, models: data.activity.models } : undefined,
-      monthly: { usage: nowM, usedUsd, baseUsd, plan, resetInSec, estimated },
+      activity: extra !== undefined ? { cost: extra.toFixed(2) } : undefined,
+      monthly: { usage, usedUsd: cycleUsd, baseUsd, plan, resetInSec, estimated },
     };
   } catch (e: any) {
     return { ok: false, error: String(e?.message || e) };
   }
 }
+
 
 // ============================================================
 // Ollama install detection + auto-install (macOS)
