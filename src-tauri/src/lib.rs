@@ -194,7 +194,9 @@ fn apply_app_icon(app: &tauri::AppHandle, variant: &str) -> Result<(), String> {
 // === CLI AUTOMATICA (richiesta utente 7 ott): la app porta dentro il binario
 // `quinki` e lo installa da sola in ~/.local/bin (+ PATH in ~/.zshrc la prima
 // volta), così chi installa l'app ha ANCHE la CLI senza fare niente. Ad ogni
-// avvio riallinea il binario se la versione (dimensione) è diversa. ===
+// avvio riallinea il binario se il CONTENUTO (MD5) è diverso — il vecchio check
+// sulla dimensione non bastava: bun compila binari di dimensione IDENTICA anche
+// con codice diverso, quindi la CLI nel PATH era ferma al 6 ott 2026. ===
 fn install_bundled_cli(app: &tauri::AppHandle) {
     #[cfg(target_os = "macos")]
     {
@@ -205,10 +207,14 @@ fn install_bundled_cli(app: &tauri::AppHandle) {
         let dir = std::path::Path::new(&home).join(".local").join("bin");
         let _ = std::fs::create_dir_all(&dir);
         let dst = dir.join("quinki");
-        let need = match (std::fs::metadata(&src), std::fs::metadata(&dst)) {
-            (Ok(a), Ok(b)) => a.len() != b.len(),
-            (Ok(_), Err(_)) => true,
-            _ => false,
+        let need = match (file_md5(&src.to_string_lossy()), file_md5(&dst.to_string_lossy())) {
+            (Some(a), Some(b)) => a != b,
+            (Some(_), None) => true,
+            _ => match (std::fs::metadata(&src), std::fs::metadata(&dst)) {
+                (Ok(a), Ok(b)) => a.len() != b.len(),
+                (Ok(_), Err(_)) => true,
+                _ => false,
+            },
         };
         if need {
             if std::fs::copy(&src, &dst).is_ok() {
