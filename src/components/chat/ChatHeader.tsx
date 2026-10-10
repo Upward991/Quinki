@@ -192,7 +192,7 @@ export function ChatHeader(props: ChatHeaderProps) {
                       }
                       return agents.map(agent => (
                       <div key={agent.id} style={{ padding: '0 8px 8px 8px' }} onContextMenu={e => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, agentId: agent.id }) }}>
-                        <div style={{ padding: mob ? '14px 10px 14px 14px' : '8px 8px 8px 12px', borderRadius: 'var(--radius-md)', minHeight: mob ? '60px' : '40px', cursor: 'pointer', display: 'flex', flexDirection: 'column', justifyContent: agent.id === effOrch ? 'center' : 'flex-start' }}
+                        <div style={{ padding: mob ? '14px 10px 14px 14px' : '8px 8px 8px 12px', borderRadius: 'var(--radius-md)', minHeight: mob ? '60px' : '40px', cursor: 'pointer', display: 'flex', flexDirection: 'column', justifyContent: (agent.id === effOrch || chatHasOneAgent) ? 'center' : 'flex-start' }}
                           onClick={() => { if (multiSelect) { const s = new Set(selectedForRemoval); if (s.has(agent.id)) s.delete(agent.id); else s.add(agent.id); setSelectedForRemoval(s) } }}
                           onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)' }}
                           onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}>

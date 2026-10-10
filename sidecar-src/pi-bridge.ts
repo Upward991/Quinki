@@ -4437,7 +4437,8 @@ Read this file to view it.` }] };
       try {
         const _ids = String(agentIds || '').split(',').map((x) => x.trim()).filter(Boolean);
         const _orch = (s as any).orchestratorId ? String((s as any).orchestratorId) : '';
-        if (_orch && !_ids.includes(_orch)) (s as any).orchestratorId = undefined;
+        // ruolo perso se il designato esce dalla chat O se resta UN SOLO agente (ruolo inutile, spec 10 ott)
+        if (_orch && (!_ids.includes(_orch) || _ids.length <= 1)) (s as any).orchestratorId = undefined;
       } catch {}
       this.#save();
       // === POOL SYNC: la composizione agenti della chat cambia sul worker —

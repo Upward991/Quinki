@@ -5241,6 +5241,8 @@ const readProvidersCfg = (): any => {
       const base = ids.length ? ids : [DEFAULT_CHAT_AGENT];
       if (base.length <= 1) return; // guard: a chat always has at least one agent
       e.agentId = base.filter((x: string) => x !== id).join(",");
+      // RUOLO (10 ott): resto con un solo agente -> il ruolo di orchestrator si toglie
+      if (base.filter((x: string) => x !== id).length <= 1 && e.orchestratorId) delete e.orchestratorId;
       if (e.agentOverrides && e.agentOverrides[id]) delete e.agentOverrides[id];
     });
   };
