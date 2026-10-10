@@ -5011,11 +5011,11 @@ Read this file to view it.` }] };
     this.logDebug("reset-session", { sessionKey: key });
   }
 
-  // Max mtime dei file in <cwd>/.pi/skills/ (per auto-reload skill quando l'Expert li edita).
+  // Max mtime dei file in ~/.quinki/skills (auto-reload skill quando vengono editate).
   // History preservata: il reload fa dispose + SessionManager.open (rilegge il .jsonl).
   #skillsDirMtime(cwd: string): number {
     try {
-      const skillsDir = path.join(cwd, ".pi", "skills");
+      const skillsDir = path.join(this.#agentDir, "skills");
       if (!fs.existsSync(skillsDir)) return 0;
       let max = 0;
       const walk = (d: string) => {
@@ -5052,16 +5052,11 @@ Read this file to view it.` }] };
 
   #resolveSkillPaths(agentConfig: any, cwd: string): string[] {
     if (!agentConfig?.skills?.length) return [];
+    // ISOLAMENTO (10 ott): SOLO ~/.quinki/skills — niente workspace, niente cwd/.pi.
     const paths: string[] = [];
     for (const skillName of agentConfig.skills) {
-      if (agentConfig.workspace) {
-        const wsPath = path.join(agentConfig.workspace, ".pi", "skills", skillName, "SKILL.md");
-        if (fs.existsSync(wsPath)) { paths.push(wsPath); continue; }
-      }
       const agentPath = path.join(this.#agentDir, "skills", skillName, "SKILL.md");
-      if (fs.existsSync(agentPath)) { paths.push(agentPath); continue; }
-      const cwdPath = path.join(cwd, ".pi", "skills", skillName, "SKILL.md");
-      if (fs.existsSync(cwdPath)) { paths.push(cwdPath); continue; }
+      if (fs.existsSync(agentPath)) paths.push(agentPath);
     }
     return paths;
   }
@@ -7127,12 +7122,9 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
   }
 
   #findSkillPath(skillName: string, cwd: string): string | null {
-    // Search in: agentDir/skills, cwd/.pi/skills, cwd/.agents/skills
-    const searchDirs = [
-      path.join(this.#agentDir, "skills"),
-      path.join(cwd, ".pi", "skills"),
-      path.join(cwd, ".agents", "skills"),
-    ];
+    // ISOLAMENTO (10 ott, richiesta utente): SOLO le skill di Quinki (~/.quinki/skills).
+    // Mai cwd/.pi/skills o cwd/.agents/skills (roba di altri tool/CLI).
+    const searchDirs = [path.join(this.#agentDir, "skills")];
     for (const dir of searchDirs) {
       const skillPath = path.join(dir, skillName, "SKILL.md");
       if (fs.existsSync(skillPath)) return skillPath;

@@ -184,13 +184,8 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
         path.join(agentDir, "skills"),
         path.join(homedir(), ".agents", "skills"),
       ];
-    // Also scan each agent's workspace for skills
-    for (const agent of listAgents()) {
-      if (agent.workspace) {
-        searchDirs.push(path.join(agent.workspace, ".pi", "skills"));
-        searchDirs.push(path.join(agent.workspace, ".agents", "skills"));
-      }
-    }
+    // ISOLAMENTO (10 ott, richiesta utente): le chat vedono SOLO ~/.quinki/skills.
+    // Rimosso lo scan dei workspace degli agenti e delle dir condivise esterne.
     for (const searchDir of searchDirs) {
       if (!fs.existsSync(searchDir)) continue;
       try {
