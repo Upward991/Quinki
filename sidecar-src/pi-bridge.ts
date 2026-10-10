@@ -706,7 +706,7 @@ class PiBridge {
           thinkingLevel: v.thinkingLevel,
           mode: (v as any).mode,
           agentId: (v as any).agentId,
-          orchestratorId: (v as any).orchestratorId,
+          orchestratorId: String((v as any).agentId || "").split(",").filter(Boolean).length > 1 ? (v as any).orchestratorId : undefined,
           agentOverrides: (v as any).agentOverrides,
           messageAgents: (v as any).messageAgents,
           messageThinking: (v as any).messageThinking,
@@ -788,6 +788,10 @@ class PiBridge {
             if (fs.existsSync(bp)) backup = JSON.parse(fs.readFileSync(bp, "utf8"));
           } catch {}
           for (const [f, m] of FIELD_MAP) {
+            // orchestratorId: MAI recovery — una PULIZIA intenzionale (ruolo tolto dal motore)
+            // non deve RISORGERE dal disco/meta/backup (bug scoperto 10 ott: la CLI legge il file
+            // e vedeva ancora il ruolo mentre l'app, che legge la memoria, lo mostrava tolto).
+            if (f === "orchestratorId") continue;
             if ((d as any)[f] === undefined || (d as any)[f] === null) {
               if (diskE && (diskE as any)[f] !== undefined && (diskE as any)[f] !== null) (d as any)[f] = (diskE as any)[f];
               else if (meta && (meta as any)[m] !== undefined && (meta as any)[m] !== null) (d as any)[f] = (meta as any)[m];
@@ -931,7 +935,6 @@ class PiBridge {
                 }
               } catch {}
               rec("workingDir", "workingDir");
-              rec("orchestratorId", "orchestratorId");
               rec("agentOverrides", "agentOverrides");
               rec("model", "model");
               rec("thinkingLevel", "thinkingLevel");
@@ -959,6 +962,12 @@ class PiBridge {
               if (prefs.thinkingLevel) e.thinkingLevel = prefs.thinkingLevel;
             }
           }
+        } catch {}
+        // RUOLO (10 ott): con UN SOLO agente il ruolo non ha senso -> auto-heal al boot
+        // (la CLI legge il FILE: senza questo, un ruolo stale resterebbe visibile li').
+        try {
+          const _eh = this.#entries.get(s.key) as any;
+          if (_eh && String(_eh.agentId || "").split(",").filter(Boolean).length <= 1) _eh.orchestratorId = undefined;
         } catch {}
         }
       }
@@ -1195,7 +1204,7 @@ class PiBridge {
       const c = compactionByKey.get(s.key);
       return {
         key: s.key, label: s.label, agentId: s.agentId || "",
-        orchestratorId: (s as any).orchestratorId || "",
+        orchestratorId: String(s.agentId || "").split(",").filter(Boolean).length > 1 ? ((s as any).orchestratorId || "") : "",
         model: s.model, thinkingLevel: s.thinkingLevel, mode: s.mode,
         lastActivity: s.lastActivity,
         order: orderByKey.get(s.key) ?? (typeof (s as any).order === "number" ? (s as any).order : s.lastActivity),
@@ -2247,7 +2256,7 @@ class PiBridge {
         if (e && Array.isArray((e as any).workdirHistory)) hist = (e as any).workdirHistory;
       }
     } catch {}
-    return { model, thinkingLevel, availableThinkingLevels, mode, agentId: (s as any)?.agentId, orchestratorId: (s as any)?.orchestratorId || null, agentOverrides: (s as any)?.agentOverrides || {}, workingDir: effWd, workdirHistory: hist, label: s?.label, fallbackModels: (s as any)?.fallbackModels || [] };
+    return { model, thinkingLevel, availableThinkingLevels, mode, agentId: (s as any)?.agentId, orchestratorId: (String((s as any)?.agentId || "").split(",").filter(Boolean).length > 1 ? ((s as any)?.orchestratorId || null) : null), agentOverrides: (s as any)?.agentOverrides || {}, workingDir: effWd, workdirHistory: hist, label: s?.label, fallbackModels: (s as any)?.fallbackModels || [] };
   }
 
   setSessionFallbacks(key: string, models: string[]): { ok: boolean } {
