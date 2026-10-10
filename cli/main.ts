@@ -113,7 +113,38 @@ if (process.stdout.isTTY && !process.env.QUINKI_CLI_NO_BG) {
   });
 }
 
-// --- 7. Route: interactive -> OUR TUI; everything else -> SDK modes ----------
+// --- 7. Update path: `quinki update` / `quinki update --check` / `--version` --
+const { cliVersion, fetchLatestCli, isNewer, selfUpdate, askYesNo } = await import("./update");
+{
+  const first = String(argv[0] || "");
+  if (["version", "--version", "-v"].includes(first)) {
+    console.log("quinki CLI " + cliVersion());
+    process.exit(0);
+  }
+  if (first === "update") {
+    const checkOnly = argv.includes("--check");
+    const cur = cliVersion();
+    console.log("quinki CLI " + cur);
+    const info = await fetchLatestCli(5000);
+    if (!info) {
+      console.log("Update check failed (no network?). Try again later.");
+      process.exit(1);
+    }
+    if (!isNewer(info.version, cur)) {
+      console.log("Already up to date.");
+      process.exit(0);
+    }
+    console.log("New version available: " + info.version);
+    if (checkOnly) process.exit(0);
+    console.log("Downloading...");
+    const r = await selfUpdate(info.url);
+    if (r.ok) console.log("\u2713 Updated to " + info.version + ". The next launch uses the new version.");
+    else { console.log("Update failed: " + r.error); process.exit(1); }
+    process.exit(0);
+  }
+}
+
+// --- 8. Route: interactive -> OUR TUI; everything else -> SDK modes ----------
 // App Expert mode: `quinki expert` -> the SAME TUI, fixed to the expert session,
 // orange accent, no chat-management commands.
 try {
@@ -123,6 +154,35 @@ try {
   }
 } catch {}
 if ((argv.length === 0 || ["expert", "appexpert", "quinkiexpert"].includes(String(argv[0] || ""))) && process.stdout.isTTY && process.stdin.isTTY) {
+  // Check aggiornamenti A OGNI AVVIO (spec utente 10 ott): mostra la versione della
+  // CLI e, se esiste una release piu' nuova, propone l'update (Y/n). Non blocca piu'
+  // di ~2.5s; senza rete prosegue in silenzio. Skip: QUINKI_NO_UPDATE_CHECK=1.
+  try {
+    const cur = cliVersion();
+    let info: { version: string; url: string } | null = null;
+    if (!process.env.QUINKI_NO_UPDATE_CHECK) info = await fetchLatestCli(2500);
+    const upd = info && isNewer(info.version, cur) ? info : null;
+    process.stdout.write("\x1b[2mQuinki CLI " + cur + (upd ? "  \u00b7  update available: " + upd.version : "") + "\x1b[0m\n");
+    if (upd) {
+      const yes = await askYesNo("Update now? [Y/n] ");
+      if (yes) {
+        process.stdout.write("Downloading...\n");
+        const r = await selfUpdate(upd.url);
+        if (r.ok) {
+          process.stdout.write("\u2713 Updated to " + upd.version + " \u2014 restarting.\n");
+          // Rilancio pulito col nuovo binario (stesso terminale), poi si aspetta il figlio.
+          try {
+            const { spawn } = await import("node:child_process");
+            const child = spawn(process.execPath, process.argv.slice(1), { stdio: "inherit" });
+            child.on("exit", (code: number | null) => process.exit(code ?? 0));
+            await new Promise(() => {});
+          } catch {}
+        } else {
+          process.stdout.write("Update failed: " + r.error + "\n");
+        }
+      }
+    }
+  } catch {}
   const { runTui } = await import("./tui/app");
   await runTui({ cwd: process.cwd(), agentDir: AGENT_DIR, sessionDir: SESSION_DIR });
 } else {

@@ -208,7 +208,22 @@ fn install_bundled_cli(app: &tauri::AppHandle) {
         let _ = std::fs::create_dir_all(&dir);
         let dst = dir.join("quinki");
         let need = match (file_md5(&src.to_string_lossy()), file_md5(&dst.to_string_lossy())) {
-            (Some(a), Some(b)) => a != b,
+            (Some(a), Some(b)) => {
+                if a == b {
+                    false
+                } else {
+                    // ANTI-RETROCESSAMENTO (10 ott): se la copia installata e' stata
+                    // aggiornata DOPO la build del bundle (es. self-update della CLI
+                    // via `quinki update`), NON sovrascriverla con una piu' vecchia.
+                    match (std::fs::metadata(&src), std::fs::metadata(&dst)) {
+                        (Ok(sm), Ok(dm)) => match (sm.modified(), dm.modified()) {
+                            (Ok(st), Ok(dt)) => dt <= st,
+                            _ => true,
+                        },
+                        _ => true,
+                    }
+                }
+            }
             (Some(_), None) => true,
             _ => match (std::fs::metadata(&src), std::fs::metadata(&dst)) {
                 (Ok(a), Ok(b)) => a.len() != b.len(),

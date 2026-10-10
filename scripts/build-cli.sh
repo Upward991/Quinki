@@ -25,7 +25,11 @@ VENDOR="sidecar-src/vendor/@earendil-works/pi-coding-agent/dist/modes/interactiv
 
 mkdir -p cli/dist/theme cli/dist/assets
 
-"$BUN" build --compile --target=bun-darwin-arm64 cli/main.ts --outfile cli/dist/quinki
+# Version: always aligned with the app (src-tauri/tauri.conf.json) — serve PRIMA
+# della compilazione: la iniettiamo nel binario (self-update: `quinki update`).
+VERSION=$(python3 -c "import json;print(json.load(open('src-tauri/tauri.conf.json'))['version'])")
+
+"$BUN" build --compile --target=bun-darwin-arm64 cli/main.ts --define "__QUINKI_CLI_VERSION__=\"$VERSION\"" --outfile cli/dist/quinki
 
 # Privacy: neutralizza gli username di build incorporati da bun (__dirname inline).
 python3 scripts/strip-personal-paths.py cli/dist/quinki 2>/dev/null || true
@@ -38,7 +42,7 @@ cp "$VENDOR"/assets/* cli/dist/assets/ 2>/dev/null || true
 # Quinki theme becomes the DEFAULT dark theme (same hex values as the app)
 cp cli/theme/quinki-dark.json cli/dist/theme/dark.json
 
-# Version: always aligned with the app (src-tauri/tauri.conf.json)
+# Version (gia' letta sopra; ripetuta per chiarezza del file di branding)
 VERSION=$(python3 -c "import json;print(json.load(open('src-tauri/tauri.conf.json'))['version'])")
 
 cat > cli/dist/package.json <<EOF
