@@ -38,6 +38,11 @@ and the Obsidian plugin `obsidian-agent-client` (~2.4k stars, actively developed
 - Sessions map to `~/.quinki` sessions — shared with the app and the CLI (same agents, same
   skills, same history everywhere).
 - Slash commands and skills surface from the Quinki config; startup info branded "Quinki".
+- **Agent selection**: `quinki acp --agent <id>` binds a session to one Quinki agent (one custom
+  entry per agent in the client, e.g. "Quinki Notion"); inside a session, a `/agent <name>` slash
+  command switches the responding agent without restarting. Evaluating exposing Quinki agents as ACP
+  *modes* so clients that show a mode switcher (e.g. Obsidian Agent Client, Zed) can switch agent
+  from the toolbar.
 
 ## Scope
 - **MVP (~1 day)**: initialize; session/new; session/prompt + streaming; tool call updates;
