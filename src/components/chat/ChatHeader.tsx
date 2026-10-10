@@ -86,6 +86,9 @@ export function ChatHeader(props: ChatHeaderProps) {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [multiSelect, setMultiSelect] = useState(false)
   const [selectedForRemoval, setSelectedForRemoval] = useState<Set<string>>(new Set())
+  // Orchestrator come RUOLO (10 ott): il designato di questa chat, o il legacy 'orchestrator' in lista.
+  const effOrch = (props as any).orchestratorId || (props.selectedAgentIds.includes('orchestrator') ? 'orchestrator' : null)
+  const chatHasOneAgent = props.selectedAgentIds.length <= 1
   const agentListRef = useRef<HTMLDivElement>(null)
   const [modelPickerFor, setModelPickerFor] = useState<string | null>(null)
   const [thinkingPickerFor, setThinkingPickerFor] = useState<string | null>(null)
@@ -161,11 +164,6 @@ export function ChatHeader(props: ChatHeaderProps) {
                       onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-text-secondary)' }}>
                       <Bot size={20} style={{ display: 'flex', flexShrink: 0 }} /> <span style={{ lineHeight: '1' }}>Add agent</span>
                     </button>
-                    <button onClick={() => { if (!props.selectedAgentIds.includes('orchestrator')) props.onAgentToggle('orchestrator') }} style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: props.selectedAgentIds.includes('orchestrator') ? 'var(--q-text-tertiary)' : 'var(--q-text-secondary)', opacity: props.selectedAgentIds.includes('orchestrator') ? 0.4 : 1, transition: 'none' }}
-                      onMouseEnter={e => { if (!props.selectedAgentIds.includes('orchestrator')) { e.currentTarget.style.backgroundColor = 'var(--q-hover)'; e.currentTarget.style.color = 'var(--q-text)' } }}
-                      onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = props.selectedAgentIds.includes('orchestrator') ? 'var(--q-text-tertiary)' : 'var(--q-text-secondary)' }}>
-                      <Network size={20} />
-                    </button>
                   </div>
                   {/* Search field */}
                   <div style={{ padding: '4px 8px' }}>
@@ -182,7 +180,7 @@ export function ChatHeader(props: ChatHeaderProps) {
                     {(() => {
                       const agents = (props.agents || [])
                         .filter(a => props.selectedAgentIds.includes(a.id) && (!agentQuery || a.name.toLowerCase().includes(agentQuery.toLowerCase())))
-                        .sort((a, b) => a.id === 'orchestrator' ? -1 : b.id === 'orchestrator' ? 1 : 0)
+                        .sort((a, b) => a.id === effOrch ? -1 : b.id === effOrch ? 1 : 0)
                       if (agents.length === 0) {
                         return (
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, minHeight: '200px', padding: '24px 8px', textAlign: 'center' }}>
@@ -194,17 +192,19 @@ export function ChatHeader(props: ChatHeaderProps) {
                       }
                       return agents.map(agent => (
                       <div key={agent.id} style={{ padding: '0 8px 8px 8px' }} onContextMenu={e => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, agentId: agent.id }) }}>
-                        <div style={{ padding: mob ? '14px 10px 14px 14px' : '8px 8px 8px 12px', borderRadius: 'var(--radius-md)', minHeight: mob ? '60px' : '40px', cursor: 'pointer', display: 'flex', flexDirection: 'column', justifyContent: agent.id === 'orchestrator' ? 'center' : 'flex-start' }}
+                        <div style={{ padding: mob ? '14px 10px 14px 14px' : '8px 8px 8px 12px', borderRadius: 'var(--radius-md)', minHeight: mob ? '60px' : '40px', cursor: 'pointer', display: 'flex', flexDirection: 'column', justifyContent: agent.id === effOrch ? 'center' : 'flex-start' }}
                           onClick={() => { if (multiSelect) { const s = new Set(selectedForRemoval); if (s.has(agent.id)) s.delete(agent.id); else s.add(agent.id); setSelectedForRemoval(s) } }}
                           onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)' }}
                           onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}>
                           {/* Agent name */}
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Bot size={mob ? 20 : 16} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', display: 'flex', flexShrink: 0 }} />
+                            {agent.id === effOrch
+                              ? <Network size={mob ? 20 : 16} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', display: 'flex', flexShrink: 0 }} />
+                              : <Bot size={mob ? 20 : 16} style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-secondary)' : 'var(--q-text-tertiary)', display: 'flex', flexShrink: 0 }} />}
                             <span onClick={(e) => { if (!(multiSelect && selectedForRemoval.has(agent.id))) { e.stopPropagation(); setConfigModalAgent(agent.id) } }} data-mob-big="1" style={{ color: multiSelect && selectedForRemoval.has(agent.id) ? 'var(--q-accent-danger)' : 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', flex: 1, lineHeight: '16px', cursor: multiSelect && selectedForRemoval.has(agent.id) ? 'default' : 'pointer' }}>{agent.name}</span>
                           </div>
-                          {/* Model + Thinking (not for orchestrator) */}
-                          {agent.id !== 'orchestrator' && (
+                          {/* Model + Thinking (ruolo orchestrator o chat a 1 agente: si usano quelli della chat) */}
+                          {agent.id !== effOrch && !chatHasOneAgent && (
                             <>
                               <div style={{ height: mob ? '12px' : '6px' }} />
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: mob ? '30px' : '24px', cursor: multiSelect && selectedForRemoval.has(agent.id) ? 'default' : 'pointer' }}
@@ -466,7 +466,10 @@ export function ChatHeader(props: ChatHeaderProps) {
         <>
           <div style={ctxOverlayStyle} onClick={() => { setCtxMenu(null) }} onContextMenu={e => { e.preventDefault(); setCtxMenu(null) }} />
           <div style={{ position: 'fixed', left: Math.min(ctxMenu.x, window.innerWidth - 180), top: Math.min(ctxMenu.y, window.innerHeight - 240), zIndex: 210, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '4px 0', minWidth: '160px' }}>
-            {!multiSelect && (
+            {!multiSelect && props.selectedAgentIds.length > 1 && ctxMenu.agentId !== effOrch && (props as any).onSetOrchestrator && (
+              <button onClick={() => { (props as any).onSetOrchestrator(ctxMenu.agentId); setCtxMenu(null) }} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}>Use as orchestrator</button>
+            )}
+            {!multiSelect && props.selectedAgentIds.length > 1 && (
               <button onClick={() => { setMultiSelect(true); setSelectedForRemoval(new Set([ctxMenu.agentId])); setCtxMenu(null) }} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}>Select</button>
             )}
             {!multiSelect && (

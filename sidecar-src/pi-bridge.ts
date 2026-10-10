@@ -706,6 +706,7 @@ class PiBridge {
           thinkingLevel: v.thinkingLevel,
           mode: (v as any).mode,
           agentId: (v as any).agentId,
+          orchestratorId: (v as any).orchestratorId,
           agentOverrides: (v as any).agentOverrides,
           messageAgents: (v as any).messageAgents,
           messageThinking: (v as any).messageThinking,
@@ -719,6 +720,7 @@ class PiBridge {
         // per-agente (model/thinking), mode, message settings → si ripristinano SEMPRE al boot.
         this.#writeChatMeta(k, {
           agentIds: (v as any).agentId || undefined,
+          orchestratorId: (v as any).orchestratorId || undefined,
           workingDir: (v as any).workingDir || undefined,
           agentOverrides: (v as any).agentOverrides,
           model: v.model,
@@ -760,7 +762,7 @@ class PiBridge {
           for (const d of Array.isArray(disk) ? disk : []) if (d && d.key) diskMap.set(d.key, d);
         }
         const FIELD_MAP: [string, string][] = [
-          ["agentId", "agentIds"], ["workingDir", "workingDir"], ["model", "model"], ["thinkingLevel", "thinkingLevel"],
+          ["agentId", "agentIds"], ["orchestratorId", "orchestratorId"], ["workingDir", "workingDir"], ["model", "model"], ["thinkingLevel", "thinkingLevel"],
           ["mode", "mode"], ["agentOverrides", "agentOverrides"], ["messageAgents", "messageAgents"], ["messageThinking", "messageThinking"],
           ["messageSkills", "messageSkills"], ["messageTaskClips", "messageTaskClips"], ["messageAttachments", "messageAttachments"], ["compactionAuto", "compactionAuto"], ["compactionThreshold", "compactionThreshold"], ["folderId", "folderId"],
           ["pinned", "pinned"], ["pinnedOrder", "pinnedOrder"],
@@ -868,6 +870,7 @@ class PiBridge {
             thinkingLevel: s.thinkingLevel,
             mode: s.mode,
             agentId: s.agentId,
+            orchestratorId: (s as any).orchestratorId,
             agentOverrides: s.agentOverrides,
             messageAgents: s.messageAgents,
             messageThinking: s.messageThinking,
@@ -910,6 +913,9 @@ class PiBridge {
                     if (typeof intent?.agentIds === 'string' && intent.agentIds.trim()) {
                       (e as any).agentId = intent.agentIds;
                     }
+                    if (intent && typeof intent.orchestratorId === 'string') {
+                      (e as any).orchestratorId = intent.orchestratorId.trim() || undefined;
+                    }
                   } catch {}
                 } else {
                   const curSet = new Set(String((e as any).agentId || '').split(',').filter(Boolean));
@@ -925,6 +931,7 @@ class PiBridge {
                 }
               } catch {}
               rec("workingDir", "workingDir");
+              rec("orchestratorId", "orchestratorId");
               rec("agentOverrides", "agentOverrides");
               rec("model", "model");
               rec("thinkingLevel", "thinkingLevel");
@@ -1188,6 +1195,7 @@ class PiBridge {
       const c = compactionByKey.get(s.key);
       return {
         key: s.key, label: s.label, agentId: s.agentId || "",
+        orchestratorId: (s as any).orchestratorId || "",
         model: s.model, thinkingLevel: s.thinkingLevel, mode: s.mode,
         lastActivity: s.lastActivity,
         order: orderByKey.get(s.key) ?? (typeof (s as any).order === "number" ? (s as any).order : s.lastActivity),
@@ -2239,7 +2247,7 @@ class PiBridge {
         if (e && Array.isArray((e as any).workdirHistory)) hist = (e as any).workdirHistory;
       }
     } catch {}
-    return { model, thinkingLevel, availableThinkingLevels, mode, agentId: (s as any)?.agentId, agentOverrides: (s as any)?.agentOverrides || {}, workingDir: effWd, workdirHistory: hist, label: s?.label, fallbackModels: (s as any)?.fallbackModels || [] };
+    return { model, thinkingLevel, availableThinkingLevels, mode, agentId: (s as any)?.agentId, orchestratorId: (s as any)?.orchestratorId || null, agentOverrides: (s as any)?.agentOverrides || {}, workingDir: effWd, workdirHistory: hist, label: s?.label, fallbackModels: (s as any)?.fallbackModels || [] };
   }
 
   setSessionFallbacks(key: string, models: string[]): { ok: boolean } {
@@ -3388,7 +3396,7 @@ class PiBridge {
     }
 
     // === Expert vs normale: loader diverso (#ensureActive usato da compact) ===
-    const customResourceLoader = this.#buildResourceLoader(effectiveCwd, (() => { let a = this.#resolveAgentId(key); if (a && typeof a === 'string' && a.includes(',')) { const ids = a.split(',').map(s => s.trim()).filter(Boolean); a = ids.find(id => id === 'orchestrator') || ids[0] || null; } return a; })());
+    const customResourceLoader = this.#buildResourceLoader(effectiveCwd, this.#resolvePrimaryAgent(key));
     await customResourceLoader.reload();
 
     const result = await this.#sdk.createAgentSession({
@@ -4424,27 +4432,69 @@ Read this file to view it.` }] };
     const s = this.#entries.get(key);
     // Se l'entry non esiste in memoria la salviamo comunque nel meta file (e #load la riporterà)
     if (s) {
-      (s as any).agentId = agentIds || ''; this.#save();
+      (s as any).agentId = agentIds || '';
+      // orchestrator rimosso dalla chat? il ruolo si perde (-> si deve riassegnare, spec 10 ott)
+      try {
+        const _ids = String(agentIds || '').split(',').map((x) => x.trim()).filter(Boolean);
+        const _orch = (s as any).orchestratorId ? String((s as any).orchestratorId) : '';
+        if (_orch && !_ids.includes(_orch)) (s as any).orchestratorId = undefined;
+      } catch {}
+      this.#save();
       // === POOL SYNC: la composizione agenti della chat cambia sul worker —
       // il main deve aggiornare la sua entry (altrimenti refreshSessionsForAgent
       // e la UI lavorano su una lista agenti stantia) ===
       try {
         const send = (globalThis as any).__quinki_sendNotification;
-        if (send) send("session_updated", { sessionKey: key, agentId: agentIds || '', label: s.label });
+        if (send) send("session_updated", { sessionKey: key, agentId: agentIds || '', orchestratorId: (s as any).orchestratorId || '', label: s.label });
       } catch {}
     }
-    this.#writeChatMeta(key, { agentIds: agentIds || '' });
+    this.#writeChatMeta(key, { agentIds: agentIds || '', orchestratorId: ((this.#entries.get(key) as any)?.orchestratorId) || '' });
     // === USER INTENT (anti-loss): agents.json per-sessione, scritto SOLO dal main.
     // Un sidecar stantio (Expert vecchio) non conosce questo file → non può sovrascriverlo. ===
     try {
       const dir = this.#piSessionDir(key);
       fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(path.join(dir, "agents.json"), JSON.stringify({ agentIds: agentIds || '', ts: Date.now() }, null, 2), "utf8");
+      fs.writeFileSync(path.join(dir, "agents.json"), JSON.stringify({ agentIds: agentIds || '', orchestratorId: ((this.#entries.get(key) as any)?.orchestratorId) || '', ts: Date.now() }, null, 2), "utf8");
     } catch {}
     this.logDebug("set-chat-agents", { sessionKey: key, agentIds, saved: true });
     // === EVENT-DRIVEN: la lista agenti della chat è cambiata → i tool cambiano con
     // essa. Refresh SICURO della sessione (se libera ora, a fine turno se gira).
     if (this.#active.has(key)) this.#safeRecreateSession(key, "chat-agents-changed");
+  }
+
+  // === ORCHESTRATOR COME RUOLO (10 ott 2026) ===
+  // Designa (o toglie, con agentId=null) l'orchestrator della chat: il ruolo vive nel
+  // campo sessione `orchestratorId`. L'agente designato va PRIMO nella lista agenti e
+  // perde gli override model/thinking (usa quelli della chat, come da spec utente).
+  setSessionOrchestrator(key: string, agentId: string | null) {
+    const s = this.#entries.get(key);
+    const ids = String((s as any)?.agentId || "").split(",").map((x) => x.trim()).filter(Boolean);
+    const target = agentId && ids.includes(agentId) ? agentId : null;
+    let nextIds = ids;
+    if (target) nextIds = [target, ...ids.filter((id) => id !== target)];
+    const nextAgentId = nextIds.join(",");
+    if (s) {
+      (s as any).orchestratorId = target || undefined;
+      if (target && nextAgentId !== (s as any).agentId) (s as any).agentId = nextAgentId;
+      if (target && (s as any).agentOverrides?.[target]) {
+        delete (s as any).agentOverrides[target];
+        if (Object.keys((s as any).agentOverrides).length === 0) delete (s as any).agentOverrides;
+      }
+      this.#save();
+      try {
+        const send = (globalThis as any).__quinki_sendNotification;
+        if (send) send("session_updated", { sessionKey: key, agentId: (s as any).agentId || "", orchestratorId: target || "", label: s.label });
+      } catch {}
+    }
+    this.#writeChatMeta(key, { agentIds: nextAgentId, orchestratorId: target || "" });
+    try {
+      const dir = this.#piSessionDir(key);
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, "agents.json"), JSON.stringify({ agentIds: nextAgentId, orchestratorId: target || "", ts: Date.now() }, null, 2), "utf8");
+    } catch {}
+    this.logDebug("set-session-orchestrator", { sessionKey: key, orchestratorId: target || null, agentIds: nextAgentId });
+    if (this.#active.has(key)) this.#safeRecreateSession(key, "orchestrator-changed");
+    return { ok: true, orchestratorId: target || null, agentIds: nextAgentId };
   }
 
   // === Per-chat agent overrides (model + thinking per agent, scoped to this session) ===
@@ -5011,12 +5061,7 @@ Read this file to view it.` }] };
   // Chiamato a OGNI invio dopo l'ensure della sessione.
   async #maybeRefreshMcp(sk: string, pi: any): Promise<boolean> {
     try {
-      const raw = this.#resolveAgentId(sk);
-      let agentId: string | null = raw || null;
-      if (agentId && typeof agentId === 'string' && agentId.includes(',')) {
-        const ids = agentId.split(',').map((x) => x.trim()).filter(Boolean);
-        agentId = ids.find((x) => x === 'orchestrator') || ids[0] || null;
-      }
+      const agentId: string | null = this.#resolvePrimaryAgent(sk);
       const cfg = agentId ? this.#readAgentConfigFile(agentId) : null;
       // La firma copre mcpServers E tools: assegnare/rimuovere un tool mid-session
       // triggera il refresh del registry (stesso meccanismo degli MCP).
@@ -5044,7 +5089,7 @@ Read this file to view it.` }] };
         // delegate_to_agent, schedule_task, task tools, screenshot, market ===
         const has = (name: string) => keep.some((t: any) => t?.name === name);
         const wants = (name: string) => Array.isArray(cfg?.tools) && cfg.tools.includes(name);
-        if (wants('delegate_to_agent') && !has('delegate_to_agent')) {
+        if ((wants('delegate_to_agent') || this.#isSessionOrchestrator(sk, agentId)) && !has('delegate_to_agent')) {
           try { const t = this.#buildDelegateTool(sk); if (t) keep.push(t); } catch {}
         }
         if (wants('bash_readonly') && !has('bash_readonly')) {
@@ -5072,6 +5117,8 @@ Read this file to view it.` }] };
           const n = t?.name || "";
           const alwaysKeep = ['skill', 'market'].includes(n);
           if (alwaysKeep) return true;
+          // orchestrator di RUOLO: il delegate resta anche se non e' nel config dell'agente
+          if (n === 'delegate_to_agent' && this.#isSessionOrchestrator(sk, agentId)) return true;
           return cfgToolsNow.includes(n);
         });
         (pi as any)._customTools = [...filtered, ...mcpTools];
@@ -5228,13 +5275,7 @@ Read this file to view it.` }] };
     // Fase C: merge tool globali + agent, filtra per plan mode
     const globalConfig = this.#readGlobalConfig();
     // Generalizzato: carica config di qualsiasi agente
-    const rawAgentId = this.#resolveAgentId(key);
-    // Extract single agent from comma-separated list (same logic as #buildSystemPrompt)
-    let agentId: string | null = rawAgentId;
-    if (agentId && typeof agentId === 'string' && agentId.includes(',')) {
-      const ids = agentId.split(',').map(s => s.trim()).filter(Boolean);
-      agentId = ids.find(id => id === 'orchestrator') || ids[0] || null;
-    }
+    let agentId: string | null = this.#resolvePrimaryAgent(key);
     let agentConfig: any = null;
     if (agentId) {
       agentConfig = this.#readAgentConfigFile(agentId);
@@ -5580,7 +5621,7 @@ Read this file to view it.` }] };
           month: Type.Optional(Type.Number()),
           date: Type.Optional(Type.String()),
         }), { description: "Multiple rules: task fires when ANY rule triggers. Leave 'when' empty if using this." })),
-        agentIds: Type.Optional(Type.Union([Type.String(), Type.Array(Type.String())], { description: "Agent(s) to run the task, default ['orchestrator']" })),
+        agentIds: Type.Optional(Type.Union([Type.String(), Type.Array(Type.String())], { description: "Agent(s) to run the task, default: the agent that schedules it (the chat's Orchestrator)" })),
         workingDir: Type.Optional(Type.String({ description: "Working directory for the task" })),
         mode: Type.Optional(Type.String({ description: "plan or build (default build)" })),
         model: Type.Optional(Type.String({ description: "Model to run this task with. Only if the user specifies one." })),
@@ -5593,13 +5634,11 @@ Read this file to view it.` }] };
           // L'AGENTE CHE LO SCHEDULA (non orchestrator). Solo se l'utente nomina
           // esplicitamente un agente diverso, viene usato quello.
           if (!params.agentIds || (Array.isArray(params.agentIds) && params.agentIds.length === 0)) {
-            const sessionAgentId = (self.#entries.get(sessionKey) as any)?.agentId || '';
-            const callingAgent = String(sessionAgentId).split(',').map((s: string) => s.trim()).filter(Boolean);
-            if (callingAgent.length > 0) {
-              // Se è una sessione multi-agente, usa l'agente ATTIVO (quello che ha chiamato il tool)
-              // Per ora prendiamo il primo agente valido della sessione
-              params.agentIds = [callingAgent[0]];
-              self.logDebug("schedule-task-default-agent", { sessionKey, callingAgent: callingAgent[0] });
+            const callingAgent = self.#resolvePrimaryAgent(sessionKey);
+            if (callingAgent) {
+              // multi-agente: usa l'orchestrator designato (ruolo), stessa risoluzione del turno
+              params.agentIds = [callingAgent];
+              self.logDebug("schedule-task-default-agent", { sessionKey, callingAgent });
             }
           }
           if (!self.#scheduleHandler) {
@@ -5803,6 +5842,43 @@ read, grep, glob, ls, write, edit, bash, skill. Usa \`bash\` per flutter/git/kil
   // Risolve l'agentId per una session: override > entry > key parse
   #resolveAgentId(key: string): string | null {
     return this.#agentOverride.get(key) ?? this.#entries.get(key)?.agentId ?? this.#getAgentIdFromKey(key);
+  }
+
+  // === ORCHESTRATOR COME RUOLO (10 ott 2026) ===
+  // L'agente "primario" della chat: orchestratorId designato (se in lista) -> legacy
+  // 'orchestrator' (sessioni esistenti) -> primo della lista.
+  #resolvePrimaryAgent(key: string): string | null {
+    try {
+      const raw = this.#resolveAgentId(key);
+      if (!raw) return null;
+      const ids = String(raw).split(",").map((x) => x.trim()).filter(Boolean);
+      if (ids.length === 0) return null;
+      const s = this.#entries.get(key) as any;
+      const orch = s?.orchestratorId ? String(s.orchestratorId) : "";
+      if (orch && ids.includes(orch)) return orch;
+      if (ids.includes("orchestrator")) return "orchestrator";
+      return ids[0] || null;
+    } catch { return null; }
+  }
+
+  // True se agentIdOrList E' l'orchestrator della chat (solo per chat con 2+ agenti).
+  #isSessionOrchestrator(key: string | null | undefined, agentIdOrList: string | null | undefined): boolean {
+    try {
+      if (!key || !agentIdOrList) return false;
+      const s = this.#entries.get(key) as any;
+      const ids = String(s?.agentId || "").split(",").map((x: string) => x.trim()).filter(Boolean);
+      if (ids.length < 2) return false;
+      const primary = this.#resolvePrimaryAgent(key);
+      if (!primary) return false;
+      const raw = String(agentIdOrList);
+      if (raw.includes(",")) {
+        const rids = raw.split(",").map((x) => x.trim()).filter(Boolean);
+        const cand = (s?.orchestratorId && rids.includes(String(s.orchestratorId))) ? String(s.orchestratorId)
+          : (rids.includes("orchestrator") ? "orchestrator" : (rids[0] || ""));
+        return cand === primary;
+      }
+      return raw === primary;
+    } catch { return false; }
   }
 
   // === Tool personalizzato: delegate_to_agent per l'Orchestrator ===
@@ -6400,7 +6476,8 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
           if (!sessionAgents) {
             return { content: [{ type: "text", text: "Error: no agent found in the chat." }], isError: true };
           }
-          const agentIds = String(sessionAgents).split(',').filter((id: string) => id && id !== 'orchestrator');
+          const selfId = self.#resolvePrimaryAgent(sessionKey) || 'orchestrator';
+          const agentIds = String(sessionAgents).split(',').filter((id: string) => id && id !== selfId);
           // Trova l'agente per nome (case-insensitive)
           let targetId: string | null = null;
           for (const id of agentIds) {
@@ -6813,11 +6890,11 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       // Build full system prompt (includes agent list for Orchestrator)
       let systemPrompt = this.#readAgentPrompt(agentId, cwd);
       // === Orchestrator: add agent list to system prompt ===
-      if (agentId === 'orchestrator' && sessionKey) {
+      if (sessionKey && this.#isSessionOrchestrator(sessionKey, agentId)) {
         const sessionEntry = this.#entries.get(sessionKey);
         const sessionAgents = (sessionEntry as any)?.agentId;
-        if (sessionAgents && sessionAgents !== 'orchestrator') {
-          const agentIds = String(sessionAgents).split(',').filter((id: string) => id && id !== 'orchestrator');
+        if (sessionAgents && sessionAgents !== agentId) {
+          const agentIds = String(sessionAgents).split(',').filter((id: string) => id && id !== agentId);
           const agentNames: string[] = [];
           for (const id of agentIds) {
             try {
@@ -6873,15 +6950,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
   }
 
   #buildSystemPrompt(key: string, cwd: string, workingDirs?: string[], mode?: string, skillNames?: { agentId: string; skillName: string }[], attachments?: { originalName: string; path: string; uuid: string; size?: number }[], taskClips?: { id: string; label: string; text: string }[]): string {
-    const rawAgentId = this.#resolveAgentId(key);
-    // If agentId is a comma-separated list (e.g. "orchestrator,notion,frontend-designer"),
-    // extract the first valid agent for reading PROMPT.md
-    let agentId: string | null = rawAgentId;
-    if (agentId && agentId.includes(',')) {
-      const ids = agentId.split(',').map(s => s.trim()).filter(Boolean);
-      // Prefer orchestrator if present
-      agentId = ids.find(id => id === 'orchestrator') || ids[0] || null;
-    }
+    let agentId: string | null = this.#resolvePrimaryAgent(key);
     const hasAgent = agentId !== null;
     let prompt = hasAgent ? this.#readAgentPrompt(agentId!, cwd) : "quinki";
     const lead = hasAgent ? "You work" : "You are an assistant who works";
@@ -6919,18 +6988,18 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     if (!lhPhaseNow) {
       const m = mode === "build" ? "build" : "plan";
       // Check if this agent has delegate_to_agent tool (orchestrator or agent with it in config)
-      const hasDelegate = !!(agentId && (agentId === 'orchestrator' || (this.#readAgentConfigFile(agentId)?.tools?.includes('delegate_to_agent'))));
+      const hasDelegate = !!(agentId && (this.#isSessionOrchestrator(key, agentId) || (this.#readAgentConfigFile(agentId)?.tools?.includes('delegate_to_agent'))));
       prompt += this.#modeNote(m, hasDelegate);
     }
     // === Orchestrator: aggiungi lista agenti disponibili nella chat ===
     // Check: agentId could be 'orchestrator' (from setAgent) OR contain it
     // (e.g. 'agent-123,orchestrator' from session entry, before setAgent is processed)
-    if (agentId && (agentId === 'orchestrator' || agentId.includes('orchestrator'))) {
+    if (agentId && this.#isSessionOrchestrator(key, agentId)) {
       const sessionEntry = this.#entries.get(key);
       const sessionAgents = (sessionEntry as any)?.agentId;
             this.logDebug("orchestrator-agents", { sessionKey: key, agentId: agentId, sessionAgents: sessionAgents, agentDir: this.#agentDir });
-      if (sessionAgents && sessionAgents !== 'orchestrator') {
-        const agentIds = String(sessionAgents).split(',').filter((id: string) => id && id !== 'orchestrator');
+      if (sessionAgents && sessionAgents !== agentId) {
+        const agentIds = String(sessionAgents).split(',').filter((id: string) => id && id !== agentId);
         const agentNames: string[] = [];
         for (const id of agentIds) {
           try {
@@ -6960,14 +7029,14 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     }
     // === User-invoked skills: load SKILL.md and add to system prompt ===
     if (skillNames && skillNames.length > 0) {
-      const isOrchestrator = agentId && (agentId === 'orchestrator' || agentId.includes('orchestrator'));
+      const isOrchestrator = this.#isSessionOrchestrator(key, agentId);
       for (const { skillName, agentId: targetAgentId } of skillNames) {
         try {
           const skillPath = this.#findSkillPath(skillName, cwd);
           if (skillPath && fs.existsSync(skillPath)) {
             const content = fs.readFileSync(skillPath, 'utf-8');
             const body = content.replace(/^---\n[\s\S]*?\n---\n?/, '');
-            if (isOrchestrator && targetAgentId === 'orchestrator') {
+            if (isOrchestrator && targetAgentId === agentId) {
               // Orchestrator's OWN skill: follow directly, no delegation
               prompt += `\n\n=== USER ACTIVATED SKILL: ${skillName} ===\n\n${body}\n\n=== END USER ACTIVATED SKILL ===\n\nCRITICAL: The skill instructions above were explicitly activated by the user via /skill command. They are ALREADY in your system prompt — do NOT use the skill tool to verify them. Follow them directly.`;
             } else if (isOrchestrator) {
@@ -7248,16 +7317,13 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       // Il vendor buildSystemPrompt restituisce solo date + cwd + tools list.
       // Passiamo customPrompt truthy per attivare il ramo personalizzato.
       // === Expert vs normale: loader diverso (Expert carica la skill + system prompt Expert) ===
-      const customResourceLoader = this.#buildResourceLoader(effectiveCwd, (() => { let a = this.#resolveAgentId(sk); if (a && a.includes(',')) { const ids = a.split(',').map(s => s.trim()).filter(Boolean); a = ids.find(id => id === 'orchestrator') || ids[0] || null; } return a; })(), sk);
+      const customResourceLoader = this.#buildResourceLoader(effectiveCwd, this.#resolvePrimaryAgent(sk), sk);
       await customResourceLoader.reload();
 
       // === Tool personalizzati: delegate_to_agent per agenti che lo hanno nel config ===
-      const rawResolvedAgentId = (data as any).agentId || this.#resolveAgentId(sk);
-      // Extract single agent from comma-separated list (same logic as #buildSystemPrompt)
-      let resolvedAgentId: string | null = rawResolvedAgentId;
+      let resolvedAgentId: string | null = (data as any).agentId || this.#resolvePrimaryAgent(sk);
       if (resolvedAgentId && typeof resolvedAgentId === 'string' && resolvedAgentId.includes(',')) {
-        const ids = resolvedAgentId.split(',').map(s => s.trim()).filter(Boolean);
-        resolvedAgentId = ids.find(id => id === 'orchestrator') || ids[0] || null;
+        resolvedAgentId = this.#resolvePrimaryAgent(sk);
       }
       if ((data as any).agentId) this.#agentOverride.set(sk, String((data as any).agentId));
       const customTools: any[] = [];
@@ -7272,9 +7338,9 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       if (resolvedAgentId) {
         // Check if the agent has delegate_to_agent in its config tools
         const agentCfg = this.#readAgentConfigFile(resolvedAgentId);
-        const isOrchestrator = resolvedAgentId === 'orchestrator';
+        const isOrchestrator = this.#isSessionOrchestrator(sk, resolvedAgentId);
         const hasDelegateTool = agentCfg?.tools?.includes('delegate_to_agent');
-        if (hasDelegateTool) {
+        if (hasDelegateTool || isOrchestrator) {
           const delegateTool = this.#buildDelegateTool(sk);
           if (delegateTool) customTools.push(delegateTool);
           this.logDebug("delegate-tool-registered", { sessionKey: sk, agentId: resolvedAgentId, isOrchestrator });
@@ -7485,7 +7551,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
         }
       } catch {}
       this.#pendingMode.delete(sk);
-      try { this.#applyMode(pi, sk, intendedMode, data.workingDirs, effectiveCwd, !!(resolvedAgentId && (resolvedAgentId === 'orchestrator' || this.#readAgentConfigFile(resolvedAgentId)?.tools?.includes('delegate_to_agent')))); this.logDebug("mode-applied-send", { sessionKey: sk, mode: intendedMode }); }
+      try { this.#applyMode(pi, sk, intendedMode, data.workingDirs, effectiveCwd, !!(resolvedAgentId && (this.#isSessionOrchestrator(sk, resolvedAgentId) || this.#readAgentConfigFile(resolvedAgentId)?.tools?.includes('delegate_to_agent')))); this.logDebug("mode-applied-send", { sessionKey: sk, mode: intendedMode }); }
       catch (e: any) { this.logDebug("mode-apply-error", { sessionKey: sk, error: e?.message }); }
 
       // === Apply per-agent model/thinking override (for direct @tag — MAIN path) ===
@@ -7493,7 +7559,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       // This covers @tag direct: the agent was set via setAgent() before send(),
       // and the override model/thinking should take precedence over chat defaults.
       const directAgentOverride = (s as any)?.agentOverrides?.[resolvedAgentId];
-      if (directAgentOverride && resolvedAgentId !== 'orchestrator' && !resolvedAgentId.includes('orchestrator')) {
+      if (directAgentOverride && !this.#isSessionOrchestrator(sk, resolvedAgentId)) {
         this.logDebug("send-agent-override-check", { sessionKey: sk, agentId: resolvedAgentId, override: directAgentOverride });
         // Apply model override
         if (directAgentOverride.model) {
@@ -7704,10 +7770,10 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     // This ensures skills are one-shot: present only for the message they're attached to
     try {
       const skillNames = (data.skillNames && data.skillNames.length > 0) ? data.skillNames : undefined;
-      const resolvedAgent = this.#resolveAgentId(sk);
-      const isOrchestrator = resolvedAgent === 'orchestrator' || (resolvedAgent && resolvedAgent.includes('orchestrator'));
+      const resolvedAgent = this.#resolvePrimaryAgent(sk);
+      const isOrchestrator = this.#isSessionOrchestrator(sk, resolvedAgent);
       const skillsForPrompt = skillNames ? skillNames.filter((s: any) => {
-        if (isOrchestrator) return s.agentId === 'orchestrator';
+        if (isOrchestrator) return s.agentId === resolvedAgent;
         return true;
       }) : undefined;
       const agentCfg = resolvedAgent ? this.#readAgentConfig(resolvedAgent) : null;
@@ -7742,13 +7808,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
 
     // === Unified agent_llm_config log: what the LLM actually receives ===
     {
-      const rawAgent = this.#resolveAgentId(sk);
-      // Extract single agent from comma-separated list (same logic as #buildSystemPrompt)
-      let resolvedAgent: string | null = rawAgent;
-      if (resolvedAgent && resolvedAgent.includes(',')) {
-        const ids = resolvedAgent.split(',').map(s => s.trim()).filter(Boolean);
-        resolvedAgent = ids.find(id => id === 'orchestrator') || ids[0] || null;
-      }
+      let resolvedAgent: string | null = this.#resolvePrimaryAgent(sk);
       const agentCfg = resolvedAgent ? this.#readAgentConfig(resolvedAgent) : null;
       const agentName = agentCfg?.name || resolvedAgent || "unknown";
       const sEntry = this.#entries.get(sk);
@@ -8546,8 +8606,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
             });
             // THE agent that replied: orchestrator when present, else the first of the
             // chat (the app's own rule) — NEVER the whole joined list.
-            const _doneIds = String(this.#resolveAgentId(key) || '').split(',').map((x: string) => x.trim()).filter(Boolean);
-            const doneAgentId = _doneIds.find((x: string) => x === 'orchestrator') || _doneIds[0] || 'orchestrator';
+            const doneAgentId = this.#resolvePrimaryAgent(key) || 'orchestrator';
             let doneAgentName = '';
             if (doneAgentId && doneAgentId !== 'orchestrator') {
               try { const doneCfg = this.#readAgentConfig(doneAgentId); doneAgentName = doneCfg?.name || doneAgentId; } catch {}

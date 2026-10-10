@@ -116,6 +116,7 @@ function mapSession(s: any) {
     compactionAuto: s.compactionAuto ?? true,
     compactionThreshold: s.compactionThreshold ?? 80,
     agentId: s.agentId,
+    orchestratorId: s.orchestratorId || null,
     workerPort: s.workerPort || 0,
   }
 }
@@ -772,6 +773,9 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
         setSessions(prev => prev.map(s => s.id === p.sessionKey ? {
           ...s, title: p.label || s.title, model: p.model ?? s.model,
           thinkingLevel: p.thinkingLevel ?? s.thinkingLevel, mode: p.mode ?? s.mode,
+          agentId: typeof p.agentId === 'string' ? p.agentId : (s as any).agentId,
+          agents: typeof p.agentId === 'string' && p.agentId ? p.agentId.split(',').filter(Boolean) : s.agents,
+          orchestratorId: typeof p.orchestratorId === 'string' ? (p.orchestratorId || null) : (s as any).orchestratorId,
           fallbackModels: Array.isArray(p.fallbackModels) ? p.fallbackModels : (s as any).fallbackModels,
         } : s))
       } else {
@@ -1153,6 +1157,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
         if (meta) {
           setSessions(prev => prev.map(s => s.id === sessionKey ? {
             ...s, model: meta.model ?? s.model, thinkingLevel: meta.thinkingLevel ?? s.thinkingLevel, mode: meta.mode ?? s.mode,
+            orchestratorId: meta.orchestratorId ?? (s as any).orchestratorId ?? null,
           } : s))
           if (meta.availableThinkingLevels) setThinkingLevels(meta.availableThinkingLevels)
           // Agenti in chat + override per-agente (model/thinking)
@@ -1583,6 +1588,23 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     setMessages(prev => [...prev, userMsg])
     try { await call('steer', { sessionKey: sk, text: text.trim(), attachments: opts?.attachments, taskClips: opts?.taskClips }) } catch (e) { console.error('steer:', e) }
   }, [call, activeSessionId])
+
+  const setSessionOrchestrator = useCallback(async (sessionKey: string, agentId: string | null) => {
+    const sk = String(sessionKey || '')
+    if (!sk) return
+    // Ottimistico: ruolo + posizione (primo in lista) subito visibili
+    setSessions(prev => prev.map(s => s.id === sk ? {
+      ...s,
+      orchestratorId: agentId || null,
+      agents: agentId ? [agentId, ...(s.agents || []).filter((x: string) => x !== agentId)] : s.agents,
+    } : s))
+    try { await call('setSessionOrchestrator', { sessionKey: sk, agentId: agentId || null }) } catch (e) { console.error('setSessionOrchestrator:', e) }
+    try {
+      const meta = await call('getSessionMeta', { sessionKey: sk })
+      if (meta?.agentId) setChatAgentIds(String(meta.agentId).split(',').filter(Boolean))
+      if (meta) setSessions(prev => prev.map(s => s.id === sk ? { ...s, orchestratorId: meta.orchestratorId ?? null } : s))
+    } catch {}
+  }, [call])
 
   const setChatAgents = useCallback(async (sessionKeyOrIds: string | string[], agentIds?: string[]) => {
     let sk: string, ids: string[]
@@ -2040,7 +2062,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     selectSession, loadOlderMessages, jumpToMessage, sendMessage, injectErrorMessages, steerMessage, stopStreaming, createSession, deleteSession, renameSession, deselectSession, refreshSessions,
     resetSession, reloadSession, moveSession, compactSession, ensureSession,
     // Session settings
-    setChatAgents, setModel, setThinkingLevel, setMode, setSessionCompaction, setWorkingDir,
+    setChatAgents, setSessionOrchestrator, setModel, setThinkingLevel, setMode, setSessionCompaction, setWorkingDir,
     // Folders
     updateFolders,
     // Agent management

@@ -530,6 +530,16 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     piBridge!.logDebug("chat-agents-changed", { sessionKey: p.sessionKey, agentIds: p.agentIds ?? '' });
     return { sessionKey: p.sessionKey, agentIds: p.agentIds ?? '' };
   },
+  // === ORCHESTRATOR COME RUOLO (10 ott): designa/togli l'orchestrator della chat ===
+  setSessionOrchestrator: async (p) => {
+    const key = String(p?.sessionKey || '');
+    if (!key) return { ok: false, error: 'sessionKey is required.' };
+    try {
+      return piBridge!.setSessionOrchestrator(key, p?.agentId ? String(p.agentId) : null);
+    } catch (e) {
+      return { ok: false, error: String((e && e.message) || e) };
+    }
+  },
   setAgentOverride: async (p) => {
     piBridge!.logDebug('set-agent-override-rpc', { sessionKey: p.sessionKey, agentId: p.agentId, model: p.model, thinking: p.thinkingLevel });
     // undefined = skip (field not provided), null = clear, string = set

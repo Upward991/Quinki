@@ -1647,6 +1647,22 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       return {};
     }
   };
+  // Orchestrator come RUOLO (10 ott): il designato per questa chat (o legacy 'orchestrator' in lista).
+  const sessionOrchestratorId = (): string => {
+    try {
+      const e = readSessionsList().find((s: any) => s?.key === currentKey);
+      return String(e?.orchestratorId || "");
+    } catch {
+      return "";
+    }
+  };
+  const effectiveOrchestratorId = (ids?: string[]): string => {
+    const list = ids || sessionAgentIds();
+    const orch = sessionOrchestratorId();
+    if (orch && list.includes(orch)) return orch;
+    if (list.includes("orchestrator")) return "orchestrator";
+    return "";
+  };
   const agentConfigOf = (id: string): any => {
     try {
       return JSON.parse(fs.readFileSync(path.join(opts.agentDir, "agents", id, "config.json"), "utf8")) || {};
@@ -1658,7 +1674,8 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   // else the first of the chat. NEVER the whole joined list.
   const oneAgentId = (v: any): string => {
     const ids = String(v || "").split(",").map((x) => x.trim()).filter(Boolean);
-    return ids.find((x) => x === "orchestrator") || ids[0] || "quinki";
+    const eff = effectiveOrchestratorId(ids);
+    return eff || ids[0] || "quinki";
   };
   const agentDisplayName = (id: string): string =>
     String(agentConfigOf(id)?.name || (id === "orchestrator" ? "Orchestrator" : id));
@@ -5059,18 +5076,14 @@ const readProvidersCfg = (): any => {
     } catch {}
     const out: any[] = [];
     if (canAddAny) out.push({ value: "#add", label: "Add agent", description: "Add an agent to this chat" });
-    if (!ids.includes("orchestrator")) {
-      out.push({
-        value: "#orch",
-        label: "Add orchestrator",
-        description: "A single agent that orchestrates the others",
-      });
-    }
     out.push({ value: "__sep_in_session", label: "Agents in this session", separator: true });
     for (const id of ids) {
       const ov = ovs[id] || {};
       const bits: string[] = [];
-      if (id !== "orchestrator") {
+      const effOrchMenu = effectiveOrchestratorId(ids);
+      if (id === effOrchMenu) {
+        bits.push("orchestrator");
+      } else if (ids.length > 1) {
         bits.push(ov.model ? String(ov.model) : "Chat default");
         bits.push(
           ov.thinkingLevel
@@ -5109,7 +5122,11 @@ const readProvidersCfg = (): any => {
     const ov = sessionAgentOverrides()[agentId] || {};
     if (stack.length === 2) {
       const out: any[] = [];
-      if (agentId !== "orchestrator") {
+      const effOrchHere = effectiveOrchestratorId(ids);
+      if (ids.length > 1 && agentId !== effOrchHere) {
+        out.push({ value: "usorch", label: "Use as orchestrator", description: "Coordinates the chat" });
+      }
+      if (agentId !== effOrchHere && ids.length > 1) {
         out.push({ value: "model", label: "Model", description: ov.model ? String(ov.model) : "Chat default" });
         out.push({
           value: "thinking",
@@ -5306,6 +5323,18 @@ const readProvidersCfg = (): any => {
     }
     if (stack.length === 2) {
       const agentId = stack[1];
+      if (value === "usorch") {
+        // RUOLO (10 ott): designa l'orchestrator di questa chat (il motore riordina + notifica)
+        if (scOn) {
+          void sc.call("setSessionOrchestrator", { sessionKey: currentKey, agentId }, 20000).then(() => {
+            try { (ui as any).requestImmediateRender?.(); } catch {}
+          }).catch(() => {});
+        }
+        menuStack = ["agentinsession"];
+        menuSel = 0;
+        menuSubFilter = "";
+        return;
+      }
       if (value === "remove") {
         // Executed only with Confirm lit (mandatory pass — no double confirm).
         if (sessionAgentIds().length <= 1) {
@@ -5887,8 +5916,8 @@ const readProvidersCfg = (): any => {
         // something is marked. In the agent's own config menu: Confirm ONLY on
         // Remove agent (nav + remove — nothing else).
         if (menuStack[1] === "#add") return menuMarked.size > 0;
-        // T489: Add orchestrator shows Confirm (Enter adds it; the menu stays open).
-        if (String((cur as any)?.value || "") === "#orch") return true;
+        // RUOLO (10 ott): Use as orchestrator shows Confirm (Enter designates it).
+        if (String((cur as any)?.value || "") === "usorch") return true;
         // T490: Remove agent shows Confirm too (the user's rule: you press CONFIRM
         // to remove, not the forward arrow).
         if (String((cur as any)?.value || "") === "remove") return true;
@@ -7148,8 +7177,8 @@ const applySettingsPatch = (patch: any) => {
           // @-tagging is gone). Same error the app shows, as a chat error message.
           try {
             const sendAgents = qSendAgents || sessionAgentIds();
-            if (sendAgents.length > 1 && !sendAgents.includes("orchestrator")) {
-              const errMsg = "This chat has multiple agents.\n\nTo send messages, add the Orchestrator to the chat.";
+            if (sendAgents.length > 1 && !effectiveOrchestratorId(sendAgents)) {
+              const errMsg = "This chat has multiple agents.\n\nChoose an agent as Orchestrator to send messages.";
               // T494: the send path already set streaming + "Sending" — undo both,
               // or the status pill stayed stuck on sending forever.
               try { streaming = false; } catch {}
@@ -7196,7 +7225,7 @@ const applySettingsPatch = (patch: any) => {
                     // THE APP'S EXACT SHAPE: [{ agentId, skillName, agentName }] —
                     // each skill goes to the agent that OWNS it (delegation/tag).
                     skillNames: skillRefs.map((r) => {
-                      const ag0 = r.agentId || String((sessionAgentIds().find((x: string) => x === "orchestrator") || sessionAgentIds()[0]) || "quinki");
+                      const ag0 = r.agentId || oneAgentId(sessionAgentIds().join(","));
                       return { agentId: ag0, skillName: String(r.skillName), agentName: r.agentName || agentDisplayName(ag0) };
                     }),
                   }

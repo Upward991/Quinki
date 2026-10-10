@@ -738,6 +738,8 @@ export function ChatArea(props: ChatAreaProps) {
           agents={props.agents}
           selectedAgentIds={props.selectedAgentIds}
           onAgentToggle={props.onAgentToggle}
+          orchestratorId={props.orchestratorId}
+          onSetOrchestrator={props.onSetOrchestrator}
           contextTokens={props.contextTokens}
           contextWindow={props.contextWindow}
           contextInput={props.contextInput}
