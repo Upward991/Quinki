@@ -727,7 +727,10 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
       // si chiude in modo naturale (mai su stop dell'utente/errore).
       try {
         const _sr = String(p?.stopReason || '');
-        if (_sr !== 'aborted' && _sr !== 'user_stop') {
+        // FIX (11 ott): la timbrata vale SOLO se lo stop e' della sessione che l'utente
+        // sta GUARDANDO (o senza sessionKey = evento legacy della vista). Prima girava
+        // PRIMA del gate e timbrava l'ultimo messaggio di UNA CHAT DIVERSA.
+        if (_sr !== 'aborted' && _sr !== 'user_stop' && (!p?.sessionKey || p.sessionKey === activeSessionIdRef.current)) {
           setMessages(prev => {
             let li = -1
             for (let i = prev.length - 1; i >= 0; i--) { if (prev[i].role === 'assistant') { li = i; break } }
@@ -955,11 +958,20 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
       if (sk && status) {
         if (status === 'start') {
           setCompactingSessions(prev => new Set(prev).add(sk))
-          setStatusLabel('Compacting'); setStatusKind('compacting')
+          // PER-SESSIONE (fix 11 ott): la pill "Compacting" non deve apparire nella chat
+          // che stai guardando se sta compattando un'ALTRA chat. setStreamingState sa
+          // scrivere lo stato nel posto giusto (vista solo se e' la sessione attiva).
+          const cur = sessionStreamingMap.current.get(sk) || { isStreaming: false, statusLabel: '', statusKind: '' }
+          setStreamingState(sk, { isStreaming: cur.isStreaming, statusLabel: 'Compacting', statusKind: 'compacting' })
         } else if (status === 'end' || status === 'error' || status === 'noop') {
           setCompactingSessions(prev => { const n = new Set(prev); n.delete(sk); return n })
-          if (activeSessionIdRef.current === sk) { setStatusLabel(''); setStatusKind(''); setIsCompacting(false) }
-          if (status === 'end' && p.summary) {
+          const cur = sessionStreamingMap.current.get(sk) || { isStreaming: false, statusLabel: '', statusKind: '' }
+          setStreamingState(sk, { isStreaming: cur.isStreaming, statusLabel: '', statusKind: '' })
+          if (activeSessionIdRef.current === sk) { setIsCompacting(false) }
+          // FIX (11 ott): il summary va appeso SOLO alla chat che l'utente sta
+          // GUARDANDO. Prima finiva nella conversazione aperta anche se la compaction
+          // era di un'altra chat (il bug "mi porta nella conversazione che ha compattato").
+          if (status === 'end' && p.summary && activeSessionIdRef.current === sk) {
             setMessages(prev => [...prev, { id: `compact-${Date.now()}`, role: 'assistant', content: p.summary, timestamp: new Date().toISOString(), isCompactionSummary: true }])
           }
         }
