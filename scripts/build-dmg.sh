@@ -37,7 +37,11 @@ echo "[build-dmg] 3/4 Creating DMG (v$VERSION)..."
 mkdir -p "$OUT_DIR"
 rm -f "$OUT"
 STAGE="$(mktemp -d)"
-trap 'rm -rf "$STAGE"' EXIT
+# ANTIFANTASMA (11 ott): il mount/check del DMG registrava una copia in LaunchServices
+# (~375 registrazioni accumulate!) e macOS poteva pescarne l'icona vecchia per notifiche e
+# impostazioni. Qui de-registriamo SEMPRE le copie di staging alla fine.
+LSREG="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+trap '"$LSREG" -u "$STAGE/Quinki.app" >/dev/null 2>&1; "$LSREG" -u "$STAGE/check/Quinki.app" >/dev/null 2>&1; rm -rf "$STAGE"' EXIT
 cp -R "$APP" "$STAGE/Quinki.app"
 ln -s /Applications "$STAGE/Applications"
 hdiutil create -volname "Quinki" -srcfolder "$STAGE" -ov -format UDZO "$OUT" >/dev/null
@@ -45,6 +49,7 @@ hdiutil create -volname "Quinki" -srcfolder "$STAGE" -ov -format UDZO "$OUT" >/d
 echo "[build-dmg] 4/4 Final check — the DMG content must be VALID:"
 hdiutil attach "$OUT" -nobrowse -readonly -mountpoint "$STAGE/check" >/dev/null 2>&1
 codesign -vv --deep "$STAGE/check/Quinki.app" 2>&1 | sed 's/^/[build-dmg]   /'
+"$LSREG" -u "$STAGE/check/Quinki.app" >/dev/null 2>&1 || true   # antifantasma (v. sopra)
 hdiutil detach "$STAGE/check" -force >/dev/null 2>&1
 
 ls -lh "$OUT" | awk -v o="$OUT" '{print "[build-dmg] DONE: " o " (" $5 ")"}'
