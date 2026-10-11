@@ -41,7 +41,7 @@ STAGE="$(mktemp -d)"
 # (~375 registrazioni accumulate!) e macOS poteva pescarne l'icona vecchia per notifiche e
 # impostazioni. Qui de-registriamo SEMPRE le copie di staging alla fine.
 LSREG="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
-trap '"$LSREG" -u "$STAGE/Quinki.app" >/dev/null 2>&1; "$LSREG" -u "$STAGE/check/Quinki.app" >/dev/null 2>&1; rm -rf "$STAGE"' EXIT
+trap '"$LSREG" -u "$STAGE/Quinki.app" >/dev/null 2>&1 || true; "$LSREG" -u "$STAGE/check/Quinki.app" >/dev/null 2>&1 || true; rm -rf "$STAGE"' EXIT
 cp -R "$APP" "$STAGE/Quinki.app"
 ln -s /Applications "$STAGE/Applications"
 hdiutil create -volname "Quinki" -srcfolder "$STAGE" -ov -format UDZO "$OUT" >/dev/null
