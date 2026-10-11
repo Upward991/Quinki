@@ -257,6 +257,32 @@ fn install_bundled_cli(app: &tauri::AppHandle) {
     }
 }
 
+// === AUTO-CURA ICONE (11 ott): se l'icona del bundle CAMBIA (update con rebrand), le cache
+// icone/notifiche di macOS possono restare stantie (notifiche e Impostazioni mostrano
+// l'icona vecchia anche per sempre). Qui, UNA volta per cambio-icona, riavviamo i servizi
+// di UTENTE (nessun sudo): rileggono l'icona fresca. Marker PER-APP (bundle id) cosi' main
+// ed expert non si pestano i piedi. Primo avvio dopo l'update: bust una volta (innocuo).
+fn icon_cache_bust_if_changed(app: &tauri::AppHandle) {
+    #[cfg(target_os = "macos")]
+    {
+        let bundle = match app_bundle_root() { Some(x) => x, None => return };
+        let icon = bundle.join("Contents").join("Resources").join("icon.icns");
+        let hash = match file_md5(&icon.to_string_lossy()) { Some(h) => h, None => return };
+        let id = app.config().identifier.clone();
+        let home = std::env::var("HOME").unwrap_or_default();
+        if home.is_empty() { return; }
+        let marker = std::path::Path::new(&home)
+            .join(".quinki")
+            .join(format!(".last-icon-hash-{}", id));
+        let prev = std::fs::read_to_string(&marker).ok().map(|s| s.trim().to_string());
+        if prev.as_deref() == Some(hash.as_str()) { return; }
+        for svc in ["usernoted", "usernotificationsd", "NotificationCenter", "iconservicesagent"] {
+            let _ = std::process::Command::new("killall").arg(svc).spawn();
+        }
+        let _ = std::fs::write(&marker, &hash);
+    }
+}
+
 #[tauri::command]
 fn set_app_icon(app: tauri::AppHandle, variant: String) -> Result<(), String> {
     apply_app_icon(&app, &variant)
@@ -3922,6 +3948,9 @@ fn quick_chat_watch_shortcut(app: tauri::AppHandle) {
         let v = read_app_icon_choice(role).unwrap_or_else(|| default_variant.to_string());
         let _ = apply_app_icon(app.handle(), &v);
       }
+
+      // === AUTO-CURA CACHE ICONE/NOTIFICHE (solo se l'icona del bundle e' CAMBIATA) ===
+      icon_cache_bust_if_changed(app.handle());
 
       // === CLI: installa/riallinea il comando `quinki` (auto, silenzioso) ===
       install_bundled_cli(app.handle());
