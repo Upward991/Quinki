@@ -2975,9 +2975,13 @@ const readProvidersCfg = (): any => {
         if (lhActive) {
           // LH (regola utente, confermata): in Long Horizon il Tab NON cambia Plan/Build
           // (la modalità è sempre build): il Tab diventa il tasto di CAMBIO FASE.
-          // Stesse regole dei bottoni dell'app: cooldown 3.5s + rifiuto a turno attivo.
+          // REGOLA APP (identica): la PAUSA (fase running → discussion) si preme SEMPRE,
+          // anche col turno in corsa: il motore ABORTA da solo la generazione (è la
+          // pausa a fermare il turno). Il blocco per turno attivo vale SOLO per gli
+          // altri passaggi (ready→discussion, discussion→planning, planning→running),
+          // dove il motore vuole il turno finito per procedere pulito.
           const nowT = Date.now();
-          if (streaming) { lhNotice("wait for the current turn to finish before switching phase"); return { consume: true }; }
+          if (streaming && lhPhase !== "running") { lhNotice("wait for the current turn to finish before switching phase"); return { consume: true }; }
           if (nowT < lhTabCooldownUntil) return { consume: true };
           lhTabCooldownUntil = nowT + 3500;
           lhPhaseAdvance();
@@ -3341,7 +3345,10 @@ const readProvidersCfg = (): any => {
     else if (ph === "planning") { title = "Planning phase"; desc = "Refine the plan with the agent. Nothing will be executed yet."; action = "Start"; }
     else if (ph === "running") { title = "Long Horizon running"; desc = "The agent is working through the plan autonomously."; action = "Pause"; }
     else { title = "Discussion phase"; desc = (lhStatus === "paused" ? "Long Horizon is paused. You are back in the discussion phase: discuss changes, then press Tab to resume the execution." : "Discuss the problem with the agent. Nothing will be executed yet."); action = "Proceed to planning"; }
-    const busy = !!streaming || Date.now() < lhTabCooldownUntil;
+    // Stessa regola dell'app: in EXECUTION la Pausa è sempre disponibile (il motore
+    // aborta il turno): l'etichetta resta ACCESA anche col turno in corsa. Si spegne
+    // solo durante il cooldown anti-spam (o per gli altri passaggi a turno attivo).
+    const busy = (Date.now() < lhTabCooldownUntil) || (!!streaming && (lhPhase || "discussion") !== "running");
     return { title, desc, action, busy };
   };
   const applyLh = (r: any) => {
