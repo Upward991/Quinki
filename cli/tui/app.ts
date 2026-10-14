@@ -2578,19 +2578,38 @@ const readProvidersCfg = (): any => {
     toggles.push(t);
     return t;
   };
-  /** Scroll the viewport so the given toggle is visible (heights estimated). */
-  const scrollToggleIntoView = (idx: number) => {
+  /** Scroll the viewport so the given toggle is visible (heights estimated).
+   *  Riceve l'OGGETTO del toggle (non un indice: la lista "flat" e quella top-level
+   *  divergono coi toggle annidati) e risale al capostipite dentro il content.
+   *  MAI scrollToEnd(): l'ultimo toggle quasi mai sta a fondo pagina — ed era
+   *  proprio il bug ("seleziono l'ultimo toggle e non si vede nulla"). */
+  const scrollToggleIntoView = (tgt?: any) => {
     try {
-      if (idx < 0 || !toggles[idx]) return;
-      if (idx === toggles.length - 1) {
-        scroll.scrollToEnd();
-        return;
-      }
+      if (!tgt) return;
+      const findTop = (t: any): any => {
+        for (const top of toggles) {
+          if (top === t) return top;
+          let hit = false;
+          const walk = (x: any) => {
+            if (hit) return;
+            for (const c of x.children || []) {
+              if (c && c.t === "toggle") {
+                if (c.v === t) { hit = true; return; }
+                walk(c.v);
+              }
+            }
+          };
+          walk(top);
+          if (hit) return top;
+        }
+        return t;
+      };
+      const parent = findTop(tgt);
       const w = lastInsetInner || 80;
       let row = 0;
       let found = -1;
       for (const ch of (content as any).children || []) {
-        if (ch === toggles[idx]) {
+        if (ch === parent) {
           found = row;
           break;
         }
@@ -2626,7 +2645,7 @@ const readProvidersCfg = (): any => {
     if (fl.length > 0) {
       selToggle = fl.length - 1;
       fl.forEach((t, i) => (t.selected = i === selToggle));
-      scrollToggleIntoView(selToggle);
+      scrollToggleIntoView(fl[selToggle]);
     }
     ui.requestRender();
   };
@@ -2634,8 +2653,10 @@ const readProvidersCfg = (): any => {
     try { require("fs").appendFileSync("/tmp/q-nav-trace.log", new Date().toISOString() + " EXIT-NAV reason=" + String(reason || "?") + "\n"); } catch {}
     navMode = false;
     selToggle = -1;
+    // REGOLA UTENTE: al rilascio si toglie SOLO l'evidenziazione. I toggle che
+    // l'utente ha lasciato APERTI restano aperti; NIENTE scroll automatico
+    // (prima si chiudeva tutto e la vista scattava: fastidiosissimo mentre leggi).
     flatToggles().forEach((t) => {
-      t.open = false;
       t.selected = false;
     });
     ui.requestRender();
@@ -2650,14 +2671,14 @@ const readProvidersCfg = (): any => {
     if (selToggle < 0) selToggle = fl.length - 1;
     else selToggle = Math.max(0, Math.min(fl.length - 1, selToggle + dir));
     fl.forEach((t, i) => (t.selected = i === selToggle));
-    scrollToggleIntoView(selToggle);
+    scrollToggleIntoView(fl[selToggle]);
     ui.requestRender();
   };
   const setToggleOpen = (open: boolean) => {
     const fl = flatToggles();
     if (selToggle < 0 || !fl[selToggle]) return;
     fl[selToggle].open = open;
-    scrollToggleIntoView(selToggle);
+    scrollToggleIntoView(fl[selToggle]);
     ui.requestRender();
   };
 
