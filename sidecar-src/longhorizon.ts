@@ -67,8 +67,6 @@ BE SKEPTICAL ABOUT YOUR OWN WORK:
 
 Reply when you have completed the unit.`;
 
-const STUCK_MESSAGE = `We are in the EXECUTION phase. What are you doing? You are going in circles: you repeated the same actions without updating handoff.md. Stop, re-read the current unit, and restart with a different approach. Update handoff.md as soon as you make progress.`;
-
 const DONE_MESSAGE = `The plan is complete. Do a final full verification: check that everything works, update handoff.md with the final summary, and make a final commit 'plan: complete'. Then reply with a summary of the work done.`;
 
 export class LongHorizon {
@@ -761,24 +759,9 @@ export class LongHorizon {
 
     if (st.status !== "running") return;
 
-    // === Rilevamento loop per PATTERN (non per tempo): legge gli ultimi tool call della sessione.
-    // Se lo stesso tool con gli stessi argomenti si ripete 3+ volte, è un loop → interviene. ===
-    try {
-      const tcs = this.#piBridge?.getRecentToolCalls?.(sk, 12) || [];
-      if (tcs.length >= 3) {
-        const last = tcs[tcs.length - 1];
-        const count = tcs.filter((t: any) => t.name === last.name && t.args === last.args).length;
-        if (count >= 3) {
-          this.#log("lh-loop-pattern", { sessionKey: sk, tool: last.name, count });
-          try { this.#piBridge?.abort?.(sk); } catch {}
-          this.#sendToSession(sk, `We are in the EXECUTION phase. I notice you are repeating the same action (${last.name}) with the same arguments. This looks like a loop. Stop, re-read the current unit and the handoff, and take a different approach. Update handoff.md as soon as you make progress.`);
-          st.promptCount = 0;
-          st.lastHandoffSig = this.#handoffSig(sk);
-          this.#writeState(sk);
-          return;
-        }
-      }
-    } catch (e: any) { this.#log("lh-loop-pattern-error", { sessionKey: sk, error: e?.message }); }
+    // (LH v2.3: RIMOSSO il rilevatore anti-loop — regola utente 14 ott: "niente prompt anti loop".
+    // Partiva anche DURANTE i turni attivi e faceva casino; il support agent ora parla SOLO a
+    // turno finito e pulito, e non deve mai giudicare/fermare il lavoro da solo.)
 
     // Se la sessione sta ancora generando (streaming attivo) → aspetta
     try {
@@ -841,15 +824,9 @@ export class LongHorizon {
     }
 
     // Unità corrente pending → manda il prompt
+    // (LH v2.3: rimosso lo STUCK_MESSAGE — mai più prompt "anti-loop": il support agent
+    // manda solo il "continue" e nulla più; mai mentre un turno è attivo/in coda.)
     if (unit.status === "pending") {
-      if (st.promptCount >= 3) {
-        // girando a vuoto → messaggio di stop
-        this.#sendToSession(sk, STUCK_MESSAGE);
-        st.promptCount = 0;
-        st.lastHandoffSig = this.#handoffSig(sk);
-        this.#writeState(sk);
-        return;
-      }
       st.promptCount++;
       st.lastActivity = Date.now();
       this.#writeState(sk);

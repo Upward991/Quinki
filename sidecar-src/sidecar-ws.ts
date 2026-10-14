@@ -21,6 +21,15 @@ process.env.PI_CODING_AGENT_DIR = AGENT_DIR;
 // Capture ALL stdout output
 const stdoutEmitter = new EventEmitter();
 let stdoutBuf = "";
+// LH v2.3: eventi DISCRETI emessi mentre NESSUN client è connesso (worker appena nato,
+// router non ancora collegato; frontend in riconnessione) → coda + consegna al primo
+// client che si connette. I delta di streaming NO: dopo la riconnessione la history
+// li ricopre da sola (e riapplicarli duplicherebbe il testo).
+const pendingLines: { line: string; ts: number }[] = [];
+function isStreamDeltaLine(line: string): boolean {
+  if (line.indexOf('"stream_event"') < 0) return false;
+  try { const o = JSON.parse(line); return o?.method === "stream_event"; } catch { return true; }
+}
 
 const origWrite = process.stdout.write.bind(process.stdout);
 // FIX 2026-09-08: il worker ha BISOGNO di un fallback stdout. Il monkey-patch
@@ -654,10 +663,27 @@ stdoutEmitter.on("line", (line: string) => {
       try { clients.delete(ws); } catch {}
     }
   }
+  // LH v2.3: nessun client → metti in coda gli eventi DISCRETI (bubble user_message,
+  // done, stati, notifiche...). Consegnati al primo client connesso (vedi sotto).
+  // Prima andavano nel file di log e si vedevano solo al reload.
+  if (clients.size === 0 && !isStreamDeltaLine(line)) {
+    pendingLines.push({ line, ts: Date.now() });
+    if (pendingLines.length > 300) pendingLines.shift();
+  }
 });
 
 wss.on("connection", (ws, req: any) => {
   clients.add(ws);
+  // LH v2.3: consegna al PRIMO client connesso gli eventi discreti accumulati mentre
+  // nessuno era collegato (finestra di boot del worker / riconnessioni). Poi la coda si svuota.
+  try {
+    if (pendingLines.length > 0) {
+      for (const e of pendingLines) {
+        if (Date.now() - e.ts < 120000) { try { ws.send(e.line); } catch {} }
+      }
+      pendingLines.length = 0;
+    }
+  } catch {}
   (ws as any).isAlive = true;
   // Locali (desktop, loopback) vs remoti (telefono/tunnel): serve alla regola
   // "se stai guardando la chat sul Mac, il telefono non riceve nulla".
