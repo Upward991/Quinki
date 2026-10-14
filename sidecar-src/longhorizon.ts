@@ -91,7 +91,7 @@ RULES
 - The agent works autonomously during EXECUTION and only continues at the end of a finished turn.`;
 
 // LH v2.5: il prompt che parte quando l'utente preme "Start discussion".
-const DISCUSSION_START_MESSAGE = `We are now in the DISCUSSION phase. Ask the user what problem they want to work on, then study it together with them: read files, search the codebase, do research, and take notes for yourself. Do not start building or implementing anything yet — this phase is only about understanding and discussing the problem.`;
+const DISCUSSION_START_MESSAGE = `We are now in the DISCUSSION phase. Start by asking the user to describe the problem, what the goal is, and any constraints. Then study it together: read files, search the codebase, do research, and take notes. Do not build or implement anything yet: in this phase you only understand and discuss.`;
 
 export class LongHorizon {
   #agentDir: string;
@@ -393,7 +393,9 @@ export class LongHorizon {
       this.#writeProgress(sk);
       this.#log("lh-phase-discussion-start", { sessionKey: sk });
       this.#piBridge?.setLongHorizonPhase(sk, "discussion");
-      this.#sendToSession(sk, DISCUSSION_START_MESSAGE);
+      // Regola utente: SOLO questo prompt di avvio passa col system prompt COMPLETO (come i
+      // messaggi normali): il modello parte con l'intero contesto di fase. Tutti gli altri restano lean.
+      this.#sendToSession(sk, DISCUSSION_START_MESSAGE, { lean: false });
       return { ok: true };
     }
     if (phase === "planning") {
@@ -1048,7 +1050,7 @@ export class LongHorizon {
     return "";
   }
 
-  async #sendToSession(sk: string, text: string) {
+  async #sendToSession(sk: string, text: string, opts?: { lean?: boolean }) {
     try {
       const fakeWs = { readyState: 1, constructor: { OPEN: 1 }, send: () => {} };
       // FIX 084 (03 set): NON await — send() resolve a FINE TURNO (l'LLM risponde
@@ -1057,7 +1059,7 @@ export class LongHorizon {
       // è già avvenuto nello stato, il messaggio è informativo.
       // LH v2: _lhPhase viaggia nel payload (tutti i processi sanno la fase) e _lean
       // (al modello va SOLO il testo del prompt, senza blocchi extra: regola token).
-      this.#piBridge?.send(fakeWs, { sessionKey: sk, text, _preserveWs: true, _lean: true, _lhPhase: this.#states.get(sk)?.phase || "" }).catch(() => {});
+      this.#piBridge?.send(fakeWs, { sessionKey: sk, text, _preserveWs: true, _lean: opts?.lean !== false, _lhPhase: this.#states.get(sk)?.phase || "" }).catch(() => {});
     } catch {}
   }
 }
