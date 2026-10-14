@@ -3318,6 +3318,7 @@ const readProvidersCfg = (): any => {
   let lhSysShownPrev = false;  // visibilità corrente del blocco spiegazione (per il re-render)
   let lhTabCooldownUntil = 0;  // 3.5s anti doppio-press (stessa regola dei bottoni dell'app)
   let lhFilesEverUsed = false; // RPC hasLongHorizonFiles (voce "Long Horizon files" nel menu allegati)
+  let lhPillOwned = false;     // la pill "Running" l'ha messa la LH (non lo streaming normale)
   let lastLhFilesKick = 0;
   // La "riga di cambio fase" (banner sopra la textbox) — testi = quelli dell'app,
   // col TAB al posto del bottone. Sempre visibile mentre la Long Horizon è attiva.
@@ -3360,15 +3361,20 @@ const readProvidersCfg = (): any => {
     const shown = !!(lhActive && lhSystemMessage && lhStartedAt);
     const changed = shown !== lhSysShownPrev;
     lhSysShownPrev = shown;
-    // PILL durante l'ESECUZIONE LH: se la LH sta girando ma in questo istante non c'è
-    // streaming (es. CLI appena riaperta tra due unità, o micro-pausa tra i continue),
-    // la pill "Running" deve comunque esserci. Si pulisce quando la LH non gira più.
+    // PILL durante l'ESECUZIONE LH: se la LH sta girando e in questo istante non c'è
+    // streaming (riapertura tra due unità, micro-pausa tra i continue), mostra
+    // "Running". ATTENZIONE (bug fix 15 ott): pulire SOLO la pill che abbiamo messo
+    // NOI (lhPillOwned) — la pill dello streaming normale ha lo stesso tipo "running"
+    // e prima veniva CANCELLATA da ogni evento LH ("non si vede niente").
     try {
       if (lhActive && lhStatus === "running" && !streaming) {
-        if (!statusLabel) setStatus("Running", "running");
-      } else if (statusKind === "running") {
+        if (!statusLabel) { setStatus("Running", "running"); lhPillOwned = true; }
+      } else if (lhPillOwned && !streaming) {
         setStatus("", "");
+        lhPillOwned = false;
       }
+      // Lo streaming normale ha preso il comando: la proprietà decade.
+      if (streaming) lhPillOwned = false;
     } catch {}
     try { updateBar(); ui.requestRender(); } catch {}
     // La spiegazione appare/sparisce: ridisegna il transcript, MA mai a metà di un
