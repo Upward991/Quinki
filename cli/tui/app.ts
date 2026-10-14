@@ -3360,6 +3360,16 @@ const readProvidersCfg = (): any => {
     const shown = !!(lhActive && lhSystemMessage && lhStartedAt);
     const changed = shown !== lhSysShownPrev;
     lhSysShownPrev = shown;
+    // PILL durante l'ESECUZIONE LH: se la LH sta girando ma in questo istante non c'è
+    // streaming (es. CLI appena riaperta tra due unità, o micro-pausa tra i continue),
+    // la pill "Running" deve comunque esserci. Si pulisce quando la LH non gira più.
+    try {
+      if (lhActive && lhStatus === "running" && !streaming) {
+        if (!statusLabel) setStatus("Running", "running");
+      } else if (statusKind === "running") {
+        setStatus("", "");
+      }
+    } catch {}
     try { updateBar(); ui.requestRender(); } catch {}
     // La spiegazione appare/sparisce: ridisegna il transcript, MA mai a metà di un
     // turno (renderHistory cancellerebbe la parte live non ancora in history).
@@ -3448,7 +3458,7 @@ const readProvidersCfg = (): any => {
     // Status pill (app-style): same row as the info, right-aligned — visible
     // only while the engine streams / compacts (Failed stays until next turn).
     const pillOn =
-      !!statusLabel && (streaming || statusKind === "compacting" || statusKind === "failed" || statusKind === "sending" || statusKind === "syncing");
+      !!statusLabel && (streaming || statusKind === "running" || statusKind === "compacting" || statusKind === "failed" || statusKind === "sending" || statusKind === "syncing");
     if (!pillOn) return bar;
     const statusColor: Record<string, string> = {
       running: C.statusRunning,
