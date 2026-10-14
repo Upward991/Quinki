@@ -1118,6 +1118,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   // === A2.11: Long Horizon ===
   longHorizonActivate: async (p) => longHorizon.activate(String(p.sessionKey || '')),
   longHorizonDeactivate: async (p) => longHorizon.deactivate(String(p.sessionKey || '')),
+  longHorizonDisable: async (p) => longHorizon.disable(String(p.sessionKey || '')),
   longHorizonResume: async (p) => longHorizon.resume(String(p.sessionKey || '')),
   longHorizonSetPlan: async (p) => longHorizon.setPlan(String(p.sessionKey || ''), String(p.plan || '')),
   longHorizonSetGoal: async (p) => longHorizon.setGoal(String(p.sessionKey || ''), String(p.goal || '')),

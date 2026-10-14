@@ -285,27 +285,20 @@ export class LongHorizon {
     return { ok: true };
   }
 
-  // Disattiva (pausa) Long Horizon per la sessione — torna alla DISCUSSION
+  // Pausa (LH v2, decisione utente 14 ott): NON spegne la modalità — torna alla DISCUSSION,
+  // Long Horizon resta ATTIVO (banner in chat con "Proceed to planning"). Da lì si ridiscute,
+  // si aggiorna il piano e si riparte. Lo spegnimento VERO è disable() (RPC longHorizonDisable).
   deactivate(sk: string): { ok: boolean; error?: string } {
     const st = this.#states.get(sk);
     if (!st) return { ok: false, error: "not active" };
-    // LH v2: pausa = uscita → si ripristina la compaction com'era prima (si ri-forza alla riattivazione)
-    this.#restoreCompaction(sk, st);
-    // FIX F6 (02 set): disable = SPENTO VERO. Prima faceva st.active = true (pausa travestita)
-    // → LH non si spegneva mai: stati zombie active:true su disco che resume() poteva
-    // far ripartire DA SOLI al riavvio. Ora active:false: niente tick, niente ripartenze
-    // automatiche — MA TUTTI I FILE RESTANO (goal/piano/handoff/progress in memoria e
-    // su disco) e la riattivazione riprende da dove eri. /pause→Resume (stessa RPC)
-    // continua a funzionare: resume() rimette active:true dallo stato in memoria.
-    st.active = false;
     st.phase = "discussion";
     st.status = "paused";
     st.lastActivity = Date.now();
     this.#writeState(sk);
     this.#writeProgress(sk);
-    this.#log("lh-deactivated", { sessionKey: sk, note: "back to discussion", caller: (new Error()).stack?.split("\n").slice(1, 5).join(" | ") });
+    this.#log("lh-paused", { sessionKey: sk, note: "long horizon resta attivo, fase discussion" });
     this.#piBridge?.setLongHorizonPhase(sk, "discussion");
-    this.#sendToSession(sk, `Long Horizon is paused. We are back in the DISCUSSION phase. Discuss with me what you want to change. Do not execute anything.`);
+    this.#sendToSession(sk, `Long Horizon is paused. We are back in the DISCUSSION phase. Do not execute anything.`);
     return { ok: true };
   }
 
