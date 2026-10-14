@@ -3663,11 +3663,10 @@ class PiBridge {
         // stuck perenne, recovery bloccati per sempre. Ora: nessun lock.
         recoveringMap.add(sk); // tenuto solo per logging/cleanup, NON blocca
         try {
-          // Salta Long Horizon attivo (il support agent ri-prompta da solo)
-          try {
-            const lhState = JSON.parse(fs.readFileSync(path.join(this.#agentDir, "longhorizon", sk, "state.json"), "utf8"));
-            if (lhState.active) { this.logDebug("recovery-skip", { sessionKey: sk, reason: "longhorizon-active" }); continue; }
-          } catch {}
+          // LH v2.1 (regola utente): NIENTE skip per Long Horizon — a turno interrotto (riavvio
+          // app compreso) parte SEMPRE l'autoprompt STANDARD ("The app was interrupted..."),
+          // come in ogni altra chat. Il support agent aspetta (turn-state "interrupted") e
+          // riprende solo quando quel turno di recovery è finito PULITO.
           // Salta se il turno è attivo (streaming in corso) — MA se il buffer è STALE
           // (> 45s senza aggiornamenti), il turno è BLOCCATO → ri-prompta per sbloccarlo.
           // NB: 45s per non doppiare i turni LENTI (contesto enorme di __app_expert__:
@@ -3835,11 +3834,8 @@ class PiBridge {
       if (this.#stoppedSessions.has(sk)) return false;
       if (this.#recoveringTurns.has(sk)) return false; // già in corso (send-catch + agent_end possono scattare insieme)
       this.#recoveringTurns.add(sk);
-      // Long Horizon attivo → il support agent ri-prompta da solo
-      try {
-        const lhState = JSON.parse(fs.readFileSync(path.join(this.#agentDir, "longhorizon", sk, "state.json"), "utf8"));
-        if (lhState.active) return false;
-      } catch {}
+      // LH v2.1: anche qui NIENTE skip per Long Horizon — il turno interrotto lo riprende
+      // l'autoprompt standard, come in ogni altra chat (il support agent aspetta e riprende dopo).
       const p = path.join(this.#piSessionDir(sk), "pending-turn.json");
       let marker: any = null;
       let retries = 0;
@@ -7203,8 +7199,18 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
   }
   getTurnState(key: string): { pending: boolean; clean: boolean; stopReason: string; at: number } {
     const t = this.#turnState.get(key);
-    if (!t) return { pending: false, clean: true, stopReason: '', at: 0 };
-    return { pending: t.pending > 0, clean: t.clean, stopReason: t.stopReason, at: t.at };
+    const pending = t ? t.pending > 0 : false;
+    if (!pending) {
+      // LH v2.1: marker pending-turn presente SENZA un turno attivo = turno INTERROTTO
+      // (riavvio app, crash). NON è "pulito": lo gestisce l'autoprompt STANDARD
+      // ("The app was interrupted..."). Il support agent aspetta quel turno.
+      try {
+        const marker = path.join(this.#piSessionDir(key), "pending-turn.json");
+        if (marker && fs.existsSync(marker)) return { pending: false, clean: false, stopReason: "interrupted", at: t?.at || 0 };
+      } catch {}
+    }
+    if (!t) return { pending: false, clean: true, stopReason: "", at: 0 };
+    return { pending, clean: t.clean, stopReason: t.stopReason, at: t.at };
   }
   // Compaction corrente di una sessione (per il save/restore del Long Horizon, LH v2).
   getSessionCompaction(key: string): { auto?: boolean; threshold?: number } {

@@ -177,6 +177,9 @@ export function ChatArea(props: ChatAreaProps) {
   const [showTaskScrollBtn, setShowTaskScrollBtn] = useState(false)
   const taskPinnedRef = useRef(true)
   const [lhApprovalDismissed, setLhApprovalDismissed] = useState(false)
+  // LH v2.1: blocco IMMEDIATO dei tasti di fase al click (niente finestra di spam nella
+  // latenza tra click e arrivo di streaming/state; l'engine comunque rifiuta a monte).
+  const [lhCooldownUntil, setLhCooldownUntil] = useState(0)
   // Pinned-to-bottom: true finché l'utente è in fondo. Se l'utente sale durante lo
   // streaming, il pin si scioglie e lo scroll automatico si ferma; rientrando in fondo
   // il pin si rinsalda e lo scroll automatico riprende.
@@ -908,8 +911,8 @@ export function ChatArea(props: ChatAreaProps) {
                             <div style={{ color: 'var(--q-text)', fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-interface)' }}>{title}</div>
                             <div style={{ color: 'var(--q-text)', fontSize: 12, lineHeight: 1.4, fontFamily: 'var(--font-interface)', marginTop: 2 }}>{desc}</div>
                           </div>
-                          {onBtn && (() => { const busy = !!props.streaming && (ph === 'discussion' || ph === 'planning'); return (
-                            <button disabled={busy} title={busy ? 'Wait for the current turn to finish (or press Stop)' : undefined} onClick={busy ? undefined : onBtn} onMouseEnter={e => { if (busy) return; e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }} onMouseLeave={e => { if (busy) return; e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }}
+                          {onBtn && (() => { const busy = lhCooldownUntil > 0 || (!!props.streaming && (ph === 'discussion' || ph === 'planning')); return (
+                            <button disabled={busy} title={busy ? 'Wait for the current turn to finish (or press Stop)' : undefined} onClick={busy ? undefined : () => { setLhCooldownUntil(Date.now() + 1); setTimeout(() => setLhCooldownUntil(0), 3500); onBtn() }} onMouseEnter={e => { if (busy) return; e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }} onMouseLeave={e => { if (busy) return; e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }}
                               style={{ padding: '6px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', cursor: busy ? 'not-allowed' : 'pointer', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-interface)', flexShrink: 0, opacity: busy ? 0.45 : 1 }}>{btnLabel}</button>
                           )})()}
                           {ph === 'done' && (
