@@ -1099,9 +1099,17 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
         setMessages(prev => {
           const histIds = new Set(mergedWithSkills.map((m: any) => String(m.id)))
           const lastHistTs = mergedWithSkills.length ? (new Date(mergedWithSkills[mergedWithSkills.length - 1].timestamp || 0).getTime() || 0) : 0
+          // FIX (14 ott — "cronologia strana al cambio chat/riavvio": i tool call impilati):
+          // se la CRONOLOGIA finisce già con un messaggio assistant (la risposta IN CORSO
+          // è già nel file), lo snapshot NON va aggiunto: era una SECONDA COPIA della
+          // stessa risposta (coi soli tool in corso) → tool call duplicati/impilati.
+          // Se invece la coda non è un assistant, lo snapshot resta (unica vista live).
+          const tailIsAssistant = mergedWithSkills.length > 0 && (mergedWithSkills[mergedWithSkills.length - 1] as any).role === 'assistant'
           const liveExtras = prev.filter(m =>
             (String(m.id).startsWith('lh-msg-') && !histIds.has(String(m.id)) && (new Date(m.timestamp || 0).getTime() || 0) > lastHistTs) ||
-            (m.isStreaming && m.role === 'assistant' && !histIds.has(String(m.id))))
+            (!String(m.id).startsWith('snap-') && m.isStreaming && m.role === 'assistant' && !histIds.has(String(m.id))) ||
+            (String(m.id).startsWith('snap-') && !tailIsAssistant && !histIds.has(String(m.id)))
+          )
           return liveExtras.length ? [...mergedWithSkills, ...liveExtras] : mergedWithSkills
         })
         setChatLoading(false)
