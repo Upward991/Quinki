@@ -3383,19 +3383,31 @@ const readProvidersCfg = (): any => {
       ui.requestRender();
     } catch {}
   };
-  const lhCall = (m: string, extra?: any) => {
+  const lhCall = (m: string, extra?: any, opts?: { showError?: boolean }) => {
     try {
-      if (!(scOn || (sc as any).connected) || !currentKey) return;
-      void sc.call(m, { sessionKey: currentKey, ...(extra || {}) }, 20000).then(() => refreshLh()).catch(() => {});
+      if (!(scOn || (sc as any).connected) || !currentKey) {
+        if (opts?.showError) lhNotice("no connection to the sidecar, cannot change phase");
+        return;
+      }
+      void sc.call(m, { sessionKey: currentKey, ...(extra || {}) }, 20000)
+        .then((r: any) => {
+          if (r && r.ok === false) {
+            // Il motore ha RIFIUTATO la transizione (es. "No plan found"): MOSTRALO
+            // come testo normale (regola utente: mai formato toggle), mai in silenzio.
+            lhNotice(String(r.error || "phase change refused"));
+          }
+          refreshLh();
+        })
+        .catch(() => { if (opts?.showError) lhNotice("phase change failed (sidecar timeout)"); });
     } catch {}
   };
   const lhPhaseAdvance = () => {
     // Giro confermato dall'utente: ready→discussion→planning→esecuzione→(pausa)→discussion.
     const ph = lhPhase;
-    if (ph === "ready") lhCall("longHorizonSetPhase", { phase: "discussion" });
-    else if (ph === "discussion") lhCall("longHorizonSetPhase", { phase: "planning" });
-    else if (ph === "planning") lhCall("longHorizonSetPhase", { phase: "running" });
-    else if (ph === "running") lhCall("longHorizonDeactivate");
+    if (ph === "ready") lhCall("longHorizonSetPhase", { phase: "discussion" }, { showError: true });
+    else if (ph === "discussion") lhCall("longHorizonSetPhase", { phase: "planning" }, { showError: true });
+    else if (ph === "planning") lhCall("longHorizonSetPhase", { phase: "running" }, { showError: true });
+    else if (ph === "running") lhCall("longHorizonDeactivate", undefined, { showError: true });
   };
 
   // TUI accent = VIOLET (the app's home/primary accent — deliberately different

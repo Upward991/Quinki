@@ -415,9 +415,10 @@ export class LongHorizon {
       return { ok: true };
     }
     if (phase === "running") {
-      // Start: se non c'è ancora un piano, parsa l'ultimo messaggio assistente (il piano della fase planning)
+      // Start: se non c'è ancora un piano, cerca il PIANO nella storia (non solo
+      // nell'ultimo messaggio: dopo il piano l'utente può aver scritto altro).
       if (st.units.length === 0) {
-        const resp = this.#lastAssistantText(sk);
+        const resp = this.#lastPlanText(sk);
         const units = this.#parseUnits(resp);
         if (units.length > 0) {
           st.goal = st.goal || resp.slice(0, 120);
@@ -1026,6 +1027,30 @@ export class LongHorizon {
       if (m) units.push({ desc: m[2].trim() });
     }
     return units;
+  }
+
+  // Trova il testo del PIANO (regola utente 14 ott): scorre la storia all'INDIETRO e
+  // prende il PRIMO messaggio assistant che contiene unità '- [ ]'. Prima si guardava
+  // SOLO l'ultimo messaggio: se dopo il piano si scriveva altro (es. una domanda al
+  // task scheduler), Start falliva con "No plan found" e NIENTE partiva. Fallback:
+  // l'ultimo assistant, esattamente come prima.
+  #lastPlanText(sk: string): string {
+    try {
+      const hist = this.#piBridge?.getHistory?.(sk);
+      if (Array.isArray(hist)) {
+        for (let i = hist.length - 1; i >= 0; i--) {
+          const m = hist[i];
+          if (m?.role !== "assistant") continue;
+          const c = m.content;
+          let t = "";
+          if (typeof c === "string") t = c;
+          else if (Array.isArray(c)) t = c.filter((b: any) => b?.type === "text" && b.text).map((b: any) => b.text).join(" ");
+          if (!t) continue;
+          if (this.#parseUnits(t).length > 0) return t;
+        }
+      }
+    } catch {}
+    return this.#lastAssistantText(sk);
   }
 
   #lastAssistantText(sk: string): string {
