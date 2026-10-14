@@ -545,7 +545,10 @@ export class Editor {
                     }
                     try { this.qMenuRendering = false; } catch { }
                     acLines.push(acPadRow);
-                    result.unshift(...acLines, "");
+                    // QUINKI PATCH (15 ott, regola utente): NIENTE riga vuota EXTRA tra il
+                    // menu e la text box: lo spazio dev'essere IDENTICO a quello tra il
+                    // banner del cambio fase e la text box (1 riga, non 2).
+                    result.unshift(...acLines);
                 }
             }
             catch { }
