@@ -3458,7 +3458,7 @@ const readProvidersCfg = (): any => {
     // Status pill (app-style): same row as the info, right-aligned — visible
     // only while the engine streams / compacts (Failed stays until next turn).
     const pillOn =
-      !!statusLabel && (streaming || statusKind === "running" || statusKind === "compacting" || statusKind === "failed" || statusKind === "sending" || statusKind === "syncing");
+      !!statusLabel && (streaming || statusKind === "running" || statusKind === "retrying" || statusKind === "compacting" || statusKind === "failed" || statusKind === "sending" || statusKind === "syncing");
     if (!pillOn) return bar;
     const statusColor: Record<string, string> = {
       running: C.statusRunning,
@@ -3973,13 +3973,18 @@ const readProvidersCfg = (): any => {
         const _e0 = (wsSessions || []).find((s2: any) => String(s2?.key || s2?.id) === currentKey);
         if (_e0 && typeof (_e0 as any).compactionAuto === "boolean") wsCompactionAuto = (_e0 as any).compactionAuto;
       } catch {}
+      // RECOVERING alla RIAPERTURA (come l'app): il marker di recovery attivo riporta
+      // la pill "Recovering" (turno interrotto in ripresa).
+      try {
+        if (r && (r as any).recovering) { setStatus("Recovering", "retrying"); updateBar(); ui.requestRender(); }
+      } catch {}
       try { refreshSessions(); } catch {}
       // Pill "Running" alla RIAPERTURA: se la sessione ha un turno in corso nel worker
       // (es. esecuzione Long Horizon), la pill deve riapparire (gli eventi di
       // streaming sono passati quando la CLI era chiusa), e l'invio diventa steer.
       try {
         void sc.call("getRunState", { sessionKey: currentKey }, 8000).then((r: any) => {
-          if (r && (r.streaming || r.pending)) {
+          if (r && (r.streaming || r.pending) && statusKind !== "retrying") {
             streaming = true;
             setStatus("Running", "running");
             updateBar();
@@ -4164,6 +4169,13 @@ const readProvidersCfg = (): any => {
         onSessionEvent({ type: "message_end", message: { role: "assistant", stopReason: p?.stopReason, errorMessage: p?.errorMessage } });
       } else if (method === "streaming_stopped") {
         onSessionEvent({ type: "agent_end" });
+        // RECOVERING (come l'app): lo stop di un turno INTERROTTO (non dello utente)
+        // significa che il recovery sta per riprendere → pill "Recovering".
+        // Prima la CLI azzerava tutto: sembrava che il recovery NON esistesse.
+        try {
+          const isUserStop = p?.stopReason === "aborted" || p?.stopReason === "user_stop";
+          if (!isUserStop) setStatus("Recovering", "retrying");
+        } catch {}
         refreshSkillGroups();
         refreshSessions();
         // Real context numbers from the same source the app uses.
