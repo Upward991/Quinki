@@ -3681,6 +3681,20 @@ class PiBridge {
           // Il recovery scatta SOLO quando il processo è morto/riavviato (al boot il
           // buffer non c'è) e il marker pending-turn è presente → turno DAVVERO
           // interrotto. L'utente può sempre fermare o mandare un messaggio. ===
+          // FIX (14 ott — bug utente: "The app was interrupted" partito 5 secondi dopo
+          // il Tab "Start discussion" nella CLI): se un SEND e' IN CORSO in questo
+          // processo (turn-state pending, messo SINCRONO alla prima riga di send()),
+          // il recovery NON deve MAI giudicare il turno "interrotto": il marker e' gia'
+          // scritto ma lo streaming non e' ancora partito — la creazione della sessione
+          // agente puo' richiedere SECONDI (centinaia di tool MCP/custom da registrare).
+          // Il prossimo scan rivaluta da solo. Stessa guardia per App e CLI.
+          try {
+            const tst0 = this.#turnState.get(sk);
+            if (tst0 && tst0.pending > 0) {
+              this.logDebug("recovery-skip", { sessionKey: sk, reason: "turn-pending-send" });
+              continue;
+            }
+          } catch {}
           if (this.#streamingBuffers.has(sk)) {
             this.logDebug("recovery-skip", { sessionKey: sk, reason: "turn-active" });
             continue;
