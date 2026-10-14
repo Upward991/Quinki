@@ -115,6 +115,7 @@ interface ChatAreaProps {
   longHorizonSystemMessage?: string
   longHorizonStartedAt?: number
   onProceedToPlanning?: () => void
+  onStartDiscussion?: () => void
   onStartExecution?: () => void
   onNewDiscussion?: () => void
   onPauseLongHorizon?: () => void
@@ -871,7 +872,7 @@ export function ChatArea(props: ChatAreaProps) {
                     if (run.status !== 'executed') continue
                     chatItems.push({ kind: 'task', ts: run.endedAt || run.createdAt || 0, run })
                   }
-                  if (props.longHorizonSystemMessage && props.longHorizonStartedAt) {
+                  if (props.longHorizon && props.longHorizonSystemMessage && props.longHorizonStartedAt) {
                     chatItems.push({ kind: 'sys', ts: props.longHorizonStartedAt || Date.now(), sysMsg: props.longHorizonSystemMessage })
                   }
                   chatItems.sort((a, b) => a.ts - b.ts || (a.kind === 'msg' ? 0 : 1))
@@ -898,7 +899,8 @@ export function ChatArea(props: ChatAreaProps) {
                 {props.longHorizon && (() => {
                   const ph = props.longHorizonPhase || 'discussion'
                   let title = '', desc = '', btnLabel = '', onBtn: (() => void) | null = null
-                  if (ph === 'discussion') { title = 'Discussion phase'; desc = 'Discuss the problem with the agent. Nothing will be executed yet.'; btnLabel = 'Proceed to planning'; onBtn = props.onProceedToPlanning }
+                  if (ph === 'ready') { title = 'Long Horizon ready'; desc = 'Read the explanation below, then press Start discussion to begin. Sending messages is blocked until you start.'; btnLabel = 'Start discussion'; onBtn = props.onStartDiscussion }
+                  else if (ph === 'discussion') { title = 'Discussion phase'; desc = 'Discuss the problem with the agent. Nothing will be executed yet.'; btnLabel = 'Proceed to planning'; onBtn = props.onProceedToPlanning }
                   else if (ph === 'planning') { title = 'Planning phase'; desc = 'Refine the plan with the agent. Nothing will be executed yet.'; btnLabel = 'Start'; onBtn = props.onStartExecution }
                   else if (ph === 'running') { title = 'Long Horizon running'; desc = 'The agent is working through the plan autonomously.'; btnLabel = 'Pause'; onBtn = props.onPauseLongHorizon }
                   else if (ph === 'paused') { title = 'Long Horizon paused'; desc = 'You are back in the discussion phase. Discuss changes, then resume.'; btnLabel = 'Resume'; onBtn = props.onResumeLongHorizon }

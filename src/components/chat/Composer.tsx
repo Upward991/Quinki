@@ -235,7 +235,9 @@ export function Composer(props: ComposerProps) {
 
   // FIX (22 set): un allegato da solo (senza testo) DEVE poter partire.
   // 6 ott: SEND and STEER unified — during the generation the same button steers.
-  const canSend = (text.trim().length > 0 || pendingAttachments.length > 0) && !(props as any).isCompacting
+  // LH v2.5: nella fase 'ready' (prima di "Start discussion") si può scrivere ma NON inviare.
+  const lhReadyBlocked = !!props.longHorizon && props.longHorizonPhase === 'ready'
+  const canSend = (text.trim().length > 0 || pendingAttachments.length > 0) && !(props as any).isCompacting && !lhReadyBlocked
 
   // === DETTATURA (Parakeet v3, in locale sul Mac) ===
   // Tocco -> registro (tasto rosso) -> ritocco -> WAV 16k nel composer.

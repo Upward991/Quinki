@@ -25,7 +25,7 @@ interface LHState {
   active: boolean;
   goal: string;
   pendingGoal?: string;
-  phase: "discussion" | "planning" | "running" | "paused" | "done";
+  phase: "ready" | "discussion" | "planning" | "running" | "paused" | "done";
   status: "idle" | "running" | "done" | "paused";
   units: LHUnit[];
   currentIdx: number; // 0-based; -1 = nessuna unità ancora
@@ -68,6 +68,30 @@ BE SKEPTICAL ABOUT YOUR OWN WORK:
 Reply when you have completed the unit.`;
 
 const DONE_MESSAGE = `The plan is complete. Do a final full verification: check that everything works, update handoff.md with the final summary, and make a final commit 'plan: complete'. Then reply with a summary of the work done.`;
+
+// LH v2.5: spiegazione in chat (rigenerata ad ogni attivazione; azzerata al disable).
+const SYSTEM_MESSAGE = `Long Horizon is now active for this session. It is a guided, phase-based working mode. The conversation moves through three phases, and you control every transition with the buttons that appear in the chat.
+
+PHASE 1 — DISCUSSION (starts when you press Start discussion)
+You and the agent discuss the problem together to understand the goal, the constraints, and the approach. The agent can read files, search the codebase, do research and take notes, but it must NOT start building or implementing the task.
+
+PHASE 2 — PLANNING
+When you are satisfied with the discussion, press "Proceed to planning". The agent proposes a concrete plan divided into units, one per line, in '- [ ]' format. You can keep discussing and adding things; the plan is not executed yet.
+
+PHASE 3 — START (EXECUTION)
+When you press "Start", the agent works through the plan units one at a time, autonomously. It updates handoff.md after each unit and commits progress to git. Press "Pause" any time: the generation stops, the mode goes back to DISCUSSION and Long Horizon stays active — from there you can revise the plan and Start again.
+
+AUTO-COMPACTION
+While Long Horizon is active, auto-compaction is forced ON for this session (even if it was off). This keeps long runs safe: if the context grows, the session compacts itself instead of hitting the limit. You cannot turn auto-compaction off from the menu while Long Horizon is active: to disable it, disable Long Horizon first.
+
+RULES
+- The agent is always in exactly one phase and cannot change it on its own.
+- Only you can advance the phases, with the buttons in the chat.
+- While a turn is running you cannot switch phases: press Stop first if needed.
+- The agent works autonomously during EXECUTION and only continues at the end of a finished turn.`;
+
+// LH v2.5: il prompt che parte quando l'utente preme "Start discussion".
+const DISCUSSION_START_MESSAGE = `We are now in the DISCUSSION phase. Ask the user what problem they want to work on, then study it together with them: read files, search the codebase, do research, and take notes for yourself. Do not start building or implementing anything yet — this phase is only about understanding and discussing the problem.`;
 
 export class LongHorizon {
   #agentDir: string;
@@ -194,7 +218,9 @@ export class LongHorizon {
     // l'utente ridiscute/approva e riparte come col pause.
     if (existing) {
       existing.active = true;
-      existing.phase = "discussion";
+      // LH v2.5: si riparte dal nuovo step "ready" (Start discussion), non dalla discussione diretta
+      existing.phase = "ready";
+      existing.systemMessage = SYSTEM_MESSAGE;
       existing.status = "idle";
       existing.promptCount = 0;
       existing.pendingGoal = undefined;
@@ -204,7 +230,7 @@ export class LongHorizon {
       this.#writeState(sk);
       this.#writeProgress(sk);
       this.#log("lh-reactivated-from-previous", { sessionKey: sk, units: existing.units.length });
-      this.#piBridge?.setLongHorizonPhase(sk, "discussion");
+      this.#piBridge?.setLongHorizonPhase(sk, "ready");
       this.#lastPhaseSent.set(sk, "discussion");
       // LH v2: compaction SEMPRE ON in LH (save della precedente → restore all'uscita)
       this.#forceCompaction(sk, existing);
@@ -213,7 +239,7 @@ export class LongHorizon {
     const st: LHState = {
       active: true,
       goal: "",
-      phase: "discussion",
+      phase: "ready",
       status: "idle",
       units: [],
       currentIdx: -1,
@@ -226,32 +252,12 @@ export class LongHorizon {
     this.#writeState(sk);
     this.#writeProgress(sk);
     this.#log("lh-activated", { sessionKey: sk });
-    this.#piBridge?.setLongHorizonPhase(sk, "discussion");
+    this.#piBridge?.setLongHorizonPhase(sk, "ready");
     this.#lastPhaseSent.set(sk, "discussion");
     // LH v2: compaction SEMPRE ON in LH (save della precedente → restore all'uscita)
     this.#forceCompaction(sk, st);
     // Messaggio di SISTEMA per l'UTENTE (hardcoded, sempre uguale): UI-only, NON entra nel contesto del modello.
-    st.systemMessage = `Long Horizon is now active for this session. It is a guided, phase-based working mode. The conversation moves through three phases, and you control every transition with the buttons that appear in the chat.
-
-PHASE 1 — DISCUSSION (automatic, starts now)
-You and the agent discuss the problem together to understand the goal, the constraints, and the approach. The agent can read files, search the codebase, do research and take notes, but it must NOT start building or implementing the task.
-
-PHASE 2 — PLANNING
-When you are satisfied with the discussion, press "Proceed to planning". The agent proposes a concrete plan divided into units, one per line, in '- [ ]' format. You can keep discussing and adding things; the plan is not executed yet.
-
-PHASE 3 — START (EXECUTION)
-When you press "Start", the agent works through the plan units one at a time, autonomously. It updates handoff.md after each unit and commits progress to git. Press "Pause" any time: the generation stops, the mode goes back to DISCUSSION and Long Horizon stays active — from there you can revise the plan and Start again.
-
-AUTO-COMPACTION
-While Long Horizon is active, auto-compaction is forced ON for this session (even if it was off). This keeps long runs safe: if the context grows, the session compacts itself instead of hitting the limit. You cannot turn auto-compaction off from the menu while Long Horizon is active: to disable it, disable Long Horizon first.
-
-RULES
-- The agent is always in exactly one phase and cannot change it on its own.
-- Only you can advance the phases, with the buttons in the chat.
-- While a turn is running you cannot switch phases: press Stop first if needed.
-- The agent works autonomously during EXECUTION and only continues at the end of a finished turn.
-
-The first phase (DISCUSSION) starts now. Tell the agent the problem you want to work on.`;
+    st.systemMessage = SYSTEM_MESSAGE;
     this.#writeState(sk);
     return { ok: true };
   }
@@ -288,8 +294,9 @@ The first phase (DISCUSSION) starts now. Tell the agent the problem you want to 
   disable(sk: string): { ok: boolean; error?: string } {
     const st = this.#states.get(sk);
     if (!st) return { ok: true };
-    // LH v2: uscita da LH → si ripristina la compaction com'era prima
-    this.#restoreCompaction(sk, st);
+    // LH v2.5 (regola utente): la compaction RESTA ON anche dopo il disable ("meglio lasciarla
+    // attiva"; si può spegnere a mano dopo, quando LH è off). Si azzera solo la spiegazione in chat.
+    st.systemMessage = "";
     st.active = false;
     st.phase = "discussion";
     st.status = "idle";
@@ -376,6 +383,19 @@ The first phase (DISCUSSION) starts now. Tell the agent the problem you want to 
         return { ok: false, error: "A turn is running. Wait for it to finish, or press Stop." };
       }
     } catch {}
+    if (phase === "discussion") {
+      // LH v2.5: "Start discussion" — la discussione parte solo quando l'utente preme il tasto.
+      st.phase = "discussion";
+      st.status = "idle";
+      st.promptCount = 0;
+      st.lastActivity = Date.now();
+      this.#writeState(sk);
+      this.#writeProgress(sk);
+      this.#log("lh-phase-discussion-start", { sessionKey: sk });
+      this.#piBridge?.setLongHorizonPhase(sk, "discussion");
+      this.#sendToSession(sk, DISCUSSION_START_MESSAGE);
+      return { ok: true };
+    }
     if (phase === "planning") {
       const isRevision = st.units.length > 0;
       st.phase = "planning";

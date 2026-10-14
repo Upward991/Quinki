@@ -6989,6 +6989,8 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
         prompt += `\n\nCURRENT PHASE: PLANNING.\nWork out a concrete plan with the user, divided into units in '- [ ]' format, one per line. You may study and read all you need.\nYou MUST NOT start implementing the plan: no building, no creating or editing project files. Planning only.`;
       } else if (lhPhase === "running") {
         prompt += `\n\nCURRENT PHASE: EXECUTION.\nWork through the plan units one at a time, autonomously. Update handoff.md after each unit, commit your progress to git, and verify your work skeptically before calling a unit done.`;
+      } else if (lhPhase === "ready") {
+        prompt += `\n\nCURRENT PHASE: NOT STARTED YET. The user has not pressed "Start discussion" yet. Do not execute anything.`;
       }
     }
     // === Plan/Build mode: nota mode-aware (il modello sa in che mode è) ===
@@ -7273,6 +7275,19 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       this.#turnFinalize(sk);
       return;
     }
+
+    // LH v2.5: nella fase 'ready' (prima di "Start discussion") NESSUN messaggio utente passa:
+    // la casella si può scrivere, ma l'invio è bloccato finché l'utente non preme Start discussion.
+    // I send del motore portano _lhPhase e il recovery _preserveWs → passano sempre.
+    try {
+      const _lhp = String((data as any)._lhPhase || this.#lhPhase.get(sk) || "");
+      if (_lhp === "ready" && !(data as any)._lhPhase && !(data as any)._preserveWs) {
+        this.logDebug("send-blocked-lh-ready", { sessionKey: sk });
+        try { ws.send(JSON.stringify({ type: "done", sessionKey: sk, stopReason: "error", errorMessage: "Long Horizon is ready: press the Start discussion button to begin.", text: "" })); } catch {}
+        this.#turnFinalize(sk);
+        return;
+      }
+    } catch {}
 
     // Salva il primo messaggio utente per auto-title
     if (!this.#firstUserText.has(sk) && data.text && data.text.trim().length > 0) {
