@@ -2153,6 +2153,7 @@ class PiBridge {
     this.#pendingThinking.delete(key);
     this.#pendingMode.delete(key);
     this.#streamingBuffers.delete(key); try { this.#toolBusy.delete(key); } catch {}
+    this.#turnState.delete(key); this.#turnDirty.delete(key);
   }
 
   remove(key: string) {
@@ -2167,6 +2168,7 @@ class PiBridge {
     this.#pendingThinking.delete(key);
     this.#pendingMode.delete(key);
     this.#streamingBuffers.delete(key); try { this.#toolBusy.delete(key); } catch {}
+    this.#turnState.delete(key); this.#turnDirty.delete(key);
     this.#save();
     try {
       const dir = this.#piSessionDir(key);
@@ -2187,6 +2189,7 @@ class PiBridge {
     this.#pendingThinking.delete(key);
     this.#pendingMode.delete(key);
     this.#streamingBuffers.delete(key); try { this.#toolBusy.delete(key); } catch {}
+    this.#turnState.delete(key); this.#turnDirty.delete(key);
     try {
       const dir = this.#piSessionDir(key);
       if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
@@ -3813,7 +3816,7 @@ class PiBridge {
           // invisibile finché non ricaricavi. #getSessionWs scrive SEMPRE (ws
           // registrato o fallback stdout broadcast). _preserveWs non tocca #wss.
           const fakeWs = this.#getSessionWs(sk);
-          await this.send(fakeWs, { sessionKey: sk, text: prompt, _preserveWs: true });
+          await this.send(fakeWs, { sessionKey: sk, text: prompt, _preserveWs: true, _lean: true });
           recovered++;
         } catch (e: any) { this.logDebug("pending-turn-recover-error", { sessionKey: sk, error: e?.message || String(e) }); } finally { recoveringMap.delete(sk); try { ((this as any).__recoveringSessionsTS || new Map()).delete(sk); } catch {} }
       }
@@ -3872,7 +3875,7 @@ class PiBridge {
       // → concurrent-recovery-in-flight per sempre → chat bloccata su "Recovering".
       // Con il timeout: dopo 90s il lock si rilascia, la promise chain si azzera,
       // e il prossimo tentativo di recovery può ripartire pulito.
-      const _sendPromise = this.send(fakeWs, { sessionKey: sk, text: prompt, _preserveWs: true });
+      const _sendPromise = this.send(fakeWs, { sessionKey: sk, text: prompt, _preserveWs: true, _lean: true });
       const _timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => reject(new Error('recovery-send-timeout-30s')), 30 * 1000);
       });
@@ -6954,7 +6957,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     });
   }
 
-  #buildSystemPrompt(key: string, cwd: string, workingDirs?: string[], mode?: string, skillNames?: { agentId: string; skillName: string }[], attachments?: { originalName: string; path: string; uuid: string; size?: number }[], taskClips?: { id: string; label: string; text: string }[]): string {
+  #buildSystemPrompt(key: string, cwd: string, workingDirs?: string[], mode?: string, skillNames?: { agentId: string; skillName: string }[], attachments?: { originalName: string; path: string; uuid: string; size?: number }[], taskClips?: { id: string; label: string; text: string }[], lean?: boolean): string {
     let agentId: string | null = this.#resolvePrimaryAgent(key);
     const hasAgent = agentId !== null;
     let prompt = hasAgent ? this.#readAgentPrompt(agentId!, cwd) : "quinki";
@@ -6973,24 +6976,28 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       prompt += `\n\n${lead} in the directory: ${cwd}`;
     }
     // === Long Horizon: messaggio di SISTEMA (hardcoded, entra nel contesto, non è una bubble) ===
-    // Spiega le fasi + blocca il modello nella fase corrente. Il modello NON può avanzare:
+    // Spiega le fasi + tiene il modello nella fase corrente. Il modello NON può avanzare:
     // la fase cambia SOLO quando l'utente preme il bottone nella sezione in chat.
+    // LH v2 (14 ott): SEMPRE build mode; la disciplina delle fasi la fanno QUESTE istruzioni.
+    // Nei turni "lean" (autoprompt recovery + support agent) il blocco NON si aggiunge:
+    // passa solo il testo del prompt (regola token dell'utente).
     const lhPhase = this.#lhPhase.get(key);
-    if (lhPhase) {
-      prompt += `\n\n=== LONG HORIZON MODE ===\nLong Horizon is active for this session. It works in three phases, and you CANNOT advance to the next phase on your own. The user controls the transitions with the buttons in the chat.\n\n1. DISCUSSION: you discuss the problem with the user and understand the goal. You MUST NOT execute, create files, or start any work. Only discuss.\n2. PLANNING: you propose a plan divided into units in '- [ ]' format (one per line). You MUST NOT execute or start any work. Only plan.\n3. START (EXECUTION): you work through the plan units one at a time, autonomously.\n\nYou are currently in the ${lhPhase === "running" ? "EXECUTION" : lhPhase.toUpperCase()} phase.`;
+    if (lhPhase && !lean) {
+      prompt += `\n\n=== LONG HORIZON MODE ===\nLong Horizon is active for this session. You CANNOT advance to the next phase on your own: the user controls the transitions with the buttons in the chat.`;
       if (lhPhase === "discussion") {
-        prompt += ` You MUST discuss the problem with the user and understand the goal. You MUST NOT execute, create files, or start any work. Only discuss.`;
+        prompt += `\n\nCURRENT PHASE: DISCUSSION.\nStudy the problem together with the user: read files, search the codebase, do research, take notes for yourself. You may use all tools for learning.\nYou MUST NOT start implementing the task you are discussing: no building, no creating or editing project files, no running builds. Discussion and study only.`;
       } else if (lhPhase === "planning") {
-        prompt += ` You MUST create a plan with the user, divided into units in '- [ ]' format. You MUST NOT execute or start any work. Only plan.`;
+        prompt += `\n\nCURRENT PHASE: PLANNING.\nWork out a concrete plan with the user, divided into units in '- [ ]' format, one per line. You may study and read all you need.\nYou MUST NOT start implementing the plan: no building, no creating or editing project files. Planning only.`;
       } else if (lhPhase === "running") {
-        prompt += ` Follow the plan units one at a time. Update handoff.md after each unit and commit to git.`;
+        prompt += `\n\nCURRENT PHASE: EXECUTION.\nWork through the plan units one at a time, autonomously. Update handoff.md after each unit, commit your progress to git, and verify your work skeptically before calling a unit done.`;
       }
     }
     // === Plan/Build mode: nota mode-aware (il modello sa in che mode è) ===
     // In Long Horizon la nota plan/build NON viene aggiunta: il prompt di fase LH è sufficiente,
     // altrimenti il modello si confonderebbe pensando di essere in troppe modalità contemporaneamente.
+    // Nei turni lean non si aggiunge nulla (regola token).
     const lhPhaseNow = this.#lhPhase.get(key);
-    if (!lhPhaseNow) {
+    if (!lhPhaseNow && !lean) {
       const m = mode === "build" ? "build" : "plan";
       // Check if this agent has delegate_to_agent tool (orchestrator or agent with it in config)
       const hasDelegate = !!(agentId && (this.#isSessionOrchestrator(key, agentId) || (this.#readAgentConfigFile(agentId)?.tools?.includes('delegate_to_agent'))));
@@ -7170,6 +7177,44 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     } catch (e: any) {
       this.logDebug("context-images-cap-error", { sessionKey: sk, error: e?.message || String(e) });
     }
+  }
+
+  // === TURN-STATE (LH v2, 14 ott): "il support agent parla SOLO a turno COMPLETAMENTE finito e pulito" ===
+  // pending = turno in corso O in coda; clean = l'ultimo turno chiuso senza errori né stop utente.
+  #turnState = new Map<string, { pending: number; clean: boolean; stopReason: string; at: number }>();
+  #turnDirty = new Map<string, string>();
+  #turnStart(key: string) {
+    const t = this.#turnState.get(key) || { pending: 0, clean: true, stopReason: '', at: 0 };
+    t.pending++;
+    t.at = Date.now();
+    this.#turnState.set(key, t);
+  }
+  #turnFinalize(key: string) {
+    const t = this.#turnState.get(key) || { pending: 0, clean: true, stopReason: '', at: 0 };
+    const dirty = this.#turnDirty.get(key); this.#turnDirty.delete(key);
+    t.pending = Math.max(0, t.pending - 1);
+    if (t.pending === 0) {
+      const stopped = this.#stoppedSessions.has(key);
+      t.clean = !dirty && !stopped;
+      t.stopReason = dirty ? String(dirty) : (stopped ? 'user_stop' : 'stop');
+      t.at = Date.now();
+    }
+    this.#turnState.set(key, t);
+  }
+  getTurnState(key: string): { pending: boolean; clean: boolean; stopReason: string; at: number } {
+    const t = this.#turnState.get(key);
+    if (!t) return { pending: false, clean: true, stopReason: '', at: 0 };
+    return { pending: t.pending > 0, clean: t.clean, stopReason: t.stopReason, at: t.at };
+  }
+  // Compaction corrente di una sessione (per il save/restore del Long Horizon, LH v2).
+  getSessionCompaction(key: string): { auto?: boolean; threshold?: number } {
+    try {
+      const data = JSON.parse(fs.readFileSync(SESSION_FILE, "utf8"));
+      const e = (Array.isArray(data) ? data : []).find((x: any) => x && x.key === key);
+      if (e) return { auto: e.compactionAuto, threshold: e.compactionThreshold };
+    } catch {}
+    try { const s = this.#entries.get(key) as any; if (s) return { auto: s.compactionAuto, threshold: s.compactionThreshold }; } catch {}
+    return {};
   }
 
   async send(ws: any, data: { sessionKey: string; text: string; files?: { name: string; type: string; path?: string; data?: string }[]; workingDirs?: string[]; skillNames?: { agentId: string; skillName: string }[]; attachments?: { originalName: string; path: string; uuid: string; size?: number }[]; taskClips?: { id: string; label: string; text: string }[]; messageId?: string }) {
@@ -7522,7 +7567,12 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       // === Apply Plan/Build mode (pending or saved, default build) ===
       // Long Horizon: discussion/planning FORZA plan mode, running FORZA build mode.
       const pendingMode = this.#pendingMode.get(sk);
-      const lhPhaseNow = this.#lhPhase.get(sk);
+      // LH v2 (14 ott): la fase viaggia ANCHE nel payload dei send del support agent — così
+      // anche i worker del pool la vedono (bug reali: "discussion girava in build" e "plan
+      // incastrata al 2do Start": la mappa #lhPhase è per-processo e non si sincronizzava).
+      const lhPhasePayload = String((data as any)._lhPhase || "");
+      if (lhPhasePayload) { try { this.#lhPhase.set(sk, lhPhasePayload); } catch {} }
+      const lhPhaseNow = this.#lhPhase.get(sk) || lhPhasePayload;
       let intendedMode = pendingMode || (s ?? this.#entries.get(sk))?.mode || "plan";
       // FIX 084 (03 set): il worker spawnato lazy puo' non avere l'entry in memoria
       // (#load al boot prima della save del main) -> mode/model persi -> fallback "plan".
@@ -7539,8 +7589,9 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
           }
         } catch {}
       }
-      if (lhPhaseNow === "discussion" || lhPhaseNow === "planning") intendedMode = "plan";
-      else if (lhPhaseNow === "running") intendedMode = "build";
+      // LH v2: in Long Horizon si sta SEMPRE in build (decisione utente 14 ott).
+      // La disciplina delle fasi la fanno i prompt di fase, non i permessi dei tool.
+      if (lhPhaseNow) intendedMode = "build";
       // HONESTY: if the turn runs a mode DIFFERENT from the stored one, persist it
       // and TELL the clients: the pill always shows the real mode (never a lie).
       try {
@@ -7931,6 +7982,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
             this.#sendToWs(ws, { type: "error", message: msg, sessionKey: sk });
             // Il turno è finito SENZA completamento (nessun agent_end stop/length):
             // il marker è ancora lì → autoprompt per farlo continuare (evento, no timer).
+            this.#turnDirty.set(sk, "error");
             this.#recoverInterruptedTurn(sk).catch(() => {});
             return;
           }
@@ -7942,10 +7994,14 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       this.logDebug("send-user-message-error", { sessionKey: sk, message: err?.message, name: err?.name, stack: err?.stack?.slice(0, 600) });
       ws.send(JSON.stringify({ type: "error", message: err.message, sessionKey: sk }));
       // Turno finito senza completamento → autoprompt per continuare
+      this.#turnDirty.set(sk, "error");
       this.#recoverInterruptedTurn(sk).catch(() => {});
     });
+    // === TURN-STATE (LH v2): pending subito (anche i turni IN CODA contano), finalize a fine catena ===
+    this.#turnStart(sk);
     this.#promptsAt.set(sk, Date.now());
     this.#prompts.set(sk, next);
+    try { next.then(() => this.#turnFinalize(sk), () => this.#turnFinalize(sk)); } catch {}
     await next;
   }
 
@@ -8106,11 +8162,21 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
     return { content: contentArr };
   }
 
-  steer(ws: any, data: { sessionKey: string; text: string }) {
+  steer(ws: any, data: { sessionKey: string; text: string; attachments?: { originalName: string; path: string }[] }) {
     const pi = this.#active.get(data.sessionKey);
     if (!pi) { this.logDebug("steer-no-session", { sessionKey: data.sessionKey }); return; }
     if (data.text === "/stop") { pi.abort(); this.logDebug("steer-stop", { sessionKey: data.sessionKey }); }
-    else { pi.steer(data.text); this.logDebug("steer-sent", { sessionKey: data.sessionKey, text: data.text.slice(0, 120) }); }
+    else {
+      // LH v2 (regola generale): lo steering passa SOLO il testo della bubble. Eccezione
+      // allegati: si appende esclusivamente il blocco di localizzazione (quale file, dov'è,
+      // come leggerlo) — niente altro.
+      let text = data.text;
+      try {
+        const atts = (data.attachments || []).filter((a: any) => a && a.path);
+        if (atts.length > 0) text += `\n\n${this.#attachedFilesBlock(atts as any)}`;
+      } catch {}
+      pi.steer(text); this.logDebug("steer-sent", { sessionKey: data.sessionKey, text: text.slice(0, 120) });
+    }
   }
 
   abort(key: string) {
@@ -8732,7 +8798,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
                 setTimeout(() => {
                   if (this.#stoppedSessions.has(key)) return;
                   const fakeWs = { readyState: 1, constructor: { OPEN: 1 }, send: () => {} };
-                  this.send(fakeWs, { sessionKey: key, text: "The app was interrupted while processing. Please continue and complete your response.", _preserveWs: true });
+                  this.send(fakeWs, { sessionKey: key, text: "The app was interrupted while processing. Please continue and complete your response.", _preserveWs: true, _lean: true });
                 }, 2000);
               }
             }
@@ -8958,7 +9024,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
                       this.#promptsAt.delete(key);
                     } catch {}
                     const _fw = { readyState: 1, constructor: { OPEN: 1 }, send: () => {} };
-                    await this.send(_fw, { sessionKey: key, text: lastUserText, _preserveWs: true, __fallbackRetry: true }).catch(() => {});
+                    await this.send(_fw, { sessionKey: key, text: lastUserText, _preserveWs: true, __fallbackRetry: true, _lean: true }).catch(() => {});
                   } else {
                     this.logDebug("fallback-401-model-invalid", { sessionKey: key, to: _next });
                   }

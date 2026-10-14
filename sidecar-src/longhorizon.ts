@@ -32,9 +32,19 @@ interface LHState {
   lastHandoffSig: string;
   startedAt: number;
   lastActivity: number;
+  // LH v2 (14 ott): messaggio di sistema UI + save/restore della compaction
+  systemMessage?: string;
+  prevCompactionAuto?: boolean;
+  prevCompactionThreshold?: number;
+  prevCompactionSaved?: boolean;
+  compactionForced?: boolean;
+  compactionEnsured?: boolean;
 }
 
-const UNIT_PROMPT_TEMPLATE = `Continue the work. Current unit: {desc}.
+const UNIT_PROMPT_TEMPLATE = `Continue the work. Current unit: {desc} (unit {n} of {total}; {remaining} remaining after this one).
+
+ALREADY COMPLETED — do NOT redo, revisit or re-verify these units (they are done):
+{doneList}
 
 Context: {handoff}
 
@@ -68,13 +78,26 @@ export class LongHorizon {
   onNotify: ((payload: any) => void) | null = null;
   #states = new Map<string, LHState>();
   #inflight = new Map<string, boolean>(); // sessione con send in corso
+  #lastPhaseSent = new Map<string, string>(); // LH v2: ultima fase propagata al pi-bridge (anti-spam log)
 
   constructor(agentDir: string) {
     this.#agentDir = agentDir;
     this.#loadAll();
   }
 
-  setPiBridge(pb: any) { this.#piBridge = pb; }
+  setPiBridge(pb: any) {
+    this.#piBridge = pb;
+    // LH v2 (14 ott): al wiring propaga la fase di TUTTI gli stati attivi già caricati da
+    // disco (il constructor gira PRIMA di setPiBridge → #loadAll non poteva chiamare il
+    // bridge). È la cura del bug "la sessione non sapeva di essere in LH" sui worker.
+    try {
+      for (const [sk, st] of this.#states) {
+        if (!st.active) continue;
+        try { pb.setLongHorizonPhase?.(sk, st.phase || "discussion"); this.#lastPhaseSent.set(sk, st.phase || "discussion"); } catch {}
+        try { if (st.compactionForced) pb.setSessionCompaction?.(sk, true, 80); } catch {}
+      }
+    } catch {}
+  }
   setLogger(fn: (tag: string, data: any) => void) { this.#logger = fn; }
   #log(tag: string, data: any) { try { this.#logger?.(tag, data); } catch {} }
   #notify(payload: any) { try { this.onNotify?.(payload); } catch {} }
@@ -134,6 +157,7 @@ export class LongHorizon {
             // (es. {"active":true,"status":"running"} senza units) → senza normalize il tick crasha
             // con "st.units is undefined" a OGNI tick.
             const norm: any = {
+              ...st,
               active: true,
               goal: st.goal || "",
               phase: st.phase || "discussion",
@@ -182,6 +206,9 @@ export class LongHorizon {
       this.#writeProgress(sk);
       this.#log("lh-reactivated-from-previous", { sessionKey: sk, units: existing.units.length });
       this.#piBridge?.setLongHorizonPhase(sk, "discussion");
+      this.#lastPhaseSent.set(sk, "discussion");
+      // LH v2: compaction SEMPRE ON in LH (save della precedente → restore all'uscita)
+      this.#forceCompaction(sk, existing);
       return { ok: true, note: "resumed previous state" };
     }
     const st: LHState = {
@@ -201,17 +228,49 @@ export class LongHorizon {
     this.#writeProgress(sk);
     this.#log("lh-activated", { sessionKey: sk });
     this.#piBridge?.setLongHorizonPhase(sk, "discussion");
+    this.#lastPhaseSent.set(sk, "discussion");
+    // LH v2: compaction SEMPRE ON in LH (save della precedente → restore all'uscita)
+    this.#forceCompaction(sk, st);
     // Messaggio di SISTEMA per l'UTENTE (hardcoded, sempre uguale): UI-only, NON entra nel contesto del modello.
     st.systemMessage = `Long Horizon is now active for this session. It is a guided, phase-based working mode. The conversation moves through three phases, and you control every transition with the buttons that appear in the chat.\n\nPHASE 1 — DISCUSSION (automatic, starts now)\nYou and the agent discuss the problem together to understand the goal, the constraints, and the approach. The agent can examine files, search the codebase, and use its skills to study the problem. It CANNOT modify, create, or delete anything.\n\nPHASE 2 — PLANNING\nWhen you are satisfied with the discussion, press "Proceed to planning". The agent proposes a concrete plan divided into units, one per line, in '- [ ]' format. You can keep discussing and adding things. The agent still CANNOT modify anything.\n\nPHASE 3 — START (EXECUTION)\nWhen you press "Start", the agent creates the final plan and the support files, then works through the plan units one at a time, autonomously. It updates handoff.md after each unit and commits progress to git.\n\nHOW THE MODES WORK\n- During DISCUSSION and PLANNING the session runs in PLAN MODE: the agent can read, search, and use skills, but the write/edit/bash tools are disabled (bash is available read-only). It is physically unable to modify anything.\n- During START the session switches to BUILD MODE: all tools are enabled and the agent can create, edit, and execute freely.\n- If you pause, the session returns to DISCUSSION (PLAN MODE again). You can discuss changes, then go through PLANNING and START again.\n\nRULES\n- The agent is always in exactly one phase and cannot change it on its own.\n- Only you can advance the phases, with the buttons in the chat.\n- During DISCUSSION and PLANNING the agent never executes anything.\n- During EXECUTION the agent works autonomously.\n\nThe first phase (DISCUSSION) starts now. Tell the agent the problem you want to work on.`;
     this.#writeState(sk);
     return { ok: true };
-    return { ok: true };
+  }
+
+  // LH v2: compaction ON durante LH + save/restore del valore precedente.
+  #forceCompaction(sk: string, st: any) {
+    try {
+      if (!st.prevCompactionSaved) {
+        const cur = this.#piBridge?.getSessionCompaction?.(sk) || {};
+        st.prevCompactionAuto = cur.auto;
+        st.prevCompactionThreshold = cur.threshold;
+        st.prevCompactionSaved = true;
+      }
+      st.compactionForced = true;
+      this.#piBridge?.setSessionCompaction?.(sk, true, 80);
+      this.#log("lh-compaction-forced", { sessionKey: sk, prevAuto: st.prevCompactionAuto });
+    } catch {}
+  }
+  #restoreCompaction(sk: string, st: any) {
+    try {
+      if (!st.prevCompactionSaved) return;
+      this.#piBridge?.setSessionCompaction?.(
+        sk,
+        typeof st.prevCompactionAuto === "boolean" ? st.prevCompactionAuto : true,
+        typeof st.prevCompactionThreshold === "number" ? st.prevCompactionThreshold : undefined
+      );
+      this.#log("lh-compaction-restored", { sessionKey: sk, auto: st.prevCompactionAuto, threshold: st.prevCompactionThreshold });
+      st.prevCompactionSaved = false;
+      st.compactionForced = false;
+    } catch {}
   }
 
   // Disattiva COMPLETAMENTE Long Horizon per la sessione (usato quando la chat viene eliminata)
   disable(sk: string): { ok: boolean; error?: string } {
     const st = this.#states.get(sk);
     if (!st) return { ok: true };
+    // LH v2: uscita da LH → si ripristina la compaction com'era prima
+    this.#restoreCompaction(sk, st);
     st.active = false;
     st.phase = "discussion";
     st.status = "idle";
@@ -230,6 +289,8 @@ export class LongHorizon {
   deactivate(sk: string): { ok: boolean; error?: string } {
     const st = this.#states.get(sk);
     if (!st) return { ok: false, error: "not active" };
+    // LH v2: pausa = uscita → si ripristina la compaction com'era prima (si ri-forza alla riattivazione)
+    this.#restoreCompaction(sk, st);
     // FIX F6 (02 set): disable = SPENTO VERO. Prima faceva st.active = true (pausa travestita)
     // → LH non si spegneva mai: stati zombie active:true su disco che resume() poteva
     // far ripartire DA SOLI al riavvio. Ora active:false: niente tick, niente ripartenze
@@ -492,6 +553,49 @@ export class LongHorizon {
     return { ok: r.ok, error: r.err || undefined };
   }
 
+  // === LH v2 (14 ott): RAGGRUPPAMENTO commit di servizio (soglia 25) ===
+  // I commit unit-N restano nella storia del PROGETTO (voluto dall'utente), ma non se ne
+  // accumulano più di ~25 "fini": i più vecchi vengono collassati in UN blocco unico.
+  // Sicurezze: gira solo a tree pulito (mai durante un turno), e su qualunque errore
+  // fa rebase --abort senza toccare nulla.
+  #gitCollapse(sk: string) {
+    const KEEP = 25;
+    const isLhCommit = (s: string) => /^unit-\d+: (before|after)/.test(s) || s === "plan: complete" || s.startsWith("Long Horizon: ");
+    try {
+      const stt = this.#git(sk, ["status", "--porcelain"]);
+      if (!stt.ok || stt.out.trim()) return; // tree sporco → si riprova la prossima volta
+      const lg = this.#git(sk, ["log", "--reverse", "--format=%H%x1f%s"]);
+      if (!lg.ok) return;
+      const all = lg.out.split("\n").filter(Boolean).map(l => { const p = l.split("\x1f"); return { h: p[0], s: p[1] || "" }; });
+      const lhCount = all.filter(c => isLhCommit(c.s)).length;
+      if (lhCount <= KEEP) return;
+      const howMany = lhCount - KEEP;
+      // blocco più vecchio CONTIGUO di commit LH
+      const run: { h: string; s: string }[] = [];
+      for (const c of all) { if (isLhCommit(c.s)) run.push(c); else if (run.length) break; }
+      if (run.length < 2) return;
+      const toCollapse = run.slice(0, Math.min(run.length, howMany));
+      if (toCollapse.length < 2) return;
+      const first = toCollapse[0], last = toCollapse[toCollapse.length - 1];
+      const parent = this.#git(sk, ["rev-parse", first.h + "^"]);
+      if (!parent.ok) return;
+      const tree = this.#git(sk, ["rev-parse", last.h + "^{tree}"]);
+      if (!tree.ok) return;
+      const msg = `Long Horizon: ${toCollapse.length} commit di servizio raggruppate`;
+      const nt = this.#git(sk, ["commit-tree", tree.out.trim(), "-p", parent.out.trim(), "-m", msg]);
+      if (!nt.ok || !nt.out.trim()) return;
+      const rb = this.#git(sk, ["rebase", "--onto", nt.out.trim(), last.h]);
+      if (!rb.ok) {
+        try { this.#git(sk, ["rebase", "--abort"]); } catch {}
+        this.#log("lh-git-collapse-fail", { sessionKey: sk, err: (rb.err || "").slice(0, 160) });
+        return;
+      }
+      this.#log("lh-git-collapse", { sessionKey: sk, collapsed: toCollapse.length, from: first.h.slice(0, 8), to: last.h.slice(0, 8) });
+    } catch (e: any) {
+      this.#log("lh-git-collapse-error", { sessionKey: sk, err: e?.message });
+    }
+  }
+
   // === Session files ===
   getSessionFiles(sk: string): { name: string; content: string }[] {
     const out: { name: string; content: string }[] = [];
@@ -545,17 +649,36 @@ export class LongHorizon {
           const st = JSON.parse(fs.readFileSync(sf, "utf8"));
           if (!st || !st.active) {
             if (this.#states.has(d)) { this.#states.delete(d); this.#log("lh-rescan-deactivated", { sessionKey: d }); }
+            // LH v2: stato spento → fase azzerata anche nel pi-bridge di QUESTO processo
+            // (solo se l'avevamo pubblicata: niente chiamate/log inutili a ogni rescan)
+            try { if (this.#lastPhaseSent.has(d)) { this.#piBridge?.setLongHorizonPhase?.(d, ""); this.#lastPhaseSent.delete(d); } } catch {}
             continue;
           }
           const cur = this.#states.get(d);
           if (!cur) {
             this.#states.set(d, { ...st, units: Array.isArray(st.units) ? st.units : [] });
             this.#log("lh-rescan-new", { sessionKey: d, status: st.status });
+            // LH v2: propaga la fase al pi-bridge di QUESTO processo (worker del pool inclusi)
+            try { this.#piBridge?.setLongHorizonPhase?.(d, st.phase || "discussion"); this.#lastPhaseSent.set(d, st.phase || "discussion"); } catch {}
+            // LH v2: compaction SEMPRE ON in LH (self-heal, una volta per stato)
+            try {
+              if (!(st as any).compactionEnsured) {
+                (this.#states.get(d) as any).compactionEnsured = true;
+                this.#writeState(d);
+                this.#piBridge?.setSessionCompaction?.(d, true, 80);
+                this.#log("lh-compaction-forced-rescan", { sessionKey: d });
+              }
+            } catch {}
           } else {
             cur.phase = st.phase || cur.phase;
             cur.status = st.status || cur.status;
             cur.active = !!st.active;
             if (Array.isArray(st.units)) cur.units = st.units;
+            // LH v2: fase cambiata da un altro processo (es. RPC sul main) → ripubblica qui
+            const ph = st.phase || cur.phase;
+            if (this.#lastPhaseSent.get(d) !== ph) {
+              try { this.#piBridge?.setLongHorizonPhase?.(d, ph); this.#lastPhaseSent.set(d, ph); } catch {}
+            }
           }
         } catch {}
       }
@@ -626,6 +749,17 @@ export class LongHorizon {
       if (streaming) return;
     } catch {}
 
+    // === LH v2 (regola utente 14 ott): il support agent parla SOLO a turno COMPLETAMENTE
+    // finito e PULITO. pending = turno in corso O in coda (mai prompt a raffica: il bug dei
+    // 10 secondi dopo Start); clean=false = ultimo turno chiuso con STOP dell'utente o con
+    // errore → il support agent sta zitto e aspetta (gli errori li gestisce l'autoprompt
+    // standard dell'app; dopo un turno pulito nato da un messaggio utente, riprende). ===
+    try {
+      const tstate = this.#piBridge?.getTurnState?.(sk);
+      if (tstate?.pending) return;
+      if (tstate && tstate.clean === false) { this.#log("lh-wait-dirty-turn", { sessionKey: sk, stopReason: tstate.stopReason }); return; }
+    } catch {}
+
     if (st.currentIdx < 0) return; // nessuna unità impostata
     let unit = st.units?.[st.currentIdx];
     if (!unit) return;
@@ -677,7 +811,7 @@ export class LongHorizon {
     this.#log("lh-plan-request", { sessionKey: sk });
     try {
       const fakeWs = { readyState: 1, constructor: { OPEN: 1 }, send: () => {} };
-      await this.#piBridge?.send(fakeWs, { sessionKey: sk, text: prompt, _preserveWs: true });
+      await this.#piBridge?.send(fakeWs, { sessionKey: sk, text: prompt, _preserveWs: true, _lean: true, _lhPhase: st.phase || "planning" });
     } catch (e: any) {
       this.#log("lh-plan-request-error", { sessionKey: sk, error: e?.message });
     } finally {
@@ -715,11 +849,20 @@ export class LongHorizon {
   async #sendUnitPrompt(sk: string, unit: LHUnit) {
     const st = this.#states.get(sk);
     const handoff = this.#readHandoff(sk).slice(-1500) || "(nessun handoff ancora — scrivi il primo dopo l'unità 1)";
+    const totalUnits = st?.units?.length || 0;
+    const doneUnits = (st?.units || []).filter(u => u.status === "done");
+    const remaining = Math.max(0, (st?.units || []).filter(u => u.status !== "done").length - 1);
+    const doneList = doneUnits.length > 0
+      ? doneUnits.slice(-12).map(u => `- Unit ${u.id}: ${String(u.desc || "").slice(0, 90)}`).join("\n")
+      : "(none yet)";
     const prompt = UNIT_PROMPT_TEMPLATE
       .replace("{desc}", unit.desc)
       .replace("{handoff}", handoff)
       .replace("{sessionKey}", String(sk).replace(/[^a-zA-Z0-9_-]/g, "_"))
-      .replace("{n}", String(unit.id));
+      .replace("{n}", String(unit.id))
+      .replace("{total}", String(totalUnits))
+      .replace("{remaining}", String(remaining))
+      .replace("{doneList}", doneList);
     st!.lastHandoffSig = this.#handoffSig(sk);
     // commit before (stato prima dell'unità — per revert)
     try { this.#git(sk, ["add", "-A"]); this.#git(sk, ["commit", "-m", `unit-${unit.id}: before`, "--allow-empty", "-q"]); } catch {}
@@ -730,7 +873,7 @@ export class LongHorizon {
       // Nessun timeout: il send si risolve quando il modello finisce (anche ore).
       // Se il modello si blocca, l'utente usa STOP → il send si risolve con errore →
       // il support agent recupera e riprompta (promptCount aumenta → anti-loop).
-      await this.#piBridge?.send(fakeWs, { sessionKey: sk, text: prompt, _preserveWs: true });
+      await this.#piBridge?.send(fakeWs, { sessionKey: sk, text: prompt, _preserveWs: true, _lean: true, _lhPhase: "running" });
       this.#log("lh-response-done", { sessionKey: sk, unit: unit.id });
     } catch (e: any) {
       this.#log("lh-send-error", { sessionKey: sk, unit: unit.id, error: e?.message });
@@ -740,6 +883,16 @@ export class LongHorizon {
     // Dopo la risposta: l'handoff è stato aggiornato dal modello?
     const st2 = this.#states.get(sk);
     if (st2) {
+      // LH v2: se il turno è finito SPORCO (stop utente o errore) non si segna nulla e non
+      // si ri-promptа: si aspetta un turno pulito (errori → autoprompt standard dell'app).
+      try {
+        const tstate = this.#piBridge?.getTurnState?.(sk);
+        if (tstate && tstate.clean === false) {
+          this.#log("lh-turn-dirty-skip", { sessionKey: sk, unit: unit.id, stopReason: tstate.stopReason });
+          this.#writeState(sk);
+          return;
+        }
+      } catch {}
       const sig = this.#handoffSig(sk);
       if (sig && sig !== st2.lastHandoffSig) {
         // handoff aggiornato dal modello → unità done
@@ -772,6 +925,8 @@ export class LongHorizon {
       const u2 = st2.units?.[st2.currentIdx];
       if (u2?.status === "done") {
         try { this.#git(sk, ["add", "-A"]); this.#git(sk, ["commit", "-m", `unit-${unit.id}: after`, "--allow-empty", "-q"]); } catch {}
+        // LH v2: raggruppamento (soglia 25) — mai più di ~25 commit LH "fini" in storia
+        try { this.#gitCollapse(sk); } catch {}
       }
       this.#writeState(sk);
       this.#writeProgress(sk);
@@ -814,15 +969,9 @@ export class LongHorizon {
       // al messaggio). I messaggi di FASE (pause/resume/discussion) bloccavano la
       // RPC per 30-60s (timeout lato frontend!). Fire-and-forget: il cambio di fase
       // è già avvenuto nello stato, il messaggio è informativo.
-      this.#piBridge?.send(fakeWs, { sessionKey: sk, text, _preserveWs: true }).catch(() => {});
-    } catch {}
-  }
-
-  // Prompt nascosto: messaggio utente che entra nel contesto (triggera il modello)
-  // ma NON è visibile in chat (flag hidden:true, filtrato in getHistory).
-  async #sendHiddenToSession(sk: string, text: string) {
-    try {
-      await this.#piBridge?.sendHiddenUserMessage(sk, text);
+      // LH v2: _lhPhase viaggia nel payload (tutti i processi sanno la fase) e _lean
+      // (al modello va SOLO il testo del prompt, senza blocchi extra: regola token).
+      this.#piBridge?.send(fakeWs, { sessionKey: sk, text, _preserveWs: true, _lean: true, _lhPhase: this.#states.get(sk)?.phase || "" }).catch(() => {});
     } catch {}
   }
 }

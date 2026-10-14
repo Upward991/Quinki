@@ -142,13 +142,11 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
     { id: 'reset', label: '/Reset', description: 'Clear messages. Keeps model, directory and settings.' },
   ]
 
-  // FIX F11 (02 set): rimossi i comandi slash LH MAI RENDERIZZATI (codice morto che
-  // ingannava: /request plan, /approve plan, /continue discussing, /resume non
-  // apparivano mai nel menu — le fasi si comandano coi BOTTONI nel banner LH).
-  // I comandi VIVI restano: /longhorizon, /disable long horizon, /pause (in running).
+  // LH v2 (14 ott): restano SOLO /longhorizon e /disable long horizon. Il vecchio /pause
+  // (e /resume) era codice morto; le fasi si cambiano coi BOTTONI nel banner LH.
   const visibleCommands: Command[] = props.longHorizonActive ? (() => {
     if (props.longHorizonPhase === 'running') {
-      return [{ id: 'pause', label: '/pause', description: 'Pause the automatic work' }, { id: 'disable', label: '/disable long horizon', description: 'Disable Long Horizon and restore normal commands' }]
+      return [{ id: 'disable', label: '/disable long horizon', description: 'Disable Long Horizon and restore normal commands' }]
     }
     // discussion/planning/paused: comandi NORMALI + /disable (il /longhorizon diventa /disable)
     return commands.map(c => c.id === 'longhorizon' ? { ...c, id: 'disable', label: '/disable long horizon', description: 'Disable Long Horizon and restore normal commands' } : c)
@@ -156,19 +154,16 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
   const filteredCommands = visibleCommands.filter(cmd => cmd.id.includes(props.filter.toLowerCase()))
   const doLhAction = (id: string) => {
     console.log('[SLASH] doLhAction:', id)
-    if (id === 'pause') props.onPauseLongHorizon?.()
-    else if (id === 'disable') props.onLongHorizon?.(false)
+    if (id === 'disable') props.onLongHorizon?.(false)
     else if (id === 'longhorizon') props.onLongHorizon?.(true)
     props.onClose()
   }
   const lhCmdLabel = (id: string | null) => {
-    if (id === 'pause') return 'Pause the automatic work?'
     if (id === 'disable') return 'Disable Long Horizon?'
     if (id === 'longhorizon') return 'Activate Long Horizon?'
     return 'Confirm?'
   }
-  const directCmdIds = new Set(['pause', 'resume'])
-  const panelCmdIds = new Set(['longhorizon', 'disable', 'pause'])
+  const panelCmdIds = new Set(['longhorizon', 'disable'])
   const [pendingPanelCmd, setPendingPanelCmd] = useState<string | null>(null)
   const openPanel = (id: string) => { setPendingPanelCmd(id); setMode('longhorizon'); setFocusConfirm(false) }
   const executeLhCommand = (id: string) => {
@@ -215,7 +210,6 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
     if (mode === 'main') {
       const cmd = filteredCommands[selectedIdx]
       if (cmd && panelCmdIds.has(cmd.id)) { openPanel(cmd.id); return }
-      if (cmd && directCmdIds.has(cmd.id)) { doLhAction(cmd.id); return }
     }
     if (mode === 'model') props.onSelectModel(pendingModel)
     else if (mode === 'thinking') props.onSelectThinking(pendingThinking)
@@ -309,7 +303,6 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
       if (mode === 'main') {
         const cmd = filteredCommands[selectedIdx]
         if (cmd && panelCmdIds.has(cmd.id)) { openPanel(cmd.id); return }
-        if (cmd && directCmdIds.has(cmd.id)) { setFocusConfirm(true); return }
         if (cmd?.id === 'reset') setMode('reset_confirm')
         else if (cmd) enterMode(cmd.id as Mode)
       } else if (mode === 'longhorizon') {
@@ -333,7 +326,6 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
       if (mode === 'main') {
         const cmd = filteredCommands[selectedIdx]
         if (cmd && panelCmdIds.has(cmd.id)) { openPanel(cmd.id); return }
-        if (cmd && directCmdIds.has(cmd.id)) { if (focusConfirm) doLhAction(cmd.id); else setFocusConfirm(true); return }
         if (cmd?.id === 'reset') setMode('reset_confirm')
         else if (cmd) enterMode(cmd.id as Mode)
       } else if (mode === 'model') {
@@ -390,7 +382,6 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
                 onHover={() => setSelectedIdx(idx)}
                 onTap={() => {
                   if (panelCmdIds.has(cmd.id)) { openPanel(cmd.id); return }
-                  if (directCmdIds.has(cmd.id)) { doLhAction(cmd.id); return }
                   if (cmd.id === 'reset') setMode('reset_confirm')
                   else enterMode(cmd.id as Mode)
                 }}
@@ -398,14 +389,13 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
             ))}
           </div>
           <NavBar
-            focusConfirm={(() => { const cmd = filteredCommands[selectedIdx]; return !!(cmd && directCmdIds.has(cmd.id)) && focusConfirm })()}
+            focusConfirm={false}
             onUp={() => setSelectedIdx(i => (i - 1 + filteredCommands.length) % filteredCommands.length)}
             onDown={() => setSelectedIdx(i => (i + 1) % filteredCommands.length)}
             onLeft={() => { if (focusConfirm) setFocusConfirm(false) }}
             onRight={() => {
               const cmd = filteredCommands[selectedIdx]
               if (cmd && panelCmdIds.has(cmd.id)) { openPanel(cmd.id); return }
-              if (cmd && directCmdIds.has(cmd.id)) { setFocusConfirm(true); return }
               if (cmd?.id === 'reset') setMode('reset_confirm')
               else if (cmd) enterMode(cmd.id as Mode)
             }}
@@ -499,7 +489,7 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
         </>
       )}
 
-      {/* Long Horizon panel (activate / disable / pause) */}
+      {/* Long Horizon panel (activate / disable) */}
       {mode === 'longhorizon' && (() => {
         const pc = pendingPanelCmd
         let title = 'Long Horizon'
@@ -507,7 +497,6 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
         let actionLabel = 'Confirm'
         if (pc === 'longhorizon') { title = 'Activate Long Horizon?'; desc = 'Long Horizon makes the session work autonomously through a plan. The support agent reads the plan and handoff files, sends "continue" prompts as user bubbles, commits progress to git, and stops if it detects loops. The mode works in three phases: discussion, planning, start. The first phase (discussion) starts automatically.'; actionLabel = 'Activate' }
         else if (pc === 'disable') { title = 'Disable Long Horizon?'; desc = 'The support agent will stop guiding the session, the mode toggle will be unlocked, and the normal slash commands will be restored.'; actionLabel = 'Disable' }
-        else if (pc === 'pause') { title = 'Pause Long Horizon?'; desc = 'If you pause, you will return to the discussion phase. You can discuss changes, then resume the plan.'; actionLabel = 'Pause' }
         return (
           <>
             <div style={{ padding: '12px 16px' }}>

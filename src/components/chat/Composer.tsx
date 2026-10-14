@@ -999,6 +999,22 @@ export function Composer(props: ComposerProps) {
           <SlashBtn color="var(--q-tab-accent)" onClick={() => { setSlashMenuOpen(true); setSlashFilter(''); if (!text.startsWith('/')) { /* don't clear text, just open menu */ } if (!isPhoneWeb()) { textareaRef.current?.focus() } }} />
           <div style={{ width: '4px', flexShrink: 0 }} />
           <ModeButton mode={props.mode} onChange={props.onModeChange} longHorizon={props.longHorizon} />
+          {props.longHorizon && (
+            <>
+              <div style={{ width: '6px', flexShrink: 0 }} />
+              <span
+                title={`Long Horizon — phase: ${props.longHorizonPhase || 'discussion'} · mode: ${props.mode}`}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '4px',
+                  height: '22px', padding: '0 8px', borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--q-accent-longhorizon)', color: 'var(--q-accent-longhorizon)',
+                  fontSize: '11px', fontWeight: 600, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap', flexShrink: 0,
+                }}
+              >
+                LH · {props.longHorizonPhase || 'discussion'} · {props.mode}
+              </span>
+            </>
+          )}
           
           <div style={{ width: '8px', flexShrink: 0 }} />
           <div style={{ height: '32px', display: 'flex', alignItems: 'center' }}>
