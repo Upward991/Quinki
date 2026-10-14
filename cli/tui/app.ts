@@ -456,7 +456,37 @@ const bgHard = (color: string, s: string): string => {
   }
 };
 
-// LH: la "spiegazione in chat" (il systemMessage del motore) — box bordato col titolo
+// LH: la "riga di cambio fase" — replica della banner dell'app (titolo + descrizione +
+// il tasto, che nella CLI è il TAB). Sempre visibile mentre la Long Horizon è attiva.
+class LhBanner {
+  info: () => { title: string; desc: string; action: string; busy: boolean } | null;
+  constructor(info: () => { title: string; desc: string; action: string; busy: boolean } | null) {
+    this.info = info;
+  }
+  invalidate() {}
+  render(width: number): string[] {
+    try {
+      const info = this.info();
+      if (!info) return [];
+      const inner = Math.max(10, width - 5);
+      const chip = info.busy
+        ? fg(C.textTertiary, "Tab: " + info.action + " \u00b7 wait")
+        : bg(C.primary, fg(C.bg, " Tab: " + info.action + " "));
+      const title = bold(fg(C.text, info.title));
+      const gap = Math.max(1, inner - visibleWidth(title) - visibleWidth(chip));
+      const row1 = title + " ".repeat(gap) + chip;
+      const hbar = "\u2500".repeat(Math.max(1, width - 3));
+      const out: string[] = [];
+      out.push(" " + fg(C.border, "\u256d" + hbar + "\u256e"));
+      out.push(" " + fg(C.border, "\u2502") + " " + row1 + " " + fg(C.border, "\u2502"));
+      for (const dl of wrapPlain(info.desc, inner)) out.push(" " + fg(C.border, "\u2502") + " " + fg(C.textSecondary, dl) + " ".repeat(Math.max(0, inner - visibleWidth(dl))) + " " + fg(C.border, "\u2502"));
+      out.push(" " + fg(C.border, "\u2570" + hbar + "\u256f"));
+      return out;
+    } catch { return []; }
+  }
+}
+
+// LH: la "spiegazione in chat" (il systemMessage del motore) — QUADRATO bordato col titolo
 // "Long Horizon Mode", come la bubble dell'app. Visibile SOLO da attiva (al disable sparisce).
 class LhSysBlock {
   text: string;
@@ -469,10 +499,14 @@ class LhSysBlock {
   render(width: number): string[] {
     const out: string[] = [];
     try {
-      out.push(" " + bold(fg(C.primary, "Long Horizon Mode")));
-      const inner = Math.max(10, width - 4);
-      out.push(" " + fg(C.primary, "\u2502".padEnd(Math.max(1, width - 1))));
-      for (const line of wrapPlain(this.text, inner)) out.push(" " + fg(C.primary, "\u2502 ") + fg(C.text, line));
+      const inner = Math.max(10, width - 5);
+      const hbar = "\u2500".repeat(Math.max(1, width - 3));
+      const row = (s: string) => " " + fg(C.border, "\u2502") + " " + s + " ".repeat(Math.max(0, inner - visibleWidth(s))) + " " + fg(C.border, "\u2502");
+      out.push(" " + fg(C.border, "\u256d" + hbar + "\u256e"));
+      out.push(row(bold(fg(C.text, "Long Horizon Mode"))));
+      out.push(row(""));
+      for (const line of wrapPlain(this.text, inner)) out.push(row(fg(C.text, line)));
+      out.push(" " + fg(C.border, "\u2570" + hbar + "\u256f"));
     } catch {}
     return out;
   }
@@ -2340,7 +2374,7 @@ const readProvidersCfg = (): any => {
     {
       name: "longhorizon",
       description: "Activate or disable Long Horizon mode. When active, Tab switches phase.",
-      seq: 10,
+      seq: 7.5,
       // Regola utente: attivazione SOLO a sessione avviata (≥1 messaggio) — in welcome
       // il comando sparisce. Da attiva resta visibile (diventa /disable long horizon).
       hidden: () => {
@@ -3105,6 +3139,8 @@ const readProvidersCfg = (): any => {
   } catch {}
 
   const boxWrap = new CenterBox(editor) as any;
+  const lhBanner = new LhBanner(() => lhBannerInfo());
+  const lhBannerWrap = new CenterBox(lhBanner) as any;
   let hintRow: any = null;
   // App measures: the transcript scrolls inside a 16px horizontal padding
   // (ChatArea: padding '16px 16px') — convert to terminal columns with the real
@@ -3132,6 +3168,7 @@ const readProvidersCfg = (): any => {
             { component: blank(), basis: "auto", grow: 0, shrink: 0, minSize: 1 },
             { component: scroll as any, basis: 0, grow: 1, shrink: 1, minSize: 1 },
             { component: blank(), basis: "auto", grow: 0, shrink: 1, minSize: 0 },
+            { component: lhBannerWrap, basis: "auto", grow: 0, shrink: 1, minSize: 0 },
             { component: boxWrap, basis: "auto", grow: 0, shrink: 1, minSize: 5 },
           ]);
       ui.setLayoutRoot(root as any);
@@ -3229,13 +3266,18 @@ const readProvidersCfg = (): any => {
   let lhTabCooldownUntil = 0;  // 3.5s anti doppio-press (stessa regola dei bottoni dell'app)
   let lhFilesEverUsed = false; // RPC hasLongHorizonFiles (voce "Long Horizon files" nel menu allegati)
   let lastLhFilesKick = 0;
-  const lhPhaseLabel = (): string => {
-    const ph = lhActive ? lhPhase : "";
-    if (ph === "ready") return "ready";
-    if (ph === "planning") return "planning";
-    if (ph === "running") return "execution";
-    if (ph === "discussion") return lhStatus === "paused" ? "paused" : "discussion";
-    return ph;
+  // La "riga di cambio fase" (banner sopra la textbox) — testi = quelli dell'app,
+  // col TAB al posto del bottone. Sempre visibile mentre la Long Horizon è attiva.
+  const lhBannerInfo = (): { title: string; desc: string; action: string; busy: boolean } | null => {
+    if (!lhActive) return null;
+    const ph = lhPhase || "discussion";
+    let title = "", desc = "", action = "";
+    if (ph === "ready") { title = "Long Horizon ready"; desc = "Read the explanation above, then press Tab to begin. Sending messages is blocked until you start."; action = "Start discussion"; }
+    else if (ph === "planning") { title = "Planning phase"; desc = "Refine the plan with the agent. Nothing will be executed yet."; action = "Start"; }
+    else if (ph === "running") { title = "Long Horizon running"; desc = "The agent is working through the plan autonomously."; action = "Pause"; }
+    else { title = "Discussion phase"; desc = (lhStatus === "paused" ? "Long Horizon is paused. You are back in the discussion phase: discuss changes, then press Tab to resume the execution." : "Discuss the problem with the agent. Nothing will be executed yet."); action = "Proceed to planning"; }
+    const busy = !!streaming || Date.now() < lhTabCooldownUntil;
+    return { title, desc, action, busy };
   };
   const applyLh = (r: any) => {
     lhActive = !!r?.active;
@@ -3312,10 +3354,10 @@ const readProvidersCfg = (): any => {
     const sep = fg(C.textTertiary, " \u00b7 ");
     const quiet = (s: string) => fg(C.textTertiary, s);
     const modeStr = lhActive
-      ? fg(C.primary, "Long Horizon \u00b7 " + (lhPhaseLabel() || lhPhase))
+      ? fg(C.primary, "Long Horizon")
       : (mode === "plan" ? fg(C.modePlan, "Plan") : fg(C.modeBuild, "Build")); // T577: the key lives in /shortcuts
     // Bar = mode + counter ONLY: model and thinking are read in the footer (like the app).
-    const bar = modeStr + (lhActive ? sep + quiet("Tab: next phase") : "") + sep + ctxStr;
+    const bar = modeStr + sep + ctxStr;
     // Status pill (app-style): same row as the info, right-aligned — visible
     // only while the engine streams / compacts (Failed stays until next turn).
     const pillOn =
@@ -3344,7 +3386,7 @@ const readProvidersCfg = (): any => {
   try {
     // Thin edges on the box: LEFT = mode color (Plan pink / Build orange),
     // RIGHT = violet accent (always lit).
-    (editor as any).edgeFn = () => panelBgWrap(fg(mode === "plan" ? C.modePlan : C.modeBuild, "\u258f"));
+    (editor as any).edgeFn = () => panelBgWrap(fg(lhActive ? C.primary : (mode === "plan" ? C.modePlan : C.modeBuild), "\u258f"));
     (editor as any).edgeRightFn = () => panelBgWrap(fg(C.primary, "\u2595")) + "\x1b[49m";
     // Chips live INSIDE the text as inline tokens ("\u25b8name"): no bar above the
     // box, no X — move the cursor around them and delete them like text.
