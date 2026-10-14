@@ -544,10 +544,9 @@ export class Editor {
                         acLines.push(" " + qPaint(`${leftPadding}${line}${lp}${rightPadding}`) + " ");
                     }
                     try { this.qMenuRendering = false; } catch { }
-                    acLines.push(acPadRow);
-                    // QUINKI PATCH (15 ott, regola utente): NIENTE riga vuota EXTRA tra il
-                    // menu e la text box: lo spazio dev'essere IDENTICO a quello tra il
-                    // banner del cambio fase e la text box (1 riga, non 2).
+                    // QUINKI PATCH (15 ott, regola utente): ZERO righe tra il menu e la
+                    // text box — IDENTICO allo spazio tra il banner del cambio fase e la
+                    // text box (il footer tocca la box come il bordo ╰─╯ del banner).
                     result.unshift(...acLines);
                 }
             }
