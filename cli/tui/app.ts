@@ -6332,9 +6332,10 @@ const readProvidersCfg = (): any => {
         return false;
       }
       if (menuStack.length === 0) {
-        // T502: plain commands at the root (reload/export/compact...) NEVER show
-        // a Confirm — Enter simply runs them (the user: "the confirm doesn't work").
-        return false;
+        // REGOLA UTENTE (15 ott): al root il Confirm si VEDE sulle righe comando
+        // (prima non c'era: "non c'è il tasto Confirm, non puoi premere invio").
+        // Premere Enter su un comando lo ESEGUE (vedi il ramo enter sotto).
+        return !!commands.find((c: any) => c.name === (cur as any)?.value);
       }
 
       if (menuStack[0] === "attachments") {
@@ -6833,10 +6834,20 @@ const readProvidersCfg = (): any => {
           } else if (menuStack.length > 0) {
             runItem(it); // MENU 2.0: Enter executes (never navigates)
           } else {
-            // T514 (the user's rule): at the ROOT the bar shows NO Confirm, so the
-            // Enter must do ABSOLUTELY NOTHING. Commands open with the FORWARD
-            // arrow; a fully typed plain command ("/reload") is run by the
-            // bulletproof path above (the box must contain the real text).
+            // REGOLA UTENTE (15 ott): al ROOT, Enter su una riga comando la ESEGUE
+            // (prima non faceva NULLA e senza Confirm non c'era modo di procedere:
+            // "dovrei premere Enter e dovrebbe fare il reload"). Le frecce aprono
+            // i sottomenu come sempre; la freccia avanti resta la navigazione.
+            try {
+              const itC: any = items[menuSel];
+              const cmdC: any = itC ? commands.find((c: any) => c.name === itC.value) : null;
+              if (cmdC) {
+                try { editor.setText(""); } catch {}
+                menuSel = 0;
+                try { menuConfirmFocus = false; } catch {}
+                handleSlashRef?.("/" + cmdC.name);
+              }
+            } catch {}
             try { ui.requestRender(); } catch {}
           }
         } else {
