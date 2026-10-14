@@ -469,12 +469,12 @@ class LhBanner {
       const info = this.info();
       if (!info) return [];
       const inner = Math.max(10, width - 5);
-      const chip = info.busy
-        ? fg(C.textTertiary, "Tab: " + info.action + " \u00b7 wait")
-        : bg(C.primary, fg(C.bg, " Tab: " + info.action + " "));
+      // Azione = SOLO la scritta, colore viola (niente sfondo, niente "Tab:" — il Tab
+      // è spiegato nella spiegazione in chat).
+      const action = info.busy ? fg(C.textTertiary, info.action) : fg(C.primary, info.action);
       const title = bold(fg(C.text, info.title));
-      const gap = Math.max(1, inner - visibleWidth(title) - visibleWidth(chip));
-      const row1 = title + " ".repeat(gap) + chip;
+      const gap = Math.max(1, inner - visibleWidth(title) - visibleWidth(action));
+      const row1 = title + " ".repeat(gap) + action;
       const hbar = "\u2500".repeat(Math.max(1, width - 3));
       const out: string[] = [];
       out.push(" " + fg(C.border, "\u256d" + hbar + "\u256e"));
@@ -3151,7 +3151,7 @@ const readProvidersCfg = (): any => {
 
   const boxWrap = new CenterBox(editor) as any;
   const lhBanner = new LhBanner(() => lhBannerInfo());
-  const lhBannerWrap = new CenterBox(lhBanner) as any;
+  const lhBannerWrap = new CenterBox(new InsetBox(lhBanner, () => qInsetCols())) as any;
   let hintRow: any = null;
   // App measures: the transcript scrolls inside a 16px horizontal padding
   // (ChatArea: padding '16px 16px') — convert to terminal columns with the real
@@ -3279,6 +3279,22 @@ const readProvidersCfg = (): any => {
   let lastLhFilesKick = 0;
   // La "riga di cambio fase" (banner sopra la textbox) — testi = quelli dell'app,
   // col TAB al posto del bottone. Sempre visibile mentre la Long Horizon è attiva.
+  // La spiegazione in chat per la CLI: STESSO testo del motore (app), ma coi comandi
+  // della CLI: il TAB al posto dei bottoni + la nota che finché non parti l'invio è bloccato.
+  const lhCliSysMessage = (raw: string): string => {
+    let t = String(raw || "");
+    try {
+      t = t.replace("you control every transition with the buttons that appear in the chat.", "you control every transition by pressing Tab. Until you start, sending messages is blocked.");
+      t = t.replace("PHASE 1 \u2014 DISCUSSION (starts when you press Start discussion)", "PHASE 1 \u2014 DISCUSSION (starts when you press Tab)");
+      t = t.replace('press "Proceed to planning".', "press Tab to proceed to planning.");
+      t = t.replace('When you press "Start", the agent works', "When you press Tab, the agent works");
+      t = t.replace('Press "Pause" any time: the generation stops', "Press Tab any time to pause: the generation stops");
+      t = t.replace("from there you can revise the plan and Start again.", "from there you can revise the plan and press Tab to start again.");
+      t = t.replace("- Only you can advance the phases, with the buttons in the chat.", "- Only you can advance the phases: press Tab.");
+      t = t.replace("press Stop first if needed.", "stop it first (Esc) if needed.");
+    } catch {}
+    return t;
+  };
   const lhBannerInfo = (): { title: string; desc: string; action: string; busy: boolean } | null => {
     if (!lhActive) return null;
     const ph = lhPhase || "discussion";
@@ -3312,9 +3328,12 @@ const readProvidersCfg = (): any => {
       void sc.call("getLongHorizonState", { sessionKey: currentKey }, 20000).then((r: any) => applyLh(r)).catch(() => {});
     } catch {}
   };
+  // REGOLA GENERALE (utente): gli avvisi per l'utente in chat MAI col formato toggle —
+  // solo TESTO NORMALE (gli errori: rosso, ma sempre testo normale). Il toggle resta
+  // esclusivamente per i toggle veri (tool call, risultati, deleghe...).
   const lhNotice = (text: string) => {
     try {
-      pushBlock(registerToggle(new ToggleBlock({ label: "Long Horizon", boldName: text, color: C.primary, body: "" })));
+      pushBlock({ render: (w: number) => wrapPlain("\u25b8 Long Horizon \u00b7 " + text, Math.max(10, w - 1)).map((ln: string) => " " + fg(C.text, ln)), invalidate: () => {} } as any);
       scrollToEnd();
       ui.requestRender();
     } catch {}
@@ -4277,7 +4296,7 @@ const readProvidersCfg = (): any => {
         const lhSysMaybe = (tsIn: number) => {
           try {
             if (!lhSysDone && lhActive && lhSystemMessage && lhStartedAt && tsIn >= lhStartedAt) {
-              pushBlock(new LhSysBlock(lhSystemMessage, lhStartedAt));
+              pushBlock(new LhSysBlock(lhCliSysMessage(lhSystemMessage), lhStartedAt));
               lhSysDone = true;
             }
           } catch {}
@@ -4470,7 +4489,7 @@ const readProvidersCfg = (): any => {
             }
           }
         }
-        try { if (!lhSysDone && lhActive && lhSystemMessage) pushBlock(new LhSysBlock(lhSystemMessage, lhStartedAt)); } catch {}
+        try { if (!lhSysDone && lhActive && lhSystemMessage) pushBlock(new LhSysBlock(lhCliSysMessage(lhSystemMessage), lhStartedAt)); } catch {}
         scrollToEnd();
         return;
       }
@@ -7332,7 +7351,7 @@ const applySettingsPatch = (patch: any) => {
     if (!t) return;
     if (lhActive && lhPhase === "ready") {
       // LH: nella fase ready l'invio è BLOCCATO anche nella CLI (si parte col Tab).
-      lhNotice("ready \u2014 press Tab to start the discussion (messages are blocked until then)");
+      // NESSUN avviso in chat (regola utente: lo dice la spiegazione della Long Horizon).
       return;
     }
     editor.setText("");
