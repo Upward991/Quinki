@@ -1847,6 +1847,9 @@ export async function runTui(opts: TuiOptions): Promise<void> {
 
   let pendingModelId = ""; // model chosen on the welcome (applies to the new chat)
   let wsSessions: any[] = [];
+  // Auto-compaction della sessione aperta: SINCRONIZZATA con l'app (stessa fonte:
+  // listSessions + evento session_updated del sidecar). null = non ancora nota.
+  let wsCompactionAuto: boolean | null = null;
   let lastSessKick = 0;
   let lastSkillKick = 0;
   let titleLocked = false; // user renamed: auto-title must not overwrite it
@@ -1860,6 +1863,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         // Keep the open chat's title in sync: renames made in the app arrive here.
         const me = list.find((s: any) => String(s?.key || s?.id) === currentKey);
         if (me?.label) setChatTitle(String(me.label));
+        try { if (me && typeof (me as any).compactionAuto === "boolean") wsCompactionAuto = (me as any).compactionAuto; } catch {}
         try {
           ui.requestRender();
         } catch {}
@@ -2237,18 +2241,25 @@ const readProvidersCfg = (): any => {
       seq: 7,
       hidden: () => welcomeShown,
       getArgumentCompletions: (prefix: string) => {
-        const auto = (() => {
-          try {
-            return !!((session as any).autoCompactionEnabled ?? (session as any).settingsManager?.getCompactionEnabled?.());
-          } catch {
-            return false;
-          }
-        })();
-        // Contextual toggle: only the opposite of the current auto state.
+        // Stato REALE della sessione (sincronizzato con l'app). Con la Long Horizon
+        // attiva la compaction è FORZATA ON e BLOCCATA (stessa regola dell'app:
+        // spunta disabilitata "\u00b7 locked by Long Horizon").
+        const auto = lhActive
+          ? true
+          : (typeof wsCompactionAuto === "boolean"
+              ? wsCompactionAuto
+              : (() => {
+                  try {
+                    return !!((session as any).autoCompactionEnabled ?? (session as any).settingsManager?.getCompactionEnabled?.());
+                  } catch {
+                    return false;
+                  }
+                })());
+        const onDesc = lhActive ? "Auto-compaction is currently ON \u00b7 locked by Long Horizon" : "Auto-compaction is currently ON";
         const items = [
           { value: "now", label: "compact now", description: "Compact the conversation now" },
           auto
-            ? { value: "disable", label: "disable autocompaction", description: "Auto-compaction is currently ON" }
+            ? { value: "disable", label: "disable autocompaction", description: onDesc }
             : { value: "enable", label: "enable autocompaction", description: "Auto-compaction is currently OFF" },
         ];
         return items.filter((i) => i.value.startsWith(prefix) || i.label.startsWith(prefix));
@@ -3870,6 +3881,13 @@ const readProvidersCfg = (): any => {
         displays: (r && (r as any).messageDisplayTexts) || {},
       };
       try { refreshLh(); } catch {}
+      // Auto-compaction: valore REALE della sessione (sync con l'app); se la lista
+      // non ha ancora l'entry, refreshSessions() la porta e aggiorna il valore.
+      try {
+        const _e0 = (wsSessions || []).find((s2: any) => String(s2?.key || s2?.id) === currentKey);
+        if (_e0 && typeof (_e0 as any).compactionAuto === "boolean") wsCompactionAuto = (_e0 as any).compactionAuto;
+      } catch {}
+      try { refreshSessions(); } catch {}
       return histMsgs.length > 0;
     } catch (ee) {
       try { require("fs").appendFileSync("/tmp/q-load.log", "  loadServerHistory ERROR: " + String(ee) + "\n"); } catch {}
@@ -4138,6 +4156,8 @@ const readProvidersCfg = (): any => {
           if (p.label && !titleLocked) setChatTitle(String(p.label));
           if (p.model) wsModelId = String(p.model);
           if (typeof p.thinkingLevel === "string") thinkingOn = p.thinkingLevel !== "off";
+          // LH/compaction: la spunta del menu slash si allinea SUBITO (stessa regola dell'app).
+          if (typeof p.compactionAuto === "boolean") wsCompactionAuto = p.compactionAuto;
           if (Array.isArray(p.fallbackModels)) { try { wsSettings = { ...(wsSettings || {}), defaultFallbackModels: p.fallbackModels }; } catch {} }
           updateBar();
           try { ui.requestRender(); } catch {}
@@ -4776,6 +4796,13 @@ const readProvidersCfg = (): any => {
             }
           } else if (arg === "enable" || arg === "disable") {
             const en = arg === "enable";
+            if (lhActive && !en) {
+              // LH: la compaction è forzata ON e non si spegne finché LH è attiva.
+              menuError = "Auto-compaction is locked while Long Horizon is active. Disable Long Horizon first.";
+              try { ui.requestRender(); } catch {}
+              break;
+            }
+            wsCompactionAuto = en; // spunta immediata (l'app la riceve via session_updated)
             if (scOn || (sc as any).connected) {
               void sc.call("setSessionCompaction", { sessionKey: currentKey, auto: en, threshold: 80 }, 20000).catch(() => {});
             } else {
