@@ -3240,6 +3240,10 @@ const readProvidersCfg = (): any => {
 
   // --- state ------------------------------------------------------------------
   let streaming = false;
+  // IDENTICO all'app: serve per "Recovering" — true quando l'ultimo messaggio è un
+  // UTENTE ancora senza risposta (turno fermato prima di produrre). Si azzera al
+  // primo evento in streaming (l'assistant sta rispondendo).
+  let qTurnUnanswered = false;
   let mode: "plan" | "build" = "plan"; // app-like default: Plan
   let thinkingOn = true; // On = always max level (engine semantics)
   let ctxTokens = 0;
@@ -3976,7 +3980,7 @@ const readProvidersCfg = (): any => {
       // streaming sono passati quando la CLI era chiusa), e l'invio diventa steer.
       try {
         void sc.call("getRunState", { sessionKey: currentKey }, 8000).then((r: any) => {
-          if (r && (r.streaming || r.pending) && statusKind !== "retrying") {
+          if (r && r.streaming && statusKind !== "retrying") {
             streaming = true;
             setStatus("Running", "running");
             updateBar();
@@ -4062,6 +4066,7 @@ const readProvidersCfg = (): any => {
       if (p?.sessionKey && p.sessionKey !== currentKey) return;
       if (method === "stream_event") {
         const t = p.eventType || p.type;
+        qTurnUnanswered = false;
         // Nested delegation stream: stays INSIDE the delegation toggle.
         if (p.messageId && delegToggles.has(String(p.messageId)) && t !== "delegation_end") {
           routeNested(delegToggles.get(String(p.messageId)), t, p);
@@ -4161,12 +4166,14 @@ const readProvidersCfg = (): any => {
         onSessionEvent({ type: "message_end", message: { role: "assistant", stopReason: p?.stopReason, errorMessage: p?.errorMessage } });
       } else if (method === "streaming_stopped") {
         onSessionEvent({ type: "agent_end" });
-        // RECOVERING (come l'app): lo stop di un turno INTERROTTO (non dello utente)
-        // significa che il recovery sta per riprendere → pill "Recovering".
-        // Prima la CLI azzerava tutto: sembrava che il recovery NON esistesse.
+        // RECOVERING — REGOLA IDENTICA ALL'APP: "Recovering" SOLO se l'ultimo
+        // messaggio è un UTENTE senza risposta (turno fermato prima di produrre:
+        // l'autoprompt lo riprende). Se l'assistant ha già risposto NON è recovering
+        // → pill pulita. (Prima non c'era il controllo → "Recovering" usciva a caso.)
         try {
           const isUserStop = p?.stopReason === "aborted" || p?.stopReason === "user_stop";
-          if (!isUserStop) setStatus("Recovering", "retrying");
+          if (!isUserStop && qTurnUnanswered) setStatus("Recovering", "retrying");
+          else if (!streaming) setStatus("", "");
         } catch {}
         refreshSkillGroups();
         refreshSessions();
@@ -4234,7 +4241,7 @@ const readProvidersCfg = (): any => {
         try {
           if (!p?.sessionKey || p.sessionKey === currentKey) {
             const txt = String(p?.text || p?.content || "");
-            if (txt.trim()) { pushBlock(new UserBubble(txt, fmtFooterDate(Date.now()))); scrollToEnd(); try { ui.requestRender(); } catch {} }
+            if (txt.trim()) { pushBlock(new UserBubble(txt, fmtFooterDate(Date.now()))); qTurnUnanswered = true; scrollToEnd(); try { ui.requestRender(); } catch {} }
           }
         } catch {}
       } else if (method === "model_updated" || method === "models_list") {
@@ -7462,6 +7469,7 @@ const applySettingsPatch = (patch: any) => {
         // The bubble shows the ORIGINAL text: the clips stay INLINE, in the same
         // order and look as the textbox.
         pushBlock(new UserBubble(t, fmtFooterDate(now), []));
+        qTurnUnanswered = true;
       }
     }
     if (scOn || (sc as any).connected) {
