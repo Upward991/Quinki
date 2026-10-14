@@ -1,7 +1,8 @@
 # Ollama cloud bug: `deepseek-v4.1-flash:cloud` returns 500 with image input over ~655,360 tokens
 
-**Status:** server-side bug of ollama.com — fixed nowhere yet. Reproducible with raw HTTP, no Quinki code in the chain.
-**Last independent verification:** 2026-10-07, daemon 0.40.0, macOS (Apple Silicon).
+**Status (agg. 12 ott): NON PIU' RIPRODUCIBILE — il bug e' sparito a monte (fix probabile lato cloud, da confermare col team; daemon anche passato 0.40.0 -> 0.40.3).**
+**Ultima verifica indipendente: 2026-10-12** — riprova con HTTP puro: 200 a 661.022 / 750.622 / 899.022 / 999.822 prompt token CON immagine (1x1 PNG ex-fallosa); il payload esatto del 7 ott (500 in 1.9s, pre-prefill) ora completa il prefill (5.9s). Modello ancora `context_length 1048576` + capability `vision`.
+**Prima verifica storica:** 2026-10-07, daemon 0.40.0 — 500 deterministico a ~655k+ col 1x1 PNG.
 **Owner of the fix:** ollama.com (cloud backend), not the local daemon.
 
 ---

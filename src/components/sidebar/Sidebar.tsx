@@ -23,6 +23,8 @@ interface SidebarProps {
   onDeleteFolder?: (id: string, withContents: boolean) => void
   onMoveSession?: (id: string, folderId: string | null, order: number) => void
   onMoveFolder?: (id: string, parentId: string | null, order: number) => void
+  onSetPinned?: (id: string, pinned: boolean, order?: number) => void
+  onSetFolderPinned?: (id: string, pinned: boolean, order?: number) => void
   onCloseSidebar?: () => void
   onGoHome?: () => void
 }
@@ -131,9 +133,15 @@ export function Sidebar(props: SidebarProps) {
 
   // Build flat display list with transition zones
   const flatList: { item: any; depth: number; isTransition?: boolean; transitionParentId?: string | null; transitionLabel?: string; isPinSep?: boolean }[] = []
-  const topItems = e.filter(s => !s.parentId).sort((a, b) => (b.order || 0) - (a.order || 0))
   // PIN (6 ott): i pinnati (chat o cartelle) vanno in cima in una sezione dedicata,
   // con ordine PROPRIO (pinnedOrder, drag and drop libero dentro la sezione).
+  // FIX (12 ott sera): PROMOZIONE dei pin propri — un elemento con PIN PROPRIO che sta
+  // dentro una cartella sale in cima (depth 0) come i top-level e viene SALTATO dentro
+  // la cartella (niente doppioni). È la regola promessa dal commento "6 ott" ma mai
+  // implementata: il pin da drag su un figlio registrava pinnedKeys ma l'elemento
+  // restava dentro la cartella per sempre ("non me lo fa fare in nessun modo").
+  const isPromoted = (s: any): boolean => !!(s as any).ownPinned && !!s.parentId
+  const topItems = e.filter(s => !s.parentId || isPromoted(s)).sort((a, b) => (b.order || 0) - (a.order || 0))
   const pinnedTop = topItems.filter((s: any) => s.pinned)
   const normalTop = topItems.filter((s: any) => !s.pinned)
   // PIN (6 ott): anche le chat DENTRO le cartelle si possono pinnare: salgono in
@@ -142,7 +150,8 @@ export function Sidebar(props: SidebarProps) {
     for (const item of items.sort((a, b) => (b.order || 0) - (a.order || 0))) {
       flatList.push({ item, depth })
       if (item.type === 'folder' && expandedFolders.has(item.id)) {
-        const children = e.filter(s => s.parentId === item.id)
+        // I figli con PIN PROPRIO sono promossi in cima → qui si saltano (niente doppioni)
+        const children = e.filter(s => s.parentId === item.id && !isPromoted(s))
         buildList(children, depth + 1)
       }
     }
@@ -184,7 +193,10 @@ export function Sidebar(props: SidebarProps) {
     const itemAbove = dragIdx > 0 ? flatList[dragIdx - 1] : null
     const itemBelow = dragIdx >= 0 && dragIdx < flatList.length - 1 ? flatList[dragIdx + 1] : null
     const dragItem = dragIdx >= 0 ? flatList[dragIdx].item : null
-    const dragParentId = dragItem?.parentId || null
+    // FIX (12 ott sera): un elemento PROMOSSO (pin proprio dentro una cartella) è
+    // mostrato tra i top-level → per il drag si comporta da top-level (parent null).
+    const dragPromoted = !!(dragItem as any)?.ownPinned && !!(dragItem as any)?.parentId
+    const dragParentId = dragPromoted ? null : (dragItem?.parentId || null)
 
     // Simple iteration: find the first item where pointer <= item.bottom
     // FIX (6 ott): per un elemento ANNIDATO, il drop "fuori" e' valido SOLO se il
@@ -192,10 +204,11 @@ export function Sidebar(props: SidebarProps) {
     // Prima bastava scendere sotto il parent per uscire: gli elementi uscivano
     // per sbaglio (visivamente erano ancora dentro).
     let passedParentBlock = false
-    const parentIdOfDrag = dragItem?.parentId || null
+    const parentIdOfDrag = dragPromoted ? null : (dragItem?.parentId || null)
     let parentBlockBottom = -1
+    let pIdx = -1
     if (parentIdOfDrag) {
-      const pIdx = flatList.findIndex(f => f.item.id === parentIdOfDrag)
+      pIdx = flatList.findIndex(f => f.item.id === parentIdOfDrag)
       if (pIdx >= 0) {
         for (let k = pIdx + 1; k < flatList.length; k++) {
           const f = flatList[k]
@@ -205,7 +218,8 @@ export function Sidebar(props: SidebarProps) {
         }
       }
     }
-    for (const entry of flatList) {
+    for (let entryIdx = 0; entryIdx < flatList.length; entryIdx++) {
+      const entry = flatList[entryIdx]
       const rect = itemRects.current.get(entry.item.id)
       if (!rect) continue
       // Uscita dal blocco: consentita solo oltre l'ultimo figlio visibile.
@@ -234,13 +248,22 @@ export function Sidebar(props: SidebarProps) {
         //  - riga CARTELLA: 'into' = dentro (drop sul titolo); 'before' (sopra) = esce;
         //    'after' (sotto la riga, verso i figli) = resta dentro.
         //  - tra i FRATELLI = dentro; sotto TUTTI i figli visibili = esce.
-        if (dragItem?.parentId) {
+        if (parentIdOfDrag) {
           const isParentRow = entry.item.id === parentIdOfDrag
           const isSibling = entry.item.parentId === parentIdOfDrag
           if (isParentRow) {
-            if (zone !== 'before') continue
+            // FIX (12 ott sera — bug "indicatore in fondo alla sidebar"): sul titolo
+            // della PROPRIA cartella l'indicatore deve dire "sopra la cartella" (esce),
+            // SEMPRE. Prima 'into'/'after' facevano `continue` → tutte le righe
+            // successive venivano saltate dalla regola del blocco → fallthrough →
+            // indicatore ALL'ULTIMO elemento della sidebar (nessun senso).
+            return { id: entry.item.id, zone: 'before', transition: null }
           } else if (!isSibling) {
-            if (parentBlockBottom > 0 && pointerY <= parentBlockBottom) continue
+            // FIX (12 ott sera — bug "non si trascina verso la sezione pinned"):
+            // il blocco vale SOLO per le righe DOPO il parent (dentro o sotto la
+            // cartella). Le righe SOPRA la cartella (pinned!) restavano bloccate
+            // per errore → nessun indicatore / nessun pin possibile.
+            if (entryIdx > pIdx && parentBlockBottom > 0 && pointerY <= parentBlockBottom) continue
           }
         }
         // Skip useless indicators: "after item above" and "before item below" (same position)
@@ -333,7 +356,15 @@ export function Sidebar(props: SidebarProps) {
     // lo rimetteva tra i pinnati.
     const insertIdx = targetIdx >= 0 ? (zone === 'after' ? targetIdx + 1 : targetIdx) : -1
     const inPinned = (sepIdx >= 0 && insertIdx >= 0) ? (insertIdx <= sepIdx) : wasPinned
-    if (zone !== 'into') {
+    // FIX (12 ott sera — bug "drop nella cartella aperta ma finisce fuori"):
+    // se il bersaglio vive DENTRO una cartella (riga figlio — l'indicatore dice
+    // "Drop in <cartella>"), l'elemento DIVENTA un figlio: niente logica di
+    // sezione/pin, si va dritti al move dentro la cartella. L'eventuale PIN
+    // PROPRIO si toglie (ora vive nella cartella, eredita il suo stato).
+    const targetIsNested = !!(targetItem as any).parentId
+    if (zone !== 'into' && targetIsNested) {
+      if ((dragItem as any).ownPinned) props.onSetPinned?.(dragItem.id, false)
+    } else if (zone !== 'into') {
       if (inPinned !== wasPinned) {
         if (inPinned && !wasPinned) {
           // PIN COL DRAG A POSIZIONE (richiesta utente 7 ott): il DnD lascia
@@ -358,6 +389,13 @@ export function Sidebar(props: SidebarProps) {
               destOrder = (tOrder + lo) / 2
             }
           } catch {}
+          // FIX (12 ott sera): pin di un elemento che stava DENTRO una cartella →
+          // lo si porta DAVVERO fuori (parentId null) insieme al pin: così appare
+          // subito in cima e non resta "fantasma" dentro la cartella.
+          if ((dragItem as any).parentId) {
+            if (dragItem.type === 'folder') props.onMoveFolder?.(dragItem.id, null, destOrder ?? Date.now())
+            else props.onMoveSession?.(dragItem.id, null, destOrder ?? Date.now())
+          }
           props.onSetPinned?.(dragItem.id, true, destOrder ?? undefined)
           dragRef.current = null
           setDropZone(null)
@@ -391,6 +429,9 @@ export function Sidebar(props: SidebarProps) {
     const isFolder = targetItem.type === 'folder'
     
     if (zone === 'into' && isFolder) {
+      // FIX (12 ott sera): entra nella cartella → il PIN PROPRIO si toglie
+      // (eredita lo stato della cartella; niente pin "fantasma" in cima).
+      if ((dragItem as any).ownPinned) props.onSetPinned?.(dragItem.id, false)
       const newOrder = (targetItem.order || 0) + 0.5
       if (dragItem.type === 'folder') { props.onMoveFolder?.(dragItem.id, targetId, newOrder) }
       else { props.onMoveSession?.(dragItem.id, targetId, newOrder) }
