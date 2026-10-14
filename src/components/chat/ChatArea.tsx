@@ -905,8 +905,9 @@ export function ChatArea(props: ChatAreaProps) {
                   else if (ph === 'running') { title = 'Long Horizon running'; desc = 'The agent is working through the plan autonomously.'; btnLabel = 'Pause'; onBtn = props.onPauseLongHorizon }
                   else if (ph === 'paused') { title = 'Long Horizon paused'; desc = 'You are back in the discussion phase. Discuss changes, then resume.'; btnLabel = 'Resume'; onBtn = props.onResumeLongHorizon }
                   else if (ph === 'done') { title = 'Long Horizon complete'; desc = 'The plan is complete. You can start a new discussion or disable Long Horizon.'; btnLabel = 'New discussion'; onBtn = props.onNewDiscussion }
+                  // LH v2.7: banner più vicino alla text box (regola utente): sotto 2px invece di 8px
+                  // (totale 10px col padding del composer), sopra resta 8px (spazio col resto invariato).
                   return (
-                    {/* LH v2.7: banner più vicino alla text box (regola utente): sotto 2px invece di 8px (totale 10px col padding del composer), sopra resta 8px */}
                     <div style={{ maxWidth: 'var(--spacing-chat-max)', minWidth: 0, margin: '8px 0 2px 0' }}>
                       <div style={{ backgroundColor: 'var(--q-bg)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', padding: '10px 14px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
