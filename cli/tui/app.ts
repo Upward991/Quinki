@@ -456,6 +456,28 @@ const bgHard = (color: string, s: string): string => {
   }
 };
 
+// LH: la "spiegazione in chat" (il systemMessage del motore) — box bordato col titolo
+// "Long Horizon Mode", come la bubble dell'app. Visibile SOLO da attiva (al disable sparisce).
+class LhSysBlock {
+  text: string;
+  startedAt: number;
+  constructor(text: string, startedAt: number) {
+    this.text = text;
+    this.startedAt = startedAt;
+  }
+  invalidate() {}
+  render(width: number): string[] {
+    const out: string[] = [];
+    try {
+      out.push(" " + bold(fg(C.primary, "Long Horizon Mode")));
+      const inner = Math.max(10, width - 4);
+      out.push(" " + fg(C.primary, "\u2502".padEnd(Math.max(1, width - 1))));
+      for (const line of wrapPlain(this.text, inner)) out.push(" " + fg(C.primary, "\u2502 ") + fg(C.text, line));
+    } catch {}
+    return out;
+  }
+}
+
 class FooterRow {
   dateStr: string;
   infoStr: string;
@@ -2272,6 +2294,21 @@ const readProvidersCfg = (): any => {
             items.push({ value: "__at_file:" + full, label: ((menuMarked.has("__at_file:" + full) ? "\u25cf " : "\u25cb ") + f.n), description: "" });
           }
         } catch { items.push({ value: "__at_none", label: "No attachments yet", description: "" }); }
+        // LH: "Long Horizon files" solo se la sessione ha usato la Long Horizon almeno
+        // una volta (RPC hasLongHorizonFiles — stessa regola dell'app; probe throttled).
+        try {
+          if (scOn && currentKey && Date.now() - lastLhFilesKick > 1500) {
+            lastLhFilesKick = Date.now();
+            void sc.call("hasLongHorizonFiles", { sessionKey: currentKey }, 8000).then((r: any) => { lhFilesEverUsed = !!(r && r.exists); try { ui.requestRender(); } catch {} }).catch(() => {});
+          }
+        } catch {}
+        if (lhFilesEverUsed) {
+          items.push({ value: "__lh_hdr", label: "Long Horizon files", separator: true });
+          items.push({ value: "__lhfile:plan.md", label: "Plan", description: "plan.md" });
+          items.push({ value: "__lhfile:handoff.md", label: "Handoff", description: "handoff.md" });
+          items.push({ value: "__lhfile:progress.json", label: "Progress", description: "progress.json" });
+          items.push({ value: "__lhgit", label: "Git log", description: "last 20 commits" });
+        }
         return items;
       },
     },
@@ -2298,6 +2335,22 @@ const readProvidersCfg = (): any => {
           }
         }
         return items;
+      },
+    },
+    {
+      name: "longhorizon",
+      description: "Activate or disable Long Horizon mode. When active, Tab switches phase.",
+      seq: 10,
+      // Regola utente: attivazione SOLO a sessione avviata (≥1 messaggio) — in welcome
+      // il comando sparisce. Da attiva resta visibile (diventa /disable long horizon).
+      hidden: () => {
+        if (lhActive) return false;
+        if (welcomeShown) return true;
+        try { return !readSessionEntries().some((en: any) => en?.kind === "message" || en?.message); } catch { return false; }
+      },
+      getArgumentCompletions: () => {
+        if (lhActive) return [{ value: "disable-confirm", label: "", notice: "Disable Long Horizon and restore normal commands?" }];
+        return [{ value: "confirm", label: "", notice: "Activate Long Horizon? A guided, phase-based mode: the chat explains it in full the moment it starts." }];
       },
     },
     {
@@ -2836,6 +2889,17 @@ const readProvidersCfg = (): any => {
           try { ui.requestRender(); } catch {}
           return { consume: true };
         }
+        if (lhActive) {
+          // LH (regola utente, confermata): in Long Horizon il Tab NON cambia Plan/Build
+          // (la modalità è sempre build): il Tab diventa il tasto di CAMBIO FASE.
+          // Stesse regole dei bottoni dell'app: cooldown 3.5s + rifiuto a turno attivo.
+          const nowT = Date.now();
+          if (streaming) { lhNotice("wait for the current turn to finish before switching phase"); return { consume: true }; }
+          if (nowT < lhTabCooldownUntil) return { consume: true };
+          lhTabCooldownUntil = nowT + 3500;
+          lhPhaseAdvance();
+          return { consume: true };
+        }
         try { require("fs").appendFileSync("/tmp/q-tab2.log", new Date().toISOString() + " isTab->TOGGLE-MODE (menu closed!) stack=" + JSON.stringify(menuStack) + "\n"); } catch {}
         toggleModeRef?.();
         return { consume: true };
@@ -3155,6 +3219,75 @@ const readProvidersCfg = (): any => {
   let thinkingText = "";
   let welcomeShown = true;
 
+  // ── Long Horizon (stato client — stessa fonte dell'app: RPC + evento longhorizon_update) ──
+  let lhActive = false;
+  let lhPhase = "";      // ready | discussion | planning | running
+  let lhStatus = "";     // idle | running | paused | done
+  let lhSystemMessage = "";
+  let lhStartedAt = 0;
+  let lhSysShownPrev = false;  // visibilità corrente del blocco spiegazione (per il re-render)
+  let lhTabCooldownUntil = 0;  // 3.5s anti doppio-press (stessa regola dei bottoni dell'app)
+  let lhFilesEverUsed = false; // RPC hasLongHorizonFiles (voce "Long Horizon files" nel menu allegati)
+  let lastLhFilesKick = 0;
+  const lhPhaseLabel = (): string => {
+    const ph = lhActive ? lhPhase : "";
+    if (ph === "ready") return "ready";
+    if (ph === "planning") return "planning";
+    if (ph === "running") return "execution";
+    if (ph === "discussion") return lhStatus === "paused" ? "paused" : "discussion";
+    return ph;
+  };
+  const applyLh = (r: any) => {
+    lhActive = !!r?.active;
+    lhPhase = String(r?.phase || "");
+    lhStatus = String(r?.status || "");
+    lhSystemMessage = String(r?.systemMessage || "");
+    lhStartedAt = Number(r?.startedAt || 0);
+    const shown = !!(lhActive && lhSystemMessage && lhStartedAt);
+    const changed = shown !== lhSysShownPrev;
+    lhSysShownPrev = shown;
+    try { updateBar(); ui.requestRender(); } catch {}
+    // La spiegazione appare/sparisce: ridisegna il transcript, MA mai a metà di un
+    // turno (renderHistory cancellerebbe la parte live non ancora in history).
+    if (changed && !streaming) { try { renderHistory(); scrollToEnd(); ui.requestRender(); } catch {} }
+  };
+  const resetLh = () => applyLh(null);
+  const refreshLh = () => {
+    try {
+      if (!currentKey) { resetLh(); return; }
+      if (!(scOn || (sc as any).connected)) return;
+      void sc.call("getLongHorizonState", { sessionKey: currentKey }, 20000).then((r: any) => applyLh(r)).catch(() => {});
+    } catch {}
+  };
+  const lhNotice = (text: string) => {
+    try {
+      pushBlock(registerToggle(new ToggleBlock({ label: "Long Horizon", boldName: text, color: C.primary, body: "" })));
+      scrollToEnd();
+      ui.requestRender();
+    } catch {}
+  };
+  const lhShowFile = (name: string, body: string) => {
+    try {
+      pushBlock(registerToggle(new ToggleBlock({ label: "Long Horizon \u00b7 " + name, color: C.primary, body: body, open: true })));
+      scrollToEnd();
+      ui.requestRender();
+    } catch {}
+  };
+  const lhCall = (m: string, extra?: any) => {
+    try {
+      if (!(scOn || (sc as any).connected) || !currentKey) return;
+      void sc.call(m, { sessionKey: currentKey, ...(extra || {}) }, 20000).then(() => refreshLh()).catch(() => {});
+    } catch {}
+  };
+  const lhPhaseAdvance = () => {
+    // Giro confermato dall'utente: ready→discussion→planning→esecuzione→(pausa)→discussion.
+    const ph = lhPhase;
+    if (ph === "ready") lhCall("longHorizonSetPhase", { phase: "discussion" });
+    else if (ph === "discussion") lhCall("longHorizonSetPhase", { phase: "planning" });
+    else if (ph === "planning") lhCall("longHorizonSetPhase", { phase: "running" });
+    else if (ph === "running") lhCall("longHorizonDeactivate");
+  };
+
   // TUI accent = VIOLET (the app's home/primary accent — deliberately different
   // from the chat's blue, so the CLI is its own thing).
   const accent = C.primary;
@@ -3178,9 +3311,11 @@ const readProvidersCfg = (): any => {
     const modelId = (welcomeShown ? (pendingModelId || defaultModelId || wsModelId) : (wsModelId || defaultModelId)) || "";
     const sep = fg(C.textTertiary, " \u00b7 ");
     const quiet = (s: string) => fg(C.textTertiary, s);
-    const modeStr = mode === "plan" ? fg(C.modePlan, "Plan") : fg(C.modeBuild, "Build"); // T577: the key lives in /shortcuts
+    const modeStr = lhActive
+      ? fg(C.primary, "Long Horizon \u00b7 " + (lhPhaseLabel() || lhPhase))
+      : (mode === "plan" ? fg(C.modePlan, "Plan") : fg(C.modeBuild, "Build")); // T577: the key lives in /shortcuts
     // Bar = mode + counter ONLY: model and thinking are read in the footer (like the app).
-    const bar = modeStr + sep + ctxStr;
+    const bar = modeStr + (lhActive ? sep + quiet("Tab: next phase") : "") + sep + ctxStr;
     // Status pill (app-style): same row as the info, right-aligned — visible
     // only while the engine streams / compacts (Failed stays until next turn).
     const pillOn =
@@ -3388,7 +3523,7 @@ const readProvidersCfg = (): any => {
     "  Enter \u2014 send; during a reply it becomes a steer\n" +
     "  Esc \u2014 stop the running reply\n" +
     "  / \u2014 open the command menu\n" +
-    "  Tab \u2014 switch Plan / Build\n" +
+    "  Tab \u2014 switch Plan / Build (in Long Horizon: next phase)\n" +
     "  Ctrl+F \u2014 show/hide the detailed footers\n" +
     "\n" +
     "Menu navigation\n" +
@@ -3692,6 +3827,7 @@ const readProvidersCfg = (): any => {
         atts: (r && (r as any).messageAttachments) || {},
         displays: (r && (r as any).messageDisplayTexts) || {},
       };
+      try { refreshLh(); } catch {}
       return histMsgs.length > 0;
     } catch (ee) {
       try { require("fs").appendFileSync("/tmp/q-load.log", "  loadServerHistory ERROR: " + String(ee) + "\n"); } catch {}
@@ -3946,6 +4082,9 @@ const readProvidersCfg = (): any => {
       } else if (method === "thinking_updated") {
         try { if (p?.sessionKey === currentKey && typeof p?.level === "string") { thinkingOn = String(p.level) !== "off"; updateBar(); } } catch {}
         try { ui.requestRender(); } catch {}
+      } else if (method === "longhorizon_update") {
+        // LH: il payload è lo stato completo ({...getState}) — stessa fonte dell'app.
+        try { applyLh(p); } catch {}
       } else if (method === "session_meta") {
         if (p.model) wsModelId = String(p.model);
         if (typeof p.thinkingLevel === "string") thinkingOn = p.thinkingLevel !== "off";
@@ -4071,7 +4210,18 @@ const readProvidersCfg = (): any => {
       // entry -> parents), exactly what the app shows. Flat order misorders.
       if (histMsgs) {
         // SERVER history (getHistory) — same rendering order as the app.
+        // LH: la spiegazione va al suo posto cronologico (startedAt), come nell'app.
+        let lhSysDone = false;
+        const lhSysMaybe = (tsIn: number) => {
+          try {
+            if (!lhSysDone && lhActive && lhSystemMessage && lhStartedAt && tsIn >= lhStartedAt) {
+              pushBlock(new LhSysBlock(lhSystemMessage, lhStartedAt));
+              lhSysDone = true;
+            }
+          } catch {}
+        };
         for (const m of histMsgs) {
+          lhSysMaybe(Number(m.timestamp) || 0);
           if (m?.role === "user") {
             const t = typeof m.content === "string" ? m.content : Array.isArray(m.content) ? m.content.filter((x: any) => x?.type === "text").map((x: any) => x.text).join("\n") : "";
             const chipsH: Array<{ kind: string; name: string }> = [];
@@ -4258,6 +4408,7 @@ const readProvidersCfg = (): any => {
             }
           }
         }
+        try { if (!lhSysDone && lhActive && lhSystemMessage) pushBlock(new LhSysBlock(lhSystemMessage, lhStartedAt)); } catch {}
         scrollToEnd();
         return;
       }
@@ -4497,6 +4648,7 @@ const readProvidersCfg = (): any => {
         ctxTokens = 0;
         ctxWindow = 0;
         welcomeShown = true;
+        resetLh();
         applyLayout(true);
       } else {
         histMsgs = null;
@@ -4526,6 +4678,7 @@ const readProvidersCfg = (): any => {
           ctxTokens = 0;
           ctxWindow = 0;
           welcomeShown = true;
+          resetLh();
           applyLayout(true);
         } else {
           if (welcomeShown) {
@@ -4794,6 +4947,25 @@ const readProvidersCfg = (): any => {
             })();
           }
         } catch {}
+        break;
+      }
+      case "longhorizon": {
+        if (!arg) {
+          // Apre il sotto-menu (conferma Attiva / Disattiva) — stessa meccanica di /attachments.
+          menuStack = ["longhorizon"];
+          menuSubFilter = "";
+          menuSel = 0;
+          try { ui.requestRender(); } catch {}
+          break;
+        }
+        if (!(scOn || (sc as any).connected) || !currentKey) break;
+        if (lhActive) {
+          if (arg !== "disable-confirm") break;
+          void sc.call("longHorizonDisable", { sessionKey: currentKey }, 20000).then(() => refreshLh()).catch(() => {});
+        } else {
+          if (arg !== "confirm") break;
+          void sc.call("longHorizonActivate", { sessionKey: currentKey }, 20000).then(() => refreshLh()).catch(() => {});
+        }
         break;
       }
       case "reset": {
@@ -5470,8 +5642,14 @@ const readProvidersCfg = (): any => {
     return [...commands]
       .sort((a, b) => (((a as any).seq ?? 99) as number) - (((b as any).seq ?? 99) as number))
       .filter((c) => !(c as any).hidden?.())
+      // LH: nella fase EXECUTION restano SOLO i comandi Long Horizon (come l'app).
+      .filter((c) => !(lhActive && lhPhase === "running" && c.name !== "longhorizon"))
       .filter((c) => c.name.toLowerCase().startsWith(f))
-      .map((c) => ({ value: c.name, label: "/" + capitalize(c.name), description: (c as any).description || "" }));
+      .map((c) => {
+        if (c.name === "longhorizon" && lhActive) return { value: c.name, label: "/disable long horizon", description: "Disable Long Horizon and restore normal commands" };
+        if (c.name === "longhorizon") return { value: c.name, label: "/LongHorizon", description: (c as any).description || "" };
+        return { value: c.name, label: "/" + capitalize(c.name), description: (c as any).description || "" };
+      });
   };
   const qCursorEnd = (): void => {
     try {
@@ -5841,6 +6019,30 @@ const readProvidersCfg = (): any => {
             const sdir3 = path.join(os.homedir(), ".quinki", "attachments", String(currentKey || ""));
             try { require("fs").mkdirSync(sdir3, { recursive: true }); } catch {}
             openFolder(sdir3);
+          } else if (vA.startsWith("__lhfile:")) {
+            // LH: apre il file della sessione (plan/handoff/progress) come blocco in chat.
+            const nmL = String(vA).slice(9);
+            try {
+              void sc.call("getSessionFiles", { sessionKey: currentKey }, 20000).then((r: any) => {
+                try {
+                  const fL = (Array.isArray(r?.files) ? r.files : []).find((f: any) => String(f?.name) === nmL);
+                  lhShowFile(nmL, fL ? String(fL.content || "") : "No file yet. Activate Long Horizon to create the plan.");
+                } catch {}
+              }).catch(() => {});
+            } catch {}
+            qCloseMenus();
+          } else if (vA === "__lhgit") {
+            // LH: git log della sessione (ultimi 20 commit) come blocco in chat.
+            try {
+              void sc.call("longHorizonGitLog", { sessionKey: currentKey }, 20000).then((r: any) => {
+                try {
+                  const cs = Array.isArray(r?.commits) ? r.commits : [];
+                  const bodyG = cs.length ? cs.map((c: any) => String(c.hash || "") + "  " + String(c.msg || "")).join("\n") : "No commits yet.";
+                  lhShowFile("git log", bodyG);
+                } catch {}
+              }).catch(() => {});
+            } catch {}
+            qCloseMenus();
           }
           try { ui.requestRender(); } catch {}
           return;
@@ -7059,6 +7261,11 @@ const applySettingsPatch = (patch: any) => {
       return;
     }
     if (!t) return;
+    if (lhActive && lhPhase === "ready") {
+      // LH: nella fase ready l'invio è BLOCCATO anche nella CLI (si parte col Tab).
+      lhNotice("ready \u2014 press Tab to start the discussion (messages are blocked until then)");
+      return;
+    }
     editor.setText("");
     if (welcomeShown) {
       // T489: snapshot BEFORE the reset — the send below reads it for setChatAgents.
