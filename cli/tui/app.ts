@@ -3384,7 +3384,7 @@ const readProvidersCfg = (): any => {
   // esclusivamente per i toggle veri (tool call, risultati, deleghe...).
   const lhNotice = (text: string) => {
     try {
-      pushBlock({ render: (w: number) => wrapPlain("\u25b8 Long Horizon \u00b7 " + text, Math.max(10, w - 1)).map((ln: string) => " " + fg(C.text, ln)), invalidate: () => {} } as any);
+      pushBlock({ render: (w: number) => wrapPlain("Long Horizon \u00b7 " + text, Math.max(10, w - 1)).map((ln: string) => " " + fg(C.text, ln)), invalidate: () => {} } as any);
       scrollToEnd();
       ui.requestRender();
     } catch {}
@@ -7576,7 +7576,7 @@ const applySettingsPatch = (patch: any) => {
         for (const at3 of atts) _chipNames.push({ kind: "attachment", name: require("path").basename(String((at3 as any)?.path || "")) });
       } catch {}
       const fail = (err: any) => {
-        addRow(fg(C.danger, "\u25b8 error \u00b7 " + truncate(String(err?.message || err), 120)));
+        addRow(fg(C.danger, "error \u00b7 " + truncate(String(err?.message || err), 120)));
         streaming = false;
         updateBar();
       };
@@ -7667,19 +7667,19 @@ const applySettingsPatch = (patch: any) => {
     updateBar();
     try {
       void Promise.resolve(session.prompt(t)).catch((err: any) => {
-        addRow(fg(C.danger, "\u25b8 error \u00b7 " + truncate(String(err?.message || err), 120)));
+        addRow(fg(C.danger, "error \u00b7 " + truncate(String(err?.message || err), 120)));
         streaming = false;
         updateBar();
       });
     } catch (err: any) {
-      addRow(fg(C.danger, "\u25b8 error \u00b7 " + truncate(String(err?.message || err), 120)));
+      addRow(fg(C.danger, "error \u00b7 " + truncate(String(err?.message || err), 120)));
       streaming = false;
       updateBar();
     }
    } catch (outer: any) {
      // Safety net: never freeze the CLI — log the real cause for diagnosis.
      try { require("fs").appendFileSync("/tmp/q-cli-errors.log", new Date().toISOString() + " send: " + String(outer && outer.stack || outer) + "\n"); } catch {}
-     try { addRow(fg(C.danger, "\u25b8 error \u00b7 " + truncate(String(outer?.message || outer), 120))); } catch {}
+     try { addRow(fg(C.danger, "error \u00b7 " + truncate(String(outer?.message || outer), 120))); } catch {}
      streaming = false;
      try { updateBar(); } catch {}
    }
