@@ -57,7 +57,7 @@ const ROUTABLE = new Set([
   // giravano sul main e il worker lo scopriva solo al rescan (15s) → disattivazione
   // con fino a 30s di autoprompt in ritardo. Ora il worker applica il cambio di stato
   // NELLA SUA MEMORIA subito (e scrive state.json per gli altri processi).
-  "longHorizonActivate", "longHorizonDeactivate", "longHorizonResume",
+  "longHorizonActivate", "longHorizonDeactivate", "longHorizonDisable", "longHorizonResume",
   "longHorizonSetPlan", "longHorizonSetGoal", "longHorizonSetPhase",
   "longHorizonNewDiscussion", "getLongHorizonState",
 ]);

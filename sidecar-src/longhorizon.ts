@@ -231,7 +231,27 @@ export class LongHorizon {
     // LH v2: compaction SEMPRE ON in LH (save della precedente → restore all'uscita)
     this.#forceCompaction(sk, st);
     // Messaggio di SISTEMA per l'UTENTE (hardcoded, sempre uguale): UI-only, NON entra nel contesto del modello.
-    st.systemMessage = `Long Horizon is now active for this session. It is a guided, phase-based working mode. The conversation moves through three phases, and you control every transition with the buttons that appear in the chat.\n\nPHASE 1 — DISCUSSION (automatic, starts now)\nYou and the agent discuss the problem together to understand the goal, the constraints, and the approach. The agent can examine files, search the codebase, and use its skills to study the problem. It CANNOT modify, create, or delete anything.\n\nPHASE 2 — PLANNING\nWhen you are satisfied with the discussion, press "Proceed to planning". The agent proposes a concrete plan divided into units, one per line, in '- [ ]' format. You can keep discussing and adding things. The agent still CANNOT modify anything.\n\nPHASE 3 — START (EXECUTION)\nWhen you press "Start", the agent creates the final plan and the support files, then works through the plan units one at a time, autonomously. It updates handoff.md after each unit and commits progress to git.\n\nHOW THE MODES WORK\n- During DISCUSSION and PLANNING the session runs in PLAN MODE: the agent can read, search, and use skills, but the write/edit/bash tools are disabled (bash is available read-only). It is physically unable to modify anything.\n- During START the session switches to BUILD MODE: all tools are enabled and the agent can create, edit, and execute freely.\n- If you pause, the session returns to DISCUSSION (PLAN MODE again). You can discuss changes, then go through PLANNING and START again.\n\nRULES\n- The agent is always in exactly one phase and cannot change it on its own.\n- Only you can advance the phases, with the buttons in the chat.\n- During DISCUSSION and PLANNING the agent never executes anything.\n- During EXECUTION the agent works autonomously.\n\nThe first phase (DISCUSSION) starts now. Tell the agent the problem you want to work on.`;
+    st.systemMessage = `Long Horizon is now active for this session. It is a guided, phase-based working mode. The conversation moves through three phases, and you control every transition with the buttons that appear in the chat.
+
+PHASE 1 — DISCUSSION (automatic, starts now)
+You and the agent discuss the problem together to understand the goal, the constraints, and the approach. The agent can read files, search the codebase, do research and take notes, but it must NOT start building or implementing the task.
+
+PHASE 2 — PLANNING
+When you are satisfied with the discussion, press "Proceed to planning". The agent proposes a concrete plan divided into units, one per line, in '- [ ]' format. You can keep discussing and adding things; the plan is not executed yet.
+
+PHASE 3 — START (EXECUTION)
+When you press "Start", the agent works through the plan units one at a time, autonomously. It updates handoff.md after each unit and commits progress to git. Press "Pause" any time: the generation stops, the mode goes back to DISCUSSION and Long Horizon stays active — from there you can revise the plan and Start again.
+
+AUTO-COMPACTION
+While Long Horizon is active, auto-compaction is forced ON for this session (even if it was off). This keeps long runs safe: if the context grows, the session compacts itself instead of hitting the limit. You cannot turn auto-compaction off from the menu while Long Horizon is active: to disable it, disable Long Horizon first.
+
+RULES
+- The agent is always in exactly one phase and cannot change it on its own.
+- Only you can advance the phases, with the buttons in the chat.
+- While a turn is running you cannot switch phases: press Stop first if needed.
+- The agent works autonomously during EXECUTION and only continues at the end of a finished turn.
+
+The first phase (DISCUSSION) starts now. Tell the agent the problem you want to work on.`;
     this.#writeState(sk);
     return { ok: true };
   }
@@ -618,6 +638,12 @@ export class LongHorizon {
     } catch (e: any) {
       this.#log("lh-git-collapse-error", { sessionKey: sk, err: e?.message });
     }
+  }
+
+  // LH v2.4: Long Horizon attivo per questa sessione? (usato dal blocco della compaction)
+  isActive(sk: string): boolean {
+    const st = this.#states.get(sk);
+    return !!st && st.active;
   }
 
   // True se la sessione ha DAVVERO usato Long Horizon (file di stato presenti su disco).

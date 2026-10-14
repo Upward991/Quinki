@@ -654,7 +654,17 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   },
 
   setSessionCompaction: async (p) => {
-    piBridge!.setSessionCompaction(p.sessionKey, p.auto, p.threshold);
+    // LH v2.4 (regola utente): mentre Long Horizon è ATTIVO la compaction NON si può spegnere
+    // (è forzata ON per sicurezza del run lungo). Si riattiva da sola e il valore torna true;
+    // si spegne solo DOPO aver disattivato la Long Horizon.
+    let auto = p.auto;
+    try {
+      if (longHorizon.isActive(String(p.sessionKey || "")) && auto === false) {
+        auto = true;
+        piBridge!.logDebug("lh-compaction-locked", { sessionKey: p.sessionKey });
+      }
+    } catch {}
+    piBridge!.setSessionCompaction(p.sessionKey, auto, p.threshold);
     return {};
   },
 

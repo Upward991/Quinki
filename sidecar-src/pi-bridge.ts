@@ -2039,6 +2039,9 @@ class PiBridge {
       this.logDebug("set-session-compaction-file-error", { key, error: e?.message || String(e) });
     }
     this.logDebug("set-session-compaction", { sessionKey: key, auto, threshold });
+    // LH v2.4: NOTIFICA il frontend — la spunta "Auto-compaction" nel menu deve aggiornarsi
+    // SUBITO (attivando la Long Horizon la spunta forzata non si vedeva fino al reload).
+    try { const send = (globalThis as any).__quinki_sendNotification; if (send) send("session_updated", { sessionKey: key, compactionAuto: auto, compactionThreshold: threshold }); } catch {}
   }
 
   // === B0.1 (S9): monitoring heap (bun:jsc) ===

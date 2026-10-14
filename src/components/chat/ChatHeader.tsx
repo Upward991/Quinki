@@ -344,9 +344,9 @@ export function ChatHeader(props: ChatHeaderProps) {
                   <CtxRow label="Percent" value={`${((props.contextTokens / props.contextWindow) * 100).toFixed(1)}%`} />
                   <div style={{ height: '14px' }} />
                   <div style={{ textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: '10px', fontWeight: 600, letterSpacing: '0.8px', fontFamily: 'var(--font-code)', marginBottom: '6px' }}>COMPACTION</div>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginBottom: '8px' }}>
-                    <input type="checkbox" checked={!!props.compactionAuto} onChange={e => props.onCompactionChange?.(e.target.checked)} style={{ accentColor: 'var(--q-tab-accent)' }} />
-                    <span style={{ color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>Auto-compaction (80%)</span>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: props.longHorizon ? 'not-allowed' : 'pointer', marginBottom: '8px' }}>
+                    <input type="checkbox" disabled={!!props.longHorizon} checked={!!props.compactionAuto || !!props.longHorizon} onChange={e => { if (props.longHorizon) return; props.onCompactionChange?.(e.target.checked) }} style={{ accentColor: 'var(--q-tab-accent)', cursor: props.longHorizon ? 'not-allowed' : 'pointer' }} />
+                    <span title={props.longHorizon ? 'Locked while Long Horizon is active: disable Long Horizon first' : undefined} style={{ color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', opacity: props.longHorizon ? 0.6 : 1 }}>Auto-compaction (80%){props.longHorizon ? ' \u00b7 locked by Long Horizon' : ''}</span>
                   </label>
                   <CompactionBtn onClick={props.onCompact} />
                 </div>
@@ -679,9 +679,9 @@ export function ChatHeader(props: ChatHeaderProps) {
             <CtxRow label="Percent" value={`${((props.contextTokens / props.contextWindow) * 100).toFixed(1)}%`} />
             <div style={{ height: '14px' }} />
             <div style={{ textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: '10px', fontWeight: 600, letterSpacing: '0.8px', fontFamily: 'var(--font-code)', marginBottom: '6px' }}>COMPACTION</div>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginBottom: '8px' }}>
-              <input type="checkbox" checked={!!props.compactionAuto} onChange={e => props.onCompactionChange?.(e.target.checked)} style={{ accentColor: 'var(--q-tab-accent)' }} />
-              <span style={{ color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)' }}>Auto-compaction (80%)</span>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: props.longHorizon ? 'not-allowed' : 'pointer', marginBottom: '8px' }}>
+              <input type="checkbox" disabled={!!props.longHorizon} checked={!!props.compactionAuto || !!props.longHorizon} onChange={e => { if (props.longHorizon) return; props.onCompactionChange?.(e.target.checked) }} style={{ accentColor: 'var(--q-tab-accent)', cursor: props.longHorizon ? 'not-allowed' : 'pointer' }} />
+              <span title={props.longHorizon ? 'Locked while Long Horizon is active: disable Long Horizon first' : undefined} style={{ color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)', opacity: props.longHorizon ? 0.6 : 1 }}>Auto-compaction (80%){props.longHorizon ? ' \u00b7 locked by Long Horizon' : ''}</span>
             </label>
             <CompactionBtn onClick={props.onCompact} />
           </div>

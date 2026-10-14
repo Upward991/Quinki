@@ -780,6 +780,8 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
           agents: typeof p.agentId === 'string' && p.agentId ? p.agentId.split(',').filter(Boolean) : s.agents,
           orchestratorId: typeof p.orchestratorId === 'string' ? (p.orchestratorId || null) : (s as any).orchestratorId,
           fallbackModels: Array.isArray(p.fallbackModels) ? p.fallbackModels : (s as any).fallbackModels,
+          compactionAuto: typeof p.compactionAuto === 'boolean' ? p.compactionAuto : (s as any).compactionAuto,
+          compactionThreshold: typeof p.compactionThreshold === 'number' ? p.compactionThreshold : (s as any).compactionThreshold,
         } : s))
       } else {
         call('getFullState', {}).then((r: any) => { if (r?.sessions) setSessions(mapSessions(r.sessions)) }).catch(() => {})
