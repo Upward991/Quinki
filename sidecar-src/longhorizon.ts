@@ -455,6 +455,10 @@ export class LongHorizon {
       }
       st.phase = "running";
       st.status = "running";
+      if (st.currentIdx < 0 && st.units.length > 0) {
+        const fp = st.units.findIndex(u => u.status === "pending");
+        st.currentIdx = fp >= 0 ? fp : 0;
+      }
       st.promptCount = 0;
       st.lastActivity = Date.now();
       this.#writeState(sk);
@@ -838,6 +842,19 @@ export class LongHorizon {
       if (tstate && tstate.clean === false) { this.#log("lh-wait-dirty-turn", { sessionKey: sk, stopReason: tstate.stopReason }); return; }
     } catch {}
 
+    // SELF-HEAL (15 ott — bug utente: piano con 5 unità ma currentIdx -1 → tick
+    // muto per SEMPRE: niente prompt, unità mai fatte, piano mai completato, support
+    // agent silenzioso). Nato da scritture incrociate tra processi (e dal vecchio
+    // motore dell'Expert sidecar, senza la guardia v2.2). Qui si cura da solo:
+    // la prima unità PENDING diventa la corrente e il run riparte.
+    if (st.currentIdx < 0 && (st.units || []).length > 0) {
+      const fp = (st.units || []).findIndex(u => u.status === "pending");
+      st.currentIdx = fp >= 0 ? fp : 0;
+      st.lastActivity = Date.now();
+      this.#writeState(sk);
+      this.#writeProgress(sk);
+      this.#log("lh-current-heal", { sessionKey: sk, currentIdx: st.currentIdx });
+    }
     if (st.currentIdx < 0) return; // nessuna unità impostata
     let unit = st.units?.[st.currentIdx];
     if (!unit) return;
