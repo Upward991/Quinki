@@ -734,6 +734,7 @@ export function Composer(props: ComposerProps) {
           onClose={() => { setSlashMenuOpen(false); if (text.startsWith('/') && !text.includes(' ')) setText('') }}
           onLongHorizon={props.onLongHorizon}
           longHorizonActive={props.longHorizon}
+          hideLongHorizon={props.welcomeMode === true}
           longHorizonStatus={props.longHorizonStatus}
           longHorizonPhase={props.longHorizonPhase}
           longHorizonPlanProposed={props.longHorizonPlanProposed}

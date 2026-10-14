@@ -31,6 +31,7 @@ interface SlashMenuProps {
   onSkillSelected?: (skill: { agentId: string; skillName: string; agentName: string }) => void
   onLongHorizon?: (activate: boolean) => void
   longHorizonActive?: boolean
+  hideLongHorizon?: boolean
   longHorizonStatus?: string
   longHorizonPhase?: string
   longHorizonPlanProposed?: boolean
@@ -140,7 +141,12 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
     { id: 'skill', label: '/Skill', description: 'Activate a skill' },
     { id: 'longhorizon', label: '/LongHorizon', description: 'Activate or disable Long Horizon mode. When active, only Long Horizon slash commands are available.' },
     { id: 'reset', label: '/Reset', description: 'Clear messages. Keeps model, directory and settings.' },
-  ]
+  ].filter(c => {
+    // LH v2.7 (regola utente): attivazione SOLO a sessione avviata (almeno 1 messaggio):
+    // in welcome chat il comando sparisce. Se LH è già attivo resta visibile (diventa /disable).
+    if (c.id === 'longhorizon' && props.hideLongHorizon && !props.longHorizonActive) return false
+    return true
+  })
 
   // LH v2 (14 ott): restano SOLO /longhorizon e /disable long horizon. Il vecchio /pause
   // (e /resume) era codice morto; le fasi si cambiano coi BOTTONI nel banner LH.
