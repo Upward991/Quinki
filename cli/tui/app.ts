@@ -3676,6 +3676,11 @@ const readProvidersCfg = (): any => {
     "  Tab \u2014 switch Plan / Build (in Long Horizon: next phase)\n" +
     "  Ctrl+F \u2014 show/hide the detailed footers\n" +
     "\n" +
+    "Long Horizon\n" +
+    "\n" +
+    "  /LongHorizon \u2014 activate the mode (then /disable long horizon to exit)\n" +
+    "  Tab \u2014 next phase: start discussion \u2192 planning \u2192 execution \u2192 pause\n" +
+    "\n" +
     "Menu navigation\n" +
     "\n" +
     "  \u2191 / \u2193 \u2014 move through the rows\n" +
