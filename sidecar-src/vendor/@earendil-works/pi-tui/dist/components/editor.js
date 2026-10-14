@@ -544,10 +544,8 @@ export class Editor {
                         acLines.push(" " + qPaint(`${leftPadding}${line}${lp}${rightPadding}`) + " ");
                     }
                     try { this.qMenuRendering = false; } catch { }
-                    // QUINKI PATCH (15 ott, regola utente): NIENTE padding finale — il menu
-                    // chiude con la RIGA DI SEPARAZIONE ╰───╯ identica a quella del banner
-                    // (aggiunta da buildMenuRows come ultima riga).
-                    result.unshift(...acLines);
+                    acLines.push(acPadRow);
+                    result.unshift(...acLines, "");
                 }
             }
             catch { }

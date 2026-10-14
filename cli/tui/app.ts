@@ -7198,7 +7198,6 @@ const applySettingsPatch = (patch: any) => {
           : fg(C.danger, "Close") + "  " + fg(C.primary, "Confirm");
         const gwE = Math.max(1, w - visibleWidth(leftE) - visibleWidth(rightE));
         rowsE.push(leftE + " ".repeat(gwE) + rightE);
-        rowsE.push(fg(C.border, "\u2570" + "\u2500".repeat(Math.max(1, w - 2)) + "\u256f"));
         return rowsE;
       }
       // NOTE: a menu opened by a command (skill/attachments/directory) lives with an
@@ -7368,10 +7367,6 @@ const applySettingsPatch = (patch: any) => {
         (needsConfirm ? (menuConfirmFocus ? bold(bg(C.primary, fg(C.bgPanel, " Confirm "))) : fg(C.primary, "Confirm")) : "");
       const gw = Math.max(1, w - visibleWidth(left) - visibleWidth(right));
       rows.push(left + " ".repeat(gw) + right);
-      // REGOLA UTENTE (15 ott): la RIGA DI SEPARAZIONE del menu, IDENTICA a quella
-      // del banner del cambio fase (╰───╯): stessa larghezza, stesso colore (C.border),
-      // stesso posto — chiude il menu sopra la text box come il banner.
-      rows.push(fg(C.border, "\u2570" + "\u2500".repeat(Math.max(1, w - 2)) + "\u256f"));
       return rows;
     } catch {
       return [];
