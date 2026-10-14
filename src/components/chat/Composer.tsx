@@ -194,6 +194,19 @@ export function Composer(props: ComposerProps) {
     }
   }, [props.attachSignal])
   const [sessionFilesOpen, setSessionFilesOpen] = useState(false)
+  // LH files (regola utente 14 ott): la voce "Long Horizon files" compare SOLO se la sessione
+  // ha usato Long Horizon almeno una volta (la cartella si crea solo USANDOLO — mai cartelle
+  // a vuoto nello spazio utente). Una volta usata, resta per sempre in quella sessione.
+  const [lhEverUsed, setLhEverUsed] = useState(false)
+  useEffect(() => {
+    let alive = true
+    if (!props.sessionKey) { setLhEverUsed(false); return }
+    try {
+      const call = (window as any).__sidecarCall
+      if (call) call('hasLongHorizonFiles', { sessionKey: props.sessionKey }).then((r: any) => { if (alive) setLhEverUsed(!!r?.exists) }).catch(() => {})
+    } catch {}
+    return () => { alive = false }
+  }, [props.sessionKey, props.longHorizon])
   const [existingAttachments, setExistingAttachments] = useState<any[]>([])
   const [copyingFile, setCopyingFile] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -762,7 +775,7 @@ export function Composer(props: ComposerProps) {
             { icon: <CameraIcon size={18} />, label: 'Take photo', onSelect: handleSystemCamera },
             { icon: <Clock size={18} />, label: 'Previously sent', onSelect: () => handleShowExisting() },
             ...(isPhoneWeb() ? [] : [{ icon: <Folder size={18} />, label: 'Open attachments folder', onSelect: () => { setAttachMenuOpen(false); handleOpenAttachmentsFolder() } }]),
-            ...((!isPhoneWeb() && props.sessionKey) ? [{ icon: <Folder size={18} />, label: 'Open session files folder', onSelect: async () => { setAttachMenuOpen(false); try { await invoke('open_longhorizon_folder', { sessionKey: props.sessionKey }) } catch (e: any) { console.error('open_longhorizon_folder:', e) } } }] : []),
+            ...((!isPhoneWeb() && props.sessionKey && (lhEverUsed || !!props.longHorizon)) ? [{ icon: <Folder size={18} />, label: 'Long Horizon files', onSelect: async () => { setAttachMenuOpen(false); try { await invoke('open_longhorizon_folder', { sessionKey: props.sessionKey }) } catch (e: any) { console.error('open_longhorizon_folder:', e) } } }] : []),
             ...((!isPhoneWeb() && props.sessionKey) ? [{ icon: <FolderOpen size={18} />, label: 'Working directories', onSelect: () => handleShowWorkdirs() }] : []),
           ]}
         />
@@ -779,7 +792,7 @@ export function Composer(props: ComposerProps) {
           onReAttach={handleReAttach}
           onBack={() => setAttachMenuView('main')}
           onClose={() => { setAttachMenuOpen(false); setAttachMenuView('main') }}
-          onSessionFiles={async () => { setAttachMenuOpen(false); if (props.sessionKey) { try { await invoke('open_longhorizon_folder', { sessionKey: props.sessionKey }) } catch (e: any) { console.error('open_longhorizon_folder:', e) } } }}
+          onSessionFiles={(!isPhoneWeb() && props.sessionKey && (lhEverUsed || !!props.longHorizon)) ? async () => { setAttachMenuOpen(false); if (props.sessionKey) { try { await invoke('open_longhorizon_folder', { sessionKey: props.sessionKey }) } catch (e: any) { console.error('open_longhorizon_folder:', e) } } } : undefined}
         />
       )}
 
@@ -1153,7 +1166,7 @@ function AttachMenu({ view, existingFiles, workdirs, onPickFiles, onOpenFolder, 
               <AttachOptionRow icon={<Paperclip size={18} />} label="Attach new file" onClick={onPickFiles} />
               <AttachOptionRow icon={<Clock size={18} />} label="Previously sent" onClick={onShowExisting} />
               {!isPhoneWeb() && <AttachOptionRow icon={<Folder size={18} />} label="Open attachments folder" onClick={onOpenFolder} />}
-              {(onSessionFiles && !isPhoneWeb()) && <AttachOptionRow icon={<Folder size={18} />} label="Open session files folder" onClick={onSessionFiles} />}
+              {(onSessionFiles && !isPhoneWeb()) && <AttachOptionRow icon={<Folder size={18} />} label="Long Horizon files" onClick={onSessionFiles} />}
               {!isPhoneWeb() && <AttachOptionRow icon={<FolderOpen size={18} />} label="Working directories" onClick={onShowWorkdirs} />}
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '16px 16px 12px 16px' }}>

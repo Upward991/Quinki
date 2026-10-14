@@ -620,6 +620,16 @@ export class LongHorizon {
     }
   }
 
+  // True se la sessione ha DAVVERO usato Long Horizon (file di stato presenti su disco).
+  // Serve al menu allegati: la voce "Long Horizon files" si mostra SOLO se la cartella esiste.
+  hasFiles(sk: string): boolean {
+    try {
+      const d = this.#dir(sk);
+      if (!fs.existsSync(d)) return false;
+      return fs.readdirSync(d).some(f => f === "state.json" || f === "plan.md" || f === "handoff.md" || f === "progress.json");
+    } catch { return false; }
+  }
+
   // === Session files ===
   getSessionFiles(sk: string): { name: string; content: string }[] {
     const out: { name: string; content: string }[] = [];

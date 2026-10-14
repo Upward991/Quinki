@@ -1127,6 +1127,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   injectSystemMessage: async (p) => piBridge!.injectSystemMessage(String(p.sessionKey || ''), String(p.text || '')),
   getLongHorizonState: async (p) => longHorizon.getState(String(p.sessionKey || '')),
   getSessionFiles: async (p) => ({ files: longHorizon.getSessionFiles(String(p.sessionKey || '')) }),
+  hasLongHorizonFiles: async (p) => ({ exists: longHorizon.hasFiles(String(p.sessionKey || '')) }),
   saveSessionFile: async (p) => longHorizon.saveSessionFile(String(p.sessionKey || ''), String(p.name || ''), String(p.content || '')),
   longHorizonGitLog: async (p) => ({ commits: longHorizon.gitLog(String(p.sessionKey || '')) }),
   longHorizonGitDiff: async (p) => ({ diff: longHorizon.gitDiff(String(p.sessionKey || ''), p.commit) }),
