@@ -302,8 +302,26 @@ export class LongHorizon {
     this.#writeProgress(sk);
     this.#log("lh-paused", { sessionKey: sk, note: "long horizon resta attivo, fase discussion" });
     this.#piBridge?.setLongHorizonPhase(sk, "discussion");
-    this.#sendToSession(sk, `Long Horizon is paused. We are back in the DISCUSSION phase. Do not execute anything.`);
+    // LH v2.1 (regola utente): fermare il turno E mandare il messaggio nello STESSO istante
+    // perdeva lo streaming (race). Ora: prima si ferma, si ASPETTA che il turno sia davvero
+    // finito, POI parte il messaggio di fase.
+    this.#sendWhenTurnIdle(sk, `Long Horizon is paused. We are back in the DISCUSSION phase. Do not execute anything.`);
     return { ok: true };
+  }
+
+  // Manda un messaggio di fase SOLO quando non c'è nessun turno in corso/in coda (con cap).
+  #sendWhenTurnIdle(sk: string, text: string, maxWaitMs = 20000) {
+    const started = Date.now();
+    const tickFn = () => {
+      try {
+        const t = this.#piBridge?.getTurnState?.(sk);
+        const streaming = (this.#piBridge?.getStreamingStatus?.() || []).includes(sk);
+        if ((!t || !t.pending) && !streaming) { this.#sendToSession(sk, text); return; }
+      } catch {}
+      if (Date.now() - started > maxWaitMs) { this.#sendToSession(sk, text); return; }
+      setTimeout(tickFn, 500);
+    };
+    setTimeout(tickFn, 400);
   }
 
   // Nuova discussione (post-completamento): azzera il piano e torna alla discussion
@@ -712,8 +730,12 @@ export class LongHorizon {
         // Prima il main "prendeva in carico" la sessione → split-brain: turni sul main,
         // stop instradato al worker, streaming perso.
         if (poolIndex() === 0 && !isPoolWorkerAlive(ownerPool(sk))) {
-          this.#log("lh-spawn-owner-worker", { sessionKey: sk, owner: ownerPool(sk) });
-          try { ensureWorker(ownerPool(sk)); } catch {}
+          // Solo se c'è VERO lavoro da fare (running o auto-plan): niente spawn a vuoto
+          // durante la discussione in attesa dell'utente (evita churn ogni 10 min).
+          if (st.status === "running" || st.pendingGoal) {
+            this.#log("lh-spawn-owner-worker", { sessionKey: sk, owner: ownerPool(sk), status: st.status });
+            try { ensureWorker(ownerPool(sk)); } catch {}
+          }
         } else {
           this.#log("lh-skip-pool-worker-session", { sessionKey: sk, owner: ownerPool(sk), myIndex: poolIndex() });
         }
