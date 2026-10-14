@@ -3382,6 +3382,13 @@ const readProvidersCfg = (): any => {
   // REGOLA GENERALE (utente): gli avvisi per l'utente in chat MAI col formato toggle —
   // solo TESTO NORMALE (gli errori: rosso, ma sempre testo normale). Il toggle resta
   // esclusivamente per i toggle veri (tool call, risultati, deleghe...).
+  // Errori mostrati come TESTO PIANO (regola utente): SOLO il messaggio, in rosso,
+  // senza prefissi ("error ·" era una merda, con la e minuscola). Prima lettera
+  // MAIUSCOLA sempre ("Sidecar connection lost", mai "sidecar...").
+  const qErrText = (m: any): string => {
+    const t = String((m && (m.message || m)) || "Unknown error");
+    return t ? t.charAt(0).toUpperCase() + t.slice(1) : t;
+  };
   const lhNotice = (text: string) => {
     try {
       pushBlock({ render: (w: number) => wrapPlain("Long Horizon \u00b7 " + text, Math.max(10, w - 1)).map((ln: string) => " " + fg(C.text, ln)), invalidate: () => {} } as any);
@@ -4241,7 +4248,7 @@ const readProvidersCfg = (): any => {
       } else if (method === "error") {
         // Errors from the runtime (500s etc.) must be VISIBLE in the CLI too.
         setStatus("Failed", "failed");
-        const em = String(p?.message || "Unknown error");
+        const em = qErrText(p?.message || "Unknown error");
         // PLAIN red writing (like the app): errors are NEVER toggles.
         pushBlock({ render: (w: number) => wrapPlain(em, Math.max(10, w)).map((ln: string) => fg(C.danger, ln)), invalidate: () => {} } as any);
         scrollToEnd();
@@ -7576,7 +7583,7 @@ const applySettingsPatch = (patch: any) => {
         for (const at3 of atts) _chipNames.push({ kind: "attachment", name: require("path").basename(String((at3 as any)?.path || "")) });
       } catch {}
       const fail = (err: any) => {
-        addRow(fg(C.danger, "error \u00b7 " + truncate(String(err?.message || err), 120)));
+        addRow(fg(C.danger, truncate(qErrText(err), 120)));
         streaming = false;
         updateBar();
       };
@@ -7667,19 +7674,19 @@ const applySettingsPatch = (patch: any) => {
     updateBar();
     try {
       void Promise.resolve(session.prompt(t)).catch((err: any) => {
-        addRow(fg(C.danger, "error \u00b7 " + truncate(String(err?.message || err), 120)));
+        addRow(fg(C.danger, truncate(qErrText(err), 120)));
         streaming = false;
         updateBar();
       });
     } catch (err: any) {
-      addRow(fg(C.danger, "error \u00b7 " + truncate(String(err?.message || err), 120)));
+      addRow(fg(C.danger, truncate(qErrText(err), 120)));
       streaming = false;
       updateBar();
     }
    } catch (outer: any) {
      // Safety net: never freeze the CLI — log the real cause for diagnosis.
      try { require("fs").appendFileSync("/tmp/q-cli-errors.log", new Date().toISOString() + " send: " + String(outer && outer.stack || outer) + "\n"); } catch {}
-     try { addRow(fg(C.danger, "error \u00b7 " + truncate(String(outer?.message || outer), 120))); } catch {}
+     try { addRow(fg(C.danger, truncate(qErrText(outer), 120))); } catch {}
      streaming = false;
      try { updateBar(); } catch {}
    }

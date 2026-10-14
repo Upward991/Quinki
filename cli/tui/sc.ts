@@ -48,7 +48,7 @@ export class Sc {
           this.connected = false;
           for (const [, p] of this.#pending) {
             try {
-              p.reject(new Error("sidecar connection lost"));
+              p.reject(new Error("Sidecar connection lost"));
             } catch {}
           }
           this.#pending.clear();
