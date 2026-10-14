@@ -42,7 +42,7 @@ interface LHState {
   compactionEnsured?: boolean;
 }
 
-const UNIT_PROMPT_TEMPLATE = `Continue the work. Current unit: {desc} (unit {n} of {total}; {remaining} remaining after this one).
+const UNIT_PROMPT_TEMPLATE = `We are in the EXECUTION phase. Continue the work. Current unit: {desc} (unit {n} of {total}; {remaining} remaining after this one).
 
 ALREADY COMPLETED — do NOT redo, revisit or re-verify these units (they are done):
 {doneList}
@@ -67,7 +67,7 @@ BE SKEPTICAL ABOUT YOUR OWN WORK:
 
 Reply when you have completed the unit.`;
 
-const STUCK_MESSAGE = `What are you doing? You are going in circles: you repeated the same actions without updating handoff.md. Stop, re-read the current unit, and restart with a different approach. Update handoff.md as soon as you make progress.`;
+const STUCK_MESSAGE = `We are in the EXECUTION phase. What are you doing? You are going in circles: you repeated the same actions without updating handoff.md. Stop, re-read the current unit, and restart with a different approach. Update handoff.md as soon as you make progress.`;
 
 const DONE_MESSAGE = `The plan is complete. Do a final full verification: check that everything works, update handoff.md with the final summary, and make a final commit 'plan: complete'. Then reply with a summary of the work done.`;
 
@@ -306,7 +306,7 @@ export class LongHorizon {
     // LH v2.1 (regola utente): fermare il turno E mandare il messaggio nello STESSO istante
     // perdeva lo streaming (race). Ora: prima si ferma, si ASPETTA che il turno sia davvero
     // finito, POI parte il messaggio di fase.
-    this.#sendWhenTurnIdle(sk, `Long Horizon is paused. We are back in the DISCUSSION phase. Do not execute anything.`);
+    this.#sendWhenTurnIdle(sk, `Long Horizon is paused. We are now back in the DISCUSSION phase. Do not execute anything.`);
     return { ok: true };
   }
 
@@ -340,7 +340,7 @@ export class LongHorizon {
     this.#writeProgress(sk);
     this.#log("lh-new-discussion", { sessionKey: sk });
     this.#piBridge?.setLongHorizonPhase(sk, "discussion");
-    this.#sendToSession(sk, `Long Horizon is back in the DISCUSSION phase. Ask me what new problem I want to work on. Do not execute anything.`);
+    this.#sendToSession(sk, `Long Horizon: we are now in the DISCUSSION phase again. Ask me what new problem I want to work on. Do not execute anything.`);
     return { ok: true };
   }
 
@@ -370,9 +370,9 @@ export class LongHorizon {
       this.#log("lh-phase-planning", { sessionKey: sk, revision: isRevision });
       this.#piBridge?.setLongHorizonPhase(sk, "planning");
       if (isRevision) {
-        this.#sendToSession(sk, `We are in the PLANNING phase. Update the previous plan you were following based on our latest discussion. Keep the units that are still valid, modify the ones that changed, and add new ones if needed. Output the updated plan with units in '- [ ]' format. Do not execute anything.`);
+        this.#sendToSession(sk, `We are now in the PLANNING phase. Update the previous plan you were following based on our latest discussion. Keep the units that are still valid, modify the ones that changed, and add new ones if needed. Output the updated plan with units in '- [ ]' format. Do not execute anything.`);
       } else {
-        this.#sendToSession(sk, `We are in the PLANNING phase. Propose a plan for the goal we discussed, divided into units in '- [ ]' format. Do not execute anything.`);
+        this.#sendToSession(sk, `We are now in the PLANNING phase. Propose a plan for the goal we discussed, divided into units in '- [ ]' format. Do not execute anything.`);
       }
       return { ok: true };
     }
@@ -422,7 +422,7 @@ export class LongHorizon {
       this.#writeProgress(sk);
       this.#log("lh-phase-running", { sessionKey: sk });
       this.#piBridge?.setLongHorizonPhase(sk, "running");
-      this.#sendToSession(sk, `The execution has started. Begin working through the plan units one at a time. Update handoff.md after each unit and commit to git.`);
+      this.#sendToSession(sk, `We are now in the EXECUTION phase. Begin working through the plan units one at a time. Update handoff.md after each unit and commit to git.`);
       return { ok: true };
     }
     return { ok: false, error: "unknown phase" };
@@ -771,7 +771,7 @@ export class LongHorizon {
         if (count >= 3) {
           this.#log("lh-loop-pattern", { sessionKey: sk, tool: last.name, count });
           try { this.#piBridge?.abort?.(sk); } catch {}
-          this.#sendToSession(sk, `I notice you are repeating the same action (${last.name}) with the same arguments. This looks like a loop. Stop, re-read the current unit and the handoff, and take a different approach. Update handoff.md as soon as you make progress.`);
+          this.#sendToSession(sk, `We are in the EXECUTION phase. I notice you are repeating the same action (${last.name}) with the same arguments. This looks like a loop. Stop, re-read the current unit and the handoff, and take a different approach. Update handoff.md as soon as you make progress.`);
           st.promptCount = 0;
           st.lastHandoffSig = this.#handoffSig(sk);
           this.#writeState(sk);
@@ -859,7 +859,7 @@ export class LongHorizon {
   }
 
   async #sendPlanRequest(sk: string, st: LHState, goal: string) {
-    const prompt = `You are in Long Horizon mode. The user's goal is: "${goal}".\n\nCreate a plan to achieve this goal. Divide it into units, one per line, in this exact format:\n- [ ] Unit 1: description\n- [ ] Unit 2: description\n...\n\nDo NOT execute anything yet. Only output the plan with the units.`;
+    const prompt = `We are now in the PLANNING phase (Long Horizon mode). The user's goal is: "${goal}".\n\nCreate a plan to achieve this goal. Divide it into units, one per line, in this exact format:\n- [ ] Unit 1: description\n- [ ] Unit 2: description\n...\n\nDo NOT execute anything yet. Only output the plan with the units.`;
     this.#inflight.set(sk, true);
     this.#log("lh-plan-request", { sessionKey: sk });
     try {
