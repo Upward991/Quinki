@@ -544,12 +544,12 @@ export class Editor {
                         acLines.push(" " + qPaint(`${leftPadding}${line}${lp}${rightPadding}`) + " ");
                     }
                     try { this.qMenuRendering = false; } catch { }
-                    // QUINKI PATCH (15 ott, regola utente): UNA riga di spazio tra il menu
-                    // e la text box — IDENTICA a quella del banner del cambio fase
-                    // (che ha il suo bordo ╰─╯ come riga di chiusura). Zero righe era
-                    // "incollato" (fatto e corretto subito); due righe erano troppo.
-                    acLines.push(acPadRow);
-                    result.unshift(...acLines);
+                    // QUINKI PATCH (15 ott, regola utente — CORRETTA): una riga di spazio
+                    // VERA (= NON dipinta: colore di sfondo dell'app) tra il menu e la
+                    // text box. La padRow dipinta col colore del pannello NON è spazio:
+                    // si vede fusa con la box ("è incollato"). La riga vuota "" non
+                    // dipinta è esattamente la stessa spaziatura del banner.
+                    result.unshift(...acLines, "");
                 }
             }
             catch { }
