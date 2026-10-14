@@ -544,9 +544,11 @@ export class Editor {
                         acLines.push(" " + qPaint(`${leftPadding}${line}${lp}${rightPadding}`) + " ");
                     }
                     try { this.qMenuRendering = false; } catch { }
-                    // QUINKI PATCH (15 ott, regola utente): ZERO righe tra il menu e la
-                    // text box — IDENTICO allo spazio tra il banner del cambio fase e la
-                    // text box (il footer tocca la box come il bordo ╰─╯ del banner).
+                    // QUINKI PATCH (15 ott, regola utente): UNA riga di spazio tra il menu
+                    // e la text box — IDENTICA a quella del banner del cambio fase
+                    // (che ha il suo bordo ╰─╯ come riga di chiusura). Zero righe era
+                    // "incollato" (fatto e corretto subito); due righe erano troppo.
+                    acLines.push(acPadRow);
                     result.unshift(...acLines);
                 }
             }
