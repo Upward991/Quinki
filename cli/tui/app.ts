@@ -3391,14 +3391,22 @@ const readProvidersCfg = (): any => {
   };
   const lhNotice = (text: string) => {
     try {
-      pushBlock({ render: (w: number) => wrapPlain("Long Horizon \u00b7 " + text, Math.max(10, w - 1)).map((ln: string) => " " + fg(C.text, ln)), invalidate: () => {} } as any);
+      // Prima lettera MAIUSCOLA anche negli avvisi (regola utente: mai frasi che
+      // iniziano in minuscolo). Testo normale, niente frecce, niente formato toggle.
+      const msg = text ? text.charAt(0).toUpperCase() + text.slice(1) : text;
+      pushBlock({ render: (w: number) => wrapPlain("Long Horizon \u00b7 " + msg, Math.max(10, w - 1)).map((ln: string) => " " + fg(C.text, ln)), invalidate: () => {} } as any);
       scrollToEnd();
       ui.requestRender();
     } catch {}
   };
   const lhShowFile = (name: string, body: string) => {
+    // REGOLA UTENTE: NON è un toggle (è testo del sistema) → TESTO PIANO:
+    // una riga col nome del file + il contenuto normale. Niente freccia, niente formato toggle.
     try {
-      pushBlock(registerToggle(new ToggleBlock({ label: "Long Horizon \u00b7 " + name, color: C.primary, body: body, open: true })));
+      pushBlock(new Text(fg(C.primary, "Long Horizon \u00b7 " + name), 1, 0));
+      for (const ln of wrapPlain(String(body || ""), Math.max(10, (lastInsetInner || 80) - 1))) {
+        pushBlock(new Text(" " + fg(C.text, ln), 0, 0));
+      }
       scrollToEnd();
       ui.requestRender();
     } catch {}
