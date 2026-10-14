@@ -3969,23 +3969,36 @@ const readProvidersCfg = (): any => {
         const _e0 = (wsSessions || []).find((s2: any) => String(s2?.key || s2?.id) === currentKey);
         if (_e0 && typeof (_e0 as any).compactionAuto === "boolean") wsCompactionAuto = (_e0 as any).compactionAuto;
       } catch {}
-      // RECOVERING alla RIAPERTURA (come l'app): il marker di recovery attivo riporta
-      // la pill "Recovering" (turno interrotto in ripresa).
+      // === RIAPERTURA: COPIATO ESATTO DALL'APP (useSidecarData) ===
+      // 1) RECOVERING: il marker attivo riporta la pill "Recovering".
+      const wasRecovering = !!(r && (r as any).recovering);
       try {
-        if (r && (r as any).recovering) { setStatus("Recovering", "retrying"); updateBar(); ui.requestRender(); }
+        if (wasRecovering) { setStatus("Recovering", "retrying"); updateBar(); ui.requestRender(); }
       } catch {}
       try { refreshSessions(); } catch {}
-      // Pill "Running" alla RIAPERTURA: se la sessione ha un turno in corso nel worker
-      // (es. esecuzione Long Horizon), la pill deve riapparire (gli eventi di
-      // streaming sono passati quando la CLI era chiusa), e l'invio diventa steer.
+      // 2) STREAMING: getStreamingMessage = la fonte più affidabile (buffer SOLO se un
+      // turno è ATTIVO, null se idle). Pill "Running" anche se il buffer è VUOTO
+      // (contesto enorme in caricamento). MAI sopra "Recovering" (fix identico all'app).
       try {
-        void sc.call("getRunState", { sessionKey: currentKey }, 8000).then((r: any) => {
-          if (r && r.streaming && statusKind !== "retrying") {
-            streaming = true;
-            setStatus("Running", "running");
-            updateBar();
-            ui.requestRender();
-          }
+        void sc.call("getStreamingMessage", { sessionKey: currentKey }, 8000).then((r2: any) => {
+          try {
+            const sb = r2?.streaming;
+            if (sb) {
+              streaming = true;
+              if (!wasRecovering) setStatus("Running", "running");
+              // Bubble parziale ripristinata (thinking + tool call + testo), come l'app.
+              if (sb.text || sb.thinking || (sb.toolCalls || []).length > 0) {
+                try {
+                  if (sb.thinking) pushBlock(registerToggle(new ToggleBlock({ label: "Thinking", color: C.thinking, italic: true, body: String(sb.thinking) })));
+                  for (const tc of (sb.toolCalls || [])) pushBlock(registerToggle(new ToggleBlock({ label: "Tool call", boldName: String(tc?.name || "tool"), color: C.toolCall, body: String(tc?.input || "") })));
+                  if (sb.text) { for (const ln of wrapPlain(String(sb.text), Math.max(10, (lastInsetInner || 80) - 1))) pushBlock(new Text(" " + ln, 0, 0)); }
+                  scrollToEnd();
+                } catch {}
+              }
+              updateBar();
+              ui.requestRender();
+            }
+          } catch {}
         }).catch(() => {});
       } catch {}
       return histMsgs.length > 0;

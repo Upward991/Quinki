@@ -673,17 +673,6 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     return { ok: true };
   },
   abortCompaction: async (p) => ({ sessionKey: p.sessionKey, ...piBridge!.abortCompaction(p.sessionKey) }),
-  // FIX (14 ott): stato di RUN della sessione — la CLI alla riapertura lo chiede per
-  // riaccendere la pill "Running" (prima chiudendo/riaprendo a metà esecuzione la
-  // pill spariva: gli eventi di streaming erano passati mentre la CLI non c'era).
-  getRunState: async (p) => {
-    const sk = String(p.sessionKey || "");
-    let streaming = false;
-    try { streaming = (piBridge!.getStreamingSessionKeys() || []).includes(sk); } catch {}
-    let pending = false;
-    try { pending = !!piBridge!.getTurnState(sk)?.pending; } catch {}
-    return { streaming, pending };
-  },
 
   getThinkingLevels: async (p) => {
     const data = piBridge!.getOllamaThinkingLevels(p.sessionKey);
