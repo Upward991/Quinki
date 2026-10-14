@@ -393,9 +393,7 @@ export class LongHorizon {
       this.#writeProgress(sk);
       this.#log("lh-phase-discussion-start", { sessionKey: sk });
       this.#piBridge?.setLongHorizonPhase(sk, "discussion");
-      // Regola utente: SOLO questo prompt di avvio passa col system prompt COMPLETO (come i
-      // messaggi normali): il modello parte con l'intero contesto di fase. Tutti gli altri restano lean.
-      this.#sendToSession(sk, DISCUSSION_START_MESSAGE, { lean: false });
+      this.#sendToSession(sk, DISCUSSION_START_MESSAGE);
       return { ok: true };
     }
     if (phase === "planning") {
@@ -899,7 +897,7 @@ export class LongHorizon {
     this.#log("lh-plan-request", { sessionKey: sk });
     try {
       const fakeWs = { readyState: 1, constructor: { OPEN: 1 }, send: () => {} };
-      await this.#piBridge?.send(fakeWs, { sessionKey: sk, text: prompt, _preserveWs: true, _lean: true, _lhPhase: st.phase || "planning" });
+      await this.#piBridge?.send(fakeWs, { sessionKey: sk, text: prompt, _preserveWs: true, _lhPhase: st.phase || "planning" });
     } catch (e: any) {
       this.#log("lh-plan-request-error", { sessionKey: sk, error: e?.message });
     } finally {
@@ -1057,9 +1055,10 @@ export class LongHorizon {
       // al messaggio). I messaggi di FASE (pause/resume/discussion) bloccavano la
       // RPC per 30-60s (timeout lato frontend!). Fire-and-forget: il cambio di fase
       // è già avvenuto nello stato, il messaggio è informativo.
-      // LH v2: _lhPhase viaggia nel payload (tutti i processi sanno la fase) e _lean
-      // (al modello va SOLO il testo del prompt, senza blocchi extra: regola token).
-      this.#piBridge?.send(fakeWs, { sessionKey: sk, text, _preserveWs: true, _lean: opts?.lean !== false, _lhPhase: this.#states.get(sk)?.phase || "" }).catch(() => {});
+      // LH v2.6 (regola utente): i prompt di FASE partono col SYSTEM PROMPT COMPLETO (non-lean),
+      // come i messaggi normali — il modello riceve il blocco con la fase corrente. Unica
+      // eccezione lean: il "continue" delle unità (sotto, in #sendUnitPrompt).
+      this.#piBridge?.send(fakeWs, { sessionKey: sk, text, _preserveWs: true, _lean: opts?.lean === true, _lhPhase: this.#states.get(sk)?.phase || "" }).catch(() => {});
     } catch {}
   }
 }
