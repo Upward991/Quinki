@@ -8758,6 +8758,13 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
             try {
               const sr = String((e.message as any)?.stopReason || "");
               if (sr === "error" || sr === "aborted") this.#turnDirty.set(key, sr === "error" ? "error" : "user_stop");
+              // FIX (15 ott — bug utente "LH ferma, support agent muto"): se il turno
+              // chiude NORMALMENTE (stop/length), eventuali errori INTERMEDI già
+              // recuperati (un 500 seguito da retry riuscito) NON devono lasciare il
+              // turno "sporco" per sempre: la LH restava in lh-wait-dirty-turn error
+              // ad aspettare un turno pulito che nessuno avrebbe mai prodotto.
+              // Turno finito BENE = turno PULITO.
+              else this.#turnDirty.delete(key);
             } catch {}
             this.#sendToWs(this.#getSessionWs(key), {
               type: "done",
