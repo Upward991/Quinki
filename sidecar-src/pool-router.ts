@@ -37,6 +37,10 @@ const idleSince = new Map<number, number>();
 // FIX A4.3: le LETTURE NON vanno al worker (leggono da disco/registry in ms) —
 // il worker lazy spawnerebbe in ~1.5s rendendo il caricamento chat lentissimo.
 // Il worker resta per SCRITTURE/LLM (sendMessage, steer, set*, ecc.).
+// LH v2: metodi di STOP che vanno eseguiti su TUTTI i processi (worker E main), non solo
+// sull'owner: vedi tryRoute. La risposta ufficiale arriva sempre dal main.
+const ABORT_BOTH = new Set(["abort", "stopStream"]);
+
 const ROUTABLE = new Set([
   "setModel", "setThinking", "setMode", "setAgent", "setChatAgents",
   "setAgentOverride", "getAgentOverrides", "injectErrorExchange",
@@ -86,6 +90,7 @@ export function ownerPool(key: string): number {
 }
 
 export function poolActive(): boolean { return active; }
+export function ensureWorker(i: number): void { try { spawnChild(i); } catch {} }
 // FIX 084 (03 set): esiste un worker vivo per questo index? Ha senso SOLO nel main
 // (index 0 = il router, che possiede childSockets/childProcs). Nei worker ritorna
 // false (le loro mappe router sono vuote). Usato dai driver recovery/LH del main
@@ -385,6 +390,20 @@ export function tryRoute(msg: any): boolean {
   const sk = params.sessionKey || params.key;
   if (!sk) return false;
   const owner = ownerPool(sk);
+  // === LH v2 — STOP UNIVERSALE (14 ott, regola utente: "il tasto stop è il capo assoluto") ===
+  // abort/stopStream devono colpire TUTTI i processi che possono avere un turno attivo:
+  // il main può aver PRESO IN CARICO una sessione col worker morto (path lh-main-takes) →
+  // un abort instradato SOLO al worker lasciava la generazione VIVA sul main (bug reale:
+  // 4 stop-persisted sul worker mentre il turno girava sul main). Qui: si manda al worker
+  // fire-and-forget (senza broadcast: la risposta la dà il main) E si lascia gestire ANCHE
+  // il main in locale (return false) → doppia copertura su QUALSIASI provider/modello.
+  if (ABORT_BOTH.has(String(method || ""))) {
+    if (owner !== 0) {
+      const s2 = childSockets.get(owner);
+      if (s2 && s2.readyState === 1) { try { sendToChild(s2, method, params, () => {}); } catch {} }
+    }
+    return false;
+  }
   if (owner === 0) return false; // sessione del main → handler locale
   const sock = childSockets.get(owner);
   if (!sock || sock.readyState !== 1) {

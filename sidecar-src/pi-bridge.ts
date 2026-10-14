@@ -7219,6 +7219,10 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
 
   async send(ws: any, data: { sessionKey: string; text: string; files?: { name: string; type: string; path?: string; data?: string }[]; workingDirs?: string[]; skillNames?: { agentId: string; skillName: string }[]; attachments?: { originalName: string; path: string; uuid: string; size?: number }[]; taskClips?: { id: string; label: string; text: string }[]; messageId?: string }) {
     const sk = data.sessionKey;
+    // === TURN-STATE (LH v2): pending IMMEDIATAMENTE, prima di ogni await ===
+    // Chiude la finestra in cui il tick del support agent vedeva pending=false e mandava
+    // il "continue" 1 secondo dopo Start (bug segnalato). pending = turno in corso O in coda.
+    this.#turnStart(sk);
     // === MESSAGE-ACK (29 ago, richiesta utente: 'running non mi dà nessuna garanzia
     // che il messaggio sia arrivato'): PRIMA riga del send — conferma IMMEDIATA al
     // frontend che il messaggio è stato ricevuto dal sidecar. La pill mostra
@@ -7239,6 +7243,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       // Sessione inesistente (es. eliminata ma il frontend ha continuato a mandare) → errore esplicito, MAI silenzio
       this.logDebug("send-no-session", { sessionKey: sk });
       try { ws.send(JSON.stringify({ type: "done", sessionKey: sk, stopReason: "error", errorMessage: "Session not found (deleted?). Start a new chat.", text: "" })); } catch {}
+      this.#turnFinalize(sk);
       return;
     }
 
@@ -7254,6 +7259,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
         const piOwned = this.#active.get(sk);
         if (piOwned) { try { (piOwned as any).dispose?.(); } catch {} this.#active.delete(sk); this.logDebug("send-refused-expert-released", { sessionKey: sk }); }
       } catch {}
+      this.#turnFinalize(sk);
       return;
     }
 
@@ -7997,8 +8003,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
       this.#turnDirty.set(sk, "error");
       this.#recoverInterruptedTurn(sk).catch(() => {});
     });
-    // === TURN-STATE (LH v2): pending subito (anche i turni IN CODA contano), finalize a fine catena ===
-    this.#turnStart(sk);
+    // === TURN-STATE (LH v2): pending già contato a INIZIO send(); qui only l'hook di fine catena ===
     this.#promptsAt.set(sk, Date.now());
     this.#prompts.set(sk, next);
     try { next.then(() => this.#turnFinalize(sk), () => this.#turnFinalize(sk)); } catch {}
@@ -8226,10 +8231,12 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
         } catch {}
       }, 2500);
     }
-    // Stop ALL temp sessions (delegations) — dispose kills them
+    // LH v2: stop SOLO le deleghe DI QUESTA sessione (__delegate_<sessionKey>_...) —
+    // regola utente: il tasto stop ferma SOLO la sua chat, mai le altre.
     const tempKeys: string[] = [];
+    const delegatePrefix = `__delegate_${key}_`;
     for (const [tempKey, tempPi] of this.#active) {
-      if (tempKey.startsWith('__delegate_')) {
+      if (tempKey.startsWith(delegatePrefix)) {
         try { (tempPi as any).abort?.(); } catch (e) {}
         try { (tempPi as any).dispose?.(); } catch (e) {}
         tempKeys.push(tempKey);

@@ -12,7 +12,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { poolActive, ownerPool, poolIndex, isPoolWorkerAlive } from "./pool-router";
+import { poolActive, ownerPool, poolIndex, isPoolWorkerAlive, ensureWorker } from "./pool-router";
 
 interface LHUnit {
   id: number;
@@ -291,6 +291,10 @@ export class LongHorizon {
   deactivate(sk: string): { ok: boolean; error?: string } {
     const st = this.#states.get(sk);
     if (!st) return { ok: false, error: "not active" };
+    // LH v2: la PAUSA ferma la generazione in maniera COMPLETA (regola utente: "quando vai
+    // in pausa devi stoppare la generazione"). L'abort è per-QUESTA-sessione e il router
+    // lo copre su tutti i processi dove la sessione può girare.
+    try { this.#piBridge?.abort?.(sk); } catch {}
     st.phase = "discussion";
     st.status = "paused";
     st.lastActivity = Date.now();
@@ -325,6 +329,16 @@ export class LongHorizon {
   setPhase(sk: string, phase: string): { ok: boolean; error?: string } {
     const st = this.#states.get(sk);
     if (!st || !st.active) return { ok: false, error: "Long Horizon not active" };
+    // LH v2 (regola utente 14 ott): le transizioni di fase NON procedono MAI mentre un turno
+    // è in corso o in coda — "finché la generazione non si è fermata, non deve succedere nulla".
+    try {
+      const t = this.#piBridge?.getTurnState?.(sk);
+      const streaming = (this.#piBridge?.getStreamingStatus?.() || []).includes(sk);
+      if (streaming || t?.pending) {
+        this.#log("lh-phase-blocked-turn-active", { sessionKey: sk, phase, streaming, pending: !!t?.pending });
+        return { ok: false, error: "A turn is running. Wait for it to finish, or press Stop." };
+      }
+    } catch {}
     if (phase === "planning") {
       const isRevision = st.units.length > 0;
       st.phase = "planning";
@@ -691,16 +705,19 @@ export class LongHorizon {
     // STATIC import (affidabile nel binary compilato, zero overhead del dynamic).
     try {
       if (poolActive() && ownerPool(sk) !== poolIndex()) {
-        // FIX 084 (03 set): owner worker mai spawnato (lazy) → il suo LH driver non
-        // esiste → il MAIN lo prende QUI. Il prompt spawnera il worker, che poi
-        // prende in carico il ticking (self-healing). Solo il main puo decidere
-        // (solo lui conosce lo stato vivo del router).
+        // LH v2 (regola utente 14 ott: "la Long Horizon deve funzionare nel worker/pool come
+        // tutto il resto"): il support agent NON lavora MAI sessioni di altri processi.
+        // Se il worker owner non è vivo, il MAIN lo fa NASCERE: al boot il worker #rescan
+        // trova lo stato attivo e prende in carico il ticking (come ogni altra cosa).
+        // Prima il main "prendeva in carico" la sessione → split-brain: turni sul main,
+        // stop instradato al worker, streaming perso.
         if (poolIndex() === 0 && !isPoolWorkerAlive(ownerPool(sk))) {
-          this.#log("lh-owner-worker-dead-main-takes", { sessionKey: sk, owner: ownerPool(sk) });
+          this.#log("lh-spawn-owner-worker", { sessionKey: sk, owner: ownerPool(sk) });
+          try { ensureWorker(ownerPool(sk)); } catch {}
         } else {
           this.#log("lh-skip-pool-worker-session", { sessionKey: sk, owner: ownerPool(sk), myIndex: poolIndex() });
-          return;
         }
+        return;
       }
     } catch {}
 

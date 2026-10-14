@@ -908,10 +908,10 @@ export function ChatArea(props: ChatAreaProps) {
                             <div style={{ color: 'var(--q-text)', fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-interface)' }}>{title}</div>
                             <div style={{ color: 'var(--q-text)', fontSize: 12, lineHeight: 1.4, fontFamily: 'var(--font-interface)', marginTop: 2 }}>{desc}</div>
                           </div>
-                          {onBtn && (
-                            <button onClick={onBtn} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }}
-                              style={{ padding: '6px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-interface)', flexShrink: 0 }}>{btnLabel}</button>
-                          )}
+                          {onBtn && (() => { const busy = !!props.streaming && (ph === 'discussion' || ph === 'planning'); return (
+                            <button disabled={busy} title={busy ? 'Wait for the current turn to finish (or press Stop)' : undefined} onClick={busy ? undefined : onBtn} onMouseEnter={e => { if (busy) return; e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }} onMouseLeave={e => { if (busy) return; e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }}
+                              style={{ padding: '6px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', cursor: busy ? 'not-allowed' : 'pointer', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-interface)', flexShrink: 0, opacity: busy ? 0.45 : 1 }}>{btnLabel}</button>
+                          )})()}
                           {ph === 'done' && (
                             <button onClick={() => props.onLongHorizon?.(false)} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
                               style={{ padding: '6px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: 13, fontFamily: 'var(--font-interface)', flexShrink: 0 }}>Disable</button>
