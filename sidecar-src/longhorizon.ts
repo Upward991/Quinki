@@ -806,6 +806,21 @@ export class LongHorizon {
       // passa alla prossima unità pending
       const next = (st.units || []).findIndex((u, i) => i > st.currentIdx && u.status === "pending");
       if (next === -1) {
+        // LH v2.3 (evidenza 14 ott): IL PIANO È COMPLETO SOLO SE TUTTE LE UNITÀ SONO DONE.
+        // La ricerca era solo in AVANTI: un'unità rimasta indietro (aggiornamento perso in
+        // una race) veniva ignorata e il piano "si completava da solo" (visto: unit 1
+        // pending, unit 2-10 done → discussion senza motivo).
+        const firstPending = (st.units || []).findIndex(u => u.status === "pending");
+        if (firstPending !== -1) {
+          st.currentIdx = firstPending;
+          st.promptCount = 0;
+          st.lastHandoffSig = this.#handoffSig(sk);
+          st.lastActivity = Date.now();
+          this.#writeState(sk);
+          this.#writeProgress(sk);
+          this.#log("lh-back-to-pending-unit", { sessionKey: sk, unit: (st.units || [])[firstPending]?.id });
+          return;
+        }
         // piano completo → torna alla DISCUSSION per discutere cosa è successo
         st.status = "done";
         st.phase = "discussion";
