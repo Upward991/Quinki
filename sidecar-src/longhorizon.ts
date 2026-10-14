@@ -605,7 +605,7 @@ export class LongHorizon {
       if (!parent.ok) return;
       const tree = this.#git(sk, ["rev-parse", last.h + "^{tree}"]);
       if (!tree.ok) return;
-      const msg = `Long Horizon: ${toCollapse.length} commit di servizio raggruppate`;
+      const msg = `Long Horizon: grouped ${toCollapse.length} service commits`;
       const nt = this.#git(sk, ["commit-tree", tree.out.trim(), "-p", parent.out.trim(), "-m", msg]);
       if (!nt.ok || !nt.out.trim()) return;
       const rb = this.#git(sk, ["rebase", "--onto", nt.out.trim(), last.h]);
@@ -878,7 +878,7 @@ export class LongHorizon {
 
   async #sendUnitPrompt(sk: string, unit: LHUnit) {
     const st = this.#states.get(sk);
-    const handoff = this.#readHandoff(sk).slice(-1500) || "(nessun handoff ancora — scrivi il primo dopo l'unità 1)";
+    const handoff = this.#readHandoff(sk).slice(-1500) || "(no handoff yet — write the first one after unit 1)";
     const totalUnits = st?.units?.length || 0;
     const doneUnits = (st?.units || []).filter(u => u.status === "done");
     const remaining = Math.max(0, (st?.units || []).filter(u => u.status !== "done").length - 1);
@@ -937,7 +937,7 @@ export class LongHorizon {
         const resp = this.#lastAssistantText(sk);
         if (resp.trim()) {
           const u = st2.units?.[st2.currentIdx];
-          const entry = `\n## Unità ${unit.id} (completata)\n- Cosa: ${u?.desc || unit.desc}\n- Risultato: ${resp.slice(0, 800)}\n`;
+          const entry = `\n## Unit ${unit.id} (completed)\n- What: ${u?.desc || unit.desc}\n- Result: ${resp.slice(0, 800)}\n`;
           try {
             fs.mkdirSync(this.#dir(sk), { recursive: true });
             fs.appendFileSync(this.#handoffFile(sk), entry, "utf8");
