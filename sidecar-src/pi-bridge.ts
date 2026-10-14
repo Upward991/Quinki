@@ -7200,13 +7200,15 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
   getTurnState(key: string): { pending: boolean; clean: boolean; stopReason: string; at: number } {
     const t = this.#turnState.get(key);
     const pending = t ? t.pending > 0 : false;
-    if (!pending) {
-      // LH v2.1: marker pending-turn presente SENZA un turno attivo = turno INTERROTTO
-      // (riavvio app, crash). NON è "pulito": lo gestisce l'autoprompt STANDARD
-      // ("The app was interrupted..."). Il support agent aspetta quel turno.
+    if (!pending && !t) {
+      // LH v2.2: marker pending-turn presente SENZA un turno attivo E senza che questo
+      // processo abbia MAI visto un turno per la sessione = turno INTERROTTO al boot
+      // (riavvio app, crash). Lo gestisce l'autoprompt STANDARD. Se invece un turno
+      // l'ha già visto questo processo, si fida del turn-state (evita blocchi falsi se
+      // il marker resta appeso per euristiche di completamento).
       try {
         const marker = path.join(this.#piSessionDir(key), "pending-turn.json");
-        if (marker && fs.existsSync(marker)) return { pending: false, clean: false, stopReason: "interrupted", at: t?.at || 0 };
+        if (marker && fs.existsSync(marker)) return { pending: false, clean: false, stopReason: "interrupted", at: 0 };
       } catch {}
     }
     if (!t) return { pending: false, clean: true, stopReason: "", at: 0 };

@@ -13,6 +13,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { poolActive, ownerPool, poolIndex, isPoolWorkerAlive, ensureWorker } from "./pool-router";
+import { isExpertSidecar } from "./pi-bridge";
 
 interface LHUnit {
   id: number;
@@ -714,6 +715,11 @@ export class LongHorizon {
     const st = this.#states.get(sk);
     if (!st || !st.active) return;
     if (this.#inflight.get(sk)) return; // send in corso
+
+    // === LH v2.2 (14 ott, evidenza nei log): il sidecar EXPERT non tocca MAI le sessioni LH
+    // che non sono le sue. Prima l'Expert correva IN PARALLELO all'owner worker sulla stessa
+    // sessione → prompt doppi, unità avanti a strappi, race continue/recovery. ===
+    if (isExpertSidecar() && sk !== "__app_expert__") return;
 
     // === FIX POOL (31 ago): il Long Horizon gira SOLO sul MAIN, ma la sessione
     // può appartenere a un WORKER del pool. Senza questo check, il support agent
