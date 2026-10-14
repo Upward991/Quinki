@@ -8719,6 +8719,12 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
             // passano un fakeWs (send: noop) → il done finiva nel vuoto (la pill del
             // frontend non riceveva mai la fine del turno). Per i turni normali
             // #getSessionWs è esattamente lo stesso ws registrato: zero differenze.
+            // LH v2.1 (regola utente): un turno chiuso con stopReason error/aborted NON è
+            // "finito" → il support agent aspetta (ci pensa l'autoprompt standard).
+            try {
+              const sr = String((e.message as any)?.stopReason || "");
+              if (sr === "error" || sr === "aborted") this.#turnDirty.set(key, sr === "error" ? "error" : "user_stop");
+            } catch {}
             this.#sendToWs(this.#getSessionWs(key), {
               type: "done",
               sessionKey: key,
