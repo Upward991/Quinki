@@ -2755,10 +2755,14 @@ const readProvidersCfg = (): any => {
         if (modPress) {
           const mods = (globalThis as any).__qMods || ((globalThis as any).__qMods = new Set());
           mods.add(modPress[1]);
-          // REGOLA UTENTE (14 ott): la nav dei toggle si attiva SOLO con
-          // Ctrl+Alt+FRECCIA (vedi qCAM sotto). Il solo Ctrl+Alt NON attiva NULLA:
-          // altrimenti ogni combo Ctrl+Alt+X (dettatura, app esterne...) veniva
-          // "sequestrata" e il resto dei tasti inghiottito dalla nav.
+          const hasCtrl = mods.has("57441") || mods.has("57442");
+          const hasAlt = mods.has("57443") || mods.has("57444");
+          // REGOLA UTENTE (14 ott): Ctrl+Alt PREMUTI = nav SUBITO ATTIVA (illumina
+          // il toggle selezionato e la chat scorre lì; le frecce navigano). Se poi
+          // arriva un tasto EXTRA non-freccia (es. Ctrl+Cmd+Alt+O di un'app di
+          // dettatura) la nav si ANNULLA da sola nel blocco qui sotto: nessuna
+          // combinazione viene sequestrata.
+          if (hasCtrl && hasAlt && !navMode && !(menuOpenRef?.() ?? false)) enterToggleNav();
           return { consume: true };
         }
         if (modRel) {
@@ -2912,10 +2916,7 @@ const readProvidersCfg = (): any => {
         toggleNavMode();
         return { consume: true };
       }
-      if (navMode && !(menuOpenRef?.() ?? false) && !String(data).includes("\x1b[200~")) {
-        // (il guard sul bracketed paste: MAI inghiottire un incollaggio in nav —
-        // i testi incollati, es. dettatura con Cmd+V simulato, cadono nel
-        // fall-through e arrivano all'editor come paste normali)
+      if (navMode && !(menuOpenRef?.() ?? false)) {
         const isUpN = data === "\x1b[A" || matchesKey(data, "up");
         const isDownN = data === "\x1b[B" || matchesKey(data, "down");
         const isLeftN = data === "\x1b[D" || matchesKey(data, "left");
@@ -2943,7 +2944,17 @@ const readProvidersCfg = (): any => {
           } catch {}
           return { consume: true };
         }
-        return { consume: true };
+        // REGOLA UTENTE (14 ott): un tasto EXTRA non-freccia con Ctrl+Alt premuti
+        // (es. Cmd o O della combo di un'altra app) = la nav si ANNULLA SUBITO e
+        // non sequestra la combinazione. Un INCOLLAGGIO però passa SEMPRE (arriva
+        // al textbox come paste normale); gli altri tasti extra restano inghiottiti
+        // (così non si scrive per sbaglio durante la nav).
+        exitToggleNav("extra-key");
+        if (String(data).includes("\x1b[200~")) {
+          // fall-through volontario: lo gestisce l'editor come incollaggio normale
+        } else {
+          return { consume: true };
+        }
       }
       const isTab =
         data === "\t" || data === "\x1b[9u" || data === "\x1b[9;1u" || matchesKey(data, "tab");
