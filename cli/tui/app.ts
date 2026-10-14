@@ -3964,6 +3964,19 @@ const readProvidersCfg = (): any => {
         if (_e0 && typeof (_e0 as any).compactionAuto === "boolean") wsCompactionAuto = (_e0 as any).compactionAuto;
       } catch {}
       try { refreshSessions(); } catch {}
+      // Pill "Running" alla RIAPERTURA: se la sessione ha un turno in corso nel worker
+      // (es. esecuzione Long Horizon), la pill deve riapparire (gli eventi di
+      // streaming sono passati quando la CLI era chiusa), e l'invio diventa steer.
+      try {
+        void sc.call("getRunState", { sessionKey: currentKey }, 8000).then((r: any) => {
+          if (r && (r.streaming || r.pending)) {
+            streaming = true;
+            setStatus("Running", "running");
+            updateBar();
+            ui.requestRender();
+          }
+        }).catch(() => {});
+      } catch {}
       return histMsgs.length > 0;
     } catch (ee) {
       try { require("fs").appendFileSync("/tmp/q-load.log", "  loadServerHistory ERROR: " + String(ee) + "\n"); } catch {}
@@ -5787,8 +5800,9 @@ const readProvidersCfg = (): any => {
     return [...commands]
       .sort((a, b) => (((a as any).seq ?? 99) as number) - (((b as any).seq ?? 99) as number))
       .filter((c) => !(c as any).hidden?.())
-      // LH: nella fase EXECUTION restano SOLO i comandi Long Horizon (come l'app).
-      .filter((c) => !(lhActive && lhPhase === "running" && c.name !== "longhorizon"))
+      // REGOLA UTENTE (14 ott): i comandi slash NON si disabilitano MAI durante LH
+      // (in esecuzione prima sparivano tutti: nella CLI restavi senza /sessions,
+      // senza /rename — bloccato). Ora restano sempre tutti.
       .filter((c) => c.name.toLowerCase().startsWith(f))
       .map((c) => {
         if (c.name === "longhorizon" && lhActive) return { value: c.name, label: "/disable long horizon", description: "Disable Long Horizon and restore normal commands" };

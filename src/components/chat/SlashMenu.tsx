@@ -150,13 +150,12 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
 
   // LH v2 (14 ott): restano SOLO /longhorizon e /disable long horizon. Il vecchio /pause
   // (e /resume) era codice morto; le fasi si cambiano coi BOTTONI nel banner LH.
-  const visibleCommands: Command[] = props.longHorizonActive ? (() => {
-    if (props.longHorizonPhase === 'running') {
-      return [{ id: 'disable', label: '/disable long horizon', description: 'Disable Long Horizon and restore normal commands' }]
-    }
-    // discussion/planning/paused: comandi NORMALI + /disable (il /longhorizon diventa /disable)
-    return commands.map(c => c.id === 'longhorizon' ? { ...c, id: 'disable', label: '/disable long horizon', description: 'Disable Long Horizon and restore normal commands' } : c)
-  })() : commands
+  // REGOLA UTENTE (14 ott): i comandi slash NON si disabilitano MAI, in nessuna fase
+  // della Long Horizon (in esecuzione prima sparivano tutti: nella CLI restavi bloccato
+  // senza sidebar). Restano TUTTI; il /longhorizon diventa /disable long horizon.
+  const visibleCommands: Command[] = props.longHorizonActive
+    ? commands.map(c => c.id === 'longhorizon' ? { ...c, id: 'disable', label: '/disable long horizon', description: 'Disable Long Horizon and restore normal commands' } : c)
+    : commands
   const filteredCommands = visibleCommands.filter(cmd => cmd.id.includes(props.filter.toLowerCase()))
   const doLhAction = (id: string) => {
     console.log('[SLASH] doLhAction:', id)

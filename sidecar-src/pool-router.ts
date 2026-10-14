@@ -60,6 +60,7 @@ const ROUTABLE = new Set([
   "longHorizonActivate", "longHorizonDeactivate", "longHorizonDisable", "longHorizonResume",
   "longHorizonSetPlan", "longHorizonSetGoal", "longHorizonSetPhase",
   "longHorizonNewDiscussion", "getLongHorizonState",
+  "getRunState",
 ]);
 
 function stderr(msg: string) { 
