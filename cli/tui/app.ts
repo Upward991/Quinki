@@ -2755,9 +2755,10 @@ const readProvidersCfg = (): any => {
         if (modPress) {
           const mods = (globalThis as any).__qMods || ((globalThis as any).__qMods = new Set());
           mods.add(modPress[1]);
-          const hasCtrl = mods.has("57441") || mods.has("57442");
-          const hasAlt = mods.has("57443") || mods.has("57444");
-          if (hasCtrl && hasAlt && !navMode) enterToggleNav();
+          // REGOLA UTENTE (14 ott): la nav dei toggle si attiva SOLO con
+          // Ctrl+Alt+FRECCIA (vedi qCAM sotto). Il solo Ctrl+Alt NON attiva NULLA:
+          // altrimenti ogni combo Ctrl+Alt+X (dettatura, app esterne...) veniva
+          // "sequestrata" e il resto dei tasti inghiottito dalla nav.
           return { consume: true };
         }
         if (modRel) {
@@ -2911,7 +2912,10 @@ const readProvidersCfg = (): any => {
         toggleNavMode();
         return { consume: true };
       }
-      if (navMode && !(menuOpenRef?.() ?? false)) {
+      if (navMode && !(menuOpenRef?.() ?? false) && !String(data).includes("\x1b[200~")) {
+        // (il guard sul bracketed paste: MAI inghiottire un incollaggio in nav —
+        // i testi incollati, es. dettatura con Cmd+V simulato, cadono nel
+        // fall-through e arrivano all'editor come paste normali)
         const isUpN = data === "\x1b[A" || matchesKey(data, "up");
         const isDownN = data === "\x1b[B" || matchesKey(data, "down");
         const isLeftN = data === "\x1b[D" || matchesKey(data, "left");
