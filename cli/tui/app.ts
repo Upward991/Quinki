@@ -468,19 +468,19 @@ class LhBanner {
     try {
       const info = this.info();
       if (!info) return [];
-      const inner = Math.max(10, width - 5);
+      const inner = Math.max(10, width - 4);
       // Azione = SOLO la scritta, colore viola (niente sfondo, niente "Tab:" — il Tab
       // è spiegato nella spiegazione in chat).
       const action = info.busy ? fg(C.textTertiary, info.action) : fg(C.primary, info.action);
       const title = bold(fg(C.text, info.title));
       const gap = Math.max(1, inner - visibleWidth(title) - visibleWidth(action));
       const row1 = title + " ".repeat(gap) + action;
-      const hbar = "\u2500".repeat(Math.max(1, width - 3));
+      const hbar = "\u2500".repeat(Math.max(1, width - 2));
       const out: string[] = [];
-      out.push(" " + fg(C.border, "\u256d" + hbar + "\u256e"));
-      out.push(" " + fg(C.border, "\u2502") + " " + row1 + " " + fg(C.border, "\u2502"));
-      for (const dl of wrapPlain(info.desc, inner)) out.push(" " + fg(C.border, "\u2502") + " " + fg(C.textSecondary, dl) + " ".repeat(Math.max(0, inner - visibleWidth(dl))) + " " + fg(C.border, "\u2502"));
-      out.push(" " + fg(C.border, "\u2570" + hbar + "\u256f"));
+      out.push(fg(C.border, "\u256d" + hbar + "\u256e"));
+      out.push(fg(C.border, "\u2502") + " " + row1 + " " + fg(C.border, "\u2502"));
+      for (const dl of wrapPlain(info.desc, inner)) out.push(fg(C.border, "\u2502") + " " + fg(C.textSecondary, dl) + " ".repeat(Math.max(0, inner - visibleWidth(dl))) + " " + fg(C.border, "\u2502"));
+      out.push(fg(C.border, "\u2570" + hbar + "\u256f"));
       return out;
     } catch { return []; }
   }
@@ -499,14 +499,16 @@ class LhSysBlock {
   render(width: number): string[] {
     const out: string[] = [];
     try {
-      const inner = Math.max(10, width - 5);
-      const hbar = "\u2500".repeat(Math.max(1, width - 3));
-      const row = (s: string) => " " + fg(C.border, "\u2502") + " " + s + " ".repeat(Math.max(0, inner - visibleWidth(s))) + " " + fg(C.border, "\u2502");
-      out.push(" " + fg(C.border, "\u256d" + hbar + "\u256e"));
+      // NIENTE spazio iniziale: il box occupa la riga in modo SIMMETRICO
+      // (margini uguali a sinistra e a destra dentro la colonna della chat).
+      const inner = Math.max(10, width - 4);
+      const hbar = "\u2500".repeat(Math.max(1, width - 2));
+      const row = (s: string) => fg(C.border, "\u2502") + " " + s + " ".repeat(Math.max(0, inner - visibleWidth(s))) + " " + fg(C.border, "\u2502");
+      out.push(fg(C.border, "\u256d" + hbar + "\u256e"));
       out.push(row(bold(fg(C.text, "Long Horizon Mode"))));
       out.push(row(""));
       for (const line of wrapPlain(this.text, inner)) out.push(row(fg(C.text, line)));
-      out.push(" " + fg(C.border, "\u2570" + hbar + "\u256f"));
+      out.push(fg(C.border, "\u2570" + hbar + "\u256f"));
     } catch {}
     return out;
   }
