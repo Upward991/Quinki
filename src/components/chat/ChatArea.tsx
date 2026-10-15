@@ -27,15 +27,15 @@ function TaskResultToggle({ run, sessionKey, defaultOpen, showClip, onResize }: 
   const isRunning = st === 'running' || st === 'queued'
   const color = isRunning ? 'var(--q-accent-info)' : 'var(--q-accent-calendar)'
   const hoverBg = isRunning ? 'rgba(122, 162, 247, 0.06)' : 'rgba(127, 209, 192, 0.06)'
-  const label = isRunning ? 'Task running' : 'Task result'
+  const label = isRunning ? 'Task running' : 'Task executed'
   return (
     <div style={{ marginTop: '12px', padding: '4px' }}>
       <div onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} onClick={() => { setCollapsed(!collapsed); try { onResize?.() } catch {} }}
         style={{ cursor: 'pointer', backgroundColor: hovered ? hoverBg : 'transparent', borderRadius: 'var(--radius-md)', padding: '8px', transform: hovered ? 'translateX(2px)' : 'translateX(0)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <ChevronRight size={14} style={{ color, flexShrink: 0, transform: collapsed ? 'rotate(0deg)' : 'rotate(90deg)', transition: 'none' }} />
-          <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color }}>{label}</span>
-          <span style={{ fontFamily: 'var(--font-interface)', fontSize: '13px', fontWeight: 600, color: 'var(--q-text)' }}>{run.label}</span>
+          <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color, whiteSpace: 'nowrap', flexShrink: 0 }}>{label}</span>
+          <span style={{ fontFamily: 'var(--font-interface)', fontSize: '13px', color: 'var(--q-text-tertiary)', opacity: 0.6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{run.label}</span>
           <span style={{ flex: 1 }} />
           {showClip && (
           <button onClick={(e) => { e.stopPropagation(); try { let respText = ''; for (const m of run.messages || []) { if (m.role === 'assistant' && m.content) respText += (m.content || '') + '\n\n' } const text = respText.trim() || run.label; window.dispatchEvent(new CustomEvent('quinki-task-clip', { detail: { id: run.id, label: run.label, text } })) } catch {} }}
