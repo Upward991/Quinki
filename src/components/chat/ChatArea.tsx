@@ -487,13 +487,44 @@ export function ChatArea(props: ChatAreaProps) {
   const taskStripBar = hasTasks ? (
     <div key="tstrip" style={{ width: '100%', marginTop: 8, flexShrink: 0, display: 'flex', alignItems: 'stretch', gap: 6 }}>
       <button onClick={(e) => { e.stopPropagation(); if (taskPanelOpen && taskPanelMode === 'db') { setTaskPanelOpen(false) } else { setTaskPanelMode('db'); setTaskPanelOpen(true) } }} title="Scheduled tasks of this chat"
-        style={{ width: 36, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-lg)', border: (taskPanelOpen && taskPanelMode === 'db') ? 'none' : '1px solid var(--q-border)', backgroundColor: (taskPanelOpen && taskPanelMode === 'db') ? 'transparent' : 'var(--q-bg-panel)', cursor: 'pointer', color: 'var(--q-text-secondary)', transition: 'none', margin: (taskPanelOpen && taskPanelMode === 'results') ? '6px' : 0 }}>
+        style={{ width: 36, height: 36, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-lg)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-panel)', cursor: 'pointer', color: 'var(--q-text-secondary)', transition: 'none' }}>
         <Checklist size={16} />
       </button>
-      <button onClick={() => { setTaskPanelMode('results'); toggleTaskPanel() }} title={(taskPanelOpen && taskPanelMode === 'results') ? 'Collapse tasks' : 'Show tasks'} style={{ flex: 1, minWidth: 0, padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8, border: (taskPanelOpen && taskPanelMode === 'results') ? 'none' : '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', cursor: 'pointer', backgroundColor: (taskPanelOpen && taskPanelMode === 'results') ? 'transparent' : 'var(--q-bg-panel)', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: 13, transition: 'none', textAlign: 'left', margin: (taskPanelOpen && taskPanelMode === 'db') ? '6px' : 0 }}>
+      <button onClick={() => { setTaskPanelMode('results'); toggleTaskPanel() }} title={(taskPanelOpen && taskPanelMode === 'results') ? 'Collapse tasks' : 'Show tasks'} style={{ flex: 1, minWidth: 0, padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8, border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', cursor: 'pointer', backgroundColor: 'var(--q-bg-panel)', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: 13, transition: 'none', textAlign: 'left', height: 36, boxSizing: 'border-box' }}>
         <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--q-text-secondary)' }}>{taskLabel}</span>
         {(taskPanelOpen && taskPanelMode === 'results') ? <ChevronDown size={16} style={{ flexShrink: 0 }} /> : <ChevronUp size={16} style={{ flexShrink: 0 }} />}
       </button>
+    </div>
+  ) : null
+
+  // ==== REGOLA UTENTE (16 ott, dai disegni): CHI APRE SI UNISCE alla sezione (nessun contorno suo, nessuno stacco);
+  // l'ALTRO resta IDENTICO alla chiusa, al suo posto, sul fondo scuro. Stacchi: 6px tra i due, 8px sopra la riga
+  // (come textbox↔riga). Raggio 12 ovunque, incluso il contorno attorno al ritaglio.
+  const stripBarVisual = (chevDown: boolean) => (
+    <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', height: 36, boxSizing: 'border-box', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: 13 }}>
+      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{taskLabel}</span>
+      {chevDown ? <ChevronDown size={16} style={{ flexShrink: 0 }} /> : <ChevronUp size={16} style={{ flexShrink: 0 }} />}
+    </div>
+  )
+  const fusedRow = (taskPanelOpen && hasTasks) ? (
+    <div style={{ display: 'flex', alignItems: 'stretch', flexShrink: 0 }}>
+      {taskPanelMode === 'db'
+        ? <div style={{ width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--q-text-secondary)' }}><Checklist size={16} /></div>
+        : <><div style={{ width: 42, flexShrink: 0 }} />{stripBarVisual(true)}</>}
+    </div>
+  ) : null
+  const cutOverlay = (taskPanelOpen && hasTasks) ? (
+    <div style={{ position: 'absolute', bottom: 0, height: 44, backgroundColor: 'var(--q-bg)', display: 'flex', alignItems: 'flex-end', zIndex: 6, borderRadius: 'var(--radius-lg) var(--radius-lg) 0 0', ...(taskPanelMode === 'db' ? { left: 38, right: 2 } : { left: 2, width: 42 }) }}>
+      {taskPanelMode === 'db' ? (
+        <button onClick={() => setTaskPanelMode('results')} title="Show tasks" style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', marginLeft: 6, height: 36, boxSizing: 'border-box', borderRadius: 'var(--radius-lg)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-panel)', cursor: 'pointer', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: 13, textAlign: 'left' }}>
+          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{taskLabel}</span>
+          <ChevronUp size={16} style={{ flexShrink: 0 }} />
+        </button>
+      ) : (
+        <button onClick={() => setTaskPanelMode('db')} title="Scheduled tasks of this chat" style={{ width: 36, height: 36, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-lg)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-panel)', cursor: 'pointer', color: 'var(--q-text-secondary)' }}>
+          <Checklist size={16} />
+        </button>
+      )}
     </div>
   ) : null
   // Contenuto del pannello 'db' — SOLO il database (regola utente 16 ott: niente titolo, niente icona, niente X)
@@ -811,7 +842,8 @@ export function ChatArea(props: ChatAreaProps) {
         </div>
       ) : isEmpty ? (
         taskPanelOpen ? (
-          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column', margin: '2px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--q-border)', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom' }}>
+          <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column', margin: '2px 2px 0 2px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--q-border)', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom' }}>
             {taskPanelMode === 'db' ? dbContent : (
             <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '16px 16px', scrollbarGutter: 'stable' }}>
               {taskRuns.length === 0 ? (
@@ -820,7 +852,9 @@ export function ChatArea(props: ChatAreaProps) {
                 <TaskResultToggle key={run.id} run={run} sessionKey={props.session?.id} showClip onResize={recomputeTaskScrollBtn} />
               ))}
             </div>)}
-            {taskStripBar}
+            {fusedRow}
+          </div>
+          {cutOverlay}
           </div>
         ) : (
         <>
@@ -853,10 +887,10 @@ export function ChatArea(props: ChatAreaProps) {
       ) : (
         <>
           {/* Messages — area unica: scroll (chat o task) + barra riassunto in fondo (la striscia, sempre stessa posizione) */}
-          {/* REGOLA UTENTE (disegni 16 ott): quando è aperta, la sezione è UN SOLO contenitore — bordo, angoli
-              tondi e sfondo attorno a TUTTO (contenuto + riga [tasto quadrato][barra]): il panel resta dietro i tasti. */}
-          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column', ...(taskPanelOpen ? { margin: '2px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--q-border)', overflow: 'hidden', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom' } : {}) }}>
-            <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
+          {/* REGOLA UTENTE (16 ott, definitiva): il box della sezione sta attorno al SOLO contenuto; sotto,
+              [tasto quadrato][barra] restano ESATTAMENTE come da chiusi (contorni inclusi) sul fondo scuro. */}
+          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column', ...(taskPanelOpen ? { margin: '2px 2px 0 2px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--q-border)', overflow: 'hidden', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom' } : {}) }}>
               {/* Chat — SEMPRE montata (display none quando il pannello task è aperto) → lo scroll resta dov'era */}
               <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '4px 16px ' + (hasTasks ? 8 : 0) + 'px 16px', scrollbarGutter: 'stable', display: taskPanelOpen ? 'none' : 'block' }}
                 onScroll={e => { const el = e.currentTarget; const overflow = el.scrollHeight - el.clientHeight; setShowScrollBtn(overflow > 260 && el.scrollTop < overflow - 100); pinnedRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 120; if (el.scrollTop < 40 && props.onLoadOlder && !loadingOlderRef.current && props.messages.length > 0) { loadingOlderRef.current = true; anchorRef.current = { height: el.scrollHeight, top: el.scrollTop }; setTimeout(() => { loadingOlderRef.current = false }, 600); props.onLoadOlder() } }}>
@@ -938,6 +972,7 @@ export function ChatArea(props: ChatAreaProps) {
                 ))}
               </div>
               {taskPanelOpen && taskPanelMode === 'db' ? dbContent : null}
+              {fusedRow}
             </div>
             {((taskPanelOpen && taskPanelMode === 'results') ? showTaskScrollBtn : (!taskPanelOpen ? showScrollBtn : false)) && (
               <button onClick={() => { const el = (taskPanelOpen && taskPanelMode === 'results') ? taskScrollRef.current : scrollRef.current; if (el) el.scrollTop = el.scrollHeight }}
@@ -945,7 +980,7 @@ export function ChatArea(props: ChatAreaProps) {
                 <ArrowDown size={20} />
               </button>
             )}
-            {taskStripBar}
+            {taskPanelOpen ? cutOverlay : taskStripBar}
           </div>
 
           {searchOpen && (
