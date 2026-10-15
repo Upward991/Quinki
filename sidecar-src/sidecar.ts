@@ -78,6 +78,7 @@ import { createAgentHandlers } from "./agent-handlers";
 import { seedDefaults } from "./seed-defaults";
 import { ExecutionEngine } from "./executor";
 import { Scheduler } from "./scheduler";
+import { TaskReports } from "./task-reports";
 import { LongHorizon } from "./longhorizon";
 
 // === FORCE: stdout.write -> stderr.write TRANNE per messaggi JSON-RPC ===
@@ -369,11 +370,20 @@ const globalConfigFile = path.join(agentDir, "quinki-global.json");
 // === A2.1: ExecutionEngine (task autonomi, fondamentale H24) ===
 const executor = new ExecutionEngine();
 executor.onUpdate = (payload) => { try { sendNotification("execution_update", payload); } catch {} };
-executor.onNotification = (entry) => { try { piBridge?.appendNotification?.(entry); } catch {} };
+executor.onNotification = (entry) => {
+  try { piBridge?.appendNotification?.(entry); } catch {}
+  // === FASE 1 (16 ott): fine task → in coda per il report automatico nella chat di origine ===
+  try {
+    if (entry?.kind === "task_complete" && entry?.sourceSession?.key && entry?.executionId) {
+      taskReports?.enqueue({ key: String(entry.sourceSession.key), executionId: String(entry.executionId), title: String(entry.label || "Task") });
+    }
+  } catch {}
+};
 // === A3: broadcast notifiche al frontend (chat message / task complete) ===
 
 // === A2.2: Scheduler (programmazione compiti, catch-up "si fa comunque in ritardo") ===
 const scheduler = new Scheduler(agentDir, executor);
+let taskReports: TaskReports | null = null;
 const longHorizon = new LongHorizon(agentDir);
 scheduler.setLogger((tag, data) => { try { piBridge?.logDebug?.(tag, data); } catch {} });
 scheduler.onNotify = (payload) => { try { sendNotification("schedule_update", payload); } catch {} };
@@ -687,7 +697,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
 
   getModelContext: async (p) => ({ modelId: p.modelId, ...await piBridge!.getModelContext(p.modelId) }),
 
-  getHistory: async (p) => { const sk = String(p.sessionKey); let recovering = false; try { recovering = fs.existsSync(path.join(agentDir, "sessions", "quinki", sk, "pending-turn.json")); } catch {} try { piBridge!.logDebug("getHistory-recovering-flag", { sessionKey: sk, recovering, hasMarker: recovering }); } catch {} const chips = piBridge!.getChipsStores(sk); return { sessionKey: p.sessionKey, messages: piBridge!.getHistory(sk, typeof p.limit === "number" ? p.limit : undefined), messageSkills: chips.messageSkills, messageTaskClips: chips.messageTaskClips, messageAttachments: chips.messageAttachments, messageDisplayTexts: chips.messageDisplayTexts, recovering } },
+  getHistory: async (p) => { const sk = String(p.sessionKey); try { taskReports?.onChatOpened(sk); } catch {} let recovering = false; try { recovering = fs.existsSync(path.join(agentDir, "sessions", "quinki", sk, "pending-turn.json")); } catch {} try { piBridge!.logDebug("getHistory-recovering-flag", { sessionKey: sk, recovering, hasMarker: recovering }); } catch {} const chips = piBridge!.getChipsStores(sk); return { sessionKey: p.sessionKey, messages: piBridge!.getHistory(sk, typeof p.limit === "number" ? p.limit : undefined), messageSkills: chips.messageSkills, messageTaskClips: chips.messageTaskClips, messageAttachments: chips.messageAttachments, messageDisplayTexts: chips.messageDisplayTexts, recovering } },
   // B0.8: pagina precedente della storia + log
   getHistoryBefore: async (p) => ({ sessionKey: p.sessionKey, messages: piBridge!.getHistoryBefore(String(p.sessionKey), Number(p.ts || 0), typeof p.limit === "number" ? p.limit : undefined) }),
   getDebugLogBefore: async (p) => piBridge!.getDebugLogBefore(Number(p.from || 0), typeof p.limit === "number" ? p.limit : undefined),
@@ -2027,6 +2037,12 @@ async function bootstrap() {
       process.stderr.write(`[sidecar-marker] pool-child-parent-watchdog: ${origPpid}\n`);
     }
     // === A3: broadcast notifiche al frontend (DOPO la creazione di piBridge!) ===
+    try {
+      taskReports = new TaskReports(piBridge, (process.env.QUINKI_ROLE || "").toLowerCase() === "expert" || process.env.QUINKI_WS_PORT === "9183" ? "expert" : "main");
+      try { taskReports.setLogger((tag: string, data: any) => piBridge?.logDebug?.(tag, data)); } catch {}
+      try { taskReports.setLhCheck((sk: string) => { try { const st = (longHorizon as any)?.getState?.(sk); return !!(st && st.active); } catch { return false; } }); } catch {}
+      taskReports.start();
+    } catch {}
     try { piBridge.setNotificationBroadcast?.((entry: any) => {
       try {
         // La push al telefono si decide con LA STESSA RIGA che decide la

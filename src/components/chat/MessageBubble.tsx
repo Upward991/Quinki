@@ -83,9 +83,12 @@ function UserMessage({ message, onCopy, searchQuery, activeOcc, isDateMatch }: {
   // MESSAGGI AUTOMATICI (marcati dal motore: \u2063r = recovery/sistema · \u2063l = Long Horizon):
   // bubble COLORATE per far capire subito che NON le ha scritte l'utente.
   const rawContent = message.content || ''
-  const autoKind = typeof rawContent === 'string' && rawContent.startsWith('\u2063') ? (rawContent[1] === 'l' ? 'lh' : 'sys') : null
-  const bubbleBg = autoKind === 'lh' ? 'var(--q-accent-longhorizon)' : (autoKind ? 'var(--q-tab-accent)' : 'var(--q-bubble-user)')
-  const bubbleText = autoKind === 'lh' ? 'var(--q-text)' : (autoKind ? getContrastColor('--q-tab-accent') : 'var(--q-bubble-user-text)')
+  const tagChar = typeof rawContent === 'string' && rawContent.startsWith('\u2063') ? rawContent[1] : ''
+  const autoKind = tagChar === 'l' ? 'lh' : tagChar === 't' ? 'task' : tagChar === 'x' ? 'apperr' : (tagChar ? 'sys' : null)
+  // FASE 1 (16 ott): sistema = accent della conversazione (blu speciale nelle chat della tab Tasks);
+  // task = teal fisso + testo scuro; LH = viola + testo chiaro; apperr = messaggio app in rosso.
+  const bubbleBg = autoKind === 'lh' ? 'var(--q-accent-longhorizon)' : autoKind === 'task' ? 'var(--q-accent-calendar)' : autoKind === 'sys' ? 'var(--q-sys-accent, var(--q-tab-accent))' : autoKind === 'apperr' ? 'var(--q-bg-panel)' : 'var(--q-bubble-user)'
+  const bubbleText = autoKind === 'lh' ? 'var(--q-text)' : autoKind === 'task' ? getContrastColor('--q-accent-calendar') : autoKind === 'sys' ? getContrastColor('--q-sys-accent') : autoKind === 'apperr' ? 'var(--q-accent-danger)' : 'var(--q-bubble-user-text)'
   // Simple highlight: split text and wrap Nth occurrence
   const content = autoKind ? rawContent.slice(2) : rawContent
   let rendered: React.ReactNode = content

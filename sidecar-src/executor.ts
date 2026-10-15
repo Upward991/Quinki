@@ -432,6 +432,8 @@ export class ExecutionEngine {
               label: state.label,
               sourceSession: state.sourceSession,
               resultPreview: state.resultPreview || "",
+              // FASE 1 (16 ott): la NOTIFICA mostra solo un'anteprima breve del risultato
+              body: String(state.resultPreview || "").replace(/\s+/g, " ").trim().slice(0, 140) || state.label,
             });
           } catch {}
         }

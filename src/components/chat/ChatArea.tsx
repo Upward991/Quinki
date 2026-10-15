@@ -935,10 +935,7 @@ export function ChatArea(props: ChatAreaProps) {
                     try { ts = new Date(msg.timestamp).getTime() } catch {}
                     chatItems.push({ kind: 'msg', ts, msg, mIdx })
                   })
-                  for (const run of taskRuns) {
-                    if (run.status !== 'executed') continue
-                    chatItems.push({ kind: 'task', ts: run.endedAt || run.createdAt || 0, run })
-                  }
+                  // FASE 1 (16 ott): le task eseguite NON si mostrano più nella conversazione (solo nella sezione)
                   if (props.longHorizon && props.longHorizonSystemMessage && props.longHorizonStartedAt) {
                     chatItems.push({ kind: 'sys', ts: props.longHorizonStartedAt || Date.now(), sysMsg: props.longHorizonSystemMessage })
                   }
