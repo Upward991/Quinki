@@ -500,6 +500,19 @@ export function ChatArea(props: ChatAreaProps) {
   // ==== REGOLA UTENTE (16 ott, dai disegni): CHI APRE SI UNISCE alla sezione (nessun contorno suo, nessuno stacco);
   // l'ALTRO resta IDENTICO alla chiusa, al suo posto, sul fondo scuro. Stacchi: 6px tra i due, 8px sopra la riga
   // (come textbox↔riga). Raggio 12 ovunque, incluso il contorno attorno al ritaglio.
+  // MISURA del pannello: serve per disegnare il contorno ESATTO con un unico tratto (niente scalini/giunzioni)
+  const panelRef = useRef<HTMLDivElement | null>(null)
+  const [panelSize, setPanelSize] = useState<{ w: number; h: number }>({ w: 0, h: 0 })
+  useLayoutEffect(() => {
+    const el = panelRef.current
+    if (!el || !taskPanelOpen) { setPanelSize({ w: 0, h: 0 }); return }
+    const upd = () => setPanelSize({ w: el.clientWidth, h: el.clientHeight })
+    upd()
+    let ro: any = null
+    try { ro = new ResizeObserver(upd); ro.observe(el) } catch {}
+    window.addEventListener('resize', upd)
+    return () => { try { ro && ro.disconnect() } catch {}; window.removeEventListener('resize', upd) }
+  }, [taskPanelOpen, taskPanelMode, sessionIdKey])
   const stripBarVisual = (chevDown: boolean, onClick?: () => void) => (
     <div onClick={onClick} style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', height: 36, boxSizing: 'border-box', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: 13, cursor: onClick ? 'pointer' : 'default' }}>
       <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{taskLabel}</span>
@@ -513,30 +526,23 @@ export function ChatArea(props: ChatAreaProps) {
         : <><div style={{ width: 42, flexShrink: 0 }} />{stripBarVisual(true, () => setTaskPanelOpen(false))}</>}
     </div>
   ) : null
-  // ANGOLI del RITAGLIO (regola utente): curva ESTERNA identica agli angoli del box; la punta del
-  // vecchio angolo retto viene COPERta (zona scura oltre l'arco); la riga sottile continua. Forma unica
-  // (angolo a (12,12), scuro a destra+sotto); per il lato sinistro si specchia con scaleX(-1).
-  const nookPiece = (posStyle: any, mirror?: boolean) => (
-    <svg width="18" height="18" viewBox="0 0 18 18" style={{ position: 'absolute', display: 'block', pointerEvents: 'none', ...posStyle, ...(mirror ? { transform: 'scaleX(-1)' } : {}) }} aria-hidden="true">
-      <rect x="0" y="0" width="18" height="18" fill="var(--q-bg-panel)" />
-      <path d="M -0.5 12.5 A 12 12 0 0 0 12.5 -0.5 L 18 -0.5 L 18 18 L -0.5 18 Z" fill="var(--q-bg)" />
-      <path d="M -0.5 12.5 A 12 12 0 0 0 12.5 -0.5" fill="none" stroke="var(--q-border)" strokeWidth="1" />
-    </svg>
-  )
-
+  const panelOutline = (taskPanelOpen && hasTasks && panelSize.w > 0) ? (() => {
+    const w = panelSize.w, h = panelSize.h, r = 12
+    const box = taskPanelMode === 'db'
+      ? `M ${2.5 + r} 2.5 H ${w - 2.5 - r} A ${r} ${r} 0 0 1 ${w - 2.5} ${2.5 + r} V ${h - 44 - r} A ${r} ${r} 0 0 1 ${w - 2.5 - r} ${h - 44} H ${38.5 + r} A ${r} ${r} 0 0 0 38.5 ${h - 44 + r} V ${h - 0.5 - r} A ${r} ${r} 0 0 1 ${38.5 - r} ${h - 0.5} H ${2.5 + r} A ${r} ${r} 0 0 1 2.5 ${h - 0.5 - r} V ${2.5 + r} A ${r} ${r} 0 0 1 ${2.5 + r} 2.5 Z`
+      : `M ${2.5 + r} 2.5 H ${w - 2.5 - r} A ${r} ${r} 0 0 1 ${w - 2.5} ${2.5 + r} V ${h - 0.5 - r} A ${r} ${r} 0 0 1 ${w - 2.5 - r} ${h - 0.5} H ${44.5 + r} A ${r} ${r} 0 0 1 44.5 ${h - 0.5 - r} V ${h - 44 + r} A ${r} ${r} 0 0 0 ${44.5 - r} ${h - 44} H ${2.5 + r} A ${r} ${r} 0 0 1 2.5 ${h - 44 - r} V ${2.5 + r} A ${r} ${r} 0 0 1 ${2.5 + r} 2.5 Z`
+    const dark = taskPanelMode === 'db'
+      ? `M 38.5 ${h - 44 + r} A ${r} ${r} 0 0 1 ${38.5 + r} ${h - 44} H ${w - 2.5 - r} A ${r} ${r} 0 0 1 ${w - 2.5} ${h - 44 - r} L ${w} ${h - 44 - r} L ${w} ${h} L 38.5 ${h} Z`
+      : `M 44.5 ${h - 44 + r} A ${r} ${r} 0 0 0 ${44.5 - r} ${h - 44} H ${2.5 + r} A ${r} ${r} 0 0 0 2.5 ${h - 44 - r} L 0 ${h - 44 - r} L 0 ${h} L 44.5 ${h} Z`
+    return (
+      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ position: 'absolute', left: 0, top: 0, zIndex: 7, pointerEvents: 'none' }} aria-hidden="true">
+        <path d={dark} fill="var(--q-bg)" />
+        <path d={box} fill="none" stroke="var(--q-border)" strokeWidth="1" />
+      </svg>
+    )
+  })() : null
   const cutOverlay = (taskPanelOpen && hasTasks) ? (
-    <div style={{ position: 'absolute', bottom: 0, height: 44, backgroundColor: 'var(--q-bg)', display: 'flex', alignItems: 'flex-end', zIndex: 6, boxSizing: 'border-box', borderTop: '1px solid var(--q-border)', ...(taskPanelMode === 'db' ? { left: 38, right: 2, borderLeft: '1px solid var(--q-border)', borderTopLeftRadius: 'var(--radius-lg)' } : { left: 2, width: 42, borderRight: '1px solid var(--q-border)', borderTopRightRadius: 'var(--radius-lg)' }) }}>
-      {taskPanelMode === 'db' ? (
-        <>
-          {nookPiece({ top: -12, right: -6 })}
-          {nookPiece({ bottom: -6, left: -12 })}
-        </>
-      ) : (
-        <>
-          {nookPiece({ top: -12, left: -6 }, true)}
-          {nookPiece({ bottom: -6, right: -12 }, true)}
-        </>
-      )}
+    <div style={{ position: 'absolute', bottom: 0, height: 44, display: 'flex', alignItems: 'flex-end', zIndex: 6, ...(taskPanelMode === 'db' ? { left: 38, right: 2 } : { left: 2, width: 42 }) }}>
       {taskPanelMode === 'db' ? (
         <button onClick={() => setTaskPanelMode('results')} title="Show tasks" style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', marginLeft: 6, height: 36, boxSizing: 'border-box', borderRadius: 'var(--radius-lg)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-panel)', cursor: 'pointer', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: 13, textAlign: 'left' }}>
           <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{taskLabel}</span>
@@ -864,8 +870,8 @@ export function ChatArea(props: ChatAreaProps) {
         </div>
       ) : isEmpty ? (
         taskPanelOpen ? (
-          <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column', margin: '2px 2px 0 2px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--q-border)', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom' }}>
+          <div ref={panelRef} style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column', margin: '2px 2px 0 2px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', border: '1px solid transparent', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom' }}>
             {taskPanelMode === 'db' ? dbContent : (
             <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '16px 16px', scrollbarGutter: 'stable' }}>
               {taskRuns.length === 0 ? (
@@ -877,6 +883,7 @@ export function ChatArea(props: ChatAreaProps) {
             {fusedRow}
           </div>
           {cutOverlay}
+          {panelOutline}
           </div>
         ) : (
         <>
@@ -912,7 +919,7 @@ export function ChatArea(props: ChatAreaProps) {
           {/* REGOLA UTENTE (16 ott, definitiva): il box della sezione sta attorno al SOLO contenuto; sotto,
               [tasto quadrato][barra] restano ESATTAMENTE come da chiusi (contorni inclusi) sul fondo scuro. */}
           <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column', ...(taskPanelOpen ? { margin: '2px 2px 0 2px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--q-border)', overflow: 'hidden', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom' } : {}) }}>
+            <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column', ...(taskPanelOpen ? { margin: '2px 2px 0 2px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', border: '1px solid transparent', overflow: 'hidden', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom' } : {}) }}>
               {/* Chat — SEMPRE montata (display none quando il pannello task è aperto) → lo scroll resta dov'era */}
               <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '4px 16px ' + (hasTasks ? 8 : 0) + 'px 16px', scrollbarGutter: 'stable', display: taskPanelOpen ? 'none' : 'block' }}
                 onScroll={e => { const el = e.currentTarget; const overflow = el.scrollHeight - el.clientHeight; setShowScrollBtn(overflow > 260 && el.scrollTop < overflow - 100); pinnedRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 120; if (el.scrollTop < 40 && props.onLoadOlder && !loadingOlderRef.current && props.messages.length > 0) { loadingOlderRef.current = true; anchorRef.current = { height: el.scrollHeight, top: el.scrollTop }; setTimeout(() => { loadingOlderRef.current = false }, 600); props.onLoadOlder() } }}>
@@ -1003,6 +1010,7 @@ export function ChatArea(props: ChatAreaProps) {
               </button>
             )}
             {taskPanelOpen ? cutOverlay : taskStripBar}
+            {panelOutline}
           </div>
 
           {searchOpen && (
