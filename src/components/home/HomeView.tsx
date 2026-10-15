@@ -253,14 +253,21 @@ function HomeCard({card, idx, onSelectPanel, onContext, floating}: any) {
   const mob = useLayout().mode === 'mobile'
   const [hovered, setHovered] = useState(false)
   const Icon = card.icon
-  return React.createElement('button',
+  // REGOLA (16 ott): il bersaglio dell'hover resta FERMO (contenitore) e la card si anima dentro —
+  // prima il translateY era sulla card stessa: il cursore sul bordo inferiore finiva fuori e l'hover
+  // si accendeva/spegeva in loop (card che saliva e scendeva di continuo).
+  return React.createElement('div',
+    {
+      onMouseEnter: () => setHovered(true),
+      onMouseLeave: () => setHovered(false),
+      style: { width: mob ? '100%' : '160px', height: '110px', flexShrink: 0, position: 'relative', cursor: floating ? 'grabbing' : 'pointer' }
+    },
+    React.createElement('button',
     {
       onClick: () => card.panel && onSelectPanel(card.panel),
       onContextMenu: (e: any) => onContext(e, card),
-      onMouseEnter: () => setHovered(true),
-      onMouseLeave: () => setHovered(false),
       style: {
-        width: mob ? '100%' : '160px', height:'110px', backgroundColor:'var(--q-bg-panel)',
+        width: '100%', height: '100%', backgroundColor:'var(--q-bg-panel)',
         borderRadius:'var(--radius-lg)',
         border:`1px solid ${(hovered || floating) ? 'var(--q-border-strong)' : 'var(--q-border)'}`,
         boxShadow: (hovered || floating) ? '0 0 0 1px var(--q-border-strong), 0 0 24px rgba(157, 139, 217, 0.06), inset 0 1px 0 rgba(255,255,255,0.02)' : 'var(--shadow-floating)',
@@ -276,5 +283,6 @@ function HomeCard({card, idx, onSelectPanel, onContext, floating}: any) {
     ),
     React.createElement('div', {style:{height:'10px'}}),
     React.createElement('span', {style:{color:'var(--q-text)', fontSize:'14px', fontWeight:500, fontFamily:'var(--font-interface)'}}, card.label),
+    )
   )
 }
