@@ -485,7 +485,7 @@ export function ChatArea(props: ChatAreaProps) {
   // STRISCIA VERA (16 ott): il TASTO QUADRATO (stile tasti header) apre la tabella SCHEDULED di QUESTA chat
   // (stesso database del Tasks tab, filtro bloccato); la striscia invece apre i result come sempre.
   const taskStripBar = hasTasks ? (
-    <div key="tstrip" style={{ width: 'auto', margin: '8px 2px 0 2px', flexShrink: 0, display: 'flex', alignItems: 'stretch', gap: 6 }}>
+    <div key="tstrip" style={{ width: 'auto', margin: '8px 0 0 0', flexShrink: 0, display: 'flex', alignItems: 'stretch', gap: 6 }}>
       <button onClick={(e) => { e.stopPropagation(); if (taskPanelOpen && taskPanelMode === 'db') { setTaskPanelOpen(false) } else { setTaskPanelMode('db'); setTaskPanelOpen(true) } }} title="Scheduled tasks of this chat"
         style={{ width: 36, height: 36, boxSizing: 'border-box', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-lg)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-panel)', cursor: 'pointer', color: 'var(--q-text-secondary)', transition: 'none' }}>
         <Checklist size={16} />
@@ -529,11 +529,11 @@ export function ChatArea(props: ChatAreaProps) {
   const panelOutline = (taskPanelOpen && hasTasks && panelSize.w > 0) ? (() => {
     const w = panelSize.w, h = panelSize.h, r = 12
     const box = taskPanelMode === 'db'
-      ? `M ${2.5 + r} 2.5 H ${w - 2.5 - r} A ${r} ${r} 0 0 1 ${w - 2.5} ${2.5 + r} V ${h - 44 - r} A ${r} ${r} 0 0 1 ${w - 2.5 - r} ${h - 44} H ${38.5 + r} A ${r} ${r} 0 0 0 38.5 ${h - 44 + r} V ${h - 0.5 - r} A ${r} ${r} 0 0 1 ${38.5 - r} ${h - 0.5} H ${2.5 + r} A ${r} ${r} 0 0 1 2.5 ${h - 0.5 - r} V ${2.5 + r} A ${r} ${r} 0 0 1 ${2.5 + r} 2.5 Z`
-      : `M ${2.5 + r} 2.5 H ${w - 2.5 - r} A ${r} ${r} 0 0 1 ${w - 2.5} ${2.5 + r} V ${h - 0.5 - r} A ${r} ${r} 0 0 1 ${w - 2.5 - r} ${h - 0.5} H ${44.5 + r} A ${r} ${r} 0 0 1 44.5 ${h - 0.5 - r} V ${h - 44 + r} A ${r} ${r} 0 0 0 ${44.5 - r} ${h - 44} H ${2.5 + r} A ${r} ${r} 0 0 1 2.5 ${h - 44 - r} V ${2.5 + r} A ${r} ${r} 0 0 1 ${2.5 + r} 2.5 Z`
+      ? `M ${0.5 + r} 2.5 H ${w - 0.5 - r} A ${r} ${r} 0 0 1 ${w - 0.5} ${2.5 + r} V ${h - 44 - r} A ${r} ${r} 0 0 1 ${w - 0.5 - r} ${h - 44} H ${36.5 + r} A ${r} ${r} 0 0 0 36.5 ${h - 44 + r} V ${h - 0.5 - r} A ${r} ${r} 0 0 1 ${36.5 - r} ${h - 0.5} H ${0.5 + r} A ${r} ${r} 0 0 1 0.5 ${h - 0.5 - r} V ${2.5 + r} A ${r} ${r} 0 0 1 ${0.5 + r} 2.5 Z`
+      : `M ${0.5 + r} 2.5 H ${w - 0.5 - r} A ${r} ${r} 0 0 1 ${w - 0.5} ${2.5 + r} V ${h - 0.5 - r} A ${r} ${r} 0 0 1 ${w - 0.5 - r} ${h - 0.5} H ${42.5 + r} A ${r} ${r} 0 0 1 42.5 ${h - 0.5 - r} V ${h - 44 + r} A ${r} ${r} 0 0 0 ${42.5 - r} ${h - 44} H ${0.5 + r} A ${r} ${r} 0 0 1 0.5 ${h - 44 - r} V ${2.5 + r} A ${r} ${r} 0 0 1 ${0.5 + r} 2.5 Z`
     const dark = taskPanelMode === 'db'
-      ? `M ${38.5 - r} ${h - 0.5} A ${r} ${r} 0 0 0 38.5 ${h - 0.5 - r} V ${h - 44 + r} A ${r} ${r} 0 0 1 ${38.5 + r} ${h - 44} H ${w - 2.5 - r} A ${r} ${r} 0 0 0 ${w - 2.5} ${h - 44 - r} L ${w} ${h - 44 - r} L ${w} ${h} Z`
-      : `M ${44.5 + r} ${h - 0.5} A ${r} ${r} 0 0 1 44.5 ${h - 0.5 - r} V ${h - 44 + r} A ${r} ${r} 0 0 0 ${44.5 - r} ${h - 44} H ${2.5 + r} A ${r} ${r} 0 0 1 2.5 ${h - 44 - r} L 0 ${h - 44 - r} L 0 ${h} Z`
+      ? `M ${36.5 - r} ${h} V ${h - 0.5} A ${r} ${r} 0 0 0 36.5 ${h - 0.5 - r} V ${h - 44 + r} A ${r} ${r} 0 0 1 ${36.5 + r} ${h - 44} H ${w - 0.5 - r} A ${r} ${r} 0 0 0 ${w - 0.5} ${h - 44 - r} L ${w} ${h - 44 - r} L ${w} ${h} L ${36.5 - r} ${h} Z`
+      : `M ${42.5 + r} ${h} V ${h - 0.5} A ${r} ${r} 0 0 1 42.5 ${h - 0.5 - r} V ${h - 44 + r} A ${r} ${r} 0 0 0 ${42.5 - r} ${h - 44} H ${0.5 + r} A ${r} ${r} 0 0 1 0.5 ${h - 44 - r} L 0 ${h - 44 - r} L 0 ${h} L ${42.5 + r} ${h} Z`
     return (
       <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ position: 'absolute', left: 0, top: 0, zIndex: 5, pointerEvents: 'none' }} aria-hidden="true">
         <path d={dark} fill="var(--q-bg)" />
@@ -542,7 +542,7 @@ export function ChatArea(props: ChatAreaProps) {
     )
   })() : null
   const cutOverlay = (taskPanelOpen && hasTasks) ? (
-    <div style={{ position: 'absolute', bottom: 0, height: 44, display: 'flex', alignItems: 'flex-end', zIndex: 6, ...(taskPanelMode === 'db' ? { left: 38, right: 2 } : { left: 2, width: 42 }) }}>
+    <div style={{ position: 'absolute', bottom: 0, height: 44, display: 'flex', alignItems: 'flex-end', zIndex: 6, ...(taskPanelMode === 'db' ? { left: 36, right: 0 } : { left: 0, width: 42 }) }}>
       {taskPanelMode === 'db' ? (
         <button onClick={() => setTaskPanelMode('results')} title="Show tasks" style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', marginLeft: 6, height: 36, boxSizing: 'border-box', borderRadius: 'var(--radius-lg)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-panel)', cursor: 'pointer', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: 13, textAlign: 'left' }}>
           <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{taskLabel}</span>
@@ -871,7 +871,7 @@ export function ChatArea(props: ChatAreaProps) {
       ) : isEmpty ? (
         taskPanelOpen ? (
           <div ref={panelRef} style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column', margin: '2px 2px 0 2px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', border: (panelSize.w > 0) ? 'none' : '1px solid var(--q-border)', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom' }}>
+          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column', margin: '2px 0 0 0', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', border: (panelSize.w > 0) ? 'none' : '1px solid var(--q-border)', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom' }}>
             {taskPanelMode === 'db' ? dbContent : (
             <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '16px 16px', scrollbarGutter: 'stable' }}>
               {taskRuns.length === 0 ? (
@@ -919,7 +919,7 @@ export function ChatArea(props: ChatAreaProps) {
           {/* REGOLA UTENTE (16 ott, definitiva): il box della sezione sta attorno al SOLO contenuto; sotto,
               [tasto quadrato][barra] restano ESATTAMENTE come da chiusi (contorni inclusi) sul fondo scuro. */}
           <div ref={panelRef} style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column', ...(taskPanelOpen ? { margin: '2px 2px 0 2px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', border: (panelSize.w > 0) ? 'none' : '1px solid var(--q-border)', overflow: 'hidden', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom' } : {}) }}>
+            <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column', ...(taskPanelOpen ? { margin: '2px 0 0 0', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', border: (panelSize.w > 0) ? 'none' : '1px solid var(--q-border)', overflow: 'hidden', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom' } : {}) }}>
               {/* Chat — SEMPRE montata (display none quando il pannello task è aperto) → lo scroll resta dov'era */}
               <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '4px 16px ' + (hasTasks ? 8 : 0) + 'px 16px', scrollbarGutter: 'stable', display: taskPanelOpen ? 'none' : 'block' }}
                 onScroll={e => { const el = e.currentTarget; const overflow = el.scrollHeight - el.clientHeight; setShowScrollBtn(overflow > 260 && el.scrollTop < overflow - 100); pinnedRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 120; if (el.scrollTop < 40 && props.onLoadOlder && !loadingOlderRef.current && props.messages.length > 0) { loadingOlderRef.current = true; anchorRef.current = { height: el.scrollHeight, top: el.scrollTop }; setTimeout(() => { loadingOlderRef.current = false }, 600); props.onLoadOlder() } }}>
