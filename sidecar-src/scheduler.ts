@@ -147,7 +147,10 @@ export class Scheduler {
         for (const sw of all) {
           if (!sw.enabled || sw.owner !== this.#owner) continue;
           if (sw.nextFireAt == null || sw.nextFireAt - nowTs > 90000) {
-            const nx = this.#computeNext(sw, sw.lastFiredAt || 0);
+            // FIX (16 ott, visto live): da max(lastFiredAt, ADESSO) — con 0 un task MAI partito
+            // (es. Tokyo daily creato nel pomeriggio) veniva riportato a un'occorrenza di
+            // STAMATTINA (gia' passata) e partiva come catch-up "in ritardo" senza motivo.
+            const nx = this.#computeNext(sw, Math.max(sw.lastFiredAt || 0, nowTs));
             if (nx !== sw.nextFireAt) { sw.nextFireAt = nx; dirty = true; }
           }
         }
@@ -475,12 +478,12 @@ export class Scheduler {
       if (p.when !== undefined) s.when = { ...s.when, ...p.when } as ScheduleWhen;
       if (Array.isArray(p.rules)) s.rules = p.rules as ScheduleWhen[];
       // se cambia 'when'/'rules', ricalcola; mantieni lastFiredAt per non rifare il passato in doppio
-      s.nextFireAt = this.#computeNext(s, s.lastFiredAt || 0);
+      s.nextFireAt = this.#computeNext(s, Math.max(s.lastFiredAt || 0, Date.now()));
     }
     if (p.enabled !== undefined) s.enabled = !!p.enabled;
     if (p.catchUp !== undefined) s.catchUp = !!p.catchUp;
     if (p.owner !== undefined) s.owner = p.owner === "expert" ? "expert" : "main";
-    if (p.timeZone !== undefined) { s.timeZone = p.timeZone && zoneOk(String(p.timeZone)) ? String(p.timeZone) : machineZone(); s.nextFireAt = this.#computeNext(s, s.lastFiredAt || 0); }
+    if (p.timeZone !== undefined) { s.timeZone = p.timeZone && zoneOk(String(p.timeZone)) ? String(p.timeZone) : machineZone(); s.nextFireAt = this.#computeNext(s, Math.max(s.lastFiredAt || 0, Date.now())); }
     const idx = all.findIndex((x: Schedule) => x.id === p.id);
     all[idx] = s;
     this.#writeSchedules(all);
