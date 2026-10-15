@@ -519,7 +519,7 @@ export function ChatArea(props: ChatAreaProps) {
     <svg width="12" height="13" viewBox="0 0 12 13" style={{ position: 'absolute', top: -12, [side]: 0, display: 'block', pointerEvents: 'none' }} aria-hidden="true">
       <rect x={side === 'right' ? 0 : 0} y="10.8" width="12" height="2.2" fill="var(--q-bg-panel)" />
       <rect x={side === 'right' ? 10.8 : 0} y="0" width="1.4" height="13" fill="var(--q-bg-panel)" />
-      <path d={side === 'right' ? "M 0.5 12.5 A 12 12 0 0 1 12.5 0.5" : "M 11.5 12.5 A 12 12 0 0 0 -0.5 0.5"} fill="none" stroke="var(--q-border)" strokeWidth="1" />
+      <path d={side === 'right' ? "M 0.5 12.5 A 12 12 0 0 0 12.5 0.5" : "M 11.5 12.5 A 12 12 0 0 1 -0.5 0.5"} fill="none" stroke="var(--q-border)" strokeWidth="1" />
     </svg>
   )
   const cutOverlay = (taskPanelOpen && hasTasks) ? (
