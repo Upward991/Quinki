@@ -513,8 +513,18 @@ export function ChatArea(props: ChatAreaProps) {
         : <><div style={{ width: 42, flexShrink: 0 }} />{stripBarVisual(true, () => setTaskPanelOpen(false))}</>}
     </div>
   ) : null
+  // ARCO del bordo esterno del ritaglio: variante B (curva IN ALTO, stesso angolo dell'elemento) — 12x13, maschera
+  // la riga dritta sotto di sé e disegna l'arco che continua nel bordo del box.
+  const nookArc = (side: 'right' | 'left') => (
+    <svg width="12" height="13" viewBox="0 0 12 13" style={{ position: 'absolute', top: -12, [side]: 0, display: 'block', pointerEvents: 'none' }} aria-hidden="true">
+      <rect x={side === 'right' ? 0 : 0} y="10.8" width="12" height="2.2" fill="var(--q-bg-panel)" />
+      <rect x={side === 'right' ? 10.8 : 0} y="0" width="1.4" height="13" fill="var(--q-bg-panel)" />
+      <path d={side === 'right' ? "M 0.5 12.5 A 12 12 0 0 1 12.5 0.5" : "M 11.5 12.5 A 12 12 0 0 0 -0.5 0.5"} fill="none" stroke="var(--q-border)" strokeWidth="1" />
+    </svg>
+  )
   const cutOverlay = (taskPanelOpen && hasTasks) ? (
-    <div style={{ position: 'absolute', bottom: 0, height: 44, backgroundColor: 'var(--q-bg)', display: 'flex', alignItems: 'flex-end', zIndex: 6, borderRadius: 'var(--radius-lg) var(--radius-lg) 0 0', ...(taskPanelMode === 'db' ? { left: 38, right: 2 } : { left: 2, width: 42 }) }}>
+    <div style={{ position: 'absolute', bottom: 0, height: 44, backgroundColor: 'var(--q-bg)', display: 'flex', alignItems: 'flex-end', zIndex: 6, boxSizing: 'border-box', borderTop: '1px solid var(--q-border)', ...(taskPanelMode === 'db' ? { left: 38, right: 2, borderLeft: '1px solid var(--q-border)', borderTopLeftRadius: 'var(--radius-lg)' } : { left: 2, width: 42, borderRight: '1px solid var(--q-border)', borderTopRightRadius: 'var(--radius-lg)' }) }}>
+      {nookArc(taskPanelMode === 'db' ? 'right' : 'left')}
       {taskPanelMode === 'db' ? (
         <button onClick={() => setTaskPanelMode('results')} title="Show tasks" style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', marginLeft: 6, height: 36, boxSizing: 'border-box', borderRadius: 'var(--radius-lg)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-panel)', cursor: 'pointer', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: 13, textAlign: 'left' }}>
           <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{taskLabel}</span>
