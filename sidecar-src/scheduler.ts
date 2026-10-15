@@ -218,7 +218,7 @@ export class Scheduler {
     if (when.type === "seconds") {
       const created = s.createdAt || now;
       const step = interval * 1000;
-      const next = created + Math.ceil(Math.max(0, now - created) / step) * step;
+      const next = created + (Math.floor(Math.max(0, now - created) / step) + 1) * step;
       return next > afterTs ? next : null;
     }
 
@@ -226,8 +226,8 @@ export class Scheduler {
     if (when.type === "minutely") {
       const created = s.createdAt || now;
       const step = interval * 60000;
-      const elapsed = now - created;
-      const next = created + Math.ceil(elapsed / step) * step;
+      const elapsed = Math.max(0, now - created);
+      const next = created + (Math.floor(elapsed / step) + 1) * step;
       return next > afterTs ? next : null;
     }
 
@@ -440,7 +440,10 @@ export class Scheduler {
       nextFireAt: null,
       createdAt: Date.now(),
     };
-    s.nextFireAt = this.#computeNext(s, 0);
+    // FIX (16 ott, visto live): la prima occorrenza si calcola da ADESSO, non dalla epoch 0 —
+    // un task per un'ora già passata oggi (es. creo alle 22:00 un daily delle 09:00) NON deve
+    // partire subito: parte domani alle 09:00.
+    s.nextFireAt = this.#computeNext(s, Date.now());
     const all = this.readSchedules();
     all.push(s);
     this.#writeSchedules(all);
