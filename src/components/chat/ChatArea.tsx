@@ -505,7 +505,7 @@ export function ChatArea(props: ChatAreaProps) {
   const [panelSize, setPanelSize] = useState<{ w: number; h: number }>({ w: 0, h: 0 })
   useLayoutEffect(() => {
     const el = panelRef.current
-    if (!el || !taskPanelOpen) { setPanelSize({ w: 0, h: 0 }); return }
+    if (!el) return
     const upd = () => setPanelSize({ w: el.clientWidth, h: el.clientHeight })
     upd()
     let ro: any = null
