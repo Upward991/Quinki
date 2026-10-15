@@ -384,7 +384,7 @@ export function ChatArea(props: ChatAreaProps) {
   const [taskPanelOpen, setTaskPanelOpen] = useState<boolean>(() => { try { return localStorage.getItem('quinki-taskpanel-' + sessionIdKey) === '1' } catch { return false } })
   // REGOLA UTENTE (16 ott): due modi del pannello — 'results' (toggle come oggi) o 'db' (tabella scheduled di questa chat, filtro bloccato)
   const [taskPanelMode, setTaskPanelMode] = useState<'results' | 'db'>('results')
-  useEffect(() => { setTaskPanelMode('results') }, [sessionIdKey])
+  useEffect(() => { setTaskPanelMode('results'); setTaskPanelOpen(false) }, [sessionIdKey])
   const [taskExecs, setTaskExecs] = useState<any[]>([])
   const [taskScheds, setTaskScheds] = useState<any[]>([])
   const [taskRuns, setTaskRuns] = useState<any[]>([])
@@ -482,6 +482,9 @@ export function ChatArea(props: ChatAreaProps) {
   const pl = (n: number) => (n === 1 ? '' : 's')
   const taskLabel = taskScheds.length + ' task' + pl(taskScheds.length) + ' scheduled' + (taskDone ? ' · ' + taskDone + ' executed' : '')
   const hasTasks = taskExecs.length > 0 || taskScheds.length > 0
+  // BUGFIX (16 ott): se le task spariscono (tutte eliminate) mentre la sezione è aperta, la sezione
+  // resterebbe bloccata aperta SENZA il tasto per chiuderla (spariva la striscia) → si chiude da sola.
+  useEffect(() => { if (!hasTasks && taskPanelOpen) setTaskPanelOpen(false) }, [hasTasks, taskPanelOpen])
   // STRISCIA VERA (16 ott): il TASTO QUADRATO (stile tasti header) apre la tabella SCHEDULED di QUESTA chat
   // (stesso database del Tasks tab, filtro bloccato); la striscia invece apre i result come sempre.
   const taskStripBar = hasTasks ? (
