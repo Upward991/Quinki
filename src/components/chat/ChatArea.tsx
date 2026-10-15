@@ -529,10 +529,10 @@ export function ChatArea(props: ChatAreaProps) {
   const panelOutline = (taskPanelOpen && hasTasks && panelSize.w > 0) ? (() => {
     const w = panelSize.w, h = panelSize.h, r = 12
     const box = taskPanelMode === 'db'
-      ? `M ${0.5 + r} 2.5 H ${w - 0.5 - r} A ${r} ${r} 0 0 1 ${w - 0.5} ${2.5 + r} V ${h - 44 - r} A ${r} ${r} 0 0 1 ${w - 0.5 - r} ${h - 44} H ${36.5 + r} A ${r} ${r} 0 0 0 36.5 ${h - 44 + r} V ${h - 0.5 - r} A ${r} ${r} 0 0 1 ${36.5 - r} ${h - 0.5} H ${0.5 + r} A ${r} ${r} 0 0 1 0.5 ${h - 0.5 - r} V ${2.5 + r} A ${r} ${r} 0 0 1 ${0.5 + r} 2.5 Z`
+      ? `M ${0.5 + r} 2.5 H ${w - 0.5 - r} A ${r} ${r} 0 0 1 ${w - 0.5} ${2.5 + r} V ${h - 44 - r} A ${r} ${r} 0 0 1 ${w - 0.5 - r} ${h - 44} H ${35.5 + r} A ${r} ${r} 0 0 0 35.5 ${h - 44 + r} V ${h - 0.5 - r} A ${r} ${r} 0 0 1 ${35.5 - r} ${h - 0.5} H ${0.5 + r} A ${r} ${r} 0 0 1 0.5 ${h - 0.5 - r} V ${2.5 + r} A ${r} ${r} 0 0 1 ${0.5 + r} 2.5 Z`
       : `M ${0.5 + r} 2.5 H ${w - 0.5 - r} A ${r} ${r} 0 0 1 ${w - 0.5} ${2.5 + r} V ${h - 0.5 - r} A ${r} ${r} 0 0 1 ${w - 0.5 - r} ${h - 0.5} H ${42.5 + r} A ${r} ${r} 0 0 1 42.5 ${h - 0.5 - r} V ${h - 44 + r} A ${r} ${r} 0 0 0 ${42.5 - r} ${h - 44} H ${0.5 + r} A ${r} ${r} 0 0 1 0.5 ${h - 44 - r} V ${2.5 + r} A ${r} ${r} 0 0 1 ${0.5 + r} 2.5 Z`
     const dark = taskPanelMode === 'db'
-      ? `M ${36.5 - r} ${h} V ${h - 0.5} A ${r} ${r} 0 0 0 36.5 ${h - 0.5 - r} V ${h - 44 + r} A ${r} ${r} 0 0 1 ${36.5 + r} ${h - 44} H ${w - 0.5 - r} A ${r} ${r} 0 0 0 ${w - 0.5} ${h - 44 - r} L ${w} ${h - 44 - r} L ${w} ${h} L ${36.5 - r} ${h} Z`
+      ? `M ${36 - r} ${h} V ${h - 0.5} A ${r} ${r} 0 0 0 36 ${h - 0.5 - r} V ${h - 44 + r} A ${r} ${r} 0 0 1 ${36 + r} ${h - 44} H ${w - 0.5 - r} A ${r} ${r} 0 0 0 ${w - 0.5} ${h - 44 - r} L ${w} ${h - 44 - r} L ${w} ${h} L ${36.5 - r} ${h} Z`
       : `M ${42.5 + r} ${h} V ${h - 0.5} A ${r} ${r} 0 0 1 42.5 ${h - 0.5 - r} V ${h - 44 + r} A ${r} ${r} 0 0 0 ${42.5 - r} ${h - 44} H ${0.5 + r} A ${r} ${r} 0 0 1 0.5 ${h - 44 - r} L 0 ${h - 44 - r} L 0 ${h} L ${42.5 + r} ${h} Z`
     return (
       <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ position: 'absolute', left: 0, top: 0, zIndex: 5, pointerEvents: 'none' }} aria-hidden="true">
