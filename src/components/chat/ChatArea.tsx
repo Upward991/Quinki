@@ -487,7 +487,7 @@ export function ChatArea(props: ChatAreaProps) {
   const taskStripBar = hasTasks ? (
     <div key="tstrip" style={{ width: 'auto', margin: '8px 2px 0 2px', flexShrink: 0, display: 'flex', alignItems: 'stretch', gap: 6 }}>
       <button onClick={(e) => { e.stopPropagation(); if (taskPanelOpen && taskPanelMode === 'db') { setTaskPanelOpen(false) } else { setTaskPanelMode('db'); setTaskPanelOpen(true) } }} title="Scheduled tasks of this chat"
-        style={{ width: 36, height: 36, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-lg)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-panel)', cursor: 'pointer', color: 'var(--q-text-secondary)', transition: 'none' }}>
+        style={{ width: 36, height: 36, boxSizing: 'border-box', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-lg)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-panel)', cursor: 'pointer', color: 'var(--q-text-secondary)', transition: 'none' }}>
         <Checklist size={16} />
       </button>
       <button onClick={() => { setTaskPanelMode('results'); toggleTaskPanel() }} title={(taskPanelOpen && taskPanelMode === 'results') ? 'Collapse tasks' : 'Show tasks'} style={{ flex: 1, minWidth: 0, padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8, border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', cursor: 'pointer', backgroundColor: 'var(--q-bg-panel)', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: 13, transition: 'none', textAlign: 'left', height: 36, boxSizing: 'border-box' }}>
@@ -532,8 +532,8 @@ export function ChatArea(props: ChatAreaProps) {
       ? `M ${2.5 + r} 2.5 H ${w - 2.5 - r} A ${r} ${r} 0 0 1 ${w - 2.5} ${2.5 + r} V ${h - 44 - r} A ${r} ${r} 0 0 1 ${w - 2.5 - r} ${h - 44} H ${38.5 + r} A ${r} ${r} 0 0 0 38.5 ${h - 44 + r} V ${h - 0.5 - r} A ${r} ${r} 0 0 1 ${38.5 - r} ${h - 0.5} H ${2.5 + r} A ${r} ${r} 0 0 1 2.5 ${h - 0.5 - r} V ${2.5 + r} A ${r} ${r} 0 0 1 ${2.5 + r} 2.5 Z`
       : `M ${2.5 + r} 2.5 H ${w - 2.5 - r} A ${r} ${r} 0 0 1 ${w - 2.5} ${2.5 + r} V ${h - 0.5 - r} A ${r} ${r} 0 0 1 ${w - 2.5 - r} ${h - 0.5} H ${44.5 + r} A ${r} ${r} 0 0 1 44.5 ${h - 0.5 - r} V ${h - 44 + r} A ${r} ${r} 0 0 0 ${44.5 - r} ${h - 44} H ${2.5 + r} A ${r} ${r} 0 0 1 2.5 ${h - 44 - r} V ${2.5 + r} A ${r} ${r} 0 0 1 ${2.5 + r} 2.5 Z`
     const dark = taskPanelMode === 'db'
-      ? `M 38.5 ${h - 44 + r} A ${r} ${r} 0 0 1 ${38.5 + r} ${h - 44} H ${w - 2.5 - r} A ${r} ${r} 0 0 0 ${w - 2.5} ${h - 44 - r} L ${w} ${h - 44 - r} L ${w} ${h} L ${38.5 - r} ${h} A ${r} ${r} 0 0 0 38.5 ${h - r} Z`
-      : `M 44.5 ${h - 44 + r} A ${r} ${r} 0 0 0 ${44.5 - r} ${h - 44} H ${2.5 + r} A ${r} ${r} 0 0 1 2.5 ${h - 44 - r} L 0 ${h - 44 - r} L 0 ${h} L ${44.5 + r} ${h} A ${r} ${r} 0 0 0 44.5 ${h - r} Z`
+      ? `M ${38.5 - r} ${h - 0.5} A ${r} ${r} 0 0 0 38.5 ${h - 0.5 - r} V ${h - 44 + r} A ${r} ${r} 0 0 1 ${38.5 + r} ${h - 44} H ${w - 2.5 - r} A ${r} ${r} 0 0 0 ${w - 2.5} ${h - 44 - r} L ${w} ${h - 44 - r} L ${w} ${h} Z`
+      : `M ${44.5 + r} ${h - 0.5} A ${r} ${r} 0 0 1 44.5 ${h - 0.5 - r} V ${h - 44 + r} A ${r} ${r} 0 0 0 ${44.5 - r} ${h - 44} H ${2.5 + r} A ${r} ${r} 0 0 1 2.5 ${h - 44 - r} L 0 ${h - 44 - r} L 0 ${h} Z`
     return (
       <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ position: 'absolute', left: 0, top: 0, zIndex: 5, pointerEvents: 'none' }} aria-hidden="true">
         <path d={dark} fill="var(--q-bg)" />
@@ -549,7 +549,7 @@ export function ChatArea(props: ChatAreaProps) {
           <ChevronUp size={16} style={{ flexShrink: 0 }} />
         </button>
       ) : (
-        <button onClick={() => setTaskPanelMode('db')} title="Scheduled tasks of this chat" style={{ width: 36, height: 36, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-lg)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-panel)', cursor: 'pointer', color: 'var(--q-text-secondary)' }}>
+        <button onClick={() => setTaskPanelMode('db')} title="Scheduled tasks of this chat" style={{ width: 36, height: 36, boxSizing: 'border-box', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-lg)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-panel)', cursor: 'pointer', color: 'var(--q-text-secondary)' }}>
           <Checklist size={16} />
         </button>
       )}
