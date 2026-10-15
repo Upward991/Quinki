@@ -500,8 +500,8 @@ export function ChatArea(props: ChatAreaProps) {
   // ==== REGOLA UTENTE (16 ott, dai disegni): CHI APRE SI UNISCE alla sezione (nessun contorno suo, nessuno stacco);
   // l'ALTRO resta IDENTICO alla chiusa, al suo posto, sul fondo scuro. Stacchi: 6px tra i due, 8px sopra la riga
   // (come textbox↔riga). Raggio 12 ovunque, incluso il contorno attorno al ritaglio.
-  const stripBarVisual = (chevDown: boolean) => (
-    <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', height: 36, boxSizing: 'border-box', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: 13 }}>
+  const stripBarVisual = (chevDown: boolean, onClick?: () => void) => (
+    <div onClick={onClick} style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', height: 36, boxSizing: 'border-box', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: 13, cursor: onClick ? 'pointer' : 'default' }}>
       <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{taskLabel}</span>
       {chevDown ? <ChevronDown size={16} style={{ flexShrink: 0 }} /> : <ChevronUp size={16} style={{ flexShrink: 0 }} />}
     </div>
@@ -509,8 +509,8 @@ export function ChatArea(props: ChatAreaProps) {
   const fusedRow = (taskPanelOpen && hasTasks) ? (
     <div style={{ display: 'flex', alignItems: 'stretch', flexShrink: 0 }}>
       {taskPanelMode === 'db'
-        ? <div style={{ width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--q-text-secondary)' }}><Checklist size={16} /></div>
-        : <><div style={{ width: 42, flexShrink: 0 }} />{stripBarVisual(true)}</>}
+        ? <button onClick={() => setTaskPanelOpen(false)} title="Close" style={{ width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--q-text-secondary)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}><Checklist size={16} /></button>
+        : <><div style={{ width: 42, flexShrink: 0 }} />{stripBarVisual(true, () => setTaskPanelOpen(false))}</>}
     </div>
   ) : null
   const cutOverlay = (taskPanelOpen && hasTasks) ? (
