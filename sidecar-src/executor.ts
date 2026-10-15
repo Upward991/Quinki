@@ -362,7 +362,10 @@ export class ExecutionEngine {
 
         // Esegue l'agente in headless: il ws finto cattura done/error + testo progressivo
         // Direttiva: il task va ESEGUITO DAVVERO con i tool, non solo dichiarato completato
-        const execText = "[Scheduled task - EXECUTE IT NOW] You are running an autonomous scheduled task. Actually perform the task using your tools (write/edit/bash/etc.). Do NOT just claim completion: do it, then VERIFY the result objectively (check the file exists, run the tests, confirm the output). If the task gives verification criteria, follow them exactly. End your final message with a short 'Verification:' section stating what you checked and the outcome. Task: " + state.text;
+        // REGOLA UTENTE (16 ott, decisa in review): task = SEMPRE automatico, nessuno risponde,
+        // porta a termine SENZA DANNI; se impossibile (o impossibile senza danni fuori scopo)
+        // si ferma e riporta ONESTAMENTE perche' non e' riuscito. Finale SEMPRE: Result + Verification.
+        const execText = "[Scheduled task \u2014 EXECUTE IT NOW] You are running an AUTOMATIC scheduled task. The user is NOT present: nobody will answer you \u2014 never ask questions, never wait for confirmation, decide autonomously. Complete the task you were given, using your tools (write/edit/bash/etc.), and VERIFY the outcome objectively (check the file exists, run the tests, confirm the output). Do not just claim completion: do it. IMPORTANT \u2014 complete the task WITHOUT CAUSING DAMAGE: stay within the scope of the task, and never do anything harmful or irreversible outside it just to force a result. If the task is impossible, or impossible without causing damage, do NOT improvise: stop, and report honestly that you could not complete it and why. End your final message with a short 'Result:' section (what was accomplished \u2014 or why it could not be completed), followed by a 'Verification:' section stating what you checked and the outcome. Task: " + state.text;
         const result = await new Promise<{ ok: boolean; stopReason?: string; errorMessage?: string; text: string }>((resolve) => {
           let resolved = false;
           const finish = (r: { ok: boolean; stopReason?: string; errorMessage?: string; text: string }) => {
