@@ -140,7 +140,7 @@ const ChatRow = memo(function ChatRow({ item, index, isBookmark, isFirstUnread, 
   activeMatchMsgIdx: number, activeMatchOccurrence: number, isDateMatch: boolean, sessionKey: string
 }) {
   return (
-    <div key={item.kind === 'msg' ? item.msg!.id : item.kind === 'sys' ? 'lh-sys' : 'chat-' + item.run!.id} data-msg-idx={item.mIdx ?? -1} data-item-idx={index} className="q-cv-item" style={{ marginBottom: '12px' }}>
+    <div key={item.kind === 'msg' ? item.msg!.id : item.kind === 'sys' ? 'lh-sys' : 'chat-' + item.run!.id} data-msg-idx={item.mIdx ?? -1} data-item-idx={index} className="q-cv-item" style={{ marginBottom: item.kind === 'sys' ? '2px' : '12px' }}>
       {isBookmark && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 0', padding: '2px 0' }}>
           <span style={{ flex: 1, height: '1px', backgroundColor: 'var(--q-accent-warning)' }} />
