@@ -15,6 +15,12 @@ import * as path from "node:path";
 import { homedir } from "node:os";
 import { ExecutionEngine } from "./executor";
 
+// FIX DST + ORARI (16 ott, verificati con test /tmp/dst-test.cjs — 7/7 casi sbagliati prima):
+// i calcoli a passi fissi di 86400000ms slittavano di +-1h al cambio d'ora; le monthly
+// tornavano candidateDay (00:00!) perdendo l'orario; le hourly appena create potevano
+// puntare a un'ora gia' passata (fire immediato).
+const dayIndex = (d: Date) => Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
+
 export interface ScheduleWhen {
   type: "once" | "daily" | "weekly" | "monthly" | "yearly" | "hourly" | "minutely";
   at?: string;            // HH:MM locale (daily/weekly/monthly/yearly; hourly = minuto dell'ora)
@@ -162,19 +168,16 @@ export class Scheduler {
     }
 
     // === HOURLY: ogni N ore, al minuto specificato (default :00) ===
+    // FIX: mai un'ora nel passato (prima una hourly appena creata poteva partire subito);
+    // passi di ore in CALENDARIO (l'ora locale resta esatta anche col cambio d'ora).
     if (when.type === "hourly") {
       const { m } = this.#parseAt(when.at || "00:00");
-      const step = interval * 3600000;
-      // allinea all'ora piena più vicina + minuto
-      const now2 = new Date(now);
-      now2.setMinutes(m, 0, 0);
-      let candidate = now2.getTime();
-      // se il candidato con interval è nel passato, avanz a step
-      while (candidate <= afterTs) candidate += step;
-      // riallinea al minuto dell'ora
-      const c = new Date(candidate);
+      const floor = Math.max(now, afterTs);
+      const c = new Date(floor);
       c.setMinutes(m, 0, 0);
-      return c.getTime() > afterTs ? c.getTime() : c.getTime() + step;
+      if (c.getTime() <= floor) c.setHours(c.getHours() + interval);
+      while (c.getTime() <= floor) c.setHours(c.getHours() + interval);
+      return c.getTime();
     }
 
     // === ONCE: una data specifica ===
@@ -205,15 +208,15 @@ export class Scheduler {
     // === DAILY / WEEKLY / MONTHLY: itera giorni ===
     const maxIter = when.type === "monthly" ? 800 : 400;
     for (let i = 0; i < maxIter; i++) {
-      const cand = new Date(base.getTime() + i * 86400000);
+      // FIX DST: giorno di CALENDARIO (base.getDate()+i), non ms fissi — l'orario h:m resta esatto
+      const cand = new Date(base.getFullYear(), base.getMonth(), base.getDate() + i, h, m, 0, 0);
       if (cand.getTime() <= afterTs) continue;
 
       if (when.type === "daily") {
         // ogni N giorni: verifica che la differenza da createdAt sia multiplo di interval
+        // FIX DST: differenza in giorni di CALENDARIO, non in ms/86400000
         if (interval > 1) {
-          const createdDay = Math.floor((s.createdAt || now) / 86400000);
-          const candDay = Math.floor(cand.getTime() / 86400000);
-          if ((candDay - createdDay) % interval !== 0) continue;
+          if ((dayIndex(cand) - dayIndex(new Date(s.createdAt || now))) % interval !== 0) continue;
         }
         return cand.getTime();
       }
@@ -224,9 +227,10 @@ export class Scheduler {
         const dayNum = jsDay === 0 ? 7 : jsDay;
         if (!days.includes(dayNum)) continue;
         // ogni N settimane: verifica la settimana relativa a createdAt
+        // FIX DST: settimane di CALENDARIO
         if (interval > 1) {
-          const createdWeek = Math.floor((s.createdAt || now) / (7 * 86400000));
-          const candWeek = Math.floor(cand.getTime() / (7 * 86400000));
+          const createdWeek = Math.floor(dayIndex(new Date(s.createdAt || now)) / 7);
+          const candWeek = Math.floor(dayIndex(cand) / 7);
           if ((candWeek - createdWeek) % interval !== 0) continue;
         }
         return cand.getTime();
@@ -234,12 +238,11 @@ export class Scheduler {
 
       if (when.type === "monthly") {
         const dom = Number(when.dayOfMonth || 1);
-        const candidateDay = new Date(cand.getFullYear(), cand.getMonth(), dom);
-        if (candidateDay.getMonth() !== cand.getMonth()) {
-          // dom non esiste in questo mese → salta
-        } else if (cand.getDate() === dom) {
-          return candidateDay.getTime();
-        }
+        // il giorno non esiste in questo mese (es. 31 in febbraio) → salta il mese (voluto)
+        const exists = new Date(cand.getFullYear(), cand.getMonth(), dom);
+        if (exists.getMonth() !== cand.getMonth()) continue;
+        // FIX ORARIO: si torna `cand` (che ha h:m), NON candidateDay (era sempre mezzanotte!)
+        if (cand.getDate() === dom) return cand.getTime();
       }
     }
     return null;

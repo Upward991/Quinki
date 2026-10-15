@@ -53,6 +53,30 @@ function parseFlexTime(s: string): { h: number; m: number; sec: number } | null 
   if (isNaN(h) || isNaN(m)) return null
   return { h, m, sec: isNaN(sec) ? 0 : sec }
 }
+// === DESCRIZIONE LEGGIBILE DELLA RICORRENZA (colonna Type) — regola utente 16 ott ===
+// Prima mostrava solo la parola del tipo ("weekly") senza giorni né orario: illeggibile.
+const DAYNAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const ord = (n: number) => { const x = n % 100; if (x >= 11 && x <= 13) return n + 'th'; const u = n % 10; return n + (u === 1 ? 'st' : u === 2 ? 'nd' : u === 3 ? 'rd' : 'th') }
+function describeRule(w: any): string {
+  if (!w || !w.type) return '?'
+  const iv = Math.max(1, Number(w.interval || 1))
+  const at = String(w.at || '').slice(0, 5)
+  const every = iv > 1 ? 'Every ' + iv + ' ' : 'Every '
+  if (w.type === 'once') { const d = new Date(w.date || 0); return isNaN(d.getTime()) ? 'Once' : 'Once — ' + d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) + (at ? ' ' + at : '') }
+  if (w.type === 'minutely') return iv > 1 ? 'Every ' + iv + ' min' : 'Every minute'
+  if (w.type === 'hourly') return every + 'hour' + (iv > 1 ? 's' : '') + (at ? ' at :' + at.slice(3) : '')
+  if (w.type === 'daily') return every + 'day' + (iv > 1 ? 's' : '') + (at ? ' — ' + at : '')
+  if (w.type === 'weekly') { const days = (w.daysOfWeek || [1, 2, 3, 4, 5]).map(Number).sort((a: number, b: number) => a - b).map((d: number) => DAYNAMES[d - 1] || '?'); return (iv > 1 ? 'Every ' + iv + ' weeks' : 'Every week') + ': ' + days.join(' · ') + (at ? ' — ' + at : '') }
+  if (w.type === 'monthly') { const dom = Number(w.dayOfMonth || 1); return every + 'month' + (iv > 1 ? 's' : '') + ' on the ' + ord(dom) + (at ? ' — ' + at : '') }
+  if (w.type === 'yearly') { const mo = Number(w.month || 1); const dom = Number(w.dayOfMonth || 1); return every + 'year on ' + dom + ' ' + (MONTHS[mo - 1] ? MONTHS[mo - 1].slice(0, 3) : mo) + (at ? ' — ' + at : '') }
+  return String(w.type)
+}
+function describeSchedule(s: any): string {
+  const rules = (Array.isArray(s?.rules) && s.rules.length > 0) ? s.rules : [s?.when || {}]
+  const parts = rules.map(describeRule)
+  return parts.join('  +  ') || 'Once'
+}
+
 function Chip({ color, text }: { color: string; text: string }) { return React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', padding: '2px 10px', borderRadius: 999, fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-interface)', color, border: '1px solid ' + color, backgroundColor: 'transparent', letterSpacing: 0.2, textTransform: 'capitalize', flexShrink: 0 } }, text) }
 function FilterChip({ label, values, options, onChange }: { label: string; values: string[]; options: string[]; onChange: (v: string[]) => void }) {
   const [open, setOpen] = useState(false)
@@ -433,10 +457,10 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   }
   const agentName = (id: string) => { const a = (props.agents || []).find((x: any) => x.id === id); return a?.name || id }
   const schedTypeMap: Record<string, string> = {}
-  for (const s of schedules || []) schedTypeMap[s.id] = s.when?.type || 'once'
+  for (const s of schedules || []) schedTypeMap[s.id] = describeSchedule(s)
   const items: Item[] = []
-  for (const s of schedules || []) items.push({ id: s.id, kind: 'sched', title: s.title || '(untitled)', agent: normIds(s.agentIds).map(agentName).join(', ') || '—', chat: s.sourceSession ? (sessionsMap[s.sourceSession.key] || s.sourceSession.label || s.sourceSession.key) : '—', status: s.enabled ? 'scheduled' : 'off', when: s.nextFireAt || (s.lastFiredAt ? s.lastFiredAt : null), error: '', ex: undefined, model: s.model || null, thinkingLevel: s.thinkingLevel || null, whenObj: s.when || null, sourceKey: s.sourceSession?.key || null, type: s.when?.type || 'once' })
-  for (const ex of executions || []) items.push({ id: ex.id, kind: 'exec', title: ex.label || ex.id, agent: normIds(ex.agentIds).map(agentName).join(', ') || '—', chat: ex.sourceSession ? (sessionsMap[ex.sourceSession.key] || ex.sourceSession.label || ex.sourceSession.key) : '—', status: ex.status || '?', when: ex.scheduledFor || ex.createdAt || null, error: ex.error ? String(ex.error).slice(0, 60) : '', ex, model: ex.model || null, thinkingLevel: ex.thinkingLevel || null, whenObj: null, sourceKey: ex.sourceSession?.key || null, type: ex.scheduleId ? (schedTypeMap[ex.scheduleId] || 'once') : '—' })
+  for (const s of schedules || []) items.push({ id: s.id, kind: 'sched', title: s.title || '(untitled)', agent: normIds(s.agentIds).map(agentName).join(', ') || '—', chat: s.sourceSession ? (sessionsMap[s.sourceSession.key] || s.sourceSession.label || s.sourceSession.key) : '—', status: s.enabled ? 'scheduled' : 'off', when: s.nextFireAt || (s.lastFiredAt ? s.lastFiredAt : null), error: '', ex: undefined, model: s.model || null, thinkingLevel: s.thinkingLevel || null, whenObj: s.when || null, sourceKey: s.sourceSession?.key || null, type: describeSchedule(s) })
+  for (const ex of executions || []) items.push({ id: ex.id, kind: 'exec', title: ex.label || ex.id, agent: normIds(ex.agentIds).map(agentName).join(', ') || '—', chat: ex.sourceSession ? (sessionsMap[ex.sourceSession.key] || ex.sourceSession.label || ex.sourceSession.key) : '—', status: ex.status || '?', when: ex.scheduledFor || ex.createdAt || null, error: ex.error ? String(ex.error).slice(0, 60) : '', ex, model: ex.model || null, thinkingLevel: ex.thinkingLevel || null, whenObj: null, sourceKey: ex.sourceSession?.key || null, type: ex.scheduleId ? (schedTypeMap[ex.scheduleId] || 'Once') : '—' })
 
   const chats = Array.from(new Set(items.map(i => i.chat).filter(c => c && c !== '—')))
   const agents = Array.from(new Set(items.map(i => i.agent).filter(a => a && a !== '—')))
