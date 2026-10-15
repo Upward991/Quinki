@@ -532,8 +532,8 @@ export function ChatArea(props: ChatAreaProps) {
       ? `M ${2.5 + r} 2.5 H ${w - 2.5 - r} A ${r} ${r} 0 0 1 ${w - 2.5} ${2.5 + r} V ${h - 44 - r} A ${r} ${r} 0 0 1 ${w - 2.5 - r} ${h - 44} H ${38.5 + r} A ${r} ${r} 0 0 0 38.5 ${h - 44 + r} V ${h - 0.5 - r} A ${r} ${r} 0 0 1 ${38.5 - r} ${h - 0.5} H ${2.5 + r} A ${r} ${r} 0 0 1 2.5 ${h - 0.5 - r} V ${2.5 + r} A ${r} ${r} 0 0 1 ${2.5 + r} 2.5 Z`
       : `M ${2.5 + r} 2.5 H ${w - 2.5 - r} A ${r} ${r} 0 0 1 ${w - 2.5} ${2.5 + r} V ${h - 0.5 - r} A ${r} ${r} 0 0 1 ${w - 2.5 - r} ${h - 0.5} H ${44.5 + r} A ${r} ${r} 0 0 1 44.5 ${h - 0.5 - r} V ${h - 44 + r} A ${r} ${r} 0 0 0 ${44.5 - r} ${h - 44} H ${2.5 + r} A ${r} ${r} 0 0 1 2.5 ${h - 44 - r} V ${2.5 + r} A ${r} ${r} 0 0 1 ${2.5 + r} 2.5 Z`
     const dark = taskPanelMode === 'db'
-      ? `M 38.5 ${h - 44 + r} A ${r} ${r} 0 0 1 ${38.5 + r} ${h - 44} H ${w - 2.5 - r} A ${r} ${r} 0 0 1 ${w - 2.5} ${h - 44 - r} L ${w} ${h - 44 - r} L ${w} ${h} L 38.5 ${h} Z`
-      : `M 44.5 ${h - 44 + r} A ${r} ${r} 0 0 0 ${44.5 - r} ${h - 44} H ${2.5 + r} A ${r} ${r} 0 0 0 2.5 ${h - 44 - r} L 0 ${h - 44 - r} L 0 ${h} L 44.5 ${h} Z`
+      ? `M 38.5 ${h - 44 + r} A ${r} ${r} 0 0 1 ${38.5 + r} ${h - 44} H ${w - 2.5 - r} A ${r} ${r} 0 0 0 ${w - 2.5} ${h - 44 - r} L ${w} ${h - 44 - r} L ${w} ${h} L 38.5 ${h} Z`
+      : `M 44.5 ${h - 44 + r} A ${r} ${r} 0 0 0 ${44.5 - r} ${h - 44} H ${2.5 + r} A ${r} ${r} 0 0 1 2.5 ${h - 44 - r} L 0 ${h - 44 - r} L 0 ${h} L 44.5 ${h} Z`
     return (
       <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ position: 'absolute', left: 0, top: 0, zIndex: 5, pointerEvents: 'none' }} aria-hidden="true">
         <path d={dark} fill="var(--q-bg)" />
