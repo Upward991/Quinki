@@ -33,11 +33,11 @@ function TaskResultToggle({ run, sessionKey, defaultOpen, showClip, onResize }: 
     <div style={{ marginTop: '12px', padding: '4px' }}>
       <div onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} onClick={() => { setCollapsed(!collapsed); try { onResize?.() } catch {} }}
         style={{ cursor: 'pointer', backgroundColor: hovered ? hoverBg : 'transparent', borderRadius: 'var(--radius-md)', padding: '8px', transform: hovered ? 'translateX(2px)' : 'translateX(0)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', ...(isPhone ? { flexWrap: 'wrap', rowGap: '4px' } : {}) }}>
           <ChevronRight size={14} style={{ color, flexShrink: 0, transform: collapsed ? 'rotate(0deg)' : 'rotate(90deg)', transition: 'none' }} />
           <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color, whiteSpace: 'nowrap', flexShrink: 0 }}>{label}</span>
-          <span style={{ fontFamily: 'var(--font-interface)', fontSize: '13px', fontWeight: 600, color: 'var(--q-text)', ...(isPhone ? { flex: 1, minWidth: 0, whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.35 } : {}) }}>{run.label}</span>
-          <span style={{ flex: 1 }} />
+          <span style={{ fontFamily: 'var(--font-interface)', fontSize: '13px', fontWeight: 600, color: 'var(--q-text)', ...(isPhone ? { flex: '1 1 140px', minWidth: 0, whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.35 } : { flex: 1, minWidth: 0 }) }}>{run.label}</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto', flexShrink: 0 }}>
           {showClip && (
           <button onClick={(e) => { e.stopPropagation(); try { let respText = ''; for (const m of run.messages || []) { if (m.role === 'assistant' && m.content) respText += (m.content || '') + '\n\n' } const text = respText.trim() || run.label; window.dispatchEvent(new CustomEvent('quinki-task-clip', { detail: { id: run.id, label: run.label, text } })) } catch {} }}
             onMouseEnter={() => setClipHovered(true)} onMouseLeave={() => setClipHovered(false)}
@@ -51,6 +51,7 @@ function TaskResultToggle({ run, sessionKey, defaultOpen, showClip, onResize }: 
             style={{ opacity: (hovered || (document.documentElement.classList.contains(`q-phone`) && !collapsed)) ? 1 : 0, background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: 'var(--radius-sm)', color: copyHovered ? color : 'var(--q-text-tertiary)' }}>
             <Copy size={14} />
           </button>
+          </span>
         </div>
       </div>
       {!collapsed && (
