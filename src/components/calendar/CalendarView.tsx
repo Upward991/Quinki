@@ -63,18 +63,22 @@ function describeRule(w: any): string {
   const at = String(w.at || '').slice(0, 5)
   const every = iv > 1 ? 'Every ' + iv + ' ' : 'Every '
   if (w.type === 'once') { const d = new Date(w.date || 0); return isNaN(d.getTime()) ? 'Once' : 'Once — ' + d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) + (at ? ' ' + at : '') }
+  if (w.type === 'seconds') return iv > 1 ? 'Every ' + iv + ' sec' : 'Every second'
   if (w.type === 'minutely') return iv > 1 ? 'Every ' + iv + ' min' : 'Every minute'
   if (w.type === 'hourly') return every + 'hour' + (iv > 1 ? 's' : '') + (at ? ' at :' + at.slice(3) : '')
   if (w.type === 'daily') return every + 'day' + (iv > 1 ? 's' : '') + (at ? ' — ' + at : '')
   if (w.type === 'weekly') { const days = (w.daysOfWeek || [1, 2, 3, 4, 5]).map(Number).sort((a: number, b: number) => a - b).map((d: number) => DAYNAMES[d - 1] || '?'); return (iv > 1 ? 'Every ' + iv + ' weeks' : 'Every week') + ': ' + days.join(' · ') + (at ? ' — ' + at : '') }
   if (w.type === 'monthly') { const dom = Number(w.dayOfMonth || 1); return every + 'month' + (iv > 1 ? 's' : '') + ' on the ' + ord(dom) + (at ? ' — ' + at : '') }
-  if (w.type === 'yearly') { const mo = Number(w.month || 1); const dom = Number(w.dayOfMonth || 1); return every + 'year on ' + dom + ' ' + (MONTHS[mo - 1] ? MONTHS[mo - 1].slice(0, 3) : mo) + (at ? ' — ' + at : '') }
+  if (w.type === 'yearly') { const mo = Number(w.month || 1); const dom = Number(w.dayOfMonth || 1); return every + 'year' + (iv > 1 ? 's' : '') + ' on ' + dom + ' ' + (MONTHS[mo - 1] ? MONTHS[mo - 1].slice(0, 3) : mo) + (at ? ' — ' + at : '') }
   return String(w.type)
 }
+const MACHINE_TZ = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || '' } catch { return '' } })()
 function describeSchedule(s: any): string {
   const rules = (Array.isArray(s?.rules) && s.rules.length > 0) ? s.rules : [s?.when || {}]
   const parts = rules.map(describeRule)
-  return parts.join('  +  ') || 'Once'
+  const base = parts.join('  +  ') || 'Once'
+  // fuso mostrato SOLO quando la task non usa quello della macchina (regola utente)
+  return (s?.timeZone && MACHINE_TZ && s.timeZone !== MACHINE_TZ) ? base + '  (' + s.timeZone + ')' : base
 }
 
 function Chip({ color, text }: { color: string; text: string }) { return React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', padding: '2px 10px', borderRadius: 999, fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-interface)', color, border: '1px solid ' + color, backgroundColor: 'transparent', letterSpacing: 0.2, textTransform: 'capitalize', flexShrink: 0 } }, text) }

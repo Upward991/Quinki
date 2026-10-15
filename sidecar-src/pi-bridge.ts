@@ -5607,14 +5607,15 @@ Read this file to view it.` }] };
     return defineTool({
       name: "schedule_task",
       label: "Schedule task",
-      description: "Schedule an autonomous task that runs later or on a recurring basis with FULL flexibility. Supports: once (specific date), minutely (every N minutes), hourly (every N hours), daily (every day or every N days), weekly (specific days of week, optionally every N weeks), monthly (day of month), yearly (month+day). You can ALSO pass multiple rules with the 'rules' parameter: the task fires when ANY rule triggers (e.g. Wednesday at 19:49 AND Saturday at 20:50). If the app is closed at fire time, the task runs as soon as possible afterwards (late, never skipped).",
-      promptSnippet: "schedule_task: schedule a task for automatic execution — flexible recurrence (minutes, hours, days, weeks, months, years, multi-rule)",
+      description: "Schedule an autonomous task that runs later or on a recurring basis with FULL flexibility. Supports: once (specific date), seconds (every N seconds), minutely (every N minutes), hourly (every N hours), daily (every day or every N days), weekly (specific days of week, optionally every N weeks), monthly (day of month, optionally every N months), yearly (month+day, optionally every N years). You can ALSO pass multiple rules with the 'rules' parameter: the task fires when ANY rule triggers (e.g. Wednesday at 19:49 AND Saturday at 20:50). Each schedule carries its own timezone (timeZone, IANA; default: the machine's timezone captured at creation) and always fires at that wall-clock time — even if the machine later changes timezone or daylight saving changes (some zones never change). If the app is closed at fire time, the task runs as soon as possible afterwards (late, never skipped).",
+      promptSnippet: "schedule_task: schedule a task for automatic execution — flexible recurrence (seconds, minutes, hours, days, weeks, months, years, timezone, multi-rule)",
       promptGuidelines: [
         "When the user asks to do something later or on a schedule, use schedule_task instead of doing it now.",
         "CURRENT DATE AND TIME (use this to compute when dates/times): " + new Date().toString() + " (ISO: " + new Date().toISOString() + ").",
-        "when.type options: once (specific date+time), minutely (every N minutes via interval), hourly (every N hours via interval, optional at for minute of hour), daily (at HH:MM, optional interval for every N days), weekly (daysOfWeek 1=Monday..7=Sunday, optional interval for every N weeks), monthly (dayOfMonth 1-31), yearly (month 1-12 + dayOfMonth).",
+        "when.type options: once (specific date+time), seconds (every N seconds via interval), minutely (every N minutes via interval), hourly (every N hours via interval, optional at for minute of hour), daily (at HH:MM, optional interval for every N days), weekly (daysOfWeek 1=Monday..7=Sunday, optional interval for every N weeks), monthly (dayOfMonth 1-31, optional interval for every N months), yearly (month 1-12 + dayOfMonth, optional interval for every N years).",
+        "timeZone: IANA name (e.g. 'Europe/Rome', 'America/New_York', 'Asia/Tokyo'). Default = the machine's current timezone, captured when the task is created (the task then always keeps that wall-clock time, even if the machine moves to another timezone). Set timeZone ONLY when the user explicitly wants another timezone.",
         "at is LOCAL time in 24h HH:MM (e.g. 07:00). For weekly, daysOfWeek uses 1=Monday ... 7=Sunday.",
-        "interval: N (e.g. type=minutely interval=15 = every 15 minutes; type=hourly interval=4 = every 4 hours; type=daily interval=3 = every 3 days; type=weekly interval=2 = every 2 weeks).",
+        "interval: N (e.g. type=seconds interval=30 = every 30 seconds; type=minutely interval=15 = every 15 minutes; type=hourly interval=4 = every 4 hours; type=daily interval=3 = every 3 days; type=weekly interval=2 = every 2 weeks; type=monthly interval=4 = every 4 months; type=yearly interval=7 = every 7 years).",
         "rules: array of when objects for MULTI-RULE schedules. The task fires when ANY rule triggers. Example: rules=[{type:'weekly',daysOfWeek:[3],at:'19:49'},{type:'weekly',daysOfWeek:[6],at:'20:50'}] = Wednesday at 19:49 AND Saturday at 20:50.",
         "text must be the exact task the agent must perform when it fires.",
         "agentIds: optional. The system automatically assigns the task to the agent that schedules it. Only set agentIds if the user explicitly names a different agent.",
@@ -5625,16 +5626,16 @@ Read this file to view it.` }] };
         title: Type.Optional(Type.String({ description: "Short label for the scheduled task" })),
         text: Type.String({ description: "The exact task/prompt to execute when the schedule fires" }),
         when: Type.Optional(Type.Object({
-          type: Type.Union([Type.Literal("once"), Type.Literal("minutely"), Type.Literal("hourly"), Type.Literal("daily"), Type.Literal("weekly"), Type.Literal("monthly"), Type.Literal("yearly")], { description: "once | minutely | hourly | daily | weekly | monthly | yearly" }),
+          type: Type.Union([Type.Literal("once"), Type.Literal("seconds"), Type.Literal("minutely"), Type.Literal("hourly"), Type.Literal("daily"), Type.Literal("weekly"), Type.Literal("monthly"), Type.Literal("yearly")], { description: "once | seconds | minutely | hourly | daily | weekly | monthly | yearly" }),
           at: Type.Optional(Type.String({ description: "Local time HH:MM 24h (daily/weekly/monthly/yearly); minute of hour for hourly (e.g. '00:30' = :30 of each hour)" })),
-          interval: Type.Optional(Type.Number({ description: "N: every N minutes (minutely), every N hours (hourly), every N days (daily), every N weeks (weekly). Default 1." })),
+          interval: Type.Optional(Type.Number({ description: "N: every N seconds (seconds), every N minutes (minutely), every N hours (hourly), every N days (daily), every N weeks (weekly), every N months (monthly), every N years (yearly). Default 1." })),
           daysOfWeek: Type.Optional(Type.Array(Type.Number(), { description: "1=Monday ... 7=Sunday (weekly)" })),
           dayOfMonth: Type.Optional(Type.Number({ description: "Day of month 1-31 (monthly, yearly)" })),
           month: Type.Optional(Type.Number({ description: "Month 1-12 (yearly)" })),
           date: Type.Optional(Type.String({ description: "ISO date+time for once, e.g. 2026-08-10T07:00:00" })),
         })),
         rules: Type.Optional(Type.Array(Type.Object({
-          type: Type.Union([Type.Literal("once"), Type.Literal("minutely"), Type.Literal("hourly"), Type.Literal("daily"), Type.Literal("weekly"), Type.Literal("monthly"), Type.Literal("yearly")]),
+          type: Type.Union([Type.Literal("once"), Type.Literal("seconds"), Type.Literal("minutely"), Type.Literal("hourly"), Type.Literal("daily"), Type.Literal("weekly"), Type.Literal("monthly"), Type.Literal("yearly")]),
           at: Type.Optional(Type.String({ description: "Local time HH:MM" })),
           interval: Type.Optional(Type.Number({ description: "N interval" })),
           daysOfWeek: Type.Optional(Type.Array(Type.Number())),
@@ -5647,6 +5648,7 @@ Read this file to view it.` }] };
         mode: Type.Optional(Type.String({ description: "plan or build (default build)" })),
         model: Type.Optional(Type.String({ description: "Model to run this task with. Only if the user specifies one." })),
         thinkingLevel: Type.Optional(Type.String({ description: "Thinking level: off | low | medium | high | xhigh. Only if the user specifies one." })),
+        timeZone: Type.Optional(Type.String({ description: "IANA timezone for the schedule wall-clock time (default: the machine's timezone). Set ONLY if the user wants another timezone, e.g. 'America/New_York'." })),
       }),
       async execute(toolCallId: string, params: any, signal: any, onUpdate: any, ctx: any): Promise<any> {
         try {
@@ -5671,7 +5673,7 @@ Read this file to view it.` }] };
           const rules = Array.isArray(params.rules) ? params.rules : [];
           const describeWhen = (w: any): string => {
             let t = `${w.type}`;
-            if (w.interval && w.interval > 1) t += ` every ${w.interval}${w.type === 'minutely' ? ' min' : w.type === 'hourly' ? ' h' : w.type === 'daily' ? ' days' : w.type === 'weekly' ? ' weeks' : ''}`;
+            if (w.interval && w.interval > 1) t += ` every ${w.interval}${w.type === 'seconds' ? ' sec' : w.type === 'minutely' ? ' min' : w.type === 'hourly' ? ' h' : w.type === 'daily' ? ' days' : w.type === 'weekly' ? ' weeks' : w.type === 'monthly' ? ' months' : w.type === 'yearly' ? ' years' : ''}`;
             if (w.type === "once" && w.date) t += ` at ${w.date}`;
             else if (w.at) {
               t += ` at ${w.at}`;
@@ -5688,7 +5690,8 @@ Read this file to view it.` }] };
             whenText = describeWhen(when);
           }
           self.logDebug("schedule-task-created", { sessionKey, scheduleId: r?.id, whenText, text: params.text?.substring(0, 200) });
-          return { content: [{ type: "text", text: `Task scheduled successfully. Schedule ID: ${r?.id}. When: ${whenText}. It runs automatically; if the app is closed at that time it will run as soon as possible afterwards.` }] };
+          const tzShown = String((r && r.schedule && r.schedule.timeZone) || params.timeZone || "").trim();
+          return { content: [{ type: "text", text: `Task scheduled successfully. Schedule ID: ${r?.id}. When: ${whenText}${tzShown ? " (timezone " + tzShown + ")" : ""}. It runs automatically; if the app is closed at that time it will run as soon as possible afterwards.` }] };
         } catch (e: any) {
           self.logDebug("schedule-task-error", { sessionKey, error: e?.message || String(e) });
           return { content: [{ type: "text", text: `Unable to schedule: ${e?.message || String(e)}` }], isError: true };

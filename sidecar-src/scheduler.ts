@@ -21,6 +21,38 @@ import { ExecutionEngine } from "./executor";
 // puntare a un'ora gia' passata (fire immediato).
 const dayIndex = (d: Date) => Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
 
+// === FUSI ORARI (16 ott): ogni task ha il SUO fuso (timeZone IANA, es. Europe/Rome). ===
+// Default: fuso della macchina catturato alla creazione. Le task restano ancorate al loro
+// orario MURALE anche se il computer cambia fuso/ora o se il paese non ha il cambio d'ora.
+const machineZone = (): string => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch { return "UTC"; } };
+const zoneOk = (z: string): boolean => { try { new Intl.DateTimeFormat("en-GB", { timeZone: z }); return true; } catch { return false; } };
+const _zoneFmt = new Map<string, Intl.DateTimeFormat>();
+function zonedParts(ms: number, tz: string): { y: number; mo: number; d: number; h: number; mi: number } {
+  let f = _zoneFmt.get(tz);
+  if (!f) { f = new Intl.DateTimeFormat("en-GB", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }); _zoneFmt.set(tz, f); }
+  const parts = f.formatToParts(new Date(ms));
+  const g = (t: string) => parts.find((x) => x.type === t)?.value || "0";
+  return { y: parseInt(g("year"), 10), mo: parseInt(g("month"), 10) - 1, d: parseInt(g("day"), 10), h: parseInt(g("hour"), 10), mi: parseInt(g("minute"), 10) };
+}
+// orario murale (y, mo 0-based, d, h, mi) nel fuso tz -> epoch ms (iterativo, regge i cambi d'ora)
+function epochFromWall(y: number, mo: number, d: number, h: number, mi: number, tz: string): number {
+  const target = Date.UTC(y, mo, d, h, mi, 0);
+  let guess = target;
+  for (let i = 0; i < 4; i++) {
+    const p = zonedParts(guess, tz);
+    const asUTC = Date.UTC(p.y, p.mo, p.d, p.h, p.mi, 0);
+    const off = asUTC - guess;
+    if (off === 0) break;
+    guess = target - off;
+  }
+  return guess;
+}
+// somma ore al murale (aritmetica in "spazio UTC" = solo calendario, senza fuso)
+const addWallHours = (w: { y: number; mo: number; d: number; h: number; mi: number }, hh: number) => {
+  const t = new Date(Date.UTC(w.y, w.mo, w.d, w.h + hh, 0));
+  return { y: t.getUTCFullYear(), mo: t.getUTCMonth(), d: t.getUTCDate(), h: t.getUTCHours(), mi: 0 };
+};
+
 export interface ScheduleWhen {
   type: "once" | "daily" | "weekly" | "monthly" | "yearly" | "hourly" | "minutely";
   at?: string;            // HH:MM locale (daily/weekly/monthly/yearly; hourly = minuto dell'ora)
@@ -42,6 +74,7 @@ export interface Schedule {
   thinkingLevel?: string;
   text: string;
   owner: "main" | "expert";
+  timeZone?: string;           // fuso IANA della task (default: quello della macchina alla creazione)
   when: ScheduleWhen;          // BACKWARD COMPAT: singola regola (vecchio formato)
   rules?: ScheduleWhen[];      // NUOVO: lista di regole — il task scatta quando QUALSIASI regola si attiva
   enabled: boolean;
@@ -57,6 +90,7 @@ export class Scheduler {
   #executor: ExecutionEngine;
   #owner: "main" | "expert";
   #timer: any = null;
+  #watchdog: any = null;
   #scanning = false;
   #logger: ((tag: string, data: any) => void) | null = null;
   onNotify: ((payload: any) => void) | null = null;
@@ -100,10 +134,31 @@ export class Scheduler {
     // Catch-up immediato al boot (app ripartita: i task scaduti DEVONO partire, anche in ritardo)
     // poi #scan() riposiziona il timer sulla prossima occorrenza.
     this.#scan();
-    this.#log("scheduler-started", { owner: this.#owner, mode: "event-driven" });
+    // GARANZIA ORARIO (16 ott): watchdog ogni 60s. Copre: cambio di fuso orario o di ora sul
+    // computer, cambio d'ora con un timer gia' armato (la zona della task puo' NON avere il
+    // cambio d'ora), sleep/wake. Ricalcola le occorrenze FUTURE (solo quelle a >90s: quelle
+    // imminenti non si toccano mai — mai perdere un fire in volo) e ripiazza il timer.
+    if (this.#watchdog) clearInterval(this.#watchdog);
+    this.#watchdog = setInterval(() => {
+      try {
+        const nowTs = Date.now();
+        const all = this.readSchedules();
+        let dirty = false;
+        for (const sw of all) {
+          if (!sw.enabled || sw.owner !== this.#owner) continue;
+          if (sw.nextFireAt == null || sw.nextFireAt - nowTs > 90000) {
+            const nx = this.#computeNext(sw, sw.lastFiredAt || 0);
+            if (nx !== sw.nextFireAt) { sw.nextFireAt = nx; dirty = true; }
+          }
+        }
+        if (dirty) { this.#writeSchedules(all); this.#notify(); }
+      } catch {}
+      this.#scan();
+    }, 60000);
+    this.#log("scheduler-started", { owner: this.#owner, mode: "event-driven+watchdog60s", zone: machineZone() });
   }
 
-  stop() { if (this.#timer) { clearTimeout(this.#timer); this.#timer = null; } }
+  stop() { if (this.#timer) { clearTimeout(this.#timer); this.#timer = null; } if (this.#watchdog) { clearInterval(this.#watchdog); this.#watchdog = null; } }
 
   // Ricalcola e riposiziona il timer sulla prossima occorrenza (una sola attiva).
   #scheduleNext() {
@@ -157,8 +212,17 @@ export class Scheduler {
     if (!when || !when.type) return null;
     const now = Date.now();
     const interval = Math.max(1, Number(when.interval || 1));
+    const tz = String((s as any).timeZone || machineZone());
 
-    // === MINUTELY: ogni N minuti da createdAt ===
+    // === SECONDS (nuovo): ogni N secondi da createdAt (durata pura: indipendente dal fuso) ===
+    if (when.type === "seconds") {
+      const created = s.createdAt || now;
+      const step = interval * 1000;
+      const next = created + Math.ceil(Math.max(0, now - created) / step) * step;
+      return next > afterTs ? next : null;
+    }
+
+    // === MINUTELY: ogni N minuti da createdAt (durata pura) ===
     if (when.type === "minutely") {
       const created = s.createdAt || now;
       const step = interval * 60000;
@@ -167,82 +231,86 @@ export class Scheduler {
       return next > afterTs ? next : null;
     }
 
-    // === HOURLY: ogni N ore, al minuto specificato (default :00) ===
-    // FIX: mai un'ora nel passato (prima una hourly appena creata poteva partire subito);
-    // passi di ore in CALENDARIO (l'ora locale resta esatta anche col cambio d'ora).
+    // === HOURLY: ogni N ore al minuto m, in ORE DI CALENDARIO nel fuso della task ===
     if (when.type === "hourly") {
       const { m } = this.#parseAt(when.at || "00:00");
       const floor = Math.max(now, afterTs);
-      const c = new Date(floor);
-      c.setMinutes(m, 0, 0);
-      if (c.getTime() <= floor) c.setHours(c.getHours() + interval);
-      while (c.getTime() <= floor) c.setHours(c.getHours() + interval);
-      return c.getTime();
+      let w = zonedParts(floor, tz);
+      let cand = epochFromWall(w.y, w.mo, w.d, w.h, m, tz);
+      let guard = 0;
+      while (cand <= floor && guard++ < 2000) {
+        w = addWallHours(w, interval);
+        cand = epochFromWall(w.y, w.mo, w.d, w.h, m, tz);
+      }
+      return cand > afterTs ? cand : null;
     }
 
-    // === ONCE: una data specifica ===
+    // === ONCE: con offset (Z o +hh:mm) = istante assoluto; senza = orario murale nel fuso della task ===
     if (when.type === "once") {
-      const d = new Date(when.date || 0);
-      if (isNaN(d.getTime())) return null;
-      return d.getTime() > afterTs ? d.getTime() : null;
+      const raw = String(when.date || "");
+      let ms: number;
+      if (/[zZ]$/.test(raw) || /[+-]\d\d:?\d\d$/.test(raw)) {
+        ms = new Date(raw).getTime();
+      } else {
+        const mm = raw.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?/);
+        ms = mm ? epochFromWall(+mm[1], +mm[2] - 1, +mm[3], +mm[4], +mm[5], tz) : new Date(raw).getTime();
+      }
+      return isNaN(ms) ? null : (ms > afterTs ? ms : null);
     }
 
-    // === DAILY: ogni N giorni (interval=1 default) all'ora 'at' ===
-    // === WEEKLY: giorni specifici, ogni N settimane ===
-    // === MONTHLY: giorno del mese ===
-    // === YEARLY: mese + giorno ===
+    // === DAILY / WEEKLY / MONTHLY / YEARLY: giorno di CALENDARIO nel fuso della task ===
     const { h, m } = this.#parseAt(when.at || "08:00");
-    const base = new Date(); base.setHours(h, m, 0, 0);
+    const nowW = zonedParts(now, tz);
+    const createdW = zonedParts(s.createdAt || now, tz);
 
-    // === YEARLY: mese + giorno ===
     if (when.type === "yearly") {
       const mo = Math.max(0, Math.min(11, Number(when.month || 1) - 1));
       const dom = Math.max(1, Math.min(31, Number(when.dayOfMonth || 1)));
-      for (let y = 0; y < 3; y++) {
-        const cand = new Date(base.getFullYear() + y, mo, dom, h, m, 0, 0);
-        if (cand.getTime() > afterTs) return cand.getTime();
+      const span = Math.max(13, interval * 2 + 2);
+      for (let k = 0; k < span; k++) {
+        const y = nowW.y + k;
+        if (interval > 1 && (((y - createdW.y) % interval) + interval) % interval !== 0) continue;
+        const cand = epochFromWall(y, mo, dom, h, m, tz);
+        if (cand > afterTs) return cand;
       }
       return null;
     }
 
-    // === DAILY / WEEKLY / MONTHLY: itera giorni ===
-    const maxIter = when.type === "monthly" ? 800 : 400;
+    const maxIter = when.type === "monthly" ? 1500 : 400;
     for (let i = 0; i < maxIter; i++) {
-      // FIX DST: giorno di CALENDARIO (base.getDate()+i), non ms fissi — l'orario h:m resta esatto
-      const cand = new Date(base.getFullYear(), base.getMonth(), base.getDate() + i, h, m, 0, 0);
-      if (cand.getTime() <= afterTs) continue;
-
+      const day = new Date(Date.UTC(nowW.y, nowW.mo, nowW.d + i));
+      const yr = day.getUTCFullYear(), mo2 = day.getUTCMonth(), da = day.getUTCDate();
+      const cand = epochFromWall(yr, mo2, da, h, m, tz);
+      if (cand <= afterTs) continue;
       if (when.type === "daily") {
-        // ogni N giorni: verifica che la differenza da createdAt sia multiplo di interval
-        // FIX DST: differenza in giorni di CALENDARIO, non in ms/86400000
         if (interval > 1) {
-          if ((dayIndex(cand) - dayIndex(new Date(s.createdAt || now))) % interval !== 0) continue;
+          const di = Math.floor(Date.UTC(yr, mo2, da) / 86400000);
+          const d0 = Math.floor(Date.UTC(createdW.y, createdW.mo, createdW.d) / 86400000);
+          if ((((di - d0) % interval) + interval) % interval !== 0) continue;
         }
-        return cand.getTime();
+        return cand;
       }
-
       if (when.type === "weekly") {
         const days = (when.daysOfWeek || [1, 2, 3, 4, 5]).map((d: any) => Number(d));
-        const jsDay = cand.getDay();
+        const jsDay = day.getUTCDay();
         const dayNum = jsDay === 0 ? 7 : jsDay;
         if (!days.includes(dayNum)) continue;
-        // ogni N settimane: verifica la settimana relativa a createdAt
-        // FIX DST: settimane di CALENDARIO
         if (interval > 1) {
-          const createdWeek = Math.floor(dayIndex(new Date(s.createdAt || now)) / 7);
-          const candWeek = Math.floor(dayIndex(cand) / 7);
-          if ((candWeek - createdWeek) % interval !== 0) continue;
+          const di = Math.floor(Date.UTC(yr, mo2, da) / 86400000);
+          const d0 = Math.floor(Date.UTC(createdW.y, createdW.mo, createdW.d) / 86400000);
+          const cw = Math.floor(di / 7), sw2 = Math.floor(d0 / 7);
+          if ((((cw - sw2) % interval) + interval) % interval !== 0) continue;
         }
-        return cand.getTime();
+        return cand;
       }
-
       if (when.type === "monthly") {
         const dom = Number(when.dayOfMonth || 1);
-        // il giorno non esiste in questo mese (es. 31 in febbraio) → salta il mese (voluto)
-        const exists = new Date(cand.getFullYear(), cand.getMonth(), dom);
-        if (exists.getMonth() !== cand.getMonth()) continue;
-        // FIX ORARIO: si torna `cand` (che ha h:m), NON candidateDay (era sempre mezzanotte!)
-        if (cand.getDate() === dom) return cand.getTime();
+        if (da !== dom) continue; // giorno inesistente in quel mese (es. 31) -> salta il mese (voluto)
+        if (interval > 1) {
+          const mi2 = yr * 12 + mo2, mi0 = createdW.y * 12 + createdW.mo;
+          if ((((mi2 - mi0) % interval) + interval) % interval !== 0) continue;
+        }
+        return cand;
       }
     }
     return null;
@@ -322,7 +390,7 @@ export class Scheduler {
 
   // === RPC API ===
   createSchedule(p: any): { id: string; schedule: Schedule } {
-    const validTypes = ["once", "daily", "weekly", "monthly", "yearly", "hourly", "minutely"];
+    const validTypes = ["once", "daily", "weekly", "monthly", "yearly", "hourly", "minutely", "seconds"];
     const when: ScheduleWhen = p.when || {};
     // Multi-rule: se p.rules è un array valido, 'when' può essere vuoto
     let rules: ScheduleWhen[] | undefined = undefined;
@@ -362,6 +430,7 @@ export class Scheduler {
       thinkingLevel: p.thinkingLevel ?? undefined,
       text: String(p.text || ""),
       owner: p.owner === "expert" ? "expert" : this.#owner,
+      timeZone: p.timeZone && zoneOk(String(p.timeZone)) ? String(p.timeZone) : machineZone(),
       when,
       rules,
       enabled: p.enabled !== false,
@@ -408,6 +477,7 @@ export class Scheduler {
     if (p.enabled !== undefined) s.enabled = !!p.enabled;
     if (p.catchUp !== undefined) s.catchUp = !!p.catchUp;
     if (p.owner !== undefined) s.owner = p.owner === "expert" ? "expert" : "main";
+    if (p.timeZone !== undefined) { s.timeZone = p.timeZone && zoneOk(String(p.timeZone)) ? String(p.timeZone) : machineZone(); s.nextFireAt = this.#computeNext(s, s.lastFiredAt || 0); }
     const idx = all.findIndex((x: Schedule) => x.id === p.id);
     all[idx] = s;
     this.#writeSchedules(all);
