@@ -873,7 +873,7 @@ export function ChatArea(props: ChatAreaProps) {
           <div ref={panelRef} style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
           <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column', margin: '2px 0 0 0', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', border: (panelSize.w > 0) ? 'none' : '1px solid var(--q-border)', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom' }}>
             {taskPanelMode === 'db' ? dbContent : (
-            <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '16px 16px', scrollbarGutter: 'stable' }}>
+            <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '0 16px 16px 16px', scrollbarGutter: 'stable' }}>
               {taskRuns.length === 0 ? (
                 <div style={{ color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', padding: '24px 8px', textAlign: 'center' }}>No tasks yet.</div>
               ) : taskRuns.map((run) => (
@@ -992,7 +992,7 @@ export function ChatArea(props: ChatAreaProps) {
                 })()}
               </div>
               {/* Task — SEMPRE montato (display none quando il pannello è chiuso) */}
-              <div ref={taskScrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '16px 16px', scrollbarGutter: 'stable', display: (taskPanelOpen && taskPanelMode === 'results') ? 'block' : 'none' }}
+              <div ref={taskScrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '0 16px 16px 16px', scrollbarGutter: 'stable', display: (taskPanelOpen && taskPanelMode === 'results') ? 'block' : 'none' }}
                 onScroll={e => { const el = e.currentTarget; setShowTaskScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100); taskPinnedRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 120 }}>
                 {taskRuns.length === 0 ? (
                   <div style={{ color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', padding: '24px 8px', textAlign: 'center' }}>No tasks yet.</div>
