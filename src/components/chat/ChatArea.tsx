@@ -517,10 +517,10 @@ export function ChatArea(props: ChatAreaProps) {
   // vecchio angolo retto viene COPERta (zona scura oltre l'arco); la riga sottile continua. Forma unica
   // (angolo a (12,12), scuro a destra+sotto); per il lato sinistro si specchia con scaleX(-1).
   const nookPiece = (posStyle: any, mirror?: boolean) => (
-    <svg width="48" height="48" viewBox="0 0 48 48" style={{ position: 'absolute', display: 'block', pointerEvents: 'none', ...posStyle, ...(mirror ? { transform: 'scaleX(-1)' } : {}) }} aria-hidden="true">
-      <rect x="0" y="0" width="48" height="48" fill="var(--q-bg-panel)" />
-      <rect x="12" y="0" width="36" height="48" fill="var(--q-bg)" />
-      <rect x="0" y="12" width="48" height="36" fill="var(--q-bg)" />
+    <svg width="16" height="16" viewBox="0 0 16 16" style={{ position: 'absolute', display: 'block', pointerEvents: 'none', ...posStyle, ...(mirror ? { transform: 'scaleX(-1)' } : {}) }} aria-hidden="true">
+      <rect x="0" y="0" width="16" height="16" fill="var(--q-bg-panel)" />
+      <rect x="12" y="0" width="4" height="16" fill="var(--q-bg)" />
+      <rect x="0" y="12" width="16" height="4" fill="var(--q-bg)" />
       <path d="M 0 12.5 A 12 12 0 0 0 12 0.5 L 0.5 0.5 Z" fill="var(--q-bg)" />
       <path d="M 0 12.5 A 12 12 0 0 0 12 0.5" fill="none" stroke="var(--q-border)" strokeWidth="1" />
     </svg>
@@ -530,13 +530,13 @@ export function ChatArea(props: ChatAreaProps) {
     <div style={{ position: 'absolute', bottom: 0, height: 44, backgroundColor: 'var(--q-bg)', display: 'flex', alignItems: 'flex-end', zIndex: 6, boxSizing: 'border-box', borderTop: '1px solid var(--q-border)', ...(taskPanelMode === 'db' ? { left: 38, right: 2, borderLeft: '1px solid var(--q-border)', borderTopLeftRadius: 'var(--radius-lg)' } : { left: 2, width: 42, borderRight: '1px solid var(--q-border)', borderTopRightRadius: 'var(--radius-lg)' }) }}>
       {taskPanelMode === 'db' ? (
         <>
-          {nookPiece({ top: -12, right: -12 })}
-          {nookPiece({ bottom: -12, left: -12 })}
+          {nookPiece({ top: -12, right: -4 })}
+          {nookPiece({ bottom: -4, left: -12 })}
         </>
       ) : (
         <>
-          {nookPiece({ top: -12, left: -36 }, true)}
-          {nookPiece({ bottom: -12, right: -36 }, true)}
+          {nookPiece({ top: -12, left: -4 }, true)}
+          {nookPiece({ bottom: -4, right: -12 }, true)}
         </>
       )}
       {taskPanelMode === 'db' ? (
