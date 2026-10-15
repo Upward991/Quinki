@@ -19,6 +19,7 @@ import type { Message, Session, Agent, Provider, ChatMode, ThinkingLevel } from 
 const NOOP_COPY = () => {}
 
 function TaskResultToggle({ run, sessionKey, defaultOpen, showClip, onResize }: { run: any; sessionKey?: string; defaultOpen?: boolean; showClip?: boolean; onResize?: () => void }) {
+  const isPhone = typeof document !== 'undefined' && document.documentElement.classList.contains('q-phone')
   const [collapsed, setCollapsed] = useState(!defaultOpen)
   const [hovered, setHovered] = useState(false)
   const [copyHovered, setCopyHovered] = useState(false)
@@ -35,7 +36,7 @@ function TaskResultToggle({ run, sessionKey, defaultOpen, showClip, onResize }: 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <ChevronRight size={14} style={{ color, flexShrink: 0, transform: collapsed ? 'rotate(0deg)' : 'rotate(90deg)', transition: 'none' }} />
           <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color, whiteSpace: 'nowrap', flexShrink: 0 }}>{label}</span>
-          <span style={{ fontFamily: 'var(--font-interface)', fontSize: '13px', color: 'var(--q-text-tertiary)', opacity: 0.6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{run.label}</span>
+          <span style={{ fontFamily: 'var(--font-interface)', fontSize: '13px', fontWeight: 600, color: 'var(--q-text)', ...(isPhone ? { flex: 1, minWidth: 0, whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.35 } : {}) }}>{run.label}</span>
           <span style={{ flex: 1 }} />
           {showClip && (
           <button onClick={(e) => { e.stopPropagation(); try { let respText = ''; for (const m of run.messages || []) { if (m.role === 'assistant' && m.content) respText += (m.content || '') + '\n\n' } const text = respText.trim() || run.label; window.dispatchEvent(new CustomEvent('quinki-task-clip', { detail: { id: run.id, label: run.label, text } })) } catch {} }}

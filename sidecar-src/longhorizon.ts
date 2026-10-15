@@ -915,7 +915,7 @@ export class LongHorizon {
     this.#log("lh-plan-request", { sessionKey: sk });
     try {
       const fakeWs = { readyState: 1, constructor: { OPEN: 1 }, send: () => {} };
-      await this.#piBridge?.send(fakeWs, { sessionKey: sk, text: prompt, _preserveWs: true, _lhPhase: st.phase || "planning" });
+      await this.#piBridge?.send(fakeWs, { sessionKey: sk, text: "\u2063l" + prompt, _preserveWs: true, _lhPhase: st.phase || "planning" });
     } catch (e: any) {
       this.#log("lh-plan-request-error", { sessionKey: sk, error: e?.message });
     } finally {
@@ -977,7 +977,7 @@ export class LongHorizon {
       // Nessun timeout: il send si risolve quando il modello finisce (anche ore).
       // Se il modello si blocca, l'utente usa STOP → il send si risolve con errore →
       // il support agent recupera e riprompta (promptCount aumenta → anti-loop).
-      await this.#piBridge?.send(fakeWs, { sessionKey: sk, text: prompt, _preserveWs: true, _lean: true, _lhPhase: "running" });
+      await this.#piBridge?.send(fakeWs, { sessionKey: sk, text: "\u2063l" + prompt, _preserveWs: true, _lean: true, _lhPhase: "running" });
       this.#log("lh-response-done", { sessionKey: sk, unit: unit.id });
     } catch (e: any) {
       this.#log("lh-send-error", { sessionKey: sk, unit: unit.id, error: e?.message });
@@ -1100,7 +1100,7 @@ export class LongHorizon {
       // LH v2.6 (regola utente): i prompt di FASE partono col SYSTEM PROMPT COMPLETO (non-lean),
       // come i messaggi normali — il modello riceve il blocco con la fase corrente. Unica
       // eccezione lean: il "continue" delle unità (sotto, in #sendUnitPrompt).
-      this.#piBridge?.send(fakeWs, { sessionKey: sk, text, _preserveWs: true, _lean: opts?.lean === true, _lhPhase: this.#states.get(sk)?.phase || "" }).catch(() => {});
+      this.#piBridge?.send(fakeWs, { sessionKey: sk, text: "\u2063l" + text, _preserveWs: true, _lean: opts?.lean === true, _lhPhase: this.#states.get(sk)?.phase || "" }).catch(() => {});
     } catch {}
   }
 }

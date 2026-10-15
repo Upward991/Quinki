@@ -3832,7 +3832,7 @@ class PiBridge {
           // invisibile finché non ricaricavi. #getSessionWs scrive SEMPRE (ws
           // registrato o fallback stdout broadcast). _preserveWs non tocca #wss.
           const fakeWs = this.#getSessionWs(sk);
-          await this.send(fakeWs, { sessionKey: sk, text: prompt, _preserveWs: true, _lean: true });
+          await this.send(fakeWs, { sessionKey: sk, text: "\u2063r" + prompt, _preserveWs: true, _lean: true });
           recovered++;
         } catch (e: any) { this.logDebug("pending-turn-recover-error", { sessionKey: sk, error: e?.message || String(e) }); } finally { recoveringMap.delete(sk); try { ((this as any).__recoveringSessionsTS || new Map()).delete(sk); } catch {} }
       }
@@ -3888,7 +3888,7 @@ class PiBridge {
       // → concurrent-recovery-in-flight per sempre → chat bloccata su "Recovering".
       // Con il timeout: dopo 90s il lock si rilascia, la promise chain si azzera,
       // e il prossimo tentativo di recovery può ripartire pulito.
-      const _sendPromise = this.send(fakeWs, { sessionKey: sk, text: prompt, _preserveWs: true, _lean: true });
+      const _sendPromise = this.send(fakeWs, { sessionKey: sk, text: "\u2063r" + prompt, _preserveWs: true, _lean: true });
       const _timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => reject(new Error('recovery-send-timeout-30s')), 30 * 1000);
       });

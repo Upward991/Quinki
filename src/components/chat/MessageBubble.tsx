@@ -13,6 +13,7 @@ import type { Message, DelegationBlock, ThinkingBlock, ToolCall, ToolResult, Com
 import { Copy, Check, Info, ChevronRight, Bot, Cpu, Brain } from '../icons'
 import { useLayout } from '../../platform/layout'
 import { BottomSheet } from './BottomSheet'
+import { getContrastColor } from '../../utils/contrast'
 import { invoke } from '@tauri-apps/api/core'
 
 // Highlight search matches in text
@@ -79,8 +80,14 @@ function SystemMessage({ message }: { message: Message }) {
 
 // ── User message ──
 function UserMessage({ message, onCopy, searchQuery, activeOcc, isDateMatch }: { message: Message; onCopy?: (t: string) => void; searchQuery?: string; activeOcc?: number; isDateMatch?: boolean }) {
+  // MESSAGGI AUTOMATICI (marcati dal motore: \u2063r = recovery/sistema · \u2063l = Long Horizon):
+  // bubble COLORATE per far capire subito che NON le ha scritte l'utente.
+  const rawContent = message.content || ''
+  const autoKind = typeof rawContent === 'string' && rawContent.startsWith('\u2063') ? (rawContent[1] === 'l' ? 'lh' : 'sys') : null
+  const bubbleBg = autoKind === 'lh' ? 'var(--q-accent-longhorizon)' : (autoKind ? 'var(--q-tab-accent)' : 'var(--q-bubble-user)')
+  const bubbleText = autoKind === 'lh' ? 'var(--q-text)' : (autoKind ? getContrastColor('--q-tab-accent') : 'var(--q-bubble-user-text)')
   // Simple highlight: split text and wrap Nth occurrence
-  const content = message.content || ''
+  const content = autoKind ? rawContent.slice(2) : rawContent
   let rendered: React.ReactNode = content
   if (searchQuery && searchQuery.trim() && (activeOcc ?? -1) >= 0) {
     const q = searchQuery.trim()
@@ -106,7 +113,7 @@ function UserMessage({ message, onCopy, searchQuery, activeOcc, isDateMatch }: {
     if (parts.length > 0) rendered = parts
   }
   return (
-    <div className="user-message-content" style={{ width: '100%', padding: '10px 16px', backgroundColor: 'var(--q-bubble-user)', borderRadius: '12px', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.02)', border: isDateMatch ? '2px solid var(--q-search-highlight-bg)' : '1px solid var(--q-border)', animation: 'msgSent 300ms cubic-bezier(0.16, 1, 0.3, 1)' }}>
+    <div className="user-message-content" style={{ width: '100%', padding: '10px 16px', backgroundColor: bubbleBg, borderRadius: '12px', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.02)', border: isDateMatch ? '2px solid var(--q-search-highlight-bg)' : '1px solid var(--q-border)', animation: 'msgSent 300ms cubic-bezier(0.16, 1, 0.3, 1)' }}>
       {(message as any).taskClips && (message as any).taskClips.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
           {(message as any).taskClips.map((tc: any, i: number) => (
@@ -139,10 +146,10 @@ function UserMessage({ message, onCopy, searchQuery, activeOcc, isDateMatch }: {
           ))}
         </div>
       )}
-      <div style={{ color: 'var(--q-bubble-user-text)', fontSize: '14px', lineHeight: 1.5, fontFamily: 'var(--font-interface)', fontWeight: 500, whiteSpace: 'pre-wrap', wordBreak: 'break-word', userSelect: 'text', WebkitUserSelect: 'text' }}>
+      <div style={{ color: bubbleText, fontSize: '14px', lineHeight: 1.5, fontFamily: 'var(--font-interface)', fontWeight: 500, whiteSpace: 'pre-wrap', wordBreak: 'break-word', userSelect: 'text', WebkitUserSelect: 'text' }}>
         {rendered}
       </div>
-      <Footer content={message.content || ""} timestamp={((message as any).completedAt ? new Date((message as any).completedAt).toISOString() : message.timestamp)} onCopy={onCopy} sentEffort={(message as any).sentEffort} reasoningUsed={(message as any).reasoningUsed} reasoningTokens={(message as any).reasoningTokens} />
+      <Footer content={content} timestamp={((message as any).completedAt ? new Date((message as any).completedAt).toISOString() : message.timestamp)} onCopy={onCopy} sentEffort={(message as any).sentEffort} reasoningUsed={(message as any).reasoningUsed} reasoningTokens={(message as any).reasoningTokens} />
     </div>
   )
 }
