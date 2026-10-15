@@ -3220,7 +3220,11 @@ const readProvidersCfg = (): any => {
             { component: headerWrap, basis: "auto", grow: 0, shrink: 0, minSize: 1 },
             { component: blank(), basis: "auto", grow: 0, shrink: 0, minSize: 1 },
             { component: scroll as any, basis: 0, grow: 1, shrink: 1, minSize: 1 },
-            { component: blank(), basis: "auto", grow: 0, shrink: 1, minSize: 0 },
+            // REGOLA UTENTE (15 ott): con la Long Horizon ATTIVA niente riga vuota tra la
+            // chat e il banner — lo spazio spiegazione→banner dev'essere IDENTICO a
+            // banner→text box (stessa operazione fatta nell'app sulla pila simmetrica).
+            // Senza LH la riga resta (spaziatura normale di sempre).
+            { component: { render: () => (lhActive ? [] : [" "]), invalidate: () => {} } as any, basis: "auto", grow: 0, shrink: 1, minSize: 0 },
             { component: lhBannerWrap, basis: "auto", grow: 0, shrink: 1, minSize: 0 },
             { component: boxWrap, basis: "auto", grow: 0, shrink: 1, minSize: 5 },
           ]);
