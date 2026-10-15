@@ -56,6 +56,7 @@ function parseFlexTime(s: string): { h: number; m: number; sec: number } | null 
 // === DESCRIZIONE LEGGIBILE DELLA RICORRENZA (colonna Type) — regola utente 16 ott ===
 // Prima mostrava solo la parola del tipo ("weekly") senza giorni né orario: illeggibile.
 const DAYNAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const MONTHNAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const ord = (n: number) => { const x = n % 100; if (x >= 11 && x <= 13) return n + 'th'; const u = n % 10; return n + (u === 1 ? 'st' : u === 2 ? 'nd' : u === 3 ? 'rd' : 'th') }
 function describeRule(w: any): string {
   if (!w || !w.type) return '?'
@@ -69,7 +70,7 @@ function describeRule(w: any): string {
   if (w.type === 'daily') return every + 'day' + (iv > 1 ? 's' : '') + (at ? ' — ' + at : '')
   if (w.type === 'weekly') { const days = (w.daysOfWeek || [1, 2, 3, 4, 5]).map(Number).sort((a: number, b: number) => a - b).map((d: number) => DAYNAMES[d - 1] || '?'); return (iv > 1 ? 'Every ' + iv + ' weeks' : 'Every week') + ': ' + days.join(' · ') + (at ? ' — ' + at : '') }
   if (w.type === 'monthly') { const dom = Number(w.dayOfMonth || 1); return every + 'month' + (iv > 1 ? 's' : '') + ' on the ' + ord(dom) + (at ? ' — ' + at : '') }
-  if (w.type === 'yearly') { const mo = Number(w.month || 1); const dom = Number(w.dayOfMonth || 1); return every + 'year' + (iv > 1 ? 's' : '') + ' on ' + dom + ' ' + (MONTHS[mo - 1] ? MONTHS[mo - 1].slice(0, 3) : mo) + (at ? ' — ' + at : '') }
+  if (w.type === 'yearly') { const mo = Number(w.month || 1); const dom = Number(w.dayOfMonth || 1); return every + 'year' + (iv > 1 ? 's' : '') + ' on ' + dom + ' ' + (MONTHNAMES[mo - 1] ? MONTHNAMES[mo - 1].slice(0, 3) : mo) + (at ? ' — ' + at : '') }
   return String(w.type)
 }
 const MACHINE_TZ = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || '' } catch { return '' } })()
@@ -243,7 +244,7 @@ function normViews(v: any): ViewCfg[] { return (Array.isArray(v) ? v : []).map((
 function loadViews(): ViewCfg[] { try { const s = localStorage.getItem(VIEWS_KEY); if (s) { const v = normViews(JSON.parse(s)); if (v.length) return v } } catch {} return [{ id: BASE_ID, name: 'All', type: 'table', f: { q: '', status: 'all', agents: [], chats: [] } }] }
 const DEFAULT_VIEWS: ViewCfg[] = [{ id: BASE_ID, name: 'All', type: 'table', f: { q: '', status: 'all', agents: [], chats: [] } }]
 
-export function CalendarView(props: { activePanel: string; onSelectPanel: (p: string) => void; agents?: any[]; onOpenSession?: (key: string) => void; onSessionCreated?: (key: string) => void }) {
+export function CalendarView(props: { activePanel: string; onSelectPanel: (p: string) => void; agents?: any[]; onOpenSession?: (key: string) => void; lockedChat?: { key: string; label?: string }; onSessionCreated?: (key: string) => void }) {
   const { call, subscribe } = useSidecarContext()
   const [schedules, setSchedules] = useState<any[]>([])
   const [executions, setExecutions] = useState<any[]>([])
@@ -442,6 +443,11 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   }
   const patchF = (patch: Partial<ViewCfg['f']>) => { const v = { ...view, f: { ...view.f, ...patch } }; persist(views.map(x => x.id === v.id ? v : x)) }
 
+  // === VISTA BLOCCATA (dentro la chat, idea utente 16 ott): SOLO scheduled di QUESTA chat,
+  // filtro non modificabile, niente viste/cestino di sezione/fullscreen/create: si riusa TUTTO. ===
+  const locked = !!(props as any).lockedChat
+  const [lockQ, setLockQ] = useState('')
+
   const refresh = useCallback(async () => { try { const a = await call('listSchedules'); const b = await call('listExecutions'); setSchedules(a?.schedules || []); setExecutions(b?.executions || []); const s = await call('listSessions'); const m: Record<string, string> = {}; const sl: { key: string; label: string }[] = []; for (const x of (s?.sessions || [])) { const k = x.sessionKey || x.key; if (k) { const lb = x.label || x.title || k; m[k] = lb; sl.push({ key: k, label: lb }) } } setSessionsMap(m); setSessions(sl) } catch {} }, [call])
   useEffect(() => { refresh(); const iv = setInterval(refresh, 30000); return () => clearInterval(iv) }, [refresh])
   useEffect(() => { const u = subscribe?.('execution_update', refresh); return () => { if (u) try { u() } catch {} } }, [refresh, subscribe])
@@ -468,7 +474,14 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
 
   const chats = Array.from(new Set(items.map(i => i.chat).filter(c => c && c !== '—')))
   const agents = Array.from(new Set(items.map(i => i.agent).filter(a => a && a !== '—')))
+  const qNow = locked ? lockQ : f.q
   let filtered = items.filter(i => {
+    if (locked) {
+      if (i.sourceKey !== (props as any).lockedChat.key) return false
+      if (bucketOf(i.status) !== 'scheduled') return false
+      if (qNow && !i.title.toLowerCase().includes(qNow.toLowerCase())) return false
+      return true
+    }
     if (f.q && !i.title.toLowerCase().includes(f.q.toLowerCase())) return false
     if (f.status !== 'all' && bucketOf(i.status) !== f.status) return false
     if (f.chats.length > 0 && !f.chats.includes(i.chat)) return false
@@ -482,9 +495,10 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
 
   const actions = (i: Item) => {
     const b: React.ReactNode[] = []
-    const delSel = () => { const sels = filtered.filter(x => selTasks.has(x.id)); if (sels.length > 0) setDeleteTask({ items: sels.map(x => ({ id: x.id, kind: x.kind, title: x.title })) }); else setDeleteTask({ items: [{ id: i.id, kind: i.kind, title: i.title }] }) }
-    if (i.kind === 'sched') { if (i.status === 'scheduled') b.push(React.createElement(RowBtn, { key: 'run', title: 'Run now', onClick: () => act(async () => { await call('runScheduleNow', { id: i.id }) }) }, React.createElement(Play, { size: 16 }))); b.push(React.createElement(RowBtn, { key: 'del', title: 'Delete', hoverColor: 'var(--q-accent-danger)', onClick: delSel }, React.createElement(Trash2, { size: 16 }))) }
-    else { if (i.status === 'running' || i.status === 'queued') b.push(React.createElement(RowBtn, { key: 'stop', title: 'Stop', hoverColor: 'var(--q-accent-warning)', onClick: () => act(async () => { await call('stopExecution', { executionId: i.id }) }) }, React.createElement(X, { size: 16 }))); b.push(React.createElement(RowBtn, { key: 'del', title: 'Delete', hoverColor: 'var(--q-accent-danger)', onClick: delSel }, React.createElement(Trash2, { size: 16 }))) }
+    // REGOLA UTENTE (16 ott): niente cestino di riga — si elimina con la SELEZIONE + cestino di sezione
+    // (selezione attiva → elimina solo le selezionate; nessuna selezione → tutta la sezione, come filtrata).
+    if (i.kind === 'sched') { if (i.status === 'scheduled') b.push(React.createElement(RowBtn, { key: 'run', title: 'Run now', onClick: () => act(async () => { await call('runScheduleNow', { id: i.id }) }) }, React.createElement(Play, { size: 16 }))) }
+    else { if (i.status === 'running' || i.status === 'queued') b.push(React.createElement(RowBtn, { key: 'stop', title: 'Stop', hoverColor: 'var(--q-accent-warning)', onClick: () => act(async () => { await call('stopExecution', { executionId: i.id }) }) }, React.createElement(X, { size: 16 }))) }
     return React.createElement('div', { key: 'acts', style: { display: 'flex', gap: 4, justifyContent: 'center' } }, b)
   }
   const cellVal = (i: Item, key: string): React.ReactNode => {
@@ -595,21 +609,22 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
         if (x !== el && Math.abs(x.scrollLeft - el.scrollLeft) > 0.5) x.scrollLeft = el.scrollLeft
       }
     }
-    return React.createElement('div', { key: 'tbl', 'data-tbl-scroll': '1', onMouseDown: startPan, onScroll: onTblScroll, style: { width: '100%', overflowX: 'auto', cursor: panning ? 'grabbing' : 'grab', userSelect: panning ? 'none' : 'text' } }, React.createElement('table', { style: { borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed', margin: '0 auto', width: '100%', minWidth: renderCols.reduce((a, k) => a + colW(k), 0) } }, [React.createElement('thead', { key: 'th' }, thead), React.createElement('tbody', { key: 'tb' }, tbody.length ? tbody : React.createElement('tr', { key: 'e' }, React.createElement('td', { colSpan: renderCols.length, style: { padding: 16, textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', borderBottom: '1px solid var(--q-border-solid)' } }, 'No tasks in this group.')))]))
+    return React.createElement('div', { key: 'tbl', 'data-tbl-scroll': '1', onMouseDown: startPan, onScroll: onTblScroll, style: { width: '100%', overflowX: 'auto', cursor: panning ? 'grabbing' : 'grab', userSelect: panning ? 'none' : 'text' } }, React.createElement('table', { style: { borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed', margin: '0 auto', width: '100%', minWidth: renderCols.reduce((a, k) => a + colW(k), 0) } }, [React.createElement('thead', { key: 'th' }, thead), React.createElement('tbody', { key: 'tb' }, tbody.length ? tbody : React.createElement('tr', { key: 'e' }, React.createElement('td', { colSpan: renderCols.length, style: { padding: 16, textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)' } }, 'No tasks in this group.')))]))
   }
 
   // Vista TABLE = toggle per status (Notion group-by-status)
-  const tableWrap = React.createElement('div', { key: 'tbl', style: { width: '100%' } }, GROUP_DEFS.map(g => {
+  const groupDefs = locked ? GROUP_DEFS.filter(g => g.key === 'scheduled') : GROUP_DEFS
+  const tableWrap = React.createElement('div', { key: 'tbl', style: { width: '100%' } }, groupDefs.map(g => {
     const gItems = filtered.filter(i => bucketOf(i.status) === g.key)
-    const open = !!openGroups[g.key]
+    const open = locked ? true : !!openGroups[g.key]
     return React.createElement('div', { key: g.key, style: { marginBottom: 6 } }, [
-      React.createElement('div', { key: 'h', onClick: () => setOpenGroups(prev => { const nv = { ...prev, [g.key]: !prev[g.key] }; call('saveUiState', { state: { fullWidth, views, activeId, openGroups: nv } }).catch(() => {}); return nv }), style: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 4px', cursor: 'pointer', userSelect: 'none' } }, [
+      React.createElement('div', { key: 'h', onClick: locked ? undefined : () => setOpenGroups(prev => { const nv = { ...prev, [g.key]: !prev[g.key] }; call('saveUiState', { state: { fullWidth, views, activeId, openGroups: nv } }).catch(() => {}); return nv }), style: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 4px', cursor: 'pointer', userSelect: 'none' } }, [
         open ? React.createElement(ChevronDown, { size: 16, style: { color: 'var(--q-text-secondary)' } }) : React.createElement(ChevronRight, { size: 16, style: { color: 'var(--q-text-secondary)' } }),
         React.createElement('span', { style: { width: 8, height: 8, borderRadius: 4, backgroundColor: g.color } }),
         React.createElement('span', { style: { color: 'var(--q-text)', fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-interface)' } }, g.label),
         React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)' } }, '(' + gItems.length + ')'),
         React.createElement('span', { key: 'sp', style: { flex: 1 } }),
-        React.createElement(RowBtn, { key: 'del', title: 'Delete all tasks in ' + g.label, hoverColor: 'var(--q-accent-danger)', onClick: (e: any) => { e.stopPropagation(); setDeleteTask({ items: gItems.map(x => ({ id: x.id, kind: x.kind, title: x.title })), section: g.label }) } }, React.createElement(Trash2, { size: 14 })),
+        React.createElement(RowBtn, { key: 'del', title: selTasks.size > 0 ? ('Delete ' + selTasks.size + ' selected') : ('Delete all tasks in ' + g.label), hoverColor: 'var(--q-accent-danger)', onClick: (e: any) => { e.stopPropagation(); const sel = selTasks.size > 0 ? filtered.filter(x => selTasks.has(x.id)) : []; const scope = sel.length > 0 ? sel : gItems; setDeleteTask({ items: scope.map(x => ({ id: x.id, kind: x.kind, title: x.title })), section: sel.length > 0 ? undefined : g.label }) } }, React.createElement(Trash2, { size: 14 })),
       ]),
       open ? tableFor(gItems) : null,
     ])
@@ -811,7 +826,19 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     React.createElement(FilterChip, { key: 'fA', label: 'Agent', values: f.agents, options: agents, onChange: (v: string[]) => patchF({ agents: v }) }),
     React.createElement(FilterChip, { key: 'fC', label: 'Chat', values: f.chats, options: chats, onChange: (v: string[]) => patchF({ chats: v }) }),
   ] : []
-  const toolbar = React.createElement('div', { key: 'tb', style: { display: 'flex', flexDirection: 'column', padding: '4px 0 8px 0' } }, [
+  const toolbarLocked = React.createElement('div', { key: 'tb', style: { display: 'flex', flexDirection: 'column', padding: '4px 0 8px 0' } }, [
+    React.createElement('div', { key: 'row', style: { display: 'flex', alignItems: 'center', gap: 4 } }, [
+      (!mob && searchOpen) ? React.createElement('div', { key: 'siw', style: { position: 'relative', flexShrink: 0 } }, [
+        React.createElement('input', { key: 'si', autoFocus: true, value: lockQ, onChange: (e: any) => setLockQ(e.target.value), onKeyDown: (e: any) => { if (e.key === 'Escape') { setLockQ(''); setSearchOpen(false) } }, placeholder: 'Search activities...', style: { width: 240, height: 30, padding: '0 28px 0 12px', boxSizing: 'border-box', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)' } }),
+        React.createElement('button', { key: 'x', title: 'Clear search', onClick: () => setLockQ(''), style: { position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-tertiary)', padding: 4, display: 'flex', opacity: lockQ ? 1 : 0.4 } }, React.createElement(X, { size: 14 })),
+      ]) : null,
+      React.createElement(RowBtn, { key: 'search', title: 'Search', onClick: () => { if (searchOpen) setLockQ(''); setSearchOpen(!searchOpen) }, color: lockQ ? 'var(--q-tab-accent)' : undefined }, React.createElement(Search, { size: 18 })),
+      (mob && searchOpen) ? React.createElement(BottomSheet, { key: 'ss', open: true, onClose: () => setSearchOpen(false), hideBack: true, hideNav: true, items: [], view: React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, padding: '0 8px 8px 8px' } }, [React.createElement(Search, { key: 'i2', size: 14, style: { color: 'var(--q-text-tertiary)', flexShrink: 0 } }), React.createElement('input', { key: 'si2', autoFocus: true, value: lockQ, onChange: (e: any) => setLockQ(e.target.value), placeholder: 'Search activities...', style: { flex: 1, minWidth: 0, height: 36, background: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)' } }), React.createElement('button', { key: 'cl2', onClick: () => setSearchOpen(false), style: { flexShrink: 0, padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', cursor: 'pointer' } }, 'Close')]) }) : null,
+      React.createElement('span', { key: 'grow', style: { flex: 1 } }),
+      React.createElement('div', { key: 'sep', style: { height: 1, backgroundColor: 'var(--q-border)', marginTop: 6 } }),
+    ]),
+  ])
+  const toolbar = locked ? toolbarLocked : React.createElement('div', { key: 'tb', style: { display: 'flex', flexDirection: 'column', padding: '4px 0 8px 0' } }, [
     React.createElement('div', { key: 'row', style: { display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' } }, [
     React.createElement('button', { key: 'addtask', title: 'Create task', onClick: () => { setCtTitle(''); setCtText(''); setCtAgent(agents[0]?.id || 'orchestrator'); setCtDate(''); setCtTime(''); setCtRecur('once'); setCtModel(null); setCtThinking(null); setCtChat(''); setPickSearch(''); setCreateTaskOpen(true); refresh() }, style: { display: 'flex', alignItems: 'center', gap: 5, height: 30, boxSizing: 'border-box', padding: '0 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)', cursor: 'pointer', whiteSpace: 'nowrap' } }, 'Create task'),
     React.createElement('span', { key: 'grow', style: { flex: 1 } }),
@@ -846,25 +873,25 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   ])
 
   return React.createElement('div', { key: 'root', ref: rootRef, className: 'h-full flex flex-row', id: 'q-tasks', style: { width: '100%', position: 'relative' } }, [
-    mob ? (navOpen ? viewSidebar : null) : (sideMode !== 'hidden' ? viewSidebar : null),
-    React.createElement('div', { key: 'main', style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', paddingLeft: mob ? 0 : (sideMode === 'open' ? sideW + 8 : 0) } }, [
+    !locked ? (mob ? (navOpen ? viewSidebar : null) : (sideMode !== 'hidden' ? viewSidebar : null)) : null,
+    React.createElement('div', { key: 'main', style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', paddingLeft: (mob || locked) ? 0 : (sideMode === 'open' ? sideW + 8 : 0) } }, [
 
-    React.createElement('div', { key: 'hdrwrap', style: { width: '100%', maxWidth: 'var(--spacing-chat-max)', margin: '0 auto', flexShrink: 0, paddingTop: '0px' } }, [
+    !locked ? React.createElement('div', { key: 'hdrwrap', style: { width: '100%', maxWidth: 'var(--spacing-chat-max)', margin: '0 auto', flexShrink: 0, paddingTop: '0px' } }, [
       React.createElement('div', { key: 'hdr', style: { marginBottom: '8px', display: 'flex', alignItems: 'center', gap: 8, width: '100%' } }, [
         React.createElement('div', { key: 'h1', style: panelStyle }, [React.createElement(IconBtn, { key: 'home', icon: Home, onClick: () => props.onSelectPanel('home') })]),
         React.createElement('div', { key: 'h1b', style: panelStyle }, [React.createElement(IconBtn, { key: 'side', icon: PanelLeft, onClick: () => { if (mob) { setNavOpen(true) } else { setSideMode(m => m === 'open' ? 'hidden' : 'open') } }, title: mob ? 'Menu' : (sideMode === 'open' ? 'Hide sidebar' : 'Show sidebar') })]),
         React.createElement('div', { key: 'h2', style: { ...panelStyle, flex: 1 } }, [React.createElement('div', { key: 'sp', style: { width: '8px', flexShrink: 0 } }), React.createElement(Checklist, { key: 'ic', size: 18, style: { color: 'var(--q-text-secondary)', flexShrink: 0 } }), React.createElement('div', { key: 'sp2', style: { width: '16px', flexShrink: 0 } }), React.createElement('span', { key: 'ti', style: { color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)' } }, 'Agents Tasks')]),
       ]),
-    ]),
+    ]) : null,
     React.createElement('div', { key: 'body', style: { flex: 1, minHeight: 0, padding: '0 0 8px 0', overflowY: 'auto', scrollbarGutter: 'stable' } }, [
       React.createElement('div', { key: 'dbwrap', style: { width: '100%', maxWidth: fullWidth ? '100%' : 'calc(var(--spacing-chat-max) - 32px)', margin: '0 auto', display: 'flex', flexDirection: 'column' } }, [
         toolbar,
-        React.createElement('div', { key: 'content', style: { flex: 1, minHeight: 0, overflowY: 'auto', scrollbarGutter: 'stable' } }, view.type === 'table' ? tableWrap : board),
+        React.createElement('div', { key: 'content', style: { flex: 1, minHeight: 0, overflowY: 'auto', scrollbarGutter: 'stable' } }, (locked || view.type === 'table') ? tableWrap : board),
       ]),
     ]),
     ]),
-    (!mob && sideMode === 'hidden') ? React.createElement('div', { key: 'strip', style: { position: 'absolute', top: 8, bottom: 8, left: 0, width: 12, zIndex: 10, cursor: 'pointer' }, onMouseEnter: () => setSideMode('peek') }) : null,
-    !mob && sideMode === 'peek' && !draggingSide ? React.createElement('div', { key: 'peekov', style: { position: 'absolute', top: 0, bottom: 0, left: sideW + 24, right: 0, zIndex: 30 }, onMouseEnter: () => setSideMode('hidden') }) : null,
+    (!locked && !mob && sideMode === 'hidden') ? React.createElement('div', { key: 'strip', style: { position: 'absolute', top: 8, bottom: 8, left: 0, width: 12, zIndex: 10, cursor: 'pointer' }, onMouseEnter: () => setSideMode('peek') }) : null,
+    (!locked && !mob && sideMode === 'peek' && !draggingSide) ? React.createElement('div', { key: 'peekov', style: { position: 'absolute', top: 0, bottom: 0, left: sideW + 24, right: 0, zIndex: 30 }, onMouseEnter: () => setSideMode('hidden') }) : null,
     ctxMenu ? React.createElement(ViewContextMenu, { key: 'cm', x: ctxMenu.x, y: ctxMenu.y, item: ctxMenu.view, multiSelect: multiSel, selectedCount: selViews.size, onClose: () => setCtxMenu(null), onTogglePin: () => { setViewPinned(ctxMenu.view.id, !(ctxMenu.view as any).pinned); setCtxMenu(null) }, onRename: () => { setRenamingView(ctxMenu.view.id); setRenameVal(ctxMenu.view.name); setCtxMenu(null) }, onSelect: () => { setMultiSel(true); setSelViews(new Set([ctxMenu.view.id])); setCtxMenu(null) }, onDelete: () => { setDeleteViews([ctxMenu.view]); setCtxMenu(null) }, onDeselectAll: () => { setMultiSel(false); setSelViews(new Set()); setCtxMenu(null) }, onDeleteSelected: () => { setDeleteViews(views.filter(v => selViews.has(v.id))); setCtxMenu(null) } }) : null,
     mtModelPicker ? React.createElement(ModelPickerModal, { key: 'mp', currentModel: mtModelPicker.model || '', models, onClose: () => setMtModelPicker(null), onConfirm: (model: string | null) => { const id = mtModelPicker.id; setMtModelPicker(null); if (!id) return; if (id === '__new__') { setCtModel(model); return } if (id === '__tc__') { setTcModel(model || ''); return } if (String(id).startsWith('ex_')) call('updateExecution', { executionId: id, model: model || null }).then(() => refresh()).catch(() => {}); else call('updateSchedule', { id, model: model || null }).then(() => refresh()).catch(() => {}) } }) : null,
     mtThinkingPicker ? React.createElement(ThinkingPickerModal, { key: 'tp', currentThinking: mtThinkingPicker.thinking || '', chatThinkingLevel: defaultThinking, onClose: () => setMtThinkingPicker(null), onConfirm: (level: string | null) => { const id = mtThinkingPicker.id; setMtThinkingPicker(null); if (!id) return; if (id === '__new__') { setCtThinking(level); return } if (id === '__tc__') { setTcThinking(level || 'xhigh'); return } if (String(id).startsWith('ex_')) call('updateExecution', { executionId: id, thinkingLevel: level || null }).then(() => refresh()).catch(() => {}); else call('updateSchedule', { id, thinkingLevel: level || null }).then(() => refresh()).catch(() => {}) } }) : null,

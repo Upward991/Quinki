@@ -12,6 +12,7 @@ import { Composer } from './Composer'
 import {ArrowDown, Checklist, ChevronDown, ChevronRight, ChevronUp, Copy, Paperclip, X, Bot, Search, Calendar, Clock} from '../icons'
 import { ExpertAppIcon } from '../../tabs'
 import { useSidecarContext } from '../shared/AppShell'
+import { CalendarView } from '../calendar/CalendarView'
 import type { Message, Session, Agent, Provider, ChatMode, ThinkingLevel } from '../../types'
 
 // NOOP stabile: usarlo per onCopy → non rompe React.memo su MessageBubble
@@ -381,6 +382,9 @@ export function ChatArea(props: ChatAreaProps) {
   }, [sidecarCall, props.session?.id, props.mode, welcomeKey])
 
   const [taskPanelOpen, setTaskPanelOpen] = useState<boolean>(() => { try { return localStorage.getItem('quinki-taskpanel-' + sessionIdKey) === '1' } catch { return false } })
+  // REGOLA UTENTE (16 ott): due modi del pannello — 'results' (toggle come oggi) o 'db' (tabella scheduled di questa chat, filtro bloccato)
+  const [taskPanelMode, setTaskPanelMode] = useState<'results' | 'db'>('results')
+  useEffect(() => { setTaskPanelMode('results') }, [sessionIdKey])
   const [taskExecs, setTaskExecs] = useState<any[]>([])
   const [taskScheds, setTaskScheds] = useState<any[]>([])
   const [taskRuns, setTaskRuns] = useState<any[]>([])
@@ -487,6 +491,19 @@ export function ChatArea(props: ChatAreaProps) {
   ) : null
   const taskPanelEl = (
     <div style={{ position: 'absolute', inset: '2px 2px 0 2px', zIndex: 20, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', display: 'flex', flexDirection: 'column', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom', overflow: 'hidden' }}>
+      {taskPanelMode === 'db' ? (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderBottom: '1px solid var(--q-border)', flexShrink: 0 }}>
+            <Checklist size={16} style={{ color: 'var(--q-accent-calendar)', flexShrink: 0 }} />
+            <span style={{ flex: 1, color: 'var(--q-text)', fontSize: 13.5, fontWeight: 600, fontFamily: 'var(--font-interface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{'Scheduled tasks · ' + (props.session?.label || '')}</span>
+            <button onClick={() => setTaskPanelOpen(false)} title="Close" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-tertiary)', padding: 4, display: 'flex' }}><X size={16} /></button>
+          </div>
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', overflow: 'hidden' }}>
+            <CalendarView lockedChat={{ key: sessionIdKey }} activePanel={props.activePanel} onSelectPanel={props.onSelectPanel} agents={props.agents} />
+          </div>
+        </>
+      ) : (
+        <>
       <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '16px 16px', scrollbarGutter: 'stable' }}>
         {taskRuns.length === 0 ? (
           <div style={{ color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', padding: '24px 8px', textAlign: 'center' }}>No tasks yet.</div>
@@ -500,14 +517,22 @@ export function ChatArea(props: ChatAreaProps) {
         <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--q-text)' }}>{taskLabel}</span>
         <ChevronDown size={16} style={{ flexShrink: 0 }} />
       </button>
+        </>
+      )}
     </div>
   )
   const taskStrip = (taskExecs.length > 0 || taskScheds.length > 0) ? (
-    <div key="tstrip" style={{ paddingTop: taskPanelOpen ? '0px' : '8px', flexShrink: 0 }}>
-      <button onClick={toggleTaskPanel} title={taskPanelOpen ? 'Collapse tasks' : 'Show tasks'} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 'var(--radius-lg)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-panel)', cursor: 'pointer', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: 13, transition: 'none' }}>
+    <div key="tstrip" style={{ paddingTop: taskPanelOpen ? '0px' : '8px', flexShrink: 0, display: 'flex', alignItems: 'stretch', gap: 6 }}>
+      {/* TASTO QUADRATO (stile tasti header: home/agenti/sidebar) — REGOLA UTENTE 16 ott: apre il database
+          dei task SCHEDULED di QUESTA chat (stessa tabella del Tasks tab, filtro bloccato, niente modifiche). */}
+      <button onClick={(e) => { e.stopPropagation(); if (taskPanelOpen && taskPanelMode === 'db') { setTaskPanelOpen(false) } else { setTaskPanelMode('db'); setTaskPanelOpen(true) } }} title="Scheduled tasks of this chat"
+        style={{ width: 36, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-lg)', border: '1px solid var(--q-border)', backgroundColor: (taskPanelOpen && taskPanelMode === 'db') ? 'var(--q-hover)' : 'var(--q-bg-panel)', cursor: 'pointer', color: 'var(--q-text-secondary)', transition: 'none' }}>
+        <Checklist size={16} />
+      </button>
+      <button onClick={() => { setTaskPanelMode('results'); toggleTaskPanel() }} title={(taskPanelOpen && taskPanelMode === 'results') ? 'Collapse tasks' : 'Show tasks'} style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 'var(--radius-lg)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-panel)', cursor: 'pointer', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: 13, transition: 'none' }}>
         <Checklist size={16} style={{ color: taskRunning ? 'var(--q-accent-info)' : 'var(--q-text-secondary)', flexShrink: 0 }} />
         <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{taskLabel}</span>
-        {taskPanelOpen ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+        {(taskPanelOpen && taskPanelMode === 'results') ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
       </button>
     </div>
   ) : null
