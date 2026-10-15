@@ -18,7 +18,7 @@ import type { Message, Session, Agent, Provider, ChatMode, ThinkingLevel } from 
 // NOOP stabile: usarlo per onCopy → non rompe React.memo su MessageBubble
 const NOOP_COPY = () => {}
 
-function TaskResultToggle({ run, sessionKey, defaultOpen, showClip }: { run: any; sessionKey?: string; defaultOpen?: boolean; showClip?: boolean }) {
+function TaskResultToggle({ run, sessionKey, defaultOpen, showClip, onResize }: { run: any; sessionKey?: string; defaultOpen?: boolean; showClip?: boolean; onResize?: () => void }) {
   const [collapsed, setCollapsed] = useState(!defaultOpen)
   const [hovered, setHovered] = useState(false)
   const [copyHovered, setCopyHovered] = useState(false)
@@ -30,7 +30,7 @@ function TaskResultToggle({ run, sessionKey, defaultOpen, showClip }: { run: any
   const label = isRunning ? 'Task running' : 'Task result'
   return (
     <div style={{ marginTop: '12px', padding: '4px' }}>
-      <div onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} onClick={() => setCollapsed(!collapsed)}
+      <div onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} onClick={() => { setCollapsed(!collapsed); try { onResize?.() } catch {} }}
         style={{ cursor: 'pointer', backgroundColor: hovered ? hoverBg : 'transparent', borderRadius: 'var(--radius-md)', padding: '8px', transform: hovered ? 'translateX(2px)' : 'translateX(0)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <ChevronRight size={14} style={{ color, flexShrink: 0, transform: collapsed ? 'rotate(0deg)' : 'rotate(90deg)', transition: 'none' }} />
@@ -482,60 +482,42 @@ export function ChatArea(props: ChatAreaProps) {
   const pl = (n: number) => (n === 1 ? '' : 's')
   const taskLabel = taskScheds.length + ' task' + pl(taskScheds.length) + ' scheduled' + (taskDone ? ' · ' + taskDone + ' executed' : '')
   const hasTasks = taskExecs.length > 0 || taskScheds.length > 0
+  // STRISCIA VERA (16 ott): il TASTO QUADRATO (stile tasti header) apre la tabella SCHEDULED di QUESTA chat
+  // (stesso database del Tasks tab, filtro bloccato); la striscia invece apre i result come sempre.
   const taskStripBar = hasTasks ? (
-    <button onClick={toggleTaskPanel} title={taskPanelOpen ? 'Collapse tasks' : 'Show tasks'} style={{ width: '100%', marginTop: 8, padding: '8px 14px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, border: taskPanelOpen ? 'none' : '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', cursor: 'pointer', backgroundColor: taskPanelOpen ? 'transparent' : 'var(--q-bg-panel)', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: 13, transition: 'none', textAlign: 'left' }}>
-      <Checklist size={16} style={{ color: 'var(--q-text-secondary)', flexShrink: 0 }} />
-      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--q-text-secondary)' }}>{taskLabel}</span>
-      {taskPanelOpen ? <ChevronDown size={16} style={{ flexShrink: 0 }} /> : <ChevronUp size={16} style={{ flexShrink: 0 }} />}
-    </button>
-  ) : null
-  const taskPanelEl = (
-    <div style={{ position: 'absolute', inset: '2px 2px 0 2px', zIndex: 20, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', display: 'flex', flexDirection: 'column', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom', overflow: 'hidden' }}>
-      {taskPanelMode === 'db' ? (
-        <>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderBottom: '1px solid var(--q-border)', flexShrink: 0 }}>
-            <Checklist size={16} style={{ color: 'var(--q-accent-calendar)', flexShrink: 0 }} />
-            <span style={{ flex: 1, color: 'var(--q-text)', fontSize: 13.5, fontWeight: 600, fontFamily: 'var(--font-interface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{'Scheduled tasks · ' + (props.session?.label || '')}</span>
-            <button onClick={() => setTaskPanelOpen(false)} title="Close" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-tertiary)', padding: 4, display: 'flex' }}><X size={16} /></button>
-          </div>
-          <div style={{ flex: 1, minHeight: 0, display: 'flex', overflow: 'hidden' }}>
-            <CalendarView lockedChat={{ key: sessionIdKey }} activePanel={props.activePanel} onSelectPanel={props.onSelectPanel} agents={props.agents} />
-          </div>
-        </>
-      ) : (
-        <>
-      <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '16px 16px', scrollbarGutter: 'stable' }}>
-        {taskRuns.length === 0 ? (
-          <div style={{ color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', padding: '24px 8px', textAlign: 'center' }}>No tasks yet.</div>
-        ) : taskRuns.map((run) => (
-          <TaskResultToggle key={run.id} run={run} sessionKey={props.session?.id} showClip />
-        ))}
-      </div>
-      {/* Barra riassunto IN BASSO = la striscia che diventa la heading inferiore della sezione espansa — tutta cliccabile per chiudere */}
-      <button onClick={toggleTaskPanel} title="Collapse tasks" style={{ width: '100%', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, border: 'none', cursor: 'pointer', backgroundColor: 'var(--q-bg-panel)', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: 13, transition: 'none', textAlign: 'left' }}>
-        <Checklist size={16} style={{ color: taskRunning ? 'var(--q-accent-info)' : 'var(--q-text-secondary)', flexShrink: 0 }} />
-        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--q-text)' }}>{taskLabel}</span>
-        <ChevronDown size={16} style={{ flexShrink: 0 }} />
-      </button>
-        </>
-      )}
-    </div>
-  )
-  const taskStrip = (taskExecs.length > 0 || taskScheds.length > 0) ? (
-    <div key="tstrip" style={{ paddingTop: taskPanelOpen ? '0px' : '8px', flexShrink: 0, display: 'flex', alignItems: 'stretch', gap: 6 }}>
-      {/* TASTO QUADRATO (stile tasti header: home/agenti/sidebar) — REGOLA UTENTE 16 ott: apre il database
-          dei task SCHEDULED di QUESTA chat (stessa tabella del Tasks tab, filtro bloccato, niente modifiche). */}
+    <div key="tstrip" style={{ width: '100%', marginTop: 8, flexShrink: 0, display: 'flex', alignItems: 'stretch', gap: 6 }}>
       <button onClick={(e) => { e.stopPropagation(); if (taskPanelOpen && taskPanelMode === 'db') { setTaskPanelOpen(false) } else { setTaskPanelMode('db'); setTaskPanelOpen(true) } }} title="Scheduled tasks of this chat"
         style={{ width: 36, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-lg)', border: '1px solid var(--q-border)', backgroundColor: (taskPanelOpen && taskPanelMode === 'db') ? 'var(--q-hover)' : 'var(--q-bg-panel)', cursor: 'pointer', color: 'var(--q-text-secondary)', transition: 'none' }}>
         <Checklist size={16} />
       </button>
-      <button onClick={() => { setTaskPanelMode('results'); toggleTaskPanel() }} title={(taskPanelOpen && taskPanelMode === 'results') ? 'Collapse tasks' : 'Show tasks'} style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 'var(--radius-lg)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-panel)', cursor: 'pointer', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: 13, transition: 'none' }}>
-        <Checklist size={16} style={{ color: taskRunning ? 'var(--q-accent-info)' : 'var(--q-text-secondary)', flexShrink: 0 }} />
-        <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{taskLabel}</span>
-        {(taskPanelOpen && taskPanelMode === 'results') ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+      <button onClick={() => { setTaskPanelMode('results'); toggleTaskPanel() }} title={(taskPanelOpen && taskPanelMode === 'results') ? 'Collapse tasks' : 'Show tasks'} style={{ flex: 1, minWidth: 0, padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8, border: (taskPanelOpen && taskPanelMode === 'results') ? 'none' : '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', cursor: 'pointer', backgroundColor: (taskPanelOpen && taskPanelMode === 'results') ? 'transparent' : 'var(--q-bg-panel)', color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', fontSize: 13, transition: 'none', textAlign: 'left' }}>
+        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--q-text-secondary)' }}>{taskLabel}</span>
+        {(taskPanelOpen && taskPanelMode === 'results') ? <ChevronDown size={16} style={{ flexShrink: 0 }} /> : <ChevronUp size={16} style={{ flexShrink: 0 }} />}
       </button>
     </div>
   ) : null
+  // Contenuto del pannello 'db' (tabella scheduled di questa chat) — usato da ENTRAMBI i pannelli veri
+  const dbHeader = (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', flexShrink: 0 }}>
+      <Checklist size={16} style={{ color: 'var(--q-accent-calendar)', flexShrink: 0 }} />
+      <span style={{ flex: 1, color: 'var(--q-text)', fontSize: 13.5, fontWeight: 600, fontFamily: 'var(--font-interface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{'Scheduled tasks \u00b7 ' + (props.session?.label || '')}</span>
+      <button onClick={() => setTaskPanelOpen(false)} title="Close" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-tertiary)', padding: 4, display: 'flex' }}><X size={16} /></button>
+    </div>
+  )
+  const dbContent = (
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+      {dbHeader}
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', overflow: 'hidden' }}>
+        <CalendarView lockedChat={{ key: sessionIdKey }} activePanel={props.activePanel} onSelectPanel={props.onSelectPanel} agents={props.agents} />
+      </div>
+    </div>
+  )
+  // BUGFIX (16 ott): il tasto "giu'" restava visibile dopo aver CHIUSO un toggle (altezza cambiata, nessun ricalcolo)
+  const recomputeTaskScrollBtn = () => {
+    const run = () => { const el = taskScrollRef.current; if (el) setShowTaskScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100) }
+    try { requestAnimationFrame(run) } catch {}
+    setTimeout(run, 60); setTimeout(run, 220)
+  }
   const prevSessionIdRef = useRef('')
   const [searchQuery, setSearchQuery] = useState('')
   const [searchDate, setSearchDate] = useState('')
@@ -840,13 +822,14 @@ export function ChatArea(props: ChatAreaProps) {
       ) : isEmpty ? (
         taskPanelOpen ? (
           <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column', margin: '2px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom' }}>
+            {taskPanelMode === 'db' ? dbContent : (
             <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '16px 16px', scrollbarGutter: 'stable' }}>
               {taskRuns.length === 0 ? (
                 <div style={{ color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', padding: '24px 8px', textAlign: 'center' }}>No tasks yet.</div>
               ) : taskRuns.map((run) => (
-                <TaskResultToggle key={run.id} run={run} sessionKey={props.session?.id} showClip />
+                <TaskResultToggle key={run.id} run={run} sessionKey={props.session?.id} showClip onResize={recomputeTaskScrollBtn} />
               ))}
-            </div>
+            </div>)}
             {taskStripBar}
           </div>
         ) : (
@@ -955,17 +938,18 @@ export function ChatArea(props: ChatAreaProps) {
                 })()}
               </div>
               {/* Task — SEMPRE montato (display none quando il pannello è chiuso) */}
-              <div ref={taskScrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '16px 16px', scrollbarGutter: 'stable', display: taskPanelOpen ? 'block' : 'none' }}
+              <div ref={taskScrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '16px 16px', scrollbarGutter: 'stable', display: (taskPanelOpen && taskPanelMode === 'results') ? 'block' : 'none' }}
                 onScroll={e => { const el = e.currentTarget; setShowTaskScrollBtn(el.scrollTop + el.clientHeight < el.scrollHeight - 100); taskPinnedRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 120 }}>
                 {taskRuns.length === 0 ? (
                   <div style={{ color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)', padding: '24px 8px', textAlign: 'center' }}>No tasks yet.</div>
                 ) : taskRuns.map((run) => (
-                  <TaskResultToggle key={run.id} run={run} sessionKey={props.session?.id} showClip />
+                  <TaskResultToggle key={run.id} run={run} sessionKey={props.session?.id} showClip onResize={recomputeTaskScrollBtn} />
                 ))}
               </div>
+              {taskPanelOpen && taskPanelMode === 'db' ? dbContent : null}
             </div>
-            {(taskPanelOpen ? showTaskScrollBtn : showScrollBtn) && (
-              <button onClick={() => { const el = taskPanelOpen ? taskScrollRef.current : scrollRef.current; if (el) el.scrollTop = el.scrollHeight }}
+            {((taskPanelOpen && taskPanelMode === 'results') ? showTaskScrollBtn : (!taskPanelOpen ? showScrollBtn : false)) && (
+              <button onClick={() => { const el = (taskPanelOpen && taskPanelMode === 'results') ? taskScrollRef.current : scrollRef.current; if (el) el.scrollTop = el.scrollHeight }}
                 style={{ position: 'absolute', bottom: (hasTasks ? 44 : 0) + 'px', right: '0px', zIndex: 10, width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--q-tab-accent)', color: getContrastColor('--q-tab-accent'), border: 'none', boxShadow: 'var(--shadow-floating)', cursor: 'pointer' }}>
                 <ArrowDown size={20} />
               </button>
