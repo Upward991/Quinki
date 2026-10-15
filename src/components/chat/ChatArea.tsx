@@ -811,8 +811,7 @@ export function ChatArea(props: ChatAreaProps) {
         </div>
       ) : isEmpty ? (
         taskPanelOpen ? (
-          <>
-          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column', margin: '2px 2px 0 2px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--q-border)', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom' }}>
+          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column', margin: '2px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--q-border)', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom' }}>
             {taskPanelMode === 'db' ? dbContent : (
             <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '16px 16px', scrollbarGutter: 'stable' }}>
               {taskRuns.length === 0 ? (
@@ -821,9 +820,8 @@ export function ChatArea(props: ChatAreaProps) {
                 <TaskResultToggle key={run.id} run={run} sessionKey={props.session?.id} showClip onResize={recomputeTaskScrollBtn} />
               ))}
             </div>)}
+            {taskStripBar}
           </div>
-          {taskStripBar}
-          </>
         ) : (
         <>
           <div className="flex-1 flex items-center justify-center">
@@ -855,11 +853,10 @@ export function ChatArea(props: ChatAreaProps) {
       ) : (
         <>
           {/* Messages — area unica: scroll (chat o task) + barra riassunto in fondo (la striscia, sempre stessa posizione) */}
-          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column' }}>
-            {/* REGOLA UTENTE (16 ott): il contorno della sezione aperta NON include la striscia — il box sta qui,
-                attorno al SOLO contenuto; sotto restano [tasto quadrato][striscia] come elementi separati. */}
-
-            <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column', ...(taskPanelOpen ? { margin: '2px 2px 0 2px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--q-border)', overflow: 'hidden', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom' } : {}) }}>
+          {/* REGOLA UTENTE (disegni 16 ott): quando è aperta, la sezione è UN SOLO contenitore — bordo, angoli
+              tondi e sfondo attorno a TUTTO (contenuto + riga [tasto quadrato][barra]): il panel resta dietro i tasti. */}
+          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column', ...(taskPanelOpen ? { margin: '2px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--q-border)', overflow: 'hidden', animation: 'taskPanelExpand 180ms ease-out', transformOrigin: 'bottom' } : {}) }}>
+            <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
               {/* Chat — SEMPRE montata (display none quando il pannello task è aperto) → lo scroll resta dov'era */}
               <div ref={scrollRef} className="q-scroll" style={{ flex: 1, overflowY: 'auto', padding: '4px 16px ' + (hasTasks ? 8 : 0) + 'px 16px', scrollbarGutter: 'stable', display: taskPanelOpen ? 'none' : 'block' }}
                 onScroll={e => { const el = e.currentTarget; const overflow = el.scrollHeight - el.clientHeight; setShowScrollBtn(overflow > 260 && el.scrollTop < overflow - 100); pinnedRef.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 120; if (el.scrollTop < 40 && props.onLoadOlder && !loadingOlderRef.current && props.messages.length > 0) { loadingOlderRef.current = true; anchorRef.current = { height: el.scrollHeight, top: el.scrollTop }; setTimeout(() => { loadingOlderRef.current = false }, 600); props.onLoadOlder() } }}>

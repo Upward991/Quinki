@@ -625,8 +625,13 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
         React.createElement('span', { style: { color: 'var(--q-text)', fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-interface)' } }, g.label),
         React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)' } }, '(' + gItems.length + ')'),
         React.createElement('span', { key: 'sp', style: { flex: 1 } }),
+        locked ? React.createElement(RowBtn, { key: 'searchH', title: 'Search', onClick: (ev: any) => { ev.stopPropagation(); if (searchOpen) setLockQ(''); setSearchOpen(!searchOpen) }, color: lockQ ? 'var(--q-tab-accent)' : undefined }, React.createElement(Search, { size: 14 })) : null,
         React.createElement(RowBtn, { key: 'del', title: selTasks.size > 0 ? ('Delete ' + selTasks.size + ' selected') : ('Delete all tasks in ' + g.label), hoverColor: 'var(--q-accent-danger)', onClick: (e: any) => { e.stopPropagation(); const sel = selTasks.size > 0 ? filtered.filter(x => selTasks.has(x.id)) : []; const scope = sel.length > 0 ? sel : gItems; setDeleteTask({ items: scope.map(x => ({ id: x.id, kind: x.kind, title: x.title })), section: sel.length > 0 ? undefined : g.label }) } }, React.createElement(Trash2, { size: 14 })),
       ]),
+      locked && searchOpen ? React.createElement('div', { key: 'sq', style: { display: 'flex', alignItems: 'center', gap: 8, padding: '0 4px 8px 4px' } }, [
+        React.createElement(Search, { key: 'i', size: 14, style: { color: 'var(--q-text-tertiary)', flexShrink: 0 } }),
+        React.createElement('input', { key: 'in', autoFocus: true, value: lockQ, onChange: (e: any) => setLockQ(e.target.value), onKeyDown: (e: any) => { if (e.key === 'Escape') { setLockQ(''); setSearchOpen(false) } }, placeholder: 'Search activities...', style: { flex: 1, minWidth: 0, height: 34, padding: '0 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)', boxSizing: 'border-box' } }),
+      ]) : null,
       open ? tableFor(gItems) : null,
     ])
   }))
@@ -827,19 +832,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     React.createElement(FilterChip, { key: 'fA', label: 'Agent', values: f.agents, options: agents, onChange: (v: string[]) => patchF({ agents: v }) }),
     React.createElement(FilterChip, { key: 'fC', label: 'Chat', values: f.chats, options: chats, onChange: (v: string[]) => patchF({ chats: v }) }),
   ] : []
-  const toolbarLocked = React.createElement('div', { key: 'tb', style: { display: 'flex', flexDirection: 'column', padding: '4px 0 8px 0' } }, [
-    React.createElement('div', { key: 'row', style: { display: 'flex', alignItems: 'center', gap: 4 } }, [
-      (!mob && searchOpen) ? React.createElement('div', { key: 'siw', style: { position: 'relative', flexShrink: 0 } }, [
-        React.createElement('input', { key: 'si', autoFocus: true, value: lockQ, onChange: (e: any) => setLockQ(e.target.value), onKeyDown: (e: any) => { if (e.key === 'Escape') { setLockQ(''); setSearchOpen(false) } }, placeholder: 'Search activities...', style: { width: 240, height: 30, padding: '0 28px 0 12px', boxSizing: 'border-box', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)' } }),
-        React.createElement('button', { key: 'x', title: 'Clear search', onClick: () => setLockQ(''), style: { position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--q-text-tertiary)', padding: 4, display: 'flex', opacity: lockQ ? 1 : 0.4 } }, React.createElement(X, { size: 14 })),
-      ]) : null,
-      React.createElement(RowBtn, { key: 'search', title: 'Search', onClick: () => { if (searchOpen) setLockQ(''); setSearchOpen(!searchOpen) }, color: lockQ ? 'var(--q-tab-accent)' : undefined }, React.createElement(Search, { size: 18 })),
-      (mob && searchOpen) ? React.createElement(BottomSheet, { key: 'ss', open: true, onClose: () => setSearchOpen(false), hideBack: true, hideNav: true, items: [], view: React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, padding: '0 8px 8px 8px' } }, [React.createElement(Search, { key: 'i2', size: 14, style: { color: 'var(--q-text-tertiary)', flexShrink: 0 } }), React.createElement('input', { key: 'si2', autoFocus: true, value: lockQ, onChange: (e: any) => setLockQ(e.target.value), placeholder: 'Search activities...', style: { flex: 1, minWidth: 0, height: 36, background: 'transparent', border: 'none', outline: 'none', color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)' } }), React.createElement('button', { key: 'cl2', onClick: () => setSearchOpen(false), style: { flexShrink: 0, padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', cursor: 'pointer' } }, 'Close')]) }) : null,
-      React.createElement('span', { key: 'grow', style: { flex: 1 } }),
-      React.createElement('div', { key: 'sep', style: { height: 1, backgroundColor: 'var(--q-border)', marginTop: 6 } }),
-    ]),
-  ])
-  const toolbar = locked ? toolbarLocked : React.createElement('div', { key: 'tb', style: { display: 'flex', flexDirection: 'column', padding: '4px 0 8px 0' } }, [
+  const toolbar = locked ? null : React.createElement('div', { key: 'tb', style: { display: 'flex', flexDirection: 'column', padding: '4px 0 8px 0' } }, [
     React.createElement('div', { key: 'row', style: { display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' } }, [
     React.createElement('button', { key: 'addtask', title: 'Create task', onClick: () => { setCtTitle(''); setCtText(''); setCtAgent(agents[0]?.id || 'orchestrator'); setCtDate(''); setCtTime(''); setCtRecur('once'); setCtModel(null); setCtThinking(null); setCtChat(''); setPickSearch(''); setCreateTaskOpen(true); refresh() }, style: { display: 'flex', alignItems: 'center', gap: 5, height: 30, boxSizing: 'border-box', padding: '0 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)', cursor: 'pointer', whiteSpace: 'nowrap' } }, 'Create task'),
     React.createElement('span', { key: 'grow', style: { flex: 1 } }),
