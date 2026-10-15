@@ -519,9 +519,7 @@ export function ChatArea(props: ChatAreaProps) {
   const nookPiece = (posStyle: any, mirror?: boolean) => (
     <svg width="16" height="16" viewBox="0 0 16 16" style={{ position: 'absolute', display: 'block', pointerEvents: 'none', ...posStyle, ...(mirror ? { transform: 'scaleX(-1)' } : {}) }} aria-hidden="true">
       <rect x="0" y="0" width="16" height="16" fill="var(--q-bg-panel)" />
-      <rect x="12" y="0" width="4" height="16" fill="var(--q-bg)" />
-      <rect x="0" y="12" width="16" height="4" fill="var(--q-bg)" />
-      <path d="M 0 12.5 A 12 12 0 0 0 12 0.5 L 0.5 0.5 Z" fill="var(--q-bg)" />
+      <path d="M 0 12.5 A 12 12 0 0 0 12 0.5 L 16 0.5 L 16 16 L 0.5 16 Z" fill="var(--q-bg)" />
       <path d="M 0 12.5 A 12 12 0 0 0 12 0.5" fill="none" stroke="var(--q-border)" strokeWidth="1" />
     </svg>
   )
