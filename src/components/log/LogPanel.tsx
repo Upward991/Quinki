@@ -145,8 +145,13 @@ export function LogPanel(props: LogPanelProps) {
     if (!oldest || typeof oldest.ts !== 'number') return
     loadingOlderRef.current = true
     setTimeout(() => { loadingOlderRef.current = false }, 600)
-    call('getDebugLogBefore', { from: oldest.ts, limit: 100 }).then((r: any) => {
-      if (r?.entries && r.entries.length) {
+    // Con filtri attivi: ultimi 100 DEL FILTRO più vecchi (anche di una settimana fa ✓)
+    // Senza filtri: ultimi 100 globali. Sempre 100 in 100, come le chat.
+    const m = Array.from(activeFilters).length > 0
+      ? call('getFilteredBefore', { levels: Array.from(activeFilters), from: oldest.ts, limit: 100 })
+      : call('getDebugLogBefore', { from: oldest.ts, limit: 100 })
+    m.then((r: any) => {
+      if (r?.entries?.length) {
         setEntries(prev => {
           const seen = new Set(prev.map((e: any) => e.ts + ':' + e.tag))
           const add = r.entries.filter((e: any) => !seen.has(e.ts + ':' + e.tag))
@@ -154,7 +159,7 @@ export function LogPanel(props: LogPanelProps) {
         })
       }
     }).catch(() => {})
-  }, [call, entries])
+  }, [call, entries, activeFilters])
   const onScroll = () => {
     const el = bodyRef.current
     if (!el) return
