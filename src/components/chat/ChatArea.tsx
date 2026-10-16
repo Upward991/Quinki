@@ -9,7 +9,7 @@ import { getContrastColor } from '../../utils/contrast'
 import { MessageBubble } from './MessageBubble'
 import { ChatHeader } from './ChatHeader'
 import { Composer } from './Composer'
-import {ArrowDown, Checklist, ChevronDown, ChevronRight, ChevronUp, Copy, Paperclip, X, Bot, Search, Calendar, Clock} from '../icons'
+import { ArrowDown, Checklist, ChevronDown, ChevronRight, ChevronUp, Copy, Paperclip, X, Search, Calendar, Clock } from '../icons'
 import { ExpertAppIcon } from '../../tabs'
 import { useSidecarContext } from '../shared/AppShell'
 import { CalendarView } from '../calendar/CalendarView'
@@ -266,7 +266,6 @@ export function ChatArea(props: ChatAreaProps) {
   const markerScrolledRef = useRef(false)
   const autoScrollDoneRef = useRef(false)
   const openTsRef = useRef(0)
-  const markReadTimerRef = useRef<any>(null)
   const messagesRef = useRef(props.messages)
   useEffect(() => { messagesRef.current = props.messages }, [props.messages])
   const chatItemsRef = useRef<any[]>([])
@@ -478,9 +477,7 @@ export function ChatArea(props: ChatAreaProps) {
       if (opening) taskPinnedRef.current = true
     }
   }, [taskPanelOpen, taskRuns])
-  const taskRunning = taskExecs.filter((e: any) => e.status === 'running' || e.status === 'queued').length
   const taskDone = taskExecs.filter((e: any) => e.status === 'executed').length
-  const taskRunningItem = taskExecs.find((e: any) => e.status === 'running' || e.status === 'queued')
   const pl = (n: number) => (n === 1 ? '' : 's')
   const taskLabel = taskScheds.length + ' task' + pl(taskScheds.length) + ' scheduled' + (taskDone ? ' · ' + taskDone + ' executed' : '')
   const hasTasks = taskExecs.length > 0 || taskScheds.length > 0

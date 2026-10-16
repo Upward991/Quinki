@@ -36,7 +36,7 @@ function notesKey(tabId: string): string {
   return NOTES_KEYS[tabId]
 }
 
-export function makeQuinki(manifest: any, opts?: QuinkiRuntimeOpts): QuinkiAPI {
+function makeQuinki(manifest: any, opts?: QuinkiRuntimeOpts): QuinkiAPI {
   const call = opts?.call
   const onToast = opts?.onToast
   return {
@@ -85,7 +85,7 @@ function makeGenericPackage(id: string, item: any) {
 }
 
 // Valuta il bundle e restituisce la funzione componente.
-export function loadTabComponent(id: string, opts?: QuinkiRuntimeOpts): (props: { quinki: QuinkiAPI }) => any {
+function loadTabComponent(id: string, opts?: QuinkiRuntimeOpts): (props: { quinki: QuinkiAPI }) => any {
   const item = findCatalogItem(id)
   const pkg = findTabPackage(id) || (item ? makeGenericPackage(id, item) : undefined)
   if (!pkg) return () => null
@@ -101,7 +101,7 @@ export function loadTabComponent(id: string, opts?: QuinkiRuntimeOpts): (props: 
 
 // Cache: il componente del bundle NON cambia tra render (evita remount e perdita stato)
 const compCache: Record<string, (props: { quinki: QuinkiAPI }) => any> = {}
-export function getTabComponent(id: string, opts?: QuinkiRuntimeOpts) {
+function getTabComponent(id: string, opts?: QuinkiRuntimeOpts) {
   if (!compCache[id]) compCache[id] = loadTabComponent(id, opts)
   return compCache[id]
 }

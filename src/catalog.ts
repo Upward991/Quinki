@@ -3,7 +3,7 @@
 // pensato come un sito: home (trending / più scaricati / consigliati), pagine
 // di dettaglio con specifiche e profili degli sviluppatori. Tutto è simulato
 // graficamente ora, per vedere l'intero flusso prima del catalogo online.
-import { FileText, Bookmark, Clock, Checklist, Activity, Pulse, Sparkles, Brain, Terminal, Calendar, Palette, Plug, Shield, Cpu, Network, Wrench, MessageSquare, Search } from './components/icons'
+import { FileText, Bookmark, Clock, Activity, Sparkles, Terminal, Palette, Shield, Network, Search } from './components/icons'
 
 export interface CatalogItem {
   id: string          // id catalogo

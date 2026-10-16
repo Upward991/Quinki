@@ -3,7 +3,7 @@
 // l'ordine (persistito in localStorage) e le tab installate (in A4.2 verranno
 // dal marketplace; per ora da localStorage come segnaposto).
 import React from 'react'
-import { Bot, Terminal, MessageSquare, Settings, Checklist, BookOpen, Store } from './components/icons'
+import { Bot, Terminal, MessageSquare, Settings, Checklist, Store } from './components/icons'
 import { getRegistry, saveRegistry } from './registry'
 import { findCatalogItem, resolveCatalogIcon } from './catalog'
 
@@ -29,7 +29,7 @@ export function ExpertAppIcon({ size = 28 }: any) {
 }
 
 // Le 6 tab base — NON eliminabili, solo riordinabili
-export const baseTabs: HomeTab[] = [
+const baseTabs: HomeTab[] = [
   { id: 'chat',     icon: MessageSquare, label: 'Sessions',     color: 'var(--q-accent-info)',      panel: 'chat',     doubleBot: false, base: true },
   { id: 'calendar', icon: Checklist,     label: 'Agents Tasks', color: 'var(--q-accent-calendar)',  panel: 'calendar', doubleBot: false, base: true },
   { id: 'agents',   icon: Bot,           label: 'Agents',       color: 'var(--q-accent-secondary)', panel: 'agents',   doubleBot: true,  base: true },
@@ -128,26 +128,6 @@ export function saveHomeColumns(n: number) {
 }
 
 // Tab visibili nella Home: ordine persistito + base + installate
-// ── SIMULAZIONE (dev/test): genera N tab fittizie installate ──
-export function simulateTabs(n: number): HomeTab[] {
-  const colors = ['var(--q-accent-info)', 'var(--q-accent-success)', 'var(--q-accent-warning)', 'var(--q-accent-danger)', 'var(--q-accent-secondary)', 'var(--q-accent-calendar)']
-  const labels = ['Knowledge', 'Notes AI', 'Finance', 'Health', 'Travel', 'Music', 'Movies', 'Reading', 'Fitness', 'Cooking', 'Projects', 'Ideas', 'Goals', 'Journal', 'Budget', 'Weather', 'News', 'Email', 'Calendar AI', 'Tasks Pro', 'Study', 'Work', 'Gaming', 'Photos', 'Music 2', 'Podcasts', 'Stocks', 'Crypto', 'Sports', 'Meditation', 'Sleep', 'Diet', 'Shopping', 'Friends', 'Family', 'Events', 'Reminders', 'Habits', 'Quotes', 'Math', 'Code', 'Design', 'Writing', 'Research', 'Maps', 'Travel', 'Languages', 'Culture', 'Science', 'Space']
-  const out: HomeTab[] = []
-  for (let i = 0; i < n; i++) {
-    // NB: NON salvare 'icon' (è una funzione React, non serializzabile) —
-    // viene riassegnata al caricamento in loadInstalledTabs
-    out.push({
-      id: 'sim-' + i,
-      icon: (i % 2 === 0) ? Bot : BookOpen,
-      label: labels[i % labels.length] + ' ' + (i + 1),
-      color: colors[i % colors.length],
-      panel: '',
-      base: false,
-    })
-  }
-  saveInstalledTabs(out.map(({ icon, ...rest }) => rest as any))
-  return out
-}
 // Versione serializzabile delle tab installate (senza funzioni icona)
 export function serializeInstalledTabs(): any[] {
   return loadInstalledTabs().map(({ icon, ...rest }) => rest)
@@ -228,7 +208,7 @@ export function getMyRepos(): MyRepo[] {
   } catch {}
   return []
 }
-export function saveMyRepos(repos: MyRepo[]) {
+function saveMyRepos(repos: MyRepo[]) {
   try { localStorage.setItem(MY_REPOS_KEY, JSON.stringify(repos.map((r) => ({ url: cleanStr(r.url), label: cleanStr(r.label) || cleanStr(r.url), addedAt: r.addedAt || Date.now() })).filter((r) => !!r.url))) } catch {}
 }
 export function addMyRepo(url: string, label: string): boolean {
@@ -270,7 +250,7 @@ export function getRemovedDefaultRepos(): string[] {
   } catch {}
   return []
 }
-export function saveRemovedDefaultRepos(list: string[]) {
+function saveRemovedDefaultRepos(list: string[]) {
   try { localStorage.setItem(DEFAULT_REPOS_REMOVED_KEY, JSON.stringify(Array.from(new Set(list.map(cleanStr).filter(Boolean))))) } catch {}
 }
 export function getDefaultRepos(): MyRepo[] {
@@ -322,19 +302,6 @@ export function installMarketItem(id: string, category: string) {
 }
 export function uninstallMarketItem(id: string, category: string) {
   saveMarketItems(getMarketItems().filter((x) => !(x.id === id && x.category === category)))
-}
-
-// Versione attualmente installata di un item (per lo store: mostra Install/Update/Remove)
-export function getInstalledVersion(itemId: string): string | null {
-  const installed = loadInstalledTabs()
-  const t = installed.find((x) => x.id === itemId)
-  if (!t) return null
-  // il numero di versione è nel catalogo; lo stato installato è comunque "presente"
-  return (t as any).version || '0'
-}
-
-export function clearInstalledTabs() {
-  try { localStorage.removeItem(INSTALLED_KEY) } catch {}
 }
 
 export function isInstalledTab(id: string): boolean {

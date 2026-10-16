@@ -10,7 +10,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useLayout } from '../../platform/layout'
-import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from '../icons'
+import { ChevronLeft } from '../icons'
 
 export interface SheetItem {
   icon?: React.ReactNode

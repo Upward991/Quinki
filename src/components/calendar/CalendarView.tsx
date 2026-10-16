@@ -1,21 +1,14 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { DndContext, closestCenter, MouseSensor, TouchSensor, useSensor, useSensors, DragOverlay, useDraggable, useDroppable } from '@dnd-kit/core'
-import { arrayMove } from '@dnd-kit/sortable'
+import {  } from '@dnd-kit/sortable'
 import { useSidecarContext } from '../shared/AppShell'
 import { ModelPickerModal, ThinkingPickerModal } from '../chat/ChatHeader'
 import { MessageBubble } from '../chat/MessageBubble'
 import { ChatArea } from '../chat/ChatArea'
 import { mergeHistoryMessages } from '../../utils/history'
-import { Home, Checklist, Play, X, RotateCcw, Trash2, Search, Plus, Filter, Check, ChevronDown, ChevronRight, PanelLeft, MessageSquare, Maximize, Minimize , Pin } from '../icons'
+import { Home, Checklist, Play, X, Trash2, Search, Plus, Filter, Check, ChevronDown, ChevronRight, PanelLeft, Maximize, Minimize, Pin } from '../icons'
 import { BottomSheet } from '../chat/BottomSheet'
 
-const STATUS_COLOR: Record<string, string> = {
-  scheduled: 'var(--q-accent-calendar)',
-  off: 'var(--q-text-tertiary)',
-  queued: 'var(--q-accent-warning)',
-  running: 'var(--q-accent-info)',
-  executed: 'var(--q-accent-success)',
-}
 const GROUP_DEFS: { key: string; label: string; color: string }[] = [
   { key: 'scheduled', label: 'Scheduled', color: 'var(--q-accent-calendar)' },
   { key: 'running', label: 'Execution', color: 'var(--q-accent-info)' },
@@ -24,7 +17,6 @@ const GROUP_DEFS: { key: string; label: string; color: string }[] = [
 const COLS: { key: string; label: string }[] = [{ key: 'title', label: 'Task' }, { key: 'agent', label: 'Agent' }, { key: 'chat', label: 'Chat' }, { key: 'mt', label: 'Model · Thinking' }, { key: 'when', label: 'Time · Date' }, { key: 'type', label: 'Type' }, { key: 'actions', label: '' }]
 
 const panelStyle: React.CSSProperties = { backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)', padding: '8px', minHeight: 'var(--spacing-header-min)', display: 'flex', alignItems: 'center' }
-const cellBorder = '1px solid var(--q-border)'
 
 function fmtDT(ts: number | null | undefined): string { if (!ts) return '—'; const d = new Date(ts); return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false }) }
 function parseFlexDate(s: string): Date | null {
@@ -170,7 +162,6 @@ function RowBtn({ title, onClick, children, color, hoverColor }: { title: string
 }
 function ViewRow({ v, active, renaming, renameVal, onRenameChange, onRenameCommit, onRenameCancel, onSelect, onContextMenu, multiSel, selected, onToggleSel, isOverlay, onMenu }: { v: ViewCfg; active: boolean; renaming: boolean; renameVal: string; onRenameChange: (s: string) => void; onRenameCommit: () => void; onRenameCancel: () => void; onSelect: () => void; onContextMenu: (e: React.MouseEvent, v: ViewCfg) => void; multiSel: boolean; selected: boolean; onToggleSel: () => void; isOverlay?: boolean; onMenu?: (v: ViewCfg, e: any) => void }) {
   const [h, setH] = useState(false)
-  const isBase = v.id === BASE_ID
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: v.id, disabled: !!isOverlay })
   const { setNodeRef: setDropRef } = useDroppable({ id: v.id, disabled: !!isOverlay })
   const color = multiSel ? (selected ? 'var(--q-accent-danger)' : h ? 'var(--q-text)' : 'var(--q-text-secondary)') : active ? 'var(--q-tab-accent)' : h ? 'var(--q-text)' : 'var(--q-text-secondary)'
@@ -187,18 +178,6 @@ function ViewRow({ v, active, renaming, renameVal, onRenameChange, onRenameCommi
 function MtText({ label, onClick }: { label: string; onClick: (e: any) => void }) {
   const [h, setH] = useState(false)
   return React.createElement('span', { onClick, onMouseEnter: () => setH(true), onMouseLeave: () => setH(false), style: { color: h ? 'var(--q-text)' : 'var(--q-text-secondary)', cursor: 'pointer', fontSize: 12.5, fontFamily: 'var(--font-interface)', whiteSpace: 'normal', overflow: 'hidden', transition: 'none' } }, label)
-}
-
-function MiniSelect({ value, options, onChange }: { value: string; options: { value: string; label: string }[]; onChange: (v: string) => void }) {
-  const [open, setOpen] = useState(false)
-  const cur = options.find(o => o.value === value) || options[0]
-  return React.createElement('div', { style: { position: 'relative', display: 'inline-block' } }, [
-    React.createElement('button', { key: 'b', onClick: () => setOpen(!open), style: { height: 28, padding: '0 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 12.5, fontFamily: 'var(--font-interface)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 } }, [cur.label, React.createElement(ChevronDown, { key: 'a', size: 12 })]),
-    open ? React.createElement(React.Fragment, { key: 'm' }, [
-      React.createElement('div', { key: 'o', style: { position: 'fixed', inset: 0, zIndex: 260 }, onClick: () => setOpen(false) }),
-      React.createElement('div', { key: 'd', style: { position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 261, maxHeight: 180, overflowY: 'auto', minWidth: 90, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: 4, display: 'flex', flexDirection: 'column', gap: 1 } }, options.map(o => React.createElement('button', { key: o.value, onClick: () => { onChange(o.value); setOpen(false) }, style: { textAlign: 'left', padding: '5px 8px', borderRadius: 'var(--radius-sm)', border: 'none', cursor: 'pointer', fontSize: 12.5, fontFamily: 'var(--font-interface)', backgroundColor: o.value === value ? 'var(--q-active)' : 'transparent', color: 'var(--q-text)' } }, o.label))),
-    ]) : null,
-  ])
 }
 
 function MenuItem({ label, color, onClick, icon }: any) {
@@ -242,7 +221,6 @@ function normalizeF(f: any): ViewCfg['f'] {
 }
 function normViews(v: any): ViewCfg[] { return (Array.isArray(v) ? v : []).map((x: any) => ({ id: x.id, name: x.name, type: x.type === 'board' ? 'board' : 'table', f: normalizeF(x.f), pinned: !!x.pinned })) } // ⬅️ pinned DEVE sopravvivere (era stato mangiato: il pin spariva ad ogni restore)
 function loadViews(): ViewCfg[] { try { const s = localStorage.getItem(VIEWS_KEY); if (s) { const v = normViews(JSON.parse(s)); if (v.length) return v } } catch {} return [{ id: BASE_ID, name: 'All', type: 'table', f: { q: '', status: 'all', agents: [], chats: [] } }] }
-const DEFAULT_VIEWS: ViewCfg[] = [{ id: BASE_ID, name: 'All', type: 'table', f: { q: '', status: 'all', agents: [], chats: [] } }]
 
 export function CalendarView(props: { activePanel: string; onSelectPanel: (p: string) => void; agents?: any[]; onOpenSession?: (key: string) => void; lockedChat?: { key: string; label?: string }; onSessionCreated?: (key: string) => void }) {
   const { call, subscribe } = useSidecarContext()
@@ -292,7 +270,6 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const [tcStatusKind, setTcStatusKind] = useState('')
   const tcTimer = useRef<any>(null)
   const tcChatRef = useRef<{ key: string; label: string; isNew: boolean } | null>(null)
-  const tcMsgRef = useRef<HTMLDivElement | null>(null)
   const tcSigRef = useRef('')
   const tcAgentsSigRef = useRef('')
   const tcDefModel = useRef('')
@@ -306,7 +283,6 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const [sideMode, setSideMode] = useState<'open' | 'hidden' | 'peek'>('open')
   const [sideW, setSideW] = useState(260)
   const [draggingSide, setDraggingSide] = useState(false)
-  const tblWrapRef = useRef<HTMLDivElement | null>(null)
   const panRef = useRef<{ el: HTMLDivElement | null; startX: number; startScroll: number; active: boolean; moved: boolean }>({ el: null, startX: 0, startScroll: 0, active: false, moved: false })
   const [panning, setPanning] = useState(false)
   const suppressClickRef = useRef(false)
@@ -406,8 +382,6 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       // e' VOLATILE (si azzera) mentre il SIDECAR salva SEMPRE. Quindi il sidecar
       // e' la verita' dei pin: si ripristina SEMPRE da lui (il locale integrato
       // come fallback solo se il sidecar non ha views).
-      const localPins = (() => { try { const raw = localStorage.getItem(VIEWS_KEY); const lv = raw ? JSON.parse(raw) : []; return lv.filter((v: any) => v.pinned).map((v: any) => v.id).join('|') } catch { return '?' } })()
-      // (traccia debug rimossa)
       if (Array.isArray(s.views) && s.views.length) {
         const nv = normViews(s.views)
         setViews(nv)
@@ -603,14 +577,6 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
     }
     // #7ott: lo scroll orizzontale e' CONDIVISO tra i tre gruppi: muovi una tabella,
     // le altre la seguono (larghezze colonne identiche = stesso scrollWidth).
-    const onTblScroll = (e: React.UIEvent<HTMLDivElement>) => {
-      const el = e.currentTarget as HTMLDivElement
-      const all = document.querySelectorAll('[data-tbl-scroll]')
-      for (let i = 0; i < all.length; i++) {
-        const x = all[i] as HTMLDivElement
-        if (x !== el && Math.abs(x.scrollLeft - el.scrollLeft) > 0.5) x.scrollLeft = el.scrollLeft
-      }
-    }
     return React.createElement('div', { key: 'tbl', 'data-tbl-scroll': '1', onMouseDown: startPan, style: { width: '100%', cursor: panning ? 'grabbing' : 'grab', userSelect: panning ? 'none' : 'text' } }, React.createElement('table', { style: { borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed', margin: '0 auto', width: '100%', minWidth: renderCols.reduce((a, k) => a + colW(k), 0) } }, [React.createElement('thead', { key: 'th' }, thead), React.createElement('tbody', { key: 'tb' }, tbody.length ? tbody : React.createElement('tr', { key: 'e' }, React.createElement('td', { colSpan: renderCols.length, style: { padding: 16, textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)' } }, 'No tasks in this group.')))]))
   }
 

@@ -7,9 +7,9 @@ import { useState, useEffect, useRef } from 'react'
 import { Upload, ShieldCheck, X, Search, FolderOpen } from '../icons'
 import { publishPackage, removePackage, scanPackageSafety, detectSecrets, checkPrStatus } from '../../publish'
 import { startOAuthFlow, pollOAuth, getGithubToken, setGithubToken, clearGithubToken, getGithubIdentity } from '../../ghOAuth'
-import { Gh } from '../settings/SettingsPanel'
+import {  } from '../settings/SettingsPanel'
 import { getMarketItems } from '../../tabs'
-import { findTabPackage } from '../../tabs/runtimePackages'
+import {  } from '../../tabs/runtimePackages'
 import { getStableCatalog } from '../../marketRemote'
 import { ConfirmModal } from './ConfirmModal'
 
@@ -364,7 +364,6 @@ export function PublishPanel({ call }: { call?: (method: string, params?: any, t
   // Pubblica UN elemento della coda, con la SUA versione. Se fallisce → errore nella riga.
   async function doPublishOne(item: any) {
     if (!identity || item.state === 'publishing') return
-    const itemKey = pkey(item)
     updatePending(item, (x) => ({ ...x, state: 'publishing', error: '', warnings: [] }))
     try {
       const files = await gatherFiles(item)

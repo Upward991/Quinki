@@ -170,7 +170,6 @@
   --q-tab-accent-darker: color-mix(in srgb, var(--q-tab-accent) 82%, black);
   --q-search-highlight-bg: #d7be66;
   --q-search-highlight-text: #161616;
-  --q-accent-info-darker: #5a8cd9;
   --q-accent-info-bright: #89b4fa;
   --q-accent-folder-open: #d9a066;
   --q-accent-orange: #d9a066;
@@ -323,8 +322,6 @@ input:focus, textarea:focus, button:focus { box-shadow: none; outline: none; }
 }
 
 /* Animation utility classes */
-.q-modal-enter { animation: 0.25s cubic-bezier(0.16, 1, 0.3, 1) modalEnter; }
-.q-msg-sent { animation: 0.3s cubic-bezier(0.16, 1, 0.3, 1) msgSent; }
 .q-send-pulse { animation: 0.3s cubic-bezier(0.16, 1, 0.3, 1) sendReadyPulse; }
 .q-press:active { transform: scale(0.97) !important; }
 
@@ -461,13 +458,6 @@ html:not(.q-phone) .mp-btn:hover { background-color: var(--mp-accent); color: va
   cursor: pointer; transition: none;
 }
 html:not(.q-phone) .mp-btn-back:hover { background-color: var(--mp-elevated); }
-.mp-btn-active {
-  display: flex; align-items: center; gap: 6px; padding: 7px 14px;
-  border-radius: var(--radius-sm); border: 1px solid var(--mp-accent);
-  background-color: var(--mp-accent); color: var(--mp-bg);
-  font-size: 13px; font-weight: 600; font-family: var(--font-interface);
-  cursor: pointer; transition: none;
-}
 .mp-btn-danger {
   display: flex; align-items: center; gap: 6px; padding: 6px 12px;
   border-radius: var(--radius-sm); border: 1px solid var(--mp-border-strong);
@@ -493,13 +483,6 @@ html:not(.q-phone) .mp-filter:hover { background-color: var(--mp-elevated); colo
   font-size: 12px; font-weight: 600; font-family: var(--font-interface);
   cursor: pointer; transition: none;
 }
-.mp-btn-avatar {
-  position: absolute; bottom: -2px; right: -2px;
-  width: 22px; height: 22px; border-radius: 50%;
-  border: 2px solid var(--mp-panel); background-color: var(--mp-accent); color: var(--mp-bg);
-  display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;
-}
-html:not(.q-phone) .mp-btn-avatar:hover { background-color: var(--mp-accent-strong); }
 
 /* FIX (31 ago): WebKit mostra un resize handle (pixel bianco) in basso a destra
    del textarea anche con resize:none. Questo lo nasconde completamente. */

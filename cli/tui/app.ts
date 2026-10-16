@@ -21,21 +21,18 @@ import {
   TuiAltScreen,
   ProcessTerminal,
   VStack,
-  HStack,
   Text,
   Markdown,
   Editor,
   ScrollView,
   Container,
-  Spacer,
-  CombinedAutocompleteProvider,
   matchesKey,
   isKeyRelease,
   getCellDimensions,
   visibleWidth,
 } from "../../sidecar-src/vendor/@earendil-works/pi-tui/dist/index.js";
 
-import { C, fg, bg, bgKeepPanel, collapsed, counterColor, blend, bold, italicStyle , panelBgWrap, contrastText, rgbOf } from "./theme";
+import { C, fg, bg, collapsed, counterColor, blend, bold, italicStyle, panelBgWrap, contrastText, rgbOf } from "./theme";
 
 // Engine (bundled at build time — literal specifiers only).
 import * as sdk from "../../sidecar-src/vendor/@earendil-works/pi-coding-agent/dist/index.js";

@@ -133,7 +133,7 @@ try {
   reportFrontendError('unhandledrejection', String(ev?.reason?.message || ev?.reason || ''))
 }
 
-// Context menu: gestito da InputContextMenu.tsx (componente React)
+// Context menu: gestito dai componenti (onContextMenu React)
 
 
 class ErrorBoundary extends React.Component<{children: React.ReactNode}, {error: string | null}> {

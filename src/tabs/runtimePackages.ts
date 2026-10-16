@@ -93,7 +93,7 @@ return function PomodoroTab({ quinki }) {
 }
 `
 
-export const tabPackages: TabPackage[] = [
+const tabPackages: TabPackage[] = [
   {
     manifest: {
       id: 'knowledge', name: 'Knowledge', version: '1.0.0', author: 'Quinki',
@@ -117,6 +117,3 @@ export function findTabPackage(id: string): TabPackage | undefined {
   return tabPackages.find((p) => p.manifest.id === id)
 }
 
-export function manifestOfPackage(pkg: TabPackage): TabManifest {
-  return pkg.manifest
-}

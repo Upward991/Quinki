@@ -1,6 +1,6 @@
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync, createHash } from "node:crypto";
 import { hostname, userInfo, homedir } from "node:os";
-import { platform, arch, cpus, totalmem } from "node:os";
+import { platform, arch } from "node:os";
 import * as fs from "node:fs";
 import * as path from "node:path";
 

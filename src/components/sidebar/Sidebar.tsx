@@ -1,11 +1,10 @@
 import React, { useState, useRef, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import {
-  DndContext, closestCenter, rectIntersection, pointerWithin, MouseSensor, TouchSensor, useSensor, useSensors,
+  DndContext, closestCenter, MouseSensor, TouchSensor, useSensor, useSensors,
   DragOverlay, useDroppable, useDraggable,
 } from '@dnd-kit/core'
-import { arrayMove } from '@dnd-kit/sortable'
-import { Folder, FolderOpen, MessageSquare, MessageSquarePlus, FolderAdd, Bell, BellOff, Checklist, Home, Pin } from '../icons'
+import { Folder, FolderOpen, MessageSquare, MessageSquarePlus, FolderAdd, Bell, BellOff, Home, Pin } from '../icons'
 import { BottomSheet } from '../chat/BottomSheet'
 import { useLayout } from '../../platform/layout'
 
@@ -114,7 +113,6 @@ export function Sidebar(props: SidebarProps) {
   }, [])
   // Reset scroll ref on drag start
 
-
   // Persist expanded folders to localStorage
   React.useEffect(() => {
     try { localStorage.setItem('quinki_expanded_folders', JSON.stringify([...expandedFolders])) } catch {}
@@ -203,7 +201,6 @@ export function Sidebar(props: SidebarProps) {
     // puntatore ha superato l'INTERO blocco della cartella (parent + figli visibili).
     // Prima bastava scendere sotto il parent per uscire: gli elementi uscivano
     // per sbaglio (visivamente erano ancora dentro).
-    let passedParentBlock = false
     const parentIdOfDrag = dragPromoted ? null : (dragItem?.parentId || null)
     let parentBlockBottom = -1
     let pIdx = -1
@@ -570,7 +567,6 @@ export function Sidebar(props: SidebarProps) {
               }
               return rows.map((r: any) => {
                 if (r.type === 'row' && r.item && r.item.type === 'pinsep') {
-                  const sepInd = dropZone?.id === '__pinsep__'
                   return (
                     <div key="__pinsep_row__" data-row-id="__pinsep__" data-pin-separator="1" style={{ display: 'flex', flexDirection: 'column', padding: '2px 12px 2px 12px' }}>
                       <div style={{ height: '1px', width: '100%', backgroundColor: 'var(--q-border)', margin: '8px 0' }} />
@@ -710,29 +706,6 @@ export function Sidebar(props: SidebarProps) {
   )
 }
 
-// === Transition Zone (between nested levels) ===
-function TransitionZone({ entry, isActive }: any) {
-  const { setNodeRef, isOver } = useDroppable({ id: entry.item.id })
-  if (!isActive) return <div ref={setNodeRef} data-row-id={entry.item.id} style={{ height: 0 }} />
-  return (
-    <div
-      ref={setNodeRef}
-      data-row-id={entry.item.id}
-      style={{
-        height: isOver ? '32px' : '20px',
-        margin: '1px 8px',
-        paddingLeft: `${entry.depth * 12 + 10}px`,
-        display: 'flex', alignItems: 'center',
-        color: 'var(--q-tab-accent)', fontSize: '13px', fontFamily: 'var(--font-interface)',
-        opacity: isOver ? 1 : 0.4,
-        overflow: 'hidden',
-      }}
-    >
-      {isOver ? entry.transitionLabel : ''}
-    </div>
-  )
-}
-
 // === Sortable Row ===
 function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, renameVal, dropZone, dropLabel, onSelect, onHover, onContextMenu, onRenameStart, onRenameChange, onRenameCommit, onRenameCancel, isOverlay, isSelected, multiSelect, notifyMode, onSetNotifyMode }: any) {
   const mob = useLayout().mode === 'mobile'
@@ -750,8 +723,6 @@ function SortableRow({ item, depth, isActive, isHovered, isExpanded, renaming, r
     ? expanded ? 'var(--q-accent-folder-open)' : isHovered ? 'var(--q-text)' : 'var(--q-text-tertiary)'
     : isSelected ? 'var(--q-accent-danger)' : isActive ? 'var(--q-accent-info)' : isHovered ? 'var(--q-text)' : 'var(--q-text-tertiary)'
   const bgColor = isHovered ? 'var(--q-hover)' : 'transparent' // hover su TUTTE le righe (anche attiva/selezionata); la selezione si vede dal colore icona/testo
-  const indent = 8 + depth * 12
-
   return (
     <div
       ref={setDropRef}

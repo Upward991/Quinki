@@ -3,8 +3,8 @@
 // In A4.3 queste tab caricheranno un bundle JS a potenza piena (modello VS Code).
 import React from 'react'
 import { useState, useEffect } from 'react'
-import { invoke } from '@tauri-apps/api/core'
-import { FileText, Bookmark, Clock, Play, Pause, RotateCcw, Plus, Trash2, Sparkles, ChevronLeft, Home } from '../icons'
+import {  } from '@tauri-apps/api/core'
+import { FileText, Bookmark, Plus, Trash2, Home } from '../icons'
 import { findCatalogItem } from '../../catalog'
 import { RuntimeTabPanel } from '../../tabs/runtime'
 import { useSidecarContext } from '../shared/AppShell'
@@ -107,48 +107,3 @@ function QuickLinksPanel({ onSelectPanel }: { onSelectPanel: (p: string) => void
   ] })
 }
 
-// ── Pomodoro: timer 25 min ──
-function PomodoroPanel({ onSelectPanel }: { onSelectPanel: (p: string) => void }) {
-  const [seconds, setSeconds] = useState(25 * 60)
-  const [running, setRunning] = useState(false)
-  useEffect(() => {
-    if (!running) return
-    const t = setInterval(() => setSeconds((s) => (s <= 0 ? 0 : s - 1)), 1000)
-    return () => clearInterval(t)
-  }, [running])
-  const mm = String(Math.floor(seconds / 60)).padStart(2, '0')
-  const ss = String(seconds % 60).padStart(2, '0')
-  return React.createElement(PanelShell, { children: [
-    React.createElement(PanelHeader, { icon: Clock, color: 'var(--q-accent-warning)', title: 'Pomodoro', onSelectPanel }),
-    React.createElement('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '20px' } },
-      React.createElement('div', { style: { fontSize: '72px', fontWeight: 700, fontFamily: 'var(--font-code)', color: seconds === 0 ? 'var(--q-accent-danger)' : 'var(--q-text)', letterSpacing: '2px' } }, `${mm}:${ss}`),
-      React.createElement('div', { style: { display: 'flex', gap: '8px' } },
-        React.createElement('button', {
-          onClick: () => setRunning(!running),
-          style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-interface)', cursor: 'pointer', transition: 'none' },
-          onMouseEnter: (e: any) => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' },
-          onMouseLeave: (e: any) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }
-        }, running ? React.createElement(Pause, { size: 14 }) : React.createElement(Play, { size: 14 }), running ? 'Pause' : 'Start'),
-        React.createElement('button', {
-          onClick: () => { setRunning(false); setSeconds(25 * 60) },
-          style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', cursor: 'pointer' },
-          onMouseEnter: (e: any) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' },
-          onMouseLeave: (e: any) => { e.currentTarget.style.backgroundColor = 'transparent' }
-        }, React.createElement(RotateCcw, { size: 14 }), 'Reset')
-      ),
-      React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' } }, '25 minutes · work / 5 minutes · break')
-    )
-  ] })
-}
-
-// ── Stub: tab non ancora implementata (A4.3) ──
-function StubPanel({ name, onSelectPanel }: { name: string, onSelectPanel: (p: string) => void }) {
-  return React.createElement(PanelShell, { children: [
-    React.createElement(PanelHeader, { icon: Sparkles, color: 'var(--q-accent-secondary)', title: name, onSelectPanel }),
-    React.createElement('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', textAlign: 'center' } },
-      React.createElement(Sparkles, { size: 28, style: { color: 'var(--q-accent-secondary)' } }),
-      React.createElement('div', {}, `"${name}" is installed. Its bundle arrives with A4.3, the JS tab runtime.`),
-      React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: '12px' } }, 'For now you can reorder it on the Home and uninstall it from the Market.')
-    )
-  ] })
-}

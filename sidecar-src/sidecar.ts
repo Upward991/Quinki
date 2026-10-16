@@ -20,7 +20,7 @@
 //   (pi_check_config, pi_create_config, get_history, update_last_read).
 
 import * as path from "node:path";
-import { createSign } from "node:crypto";
+import {  } from "node:crypto";
 import * as fs from "node:fs";
 import { homedir } from "node:os";
 import * as webpush from "web-push";
@@ -41,7 +41,6 @@ import {
   setPiBridgeInstance,
   isExpertSidecar,
   getSystemPromptIPC,
-  getStreamingStatusIPC,
   getSettings,
   getAppVersion,
   getProvidersConfig,

@@ -5,7 +5,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import type { Session, Agent } from '../../types'
-import { Home, PanelLeft, MessageSquare, Download, Search, RefreshCw, Bot, Calendar, Clock, ChevronDown, ChevronUp, Cpu, Brain, Network, X, Checklist, RotateCcw, Bell, BellOff, Paperclip, Menu, DataUsage, FileText } from '../icons'
+import { Home, PanelLeft, MessageSquare, Download, Search, RefreshCw, Bot, Calendar, Clock, ChevronDown, ChevronUp, Cpu, Brain, Network, Checklist, RotateCcw, Bell, BellOff, Paperclip, Menu, DataUsage, FileText } from '../icons'
 import { useLayout } from '../../platform/layout'
 import { BottomSheet, SheetRow } from './BottomSheet'
 import { invoke } from '@tauri-apps/api/core'
@@ -933,7 +933,6 @@ export function ThinkingPickerModal({ currentThinking, chatThinkingLevel, onClos
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
   }, [])
-  const effectiveLevel = chatThinkingLevel && chatThinkingLevel !== 'off' ? chatThinkingLevel : 'xhigh'
   const options: { value: string | null; label: string }[] = [{ value: null, label: 'Chat default' }, { value: 'on', label: 'On' }, { value: 'off', label: 'Off' }]
   return (
     <div ref={overlayRef} style={{ position: 'fixed', inset: 0, zIndex: 200, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={(e: any) => { if (e.target === e.currentTarget) onClose() }}>

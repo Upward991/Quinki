@@ -1,9 +1,9 @@
 import React from 'react'
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useSidecarContext } from '../shared/AppShell'
 import { prettifyMcpName } from '../../mcpNaming'
 import { BottomSheet } from '../chat/BottomSheet'
-import { Archive, BookOpen, Bot, ChevronDown, ChevronUp, Copy, FileText, Home, Info, Package, Palette, Pencil, Plug, Plus, Power, Save, Search, Settings, Shield, Trash, Wrench, X, PanelLeft } from '../icons'
+import { BookOpen, Bot, ChevronDown, ChevronUp, Copy, FileText, Home, Package, Pencil, Plug, Plus, Save, Search, Shield, Trash, Wrench, X, PanelLeft } from '../icons'
 
 // Mobile web: MAI tastiera automatica quando si aprono i menu
 const noAutoFocus = () => { try { return !(globalThis as any).__TAURI_INTERNALS__ && window.innerWidth <= 600 } catch { return false } }
@@ -188,13 +188,6 @@ export function AgentsPanel(props) {
     setDefaultMenuPos({ x: Math.max(8, x), y });
     setDefaultMenuOpen(true);
   };
-
-  // --- No toasts in header — only dirty/saved indicator ---
-  const onSaved = useCallback(() => {
-    setDirty(false);
-    setSavedMsg('Saved.');
-    setTimeout(() => setSavedMsg(null), 4000);
-  }, []);
 
   // --- Agent CRUD ---
 
@@ -1073,17 +1066,6 @@ function DefaultAgentMenuItem({ agent, isSelected, onSelect }) {
   });
 }
 
-function SubSection({ icon, title, action, children }) {
-  return React.createElement('div', { style: { width: '100%', padding: '12px 16px', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-floating)' }, children: [
-    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }, children: [
-      icon ? React.createElement(icon, { size: 16, style: { color: 'var(--q-tab-accent)', flexShrink: 0 } }) : null,
-      React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '14px', fontWeight: 600, fontFamily: 'var(--font-interface)' }, children: title }),
-      action
-    ]}),
-    children
-  ]});
-}
-
 function SearchBar({ placeholder, value, onChange }) {
   return React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-md)' }, children: [
     React.createElement(Search, { size: 16, style: { color: 'var(--q-text-tertiary)', flexShrink: 0 } }),
@@ -1528,10 +1510,6 @@ function McpInstallModal({ onClose, onInstalled }) {
       return (src.trim().split(/\s+/)[0] || src).split('/').pop();
     }
     return src;
-  };
-  const autoName = () => {
-    const src = type === 'command' ? cmd : (type === 'package' ? cleanNpmSource(source) : source);
-    return src.trim() ? prettifyMcpName(deriveName(src)) : '';
   };
   const handleSource = (v) => setSource(v);
   // FIX (6 ott): nel campo "Package (npm)" la gente incolla il blocco del README

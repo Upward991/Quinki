@@ -57,19 +57,7 @@ export function HomeView({activePanel, onSelectPanel}: {onSelectPanel: (panel: s
     }).catch(() => {})
     return () => { cancelled = true }
   }, [])
-  const setColumnsValue = useCallback((v: number) => {
-    setColumns(v); saveHomeColumns(v)
-    persistHome(v)
-  }, [rpcCall])
-
   // PERSISTENZA: salva colonne + ordine + tab installate nel file settings (sopravvive a riavvii/reinstall)
-  const persistHome = useCallback((cols: number) => {
-    try {
-      const hc = { columns: cols, order: loadTabOrder(), tabs: serializeInstalledTabs() }
-      rpcCall('saveSettings', { homeConfig: hc }).catch(() => {})
-    } catch {}
-  }, [rpcCall])
-
   // HYDRATE all'avvio dal file settings — riparte quando il sidecar è connesso
   // e RIPROVA finché le tab installate non sono visibili (al primo avvio dopo un
   // reinstall il sidecar può essere ancora in boot → getSettings fallisce → Home vuota)

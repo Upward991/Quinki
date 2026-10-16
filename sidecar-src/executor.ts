@@ -11,7 +11,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { homedir } from "node:os";
-import { spawn, execSync } from "node:child_process";
+import { spawn } from "node:child_process";
 
 const AGENT_DIR = process.env.QUINKI_AGENT_DIR || path.join(homedir(), ".quinki");
 const EXEC_BASE = path.join(AGENT_DIR, "executions");

@@ -1,4 +1,4 @@
-import type { Message, ThinkingBlock, ToolCall, ToolResult, DelegationBlock, CompactionInfo } from '../types'
+import type { Message, DelegationBlock, CompactionInfo } from '../types'
 
 function fmtTime(ts: string): string {
   const d = new Date(ts)

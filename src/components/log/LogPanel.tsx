@@ -22,8 +22,6 @@ export function LogPanel(props: LogPanelProps) {
   const [entries, setEntries] = useState<LogEntry[]>([])
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState('')
-  const dropdownRef = useRef<HTMLDivElement>(null)
-  const overlayRef = useRef<HTMLDivElement>(null)
   const [showClear, setShowClear] = useState(false)
   const [showExport, setShowExport] = useState(false)
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null)
@@ -195,12 +193,6 @@ export function LogPanel(props: LogPanelProps) {
   }
 
   const moreFilters = ['System Prompt', 'Thinking', 'LLM Catalog']
-  const subFilters: Record<string, string[]> = {
-    "System Prompt": ["user","steering","delegation","support_agent","task","recovery","compaction"],
-    Thinking: ["requested","sent","caps","verified","map"],
-    "LLM Catalog": [],
-  }
-
   const months = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december']
 
   // === NUOVI FILTRI (16 ott, richiesta utente): SOLO 2 — system prompt + thinking ===
@@ -210,31 +202,6 @@ export function LogPanel(props: LogPanelProps) {
     if (tag === "system_prompt") return "System Prompt"
     if (["thinking-trace","thinking-level-intent","thinking-http-intent","thinking-map-resolved","thinking-map-xhigh-fix","thinking-caps-applied","verify-thinking","agent_llm_config","thinking-level","thinking-translated","available-thinking-levels","ollama-levels-source","set-thinking","set-model","model-changed","ctx-post-agent-end","sending-thinking-levels"].includes(tag)) return "thinking"
     return "other"
-  }
-  function deriveLevel_OLD2(tag: string): string {
-    if (tag === "system_prompt") return "System Prompt"
-    if (["thinking-trace","thinking-level-intent","thinking-http-intent","thinking-map-resolved","thinking-map-xhigh-fix","thinking-caps-applied","verify-thinking","agent_llm_config","thinking-level","thinking-translated","available-thinking-levels","ollama-levels-source"].includes(tag)) return "thinking"
-    return "other"
-  }
-  function deriveLevel_OLD(tag: string): string {
-    // Hide verbose technical logs
-    if (tag.startsWith('ollama-probe-') || tag.startsWith('sync-') || tag.startsWith('model-registry') || tag.startsWith('ollama-info') || tag.startsWith('ollama-baseurl') || tag.startsWith('ollama-levels') || tag.startsWith('verify-thinking') || tag.startsWith('mapMessage')) return 'renderer'
-    // Errors
-    if (tag.startsWith('error') || tag.includes('error') || tag.includes('Error') || tag.includes('failed') || tag.includes('-error')) return 'error'
-    // Warnings
-    if (tag.startsWith('warn') || tag.startsWith('warning') || tag === 'retrying' || tag.includes('deprecat')) return 'warn'
-    // Success/loaded/done
-    if (tag.startsWith('success') || tag.includes('done') || tag.includes('loaded') || tag.includes('initialized') || tag.includes('created') || tag.includes('renamed') || tag.includes('sent')) return 'success'
-    // UI actions
-    if (tag.startsWith('ui-') || tag.startsWith('ui:') || tag.includes('ui-click') || tag.includes('ui-nav') || tag.includes('ui-keyboard') || tag.includes('ui-panel')) return 'ui'
-    // Bridge: session/agent/model/thinking/mode changes + send/receive
-    if (tag.startsWith('send-message') || tag.startsWith('set-agent') || tag.startsWith('set-mode') || tag.startsWith('set-thinking') || tag.startsWith('set-model') || tag.startsWith('chat-agents') || tag.startsWith('agent-changed') || tag.startsWith('model-changed') || tag.startsWith('thinking-changed') || tag.startsWith('mode-changed') || tag.startsWith('session-') || tag.startsWith('working-dir') || tag.startsWith('stream') || tag.startsWith('bridge') || tag.startsWith('full-state') || tag.startsWith('get_') || tag.startsWith('ws:') || tag.startsWith('send:') || tag.startsWith('create') || tag.startsWith('delete') || tag.startsWith('update') || tag.startsWith('rename') || tag.startsWith('reload') || tag.startsWith('flush') || tag.startsWith('compact') || tag.startsWith('set-')) return 'bridge'
-    // Renderer/sidecar internals
-    // LLM config: model + thinking per agent
-    if (tag === 'agent_llm_config' || tag === 'msg-content' || tag === 'thinking-map-xhigh-fix' || tag === 'thinking-map-resolved' || tag === 'thinking-trace' || tag === 'thinking-caps-applied' || tag === 'response-thinking-verified' || tag === 'thinking-level-intent' || tag === 'thinking-http-intent') return 'llm'
-    if (tag === 'system_prompt') return 'system'
-    if (tag.startsWith('renderer') || tag.startsWith('sidecar-marker') || tag.startsWith('stdout')) return 'renderer'
-    return 'info'
   }
 
   function formatPayload(data: any): string {

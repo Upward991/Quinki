@@ -87,7 +87,6 @@ function useSidecar(url: string = 'ws://127.0.0.1:9182') {
   }, [])
 
   // === B4 POOL: connessioni DIRETTE ai worker (streaming senza passare dal router) ===
-  const extraRef = useRef<Map<string, WebSocket>>(new Map())
   const closedRef = useRef(false)
 
   // === B4 POOL: FIX A4.3 — le connessioni dirette ai worker NON vengono più usate.

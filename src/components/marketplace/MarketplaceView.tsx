@@ -5,20 +5,19 @@
 // e questa UI resta identica (il sito).
 import React from 'react'
 import { useState, useEffect, useRef } from 'react'
-import { Store, Search, X, Check, Download, RefreshCw, Trash2, ChevronLeft, ShieldCheck, Home, User, Bot, ChevronDown, Filter, Tune } from '../icons'
+import { Store, Search, X, ChevronLeft, ShieldCheck, Home, Bot, ChevronDown, Filter, Tune } from '../icons'
 import { StoreCard, fmt, renderItemIcon, categoryIcon, categoryColor } from './StoreCard'
-import { installCatalogTab, uninstallCatalogTab, updateCatalogTab, isInstalledTab, persistHomeConfig, isMarketItemInstalled, installMarketItem, uninstallMarketItem, getMarketItems, loadInstalledTabs, getUninstalledItems, addUninstalledItem, removeUninstalledItem, saveUninstalledItems } from '../../tabs'
+import { uninstallCatalogTab, updateCatalogTab, isInstalledTab, persistHomeConfig, isMarketItemInstalled, installMarketItem, uninstallMarketItem, getMarketItems, loadInstalledTabs, addUninstalledItem } from '../../tabs'
 import { findTabPackage } from '../../tabs/runtimePackages'
 import { fetchRemoteCatalog, refreshRemoteCatalog, getMergedCatalog, fetchSkillResolved, getRemoteStatus, setRemoteToken } from '../../marketRemote'
 import { getGithubToken } from '../../ghOAuth'
 import { findPackageBundle } from '../../catalogPackages'
 import { useSidecarContext } from '../shared/AppShell'
-import { catalogSections, findCatalogItem, type CatalogItem } from '../../catalog'
+import { catalogSections, type CatalogItem } from '../../catalog'
 import { AccountPanel } from './AccountPanel'
 import { recordInstall, hashContent } from '../../registry'
 import { installMarketPackage } from '../../marketActions'
 import { ConfirmModal } from './ConfirmModal'
-
 
 interface Props {
   onSelectPanel: (p: string) => void
@@ -27,16 +26,6 @@ interface Props {
 
 function avatarInitials(name: string): string {
   return name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
-}
-
-function ActionButton({ children, onClick, kind = 'primary' }: { children: any, onClick: () => void, kind?: 'primary' | 'danger' | 'ghost' }) {
-  const base: any = { display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 16px', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-interface)', cursor: 'pointer', transition: 'none', border: '1px solid ' + (kind === 'danger' ? 'var(--mp-border-strong)' : 'var(--mp-accent)'), backgroundColor: 'var(--mp-panel)', color: kind === 'danger' ? 'var(--mp-danger)' : 'var(--mp-accent)', fontSize: '13px', fontWeight: kind === 'ghost' ? 400 : 600 }
-  return React.createElement('button', {
-    onClick,
-    onMouseEnter: (e: any) => { e.currentTarget.style.backgroundColor = kind === 'ghost' ? 'rgba(255,255,255,0.06)' : 'var(--mp-accent)'; e.currentTarget.style.color = kind === 'ghost' ? 'var(--mp-text-secondary)' : 'var(--mp-bg)' },
-    onMouseLeave: (e: any) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = kind === 'danger' ? 'var(--mp-danger)' : (kind === 'ghost' ? 'var(--mp-text-secondary)' : 'var(--mp-accent)') },
-    style: base
-  }, children)
 }
 
 function Row({ title, items, onOpen, onInstall, installedOf, onRemove, actionOf }: {
@@ -348,7 +337,6 @@ export function MarketplaceView({ onSelectPanel, refreshAgents }: Props) {
   const view = cur.v
   const detail = cur.d || null
   const devView = cur.a || null
-
 
   const installedOf = (item: CatalogItem) => {
     if (isMarketItemInstalled(item.id, item.category)) return true
@@ -721,7 +709,6 @@ export function MarketplaceView({ onSelectPanel, refreshAgents }: Props) {
   )
   )
 }
-
 
 // ── DeveloperView: la pagina pubblica di uno sviluppatore ──
 function DeveloperView({ author, items, onBack, onGoMarket, onGoHome, onOpenItem, doInstall, installedOf, doRemove, followed, onToggleFollow, actionOf }: {

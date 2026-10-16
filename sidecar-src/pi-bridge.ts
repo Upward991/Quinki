@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import { homedir } from "node:os";
 import { execSync } from "node:child_process";
 import { Type } from "typebox";
-import { defineTool, formatSkillsForPrompt } from "./vendor/@earendil-works/pi-coding-agent/dist/index.js";
+import { defineTool } from "./vendor/@earendil-works/pi-coding-agent/dist/index.js";
 import {
   readMcpServers,
   StdioMcpClient,
@@ -27,7 +27,6 @@ import {
   syncModelsJson,
   probeProviderCapabilities,
   probeSingleModelCaps,
-  refreshThinkingCapsEvolution,
   syncSettingsJson,
   getDefaultModel as getProviderDefaultModel,
   getDefaultThinking as getProviderDefaultThinking,

@@ -3,8 +3,8 @@
 // search interna, installati divisi per tipo (tabs, themes, skills), aggiornamenti.
 import React from 'react'
 import { useState } from 'react'
-import { invoke } from '@tauri-apps/api/core'
-import { Search, Upload, Pencil, RefreshCw, Shield, ShieldCheck, FileText, Sparkles, Mail, Lock, LogOut, Store, Home, Bot, Trash, X } from '../icons'
+import {  } from '@tauri-apps/api/core'
+import { Search, Shield, ShieldCheck, Sparkles, Mail, Lock, LogOut, Store, Home, Bot, Trash } from '../icons'
 import { findCatalogItem, allCatalogItems, type CatalogItem } from '../../catalog'
 import { getStableCatalog, getRepoToken, setRepoToken } from '../../marketRemote'
 import { getRegistry } from '../../registry'

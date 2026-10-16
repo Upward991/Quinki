@@ -1,6 +1,6 @@
 // ============================================================
 // Composer — Deep Cosmos redesign
-// @agent mention, /slash commands, mode toggle, context counter,
+// /slash commands, mode toggle, context counter,
 // status pill, send button with pulse animation, file attachments
 // ============================================================
 
@@ -9,7 +9,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { getContrastColor } from '../../utils/contrast'
 import { useLayout } from '../../platform/layout'
 import type { Provider, Agent, ChatMode, ThinkingLevel } from '../../types'
-import { Paperclip, ChevronUp, ChevronDown, Bot, X, Clock, Folder, FolderOpen, FileText } from '../icons'
+import { Paperclip, X, Clock, Folder, FolderOpen, FileText } from '../icons'
 import { SlashMenu, type SlashMenuRef } from './SlashMenu'
 import { BottomSheet, SheetRow } from './BottomSheet'
 
@@ -73,9 +73,6 @@ export function Composer(props: ComposerProps) {
   const [text, setText] = useState('')
   const [slashMenuOpen, setSlashMenuOpen] = useState(false)
   const [slashFilter, setSlashFilter] = useState('')
-  const [mentionOpen, setMentionOpen] = useState(false)
-  const [mentionFilter, setMentionFilter] = useState('')
-  const [mentionIdx, setMentionIdx] = useState(0)
   const [pendingSkill, setPendingSkill] = useState<string | null>(null)
   const [pendingSkills, setPendingSkills] = useState<{ agentId: string; skillName: string; agentName: string }[]>([])
   const [pendingTaskClips, setPendingTaskClips] = useState<{ id: string; label: string; text: string }[]>([])
@@ -220,18 +217,6 @@ export function Composer(props: ComposerProps) {
       props.onHeightChangeNow?.(parseFloat(textareaRef.current.style.height) || 0)
     }
   }, [text])
-
-  // @mention: solo agenti NELLA CHAT (non tutti gli agenti configurati)
-  const availableAgents = (props.agents || []).filter(a => {
-    if (a.id === 'orchestrator') return false
-    if (!props.chatAgentIds || props.chatAgentIds.length === 0) return false
-    return props.chatAgentIds.includes(a.id)
-  })
-  const filteredAgents = mentionFilter
-    ? availableAgents.filter(a => a.name.toLowerCase().includes(mentionFilter.toLowerCase()))
-    : availableAgents
-
-  useEffect(() => { setMentionIdx(0) }, [mentionFilter])
 
   // FIX (22 set): un allegato da solo (senza testo) DEVE poter partire.
   // 6 ott: SEND and STEER unified — during the generation the same button steers.
@@ -457,29 +442,11 @@ export function Composer(props: ComposerProps) {
       })
       setText('')
       setSlashMenuOpen(false)
-      setMentionOpen(false)
       setPendingSkill(null)
       setPendingSkills([])
       setPendingTaskClips([])
       setPendingAttachments([])
     }
-  }
-
-  const selectAgent = (agent: Agent) => {
-    // Only add agent to chat if not already there (don't toggle = remove)
-    if (!props.chatAgentIds?.includes(agent.id)) {
-      props.onAgentToggle?.(agent.id)
-    }
-    const mention = `@${agent.name} `
-    setText(mention)
-    setMentionOpen(false)
-    setMentionFilter('')
-    setTimeout(() => {
-      if (textareaRef.current) {
-        textareaRef.current.focus()
-        textareaRef.current.setSelectionRange(mention.length, mention.length)
-      }
-    }, 0)
   }
 
   // === Attachment handling ===
@@ -670,14 +637,6 @@ export function Composer(props: ComposerProps) {
   }, [props.sessionKey])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    // @mention navigation
-    if (mentionOpen) {
-      if (e.key === 'ArrowUp') { e.preventDefault(); setMentionIdx(i => (i - 1 + filteredAgents.length) % filteredAgents.length); return }
-      if (e.key === 'ArrowDown') { e.preventDefault(); setMentionIdx(i => (i + 1) % filteredAgents.length); return }
-      if (e.key === 'ArrowRight') { e.preventDefault(); filteredAgents[mentionIdx] && selectAgent(filteredAgents[mentionIdx]); return }
-      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); filteredAgents[mentionIdx] && selectAgent(filteredAgents[mentionIdx]); return }
-      if (e.key === 'Escape') { e.preventDefault(); setMentionOpen(false); setMentionFilter(''); return }
-    }
     // Slash menu navigation
     if (slashMenuOpen) {
       console.log('[SLASH] key:', e.key, 'mode via ref:', !!slashMenuRef.current)
@@ -695,7 +654,7 @@ export function Composer(props: ComposerProps) {
     // Esc: se sta generando → STOP (come il tasto stop). Altrimenti chiude i menu.
     // MAI cancellare il testo del composer: l'utente che preme Esc per fermare
     // la generazione non deve perdere quello che ha scritto (bug gravissimo).
-    e.key === 'Escape' && (props.isStreaming ? (e.preventDefault(), props.onStop()) : (setSlashMenuOpen(false), setMentionOpen(false), setAttachMenuOpen(false), text.trim().startsWith('/') && setText('')))
+    e.key === 'Escape' && (props.isStreaming ? (e.preventDefault(), props.onStop()) : (setSlashMenuOpen(false), setAttachMenuOpen(false), text.trim().startsWith('/') && setText('')))
     // Tab: toggle Plan/Build (non inserire tab nel testo)
     // stopPropagation: il ChatArea ha UN handler globale Tab (29 ago) — senza stop,
     // l'evento sale e fa un SECONDO toggle (plan→build→plan = nessun cambio).
@@ -750,10 +709,6 @@ export function Composer(props: ComposerProps) {
             setTimeout(() => textareaRef.current?.focus(), 0)
           }}
         />
-      )}
-      {/* @mention agent picker */}
-      {mentionOpen && filteredAgents.length > 0 && (
-        <MentionPicker agents={filteredAgents} selectedIdx={mentionIdx} onSelect={selectAgent} onClose={() => { setMentionOpen(false); setMentionFilter('') }} />
       )}
       {/* Attachment menu */}
       {mob ? (
@@ -987,15 +942,12 @@ export function Composer(props: ComposerProps) {
             // Slash menu detection — only open if text starts with / AND text is just the slash command (no other text before it)
             if (val.startsWith('/') && !val.includes(' ') && text === '') {
               console.log('[SLASH] menu open, filter:', val.slice(1))
-              setSlashMenuOpen(true); setSlashFilter(val.slice(1)); setMentionOpen(false)
+              setSlashMenuOpen(true); setSlashFilter(val.slice(1))
             } else if (val.startsWith('/') && !val.includes(' ') && text.startsWith('/')) {
-              setSlashMenuOpen(true); setSlashFilter(val.slice(1)); setMentionOpen(false)
+              setSlashMenuOpen(true); setSlashFilter(val.slice(1))
             } else {
               setSlashMenuOpen(false); setSlashFilter('')
             }
-            // T493: @ tagging removed (the user's rule) — the mention picker
-            // never opens; the Orchestrator is the way to talk in multi-agent chats.
-            setMentionOpen(false); setMentionFilter('')
           }}
           onKeyDown={handleKeyDown}
           placeholder="Write a message..."
@@ -1008,7 +960,6 @@ export function Composer(props: ComposerProps) {
           }}
           rows={1}
         />
-
 
         {/* Bottom bar */}
         <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', height: '32px', marginTop: '8px' }}>
@@ -1285,68 +1236,6 @@ function AttachFileRow({ file, onClick }: { file: any; onClick: () => void }) {
   )
 }
 
-// ── Mention picker (@agent) ──
-function MentionPicker({ agents, selectedIdx, onSelect, onClose }: {
-  agents: Agent[]; selectedIdx: number; onSelect: (a: Agent) => void; onClose: () => void
-}) {
-  return (
-    <>
-      <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={onClose} />
-      <div style={{
-        position: 'absolute', bottom: 'calc(100% + 8px)', left: '0', right: '0', zIndex: 50,
-        backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)',
-        boxShadow: 'var(--shadow-floating)', maxHeight: '250px',
-        display: 'flex', flexDirection: 'column', overflow: 'hidden',
-      }}>
-        <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
-          {agents.map((agent, i) => (
-            <MentionItem key={agent.id} agent={agent} isSelected={i === selectedIdx} onSelect={() => onSelect(agent)} />
-          ))}
-        </div>
-        <div style={{ padding: '8px 16px 10px 16px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <SmallIconBtn><ChevronUp size={14} /></SmallIconBtn>
-          <SmallIconBtn><ChevronDown size={14} /></SmallIconBtn>
-        </div>
-      </div>
-    </>
-  )
-}
-
-function MentionItem({ agent, isSelected, onSelect }: { agent: Agent; isSelected: boolean; onSelect: () => void }) {
-  const [hovered, setHovered] = useState(false)
-  return (
-    <div onClick={onSelect} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-      style={{
-        padding: '8px 16px', backgroundColor: hovered || isSelected ? 'var(--q-hover)' : 'transparent',
-        borderRadius: 'var(--radius-sm)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
-        transition: 'none',
-      }}>
-      <Bot size={16} style={{ color: 'var(--q-text-secondary)', flexShrink: 0 }} />
-      <span style={{ color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }}>{agent.name}</span>
-    </div>
-  )
-}
-
-// ── Small icon button (for mention picker footer) ──
-function SmallIconBtn({ children }: { children: React.ReactNode }) {
-  const [hovered, setHovered] = useState(false)
-  return (
-    <button onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-      style={{
-        padding: '6px', border: 'none', cursor: 'pointer', borderRadius: 'var(--radius-sm)',
-        backgroundColor: hovered ? 'var(--q-hover)' : 'transparent',
-        color: hovered ? 'var(--q-text)' : 'var(--q-text-secondary)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        transform: hovered ? 'scale(1.02)' : 'scale(1)',
-        transition: 'none',
-      }}>
-      {children}
-    </button>
-  )
-}
-
-
-
 // ── Slash button — 32x32, SVG with slash ──
 function SlashBtn({ color, onClick }: { color: string; onClick: () => void }) {
   const [hovered, setHovered] = useState(false)
@@ -1476,29 +1365,6 @@ function AttachBtn({ children, onClick, title }: { children: React.ReactNode; on
 }
 
 // ── Send button — 32x32, arrow icon, pulse on enable ──
-function SteerButton({ enabled, onClick }: { enabled: boolean; onClick: () => void }) {
-  const [hovered, setHovered] = useState(false)
-  return (
-    <button onClick={onClick} disabled={!enabled} title="Steer (send directive while generating)"
-      onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-      style={{
-        width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        borderRadius: '8px',
-        border: 'none', cursor: enabled ? 'pointer' : 'default',
-        backgroundColor: enabled ? (hovered ? 'var(--q-tab-accent)' : 'var(--q-tab-accent-darker)') : 'var(--q-hover)',
-        color: enabled ? getContrastColor('--q-tab-accent') : 'var(--q-text-tertiary)',
-        flexShrink: 0, padding: '0',
-        transition: 'none',
-      }}>
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-        stroke={enabled ? getContrastColor('--q-tab-accent') : 'var(--q-text-tertiary)'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 20V2" />
-        <path d="M5 15l7-7 7 7" />
-        <path d="M5 9l7-7 7 7" />
-      </svg>
-    </button>
-  )
-}
 
 function SendButton({ enabled, onClick }: { enabled: boolean; onClick: () => void }) {
   const [hovered, setHovered] = useState(false)
@@ -1576,7 +1442,6 @@ function reportCam(kind: string, message: string) {
   } catch {}
   try { (window as any).__reportFrontendError?.(kind, message) } catch {}
 }
-
 
 // ── Dettatura: decodifica l'audio registrato e lo converte in WAV 16k mono (PCM16).
 // L'helper sul Mac vuole esattamente questo: nessun ffmpeg, nessun formato strano.
