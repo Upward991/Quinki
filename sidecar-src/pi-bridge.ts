@@ -564,6 +564,25 @@ class PiBridge {
     }
   }
 
+  // === LLM CATALOG (16 ott): un log unico con TUTTI i modelli × capabilities × livelli del provider ===
+  #logLlmCatalog(trigger: string) {
+    try {
+      const providers: any[] = [];
+      for (const [pname, pcfg] of Object.entries((() => { try { return JSON.parse(require("node:fs").readFileSync(require("node:path").join(this.#agentDir, "quinki-providers.json"), "utf8"))?.providers || {}; } catch { return {}; } })() as any)) {
+        const models: any[] = [];
+        for (const m of (pcfg as any)?.modelData || []) models.push({ id: m.id, capabilities: m.capabilities || (m.reasoning ? ["thinking"] : []), thinkingLevels: m.thinkingLevelMap ? Object.keys(m.thinkingLevelMap) : [], thinkingMap: m.thinkingLevelMap || null });
+        // anche i modelli Ollama locali (da cache)
+        if (String(pname).toLowerCase().includes("ollama")) {
+          for (const [mid, info] of this.#ollamaModelInfoCache) {
+            if (!models.find((x: any) => x.id === mid)) models.push({ id: mid, capabilities: (info as any).capabilities || [], thinkingLevels: (info as any).capabilities?.includes("thinking") ? ["off","low","medium","high","max"] : [], providerLevels: true });
+          }
+        }
+        providers.push({ provider: pname, baseUrl: (pcfg as any)?.baseUrl || "", enabled: !!(pcfg as any)?.enabled, models });
+      }
+      this.logDebug("llm-catalog", { trigger, providers });
+    } catch {}
+  }
+
   async #probeModelLevels(modelId: string): Promise<ProbeResult> {
     const existing = this.#ollamaProbeResults.get(modelId);
     if (existing) return existing;
@@ -2945,6 +2964,7 @@ class PiBridge {
     const s = this.#entries.get(key);
     if (s) {
       s.model = modelId; this.#save(); this.#writeSessionPrefs(key);
+      this.#logLlmCatalog("model-changed:"+modelId);
       // === POOL SYNC: il main aggiorna model dalla sua entry (stesso motivo di setMode) ===
       try {
         const send = (globalThis as any).__quinki_sendNotification;
@@ -4140,6 +4160,8 @@ Read this file to view it.` }] };
       // — il debug log è condiviso: senza marker è impossibile dire chi ha fatto cosa.
       const src0 = (data && typeof data === "object") ? (data as any).__src : undefined;
       const entry = { ts: Date.now(), tag, src: src0 || _logSource, data };
+      // === 16 ott: solo i 3 log utili vanno su disco (system prompt + thinking + llm catalog) ===
+      if (this.#logLevelFor(tag) === "other") return;
       this.#debugLog.push(entry);
       if (this.#debugLog.length > this.#debugMax) this.#debugLog.shift();
       // === Fix lag: buffer in memoria + flush async ogni 5s, NO appendFileSync ===
@@ -4223,8 +4245,9 @@ Read this file to view it.` }] };
     return out.slice(-n)
   }
   #logLevelFor(tag: string): string {
-    // === 2 LIVELLI SOLO (16 ott): system prompt + thinking — il resto è rumore ===
+    // === 3 LOG SOLO (16 ott): system prompt + thinking + LLM catalog — il resto è rumore (mai su disco) ===
     if (tag === "system_prompt") return "system prompt"
+    if (tag === "llm-catalog") return "llm catalog"
     if (["thinking-trace","thinking-level-intent","thinking-http-intent","thinking-map-resolved","thinking-map-xhigh-fix","thinking-caps-applied","verify-thinking","agent_llm_config","thinking-level","thinking-translated","available-thinking-levels","ollama-levels-source","set-thinking","set-model","model-changed","ctx-post-agent-end","sending-thinking-levels"].includes(tag)) return "thinking"
     return "other"
     if (tag.startsWith("renderer") || tag.startsWith("sidecar-marker") || tag.startsWith("stdout")) return "renderer"
@@ -10608,6 +10631,8 @@ export async function setProvidersConfig(config: any): Promise<{ success: boolea
     // Aggiorna models.json con i contextWindow reali di Ollama/cloud provider,
     // così welcome e chat attiva leggono gli stessi valori.
     // Best-effort: non blocca se fallisce.
+    // === LLM CATALOG: un log unico con tutti i modelli × capabilities × livelli per provider ===
+    try { piBridgeInstance?.logLlmCatalog("providers-changed"); } catch {}
     for (const [name, pcfg] of Object.entries(fullConfig.providers)) {
       if (pcfg.enabled) {
         piBridgeInstance?.syncProviderContextLengthsNow(name).catch((e) => {
