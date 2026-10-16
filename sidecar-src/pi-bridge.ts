@@ -2486,7 +2486,7 @@ class PiBridge {
           const realTokens = u.tokens ?? prev?.tokens ?? null;
           const realPercent = u.percent ?? (realTokens != null && u.contextWindow > 0 ? (realTokens / u.contextWindow) * 100 : (prev?.percent ?? null));
           const stored = { tokens: realTokens, contextWindow: u.contextWindow ?? 0, percent: realPercent, model: s?.model, input: prev?.input || 0, output: prev?.output || 0, ts: Date.now() };
-          // zittito: // zittito: logDebug("context-usage-computed", {
+          this.logDebug("context-usage-computed", {
             sessionKey: key,
             modelId: s?.model,
             tokens: stored.tokens,
