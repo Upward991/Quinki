@@ -1,0 +1,20 @@
+--- a/dist/core/session-manager.js	2026-10-16 23:39:53
++++ b/dist/core/session-manager.js	2026-10-16 23:39:53
+@@ -232,7 +232,16 @@
+ export function buildSessionContext(entries, leafId, byId) {
+     const path = buildSessionPath(entries, leafId, byId);
+     const { thinkingLevel, model } = getSessionContextSettings(path);
+-    const messages = buildContextEntries(entries, leafId, byId).flatMap(sessionEntryToContextMessages);
++    // PATCH (Quinki): delegation entries (agent responses) ride in context messages for the
++    // renderer, in their automatic chronological position from the .jsonl. They are filtered
++    // out before the LLM call in agent-session.js — zero context cost.
++    const messages = [];
++    for (const entry of buildContextEntries(entries, leafId, byId)) {
++        messages.push(...sessionEntryToContextMessages(entry));
++        if (entry.type === "delegation" && entry.delegationData) {
++            messages.push({ role: "delegation", id: entry.id, delegationData: entry.delegationData, timestamp: new Date(entry.timestamp || Date.now()).getTime() });
++        }
++    }
+     return { messages, thinkingLevel, model };
+ }
+ /**

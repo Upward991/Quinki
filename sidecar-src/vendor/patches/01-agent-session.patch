@@ -1,0 +1,153 @@
+--- a/dist/core/agent-session.js	2026-10-16 23:39:53
++++ b/dist/core/agent-session.js	2026-10-16 23:39:53
+@@ -272,6 +272,9 @@
+         };
+     }
+     async _compactBeforeNextAssistantResponse(context) {
++        // PATCH (Quinki): auto-compaction is fully owned by the Dashboard (80% threshold in the
++        // renderer, ChatArea). The SDK must never auto-compact — neither threshold nor overflow.
++        return context;
+         const model = this.model;
+         const settings = this.settingsManager.getCompactionSettings();
+         if (!model ||
+@@ -669,7 +672,10 @@
+         this.agent.state.tools = tools;
+         // Rebuild base system prompt with new tool set
+         this._baseSystemPrompt = this._rebuildSystemPrompt(validToolNames);
+-        this.agent.state.systemPrompt = this._systemPromptOverride ?? this._baseSystemPrompt;
++        // PATCH (Quinki): pi-bridge.ts manages the system prompt — never overwrite it when we own it.
++        if (!this._customSystemPromptOverride) {
++            this.agent.state.systemPrompt = this._systemPromptOverride ?? this._baseSystemPrompt;
++        }
+     }
+     /** Whether compaction or branch summarization is currently running */
+     get isCompacting() {
+@@ -736,35 +742,12 @@
+         return Array.from(unique);
+     }
+     _rebuildSystemPrompt(toolNames) {
+-        const validToolNames = toolNames.filter((name) => this._toolRegistry.has(name));
+-        const toolSnippets = {};
+-        const promptGuidelines = [];
+-        for (const name of validToolNames) {
+-            const snippet = this._toolPromptSnippets.get(name);
+-            if (snippet) {
+-                toolSnippets[name] = snippet;
+-            }
+-            const toolGuidelines = this._toolPromptGuidelines.get(name);
+-            if (toolGuidelines) {
+-                promptGuidelines.push(...toolGuidelines);
+-            }
++        // PATCH (Quinki): We build our own system prompt in pi-bridge.ts.
++        // The SDK's buildSystemPrompt is NEVER used — always return our override or empty.
++        if (this._customSystemPromptOverride) {
++            return this._customSystemPromptOverride;
+         }
+-        const loaderSystemPrompt = this._resourceLoader.getSystemPrompt();
+-        const loaderAppendSystemPrompt = this._resourceLoader.getAppendSystemPrompt();
+-        const appendSystemPrompt = loaderAppendSystemPrompt.length > 0 ? loaderAppendSystemPrompt.join("\n\n") : undefined;
+-        const loadedSkills = this._resourceLoader.getSkills().skills;
+-        const loadedContextFiles = this._resourceLoader.getAgentsFiles().agentsFiles;
+-        this._baseSystemPromptOptions = {
+-            cwd: this._cwd,
+-            skills: loadedSkills,
+-            contextFiles: loadedContextFiles,
+-            customPrompt: loaderSystemPrompt,
+-            appendSystemPrompt,
+-            selectedTools: validToolNames,
+-            toolSnippets,
+-            promptGuidelines,
+-        };
+-        return buildSystemPrompt(this._baseSystemPromptOptions);
++        return "";
+     }
+     // =========================================================================
+     // Prompting
+@@ -879,7 +862,9 @@
+             }
+             const hasConfiguredAuth = this._modelRuntime.hasConfiguredAuth(this.model.provider) ||
+                 (await this._modelRuntime.checkAuth(this.model.provider)) !== undefined;
+-            if (!hasConfiguredAuth) {
++            // PATCH (Quinki): auth is owned by pi-bridge.ts (auth.json keys passed per-request);
++            // the SDK's own auth storage is empty in Quinki — never throw here.
++            if (false && !hasConfiguredAuth) {
+                 const isOAuth = this._modelRuntime.isUsingOAuth(this.model.provider);
+                 if (isOAuth) {
+                     throw new Error(`Authentication failed for "${this.model.provider}". ` +
+@@ -933,9 +918,13 @@
+                 this.agent.state.systemPrompt = result.systemPrompt;
+             }
+             else {
+-                // Ensure we're using the base prompt (in case previous turn had modifications)
+-                this._systemPromptOverride = undefined;
+-                this.agent.state.systemPrompt = this._baseSystemPrompt;
++                // PATCH (Quinki): Don't overwrite systemPrompt if we have a custom override.
++                // pi-bridge.ts sets _baseSystemPrompt and _customSystemPromptOverride;
++                // the SDK should NOT reset it to _baseSystemPrompt here.
++                if (!this._customSystemPromptOverride) {
++                    this._systemPromptOverride = undefined;
++                    this.agent.state.systemPrompt = this._baseSystemPrompt;
++                }
+             }
+         }
+         catch (error) {
+@@ -1533,7 +1522,7 @@
+             this.sessionManager.appendCompaction(summary, firstKeptEntryId, tokensBefore, details, fromExtension, usage);
+             const newEntries = this.sessionManager.getEntries();
+             const sessionContext = this.sessionManager.buildSessionContext();
+-            this.agent.state.messages = sessionContext.messages;
++            this.agent.state.messages = sessionContext.messages.filter(function(m) { return m.role !== "delegation"; });
+             const estimatedTokensAfter = estimateMessagesTokens(sessionContext.messages);
+             // Get the saved compaction entry for the extension event
+             const savedCompactionEntry = newEntries.find((e) => e.type === "compaction" && e.summary === summary);
+@@ -1626,6 +1615,10 @@
+      * @returns Whether the post-run loop should call `agent.continue()` for overflow recovery or queued messages
+      */
+     async _checkCompaction(assistantMessage, skipAbortedCheck = true) {
++        // PATCH (Quinki): auto-compaction is fully owned by the Dashboard (80% threshold in the
++        // renderer, ChatArea). The SDK must never auto-compact — neither threshold nor overflow
++        // recovery. Overflow errors stay visible in the message for the renderer's recovery flow.
++        return false;
+         const settings = this.settingsManager.getCompactionSettings();
+         if (!settings.enabled)
+             return false;
+@@ -1820,7 +1813,7 @@
+             this.sessionManager.appendCompaction(summary, firstKeptEntryId, tokensBefore, details, fromExtension, usage);
+             const newEntries = this.sessionManager.getEntries();
+             const sessionContext = this.sessionManager.buildSessionContext();
+-            this.agent.state.messages = sessionContext.messages;
++            this.agent.state.messages = sessionContext.messages.filter(function(m) { return m.role !== "delegation"; });
+             const estimatedTokensAfter = estimateMessagesTokens(sessionContext.messages);
+             // Get the saved compaction entry for the extension event
+             const savedCompactionEntry = newEntries.find((e) => e.type === "compaction" && e.summary === summary);
+@@ -1934,7 +1927,10 @@
+         };
+         this._resourceLoader.extendResources(extensionPaths);
+         this._baseSystemPrompt = this._rebuildSystemPrompt(this.getActiveToolNames());
+-        this.agent.state.systemPrompt = this._baseSystemPrompt;
++        // PATCH (Quinki): Don't overwrite systemPrompt — pi-bridge.ts manages it.
++        if (!this._customSystemPromptOverride) {
++            this.agent.state.systemPrompt = this._baseSystemPrompt;
++        }
+     }
+     buildExtensionResourcePaths(entries) {
+         return entries.map((entry) => {
+@@ -2606,7 +2602,7 @@
+             }
+             // Update agent state
+             const sessionContext = this.sessionManager.buildSessionContext();
+-            this.agent.state.messages = sessionContext.messages;
++            this.agent.state.messages = sessionContext.messages.filter(function(m) { return m.role !== "delegation"; });
+             // Emit session_tree event
+             await this._extensionRunner.emit({
+                 type: "session_tree",
+@@ -2718,7 +2714,8 @@
+                 if (entry.type === "message" && entry.message.role === "assistant") {
+                     const assistant = entry.message;
+                     if (assistant.stopReason !== "aborted" && assistant.stopReason !== "error") {
+-                        const contextTokens = calculateContextTokens(assistant.usage);
++                        // PATCH (Quinki): guard usage — hand-written/error entries may lack usage.
++                        const contextTokens = assistant.usage ? calculateContextTokens(assistant.usage) : 0;
+                         if (contextTokens > 0) {
+                             hasPostCompactionUsage = true;
+                             break;
