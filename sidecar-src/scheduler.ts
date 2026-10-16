@@ -91,6 +91,10 @@ export class Scheduler {
   #owner: "main" | "expert";
   #timer: any = null;
   #watchdog: any = null;
+  // GUARDIA (16 ott, bug doppioni): SOLO il processo principale (POOL_INDEX=0) può SPARARE le schedule.
+  // I worker del pool scrivono pure su schedules.json ma NON armano timer né scandiscono — anche se
+  // qualche RPC (create/update) gira da loro. Il main li pesca col suo watchdog (≤60s).
+  #canFire = true;
   #scanning = false;
   #logger: ((tag: string, data: any) => void) | null = null;
   onNotify: ((payload: any) => void) | null = null;
@@ -101,6 +105,7 @@ export class Scheduler {
     this.#agentDir = agentDir;
     this.#executor = executor;
     this.#owner = (process.env.QUINKI_ROLE || "").toLowerCase() === "expert" || process.env.QUINKI_WS_PORT === "9183" ? "expert" : "main";
+    try { const pi = parseInt(process.env.QUINKI_POOL_INDEX || "0", 10); this.#canFire = !(Number.isFinite(pi) && pi > 0); } catch {}
   }
 
   get owner() { return this.#owner; }
@@ -131,6 +136,7 @@ export class Scheduler {
 
   // === EVENT-DRIVEN: un solo timer per la prossima occorrenza ===
   start() {
+    if (!this.#canFire) { this.#log("scheduler-inactive-pool-child", {}); return; }
     // Catch-up immediato al boot (app ripartita: i task scaduti DEVONO partire, anche in ritardo)
     // poi #scan() riposiziona il timer sulla prossima occorrenza.
     this.#scan();
@@ -165,6 +171,7 @@ export class Scheduler {
 
   // Ricalcola e riposiziona il timer sulla prossima occorrenza (una sola attiva).
   #scheduleNext() {
+    if (!this.#canFire) return;
     if (this.#timer) { clearTimeout(this.#timer); this.#timer = null; }
     const now = Date.now();
     let earliest: number | null = null;
@@ -321,6 +328,7 @@ export class Scheduler {
 
   // === Scan: fire le mie schedule in scadenza, poi riposiziona il timer ===
   async #scan() {
+    if (!this.#canFire) return;
     if (this.#scanning) return;
     this.#scanning = true;
     try {

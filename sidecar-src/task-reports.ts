@@ -26,7 +26,12 @@ export class TaskReports {
   #sending = new Set<string>();
   #redAt = new Map<string, number>();
 
-  constructor(piBridge: any, owner: "main" | "expert") { this.#piBridge = piBridge; this.#owner = owner; }
+  #canRun = true;
+  constructor(piBridge: any, owner: "main" | "expert") {
+    this.#piBridge = piBridge; this.#owner = owner;
+    // GUARDIA (16 ott): i worker del pool NON gestiscono i report (li manda SOLO il processo principale)
+    try { const pi = parseInt(process.env.QUINKI_POOL_INDEX || "0", 10); this.#canRun = !(Number.isFinite(pi) && pi > 0); } catch {}
+  }
   setLogger(fn: (tag: string, data: any) => void) { this.#log = fn; }
   setLhCheck(fn: (sk: string) => boolean) { this.#lhCheck = fn; }
 
@@ -50,11 +55,12 @@ export class TaskReports {
 
   // === Riapertura chat (getHistory) → prova subito (con piccolo respiro per far finire il caricamento) ===
   onChatOpened(key: string) {
-    if (!key) return;
+    if (!key || !this.#canRun) return;
     setTimeout(() => { try { this.#check(key, true); } catch {} }, 1500);
   }
 
   start() {
+    if (!this.#canRun) return;
     if (this.#timer) clearInterval(this.#timer);
     const round = () => {
       try {
@@ -79,6 +85,7 @@ export class TaskReports {
   }
 
   async #check(sk: string, opened: boolean) {
+    if (!this.#canRun) return;
     const pend = this.#read().filter((r) => r.key === sk && r.owner === this.#owner);
     if (pend.length === 0 || this.#sending.has(sk)) return;
 
