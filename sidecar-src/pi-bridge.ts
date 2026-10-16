@@ -8808,9 +8808,24 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
               const sentEffort = (() => { try { const m = (piT as any)?.model?.thinkingLevelMap; return m ? (m[requestedThinking ?? ""] ?? null) : null; } catch { return null; } })();
               const capsMax = (() => { try {
                 const mBase = String((piT as any)?.model?.baseUrl || "");
-                const caps = JSON.parse(fs.readFileSync(path.join(process.env.HOME || "", ".quinki", "thinking-caps.json"), "utf8") || "{}");
-                const capKey = (() => { try { return new URL(mBase).host + "/" + (piT as any).model.id; } catch { return (piT as any)?.model?.id; } })();
-                return caps[capKey]?.maxLevel ?? null;
+                // 1) caps file (provider esterni)
+                try {
+                  const caps = JSON.parse(fs.readFileSync(path.join(process.env.HOME || "", ".quinki", "thinking-caps.json"), "utf8") || "{}");
+                  const capKey = (() => { try { return new URL(mBase).host + "/" + (piT as any).model.id; } catch { return (piT as any)?.model?.id; } })();
+                  const v = caps[capKey]?.maxLevel;
+                  if (v) return v;
+                } catch {}
+                // 2) sonda Ollama in-memoria (modelli locali come Muse Spark) — così il log non mostra mai '-'
+                try {
+                  const pr = this.#ollamaProbeResults.get(String((piT as any)?.model?.id || ""));
+                  const vals: string[] = pr ? (Array.isArray((pr as any).ollamaLevels) ? (pr as any).ollamaLevels : []) : [];
+                  if (vals.length) {
+                    let best: string | null = null; let br = -Infinity;
+                    for (const v of vals) { const r = rankLevelVal(v); if (r >= br) { best = v; br = r; } }
+                    if (best) return best;
+                  }
+                } catch {}
+                return null;
               } catch { return null; } })();
               const trace: any = {
                 ts: Date.now(), sessionKey: key,
