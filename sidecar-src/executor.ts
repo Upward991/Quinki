@@ -423,7 +423,9 @@ export class ExecutionEngine {
         this.#writeState(id, state);
         this.#appendEvent(id, "execution_end", { status: state.status });
         this.#notify({ executionId: id, status: state.status, label: state.label, error: state.error });
-        // === A3: notifica task completata (solo se davvero eseguita, non cancelled/stopped) ===
+        // === A3: fine task (solo se davvero eseguita, non cancelled/stopped) → trigger del
+        // REPORT automatico nella chat di origine (16 ott, decisione utente: NESSUNA notifica
+        // di task — il result arriva nella chat come messaggio normale) ===
         if (state.status === "executed" && !run?.aborted && !run?.stopped) {
           try {
             this.onNotification?.({
@@ -432,8 +434,6 @@ export class ExecutionEngine {
               label: state.label,
               sourceSession: state.sourceSession,
               resultPreview: state.resultPreview || "",
-              // FASE 1 (16 ott): la NOTIFICA mostra solo un'anteprima breve del risultato
-              body: String(state.resultPreview || "").replace(/\s+/g, " ").trim().slice(0, 140) || state.label,
             });
           } catch {}
         }

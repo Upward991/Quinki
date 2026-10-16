@@ -889,58 +889,44 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
     // === A3: read_state_changed — il read-state è cambiato (mark read) → aggiorna i badge ===
     const unsubReadState = subscribe('read_state_changed', () => { refreshUnreadCounts() })
 
-    // === A3: Notifiche — evento notification (chat message / task complete) ===
+    // === A3: Notifiche — SOLO messaggi delle chat (16 ott, decisione utente:
+    // le task NON hanno piu' una notifica propria; il result arriva come messaggio
+    // normale — prompt teal + risposta, oppure messaggio rosso se bloccato) ===
     const unsubNotification = subscribe('notification', (p: any) => {
       if (p?.kind) {
         refreshUnreadCounts()
         refreshNotifications()
-        // Pop-up nativo: se la chat NON è silenziata, il pop-up arriva SEMPRE
-        // (anche se la chat è aperta a schermo — per messaggi e task)
+        // Pop-up nativo SOLO se la chat NON e' silenziata. Regola (Opzione C):
+        // niente popup se stai guardando PROPRIO la chat che risponde (app in
+        // primo piano + chat attiva). App dietro o app su un'ALTRA chat -> popup.
         try {
-          const sk = p.kind === 'chat_message' ? p.sessionKey : (p.sourceSession?.key || '')
+          const sk = String(p?.sessionKey || p?.sourceSession?.key || '')
           if (!sk) return
           call('getReadState', { sessionKey: sk }).then((r: any) => {
             const mode = r?.state?.notifyMode || 'none'
-            if (mode !== 'none') {
-              if (p.kind === 'task_complete') {
-                try {
-                  const wt = document.documentElement.classList.contains('q-phone')
-                    ? (document.visibilityState === 'visible' && sk === String((window as any).__quinkiViewingSk || ''))
-                    : (document.hasFocus() && sk === activeSessionIdRef.current)
-                  if (wt && p?.pushId) { call('cancelPhonePush', { pushId: p.pushId }).catch(() => {}) }
-                } catch {}
-                // Task: titolo = "Task executed", body = nome della task
-                const title = 'Task executed'
-                const body = p.label || 'Task completed'
-                invoke('send_notification', { title, body: '\n' + body, sessionKey: sk }).catch(() => {})
-              } else {
-                // OPZIONE C (scelta utente): popup su TUTTO tranne quando stai
-                // guardando PROPRIO la chat che risponde (app in primo piano + chat
-                // attiva). App dietro o app su un'ALTRA chat -> popup.
-                const watchingThisChat = (() => {
-                  try {
-                    // TELEFONO: hasFocus mente SEMPRE (prova dal log: vero anche in
-                    // background) -> usa i segnali onesti: schermo visibile + chat
-                    // davvero a schermo. MAC: invariato.
-                    if (document.documentElement.classList.contains('q-phone')) {
-                      return document.visibilityState === 'visible' && sk === String((window as any).__quinkiViewingSk || '')
-                    }
-                    return document.hasFocus() && sk === activeSessionIdRef.current
-                  } catch { return false }
-                })()
-                // LA STESSA RIGA decide anche la push del telefono: se la chat
-                // e' in visione (qui o sul telefono), la push viene annullata.
-                if (watchingThisChat && p?.pushId) {
-                  try { call('cancelPhonePush', { pushId: p.pushId }).catch(() => {}) } catch {}
+            if (mode === 'none') return
+            const watchingThisChat = (() => {
+              try {
+                // TELEFONO: hasFocus mente SEMPRE (prova dal log: vero anche in
+                // background) -> usa i segnali onesti: schermo visibile + chat
+                // davvero a schermo. MAC: invariato.
+                if (document.documentElement.classList.contains('q-phone')) {
+                  return document.visibilityState === 'visible' && sk === String((window as any).__quinkiViewingSk || '')
                 }
-                if (!watchingThisChat) {
-                  // Chat: titolo = nome chat (App Expert per la sessione expert), body = anteprima risposta
-                  const sess = sessionsRef.current.find((s: any) => s.id === sk)
-                  const title = sk === '__app_expert__' ? 'App Expert' : (sess?.title || 'New response')
-                  const body = p.body || 'A response arrived'
-                  invoke('send_notification', { title, body: '\n' + body, sessionKey: sk }).catch(() => {})
-                }
-              }
+                return document.hasFocus() && sk === activeSessionIdRef.current
+              } catch { return false }
+            })()
+            // LA STESSA RIGA decide anche la push del telefono: se la chat
+            // e' in visione (qui o sul telefono), la push viene annullata.
+            if (watchingThisChat && p?.pushId) {
+              try { call('cancelPhonePush', { pushId: p.pushId }).catch(() => {}) } catch {}
+            }
+            if (!watchingThisChat) {
+              // Chat: titolo = nome chat (App Expert per la sessione expert), body = anteprima
+              const sess = sessionsRef.current.find((s: any) => s.id === sk)
+              const title = sk === '__app_expert__' ? 'App Expert' : (sess?.title || 'New response')
+              const body = p.body || 'A response arrived'
+              invoke('send_notification', { title, body: '\n' + body, sessionKey: sk }).catch(() => {})
             }
           }).catch(() => {})
         } catch {}

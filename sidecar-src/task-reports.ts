@@ -80,7 +80,10 @@ export class TaskReports {
     this.#redAt.set(sk, Date.now());
     const fakeWs = { readyState: 1, constructor: { OPEN: 1 }, send: () => {} };
     try { this.#piBridge?.send?.(fakeWs, { sessionKey: sk, text: "\u2063x" + text, _preserveWs: true, _lean: true }).catch(() => {}); } catch {}
-    try { this.#piBridge?.appendNotification?.({ kind: "app_message", sessionKey: sk, body: text, label: "Tasks", title: "Tasks" }); } catch {}
+    // 16 ott (decisione utente): niente notifiche dedicate alle task — il messaggio
+    // rosso arriva COME UN MESSAGGIO NORMALE (popup/push solo se la chat non e'
+    // silenziata e non la stai guardando, esattamente come qualsiasi altra risposta).
+    try { this.#piBridge?.appendNotification?.({ kind: "chat_message", sessionKey: sk, body: text }); } catch {}
     this.#log("task-report-blocked", { sessionKey: sk, reason });
   }
 

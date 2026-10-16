@@ -214,7 +214,7 @@ function getVapidKeys(): { publicKey: string; privateKey: string } {
   return keys;
 }
 function sendWebPush(entry: any) {
-  const sk = String(entry?.kind === 'task_complete' ? (entry?.sourceSession?.key || '') : (entry?.sessionKey || ''));
+  const sk = String(entry?.sessionKey || entry?.sourceSession?.key || '');
   // REGOLA (identica al desktop): push SOLO se la chat non e' mutata.
   // La fonte di verita' e' lo stato di lettura del piBridge (notifyMode).
   try {
@@ -250,9 +250,9 @@ function sendWebPush(entry: any) {
     if (!targets.length) return;
     const vapid = getVapidKeys();
     webpush.setVapidDetails('mailto:quinki@localhost', vapid.publicKey, vapid.privateKey);
-    // Titolo IDENTICO al desktop: nome della chat (App Expert per la chat expert,
-    // "Task executed" per i task), fallback "A response arrived / New response".
-    let title = entry?.kind === 'task_complete' ? 'Task executed' : (sk === '__app_expert__' ? 'App Expert' : '');
+    // Titolo IDENTICO al desktop: nome della chat (App Expert per la chat expert),
+    // fallback "A response arrived / New response".
+    let title = sk === '__app_expert__' ? 'App Expert' : '';
     if (!title) {
       // Nel sidecar il titolo della chat vive in `label` e la chiave in `key`
       // (la prima versione cercava id/title -> fallback "New response").
@@ -343,11 +343,11 @@ const _pushQueue: any[] = [];
 (globalThis as any).__quinkiPushQueue = _pushQueue;
 function pushNotifyOut(entry: any): void {
   try {
-    const sk = String(entry?.kind === 'task_complete' ? (entry?.sourceSession?.key || '') : (entry?.sessionKey || ''));
+    const sk = String(entry?.sessionKey || entry?.sourceSession?.key || '');
     const _d = pushDecision(sk);
     pdbg('fire', { sk, mode: _d.mode, watched: _d.watched, ok: _d.ok });
     if (!_d.ok) return;
-    let title = entry?.kind === 'task_complete' ? 'Task executed' : (sk === '__app_expert__' ? 'App Expert' : '');
+    let title = sk === '__app_expert__' ? 'App Expert' : '';
     if (!title) {
       try {
         const ss = (piBridge as any)?.getSessions?.() || [];
@@ -371,8 +371,10 @@ const globalConfigFile = path.join(agentDir, "quinki-global.json");
 const executor = new ExecutionEngine();
 executor.onUpdate = (payload) => { try { sendNotification("execution_update", payload); } catch {} };
 executor.onNotification = (entry) => {
-  try { piBridge?.appendNotification?.(entry); } catch {}
-  // === FASE 1 (16 ott): fine task → in coda per il report automatico nella chat di origine ===
+  // === 16 ott (decisione utente): NESSUNA notifica di task. Il result arriva come
+  // MESSAGGIO normale nella chat (prompt teal → risposta, o messaggio rosso se bloccato):
+  // stessa regola di tutti i messaggi (mai nei silenziati, mai mentre guardi la chat).
+  // Qui resta SOLO la messa in coda per il report automatico. ===
   try {
     if (entry?.kind === "task_complete" && entry?.sourceSession?.key && entry?.executionId) {
       taskReports?.enqueue({ key: String(entry.sourceSession.key), executionId: String(entry.executionId), title: String(entry.label || "Task") });
