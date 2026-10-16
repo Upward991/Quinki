@@ -702,6 +702,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   getHistory: async (p) => { const sk = String(p.sessionKey); try { taskReports?.onChatOpened(sk); } catch {} let recovering = false; try { recovering = fs.existsSync(path.join(agentDir, "sessions", "quinki", sk, "pending-turn.json")); } catch {} try { piBridge!.logDebug("getHistory-recovering-flag", { sessionKey: sk, recovering, hasMarker: recovering }); } catch {} const chips = piBridge!.getChipsStores(sk); return { sessionKey: p.sessionKey, messages: piBridge!.getHistory(sk, typeof p.limit === "number" ? p.limit : undefined), messageSkills: chips.messageSkills, messageTaskClips: chips.messageTaskClips, messageAttachments: chips.messageAttachments, messageDisplayTexts: chips.messageDisplayTexts, recovering } },
   // B0.8: pagina precedente della storia + log
   getHistoryBefore: async (p) => ({ sessionKey: p.sessionKey, messages: piBridge!.getHistoryBefore(String(p.sessionKey), Number(p.ts || 0), typeof p.limit === "number" ? p.limit : undefined) }),
+  getFilteredLog: async (p) => ({ entries: piBridge!.getFilteredLog(Array.isArray(p.levels) ? p.levels : [], typeof p.limit === "number" ? p.limit : 100) }),
   getDebugLogBefore: async (p) => piBridge!.getDebugLogBefore(Number(p.from || 0), typeof p.limit === "number" ? p.limit : undefined),
   // B0.9: search sidecar (chat + log) + salto al match
   searchSessionMessages: async (p) => ({ matches: piBridge!.searchSessionMessages(String(p.sessionKey || ""), String(p.query || ""), typeof p.limit === "number" ? p.limit : undefined) }),

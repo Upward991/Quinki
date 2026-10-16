@@ -88,13 +88,17 @@ export function LogPanel(props: LogPanelProps) {
     let lastTs = 0
     let timer: any = null
     let disposed = false
+    const hasFilter = Array.from(activeFilters).length > 0
     const fetchInitial = () => {
       lastTs = 0
-      return call('getFullDebugLog', {}).then((r: any) => {
+      // Filtrati: ultimi 100 DEL FILTRO. Senza filtri: gli ultimi 2000 log veri dal file.
+      const m = hasFilter ? call('getFilteredLog', { levels: Array.from(activeFilters), limit: 100 }) : call('getDebugLogBefore', { from: 9e15, limit: 2000 })
+      return m.then((r: any) => {
+        const items = (r && (r.log || r.entries)) ? (r.log || r.entries) : []
         if (disposed) return
-        if (r && r.log) {
-          setEntries(r.log.slice(-100))
-          for (const e of r.log) if (typeof e.ts === 'number' && e.ts > lastTs) lastTs = e.ts
+        if (items.length) {
+          setEntries(items.slice(-2000))
+          for (const e of items) if (typeof e.ts === 'number' && e.ts > lastTs) lastTs = e.ts
         }
       }).catch(() => {})
     }
@@ -110,7 +114,7 @@ export function LogPanel(props: LogPanelProps) {
               setEntries(prev => {
                 const seen = new Set(prev.map((e: any) => e.ts + ':' + e.tag))
                 const add = res.entries.filter((e: any) => !seen.has(e.ts + ':' + e.tag))
-                return add.length ? [...prev, ...add].slice(-100) : prev
+                return add.length ? [...prev, ...add].slice(-2000) : prev
               })
             }
           }).catch(() => {})

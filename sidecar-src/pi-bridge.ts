@@ -1708,11 +1708,19 @@ class PiBridge {
 
   // === B0.8: pagina precedente del DEBUG LOG (più vecchi di from) ===
   getDebugLogBefore(from: number, limit?: number): { entries: any[]; latestTs: number; total: number } {
+    const n = typeof limit === "number" && limit > 0 ? limit : 300
+    const out: any[] = []
     try {
-      const all = this.getDebugLog();
-      const older = all.filter((e: any) => typeof e.ts === "number" && e.ts < from);
-      return { entries: older.slice(-(typeof limit === "number" && limit > 0 ? limit : 300)), latestTs: 0, total: older.length };
+      // FIX 16 ott: legge il FILE (il buffer in-memory del processo ha solo gli ultimi
+      // eventi locali → "carica più vecchi" e le letture iniziali sembravano vuote).
+      this.#forEachSessionLine(DEBUG_LOG_FILE, (e: any) => {
+        if (!e || typeof e.tag !== "string" || typeof e.ts !== "number") return
+        if (e.ts >= from) return
+        out.push({ ts: e.ts, tag: e.tag, data: e.data })
+        if (out.length > n * 4) out.splice(0, out.length - n * 4)
+      })
     } catch { return { entries: [], latestTs: 0, total: 0 }; }
+    return { entries: out.slice(-n), latestTs: 0, total: out.length };
   }
 
   // === B0.9: stream del jsonl riga per riga (senza caricare tutto) ===
@@ -4138,6 +4146,37 @@ Read this file to view it.` }] };
   }
 
   // Log real-time: solo le entry successive a ts (payload leggero per il polling della UI)
+  // === B1.2 (16 ott): ultimi N log DEL FILTRO — non i 100 globali (altrimenti un tag raro
+  // sembra vuoto perché fuori dai 100). Stessa mappa tag→livello del LogPanel (frontend).
+  getFilteredLog(levels: string[], limit?: number): any[] {
+    const n = typeof limit === "number" && limit > 0 ? limit : 100
+    const set = new Set(Array.isArray(levels) ? levels : [])
+    const out: any[] = []
+    try {
+      // Streaming di TUTTO il file (riga per riga ✗ memoria costante): tiene gli ULTIMI n
+      // del filtro, anche se sono in fondo o sparsi ovunque. Il buffer in-memory del
+      // processo contiene solo gli ultimi eventi locali → i filtri sembravano sempre vuoti.
+      this.#forEachSessionLine(DEBUG_LOG_FILE, (e: any) => {
+        if (!e || typeof e.tag !== "string") return
+        if (set.size > 0 && !set.has(this.#logLevelFor(String(e.tag)))) return
+        out.push({ ts: e.ts, tag: e.tag, data: e.data })
+        if (out.length > n * 2) out.splice(0, out.length - n * 2)
+      })
+    } catch {}
+    return out.slice(-n)
+  }
+  #logLevelFor(tag: string): string {
+    if (tag.startsWith("ollama-probe-") || tag.startsWith("sync-") || tag.startsWith("model-registry") || tag.startsWith("ollama-info") || tag.startsWith("ollama-baseurl") || tag.startsWith("ollama-levels") || tag.startsWith("verify-thinking") || tag.startsWith("mapMessage")) return "renderer"
+    if (tag.startsWith("error") || tag.includes("error") || tag.includes("Error") || tag.includes("failed") || tag.includes("-error")) return "error"
+    if (tag.startsWith("warn") || tag.startsWith("warning") || tag === "retrying" || tag.includes("deprecat")) return "warn"
+    if (tag.startsWith("success") || tag.includes("done") || tag.includes("loaded") || tag.includes("initialized") || tag.includes("created")) return "success"
+    if (tag.startsWith("ui-") || tag.startsWith("ui:") || tag.includes("ui-click") || tag.includes("ui-nav") || tag.includes("ui-keyboard")) return "ui"
+    if (tag.startsWith("send-message") || tag.startsWith("set-agent") || tag.startsWith("set-mode") || tag.startsWith("set-thinking") || tag.startsWith("set-model") || tag.startsWith("chat-agents") || tag.startsWith("agent-changed") || tag.startsWith("model-changed") || tag.startsWith("thinking-changed") || tag.startsWith("mode-changed") || tag.startsWith("session-") || tag.startsWith("working-dir") || tag.startsWith("stream") || tag.startsWith("bridge") || tag.startsWith("get_") || tag.startsWith("ws:") || tag.startsWith("send:") || tag.startsWith("create") || tag.startsWith("delete") || tag.startsWith("update") || tag.startsWith("rename") || tag.startsWith("reload") || tag.startsWith("flush") || tag.startsWith("compact") || tag.startsWith("set-")) return "bridge"
+    if (tag === "agent_llm_config" || tag === "msg-content" || tag === "thinking-map-xhigh-fix" || tag === "thinking-map-resolved" || tag === "thinking-trace" || tag === "thinking-caps-applied" || tag === "response-thinking-verified" || tag === "thinking-level-intent" || tag === "thinking-http-intent") return "llm"
+    if (tag === "system_prompt") return "system"
+    if (tag.startsWith("renderer") || tag.startsWith("sidecar-marker") || tag.startsWith("stdout")) return "renderer"
+    return "info"
+  }
   getDebugLogSince(ts: number) {
     const all = this.getDebugLog();
     const entries = all.filter((e: any) => typeof e.ts === "number" && e.ts > ts);
