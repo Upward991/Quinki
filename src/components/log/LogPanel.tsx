@@ -180,7 +180,7 @@ export function LogPanel(props: LogPanelProps) {
   }, [entries, autoScroll])
 
   const levelColors: Record<string, { bg: string; text: string; tag: string; pill: string }> = {
-    "system prompt": { bg: 'rgba(115, 71, 189, 0.08)', text: 'var(--q-text)', tag: 'var(--q-accent-primary)', pill: 'var(--q-accent-primary)' },
+    "system prompt": { bg: 'color-mix(in srgb, var(--q-accent-info) 8%, transparent)', text: 'var(--q-text)', tag: 'var(--q-accent-info)', pill: 'var(--q-accent-info)' },
     thinking:        { bg: 'color-mix(in srgb, #8B7FD4 8%, transparent)', text: 'var(--q-text)', tag: '#8B7FD4', pill: '#8B7FD4' },
     "llm catalog":   { bg: 'color-mix(in srgb, #d7be66 8%, transparent)', text: 'var(--q-text)', tag: '#d7be66', pill: '#d7be66' },
     error:    { bg: 'color-mix(in srgb, var(--q-accent-danger) 6%, transparent)', text: 'var(--q-accent-danger)', tag: 'var(--q-accent-danger)', pill: 'var(--q-accent-danger)' },
@@ -372,28 +372,34 @@ export function LogPanel(props: LogPanelProps) {
     const subs = subFilters[level] || []
     const hasSubs = subs.length > 0
     const [subOpen, setSubOpen] = useState(false)
+    const [hovered, setHovered] = useState(false)
     const isActive = activeFilters.has(level)
     const color = levelColors[level]?.pill || 'var(--q-text-tertiary)'
+    const bgActive = isActive ? color : (hovered ? 'color-mix(in srgb, ' + color + ' 12%, transparent)' : 'transparent')
     return (
       <div style={{ position: 'relative', display: 'inline-flex' }}>
       <button
         onClick={() => { if (hasSubs) setSubOpen(!subOpen); else toggleFilter(level) }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
         style={{
           height: '32px', padding: '0 8px', minWidth: '45px', borderRadius: 'var(--radius-md)',
-          cursor: 'pointer', backgroundColor: isActive ? color : 'transparent',
+          cursor: 'pointer', backgroundColor: bgActive,
           border: `1px solid ${color}`, color: isActive ? 'var(--q-bg)' : color,
           fontSize: '12px', fontFamily: 'var(--font-interface)', fontWeight: 500,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center',
           transition: 'none',
         }}
       >
-        {level} {hasSubs ? '▾' : ''}
+        {hasSubs ? <ChevronDown size={14} style={{ transition: 'none', transform: subOpen ? 'rotate(0deg)' : 'rotate(-90deg)', color }} /> : null}
+        {level}
       </button>
       {hasSubs && subOpen && (
         <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 50, backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-md)', padding: '4px', minWidth: '140px' }}>
-          {subs.map(sub => (
-            <div key={sub} onClick={() => { setSubOpen(false); toggleFilter(level + ':' + sub) }} style={{ padding: '6px 10px', fontSize: '12px', fontFamily: 'var(--font-interface)', cursor: 'pointer', color: activeFilters.has(level+':'+sub) ? 'var(--q-accent-primary)' : 'var(--q-text)', backgroundColor: activeFilters.has(level+':'+sub) ? 'rgba(115,71,189,0.1)' : 'transparent', borderRadius: '6px' }}>{sub}</div>
-          ))}
+          {subs.map(sub => {
+            const subActive = activeFilters.has(level + ':' + sub)
+            return <div key={sub} onClick={() => { setSubOpen(false); toggleFilter(level + ':' + sub) }} style={{ height: '32px', padding: '0 8px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontFamily: 'var(--font-interface)', fontWeight: 500, cursor: 'pointer', color: subActive ? 'var(--q-bg)' : color, backgroundColor: subActive ? color : 'transparent', border: '1px solid ' + color, borderRadius: 'var(--radius-md)' }}>{sub}</div>
+          })}
         </div>
       )}
       </div>
