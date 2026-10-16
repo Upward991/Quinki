@@ -180,6 +180,9 @@ export function LogPanel(props: LogPanelProps) {
   }, [entries, autoScroll])
 
   const levelColors: Record<string, { bg: string; text: string; tag: string; pill: string }> = {
+    "system prompt": { bg: 'rgba(115, 71, 189, 0.08)', text: 'var(--q-text)', tag: 'var(--q-accent-primary)', pill: 'var(--q-accent-primary)' },
+    thinking:        { bg: 'color-mix(in srgb, #8B7FD4 8%, transparent)', text: 'var(--q-text)', tag: '#8B7FD4', pill: '#8B7FD4' },
+    "llm catalog":   { bg: 'color-mix(in srgb, #d7be66 8%, transparent)', text: 'var(--q-text)', tag: '#d7be66', pill: '#d7be66' },
     error:    { bg: 'color-mix(in srgb, var(--q-accent-danger) 6%, transparent)', text: 'var(--q-accent-danger)', tag: 'var(--q-accent-danger)', pill: 'var(--q-accent-danger)' },
     warn:     { bg: 'color-mix(in srgb, var(--q-accent-warning) 6%, transparent)', text: 'var(--q-accent-warning)', tag: 'var(--q-accent-warning)', pill: 'var(--q-accent-warning)' },
     ui:       { bg: 'color-mix(in srgb, var(--q-accent-info) 6%, transparent)', text: 'var(--q-accent-info)', tag: 'var(--q-accent-info)', pill: 'var(--q-accent-info)' },
@@ -192,6 +195,11 @@ export function LogPanel(props: LogPanelProps) {
   }
 
   const moreFilters = ['system prompt', 'thinking', 'llm catalog']
+  const subFilters: Record<string, string[]> = {
+    "system prompt": ["user","steering","delegation","support_agent","task","recovery","compaction"],
+    thinking: ["requested","sent","caps","verified","map"],
+    "llm catalog": [],
+  }
 
   const months = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december']
 
@@ -361,11 +369,15 @@ export function LogPanel(props: LogPanelProps) {
   }
 
   function FilterPill({ level }: { level: string }) {
+    const subs = subFilters[level] || []
+    const hasSubs = subs.length > 0
+    const [subOpen, setSubOpen] = useState(false)
     const isActive = activeFilters.has(level)
     const color = levelColors[level]?.pill || 'var(--q-text-tertiary)'
     return (
+      <div style={{ position: 'relative', display: 'inline-flex' }}>
       <button
-        onClick={() => toggleFilter(level)}
+        onClick={() => { if (hasSubs) setSubOpen(!subOpen); else toggleFilter(level) }}
         style={{
           height: '32px', padding: '0 8px', minWidth: '45px', borderRadius: 'var(--radius-md)',
           cursor: 'pointer', backgroundColor: isActive ? color : 'transparent',
@@ -375,8 +387,16 @@ export function LogPanel(props: LogPanelProps) {
           transition: 'none',
         }}
       >
-        {level}
+        {level} {hasSubs ? '▾' : ''}
       </button>
+      {hasSubs && subOpen && (
+        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 50, backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-md)', padding: '4px', minWidth: '140px' }}>
+          {subs.map(sub => (
+            <div key={sub} onClick={() => { setSubOpen(false); toggleFilter(level + ':' + sub) }} style={{ padding: '6px 10px', fontSize: '12px', fontFamily: 'var(--font-interface)', cursor: 'pointer', color: activeFilters.has(level+':'+sub) ? 'var(--q-accent-primary)' : 'var(--q-text)', backgroundColor: activeFilters.has(level+':'+sub) ? 'rgba(115,71,189,0.1)' : 'transparent', borderRadius: '6px' }}>{sub}</div>
+          ))}
+        </div>
+      )}
+      </div>
     )
   }
 

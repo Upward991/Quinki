@@ -4207,7 +4207,7 @@ Read this file to view it.` }] };
       if (lines.length > DEBUG_LOG_MAX_LINES) {
         fs.writeFileSync(DEBUG_LOG_FILE, lines.slice(-DEBUG_LOG_MAX_LINES).join("\n") + "\n", "utf8");
         this.#debugLogLines = DEBUG_LOG_MAX_LINES;
-        this.logDebug("debug-log-trimmed", { kept: DEBUG_LOG_MAX_LINES, was: lines.length });
+        // zittito 16 ott: cap del file (non è un log utile)
       }
     } catch {}
   }
