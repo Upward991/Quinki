@@ -393,6 +393,24 @@ export class Scheduler {
 
   // === RPC API ===
   createSchedule(p: any): { id: string; schedule: Schedule } {
+    // DEDUPE (16 ott, bug utente "a volte ne schedulа DUE"): se un task IDENTICO (titolo+testo+regole+agenti)
+    // e' stato creato negli ultimi 2 minuti, NON ne creo un doppione: restituisco quello esistente.
+    try {
+      const norm = (x: any) => JSON.stringify(x ?? null);
+      const existing = this.readSchedules().find((x: Schedule) =>
+        Date.now() - (x.createdAt || 0) < 120000 &&
+        x.title === String(p.title || "Scheduled task") &&
+        String(x.text || "") === String(p.text || "") &&
+        norm(x.when) === norm(p.when) &&
+        norm((Array.isArray(p.rules) && p.rules.length > 0) ? p.rules : null) === norm(x.rules ?? null) &&
+        norm(x.agentIds) === norm(Array.isArray(p.agentIds) ? p.agentIds.map((z: any) => String(z).trim()) : String(p.agentIds || "orchestrator").split(",").map((z: string) => z.trim()))
+      );
+      if (existing) {
+        this.#log("schedule-dedupe", { scheduleId: existing.id, title: existing.title });
+        return { id: existing.id, schedule: existing };
+      }
+    } catch {}
+
     const validTypes = ["once", "daily", "weekly", "monthly", "yearly", "hourly", "minutely", "seconds"];
     const when: ScheduleWhen = p.when || {};
     // Multi-rule: se p.rules è un array valido, 'when' può essere vuoto

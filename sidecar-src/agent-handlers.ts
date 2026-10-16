@@ -488,7 +488,7 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
         { name: "schedule_task", description: "Schedule an autonomous task to run later or on a recurring basis (once/daily/weekly/monthly)", readOnly: true },
         { name: "cancel_schedule", description: "Cancel/delete a scheduled task by its ID (the user asks to stop a previously scheduled task)", readOnly: true },
         { name: "getTaskStatus", description: "List the status of all tasks of this session (scheduled + executed)", readOnly: true },
-        { name: "getTaskResult", description: "Read the full result of a specific task execution by id", readOnly: true },
+        { name: "getTaskExecuted", description: "Read the full execution of a specific task by id (text, thinking, tool calls, tool results)", readOnly: true },
         { name: "readHandoff", description: "Read the handoff memory of this session's tasks", readOnly: true },
         { name: "screenshot", description: "Capture a screenshot of the Quinki app window (saved as PNG — the agent can read it to see the UI)", readOnly: true },
         { name: "market", description: "Use the Quinki Market: browse the catalog, search community items, install/uninstall packages and manage publishing", readOnly: true },

@@ -5123,7 +5123,8 @@ Read this file to view it.` }] };
         if (wants('cancel_schedule') && !has('cancel_schedule')) {
           try { const t = this.#buildCancelScheduleTool(sk); if (t) keep.push(t); } catch {}
         }
-        if (wants('getTaskStatus') || wants('getTaskExecuted') || wants('readHandoff')) {
+        // ALIAS (16 ott): le config agenti piu' vecchie elencano 'getTaskResult' → accettato come alias
+        if (wants('getTaskStatus') || wants('getTaskExecuted') || wants('getTaskResult') || wants('readHandoff')) {
           try { const tt = this.#buildTaskTools(sk); if (tt.length > 0) for (const t of tt) { if (!has((t as any).name)) keep.push(t); } } catch {}
         }
         if (!has('market')) {
@@ -7498,7 +7499,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
           }
         }
         // A2.10: tool task (getTaskStatus/getTaskExecuted/readHandoff) SOLO se l'agente li ha nel config
-        const hasTaskTools = !!(agentCfg?.tools?.includes('getTaskStatus') || agentCfg?.tools?.includes('getTaskExecuted') || agentCfg?.tools?.includes('readHandoff'));
+        const hasTaskTools = !!(agentCfg?.tools?.includes('getTaskStatus') || agentCfg?.tools?.includes('getTaskExecuted') || agentCfg?.tools?.includes('getTaskResult') /* alias 16 ott */ || agentCfg?.tools?.includes('readHandoff'));
         if (hasTaskTools) {
           try {
             const taskTools = this.#buildTaskTools(sk);
