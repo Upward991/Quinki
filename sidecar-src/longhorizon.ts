@@ -276,19 +276,6 @@ export class LongHorizon {
       this.#log("lh-compaction-forced", { sessionKey: sk, prevAuto: st.prevCompactionAuto });
     } catch {}
   }
-  #restoreCompaction(sk: string, st: any) {
-    try {
-      if (!st.prevCompactionSaved) return;
-      this.#piBridge?.setSessionCompaction?.(
-        sk,
-        typeof st.prevCompactionAuto === "boolean" ? st.prevCompactionAuto : true,
-        typeof st.prevCompactionThreshold === "number" ? st.prevCompactionThreshold : undefined
-      );
-      this.#log("lh-compaction-restored", { sessionKey: sk, auto: st.prevCompactionAuto, threshold: st.prevCompactionThreshold });
-      st.prevCompactionSaved = false;
-      st.compactionForced = false;
-    } catch {}
-  }
 
   // Disattiva COMPLETAMENTE Long Horizon per la sessione (usato quando la chat viene eliminata)
   disable(sk: string): { ok: boolean; error?: string } {

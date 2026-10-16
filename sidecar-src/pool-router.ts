@@ -26,7 +26,6 @@ const childSockets = new Map<number, any>();
 const childProcs = new Map<number, any>();
 const childStarting = new Map<number, number>(); // owner → timestamp spawn
 const childRetired = new Set<number>(); // shrink: NON rispawnare finché serve una sessione
-const lastForwarded = new Map<string, number>(); // FIX A4.3: dedup eventi inoltrati (firma → timestamp)
 const pendingRpc = new Map<number, (m: any) => void>();
 let nextRpcId = 1_000_000;
 const ensuredOnChild = new Set<string>();

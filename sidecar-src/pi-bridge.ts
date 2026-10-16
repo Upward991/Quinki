@@ -28,8 +28,6 @@ import {
   probeProviderCapabilities,
   probeSingleModelCaps,
   syncSettingsJson,
-  getDefaultModel as getProviderDefaultModel,
-  getDefaultThinking as getProviderDefaultThinking,
   getSafeProvidersConfig,
   type ProvidersConfig,
   type SafeProvidersConfig,
@@ -375,9 +373,6 @@ class PiBridge {
   #scheduleCancelHandler: ((params: any) => any) | null = null;  // P2 #10: callback per cancellare una schedule
   #logBroadcast: ((entry: any) => void) | null = null;  // log live: notifica WS per ogni nuova entry (niente polling)
 
-  setLogBroadcast(fn: (entry: any) => void) {
-    this.#logBroadcast = fn;
-  }
   // === Multi-window streaming buffer: traccia il messaggio in streaming per sessione ===
   // Permette alle nuove finestre di recuperare il contenuto parziale quando aprono durante la generazione
   #streamingBuffers = new Map<string, { text: string; thinking: string; toolCalls: any[]; currentPhase: string | null; messageId: string | null; model: string | null; provider: string | null; stopReason: string | null; thinkingLevel: string | null; }>();
@@ -582,54 +577,6 @@ class PiBridge {
     } catch {}
   }
 
-  async #probeModelLevels(modelId: string): Promise<ProbeResult> {
-    const existing = this.#ollamaProbeResults.get(modelId);
-    if (existing) return existing;
-    const testLevels = ["low", "medium", "high", "max"];
-    const ollamaToPi: Record<string, string> = { low: "low", medium: "medium", high: "high", max: "xhigh" };
-    const accepted: string[] = [];
-    const isLocal = !modelId.includes(":cloud");
-    const baseTimeout = isLocal ? 30000 : 60000;
-    const retryTimeout = isLocal ? 60000 : 120000;
-    for (const level of testLevels) {
-      let success = false;
-      for (const timeout of [baseTimeout, retryTimeout]) {
-        if (success) break;
-        try {
-          const res = await fetch(`${this.#ollamaBaseUrl}/api/generate`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ model: modelId, prompt: ".", think: level, stream: false }),
-            signal: AbortSignal.timeout(timeout),
-          });
-          if (res.ok) {
-            const text = await res.text();
-            if (!text.includes('"error"')) {
-              accepted.push(level);
-              success = true;
-            } else {
-              success = true;
-            }
-          } else {
-            success = true;
-          }
-        } catch (e) {
-          this.logDebug("ollama-probe-level-error", { modelId, level, timeout, error: String(e) });
-          await new Promise((r) => setTimeout(r, 1000));
-        }
-      }
-    }
-    const map: Record<string, string> = {};
-    for (const o of accepted) {
-      const pi = ollamaToPi[o];
-      if (pi) map[pi] = o;
-    }
-    const levels = Object.keys(map);
-    const out: ProbeResult = { levels, map, ollamaLevels: accepted };
-    this.#ollamaProbeResults.set(modelId, out);
-    this.logDebug("ollama-probe-done", { modelId, accepted, levels, map, source: "verified" });
-    return out;
-  }
 
   // === Re-merge: re-reads the file and merges agentId/model/mode into #entries ===
   // Usato 3s dopo l'avvio per pickare il flush finale del vecchio sidecar
@@ -704,11 +651,6 @@ class PiBridge {
   }
 
   // === Flush all data to disk (called on SIGTERM) ===
-  flushAll() {
-    this.#save();
-    this.#saveContextUsage();
-    this.logDebug("flush-all", { entries: this.#entries.size });
-  }
 
   #save() {
     try {
@@ -1018,27 +960,6 @@ class PiBridge {
   }
 
   // === Cleanup: remove temp delegation sessions from disk ===
-  #cleanupDelegateSessions() {
-    try {
-      const base = path.join(this.#agentDir, "sessions", "quinki");
-      if (!fs.existsSync(base)) return;
-      const dirs = fs.readdirSync(base, { withFileTypes: true });
-      for (const d of dirs) {
-        if (d.name.startsWith("__delegate_")) {
-          try {
-            const fullPath = path.join(base, d.name);
-            if (d.isDirectory()) {
-              const files = fs.readdirSync(fullPath);
-              for (const f of files) fs.unlinkSync(path.join(fullPath, f));
-              fs.rmdirSync(fullPath);
-            } else {
-              fs.unlinkSync(fullPath);
-            }
-          } catch {}
-        }
-      }
-    } catch {}
-  }
 
   #loadContextUsage() {
     try {
@@ -1074,9 +995,6 @@ class PiBridge {
       for (const [k, v] of this.#errors) data[k] = v;
       fs.writeFileSync(ERRORS_FILE, JSON.stringify(data, null, 2), "utf8");
     } catch {}
-  }
-  getErrors(sessionKey: string): any[] {
-    return this.#errors.get(sessionKey) || [];
   }
 
   // Append delegation to .jsonl via SessionManager._appendEntry (puts it in the tree chain)
@@ -2187,18 +2105,6 @@ class PiBridge {
     } catch {}
   }
 
-  #cleanSessionMaps(key: string) {
-    this.#entries.delete(key);
-    this.#active.delete(key);
-    this.#wss.delete(key);
-    this.#unsubs.delete(key);
-    this.#prompts.delete(key);
-    this.#pendingModels.delete(key);
-    this.#pendingThinking.delete(key);
-    this.#pendingMode.delete(key);
-    this.#streamingBuffers.delete(key); try { this.#toolBusy.delete(key); } catch {}
-    this.#turnState.delete(key); this.#turnDirty.delete(key);
-  }
 
   remove(key: string) {
     try { markSessionDeleted(String(key)); } catch {}
@@ -2240,25 +2146,11 @@ class PiBridge {
     } catch {}
   }
 
-  getModel(key: string): string | null {
-    const pi = this.#active.get(key);
-    if (pi) {
-      try { return pi.model?.id || null; } catch {}
-    }
-    return this.#entries.get(key)?.model || null;
-  }
 
   refreshModelRegistry(): void {
     try { this.#modelRegistry?.refresh?.(); } catch {}
   }
 
-  getThinkingLevel(key: string): string | null {
-    const pi = this.#active.get(key);
-    if (pi) {
-      try { return pi.thinkingLevel || null; } catch {}
-    }
-    return this.#entries.get(key)?.thinkingLevel || null;
-  }
 
   getSessionMeta(key: string): { model?: string; thinkingLevel?: string; availableThinkingLevels: string[]; mode: string; agentId?: string; agentOverrides?: any } {
     // Read session entry directly from disk (sync between sidecars)
@@ -2421,54 +2313,6 @@ class PiBridge {
     return s.model;
   }
 
-  async verifyThinking(modelId: string, level: string): Promise<{
-    accepted: boolean;
-    thinking_length: number;
-    response_length: number;
-    duration_ms: number;
-    ollama_value: string;
-    error?: string;
-  }> {
-    const ollamaLevel = level === "off" ? "false" : level;
-    const start = Date.now();
-    this.logDebug("verify-thinking", { modelId, requestedLevel: level, ollamaLevel, start });
-    try {
-      const res = await fetch(`${this.#ollamaBaseUrl}/api/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: modelId, prompt: ".", think: ollamaLevel, stream: false }),
-        signal: AbortSignal.timeout(90000),
-      });
-      const duration_ms = Date.now() - start;
-      if (!res.ok) {
-        const out = { accepted: false, thinking_length: 0, response_length: 0, duration_ms, ollama_value: ollamaLevel, error: `HTTP ${res.status}` };
-        this.logDebug("verify-thinking", { modelId, requestedLevel: level, ...out });
-        return out;
-      }
-      const text = await res.text();
-      const hasError = text.includes('"error"');
-      if (hasError) {
-        const out = { accepted: false, thinking_length: 0, response_length: 0, duration_ms, ollama_value: ollamaLevel, error: "response contains error" };
-        this.logDebug("verify-thinking", { modelId, requestedLevel: level, ...out });
-        return out;
-      }
-      let thinking_length = 0;
-      let response_length = 0;
-      try {
-        const data = JSON.parse(text);
-        thinking_length = (data.thinking || "").length;
-        response_length = (data.response || "").length;
-      } catch {}
-      const out = { accepted: true, thinking_length, response_length, duration_ms, ollama_value: ollamaLevel };
-      this.logDebug("verify-thinking", { modelId, requestedLevel: level, ...out });
-      return out;
-    } catch (e: any) {
-      const duration_ms = Date.now() - start;
-      const out = { accepted: false, thinking_length: 0, response_length: 0, duration_ms, ollama_value: ollamaLevel, error: e?.message || String(e) };
-      this.logDebug("verify-thinking", { modelId, requestedLevel: level, ...out });
-      return out;
-    }
-  }
 
   getContextUsage(key: string): { tokens: number | null; contextWindow: number; percent: number | null } | null {
     // Cross-sidecar: rilegge il file condiviso (main ↔ App Expert) così i due processi
@@ -2948,8 +2792,6 @@ class PiBridge {
     // scritto+persistito e SOLO POI validato → sessione avvelenata senza rollback
     // (un click su un modello inesistente distruggeva la chat al prossimo riavvio).
     try {
-      const authPath0 = path.join(this.#agentDir, "auth.json");
-      const modelsPath0 = path.join(this.#agentDir, "models.json");
       const registry0 = await this.#createRegistry();
       const found0 = this.#findModelInRegistry(registry0, modelId);
       if (!found0) {
@@ -3339,53 +3181,6 @@ class PiBridge {
       return false;
     } catch (e: any) {
       this.logDebug("clip-inject-error", { sessionKey, error: e?.message || String(e) });
-      return false;
-    }
-  }
-
-  // === A2.11: sendHiddenUserMessage — messaggio utente NASCOSTO che TRIGGERA il modello.
-  // Entra nel contesto (il modello lo vede), ma NON è visibile in chat (flag hidden:true,
-  // filtrato in getHistory). Usato per le transizioni di fase Long Horizon.
-  // Tecnica: wrap di _appendEntry — il prossimo messaggio utente appeso dal prompt flow
-  // viene marcato hidden. Niente duplicati: il messaggio è appeso UNA volta (dal prompt flow). ===
-  async sendHiddenUserMessage(sessionKey: string, text: string): Promise<boolean> {
-    try {
-      if (!this.#active.has(sessionKey)) {
-        await this.#ensureActive(sessionKey);
-      }
-      const pi = this.#active.get(sessionKey);
-      if (!pi?.sessionManager) return false;
-      const sm = pi.sessionManager as any;
-      if (typeof sm._appendEntry === 'function') {
-        if (!sm._quinkiHiddenWrapped) {
-          const orig = sm._appendEntry.bind(sm);
-          sm._appendEntry = (entry: any) => {
-            if (sm._quinkiNextHidden && entry?.type === "message" && entry?.message?.role === "user") {
-              entry.message.hidden = true;
-              sm._quinkiNextHidden = false;
-            }
-            return orig(entry);
-          };
-          sm._quinkiHiddenWrapped = true;
-        }
-        sm._quinkiNextHidden = true;
-        // Rebuild del system prompt PRIMA di triggerare: la nuova fase deve essere nel contesto
-        try {
-          const effCwd = this.effectiveWorkDir(sessionKey) || this.#cwdOverride.get(sessionKey) || this.#autoWorkDir(sessionKey);
-          const sessionMode = this.#entries.get(sessionKey)?.mode || "plan";
-          const built = this.#buildSystemPrompt(sessionKey, effCwd, undefined, sessionMode, undefined, undefined, undefined);
-          pi.agent.state.systemPrompt = built;
-          (pi as any)._baseSystemPrompt = built;
-          this.logDebug("hidden-user-system-prompt-rebuilt", { sessionKey, phase: this.#lhPhase.get(sessionKey) });
-        } catch (e: any) { this.logDebug("hidden-user-sysprompt-error", { sessionKey, error: e?.message || String(e) }); }
-        const { content } = await this.#buildUserMessage(text, undefined);
-        await pi.sendUserMessage(content, { deliverAs: "followUp" });
-        this.logDebug("hidden-user-sent", { sessionKey, text: text.slice(0, 80) });
-        return true;
-      }
-      return false;
-    } catch (e: any) {
-      this.logDebug("hidden-user-send-error", { sessionKey, error: e?.message || String(e) });
       return false;
     }
   }
@@ -4136,7 +3931,6 @@ Read this file to view it.` }] };
     // Ora: SEMPRE JSON-RPC, su OGNI percorso (direct WS, pool broadcast, stdout).
     try {
       const jsonrpc = JSON.stringify({ jsonrpc: "2.0", method: payload?.type || "event", params: payload });
-      const isPoolWorker = (globalThis as any).__quinki_poolIndex != null && (globalThis as any).__quinki_poolIndex > 0;
       // FIX (1 ott sera): gli eventi del worker 0 andavano SOLO alla socket della
       // sessione (l'app) — la CLI (altra socket) non riceveva MAI status,
       // compaction, errori, autoprompt. Ora: SEMPRE broadcast a tutti i client
@@ -4282,10 +4076,6 @@ Read this file to view it.` }] };
     return [];
   }
 
-  clearDebugLog() {
-    this.#debugLog = [];
-    try { if (fs.existsSync(DEBUG_LOG_FILE)) fs.unlinkSync(DEBUG_LOG_FILE); } catch {}
-  }
 
   #emitContextUsage(ws: any, key: string, tag = "ctx") {
     const u = this.getContextUsage(key);
@@ -4472,22 +4262,6 @@ Read this file to view it.` }] };
   }
 
   // === Long Horizon: legge gli ultimi tool call della sessione (per rilevare loop per PATTERN) ===
-  getRecentToolCalls(key: string, limit = 12): { name: string; args: string }[] {
-    const out: { name: string; args: string }[] = [];
-    try {
-      const hist = this.getHistory(key);
-      if (Array.isArray(hist)) {
-        for (const m of hist) {
-          if (m.role === "tool_call" && m.toolName) {
-            let args = "";
-            try { args = JSON.stringify(m.toolArgs || {}); } catch {}
-            out.push({ name: m.toolName, args });
-          }
-        }
-      }
-    } catch {}
-    return out.slice(-limit);
-  }
 
   // === Snapshot dello streaming in corso: per mostrare il messaggio parziale quando
   // il frontend si riconnette a metà turno (dopo crash/riavvio). ===
@@ -4823,10 +4597,6 @@ Read this file to view it.` }] };
     }
   }
 
-  getMessageSkills(key: string): Record<string, any[]> {
-    const s = this.#entries.get(key);
-    return (s as any)?.messageSkills || {};
-  }
 
   setMessageTaskClips(key: string, messageId: string, clips: any[], messageText?: string) {
     const s = this.#entries.get(key);
@@ -4839,10 +4609,6 @@ Read this file to view it.` }] };
     }
   }
 
-  getMessageTaskClips(key: string): Record<string, any[]> {
-    const s = this.#entries.get(key);
-    return (s as any)?.messageTaskClips || {};
-  }
 
   // === FIX (22 set, v2): ri-key chips sul messaggio utente REALE ===
   // I store messageAttachments/messageSkills/messageTaskClips erano chiavati solo per
@@ -4943,10 +4709,6 @@ Read this file to view it.` }] };
     }
   }
 
-  getMessageAttachments(key: string): Record<string, any[]> {
-    const s = this.#entries.get(key);
-    return (s as any)?.messageAttachments || {};
-  }
 
   // === FIX (22 set): store chip letti dal FILE (fonte condivisa tra processi) ===
   // Il send gira su un worker del pool, ma getHistory è servito dal processo main:
@@ -5623,10 +5385,6 @@ Read this file to view it.` }] };
   }
 
   #expertExePath: string | null = null;
-  setExpertEnv(exePath: string) {
-    this.#expertExePath = exePath;
-    this.logDebug("set-expert-env", { exePath });
-  }
 
   // A2.2: il sidecar registra il bridge verso il Scheduler (tool schedule_task degli agenti)
   setScheduleHandler(fn: (params: any) => any) {
@@ -6041,10 +5799,6 @@ A (finestra main) e B (tu, finestra Expert) sono **la STESSA applicazione, un so
 - Per riavviare **C** (dev): killa il PID di C, NON A.`;
   }
 
-  #expertSystemPrompt(cwd?: string): string {
-    // Delega a #readAgentPrompt che legge da ~/.pi/agent/agents/app-expert/PROMPT.md
-    return this.#readAgentPrompt("app-expert", cwd);
-  }
 
   #expertSystemPromptFallback(cwd?: string): string {
     return `Sei il **Quinki Expert**, lo sviluppatore automatico dell'app Quinki.
@@ -6128,314 +5882,6 @@ read, grep, glob, ls, write, edit, bash, skill. Usa \`bash\` per flutter/git/kil
   }
 
   // === Tool personalizzato: delegate_to_agent per l'Orchestrator ===
-async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: string; files?: any[]; workingDirs?: string[] }) {
-    const sk = data.sessionKey;
-    const targetId = data.agentId;
-    const s = this.#entries.get(sk);
-    if (!s) return;
-
-    this.#refreshWorkdirFromDisk(sk);
-    this.#refreshWorkdirFromDisk(sk);
-    const effEntryWd = (this.#entries.get(sk) as any)?.workingDir
-    const effectiveCwd = this.#cwdOverride.get(sk) ?? ((data.workingDirs && data.workingDirs.length > 0) ? data.workingDirs[0] : (effEntryWd || this.#cwd));
-    this.logDebug("turn-cwd", { sessionKey: sk, effectiveCwd, via: "sendMessage" });
-    this.logDebug("turn-cwd", { sessionKey: sk, effectiveCwd, via: "sendDirect" });
-    this.#lastEffectiveCwd.set(sk, effectiveCwd);
-
-    // Resolve agent config
-    const agentConfig = this.#readAgentConfigFile(targetId) || { skills: [] };
-    const agentName = agentConfig?.name || targetId;
-    const agentPrompt = this.#readAgentPrompt(targetId, this.#cwd);
-    const skillPaths = this.#resolveSkillPaths(agentConfig, this.#cwd);
-
-    this.logDebug("send-direct-start", { sessionKey: sk, agentId: targetId, agentName, text: data.text?.substring(0, 100) });
-
-    // Inject API keys for this agent
-    const savedKeys = [...this.#activeApiKeys];
-    this.#injectApiKeysForAgent(agentConfig);
-
-    // Create temp session (clean, no orchestrator history)
-    const tempKey = `__direct_${sk}_${targetId}_${Date.now()}`;
-    const tempSessionDir = path.join(this.#agentDir, "sessions", "quinki", tempKey);
-    if (!fs.existsSync(tempSessionDir)) fs.mkdirSync(tempSessionDir, { recursive: true });
-    const tempLoader = new this.#sdk.DefaultResourceLoader({
-      cwd: effectiveCwd,
-      agentDir: this.#agentDir,
-      systemPrompt: agentPrompt,
-      appendSystemPrompt: [],
-      noExtensions: true,
-      noSkills: true,
-      noPromptTemplates: true,
-      noThemes: true,
-      noContextFiles: true,
-      additionalSkillPaths: skillPaths,
-    });
-    await tempLoader.reload();
-    const tempSm = this.#sdk.SessionManager.open(
-      path.join(tempSessionDir, "session.jsonl"),
-      tempSessionDir,
-      effectiveCwd
-    );
-    const tempResult = await this.#sdk.createAgentSession({
-      cwd: effectiveCwd,
-      agentDir: this.#agentDir,
-      sessionManager: tempSm,
-      resourceLoader: tempLoader,
-    });
-    const tempPi = tempResult.session;
-    try { tempPi.toolExecution = "sequential"; } catch {}
-    this.#active.set(tempKey, tempPi);
-    // Apply tools first (setActiveToolsByName rebuilds _baseSystemPrompt)
-    const mainModeSD = s.mode || "plan";
-    try {
-      const globalConfig = this.#readGlobalConfig();
-      const globalTools = globalConfig.tools || ["read", "grep", "find", "ls", "skill"];
-      const agentTools = agentConfig?.tools || [];
-      const mergedTools = [...new Set([...globalTools, ...agentTools])];
-      const all = (tempPi.getAllTools?.() ?? []).map((t: any) => t.name) as string[];
-      let tempToolNames = mergedTools.filter(n => all.includes(n));
-      if (mainModeSD === "plan") {
-        const planFlags = globalConfig.planModeTools || {};
-        tempToolNames = tempToolNames.filter(n => planFlags[n] !== false);
-      }
-      try { tempPi.setActiveToolsByName?.(tempToolNames); } catch {}
-    } catch {}
-    // Build system prompt AFTER setActiveToolsByName (same as #applyMode + skills)
-    try {
-      let base = (tempPi as any)._baseSystemPrompt || tempPi.agent.state.systemPrompt || "";
-      const note = this.#modeNote(mainModeSD);
-      if (typeof base === "string" && !base.includes(agentConfig?.name || "§§")) {
-        base = agentPrompt + `\n\nWorking directory: ${this.#cwd}\n\n` + base;
-      }
-      if (typeof base === "string" && base.length > 0 && note) {
-        const planIdx = base.indexOf("\n\nSei in MODALITÀ PIANO");
-        const buildIdx = base.indexOf("\n\nSei in MODALITÀ BUILD");
-        const planIdxEn = base.indexOf("\n\nYou are in PLAN MODE");
-        const buildIdxEn = base.indexOf("\n\nYou are in BUILD MODE");
-        const cut = Math.max(planIdx, buildIdx, planIdxEn, buildIdxEn);
-        if (cut >= 0) base = base.substring(0, cut);
-        base = base + note;
-      }
-      if (tempPi?.resourceLoader) {
-        try {
-          const skills = tempPi.resourceLoader.getSkills().skills;
-          if (skills && skills.length > 0 && typeof base === "string" && !base.includes("skill tool")) {
-            base = base + `\n\nYou have ${skills.length} skill(s) available. Use the skill tool with command='list' to see them, command='search' to find relevant ones, and command='load' to read full instructions. Always check your skills before answering.`;
-          }
-        } catch {}
-      }
-      if (typeof base === "string" && base.length > 0) {
-        (tempPi as any)._baseSystemPrompt = base;
-        tempPi.agent.state.systemPrompt = base;
-      }
-      this.logDebug("send-direct-system-prompt", { sessionKey: sk, mode: mainModeSD, promptLen: base?.length || 0, hasSkills: base?.includes("available_skills"), hasModeNote: base?.includes("MODALITÀ") });
-      // Log delegated agent system prompt for debugging
-    } catch {}
-
-    // Apply model: session override > agent config > main session
-    const sessionOverrides = (s as any)?.agentOverrides || {};
-    const agentOverride = sessionOverrides[targetId] || {};
-    const agentModelId = agentOverride.model;
-    const mainSession = this.#active.get(sk);
-    if (agentModelId) {
-      try {
-        const authPath = path.join(this.#agentDir, "auth.json");
-        const modelsPath = path.join(this.#agentDir, "models.json");
-        const registry = await this.#createRegistry();
-        const agentModel = this.#findModelInRegistry(registry, agentModelId);
-        if (agentModel) {
-          await tempPi.setModel(agentModel);
-          this.logDebug("send-direct-model", { sessionKey: sk, model: agentModelId });
-        } else if (mainSession?.model) {
-          try { await tempPi.setModel(mainSession.model); } catch {}
-        }
-      } catch (e: any) { this.logDebug("send-direct-model-error", { sessionKey: sk, error: e?.message }); }
-    } else if (mainSession?.model) {
-      try { await tempPi.setModel(mainSession.model); } catch {}
-    }
-
-    // Apply thinking level: session override > main session
-    const agentThinking = agentOverride.thinkingLevel;
-    if (agentThinking === 'on') {
-      const sessionLevel = mainSession?.thinkingLevel;
-      const level = (sessionLevel && sessionLevel !== 'off') ? sessionLevel : 'xhigh';
-      try { tempPi.setThinkingLevel(level); } catch {}
-    } else if (agentThinking === 'off') {
-      try { tempPi.setThinkingLevel('off'); } catch {}
-    } else if (mainSession?.thinkingLevel) {
-      try { tempPi.setThinkingLevel(mainSession.thinkingLevel); } catch {}
-    }
-
-    // Emit delegation_start (reuse delegation UI)
-    const delegationId = `del-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    this.#sendToWs(ws, { type: "stream_event", sessionKey: sk, eventType: "delegation_start", messageId: delegationId, agentName, task: data.text });
-
-    // Subscribe to temp session events → forward to main WS
-    let delegationContent: any[] = [];
-    const tempSub = tempPi.subscribe((e: any) => {
-      try {
-        if (e.type === "tool_execution_start") this.#toolBusy.add(sk);
-        else if (e.type === "tool_execution_end") this.#toolBusy.delete(sk);
-      } catch {}
-      if (e.type === "tool_execution_start") {
-        this.#sendToWs(ws, { type: "stream_event", sessionKey: sk, eventType: "toolcall_start", delta: e.toolName || "", messageId: delegationId });
-        let argsStr = "";
-        try { argsStr = typeof e.args === "string" ? e.args : JSON.stringify(e.args, null, 2); } catch {}
-        if (argsStr) this.#sendToWs(ws, { type: "stream_event", sessionKey: sk, eventType: "toolcall_delta", delta: argsStr, messageId: delegationId });
-      } else if (e.type === "tool_execution_end") {
-        let resultText = "";
-        try {
-          const r = e.result;
-          if (r?.content) {
-            if (Array.isArray(r.content)) {
-              resultText = r.content.filter((b: any) => b?.type === "text" && typeof b.text === "string").map((b: any) => b.text).join("");
-            } else if (typeof r.content === "string") { resultText = r.content; }
-          }
-        } catch {}
-        this.#sendToWs(ws, { type: "stream_event", sessionKey: sk, eventType: "toolcall_end", delta: resultText, messageId: delegationId, isError: !!e.isError });
-      } else if (e.type === "message_update" && e.assistantMessageEvent && e.message?.role === "assistant") {
-        const ame = e.assistantMessageEvent;
-        if (ame.type === "toolcall_start" || ame.type === "toolcall_delta" || ame.type === "toolcall_end") return;
-        this.#sendToWs(ws, { type: "stream_event", sessionKey: sk, eventType: ame.type, delta: ame.delta || "", messageId: delegationId });
-      }
-    });
-
-    // === Unified agent_llm_config log: what the LLM actually receives ===
-    {
-      let actualModel = ""; try { actualModel = tempPi.model?.id || ""; } catch {}
-      let actualThinking = ""; try { actualThinking = tempPi.thinkingLevel || ""; } catch {}
-      const sEntry = this.#entries.get(sk);
-      let thinkingTranslated = this.#translateThinkingForModel(actualThinking, actualModel);
-      this.logDebug("agent_llm_config", {
-        sessionKey: sk,
-        source: "direct",
-        agentId: targetId,
-        agentName,
-        model: actualModel,
-        thinkingLevel: actualThinking,
-        thinkingTranslated,
-        chatModel: sEntry?.model || "",
-        chatThinking: sEntry?.thinkingLevel || "",
-        agentOverrideModel: agentOverride.model || null,
-        agentOverrideThinking: agentOverride.thinkingLevel || null,
-        systemPromptLen: (tempPi as any)._baseSystemPrompt?.length || 0,
-      });
-    }
-
-    // Send the user's message to the temp session
-    this.logDebug("send-direct-sending", { sessionKey: sk, agentName, text: data.text?.substring(0, 100) });
-    const { content } = await this.#buildUserMessage(data.text, data.files);
-    await tempPi.sendUserMessage(content, { deliverAs: "followUp" });
-
-    // Cleanup subscription
-    try { tempSub(); } catch {}
-
-    // Collect response
-    let responseText = "";
-    try {
-      const msgs = (tempPi.agent?.state?.messages || []) as any[];
-      for (let i = msgs.length - 1; i >= 0; i--) {
-        if (msgs[i]?.role === "assistant") {
-          const c = msgs[i]?.content;
-          if (Array.isArray(c)) {
-            for (const block of c) {
-              if (block?.type === "text" && block.text) { responseText = block.text; break; }
-            }
-          } else if (typeof c === "string") { responseText = c; }
-          if (responseText) break;
-        }
-      }
-    } catch (e: any) { this.logDebug("send-direct-collect-error", { sessionKey: sk, error: e?.message }); }
-
-    // Collect delegation content for persistence
-    try {
-      // Prova getEntries prima (più completo di buildSessionContext)
-      const tempSm = (tempPi as any)?.sessionManager || (tempPi as any)?.agent?.state?.sessionManager;
-      const tempEntries = tempSm?.getEntries?.() || [];
-      for (const ent of tempEntries) {
-        if (ent?.type === "message" && ent?.message?.role === "assistant") {
-          const blocks = Array.isArray(ent.message?.content) ? ent.message.content : [];
-          for (const b of blocks) {
-            if (b?.type === "thinking" && b.thinking) delegationContent.push({ type: "thinking", thinking: b.thinking, timestamp: Date.now() });
-            if (b?.type === "text" && b.text) delegationContent.push({ type: "text", text: b.text, timestamp: Date.now() });
-            if (b?.type === "toolCall") {
-              const argsStr = typeof b.arguments === "string" ? b.arguments : JSON.stringify(b.arguments || {}, null, 2);
-              delegationContent.push({ type: "toolCall", text: b.name || 'tool', thinking: argsStr, streaming: false, timestamp: Date.now() });
-            }
-          }
-        } else if (ent?.type === "message" && ent?.message?.role === "tool") {
-          const resultText = typeof ent.message?.content === 'string' ? ent.message.content : this.#parseContent(ent.message?.content);
-          delegationContent.push({ type: "toolResult", text: ent.message?.toolName || 'tool', thinking: resultText, streaming: false, isError: !!ent.message?.isError, timestamp: Date.now() });
-        }
-      }
-      for (const m of tempMsgs) {
-        if (m?.role === "tool" || m?.role === "toolResult") {
-          // Messaggio tool result: content è stringa o array
-          const resultText = typeof m?.content === 'string' ? m.content : this.#parseContent(m?.content);
-          delegationContent.push({ type: "toolResult", text: m?.toolName || m?.name || 'tool', thinking: resultText, streaming: false, isError: !!m?.isError, timestamp: Date.now() });
-        } else {
-          // Messaggio assistant: blocks nell'array content
-          const blocks = Array.isArray(m?.content) ? m.content : [];
-          for (const b of blocks) {
-            if (b?.type === "thinking" && b.thinking) delegationContent.push({ type: "thinking", thinking: b.thinking, timestamp: Date.now() });
-            if (b?.type === "text" && b.text) delegationContent.push({ type: "text", text: b.text, timestamp: Date.now() });
-            if (b?.type === "toolCall") {
-              const argsStr = typeof b.arguments === "string" ? b.arguments : JSON.stringify(b.arguments || {}, null, 2);
-              delegationContent.push({ type: "toolCall", text: b.name || 'tool', thinking: argsStr, streaming: false, timestamp: Date.now() });
-            }
-            if (b?.type === "toolResult") {
-              delegationContent.push({ type: "toolResult", text: b.name || 'tool', thinking: this.#parseContent(b.content), streaming: false, isError: !!b.isError, timestamp: Date.now() });
-            }
-          }
-        }
-      }
-    } catch {}
-
-    // Get actual model + thinking from temp session
-    const delModel = (tempPi?.model?.id ?? '') || agentOverride.model || (mainSession?.model?.id ?? '') || '';
-    const delThinking = tempPi?.thinkingLevel || agentOverride.thinkingLevel || mainSession?.thinkingLevel || '';
-
-    // Emit delegation_end
-    this.#sendToWs(ws, { type: "stream_event", sessionKey: sk, eventType: "delegation_end", messageId: delegationId, agentName, response: responseText, model: delModel, thinkingLevel: delThinking });
-
-    // Save delegation for persistence
-    // FIX (27 set): the collector can run twice over the same final content
-    // (think/text appended twice -> [think,text,think,text] in the file and in
-    // the app). Drop exact duplicates before writing the delegation entry.
-    try {
-      const seenD: any = {};
-      const dedup: any[] = [];
-      for (const b of delegationContent) {
-        const k = String(b?.type || "") + "\u0000" + String(b?.text || "") + "\u0000" + String(b?.thinking || "");
-        if (seenD[k]) continue;
-        seenD[k] = 1;
-        dedup.push(b);
-      }
-      delegationContent = dedup;
-    } catch {}
-    this.#appendDelegationToJsonl(sk, { id: delegationId, agentName, delegatedMessage: data.text, content: delegationContent, timestamp: Date.now(), model: delModel, thinkingLevel: delThinking });
-
-    // Save agentName for this message
-    try {
-      const entry = this.#entries.get(sk) as any;
-      if (entry) {
-        if (!entry.messageAgents) entry.messageAgents = {};
-        entry.messageAgents[delegationId] = agentName;
-        this.#save();
-        this.logDebug("send-direct-agent-saved", { sessionKey: sk, delegationId, agentName });
-      }
-    } catch {}
-
-    // Cleanup temp session
-    this.#active.delete(tempKey);
-    try { (tempPi as any).dispose?.(); } catch {}
-    try { fs.rmSync(tempSessionDir, { recursive: true, force: true }); } catch {}
-
-    // Restore API keys
-    this.#activeApiKeys = savedKeys;
-
-    this.logDebug("send-direct-done", { sessionKey: sk, agentName, responseLen: responseText.length });
-  }
 
   async #buildMcpTools(sk: string, agentId: string | null): Promise<any[]> {
     const agentCfg = agentId ? this.#readAgentConfigFile(agentId) : null;
@@ -6937,7 +6383,6 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
             self.logDebug("delegate-apply-mode", { sessionKey, mode: mainMode, agentId: targetId, toolCount: tempToolNames.length, tools: tempToolNames });
           } catch (e: any) { self.logDebug("delegate-apply-mode-error", { sessionKey, error: e?.message }); }
           // === Multi-window delegation: emit events to main session ===
-          const mainWs = self.#wss.get(sessionKey);
           const delegationId = `del-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
           // === Reuse stream_event channel (proven to work) with del- prefix messageId ===
           self.#sendToWs(self.#wss.get(sessionKey), { type: "stream_event", sessionKey, eventType: "delegation_start", messageId: delegationId, agentName: agent_name, task: task });
@@ -9971,13 +9416,7 @@ export function getSettings() {
   };
 }
 
-export function getDefaultModel(): string {
-  return pickDefaultModel();
-}
 
-export function getDefaultThinkingLevel(): string {
-  return pickDefaultThinkingLevel();
-}
 
 export function getFolders(): any[] {
   try {
@@ -10526,9 +9965,6 @@ export async function deleteProvider(name: string): Promise<{ success: boolean; 
   }
 }
 
-export function getProvidersConfigFull(): ProvidersConfig {
-  return readProvidersConfig();
-}
 
 export async function renameProvider(oldName: string, newName: string): Promise<{ success: boolean; error?: string }> {
   // FEATURE 04 set: i provider fissi non si rinomina (nome preservato per logica UI/usage)
@@ -10781,20 +10217,9 @@ export function getProviderApiKeyIPC(providerName: string): string {
   }
 }
 
-export function getDefaultModelFromProviders(): string {
-  return getProviderDefaultModel();
-}
 
-export function getDefaultThinkingFromProviders(): string {
-  return getProviderDefaultThinking();
-}
 
 // === C: Compaction IPC ===
-export async function compactSessionIPC(sessionKey: string): Promise<{ ok: boolean; error?: string }> {
-  const bridge = getPiBridgeInstance();
-  if (!bridge) return { ok: false, error: "Bridge not ready" };
-  return await bridge.compact(sessionKey);
-}
 
 export async function checkForPiUpdate(): Promise<{ current: string; latest: string; hasUpdate: boolean }> {
   // === Fase A: Pi SDK embedded, versione fissa nel vendor ===
@@ -10814,17 +10239,6 @@ export function updatePi(): Promise<{ success: boolean; error?: string }> {
   return Promise.resolve({ success: false, error: "Pi SDK è embedded (versione congelata). Aggiornamento non disponibile." });
 }
 
-function compareSemver(a: string, b: string): number {
-  const pa = a.replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
-  const pb = b.replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
-  for (let i = 0; i < 3; i++) {
-    const da = pa[i] || 0;
-    const db = pb[i] || 0;
-    if (da > db) return 1;
-    if (da < db) return -1;
-  }
-  return 0;
-}
 
 export function getFullDebugLog(): { ts: number; tag: string; data: any }[] {
   const out: { ts: number; tag: string; data: any }[] = [];
@@ -10865,23 +10279,7 @@ export function clearDebugLogFile(): { success: boolean; error?: string } {
 }
 
 // === Fix 9/B11: get streaming status per riconnessione WS ===
-export function getStreamingStatusInstance(): Set<string> {
-  try {
-    const inst = (typeof piBridgeInstance !== "undefined" ? piBridgeInstance : getPiBridgeInstance?.()) as any;
-    if (!inst) return new Set<string>();
-    // Usa il metodo pubblico getStreamingSessionKeys della classe
-    if (typeof inst.getStreamingSessionKeys === "function") {
-      return new Set(inst.getStreamingSessionKeys());
-    }
-    return new Set<string>();
-  } catch {
-    return new Set<string>();
-  }
-}
 
-export function getStreamingStatusIPC(): string[] {
-  return Array.from(getStreamingStatusInstance());
-}
 
 // === Step 3c: ritorna il system prompt effettivo di Pi SDK per la sessione ===
 export function getSystemPromptIPC(sessionKey: string): string {

@@ -659,10 +659,6 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     piBridge!.logDebug("session-reset", { sessionKey: p.sessionKey });
     return { sessionKey: p.sessionKey };
   },
-  setExpertEnv: async (p) => {
-    piBridge!.setExpertEnv(String(p.exePath));
-    return { exePath: p.exePath };
-  },
 
   setSessionCompaction: async (p) => {
     // LH v2.4 (regola utente): mentre Long Horizon è ATTIVO la compaction NON si può spegnere
@@ -1162,7 +1158,6 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   runScheduleNow: async (p) => ({ ...(await scheduler.runScheduleNow(p)) }),
   debugLog: async (p) => { if (piBridge && p && typeof p.tag === 'string') piBridge.logDebug(p.tag, p.data); return { ok: true }; },
   log_debug: async (p) => handlers.debugLog(p),
-  clearDebugLog: async () => { piBridge!.clearDebugLog(); return { log: [] }; },
 
   // === MCP (Model Context Protocol) ===
   listMcpServers: async () => {

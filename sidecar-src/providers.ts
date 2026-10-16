@@ -492,24 +492,8 @@ export async function fetchProviderModels(
       process.stderr.write(`[providers] fetchProviderModels: ${providerName} data.data is not array. Keys: ${Object.keys(data).join(",")} dataType: ${typeof rawData}`);
     }
     // GENERALIZED capability detection (qualsiasi provider):
-    // 1) OpenRouter espone architecture.input_modalities per ogni modello
-    // 2) Altri OpenAI-compatible: euristica dai nomi dei modelli con vision nota
-    // 3) Override manuale: modelData input nel provider config (sempre rispettato al load)
-    const VISION_NAME_HINTS: RegExp[] = [
-      /vision/i, /-vl\b/, /-vl-/, /4v/, /minicpm-v/i, /llava/i, /pixtral/i,
-      /gpt-4o/i, /gpt-4\.1/i, /gpt-5/i, /omni/i, /claude/i, /gemini/i,
-      /glm-4v/i, /glm-5/i, /grok-4/i, /llava/i, /llama-3\.2-vision/i, /llama-4/i,
-      /mistral.*ocr/i, /pixtral/i, /presto/i, /internvl/i, /molmo/i,
-    ];
-    const nameSuggestsVision = (id: string): boolean =>
-      VISION_NAME_HINTS.some((re) => re.test(id));
-
     const models = (Array.isArray(rawData) ? rawData : []).map((m: any) => {
       const id = m.id || "";
-      // OpenRouter: architecture.input_modalities contiene "image" per i modelli vision
-      const openRouterModalities: string[] = m?.architecture?.input_modalities || [];
-      const openRouterVision = openRouterModalities.includes("image");
-      const isVision = openRouterVision || (!openRouterModalities.length && nameSuggestsVision(id));
       return {
         id,
         name: m.name || m.id,
@@ -785,15 +769,7 @@ export function syncSettingsJson(config: ProvidersConfig): void {
   }
 }
 
-export function getDefaultModel(): string {
-  const config = readProvidersConfig();
-  return config.defaultModel;
-}
 
-export function getDefaultThinking(): string {
-  const config = readProvidersConfig();
-  return config.defaultThinking;
-}
 
 // ===================== UNIVERSAL CAPABILITY PROBES (29 ago) =====================
 // Provider-agnostic: scoprono le capacità REALI dei modelli di QUALSIASI provider
@@ -1046,7 +1022,6 @@ export async function probeProviderCapabilities(providerName: string): Promise<v
         const probedVision = await probeModelVision(baseUrl, apiKey, m.id);
         if (probedVision) {
           const entry = caps[key] || {};
-          const oldVision = entry.visionInput ? entry.visionInput.join(",") : "?";
           entry.visionInput = probedVision;
           entry.visionSource = "probe";
           entry.visionLearnedAt = new Date().toISOString();

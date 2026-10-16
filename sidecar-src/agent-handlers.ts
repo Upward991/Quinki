@@ -507,40 +507,6 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
       return { success: true };
     },
     // === API Key management (macOS Keychain / fallback) ===
-    getApiKeyRequirements: async (p: any) => {
-      // Legge il frontmatter del SKILL.md per trovare primaryEnv
-      const skills = scanSkills();
-      const skill = skills.find((s: any) => s.name === p.name);
-      if (!skill) return { envVars: [] };
-      try {
-        const content = fs.readFileSync(skill.path, "utf8");
-        const envVars: string[] = [];
-        // 1. Parse frontmatter (between --- markers)
-        const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
-        if (fmMatch) {
-          const fm = fmMatch[1];
-          // Cerca primaryEnv nel frontmatter
-          const primaryEnvMatch = fm.match(/["']?primaryEnv["']?\s*:\s*["']?([^"'\n]+)["']?/);
-          if (primaryEnvMatch) envVars.push(primaryEnvMatch[1].trim());
-          // Cerca anche requires.envs o envVars
-          const envLines = fm.matchAll(/env(?:Vars|ironment)?:\s*\[?([^\]\n]+)\]?/g);
-          for (const m of envLines) {
-            for (const v of m[1].split(",")) {
-              const trimmed = v.trim().replace(/["']/g, "");
-              if (trimmed && !envVars.includes(trimmed)) envVars.push(trimmed);
-            }
-          }
-        }
-        // 2. Cerca env vars nel corpo del SKILL.md (pattern $VAR_NAME o ${VAR_NAME})
-        // Solo variabili UPPER_CASE con underscore, che sembrano env vars realali
-        const bodyEnvMatches = content.matchAll(/\$\{?([A-Z][A-Z_]{5,})\}?/g);
-        for (const m of bodyEnvMatches) {
-          const v = m[1];
-          if (!envVars.includes(v) && !['CONTENT', 'QUERY', 'HOME', 'PATH'].includes(v)) envVars.push(v);
-        }
-        return { envVars };
-      } catch { return { envVars: [] }; }
-    },
     storeApiKey: async (p: any) => {
       const service = String(p.service || "").trim();
       const key = String(p.key || "").trim();
@@ -596,40 +562,7 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
         }
       } catch (e: any) { return { success: false, error: e?.message || String(e) }; }
     },
-    resolveApiKey: async (p: any) => {
-      // Risolve una key per iniezione env var temporanea (usato internamente dal sidecar)
-      const service = String(p.service || "").trim();
-      if (!service) return { key: null };
-      try {
-        if (process.platform === "darwin") {
-          // execSync imported at top
-          const key = execSync(`security find-generic-password -a "quinki" -s "${service}" -w`, { stdio: "pipe", encoding: "utf8" }).trim();
-          return { key };
-        } else {
-          const keyFile = path.join(agentDir, "api-keys.json");
-          const keys = JSON.parse(fs.readFileSync(keyFile, "utf8"));
-          return { key: keys[service] || null };
-        }
-      } catch { return { key: null }; }
-    },
     // === Chat error persistence — errori persistenti salvati su file separato ===
-    addChatError: async (p: any) => {
-      const sessionKey = String(p.sessionKey || "");
-      if (!sessionKey) return { success: false };
-      const errorFile = fs.existsSync(path.join(agentDir, "quinki-chat-errors.json"))
-  ? path.join(agentDir, "quinki-chat-errors.json")
-  : path.join(agentDir, "quinki-chat-errors.json");
-      let errors: Record<string, any[]> = {};
-      try { errors = JSON.parse(fs.readFileSync(errorFile, "utf8")); } catch {}
-      if (!errors[sessionKey]) errors[sessionKey] = [];
-      errors[sessionKey].push({
-        userMessage: p.userMessage || "",
-        errorContent: p.errorContent || "",
-        timestamp: p.timestamp || Date.now(),
-      });
-      fs.writeFileSync(errorFile, JSON.stringify(errors, null, 2), "utf8");
-      return { success: true };
-    },
     getChatErrors: async (p: any) => {
       const sessionKey = String(p.sessionKey || "");
       if (!sessionKey) return { errors: [] };

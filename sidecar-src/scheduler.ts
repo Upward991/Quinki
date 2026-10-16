@@ -19,7 +19,6 @@ import { ExecutionEngine } from "./executor";
 // i calcoli a passi fissi di 86400000ms slittavano di +-1h al cambio d'ora; le monthly
 // tornavano candidateDay (00:00!) perdendo l'orario; le hourly appena create potevano
 // puntare a un'ora gia' passata (fire immediato).
-const dayIndex = (d: Date) => Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
 
 // === FUSI ORARI (16 ott): ogni task ha il SUO fuso (timeZone IANA, es. Europe/Rome). ===
 // Default: fuso della macchina catturato alla creazione. Le task restano ancorate al loro

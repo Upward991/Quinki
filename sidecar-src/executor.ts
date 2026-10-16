@@ -521,7 +521,6 @@ export class ExecutionEngine {
     }
   }
 
-  stopCaffeinate() { this.#releaseKeepAwake(); }
 
   // Resume manuale (per la futura UI Calendar): riprende un'execution interrupted/resumable
   async resumeExecution(id: string): Promise<{ ok: boolean; error?: string }> {
@@ -541,7 +540,6 @@ export class ExecutionEngine {
     this.#log("recovery-started", { autoResume });
   }
   #recoveryTimer: any = null;
-  stopRecovery() { if (this.#recoveryTimer) clearInterval(this.#recoveryTimer); }
 
   async recover(autoResume = true): Promise<{ recovered: number; resumed: number }> {
     let recovered = 0, resumed = 0;
