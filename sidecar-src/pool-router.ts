@@ -38,7 +38,7 @@ const idleSince = new Map<number, number>();
 // Il worker resta per SCRITTURE/LLM (sendMessage, steer, set*, ecc.).
 // LH v2: metodi di STOP che vanno eseguiti su TUTTI i processi (worker E main), non solo
 // sull'owner: vedi tryRoute. La risposta ufficiale arriva sempre dal main.
-const ABORT_BOTH = new Set(["abort", "stopStream"]);
+const ABORT_BOTH = new Set(["abort"]);
 
 const ROUTABLE = new Set([
   "setModel", "setThinking", "setMode", "setAgent", "setChatAgents",
@@ -48,7 +48,7 @@ const ROUTABLE = new Set([
   // una chat NUOVA non ha ancora un worker: la RPC restava appesa e la rimozione
   // della directory non attecchiva MAI (debug: zero chiamate nei log).
   "reloadSession", "resetSession", "setSessionCompaction",
-  "abort", "abortCompaction", "stopStream", "sendMessage", "steer", "injectClip",
+  "abort", "abortCompaction", "sendMessage", "steer", "injectClip",
   "compactSession",
   "setSessionFallbacks",
   "injectSystemMessage", "injectAppMessage", "setMessageSkills", "setMessageTaskClips", "setMessageAttachments",
@@ -57,7 +57,7 @@ const ROUTABLE = new Set([
   // con fino a 30s di autoprompt in ritardo. Ora il worker applica il cambio di stato
   // NELLA SUA MEMORIA subito (e scrive state.json per gli altri processi).
   "longHorizonActivate", "longHorizonDeactivate", "longHorizonDisable", "longHorizonResume",
-  "longHorizonSetPlan", "longHorizonSetGoal", "longHorizonSetPhase",
+  "longHorizonSetPlan", "longHorizonSetPhase",
   "longHorizonNewDiscussion", "getLongHorizonState",
 ]);
 
@@ -390,7 +390,7 @@ export function tryRoute(msg: any): boolean {
   if (!sk) return false;
   const owner = ownerPool(sk);
   // === LH v2 — STOP UNIVERSALE (14 ott, regola utente: "il tasto stop è il capo assoluto") ===
-  // abort/stopStream devono colpire TUTTI i processi che possono avere un turno attivo:
+  // abort deve colpire TUTTI i processi che possono avere un turno attivo:
   // il main può aver PRESO IN CARICO una sessione col worker morto (path lh-main-takes) →
   // un abort instradato SOLO al worker lasciava la generazione VIVA sul main (bug reale:
   // 4 stop-persisted sul worker mentre il turno girava sul main). Qui: si manda al worker
@@ -412,7 +412,7 @@ export function tryRoute(msg: any): boolean {
     // nascere 16 worker. Il MAIN li applica in locale (le entry sono file-first: il
     // worker le rilegge al suo prossimo spawn). I metodi che fanno girare un turno
     // (sendMessage/steer/abort/compact...) invece spawnano SEMPRE.
-    const WORK_NOW = new Set(["sendMessage", "steer", "abort", "stopStream", "compactSession", "abortCompaction", "reloadSession", "resetSession", "injectClip", "injectSystemMessage", "injectAppMessage"]);
+    const WORK_NOW = new Set(["sendMessage", "steer", "abort", "compactSession", "abortCompaction", "reloadSession", "resetSession", "injectClip", "injectSystemMessage", "injectAppMessage"]);
     if (!WORK_NOW.has(String(method || ""))) return false; // niente spawn: gestisce il main
     // child non pronto (mai partito / shrink / crash) → SPAWN LAZY + coda.
     // FIX 084 (03 set): una RPC instradata È "serve una sessione" → il respawn è

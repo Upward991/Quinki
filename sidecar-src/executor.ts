@@ -477,24 +477,6 @@ export class ExecutionEngine {
     return { ok: true };
   }
 
-  async cancel(id: string): Promise<{ ok: boolean; error?: string }> {
-    const state = this.get(id);
-    if (!state) return { ok: false, error: "not found" };
-    if (state.status === "running") {
-      const run = this.#runs.get(id);
-      if (run) run.aborted = true;
-      try { this.#piBridge?.abort?.(`__exec_${id}`); } catch {}
-      // Lo stato finale viene scritto dal runner (completed)
-    } else if (state.status === "queued") {
-      state.status = "executed";
-      state.endedAt = Date.now();
-      state.progressNote = "cancelled before start";
-      this.#writeState(id, state);
-      this.#appendEvent(id, "execution_completed", { stopReason: "cancelled", beforeStart: true });
-      this.#notify({ executionId: id, status: "executed", label: state.label });
-    }
-    return { ok: true };
-  }
 
   // === A2.3: Keep Awake (caffeinate, ref-counted: 1 processo finché ALMENO un task keepAwake gira) ===
   #caffeinate: any = null;

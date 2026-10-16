@@ -1,4 +1,4 @@
-// src/main/sidecar.ts — Entry point per il sidecar Node.js (Flutter Dashboard)
+// sidecar.ts — Entry point del motore di Quinki (sidecar)
 // Comunicazione: JSON-RPC 2.0 via stdin/stdout (NDJSON)
 //
 // Questo file viene compilato da electron-vite insieme al main process,
@@ -651,7 +651,6 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   getFilteredBefore: async (p) => ({ entries: piBridge!.getFilteredBefore(Array.isArray(p.levels) ? p.levels : [], Number(p.from || 0), typeof p.limit === "number" ? p.limit : 100) }),
   getDebugLogBefore: async (p) => piBridge!.getDebugLogBefore(Number(p.from || 0), typeof p.limit === "number" ? p.limit : undefined),
   // B0.9: search sidecar (chat + log) + salto al match
-  searchSessionMessages: async (p) => ({ matches: piBridge!.searchSessionMessages(String(p.sessionKey || ""), String(p.query || ""), typeof p.limit === "number" ? p.limit : undefined) }),
   getHistoryAround: async (p) => ({ sessionKey: p.sessionKey, messages: piBridge!.getHistoryAround(String(p.sessionKey || ""), Number(p.ts || 0), typeof p.limit === "number" ? p.limit : undefined) }),
   searchDebugLog: async (p) => ({ matches: piBridge!.searchDebugLog(String(p.query || ""), typeof p.limit === "number" ? p.limit : undefined) }),
   // === A3: Notifiche ===
@@ -803,7 +802,6 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   markAllNotificationsRead: async () => ({ ok: piBridge!.markAllNotificationsRead() }),
 
   screenshot_response: async (p) => { try { (piBridge as any)?.resolveScreenshotRequest?.(p?.requestId || "", p); } catch {} return { ok: true }; },
-  stopStream: async (p) => { if (piBridge && p?.sessionKey) piBridge.abort(p.sessionKey); return { success: true }; },
   sendMessage: async (p) => {
     const sk = String(p.sessionKey);
     const mid = p.messageId || `u-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
@@ -1068,9 +1066,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     const offset = typeof p?.offset === "number" && p.offset > 0 ? p.offset : 0;
     return { executions: all.slice(-(offset + limit)).slice(0, limit), total: all.length };
   },
-  getExecution: async (p) => ({ execution: executor.get(String(p.executionId)) }),
   getExecutionMessages: async (p) => ({ messages: executor.messages(String(p.executionId)) }),
-  cancelExecution: async (p) => { const r = await executor.cancel(String(p.executionId)); return r; },
   stopExecution: async (p) => { const r = await executor.stop(String(p.executionId)); return r; },
   deleteExecution: async (p) => ({ ...executor.remove(String(p.executionId)) }),
   updateExecution: async (p) => ({ ...executor.updateExecution(String(p.executionId), { model: p.model, thinkingLevel: p.thinkingLevel }) }),
@@ -1084,7 +1080,6 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   longHorizonDisable: async (p) => longHorizon.disable(String(p.sessionKey || '')),
   longHorizonResume: async (p) => longHorizon.resume(String(p.sessionKey || '')),
   longHorizonSetPlan: async (p) => longHorizon.setPlan(String(p.sessionKey || ''), String(p.plan || '')),
-  longHorizonSetGoal: async (p) => longHorizon.setGoal(String(p.sessionKey || ''), String(p.goal || '')),
   longHorizonSetPhase: async (p) => longHorizon.setPhase(String(p.sessionKey || ''), String(p.phase || '')),
   longHorizonNewDiscussion: async (p) => longHorizon.newDiscussion(String(p.sessionKey || '')),
   injectSystemMessage: async (p) => piBridge!.injectSystemMessage(String(p.sessionKey || ''), String(p.text || '')),
@@ -1657,7 +1652,7 @@ export async function bootSidecar() {
 
   process.stdin.setEncoding("utf8");
   // === Die with parent: quando l'app chiude stdin (muore/quit/SIGKILL), il sidecar esce.
-  // Previene orphan sidecar che terrebbero il lock su ~/.pi/agent e bloccherebbero il
+  // Previene orphan sidecar che terrebbero il lock su ~/.quinki e bloccherebbero il
   // sidecar dell'app al riavvio (dopo "Salva e riavvia" o flutter run dell'Expert).
   // stdin EOF: non uscire (modalita standalone)
   process.stdin.on("close", () => { if (!globalThis.__quinki_combined) { try { process.exit(0); } catch {} } });

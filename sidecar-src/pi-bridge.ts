@@ -1715,33 +1715,6 @@ class PiBridge {
   }
 
   // === B0.9: cerca in TUTTA la storia della sessione (jsonl) ===
-  searchSessionMessages(key: string, query: string, limit?: number): any[] {
-    const q = (query || "").toLowerCase();
-    if (!q) return [];
-    const max = typeof limit === "number" && limit > 0 ? limit : 10000;
-    const matches: any[] = [];
-    try {
-      const dir = this.#piSessionDir(key);
-      const files = fs.readdirSync(dir).filter((f: string) => f.endsWith(".jsonl"));
-      if (files.length === 0) return [];
-      const filePath = path.join(dir, files[0]);
-      this.#forEachSessionLine(filePath, (e: any) => {
-        if (e?.type !== "message") return;
-        const m = e.message || e;
-        const role = m.role || "assistant";
-        // Stessa logica del frontend: solo user/assistant, testo = #parseContent + strip code block
-        if (role !== "user" && role !== "assistant") return;
-        const text = this.#parseContent(m.content).replace(/```[\s\S]*?```/g, "").replace(/`[^`]*`/g, "").toLowerCase();
-        const ts = new Date(m.timestamp || e.timestamp || 0).getTime();
-        let idx = 0;
-        while ((idx = text.indexOf(q, idx)) !== -1) {
-          matches.push({ timestamp: ts, charIdx: idx, role });
-          idx += q.length;
-        }
-      });
-    } catch {}
-    return matches.slice(-max);
-  }
 
   // === B0.9: pagina di messaggi ATTORNO a un timestamp (per saltare al match) ===
   getHistoryAround(key: string, ts: number, limit?: number): any[] {
@@ -2492,7 +2465,7 @@ class PiBridge {
   }
 
   // === SYNC CONTEXT LENGTHS da tutti i provider enabled ===
-  // Scopo: aggiornare ~/.pi/agent/models.json con i contextWindow reali di ogni modello,
+  // Scopo: aggiornare ~/.quinki/models.json con i contextWindow reali di ogni modello,
   // in modo che welcome composer e chat attiva leggano dalla STESSA fonte (sempre aggiornata).
   // Best-effort: se una query fallisce, i modelli non aggiornati mantengono il valore esistente.
   // Riusa #ollamaModelInfoCache per Ollama (già popolata da /api/tags + /api/show al boot).
@@ -5317,18 +5290,12 @@ Read this file to view it.` }] };
     return null;
   }
 
-  // Legge il PROMPT.md di qualsiasi agente da ~/.pi/agent/agents/<id>/PROMPT.md
+  // Legge il PROMPT.md di qualsiasi agente da ~/.quinki/agents/<id>/PROMPT.md
   #readAgentPrompt(agentId: string, cwd?: string): string {
     const promptPath = path.join(this.#agentDir, "agents", agentId, "PROMPT.md");
     try {
       if (fs.existsSync(promptPath)) {
         let text = fs.readFileSync(promptPath, "utf8");
-        // Sostituisci placeholder per l'Expert
-        if (agentId === "app-expert") {
-          text = text.replaceAll("{{FLUTTER_RUN}}", this.#flutterRunCmd());
-          text = text.replaceAll("{{FLUTTER_BUILD}}", this.#flutterBuildCmd());
-          text = text.replaceAll("{{CONTROL_A}}", this.#expertControlASection());
-        }
         return text;
       }
     } catch (e: any) { this.logDebug("agent-prompt-file-error", { agentId, error: e?.message }); }
@@ -5711,92 +5678,14 @@ Read this file to view it.` }] };
       }
     } catch (e: any) { this.logDebug("inject-api-keys-error", { error: e?.message }); }
   }
-  #flutterTarget(): string {
-    const os = process.platform;
-    return os === "win32" ? "windows" : os === "darwin" ? "macos" : "linux";
-  }
-  #flutterRunCmd(): string { return `flutter run -d ${this.#flutterTarget()}`; }
-  #flutterBuildCmd(): string { return `flutter build ${this.#flutterTarget()} --release`; }
-  #expertPidFile(): string {
-    const home = process.env.HOME || process.env.USERPROFILE || "";
-    return path.join(home, ".quinki", "main.pid");
-  }
-  #expertControlASection(): string {
-    const os = process.platform;
-    const pid = this.#expertPidFile();
-    // A e B sono la STESSA applicazione (multi-window, un solo processo). Killare A = killare l'Expert.
-    if (os === "darwin") {
-      return `## Come controlli A (PRECISIONE — multi-window, CRITICO)
-A (finestra main) e B (tu, finestra Expert) sono **la STESSA applicazione, un solo processo** (multi-window). **Killare A = killare TE STESSO** + tutti i messaggi/risposte in corso.
-- **NON usare MAI** \`kill $(cat ${pid})\`, \`pkill -f Dashboard\`, \`pkill -f Quinki\`: ucciderebbero anche te.
-- Il PID in \`${pid}\` è il processo condiviso (A+B): informativo, **NON killarlo**.
-- A gira l\`.app\` installata in /Applications/Quinki.app (binary compilato, separato dal repo). Le tue modifiche al repo NON la toccano finché non si installa una nuova versione.
-- **Durante lo sviluppo**: testa su **C** (dev \`flutter run\` con \`QUINKI_AGENT_DIR=~/.pi/agent-dev\`, sidecar isolato). NON toccare A.
-- **MAI "Salva e riavvia" + MAI \`cp\` in /Applications** durante lo sviluppo. A continua a girare col vecchio .app; le tue modifiche restano nel repo.
-- **Installa SOLO su ordine esplicito "installa" dell'utente**: builda (\`${this.#flutterBuildCmd()}\`) + \`cp -R build/${this.#flutterTarget()}/Build/Products/Release/quinki.app /Applications/Quinki.app\`. Poi **l'utente riavvia A quando vuole** (non tu). **NON fare questo senza "installa" esplicito.**
-- Per riavviare **C** (dev): killa il PID di C (lo lanci tu con flutter run), NON A. Quando C muore, il suo sidecar muore con lui (die-with-parent).`;
-    }
-    if (os === "win32") {
-      return `## Come controlli A (PRECISIONE — multi-window, CRITICO)
-A (finestra main) e B (tu, finestra Expert) sono **la STESSA applicazione, un solo processo** (multi-window). **Killare A = killare TE STESSO**.
-- **NON usare MAI** \`taskkill /im quinki.exe\`, \`kill $(cat ${pid})\`, \`Stop-Process\` sul PID di A: ucciderebbero anche te.
-- Il PID in \`${pid}\` è il processo condiviso (A+B): informativo, **NON killarlo**.
-- A gira l'app installata (binary compilato, separato dal repo). Le tue modifiche al repo NON la toccano finché non si installa.
-- **Durante lo sviluppo**: testa su **C** (dev \`flutter run\` con \`QUINKI_AGENT_DIR=~/.pi/agent-dev\`, sidecar isolato). NON toccare A.
-- **MAI "Salva e riavvia" + MAI installa** durante lo sviluppo. A continua a girare; le tue modifiche restano nel repo.
-- **Installa SOLO su ordine esplicito "installa" dell'utente**: builda (\`${this.#flutterBuildCmd()}\`) + installa. Poi **l'utente riavvia A quando vuole** (non tu). **NON fare questo senza "installa" esplicito.**
-- Per riavviare **C** (dev): killa il PID di C, NON A.`;
-    }
-    // linux
-    return `## Come controlli A (PRECISIONE — multi-window, CRITICO)
-A (finestra main) e B (tu, finestra Expert) sono **la STESSA applicazione, un solo processo** (multi-window). **Killare A = killare TE STESSO**.
-- **NON usare MAI** \`kill $(cat ${pid})\`, \`pkill -f quinki\`, \`pkill -f quinki\`: ucciderebbero anche te.
-- Il PID in \`${pid}\` è il processo condiviso (A+B): informativo, **NON killarlo**.
-- A gira l'app installata (binary compilato, separato dal repo). Le tue modifiche al repo NON la toccano finché non si installa.
-- **Durante lo sviluppo**: testa su **C** (dev \`flutter run\` con \`QUINKI_AGENT_DIR=~/.pi/agent-dev\`, sidecar isolato). NON toccare A.
-- **MAI "Salva e riavvia" + MAI \`cp\` in /Applications (o dove installi)** durante lo sviluppo. A continua a girare; le tue modifiche restano nel repo.
-- **Installa SOLO su ordine esplicito "installa" dell'utente**: builda (\`${this.#flutterBuildCmd()}\`) + installa. Poi **l'utente riavvia A quando vuole** (non tu). **NON fare questo senza "installa" esplicito.**
-- Per riavviare **C** (dev): killa il PID di C, NON A.`;
-  }
 
 
   #expertSystemPromptFallback(cwd?: string): string {
-    return `Sei il **Quinki Expert**, lo sviluppatore automatico dell'app Quinki.
-
-## Chi sei
-Sei un agente sviluppatore che lavora al posto dell'utente: implementi feature, correggi bug, scrivi test, buildi e installi nuove versioni di Dashboard. L'utente ti dice cosa fare e tu arrivi al prodotto finito.
-
-## Conoscenza del codice
-La mappa completa del codebase è nella skill **app-expert** (caricata automaticamente): architettura, ruolo dei file, convenzioni, flussi. Consultala SEMPRE prima di operare. Per le modifiche precise leggi i file veri col tool \`read\`.
-
-## Architettura (riassunto)
-Dashboard = app di chat in **Flutter** (desktop: macOS/Windows/Linux) (lib/) + **sidecar Node/bun** (sidecar-src/) che bridga il **Pi SDK** (@earendil-works/pi-coding-agent). Dettagli nella skill app-expert.
-
-## Dove lavori
-Lavori nel **clone locale** del repo (la tua cwd). Tutte le modifiche avvengono qui.
-
-## Supervisore — finestre e processi (CRITICO, multi-window)
-- **A** = l'app **installata** (finestra main), quella che l'utente usa. **RESTA APERTA mentre tu sviluppi. NON toccarla durante il dev.**
-- **B** = **tu** (finestra Expert). A e B sono **la STESSA applicazione, un solo processo** (multi-window): **se A muore, muori anche tu.** Quindi **non killare mai A** (vedi "Come controlli A").
-- **C** = l'istanza **DEV** che lanci tu con \`flutter run\` dal clone (processo separato). È il **bersaglio dei test**, NON A.
-
-## Workflow di sviluppo
-1. Pianifica (Plan mode per capire, poi Build per eseguire).
-2. Modifica i file nel clone (write/edit).
-3. Testa in dev: \`${this.#flutterRunCmd()}\` (dal clone) → apre **C** (dev, separata da A). Verifica su C.
-4. Test automatici: \`flutter test\`.
-5. Se serve riavviare per testare → killa **C** (NON A) e rilancia \`flutter run\`. Tu resti vivo.
-6. Tutto perfetto → \`${this.#flutterBuildCmd()}\` + installa, poi **chiedi all'utente di cliccare "Salva e riavvia"** in Impostazioni (NON killare A tu — moriresti, vedi "Come controlli A").
-
-${this.#expertControlASection()}
-
-## Tool
-read, grep, glob, ls, write, edit, bash, skill. Usa \`bash\` per flutter/git/kill/open.
-
-## Regole
-- Lavora solo nel clone. Non toccare A finché non è il momento dell'update finale.
-- Spiega all'utente cosa fai. Chiedi conferma prima dell'update finale di A.
-- Tieni aggiornata la skill app-expert quando cambi qualcosa d'importante nel codice.`;
+    // Rete di sicurezza: scatta SOLO se manca il PROMPT.md dell'agente (che e' il prompt vero).
+    // Minimo e corretto: nessuna istruzione obsoleta (il flusso reale sta in PROMPT.md + skill).
+    return `You are the **Quinki Expert**, the developer agent of the Quinki app.
+Your full instructions live in your agent prompt file (PROMPT.md); the architecture map is in the app-expert skill (load it with the skill tool before operating).
+Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; the source repository is your working directory${cwd ? ` (${cwd})` : ""}.`;
   }
 
   // Risolve l'agentId per una session: override > entry > key parse

@@ -223,7 +223,6 @@ export class LongHorizon {
       existing.systemMessage = SYSTEM_MESSAGE;
       existing.status = "idle";
       existing.promptCount = 0;
-      existing.pendingGoal = undefined;
       existing.startedAt = Date.now();
       existing.lastActivity = Date.now();
       this.#states.set(sk, existing);
@@ -290,7 +289,6 @@ export class LongHorizon {
     st.units = [];
     st.currentIdx = -1;
     st.promptCount = 0;
-    st.pendingGoal = undefined;
     this.#writeState(sk);
     this.#writeProgress(sk);
     this.#log("lh-disabled", { sessionKey: sk });
@@ -346,7 +344,6 @@ export class LongHorizon {
     st.units = [];
     st.currentIdx = -1;
     st.promptCount = 0;
-    st.pendingGoal = undefined;
     st.lastActivity = Date.now();
     this.#writeState(sk);
     this.#writeProgress(sk);
@@ -461,17 +458,6 @@ export class LongHorizon {
   // Salva l'obiettivo dell'utente (Long Horizon idle). Il modello NON lo riceve come task:
   // il support agent crea il piano e poi guida. L'utente vede il suo messaggio (bubble) ma il
   // modello non esegue nulla finché il piano non è creato.
-  setGoal(sk: string, goal: string): { ok: boolean; error?: string } {
-    const st = this.#states.get(sk);
-    if (!st || !st.active) return { ok: false, error: "Long Horizon not active" };
-    if (!goal.trim()) return { ok: false, error: "goal required" };
-    st.pendingGoal = goal.trim();
-    st.lastActivity = Date.now();
-    this.#writeState(sk);
-    this.#writeProgress(sk);
-    this.#log("lh-goal-set", { sessionKey: sk, goal: goal.slice(0, 80) });
-    return { ok: true };
-  }
 
   // Riprende dopo una pausa: se c'è un piano → running, altrimenti discussion
   resume(sk: string): { ok: boolean; error?: string } {
@@ -798,7 +784,6 @@ export class LongHorizon {
     // === Automatico: se idle e c'è un obiettivo pendente → crea il piano e parti ===
     if (st.status === "idle" && st.pendingGoal) {
       const goal = st.pendingGoal;
-      st.pendingGoal = undefined;
       this.#writeState(sk);
       this.#log("lh-auto-plan", { sessionKey: sk, goal: goal.slice(0, 80) });
       this.#sendPlanRequest(sk, st, goal).catch(() => {});
