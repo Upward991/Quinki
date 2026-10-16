@@ -138,8 +138,6 @@ try { if (QEXPERT) (C as any).primary = C.expert; } catch {}
 // Wordmark pixel: RIMOSSO (richiesta utente 6 ott). L'archivio ESATTO
 // (codice + render + istruzioni di ripristino) è in cli/tui/quinki-wordmark.ts.
 
-
-
 class WelcomeRoot {
   box: any;
   hint: any;
@@ -589,16 +587,16 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   // Errors from the websocket/link are handled by the reconnect loop instead.
   try {
     process.on("uncaughtException", (e: any) => {
-      try { require("fs").appendFileSync("/tmp/q-cli-survive.log", String(e?.stack || e) + "\n"); } catch {}
+      
     });
     process.on("unhandledRejection", (e: any) => {
-      try { require("fs").appendFileSync("/tmp/q-cli-survive.log", "rejection: " + String(e?.stack || e) + "\n"); } catch {}
+      
     });
   } catch {}
   // VERSION STAMP: proves which build is running (diagnosis of "nothing changes").
   try {
     const st = require("fs").statSync(process.execPath || "");
-    require("fs").appendFileSync("/tmp/q-cli-boot.log", new Date().toISOString() + " boot " + require("path").basename(String(process.execPath || "")) + " mtime=" + new Date(st.mtimeMs).toISOString() + " args=" + process.argv.slice(2).join(",") + "\n");
+
   } catch {}
   // Startup: always a FRESH cli session with the welcome (no resume): every
   // existing chat — including the last used one — stays visible in /sessions.
@@ -609,7 +607,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   const realSessionDir = path.join(opts.sessionDir, key);
   // The local SDK session is a leftover from the pre-sidecar era: it must NEVER
   // write into the real dir (that polluted the app's files). Throwaway location.
-  const sessionDirForKey = path.join(os.tmpdir(), "quinki-cli-local", key);
+  const sessionDirForKey = path.join(os.homedir(), ".quinki", "cli-local", key);
   fs.mkdirSync(sessionDirForKey, { recursive: true });
   fs.mkdirSync(realSessionDir, { recursive: true });
 
@@ -1013,7 +1011,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   // =========================================================================
   let qPromptModal: any = null; // { overlay, inner, id, isNew, target: "agent"|"skill" }
   const qOpenPromptEditor = (id: string, isNew: string, content: string, target: "agent" | "skill" = "agent") => {
-    try { require("fs").appendFileSync("/tmp/q-agent-action.log", new Date().toISOString() + " OPEN-EDITOR id=" + id + " target=" + target + " len=" + String(content || "").length + "\n"); } catch {}
+    
     try {
       const inner = new Editor(ui as any, editorTheme, { paddingX: 1 });
       try { inner.setText(String(content || "")); } catch {}
@@ -1026,7 +1024,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         return leftH + padH + rightH;
       };
       try { (inner as any).footerLine = hint; } catch {}
-      try { (inner as any).onSubmit = (text: string) => { try { require("fs").appendFileSync("/tmp/q-prompt-save.log", new Date().toISOString() + " onSubmit len=" + String(text ?? "").length + "\n"); } catch {} qSavePromptEditor(String(text ?? "")); }; } catch {}
+      try { (inner as any).onSubmit = (text: string) => {  qSavePromptEditor(String(text ?? "")); }; } catch {}
       try { (inner as any).qFullHeight = true; } catch {} // T535: the editor fills the whole CLI
       try { (inner as any).qNoPlaceholder = true; } catch {} // T537: no "Write a message..." when empty
       try { (inner as any).bgFn = (x: string) => bg(C.bgPanel, String(x)); } catch {}
@@ -1090,7 +1088,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   };
   const qSavePromptEditor = (submitted?: string) => {
     const m = qPromptModal;
-    try { require("fs").appendFileSync("/tmp/q-prompt-save.log", new Date().toISOString() + " save called modal=" + String(!!m) + " submittedLen=" + String(submitted ?? "").length + "\n"); } catch {}
+    
     if (!m) return;
     let content = String(submitted ?? "");
     if (!content) {
@@ -1100,7 +1098,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     const call = (globalThis as any).__sidecarCall;
     qClosePromptEditor(true);
     if (call) {
-      try { require("fs").appendFileSync("/tmp/q-prompt-save.log", new Date().toISOString() + " writing id=" + m.id + " target=" + String(m.target || "agent") + " contentLen=" + content.length + "\n"); } catch {}
+      
       const wCall = m.target === "skill"
         ? call("writeSkillFile", { name: m.id, content })
         : call("writeAgentFile", { id: m.id, filePath: "PROMPT.md", content });
@@ -1322,14 +1320,14 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   let qMcpData: any[] = [];
   let qToolsData: any[] = [];
   const refreshAgentsTab = () => {
-    try { require("fs").appendFileSync("/tmp/q-agents-data.log", new Date().toISOString() + " refreshAgentsTab ENTER call=" + (typeof (globalThis as any).__sidecarCall) + " scOn=" + (typeof scOn !== "undefined" ? scOn : "?") + "\n"); } catch {}
+    
     try {
       const call = (globalThis as any).__sidecarCall;
       if (!call) return;
-      call('listAgents', {}).then((r: any) => { try { qAgentsData = Array.isArray(r?.agents) ? r.agents : []; } catch {} try { require("fs").appendFileSync("/tmp/q-agents-data.log", new Date().toISOString() + " listAgents=" + qAgentsData.length + "\n"); } catch {} try { ui.requestRender(); } catch {} }).catch((eA: any) => { try { require("fs").appendFileSync("/tmp/q-agents-data.log", " listAgents ERR " + String(eA?.message || eA) + "\n"); } catch {} });
-      call('listSkills', {}).then((r: any) => { try { const sk = Array.isArray(r?.skills) ? r.skills : []; qSkillsData = sk.map((x: any) => String(x?.name || x)).filter(Boolean); } catch {} try { require("fs").appendFileSync("/tmp/q-agents-data.log", new Date().toISOString() + " listSkills=" + qSkillsData.length + "\n"); } catch {} try { ui.requestRender(); } catch {} }).catch((eS: any) => { try { require("fs").appendFileSync("/tmp/q-agents-data.log", " listSkills ERR " + String(eS?.message || eS) + "\n"); } catch {} });
-      call('listMcpServers', {}).then((r: any) => { try { qMcpData = Array.isArray(r?.servers) ? r.servers : []; } catch {} try { require("fs").appendFileSync("/tmp/q-agents-data.log", new Date().toISOString() + " listMcpServers=" + qMcpData.length + " " + JSON.stringify(qMcpData.slice(0,3).map((m: any) => m?.id || m?.name)) + "\n"); } catch {} try { ui.requestRender(); } catch {} }).catch((eM: any) => { try { require("fs").appendFileSync("/tmp/q-agents-data.log", " listMcpServers ERR " + String(eM?.message || eM) + "\n"); } catch {} });
-      call('listTools', {}).then((r: any) => { try { qToolsData = Array.isArray(r?.tools) ? r.tools : []; } catch {} try { require("fs").appendFileSync("/tmp/q-agents-data.log", new Date().toISOString() + " listTools=" + qToolsData.length + "\n"); } catch {} try { ui.requestRender(); } catch {} }).catch((eT: any) => { try { require("fs").appendFileSync("/tmp/q-agents-data.log", " listTools ERR " + String(eT?.message || eT) + "\n"); } catch {} });
+      call('listAgents', {}).then((r: any) => { try { qAgentsData = Array.isArray(r?.agents) ? r.agents : []; } catch {}  try { ui.requestRender(); } catch {} }).catch((eA: any) => {  });
+      call('listSkills', {}).then((r: any) => { try { const sk = Array.isArray(r?.skills) ? r.skills : []; qSkillsData = sk.map((x: any) => String(x?.name || x)).filter(Boolean); } catch {}  try { ui.requestRender(); } catch {} }).catch((eS: any) => {  });
+      call('listMcpServers', {}).then((r: any) => { try { qMcpData = Array.isArray(r?.servers) ? r.servers : []; } catch {}  try { ui.requestRender(); } catch {} }).catch((eM: any) => {  });
+      call('listTools', {}).then((r: any) => { try { qToolsData = Array.isArray(r?.tools) ? r.tools : []; } catch {}  try { ui.requestRender(); } catch {} }).catch((eT: any) => {  });
       call('getGlobalConfig', {}).then((r: any) => {
         try {
           const cfg = (r && (r.config || r)) || {};
@@ -1377,12 +1375,12 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   let qCfgFromSession = false;
   const qAgentFileOpen = (vAgF: string) => {
     try {
-      try { require("fs").appendFileSync("/tmp/q-agent-action.log", new Date().toISOString() + " FILE-OPEN vAg=" + vAgF + " call=" + String(typeof (globalThis as any).__sidecarCall) + "\n"); } catch {}
+      
       const call = (globalThis as any).__sidecarCall;
       if (vAgF.startsWith("aprompt:")) {
         const pid = vAgF.slice(8);
         if (call) {
-          call("readAgentFile", { id: pid, filePath: "PROMPT.md" }).then((r: any) => { try { require("fs").appendFileSync("/tmp/q-agent-action.log", new Date().toISOString() + " READ-OK len=" + String(r?.content || "").length + "\n"); } catch {}
+          call("readAgentFile", { id: pid, filePath: "PROMPT.md" }).then((r: any) => { 
             qOpenPromptEditor(pid, "", String(r?.content ?? ""), "agent");
           }).catch((e: any) => { qShowResult({ ok: false, error: String(e?.message || e) }, () => {}); });
         }
@@ -1536,7 +1534,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
         rows.push({ value: "__sep_agdelgap", label: "", separator: true });
         rows.push({ value: "__agdel", label: "Delete agent", description: "" });
       }
-      try { require("fs").appendFileSync("/tmp/q-agents-data.log", new Date().toISOString() + " AG-MENU id=" + agId + " sk=" + agentSkillsOf(agId).length + " mcp=" + agentMcpOf(agId).length + " tk=" + agentToolsOf(agId).length + " dataN=" + qAgentsData.length + "\n"); } catch {}
+      
       return rows;
     }
     if (sub.startsWith("ask:")) {
@@ -2579,7 +2577,7 @@ const readProvidersCfg = (): any => {
     ui.requestRender();
   };
   const exitToggleNav = (reason?: string) => {
-    try { require("fs").appendFileSync("/tmp/q-nav-trace.log", new Date().toISOString() + " EXIT-NAV reason=" + String(reason || "?") + "\n"); } catch {}
+    
     navMode = false;
     selToggle = -1;
     // REGOLA UTENTE: al rilascio si toglie SOLO l'evidenziazione. I toggle che
@@ -2616,15 +2614,6 @@ const readProvidersCfg = (): any => {
     ui.addInputListener((data: string) => {
       // Backspace on empty box: chips are INLINE tokens now — the cursor already
       // deletes them like text. Nothing special to do.
-      // Trace EVERY input chunk (a ring of the last 25) so the exact bytes that
-      // kill the CLI show up in the survive log.
-      try {
-        const gv: any = globalThis as any;
-        gv.__qInputRing = gv.__qInputRing || [];
-        gv.__qInputRing.push({ t: Date.now(), d: JSON.stringify(String(data)).slice(0, 120) });
-        if (gv.__qInputRing.length > 25) gv.__qInputRing.shift();
-        try { require("fs").writeFileSync("/tmp/q-cli-input-ring.json", JSON.stringify(gv.__qInputRing, null, 1)); } catch {}
-      } catch {}
       // Escape sequences can be SPLIT across reads ("\x1b[1;1" then "C…"): hold
       // an unfinished tail (ESC + "[…") and prepend it to the next read, so the
       // arrow is recognized on its FIRST press (a lone ESC key stays untouched).
@@ -2642,9 +2631,9 @@ const readProvidersCfg = (): any => {
       }
       try {
         const hx = Buffer.from(String(data), "utf8").toString("hex");
-        require("fs").appendFileSync("/tmp/q-filter-trace.log", new Date().toISOString() + " IN hex=" + hx.slice(0,50) + " menu=" + (menuOpenRef?.() ?? false) + "\n");
+
         if (hx.includes("5744") || hx.includes("3a3375") || String(data).includes(":3u")) {
-          require("fs").appendFileSync("/tmp/q-modkeys.log", new Date().toISOString() + " MODKEY raw=" + JSON.stringify(String(data)) + " hex=" + hx + "\n");
+
         }
       } catch {}
       // T533: while the PROMPT modal is open the input goes straight to it
@@ -2668,7 +2657,7 @@ const readProvidersCfg = (): any => {
       // treating them as keystrokes and confirming the /quit notice.
       try {
         if (typeof data === "string" && /\x1b\[I|\x1b\[O|\x1b\[[0-9;]*t/.test(data)) {
-          try { require("fs").appendFileSync("/tmp/q-cli-survive.log", "filtered control seq (post-merge): " + JSON.stringify(data) + "\n"); } catch {}
+          
           const cleaned = data.replace(/\x1b\[I|\x1b\[O|\x1b\[[0-9;]*t/g, "");
           if (cleaned.length === 0) return { consume: true } as any;
           return { data: cleaned };
@@ -2896,7 +2885,7 @@ const readProvidersCfg = (): any => {
         let menuIsOpen = false;
         try { menuIsOpen = (menuStack && menuStack.length > 0) || !!(menuOpenRef?.() ?? false); } catch { menuIsOpen = !!(menuOpenRef?.() ?? false); }
         if (menuIsOpen) {
-          try { require("fs").appendFileSync("/tmp/q-tab2.log", new Date().toISOString() + " isTab->select stack=" + JSON.stringify(menuStack) + " refNull=" + String(!menuNavRef) + "\n"); } catch {}
+          
           try { menuNavRef?.("select"); } catch {}
           try { ui.requestRender(); } catch {}
           return { consume: true };
@@ -2916,7 +2905,7 @@ const readProvidersCfg = (): any => {
           lhPhaseAdvance();
           return { consume: true };
         }
-        try { require("fs").appendFileSync("/tmp/q-tab2.log", new Date().toISOString() + " isTab->TOGGLE-MODE (menu closed!) stack=" + JSON.stringify(menuStack) + "\n"); } catch {}
+        
         toggleModeRef?.();
         return { consume: true };
       }
@@ -2971,10 +2960,10 @@ const readProvidersCfg = (): any => {
       const isRight = data === "\x1b[C" || matchesKey(data, "right");
       try {
         const hex = Buffer.from(String(data), "utf8").toString("hex").slice(0, 60);
-        require("fs").appendFileSync("/tmp/q-keys-trace.log", new Date().toISOString() + " KEY hex=" + hex + " len=" + String(data).length + " isRight=" + isRight + " isDown=" + (data === "\x1b[B" || matchesKey(data, "down")) + " menuNow=" + (menuOpenRef?.() ?? false) + "\n");
+
       } catch {}
       const menuNow = menuOpenRef?.() ?? false;
-      if (isEnter) { try { require("fs").appendFileSync("/tmp/q-enter-trace.log", new Date().toISOString() + " listener enter menuNow=" + menuNow + " text=" + JSON.stringify(String(editorText() || "").slice(0, 30)) + "\n"); } catch {} }
+      if (isEnter) {  }
       if (isCtrlEnter && !menuNow && streaming) {
         // Steer: send a new instruction into the RUNNING turn.
         const txt = editorText().trim();
@@ -3374,7 +3363,6 @@ const readProvidersCfg = (): any => {
   // TUI accent = VIOLET (the app's home/primary accent — deliberately different
   // from the chat's blue, so the CLI is its own thing).
   const accent = C.primary;
-
 
   /** The composer bar (inside the box): LEFT-aligned, all at the same brightness
    *  (the ctx-counter brightness): mode · ctx · model · thinking · directory. */
@@ -3796,7 +3784,7 @@ const readProvidersCfg = (): any => {
         // Message footer (exact app format): ONLY after a real text — never after
         // a tool/toggle, never for an aborted stream (app behaviour).
         const hadText = lastAssistantText.trim();
-        try { require("fs").appendFileSync("/tmp/q-footer-trace.log", new Date().toISOString() + " msg_end role=" + String(e?.message?.role) + " hadText=" + JSON.stringify(hadText.slice(0, 40)) + " last=" + JSON.stringify(String(lastAssistantText).slice(0, 40)) + " stop=" + String(e?.message?.stopReason) + "\n"); } catch {}
+        
         lastAssistantText = "";
         if (hadText && e?.message?.stopReason !== "aborted") {
         try {
@@ -3939,7 +3927,7 @@ const readProvidersCfg = (): any => {
       } catch {}
       return histMsgs.length > 0;
     } catch (ee) {
-      try { require("fs").appendFileSync("/tmp/q-load.log", "  loadServerHistory ERROR: " + String(ee) + "\n"); } catch {}
+      
       return false;
     }
   };
@@ -4684,7 +4672,7 @@ const readProvidersCfg = (): any => {
         } catch {}
       }
       const realDir = o.newSessionDir || currentSessionDir;
-      const dir = path.join(os.tmpdir(), "quinki-cli-local", path.basename(realDir) + "-" + Date.now().toString(36));
+      const dir = path.join(os.homedir(), ".quinki", "cli-local", path.basename(realDir) + "-" + Date.now().toString(36));
       // App chats keep their own working directory in the session entry: honor it.
       let cwd = o.newCwd || currentCwd;
       if (!o.newCwd && o.newKey) {
@@ -4871,7 +4859,7 @@ const readProvidersCfg = (): any => {
         break;
       }
       case "reload": {
-        try { require("fs").appendFileSync("/tmp/q-reload-trace.log", new Date().toISOString() + " case reload key=" + currentKey + " welcome=" + welcomeShown + " scOn=" + scOn + "\n"); } catch {}
+        
         if (welcomeShown) {
           welcomeShown = false;
           applyLayout(false);
@@ -4902,7 +4890,7 @@ const readProvidersCfg = (): any => {
         // exactly like /quit. The user reopens by hand — his choice, always.
         if (!QEXPERT) break;
         if (arg && arg !== "confirm") break; // direct Enter OR the confirm item
-        try { require("fs").appendFileSync("/tmp/q-submit.log", new Date().toISOString() + " case syncexpert streaming=" + streaming + "\n"); } catch {}
+        
         try {
           const MAIN_APP = "/Applications/Quinki.app";
           const EXP_APP = "/Applications/App Expert.app";
@@ -4924,7 +4912,7 @@ const readProvidersCfg = (): any => {
               if (rr.status !== 0) throw new Error("ditto exit " + String(rr.status));
             } catch (eS) { syncErr = String(eS); }
           }
-          try { require("fs").appendFileSync("/tmp/q-submit.log", "  sync done err=" + JSON.stringify(syncErr) + "\n"); } catch {}
+          
           if (syncErr) {
             // Visible failure (a chat block; nothing ever lives in the text box).
             try {
@@ -5107,11 +5095,11 @@ const readProvidersCfg = (): any => {
       }
       case "directory": {
         const dArg = String(arg || "");
-        try { require("fs").appendFileSync("/tmp/q-dir-trace.log", new Date().toISOString() + " dir arg=" + JSON.stringify(dArg) + "\n"); } catch {}
-        if (dArg === "__dir_change") { try { require("fs").appendFileSync("/tmp/q-dir-trace.log", "  -> pickFolder\n"); } catch {} pickFolder(); break; }
+        
+        if (dArg === "__dir_change") {  pickFolder(); break; }
         if (dArg === "confirm") { applyDirChange(dirPendingChange); break; }
         if (dArg.startsWith("__dir_use:")) {
-          try { require("fs").appendFileSync("/tmp/q-dir-trace.log", "  -> openFolder " + dArg.slice(10) + "\n"); } catch {}
+          
           openFolder(dArg.slice(10));
           break;
         }
@@ -5573,10 +5561,10 @@ const readProvidersCfg = (): any => {
       // CONFIRM: save the selected agents (dot order) — the clicked row included.
       const sel = Array.from(menuMarked);
       if (value && !value.startsWith("#") && !sel.includes(value)) sel.push(value);
-      try { require("fs").appendFileSync("/tmp/q-agent-trace.log", new Date().toISOString() + " confirm sel=" + JSON.stringify(sel) + " value=" + String(value) + " scOn=" + scOn + "\n"); } catch {}
+      
       if (sel.length) {
         const fin = sel.filter((x) => agentIdsKnown().includes(x));
-        try { require("fs").appendFileSync("/tmp/q-agent-trace.log", "  fin=" + JSON.stringify(fin) + " known=" + JSON.stringify(agentIdsKnown().slice(0, 12)) + "\n"); } catch {}
+        
         if (fin.length) {
           if (welcomeShown) {
             // T487: on the WELCOME the selection is one-shot state — no phantom
@@ -5585,16 +5573,16 @@ const readProvidersCfg = (): any => {
             const merged = [...cur];
             for (const a of fin) if (!merged.includes(a)) merged.push(a);
             qWelcomeAgents = merged;
-            try { require("fs").appendFileSync("/tmp/q-agent-trace.log", "  welcome-selection merged=" + merged.join(",") + "\n"); } catch {}
+            
           } else if (scOn) {
             const cur = sessionAgentIds();
             const merged = [...cur];
             for (const a of fin) if (!merged.includes(a)) merged.push(a);
-            try { require("fs").appendFileSync("/tmp/q-agent-trace.log", "  calling setChatAgents merged=" + merged.join(",") + "\n"); } catch {}
+            
             void sc.call("setChatAgents", { sessionKey: currentKey, agentIds: merged.join(",") }, 20000).then(() => {
-              try { require("fs").appendFileSync("/tmp/q-agent-trace.log", "  setChatAgents OK\n"); } catch {}
+              
             }).catch((eE: any) => {
-              try { require("fs").appendFileSync("/tmp/q-agent-trace.log", "  setChatAgents ERROR: " + String(eE?.message || eE) + "\n"); } catch {}
+              
             });
           } else {
             try { mutateSessionEntry((e: any) => { const cur = sessionAgentIds(); const merged = [...cur]; for (const a of fin) if (!merged.includes(a)) merged.push(a); e.agentId = merged.join(","); }); } catch {}
@@ -5905,7 +5893,7 @@ const readProvidersCfg = (): any => {
           try { ui.requestRender(); } catch {}
           return;
         }
-        try { require("fs").appendFileSync("/tmp/q-agent-action.log", new Date().toISOString() + " ACTION vAg=" + vAg + " stack=" + JSON.stringify(menuStack) + "\n"); } catch {}
+        
         if (vAg.startsWith("aprompt:")) {
           const pid = vAg.slice(8);
           const call = (globalThis as any).__sidecarCall;
@@ -6057,7 +6045,7 @@ const readProvidersCfg = (): any => {
         return;
       }
       if (menuStack[0] === "agentinsession") {
-        try { require("fs").appendFileSync("/tmp/q-tab-trace.log", new Date().toISOString() + " select stack=" + menuStack.join("/") + " sel=" + menuSel + " it=" + String(it?.value) + " n=" + String(menuMarked.size) + "\n"); } catch {}
+        
         if (menuStack[1] === "#add") {
           // SELECT first (Tab marks the dots), the CONFIRM (Enter) saves — the dot
           // order is the selection order.
@@ -6303,10 +6291,10 @@ const readProvidersCfg = (): any => {
 
   let lastSelectAt = 0;
   const menuNav = (a: "up" | "down" | "left" | "right" | "enter" | "escape" | "select") => {
-    if (a === "enter") { try { require("fs").appendFileSync("/tmp/q-enter-trace.log", "  menuNav enter stack=" + JSON.stringify(menuStack) + " sel=" + menuSel + " items=" + (() => { try { return applyFilter(levelItems(menuStack)).length; } catch (e2) { return "THROW:" + String(e2); } })() + "\n"); } catch {} }
+    if (a === "enter") {  }
     // The path input only exists inside the directory submenu: anywhere else = off.
     try { if (dirTypeMode && !(menuStack[0] === "directory" && menuStack[1] === "dirchange")) { dirTypeMode = false; menuSubFilter = ""; } } catch {}
-    if (a === "select") { try { require("fs").appendFileSync("/tmp/q-tab-trace.log", new Date().toISOString() + " select stack=" + JSON.stringify(menuStack) + " sel=" + menuSel + "\n"); } catch {} }
+    if (a === "select") {  }
 
     if (a === "select") {
       // The editor hook AND the app input listener both fire on one Tab press:
@@ -6524,7 +6512,7 @@ const readProvidersCfg = (): any => {
           try { menuMarked.clear(); } catch {}
         }
       } else if (a === "right") {
-        try { require("fs").appendFileSync("/tmp/q-deep-trace.log", new Date().toISOString() + " RIGHT root=" + String(menuStack[0]||"-") + " stack=" + JSON.stringify(menuStack) + " sel=" + String(menuSel) + " itemsN=" + String(items.length) + " rowVal=" + JSON.stringify(String((items[menuSel]||{}).value||"")) + "\n"); } catch {}
+        
         // Forward ONLY — it NEVER executes. At the end of the levels it FOCUSES
         // Confirm (violet filled, like the app's NavBar focusConfirm); Enter runs.
         if (menuConfirmFocus) {
@@ -6546,8 +6534,8 @@ const readProvidersCfg = (): any => {
               const vA = String(it.value || "");
               if (/^(#def|#you|#sk|#mcp|#tools|#plan|#plantools|#planmcp|ag:|ask:|atk:|amc:|sk:|mcp:|tool:)/.test(vA)) deeper = vA;
               if (vA.startsWith("aprompt:") || vA.startsWith("askill:")) {
-                try { require("fs").appendFileSync("/tmp/q-agent-action.log", new Date().toISOString() + " ARROW-ACTION val=" + vA + "\n"); } catch {}
-                try { agentAdminAction(vA); } catch (eA: any) { try { require("fs").appendFileSync("/tmp/q-agent-action.log", new Date().toISOString() + " ARROW-ACTION ERR " + String(eA && eA.stack || eA) + "\n"); } catch {} }
+                
+                try { agentAdminAction(vA); } catch (eA: any) {  }
                 return;
               }
               if (vA.startsWith("ag:")) { try { refreshAgentsTab(); } catch {} } // T560: load the engine data the moment the config opens
@@ -6584,14 +6572,14 @@ const readProvidersCfg = (): any => {
               return;
             }
             if (deeper) {
-              try { require("fs").appendFileSync("/tmp/q-deep-trace.log", new Date().toISOString() + " PUSH " + JSON.stringify({ root: menuStack[0], val: String(it.value||""), deeper }) + "\n"); } catch {}
+              
               // T517: NEVER push the same level twice in a row (kitty press+release
               // could fire the arrow twice => ["agents","#sk","#sk"]: entering a
               // skill looked dead and <- only removed one copy, staying on the
               // same screen with the top row (Install) selected — the user's bug.
               const _topSt = menuStack[menuStack.length - 1];
               if (_topSt === deeper) {
-                try { require("fs").appendFileSync("/tmp/q-deep-trace.log", new Date().toISOString() + " PUSH-SKIP-dup " + deeper + "\n"); } catch {}
+                
                 try { ui.requestRender(); } catch {}
                 return;
               }
@@ -6656,7 +6644,7 @@ const readProvidersCfg = (): any => {
           try { ui.requestRender(); } catch {}
           return;
         }
-        try { require("fs").appendFileSync("/tmp/q-dir-trace.log", new Date().toISOString() + " enter stack=" + JSON.stringify(menuStack) + " sel=" + menuSel + "\n"); } catch {}
+        
         // MENU 2.0: Enter is active ONLY when the bar shows Confirm (Enter) —
         // EXCEPT on the command list (stack empty): there Enter RUNS the command.
         if (menuStack.length > 0) {
@@ -6678,11 +6666,11 @@ const readProvidersCfg = (): any => {
         // user's exact /reload bug ("confirm does nothing").
         try {
           const typedT = String(editorText() || "").trim();
-          try { require("fs").appendFileSync("/tmp/q-bullet-trace.log", new Date().toISOString() + " bullet typed=" + JSON.stringify(typedT) + " mStack=" + menuStack.length + "\n"); } catch {}
+          
           if (menuStack.length === 0 && /^\/[A-Za-z][A-Za-z0-9]*$/.test(typedT)) {
             const cName = typedT.slice(1).toLowerCase();
             const cCmd: any = commands.find((x: any) => x.name === cName);
-            try { require("fs").appendFileSync("/tmp/q-bullet-trace.log", "  match=" + (!!cCmd) + " name=" + cName + "\n"); } catch {}
+            
             if (cCmd) {
               try { editor.setText(""); } catch {}
               menuSel = 0;
@@ -6697,7 +6685,7 @@ const readProvidersCfg = (): any => {
         // away (Tab selects, one Enter adds: the user's rule). Before, this Enter
         // fell into the runItem toggle and UNMARKED the row instead of saving.
         if (menuStack[0] === "agentinsession" && menuStack[1] === "#add" && menuMarked.size > 0) {
-          try { require("fs").appendFileSync("/tmp/q-agent-trace.log", new Date().toISOString() + " enter-save marked=" + JSON.stringify(Array.from(menuMarked)) + " sel=" + menuSel + "\n"); } catch {}
+          
           if (it && !it.separator) agentActivate(String(it.value ?? ""));
           try { ui.requestRender(); } catch {}
           return;
@@ -6852,7 +6840,7 @@ const readProvidersCfg = (): any => {
       wsProviderAt[name] = Date.now();
       void sc.call('fetchProviderModels', { providerName: name, baseUrl: baseUrl || '', apiKey: apiKey || '' }, 45000).then((r: any) => {
         const list = Array.isArray(r) ? r : (Array.isArray(r?.models) ? r.models : ((r && r.data && Array.isArray(r.data)) ? r.data : []));
-      try { require("fs").appendFileSync("/tmp/q-cli-fetch.log", JSON.stringify({ name, len: list.length, sample: list.slice(0, 3) }) + "\n"); } catch {}
+      
         if (list.length > 0) { wsProviderModels[name] = list.map((x: any) => (typeof x === 'string' ? { id: x } : x)); try { ui.requestRender(); } catch {} }
       }).catch(() => {});
     } catch {}
@@ -6873,12 +6861,9 @@ const readProvidersCfg = (): any => {
   const wsKeyStatus: Record<string, boolean> = {};
   let wsKeyStatusAt: Record<string, number> = {};
 
-
   const fetchKeyStatus = (provName: string, cfgKey: string) => {
 
-
     try {
-
 
       const nowT = Date.now();
       const last = wsKeyStatusAt[provName] || 0;
@@ -6886,15 +6871,11 @@ const readProvidersCfg = (): any => {
       wsKeyStatusAt[provName] = nowT;
       if (cfgKey && String(cfgKey).length > 0 && String(cfgKey).length <= 300) { wsKeyStatus[provName] = true; return; }
 
-
       const call2 = (globalThis as any).__sidecarCall;
-
 
       if (call2) void call2('hasApiKey', { provider: provName }).then((r: any) => { wsKeyStatus[provName] = !!(r && (r.has ?? r.hasKey ?? r.ok)); try { ui.requestRender(); } catch {} }).catch(() => {});
 
-
     } catch {}
-
 
   };
 
@@ -7080,7 +7061,7 @@ const applySettingsPatch = (patch: any) => {
   };
 
   const buildMenuRows = (w: number): string[] => {
-    try { try { require("fs").appendFileSync("/tmp/q-tab2.log", new Date().toISOString() + " RENDER stack=" + JSON.stringify(menuStack) + " open=" + String(menuOpen()) + "\n"); } catch {}
+    try { 
       const t = editorText();
       if (menuError && menuStack.length > 0) {
         // T485: SAME style as a confirmation notice (the /quit "Quit quinki?"
@@ -7282,10 +7263,10 @@ const applySettingsPatch = (patch: any) => {
   } catch {}
   menuOpenRef = () => menuOpen();
   menuNavRef = menuNav;
-  try { require("fs").appendFileSync("/tmp/q-enter-trace.log", new Date().toISOString() + " BOOT: menuNavRef ASSIGNED\n"); } catch {}
+  
   try {
     (globalThis as any).__qMenuSelect = () => {
-      try { require("fs").appendFileSync("/tmp/q-tab-trace.log", new Date().toISOString() + " hop2 qMenuSelect stack=" + JSON.stringify(menuStack) + "\n"); } catch {}
+      
       try {
         if (menuStack && menuStack.length > 0) {
           menuNav("select");
@@ -7302,7 +7283,7 @@ const applySettingsPatch = (patch: any) => {
 
   // --- input -------------------------------------------------------------------
   const shutdown = (why?: string) => {
-    try { require("fs").appendFileSync("/tmp/q-cli-survive.log", "shutdown called: " + String(why || "") + "\n" + String(new Error().stack) + "\n"); } catch {}
+    
     try {
       // preserveScreen: true -> clean exit (do NOT re-print the last frame
       // into the main buffer — the terminal must come back clean).
@@ -7362,9 +7343,7 @@ const applySettingsPatch = (patch: any) => {
           return;
         }
       } catch {}
-      try {
-        require("fs").appendFileSync("/tmp/q-submit.log", new Date().toISOString() + " submit " + JSON.stringify(t) + "\n");
-      } catch {}
+      
       try {
         editor.setText("");
       } catch {}
@@ -7598,7 +7577,7 @@ const applySettingsPatch = (patch: any) => {
     }
    } catch (outer: any) {
      // Safety net: never freeze the CLI — log the real cause for diagnosis.
-     try { require("fs").appendFileSync("/tmp/q-cli-errors.log", new Date().toISOString() + " send: " + String(outer && outer.stack || outer) + "\n"); } catch {}
+     
      try { addRow(fg(C.danger, truncate(qErrText(outer), 120))); } catch {}
      streaming = false;
      try { updateBar(); } catch {}
@@ -7673,7 +7652,7 @@ const applySettingsPatch = (patch: any) => {
       let __qxTries = 0;
       const __qxLoad = () => {
         __qxTries++;
-        try { require("fs").appendFileSync("/tmp/q-load.log", new Date().toISOString() + " qxLoad try=" + __qxTries + " scOn=" + scOn + " connected=" + !!(sc as any).connected + " key=" + currentKey + "\n"); } catch {}
+        
         void loadServerHistory().then((ok) => {
           try { if (ok) { renderHistory(); scrollToEnd(); } } catch {}
           try { ui.requestRender(); } catch {}

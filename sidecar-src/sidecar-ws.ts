@@ -1,3 +1,4 @@
+import "./env-tmp"; // /tmp BAN (regola utente 16 ott): TMPDIR -> ~/.quinki/tmp — PRIMO import in assoluto
 import { WebSocketServer } from "ws";
 import { gzipSync } from "zlib";
 import * as http from "node:http";
@@ -531,7 +532,7 @@ const httpServer = http.createServer((req: any, res: any) => {
     try {
       const q = new URLSearchParams(url.split("?")[1] || "");
       const rawName = (q.get("name") || "file").replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120) || "file";
-      const dir = join(process.env.HOME || "/tmp", ".quinki", "web-uploads", Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8));
+      const dir = join(homedir(), ".quinki", "web-uploads", Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8));
       mkdirSync(dir, { recursive: true });
       const dest = join(dir, rawName);
       const chunks: Buffer[] = [];

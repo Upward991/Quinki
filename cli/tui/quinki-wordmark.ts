@@ -31,7 +31,7 @@
 //
 // 2. Sempre in cli/tui/app.ts, PRIMA di `class WelcomeRoot`, rimettere il
 //    codice qui sotto (QPIX → HERO_ART), verbatim.
-// 3. Ricompilare: bun build cli/main.ts --target=bun --outfile=/tmp/qc.js &&
+// 3. Ricompilare: bun build cli/main.ts --target=bun --outfile=internal/.scratch/qc.js &&
 //    bash scripts/build-cli.sh
 //
 // ── RENDER ESATTO (4 righe, per verifica) ─────────────────────────────────

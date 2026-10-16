@@ -1402,8 +1402,11 @@ export async function ollamaInstall(): Promise<{ ok: boolean; error?: string }> 
   const statusPath = join(agentDir, "quinki-ollama-install.json");
   const write = (obj: any) => { try { writeFileSync(statusPath, JSON.stringify(obj), "utf8"); } catch {} };
   (async () => {
-    const tmpZip = "/tmp/quinki-ollama-darwin.zip";
-    const tmpDir = "/tmp/quinki-ollama-extract";
+    // /tmp BAN (regola utente 16 ott): tmp NOSTRO (~/.quinki/tmp), mai il /tmp di sistema.
+    const tmpBase = process.env.TMPDIR || join(agentDir, "tmp");
+    try { mkdirSync(tmpBase, { recursive: true }); } catch {}
+    const tmpZip = join(tmpBase, "quinki-ollama-darwin.zip");
+    const tmpDir = join(tmpBase, "quinki-ollama-extract");
     try {
       write({ status: "downloading", pct: 0 });
       const { createWriteStream } = await import("node:fs");

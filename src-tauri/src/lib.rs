@@ -1788,7 +1788,6 @@ fn check_expert_running() -> Result<bool, String> {
         .output()
         .map_err(|e| e.to_string())?;
     let running = !output.stdout.is_empty();
-    let _ = std::fs::write("/tmp/quinki-expert-running-debug.txt", format!("running={} stdout={:?}", running, String::from_utf8_lossy(&output.stdout)));
     Ok(running)
 }
 
@@ -3009,7 +3008,13 @@ fn remote_token_rotate(target: Option<String>) -> String {
 fn copy_to_clipboard(text: String) -> Result<(), String> {
     // Nelle webview Tauri navigator.clipboard non e' disponibile (contesto non sicuro)
     use std::io::Write;
-    let _ = std::fs::write("/tmp/quinki-clipboard-last.txt", &text);
+    // /tmp BAN (regola utente 16 ott): lo stato runtime vive in ~/.quinki, mai in /tmp.
+    {
+        let home = std::env::var("HOME").unwrap_or_default();
+        let dir = format!("{}/.quinki", home);
+        let _ = std::fs::create_dir_all(&dir);
+        let _ = std::fs::write(format!("{}/clipboard-last.txt", dir), &text);
+    }
     let mut child = std::process::Command::new("pbcopy")
         .stdin(std::process::Stdio::piped())
         .spawn()

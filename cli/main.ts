@@ -20,6 +20,15 @@ process.env.QUINKI_AGENT_DIR = AGENT_DIR;
 // SDK env var names: PI_* (vendor default) + QUINKI_* (after CLI rename) — set both.
 process.env.PI_CODING_AGENT_DIR = AGENT_DIR;
 process.env.QUINKI_CODING_AGENT_DIR = AGENT_DIR;
+// /tmp BAN (regola utente 16 ott): la "temperatura" di sistema → ~/.quinki/tmp,
+// impostata QUI perché tutto (SDK, tool, comandi) la erediti. Mai il /tmp di sistema.
+try {
+  const tmpDir = path.join(AGENT_DIR, "tmp");
+  fs.mkdirSync(tmpDir, { recursive: true });
+  process.env.TMPDIR = tmpDir;
+  process.env.TMP = tmpDir;
+  process.env.TEMP = tmpDir;
+} catch {}
 const SESSION_DIR = path.join(AGENT_DIR, "sessions", "quinki");
 if (!process.env.PI_CODING_AGENT_SESSION_DIR) {
   process.env.PI_CODING_AGENT_SESSION_DIR = SESSION_DIR;
@@ -90,13 +99,13 @@ if (process.stdout.isTTY && !process.env.QUINKI_CLI_NO_BG) {
   process.on("SIGTERM", () => {
     // NOT fatal: when the app (or a watchdog) closes, the CLI must survive and
     // let its websocket reconnect loop revive the sidecar. Only restore colours.
-    try { require("fs").appendFileSync("/tmp/q-cli-survive.log", "SIGTERM received (ignored, surviving)\n"); } catch {}
+    
     restore();
   });
   process.on("SIGHUP", () => {
     // T450 (regola utente): terminale chiuso = la CLI DEVE morire. Il SIGHUP è il
     // segnale della morte del terminale: ripristina e esci.
-    try { require("fs").appendFileSync("/tmp/q-cli-survive.log", "SIGHUP -> exiting\n"); } catch {}
+    
     restore();
     try { process.exit(0); } catch {}
   });
@@ -109,7 +118,7 @@ if (process.stdout.isTTY && !process.env.QUINKI_CLI_NO_BG) {
     process.stdin.on("error", qBye);
   } catch {}
   process.on("SIGINT", () => {
-    try { require("fs").appendFileSync("/tmp/q-cli-survive.log", "SIGINT received (ignored, surviving)\n"); } catch {}
+    
   });
 }
 

@@ -1,6 +1,12 @@
 #!/bin/bash
 LOG="$HOME/.quinki-sidecar.log"
 echo "$(date): start.sh called" >> "$LOG"
+# /tmp BAN (regola utente 16 ott): la "temperatura" di sistema va in casa nostra.
+# Vale per il sidecar, la worker pool e TUTTI i processi figli (SDK, tool, bash).
+export TMPDIR="$HOME/.quinki/tmp"
+export TMP="$TMPDIR"
+export TEMP="$TMPDIR"
+mkdir -p "$TMPDIR"
 export QUINKI_AGENT_DIR="$HOME/.quinki"
 export PI_CODING_AGENT_DIR="$HOME/.quinki"
 export QUINKI_ROLE=main
