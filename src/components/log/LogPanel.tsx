@@ -447,7 +447,7 @@ export function LogPanel(props: LogPanelProps) {
           <div style={{ width: '8px', flexShrink: 0 }} />
           <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>({filtered.length})</span>
           <div style={{ width: '8px', flexShrink: 0 }} />
-          {moreFilters.map((level) => <><FilterPill key={level} level={level} /><div style={{ width: '4px', flexShrink: 0 }} /></>)}
+          {moreFilters.map((level) => <><FilterPill key={level} level={level} /><div style={{ width: '8px', flexShrink: 0 }} /></>)}
           {mob && <><IconBtn icon={Filter} onClick={() => setFiltersSheet(true)} /><div style={{ width: '8px', flexShrink: 0 }} /></>}
           <span style={{ flex: 1 }} />
           {!mob && <>
@@ -707,7 +707,7 @@ export function LogPanel(props: LogPanelProps) {
           items={[]}
           view={
             <div style={{ padding: '8px 8px 6px 8px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-              {moreFilters.map((level) => <><FilterPill key={level} level={level} /><div style={{ width: '4px', flexShrink: 0 }} /></>)}
+              {moreFilters.map((level) => <><FilterPill key={level} level={level} /><div style={{ width: '8px', flexShrink: 0 }} /></>)}
             </div>
           }
         />
