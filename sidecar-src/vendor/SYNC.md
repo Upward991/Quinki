@@ -1,11 +1,15 @@
 # SYNC — Pi SDK Vendor Re-synchronization
 
+> NOTA (17 ott): i file `.map` NON si copiano piu' nel vendor (rimossi: sono solo puntatori di debug,
+> il runtime non li usa). Se sincronizzi a mano da npm, salta i `*.map`.
+
+
 Questo file contiene le istruzioni per aggiornare il Pi SDK embedded quando esce una nuova versione upstream.
 
 ## Struttura vendor
 
 ```
-src/main/vendor/@earendil-works/
+sidecar-src/vendor/@earendil-works/
 ├── pi-coding-agent/
 │   ├── dist/           ← codice compilato (modificare in Fase C)
 │   ├── package.json    ← riferimento versione
@@ -34,24 +38,24 @@ src/main/vendor/@earendil-works/
 2. **Copiare i 4 pacchetti dist/ in vendor/**:
    ```bash
    # pi-coding-agent
-   rm -rf src/main/vendor/@earendil-works/pi-coding-agent/dist
-   cp -R node_modules/@earendil-works/pi-coding-agent/dist src/main/vendor/@earendil-works/pi-coding-agent/dist
-   cp node_modules/@earendil-works/pi-coding-agent/package.json src/main/vendor/@earendil-works/pi-coding-agent/package.json
+   rm -rf sidecar-src/vendor/@earendil-works/pi-coding-agent/dist
+   cp -R node_modules/@earendil-works/pi-coding-agent/dist sidecar-src/vendor/@earendil-works/pi-coding-agent/dist
+   cp node_modules/@earendil-works/pi-coding-agent/package.json sidecar-src/vendor/@earendil-works/pi-coding-agent/package.json
 
    # pi-agent-core (nested)
-   rm -rf src/main/vendor/@earendil-works/pi-agent-core/dist
-   cp -R node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-agent-core/dist src/main/vendor/@earendil-works/pi-agent-core/dist
-   cp node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-agent-core/package.json src/main/vendor/@earendil-works/pi-agent-core/package.json
+   rm -rf sidecar-src/vendor/@earendil-works/pi-agent-core/dist
+   cp -R node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-agent-core/dist sidecar-src/vendor/@earendil-works/pi-agent-core/dist
+   cp node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-agent-core/package.json sidecar-src/vendor/@earendil-works/pi-agent-core/package.json
 
    # pi-ai (nested)
-   rm -rf src/main/vendor/@earendil-works/pi-ai/dist
-   cp -R node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-ai/dist src/main/vendor/@earendil-works/pi-ai/dist
-   cp node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-ai/package.json src/main/vendor/@earendil-works/pi-ai/package.json
+   rm -rf sidecar-src/vendor/@earendil-works/pi-ai/dist
+   cp -R node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-ai/dist sidecar-src/vendor/@earendil-works/pi-ai/dist
+   cp node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-ai/package.json sidecar-src/vendor/@earendil-works/pi-ai/package.json
 
    # pi-tui (nested)
-   rm -rf src/main/vendor/@earendil-works/pi-tui/dist
-   cp -R node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-tui/dist src/main/vendor/@earendil-works/pi-tui/dist
-   cp node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-tui/package.json src/main/vendor/@earendil-works/pi-tui/package.json
+   rm -rf sidecar-src/vendor/@earendil-works/pi-tui/dist
+   cp -R node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-tui/dist sidecar-src/vendor/@earendil-works/pi-tui/dist
+   cp node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-tui/package.json sidecar-src/vendor/@earendil-works/pi-tui/package.json
    ```
 
 3. **Aggiornare package.json**: verificare se nuove dipendenze sono state aggiunte nei 4 package.json vendor e aggiungerle al `package.json` root.
