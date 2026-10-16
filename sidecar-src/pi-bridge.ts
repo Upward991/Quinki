@@ -8817,7 +8817,7 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
                 } catch {}
                 // 2) sonda Ollama in-memoria (modelli locali come Muse Spark) — così il log non mostra mai '-'
                 try {
-                  const pr = this.#ollamaProbeResults.get(String((piT as any)?.model?.id || ""));
+                  const pr = this.#ollamaProbeResults.get(String((piT as any)?.model?.id || "")) || this.#ollamaProbeResults.get(String((piT as any)?.model?.id || "").split(":")[0]);
                   const vals: string[] = pr ? (Array.isArray((pr as any).ollamaLevels) ? (pr as any).ollamaLevels : []) : [];
                   if (vals.length) {
                     let best: string | null = null; let br = -Infinity;
