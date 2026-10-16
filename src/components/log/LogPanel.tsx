@@ -91,13 +91,14 @@ export function LogPanel(props: LogPanelProps) {
     const hasFilter = Array.from(activeFilters).length > 0
     const fetchInitial = () => {
       lastTs = 0
-      // Filtrati: ultimi 100 DEL FILTRO. Senza filtri: gli ultimi 2000 log veri dal file.
-      const m = hasFilter ? call('getFilteredLog', { levels: Array.from(activeFilters), limit: 100 }) : call('getDebugLogBefore', { from: 9e15, limit: 2000 })
+      const m = hasFilter
+        ? call('getFilteredLog', { levels: Array.from(activeFilters), limit: 100 })
+        : call('getDebugLogBefore', { from: 9e15, limit: 100 })
       return m.then((r: any) => {
         const items = (r && (r.log || r.entries)) ? (r.log || r.entries) : []
         if (disposed) return
         if (items.length) {
-          setEntries(items.slice(-2000))
+          setEntries(items.slice(-100))
           for (const e of items) if (typeof e.ts === 'number' && e.ts > lastTs) lastTs = e.ts
         }
       }).catch(() => {})

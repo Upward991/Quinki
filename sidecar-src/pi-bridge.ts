@@ -4154,8 +4154,8 @@ Read this file to view it.` }] };
     const out: any[] = []
     try {
       // Streaming di TUTTO il file (riga per riga ✗ memoria costante): tiene gli ULTIMI n
-      // del filtro, anche se sono in fondo o sparsi ovunque. Il buffer in-memory del
-      // processo contiene solo gli ultimi eventi locali → i filtri sembravano sempre vuoti.
+      // del filtro, anche se sono sparsi ovunque. Il buffer in-memory del
+      // processo ha solo gli ultimi eventi locali → i filtri sembravano sempre vuoti.
       this.#forEachSessionLine(DEBUG_LOG_FILE, (e: any) => {
         if (!e || typeof e.tag !== "string") return
         if (set.size > 0 && !set.has(this.#logLevelFor(String(e.tag)))) return
