@@ -6,7 +6,7 @@
 //   (scrolls); composer box (bottom, fixed) with the button bar INSIDE the
 //   rounded box — exactly like the app's composer.
 //
-// Engine: the vendored Pi SDK (invisible). No pi UI, no pi commands, no emoji
+// Engine: the vendored engine SDK (invisible). No pi UI, no pi commands, no emoji
 // icons — only text glyphs and the app's exact palette (see theme.ts).
 // =============================================================================
 

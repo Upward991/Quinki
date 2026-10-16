@@ -3,7 +3,7 @@
 // Ogni task autonomo ("execution") vive su disco in ~/.quinki/executions/<id>/:
 //   execution.json  → stato (status, owner, heartbeat, ecc.) — scrittura atomica
 //   events.jsonl    → event log persistente (append-only)
-// Il worker riusa TUTTA la meccanica delle chat di PiBridge (create/setChatAgents/
+// Il worker riusa TUTTA la meccanica delle chat di QuinkiBridge (create/setChatAgents/
 // setMode/setWorkingDir/send), guidando l'agente in modo "headless" con un ws finto.
 // Niente stato importante in RAM: se il sidecar muore, al boot si classifica da disco (A2.3).
 // Per A2.1: runTask / cancel / list / get / events + heartbeat + notifiche WS.
@@ -58,12 +58,12 @@ export interface ExecutionState {
 }
 
 export class ExecutionEngine {
-  #piBridge: any = null;
+  #quinkiBridge: any = null;
   onUpdate: ((payload: any) => void) | null = null;
   onNotification: ((entry: any) => void) | null = null;
   #runs = new Map<string, { timer: any; aborted: boolean; stopped?: boolean }>();
 
-  setPiBridge(pb: any) { this.#piBridge = pb; }
+  setQuinkiBridge(pb: any) { this.#quinkiBridge = pb; }
 
   #dir(id: string) { return path.join(EXEC_BASE, id); }
   #file(id: string) { return path.join(this.#dir(id), "execution.json"); }
@@ -88,7 +88,7 @@ export class ExecutionEngine {
     } catch (e: any) { this.#log("exec-event-write-error", { executionId: id, error: e?.message }); }
   }
 
-  #log(tag: string, data: any) { try { this.#piBridge?.logDebug?.(tag, data); } catch {} }
+  #log(tag: string, data: any) { try { this.#quinkiBridge?.logDebug?.(tag, data); } catch {} }
 
   #notify(payload: any) { try { this.onUpdate?.(payload); } catch {} }
 
@@ -242,8 +242,8 @@ export class ExecutionEngine {
   }
 
   async runTask(p: ExecutionParams): Promise<{ executionId: string; status: string }> {
-    const pb = this.#piBridge;
-    if (!pb) throw new Error("PiBridge not ready");
+    const pb = this.#quinkiBridge;
+    if (!pb) throw new Error("QuinkiBridge not ready");
 
     const id = `ex_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const now = Date.now();
@@ -349,7 +349,7 @@ export class ExecutionEngine {
         if (state.thinkingLevel) pb.setThinkingLevel(sk, state.thinkingLevel);
         // FIX (01 set): traduce il thinking level con il VERO livello del modello.
         // PRIMA: mostrava "on" generico. ORA: mostra "max"/"high"/etc. reale
-        // (lo stesso che vedono le chat normali). Usa il metodo pubblico del PiBridge.
+        // (lo stesso che vedono le chat normali). Usa il metodo pubblico del QuinkiBridge.
         try {
           const translated = (pb as any).translateThinkingForModel?.(state.thinkingLevel, state.model);
           if (translated && translated !== state.thinkingLevel) {
@@ -464,7 +464,7 @@ export class ExecutionEngine {
     if (state.status === "running") {
       const run = this.#runs.get(id);
       if (run) run.stopped = true;
-      try { this.#piBridge?.abort?.(`__exec_${id}`); } catch {}
+      try { this.#quinkiBridge?.abort?.(`__exec_${id}`); } catch {}
       // lo stato finale viene scritto dal runner (interrupted)
     } else if (state.status === "queued") {
       state.status = "executed";
@@ -562,7 +562,7 @@ export class ExecutionEngine {
 
   // Ripresa semantica: stessa sessione (stessa history su disco) + messaggio di continuazione.
   async #resume(id: string): Promise<void> {
-    const pb = this.#piBridge;
+    const pb = this.#quinkiBridge;
     if (!pb) return;
     const st = this.get(id);
     if (!st) return;
@@ -652,8 +652,8 @@ export class ExecutionEngine {
       try {
         const run = this.#runs.get(id);
         if (run) { run.aborted = true; }
-        this.#piBridge?.abort?.(`__exec_${id}`);
-        this.#piBridge?.remove?.(`__exec_${id}`);
+        this.#quinkiBridge?.abort?.(`__exec_${id}`);
+        this.#quinkiBridge?.remove?.(`__exec_${id}`);
       } catch {}
       fs.rmSync(this.#dir(id), { recursive: true, force: true });
       return { ok: true };

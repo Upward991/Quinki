@@ -7,14 +7,14 @@
 // lanciato con `node out/main/sidecar.js`.
 //
 // === M0.3 (Sessione 2) ===
-// - P1: FakeWebSocket wrappa gli eventi WS {type:"..."} di pi-bridge in
+// - P1: FakeWebSocket wrappa gli eventi WS {type:"..."} di quinki-bridge in
 //   notifiche JSON-RPC {method:"...",params:{...}} così il SidecarHandler
 //   Dart (che legge msg['method']/msg['params']) può dispatcharli.
 // - P2: il sidecar emette notifiche mirror di server.ts per i metodi
 //   request/response quando chiamati senza id (notify), così i case Dart
 //   history/session_meta/thinking_levels/context_usage/all_context_usage/
 //   debug_log/full_state/models_list/commands_list/agents_list + onboarding
-//   pi_config_* tornano vivi.
+//   quinki_config_* tornano vivi.
 // - P3: aggiunti 20 handler mancanti (settings/providers/attachments/
 //   folders/update/preflight) + alias per i nomi usati dal Flutter
 
@@ -36,8 +36,8 @@ import {
   killServerProcs,
 } from "./mcp";
 import {
-  PiBridge,
-  setPiBridgeInstance,
+  QuinkiBridge,
+  setQuinkiBridgeInstance,
   isExpertSidecar,
   getSystemPromptIPC,
   getSettings,
@@ -67,7 +67,7 @@ import {
   subscriptionProviderStatus,
   
   
-} from "./pi-bridge";
+} from "./quinki-bridge";
 import { readModelsFromDisk } from "./models";
 import { readProvidersConfig, writeProvidersConfig, syncModelsJson, getOpenRouterUsage, getOllamaUsage, ollamaCloudKeySet, setOllamaCloudKey, clearOllamaCloudKey, getOllamaCloudUsage, ollamaInstalled, ollamaInstall, ollamaInstallStatus, refreshOpenRouterContextWindows } from "./providers";
 import { buildSidecarEntry } from "./sidecar-helper";
@@ -95,10 +95,10 @@ process.stdout.write = ((chunk: any, ...args: any[]): boolean => {
 process.stderr.write("[sidecar-init] stdout filter ACTIVE - solo JSON-RPC passa su stdout\n");
 
 // === FakeWebSocket: redirige ws.send() a stdout NDJSON ===
-// P1: wrappa gli eventi WS-style {type:"..."} di pi-bridge in notifiche
+// P1: wrappa gli eventi WS-style {type:"..."} di quinki-bridge in notifiche
 // JSON-RPC {jsonrpc, method, params} così il SidecarHandler Dart li dispatcha.
 class FakeWebSocket {
-  // pi-bridge emette solo se ws.readyState === ws.constructor.OPEN (riga 1544).
+  // quinki-bridge emette solo se ws.readyState === ws.constructor.OPEN (riga 1544).
   // Senza questi static, il guard fallisce (1 === undefined) e nessun evento fluisce.
   static readonly OPEN = 1;
   static readonly CONNECTING = 0;
@@ -144,9 +144,9 @@ function sendNotification(method: string, params: any) {
 // corrispondente così i case Dart morti tornano vivi. Con id (call) restituisce
 // solo il result (no doppio processaggio).
 
-// === PiBridge instance ===
-let piBridge: PiBridge | null = null;
-// === BOOT QUEUE (29 ago): le RPC arrivate durante il boot (piBridge null) NON
+// === QuinkiBridge instance ===
+let quinkiBridge: QuinkiBridge | null = null;
+// === BOOT QUEUE (29 ago): le RPC arrivate durante il boot (quinkiBridge null) NON
 // si buttano: si bufferizzano e si processano tutte appena il boot finisce.
 const pendingBootLines: string[] = [];
 function flushBootQueue() {
@@ -184,7 +184,7 @@ function sendWebPush(entry: any) {
   const sk = String(entry?.sessionKey || entry?.sourceSession?.key || '');
   // REGOLA (identica al desktop): push SOLO se la chat non e' mutata.
     // L1 (16 ott): decisione CONDIVISA con pushNotifyOut — una sola fonte di verita'
-    // (notifyMode del piBridge + watching live).
+    // (notifyMode del quinkiBridge + watching live).
     if (!pushDecision(sk).ok) return;
   try {
     const sf = path.join(homedir(), '.quinki', 'push-subs.json');
@@ -274,7 +274,7 @@ function isWatched(sk: string): boolean {
 function pushDecision(sk: string): { ok: boolean; mode: string; watched: boolean } {
   let mode = 'none';
   try {
-    const st = (piBridge as any)?.getAllReadStates ? (piBridge as any).getAllReadStates() : null;
+    const st = (quinkiBridge as any)?.getAllReadStates ? (quinkiBridge as any).getAllReadStates() : null;
     mode = st && sk ? (st[sk] && st[sk].notifyMode) || 'none' : 'none';
   } catch {}
   const watched = isWatched(sk);
@@ -288,7 +288,7 @@ try { (globalThis as any).__quinkiPushDecision = pushDecision } catch {}
   function notifyTitle(sk: string): string {
     if (sk === '__app_expert__') return 'App Expert';
     try {
-      const ss = (piBridge as any)?.getSessions?.() || [];
+      const ss = (quinkiBridge as any)?.getSessions?.() || [];
       const ses = ss.find?.((x: any) => (x?.key === sk) || (x?.id === sk));
       return ses?.label || ses?.title || 'New response';
     } catch { return 'New response' }
@@ -345,9 +345,9 @@ executor.onNotification = (entry) => {
 const scheduler = new Scheduler(agentDir, executor);
 let taskReports: TaskReports | null = null;
 const longHorizon = new LongHorizon(agentDir);
-scheduler.setLogger((tag, data) => { try { piBridge?.logDebug?.(tag, data); } catch {} });
+scheduler.setLogger((tag, data) => { try { quinkiBridge?.logDebug?.(tag, data); } catch {} });
 scheduler.onNotify = (payload) => { try { sendNotification("schedule_update", payload); } catch {} };
-longHorizon.setLogger((tag, data) => { try { piBridge?.logDebug?.(tag, data); } catch {} });
+longHorizon.setLogger((tag, data) => { try { quinkiBridge?.logDebug?.(tag, data); } catch {} });
 longHorizon.onNotify = (payload) => { try { sendNotification("longhorizon_update", payload); } catch {} };
 
 const formatName = (id: string) =>
@@ -364,9 +364,9 @@ function getModelsList() {
 
 // === Request handlers ===
 const handlers: Record<string, (params: any) => Promise<any>> = {
-  listSessions: async () => ({ sessions: piBridge ? piBridge.getSessionsWithFolder() : [] }),
+  listSessions: async () => ({ sessions: quinkiBridge ? quinkiBridge.getSessionsWithFolder() : [] }),
   getFullState: async () => ({
-    sessions: piBridge ? piBridge.getSessionsWithFolder() : [],
+    sessions: quinkiBridge ? quinkiBridge.getSessionsWithFolder() : [],
     models: getModelsList(),
   }),
 
@@ -385,35 +385,35 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
 
   createSession: async (p) => {
     const key = `pi-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const s = piBridge!.create(key, p.label || "Chat");
+    const s = quinkiBridge!.create(key, p.label || "Chat");
     // Ogni chat nasce con ALMENO un agente: quello passato, oppure il default (config → quinki)
     const defaultAgentId = readDefaultAgentId();
     const agentId = p.agentId || (defaultAgentId ? defaultAgentId : null);
     if (agentId) {
-      piBridge!.setAgent(key, String(agentId));
-      piBridge!.setChatAgents(key, String(agentId));
+      quinkiBridge!.setAgent(key, String(agentId));
+      quinkiBridge!.setChatAgents(key, String(agentId));
     }
-    if (p.model) await piBridge!.setModel(key, p.model);
-    if (p.thinkingLevel) piBridge!.setThinkingLevel(key, p.thinkingLevel);
-    if (p.mode) piBridge!.setMode(key, String(p.mode));
-    if (p.workingDir) await piBridge!.setWorkingDir(key, p.workingDir);
+    if (p.model) await quinkiBridge!.setModel(key, p.model);
+    if (p.thinkingLevel) quinkiBridge!.setThinkingLevel(key, p.thinkingLevel);
+    if (p.mode) quinkiBridge!.setMode(key, String(p.mode));
+    if (p.workingDir) await quinkiBridge!.setWorkingDir(key, p.workingDir);
     if (typeof p.compactionAuto === "boolean") {
-      piBridge!.setSessionCompaction(key, p.compactionAuto, typeof p.compactionThreshold === "number" ? p.compactionThreshold : 80);
+      quinkiBridge!.setSessionCompaction(key, p.compactionAuto, typeof p.compactionThreshold === "number" ? p.compactionThreshold : 80);
     }
-    const meta = piBridge!.getSessionMeta(key);
-    piBridge!.logDebug("session-created", { sessionKey: key, label: p.label, agentId: p.agentId || "pi", model: meta.model, thinkingLevel: meta.thinkingLevel, mode: meta.mode });
-    return { key, label: s.label, agentId: agentId || "pi", model: meta.model, thinkingLevel: meta.thinkingLevel, compactionAuto: p.compactionAuto, compactionThreshold: p.compactionThreshold };
+    const meta = quinkiBridge!.getSessionMeta(key);
+    quinkiBridge!.logDebug("session-created", { sessionKey: key, label: p.label, agentId: p.agentId || "quinki", model: meta.model, thinkingLevel: meta.thinkingLevel, mode: meta.mode });
+    return { key, label: s.label, agentId: agentId || "quinki", model: meta.model, thinkingLevel: meta.thinkingLevel, compactionAuto: p.compactionAuto, compactionThreshold: p.compactionThreshold };
   },
   ensureSession: async (p) => {
     // Crea l'entry della sessione se non esiste (idempotente: se esiste già, ritorna quella).
     // Usato dall'Expert (chiave fissa __app_expert__) che NON passa da createSession:
     // senza entry, send() esce subito (no msg-in, nessuna risposta).
-    const s = piBridge!.create(String(p.sessionKey), p.label || "Chat");
+    const s = quinkiBridge!.create(String(p.sessionKey), p.label || "Chat");
     // The directory chosen in the welcome travels into the new chat (persisted!).
     if (p && p.workingDir) {
       const wd0 = String(p.workingDir).trim();
       if (wd0 && wd0 !== 'undefined' && wd0 !== 'null') {
-        try { piBridge!.setWorkingDir(s.key, wd0); } catch {}
+        try { quinkiBridge!.setWorkingDir(s.key, wd0); } catch {}
       }
     }
     return { sessionKey: p.sessionKey, label: s.label };
@@ -422,64 +422,64 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     // RPC dal pool-router (main): recupera SUBITO una sessione di cui questo
     // worker è owner (on-open recovery — l'utente ha aperto la chat).
     try {
-      const n = await piBridge!.recoverPendingTurns(String(p.sessionKey));
-      piBridge!.logDebug("pool-worker-recover-on-open", { sessionKey: p.sessionKey, recovered: n });
+      const n = await quinkiBridge!.recoverPendingTurns(String(p.sessionKey));
+      quinkiBridge!.logDebug("pool-worker-recover-on-open", { sessionKey: p.sessionKey, recovered: n });
       return { recovered: n };
     } catch (e: any) { return { recovered: 0, error: String(e?.message || e) }; }
   },
 
   renameSession: async (p) => {
-    piBridge!.rename(p.sessionKey, p.label);
-    piBridge!.logDebug("session-renamed", { sessionKey: p.sessionKey, newLabel: p.label });
+    quinkiBridge!.rename(p.sessionKey, p.label);
+    quinkiBridge!.logDebug("session-renamed", { sessionKey: p.sessionKey, newLabel: p.label });
     return { sessionKey: p.sessionKey, label: p.label };
   },
 
   // PIN (6 ott): pinna in cima (sezione Pinned) una chat o una cartella.
   setSessionPinned: async (p) => {
     const pinned = !!p.pinned;
-    piBridge!.setPinned(String(p.sessionKey), pinned, typeof p.order === "number" ? p.order : undefined);
-    piBridge!.logDebug("session-pinned", { sessionKey: p.sessionKey, pinned });
+    quinkiBridge!.setPinned(String(p.sessionKey), pinned, typeof p.order === "number" ? p.order : undefined);
+    quinkiBridge!.logDebug("session-pinned", { sessionKey: p.sessionKey, pinned });
     return { sessionKey: p.sessionKey, pinned };
   },
 
   deleteSession: async (p) => {
     try { longHorizon.disable(String(p.sessionKey || '')); } catch {}
-    piBridge!.remove(p.sessionKey);
-    piBridge!.logDebug("session-deleted", { sessionKey: p.sessionKey });
+    quinkiBridge!.remove(p.sessionKey);
+    quinkiBridge!.logDebug("session-deleted", { sessionKey: p.sessionKey });
     return { sessionKey: p.sessionKey };
   },
 
   setModel: async (p) => {
-    const oldMeta = piBridge!.getSessionMeta(p.sessionKey);
-    const ok = await piBridge!.setModel(p.sessionKey, p.model);
+    const oldMeta = quinkiBridge!.getSessionMeta(p.sessionKey);
+    const ok = await quinkiBridge!.setModel(p.sessionKey, p.model);
     if (!ok) throw new Error("Model not found");
-    piBridge!.logDebug("model-changed", { sessionKey: p.sessionKey, oldModel: oldMeta.model, newModel: p.model });
+    quinkiBridge!.logDebug("model-changed", { sessionKey: p.sessionKey, oldModel: oldMeta.model, newModel: p.model });
     return { model: p.model, sessionKey: p.sessionKey };
   },
 
   setThinking: async (p) => {
     const lvl = p.thinkingLevel || p.level;
-    const oldMeta = piBridge!.getSessionMeta(p.sessionKey);
-    piBridge!.setThinkingLevel(p.sessionKey, lvl);
-    piBridge!.logDebug("thinking-changed", { sessionKey: p.sessionKey, oldLevel: oldMeta.thinkingLevel, newLevel: lvl });
+    const oldMeta = quinkiBridge!.getSessionMeta(p.sessionKey);
+    quinkiBridge!.setThinkingLevel(p.sessionKey, lvl);
+    quinkiBridge!.logDebug("thinking-changed", { sessionKey: p.sessionKey, oldLevel: oldMeta.thinkingLevel, newLevel: lvl });
     return { level: lvl, sessionKey: p.sessionKey };
   },
   setMode: async (p) => {
     const mode = p.mode === "plan" ? "plan" : "build";
-    const oldMeta = piBridge!.getSessionMeta(String(p.sessionKey));
-    piBridge!.setMode(String(p.sessionKey), mode);
-    piBridge!.logDebug("mode-changed", { sessionKey: p.sessionKey, oldMode: oldMeta.mode, newMode: mode });
+    const oldMeta = quinkiBridge!.getSessionMeta(String(p.sessionKey));
+    quinkiBridge!.setMode(String(p.sessionKey), mode);
+    quinkiBridge!.logDebug("mode-changed", { sessionKey: p.sessionKey, oldMode: oldMeta.mode, newMode: mode });
     return { sessionKey: p.sessionKey, mode };
   },
   setAgent: async (p) => {
-    const oldMeta = piBridge!.getSessionMeta(String(p.sessionKey));
-    piBridge!.setAgent(String(p.sessionKey), p.agentId ? String(p.agentId) : null);
-    piBridge!.logDebug("agent-changed", { sessionKey: p.sessionKey, oldAgent: oldMeta.agentId, newAgent: p.agentId ?? null });
+    const oldMeta = quinkiBridge!.getSessionMeta(String(p.sessionKey));
+    quinkiBridge!.setAgent(String(p.sessionKey), p.agentId ? String(p.agentId) : null);
+    quinkiBridge!.logDebug("agent-changed", { sessionKey: p.sessionKey, oldAgent: oldMeta.agentId, newAgent: p.agentId ?? null });
     return { sessionKey: p.sessionKey, agentId: p.agentId ?? null };
   },
   setChatAgents: async (p) => {
-    piBridge!.setChatAgents(String(p.sessionKey), String(p.agentIds || ''));
-    piBridge!.logDebug("chat-agents-changed", { sessionKey: p.sessionKey, agentIds: p.agentIds ?? '' });
+    quinkiBridge!.setChatAgents(String(p.sessionKey), String(p.agentIds || ''));
+    quinkiBridge!.logDebug("chat-agents-changed", { sessionKey: p.sessionKey, agentIds: p.agentIds ?? '' });
     return { sessionKey: p.sessionKey, agentIds: p.agentIds ?? '' };
   },
   // === ORCHESTRATOR COME RUOLO (10 ott): designa/togli l'orchestrator della chat ===
@@ -487,28 +487,28 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     const key = String(p?.sessionKey || '');
     if (!key) return { ok: false, error: 'sessionKey is required.' };
     try {
-      return piBridge!.setSessionOrchestrator(key, p?.agentId ? String(p.agentId) : null);
+      return quinkiBridge!.setSessionOrchestrator(key, p?.agentId ? String(p.agentId) : null);
     } catch (e) {
       return { ok: false, error: String((e && e.message) || e) };
     }
   },
   setAgentOverride: async (p) => {
-    piBridge!.logDebug('set-agent-override-rpc', { sessionKey: p.sessionKey, agentId: p.agentId, model: p.model, thinking: p.thinkingLevel });
+    quinkiBridge!.logDebug('set-agent-override-rpc', { sessionKey: p.sessionKey, agentId: p.agentId, model: p.model, thinking: p.thinkingLevel });
     // undefined = skip (field not provided), null = clear, string = set
-    piBridge!.setAgentOverride(String(p.sessionKey), String(p.agentId), p.model === undefined ? '__skip__' : p.model, p.thinkingLevel === undefined ? '__skip__' : p.thinkingLevel);
+    quinkiBridge!.setAgentOverride(String(p.sessionKey), String(p.agentId), p.model === undefined ? '__skip__' : p.model, p.thinkingLevel === undefined ? '__skip__' : p.thinkingLevel);
     return { ok: true };
   },
   getAgentOverrides: async (p) => {
-    const overrides = piBridge!.getAgentOverrides(String(p.sessionKey));
+    const overrides = quinkiBridge!.getAgentOverrides(String(p.sessionKey));
     return { overrides };
   },
   injectErrorExchange: async (p) => {
-    piBridge!.injectErrorExchange(String(p.sessionKey), String(p.userMessage || ''), String(p.errorContent || ''), p.timestamp || Date.now());
+    quinkiBridge!.injectErrorExchange(String(p.sessionKey), String(p.userMessage || ''), String(p.errorContent || ''), p.timestamp || Date.now());
     return {};
   },
   reloadSession: async (p) => {
-    piBridge!.reloadSession(String(p.sessionKey));
-    piBridge!.logDebug("session-reloaded", { sessionKey: p.sessionKey });
+    quinkiBridge!.reloadSession(String(p.sessionKey));
+    quinkiBridge!.logDebug("session-reloaded", { sessionKey: p.sessionKey });
     return { sessionKey: p.sessionKey };
   },
   // Protezione: questa directory e' gia' usata da un'ALTRA chat? (protegge dalla
@@ -559,9 +559,9 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   listWorkingDirs: async (p) => {
     try {
       const key = String(p?.sessionKey || "");
-      const meta = piBridge!.getSessionMeta(key);
-      const cur = (meta?.workingDir && meta.workingDir.length > 0) ? meta.workingDir : piBridge!.autoWorkDirFor(key);
-      const defaultPath = piBridge!.autoWorkDirFor(key);
+      const meta = quinkiBridge!.getSessionMeta(key);
+      const cur = (meta?.workingDir && meta.workingDir.length > 0) ? meta.workingDir : quinkiBridge!.autoWorkDirFor(key);
+      const defaultPath = quinkiBridge!.autoWorkDirFor(key);
       const set = new Set<string>();
       set.add(cur);
       set.add(defaultPath); // la DEFAULT della chat: sempre visibile in lista
@@ -591,13 +591,13 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   setWorkingDir: async (p) => {
     // THE BUG: the app and the CLI BOTH send `workingDir`; this read `p.path`
     // → String(undefined) = the literal "undefined" was saved. Accept both names.
-    piBridge!.setWorkingDir(String(p?.sessionKey || ''), String(p?.workingDir ?? p?.path ?? ''));
-    piBridge!.logDebug("working-dir-changed", { sessionKey: p.sessionKey, path: p.path });
+    quinkiBridge!.setWorkingDir(String(p?.sessionKey || ''), String(p?.workingDir ?? p?.path ?? ''));
+    quinkiBridge!.logDebug("working-dir-changed", { sessionKey: p.sessionKey, path: p.path });
     return { sessionKey: p.sessionKey, path: p.path };
   },
   resetSession: async (p) => {
-    piBridge!.resetSession(String(p.sessionKey));
-    piBridge!.logDebug("session-reset", { sessionKey: p.sessionKey });
+    quinkiBridge!.resetSession(String(p.sessionKey));
+    quinkiBridge!.logDebug("session-reset", { sessionKey: p.sessionKey });
     return { sessionKey: p.sessionKey };
   },
 
@@ -609,45 +609,45 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     try {
       if (longHorizon.isActive(String(p.sessionKey || "")) && auto === false) {
         auto = true;
-        piBridge!.logDebug("lh-compaction-locked", { sessionKey: p.sessionKey });
+        quinkiBridge!.logDebug("lh-compaction-locked", { sessionKey: p.sessionKey });
       }
     } catch {}
-    piBridge!.setSessionCompaction(p.sessionKey, auto, p.threshold);
+    quinkiBridge!.setSessionCompaction(p.sessionKey, auto, p.threshold);
     return {};
   },
 
   abort: async (p) => {
-    piBridge!.abort(String(p.sessionKey));
+    quinkiBridge!.abort(String(p.sessionKey));
     return { ok: true };
   },
-  abortCompaction: async (p) => ({ sessionKey: p.sessionKey, ...piBridge!.abortCompaction(p.sessionKey) }),
+  abortCompaction: async (p) => ({ sessionKey: p.sessionKey, ...quinkiBridge!.abortCompaction(p.sessionKey) }),
 
   getThinkingLevels: async (p) => {
-    const data = piBridge!.getOllamaThinkingLevels(p.sessionKey);
-    return { levels: data.piLevels, ollamaLevels: data.ollamaLevels, sessionKey: p.sessionKey };
+    const data = quinkiBridge!.getOllamaThinkingLevels(p.sessionKey);
+    return { levels: data.quinkiLevels, ollamaLevels: data.ollamaLevels, sessionKey: p.sessionKey };
   },
 
-  getSessionMeta: async (p) => ({ sessionKey: p.sessionKey, ...piBridge!.getSessionMeta(p.sessionKey) }),
+  getSessionMeta: async (p) => ({ sessionKey: p.sessionKey, ...quinkiBridge!.getSessionMeta(p.sessionKey) }),
 
-  getContextUsage: async (p) => ({ sessionKey: p.sessionKey, usage: piBridge!.getContextUsage(p.sessionKey) }),
+  getContextUsage: async (p) => ({ sessionKey: p.sessionKey, usage: quinkiBridge!.getContextUsage(p.sessionKey) }),
 
-  getAllContextUsage: async () => ({ usage: piBridge!.getAllContextUsage() }),
+  getAllContextUsage: async () => ({ usage: quinkiBridge!.getAllContextUsage() }),
 
-  getModelContext: async (p) => ({ modelId: p.modelId, ...await piBridge!.getModelContext(p.modelId) }),
+  getModelContext: async (p) => ({ modelId: p.modelId, ...await quinkiBridge!.getModelContext(p.modelId) }),
 
-  getHistory: async (p) => { const sk = String(p.sessionKey); try { taskReports?.onChatOpened(sk); } catch {} let recovering = false; try { recovering = fs.existsSync(path.join(agentDir, "sessions", "quinki", sk, "pending-turn.json")); } catch {} try { piBridge!.logDebug("getHistory-recovering-flag", { sessionKey: sk, recovering, hasMarker: recovering }); } catch {} const chips = piBridge!.getChipsStores(sk); return { sessionKey: p.sessionKey, messages: piBridge!.getHistory(sk, typeof p.limit === "number" ? p.limit : undefined), messageSkills: chips.messageSkills, messageTaskClips: chips.messageTaskClips, messageAttachments: chips.messageAttachments, messageDisplayTexts: chips.messageDisplayTexts, recovering } },
+  getHistory: async (p) => { const sk = String(p.sessionKey); try { taskReports?.onChatOpened(sk); } catch {} let recovering = false; try { recovering = fs.existsSync(path.join(agentDir, "sessions", "quinki", sk, "pending-turn.json")); } catch {} try { quinkiBridge!.logDebug("getHistory-recovering-flag", { sessionKey: sk, recovering, hasMarker: recovering }); } catch {} const chips = quinkiBridge!.getChipsStores(sk); return { sessionKey: p.sessionKey, messages: quinkiBridge!.getHistory(sk, typeof p.limit === "number" ? p.limit : undefined), messageSkills: chips.messageSkills, messageTaskClips: chips.messageTaskClips, messageAttachments: chips.messageAttachments, messageDisplayTexts: chips.messageDisplayTexts, recovering } },
   // B0.8: pagina precedente della storia + log
-  getHistoryBefore: async (p) => ({ sessionKey: p.sessionKey, messages: piBridge!.getHistoryBefore(String(p.sessionKey), Number(p.ts || 0), typeof p.limit === "number" ? p.limit : undefined) }),
-  getFilteredLog: async (p) => ({ entries: piBridge!.getFilteredLog(Array.isArray(p.levels) ? p.levels : [], typeof p.limit === "number" ? p.limit : 100) }),
-  getFilteredBefore: async (p) => ({ entries: piBridge!.getFilteredBefore(Array.isArray(p.levels) ? p.levels : [], Number(p.from || 0), typeof p.limit === "number" ? p.limit : 100) }),
-  getDebugLogBefore: async (p) => piBridge!.getDebugLogBefore(Number(p.from || 0), typeof p.limit === "number" ? p.limit : undefined),
+  getHistoryBefore: async (p) => ({ sessionKey: p.sessionKey, messages: quinkiBridge!.getHistoryBefore(String(p.sessionKey), Number(p.ts || 0), typeof p.limit === "number" ? p.limit : undefined) }),
+  getFilteredLog: async (p) => ({ entries: quinkiBridge!.getFilteredLog(Array.isArray(p.levels) ? p.levels : [], typeof p.limit === "number" ? p.limit : 100) }),
+  getFilteredBefore: async (p) => ({ entries: quinkiBridge!.getFilteredBefore(Array.isArray(p.levels) ? p.levels : [], Number(p.from || 0), typeof p.limit === "number" ? p.limit : 100) }),
+  getDebugLogBefore: async (p) => quinkiBridge!.getDebugLogBefore(Number(p.from || 0), typeof p.limit === "number" ? p.limit : undefined),
   // B0.9: search sidecar (chat + log) + salto al match
-  getHistoryAround: async (p) => ({ sessionKey: p.sessionKey, messages: piBridge!.getHistoryAround(String(p.sessionKey || ""), Number(p.ts || 0), typeof p.limit === "number" ? p.limit : undefined) }),
-  searchDebugLog: async (p) => ({ matches: piBridge!.searchDebugLog(String(p.query || ""), typeof p.limit === "number" ? p.limit : undefined) }),
+  getHistoryAround: async (p) => ({ sessionKey: p.sessionKey, messages: quinkiBridge!.getHistoryAround(String(p.sessionKey || ""), Number(p.ts || 0), typeof p.limit === "number" ? p.limit : undefined) }),
+  searchDebugLog: async (p) => ({ matches: quinkiBridge!.searchDebugLog(String(p.query || ""), typeof p.limit === "number" ? p.limit : undefined) }),
   // === A3: Notifiche ===
-  getReadState: async (p) => ({ state: piBridge!.getReadState(String(p.sessionKey || "")) }),
-  getAllReadStates: async () => ({ states: piBridge!.getAllReadStates() }),
-  setReadState: async (p) => ({ state: piBridge!.setReadState(String(p.sessionKey || ""), p.patch || {}) }),
+  getReadState: async (p) => ({ state: quinkiBridge!.getReadState(String(p.sessionKey || "")) }),
+  getAllReadStates: async () => ({ states: quinkiBridge!.getAllReadStates() }),
+  setReadState: async (p) => ({ state: quinkiBridge!.setReadState(String(p.sessionKey || ""), p.patch || {}) }),
   // Riavvio dell'app Expert richiesto dal TELEFONO (web): identico al comando
   // del Mac — scrive il flag che l'app Expert polla e consuma a turno finito.
   restartExpertApp: async () => {
@@ -783,21 +783,21 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
       if (mode === 'none') mutes[sk] = true; else delete mutes[sk];
       fs.writeFileSync(mf, JSON.stringify(mutes, null, 2));
     } catch {}
-    return { state: piBridge!.setNotifyMode(String(p.sessionKey || ""), String(p.mode || "none")) };
+    return { state: quinkiBridge!.setNotifyMode(String(p.sessionKey || ""), String(p.mode || "none")) };
   },
-  getDefaultNotifyMode: async () => ({ mode: piBridge!.getDefaultNotifyMode() }),
-  setDefaultNotifyMode: async (p) => ({ mode: piBridge!.setDefaultNotifyMode(String(p.mode || "none")) }),
-  getUnreadCounts: async () => ({ counts: piBridge!.getUnreadCounts() }),
-  listNotifications: async () => ({ notifications: piBridge!.listNotifications() }),
+  getDefaultNotifyMode: async () => ({ mode: quinkiBridge!.getDefaultNotifyMode() }),
+  setDefaultNotifyMode: async (p) => ({ mode: quinkiBridge!.setDefaultNotifyMode(String(p.mode || "none")) }),
+  getUnreadCounts: async () => ({ counts: quinkiBridge!.getUnreadCounts() }),
+  listNotifications: async () => ({ notifications: quinkiBridge!.listNotifications() }),
 // FIX P2 #16 (2026-09-08): rimossa RPC orfana _testAppendNotification (test-only, zero references)
-  markAllNotificationsRead: async () => ({ ok: piBridge!.markAllNotificationsRead() }),
+  markAllNotificationsRead: async () => ({ ok: quinkiBridge!.markAllNotificationsRead() }),
 
-  screenshot_response: async (p) => { try { (piBridge as any)?.resolveScreenshotRequest?.(p?.requestId || "", p); } catch {} return { ok: true }; },
+  screenshot_response: async (p) => { try { (quinkiBridge as any)?.resolveScreenshotRequest?.(p?.requestId || "", p); } catch {} return { ok: true }; },
   sendMessage: async (p) => {
     const sk = String(p.sessionKey);
     const mid = p.messageId || `u-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-    const meta = piBridge!.getSessionMeta(sk);
-    piBridge!.logDebug("send-message", { skillNames: p.skillNames || "(none)", attachments: p.attachments || "(none)",
+    const meta = quinkiBridge!.getSessionMeta(sk);
+    quinkiBridge!.logDebug("send-message", { skillNames: p.skillNames || "(none)", attachments: p.attachments || "(none)",
       sessionKey: sk,
       agentId: p.agentId || meta.agentId || "(none)",
       model: p.model || meta.model || "(default)",
@@ -805,23 +805,23 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
       mode: meta.mode || "plan",
       textPreview: (p.text || "").substring(0, 80)
     });
-    if (p.model) await piBridge!.setModel(sk, p.model);
-    if (p.mode && p.mode !== meta.mode) await piBridge!.setMode(sk, p.mode);
-    if (p.thinkingLevel) piBridge!.setThinkingLevel(sk, p.thinkingLevel);
-    if (p.workingDir) await piBridge!.setWorkingDir(sk, p.workingDir);
+    if (p.model) await quinkiBridge!.setModel(sk, p.model);
+    if (p.mode && p.mode !== meta.mode) await quinkiBridge!.setMode(sk, p.mode);
+    if (p.thinkingLevel) quinkiBridge!.setThinkingLevel(sk, p.thinkingLevel);
+    if (p.workingDir) await quinkiBridge!.setWorkingDir(sk, p.workingDir);
     // === Set agent BEFORE send (single call, no race condition) ===
     if (p.agentId) {
-      piBridge!.setAgent(sk, String(p.agentId));
+      quinkiBridge!.setAgent(sk, String(p.agentId));
     }
-    piBridge!.addUserMsg(sk, p.text, mid);
+    quinkiBridge!.addUserMsg(sk, p.text, mid);
     process.stderr.write('[SKILL-DEBUG] sendMessage received: skillNames=' + JSON.stringify(p.skillNames) + ' attachments=' + JSON.stringify(p.attachments) + '\n');
     if (p.skillNames && p.skillNames.length > 0) {
-      piBridge!.setMessageSkills(sk, mid, p.skillNames, p.text);
+      quinkiBridge!.setMessageSkills(sk, mid, p.skillNames, p.text);
     }
     // T433: the DISPLAY copy (raw text with the inline chip tokens) — the CLI's
     // reloaded bubbles render exactly like the live ones.
     if ((p as any).displayText) {
-      try { piBridge!.setMessageDisplayText(sk, mid, p.text, String((p as any).displayText)); } catch {}
+      try { quinkiBridge!.setMessageDisplayText(sk, mid, p.text, String((p as any).displayText)); } catch {}
     }
     // FIX (22 set): allegati dalla cartella draft (__welcome__, welcome/quick chat senza
     // sessione) → SPOSTATI nella cartella della sessione PRIMA di registrarli: il path
@@ -845,14 +845,14 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
       } catch {}
     }
     if (p.attachments && p.attachments.length > 0) {
-      piBridge!.setMessageAttachments(sk, mid, p.attachments, p.text);
+      quinkiBridge!.setMessageAttachments(sk, mid, p.attachments, p.text);
     }
     if (p.taskClips && p.taskClips.length > 0) {
-      piBridge!.setMessageTaskClips(sk, mid, p.taskClips, p.text);
+      quinkiBridge!.setMessageTaskClips(sk, mid, p.taskClips, p.text);
     }
     const fakeWs = new FakeWebSocket();
-    await piBridge!.send(fakeWs, { sessionKey: sk, text: p.text, files: p.files, workingDirs: p.workingDirs, skillNames: p.skillNames, attachments: p.attachments, taskClips: p.taskClips, messageId: mid });
-    piBridge!.logDebug("message-sent", { sessionKey: sk, messageId: mid, agent: p.agentId || meta.agentId, model: p.model || meta.model });
+    await quinkiBridge!.send(fakeWs, { sessionKey: sk, text: p.text, files: p.files, workingDirs: p.workingDirs, skillNames: p.skillNames, attachments: p.attachments, taskClips: p.taskClips, messageId: mid });
+    quinkiBridge!.logDebug("message-sent", { sessionKey: sk, messageId: mid, agent: p.agentId || meta.agentId, model: p.model || meta.model });
     return { messageId: mid, sessionKey: sk };
   },
 
@@ -962,7 +962,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
           } catch {}
         }
       } catch {}
-      try { piBridge!.setMessageAttachments(sk, `steer-${Date.now()}`, steerAtts, steerText); } catch {}
+      try { quinkiBridge!.setMessageAttachments(sk, `steer-${Date.now()}`, steerAtts, steerText); } catch {}
       let sec = "\n\n=== ATTACHED FILES ===\nThe user attached the following file(s):";
       for (const att of steerAtts) {
         sec += `\n- ${(att as any)?.name || (att as any)?.originalName || path.basename(String((att as any)?.path || ''))} → ${(att as any)?.path}`;
@@ -970,7 +970,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
       sec += "\nUse the `read` tool to access these files. If a file is too large, use `read` with offset/limit.\n=== END ATTACHED FILES ===";
       steerText += sec;
     }
-    piBridge!.steer(new FakeWebSocket(), { sessionKey: String(p.sessionKey), text: steerText });
+    quinkiBridge!.steer(new FakeWebSocket(), { sessionKey: String(p.sessionKey), text: steerText });
     return {};
   },
 
@@ -979,14 +979,14 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     const sk = String(p.sessionKey || "");
     const text = String(p.text || "");
     if (!sk || !text) return { ok: false, error: "sessionKey and text required" };
-    const ok = await piBridge!.injectClip(sk, text);
+    const ok = await quinkiBridge!.injectClip(sk, text);
     return { ok, sessionKey: sk };
   },
 
   compactSession: async (p) => {
-    piBridge!.logDebug("compact-session", { sessionKey: p.sessionKey });
+    quinkiBridge!.logDebug("compact-session", { sessionKey: p.sessionKey });
     const fakeWs = new FakeWebSocket();
-    return piBridge!.compact(String(p.sessionKey), fakeWs);
+    return quinkiBridge!.compact(String(p.sessionKey), fakeWs);
   },
 
   getSystemPrompt: async (p) => ({ prompt: getSystemPromptIPC(p.sessionKey) }),
@@ -995,7 +995,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   // la sessione __app_expert__ (107MB+) se l'Expert è aperto — la sessione vive lì.
   isExpertAlive: async () => ({ alive: isExpertAlive() }),
   // B4 POOL: stato per lo shrink del router (child idle → kill). Innocuo se non usato.
-  poolStatus: async () => ({ active: piBridge ? piBridge.getStreamingSessionKeys().length : 0, streaming: piBridge ? (piBridge.getPoolStatus ? piBridge.getPoolStatus().streaming : 0) : 0 }),
+  poolStatus: async () => ({ active: quinkiBridge ? quinkiBridge.getStreamingSessionKeys().length : 0, streaming: quinkiBridge ? (quinkiBridge.getPoolStatus ? quinkiBridge.getPoolStatus().streaming : 0) : 0 }),
   // FIX (11 set — recovery nella main): prima la lettura LOCALE (veloce, sempre
   // stata lì); se è null e la sessione è di un worker, chiedila al LUI — il
   // buffer streaming vive nella SUA memoria. Senza questo, dopo un recovery il
@@ -1003,7 +1003,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   // sbloccata + stop morto + pill muta mentre lo streaming arrivava.
   getStreamingSnapshot: async (p) => {
     const sk = String(p.sessionKey || '');
-    const local = piBridge!.getStreamingSnapshot(sk);
+    const local = quinkiBridge!.getStreamingSnapshot(sk);
     if (local) return local;
     try {
       const remote = await snapshotOnWorker(sk, 'getStreamingSnapshot');
@@ -1011,11 +1011,11 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     } catch {}
     return local;
   },
-  getDelegations: async (p) => ({ delegations: piBridge ? piBridge.getDelegations(String(p.sessionKey || "")) : [] }),
+  getDelegations: async (p) => ({ delegations: quinkiBridge ? quinkiBridge.getDelegations(String(p.sessionKey || "")) : [] }),
   getStreamingMessage: async (p) => {
     // FIX (11 set): stesso pattern del getStreamingSnapshot — fallback al worker owner.
     const sk = String(p.sessionKey || '');
-    const local = { streaming: piBridge ? piBridge.getStreamingMessage(sk) : null };
+    const local = { streaming: quinkiBridge ? quinkiBridge.getStreamingMessage(sk) : null };
     if (local.streaming) return local;
     try {
       const remote = await snapshotOnWorker(sk, 'getStreamingMessage');
@@ -1026,12 +1026,12 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
 
   // B0.1 (S9): monitoring heap (bun:jsc)
   getDebugLogSince: async (p) => ({
-    ...piBridge!.getDebugLogSince(typeof p.ts === "number" ? p.ts : 0),
+    ...quinkiBridge!.getDebugLogSince(typeof p.ts === "number" ? p.ts : 0),
   }),
 
   // === A2.1: Execution engine (task autonomi) ===
   runTask: async (p) => {
-    try { executor.setPiBridge(piBridge); } catch {}
+    try { executor.setQuinkiBridge(quinkiBridge); } catch {}
 
 
     const r = await executor.runTask({
@@ -1073,8 +1073,8 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   longHorizonSetPlan: async (p) => longHorizon.setPlan(String(p.sessionKey || ''), String(p.plan || '')),
   longHorizonSetPhase: async (p) => longHorizon.setPhase(String(p.sessionKey || ''), String(p.phase || '')),
   longHorizonNewDiscussion: async (p) => longHorizon.newDiscussion(String(p.sessionKey || '')),
-  injectSystemMessage: async (p) => piBridge!.injectSystemMessage(String(p.sessionKey || ''), String(p.text || '')),
-  injectAppMessage: async (p) => piBridge!.injectAppMessage(String(p.sessionKey || ''), String(p.text || '')),
+  injectSystemMessage: async (p) => quinkiBridge!.injectSystemMessage(String(p.sessionKey || ''), String(p.text || '')),
+  injectAppMessage: async (p) => quinkiBridge!.injectAppMessage(String(p.sessionKey || ''), String(p.text || '')),
   getLongHorizonState: async (p) => longHorizon.getState(String(p.sessionKey || '')),
   getSessionFiles: async (p) => ({ files: longHorizon.getSessionFiles(String(p.sessionKey || '')) }),
   hasLongHorizonFiles: async (p) => ({ exists: longHorizon.hasFiles(String(p.sessionKey || '')) }),
@@ -1193,7 +1193,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
         }
       }
     } catch {}
-    piBridge?.logDebug('mcp-removed', { id });
+    quinkiBridge?.logDebug('mcp-removed', { id });
     return { ok: true };
   },
 
@@ -1254,7 +1254,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
       if (!dir) {
         try {
           const sk = String(p?.sessionKey || "");
-          const meta: any = sk ? await (piBridge as any).getSessionMeta(sk) : null;
+          const meta: any = sk ? await (quinkiBridge as any).getSessionMeta(sk) : null;
           if (meta && meta.workingDir) dir = String(meta.workingDir);
         } catch {}
         if (!dir) dir = home;
@@ -1329,7 +1329,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   },
   setDefaultFallbacks: async (p) => {
     try {
-      // NB: usa ~/.quinki (come SETTINGS_FILE di pi-bridge), NON agentDir di sidecar.ts
+      // NB: usa ~/.quinki (come SETTINGS_FILE di quinki-bridge), NON agentDir di sidecar.ts
       const sf = path.join(process.env.QUINKI_AGENT_DIR || path.join(homedir(), ".quinki"), "quinki-settings.json");
       fs.mkdirSync(path.dirname(sf), { recursive: true });
       let existing: any = {};
@@ -1455,7 +1455,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   },
   recoverPendingTurns: async () => {
     try {
-      const n = await piBridge!.recoverPendingTurns();
+      const n = await quinkiBridge!.recoverPendingTurns();
       return { recovered: n };
     } catch (e: any) { return { recovered: 0, error: String(e?.message || e) }; }
   },
@@ -1472,7 +1472,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   subscriptionStatus: async (p) => subscriptionProviderStatus(String(p?.providerId || "")),
   fetchProviderModels: async (p) => fetchProviderModelsIPC(p.providerName, p.baseUrl, p.apiKey),
   testProviderConnection: async (p) => testProviderConnectionIPC(p.providerName, p.baseUrl, p.apiKey),
-  setSessionFallbacks: async (p) => piBridge!.setSessionFallbacks(String(p.sessionKey || ''), Array.isArray(p.models) ? p.models : []),
+  setSessionFallbacks: async (p) => quinkiBridge!.setSessionFallbacks(String(p.sessionKey || ''), Array.isArray(p.models) ? p.models : []),
   ollamaCloudStatus: async () => ({ set: ollamaCloudKeySet() }),
   setOllamaCloudKey: async (p) => {
     if (!p || !p.key || typeof p.key !== "string" || p.key.trim().length < 8) return { ok: false, error: "invalid key" };
@@ -1584,8 +1584,8 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     process.stderr.write(`[moveSession] received: ${JSON.stringify(p)}\n`);
     const result = moveSessionIPC(p.sessionKey, p.folderId ?? null, p.order ?? Date.now());
     // Also update in-memory entries so getFullState returns correct data
-    if (result.success && piBridge) {
-      piBridge.updateSessionEntry(p.sessionKey, { folderId: p.folderId ?? null, order: p.order ?? Date.now() });
+    if (result.success && quinkiBridge) {
+      quinkiBridge.updateSessionEntry(p.sessionKey, { folderId: p.folderId ?? null, order: p.order ?? Date.now() });
     }
     return result;
   },
@@ -1608,9 +1608,9 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
       if (key) {
         cfg.providers[key].apiKey = p.key;
         writeProvidersConfig(cfg);
-        // Propaga subito a models.json (il Pi SDK legge la chiave in chiaro da lì)
+        // Propaga subito a models.json (il engine SDK legge la chiave in chiaro da lì)
         await syncModelsJson(readProvidersConfig());
-        try { (piBridge as any)?.refreshModelRegistry?.(); } catch {}
+        try { (quinkiBridge as any)?.refreshModelRegistry?.(); } catch {}
       }
       process.stderr.write(`[storeApiKey] Saved key for ${p.service}\n`);
       return { success: true };
@@ -1627,7 +1627,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
         cfg.providers[key].apiKey = "";
         writeProvidersConfig(cfg);
         syncModelsJson(readProvidersConfig());
-        try { (piBridge as any)?.refreshModelRegistry?.(); } catch {}
+        try { (quinkiBridge as any)?.refreshModelRegistry?.(); } catch {}
       }
       return { success: true };
     } catch (e: any) {
@@ -1674,7 +1674,7 @@ export async function bootSidecar() {
   setTimeout(() => { refreshThinkingCapsEvolution().catch(() => {}); }, 15000);
   // === AUTOPROMPT 2.0 — DRIVER: ogni 30s controlla i marker con nextRetryAt scaduto.
   // La scala sopravvive ai riavvii perché il prossimo orario è scritto sul marker.
-  try { setInterval(() => { try { piBridge?.recoverPendingTurns?.().catch(() => {}); } catch {} }, 30000); } catch {}
+  try { setInterval(() => { try { quinkiBridge?.recoverPendingTurns?.().catch(() => {}); } catch {} }, 30000); } catch {}
   // OpenRouter: contesto REALE (top_provider) per TUTTI i modelli, a ogni boot
   setTimeout(() => { try {
     const cfg = readProvidersConfig();
@@ -1695,15 +1695,15 @@ async function handleLine(line: string) {
     if (!method) return;
 
     // === BOOT QUEUE (29 ago — drop RPC durante il boot): handleLine viene
-    // registrato SUBITO in bootSidecar, MA piBridge è creato SOLO quando
+    // registrato SUBITO in bootSidecar, MA quinkiBridge è creato SOLO quando
     // bootstrap() è COMPLETATO (setup pesante: probes, recovery, file).
-    // Durante quei secondi ogni RPC toccava piBridge NULL → errore/perso →
+    // Durante quei secondi ogni RPC toccava quinkiBridge NULL → errore/perso →
     // la promise del frontend restava appesa PER SEMPRE: turno che non
     // partiva mai, 'Running' falso, selezione sessione morta (niente retry).
     // NON si butta MAI una RPC: il buffer viene svuotato a boot finito.
-    if (!piBridge && method !== "ping") {
+    if (!quinkiBridge && method !== "ping") {
       pendingBootLines.push(line);
-      process.stderr.write(`[boot-queue] buffered ${method} (piBridge not ready)
+      process.stderr.write(`[boot-queue] buffered ${method} (quinkiBridge not ready)
 `);
       return;
     }
@@ -1810,14 +1810,14 @@ async function bootstrap() {
         }).catch(() => {});
       }
     } catch {}
-    // NON creiamo più uno stub package.json nel workdir. Il Pi SDK non lo richiede
+    // NON creiamo più uno stub package.json nel workdir. Il engine SDK non lo richiede
     // (letto solo se esiste, guardato da existsSync/try-catch) — provato dal fatto che
     // chat su cartelle senza package.json (es. progetti Flutter) funzionano. Così il
     // workdir di default resta vuoto e "opera senza directory" non mostra file spuri.
     process.chdir(workdir);
-    piBridge = new PiBridge({ cwd: workdir, agentDir });
-    setPiBridgeInstance(piBridge);
-    (globalThis as any).__quinki_piBridge = piBridge;
+    quinkiBridge = new QuinkiBridge({ cwd: workdir, agentDir });
+    setQuinkiBridgeInstance(quinkiBridge);
+    (globalThis as any).__quinki_bridge = quinkiBridge;
     // Boot completato: processa le RPC che erano arrivate a sidecar spento
     flushBootQueue();
     // A4.3: dispatch RPC per il ctx.call dei plugin tab (solo metodi permessi dal manifest)
@@ -1828,7 +1828,7 @@ async function bootstrap() {
     };
     // A4.3: carica i back-end (server.js) delle tab installate
     try { const n = loadAllTabPlugins(); if (n > 0) process.stderr.write(`[sidecar-marker] tab-plugins-loaded: ${n}\n`); } catch (e: any) { process.stderr.write(`[sidecar-marker] tab-plugins-error: ${e?.message || String(e)}\n`); }
-    try { executor.setPiBridge(piBridge); } catch {}
+    try { executor.setQuinkiBridge(quinkiBridge); } catch {}
     // === B4 POOL: il child è un processo senza scheduler (lo gestisce il main) ===
     // FIX 16 ott (bug doppioni task): il SIZE non è affidabile (non sempre impostato) → il segnale VERO
     // è l'INDICE: main = 0, worker del pool = i>0 (stesso criterio con cui il log li tagga 'main-pool<i>').
@@ -1854,14 +1854,14 @@ async function bootstrap() {
       try { t.unref?.(); } catch {}
       process.stderr.write(`[sidecar-marker] pool-child-parent-watchdog: ${origPpid}\n`);
     }
-    // === A3: broadcast notifiche al frontend (DOPO la creazione di piBridge!) ===
+    // === A3: broadcast notifiche al frontend (DOPO la creazione di quinkiBridge!) ===
     try {
-      taskReports = new TaskReports(piBridge, (process.env.QUINKI_ROLE || "").toLowerCase() === "expert" || process.env.QUINKI_WS_PORT === "9183" ? "expert" : "main");
-      try { taskReports.setLogger((tag: string, data: any) => piBridge?.logDebug?.(tag, data)); } catch {}
+      taskReports = new TaskReports(quinkiBridge, (process.env.QUINKI_ROLE || "").toLowerCase() === "expert" || process.env.QUINKI_WS_PORT === "9183" ? "expert" : "main");
+      try { taskReports.setLogger((tag: string, data: any) => quinkiBridge?.logDebug?.(tag, data)); } catch {}
       try { taskReports.setLhCheck((sk: string) => { try { const st = (longHorizon as any)?.getState?.(sk); return !!(st && st.active); } catch { return false; } }); } catch {}
       if (!isPoolChild) taskReports.start(); // SOLO nel processo principale: i worker del pool NON gestiscono i report
     } catch {}
-    try { piBridge.setNotificationBroadcast?.((entry: any) => {
+    try { quinkiBridge.setNotificationBroadcast?.((entry: any) => {
       try {
         // La push al telefono si decide con LA STESSA RIGA che decide la
         // notifica macOS (watchingThisChat, valutata live dal web AL MOMENTO
@@ -1881,17 +1881,17 @@ async function bootstrap() {
         }, 2500);
       } catch { try { pushNotifyOut(entry) } catch {} }
     }); } catch {}
-    try { piBridge.setReadStateBroadcast?.((key: string) => { try { sendNotification("read_state_changed", { sessionKey: key }); } catch {} }); } catch {}
+    try { quinkiBridge.setReadStateBroadcast?.((key: string) => { try { sendNotification("read_state_changed", { sessionKey: key }); } catch {} }); } catch {}
 
 
-    await piBridge.init();
+    await quinkiBridge.init();
     // owner.lock: scrive il PID del sidecar (role esplicito, niente porte)
     try { writeSidecarLock(); } catch {}
     // === B4 POOL: il main (pool-0) spawna i child e diventa router ===
     try { initPoolRouter(); } catch (e: any) { process.stderr.write(`[sidecar-marker] pool-router-error: ${e?.message || String(e)}\n`); }
-    try { piBridge.startReadStateSync?.(); } catch (e: any) { process.stderr.write(`[sidecar-marker] readstate-sync-error: ${e?.message}
+    try { quinkiBridge.startReadStateSync?.(); } catch (e: any) { process.stderr.write(`[sidecar-marker] readstate-sync-error: ${e?.message}
 `); }
-    piBridge.reloadAndMerge();
+    quinkiBridge.reloadAndMerge();
     // A2.2: scheduler parte DOPO init (il primo scan è il catch-up al boot)
     // B4: i CHILD del pool NON avviano scheduler/LH/executor (li gestisce SOLO il main)
     if (!isPoolChild) {
@@ -1907,10 +1907,10 @@ async function bootstrap() {
     // - MAIN: attiva/disattiva (RPC) + support agent per sessioni owner=0
     // - WORKER N: support agent per sessioni owner=N (via #rescan da disco)
     // Killer feature: FUNZIONA SU OGNI SESSIONE, non solo su 1/16.
-    try { longHorizon.setPiBridge(piBridge); longHorizon.start(); } catch (e: any) { process.stderr.write(`[sidecar-marker] longhorizon-start-error: ${e?.message}\n`); }
+    try { longHorizon.setQuinkiBridge(quinkiBridge); longHorizon.start(); } catch (e: any) { process.stderr.write(`[sidecar-marker] longhorizon-start-error: ${e?.message}\n`); }
     // A2.2: tool schedule_task degli agenti → crea schedule nel Scheduler
-    try { piBridge.setScheduleHandler((p: any) => scheduler.createSchedule(p)); } catch (e: any) { process.stderr.write(`[sidecar-marker] schedule-handler-error: ${e?.message}\n`); }
-    try { piBridge.setScheduleCancelHandler((p: any) => scheduler.deleteSchedule(p)); } catch (e: any) { process.stderr.write(`[sidecar-marker] schedule-cancel-handler-error: ${e?.message}\n`); }
+    try { quinkiBridge.setScheduleHandler((p: any) => scheduler.createSchedule(p)); } catch (e: any) { process.stderr.write(`[sidecar-marker] schedule-handler-error: ${e?.message}\n`); }
+    try { quinkiBridge.setScheduleCancelHandler((p: any) => scheduler.deleteSchedule(p)); } catch (e: any) { process.stderr.write(`[sidecar-marker] schedule-cancel-handler-error: ${e?.message}\n`); }
     // Recovery session AL BOOT (feature A2 H24): riprende i turni interrotti quando
     // l'app è stata chiusa/uccisa a metà. Il filtro owner (main salta __app_expert__
     // se l'Expert è su; l'Expert fa solo __app_expert__) + la pulizia stale-buffer
@@ -1918,11 +1918,11 @@ async function bootstrap() {
     // NESSUN tick periodico: il recovery scatta SOLO al boot (crash/riavvio) quando il
     // marker pending-turn è presente (turno davvero interrotto). I timer causavano
     // falsi autoprompt (modelli lenti, tool lunghi). Un turno attivo non si tocca mai.
-    try { piBridge!.writeExpertTccStatus(); } catch (e: any) { process.stderr.write(`[sidecar-marker] expert-tcc-error: ${e?.message}\n`); }
-    try { piBridge!.recoverPendingTurns().then((n: number) => { if (n > 0) process.stderr.write(`[sidecar-marker] pending-turns-recovered: ${n}\n`); }).catch(() => {}); } catch (e: any) { process.stderr.write(`[sidecar-marker] pending-turns-error: ${e?.message}\n`); }
-    // NIENTE tick 30s: il re-prompt avviene SOLO dopo i 3 tentativi dell'SDK (in pi-bridge),
+    try { quinkiBridge!.writeExpertTccStatus(); } catch (e: any) { process.stderr.write(`[sidecar-marker] expert-tcc-error: ${e?.message}\n`); }
+    try { quinkiBridge!.recoverPendingTurns().then((n: number) => { if (n > 0) process.stderr.write(`[sidecar-marker] pending-turns-recovered: ${n}\n`); }).catch(() => {}); } catch (e: any) { process.stderr.write(`[sidecar-marker] pending-turns-error: ${e?.message}\n`); }
+    // NIENTE tick 30s: il re-prompt avviene SOLO dopo i 3 tentativi dell'SDK (in quinki-bridge),
     // non a intervalli fissi (causava autoprompt spuri). Il recovery al boot resta per i crash.
-    sendNotification("ready", { message: "PiBridge initialized" });
+    sendNotification("ready", { message: "QuinkiBridge initialized" });
     // === AUTO CAPABILITY REFRESH (2026-09-08): fetch capabilities dal provider
     // a ogni BOOT + ogni 24 ORE. Background, non-blocking. Aggiorna SOLO le
     // capabilities (vision, thinking, contextWindow) — NON tocca i modelli

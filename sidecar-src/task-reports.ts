@@ -19,7 +19,7 @@ const RED_COOLDOWN_MS = 10 * 60 * 1000;
 
 export class TaskReports {
   #owner: "main" | "expert";
-  #piBridge: any;
+  #quinkiBridge: any;
   #lhCheck: (sk: string) => boolean = () => false;
   #log: (tag: string, data: any) => void = () => {};
   #timer: any = null;
@@ -27,8 +27,8 @@ export class TaskReports {
   #redAt = new Map<string, number>();
 
   #canRun = true;
-  constructor(piBridge: any, owner: "main" | "expert") {
-    this.#piBridge = piBridge; this.#owner = owner;
+  constructor(quinkiBridge: any, owner: "main" | "expert") {
+    this.#quinkiBridge = quinkiBridge; this.#owner = owner;
     // GUARDIA (16 ott): i worker del pool NON gestiscono i report (li manda SOLO il processo principale)
     try { const pi = parseInt(process.env.QUINKI_POOL_INDEX || "0", 10); this.#canRun = !(Number.isFinite(pi) && pi > 0); } catch {}
   }
@@ -82,7 +82,7 @@ export class TaskReports {
     // sarebbe dannoso (compaction OFF al 80% = contesto gia' pieno; LH attiva = il support
     // agent reagirebbe al finto messaggio utente). La bubble rossa appare in chat
     // (live + persistente) e la notifica parte come per qualsiasi messaggio.
-    try { Promise.resolve(this.#piBridge?.injectAppMessage?.(sk, "\u2063x" + text)).catch(() => {}); } catch {}
+    try { Promise.resolve(this.#quinkiBridge?.injectAppMessage?.(sk, "\u2063x" + text)).catch(() => {}); } catch {}
     // 16 ott (decisione utente): niente notifiche dedicate alle task — la notifica del
     // messaggio rosso parte DENTRO injectAppMessage (come un messaggio normale).
     this.#log("task-report-blocked", { sessionKey: sk, reason });
@@ -95,7 +95,7 @@ export class TaskReports {
 
     // 1) turno DAVVERO finito e pulito (mai durante turni correnti né recovery)
     let ts: any = null;
-    try { ts = this.#piBridge?.getTurnState?.(sk); } catch {}
+    try { ts = this.#quinkiBridge?.getTurnState?.(sk); } catch {}
     if (!ts || ts.pending || !ts.clean) return;
 
     // 2) LONG HORIZON attiva → solo messaggio rosso, niente prompt
@@ -110,13 +110,13 @@ export class TaskReports {
     let compactionOff = false;
     let lastActivity = 0;
     try {
-      const sess = (this.#piBridge?.getSessions?.() || []).find((x: any) => x?.key === sk || x?.id === sk);
+      const sess = (this.#quinkiBridge?.getSessions?.() || []).find((x: any) => x?.key === sk || x?.id === sk);
       compactionOff = !!sess && sess.compactionAuto === false;
       lastActivity = Number(sess?.lastActivity || 0);
     } catch {}
     if (compactionOff) {
       let usage: any = null;
-      try { usage = this.#piBridge?.getContextUsage?.(sk); } catch {}
+      try { usage = this.#quinkiBridge?.getContextUsage?.(sk); } catch {}
       if (usage && typeof usage.percent === "number" && usage.percent >= 80) {
         this.#red(sk, "context-80", "Some tasks in this session have finished. To receive their results in the chat, run compaction — or open the \u201cTask executed\u201d section above the text box.");
         return;
@@ -136,7 +136,7 @@ export class TaskReports {
       : `The scheduled tasks just finished: ${pend.map((p) => `\u201c${p.title}\u201d (${p.executionId})`).join(", ")}. Read each outcome with the getTaskExecuted tool and report them in this chat, each with ONLY the actual result content \u2014 nothing else.`;
     const fakeWs = { readyState: 1, constructor: { OPEN: 1 }, send: () => {} };
     try {
-      await this.#piBridge?.send?.(fakeWs, { sessionKey: sk, text: "\u2063t" + text, _preserveWs: true, _lean: true });
+      await this.#quinkiBridge?.send?.(fakeWs, { sessionKey: sk, text: "\u2063t" + text, _preserveWs: true, _lean: true });
       this.#log("task-report-sent", { sessionKey: sk, count: pend.length });
     } catch (e: any) {
       this.#write([...this.#read(), ...pend]); // rimetti in coda: riprova al prossimo giro

@@ -256,7 +256,7 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
       // più i config a ogni messaggio (era: firma letta da disco per OGNI send +
       // dispose a sorpresa). Ora è il CAMBIAMENTO che notifica: le sessioni vive di
       // questo agente si rinfrescano in un momento SICURO (mai durante un turno).
-      try { (globalThis as any).__quinki_piBridge?.refreshSessionsForAgent?.(String(p.id)); } catch {}
+      try { (globalThis as any).__quinki_bridge?.refreshSessionsForAgent?.(String(p.id)); } catch {}
       return { success: true, agent: { ...updated, directory: path.join(agentsDir, p.id) } };
     },
     deleteAgent: async (p: any) => {
@@ -501,7 +501,7 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
       // i cambiamenti a planModeTools/planModeMcp/tools globali sono immediati.
       // Niente dispose (history intatta): setActiveToolsByName rebuilda solo i tool.
       try {
-        const bridge = (globalThis as any).__quinki_piBridge;
+        const bridge = (globalThis as any).__quinki_bridge;
         if (bridge?.reapplyModeOnActiveSessions) bridge.reapplyModeOnActiveSessions();
       } catch {}
       return { success: true };
@@ -574,7 +574,7 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
         return { errors: errors[sessionKey] || [] };
       } catch { return { errors: [] }; }
     },
-    // === Inject error exchange into Pi SDK .jsonl history ===
+    // === Inject error exchange into engine SDK .jsonl history ===
     // Scrive user message + assistant error message direttamente nel file .jsonl
     // così il modello "ricorda" l'errore quando la chat viene riaperta.
     injectErrorExchange: async (p: any) => {

@@ -13,7 +13,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { poolActive, ownerPool, poolIndex, isPoolWorkerAlive, ensureWorker } from "./pool-router";
-import { isExpertSidecar } from "./pi-bridge";
+import { isExpertSidecar } from "./quinki-bridge";
 
 interface LHUnit {
   id: number;
@@ -95,23 +95,23 @@ const DISCUSSION_START_MESSAGE = `We are now in the DISCUSSION phase. Start by a
 
 export class LongHorizon {
   #agentDir: string;
-  #piBridge: any = null;
+  #quinkiBridge: any = null;
   #timer: any = null;
   #logger: ((tag: string, data: any) => void) | null = null;
   onNotify: ((payload: any) => void) | null = null;
   #states = new Map<string, LHState>();
   #inflight = new Map<string, boolean>(); // sessione con send in corso
-  #lastPhaseSent = new Map<string, string>(); // LH v2: ultima fase propagata al pi-bridge (anti-spam log)
+  #lastPhaseSent = new Map<string, string>(); // LH v2: ultima fase propagata al quinki-bridge (anti-spam log)
 
   constructor(agentDir: string) {
     this.#agentDir = agentDir;
     this.#loadAll();
   }
 
-  setPiBridge(pb: any) {
-    this.#piBridge = pb;
+  setQuinkiBridge(pb: any) {
+    this.#quinkiBridge = pb;
     // LH v2 (14 ott): al wiring propaga la fase di TUTTI gli stati attivi già caricati da
-    // disco (il constructor gira PRIMA di setPiBridge → #loadAll non poteva chiamare il
+    // disco (il constructor gira PRIMA di setQuinkiBridge → #loadAll non poteva chiamare il
     // bridge). È la cura del bug "la sessione non sapeva di essere in LH" sui worker.
     try {
       for (const [sk, st] of this.#states) {
@@ -229,7 +229,7 @@ export class LongHorizon {
       this.#writeState(sk);
       this.#writeProgress(sk);
       this.#log("lh-reactivated-from-previous", { sessionKey: sk, units: existing.units.length });
-      this.#piBridge?.setLongHorizonPhase(sk, "ready");
+      this.#quinkiBridge?.setLongHorizonPhase(sk, "ready");
       this.#lastPhaseSent.set(sk, "discussion");
       // LH v2: compaction SEMPRE ON in LH (save della precedente → restore all'uscita)
       this.#forceCompaction(sk, existing);
@@ -251,7 +251,7 @@ export class LongHorizon {
     this.#writeState(sk);
     this.#writeProgress(sk);
     this.#log("lh-activated", { sessionKey: sk });
-    this.#piBridge?.setLongHorizonPhase(sk, "ready");
+    this.#quinkiBridge?.setLongHorizonPhase(sk, "ready");
     this.#lastPhaseSent.set(sk, "discussion");
     // LH v2: compaction SEMPRE ON in LH (save della precedente → restore all'uscita)
     this.#forceCompaction(sk, st);
@@ -265,13 +265,13 @@ export class LongHorizon {
   #forceCompaction(sk: string, st: any) {
     try {
       if (!st.prevCompactionSaved) {
-        const cur = this.#piBridge?.getSessionCompaction?.(sk) || {};
+        const cur = this.#quinkiBridge?.getSessionCompaction?.(sk) || {};
         st.prevCompactionAuto = cur.auto;
         st.prevCompactionThreshold = cur.threshold;
         st.prevCompactionSaved = true;
       }
       st.compactionForced = true;
-      this.#piBridge?.setSessionCompaction?.(sk, true, 80);
+      this.#quinkiBridge?.setSessionCompaction?.(sk, true, 80);
       this.#log("lh-compaction-forced", { sessionKey: sk, prevAuto: st.prevCompactionAuto });
     } catch {}
   }
@@ -292,7 +292,7 @@ export class LongHorizon {
     this.#writeState(sk);
     this.#writeProgress(sk);
     this.#log("lh-disabled", { sessionKey: sk });
-    this.#piBridge?.setLongHorizonPhase(sk, "");
+    this.#quinkiBridge?.setLongHorizonPhase(sk, "");
     return { ok: true };
   }
 
@@ -305,14 +305,14 @@ export class LongHorizon {
     // LH v2: la PAUSA ferma la generazione in maniera COMPLETA (regola utente: "quando vai
     // in pausa devi stoppare la generazione"). L'abort è per-QUESTA-sessione e il router
     // lo copre su tutti i processi dove la sessione può girare.
-    try { this.#piBridge?.abort?.(sk); } catch {}
+    try { this.#quinkiBridge?.abort?.(sk); } catch {}
     st.phase = "discussion";
     st.status = "paused";
     st.lastActivity = Date.now();
     this.#writeState(sk);
     this.#writeProgress(sk);
     this.#log("lh-paused", { sessionKey: sk, note: "long horizon resta attivo, fase discussion" });
-    this.#piBridge?.setLongHorizonPhase(sk, "discussion");
+    this.#quinkiBridge?.setLongHorizonPhase(sk, "discussion");
     // LH v2.1 (regola utente): fermare il turno E mandare il messaggio nello STESSO istante
     // perdeva lo streaming (race). Ora: prima si ferma, si ASPETTA che il turno sia davvero
     // finito, POI parte il messaggio di fase.
@@ -325,8 +325,8 @@ export class LongHorizon {
     const started = Date.now();
     const tickFn = () => {
       try {
-        const t = this.#piBridge?.getTurnState?.(sk);
-        const streaming = (this.#piBridge?.getStreamingStatus?.() || []).includes(sk);
+        const t = this.#quinkiBridge?.getTurnState?.(sk);
+        const streaming = (this.#quinkiBridge?.getStreamingStatus?.() || []).includes(sk);
         if ((!t || !t.pending) && !streaming) { this.#sendToSession(sk, text); return; }
       } catch {}
       if (Date.now() - started > maxWaitMs) { this.#sendToSession(sk, text); return; }
@@ -348,7 +348,7 @@ export class LongHorizon {
     this.#writeState(sk);
     this.#writeProgress(sk);
     this.#log("lh-new-discussion", { sessionKey: sk });
-    this.#piBridge?.setLongHorizonPhase(sk, "discussion");
+    this.#quinkiBridge?.setLongHorizonPhase(sk, "discussion");
     this.#sendToSession(sk, `Long Horizon: we are now in the DISCUSSION phase again. Ask me what new problem I want to work on. Do not execute anything.`);
     return { ok: true };
   }
@@ -360,8 +360,8 @@ export class LongHorizon {
     // LH v2 (regola utente 14 ott): le transizioni di fase NON procedono MAI mentre un turno
     // è in corso o in coda — "finché la generazione non si è fermata, non deve succedere nulla".
     try {
-      const t = this.#piBridge?.getTurnState?.(sk);
-      const streaming = (this.#piBridge?.getStreamingStatus?.() || []).includes(sk);
+      const t = this.#quinkiBridge?.getTurnState?.(sk);
+      const streaming = (this.#quinkiBridge?.getStreamingStatus?.() || []).includes(sk);
       if (streaming || t?.pending) {
         this.#log("lh-phase-blocked-turn-active", { sessionKey: sk, phase, streaming, pending: !!t?.pending });
         return { ok: false, error: "A turn is running. Wait for it to finish, or press Stop." };
@@ -376,7 +376,7 @@ export class LongHorizon {
       this.#writeState(sk);
       this.#writeProgress(sk);
       this.#log("lh-phase-discussion-start", { sessionKey: sk });
-      this.#piBridge?.setLongHorizonPhase(sk, "discussion");
+      this.#quinkiBridge?.setLongHorizonPhase(sk, "discussion");
       this.#sendToSession(sk, DISCUSSION_START_MESSAGE);
       return { ok: true };
     }
@@ -390,7 +390,7 @@ export class LongHorizon {
       this.#writeState(sk);
       this.#writeProgress(sk);
       this.#log("lh-phase-planning", { sessionKey: sk, revision: isRevision });
-      this.#piBridge?.setLongHorizonPhase(sk, "planning");
+      this.#quinkiBridge?.setLongHorizonPhase(sk, "planning");
       if (isRevision) {
         this.#sendToSession(sk, `We are now in the PLANNING phase. Update the previous plan you were following based on our latest discussion. Keep the units that are still valid, modify the ones that changed, and add new ones if needed. Output the updated plan with units in '- [ ]' format. Do not execute anything.`);
       } else {
@@ -418,7 +418,7 @@ export class LongHorizon {
             if (!fs.existsSync(path.join(wd, ".git"))) { try { this.#git(sk, ["init", "-q"]); } catch {} }
           } catch {}
           this.#log("lh-plan-parsed-from-chat", { sessionKey: sk, units: units.length });
-          this.#piBridge?.setLongHorizonPhase(sk, "running");
+          this.#quinkiBridge?.setLongHorizonPhase(sk, "running");
         } else if (st.pendingGoal) {
           const goal = st.pendingGoal;
           st.pendingGoal = undefined;
@@ -448,7 +448,7 @@ export class LongHorizon {
       this.#writeState(sk);
       this.#writeProgress(sk);
       this.#log("lh-phase-running", { sessionKey: sk });
-      this.#piBridge?.setLongHorizonPhase(sk, "running");
+      this.#quinkiBridge?.setLongHorizonPhase(sk, "running");
       this.#sendToSession(sk, `We are now in the EXECUTION phase. Begin working through the plan units one at a time. Update handoff.md after each unit and commit to git.`);
       return { ok: true };
     }
@@ -462,7 +462,7 @@ export class LongHorizon {
   // Riprende dopo una pausa: se c'è un piano → running, altrimenti discussion
   resume(sk: string): { ok: boolean; error?: string } {
     const st0 = this.#states.get(sk);
-    if (st0) this.#piBridge?.setLongHorizonPhase(sk, st0.units.length > 0 ? "running" : "discussion");
+    if (st0) this.#quinkiBridge?.setLongHorizonPhase(sk, st0.units.length > 0 ? "running" : "discussion");
     const st = this.#states.get(sk);
     if (!st) return { ok: false, error: "not found" };
     st.active = true;
@@ -557,7 +557,7 @@ export class LongHorizon {
   // === Git helpers: il git va nella directory di lavoro della sessione (dove il modello crea il progetto) ===
   #gitDir(sk: string): string {
     try {
-      const cwd = this.#piBridge?.getEffectiveCwd?.(sk);
+      const cwd = this.#quinkiBridge?.getEffectiveCwd?.(sk);
       if (cwd && cwd.trim().length > 0) return cwd;
     } catch {}
     return this.#workdir(sk);
@@ -707,23 +707,23 @@ export class LongHorizon {
           const st = JSON.parse(fs.readFileSync(sf, "utf8"));
           if (!st || !st.active) {
             if (this.#states.has(d)) { this.#states.delete(d); this.#log("lh-rescan-deactivated", { sessionKey: d }); }
-            // LH v2: stato spento → fase azzerata anche nel pi-bridge di QUESTO processo
+            // LH v2: stato spento → fase azzerata anche nel quinki-bridge di QUESTO processo
             // (solo se l'avevamo pubblicata: niente chiamate/log inutili a ogni rescan)
-            try { if (this.#lastPhaseSent.has(d)) { this.#piBridge?.setLongHorizonPhase?.(d, ""); this.#lastPhaseSent.delete(d); } } catch {}
+            try { if (this.#lastPhaseSent.has(d)) { this.#quinkiBridge?.setLongHorizonPhase?.(d, ""); this.#lastPhaseSent.delete(d); } } catch {}
             continue;
           }
           const cur = this.#states.get(d);
           if (!cur) {
             this.#states.set(d, { ...st, units: Array.isArray(st.units) ? st.units : [] });
             this.#log("lh-rescan-new", { sessionKey: d, status: st.status });
-            // LH v2: propaga la fase al pi-bridge di QUESTO processo (worker del pool inclusi)
-            try { this.#piBridge?.setLongHorizonPhase?.(d, st.phase || "discussion"); this.#lastPhaseSent.set(d, st.phase || "discussion"); } catch {}
+            // LH v2: propaga la fase al quinki-bridge di QUESTO processo (worker del pool inclusi)
+            try { this.#quinkiBridge?.setLongHorizonPhase?.(d, st.phase || "discussion"); this.#lastPhaseSent.set(d, st.phase || "discussion"); } catch {}
             // LH v2: compaction SEMPRE ON in LH (self-heal, una volta per stato)
             try {
               if (!(st as any).compactionEnsured) {
                 (this.#states.get(d) as any).compactionEnsured = true;
                 this.#writeState(d);
-                this.#piBridge?.setSessionCompaction?.(d, true, 80);
+                this.#quinkiBridge?.setSessionCompaction?.(d, true, 80);
                 this.#log("lh-compaction-forced-rescan", { sessionKey: d });
               }
             } catch {}
@@ -735,7 +735,7 @@ export class LongHorizon {
             // LH v2: fase cambiata da un altro processo (es. RPC sul main) → ripubblica qui
             const ph = st.phase || cur.phase;
             if (this.#lastPhaseSent.get(d) !== ph) {
-              try { this.#piBridge?.setLongHorizonPhase?.(d, ph); this.#lastPhaseSent.set(d, ph); } catch {}
+              try { this.#quinkiBridge?.setLongHorizonPhase?.(d, ph); this.#lastPhaseSent.set(d, ph); } catch {}
             }
           }
         } catch {}
@@ -798,7 +798,7 @@ export class LongHorizon {
 
     // Se la sessione sta ancora generando (streaming attivo) → aspetta
     try {
-      const ss = this.#piBridge?.getStreamingStatus?.();
+      const ss = this.#quinkiBridge?.getStreamingStatus?.();
       const streaming = (ss || []).includes(sk);
       if (streaming) return;
     } catch {}
@@ -809,7 +809,7 @@ export class LongHorizon {
     // errore → il support agent sta zitto e aspetta (gli errori li gestisce l'autoprompt
     // standard dell'app; dopo un turno pulito nato da un messaggio utente, riprende). ===
     try {
-      const tstate = this.#piBridge?.getTurnState?.(sk);
+      const tstate = this.#quinkiBridge?.getTurnState?.(sk);
       if (tstate?.pending) return;
       if (tstate && tstate.clean === false) { this.#log("lh-wait-dirty-turn", { sessionKey: sk, stopReason: tstate.stopReason }); return; }
     } catch {}
@@ -857,7 +857,7 @@ export class LongHorizon {
         this.#writeState(sk);
         this.#writeProgress(sk);
         this.#log("lh-completed", { sessionKey: sk, units: st.units.length });
-        this.#piBridge?.setLongHorizonPhase(sk, "discussion");
+        this.#quinkiBridge?.setLongHorizonPhase(sk, "discussion");
         this.#sendToSession(sk, DONE_MESSAGE);
         return;
       }
@@ -887,7 +887,7 @@ export class LongHorizon {
     this.#log("lh-plan-request", { sessionKey: sk });
     try {
       const fakeWs = { readyState: 1, constructor: { OPEN: 1 }, send: () => {} };
-      await this.#piBridge?.send(fakeWs, { sessionKey: sk, text: "\u2063l" + prompt, _preserveWs: true, _lhPhase: st.phase || "planning" });
+      await this.#quinkiBridge?.send(fakeWs, { sessionKey: sk, text: "\u2063l" + prompt, _preserveWs: true, _lhPhase: st.phase || "planning" });
     } catch (e: any) {
       this.#log("lh-plan-request-error", { sessionKey: sk, error: e?.message });
     } finally {
@@ -949,7 +949,7 @@ export class LongHorizon {
       // Nessun timeout: il send si risolve quando il modello finisce (anche ore).
       // Se il modello si blocca, l'utente usa STOP → il send si risolve con errore →
       // il support agent recupera e riprompta (promptCount aumenta → anti-loop).
-      await this.#piBridge?.send(fakeWs, { sessionKey: sk, text: "\u2063l" + prompt, _preserveWs: true, _lean: true, _lhPhase: "running" });
+      await this.#quinkiBridge?.send(fakeWs, { sessionKey: sk, text: "\u2063l" + prompt, _preserveWs: true, _lean: true, _lhPhase: "running" });
       this.#log("lh-response-done", { sessionKey: sk, unit: unit.id });
     } catch (e: any) {
       this.#log("lh-send-error", { sessionKey: sk, unit: unit.id, error: e?.message });
@@ -962,7 +962,7 @@ export class LongHorizon {
       // LH v2: se il turno è finito SPORCO (stop utente o errore) non si segna nulla e non
       // si ri-promptа: si aspetta un turno pulito (errori → autoprompt standard dell'app).
       try {
-        const tstate = this.#piBridge?.getTurnState?.(sk);
+        const tstate = this.#quinkiBridge?.getTurnState?.(sk);
         if (tstate && tstate.clean === false) {
           this.#log("lh-turn-dirty-skip", { sessionKey: sk, unit: unit.id, stopReason: tstate.stopReason });
           this.#writeState(sk);
@@ -1025,7 +1025,7 @@ export class LongHorizon {
   // l'ultimo assistant, esattamente come prima.
   #lastPlanText(sk: string): string {
     try {
-      const hist = this.#piBridge?.getHistory?.(sk);
+      const hist = this.#quinkiBridge?.getHistory?.(sk);
       if (Array.isArray(hist)) {
         for (let i = hist.length - 1; i >= 0; i--) {
           const m = hist[i];
@@ -1044,7 +1044,7 @@ export class LongHorizon {
 
   #lastAssistantText(sk: string): string {
     try {
-      const hist = this.#piBridge?.getHistory?.(sk);
+      const hist = this.#quinkiBridge?.getHistory?.(sk);
       if (Array.isArray(hist)) {
         for (let i = hist.length - 1; i >= 0; i--) {
           const m = hist[i];
@@ -1072,7 +1072,7 @@ export class LongHorizon {
       // LH v2.6 (regola utente): i prompt di FASE partono col SYSTEM PROMPT COMPLETO (non-lean),
       // come i messaggi normali — il modello riceve il blocco con la fase corrente. Unica
       // eccezione lean: il "continue" delle unità (sotto, in #sendUnitPrompt).
-      this.#piBridge?.send(fakeWs, { sessionKey: sk, text: "\u2063l" + text, _preserveWs: true, _lean: opts?.lean === true, _lhPhase: this.#states.get(sk)?.phase || "" }).catch(() => {});
+      this.#quinkiBridge?.send(fakeWs, { sessionKey: sk, text: "\u2063l" + text, _preserveWs: true, _lean: opts?.lean === true, _lhPhase: this.#states.get(sk)?.phase || "" }).catch(() => {});
     } catch {}
   }
 }

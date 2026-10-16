@@ -16,7 +16,7 @@ and the Obsidian plugin `obsidian-agent-client` (~2.4k stars, actively developed
   must keep their installation untouched — no fake `pi` binaries in PATH, no name collisions,
   no extra installs. The CLI already ships with the app, so integrating with an editor is just
   pointing it at `quinki acp`.
-- Engine note: internally the CLI still runs the vendored Pi SDK today, but the ACP interface is
+- Engine note: internally the CLI still runs the vendored engine SDK today, but the ACP interface is
   ours 100% — integrations stay stable even if the engine changes in the future.
 
 ## Verified groundwork (measured 9 Oct 2026, installed CLI)

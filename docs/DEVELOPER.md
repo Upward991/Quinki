@@ -18,7 +18,7 @@ Quinki/
 ├── sidecar-src/          # the engine (TypeScript, compiled with Bun)
 │   ├── sidecar-ws.ts     # entry point: WebSocket server + OAuth callback server
 │   ├── sidecar.ts        # JSON-RPC handler map (~80 methods)
-│   ├── pi-bridge.ts      # Pi SDK bridge: sessions, streaming, delegations
+│   ├── quinki-bridge.ts      # engine SDK bridge: sessions, streaming, delegations
 │   ├── agent-handlers.ts # agent/skill/provider CRUD
 │   ├── pool-router.ts    # process pool (spawn lazy, route by hash, shrink)
 │   ├── scheduler.ts      # H24 schedules
@@ -26,7 +26,7 @@ Quinki/
 │   ├── longhorizon.ts    # long horizon phases (plan → approve → run)
 │   ├── providers.ts      # provider detection
 │   ├── tab-plugins.ts    # back-end for installed tabs
-│   └── vendor/           # Pi SDK (patched): see Vendor patches
+│   └── vendor/           # engine SDK (patched): see Vendor patches
 ├── scripts/
 │   ├── build-sidecar.sh  # sidecar compile + secret injection (USE THIS)
 │   └── install-main.sh   # safe install (backup → ditto → re-sign → restart)
@@ -39,13 +39,13 @@ A quick map to find the code of each feature.
 
 | Feature | Frontend | Engine (sidecar-src) / shell |
 |---|---|---|
-| Chat: streaming, agents, modes, slash menu | `src/components/chat/` (`ChatArea`, `ChatHeader`, `Composer`, `MessageBubble`, `SlashMenu`, `BottomSheet`) + `src/hooks/useSidecarData.ts` | `pi-bridge.ts` (sessions, streaming, tool hooks) |
-| Sessions & sidebar (pin, rename, delete) | `src/components/sidebar/Sidebar.tsx` | `pi-bridge.ts` (session store, `~/.quinki/sessions`) |
+| Chat: streaming, agents, modes, slash menu | `src/components/chat/` (`ChatArea`, `ChatHeader`, `Composer`, `MessageBubble`, `SlashMenu`, `BottomSheet`) + `src/hooks/useSidecarData.ts` | `quinki-bridge.ts` (sessions, streaming, tool hooks) |
+| Sessions & sidebar (pin, rename, delete) | `src/components/sidebar/Sidebar.tsx` | `quinki-bridge.ts` (session store, `~/.quinki/sessions`) |
 | Tasks & calendar (schedules, runs, reports) | `src/components/calendar/CalendarView.tsx` | `scheduler.ts`, `executor.ts`, `task-reports.ts` |
 | Long Horizon (phases, handoff) | phase buttons inside `chat/`, report in chat | `longhorizon.ts` |
-| Agents (prompt, skills, MCP, tools, delegation) | `src/components/agents/AgentsPanel.tsx` | `agent-handlers.ts`, `pi-bridge.ts` |
+| Agents (prompt, skills, MCP, tools, delegation) | `src/components/agents/AgentsPanel.tsx` | `agent-handlers.ts`, `quinki-bridge.ts` |
 | Settings (providers, models, keys, permissions, remote) | `src/components/settings/` (`SettingsPanel`, `OllamaCloudPanel`, `OpenRouterPanel`, `RemoteAccessPanel`, `ProviderDnD`, `FallbackModelsSection`, `ModelDropdown`) | `providers.ts`, `models.ts`, `crypto.ts` |
-| Log panel (System Prompt / Thinking / LLM Catalog) | `src/components/log/LogPanel.tsx` | log ring in `pi-bridge.ts` + `sidecar-ws.ts` |
+| Log panel (System Prompt / Thinking / LLM Catalog) | `src/components/log/LogPanel.tsx` | log ring in `quinki-bridge.ts` + `sidecar-ws.ts` |
 | Home, themes, wordmark | `src/components/home/` | — (`src/index.css` = design system) |
 | Marketplace (tabs, agents, skills, MCP, themes) | `src/components/marketplace/`, `src/marketActions.ts`, `src/marketRemote.ts` | `tab-plugins.ts` |
 | Web app & PWA (browser / phone) | `src/platform/web/` | `sidecar-ws.ts` (HTTP + uploads), `scripts/sync-web.sh` |
@@ -103,7 +103,7 @@ bash scripts/build-public-dmg.sh
 
 - **Entry**: `sidecar-ws.ts`: WebSocket server on `QUINKI_WS_PORT`, monkey-patches `process.stdout` so anything written lands on the WS, hosts the OAuth callback HTTP server, exposes `globalThis.__quinki_handleLine`
 - **`sidecar.ts`**: the RPC handler map. `handleLine` dispatches: pool routing first (session-bound RPCs go to the owning worker), then tab-plugin RPCs (`<tabId>:<method>`), then the local handler map
-- **`pi-bridge.ts`**: PiBridge: sessions (Pi SDK SessionManager), system prompt builder, mode application, agent overrides, delegations, skills, attachments, streaming via `fs.writeSync(1, ...)`
+- **`quinki-bridge.ts`**: QuinkiBridge: sessions (engine SDK SessionManager), system prompt builder, mode application, agent overrides, delegations, skills, attachments, streaming via `fs.writeSync(1, ...)`
 - **Pool** (`pool-router.ts`): spawns `N−1` children eagerly at boot (`QUINKI_POOL_SIZE=16` explicit in `start.sh`). Session→child mapping by djb2 hash (`ownerPool`). Each process knows its `poolIndex` and only handles its own sessions (recovery, Long Horizon, events). Worker events go directly to the worker's WebSocket clients via `__quinki_broadcast`. On-open recovery is forwarded to the owning worker (`recoverOnWorker`). Orphaned workers from previous sessions are killed at pool init (single `lsof` nuke). Idle children (5 min) are shut down; they respawn on demand
 
 **Build rules (critical)**:
@@ -112,7 +112,7 @@ bash scripts/build-public-dmg.sh
 - When testing builds, NEVER use `pkill -f "quinki-sidecar"` (kills the Expert sidecar too). Use `pkill -f "Quinki.app/Contents.*sidecar"`
 - **Expert mode**: `QUINKI_ROLE=expert` on port 9183: session filtering (`__app_expert__` only), pool disabled, no scheduler
 
-## Vendor patches (Pi SDK, vendored)
+## Vendor patches (engine SDK, vendored)
 
 - `agent-session.js`: delegation entries filtered before LLM calls (zero context cost)
 - `session-manager.js`: delegation entries appended to the tree; `buildSessionContext()` includes them

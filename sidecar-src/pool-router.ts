@@ -17,7 +17,7 @@ import * as path from "node:path";
 const POOL_BASE_PORT = 9184; // evita 9182 (main) e 9183 (Expert)
 const IDLE_KILL_MS = parseInt(process.env.QUINKI_POOL_IDLE_MS || "", 10) || (10 * 60 * 1000); // child idle da 10 min → spento (compromesso utente: non troppo aggressivo, libera RAM quando non serve)
 const STATUS_INTERVAL_MS = parseInt(process.env.QUINKI_POOL_STATUS_MS || "", 10) || (60 * 1000);
-const CHILD_START_TIMEOUT = 30000; // max attesa per il primo forward dopo lo spawn (20s: il worker deve caricare Pi SDK)
+const CHILD_START_TIMEOUT = 30000; // max attesa per il primo forward dopo lo spawn (20s: il worker deve caricare engine SDK)
 
 let active = false;
 let poolN = 1;
@@ -65,7 +65,7 @@ function stderr(msg: string) {
   try { process.stderr.write(`[pool-router] ${msg}\n`); } catch {}
   // FIX (31 ago): log anche nel debug log (visibile dal frontend) — senza questo,
   // se il main non spawnava i worker era IMPOSSIBILE capire perché (stderr perso)
-  try { (globalThis as any).__quinki_piBridge?.logDebug?.("pool-router", { msg }); } catch {}
+  try { (globalThis as any).__quinki_bridge?.logDebug?.("pool-router", { msg }); } catch {}
 }
 
 export function poolIndex(): number {
@@ -286,7 +286,7 @@ function connectChild(i: number, port: number): void {
           // (label/order) — altrimenti il #save del main sovrascrive le modifiche
           // del worker (chat che torna a 'New chat', sidebar che si riordina).
           if (m.method === 'session_updated' || m.method === 'session_meta') {
-            try { (globalThis as any).__quinki_piBridge?.updateSessionFromEvent?.(p2.sessionKey || p2.key || '', p2); } catch {}
+            try { (globalThis as any).__quinki_bridge?.updateSessionFromEvent?.(p2.sessionKey || p2.key || '', p2); } catch {}
           }
           try { const bcast = (globalThis as any).__quinki_broadcast; if (bcast) bcast({ jsonrpc: "2.0", method: m.method, params: p2 }); else process.stdout.write(JSON.stringify({ jsonrpc: "2.0", method: m.method, params: p2 }) + "\n"); } catch {}
         } catch {}

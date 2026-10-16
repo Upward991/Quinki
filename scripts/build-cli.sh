@@ -3,7 +3,7 @@
 # Build the Quinki CLI — single compiled bun binary (like the sidecar).
 # Output: cli/dist/quinki  (darwin-arm64 for now; more targets at E4)
 #
-# The CLI reuses the vendored Pi SDK (sidecar-src/vendor) and its node_modules.
+# The CLI reuses the vendored engine SDK (sidecar-src/vendor) and its node_modules.
 # The compiled binary resolves theme/assets/package.json from ITS OWN directory
 # (getPackageDir() == dirname(execPath) for bun binaries), so we place:
 #   cli/dist/theme/        (dark.json/light.json — TUI themes)

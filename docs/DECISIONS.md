@@ -16,7 +16,7 @@
 
 **Decision**: all agent logic runs in one compiled Bun binary (`quinki-sidecar-ws`), reached over WebSocket.
 
-**Why**: the agent runtime (Pi SDK) is JavaScript. Keeping it out of the UI process means: the UI stays responsive at 60fps even while the sidecar burns CPU on a 100k-token stream; the sidecar can crash/restart without losing the UI; the same binary powers main, Expert and every pool worker.
+**Why**: the agent runtime (engine SDK) is JavaScript. Keeping it out of the UI process means: the UI stays responsive at 60fps even while the sidecar burns CPU on a 100k-token stream; the sidecar can crash/restart without losing the UI; the same binary powers main, Expert and every pool worker.
 
 **Measured**: before optimization the sidecar idled at 640MB–2.1GB; after the B0 pass (session load fixes, stale buffers, GC discipline) it sits at **~92MB idle**, ~300MB with an active session.
 
@@ -31,7 +31,7 @@
 **The problem**: ~100 streaming sessions share one event loop; synchronous work around the agent loop (context, tools, jsonl, hashing) saturates it: RPCs queue and time out, RSS climbs to ~5GB.
 
 **Alternatives considered** (from the concurrency study):
-- *Worker threads*: the Pi SDK is **not thread-safe**: every worker needs its own copy of the engine (memory × N), and shared files (session jsonl, registries) need locking
+- *Worker threads*: the engine SDK is **not thread-safe**: every worker needs its own copy of the engine (memory × N), and shared files (session jsonl, registries) need locking
 - *Concurrency cap*: turns "in queue" = a chat waits behind another chat; unacceptable
 - *Single process, optimized*: measured ceiling ~30-40 concurrent streams before timeouts
 
@@ -95,7 +95,7 @@ The Market login uses the classic browser redirect (user clicks Authorize, comes
 
 ## 15. React + Tauri over Flutter
 
-The original app was Flutter Desktop. The move to React 19 + Tauri 2 happened for three reasons: the Pi SDK bridge is JavaScript (one language boundary fewer), the Tauri shell is dramatically lighter than the Flutter desktop shell, and the React prototype ("Deep Cosmos" design system) reached production quality fast. The NDJSON/JSON-RPC contract with the sidecar survived the migration by design.
+The original app was Flutter Desktop. The move to React 19 + Tauri 2 happened for three reasons: the engine SDK bridge is JavaScript (one language boundary fewer), the Tauri shell is dramatically lighter than the Flutter desktop shell, and the React prototype ("Deep Cosmos" design system) reached production quality fast. The NDJSON/JSON-RPC contract with the sidecar survived the migration by design.
 
 ## 16. Timestamp injection into message metadata
 

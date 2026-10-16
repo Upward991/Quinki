@@ -35,7 +35,7 @@ function getOrCreateSalt(): Buffer {
   // (es. sideload, worker spawnato fuori start.sh), il salt veniva creato/letto
   // ALTROVE → le chiavi cifrate col salt giusto non decifravano più →
   // "la chiave OpenRouter si perde a ogni riavvio". Ora il fallback usa ~/.quinki,
-  // la stessa dir di providers.ts/pi-bridge.ts.
+  // la stessa dir di providers.ts/quinki-bridge.ts.
   const saltPath = `${process.env.QUINKI_AGENT_DIR || path.join(homedir(), ".quinki")}/.quinki-salt`;
   // fs already imported at top
   if (fs.existsSync(saltPath)) {

@@ -295,7 +295,7 @@ function rankLevelVal(v: any): number {
   return i === -1 ? 99 : i;
 }
 
-class PiBridge {
+class QuinkiBridge {
   // screenshot: round-trip tool → frontend invoke → risposta (requestId correlato)
   #screenshotPending = new Map<string, (r: { path?: string; error?: string }) => void>();
   #sdk: any = null;
@@ -402,11 +402,11 @@ class PiBridge {
   }
 
   async init() {
-    // === Fase A: Pi SDK embedded in src/main/vendor/ ===
+    // === Fase A: engine SDK embedded in src/main/vendor/ ===
     try {
       this.#sdk = await import("./vendor/@earendil-works/pi-coding-agent/dist/index.js");
     } catch (e: any) {
-      this.logDebug("pi-sdk-import-error", { error: e?.message || String(e), stack: e?.stack?.split('\n').slice(0, 5) });
+      this.logDebug("quinki-sdk-import-error", { error: e?.message || String(e), stack: e?.stack?.split('\n').slice(0, 5) });
       throw e;
     }
     this.#load();
@@ -425,7 +425,7 @@ class PiBridge {
     this.#loadOllamaBaseUrl();
     // B0.1 (S9): monitoring heap — log periodico ogni 60s
     this.#startHeapStatsLog();
-    // === Inizializza ModelRegistry di Pi SDK: stessa fonte di model.contextWindow usata dalle chat attive ===
+    // === Inizializza ModelRegistry di engine SDK: stessa fonte di model.contextWindow usata dalle chat attive ===
     try {
       const authPath = path.join(this.#agentDir, "auth.json");
       const modelsPath = path.join(this.#agentDir, "models.json");
@@ -733,7 +733,7 @@ class PiBridge {
         for (const d of data) {
           // Backup per-sessione COMPLETO (l'Expert NON lo tocca): fonte di recovery se file/chat-meta vengono svuotati
           try {
-            const bdir = this.#piSessionDir(d.key);
+            const bdir = this.#quinkiSessionDir(d.key);
             fs.mkdirSync(bdir, { recursive: true });
             const bk: any = { ts: Date.now() };
             for (const [f, m] of FIELD_MAP) if ((d as any)[f] !== undefined && (d as any)[f] !== null) bk[m] = (d as any)[f];
@@ -742,12 +742,12 @@ class PiBridge {
           const diskE = diskMap.get(d.key);
           let meta: any = null;
           try {
-            const metaP = path.join(this.#piSessionDir(d.key), "chat-meta.json");
+            const metaP = path.join(this.#quinkiSessionDir(d.key), "chat-meta.json");
             if (fs.existsSync(metaP)) meta = JSON.parse(fs.readFileSync(metaP, "utf8"));
           } catch {}
           let backup: any = null;
           try {
-            const bp = path.join(this.#piSessionDir(d.key), "session-backup.json");
+            const bp = path.join(this.#quinkiSessionDir(d.key), "session-backup.json");
             if (fs.existsSync(bp)) backup = JSON.parse(fs.readFileSync(bp, "utf8"));
           } catch {}
           for (const [f, m] of FIELD_MAP) {
@@ -804,7 +804,7 @@ class PiBridge {
       fs.writeFileSync(SESSION_FILE, JSON.stringify(data, null, 2), "utf8");
     } catch (e: any) {
       this.logDebug("save-error", { error: e?.message || String(e), entriesCount: this.#entries.size });
-      process.stderr.write(`[pi-bridge] #save() ERROR: ${e?.message || String(e)}\n`);
+      process.stderr.write(`[quinki-bridge] #save() ERROR: ${e?.message || String(e)}\n`);
     }
   }
 
@@ -818,7 +818,7 @@ class PiBridge {
           if (expertLoad && s.key !== "__app_expert__") continue;
           // B4 pool: questo processo esegue SOLO le sessioni del suo gruppo
           if (!isMyPoolSession(s.key)) continue;
-          const dir = this.#piSessionDir(s.key);
+          const dir = this.#quinkiSessionDir(s.key);
           if (!fs.existsSync(dir)) continue;
           // === Fix 1/B4: ripristina lastActivity, order, compactionAuto/Threshold ===
           // Se mancanti, usa Date.now() così le sessioni vanno in alto (nuove in alto)
@@ -1010,7 +1010,7 @@ class PiBridge {
         this.logDebug("delegation-appended-to-chain", { sessionKey, id: delegation.id, leafId: entry.parentId });
       } else {
         // Fallback: write to file directly (delegation will be orphan but readable by #readDelegationEntries)
-        const sessionDir = this.#piSessionDir(sessionKey);
+        const sessionDir = this.#quinkiSessionDir(sessionKey);
         if (fs.existsSync(sessionDir)) {
           const files = fs.readdirSync(sessionDir).filter((f: string) => f.endsWith(".jsonl"));
           if (files.length > 0) {
@@ -1030,7 +1030,7 @@ class PiBridge {
     }
   }
 
-  // FIX 084 (Pi SDK 0.84.x): AuthStorage non è piu esportato dall'index dell'SDK e
+  // FIX 084 (engine SDK 0.84.x): AuthStorage non è piu esportato dall'index dell'SDK e
   // ModelRegistry.create(authStorage, path) e sparito — la costruzione passa da
   // ModelRuntime.create() + new ModelRegistry(runtime). Nessun network lookup
   // (allowModelNetwork/refreshOnCreate false): qui serve solo leggere models.json.
@@ -1052,7 +1052,7 @@ class PiBridge {
     return registry.find("ollama", modelId);
   }
 
-  #piSessionDir(key: string) {
+  #quinkiSessionDir(key: string) {
     return path.join(SESSION_BASE, key);
   }
 
@@ -1120,7 +1120,7 @@ class PiBridge {
               } catch {}
               const orphanLabelOut2 = this.#readLabelFromJsonl(d.name);
               const dmt2b = (() => { try { return fs.statSync(path.join(SESSION_BASE, d.name)).mtimeMs; } catch { return Date.now(); } })();
-              out.push({ key: d.name, label: orphanLabelOut2, agentId: "pi", model: undefined as any, thinkingLevel: undefined as any, mode: "plan", lastActivity: dmt2b, order: dmt2b });
+              out.push({ key: d.name, label: orphanLabelOut2, agentId: "quinki", model: undefined as any, thinkingLevel: undefined as any, mode: "plan", lastActivity: dmt2b, order: dmt2b });
             }
           }
         }
@@ -1207,7 +1207,7 @@ class PiBridge {
               } catch {}
               const orphanLabelOut = this.#readLabelFromJsonl(d.name);
               const dmtL = (() => { try { return fs.statSync(path.join(SESSION_BASE, d.name)).mtimeMs; } catch { return Date.now(); } })();
-              out.push({ key: d.name, label: orphanLabelOut, agentId: "pi", model: undefined as any, thinkingLevel: undefined as any, mode: "plan", lastActivity: dmtL, order: orderByKey.get(d.name) ?? dmtL, folderId: folderByKey.get(d.name) ?? null, compactionAuto: c?.compactionAuto, compactionThreshold: c?.compactionThreshold, workerPort: sessionWorkerPort(d.name) });
+              out.push({ key: d.name, label: orphanLabelOut, agentId: "quinki", model: undefined as any, thinkingLevel: undefined as any, mode: "plan", lastActivity: dmtL, order: orderByKey.get(d.name) ?? dmtL, folderId: folderByKey.get(d.name) ?? null, compactionAuto: c?.compactionAuto, compactionThreshold: c?.compactionThreshold, workerPort: sessionWorkerPort(d.name) });
             }
           }
         }
@@ -1528,7 +1528,7 @@ class PiBridge {
     // L'utente NON deve MAI perdere messaggi: il file su disco è la verità, anche per
     // sessioni attive (l'in-memory può essere stale dopo stop/abort/reload). ===
     try {
-      const dir = this.#piSessionDir(key);
+      const dir = this.#quinkiSessionDir(key);
       if (fs.existsSync(dir)) {
         const files = fs.readdirSync(dir).filter((f: string) => f.endsWith(".jsonl"));
         if (files.length > 0) {
@@ -1563,7 +1563,7 @@ class PiBridge {
     }
     // === Fallback (raro): apre il SessionManager dal disco se il tail non ha prodotto nulla ===
     try {
-      const dir = this.#piSessionDir(key);
+      const dir = this.#quinkiSessionDir(key);
       if (fs.existsSync(dir)) {
         const files = fs.readdirSync(dir).filter((f: string) => f.endsWith(".jsonl"));
         if (files.length > 0) {
@@ -1581,7 +1581,7 @@ class PiBridge {
   // === B0.8: pagina PRECEDENTE della storia (messaggi più vecchi di ts) ===
   getHistoryBefore(key: string, ts: number, limit?: number): any[] {
     const pageLimit = typeof limit === "number" && limit > 0 ? limit : 50;
-    const dir = this.#piSessionDir(key);
+    const dir = this.#quinkiSessionDir(key);
     const results: any[] = [];
     try {
       const files = fs.readdirSync(dir).filter((f: string) => f.endsWith(".jsonl"));
@@ -1698,7 +1698,7 @@ class PiBridge {
     for (const key of [...this.#streamingBuffers.keys()]) {
       if (this.#prompts.has(key) || this.#responseTimers.has(key)) continue; // turno davvero attivo
       try {
-        const dir = this.#piSessionDir(key);
+        const dir = this.#quinkiSessionDir(key);
         const files = fs.readdirSync(dir).filter((f: string) => f.endsWith(".jsonl"));
         if (files.length === 0) { this.#streamingBuffers.delete(key); try { this.#toolBusy.delete(key); } catch {} continue; }
         const tail = this.#readSessionTail(path.join(dir, files[0]), 1);
@@ -1722,7 +1722,7 @@ class PiBridge {
     const before: any[] = [];
     const after: any[] = [];
     try {
-      const dir = this.#piSessionDir(key);
+      const dir = this.#quinkiSessionDir(key);
       const files = fs.readdirSync(dir).filter((f: string) => f.endsWith(".jsonl"));
       if (files.length === 0) return [];
       const filePath = path.join(dir, files[0]);
@@ -1864,7 +1864,7 @@ class PiBridge {
     this.logDebug("session-create", { sessionKey: key, inheritedOrder: fileOrder ?? "(none)", order: s.order, label: s.label });
     this.#pendingModels.set(key, dm);
     this.#pendingThinking.set(key, dt);
-    // === Fix 3/B5: notifica Pi SDK dell'impostazione globale ===
+    // === Fix 3/B5: notifica engine SDK dell'impostazione globale ===
     // Sarà applicata quando la sessione viene attivata (vedi activateSession)
     this.#pendingCompactionAuto.set(key, globalAuto);
     // === A3: applica il default notify mode (persistente in quinki-settings.json) ===
@@ -1937,8 +1937,8 @@ class PiBridge {
     if (!s) return;
     (s as any).compactionAuto = auto;
     (s as any).compactionThreshold = threshold;
-    // === Fix 3/B5: notifica Pi SDK del cambio auto-compaction ===
-    // Se auto è definito, applica a Pi SDK (true=attivo, false=disattivo)
+    // === Fix 3/B5: notifica engine SDK del cambio auto-compaction ===
+    // Se auto è definito, applica a engine SDK (true=attivo, false=disattivo)
     if (typeof auto === "boolean") {
       this.applySessionCompactionSettings(key, auto);
     }
@@ -2082,7 +2082,7 @@ class PiBridge {
     this.#turnState.delete(key); this.#turnDirty.delete(key);
     this.#save();
     try {
-      const dir = this.#piSessionDir(key);
+      const dir = this.#quinkiSessionDir(key);
       if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
     } catch {}
   }
@@ -2156,27 +2156,27 @@ class PiBridge {
     return { ok: true };
   }
 
-  getOllamaThinkingLevels(key: string): { piLevels: string[]; ollamaLevels: { pi: string; ollama: string }[] } {
+  getOllamaThinkingLevels(key: string): { quinkiLevels: string[]; ollamaLevels: { pi: string; ollama: string }[] } {
     return this.#computeOllamaLevels(key);
   }
 
-  #computeOllamaLevels(key: string): { piLevels: string[]; ollamaLevels: { pi: string; ollama: string }[] } {
+  #computeOllamaLevels(key: string): { quinkiLevels: string[]; ollamaLevels: { pi: string; ollama: string }[] } {
     const s = this.#entries.get(key);
     const pi = this.#active.get(key);
-    let piLevels: string[] = ["off"];
+    let quinkiLevels: string[] = ["off"];
     let ollamaLevels: { pi: string; ollama: string }[] = [];
-    let source: "pi-sdk" | "probe" | "fallback" = "fallback";
+    let source: "quinki-sdk" | "probe" | "fallback" = "fallback";
 
     if (pi) {
-      try { piLevels = pi.getAvailableThinkingLevels?.() || ["off"]; } catch { piLevels = ["off"]; }
+      try { quinkiLevels = pi.getAvailableThinkingLevels?.() || ["off"]; } catch { quinkiLevels = ["off"]; }
       try {
         const map = (pi.model as any)?.thinkingLevelMap;
         if (map) {
-          ollamaLevels = piLevels.map((l: string) => {
+          ollamaLevels = quinkiLevels.map((l: string) => {
             const mapped = map[l];
             return mapped ? { pi: l, ollama: mapped } : null;
           }).filter(Boolean) as { pi: string; ollama: string }[];
-          if (ollamaLevels.length) source = "pi-sdk";
+          if (ollamaLevels.length) source = "quinki-sdk";
           // REGOLA UNIVERSALE (04 set): xhigh = il MASSIMO che il provider accetta.
           // 1) caps (thinking-caps.json) AUTORITATIVE se esistono (chiave host/modelId)
           // 2) altrimenti il massimo della mappa con rank robusto (sconosciuti > noti,
@@ -2226,17 +2226,17 @@ class PiBridge {
       const modelId = this.#modelIdFromSession(s);
       const probeResult = this.#ollamaProbeResults.get(modelId);
       if (probeResult && probeResult.ollamaLevels.length) {
-        piLevels = probeResult.levels.length ? probeResult.levels : piLevels;
+        quinkiLevels = probeResult.levels.length ? probeResult.levels : quinkiLevels;
         ollamaLevels = probeResult.ollamaLevels.map((o) => {
-          const piKey = (Object.entries(probeResult.map).find(([, v]) => v === o)?.[0]) || o;
-          return { pi: piKey, ollama: o };
+          const quinkiKey = (Object.entries(probeResult.map).find(([, v]) => v === o)?.[0]) || o;
+          return { pi: quinkiKey, ollama: o };
         });
         source = "probe";
       }
     }
 
     if (!ollamaLevels.length) {
-      piLevels = ["off", "low", "medium", "high"];
+      quinkiLevels = ["off", "low", "medium", "high"];
       ollamaLevels = [
         { pi: "off", ollama: "none" },
         { pi: "low", ollama: "low" },
@@ -2246,8 +2246,8 @@ class PiBridge {
       source = "fallback";
     }
 
-    this.logDebug("ollama-levels-source", { key, source, piLevels, ollamaLevels });
-    return { piLevels, ollamaLevels };
+    this.logDebug("ollama-levels-source", { key, source, quinkiLevels, ollamaLevels });
+    return { quinkiLevels, ollamaLevels };
   }
 
   #modelIdFromSession(s: SessionEntry): string {
@@ -2279,7 +2279,7 @@ class PiBridge {
             tokens: stored.tokens,
             contextWindow: stored.contextWindow,
             percent: stored.percent,
-            source: "pi-agent",
+            source: "quinki",
           });
           this.#contextUsage.set(key, stored);
           this.#saveContextUsage();
@@ -2358,7 +2358,7 @@ class PiBridge {
   // === Query contextWindow di un modello. Stessa fonte usata dalla chat attiva (pi.getContextUsage → model.contextWindow). ===
   // Ordine di priorità:
   //   1. Cache interna (#modelContextCache) per evitare lookup ripetuti
-  //   2. ModelRegistry di Pi SDK (legge da models.json come fa la chat attiva) → identico alla chat
+  //   2. ModelRegistry di engine SDK (legge da models.json come fa la chat attiva) → identico alla chat
   //   3. Ollama cache (#ollamaModelInfoCache) per modelli locali
   //   4. Live fetch Ollama /api/show per modelli locali
   //   5. Fetch diretto dal provider (OpenRouter /api/v1/models) per provider non-Ollama
@@ -2372,7 +2372,7 @@ class PiBridge {
       return { contextWindow: cached.contextWindow, source: cached.source as any };
     }
 
-    // 2. ModelRegistry di Pi SDK — STESSA FONTE della chat attiva
+    // 2. ModelRegistry di engine SDK — STESSA FONTE della chat attiva
     if (this.#modelRegistry) {
       try {
         // Prova ogni provider conosciuto
@@ -2818,11 +2818,11 @@ class PiBridge {
       return;
     }
     try {
-      const piModel = (() => { try { return pi.model?.id; } catch { return undefined; } })();
-      const piReasoning = (() => { try { return pi.model?.reasoning; } catch { return undefined; } })();
-      const piAvailable = (() => { try { return pi.getAvailableThinkingLevels?.(); } catch { return undefined; } })();
-      this.logDebug("set-thinking-pi-state", { sessionKey: key, piModel, piReasoning, piAvailable, requested: level });
-      // === Map "on" to a real thinking level (Pi SDK doesn't accept "on") ===
+      const quinkiModel = (() => { try { return pi.model?.id; } catch { return undefined; } })();
+      const quinkiReasoning = (() => { try { return pi.model?.reasoning; } catch { return undefined; } })();
+      const quinkiAvailable = (() => { try { return pi.getAvailableThinkingLevels?.(); } catch { return undefined; } })();
+      this.logDebug("set-thinking-pi-state", { sessionKey: key, quinkiModel, quinkiReasoning, quinkiAvailable, requested: level });
+      // === Map "on" to a real thinking level (engine SDK doesn't accept "on") ===
       let actualLevel = level;
       if (level === 'on') {
         const currentPi = (() => { try { return pi.thinkingLevel; } catch { return undefined; } })();
@@ -2830,7 +2830,7 @@ class PiBridge {
           actualLevel = currentPi;
         } else {
           const defaultLevel = pickDefaultThinkingLevel();
-          const avail = piAvailable || ['off', 'low', 'medium', 'high', 'xhigh'];
+          const avail = quinkiAvailable || ['off', 'low', 'medium', 'high', 'xhigh'];
           actualLevel = avail.includes(defaultLevel) ? defaultLevel : (avail.filter(l => l !== 'off').pop() || 'medium');
         }
       }
@@ -2838,8 +2838,8 @@ class PiBridge {
       const actual = (() => { try { return pi.thinkingLevel; } catch { return actualLevel; } })();
       const accepted = actual === actualLevel;
       this.logDebug("set-thinking-applied", { sessionKey: key, requested: level, resolvedTo: actualLevel, actual, accepted });
-      this.logDebug("post-set-thinking-state", { sessionKey: key, requested: level, resolvedTo: actualLevel, pi_thinking_level: actual, s_thinking_level: s?.thinkingLevel, accepted, note: accepted ? "ok" : "pi-thinks-ignored-keeping-user-intent" });
-      this.#logThinkingMapResolved(key, actualLevel, piModel ? (() => { try { return (pi.model as any)?.thinkingLevelMap; } catch { return null; } })() : null);
+      this.logDebug("post-set-thinking-state", { sessionKey: key, requested: level, resolvedTo: actualLevel, quinki_thinking_level: actual, s_thinking_level: s?.thinkingLevel, accepted, note: accepted ? "ok" : "quinki-thinks-ignored-keeping-user-intent" });
+      this.#logThinkingMapResolved(key, actualLevel, quinkiModel ? (() => { try { return (pi.model as any)?.thinkingLevelMap; } catch { return null; } })() : null);
       if (s) {
         s.thinkingLevel = actualLevel;
         this.#save();
@@ -2848,10 +2848,10 @@ class PiBridge {
           const send = (globalThis as any).__quinki_sendNotification;
           if (send) send("session_updated", { sessionKey: key, thinkingLevel: actualLevel, mode: s.mode, model: s.model, label: s.label });
         } catch {}
-        this.logDebug("set-thinking-saved", { sessionKey: key, requested: level, resolvedTo: actualLevel, savedAs: s.thinkingLevel, accepted, note: accepted ? "pi-thinks-applied" : "pi-thinks-ignored-keeping-user-intent" });
+        this.logDebug("set-thinking-saved", { sessionKey: key, requested: level, resolvedTo: actualLevel, savedAs: s.thinkingLevel, accepted, note: accepted ? "quinki-thinks-applied" : "quinki-thinks-ignored-keeping-user-intent" });
       }
       if (!accepted) {
-        this.#sendToWs(this.#wss.get(key), { type: "thinking_updated", sessionKey: key, level: actualLevel, requested: level, accepted: false, note: "pi-thinks-ignored-keeping-user-intent" });
+        this.#sendToWs(this.#wss.get(key), { type: "thinking_updated", sessionKey: key, level: actualLevel, requested: level, accepted: false, note: "quinki-thinks-ignored-keeping-user-intent" });
       }
     } catch (e: any) { this.logDebug("set-thinking-error", { sessionKey: key, error: e?.message }); }
   }
@@ -2867,7 +2867,7 @@ class PiBridge {
       map,
       note: resolved
         ? `Thinking level MAXIMUM: sent to the provider as "${resolved}" (your choice: ${requested})`
-        : "No map translation; Pi SDK will use raw value or Ollama may ignore",
+        : "No map translation; engine SDK will use raw value or Ollama may ignore",
     });
   }
 
@@ -2937,8 +2937,8 @@ class PiBridge {
             ollamaNativeValue: baseOffValue ?? "false",
             mapOffValue: baseOffValue,
             note: supportsReasoning
-              ? `Pi SDK will send thinking.type=disabled to ${foundProviderName}; model will NOT think`
-              : `Pi SDK will send thinking.type=disabled to ${foundProviderName}`,
+              ? `engine SDK will send thinking.type=disabled to ${foundProviderName}; model will NOT think`
+              : `engine SDK will send thinking.type=disabled to ${foundProviderName}`,
           };
         }
         return {
@@ -2950,7 +2950,7 @@ class PiBridge {
           ollamaNativeValue: translatedLevel ?? level,
           mapOffValue: baseOffValue,
           additionalHttpParam: { thinking: { type: "enabled" } },
-          note: `Pi SDK will send reasoning_effort=${translatedLevel ?? level} to ${foundProviderName} based on thinkingLevelMap.${level}=${translatedLevel ?? "(unmapped)"}`,
+          note: `engine SDK will send reasoning_effort=${translatedLevel ?? level} to ${foundProviderName} based on thinkingLevelMap.${level}=${translatedLevel ?? "(unmapped)"}`,
         };
       }
 
@@ -2963,7 +2963,7 @@ class PiBridge {
           httpParamValue: isOff ? false : true,
           ollamaNativeValue: null,
           mapOffValue: baseOffValue,
-          note: `Pi SDK will send enable_thinking=${!isOff} to ${foundProviderName}`,
+          note: `engine SDK will send enable_thinking=${!isOff} to ${foundProviderName}`,
         };
       }
 
@@ -2976,7 +2976,7 @@ class PiBridge {
           httpParamValue: isOff ? false : true,
           ollamaNativeValue: null,
           mapOffValue: baseOffValue,
-          note: `Pi SDK will send chat_template_kwargs.enable_thinking=${!isOff} to ${foundProviderName}`,
+          note: `engine SDK will send chat_template_kwargs.enable_thinking=${!isOff} to ${foundProviderName}`,
         };
       }
 
@@ -2990,7 +2990,7 @@ class PiBridge {
             httpParamValue: baseOffValue ?? "none",
             ollamaNativeValue: baseOffValue ?? "none",
             mapOffValue: baseOffValue,
-            note: `Pi SDK will send reasoning.effort=${baseOffValue ?? "none"} to ${foundProviderName}`,
+            note: `engine SDK will send reasoning.effort=${baseOffValue ?? "none"} to ${foundProviderName}`,
           };
         }
         return {
@@ -3001,7 +3001,7 @@ class PiBridge {
           httpParamValue: translatedLevel ?? level,
           ollamaNativeValue: translatedLevel ?? level,
           mapOffValue: baseOffValue,
-          note: `Pi SDK will send reasoning.effort=${translatedLevel ?? level} to ${foundProviderName} based on thinkingLevelMap.${level}=${translatedLevel ?? "(unmapped)"}`,
+          note: `engine SDK will send reasoning.effort=${translatedLevel ?? level} to ${foundProviderName} based on thinkingLevelMap.${level}=${translatedLevel ?? "(unmapped)"}`,
         };
       }
 
@@ -3017,8 +3017,8 @@ class PiBridge {
           ollamaNativeValue: isOff ? null : (translatedLevel ?? level),
           mapOffValue: baseOffValue,
           note: isOff
-            ? `Pi SDK will send reasoning.enabled=false to ${foundProviderName}`
-            : `Pi SDK will send reasoning={enabled:true, effort:${translatedLevel ?? level}} to ${foundProviderName}`,
+            ? `engine SDK will send reasoning.enabled=false to ${foundProviderName}`
+            : `engine SDK will send reasoning={enabled:true, effort:${translatedLevel ?? level}} to ${foundProviderName}`,
         };
       }
 
@@ -3032,7 +3032,7 @@ class PiBridge {
             httpParamValue: null,
             ollamaNativeValue: null,
             mapOffValue: baseOffValue,
-            note: `Pi SDK will OMIT thinking param for ${foundProviderName}`,
+            note: `engine SDK will OMIT thinking param for ${foundProviderName}`,
           };
         }
         return {
@@ -3043,7 +3043,7 @@ class PiBridge {
           httpParamValue: translatedLevel ?? level,
           ollamaNativeValue: translatedLevel ?? level,
           mapOffValue: baseOffValue,
-          note: `Pi SDK will send thinking=${translatedLevel ?? level} to ${foundProviderName}`,
+          note: `engine SDK will send thinking=${translatedLevel ?? level} to ${foundProviderName}`,
         };
       }
 
@@ -3057,7 +3057,7 @@ class PiBridge {
           httpParamValue: baseOffValue ?? "none",
           ollamaNativeValue: baseOffValue ?? "none",
           mapOffValue: baseOffValue,
-          note: `Pi SDK will send reasoning_effort=${baseOffValue ?? "none"} to ${foundProviderName}`,
+          note: `engine SDK will send reasoning_effort=${baseOffValue ?? "none"} to ${foundProviderName}`,
         };
       }
       return {
@@ -3068,7 +3068,7 @@ class PiBridge {
         httpParamValue: translatedLevel ?? level,
         ollamaNativeValue: translatedLevel ?? level,
         mapOffValue: baseOffValue,
-        note: `Pi SDK will send reasoning_effort=${translatedLevel ?? level} to ${foundProviderName} based on thinkingLevelMap.${level}=${translatedLevel ?? "(unmapped)"}`,
+        note: `engine SDK will send reasoning_effort=${translatedLevel ?? level} to ${foundProviderName} based on thinkingLevelMap.${level}=${translatedLevel ?? "(unmapped)"}`,
       };
     } catch (e: any) {
       this.logDebug("thinking-http-intent-error", { modelId, level, error: e?.message });
@@ -3105,7 +3105,7 @@ class PiBridge {
         return true;
       }
       // Fallback: append diretto al jsonl (messaggio orfano ma leggibile)
-      const sessionDir = this.#piSessionDir(sessionKey);
+      const sessionDir = this.#quinkiSessionDir(sessionKey);
       if (fs.existsSync(sessionDir)) {
         const files = fs.readdirSync(sessionDir).filter((f: string) => f.endsWith(".jsonl"));
         if (files.length > 0) {
@@ -3148,7 +3148,7 @@ class PiBridge {
         this.logDebug("system-message-injected", { sessionKey, text: text.slice(0, 80) });
         return true;
       }
-      const sessionDir = this.#piSessionDir(sessionKey);
+      const sessionDir = this.#quinkiSessionDir(sessionKey);
       if (fs.existsSync(sessionDir)) {
         const files = fs.readdirSync(sessionDir).filter((f: string) => f.endsWith(".jsonl"));
         if (files.length > 0) {
@@ -3213,7 +3213,7 @@ class PiBridge {
           this.logDebug("app-message-flush-error", { sessionKey, error: e?.message || String(e) });
         }
       } else {
-        const sessionDir = this.#piSessionDir(sessionKey);
+        const sessionDir = this.#quinkiSessionDir(sessionKey);
         if (fs.existsSync(sessionDir)) {
           const files = fs.readdirSync(sessionDir).filter((f: string) => f.endsWith(".jsonl"));
           if (files.length > 0) {
@@ -3243,7 +3243,7 @@ class PiBridge {
     let pi = this.#active.get(key);
     if (pi) return pi;
 
-    const sessionDir = this.#piSessionDir(key);
+    const sessionDir = this.#quinkiSessionDir(key);
     fs.mkdirSync(sessionDir, { recursive: true });
 
     const effCwdEntry = (this.#entries.get(key) as any)?.workingDir
@@ -3328,7 +3328,7 @@ class PiBridge {
       }
     }
 
-    // Disattiva sempre l'auto-compaction del Pi SDK (la gestiamo noi a 80%)
+    // Disattiva sempre l'auto-compaction del engine SDK (la gestiamo noi a 80%)
     try { pi.setAutoCompactionEnabled(false); } catch {}
 
     // === Anti-loop: inizializza #prevCompactionFirstKept leggendo l'ultima compaction dal disco ===
@@ -3564,11 +3564,11 @@ class PiBridge {
             this.logDebug("recovery-skip", { sessionKey: sk, reason: "turn-active" });
             continue;
           }
-          // FIX (31 ago — STEERING BUG): durante lo steering il Pi SDK può scrivere
+          // FIX (31 ago — STEERING BUG): durante lo steering il engine SDK può scrivere
           // il messaggio utente nel jsonl e chiudere il buffer per un attimo (tra
           // agent_end del turno vecchio e agent_start del nuovo). Il recovery vedeva
           // quel momento come “turno interrotto” e sparava l'autoprompt mentre il
-          // modello stava già girando. Fix: controlla ANCHE lo stato del Pi SDK —
+          // modello stava già girando. Fix: controlla ANCHE lo stato del engine SDK —
           // se il session.isStreaming è true, la sessione è VIVA, non recuperarla.
           try {
             const _pi = this.#active.get(sk);
@@ -3576,7 +3576,7 @@ class PiBridge {
               const lastAct = this.#entries.get(sk)?.lastActivity || 0;
               const inactive = Date.now() - lastAct;
               if (inactive < 10000) {
-                this.logDebug("recovery-skip", { sessionKey: sk, reason: "pi-streaming-active", inactiveMs: inactive });
+                this.logDebug("recovery-skip", { sessionKey: sk, reason: "quinki-streaming-active", inactiveMs: inactive });
                 continue;
               } else {
                 this.logDebug("recovery-force-stale-streaming", { sessionKey: sk, inactiveMs: inactive });
@@ -3626,7 +3626,7 @@ class PiBridge {
                 const answered = !!lastA && (lastA.stopReason === "stop" || lastA.stopReason === "length");
                 if (answered) {
                   this.logDebug("recovery-skip", { sessionKey: sk, reason: "already-answered" });
-                  try { const mp2 = path.join(this.#piSessionDir(sk), "pending-turn.json"); if (fs.existsSync(mp2)) fs.unlinkSync(mp2); } catch {}
+                  try { const mp2 = path.join(this.#quinkiSessionDir(sk), "pending-turn.json"); if (fs.existsSync(mp2)) fs.unlinkSync(mp2); } catch {}
                   continue;
                 }
               }
@@ -3636,7 +3636,7 @@ class PiBridge {
           // un lavoro fermato dall'utente; scala di tentativi persistita (3×1min, poi
           // 5/15/30 min); cap 6 → messaggio di errore visibile e stop.
           try {
-            const sp = path.join(this.#piSessionDir(sk), "stopped-turn.json");
+            const sp = path.join(this.#quinkiSessionDir(sk), "stopped-turn.json");
             if (fs.existsSync(sp)) {
               try { const st = JSON.parse(fs.readFileSync(sp, "utf8")); const stoppedTs = st?.ts || 0; const markerTs = marker?.ts || 0;
                 if (stoppedTs >= markerTs) { this.logDebug("recovery-skip", { sessionKey: sk, reason: "stopped-by-user-persisted" }); continue; }
@@ -3654,7 +3654,7 @@ class PiBridge {
             this.logDebug("recovery-gave-up", { sessionKey: sk, retries });
             try { this.#sendToWs(this.#getSessionWs(sk), { type: "done", sessionKey: sk, stopReason: "error", errorMessage: gaveUpMsg, text: "" }); } catch {}
             try { this.#saveError(sk, { timestamp: Date.now(), errorMessage: gaveUpMsg, model: undefined, agentName: undefined, thinkingLevel: undefined }); } catch {}
-            try { const mp = path.join(this.#piSessionDir(sk), "pending-turn.json"); if (fs.existsSync(mp)) fs.renameSync(mp, mp + ".gave-up"); } catch {}
+            try { const mp = path.join(this.#quinkiSessionDir(sk), "pending-turn.json"); if (fs.existsSync(mp)) fs.renameSync(mp, mp + ".gave-up"); } catch {}
             continue;
           }
           // === PROMPT CON GLI APPUNTI (il recovery 'cieco' diventa informato):
@@ -3718,7 +3718,7 @@ class PiBridge {
       this.#recoveringTurns.add(sk);
       // LH v2.1: anche qui NIENTE skip per Long Horizon — il turno interrotto lo riprende
       // l'autoprompt standard, come in ogni altra chat (il support agent aspetta e riprende dopo).
-      const p = path.join(this.#piSessionDir(sk), "pending-turn.json");
+      const p = path.join(this.#quinkiSessionDir(sk), "pending-turn.json");
       let marker: any = null;
       let retries = 0;
       try {
@@ -3767,7 +3767,7 @@ class PiBridge {
       // "Recovering" per sempre (FALSO). Con il cleanup: marker cancellato →
       // recovering: false → la chat torna normale (l'utente può mandare messaggi).
       try {
-        const _mp = path.join(this.#piSessionDir(sk), "pending-turn.json");
+        const _mp = path.join(this.#quinkiSessionDir(sk), "pending-turn.json");
         if (fs.existsSync(_mp)) fs.unlinkSync(_mp);
         this.logDebug("recovery-marker-cleaned", { sessionKey: sk, note: "recovery died — marker deleted, status will be truthful" });
       } catch {}
@@ -4074,7 +4074,7 @@ Read this file to view it.` }] };
     try {
       const s = this.#entries.get(key);
       if (!s) return;
-      const dir = this.#piSessionDir(key);
+      const dir = this.#quinkiSessionDir(key);
       if (!fs.existsSync(dir)) return;
       const prefs = { mode: s.mode, model: s.model, thinkingLevel: s.thinkingLevel, ts: Date.now() };
       fs.writeFileSync(path.join(dir, "mode.json"), JSON.stringify(prefs, null, 2), "utf8");
@@ -4140,7 +4140,7 @@ Read this file to view it.` }] };
   // worker hanno entry diverse e la scrittura in memoria non arrivava mai su disco).
   #readChatMeta(key: string): any {
     try {
-      const p = path.join(this.#piSessionDir(key), "chat-meta.json");
+      const p = path.join(this.#quinkiSessionDir(key), "chat-meta.json");
       return JSON.parse(fs.readFileSync(p, "utf8"));
     } catch { return {}; }
   }
@@ -4192,7 +4192,7 @@ Read this file to view it.` }] };
 
   #writeChatMeta(key: string, patch: Record<string, any>) {
     try {
-      const dir = this.#piSessionDir(key);
+      const dir = this.#quinkiSessionDir(key);
       fs.mkdirSync(dir, { recursive: true });
       const p = path.join(dir, "chat-meta.json");
       let cur: any = {};
@@ -4384,7 +4384,7 @@ Read this file to view it.` }] };
     // === USER INTENT (anti-loss): agents.json per-sessione, scritto SOLO dal main.
     // Un sidecar stantio (Expert vecchio) non conosce questo file → non può sovrascriverlo. ===
     try {
-      const dir = this.#piSessionDir(key);
+      const dir = this.#quinkiSessionDir(key);
       fs.mkdirSync(dir, { recursive: true });
       fs.writeFileSync(path.join(dir, "agents.json"), JSON.stringify({ agentIds: agentIds || '', orchestratorId: ((this.#entries.get(key) as any)?.orchestratorId) || '', ts: Date.now() }, null, 2), "utf8");
     } catch {}
@@ -4420,7 +4420,7 @@ Read this file to view it.` }] };
     }
     this.#writeChatMeta(key, { agentIds: nextAgentId, orchestratorId: target || "" });
     try {
-      const dir = this.#piSessionDir(key);
+      const dir = this.#quinkiSessionDir(key);
       fs.mkdirSync(dir, { recursive: true });
       fs.writeFileSync(path.join(dir, "agents.json"), JSON.stringify({ agentIds: nextAgentId, orchestratorId: target || "", ts: Date.now() }, null, 2), "utf8");
     } catch {}
@@ -4509,7 +4509,7 @@ Read this file to view it.` }] };
     const s = this.#entries.get(key);
     if (s && skills && skills.length > 0) {
       if (!(s as any).messageSkills) (s as any).messageSkills = {};
-      // Use message text (first 200 chars) as key — message IDs from Pi SDK don't match our mid
+      // Use message text (first 200 chars) as key — message IDs from engine SDK don't match our mid
       const textKey = (messageText || '').substring(0, 200);
       (s as any).messageSkills[textKey] = skills; // "" for chip-only messages
       if (messageId) (s as any).messageSkills[messageId] = skills;
@@ -4565,7 +4565,7 @@ Read this file to view it.` }] };
         let realTs = 0; let realId: string | undefined;
         // 1) messaggio ESATTO del frontend: tail del .jsonl + pipeline di getHistory
         try {
-          const dir = this.#piSessionDir(sk);
+          const dir = this.#quinkiSessionDir(sk);
           if (fs.existsSync(dir)) {
             const files = fs.readdirSync(dir).filter((f: string) => f.endsWith(".jsonl"));
             if (files.length > 0) {
@@ -4703,7 +4703,7 @@ Read this file to view it.` }] };
       }
       over = seen > keep;
       if (over) {
-        const dir = this.#piSessionDir(key);
+        const dir = this.#quinkiSessionDir(key);
         if (fs.existsSync(dir)) {
           const files = fs.readdirSync(dir).filter((f: string) => f.endsWith(".jsonl"));
           for (const f of files) {
@@ -4775,7 +4775,7 @@ Read this file to view it.` }] };
   #stripImagesForKey(key: string): number {
     let replaced = 0;
     try {
-      const dir = this.#piSessionDir(key);
+      const dir = this.#quinkiSessionDir(key);
       if (!fs.existsSync(dir)) return 0;
       const files = fs.readdirSync(dir).filter((f: string) => f.endsWith(".jsonl"));
       for (const f of files) {
@@ -4830,7 +4830,7 @@ Read this file to view it.` }] };
   injectErrorExchange(key: string, userMessage: string, errorContent: string, timestamp?: number) {
     const ts = timestamp || Date.now();
     const isoTs = new Date(ts).toISOString();
-    const sessionDir = this.#piSessionDir(key);
+    const sessionDir = this.#quinkiSessionDir(key);
     if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir, { recursive: true });
     // T497: save to the errors store FIRST — even when no .jsonl exists yet
     // (first message from the welcome): the gate's error must always be visible.
@@ -4851,7 +4851,7 @@ Read this file to view it.` }] };
       timestamp: isoTs,
       message: { role: "user", content: [{ type: "text", text: userMessage }], timestamp: ts }
     };
-    // Error (assistant) message — FIX 084: una entry error DEVE essere well-formed per il Pi SDK:
+    // Error (assistant) message — FIX 084: una entry error DEVE essere well-formed per il engine SDK:
     // stopReason "error" (i guard del vendor e di pi-ai skippano i messaggi abort/error) + usage a zero
     // (pi-ai estimate.js legge usage.totalTokens sui messaggi assistant con stopReason valido →
     // senza questi campi la prossima chiamata LLM crasha con TypeError). Retrocompatibile con le
@@ -4884,7 +4884,7 @@ Read this file to view it.` }] };
       this.#active.delete(key);
     }
     try {
-      const dir = this.#piSessionDir(key);
+      const dir = this.#quinkiSessionDir(key);
       if (fs.existsSync(dir)) {
         for (const f of fs.readdirSync(dir).filter((x: string) => x.endsWith(".jsonl"))) {
           fs.unlinkSync(path.join(dir, f));
@@ -5208,7 +5208,7 @@ Read this file to view it.` }] };
     let names: string[] = [];
     try {
       const all = (pi.getAllTools?.() ?? []).map((t: any) => t.name) as string[];
-      // Filter merged tools to only those available in Pi SDK
+      // Filter merged tools to only those available in engine SDK
       names = merged.filter(n => all.includes(n));
       // Always include custom tools (delegate_to_agent, skill) even if not in getAllTools
       // — they were registered via createAgentSession customTools
@@ -5238,7 +5238,7 @@ Read this file to view it.` }] };
     } catch {}
     try { pi.setActiveToolsByName?.(names); } catch {}
     // setActiveToolsByName rebuilda _baseSystemPrompt (date+cwd+tools, SENZA nota mode).
-    // A inizio turno il Pi SDK fa agent.state.systemPrompt = _baseSystemPrompt (sovrascrive
+    // A inizio turno il engine SDK fa agent.state.systemPrompt = _baseSystemPrompt (sovrascrive
     // un set manuale). Per far sopravvivere la nota mode, la appendiamo a _baseSystemPrompt.
     try {
       let base = (pi as any)._baseSystemPrompt;
@@ -6132,7 +6132,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
             try { await tempPi.setModel(chosenModel); } catch {}
           }
           // === Set thinking level: agent override > main session thinking ===
-          // Map "on" → pickDefaultThinkingLevel() (xhigh) — "on" is not a valid Pi SDK level
+          // Map "on" → pickDefaultThinkingLevel() (xhigh) — "on" is not a valid engine SDK level
           let agentThinkingLevel = agentOverride.thinkingLevel;
           if (agentThinkingLevel === 'on') agentThinkingLevel = pickDefaultThinkingLevel();
           const mainThinkingLevel = self.#entries.get(sessionKey)?.thinkingLevel || "off";
@@ -6748,7 +6748,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
       // l'ha già visto questo processo, si fida del turn-state (evita blocchi falsi se
       // il marker resta appeso per euristiche di completamento).
       try {
-        const marker = path.join(this.#piSessionDir(key), "pending-turn.json");
+        const marker = path.join(this.#quinkiSessionDir(key), "pending-turn.json");
         if (marker && fs.existsSync(marker)) return { pending: false, clean: false, stopReason: "interrupted", at: 0 };
       } catch {}
     }
@@ -6805,8 +6805,8 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
       this.logDebug("send-refused-expert-alive", { sessionKey: sk, note: "la sessione vive nell'app Expert", viaAppProcess: !isExpertAlive() && isExpertAppProcessRunning() });
       try { ws.send(JSON.stringify({ type: "done", sessionKey: sk, stopReason: "error", errorMessage: "The App Expert app is running and owns this session. Use the App Expert app, or close it first.", text: "" })); } catch {}
       try {
-        const piOwned = this.#active.get(sk);
-        if (piOwned) { try { (piOwned as any).dispose?.(); } catch {} this.#active.delete(sk); this.logDebug("send-refused-expert-released", { sessionKey: sk }); }
+        const quinkiOwned = this.#active.get(sk);
+        if (quinkiOwned) { try { (quinkiOwned as any).dispose?.(); } catch {} this.#active.delete(sk); this.logDebug("send-refused-expert-released", { sessionKey: sk }); }
       } catch {}
       this.#turnFinalize(sk);
       return;
@@ -6913,7 +6913,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
       }
     }
     if (!pi) {
-      const sessionDir = this.#piSessionDir(sk);
+      const sessionDir = this.#quinkiSessionDir(sk);
       fs.mkdirSync(sessionDir, { recursive: true });
 
       let sm: any;
@@ -6927,7 +6927,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
 
       // === A: resourceLoader custom per disabilitare system prompt di default ===
       // === Fix 11: workaround system prompt minimale ===
-      // Pi SDK include di default: ruolo "coding assistant", tools descriptions, guidelines,
+      // engine SDK include di default: ruolo "coding assistant", tools descriptions, guidelines,
       // === Fase C.1: system prompt personalizzato nel vendor (date + cwd + tools) ===
       // Il vendor buildSystemPrompt restituisce solo date + cwd + tools list.
       // Passiamo customPrompt truthy per attivare il ramo personalizzato.
@@ -7067,7 +7067,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
       this.logDebug("send-thinking-intent", { sessionKey: sk, pendingThinking, savedThinking: sessionEntryForThinking?.thinkingLevel, intendedThinking });
       if (intendedThinking) {
         this.#pendingThinking.delete(sk);
-        // Map "on" to a real level before applying to Pi SDK
+        // Map "on" to a real level before applying to engine SDK
         let levelToApply = intendedThinking;
         if (levelToApply === 'on') {
           const currentPi = (() => { try { return pi.thinkingLevel; } catch { return undefined; } })();
@@ -7084,7 +7084,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
           const actual = (() => { try { return pi.thinkingLevel; } catch { return levelToApply; } })();
           const accepted = actual === levelToApply;
           this.logDebug("pending-thinking-applied", { sessionKey: sk, requested: intendedThinking, resolvedTo: levelToApply, actual, accepted, source: pendingThinking ? "pendingThinking" : "savedThinking" });
-          // [v0.0.61] Deduce cosa Pi SDK costruirà nel body HTTP per il livello applicato
+          // [v0.0.61] Deduce cosa engine SDK costruirà nel body HTTP per il livello applicato
           const modelId = this.#modelIdFromSession(s);
           const intent = this.#computeProviderHttpIntent(modelId, intendedThinking);
           if (intent) {
@@ -7092,7 +7092,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
               sessionKey: sk,
               model: modelId,
               userRequest: intendedThinking === "xhigh" ? "On" : (intendedThinking === "off" ? "Off" : intendedThinking),
-              piSdkLevel: intendedThinking,
+              quinkiSdkLevel: intendedThinking,
               providerName: intent.providerName,
               providerFormat: intent.providerFormat,
               thinkingEnabled: intent.thinkingEnabled,
@@ -7105,8 +7105,8 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
             });
           }
           if (s) { s.thinkingLevel = levelToApply; this.#save(); }
-          this.#sendToWs(ws, { type: "thinking_updated", sessionKey: sk, level: levelToApply, requested: intendedThinking, accepted, note: accepted ? "ok" : "pi-thinks-ignored-keeping-user-intent" });
-          this.logDebug("send-thinking-state", { sessionKey: sk, saved: sessionEntryForThinking?.thinkingLevel, applied: intendedThinking, pi_state_after: actual, accepted, note: accepted ? "ok" : "pi-thinks-ignored-keeping-user-intent" });
+          this.#sendToWs(ws, { type: "thinking_updated", sessionKey: sk, level: levelToApply, requested: intendedThinking, accepted, note: accepted ? "ok" : "quinki-thinks-ignored-keeping-user-intent" });
+          this.logDebug("send-thinking-state", { sessionKey: sk, saved: sessionEntryForThinking?.thinkingLevel, applied: intendedThinking, quinki_state_after: actual, accepted, note: accepted ? "ok" : "quinki-thinks-ignored-keeping-user-intent" });
         } catch (e: any) { this.logDebug("pending-thinking-error", { sessionKey: sk, error: e?.message }); }
       } else {
         this.logDebug("send-thinking-state", { sessionKey: sk, saved: sessionEntryForThinking?.thinkingLevel, applied: null, note: "no saved thinking level" });
@@ -7118,7 +7118,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
             sessionKey: sk,
             model: modelId,
             userRequest: "Off",
-            piSdkLevel: "off",
+            quinkiSdkLevel: "off",
             providerName: intent.providerName,
             providerFormat: intent.providerFormat,
             thinkingEnabled: intent.thinkingEnabled,
@@ -7206,7 +7206,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
           // mappature per provider — riconoscerà anche livelli futuri tipo 'ultra').
           // Qui: 'off' → off; 'on' → garantiamo solo che NON sia spento (se lo è,
           // riportiamo il livello sessione, che l'app tiene già al massimo).
-          // MAI passare 'max' al Pi SDK (non è un livello Pi valido → l'SDK riporta OFF).
+          // MAI passare 'max' al engine SDK (non è un livello Pi valido → l'SDK riporta OFF).
           if (oThink === 'off') {
             try { pi.setThinkingLevel('off'); this.logDebug("send-agent-override-thinking", { sessionKey: sk, agentId: resolvedAgentId, requested: 'off', applied: 'off' }); }
             catch (e: any) { this.logDebug("send-agent-override-thinking-error", { sessionKey: sk, error: e?.message }); }
@@ -7243,26 +7243,26 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
       this.#captureSessionMeta(sk);
 
       // === Fix 3/B5+B3: applica pending compaction auto (o leggi da session) ===
-      // IMPORTANTE: Pi SDK auto-compaction a 96% (shouldCompact di default) → disattiviamola SEMPRE.
+      // IMPORTANTE: engine SDK auto-compaction a 96% (shouldCompact di default) → disattiviamola SEMPRE.
       // La nostra logica a 80% in ChatArea gestisce la compaction.
       const pendingCompactionAuto = this.#pendingCompactionAuto.get(sk);
       const sessionCompactionAuto = (s as any)?.compactionAuto;
-      // intendedCompactionAuto è il valore UTENTE (checkbox impostazioni), NON il valore Pi SDK.
-      // Lo usiamo per popolare il flag di sessione e l'UI, ma Pi SDK resta sempre disattivato.
+      // intendedCompactionAuto è il valore UTENTE (checkbox impostazioni), NON il valore engine SDK.
+      // Lo usiamo per popolare il flag di sessione e l'UI, ma engine SDK resta sempre disattivato.
       const intendedCompactionAuto = typeof pendingCompactionAuto === "boolean"
         ? pendingCompactionAuto
         : (typeof sessionCompactionAuto === "boolean" ? sessionCompactionAuto : true);
       this.#pendingCompactionAuto.delete(sk);
       try {
-        // === Fix 3/B3: disattivare SEMPRE l'auto-compaction di Pi SDK.
-        // La nostra auto-compaction a 80% sostituisce quella di Pi SDK a 96%. ===
+        // === Fix 3/B3: disattivare SEMPRE l'auto-compaction di engine SDK.
+        // La nostra auto-compaction a 80% sostituisce quella di engine SDK a 96%. ===
         pi.setAutoCompactionEnabled(false);
         this.logDebug("compaction-auto-applied", {
           sessionKey: sk,
           intended: intendedCompactionAuto,
           piSdkAutoCompaction: "disabled",
           source: pendingCompactionAuto !== undefined ? "pending" : "sessionOrDefault",
-          note: "Pi SDK auto-compaction always disabled, quinki compaction at 80% takes over",
+          note: "engine SDK auto-compaction always disabled, quinki compaction at 80% takes over",
         });
       } catch (e: any) { this.logDebug("compaction-auto-apply-error", { sessionKey: sk, error: e?.message }); }
 
@@ -7283,10 +7283,10 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
       this.logDebug("available-thinking-levels", {
         sessionKey: sk,
         model: s?.model,
-        piLevels: levels,
+        quinkiLevels: levels,
         ollamaLevels,
       });
-      // Invia sia i livelli Pi SDK che i valori Ollama
+      // Invia sia i livelli engine SDK che i valori Ollama
       const payload = { type: "thinking_levels", sessionKey: sk, levels, ollamaLevels };
       this.logDebug("sending-thinking-levels", { sessionKey: sk, levels, ollamaLevels, payloadKeys: Object.keys(payload) });
       this.#sendToWs(ws, payload);
@@ -7311,14 +7311,14 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
     this.#capHistoryImages(sk, pi);
 
     // Log effettivo dello stato del thinking al momento del prompt
-    const piThinkingAtPrompt = (() => { try { return pi.thinkingLevel; } catch { return undefined; } })();
-    const piReasoningAtPrompt = (() => { try { return pi.model?.reasoning; } catch { return undefined; } })();
+    const quinkiThinkingAtPrompt = (() => { try { return pi.thinkingLevel; } catch { return undefined; } })();
+    const quinkiReasoningAtPrompt = (() => { try { return pi.model?.reasoning; } catch { return undefined; } })();
     this.logDebug("prompt-thinking-state", {
       sessionKey: sk,
       model: s?.model,
       savedThinkingLevel: s?.thinkingLevel,
-      effectiveThinkingLevel: piThinkingAtPrompt,
-      modelSupportsReasoning: piReasoningAtPrompt,
+      effectiveThinkingLevel: quinkiThinkingAtPrompt,
+      modelSupportsReasoning: quinkiReasoningAtPrompt,
     });
 
     // === D: build content con supporto completo file ===
@@ -7481,7 +7481,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
     this.logDebug("pre-marker-write", { sessionKey: sk, isExpert: isExpertSidecarMark, poolIdx: poolIndex() });
     if (!(sk === "__app_expert__" && !isExpertSidecarMark)) {
     try {
-      const pdir = this.#piSessionDir(sk);
+      const pdir = this.#quinkiSessionDir(sk);
       fs.mkdirSync(pdir, { recursive: true });
       let retries = 0;
       // Un messaggio NUOVO dell'utente azzera il contatore retries (il budget di
@@ -7707,7 +7707,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
           continue;
         }
 
-        // === Audio/Video: solo path (Pi SDK non supporta nativamente) ===
+        // === Audio/Video: solo path (engine SDK non supporta nativamente) ===
         if (isAudio || isVideo) {
           if (f.path) {
             contentArr.push({ type: "text", text: `\n[File ${isAudio ? "audio" : "video"}: ${name} (${(size / 1024 / 1024).toFixed(1)} MB) salvato in ${f.path} — usa strumenti per leggere se il modello lo supporta]` });
@@ -7752,7 +7752,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
     // === AUTOPROMPT 2.0: lo STOP PERSISTITO SU DISCO — il recovery non deve
     // MAI ripetere un lavoro che l'utente ha fermato, nemmeno dopo i riavvii.
     try {
-      const sp = path.join(this.#piSessionDir(key), "stopped-turn.json");
+      const sp = path.join(this.#quinkiSessionDir(key), "stopped-turn.json");
       fs.writeFileSync(sp, JSON.stringify({ ts: Date.now() }), "utf8");
       this.logDebug("stop-persisted", { sessionKey: key });
     } catch {}
@@ -7764,7 +7764,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
     {
       const isExp = isExpertSidecar();
       if (!(key === "__app_expert__" && !isExp)) {
-        try { const p = path.join(this.#piSessionDir(key), "pending-turn.json"); if (fs.existsSync(p)) { fs.unlinkSync(p); this.logDebug("marker-delete", { sessionKey: key, where: "abort", isExpert: isExp }); } } catch {}
+        try { const p = path.join(this.#quinkiSessionDir(key), "pending-turn.json"); if (fs.existsSync(p)) { fs.unlinkSync(p); this.logDebug("marker-delete", { sessionKey: key, where: "abort", isExpert: isExp }); } } catch {}
       } else {
         this.logDebug("marker-delete-guarded", { sessionKey: key, where: "abort", isExpert: isExp });
       }
@@ -7975,7 +7975,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
         // cui la main interrompe LEGITTIMAMENTE il turno, quindi qui il marker
         // dice la verità (c'è un turno pending).
         try {
-          const pdir = this.#piSessionDir(key);
+          const pdir = this.#quinkiSessionDir(key);
           fs.mkdirSync(pdir, { recursive: true });
           let lastUser = "";
           try {
@@ -7991,7 +7991,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
             this.logDebug("takeover-marker-scritto", { sessionKey: key, textLen: lastUser.length });
           }
         } catch (e: any) { this.logDebug("takeover-marker-errore", { sessionKey: key, error: e?.message }); }
-        try { const piOwned = this.#active.get(key); if (piOwned) { try { (piOwned as any).dispose?.(); } catch {} this.#active.delete(key); this.logDebug("takeover-sessione-rilasciata", { sessionKey: key }); } } catch {}
+        try { const quinkiOwned = this.#active.get(key); if (quinkiOwned) { try { (quinkiOwned as any).dispose?.(); } catch {} this.#active.delete(key); this.logDebug("takeover-sessione-rilasciata", { sessionKey: key }); } } catch {}
         try { this.#sendToWs(ws, { type: "done", sessionKey: key, stopReason: "stopped", text: "" }); } catch {}
         return;
       }
@@ -8200,8 +8200,8 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
                 : "n/a",
             });
             // === DIAGNOSTICO CODE BLOCK VUOTI (FASE 1) ===
-            // Log dettagliato di ogni blocco ricevuto da Pi SDK per capire
-            // se il problema è upstream (modello/Pi SDK) o downstream (parsing/rendering).
+            // Log dettagliato di ogni blocco ricevuto da engine SDK per capire
+            // se il problema è upstream (modello/engine SDK) o downstream (parsing/rendering).
             try {
               const rawContent = e.message.content;
               if (typeof rawContent === "string") {
@@ -8280,8 +8280,8 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
                   const msgTs = typeof e.message?.timestamp === 'number' ? e.message.timestamp : Date.now();
                   const msgKey = e.message?.id || `ts-${msgTs}`;
                   entry.messageAgents[msgKey] = doneAgentName;
-                  const piLevelForSave = (() => { try { return pi.thinkingLevel; } catch { return actualThinking; } })();
-                  entry.messageThinking[msgKey] = piLevelForSave;
+                  const quinkiLevelForSave = (() => { try { return pi.thinkingLevel; } catch { return actualThinking; } })();
+                  entry.messageThinking[msgKey] = quinkiLevelForSave;
                   this.#save();
                 }
               } catch {}
@@ -8311,14 +8311,14 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
               provider: e.message.provider,
               agentName: doneAgentName || undefined,
               thinkingLevel: (() => {
-                // Footer shows ACTUAL thinking level from Pi SDK (truth source)
-                const piLevel = (() => { try { return pi.thinkingLevel; } catch { return ''; } })();
-                return piLevel || actualThinking || '';
+                // Footer shows ACTUAL thinking level from engine SDK (truth source)
+                const quinkiLevel = (() => { try { return pi.thinkingLevel; } catch { return ''; } })();
+                return quinkiLevel || actualThinking || '';
               })(),
               thinkingTranslated: (() => {
                 // Il livello REALE inviato al provider (mappa + caps sondate)
-                const piLevel = (() => { try { return pi.thinkingLevel; } catch { return ''; } })();
-                return this.#translateThinkingForModel(piLevel || actualThinking, actualModel);
+                const quinkiLevel = (() => { try { return pi.thinkingLevel; } catch { return ''; } })();
+                return this.#translateThinkingForModel(quinkiLevel || actualThinking, actualModel);
               })(),
               requestedThinkingLevel: requestedThinking,
               sentEffort: (() => { try { return (pi.model?.thinkingLevelMap || {})[requestedThinking ?? ""] ?? null; } catch { return null; } })(),
@@ -8510,7 +8510,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
             }
             // Testo del marker (se esiste)
             try {
-              const mp = path.join(this.#piSessionDir(key), "pending-turn.json");
+              const mp = path.join(this.#quinkiSessionDir(key), "pending-turn.json");
               if (fs.existsSync(mp)) {
                 const mk = JSON.parse(fs.readFileSync(mp, "utf8"));
                 markerText = String(mk.text || "");
@@ -8538,7 +8538,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
             // FEATURE [FALLBACK401] — modello non disponibile per auth/crediti.
             const authFlag = (() => {
               try {
-                const _dir = this.#piSessionDir(key);
+                const _dir = this.#quinkiSessionDir(key);
                 const _files = fs.readdirSync(_dir).filter((f: string) => f.endsWith(".jsonl"));
                 if (_files.length === 0) return false;
                 const _lines = fs.readFileSync(path.join(_dir, _files[0]), "utf8").trim().split("\n").filter(Boolean);
@@ -8585,7 +8585,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
                     // alla richiesta originale, non a un messaggio di spiegazione.
                     let lastUserText = "";
                     try {
-                      const _dir2 = this.#piSessionDir(key);
+                      const _dir2 = this.#quinkiSessionDir(key);
                       const _files2 = fs.readdirSync(_dir2).filter((f: string) => f.endsWith(".jsonl"));
                       if (_files2.length > 0) {
                         const _ls2 = fs.readFileSync(path.join(_dir2, _files2[0]), "utf8").trim().split("\n").filter(Boolean);
@@ -8602,7 +8602,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
                     } catch {}
                     if (!lastUserText) lastUserText = "Please continue.";
                     // FIX 2026-09-08 (P1 #3): connection-refused/timeout lasciano la catena interna
-                    // del Pi SDK rotta ANCHE se isStreaming=false (il ghost-check in send() non
+                    // del engine SDK rotta ANCHE se isStreaming=false (il ghost-check in send() non
                     // scatta perché il flag non è attivo, ma la promise chain dell'SDK è morta).
                     // Hard-reset SEMPRE nel re-send del fallback: dispose + sessione pulita.
                     try {
@@ -8657,7 +8657,7 @@ if (!turnCompleted && lastStopReason && lastStopReason !== "toolUse" && !this.#s
                 try { await this.setModel(key, _origModel); this.logDebug("fallback-restore-original", { sessionKey: key, where: "turnCompleted", back: _origModel }); } catch (e3: any) { this.logDebug("fallback-restore-error", { sessionKey: key, error: String(e3?.message || e3) }); }
               }
               if (!(key === "__app_expert__" && !isExp)) {
-                try { const p = path.join(this.#piSessionDir(key), "pending-turn.json"); if (fs.existsSync(p)) { fs.unlinkSync(p); this.logDebug("marker-delete", { sessionKey: key, where: "agent_end", isExpert: isExp, turnCompleted, markerTurnStarted }); } } catch {}
+                try { const p = path.join(this.#quinkiSessionDir(key), "pending-turn.json"); if (fs.existsSync(p)) { fs.unlinkSync(p); this.logDebug("marker-delete", { sessionKey: key, where: "agent_end", isExpert: isExp, turnCompleted, markerTurnStarted }); } } catch {}
               } else {
                 this.logDebug("marker-delete-guarded", { sessionKey: key, where: "agent_end", isExpert: isExp });
               }
@@ -8855,7 +8855,7 @@ if (!turnCompleted && lastStopReason && lastStopReason !== "toolUse" && !this.#s
             });
           }
 
-          // Emetti nuovo context usage (Pi SDK ricalcolerà al primo assistant post-compaction)
+          // Emetti nuovo context usage (engine SDK ricalcolerà al primo assistant post-compaction)
           this.#emitContextUsage(ws, key, "ctx-post-compaction");
           // === Step 2: log diagnostico compatto per capire perché la stima tokens non si riduce ===
           try {
@@ -9119,21 +9119,21 @@ if (!turnCompleted && lastStopReason && lastStopReason !== "toolUse" && !this.#s
   }
 }
 
-export { PiBridge, SessionEntry };
+export { QuinkiBridge, SessionEntry };
 
 // === Singleton accessor: permette a funzioni exported (es. setProvidersConfig) di chiamare
-// metodi sull'istanza PiBridge attiva, evitando dipendenza circolare con server.ts ===
-let piBridgeInstance: PiBridge | null = null;
-export function setPiBridgeInstance(instance: PiBridge | null): void {
-  piBridgeInstance = instance;
+// metodi sull'istanza QuinkiBridge attiva, evitando dipendenza circolare con server.ts ===
+let quinkiBridgeInstance: QuinkiBridge | null = null;
+export function setQuinkiBridgeInstance(instance: QuinkiBridge | null): void {
+  quinkiBridgeInstance = instance;
 }
-export function getPiBridgeInstance(): PiBridge | null {
-  return piBridgeInstance;
+export function getQuinkiBridgeInstance(): QuinkiBridge | null {
+  return quinkiBridgeInstance;
 }
 function logDebugStatic(tag: string, data: any): void {
   // Best-effort logging when instance is not yet available
   try {
-    piBridgeInstance?.logDebug(tag, data);
+    quinkiBridgeInstance?.logDebug(tag, data);
   } catch {
     // ignore
   }
@@ -9267,7 +9267,7 @@ export function getFolders(): any[] {
     if (json && Array.isArray(json.folders)) return json.folders;
     return [];
   } catch (e) {
-    process.stderr.write(`[pi-bridge] getFolders error: ${e}`);
+    process.stderr.write(`[quinki-bridge] getFolders error: ${e}`);
     return [];
   }
 }
@@ -9346,7 +9346,7 @@ export function getSessionsFromFile(): any[] {
     else if (poolSize() > 1 && poolIndex() > 0) arr = arr.filter((s: any) => s && isMyPoolSession(s.key));
     return arr;
   } catch (e) {
-    process.stderr.write(`[pi-bridge] getSessionsFromFile error: ${e}`);
+    process.stderr.write(`[quinki-bridge] getSessionsFromFile error: ${e}`);
     return [];
   }
 }
@@ -9728,7 +9728,7 @@ export async function deleteProvider(name: string): Promise<{ success: boolean; 
     };
     (fullConfig.providers as any)[targetKey] = { ...(existing.providers[targetKey] as any), providerDelete: true };
     writeProvidersConfig(fullConfig);
-    // Prune sezione da models.json (il Pi SDK non deve piu vedere il provider)
+    // Prune sezione da models.json (il engine SDK non deve piu vedere il provider)
     try {
       const pruned: any = { providers: {} };
       for (const [pn, p] of Object.entries(fullConfig.providers)) {
@@ -9799,7 +9799,7 @@ export async function renameProvider(oldName: string, newName: string): Promise<
     syncSettingsJson(fullConfig);
     const pcfg = fullConfig.providers[newName];
     if (pcfg?.enabled) {
-      piBridgeInstance?.syncProviderContextLengthsNow(newName).catch(() => {});
+      quinkiBridgeInstance?.syncProviderContextLengthsNow(newName).catch(() => {});
     }
     logDebugStatic("rename-provider", { oldName: oldKey, newName, success: true });
     return { success: true };
@@ -9857,10 +9857,10 @@ export async function setProvidersConfig(config: any): Promise<{ success: boolea
     // così welcome e chat attiva leggono gli stessi valori.
     // Best-effort: non blocca se fallisce.
     // === LLM CATALOG: un log unico con tutti i modelli × capabilities × livelli per provider ===
-    try { piBridgeInstance?.logLlmCatalog("providers-changed"); } catch {}
+    try { quinkiBridgeInstance?.logLlmCatalog("providers-changed"); } catch {}
     for (const [name, pcfg] of Object.entries(fullConfig.providers)) {
       if (pcfg.enabled) {
-        piBridgeInstance?.syncProviderContextLengthsNow(name).catch((e) => {
+        quinkiBridgeInstance?.syncProviderContextLengthsNow(name).catch((e) => {
           logDebugStatic("sync-after-set-error", { provider: name, error: String(e) });
         });
       }
@@ -10012,7 +10012,7 @@ export function getProviderApiKeyIPC(providerName: string): string {
 // === C: Compaction IPC ===
 
 export async function checkForPiUpdate(): Promise<{ current: string; latest: string; hasUpdate: boolean }> {
-  // === Fase A: Pi SDK embedded, versione fissa nel vendor ===
+  // === Fase A: engine SDK embedded, versione fissa nel vendor ===
   let current = "0.78.0";
   try {
     const pkg = require("./vendor/@earendil-works/pi-coding-agent/package.json");
@@ -10050,7 +10050,7 @@ export function getFullDebugLog(): { ts: number; tag: string; data: any }[] {
       } catch {}
     }
   } catch (e) {
-    process.stderr.write(`[pi-bridge] getFullDebugLog error: ${e}`);
+    process.stderr.write(`[quinki-bridge] getFullDebugLog error: ${e}`);
   }
   return out;
 }
@@ -10067,10 +10067,10 @@ export function clearDebugLogFile(): { success: boolean; error?: string } {
 // === Fix 9/B11: get streaming status per riconnessione WS ===
 
 
-// === Step 3c: ritorna il system prompt effettivo di Pi SDK per la sessione ===
+// === Step 3c: ritorna il system prompt effettivo di engine SDK per la sessione ===
 export function getSystemPromptIPC(sessionKey: string): string {
   try {
-    const inst = (typeof piBridgeInstance !== "undefined" ? piBridgeInstance : getPiBridgeInstance?.()) as any;
+    const inst = (typeof quinkiBridgeInstance !== "undefined" ? quinkiBridgeInstance : getQuinkiBridgeInstance?.()) as any;
     if (!inst) return "";
     const pi = typeof inst.getActiveSession === "function" ? inst.getActiveSession(sessionKey) : undefined;
     if (!pi) return "";

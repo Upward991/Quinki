@@ -13,7 +13,7 @@ the CLI (`quinki serve`).
 2. **Endpoints**
    - `GET /v1/models` — agents exposed as models, id `agent:<agentId>`.
    - `POST /v1/chat/completions` — standard OpenAI shape, streaming (SSE) and non-streaming.
-3. **Execution** on the existing engine (pi-bridge), no new engine:
+3. **Execution** on the existing engine (quinki-bridge), no new engine:
    - one headless run per request, on a dedicated session `__api_<consumer>_<agent>`, or a named session;
    - per-consumer working directory; v1 read-only by default.
 4. **Auth**: Bearer token, reusing `remote-devices.json` (per-device tokens, revocable, loopback exempt).

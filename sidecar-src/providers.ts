@@ -410,7 +410,7 @@ export async function fetchProviderModels(
             let contextWindow: number | undefined = m.details?.context_length;
             let reasoning = (m.capabilities || []).includes("thinking");
             // vision: Ollama espone le capability complete — i modelli con vision ricevono
-            // input ["text","image"] così il Pi SDK NON scarta le immagini
+            // input ["text","image"] così il engine SDK NON scarta le immagini
             // FIX 2026-09-08: SEMPRE includi "image" — MAI filtrare basandosi sul cache.
             // Il provider decide: se il modello supporta vision, processa l'immagine.
             // Se non la supporta, il provider risponde con errore (gestito).
@@ -632,7 +632,7 @@ export async function syncModelsJson(config: ProvidersConfig): Promise<void> {
       if (!pcfg.enabled) continue;
 
       // === FIX: provider non-Ollama senza apiKey → OMESSO da models.json ===
-      // Il Pi SDK rifiuta apiKey vuota (schema) e provider non-built-in senza chiave,
+      // Il engine SDK rifiuta apiKey vuota (schema) e provider non-built-in senza chiave,
       // invalidando TUTTO models.json (anche gli altri provider sani).
       const isOllama = name.toLowerCase() === "ollama" || (pcfg.baseUrl || "").includes("11434");
       const isLocal = (pcfg.baseUrl || "").includes("localhost") || (pcfg.baseUrl || "").includes("127.0.0.1") || isOllama;
@@ -718,7 +718,7 @@ export async function syncModelsJson(config: ProvidersConfig): Promise<void> {
         ...oldProvider,
         baseUrl: pcfg.baseUrl,
         api: oldProvider.api || "openai-completions",
-        // === Ollama locale non ha bisogno di API key, ma il Pi SDK la richiede non vuota ===
+        // === Ollama locale non ha bisogno di API key, ma il engine SDK la richiede non vuota ===
         // pcfg.apiKey qui è già DECIFRATA (readProvidersConfig decifra) — il SDK la legge in chiaro da models.json
         apiKey: pcfg.apiKey || (isLocal ? "local" : ""),
         models: newModels,
@@ -1026,7 +1026,7 @@ export async function probeProviderCapabilities(providerName: string): Promise<v
           entry.visionSource = "probe";
           entry.visionLearnedAt = new Date().toISOString();
           caps[key] = entry;
-          // correggi ANCHE models.json (il Pi SDK strip le immagini lato SDK: la verità
+          // correggi ANCHE models.json (il engine SDK strip le immagini lato SDK: la verità
           // deve essere visibile a TUTTI i livelli)
           const cur = Array.isArray(m.input) ? m.input.join(",") : "text";
           if (cur !== probedVision.join(",")) {

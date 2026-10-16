@@ -6,7 +6,7 @@
 ## The three layers
 
 ```
-React frontend (src/)  ←──WebSocket + JSON-RPC──▶  sidecar binary (sidecar-src/)  ──▶  Pi SDK
+React frontend (src/)  ←──WebSocket + JSON-RPC──▶  sidecar binary (sidecar-src/)  ──▶  engine SDK
      UI + state                       compiled Bun binary (quinki-sidecar-ws)         agent runtime
         ▲                                        ▲
         └──────────── Tauri 2 shell (src-tauri/) ─┘  window mgmt, tray, sidecar lifecycle
@@ -14,7 +14,7 @@ React frontend (src/)  ←──WebSocket + JSON-RPC──▶  sidecar binary (s
 
 1. **Frontend**: React 19 + TypeScript + Vite. All UI and state. Talks to the sidecar over WebSocket with JSON-RPC (calls get a response, notifications are fire-and-forget).
 2. **Tauri shell**: Rust. Native window management (main window + chat windows), tray icon, file dialogs, attachments, export dialogs, autostart, sidecar process lifecycle, app install/update (DMG), App Expert install/sync/rollback.
-3. **Sidecar**: one compiled Bun binary. WebSocket server + JSON-RPC dispatch + the Pi SDK bridge (sessions, streaming, delegations) + scheduler + executor + process pool + Market back-end (tab plugin RPC) + notifications. No Node.js required on the user machine.
+3. **Sidecar**: one compiled Bun binary. WebSocket server + JSON-RPC dispatch + the engine SDK bridge (sessions, streaming, delegations) + scheduler + executor + process pool + Market back-end (tab plugin RPC) + notifications. No Node.js required on the user machine.
 
 The two apps: **Quinki** (main) and **App Expert**: are the same binary run twice with a different role flag. They share one data directory (`~/.quinki/`), so agents, skills, sessions, API keys and settings are shared by design. Ports: main sidecar **9182**, Expert sidecar **9183**, pool workers **9184+**.
 
@@ -24,7 +24,7 @@ The two apps: **Quinki** (main) and **App Expert**: are the same binary run twic
 |---|---|---|
 | `sidecar-ws.ts` | ~140 | Entry point of the compiled binary. WebSocket server, HTTP callback server for GitHub OAuth, monkey-patched stdout bridge. Connects to port 9182 (main) or 9183 (Expert via `QUINKI_WS_PORT`). |
 | `sidecar.ts` | ~1250 | JSON-RPC dispatch. `handlers` map (~80 methods: sessions, agents, skills, notifications, Market install, executor, pool status). Exposes `globalThis.__quinki_handleLine`. Runs first-run seed. |
-| `pi-bridge.ts` | ~7900 | The core. PiBridge class: agent sessions via Pi SDK, system prompt builder, Plan/Build mode, per-agent overrides (model/thinking), delegations, skills injection, attachments, timestamp injection, compaction, streaming via `fs.writeSync(1)` (bypasses Node stream buffering), persistence (`#save`/`#load`, `quinki-sessions.json` + per-session `.jsonl` trees). |
+| `quinki-bridge.ts` | ~7900 | The core. QuinkiBridge class: agent sessions via engine SDK, system prompt builder, Plan/Build mode, per-agent overrides (model/thinking), delegations, skills injection, attachments, timestamp injection, compaction, streaming via `fs.writeSync(1)` (bypasses Node stream buffering), persistence (`#save`/`#load`, `quinki-sessions.json` + per-session `.jsonl` trees). |
 | `agent-handlers.ts` | ~720 | CRUD for agents/skills/tools/files. YAML frontmatter parsing, provider config, API keys (OS keychain), Market install/uninstall RPCs. |
 | `pool-router.ts` | ~320 | B4 process pool (main sidecar only): spawn, routing, shrink, respawn. See below. |
 | `scheduler.ts` | ~365 | H24 scheduler: persisted schedules, due checks, triggers `runTask` executions. |
@@ -34,11 +34,11 @@ The two apps: **Quinki** (main) and **App Expert**: are the same binary run twic
 | `providers.ts` | ~440 | Provider detection by capability (not by name: Ollama-like detection via `/api/tags`), model fetch/sync, provider ordering. 6 built-in providers: OpenAI, Anthropic, Ollama, OpenRouter, GitHub Copilot, xAI. Subscription OAuth providers store access/refresh tokens in `providers.json` (field `subscription`). |
 | `tab-plugins.ts` | ~120 | Back-end for installed tabs: runs each tab's `server.js`, routes RPC `<tabId>:<method>` with a sandboxed context (data dir access, whitelisted calls, logging). |
 | `seed-defaults.ts` |: | First-run bootstrap: default agents (Orchestrator, App Expert) + `app-expert` skill. Only creates what is missing; never overwrites user data. |
-| `vendor/` |: | Pi SDK (vendored, patched: see below) |
+| `vendor/` |: | engine SDK (vendored, patched: see below) |
 
 ### Vendor patches (`sidecar-src/vendor/`)
 
-The Pi SDK is vendored and patched at specific points (documented in the files):
+The engine SDK is vendored and patched at specific points (documented in the files):
 
 - `openai-completions.js`: system role always sent as `system` (required by Ollama)
 - `agent-session.js`: filters `role: "delegation"` before LLM calls (delegations live in the conversation tree at zero context cost)
@@ -124,7 +124,7 @@ The Market lives on GitHub: the app is only a client:
 ## Main flows
 
 ### Send message
-Composer → `sendMessage` RPC → (pool: routed to the owning worker) → PiBridge `send()` → system prompt build (PROMPT.md + skills + mode + timestamp + cwd) → Pi SDK stream → `stream_event` notifications → WebSocket → React state → UI. `agent_status` events drive the status pill; `streaming_stopped` (agent_end) clears streaming state.
+Composer → `sendMessage` RPC → (pool: routed to the owning worker) → QuinkiBridge `send()` → system prompt build (PROMPT.md + skills + mode + timestamp + cwd) → engine SDK stream → `stream_event` notifications → WebSocket → React state → UI. `agent_status` events drive the status pill; `streaming_stopped` (agent_end) clears streaming state.
 
 ### Delegations
 The Orchestrator delegates via a custom tool → a temporary session is created for the target agent (own system prompt, own model/thinking, same mode rules) → events stream to the UI as a `delegation` block → the delegation is appended to the conversation tree. Vendor patch: delegation entries are filtered out of LLM context (zero token cost).
