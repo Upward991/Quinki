@@ -23,6 +23,16 @@ MAIN_BUNDLE="src-tauri/target/release/bundle/macos/Quinki.app"
 MAIN_APP="/Applications/Quinki.app"
 HOME_DIR="$HOME"
 
+ROOT="$PWD"
+# === BAN DMG (regola utente): dopo OGNI build/install non deve restare NESSUN DMG ===
+# Sweep: temp di Tauri (rw.*.dmg), DMG di vecchi build, residui in bundle/dmg.
+sweep_dmgs() {
+  find "$ROOT/src-tauri/target/release/bundle/macos" -maxdepth 1 -name "rw.*.dmg" -delete 2>/dev/null || true
+  find "$ROOT/src-tauri/target/release/bundle/dmg" -maxdepth 1 -name "*.dmg" -delete 2>/dev/null || true
+  echo "[dmg-cleanup] DMG rimasti nel progetto: $(find "$ROOT/src-tauri/target/release/bundle" -name '*.dmg' 2>/dev/null | wc -l | tr -d ' ') (deve essere 0)"
+}
+trap sweep_dmgs EXIT
+
 echo "[install-main] Starting main-app install..."
 
 # --- Hard safety guards (by construction — never can hit the Expert app) ---

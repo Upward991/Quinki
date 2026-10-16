@@ -29,6 +29,12 @@ mv "$DMG" "$OUT"
 echo "[public-dmg] DONE: $OUT ($(ls -la "$OUT" | awk '{printf "%.0f MB", $5/1024/1024}'))"
 echo "[public-dmg] MD5: $(md5 -q "$OUT")"
 echo ""
+# === BAN DMG (regola utente): dopo la release il DMG in ~/Downloads va cancellato appena caricato.
+# Qui puliamo tutti i residui NEL PROGETTO (il DMG finale in Downloads resta per l'upload).
+find src-tauri/target/release/bundle/macos -maxdepth 1 -name "rw.*.dmg" -delete 2>/dev/null || true
+find src-tauri/target/release/bundle/macos -maxdepth 1 -name "*.dmg" -delete 2>/dev/null || true
+echo "[public-dmg] DMG residui nel progetto: $(find src-tauri/target/release/bundle -name '*.dmg' 2>/dev/null | wc -l | tr -d ' ') (deve essere 0)"
+echo ""
 echo "[public-dmg] USER INSTRUCTIONS:"
 echo "  1. Open the DMG → drag Quinki into Applications"
 echo "  2. First launch: right-click → Open (app is self-signed, not notarized)"

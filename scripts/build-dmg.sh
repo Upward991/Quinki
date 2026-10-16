@@ -24,6 +24,10 @@ OUT_DIR="$ROOT/src-tauri/target/release/bundle/dmg"
 OUT="$OUT_DIR/Quinki-signed.dmg"
 VERSION="$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "$ROOT/src-tauri/tauri.conf.json" | head -1)"
 
+# === BAN DMG (regola utente): sweep dei temp PRIMA di creare il DMG nuovo ===
+find "$ROOT/src-tauri/target/release/bundle/macos" -maxdepth 1 -name "rw.*.dmg" -delete 2>/dev/null || true
+find "$ROOT/src-tauri/target/release/bundle/macos" -maxdepth 1 -name "*.dmg" -delete 2>/dev/null || true
+
 [ -d "$APP" ] || { echo "[build-dmg] ERROR: bundle not found at $APP — run tauri build first"; exit 1; }
 
 echo "[build-dmg] 1/4 Signing the bundle..."
