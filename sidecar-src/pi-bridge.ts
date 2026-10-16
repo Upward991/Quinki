@@ -3391,6 +3391,73 @@ class PiBridge {
     }
   }
 
+  // === 16 ott (decisione utente): injectAppMessage — MESSAGGIO DELL'APP visibile in chat
+  // (bubble rossa \u2063x) SENZA far girare il modello. Persiste nella sessione (storia +
+  // contesto dei turni successivi) ed emette user_message per la visualizzazione live.
+  // NB: MAI send() per questi messaggi — un turno sull'errore rosso sarebbe dannoso
+  // (compaction OFF al 80% = contesto già pieno; LH attiva = il support agent reagirebbe). ===
+  async injectAppMessage(sessionKey: string, text: string): Promise<boolean> {
+    try {
+      if (!this.#active.has(sessionKey)) {
+        await this.#ensureActive(sessionKey);
+      }
+      const pi = this.#active.get(sessionKey);
+      const msgTs = Date.now();
+      const entry = {
+        type: "message",
+        id: `app-${msgTs}-${Math.random().toString(36).slice(2, 6)}`,
+        parentId: pi?.sessionManager ? (pi.sessionManager as any).leafId : null,
+        timestamp: new Date().toISOString(),
+        message: { role: "user", content: [{ type: "text", text }], timestamp: msgTs },
+      };
+      let ok = false;
+      if (pi?.sessionManager && typeof (pi.sessionManager as any)._appendEntry === "function") {
+        const sm: any = pi.sessionManager as any;
+        sm._appendEntry(entry);
+        ok = true;
+        this.logDebug("app-message-injected", { sessionKey, text: text.slice(0, 80) });
+        // Il SDK tiene i messaggi in BUFFER finché non esiste una risposta assistant:
+        // per un messaggio APP il turno NON arriverà mai → il messaggio resterebbe
+        // invisibile nella storia. Quindi: se il file non è ancora "flushed" lo
+        // scriviamo ORA con la stessa semantica del flush del SDK (tutte le entry)
+        // e marchiamo flushed=true così i prossimi append del SDK vanno diretti al file.
+        try {
+          if (sm.persist && sm.sessionFile && sm.flushed === false) {
+            const all = (sm.fileEntries || []).map((x: any) => JSON.stringify(x)).join("\n");
+            if (!fs.existsSync(sm.sessionFile)) fs.writeFileSync(sm.sessionFile, all + "\n", "utf8");
+            else fs.appendFileSync(sm.sessionFile, JSON.stringify(entry) + "\n", "utf8");
+            sm.flushed = true;
+            this.logDebug("app-message-flushed", { sessionKey });
+          }
+        } catch (e: any) {
+          this.logDebug("app-message-flush-error", { sessionKey, error: e?.message || String(e) });
+        }
+      } else {
+        const sessionDir = this.#piSessionDir(sessionKey);
+        if (fs.existsSync(sessionDir)) {
+          const files = fs.readdirSync(sessionDir).filter((f: string) => f.endsWith(".jsonl"));
+          if (files.length > 0) {
+            fs.appendFileSync(path.join(sessionDir, files[0]), JSON.stringify(entry) + "\n", "utf8");
+            ok = true;
+            this.logDebug("app-message-injected-fallback", { sessionKey });
+          }
+        }
+      }
+      // Live: se un client sta guardando QUESTA chat, mostra subito la bubble (la
+      // frontend la colora di rosso grazie al marcatore \u2063x).
+      try { this.#sendToWs(this.#getSessionWs(sessionKey), { type: "user_message", sessionKey, text, ts: msgTs }); } catch {}
+      // 16 ott (decisione utente): il messaggio app notifica COME UN MESSAGGIO NORMALE
+      // (popup/push solo se la chat non è silenziata e non la stai guardando).
+      if (ok) {
+        try { this.appendNotification({ kind: "chat_message", sessionKey, body: String(text).replace(/^\u2063x/, "") }); } catch {}
+      }
+      return ok;
+    } catch (e: any) {
+      this.logDebug("app-message-inject-error", { sessionKey, error: e?.message || String(e) });
+      return false;
+    }
+  }
+
   // === Attiva una sessione se non è già attiva (usato da compact() e send()) ===
   async #ensureActive(key: string, ws?: any): Promise<any> {
     let pi = this.#active.get(key);
@@ -9566,6 +9633,14 @@ if (!turnCompleted && lastStopReason && lastStopReason !== "toolUse" && !this.#s
                 if (d?.type === "message" && m?.role === "user") {
                   if (inGroup && groupHasUnread) messages++;
                   inGroup = false; groupHasUnread = false;
+                  // 16 ott (decisione utente): i MESSAGGI DELL'APP (\u2063x — es. errori
+                  // "Long Horizon attiva" / compaction) contano come messaggi NON LETTI:
+                  // badge + notifica come qualsiasi messaggio. Dietro non c'e' un turno,
+                  // quindi il gruppo assistant non si formerebbe mai da solo.
+                  try {
+                    const _txt = Array.isArray(m.content) ? m.content.map((b: any) => (b?.type === "text" ? b.text : "")).join("") : (typeof m.content === "string" ? m.content : "");
+                    if (_txt.startsWith("\u2063x") && typeof m.timestamp === "number" && m.timestamp > st.lastReadTs) messages++;
+                  } catch {}
                 } else if (d?.type === "message" && m?.role === "assistant" && typeof m.timestamp === "number") {
                   inGroup = true;
                   const hasText = Array.isArray(m.content) ? m.content.some((b: any) => b?.type === "text" && b.text) : (typeof m.content === "string" && m.content.trim());

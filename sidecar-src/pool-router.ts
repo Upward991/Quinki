@@ -52,7 +52,7 @@ const ROUTABLE = new Set([
   "abort", "abortCompaction", "stopStream", "sendMessage", "steer", "injectClip",
   "compactSession",
   "setSessionFallbacks",
-  "injectSystemMessage", "setMessageSkills", "setMessageTaskClips", "setMessageAttachments",
+  "injectSystemMessage", "injectAppMessage", "setMessageSkills", "setMessageTaskClips", "setMessageAttachments",
   // FIX 084 (03 set): le RPC Long Horizon DEVONO girare sul worker OWNER — prima
   // giravano sul main e il worker lo scopriva solo al rescan (15s) → disattivazione
   // con fino a 30s di autoprompt in ritardo. Ora il worker applica il cambio di stato
@@ -413,7 +413,7 @@ export function tryRoute(msg: any): boolean {
     // nascere 16 worker. Il MAIN li applica in locale (le entry sono file-first: il
     // worker le rilegge al suo prossimo spawn). I metodi che fanno girare un turno
     // (sendMessage/steer/abort/compact...) invece spawnano SEMPRE.
-    const WORK_NOW = new Set(["sendMessage", "steer", "abort", "stopStream", "compactSession", "abortCompaction", "reloadSession", "resetSession", "injectClip", "injectSystemMessage"]);
+    const WORK_NOW = new Set(["sendMessage", "steer", "abort", "stopStream", "compactSession", "abortCompaction", "reloadSession", "resetSession", "injectClip", "injectSystemMessage", "injectAppMessage"]);
     if (!WORK_NOW.has(String(method || ""))) return false; // niente spawn: gestisce il main
     // child non pronto (mai partito / shrink / crash) → SPAWN LAZY + coda.
     // FIX 084 (03 set): una RPC instradata È "serve una sessione" → il respawn è

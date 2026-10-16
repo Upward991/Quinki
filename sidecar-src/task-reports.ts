@@ -78,12 +78,13 @@ export class TaskReports {
     const last = this.#redAt.get(sk) || 0;
     if (Date.now() - last < RED_COOLDOWN_MS) return;
     this.#redAt.set(sk, Date.now());
-    const fakeWs = { readyState: 1, constructor: { OPEN: 1 }, send: () => {} };
-    try { this.#piBridge?.send?.(fakeWs, { sessionKey: sk, text: "\u2063x" + text, _preserveWs: true, _lean: true }).catch(() => {}); } catch {}
-    // 16 ott (decisione utente): niente notifiche dedicate alle task — il messaggio
-    // rosso arriva COME UN MESSAGGIO NORMALE (popup/push solo se la chat non e'
-    // silenziata e non la stai guardando, esattamente come qualsiasi altra risposta).
-    try { this.#piBridge?.appendNotification?.({ kind: "chat_message", sessionKey: sk, body: text }); } catch {}
+    // 16 ott: injection DIRETTA (NIENTE turno del modello): un turno sull'errore rosso
+    // sarebbe dannoso (compaction OFF al 80% = contesto gia' pieno; LH attiva = il support
+    // agent reagirebbe al finto messaggio utente). La bubble rossa appare in chat
+    // (live + persistente) e la notifica parte come per qualsiasi messaggio.
+    try { Promise.resolve(this.#piBridge?.injectAppMessage?.(sk, "\u2063x" + text)).catch(() => {}); } catch {}
+    // 16 ott (decisione utente): niente notifiche dedicate alle task — la notifica del
+    // messaggio rosso parte DENTRO injectAppMessage (come un messaggio normale).
     this.#log("task-report-blocked", { sessionKey: sk, reason });
   }
 
