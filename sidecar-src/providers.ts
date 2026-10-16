@@ -8,7 +8,7 @@ import { encryptString, decryptString, isEncrypted } from "./crypto";
 // convenzione di Claude Code. Import build-time: bun lo bundle nel binario.
 import { ANTHROPIC_MODELS } from "./vendor/@earendil-works/pi-ai/dist/providers/anthropic.models.js";
 
-const agentDir = process.env.QUINKI_AGENT_DIR || join(homedir(), ".pi", "agent");
+const agentDir = process.env.QUINKI_AGENT_DIR || join(homedir(), ".quinki");
 const providersPath = join(agentDir, "quinki-providers.json");
 const providersBackupPath = join(agentDir, "quinki-providers-backup.json");
 const modelsPath = join(agentDir, "models.json");

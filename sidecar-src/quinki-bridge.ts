@@ -35,7 +35,7 @@ import {
 } from "./providers";
 
 // Use agentDir from env, fall back to default
-const _agentDir = process.env.QUINKI_AGENT_DIR || path.join(homedir(), ".pi", "agent");
+const _agentDir = process.env.QUINKI_AGENT_DIR || path.join(homedir(), ".quinki");
 // marker di attribuzione per il debug log condiviso (chi scrive: main/expert/pool-N)
 const _logSource = (() => {
   try {

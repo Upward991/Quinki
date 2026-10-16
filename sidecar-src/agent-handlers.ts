@@ -99,7 +99,7 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
     const agentCfg = readAgentConfig(id);
     const extraDirs: string[] = [];
     if (agentCfg?.workspace) {
-      extraDirs.push(path.join(agentCfg.workspace, ".pi", "skills", id));
+      extraDirs.push(path.join(agentCfg.workspace, ".quinki", "skills", id));
     }
     const walk = (d: string, rel: string) => {
       try {
@@ -133,7 +133,7 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
     // Try workspace .pi/skills/<id>/
     const agentCfg = readAgentConfig(id);
     if (agentCfg?.workspace) {
-      const wsPath = path.join(agentCfg.workspace, ".pi", "skills", id, filePath);
+      const wsPath = path.join(agentCfg.workspace, ".quinki", "skills", id, filePath);
       if (fs.existsSync(wsPath)) {
         try { return fs.readFileSync(wsPath, "utf8"); } catch { return null; }
       }
@@ -152,7 +152,7 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
     // If file exists in workspace, write there
     const agentCfg = readAgentConfig(id);
     if (agentCfg?.workspace) {
-      const wsPath = path.join(agentCfg.workspace, ".pi", "skills", id, filePath);
+      const wsPath = path.join(agentCfg.workspace, ".quinki", "skills", id, filePath);
       if (fs.existsSync(wsPath)) {
         try { fs.writeFileSync(wsPath, content, "utf8"); return true; } catch { return false; }
       }
@@ -175,11 +175,14 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
     const cwd = getCwd();
     const skills: any[] = [];
     // In isolated mode (custom agent dir), only scan that dir's skills
+    // NOTA (rename 16 ott): ".pi/agent" qui è la dir di DEFAULT DELL'SDK (non nostra):
+    // il confronto resta così apposta — la nostra agentDir (~/.quinki) è SEMPRE diversa
+    // da quella → isIsolated=true → si scansiona SOLO ~/.quinki/skills (isolamento 10 ott).
     const isIsolated = agentDir !== path.join(homedir(), ".pi", "agent");
     const searchDirs = isIsolated
       ? [path.join(agentDir, "skills")]
       : [
-        path.join(cwd, ".pi", "skills"),
+        path.join(cwd, ".pi", "skills"),  // dir di ALTRI tool (pi CLI): non è roba nostra, resta (ramo non usato)
         path.join(cwd, ".agents", "skills"),
         path.join(agentDir, "skills"),
         path.join(homedir(), ".agents", "skills"),

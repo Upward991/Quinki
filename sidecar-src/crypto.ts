@@ -30,7 +30,7 @@ function getMachineFingerprint(): string {
 }
 
 function getOrCreateSalt(): Buffer {
-  // FIX CRITICO (03 set): la dir default era ~/.pi/agent — SBAGLIATA per Quinki
+  // FIX CRITICO (03 set): la dir default dell'SDK era ~/.pi/agent — SBAGLIATA per Quinki
   // (i dati stanno in ~/.quinki). Se un processo parte senza QUINKI_AGENT_DIR
   // (es. sideload, worker spawnato fuori start.sh), il salt veniva creato/letto
   // ALTROVE → le chiavi cifrate col salt giusto non decifravano più →

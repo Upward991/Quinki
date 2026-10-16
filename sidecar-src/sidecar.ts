@@ -156,7 +156,7 @@ function flushBootQueue() {
 `);
   for (const line of q) { try { handleLine(line); } catch {} }
 }
-const agentDir = process.env.QUINKI_AGENT_DIR || path.join(homedir(), ".pi", "agent");
+const agentDir = process.env.QUINKI_AGENT_DIR || path.join(homedir(), ".quinki");
 
 // Agente di default per le nuove chat: defaultAgentId dal config globale, fallback "quinki".
 function readDefaultAgentId(): string {
@@ -384,7 +384,9 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
 
 
   createSession: async (p) => {
-    const key = `pi-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    // RENAME (16 ott): le sessioni NUOVE nascono come "quinki-*" (le vecchie "pi-*"
+    // restano e funzionano: la key è opaca e la UI le mostrava già come "quinki-").
+    const key = `quinki-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const s = quinkiBridge!.create(key, p.label || "Chat");
     // Ogni chat nasce con ALMENO un agente: quello passato, oppure il default (config → quinki)
     const defaultAgentId = readDefaultAgentId();
