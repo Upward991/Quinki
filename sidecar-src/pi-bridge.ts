@@ -4335,14 +4335,6 @@ Read this file to view it.` }] };
   isPathAllowed(sk: string, fullPath: string, write: boolean): boolean {
     try {
       if (!fullPath) return true;
-      // /tmp BAN (regola utente 16 ott): i tool di scrittura NON scrivono nel tmp di
-      // sistema — il temporaneo va nella working directory o in ~/.quinki/tmp.
-      // Guardia PRIMA dei permessi: non è scavalcabile da "scrivi ovunque".
-      if (write) {
-        const _np = path.normalize(fullPath);
-        const _tmpRoots = ["/tmp", "/private/tmp", "/var/tmp", "/private/var/tmp"];
-        if (_tmpRoots.some((d) => _np === d || _np.startsWith(d + path.sep))) return false;
-      }
       const perms = this.getPermissions();
       if (write && perms.writeFilesAnywhere) return true;
       if (!write && perms.readFilesAnywhere) return true;
@@ -5256,7 +5248,7 @@ Read this file to view it.` }] };
       if (agentId && typeof base === "string" && !base.includes(agentConfig?.name || "§§")) {
         const effCwd = cwd || (workingDirs && workingDirs[0]) || this.#cwd;
         const agentPrompt = this.#readAgentPrompt(agentId, effCwd);
-        base = agentPrompt + `\n\nWorking directory: ${effCwd}\n\n` + base;
+        base = agentPrompt + `\n\nWorking directory: ${effCwd}\nEverything you create or save belongs in that directory by default — use a different location only if the user explicitly asks for one.\n\n` + base;
       }
       if (typeof base === "string" && base.length > 0 && note) {
         // Strip old mode note before adding new one (fix: mode change not detected)
@@ -6172,7 +6164,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
               const note = self.#modeNote(mainMode);
               // Prepend agent PROMPT.md + cwd (same as #applyMode)
               if (typeof base === "string" && !base.includes(agentConfig?.name || "§§")) {
-                base = agentPrompt + `\n\nWorking directory: ${tempCwd2}\n\n` + base;
+                base = agentPrompt + `\n\nWorking directory: ${tempCwd2}\nEverything you create or save belongs in that directory by default — use a different location only if the user explicitly asks for one.\n\n` + base;
               }
               // Add mode note (same as #applyMode)
               if (typeof base === "string" && base.length > 0 && note) {
@@ -6515,6 +6507,9 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
     } else {
       prompt += `\n\n${lead} in the directory: ${cwd}`;
     }
+    // DEFAULT della sessione (regola utente 16 ott): cio' che la sessione crea o salva
+    // vive nella working directory; si cambia posto SOLO se l'utente lo chiede.
+    prompt += `\nEverything you create or save belongs there by default — use a different location only if the user explicitly asks for one.`;
     // === Long Horizon: messaggio di SISTEMA (hardcoded, entra nel contesto, non è una bubble) ===
     // Spiega le fasi + tiene il modello nella fase corrente. Il modello NON può avanzare:
     // la fase cambia SOLO quando l'utente preme il bottone nella sezione in chat.
@@ -7916,15 +7911,6 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
             const ws2 = this.#wss.get(key);
             try { this.#sendToWs(ws2, { type: "tool_call", sessionKey: key, toolCallId: toolCall.id, toolName: name, toolArgs: args, ts: Date.now() }); } catch {}
             this.logDebug("authorized-folder-blocked", { sessionKey: key, tool: name, path: p });
-            // Messaggio specifico per il /tmp BAN: indica la working directory da usare.
-            let _isSysTmp = false;
-            try {
-              const _np = path.normalize(p);
-              _isSysTmp = ["/tmp", "/private/tmp", "/var/tmp", "/private/var/tmp"].some((d) => _np === d || _np.startsWith(d + path.sep));
-            } catch {}
-            if (_isSysTmp) {
-              return { content: [{ type: "text", text: `[Access denied] Temporary files never go in the system temp folder (/tmp). Work inside your working directory (${this.getEffectiveCwd(key)}) or use ~/.quinki/tmp.` }], isError: true };
-            }
             return { content: [{ type: "text", text: `[Access denied] This path is not in an authorized folder. Agents can only access files in the working directory and the folders listed in Settings → macOS Permissions → Authorized Folders.` }], isError: true };
           }
         }
