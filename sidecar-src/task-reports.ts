@@ -121,8 +121,8 @@ export class TaskReports {
     this.#sending.add(sk);
     this.#write(this.#read().filter((r) => !(r.key === sk && r.owner === this.#owner)));
     const text = pend.length === 1
-      ? `The scheduled task \u201c${pend[0].title}\u201d just finished. Read its outcome with the getTaskResult tool (executionId: ${pend[0].executionId}) and report it in this chat with ONLY the actual result content \u2014 nothing else: no commentary, no mention of the process, no \u201cVerification\u201d.`
-      : `The scheduled tasks just finished: ${pend.map((p) => `\u201c${p.title}\u201d (${p.executionId})`).join(", ")}. Read each outcome with the getTaskResult tool and report them in this chat, each with ONLY the actual result content \u2014 nothing else.`;
+      ? `The scheduled task \u201c${pend[0].title}\u201d just finished. Read its outcome with the getTaskExecuted tool (executionId: ${pend[0].executionId}) and report it in this chat with ONLY the actual result content \u2014 nothing else: no commentary, no mention of the process, no \u201cVerification\u201d.`
+      : `The scheduled tasks just finished: ${pend.map((p) => `\u201c${p.title}\u201d (${p.executionId})`).join(", ")}. Read each outcome with the getTaskExecuted tool and report them in this chat, each with ONLY the actual result content \u2014 nothing else.`;
     const fakeWs = { readyState: 1, constructor: { OPEN: 1 }, send: () => {} };
     try {
       await this.#piBridge?.send?.(fakeWs, { sessionKey: sk, text: "\u2063t" + text, _preserveWs: true, _lean: true });

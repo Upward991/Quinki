@@ -152,7 +152,7 @@ function UserMessage({ message, onCopy, searchQuery, activeOcc, isDateMatch }: {
       <div style={{ color: bubbleText, fontSize: '14px', lineHeight: 1.5, fontFamily: 'var(--font-interface)', fontWeight: 500, whiteSpace: 'pre-wrap', wordBreak: 'break-word', userSelect: 'text', WebkitUserSelect: 'text' }}>
         {rendered}
       </div>
-      <Footer content={content} timestamp={((message as any).completedAt ? new Date((message as any).completedAt).toISOString() : message.timestamp)} onCopy={onCopy} sentEffort={(message as any).sentEffort} reasoningUsed={(message as any).reasoningUsed} reasoningTokens={(message as any).reasoningTokens} />
+      <Footer content={content} timestamp={((message as any).completedAt ? new Date((message as any).completedAt).toISOString() : message.timestamp)} onCopy={onCopy} tone={autoKind ? bubbleText : undefined} sentEffort={(message as any).sentEffort} reasoningUsed={(message as any).reasoningUsed} reasoningTokens={(message as any).reasoningTokens} />
     </div>
   )
 }
@@ -556,10 +556,13 @@ function DelegationBlockView({ delegation, timestamp, streaming, onCopy, searchQ
 
 
 // ── SHARED Footer — used by user, assistant, AND delegation ──
-function Footer({ content, timestamp, agentName, agentModel, thinkingLevel, thinkingTranslated, sentEffort, reasoningUsed, reasoningTokens, onCopy }: {
-  content: string; timestamp: string; agentName?: string; agentModel?: string; thinkingLevel?: string; thinkingTranslated?: string; sentEffort?: string; reasoningUsed?: boolean; reasoningTokens?: number; onCopy?: (t: string) => void
+function Footer({ content, timestamp, agentName, agentModel, thinkingLevel, thinkingTranslated, sentEffort, reasoningUsed, reasoningTokens, onCopy, tone }: {
+  content: string; timestamp: string; agentName?: string; agentModel?: string; thinkingLevel?: string; thinkingTranslated?: string; sentEffort?: string; reasoningUsed?: boolean; reasoningTokens?: number; onCopy?: (t: string) => void; tone?: string
 }) {
   const [infoOpen, setInfoOpen] = useState(false)
+  // FASE 1 (16 ott): nelle bubble colorate (sistema/task) il footer prende il colore del TESTO della bubble
+  const ftDim = tone ? ('color-mix(in srgb, ' + tone + ' 72%, transparent)') : 'var(--q-text-tertiary)'
+  const ftBright = tone ? tone : 'var(--q-text)'
   const mob = useLayout().mode === 'mobile'
 
   const displayThinking = (() => {
@@ -588,22 +591,22 @@ function Footer({ content, timestamp, agentName, agentModel, thinkingLevel, thin
       <button
         onClick={() => { try { navigator.clipboard.writeText(content) } catch {}; onCopy?.(content) }}
         title="Copy"
-        onMouseEnter={e => { e.currentTarget.style.color = 'var(--q-text)' }}
-        onMouseLeave={e => { e.currentTarget.style.color = 'var(--q-text-tertiary)' }}
-        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', lineHeight: '1', color: 'var(--q-text-tertiary)', borderRadius: '6px' }}
+        onMouseEnter={e => { e.currentTarget.style.color = ftBright }}
+        onMouseLeave={e => { e.currentTarget.style.color = ftDim }}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', lineHeight: '1', color: ftDim, borderRadius: '6px' }}
       >
         <Copy size={16} />
       </button>
-      <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', lineHeight: '16px', display: 'flex', alignItems: 'center' }}>
+      <span style={{ color: ftDim, fontSize: '12px', fontFamily: 'var(--font-interface)', lineHeight: '16px', display: 'flex', alignItems: 'center' }}>
         {fmtTime(timestamp)}
       </span>
       {(agentName || agentModel || thinkingLevel) && (
         <button
           onClick={() => { if (mob) { setInfoOpen(true) } else { setInfoOpen(!infoOpen) } }}
           title="Info"
-          onMouseEnter={e => { e.currentTarget.style.color = 'var(--q-text)' }}
-          onMouseLeave={e => { e.currentTarget.style.color = 'var(--q-text-tertiary)' }}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', lineHeight: '1', color: 'var(--q-text-tertiary)', borderRadius: '6px' }}
+          onMouseEnter={e => { e.currentTarget.style.color = ftBright }}
+          onMouseLeave={e => { e.currentTarget.style.color = ftDim }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', lineHeight: '1', color: ftDim, borderRadius: '6px' }}
         >
           <Info size={16} />
         </button>
@@ -622,7 +625,7 @@ function Footer({ content, timestamp, agentName, agentModel, thinkingLevel, thin
         document.body
       )}
       {!mob && infoOpen && infoParts.length > 0 && (
-        <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', lineHeight: '16px', display: 'flex', alignItems: 'center' }}>
+        <span style={{ color: ftDim, fontSize: '12px', fontFamily: 'var(--font-interface)', lineHeight: '16px', display: 'flex', alignItems: 'center' }}>
           {infoParts.join(' · ')}
         </span>
       )}

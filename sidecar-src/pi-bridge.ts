@@ -5055,7 +5055,7 @@ Read this file to view it.` }] };
       const file = path.join(this.#agentDir, "quinki-global.json");
       if (fs.existsSync(file)) return JSON.parse(fs.readFileSync(file, "utf8"));
     } catch {}
-    return { tools: ["read", "grep", "find", "ls", "skill"], planModeTools: { read: true, grep: true, find: true, ls: true, skill: true, bash_readonly: true, schedule_task: true, cancel_schedule: true, getTaskStatus: true, getTaskResult: true, readHandoff: true, market: true, delegate_to_agent: true, screenshot: true, write: false, edit: false, bash: false }, defaultMode: "plan" };
+    return { tools: ["read", "grep", "find", "ls", "skill"], planModeTools: { read: true, grep: true, find: true, ls: true, skill: true, bash_readonly: true, schedule_task: true, cancel_schedule: true, getTaskStatus: true, getTaskExecuted: true, readHandoff: true, market: true, delegate_to_agent: true, screenshot: true, write: false, edit: false, bash: false }, defaultMode: "plan" };
   }
 
   #readAgentConfigFile(agentId: string): any | null {
@@ -5104,7 +5104,7 @@ Read this file to view it.` }] };
       }
       if (this.#mcpSig.get(sk) !== idsNow) {
         const mcpTools = await this.#buildMcpTools(sk, agentId);
-        const keep = ((pi as any)._customTools || []).filter((t: any) => t?.name === 'skill' || t?.name === 'delegate_to_agent' || t?.name === 'schedule_task' || t?.name === 'cancel_schedule' || t?.name === 'getTaskStatus' || t?.name === 'getTaskResult' || t?.name === 'readHandoff' || t?.name === 'screenshot' || t?.name === 'market');
+        const keep = ((pi as any)._customTools || []).filter((t: any) => t?.name === 'skill' || t?.name === 'delegate_to_agent' || t?.name === 'schedule_task' || t?.name === 'cancel_schedule' || t?.name === 'getTaskStatus' || t?.name === 'getTaskExecuted' || t?.name === 'readHandoff' || t?.name === 'screenshot' || t?.name === 'market');
         // === Re-registra TUTTI i custom tool che l'agente ha nel config ma che NON sono
         // ancora nel registry della sessione viva (assegnazione mid-session, come gli MCP):
         // delegate_to_agent, schedule_task, task tools, screenshot, market ===
@@ -5123,7 +5123,7 @@ Read this file to view it.` }] };
         if (wants('cancel_schedule') && !has('cancel_schedule')) {
           try { const t = this.#buildCancelScheduleTool(sk); if (t) keep.push(t); } catch {}
         }
-        if (wants('getTaskStatus') || wants('getTaskResult') || wants('readHandoff')) {
+        if (wants('getTaskStatus') || wants('getTaskExecuted') || wants('readHandoff')) {
           try { const tt = this.#buildTaskTools(sk); if (tt.length > 0) for (const t of tt) { if (!has((t as any).name)) keep.push(t); } } catch {}
         }
         if (!has('market')) {
@@ -5318,7 +5318,7 @@ Read this file to view it.` }] };
       names = merged.filter(n => all.includes(n));
       // Always include custom tools (delegate_to_agent, skill) even if not in getAllTools
       // — they were registered via createAgentSession customTools
-      const customToolNames = ["delegate_to_agent", "skill", "bash_readonly", "schedule_task", "cancel_schedule", "getTaskStatus", "getTaskResult", "readHandoff", "screenshot"];
+      const customToolNames = ["delegate_to_agent", "skill", "bash_readonly", "schedule_task", "cancel_schedule", "getTaskStatus", "getTaskExecuted", "readHandoff", "screenshot"];
       for (const ct of customToolNames) {
         if (merged.includes(ct) && !names.includes(ct)) names.push(ct);
       }
@@ -5440,7 +5440,7 @@ Read this file to view it.` }] };
   }
 
   // === A2.10: tool agente — leggere la cronologia dei task su richiesta (senza iniettarla) ===
-  // getTaskStatus / getTaskResult / readHandoff. Leggono da schedules.json + executions/ + handoffs/.
+  // getTaskStatus / getTaskExecuted / readHandoff. Leggono da schedules.json + executions/ + handoffs/.
   #buildTaskTools(sessionKey: string): any[] {
     const self = this;
     const agentDir = this.#agentDir;
@@ -5527,10 +5527,10 @@ Read this file to view it.` }] };
     });
 
     const resultTool = defineTool({
-      name: "getTaskResult",
+      name: "getTaskExecuted",
       label: "Get task result",
       description: "Read the full result of a specific task execution (by execution id). Use it when the user asks 'what did task X do?', 'che ne pensi del risultato di X?', or wants to discuss a task's outcome. Returns the task label, status, the final text produced, and the model used.",
-      promptSnippet: "getTaskResult: read the full result of a specific task execution by id",
+      promptSnippet: "getTaskExecuted: read the FULL execution of a specific task by id (same content as the Task executed toggle: reasoning, tool calls, tool results, final text)",
       promptGuidelines: [
         "The execution id looks like ex_<timestamp>_<random>.",
         "Use getTaskStatus first to find the execution id if the user doesn't provide it.",
@@ -5543,7 +5543,6 @@ Read this file to view it.` }] };
           const id = String(params?.executionId || "");
           const ex = readExec(id);
           if (!ex) return { content: [{ type: "text", text: `Execution ${id} not found.` }], isError: true };
-          const final = lastAssistantText(id);
           const parts: string[] = [];
           parts.push(`Task: ${ex.label || id}`);
           parts.push(`Status: ${ex.status}`);
@@ -5553,8 +5552,32 @@ Read this file to view it.` }] };
           if (ex.endedAt) parts.push(`Ended: ${new Date(ex.endedAt).toISOString()}`);
           if (ex.error) parts.push(`Error: ${ex.error}`);
           parts.push("");
-          parts.push("RESULT:");
-          parts.push(final || "(no final text)");
+          // === FASE 1 (16 ott): TUTTA l'esecuzione, esattamente come nel toggle "Task executed":
+          // messaggi (testo, thinking, tool call, risultati dei tool) della sessione headless __exec_<id>.
+          // Ogni blocco troncato a 400 char, totale ~12000 per non sfondare il contesto.
+          const clip = (t: string, n: number) => { const x = String(t || "").trim(); return x.length > n ? x.slice(0, n) + " …" : x; };
+          let log = "";
+          try {
+            const msgs: any[] = (this.getHistory(`__exec_${id}`) as any) || [];
+            const lines: string[] = [];
+            for (const m of msgs) {
+              const role = String(m?.role || "?");
+              const content = m?.content;
+              if (typeof content === "string") { if (content.trim()) lines.push(`[${role}] ${clip(content, 400)}`); continue; }
+              if (!Array.isArray(content)) continue;
+              for (const b of content) {
+                if (!b || typeof b !== "object") continue;
+                if (b.type === "text" && b.text) lines.push(`[${role}] ${clip(b.text, 400)}`);
+                else if (b.type === "thinking" && b.thinking) lines.push(`[${role} · thinking] ${clip(b.thinking, 400)}`);
+                else if (b.type === "toolCall" || b.type === "tool_use") lines.push(`[${role} · tool] ${b.name || b.toolName || "tool"} ${clip(JSON.stringify(b.arguments || b.input || {}), 300)}`);
+                else if (b.type === "toolResult" || b.type === "tool_result") lines.push(`[${role} · tool result] ${clip(typeof b.content === "string" ? b.content : JSON.stringify(b.content || ""), 400)}`);
+              }
+            }
+            log = lines.join("\n");
+            if (log.length > 12000) log = log.slice(0, 12000) + "\n…(execution log truncated)";
+          } catch {}
+          if (log) { parts.push("FULL EXECUTION (same as the Task executed toggle):"); parts.push(log); }
+          else { const final = lastAssistantText(id); parts.push("RESULT:"); parts.push(final || String(ex.resultPreview || "").trim() || "(no text recorded)"); }
           return { content: [{ type: "text", text: parts.join("\n") }] };
         } catch (e: any) {
           return { content: [{ type: "text", text: `Error reading result: ${e?.message || String(e)}` }], isError: true };
@@ -7089,8 +7112,8 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
         if (!body) continue;
         const execId = String(tc.id || '').trim();
         const pointer = execId
-          ? `\n\nExecution ID: ${execId}\nTo read the FULL task result (reasoning, tool calls, tool results, delegations), use the getTaskResult tool with executionId "${execId}". For the full task history of this session, use the readHandoff tool.`
-          : `\n\nTo read the FULL task result (reasoning, tool calls, tool results, delegations), use the getTaskResult tool or the readHandoff tool.`;
+          ? `\n\nExecution ID: ${execId}\nTo read the FULL task result (reasoning, tool calls, tool results, delegations), use the getTaskExecuted tool with executionId "${execId}". For the full task history of this session, use the readHandoff tool.`
+          : `\n\nTo read the FULL task result (reasoning, tool calls, tool results, delegations), use the getTaskExecuted tool or the readHandoff tool.`;
         prompt += `\n\n=== TASK RESULT: ${tc.label} ===\n\n${body}${pointer}\n\n=== END TASK RESULT ===\n\nThe task result above was explicitly attached by the user. It is ALREADY in your system prompt — use it as context for the current request. The user expects you to be aware of this task: read the full result if needed before answering.`;
         this.logDebug('task-clip-injected', { sessionKey: key, label: tc.label, execId: execId || null, contentLen: body.length });
       }
@@ -7474,8 +7497,8 @@ async sendDirect(ws: any, data: { sessionKey: string; text: string; agentId: str
             this.logDebug("cancel-schedule-tool-error", { sessionKey: sk, error: String(e?.message || e) });
           }
         }
-        // A2.10: tool task (getTaskStatus/getTaskResult/readHandoff) SOLO se l'agente li ha nel config
-        const hasTaskTools = !!(agentCfg?.tools?.includes('getTaskStatus') || agentCfg?.tools?.includes('getTaskResult') || agentCfg?.tools?.includes('readHandoff'));
+        // A2.10: tool task (getTaskStatus/getTaskExecuted/readHandoff) SOLO se l'agente li ha nel config
+        const hasTaskTools = !!(agentCfg?.tools?.includes('getTaskStatus') || agentCfg?.tools?.includes('getTaskExecuted') || agentCfg?.tools?.includes('readHandoff'));
         if (hasTaskTools) {
           try {
             const taskTools = this.#buildTaskTools(sk);
