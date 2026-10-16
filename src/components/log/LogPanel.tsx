@@ -319,9 +319,10 @@ export function LogPanel(props: LogPanelProps) {
   }
 
   const filtered = entries.filter((e) => {
-    // SENZA filtri: TUTTO visibile (100 globali). Con filtri: solo system prompt / thinking.
+    // SENZA filtri: SOLO i 3 tipi (system prompt/thinking/llm catalog) — MAI other (rumore).
     const level = deriveLevel(e.tag)
-    if (activeFilters.size > 0 && !activeFilters.has(level)) return false
+    if (activeFilters.size === 0) return level !== "other"
+    if (!activeFilters.has(level)) return false
     return true
   })
 
