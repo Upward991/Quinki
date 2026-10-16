@@ -381,7 +381,6 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
 
   getModels: async () => ({ models: getModelsList() }),
 
-  getAgents: async () => ({ agents: [{ id: "pi", name: "Pi Agent", desc: "Coding agent" }] }),
 
   getCommands: async () => ({ commands: [
     { name: "/model", desc: "Cambia modello" },

@@ -1,7 +1,9 @@
 # SYNC — Pi SDK Vendor Re-synchronization
 
-> NOTA (17 ott): i file `.map` NON si copiano piu' nel vendor (rimossi: sono solo puntatori di debug,
-> il runtime non li usa). Se sincronizzi a mano da npm, salta i `*.map`.
+> NOTA (17 ott): al re-sync NON copiare: i `*.map` (solo puntatori di debug), la cartella
+> `dist/bundle/` (chunks pre-bundle mai usati) e i `.js` non importati (harness/testing/cli dei SDK):
+> erano stati rimossi perche' il binario compilato non li puo' comunque usare. Tieni i 13 file
+> PATCHATI a mano (vedi PATCHES-084.md) e i `.d.ts` (utili all'IDE).
 
 
 Questo file contiene le istruzioni per aggiornare il Pi SDK embedded quando esce una nuova versione upstream.

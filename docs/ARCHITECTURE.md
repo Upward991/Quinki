@@ -56,7 +56,7 @@ The `#sendToWs` method in the sidecar ALWAYS converts payloads to JSON-RPC forma
 
 Goal: 100+ parallel sessions with no timeouts, without spawning one process per session.
 
-- The **main** sidecar (`QUINKI_POOL_INDEX=0`, port 9182) spawns **N−1 child** sidecars (same binary) on ports 9184+, with `QUINKI_POOL_SIZE = min(cores, 16)` by default (explicit `QUINKI_POOL_SIZE=16` in `start.sh` for stability)
+The **main** sidecar (`QUINKI_POOL_INDEX=0`, port 9182) manages **N−1 child** sidecars (same binary) on ports 9184+. Children are spawned **lazily** (only when a session needs one; `QUINKI_POOL_EAGER=0` in `start.sh`) and shut down after 5 minutes idle.
 - **Eager spawn**: all children start immediately at boot (~1s). At pool init, any orphaned workers from a previous session are automatically killed (single `lsof` call on all pool ports)
 - **Ownership**: every process (main and workers) knows `poolN` and its own `poolIndex`. The recovery system, Long Horizon support agent, and event routing all respect this ownership: each process only handles its own sessions
 - **Routing**: session-bound writes/LLM work (`sendMessage`, `abort`, `set*`, `compactSession`, …) go to the owning child (djb2 hash of session key → pool index). Reads (`getHistory`, `getSessionMeta`, …) stay on the main sidecar: they read from disk/registry in milliseconds
