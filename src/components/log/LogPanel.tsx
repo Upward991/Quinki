@@ -191,7 +191,7 @@ export function LogPanel(props: LogPanelProps) {
     llm:      { bg: 'color-mix(in srgb, #d7be66 8%, transparent)', text: 'var(--q-text)', tag: '#d7be66', pill: '#d7be66' },
   }
 
-  const moreFilters: string[] = []  // eliminati: solo 2 filtri utili (system prompt + thinking)
+  const moreFilters = ['system prompt', 'thinking', 'llm catalog']
 
   const months = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december']
 
@@ -421,11 +421,8 @@ export function LogPanel(props: LogPanelProps) {
           <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>({filtered.length})</span>
           <div style={{ width: '8px', flexShrink: 0 }} />
           {!mob && <>
-          <FilterPill level="error" />
           <div style={{ width: '8px', flexShrink: 0 }} />
-          <FilterPill level="warn" />
           <div style={{ width: '8px', flexShrink: 0 }} />
-          <FilterPill level="ui" />
           <div style={{ width: '8px', flexShrink: 0 }} />
           {/* More filters dropdown */}
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
@@ -725,7 +722,7 @@ export function LogPanel(props: LogPanelProps) {
           items={[]}
           view={
             <div style={{ padding: '8px 8px 6px 8px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-              {['error', 'warn', 'ui', ...moreFilters].map((level) => <FilterPill key={level} level={level} />)}
+              {moreFilters.map((level) => <FilterPill key={level} level={level} />)}
             </div>
           }
         />
