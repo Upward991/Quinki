@@ -642,18 +642,6 @@ class QuinkiBridge {
 
   #save() {
     try {
-      // DIAG POOL ORDER: logga se l'ordine della sessione Financial cambia rispetto al file
-      try {
-        const role = String(process.env.QUINKI_POOL_INDEX || "0");
-        const fin = this.#entries.get("pi-1786919547834-v3ya32");
-        if (fin) {
-          let fileOrder: any = null;
-          try { const fd = JSON.parse(fs.readFileSync(SESSION_FILE, "utf8")); const ff = fd.find((x: any) => x.key === "pi-1786919547834-v3ya32"); if (ff) fileOrder = ff.order; } catch {}
-          if (fileOrder !== null && fin.order !== fileOrder) {
-            this.logDebug("order-write", { poolIndex: role, memOrder: fin.order, fileOrder, lastActivity: fin.lastActivity });
-          }
-        }
-      } catch {}
       let data: SessionEntry[] = [];
       for (const [k, v] of this.#entries) {
         data.push({
