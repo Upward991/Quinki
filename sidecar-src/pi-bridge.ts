@@ -6346,7 +6346,7 @@ read, grep, glob, ls, write, edit, bash, skill. Usa \`bash\` per flutter/git/kil
           const delegationId = `del-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
           // === Reuse stream_event channel (proven to work) with del- prefix messageId ===
           self.#sendToWs(self.#wss.get(sessionKey), { type: "stream_event", sessionKey, eventType: "delegation_start", messageId: delegationId, agentName: agent_name, task: task });
-          // Yield to event loop: lets ws-bridge process the delegation_start before temp session streams
+          // Yield to event loop: lets the sidecar process the delegation_start before temp session streams
           await new Promise(r => setTimeout(r, 0));
           // Subscribe to temp session events → forward as delegation_stream
           let delegationContent: any[] = [];

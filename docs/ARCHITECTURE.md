@@ -84,7 +84,7 @@ Design system: CSS variables only (`--q-*`), no transitions/animations by policy
 
 ## Tauri shell (`src-tauri/src/lib.rs`, ~2000 lines)
 
-56 commands covering: window management (drag, maximize, multi-window, focus, close-to-tray), sidecar lifecycle (start via `start.sh`, `kill_backend`, `restart_app`), App Expert (install, open, sync, rollback, restart: with caller-dependent behavior), permissions (TCC status, authorized folders), attachments (copy, list, open), export (chat → file via native dialog), autostart, update (`apply_update`: download DMG → mount → install → optional Expert sync → detached restart), tray, notifications.
+67 commands covering: sidecar lifecycle (start via `start.sh`, `kill_backend`, `restart_app`), App Expert (install, sync, rollback, restart), permissions (authorized folders), attachments (copy, list, open), export (chat → file via native dialog), autostart, update (`apply_update`: download DMG → mount → install → optional Expert sync → detached restart), tray, notifications, sessions folders, app icons at boot.
 
 The main process owns the sidecar lifecycle: launches it via `start.sh` (env: `QUINKI_AGENT_DIR`, `QUINKI_WS_PORT`, …), monitors it, kills it on quit. `SHOULD_EXIT` + `kill_backend()` (synchronous) ensure the sidecar and watchdog die with the app.
 

@@ -29,31 +29,30 @@ Quinki/
 │   └── vendor/           # Pi SDK (patched): see Vendor patches
 ├── scripts/
 │   ├── build-sidecar.sh  # sidecar compile + secret injection (USE THIS)
-│   ├── install-main.sh   # safe install (backup → ditto → re-sign → restart)
-│   └── bundle-sidecar.mjs# esbuild bundle (dev)
+│   └── install-main.sh   # safe install (backup → ditto → re-sign → restart)
 └── src-tauri/            # Rust: windows, tray, dialogs, install/update, Expert sync
 ```
 
 ## Build from source
 
 ```bash
-# 1. Frontend (TypeScript check + Vite + sidecar bundle)
-npm install
-npm run build
+# One command builds EVERYTHING (frontend + web app + sidecar + CLI + Rust + app bundle):
+npm install            # once
+bash scripts/build-app.sh
 
-# 2. Sidecar binary: ALWAYS use the dedicated script.
-#    It injects the GitHub OAuth secret from ~/.quinki/oauth.conf (never in the repo)
-#    and copies the binary into src-tauri/resources/sidecar/
-export PATH="$HOME/.bun/bin:$PATH"
-bash scripts/build-sidecar.sh
-
-# 3. Full app (frontend + Rust + DMG)
-export PATH="$HOME/.cargo/bin:$PATH"
-npx tauri build
-
-# 4. Install to /Applications
+# Then install the built app to /Applications (backs up → copies → re-signs → restarts):
 bash scripts/install-main.sh
+
+# CLI only (compiled binary + self-update asset):
+bash scripts/build-cli.sh && cp cli/dist/quinki ~/.local/bin/quinki
+
+# Public DMG (signed): runs the full build + CLI first, then hdiutil
+bash scripts/build-public-dmg.sh
 ```
+
+> The sidecar binary is always compiled by `scripts/build-app.sh` → `scripts/build-sidecar.sh`
+> (never with a raw `bun build --compile`): it injects the GitHub OAuth secret from
+> `~/.quinki/oauth.conf` via `--define`. Without it, the GitHub login fails in the built binary.
 
 **Never compile the sidecar with a raw `bun build --compile`**: without the `--define` injection of `QUINKI_GH_SECRET` the GitHub login fails in the built binary (the secret is read at runtime from `~/.quinki/oauth.conf` or from the build-time define).
 
