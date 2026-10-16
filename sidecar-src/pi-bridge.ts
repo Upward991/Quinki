@@ -4245,10 +4245,10 @@ Read this file to view it.` }] };
     return out.slice(-n)
   }
   #logLevelFor(tag: string): string {
-    // === 3 LOG SOLO (16 ott): system prompt + thinking + LLM catalog — il resto è rumore (mai su disco) ===
-    if (tag === "system_prompt") return "system prompt"
-    if (tag === "llm-catalog") return "llm catalog"
-    if (["thinking-trace","thinking-level-intent","thinking-http-intent","thinking-map-resolved","thinking-map-xhigh-fix","thinking-caps-applied","verify-thinking","agent_llm_config","thinking-level","thinking-translated","available-thinking-levels","ollama-levels-source","set-thinking","set-model","model-changed","ctx-post-agent-end","sending-thinking-levels"].includes(tag)) return "thinking"
+    // === 3 LOG SOLO (16 ott): System Prompt + Thinking + LLM Catalog — il resto è rumore (mai su disco) ===
+    if (tag === "system_prompt") return "System Prompt"
+    if (tag === "llm-catalog") return "LLM Catalog"
+    if (["thinking-trace","thinking-level-intent","thinking-http-intent","thinking-map-resolved","thinking-map-xhigh-fix","thinking-caps-applied","verify-thinking","agent_llm_config","thinking-level","thinking-translated","available-thinking-levels","ollama-levels-source","set-thinking","set-model","model-changed","ctx-post-agent-end","sending-thinking-levels"].includes(tag)) return "Thinking"
     return "other"
     if (tag.startsWith("renderer") || tag.startsWith("sidecar-marker") || tag.startsWith("stdout")) return "renderer"
     return "info"
