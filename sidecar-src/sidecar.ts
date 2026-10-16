@@ -17,7 +17,6 @@
 //   pi_config_* tornano vivi.
 // - P3: aggiunti 20 handler mancanti (settings/providers/attachments/
 //   folders/update/preflight) + alias per i nomi usati dal Flutter
-//   (pi_check_config, pi_create_config, get_history, update_last_read).
 
 import * as path from "node:path";
 import {  } from "node:crypto";
@@ -42,24 +41,23 @@ import {
   isExpertSidecar,
   getSystemPromptIPC,
   getSettings,
-  getAppVersion,
+  
   getProvidersConfig,
   setProvidersConfig,
   renameProvider,
   deleteProvider,
   fetchProviderModelsIPC,
   testProviderConnectionIPC,
-  getProviderApiKeyIPC,
+  
   checkForPiUpdate,
-  updatePi,
   getFullDebugLog,
   clearDebugLogFile,
   moveSessionIPC,
-  deleteSessionsByKeysIPC,
-  deleteSessionsByFolderIdIPC,
+  
+  
   getFolders,
   setFolders,
-  computePreflightStats,
+  
   writeSidecarLock,
   isExpertAlive,
   openRouterLogin,
@@ -67,8 +65,8 @@ import {
   subscriptionProviderLogin,
   subscriptionProviderLogout,
   subscriptionProviderStatus,
-  subscriptionProviderRefresh,
-  subscriptionProviderGetApiKey,
+  
+  
 } from "./pi-bridge";
 import { readModelsFromDisk } from "./models";
 import { readProvidersConfig, writeProvidersConfig, syncModelsJson, getOpenRouterUsage, getOllamaUsage, ollamaCloudKeySet, setOllamaCloudKey, clearOllamaCloudKey, getOllamaCloudUsage, ollamaInstalled, ollamaInstall, ollamaInstallStatus, refreshOpenRouterContextWindows } from "./providers";
@@ -145,34 +143,6 @@ function sendNotification(method: string, params: any) {
 // Quando un metodo è chiamato SENZA id (notify), il sidecar emette la notifica
 // corrispondente così i case Dart morti tornano vivi. Con id (call) restituisce
 // solo il result (no doppio processaggio).
-const notificationFor: Record<string, string> = {
-  getHistory: "history",
-  get_history: "history",
-  getSessionMeta: "session_meta",
-  get_session_meta: "session_meta",
-  getThinkingLevels: "thinking_levels",
-  get_thinking_levels: "thinking_levels",
-  getContextUsage: "context_usage",
-  get_context_usage: "context_usage",
-  getAllContextUsage: "all_context_usage",
-  get_all_context_usage: "all_context_usage",
-  getDebugLog: "debug_log",
-  get_debug_log: "debug_log",
-  getFullDebugLog: "debug_log",
-  getFullState: "full_state",
-  get_full_state: "full_state",
-  getModels: "models_list",
-  get_models: "models_list",
-  getCommands: "commands_list",
-  get_commands: "commands_list",
-  getAgents: "agents_list",
-  get_agents: "agents_list",
-  listAgents: "agents_list",
-  listSkills: "skills_list",
-  readAgentPrompt: "readAgentPrompt",
-  getAgentConfig: "getAgentConfig",
-  getGlobalConfig: "global_config",
-};
 
 // === PiBridge instance ===
 let piBridge: PiBridge | null = null;
@@ -199,8 +169,6 @@ function readDefaultAgentId(): string {
   } catch {}
   return "quinki";
 }
-const authPath = path.join(agentDir, "auth.json");
-const modelsPath = path.join(agentDir, "models.json");
 // === PUSH: VAPID + invio (app chiusa inclusa) ===
 function getVapidKeys(): { publicKey: string; privateKey: string } {
   const f = path.join(homedir(), '.quinki', 'push-vapid.json');
@@ -402,12 +370,6 @@ function getModelsList() {
   }));
 }
 
-// === Helper onboarding: check + emit pi_config_needed/ok (mirror server.ts:171) ===
-function piCheckAndNotify() {
-  const ok = fs.existsSync(authPath) && fs.existsSync(modelsPath);
-  sendNotification(ok ? "pi_config_ok" : "pi_config_needed", {});
-  return ok;
-}
 
 // === Request handlers ===
 const handlers: Record<string, (params: any) => Promise<any>> = {
@@ -429,18 +391,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   ] }),
 
   // === Onboarding Pi ===
-  // checkConfig + alias pi_check_config: emette pi_config_ok/needed
-  checkConfig: async () => { const configured = piCheckAndNotify(); return { configured }; },
-  pi_check_config: async () => { const configured = piCheckAndNotify(); return { configured }; },
 
-  createConfig: async () => {
-    fs.mkdirSync(agentDir, { recursive: true });
-    fs.writeFileSync(authPath, "{}", "utf8");
-    fs.writeFileSync(modelsPath, JSON.stringify({ providers: {} }, null, 2), "utf8");
-    sendNotification("pi_config_created", {});
-    return { created: true };
-  },
-  pi_create_config: async () => handlers.createConfig({}),
 
   createSession: async (p) => {
     const key = `pi-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -851,7 +802,6 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   listNotifications: async () => ({ notifications: piBridge!.listNotifications() }),
 // FIX P2 #16 (2026-09-08): rimossa RPC orfana _testAppendNotification (test-only, zero references)
   markAllNotificationsRead: async () => ({ ok: piBridge!.markAllNotificationsRead() }),
-  get_history: async (p) => handlers.getHistory(p),
 
   screenshot_response: async (p) => { try { (piBridge as any)?.resolveScreenshotRequest?.(p?.requestId || "", p); } catch {} return { ok: true }; },
   stopStream: async (p) => { if (piBridge && p?.sessionKey) piBridge.abort(p.sessionKey); return { success: true }; },
@@ -1086,9 +1036,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     return local;
   },
 
-  getDebugLog: async () => ({ log: piBridge!.getDebugLog() }),
   // B0.1 (S9): monitoring heap (bun:jsc)
-  getHeapStats: async () => ({ stats: piBridge ? await piBridge.getHeapStats() : null }),
   getDebugLogSince: async (p) => ({
     ...piBridge!.getDebugLogSince(typeof p.ts === "number" ? p.ts : 0),
   }),
@@ -1122,14 +1070,11 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     return { executions: all.slice(-(offset + limit)).slice(0, limit), total: all.length };
   },
   getExecution: async (p) => ({ execution: executor.get(String(p.executionId)) }),
-  getExecutionEvents: async (p) => ({ events: executor.events(String(p.executionId)) }),
   getExecutionMessages: async (p) => ({ messages: executor.messages(String(p.executionId)) }),
   cancelExecution: async (p) => { const r = await executor.cancel(String(p.executionId)); return r; },
   stopExecution: async (p) => { const r = await executor.stop(String(p.executionId)); return r; },
   deleteExecution: async (p) => ({ ...executor.remove(String(p.executionId)) }),
   updateExecution: async (p) => ({ ...executor.updateExecution(String(p.executionId), { model: p.model, thinkingLevel: p.thinkingLevel }) }),
-  resumeExecution: async (p) => ({ ...(await executor.resumeExecution(String(p.executionId))) }),
-  recoverExecutions: async (p) => ({ ...(await executor.recover(p.autoResume !== false)) }),
 
   // === A2.2: Scheduler ===
   listSchedules: async () => ({ schedules: scheduler.readSchedules() }),
@@ -1156,8 +1101,6 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   updateSchedule: async (p) => scheduler.updateSchedule(p),
   deleteSchedule: async (p) => scheduler.deleteSchedule(p),
   runScheduleNow: async (p) => ({ ...(await scheduler.runScheduleNow(p)) }),
-  debugLog: async (p) => { if (piBridge && p && typeof p.tag === 'string') piBridge.logDebug(p.tag, p.data); return { ok: true }; },
-  log_debug: async (p) => handlers.debugLog(p),
 
   // === MCP (Model Context Protocol) ===
   listMcpServers: async () => {
@@ -1228,16 +1171,6 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     saveMcpServers(servers);
     return { ok: true, server };
   },
-  updateMcpServer: async (p) => {
-    const id = String(p?.id || '').trim();
-    if (!id) return { ok: false, error: 'id is required.' };
-    const servers = readMcpServers();
-    const s = servers.find((x) => x.id === id);
-    if (!s) return { ok: false, error: 'MCP server not found.' };
-    if (typeof p?.planSafe === 'boolean') s.planSafe = p.planSafe;
-    saveMcpServers(servers);
-    return { ok: true, server: s };
-  },
   removeMcpServer: async (p) => {
     const id = String(p?.id || '').trim();
     if (!id) return { ok: false, error: 'id is required.' };
@@ -1300,17 +1233,6 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
       subs.push(sub);
       fs.writeFileSync(f, JSON.stringify(subs, null, 2));
       return { ok: true, count: subs.length };
-    } catch { return { ok: false }; }
-  },
-  pushUnsubscribe: async (p) => {
-    try {
-      const f = path.join(homedir(), '.quinki', 'push-subs.json');
-      let subs: any[] = [];
-      try { subs = JSON.parse(fs.readFileSync(f, 'utf8')) || []; } catch {}
-      const ep = String(p?.endpoint || '');
-      subs = subs.filter((x) => x && x.endpoint !== ep);
-      fs.writeFileSync(f, JSON.stringify(subs, null, 2));
-      return { ok: true };
     } catch { return { ok: false }; }
   },
   // Come il comando desktop copy_to_attachments: il file entra SUBITO nella
@@ -1420,8 +1342,6 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
       return { ok: true };
     } catch { return { ok: false }; }
   },
-  getPermissions: async () => piBridge!.getPermissions(),
-  setPermissions: async (p) => piBridge!.setPermissions(p || {}),
   setDefaultFallbacks: async (p) => {
     try {
       // NB: usa ~/.quinki (come SETTINGS_FILE di pi-bridge), NON agentDir di sidecar.ts
@@ -1544,49 +1464,15 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     const st = (globalThis as any).__quinki_oauth_state || {};
     return { token: st.token || "", pending: !!st.pending, error: st.error || "" };
   },
-  githubDeviceCode: async (p) => {
-    try {
-      const res = await fetch('https://github.com/login/device/code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ client_id: String(p?.clientId || ''), scope: String(p?.scope || 'repo') }),
-      });
-      const data = await res.json().catch(() => ({}));
-      return data;
-    } catch (e: any) { return { error: String(e?.message || e) }; }
-  },
-  githubDevicePoll: async (p) => {
-    try {
-      const res = await fetch('https://github.com/login/oauth/access_token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({
-          client_id: String(p?.clientId || ''),
-          device_code: String(p?.deviceCode || ''),
-          grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      return data;
-    } catch (e: any) { return { error: String(e?.message || e) }; }
-  },
   setMarketCatalog: async (p) => {
     try { (globalThis as any).__quinki_market_catalog = Array.isArray(p?.items) ? p.items : []; return { ok: true } }
     catch (e: any) { return { ok: false, error: String(e?.message || e) } }
   },
-  getAppVersion: async () => ({ version: getAppVersion() }),
   recoverPendingTurns: async () => {
     try {
       const n = await piBridge!.recoverPendingTurns();
       return { recovered: n };
     } catch (e: any) { return { recovered: 0, error: String(e?.message || e) }; }
-  },
-  getSidecarVersion: async () => {
-    try {
-      const p = path.join(path.dirname(process.execPath), "version.txt");
-      if (fs.existsSync(p)) return { version: fs.readFileSync(p, "utf8").trim() };
-    } catch {}
-    return { version: "unknown" };
   },
 
   getProvidersConfig: async () => getProvidersConfig(),
@@ -1599,11 +1485,8 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   subscriptionLogin: async (p) => subscriptionProviderLogin(String(p?.providerId || "")),
   subscriptionLogout: async (p) => subscriptionProviderLogout(String(p?.providerId || "")),
   subscriptionStatus: async (p) => subscriptionProviderStatus(String(p?.providerId || "")),
-  subscriptionRefresh: async (p) => subscriptionProviderRefresh(String(p?.providerId || "")),
-  subscriptionGetApiKey: async (p) => ({ apiKey: await subscriptionProviderGetApiKey(String(p?.providerId || "")) }),
   fetchProviderModels: async (p) => fetchProviderModelsIPC(p.providerName, p.baseUrl, p.apiKey),
   testProviderConnection: async (p) => testProviderConnectionIPC(p.providerName, p.baseUrl, p.apiKey),
-  getProviderApiKey: async (p) => ({ apiKey: getProviderApiKeyIPC(p.providerName) }),
   setSessionFallbacks: async (p) => piBridge!.setSessionFallbacks(String(p.sessionKey || ''), Array.isArray(p.models) ? p.models : []),
   ollamaCloudStatus: async () => ({ set: ollamaCloudKeySet() }),
   setOllamaCloudKey: async (p) => {
@@ -1710,30 +1593,6 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   // === APP ICON (6 ott): scelta icone pixel (q/E) condivisa tra Main ed Expert.
   // File unico ~/.quinki/app-icons.json scritto qui; il Rust delle due app la
   // APPLICA all'avvio e a caldo (Dock, tray, icns nel bundle). ===
-  getAppIcons: async () => {
-    try {
-      const f = path.join(homedir(), '.quinki', 'app-icons.json');
-      if (!fs.existsSync(f)) return {};
-      return JSON.parse(fs.readFileSync(f, 'utf-8'));
-    } catch { return {}; }
-  },
-  setAppIcons: async (p) => {
-    try {
-      const dir = path.join(homedir(), '.quinki');
-      fs.mkdirSync(dir, { recursive: true });
-      const f = path.join(dir, 'app-icons.json');
-      let cur: any = {}; try { cur = JSON.parse(fs.readFileSync(f, 'utf-8')); } catch {}
-      const nxt: any = { ...cur };
-      if (typeof p?.main === 'string' && /^main-(violet|dark|current)$/.test(p.main)) nxt.main = p.main;
-      if (typeof p?.expert === 'string' && /^expert-(orange|dark|current)$/.test(p.expert)) nxt.expert = p.expert;
-      fs.writeFileSync(f, JSON.stringify(nxt, null, 2), 'utf-8');
-      return nxt;
-    } catch (e: any) { return { error: e.message }; }
-  },
-  getHandoff: async (p) => { try { const f = path.join(homedir(), '.quinki', 'handoffs', String(p.chatKey || '').replace(/[^a-zA-Z0-9_-]/g, '_'), 'handoff.md'); if (!fs.existsSync(f)) return { content: '' }; return { content: fs.readFileSync(f, 'utf8') }; } catch (e: any) { return { content: '', error: e.message }; } },
-  saveHandoff: async (p) => { try { const d = path.join(homedir(), '.quinki', 'handoffs', String(p.chatKey || '').replace(/[^a-zA-Z0-9_-]/g, '_')); fs.mkdirSync(d, { recursive: true }); fs.writeFileSync(path.join(d, 'handoff.md'), String(p.content || ''), 'utf8'); return { success: true }; } catch (e: any) { return { success: false, error: e.message }; } },
-  getPlan: async (p) => { try { const f = path.join(homedir(), '.quinki', 'handoffs', String(p.chatKey || '').replace(/[^a-zA-Z0-9_-]/g, '_'), 'plan.md'); if (!fs.existsSync(f)) return { content: '' }; return { content: fs.readFileSync(f, 'utf8') }; } catch (e: any) { return { content: '', error: e.message }; } },
-  savePlan: async (p) => { try { const d = path.join(homedir(), '.quinki', 'handoffs', String(p.chatKey || '').replace(/[^a-zA-Z0-9_-]/g, '_')); fs.mkdirSync(d, { recursive: true }); fs.writeFileSync(path.join(d, 'plan.md'), String(p.content || ''), 'utf8'); return { success: true }; } catch (e: any) { return { success: false, error: e.message }; } },
   getFolders: async () => ({ folders: getFolders() }),
   setFolders: async (p) => setFolders(p.folders),
   moveSession: async (p) => {
@@ -1745,38 +1604,14 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     }
     return result;
   },
-  deleteSessionsByFolderId: async (p) => {
-    try {
-      const arr = getSessionsFromFile();
-      for (const s of arr) if ((s.folderId ?? null) === p.folderId) longHorizon.disable(String(s.key || ''));
-    } catch {}
-    return deleteSessionsByFolderIdIPC(p.folderId);
-  },
-  deleteSessionsByKeys: async (p) => {
-    try { for (const k of (p.keys || [])) longHorizon.disable(String(k)); } catch {}
-    return deleteSessionsByKeysIPC(p.keys);
-  },
 
   getFullDebugLog: async () => ({ log: getFullDebugLog() }),
   clearDebugLogFile: async () => clearDebugLogFile(),
 
   checkForPiUpdate: async () => checkForPiUpdate(),
-  updatePi: async () => updatePi(),
 
-  computePreflightStats: async (p) => computePreflightStats(p.messages || [], p.text, p.files, p.contextWindow || 0),
 
   // === Alias / stub per nomi usati dal Flutter ===
-  // update_last_read: in Electron era gestito da server.ts (WS). Pi-bridge non espone
-  // un metodo dedicato; stub (persistenza lastRead differita a M1). Il Flutter fa
-  // clear unread ottimistico, quindi l'UX è preservata.
-  update_last_read: async () => ({ success: true }),
-// FIX P2 #16: rimossa RPC orfana watch_session (stub Flutter legacy, zero references)
-  get_session_meta: async (p) => handlers.getSessionMeta(p),
-  get_thinking_levels: async (p) => handlers.getThinkingLevels(p),
-  get_context_usage: async (p) => handlers.getContextUsage(p),
-  get_all_context_usage: async () => handlers.getAllContextUsage(),
-
-  // === Agent management (Fase 1: tab Agenti) ===
   ...createAgentHandlers(agentDir, () => process.env.QUINKI_AGENT_CWD || path.join(homedir(), ".quinki", "workdir")),
 
   // === OVERRIDE agent-handlers: save API key to providers config too ===
@@ -1925,9 +1760,6 @@ async function handleLine(line: string) {
       const result = await handler(params);
       if (id != null) {
         sendResult(id, result);
-      } else if (notificationFor[method]) {
-        // P2: notify (no id) → emetti notifica mirror di server.ts
-        sendNotification(notificationFor[method], result);
       }
     } catch (e: any) {
       if (id != null) sendError(id, e.message || String(e));
@@ -2163,8 +1995,6 @@ async function bootstrap() {
     // #save() è chiamato esplicitamente da create(), setModel(), setChatAgents(), rename(), etc.
     // Un flush periodico causava data loss con sidecar multipli (stale data sovrascriveva fresh data).
     process.stderr.write("[sidecar-marker] stdout-filter-active\n");
-    // Onboarding check al boot (mirror server.ts)
-    piCheckAndNotify();
   } catch (err: any) {
     process.stderr.write(`Bootstrap error: ${err.message}\n${err.stack}\n`);
     sendNotification("error", { message: err.message });

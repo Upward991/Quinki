@@ -339,18 +339,6 @@ class PiBridge {
   // The pool can hold a STALE in-memory entry (the session was saved by ANOTHER
   // worker — e.g. ensureSession/setWorkingDir landed elsewhere). Before building a
   // turn, re-read the session's workingDir from the FILE: the truth is on disk.
-  #refreshWorkdirFromDisk(key: string): void {
-    try {
-      const data = JSON.parse(fs.readFileSync(SESSION_FILE, "utf8"));
-      const e = (Array.isArray(data) ? data : []).find((x: any) => x && x.key === key);
-      const wd = e && typeof (e as any).workingDir === "string" ? String((e as any).workingDir) : "";
-      if (wd && wd !== "undefined" && wd !== "null") {
-        const ent = this.#entries.get(key);
-        if (ent) (ent as any).workingDir = wd;
-        if (!this.#cwdOverride.get(key)) this.#cwdOverride.set(key, wd);
-      }
-    } catch {}
-  }
 
   #autoWorkDir(key: string): string {
     const safe = String(key || "session").replace(/[^a-zA-Z0-9_-]/g, "_");
@@ -2127,24 +2115,6 @@ class PiBridge {
   }
 
   // === B0.2 (S4): per i delete BULK — dispose SENZA riscrivere il file sessioni ===
-  removeDispose(key: string) {
-    try { markSessionDeleted(String(key)); } catch {}
-    this.#disposeSession(key, true);
-    this.#entries.delete(key);
-    this.#active.delete(key);
-    this.#wss.delete(key);
-    this.#unsubs.delete(key);
-    this.#prompts.delete(key);
-    this.#pendingModels.delete(key);
-    this.#pendingThinking.delete(key);
-    this.#pendingMode.delete(key);
-    this.#streamingBuffers.delete(key); try { this.#toolBusy.delete(key); } catch {}
-    this.#turnState.delete(key); this.#turnDirty.delete(key);
-    try {
-      const dir = this.#piSessionDir(key);
-      if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
-    } catch {}
-  }
 
 
   refreshModelRegistry(): void {
@@ -4362,16 +4332,6 @@ Read this file to view it.` }] };
     return perm;
   }
 
-  setPermissions(patch: any) {
-    const cur = this.getPermissions();
-    const next = { ...cur, ...(patch || {}) };
-    this.#permissions = next;
-    try {
-      fs.mkdirSync(this.#agentDir, { recursive: true });
-      fs.writeFileSync(path.join(this.#agentDir, "quinki-permissions.json"), JSON.stringify(next, null, 2), "utf8");
-    } catch {}
-    return next;
-  }
 
   // === A2.11B: verifica se un path è permesso (working dir sempre OK, altrimenti il flag globale) ===
   loadAuthorizedFolders(): string[] {
@@ -8575,10 +8535,8 @@ read, grep, glob, ls, write, edit, bash, skill. Usa \`bash\` per flutter/git/kil
             toolArgs: e.args,
             ts: Date.now(),
           });
-          ws.send(JSON.stringify({ type: "typing_broadcast", action: "tool_calling", sessionKey: key }));
           break;
         case "tool_execution_end": {
-          ws.send(JSON.stringify({ type: "typing_stop_broadcast", sessionKey: key }));
           const r = e.result;
           let resultText = "";
           try {
@@ -8731,7 +8689,6 @@ read, grep, glob, ls, write, edit, bash, skill. Usa \`bash\` per flutter/git/kil
                   if (_ok) {
                     fallbackSwitched = true;
                     this.logDebug("fallback-401-triggered", { sessionKey: key, from: _cur, to: _next });
-                    try { this.#sendToWs(this.#getSessionWs(key), { type: "fallback_notice", sessionKey: key, from: _cur, to: _next, ts: Date.now() }); } catch {}
                     // Riproduci l'ULTIMA domanda utente (dal jsonl) cosi' il fallback risponde
                     // alla richiesta originale, non a un messaggio di spiegazione.
                     let lastUserText = "";
@@ -8876,7 +8833,6 @@ if (!turnCompleted && lastStopReason && lastStopReason !== "toolUse" && !this.#s
               }
             } catch {}
           }
-          ws.send(JSON.stringify({ type: "typing_stop_broadcast", sessionKey: key }));
           this.#captureSessionMeta(key);
           this.#emitContextUsage(ws, key, "ctx-post-agent-end");
           try { this.logDebug("heap-stats-agent-end", this.getHeapStats()); } catch {}
@@ -9042,14 +8998,6 @@ if (!turnCompleted && lastStopReason && lastStopReason !== "toolUse" && !this.#s
           }
           break;
         }
-        case "queue_update":
-          this.#sendToWs(ws, {
-            type: "queue_update",
-            sessionKey: key,
-            steering: e.steering?.length || 0,
-            followUp: e.followUp?.length || 0,
-          });
-          break;
       }
     });
     this.#unsubs.set(key, sub);
@@ -9457,39 +9405,7 @@ export function moveSessionIPC(sessionKey: string, folderId: string | null, orde
   }
 }
 
-export function deleteSessionsByFolderIdIPC(folderId: string): { success: boolean; deletedCount: number; error?: string } {
-  try {
-    const arr = getSessionsFromFile();
-    const before = arr.length;
-    const next = arr.filter((s: any) => (s.folderId ?? null) !== folderId);
-    const deletedCount = before - next.length;
-    fs.writeFileSync(SESSION_FILE, JSON.stringify(next, null, 2), "utf8");
-    // B0.2 (S4): dispose le sessioni in RAM + elimina le dir (niente leak)
-    try {
-      const pb = getPiBridgeInstance();
-      if (pb && deletedCount > 0) {
-        for (const k of keys) { try { (pb as any).removeDispose?.(k); } catch {} }
-      }
-    } catch {}
-    return { success: true, deletedCount };
-  } catch (e: any) {
-    return { success: false, deletedCount: 0, error: e.message || String(e) };
-  }
-}
 
-export function deleteSessionsByKeysIPC(keys: string[]): { success: boolean; deletedCount: number; error?: string } {
-  try {
-    const arr = getSessionsFromFile();
-    const keySet = new Set(keys);
-    const before = arr.length;
-    const next = arr.filter((s: any) => !keySet.has(s.key));
-    const deletedCount = before - next.length;
-    fs.writeFileSync(SESSION_FILE, JSON.stringify(next, null, 2), "utf8");
-    return { success: true, deletedCount };
-  } catch (e: any) {
-    return { success: false, deletedCount: 0, error: e.message || String(e) };
-  }
-}
 
 // === TOMBSTONE sessioni eliminate (bug "ricompaiono nella sidebar") ===
 // Quando una sessione viene eliminata, scriviamo qui il suo key in modo persistente.
@@ -9543,24 +9459,6 @@ export function getSessionsFromFile(): any[] {
   }
 }
 
-export function getAppVersion() {
-  // Prima prova QUINKI_PKG (env var, usata dal sidecar standalone).
-  const pkgPath = process.env.QUINKI_PKG;
-  if (pkgPath) {
-    try {
-      const pkg = require(pkgPath);
-      return pkg.version || "0.0.0";
-    } catch {
-      // fallback sotto
-    }
-  }
-  try {
-    const pkg = require(path.join(__dirname, "../../package.json"));
-    return pkg.version || "0.0.0";
-  } catch {
-    return "0.0.0";
-  }
-}
 
 export function getProvidersConfig(): SafeProvidersConfig {
   return getSafeProvidersConfig();
@@ -10234,10 +10132,6 @@ export async function checkForPiUpdate(): Promise<{ current: string; latest: str
   return { current, latest: current, hasUpdate: false };
 }
 
-export function updatePi(): Promise<{ success: boolean; error?: string }> {
-  // === Fase A: Pi SDK embedded, update non disponibile ===
-  return Promise.resolve({ success: false, error: "Pi SDK è embedded (versione congelata). Aggiornamento non disponibile." });
-}
 
 
 export function getFullDebugLog(): { ts: number; tag: string; data: any }[] {

@@ -89,12 +89,7 @@ function useSidecar(url: string = 'ws://127.0.0.1:9182') {
   // === B4 POOL: connessioni DIRETTE ai worker (streaming senza passare dal router) ===
   const closedRef = useRef(false)
 
-  // === B4 POOL: FIX A4.3 — le connessioni dirette ai worker NON vengono più usate.
-  // Gli eventi streaming arrivano via la connessione MAIN (il router li inoltra).
-  // No-op: evita doppioni se la connessione diretta si stabilisse.
-  const setExtraUrls = useCallback((_urls: string[]) => {}, [url])
-
-  return { call, notify, ready, error, subscribe, setExtraUrls }
+  return { call, notify, ready, error, subscribe }
 }
 
 // ── helper: map session from sidecar format ──
@@ -230,7 +225,7 @@ function mergeHistoryMessages(history: any): any[] {
 }
 
 function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
-  const { call, notify, ready, subscribe, setExtraUrls } = useSidecar(sidecarUrl)
+  const { call, notify, ready, subscribe } = useSidecar(sidecarUrl)
   const [loading, setLoading] = useState(true)
   const [sessions, setSessions] = useState<any[]>([])
   const [agents, setAgents] = useState<any[]>([])
@@ -270,8 +265,6 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const [agentOverrides, setAgentOverrides] = useState<Record<string, { model?: string; thinkingLevel?: string }>>({})
   const [compactingSessions, setCompactingSessions] = useState<Set<string>>(new Set())
   const [sessionTokens, setSessionTokens] = useState<Record<string, { input: number; output: number }>>({})
-  const [debugLog, setDebugLog] = useState<any[]>([])
-  const [piConfigNeeded, setPiConfigNeeded] = useState(false)
   const [defaultAgentId, setDefaultAgentId] = useState<string>('quinki')
   // === Agente di default per le nuove chat (config globale → fallback quinki) ===
   useEffect(() => {
@@ -763,12 +756,6 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
     })
 
     // Session lifecycle
-    const unsubSessCreated = subscribe('session_created', () => {
-      call('getFullState', {}).then((r: any) => { if (r?.sessions) { setSessions(mapSessions(r.sessions)); try { const ports = Array.from(new Set((r.sessions || []).map((s: any) => s.workerPort).filter((p: number) => p > 0))); setExtraUrls(ports.map((p: number) => 'ws://127.0.0.1:' + p)) } catch {} } }).catch(() => {})
-      // FIX (31 ago): se siamo nella Quick Chat (webview separato), notifica la Main window
-      // via Tauri emit — la sidebar della Main deve vedere la nuova chat SUBITO.
-      try { if (typeof window !== 'undefined' && (window as any).__isQuickChat) { import('@tauri-apps/api/event').then(m => { try { m.emit('quinki-session-created', {}) } catch {} }) } } catch {}
-    })
 
     const unsubSessUpdated = subscribe('session_updated', (p: any) => {
       if (p?.sessionKey) {
@@ -786,19 +773,8 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
         call('getFullState', {}).then((r: any) => { if (r?.sessions) setSessions(mapSessions(r.sessions)) }).catch(() => {})
       }
     })
-    const unsubSessDeleted = subscribe('session_deleted', (p: any) => {
-      if (p?.sessionKey) {
-        setSessions(prev => prev.filter(s => s.id !== p.sessionKey))
-        if (activeSessionIdRef.current === p.sessionKey) { resetTransientState() }
-      }
-    })
 
     // Model updated
-    const unsubModelUpdate = subscribe('model_updated', (p: any) => {
-      if (p?.sessionKey) {
-        setSessions(prev => prev.map(s => s.id === p.sessionKey ? { ...s, model: p.model } : s))
-      }
-    })
 
     // Thinking updated
     const unsubThinkUpdate = subscribe('thinking_updated', (p: any) => {
@@ -811,14 +787,6 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
     })
 
     // Session meta
-    const unsubSessMeta = subscribe('session_meta', (p: any) => {
-      if (p?.sessionKey) {
-        setSessions(prev => prev.map(s => s.id === p.sessionKey ? {
-          ...s, model: p.model ?? s.model, thinkingLevel: p.thinkingLevel ?? s.thinkingLevel, mode: p.mode ?? s.mode,
-        } : s))
-        if (p.availableThinkingLevels) setThinkingLevels(p.availableThinkingLevels)
-      }
-    })
 
     // Message-ACK: il sidecar conferma la RICEZIONE del messaggio (prima riga del
     // suo send). La pill passa da 'Sending…' a 'Running': l'utente sa con certezza
@@ -867,21 +835,6 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
           setContextTokens(p.usage.tokens ?? p.usage.used ?? 0)
           if (p.usage.contextWindow || p.usage.window || p.usage.total) setContextWindow(p.usage.contextWindow ?? p.usage.window ?? p.usage.total)
         }
-      }
-    })
-    const unsubAllCtx = subscribe('all_context_usage', (p: any) => {
-      if (p?.usage) {
-        // Update context for active session
-        const sk = activeSessionId
-        if (sk && p.usage[sk]) {
-          setContextTokens(p.usage[sk].tokens || p.usage[sk].used || 0)
-          setContextWindow(p.usage[sk].window || p.usage[sk].total || 1000000)
-        }
-      }
-    })
-    const unsubModelCtx = subscribe('model_context', (p: any) => {
-      if (p?.modelId) {
-        // Could store model context windows
       }
     })
 
@@ -933,9 +886,6 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
     })
 
     // Debug log
-const unsubDebugLog = subscribe('debug_log', (p: any) => {
-      if (p?.log) setDebugLog(p.log)
-    })
 
 
     // Compaction status
@@ -970,17 +920,8 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     const unsubHistory = () => {}
 
     // Pi config
-    const unsubPiNeeded = subscribe('pi_config_needed', () => setPiConfigNeeded(true))
-    const unsubPiOk = subscribe('pi_config_ok', () => setPiConfigNeeded(false))
-    const unsubPiCreated = subscribe('pi_config_created', () => {
-      setPiConfigNeeded(false)
-      call('getFullState', {}).then((r: any) => { if (r?.sessions) setSessions(mapSessions(r.sessions)) }).catch(() => {})
-    })
 
     // Models list
-    const unsubModelsList = subscribe('models_list', (p: any) => {
-      if (p?.models) setModels(p.models)
-    })
 
     // Thinking start/delta/end (granular)
     // thinking_start/thinking_end removed — agent_status is the single source of truth for status pill
@@ -992,14 +933,12 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
 
     return () => {
       unsubUserMsg(); unsubMarketInstall(); unsubScreenshotReq(); unsubStream(); unsubStreamStart(); unsubStreamStop(); unsubDone(); unsubToolResult()
-      unsubSessCreated(); unsubSessUpdated(); unsubSessDeleted(); 
-      unsubModelUpdate(); unsubThinkUpdate(); unsubThinkLevels()
-      unsubSessMeta(); unsubAgentStatus(); unsubMsgAck()
-      unsubCtxUsage(); unsubAllCtx(); unsubModelCtx()
-      unsubDebugLog(); unsubCompaction(); unsubHistory()
+      unsubSessUpdated(); 
+      unsubThinkUpdate(); unsubThinkLevels()
+      unsubAgentStatus(); unsubMsgAck()
+      unsubCtxUsage()
+      unsubCompaction(); unsubHistory()
       unsubReadState(); unsubNotification()
-      unsubPiNeeded(); unsubPiOk(); unsubPiCreated()
-      unsubModelsList()
       unsubProgress()
     }
   }, [ready, subscribe, call])
@@ -1909,11 +1848,6 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     try { const r = await call('getSystemPrompt', { agentId }); return r?.prompt || '' } catch (e) { return '' }
   }, [ready, call])
 
-  const getStreamingStatus = useCallback(async (sessionKey: string) => {
-    if (!ready) return false
-    try { const r = await call('getStreamingStatus', { sessionKey }); return r?.streaming || false } catch (e) { return false }
-  }, [ready, call])
-
   const getStreamingMessage = useCallback(async (sessionKey: string) => {
     if (!ready) return null
     try { return await call('getStreamingMessage', { sessionKey }) } catch (e) { return null }
@@ -2060,7 +1994,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     // State
     connected: ready, loading, sessions, agents, providers, messages, chatLoading, folders, models, isCompacting,
     activeSessionId, isStreaming, statusLabel, statusKind, contextTokens, contextWindow,
-    thinkingLevels, agentStatus, compactingSessions, sessionTokens, debugLog, piConfigNeeded,
+    thinkingLevels, agentStatus, compactingSessions, sessionTokens,
     chatAgentIds, defaultAgentId, agentOverrides,
     // Sidebar
     sidebarSessions,
@@ -2085,7 +2019,7 @@ const unsubDebugLog = subscribe('debug_log', (p: any) => {
     // Context / models
     getModelContext, getContextUsage, getAllContextUsage,
     // History / errors
-    getChatErrors, getDelegations, getSystemPrompt, getStreamingStatus, getStreamingMessage,
+    getChatErrors, getDelegations, getSystemPrompt, getStreamingMessage,
     // Settings / config
     getSettings, saveSettings, getGlobalConfig, updateGlobalConfig, refreshDefaultAgent, checkForPiUpdate,
     // Logs

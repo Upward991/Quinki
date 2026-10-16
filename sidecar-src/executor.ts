@@ -523,13 +523,6 @@ export class ExecutionEngine {
 
 
   // Resume manuale (per la futura UI Calendar): riprende un'execution interrupted/resumable
-  async resumeExecution(id: string): Promise<{ ok: boolean; error?: string }> {
-    const st = this.get(id);
-    if (!st) return { ok: false, error: "not found" };
-    if (st.status !== "interrupted" && st.status !== "failed") return { ok: false, error: `status is ${st.status}` };
-    this.#resume(id).catch(() => {});
-    return { ok: true };
-  }
 
   // === A2.3: Recovery Manager vic1 (resume SEMANTICO) ===
   // Al boot + ogni 60s: execution running/queued con heartbeat stantio → interrupted →

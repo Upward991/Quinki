@@ -15,7 +15,6 @@ interface LogEntry {
 interface LogPanelProps {
   activePanel?: string
   onSelectPanel: (panel: string) => void
-  logs?: LogEntry[]
 }
 
 export function LogPanel(props: LogPanelProps) {
