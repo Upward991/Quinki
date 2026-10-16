@@ -191,11 +191,24 @@ export function LogPanel(props: LogPanelProps) {
     llm:      { bg: 'color-mix(in srgb, #d7be66 8%, transparent)', text: 'var(--q-text)', tag: '#d7be66', pill: '#d7be66' },
   }
 
-  const moreFilters = ['system', 'llm', 'success', 'bridge', 'renderer', 'info']
+  const moreFilters: string[] = []  // eliminati: solo 2 filtri utili (system prompt + thinking)
 
   const months = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december']
 
+  // === NUOVI FILTRI (16 ott, richiesta utente): SOLO 2 — system prompt + thinking ===
+  // system prompt = il system prompt inviato ad OGNI messaggio (anche deleghe/support agent)
+  // thinking = tutto il tracciamento dei livelli per provider (cosa richiesto, cosa inviato, caps, verifica)
   function deriveLevel(tag: string): string {
+    if (tag === "system_prompt") return "system prompt"
+    if (["thinking-trace","thinking-level-intent","thinking-http-intent","thinking-map-resolved","thinking-map-xhigh-fix","thinking-caps-applied","verify-thinking","agent_llm_config","thinking-level","thinking-translated","available-thinking-levels","ollama-levels-source","set-thinking","set-model","model-changed","ctx-post-agent-end","sending-thinking-levels"].includes(tag)) return "thinking"
+    return "other"
+  }
+  function deriveLevel_OLD2(tag: string): string {
+    if (tag === "system_prompt") return "system prompt"
+    if (["thinking-trace","thinking-level-intent","thinking-http-intent","thinking-map-resolved","thinking-map-xhigh-fix","thinking-caps-applied","verify-thinking","agent_llm_config","thinking-level","thinking-translated","available-thinking-levels","ollama-levels-source"].includes(tag)) return "thinking"
+    return "other"
+  }
+  function deriveLevel_OLD(tag: string): string {
     // Hide verbose technical logs
     if (tag.startsWith('ollama-probe-') || tag.startsWith('sync-') || tag.startsWith('model-registry') || tag.startsWith('ollama-info') || tag.startsWith('ollama-baseurl') || tag.startsWith('ollama-levels') || tag.startsWith('verify-thinking') || tag.startsWith('mapMessage')) return 'renderer'
     // Errors
@@ -298,7 +311,7 @@ export function LogPanel(props: LogPanelProps) {
   }
 
   const filtered = entries.filter((e) => {
-    // TUTTI i log sono visibili di default; i filtri SERVONO per restringere
+    // SENZA filtri: TUTTO visibile (100 globali). Con filtri: solo system prompt / thinking.
     const level = deriveLevel(e.tag)
     if (activeFilters.size > 0 && !activeFilters.has(level)) return false
     return true

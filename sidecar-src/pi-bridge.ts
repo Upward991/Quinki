@@ -4223,14 +4223,10 @@ Read this file to view it.` }] };
     return out.slice(-n)
   }
   #logLevelFor(tag: string): string {
-    if (tag.startsWith("ollama-probe-") || tag.startsWith("sync-") || tag.startsWith("model-registry") || tag.startsWith("ollama-info") || tag.startsWith("ollama-baseurl") || tag.startsWith("ollama-levels") || tag.startsWith("verify-thinking") || tag.startsWith("mapMessage")) return "renderer"
-    if (tag.startsWith("error") || tag.includes("error") || tag.includes("Error") || tag.includes("failed") || tag.includes("-error")) return "error"
-    if (tag.startsWith("warn") || tag.startsWith("warning") || tag === "retrying" || tag.includes("deprecat")) return "warn"
-    if (tag.startsWith("success") || tag.includes("done") || tag.includes("loaded") || tag.includes("initialized") || tag.includes("created")) return "success"
-    if (tag.startsWith("ui-") || tag.startsWith("ui:") || tag.includes("ui-click") || tag.includes("ui-nav") || tag.includes("ui-keyboard")) return "ui"
-    if (tag.startsWith("send-message") || tag.startsWith("set-agent") || tag.startsWith("set-mode") || tag.startsWith("set-thinking") || tag.startsWith("set-model") || tag.startsWith("chat-agents") || tag.startsWith("agent-changed") || tag.startsWith("model-changed") || tag.startsWith("thinking-changed") || tag.startsWith("mode-changed") || tag.startsWith("session-") || tag.startsWith("working-dir") || tag.startsWith("stream") || tag.startsWith("bridge") || tag.startsWith("get_") || tag.startsWith("ws:") || tag.startsWith("send:") || tag.startsWith("create") || tag.startsWith("delete") || tag.startsWith("update") || tag.startsWith("rename") || tag.startsWith("reload") || tag.startsWith("flush") || tag.startsWith("compact") || tag.startsWith("set-")) return "bridge"
-    if (tag === "agent_llm_config" || tag === "msg-content" || tag === "thinking-map-xhigh-fix" || tag === "thinking-map-resolved" || tag === "thinking-trace" || tag === "thinking-caps-applied" || tag === "response-thinking-verified" || tag === "thinking-level-intent" || tag === "thinking-http-intent") return "llm"
-    if (tag === "system_prompt") return "system"
+    // === 2 LIVELLI SOLO (16 ott): system prompt + thinking — il resto è rumore ===
+    if (tag === "system_prompt") return "system prompt"
+    if (["thinking-trace","thinking-level-intent","thinking-http-intent","thinking-map-resolved","thinking-map-xhigh-fix","thinking-caps-applied","verify-thinking","agent_llm_config","thinking-level","thinking-translated","available-thinking-levels","ollama-levels-source","set-thinking","set-model","model-changed","ctx-post-agent-end","sending-thinking-levels"].includes(tag)) return "thinking"
+    return "other"
     if (tag.startsWith("renderer") || tag.startsWith("sidecar-marker") || tag.startsWith("stdout")) return "renderer"
     return "info"
   }
