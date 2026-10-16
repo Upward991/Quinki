@@ -5,7 +5,7 @@ import { useSidecarContext } from '../shared/AppShell'
 import { ModelPickerModal, ThinkingPickerModal } from '../chat/ChatHeader'
 import { MessageBubble } from '../chat/MessageBubble'
 import { ChatArea } from '../chat/ChatArea'
-import { mergeHistoryMessages } from '../../utils/history'
+import {  } from '../../utils/history'
 import { Home, Checklist, Play, X, Trash2, Search, Plus, Filter, Check, ChevronDown, ChevronRight, PanelLeft, Maximize, Minimize, Pin } from '../icons'
 import { BottomSheet } from '../chat/BottomSheet'
 
@@ -237,46 +237,9 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const [deleteTask, setDeleteTask] = useState<{ items: { id: string; kind: 'sched' | 'exec'; title: string }[]; section?: string } | null>(null)
   const [selTasks, setSelTasks] = useState<Set<string>>(new Set())
   const [createTaskOpen, setCreateTaskOpen] = useState(false)
-  const [ctTitle, setCtTitle] = useState('')
-  const [ctText, setCtText] = useState('')
-  const [ctAgent, setCtAgent] = useState('orchestrator')
-  const [ctDate, setCtDate] = useState('')
-  const [ctTime, setCtTime] = useState('')
-  const [ctRecur, setCtRecur] = useState('once')
-  const [ctModel, setCtModel] = useState<string | null>(null)
-  const [ctThinking, setCtThinking] = useState<string | null>(null)
-  const [ctChat, setCtChat] = useState('')
   const [sessions, setSessions] = useState<{ key: string; label: string }[]>([])
   const [pickExisting, setPickExisting] = useState(false)
   const [pickSearch, setPickSearch] = useState('')
-  const [taskChat, setTaskChat] = useState<{ key: string; label: string; isNew: boolean } | null>(null)
-  const [tcMsgs, setTcMsgs] = useState<any[]>([])
-  const [tcStreaming, setTcStreaming] = useState(false)
-  const [tcModel, setTcModel] = useState('')
-  const [tcThinking, setTcThinking] = useState('xhigh')
-  const [tcMode, setTcMode] = useState('plan')
-  const [tcAgents, setTcAgents] = useState<string[]>(['orchestrator'])
-  const [tcTokens, setTcTokens] = useState(0)
-  const [tcWindow, setTcWindow] = useState(0)
-  const [tcInput, setTcInput] = useState(0)
-  const [tcOutput, setTcOutput] = useState(0)
-  const [tcProviders, setTcProviders] = useState<any[]>([])
-  const [tcAgentModal, setTcAgentModal] = useState(false)
-  const [tcAgentDropdownOpen, setTcAgentDropdownOpen] = useState(false)
-  const [tcSending, setTcSending] = useState(false)
-  const [tcText, setTcText] = useState('')
-  const [tcSession, setTcSession] = useState<any>(undefined)
-  const [tcStatusLabel, setTcStatusLabel] = useState('')
-  const [tcStatusKind, setTcStatusKind] = useState('')
-  const tcTimer = useRef<any>(null)
-  const tcChatRef = useRef<{ key: string; label: string; isNew: boolean } | null>(null)
-  const tcSigRef = useRef('')
-  const tcAgentsSigRef = useRef('')
-  const tcDefModel = useRef('')
-  const tcDefThinking = useRef('xhigh')
-  const tcDefMode = useRef('plan')
-  const tcModelsRef = useRef<any[]>([])
-  const [tcWorkingDir, setTcWorkingDir] = useState('')
   const [renamingView, setRenamingView] = useState<string | null>(null)
   const [renameVal, setRenameVal] = useState('')
   const [allHover, setAllHover] = useState(false)
@@ -295,8 +258,8 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const [whenTime, setWhenTime] = useState('')
   const [models, setModels] = useState<any[]>([])
   const [defaultThinking, setDefaultThinking] = useState('xhigh')
-  useEffect(() => { call('getModels').then((r: any) => { setModels(r?.models || []); tcModelsRef.current = (r?.models || []).map((m: any) => ({ id: m.id, name: m.name || m.id, contextWindow: m.contextWindow })) }).catch(() => {}) }, [call])
-  useEffect(() => { call('getProvidersConfig').then((r: any) => { if (r?.defaultThinking) setDefaultThinking(r.defaultThinking); if (r?.defaultModel) tcDefModel.current = r.defaultModel; if (r?.defaultMode) tcDefMode.current = r.defaultMode }).catch(() => {}) }, [call])
+  useEffect(() => { call('getModels').then((r: any) => { setModels(r?.models || []) }).catch(() => {}) }, [call])
+  useEffect(() => { call('getProvidersConfig').then((r: any) => { if (r?.defaultThinking) setDefaultThinking(r.defaultThinking) }).catch(() => {}) }, [call])
   const [multiSel, setMultiSel] = useState(false)
   const [selViews, setSelViews] = useState<Set<string>>(new Set())
   const rootRef = useRef<HTMLDivElement>(null)
@@ -634,168 +597,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   const renameView = (id: string, name: string) => { const nm = name.trim(); if (!nm) { setRenamingView(null); setRenameVal(''); return } persist(views.map(x => x.id === id ? { ...x, name: nm } : x)); setRenamingView(null); setRenameVal('') }
   const doDelete = (targets: ViewCfg[]) => { const ids = new Set(targets.map(t => t.id)); const rem = views.filter(x => !ids.has(x.id)); persist(rem); if (ids.has(activeId)) setActiveId(rem[0]?.id || BASE_ID); setDeleteViews(null); setMultiSel(false); setSelViews(new Set()) }
   const doDeleteTask = (t: { items: { id: string; kind: 'sched' | 'exec' }[] }) => { setDeleteTask(null); act(async () => { for (const it of t.items) { if (it.kind === 'sched') await call('deleteSchedule', { id: it.id }); else await call('deleteExecution', { executionId: it.id }) } setSelTasks(new Set()) }) }
-  const doCreateTask = async () => {
-    const title = ctTitle.trim()
-    if (!title) return
-    setCreateTaskOpen(false)
-    try {
-      let chatKey = ctChat
-      let chatLabel = ''
-      if (!chatKey) {
-        const r: any = await call('createSession', { label: 'Task: ' + title, agentId: ctAgent, model: ctModel || undefined, thinkingLevel: ctThinking || undefined, mode: 'plan' })
-        chatKey = r?.key || ''
-        chatLabel = r?.label || 'Task: ' + title
-      } else {
-        chatLabel = sessions.find(s => s.key === chatKey)?.label || chatKey
-      }
-      const sourceSession = chatKey ? { key: chatKey, label: chatLabel } : undefined
-      const text = ctText.trim() || title
-      const dd = parseFlexDate(ctDate)
-      const tt = parseFlexTime(ctTime)
-      if (dd && tt) {
-        const nd = dd.getFullYear() + '-' + String(dd.getMonth() + 1).padStart(2, '0') + '-' + String(dd.getDate()).padStart(2, '0')
-        const nt = String(tt.h).padStart(2, '0') + ':' + String(tt.m).padStart(2, '0') + ':' + String(tt.sec).padStart(2, '0')
-        await call('createSchedule', { title, agentIds: [ctAgent], when: ctRecur === 'once' ? { type: 'once', date: nd + 'T' + nt } : { type: ctRecur, at: nt }, model: ctModel || undefined, thinkingLevel: ctThinking || undefined, sourceSession })
-      } else {
-        await call('runTask', { label: title, agentIds: [ctAgent], text, model: ctModel || undefined, thinkingLevel: ctThinking || undefined, sourceSession })
-      }
-    } catch {}
-    refresh()
-  }
   // === A2.9 parte 2 (nuovo flusso): Create task → scegli chat → mini-chat per schedulare ===
-  const tcLoad = useCallback(async (chat: { key: string; label: string; isNew: boolean }) => {
-    if (!chat.isNew && chat.key) {
-      try {
-        const h: any = await call('getHistory', { sessionKey: chat.key })
-        const msgs = mergeHistoryMessages(h)
-        const sig = msgs.map((m: any) => (m.id || '') + ':' + (m.timestamp || '') + ':' + String(m.content || '').length).join('|')
-        if (sig !== tcSigRef.current) { tcSigRef.current = sig; setTcMsgs(msgs) }
-      } catch {}
-      try { const ss: any = await call('getStreamingStatus', {}); setTcStreaming((ss?.streamingKeys || []).includes(chat.key)) } catch {}
-      try {
-        const meta: any = await call('getSessionMeta', { sessionKey: chat.key })
-        if (meta) {
-          if (meta.model) setTcModel(meta.model)
-          if (meta.thinkingLevel) setTcThinking(meta.thinkingLevel)
-          if (meta.mode) setTcMode(meta.mode)
-          const ids = meta.agentId ? String(meta.agentId).split(',').filter(Boolean) : ['orchestrator']
-          if (ids.join(',') !== tcAgentsSigRef.current) { tcAgentsSigRef.current = ids.join(','); setTcAgents(ids) }
-        }
-      } catch {}
-      try {
-        const ctx: any = await call('getContextUsage', { sessionKey: chat.key })
-        const u = ctx?.usage || ctx
-        if (u) { if (u.tokens != null) setTcTokens(u.tokens); if (u.contextWindow || u.window) setTcWindow(u.contextWindow || u.window); if (typeof u.input === 'number') setTcInput(u.input); if (typeof u.output === 'number') setTcOutput(u.output) }
-      } catch {}
-    } else {
-      // Chat nuova: NON resettare le scelte dell'utente (agenti, mode, directory, modello)
-      // I default sono già impostati in openTaskChat — qui solo messaggi/streaming
-      setTcMsgs([])
-      setTcStreaming(false)
-    }
-  }, [call])
-  const startTcTimer = () => {
-    clearInterval(tcTimer.current)
-    tcTimer.current = setInterval(() => { if (tcChatRef.current) tcLoad(tcChatRef.current) }, 3000)
-  }
-  const openTaskChat = (key: string, label: string, isNew: boolean) => {
-    const chat = { key, label, isNew }
-    tcChatRef.current = chat
-    setTaskChat(chat)
-    setTcMsgs([])
-    setTcStreaming(false)
-    setTcText('')
-    setTcSession(isNew ? undefined : { id: key, title: label, type: 'chat', updatedAt: new Date().toISOString(), order: Date.now(), messageCount: 0, agents: [], model: '', thinkingLevel: '', mode: 'plan', folderId: null, parentId: null, compactionAuto: true, compactionThreshold: 80, agentId: '' })
-    if (isNew) {
-      // Dati SUBITO (come la welcome chat della tab chat): default da localStorage + contextWindow dal modello
-      let st: any = {}
-      try { st = JSON.parse(localStorage.getItem('quinki-settings') || '{}') } catch {}
-      const dm = st.defaultModel || tcDefModel.current || ''
-      setTcModel(dm)
-      setTcThinking(st.defaultThinking || tcDefThinking.current || 'xhigh')
-      setTcMode(st.defaultMode || tcDefMode.current || 'plan')
-      setTcAgents([])
-      setTcTokens(0); setTcInput(0); setTcOutput(0)
-      if (dm) { const mm = models.find((x: any) => x.id === dm); setTcWindow(mm?.contextWindow || 0) }
-    }
-    if (!isNew) startTcTimer()
-    call('getProvidersConfig').then(async (r: any) => {
-      if (r?.defaultModel) tcDefModel.current = r.defaultModel
-      if (r?.defaultThinking) tcDefThinking.current = r.defaultThinking
-      if (r?.defaultMode) tcDefMode.current = r.defaultMode
-      const modelsResult: any = await call('getModels').catch(() => ({}))
-      tcModelsRef.current = (modelsResult?.models || []).map((m: any) => ({ id: m.id, name: m.name || m.id, contextWindow: m.contextWindow }))
-      const modelsByProvider: Record<string, any[]> = {}
-      for (const m of (modelsResult?.models || [])) {
-        const pr = m.provider || 'unknown'
-        if (!modelsByProvider[pr]) modelsByProvider[pr] = []
-        modelsByProvider[pr].push({ id: m.id, name: m.name || m.id, contextWindow: m.contextWindow })
-      }
-      const providerList: any[] = []
-      if (r?.providers) {
-        for (const [id, p] of Object.entries(r.providers) as [string, any][]) {
-          providerList.push({ id, name: id, type: p.api || 'ollama', apiKeyStatus: 'configured', models: modelsByProvider[id] || [], enabled: p.enabled !== false, enabledModels: p.enabledModels || [], baseUrl: p.baseUrl || '' })
-        }
-      }
-      for (const [id, mods] of Object.entries(modelsByProvider)) {
-        if (!providerList.find((p: any) => p.id === id)) providerList.push({ id, name: id, type: 'unknown', apiKeyStatus: 'missing', models: mods, enabled: true, baseUrl: '' })
-      }
-      setTcProviders(providerList)
-    }).catch(() => {})
-    tcLoad(chat)
-  }
-  const closeTaskChat = () => {
-    clearInterval(tcTimer.current)
-    tcTimer.current = null
-    tcChatRef.current = null
-    setTaskChat(null)
-    setTcAgentModal(false)
-    refresh()
-  }
-  const tcSend = async (text: string) => {
-    const chat = tcChatRef.current
-    if (!chat || tcStreaming || tcSending) return
-    const t = text.trim()
-    if (!t) return
-    setTcText('')
-    setTcSending(true)
-    try {
-      let key = chat.key
-      if (!key) {
-        const r: any = await call('createSession', { label: 'New chat', agentId: tcAgents[0] || undefined, model: tcModel || undefined, thinkingLevel: tcThinking || undefined, mode: tcMode })
-        key = r?.key || ''
-        chat.key = key
-        // Passa SUBITO alla sessione nuova (isNew false → la welcome sparisce)
-        const newChat = { ...chat, key, isNew: false }
-        tcChatRef.current = newChat
-        setTaskChat(newChat)
-        props.onSessionCreated?.(key)
-        startTcTimer()
-        setTcSession({ id: key, title: 'New chat', type: 'chat', updatedAt: new Date().toISOString(), order: Date.now(), messageCount: 0, agents: tcAgents, model: tcModel, thinkingLevel: tcThinking, mode: tcMode, folderId: null, parentId: null, compactionAuto: true, compactionThreshold: 80, agentId: tcAgents.join(',') })
-      }
-      // Fire-and-forget: NON bloccare il passaggio alla sessione nuova (la risposta arriva via poll)
-      call('sendMessage', { sessionKey: key, text: t, agentId: tcAgents[0] || undefined, model: tcModel || undefined, mode: tcMode || undefined, thinkingLevel: tcThinking || undefined, workingDir: tcWorkingDir || undefined }).catch(() => {})
-      // Mostra subito il messaggio utente (poi tcLoad lo sostituisce con la history vera)
-      setTcMsgs(prev => [...prev, { id: 'local-' + Date.now(), role: 'user', content: t, timestamp: new Date().toISOString() }])
-      // Aggiorna il titolo con l'auto-titolo generato dal sidecar
-      try { const meta: any = await call('getSessionMeta', { sessionKey: key }); if (meta?.label) setTcSession(prev => prev ? { ...prev, title: meta.label } : prev) } catch {}
-      if (tcChatRef.current) tcLoad(tcChatRef.current)
-    } catch {}
-    setTcSending(false)
-  }
-  const tcAgentToggle = (id: string) => {
-    const chat = tcChatRef.current
-    if (!chat) return
-    const next = tcAgents.includes(id) ? tcAgents.filter(x => x !== id) : [...tcAgents, id]
-    setTcAgents(next)
-    if (chat.key) call('setChatAgents', { sessionKey: chat.key, agentIds: next.join(',') }).catch(() => {})
-  }
-  useEffect(() => {
-    if (!taskChat) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeTaskChat() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [taskChat])
   const hasActiveFilters = f.agents.length > 0 || f.chats.length > 0
   const filterChips = (filterBarOpen || hasActiveFilters) ? [
     React.createElement(FilterChip, { key: 'fA', label: 'Agent', values: f.agents, options: agents, onChange: (v: string[]) => patchF({ agents: v }) }),
@@ -803,7 +605,7 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
   ] : []
   const toolbar = locked ? null : React.createElement('div', { key: 'tb', style: { display: 'flex', flexDirection: 'column', padding: '4px 0 8px 0' } }, [
     React.createElement('div', { key: 'row', style: { display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' } }, [
-    React.createElement('button', { key: 'addtask', title: 'Create task', onClick: () => { setCtTitle(''); setCtText(''); setCtAgent(agents[0]?.id || 'orchestrator'); setCtDate(''); setCtTime(''); setCtRecur('once'); setCtModel(null); setCtThinking(null); setCtChat(''); setPickSearch(''); setCreateTaskOpen(true); refresh() }, style: { display: 'flex', alignItems: 'center', gap: 5, height: 30, boxSizing: 'border-box', padding: '0 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)', cursor: 'pointer', whiteSpace: 'nowrap' } }, 'Create task'),
+    React.createElement('button', { key: 'addtask', title: 'Create task', onClick: () => { setPickSearch(''); setCreateTaskOpen(true); refresh() }, style: { display: 'flex', alignItems: 'center', gap: 5, height: 30, boxSizing: 'border-box', padding: '0 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)', cursor: 'pointer', whiteSpace: 'nowrap' } }, 'Create task'),
     React.createElement('span', { key: 'grow', style: { flex: 1 } }),
     (!mob && searchOpen) ? React.createElement('div', { key: 'siw', style: { position: 'relative', flexShrink: 0 } }, [
       React.createElement('input', { key: 'si', autoFocus: true, value: f.q, onChange: (e: any) => patchF({ q: e.target.value }), onKeyDown: (e: any) => { if (e.key === 'Escape') { patchF({ q: '' }); setSearchOpen(false) } }, placeholder: 'Search activities...', style: { width: 240, height: 30, padding: '0 28px 0 12px', boxSizing: 'border-box', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'var(--q-bg-elevated)', color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)' } }),
@@ -892,17 +694,5 @@ export function CalendarView(props: { activePanel: string; onSelectPanel: (p: st
       ]),
     ])) : null,
 
-    tcAgentModal ? React.createElement('div', { key: 'agm', style: { position: 'fixed', inset: 0, zIndex: 320, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: () => setTcAgentModal(false) }, React.createElement('div', { onClick: (e: any) => e.stopPropagation(), style: { width: 420, maxHeight: '70vh', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: 16, display: 'flex', flexDirection: 'column', gap: 8 } }, [
-      React.createElement('div', { key: 't', style: { color: 'var(--q-text)', fontSize: 15, fontWeight: 600, fontFamily: 'var(--font-interface)' } }, 'Agents in chat'),
-      React.createElement('div', { key: 'lst', style: { maxHeight: 360, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 3 } }, [
-        (agents || []).map((a: any) => React.createElement('label', { key: a.id, style: { display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: 14, fontFamily: 'var(--font-interface)', color: 'var(--q-text)', backgroundColor: tcAgents.includes(a.id) ? 'var(--q-active)' : 'transparent' } }, [
-          React.createElement('input', { key: 'c', type: 'checkbox', onClick: (e: any) => e.stopPropagation(), checked: tcAgents.includes(a.id), onChange: () => tcAgentToggle(a.id), style: { accentColor: 'var(--q-tab-accent)', cursor: 'pointer' } }),
-          React.createElement('span', { key: 'l' }, a.name || a.id),
-        ])),
-      ]),
-      React.createElement('div', { key: 'b', style: { display: 'flex', justifyContent: 'flex-end' } }, [
-        React.createElement('button', { key: 'c', onClick: () => setTcAgentModal(false), onMouseEnter: (e: any) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }, onMouseLeave: (e: any) => { e.currentTarget.style.backgroundColor = 'transparent' }, style: { padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: 13, fontFamily: 'var(--font-interface)', fontWeight: 400, cursor: 'pointer' } }, 'Close'),
-      ]),
-    ])) : null,
   ])
 }
