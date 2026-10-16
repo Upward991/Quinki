@@ -54,6 +54,8 @@ const CONTEXT_USAGE_FILE = path.join(_agentDir, "quinki-context-usage.json");
 const ERRORS_FILE = path.join(_agentDir, "quinki-errors.json");
 const DEBUG_LOG_FILE = path.join(_agentDir, "quinki-debug.log");
 const DEBUG_LOG_MAX = 200;
+// Cap ASSOLUTO del file di debug: MAI oltre 10.000 righe, nemmeno con l'app aperta (trim runtime in flush).
+const DEBUG_LOG_MAX_LINES = 10000;
 const SESSION_BASE = path.join(_agentDir, "sessions", "quinki");
 
 // === ROLE + OWNER.LOCK (niente porte hardcoded: il ruolo è esplicito via QUINKI_ROLE) ===
@@ -404,6 +406,8 @@ class PiBridge {
   #cwd: string;
   #debugLog: { ts: number; tag: string; data: any }[] = [];
   #debugMax = DEBUG_LOG_MAX;
+  #debugLogLines = 0;
+  #debugCapBytes = 4 * 1024 * 1024;
   #debugLogBuffer: string[] = [];
   #debugFlushTimer: ReturnType<typeof setInterval> | null = null;
   #ollamaBaseUrl: string = "http://localhost:11434";
@@ -425,6 +429,17 @@ class PiBridge {
     }
     this.#load();
     this.#loadReadState();
+    // conteggio righe del debug log (per il cap a 10.000 anche a runtime)
+    try {
+      if (fs.existsSync(DEBUG_LOG_FILE)) {
+        const _raw = fs.readFileSync(DEBUG_LOG_FILE, "utf8");
+        const _lines = _raw.split("\n").filter((l) => l.trim().length > 0);
+        this.#debugLogLines = _lines.length;
+        const _avg = _lines.length ? Math.ceil(_raw.length / _lines.length) : 300;
+        this.#debugCapBytes = Math.min(16 * 1024 * 1024, Math.max(1024 * 1024, _avg * DEBUG_LOG_MAX_LINES));
+        if (_lines.length > DEBUG_LOG_MAX_LINES) this.#trimDebugLogFile();
+      }
+    } catch {}
     this.#loadOllamaBaseUrl();
     // B0.1 (S9): monitoring heap — log periodico ogni 60s
     this.#startHeapStatsLog();
@@ -4142,6 +4157,36 @@ Read this file to view it.` }] };
     this.#debugLogBuffer = [];
     try {
       fs.writeFile(DEBUG_LOG_FILE, data, { flag: "a" }, () => {});
+    } catch {}
+    try { this.#debugLogLines += data.split("\n").filter((l) => l.trim().length > 0).length; } catch {}
+    this.#enforceDebugLogCap();
+  }
+
+  // === Cap ASSOLUTO 10.000 righe sul file di debug (MAI oltre, anche con l'app aperta):
+  // ad ogni flush si controlla il contatore e (se serve) i byte reali del file (così vale
+  // anche quando a scrivere sono altri processi: main ✗ expert ✗ worker del pool).
+  #enforceDebugLogCap(): void {
+    try {
+      if (this.#debugLogLines > DEBUG_LOG_MAX_LINES) return this.#trimDebugLogFile();
+      try {
+        const st = fs.statSync(DEBUG_LOG_FILE);
+        if (st.size <= this.#debugCapBytes) return;
+      } catch {}
+      this.#trimDebugLogFile();
+    } catch {}
+  }
+
+  #trimDebugLogFile(): void {
+    try {
+      if (!fs.existsSync(DEBUG_LOG_FILE)) return;
+      const raw = fs.readFileSync(DEBUG_LOG_FILE, "utf8");
+      const lines = raw.split("\n").filter((l) => l.trim().length > 0);
+      this.#debugLogLines = lines.length;
+      if (lines.length > DEBUG_LOG_MAX_LINES) {
+        fs.writeFileSync(DEBUG_LOG_FILE, lines.slice(-DEBUG_LOG_MAX_LINES).join("\n") + "\n", "utf8");
+        this.#debugLogLines = DEBUG_LOG_MAX_LINES;
+        this.logDebug("debug-log-trimmed", { kept: DEBUG_LOG_MAX_LINES, was: lines.length });
+      }
     } catch {}
   }
 

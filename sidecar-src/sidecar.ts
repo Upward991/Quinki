@@ -1952,13 +1952,6 @@ async function bootstrap() {
       const debugFile = path.join(agentDir, "quinki-debug.log");
       if (fs.existsSync(debugFile)) {
         const s = fs.statSync(debugFile);
-        // Cap a 10.000 log su disco (~4MB con righe medie 400B): sistema che SVUOTA e non accumula oltre.
-        const MAX_LINES=10000
-        const lines = readFileSync(debugFile, "utf8").split("\n").filter((l: string) => l.trim().length > 0)
-        if (lines.length > MAX_LINES) {
-          try { writeFileSync(debugFile, lines.slice(-MAX_LINES).join("\n") + "\n", "utf8") } catch {}
-          process.stderr.write(`[sidecar-marker] debug-log-trimmed to ${MAX_LINES}\n`)
-        }
         if (s.size > 15 * 1024 * 1024) {
           const old = debugFile + ".old";
           if (fs.existsSync(old)) fs.rmSync(old, { force: true });
