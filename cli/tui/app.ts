@@ -35,7 +35,7 @@ import {
   visibleWidth,
 } from "../../sidecar-src/vendor/@earendil-works/pi-tui/dist/index.js";
 
-import { C, fg, bg, bgKeepPanel, collapsed, counterColor, blend, bold, italicStyle , panelBgWrap } from "./theme";
+import { C, fg, bg, bgKeepPanel, collapsed, counterColor, blend, bold, italicStyle , panelBgWrap, contrastText, rgbOf } from "./theme";
 
 // Engine (bundled at build time — literal specifiers only).
 import * as sdk from "../../sidecar-src/vendor/@earendil-works/pi-coding-agent/dist/index.js";
@@ -544,13 +544,33 @@ class UserBubble {
   text: string;
   dateStr: string;
   chips: Array<{ kind: string; name: string }>;
+  // MESSAGGI AUTOMATICI (stessa logica dell'app, 16 ott): il motore marca i messaggi
+  // con un carattere invisibile \u2063 + tipo. r = sistema/recovery (accent della
+  // conversazione), l = Long Horizon (viola, testo chiaro), t = prompt task (teal,
+  // testo scuro), x = messaggio app (rosso su pannello). Il marcatore viene tolto.
+  kind: "sys" | "lh" | "task" | "apperr" | null;
   constructor(text: string, dateStr: string, chips?: Array<{ kind: string; name: string }>) {
-    this.text = text;
+    const raw = String(text || "");
+    const tag = raw.startsWith("\u2063") ? raw[1] : "";
+    this.kind = tag === "l" ? "lh" : tag === "t" ? "task" : tag === "x" ? "apperr" : (tag ? "sys" : null);
+    this.text = this.kind ? raw.slice(2) : raw;
     this.dateStr = dateStr;
     this.chips = Array.isArray(chips) ? chips : [];
   }
   render(width: number): string[] {
     const inner = Math.max(6, width - 4);
+    // Colori della bubble (identici all'app): bg per tipo + testo per contrasto.
+    const expertUi = C.primary === C.expert;
+    const bgC = this.kind === "lh" ? C.longhorizon
+      : this.kind === "task" ? C.calendar
+      : this.kind === "sys" ? (expertUi ? C.expert : C.info)
+      : this.kind === "apperr" ? C.bgPanel
+      : C.bubbleUser;
+    const txtC = this.kind === "lh" ? C.text
+      : this.kind === "apperr" ? C.danger
+      : (this.kind === "task" || this.kind === "sys") ? contrastText(bgC)
+      : C.text;
+    const ftC = this.kind ? blend(txtC, bgC, 0.72) : C.textSecondary;
     const hardWrap = (t: string, w: number): string[] => {
       const out: string[] = [];
       let cur = "";
@@ -577,17 +597,17 @@ class UserBubble {
         // T480: NEVER the triangle, even for old messages saved with it: a
         // "▸name" token shows as the bare name (the app's look).
         const shown = isSkill ? m2 : m2.replace(/^\u25b8/, "");
-        return "\x1b[48;2;" + bgRgb + "m\x1b[38;2;8;8;11m" + shown + "\x1b[48;2;26;26;32m\x1b[38;2;232;232;236m";
+        return "\x1b[48;2;" + bgRgb + "m\x1b[38;2;8;8;11m" + shown + "\x1b[48;2;" + rgbOf(bgC) + "m\x1b[38;2;" + rgbOf(txtC) + "m";
       });
       const fill = Math.max(0, inner - visibleWidth(painted)); // width of the PAINTED text
-      return bg(C.bubbleUser, "  " + painted + " ".repeat(fill + 2));
+      return bg(bgC, "  " + fg(txtC, painted) + " ".repeat(fill + 2));
     };
-    const blank = () => bg(C.bubbleUser, " ".repeat(width));
+    const blank = () => bg(bgC, " ".repeat(width));
     const out: string[] = [];
     out.push(blank()); // top padding row
     for (const l of lines) out.push(full(l));
     out.push(blank()); // spacer before the footer
-    out.push(bg(C.bubbleUser, "  " + fg(C.textSecondary, this.dateStr) + " ".repeat(Math.max(2, inner - visibleWidth(this.dateStr) + 2))));
+    out.push(bg(bgC, "  " + fg(ftC, this.dateStr) + " ".repeat(Math.max(2, inner - visibleWidth(this.dateStr) + 2))));
     out.push(blank()); // bottom padding row
     return out;
   }

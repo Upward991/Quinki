@@ -36,6 +36,8 @@ export const C = {
   warning: "#d29922", // --q-accent-warning
   success: "#6bc46d", // --q-accent-success
   delegation: "#c97084", // --q-delegation
+  longhorizon: "#8B7FD4", // --q-accent-longhorizon (Long Horizon bubbles)
+  calendar: "#7fd1c0", // --q-accent-calendar (Tasks bubbles / tab Tasks)
   statusWriting: "#e8e8ec",
   statusCompacting: "#7aa2f7",
   statusRunning: "#5a8c9e",
@@ -45,6 +47,17 @@ export const C = {
 function hexToRgb(hex: string): [number, number, number] {
   const h = hex.replace("#", "");
   return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+
+/** Raw "r;g;b" sequence for hand-built ANSI (chip restore inside bubbles). */
+export const rgbOf = (hex: string): string => hexToRgb(hex).join(";");
+
+/** App rule (src/utils/contrast.ts): luminance > 0.55 -> dark text, else white.
+ *  Used for the colored auto bubbles (tasks teal / system accent). */
+export function contrastText(hex: string): string {
+  const [r, g, b] = hexToRgb(hex);
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return lum > 0.55 ? "#1a1a1a" : "#ffffff";
 }
 
 export function blend(hex: string, over: string = C.bg, alpha: number): string {
