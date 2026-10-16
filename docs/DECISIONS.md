@@ -111,4 +111,4 @@ Notifications (All/Messages/Tasks/Muted per chat) and unread markers use persist
 
 ---
 
-*Decisions live next to their studies: `docs/B0-indagine-performance.md`, `docs/B0c-virtualizzazione-design.md`, `docs/A2.5b-CONCORRENZA-STUDIO.md`, `docs/B4-STUDIO-PROCESS-POOL.md`, `docs/A4-MARKETPLACE-STUDIO.md` document the analysis that preceded each implementation.*
+*Decisions live next to their studies: the design/analysis studies that preceded each implementation (performance, virtualization, concurrency, process pool, marketplace) are kept in the project archive.*
