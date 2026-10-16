@@ -86,3 +86,9 @@ src-tauri/resources/sidecar/fcm-service-account.json
 
 # Internal dev notes (private — never publish)
 /internal/
+
+# Bundle generati del sidecar (rigenerati da scripts/bundle-sidecar.mjs — mai in git)
+sidecar-src/ws-bridge-bundle.cjs
+sidecar-src/ws-bridge-bundle.js
+sidecar-src/sidecar-bundle.cjs
+sidecar-src/pi-bridge-bundle.cjs

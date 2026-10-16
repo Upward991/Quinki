@@ -19,7 +19,12 @@ cp -R dist-web/. src-tauri/resources/sidecar/web/
 # niente dipendenza da server locali.
 if [ -d android/dist ]; then
   mkdir -p src-tauri/resources/sidecar/web/apk
-  cp android/dist/*.apk src-tauri/resources/sidecar/web/apk/ 2>/dev/null || true
+  # SOLO gli ultimi 2 APK (main + expert, i piu' recenti): prima si copiava
+  # l'intera cartella storica e il bundle si gonfiava con decine di APK vecchi.
+  LATEST_MAIN=$(ls -t android/dist/Quinki_Android_*.apk 2>/dev/null | head -1)
+  LATEST_EXPERT=$(ls -t android/dist/Quinki_Expert_Android_*.apk 2>/dev/null | head -1)
+  [ -n "$LATEST_MAIN" ] && cp "$LATEST_MAIN" src-tauri/resources/sidecar/web/apk/
+  [ -n "$LATEST_EXPERT" ] && cp "$LATEST_EXPERT" src-tauri/resources/sidecar/web/apk/
 fi
 # Versione del bundle web (hash di index.html): le app Android la controllano a
 # ogni apertura e si RICARICANO da sole quando il Mac ha qualcosa di nuovo.
