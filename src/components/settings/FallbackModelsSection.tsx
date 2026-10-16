@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Trash } from '../icons'
-import { Gh } from './SettingsPanel'
+import { Gh } from './ModelDropdown'
 
 /**
  * FEATURE fallback 401: selettore modelli di fallback per nuove chat.

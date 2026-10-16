@@ -183,14 +183,9 @@ function getVapidKeys(): { publicKey: string; privateKey: string } {
 function sendWebPush(entry: any) {
   const sk = String(entry?.sessionKey || entry?.sourceSession?.key || '');
   // REGOLA (identica al desktop): push SOLO se la chat non e' mutata.
-  // La fonte di verita' e' lo stato di lettura del piBridge (notifyMode).
-  try {
-    const st = (piBridge as any)?.getAllReadStates ? (piBridge as any).getAllReadStates() : null;
-    const mode = st && sk ? (st[sk] && st[sk].notifyMode) || 'none' : 'none';
-    if (mode === 'none') return;
-  } catch { return }
-  // Stessa regola cross-device anche per la web push (PWA del telefono).
-  if (isWatched(sk)) return;
+    // L1 (16 ott): decisione CONDIVISA con pushNotifyOut — una sola fonte di verita'
+    // (notifyMode del piBridge + watching live).
+    if (!pushDecision(sk).ok) return;
   try {
     const sf = path.join(homedir(), '.quinki', 'push-subs.json');
     let subs: any[] = [];
@@ -217,18 +212,8 @@ function sendWebPush(entry: any) {
     if (!targets.length) return;
     const vapid = getVapidKeys();
     webpush.setVapidDetails('mailto:quinki@localhost', vapid.publicKey, vapid.privateKey);
-    // Titolo IDENTICO al desktop: nome della chat (App Expert per la chat expert),
-    // fallback "A response arrived / New response".
-    let title = sk === '__app_expert__' ? 'App Expert' : '';
-    if (!title) {
-      // Nel sidecar il titolo della chat vive in `label` e la chiave in `key`
-      // (la prima versione cercava id/title -> fallback "New response").
-      try {
-        const ss = (piBridge as any)?.getSessions?.() || [];
-        const ses = ss.find?.((x: any) => (x?.key === sk) || (x?.id === sk));
-        title = ses?.label || ses?.title || 'New response';
-      } catch { title = 'New response'; }
-    }
+    // Titolo condiviso (L1): una sola implementazione per entrambi i percorsi.
+      const title = notifyTitle(sk)
     const payload = JSON.stringify({
       title,
       body: String(entry?.body || entry?.label || 'A response arrived'),
@@ -296,6 +281,18 @@ function pushDecision(sk: string): { ok: boolean; mode: string; watched: boolean
   return { ok: mode !== 'none' && !watched, mode, watched };
 }
 try { (globalThis as any).__quinkiPushDecision = pushDecision } catch {}
+
+  // Titolo notifica CONDIVISO (L1, 16 ott): prima era duplicato parola-per-parola in
+  // sendWebPush e pushNotifyOut. Stessa regola del desktop: nome chat, App Expert per
+  // la chat expert, fallback 'New response'.
+  function notifyTitle(sk: string): string {
+    if (sk === '__app_expert__') return 'App Expert';
+    try {
+      const ss = (piBridge as any)?.getSessions?.() || [];
+      const ses = ss.find?.((x: any) => (x?.key === sk) || (x?.id === sk));
+      return ses?.label || ses?.title || 'New response';
+    } catch { return 'New response' }
+  }
 // Diagnostica: ogni decisione push finisce in ~/.quinki/push-debug.log
 function pdbg(ev: string, data: any): void {
   try {
@@ -314,14 +311,8 @@ function pushNotifyOut(entry: any): void {
     const _d = pushDecision(sk);
     pdbg('fire', { sk, mode: _d.mode, watched: _d.watched, ok: _d.ok });
     if (!_d.ok) return;
-    let title = sk === '__app_expert__' ? 'App Expert' : '';
-    if (!title) {
-      try {
-        const ss = (piBridge as any)?.getSessions?.() || [];
-        const ses = ss.find?.((x: any) => (x?.key === sk) || (x?.id === sk));
-        title = ses?.label || ses?.title || 'New response';
-      } catch { title = 'New response'; }
-    }
+    // Titolo condiviso (L1): una sola implementazione per entrambi i percorsi.
+      const title = notifyTitle(sk)
     const body = String(entry?.body || entry?.label || 'A response arrived');
     const params = { title, body, sessionKey: sk, ts: Date.now() };
     _pushQueue.push(params);

@@ -14,7 +14,6 @@ import {} from '@dnd-kit/sortable'
 import { useSidecarContext } from '../shared/AppShell'
 import { ModelPickerModal, ThinkingPickerModal } from '../chat/ChatHeader'
 import { MessageBubble } from '../chat/MessageBubble'
-import { ChatArea } from '../chat/ChatArea'
 import {} from '../../utils/history'
 import {
   Home,

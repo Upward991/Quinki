@@ -33,6 +33,27 @@ Quinki/
 └── src-tauri/            # Rust: windows, tray, dialogs, install/update, Expert sync
 ```
 
+## Feature → files (where things live)
+
+A quick map to find the code of each feature.
+
+| Feature | Frontend | Engine (sidecar-src) / shell |
+|---|---|---|
+| Chat: streaming, agents, modes, slash menu | `src/components/chat/` (`ChatArea`, `ChatHeader`, `Composer`, `MessageBubble`, `SlashMenu`, `BottomSheet`) + `src/hooks/useSidecarData.ts` | `pi-bridge.ts` (sessions, streaming, tool hooks) |
+| Sessions & sidebar (pin, rename, delete) | `src/components/sidebar/Sidebar.tsx` | `pi-bridge.ts` (session store, `~/.quinki/sessions`) |
+| Tasks & calendar (schedules, runs, reports) | `src/components/calendar/CalendarView.tsx` | `scheduler.ts`, `executor.ts`, `task-reports.ts` |
+| Long Horizon (phases, handoff) | phase buttons inside `chat/`, report in chat | `longhorizon.ts` |
+| Agents (prompt, skills, MCP, tools, delegation) | `src/components/agents/AgentsPanel.tsx` | `agent-handlers.ts`, `pi-bridge.ts` |
+| Settings (providers, models, keys, permissions, remote) | `src/components/settings/` (`SettingsPanel`, `OllamaCloudPanel`, `OpenRouterPanel`, `RemoteAccessPanel`, `ProviderDnD`, `FallbackModelsSection`, `ModelDropdown`) | `providers.ts`, `models.ts`, `crypto.ts` |
+| Log panel (System Prompt / Thinking / LLM Catalog) | `src/components/log/LogPanel.tsx` | log ring in `pi-bridge.ts` + `sidecar-ws.ts` |
+| Home, themes, wordmark | `src/components/home/` | — (`src/index.css` = design system) |
+| Marketplace (tabs, agents, skills, MCP, themes) | `src/components/marketplace/`, `src/marketActions.ts`, `src/marketRemote.ts` | `tab-plugins.ts` |
+| Web app & PWA (browser / phone) | `src/platform/web/` | `sidecar-ws.ts` (HTTP + uploads), `scripts/sync-web.sh` |
+| CLI (`quinki`) | `cli/tui/` | `cli/main.ts` (SDK client) |
+| Tray, windows, updater, Expert app sync | — | `src-tauri/src/lib.rs` |
+| Remote access / tunnel | `src/components/settings/RemoteAccessPanel.tsx` | `tools/tsnet-tunnel/` |
+| Android apps (quinki / expert flavors) | `android/` | — |
+
 ## Build from source
 
 ```bash
