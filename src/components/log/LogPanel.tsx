@@ -87,9 +87,7 @@ export function LogPanel(props: LogPanelProps) {
     const hasFilter = Array.from(activeFilters).length > 0
     const fetchInitial = () => {
       lastTs = 0
-      const m = hasFilter
-        ? call('getFilteredLog', { levels: Array.from(activeFilters), limit: 100 })
-        : call('getDebugLogBefore', { from: 9e15, limit: 100 })
+      const m = call('getFilteredLog', { levels: hasFilter ? Array.from(activeFilters) : THREE, limit: 100 })
       return m.then((r: any) => {
         const items = (r && (r.log || r.entries)) ? (r.log || r.entries) : []
         if (disposed) return
@@ -143,9 +141,7 @@ export function LogPanel(props: LogPanelProps) {
     setTimeout(() => { loadingOlderRef.current = false }, 600)
     // Con filtri attivi: ultimi 100 DEL FILTRO più vecchi (anche di una settimana fa ✓)
     // Senza filtri: ultimi 100 globali. Sempre 100 in 100, come le chat.
-    const m = Array.from(activeFilters).length > 0
-      ? call('getFilteredBefore', { levels: Array.from(activeFilters), from: oldest.ts, limit: 100 })
-      : call('getDebugLogBefore', { from: oldest.ts, limit: 100 })
+    const m = call('getFilteredBefore', { levels: currentLevels(), from: oldest.ts, limit: 100 })
     m.then((r: any) => {
       if (r?.entries?.length) {
         setEntries(prev => {
@@ -198,9 +194,22 @@ export function LogPanel(props: LogPanelProps) {
   // thinking = tutto il tracciamento dei livelli per provider (cosa richiesto, cosa inviato, caps, verifica)
   function deriveLevel(tag: string): string {
     if (tag === "system_prompt") return "System Prompt"
-    if (["thinking-trace","thinking-level-intent","thinking-http-intent","thinking-map-resolved","thinking-map-xhigh-fix","thinking-caps-applied","verify-thinking","agent_llm_config","thinking-level","thinking-translated","available-thinking-levels","ollama-levels-source","set-thinking","set-model","model-changed","ctx-post-agent-end","sending-thinking-levels"].includes(tag)) return "thinking"
+    if (tag === "llm-catalog") return "LLM Catalog"
+    if (["thinking-trace","thinking-level-intent","thinking-http-intent","thinking-map-resolved","thinking-map-xhigh-fix","thinking-caps-applied","verify-thinking","agent_llm_config","thinking-level","thinking-translated","available-thinking-levels","ollama-levels-source","set-thinking","set-model","model-changed","ctx-post-agent-end","sending-thinking-levels"].includes(tag)) return "Thinking"
     return "other"
   }
+
+  // I 3 tipi (senza filtri = ultimi 100 dei 3 tipi; con filtri = ultimi 100 dei filtri attivi).
+  const THREE = ['System Prompt', 'Thinking', 'LLM Catalog']
+  const currentLevels = () => (activeFilters.size > 0 ? Array.from(activeFilters) : THREE)
+  const reloadLog = (cb?: (n: number) => void) => {
+    if (!call) return
+    call('getFilteredLog', { levels: currentLevels(), limit: 100 }).then((r: any) => {
+      const items = (r && (r.entries || r.log)) || []
+      setEntries(items.slice(-100)); try { cb?.(items.length) } catch {}
+    }).catch(() => {})
+  }
+
 
   function formatPayload(data: any): string {
     if (data == null) return ''
@@ -410,16 +419,14 @@ export function LogPanel(props: LogPanelProps) {
           <div style={{ width: '4px', flexShrink: 0 }} />
           <HeaderBtn label="refresh" icon={<RefreshCw size={14} />} onClick={() => {
             if (!call) return
-            call('getFullDebugLog', {}).then((r: any) => {
-              if (r && r.log) setEntries(r.log.slice(-100))
-            }).catch(() => {})
+            reloadLog()
           }} />
           <div style={{ width: '4px', flexShrink: 0 }} />
           <HeaderBtn label="live" icon={<Pulse size={14} />} active={liveMode} onClick={() => {
             const nv = !liveMode
             setLiveMode(nv)
             // appena attivo: refresh immediato così si vede subito l'ultima realtà
-            if (nv && call) call('getFullDebugLog', {}).then((r: any) => { if (r && r.log) setEntries(r.log.slice(-100)) }).catch(() => {})
+            if (nv) reloadLog()
           }} />
           <div style={{ width: '4px', flexShrink: 0 }} />
           <HeaderBtn label="clear" icon={<Trash size={14} />} onClick={() => setShowClear(true)} />
@@ -655,8 +662,8 @@ export function LogPanel(props: LogPanelProps) {
           items={[
             { icon: <Download size={18} />, label: 'export all', onSelect: () => { setActionsSheet(false); setShowExport(true) } },
             { icon: <Copy size={18} />, label: 'copy', onSelect: () => { setActionsSheet(false); const md = filtered.map((e) => `### [${deriveLevel(e.tag)}] ${fmtTimestampFull(e.ts)}\n**Tag:** ${e.tag}\n\n${formatPayload(e.data)}\n`).join(`\n---\n\n`); navigator.clipboard.writeText(md) } },
-            { icon: <RefreshCw size={18} />, label: 'refresh', onSelect: () => { setActionsSheet(false); if (call) { call('getFullDebugLog', {}).then((r: any) => { if (r && r.log) setEntries(r.log.slice(-100)) }).catch(() => {}) } } },
-            { icon: <Pulse size={18} />, label: 'live', value: liveMode ? 'on' : 'off', onSelect: () => { const nv = !liveMode; setLiveMode(nv); if (nv && call) { call('getFullDebugLog', {}).then((r: any) => { if (r && r.log) setEntries(r.log.slice(-100)) }).catch(() => {}) } } },
+            { icon: <RefreshCw size={18} />, label: 'refresh', onSelect: () => { setActionsSheet(false); reloadLog() } },
+            { icon: <Pulse size={18} />, label: 'live', value: liveMode ? 'on' : 'off', onSelect: () => { const nv = !liveMode; setLiveMode(nv); if (nv) reloadLog() } },
             { icon: <Trash size={18} />, label: 'clear', onSelect: () => { setActionsSheet(false); setShowClear(true) } },
             ...moreFilters.slice().reverse().map((level) => {
               const c = levelColors[level]?.pill || 'var(--q-text-tertiary)'
