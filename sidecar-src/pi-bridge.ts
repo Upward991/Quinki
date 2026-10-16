@@ -3551,6 +3551,24 @@ class PiBridge {
         if (!hasMarker) { this.logDebug("recovery-skip", { sessionKey: sk, reason: "no-pending-marker" }); continue; }
         // Belt: un marker più vecchio di 24h = fossile (interruzione di giorni fa):
         // non ri-promptare chat antiche all'apertura dell'app.
+        // FIX 16 ott (falso "app interrupted", metodo giusto): il marker contiene il PID del processo
+        // che sta girando il turno. PID VIVO (anche di un WORKER del pool) = turno suo → il recovery
+        // non lo tocca. PID MORTO = interruzione vera → si recupera. Ogni cosa vive nel SUO worker.
+        try {
+          const mRaw = JSON.parse(fs.readFileSync(p, "utf8") || "{}");
+          const mPid = Number(mRaw?.pid || 0);
+          if (mPid && mPid !== process.pid) {
+            let alive = false;
+            try { process.kill(mPid, 0); alive = true; } catch (_e: any) { alive = (_e?.code === "EPERM"); }
+            if (alive) {
+              this.logDebug("recovery-skip", { sessionKey: sk, reason: "owner-alive", ownerPid: mPid });
+              continue;
+            }
+          }
+        } catch (e: any) {
+          this.logDebug("recovery-skip", { sessionKey: sk, reason: "owner-alive-check-error", error: e?.message });
+          continue;
+        }
         try {
           const mAge = Date.now() - fs.statSync(p).mtimeMs;
           if (mAge > 24 * 60 * 60 * 1000) {
@@ -3806,7 +3824,7 @@ class PiBridge {
           } catch {}
           const prompt = hasOrig ? "The app was interrupted while processing. Please continue and complete your response." : origText;
           // Incrementa e scrive la SCALA: 1,2,3 a +60s; poi 300s, 900s, 1800s
-          if (!marker) marker = { text: markerText || prompt, ts: Date.now(), retries: 0 };
+          if (!marker) marker = { pid: process.pid, text: markerText || prompt, ts: Date.now(), retries: 0 };
           marker.retries = retries + 1;
           const gaps = [60000, 60000, 60000, 300000, 900000, 1800000];
           const gap = gaps[Math.min(marker.retries, gaps.length) - 1];
@@ -3873,7 +3891,7 @@ class PiBridge {
         }
       } catch {}
       const prompt = hasOrig ? "The app was interrupted while processing. Please continue and complete your response." : (markerText || "Please continue.");
-      if (!marker) marker = { text: markerText || prompt, ts: Date.now(), retries: 0 };
+      if (!marker) marker = { pid: process.pid, text: markerText || prompt, ts: Date.now(), retries: 0 };
       marker.retries = retries + 1;
       try { fs.writeFileSync(p, JSON.stringify(marker), "utf8"); } catch {}
       this.logDebug("pending-turn-recover-mid", { sessionKey: sk, retry: retries + 1, text: prompt.slice(0, 60) });
