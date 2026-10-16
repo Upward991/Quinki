@@ -2486,7 +2486,7 @@ class PiBridge {
           const realTokens = u.tokens ?? prev?.tokens ?? null;
           const realPercent = u.percent ?? (realTokens != null && u.contextWindow > 0 ? (realTokens / u.contextWindow) * 100 : (prev?.percent ?? null));
           const stored = { tokens: realTokens, contextWindow: u.contextWindow ?? 0, percent: realPercent, model: s?.model, input: prev?.input || 0, output: prev?.output || 0, ts: Date.now() };
-          // zittito: logDebug("context-usage-computed", {
+          // zittito: // zittito: logDebug("context-usage-computed", {
             sessionKey: key,
             modelId: s?.model,
             tokens: stored.tokens,
@@ -2508,7 +2508,7 @@ class PiBridge {
         const cached = this.#contextUsage.get(key);
         const tokens = cached?.tokens ?? null;
         const percent = tokens != null ? (tokens / info.contextLength) * 100 : null;
-        this.// zittito: logDebug("context-usage-computed", { sessionKey: key, modelId, tokens, contextWindow: info.contextLength, percent, source: "ollama-probe" });
+        this.// zittito: // zittito: logDebug("context-usage-computed", { sessionKey: key, modelId, tokens, contextWindow: info.contextLength, percent, source: "ollama-probe" });
         return { tokens, contextWindow: info.contextLength, percent, input: (cached as any)?.input || 0, output: (cached as any)?.output || 0 };
       }
       // Fallback: se Ollama non ha restituito context_length, usa models.json
@@ -2518,13 +2518,13 @@ class PiBridge {
         const cached = this.#contextUsage.get(key);
         const tokens = cached?.tokens ?? null;
         const percent = tokens != null ? (tokens / m.contextWindow) * 100 : null;
-        this.// zittito: logDebug("context-usage-computed", { sessionKey: key, modelId, tokens, contextWindow: m.contextWindow, percent, source: "models-json-fallback" });
+        this.// zittito: // zittito: logDebug("context-usage-computed", { sessionKey: key, modelId, tokens, contextWindow: m.contextWindow, percent, source: "models-json-fallback" });
         return { tokens, contextWindow: m.contextWindow, percent, input: (cached as any)?.input || 0, output: (cached as any)?.output || 0 };
       }
     }
     const cached = this.#contextUsage.get(key);
     if (cached && cached.contextWindow > 0) {
-      this.// zittito: logDebug("context-usage-computed", { sessionKey: key, modelId: cached.model, tokens: cached.tokens, contextWindow: cached.contextWindow, percent: cached.percent, source: "persisted" });
+      this.// zittito: // zittito: logDebug("context-usage-computed", { sessionKey: key, modelId: cached.model, tokens: cached.tokens, contextWindow: cached.contextWindow, percent: cached.percent, source: "persisted" });
       return { tokens: cached.tokens, contextWindow: cached.contextWindow, percent: cached.percent, input: (cached as any).input || 0, output: (cached as any).output || 0 };
     }
     return null;
@@ -3650,14 +3650,14 @@ class PiBridge {
         if (onlyKey && sk !== onlyKey) continue; // recovery SOLO della sessione aperta
         const p = path.join(base, sk, "pending-turn.json");
         const hasMarker = fs.existsSync(p);
-        this.// zittito: logDebug("recovery-scan-session", { sessionKey: sk, hasMarker, isExpert });
+        this.// zittito: // zittito: logDebug("recovery-scan-session", { sessionKey: sk, hasMarker, isExpert });
         // === T460 (regola utente): NIENTE RECOVERY SENZA IL MARKER VERO ===
         // Il recovery on-open parte ad ogni getHistory (l'app che apre una chat o
         // ne carica l'anteprima) => recoverOnWorker => SPAWN del worker owner.
         // Aprire l'app faceva nascere un worker per ogni chat => 16 worker dal nulla.
         // Il marker pending-turn.json = l'UNICA prova di un turno interrotto: senza
         // marker non c'è nulla da recuperare e NON si spawna niente.
-        if (!hasMarker) { this.// zittito: logDebug("recovery-skip", { sessionKey: sk, reason: "no-pending-marker" }); continue; }
+        if (!hasMarker) { this.// zittito: // zittito: logDebug("recovery-skip", { sessionKey: sk, reason: "no-pending-marker" }); continue; }
         // Belt: un marker più vecchio di 24h = fossile (interruzione di giorni fa):
         // non ri-promptare chat antiche all'apertura dell'app.
         // FIX 16 ott (falso "app interrupted", metodo giusto): il marker contiene il PID del processo
@@ -3670,18 +3670,18 @@ class PiBridge {
             let alive = false;
             try { process.kill(mPid, 0); alive = true; } catch (_e: any) { alive = (_e?.code === "EPERM"); }
             if (alive) {
-              this.// zittito: logDebug("recovery-skip", { sessionKey: sk, reason: "owner-alive", ownerPid: mPid });
+              this.// zittito: // zittito: logDebug("recovery-skip", { sessionKey: sk, reason: "owner-alive", ownerPid: mPid });
               continue;
             }
           }
         } catch (e: any) {
-          this.// zittito: logDebug("recovery-skip", { sessionKey: sk, reason: "owner-alive-check-error", error: e?.message });
+          this.// zittito: // zittito: logDebug("recovery-skip", { sessionKey: sk, reason: "owner-alive-check-error", error: e?.message });
           continue;
         }
         try {
           const mAge = Date.now() - fs.statSync(p).mtimeMs;
           if (mAge > 24 * 60 * 60 * 1000) {
-            this.// zittito: logDebug("recovery-skip", { sessionKey: sk, reason: "stale-marker-24h", ageMs: mAge });
+            this.// zittito: // zittito: logDebug("recovery-skip", { sessionKey: sk, reason: "stale-marker-24h", ageMs: mAge });
             continue;
           }
         } catch {}
@@ -3689,7 +3689,7 @@ class PiBridge {
         // L'Expert sidecar gestisce SOLO __app_expert__: le sessioni della main non
         // vengono nemmeno aperte/lette qui (prima chiamavamo getHistory su ogni
         // sessione → l'Expert toccava/attivava le sessioni della main e pesava come la main).
-        if (isExpert && sk !== "__app_expert__") { this.// zittito: logDebug("recovery-skip", { sessionKey: sk, reason: "non-app-expert-su-expert-sidecar" }); continue; }
+        if (isExpert && sk !== "__app_expert__") { this.// zittito: // zittito: logDebug("recovery-skip", { sessionKey: sk, reason: "non-app-expert-su-expert-sidecar" }); continue; }
         // === POOL OWNERSHIP (29 ago — fix autoprompt-fantasma) ===
         // Il recovery gira SU OGNI processo del pool (main + worker). Ogni processo
         // deve recuperare SOLO le sessioni di cui è OWNER. Senza questa guardia, il
@@ -3719,7 +3719,7 @@ class PiBridge {
             this.logDebug("recovery-boot-spawn-worker", { sessionKey: sk, owner: ownerPool(sk), note: "main spawna il worker owner, worker recovera da solo" });
             continue; // ← IL FIX: main NON processa, spawna e continua
           } else {
-            this.// zittito: logDebug("recovery-skip", { sessionKey: sk, reason: "pool-not-my-session", myIndex: poolIndex(), owner: ownerPool(sk) });
+            this.// zittito: // zittito: logDebug("recovery-skip", { sessionKey: sk, reason: "pool-not-my-session", myIndex: poolIndex(), owner: ownerPool(sk) });
             continue;
           }
         }
@@ -3731,8 +3731,8 @@ class PiBridge {
           // nella Main — qualunque cosa dicano i probe del sidecar. Il processo app è
           // vivo anche mentre il sidecar riparte (sync/update) — è lì che i turni
           // venivano rubati durante le finestre di restart.
-          if (isExpertAppProcessRunning()) { this.// zittito: logDebug("recovery-skip", { sessionKey: sk, reason: "expert-app-processo-vivo" }); continue; }
-          if (isExpertAlive()) { this.// zittito: logDebug("recovery-skip", { sessionKey: sk, reason: "app-expert-non-expert-sidecar" }); continue; }
+          if (isExpertAppProcessRunning()) { this.// zittito: // zittito: logDebug("recovery-skip", { sessionKey: sk, reason: "expert-app-processo-vivo" }); continue; }
+          if (isExpertAlive()) { this.// zittito: // zittito: logDebug("recovery-skip", { sessionKey: sk, reason: "app-expert-non-expert-sidecar" }); continue; }
           // FIX (11 set, utente): app Expert CHIUSA → NESSUN restart sta arrivando —
           // la grazia lunga (15s) proteggeva le finestre di restart del sync, ma
           // quelle avvengono SOLO con l'app APERTA (già skippata sopra). Con l'app
@@ -3740,7 +3740,7 @@ class PiBridge {
           // main e per 15 secondi non vedeva lo streaming ("non prende lo streaming").
           // Ora: 2s appena per confermare che è tutto davvero giù, poi adozione.
           const confirmedDead = await isExpertConfirmedDead(2000);
-          if (!confirmedDead) { this.// zittito: logDebug("recovery-skip", { sessionKey: sk, reason: "app-expert-riapparso-durante-grace" }); continue; }
+          if (!confirmedDead) { this.// zittito: // zittito: logDebug("recovery-skip", { sessionKey: sk, reason: "app-expert-riapparso-durante-grace" }); continue; }
           this.logDebug("recovery-expert-down-main-recovers", { sessionKey: sk });
         }
         // Recovery ROBUSTO: anche SENZA marker, se l'ultimo messaggio nel jsonl è un
@@ -3818,12 +3818,12 @@ class PiBridge {
           try {
             const tst0 = this.#turnState.get(sk);
             if (tst0 && tst0.pending > 0) {
-              this.// zittito: logDebug("recovery-skip", { sessionKey: sk, reason: "turn-pending-send" });
+              this.// zittito: // zittito: logDebug("recovery-skip", { sessionKey: sk, reason: "turn-pending-send" });
               continue;
             }
           } catch {}
           if (this.#streamingBuffers.has(sk)) {
-            this.// zittito: logDebug("recovery-skip", { sessionKey: sk, reason: "turn-active" });
+            this.// zittito: // zittito: logDebug("recovery-skip", { sessionKey: sk, reason: "turn-active" });
             continue;
           }
           // FIX (31 ago — STEERING BUG): durante lo steering il Pi SDK può scrivere
@@ -3838,7 +3838,7 @@ class PiBridge {
               const lastAct = this.#entries.get(sk)?.lastActivity || 0;
               const inactive = Date.now() - lastAct;
               if (inactive < 10000) {
-                this.// zittito: logDebug("recovery-skip", { sessionKey: sk, reason: "pi-streaming-active", inactiveMs: inactive });
+                this.// zittito: // zittito: logDebug("recovery-skip", { sessionKey: sk, reason: "pi-streaming-active", inactiveMs: inactive });
                 continue;
               } else {
                 this.logDebug("recovery-force-stale-streaming", { sessionKey: sk, inactiveMs: inactive });
@@ -3846,7 +3846,7 @@ class PiBridge {
             }
           } catch {}
           // Salta se l'utente ha premuto STOP (non ri-promptare)
-          if (this.#stoppedSessions.has(sk)) { this.// zittito: logDebug("recovery-skip", { sessionKey: sk, reason: "stopped" }); continue; }
+          if (this.#stoppedSessions.has(sk)) { this.// zittito: // zittito: logDebug("recovery-skip", { sessionKey: sk, reason: "stopped" }); continue; }
           // FIX F3 (02 set): il vecchio limite "retries >= 3" è RIMOSSO — faceva scattare il
           // silenzio PRIMA del cap-6, rendendo irraggiungibile il messaggio finale visibile.
           // Ora la scala completa arriva fino al 6° tentativo e lì l'utente vede l'errore.
@@ -3887,7 +3887,7 @@ class PiBridge {
                 const lastA = [...hist.slice(uIdx + 1)].reverse().find((m: any) => m.role === "assistant");
                 const answered = !!lastA && (lastA.stopReason === "stop" || lastA.stopReason === "length");
                 if (answered) {
-                  this.// zittito: logDebug("recovery-skip", { sessionKey: sk, reason: "already-answered" });
+                  this.// zittito: // zittito: logDebug("recovery-skip", { sessionKey: sk, reason: "already-answered" });
                   try { const mp2 = path.join(this.#piSessionDir(sk), "pending-turn.json"); if (fs.existsSync(mp2)) fs.unlinkSync(mp2); } catch {}
                   continue;
                 }
@@ -3901,13 +3901,13 @@ class PiBridge {
             const sp = path.join(this.#piSessionDir(sk), "stopped-turn.json");
             if (fs.existsSync(sp)) {
               try { const st = JSON.parse(fs.readFileSync(sp, "utf8")); const stoppedTs = st?.ts || 0; const markerTs = marker?.ts || 0;
-                if (stoppedTs >= markerTs) { this.// zittito: logDebug("recovery-skip", { sessionKey: sk, reason: "stopped-by-user-persisted" }); continue; }
+                if (stoppedTs >= markerTs) { this.// zittito: // zittito: logDebug("recovery-skip", { sessionKey: sk, reason: "stopped-by-user-persisted" }); continue; }
               } catch {}
             }
           } catch {}
           // nextRetryAt: non è ancora ora? (la scala sopravvive ai riavvii)
           const nextAt = (marker as any)?.nextRetryAt || 0;
-          if (nextAt > 0 && Date.now() < nextAt) { this.// zittito: logDebug("recovery-skip", { sessionKey: sk, reason: "not-yet", nextRetryAt: nextAt - Date.now() }); continue; }
+          if (nextAt > 0 && Date.now() < nextAt) { this.// zittito: // zittito: logDebug("recovery-skip", { sessionKey: sk, reason: "not-yet", nextRetryAt: nextAt - Date.now() }); continue; }
           // CAP: 6 tentativi fatti → messaggio finale visibile e archiviazione
           // FIX F3 (02 set): messaggio stile-errore (rosso nel frontend) + PERSISTITO nell'error
           // store (sopravvive al reload) ma FUORI dal contesto LLM (lo store errori non è nel jsonl).
@@ -9817,7 +9817,7 @@ if (!turnCompleted && lastStopReason && lastStopReason !== "toolUse" && !this.#s
   }
 
   appendNotification(entry: any) {
-    this.logDebug("a3-notification-appended", { kind: entry.kind, sessionKey: entry.sessionKey, src: entry.sourceSession?.key });
+    this.// zittito: logDebug("a3-notification-appended", { kind: entry.kind, sessionKey: entry.sessionKey, src: entry.sourceSession?.key });
     const e = { id: `ntf_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, read: false, ...entry, ts: entry.ts || Date.now() };
     this.#notifications.push(e);
     if (this.#notifications.length > 500) this.#notifications = this.#notifications.slice(-500);
