@@ -410,7 +410,14 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     // Crea l'entry della sessione se non esiste (idempotente: se esiste già, ritorna quella).
     // Usato dall'Expert (chiave fissa __app_expert__) che NON passa da createSession:
     // senza entry, send() esce subito (no msg-in, nessuna risposta).
-    const s = quinkiBridge!.create(String(p.sessionKey), p.label || "Chat");
+    // GUARD (16 ott, ex SALTATI): senza una chiave VALIDA non si crea una cartella "undefined".
+    // Tutti i chiamanti legittimi passano sessionKey; se manca, ne generiamo una valida
+    // (stessa forma di createSession) così la sessione resta tracciabile dalla risposta.
+    const rawKey = String(p?.sessionKey ?? '').trim();
+    const sk = (rawKey && rawKey !== 'undefined' && rawKey !== 'null')
+      ? rawKey
+      : `quinki-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const s = quinkiBridge!.create(sk, p.label || "Chat");
     // The directory chosen in the welcome travels into the new chat (persisted!).
     if (p && p.workingDir) {
       const wd0 = String(p.workingDir).trim();
@@ -418,7 +425,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
         try { quinkiBridge!.setWorkingDir(s.key, wd0); } catch {}
       }
     }
-    return { sessionKey: p.sessionKey, label: s.label };
+    return { sessionKey: sk, label: s.label };
   },
   recoverSession: async (p) => {
     // RPC dal pool-router (main): recupera SUBITO una sessione di cui questo
