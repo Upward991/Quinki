@@ -1088,8 +1088,8 @@ function MiniButton({ label, onClick }) {
   ]});
 }
 
-function TagChip({ icon, label, onRemove }) {
-  return React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 8px', borderRadius: '6px', border: 'none', backgroundColor: 'rgba(255, 255, 255, 0.04)' }, children: [
+function TagChip({ icon, label, onRemove, onClick }) {
+  return React.createElement('div', { onClick, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 8px', borderRadius: '6px', border: 'none', cursor: onClick ? 'pointer' : undefined, backgroundColor: 'rgba(255, 255, 255, 0.04)' }, children: [
     React.createElement(icon, { size: 14, style: { color: 'var(--q-tab-accent)' } }),
     React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: label }),
     onRemove && React.createElement('button', { onClick: onRemove, style: { background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex' }, children: React.createElement(X, { size: 14, style: { color: 'var(--q-text-tertiary)' } }) })
@@ -1136,10 +1136,7 @@ export function AgentRow({ agent, isExpanded, isRenaming, onToggle, onStartRenam
         React.createElement('span', { style: { flex: 1 } })
       ]}),
       React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }, children: [
-        React.createElement('div', { key: 'PROMPT.md', onClick: () => onOpenFile('PROMPT.md'), style: { display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 8px', borderRadius: '6px', cursor: 'pointer', backgroundColor: 'var(--q-bg-elevated)' } },
-          React.createElement(FileText, { size: 14, style: { color: 'var(--q-tab-accent)' } }),
-          React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: 'PROMPT.md' })
-        )
+        TagChip({ key: 'PROMPT.md', icon: FileText, label: 'PROMPT.md', onClick: () => onOpenFile('PROMPT.md') })
       ]}),
 
       // Skills
