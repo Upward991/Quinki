@@ -565,16 +565,12 @@ function Footer({ content, timestamp, agentName, agentModel, thinkingLevel, thin
   const ftBright = tone ? tone : 'var(--q-text)'
   const mob = useLayout().mode === 'mobile'
 
-  const DISPLAY_THINK={"off":"Off","low":"Low","medium":"Medium","high":"High","xhigh":"XHight","max":"Max"} as Record<string,string>
   const displayThinking = (() => {
-    // Priorità al NOME LOCALE dell'agent (pensato dall'utente): xhigh→XHight, non 'Max' (il valore tradotto per il provider).
-    if (thinkingLevel) {
-      const k=String(thinkingLevel).toLowerCase()
-      if (DISPLAY_THINK[k]) return DISPLAY_THINK[k]
-    }
-    if (reasoningUsed === true && sentEffort) return DISPLAY_THINK[String(sentEffort).toLowerCase()] || String(sentEffort).charAt(0).toUpperCase()+String(sentEffort).slice(1)
+    // Livello REALE come lo vede il provider (sentEffort): 'max'/'high'/... — MAI il nome interno dell'app.
+    // (Se il thinking non è stato usato: 'None' — il modello ha saltato il reasoning.)
     if (reasoningUsed === false) return 'None'
-    if (sentEffort) return DISPLAY_THINK[String(sentEffort).toLowerCase()] || String(sentEffort).charAt(0).toUpperCase()+String(sentEffort).slice(1)
+    if (reasoningUsed === true && sentEffort) return String(sentEffort).charAt(0).toUpperCase() + String(sentEffort).slice(1)
+    if (sentEffort) return String(sentEffort).charAt(0).toUpperCase() + String(sentEffort).slice(1)
     if (!thinkingLevel || thinkingLevel === 'off') return 'Off'
     if (thinkingTranslated) {
       const v = String(thinkingTranslated)
