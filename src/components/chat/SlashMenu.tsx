@@ -729,10 +729,43 @@ function MenuItem({ label, isSelected, isChecked, trailing, onHover, onTap }: {
   const [hovered, setHovered] = useState(false)
   const showHighlight = hovered || isSelected
   const itemRef = useRef<HTMLDivElement>(null)
-  useEffect(() => { if (isSelected && itemRef.current) itemRef.current.scrollIntoView({ block: 'nearest' }) }, [isSelected])
+  // REGOLA (richiesta utente 16 ott): le righe NON selezionabili (titoli di sezione,
+  // es. il nome del provider nei modelli) fanno parte del "blocco" della riga
+  // selezionata: se la selezione è la PRIMA della sezione, anche il titolo sopra deve
+  // restare in vista; idem per eventuali righe non selezionabili SOTTO (futuro).
+  // Con scrollIntoView('nearest') da solo il titolo restava nascosto al bordo dello scroll.
+  useEffect(() => {
+    if (!isSelected || !itemRef.current) return
+    const el = itemRef.current
+    el.scrollIntoView({ block: 'nearest' })
+    try {
+      let sc: HTMLElement | null = el.parentElement
+      while (sc && getComputedStyle(sc).overflowY !== 'auto' && getComputedStyle(sc).overflowY !== 'scroll') sc = sc.parentElement
+      if (sc) {
+        const pad = 2
+        const scRect = sc.getBoundingClientRect()
+        const isItem = (n: Element | null) => !!(n as HTMLElement)?.hasAttribute?.('data-slash-item')
+        // (a) righe non selezionabili SOPRA (titolo di sezione) → portale in vista
+        let topExtra: Element | null = null
+        for (let prev: Element | null = el.previousElementSibling; prev && !isItem(prev); prev = prev.previousElementSibling) topExtra = prev
+        if (topExtra) {
+          const tr = topExtra.getBoundingClientRect()
+          if (tr.top < scRect.top + pad) sc.scrollTop -= (scRect.top + pad - tr.top)
+        }
+        // (b) righe non selezionabili SOTTO (futuro) → restano in vista anche loro
+        let botExtra: Element | null = null
+        for (let next: Element | null = el.nextElementSibling; next && !isItem(next); next = next.nextElementSibling) botExtra = next
+        if (botExtra) {
+          const br = botExtra.getBoundingClientRect()
+          if (br.bottom > scRect.bottom - pad) sc.scrollTop += (br.bottom - (scRect.bottom - pad))
+        }
+      }
+    } catch {}
+  }, [isSelected])
   return (
     <div
       ref={itemRef}
+      data-slash-item=""
       onClick={onTap}
       onMouseEnter={() => { setHovered(true); onHover() }}
       onMouseLeave={() => setHovered(false)}
