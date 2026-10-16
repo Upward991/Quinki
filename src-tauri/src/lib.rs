@@ -283,10 +283,6 @@ fn icon_cache_bust_if_changed(app: &tauri::AppHandle) {
     }
 }
 
-#[tauri::command]
-fn set_app_icon(app: tauri::AppHandle, variant: String) -> Result<(), String> {
-    apply_app_icon(&app, &variant)
-}
 
 // MD5 di un file (usa il tool di sistema macOS `md5 -q`)
 fn file_md5(path: &str) -> Option<String> {
@@ -317,15 +313,7 @@ fn record_running_build() {
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
-#[tauri::command]
-fn __drag_window(window: tauri::WebviewWindow) {
-  let _ = window.start_dragging();
-}
 
-#[tauri::command]
-fn __toggle_maximize(window: tauri::WebviewWindow) {
-  let _ = if window.is_maximized().unwrap_or(false) { window.unmaximize().ok() } else { window.maximize().ok() };
-}
 
 #[tauri::command]
 fn set_window_bg_color(_window: tauri::WebviewWindow, _color: String) {}
@@ -360,50 +348,7 @@ fn pick_directory(window: tauri::WebviewWindow) -> Result<String, String> {
     }
 }
 
-#[tauri::command]
-fn pick_profile_image(window: tauri::WebviewWindow) -> Result<String, String> {
-    use rfd::FileDialog;
-    let dialog = FileDialog::new().set_title("Select profile picture");
-    let dialog = dialog.set_parent(&window);
-    match dialog.pick_file() {
-        Some(path) => {
-            let path_str = path.to_string_lossy().to_string();
-            match std::fs::read(&path) {
-                Ok(bytes) => {
-                    let b64 = base64_encode(&bytes);
-                    // estensione per il mime
-                    let ext = path.extension().map(|e| e.to_string_lossy().to_lowercase().to_string()).unwrap_or_default();
-                    let mime = match ext.as_str() {
-                        "png" => "image/png",
-                        "jpg" | "jpeg" => "image/jpeg",
-                        "gif" => "image/gif",
-                        "webp" => "image/webp",
-                        _ => "image/png",
-                    };
-                    Ok(format!("data:{};base64,{}", mime, b64))
-                }
-                Err(e) => Err(format!("read error: {}", e)),
-            }
-        }
-        None => Err("cancelled".to_string()),
-    }
-}
 
-fn base64_encode(data: &[u8]) -> String {
-    const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut out = String::new();
-    for chunk in data.chunks(3) {
-        let b0 = chunk[0] as u32;
-        let b1 = *chunk.get(1).unwrap_or(&0) as u32;
-        let b2 = *chunk.get(2).unwrap_or(&0) as u32;
-        let n = (b0 << 16) | (b1 << 8) | b2;
-        out.push(CHARS[(n >> 18) as usize & 63] as char);
-        out.push(CHARS[(n >> 12) as usize & 63] as char);
-        if chunk.len() > 1 { out.push(CHARS[(n >> 6) as usize & 63] as char) } else { out.push('=') }
-        if chunk.len() > 2 { out.push(CHARS[n as usize & 63] as char) } else { out.push('=') }
-    }
-    out
-}
 
 #[tauri::command]
 fn pick_files(window: tauri::WebviewWindow) -> Result<Vec<String>, String> {
@@ -512,32 +457,6 @@ fn open_working_dir_folder(path: String) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
-fn move_workdir_contents(from: String, to: String) -> Result<serde_json::Value, String> {
-    // Sposta i file della cartella chat verso la nuova workdir (opzione Move del
-    // modale). I file già presenti nella destinazione vengono SALTATI.
-    let src = std::path::PathBuf::from(&from);
-    let dst = std::path::PathBuf::from(&to);
-    if !src.is_dir() { return Ok(serde_json::json!({ "moved": 0, "skipped": 0 })); }
-    std::fs::create_dir_all(&dst).map_err(|e| e.to_string())?;
-    let mut moved = 0u32;
-    let mut skipped = 0u32;
-    if let Ok(rd) = std::fs::read_dir(&src) {
-        for entry in rd.flatten() {
-            let target = dst.join(entry.file_name());
-            if target.exists() { skipped += 1; continue; }
-            if std::fs::rename(entry.path(), &target).is_ok() { moved += 1; }
-            else {
-                let p = entry.path();
-                if p.is_file() && std::fs::copy(&p, &target).is_ok() {
-                    let _ = std::fs::remove_file(&p);
-                    moved += 1;
-                } else { skipped += 1; }
-            }
-        }
-    }
-    Ok(serde_json::json!({ "moved": moved, "skipped": skipped }))
-}
 
 #[tauri::command]
 fn open_longhorizon_folder(session_key: String) -> Result<(), String> {
@@ -590,9 +509,6 @@ extern "C" {
     fn CGPreflightScreenCaptureAccess() -> u8;
 }
 
-fn check_screen_recording(_app: &tauri::AppHandle) -> bool {
-    unsafe { CGPreflightScreenCaptureAccess() != 0 }
-}
 
 #[tauri::command]
 fn take_screenshot(session_key: String) -> Result<String, String> {
@@ -617,60 +533,7 @@ fn take_screenshot(session_key: String) -> Result<String, String> {
     }
 }
 
-#[tauri::command]
-fn check_tcc_status(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
-    let tcc_db = format!("{}/Library/Application Support/com.apple.TCC/TCC.db", home);
 
-    // Quinki Full Disk Access: prova a LEGGERE il file TCC.db (richiede FDA, in-process).
-    // È il test più affidabile: senza FDA la lettura fallisce con "permission denied".
-    let quinki_fd = std::fs::read(&tcc_db).is_ok();
-
-    // Quinki Screen Recording: chiamata diretta CGPreflightScreenCaptureAccess
-    let quinki_sr = check_screen_recording(&app);
-
-    // Expert: query TCC.db via sqlite3 (richiede FDA, che ora sappiamo se c'è)
-    let mut expert_fd = false;
-    let mut expert_sr = false;
-    if quinki_fd {
-        if let Ok(out) = std::process::Command::new("sqlite3")
-            .args([&tcc_db, "SELECT service, client, auth_value FROM access WHERE client = 'com.quinki.app.expert'"])
-            .output()
-        {
-            let s = String::from_utf8_lossy(&out.stdout);
-            for line in s.lines() {
-                let parts: Vec<&str> = line.split('|').collect();
-                if parts.len() >= 3 {
-                    let service = parts[0].trim();
-                    let auth = parts[2].trim();
-                    let allowed = auth == "1" || auth == "2";
-                    if service == "kTCCServiceSystemPolicyAllFiles" { expert_fd = allowed; }
-                    else if service == "kTCCServiceScreenCapture" { expert_sr = allowed; }
-                }
-            }
-        }
-    }
-
-    let result = serde_json::json!({
-        "quinki": { "fullDisk": quinki_fd, "screenRecording": quinki_sr },
-        "expert": { "fullDisk": expert_fd, "screenRecording": expert_sr },
-    });
-    // Debug: scrivi il risultato su file per diagnosi
-    let _ = std::fs::write("/tmp/quinki-tcc-debug.json", result.to_string());
-    Ok(result)
-}
-
-#[tauri::command]
-fn read_expert_tcc_status() -> Result<serde_json::Value, String> {
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
-    let p = format!("{}/.quinki/quinki-expert-tcc.json", home);
-    if !std::path::Path::new(&p).exists() {
-        return Ok(serde_json::json!({ "available": false }));
-    }
-    let content = std::fs::read_to_string(&p).map_err(|e| e.to_string())?;
-    let v: serde_json::Value = serde_json::from_str(&content).map_err(|e| e.to_string())?;
-    Ok(v)
-}
 
 // A4.3: legge il settings direttamente dal file (istantaneo, senza aspettare il sidecar).
 // Usato all'avvio per ripristinare subito le tab installate dallo store.
@@ -686,19 +549,6 @@ fn read_quinki_settings() -> Result<serde_json::Value, String> {
     Ok(v)
 }
 
-#[tauri::command]
-fn get_sidecar_version(app: tauri::AppHandle) -> Result<String, String> {
-    let mut cand = app.path().resource_dir().unwrap_or_default();
-    cand.push("resources/sidecar/version.txt");
-    if cand.exists() {
-        if let Ok(s) = std::fs::read_to_string(&cand) { return Ok(s.trim().to_string()); }
-    }
-    let alt = std::path::PathBuf::from("/Applications/Quinki.app/Contents/Resources/resources/sidecar/version.txt");
-    if alt.exists() {
-        if let Ok(s) = std::fs::read_to_string(&alt) { return Ok(s.trim().to_string()); }
-    }
-    Ok("unknown".to_string())
-}
 
 #[tauri::command]
 fn get_sidecar_versions() -> Result<std::collections::HashMap<String, String>, String> {
@@ -1103,57 +953,7 @@ fn list_attachments(session_key: String) -> Result<Vec<serde_json::Value>, Strin
     Ok(files)
 }
 
-#[tauri::command]
-fn install_main_app(build_path: String) -> Result<String, String> {
-    // Safely install the main app WITHOUT touching the Expert app
-    // 1. Install new build
-    // 2. Kill only the main sidecar (port 9182)
-    // 3. Restart main app
-    
-    let main_app = "/Applications/Quinki.app";
-    
-    // Install new build
-    std::process::Command::new("ditto")
-        .args([&build_path, main_app])
-        .output()
-        .map_err(|e| format!("Install failed: {}", e))?;
-    
-    // Kill main sidecar (ONLY port 9182, never 9183)
-    let _ = std::process::Command::new("sh")
-        .args(["-c", "lsof -ti:9182 | xargs kill -9 2>/dev/null"])
-        .output();
-    
-    // Clear ONLY network caches. NEVER the WebKit WebsiteData dir: it holds the
-    // user settings, shortcuts, themes and the webview permission grants
-    // (microphone) which must survive every update.
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
-    let _ = std::fs::remove_dir_all(format!("{}/Library/Caches/com.quinki.app", home));
-    let _ = std::fs::remove_dir_all(format!("{}/Library/HTTPStorages/com.quinki.app", home));
-    
-    // Restart main app
-    std::thread::sleep(std::time::Duration::from_secs(1));
-    let _ = std::process::Command::new("open")
-        .arg(main_app)
-        .spawn();
-    
-    Ok("Main app installed and restarted".to_string())
-}
 
-#[tauri::command]
-fn restart_main_app() -> Result<String, String> {
-    // Kill ONLY the main sidecar (port 9182) and restart the main app
-    let _ = std::process::Command::new("sh")
-        .args(["-c", "lsof -ti:9182 | xargs kill -9 2>/dev/null"])
-        .output();
-    
-    std::thread::sleep(std::time::Duration::from_secs(1));
-    
-    let _ = std::process::Command::new("open")
-        .arg("/Applications/Quinki.app")
-        .spawn();
-    
-    Ok("Main app restarted".to_string())
-}
 
 
 // === Update check con dialoghi nativi macOS (menu App → Check for Update) ===
@@ -1636,19 +1436,6 @@ fn check_expert_installed() -> Result<bool, String> {
     Ok(std::path::Path::new("/Applications/App Expert.app").exists())
 }
 
-#[tauri::command]
-fn is_expert_app_running() -> Result<bool, String> {
-    // True only if the App Expert app PROCESS is running. Matches the app
-    // binary path only: the sidecar lives under Resources/ (no /MacOS/) and
-    // the watchdog is a shell script, so they never match. Used by the main
-    // app to hard-lock the backup Expert tab while the real app is open, so
-    // the __app_expert__ session can NEVER run/show in the main app then.
-    let out = std::process::Command::new("pgrep")
-        .args(["-f", "/Applications/App Expert.app/Contents/MacOS/"])
-        .output()
-        .map_err(|e| format!("pgrep failed: {}", e))?;
-    Ok(out.status.success())
-}
 
 #[tauri::command]
 fn install_expert_app() -> Result<String, String> {
@@ -2005,114 +1792,10 @@ fn check_expert_running() -> Result<bool, String> {
     Ok(running)
 }
 
-#[tauri::command]
-fn open_expert_app() -> Result<(), String> {
-    // Look for App Expert.app as a separate app in /Applications
-    let expert_paths = [
-        "/Applications/App Expert.app".to_string(),
-        {
-            let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
-            format!("{}/Applications/App Expert.app", home)
-        },
-    ];
-    
-    for path in &expert_paths {
-        let expert_app = std::path::Path::new(path);
-        if expert_app.exists() {
-            std::process::Command::new("open")
-                .arg(expert_app)
-                .spawn()
-                .map_err(|e| e.to_string())?;
-            return Ok(());
-        }
-    }
-    
-    Err("App Expert.app not found. Install it separately.".to_string())
-}
 
-#[tauri::command]
-fn sync_from_main() -> Result<String, String> {
-    let home = std::env::var("HOME").unwrap_or_default();
-    let main_dir = format!("{}/.quinki", home);
-    let expert_dir = format!("{}/.quinki-expert", home);
-    if !std::path::Path::new(&main_dir).exists() { return Err("Main data directory not found".to_string()); }
-    std::fs::create_dir_all(&expert_dir).map_err(|e| e.to_string())?;
-    let mut copied = 0;
-    let main_agents = format!("{}/agents", main_dir);
-    let expert_agents = format!("{}/agents", expert_dir);
-    if std::path::Path::new(&main_agents).exists() {
-        let _ = std::fs::remove_dir_all(&expert_agents);
-        copy_dir_recursive(&main_agents, &expert_agents)?;
-        copied += count_items(&expert_agents);
-    }
-    let main_skills = format!("{}/skills", main_dir);
-    let expert_skills = format!("{}/skills", expert_dir);
-    if std::path::Path::new(&main_skills).exists() {
-        let _ = std::fs::remove_dir_all(&expert_skills);
-        copy_dir_recursive(&main_skills, &expert_skills)?;
-        copied += count_items(&expert_skills);
-    }
-    for f in &["quinki-providers.json", "dashboard-providers.json", "quinki-global.json", "dashboard-global.json"] {
-        let src = format!("{}/{}", main_dir, f);
-        let dst = format!("{}/{}", expert_dir, f);
-        if std::path::Path::new(&src).exists() && !std::path::Path::new(&dst).is_symlink() {
-            std::fs::copy(&src, &dst).map_err(|e| e.to_string())?;
-            copied += 1;
-        }
-    }
-    Ok(format!("Synced {} items from Main to Expert", copied))
-}
 
-#[tauri::command]
-fn sync_from_expert() -> Result<String, String> {
-    let home = std::env::var("HOME").unwrap_or_default();
-    let main_dir = format!("{}/.quinki", home);
-    let expert_dir = format!("{}/.quinki-expert", home);
-    if !std::path::Path::new(&expert_dir).exists() { return Err("Expert data directory not found".to_string()); }
-    let mut copied = 0;
-    let main_agents = format!("{}/agents", main_dir);
-    let expert_agents = format!("{}/agents", expert_dir);
-    if std::path::Path::new(&expert_agents).exists() {
-        let _ = std::fs::remove_dir_all(&main_agents);
-        copy_dir_recursive(&expert_agents, &main_agents)?;
-        copied += count_items(&main_agents);
-    }
-    let main_skills = format!("{}/skills", main_dir);
-    let expert_skills = format!("{}/skills", expert_dir);
-    if std::path::Path::new(&expert_skills).exists() {
-        let _ = std::fs::remove_dir_all(&main_skills);
-        copy_dir_recursive(&expert_skills, &main_skills)?;
-        copied += count_items(&main_skills);
-    }
-    for f in &["quinki-providers.json", "dashboard-providers.json", "quinki-global.json", "dashboard-global.json"] {
-        let src = format!("{}/{}", expert_dir, f);
-        let dst = format!("{}/{}", main_dir, f);
-        if std::path::Path::new(&src).exists() && !std::path::Path::new(&dst).is_symlink() {
-            std::fs::copy(&src, &dst).map_err(|e| e.to_string())?;
-            copied += 1;
-        }
-    }
-    Ok(format!("Synced {} items from Expert to Main", copied))
-}
 
-fn copy_dir_recursive(src: &str, dst: &str) -> Result<(), String> {
-    std::fs::create_dir_all(dst).map_err(|e| e.to_string())?;
-    for entry in std::fs::read_dir(src).map_err(|e| e.to_string())? {
-        let entry = entry.map_err(|e| e.to_string())?;
-        let src_path = entry.path();
-        let dst_path = std::path::Path::new(dst).join(entry.file_name());
-        if src_path.is_dir() {
-            copy_dir_recursive(src_path.to_str().unwrap_or(""), dst_path.to_str().unwrap_or(""))?;
-        } else {
-            std::fs::copy(&src_path, &dst_path).map_err(|e| e.to_string())?;
-        }
-    }
-    Ok(())
-}
 
-fn count_items(dir: &str) -> usize {
-    std::fs::read_dir(dir).map(|it| it.count()).unwrap_or(0)
-}
 
 #[tauri::command]
 /// True se l'ALTRA app (main vs Expert) e' in esecuzione. Il pattern e' quello
@@ -2348,15 +2031,6 @@ fn show_or_recreate_main(app: &tauri::AppHandle) {
   }
 }
 
-#[tauri::command]
-fn hide_to_tray(app: tauri::AppHandle) {
-    // Chiude SOLO il frontend: la finestra si nasconde, app + sidecar restano attivi
-    if let Some(window) = app.get_webview_window("main") {
-        use tauri_plugin_window_state::AppHandleExt;
-        let _ = window.app_handle().save_window_state(tauri_plugin_window_state::StateFlags::all() & !(tauri_plugin_window_state::StateFlags::FULLSCREEN | tauri_plugin_window_state::StateFlags::MAXIMIZED));
-        let _ = window.hide();
-    }
-}
 
 #[tauri::command]
 fn quit_expert_app(app: tauri::AppHandle) {
@@ -2488,13 +2162,6 @@ fn focus_window(app: tauri::AppHandle, label: String) -> Result<(), String> {
     }
 }
 
-#[tauri::command]
-fn hide_window(app: tauri::AppHandle, label: String) -> Result<(), String> {
-    if let Some(window) = app.get_webview_window(&label) {
-        let _ = window.hide();
-    }
-    Ok(())
-}
 
 #[tauri::command]
 fn close_window(app: tauri::AppHandle, label: String) -> Result<(), String> {
@@ -2740,9 +2407,6 @@ fn ensure_cloudflared() -> Result<String, String> {
 // L'app Expert (quando gira) sorveglia solo il proprio. Nodo Tailscale, link,
 // token e dispositivi sono indipendenti: la main puo' essere riavviata e
 // reinstallata quanto si vuole, il link Expert resta su.
-fn mode_target() -> &'static str {
-    if is_expert_mode() { "expert" } else { "main" }
-}
 fn remote_token_file(t: &str) -> String {
     let name = if t == "expert" { "remote-expert.json" } else { "remote.json" };
     format!("{}/.quinki/{}", std::env::var("HOME").unwrap_or_default(), name)
@@ -3244,13 +2908,6 @@ async fn remote_tunnel_start(target: Option<String>, port: Option<u16>, hostname
     res
 }
 
-#[tauri::command]
-async fn remote_tunnel_autostart(target: Option<String>) -> Result<String, String> {
-    let t = target.unwrap_or_else(|| "main".to_string());
-    let (enabled, hostname) = load_remote_state(&t);
-    if !enabled { return Ok(String::new()); }
-    tunnel_start_blocking(&t, 9182, hostname)
-}
 
 /// Log out da Tailscale: ferma il nodo, cancella l'iscrizione e lo stato.
 /// Alla prossima accensione si rifa' il sign-in da capo (nuovo nodo).
@@ -3279,75 +2936,7 @@ fn remote_tunnel_state(target: Option<String>) -> serde_json::Value {
 }
 
 #[allow(dead_code)]
-async fn remote_tunnel_start_legacy(port: Option<u16>) -> Result<String, String> {
-    {
-        let g = TUNNEL.lock().map_err(|e| e.to_string())?;
-        if let Some((_, u)) = g.as_ref() { return Ok(u.clone()); }
-    }
-    let exe = ensure_cloudflared()?;
-    let p = port.unwrap_or(9182);
-    let mut child = std::process::Command::new(exe)
-        .args(["tunnel", "--url", &format!("http://127.0.0.1:{}", p), "--no-autoupdate"])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| e.to_string())?;
-    let pidf = format!("{}/.quinki/tunnel.pid", std::env::var("HOME").unwrap_or_default());
-    let _ = std::fs::write(&pidf, child.id().to_string());
-    // Leggi lo stderr finche' non compare l'URL del tunnel (max 30s)
-    let mut url = String::new();
-    if let Some(er) = child.stderr.take() {
-        use std::io::{BufRead, BufReader};
-        let mut br = BufReader::new(er);
-        let mut line = String::new();
-        let start = std::time::Instant::now();
-        while start.elapsed().as_secs() < 30 {
-            line.clear();
-            match br.read_line(&mut line) {
-                Ok(0) => break,
-                Ok(_) => {
-                    if line.contains("trycloudflare.com") {
-                        for tok in line.split_whitespace() {
-                            let t = tok.trim();
-                            let t = t.trim_end_matches(|c: char| !(c.is_ascii_alphanumeric() || c == '/' || c == ':' || c == '.' || c == '-'));
-                            if t.starts_with("https://") && t.contains("trycloudflare.com") {
-                                url = t.to_string();
-                                break;
-                            }
-                        }
-                        if !url.is_empty() { break; }
-                    }
-                }
-                Err(_) => break,
-            }
-        }
-        // continua a drenare lo stderr in background (evita il blocco del pipe)
-        std::thread::spawn(move || {
-            let mut sink = String::new();
-            loop {
-                sink.clear();
-                match br.read_line(&mut sink) {
-                    Ok(0) => break,
-                    Ok(_) => {}
-                    Err(_) => break,
-                }
-            }
-        });
-    }
-    if url.is_empty() { let _ = child.kill(); return Err("URL del tunnel non trovato".into()); }
-    let mut g = TUNNEL.lock().map_err(|e| e.to_string())?;
-    *g = Some((child, url.clone()));
-    Ok(url)
-}
 
-#[tauri::command]
-fn remote_tunnel_stop(target: Option<String>) -> Result<(), String> {
-    let t = target.unwrap_or_else(|| "main".to_string());
-    tunnel_stop_inner(&t);
-    let (_, hostname) = load_remote_state(&t);
-    save_remote_state(&t, false, hostname);
-    Ok(())
-}
 
 fn random_hex(n: usize) -> String {
     use std::io::Read;
@@ -3442,18 +3031,6 @@ fn get_remote_token(target: Option<String>) -> String {
     String::new()
 }
 
-#[tauri::command]
-fn get_lan_ip() -> String {
-    for iface in ["en0", "en1", "en2"] {
-        if let Ok(out) = std::process::Command::new("/usr/sbin/ipconfig").args(["getifaddr", iface]).output() {
-            if out.status.success() {
-                let ip = String::from_utf8_lossy(&out.stdout).trim().to_string();
-                if !ip.is_empty() { return ip; }
-            }
-        }
-    }
-    String::new()
-}
 
 pub fn run() {
     // === Single instance check ===
@@ -3563,46 +3140,35 @@ pub fn run() {
     .invoke_handler(tauri::generate_handler![transcribe_audio, 
         remote_tunnel_status,
         remote_tunnel_start,
-        remote_tunnel_autostart,
         remote_tunnel_state,
-        remote_tunnel_stop,
-        get_lan_ip,
         get_remote_token,
         copy_to_clipboard,
         remote_devices_list,
         remote_device_revoke,
         remote_token_rotate,
         set_window_bg_color,
-        __drag_window,
-        __toggle_maximize,
         export_chat_file,
         pick_directory,
         pick_files,
-        pick_profile_image,
         copy_to_attachments,
         save_attachment_content,
         open_attachments_folder,
         open_longhorizon_folder,
         open_working_dir_folder,
-        move_workdir_contents,
         open_general_attachments_folder,
         open_url,
         remote_logout,
         open_system_settings,
-        check_tcc_status,
-        read_expert_tcc_status,
         read_quinki_settings,
         get_authorized_folders,
         add_authorized_folder,
         remove_authorized_folder,
         get_app_permissions,
         set_app_permissions,
-        get_sidecar_version,
         get_sidecar_versions,
         list_attachments,
         take_screenshot,
         check_expert_installed,
-        is_expert_app_running,
         install_expert_app,
         sync_expert_app,
         rollback_expert_app,
@@ -3612,9 +3178,6 @@ pub fn run() {
         expert_self_restart_now,
         expert_restart_pending,
         check_expert_running,
-        open_expert_app,
-        install_main_app,
-        restart_main_app,
         apply_update,
         download_update_file,
         install_downloaded_update,
@@ -3622,7 +3185,6 @@ pub fn run() {
         restart_after_update,
         quit_expert_app,
         quit_app,
-        hide_to_tray,
         restart_app,
         enable_autostart,
         disable_autostart,
@@ -3631,7 +3193,6 @@ pub fn run() {
         open_chat_in_window,
         focus_window,
         close_window,
-        hide_window,
         get_window_label,
         get_quick_chat_shortcut,
         set_quick_chat_shortcut,
@@ -3643,7 +3204,6 @@ pub fn run() {
         request_notification_permission,
         request_expert_notification_permission,
         send_expert_test_notification,
-        set_app_icon,
     ])
     .plugin(tauri_plugin_shell::init())
     .plugin(tauri_plugin_clipboard_manager::init())
