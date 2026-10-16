@@ -82,38 +82,6 @@ class CenterBox {
 }
 
 /** Floating-panel block: padded, painted full-width background (no border), app style. */
-class BgBlock {
-  child: any;
-  pad: number;
-  paint: (s: string) => string;
-  padY: number;
-  constructor(child: any, pad: number, paint: (s: string) => string, padY = 0) {
-    this.child = child;
-    this.pad = pad;
-    this.paint = paint;
-    this.padY = padY;
-  }
-  render(width: number): string[] {
-    const inner = Math.max(1, width - this.pad * 2);
-    const lines = this.child?.render(inner) || [];
-    const l = " ".repeat(this.pad);
-    const r = " ".repeat(this.pad);
-    const out: string[] = [];
-    const blank = this.paint(" ".repeat(width));
-    for (let i = 0; i < this.padY; i++) out.push(blank);
-    for (const line of lines) {
-      const fill = " ".repeat(Math.max(0, inner - visibleWidth(line)));
-      out.push(this.paint(l + line + fill + r));
-    }
-    for (let i = 0; i < this.padY; i++) out.push(blank);
-    return out;
-  }
-  invalidate() {
-    try {
-      this.child?.invalidate?.();
-    } catch {}
-  }
-}
 
 /** One full-width row built by a function (hints row, etc.). */
 class FnLine {
@@ -128,26 +96,8 @@ class FnLine {
 }
 
 /** One line, horizontally centered in the column. */
-class CenteredLine {
-  line: string;
-  constructor(line: string) {
-    this.line = line;
-  }
-  render(width: number): string[] {
-    const w = visibleWidth(this.line);
-    const pad = Math.max(0, Math.floor((width - w) / 2));
-    return [" ".repeat(pad) + this.line];
-  }
-  invalidate() {}
-}
 
 /** Full-width divider line (app's header separator look). */
-class RuleLine {
-  render(width: number): string[] {
-    return [fg(C.border, "\u2500".repeat(Math.max(0, width)))];
-  }
-  invalidate() {}
-}
 
 /** Horizontal inset wrapper — replicates the app's transcript padding (16px per side). */
 let lastInsetInner = 0;
@@ -435,7 +385,7 @@ class ToggleBlock {
 // Message footer — exact app format: "26 September 2026, 21:51:39  i  Agent · model · Max".
 // By default only date/time + the (i); Ctrl+I reveals the info part on ALL footers.
 let infoOpen = false;
-export const toggleInfo = (): boolean => {
+const toggleInfo = (): boolean => {
   infoOpen = !infoOpen;
   return infoOpen;
 };
@@ -1280,7 +1230,6 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   };
   // T530: PROMPT.md editor mode (the composer becomes the editor of the agent prompt).
   let qPromptEdit: { id: string; isNew: string } | null = null;
-  const qPromptBanner = (id: string) => "Editing PROMPT.md of " + id + " \u2014 Enter saves \u00b7 Esc cancels";
   // T529: the freshly created/installed item is PINNED at the top of its list,
   // and after Confirm we go BACK to the list (menu stays open) — the attachment flow.
   let qPinNew = "";
@@ -1961,42 +1910,6 @@ const readProvidersCfg = (): any => {
   };
 
   let wsSettings: any = { defaultModel: "", defaultThinkingLevel: "" };
-  const fetchSettings = () => {
-    try {
-      // 1) the file that BOTH the app and the CLI write = the source of truth
-      try {
-        const f = readSettingsFile();
-        wsSettings = { ...(wsSettings || {}), ...(f || {}) };
-      // T515: the GLOBAL config too (defaultAgentId, plan-mode flags): the welcome
-      // must show the new default even if the agents tab was never opened.
-      try {
-        const callB = (globalThis as any).__sidecarCall;
-        if (callB) callB('getGlobalConfig', {}).then((r: any) => {
-          try {
-            const cfgB = (r && (r.config || r)) || {};
-            wsSettings = { ...(wsSettings || {}), defaultAgentId: cfgB.defaultAgentId || (wsSettings || {}).defaultAgentId, planModeTools: cfgB.planModeTools || {}, planModeMcp: cfgB.planModeMcp || {} };
-          } catch {}
-          try { ui.requestRender(); } catch {}
-        }).catch(() => {});
-      } catch {}
-        if (Array.isArray(f?.defaultFallbackModels)) wsSettings.defaultFallbackModels = f.defaultFallbackModels;
-      } catch {}
-      // 2) the sidecar's view (may add more keys)
-      const call = (globalThis as any).__sidecarCall;
-      if (call) call('getSettings', {}).then((r: any) => {
-        if (r) {
-          wsSettings = { ...(wsSettings || {}), ...r };
-          // never let a missing key in the RPC response erase the file's fallbacks
-          try {
-            const f2 = readSettingsFile();
-            if (Array.isArray(f2?.defaultFallbackModels)) wsSettings.defaultFallbackModels = f2.defaultFallbackModels;
-          } catch {}
-          try { ui.requestRender(); } catch {}
-        }
-      }).catch(() => {});
-      try { ui.requestRender(); } catch {}
-    } catch {}
-  };
   // Fallbacks source of truth (like the app): the SESSION's fallbackModels in a chat,
   // the global defaultFallbackModels in the welcome. Never "nothing".
   const fbSeedList = (): any[] => {
@@ -2043,7 +1956,6 @@ const readProvidersCfg = (): any => {
     }
     if (stack[2] === "model") return modelPickerItems(String(readProvidersCfg().defaultModel || defaultModelId || ""));
     if (lastLv === "addfallback") return modelPickerItems("", fbSeedList());
-    const _fbFromFileUnused = null;
     if (lv === "fallbacks" || stack[2] === "fallbacks") {
       // FULL model list: Space selects the fallbacks; the selection order IS the
       // fallback order (1., 2., 3. ...). Deselect -> the rest re-rank.
@@ -3463,13 +3375,6 @@ const readProvidersCfg = (): any => {
   // from the chat's blue, so the CLI is its own thing).
   const accent = C.primary;
 
-  const hasText = () => {
-    try {
-      return editor.getText().trim().length > 0;
-    } catch {
-      return false;
-    }
-  };
 
   /** The composer bar (inside the box): LEFT-aligned, all at the same brightness
    *  (the ctx-counter brightness): mode · ctx · model · thinking · directory. */
@@ -3479,9 +3384,7 @@ const readProvidersCfg = (): any => {
       counterColor(pct),
       `${fmtTok(ctxTokens)}/${fmtTok(ctxWindow)} (${Math.floor(pct)}% \u00b1 ${Math.ceil(pct * 0.05 + 1)}%)`
     );
-    const modelId = (welcomeShown ? (pendingModelId || defaultModelId || wsModelId) : (wsModelId || defaultModelId)) || "";
     const sep = fg(C.textTertiary, " \u00b7 ");
-    const quiet = (s: string) => fg(C.textTertiary, s);
     const modeStr = lhActive
       ? fg(C.primary, "Long Horizon")
       : (mode === "plan" ? fg(C.modePlan, "Plan") : fg(C.modeBuild, "Build")); // T577: the key lives in /shortcuts
@@ -3719,14 +3622,6 @@ const readProvidersCfg = (): any => {
     "\n" +
     "  Shift+Enter \u2014 new line (also \\ + Enter)";
 
-  const buildHintLine = (width: number): string => {
-    // 6 ott: ALL the shortcut hints under the textbox are gone (they live in
-    // /shortcuts now). The line keeps only the brand, centered.
-    return buildBrandLine(width);
-  };
-  const buildBrandLine = (width: number): string => {
-    return ""; // 6 ott: the brand under the textbox is gone too (user's call)
-  };
   try {
     // T573: the hint row is GONE (empty line removed): the textbox sits at the
     // bottom edge, like the header sits at the top.
@@ -4423,7 +4318,6 @@ const readProvidersCfg = (): any => {
     } catch {}
     return out;
   };
-  const readSessionMessages = (): any[] => readSessionEntries().filter((x: any) => x.kind === "message").map((x: any) => x.message);
 
   /** Rebuild the transcript from the saved history (the /reload command). */
   const renderHistory = () => {
@@ -5585,20 +5479,6 @@ const readProvidersCfg = (): any => {
     }
     return [];
   };
-  const toggleAgentInSession = (id: string) => {
-    // MULTI-SELECT (like the models): add or remove one agent, save immediately.
-    const ids = sessionAgentIds();
-    const has = ids.includes(id);
-    const next = has ? ids.filter((x: string) => x !== id) : [...ids, id];
-    const fin = next.length ? next : [DEFAULT_CHAT_AGENT]; // never leave it empty
-    if (scOn) {
-      void sc.call("setChatAgents", { sessionKey: currentKey, agentIds: fin.join(",") }, 20000).catch(() => {});
-    } else {
-      try { mutateSessionEntry((e: any) => { e.agentId = fin.join(","); }); } catch {}
-    }
-    try { refreshSessions(); } catch {}
-    try { ui.requestRender(); } catch {}
-  };
   const addAgentToSession = (id: string) => {
     if (welcomeShown) {
       const ids = sessionAgentIds();
@@ -6111,7 +5991,6 @@ const readProvidersCfg = (): any => {
           try {
             if (qAgentsInputMode === "newagent" && val && callA) {
               qAgentsInputMode = "";
-              const beforeA = new Set(qAgentsData.map((a: any) => String(a?.id || a?.name)));
               // T530: name confirmed -> the agent is created, then the PROMPT.md
               // editor opens (the box) with the fresh prompt: Enter saves it.
               callA('createAgent', { name: val }).then((r: any) => {

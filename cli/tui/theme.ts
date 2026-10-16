@@ -76,7 +76,6 @@ export const bg = (color: string, s: string) =>
   colorEnabled ? `\x1b[48;2;${hexToRgb(color).join(";")}m${s}\x1b[49m` : s;
 
 export const bold = (s: string) => (colorEnabled ? `\x1b[1m${s}\x1b[22m` : s);
-export const dimStyle = (s: string) => (colorEnabled ? `\x1b[2m${s}\x1b[22m` : s);
 export const italicStyle = (s: string) => (colorEnabled ? `\x1b[3m${s}\x1b[23m` : s);
 
 /** Collapsed row color: 50% of the base color over the screen bg (like the app). */
@@ -107,4 +106,3 @@ export function counterColor(pct: number): string {
   return C.textTertiary;
 }
 
-export const isColorEnabled = () => colorEnabled;
