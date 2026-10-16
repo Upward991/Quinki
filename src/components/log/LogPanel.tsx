@@ -653,7 +653,12 @@ export function LogPanel(props: LogPanelProps) {
           open={actionsSheet}
           onClose={() => setActionsSheet(false)}
           items={[
-            ...moreFilters.map((level) => {
+            { icon: <Download size={18} />, label: 'export all', onSelect: () => { setActionsSheet(false); setShowExport(true) } },
+            { icon: <Copy size={18} />, label: 'copy', onSelect: () => { setActionsSheet(false); const md = filtered.map((e) => `### [${deriveLevel(e.tag)}] ${fmtTimestampFull(e.ts)}\n**Tag:** ${e.tag}\n\n${formatPayload(e.data)}\n`).join(`\n---\n\n`); navigator.clipboard.writeText(md) } },
+            { icon: <RefreshCw size={18} />, label: 'refresh', onSelect: () => { setActionsSheet(false); if (call) { call('getFullDebugLog', {}).then((r: any) => { if (r && r.log) setEntries(r.log.slice(-100)) }).catch(() => {}) } } },
+            { icon: <Pulse size={18} />, label: 'live', value: liveMode ? 'on' : 'off', onSelect: () => { const nv = !liveMode; setLiveMode(nv); if (nv && call) { call('getFullDebugLog', {}).then((r: any) => { if (r && r.log) setEntries(r.log.slice(-100)) }).catch(() => {}) } } },
+            { icon: <Trash size={18} />, label: 'clear', onSelect: () => { setActionsSheet(false); setShowClear(true) } },
+            ...moreFilters.slice().reverse().map((level) => {
               const c = levelColors[level]?.pill || 'var(--q-text-tertiary)'
               const on = activeFilters.has(level)
               return {
@@ -664,11 +669,6 @@ export function LogPanel(props: LogPanelProps) {
                 onSelect: () => toggleFilter(level),
               }
             }),
-            { icon: <Download size={18} />, label: 'export all', onSelect: () => { setActionsSheet(false); setShowExport(true) } },
-            { icon: <Copy size={18} />, label: 'copy', onSelect: () => { setActionsSheet(false); const md = filtered.map((e) => `### [${deriveLevel(e.tag)}] ${fmtTimestampFull(e.ts)}\n**Tag:** ${e.tag}\n\n${formatPayload(e.data)}\n`).join(`\n---\n\n`); navigator.clipboard.writeText(md) } },
-            { icon: <RefreshCw size={18} />, label: 'refresh', onSelect: () => { setActionsSheet(false); if (call) { call('getFullDebugLog', {}).then((r: any) => { if (r && r.log) setEntries(r.log.slice(-100)) }).catch(() => {}) } } },
-            { icon: <Pulse size={18} />, label: 'live', value: liveMode ? 'on' : 'off', onSelect: () => { const nv = !liveMode; setLiveMode(nv); if (nv && call) { call('getFullDebugLog', {}).then((r: any) => { if (r && r.log) setEntries(r.log.slice(-100)) }).catch(() => {}) } } },
-            { icon: <Trash size={18} />, label: 'clear', onSelect: () => { setActionsSheet(false); setShowClear(true) } },
           ]}
         />
       )}
