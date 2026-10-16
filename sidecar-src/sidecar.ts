@@ -2014,7 +2014,9 @@ async function bootstrap() {
     try { const n = loadAllTabPlugins(); if (n > 0) process.stderr.write(`[sidecar-marker] tab-plugins-loaded: ${n}\n`); } catch (e: any) { process.stderr.write(`[sidecar-marker] tab-plugins-error: ${e?.message || String(e)}\n`); }
     try { executor.setPiBridge(piBridge); } catch {}
     // === B4 POOL: il child è un processo senza scheduler (lo gestisce il main) ===
-    const isPoolChild = (() => { const n = parseInt(process.env.QUINKI_POOL_SIZE || "", 10); const i = parseInt(process.env.QUINKI_POOL_INDEX || "0", 10); return Number.isFinite(n) && n > 1 && i > 0; })();
+    // FIX 16 ott (bug doppioni task): il SIZE non è affidabile (non sempre impostato) → il segnale VERO
+    // è l'INDICE: main = 0, worker del pool = i>0 (stesso criterio con cui il log li tagga 'main-pool<i>').
+    const isPoolChild = (() => { const i = parseInt(process.env.QUINKI_POOL_INDEX || "0", 10); return Number.isFinite(i) && i > 0; })();
     // FIX POOL (31 ago): espone l'index del pool → #sendToWs sa di essere su un worker
     // e usa __quinki_broadcast (non il socket del router che perde gli eventi)
     (globalThis as any).__quinki_poolIndex = parseInt(process.env.QUINKI_POOL_INDEX || "0", 10) || 0;
@@ -2041,7 +2043,7 @@ async function bootstrap() {
       taskReports = new TaskReports(piBridge, (process.env.QUINKI_ROLE || "").toLowerCase() === "expert" || process.env.QUINKI_WS_PORT === "9183" ? "expert" : "main");
       try { taskReports.setLogger((tag: string, data: any) => piBridge?.logDebug?.(tag, data)); } catch {}
       try { taskReports.setLhCheck((sk: string) => { try { const st = (longHorizon as any)?.getState?.(sk); return !!(st && st.active); } catch { return false; } }); } catch {}
-      taskReports.start();
+      if (!isPoolChild) taskReports.start(); // SOLO nel processo principale: i worker del pool NON gestiscono i report
     } catch {}
     try { piBridge.setNotificationBroadcast?.((entry: any) => {
       try {
