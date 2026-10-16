@@ -61,7 +61,10 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
   const [focusAdd, setFocusAdd] = useState(false)
   const [pendingModel, setPendingModel] = useState(props.selectedModel)
   // Altezza REALE disponibile misurata sopra il compositore: il menu non esce MAI
-  // dalla finestra (con o senza tastiera).
+  // dalla finestra (con o senza tastiera) E non supera MAI l'header della chat
+  // (regola utente 16 ott: il menu slash si ferma sotto l'header, come la sezione
+  // delle task; vale sempre, in ogni tab). Risale gli antenati per trovare la
+  // PROPRIA chat (data-chat-header) — con più pannelli montati prende il più vicino.
   const rootRef = useRef<HTMLDivElement | null>(null)
   const [maxH, setMaxH] = useState(0)
   useEffect(() => {
@@ -69,7 +72,20 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(function Slash
       try {
         const el = rootRef.current
         if (!el || !el.parentElement) return
-        setMaxH(Math.max(160, Math.floor(el.parentElement.getBoundingClientRect().top - 16)))
+        const parentTop = el.parentElement.getBoundingClientRect().top
+        let headerEl: HTMLElement | null = null
+        let host: Element | null = el.parentElement
+        while (host && !headerEl) {
+          try { headerEl = (host.querySelector('[data-chat-header]') as HTMLElement | null) || null; } catch {}
+          host = host.parentElement
+        }
+        const headerBottom = headerEl ? headerEl.getBoundingClientRect().bottom : 0
+        // Il menu e' posizionato a 8px sopra il compositore: per avere 8px NETTI
+        // di stacco sotto l'header servono 16 (8 del cap + 8 del posizionamento).
+        const cap = headerBottom > 0
+          ? Math.floor(parentTop - headerBottom - 16)  // mai oltre l'header (8px netti di stacco)
+          : Math.floor(parentTop - 16)                 // fallback: limite alla finestra
+        setMaxH(Math.max(0, cap))
       } catch {}
     }
     measure()

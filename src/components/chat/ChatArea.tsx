@@ -782,8 +782,8 @@ export function ChatArea(props: ChatAreaProps) {
           </div>
         </div>
       )}
-      {/* Header */}
-      <div style={{ marginBottom: '8px', flexShrink: 0 }}>
+      {/* Header — data-chat-header: il menu slash si misura su di lui e non lo supera MAI */}
+      <div data-chat-header="" style={{ marginBottom: '8px', flexShrink: 0 }}>
         <ChatHeader
           longHorizon={props.longHorizon}
           session={props.session}
