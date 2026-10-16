@@ -440,49 +440,7 @@ export function LogPanel(props: LogPanelProps) {
           <div style={{ width: '8px', flexShrink: 0 }} />
           <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>({filtered.length})</span>
           <div style={{ width: '8px', flexShrink: 0 }} />
-          {!mob && <>
-          <div style={{ width: '8px', flexShrink: 0 }} />
-          <div style={{ width: '8px', flexShrink: 0 }} />
-          <div style={{ width: '8px', flexShrink: 0 }} />
-          {/* More filters dropdown */}
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-            <button
-              onClick={() => setMoreOpen(!moreOpen)}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--q-accent-success)'; e.currentTarget.style.color = 'var(--q-accent-success)' }}
-              onMouseLeave={(e) => {
-                const btn = e.currentTarget
-                btn.style.borderColor = moreOpen ? 'var(--q-accent-success)' : 'var(--q-border)'
-                btn.style.color = moreOpen ? 'var(--q-accent-success)' : 'var(--q-text-secondary)'
-              }}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '6px', padding: '0 8px', height: '32px',
-                borderRadius: 'var(--radius-md)', border: '1px solid ' + (moreOpen ? 'var(--q-accent-success)' : 'var(--q-border)'),
-                cursor: 'pointer', backgroundColor: 'transparent', color: moreOpen ? 'var(--q-accent-success)' : 'var(--q-text-secondary)',
-                fontSize: '12px', fontFamily: 'var(--font-interface)',
-                transition: 'none',
-              }}
-            >
-              <ChevronDown size={14} style={{ transition: 'none', transform: moreOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }} />
-              More
-            </button>
-            <div
-              ref={overlayRef}
-              style={{ position: 'fixed', inset: 0, zIndex: 40, backgroundColor: 'transparent', display: moreOpen ? 'block' : 'none' }}
-              onClick={() => setMoreOpen(false)}
-            />
-            <div
-              ref={dropdownRef}
-              style={{
-                position: 'absolute', top: 'calc(100% + 8px)', left: '0', zIndex: 50,
-                backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)',
-                boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)',
-                padding: '4px', display: moreOpen ? 'flex' : 'none', flexDirection: 'column', gap: '4px',
-              }}
-            >
-              {moreFilters.map((level) => <FilterPill key={level} level={level} />)}
-            </div>
-          </div>
-          </>}
+          {moreFilters.map((level) => <FilterPill key={level} level={level} />)}
           {mob && <><IconBtn icon={Filter} onClick={() => setFiltersSheet(true)} /><div style={{ width: '8px', flexShrink: 0 }} /></>}
           <span style={{ flex: 1 }} />
           {!mob && <>
