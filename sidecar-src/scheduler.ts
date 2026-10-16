@@ -15,7 +15,7 @@ import * as path from "node:path";
 import {  } from "node:os";
 import { ExecutionEngine } from "./executor";
 
-// FIX DST + ORARI (16 ott, verificati con test /tmp/dst-test.cjs — 7/7 casi sbagliati prima):
+// FIX DST + ORARI (16 ott, verificati con test internal/harness/dst-test.cjs — 7/7 casi sbagliati prima):
 // i calcoli a passi fissi di 86400000ms slittavano di +-1h al cambio d'ora; le monthly
 // tornavano candidateDay (00:00!) perdendo l'orario; le hourly appena create potevano
 // puntare a un'ora gia' passata (fire immediato).
