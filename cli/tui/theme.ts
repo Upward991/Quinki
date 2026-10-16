@@ -96,7 +96,6 @@ const PANEL_RGB = (() => {
 
 /** Like bg(), but restores the panel background instead of the terminal default
  *  (inside the composer/header blocks the row background must stay uniform). */
-export const bgKeepPanel = (color: string, s: string) =>
   colorEnabled ? `\x1b[48;2;${hexToRgb(color).join(";")}m${s}\x1b[48;2;${PANEL_RGB}m` : s;
 
 /** Context counter color — same thresholds and colors as the app. */

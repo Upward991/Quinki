@@ -56,7 +56,7 @@ export function migrateTabOrder(order: string[]): string[] {
   return order
 }
 
-export function loadTabOrder(): string[] {
+function loadTabOrder(): string[] {
   try {
     const raw = localStorage.getItem(ORDER_KEY)
     if (raw) {
@@ -273,7 +273,7 @@ export function getUninstalledItems(): MarketItem[] {
   } catch {}
   return []
 }
-export function saveUninstalledItems(items: MarketItem[]) {
+function saveUninstalledItems(items: MarketItem[]) {
   try { localStorage.setItem(UNINSTALLED_KEY, JSON.stringify(items)) } catch {}
 }
 export function addUninstalledItem(id: string, category: string) {
