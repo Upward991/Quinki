@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { useSidecarContext } from '../shared/AppShell'
 import { Home, Terminal, Search, ChevronDown, ChevronUp, Download, Copy, RefreshCw, Trash, ArrowDown, Pulse } from '../icons'
-import { Filter, Menu } from '../icons'
+import { Menu } from '../icons'
 import { BottomSheet } from '../chat/BottomSheet'
 import { useLayout } from '../../platform/layout'
 
@@ -34,7 +34,6 @@ export function LogPanel(props: LogPanelProps) {
   const bodyRef = useRef<HTMLDivElement>(null)
   const { call, notify, connected } = useSidecarContext()
   const mob = useLayout().mode === 'mobile'
-  const [filtersSheet, setFiltersSheet] = useState(false)
   const [actionsSheet, setActionsSheet] = useState(false)
 
   // Highlight match in golden (same as Settings)
@@ -314,11 +313,11 @@ export function LogPanel(props: LogPanelProps) {
     alignItems: 'center',
   }
 
-  function IconBtn({ icon: Icon, onClick }: { icon: React.FC<{ size?: number; style?: React.CSSProperties }>; onClick: () => void }) {
+  function IconBtn({ icon: Icon, onClick, title }: { icon: React.FC<{ size?: number; style?: React.CSSProperties }>; onClick: () => void; title?: string }) {
     const [hovered, setHovered] = useState(false)
     return (
       <button
-        onClick={onClick}
+        onClick={onClick} title={title}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         style={{
@@ -399,8 +398,7 @@ export function LogPanel(props: LogPanelProps) {
           <div style={{ width: '8px', flexShrink: 0 }} />
           <span style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)' }}>({filtered.length})</span>
           <div style={{ width: '8px', flexShrink: 0 }} />
-          {moreFilters.map((level) => <><FilterPill key={level} level={level} /><div style={{ width: '8px', flexShrink: 0 }} /></>)}
-          {mob && <><IconBtn icon={Filter} onClick={() => setFiltersSheet(true)} /><div style={{ width: '8px', flexShrink: 0 }} /></>}
+          {!mob && moreFilters.map((level) => <><FilterPill key={level} level={level} /><div style={{ width: '8px', flexShrink: 0 }} /></>)}
           <span style={{ flex: 1 }} />
           {!mob && <>
           <HeaderBtn label="export all" icon={<Download size={14} />} onClick={() => setShowExport(true)} />
@@ -426,7 +424,7 @@ export function LogPanel(props: LogPanelProps) {
           <div style={{ width: '4px', flexShrink: 0 }} />
           <HeaderBtn label="clear" icon={<Trash size={14} />} onClick={() => setShowClear(true)} />
           </>}
-          {mob && <IconBtn icon={Menu} onClick={() => setActionsSheet(true)} />}
+          {mob && <IconBtn icon={Menu} onClick={() => setActionsSheet(true)} title="Menu" />}
         </div>
       </div>
 
@@ -650,25 +648,22 @@ export function LogPanel(props: LogPanelProps) {
         </div>
       )}
 
-      {/* TELEFONO: stessi elementi della testata, in menu dal basso */}
-      {mob && (
-        <BottomSheet
-          open={filtersSheet}
-          onClose={() => setFiltersSheet(false)}
-          onViewBack={() => setFiltersSheet(false)}
-          items={[]}
-          view={
-            <div style={{ padding: '8px 8px 6px 8px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-              {moreFilters.map((level) => <><FilterPill key={level} level={level} /><div style={{ width: '8px', flexShrink: 0 }} /></>)}
-            </div>
-          }
-        />
-      )}
       {mob && (
         <BottomSheet
           open={actionsSheet}
           onClose={() => setActionsSheet(false)}
           items={[
+            ...moreFilters.map((level) => {
+              const c = levelColors[level]?.pill || 'var(--q-text-tertiary)'
+              const on = activeFilters.has(level)
+              return {
+                icon: <span style={{ width: 13, height: 13, borderRadius: '50%', boxSizing: 'border-box', backgroundColor: on ? c : 'transparent', border: '2px solid ' + c, flexShrink: 0, display: 'inline-block' }} />,
+                label: level,
+                value: on ? 'on' : 'off',
+                valueColor: on ? c : 'var(--q-text-tertiary)',
+                onSelect: () => toggleFilter(level),
+              }
+            }),
             { icon: <Download size={18} />, label: 'export all', onSelect: () => { setActionsSheet(false); setShowExport(true) } },
             { icon: <Copy size={18} />, label: 'copy', onSelect: () => { setActionsSheet(false); const md = filtered.map((e) => `### [${deriveLevel(e.tag)}] ${fmtTimestampFull(e.ts)}\n**Tag:** ${e.tag}\n\n${formatPayload(e.data)}\n`).join(`\n---\n\n`); navigator.clipboard.writeText(md) } },
             { icon: <RefreshCw size={18} />, label: 'refresh', onSelect: () => { setActionsSheet(false); if (call) { call('getFullDebugLog', {}).then((r: any) => { if (r && r.log) setEntries(r.log.slice(-100)) }).catch(() => {}) } } },
