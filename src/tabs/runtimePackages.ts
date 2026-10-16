@@ -4,7 +4,7 @@
 // e restituisce una funzione componente. Il runtime lo valuta e lo monta.
 // In A4.4 questi stessi pacchetti arriveranno scaricati dal sito (stessa forma).
 
-export interface TabManifest {
+interface TabManifest {
   id: string
   name: string
   version: string

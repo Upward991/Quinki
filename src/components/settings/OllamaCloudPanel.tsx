@@ -36,7 +36,7 @@ const fmtMonthlyReset = (m: any) => {
 }
 
 /** Usage-only card (shared between the provider toggle and the usage window). */
-export function OllamaUsageCard(props: {
+function OllamaUsageCard(props: {
   call: (method: string, params?: any, timeoutMs?: number) => Promise<any>
   showOpenWindow?: boolean
   variant?: 'card' | 'window'

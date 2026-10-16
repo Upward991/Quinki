@@ -1099,14 +1099,14 @@ function AddButton({ label, onClick }) {
   ]});
 }
 
-export function MiniButton({ label, onClick }) {
+function MiniButton({ label, onClick }) {
   return React.createElement('button', { onClick, style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 8px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', cursor: 'pointer', backgroundColor: 'transparent' }, children: [
     React.createElement(Plus, { size: 14, style: { color: 'var(--q-text-tertiary)' } }),
     React.createElement('span', { style: { color: 'var(--q-text-tertiary)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: label })
   ]});
 }
 
-export function TagChip({ icon, label, onRemove }) {
+function TagChip({ icon, label, onRemove }) {
   return React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 8px', borderRadius: '6px', border: 'none', backgroundColor: 'rgba(255, 255, 255, 0.04)' }, children: [
     React.createElement(icon, { size: 14, style: { color: 'var(--q-tab-accent)' } }),
     React.createElement('span', { style: { color: 'var(--q-text)', fontSize: '13px', fontFamily: 'var(--font-interface)' }, children: label }),
@@ -1458,7 +1458,7 @@ export function NewFileForm({ onCreate, onCancel }) {
   ]});
 }
 // ── McpRow: riga MCP nella sezione risorse (come SkillRow) ──
-export function McpRow({ mcp, agentsUsing, isExpanded, onToggle, onAddAgent, onRemoveAgent, onRemoveAllAgents, onDeleteMcp }) {
+function McpRow({ mcp, agentsUsing, isExpanded, onToggle, onAddAgent, onRemoveAgent, onRemoveAllAgents, onDeleteMcp }) {
   const subtitle = mcp.type === 'url' ? 'URL' : mcp.type === 'command' ? 'Command' : 'Package';
   return React.createElement('div', { className: 'q-cv-item', style: { marginBottom: '4px', backgroundColor: 'var(--q-bg-elevated)', border: 'none', borderRadius: '8px', overflow: 'hidden' }, children: [
     React.createElement('div', { onClick: onToggle, style: { padding: '10px 12px', display: 'flex', alignItems: 'center', cursor: 'pointer', borderRadius: '8px', transition: 'none' }, onMouseEnter: e => { e.currentTarget.style.backgroundColor = 'rgba(201, 112, 132, 0.03)'; }, onMouseLeave: e => { e.currentTarget.style.backgroundColor = 'transparent'; }, children: [
@@ -1493,7 +1493,7 @@ export function McpRow({ mcp, agentsUsing, isExpanded, onToggle, onAddAgent, onR
 }
 
 // ── McpInstallModal: installa / crea un MCP server (package o url) ──
-export function McpInstallModal({ onClose, onInstalled }) {
+function McpInstallModal({ onClose, onInstalled }) {
   const { call } = useSidecarContext();
   const [type, setType] = useState('package');
   const [source, setSource] = useState('');

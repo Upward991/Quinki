@@ -39,18 +39,6 @@ export function recordInstall(rec: Omit<InstallRecord, 'installedAt'>) {
 }
 
 // ANTI-FURTO: l'hash del candidato è già registrato ma con un AUTORE DIVERSO?
-export function hashClaimedByOther(hash: string, author: string): boolean {
-  if (!hash) return false
-  return getRegistry().some((r) => r.hash && r.hash === hash && r.author !== author)
-}
-
-// Chi ha registrato questo hash (utile per messaggi "questo contenuto è di X")?
-export function hashOwner(hash: string): string | undefined {
-  if (!hash) return undefined
-  const rec = getRegistry().find((r) => r.hash === hash)
-  return rec?.author
-}
-
 // Hash del contenuto: SHA-256 (Web Crypto) con fallback FNV-1a 32-bit.
 export async function hashContent(content: string): Promise<string> {
   try {

@@ -145,10 +145,6 @@ export function findCatalogItem(id: string): CatalogItem | undefined {
   return allCatalogItems().find((t) => t.id === id)
 }
 
-export function findCatalogItemByPanel(panel: string): CatalogItem | undefined {
-  return allCatalogItems().find((t) => t.panel === panel)
-}
-
 // Icona da riassegnare quando la tab installata viene ricaricata da localStorage
 export function resolveCatalogIcon(id: string): any {
   const found = findCatalogItem(id)

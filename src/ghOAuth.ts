@@ -4,13 +4,6 @@
 const CLIENT_ID = 'Ov23liskJJuKGs1NAsON'
 const TOKEN_KEY = 'quinki-github-oauth-token'
 
-export interface DeviceFlowSession {
-  device_code: string
-  user_code: string
-  verification_uri: string
-  interval: number
-}
-
 type SidecarCall = (method: string, params?: any, timeout?: number) => Promise<any>
 
 // FLUSSO CLASSICO: il SIDECAR apre il BROWSER (github.com/login/oauth/authorize),

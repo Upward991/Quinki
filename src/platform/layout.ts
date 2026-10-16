@@ -11,7 +11,7 @@ const KEY = 'quinki-layout'
 
 // Phones are <= 480 CSS px wide; small tablets/iPads are >= 744: the gap keeps
 // tablets on the desktop layout.
-export const MOBILE_MAX_WIDTH = 600
+const MOBILE_MAX_WIDTH = 600
 
 function isTauriRuntime(): boolean {
   try {
@@ -21,7 +21,7 @@ function isTauriRuntime(): boolean {
   }
 }
 
-export function readLayoutOverride(): LayoutMode {
+function readLayoutOverride(): LayoutMode {
   try {
     const q = new URLSearchParams(window.location.search).get('layout')
     if (q === 'mobile' || q === 'desktop' || q === 'auto') {

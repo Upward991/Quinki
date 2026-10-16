@@ -63,8 +63,6 @@ let remoteDegradedReason = ''
 export function getRemoteStatus(): { degraded: boolean; reason: string } {
   return { degraded: remoteDegraded, reason: remoteDegradedReason }
 }
-export function resetRemoteDegraded() { remoteDegraded = false; remoteDegradedReason = '' }
-
 // Converte una voce del catalog.json remoto in CatalogItem (fonde col locale se esiste).
 function remoteToItem(cat: string, r: any, local: CatalogItem | undefined, source: string): CatalogItem {
   return {
@@ -523,4 +521,3 @@ export function getMergedCatalog(): CatalogItem[] {
   return []
 }
 
-export function isRemoteLoaded(): boolean { return remoteLoaded }

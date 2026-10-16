@@ -3,8 +3,7 @@
 // Data models extracted from Flutter app (models/agent.dart, models/message.dart)
 // ============================================================
 
-export type MessageRole = 'user' | 'assistant' | 'system'
-export type MessageStatus = 'idle' | 'streaming' | 'thinking' | 'tool_call' | 'tool_result' | 'delegation' | 'error' | 'compacting' | 'done'
+type MessageRole = 'user' | 'assistant' | 'system'
 
 export interface ToolCall {
   name: string
@@ -66,7 +65,7 @@ export interface Message {
   skillNames?: { agentId: string; skillName: string; agentName?: string }[]
 }
 
-export type SessionType = 'chat' | 'folder'
+type SessionType = 'chat' | 'folder'
 
 export interface Session {
   id: string
@@ -81,13 +80,13 @@ export interface Session {
   messageCount?: number
 }
 
-export interface SkillInfo {
+interface SkillInfo {
   name: string
   source: string  // 'pi.dev' | 'github' | 'local'
   installed: boolean
 }
 
-export interface ToolInfo {
+interface ToolInfo {
   name: string
   enabled: boolean
   baseUrl?: string
@@ -106,7 +105,7 @@ export interface Agent {
   color?: string  // optional accent color
 }
 
-export interface ProviderModel {
+interface ProviderModel {
   id: string
   name: string
   contextWindow?: number
@@ -122,7 +121,6 @@ export interface Provider {
   baseUrl?: string
 }
 
-export type ViewTab = 'chat' | 'home' | 'agents' | 'settings'
 export type ChatMode = 'plan' | 'build'
 export type ThinkingLevel = 'off' | 'on' | 'xhigh'
 

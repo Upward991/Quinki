@@ -4,9 +4,9 @@
 const monthsAll = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december']
 
 // Returns { day, month?, year? } — month is 0-indexed
-export interface ParsedDate { day?: number; month?: number; year?: number }
+interface ParsedDate { day?: number; month?: number; year?: number }
 
-export function parseDateInput(input: string): ParsedDate | null {
+function parseDateInput(input: string): ParsedDate | null {
   const trimmed = input.trim().toLowerCase()
   if (!trimmed) return null
 
@@ -52,9 +52,9 @@ export function parseDateInput(input: string): ParsedDate | null {
   return null
 }
 
-export interface ParsedTime { hours: number; minutes: number; seconds: number }
+interface ParsedTime { hours: number; minutes: number; seconds: number }
 
-export function parseTimeInput(input: string): ParsedTime | null {
+function parseTimeInput(input: string): ParsedTime | null {
   const trimmed = input.trim()
   if (!trimmed) return null
   // Pad single digit with trailing 0: "1" → 10, "3" → 30
