@@ -41,12 +41,16 @@ if (!process.env.QUINKI_CODING_AGENT_SESSION_DIR) {
 process.title = "quinki";
 process.env.PI_CODING_AGENT = "true";
 process.env.AI_AGENT = "pi";
+// Via i warning di Node: gli output "di servizio" romperebbero la pulizia dello stdout
+// (le modalità -p/json devono restare script-friendly: solo il risultato).
 process.emitWarning = (() => {}) as any;
 
 // --- 3. SDK bootstrap (used by the automation modes) -------------------------
 const sdkMain = await import(
   "../sidecar-src/vendor/@earendil-works/pi-coding-agent/dist/main.js"
 );
+// Il dispatcher HTTP dell'engine: si installa ORA, prima che qualsiasi altro modulo
+// faccia chiamate di rete, così le richieste dell'SDK passano tutte da un unico punto.
 const httpDispatcher = await import(
   "../sidecar-src/vendor/@earendil-works/pi-coding-agent/dist/core/http-dispatcher.js"
 );

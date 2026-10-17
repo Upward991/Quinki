@@ -1,13 +1,32 @@
 // =============================================================================
-// Quinki CLI — OUR terminal UI (T1, iteration 2)
+// Quinki CLI — LA NOSTRA UI DA TERMINALE
 //
-// Layout mirrors the app window:
-//   app-style margins around everything; header (top, fixed); chat transcript
-//   (scrolls); composer box (bottom, fixed) with the button bar INSIDE the
-//   rounded box — exactly like the app's composer.
+// Non è la UI dell'SDK: è una finestra dell'app disegnata a caratteri. Stesso layout
+// (margini, header fisso, transcript che scorre, composer in basso con la barra dei
+// bottoni DENTRO il riquadro), stessa palette (vedi theme.ts), nessuna emoji: solo
+// glifi. L'engine (l'SDK vendorizzato) resta invisibile: qui si parla solo col sidecar
+// locale via WebSocket.
 //
-// Engine: the vendored engine SDK (invisible). No pi UI, no pi commands, no emoji
-// icons — only text glyphs and the app's exact palette (see theme.ts).
+// COM'È FATTO IL FILE (7.7k righe):
+//   • righe 48-583   → i mattoncini: widget di layout (CenterBox, InsetBox, FnLine),
+//                       helper puri (truncate/fmtTok/fmtWhen/wrapPlain), i blocchi del
+//                       transcript (ToggleBlock = i blocchi richiudibili, con le
+//                       sotto-deleghe annidate), il banner Long Horizon, il footer.
+//   • riga 585-finestra → `runTui`: TUTTO il resto vive dentro questa unica funzione
+//     (è lunga, ma ogni pezzo ha nome e commento). In ordine: connessione al sidecar
+//     e spawn se morto → sessione e cartelle → token/allegati → layout e composer →
+//     menu agenti/skill/MCP → impostazioni → i comandi "/" → navigazione dei toggle →
+//     eventi del turno (streaming, tool, done) → history dal server e render →
+//     il motore dei menu (righe, filtri, conferme) → shutdown.
+//
+// INVARIANTI DA NON ROMPERE:
+//   • il sidecar che muore (l'app chiude il suo) NON deve MAI uccidere la CLI: esiste
+//     il loop di riconnessione + lo spawn autonomo. Le eccezioni sono ingoiate apposta.
+//   • la verità sulla connessione è `sc.connected`, non `scOn` (che fotografa solo il
+//     primo tentativo al boot — il bug T477: chat vuote che non si caricavano mai).
+//   • il transcript si renderizza dall'history del SERVER (getHistory) in ordine
+//     d'albero: la conversazione è un albero, l'ordine piatto sbaglia l'ordine.
+//   • i toggle si ri-registrano a ogni render: gli indici vecchi non valgono mai.
 // =============================================================================
 
 import fs from "node:fs";
@@ -582,6 +601,14 @@ const fmtFooterDate = (ms: number): string => {
   }
 };
 
+/**
+ * LA UI INTERATTIVA. Vive dentro una sola funzione (grossa ma con ogni pezzo
+ * nominato): sessione e connessione al sidecar, layout a finestra, tutti i menu,
+ * i comandi "/", gli eventi del turno, la history e lo shutdown.
+ * Modello di connessione: parla col sidecar via WebSocket; se il sidecar non c'è
+ * (app chiusa che l'ha ucciso) lo SPAWNA da solo e riconnette — la CLI non muore mai
+ * per colpa del motore.
+ */
 export async function runTui(opts: TuiOptions): Promise<void> {
   // Survival guard: the sidecar dying (app closed) must NEVER kill this process.
   // Errors from the websocket/link are handled by the reconnect loop instead.
@@ -721,6 +748,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   // expert CLI missing the env var connected to the MAIN sidecar (usually dead
   // when the main app is closed) => scOn false forever => the session never
   // loaded (the restarted CLI came up empty).
+  // Il canale verso il motore. La porta è quella del sidecar (9182 main / 9183 Expert).
   const sc = new Sc("ws://127.0.0.1:" + (process.env.QUINKI_SIDECAR_PORT || (QEXPERT ? "9183" : "9182")));
   // The settings menu uses this channel; define it from the CLI's real RPC client.
   try { (globalThis as any).__sidecarCall = (m: string, p?: any, t?: number) => sc.call(m, p || {}, t || 120000); } catch {}
@@ -860,6 +888,8 @@ export async function runTui(opts: TuiOptions): Promise<void> {
     const br = parseInt(bgc.slice(0, 2), 16), bg2 = parseInt(bgc.slice(2, 4), 16), bb = parseInt(bgc.slice(4, 6), 16);
     return `\x1b[48;2;${r};${g};${b}m\x1b[38;2;${br};${bg2};${bb}m${lbl}\x1b[49m\x1b[39m`;
   };
+  /** Il tasto Stop: se c'è il sidecar si usa la sua abort (instradata bene anche nel
+   *  pool), altrimenti si chiama l'abort diretto della sessione SDK. */
   const stopTurn = () => {
     if (scOn) {
       void sc.call("abort", { sessionKey: currentKey }, 15000).catch(() => {});
@@ -2505,6 +2535,8 @@ const readProvidersCfg = (): any => {
   // livello corrente; "avanti" su un toggle GIA' aperto ENTRA nei suoi toggle interni;
   // "indietro" esce di un livello. navStack = livelli dentro cui siamo entrati.
   let navStack: { scope: any; idx: number }[] = [];
+  /** Registra un blocco richiudibile del transcript. I toggle si RIGENERANO a ogni
+   *  render dell'history: qui si accumula la lista corrente, mai quella di prima. */
   const registerToggle = (t: ToggleBlock) => {
     toggles.push(t);
     return t;
@@ -2625,6 +2657,9 @@ const readProvidersCfg = (): any => {
     scrollToggleIntoView(fl[selToggle]);
     ui.requestRender();
   };
+  /** Il tasto "avanti"/"indietro" sul toggle selezionato: la prima pressione APRE il
+   *  blocco, la seconda ENTRA nei toggle interni (sotto-deleghe comprese, ricorsivo);
+   *  "indietro" chiude il blocco se è aperto, altrimenti risale di livello. */
   const setToggleOpen = (open: boolean) => {
     const fl = navList();
     const cur = selToggle >= 0 ? fl[selToggle] : null;
@@ -3782,6 +3817,9 @@ const readProvidersCfg = (): any => {
   };
 
   // --- streaming events --------------------------------------------------------
+  /** Gli eventi del turno che arrivano dalla sessione SDK: avvio agente, delta di
+   *  testo (chiude il toggle del thinking), tool call, fine. Aggiornano lo stato
+   *  visibile (pill, barra, blocchi) mentre la risposta si scrive. */
   const onSessionEvent = (e: any) => {
     try {
       if (e?.type === "agent_start") {
@@ -3942,6 +3980,9 @@ const readProvidersCfg = (): any => {
 
   /** Ask the SIDECAR for the history — the exact source the app uses: correct
    *  order, blocks normalized, footers with the real agent/model/level. */
+  /** Carica l'history DAL SERVER (getHistory): già normalizzata come la vede l'app,
+   *  così la CLI mostra esattamente la stessa conversazione. Con `beforeTs` carica la
+   *  pagina precedente ("carica più vecchi"). Ritorna true se arrivati in cima. */
   const loadServerHistory = async (beforeTs?: number): Promise<boolean> => {
     try { qDirs = null; qDirsKick(); } catch {}
     // T477: scOn is set ONLY by the boot's first connect attempt: if the sidecar
@@ -4076,6 +4117,9 @@ const readProvidersCfg = (): any => {
       ui.requestRender();
     } catch {}
   };
+  /** Le notifiche push del sidecar: il grosso è `stream_event` (lo streaming del
+   *  turno). Gli eventi con un messageId di una delega restano DENTRO il suo toggle
+   *  (routeNested): la risposta del delegato non sporca il testo dell'orchestrator. */
   const onWsEvent = (method: string, p: any) => {
     try {
       if (p?.sessionKey && p.sessionKey !== currentKey) return;
@@ -4386,6 +4430,9 @@ const readProvidersCfg = (): any => {
   };
 
   /** Rebuild the transcript from the saved history (the /reload command). */
+  /** Ricostruisce il transcript dai messaggi già normalizzati dal server. L'ordine è
+   *  quello dell'ALBERO della conversazione (ramo attivo), come nell'app: l'ordine
+   *  piatto dei file sbaglia. Ogni render riparte da zero e ri-registra i toggle. */
   const renderHistory = () => {
     try {
       content.clear();
@@ -4718,6 +4765,9 @@ const readProvidersCfg = (): any => {
 
   /** Rebuild the engine session in place — /reset (fresh chat), /directory
    *  (new cwd, same chat), /sessions (another chat). The transcript follows. */
+  /** Chiude la sessione SDK corrente e la ricrea (con eventualmente un'altra cartella
+   *  o un'altra key). È la base di /new, /reset e del cambio directory: un solo punto
+   *  per non lasciare mai in giro due sessioni vive. */
   const recreateSession = async (o: { clearMessages?: boolean; newCwd?: string; newSessionDir?: string; newKey?: string }) => {
     try {
       streaming = false;
@@ -4868,6 +4918,9 @@ const readProvidersCfg = (): any => {
     } catch {}
   };
 
+  /** Tutti i comandi "/": qui la CLI è "il pannello di controllo" (modello, thinking,
+   *  mode, agenti, skill, MCP, directory, Long Horizon, settings, sync/update...).
+   *  I comandi che toccano la sessione parlano col sidecar; gli altri agiscono locale. */
   const handleSlash = (raw: string) => {
     const parts = raw.slice(1).split(/\s+/);
     const cmd = (parts.shift() || "").toLowerCase();
@@ -6355,6 +6408,10 @@ const readProvidersCfg = (): any => {
   };
 
   let lastSelectAt = 0;
+  /** Il motore di navigazione del menu aperto (tastiera e mouse): su/giù, destra =
+   *  entra nel sottomenu, sinistra = torna indietro, invio = esegue, tab = seleziona.
+   *  Il dedupe su "select" esiste perché l'hook dell'editor e il listener della UI
+   *  scattano entrambi sullo stesso tasto (senza: un flag si accendeva e spegneva). */
   const menuNav = (a: "up" | "down" | "left" | "right" | "enter" | "escape" | "select") => {
     if (a === "enter") {  }
     // The path input only exists inside the directory submenu: anywhere else = off.
@@ -7347,6 +7404,7 @@ const applySettingsPatch = (patch: any) => {
   } catch {}
 
   // --- input -------------------------------------------------------------------
+  /** Uscita pulita: ripristina il terminale (colori/screen) e chiude il socket. */
   const shutdown = (why?: string) => {
     
     try {
