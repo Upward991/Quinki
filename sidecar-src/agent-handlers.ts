@@ -1,12 +1,27 @@
-// === Agent management helpers for sidecar.ts ===
-// Provides RPC handlers for agent CRUD, skill discovery, tool listing,
-// file management, and global config.
+// =============================================================================
+// agent-handlers.ts — RPC surface for AGENTS, SKILLS, TOOLS and the global config
+//
+// A single factory (createAgentHandlers) returns the whole method map: agents CRUD,
+// their files (PROMPT.md, config.json, skills...), skills discovery/install, the tool
+// catalogue, the global config and the API-key status, plus the chat-errors helpers.
+// sidecar.ts spreads this map into its own `handlers` — and then OVERRIDES
+// storeApiKey/deleteApiKey (those two must also touch the providers config, which
+// lives in sidecar.ts's scope), so the spread order there matters.
+//
+// Layout on disk: ~/.quinki/agents/<id>/ (config.json, PROMPT.md, skills/, ...) plus
+// ~/.quinki/quinki-global.json for the app-wide defaults (tools, skills, defaultMode).
+// =============================================================================
 
 import { execSync } from 'child_process';
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { homedir } from "node:os";
 
+/**
+ * Builds every agent/skill/tool RPC handler bound to the given data dir.
+ * `getCwd` is a getter (not a value) on purpose: the working directory can change at
+ * runtime, and handlers must always see the current one.
+ */
 export function createAgentHandlers(agentDir: string, getCwd: () => string) {
   const agentsDir = path.join(agentDir, "agents");
   const globalConfigFile = path.join(agentDir, "quinki-global.json");
@@ -339,6 +354,8 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
         return { success: true, skill: { name: skillName, description, path: path.join(skillDir, "SKILL.md"), directory: skillDir } };
       } catch (e: any) { return { success: false, error: e?.message || String(e) }; }
     },
+    /** Installs a skill (from the Market or from a path): writes SKILL.md and the
+     *  side files, then refreshes the caches the agents read. */
     installSkill: async (p: any) => {
       const pkg = String(p.package || "").trim();
       if (!pkg) return { success: false, error: "Package name required" };
@@ -580,6 +597,8 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
     // === Inject error exchange into engine SDK .jsonl history ===
     // Scrive user message + assistant error message direttamente nel file .jsonl
     // così il modello "ricorda" l'errore quando la chat viene riaperta.
+    /** Writes a user message + the error reply straight into the chat's .jsonl, so a
+     *  failed turn is a real part of the history (and the model sees it next time). */
     injectErrorExchange: async (p: any) => {
       const sessionKey = String(p.sessionKey || "");
       const userMessage = String(p.userMessage || "");

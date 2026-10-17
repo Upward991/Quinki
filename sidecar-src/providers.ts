@@ -1,3 +1,24 @@
+// =============================================================================
+// providers.ts — CONFIG DEI PROVIDER + CATALOGO MODELLI + CAPABILITIES
+//
+// Le tre fonti di verità che questo modulo possiede per conto di tutta l'app:
+//   • quinki-providers.json — la config utente: endpoint, chiavi (CIFRATE: l'unico
+//     punto di cifratura è writeProvidersConfig), modelli abilitati, modelData.
+//     Esiste anche un backup (quinki-providers-backup.json): se il file si corrompe
+//     o si svuota, restoreProvidersFromBackup lo rimette in piedi.
+//   • models.json — quello che LEGGE l'engine SDK (id, contextWindow, capabilities).
+//   • settings.json — le impostazioni che legge l'SDK (modello di default, ecc.).
+//   I due file dell'SDK sono DERIVATI: si rigenerano da qui (syncModelsJson /
+//   syncSettingsJson), mai si modificano a mano altrove.
+//
+// INVARIANTI DA NON ROMPERE:
+//   • anti-loss: una config in ingresso non cancella MAI provider o chiavi che non
+//     menziona (la cancellazione è esplicita: providerDelete / apiKeyDelete).
+//   • mai scrivere contextWindow inventati in models.json: se manca il dato si fa un
+//     fetch live (il vecchio fallback "|| 32768" ha avvelenato il file per mesi).
+//   • le chiavi in chiaro su disco non esistono: solo "enc:v1:..." (più strati
+//     gestiti in lettura per compatibilità con vecchi ri-salvataggi).
+// =============================================================================
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
@@ -83,6 +104,8 @@ function maskApiKey(key: string): string {
   return key.substring(0, 4) + "••••••••" + key.substring(key.length - 4);
 }
 
+/** Legge e decifra la config. Se trova chiavi in chiaro le migra (needsMigration) e
+ *  in lettura sopporta le chiavi cifrate più volte (max 3 strati: vecchio bug). */
 export function readProvidersConfig(): ProvidersConfig {
   try {
     if (!existsSync(providersPath)) return ensureBuiltinProviders(structuredClone(DEFAULT_CONFIG));
@@ -165,6 +188,10 @@ export function readProvidersConfig(): ProvidersConfig {
   }
 }
 
+/** L'UNICO punto in cui le chiavi si cifrano, e la scrittura è ANTI-LOSS: i provider
+ *  assenti nella nuova config si preservano, una chiave vuota non cancella quella
+ *  esistente (la cancellazione vera richiede il flag esplicito). Scrive anche il
+ *  backup da cui restoreProvidersFromBackup può ripartire. */
 export function writeProvidersConfig(config: ProvidersConfig): void {
   try {
     // === ANTI-LOSS: le chiavi NON si perdono mai più ===
@@ -264,6 +291,8 @@ export function writeProvidersConfig(config: ProvidersConfig): void {
   }
 }
 
+/** Ripristina la config dal backup (vengono contati i provider recuperati).
+ *  Chiamato all'avvio: è la rete di sicurezza contro file corrotti o svuotati. */
 export function restoreProvidersFromBackup(): number {
   // Ripristina apiKey vuote dal backup (chiamato all'init del sidecar).
   // FIX (01 set): NON risuscitare provider ELIMINATI. Prima scriveva
@@ -293,6 +322,8 @@ export function restoreProvidersFromBackup(): number {
   } catch { return 0; }
 }
 
+/** La vista MASKED per la UI: le chiavi diventano "sk-...abc" + apiKeySet.
+ *  È l'unica forma di config che può viaggiare verso il frontend. */
 export function getSafeProvidersConfig(): SafeProvidersConfig {
   const full = readProvidersConfig();
   const safeProviders: Record<string, SafeProviderConfig> = {};
@@ -390,6 +421,12 @@ async function tryAnthropicCompatible(
   return null;
 }
 
+/**
+ * Elenca i modelli di un provider, riconoscendone il TIPO dalla risposta e non dal
+ * nome: prova prima /api/tags (Ollama — regala anche context_length), poi /v1/models;
+ * per gli endpoint Anthropic-compat che non espongono la lista usa il catalogo
+ * Anthropic del vendor come fallback. Ritorna anche le capabilities note.
+ */
 export async function fetchProviderModels(
   providerName: string,
   baseUrl: string,
@@ -597,6 +634,9 @@ export async function testProviderConnection(
   return { success: true, count: models.length };
 }
 
+/** Rigenera models.json (il file che legge l'engine SDK) dalla config. Il merge è
+ *  conservativo e — quando manca il modelData — fa un FETCH LIVE invece di inventare
+ *  un contextWindow (vedi il commento "FIX 084" dentro). */
 export async function syncModelsJson(config: ProvidersConfig): Promise<void> {
   try {
     let existing: any = { providers: {} };
@@ -740,6 +780,8 @@ export async function syncModelsJson(config: ProvidersConfig): Promise<void> {
   }
 }
 
+/** Rigenera settings.json (le impostazioni che legge l'SDK) dalla config: modello e
+ *  thinking di default, risolti sul provider giusto. Derivato: non editarlo a mano. */
 export function syncSettingsJson(config: ProvidersConfig): void {
   try {
     let existing: any = {};
@@ -986,6 +1028,9 @@ async function probeModelVision(baseUrl: string, apiKey: string, modelId: string
 // Chiamata alla CONFIGURAZIONE del provider (add/update) — riempie la cache PRIMA
 // che l'utente scriva il primo messaggio. Provider che non validano i parametri
 // vengono scoperti dal self-heal a runtime.
+/** Sonda un provider e impara le CAPABILITIES reali dei suoi modelli (thinking: quali
+ *  livelli accetta; vision; contextWindow), salvandole nei caps condivisi. Gira al
+ *  boot e ogni 24h: un provider può aggiungere livelli nuovi e ce ne accorgiamo da soli. */
 export async function probeProviderCapabilities(providerName: string): Promise<void> {
   try {
     const config = readProvidersConfig();
@@ -1251,6 +1296,8 @@ export function clearOllamaCloudKey(): void {
 // Il vecchio formato resta supportato finche' il server non lo dismette del tutto.
 // Il piano arriva da POST /api/me con cache giornaliera (1 richiesta invece di 2 a ogni
 // poll: l'API e' rate-limited e risponde 429 se interrogata troppo spesso).
+/** Consumo del piano Ollama Cloud: crediti usati/limite per modello, con cache giornaliera
+ *  (i piani si ripristinano a mezzanotte UTC: vedi nextResetAt). */
 export async function getOllamaCloudUsage(): Promise<OllamaCloudUsage> {
   try {
     const cfg = readProvidersConfig();
@@ -1396,6 +1443,8 @@ export async function ollamaInstalled(): Promise<{ installed: boolean; version?:
   } catch { return { installed: false }; }
 }
 
+/** Installa Ollama (download dello zip nell'area temporanea dell'app, estrazione in
+ *  ~/.quinki/tmp, avvio dell'installer). Lo stato è interrogabile con ollamaInstallStatus. */
 export async function ollamaInstall(): Promise<{ ok: boolean; error?: string }> {
   // Download REALE con stream: percentuale vera calcolata su content-length,
   // scritta nel file di stato ~2 volte al secondo. Poi estrazione + installazione.
