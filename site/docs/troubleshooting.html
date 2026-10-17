@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Troubleshooting and FAQ · Quinki Docs</title>
+<link rel="icon" href="../favicon.svg"><link rel="stylesheet" href="docs.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="../index.html">Quinki</a><span class="docs-tag">Docs</span>
+  <nav class="topnav">
+    <a href="../index.html">Home</a>
+    <a href="https://github.com/Upward991/Quinki" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+</header>
+<div class="layout">
+  <aside class="sidebar"><details><summary>Start here</summary><ul><li><a href="overview.html">What is Quinki</a></li><li><a href="getting-started.html">Getting started</a></li><li><a href="user-guide.html">User Guide</a></li><li><a href="features.html">Inside Quinki</a></li><li><a href="guides.html">Guides &amp; Tutorials</a></li></ul></details><details><summary>Market</summary><ul><li><a href="market.html">The Quinki Market</a></li></ul></details><details open><summary>Reference</summary><ul><li><a href="reference-cli.html">CLI reference</a></li><li><a href="reference-config.html">Files &amp; Environment</a></li><li><a href="troubleshooting.html" class="active">Troubleshooting &amp; FAQ</a></li></ul></details><details><summary>Developer Guide</summary><ul><li><a href="developer.html">Build from source</a></li><li><a href="architecture.html">Architecture</a></li><li><a href="decisions.html">Design decisions</a></li><li><a href="cla.html">Contributor License Agreement</a></li></ul></details><details><summary>Design &amp; roadmap</summary><ul><li><a href="acp.html">ACP mode (editor integration)</a></li><li><a href="agent-api.html">Agent API (OpenAI-compatible)</a></li><li><a href="intelligent-ui.html">Intelligent UI (analysis)</a></li></ul></details><details><summary>Reports</summary><ul><li><a href="report-notion-import.html">Notion/Obsidian import</a></li><li><a href="report-ollama-500.html">Ollama Cloud 500</a></li></ul></details></aside>
+  <main class="content"><div class="crumb">Reference</div><h1>Troubleshooting and FAQ</h1>
+<p>The problems that actually happen, and what to do about them.</p>
+<h2>The app won&#39;t open</h2>
+<p>macOS may block apps downloaded outside the App Store the first time: open <strong>System Settings → Privacy &amp; Security</strong> and choose <strong>Open Anyway</strong> for Quinki. If it still doesn&#39;t start, download the DMG again from the <a href="https://github.com/Upward991/Quinki/releases">Releases page</a> — re-running the installer always gets the latest build.</p>
+<h2>Nothing responds / the chat list is empty</h2>
+<p>The engine starts with the app. If the window is up but nothing answers:</p>
+<ol>
+<li>Open the <strong>Log</strong> tab: real errors show up there, with their reason</li>
+<li><strong>Quit Quinki completely and reopen it</strong> — this restarts the engine cleanly</li>
+<li>If it repeats, check that a stale process isn&#39;t holding the engine&#39;s port (9182): quitting the app releases it; the engine also exits by itself when no window and no CLI is connected</li>
+<li>The <strong>CLI</strong> can talk to the engine too (<code>quinki</code>) — if the CLI also says &quot;not connected&quot;, the issue is the engine, not the window</li>
+</ol>
+<h2>A reply stays on &quot;Running&quot; forever</h2>
+<p>Press <strong>Stop</strong> (or <code>Esc</code>). Then send again: Quinki detects the interrupted turn and recovers it. If it happens often, the provider is usually the cause (key, quota, rate limit) — try another model with <code>/model</code> to isolate it. A stuck chat can also be reloaded with <code>/reload</code> (CLI) or by reopening it.</p>
+<h2>Provider problems</h2>
+<ul>
+<li><strong>401 / invalid key</strong>: re-enter the key in Settings → Providers. Keys are encrypted on disk; if a key was pasted with spaces or an old value, replacing it is enough</li>
+<li><strong>Model not found</strong>: refresh the provider&#39;s model list in Settings → Providers → Models</li>
+<li><strong>Ollama &quot;not installed&quot;</strong>: Settings → Providers → Ollama → <strong>Install</strong> (Quinki downloads and sets it up), then refresh models</li>
+<li><strong>Weird context sizes or early compactions</strong>: the catalog repairs itself — at each launch Quinki re-fetches real limits from the providers and fixes wrong values</li>
+<li><strong>Thinking level rejected</strong>: levels differ per provider; Quinki learns the supported ones automatically and falls back to the closest valid level</li>
+</ul>
+<h2>Notifications don&#39;t arrive</h2>
+<ol>
+<li>Allow Quinki in <strong>System Settings → Notifications</strong></li>
+<li>Check the chat&#39;s notification mode: <strong>Muted</strong> means never</li>
+<li>Quinki never notifies you about the chat you are <strong>already watching</strong> — that&#39;s by design</li>
+<li>On the phone: notifications need the remote feature on, and arrive even with the app closed. If they stop after re-pairing, check the device list in Settings</li>
+</ol>
+<h2>My phone can&#39;t connect</h2>
+<ul>
+<li>The remote must be <strong>on</strong> (Settings → Web app / Remote)</li>
+<li>A <strong>Quinki window must stay open</strong> on the Mac: the tunnel exists only while the app is visible</li>
+<li>Open the address shown in Settings on the phone and confirm the <strong>pairing</strong> page; each device gets its own token, revocable in Settings</li>
+<li>If a device was revoked, pair it again — old tokens stop working immediately</li>
+</ul>
+<h2>The CLI is old / says a different version</h2>
+<p>The app installs the CLI it ships. To update: <code>quinki update</code> (or <code>quinki update --check</code> to just look), or reinstall the app. New terminals pick up the new binary; <code>which quinki</code> should point at <code>~/.local/bin/quinki</code>.</p>
+<h2>The App Expert looks different from Quinki</h2>
+<p>They are two apps sharing the same code. After Quinki updates, sync the Expert: <strong>Settings → App Expert → Sync</strong>, then reopen the Expert. If the Expert misbehaves, the same section offers a rollback to its previous version.</p>
+<h2>Tasks didn&#39;t run</h2>
+<ul>
+<li>If the Mac was asleep or Quinki closed, missed tasks run <strong>at the next launch</strong> — late, never skipped</li>
+<li>Check the task in the <strong>Tasks</strong> tab: every run leaves an <strong>execution</strong> with its event log</li>
+<li>For tasks that need the Mac awake, enable <strong>Keep Awake</strong> on the task</li>
+<li>If the chat doesn&#39;t show the result, look above the textbox: <strong>&quot;Task executed&quot;</strong> opens the full result (Long Horizon takes precedence, and a nearly-full context is protected the same way)</li>
+</ul>
+<h2>Where do I find logs?</h2>
+<ul>
+<li><strong>Log tab</strong>: the three streams that matter — System Prompt, Thinking, LLM Catalog</li>
+<li><code>~/.quinki/quinki-debug.log</code>: the same data on disk</li>
+<li>The Tasks tab keeps each execution&#39;s events, for scheduled work</li>
+</ul>
+<h2>How do I delete or reset things?</h2>
+<ul>
+<li><strong>One chat</strong>: <code>/reset</code> clears its messages but keeps model, directory and settings. Deleting a chat is permanent — it never comes back</li>
+<li><strong>A task</strong>: from the Tasks tab</li>
+<li><strong>An agent or skill</strong>: from the Agents tab (installed Market items uninstall the same way)</li>
+<li><strong>Everything</strong>: quit Quinki and delete <code>~/.quinki</code> — it contains chats, agents, skills, tasks and settings. Make a copy first if you&#39;re not sure</li>
+</ul>
+<h2>Does Quinki send my data anywhere?</h2>
+<p>Your prompts, files and keys stay on your Mac and go only to the model provider you chose. The remote tunnel is the single door to the outside, it runs from your machine, it only exists while a Quinki window is open, and every device that uses it is explicitly paired and revocable.</p>
+<h2>Still stuck?</h2>
+<p>Open an <a href="https://github.com/Upward991/Quinki/issues">issue</a> with what you did, what happened, and (if you can) the relevant Log tab entries.</p>
+<p class="edit">Found a mistake? Edit <code>docs/TROUBLESHOOTING.md</code> in the repository and open a pull request.</p></main>
+</div>
+<footer class="foot">Quinki documentation — built from the repository (docs/*.md)</footer>
+</body>
+</html>

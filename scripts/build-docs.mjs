@@ -35,10 +35,18 @@ if (!marked) { console.error("[build-docs] marked non trovato (sidecar-src/node_
 const SECTIONS = [
   { title: "Start here", pages: [
     { src: "../README.md", slug: "overview", title: "What is Quinki" },
+    { src: "GETTING-STARTED.md", slug: "getting-started", title: "Getting started" },
     { src: "USER-GUIDE.md", slug: "user-guide", title: "User Guide" },
+    { src: "FEATURES.md", slug: "features", title: "Inside Quinki" },
+    { src: "GUIDES.md", slug: "guides", title: "Guides & Tutorials" },
   ]},
   { title: "Market", pages: [
     { src: "MARKET.md", slug: "market", title: "The Quinki Market" },
+  ]},
+  { title: "Reference", pages: [
+    { src: "REFERENCE-CLI.md", slug: "reference-cli", title: "CLI reference" },
+    { src: "REFERENCE-CONFIG.md", slug: "reference-config", title: "Files & Environment" },
+    { src: "TROUBLESHOOTING.md", slug: "troubleshooting", title: "Troubleshooting & FAQ" },
   ]},
   { title: "Developer Guide", pages: [
     { src: "DEVELOPER.md", slug: "developer", title: "Build from source" },

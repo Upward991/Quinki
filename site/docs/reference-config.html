@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Files and environment · Quinki Docs</title>
+<link rel="icon" href="../favicon.svg"><link rel="stylesheet" href="docs.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="../index.html">Quinki</a><span class="docs-tag">Docs</span>
+  <nav class="topnav">
+    <a href="../index.html">Home</a>
+    <a href="https://github.com/Upward991/Quinki" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+</header>
+<div class="layout">
+  <aside class="sidebar"><details><summary>Start here</summary><ul><li><a href="overview.html">What is Quinki</a></li><li><a href="getting-started.html">Getting started</a></li><li><a href="user-guide.html">User Guide</a></li><li><a href="features.html">Inside Quinki</a></li><li><a href="guides.html">Guides &amp; Tutorials</a></li></ul></details><details><summary>Market</summary><ul><li><a href="market.html">The Quinki Market</a></li></ul></details><details open><summary>Reference</summary><ul><li><a href="reference-cli.html">CLI reference</a></li><li><a href="reference-config.html" class="active">Files &amp; Environment</a></li><li><a href="troubleshooting.html">Troubleshooting &amp; FAQ</a></li></ul></details><details><summary>Developer Guide</summary><ul><li><a href="developer.html">Build from source</a></li><li><a href="architecture.html">Architecture</a></li><li><a href="decisions.html">Design decisions</a></li><li><a href="cla.html">Contributor License Agreement</a></li></ul></details><details><summary>Design &amp; roadmap</summary><ul><li><a href="acp.html">ACP mode (editor integration)</a></li><li><a href="agent-api.html">Agent API (OpenAI-compatible)</a></li><li><a href="intelligent-ui.html">Intelligent UI (analysis)</a></li></ul></details><details><summary>Reports</summary><ul><li><a href="report-notion-import.html">Notion/Obsidian import</a></li><li><a href="report-ollama-500.html">Ollama Cloud 500</a></li></ul></details></aside>
+  <main class="content"><div class="crumb">Reference</div><h1>Files and environment</h1>
+<p>Everything Quinki knows lives in one folder: <strong><code>~/.quinki</code></strong>. This page documents it, so nothing is a black box — and so you can back it up, move it, or inspect it with any text editor.</p>
+<h2>The data folder</h2>
+<h3>Folders</h3>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>What it holds</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>sessions/quinki/&lt;chat&gt;/</code></td>
+<td>The chat&#39;s conversation logs (append-only <code>.jsonl</code>), plus <code>chat-meta.json</code> — the chat&#39;s own truth: agents, working directory, overrides</td>
+</tr>
+<tr>
+<td><code>attachments/&lt;chat&gt;/</code></td>
+<td>Files attached to that chat</td>
+</tr>
+<tr>
+<td><code>workdir/&lt;chat&gt;/</code></td>
+<td>The chat&#39;s <strong>own working directory</strong> — where the agent creates things by default</td>
+</tr>
+<tr>
+<td><code>longhorizon/&lt;chat&gt;/</code></td>
+<td>Long Horizon: <code>plan.md</code>, <code>handoff.md</code>, <code>progress.json</code>, <code>state.json</code>, and the project&#39;s git <code>workdir/</code></td>
+</tr>
+<tr>
+<td><code>agents/&lt;id&gt;/</code></td>
+<td>An agent: <code>config.json</code> (model, thinking, tools, skills, MCP), <code>PROMPT.md</code>, and its files</td>
+</tr>
+<tr>
+<td><code>skills/&lt;name&gt;/</code></td>
+<td>A skill: <code>SKILL.md</code> plus whatever it needs</td>
+</tr>
+<tr>
+<td><code>executions/&lt;id&gt;/</code></td>
+<td>A task run: <code>execution.json</code> (state, heartbeat) and <code>events.jsonl</code></td>
+</tr>
+<tr>
+<td><code>cli-local/&lt;chat&gt;/</code></td>
+<td>The CLI&#39;s local working copy of a session</td>
+</tr>
+<tr>
+<td><code>tmp/</code></td>
+<td>The temporary area Quinki uses (the system temp is redirected here, by design)</td>
+</tr>
+</tbody></table>
+<h3>Files</h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>What it holds</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>quinki-sessions.json</code></td>
+<td>The chat list: labels, folders, order, per-chat settings</td>
+</tr>
+<tr>
+<td><code>quinki-folders.json</code></td>
+<td>The sidebar folders</td>
+</tr>
+<tr>
+<td><code>quinki-deleted-sessions.json</code></td>
+<td>Tombstones — a deleted chat never comes back</td>
+</tr>
+<tr>
+<td><code>quinki-providers.json</code></td>
+<td>Providers: endpoints, <strong>encrypted</strong> API keys, enabled models (<code>-backup.json</code> is the safety copy)</td>
+</tr>
+<tr>
+<td><code>models.json</code></td>
+<td>The model catalog the engine reads: context windows, capabilities</td>
+</tr>
+<tr>
+<td><code>settings.json</code></td>
+<td>The engine&#39;s settings (default model, default thinking)</td>
+</tr>
+<tr>
+<td><code>quinki-settings.json</code></td>
+<td>The app&#39;s settings: notifications, shortcuts, tabs, theme</td>
+</tr>
+<tr>
+<td><code>quinki-global.json</code></td>
+<td>Global defaults for tools and skills</td>
+</tr>
+<tr>
+<td><code>quinki-permissions.json</code>, <code>quinki-authorized-folders.json</code></td>
+<td>macOS permissions state and your <strong>Authorized Folders</strong></td>
+</tr>
+<tr>
+<td><code>thinking-caps.json</code></td>
+<td>The thinking levels each provider actually accepts (learned automatically)</td>
+</tr>
+<tr>
+<td><code>schedules.json</code>, <code>task-reports.json</code></td>
+<td>Tasks, and the queue of results waiting to be reported</td>
+</tr>
+<tr>
+<td><code>remote.json</code>, <code>remote-devices*.json</code></td>
+<td>Remote access state and the paired devices (the App Expert has its <em>own</em> files)</td>
+</tr>
+<tr>
+<td><code>push-*.json</code></td>
+<td>Notification subscriptions and state</td>
+</tr>
+<tr>
+<td><code>quinki-debug.log</code></td>
+<td>The Log tab&#39;s file — only three streams are written (System Prompt, Thinking, LLM Catalog)</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>API keys are encrypted on disk and never leave your Mac except toward the provider they belong to. Deleting a key in Settings removes it from this file.</p>
+</blockquote>
+<h2>Ports</h2>
+<p>All local, loopback only — nothing listens on the network unless you turn on the remote tunnel:</p>
+<table>
+<thead>
+<tr>
+<th>Port</th>
+<th>Who</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>9182</code></td>
+<td>The engine of the main app</td>
+</tr>
+<tr>
+<td><code>9183</code></td>
+<td>The engine of the App Expert</td>
+</tr>
+<tr>
+<td><code>9184</code>+</td>
+<td>The engine&#39;s worker processes (created on demand for heavy work)</td>
+</tr>
+</tbody></table>
+<h2>Environment</h2>
+<p>These are advanced switches — normal use never needs them. The main ones:</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>QUINKI_AGENT_DIR</code></td>
+<td>Use a different data folder instead of <code>~/.quinki</code></td>
+</tr>
+<tr>
+<td><code>QUINKI_ROLE</code></td>
+<td><code>main</code> or <code>expert</code>: which app this process belongs to</td>
+</tr>
+<tr>
+<td><code>QUINKI_WS_PORT</code></td>
+<td>The engine&#39;s port (default 9182 / 9183)</td>
+</tr>
+<tr>
+<td><code>QUINKI_AGENT_CWD</code></td>
+<td>Default working directory for agents without one</td>
+</tr>
+<tr>
+<td><code>QUINKI_POOL_SIZE</code></td>
+<td>How many worker processes the engine may use (default: number of CPU cores)</td>
+</tr>
+<tr>
+<td><code>QUINKI_POOL_EAGER</code></td>
+<td><code>1</code> = start workers at boot instead of on demand</td>
+</tr>
+<tr>
+<td><code>QUINKI_POOL_IDLE_MS</code> / <code>QUINKI_POOL_STATUS_MS</code></td>
+<td>Idle-worker shutdown timing and its check interval</td>
+</tr>
+<tr>
+<td><code>QUINKI_SIDECAR_PORT</code></td>
+<td>Port the <strong>CLI</strong> connects to (9182 main, 9183 Expert)</td>
+</tr>
+<tr>
+<td><code>QUINKI_NO_UPDATE_CHECK</code></td>
+<td><code>1</code> = the CLI skips the startup update check</td>
+</tr>
+<tr>
+<td><code>QUINKI_CLI_NO_BG</code></td>
+<td><code>1</code> = the CLI does not set the terminal&#39;s background colour</td>
+</tr>
+<tr>
+<td><code>QUINKI_EXPERT</code> / <code>QUINKI_SESSION_KEY</code></td>
+<td>Used by <code>quinki expert</code> to target the App Expert session</td>
+</tr>
+<tr>
+<td><code>QUINKI_TEST_BRIDGE</code></td>
+<td>Development only: JS-injection bridge for automated UI tests. Never on in production</td>
+</tr>
+</tbody></table>
+<h2>Backups</h2>
+<p>Copying the folder is a complete backup; restoring it restores everything (chats, agents, skills, tasks, settings). Keep the app closed while copying if you want a perfectly consistent snapshot.</p>
+<p>Some files are also <strong>self-healing</strong>: if the provider config gets corrupted, Quinki restores it from its own backup at the next launch, and provider keys can be re-entered at any time in Settings.</p>
+<p class="edit">Found a mistake? Edit <code>docs/REFERENCE-CONFIG.md</code> in the repository and open a pull request.</p></main>
+</div>
+<footer class="foot">Quinki documentation — built from the repository (docs/*.md)</footer>
+</body>
+</html>
