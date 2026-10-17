@@ -2556,14 +2556,22 @@ const readProvidersCfg = (): any => {
         if (parent && parent !== tgt) {
           const lines = ((parent as any).render(w) || []) as string[];
           const arrow = tgt.open ? "\u25be" : "\u25b8";
-          const plainHead = " " + arrow + " " + String(tgt.label || "");
+          const needle = arrow + " " + String(tgt.label || "");
           for (let i = 0; i < lines.length; i++) {
             const plain = String(lines[i]).replace(/\x1b\[[0-9;]*m/g, "");
-            if (plain.startsWith(plainHead)) { inner = i; break; }
+            if (plain.includes(needle)) { inner = i; break; }
           }
         }
       } catch {}
       if (found >= 0) scroll.scrollTo(Math.max(0, found + inner - 2));
+    } catch {}
+  };
+  const qNavLog = (ev: string, data: any) => {
+    try {
+      const fsL = require("fs");
+      const pL = require("path").join(require("os").homedir(), ".quinki", "cli-nav-debug.log");
+      try { if (fsL.existsSync(pL) && fsL.statSync(pL).size > 262144) fsL.writeFileSync(pL, ""); } catch {}
+      fsL.appendFileSync(pL, JSON.stringify({ t: new Date().toISOString(), ev, ...data }) + "\n");
     } catch {}
   };
   const navScopeOf = (): any => (navStack.length ? navStack[navStack.length - 1].scope : null);
@@ -2622,6 +2630,7 @@ const readProvidersCfg = (): any => {
     if (selToggle < 0) selToggle = fl.length - 1;
     else selToggle = Math.max(0, Math.min(fl.length - 1, selToggle + dir));
     fl.forEach((t, i) => (t.selected = i === selToggle));
+    qNavLog("move", { scope: navScopeOf() ? String(navScopeOf().label || "") : "(top)", idx: selToggle, len: fl.length, label: String((fl[selToggle] || {}).label || "") });
     scrollToggleIntoView(fl[selToggle]);
     ui.requestRender();
   };
@@ -2638,13 +2647,19 @@ const readProvidersCfg = (): any => {
       }
       // 2a pressione: ENTRA nei toggle interni (primo in alto). Ricorsivo per le sotto-deleghe.
       const kids = (cur.children || []).filter((c: any) => c && c.t === "toggle");
+      qNavLog("enter", { label: String(cur.label || ""), kids: kids.length, curOpen: !!cur.open, selIdx: selToggle });
       if (kids.length > 0) {
-        navStack.push({ scope: cur, idx: selToggle });
-        selToggle = 0;
-        clearAllSelected();
-        kids[0].v.selected = true;
-        scrollToggleIntoView(kids[0].v);
-        ui.requestRender();
+        try {
+          navStack.push({ scope: cur, idx: selToggle });
+          selToggle = 0;
+          clearAllSelected();
+          kids[0].v.selected = true;
+          qNavLog("enter-ok", { childLabel: String((kids[0].v || {}).label || "?"), childSelected: !!(kids[0].v || {}).selected, stack: navStack.length });
+          scrollToggleIntoView(kids[0].v);
+          ui.requestRender();
+        } catch (eE: any) {
+          qNavLog("enter-ERROR", { error: String(eE && eE.message || eE), stack: String(eE && eE.stack || "").split("\n").slice(0, 3) });
+        }
       }
       return;
     }
@@ -2939,11 +2954,8 @@ const readProvidersCfg = (): any => {
           return { consume: true };
         }
       }
-      // 17 ott: qualunque ALTRO tasto (testo, Esc, Enter...) chiude la nav e viene
-      // elaborato normalmente; mouse/rotellina no (bug riferito dall'utente).
-      if (navMode && !/^\x1b\[</.test(String(data)) && !/^\x1b\[M/.test(String(data))) {
-        try { exitToggleNav("input"); } catch {}
-      }
+      // 17 ott (richiesta utente): SCRIVERE NON esce dalla nav: il testo va nel textbox
+      // e l'evidenziazione resta. (Il mouse resta neutro e non la spegne.)
       const isTab =
         data === "\t" || data === "\x1b[9u" || data === "\x1b[9;1u" || matchesKey(data, "tab");
       if (isTab) {
