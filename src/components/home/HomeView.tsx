@@ -1,3 +1,11 @@
+// =============================================================================
+// HomeView.tsx — IL TAB HOME
+//
+// La griglia di card (le tab installate: chat, agents, calendar, log, settings,
+// più quelle dello store). Al mount ripristina SUBITO la configurazione dal file
+// settings (così le tab installate ci sono anche dopo un reinstall), poi le
+// tiene allineate col sidecar. Il riordino delle card usa @dnd-kit.
+// =============================================================================
 import React from 'react'
 import { useLayout } from '../../platform/layout'
 import { useState, useCallback, useEffect } from 'react'

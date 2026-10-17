@@ -1,3 +1,11 @@
+// =============================================================================
+// Sidebar.tsx — LA COLONNA DELLE CHAT
+//
+// L'albero delle sessioni: cartelle (con controllo anti-ciclo nel drag&drop),
+// sezione Pinned, righe riordinabili con le zone di rilascio, menu contestuale per
+// sessione, la campanella delle notifiche (le 4 modalità) e il modale di conferma.
+// Lo stato delle cartelle vive su disco (quinki-folders.json) ed è condiviso con la CLI.
+// =============================================================================
 import React, { useState, useRef, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import {

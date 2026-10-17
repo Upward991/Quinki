@@ -1,3 +1,12 @@
+// =============================================================================
+// CalendarView.tsx — IL TAB TASKS (calendario + esecuzioni)
+//
+// Due viste: il calendario delle schedule (con la descrizione LEGGIBILE della
+// ricorrenza) e la lista delle esecuzioni; le stesse viste appaiono "bloccate"
+// dentro una chat, filtrate sulle schedule di QUELLA chat. Da qui parte anche il
+// flusso "Create task" (scegli la chat → mini-chat per schedulare). Il drag&drop
+// sposta le task; le date e le ricorrenze seguono le regole del fuso della task.
+// =============================================================================
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import {
   DndContext,
