@@ -9,6 +9,15 @@
 //     enabled, catchUp, lastFiredAt, lastExecutionId, nextFireAt, createdAt }
 //
 // Ogni sidecar esegue SOLO le schedule con owner == se stesso (main 9182 / expert 9183).
+//
+// INVARIANTI DA NON ROMPERE:
+//   • MAI calcolare le occorrenze a passi fissi di 86400000ms: al cambio d'ora si
+//     slitta di ±1h (bug reale, coperto da internal/harness/dst-test.cjs). Ogni task
+//     ha il SUO fuso IANA e i conti si fanno in tempo locale con date reali.
+//   • Niente polling: UN timer per la prossima occorrenza + un watchdog lento che
+//     copre cambi di ora/fuso e sleep/wake, senza mai toccare i fire imminenti (<90s).
+//   • Il catch-up è solo al boot (app rimasta spenta = i task scaduti partono in ritardo,
+//     come chiesto dall'utente: "si fa comunque").
 
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -134,6 +143,9 @@ export class Scheduler {
   }
 
   // === EVENT-DRIVEN: un solo timer per la prossima occorrenza ===
+  /** Avvia lo scheduler: scan di catch-up subito (task "scaduti" mentre l'app era chiusa)
+   *  + il watchdog che ri-arma il timer dopo cambi di ora/fuso o sleep del Mac.
+   *  Nei child del pool non fa nulla (le schedule le governa solo il main). */
   start() {
     if (!this.#canFire) { this.#log("scheduler-inactive-pool-child", {}); return; }
     // Catch-up immediato al boot (app ripartita: i task scaduti DEVONO partire, anche in ritardo)
@@ -351,6 +363,9 @@ export class Scheduler {
     }
   }
 
+  /** Esegue una schedule scaduta. Lo stato su disco si aggiorna PRIMA di lanciare
+   *  (così un crash non fa ripartire il task due volte) e la schedule "once" sparisce:
+   *  l'esecuzione resta nella history. */
   #fire(s: Schedule, scheduledFor: number) {
     const now = Date.now();
     const delayMs = Math.max(0, now - scheduledFor);
@@ -399,6 +414,8 @@ export class Scheduler {
   }
 
   // === RPC API ===
+  /** Il tool schedule_task degli agenti e l'UI passano entrambi di qui: normalizza i
+   *  campi, valida l'orario e scrive la schedule nel file condiviso. */
   createSchedule(p: any): { id: string; schedule: Schedule } {
     // DEDUPE (16 ott, bug utente "a volte ne schedulа DUE"): se un task IDENTICO (titolo+testo+regole+agenti)
     // e' stato creato negli ultimi 2 minuti, NON ne creo un doppione: restituisco quello esistente.
@@ -528,6 +545,7 @@ export class Scheduler {
     return { ok: true };
   }
 
+  /** "Esegui adesso" dall'UI: lancia senza toccare nextFireAt (la programmazione resta). */
   async runScheduleNow(p: any): Promise<{ ok: boolean; executionId?: string; error?: string }> {
     const all = this.readSchedules();
     const s = all.find((x: Schedule) => x.id === p.id);

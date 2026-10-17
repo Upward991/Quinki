@@ -7,6 +7,15 @@
 // setMode/setWorkingDir/send), guidando l'agente in modo "headless" con un ws finto.
 // Niente stato importante in RAM: se il sidecar muore, al boot si classifica da disco (A2.3).
 // Per A2.1: runTask / cancel / list / get / events + heartbeat + notifiche WS.
+//
+// INVARIANTI DA NON ROMPERE:
+//   • lo stato vive SOLO su disco (execution.json scritto atomico + events.jsonl in
+//     append): se il processo muore, al boot si riclassifica da lì. Niente verità in RAM.
+//   • STOP ≠ CANCEL: stop interrompe il turno (il runner scrive lo stato finale
+//     "interrupted"); cancel/remove buttano via l'esecuzione.
+//   • keep-awake è REF-COUNTED: un solo caffeinate finché almeno un task lo richiede.
+//   • il recovery è OWNER-SCOPED: ogni sidecar riclassifica solo i propri task
+//     (senza il filtro, l'Expert "faceva girare" anche i task della main).
 
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -241,6 +250,14 @@ export class ExecutionEngine {
     }
   }
 
+  /**
+   * Lancia un task autonomo. Meccanica: crea la cartella dell'esecuzione, poi guida
+   * una VERA chat headless (chiave __exec_<id>) attraverso QuinkiBridge (create,
+   * setChatAgents, setMode build, setWorkingDir, send) con un websocket finto: il
+   * task è un turno normale — con tutti i tool — ma senza una finestra che lo guarda.
+   * Heartbeat e log eventi su disco durante la corsa; alla fine lo stato è classificato
+   * (executed / failed / interrupted).
+   */
   async runTask(p: ExecutionParams): Promise<{ executionId: string; status: string }> {
     const pb = this.#quinkiBridge;
     if (!pb) throw new Error("QuinkiBridge not ready");
@@ -458,6 +475,9 @@ export class ExecutionEngine {
   }
 
   // Interrompi un'execution running/queued → diventa interrupted (riprendibile da Calendar)
+  /** Ferma un task: al runner arriva "stopped" e l'abort interrompe il turno in corso
+   *  (lo stato finale lo scrive il runner, come per un'interruzione normale). Un task
+   *  ancora in coda viene marcato eseguito subito. Non cancella nulla: quello è remove(). */
   async stop(id: string): Promise<{ ok: boolean; error?: string }> {
     const state = this.get(id);
     if (!state) return { ok: false, error: "not found" };
@@ -482,6 +502,8 @@ export class ExecutionEngine {
   #caffeinate: any = null;
   #keepCount = 0;
 
+  /** Tiene il Mac sveglio (caffeinate) finché c'è ALMENO un task keepAwake: il processo
+   *  caffeinate è uno solo, si contano le richieste (ref-count) e alla fine si rilascia. */
   #acquireKeepAwake() {
     if (process.platform !== "darwin") return;
     this.#keepCount++;
@@ -509,6 +531,8 @@ export class ExecutionEngine {
   // === A2.3: Recovery Manager vic1 (resume SEMANTICO) ===
   // Al boot + ogni 60s: execution running/queued con heartbeat stantio → interrupted →
   // se autoResume (default) → CONTINUA la stessa sessione con un messaggio di ripresa.
+  /** Avvio del recovery: riclassifica i task rimasti appesi (solo i propri) e, se
+   *  richiesto, riprende quelli interrotti. Chiamato al boot dopo l'init del bridge. */
   startRecovery(autoResume = true) {
     this.recover(autoResume);
     this.#recoveryTimer = setInterval(() => { this.recover(autoResume); }, 60000);
@@ -516,6 +540,8 @@ export class ExecutionEngine {
   }
   #recoveryTimer: any = null;
 
+  /** Un task "running" senza heartbeat da 2 minuti è morto col processo: si marca
+   *  interrupted (o si riprende, se autoResume). Le soglie di stale sono qui. */
   async recover(autoResume = true): Promise<{ recovered: number; resumed: number }> {
     let recovered = 0, resumed = 0;
     const now = Date.now();
@@ -561,6 +587,9 @@ export class ExecutionEngine {
   }
 
   // Ripresa semantica: stessa sessione (stessa history su disco) + messaggio di continuazione.
+  /** Resume SEMANTICO di un task interrotto: ricostruisce entry e configurazione della
+   *  sessione __exec_<id> (dopo un riavvio può mancare) e la rilancia in build mode,
+   *  contando i tentativi. Il contesto già prodotto resta nella sessione. */
   async #resume(id: string): Promise<void> {
     const pb = this.#quinkiBridge;
     if (!pb) return;

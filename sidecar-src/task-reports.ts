@@ -44,6 +44,8 @@ export class TaskReports {
   }
 
   // === Fine task → in coda ===
+  /** Una task è finita: entra in coda (persistente, per proprietario) e si prova subito
+   *  a consegnarla — se la chat non è pronta, la coda aspetta. */
   enqueue(r: { key: string; executionId: string; title: string }) {
     if (!r || !r.key || !r.executionId) return;
     const all = this.#read();
@@ -54,6 +56,8 @@ export class TaskReports {
   }
 
   // === Riapertura chat (getHistory) → prova subito (con piccolo respiro per far finire il caricamento) ===
+  /** L'utente ha aperto la chat: un attimo di respiro (il caricamento ha la precedenza)
+   *  e poi si prova a consegnare i report in coda per quella chat. */
   onChatOpened(key: string) {
     if (!key || !this.#canRun) return;
     setTimeout(() => { try { this.#check(key, true); } catch {} }, 1500);
@@ -74,6 +78,9 @@ export class TaskReports {
   }
 
   // === Messaggio ROSSO dell'app (arriva anche come notifica) ===
+  /** Consegna alternativa senza toccare il contesto del modello: messaggio dell'APP
+   *  (rosso, marcato ⁣x) che dice all'utente dove trovare il risultato. Ha un
+   *  cooldown per chat: non si ripete in loop. */
   #red(sk: string, reason: string, text: string) {
     const last = this.#redAt.get(sk) || 0;
     if (Date.now() - last < RED_COOLDOWN_MS) return;
@@ -88,6 +95,16 @@ export class TaskReports {
     this.#log("task-report-blocked", { sessionKey: sk, reason });
   }
 
+  /**
+   * Il cancello dei report, in ordine — ognuno dei quali può rimandare o cambiare
+   * il modo di consegna:
+   *  1) il turno deve essere DAVVERO finito e pulito (mai durante turni o recovery);
+   *  2) Long Horizon attiva → niente prompt: messaggio ROSSO dell'app (il support
+   *     agent ha la precedenza);
+   *  3) compaction OFF e contesto sopra l'80% → niente prompt: messaggio ROSSO
+   *     (non si riempie un contesto che nessuno svuoterà);
+   *  4) altrimenti il report entra come prompt VISIBILE (bubble teal "task").
+   */
   async #check(sk: string, opened: boolean) {
     if (!this.#canRun) return;
     const pend = this.#read().filter((r) => r.key === sk && r.owner === this.#owner);
