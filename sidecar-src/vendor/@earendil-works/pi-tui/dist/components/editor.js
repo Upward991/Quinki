@@ -402,6 +402,7 @@ export class Editor {
         const layoutWidth = Math.max(1, contentWidth - (paddingX ? 0 : 1));
         // Store for cursor navigation (must match wrapping width)
         this.lastWidth = layoutWidth;
+        const horizontal = this.borderColor("─");
         // Layout the text
         const layoutLines = this.layoutText(layoutWidth);
         // QUINKI PATCH (25 set): placeholder support (app's "Write a message...").
@@ -413,6 +414,7 @@ export class Editor {
         const maxVisibleLines = this.qFullHeight
             ? Math.max(5, terminalRows - 6) // T541: exactly 1 row margin top + 1 bottom in the full-screen modal
             : Math.max(5, Math.floor(terminalRows * 0.3));
+        if (this.qFullHeight) { try { require("fs").appendFileSync("/tmp/q-modal-measure.log", JSON.stringify({ rows: terminalRows, maxVisible: maxVisibleLines, contentLines: layoutLines.length }) + "\n"); } catch {} }
         // Find the cursor line index in layoutLines
         let cursorLineIndex = layoutLines.findIndex((line) => line.hasCursor);
         if (cursorLineIndex === -1)
@@ -429,8 +431,9 @@ export class Editor {
         this.scrollOffset = Math.max(0, Math.min(this.scrollOffset, maxScrollOffset));
         // Get visible lines slice
         const visibleLines = layoutLines.slice(this.scrollOffset, this.scrollOffset + maxVisibleLines);
-        // QUINKI PATCH (6 ott, T536): with qFullHeight the box must be EXACTLY maxVisibleLines
-        // tall (pad with blank rows): the prompt modal fills the whole screen even with few lines.
+        // QUINKI PATCH (6 ott, T536): with qFullHeight the box must be EXACTLY
+        // maxVisibleLines tall (pad with blank rows): the prompt modal fills the
+        // whole screen even when the text is a few lines.
         if (this.qFullHeight) {
             while (visibleLines.length < maxVisibleLines) {
                 visibleLines.push({ text: "", hasCursor: false });
@@ -440,12 +443,16 @@ export class Editor {
         const result = [];
         const leftPadding = " ".repeat(paddingX);
         const rightPadding = leftPadding;
-        // QUINKI PATCH (25 set, iter6): floating-panel block - NO borders, full-width background.
+        // Render top border (with scroll indicator if scrolled down)
+        // QUINKI PATCH (25 set, iter6): floating-panel block — NO borders, full-width background.
         const qPaint = (raw) => {
+            // Keep the panel background even through inner full resets (cursor cells use \x1b[0m).
             const s = String(raw).replace(/\x1b\[0m/g, "\x1b[22m\x1b[23m\x1b[24m\x1b[27m\x1b[39m");
             return typeof this.bgFn === "function" ? this.bgFn(s) : s;
         };
-        // QUINKI PATCH (1 ott, T325): chips row (armed skills / attachments) INSIDE the box.
+        // QUINKI PATCH (1 ott, T325): chips row (armed skills / attachments) INSIDE
+        // the box — AFTER qPaint is defined (before this was a TDZ crash swallowed
+        // by try/catch, so the chips never showed).
         try {
             if (typeof this.qChipsFn === "function") {
                 const qc = String(this.qChipsFn(width - 2) ?? "");
@@ -480,14 +487,26 @@ export class Editor {
                     const afterGraphemes = [...this.segment(after, "grapheme")];
                     const firstGrapheme = afterGraphemes[0]?.segment || "";
                     const restAfter = after.slice(firstGrapheme.length);
-                    const cursor = renderFakeCursor(firstGrapheme);
-                    displayText = before + marker + cursor + restAfter;
+                    // QUINKI: inside a chip ("Skill: …") never invert — the inverted char
+                    // would kill the chip's background (the user's polish).
+                    let inChip = false;
+                    try {
+                        const re3 = (typeof this.qChipRe === "function" ? this.qChipRe() : /Skill:\s*[\w.-]+|\u25b8[^\s\u25b8]+/g);
+                        let mm3;
+                        while ((mm3 = re3.exec(displayText))) {
+                            if (layoutLine.cursorPos >= mm3.index && layoutLine.cursorPos < mm3.index + mm3[0].length) { inChip = true; break; }
+                        }
+                    } catch { }
+                    const cursor = inChip ? "" : `\x1b[7m${firstGrapheme}\x1b[0m`;
+                    displayText = before + cursor + restAfter;
                     // lineVisibleWidth stays the same - we're replacing, not adding
                 }
                 else {
-                    // Cursor is at the end - add highlighted space
-                    const cursor = renderFakeCursor(" ");
-                    displayText = before + marker + cursor;
+                    // Cursor is at the end: a VISIBLE block glued right after the last
+                    // char (after a chip too — T433: the insert has no trailing space,
+                    // so this block sits exactly next to the chip's last letter).
+                    const cursor = "\x1b[7m \x1b[0m";
+                    displayText = before + cursor;
                     lineVisibleWidth = lineVisibleWidth + 1;
                     // If cursor overflows content width into the padding, flag it
                     if (lineVisibleWidth > contentWidth && paddingX > 0) {
@@ -495,17 +514,17 @@ export class Editor {
                     }
                 }
             }
+            // QUINKI PATCH (25 set): placeholder text when the editor is empty.
+            if (isEmptyText && layoutLine === visibleLines[0] && !this.qNoPlaceholder) { // T537: the prompt editor shows nothing when empty
+                displayText = `${emitCursorMarker ? CURSOR_MARKER : ""}\x1b[7m \x1b[0m\x1b[38;2;88;88;96mWrite a message...\x1b[39m`;
+                lineVisibleWidth = 1 + 18; // cursor space + "Write a message..." (18 chars)
+            }
             // Calculate padding based on actual visible width
             const padding = " ".repeat(Math.max(0, contentWidth - lineVisibleWidth));
             const lineRightPadding = cursorInPadding ? rightPadding.slice(1) : rightPadding;
-            // QUINKI PATCH (25 set): placeholder when the editor is empty.
-            if (isEmptyText && layoutLine === visibleLines[0] && !this.qNoPlaceholder) {
-                displayText = `${emitCursorMarker ? CURSOR_MARKER : ""}\x1b[7m \x1b[0m\x1b[38;2;88;88;96mWrite a message...\x1b[39m`;
-                lineVisibleWidth = 1 + 18;
-            }
             // QUINKI PATCH (25 set, iter6): painted full-width line (edges both sides).
             try {
-                if (this.qTokenStyle) {
+                if (this.qTokenStyle) { // T463: sempre (i nomi nudi sfuggivano al test statico)
                     const reS = (typeof this.qChipRe === "function" ? this.qChipRe() : /Skill:\s*[\w.-]+|\u25b8[^\s\u25b8]+/g);
                     const styled = displayText.replace(reS, (m2) => String(this.qTokenStyle(m2) ?? m2));
                     result.push(qEdge() + qPaint(`${leftPadding}${styled}${padding}${lineRightPadding}`) + qEdgeR());
@@ -519,21 +538,26 @@ export class Editor {
         // QUINKI PATCH (25 set, iter6): breathing line + footer row + bottom padding, all painted.
         result.push(qEdge() + qPaint(" ".repeat(width - 2)) + qEdgeR());
         if (typeof this.footerLine === "function") {
-            try {
+            try { /* __qsel-editor */
                 const fl = String(this.footerLine(contentWidth) ?? "");
                 const flw = visibleWidth(fl);
                 const flPad = " ".repeat(Math.max(0, contentWidth - flw));
                 result.push(qEdge() + qPaint(`${leftPadding}${fl}${flPad}${rightPadding}`) + qEdgeR());
-            } catch { }
+            }
+            catch { }
         }
         result.push(qEdge() + qPaint(" ".repeat(width - 2)) + qEdgeR());
-        // QUINKI PATCH (25 set): OUR slash menu panel (driven by menuLinesFn) - above the box.
+        // QUINKI PATCH (25 set): OUR slash menu panel above the box (driven by menuLinesFn).
         if (typeof this.menuLinesFn === "function") {
             try {
                 const rows = this.menuLinesFn(contentWidth);
                 if (Array.isArray(rows) && rows.length > 0) {
                     const acPadRow = " " + qPaint(" ".repeat(width - 2)) + " ";
                     const acLines = [acPadRow];
+                    // QUINKI PATCH (6 ott, T521): the menu rows must NEVER go through
+                    // the token painter (bgFn) — a row like "Skill: name" was getting
+                    // the skill pill's background. Flag around THIS block only: the
+                    // text box chips/pill path stays byte-identical.
                     try { this.qMenuRendering = true; } catch { }
                     for (const line of rows) {
                         const lws = visibleWidth(line);
@@ -544,9 +568,9 @@ export class Editor {
                     acLines.push(acPadRow);
                     result.unshift(...acLines, "");
                 }
-            } catch { }
+            }
+            catch { }
         }
-        // Add autocomplete list if active
         this.renderedAutocompleteHeight = 0;
         if (this.autocompleteState && this.autocompleteList) {
             const autocompleteResult = this.autocompleteList.render(contentWidth);
@@ -621,6 +645,13 @@ export class Editor {
         return { handled: true, focus: true };
     }
     handleInput(data) {
+        // QUINKI: Tab = SELECT nel menu (il listener della TUI non lo vede mai perche'
+        // l'editor consuma Tab per l'autocomplete prima). Ripristinato il 17 ott.
+        try {
+            if (data === "\t" && globalThis.__qMenuSelect) {
+                if (globalThis.__qMenuSelect() === true) return;
+            }
+        } catch { }
         const kb = getKeybindings();
         // Handle character jump mode (awaiting next character to jump to)
         if (this.jumpMode !== null) {
