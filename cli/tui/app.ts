@@ -2582,13 +2582,14 @@ const readProvidersCfg = (): any => {
     for (const t of toggles) walk(t);
   };
   let qNavTimer: any = null;
+  let lastNavAt = 0;
   const qTouchNav = () => {
-    try { if (qNavTimer) clearTimeout(qNavTimer); } catch {}
-    qNavTimer = setTimeout(() => {
-      qNavTimer = null;
-      try { if (navMode) exitToggleNav("timer-1.5s"); } catch {}
-    }, 4000); // T588: fallback only (the kitty release events are reliable)
+    // 17 ott (modello utente): la nav e' APPICCICATA — non esce piu' da sola (ne' col
+    // rilascio dei modificatori, ne' col timer, ne' col mouse). Esce quando scrivi o con Esc.
+    // lastNavAt tiene la finestra (1.5s) in cui le frecce NUDE vanno alla nav, non al cursore.
+    lastNavAt = Date.now();
   };
+  const navFresh = () => navMode && Date.now() - lastNavAt < 1500;
   const enterToggleNav = () => {
     navMode = true;
     navStack = [];
@@ -2744,9 +2745,8 @@ const readProvidersCfg = (): any => {
         if (modRel) {
           const mods = (globalThis as any).__qMods as Set<string> | undefined;
           try { mods?.delete(modRel[1]); } catch {}
-          const stillCtrl = mods?.has("57441") || mods?.has("57442");
-          const stillAlt = mods?.has("57443") || mods?.has("57444");
-          if (navMode && (!stillCtrl || !stillAlt)) exitToggleNav("mod-release");
+          // 17 ott: il rilascio di Ctrl/Alt NON chiude piu' la nav (bug utente:
+          // l'evidenziazione spariva appena mollavi i tasti).
           return { consume: true };
         }
       } catch {}
@@ -2861,7 +2861,7 @@ const readProvidersCfg = (): any => {
       // 6 ott: THE TOGGLE NAV IS ALWAYS AVAILABLE: Ctrl+Alt + the arrows.
       // (No on/off mode anymore; Ctrl+T is gone.)
       try {
-        const qCAM = String(data).match(/^\x1b\[1;7:?[123]?([ABCD])$/); // press, repeat, release
+        const qCAM = String(data).match(/^\x1b\[1;7(?::1)?([ABCD])$/); // SOLO pressione: il rilascio (:3) apriva+entrava in un colpo solo
         if (qCAM && !(menuOpenRef?.() ?? false) && navMode) {
           const d2 = qCAM[1];
           qTouchNav();
@@ -2892,7 +2892,9 @@ const readProvidersCfg = (): any => {
         toggleNavMode();
         return { consume: true };
       }
-      if (navMode && !(menuOpenRef?.() ?? false)) {
+      // 17 ott: le frecce NUDE valgono per la nav solo nella finestra fresca (1.5s
+      // dall'ultimo tasto-nav); dopo tornano al cursore del textbox. Ctrl+Alt+frecce = sempre.
+      if (navMode && navFresh() && !(menuOpenRef?.() ?? false)) {
         const isUpN = data === "\x1b[A" || matchesKey(data, "up");
         const isDownN = data === "\x1b[B" || matchesKey(data, "down");
         const isLeftN = data === "\x1b[D" || matchesKey(data, "left");
@@ -2925,12 +2927,22 @@ const readProvidersCfg = (): any => {
         // non sequestra la combinazione. Un INCOLLAGGIO però passa SEMPRE (arriva
         // al textbox come paste normale); gli altri tasti extra restano inghiottiti
         // (così non si scrive per sbaglio durante la nav).
-        exitToggleNav("extra-key");
-        if (String(data).includes("\x1b[200~")) {
+        const _isMouse = /^\x1b\[</.test(String(data)) || /^\x1b\[M/.test(String(data));
+        if (_isMouse) {
+          // Rotellina/click: NON tocca la nav (prima la spegneva: bug 17 ott).
+        } else {
+          exitToggleNav("extra-key");
+        }
+        if (_isMouse || String(data).includes("\x1b[200~")) {
           // fall-through volontario: lo gestisce l'editor come incollaggio normale
         } else {
           return { consume: true };
         }
+      }
+      // 17 ott: qualunque ALTRO tasto (testo, Esc, Enter...) chiude la nav e viene
+      // elaborato normalmente; mouse/rotellina no (bug riferito dall'utente).
+      if (navMode && !/^\x1b\[</.test(String(data)) && !/^\x1b\[M/.test(String(data))) {
+        try { exitToggleNav("input"); } catch {}
       }
       const isTab =
         data === "\t" || data === "\x1b[9u" || data === "\x1b[9;1u" || matchesKey(data, "tab");
