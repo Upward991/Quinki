@@ -27,6 +27,32 @@ import { useLayout } from './platform/layout'
 import { resolveServerUrl } from './platform/server'
 import { MobileChatEntryGate } from './components/shared/MobileChatEntryGate'
 
+// =============================================================================
+// App.tsx — LA SHELL DELL'APP (telaio + stato della finestra + rendering)
+//
+// Tiene lo stato della FINESTRA (tab attiva, chat aperta, agenti della chat, layout,
+// sidebar, drag&drop...) e lo cuce con l'effetto giusto: i dati arrivano da
+// useSidecarData, le notifiche native e gli eventi di Tauri da `listen`/`invoke`,
+// il rendering è un albero di componenti che vivono in src/components/.
+//
+// PIÙ FINESTRE: questa stessa shell gira per ogni finestra (main, chat, quick chat,
+// usage...). Si coordinano via localStorage/sessionStorage (`quinki-last-session`,
+// `quinki-chat-window-session`, `quinki-settings`): aprire una chat già aperta
+// significa FOCUS sulla finestra esistente, non aprirne una seconda.
+//
+// LE VARIABILI A UNA LETTERA (eredità della minificazione, restano per stabilità):
+//   C = applica il tema · w = (dis)attiva un agente nella chat · T = sidebar
+//   E = cartelle espandi/comprimi · D = apri sessione · O = nuova chat
+//   k = INVIA il messaggio · A = STOP del turno · j = cambia tab · oe = riconcilia
+//   la lista sessioni quando il server cambia. Ogni callback ha il suo commento.
+//
+// INVARIANTI DA NON ROMPERE:
+//   • togliere l'ULTIMO agente da una chat apre il modale di guardia (una chat non
+//     può restare senza agenti).
+//   • le impostazioni di default (model/mode/thinking) si RILEGGONO quando si
+//     riparte su una chat nuova: la shell non tiene valori "vecchi" in memoria.
+//   • la chat che vive in un'altra finestra si apre FOCUSANDO quella finestra.
+// =============================================================================
 export default function App() {
   let _q: any = (window as any).__QUINKI__ || null
   let _expert = _q ? !!_q.expert : new URLSearchParams(window.location.search).get('expert') === '1'
@@ -569,6 +595,8 @@ export default function App() {
         setLhSt(null)
       }
     }, [e.sessions, o, e.activeSessionId]))
+  /** Applica il tema: aggiorna la preferenza e l'attributo `data-theme` (le CSS var
+   *  cambiano lì: nessun riavvio). */
   let C = useCallback((e) => {
       ;(_(e), document.documentElement.setAttribute(`data-theme`, e))
       try {
@@ -597,6 +625,8 @@ export default function App() {
         } catch (err) {}
       })
     }, []),
+    /** (Dis)attiva un agente nella chat corrente. NON si può arrivare a zero agenti:
+     *  in quel caso si apre il modale di guardia e la lista resta com'era. */
     w = useCallback(
       (t) => {
         l((n) => {
@@ -612,17 +642,21 @@ export default function App() {
       },
       [e, o],
     ),
-    T = useCallback(() => {
+      /** Sidebar della tab chat: mostra/nasconde (l'altra tab la tiene pinnata). */
+  T = useCallback(() => {
       t === `chat` && i((e) => (e === `pinned` ? `hidden` : `pinned`))
     }, [t]),
-    E = useCallback(
+      /** Espandi/comprimi una cartella nella sidebar (stato salvato con le cartelle). */
+  E = useCallback(
       (fid) => {
         let fs = e.folders || []
         e.updateFolders(fs.map((f) => (f.id === fid ? { ...f, isExpanded: !f.isExpanded } : f)))
       },
       [e],
     ),
-    D = useCallback(
+      /** Apre una sessione. Se quella chat è già aperta in un'altra finestra di Quinki
+   *  (finestra chat o quick chat) le si dà il FOCUS invece di aprirne una seconda. */
+  D = useCallback(
       async (t) => {
         try {
           sessionStorage.setItem(`quinki-last-session`, t)
@@ -646,7 +680,9 @@ export default function App() {
       },
       [e],
     ),
-    O = useCallback(() => {
+      /** Nuova chat: deseleziona la sessione e rilegge i default dalle impostazioni
+   *  (modello, mode, thinking) — mai valori rimasti in memoria. */
+  O = useCallback(() => {
       ;(e.deselectSession(), s(``), b(!0), n(`chat`))
       let _ws = {}
       try {
@@ -656,7 +692,10 @@ export default function App() {
       d(_ws.defaultModel || ``)
       h(_ws.defaultThinking || `on`)
     }, [e]),
-    k = useCallback(
+      /** INVIA il messaggio. Se la chat ha PIÙ agenti serve un Orchestrator: la scelta
+   *  viene risolta qui (orchestratorId della sessione, oppure unico agente); senza
+   *  orchestrator il messaggio non parte e arriva un errore in chat che spiega cosa fare. */
+  k = useCallback(
       (K, opts) => {
         let aid = undefined
         if (c && c.length > 0) {
@@ -704,9 +743,12 @@ export default function App() {
       },
       [e, c, u, m, o],
     ),
+    /** STOP: ferma il turno in corso (pill e streaming tornano a riposo subito). */
     A = useCallback(() => {
       e.stopStreaming()
     }, [e]),
+    /** Cambia tab. Nelle finestre secondarie "home" non esiste: si dà il focus alla
+     *  finestra principale. Ogni tab ha il suo colore d'accento (vedi ACC sotto). */
     j = useCallback(
       (tp) => {
         if (windowLabel !== `main`) {
@@ -790,6 +832,8 @@ export default function App() {
       } catch {}
     }
   }, [t, o, e.activeSessionId, e.connected])
+  /** Riconciliazione delle sessioni: quelle sparite dal server (cancellate altrove)
+   *  vengono chiuse anche qui — e la chat aperta, se era quella, si azzera. */
   let oe = useCallback(
     (newSessions) => {
       let oldIds = new Set(e.sessions.filter((s) => s.id !== `__app_expert__`).map((s) => s.id)),

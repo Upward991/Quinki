@@ -1,3 +1,29 @@
+// =============================================================================
+// useSidecarData.ts — IL LIVELLO DATI DELLA UI
+//
+// Due hook: `useSidecar` (il canale WebSocket verso il motore: call/notify/subscribe)
+// e `useSidecarData` (tutto lo stato che la UI mostra: sessioni, agenti, messaggi,
+// streaming, notifiche...), tenuto allineato dalle notifiche push del sidecar.
+//
+// COME SI COSTRUISCE IL TRANSCRIPT (la parte da capire bene):
+//   • il messaggio assistant è una lista di BLOCCHI in ORDINE CRONOLOGICO: thinking,
+//     tool_call, tool_result, text — nell'ordine in cui il modello li produce, mai
+//     riordinati per tipo;
+//   • una DELEGA è un blocco annidato (type 'delegation') dentro il messaggio
+//     dell'orchestrator: ha id proprio, blocchi propri (response) e riceve lo
+//     streaming del delegato tramite il suo messageId;
+//   • la history arriva dal SERVER (getHistory) già normalizzata: mergeHistoryMessages
+//     la traduce in questi blocchi. "Carica più vecchi" = loadOlder, che PREPENDE.
+//
+// INVARIANTI DA NON ROMPERE:
+//   • le letture idempotenti (getHistory, getFullState...) hanno retry + timeout (20s);
+//     le operazioni lunghe (sendMessage, compact, sync...) NON hanno timeout: aspettare
+//     l'LLM è normale, interromperle sarebbe un bug.
+//   • nel sidecar si parla SOLO con JSON-RPC 2.0: id = chiamata (una risposta), senza
+//     id = notifica (eventi) → smistata a chi si è iscritto con subscribe().
+//   • la pill "Recovering" resta visibile almeno 2s: il recovery al boot genera eventi
+//     reali che altrimenti la sovrascriverebbero nello stesso frame (mai vista).
+// =============================================================================
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { restoreHomeConfig } from '../tabs'
@@ -5,6 +31,13 @@ import { installMarketPackage } from '../marketActions'
 import { getMergedCatalog, getStableCatalog } from '../marketRemote'
 
 // useSidecar — WebSocket connection
+/**
+ * Il canale verso il sidecar: una sola connessione con riconnessione automatica.
+ * Espone `call` (RPC con risposta), `notify` (RPC senza risposta) e `subscribe`
+ * (ascolto delle notifiche push per metodo). Le CHIAMATE idempotenti ritentano da
+ * sole (connessione non pronta o timeout); `sendMessage`, `compact` ecc. invece
+ * aspettano senza limite: sono operazioni lunghe per natura.
+ */
 function useSidecar(url: string = 'ws://127.0.0.1:9182') {
   const wsRef = useRef<WebSocket | null>(null)
   const [ready, setReady] = useState(false)
@@ -93,6 +126,8 @@ function useSidecar(url: string = 'ws://127.0.0.1:9182') {
 }
 
 // ── helper: map session from sidecar format ──
+/** Traduce una sessione dal formato del sidecar a quello della UI (campi allineati
+ *  a ciò che disegnano sidebar e header). */
 function mapSession(s: any) {
   return {
     id: s.sessionKey || s.id || s.key,
@@ -118,6 +153,8 @@ function mapSession(s: any) {
 function mapSessions(arr: any[]) { return arr.map(mapSession) }
 
 // ── helper: map agent from sidecar format ──
+/** Traduce un agente per la UI: la descrizione è la prima riga del PROMPT.md
+ *  (righe vuote e titoli saltati). */
 function mapAgent(a: any) {
   // Descrizione: prime 3 righe non-vuote e non-header del PROMPT.md
   const desc = (a.prompt || '').split('\n').map((l: string) => l.trim()).filter((l: string) => l && !l.startsWith('#')).slice(0, 3).join(' ').slice(0, 140)
@@ -137,7 +174,14 @@ function mapAgent(a: any) {
 }
 
 // useSidecarData — COMPLETE implementation with ALL Flutter-parity RPC methods + event handlers
-// === B0.8: merge cronologico della history (usato da selectSession E loadOlder) ===
+/**
+ * Normalizza l'history del server nei messaggi/blocchi che la UI disegna (usata sia
+ * al cambio sessione sia da "carica più vecchi"/"salta al messaggio").
+ * Il punto delicato è la DELEGA: l'entry speciale del sidecar diventa un blocco
+ * annidato dentro il messaggio assistant vicino, coi suoi blocchi interni
+ * (thinking/tool/text) nella stessa forma degli altri — così MessageBubble la
+ * disegna con lo stesso componente dei toggle normali.
+ */
 function mergeHistoryMessages(history: any): any[] {
   const merged: any[] = []
   for (const m of (history?.messages || [])) {
@@ -224,6 +268,12 @@ function mergeHistoryMessages(history: any): any[] {
   });
 }
 
+/**
+ * Lo stato completo dell'app, in un hook solo. Espone i dati (sessioni, agenti,
+ * provider, cartelle, modelli) e lo stato del turno (streaming, pill di stato,
+ * contesto, compaction) e li tiene allineati con le NOTIFICHE del sidecar
+ * (stream_event, done, notifiche, read-state, cambi di configurazione).
+ */
 function useSidecarData(sidecarUrl: string = 'ws://127.0.0.1:9182') {
   const { call, notify, ready, subscribe } = useSidecar(sidecarUrl)
   const [loading, setLoading] = useState(true)
@@ -469,6 +519,9 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
     // Deleghe attive (id) — per filtrare gli eventi nested dal flusso principale
     const activeDelegationsRef = { current: new Set<string>() }
     // Stream events — costruisce i toggle LIVE durante lo streaming (thinking/tool/delega appaiono in tempo reale)
+    /** Ritorna (o crea) il messaggio assistant "in corso di scrittura": è lui che
+     *  riceve i delta. Se l'ultimo è già in streaming si continua lì, altrimenti se
+     *  ne apre uno nuovo — è così che più turni consecutivi restano separati. */
     const ensureStreamingMsg = (prev: any[], messageId?: string) => {
       const last = prev[prev.length - 1]
       if (last && last.role === 'assistant' && last.isStreaming) return { arr: prev.slice(0, -1), msg: last }
@@ -476,6 +529,9 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
       return { arr: prev, msg }
     }
     // Text come blocco cronologico (appare dopo i toggle precedenti)
+    /** Aggiunge testo al messaggio in streaming come BLOCCO cronologico (non campo a
+     *  parte): se l'ultimo blocco è già di testo si accoda, altrimenti se ne apre uno
+     *  nuovo — così il testo appare dopo i toggle che lo precedono. */
     const pushText = (msg: any, delta: string) => {
       const blocks = [...(msg.blocks || [])]
       const lastB = blocks[blocks.length - 1]
@@ -487,6 +543,9 @@ const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
       return blocks
     }
     // Blocchi cronologici: thinking N volte (una per turno), tool_call, tool_result — nell'ORDINE in cui arrivano
+    /** Aggiunge un blocco (thinking/tool/…) in coda: è QUI che il testo precedente
+     *  viene "timbrabto" con l'ora di fine — il footer dell'ultimo writing smette di
+     *  scorrere e mostra la durata reale. */
     const pushBlock = (msg: any, block: any) => {
       // SEAL (28 set): il writing precedente è finito (arriva thinking/tool/…) →
       // timbra il blocco testo con l'ora di FINE, così il suo footer è reale.
