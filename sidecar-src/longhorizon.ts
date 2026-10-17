@@ -9,6 +9,20 @@
 //   progress.json— lo stato machine-readable (unità corrente)
 //   workdir/     — cartella di lavoro dell'agente (git obbligatorio)
 //   state.json   — stato interno dell'agente di supporto
+//
+// INVARIANTI DA NON ROMPERE:
+//   • NON è un'AI: è un timer che LEGGE i file della sessione e SCRIVE prompt in chat
+//     (bubble utente). Nessuna decisione di merito, nessun giudizio sul lavoro.
+//   • Il support agent parla SOLO a turno completamente finito e PULITO: mai durante
+//     un turno, mai dopo uno stop dell'utente o un errore, e MAI prompt anti-loop
+//     (rimossi per decisione utente: partivano a metà turno e facevano casino).
+//   • Ognuno lavora dove VIVE la sessione: attivazione sul main (RPC → state.json),
+//     support agent sul processo che possiede la sessione (worker inclusi, via
+//     #rescan a ogni tick). Mai split-brain, mai takeover del main.
+//   • L'Expert non tocca MAI sessioni che non siano __app_expert__.
+//   • Con LH attiva la compaction è FORZATA ON (salvata e ripristinata all'uscita).
+//   • La workdir di LH ha GIT obbligatorio: ogni unità lascia un commit, revert e
+//     collapse sono sempre possibili.
 
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -209,6 +223,9 @@ export class LongHorizon {
   // === RPC API ===
 
   // Attiva Long Horizon per la sessione (il piano verrà impostato con setPlan)
+  /** Attiva Long Horizon su una sessione. Se esiste uno stato spento in precedenza NON si
+   *  riparte da zero: obiettivo/piano/handoff restano e si riparte dallo step "ready"
+   *  (ridiscuti, aggiorni il piano, vai). Forza la compaction ON e pubblica la fase. */
   async activate(sk: string): Promise<{ ok: boolean; error?: string }> {
     if (!sk) return { ok: false, error: "sessionKey required" };
     const existing = this.#states.get(sk);
@@ -277,6 +294,9 @@ export class LongHorizon {
   }
 
   // Disattiva COMPLETAMENTE Long Horizon per la sessione (usato quando la chat viene eliminata)
+  /** Spegne Long Horizon (quello vero: longHorizonDisable). Azzera il lavoro in corso
+   *  (unità, fase, contatore) e la spiegazione in chat — ma la compaction resta ON
+   *  ("meglio lasciarla attiva": si spegne a mano dopo, se si vuole). */
   disable(sk: string): { ok: boolean; error?: string } {
     const st = this.#states.get(sk);
     if (!st) return { ok: true };
@@ -299,6 +319,8 @@ export class LongHorizon {
   // Pausa (LH v2, decisione utente 14 ott): NON spegne la modalità — torna alla DISCUSSION,
   // Long Horizon resta ATTIVO (banner in chat con "Proceed to planning"). Da lì si ridiscute,
   // si aggiorna il piano e si riparte. Lo spegnimento VERO è disable() (RPC longHorizonDisable).
+  /** Pausa, NON spegnimento: torna alla DISCUSSION con LH ancora ATTIVO (il banner in
+   *  chat offre "Proceed to planning"). Lo spegnimento vero è disable(). */
   deactivate(sk: string): { ok: boolean; error?: string } {
     const st = this.#states.get(sk);
     if (!st) return { ok: false, error: "not active" };
@@ -321,6 +343,9 @@ export class LongHorizon {
   }
 
   // Manda un messaggio di fase SOLO quando non c'è nessun turno in corso/in coda (con cap).
+  /** Invia un prompt alla sessione ASPETTANDO che il turno sia libero (poll leggero
+   *  ogni 500ms, con tetto: dopo maxWaitMs parte comunque — se il turno non è finito,
+   *  il messaggio resta in coda come farebbe un utente). */
   #sendWhenTurnIdle(sk: string, text: string, maxWaitMs = 20000) {
     const started = Date.now();
     const tickFn = () => {
@@ -482,6 +507,9 @@ export class LongHorizon {
   }
 
   // Imposta il piano (markdown con unità) — chiamato dopo l'approvazione
+  /** Salva il piano (plan.md) e ne ricava le unità: le righe "- [ ] ..." / "- [x] ..."
+   *  diventano i task, la prima riga non-lista è l'obiettivo. È il formato che l'utente
+   *  vede e modifica — il parser deve restare tollerante. */
   setPlan(sk: string, planMd: string): { ok: boolean; error?: string } {
     const st = this.#states.get(sk);
     if (!st || !st.active) return { ok: false, error: "Long Horizon not active. Use /LongHorizon first." };
@@ -676,6 +704,9 @@ export class LongHorizon {
   }
 
   // === Loop ===
+  /** Il cuore parte da qui: tick ogni 15s su TUTTI i processi (poi ognuno filtra per
+   *  proprietà della sessione). Il primo tick è immediato: dopo un riavvio l'agente
+   *  riprende subito il lavoro rimasto a metà. */
   start() {
     this.#timer = setInterval(() => { this.tick().catch(() => {}); }, 15000);
     this.tick().catch(() => {});
@@ -684,6 +715,8 @@ export class LongHorizon {
 
   stop() { if (this.#timer) clearInterval(this.#timer); }
 
+  /** Un giro dell'agente di supporto: rilegge gli stati da disco (le sessioni possono
+   *  essere state attivate da un ALTRO processo) e poi lavora ognuna delle sue. */
   async tick() {
     // FIX POOL (31 ago): re-scan degli stati da disco a OGNI tick. Il Long Horizon
     // ora gira su TUTTI i processi del pool — l'ATTIVAZIONE avviene sul MAIN (RPC),
@@ -695,6 +728,9 @@ export class LongHorizon {
     }
   }
 
+  /** Sincronizza gli stati dalla cartella condivisa: nuove attivazioni, spegnimenti,
+   *  cambi di fase fatti da altri processi. È così che un worker scopre una sessione
+   *  attivata sul main, e il main vede gli aggiornamenti dei worker. */
   #rescan() {
     try {
       const dir = path.join(this.#agentDir, "longhorizon");
@@ -743,6 +779,13 @@ export class LongHorizon {
     } catch {}
   }
 
+  /**
+   * Un tick su UNA sessione. Ordine: scarta se non è sua (pool: owner != me; Expert:
+   * non-__app_expert__), se non c'è lavoro resta fermo; se c'è un obiettivo in attesa
+   * di piano lo lancia; se non è "running" non fa nulla; se sta streamando aspetta;
+   * e parla SOLO a turno finito e pulito (pending=false, clean=true) — dopo uno stop
+   * dell'utente o un errore tace e lascia fare all'autoprompt standard dell'app.
+   */
   async #tickSession(sk: string) {
     const st = this.#states.get(sk);
     if (!st || !st.active) return;
