@@ -1,6 +1,6 @@
 # Design Decisions
 
-> Why Quinki is built the way it is. Each entry: the decision, the context, the alternatives considered, and the consequences accepted. Backed by measured data from the internal studies (`docs/B0-*`, `docs/A2.5b-*`, `docs/B4-*`).
+> Why Quinki is built the way it is. Each entry: the decision, the context, the alternatives considered, and the consequences accepted. Backed by measured data from the project's development studies.
 
 ---
 

@@ -1,7 +1,7 @@
 # Architecture
 
 > How Quinki works: the three layers, the main flows, and the design decisions behind them.
-> This document is written from the source code. Last updated: August 2026.
+> This document is written from the source code. Last updated: October 2026.
 
 ## The three layers
 

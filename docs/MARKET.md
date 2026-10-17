@@ -1,6 +1,6 @@
 # The Quinki Market
 
-The Market is Quinki's catalog of community-made content: **tabs**, **skills**, **agents**, **MCP servers** and **themes**.
+The Market is Quinki's catalog of community-made content: **agents**, **skills** and **MCP servers** — with **tabs** and **themes** coming later (the catalog does not accept them yet).
 
 ## How it works
 
@@ -39,7 +39,7 @@ Every package lives in `packages/<category>/<id>/` with a `manifest.json`:
 
 ### Category details
 
-**tab**: an interactive panel inside Quinki
+**tab** *(not open for publishing yet — format shown for the future)*: an interactive panel inside Quinki
 ```
 packages/tab/my-tab/
 ├── manifest.json
@@ -55,7 +55,7 @@ The back-end gets a limited context: its own data dir and a whitelist of sidecar
 
 **mcp**: a `*.mcp.json` server config (stdio command or url endpoint).
 
-**theme**: a JSON with the CSS variables (background, panel, accents, radius).
+**theme** *(not open for publishing yet — format shown for the future)*: a JSON with the CSS variables (background, panel, accents, radius).
 
 ## Automatic validation (why your PR merges itself)
 
