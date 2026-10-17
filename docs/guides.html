@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guides and tutorials · Quinki Docs</title>
+<link rel="icon" href="../favicon.svg"><link rel="stylesheet" href="docs.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="../index.html">Quinki</a><span class="docs-tag">Docs</span>
+  <nav class="topnav">
+    <a href="../index.html">Home</a>
+    <a href="https://github.com/Upward991/Quinki" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+</header>
+<div class="layout">
+  <aside class="sidebar"><details open><summary>Start here</summary><ul><li><a href="overview.html">What is Quinki</a></li><li><a href="getting-started.html">Getting started</a></li><li><a href="user-guide.html">User Guide</a></li><li><a href="features.html">Inside Quinki</a></li><li><a href="guides.html" class="active">Guides &amp; Tutorials</a></li></ul></details><details><summary>Market</summary><ul><li><a href="market.html">The Quinki Market</a></li></ul></details><details><summary>Reference</summary><ul><li><a href="reference-cli.html">CLI reference</a></li><li><a href="reference-config.html">Files &amp; Environment</a></li><li><a href="troubleshooting.html">Troubleshooting &amp; FAQ</a></li></ul></details><details><summary>Developer Guide</summary><ul><li><a href="developer.html">Build from source</a></li><li><a href="architecture.html">Architecture</a></li><li><a href="decisions.html">Design decisions</a></li><li><a href="cla.html">Contributor License Agreement</a></li></ul></details><details><summary>Design &amp; roadmap</summary><ul><li><a href="acp.html">ACP mode (editor integration)</a></li><li><a href="agent-api.html">Agent API (OpenAI-compatible)</a></li><li><a href="intelligent-ui.html">Intelligent UI (analysis)</a></li></ul></details><details><summary>Reports</summary><ul><li><a href="report-notion-import.html">Notion/Obsidian import</a></li><li><a href="report-ollama-500.html">Ollama Cloud 500</a></li></ul></details></aside>
+  <main class="content"><div class="crumb">Start here</div><h1>Guides and tutorials</h1>
+<p>Short, task-based walkthroughs. Each one assumes Quinki is installed and a model is connected (<a href="getting-started.html">Getting started</a>).</p>
+<h2>1. Your first agent</h2>
+<p>Agents are folders with a prompt — you can create one in a minute.</p>
+<ol>
+<li>Open the <strong>Agents</strong> tab and create a new agent: give it a name</li>
+<li>Write its <strong>PROMPT.md</strong>: who it is, what it is good at, how it should behave. Plain language works best; this text is what the model reads at every turn</li>
+<li>In the same panel, give it its own <strong>model</strong> and <strong>thinking level</strong> if you want (a fast model for simple work, the strongest one for hard work)</li>
+<li>Add <strong>skills</strong> and <strong>MCP servers</strong> if it needs tools or references</li>
+<li>Open a chat, use <code>@your-agent</code> (or add it to the chat from the composer) and talk to it</li>
+</ol>
+<p>Good agents are narrow. &quot;Summarises meetings and keeps notes tidy&quot; beats &quot;does everything&quot;.</p>
+<h2>2. A team, with an Orchestrator</h2>
+<p>One agent answering is fine; several agents cooperating is where Quinki starts to feel different.</p>
+<ol>
+<li>In a chat, <strong>add two or three agents</strong> (composer → agents, or the Agents panel)</li>
+<li>Choose one as the <strong>Orchestrator</strong> — the agent that receives your messages</li>
+<li>Ask something that needs more than one skill: <em>&quot;Plan the release notes for the 2.0 launch: the researcher gathers what changed, the writer drafts it.&quot;</em></li>
+<li>The Orchestrator hands work out with <strong>delegations</strong>: you will see them appear as collapsible blocks while they run (open them to watch the work)</li>
+<li>When the delegated agents are done, the Orchestrator reads their answers and writes <strong>one reply</strong></li>
+</ol>
+<p>Delegations do not fill the Orchestrator&#39;s context: it gets the result, not the transcript. If a delegation goes wrong, open its block and read the steps.</p>
+<h2>3. Schedule a task you won&#39;t have to remember</h2>
+<ol>
+<li>Open the <strong>Tasks</strong> tab → <strong>Create task</strong></li>
+<li>Choose the <strong>chat</strong> it belongs to (the result will be reported there)</li>
+<li>Set the <strong>schedule</strong>: once, or daily / weekly / monthly — with a time (each task keeps its own timezone)</li>
+<li>Pick the <strong>agent</strong>, write the <strong>prompt</strong> (what should be done), and the <strong>working directory</strong> if it matters</li>
+<li>Turn on <strong>Keep Awake</strong> if the Mac should stay awake while it runs</li>
+</ol>
+<p>When it fires, an <strong>execution</strong> appears in the Tasks tab: a headless run with all the agent&#39;s tools. When it finishes, the chat receives a <strong>task report</strong> — a message asking the model to report only the result — or a red app message if Long Horizon is active (which takes precedence) or the context is nearly full.</p>
+<p>If your Mac was asleep, don&#39;t worry: missed tasks run at the next launch.</p>
+<h2>4. Long Horizon: a project that keeps moving</h2>
+<p>For work that spans hours, Long Horizon drives the project while you are away.</p>
+<ol>
+<li>Open a chat whose working directory is your project (<strong>/directory</strong> in the CLI, or the header in the app)</li>
+<li>Activate <strong>Long Horizon</strong> (<code>/longhorizon</code> in the CLI, or the banner in the chat)</li>
+<li><strong>Start the discussion</strong>: describe the goal. The agent asks questions until the two of you agree</li>
+<li><strong>Proceed to planning</strong>: Quinki writes <code>plan.md</code> — one line per unit of work, like <code>- [ ] Add the import command</code>. Edit it freely: it is your plan</li>
+<li><strong>Start</strong>: from now on, after every finished turn the support process sends the next &quot;continue&quot;, the agent updates <code>handoff.md</code> (what it did, how, why) and <code>progress.json</code>, and <strong>each completed unit is committed to git</strong> — so any step can be reverted</li>
+<li>Pause (back to discussion) or disable whenever you like; the files stay on disk</li>
+</ol>
+<p>Long Horizon only speaks when a turn is completely finished and clean. Stop a turn, and it stays quiet and waits for you.</p>
+<h2>5. Your phone, in two minutes</h2>
+<ol>
+<li>On the Mac: <strong>Settings → Web app / Remote</strong> → enable it</li>
+<li>A private tunnel opens; open the shown address on your phone</li>
+<li>Confirm the <strong>pairing</strong> page — that device now has its own token</li>
+<li>Add the page to your home screen (Share → Add to Home Screen): it behaves like an app (PWA); on Android you can also install the APK</li>
+<li>Notifications: allow them in the app&#39;s settings and on the phone — they arrive <strong>even with Quinki closed</strong>, and stop the moment you look at that chat on the Mac</li>
+</ol>
+<p>The tunnel lives only while a Quinki window is open. Each device can be revoked from Settings, and the remote works with the App Expert too.</p>
+<h2>6. The CLI</h2>
+<ol>
+<li>The app already installed it: type <code>quinki</code> in any terminal</li>
+<li>You land on the welcome: pick agents and a model, then start typing — it is the same engine and the same chats as the app</li>
+<li><code>/</code> opens the command menu. Some favourites: <code>/sessions</code> (switch chat), <code>/model</code>, <code>/directory</code>, <code>/skill</code>, <code>/longhorizon</code>, <code>/agents</code> (full admin), <code>/settings</code>, <code>/shortcuts</code></li>
+<li>Navigate the collapsible blocks with <strong>Ctrl+Alt + arrows</strong> (open, enter, close)</li>
+<li><code>quinki expert</code> opens the same TUI on the App Expert session</li>
+<li>Updates: <code>quinki update</code> (or <code>quinki update --check</code> to look without installing). The app updates the CLI for you too</li>
+</ol>
+<p>Installing on another machine without the app:</p>
+<pre><code class="language-bash">curl -fsSL https://raw.githubusercontent.com/Upward991/Quinki/main/install-cli.sh | sh
+</code></pre>
+<p class="edit">Found a mistake? Edit <code>docs/GUIDES.md</code> in the repository and open a pull request.</p></main>
+</div>
+<footer class="foot">Quinki documentation — built from the repository (docs/*.md)</footer>
+</body>
+</html>

@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quinki · Quinki Docs</title>
+<link rel="icon" href="../favicon.svg"><link rel="stylesheet" href="docs.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="../index.html">Quinki</a><span class="docs-tag">Docs</span>
+  <nav class="topnav">
+    <a href="../index.html">Home</a>
+    <a href="https://github.com/Upward991/Quinki" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+</header>
+<div class="layout">
+  <aside class="sidebar"><details open><summary>Start here</summary><ul><li><a href="overview.html" class="active">What is Quinki</a></li><li><a href="getting-started.html">Getting started</a></li><li><a href="user-guide.html">User Guide</a></li><li><a href="features.html">Inside Quinki</a></li><li><a href="guides.html">Guides &amp; Tutorials</a></li></ul></details><details><summary>Market</summary><ul><li><a href="market.html">The Quinki Market</a></li></ul></details><details><summary>Reference</summary><ul><li><a href="reference-cli.html">CLI reference</a></li><li><a href="reference-config.html">Files &amp; Environment</a></li><li><a href="troubleshooting.html">Troubleshooting &amp; FAQ</a></li></ul></details><details><summary>Developer Guide</summary><ul><li><a href="developer.html">Build from source</a></li><li><a href="architecture.html">Architecture</a></li><li><a href="decisions.html">Design decisions</a></li><li><a href="cla.html">Contributor License Agreement</a></li></ul></details><details><summary>Design &amp; roadmap</summary><ul><li><a href="acp.html">ACP mode (editor integration)</a></li><li><a href="agent-api.html">Agent API (OpenAI-compatible)</a></li><li><a href="intelligent-ui.html">Intelligent UI (analysis)</a></li></ul></details><details><summary>Reports</summary><ul><li><a href="report-notion-import.html">Notion/Obsidian import</a></li><li><a href="report-ollama-500.html">Ollama Cloud 500</a></li></ul></details></aside>
+  <main class="content"><div class="crumb">Start here</div><h1>Quinki</h1>
+<img src="screenshots/app-icon.png" width="76" alt="Quinki">
+
+<p><strong>Quinki, AI Agents: As simple as possible!</strong></p>
+<p>A native desktop app for AI work: parallel multi-agent chats, scheduled tasks, a Market of community-built tools, and the App Expert to extend the app from inside it. Everything stays on your machine.</p>
+<p><img src="https://img.shields.io/badge/macOS-Apple%20Silicon-blue" alt="macOS">
+<img src="https://img.shields.io/badge/Android-APK-orange" alt="Android">
+<a href="https://github.com/Upward991/Quinki/releases"><img src="https://img.shields.io/github/v/release/Upward991/Quinki?include_prereleases&sort=semver&label=version&color=orange" alt="Version"></a>
+<img src="https://img.shields.io/badge/license-AGPL--3.0-blue" alt="License"></p>
+<h2>Install</h2>
+<h3>App (macOS)</h3>
+<pre><code class="language-sh">curl -fsSL https://raw.githubusercontent.com/Upward991/Quinki/main/install.sh | sh
+</code></pre>
+<p>Installing the app also installs the CLI automatically (<code>quinki</code> lands in <code>~/.local/bin</code>, PATH handled). Prefer a manual install? Download the <code>.dmg</code> from <a href="https://github.com/Upward991/Quinki/releases">Releases</a>, drag the app to Applications, and on first launch right-click it and choose Open.</p>
+<h3>CLI (standalone)</h3>
+<p>The same sessions, agents and skills, in your terminal. Works without the app:</p>
+<pre><code class="language-sh">curl -fsSL https://raw.githubusercontent.com/Upward991/Quinki/main/install-cli.sh | sh
+</code></pre>
+<h3>Mobile and web</h3>
+<ul>
+<li><strong>Android</strong>: install the APK from <a href="https://github.com/Upward991/Quinki/releases">Releases</a> (<code>Quinki_Android_*.apk</code>, and the companion <code>Quinki_Expert_Android_*.apk</code>).</li>
+<li><strong>iOS and any browser</strong>: Quinki serves its own web UI (Settings, Web app). Open it from the phone, then Share, Add to Home Screen. It works on Android too, next to the APK.</li>
+<li><strong>Windows and Linux</strong>: native builds come after macOS. The web UI already works everywhere.</li>
+</ul>
+<blockquote>
+<p>Re-running the installer always installs the latest release. New builds are published as new releases with notes on the <a href="https://github.com/Upward991/Quinki/releases">Releases</a> page.</p>
+</blockquote>
+<h2>Inside Quinki</h2>
+<p><strong>Home.</strong> One click to everything: your sessions, tasks, agents, market, settings and log, in a grid you can rearrange.</p>
+<p><img src="screenshots/home.png" alt="The Quinki home"></p>
+<p><strong>Sessions.</strong> Chats with your agents. Parallel sessions with visible delegation blocks, folders and notifications.</p>
+<p><img src="screenshots/sessions.png" alt="Sessions"></p>
+<p><strong>Agents Tasks.</strong> A calendar of agent work: scheduled jobs and running tasks, visible at a glance.</p>
+<p><img src="screenshots/agents-tasks.png" alt="Agents Tasks"></p>
+<p><strong>Agents.</strong> Create and manage your agents: prompts, tools, skills and models.</p>
+<p><img src="screenshots/agents.png" alt="Agents"></p>
+<p><strong>Market.</strong> Install skills, agents, tabs, MCP servers and themes from the built-in Market.</p>
+<p><img src="screenshots/market.png" alt="Market"></p>
+<p><strong>Settings.</strong> Providers and models, themes, remote access, app updates and more.</p>
+<p><img src="screenshots/settings.png" alt="Settings"></p>
+<p><strong>App Expert.</strong> The separate companion app: your in-house developer that reads Quinki code, makes changes, builds and installs.</p>
+<p><img src="screenshots/expert.png" alt="App Expert"></p>
+<p><strong>Log.</strong> A live debug log, so you always see what the app is doing under the hood.</p>
+<p><img src="screenshots/log.png" alt="Log"></p>
+<p><strong>CLI.</strong> The whole Quinki in your terminal. Same sessions, agents and skills as the app.</p>
+<p><img src="screenshots/cli.png" alt="The Quinki CLI"></p>
+<p><strong>CLI, slash menu.</strong> Type / for the command menu: same actions, same look as the app.</p>
+<p><img src="screenshots/cli-slash.png" alt="CLI slash menu"></p>
+<h2>What is Quinki?</h2>
+<p>Quinki is a desktop app with tabs: chat with AI agents, schedule tasks, browse the Market, manage your agents, all in one place. Create your own tabs with the App Expert, publish them to the Market, and install community-built tools. Everything runs locally on your Mac.</p>
+<h3>Providers (built-in)</h3>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>Sign in with</th>
+<th>Models</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>OpenAI</strong></td>
+<td>ChatGPT Plus/Pro subscription</td>
+<td>GPT-5.4, GPT-5.5, GPT-5.6 series</td>
+</tr>
+<tr>
+<td><strong>Anthropic</strong></td>
+<td>Claude Pro/Max subscription</td>
+<td>Claude Opus 5, Sonnet 5, Haiku 4.5</td>
+</tr>
+<tr>
+<td><strong>Ollama</strong></td>
+<td>Free, runs locally on your Mac</td>
+<td>Any local model (Llama, DeepSeek, etc.)</td>
+</tr>
+<tr>
+<td><strong>OpenRouter</strong></td>
+<td>Free account, pay-per-use</td>
+<td>200+ models from all providers</td>
+</tr>
+<tr>
+<td><strong>GitHub Copilot</strong></td>
+<td>Copilot subscription ($10/mo)</td>
+<td>Claude + GPT models through Copilot</td>
+</tr>
+<tr>
+<td><strong>xAI (Grok)</strong></td>
+<td>SuperGrok or X Premium subscription</td>
+<td>Grok 4.3-4.6</td>
+</tr>
+</tbody></table>
+<h3>Features</h3>
+<ul>
+<li><strong>Chat</strong> with streaming responses, thinking traces, and model switching mid-conversation</li>
+<li><strong>Agents</strong> — create custom assistants with specific tools, skills, and model overrides</li>
+<li><strong>Skills</strong> — teach agents specific tasks with SKILL.md files</li>
+<li><strong>Delegation</strong> — let an orchestrator agent delegate to specialized agents</li>
+<li><strong>MCP</strong> — connect Model Context Protocol servers (browser automation, search, databases, etc.)</li>
+<li><strong>Market</strong> — browse and install community-made tabs, agents, skills, MCP servers, and themes</li>
+<li><strong>Scheduled Tasks</strong> — tell an agent to do something later (&quot;tomorrow at 7am, do X&quot;)</li>
+<li><strong>Long Horizon</strong> — multi-step autonomous execution with planning and progress tracking</li>
+<li><strong>App Expert</strong> — a built-in agent that can modify and improve Quinki itself</li>
+<li><strong>File Attachments</strong> — drag files into chat, the model reads them</li>
+<li><strong>Themes</strong> — 7 built-in themes, custom themes from the market</li>
+<li><strong>CLI</strong> — the same Quinki in your terminal, sharing sessions, agents and skills</li>
+</ul>
+<h2>Getting started</h2>
+<ol>
+<li><strong>Open Quinki</strong> — you&#39;ll see a guided tutorial</li>
+<li><strong>Go to Settings → Providers</strong> — sign in with any subscription you have:<ul>
+<li>ChatGPT Plus/Pro → click &quot;Sign in&quot; on OpenAI</li>
+<li>Claude Pro/Max → click &quot;Sign in&quot; on Anthropic</li>
+<li>No subscription? → Set up Ollama (free, local models) or OpenRouter (free, pay-per-use)</li>
+</ul>
+</li>
+<li><strong>Pick a model</strong> — the model selector in the chat header shows all your available models</li>
+<li><strong>Start chatting!</strong></li>
+</ol>
+<h2>Market</h2>
+<p>The <a href="https://github.com/Upward991/quinki-market">Quinki Market</a> is the official package repository — browse it from within the app (Market tab).</p>
+<h3>Default sources (preinstalled)</h3>
+<p>Quinki ships with a set of sources already configured. Remove them or add your own at any time:</p>
+<table>
+<thead>
+<tr>
+<th>Repository</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><a href="https://registry.modelcontextprotocol.io">modelcontextprotocol/registry</a></td>
+<td>The official MCP registry, around 1,200 installable MCP servers</td>
+</tr>
+<tr>
+<td><a href="https://github.com/anthropics/skills">anthropics/skills</a></td>
+<td>Official Anthropic skills: canvas design, algorithmic art, brand guidelines</td>
+</tr>
+<tr>
+<td><a href="https://github.com/alirezarezvani/claude-skills">alirezarezvani/claude-skills</a></td>
+<td>800+ Claude skills across many domains</td>
+</tr>
+<tr>
+<td><a href="https://github.com/obra/superpowers">obra/superpowers</a></td>
+<td>Development workflow: TDD, debugging, code review</td>
+</tr>
+<tr>
+<td><a href="https://github.com/davila7/claude-code-templates">davila7/claude-code-templates</a></td>
+<td>900+ templates and components for Claude Code</td>
+</tr>
+<tr>
+<td><a href="https://github.com/modelcontextprotocol/servers">modelcontextprotocol/servers</a></td>
+<td>Official MCP servers: filesystem, git, search, memory, and more</td>
+</tr>
+<tr>
+<td><a href="https://github.com/wshobson/agents">wshobson/agents</a></td>
+<td>200 production-ready agent definitions</td>
+</tr>
+<tr>
+<td><a href="https://github.com/contains-studio/agents">contains-studio/agents</a></td>
+<td>37 specialist agents for product teams</td>
+</tr>
+<tr>
+<td><a href="https://github.com/VoltAgent/awesome-claude-code-subagents">VoltAgent/awesome-claude-code-subagents</a></td>
+<td>A large collection of Claude Code subagents</td>
+</tr>
+<tr>
+<td><a href="https://github.com/Jeffallan/claude-skills">Jeffallan/claude-skills</a></td>
+<td>60+ focused Claude skills</td>
+</tr>
+</tbody></table>
+<h3>How to add</h3>
+<p>In Quinki, go to <strong>Market → My Repos → Add</strong> and paste the repo name (e.g. <code>anthropics/skills</code>). The skills appear instantly in the catalog.</p>
+<h2>App Expert</h2>
+<p>Quinki can modify and improve itself. Open the <strong>App Expert</strong> tab, set the source code directory (clone this repo), and tell it what to fix or build. It commits, builds, and installs, with your confirmation at every step.</p>
+<h2>System requirements</h2>
+<ul>
+<li>macOS 14+ on Apple Silicon (M1/M2/M3/M4)</li>
+<li>~200MB disk space</li>
+<li>One of: ChatGPT Plus/Pro, Claude Pro/Max, GitHub Copilot, SuperGrok, or Ollama (free)</li>
+</ul>
+<h2>Building from source</h2>
+<pre><code class="language-bash"># Clone
+git clone https://github.com/Upward991/Quinki.git
+cd Quinki
+
+# Install dependencies
+bun install
+
+# Build the sidecar (requires Bun)
+cd sidecar-src &amp;&amp; bun install &amp;&amp; cd ..
+bash scripts/build-sidecar.sh
+
+# Build the app (requires Rust)
+npx tauri build
+</code></pre>
+<p>The built app appears in <code>src-tauri/target/release/bundle/macos/Quinki.app</code>.</p>
+<h2>Support the project</h2>
+<p>Quinki is free and open source.</p>
+<p><strong>Donate</strong>: <a href="https://github.com/sponsors/Upward991">GitHub Sponsors</a></p>
+<h2>Report issues</h2>
+<p>Found a bug? <a href="https://github.com/Upward991/Quinki/issues">Open an issue</a> with:</p>
+<ul>
+<li>What you were doing</li>
+<li>What happened vs what you expected</li>
+<li>macOS version and model used</li>
+</ul>
+<h2>Contact</h2>
+<p>Questions or feedback? <a href="mailto:quinki.inbox@gmail.com">Contact</a></p>
+<h2>License</h2>
+<p>AGPL-3.0. See <a href="LICENSE">LICENSE</a> for details.</p>
+<p>The source is open: you can study it, modify it, and build it. Any distribution of modified versions must also be AGPL-3.0 and include the source code.</p>
+<hr>
+<div align="center">
+Made with ❤️ in Italy 🇮🇹
+
+<p><em>If Quinki saves you time, consider <a href="https://github.com/sponsors/Upward991">supporting it</a>.</em></p>
+</div>
+<p class="edit">Found a mistake? Edit <code>docs/README.md</code> in the repository and open a pull request.</p></main>
+</div>
+<footer class="foot">Quinki documentation — built from the repository (docs/*.md)</footer>
+</body>
+</html>

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Getting started · Quinki Docs</title>
+<link rel="icon" href="../favicon.svg"><link rel="stylesheet" href="docs.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="../index.html">Quinki</a><span class="docs-tag">Docs</span>
+  <nav class="topnav">
+    <a href="../index.html">Home</a>
+    <a href="https://github.com/Upward991/Quinki" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+</header>
+<div class="layout">
+  <aside class="sidebar"><details open><summary>Start here</summary><ul><li><a href="overview.html">What is Quinki</a></li><li><a href="getting-started.html" class="active">Getting started</a></li><li><a href="user-guide.html">User Guide</a></li><li><a href="features.html">Inside Quinki</a></li><li><a href="guides.html">Guides &amp; Tutorials</a></li></ul></details><details><summary>Market</summary><ul><li><a href="market.html">The Quinki Market</a></li></ul></details><details><summary>Reference</summary><ul><li><a href="reference-cli.html">CLI reference</a></li><li><a href="reference-config.html">Files &amp; Environment</a></li><li><a href="troubleshooting.html">Troubleshooting &amp; FAQ</a></li></ul></details><details><summary>Developer Guide</summary><ul><li><a href="developer.html">Build from source</a></li><li><a href="architecture.html">Architecture</a></li><li><a href="decisions.html">Design decisions</a></li><li><a href="cla.html">Contributor License Agreement</a></li></ul></details><details><summary>Design &amp; roadmap</summary><ul><li><a href="acp.html">ACP mode (editor integration)</a></li><li><a href="agent-api.html">Agent API (OpenAI-compatible)</a></li><li><a href="intelligent-ui.html">Intelligent UI (analysis)</a></li></ul></details><details><summary>Reports</summary><ul><li><a href="report-notion-import.html">Notion/Obsidian import</a></li><li><a href="report-ollama-500.html">Ollama Cloud 500</a></li></ul></details></aside>
+  <main class="content"><div class="crumb">Start here</div><h1>Getting started</h1>
+<p>Quinki creates AI agents and orchestrates them — on your Mac, with your accounts. From download to your first reply takes about five minutes.</p>
+<h2>What you need</h2>
+<ul>
+<li><strong>macOS 14+</strong> on Apple Silicon (M1 or later). Windows and Linux builds come after macOS; the web UI already works everywhere.</li>
+<li>About <strong>200 MB</strong> of disk space.</li>
+<li>One way to reach a model: a <strong>subscription</strong> (ChatGPT Plus/Pro, Claude Pro/Max, GitHub Copilot, SuperGrok), an <strong>OpenRouter</strong> account (free, pay per use), or <strong>Ollama</strong> running free on your Mac.</li>
+</ul>
+<h2>1. Install the app</h2>
+<p>One command — always installs the latest release:</p>
+<pre><code class="language-bash">curl -fsSL https://raw.githubusercontent.com/Upward991/Quinki/main/install.sh | sh
+</code></pre>
+<p>Or download the DMG from the <a href="https://github.com/Upward991/Quinki/releases">Releases page</a> and drag Quinki into Applications.</p>
+<p>Installing the app also installs the <strong>CLI</strong> (<code>quinki</code> lands in <code>~/.local/bin</code>, and PATH is updated for new terminals).</p>
+<blockquote>
+<p>First launch: if macOS is unsure about the app, allow it in <strong>System Settings → Privacy &amp; Security → Open Anyway</strong>.</p>
+</blockquote>
+<h2>2. Connect a model</h2>
+<p>On first launch Quinki asks for a provider. Pick one:</p>
+<ul>
+<li><strong>Subscription</strong> — sign in with your ChatGPT, Claude, Copilot or SuperGrok account. No API key to paste.</li>
+<li><strong>OpenRouter</strong> — paste an API key: free account, pay per use, 200+ models from every provider.</li>
+<li><strong>Ollama</strong> — free, runs locally. Quinki can install it for you: <strong>Settings → Providers → Ollama → Install</strong>.</li>
+</ul>
+<p>Then choose your <strong>default model</strong> in Settings → Providers (or with the model picker in a new chat).</p>
+<h2>3. Your first chat</h2>
+<ol>
+<li>Open a chat from <strong>Home</strong> (or the ➕ in the sidebar)</li>
+<li>Pick <strong>Plan</strong> (read-only: the agent explores and proposes) or <strong>Build</strong> (it can edit files and run commands) with the toggle in the composer</li>
+<li>Type your message and press <strong>Enter</strong></li>
+</ol>
+<p>That is the whole loop. While the model works, the status pill shows what is happening (Thinking, Writing, Running a tool); press <strong>Esc</strong> to stop; press <strong>Tab</strong> anytime to switch Plan/Build.</p>
+<h2>4. Meet the agents</h2>
+<p>Every chat starts with one agent. Open the <strong>Agents</strong> tab to see them, edit their <code>PROMPT.md</code>, give them their own model, tools and skills.</p>
+<p>The next step up is orchestration: put a team in a chat, choose one as <strong>Orchestrator</strong>, and it will delegate work to the others — you get one synthesized answer. <a href="guides.html">Guides</a> has a walkthrough.</p>
+<h2>Next steps</h2>
+<ul>
+<li><a href="user-guide.html">User Guide</a> — the day-to-day tour: sessions, skills, notifications, the Market, the App Expert</li>
+<li><a href="guides.html">Guides &amp; Tutorials</a> — task-based walkthroughs: first agent, scheduled tasks, Long Horizon, your phone</li>
+<li><a href="features.html">Inside Quinki</a> — how it works: sessions on disk, delegations, tasks, logs</li>
+<li><a href="reference-cli.html">CLI Reference</a> · <a href="reference-config.html">Files &amp; Environment</a> · <a href="troubleshooting.html">Troubleshooting</a></li>
+</ul>
+<p><em>Docs for AI agents: every page is plain Markdown in <a href="https://github.com/Upward991/Quinki/tree/main/docs"><code>docs/</code></a> — read the <code>.md</code> sources directly.</em></p>
+<p class="edit">Found a mistake? Edit <code>docs/GETTING-STARTED.md</code> in the repository and open a pull request.</p></main>
+</div>
+<footer class="foot">Quinki documentation — built from the repository (docs/*.md)</footer>
+</body>
+</html>

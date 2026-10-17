@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Intelligent UI — feasibility for Quinki (analysis, 8 Oct 2026) · Quinki Docs</title>
+<link rel="icon" href="../favicon.svg"><link rel="stylesheet" href="docs.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="../index.html">Quinki</a><span class="docs-tag">Docs</span>
+  <nav class="topnav">
+    <a href="../index.html">Home</a>
+    <a href="https://github.com/Upward991/Quinki" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+</header>
+<div class="layout">
+  <aside class="sidebar"><details><summary>Start here</summary><ul><li><a href="overview.html">What is Quinki</a></li><li><a href="getting-started.html">Getting started</a></li><li><a href="user-guide.html">User Guide</a></li><li><a href="features.html">Inside Quinki</a></li><li><a href="guides.html">Guides &amp; Tutorials</a></li></ul></details><details><summary>Market</summary><ul><li><a href="market.html">The Quinki Market</a></li></ul></details><details><summary>Reference</summary><ul><li><a href="reference-cli.html">CLI reference</a></li><li><a href="reference-config.html">Files &amp; Environment</a></li><li><a href="troubleshooting.html">Troubleshooting &amp; FAQ</a></li></ul></details><details><summary>Developer Guide</summary><ul><li><a href="developer.html">Build from source</a></li><li><a href="architecture.html">Architecture</a></li><li><a href="decisions.html">Design decisions</a></li><li><a href="cla.html">Contributor License Agreement</a></li></ul></details><details open><summary>Design &amp; roadmap</summary><ul><li><a href="acp.html">ACP mode (editor integration)</a></li><li><a href="agent-api.html">Agent API (OpenAI-compatible)</a></li><li><a href="intelligent-ui.html" class="active">Intelligent UI (analysis)</a></li></ul></details><details><summary>Reports</summary><ul><li><a href="report-notion-import.html">Notion/Obsidian import</a></li><li><a href="report-ollama-500.html">Ollama Cloud 500</a></li></ul></details></aside>
+  <main class="content"><div class="crumb">Design &amp; roadmap</div><h1>Intelligent UI — feasibility for Quinki (analysis, 8 Oct 2026)</h1>
+<p>Reference: OpenAI &quot;GPT‑6 and Intelligent UI for everyone&quot; (openai.com/index/gpt-6-for-everyone, 7 Oct 2026).</p>
+<h2>What OpenAI actually shipped</h2>
+<ol>
+<li><strong>A native component library + a client-side compiler</strong>: GPT-6 composes responses out of
+a library of streamable UI components (tables, forms, buttons, charts, interactive
+diagrams, mini-tools). The compiler renders the interface <em>progressively</em> while the
+model is still generating.</li>
+<li><strong>Model-side training</strong>: GPT-6 was trained and evaluated to make design decisions
+(layout, when to use interactivity, when text is enough).</li>
+</ol>
+<p>Part 2 is theirs (model weights). Part 1 is protocol + app work — that part is portable.</p>
+<h2>Verdict for Quinki</h2>
+<p><strong>Feasible.</strong> We already have the two hard pieces: a streaming pipeline (tokens reach the
+UI as they are produced) and a React renderer with a custom markdown layer. Nothing about
+this needs a rewrite.</p>
+<h3>Level 1 — Live HTML blocks (prototype, ~1 day)</h3>
+<ul>
+<li>Agents emit a fenced block (e.g. ```quinki-ui) containing a self-contained HTML document.</li>
+<li>The app renders it in a <strong>sandboxed iframe</strong> (sandbox=&quot;allow-scripts&quot;, no same-origin,
+CSP meta inside, no network by default). Interactions are local; optional postMessage
+bridge for &quot;send this back to the chat&quot;.</li>
+<li>Result: calculators, chart builders, diagrams, small games — <strong>with any model</strong>, including
+local/free ones. This is the cheapest path to &quot;wow&quot;.</li>
+</ul>
+<h3>Level 2 — Native components (the OpenAI path, ~2-4 days MVP)</h3>
+<ul>
+<li>Define a small Quinki UI spec (JSON or JSX-like) with components we own: Table, Form,
+Buttons (send/approve actions), Charts (SVG bars/lines), Tabs, Checklist, Callout.</li>
+<li>Progressive parsing while the message streams (we control the stream -&gt; render partial).</li>
+<li>Because the components are ours, they always match the app&#39;s design system.</li>
+<li>The spec lives in the agent prompt/skill, so every provider (not just GPT-6) can use it.</li>
+</ul>
+<h3>Level 3 — UI as a tool (most agentic)</h3>
+<ul>
+<li>A <code>render_ui</code> tool: agents call it with a spec; the result renders inline where tool calls
+already render. Perfect for long tasks: progress dashboards, approval gates with buttons
+(&quot;Approve plan&quot; -&gt; replies to the agent), live checklists.</li>
+</ul>
+<h2>What we cannot copy, and the compensating move</h2>
+<ul>
+<li>The trained design judgment: we compensate with strong instructions in agents&#39; skills +
+a curated component set (guardrails instead of training).</li>
+<li>Their speed claims are model-side; our advantage: it works across <strong>all</strong> models and
+providers — a differentiator, not a limitation.</li>
+</ul>
+<h2>Fit checklist</h2>
+<ul>
+<li>Streaming: already streamed to the webview. OK.</li>
+<li>Persistence: spec is plain text in the session JSONL -&gt; re-renders on reload. OK.</li>
+<li>Mobile + web app: sandboxed iframes work in both. OK.</li>
+<li>Security: the main real work — sandboxing, CSP, postMessage surface. Must be done properly.</li>
+<li>Desktop + phones: same renderer everywhere. OK.</li>
+</ul>
+<h2>Proposed order for Quinki</h2>
+<ol>
+<li>Level 1 prototype (1 day) -&gt; try it on the phone.</li>
+<li>If liked: Level 2 component MVP (2-4 days) + agent skill updates.</li>
+<li>Level 3 after the Agent API groundwork (specs shared with external consumers).</li>
+</ol>
+<p class="edit">Found a mistake? Edit <code>docs/INTELLIGENT-UI.md</code> in the repository and open a pull request.</p></main>
+</div>
+<footer class="foot">Quinki documentation — built from the repository (docs/*.md)</footer>
+</body>
+</html>

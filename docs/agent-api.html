@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quinki as Model (Agent API) · Quinki Docs</title>
+<link rel="icon" href="../favicon.svg"><link rel="stylesheet" href="docs.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="../index.html">Quinki</a><span class="docs-tag">Docs</span>
+  <nav class="topnav">
+    <a href="../index.html">Home</a>
+    <a href="https://github.com/Upward991/Quinki" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+</header>
+<div class="layout">
+  <aside class="sidebar"><details><summary>Start here</summary><ul><li><a href="overview.html">What is Quinki</a></li><li><a href="getting-started.html">Getting started</a></li><li><a href="user-guide.html">User Guide</a></li><li><a href="features.html">Inside Quinki</a></li><li><a href="guides.html">Guides &amp; Tutorials</a></li></ul></details><details><summary>Market</summary><ul><li><a href="market.html">The Quinki Market</a></li></ul></details><details><summary>Reference</summary><ul><li><a href="reference-cli.html">CLI reference</a></li><li><a href="reference-config.html">Files &amp; Environment</a></li><li><a href="troubleshooting.html">Troubleshooting &amp; FAQ</a></li></ul></details><details><summary>Developer Guide</summary><ul><li><a href="developer.html">Build from source</a></li><li><a href="architecture.html">Architecture</a></li><li><a href="decisions.html">Design decisions</a></li><li><a href="cla.html">Contributor License Agreement</a></li></ul></details><details open><summary>Design &amp; roadmap</summary><ul><li><a href="acp.html">ACP mode (editor integration)</a></li><li><a href="agent-api.html" class="active">Agent API (OpenAI-compatible)</a></li><li><a href="intelligent-ui.html">Intelligent UI (analysis)</a></li></ul></details><details><summary>Reports</summary><ul><li><a href="report-notion-import.html">Notion/Obsidian import</a></li><li><a href="report-ollama-500.html">Ollama Cloud 500</a></li></ul></details></aside>
+  <main class="content"><div class="crumb">Design &amp; roadmap</div><h1>Quinki as Model (Agent API)</h1>
+<p><strong>Status:</strong> planned. After CLI Windows/Linux and the small UX features.</p>
+<p>Every Quinki agent becomes an OpenAI-compatible endpoint. Phase 2 exposes whole sessions.
+Consumers: apps with a &quot;custom model&quot; slot, IDEs (Continue.dev and friends), n8n/CRM, chat bots,
+Home Assistant, and teams sharing one machine. The first consumer and provider are the same thing:
+the CLI (<code>quinki serve</code>).</p>
+<h2>MVP architecture</h2>
+<ol>
+<li><strong>Server</strong> in the sidecar (Bun): new module <code>sidecar-src/model-api.ts</code>, dedicated port 9185 (main) / 9186 (expert).</li>
+<li><strong>Endpoints</strong><ul>
+<li><code>GET /v1/models</code> — agents exposed as models, id <code>agent:&lt;agentId&gt;</code>.</li>
+<li><code>POST /v1/chat/completions</code> — standard OpenAI shape, streaming (SSE) and non-streaming.</li>
+</ul>
+</li>
+<li><strong>Execution</strong> on the existing engine (quinki-bridge), no new engine:<ul>
+<li>one headless run per request, on a dedicated session <code>__api_&lt;consumer&gt;_&lt;agent&gt;</code>, or a named session;</li>
+<li>per-consumer working directory; v1 read-only by default.</li>
+</ul>
+</li>
+<li><strong>Auth</strong>: Bearer token, reusing <code>remote-devices.json</code> (per-device tokens, revocable, loopback exempt).</li>
+<li><strong>UI</strong>: Settings, &quot;Agent API&quot; section (toggle, port, copy endpoint).</li>
+<li><strong>CLI</strong>: <code>quinki serve [--port]</code> starts just the API server.</li>
+<li><strong>Phase 2 (sessions)</strong>: <code>GET /v1/sessions</code>, <code>POST /v1/sessions/:key/chat</code> with a queue
+(turns are serialized; no simultaneous writing). Shared events already work.</li>
+</ol>
+<h2>Steps</h2>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Time</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/v1/models</code> + non-streaming chat</td>
+<td>half a day</td>
+</tr>
+<tr>
+<td>Streaming SSE</td>
+<td>half a day</td>
+</tr>
+<tr>
+<td>Auth + Settings UI</td>
+<td>half a day</td>
+</tr>
+<tr>
+<td><code>quinki serve</code></td>
+<td>2 hours</td>
+</tr>
+<tr>
+<td>Tests (Continue.dev, n8n, a bot)</td>
+<td>half a day</td>
+</tr>
+<tr>
+<td>Docs (site + repo) + curl examples</td>
+<td>2 hours</td>
+</tr>
+</tbody></table>
+<p>MVP: about 2 days. Phase 2 (sessions): 3 to 5 more days.</p>
+<h2>Launch use cases</h2>
+<ul>
+<li>Any app with a custom model slot: keep its native chat, run on your agent (prompt + skills).</li>
+<li>VS Code: Continue.dev or any BYO-endpoint extension, next to the CLI in the terminal.</li>
+<li>n8n / CRM / automations: a trigger calls an agent (for example the Notion agent).</li>
+<li>Telegram/Discord bots: the same endpoint, any bot template.</li>
+<li>Voice: Home Assistant and similar accept OpenAI-compatible endpoints.</li>
+<li>Teams: one always-on machine, everyone&#39;s tools point at it, per-person tokens.</li>
+</ul>
+<h2>Risks and notes</h2>
+<ul>
+<li>Provider ToS with subscriptions: personal use is fine, resale is not. Local-first, bring your own keys.</li>
+<li>Tool use happens inside the agent; the consumer only sees the text. Document this clearly.</li>
+<li>One turn at a time per session (queue).</li>
+<li>Security: closed by default (loopback or tailnet), revocable tokens, explicit working directory.</li>
+</ul>
+<h2>Naming</h2>
+<p>Feature: &quot;Agent API&quot;. Standalone: same binary with a flag.</p>
+<h2>Notion (verified, October 2026)</h2>
+<p>Notion AI has no native BYOK and no custom OpenAI endpoint. But Notion&#39;s Custom Agents platform has an
+<strong>External Agents API</strong>: an agent you built yourself can be registered and used inside Notion
+(Notion&#39;s own video: &quot;use the External Agents API to bring in one you&#39;ve built yourself&quot;).</p>
+<p>So a phase-3 adapter is possible: Quinki agents registered as Notion external agents, with a thin
+translator between Notion&#39;s protocol and our agent runs. The same pattern exists for other platforms
+that are adding &quot;bring your own agent&quot; slots.</p>
+<p>Reverse direction, for reference: tools like notion2api wrap Notion AI into an OpenAI-compatible API.
+That is the opposite of what we need.</p>
+<h2>Obsidian (verified, October 2026)</h2>
+<p>Perfect target, the opposite of Notion: the app is free for personal use, there is no vendor AI to pay
+for, and the plugin ecosystem openly accepts custom endpoints.</p>
+<ul>
+<li><strong>Copilot for Obsidian</strong>: &quot;Use OpenAI, Anthropic, Google, LM Studio, Ollama, or any OpenAI-compatible
+endpoint. Your own keys.&quot; It also runs external coding agents (opencode, Claude Code, Codex) inside
+the vault. A Quinki agent as &quot;the model&quot; plugs straight in.</li>
+<li><strong>Smart Composer</strong>, <strong>Text Generator</strong>, <strong>Local GPT</strong>, <strong>Smart Connections</strong>: all support custom or
+local endpoints; the community guides are built around running your own models privately.</li>
+<li>Today, without waiting for the Agent API: an Obsidian MCP server lets Quinki agents read and write
+the vault through any MCP client setup we already support.</li>
+<li>Later option: a small &quot;Quinki&quot; Obsidian plugin as the polished front door.</li>
+</ul>
+<h2>Open-source Notion alternatives (verified, October 2026)</h2>
+<p>Exodus from Notion is a real 2026 theme (&quot;Leaving Notion&quot; guides everywhere). The serious
+self-hosted alternatives: AppFlowy, AFFiNE, SiYuan, Anytype, Outline.</p>
+<ul>
+<li><strong>AppFlowy</strong>: the closest to Notion (blocks, databases) and the most faithful migration path.
+Wired <strong>Ollama as a first-class</strong> local AI (2025 release), so prompts stay private.</li>
+<li><strong>SiYuan</strong>: self-hosted, and its AI accepts <strong>any OpenAI-compatible endpoint</strong>. That is the
+Agent API slot, straight in.</li>
+<li>One 2026 guide about these tools puts it perfectly: they are &quot;the agentic layer those tools
+miss&quot;. That missing layer is exactly what Quinki sells.</li>
+</ul>
+<p>Useful follow-up idea: give the Agent API an <strong>Ollama-compatible mode</strong> too (<code>/api/chat</code>), so apps
+that only speak Ollama also work out of the box.</p>
+<h2>Verified consumers — who can plug into the Agent API (source-verified 8 Oct 2026)</h2>
+<p>All three accept a custom OpenAI-compatible endpoint. This confirms the Agent API is the single
+piece that unlocks &quot;use our agents inside other apps&quot;. Evidence from the official sources:</p>
+<table>
+<thead>
+<tr>
+<th>App</th>
+<th>Verdict</th>
+<th>Evidence (checked at the source)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Obsidian</strong> (Copilot plugin)</td>
+<td>YES</td>
+<td>obsidiancopilot.com: &quot;Any AI Model. Zero Lock-In. Use OpenAI, Anthropic, Google, LM Studio, Ollama, <strong>or any OpenAI-compatible endpoint. Your own keys and custom providers</strong>, and you can switch models anytime.&quot;</td>
+</tr>
+<tr>
+<td><strong>SiYuan</strong></td>
+<td>YES</td>
+<td>siyuan-note/siyuan issue #19199 (Sep 2026): providers &quot;already work in SiYuan through a <strong>custom OpenAI-compatible provider</strong> ... users have to <strong>configure the base URL by hand</strong>&quot;. Settings: app/src/config/tabs/ai (AI providers).</td>
+</tr>
+<tr>
+<td><strong>AFFiNE (self-hosted)</strong></td>
+<td>YES (server flag)</td>
+<td>docs.affine.pro self-host AI guide (upd. 27 Aug 2026): BYOK; to allow &quot;OpenAI-compatible or other custom endpoints&quot; the admin must set <code>copilot.byok.allowCustomEndpoint: true</code> (+ <code>allowPrivateEndpoint: true</code> if the endpoint is on the private network, e.g. the Mac) in config/config.json. BYOK UI: Settings -&gt; Integrations -&gt; AI BYOK.</td>
+</tr>
+<tr>
+<td><strong>Notion</strong></td>
+<td>NO (gated today)</td>
+<td>External Agents API exists (&quot;even the ones you built yourself&quot;) but: alpha/waitlist -&gt; partner beta (Claude, Cursor), usage billed on Notion Credits, Business/Enterprise plans. Revisit when self-serve opens.</td>
+</tr>
+</tbody></table>
+<h3>What the Agent API must expose (MVP, for these consumers)</h3>
+<ul>
+<li><code>GET /v1/models</code> -&gt; one entry per exposed agent (agent id as the model id).</li>
+<li><code>POST /v1/chat/completions</code> -&gt; runs that agent, SSE streaming, standard OpenAI response shape.</li>
+<li>Auth: token (remote-devices mechanism), server on the Mac (localhost + tailnet via the
+existing tunnel), allow-list of agents to expose.</li>
+</ul>
+<h3>Test plan (user tests, one app at a time — easiest first)</h3>
+<ol>
+<li><code>quinki serve</code> + token; verify <code>curl /v1/models</code> and one streaming completion.</li>
+<li><strong>Obsidian</strong> + Copilot: custom provider (URL + key) -&gt; pick an agent as the model -&gt; chat.</li>
+<li><strong>SiYuan</strong>: AI settings -&gt; custom OpenAI-compatible provider -&gt; base URL by hand -&gt; chat.</li>
+<li><strong>AFFiNE self-hosted</strong>: config.json <code>allowCustomEndpoint: true</code> (+ <code>allowPrivateEndpoint: true</code>
+if AFFiNE runs in Docker on the Mac: use the Mac&#39;s LAN IP or host.docker.internal) -&gt; BYOK -&gt;
+add key (OpenAI-compatible route) -&gt; chat.</li>
+</ol>
+<h2>Obsidian integration — full options menu (verified 9 Oct 2026)</h2>
+<h3>A. Chat with your own endpoint (Ollama / OpenAI-compatible), NO external CLIs</h3>
+<ul>
+<li><strong>Smart Composer</strong> (glowingjade, ~2.3k stars): vault-aware chat, providers incl. &quot;Ollama, LM Studio,
+any other OpenAI-compatible&quot;, one-click edits, custom system prompts, templates. Last update
+Feb 2026 (stable). An actively-forked variant exists (laguna821/obsidian_smart_composer_Achmage).</li>
+<li><strong>Copilot V4 Quick Chat</strong>: BYOK/Ollama works there (the agent-first &quot;Agent Chat&quot; is the part that
+requires opencode/Claude Code/Codex).</li>
+<li><strong>Text Generator</strong> (~2k stars, maintained), <strong>Local GPT</strong> (updated daily, Ollama/local),
+<strong>SystemSculpt</strong> (AI toolkit). BMO Chatbot is dead (2024).</li>
+</ul>
+<h3>B. OUR agents inside Obsidian via ACP — the definitive route (no third parties)</h3>
+<ul>
+<li><strong>obsidian-agent-client</strong> (~2.4k stars, active): chat with any ACP agent in the sidebar, editor
+tabs, floating windows; @-mentions of notes; permission prompts; MCP + skills inherited from the
+agent; edit diffs; session manager. Presets: Claude Code, Codex, Gemini CLI, Mistral Vibe,
+OpenCode, Kiro, Hermes, <strong>Pi</strong>, Grok Build — <strong>plus any ACP-compatible agent as a custom entry</strong>.</li>
+<li><strong><code>pi-acp</code></strong> (npm): official-style &quot;ACP adapter for pi coding agent&quot; — spawns <code>pi --mode rpc</code>
+(binary found on PATH) and bridges to ACP. Our vendored SDK <strong>already contains <code>runRpcMode</code></strong>
+(&quot;headless operation... used for embedding the agent in other applications&quot;).</li>
+<li>Therefore the plan for &quot;Quinki agents in Obsidian&quot;:<ol>
+<li>Expose <code>quinki --mode rpc</code> in our CLI (the SDK provides the engine; small addition).</li>
+<li>Provide a <code>pi</code> shim on PATH pointing to our binary (or a tiny fork of pi-acp).</li>
+<li>Add a custom ACP entry in obsidian-agent-client -&gt; our agents run inside Obsidian with tools,
+permissions, MCP and skills. Effort: about half a day including testing.</li>
+</ol>
+</li>
+<li>Same ACP door also works in Zed/other ACP editors.</li>
+</ul>
+<h3>C. Our own Obsidian plugin (optional, later)</h3>
+<p>Full control and possibly Intelligent UI rendering inside notes — only if we outgrow B.</p>
+<h3>D. If we ever leave Obsidian</h3>
+<p>SiYuan (custom OpenAI-compatible provider + petal plugin API), AppFlowy (Ollama first-class),
+AFFiNE self-hosted (BYOK + allowCustomEndpoint). Notion stays gated.</p>
+<p class="edit">Found a mistake? Edit <code>docs/AGENT-API.md</code> in the repository and open a pull request.</p></main>
+</div>
+<footer class="foot">Quinki documentation — built from the repository (docs/*.md)</footer>
+</body>
+</html>

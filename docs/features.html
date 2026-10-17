@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inside Quinki · Quinki Docs</title>
+<link rel="icon" href="../favicon.svg"><link rel="stylesheet" href="docs.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="../index.html">Quinki</a><span class="docs-tag">Docs</span>
+  <nav class="topnav">
+    <a href="../index.html">Home</a>
+    <a href="https://github.com/Upward991/Quinki" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+</header>
+<div class="layout">
+  <aside class="sidebar"><details open><summary>Start here</summary><ul><li><a href="overview.html">What is Quinki</a></li><li><a href="getting-started.html">Getting started</a></li><li><a href="user-guide.html">User Guide</a></li><li><a href="features.html" class="active">Inside Quinki</a></li><li><a href="guides.html">Guides &amp; Tutorials</a></li></ul></details><details><summary>Market</summary><ul><li><a href="market.html">The Quinki Market</a></li></ul></details><details><summary>Reference</summary><ul><li><a href="reference-cli.html">CLI reference</a></li><li><a href="reference-config.html">Files &amp; Environment</a></li><li><a href="troubleshooting.html">Troubleshooting &amp; FAQ</a></li></ul></details><details><summary>Developer Guide</summary><ul><li><a href="developer.html">Build from source</a></li><li><a href="architecture.html">Architecture</a></li><li><a href="decisions.html">Design decisions</a></li><li><a href="cla.html">Contributor License Agreement</a></li></ul></details><details><summary>Design &amp; roadmap</summary><ul><li><a href="acp.html">ACP mode (editor integration)</a></li><li><a href="agent-api.html">Agent API (OpenAI-compatible)</a></li><li><a href="intelligent-ui.html">Intelligent UI (analysis)</a></li></ul></details><details><summary>Reports</summary><ul><li><a href="report-notion-import.html">Notion/Obsidian import</a></li><li><a href="report-ollama-500.html">Ollama Cloud 500</a></li></ul></details></aside>
+  <main class="content"><div class="crumb">Start here</div><h1>Inside Quinki</h1>
+<p>Quinki is not a chat window with plugins bolted on. It is an <strong>engine</strong> that runs AI agents on your Mac, and a window that shows you exactly what they are doing. This page explains the moving parts — useful before you trust it with real work.</p>
+<h2>One engine, two faces</h2>
+<p>Everything you see is driven by a local process (the <strong>engine</strong>) that owns the sessions, the models, the tools and the tasks. The <strong>app window</strong> and the <strong>CLI</strong> are two views on the same engine and the same data: change something in one and it appears in the other, live.</p>
+<p>Nothing goes through a Quinki server. Your prompts go straight from your Mac to the provider you chose; everything the app knows lives in one folder, <code>~/.quinki</code>.</p>
+<p>When work gets heavy, the engine can split into a small <strong>pool of processes</strong> (one per group of chats) so that a long turn never freezes the rest. You don&#39;t configure this; it happens by itself.</p>
+<h2>Chats are sessions on disk</h2>
+<p>A chat is not &quot;a tab&quot;: it is a <strong>folder of append-only logs</strong>. Every message, every thinking block, every tool call and every result is written in order, as it happens. If Quinki crashes mid-reply, nothing is lost — the turn is marked as pending and picked up when you open the chat again (you will see a &quot;Recovering&quot; pill, then the recovery message appear in the chat like any other message).</p>
+<p>Long chats are handled in two ways: older messages are <strong>paged in on demand</strong> as you scroll back, and a <strong>compaction</strong> replaces the far past with a summary so the model&#39;s context stays healthy. Compaction can be manual (<code>/compaction</code>) or automatic, per chat.</p>
+<p>Deleting a chat is deliberate and permanent: it disappears everywhere and never comes back.</p>
+<h2>Agents</h2>
+<p>An <strong>agent</strong> is a folder in <code>~/.quinki/agents/&lt;id&gt;/</code>: a <code>PROMPT.md</code> (who it is), a <code>config.json</code> (its default model, thinking level, tools, skills, MCP servers) and any files it needs. That&#39;s the whole definition — agents are as editable as text files, and you can hand one to a friend.</p>
+<p>Agents don&#39;t own chats: they are <strong>invited</strong> into them. A chat can hold one agent, or a whole team.</p>
+<h3>The Orchestrator and delegation</h3>
+<p>One agent in a chat can be given the <strong>Orchestrator</strong> role. Messages go to it; when a task fits another agent better, it hands the work over with a <strong>delegation</strong>:</p>
+<ul>
+<li>the delegated agent runs in its own temporary session, with its own persona, model and tools</li>
+<li>its progress streams into the chat <strong>inside a collapsible block</strong> you can open and read</li>
+<li>the orchestrator only receives the final answer — delegations cost <strong>zero context</strong> in its conversation</li>
+<li>you always see who did what, and can inspect the steps</li>
+</ul>
+<p>This is the core idea of Quinki: small, specialised agents, orchestrated — instead of one giant prompt trying to be everything.</p>
+<h2>Skills and MCP</h2>
+<p><strong>Skills</strong> are folders with a <code>SKILL.md</code> (plus optional scripts and references) — knowledge modules an agent can open when relevant. Attach them to an agent, or inject one per message with <code>/skill</code>.</p>
+<p><strong>MCP servers</strong> (Model Context Protocol) work like everywhere else: Quinki runs them locally over stdio or connects over HTTP, and their tools simply appear to the agent.</p>
+<p>Both install with one click from the <strong>Market</strong> (Settings → Market, or the Market section in Home).</p>
+<h2>Plan and Build</h2>
+<p>Every turn runs in one of two modes:</p>
+<ul>
+<li><strong>Plan</strong> — read-only tools (<code>read</code>, <code>grep</code>, <code>find</code>, <code>ls</code>). The agent explores, reasons and proposes; it changes nothing.</li>
+<li><strong>Build</strong> — the full toolset, including <code>write</code>, <code>edit</code> and <code>bash</code>.</li>
+</ul>
+<p><strong>Tab</strong> switches the mode at any moment, and it applies from the next turn. File tools are additionally fenced by your <strong>Authorized Folders</strong> (Settings → macOS Permissions): an agent can only touch the chat&#39;s own working directory and the folders you explicitly listed.</p>
+<h2>Working directories</h2>
+<p>Every chat gets its <strong>own</strong> working directory, created automatically. Change it whenever you like (<code>/directory</code>, or from the chat header), and the agent can also work in any other authorized folder.</p>
+<p>The default rule is simple and stated to every agent: <em>anything you create goes in the chat&#39;s working directory, unless the user says otherwise.</em> Ask for another location and it will use it.</p>
+<h2>Tasks: schedules, executions, reports</h2>
+<p>A <strong>task</strong> is a schedule: a time (once / daily / weekly / monthly, each with its own timezone), an agent, a prompt, and a working directory.</p>
+<p>When it fires, the engine creates an <strong>execution</strong>: a headless chat that runs the agent exactly like a normal turn — tools included — while you do something else. When it finishes:</p>
+<ul>
+<li>the result comes back to the chat it belongs to, as a <strong>task report</strong>: a visible bubble that asks the model to report only what matters</li>
+<li>if the chat is under Long Horizon, or its context is nearly full, you get a <strong>red app message</strong> instead, telling you where to read the result (the &quot;Task executed&quot; section above the textbox)</li>
+<li>each task can ask the Mac to <strong>stay awake</strong> while it runs</li>
+</ul>
+<p>If the Mac was asleep or Quinki closed, missed tasks <strong>run at the next launch</strong> — late, never skipped. Everything about tasks lives in the <strong>Tasks</strong> tab (calendar and executions), and in the chat, &quot;Task executed&quot; shows exactly what happened on that chat&#39;s tasks.</p>
+<h2>Long Horizon</h2>
+<p>For long projects — the ones that take hours, not minutes — <strong>Long Horizon</strong> keeps the work moving while you&#39;re away:</p>
+<ol>
+<li><strong>Start a discussion</strong>: you explain the goal, the agent asks what it needs; you iterate</li>
+<li><strong>Plan</strong>: Quinki writes <code>plan.md</code> — the units of work, each a checkbox you can edit</li>
+<li><strong>Run</strong>: a support process sends &quot;continue&quot; prompts unit by unit, checks the agent&#39;s <code>handoff.md</code> (the memory of what was done, how, and why), updates <code>progress.json</code>, and <strong>commits each unit to git</strong> so any step can be reverted</li>
+</ol>
+<p>The support agent is not an AI: it is a careful timer that reads your files and writes in the chat. It speaks <strong>only when a turn is completely finished and clean</strong> — it never interrupts, never talks over an error or a stop of yours. You can pause (back to discussion), edit the plan, or disable it and keep the files.</p>
+<h2>Notifications and your phone</h2>
+<p>Each chat has a notification mode (<strong>All / Messages / Tasks / Muted</strong>). Quinki uses native macOS notifications, and it never notifies you about the chat you are already watching.</p>
+<p>Your phone connects through a <strong>private tunnel</strong> that runs on your Mac (nothing to configure in your router):</p>
+<ul>
+<li>enable it in Settings → Web app / Remote</li>
+<li>open the address it shows on your phone and confirm the <strong>pairing</strong> page — the device gets its own token, revocable at any time</li>
+<li>install the web app on your home screen (PWA), or use the Android APK</li>
+<li>notifications reach the phone <strong>even with Quinki closed</strong>, and are silenced the moment you look at that chat on the Mac</li>
+</ul>
+<p>The tunnel exists <strong>only while a Quinki window is open</strong>: close the app and the door closes.</p>
+<h2>The CLI</h2>
+<p><code>quinki</code> in any terminal is the same engine with a different face: same chats, same agents, same skills, same tasks — with a fast slash-command menu, keyboard navigation of the collapsible blocks (Ctrl+Alt + arrows), and <code>/syncexpert</code> when you need to push a new build to the App Expert. The app installs the CLI for you, and keeps it updated.</p>
+<h2>Logs you can actually read</h2>
+<p>The <strong>Log</strong> tab has exactly three streams, on purpose:</p>
+<ul>
+<li><strong>System Prompt</strong> — what the model really received as instructions</li>
+<li><strong>Thinking</strong> — the model&#39;s reasoning, per model</li>
+<li><strong>LLM Catalog</strong> — every model of every provider, with capabilities and levels</li>
+</ul>
+<p>Nothing else is written to disk. Chat content is never used as a log.</p>
+<h2>The App Expert</h2>
+<p>Quinki can work on itself: the <strong>App Expert</strong> is a second app (same code, orange accent) whose agent knows the Quinki codebase, docs and decisions. It has its own chats and its own data. When the two versions drift apart, <strong>Settings → App Expert → Sync</strong> brings them together again.</p>
+<h2>Where your data lives</h2>
+<p>One folder: <code>~/.quinki</code> — sessions, attachments, working directories, agents, skills, tasks, keys (encrypted), settings. The <a href="reference-config.html">Files &amp; Environment reference</a> documents it file by file, so nothing here is a black box.</p>
+<p class="edit">Found a mistake? Edit <code>docs/FEATURES.md</code> in the repository and open a pull request.</p></main>
+</div>
+<footer class="foot">Quinki documentation — built from the repository (docs/*.md)</footer>
+</body>
+</html>

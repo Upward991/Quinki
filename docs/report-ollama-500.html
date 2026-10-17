@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ollama cloud bug: deepseek-v4.1-flash:cloud returns 500 with image input over ~655,360 tokens · Quinki Docs</title>
+<link rel="icon" href="../favicon.svg"><link rel="stylesheet" href="docs.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="../index.html">Quinki</a><span class="docs-tag">Docs</span>
+  <nav class="topnav">
+    <a href="../index.html">Home</a>
+    <a href="https://github.com/Upward991/Quinki" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+</header>
+<div class="layout">
+  <aside class="sidebar"><details><summary>Start here</summary><ul><li><a href="overview.html">What is Quinki</a></li><li><a href="getting-started.html">Getting started</a></li><li><a href="user-guide.html">User Guide</a></li><li><a href="features.html">Inside Quinki</a></li><li><a href="guides.html">Guides &amp; Tutorials</a></li></ul></details><details><summary>Market</summary><ul><li><a href="market.html">The Quinki Market</a></li></ul></details><details><summary>Reference</summary><ul><li><a href="reference-cli.html">CLI reference</a></li><li><a href="reference-config.html">Files &amp; Environment</a></li><li><a href="troubleshooting.html">Troubleshooting &amp; FAQ</a></li></ul></details><details><summary>Developer Guide</summary><ul><li><a href="developer.html">Build from source</a></li><li><a href="architecture.html">Architecture</a></li><li><a href="decisions.html">Design decisions</a></li><li><a href="cla.html">Contributor License Agreement</a></li></ul></details><details><summary>Design &amp; roadmap</summary><ul><li><a href="acp.html">ACP mode (editor integration)</a></li><li><a href="agent-api.html">Agent API (OpenAI-compatible)</a></li><li><a href="intelligent-ui.html">Intelligent UI (analysis)</a></li></ul></details><details open><summary>Reports</summary><ul><li><a href="report-notion-import.html">Notion/Obsidian import</a></li><li><a href="report-ollama-500.html" class="active">Ollama Cloud 500</a></li></ul></details></aside>
+  <main class="content"><div class="crumb">Reports</div><h1>Ollama cloud bug: <code>deepseek-v4.1-flash:cloud</code> returns 500 with image input over ~655,360 tokens</h1>
+<p><strong>Status (agg. 12 ott): NON PIU&#39; RIPRODUCIBILE — il bug e&#39; sparito a monte (fix probabile lato cloud, da confermare col team; daemon anche passato 0.40.0 -&gt; 0.40.3).</strong>
+<strong>Ultima verifica indipendente: 2026-10-12</strong> — riprova con HTTP puro: 200 a 661.022 / 750.622 / 899.022 / 999.822 prompt token CON immagine (1x1 PNG ex-fallosa); il payload esatto del 7 ott (500 in 1.9s, pre-prefill) ora completa il prefill (5.9s). Modello ancora <code>context_length 1048576</code> + capability <code>vision</code>.
+<strong>Prima verifica storica:</strong> 2026-10-07, daemon 0.40.0 — 500 deterministico a ~655k+ col 1x1 PNG.
+<strong>Owner of the fix:</strong> ollama.com (cloud backend), not the local daemon.</p>
+<hr>
+<h2>Independent verification (App Expert, 2026-10-07, on the production machine)</h2>
+<p>Environment check: daemon 0.40.0, model listed locally (<code>deepseek-v4.1-flash:cloud</code>), declared
+<code>context length 1048576</code>, capability <code>vision</code> present. Local OpenAI-compatible endpoint
+<code>http://127.0.0.1:11434/v1/chat/completions</code>.</p>
+<p>Identical payload, single variable = the image (1×1 PNG, 67 bytes), filler sized as in the
+original minimal reproduction:</p>
+<table>
+<thead>
+<tr>
+<th>with_image</th>
+<th>result</th>
+<th>time</th>
+<th>detail</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>yes</strong></td>
+<td><strong>HTTP 500</strong></td>
+<td><strong>1.9 s</strong></td>
+<td><code>Internal Server Error (ref: 7cd59b77-feee-42d8-abfb-511d450d41cd)</code></td>
+</tr>
+<tr>
+<td><strong>no</strong></td>
+<td><strong>HTTP 200</strong></td>
+<td><strong>9.6 s</strong></td>
+<td><code>prompt_tokens: 660,836</code></td>
+</tr>
+</tbody></table>
+<p>Conclusions added by this run:</p>
+<ul>
+<li>The bug is <strong>still live</strong> as of 2026-10-07 and deterministic (new ref captured above).</li>
+<li><strong>Timing proves it is a validation-path crash, not an inference/compute problem</strong>: the failing
+request dies in <strong>1.9 s</strong>, i.e. before any real prefill; the same-size passing request takes
+<strong>9.6 s</strong> of actual prompt processing (660,836 tokens).</li>
+<li>The 1×1 image being enough shows the trigger is the <strong>multimodal code path</strong>, not image bytes.</li>
+</ul>
+<p>Reproduction script: <code>/tmp/ollama-repro.py</code> (same as the one embedded in the report below).</p>
+<hr>
+<h2>Original report (from a Quinki session, 2026-10-07)</h2>
+<p><strong>Verdetto:</strong> bug del backend di ollama.com — <strong>non</strong> dell&#39;app, <strong>non</strong> del conteggio token, <strong>non</strong> della macchina. Deterministico e riproducibile con richieste HTTP grezze (nessun codice Quinki in mezzo). Persistente dal <strong>19 settembre</strong> al <strong>7 ottobre</strong> nonostante gli aggiornamenti.</p>
+<h3>1) Il bug in una riga</h3>
+<blockquote>
+<p>Su <code>deepseek-v4.1-flash:cloud</code>, <strong>qualsiasi richiesta che contiene un&#39;immagine e supera ≈655.360 token reali</strong> (640×1024 = <strong>62,5%</strong> del milione dichiarato) riceve <strong>HTTP 500</strong> <code>{&quot;message&quot;:&quot;Internal Server Error (ref: …)&quot;,&quot;type&quot;:&quot;api_error&quot;,&quot;param&quot;:null,&quot;code&quot;:null}</code> in ~2 secondi. Senza immagine, la stessa richiesta passa anche a 865.502 token. Con la stessa immagine, <code>glm-5.3-flash:cloud</code> passa a 665.327.</p>
+</blockquote>
+<h3>2) Riproduzione minima (con esito atteso vs reale)</h3>
+<pre><code class="language-python">import json, urllib.request, urllib.error
+
+# ~520k token cl100k di filler → il server conta ≈662k.
+# Non serve la dimensione esatta: qualunque cosa sopra ~655.360 (con immagine) triggera.
+text = (&quot;Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt &quot;
+        &quot;ut labore et dolore magna aliqua. &quot;) * 23600
+img  = (&quot;data:image/png;base64,&quot;
+        &quot;iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==&quot;)  # PNG 1x1, 67 byte
+
+for with_image in (True, False):
+    content = [{&quot;type&quot;: &quot;text&quot;, &quot;text&quot;: text + &quot;\n\nReply with exactly: OK&quot;}]
+    if with_image:
+        content.append({&quot;type&quot;: &quot;image_url&quot;, &quot;image_url&quot;: {&quot;url&quot;: img}})
+    body = {&quot;model&quot;: &quot;deepseek-v4.1-flash:cloud&quot;,
+            &quot;messages&quot;: [{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: content}],
+            &quot;max_completion_tokens&quot;: 16}
+    req = urllib.request.Request(&quot;http://127.0.0.1:11434/v1/chat/completions&quot;,
+                                 data=json.dumps(body).encode(),
+                                 headers={&quot;Content-Type&quot;: &quot;application/json&quot;})
+    try:
+        r = urllib.request.urlopen(req, timeout=300)
+        print(&quot;with_image =&quot;, with_image, &quot;-&gt;&quot;, r.status)
+    except urllib.error.HTTPError as e:
+        print(&quot;with_image =&quot;, with_image, &quot;-&gt;&quot;, e.code, e.read()[:160])
+</code></pre>
+<p><strong>Atteso:</strong> 200 per entrambi. <strong>Reale:</strong> con immagine → <strong>500 + ref</strong>; senza → <strong>200</strong> (<code>prompt_tokens: 661.856</code>).</p>
+<h3>3) Confini misurati (stesso contenuto, unica variabile: l&#39;immagine)</h3>
+<table>
+<thead>
+<tr>
+<th>Configurazione</th>
+<th>prompt_tokens (server)</th>
+<th>Esito</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>+ immagine (1×1 o 514KB, uguale)</td>
+<td>647.758 / 651.572 / <strong>654.764</strong></td>
+<td>✅ 200</td>
+</tr>
+<tr>
+<td>+ immagine</td>
+<td><strong>≈655.400 / ≈655.800 / ≈657.300</strong></td>
+<td>❌ 500 (deterministico, 5+ ref)</td>
+</tr>
+<tr>
+<td><strong>senza</strong> immagine</td>
+<td>657.414 / 659.318 / 662.517 / 674.596 / 678.412 / 698.281 / <strong>865.502</strong></td>
+<td>✅ tutti 200</td>
+</tr>
+</tbody></table>
+<p>→ Il muro scatta tra <strong>654.764 e ~655.403</strong>: coincide con <strong>655.360 = 640×1024 = 62,5% di 1.048.576</strong>.</p>
+<h3>4) Esclusioni (perché NON è &quot;nostro&quot;)</h3>
+<ol>
+<li><strong>Riprodotto senza l&#39;app</strong>: stesse richieste via <code>curl</code>/Python diretti al daemon → stesso 500. Nessun codice dell&#39;app nella catena → non può essere un problema dell&#39;app.</li>
+<li><strong>Non è il conteggio token</strong>: il numero a cui si applica il limite è <strong>calcolato dal loro server</strong> (<code>prompt_tokens</code> nella risposta). Il contatore dell&#39;app è solo UI e non viene inviato. Controprova: stesso testo senza immagine, stesso conteggio, 200.</li>
+<li><strong>Non è la macchina/il daemon locale</strong>: il daemon (0.35.0 prima, <strong>0.40.0 ora</strong> — bug identico) è un puro proxy; l&#39;errore nasce a monte (stessa firma <code>(ref: UUID)</code> dei loro errori di quota).</li>
+<li><strong>Non è il modello in generale</strong>: <code>glm-5.3-flash:cloud</code> con la stessa immagine a 665.327 → 200. È specifico di <code>deepseek-v4.1-flash:cloud</code>.</li>
+</ol>
+<h3>5) Ref per i loro log (da citare nell&#39;issue)</h3>
+<p><strong>Test miei controllati — 7 ott 2026, ≈17:54–17:56 UTC</strong> (PNG 1×1):</p>
+<ul>
+<li><code>c7b680ec-1ec4-456c-915d-619dd79c4ea3</code> (≈662K)</li>
+<li><code>952231f2-9e86-49e6-acdc-cf8132690026</code> (≈675K)</li>
+<li><code>ccad8e2f-28a8-47ac-bc82-ee5af0cfd8af</code> (≈700K)</li>
+</ul>
+<p><strong>Test miei — 2 ott 2026, ≈18:28–18:40 UTC</strong>:</p>
+<ul>
+<li><code>6b53f2e8-fa44-4a07-9a84-d3bcb86c9840</code>, <code>9a5980b1-549d-4acd-af2c-045e0f91e29b</code>, <code>cf876873-7d77-4b40-b069-23d1e56ed149</code> (replay conversazione reale + immagine, 3/3 fail)</li>
+<li><code>04c6a1f9-98fb-4182-997c-6950236eea32</code>, <code>dd451637-45eb-4b44-bb6a-afd44a155916</code> (soglia)</li>
+<li><code>c60ec807-60fd-4d4b-802b-cd38fe2b0050</code>, <code>1a82bbe0-7427-406a-9cab-81702b3ab4c7</code> (sintetici, uno con immagine vera e uno con PNG 67 byte)</li>
+</ul>
+<p><strong>Produzione (dalla app, stesso modello)</strong>:</p>
+<ul>
+<li><code>1b837243-6169-41a8-8ee1-a30126e671cf</code> — 2 ott, 17:51:16 UTC</li>
+<li><code>adbe3da6-074a-429d-8ffd-2ad4aeb5820a</code> — 30 set, 23:48 UTC</li>
+<li><code>5c64715f-4af3-4bd2-a958-58dfccaf5001</code> — 6 ott, 22:02 UTC</li>
+<li><ul>
+<li><strong>129 errori totali registrati dal 19 set al 7 ott</strong>, tutti di questo modello, sempre sulla prima richiesta con immagine oltre ~655–660K.</li>
+</ul>
+</li>
+</ul>
+<p><strong>Verifica indipendente (App Expert) — 7 ott 2026</strong>:</p>
+<ul>
+<li><code>7cd59b77-feee-42d8-abfb-511d450d41cd</code> (≈661K, con immagine, fail in 1,9s)</li>
+</ul>
+<h3>6) Note tecniche utili</h3>
+<ul>
+<li>Le immagini contribuiscono <strong>≈0</strong> al <code>prompt_tokens</code> (647.860 → 647.758 stesso payload ± immagine da 514KB): ma la loro <strong>presenza</strong> sposta la richiesta sul percorso che crasha oltre la soglia.</li>
+<li>Ipotesi per loro: il percorso &quot;vision&quot; applica/assume un limite effettivo di ~640Ki token e oltre soglia risponde con un&#39;eccezione non gestita invece di un errore pulito.</li>
+<li>Perché l&#39;utente lo vede &quot;sempre al 60%&quot;: il contatore dell&#39;app (cl100k) legge ~4-5% in meno del tokenizer reale di DeepSeek → 655.360 reali ≈ 59,5-60% mostrati. Non è un problema di conteggio: è un muro <strong>assoluto</strong> che coincide con quella percentuale.</li>
+<li><em>(Contesto app: Quinki gestisce già le immagini con cap a 3 e rimozione per modelli senza vision, e sul 500 fa fallback di modello — mitigazioni che a volte mascherano il bug, ma la causa resta a monte.)</em></li>
+</ul>
+<hr>
+<h1>GitHub issue draft (English, for ollama/ollama)</h1>
+<p><strong>Title:</strong></p>
+<pre><code>[Cloud] deepseek-v4.1-flash:cloud returns 500 (Internal Server Error, ref) for any request containing image input when the prompt exceeds ~655,360 tokens
+</code></pre>
+<p><strong>Body:</strong></p>
+<pre><code class="language-markdown">### Summary
+On ollama.com (via local daemon, OpenAI-compatible endpoint `/v1/chat/completions`), `deepseek-v4.1-flash:cloud` deterministically returns HTTP 500 `{&quot;message&quot;:&quot;Internal Server Error (ref: …)&quot;,&quot;type&quot;:&quot;api_error&quot;,&quot;param&quot;:null,&quot;code&quot;:null}` for any request that contains an image once the prompt exceeds ≈655,360 tokens (640×1024 = 62.5% of the declared 1,048,576 context). A 1×1 PNG (67 bytes) is enough to trigger it. The identical payload without the image returns 200 at 661,856 prompt tokens. `glm-5.3-flash:cloud` handles the same image at 665,327 tokens fine.
+
+### Environment
+- Client: Ollama daemon 0.40.0 (bug also present on 0.35.0), macOS (Apple Silicon); requests to http://127.0.0.1:11434/v1/chat/completions (proxied to ollama.com)
+- Model: deepseek-v4.1-flash:cloud (remote_host: https://ollama.com; declared context_length: 1048576; capabilities include vision)
+
+### Minimal reproduction
+[insert the Python script from the report — section 2]
+Actual: `with_image=True -&gt; 500 {&quot;message&quot;:&quot;Internal Server Error (ref: …)&quot;}`; `with_image=False -&gt; 200` (prompt_tokens ≈ 661,856).
+
+### Measured boundary (with/without image, same payload)
+| prompt_tokens | image | result |
+|---|---|---|
+| 654,764 | yes | 200 |
+| ~655,403 | yes | 500 |
+| ~657,290 | yes | 500 (3/3 retries) |
+| 657,414 | no | 200 |
+| 662,517 | no | 200 |
+| 678,412 | no | 200 |
+| 865,502 | no | 200 |
+
+### Timing evidence (validation-path crash, not compute)
+With image: 500 in **1.9 s** (before any prefill). Without image, same size: 200 in **9.6 s**
+(660,836 prompt tokens actually processed). The failure happens before inference starts.
+
+### Cross-model control
+glm-5.3-flash:cloud + same image: 650,323 -&gt; 200; 665,327 -&gt; 200.
+
+### Error refs (for server-log lookup; all UTC)
+2026-10-07: c7b680ec-1ec4-456c-915d-619dd79c4ea3, 952231f2-9e86-49e6-acdc-cf8132690026,
+ccad8e2f-28a8-47ac-bc82-ee5af0cfd8af, 7cd59b77-feee-42d8-abfb-511d450d41cd
+2026-10-02: 6b53f2e8-fa44-4a07-9a84-d3bcb86c9840, 9a5980b1-549d-4acd-af2c-045e0f91e29b,
+cf876873-7d77-4b40-b069-23d1e56ed149, 04c6a1f9-98fb-4182-997c-6950236eea32,
+dd451637-45eb-4b44-bb6a-afd44a155916, c60ec807-60fd-4d4b-802b-cd38fe2b0050,
+1a82bbe0-7427-406a-9cab-81702b3ab4c7
+
+### Notes
+- Images contribute ≈0 to prompt_tokens (647,860 vs 647,758 for the same payload ± 514 KB image), yet their presence flips the request on the failing path above the threshold.
+- Likely the vision path enforces/assumes an effective ~640Ki limit and mishandles over-limit input (unhandled error instead of a graceful response).
+- In production this hits long agentic sessions deterministically (129 occurrences Sep 19 - Oct 7), always on the first request whose image-bearing prompt crosses ~655-660k tokens.
+</code></pre>
+<h2>Channels</h2>
+<ol>
+<li><strong>GitHub (main):</strong> <code>https://github.com/ollama/ollama/issues/new</code> — paste Title + Body above.</li>
+<li><strong>Discord (officially faster for cloud):</strong> <code>https://discord.gg/ollama</code> — 2-line message: model, condition (image + &gt;655K), 2-3 refs, link to the issue.</li>
+<li>Possibly <a href="mailto:support@ollama.com">support@ollama.com</a> with the same text.</li>
+</ol>
+<hr>
+<h2>App-side fix (implemented &amp; verified, 2026-10-07)</h2>
+<p>While the server bug is open, Quinki now handles it (and any provider error) gracefully:</p>
+<ul>
+<li><strong>Universal pre-retry image purge</strong>: on ANY provider error, if the context still contains
+images, they are replaced with text placeholders (in memory + on disk, max 2 per turn).
+The first retry therefore runs text-only on every model — same mechanism the vision-400
+path always used, now error-agnostic.</li>
+<li><strong>Fallback held one round</strong> (<code>#preRetryPurged</code>): the model fallback no longer fires on the
+first error after a purge — the clean retry on the same model gets its chance first.</li>
+<li><strong>Recovery blocked for the round</strong> (<code>#rePrompted</code>): the recovery machinery does not resume
+a session the SDK is already retrying internally (was producing a duplicate answer).</li>
+<li>If the clean retry fails too, the next error falls back exactly as before. No loops.</li>
+</ul>
+<p>Verified live on the installed app (throwaway session, <code>deepseek-v4.1-flash:cloud</code>,
+1 image + ~660k server tokens): HTTP 500 -&gt; purge -&gt; SDK retry (clean) -&gt; <strong>one</strong> final answer
+(<code>stopReason: stop</code>), zero fallback, zero duplicates.</p>
+<p>Refs from the app-side runs (2026-10-07, UTC): 7cd59b77-feee-42d8-abfb-511d450d41cd (raw HTTP),
+edad3a38-ed98-4402-a0f2-4d20ff2605c9, 6e910a7d-5e81-4077-b4a2-9cd6a93494ec,
+4c418e2f-6a9b-4335-8579-19f45af30889, c85114ed-4473-48f5-bc87-59641cadc5b4.</p>
+<h2>GitHub issue (opened 2026-10-07)</h2>
+<p><strong><a href="https://github.com/ollama/ollama/issues/18853">https://github.com/ollama/ollama/issues/18853</a></strong> (ollama/ollama #18853)</p>
+<h2>Email draft (send to <a href="mailto:support@ollama.com">support@ollama.com</a>)</h2>
+<p>Subject: Server-side bug: deepseek-v4.1-flash:cloud returns HTTP 500 for image prompts over ~655k tokens (repro + refs inside)</p>
+<p>Hi Ollama team,</p>
+<p>a short report of a deterministic server-side bug on ollama.com that we hit in production
+129 times between Sep 19 and Oct 7, 2026.</p>
+<p>Model: deepseek-v4.1-flash:cloud. Any request that contains an image AND exceeds ~655,360
+prompt tokens (640x1024 = 62.5% of the declared 1,048,576 context) returns HTTP 500
+{&quot;message&quot;:&quot;Internal Server Error (ref: ...)&quot;,&quot;type&quot;:&quot;api_error&quot;}. A 1x1 PNG (67 bytes) is
+enough to trigger it. The same payload without the image returns 200 at 660,836 tokens. The
+failure comes back in ~1.9 s, i.e. before inference starts (validation path). The same image
+on glm-5.3-flash:cloud passes fine at 665,327 tokens.</p>
+<p>Full report, minimal reproduction script and server refs:
+<a href="https://github.com/ollama/ollama/issues/18853">https://github.com/ollama/ollama/issues/18853</a></p>
+<p>Recent refs for your logs: 7cd59b77-feee-42d8-abfb-511d450d41cd,
+edad3a38-ed98-4402-a0f2-4d20ff2605c9, c85114ed-4473-48f5-bc87-59641cadc5b4,
+4c418e2f-6a9b-4335-8579-19f45af30889</p>
+<p>Thank you!</p>
+<p class="edit">Found a mistake? Edit <code>docs/reports/ollama-deepseek-v41-flash-cloud-500.md</code> in the repository and open a pull request.</p></main>
+</div>
+<footer class="foot">Quinki documentation — built from the repository (docs/*.md)</footer>
+</body>
+</html>

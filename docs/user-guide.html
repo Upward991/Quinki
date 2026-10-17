@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>User Guide · Quinki Docs</title>
+<link rel="icon" href="../favicon.svg"><link rel="stylesheet" href="docs.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="../index.html">Quinki</a><span class="docs-tag">Docs</span>
+  <nav class="topnav">
+    <a href="../index.html">Home</a>
+    <a href="https://github.com/Upward991/Quinki" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+</header>
+<div class="layout">
+  <aside class="sidebar"><details open><summary>Start here</summary><ul><li><a href="overview.html">What is Quinki</a></li><li><a href="getting-started.html">Getting started</a></li><li><a href="user-guide.html" class="active">User Guide</a></li><li><a href="features.html">Inside Quinki</a></li><li><a href="guides.html">Guides &amp; Tutorials</a></li></ul></details><details><summary>Market</summary><ul><li><a href="market.html">The Quinki Market</a></li></ul></details><details><summary>Reference</summary><ul><li><a href="reference-cli.html">CLI reference</a></li><li><a href="reference-config.html">Files &amp; Environment</a></li><li><a href="troubleshooting.html">Troubleshooting &amp; FAQ</a></li></ul></details><details><summary>Developer Guide</summary><ul><li><a href="developer.html">Build from source</a></li><li><a href="architecture.html">Architecture</a></li><li><a href="decisions.html">Design decisions</a></li><li><a href="cla.html">Contributor License Agreement</a></li></ul></details><details><summary>Design &amp; roadmap</summary><ul><li><a href="acp.html">ACP mode (editor integration)</a></li><li><a href="agent-api.html">Agent API (OpenAI-compatible)</a></li><li><a href="intelligent-ui.html">Intelligent UI (analysis)</a></li></ul></details><details><summary>Reports</summary><ul><li><a href="report-notion-import.html">Notion/Obsidian import</a></li><li><a href="report-ollama-500.html">Ollama Cloud 500</a></li></ul></details></aside>
+  <main class="content"><div class="crumb">Start here</div><h1>User Guide</h1>
+<blockquote>
+<p>Everything you need to install, configure and use Quinki.</p>
+</blockquote>
+<h2>1. Installation</h2>
+<ol>
+<li>Download the latest DMG from the <a href="../../releases">Releases</a> page</li>
+<li>Open the DMG and drag <strong>Quinki</strong> into Applications</li>
+<li><strong>First launch</strong>: right-click the app → <strong>Open</strong> (macOS Gatekeeper: the app is not notarized yet)</li>
+<li>Quinki lives in the menu bar/tray; closing the window keeps it running</li>
+</ol>
+<p><strong>System requirements</strong>: macOS on <strong>Apple Silicon</strong>. No Node.js or other runtime required: everything is bundled.</p>
+<h2>2. Choose an AI provider</h2>
+<p>Open <strong>Settings</strong> and configure at least one provider:</p>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>How to connect</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>OpenAI</strong></td>
+<td>Sign in with ChatGPT</td>
+<td>Uses your ChatGPT Plus/Pro subscription. No API key needed.</td>
+</tr>
+<tr>
+<td><strong>Anthropic</strong></td>
+<td>Sign in with Claude</td>
+<td>Uses your Claude Pro/Max subscription. No API key needed.</td>
+</tr>
+<tr>
+<td><strong>Ollama</strong></td>
+<td>Install Ollama</td>
+<td>Free, fully local. Install from ollama.com, models appear automatically</td>
+</tr>
+<tr>
+<td><strong>OpenRouter</strong></td>
+<td>Sign in with OpenRouter</td>
+<td>Access to 300+ models, pay-per-use. Free account available.</td>
+</tr>
+<tr>
+<td><strong>GitHub Copilot</strong></td>
+<td>Sign in with GitHub</td>
+<td>Uses your Copilot subscription ($10/mo). Access to Claude and GPT models.</td>
+</tr>
+<tr>
+<td><strong>xAI (Grok)</strong></td>
+<td>Sign in with Grok</td>
+<td>Uses your SuperGrok or X Premium subscription.</td>
+</tr>
+</tbody></table>
+<p>Click <strong>Sign in</strong> on any provider to connect with your existing account. No API keys to manage, no separate billing: use the subscriptions you already pay for.</p>
+<p>Prefer pay-per-use? OpenRouter gives you 300+ models with a single account. Prefer free? Ollama runs models locally on your Mac.</p>
+<p>Paste your API key in the provider row (stored encrypted in your OS keychain), enable the models you want, and set your default model.</p>
+<h2>3. Your first chat</h2>
+<ol>
+<li>Go to <strong>Home</strong> → open a chat (or the sidebar ➕)</li>
+<li>Pick a mode with the toggle in the composer:<ul>
+<li><strong>Plan</strong>: the agent can only read/explore (safe)</li>
+<li><strong>Build</strong>: full filesystem access (it can edit and run commands)</li>
+</ul>
+</li>
+<li>Type your message. Use <code>@agentname</code> to address a specific agent</li>
+<li>Toggle <strong>thinking</strong> on for maximum reasoning on every model</li>
+</ol>
+<h3>Modes</h3>
+<ul>
+<li><strong>Plan</strong> = read-only tools (read, grep, find, ls). The agent explores and proposes, changes nothing.</li>
+<li><strong>Build</strong> = all tools, including write/edit/bash. Use it when you want the agent to act.</li>
+</ul>
+<h2>4. Agents and skills</h2>
+<ul>
+<li><strong>Agents</strong> live in <code>~/.quinki/agents/&lt;id&gt;/</code>: each has a <code>PROMPT.md</code>, its own model, thinking level, tools and skills</li>
+<li>The <strong>Orchestrator</strong> is the default system agent: it can delegate work to other agents (<code>delegate_to_agent</code>): delegations appear as collapsible blocks and cost zero context in the orchestrator&#39;s conversation</li>
+<li><strong>@tag routing</strong>: start a message with <code>@agentname</code> to talk to that agent directly; in a multi-agent chat you must tag someone (or add the Orchestrator)</li>
+<li><strong>Skills</strong> are knowledge modules (<code>SKILL.md</code> with frontmatter). Attach them to agents or inject them per-message with <code>/skill</code></li>
+<li>Manage everything in the <strong>Agents</strong> tab</li>
+</ul>
+<h2>5. Sessions</h2>
+<ul>
+<li><strong>Folders</strong> with drag &amp; drop, rename, nesting</li>
+<li><strong>Search</strong>: full-text across session titles and message history (with date/time filters)</li>
+<li><strong>Export</strong>: Markdown or HTML (faithful dark theme)</li>
+<li><strong>Multi-window</strong>: right-click a session → open in new window; windows remember position</li>
+<li><strong>Compaction</strong>: per-session auto-compaction at 80% of the context window (toggle in the chat header)</li>
+<li><strong>Export &amp; attachments</strong>: drag files into the composer; agents read them on demand</li>
+</ul>
+<h2>5b. Quick Chat</h2>
+<p>Quick Chat is a floating window for questions on the fly: you do not need to switch to the main app or find a chat.</p>
+<ul>
+<li>Press the global shortcut (default: Option+Space) from anywhere, even when Quinki windows are closed</li>
+<li>Or left-click the Quinki icon in the macOS menu bar</li>
+<li>Type your question and press Enter: the response streams right in the window</li>
+<li>When you close it, the session appears in your sidebar like any other chat</li>
+<li>The window remembers the size you prefer</li>
+</ul>
+<p>You can change the shortcut from Settings, Shortcuts.</p>
+<h2>5c. Keyboard shortcuts</h2>
+<p>All shortcuts are listed in Settings, Shortcuts. The most used:</p>
+<table>
+<thead>
+<tr>
+<th>Shortcut</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Tab</td>
+<td>Switch Plan / Build mode (anywhere in the chat)</td>
+</tr>
+<tr>
+<td>Enter</td>
+<td>Send message</td>
+</tr>
+<tr>
+<td>Ctrl+Enter</td>
+<td>Steering: add context while the model is generating</td>
+</tr>
+<tr>
+<td>Esc</td>
+<td>Stop generation or close open menus</td>
+</tr>
+<tr>
+<td>/</td>
+<td>Open the slash menu (model, thinking, reset, export)</td>
+</tr>
+<tr>
+<td>@</td>
+<td>Tag an agent in multi-agent chats</td>
+</tr>
+<tr>
+<td>Option+Space</td>
+<td>Quick Chat (configurable)</td>
+</tr>
+</tbody></table>
+<h2>5d. Automatic recovery</h2>
+<p>When Quinki is closed during generation (or the model connection drops), the session is automatically recovered:</p>
+<ul>
+<li>The status pill shows &quot;Recovering&quot; (orange) when you open an interrupted chat</li>
+<li>The recovery prompt appears in the chat as a regular message bubble, in real-time</li>
+<li>If the model fails, Quinki retries automatically (3 quick retries, then slower: 5 min, 15 min, 30 min)</li>
+<li>Press Stop at any time to prevent further retries</li>
+<li>In Long Horizon mode, the support agent&#39;s guiding messages also appear in real-time</li>
+</ul>
+<h2>6. Notifications</h2>
+<p>Per-chat notification modes: <strong>All</strong>, <strong>Messages</strong>, <strong>Tasks</strong>, <strong>Muted</strong>. macOS notifications require permission (Settings → Notifications). Unread markers show where you left off.</p>
+<h2>7. H24 (always-on work)</h2>
+<ul>
+<li><strong>Scheduler</strong>: create scheduled agent tasks in the Calendar/Tasks view; executions run headless with full logging</li>
+<li><strong>Recovery</strong>: interrupted turns resume automatically; a stuck stream (no activity for 45s) is detected and re-prompted</li>
+<li><strong>Long Horizon</strong>: for big goals: plan first, approve, then let it run with phase tracking</li>
+</ul>
+<h2>8. The Market</h2>
+<p>Browse and install community content: <strong>tabs</strong> (interactive panels), <strong>skills</strong>, <strong>agents</strong>, <strong>MCP servers</strong>, <strong>themes</strong>.</p>
+<ul>
+<li><strong>Install</strong>: one click; uninstall from the same page</li>
+<li><strong>Publish</strong>: log in with GitHub (browser flow), pick what you created, choose a license, confirm you own the content → submit. Your submission goes through automatic validation (structure, static scan, secret detection, VirusTotal for binaries) and merges automatically when it passes</li>
+<li><strong>Your items</strong>: update (new version) or remove via pull requests; if an item disappears from the repository you get a notice</li>
+<li>Publishing requires a GitHub account and confirming you own the content (see <a href="../TERMS.md">TERMS</a>)</li>
+</ul>
+<h2>9. The App Expert</h2>
+<p>The <strong>App Expert</strong> is a special agent that can modify Quinki itself. Recommended setup:</p>
+<ol>
+<li>In Quinki: <strong>Expert tab</strong> → select the folder containing the Quinki source → Start session</li>
+<li>Install the <strong>App Expert app</strong> (the separate app): the same binary running independently</li>
+<li>Chat with the Expert from its own app while Quinki keeps running</li>
+</ol>
+<p><strong>Sync</strong>: when the Expert updates Quinki, open the Expert app header (rotate icon) → <strong>Sync Expert App</strong> to apply the same update to the Expert itself, then Restart. <strong>Rollback</strong> restores the previous version if a sync went wrong. Both apps share all data.</p>
+<h2>10. Where your data lives</h2>
+<p>Everything is in <code>~/.quinki/</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>Content</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>agents/</code></td>
+<td>agent configs + PROMPT.md</td>
+</tr>
+<tr>
+<td><code>skills/</code></td>
+<td>installed skills</td>
+</tr>
+<tr>
+<td><code>sessions/</code></td>
+<td>chat history (one .jsonl per session)</td>
+</tr>
+<tr>
+<td><code>attachments/</code></td>
+<td>chat attachments</td>
+</tr>
+<tr>
+<td><code>config.json</code>, <code>auth.json</code></td>
+<td>settings + encrypted API keys</td>
+</tr>
+<tr>
+<td><code>github-auth.json</code></td>
+<td>Market login token</td>
+</tr>
+</tbody></table>
+<p>Uninstalling the app never deletes your data.</p>
+<h2>11. FAQ</h2>
+<p><strong>Is my chat data sent anywhere?</strong> Only to the AI provider you configured. Quinki has no servers and no telemetry. See <a href="../PRIVACY.md">PRIVACY</a>.</p>
+<p><strong>Is it free?</strong> Yes, AGPL-3.0 open source. You pay nothing; you use your own provider keys (or a local Ollama, which is free).</p>
+<p><strong>Does it work offline?</strong> With a local provider (Ollama) yes: fully offline.</p>
+<p><strong>Can I use multiple models in one chat?</strong> Yes: tag agents with <code>@name</code>, or let the Orchestrator delegate.</p>
+<p><strong>Where are my API keys stored?</strong> Encrypted in your OS keychain, referenced locally by the app.</p>
+<p><strong>Is my data used for training?</strong> Not by Quinki (no data leaves your machine except to your chosen provider). Your provider&#39;s policy applies to your chats.</p>
+<p class="edit">Found a mistake? Edit <code>docs/USER-GUIDE.md</code> in the repository and open a pull request.</p></main>
+</div>
+<footer class="foot">Quinki documentation — built from the repository (docs/*.md)</footer>
+</body>
+</html>

@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Developer Guide · Quinki Docs</title>
+<link rel="icon" href="../favicon.svg"><link rel="stylesheet" href="docs.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="../index.html">Quinki</a><span class="docs-tag">Docs</span>
+  <nav class="topnav">
+    <a href="../index.html">Home</a>
+    <a href="https://github.com/Upward991/Quinki" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+</header>
+<div class="layout">
+  <aside class="sidebar"><details><summary>Start here</summary><ul><li><a href="overview.html">What is Quinki</a></li><li><a href="getting-started.html">Getting started</a></li><li><a href="user-guide.html">User Guide</a></li><li><a href="features.html">Inside Quinki</a></li><li><a href="guides.html">Guides &amp; Tutorials</a></li></ul></details><details><summary>Market</summary><ul><li><a href="market.html">The Quinki Market</a></li></ul></details><details><summary>Reference</summary><ul><li><a href="reference-cli.html">CLI reference</a></li><li><a href="reference-config.html">Files &amp; Environment</a></li><li><a href="troubleshooting.html">Troubleshooting &amp; FAQ</a></li></ul></details><details open><summary>Developer Guide</summary><ul><li><a href="developer.html" class="active">Build from source</a></li><li><a href="architecture.html">Architecture</a></li><li><a href="decisions.html">Design decisions</a></li><li><a href="cla.html">Contributor License Agreement</a></li></ul></details><details><summary>Design &amp; roadmap</summary><ul><li><a href="acp.html">ACP mode (editor integration)</a></li><li><a href="agent-api.html">Agent API (OpenAI-compatible)</a></li><li><a href="intelligent-ui.html">Intelligent UI (analysis)</a></li></ul></details><details><summary>Reports</summary><ul><li><a href="report-notion-import.html">Notion/Obsidian import</a></li><li><a href="report-ollama-500.html">Ollama Cloud 500</a></li></ul></details></aside>
+  <main class="content"><div class="crumb">Developer Guide</div><h1>Developer Guide</h1>
+<p>Build Quinki from source, understand the architecture, and create Market items.</p>
+<h2>Repository layout</h2>
+<pre><code>Quinki/
+├── src/                  # React 19 + TypeScript frontend (Vite)
+│   ├── App.tsx           # tab routing, expert mode, onboarding
+│   ├── hooks/useSidecar.ts      # WebSocket client (JSON-RPC)
+│   ├── hooks/useSidecarData.ts  # data layer (sessions, messages, streaming)
+│   ├── components/       # ChatArea, ChatHeader, Composer, Sidebar, AgentsPanel,
+│   │                     # SettingsPanel, MarketplaceView, LogPanel, HomeView...
+│   └── index.css         # design system (CSS variables, 7 themes, transition: none)
+├── src-tauri/            # Rust shell
+│   └── src/lib.rs        # windows, tray, sidecar lifecycle, files, expert install/sync
+├── sidecar-src/          # the engine (TypeScript, compiled with Bun)
+│   ├── sidecar-ws.ts     # entry point: WebSocket server + OAuth callback server
+│   ├── sidecar.ts        # JSON-RPC handler map (~80 methods)
+│   ├── quinki-bridge.ts      # engine SDK bridge: sessions, streaming, delegations
+│   ├── agent-handlers.ts # agent/skill/provider CRUD
+│   ├── pool-router.ts    # process pool (spawn lazy, route by hash, shrink)
+│   ├── scheduler.ts      # H24 schedules
+│   ├── executor.ts       # task executions
+│   ├── longhorizon.ts    # long horizon phases (plan → approve → run)
+│   ├── providers.ts      # provider detection
+│   ├── tab-plugins.ts    # back-end for installed tabs
+│   └── vendor/           # engine SDK (patched): see Vendor patches
+├── scripts/
+│   ├── build-sidecar.sh  # sidecar compile + secret injection (USE THIS)
+│   └── install-main.sh   # safe install (backup → ditto → re-sign → restart)
+└── src-tauri/            # Rust: windows, tray, dialogs, install/update, Expert sync
+</code></pre>
+<h2>Comments &amp; code style</h2>
+<p>The code is written and commented for the next developer, not for the compiler:</p>
+<ul>
+<li><strong>Every file starts with a header</strong> (3-10 lines): what this module <em>is</em>, its role in the
+system, the key invariants, and who talks to it. If a future change could break something
+subtle, that subtlety is stated there.</li>
+<li><strong>JSDoc on functions that matter</strong> (entry points, public helpers, anything with side
+effects): purpose, inputs, outputs, and the <em>why</em> behind non-obvious choices.</li>
+<li><strong>Inline comments explain WHY, not what</strong> — the reasoning, the trade-off, the bug that
+the line exists to prevent.</li>
+<li><strong>Section banners</strong> (<code>// === NAME ===</code>) group long files so you can jump straight to the part
+you need.</li>
+<li><strong>Never invent behaviour</strong>: a comment describes what the code actually does today. When the
+code changes, its comment changes in the same commit.</li>
+<li>Comments are written in the voice of the file they live in (the engine&#39;s comments are predominantly Italian); everything that ships as <em>documentation</em> — docs/, the site — is English. User-facing strings follow the app&#39;s language.</li>
+</ul>
+<h2>Feature → files (where things live)</h2>
+<p>A quick map to find the code of each feature.</p>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Frontend</th>
+<th>Engine (sidecar-src) / shell</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Chat: streaming, agents, modes, slash menu</td>
+<td><code>src/components/chat/</code> (<code>ChatArea</code>, <code>ChatHeader</code>, <code>Composer</code>, <code>MessageBubble</code>, <code>SlashMenu</code>, <code>BottomSheet</code>) + <code>src/hooks/useSidecarData.ts</code></td>
+<td><code>quinki-bridge.ts</code> (sessions, streaming, tool hooks)</td>
+</tr>
+<tr>
+<td>Sessions &amp; sidebar (pin, rename, delete)</td>
+<td><code>src/components/sidebar/Sidebar.tsx</code></td>
+<td><code>quinki-bridge.ts</code> (session store, <code>~/.quinki/sessions</code>)</td>
+</tr>
+<tr>
+<td>Tasks &amp; calendar (schedules, runs, reports)</td>
+<td><code>src/components/calendar/CalendarView.tsx</code></td>
+<td><code>scheduler.ts</code>, <code>executor.ts</code>, <code>task-reports.ts</code></td>
+</tr>
+<tr>
+<td>Long Horizon (phases, handoff)</td>
+<td>phase buttons inside <code>chat/</code>, report in chat</td>
+<td><code>longhorizon.ts</code></td>
+</tr>
+<tr>
+<td>Agents (prompt, skills, MCP, tools, delegation)</td>
+<td><code>src/components/agents/AgentsPanel.tsx</code></td>
+<td><code>agent-handlers.ts</code>, <code>quinki-bridge.ts</code></td>
+</tr>
+<tr>
+<td>Settings (providers, models, keys, permissions, remote)</td>
+<td><code>src/components/settings/</code> (<code>SettingsPanel</code>, <code>OllamaCloudPanel</code>, <code>OpenRouterPanel</code>, <code>RemoteAccessPanel</code>, <code>ProviderDnD</code>, <code>FallbackModelsSection</code>, <code>ModelDropdown</code>)</td>
+<td><code>providers.ts</code>, <code>models.ts</code>, <code>crypto.ts</code></td>
+</tr>
+<tr>
+<td>Log panel (System Prompt / Thinking / LLM Catalog)</td>
+<td><code>src/components/log/LogPanel.tsx</code></td>
+<td>log ring in <code>quinki-bridge.ts</code> + <code>sidecar-ws.ts</code></td>
+</tr>
+<tr>
+<td>Home, themes, wordmark</td>
+<td><code>src/components/home/</code></td>
+<td>— (<code>src/index.css</code> = design system)</td>
+</tr>
+<tr>
+<td>Marketplace (tabs, agents, skills, MCP, themes)</td>
+<td><code>src/components/marketplace/</code>, <code>src/marketActions.ts</code>, <code>src/marketRemote.ts</code></td>
+<td><code>tab-plugins.ts</code></td>
+</tr>
+<tr>
+<td>Web app &amp; PWA (browser / phone)</td>
+<td><code>src/platform/web/</code></td>
+<td><code>sidecar-ws.ts</code> (HTTP + uploads), <code>scripts/sync-web.sh</code></td>
+</tr>
+<tr>
+<td>CLI (<code>quinki</code>)</td>
+<td><code>cli/tui/</code></td>
+<td><code>cli/main.ts</code> (SDK client)</td>
+</tr>
+<tr>
+<td>Tray, windows, updater, Expert app sync</td>
+<td>—</td>
+<td><code>src-tauri/src/lib.rs</code></td>
+</tr>
+<tr>
+<td>Remote access / tunnel</td>
+<td><code>src/components/settings/RemoteAccessPanel.tsx</code></td>
+<td><code>tools/tsnet-tunnel/</code></td>
+</tr>
+<tr>
+<td>Android apps (quinki / expert flavors)</td>
+<td><code>android/</code></td>
+<td>—</td>
+</tr>
+</tbody></table>
+<h2>Build from source</h2>
+<pre><code class="language-bash"># One command builds EVERYTHING (frontend + web app + sidecar + CLI + Rust + app bundle):
+npm install            # once
+bash scripts/build-app.sh
+
+# Then install the built app to /Applications (backs up → copies → re-signs → restarts):
+bash scripts/install-main.sh
+
+# CLI only (compiled binary + self-update asset):
+bash scripts/build-cli.sh &amp;&amp; cp cli/dist/quinki ~/.local/bin/quinki
+
+# Public DMG (signed): runs the full build + CLI first, then hdiutil
+bash scripts/build-public-dmg.sh
+</code></pre>
+<blockquote>
+<p>The sidecar binary is always compiled by <code>scripts/build-app.sh</code> → <code>scripts/build-sidecar.sh</code>
+(never with a raw <code>bun build --compile</code>): it injects the GitHub OAuth secret from
+<code>~/.quinki/oauth.conf</code> via <code>--define</code>. Without it, the GitHub login fails in the built binary.</p>
+</blockquote>
+<p><strong>Never compile the sidecar with a raw <code>bun build --compile</code></strong>: without the <code>--define</code> injection of <code>QUINKI_GH_SECRET</code> the GitHub login fails in the built binary (the secret is read at runtime from <code>~/.quinki/oauth.conf</code> or from the build-time define).</p>
+<h3>Ports</h3>
+<table>
+<thead>
+<tr>
+<th>Port</th>
+<th>Process</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>9182</td>
+<td>Main sidecar (pool-0, the router)</td>
+</tr>
+<tr>
+<td>9183</td>
+<td>App Expert sidecar</td>
+</tr>
+<tr>
+<td>9184+</td>
+<td>Pool workers (9184 + index)</td>
+</tr>
+</tbody></table>
+<h3>Data directory (<code>~/.quinki/</code>)</h3>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>Content</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>agents/&lt;id&gt;/</code></td>
+<td><code>config.json</code> + <code>PROMPT.md</code> per agent</td>
+</tr>
+<tr>
+<td><code>skills/&lt;name&gt;/SKILL.md</code></td>
+<td>skills (YAML frontmatter: name, description, flags)</td>
+</tr>
+<tr>
+<td><code>sessions/&lt;key&gt;.jsonl</code></td>
+<td>message tree per session</td>
+</tr>
+<tr>
+<td><code>quinki-sessions.json</code></td>
+<td>session metadata (model, thinking, mode, agents, folders)</td>
+</tr>
+<tr>
+<td><code>config.json</code> / <code>auth.json</code></td>
+<td>providers, defaults, encrypted API keys</td>
+</tr>
+<tr>
+<td><code>attachments/&lt;session-key&gt;/</code></td>
+<td>attachments</td>
+</tr>
+<tr>
+<td><code>github-auth.json</code></td>
+<td>Market login token</td>
+</tr>
+<tr>
+<td><code>market-registry.json</code></td>
+<td>installed item hashes + origins (anti-theft)</td>
+</tr>
+<tr>
+<td><code>oauth.conf</code></td>
+<td>GitHub OAuth secret (local only, never in the repo)</td>
+</tr>
+</tbody></table>
+<h2>Sidecar architecture</h2>
+<ul>
+<li><strong>Entry</strong>: <code>sidecar-ws.ts</code>: WebSocket server on <code>QUINKI_WS_PORT</code>, monkey-patches <code>process.stdout</code> so anything written lands on the WS, hosts the OAuth callback HTTP server, exposes <code>globalThis.__quinki_handleLine</code></li>
+<li><strong><code>sidecar.ts</code></strong>: the RPC handler map. <code>handleLine</code> dispatches: pool routing first (session-bound RPCs go to the owning worker), then tab-plugin RPCs (<code>&lt;tabId&gt;:&lt;method&gt;</code>), then the local handler map</li>
+<li><strong><code>quinki-bridge.ts</code></strong>: QuinkiBridge: sessions (engine SDK SessionManager), system prompt builder, mode application, agent overrides, delegations, skills, attachments, streaming via <code>fs.writeSync(1, ...)</code></li>
+<li><strong>Pool</strong> (<code>pool-router.ts</code>): spawns <code>N−1</code> children eagerly at boot (<code>QUINKI_POOL_SIZE=16</code> explicit in <code>start.sh</code>). Session→child mapping by djb2 hash (<code>ownerPool</code>). Each process knows its <code>poolIndex</code> and only handles its own sessions (recovery, Long Horizon, events). Worker events go directly to the worker&#39;s WebSocket clients via <code>__quinki_broadcast</code>. On-open recovery is forwarded to the owning worker (<code>recoverOnWorker</code>). Orphaned workers from previous sessions are killed at pool init (single <code>lsof</code> nuke). Idle children (5 min) are shut down; they respawn on demand</li>
+</ul>
+<p><strong>Build rules (critical)</strong>:</p>
+<ul>
+<li>After modifying <code>dist/</code> (frontend only), force Rust recompile: <code>touch src-tauri/src/main.rs</code> before <code>npx tauri build</code></li>
+<li><code>dist/</code> must exist for <code>cargo check</code> to pass (<code>generate_context!</code> reads it)</li>
+<li>When testing builds, NEVER use <code>pkill -f &quot;quinki-sidecar&quot;</code> (kills the Expert sidecar too). Use <code>pkill -f &quot;Quinki.app/Contents.*sidecar&quot;</code></li>
+<li><strong>Expert mode</strong>: <code>QUINKI_ROLE=expert</code> on port 9183: session filtering (<code>__app_expert__</code> only), pool disabled, no scheduler</li>
+</ul>
+<h2>Vendor patches (engine SDK, vendored)</h2>
+<ul>
+<li><code>agent-session.js</code>: delegation entries filtered before LLM calls (zero context cost)</li>
+<li><code>session-manager.js</code>: delegation entries appended to the tree; <code>buildSessionContext()</code> includes them</li>
+<li><code>compaction.js</code>: token estimate via BPE tokenizer (gpt-tokenizer, cl100k_base)</li>
+<li><code>openai-completions.js</code>: system role always <code>system</code> (Ollama compatibility)</li>
+<li><code>model-registry.js</code>: model registry additions</li>
+</ul>
+<h2>Creating Market items</h2>
+<p>Five categories, each a package with <code>manifest.json</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Files</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>tab</strong></td>
+<td><code>manifest.json</code>, <code>index.html</code>/JS, optional <code>server.js</code> (back-end, RPC via <code>&lt;tabId&gt;:&lt;method&gt;</code>, limited context)</td>
+<td>Frontend rendered in a sandboxed runtime; server code runs in the sidecar</td>
+</tr>
+<tr>
+<td><strong>skill</strong></td>
+<td><code>SKILL.md</code> (YAML frontmatter + body)</td>
+<td>Injected into the agent system prompt</td>
+</tr>
+<tr>
+<td><strong>agent</strong></td>
+<td><code>agents/&lt;id&gt;/config.json</code> + <code>PROMPT.md</code></td>
+<td>Model, thinking, tools, skills</td>
+</tr>
+<tr>
+<td><strong>mcp</strong></td>
+<td><code>*mcp.json</code> config</td>
+<td>stdio or url servers</td>
+</tr>
+<tr>
+<td><strong>theme</strong></td>
+<td>theme JSON</td>
+<td>Colors as CSS variables</td>
+</tr>
+</tbody></table>
+<p>Publish from the app: <strong>Market → Publish</strong> → login with GitHub → pick your items → choose a license (default MIT) → confirm ownership → the app forks the market repo, opens a pull request, and the CI validates (structure, static scan, secret detection, VirusTotal for binaries) and auto-merges.</p>
+<p>Item rules: you must own what you publish; no malware; declare your license honestly. Abuses: open an Issue (takedown process, see <a href="../TERMS.md">TERMS</a>).</p>
+<h2>Testing</h2>
+<p>Manual testing (no automated suite yet):</p>
+<pre><code class="language-bash"># Dev run
+npx tauri dev
+
+# Clear webview caches after reinstalling
+rm -rf ~/Library/WebKit/com.quinki.app ~/Library/Caches/com.quinki.app
+</code></pre>
+<h2>Conventions</h2>
+<ul>
+<li>English for all code, comments and UI text</li>
+<li>Colors via CSS variables (<code>var(--q-*)</code>), never hardcoded hex</li>
+<li><code>transition: none</code> on all animations (design-system rule)</li>
+<li>12px spacing standard</li>
+<li>Commit before/after every change; small focused commits</li>
+</ul>
+<p class="edit">Found a mistake? Edit <code>docs/DEVELOPER.md</code> in the repository and open a pull request.</p></main>
+</div>
+<footer class="foot">Quinki documentation — built from the repository (docs/*.md)</footer>
+</body>
+</html>

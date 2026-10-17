@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>quinki acp — native ACP mode for the Quinki CLI (feature design, 9 Oct 2026) · Quinki Docs</title>
+<link rel="icon" href="../favicon.svg"><link rel="stylesheet" href="docs.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="../index.html">Quinki</a><span class="docs-tag">Docs</span>
+  <nav class="topnav">
+    <a href="../index.html">Home</a>
+    <a href="https://github.com/Upward991/Quinki" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+</header>
+<div class="layout">
+  <aside class="sidebar"><details><summary>Start here</summary><ul><li><a href="overview.html">What is Quinki</a></li><li><a href="getting-started.html">Getting started</a></li><li><a href="user-guide.html">User Guide</a></li><li><a href="features.html">Inside Quinki</a></li><li><a href="guides.html">Guides &amp; Tutorials</a></li></ul></details><details><summary>Market</summary><ul><li><a href="market.html">The Quinki Market</a></li></ul></details><details><summary>Reference</summary><ul><li><a href="reference-cli.html">CLI reference</a></li><li><a href="reference-config.html">Files &amp; Environment</a></li><li><a href="troubleshooting.html">Troubleshooting &amp; FAQ</a></li></ul></details><details><summary>Developer Guide</summary><ul><li><a href="developer.html">Build from source</a></li><li><a href="architecture.html">Architecture</a></li><li><a href="decisions.html">Design decisions</a></li><li><a href="cla.html">Contributor License Agreement</a></li></ul></details><details open><summary>Design &amp; roadmap</summary><ul><li><a href="acp.html" class="active">ACP mode (editor integration)</a></li><li><a href="agent-api.html">Agent API (OpenAI-compatible)</a></li><li><a href="intelligent-ui.html">Intelligent UI (analysis)</a></li></ul></details><details><summary>Reports</summary><ul><li><a href="report-notion-import.html">Notion/Obsidian import</a></li><li><a href="report-ollama-500.html">Ollama Cloud 500</a></li></ul></details></aside>
+  <main class="content"><div class="crumb">Design &amp; roadmap</div><h1><code>quinki acp</code> — native ACP mode for the Quinki CLI (feature design, 9 Oct 2026)</h1>
+<p><strong>Status: DESIGN LOCKED — to build.</strong> Priority: after CLI Windows/Linux (user&#39;s order), or
+earlier on request. This becomes a first-class CLI feature (&quot;Quinki agent inside any editor&quot;).</p>
+<h2>What ACP is</h2>
+<p>The Agent Client Protocol (by Zed, agentclientprotocol.com): JSON-RPC 2.0 over stdio. An editor
+(or note app) launches an &quot;agent server&quot; process and drives it: sessions, prompts, streaming
+updates, tool calls, permission prompts, slash commands, skills. Existing clients include Zed
+and the Obsidian plugin <code>obsidian-agent-client</code> (~2.4k stars, actively developed), which accepts
+&quot;any ACP-compatible agent as a custom entry&quot;.</p>
+<h2>Decision (user, 9 Oct 2026)</h2>
+<ul>
+<li>ACP support ships as a <strong>native mode of the Quinki CLI</strong>: <code>quinki acp</code> (alias <code>--mode acp</code>).</li>
+<li><strong>NO <code>pi</code> shim, NO external <code>pi-acp</code> package.</strong> People who use the <code>pi</code> agent alongside Quinki
+must keep their installation untouched — no fake <code>pi</code> binaries in PATH, no name collisions,
+no extra installs. The CLI already ships with the app, so integrating with an editor is just
+pointing it at <code>quinki acp</code>.</li>
+<li>Engine note: internally the CLI still runs the vendored engine SDK today, but the ACP interface is
+ours 100% — integrations stay stable even if the engine changes in the future.</li>
+</ul>
+<h2>Verified groundwork (measured 9 Oct 2026, installed CLI)</h2>
+<ul>
+<li><code>quinki rpc</code> and <code>quinki --mode rpc</code> already run the SDK&#39;s RPC mode and answer with the FULL
+Quinki configuration: providers, models, and sessions in <code>~/.quinki</code> (verified with
+<code>{&quot;type&quot;:&quot;get_state&quot;}</code> -&gt; model deepseek-v4.1-flash:cloud via local Ollama, session file under
+<code>~/.quinki/sessions/quinki/...</code>).</li>
+<li><code>quinki --mode rpc --no-themes</code> == the exact command line that <code>pi-acp</code> launches -&gt; protocol
+compatibility is proven (<code>&quot;success&quot;: true</code> observed).</li>
+<li>The vendored SDK exports <code>runRpcMode</code> (&quot;headless operation ... used for embedding the agent in
+other applications&quot;), so the engine side is ready.</li>
+<li><code>pi-acp</code> spawns the <code>pi</code> executable from PATH — that is exactly why a shim was rejected.</li>
+</ul>
+<h2>Design</h2>
+<ul>
+<li>New subcommand <code>quinki acp</code>: ACP server on stdio inside our single binary.</li>
+<li>Bridges ACP to the same agent engine the CLI already drives. The event mapping mirrors what the
+sidecar already does for the app: streaming text, tool call/result events, permission prompts,
+context usage. Known work, not experimental.</li>
+<li>Sessions map to <code>~/.quinki</code> sessions — shared with the app and the CLI (same agents, same
+skills, same history everywhere).</li>
+<li>Slash commands and skills surface from the Quinki config; startup info branded &quot;Quinki&quot;.</li>
+<li><strong>Agent selection</strong>: <code>quinki acp --agent &lt;id&gt;</code> binds a session to one Quinki agent (one custom
+entry per agent in the client, e.g. &quot;Quinki Notion&quot;); inside a session, a <code>/agent &lt;name&gt;</code> slash
+command switches the responding agent without restarting. Evaluating exposing Quinki agents as ACP
+<em>modes</em> so clients that show a mode switcher (e.g. Obsidian Agent Client, Zed) can switch agent
+from the toolbar.</li>
+</ul>
+<h2>Scope</h2>
+<ul>
+<li><strong>MVP (~1 day)</strong>: initialize; session/new; session/prompt + streaming; tool call updates;
+permission requests; cancel.</li>
+<li><strong>Full (~1-2 more days)</strong>: session/load + history replay; slash commands; skills listing;
+usage updates; edit diffs; quiet startup.</li>
+<li><strong>Test plan</strong>: (1) a small local harness driving <code>quinki acp</code> with raw JSON-RPC; (2) Zed via
+<code>agent_servers</code> config; (3) Obsidian <code>obsidian-agent-client</code> custom entry (command <code>quinki</code>,
+args <code>acp</code>) — final chat test by the user.</li>
+</ul>
+<h2>Why this matters beyond Obsidian</h2>
+<ul>
+<li>Any ACP client can host Quinki agents: today Zed and Obsidian; tomorrow whatever editor or
+note app adopts ACP. One implementation, many hosts.</li>
+<li>Complements the Agent API (docs/AGENT-API.md): ACP = local stdio for desktop editors;
+Agent API = network/OpenAI-compatible for arbitrary apps. Same engine underneath.</li>
+<li>Cements the CLI as the neutral, scriptable face of Quinki.</li>
+</ul>
+<h2>Related</h2>
+<ul>
+<li><code>docs/AGENT-API.md</code> — integrations menu, Copilot V4 analysis, Smart Composer notes.</li>
+<li><code>docs/report-notion-obsidian-import.md</code> — the Notion -&gt; Obsidian pipeline (already working).</li>
+</ul>
+<p class="edit">Found a mistake? Edit <code>docs/ACP-QUINKI.md</code> in the repository and open a pull request.</p></main>
+</div>
+<footer class="foot">Quinki documentation — built from the repository (docs/*.md)</footer>
+</body>
+</html>
