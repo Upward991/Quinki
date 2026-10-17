@@ -367,6 +367,21 @@ function quinkiSetSystemPrompt(agent: any, text: string): void {
   } catch {}
 }
 
+// =============================================================================
+// QuinkiBridge — UN SOLO oggetto per processo, creato da bootstrap() e mai sostituito.
+// È l'unico proprietario di: sessioni (RAM + disco), turni, streaming, tool, deleghe,
+// permessi, notifiche. Tutto il resto del motore passa da qui.
+//
+// I campi si leggono a gruppi (dall'alto del blocco):
+//   • #sdk / #entries / #active → l'engine SDK e le sessioni VIVE. `#entries` è la
+//     copia in memoria di quinki-sessions.json; `#active` = sessione SDK aperta.
+//   • #pending* / #marker* → "intenzioni" per il PROSSIMO turno (modello, thinking,
+//     mode, compaction, fallback): restano valide anche se la sessione SDK è chiusa.
+//   • #streamingBuffers / #toolBusy / #lastStatuses → stato VIVO per la UI (messaggio
+//     parziale, pill BUSY, ultimo stato): sopravvive alle riconnessioni delle finestre.
+//   • #readState / #notifications / #wss / #unsubs → canali verso le finestre.
+//   • #debugLog* → il log diagnostico (buffer in memoria + flush periodico su file).
+// =============================================================================
 class QuinkiBridge {
   // screenshot: round-trip tool → frontend invoke → risposta (requestId correlato)
   #screenshotPending = new Map<string, (r: { path?: string; error?: string }) => void>();
@@ -468,11 +483,19 @@ class QuinkiBridge {
   #ollamaModelInfoCache = new Map<string, ModelInfo>();
   #ollamaProbeResults = new Map<string, ProbeResult>();
 
+  /** Nessuna I/O qui: tutto il setup pesante sta in init() (vedi sotto). */
   constructor(opts: { agentDir: string; cwd: string }) {
     this.#agentDir = opts.agentDir;
     this.#cwd = opts.cwd;
   }
 
+  /**
+   * Il setup del motore, in ordine: carica l'engine SDK, legge lo stato da disco
+   * (#load + read-state + contabilità del debug log), prepara il registry dei modelli
+   * (con restore dei provider da backup), poi — best-effort, un errore non è fatale —
+   * interroga Ollama e sincronizza le context window di tutti i provider abilitati.
+   * Ritorna solo quando lo stato è utile: dopo di lui la coda di boot viene sbloccata.
+   */
   async init() {
     // === Fase A: engine SDK embedded in src/main/vendor/ ===
     try {
@@ -638,8 +661,9 @@ class QuinkiBridge {
   }
 
 
-  // === Re-merge: re-reads the file and merges agentId/model/mode into #entries ===
-  // Usato 3s dopo l'avvio per pickare il flush finale del vecchio sidecar
+  // === Re-merge: ri-legge il file e fonde agentId/model/mode dentro #entries ===
+  // Usato ~3s dopo l'avvio per raccogliere il flush finale del sidecar precedente
+  // (main ed Expert scrivono lo stesso file: chi parte dopo deve rileggerlo).
   reloadAndMerge() {
     try {
       if (!fs.existsSync(SESSION_FILE)) return;
@@ -710,8 +734,15 @@ class QuinkiBridge {
     } catch {}
   }
 
-  // === Flush all data to disk (called on SIGTERM) ===
-
+  /**
+   * Scrive TUTTE le sessioni su disco. Il file è condiviso fra i processi, quindi
+   * prima di scrivere si fa il MERGE con quanto c'è già sul file: le chiavi mancanti
+   * in memoria si riprendono dal disco, e i dati per-messaggio (agenti/thinking/skill/
+   * clip/allegati) si uniscono per chiave — la memoria vince, ma non si cancella mai
+   * il lavoro di un altro processo. Chiamata esplicitamente dai metodi che cambiano
+   * stato (create, rename, setModel, ...): NON esiste un flush periodico (con più
+   * sidecar attivi un salvataggio d'impulso farebbe vincere dati vecchi sui freschi).
+   */
   #save() {
     try {
       let data: SessionEntry[] = [];
@@ -868,6 +899,13 @@ class QuinkiBridge {
     }
   }
 
+  /**
+   * Legge quinki-sessions.json in #entries. Filtri: l'Expert vede SOLO __app_expert__,
+   * ogni processo del pool SOLO le sessioni del suo gruppo (isMyPoolSession); le voci
+   * senza cartella su disco vengono saltate. Qui avviene la RECOVERY: se l'entry in
+   * memoria ha perso dei campi che il file ha (es. scrittura parziale di un altro
+   * processo), vincono i dati del file — mai distruggere la storia di una sessione.
+   */
   #load() {
     try {
       if (fs.existsSync(SESSION_FILE)) {
