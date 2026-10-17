@@ -1,3 +1,44 @@
+// =============================================================================
+// quinki-bridge.ts — IL CUORE DEL MOTORE
+//
+// È il ponte fra il mondo RPC (sidecar.ts) e l'engine SDK (vendor/@earendil-works):
+// possiede le sessioni, la loro memoria su disco, i turni di conversazione e tutto
+// ciò che ci gira attorno — streaming, tool, deleghe, permessi, notifiche.
+//
+// COMPOSIZIONE (10k righe: una classe + una coda di API esportate):
+//   • righe 58-330 → ruolo (main/expert), owner.lock, pool, GC forzato, helper puri
+//     esportati per i test, e `quinkiSetSystemPrompt` (in SDK ≥ 1.3.0 è l'UNICO modo
+//     di cambiare il prompt di sistema: proiezione su transformContext).
+//   • `class QuinkiBridge` (da riga 327) — un'istanza per processo, creata da
+//     bootstrap() in sidecar.ts. Dentro, in ordine di file:
+//       - persistenza: #save / #load / reloadAndMerge — il file quinki-sessions.json
+//         è CONDIVISO fra main ed Expert: ogni scrittura è un merge, mai una copia;
+//       - sessioni: crea/rinomina/pin/elimina, cartelle, history (+paginazione),
+//         ricerca nella storia e nel log, tail-reading del .jsonl;
+//       - thinking: traduzione per modello/provider, registry dei modelli, sync
+//         delle context window da tutti i provider;
+//       - ciclo di vita: attivazione on-demand + dispose/LRU (event-based, mai timer);
+//       - IL TURNO: send() → prompt di sistema, allegati, tool, streaming,
+//         auto-compaction, marker di recovery (è la zona più delicata del file);
+//       - eventi: mappatura dei messaggi per la UI, notifiche, read-state, non letti;
+//       - agenti: config, tool personalizzati, mode plan/build, override per agente,
+//         ruolo orchestrator, tool di delega, permessi/cartelle; hook beforeToolCall
+//         (cartelle autorizzate, bash read-only).
+//   • righe 9139-10094 → API di modulo esportate (impostazioni, cartelle, tombstone
+//     delle chat eliminate, config provider + login OAuth, fetch modelli, debug log,
+//     system prompt IPC): è la superficie che sidecar.ts espone via RPC.
+//
+// INVARIANTI DA NON ROMPERE:
+//   • quinki-sessions.json è condiviso fra processi: si scrive SEMPRE con merge
+//     (#save), mai sovrascrivendo alla cieca (altrimenti si perdono sessioni).
+//   • MAI dispose di una sessione con un turno attivo (bug "Running bloccato").
+//   • niente timer periodici sul turno: il recovery scatta solo su EVENTO o al
+//     boot, e solo col marker vero su disco (i tick causavano autoprompt fantasma).
+//   • l'auto-compaction dell'engine SDK resta SPENTA: la decisione è nostra, dentro
+//     send(), coi settaggi globali/per-sessione.
+//   • le chiavi API si cifrano SOLO in writeProvidersConfig: qui mai cifrare a mano
+//     (doppia cifratura = chiave illeggibile).
+// =============================================================================
 import * as path from "node:path";
 import * as fs from "node:fs";
 import { homedir } from "node:os";
@@ -44,6 +85,8 @@ const _logSource = (() => {
     return poolI > 0 ? role + "-pool" + poolI : role;
   } catch { return "?"; }
 })();
+// I file di stato del motore, tutti in ~/.quinki (la cartella dati dell'utente).
+// Alcuni sono CONDIVISI fra main ed Expert: leggerli non basta, vanno MERGIATI in scrittura.
 const SESSION_FILE = path.join(_agentDir, "quinki-sessions.json");
 const FOLDERS_FILE = path.join(_agentDir, "quinki-folders.json");
 const SETTINGS_FILE = path.join(_agentDir, "quinki-settings.json");
