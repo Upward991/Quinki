@@ -2544,7 +2544,22 @@ const readProvidersCfg = (): any => {
           row += ((ch as any).render(w) || []).length;
         } catch {}
       }
-      if (found >= 0) scroll.scrollTo(Math.max(0, found - 2));
+      // FIX 17 ott: se il toggle selezionato e' ANNIDATO (es. dentro la delega), lo scroll
+      // deve atterrare sulla SUA riga, non sull'header del capostipite (si "entrava" ma la
+      // vista restava in cima e sembrava di non essere entrati).
+      let inner = 0;
+      try {
+        if (parent && parent !== tgt) {
+          const lines = ((parent as any).render(w) || []) as string[];
+          const arrow = tgt.open ? "\u25be" : "\u25b8";
+          const plainHead = " " + arrow + " " + String(tgt.label || "");
+          for (let i = 0; i < lines.length; i++) {
+            const plain = String(lines[i]).replace(/\x1b\[[0-9;]*m/g, "");
+            if (plain.startsWith(plainHead)) { inner = i; break; }
+          }
+        }
+      } catch {}
+      if (found >= 0) scroll.scrollTo(Math.max(0, found + inner - 2));
     } catch {}
   };
   // Flattened toggle tree: a toggle then, when OPEN, its nested children — the
@@ -4382,23 +4397,17 @@ const readProvidersCfg = (): any => {
               for (const b of Array.isArray(m.content) ? m.content : []) {
                 const blk: any = b || {};
                 const bType = String(blk.type || "");
-                const bToolName = blk.toolName || blk.name || blk.tool;
-                // Raw blocks carry NO "type": detect by their fields (thinking/text/
-                // tool args/tool result) — nothing may disappear or duplicate.
-                if (bType === "thinking" || bType === "reasoning" || (typeof blk.thinking === "string" && !bToolName)) {
-                  tg.children.push({ t: "toggle", v: new ToggleBlock({ label: "Thinking", color: C.thinking, italic: true, body: String(blk.thinking || blk.text || "") }) });
-                } else if (bType === "toolResult" || blk.toolCallId || blk.isError !== undefined && blk.content !== undefined) {
-                  const rb = typeof blk.content === "string" ? blk.content : Array.isArray(blk.content) ? blk.content.filter((x: any) => x?.type === "text" || typeof x?.text === "string").map((x: any) => x.text).join("\n") : "";
-                  tg.children.push({ t: "toggle", v: new ToggleBlock({ label: blk.isError ? "Tool error" : "Tool result", boldName: String(bToolName || "tool"), color: blk.isError ? C.danger : C.toolResult, body: rb }) });
-                } else if (bType === "toolCall" || bType === "tool_call" || (bToolName && (blk.toolArgs !== undefined || blk.arguments !== undefined || blk.args !== undefined))) {
-                  let tb = "";
-                  try {
-                    const ta = blk.toolArgs ?? blk.arguments ?? blk.args ?? {};
-                    tb = typeof ta === "string" ? ta : JSON.stringify(ta, null, 0) || "";
-                  } catch {}
-                  tg.children.push({ t: "toggle", v: new ToggleBlock({ label: "Tool call", boldName: String(bToolName || "tool"), color: C.toolCall, body: tb }) });
-                } else if (bType === "text" || typeof blk.text === "string") {
-                  tg.children.push({ t: "text", v: String(blk.text || "") });
+                // STESSO metodo dell'app originale (useSidecarData.mergeHistoryMessages):
+                // nei blocchi della delega il NOME sta in `text` e il payload in `thinking`.
+                // (L'euristica precedente li classificava TUTTI come "Thinking" — bug 17 ott.)
+                if (bType === "thinking" || bType === "reasoning") {
+                  tg.children.push({ t: "toggle", v: new ToggleBlock({ label: "Thinking", color: C.thinking, italic: true, body: String(blk.thinking || blk.content || "") }) });
+                } else if (bType === "toolCall" || bType === "tool_call") {
+                  tg.children.push({ t: "toggle", v: new ToggleBlock({ label: "Tool call", boldName: String(blk.text || blk.name || "tool"), color: C.toolCall, body: String(blk.thinking || blk.input || blk.args || "") }) });
+                } else if (bType === "toolResult" || bType === "tool_result") {
+                  tg.children.push({ t: "toggle", v: new ToggleBlock({ label: blk.isError ? "Tool error" : "Tool result", boldName: String(blk.text || blk.name || "tool"), color: blk.isError ? C.danger : C.toolResult, body: String(blk.thinking || blk.content || "") }) });
+                } else if (bType === "text") {
+                  tg.children.push({ t: "text", v: String(blk.text || blk.content || "") });
                   // Footer right after the delegate's response — the SAME real
                   // per-message data as the chat (block timestamp, agent/model/level).
                   try {
@@ -4557,22 +4566,15 @@ const readProvidersCfg = (): any => {
           if (task) tg.children.push({ t: "bubble", v: task });
           try {
             for (const b of Array.isArray(dd.content) ? dd.content : []) {
+              // STESSO metodo dell'app originale: nome in `text`, payload in `thinking`.
               if (b?.type === "thinking" || b?.type === "reasoning") {
-                tg.children.push({ t: "toggle", v: new ToggleBlock({ label: "Thinking", color: C.thinking, italic: true, body: String(b.thinking || b.text || "") }) });
+                tg.children.push({ t: "toggle", v: new ToggleBlock({ label: "Thinking", color: C.thinking, italic: true, body: String(b.thinking || b.content || "") }) });
+              } else if (b?.type === "toolCall" || b?.type === "tool_call") {
+                tg.children.push({ t: "toggle", v: new ToggleBlock({ label: "Tool call", boldName: String(b.text || b.name || "tool"), color: C.toolCall, body: String(b.thinking || b.input || b.args || "") }) });
+              } else if (b?.type === "toolResult" || b?.type === "tool_result") {
+                tg.children.push({ t: "toggle", v: new ToggleBlock({ label: b.isError ? "Tool error" : "Tool result", boldName: String(b.text || b.name || "tool"), color: b.isError ? C.danger : C.toolResult, body: String(b.thinking || b.content || "") }) });
               } else if (b?.type === "text") {
-                tg.children.push({ t: "text", v: String(b.text || "") });
-              } else if (b?.type === "toolCall") {
-                let tb = "";
-                try {
-                  tb = JSON.stringify(b.arguments || {}, null, 0) || "";
-                } catch {}
-                tg.children.push({ t: "toggle", v: new ToggleBlock({ label: "Tool call", boldName: String(b.name || b.toolName || "tool"), color: C.toolCall, body: tb }) });
-              } else if (b?.type === "toolResult") {
-                let rb = "";
-                try {
-                  rb = typeof b.content === "string" ? b.content : Array.isArray(b.content) ? b.content.filter((x: any) => x?.type === "text").map((x: any) => x.text).join("\n") : "";
-                } catch {}
-                tg.children.push({ t: "toggle", v: new ToggleBlock({ label: b.isError ? "Tool error" : "Tool result", boldName: String(b.toolName || b.name || "tool"), color: b.isError ? C.danger : C.toolResult, body: rb }) });
+                tg.children.push({ t: "text", v: String(b.text || b.content || "") });
               }
             }
           } catch {}
