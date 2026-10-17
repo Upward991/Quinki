@@ -1,3 +1,35 @@
+// =============================================================================
+// sidecar-ws.ts — PUNTO D'INGRESSO DI RETE DEL MOTORE (binario `quinki-sidecar-ws`)
+//
+// Un processo, UNA porta, tre servizi:
+//   1. WebSocket JSON-RPC → l'app desktop e la CLI parlano di qui.
+//   2. HTTP               → la web app (la stessa UI in versione browser/telefono),
+//                           gli asset pubblici, la pagina di pairing dei dispositivi.
+//   3. Callback OAuth     → /oauth/github (la apre il browser dell'utente; il
+//                           processo la ascolta in locale).
+//
+// Bind SOLO su loopback: la LAN è volutamente chiusa; l'accesso da fuori passa
+// esclusivamente dal tunnel (tools/tsnet-tunnel) e richiede un token (remote auth).
+//
+// ORDINE DI AVVIO (voluto): il server parte SUBITO, poi `bootSidecar()` (sidecar.ts)
+// fa il lavoro pesante (pool, scheduler, bridge). La porta è viva in millisecondi e
+// ogni RPC arrivato durante il boot finisce in `earlyQueue`, rieseguito subito dopo.
+//
+// DUE RUOLI, stesso codice: main (9182) ed Expert (9183), distinti da QUINKI_ROLE /
+// porta. Cambiano solo i NOMI dei file di stato (cookie, token remoto, dispositivi)
+// così i due processi non si pestano i piedi.
+//
+// INVARIANTI DA NON ROMPERE:
+//   • stdout è SOLO JSON-RPC: qualunque altro output (log, warning, stack) va su
+//     stderr — vedi il filtro qui sotto e `stderr()`. Il padre (Rust) legge stdout
+//     come flusso di risposte: una riga = una risposta.
+//   • Idle-exit: senza client WS per qualche secondo il processo esce da solo
+//     (niente sidecar zombie quando l'app è chiusa). Il pool è lazy per lo stesso motivo.
+//   • `clients` = la presenza "viva" del sistema: le socket WS di webview e CLI.
+//
+// Il resto del motore: sidecar.ts (bootstrap + mappa dei metodi RPC) → quinki-bridge.ts
+// (il cuore: sessioni, streaming, prompt, tool). La CLI parla agli stessi handler.
+// =============================================================================
 import "./env-tmp"; // /tmp BAN (regola utente 16 ott): TMPDIR -> ~/.quinki/tmp — PRIMO import in assoluto
 import { WebSocketServer } from "ws";
 import { gzipSync } from "zlib";
@@ -27,6 +59,12 @@ let stdoutBuf = "";
 // client che si connette. I delta di streaming NO: dopo la riconnessione la history
 // li ricopre da sola (e riapplicarli duplicherebbe il testo).
 const pendingLines: { line: string; ts: number }[] = [];
+/**
+ * Il filtro di stdout: riconosce le righe che POSSONO uscire su stdout.
+ * Tutto il resto (log, warning, stack trace) viene dirottato su stderr: il padre
+ * Rust legge stdout come flusso di risposte JSON-RPC, una riga per risposta.
+ * Un delta di streaming ("stream_event") viene impacchettato in una notifica.
+ */
 function isStreamDeltaLine(line: string): boolean {
   if (line.indexOf('"stream_event"') < 0) return false;
   try { const o = JSON.parse(line); return o?.method === "stream_event"; } catch { return true; }
@@ -63,6 +101,9 @@ const origWrite = process.stdout.write.bind(process.stdout);
 
 // WebSocket server
 // === OAuth GitHub (flusso classico: si apre il BROWSER) ===
+// Il client id è pubblico (come in tutte le app desktop); il SEGRETO non sta nel
+// repo: viene iniettato a build-time da scripts/build-sidecar.sh (vedi readGhClientSecret).
+// Lo scambio code→token avviene QUI (loopback), mai nel browser.
 // GitHub NON ha CORS → il server locale nel sidecar intercetta il callback
 // (http://localhost:<PORT>/callback) e scambia il code col token.
 const GH_CLIENT_ID = "Ov23liskJJuKGs1NAsON";
@@ -87,7 +128,9 @@ const GH_CLIENT_SECRET: string = readGhClientSecret();
 (globalThis as any).__quinki_oauth_state = { token: "", pending: false, error: "" };
 
 // === WEB APP (F1): la stessa UI del desktop, servita sulla stessa porta del WS ===
-// La cartella "web" (build `vite build -c vite.config.web.ts`) vive accanto al
+// Se gli asset mancano, il servizio web è semplicemente assente (l'app desktop non
+// ne soffre). Il cookie di sessione ha un nome diverso per ruolo, così main ed Expert
+// non si sovrascrivono il login a vicenda. La cartella "web" (build `vite build -c vite.config.web.ts`) vive accanto al
 // binario del sidecar (Quinki.app/Contents/Resources/sidecar/web). In dev si puo'
 // forzare con QUINKI_WEB_DIR. Se la cartella non esiste, tutto resta identico a prima.
 const WEB_DIR = (() => {
@@ -131,6 +174,8 @@ const WEB_IS_EXPERT = String(process.env.QUINKI_ROLE || "").toLowerCase() === "e
 const COOKIE_NAME = WEB_IS_EXPERT ? "quinki_token_x" : "quinki_token";
 
 // === F0.1 REMOTE AUTH (modello OpenClaw: auth "token" di default per i client remoti) ===
+// Le richieste in loopback sono fidate senza token (è la stessa macchina); tutto ciò
+// che arriva dal tunnel DEVE portare un token, che vive in remote(.expert).json.
 // Il token vive in ~/.quinki/remote.json (creato al primo avvio). I client LOOPBACK
 // (app desktop, worker del pool) sono esenti; tutto il resto (LAN e tunnel) deve
 // presentare il token: ?token=... (una volta, imposta il cookie) oppure il cookie.
@@ -185,6 +230,9 @@ function tokenOk(t: string): boolean {
 }
 
 // === DISPOSITIVI ACCOPPIATI ===
+// Unico modo per far entrare un telefono: pagina di pairing → conferma → il client
+// riceve un token SUO (revocabile singolarmente). `touchDevice` aggiorna il "visto
+// l'ultima volta" mostrato in Impostazioni.
 // Ogni dispositivo ha il SUO token (mai piu' quello master): revoca per dispositivo,
 // e il refresh del token master NON scollega i dispositivi gia' accoppiati.
 // Il file vive in ~/.quinki → sopravvive a update/reinstall/riavvii dell'app.
@@ -285,6 +333,13 @@ function dictationBinPath(): string {
   return cands[0];
 }
 
+/**
+ * Il lato HTTP: serve la web app e le sue API. true = richiesta gestita qui
+ * (false = la lascia all'upgrade WebSocket).
+ * GATE: loopback = fidato; da fuori serve il token (header/query/cookie) o essere un
+ * dispositivo accoppiato. Gli asset PUBBLICI (manifest, service worker, icone) passano
+ * sempre: sono ciò che serve per mostrare la pagina di accesso.
+ */
 function serveWebApp(req: any, res: any, url: string): boolean {
   if (!WEB_DIR) return false;
   let rel = url.split("?")[0].split("#")[0];
@@ -751,8 +806,11 @@ wss.on("connection", (ws, req: any) => {
 // Coda dei messaggi arrivati durante il boot: svuotata appena handleLine esiste
 const earlyQueue: string[] = [];
 
+/** Tutto l'output non-RPC passa di qui: stdout resta riservato alle risposte. */
 function stderr(msg: string) { process.stderr.write("[sidecar-ws] " + msg + "\n"); }
 
+// Bootstrap vero e proprio (pool, scheduler, bridge). Il catch è essenziale: se il
+// motore non parte, il processo esce con errore (l'app deve saperlo, non restare muta).
 import { bootSidecar } from "./sidecar";
 bootSidecar().then(() => {
   stderr("Sidecar loaded, handleLine=" + typeof (globalThis as any).__quinki_handleLine);
