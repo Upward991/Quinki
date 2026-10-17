@@ -4040,6 +4040,13 @@ Read this file to view it.` }] };
     } catch {}
   }
 
+  /**
+   * Il log diagnostico del motore. Su disco finiscono SOLO le 3 categorie utili
+   * (System Prompt, Thinking, LLM Catalog — vedi #logLevelFor); tutto il resto vive
+   * in un buffer in memoria e non viene mai scritto. Ogni riga porta il suo autore
+   * (main / expert / pool-N): il file è CONDIVISO, senza firma non si capisce chi ha
+   * fatto cosa.
+   */
   logDebug(tag: string, data: any) {
     try {
       // ATTRIBUZIONE (29 ago): ogni entry dichiara CHI la scrive (main/expert/pool-N)
@@ -4130,6 +4137,12 @@ Read this file to view it.` }] };
     } catch { return [] }
     return out.slice(-n)
   }
+  /**
+   * Classifica un tag nelle 3 categorie del log (o "other" = mai su disco).
+   * I tag Thinking sono elencati a mano uno per uno: aggiungere un tag di thinking
+   * significa aggiungerlo QUI, altrimenti non lo vedrai mai nel pannello Log.
+   * (I rami sotto il return "other" sono storici e non più raggiungibili.)
+   */
   #logLevelFor(tag: string): string {
     // === 3 LOG SOLO (16 ott): System Prompt + Thinking + LLM Catalog — il resto è rumore (mai su disco) ===
     if (tag === "system_prompt") return "System Prompt"
@@ -4231,6 +4244,8 @@ Read this file to view it.` }] };
     } catch {}
   }
 
+  /** Plan/Build per la chat: persiste subito e avvisa il MAIN (vedi commento sotto:
+   *  senza il pool-sync la chat "tornava a plan" a fine risposta). */
   setMode(key: string, mode: string) {
     const m = mode === "build" ? "build" : "plan";
     const s = this.#entries.get(key);
@@ -5314,6 +5329,13 @@ Read this file to view it.` }] };
     return out;
   }
 
+  /**
+   * Applica plan/build alla sessione SDK viva: lista tool finale = globali + agente,
+   * filtrata per la disponibilità reale nell'SDK (in plan restano solo i tool di
+   * lettura), iniezione delle API key dell'agente attivo e correzione della mappa di
+   * thinking del modello VIVO con i caps appresi (models.json può essere stantio).
+   * Si riapplica a OGNI turno: la mode può cambiare mid-chat.
+   */
   #applyMode(pi: any, key: string, mode: string, workingDirs?: string[], cwd?: string, hasDelegateTool = false) {
     const m = mode === "build" ? "build" : "plan";
     // === Universal thinking (04 set): caps AUTORITATIVE applicate a OGNI TURNO.
@@ -5880,7 +5902,12 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
     } catch { return false; }
   }
 
-  // === Tool personalizzato: delegate_to_agent per l'Orchestrator ===
+  // =========================================================================
+  // I TOOL DELL'AGENTE (fabbriche). Ognuna ritorna un tool definito con defineTool
+  // o null se non va aggiunto. Indice: #buildMcpTools (server MCP della chat),
+  // #buildMarketTool, #buildSkillTool, #buildBashReadonlyTool, e in fondo
+  // #buildDelegateTool = delegate_to_agent, il cuore dell'orchestrazione.
+  // =========================================================================
 
   async #buildMcpTools(sk: string, agentId: string | null): Promise<any[]> {
     const agentCfg = agentId ? this.#readAgentConfigFile(agentId) : null;
@@ -6141,6 +6168,15 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
     });
   }
 
+  /**
+   * delegate_to_agent — IL tool dell'orchestrazione: l'agente orchestrator delega
+   * un compito a un altro agente della chat. Sotto il cofano: apre una sessione
+   * temporanea con la persona/modello/tool DELL'AGENTE TARGET, le passa il task,
+   * ne raccoglie la risposta e la restituisce all'orchestrator, che la sintetizza
+   * per l'utente. Gli eventi di streaming escono verso la chat madre con prefisso
+   * "del-" (multi-finestra); skill e allegati pendenti vengono iniettati nel
+   * delegato; a fine corsa le API key del chiamante vengono ripristinate.
+   */
   #buildDelegateTool(sessionKey: string): any {
     const self = this;
     return defineTool({
@@ -9301,6 +9337,14 @@ if (!turnCompleted && lastStopReason && lastStopReason !== "toolUse" && !this.#s
 
 export { QuinkiBridge, SessionEntry };
 
+// =============================================================================
+// API DI MODULO (fuori dalla classe) — la superficie che sidecar.ts chiama via RPC.
+// Qui vivono: impostazioni e cartelle, tombstone delle chat eliminate, config dei
+// provider (+ login OAuth OpenRouter e abbonamenti), fetch/test dei modelli, debug
+// log, e il singleton che dà a queste funzioni libere l'accesso all'istanza viva.
+// Regola: nessuna dipendenza circolare con sidecar.ts — si passa da quinkiBridgeInstance.
+// =============================================================================
+
 // === Singleton accessor: permette a funzioni exported (es. setProvidersConfig) di chiamare
 // metodi sull'istanza QuinkiBridge attiva, evitando dipendenza circolare con server.ts ===
 let quinkiBridgeInstance: QuinkiBridge | null = null;
@@ -9545,10 +9589,12 @@ async function getOpenRouterOAuth() {
   return _openRouterOAuth;
 }
 
+/**
+ * Login OpenRouter: flusso OAuth PKCE con loopback (SDK), apertura del browser,
+ * e alla callback salvataggio della chiave CIFRATA nel config provider.
+ * Niente fallback manuale: se il loopback non risponde entro 5 minuti, errore.
+ */
 export async function openRouterLogin(): Promise<{ success: boolean; error?: string }> {
-  // Il flusso: avvia PKCE+loopback (SDK), apre il browser sull'auth_url,
-  // al callback salva la key cifrata nel config provider.
-  // NIENTE fallback manuale: se il loopback non torna entro 5 min, errore.
   const abort = new AbortController();
   const timer = setTimeout(() => abort.abort(), 5 * 60 * 1000);
   try {
@@ -9988,6 +10034,14 @@ export async function renameProvider(oldName: string, newName: string): Promise<
   }
 }
 
+/**
+ * Scrive la config dei provider. Tre cose da sapere:
+ *  • le chiavi esistenti si ritrovano con un confronto CASE-INSENSITIVE (la UI e i
+ *    file storici non sono d'accordo su "OpenRouter" vs "openrouter");
+ *  • le chiavi si cifrano QUI (writeProvidersConfig): mai cifrare prima;
+ *  • dopo il salvataggio si ri-sincronizzano models.json e il registry, e si logga
+ *    il catalogo LLM aggiornato.
+ */
 export async function setProvidersConfig(config: any): Promise<{ success: boolean; error?: string }> {
   try {
     const fullConfig: ProvidersConfig = {
