@@ -2664,6 +2664,15 @@ const readProvidersCfg = (): any => {
       return;
     }
     if (!open) {
+      // 17 ott (modello utente): "indietro" CHIUDE PRIMA il toggle selezionato se e' aperto;
+      // solo alla successiva pressione risale di livello. (Prima usciva subito di livello.)
+      if (cur && cur.open) {
+        cur.open = false;
+        qNavLog("close-selected", { label: String(cur.label || "") });
+        scrollToggleIntoView(cur);
+        ui.requestRender();
+        return;
+      }
       if (navStack.length > 0) {
         // "indietro": esce di un livello e torna sul toggle di provenienza.
         const e = navStack.pop()!;
