@@ -1189,6 +1189,13 @@ class QuinkiBridge {
   }
 
 
+  /**
+   * La lista per la sidebar: proiezione delle sessioni in MEMORIA (fuori le __exec_*,
+   * che sono headless, e le eliminate/tombstone). Subito dopo ADOTTA le orfane: le
+   * cartelle su disco con un .jsonl ma senza entry in memoria (es. create da un altro
+   * processo) entrano nell'elenco, filtrate per ruolo (l'Expert vede solo __app_expert__)
+   * e per proprietà del pool.
+   */
   getSessions() {
     // A2.1: le sessioni __exec_* sono headless (worker execution) → mai in sidebar
     // TOMBSTONE: le sessioni eliminate non devono MAI comparire nella mappa in memoria
@@ -1228,6 +1235,11 @@ class QuinkiBridge {
     return out;
   }
 
+  /**
+   * La versione che usa la UI: come getSessions() ma con folderId, order, compaction e
+   * orchestratorId letti dal FILE, non dalla memoria — con più processi attivi la copia
+   * in RAM può essere stantia, e la verità condivisa è su disco.
+   */
   getSessionsWithFolder() {
     const fromFile = getSessionsFromFile();
     const folderByKey = new Map(fromFile.map((s: any) => [s.key, (s as any).folderId ?? null]));
@@ -1351,6 +1363,15 @@ class QuinkiBridge {
     return "";
   }
 
+  /**
+   * Il traduttore messaggio SDK → messaggi per la UI: un blocco = un messaggio disegnato
+   * (testo, thinking, tool call, tool result...). Due regole nate da bug veri:
+   *  • id STABILE (hash del contenuto se manca l'id) — la UI li usa come chiave;
+   *  • timestamp REALE, mai Date.now() per messaggi che hanno già una data (altrimenti
+   *    l'impaginazione "carica più vecchi" chiedeva sempre "prima di adesso" e non
+   *    caricava nulla).
+   * Qui si riattaccano anche agentName/thinking salvati nella entry di sessione.
+   */
   #mapMessage(m: any, thinkingLevel?: string, sessionKey?: string): any[] {
     const id = m.id || stableMsgId(m);
     const role = m.role || "assistant";
@@ -1518,8 +1539,9 @@ class QuinkiBridge {
   }
 
   
-  // PUBLIC wrapper: executor e scheduler usano questa per tradurre il thinking
-  // level ("on" → "max" per il modello specifico). Come nelle chat normali.
+  // Wrapper pubblico: executor e scheduler usano questa per tradurre il livello di
+  // thinking ("on" → "max" per QUEL modello). Stessa traduzione delle chat normali:
+  // qui non si inventa niente, si passa dal traduttore sotto.
   translateThinkingForModel(level: string | undefined, modelId: string | undefined): string {
     return this.#translateThinkingForModel(level, modelId);
   }
@@ -1547,6 +1569,12 @@ class QuinkiBridge {
     } catch { return ""; }
   }
 
+  /**
+   * L'ultima pagina di conversazione, letta dalla CODA del .jsonl (mai da una copia
+   * troncata in memoria). Aprire una chat NON è attività: lastActivity non si tocca
+   * (era il bug che faceva saltare in cima le chat solo sfogliate). Prima di restituire,
+   * se la sessione ha un turno interrotto parte la recovery ON-OPEN (una volta per chat).
+   */
   getHistory(key: string, limit?: number) {
     // Opening a chat is NOT activity: lastActivity = the LAST MESSAGE's time only.
     // (The touch here made every peeked chat jump to the top — the user's bug.)
@@ -1889,6 +1917,12 @@ class QuinkiBridge {
     } catch { return []; }
   }
 
+  /**
+   * Crea la entry di sessione (idempotente: se esiste, la ritorna). Quando la chiama un
+   * worker del pool che si sveglia su una sessione già esistente, l'entry EREDITA dal
+   * file order/label/pin: senza questo la chat salterebbe in cima alla sidebar e
+   * perderebbe il nome.
+   */
   create(key: string, label: string): SessionEntry {
     const existing = this.#entries.get(key);
     if (existing) return existing;
@@ -1980,6 +2014,8 @@ class QuinkiBridge {
     return s;
   }
 
+  /** Rinomina. Doppia scrittura voluta: file condiviso + chat-meta per-sessione
+   *  (l'intento utente sopravvive a reinstallazioni e a sovrascritture altrui). */
   rename(key: string, label: string) {
     const s = this.#entries.get(key);
     if (s) { s.label = label; this.#save(); }
@@ -2030,6 +2066,9 @@ class QuinkiBridge {
   }
 
   // === B6: persisti override compaction per-sessione su disco ===
+  /** Persiste la preferenza di compattazione della chat (memoria + file, che la sidebar
+   *  rilegge) e la comunica alla sessione SDK. Chi decide la compaction automatica a
+   *  ogni turno è send(): qui si registra solo la volontà dell'utente. */
   setSessionCompaction(key: string, auto: boolean | undefined, threshold: number | undefined) {
     const s = this.#entries.get(key);
     if (!s) return;
