@@ -1,22 +1,42 @@
-// sidecar.ts — Entry point del motore di Quinki (sidecar)
-// Comunicazione: JSON-RPC 2.0 via stdin/stdout (NDJSON)
+// =============================================================================
+// sidecar.ts — BOOTSTRAP + MAPPA RPC DEL MOTORE
 //
-// Questo file viene compilato da electron-vite insieme al main process,
-// usando gli stessi alias di risoluzione (vendor, jiti, typebox).
-// Il bundle risultante è un file JavaScript standalone che può essere
-// lanciato con `node out/main/sidecar.js`.
+// Chi lo chiama: il binario `quinki-sidecar-ws` (sidecar-ws.ts) fa un import STATICO
+// di `bootSidecar` e lo esegue DOPO aver alzato la porta WS. Per questo il top-level
+// di questo file è (e deve restare) side-effect-free.
+// In dev si può lanciare anche da solo: allora parla NDJSON su stdin/stdout,
+// una riga = un messaggio JSON-RPC.
 //
-// === M0.3 (Sessione 2) ===
-// - P1: FakeWebSocket wrappa gli eventi WS {type:"..."} di quinki-bridge in
-//   notifiche JSON-RPC {method:"...",params:{...}} così il SidecarHandler
-//   Dart (che legge msg['method']/msg['params']) può dispatcharli.
-// - P2: il sidecar emette notifiche mirror di server.ts per i metodi
-//   request/response quando chiamati senza id (notify), così i case Dart
-//   history/session_meta/thinking_levels/context_usage/all_context_usage/
-//   debug_log/full_state/models_list/commands_list/agents_list + onboarding
-//   quinki_config_* tornano vivi.
-// - P3: aggiunti 20 handler mancanti (settings/providers/attachments/
-//   folders/update/preflight) + alias per i nomi usati dal Flutter
+// FLUSSO DI OGNI MESSAGGIO IN INGRESSO (handleLine):
+//   riga → (1) durante il boot va in coda e si riesegue appena possibile →
+//   (2) router del pool (se la RPC appartiene a un altro processo del pool, la inoltra) →
+//   (3) plugin delle tab ("<tabId>:<metodo>") → (4) `handlers`, la mappa qui sotto.
+//
+// LA MAPPA `handlers` È l'API del motore: un metodo per ogni cosa che l'app, la CLI e
+// il telefono possono chiedere. I metodi degli agenti arrivano da agent-handlers.ts
+// (spread in fondo alla mappa): l'ORDINE CONTA, chi viene dopo sovrascrive (vedi storeApiKey).
+//
+// `bootstrap()` costruisce tutto nell'ordine giusto: seed di primo avvio, riparazione di
+// models.json, QuinkiBridge (il cuore, in quinki-bridge.ts), Executor (task autonomi),
+// Scheduler, TaskReports, LongHorizon, router del pool (solo nel main), plugin delle tab,
+// sync dello stato-di-lettura. Poi sblocca la coda e annuncia "ready".
+//
+// CONVENZIONI JSON-RPC: con `id` = chiamata (UNA risposta via sendResult/sendError);
+// senza id = notifica (si esegue e non risponde). Gli eventi verso il client escono con
+// sendNotification(method, params): nel binario li prende in carico il layer WS.
+//
+// INVARIANTI DA NON ROMPERE:
+//   • stdout è SOLO JSON-RPC — vedi il filtro "FORCE" qui sotto: un console.log di
+//     troppo dal vendor corromperebbe il flusso di risposte che il padre legge.
+//   • MAI buttare una RPC: durante il boot finiscono in `pendingBootLines` e vengono
+//     rieseguite appena quinkiBridge esiste (altrimenti la promise del frontend resta
+//     appesa per sempre: turno mai partito, "Running" fantasma, chat che non risponde).
+//   • main vs child del pool (QUINKI_POOL_INDEX > 0): i child NON avviano scheduler,
+//     executor né report — li governa solo il main. Long Horizon invece gira su tutti,
+//     ognuno responsabile delle proprie sessioni.
+//   • niente flush periodico delle sessioni (vedi la fine di bootstrap()): con più
+//     sidecar attivi un salvataggio d'impulso faceva vincere dati vecchi sui freschi.
+// =============================================================================
 
 import * as path from "node:path";
 import {  } from "node:crypto";
@@ -81,6 +101,8 @@ import { LongHorizon } from "./longhorizon";
 // === FORCE: stdout.write -> stderr.write TRANNE per messaggi JSON-RPC ===
 // Alcuni moduli (Bun runtime, vendor SDK) scrivono su stdout con process.stdout.write
 // bypassando console.log. Forza TUTTO a stderr tranne JSON-RPC valido.
+// Stessa regola del layer WS (sidecar-ws.ts): i due filtri si incatenano, ognuno passa
+// il JSON-RPC al writer sottostante. Vale per il dev/standalone e per il binario.
 const _origStdoutWrite2 = process.stdout.write.bind(process.stdout);
 process.stdout.write = ((chunk: any, ...args: any[]): boolean => {
   const s = typeof chunk === "string" ? chunk : (chunk?.toString?.() ?? "");
@@ -95,8 +117,10 @@ process.stdout.write = ((chunk: any, ...args: any[]): boolean => {
 process.stderr.write("[sidecar-init] stdout filter ACTIVE - solo JSON-RPC passa su stdout\n");
 
 // === FakeWebSocket: redirige ws.send() a stdout NDJSON ===
-// P1: wrappa gli eventi WS-style {type:"..."} di quinki-bridge in notifiche
-// JSON-RPC {jsonrpc, method, params} così il SidecarHandler Dart li dispatcha.
+// quinki-bridge emette eventi in stile WebSocket ({type:"..."}). Questa finta socket
+// li converte in notifiche JSON-RPC {method, params}: è il canale con cui streaming,
+// stati e notifiche escono dal processo (nel binario: li intercetta il layer WS;
+// in dev: finiscono su stdout).
 class FakeWebSocket {
   // quinki-bridge emette solo se ws.readyState === ws.constructor.OPEN (riga 1544).
   // Senza questi static, il guard fallisce (1 === undefined) e nessun evento fluisce.
@@ -126,6 +150,7 @@ class FakeWebSocket {
 }
 
 // === JSON-RPC helpers ===
+// Scrivono su stdout: è l'UNICO uso consentito di stdout (vedi filtro sopra).
 function sendResult(id: number, result: any) {
   process.stdout.write(JSON.stringify({ jsonrpc: "2.0", result, id }) + "\n");
 }
@@ -363,6 +388,11 @@ function getModelsList() {
 
 
 // === Request handlers ===
+// COME SI AGGIUNGE UN METODO: una voce `nomeMetodo: async (p) => { ... }`.
+// Regole: `p` = params della richiesta; il valore ritornato diventa il `result`;
+// per segnalare un errore si LANCIA (diventa sendError con il messaggio). Non si scrive
+// mai su stdout a mano: per gli eventi si usa sendNotification. I nomi sono API
+// pubblica — li chiamano l'app, la CLI e i plugin delle tab tali e quali.
 const handlers: Record<string, (params: any) => Promise<any>> = {
   listSessions: async () => ({ sessions: quinkiBridge ? quinkiBridge.getSessionsWithFolder() : [] }),
   getFullState: async () => ({
@@ -1647,6 +1677,13 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
 
 // === NDJSON reader su stdin (setup dentro bootSidecar — il top-level è side-effect-free
 // così il bundler può includere sidecar.ts come import STATICO nel binario compilato) ===
+/**
+ * Lato "standalone": legge NDJSON da stdin e lo instrada a handleLine, ed espone i
+ * globali con cui il resto del mondo parla con questo processo (handleLine, send,
+ * sendError). Nel binario il canale NON è stdin: sidecar-ws.ts chiama handleLine
+ * direttamente via `__quinki_handleLine`. Qui resta per il dev (tsx) e per la regola
+ * "muori col padre": stdin chiuso = app morta → il sidecar esce.
+ */
 export async function bootSidecar() {
   let inputBuffer = "";
 
@@ -1695,6 +1732,10 @@ export async function bootSidecar() {
 // Esecuzione diretta (dev/tsx) — il binario compilato usa sidecar-ws.ts → bootSidecar()
 try { if ((import.meta as any).main) { bootSidecar(); } } catch {}
 
+/**
+ * Il dispatcher: una riga JSON-RPC → la funzione giusta.
+ * Ordine fisso: coda di boot → router del pool → plugin delle tab → mappa handlers.
+ */
 async function handleLine(line: string) {
   try {
     const msg = JSON.parse(line);
@@ -1765,6 +1806,13 @@ async function handleLine(line: string) {
 }
 
 // === Bootstrap ===
+/**
+ * Costruisce il motore. Ordine voluto: prima file/seed (i sottosistemi leggono da lì),
+ * poi QuinkiBridge, poi chi lo usa (executor, report, scheduler, pool); alla fine la
+ * coda di boot viene sbloccata e parte il segnale "ready".
+ * Ogni passo è in try/catch: un pezzo che fallisce non deve impedire l'avvio del resto.
+ * L'unico errore fatale è quello che arriva al catch esterno (notifica + exit 1).
+ */
 async function bootstrap() {
   try {
     // FIX RAM/perf: ruota il debug log se > 15MB (un file enorme viene letto tutto dalla tab Log)
