@@ -7,7 +7,8 @@ export interface ScrollViewOptions {
     primary?: boolean;
     overscroll?: "chain" | "contain";
     scrollbar?: ScrollViewScrollbar;
-    scrollbarStyle?: (text: string) => string;
+    scrollbarTrackStyle?: (text: string) => string;
+    scrollbarThumbStyle?: (text: string) => string;
     scrollbarHideDelayMs?: number;
 }
 export interface ScrollViewScrollToOptions {
@@ -16,10 +17,11 @@ export interface ScrollViewScrollToOptions {
 }
 export declare class ScrollView extends Container {
     private readonly child;
-    private readonly followEnd;
+    readonly followEnd: boolean;
     readonly primary: boolean;
     readonly overscroll: "chain" | "contain";
-    readonly scrollbarStyle: (text: string) => string;
+    readonly scrollbarTrackStyle: (text: string) => string;
+    readonly scrollbarThumbStyle: (text: string) => string;
     private currentScrollbar;
     private readonly scrollbarHideDelayMs;
     private currentScrollTop;
@@ -37,6 +39,7 @@ export declare class ScrollView extends Container {
     get viewportHeight(): number;
     get scrollbar(): ScrollViewScrollbar;
     get isScrollbarVisible(): boolean;
+    get isScrollbarActive(): boolean;
     setScrollbar(scrollbar: ScrollViewScrollbar): void;
     getContentWidth(width: number): number;
     private markScrollbarActivity;

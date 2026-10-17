@@ -1,3 +1,4 @@
+import type { TerminalColorMode } from "./colors.ts";
 export type ImageProtocol = "kitty" | "iterm2" | null;
 export interface TerminalCapabilities {
     images: ImageProtocol;
@@ -25,6 +26,7 @@ export declare function getCellDimensions(): CellDimensions;
 export declare function setCellDimensions(dims: CellDimensions): void;
 export declare function detectCapabilities(tmuxForwardsHyperlink?: () => boolean): TerminalCapabilities;
 export declare function getCapabilities(): TerminalCapabilities;
+export declare function getTerminalColorMode(capabilities?: TerminalCapabilities): TerminalColorMode;
 export declare function resetCapabilitiesCache(): void;
 /** Override selected auto-detected capabilities. */
 export declare function setCapabilityOverrides(overrides: Partial<TerminalCapabilities>): void;
@@ -77,15 +79,18 @@ export interface KittyImagePlacement {
     transmissionGeneration: number;
     transmissionBytes: number;
     estimatedDecodedBytes: number;
+    rows: number;
     sequence: string;
     replacementLine: string;
 }
 export declare function registerKittyImageMetadata(metadata: KittyImageMetadata): void;
 export declare function getKittyImageMetadata(line: string): KittyImageMetadata | undefined;
+/** Read the number of rows covered by an image placement without scanning its payload. */
+export declare function getKittyImagePlacementRows(line: string): number | undefined;
 /** Build a placement-only command for an image line emitted by {@link renderImage}. */
 export declare function getKittyImagePlacement(line: string): KittyImagePlacement | undefined;
 export declare function cropKittyImageLine(line: string, hiddenRows: number, visibleRows: number): string;
-export declare function calculateImageCellSize(imageDimensions: ImageDimensions, maxWidthCells: number, maxHeightCells?: number, cellDimensions?: CellDimensions): ImageCellSize;
+export declare function calculateImageCellSize(imageDimensions: ImageDimensions, maxWidthCells: number, maxHeightCells?: number, cellDimensions?: CellDimensions, optimizeAspectRatio?: boolean): ImageCellSize;
 export declare function calculateImageRows(imageDimensions: ImageDimensions, targetWidthCells: number, cellDimensions?: CellDimensions): number;
 export declare function getPngDimensions(base64Data: string): ImageDimensions | null;
 export declare function getJpegDimensions(base64Data: string): ImageDimensions | null;

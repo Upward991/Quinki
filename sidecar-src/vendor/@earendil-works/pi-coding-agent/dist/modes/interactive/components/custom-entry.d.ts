@@ -10,9 +10,11 @@ export declare class CustomEntryComponent extends Container {
     private renderer;
     private customComponent?;
     private _expanded;
-    constructor(entry: CustomEntry<unknown>, renderer: EntryRenderer);
+    private outputPad;
+    constructor(entry: CustomEntry<unknown>, renderer: EntryRenderer, outputPad?: number);
     hasContent(): boolean;
     setExpanded(expanded: boolean): void;
+    setOutputPad(outputPad: number): void;
     invalidate(): void;
     private rebuild;
 }

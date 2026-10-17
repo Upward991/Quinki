@@ -1,0 +1,24 @@
+--- a/dist/core/session-manager.js	2026-10-17 13:47:17
++++ b/dist/core/session-manager.js	2026-10-17 13:47:30
+@@ -271,9 +271,20 @@
+             ? []
+             : projectContextEntry(sourceEntry, edits.get(sourceEntry.id)),
+     }));
++    // PATCH (Quinki 1.3.0): delegation entries (agent responses) ride in the context messages
++    // for the renderer, in their automatic chronological position from the .jsonl. They are
++    // filtered out before the LLM call in agent-session.js - zero context cost.
++    const messages = [];
++    for (const entry of projectedEntries) {
++        messages.push(...entry.messages);
++        const source = entry.sourceEntry;
++        if (source && source.type === "delegation" && source.delegationData) {
++            messages.push({ role: "delegation", id: source.id, delegationData: source.delegationData, timestamp: new Date(source.timestamp || Date.now()).getTime() });
++        }
++    }
+     return {
+         entries: projectedEntries,
+-        messages: projectedEntries.flatMap((entry) => entry.messages),
++        messages,
+         thinkingLevel,
+         model,
+     };

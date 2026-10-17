@@ -25,7 +25,7 @@ function trimRenderedResultLines(lines) {
     return lines.slice(start, end);
 }
 export function createToolHtmlRenderer(deps) {
-    const { getToolDefinition, theme, cwd, width = 100 } = deps;
+    const { getToolRenderers, theme, cwd, width = 100 } = deps;
     const renderedCallComponents = new Map();
     const renderedResultComponents = new Map();
     const renderedStates = new Map();
@@ -52,13 +52,15 @@ export function createToolHtmlRenderer(deps) {
             expanded,
             showImages: false,
             isError,
+            durationMs: undefined,
+            outputPad: 1,
         };
     };
     return {
         renderCall(toolCallId, toolName, args) {
             try {
                 renderedArgs.set(toolCallId, args);
-                const toolDef = getToolDefinition(toolName);
+                const toolDef = getToolRenderers(toolName);
                 if (!toolDef?.renderCall) {
                     return undefined;
                 }
@@ -74,7 +76,7 @@ export function createToolHtmlRenderer(deps) {
         },
         renderResult(toolCallId, toolName, result, details, isError) {
             try {
-                const toolDef = getToolDefinition(toolName);
+                const toolDef = getToolRenderers(toolName);
                 if (!toolDef?.renderResult) {
                     return undefined;
                 }

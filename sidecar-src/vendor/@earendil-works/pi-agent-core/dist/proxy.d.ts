@@ -2,10 +2,7 @@
  * Proxy stream function for apps that route LLM calls through a server.
  * The server manages auth and proxies requests to LLM providers.
  */
-import { type AssistantMessage, type AssistantMessageEvent, type Context, EventStream, type Model, type SimpleStreamOptions, type StopReason, type ToolCall } from "@earendil-works/pi-ai";
-declare class ProxyMessageEventStream extends EventStream<AssistantMessageEvent, AssistantMessage> {
-    constructor();
-}
+import { type AssistantMessage, type AssistantMessageEventStream, type Model, type SimpleStreamOptions, type StopReason, type ToolCall, type TranscriptContext } from "@earendil-works/pi-ai";
 /**
  * Proxy event types - server sends these with partial field stripped to reduce bandwidth.
  */
@@ -50,11 +47,13 @@ export type ProxyAssistantMessageEvent = {
     type: "done";
     reason: Extract<StopReason, "stop" | "length" | "toolUse">;
     usage: AssistantMessage["usage"];
+    providerThinkingLevel?: string;
 } | {
     type: "error";
     reason: Extract<StopReason, "aborted" | "error">;
     errorMessage?: string;
     usage: AssistantMessage["usage"];
+    providerThinkingLevel?: string;
 };
 type ProxySerializableStreamOptions = Pick<SimpleStreamOptions, "temperature" | "samplingParams" | "maxTokens" | "reasoning" | "cacheRetention" | "sessionId" | "headers" | "metadata" | "transport" | "thinkingBudgets" | "maxRetryDelayMs">;
 export interface ProxyStreamOptions extends ProxySerializableStreamOptions {
@@ -65,6 +64,6 @@ export interface ProxyStreamOptions extends ProxySerializableStreamOptions {
     /** Proxy server URL (e.g., "https://genai.example.com") */
     proxyUrl: string;
 }
-export declare function streamProxy(model: Model<any>, context: Context, options: ProxyStreamOptions): ProxyMessageEventStream;
+export declare function streamProxy(model: Model<any>, context: TranscriptContext, options: ProxyStreamOptions): AssistantMessageEventStream;
 export {};
 //# sourceMappingURL=proxy.d.ts.map

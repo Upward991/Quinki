@@ -1,5 +1,5 @@
 import type { AutocompleteProvider } from "../autocomplete.ts";
-import { type Component, type Focusable, type TUI } from "../tui.ts";
+import { type Component, type Focusable, type TUI, type TuiMouseEvent, type TuiMouseEventResult } from "../tui.ts";
 import { type SelectListTheme } from "./select-list.ts";
 /**
  * Represents a chunk of text for word-wrap layout.
@@ -38,6 +38,8 @@ export declare class Editor implements Component, Focusable {
     private theme;
     private paddingX;
     private lastWidth;
+    private renderedVisibleLineCount;
+    private renderedAutocompleteHeight;
     private scrollOffset;
     borderColor: (str: string) => string;
     private autocompleteProvider?;
@@ -92,7 +94,10 @@ export declare class Editor implements Component, Focusable {
     /** Internal setText that doesn't reset history state - used by navigateHistory */
     private setTextInternal;
     invalidate(): void;
+    protected renderTopBorder(width: number, hiddenLineCount: number): string;
+    protected renderBottomBorder(width: number, hiddenLineCount: number): string;
     render(width: number): string[];
+    handleMouse(event: TuiMouseEvent): TuiMouseEventResult | undefined;
     handleInput(data: string): void;
     private layoutText;
     getText(): string;

@@ -1,8 +1,8 @@
-import { uuidv7 } from "@earendil-works/pi-ai";
+import { getCurrentSystemMessage, uuidv7, } from "@earendil-works/pi-ai";
 import { randomUUID } from "crypto";
 import { appendFileSync, closeSync, createReadStream, existsSync, mkdirSync, openSync, readdirSync, readSync, statSync, writeFileSync, } from "fs";
 import { readdir, stat } from "fs/promises";
-import { join, resolve } from "path";
+import { basename, join, resolve } from "path";
 import { createInterface } from "readline";
 import { StringDecoder } from "string_decoder";
 import { APP_NAME, getAgentDir as getDefaultAgentDir, getSessionsDir } from "../config.js";
@@ -168,6 +168,8 @@ export function sessionEntryToContextMessages(entry) {
         const message = entry.message;
         // Session files are parsed without validation; old versions, forks, or
         // hand-edited files can contain messages with null/missing content.
+        if (message.role === "system" && message.content == null)
+            return [{ ...message, content: "" }];
         if ((message.role === "user" || message.role === "assistant" || message.role === "toolResult") &&
             message.content == null) {
             return [{ ...message, content: [] }];
@@ -183,7 +185,8 @@ export function sessionEntryToContextMessages(entry) {
         return [createBranchSummaryMessage(entry.summary, entry.fromId, entry.timestamp)];
     }
     if (entry.type === "compaction") {
-        return [createCompactionSummaryMessage(entry.summary, entry.tokensBefore, entry.timestamp)];
+        const summary = createCompactionSummaryMessage(entry.summary, entry.tokensBefore, entry.timestamp);
+        return entry.systemMessage ? [entry.systemMessage, summary] : [summary];
     }
     return [];
 }
@@ -217,7 +220,7 @@ export function buildContextEntries(entries, leafId, byId) {
         if (entry.id === compaction.firstKeptEntryId) {
             foundFirstKept = true;
         }
-        if (foundFirstKept) {
+        if (foundFirstKept && !(entry.type === "message" && entry.message.role === "system")) {
             contextEntries.push(entry);
         }
     }
@@ -229,19 +232,66 @@ export function buildContextEntries(entries, leafId, byId) {
  * If leafId is provided, walks from that entry to root.
  * Handles compaction and branch summaries along the path.
  */
-export function buildSessionContext(entries, leafId, byId) {
+function projectContextEntry(entry, edit) {
+    const messages = sessionEntryToContextMessages(entry);
+    if (!edit)
+        return messages;
+    const replacement = edit.replacement;
+    if (replacement === null)
+        return [];
+    return messages.map((message) => {
+        if (message.role !== "user" &&
+            message.role !== "assistant" &&
+            message.role !== "toolResult" &&
+            message.role !== "custom") {
+            return message;
+        }
+        const content = (message.role === "assistant" || message.role === "toolResult") && typeof replacement.content === "string"
+            ? [{ type: "text", text: replacement.content }]
+            : replacement.content;
+        return { ...message, content };
+    });
+}
+/** Build provenance-preserving, compaction-aware model context. */
+export function buildSessionProjection(entries, leafId, byId) {
     const path = buildSessionPath(entries, leafId, byId);
     const { thinkingLevel, model } = getSessionContextSettings(path);
-    // PATCH (Quinki): delegation entries (agent responses) ride in context messages for the
-    // renderer, in their automatic chronological position from the .jsonl. They are filtered
-    // out before the LLM call in agent-session.js — zero context cost.
+    const contextEntries = buildContextEntries(entries, leafId, byId);
+    const edits = new Map();
+    for (const entry of contextEntries) {
+        if (entry.type === "context_edit")
+            edits.set(entry.targetId, entry);
+    }
+    const projectedEntries = contextEntries.map((sourceEntry, index) => ({
+        sourceEntry,
+        // buildContextEntries() may retain an older compaction entry because its
+        // raw ID lies inside the newest retained range. Only the newest compaction
+        // at index zero contributes a checkpoint and summary.
+        messages: sourceEntry.type === "compaction" && index > 0
+            ? []
+            : projectContextEntry(sourceEntry, edits.get(sourceEntry.id)),
+    }));
+    // PATCH (Quinki 1.3.0): delegation entries (agent responses) ride in the context messages
+    // for the renderer, in their automatic chronological position from the .jsonl. They are
+    // filtered out before the LLM call in agent-session.js - zero context cost.
     const messages = [];
-    for (const entry of buildContextEntries(entries, leafId, byId)) {
-        messages.push(...sessionEntryToContextMessages(entry));
-        if (entry.type === "delegation" && entry.delegationData) {
-            messages.push({ role: "delegation", id: entry.id, delegationData: entry.delegationData, timestamp: new Date(entry.timestamp || Date.now()).getTime() });
+    for (const entry of projectedEntries) {
+        messages.push(...entry.messages);
+        const source = entry.sourceEntry;
+        if (source && source.type === "delegation" && source.delegationData) {
+            messages.push({ role: "delegation", id: source.id, delegationData: source.delegationData, timestamp: new Date(source.timestamp || Date.now()).getTime() });
         }
     }
+    return {
+        entries: projectedEntries,
+        messages,
+        thinkingLevel,
+        model,
+    };
+}
+/** Build the finalized model context from the canonical session projection. */
+export function buildSessionContext(entries, leafId, byId) {
+    const { messages, thinkingLevel, model } = buildSessionProjection(entries, leafId, byId);
     return { messages, thinkingLevel, model };
 }
 /**
@@ -408,14 +458,16 @@ export function findMostRecentSession(sessionDir, cwd) {
     const resolvedCwd = cwd ? resolvePath(cwd) : undefined;
     try {
         const files = readdirSync(resolvedSessionDir)
-            .filter((f) => f.endsWith(".jsonl"))
-            .map((f) => join(resolvedSessionDir, f))
-            .map((path) => ({ path, header: readSessionHeaderForDiscovery(path) }))
-            .filter((file) => file.header !== null &&
-            (!resolvedCwd || sessionCwdMatches(getSessionHeaderCwd(file.header), resolvedCwd)))
-            .map(({ path }) => ({ path, mtime: statSync(path).mtime }))
-            .sort((a, b) => b.mtime.getTime() - a.mtime.getTime());
-        return files[0]?.path || null;
+            .filter((file) => file.endsWith(".jsonl"))
+            .map((file) => join(resolvedSessionDir, file))
+            .map((path) => ({ path, mtime: statSync(path).mtimeMs }))
+            .sort((a, b) => b.mtime - a.mtime);
+        for (const { path } of files) {
+            const header = readSessionHeaderForDiscovery(path);
+            if (header && (!resolvedCwd || sessionCwdMatches(getSessionHeaderCwd(header), resolvedCwd)))
+                return path;
+        }
+        return null;
     }
     catch {
         // Directory access and stat races make recent-session discovery unavailable.
@@ -448,9 +500,9 @@ function getMessageActivityTime(entry) {
     const t = new Date(entry.timestamp).getTime();
     return Number.isNaN(t) ? undefined : t;
 }
-async function buildSessionInfo(filePath) {
+async function buildSessionInfo(filePath, signal, fileStats) {
     try {
-        const stats = await stat(filePath);
+        const stats = fileStats ?? (await stat(filePath));
         let header = null;
         let messageCount = 0;
         let firstMessage = "";
@@ -458,7 +510,7 @@ async function buildSessionInfo(filePath) {
         let name;
         let lastActivityTime;
         const rl = createInterface({
-            input: createReadStream(filePath, { encoding: "utf8" }),
+            input: createReadStream(filePath, { encoding: "utf8", signal }),
             crlfDelay: Infinity,
         });
         for await (const line of rl) {
@@ -519,67 +571,63 @@ async function buildSessionInfo(filePath) {
         };
     }
     catch {
+        signal?.throwIfAborted();
         return null;
     }
 }
 const MAX_CONCURRENT_SESSION_INFO_LOADS = 10;
-async function buildSessionInfosWithConcurrency(files, onLoaded) {
-    const results = new Array(files.length).fill(null);
-    const inFlight = new Set();
+const MAX_CONCURRENT_SESSION_DISCOVERY_LOADS = 64;
+const CURRENT_SESSION_LIST_PUBLISH_INTERVAL = 10;
+const ALL_SESSION_LIST_PUBLISH_INTERVAL = 100;
+async function mapWithConcurrency(items, limit, map, signal) {
+    const results = new Array(items.length);
     let nextIndex = 0;
-    const startNext = () => {
-        const index = nextIndex++;
-        const file = files[index];
-        if (!file)
-            return;
-        let task;
-        task = buildSessionInfo(file)
-            .then((info) => {
-            results[index] = info;
-        })
-            .catch(() => {
-            results[index] = null;
-        })
-            .finally(() => {
-            inFlight.delete(task);
-            onLoaded();
-        });
-        inFlight.add(task);
+    const worker = async () => {
+        while (nextIndex < items.length) {
+            signal?.throwIfAborted();
+            const index = nextIndex++;
+            results[index] = await map(items[index], index);
+        }
     };
-    while (nextIndex < files.length || inFlight.size > 0) {
-        while (nextIndex < files.length && inFlight.size < MAX_CONCURRENT_SESSION_INFO_LOADS) {
-            startNext();
-        }
-        if (inFlight.size > 0) {
-            await Promise.race(inFlight);
-        }
-    }
+    await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => worker()));
     return results;
 }
-async function listSessionsFromDir(dir, onProgress, progressOffset = 0, progressTotal) {
-    const sessions = [];
-    if (!existsSync(dir)) {
-        return sessions;
-    }
+function sortSessionInfos(sessions) {
+    return sessions.sort((a, b) => b.modified.getTime() - a.modified.getTime());
+}
+function buildSessionInfosWithConcurrency(files, onLoaded, signal) {
+    return mapWithConcurrency(files, MAX_CONCURRENT_SESSION_INFO_LOADS, async (file, index) => {
+        const info = await buildSessionInfo(file.path, signal, file.stats);
+        onLoaded(info, index);
+        return info;
+    }, signal);
+}
+async function listSessionsFromDir(dir, onProgress, signal) {
+    signal?.throwIfAborted();
+    if (!existsSync(dir))
+        return [];
     try {
         const dirEntries = await readdir(dir);
-        const files = dirEntries.filter((f) => f.endsWith(".jsonl")).map((f) => join(dir, f));
-        const total = progressTotal ?? files.length;
+        const files = dirEntries
+            .filter((file) => file.endsWith(".jsonl"))
+            .sort((a, b) => b.localeCompare(a))
+            .map((file) => ({ path: join(dir, file) }));
+        const total = files.length;
+        const partialSessions = [];
         let loaded = 0;
-        const results = await buildSessionInfosWithConcurrency(files, () => {
+        const results = await buildSessionInfosWithConcurrency(files, (info) => {
             loaded++;
-            onProgress?.(progressOffset + loaded, total);
-        });
-        for (const info of results) {
-            if (info) {
-                sessions.push(info);
-            }
-        }
+            if (info)
+                partialSessions.push(info);
+            const publishPartial = loaded === 1 || loaded % CURRENT_SESSION_LIST_PUBLISH_INTERVAL === 0 || loaded === files.length;
+            onProgress?.(loaded, total, publishPartial ? sortSessionInfos([...partialSessions]) : undefined);
+        }, signal);
+        return results.filter((info) => info !== null);
     }
     catch {
-        // Return empty list on error
+        signal?.throwIfAborted();
+        return [];
     }
-    return sessions;
 }
 /**
  * Manages conversation sessions as append-only trees stored in JSONL files.
@@ -614,6 +662,9 @@ export class SessionManager {
         if (sessionFile) {
             this._setSessionFile(sessionFile, preloadedFileEntries);
         }
+        else if (preloadedFileEntries?.length) {
+            this._loadEntries(preloadedFileEntries, newSessionOptions);
+        }
         else {
             this.newSession(newSessionOptions);
         }
@@ -625,10 +676,10 @@ export class SessionManager {
     _setSessionFile(sessionFile, preloadedFileEntries) {
         this.sessionFile = resolvePath(sessionFile);
         if (existsSync(this.sessionFile)) {
-            this.fileEntries = preloadedFileEntries ?? loadEntriesFromFile(this.sessionFile);
+            const entries = preloadedFileEntries ?? loadEntriesFromFile(this.sessionFile);
             // If file was empty, initialize it with a valid session header. If it was
             // non-empty but did not parse as a pi session, fail without modifying it.
-            if (this.fileEntries.length === 0) {
+            if (entries.length === 0) {
                 const explicitPath = this.sessionFile;
                 if (statSync(explicitPath).size > 0) {
                     throw new Error(`Session file is not a valid ${APP_NAME} session: ${explicitPath}`);
@@ -639,12 +690,7 @@ export class SessionManager {
                 this.flushed = true;
                 return;
             }
-            const header = this.fileEntries.find((e) => e.type === "session");
-            this.sessionId = header?.id ?? createSessionId();
-            if (migrateToCurrentVersion(this.fileEntries)) {
-                this._rewriteFile();
-            }
-            this._buildIndex();
+            this._loadEntries(entries);
             this.flushed = true;
         }
         else {
@@ -678,6 +724,21 @@ export class SessionManager {
             this.sessionFile = join(this.getSessionDir(), `${fileTimestamp}_${this.sessionId}.jsonl`);
         }
         return this.sessionFile;
+    }
+    _loadEntries(entries, options) {
+        const header = entries.find((e) => e.type === "session");
+        if (header) {
+            this.fileEntries = entries;
+            this.sessionId = header.id;
+            if (migrateToCurrentVersion(this.fileEntries)) {
+                this._rewriteFile();
+            }
+        }
+        else {
+            this.newSession(options);
+            this.fileEntries = this.fileEntries.concat(entries);
+        }
+        this._buildIndex();
     }
     _buildIndex() {
         this.byId.clear();
@@ -732,21 +793,21 @@ export class SessionManager {
     getSessionFile() {
         return this.sessionFile;
     }
+    /**
+     * A new session file is created only once the session contains a user or assistant message.
+     * Setup entries alone (model, thinking level, system prompt) stay in memory so opening and
+     * closing pi without chatting leaves no file behind. Starting at the user message (not the
+     * first assistant reply) keeps the prompt on disk if the first turn never completes (#10000).
+     */
+    _hasConversation() {
+        return this.fileEntries.some((e) => e.type === "message" && (e.message.role === "user" || e.message.role === "assistant"));
+    }
     _persist(entry) {
         if (!this.persist || !this.sessionFile)
             return;
-        const hasAssistant = this.fileEntries.some((e) => e.type === "message" && e.message.role === "assistant");
-        if (!hasAssistant) {
-            if (this.flushed) {
-                appendFileSync(this.sessionFile, `${JSON.stringify(entry)}\n`);
-            }
-            else {
-                // Mark as not flushed so when assistant arrives, all entries get written
-                this.flushed = false;
-            }
-            return;
-        }
         if (!this.flushed) {
+            if (!this._hasConversation())
+                return;
             const fd = openSync(this.sessionFile, "wx");
             try {
                 for (const e of this.fileEntries) {
@@ -810,19 +871,39 @@ export class SessionManager {
         this._appendEntry(entry);
         return entry.id;
     }
-    /** Append a compaction summary as child of current leaf, then advance leaf. Returns entry id. */
-    appendCompaction(summary, firstKeptEntryId, tokensBefore, details, fromHook, usage) {
+    /** Append model-attributed usage that does not participate in LLM context. Returns the appended entry. */
+    appendUsage(kind, provider, model, usage, note) {
         const entry = {
-            type: "compaction",
+            type: "usage",
             id: generateId(this.byId),
             parentId: this.leafId,
             timestamp: new Date().toISOString(),
+            kind,
+            provider,
+            model,
+            usage,
+            ...(note ? { note } : {}),
+        };
+        this._appendEntry(entry);
+        return entry;
+    }
+    /** Append a compaction summary as child of current leaf, then advance leaf. Returns entry id. */
+    appendCompaction(summary, firstKeptEntryId, tokensBefore, details, fromHook, usage) {
+        const timestamp = new Date().toISOString();
+        const systemMessage = getCurrentSystemMessage(this.buildSessionProjection().messages);
+        const id = generateId(this.byId);
+        const entry = {
+            type: "compaction",
+            id,
+            parentId: this.leafId,
+            timestamp,
             summary,
-            firstKeptEntryId,
+            firstKeptEntryId: firstKeptEntryId ?? id,
             tokensBefore,
             details,
             usage,
             fromHook,
+            ...(systemMessage ? { systemMessage: { ...systemMessage, timestamp: new Date(timestamp).getTime() } } : {}),
         };
         this._appendEntry(entry);
         return entry.id;
@@ -856,10 +937,10 @@ export class SessionManager {
     /** Get the current session name from the latest session_info entry, if any. */
     getSessionName() {
         // Walk entries in reverse to find the latest session_info entry.
-        // Empty names explicitly clear the session title.
-        const entries = this.getEntries();
-        for (let i = entries.length - 1; i >= 0; i--) {
-            const entry = entries[i];
+        // Empty names explicitly clear the session title. Reads fileEntries directly: the footer
+        // calls this on every frame, and getEntries() copies the whole session.
+        for (let i = this.fileEntries.length - 1; i >= 0; i--) {
+            const entry = this.fileEntries[i];
             if (entry.type === "session_info") {
                 return entry.name?.trim() || undefined;
             }
@@ -884,6 +965,44 @@ export class SessionManager {
             id: generateId(this.byId),
             parentId: this.leafId,
             timestamp: new Date().toISOString(),
+        };
+        this._appendEntry(entry);
+        return entry.id;
+    }
+    /** Append a branch-local edit to an earlier model-visible entry. */
+    appendContextEdit(targetId, replacement) {
+        if (replacement !== null &&
+            (typeof replacement !== "object" ||
+                !("content" in replacement) ||
+                (typeof replacement.content !== "string" && !Array.isArray(replacement.content)))) {
+            throw new Error("Context edit replacement must be null or contain string/array content");
+        }
+        const target = this.byId.get(targetId);
+        if (!target)
+            throw new Error(`Entry ${targetId} not found`);
+        if (!this.getBranch().some((entry) => entry.id === targetId)) {
+            throw new Error(`Entry ${targetId} is not on the active branch`);
+        }
+        const editable = target.type === "custom_message" ||
+            (target.type === "message" &&
+                (target.message.role === "user" ||
+                    target.message.role === "assistant" ||
+                    target.message.role === "toolResult"));
+        if (!editable)
+            throw new Error(`Entry ${targetId} does not contribute editable model content`);
+        const targetRole = target.type === "message" ? target.message.role : "custom";
+        const normalizedReplacement = replacement !== null &&
+            (targetRole === "assistant" || targetRole === "toolResult") &&
+            typeof replacement.content === "string"
+            ? { content: [{ type: "text", text: replacement.content }] }
+            : replacement;
+        const entry = {
+            type: "context_edit",
+            id: generateId(this.byId),
+            parentId: this.leafId,
+            timestamp: new Date().toISOString(),
+            targetId,
+            replacement: normalizedReplacement,
         };
         this._appendEntry(entry);
         return entry.id;
@@ -973,8 +1092,12 @@ export class SessionManager {
      * Build the session context (what gets sent to the LLM).
      * Uses tree traversal from current leaf.
      */
+    buildSessionProjection() {
+        return buildSessionProjection(this.getEntries(), this.leafId, this.byId);
+    }
     buildSessionContext() {
-        return buildSessionContext(this.getEntries(), this.leafId, this.byId);
+        const { messages, thinkingLevel, model } = this.buildSessionProjection();
+        return { messages, thinkingLevel, model };
     }
     /**
      * Get session header.
@@ -982,6 +1105,10 @@ export class SessionManager {
     getHeader() {
         const h = this.fileEntries.find((e) => e.type === "session");
         return h ? h : null;
+    }
+    /** Number of session entries (excludes header), without copying them like `getEntries()`. */
+    getEntryCount() {
+        return this.byId.size;
     }
     /**
      * Get all session entries (excludes header). Returns a shallow copy.
@@ -1096,11 +1223,27 @@ export class SessionManager {
         // Because labels are real tree entries, later entries can be children of labels;
         // removing labels requires re-chaining the retained path to avoid orphaned subtrees.
         const pathWithoutLabels = [];
+        const replacementByLabelId = new Map();
+        const pendingLabelIds = [];
         let pathParentId = null;
         for (const entry of path) {
-            if (entry.type === "label")
+            if (entry.type === "label") {
+                pendingLabelIds.push(entry.id);
                 continue;
-            pathWithoutLabels.push({ ...entry, parentId: pathParentId });
+            }
+            for (const labelId of pendingLabelIds) {
+                replacementByLabelId.set(labelId, entry.id);
+            }
+            pendingLabelIds.length = 0;
+            pathWithoutLabels.push(entry.type === "compaction"
+                ? {
+                    ...entry,
+                    parentId: pathParentId,
+                    firstKeptEntryId: entry.firstKeptEntryId === entry.id
+                        ? entry.id
+                        : (replacementByLabelId.get(entry.firstKeptEntryId) ?? entry.firstKeptEntryId),
+                }
+                : { ...entry, parentId: pathParentId });
             pathParentId = entry.id;
         }
         const newSessionId = createSessionId();
@@ -1145,13 +1288,9 @@ export class SessionManager {
             this.sessionId = newSessionId;
             this.sessionFile = newSessionFile;
             this._buildIndex();
-            // Only write the file now if it contains an assistant message.
-            // Otherwise defer to _persist(), which creates the file on the
-            // first assistant response, matching the newSession() contract
-            // and avoiding the duplicate-header bug when _persist()'s
-            // no-assistant guard later resets flushed to false.
-            const hasAssistant = this.fileEntries.some((e) => e.type === "message" && e.message.role === "assistant");
-            if (hasAssistant) {
+            // Use the same rule as _persist(): write now if the branched path already
+            // has a conversation, otherwise let _persist() create the file later.
+            if (this._hasConversation()) {
                 this._rewriteFile();
                 this.flushed = true;
             }
@@ -1232,9 +1371,9 @@ export class SessionManager {
         }
         return new SessionManager(cwd, dir, undefined, true);
     }
-    /** Create an in-memory session (no file persistence) */
-    static inMemory(cwd = process.cwd(), options) {
-        return new SessionManager(cwd, "", undefined, false, options);
+    /** Create an in-memory session (no file persistence), optionally from entries held outside the filesystem. */
+    static inMemory(cwd = process.cwd(), options, entries) {
+        return new SessionManager(cwd, "", undefined, false, options, entries);
     }
     /**
      * Fork a session from another project directory into the current project.
@@ -1285,66 +1424,109 @@ export class SessionManager {
         return new SessionManager(resolvedTargetCwd, dir, newSessionFile, true);
     }
     /**
+     * Find an exact session ID without loading transcript bodies.
+     * @param cwd Working directory (used to compute default session directory)
+     * @param id Exact session ID
+     * @param sessionDir Optional session directory. If omitted, uses default (~/.pi/agent/sessions/<encoded-cwd>/).
+     */
+    static findById(cwd, id, sessionDir) {
+        const dir = sessionDir ? normalizePath(sessionDir) : getDefaultSessionDir(cwd);
+        const filterCwd = sessionDir !== undefined && dir !== getDefaultSessionDirPath(cwd);
+        const resolvedCwd = resolvePath(cwd);
+        try {
+            for (const file of readdirSync(dir)) {
+                if (!file.endsWith(".jsonl"))
+                    continue;
+                const path = join(dir, file);
+                const header = readSessionHeaderForDiscovery(path);
+                if (header?.id !== id)
+                    continue;
+                if (filterCwd && !sessionCwdMatches(getSessionHeaderCwd(header), resolvedCwd))
+                    continue;
+                return path;
+            }
+        }
+        catch {
+            // Exact session discovery is best-effort, matching list().
+        }
+        return undefined;
+    }
+    /**
      * List all sessions for a directory.
      * @param cwd Working directory (used to compute default session directory)
      * @param sessionDir Optional session directory. If omitted, uses default (~/.pi/agent/sessions/<encoded-cwd>/).
      * @param onProgress Optional callback for progress updates (loaded, total)
      */
-    static async list(cwd, sessionDir, onProgress) {
+    static async list(cwd, sessionDir, onProgress, signal) {
         const dir = sessionDir ? normalizePath(sessionDir) : getDefaultSessionDir(cwd);
         const filterCwd = sessionDir !== undefined && dir !== getDefaultSessionDirPath(cwd);
         const resolvedCwd = resolvePath(cwd);
-        const sessions = (await listSessionsFromDir(dir, onProgress)).filter((session) => !filterCwd || sessionCwdMatches(session.cwd, resolvedCwd));
-        sessions.sort((a, b) => b.modified.getTime() - a.modified.getTime());
-        return sessions;
+        const includeSession = (session) => !filterCwd || sessionCwdMatches(session.cwd, resolvedCwd);
+        const progress = onProgress
+            ? (loaded, total, partialSessions) => onProgress(loaded, total, partialSessions?.filter(includeSession))
+            : undefined;
+        const sessions = (await listSessionsFromDir(dir, progress, signal)).filter(includeSession);
+        return sortSessionInfos(sessions);
     }
-    static async listAll(sessionDirOrOnProgress, onProgress) {
+    static async listAll(sessionDirOrOnProgress, onProgressOrSignal, signal) {
         const customSessionDir = typeof sessionDirOrOnProgress === "string" ? normalizePath(sessionDirOrOnProgress) : undefined;
-        const progress = typeof sessionDirOrOnProgress === "function" ? sessionDirOrOnProgress : onProgress;
+        const progress = typeof sessionDirOrOnProgress === "function"
+            ? sessionDirOrOnProgress
+            : typeof onProgressOrSignal === "function"
+                ? onProgressOrSignal
+                : undefined;
+        const abortSignal = typeof sessionDirOrOnProgress === "string" || typeof onProgressOrSignal === "function"
+            ? signal
+            : (onProgressOrSignal ?? signal);
+        abortSignal?.throwIfAborted();
         if (customSessionDir) {
-            const sessions = await listSessionsFromDir(customSessionDir, progress);
-            sessions.sort((a, b) => b.modified.getTime() - a.modified.getTime());
-            return sessions;
+            return sortSessionInfos(await listSessionsFromDir(customSessionDir, progress, abortSignal));
         }
         const sessionsDir = getSessionsDir();
         try {
-            if (!existsSync(sessionsDir)) {
+            if (!existsSync(sessionsDir))
                 return [];
-            }
             const entries = await readdir(sessionsDir, { withFileTypes: true });
             const dirs = entries
                 .filter((entry) => entry.isDirectory() || entry.isSymbolicLink())
                 .map((entry) => join(sessionsDir, entry.name));
-            // Count total files first for accurate progress
-            let totalFiles = 0;
-            const dirFiles = [];
-            for (const dir of dirs) {
+            const dirFiles = await mapWithConcurrency(dirs, MAX_CONCURRENT_SESSION_DISCOVERY_LOADS, async (dir) => {
                 try {
-                    const files = (await readdir(dir)).filter((f) => f.endsWith(".jsonl"));
-                    dirFiles.push(files.map((f) => join(dir, f)));
-                    totalFiles += files.length;
+                    return (await readdir(dir)).filter((file) => file.endsWith(".jsonl")).map((file) => join(dir, file));
                 }
                 catch {
-                    dirFiles.push([]);
+                    return [];
                 }
-            }
-            // Process all files with progress tracking
-            let loaded = 0;
-            const sessions = [];
+            }, abortSignal);
             const allFiles = dirFiles.flat();
-            const results = await buildSessionInfosWithConcurrency(allFiles, () => {
-                loaded++;
-                progress?.(loaded, totalFiles);
-            });
-            for (const info of results) {
-                if (info) {
-                    sessions.push(info);
+            const candidates = await mapWithConcurrency(allFiles, MAX_CONCURRENT_SESSION_DISCOVERY_LOADS, async (path) => {
+                try {
+                    return { path, stats: await stat(path) };
                 }
-            }
-            sessions.sort((a, b) => b.modified.getTime() - a.modified.getTime());
-            return sessions;
+                catch {
+                    return { path };
+                }
+            }, abortSignal);
+            candidates.sort((a, b) => (b.stats?.mtimeMs ?? Number.NEGATIVE_INFINITY) - (a.stats?.mtimeMs ?? Number.NEGATIVE_INFINITY) ||
+                basename(b.path).localeCompare(basename(a.path)));
+            const totalFiles = candidates.length;
+            let loaded = 0;
+            let firstCandidateLoaded = false;
+            const partialSessions = [];
+            const results = await buildSessionInfosWithConcurrency(candidates, (info, index) => {
+                loaded++;
+                if (index === 0)
+                    firstCandidateLoaded = true;
+                if (info)
+                    partialSessions.push(info);
+                const publishPartial = firstCandidateLoaded &&
+                    (index === 0 || loaded % ALL_SESSION_LIST_PUBLISH_INTERVAL === 0 || loaded === totalFiles);
+                progress?.(loaded, totalFiles, publishPartial ? sortSessionInfos([...partialSessions]) : undefined);
+            }, abortSignal);
+            return sortSessionInfos(results.filter((info) => info !== null));
         }
         catch {
+            abortSignal?.throwIfAborted();
             return [];
         }
     }

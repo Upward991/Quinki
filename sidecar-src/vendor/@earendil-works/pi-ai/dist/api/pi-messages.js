@@ -54,8 +54,8 @@ function createPiMessagesResponseError(model, url, response, body) {
         url: url.toString(),
         status: response.status,
         statusText: response.statusText,
-        error: errorBody?.error,
-        body: errorBody ? undefined : truncateDiagnosticString(body),
+        ...(errorBody?.error === undefined ? {} : { error: errorBody.error }),
+        ...(errorBody ? {} : { body: truncateDiagnosticString(body) }),
         timestampMs: Date.now(),
     });
 }
@@ -99,6 +99,9 @@ function createEventConverter(model) {
                     usage: event.usage,
                     responseId: event.responseId,
                 });
+                if (event.providerThinkingLevel !== undefined) {
+                    partial.providerThinkingLevel = event.providerThinkingLevel;
+                }
                 appendRewriteDiagnostic(partial, event.rewrite);
                 return { type: "done", reason: event.reason, message: partial };
             case "error":
@@ -108,6 +111,9 @@ function createEventConverter(model) {
                     errorMessage: event.errorMessage,
                     responseId: event.responseId,
                 });
+                if (event.providerThinkingLevel !== undefined) {
+                    partial.providerThinkingLevel = event.providerThinkingLevel;
+                }
                 appendRewriteDiagnostic(partial, event.rewrite);
                 return { type: "error", reason: event.reason, error: partial };
             case "start":
@@ -281,6 +287,7 @@ export const stream = (model, context, options) => {
                 throw new Error(`${model.provider} response has no body`);
             }
             for await (const piEvent of readPiMessagesEvents(response.body)) {
+                await options?.onProviderStreamEvent?.(piEvent, model);
                 const event = convertEvent(piEvent);
                 eventStream.push(event);
                 if (event.type === "done" || event.type === "error") {

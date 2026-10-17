@@ -1,18 +1,22 @@
-import type { ImageContent, Message, SimpleStreamOptions, ThinkingBudgets, Transport } from "@earendil-works/pi-ai";
-import type { AfterToolCallContext, AfterToolCallResult, AgentEvent, AgentLoopTurnUpdate, AgentMessage, AgentState, BeforeToolCallContext, BeforeToolCallResult, PrepareNextTurnContext, QueueMode, ShouldStopAfterTurnContext, StreamFn, ToolExecutionMode } from "./types.ts";
+import { type ImageContent, type Message, type SimpleStreamOptions, type ThinkingBudgets, type Transport } from "@earendil-works/pi-ai";
+import type { AfterToolCallContext, AfterToolCallResult, AgentEvent, AgentLoopTurnUpdate, AgentMessage, AgentState, BeforeToolCallContext, BeforeToolCallResult, FinishTurn, PrepareNextTurnContext, PrepareRequest, QueueMode, StreamFn, ToolExecutionMode } from "./types.ts";
 export type { QueueMode } from "./types.ts";
+/** Initial state for {@link Agent}. `systemPrompt` and `tools` become the leading system message unless `messages` already starts with one. */
+export type AgentInitialState = Partial<Omit<AgentState, "pendingToolCalls" | "isStreaming" | "streamingMessage" | "errorMessage">>;
 /** Options for constructing an {@link Agent}. */
 export interface AgentOptions {
-    initialState?: Partial<Omit<AgentState, "pendingToolCalls" | "isStreaming" | "streamingMessage" | "errorMessage">>;
+    initialState?: AgentInitialState;
     convertToLlm?: (messages: AgentMessage[]) => Message[] | Promise<Message[]>;
     transformContext?: (messages: AgentMessage[], signal?: AbortSignal) => Promise<AgentMessage[]>;
     streamFn: StreamFn;
     getApiKey?: (provider: string) => Promise<string | undefined> | string | undefined;
     onPayload?: SimpleStreamOptions["onPayload"];
     onResponse?: SimpleStreamOptions["onResponse"];
+    onProviderStreamEvent?: SimpleStreamOptions["onProviderStreamEvent"];
     beforeToolCall?: (context: BeforeToolCallContext, signal?: AbortSignal) => Promise<BeforeToolCallResult | undefined>;
     afterToolCall?: (context: AfterToolCallContext, signal?: AbortSignal) => Promise<AfterToolCallResult | undefined>;
-    shouldStopAfterTurn?: (context: ShouldStopAfterTurnContext, signal?: AbortSignal) => boolean | Promise<boolean>;
+    finishTurn?: FinishTurn;
+    prepareRequest?: PrepareRequest;
     prepareNextTurn?: (signal?: AbortSignal) => Promise<AgentLoopTurnUpdate | undefined> | AgentLoopTurnUpdate | undefined;
     prepareNextTurnWithContext?: (context: PrepareNextTurnContext, signal?: AbortSignal) => Promise<AgentLoopTurnUpdate | undefined> | AgentLoopTurnUpdate | undefined;
     steeringMode?: QueueMode;
@@ -40,9 +44,11 @@ export declare class Agent {
     getApiKey?: (provider: string) => Promise<string | undefined> | string | undefined;
     onPayload?: SimpleStreamOptions["onPayload"];
     onResponse?: SimpleStreamOptions["onResponse"];
+    onProviderStreamEvent?: SimpleStreamOptions["onProviderStreamEvent"];
     beforeToolCall?: (context: BeforeToolCallContext, signal?: AbortSignal) => Promise<BeforeToolCallResult | undefined>;
     afterToolCall?: (context: AfterToolCallContext, signal?: AbortSignal) => Promise<AfterToolCallResult | undefined>;
-    shouldStopAfterTurn?: (context: ShouldStopAfterTurnContext, signal?: AbortSignal) => boolean | Promise<boolean>;
+    finishTurn?: FinishTurn;
+    prepareRequest?: PrepareRequest;
     prepareNextTurn?: (signal?: AbortSignal) => Promise<AgentLoopTurnUpdate | undefined> | AgentLoopTurnUpdate | undefined;
     prepareNextTurnWithContext?: (context: PrepareNextTurnContext, signal?: AbortSignal) => Promise<AgentLoopTurnUpdate | undefined> | AgentLoopTurnUpdate | undefined;
     private activeRun?;
@@ -92,6 +98,8 @@ export declare class Agent {
     clearAllQueues(): void;
     /** Returns true when either queue still contains pending messages. */
     hasQueuedMessages(): boolean;
+    /** Preview the messages selected for the next turn without consuming them. */
+    peekQueuedMessages(): AgentMessage[];
     /** Active abort signal for the current run, if any. */
     get signal(): AbortSignal | undefined;
     /** Abort the current run, if one is active. */
@@ -102,7 +110,7 @@ export declare class Agent {
      * This resolves after `agent_end` listeners settle.
      */
     waitForIdle(): Promise<void>;
-    /** Clear transcript state, runtime state, and queued messages. */
+    /** Clear conversation state and queues while retaining the replayed prompt/tool baseline. */
     reset(): void;
     /** Start a new prompt from text, a single message, or a batch of messages. */
     prompt(message: AgentMessage | AgentMessage[]): Promise<void>;
@@ -117,6 +125,13 @@ export declare class Agent {
     private runWithLifecycle;
     private handleRunFailure;
     private finishRun;
+    /**
+     * Reduce internal state for a loop event, then await listeners.
+     *
+     * `agent_end` only means no further loop events will be emitted. The run is
+     * considered idle later, after all awaited listeners for `agent_end` finish
+     * and `finishRun()` clears runtime-owned state.
+     */
     private processEvents;
 }
 //# sourceMappingURL=agent.d.ts.map

@@ -295,6 +295,35 @@ function rankLevelVal(v: any): number {
   return i === -1 ? 99 : i;
 }
 
+// === 1.3.0: il prompt di sistema NON si assegna più ===
+// In 1.3.0 `agent.state.systemPrompt` è solo un GETTER (prompt corrente renderizzato dal SDK):
+// assegnarlo lancerebbe un TypeError e il prompt NON cambierebbe. Il modo corretto è proiettarlo
+// sulla richiesta con `transformContext` — lo stesso meccanismo interno del SDK
+// (_installAgentForcedPromptProjection). Il testo forzato si applica a OGNI richiesta mentre il
+// transcript resta intatto (le sezioni del SDK continuano a funzionare normalmente).
+function quinkiSetSystemPrompt(agent: any, text: string): void {
+  try {
+    if (!agent || typeof text !== "string" || !text) return;
+    if (!agent.__quinkiPromptProjection) {
+      const prev = agent.transformContext;
+      agent.transformContext = async (messages: any[], signal: any) => {
+        const transformed = prev ? await prev(messages, signal) : messages;
+        const forced = agent.__quinkiForcedPrompt;
+        if (typeof forced !== "string" || !forced) return transformed;
+        const list: any[] = Array.isArray(transformed) ? transformed : [];
+        const current = list.find((m: any) => m && m.role === "system");
+        const head: any = { role: "system", content: forced, timestamp: current?.timestamp ?? Date.now() };
+        if (current?.toolsAdded) head.toolsAdded = current.toolsAdded;
+        return [head, ...list.filter((m: any) => m && m.role !== "system")];
+      };
+      agent.__quinkiPromptProjection = true;
+    }
+    agent.__quinkiForcedPrompt = text;
+    // Vecchio SDK (0.84.4 — non più in uso): assegnazione diretta, per sicurezza.
+    try { agent.state.systemPrompt = text; } catch {}
+  } catch {}
+}
+
 class QuinkiBridge {
   // screenshot: round-trip tool → frontend invoke → risposta (requestId correlato)
   #screenshotPending = new Map<string, (r: { path?: string; error?: string }) => void>();
@@ -2766,7 +2795,7 @@ class QuinkiBridge {
         await pi.setModel(model);
         // === Fix 11: ripristinare system prompt minimale dopo setModel (che lo ricostruisce) ===
         try {
-          pi.agent.state.systemPrompt = "quinki";
+          quinkiSetSystemPrompt((pi as any).agent, this.#buildSystemPrompt(key, this.#cwd, undefined, (((this.#entries.get(key) as any)?.mode) || "plan")));
           this.logDebug("set-model-system-prompt-restored", { sessionKey: key });
         } catch (e: any) {
           this.logDebug("set-model-system-prompt-restore-error", { sessionKey: key, error: e?.message });
@@ -3287,7 +3316,7 @@ class QuinkiBridge {
         const model = this.#findModelInRegistry(registry, modelToApply);
         if (model) {
           await pi.setModel(model);
-          try { pi.agent.state.systemPrompt = this.#buildSystemPrompt(key, this.#cwd, undefined, sessionEntry?.mode || "plan"); } catch {}
+          try { quinkiSetSystemPrompt((pi as any).agent, this.#buildSystemPrompt(key, this.#cwd, undefined, sessionEntry?.mode || "plan")); } catch {}
         }
       } catch (e: any) { this.logDebug("ensureActive-model-error", { sessionKey: key, error: e?.message }); }
     }
@@ -5225,13 +5254,14 @@ Read this file to view it.` }] };
       }
     } catch {}
     try { pi.setActiveToolsByName?.(names); } catch {}
-    // setActiveToolsByName rebuilda _baseSystemPrompt (date+cwd+tools, SENZA nota mode).
-    // A inizio turno il engine SDK fa agent.state.systemPrompt = _baseSystemPrompt (sovrascrive
-    // un set manuale). Per far sopravvivere la nota mode, la appendiamo a _baseSystemPrompt.
+    // 1.3.0: il prompt si impone con una PROIEZIONE sulla richiesta (quinkiSetSystemPrompt),
+    // quindi nota mode + persona sopravvivono a qualunque rebuild del SDK (setActiveToolsByName,
+    // setModel, sezioni interne). Qui applichiamo persona + cwd + nota mode al prompt corrente.
     try {
-      let base = (pi as any)._baseSystemPrompt;
+      // 1.3.0: state.systemPrompt è un GETTER (il prompt corrente renderizzato dal SDK).
+      let base: any = String((pi as any).agent?.state?.systemPrompt ?? "");
       const note = this.#modeNote(m, hasDelegateTool);
-      // Prepend la persona dell'agente (PROMPT.md) + cwd effettivo a _baseSystemPrompt
+      // Prepend la persona dell'agente (PROMPT.md) + cwd effettivo al prompt corrente del SDK
       // Use the already-extracted agentId (from comma-separated list)
       if (agentId && typeof base === "string" && !base.includes(agentConfig?.name || "§§")) {
         const effCwd = cwd || (workingDirs && workingDirs[0]) || this.#cwd;
@@ -5249,8 +5279,7 @@ Read this file to view it.` }] };
         base = base + note;
       }
       if (typeof base === "string" && base.length > 0) {
-        (pi as any)._baseSystemPrompt = base;
-        pi.agent.state.systemPrompt = base;
+        quinkiSetSystemPrompt((pi as any).agent, base);
       }
     } catch (e: any) { this.logDebug("apply-mode-prompt-error", { sessionKey: key, error: e?.message }); }
     this.logDebug("apply-mode", { sessionKey: key, mode: m, toolCount: names.length, tools: names });
@@ -6069,7 +6098,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
           // === Imposta system prompt dell'agente — NON sovrascrivere il prompt del resource loader (ha skills) ===
           try {
             const rlPrompt = tempPi.agent.state.systemPrompt || agentPrompt;
-            (tempPi as any)._baseSystemPrompt = rlPrompt;
+            quinkiSetSystemPrompt((tempPi as any).agent, rlPrompt);
             self.logDebug("delegate-system-prompt-keep", { sessionKey, promptLen: rlPrompt.length, hasSkills: rlPrompt.includes("available_skills") });
           } catch {}
           // Setta modello: prima controlla session override, poi agent config, poi sessione
@@ -6148,7 +6177,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
             try {
               const tempCwd2 = self.#lastEffectiveCwd.get(sessionKey) ?? self.#cwd;
               // After setActiveToolsByName, _baseSystemPrompt is just "Current date: ..."
-              let base = (tempPi as any)._baseSystemPrompt || tempPi.agent.state.systemPrompt || "";
+              let base: any = String((tempPi as any).agent?.state?.systemPrompt ?? "");
               const note = self.#modeNote(mainMode);
               // Prepend agent PROMPT.md + cwd (same as #applyMode)
               if (typeof base === "string" && !base.includes(agentConfig?.name || "§§")) {
@@ -6172,8 +6201,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
                 } catch {}
               }
               if (typeof base === "string" && base.length > 0) {
-                (tempPi as any)._baseSystemPrompt = base;
-                tempPi.agent.state.systemPrompt = base;
+                quinkiSetSystemPrompt((tempPi as any).agent, base);
               }
               // Inject user-activated skills into the delegated agent's system prompt
               const pendingSkills = self.#pendingDelegationSkills.get(sessionKey);
@@ -6191,8 +6219,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
                     } catch (e: any) { self.logDebug("delegate-skill-inject-error", { sessionKey, skillName: ps.skillName, error: e?.message }); }
                   }
                 }
-                (tempPi as any)._baseSystemPrompt = base;
-                tempPi.agent.state.systemPrompt = base;
+                quinkiSetSystemPrompt((tempPi as any).agent, base);
               }
               // === Attachment directory + specific files for delegated agent ===
               try {
@@ -6210,8 +6237,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
                     attSection += `\nUse the \`read\` tool to access these files. If a file is too large, use \`read\` with offset/limit.\n=== END ATTACHED FILES ===`;
                   }
                   base = (typeof base === 'string' ? base : '') + attSection;
-                  (tempPi as any)._baseSystemPrompt = base;
-                  tempPi.agent.state.systemPrompt = base;
+                  quinkiSetSystemPrompt((tempPi as any).agent, base);
                 }
               } catch {}
               self.logDebug("delegate-system-prompt-built", { sessionKey, mode: mainMode, promptLen: base?.length || 0, hasModeNote: base?.includes("MODALITÀ"), hasSkills: base?.includes("available_skills"), hasAgentPrompt: (base?.length || 0) > 100 });
@@ -6302,7 +6328,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
               chatThinking: sEntry?.thinkingLevel || "",
               agentOverrideModel: agentOverride.model || null,
               agentOverrideThinking: agentOverride.thinkingLevel || null,
-              systemPromptLen: (tempPi as any)._baseSystemPrompt?.length || 0,
+              systemPromptLen: String((tempPi as any).agent?.state?.systemPrompt ?? "").length,
             });
           }
           // === Invia il task e attendi il completamento (sendUserMessage risolve a turno finito) ===
@@ -7040,7 +7066,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
             await pi.setModel(model);
             // === Fix 11: ripristinare system prompt minimale dopo setModel ===
             try {
-              pi.agent.state.systemPrompt = this.#buildSystemPrompt(sk, effectiveCwd, data.workingDirs, undefined, undefined);
+              quinkiSetSystemPrompt((pi as any).agent, this.#buildSystemPrompt(sk, effectiveCwd, data.workingDirs, undefined, undefined));
             } catch {}
             const actualModel = (() => { try { return pi.model?.id; } catch { return pendingModel; } })();
             this.logDebug("pending-model-applied", { sessionKey: sk, requested: pendingModel, actual: actualModel, accepted: actualModel === pendingModel });
@@ -7368,8 +7394,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
       if (pi.agent?.state) {
         const sessionMode = this.#entries.get(sk)?.mode || "plan";
         builtPrompt = this.#buildSystemPrompt(sk, effectiveCwd, data.workingDirs, sessionMode, undefined, undefined, data.taskClips);
-        pi.agent.state.systemPrompt = builtPrompt;
-        (pi as any)._baseSystemPrompt = builtPrompt;
+        quinkiSetSystemPrompt((pi as any).agent, builtPrompt);
       }
       this.logDebug("system-prompt-updated", { sessionKey: sk, promptLen: builtPrompt?.length || 0, hasSkills: builtPrompt?.includes("available_skills") || false, hasModeNote: builtPrompt?.includes("MODALITÀ") || false, hasAgentPrompt: (builtPrompt?.length || 0) > 100 });
     } catch (overrideErr) {
@@ -7394,8 +7419,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
       if (!skillNames) {
       }
       try { (pi as any)._customSystemPromptOverride = true; } catch {}
-      try { (pi as any)._baseSystemPrompt = prompt; } catch {}
-      pi.agent.state.systemPrompt = prompt;
+      quinkiSetSystemPrompt((pi as any).agent, prompt);
             // Log system prompt via logDebug (uses existing debug_log flow)
       // Include le definizioni COMPLETE dei tool attivi inviati al modello (canale tools),
       // customTool MCP inclusi — così il log mostra esattamente tutto ciò che arriva all'agente.

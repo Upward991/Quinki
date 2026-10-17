@@ -10,6 +10,7 @@ declare class SessionList implements Component, Focusable {
     private allSessions;
     private filteredSessions;
     private selectedIndex;
+    private selectionTouched;
     private searchInput;
     private showCwd;
     private sortMode;
@@ -46,7 +47,7 @@ declare class SessionList implements Component, Focusable {
     private buildTreePrefix;
     handleInput(keyData: string): void;
 }
-type SessionsLoader = (onProgress?: SessionListProgress) => Promise<SessionInfo[]>;
+type SessionsLoader = (onProgress?: SessionListProgress, signal?: AbortSignal) => Promise<SessionInfo[]>;
 /**
  * Component that renders a session selector
  */
@@ -65,9 +66,8 @@ export declare class SessionSelectorComponent extends Container implements Focus
     private allSessionsLoader;
     private requestRender;
     private renameSession?;
-    private currentLoading;
-    private allLoading;
-    private allLoadSeq;
+    private currentLoad;
+    private allLoad;
     private mode;
     private renameInput;
     private renameTargetPath;
@@ -80,7 +80,7 @@ export declare class SessionSelectorComponent extends Container implements Focus
         showRenameHint?: boolean;
         keybindings?: KeybindingsManager;
     }, currentSessionFilePath?: string);
-    private loadCurrentSessions;
+    private cancelLoads;
     private enterRenameMode;
     private exitRenameMode;
     private confirmRename;

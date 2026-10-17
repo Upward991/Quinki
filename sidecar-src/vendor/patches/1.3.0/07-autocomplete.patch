@@ -1,0 +1,29 @@
+--- a/dist/autocomplete.js	2026-10-17 13:47:03
++++ b/dist/autocomplete.js	2026-10-17 13:47:03
+@@ -241,7 +241,7 @@
+                     const fullDesc = hint ? (desc ? `${hint} — ${desc}` : hint) : desc;
+                     return {
+                         name,
+-                        label: name,
++                        label: "/" + name, // QUINKI PATCH (25 set): commands shown with the slash symbol
+                         description: fullDesc || undefined,
+                     };
+                 });
+@@ -316,7 +316,7 @@
+         if (prefix.startsWith("@")) {
+             // This is a file attachment completion
+             // Don't add space after directories so user can continue autocompleting
+-            const isDirectory = item.label.endsWith("/");
++            const isDirectory = String(item.label || item.value || "").endsWith("/"); // QUINKI PATCH: label may be missing
+             const suffix = isDirectory ? "" : " ";
+             const newLine = `${beforePrefix + item.value}${suffix}${adjustedAfterCursor}`;
+             const newLines = [...lines];
+@@ -336,7 +336,7 @@
+             const newLine = beforePrefix + item.value + adjustedAfterCursor;
+             const newLines = [...lines];
+             newLines[cursorLine] = newLine;
+-            const isDirectory = item.label.endsWith("/");
++            const isDirectory = String(item.label || item.value || "").endsWith("/"); // QUINKI PATCH: label may be missing
+             const hasTrailingQuote = item.value.endsWith('"');
+             const cursorOffset = isDirectory && hasTrailingQuote ? item.value.length - 1 : item.value.length;
+             return {

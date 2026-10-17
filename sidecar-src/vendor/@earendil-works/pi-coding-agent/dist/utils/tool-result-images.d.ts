@@ -1,8 +1,10 @@
-import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
+import type { ImageContent, ModelImageResizeOptions, TextContent } from "@earendil-works/pi-ai";
 export type ToolResultContent = TextContent | ImageContent;
 export interface NormalizeToolResultImagesOptions {
     /** Whether oversized images are resized to inline provider limits. Default: true */
     autoResizeImages?: boolean;
+    /** Model-specific resize profile. Uses the conservative built-in defaults when omitted. */
+    resizeOptions?: ModelImageResizeOptions;
 }
 /**
  * Normalize image blocks returned by tool results.

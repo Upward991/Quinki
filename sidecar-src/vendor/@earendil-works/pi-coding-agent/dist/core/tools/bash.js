@@ -1,19 +1,17 @@
 import { constants } from "node:fs";
 import { access as fsAccess } from "node:fs/promises";
-import { Container, Text, truncateToWidth } from "@earendil-works/pi-tui";
+import { constants as osConstants } from "node:os";
 import { spawn } from "child_process";
 import { Type } from "typebox";
-import { keyHint } from "../../modes/interactive/components/keybinding-hints.js";
-import { truncateToVisualLines } from "../../modes/interactive/components/visual-truncate.js";
-import { theme } from "../../modes/interactive/theme/theme.js";
 import { waitForChildProcess } from "../../utils/child-process.js";
 import { getShellConfig, getShellEnv, killProcessTree, trackDetachedChildPid, untrackDetachedChildPid, } from "../../utils/shell.js";
-import { getExperimentalToolSampling } from "../experimental.js";
 import { OutputAccumulator } from "./output-accumulator.js";
-import { getTextOutput, invalidArgText, str } from "./render-utils.js";
+import { BASH_UPDATE_THROTTLE_MS, createShellRenderers } from "./renderers/bash.js";
 import { wrapToolDefinition } from "./tool-definition-wrapper.js";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize } from "./truncate.js";
 const MAX_TIMEOUT_MS = 2_147_483_647;
+/** Output limit of `structuredContent.output`, which programmatic callers such as codemode scripts receive. */
+const STRUCTURED_OUTPUT_MAX_BYTES = 1024 * 1024;
 const MAX_TIMEOUT_SECONDS = MAX_TIMEOUT_MS / 1000;
 function resolveTimeoutMs(timeout) {
     if (timeout === undefined)
@@ -35,6 +33,17 @@ export const bashToolSystemPromptContribution = {
     snippet: "Execute bash commands (ls, grep, find, etc.)",
     guidelines: ["You can inspect PI_* environment variables for current model and session details."],
 };
+/**
+ * Result for programmatic callers such as codemode scripts. A non-zero exit code is an error result for the model, but scripts still resolve to this value.
+ * `output` is not limited like the model-facing output: callers decide how much of it reaches the model.
+ */
+const bashOutputSchema = Type.Object({
+    output: Type.String({ description: "Combined stdout and stderr, possibly truncated" }),
+    truncated: Type.Boolean(),
+    full_output_path: Type.Optional(Type.String({ description: "Full output, when truncated" })),
+    exit_code: Type.Number(),
+    wall_time_seconds: Type.Number(),
+});
 /** Shared process execution used by the built-in shell tools. */
 export function createLocalShellOperations(shellName, resolveShellConfig) {
     return {
@@ -98,7 +107,10 @@ export function createLocalShellOperations(shellName, resolveShellConfig) {
                 if (timedOut) {
                     throw new Error(`timeout:${timeout}`);
                 }
-                return { exitCode };
+                // A signal-killed shell has no exit code. Use the standard shell convention so
+                // callers do not mistake the termination for a successful command.
+                const signalCode = child.signalCode;
+                return { exitCode: exitCode ?? (signalCode ? 128 + (osConstants.signals[signalCode] ?? 0) : 1) };
             }
             finally {
                 if (child.pid)
@@ -143,90 +155,6 @@ function resolveSpawnContext(command, cwd, spawnHook, exposeSessionEnvironment, 
     const baseContext = { command, cwd, env };
     return spawnHook ? spawnHook(baseContext) : baseContext;
 }
-const BASH_PREVIEW_LINES = 5;
-const BASH_UPDATE_THROTTLE_MS = 100;
-class BashResultRenderComponent extends Container {
-    state = {
-        cachedWidth: undefined,
-        cachedLines: undefined,
-        cachedSkipped: undefined,
-    };
-}
-function formatDuration(ms) {
-    return `${(ms / 1000).toFixed(1)}s`;
-}
-function formatShellCall(args, prompt) {
-    const command = str(args?.command);
-    const timeout = args?.timeout;
-    const timeoutSuffix = timeout ? theme.fg("muted", ` (timeout ${timeout}s)`) : "";
-    const commandDisplay = command === null ? invalidArgText(theme) : command ? command : theme.fg("toolOutput", "...");
-    return theme.fg("toolTitle", theme.bold(`${prompt} ${commandDisplay}`)) + timeoutSuffix;
-}
-function rebuildBashResultRenderComponent(component, result, options, showImages, startedAt, endedAt) {
-    const state = component.state;
-    component.clear();
-    let output = getTextOutput(result, showImages).trim();
-    const truncation = result.details?.truncation;
-    const fullOutputPath = result.details?.fullOutputPath;
-    if (!options.isPartial && truncation?.truncated && fullOutputPath && output.endsWith("]")) {
-        const footerStart = output.lastIndexOf("\n\n[");
-        if (footerStart !== -1 && output.slice(footerStart).includes(fullOutputPath)) {
-            output = output.slice(0, footerStart).trimEnd();
-        }
-    }
-    if (output) {
-        const styledOutput = output
-            .split("\n")
-            .map((line) => theme.fg("toolOutput", line))
-            .join("\n");
-        if (options.expanded) {
-            component.addChild(new Text(`\n${styledOutput}`, 0, 0));
-        }
-        else {
-            component.addChild({
-                render: (width) => {
-                    if (state.cachedLines === undefined || state.cachedWidth !== width) {
-                        const preview = truncateToVisualLines(styledOutput, BASH_PREVIEW_LINES, width);
-                        state.cachedLines = preview.visualLines;
-                        state.cachedSkipped = preview.skippedCount;
-                        state.cachedWidth = width;
-                    }
-                    if (state.cachedSkipped && state.cachedSkipped > 0) {
-                        const hint = theme.fg("muted", `... (${state.cachedSkipped} earlier lines,`) +
-                            ` ${keyHint("app.tools.expand", "to expand")}${theme.fg("muted", ")")}`;
-                        return ["", truncateToWidth(hint, width, "..."), ...(state.cachedLines ?? [])];
-                    }
-                    return ["", ...(state.cachedLines ?? [])];
-                },
-                invalidate: () => {
-                    state.cachedWidth = undefined;
-                    state.cachedLines = undefined;
-                    state.cachedSkipped = undefined;
-                },
-            });
-        }
-    }
-    if (truncation?.truncated || fullOutputPath) {
-        const warnings = [];
-        if (fullOutputPath) {
-            warnings.push(`Full output: ${fullOutputPath}`);
-        }
-        if (truncation?.truncated) {
-            if (truncation.truncatedBy === "lines") {
-                warnings.push(`Truncated: showing ${truncation.outputLines} of ${truncation.totalLines} lines`);
-            }
-            else {
-                warnings.push(`Truncated: ${truncation.outputLines} lines shown (${formatSize(truncation.maxBytes ?? DEFAULT_MAX_BYTES)} limit)`);
-            }
-        }
-        component.addChild(new Text(`\n${theme.fg("warning", `[${warnings.join(". ")}]`)}`, 0, 0));
-    }
-    if (startedAt !== undefined) {
-        const label = options.isPartial ? "Elapsed" : "Took";
-        const endTime = endedAt ?? Date.now();
-        component.addChild(new Text(`\n${theme.fg("muted", `${label} ${formatDuration(endTime - startedAt)}`)}`, 0, 0));
-    }
-}
 export function createShellToolDefinition(cwd, config, options) {
     const ops = options?.operations ?? createLocalBashOperations({ shellPath: options?.shellPath });
     const commandPrefix = options?.commandPrefix;
@@ -239,10 +167,11 @@ export function createShellToolDefinition(cwd, config, options) {
         promptSnippet: config.promptSnippet,
         promptGuidelines: exposeSessionEnvironment && config.promptGuidelines ? [...config.promptGuidelines] : undefined,
         parameters: bashSchema,
-        constrainedSampling: getExperimentalToolSampling(),
+        outputSchema: bashOutputSchema,
+        constrainedSampling: { type: "json_schema", strict: "prefer" },
         async execute(_toolCallId, { command, timeout }, signal, onUpdate, ctx) {
             const resolvedCommand = commandPrefix ? `${commandPrefix}\n${command}` : command;
-            const spawnContext = resolveSpawnContext(resolvedCommand, cwd, spawnHook, exposeSessionEnvironment, ctx);
+            const spawnContext = resolveSpawnContext(resolvedCommand, ctx?.cwd || cwd, spawnHook, exposeSessionEnvironment, ctx);
             const output = new OutputAccumulator({ tempFilePrefix: config.tempFilePrefix });
             let acceptingOutput = true;
             let updateTimer;
@@ -323,6 +252,7 @@ export function createShellToolDefinition(cwd, config, options) {
                 return { text, details };
             };
             const appendStatus = (text, status) => `${text ? `${text}\n\n` : ""}${status}`;
+            const startedAt = performance.now();
             try {
                 let exitCode;
                 try {
@@ -348,42 +278,35 @@ export function createShellToolDefinition(cwd, config, options) {
                 }
                 const snapshot = await finishOutput();
                 const { text: outputText, details } = formatOutput(snapshot);
-                if (exitCode !== 0 && exitCode !== null) {
-                    throw new Error(appendStatus(outputText, `Command exited with code ${exitCode}`));
+                if (exitCode === null) {
+                    throw new Error(appendStatus(outputText, "Command terminated without an exit code"));
                 }
-                return { content: [{ type: "text", text: outputText }], details };
+                const wallTimeSeconds = Math.round((performance.now() - startedAt) / 100) / 10;
+                const fullOutput = await output.readFullOutput(STRUCTURED_OUTPUT_MAX_BYTES);
+                const structuredContent = {
+                    output: fullOutput.content,
+                    truncated: fullOutput.truncated,
+                    ...(fullOutput.truncated && snapshot.fullOutputPath
+                        ? { full_output_path: snapshot.fullOutputPath }
+                        : {}),
+                    exit_code: exitCode,
+                    wall_time_seconds: wallTimeSeconds,
+                };
+                if (exitCode !== 0) {
+                    return {
+                        content: [{ type: "text", text: appendStatus(outputText, `Command exited with code ${exitCode}`) }],
+                        details,
+                        structuredContent,
+                        isError: true,
+                    };
+                }
+                return { content: [{ type: "text", text: outputText }], details, structuredContent };
             }
             finally {
                 clearUpdateTimer();
             }
         },
-        renderCall(args, _theme, context) {
-            const state = context.state;
-            if (context.executionStarted && state.startedAt === undefined) {
-                state.startedAt = Date.now();
-                state.endedAt = undefined;
-            }
-            const text = context.lastComponent ?? new Text("", 0, 0);
-            text.setText(formatShellCall(args, config.prompt));
-            return text;
-        },
-        renderResult(result, options, _theme, context) {
-            const state = context.state;
-            if (state.startedAt !== undefined && options.isPartial && !state.interval) {
-                state.interval = setInterval(() => context.invalidate(), 1000);
-            }
-            if (!options.isPartial || context.isError) {
-                state.endedAt ??= Date.now();
-                if (state.interval) {
-                    clearInterval(state.interval);
-                    state.interval = undefined;
-                }
-            }
-            const component = context.lastComponent ?? new BashResultRenderComponent();
-            rebuildBashResultRenderComponent(component, result, options, context.showImages, state.startedAt, state.endedAt);
-            component.invalidate();
-            return component;
-        },
+        ...createShellRenderers(config.prompt),
     };
 }
 const bashToolConfig = {

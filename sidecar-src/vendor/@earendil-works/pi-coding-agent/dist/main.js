@@ -36,9 +36,11 @@ import { SettingsManager } from "./core/settings-manager.js";
 import { printTimings, resetTimings, time } from "./core/timings.js";
 import { hasTrustRequiringProjectResources, ProjectTrustStore } from "./core/trust-manager.js";
 import { builtInExtensions } from "./extensions/index.js";
+import { loadMcpCommand } from "./extensions/mcp/cli.lazy.js";
 import { runMigrations, showDeprecationWarnings } from "./migrations.js";
 import { InteractiveMode, runPrintMode, runRpcMode } from "./modes/index.js";
-import { initTheme, stopThemeWatcher } from "./modes/interactive/theme/theme.js";
+import { initTheme, setThemeJsonValidator, stopThemeWatcher } from "./modes/interactive/theme/theme.js";
+import { validateThemeJson } from "./modes/interactive/theme/theme-schema.js";
 import { cleanupManagedInstall, handleConfigCommand, handlePackageCommand } from "./package-manager-cli.js";
 import { isLocalPath, normalizePath, resolvePath } from "./utils/paths.js";
 import { cleanupWindowsSelfUpdateQuarantine } from "./utils/windows-self-update.js";
@@ -166,11 +168,12 @@ async function runAuthCommand(args) {
     }
     return true;
 }
-async function prepareInitialMessage(parsed, autoResizeImages, stdinContent) {
+async function prepareInitialMessage(parsed, stdinContent) {
     if (parsed.fileArgs.length === 0) {
         return buildInitialMessage({ parsed, stdinContent });
     }
-    const { text, images } = await processFileArguments(parsed.fileArgs, { autoResizeImages });
+    // AgentSession resizes these after extension hooks select the request model.
+    const { text, images } = await processFileArguments(parsed.fileArgs, { autoResizeImages: false });
     return buildInitialMessage({
         parsed,
         fileText: text,
@@ -182,19 +185,23 @@ async function prepareInitialMessage(parsed, autoResizeImages, stdinContent) {
  * Resolve a session argument to a file path.
  * If it looks like a path, use as-is. Otherwise try to match as session ID prefix.
  */
-async function findLocalSessionByExactId(sessionId, cwd, sessionDir) {
-    const localSessions = await SessionManager.list(cwd, sessionDir);
-    const localMatch = localSessions.find((s) => s.id === sessionId);
-    return localMatch ? { type: "local", path: localMatch.path } : undefined;
+function findLocalSessionByExactId(sessionId, cwd, sessionDir) {
+    const path = SessionManager.findById(cwd, sessionId, sessionDir);
+    return path ? { type: "local", path } : undefined;
 }
 async function resolveSessionPath(sessionArg, cwd, sessionDir) {
     // If it looks like a file path, resolve it before handing it to the session manager.
     if (sessionArg.includes("/") || sessionArg.includes("\\") || sessionArg.endsWith(".jsonl")) {
         return { type: "path", path: resolvePath(sessionArg, cwd) };
     }
-    // Try to match as session ID in current project first
+    // Exact IDs only require reading session headers. Fall back to the full
+    // metadata listing for prefix matches.
+    const exactLocalMatch = findLocalSessionByExactId(sessionArg, cwd, sessionDir);
+    if (exactLocalMatch) {
+        return exactLocalMatch;
+    }
     const localSessions = await SessionManager.list(cwd, sessionDir);
-    const localMatch = localSessions.find((s) => s.id === sessionArg) ?? localSessions.find((s) => s.id.startsWith(sessionArg));
+    const localMatch = localSessions.find((s) => s.id.startsWith(sessionArg));
     if (localMatch) {
         return { type: "local", path: localMatch.path };
     }
@@ -281,7 +288,7 @@ export async function createSessionManager(parsed, cwd, sessionDir, settingsMana
     }
     if (parsed.fork) {
         if (parsed.sessionId) {
-            const existingTarget = await findLocalSessionByExactId(parsed.sessionId, cwd, sessionDir);
+            const existingTarget = findLocalSessionByExactId(parsed.sessionId, cwd, sessionDir);
             if (existingTarget) {
                 console.error(chalk.red(`Session already exists with id '${parsed.sessionId}'`));
                 process.exit(1);
@@ -320,7 +327,7 @@ export async function createSessionManager(parsed, cwd, sessionDir, settingsMana
     }
     if (parsed.resume) {
         try {
-            const selectedPath = await selectSession((onProgress) => SessionManager.list(cwd, sessionDir, onProgress), (onProgress) => SessionManager.listAll(sessionDir, onProgress), settingsManager);
+            const selectedPath = await selectSession((onProgress, signal) => SessionManager.list(cwd, sessionDir, onProgress, signal), (onProgress, signal) => SessionManager.listAll(sessionDir, onProgress, signal), settingsManager);
             if (!selectedPath) {
                 console.log(chalk.dim("No session selected"));
                 process.exit(0);
@@ -335,7 +342,7 @@ export async function createSessionManager(parsed, cwd, sessionDir, settingsMana
         return SessionManager.continueRecent(cwd, sessionDir);
     }
     if (parsed.sessionId) {
-        const existingSession = await findLocalSessionByExactId(parsed.sessionId, cwd, sessionDir);
+        const existingSession = findLocalSessionByExactId(parsed.sessionId, cwd, sessionDir);
         if (existingSession) {
             return SessionManager.open(existingSession.path, sessionDir);
         }
@@ -350,11 +357,18 @@ function buildSessionOptions(parsed, scopedModels, hasExistingSession, modelRunt
     // Model from CLI
     // - supports --provider <name> --model <pattern>
     // - supports --model <provider>/<pattern>
+    if (parsed.provider && !parsed.model) {
+        diagnostics.push({
+            type: "error",
+            message: `--provider requires --model (for example: --provider ${parsed.provider} --model <pattern>)`,
+        });
+    }
     if (parsed.model) {
         const resolved = resolveCliModel({
             cliProvider: parsed.provider,
             cliModel: parsed.model,
             cliThinking: parsed.thinking,
+            inlineApiKey: Boolean(parsed.apiKey),
             modelRuntime,
         });
         if (resolved.warning) {
@@ -435,6 +449,8 @@ async function promptForMissingSessionCwd(issue, settingsManager) {
 }
 export async function main(args, options) {
     resetTimings();
+    // Commands and startup selectors can load user-authored themes before runtime creation.
+    setThemeJsonValidator(validateThemeJson);
     const extensionFactories = [...builtInExtensions, ...(options?.extensionFactories ?? [])];
     const offlineMode = args.includes("--offline") || isTruthyEnvFlag(process.env.PI_OFFLINE);
     if (offlineMode) {
@@ -466,6 +482,11 @@ export async function main(args, options) {
         return;
     }
     if (await handleConfigCommand(args, { extensionFactories })) {
+        return;
+    }
+    if (args[0] === "mcp") {
+        const { runMcpCommand } = await loadMcpCommand();
+        process.exitCode = await runMcpCommand(args.slice(1), { cwd, agentDir });
         return;
     }
     const parsed = parseArgs(args);
@@ -613,6 +634,7 @@ export async function main(args, options) {
                 additionalPromptTemplatePaths: resolvedPromptTemplatePaths,
                 additionalThemePaths: resolvedThemePaths,
                 noExtensions: parsed.noExtensions,
+                disabledBuiltinExtensions: parsed.noMcp ? ["mcp"] : undefined,
                 noSkills: parsed.noSkills,
                 noPromptTemplates: parsed.noPromptTemplates,
                 noThemes: parsed.noThemes,
@@ -630,6 +652,10 @@ export async function main(args, options) {
             ...resourceLoader.getExtensions().errors.map(({ path, error }) => ({
                 type: "error",
                 message: `Failed to load extension "${path}": ${error}`,
+            })),
+            ...(resourceLoader.getExtensions().warnings ?? []).map(({ path, warning }) => ({
+                type: "warning",
+                message: `Extension package "${path}": ${warning}`,
             })),
         ];
         const modelPatterns = parsed.models ?? settingsManager.getEnabledModels();
@@ -706,7 +732,7 @@ export async function main(args, options) {
         }
     }
     time("readPipedStdin");
-    const { initialMessage, initialImages } = await prepareInitialMessage(parsed, settingsManager.getImageAutoResize(), stdinContent);
+    const { initialMessage, initialImages } = await prepareInitialMessage(parsed, stdinContent);
     time("prepareInitialMessage");
     initTheme(settingsManager.getTheme(), appMode === "interactive");
     time("initTheme");

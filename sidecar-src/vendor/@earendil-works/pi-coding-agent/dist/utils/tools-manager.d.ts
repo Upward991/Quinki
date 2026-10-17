@@ -1,4 +1,5 @@
 export declare function getToolPath(tool: "fd" | "rg"): string | null;
+export declare function getLatestVersion(repo: string): Promise<string>;
 export interface ToolStatus {
     type: "info" | "warning";
     message: string;

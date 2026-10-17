@@ -1,3 +1,4 @@
+import { type ProgramStatus } from "./program-status.ts";
 export type KeyboardProtocolNegotiationSequence = {
     type: "kitty-flags";
     flags: number;
@@ -6,6 +7,12 @@ export type KeyboardProtocolNegotiationSequence = {
 };
 export declare function parseKeyboardProtocolNegotiationSequence(sequence: string): KeyboardProtocolNegotiationSequence | undefined;
 export declare function isAppleTerminalSession(): boolean;
+/**
+ * Refresh terminal dimensions on POSIX platforms by sending SIGWINCH to this process.
+ * Best-effort: some environments (restricted seccomp or LSM policies) return EACCES
+ * for `kill(2)`; in that case the dimensions refresh is skipped rather than crashing.
+ */
+export declare function refreshTerminalDimensions(): void;
 export declare function normalizeNativeShiftEnterInput(data: string, shouldDetectNativeShiftEnter: boolean, isShiftPressed: boolean): string;
 export declare function normalizeAppleTerminalInput(data: string, isAppleTerminal: boolean, isShiftPressed: boolean): string;
 /**
@@ -33,6 +40,11 @@ export interface Terminal {
     clearScreen(): void;
     setTitle(title: string): void;
     setProgress(active: boolean): void;
+    /**
+     * Report what the program is doing (OSC 7501). Sent only to terminals that support it; the latest
+     * status is re-sent when support is confirmed or the terminal restarts.
+     */
+    setProgramStatus(status: ProgramStatus): void;
 }
 /**
  * Resolve how long to wait for the rest of an escape sequence before
@@ -50,11 +62,19 @@ export declare class ProcessTerminal implements Terminal {
     private _kittyProtocolActive;
     private _modifyOtherKeysActive;
     private keyboardProtocolPushed;
+    /** DA1 replies owed to keyboard protocol queries. Later DA1 replies answer other queries and are forwarded. */
+    private pendingKeyboardProtocolDeviceAttributes;
     private keyboardProtocolNegotiationBuffer;
     private keyboardProtocolBufferFlushTimer?;
     private stdinBuffer?;
     private stdinDataHandler?;
     private progressInterval?;
+    /** Latest program status, kept across stop() so start() can report it again. */
+    private programStatus?;
+    /** Whether the terminal confirmed OSC 7501 support since the last start(), or `PI_PROGRAM_STATUS=1`. */
+    private programStatusSupported;
+    /** The support query was sent and its DA1 sentinel has not arrived yet. */
+    private programStatusQueryPending;
     private writeLogPath;
     get kittyProtocolActive(): boolean;
     get modifyOtherKeysActive(): boolean;
@@ -80,9 +100,13 @@ export declare class ProcessTerminal implements Terminal {
      * - 1 = disambiguate escape codes
      * - 2 = report event types (press/repeat/release)
      * - 4 = report alternate keys (shifted key, base layout key)
+     *
+     * The OSC 7501 program status query shares the DA sentinel: a terminal that supports it replies
+     * before DA. `PI_PROGRAM_STATUS=1` or `0` skips the query.
      */
     private queryAndEnableKittyProtocol;
     private handleKeyboardProtocolNegotiationSequence;
+    /** Returns the parsed negotiation reply with its full (possibly reassembled) sequence. */
     private readKeyboardProtocolNegotiationSequence;
     private setKeyboardProtocolNegotiationBuffer;
     private clearKeyboardProtocolNegotiationBuffer;
@@ -111,6 +135,8 @@ export declare class ProcessTerminal implements Terminal {
     clearFromCursor(): void;
     clearScreen(): void;
     setTitle(title: string): void;
+    setProgramStatus(status: ProgramStatus): void;
+    private writeProgramStatus;
     setProgress(active: boolean): void;
     private clearProgressInterval;
 }

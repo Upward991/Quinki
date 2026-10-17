@@ -1,0 +1,264 @@
+--- a/dist/components/editor.js	2026-10-17 13:47:03
++++ b/dist/components/editor.js	2026-10-17 13:47:03
+@@ -393,7 +393,10 @@
+     render(width) {
+         const maxPadding = Math.max(0, Math.floor((width - 1) / 2));
+         const paddingX = Math.min(this.paddingX, maxPadding);
+-        const contentWidth = Math.max(1, width - paddingX * 2);
++        // QUINKI PATCH (25 set): thin colored edges (left: mode color, right: accent) — rows are width-2.
++        const qEdge = () => (typeof this.edgeFn === "function" ? String(this.edgeFn() ?? "") : "");
++        const qEdgeR = () => (typeof this.edgeRightFn === "function" ? String(this.edgeRightFn() ?? "") : "");
++        const contentWidth = Math.max(1, width - 2 - paddingX * 2);
+         // Layout width: with padding the cursor can overflow into it,
+         // without padding we reserve 1 column for the cursor.
+         const layoutWidth = Math.max(1, contentWidth - (paddingX ? 0 : 1));
+@@ -401,9 +404,15 @@
+         this.lastWidth = layoutWidth;
+         // Layout the text
+         const layoutLines = this.layoutText(layoutWidth);
++        // QUINKI PATCH (25 set): placeholder support (app's "Write a message...").
++        const isEmptyText = this.state.lines.length === 1 && (this.state.lines[0] || "").length === 0;
+         // Calculate max visible lines: 30% of terminal height, minimum 5 lines
+         const terminalRows = this.tui.terminal.rows;
+-        const maxVisibleLines = Math.max(5, Math.floor(terminalRows * 0.3));
++        // QUINKI PATCH (6 ott, T535): the prompt editor can fill the WHOLE screen
++        // (maxVisibleLines = 30% otherwise, which made the modal scroll at mid-screen).
++        const maxVisibleLines = this.qFullHeight
++            ? Math.max(5, terminalRows - 6) // T541: exactly 1 row margin top + 1 bottom in the full-screen modal
++            : Math.max(5, Math.floor(terminalRows * 0.3));
+         // Find the cursor line index in layoutLines
+         let cursorLineIndex = layoutLines.findIndex((line) => line.hasCursor);
+         if (cursorLineIndex === -1)
+@@ -420,12 +429,30 @@
+         this.scrollOffset = Math.max(0, Math.min(this.scrollOffset, maxScrollOffset));
+         // Get visible lines slice
+         const visibleLines = layoutLines.slice(this.scrollOffset, this.scrollOffset + maxVisibleLines);
++        // QUINKI PATCH (6 ott, T536): with qFullHeight the box must be EXACTLY maxVisibleLines
++        // tall (pad with blank rows): the prompt modal fills the whole screen even with few lines.
++        if (this.qFullHeight) {
++            while (visibleLines.length < maxVisibleLines) {
++                visibleLines.push({ text: "", hasCursor: false });
++            }
++        }
+         this.renderedVisibleLineCount = visibleLines.length;
+         const result = [];
+         const leftPadding = " ".repeat(paddingX);
+         const rightPadding = leftPadding;
+-        // Render top border (with scroll indicator if scrolled down)
+-        result.push(this.renderTopBorder(width, this.scrollOffset));
++        // QUINKI PATCH (25 set, iter6): floating-panel block - NO borders, full-width background.
++        const qPaint = (raw) => {
++            const s = String(raw).replace(/\x1b\[0m/g, "\x1b[22m\x1b[23m\x1b[24m\x1b[27m\x1b[39m");
++            return typeof this.bgFn === "function" ? this.bgFn(s) : s;
++        };
++        // QUINKI PATCH (1 ott, T325): chips row (armed skills / attachments) INSIDE the box.
++        try {
++            if (typeof this.qChipsFn === "function") {
++                const qc = String(this.qChipsFn(width - 2) ?? "");
++                if (qc) result.push(qEdge() + qPaint(qc) + qEdgeR());
++            }
++        } catch {}
++        result.push(qEdge() + qPaint(" ".repeat(width - 2)) + qEdgeR());
+         // Render each visible layout line
+         // Emit hardware cursor marker when focused so TUI can position the
+         // hardware cursor for IME candidate-window placement even while
+@@ -433,6 +460,12 @@
+         const emitCursorMarker = this.focused;
+         for (const layoutLine of visibleLines) {
+             let displayText = layoutLine.text;
++            // QUINKI (T351): token chars (U+E000..) render as colored chips.
++            try {
++                if (this.qTokenRender && /[\uE000-\uE0FF]/.test(displayText)) {
++                    displayText = displayText.replace(/[\uE000-\uE0FF]/g, (c) => String(this.qTokenRender(c) ?? c));
++                }
++            } catch {}
+             let lineVisibleWidth = visibleWidth(layoutLine.text);
+             let cursorInPadding = false;
+             // Add cursor if this line has it
+@@ -465,12 +498,54 @@
+             // Calculate padding based on actual visible width
+             const padding = " ".repeat(Math.max(0, contentWidth - lineVisibleWidth));
+             const lineRightPadding = cursorInPadding ? rightPadding.slice(1) : rightPadding;
+-            // Render the line (no side borders, just horizontal lines above and below)
+-            result.push(`${leftPadding}${displayText}${padding}${lineRightPadding}`);
++            // QUINKI PATCH (25 set): placeholder when the editor is empty.
++            if (isEmptyText && layoutLine === visibleLines[0] && !this.qNoPlaceholder) {
++                displayText = `${emitCursorMarker ? CURSOR_MARKER : ""}\x1b[7m \x1b[0m\x1b[38;2;88;88;96mWrite a message...\x1b[39m`;
++                lineVisibleWidth = 1 + 18;
++            }
++            // QUINKI PATCH (25 set, iter6): painted full-width line (edges both sides).
++            try {
++                if (this.qTokenStyle) {
++                    const reS = (typeof this.qChipRe === "function" ? this.qChipRe() : /Skill:\s*[\w.-]+|\u25b8[^\s\u25b8]+/g);
++                    const styled = displayText.replace(reS, (m2) => String(this.qTokenStyle(m2) ?? m2));
++                    result.push(qEdge() + qPaint(`${leftPadding}${styled}${padding}${lineRightPadding}`) + qEdgeR());
++                } else {
++                    result.push(qEdge() + qPaint(`${leftPadding}${displayText}${padding}${lineRightPadding}`) + qEdgeR());
++                }
++            } catch (e) {
++                result.push(qEdge() + qPaint(`${leftPadding}${displayText}${padding}${lineRightPadding}`) + qEdgeR());
++            }
+         }
+-        // Render bottom border (with scroll indicator if more content below)
+-        const linesBelow = layoutLines.length - (this.scrollOffset + visibleLines.length);
+-        result.push(this.renderBottomBorder(width, linesBelow));
++        // QUINKI PATCH (25 set, iter6): breathing line + footer row + bottom padding, all painted.
++        result.push(qEdge() + qPaint(" ".repeat(width - 2)) + qEdgeR());
++        if (typeof this.footerLine === "function") {
++            try {
++                const fl = String(this.footerLine(contentWidth) ?? "");
++                const flw = visibleWidth(fl);
++                const flPad = " ".repeat(Math.max(0, contentWidth - flw));
++                result.push(qEdge() + qPaint(`${leftPadding}${fl}${flPad}${rightPadding}`) + qEdgeR());
++            } catch { }
++        }
++        result.push(qEdge() + qPaint(" ".repeat(width - 2)) + qEdgeR());
++        // QUINKI PATCH (25 set): OUR slash menu panel (driven by menuLinesFn) - above the box.
++        if (typeof this.menuLinesFn === "function") {
++            try {
++                const rows = this.menuLinesFn(contentWidth);
++                if (Array.isArray(rows) && rows.length > 0) {
++                    const acPadRow = " " + qPaint(" ".repeat(width - 2)) + " ";
++                    const acLines = [acPadRow];
++                    try { this.qMenuRendering = true; } catch { }
++                    for (const line of rows) {
++                        const lws = visibleWidth(line);
++                        const lp = " ".repeat(Math.max(0, contentWidth - lws));
++                        acLines.push(" " + qPaint(`${leftPadding}${line}${lp}${rightPadding}`) + " ");
++                    }
++                    try { this.qMenuRendering = false; } catch { }
++                    acLines.push(acPadRow);
++                    result.unshift(...acLines, "");
++                }
++            } catch { }
++        }
+         // Add autocomplete list if active
+         this.renderedAutocompleteHeight = 0;
+         if (this.autocompleteState && this.autocompleteList) {
+@@ -613,6 +688,8 @@
+                 if (selected && this.autocompleteProvider) {
+                     this.pushUndoSnapshot();
+                     this.lastAction = null;
++                    // QUINKI PATCH (25 set): recompute the prefix fresh (stale-prefix race).
++                    this.autocompletePrefix = this.qFreshPrefix();
+                     const result = this.autocompleteProvider.applyCompletion(this.state.lines, this.state.cursorLine, this.state.cursorCol, selected, this.autocompletePrefix);
+                     this.state.lines = result.lines;
+                     this.state.cursorLine = result.cursorLine;
+@@ -628,13 +705,21 @@
+                 if (selected && this.autocompleteProvider) {
+                     this.pushUndoSnapshot();
+                     this.lastAction = null;
++                    // QUINKI PATCH (25 set): recompute the prefix fresh (stale-prefix race).
++                    this.autocompletePrefix = this.qFreshPrefix();
+                     const result = this.autocompleteProvider.applyCompletion(this.state.lines, this.state.cursorLine, this.state.cursorCol, selected, this.autocompletePrefix);
+                     this.state.lines = result.lines;
+                     this.state.cursorLine = result.cursorLine;
+                     this.setCursorCol(result.cursorCol);
+                     if (this.autocompletePrefix.startsWith("/")) {
++                        // QUINKI PATCH (25 set): selecting a slash command does NOT submit —
++                        // re-open the menu for the command's options (app-style submenu).
++                        // Commands without options just close the menu; Enter again runs them.
+                         this.cancelAutocomplete();
+-                        // Fall through to submit
++                        if (this.onChange)
++                            this.onChange(this.getText());
++                        this.tryTriggerAutocomplete();
++                        return;
+                     }
+                     else {
+                         this.cancelAutocomplete();
+@@ -668,10 +753,15 @@
+             return;
+         }
+         if (kb.matches(data, "tui.editor.deleteCharBackward") || matchesKey(data, "shift+backspace")) {
++            // QUINKI PATCH (T343): atomic chips — if the app says the cursor is on a
++            // token ("\u25b8name"), delete the WHOLE token (one keypress).
++            try { if (typeof this.qAtomicDelete === "function" && this.qAtomicDelete() === true) return; } catch {}
+             this.handleBackspace();
+             return;
+         }
+         if (kb.matches(data, "tui.editor.deleteCharForward") || matchesKey(data, "shift+delete")) {
++            // QUINKI (T431): the FORWARD delete on a chip deletes the WHOLE chip too.
++            try { if (typeof this.qAtomicDelete === "function" && this.qAtomicDelete(true) === true) return; } catch { }
+             this.handleForwardDelete();
+             return;
+         }
+@@ -744,16 +834,24 @@
+         }
+         // Arrow key navigation (with history support)
+         if (kb.matches(data, "tui.editor.cursorUp")) {
++            // QUINKI (T445): the history must NEVER fire because the cursor happens to
++            // rest at column 0 (e.g. the auto-space cell before a chip): ↑ near a clip
++            // swaps the whole box for an old message — absurd. Only an EMPTY box (or an
++            // already-browsing history) starts the history; otherwise ↑ just moves.
+             if (this.isOnFirstVisualLine() &&
+-                (this.isEditorEmpty() || this.historyIndex > -1 || this.state.cursorCol === 0)) {
++                (this.isEditorEmpty() || this.historyIndex > -1)) {
+                 this.navigateHistory(-1);
+             }
+             else if (this.isOnFirstVisualLine()) {
+-                // Already at top - jump to start of line
++                // QUINKI (T446): at the top edge behave like the LEFT arrow near a
++                // chip (cross to its left side); otherwise jump to line start.
++                try { if (typeof this.qUpDownHop === "function" && this.qUpDownHop("up") === true) return; } catch { }
+                 this.moveToLineStart();
+             }
+             else {
+                 this.moveCursor(-1, 0);
++                // QUINKI (T444): never rest inside a chip — same recipe as left/right.
++                try { if (typeof this.qSnapOutOfChip === "function") this.qSnapOutOfChip(); } catch { }
+             }
+             return;
+         }
+@@ -762,11 +860,15 @@
+                 this.navigateHistory(1);
+             }
+             else if (this.isOnLastVisualLine()) {
+-                // Already at bottom - jump to end of line
++                // QUINKI (T446): at the bottom edge behave like the RIGHT arrow near
++                // a chip (cross to its right side); otherwise jump to line end.
++                try { if (typeof this.qUpDownHop === "function" && this.qUpDownHop("down") === true) return; } catch { }
+                 this.moveToLineEnd();
+             }
+             else {
+                 this.moveCursor(1, 0);
++                // QUINKI (T444): never rest inside a chip — same recipe as left/right.
++                try { if (typeof this.qSnapOutOfChip === "function") this.qSnapOutOfChip(); } catch { }
+             }
+             return;
+         }
+@@ -1147,8 +1249,15 @@
+         this.lastAction = null;
+         if (this.onChange)
+             this.onChange("");
+-        if (this.onSubmit)
+-            this.onSubmit(result);
++        if (this.onSubmit) {
++            // QUINKI (T355): an exception in onSubmit must NEVER freeze the TUI.
++            try {
++                this.onSubmit(result);
++            } catch (err) {
++                // QUINKI (T355): un'eccezione in onSubmit non deve MAI bloccare la TUI.
++                // (niente log in /tmp: regola utente — nessun file nostro fuori casa)
++            }
++        }
+     }
+     handleBackspace() {
+         this.exitHistoryBrowsing();
+@@ -1892,6 +2001,16 @@
+     tryTriggerAutocomplete(explicitTab = false) {
+         this.requestAutocomplete({ force: false, explicitTab });
+     }
++    /** QUINKI PATCH (25 set): fresh autocomplete prefix from the current line
++     *  (the tracked this.autocompletePrefix can lag behind async requests). */
++    qFreshPrefix() {
++        const cur = (this.state.lines[this.state.cursorLine] || "").slice(0, this.state.cursorCol);
++        if (cur.startsWith("/")) {
++            const sp = cur.indexOf(" ");
++            return sp === -1 ? cur : cur.slice(sp + 1);
++        }
++        return this.autocompletePrefix;
++    }
+     handleTabCompletion() {
+         if (!this.autocompleteProvider)
+             return;

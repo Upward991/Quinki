@@ -14,6 +14,7 @@ export declare class FooterComponent implements Component {
     private autoCompactEnabled;
     private session;
     private footerData;
+    private sessionStats?;
     constructor(session: AgentSession, footerData: ReadonlyFooterDataProvider);
     setSession(session: AgentSession): void;
     setAutoCompactEnabled(enabled: boolean): void;
@@ -27,6 +28,12 @@ export declare class FooterComponent implements Component {
      * Git watcher cleanup now handled by provider.
      */
     dispose(): void;
+    /**
+     * Usage totals and context usage scan the whole session, and the footer renders on every frame.
+     * Entries are append-only and every append moves the leaf, so the results only change with the
+     * session, leaf, entry count, or the model whose context window applies.
+     */
+    private getSessionStats;
     render(width: number): string[];
 }
 //# sourceMappingURL=footer.d.ts.map

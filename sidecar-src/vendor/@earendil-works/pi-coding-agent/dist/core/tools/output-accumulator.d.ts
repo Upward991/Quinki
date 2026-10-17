@@ -9,6 +9,11 @@ export interface OutputSnapshot {
     truncation: TruncationResult;
     fullOutputPath?: string;
 }
+export interface FullOutput {
+    content: string;
+    /** Whether `content` omits part of the output. */
+    truncated: boolean;
+}
 /**
  * Incrementally tracks streaming output with bounded memory.
  *
@@ -42,6 +47,12 @@ export declare class OutputAccumulator {
         persistIfTruncated?: boolean;
     }): OutputSnapshot;
     closeTempFile(): Promise<void>;
+    /**
+     * The complete output, for callers that can take more than the display snapshot. Call after
+     * `finish()` and `closeTempFile()`. Output longer than `maxBytes` raw bytes keeps its first and
+     * last `maxBytes / 2` bytes around an omission marker.
+     */
+    readFullOutput(maxBytes: number): Promise<FullOutput>;
     getLastLineBytes(): number;
     private appendDecodedText;
     private trimTail;

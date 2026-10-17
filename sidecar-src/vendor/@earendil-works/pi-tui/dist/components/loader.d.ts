@@ -24,8 +24,10 @@ export declare class Loader extends Text {
     start(): void;
     stop(): void;
     setMessage(message: string): void;
+    invalidate(): void;
     setIndicator(indicator?: LoaderIndicatorOptions): void;
     private restartAnimation;
+    protected getRenderedIndicator(): string;
     private updateDisplay;
 }
 //# sourceMappingURL=loader.d.ts.map

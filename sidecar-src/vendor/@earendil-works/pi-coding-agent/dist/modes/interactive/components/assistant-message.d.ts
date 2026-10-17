@@ -14,6 +14,7 @@ export declare class AssistantMessageComponent extends Container {
     private lastMessage?;
     private hasToolCalls;
     private isStreaming;
+    private thinkingVisibilityOverrides;
     constructor(message?: AssistantMessage, hideThinkingBlock?: boolean, markdownTheme?: MarkdownTheme, hiddenThinkingLabel?: string, outputPad?: number, markdownTransformers?: readonly MarkdownTransformer[]);
     invalidate(): void;
     setHideThinkingBlock(hide: boolean): void;

@@ -3,19 +3,7 @@
  * The server manages auth and proxies requests to LLM providers.
  */
 // Internal import for JSON parsing utility
-import { EventStream, parseStreamingJson, } from "@earendil-works/pi-ai";
-// Create stream class matching ProxyMessageEventStream
-class ProxyMessageEventStream extends EventStream {
-    constructor() {
-        super((event) => event.type === "done" || event.type === "error", (event) => {
-            if (event.type === "done")
-                return event.message;
-            if (event.type === "error")
-                return event.error;
-            throw new Error("Unexpected event type");
-        });
-    }
-}
+import { createAssistantMessageEventStream, parseStreamingJson, } from "@earendil-works/pi-ai";
 /**
  * Stream function that proxies through a server instead of calling LLM providers directly.
  * The server strips the partial field from delta events to reduce bandwidth.
@@ -51,7 +39,7 @@ function buildProxyRequestOptions(options) {
     };
 }
 export function streamProxy(model, context, options) {
-    const stream = new ProxyMessageEventStream();
+    const stream = createAssistantMessageEventStream();
     (async () => {
         // Initialize the partial message that we'll build up from events
         const partial = {
@@ -110,6 +98,21 @@ export function streamProxy(model, context, options) {
             reader = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = "";
+            let sawTerminalEvent = false;
+            const processLine = (line) => {
+                if (!line.startsWith("data: "))
+                    return;
+                const data = line.slice(6).trim();
+                if (!data)
+                    return;
+                const proxyEvent = JSON.parse(data);
+                const event = processProxyEvent(proxyEvent, partial);
+                if (event) {
+                    if (event.type === "done" || event.type === "error")
+                        sawTerminalEvent = true;
+                    stream.push(event);
+                }
+            };
             while (true) {
                 const { done, value } = await reader.read();
                 if (done)
@@ -121,20 +124,29 @@ export function streamProxy(model, context, options) {
                 const lines = buffer.split("\n");
                 buffer = lines.pop() || "";
                 for (const line of lines) {
-                    if (line.startsWith("data: ")) {
-                        const data = line.slice(6).trim();
-                        if (data) {
-                            const proxyEvent = JSON.parse(data);
-                            const event = processProxyEvent(proxyEvent, partial);
-                            if (event) {
-                                stream.push(event);
-                            }
-                        }
-                    }
+                    processLine(line);
                 }
             }
             if (options.signal?.aborted) {
                 throw new Error("Request aborted by user");
+            }
+            // The final event may not be newline-terminated; flush the decoder and
+            // process whatever is left in the buffer.
+            buffer += decoder.decode();
+            if (buffer) {
+                processLine(buffer);
+            }
+            if (!sawTerminalEvent) {
+                // A clean EOF without a done/error event means the server dropped the
+                // response mid-stream. Surface it as an error instead of leaving
+                // consumers waiting on a result that never arrives.
+                partial.stopReason = "error";
+                partial.errorMessage = "Connection closed by proxy server before the response completed";
+                stream.push({
+                    type: "error",
+                    reason: "error",
+                    error: partial,
+                });
             }
             stream.end();
         }
@@ -264,11 +276,17 @@ function processProxyEvent(proxyEvent, partial) {
         case "done":
             partial.stopReason = proxyEvent.reason;
             partial.usage = proxyEvent.usage;
+            if (proxyEvent.providerThinkingLevel !== undefined) {
+                partial.providerThinkingLevel = proxyEvent.providerThinkingLevel;
+            }
             return { type: "done", reason: proxyEvent.reason, message: partial };
         case "error":
             partial.stopReason = proxyEvent.reason;
             partial.errorMessage = proxyEvent.errorMessage;
             partial.usage = proxyEvent.usage;
+            if (proxyEvent.providerThinkingLevel !== undefined) {
+                partial.providerThinkingLevel = proxyEvent.providerThinkingLevel;
+            }
             return { type: "error", reason: proxyEvent.reason, error: partial };
         default: {
             const _exhaustiveCheck = proxyEvent;

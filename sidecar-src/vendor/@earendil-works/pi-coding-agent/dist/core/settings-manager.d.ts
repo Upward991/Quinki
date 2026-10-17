@@ -1,124 +1,25 @@
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
-import type { Transport } from "@earendil-works/pi-ai";
-import type { TuiMode as RendererTuiMode, ScrollViewScrollbar, TerminalCapabilities } from "@earendil-works/pi-tui";
-export interface CompactionSettings {
-    enabled?: boolean;
-    reserveTokens?: number;
-    keepRecentTokens?: number;
-}
-export interface BranchSummarySettings {
-    reserveTokens?: number;
-    skipPrompt?: boolean;
-}
-export interface ProviderRetrySettings {
-    timeoutMs?: number;
-    maxRetries?: number;
-    maxRetryDelayMs?: number;
-}
-export interface RetrySettings {
-    enabled?: boolean;
-    maxRetries?: number;
-    baseDelayMs?: number;
-    provider?: ProviderRetrySettings;
-}
-export type TuiMode = RendererTuiMode;
-export type FullscreenExitOutput = "transcript" | "resume-hint";
-export interface TerminalSettings {
-    showImages?: boolean;
-    imageWidthCells?: number;
-    clearOnShrink?: boolean;
-    showTerminalProgress?: boolean;
-    hyperlinks?: boolean | "auto";
-    images?: "kitty" | "iterm2" | "auto" | false;
-    trueColor?: boolean | "auto";
-}
-export interface ImageSettings {
-    autoResize?: boolean;
-    blockImages?: boolean;
-}
-export interface ThinkingBudgetsSettings {
-    minimal?: number;
-    low?: number;
-    medium?: number;
-    high?: number;
-}
-export type MermaidRenderingMode = "off" | "final" | "streaming";
-export interface MarkdownSettings {
-    codeBlockIndent?: string;
-    mermaid?: MermaidRenderingMode;
-}
-export interface WarningSettings {
-    anthropicExtraUsage?: boolean;
-}
-export type DefaultProjectTrust = "ask" | "always" | "never";
-export type TransportSetting = Transport;
+import type { Model } from "@earendil-works/pi-ai";
+import type { ScrollViewScrollbar, TerminalCapabilities, WheelScrollLines } from "@earendil-works/pi-tui";
+import type { CacheWarmingMode, DefaultProjectTrust, FullscreenExitOutput, MermaidRenderingMode, PackageSource, QuietStartup, SessionShareDestination, Settings, ThinkingBudgetsSettings, TransportSetting, TuiMode, WarningSettings } from "./settings-schema.ts";
+export type { BranchSummarySettings, CacheWarmingMode, CodemodeMode, CodemodeSettings, CompactionModelOverride, CompactionSettings, DefaultProjectTrust, FullscreenExitOutput, ImageSettings, MarkdownSettings, MermaidRenderingMode, PackageSource, ProviderRetrySettings, QuietStartup, RetrySettings, SessionShareDestination, Settings, TerminalSettings, ThinkingBudgetsSettings, TransportSetting, TuiMode, WarningSettings, } from "./settings-schema.ts";
+/** Cache-warming profile. "idle" also warms between agent runs. */
+export declare const CACHE_WARMING_MODES: readonly ["off", "streaming", "idle"];
+/** Tools enabled at startup when `defaultTools` does not change them. */
+export declare const DEFAULT_TOOL_NAMES: readonly string[];
+/** Whether a tool selection entry is a `+name` or `-name` modifier. */
+export declare function isToolModifier(entry: unknown): boolean;
 /**
- * Package source for npm/git packages.
- * - String form: load all resources from the package
- * - Object form: filter which resources to load
- * - autoload=false: start empty and only apply explicit resource patterns
+ * Validate a tool list from `--tools` or the SDK `tools` option. It is either an allowlist of plain
+ * names and patterns or a list of only `+name`/`-name` entries with exact names. Returns the
+ * problem, or undefined when the list is valid.
  */
-export type PackageSource = string | {
-    source: string;
-    autoload?: boolean;
-    extensions?: string[];
-    skills?: string[];
-    prompts?: string[];
-    themes?: string[];
-};
-export interface Settings {
-    lastChangelogVersion?: string;
-    defaultProvider?: string;
-    defaultModel?: string;
-    defaultThinkingLevel?: ThinkingLevel;
-    modelThinkingLevels?: Record<string, ThinkingLevel>;
-    transport?: TransportSetting;
-    steeringMode?: "all" | "one-at-a-time";
-    followUpMode?: "all" | "one-at-a-time";
-    theme?: string;
-    compaction?: CompactionSettings;
-    branchSummary?: BranchSummarySettings;
-    retry?: RetrySettings;
-    hideThinkingBlock?: boolean;
-    showCacheMissNotices?: boolean;
-    externalEditor?: string;
-    shellPath?: string;
-    quietStartup?: boolean;
-    defaultProjectTrust?: DefaultProjectTrust;
-    shellCommandPrefix?: string;
-    npmCommand?: string[];
-    collapseChangelog?: boolean;
-    enableInstallTelemetry?: boolean;
-    enableAnalytics?: boolean;
-    trackingId?: string;
-    packages?: PackageSource[];
-    extensions?: string[];
-    skills?: string[];
-    prompts?: string[];
-    themes?: string[];
-    enableSkillCommands?: boolean;
-    terminal?: TerminalSettings;
-    images?: ImageSettings;
-    enabledModels?: string[];
-    defaultTools?: string[];
-    doubleEscapeAction?: "fork" | "tree" | "none";
-    treeFilterMode?: "default" | "no-tools" | "user-only" | "labeled-only" | "all";
-    thinkingBudgets?: ThinkingBudgetsSettings;
-    editorPaddingX?: number;
-    outputPad?: 0 | 1;
-    autocompleteMaxVisible?: number;
-    showHardwareCursor?: boolean;
-    markdown?: MarkdownSettings;
-    warnings?: WarningSettings;
-    sessionDir?: string;
-    httpProxy?: string;
-    httpIdleTimeoutMs?: number;
-    websocketConnectTimeoutMs?: number;
-    tuiMode?: TuiMode;
-    fullscreenExitOutput?: FullscreenExitOutput;
-    fullscreenScrollbar?: ScrollViewScrollbar;
-    fullscreenCopyOnSelect?: boolean;
-}
+export declare function getToolListError(entries: readonly string[]): string | undefined;
+/**
+ * Apply the `+name` and `-name` entries of `entries` to `base` in order: `+name` adds a tool and
+ * `-name` removes one. Other entries are ignored.
+ */
+export declare function applyToolModifiers(base: readonly string[], entries: readonly string[]): string[];
 export type SettingsScope = "global" | "project";
 export interface SettingsManagerCreateOptions {
     projectTrusted?: boolean;
@@ -171,6 +72,8 @@ export declare class SettingsManager {
     private static tryLoadFromStorage;
     /** Migrate old settings format to new format */
     private static migrateSettings;
+    /** A copy of the effective settings: global and project settings merged, with overrides. */
+    getSettings(): Settings;
     getGlobalSettings(): Settings;
     getProjectSettings(): Settings;
     isProjectTrusted(): boolean;
@@ -216,11 +119,15 @@ export declare class SettingsManager {
     removeModelThinkingLevel(provider: string, modelId: string): void;
     getTransport(): TransportSetting;
     setTransport(transport: TransportSetting): void;
+    getSessionShareDestination(): SessionShareDestination;
+    setSessionShareDestination(destination: SessionShareDestination): void;
     getCompactionEnabled(): boolean;
     setCompactionEnabled(enabled: boolean): void;
-    getCompactionReserveTokens(): number;
-    getCompactionKeepRecentTokens(): number;
-    getCompactionSettings(): {
+    private getCompactionTokenSetting;
+    getCompactionReserveTokens(model?: Pick<Model<string>, "provider" | "id">): number;
+    getCompactionKeepRecentTokens(model?: Pick<Model<string>, "provider" | "id">): number;
+    /** Resolve each token setting through model override, ordinary setting, then built-in default. */
+    getCompactionSettings(model?: Pick<Model<string>, "provider" | "id">): {
         enabled: boolean;
         reserveTokens: number;
         keepRecentTokens: number;
@@ -236,9 +143,13 @@ export declare class SettingsManager {
         enabled: boolean;
         maxRetries: number;
         baseDelayMs: number;
+        maxAgentDelayMs: number;
     };
     getHttpIdleTimeoutMs(): number;
     setHttpIdleTimeoutMs(timeoutMs: number): void;
+    /** Read from global settings only because warming costs money. */
+    getCacheWarmingMode(): CacheWarmingMode;
+    setCacheWarmingMode(mode: CacheWarmingMode): void;
     getProviderRetrySettings(): {
         timeoutMs?: number;
         maxRetries?: number;
@@ -252,8 +163,8 @@ export declare class SettingsManager {
     setShowCacheMissNotices(show: boolean): void;
     getShellPath(): string | undefined;
     setShellPath(path: string | undefined): void;
-    getQuietStartup(): boolean;
-    setQuietStartup(quiet: boolean): void;
+    getQuietStartup(): QuietStartup;
+    setQuietStartup(quiet: QuietStartup): void;
     getDefaultProjectTrust(): DefaultProjectTrust;
     setDefaultProjectTrust(defaultProjectTrust: DefaultProjectTrust): void;
     getShellCommandPrefix(): string | undefined;
@@ -268,6 +179,12 @@ export declare class SettingsManager {
     getTrackingId(): string | undefined;
     /** Set the analytics opt-in preference; generates a tracking identifier on first opt-in */
     setEnableAnalytics(enabled: boolean): void;
+    /**
+     * Stable ID of this installation, e.g. sent to OpenAI as its agent host ID.
+     * Created on first use. Project settings are ignored so a committed project
+     * settings file cannot give every clone the same ID.
+     */
+    getOrCreateDeviceId(): string;
     getPackages(): PackageSource[];
     setPackages(packages: PackageSource[]): void;
     setProjectPackages(packages: PackageSource[]): void;
@@ -303,11 +220,14 @@ export declare class SettingsManager {
     setFullscreenScrollbar(mode: ScrollViewScrollbar): void;
     getFullscreenCopyOnSelect(): boolean;
     setFullscreenCopyOnSelect(enabled: boolean): void;
+    getFullscreenWheelScrollLines(): WheelScrollLines;
+    setFullscreenWheelScrollLines(lines: WheelScrollLines): void;
     getImageAutoResize(): boolean;
     setImageAutoResize(enabled: boolean): void;
     getBlockImages(): boolean;
     setBlockImages(blocked: boolean): void;
     getEnabledModels(): string[] | undefined;
+    /** The resolved `defaultTools` selection, or undefined when no settings layer sets it. */
     getDefaultTools(): string[] | undefined;
     setEnabledModels(patterns: string[] | undefined): void;
     getDoubleEscapeAction(): "fork" | "tree" | "none";

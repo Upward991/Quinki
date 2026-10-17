@@ -61,6 +61,7 @@ export declare class Markdown implements Component {
     private cachedText?;
     private cachedWidth?;
     private cachedLines?;
+    private cachedTokens?;
     constructor(text: string, paddingX: number, paddingY: number, theme: MarkdownTheme, defaultTextStyle?: DefaultTextStyle, options?: MarkdownOptions);
     setText(text: string): void;
     invalidate(): void;

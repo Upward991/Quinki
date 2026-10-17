@@ -1,3 +1,4 @@
+import type { ResourceDiagnostic } from "./diagnostics.ts";
 import { type SourceInfo } from "./source-info.ts";
 /**
  * Represents a prompt template loaded from a markdown file
@@ -39,13 +40,17 @@ export interface LoadPromptTemplatesOptions {
     /** Include default prompt directories. */
     includeDefaults: boolean;
 }
+export interface LoadPromptTemplatesResult {
+    templates: PromptTemplate[];
+    diagnostics: ResourceDiagnostic[];
+}
 /**
  * Load all prompt templates from:
  * 1. Global: agentDir/prompts/
  * 2. Project: cwd/{CONFIG_DIR_NAME}/prompts/
  * 3. Explicit prompt paths
  */
-export declare function loadPromptTemplates(options: LoadPromptTemplatesOptions): PromptTemplate[];
+export declare function loadPromptTemplates(options: LoadPromptTemplatesOptions): LoadPromptTemplatesResult;
 /**
  * Expand a prompt template if it matches a template name.
  * Returns the expanded content or the original text if not a template.

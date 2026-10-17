@@ -108,6 +108,7 @@ export function convertToLlm(messages) {
                     ],
                     timestamp: m.timestamp,
                 };
+            case "system":
             case "user":
             case "assistant":
             case "toolResult":

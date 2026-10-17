@@ -64,3 +64,32 @@ done
 1. `git diff --stat -- sidecar-src/vendor` → devono comparire **esattamente 14 file**.
 2. Ri-dry-run: se già applicati, `patch` segnala *"Reversed (or previously applied) patch detected"* → è la conferma che lo stato è quello atteso.
 3. Build + batteria di test (vedi `internal/PI-SDK-RECON.md`).
+
+
+---
+
+# SET PER LA 1.3.0 (aggiornamento del 17 ott) — `patches/1.3.0/`
+
+Il set sopra (`patches/*.patch`, da 0.84.4) è **storico**: riproduce le modifiche a partire dalla 0.84.4.
+Dal 17 ott il vendor è alla **1.3.0** e il set di riferimento è **`1.3.0/`** (13 file): ciascuno si applica
+**pulito** alla 1.3.0 pristina (verificato: 13/13, `patch -p1 --forward`).
+
+Differenze di metodo nel set 1.3.0 (l'upstream ha rifattorizzato):
+- **agent-session**: invece di 11 hunk sparsi → **6 punti mirati**: (1) auto-compaction spenta in UN punto
+  (`_runAutoCompaction` → `return false`), (2) auth mai-lanciare (`if (false && !hasConfiguredAuth)`),
+  (3–6) filtro delle delegazioni prima dell'LLM (provider path, boundary, agent state, compaction context).
+- **session-manager**: delegazioni nei messaggi di contesto dentro `buildSessionProjection`.
+- **editor (pi-tui)**: i 3 hunk che non entravano sono stati **riadattati a mano** sul render rifattorizzato
+  (blocco dipinto senza bordi, chips row, footer, menu panel, placeholder).
+- **NON riapplicato**: `interactive-mode` (2 hunk) — la NOSTRA CLI ha un TUI proprio e non usa la modalità
+  interattiva dell'SDK. E l'hunk "cursore dentro le chip" dell'editor (cosmetico) → vedi `internal/docs/SALTATI.md`.
+- Il prompt di sistema: in 1.3.0 `agent.state.systemPrompt` è **solo un getter** → l'override vive nel
+  NOSTRO bridge (`quinkiSetSystemPrompt` → proiezione su `transformContext`), non più come patch SDK.
+
+**Come si applicano** (da `scripts/update-pi-sdk.sh`, o a mano):
+```bash
+for f in sidecar-src/vendor/patches/1.3.0/0[1-6]-*.patch; do
+  patch -p1 -d sidecar-src/vendor/@earendil-works/pi-coding-agent --forward < "$f"; done
+for f in sidecar-src/vendor/patches/1.3.0/0[7-9]-*.patch sidecar-src/vendor/patches/1.3.0/1[0-4]-*.patch; do
+  patch -p1 -d sidecar-src/vendor/@earendil-works/pi-tui --forward < "$f"; done
+```

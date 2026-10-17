@@ -10,9 +10,16 @@ export function createFileOps() {
     };
 }
 /**
- * Extract file operations from tool calls in an assistant message.
+ * Extract file operations from tool calls in an assistant message, or from the nested calls
+ * recorded on a tool result.
  */
 export function extractFileOpsFromMessage(message, fileOps) {
+    if (message.role === "toolResult") {
+        // Calls made from codemode scripts are recorded on the script's result.
+        for (const call of message.nestedCalls?.calls ?? [])
+            addFileOp(call.name, call.arguments, fileOps);
+        return;
+    }
     if (message.role !== "assistant")
         return;
     if (!("content" in message) || !Array.isArray(message.content))
@@ -24,23 +31,23 @@ export function extractFileOpsFromMessage(message, fileOps) {
             continue;
         if (!("arguments" in block) || !("name" in block))
             continue;
-        const args = block.arguments;
-        if (!args)
-            continue;
-        const path = typeof args.path === "string" ? args.path : undefined;
-        if (!path)
-            continue;
-        switch (block.name) {
-            case "read":
-                fileOps.read.add(path);
-                break;
-            case "write":
-                fileOps.written.add(path);
-                break;
-            case "edit":
-                fileOps.edited.add(path);
-                break;
-        }
+        addFileOp(block.name, block.arguments, fileOps);
+    }
+}
+function addFileOp(toolName, args, fileOps) {
+    const path = typeof args?.path === "string" ? args.path : undefined;
+    if (!path)
+        return;
+    switch (toolName) {
+        case "read":
+            fileOps.read.add(path);
+            break;
+        case "write":
+            fileOps.written.add(path);
+            break;
+        case "edit":
+            fileOps.edited.add(path);
+            break;
     }
 }
 /**
@@ -90,6 +97,12 @@ function truncateForSummary(text, maxChars) {
  *
  * Tool results are truncated to keep the summarization request within
  * reasonable token budgets. Full content is not needed for summarization.
+ *
+ * Thinking is omitted. Providers return summaries of the real reasoning, and
+ * replayed thinking is often not part of the model's live context: for example,
+ * a block that does not match its request is dropped. Including it can make the
+ * summarization request larger than the context it summarizes. Visible text,
+ * tool calls, and tool results record what happened.
  */
 export function serializeConversation(messages) {
     const parts = [];
@@ -100,22 +113,15 @@ export function serializeConversation(messages) {
                 parts.push(`[User]: ${content}`);
         }
         else if (msg.role === "assistant") {
-            const thinkingParts = [];
             const toolCalls = [];
             for (const block of msg.content) {
-                if (block.type === "thinking") {
-                    thinkingParts.push(block.thinking);
-                }
-                else if (block.type === "toolCall") {
+                if (block.type === "toolCall") {
                     const args = block.arguments;
                     const argsStr = Object.entries(args)
                         .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
                         .join(", ");
                     toolCalls.push(`${block.name}(${argsStr})`);
                 }
-            }
-            if (thinkingParts.length > 0) {
-                parts.push(`[Assistant thinking]: ${thinkingParts.join("\n")}`);
             }
             if (msg.content.some((block) => block.type === "text")) {
                 parts.push(`[Assistant]: ${contentText(msg.content)}`);

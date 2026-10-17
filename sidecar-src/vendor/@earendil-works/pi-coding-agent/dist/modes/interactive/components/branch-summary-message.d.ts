@@ -8,8 +8,9 @@ export declare class BranchSummaryMessageComponent extends Box {
     private expanded;
     private message;
     private markdownTheme;
-    constructor(message: BranchSummaryMessage, markdownTheme?: MarkdownTheme);
+    constructor(message: BranchSummaryMessage, markdownTheme?: MarkdownTheme, outputPad?: number);
     setExpanded(expanded: boolean): void;
+    setOutputPad(outputPad: number): void;
     invalidate(): void;
     private updateDisplay;
 }

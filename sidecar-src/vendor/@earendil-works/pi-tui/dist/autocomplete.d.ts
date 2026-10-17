@@ -32,7 +32,7 @@ export declare class CombinedAutocompleteProvider implements AutocompleteProvide
     private commands;
     private basePath;
     private fdPath;
-    constructor(commands: (AutocompleteItem | SlashCommand)[] | undefined, basePath: string, fdPath?: string | null);
+    constructor(commands: (SlashCommand | AutocompleteItem)[] | undefined, basePath: string, fdPath?: string | null);
     getSuggestions(lines: string[], cursorLine: number, cursorCol: number, options: {
         signal: AbortSignal;
         force?: boolean;

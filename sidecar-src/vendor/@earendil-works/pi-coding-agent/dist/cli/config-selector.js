@@ -9,7 +9,8 @@ export async function selectConfig(options) {
     // Initialize theme before showing TUI
     initTheme(options.settingsManager.getTheme(), true);
     return new Promise((resolve) => {
-        const ui = new TuiMainScreen(new ProcessTerminal(), undefined, options.agentDir);
+        const ui = new TuiMainScreen(new ProcessTerminal(), options.settingsManager.getShowHardwareCursor(), options.agentDir);
+        ui.setClearOnShrink(options.settingsManager.getClearOnShrink());
         let resolved = false;
         const selector = new ConfigSelectorComponent(options.resolvedPaths, options.settingsManager, options.cwd, options.agentDir, () => {
             if (!resolved) {

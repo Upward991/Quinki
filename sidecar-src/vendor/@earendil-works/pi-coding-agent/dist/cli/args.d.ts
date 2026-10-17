@@ -3,7 +3,7 @@
  */
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import type { ExtensionFlag } from "../core/extensions/types.ts";
-import type { TuiMode } from "../core/settings-manager.ts";
+import { type TuiMode } from "../core/settings-manager.ts";
 export type Mode = "text" | "json" | "rpc";
 export interface Args {
     provider?: string;
@@ -30,6 +30,7 @@ export interface Args {
     noBuiltinTools?: boolean;
     extensions?: string[];
     noExtensions?: boolean;
+    noMcp?: boolean;
     print?: boolean;
     export?: string;
     noSkills?: boolean;

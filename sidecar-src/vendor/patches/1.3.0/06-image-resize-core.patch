@@ -1,0 +1,11 @@
+--- a/dist/utils/image-resize-core.js	2026-10-17 13:47:03
++++ b/dist/utils/image-resize-core.js	2026-10-17 13:47:03
+@@ -6,7 +6,7 @@
+  */
+ export const IMAGE_RESIZE_WORKER_RESPONSE_TYPE = "pi:image-resize-response";
+ // 4.5MB of base64 payload. Provides headroom below Anthropic's 5MB limit.
+-const DEFAULT_MAX_BYTES = 4.5 * 1024 * 1024;
++const DEFAULT_MAX_BYTES = 600 * 1024;
+ const DEFAULT_OPTIONS = {
+     maxWidth: 2000,
+     maxHeight: 2000,

@@ -7,6 +7,7 @@ export interface ExtensionSelectorOptions {
     tui?: TUI;
     timeout?: number;
     onToggleToolsExpanded?: () => void;
+    description?: string;
 }
 export declare class ExtensionSelectorComponent extends Container {
     private options;

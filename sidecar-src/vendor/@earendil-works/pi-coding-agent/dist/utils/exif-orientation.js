@@ -45,9 +45,8 @@ function findJpegTiffOffset(bytes) {
             const segmentStart = offset + 4;
             if (segmentStart + 6 > bytes.length)
                 return -1;
-            if (!hasExifHeader(bytes, segmentStart))
-                return -1;
-            return segmentStart + 6;
+            if (hasExifHeader(bytes, segmentStart))
+                return segmentStart + 6;
         }
         if (offset + 4 > bytes.length)
             return -1;

@@ -1,21 +1,22 @@
+import { clampThinkingLevel } from "../models.js";
 import { estimateContextTokens } from "../utils/estimate.js";
 const CONTEXT_SAFETY_TOKENS = 4096;
-// PATCH (Quinki): floor sane — with the old floor of 1, a context estimated at/over the
-// window produced max_tokens=1: the model answered with a single truncated token and the
-// user saw a broken reply instead of a visible overflow error. 256 guarantees a usable
-// reply when the estimate is pessimistic, and a real overflow surfaces as a provider
-// error the app shows (and its 80%-compaction flow resolves).
-const MIN_MAX_TOKENS = 256;
+const MIN_MAX_TOKENS = 1;
 export function clampMaxTokensToContext(model, context, maxTokens) {
     if (model.contextWindow <= 0)
         return Math.max(MIN_MAX_TOKENS, maxTokens);
     const available = model.contextWindow - estimateContextTokens(context).tokens - CONTEXT_SAFETY_TOKENS;
     return Math.min(maxTokens, Math.max(MIN_MAX_TOKENS, available));
 }
-export function buildBaseOptions(model, context, options, apiKey) {
-    const samplingParams = model.samplingParams || options?.samplingParams
-        ? { ...model.samplingParams, ...options?.samplingParams }
+export function resolveSamplingParams(model, thinkingLevel, requestParams) {
+    const effectiveThinkingLevel = clampThinkingLevel(model, thinkingLevel);
+    const thinkingLevelParams = model.samplingParamsByThinkingLevel?.[effectiveThinkingLevel];
+    return model.samplingParams || thinkingLevelParams || requestParams
+        ? { ...model.samplingParams, ...thinkingLevelParams, ...requestParams }
         : undefined;
+}
+export function buildBaseOptions(model, context, options, apiKey) {
+    const samplingParams = resolveSamplingParams(model, options?.reasoning ?? "off", options?.samplingParams);
     return {
         temperature: options?.temperature,
         samplingParams,
@@ -30,6 +31,7 @@ export function buildBaseOptions(model, context, options, apiKey) {
         headers: options?.headers,
         onPayload: options?.onPayload,
         onResponse: options?.onResponse,
+        onProviderStreamEvent: options?.onProviderStreamEvent,
         timeoutMs: options?.timeoutMs,
         websocketConnectTimeoutMs: options?.websocketConnectTimeoutMs,
         maxRetries: options?.maxRetries,

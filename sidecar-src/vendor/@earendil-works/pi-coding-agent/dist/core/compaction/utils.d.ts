@@ -10,7 +10,8 @@ export interface FileOperations {
 }
 export declare function createFileOps(): FileOperations;
 /**
- * Extract file operations from tool calls in an assistant message.
+ * Extract file operations from tool calls in an assistant message, or from the nested calls
+ * recorded on a tool result.
  */
 export declare function extractFileOpsFromMessage(message: AgentMessage, fileOps: FileOperations): void;
 /**
@@ -32,6 +33,12 @@ export declare function formatFileOperations(readFiles: string[], modifiedFiles:
  *
  * Tool results are truncated to keep the summarization request within
  * reasonable token budgets. Full content is not needed for summarization.
+ *
+ * Thinking is omitted. Providers return summaries of the real reasoning, and
+ * replayed thinking is often not part of the model's live context: for example,
+ * a block that does not match its request is dropped. Including it can make the
+ * summarization request larger than the context it summarizes. Visible text,
+ * tool calls, and tool results record what happened.
  */
 export declare function serializeConversation(messages: Message[]): string;
 export declare const SUMMARIZATION_SYSTEM_PROMPT = "You are a context summarization assistant. Your task is to read a conversation between a user and an AI assistant, then produce a structured summary following the exact format specified.\n\nDo NOT continue the conversation. Do NOT respond to any questions in the conversation. ONLY output the structured summary.";

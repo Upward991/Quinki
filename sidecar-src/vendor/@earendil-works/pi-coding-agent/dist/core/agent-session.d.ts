@@ -12,17 +12,18 @@
  *
  * Modes use this class and add their own I/O layer on top.
  */
-import type { Agent, AgentEvent, AgentMessage, AgentState, AgentTool, ThinkingLevel } from "@earendil-works/pi-agent-core";
+import { type Agent, type AgentEvent, type AgentMessage, type AgentState, type AgentTool, type ThinkingLevel } from "@earendil-works/pi-agent-core";
 import type { ImageContent, Model, TextContent } from "@earendil-works/pi-ai/compat";
 import { type BashResult } from "./bash-executor.ts";
+import type { CacheWarmer, CacheWarmingStatus } from "./cache-warmer.ts";
 import { type CompactionResult } from "./compaction/index.ts";
 import { type ContextUsage, type ExtensionCommandContextActions, type ExtensionErrorListener, type ExtensionMode, ExtensionRunner, type ExtensionUIContext, type InputSource, type ReplacedSessionContext, type SessionStartEvent, type ShutdownHandler, type ToolDefinition, type ToolInfo } from "./extensions/index.ts";
-import type { CustomMessage } from "./messages.ts";
+import { type CustomMessage } from "./messages.ts";
 import type { ModelRuntime } from "./model-runtime.ts";
 import { type PromptTemplate } from "./prompt-templates.ts";
 import type { ResourceLoader } from "./resource-loader.ts";
-import type { BranchSummaryEntry, SessionEntry, SessionManager } from "./session-manager.ts";
-import type { SettingsManager } from "./settings-manager.ts";
+import { type BranchSummaryEntry, type SessionEntry, SessionManager } from "./session-manager.ts";
+import { type CacheWarmingMode, type SettingsManager } from "./settings-manager.ts";
 import { type BashOperations } from "./tools/bash.ts";
 /** Parsed skill block from a user message */
 export interface ParsedSkillBlock {
@@ -36,15 +37,22 @@ export interface ParsedSkillBlock {
  * Returns null if the text doesn't contain a skill block.
  */
 export declare function parseSkillBlock(text: string): ParsedSkillBlock | null;
+/** Tool execution events of calls a tool made through `ctx.executeTool()` carry `parentToolCallId`. */
+type WithParentToolCallId<E> = E extends {
+    type: "tool_execution_start" | "tool_execution_update" | "tool_execution_end";
+} ? E & {
+    parentToolCallId?: string;
+} : E;
 /** Session-specific events that extend the core AgentEvent */
-export type AgentSessionEvent = Exclude<AgentEvent, {
+export type AgentSessionEvent = WithParentToolCallId<Exclude<AgentEvent, {
     type: "agent_end";
-}> | {
+}>> | {
     type: "agent_end";
     messages: AgentMessage[];
     willRetry: boolean;
 } | {
     type: "agent_settled";
+    aborted: boolean;
 } | {
     type: "queue_update";
     steering: readonly string[];
@@ -95,11 +103,6 @@ export type AgentSessionEvent = Exclude<AgentEvent, {
 } | {
     type: "summarization_retry_finished";
 } | {
-    type: "auto_retry_end";
-    success: boolean;
-    attempt: number;
-    finalError?: string;
-} | {
     type: "bash_execution_update";
     id?: string;
     delta: string;
@@ -122,11 +125,29 @@ export interface AgentSessionConfig {
     customTools?: ToolDefinition[];
     /** Canonical model/auth runtime used by coding-agent internals. */
     modelRuntime: ModelRuntime;
+    /** Keeps the prompt cache entry of the last session request warm. */
+    cacheWarmer?: Pick<CacheWarmer, "cancel" | "status" | "onAgentSettled" | "onModeChanged" | "onWarmed">;
     /** Initial active built-in tool names. Default: [read, bash, edit, write] */
     initialActiveToolNames?: string[];
-    /** Optional allowlist of tool names. When provided, only these tool names are exposed. */
+    /**
+     * Whether the initial tools come from the `defaultTools` setting. When true, a resumed session
+     * replaces them with the loadout its transcript records, with `defaultToolModifiers` applied, and
+     * reload activates tools newly added to the setting. Tools removed from it stay active.
+     */
+    usesDefaultTools?: boolean;
+    /**
+     * `+name`/`-name` entries applied on top of the `defaultTools` setting, from `--tools`. Reload
+     * applies them to the reloaded setting too, so a removed tool stays removed.
+     */
+    defaultToolModifiers?: string[];
+    /**
+     * Optional allowlist of tool names or patterns (`*` matches any characters). When provided, only
+     * matching tools are exposed. A non-empty list without `mcp__` entries also keeps MCP tools
+     * registered for codemode and tool_search; only tool_search can declare them. An empty list
+     * exposes no tools.
+     */
     allowedToolNames?: string[];
-    /** Optional denylist of tool names. When provided, these tool names are not exposed. */
+    /** Optional denylist of tool names or patterns. When provided, matching tools are not exposed. */
     excludedToolNames?: string[];
     /**
      * Override base tools (useful for custom runtimes).
@@ -150,6 +171,8 @@ export interface ExtensionBindings {
     shutdownHandler?: ShutdownHandler;
     onError?: ExtensionErrorListener;
 }
+export type QueuedInputDisposition = "handled" | "queued";
+export type PromptDisposition = QueuedInputDisposition | "started";
 /** Options for AgentSession.prompt() */
 export interface PromptOptions {
     /** Whether to dispatch extension commands and expand skill commands and prompt templates (default: true) */
@@ -160,8 +183,8 @@ export interface PromptOptions {
     streamingBehavior?: "steer" | "followUp";
     /** Source of input for extension input event handlers. Defaults to "interactive". */
     source?: InputSource;
-    /** Internal hook used by RPC mode to observe prompt preflight acceptance or rejection. */
-    preflightResult?: (success: boolean) => void;
+    /** Internal hook used by RPC mode to observe how an accepted prompt was dispatched. Not called if the prompt is rejected. */
+    preflightResult?: (disposition: PromptDisposition) => void;
 }
 /** Options for model/thinking mutations. */
 export interface ModelMutationOptions {
@@ -202,6 +225,7 @@ export declare class AgentSession {
     private _unsubscribeAgent?;
     private _eventListeners;
     private _isAgentRunActive;
+    private _agentRunAbortRequested;
     private _idleWaitPromise;
     private _resolveIdleWait;
     /** Tracks pending steering messages for UI display. Removed when delivered. */
@@ -218,18 +242,46 @@ export declare class AgentSession {
     private _branchSummaryAbortController;
     private _retryAbortController;
     private _retryAttempt;
+    /**
+     * Failed response that the next request repeats, set by auto-retry and overflow recovery. The
+     * retry is routed with it as `failed`, since the context no longer contains it.
+     */
+    private _failedResponse;
     private readonly _bashAbortControllers;
     private _pendingBashMessages;
     private _extensionRunner;
     private _turnIndex;
+    private readonly _entryIdsByMessage;
+    private readonly _boundaryDispatchedMessages;
+    private _lastAssistantMessage;
+    private _lastAssistantToolResults;
+    private _lastActivityOutcome;
+    private _isBeforeSettle;
+    private _abortDuringBeforeSettle;
+    private _isEmittingAgentSettled;
+    private readonly _deferredSettledActions;
     private _resourceLoader;
     private _customTools;
     private _baseToolDefinitions;
     private _cwd;
     private _extensionRunnerRef?;
     private _initialActiveToolNames?;
-    private _allowedToolNames?;
-    private _excludedToolNames?;
+    /**
+     * Tools of the restored or reloaded loadout that are not registered yet, such as tools of MCP
+     * servers that are still connecting. They are activated when they are registered, and dropped when
+     * `setActiveToolsByName()` deactivates a tool or the next agent run starts.
+     */
+    private _pendingToolNames;
+    private _usesDefaultTools;
+    private _defaultToolModifiers;
+    /** Matches the `--tools` entries: tool names or patterns. */
+    private _allowedTools?;
+    /**
+     * Whether the allowlist filters MCP tools: it is empty (`--no-tools`) or names an MCP tool
+     * (`mcp__*`). Otherwise it keeps MCP tools registered for codemode and tool_search.
+     */
+    private _allowlistFiltersMcp;
+    private _excludedTools?;
     private _baseToolsOverride?;
     private _sessionStartEvent;
     private _extensionUIContext?;
@@ -240,17 +292,37 @@ export declare class AgentSession {
     private _extensionErrorListener?;
     private _extensionErrorUnsubscriber?;
     private _modelRuntime;
+    private _cacheWarmer?;
     private _toolRegistry;
+    /** Created on the first `ctx.executeTool()` call. */
+    private _nestedToolCalls;
+    /** Declared tools whose declarations requests leave out, from `prepareLoadout` hooks. */
+    private _hiddenDeclarations;
     private _toolDefinitions;
     private _toolPromptSnippets;
     private _toolPromptGuidelines;
-    private _baseSystemPrompt;
     private _baseSystemPromptOptions;
-    private _systemPromptOverride?;
+    /** Prompt options after before_agent_start mutations for the active run. */
+    private _runSystemPromptOptions?;
     constructor(config: AgentSessionConfig);
     get modelRuntime(): ModelRuntime;
     private _getRequiredRequestAuth;
     private _getSummarizationRequestAuth;
+    /**
+     * The model whose limits apply to `message`, or undefined when the message came from another
+     * model. Under a virtual selection, that is the physical model that produced it.
+     */
+    private _modelForMessage;
+    /**
+     * Record the selection on the current branch when the branch implies another one, so a resume
+     * restores it. Tree navigation can leave the latest `model_change` on another branch; responses
+     * cannot record a virtual selection because they name physical models. Responses do record a
+     * physical selection unless the branch holds a virtual one; checking a physical selection against
+     * responses would record it on every prompt while `prepareRequest` redirects to another model.
+     */
+    private _recordSelection;
+    /** The model whose limits apply to the conversation. */
+    private _limitsModel;
     /**
      * Install tool hooks once on the Agent instance.
      *
@@ -260,8 +332,29 @@ export declare class AgentSession {
      * happens here instead of in wrappers.
      */
     private _installAgentToolHooks;
+    /** `tool_call` handlers. `parentToolCallId` is set for calls another tool made. */
+    private _beforeToolCall;
+    /** `tool_result` handlers and image normalization. `parentToolCallId` is set for calls another tool made. */
+    private _afterToolCall;
+    /**
+     * Run a call that the tool call `parentToolCallId` made through `ctx.executeTool()`. It goes
+     * through the agent's tool pipeline with the session's hooks, against the callable tools.
+     */
+    private _executeNestedToolCall;
+    /** Whether `projection`, the current session projection, exceeds the compaction threshold of `model`. */
+    private _exceedsCompactionThreshold;
     private _compactBeforeNextAssistantResponse;
+    private _installAgentRequestProjection;
+    private _dispatchTurnEndBoundary;
+    private _installAgentBoundaryHooks;
     private _installAgentNextTurnRefresh;
+    private _refreshFinalizedContext;
+    private _applyBoundaryDrafts;
+    private _createBoundaryPreviewManager;
+    private _getPendingBoundaryMessages;
+    private _buildBoundaryContext;
+    private _commitBoundaryDrafts;
+    private _reportInvalidBoundaryContinuation;
     /** Emit an event to all listeners */
     private _emit;
     private _emitQueueUpdate;
@@ -269,13 +362,15 @@ export declare class AgentSession {
     private _getIdleWaitPromise;
     private _resolveIdleWaitIfIdle;
     private _emitAgentSettled;
-    private _lastAssistantMessage;
     /** Internal handler for agent events - shared by subscribe and reconnect */
     private _handleAgentEvent;
     private _willRetryAfterAgentEnd;
+    private _findPersistedMessageEntryId;
+    private _omitRecoveryAttempt;
     /** Find the last assistant message in agent state (including aborted ones) */
     private _findLastAssistantMessage;
     private _replaceMessageInPlace;
+    /** Emit extension events based on agent events */
     private _emitExtensionEvent;
     /**
      * Subscribe to agent events.
@@ -290,25 +385,38 @@ export declare class AgentSession {
      * Call this when completely done with the session.
      */
     dispose(): void;
+    /** Refresh the public finalized transcript from the canonical session projection. */
+    refreshContext(): void;
     /** Full agent state */
     get state(): AgentState;
+    /** Current cache-warming state and the policy inputs that produced it. */
+    get cacheWarmingStatus(): CacheWarmingStatus | undefined;
+    /** Persist the cache-warming mode and immediately reconcile active warming. */
+    setCacheWarmingMode(mode: CacheWarmingMode): void;
     /** Current model (may be undefined if not yet selected) */
     get model(): Model<any> | undefined;
     /** Current thinking level */
     get thinkingLevel(): ThinkingLevel;
+    /** Under a virtual selection, the physical model and thinking level of the latest successful response. */
+    get routedModel(): {
+        model: Model<any>;
+        thinkingLevel?: ThinkingLevel;
+    } | undefined;
     /** Whether the session is currently processing an agent run or post-run continuation. */
     get isStreaming(): boolean;
-    /** Whether the session has no active agent run, retry, auto-compaction, or queued continuation. */
+    /** Whether the session has no active agent run, compaction, branch summary, retry, or queued continuation. */
     get isIdle(): boolean;
-    /** Current effective system prompt (includes any per-turn extension modifications) */
+    /** Current effective system prompt, including changes not yet sent to the model. */
     get systemPrompt(): string;
     /** Current retry attempt (0 if not retrying) */
     get retryAttempt(): number;
     /**
-     * Get the names of currently active tools.
-     * Returns the names of tools currently set on the agent.
+     * Get the names of currently active tools, which are the tools declared to the model.
+     * Tools with `codemode` or `deferred` exposure are callable from other tools without being active.
      */
     getActiveToolNames(): string[];
+    /** Get the names of the tools that tools can call through `ctx.executeTool()`. */
+    getCallableToolNames(): string[];
     /**
      * Get all configured tools with name, description, parameter schema, prompt guidelines, and source metadata.
      */
@@ -316,11 +424,37 @@ export declare class AgentSession {
     getToolDefinition(name: string): ToolDefinition | undefined;
     /**
      * Set active tools by name.
-     * Only tools in the registry can be enabled. Unknown tool names are ignored.
+     * Only tools in the registry can be enabled. Unknown and hidden tool names are ignored.
      * Also rebuilds the system prompt to reflect the new tool set.
      * Changes take effect on the next agent turn.
      */
     setActiveToolsByName(toolNames: string[]): void;
+    private _setActiveTools;
+    /**
+     * Whether `--tools` and `--exclude-tools` keep the tool registered. MCP tools stay registered
+     * unless the allowlist filters them (see `_allowlistFiltersMcp`).
+     */
+    private _isAllowedTool;
+    /**
+     * Whether the tool may be active, which declares it to the model. MCP tools the allowlist keeps
+     * without matching them are only for codemode and tool_search: they may be declared only when
+     * tool_search can load them (non-`direct` exposure and tool_search registered). This also applies
+     * to tools restored from the transcript or set by extensions.
+     */
+    private _isActivatable;
+    private _getToolExposure;
+    /**
+     * Tools callable through `ctx.executeTool()`: the active `direct` tools and every registered
+     * `codemode` or `deferred` tool.
+     */
+    private _getCallableTools;
+    /**
+     * Set the agent's tools for the given active tool names and return them. The active tools are
+     * the registered, non-hidden ones; they are declared to the model. Active tools with a
+     * `prepareLoadout` hook can change the declared descriptions and hide declarations from
+     * requests (see {@link _installHiddenDeclarationsProjection}).
+     */
+    private _applyToolLoadout;
     /** Whether compaction or branch summarization is currently running */
     get isCompacting(): boolean;
     /** All messages including custom types like BashExecutionMessage */
@@ -350,8 +484,59 @@ export declare class AgentSession {
     private _normalizePromptSnippet;
     private _normalizePromptGuidelines;
     private _rebuildSystemPrompt;
-    private _runAgentPrompt;
+    /**
+     * Apply a prompt and tool loadout for the next request. Sets the executable tools and
+     * returns a system message patching the prompt sections the model currently has (replayed
+     * from `messages`), or undefined when the prompt is unchanged. Tool changes are declared by
+     * the agent loop before the request.
+     *
+     * A forced prompt does not affect the transcript: the structured sections are still diffed
+     * and persisted, and the forced text is projected onto the request by
+     * {@link _installAgentForcedPromptProjection}.
+     */
+    private _preparePromptAndToolLoadout;
+    /**
+     * Send a forced prompt as the provider's leading system prompt without recording it.
+     *
+     * A `before_agent_start` handler that returns `systemPrompt` needs that exact text at the
+     * head of the request; a mid-conversation system message would leave the original prompt
+     * in place. The forced text is a rendering of the current prompt, so the transcript keeps
+     * its structured sections and the request is projected instead: the system messages
+     * collapse into one head holding the forced text and the current tools. Runs after the
+     * `context` extension handlers.
+     */
+    /**
+     * Remove the declarations that `prepareLoadout` hooks hide from every request. The whole
+     * transcript is filtered with the current set, so the projected declarations stay consistent
+     * across requests and only change when the loadout does.
+     */
+    private _installHiddenDeclarationsProjection;
+    private _installAgentForcedPromptProjection;
+    /**
+     * Restore the active tool loadout declared by the session transcript, if it declares one.
+     * Tools reachable only from other tools are never declared, but they do not depend on the active
+     * set, so the transcript's declarations are the whole loadout.
+     * @param modifiers `+name`/`-name` entries applied to the restored loadout.
+     */
+    private _restoreToolsFromTranscript;
+    /**
+     * Start a run from a user or custom message. The session counts as busy from here on, so
+     * messages sent while before_agent_start handlers run are queued into this run instead of
+     * starting another, and an abort requested meanwhile aborts the run as soon as it exists.
+     * @param onStarted Called once the run's messages are prepared, before the first request.
+     */
+    private _startRun;
+    /**
+     * Prepare a run and return its starting messages: compact first when needed, emit
+     * before_agent_start, apply the run's prompt options and tool loadout, and build the starting
+     * message followed by pending nextTurn messages (consumed here) and handler messages, with a
+     * system patch first when the prompt changed.
+     */
+    private _prepareRun;
     private _handlePostAgentRun;
+    private _runBeforeSettleBoundary;
+    private _runInputHandlers;
+    private _normalizePromptImages;
     /**
      * Send a prompt to the agent.
      * - Handles extension commands (registered via pi.registerCommand) immediately, even during streaming
@@ -362,6 +547,9 @@ export declare class AgentSession {
      * @throws Error if no model selected or no API key available (when not streaming)
      */
     prompt(text: string, options?: PromptOptions): Promise<void>;
+    /**
+     * Try to execute an extension command. Returns true if command was found and executed.
+     */
     private _tryExecuteExtensionCommand;
     /**
      * Expand skill commands (/skill:name args) to their full content.
@@ -369,24 +557,37 @@ export declare class AgentSession {
      * Emits errors via extension runner if file read fails.
      */
     private _expandSkillCommand;
+    private _queueUserInput;
     /**
      * Queue a steering message while the agent is running.
      * Delivered after the current assistant turn finishes executing its tool calls,
      * before the next LLM call.
      * Expands skill commands and prompt templates. Errors on extension commands.
      * @param images Optional image attachments to include with the message
+     * @param options Input source; defaults to interactive
      * @throws Error if text is an extension command
      */
-    steer(text: string, images?: ImageContent[]): Promise<void>;
+    steer(text: string, images?: ImageContent[], options?: {
+        source?: InputSource;
+    }): Promise<QueuedInputDisposition>;
     /**
      * Queue a follow-up message to be processed after the agent finishes.
      * Delivered only when agent has no more tool calls or steering messages.
      * Expands skill commands and prompt templates. Errors on extension commands.
      * @param images Optional image attachments to include with the message
+     * @param options Input source; defaults to interactive
      * @throws Error if text is an extension command
      */
-    followUp(text: string, images?: ImageContent[]): Promise<void>;
+    followUp(text: string, images?: ImageContent[], options?: {
+        source?: InputSource;
+    }): Promise<QueuedInputDisposition>;
+    /**
+     * Internal: Queue a steering message (already expanded, no extension command check).
+     */
     private _queueSteer;
+    /**
+     * Internal: Queue a follow-up message (already expanded, no extension command check).
+     */
     private _queueFollowUp;
     /**
      * Throw an error if the text is an extension command.
@@ -500,7 +701,9 @@ export declare class AgentSession {
      * Saves to settings.
      */
     setFollowUpMode(mode: "all" | "one-at-a-time"): void;
+    /** Generate Pi's built-in compaction summary for manual and automatic compaction. */
     private _runDefaultCompaction;
+    private _clearManualCompactionState;
     /**
      * Manually compact the session context.
      *
@@ -525,7 +728,38 @@ export declare class AgentSession {
      * Cancel in-progress branch summarization.
      */
     abortBranchSummary(): void;
+    /**
+     * Dispatch automatic compaction after `agent_end` or before prompt submission.
+     * Manual compaction does not call this method; it enters through `compact()`.
+     *
+     * Automatic cases:
+     * 1. Overflow with retry: a context-overflow error or recoverable length stop;
+     *    remove the failed assistant message, compact, and retry the turn once.
+     * 2. Overflow without retry: a successful response exceeded the configured
+     *    context window; compact but preserve the completed response.
+     * 3. Threshold without retry: valid or estimated context usage crossed the
+     *    configured threshold; compact without retrying the completed response.
+     *
+     * Each case calls `_runAutoCompaction()`. After preparation and the
+     * `session_before_compact` hook, that method calls the lower-level `compact()`
+     * function imported from `./compaction/index.ts`, unless the hook cancels or
+     * supplies a custom result.
+     *
+     * @param assistantMessage The assistant message to check
+     * @param skipAbortedCheck If false, include aborted messages (for pre-prompt check). Default: true
+     * @returns Whether the post-run loop should call `agent.continue()` for overflow recovery or queued messages
+     */
     private _checkCompaction;
+    /**
+     * Execute threshold or overflow compaction. Manual compaction uses
+     * `AgentSession.compact()` instead. Both paths call the lower-level `compact()`
+     * function imported from `./compaction/index.ts` after preparation and extension
+     * interception.
+     *
+     * @param reason Automatic trigger selected by `_checkCompaction()`
+     * @param willRetry Whether to continue the interrupted turn after overflow compaction
+     * @returns Whether the post-run loop should call `agent.continue()`
+     */
     private _runAutoCompaction;
     /**
      * Toggle auto-compaction setting.
@@ -541,6 +775,10 @@ export declare class AgentSession {
     private _refreshCurrentModelFromRegistry;
     private _bindExtensionCore;
     private _refreshToolRegistry;
+    /** Whether activating the tool declares it to the model. */
+    private _isDeclarable;
+    /** Whether registering the tool activates it, which declares it to the model. */
+    private _isActivatedOnRegistration;
     private _buildRuntime;
     reload(options?: {
         beforeSessionStart?: () => void | Promise<void>;
@@ -557,6 +795,11 @@ export declare class AgentSession {
      * the TUI needs to render the retry and recreate the underlying indicator.
      */
     private _summarizationRetryCallbacks;
+    private _finishCancelledRetry;
+    /**
+     * Prepare a retryable error for continuation with exponential backoff.
+     * @returns true if the caller should continue the agent, false otherwise
+     */
     private _prepareRetry;
     /**
      * Cancel in-progress retry.
@@ -661,6 +904,14 @@ export declare class AgentSession {
      */
     exportToJsonl(outputPath?: string): string;
     /**
+     * Ask the current model to describe what went wrong in this session for a bug report.
+     * Used when the user declines to share the transcript itself.
+     */
+    summarizeForBugReport(options: {
+        hint?: string;
+        signal: AbortSignal;
+    }): Promise<string>;
+    /**
      * Get text content of last assistant message.
      * Useful for /copy command.
      * @returns Text content, or undefined if no assistant message exists
@@ -676,4 +927,5 @@ export declare class AgentSession {
      */
     get extensionRunner(): ExtensionRunner;
 }
+export {};
 //# sourceMappingURL=agent-session.d.ts.map

@@ -7,6 +7,9 @@ export declare function getGraphemeSegmenter(): Intl.Segmenter;
  */
 export declare function getWordSegmenter(): Intl.Segmenter;
 export declare const cjkBreakRegex: RegExp;
+export declare const cjkPunctuationRegex: RegExp;
+export declare const autocompleteSeparatorRegex: RegExp;
+export declare const autocompleteBoundaryRegex: RegExp;
 /**
  * Calculate the visible width of a string in terminal columns.
  */
@@ -29,6 +32,8 @@ export declare function extractAnsiCode(str: string, pos: number): {
     code: string;
     length: number;
 } | null;
+/** Return only the background color active at the end of an ANSI-styled string. */
+export declare function getActiveBackgroundAnsi(text: string): string;
 /**
  * Wrap text with ANSI codes preserved.
  *
@@ -40,6 +45,12 @@ export declare function extractAnsiCode(str: string, pos: number): {
  * @param width - Maximum visible width per line
  * @returns Array of wrapped lines (NOT padded to width)
  */
+/**
+ * Flatten cached lines. V8 keeps a string built by concatenation as a tree of its parts until something reads it
+ * whole, and a cached line kept as such a tree retains several times its own size. Converting a string to a number
+ * reads it whole, so V8 flattens it in place; the strings' values do not change.
+ */
+export declare function flattenLines(lines: readonly string[]): void;
 export declare function wrapTextWithAnsi(text: string, width: number): string[];
 export declare const PUNCTUATION_REGEX: RegExp;
 /**

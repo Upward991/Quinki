@@ -39,6 +39,10 @@ export class Loader extends Text {
         this.message = message;
         this.updateDisplay();
     }
+    invalidate() {
+        super.invalidate();
+        this.updateDisplay();
+    }
     setIndicator(indicator) {
         this.renderIndicatorVerbatim = indicator !== undefined;
         this.frames = indicator?.frames !== undefined ? [...indicator.frames] : [...DEFAULT_FRAMES];
@@ -56,10 +60,13 @@ export class Loader extends Text {
             this.updateDisplay();
         }, this.intervalMs);
     }
-    updateDisplay() {
+    getRenderedIndicator() {
         const frame = this.frames[this.currentFrame] ?? "";
-        const renderedFrame = this.renderIndicatorVerbatim ? frame : this.spinnerColorFn(frame);
-        const indicator = frame.length > 0 ? `${renderedFrame} ` : "";
+        return this.renderIndicatorVerbatim ? frame : this.spinnerColorFn(frame);
+    }
+    updateDisplay() {
+        const renderedFrame = this.getRenderedIndicator();
+        const indicator = renderedFrame.length > 0 ? `${renderedFrame} ` : "";
         this.setText(`${indicator}${this.messageColorFn(this.message)}`);
         if (this.ui) {
             this.ui.requestRender();

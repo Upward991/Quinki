@@ -1,4 +1,5 @@
-import { applyBackgroundToLine, visibleWidth } from "../utils.js";
+import { dispatchMouseEvent } from "../tui.js";
+import { flattenLines, visibleWidth } from "../utils.js";
 /**
  * Box component - a container that applies padding and background to all children
  */
@@ -9,6 +10,7 @@ export class Box {
     bgFn;
     // Cache for rendered output
     cache;
+    mouseLayout;
     constructor(paddingX = 1, paddingY = 1, bgFn) {
         this.paddingX = paddingX;
         this.paddingY = paddingY;
@@ -33,6 +35,10 @@ export class Box {
         this.bgFn = bgFn;
         // Don't invalidate here - we'll detect bgFn changes by sampling output
     }
+    setPaddingX(paddingX) {
+        this.paddingX = paddingX;
+        this.invalidateCache();
+    }
     invalidateCache() {
         this.cache = undefined;
     }
@@ -50,20 +56,49 @@ export class Box {
             child.invalidate?.();
         }
     }
+    handleMouse(event) {
+        const contentWidth = Math.max(1, event.width - this.paddingX * 2);
+        const contentY = event.y - this.paddingY;
+        const contentX = event.x - this.paddingX;
+        if (contentY < 0 || contentX < 0 || contentX >= contentWidth)
+            return undefined;
+        const mouseChildren = this.mouseLayout?.width === contentWidth
+            ? this.mouseLayout.children
+            : this.children.map((component) => ({ component, height: component.render(contentWidth).length }));
+        let childY = 0;
+        for (const { component: child, height: childHeight } of mouseChildren) {
+            if (contentY >= childY && contentY < childY + childHeight) {
+                return dispatchMouseEvent(child, {
+                    ...event,
+                    x: contentX,
+                    y: contentY - childY,
+                    width: contentWidth,
+                    height: childHeight,
+                });
+            }
+            childY += childHeight;
+        }
+        return undefined;
+    }
     render(width) {
         if (this.children.length === 0) {
             return [];
         }
         const contentWidth = Math.max(1, width - this.paddingX * 2);
         const leftPad = " ".repeat(this.paddingX);
-        // Render all children
+        // Render all children. Keep the child lines unpadded: children usually return the same string
+        // objects every frame, so the cache check below is a cheap identity comparison per line.
+        // Padding here would create new strings that must be compared character by character.
         const childLines = [];
+        const mouseChildren = [];
         for (const child of this.children) {
             const lines = child.render(contentWidth);
+            mouseChildren.push({ component: child, height: lines.length });
             for (const line of lines) {
-                childLines.push(leftPad + line);
+                childLines.push(line);
             }
         }
+        this.mouseLayout = { width: contentWidth, children: mouseChildren };
         if (childLines.length === 0) {
             return [];
         }
@@ -81,13 +116,14 @@ export class Box {
         }
         // Content
         for (const line of childLines) {
-            result.push(this.applyBg(line, width));
+            result.push(this.applyBg(leftPad + line, width));
         }
         // Bottom padding
         for (let i = 0; i < this.paddingY; i++) {
             result.push(this.applyBg("", width));
         }
         // Update cache
+        flattenLines(result);
         this.cache = { childLines, width, bgSample, lines: result };
         return result;
     }
@@ -95,10 +131,8 @@ export class Box {
         const visLen = visibleWidth(line);
         const padNeeded = Math.max(0, width - visLen);
         const padded = line + " ".repeat(padNeeded);
-        if (this.bgFn) {
-            return applyBackgroundToLine(padded, width, this.bgFn);
-        }
-        return padded;
+        // Already padded to width, so apply the background directly instead of measuring the line again.
+        return this.bgFn ? this.bgFn(padded) : padded;
     }
 }
 //# sourceMappingURL=box.js.map

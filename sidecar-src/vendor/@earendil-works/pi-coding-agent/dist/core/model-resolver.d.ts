@@ -4,55 +4,64 @@
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import { type Api, type AuthOperationOptions, type KnownProvider, type Model } from "@earendil-works/pi-ai";
 import type { ModelRuntime } from "./model-runtime.ts";
-/** Default model IDs for each known provider */
-export declare const defaultModelPerProvider: Record<KnownProvider, string>;
+/** Default chat model IDs for providers with built-in chat models. */
+export declare const defaultModelPerProvider: Partial<Record<KnownProvider, string>>;
 export interface ScopedModel {
     model: Model<Api>;
     /** Thinking level if explicitly specified in pattern (e.g., "model:high"), undefined otherwise */
     thinkingLevel?: ThinkingLevel;
 }
-/**
- * Find an exact model reference match.
- * Supports either a bare model id or a canonical provider/modelId reference.
- * When matching by bare id, ambiguous matches across providers are rejected.
- */
-export declare function findExactModelReferenceMatch(modelReference: string, availableModels: Model<Api>[]): Model<Api> | undefined;
-export interface ParsedModelResult {
-    model: Model<Api> | undefined;
-    /** Thinking level if explicitly specified in pattern, undefined otherwise */
+export interface ModelReferenceRequest {
+    /** Bare model id or `provider/id`, optionally followed by `:<thinking>`. */
+    text: string;
+    /** Only consider models from this provider. */
+    provider?: string;
+    /**
+     * A trailing `:<suffix>` is only considered when the full text matches no model, since ids such as
+     * OpenRouter's `qwen/qwen3-coder:exacto` contain colons.
+     * - `none`: the suffix stays part of the id
+     * - `strict`: a valid thinking level is parsed; any other suffix stays part of the id
+     * - `lenient`: like `strict`, but an invalid suffix is dropped with a warning
+     */
+    thinkingSuffix: "none" | "strict" | "lenient";
+    /** Match id and name substrings when no exact match exists. */
+    fuzzy: boolean;
+}
+export type ModelReferenceResult = {
+    status: "resolved";
+    model: Model<Api>;
     thinkingLevel?: ThinkingLevel;
-    warning: string | undefined;
+    warning?: string;
+} | {
+    status: "ambiguous";
+    candidates: Model<Api>[];
+    usableCount: number;
+    thinkingLevel?: ThinkingLevel;
+    warning?: string;
+} | {
+    status: "not-found";
+    /** Set when a provider is explicit or named by a `provider/` prefix, for building a custom model id. */
+    target?: ModelReferenceTarget;
+};
+export interface ModelReferenceTarget {
+    provider: string;
+    providerModels: [Model<Api>, ...Model<Api>[]];
+    /** Text after the provider prefix as typed, including any `:<suffix>`. */
+    modelText: string;
+    /** `modelText` without a valid thinking suffix (unless `thinkingSuffix` is `none`). */
+    modelId: string;
+    thinkingLevel?: ThinkingLevel;
 }
 /**
- * Parse a pattern to extract model and thinking level.
- * Handles models with colons in their IDs (e.g., OpenRouter's :exacto suffix).
- *
- * Algorithm:
- * 1. Try to match full pattern as a model
- * 2. If found, return it with "off" thinking level
- * 3. If not found and has colons, split on last colon:
- *    - If suffix is valid thinking level, use it and recurse on prefix
- *    - If suffix is invalid, warn and recurse on prefix with "off"
- *
- * @internal Exported for testing
+ * `usable` only breaks ties between providers, so a unique match resolves even without credentials
+ * (`--api-key` first-time setup).
  */
-export declare function parseModelPattern(pattern: string, availableModels: Model<Api>[], options?: {
-    allowInvalidThinkingLevelFallback?: boolean;
-}): ParsedModelResult;
-/**
- * Resolve model patterns to actual Model objects with optional thinking levels
- * Format: "pattern:level" where :level is optional
- * For each pattern, finds all matching models and picks the best version:
- * 1. Prefer alias (e.g., claude-sonnet-4-5) over dated versions (claude-sonnet-4-5-20250929)
- * 2. If no alias, pick the latest dated version
- *
- * Supports models with colons in their IDs (e.g., OpenRouter's model:exacto).
- * The algorithm tries to match the full pattern first, then progressively
- * strips colon-suffixes to find a match.
- */
+export declare function resolveModelReference(request: ModelReferenceRequest, models: readonly Model<Api>[], usable: (provider: string) => boolean): ModelReferenceResult;
+/** Exact `provider/id` or bare id lookup without thinking suffixes or fuzzy matching. */
+export declare function findExactModelReferenceMatch(modelReference: string, models: readonly Model<Api>[]): Model<Api> | undefined;
 export interface ModelScopeDiagnostic {
     type: "warning";
-    code: "no-match" | "invalid-thinking-level";
+    code: "no-match" | "invalid-thinking-level" | "ambiguous";
     message: string;
     pattern: string;
 }
@@ -60,6 +69,12 @@ export interface ResolveModelScopeResult {
     scopedModels: ScopedModel[];
     diagnostics: ModelScopeDiagnostic[];
 }
+/**
+ * Resolve scope patterns (`--models`, `enabledModels`) to models with optional thinking levels.
+ *
+ * Every model in `models` is usable, so credentials cannot choose between providers offering the same
+ * id. All of them are added, with a warning so the user can pick one with `provider/id`.
+ */
 export declare function resolveModelScopeFromModels(patterns: string[], models: readonly Model<Api>[]): ResolveModelScopeResult;
 export declare function resolveModelScopeWithDiagnostics(patterns: string[], modelRuntime: ModelRuntime, options?: AuthOperationOptions): Promise<ResolveModelScopeResult>;
 export declare function resolveModelScope(patterns: string[], modelRuntime: ModelRuntime, options?: AuthOperationOptions): Promise<ScopedModel[]>;
@@ -88,6 +103,8 @@ export declare function resolveCliModel(options: {
     cliProvider?: string;
     cliModel?: string;
     cliThinking?: ThinkingLevel;
+    /** `--api-key` was supplied for the selected provider. */
+    inlineApiKey?: boolean;
     modelRuntime: ModelRuntime;
 }): ResolveCliModelResult;
 export interface InitialModelResult {
@@ -97,15 +114,11 @@ export interface InitialModelResult {
 }
 /**
  * Find the initial model to use based on priority:
- * 1. CLI args (provider + model)
- * 2. First model from scoped models (if not continuing/resuming)
- * 3. Restored from session (if continuing/resuming)
- * 4. Saved default from settings
- * 5. First available model with valid API key
+ * 1. First model from scoped models (if not continuing/resuming)
+ * 2. Saved default from settings
+ * 3. First available model with valid API key
  */
 export declare function findInitialModel(options: {
-    cliProvider?: string;
-    cliModel?: string;
     scopedModels: ScopedModel[];
     isContinuing: boolean;
     defaultProvider?: string;

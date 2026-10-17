@@ -40,8 +40,11 @@ export declare function loadSkillsFromDir(options: LoadSkillsFromDirOptions): Lo
  *
  * Skills with disableModelInvocation=true are excluded from the prompt
  * (they can only be invoked explicitly via /skill:name commands).
+ *
+ * `fileReadTool` names the tool that loads skill files; `indirect` names none, for a reader that
+ * is reachable only through another tool.
  */
-export declare function formatSkillsForPrompt(skills: Skill[]): string;
+export declare function formatSkillsForPrompt(skills: Skill[], fileReadTool?: "read" | "bash" | "indirect"): string;
 export interface LoadSkillsOptions {
     /** Working directory for project-local skills. */
     cwd: string;

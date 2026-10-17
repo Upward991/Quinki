@@ -2,7 +2,7 @@ import { type Theme } from "../modes/interactive/theme/theme.ts";
 import type { ResourceDiagnostic } from "./diagnostics.ts";
 export type { ResourceCollision, ResourceDiagnostic } from "./diagnostics.ts";
 import { type EventBus } from "./event-bus.ts";
-import type { InlineExtension, LoadExtensionsResult } from "./extensions/types.ts";
+import type { ExtensionFactory, InlineExtension, LoadExtensionsResult } from "./extensions/types.ts";
 import { type PathMetadata } from "./package-manager.ts";
 import type { PromptTemplate } from "./prompt-templates.ts";
 import { SettingsManager } from "./settings-manager.ts";
@@ -26,6 +26,9 @@ export interface ResourceLoaderReloadOptions {
         extensionsResult: LoadExtensionsResult;
     }) => Promise<boolean>;
 }
+type BuiltinExtension = Exclude<InlineExtension, ExtensionFactory>;
+/** Built-in extensions supply the code of `builtin:<name>` extension paths (see `InlineExtension`). */
+export declare function isBuiltinExtension(input: InlineExtension): input is BuiltinExtension;
 export interface ResourceLoader {
     getExtensions(): LoadExtensionsResult;
     getSkills(): {
@@ -75,6 +78,8 @@ export interface DefaultResourceLoaderOptions {
     additionalThemePaths?: string[];
     extensionFactories?: InlineExtension[];
     noExtensions?: boolean;
+    /** Built-in extensions not to load, by name (such as `mcp`), even when settings or `-e` enable them. */
+    disabledBuiltinExtensions?: string[];
     noSkills?: boolean;
     noPromptTemplates?: boolean;
     noThemes?: boolean;
@@ -128,7 +133,9 @@ export declare class DefaultResourceLoader implements ResourceLoader {
     private additionalPromptTemplatePaths;
     private additionalThemePaths;
     private extensionFactories;
+    private builtinExtensions;
     private noExtensions;
+    private disabledBuiltinExtensions;
     private noSkills;
     private noPromptTemplates;
     private noThemes;
@@ -195,6 +202,8 @@ export declare class DefaultResourceLoader implements ResourceLoader {
     reload(options?: ResourceLoaderReloadOptions): Promise<void>;
     private loadCurrentExtensionSet;
     private resolveExtensionLoadPath;
+    /** Load extension paths: files from disk and `builtin:<name>` paths from the built-in extensions. */
+    private loadExtensionPaths;
     private loadFinalExtensionSet;
     private addExtensionConflictDiagnostics;
     private mapSkillPath;

@@ -33,8 +33,10 @@ export interface ScrollbarGeometry {
     thumbHeight: number;
     maxScrollTop: number;
 }
-export declare function getScrollbarGeometry(box: LayoutBox): ScrollbarGeometry | undefined;
+export declare function getScrollbarGeometry(box: LayoutBox, includeHiddenAuto?: boolean): ScrollbarGeometry | undefined;
 export declare function renderLayoutFrame(root: Component, width: number, height: number, requestRender: () => void): LayoutFrame;
+/** Return the visual hit path from the deepest component to the layout root. */
+export declare function getLayoutBoxesAt(frame: LayoutFrame, x: number, y: number): LayoutBox[];
 export declare function getScrollViewBox(frame: LayoutFrame, scrollView: ScrollView): LayoutBox | undefined;
 export declare function getScrollViewsAt(frame: LayoutFrame, x: number, y: number): ScrollView[];
 //# sourceMappingURL=layout.d.ts.map

@@ -5,6 +5,8 @@ import { Container, type Focusable, type TUI } from "@earendil-works/pi-tui";
 export interface ExtensionInputOptions {
     tui?: TUI;
     timeout?: number;
+    initialValue?: string;
+    description?: string;
 }
 export declare class ExtensionInputComponent extends Container implements Focusable {
     private input;

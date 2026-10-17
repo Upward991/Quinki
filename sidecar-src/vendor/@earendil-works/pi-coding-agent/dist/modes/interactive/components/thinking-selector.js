@@ -1,4 +1,4 @@
-import { Container, fuzzyFilter, getKeybindings, Input, matchesKey, SelectList, Spacer, Text, } from "@earendil-works/pi-tui";
+import { Container, fuzzyFilter, getKeybindings, Input, SelectList, Spacer, Text, } from "@earendil-works/pi-tui";
 import { getSelectListTheme, theme } from "../theme/theme.js";
 import { DynamicBorder } from "./dynamic-border.js";
 import { keyDisplayText } from "./keybinding-hints.js";
@@ -41,7 +41,7 @@ export class ThinkingSelectorComponent extends Container {
         this.onSelectAsDefault = onSelectAsDefault;
         this.allItems = availableLevels.map((level) => ({
             value: level,
-            label: level,
+            label: `${level === currentLevel ? "✓ " : "  "}${level}`,
             description: level === defaultThinkingLevel ? `${LEVEL_DESCRIPTIONS[level]} · default` : LEVEL_DESCRIPTIONS[level],
         }));
         // Add top border
@@ -60,7 +60,7 @@ export class ThinkingSelectorComponent extends Container {
         this.selectListChildIndex = this.children.length;
         this.addChild(this.selectList);
         this.addChild(new Spacer(1));
-        this.addChild(new Text(theme.fg("dim", "  Enter to select · Ctrl+S to set as default · Esc to cancel"), 0, 0));
+        this.addChild(new Text(theme.fg("dim", `  ${keyDisplayText("tui.select.confirm")} to select · ${keyDisplayText("app.thinking.save")} to set as default · ${keyDisplayText("tui.select.cancel")} to cancel`), 0, 0));
         // Add bottom border
         this.addChild(new DynamicBorder());
     }
@@ -76,7 +76,7 @@ export class ThinkingSelectorComponent extends Container {
     }
     applyFilter(query) {
         const filtered = query
-            ? fuzzyFilter(this.allItems, query, (item) => `${item.label} ${item.description ?? ""}`)
+            ? fuzzyFilter(this.allItems, query, (item) => `${item.value} ${item.description ?? ""}`)
             : this.allItems;
         const selectedValue = this.selectList.getSelectedItem()?.value;
         const newList = this.buildSelectList(filtered, selectedValue);
@@ -84,13 +84,13 @@ export class ThinkingSelectorComponent extends Container {
         this.selectList = newList;
     }
     handleInput(keyData) {
-        if (matchesKey(keyData, "ctrl+s") && this.onSelectAsDefault) {
+        const kb = getKeybindings();
+        if (kb.matches(keyData, "app.thinking.save") && this.onSelectAsDefault) {
             const item = this.selectList.getSelectedItem();
             if (item)
                 this.onSelectAsDefault(item.value);
             return;
         }
-        const kb = getKeybindings();
         const isNav = kb.matches(keyData, "tui.select.up") ||
             kb.matches(keyData, "tui.select.down") ||
             kb.matches(keyData, "tui.select.confirm") ||

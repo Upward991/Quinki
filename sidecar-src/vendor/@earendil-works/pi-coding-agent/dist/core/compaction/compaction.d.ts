@@ -6,8 +6,8 @@
  */
 import type { AgentMessage, StreamFn, ThinkingLevel } from "@earendil-works/pi-agent-core";
 import { type RetryCallbacks, type RetryPolicy } from "@earendil-works/pi-ai";
-import type { AssistantMessage, Context, Model, SimpleStreamOptions, Usage } from "@earendil-works/pi-ai/compat";
-import { type SessionEntry } from "../session-manager.ts";
+import type { AssistantMessage, Model, SimpleStreamOptions, TranscriptContext, Usage } from "@earendil-works/pi-ai/compat";
+import { type SessionEntry, type SessionProjection } from "../session-manager.ts";
 import { type FileOperations } from "./utils.ts";
 /** Details stored in CompactionEntry.details for file tracking */
 export interface CompactionDetails {
@@ -51,6 +51,8 @@ export interface ContextUsageEstimate {
  * If there are messages after the last usage, estimate their tokens with estimateTokens.
  */
 export declare function estimateContextTokens(messages: AgentMessage[]): ContextUsageEstimate;
+/** Estimate projected context without trusting usage captured before a later edit or compaction. */
+export declare function estimateProjectedContextTokens(projection: SessionProjection, branchEntries: SessionEntry[]): ContextUsageEstimate;
 /**
  * Check if compaction should trigger based on context usage.
  */
@@ -102,7 +104,7 @@ export declare function getSummarizationFailure(response: AssistantMessage, labe
  * the whole compaction on the first attempt. Deterministic errors and aborts return
  * immediately (see {@link retryAssistantCall}).
  */
-export declare function completeSummarization(model: Model<any>, context: Context, options: SimpleStreamOptions, streamFn?: StreamFn, retry?: RetryPolicy, callbacks?: RetryCallbacks): Promise<AssistantMessage>;
+export declare function completeSummarization(model: Model<any>, context: TranscriptContext, options: SimpleStreamOptions, streamFn?: StreamFn, retry?: RetryPolicy, callbacks?: RetryCallbacks): Promise<AssistantMessage>;
 /**
  * Generate a summary of the conversation using the LLM.
  * If previousSummary is provided, uses the update prompt to merge.

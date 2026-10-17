@@ -5,7 +5,7 @@
  */
 import type { AgentMessage, ThinkingLevel } from "@earendil-works/pi-agent-core";
 import type { ImageContent } from "@earendil-works/pi-ai";
-import type { SessionStats } from "../../core/agent-session.ts";
+import type { PromptDisposition, QueuedInputDisposition, SessionStats } from "../../core/agent-session.ts";
 import type { BashResult } from "../../core/bash-executor.ts";
 import type { CompactionResult } from "../../core/compaction/index.ts";
 import type { SessionEntry, SessionTreeNode } from "../../core/session-manager.ts";
@@ -60,18 +60,18 @@ export declare class RpcClient {
     getStderr(): string;
     /**
      * Send a prompt to the agent.
-     * Returns immediately after sending; use onEvent() to receive streaming events.
-     * Use waitForIdle() to wait for completion.
+     * Returns the prompt's disposition after acceptance; use onEvent() to receive streaming events.
+     * If the disposition is "handled", no run started for this prompt, so don't wait for agent_settled.
      */
-    prompt(message: string, images?: ImageContent[]): Promise<void>;
+    prompt(message: string, images?: ImageContent[], streamingBehavior?: "steer" | "followUp"): Promise<PromptDisposition>;
     /**
      * Queue a steering message to interrupt the agent mid-run.
      */
-    steer(message: string, images?: ImageContent[]): Promise<void>;
+    steer(message: string, images?: ImageContent[]): Promise<QueuedInputDisposition>;
     /**
      * Queue a follow-up message to be processed after the agent finishes.
      */
-    followUp(message: string, images?: ImageContent[]): Promise<void>;
+    followUp(message: string, images?: ImageContent[]): Promise<QueuedInputDisposition>;
     /**
      * Abort current operation.
      */

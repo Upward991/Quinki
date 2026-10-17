@@ -1,10 +1,10 @@
 import { modelsAreEqual } from "@earendil-works/pi-ai";
-import { Container, fuzzyFilter, getKeybindings, Input, matchesKey, Spacer, Text, } from "@earendil-works/pi-tui";
+import { Container, fuzzyFilter, getKeybindings, Input, Spacer, Text, } from "@earendil-works/pi-tui";
 import { refreshModelCatalogs } from "../model-catalog-refresh.js";
 import { getModelSelectorSearchText } from "../model-search.js";
 import { theme } from "../theme/theme.js";
 import { DynamicBorder } from "./dynamic-border.js";
-import { keyHint } from "./keybinding-hints.js";
+import { keyDisplayText, keyHint } from "./keybinding-hints.js";
 /**
  * Component that renders a model selector with search
  */
@@ -87,7 +87,7 @@ export class ModelSelectorComponent extends Container {
         this.addChild(new Spacer(1));
         // Hint
         if (this.onSelectAsDefaultCallback) {
-            this.addChild(new Text(theme.fg("dim", "  Enter to select \u00b7 Ctrl+S to set as default \u00b7 Esc to cancel"), 0, 0));
+            this.addChild(new Text(theme.fg("dim", `  ${keyDisplayText("tui.select.confirm")} to select · ${keyDisplayText("app.models.save")} to set as default · ${keyDisplayText("tui.select.cancel")} to cancel`), 0, 0));
         }
         // Add bottom border
         this.addChild(new DynamicBorder());
@@ -265,20 +265,11 @@ export class ModelSelectorComponent extends Container {
             const isCurrent = modelsAreEqual(this.currentModel, item.model);
             const isDefault = this.isDefaultModel(item.model);
             const defaultBadge = isDefault ? theme.fg("muted", " · default") : "";
-            let line = "";
-            if (isSelected) {
-                const prefix = theme.fg("accent", "→ ");
-                const modelText = `${item.id}`;
-                const providerBadge = theme.fg("muted", `[${item.provider}]`);
-                const checkmark = isCurrent ? theme.fg("success", " ✓") : "";
-                line = `${prefix + theme.fg("accent", modelText)} ${providerBadge}${defaultBadge}${checkmark}`;
-            }
-            else {
-                const modelText = `  ${item.id}`;
-                const providerBadge = theme.fg("muted", `[${item.provider}]`);
-                const checkmark = isCurrent ? theme.fg("success", " ✓") : "";
-                line = `${modelText} ${providerBadge}${defaultBadge}${checkmark}`;
-            }
+            const cursor = isSelected ? theme.fg("accent", "→ ") : "  ";
+            const currentMarker = isCurrent ? theme.fg("accent", "✓ ") : "  ";
+            const modelText = isSelected ? theme.fg("accent", item.id) : item.id;
+            const providerBadge = theme.fg("muted", `[${item.provider}]`);
+            const line = `${cursor}${currentMarker}${modelText} ${providerBadge}${defaultBadge}`;
             this.listContainer.addChild(new Text(line, 0, 0));
         }
         // Add scroll indicator if needed
@@ -345,8 +336,8 @@ export class ModelSelectorComponent extends Container {
             this.dispose();
             this.onCancelCallback();
         }
-        // Ctrl+S — select and save as default
-        else if (matchesKey(keyData, "ctrl+s") && this.onSelectAsDefaultCallback) {
+        // Select and save as default
+        else if (kb.matches(keyData, "app.models.save") && this.onSelectAsDefaultCallback) {
             const selectedModel = this.filteredModels[this.selectedIndex];
             if (selectedModel) {
                 this.dispose();

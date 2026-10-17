@@ -9,8 +9,9 @@ export declare class SkillInvocationMessageComponent extends Box {
     private expanded;
     private skillBlock;
     private markdownTheme;
-    constructor(skillBlock: ParsedSkillBlock, markdownTheme?: MarkdownTheme);
+    constructor(skillBlock: ParsedSkillBlock, markdownTheme?: MarkdownTheme, outputPad?: number);
     setExpanded(expanded: boolean): void;
+    setOutputPad(outputPad: number): void;
     invalidate(): void;
     private updateDisplay;
 }

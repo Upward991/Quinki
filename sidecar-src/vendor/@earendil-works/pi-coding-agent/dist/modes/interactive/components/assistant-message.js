@@ -1,4 +1,4 @@
-import { Container, Markdown, Spacer, Text } from "@earendil-works/pi-tui";
+import { Container, Markdown, MouseRegion, Spacer, Text } from "@earendil-works/pi-tui";
 import { getMarkdownTheme, theme } from "../theme/theme.js";
 import { createMarkdownTransform } from "./markdown-transform.js";
 const OSC133_ZONE_START = "\x1b]133;A\x07";
@@ -17,6 +17,7 @@ export class AssistantMessageComponent extends Container {
     lastMessage;
     hasToolCalls = false;
     isStreaming = false;
+    thinkingVisibilityOverrides = new Map();
     constructor(message, hideThinkingBlock = false, markdownTheme = getMarkdownTheme(), hiddenThinkingLabel = "Thinking...", outputPad = 1, markdownTransformers = []) {
         super();
         this.hideThinkingBlock = hideThinkingBlock;
@@ -39,6 +40,7 @@ export class AssistantMessageComponent extends Container {
     }
     setHideThinkingBlock(hide) {
         this.hideThinkingBlock = hide;
+        this.thinkingVisibilityOverrides.clear();
         if (this.lastMessage) {
             this.updateContent(this.lastMessage);
         }
@@ -74,6 +76,7 @@ export class AssistantMessageComponent extends Container {
             this.contentContainer.addChild(new Spacer(1));
         }
         // Render content in order
+        let thinkingRunIndex = 0;
         for (let i = 0; i < message.content.length; i++) {
             const content = message.content[i];
             if (content.type === "text" && content.text.trim()) {
@@ -104,19 +107,24 @@ export class AssistantMessageComponent extends Container {
                 const hasVisibleContentAfter = message.content
                     .slice(i + 1)
                     .some((c) => (c.type === "text" && c.text.trim()) || (c.type === "thinking" && c.thinking.trim()));
-                if (this.hideThinkingBlock) {
-                    // Show one static label for each run of thinking blocks when hidden.
-                    this.contentContainer.addChild(new Text(theme.italic(theme.fg("thinkingText", this.hiddenThinkingLabel)), this.outputPad, 0));
-                }
-                else {
-                    // Render each run of thinking blocks as one Markdown section.
-                    this.contentContainer.addChild(new Markdown(thinkingBlocks.join("\n\n"), this.outputPad, 0, this.markdownTheme, {
+                const runIndex = thinkingRunIndex++;
+                const hidden = this.thinkingVisibilityOverrides.get(runIndex) ?? this.hideThinkingBlock;
+                const thinkingComponent = hidden
+                    ? new Text(theme.italic(theme.fg("thinkingText", this.hiddenThinkingLabel)), this.outputPad, 0)
+                    : new Markdown(thinkingBlocks.join("\n\n"), this.outputPad, 0, this.markdownTheme, {
                         color: (text) => theme.fg("thinkingText", text),
                         italic: true,
                     }, {
                         transform: createMarkdownTransform("assistant-thinking", this.isStreaming, this.markdownTransformers),
-                    }));
-                }
+                    });
+                this.contentContainer.addChild(new MouseRegion(thinkingComponent, (event) => {
+                    if (event.type !== "click" || event.button !== "left")
+                        return undefined;
+                    this.thinkingVisibilityOverrides.set(runIndex, !hidden);
+                    if (this.lastMessage)
+                        this.updateContent(this.lastMessage);
+                    return { handled: true };
+                }));
                 if (hasVisibleContentAfter) {
                     this.contentContainer.addChild(new Spacer(1));
                 }

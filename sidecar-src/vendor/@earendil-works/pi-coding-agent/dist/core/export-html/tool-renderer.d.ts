@@ -5,10 +5,10 @@
  * and converting the ANSI output to HTML.
  */
 import type { Theme } from "../../modes/interactive/theme/theme.ts";
-import type { ToolDefinition } from "../extensions/types.ts";
+import type { ToolRenderers } from "../extensions/types.ts";
 export interface ToolHtmlRendererDeps {
-    /** Function to look up tool definition by name */
-    getToolDefinition: (name: string) => ToolDefinition | undefined;
+    /** Renderers of calls to a tool, as resolved by extensions and the registered tool */
+    getToolRenderers: (name: string) => ToolRenderers | undefined;
     /** Theme for styling */
     theme: Theme;
     /** Working directory for render context */

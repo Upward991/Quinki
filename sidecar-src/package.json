@@ -27,6 +27,7 @@
     "openai": "6.26.0",
     "partial-json": "0.1.7",
     "proper-lockfile": "4.1.2",
+    "quickjs-wasi": "3.6.2",
     "semver": "7.8.0",
     "typebox": "1.1.38",
     "undici": "8.3.0",

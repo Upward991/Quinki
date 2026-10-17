@@ -5,7 +5,8 @@ export class ScrollView extends Container {
     followEnd;
     primary;
     overscroll;
-    scrollbarStyle;
+    scrollbarTrackStyle;
+    scrollbarThumbStyle;
     currentScrollbar;
     scrollbarHideDelayMs;
     currentScrollTop = 0;
@@ -29,7 +30,8 @@ export class ScrollView extends Container {
         this.primary = options.primary ?? false;
         this.overscroll = options.overscroll ?? "chain";
         this.currentScrollbar = options.scrollbar ?? "hidden";
-        this.scrollbarStyle = options.scrollbarStyle ?? ((text) => `\x1b[100m${text}\x1b[49m`);
+        this.scrollbarTrackStyle = options.scrollbarTrackStyle ?? ((text) => `\x1b[90m${text}\x1b[39m`);
+        this.scrollbarThumbStyle = options.scrollbarThumbStyle ?? ((text) => `\x1b[37m${text}\x1b[39m`);
         this.scrollbarHideDelayMs = Math.max(0, Math.floor(options.scrollbarHideDelayMs ?? 1000));
     }
     get scrollTop() {
@@ -48,6 +50,9 @@ export class ScrollView extends Container {
         if (this.scrollbar === "always")
             return this.currentViewportHeight > 0;
         return (this.scrollbar === "auto" && this.contentHeight > this.currentViewportHeight && this.transientScrollbarVisible);
+    }
+    get isScrollbarActive() {
+        return this.scrollbarActive;
     }
     setScrollbar(scrollbar) {
         if (scrollbar === this.currentScrollbar)
@@ -91,6 +96,7 @@ export class ScrollView extends Container {
             return;
         this.scrollbarActive = active;
         this.markScrollbarActivity();
+        this.requestRenderCallback?.();
     }
     scrollTo(scrollTop, options = {}) {
         const requested = Number.isFinite(scrollTop) ? Math.trunc(scrollTop) : this.currentScrollTop;

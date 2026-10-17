@@ -1,4 +1,4 @@
-import type { Component } from "../tui.ts";
+import type { Component, TuiMouseEvent, TuiMouseEventResult } from "../tui.ts";
 export interface SelectItem {
     value: string;
     label: string;
@@ -27,6 +27,7 @@ export declare class SelectList implements Component {
     private items;
     private filteredItems;
     private selectedIndex;
+    private mousePressedIndex;
     private maxVisible;
     private theme;
     private layout;
@@ -38,7 +39,9 @@ export declare class SelectList implements Component {
     setSelectedIndex(index: number): void;
     invalidate(): void;
     render(width: number): string[];
+    handleMouse(event: TuiMouseEvent): TuiMouseEventResult | undefined;
     handleInput(keyData: string): void;
+    private getVisibleRange;
     private renderItem;
     private getPrimaryColumnWidth;
     private getPrimaryColumnBounds;

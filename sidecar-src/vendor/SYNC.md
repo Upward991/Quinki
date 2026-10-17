@@ -1,5 +1,11 @@
 # SYNC — Pi SDK Vendor Re-synchronization
 
+> **17 ott 2026 — VENDOR ALLA 1.3.0.** Il modo GIUSTO di aggiornare ora e' `bash scripts/update-pi-sdk.sh <versione>`
+> (scarica, estrae, applica i patch di `patches/<versione>/`, compile check, stop se un patch non entra).
+> Il set di riferimento e' `patches/1.3.0/` (13 patch, tutti applicabili puliti al pristino). La versione
+> pinnata e' in `PI-SDK-VERSION.txt`. Le note sotto (procedura manuale della 0.84) restano come storia.
+
+
 > NOTA (17 ott): al re-sync NON copiare: i `*.map` (solo puntatori di debug), la cartella
 > `dist/bundle/` (chunks pre-bundle mai usati) e i `.js` non importati (harness/testing/cli dei SDK):
 > erano stati rimossi perche' il binario compilato non li puo' comunque usare. Tieni i 13 file

@@ -28,6 +28,10 @@ export class ExtensionSelectorComponent extends Container {
         this.addChild(new Spacer(1));
         this.titleText = new Text(theme.fg("accent", theme.bold(title)), 1, 0);
         this.addChild(this.titleText);
+        if (opts?.description) {
+            this.addChild(new Spacer(1));
+            this.addChild(new Text(theme.fg("text", opts.description), 1, 0));
+        }
         this.addChild(new Spacer(1));
         if (opts?.timeout && opts.timeout > 0 && opts.tui) {
             this.countdown = new CountdownTimer(opts.timeout, opts.tui, (s) => this.titleText.setText(theme.fg("accent", theme.bold(`${this.baseTitle} (${s}s)`))), () => this.onCancelCallback());

@@ -30,6 +30,7 @@ export interface LlamaModelsResponse {
 }
 export interface LlamaServerProps {
     models_autoload?: boolean;
+    chat_template?: string;
 }
 export interface LlamaModelEvent {
     model: string;
@@ -54,6 +55,7 @@ export declare class LlamaClient {
         signal?: AbortSignal;
     }): Promise<LlamaModelInfo[]>;
     props(options?: {
+        model?: string;
         signal?: AbortSignal;
     }): Promise<LlamaServerProps>;
     load(model: string, signal?: AbortSignal): Promise<void>;

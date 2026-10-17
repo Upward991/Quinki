@@ -1,12 +1,10 @@
 import { Container } from "@earendil-works/pi-tui";
-import { type TerminalTheme } from "../theme/theme.ts";
 export interface FirstTimeSetupResult {
-    theme: TerminalTheme;
+    theme: string;
     shareAnalytics: boolean;
 }
 export interface FirstTimeSetupOptions {
-    detectedTheme: TerminalTheme;
-    onThemePreview: (themeName: TerminalTheme) => void;
+    onThemePreview: (themeName: string) => void;
     onSubmit: (result: FirstTimeSetupResult) => void;
     onCancel: () => void;
 }
@@ -17,6 +15,8 @@ export declare class FirstTimeSetupComponent extends Container {
     private analyticsIndex;
     private readonly options;
     constructor(options: FirstTimeSetupOptions);
+    /** Rebuild on theme changes, e.g. when the system theme receives the terminal's colors. */
+    invalidate(): void;
     private update;
     private addOptionList;
     private moveSelection;

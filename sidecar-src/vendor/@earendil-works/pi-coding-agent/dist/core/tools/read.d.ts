@@ -1,4 +1,5 @@
 import type { AgentTool } from "@earendil-works/pi-agent-core";
+import type { ModelImageResizeOptions } from "@earendil-works/pi-ai";
 import { type Static, Type } from "typebox";
 import type { ToolDefinition } from "../extensions/types.ts";
 import { type TruncationResult } from "./truncate.ts";
@@ -12,6 +13,19 @@ export declare const readToolSystemPromptContribution: {
     readonly guidelines: readonly ["Use read to examine files instead of cat or sed."];
 };
 export type ReadToolInput = Static<typeof readSchema>;
+/**
+ * Result for programmatic callers such as codemode scripts: the text for text files, and an image
+ * block for images that codemode's `image()` accepts. `note` is the text that goes with the image,
+ * such as resize hints. Property descriptions are left out so the type stays on one line in tool
+ * descriptions.
+ */
+declare const readOutputSchema: Type.TUnion<[Type.TString, Type.TObject<{
+    type: Type.TLiteral<"image">;
+    data: Type.TString;
+    mimeType: Type.TString;
+    note: Type.TString;
+}>]>;
+export type ReadToolOutput = Static<typeof readOutputSchema>;
 export interface ReadToolDetails {
     truncation?: TruncationResult;
 }
@@ -28,8 +42,10 @@ export interface ReadOperations {
     detectImageMimeType?: (absolutePath: string) => Promise<string | null | undefined>;
 }
 export interface ReadToolOptions {
-    /** Whether to auto-resize images to 2000x2000 max. Default: true */
+    /** Whether to auto-resize images. Default: true */
     autoResizeImages?: boolean;
+    /** Fallback resize profile when the execution context has no model metadata. */
+    resizeOptions?: ModelImageResizeOptions;
     /** Custom operations for file reading. Default: local filesystem */
     operations?: ReadOperations;
 }

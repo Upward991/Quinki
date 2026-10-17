@@ -2,6 +2,9 @@
  * Armin says hi! A fun easter egg with animated XBM art.
  */
 import type { Component, TUI } from "@earendil-works/pi-tui";
+export declare const ARMIN_WIDTH = 31;
+export declare const ARMIN_HEIGHT = 36;
+export declare function isArminPixel(x: number, y: number): boolean;
 export declare class ArminComponent implements Component {
     private ui;
     private interval;

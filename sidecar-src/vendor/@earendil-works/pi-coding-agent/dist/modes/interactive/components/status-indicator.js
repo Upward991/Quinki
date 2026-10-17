@@ -1,4 +1,4 @@
-import { Loader } from "@earendil-works/pi-tui";
+import { Loader, truncateToWidth } from "@earendil-works/pi-tui";
 import { theme } from "../theme/theme.js";
 import { CountdownTimer } from "./countdown-timer.js";
 import { keyText } from "./keybinding-hints.js";
@@ -8,13 +8,20 @@ export class StatusIndicator extends Loader {
         super(ui, spinnerColorFn, messageColorFn, message, indicator);
         this.kind = kind;
     }
+    renderInBorder(width) {
+        const line = super.render(width + 2)[1] ?? "";
+        return truncateToWidth(line.startsWith(" ") ? line.slice(1).trimEnd() : line.trimEnd(), width, "");
+    }
+    renderSpinnerInBorder(width) {
+        return truncateToWidth(this.getRenderedIndicator(), width, "");
+    }
     dispose() {
         this.stop();
     }
 }
 export class WorkingStatusIndicator extends StatusIndicator {
-    constructor(ui, message, indicator) {
-        super("working", ui, (spinner) => theme.fg("accent", spinner), (text) => theme.fg("muted", text), message, indicator);
+    constructor(ui, message, indicator, colorFn) {
+        super("working", ui, colorFn ?? ((text) => theme.fg("accent", text)), colorFn ?? ((text) => theme.fg("muted", text)), message, indicator);
     }
 }
 export class RetryStatusIndicator extends StatusIndicator {
@@ -35,12 +42,12 @@ export class RetryStatusIndicator extends StatusIndicator {
     }
 }
 export class CompactionStatusIndicator extends StatusIndicator {
-    constructor(ui, reason) {
+    constructor(ui, reason, colorFn) {
         const cancelHint = `(${keyText("app.interrupt")} to cancel)`;
         const label = reason === "manual"
             ? `Compacting context... ${cancelHint}`
             : `${reason === "overflow" ? "Context overflow detected, " : ""}Auto-compacting... ${cancelHint}`;
-        super("compaction", ui, (spinner) => theme.fg("accent", spinner), (text) => theme.fg("muted", text), label);
+        super("compaction", ui, colorFn ?? ((spinner) => theme.fg("accent", spinner)), colorFn ?? ((text) => theme.fg("muted", text)), label);
     }
 }
 export class BranchSummaryStatusIndicator extends StatusIndicator {

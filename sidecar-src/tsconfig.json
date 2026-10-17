@@ -46,6 +46,30 @@
       ],
       "@earendil-works/pi-telemetry/*": [
         "vendor/@earendil-works/pi-telemetry/dist/*"
+      ],
+      "@earendil-works/pi-mcp": [
+        "vendor/@earendil-works/pi-mcp/dist/index.js"
+      ],
+      "@earendil-works/pi-mcp/oauth": [
+        "vendor/@earendil-works/pi-mcp/dist/oauth/index.js"
+      ],
+      "@earendil-works/pi-mcp/testing": [
+        "vendor/@earendil-works/pi-mcp/dist/testing/index.js"
+      ],
+      "@earendil-works/pi-mcp/*": [
+        "vendor/@earendil-works/pi-mcp/dist/*"
+      ],
+      "@earendil-works/pi-codemode": [
+        "vendor/@earendil-works/pi-codemode/dist/index.js"
+      ],
+      "@earendil-works/pi-codemode/declarations": [
+        "vendor/@earendil-works/pi-codemode/dist/declarations.js"
+      ],
+      "@earendil-works/pi-codemode/source": [
+        "vendor/@earendil-works/pi-codemode/dist/source.js"
+      ],
+      "@earendil-works/pi-codemode/*": [
+        "vendor/@earendil-works/pi-codemode/dist/*"
       ]
     }
   },

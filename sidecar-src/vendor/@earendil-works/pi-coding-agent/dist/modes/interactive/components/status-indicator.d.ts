@@ -4,10 +4,12 @@ export type StatusIndicatorKind = "working" | "retry" | "compaction" | "branchSu
 export declare class StatusIndicator extends Loader {
     readonly kind: StatusIndicatorKind;
     constructor(kind: StatusIndicatorKind, ui: TUI, spinnerColorFn: (str: string) => string, messageColorFn: (str: string) => string, message: string, indicator?: WorkingIndicatorOptions);
+    renderInBorder(width: number): string;
+    renderSpinnerInBorder(width: number): string;
     dispose(): void;
 }
 export declare class WorkingStatusIndicator extends StatusIndicator {
-    constructor(ui: TUI, message: string, indicator?: WorkingIndicatorOptions);
+    constructor(ui: TUI, message: string, indicator?: WorkingIndicatorOptions, colorFn?: (text: string) => string);
 }
 export declare class RetryStatusIndicator extends StatusIndicator {
     private countdown;
@@ -16,7 +18,7 @@ export declare class RetryStatusIndicator extends StatusIndicator {
 }
 export type CompactionStatusReason = "manual" | "threshold" | "overflow";
 export declare class CompactionStatusIndicator extends StatusIndicator {
-    constructor(ui: TUI, reason: CompactionStatusReason);
+    constructor(ui: TUI, reason: CompactionStatusReason, colorFn?: (text: string) => string);
 }
 export declare class BranchSummaryStatusIndicator extends StatusIndicator {
     constructor(ui: TUI);

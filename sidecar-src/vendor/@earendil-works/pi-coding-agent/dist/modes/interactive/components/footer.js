@@ -48,6 +48,7 @@ export class FooterComponent {
     autoCompactEnabled = true;
     session;
     footerData;
+    sessionStats;
     constructor(session, footerData) {
         this.session = session;
         this.footerData = footerData;
@@ -72,13 +73,34 @@ export class FooterComponent {
     dispose() {
         // Git watcher cleanup handled by provider
     }
-    render(width) {
-        const state = this.session.state;
+    /**
+     * Usage totals and context usage scan the whole session, and the footer renders on every frame.
+     * Entries are append-only and every append moves the leaf, so the results only change with the
+     * session, leaf, entry count, or the model whose context window applies.
+     */
+    getSessionStats() {
+        const sessionManager = this.session.sessionManager;
+        const entryCount = sessionManager.getEntryCount();
+        const sessionId = sessionManager.getSessionId();
+        const leafId = sessionManager.getLeafId();
+        const limitsModel = this.session.routedModel?.model ?? this.session.model;
+        const cached = this.sessionStats;
+        if (cached &&
+            cached.session === this.session &&
+            cached.sessionId === sessionId &&
+            cached.leafId === leafId &&
+            cached.entryCount === entryCount &&
+            cached.limitsModel === limitsModel) {
+            return cached;
+        }
         // Calculate cumulative usage from ALL session entries (not just post-compaction messages)
         const usageTotals = createUsageTotals();
         let latestCacheHitRate;
-        for (const entry of this.session.sessionManager.getEntries()) {
-            if (entry.type === "message" && entry.message.role === "assistant") {
+        for (const entry of sessionManager.getEntries()) {
+            if (entry.type === "usage") {
+                addUsageToTotals(usageTotals, entry.usage);
+            }
+            else if (entry.type === "message" && entry.message.role === "assistant") {
                 addUsageToTotals(usageTotals, entry.message.usage);
                 const latestPromptTokens = entry.message.usage.input + entry.message.usage.cacheRead + entry.message.usage.cacheWrite;
                 latestCacheHitRate =
@@ -94,6 +116,21 @@ export class FooterComponent {
         // Calculate context usage from session (handles compaction correctly).
         // After compaction, tokens are unknown until the next LLM response.
         const contextUsage = this.session.getContextUsage();
+        this.sessionStats = {
+            session: this.session,
+            sessionId,
+            leafId,
+            entryCount,
+            limitsModel,
+            usageTotals,
+            latestCacheHitRate,
+            contextUsage,
+        };
+        return this.sessionStats;
+    }
+    render(width) {
+        const state = this.session.state;
+        const { usageTotals, latestCacheHitRate, contextUsage } = this.getSessionStats();
         const contextWindow = contextUsage?.contextWindow ?? state.model?.contextWindow ?? 0;
         const contextPercentValue = contextUsage?.percent ?? 0;
         const contextPercent = contextUsage?.percent !== null ? contextPercentValue.toFixed(1) : "?";
@@ -166,6 +203,12 @@ export class FooterComponent {
             const thinkingLevel = state.thinkingLevel || "off";
             rightSideWithoutProvider =
                 thinkingLevel === "off" ? `${modelName} • thinking off` : `${modelName} • ${thinkingLevel}`;
+        }
+        // A virtual model routes each request; show where the latest response went.
+        const routed = this.session.routedModel;
+        if (routed) {
+            const level = routed.thinkingLevel ? ` • ${routed.thinkingLevel}` : "";
+            rightSideWithoutProvider += ` → ${routed.model.id}${level}`;
         }
         // Prepend the provider in parentheses if there are multiple providers and there's enough room
         let rightSide = rightSideWithoutProvider;

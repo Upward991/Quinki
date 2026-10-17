@@ -1,0 +1,10 @@
+--- a/dist/tui.js	2026-10-17 13:47:04
++++ b/dist/tui.js	2026-10-17 13:47:04
+@@ -601,6 +601,7 @@
+         if (!this.stopped) {
+             this.terminal.write(enabled ? "\x1b[?2031h" : "\x1b[?2031l");
+         }
++
+     }
+     queryCellSize() {
+         // Only query if terminal supports images (cell size is only used for image rendering)

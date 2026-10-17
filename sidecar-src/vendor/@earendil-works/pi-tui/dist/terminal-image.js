@@ -38,7 +38,7 @@ function detectCapabilitiesFromEnvironment(tmuxForwardsHyperlink) {
     const terminalEmulator = process.env.TERMINAL_EMULATOR?.toLowerCase() || "";
     const term = process.env.TERM?.toLowerCase() || "";
     const colorTerm = process.env.COLORTERM?.toLowerCase() || "";
-    const hasTrueColorHint = colorTerm === "truecolor" || colorTerm === "24bit";
+    const hasTrueColorHint = colorTerm === "truecolor" || colorTerm === "24bit" || term.endsWith("-direct");
     const isWindowsConsole = process.platform === "win32";
     // Emit OSC 8 hyperlinks only when tmux confirms it forwards.
     // Image protocols are unreliable under tmux, so leave `images: null`.
@@ -48,6 +48,11 @@ function detectCapabilitiesFromEnvironment(tmuxForwardsHyperlink) {
     // screen does not forward OSC 8 hyperlinks, so keep them off there.
     if (term.startsWith("screen")) {
         return { images: null, trueColor: hasTrueColorHint, hyperlinks: false };
+    }
+    // Herdr forwards OSC 8 hyperlinks and supports the Kitty graphics protocol. Check it before
+    // outer-terminal detection because variables like KITTY_WINDOW_ID can leak into its panes.
+    if (termProgram === "herdr") {
+        return { images: "kitty", trueColor: hasTrueColorHint, hyperlinks: true };
     }
     if (process.env.KITTY_WINDOW_ID || termProgram === "kitty") {
         return { images: "kitty", trueColor: true, hyperlinks: true };
@@ -68,10 +73,7 @@ function detectCapabilitiesFromEnvironment(tmuxForwardsHyperlink) {
     if (process.env.WT_SESSION) {
         return { images: null, trueColor: true, hyperlinks: true };
     }
-    if (termProgram === "vscode") {
-        return { images: null, trueColor: true, hyperlinks: true };
-    }
-    if (termProgram === "alacritty") {
+    if (termProgram === "alacritty" || termProgram === "vscode" || termProgram === "zed") {
         return { images: null, trueColor: true, hyperlinks: true };
     }
     if (terminalEmulator === "jetbrains-jediterm") {
@@ -118,6 +120,9 @@ export function getCapabilities() {
         };
     }
     return cachedCapabilities;
+}
+export function getTerminalColorMode(capabilities = getCapabilities()) {
+    return capabilities.trueColor ? "truecolor" : "256color";
 }
 export function resetCapabilitiesCache() {
     cachedCapabilities = null;
@@ -237,12 +242,23 @@ export function registerKittyImageMetadata(metadata) {
             kittyImageMetadata.delete(oldestImageId);
     }
 }
-function getRegisteredKittyImageMetadata(line) {
-    const controls = /\x1b_G([^;]*);/.exec(line)?.[1];
-    if (!controls)
-        return undefined;
+function getRegisteredKittyImageMetadataFromControls(controls) {
     const imageId = /(?:^|,)i=(\d+)(?:,|$)/.exec(controls)?.[1];
     return imageId === undefined ? undefined : kittyImageMetadata.get(Number.parseInt(imageId, 10));
+}
+function getRegisteredKittyImageMetadata(line) {
+    const controls = /\x1b_G([^;]*);/.exec(line)?.[1];
+    return controls === undefined ? undefined : getRegisteredKittyImageMetadataFromControls(controls);
+}
+function getExplicitKittyImageRows(controls) {
+    const value = /(?:^|,)r=(\d+)(?:,|$)/.exec(controls)?.[1];
+    if (value === undefined)
+        return undefined;
+    const rows = Number.parseInt(value, 10);
+    return rows > 0 ? rows : undefined;
+}
+function getKittyImageRowsFromControls(controls, fallbackRows) {
+    return getExplicitKittyImageRows(controls) ?? fallbackRows;
 }
 export function getKittyImageMetadata(line) {
     const metadata = getRegisteredKittyImageMetadata(line);
@@ -275,11 +291,23 @@ const KITTY_PLACEMENT_CONTROL_KEYS = new Set([
     "H",
     "V",
 ]);
+/** Read the number of rows covered by an image placement without scanning its payload. */
+export function getKittyImagePlacementRows(line) {
+    const controls = /\x1b_G([^;]*);/.exec(line)?.[1];
+    if (controls === undefined)
+        return undefined;
+    const explicitRows = getExplicitKittyImageRows(controls);
+    if (explicitRows !== undefined)
+        return explicitRows;
+    return getRegisteredKittyImageMetadataFromControls(controls)?.rows;
+}
 /** Build a placement-only command for an image line emitted by {@link renderImage}. */
 export function getKittyImagePlacement(line) {
     const match = /\x1b_G([^;]*);/.exec(line);
-    const metadata = getRegisteredKittyImageMetadata(line);
-    if (!match || !metadata)
+    if (!match)
+        return undefined;
+    const metadata = getRegisteredKittyImageMetadataFromControls(match[1]);
+    if (!metadata)
         return undefined;
     let commandStart = match.index;
     let commandControls = match[1];
@@ -308,6 +336,7 @@ export function getKittyImagePlacement(line) {
         transmissionGeneration: metadata.transmissionGeneration,
         transmissionBytes: transmissionEnd - match.index,
         estimatedDecodedBytes: metadata.widthPx * metadata.heightPx * 4,
+        rows: getKittyImageRowsFromControls(match[1], metadata.rows),
         sequence,
         replacementLine: `${line.slice(0, match.index)}${sequence}${line.slice(transmissionEnd)}`,
     };
@@ -327,7 +356,15 @@ export function cropKittyImageLine(line, hiddenRows, visibleRows) {
     controls.push(`y=${sourceY}`, `h=${sourceHeight}`, `r=${croppedRows}`);
     return `${line.slice(0, match.index)}\x1b_G${controls.join(",")};${line.slice(match.index + match[0].length)}`;
 }
-export function calculateImageCellSize(imageDimensions, maxWidthCells, maxHeightCells, cellDimensions = { widthPx: 9, heightPx: 18 }) {
+function chooseLessDistortedCellCount(upperCount, idealCount) {
+    if (upperCount <= 1)
+        return upperCount;
+    const lowerCount = upperCount - 1;
+    const upperDistortion = Math.max(upperCount / idealCount, idealCount / upperCount);
+    const lowerDistortion = Math.max(lowerCount / idealCount, idealCount / lowerCount);
+    return lowerDistortion < upperDistortion ? lowerCount : upperCount;
+}
+export function calculateImageCellSize(imageDimensions, maxWidthCells, maxHeightCells, cellDimensions = { widthPx: 9, heightPx: 18 }, optimizeAspectRatio = false) {
     const maxWidth = Math.max(1, Math.floor(maxWidthCells));
     const maxHeight = maxHeightCells === undefined ? undefined : Math.max(1, Math.floor(maxHeightCells));
     const imageWidth = Math.max(1, imageDimensions.widthPx);
@@ -337,12 +374,24 @@ export function calculateImageCellSize(imageDimensions, maxWidthCells, maxHeight
     const scale = Math.min(widthScale, heightScale);
     const scaledWidthPx = imageWidth * scale;
     const scaledHeightPx = imageHeight * scale;
-    const columns = Math.ceil(scaledWidthPx / cellDimensions.widthPx);
-    const rows = Math.ceil(scaledHeightPx / cellDimensions.heightPx);
-    return {
-        columns: Math.max(1, Math.min(maxWidth, columns)),
-        rows: Math.max(1, maxHeight === undefined ? rows : Math.min(maxHeight, rows)),
-    };
+    let columns = Math.max(1, Math.min(maxWidth, Math.ceil(scaledWidthPx / cellDimensions.widthPx)));
+    const heightRows = scaledHeightPx / cellDimensions.heightPx;
+    let rows = Math.max(1, Math.ceil(heightRows));
+    if (maxHeight !== undefined) {
+        rows = Math.min(maxHeight, rows);
+    }
+    if (!optimizeAspectRatio) {
+        return { columns, rows };
+    }
+    if (widthScale <= heightScale) {
+        const idealRows = (columns * cellDimensions.widthPx * imageHeight) / (imageWidth * cellDimensions.heightPx);
+        rows = chooseLessDistortedCellCount(rows, idealRows);
+    }
+    else {
+        const idealColumns = (rows * cellDimensions.heightPx * imageWidth) / (imageHeight * cellDimensions.widthPx);
+        columns = chooseLessDistortedCellCount(columns, idealColumns);
+    }
+    return { columns, rows };
 }
 export function calculateImageRows(imageDimensions, targetWidthCells, cellDimensions = { widthPx: 9, heightPx: 18 }) {
     return calculateImageCellSize(imageDimensions, targetWidthCells, undefined, cellDimensions).rows;
@@ -479,7 +528,8 @@ export function renderImage(base64Data, imageDimensions, options = {}) {
         return null;
     }
     const maxWidth = options.maxWidthCells ?? 80;
-    const size = calculateImageCellSize(imageDimensions, maxWidth, options.maxHeightCells, getCellDimensions());
+    // Reduce Kitty's cell-aligned distortion without shrinking iTerm2 reservations.
+    const size = calculateImageCellSize(imageDimensions, maxWidth, options.maxHeightCells, getCellDimensions(), caps.images === "kitty");
     if (caps.images === "kitty") {
         if (options.imageId !== undefined) {
             registerKittyImageMetadata({

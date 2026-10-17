@@ -72,6 +72,8 @@ export function configureHttpDispatcher(timeoutMs = DEFAULT_HTTP_IDLE_TIMEOUT_MS
     }
     const dispatcher = withUndiciErrorListener(new undici.EnvHttpProxyAgent({
         allowH2: false,
+        // Keep HTTP origins on CONNECT tunnels as they were before Undici 8.7.
+        proxyTunnel: true,
         bodyTimeout: normalizedTimeoutMs,
         connect: {
             autoSelectFamilyAttemptTimeout: DEFAULT_AUTO_SELECT_FAMILY_ATTEMPT_TIMEOUT_MS,

@@ -7,6 +7,8 @@ export declare class LoginDialogComponent extends Container implements Focusable
     private contentContainer;
     private input;
     private tui;
+    /** The shown sign-in URL, which `app.message.copy` copies. */
+    private authUrl?;
     private abortController;
     private inputResolver?;
     private inputRejecter?;

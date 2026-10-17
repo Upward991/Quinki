@@ -1,3 +1,5 @@
 #!/usr/bin/env node
-export {};
+import "./sandbox-env-setup.ts";
+import "./runtime-setup.ts";
+import "../cli.ts";
 //# sourceMappingURL=cli.d.ts.map

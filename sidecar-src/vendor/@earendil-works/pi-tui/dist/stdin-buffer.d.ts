@@ -19,8 +19,10 @@
 import { EventEmitter } from "events";
 export type StdinBufferOptions = {
     /**
-     * Maximum time to wait for an incomplete sequence such as CSI or mouse
-     * (default: 50ms).
+     * Maximum time to wait for an incomplete keyboard or mouse sequence
+     * (default: 50ms). Strings with a recognized terminal reply header wait for
+     * their terminator instead, so delayed replies cannot become keypresses.
+     * Ambiguous legacy Alt-key input still uses this timeout.
      */
     timeout?: number;
     /**

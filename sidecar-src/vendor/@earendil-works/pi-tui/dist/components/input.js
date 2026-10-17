@@ -1,9 +1,9 @@
 import { getKeybindings } from "../keybindings.js";
 import { decodeKittyPrintable } from "../keys.js";
 import { KillRing } from "../kill-ring.js";
-import { CURSOR_MARKER } from "../tui.js";
+import { CURSOR_MARKER, renderFakeCursor, } from "../tui.js";
 import { UndoStack } from "../undo-stack.js";
-import { getGraphemeSegmenter, isWhitespaceChar, sliceByColumn, visibleWidth } from "../utils.js";
+import { getGraphemeSegmenter, isWhitespaceChar, sliceByColumn, truncateToWidth, visibleWidth } from "../utils.js";
 import { findWordBackward, findWordForward } from "../word-navigation.js";
 const segmenter = getGraphemeSegmenter();
 /**
@@ -12,6 +12,10 @@ const segmenter = getGraphemeSegmenter();
 export class Input {
     value = "";
     cursor = 0; // Cursor position in the value
+    prompt;
+    placeholder;
+    placeholderStyle;
+    renderedStartColumn = 0;
     onSubmit;
     onEscape;
     /** Focusable interface - set by TUI when focus changes */
@@ -24,6 +28,11 @@ export class Input {
     lastAction = null;
     // Undo support
     undoStack = new UndoStack();
+    constructor(options = {}) {
+        this.prompt = options.prompt ?? "> ";
+        this.placeholder = options.placeholder ?? "";
+        this.placeholderStyle = options.placeholderStyle ?? ((text) => text);
+    }
     getValue() {
         return this.value;
     }
@@ -172,6 +181,24 @@ export class Input {
             this.insertCharacter(data);
         }
     }
+    handleMouse(event) {
+        if (event.type !== "press" || event.button !== "left" || event.y !== 0)
+            return undefined;
+        const visibleColumn = Math.max(0, event.x - 2);
+        const targetColumn = this.renderedStartColumn + visibleColumn;
+        let currentColumn = 0;
+        this.cursor = this.value.length;
+        for (const grapheme of segmenter.segment(this.value)) {
+            const nextColumn = currentColumn + visibleWidth(grapheme.segment);
+            if (targetColumn < nextColumn) {
+                this.cursor = grapheme.index;
+                break;
+            }
+            currentColumn = nextColumn;
+        }
+        this.lastAction = null;
+        return { handled: true, focus: true };
+    }
     insertCharacter(char) {
         // Undo coalescing: consecutive word chars coalesce into one undo unit
         if (isWhitespaceChar(char) || this.lastAction !== "type-word") {
@@ -315,13 +342,24 @@ export class Input {
     }
     render(width) {
         // Calculate visible window
-        const prompt = "> ";
-        const availableWidth = width - prompt.length;
+        const availableWidth = width - visibleWidth(this.prompt);
         if (availableWidth <= 0) {
-            return [prompt];
+            return [truncateToWidth(this.prompt, width, "")];
+        }
+        if (this.value.length === 0 && this.placeholder) {
+            const placeholder = truncateToWidth(this.placeholder, availableWidth, "");
+            const graphemes = [...segmenter.segment(placeholder)];
+            const atCursor = graphemes[0]?.segment ?? " ";
+            const afterCursor = placeholder.slice(atCursor.length);
+            const marker = this.focused ? CURSOR_MARKER : "";
+            const cursorChar = renderFakeCursor(this.placeholderStyle(atCursor));
+            const textWithCursor = marker + cursorChar + this.placeholderStyle(afterCursor);
+            const padding = " ".repeat(Math.max(0, availableWidth - visibleWidth(textWithCursor)));
+            return [this.prompt + textWithCursor + padding];
         }
         let visibleText = "";
         let cursorDisplay = this.cursor;
+        this.renderedStartColumn = 0;
         const totalWidth = visibleWidth(this.value);
         if (totalWidth < availableWidth) {
             // Everything fits (leave room for cursor at end)
@@ -347,6 +385,7 @@ export class Input {
                     // Cursor in middle
                     startCol = Math.max(0, cursorCol - halfWidth);
                 }
+                this.renderedStartColumn = startCol;
                 visibleText = sliceByColumn(this.value, startCol, scrollWidth, true);
                 const beforeCursor = sliceByColumn(this.value, startCol, Math.max(0, cursorCol - startCol), true);
                 cursorDisplay = beforeCursor.length;
@@ -365,13 +404,13 @@ export class Input {
         const afterCursor = visibleText.slice(cursorDisplay + atCursor.length);
         // Hardware cursor marker (zero-width, emitted before fake cursor for IME positioning)
         const marker = this.focused ? CURSOR_MARKER : "";
-        // Use inverse video to show cursor
-        const cursorChar = `\x1b[7m${atCursor}\x1b[27m`; // ESC[7m = reverse video, ESC[27m = normal
+        // TUI draws the fake cursor in reverse video, or omits it when the hardware cursor is shown
+        const cursorChar = renderFakeCursor(atCursor);
         const textWithCursor = beforeCursor + marker + cursorChar + afterCursor;
         // Calculate visual width
         const visualLength = visibleWidth(textWithCursor);
         const padding = " ".repeat(Math.max(0, availableWidth - visualLength));
-        const line = prompt + textWithCursor + padding;
+        const line = this.prompt + textWithCursor + padding;
         return [line];
     }
 }

@@ -6,8 +6,15 @@ export type AuthSelectorProvider = {
     authType: "oauth" | "api_key";
     method?: ApiKeyAuth | OAuthAuth;
     status?: AuthCheck;
+    /**
+     * Whether the provider's OAuth sign-in is backed by a subscription. `false` labels it as an account;
+     * unset keeps the "subscription" label.
+     */
+    subscription?: boolean;
 };
-export declare function formatAuthSelectorProviderType(authType: AuthSelectorProvider["authType"]): string;
+export declare function formatAuthSelectorProviderType(authType: AuthSelectorProvider["authType"], subscription?: boolean): string;
+/** Themed suffix describing whether and how a login option is configured, for example " ✓ configured". */
+export declare function formatAuthSelectorProviderStatus(provider: AuthSelectorProvider): string;
 /**
  * Component that renders an auth provider selector
  */
@@ -27,7 +34,6 @@ export declare class OAuthSelectorComponent extends Container implements Focusab
     constructor(mode: "login" | "logout", providers: AuthSelectorProvider[], onSelect: (providerId: string, authType: AuthSelectorProvider["authType"]) => void, onCancel: () => void, initialSearchInput?: string);
     private filterProviders;
     private updateList;
-    private formatStatusIndicator;
     handleInput(keyData: string): void;
 }
 //# sourceMappingURL=oauth-selector.d.ts.map

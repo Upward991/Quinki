@@ -4,6 +4,7 @@ export interface PathMetadata {
     scope: SourceScope;
     origin: "package" | "top-level";
     baseDir?: string;
+    packageRoot?: string;
 }
 export interface ResolvedResource {
     path: string;
@@ -69,6 +70,8 @@ interface PackageManagerOptions {
     cwd: string;
     agentDir: string;
     settingsManager: SettingsManager;
+    /** Names of built-in extensions, resolved as `builtin:<name>` extension resources. */
+    builtinExtensions?: string[];
 }
 type SourceScope = "user" | "project" | "temporary";
 export declare function getExtensionTempFolder(agentDir: string): string;
@@ -76,6 +79,7 @@ export declare class DefaultPackageManager implements PackageManager {
     private cwd;
     private agentDir;
     private settingsManager;
+    private builtinExtensions;
     private globalNpmRoot;
     private globalNpmRootCommandKey;
     private progressCallback;

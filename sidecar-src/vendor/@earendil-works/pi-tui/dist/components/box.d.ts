@@ -1,4 +1,4 @@
-import type { Component } from "../tui.ts";
+import { type Component, type TuiMouseDispatchResult, type TuiMouseEvent } from "../tui.ts";
 /**
  * Box component - a container that applies padding and background to all children
  */
@@ -8,14 +8,17 @@ export declare class Box implements Component {
     private paddingY;
     private bgFn?;
     private cache?;
+    private mouseLayout?;
     constructor(paddingX?: number, paddingY?: number, bgFn?: (text: string) => string);
     addChild(component: Component): void;
     removeChild(component: Component): void;
     clear(): void;
     setBgFn(bgFn?: (text: string) => string): void;
+    setPaddingX(paddingX: number): void;
     private invalidateCache;
     private matchCache;
     invalidate(): void;
+    handleMouse(event: TuiMouseEvent): TuiMouseDispatchResult | undefined;
     render(width: number): string[];
     private applyBg;
 }

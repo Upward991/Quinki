@@ -1,7 +1,7 @@
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import { type Model, type Transport } from "@earendil-works/pi-ai";
-import { Container, type ScrollViewScrollbar, SettingsList } from "@earendil-works/pi-tui";
-import type { DefaultProjectTrust, FullscreenExitOutput, MermaidRenderingMode, TuiMode, WarningSettings } from "../../../core/settings-manager.ts";
+import { Container, type ScrollViewScrollbar, SettingsList, type WheelScrollLines } from "@earendil-works/pi-tui";
+import { type CacheWarmingMode, type DefaultProjectTrust, type FullscreenExitOutput, type MermaidRenderingMode, type QuietStartup, type SessionShareDestination, type TuiMode, type WarningSettings } from "../../../core/settings-manager.ts";
 import { type TerminalTheme } from "../theme/theme.ts";
 export interface SettingsConfig {
     autoCompact: boolean;
@@ -16,7 +16,9 @@ export interface SettingsConfig {
     steeringMode: "all" | "one-at-a-time";
     followUpMode: "all" | "one-at-a-time";
     transport: Transport;
+    sessionShareDestination: SessionShareDestination;
     httpIdleTimeoutMs: number;
+    cacheWarmingMode: CacheWarmingMode;
     thinkingLevel: ThinkingLevel;
     availableThinkingLevels: ThinkingLevel[];
     modelThinkingLevels: Record<string, ThinkingLevel>;
@@ -34,7 +36,7 @@ export interface SettingsConfig {
     editorPaddingX: number;
     outputPad: 0 | 1;
     autocompleteMaxVisible: number;
-    quietStartup: boolean;
+    quietStartup: QuietStartup;
     defaultProjectTrust: DefaultProjectTrust;
     clearOnShrink: boolean;
     showTerminalProgress: boolean;
@@ -42,6 +44,7 @@ export interface SettingsConfig {
     fullscreenExitOutput: FullscreenExitOutput;
     fullscreenScrollbar: ScrollViewScrollbar;
     fullscreenCopyOnSelect: boolean;
+    fullscreenWheelScrollLines: WheelScrollLines;
     warnings: WarningSettings;
 }
 export interface SettingsCallbacks {
@@ -54,7 +57,9 @@ export interface SettingsCallbacks {
     onSteeringModeChange: (mode: "all" | "one-at-a-time") => void;
     onFollowUpModeChange: (mode: "all" | "one-at-a-time") => void;
     onTransportChange: (transport: Transport) => void;
+    onSessionShareDestinationChange: (destination: SessionShareDestination) => void;
     onHttpIdleTimeoutMsChange: (timeoutMs: number) => void;
+    onCacheWarmingModeChange: (mode: CacheWarmingMode) => void;
     onModelThinkingLevelChange: (provider: string, modelId: string, level: ThinkingLevel) => void;
     onModelThinkingLevelRemove: (provider: string, modelId: string) => void;
     onThemeChange: (theme: string) => void;
@@ -70,7 +75,7 @@ export interface SettingsCallbacks {
     onEditorPaddingXChange: (padding: number) => void;
     onOutputPadChange: (padding: 0 | 1) => void;
     onAutocompleteMaxVisibleChange: (maxVisible: number) => void;
-    onQuietStartupChange: (enabled: boolean) => void;
+    onQuietStartupChange: (quiet: QuietStartup) => void;
     onDefaultProjectTrustChange: (defaultProjectTrust: DefaultProjectTrust) => void;
     onClearOnShrinkChange: (enabled: boolean) => void;
     onShowTerminalProgressChange: (enabled: boolean) => void;
@@ -78,6 +83,7 @@ export interface SettingsCallbacks {
     onFullscreenExitOutputChange: (output: FullscreenExitOutput) => void;
     onFullscreenScrollbarChange: (mode: ScrollViewScrollbar) => void;
     onFullscreenCopyOnSelectChange: (enabled: boolean) => void;
+    onFullscreenWheelScrollLinesChange: (lines: WheelScrollLines) => void;
     onWarningsChange: (warnings: WarningSettings) => void;
     onCancel: () => void;
 }

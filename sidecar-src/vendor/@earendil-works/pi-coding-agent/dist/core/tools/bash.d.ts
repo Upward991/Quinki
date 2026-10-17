@@ -12,6 +12,18 @@ export declare const bashToolSystemPromptContribution: {
     readonly guidelines: readonly ["You can inspect PI_* environment variables for current model and session details."];
 };
 export type BashToolInput = Static<typeof bashSchema>;
+/**
+ * Result for programmatic callers such as codemode scripts. A non-zero exit code is an error result for the model, but scripts still resolve to this value.
+ * `output` is not limited like the model-facing output: callers decide how much of it reaches the model.
+ */
+declare const bashOutputSchema: Type.TObject<{
+    output: Type.TString;
+    truncated: Type.TBoolean;
+    full_output_path: Type.TOptional<Type.TString>;
+    exit_code: Type.TNumber;
+    wall_time_seconds: Type.TNumber;
+}>;
+export type BashToolOutput = Static<typeof bashOutputSchema>;
 export interface BashToolDetails {
     truncation?: TruncationResult;
     fullOutputPath?: string;
@@ -26,7 +38,8 @@ export interface BashOperations {
      * @param command The command to execute
      * @param cwd Working directory
      * @param options Execution options
-     * @returns Promise resolving to exit code (null if killed)
+     * @returns Promise resolving to the exit code. Report signal terminations as 128 + signal number;
+     * a null exit code is treated as a failed command.
      */
     exec: (command: string, cwd: string, options: {
         onData: (data: Buffer) => void;

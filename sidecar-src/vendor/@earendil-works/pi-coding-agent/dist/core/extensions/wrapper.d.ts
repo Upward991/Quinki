@@ -9,12 +9,12 @@ import type { ExtensionRunner } from "./runner.ts";
 import type { RegisteredTool } from "./types.ts";
 /**
  * Wrap a RegisteredTool into an AgentTool.
- * Uses the runner's createContext() for consistent context across tools and event handlers.
+ * Uses the runner's createToolContext() for consistent context across tools and event handlers.
  */
 export declare function wrapRegisteredTool(registeredTool: RegisteredTool, runner: ExtensionRunner): AgentTool;
 /**
  * Wrap all registered tools into AgentTools.
- * Uses the runner's createContext() for consistent context across tools and event handlers.
+ * Uses the runner's createToolContext() for consistent context across tools and event handlers.
  */
 export declare function wrapRegisteredTools(registeredTools: RegisteredTool[], runner: ExtensionRunner): AgentTool[];
 //# sourceMappingURL=wrapper.d.ts.map

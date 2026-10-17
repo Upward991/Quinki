@@ -151,11 +151,15 @@ export class LlamaClient {
         return data;
     }
     async props(options = {}) {
-        const payload = await this.request("/props", { signal: options.signal });
+        const query = options.model ? `?${new URLSearchParams({ model: options.model, autoload: "false" })}` : "";
+        const payload = await this.request(`/props${query}`, { signal: options.signal });
         if (typeof payload !== "object" || payload === null)
             return {};
-        const { models_autoload: modelsAutoload } = payload;
-        return typeof modelsAutoload === "boolean" ? { models_autoload: modelsAutoload } : {};
+        const { models_autoload: modelsAutoload, chat_template: chatTemplate } = payload;
+        return {
+            ...(typeof modelsAutoload === "boolean" ? { models_autoload: modelsAutoload } : {}),
+            ...(typeof chatTemplate === "string" ? { chat_template: chatTemplate } : {}),
+        };
     }
     async load(model, signal) {
         await this.request("/models/load", { method: "POST", body: JSON.stringify({ model }), signal });

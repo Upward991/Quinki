@@ -22,7 +22,10 @@ export async function normalizeToolResultImages(content, options) {
             normalized.push(block);
             continue;
         }
-        const processed = await processImage(Buffer.from(block.data, "base64"), block.mimeType, { autoResizeImages });
+        const processed = await processImage(Buffer.from(block.data, "base64"), block.mimeType, {
+            autoResizeImages,
+            resizeOptions: options?.resizeOptions,
+        });
         if (!processed.ok) {
             // Unlike `read`, keep the original block. The tool already produced this image and the
             // failure may just be an unavailable image backend, so passing it through preserves the

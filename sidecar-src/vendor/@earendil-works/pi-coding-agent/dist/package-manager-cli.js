@@ -9,7 +9,7 @@ import { APP_NAME, CONFIG_DIR_NAME, detectInstallMethod, getAgentDir, getPackage
 import { ModelRuntime } from "./core/model-runtime.js";
 import { DefaultPackageManager } from "./core/package-manager.js";
 import { resolveProjectTrusted } from "./core/project-trust.js";
-import { DefaultResourceLoader } from "./core/resource-loader.js";
+import { DefaultResourceLoader, isBuiltinExtension } from "./core/resource-loader.js";
 import { SettingsManager } from "./core/settings-manager.js";
 import { hasTrustRequiringProjectResources, ProjectTrustStore } from "./core/trust-manager.js";
 import { spawnProcess, spawnProcessSync, waitForChildProcess } from "./utils/child-process.js";
@@ -91,6 +91,28 @@ function activateManagedRelease(managedRoot, version) {
         rmSync(temporaryPath, { force: true });
     }
 }
+// Keep the active release and the one running this update, which other open
+// sessions likely still use and which allows rolling back by editing current-version.
+function pruneManagedReleases(managedRoot, activeVersion) {
+    const releasesRoot = join(managedRoot, "releases");
+    let entries;
+    try {
+        entries = readdirSync(releasesRoot);
+    }
+    catch {
+        return;
+    }
+    for (const entry of entries) {
+        if (entry === activeVersion || entry === VERSION || !MANAGED_RELEASE_VERSION_RE.test(entry))
+            continue;
+        try {
+            rmSync(join(releasesRoot, entry), { force: true, recursive: true });
+        }
+        catch {
+            // Files may be in use (e.g. loaded native modules on Windows); retry on the next update.
+        }
+    }
+}
 function cleanupManagedStaging(managedRoot) {
     const stagingRoot = join(managedRoot, "staging");
     try {
@@ -153,6 +175,7 @@ async function runManagedSelfUpdate(managedRoot, version) {
         if (existsSync(releaseDir)) {
             verifyManagedRelease(releaseDir, version);
             activateManagedRelease(managedRoot, version);
+            pruneManagedReleases(managedRoot, version);
             return;
         }
         mkdirSync(stagingRoot, { recursive: true });
@@ -167,6 +190,7 @@ async function runManagedSelfUpdate(managedRoot, version) {
         verifyManagedRelease(stageDir, version);
         renameSync(stageDir, releaseDir);
         activateManagedRelease(managedRoot, version);
+        pruneManagedReleases(managedRoot, version);
     }
     finally {
         if (stageDir)
@@ -725,14 +749,18 @@ export async function handleConfigCommand(args, runtimeOptions = {}) {
         return true;
     }
     reportSettingsErrors(settingsManager, "config command");
+    const builtinExtensions = (runtimeOptions.extensionFactories ?? [])
+        .filter(isBuiltinExtension)
+        .map((input) => input.name);
     const globalSettingsManager = SettingsManager.create(cwd, agentDir, { projectTrusted: false });
     const globalResolvedPaths = await new DefaultPackageManager({
         cwd,
         agentDir,
         settingsManager: globalSettingsManager,
+        builtinExtensions,
     }).resolve();
     const projectResolvedPaths = settingsManager.isProjectTrusted()
-        ? await new DefaultPackageManager({ cwd, agentDir, settingsManager }).resolve()
+        ? await new DefaultPackageManager({ cwd, agentDir, settingsManager, builtinExtensions }).resolve()
         : globalResolvedPaths;
     await selectConfig({
         resolvedPaths: { global: globalResolvedPaths, project: projectResolvedPaths },
@@ -946,6 +974,18 @@ export async function handlePackageCommand(args, runtimeOptions = {}) {
                         return true;
                     }
                     console.log(chalk.green(`Updated ${APP_NAME} from ${VERSION} to ${selfUpdatePlan.version}`));
+                    // The pi.dev installer migrates global npm installs to a managed install
+                    // that pins all dependencies. It does not migrate pnpm, yarn, or bun installs.
+                    if (installMethod === "npm") {
+                        const installerCommand = process.platform === "win32"
+                            ? 'powershell -c "irm https://pi.dev/install.ps1 | iex"'
+                            : "curl -fsSL https://pi.dev/install.sh | sh";
+                        console.log();
+                        console.log(chalk.yellow(`This npm installation of ${APP_NAME} does not pin its dependencies.`));
+                        console.log(chalk.yellow("Run the installer to migrate to a managed installation that does:"));
+                        console.log();
+                        console.log(`  ${chalk.bold(installerCommand)}`);
+                    }
                 }
                 return true;
             }

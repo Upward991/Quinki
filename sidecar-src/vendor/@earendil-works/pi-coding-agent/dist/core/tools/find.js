@@ -1,12 +1,10 @@
 import { createInterface } from "node:readline";
-import { Text } from "@earendil-works/pi-tui";
 import { spawn } from "child_process";
 import path from "path";
 import { Type } from "typebox";
-import { keyHint } from "../../modes/interactive/components/keybinding-hints.js";
 import { ensureTool } from "../../utils/tools-manager.js";
 import { pathExists, resolveToCwd } from "./path-utils.js";
-import { getTextOutput, invalidArgText, shortenPath, str } from "./render-utils.js";
+import { findRenderers } from "./renderers/find.js";
 import { wrapToolDefinition } from "./tool-definition-wrapper.js";
 import { DEFAULT_MAX_BYTES, formatSize, truncateHead } from "./truncate.js";
 /** Relativize a find result against the search root and normalize it to posix separators. */
@@ -33,46 +31,6 @@ const defaultFindOperations = {
     // This is a placeholder. Actual fd execution happens in execute() when no custom glob is provided.
     glob: () => [],
 };
-function formatFindCall(args, theme) {
-    const pattern = str(args?.pattern);
-    const rawPath = str(args?.path);
-    const path = rawPath !== null ? shortenPath(rawPath || ".") : null;
-    const limit = args?.limit;
-    const invalidArg = invalidArgText(theme);
-    let text = theme.fg("toolTitle", theme.bold("find")) +
-        " " +
-        (pattern === null ? invalidArg : theme.fg("accent", pattern || "")) +
-        theme.fg("toolOutput", ` in ${path === null ? invalidArg : path}`);
-    if (limit !== undefined) {
-        text += theme.fg("toolOutput", ` (limit ${limit})`);
-    }
-    return text;
-}
-function formatFindResult(result, options, theme, showImages) {
-    const output = getTextOutput(result, showImages).trim();
-    let text = "";
-    if (output) {
-        const lines = output.split("\n");
-        const maxLines = options.expanded ? lines.length : 20;
-        const displayLines = lines.slice(0, maxLines);
-        const remaining = lines.length - maxLines;
-        text += `\n${displayLines.map((line) => theme.fg("toolOutput", line)).join("\n")}`;
-        if (remaining > 0) {
-            text += `${theme.fg("muted", `\n... (${remaining} more lines,`)} ${keyHint("app.tools.expand", "to expand")}${theme.fg("muted", ")")}`;
-        }
-    }
-    const resultLimit = result.details?.resultLimitReached;
-    const truncation = result.details?.truncation;
-    if (resultLimit || truncation?.truncated) {
-        const warnings = [];
-        if (resultLimit)
-            warnings.push(`${resultLimit} results limit`);
-        if (truncation?.truncated)
-            warnings.push(`${formatSize(truncation.maxBytes ?? DEFAULT_MAX_BYTES)} limit`);
-        text += `\n${theme.fg("warning", `[Truncated: ${warnings.join(", ")}]`)}`;
-    }
-    return text;
-}
 export function createFindToolDefinition(cwd, options) {
     const customOps = options?.operations;
     return {
@@ -81,7 +39,7 @@ export function createFindToolDefinition(cwd, options) {
         description: `Search for files by glob pattern. Returns matching file paths relative to the search directory. Respects .gitignore. Output is truncated to ${DEFAULT_LIMIT} results or ${DEFAULT_MAX_BYTES / 1024}KB (whichever is hit first).`,
         promptSnippet: findToolSystemPromptContribution.snippet,
         parameters: findSchema,
-        async execute(_toolCallId, { pattern, path: searchDir, limit }, signal, _onUpdate, _ctx) {
+        async execute(_toolCallId, { pattern, path: searchDir, limit }, signal, _onUpdate, ctx) {
             return new Promise((resolve, reject) => {
                 if (signal?.aborted) {
                     reject(new Error("Operation aborted"));
@@ -104,7 +62,7 @@ export function createFindToolDefinition(cwd, options) {
                 signal?.addEventListener("abort", onAbort, { once: true });
                 (async () => {
                     try {
-                        const searchPath = resolveToCwd(searchDir || ".", cwd);
+                        const searchPath = resolveToCwd(searchDir || ".", ctx?.cwd || cwd);
                         const effectiveLimit = limit ?? DEFAULT_LIMIT;
                         const ops = customOps ?? defaultFindOperations;
                         // If custom operations provide glob(), use that instead of fd.
@@ -284,16 +242,7 @@ export function createFindToolDefinition(cwd, options) {
                 })();
             });
         },
-        renderCall(args, theme, context) {
-            const text = context.lastComponent ?? new Text("", 0, 0);
-            text.setText(formatFindCall(args, theme));
-            return text;
-        },
-        renderResult(result, options, theme, context) {
-            const text = context.lastComponent ?? new Text("", 0, 0);
-            text.setText(formatFindResult(result, options, theme, context.showImages));
-            return text;
-        },
+        ...findRenderers,
     };
 }
 export function createFindTool(cwd, options) {

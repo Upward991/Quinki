@@ -93,11 +93,11 @@ export declare const TUI_KEYBINDINGS: {
         readonly description: "Move cursor word right";
     };
     readonly "tui.editor.cursorLineStart": {
-        readonly defaultKeys: ["home", "ctrl+home", "ctrl+a"];
+        readonly defaultKeys: ["home", "ctrl+a"];
         readonly description: "Move to line start";
     };
     readonly "tui.editor.cursorLineEnd": {
-        readonly defaultKeys: ["end", "ctrl+end", "ctrl+e"];
+        readonly defaultKeys: ["end", "ctrl+e"];
         readonly description: "Move to line end";
     };
     readonly "tui.editor.jumpForward": {
@@ -241,11 +241,11 @@ export declare const TUI_KEYBINDINGS: {
         readonly description: "Close transcript search";
     };
     readonly "tui.altScreen.top": {
-        readonly defaultKeys: "home";
+        readonly defaultKeys: "ctrl+home";
         readonly description: "Scroll viewport to top";
     };
     readonly "tui.altScreen.bottom": {
-        readonly defaultKeys: "end";
+        readonly defaultKeys: "ctrl+end";
         readonly description: "Scroll viewport to bottom";
     };
 };

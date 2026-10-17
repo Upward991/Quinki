@@ -1,9 +1,11 @@
 import type { AgentTool } from "@earendil-works/pi-agent-core";
-import type { ExtensionContext, ToolDefinition } from "../extensions/types.ts";
+import type { ExtensionToolContext, ToolDefinition } from "../extensions/types.ts";
+/** Creates the context for one tool call. */
+export type ToolContextFactory = (toolCallId: string, signal: AbortSignal | undefined) => ExtensionToolContext;
 /** Wrap a ToolDefinition into an AgentTool for the core runtime. */
-export declare function wrapToolDefinition<TDetails = unknown>(definition: ToolDefinition<any, TDetails>, ctxFactory?: () => ExtensionContext): AgentTool<any, TDetails>;
+export declare function wrapToolDefinition<TDetails = unknown>(definition: ToolDefinition<any, TDetails>, ctxFactory?: ToolContextFactory): AgentTool<any, TDetails>;
 /** Wrap multiple ToolDefinitions into AgentTools for the core runtime. */
-export declare function wrapToolDefinitions(definitions: ToolDefinition<any, any>[], ctxFactory?: () => ExtensionContext): AgentTool<any>[];
+export declare function wrapToolDefinitions(definitions: ToolDefinition<any, any>[], ctxFactory?: ToolContextFactory): AgentTool<any>[];
 /**
  * Synthesize a minimal ToolDefinition from an AgentTool.
  *

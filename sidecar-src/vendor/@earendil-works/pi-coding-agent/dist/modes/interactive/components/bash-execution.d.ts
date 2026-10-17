@@ -13,11 +13,15 @@ export declare class BashExecutionComponent extends Container {
     private fullOutputPath?;
     private expanded;
     private contentContainer;
-    constructor(command: string, ui: TUI, excludeFromContext?: boolean);
+    /** `dim` marks `!!` commands, whose output is excluded from the model context. */
+    private readonly colorKey;
+    private outputPad;
+    constructor(command: string, ui: TUI, excludeFromContext?: boolean, outputPad?: number);
     /**
      * Set whether the output is expanded (shows full output) or collapsed (preview only).
      */
     setExpanded(expanded: boolean): void;
+    setOutputPad(outputPad: number): void;
     invalidate(): void;
     appendOutput(chunk: string): void;
     setComplete(exitCode: number | undefined, cancelled: boolean, truncationResult?: TruncationResult, fullOutputPath?: string): void;

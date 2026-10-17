@@ -1,13 +1,61 @@
 /**
  * Minimal TUI implementation with differential rendering
  */
-import * as os from "node:os";
-import * as path from "node:path";
 import { performance } from "node:perf_hooks";
 import { isKeyRelease, matchesKey } from "./keys.js";
-import { isOsc11BackgroundColorResponse, parseOsc11BackgroundColor, parseTerminalColorSchemeReport, } from "./terminal-colors.js";
+import { parseOscColorResponse, parseTerminalColorSchemeReport, } from "./terminal-colors.js";
 import { getCapabilities, isImageLine, setCellDimensions } from "./terminal-image.js";
 import { extractSegments, normalizeTerminalOutput, sliceByColumn, sliceWithWidth, visibleWidth } from "./utils.js";
+/**
+ * Dispatch an event to a component and retain the exact target and coordinate
+ * transform. Containers use this when forwarding events to nested children.
+ */
+export function dispatchMouseEvent(component, event) {
+    const result = component.handleMouse?.(event);
+    if (!result)
+        return undefined;
+    if ("target" in result) {
+        // The component forwarded the event to a child it hosts. Like a delegating container, it routes
+        // keys to that child itself, so it keeps keyboard focus. Focusing the child directly would leave
+        // focus on a detached component once the host removes it, e.g. a closed settings submenu.
+        const forwarded = result;
+        return forwarded.focus && component.handleInput ? { ...forwarded, focusTarget: component } : forwarded;
+    }
+    if (!result.handled && !result.capture && !result.focus)
+        return undefined;
+    return {
+        ...result,
+        handled: true,
+        ...(result.focus ? { focusTarget: component } : {}),
+        target: {
+            component,
+            originX: event.screenX - event.x,
+            originY: event.screenY - event.y,
+            width: event.width,
+            height: event.height,
+        },
+    };
+}
+/** Recreate local coordinates for a previously dispatched mouse target. */
+export function retargetMouseEvent(event, target) {
+    return {
+        ...event,
+        x: event.screenX - target.originX,
+        y: event.screenY - target.originY,
+        width: target.width,
+        height: target.height,
+    };
+}
+const TERMINAL_PALETTE_SIZE = 16;
+/** OSC 10 and 11 plus OSC 4 for every palette color. */
+const TERMINAL_COLOR_REPLY_COUNT = 2 + TERMINAL_PALETTE_SIZE;
+/**
+ * Default colors, palette colors 0-15, and a trailing primary device attributes (DA1) request.
+ * Every terminal answers DA1 and terminals answer in order, so the DA1 reply marks the end of
+ * the color replies, including for terminals that ignore the color queries.
+ */
+const TERMINAL_COLOR_QUERY = `\x1b]10;?\x07\x1b]11;?\x07${Array.from({ length: TERMINAL_PALETTE_SIZE }, (_, index) => `\x1b]4;${index};?\x07`).join("")}\x1b[c`;
+const DEVICE_ATTRIBUTES_RESPONSE_PATTERN = /^\x1b\[\?[\d;]*c$/;
 /** Type guard to check if a component implements Focusable */
 export function isFocusable(component) {
     return component !== null && "focused" in component;
@@ -19,6 +67,15 @@ export function isFocusable(component) {
  * TUI finds and strips this marker, then positions the hardware cursor there.
  */
 export const CURSOR_MARKER = "\x1b_pi:c\x07";
+/** Fake cursor markers - zero-width APC sequences around the text drawn as the cursor. See resolveFakeCursors(). */
+export const FAKE_CURSOR_START = "\x1b_pi:fc\x07";
+export const FAKE_CURSOR_END = "\x1b_pi:/fc\x07";
+// CURSOR_MARKER + FAKE_CURSOR_START + text + FAKE_CURSOR_END. Truncating the line right after the cursor cell drops the end.
+const FOCUSED_FAKE_CURSOR = /(\x1b_pi:c\x07)\x1b_pi:fc\x07(.*?)(?:\x1b_pi:\/fc\x07|$)/s;
+/** Wrap text in fake cursor markers. */
+export function renderFakeCursor(text) {
+    return `${FAKE_CURSOR_START}${text}${FAKE_CURSOR_END}`;
+}
 export { visibleWidth };
 /** Parse a SizeValue into absolute value given a reference size */
 function parseSizeValue(value, referenceSize) {
@@ -38,6 +95,7 @@ function parseSizeValue(value, referenceSize) {
  */
 export class Container {
     children = [];
+    mouseLayout;
     addChild(component) {
         this.children.push(component);
     }
@@ -55,14 +113,39 @@ export class Container {
             child.invalidate?.();
         }
     }
+    handleMouse(event) {
+        if (event.y < 0 || event.y >= event.height)
+            return undefined;
+        const mouseChildren = this.mouseLayout?.width === event.width
+            ? this.mouseLayout.children
+            : this.children.map((component) => ({ component, height: component.render(event.width).length }));
+        let childY = 0;
+        for (const { component: child, height: childHeight } of mouseChildren) {
+            if (event.y >= childY && event.y < childY + childHeight) {
+                const result = dispatchMouseEvent(child, {
+                    ...event,
+                    y: event.y - childY,
+                    height: childHeight,
+                });
+                if (result?.focus && this.handleInput)
+                    return { ...result, focusTarget: this };
+                return result;
+            }
+            childY += childHeight;
+        }
+        return undefined;
+    }
     render(width) {
         const lines = [];
+        const mouseChildren = [];
         for (const child of this.children) {
             const childLines = child.render(width);
+            mouseChildren.push({ component: child, height: childLines.length });
             for (const line of childLines) {
                 lines.push(line);
             }
         }
+        this.mouseLayout = { width, children: mouseChildren };
         return lines;
     }
 }
@@ -108,18 +191,23 @@ export class TuiBase extends Container {
     renderTimer;
     lastRenderAt = 0;
     static MIN_RENDER_INTERVAL_MS = 16;
-    showHardwareCursor = process.env.PI_HARDWARE_CURSOR === "1";
-    clearOnShrink = process.env.PI_CLEAR_ON_SHRINK === "1";
+    showHardwareCursor = false;
+    clearOnShrink = false;
     fullRedrawCount = 0;
     stopped = false;
-    pendingOsc11BackgroundReplies = 0;
-    pendingOsc11BackgroundQueries = [];
+    /**
+     * Color queries waiting for their DA1 reply, oldest first. Terminals answer in order, so color
+     * replies belong to the oldest one. Queries stay here after a timeout to collect late replies.
+     */
+    pendingTerminalColorQueries = [];
     terminalColorSchemeListeners = new Set();
     terminalColorSchemeNotificationsEnabled = false;
+    /** Directory for debug/crash logs. When undefined, debug logging is disabled and crash dumps fall back to the OS temp directory. */
     logDirectory;
     // Overlay stack for modal components rendered on top of base content
     focusOrderCounter = 0;
     overlayStack = [];
+    renderedOverlayLayouts = [];
     get hasOverlayEntries() {
         return this.overlayStack.length > 0;
     }
@@ -127,7 +215,7 @@ export class TuiBase extends Container {
     constructor(terminal, showHardwareCursor, logDirectory) {
         super();
         this.terminal = terminal;
-        this.logDirectory = logDirectory ?? process.env.PI_CODING_AGENT_DIR ?? path.join(os.homedir(), ".pi", "agent");
+        this.logDirectory = logDirectory;
         if (showHardwareCursor !== undefined) {
             this.showHardwareCursor = showHardwareCursor;
         }
@@ -148,7 +236,7 @@ export class TuiBase extends Container {
             return;
         this.showHardwareCursor = enabled;
         if (!enabled) {
-            this.terminal.hideCursor();
+            this.hideTerminalCursor();
         }
         this.requestRender();
     }
@@ -157,8 +245,8 @@ export class TuiBase extends Container {
     }
     /**
      * Set whether to trigger full re-render when content shrinks.
-     * When true (default), empty rows are cleared when content shrinks.
-     * When false, empty rows remain (reduces redraws on slower terminals).
+     * When true, empty rows are cleared when content shrinks.
+     * When false (default), empty rows remain (reduces redraws on slower terminals).
      */
     setClearOnShrink(enabled) {
         this.clearOnShrink = enabled;
@@ -296,7 +384,7 @@ export class TuiBase extends Container {
         if (!options?.nonCapturing && this.isOverlayVisible(entry)) {
             this.setFocus(component);
         }
-        this.terminal.hideCursor();
+        this.hideTerminalCursor();
         this.requestRender();
         // Return handle for controlling this overlay
         return {
@@ -312,7 +400,7 @@ export class TuiBase extends Container {
                         this.setFocus(topVisible?.component ?? entry.preFocus);
                     }
                     if (this.overlayStack.length === 0)
-                        this.terminal.hideCursor();
+                        this.hideTerminalCursor();
                     this.requestRender();
                 }
             },
@@ -378,6 +466,11 @@ export class TuiBase extends Container {
                 this.requestRender();
             },
             isFocused: () => this.focusedComponent === component,
+            getBounds: () => {
+                if (!this.overlayStack.includes(entry) || !this.isOverlayVisible(entry) || !entry.bounds)
+                    return undefined;
+                return { ...entry.bounds };
+            },
         };
     }
     /** Hide the topmost overlay and restore previous focus. */
@@ -394,8 +487,13 @@ export class TuiBase extends Container {
             this.setFocus(topVisible?.component ?? overlay.preFocus);
         }
         if (this.overlayStack.length === 0)
-            this.terminal.hideCursor();
+            this.hideTerminalCursor();
         this.requestRender();
+    }
+    /** Hide the cursor while running. After stop(), the shell owns the cursor and it must stay visible. */
+    hideTerminalCursor() {
+        if (!this.stopped)
+            this.terminal.hideCursor();
     }
     /** Check if there are any visible overlays */
     hasOverlay() {
@@ -404,6 +502,42 @@ export class TuiBase extends Container {
     /** Check if the focused component is a visible overlay */
     isOverlayFocused() {
         return this.overlayStack.some((entry) => entry.component === this.focusedComponent && this.isOverlayVisible(entry));
+    }
+    /** Keep overlay containers as keyboard focus owners when a nested control is clicked. */
+    resolveMouseFocusTarget(component) {
+        for (let index = this.overlayStack.length - 1; index >= 0; index--) {
+            const overlay = this.overlayStack[index];
+            if (this.isOverlayVisible(overlay) && this.containsComponent(overlay.component, component)) {
+                return overlay.component;
+            }
+        }
+        return component;
+    }
+    /** Dispatch to the visually topmost overlay under the pointer. */
+    dispatchMouseToOverlay(event) {
+        for (let index = this.renderedOverlayLayouts.length - 1; index >= 0; index--) {
+            const layout = this.renderedOverlayLayouts[index];
+            if (event.screenX < layout.col ||
+                event.screenX >= layout.col + layout.width ||
+                event.screenY < layout.row ||
+                event.screenY >= layout.row + layout.height) {
+                continue;
+            }
+            const result = dispatchMouseEvent(layout.entry.component, {
+                ...event,
+                x: event.screenX - layout.col,
+                y: event.screenY - layout.row,
+                width: layout.width,
+                height: layout.height,
+            });
+            return result
+                ? {
+                    hit: true,
+                    result: result.focus ? { ...result, focusTarget: layout.entry.component } : result,
+                }
+                : { hit: true };
+        }
+        return { hit: false };
     }
     /** Check if an overlay entry is currently visible */
     isOverlayVisible(entry) {
@@ -467,6 +601,7 @@ export class TuiBase extends Container {
         if (!this.stopped) {
             this.terminal.write(enabled ? "\x1b[?2031h" : "\x1b[?2031l");
         }
+
     }
     queryCellSize() {
         // Only query if terminal supports images (cell size is only used for image rendering)
@@ -551,7 +686,7 @@ export class TuiBase extends Container {
         }, delay);
     }
     handleTerminalInput(data) {
-        if (this.consumeOsc11BackgroundResponse(data)) {
+        if (this.consumeTerminalColorResponse(data)) {
             return;
         }
         if (this.consumeTerminalColorSchemeReport(data)) {
@@ -623,28 +758,50 @@ export class TuiBase extends Container {
             // where even setTimeout(0) can take a full 16 ms tick on Windows.
             this.requestImmediateRender();
         }
-
     }
-    consumeOsc11BackgroundResponse(data) {
-        if (this.pendingOsc11BackgroundReplies <= 0) {
+    consumeTerminalColorResponse(data) {
+        const query = this.pendingTerminalColorQueries[0];
+        if (!query) {
             return false;
         }
-        if (!isOsc11BackgroundColorResponse(data)) {
+        if (DEVICE_ATTRIBUTES_RESPONSE_PATTERN.test(data)) {
+            this.pendingTerminalColorQueries.shift();
+            this.completeTerminalColorQuery(query);
+            return true;
+        }
+        const response = parseOscColorResponse(data);
+        if (!response) {
             return false;
         }
-        const rgb = parseOsc11BackgroundColor(data);
-        this.pendingOsc11BackgroundReplies -= 1;
-        const query = this.pendingOsc11BackgroundQueries.shift();
-        if (query && !query.settled) {
-            query.settled = true;
-            if (query.timer) {
-                clearTimeout(query.timer);
-                query.timer = undefined;
-            }
-            query.resolve?.(rgb);
-            query.resolve = undefined;
+        const { target, rgb } = response;
+        const key = String(target);
+        if (!query.deliver || query.replied.has(key)) {
+            return true;
+        }
+        query.replied.add(key);
+        if (target === "foreground") {
+            query.foreground = rgb;
+        }
+        else if (target === "background") {
+            query.background = rgb;
+        }
+        else if (target < TERMINAL_PALETTE_SIZE) {
+            query.palette[target] = rgb;
+        }
+        if (query.replied.size === TERMINAL_COLOR_REPLY_COUNT) {
+            this.completeTerminalColorQuery(query);
         }
         return true;
+    }
+    terminalColorQueryResult(query) {
+        const palette = query.palette.every((color) => color !== undefined) ? query.palette : undefined;
+        return { foreground: query.foreground, background: query.background, palette };
+    }
+    completeTerminalColorQuery(query) {
+        const deliver = query.deliver;
+        query.deliver = undefined;
+        clearTimeout(query.timer);
+        deliver?.(this.terminalColorQueryResult(query));
     }
     consumeTerminalColorSchemeReport(data) {
         const scheme = parseTerminalColorSchemeReport(data);
@@ -801,9 +958,13 @@ export class TuiBase extends Container {
     }
     /** Composite all overlays into content lines (sorted by focusOrder, higher = on top). */
     compositeOverlays(lines, termWidth, termHeight) {
-        if (this.overlayStack.length === 0)
+        if (this.overlayStack.length === 0) {
+            this.renderedOverlayLayouts = [];
             return lines;
+        }
         const result = [...lines];
+        for (const entry of this.overlayStack)
+            entry.bounds = undefined;
         // Pre-render all visible overlays and calculate positions
         const rendered = [];
         let minLinesNeeded = result.length;
@@ -815,16 +976,24 @@ export class TuiBase extends Container {
             // (width and maxHeight don't depend on overlay height)
             const { width, maxHeight } = this.resolveOverlayLayout(options, 0, termWidth, termHeight);
             // Render component at calculated width
-            let overlayLines = component.render(width);
+            let overlayLines = this.resolveFakeCursors(component.render(width));
             // Apply maxHeight if specified
             if (maxHeight !== undefined && overlayLines.length > maxHeight) {
                 overlayLines = overlayLines.slice(0, maxHeight);
             }
             // Get final row/col with actual overlay height
             const { row, col } = this.resolveOverlayLayout(options, overlayLines.length, termWidth, termHeight);
-            rendered.push({ overlayLines, row, col, w: width });
+            entry.bounds = { row, col, width, height: overlayLines.length };
+            rendered.push({ entry, overlayLines, row, col, w: width });
             minLinesNeeded = Math.max(minLinesNeeded, row + overlayLines.length);
         }
+        this.renderedOverlayLayouts = rendered.map(({ entry, row, col, w, overlayLines }) => ({
+            entry,
+            row,
+            col,
+            width: w,
+            height: overlayLines.length,
+        }));
         // Pad to at least terminal height so overlays have screen-relative positions.
         // Excludes maxLinesRendered: the historical high-water mark caused self-reinforcing
         // inflation that pushed content into scrollback on terminal widen.
@@ -887,55 +1056,41 @@ export class TuiBase extends Container {
         return null;
     }
     /**
-     * Query the terminal's default background color with OSC 11 (`ESC ] 11 ; ? BEL`).
-     * @param timeoutMs Query timeout in milliseconds.
-     * @returns Promise containing the parsed RGB color, or undefined if it times out or fails to parse.
+     * Resolve fake cursor markers to reverse video. When the hardware cursor is shown, a fake cursor
+     * directly after CURSOR_MARKER is dropped because the terminal cursor is drawn there. Fake cursors
+     * of components without focus have no CURSOR_MARKER and stay visible.
      */
-    queryTerminalBackgroundColor({ timeoutMs }) {
-        return new Promise((resolve) => {
-            const query = {
-                settled: false,
-                resolve,
-                timer: undefined,
-            };
-            query.timer = setTimeout(() => {
-                if (query.settled) {
-                    return;
-                }
-                query.settled = true;
-                query.timer = undefined;
-                query.resolve?.(undefined);
-                query.resolve = undefined;
-            }, timeoutMs);
-            this.pendingOsc11BackgroundQueries.push(query);
-            this.pendingOsc11BackgroundReplies += 1;
-            this.terminal.write("\x1b]11;?\x07");
+    resolveFakeCursors(lines) {
+        return lines.map((line) => {
+            if (!line.includes(FAKE_CURSOR_START))
+                return line;
+            const resolved = this.showHardwareCursor ? line.replace(FOCUSED_FAKE_CURSOR, "$1$2") : line;
+            return resolved.replaceAll(FAKE_CURSOR_START, "\x1b[7m").replaceAll(FAKE_CURSOR_END, "\x1b[27m");
         });
     }
     /**
-     * Query the terminal's color-scheme preference with DSR (`CSI ? 996 n`).
-     * Terminals that support the color palette notification protocol reply with
-     * `CSI ? 997 ; 1 n` for dark or `CSI ? 997 ; 2 n` for light.
+     * Query the terminal's theme colors: the default foreground (OSC 10), the default background
+     * (OSC 11), and ANSI colors 0-15 (OSC 4), followed by a DA1 request that marks the end of the
+     * replies. Resolves when the DA1 reply or all color replies arrive, or when the timeout expires.
+     * Colors the terminal did not report are undefined; the palette is only set when all 16 arrived.
+     * @param timeoutMs Query timeout in milliseconds, for terminals that do not answer DA1 either.
+     * @param onLateReply Receives the replies if the query completes after the timeout, e.g. over slow links.
      */
-    queryTerminalColorScheme({ timeoutMs }) {
+    queryTerminalColors({ timeoutMs, onLateReply, }) {
         return new Promise((resolve) => {
-            let settled = false;
-            let timer;
-            let unsubscribe = () => { };
-            const settle = (scheme) => {
-                if (settled)
-                    return;
-                settled = true;
-                if (timer) {
-                    clearTimeout(timer);
-                    timer = undefined;
-                }
-                unsubscribe();
-                resolve(scheme);
+            const query = {
+                palette: Array.from({ length: TERMINAL_PALETTE_SIZE }, () => undefined),
+                replied: new Set(),
+                deliver: resolve,
+                timer: undefined,
             };
-            unsubscribe = this.onTerminalColorSchemeChange(settle);
-            timer = setTimeout(() => settle(undefined), timeoutMs);
-            this.terminal.write("\x1b[?996n");
+            // Resolve with the replies so far, and keep collecting late replies for `onLateReply`.
+            query.timer = setTimeout(() => {
+                query.deliver = onLateReply;
+                resolve(this.terminalColorQueryResult(query));
+            }, timeoutMs);
+            this.pendingTerminalColorQueries.push(query);
+            this.terminal.write(TERMINAL_COLOR_QUERY);
         });
     }
 }

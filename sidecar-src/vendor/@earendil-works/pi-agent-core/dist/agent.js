@@ -1,7 +1,11 @@
+import { createInitialSystemMessage, getCurrentSystemMessage, getCurrentSystemPrompt, toToolDeclaration, } from "@earendil-works/pi-ai";
 import { runAgentLoop, runAgentLoopContinue } from "./agent-loop.js";
 import { getDefaultStreamFn } from "./stream-fn.js";
 function defaultConvertToLlm(messages) {
-    return messages.filter((message) => message.role === "user" || message.role === "assistant" || message.role === "toolResult");
+    return messages.filter((message) => message.role === "system" ||
+        message.role === "user" ||
+        message.role === "assistant" ||
+        message.role === "toolResult");
 }
 const EMPTY_USAGE = {
     input: 0,
@@ -26,8 +30,13 @@ const DEFAULT_MODEL = {
 function createMutableAgentState(initialState) {
     let tools = initialState?.tools?.slice() ?? [];
     let messages = initialState?.messages?.slice() ?? [];
+    const initialMessage = createInitialSystemMessage(initialState?.systemPrompt, tools.map(toToolDeclaration));
+    if (messages[0]?.role !== "system" && initialMessage)
+        messages.unshift(initialMessage);
     return {
-        systemPrompt: initialState?.systemPrompt ?? "",
+        get systemPrompt() {
+            return getCurrentSystemPrompt(messages);
+        },
         model: initialState?.model ?? DEFAULT_MODEL,
         thinkingLevel: initialState?.thinkingLevel ?? "off",
         get tools() {
@@ -60,18 +69,16 @@ class PendingMessageQueue {
     hasItems() {
         return this.messages.length > 0;
     }
-    drain() {
-        if (this.mode === "all") {
-            const drained = this.messages.slice();
-            this.messages = [];
-            return drained;
-        }
+    peek() {
+        if (this.mode === "all")
+            return this.messages.slice();
         const first = this.messages[0];
-        if (!first) {
-            return [];
-        }
-        this.messages = this.messages.slice(1);
-        return [first];
+        return first ? [first] : [];
+    }
+    drain() {
+        const drained = this.peek();
+        this.messages = this.messages.slice(drained.length);
+        return drained;
     }
     clear() {
         this.messages = [];
@@ -94,9 +101,11 @@ export class Agent {
     getApiKey;
     onPayload;
     onResponse;
+    onProviderStreamEvent;
     beforeToolCall;
     afterToolCall;
-    shouldStopAfterTurn;
+    finishTurn;
+    prepareRequest;
     prepareNextTurn;
     prepareNextTurnWithContext;
     activeRun;
@@ -120,9 +129,11 @@ export class Agent {
         this.getApiKey = runtimeOptions.getApiKey;
         this.onPayload = runtimeOptions.onPayload;
         this.onResponse = runtimeOptions.onResponse;
+        this.onProviderStreamEvent = runtimeOptions.onProviderStreamEvent;
         this.beforeToolCall = runtimeOptions.beforeToolCall;
         this.afterToolCall = runtimeOptions.afterToolCall;
-        this.shouldStopAfterTurn = runtimeOptions.shouldStopAfterTurn;
+        this.finishTurn = runtimeOptions.finishTurn;
+        this.prepareRequest = runtimeOptions.prepareRequest;
         this.prepareNextTurn = runtimeOptions.prepareNextTurn;
         this.prepareNextTurnWithContext = runtimeOptions.prepareNextTurnWithContext;
         this.steeringQueue = new PendingMessageQueue(runtimeOptions.steeringMode ?? "one-at-a-time");
@@ -194,6 +205,11 @@ export class Agent {
     hasQueuedMessages() {
         return this.steeringQueue.hasItems() || this.followUpQueue.hasItems();
     }
+    /** Preview the messages selected for the next turn without consuming them. */
+    peekQueuedMessages() {
+        const steering = this.steeringQueue.peek();
+        return steering.length > 0 ? steering : this.followUpQueue.peek();
+    }
     /** Active abort signal for the current run, if any. */
     get signal() {
         return this.activeRun?.abortController.signal;
@@ -210,12 +226,13 @@ export class Agent {
     waitForIdle() {
         return this.activeRun?.promise ?? Promise.resolve();
     }
-    /** Clear transcript state, runtime state, and queued messages. */
+    /** Clear conversation state and queues while retaining the replayed prompt/tool baseline. */
     reset() {
         if (this.activeRun) {
             throw new Error("Agent is already processing. Wait for completion before resetting.");
         }
-        this._state.messages = [];
+        const baseline = getCurrentSystemMessage(this._state.messages);
+        this._state.messages = baseline ? [baseline] : [];
         this._state.isStreaming = false;
         this._state.streamingMessage = undefined;
         this._state.pendingToolCalls = new Set();
@@ -236,7 +253,7 @@ export class Agent {
             throw new Error("Agent is already processing. Wait for completion before continuing.");
         }
         const lastMessage = this._state.messages[this._state.messages.length - 1];
-        if (!lastMessage) {
+        if (!lastMessage || this._state.messages.every((message) => message.role === "system")) {
             throw new Error("No messages to continue from");
         }
         if (lastMessage.role === "assistant") {
@@ -279,29 +296,27 @@ export class Agent {
     }
     createContextSnapshot() {
         return {
-            systemPrompt: this._state.systemPrompt,
             messages: this._state.messages.slice(),
             tools: this._state.tools.slice(),
         };
     }
     createLoopConfig(options = {}) {
         let skipInitialSteeringPoll = options.skipInitialSteeringPoll === true;
-        const shouldStopAfterTurn = this.shouldStopAfterTurn;
         return {
             model: this._state.model,
             reasoning: this._state.thinkingLevel === "off" ? undefined : this._state.thinkingLevel,
             sessionId: this.sessionId,
             onPayload: this.onPayload,
             onResponse: this.onResponse,
+            onProviderStreamEvent: this.onProviderStreamEvent,
             transport: this.transport,
             thinkingBudgets: this.thinkingBudgets,
             maxRetryDelayMs: this.maxRetryDelayMs,
             toolExecution: this.toolExecution,
             beforeToolCall: this.beforeToolCall,
             afterToolCall: this.afterToolCall,
-            shouldStopAfterTurn: shouldStopAfterTurn
-                ? async (context) => await shouldStopAfterTurn(context, this.signal)
-                : undefined,
+            finishTurn: this.finishTurn,
+            prepareRequest: this.prepareRequest,
             prepareNextTurn: this.prepareNextTurnWithContext || this.prepareNextTurn
                 ? async (context) => {
                     if (this.prepareNextTurnWithContext) {

@@ -1,9 +1,9 @@
 import { getKeybindings } from "../keybindings.js";
 import { decodePrintableKey, matchesKey } from "../keys.js";
 import { KillRing } from "../kill-ring.js";
-import { CURSOR_MARKER } from "../tui.js";
+import { CURSOR_MARKER, renderFakeCursor, } from "../tui.js";
 import { UndoStack } from "../undo-stack.js";
-import { cjkBreakRegex, getGraphemeSegmenter, getWordSegmenter, isWhitespaceChar, sliceByColumn, visibleWidth, } from "../utils.js";
+import { autocompleteBoundaryRegex, autocompleteSeparatorRegex, cjkBreakRegex, getGraphemeSegmenter, getWordSegmenter, isWhitespaceChar, sliceByColumn, visibleWidth, } from "../utils.js";
 import { findWordBackward, findWordForward } from "../word-navigation.js";
 import { SelectList } from "./select-list.js";
 const graphemeSegmenter = getGraphemeSegmenter();
@@ -168,18 +168,28 @@ const SLASH_COMMAND_SELECT_LIST_LAYOUT = {
 };
 const ATTACHMENT_AUTOCOMPLETE_DEBOUNCE_MS = 20;
 const DEFAULT_AUTOCOMPLETE_TRIGGER_CHARACTERS = ["@", "#"];
+// Unquoted completions end at whitespace or CJK punctuation; quoted paths may contain either.
+const unquotedAutocompleteSuffixRegex = new RegExp(`(?:(?!${autocompleteSeparatorRegex.source}).)*`, "u");
+// Trigger tokens may be wrapped in prose, e.g. "(@src/foo" or "`@src/foo".
+const autocompleteTokenStartSource = `${autocompleteBoundaryRegex.source}[([{<\`]*`;
 function escapeCharacterClass(value) {
     return value.replace(/[\\^$.*+?()[\]{}|-]/g, "\\$&");
 }
 function buildTriggerPattern(triggerCharacters) {
-    return new RegExp(`(?:^|[\\s])[${triggerCharacters.map(escapeCharacterClass).join("")}][^\\s]*$`);
+    return new RegExp(`${autocompleteTokenStartSource}(?:@"[^"]*|[${triggerCharacters.map(escapeCharacterClass).join("")}]${unquotedAutocompleteSuffixRegex.source})$`, "u");
 }
 function buildDebouncePattern(triggerCharacters) {
     const escapedWithoutAt = triggerCharacters.filter((character) => character !== "@").map(escapeCharacterClass);
-    return new RegExp(`(?:^|[ \\t])(?:@(?:"[^"]*|[^\\s]*)|[${escapedWithoutAt.join("")}][^\\s]*)$`);
+    return new RegExp(`${autocompleteTokenStartSource}(?:@(?:"[^"]*|${unquotedAutocompleteSuffixRegex.source})|[${escapedWithoutAt.join("")}]${unquotedAutocompleteSuffixRegex.source})$`, "u");
 }
 function createScrollBorder(direction, hiddenLineCount, width) {
     const availableWidth = Math.max(0, width);
+    const label = ` ${direction} ${hiddenLineCount} more `;
+    const labelWidth = visibleWidth(label);
+    if (labelWidth + 2 <= availableWidth) {
+        const leftWidth = Math.floor((availableWidth - labelWidth) / 2);
+        return "─".repeat(leftWidth) + label + "─".repeat(availableWidth - leftWidth - labelWidth);
+    }
     const indicator = `─── ${direction} ${hiddenLineCount} more `;
     const remaining = availableWidth - visibleWidth(indicator);
     if (remaining >= 0)
@@ -199,8 +209,10 @@ export class Editor {
     tui;
     theme;
     paddingX = 0;
-    // Store last render width for cursor navigation
+    // Store last render geometry for cursor navigation and mouse hit-testing.
     lastWidth = 80;
+    renderedVisibleLineCount = 1;
+    renderedAutocompleteHeight = 0;
     // Vertical scrolling support
     scrollOffset = 0;
     // Border color (can be changed dynamically)
@@ -370,6 +382,14 @@ export class Editor {
     invalidate() {
         // No cached state to invalidate currently
     }
+    renderTopBorder(width, hiddenLineCount) {
+        const border = hiddenLineCount > 0 ? createScrollBorder("↑", hiddenLineCount, width) : "─".repeat(width);
+        return this.borderColor(border);
+    }
+    renderBottomBorder(width, hiddenLineCount) {
+        const border = hiddenLineCount > 0 ? createScrollBorder("↓", hiddenLineCount, width) : "─".repeat(width);
+        return this.borderColor(border);
+    }
     render(width) {
         const maxPadding = Math.max(0, Math.floor((width - 1) / 2));
         const paddingX = Math.min(this.paddingX, maxPadding);
@@ -382,7 +402,6 @@ export class Editor {
         const layoutWidth = Math.max(1, contentWidth - (paddingX ? 0 : 1));
         // Store for cursor navigation (must match wrapping width)
         this.lastWidth = layoutWidth;
-        const horizontal = this.borderColor("─");
         // Layout the text
         const layoutLines = this.layoutText(layoutWidth);
         // QUINKI PATCH (25 set): placeholder support (app's "Write a message...").
@@ -394,7 +413,6 @@ export class Editor {
         const maxVisibleLines = this.qFullHeight
             ? Math.max(5, terminalRows - 6) // T541: exactly 1 row margin top + 1 bottom in the full-screen modal
             : Math.max(5, Math.floor(terminalRows * 0.3));
-        if (this.qFullHeight) { try { require("fs").appendFileSync("/tmp/q-modal-measure.log", JSON.stringify({ rows: terminalRows, maxVisible: maxVisibleLines, contentLines: layoutLines.length }) + "\n"); } catch {} }
         // Find the cursor line index in layoutLines
         let cursorLineIndex = layoutLines.findIndex((line) => line.hasCursor);
         if (cursorLineIndex === -1)
@@ -411,27 +429,23 @@ export class Editor {
         this.scrollOffset = Math.max(0, Math.min(this.scrollOffset, maxScrollOffset));
         // Get visible lines slice
         const visibleLines = layoutLines.slice(this.scrollOffset, this.scrollOffset + maxVisibleLines);
-        // QUINKI PATCH (6 ott, T536): with qFullHeight the box must be EXACTLY
-        // maxVisibleLines tall (pad with blank rows): the prompt modal fills the
-        // whole screen even when the text is a few lines.
+        // QUINKI PATCH (6 ott, T536): with qFullHeight the box must be EXACTLY maxVisibleLines
+        // tall (pad with blank rows): the prompt modal fills the whole screen even with few lines.
         if (this.qFullHeight) {
             while (visibleLines.length < maxVisibleLines) {
                 visibleLines.push({ text: "", hasCursor: false });
             }
         }
+        this.renderedVisibleLineCount = visibleLines.length;
         const result = [];
         const leftPadding = " ".repeat(paddingX);
         const rightPadding = leftPadding;
-        // Render top border (with scroll indicator if scrolled down)
-        // QUINKI PATCH (25 set, iter6): floating-panel block — NO borders, full-width background.
+        // QUINKI PATCH (25 set, iter6): floating-panel block - NO borders, full-width background.
         const qPaint = (raw) => {
-            // Keep the panel background even through inner full resets (cursor cells use \x1b[0m).
             const s = String(raw).replace(/\x1b\[0m/g, "\x1b[22m\x1b[23m\x1b[24m\x1b[27m\x1b[39m");
             return typeof this.bgFn === "function" ? this.bgFn(s) : s;
         };
-        // QUINKI PATCH (1 ott, T325): chips row (armed skills / attachments) INSIDE
-        // the box — AFTER qPaint is defined (before this was a TDZ crash swallowed
-        // by try/catch, so the chips never showed).
+        // QUINKI PATCH (1 ott, T325): chips row (armed skills / attachments) INSIDE the box.
         try {
             if (typeof this.qChipsFn === "function") {
                 const qc = String(this.qChipsFn(width - 2) ?? "");
@@ -466,26 +480,14 @@ export class Editor {
                     const afterGraphemes = [...this.segment(after, "grapheme")];
                     const firstGrapheme = afterGraphemes[0]?.segment || "";
                     const restAfter = after.slice(firstGrapheme.length);
-                    // QUINKI: inside a chip ("Skill: …") never invert — the inverted char
-                    // would kill the chip's background (the user's polish).
-                    let inChip = false;
-                    try {
-                        const re3 = (typeof this.qChipRe === "function" ? this.qChipRe() : /Skill:\s*[\w.-]+|\u25b8[^\s\u25b8]+/g);
-                        let mm3;
-                        while ((mm3 = re3.exec(displayText))) {
-                            if (layoutLine.cursorPos >= mm3.index && layoutLine.cursorPos < mm3.index + mm3[0].length) { inChip = true; break; }
-                        }
-                    } catch { }
-                    const cursor = inChip ? "" : `\x1b[7m${firstGrapheme}\x1b[0m`;
-                    displayText = before + cursor + restAfter;
+                    const cursor = renderFakeCursor(firstGrapheme);
+                    displayText = before + marker + cursor + restAfter;
                     // lineVisibleWidth stays the same - we're replacing, not adding
                 }
                 else {
-                    // Cursor is at the end: a VISIBLE block glued right after the last
-                    // char (after a chip too — T433: the insert has no trailing space,
-                    // so this block sits exactly next to the chip's last letter).
-                    const cursor = "\x1b[7m \x1b[0m";
-                    displayText = before + cursor;
+                    // Cursor is at the end - add highlighted space
+                    const cursor = renderFakeCursor(" ");
+                    displayText = before + marker + cursor;
                     lineVisibleWidth = lineVisibleWidth + 1;
                     // If cursor overflows content width into the padding, flag it
                     if (lineVisibleWidth > contentWidth && paddingX > 0) {
@@ -493,17 +495,17 @@ export class Editor {
                     }
                 }
             }
-            // QUINKI PATCH (25 set): placeholder text when the editor is empty.
-            if (isEmptyText && layoutLine === visibleLines[0] && !this.qNoPlaceholder) { // T537: the prompt editor shows nothing when empty
-                displayText = `${emitCursorMarker ? CURSOR_MARKER : ""}\x1b[7m \x1b[0m\x1b[38;2;88;88;96mWrite a message...\x1b[39m`;
-                lineVisibleWidth = 1 + 18; // cursor space + "Write a message..." (18 chars)
-            }
             // Calculate padding based on actual visible width
             const padding = " ".repeat(Math.max(0, contentWidth - lineVisibleWidth));
             const lineRightPadding = cursorInPadding ? rightPadding.slice(1) : rightPadding;
+            // QUINKI PATCH (25 set): placeholder when the editor is empty.
+            if (isEmptyText && layoutLine === visibleLines[0] && !this.qNoPlaceholder) {
+                displayText = `${emitCursorMarker ? CURSOR_MARKER : ""}\x1b[7m \x1b[0m\x1b[38;2;88;88;96mWrite a message...\x1b[39m`;
+                lineVisibleWidth = 1 + 18;
+            }
             // QUINKI PATCH (25 set, iter6): painted full-width line (edges both sides).
             try {
-                if (this.qTokenStyle) { // T463: sempre (i nomi nudi sfuggivano al test statico)
+                if (this.qTokenStyle) {
                     const reS = (typeof this.qChipRe === "function" ? this.qChipRe() : /Skill:\s*[\w.-]+|\u25b8[^\s\u25b8]+/g);
                     const styled = displayText.replace(reS, (m2) => String(this.qTokenStyle(m2) ?? m2));
                     result.push(qEdge() + qPaint(`${leftPadding}${styled}${padding}${lineRightPadding}`) + qEdgeR());
@@ -517,26 +519,21 @@ export class Editor {
         // QUINKI PATCH (25 set, iter6): breathing line + footer row + bottom padding, all painted.
         result.push(qEdge() + qPaint(" ".repeat(width - 2)) + qEdgeR());
         if (typeof this.footerLine === "function") {
-            try { /* __qsel-editor */
+            try {
                 const fl = String(this.footerLine(contentWidth) ?? "");
                 const flw = visibleWidth(fl);
                 const flPad = " ".repeat(Math.max(0, contentWidth - flw));
                 result.push(qEdge() + qPaint(`${leftPadding}${fl}${flPad}${rightPadding}`) + qEdgeR());
-            }
-            catch { }
+            } catch { }
         }
         result.push(qEdge() + qPaint(" ".repeat(width - 2)) + qEdgeR());
-        // QUINKI PATCH (25 set): OUR slash menu panel above the box (driven by menuLinesFn).
+        // QUINKI PATCH (25 set): OUR slash menu panel (driven by menuLinesFn) - above the box.
         if (typeof this.menuLinesFn === "function") {
             try {
                 const rows = this.menuLinesFn(contentWidth);
                 if (Array.isArray(rows) && rows.length > 0) {
                     const acPadRow = " " + qPaint(" ".repeat(width - 2)) + " ";
                     const acLines = [acPadRow];
-                    // QUINKI PATCH (6 ott, T521): the menu rows must NEVER go through
-                    // the token painter (bgFn) — a row like "Skill: name" was getting
-                    // the skill pill's background. Flag around THIS block only: the
-                    // text box chips/pill path stays byte-identical.
                     try { this.qMenuRendering = true; } catch { }
                     for (const line of rows) {
                         const lws = visibleWidth(line);
@@ -547,19 +544,83 @@ export class Editor {
                     acLines.push(acPadRow);
                     result.unshift(...acLines, "");
                 }
+            } catch { }
+        }
+        // Add autocomplete list if active
+        this.renderedAutocompleteHeight = 0;
+        if (this.autocompleteState && this.autocompleteList) {
+            const autocompleteResult = this.autocompleteList.render(contentWidth);
+            this.renderedAutocompleteHeight = autocompleteResult.length;
+            for (const line of autocompleteResult) {
+                const lineWidth = visibleWidth(line);
+                const linePadding = " ".repeat(Math.max(0, contentWidth - lineWidth));
+                result.push(`${leftPadding}${line}${linePadding}${rightPadding}`);
             }
-            catch { }
         }
         return result;
     }
-    handleInput(data) {
-        // QUINKI: Tab = SELECT in the slash menus (the TUI listener never sees it
-        // because the editor consumes Tab for autocomplete first).
-        try {
-            if (data === "\t" && globalThis.__qMenuSelect) {
-                if (globalThis.__qMenuSelect() === true) return;
+    handleMouse(event) {
+        const autocompleteStartRow = this.renderedVisibleLineCount + 2;
+        if (this.autocompleteState &&
+            this.autocompleteList &&
+            event.y >= autocompleteStartRow &&
+            event.y < autocompleteStartRow + this.renderedAutocompleteHeight) {
+            const maxPadding = Math.max(0, Math.floor((event.width - 1) / 2));
+            const paddingX = Math.min(this.paddingX, maxPadding);
+            const contentWidth = Math.max(1, event.width - paddingX * 2);
+            const result = this.autocompleteList.handleMouse?.({
+                ...event,
+                x: event.x - paddingX,
+                y: event.y - autocompleteStartRow,
+                width: contentWidth,
+                height: this.renderedAutocompleteHeight,
+            });
+            return result ? { ...result, focus: true } : undefined;
+        }
+        // Leave press/drag/release unhandled so the renderer's screen-level text
+        // selection can run over the editor rows (drag to select, release to copy).
+        // The renderer synthesizes a click when press and release land on the same
+        // cell without movement, which is the gesture that positions the cursor.
+        if (event.type !== "click" || event.button !== "left")
+            return undefined;
+        if (event.y <= 0 || event.y > this.renderedVisibleLineCount)
+            return { handled: true, focus: true };
+        const visualLines = this.buildVisualLineMap(this.lastWidth);
+        const visualLineIndex = this.scrollOffset + event.y - 1;
+        const visualLine = visualLines[visualLineIndex];
+        if (!visualLine)
+            return { handled: true, focus: true };
+        const logicalLine = this.state.lines[visualLine.logicalLine] ?? "";
+        const chunkEnd = visualLine.startCol + visualLine.length;
+        const chunk = logicalLine.slice(visualLine.startCol, chunkEnd);
+        const maxPadding = Math.max(0, Math.floor((event.width - 1) / 2));
+        const paddingX = Math.min(this.paddingX, maxPadding);
+        const targetColumn = Math.max(0, event.x - paddingX);
+        let visibleColumn = 0;
+        let targetIndex = chunk.length;
+        let lastGraphemeIndex = 0;
+        for (const grapheme of this.segment(chunk, "grapheme")) {
+            const nextColumn = visibleColumn + visibleWidth(grapheme.segment);
+            lastGraphemeIndex = grapheme.index;
+            if (targetColumn < nextColumn) {
+                targetIndex = grapheme.index;
+                break;
             }
-        } catch {}
+            visibleColumn = nextColumn;
+        }
+        const isLastSegment = visualLineIndex === visualLines.length - 1 ||
+            visualLines[visualLineIndex + 1]?.logicalLine !== visualLine.logicalLine;
+        if (!isLastSegment && targetIndex === chunk.length && chunk.length > 0)
+            targetIndex = lastGraphemeIndex;
+        this.state.cursorLine = visualLine.logicalLine;
+        this.setCursorCol(visualLine.startCol + targetIndex);
+        this.lastAction = null;
+        this.exitHistoryBrowsing();
+        if (this.autocompleteState)
+            this.updateAutocomplete();
+        return { handled: true, focus: true };
+    }
+    handleInput(data) {
         const kb = getKeybindings();
         // Handle character jump mode (awaiting next character to jump to)
         if (this.jumpMode !== null) {
@@ -1066,13 +1127,12 @@ export class Editor {
             else if (this.autocompleteTriggerCharacters.includes(char)) {
                 const currentLine = this.state.lines[this.state.cursorLine] || "";
                 const textBeforeCursor = currentLine.slice(0, this.state.cursorCol);
-                const charBeforeSymbol = textBeforeCursor[textBeforeCursor.length - 2];
-                if (textBeforeCursor.length === 1 || charBeforeSymbol === " " || charBeforeSymbol === "\t") {
+                if (this.autocompleteTriggerPattern.test(textBeforeCursor)) {
                     this.tryTriggerAutocomplete();
                 }
             }
             // Also auto-trigger when typing letters in a slash command or symbol completion context
-            else if (/[a-zA-Z0-9.\-_]/.test(char)) {
+            else if (/[a-zA-Z0-9.\-_]/.test(char) || cjkBreakRegex.test(char)) {
                 const currentLine = this.state.lines[this.state.cursorLine] || "";
                 const textBeforeCursor = currentLine.slice(0, this.state.cursorCol);
                 // Check if we're in a slash command (with or without space for arguments)
@@ -1194,7 +1254,8 @@ export class Editor {
             try {
                 this.onSubmit(result);
             } catch (err) {
-                try { require("fs").appendFileSync("/tmp/q-cli-errors.log", new Date().toISOString() + " onSubmit: " + String(err && err.stack || err) + "\n"); } catch {}
+                // QUINKI (T355): un'eccezione in onSubmit non deve MAI bloccare la TUI.
+                // (niente log in /tmp: regola utente — nessun file nostro fuori casa)
             }
         }
     }
@@ -1922,7 +1983,20 @@ export class Editor {
     }
     createAutocompleteList(prefix, items) {
         const layout = prefix.startsWith("/") ? SLASH_COMMAND_SELECT_LIST_LAYOUT : undefined;
-        return new SelectList(items, this.autocompleteMaxVisible, this.theme.selectList, layout);
+        const list = new SelectList(items, this.autocompleteMaxVisible, this.theme.selectList, layout);
+        list.onSelect = (selected) => {
+            if (!this.autocompleteProvider)
+                return;
+            this.pushUndoSnapshot();
+            this.lastAction = null;
+            const result = this.autocompleteProvider.applyCompletion(this.state.lines, this.state.cursorLine, this.state.cursorCol, selected, this.autocompletePrefix);
+            this.state.lines = result.lines;
+            this.state.cursorLine = result.cursorLine;
+            this.setCursorCol(result.cursorCol);
+            this.cancelAutocomplete();
+            this.onChange?.(this.getText());
+        };
+        return list;
     }
     tryTriggerAutocomplete(explicitTab = false) {
         this.requestAutocomplete({ force: false, explicitTab });

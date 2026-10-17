@@ -11,6 +11,8 @@ import { createSyntheticSourceInfo } from "./source-info.js";
 export function parseCommandArgs(argsString) {
     const args = [];
     let current = "";
+    // Tracks whether a token has started, so quoted empty strings ("" or '') are kept as arguments
+    let hasToken = false;
     let inQuote = null;
     for (let i = 0; i < argsString.length; i++) {
         const char = argsString[i];
@@ -24,18 +26,21 @@ export function parseCommandArgs(argsString) {
         }
         else if (char === '"' || char === "'") {
             inQuote = char;
+            hasToken = true;
         }
         else if (/\s/.test(char)) {
-            if (current) {
+            if (hasToken) {
                 args.push(current);
                 current = "";
+                hasToken = false;
             }
         }
         else {
             current += char;
+            hasToken = true;
         }
     }
-    if (current) {
+    if (hasToken) {
         args.push(current);
     }
     return args;
@@ -79,41 +84,59 @@ export function substituteArgs(content, args) {
     });
 }
 function loadTemplateFromFile(filePath, sourceInfo) {
+    const diagnostics = [];
+    let rawContent;
     try {
-        const rawContent = readFileSync(filePath, "utf-8");
-        const { frontmatter, body } = parseFrontmatter(rawContent);
-        const name = basename(filePath).replace(/\.md$/, "");
-        // Get description from frontmatter or first non-empty line
-        let description = frontmatter.description || "";
-        if (!description) {
-            const firstLine = body.split("\n").find((line) => line.trim());
-            if (firstLine) {
-                // Truncate if too long
-                description = firstLine.slice(0, 60);
-                if (firstLine.length > 60)
-                    description += "...";
-            }
+        rawContent = readFileSync(filePath, "utf-8");
+    }
+    catch (error) {
+        const message = error instanceof Error ? error.message : "failed to read prompt template file";
+        diagnostics.push({ type: "warning", message, path: filePath });
+        return { template: null, diagnostics };
+    }
+    let frontmatter;
+    let body;
+    try {
+        ({ frontmatter, body } = parseFrontmatter(rawContent));
+    }
+    catch (error) {
+        const message = error instanceof Error ? error.message : "failed to parse prompt template file";
+        diagnostics.push({ type: "warning", message, path: filePath });
+        return { template: null, diagnostics };
+    }
+    const name = basename(filePath).replace(/\.md$/, "");
+    // Get description from frontmatter or first non-empty line
+    let description = typeof frontmatter.description === "string" ? frontmatter.description : "";
+    if (!description) {
+        const firstLine = body.split("\n").find((line) => line.trim());
+        if (firstLine) {
+            // Truncate if too long
+            description = firstLine.slice(0, 60);
+            if (firstLine.length > 60)
+                description += "...";
         }
-        return {
+    }
+    const argumentHint = typeof frontmatter["argument-hint"] === "string" ? frontmatter["argument-hint"] : undefined;
+    return {
+        template: {
             name,
             description,
-            ...(frontmatter["argument-hint"] && { argumentHint: frontmatter["argument-hint"] }),
+            ...(argumentHint && { argumentHint }),
             content: body,
             sourceInfo,
             filePath,
-        };
-    }
-    catch {
-        return null;
-    }
+        },
+        diagnostics,
+    };
 }
 /**
  * Scan a directory for .md files (non-recursive) and load them as prompt templates.
  */
 function loadTemplatesFromDir(dir, getSourceInfo) {
     const templates = [];
+    const diagnostics = [];
     if (!existsSync(dir)) {
-        return templates;
+        return { templates, diagnostics };
     }
     try {
         const entries = readdirSync(dir, { withFileTypes: true });
@@ -132,17 +155,18 @@ function loadTemplatesFromDir(dir, getSourceInfo) {
                 }
             }
             if (isFile && entry.name.endsWith(".md")) {
-                const template = loadTemplateFromFile(fullPath, getSourceInfo(fullPath));
-                if (template) {
-                    templates.push(template);
+                const result = loadTemplateFromFile(fullPath, getSourceInfo(fullPath));
+                if (result.template) {
+                    templates.push(result.template);
                 }
+                diagnostics.push(...result.diagnostics);
             }
         }
     }
     catch {
-        return templates;
+        return { templates, diagnostics };
     }
-    return templates;
+    return { templates, diagnostics };
 }
 /**
  * Load all prompt templates from:
@@ -156,6 +180,11 @@ export function loadPromptTemplates(options) {
     const promptPaths = options.promptPaths;
     const includeDefaults = options.includeDefaults;
     const templates = [];
+    const diagnostics = [];
+    const addResult = (result) => {
+        templates.push(...result.templates);
+        diagnostics.push(...result.diagnostics);
+    };
     const globalPromptsDir = join(resolvedAgentDir, "prompts");
     const projectPromptsDir = resolve(resolvedCwd, CONFIG_DIR_NAME, "prompts");
     const isUnderPath = (target, root) => {
@@ -187,8 +216,8 @@ export function loadPromptTemplates(options) {
         });
     };
     if (includeDefaults) {
-        templates.push(...loadTemplatesFromDir(globalPromptsDir, getSourceInfo));
-        templates.push(...loadTemplatesFromDir(projectPromptsDir, getSourceInfo));
+        addResult(loadTemplatesFromDir(globalPromptsDir, getSourceInfo));
+        addResult(loadTemplatesFromDir(projectPromptsDir, getSourceInfo));
     }
     // 3. Load explicit prompt paths
     for (const rawPath of promptPaths) {
@@ -199,20 +228,22 @@ export function loadPromptTemplates(options) {
         try {
             const stats = statSync(resolvedPath);
             if (stats.isDirectory()) {
-                templates.push(...loadTemplatesFromDir(resolvedPath, getSourceInfo));
+                addResult(loadTemplatesFromDir(resolvedPath, getSourceInfo));
             }
             else if (stats.isFile() && resolvedPath.endsWith(".md")) {
-                const template = loadTemplateFromFile(resolvedPath, getSourceInfo(resolvedPath));
-                if (template) {
-                    templates.push(template);
+                const result = loadTemplateFromFile(resolvedPath, getSourceInfo(resolvedPath));
+                if (result.template) {
+                    templates.push(result.template);
                 }
+                diagnostics.push(...result.diagnostics);
             }
         }
-        catch {
-            // Ignore read failures
+        catch (error) {
+            const message = error instanceof Error ? error.message : "failed to read prompt template path";
+            diagnostics.push({ type: "warning", message, path: resolvedPath });
         }
     }
-    return templates;
+    return { templates, diagnostics };
 }
 /**
  * Expand a prompt template if it matches a template name.

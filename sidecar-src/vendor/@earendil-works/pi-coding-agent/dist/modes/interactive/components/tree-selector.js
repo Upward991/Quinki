@@ -1,4 +1,5 @@
 import { Container, getKeybindings, Input, Spacer, sliceByColumn, Text, truncateToWidth, visibleWidth, wrapTextWithAnsi, } from "@earendil-works/pi-tui";
+import { formatReadLineRange } from "../../../core/tools/render-utils.js";
 import { theme } from "../theme/theme.js";
 import { DynamicBorder } from "./dynamic-border.js";
 import { formatKeyText, keyHint } from "./keybinding-hints.js";
@@ -239,6 +240,8 @@ class TreeList {
         const searchTokens = this.searchQuery.toLowerCase().split(/\s+/).filter(Boolean);
         this.filteredNodes = this.flatNodes.filter((flatNode) => {
             const entry = flatNode.node.entry;
+            if (entry.type === "usage")
+                return false;
             const isCurrentLeaf = entry.id === this.currentLeafId;
             // Skip assistant messages with only tool calls (no text) unless error/aborted
             // Always show current leaf so active position is visible
@@ -255,6 +258,7 @@ class TreeList {
             let passesFilter = true;
             // Entry types hidden in default view (settings/bookkeeping)
             const isSettingsEntry = entry.type === "label" ||
+                entry.type === "context_edit" ||
                 entry.type === "custom" ||
                 entry.type === "model_change" ||
                 entry.type === "thinking_level_change" ||
@@ -480,6 +484,9 @@ class TreeList {
             case "custom":
                 parts.push("custom", entry.customType);
                 break;
+            case "context_edit":
+                parts.push("context edit", entry.replacement === null ? "omit" : "replace", entry.targetId);
+                break;
             case "label":
                 parts.push("label", entry.label ?? "");
                 break;
@@ -685,6 +692,9 @@ class TreeList {
             case "custom":
                 result = theme.fg("dim", `[custom: ${entry.customType}]`);
                 break;
+            case "context_edit":
+                result = theme.fg("dim", `[context ${entry.replacement === null ? "omit" : "replace"}: ${entry.targetId}]`);
+                break;
             case "label":
                 result = theme.fg("dim", `[label: ${entry.label ?? "(cleared)"}]`);
                 break;
@@ -784,15 +794,7 @@ class TreeList {
         switch (name) {
             case "read": {
                 const path = shortenPath(String(args.path || args.file_path || ""));
-                const offset = args.offset;
-                const limit = args.limit;
-                let display = path;
-                if (offset !== undefined || limit !== undefined) {
-                    const start = offset ?? 1;
-                    const end = limit !== undefined ? start + limit - 1 : "";
-                    display += `:${start}${end ? `-${end}` : ""}`;
-                }
-                return `[read: ${display}]`;
+                return `[read: ${path}${formatReadLineRange(args.offset, args.limit)}]`;
             }
             case "write": {
                 const path = shortenPath(String(args.path || args.file_path || ""));

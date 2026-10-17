@@ -13,6 +13,7 @@ export declare class Text implements Component {
     constructor(text?: string, paddingX?: number, paddingY?: number, customBgFn?: (text: string) => string);
     setText(text: string): void;
     setCustomBgFn(customBgFn?: (text: string) => string): void;
+    setPaddingX(paddingX: number): void;
     invalidate(): void;
     render(width: number): string[];
 }

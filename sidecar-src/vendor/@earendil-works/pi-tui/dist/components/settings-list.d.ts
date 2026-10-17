@@ -1,4 +1,4 @@
-import type { Component } from "../tui.ts";
+import type { Component, TuiMouseEvent, TuiMouseEventResult } from "../tui.ts";
 export interface SettingItem {
     /** Unique identifier for this setting */
     id: string;
@@ -31,6 +31,7 @@ export declare class SettingsList implements Component {
     private filteredItems;
     private theme;
     private selectedIndex;
+    private mousePressedIndex;
     private maxVisible;
     private onChange;
     private onCancel;
@@ -47,7 +48,10 @@ export declare class SettingsList implements Component {
     invalidate(): void;
     render(width: number): string[];
     private renderMainList;
+    handleMouse(event: TuiMouseEvent): TuiMouseEventResult | undefined;
     handleInput(data: string): void;
+    private getDisplayItems;
+    private getVisibleRange;
     private activateItem;
     private closeSubmenu;
     private applyFilter;

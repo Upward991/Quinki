@@ -4,7 +4,7 @@
  * When navigating to a different point in the session tree, this generates
  * a summary of the branch being left so context isn't lost.
  */
-import { contentText } from "@earendil-works/pi-ai";
+import { contentText, normalizeContext } from "@earendil-works/pi-ai";
 import { convertToLlm, createBranchSummaryMessage, createCompactionSummaryMessage, createCustomMessage, } from "../messages.js";
 import { completeSummarization, estimateTokens, getSummarizationFailure } from "./compaction.js";
 import { computeFileLists, createFileOps, extractFileOpsFromMessage, formatFileOperations, SUMMARIZATION_SYSTEM_PROMPT, serializeConversation, } from "./utils.js";
@@ -216,12 +216,13 @@ export async function generateBranchSummary(entries, options) {
             timestamp: Date.now(),
         },
     ];
+    const maxTokens = Math.min(4096, model.maxTokens > 0 ? model.maxTokens : Number.POSITIVE_INFINITY);
     // Call LLM for summarization. Prefer the session stream function so SDK
     // request behavior (timeouts, retries, attribution headers) stays consistent
     // without running through agent state/events. Retried via completeSummarization
     // so transient stream drops reuse the configured retry policy.
-    const context = { systemPrompt: SUMMARIZATION_SYSTEM_PROMPT, messages: summarizationMessages };
-    const requestOptions = { apiKey, headers, env, signal, maxTokens: 2048 };
+    const context = normalizeContext({ systemPrompt: SUMMARIZATION_SYSTEM_PROMPT, messages: summarizationMessages });
+    const requestOptions = { apiKey, headers, env, signal, maxTokens };
     const response = await completeSummarization(model, context, requestOptions, streamFn, retry, callbacks);
     // Check if aborted or errored
     if (response.stopReason === "aborted") {
