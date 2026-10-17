@@ -3376,6 +3376,12 @@ class QuinkiBridge {
   }
 
   // === Attiva una sessione se non è già attiva (usato da compact() e send()) ===
+  /**
+   * Apre la sessione SDK su richiesta (o la ritorna se già viva) e la configura: cartella
+   * effettiva (entry/file, non la memoria del processo), session manager da disco se la
+   * storia esiste già, poi loader del prompt, skill, mode e override. Riaprire dopo un
+   * dispose è la norma: lo stato che conta è SEMPRE su disco.
+   */
   async #ensureActive(key: string, ws?: any): Promise<any> {
     let pi = this.#active.get(key);
     if (pi) return pi;
@@ -3490,6 +3496,13 @@ class QuinkiBridge {
   // === Recovery turni interrotti: se l'app è morta a metà turno, o il provider fallisce,
   // ri-prompta il modello. Salta le sessioni Long Horizon (le gestisce il support agent)
   // e le sessioni in streaming (il turno è attivo). Retry massimo 3 volte. ===
+  /**
+   * Riprende i turni rimasti a metà (marker "pending turn" su disco). Regole ferree:
+   * niente marker = niente recovery (mai ri-promptare una chat per sospetto), lock
+   * anti-doppione (due chiamate simultanee facevano doppio autoprompt e doppio badge)
+   * e scansione SERIALIZZATA: se un giro è in volo, l'altro aspetta (max 5s).
+   * Solo al boot o all'apertura della chat — mai con timer periodici.
+   */
   async recoverPendingTurns(onlyKey?: string): Promise<number> {
     let recovered = 0;
     // LOCK anti-doppione (31 ago): due chiamate simultanee (on-open forward + driver 30s)
@@ -6900,6 +6913,29 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
     return {};
   }
 
+  /**
+   * UN TURNO DI CONVERSAZIONE — la funzione più delicata del file.
+   * Le fasi, nell'ordine (ogni blocco ha il suo commento con il perché storico):
+   *   1.  TURN-STATE pending: segnato SUBITO, prima di ogni await — il support agent
+   *       di Long Horizon parla solo a turno completamente finito e pulito.
+   *   2.  ACK di consegna: la UI passa da "Sending..." a "Running" solo quando il turno
+   *       è davvero partito (la barra di stato non mente mai).
+   *   3.  Esclusività App Expert: __app_expert__ appartiene a UN processo solo.
+   *   4.  Auto-title: se il label è ancora quello di default, si ricava dal primo messaggio.
+   *   5.  #maybeRefreshMcp (safety-net mid-session) + #ensureActive: la sessione SDK si
+   *       apre QUI, con loader, skill, mode e override per-agente già applicati.
+   *   6.  Pending compaction applicata; l'auto-compaction dell'SDK resta SEMPRE spenta:
+   *       decide questa funzione.
+   *   7.  Preflight log, budget immagini, costruzione del messaggio (file allegati) e
+   *       blocco ATTACHED FILES in testa al messaggio utente.
+   *   8.  VISION PRE-STRIP: se il modello passa da vision a non-vision, le immagini escono.
+   *   9.  Prompt di sistema RICOSTRUITO a ogni invio (gli agenti possono cambiare mid-chat).
+   *   10. Log "agent_llm_config" (cosa riceve ESATTAMENTE il modello — per diagnosi).
+   *   11. AUTO-COMPACTION: se il contesto ha superato la soglia, si compatta PRIMA del turno.
+   *   12. Marker "pending turn" su disco (se il processo muore, il turno si recupera al boot)
+   *       + HARD RESET della sessione incastrata (il bug "stop → riparte → Running eterno").
+   *   13. Hook di fine catena (TURN-STATE): da qui in poi Long Horizon può riprendere.
+   */
   async send(ws: any, data: { sessionKey: string; text: string; files?: { name: string; type: string; path?: string; data?: string }[]; workingDirs?: string[]; skillNames?: { agentId: string; skillName: string }[]; attachments?: { originalName: string; path: string; uuid: string; size?: number }[]; taskClips?: { id: string; label: string; text: string }[]; messageId?: string }) {
     const sk = data.sessionKey;
     // === TURN-STATE (LH v2): pending IMMEDIATAMENTE, prima di ogni await ===
@@ -7711,6 +7747,12 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
   // - Audio/video: solo path
   // - Testo (.txt .md .csv ecc.): inline
   // - File > 20MB: solo path
+  /**
+   * Costruisce il messaggio utente con il supporto file: immagini → ImageContent
+   * (se il modello le accetta), testo piccolo → inline; PDF → testo estratto (pdf-parse),
+   * DOCX → mammoth, XLSX → xlsx, ZIP → elenco + estrazione dei piccoli; audio/video e
+   * file grossi → SOLO il path (il modello li legge coi suoi tool se serve).
+   */
   async #buildUserMessage(text: string, files?: { name: string; type: string; path?: string; data?: string; size?: number }[]): Promise<{ content: any[] }> {
     const MAX_INLINE_SIZE = 20 * 1024 * 1024; // 20MB
     const contentArr: any[] = [];
@@ -7940,6 +7982,12 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
   }
 
   // === C: Compaction manuale ===
+  /**
+   * Compaction MANUALE (il tasto in UI): riassume la storia per liberare contesto.
+   * Niente timeout interno (con sessioni grandi può durare a lungo), anti-loop sul
+   * firstKeptEntryId (non ricompatta su se stessa) e rilevazione del noop (se non ha
+   * ridotto nulla lo dice invece di fingere). Il riassunto non appare come testo in chat.
+   */
   async compact(key: string, ws?: any): Promise<{ ok: boolean; error?: string; noop?: boolean }> {
     this.logDebug("compact-request", { sessionKey: key });
     // Sopprimi lo streaming del summary durante la compaction (non deve apparire come testo in chat)
