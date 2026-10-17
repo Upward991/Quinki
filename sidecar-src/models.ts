@@ -1,3 +1,11 @@
+// =============================================================================
+// models.ts — lettura MODELLI da ~/.quinki/models.json
+//
+// La vista più semplice del catalogo modelli: provider → lista. Le voci possono essere
+// una stringa (formato vecchio) o un oggetto con capabilities (formato nuovo): qui si
+// normalizzano entrambe. Chi scrive models.json è providers.ts (sync) — questo file
+// legge soltanto.
+// =============================================================================
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
@@ -15,6 +23,8 @@ export interface ModelInfo {
   input?: string[];
 }
 
+/** Tutti i modelli di tutti i provider, normalizzati. File mancante o corrotto = lista
+ *  vuota (mai un'eccezione: il chiamante decide i fallback). */
 export function readModelsFromDisk(): ModelInfo[] {
   const out: ModelInfo[] = [];
   try {
@@ -42,6 +52,8 @@ export function readModelsFromDisk(): ModelInfo[] {
   return out;
 }
 
+/** Il modello "di ripiego" quando non ce n'è uno scelto: preferisce un modello LOCALE
+ *  (niente rate limit settimanale dei :cloud), altrimenti il primo disponibile. */
 export function getFirstAvailableModelId(): string {
   const models = readModelsFromDisk();
   // Preferisci modelli locali (non :cloud) — sempre disponibili, niente rate limit settimanale

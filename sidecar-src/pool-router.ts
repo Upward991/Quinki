@@ -1,14 +1,34 @@
-// pool-router.ts — B4-C: process pool manager + router + shrink (SOLO nel main, pool-0)
+// =============================================================================
+// pool-router.ts — POOL DI PROCESSI: routing, spawn lazy, shrink
 //
-// Il main (QUINKI_POOL_SIZE=N, QUINKI_POOL_INDEX=0) gestisce N-1 child (stesso binario,
-// QUINKI_WS_PORT=9184+i, QUINKI_POOL_INDEX=i):
-// - SPAWN LAZY: i child nascono quando serve la prima sessione del loro gruppo (o subito
-//   al boot se QUINKI_POOL_EAGER=1). Le RPC per un child non ancora pronto restano in coda.
-// - ROUTING: RPC per-sessione → child proprietario (hash djb2); eventi/risposte → stdout
-//   (broadcast, stesso modello del single-process).
-// - SHRINK: ogni 60s chiede lo stato al child (poolStatus); se idle (zero streaming,
-//   zero sessioni attive) per 5 minuti consecutivi → lo spegne. Se poi serve → rispawna.
-// - RESPAWN su crash: un child morto per errore viene rispawnato + il recovery lo riprende.
+// Perché esiste: UN solo processo che regge tutte le sessioni si impalla quando un
+// turno pesante gira (l'event loop è condiviso). Qui il motore si moltiplica: il main
+// (QUINKI_POOL_SIZE=N, QUINKI_POOL_INDEX=0) fa da ROUTER e N-1 child (stesso binario,
+// QUINKI_WS_PORT=9184+i, QUINKI_POOL_INDEX=i) eseguono i turni. Ogni sessione ha UN
+// proprietario fisso (calcolato dall'hash della chiave): quel worker è l'unico che la
+// tiene in RAM, così due processi non si pestano mai sulla stessa chat.
+//
+// COSA FA, IN 4 MOSSE:
+// - SPAWN LAZY: i child nascono quando arriva la prima RPC di una loro sessione (o
+//   subito al boot se QUINKI_POOL_EAGER=1). La RPC che ha causato lo spawn va in coda
+//   e viene consegnata appena il worker è connesso (flushQueue): mai persa.
+// - ROUTING: le RPC "di scrittura/LLM" (vedi ROUTABLE) vanno al child proprietario;
+//   le LETTURE restano sul main (leggono da disco: spawnare un worker per un file
+//   sarebbe solo lentezza). Gli eventi escono in broadcast come nel single-process.
+// - SHRINK: ogni 60s il main chiede poolStatus a ogni child; se è idle (zero streaming,
+//   zero sessioni attive) per IDLE_KILL_MS (10 min) lo spegne. Se poi serve, rispawna.
+// - RESPAWN su crash: un child morto viene respawnato e il recovery riprende la sessione.
+//
+// INVARIANTI DA NON ROMPERE:
+//   • hashKey/ownerPool sono IDENTICI su OGNI processo: è così che tutti calcolano lo
+//     stesso proprietario. Cambiare la funzione di hash = spostare le sessioni di botto
+//     (e i turni in corso restano orfani). Non si tocca.
+//   • ROUTABLE è l'elenco CHIUSO dei metodi instradabili: se aggiungi un metodo
+//     per-sessione che modifica stato o parla col modello, va aggiunto QUI.
+//   • `abort` è l'eccezione universale: arriva al worker E resta anche al main (il main
+//     può aver preso in carico la sessione se il worker era morto).
+//   • lo shrink NON perde dati: le sessioni vivono su disco, muore solo il processo.
+// =============================================================================
 import { spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -40,6 +60,8 @@ const idleSince = new Map<number, number>();
 // sull'owner: vedi tryRoute. La risposta ufficiale arriva sempre dal main.
 const ABORT_BOTH = new Set(["abort"]);
 
+// Qui l'elenco CHIUSO dei metodi che devono girare sul worker proprietario della
+// sessione. Le letture NON si mettono (vedi il fix A4.3 nel blocco qui sotto).
 const ROUTABLE = new Set([
   "setModel", "setThinking", "setMode", "setAgent", "setChatAgents",
   "setAgentOverride", "getAgentOverrides", "injectErrorExchange",
@@ -73,12 +95,17 @@ export function poolIndex(): number {
   return Number.isFinite(v) && v >= 0 ? v : 0;
 }
 
+/** Hash djb2 della chiave di sessione. DEVE restare identico su tutti i processi:
+ *  è il modo in cui ognuno calcola lo stesso proprietario. Cambiarlo = le sessioni
+ *  cambiano worker tutte insieme (e i turni attivi restano orfani). */
 function hashKey(s: string): number {
   let h = 5381;
   for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
   return h;
 }
 
+/** Chi possiede una sessione: l'hash, con tre eccezioni fisse sul main (indice 0):
+ *  le __exec_* (headless dei task), __app_expert__ e le deleghe temporanee. */
 export function ownerPool(key: string): number {
   if (String(key).startsWith("__exec_")) return 0; // scheduler headless → main
   if (String(key) === "__app_expert__") return 0; // Expert session sempre sul main
@@ -330,6 +357,8 @@ function sendToChild(sock: any, method: string, params: any, cb: (m: any) => voi
 // l'utente l'ha aperta. Questa funzione dice al worker di recuperarla SUBITO
 // (non aspettare il driver 30s). Il worker recupera → streama sul SUO WS →
 // il frontend (connesso direttamente al worker) vede lo streaming in tempo reale.
+/** Chiede al worker proprietario di riprendere una sessione (recovery). Se il worker
+ *  non c'è ancora, lo spawna E accoda la richiesta: consegnata appena connesso. */
 export function recoverOnWorker(sessionKey: string): boolean {
   if (!active) return false;
   const owner = ownerPool(sessionKey);
@@ -357,6 +386,8 @@ export function recoverOnWorker(sessionKey: string): boolean {
 // non ripristinava MAI isStreaming (textbox sbloccata, stop morto, pill muta).
 // Con questo: la lettura locale fallisce → si chiede al worker (con timeout
 // corto: worker non pronto → null come prima, zero regressioni).
+/** Legge uno stato che vive SOLO nella RAM del worker (es. il buffer di streaming):
+ *  il main chiede al proprietario, con timeout corto — se non risponde, null come prima. */
 export function snapshotOnWorker(sessionKey: string, method: string): Promise<any> {
   if (!active) return Promise.resolve(null);
   if (poolIndex() !== 0) return Promise.resolve(null); // solo il main router
@@ -380,6 +411,12 @@ export function snapshotOnWorker(sessionKey: string, method: string): Promise<an
 
 // ─── routing ───────────────────────────────────────────────────────
 
+/**
+ * Il router: decide se una RPC in ingresso va spedita a un worker (true) o se la deve
+ * gestire il main (false). Ordine: attivo? sono io il router? è in ROUTABLE? c'è una
+ * sessionKey? → al proprietario (spawnandolo se serve). Eccezione: `abort` va al worker
+ * E resta anche al main, per coprire il caso "sessione presa in carico dal main".
+ */
 export function tryRoute(msg: any): boolean {
   if (!active) return false;
   if (poolIndex() !== 0) return false; // FIX (31 ago): SOLO il main è router — sui worker active=true (per l'ownership check) MAI route/spawn
@@ -457,6 +494,9 @@ function startShrinkLoop(): void {
   setInterval(() => { shrinkTick(); }, STATUS_INTERVAL_MS).unref?.();
 }
 
+/** Il giro dello shrink: chiede lo stato ai child e spegne quelli fermi da troppo.
+ *  Uccidere un worker non perde NULLA: le sessioni vivono su disco e al prossimo uso
+ *  il worker rinasce e le ricarica. (Il timer è unref: non tiene vivo il processo.) */
 function shrinkTick(): void {
   if (!active) return;
   for (const i of childSockets.keys()) {
