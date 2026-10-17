@@ -2155,6 +2155,19 @@ const readProvidersCfg = (): any => {
   return settingsMenuItems();
 };
 
+  // =========================================================================
+  // IL MENU — come è fatto (leggere in quest'ordine):
+  //   • `commands` (qui sotto) = la tabella dei comandi "/" (voce, etichetta, aiuto):
+  //     è il livello radice del menu, quello che appare digitando "/".
+  //   • i sottomenu sono funzioni che RITORNANO le voci di un livello (agents, skills,
+  //     MCP, settings, providers, directory): ogni voce ha `value` (l'azione), `label`
+  //     (come si vede) e `description` (la colonna di destra, stile app).
+  //   • `menuNav` muove la selezione; `buildMenuRows` DISEGNA (selezione, colonne,
+  //     filtro digitato); `runItem`/`settingsActivate` ESEGUONO la voce scelta;
+  //     `needsConfirmFor` decide dove serve la conferma (le azioni distruttive).
+  // Il filtro si digita dentro il menu (`menuSubFilter`) ed è il default dell'app: la selezione
+  // si resetta quando cambia il filtro.
+  // =========================================================================
   const commands = [
     {
       name: "model",
@@ -5947,6 +5960,9 @@ const readProvidersCfg = (): any => {
     return editorText().startsWith("/");
   };
 
+  /** Esegue la voce scelta nel menu: o è un comando "/" (delega a handleSlash), o è
+   *  un'azione di menu (apre un sottomenu, cambia un valore, avvia un processo).
+   *  Le azioni distruttive passano prima da needsConfirmFor. */
   const runItem = (it: any) => {
     try {
       if (!it || it.separator) return;
@@ -6328,6 +6344,8 @@ const readProvidersCfg = (): any => {
     } catch {}
   };
 
+  /** Quali azioni chiedono conferma prima di eseguire (stile app: le distruttive o
+   *  quelle che interrompono un turno). Il tasto destro/Invio sul "Confirm" le esegue. */
   const needsConfirmFor = (cur: any): boolean => {
 
     if (!cur || cur.separator) return false;
@@ -7015,6 +7033,10 @@ const readProvidersCfg = (): any => {
   return null;
 };
 
+  /** Il ramo "impostazioni" del menu: qui si atterra quando si sceglie una voce di
+   *  /settings (globale, provider, agenti, thinking, fallback, update...). Ogni ramo
+   *  legge lo stato corrente e chiama l'RPC giusto: è la versione CLI della tab
+   *  Settings dell'app. */
   const settingsActivate = (value: string) => {
   const lv = menuStack[1] || "";
   const sub = menuStack[2] || "";
@@ -7182,6 +7204,9 @@ const applySettingsPatch = (patch: any) => {
     } catch {}
   };
 
+  /** Il disegno del menu: righe del livello corrente con la selezione evidenziata,
+   *  il separatore, il filtro digitato in basso e l'eventuale messaggio d'errore
+   *  DENTRO il menu (mai in chat: regola dell'app). Larghezza = quella del composer. */
   const buildMenuRows = (w: number): string[] => {
     try { 
       const t = editorText();
