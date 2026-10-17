@@ -172,3 +172,6 @@ rm -rf ~/Library/WebKit/com.quinki.app ~/Library/Caches/com.quinki.app
 - `transition: none` on all animations (design-system rule)
 - 12px spacing standard
 - Commit before/after every change; small focused commits
+- **Docs ship with the change**: any feature or behaviour change updates the docs in the same
+  commit — the page that describes it (`docs/`), the CLI reference if commands change, and the
+  User Guide when the flow changes. Docs are part of "done", never a follow-up.
