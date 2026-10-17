@@ -33,6 +33,23 @@ Quinki/
 └── src-tauri/            # Rust: windows, tray, dialogs, install/update, Expert sync
 ```
 
+## Comments & code style
+
+The code is written and commented for the next developer, not for the compiler:
+
+- **Every file starts with a header** (3-10 lines): what this module *is*, its role in the
+  system, the key invariants, and who talks to it. If a future change could break something
+  subtle, that subtlety is stated there.
+- **JSDoc on functions that matter** (entry points, public helpers, anything with side
+  effects): purpose, inputs, outputs, and the *why* behind non-obvious choices.
+- **Inline comments explain WHY, not what** — the reasoning, the trade-off, the bug that
+  the line exists to prevent.
+- **Section banners** (`// === NAME ===`) group long files so you can jump straight to the part
+  you need.
+- **Never invent behaviour**: a comment describes what the code actually does today. When the
+  code changes, its comment changes in the same commit.
+- Comments are in English (the code is public); user-facing strings follow the app's language.
+
 ## Feature → files (where things live)
 
 A quick map to find the code of each feature.

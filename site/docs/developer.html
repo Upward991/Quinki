@@ -45,6 +45,22 @@
 │   └── install-main.sh   # safe install (backup → ditto → re-sign → restart)
 └── src-tauri/            # Rust: windows, tray, dialogs, install/update, Expert sync
 </code></pre>
+<h2>Comments &amp; code style</h2>
+<p>The code is written and commented for the next developer, not for the compiler:</p>
+<ul>
+<li><strong>Every file starts with a header</strong> (3-10 lines): what this module <em>is</em>, its role in the
+system, the key invariants, and who talks to it. If a future change could break something
+subtle, that subtlety is stated there.</li>
+<li><strong>JSDoc on functions that matter</strong> (entry points, public helpers, anything with side
+effects): purpose, inputs, outputs, and the <em>why</em> behind non-obvious choices.</li>
+<li><strong>Inline comments explain WHY, not what</strong> — the reasoning, the trade-off, the bug that
+the line exists to prevent.</li>
+<li><strong>Section banners</strong> (<code>// === NAME ===</code>) group long files so you can jump straight to the part
+you need.</li>
+<li><strong>Never invent behaviour</strong>: a comment describes what the code actually does today. When the
+code changes, its comment changes in the same commit.</li>
+<li>Comments are in English (the code is public); user-facing strings follow the app&#39;s language.</li>
+</ul>
 <h2>Feature → files (where things live)</h2>
 <p>A quick map to find the code of each feature.</p>
 <table>
