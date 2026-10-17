@@ -1,3 +1,29 @@
+// =============================================================================
+// lib.rs — IL LATO RUST DELL'APP (finestre, sistema, integrazioni macOS)
+//
+// È la parte nativa di Quinki: tutto ciò che il web non può fare. In ordine di file:
+//   • quit di macOS (delegate NSApplication: Cmd+Q e dock NON passano da Tauri);
+//   • icone dell'app (varianti main/Expert, cache del Finder/Dock) e auto-cura;
+//   • installazione della CLI dal bundle (la app porta dentro il binario `quinki`);
+//   • file: selettori, allegati, screenshot, cartelle, impostazioni;
+//   • notifiche macOS (delegate di presentazione + permessi) e notifiche dell'Expert;
+//   • aggiornamenti: dialoghi nativi, finestra di progresso, download+mount DMG,
+//     installazione, riavvio — e la SINCRONIZZAZIONE dell'app Expert (install,
+//     rollback, restart pendente);
+//   • modalità Expert, auto-avvio, finestre (main/chat/quick chat), focus;
+//   • tunnel remoto (cloudflared e Tailscale/tsnet) + dispositivi accoppiati;
+//   • `run()`: la configurazione dell'app (finestre, tray, menu, plugin, comandi).
+//
+// INVARIANTI DA NON ROMPERE:
+//   • main ed Expert hanno FILE DI STATO SEPARATI (pid, tunnel, remote-*.json): le due
+//     app non devono MAI pestarsi i piedi (t = target, "expert" oppure "main").
+//   • il tunnel gira SOLO mentre una finestra Quinki (o Expert) è visibile: alla
+//     chiusura dell'ultima si spegne (regola utente T454, vedi q_tunnel_stop_if_none_visible).
+//   • il quit passa da SHOULD_EXIT: prima si distrugge tutto con ordine (backend,
+//     pid file), solo dopo si esce — un'uscita "secca" lascia sidecar orfani.
+//   • il TEST BRIDGE (JS-injection a 9555) esiste SOLO con QUINKI_TEST_BRIDGE=1: in
+//     produzione non deve mai accendersi.
+// =============================================================================
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{
     menu::{Menu, MenuItem, Submenu, PredefinedMenuItem},
@@ -29,7 +55,11 @@ mod terminate_delegate {
     unsafe impl Sync for DelegatePtr {}
     static mut DELEGATE: DelegatePtr = DelegatePtr(std::ptr::null_mut());
 
-    extern "C" fn application_should_terminate(_this: &mut Object, _cmd: Sel, _app: *mut Object) -> i32 {
+    /** IL punto di intercettazione del quit su macOS: Tauri non emette ExitRequested per
+   *  Cmd+Q/dock/menu Apple (bug noti #13778/#9198). Qui: se l'app NON ha ancora
+   *  confermato l'uscita si riportano le finestre davanti e si fa partire la conferma
+   *  nativa; solo con SHOULD_EXIT=true si lascia terminare davvero. */
+  extern "C" fn application_should_terminate(_this: &mut Object, _cmd: Sel, _app: *mut Object) -> i32 {
         // NSApplicationTerminateReply: NSTerminateNow=1, NSTerminateCancel=0
         if SHOULD_EXIT.load(Ordering::SeqCst) {
             1
@@ -197,6 +227,9 @@ fn apply_app_icon(app: &tauri::AppHandle, variant: &str) -> Result<(), String> {
 // avvio riallinea il binario se il CONTENUTO (MD5) è diverso — il vecchio check
 // sulla dimensione non bastava: bun compila binari di dimensione IDENTICA anche
 // con codice diverso, quindi la CLI nel PATH era ferma al 6 ott 2026. ===
+/** Installa la CLI dentro il sistema partendo dal binario incluso nel bundle
+ *  (~/.local/bin/quinki): l'utente che scarica l'app ha la CLI senza fare nulla.
+ *  Non sovrascrive mai una versione più nuova già installata. */
 fn install_bundled_cli(app: &tauri::AppHandle) {
     #[cfg(target_os = "macos")]
     {
@@ -262,6 +295,9 @@ fn install_bundled_cli(app: &tauri::AppHandle) {
 // l'icona vecchia anche per sempre). Qui, UNA volta per cambio-icona, riavviamo i servizi
 // di UTENTE (nessun sudo): rileggono l'icona fresca. Marker PER-APP (bundle id) cosi' main
 // ed expert non si pestano i piedi. Primo avvio dopo l'update: bust una volta (innocuo).
+/** Auto-cura delle icone: se l'icona nel bundle è cambiata (update con rebrand), le
+ *  cache del Dock/Finder che macOS tiene per percorso vanno "sfondate", altrimenti
+ *  l'utente continua a vedere la vecchia anche dopo l'aggiornamento. */
 fn icon_cache_bust_if_changed(app: &tauri::AppHandle) {
     #[cfg(target_os = "macos")]
     {
@@ -511,6 +547,9 @@ extern "C" {
 
 
 #[tauri::command]
+/** Screenshot dello schermo per la chat: la cattura si salva negli allegati della
+ *  sessione e torna il path — così il tool `screenshot` dell'agente la allega al
+ *  contesto come una qualunque immagine. */
 fn take_screenshot(session_key: String) -> Result<String, String> {
     // Cattura lo schermo NEL processo GUI (che ha il TCC Screen Recording grant).
     // Gli agenti NON possono usare `screencapture` da CLI: il sidecar è un processo
@@ -657,6 +696,8 @@ fn notif_trace(msg: &str) {
     }
 }
 
+/** Manda una notifica macOS (via UNUserNotificationCenter) e, se c'è la sessionKey,
+ *  la rende cliccabile: premendola si torna sulla chat giusta. */
 fn send_macos_notification(title: &str, body: &str, subtitle: &str, session_key: Option<&str>) {
     // UNUserNotificationCenter (mostra con firma corretta) + fallback osascript (firma ad-hoc)
     #[cfg(target_os = "macos")]
@@ -1203,6 +1244,10 @@ fn sync_expert_files() {
 // === Flusso update completo con UI nativa: progress window → download → install →
 // alert "Update installed — restart to apply" [OK] → alert "Restart?" [Restart/Later] →
 // SOLO ALLORA: sync Expert + chiusura e riapertura di entrambe le app ===
+/** L'aggiornamento come lo vede l'utente: finestra di progresso nativa → download
+ *  del DMG → mount → copia dell'app in /Applications → riavvio. L'Expert viene
+ *  sincronizzato a parte (sync_expert). Un solo flusso per tutti i punti d'ingresso
+ *  (menu, banner nella UI). */
 fn run_native_update_flow(app: tauri::AppHandle, dmg_url: String) {
     std::thread::spawn(move || {
         #[cfg(target_os = "macos")]
@@ -1496,6 +1541,9 @@ fn install_expert_app() -> Result<String, String> {
 }
 
 #[tauri::command]
+/** Sincronizza l'app Expert con la versione appena installata della main: stesso
+ *  binario, stessa versione, così le due app restano allineate. Se qualcosa va
+ *  storto l'Expert si può rimettere in piedi col rollback. */
 fn sync_expert_app() -> Result<String, String> {
     // Copy binary + sidecar from main app to Expert app (sync new code)
     // OGNI step è VERIFICATO: si dichiara "synced" SOLO se la copia è davvero
@@ -1806,6 +1854,8 @@ fn q_vis_file(expert_mode: bool) -> String {
     let home = std::env::var("HOME").unwrap_or_default();
     format!("{}/.quinki/.win-visible-{}", home, if expert_mode { "expert" } else { "main" })
 }
+/** Visibilità dell'app per la REGOLA DEL TUNNEL (T454): il tunnel remoto vive solo
+ *  se almeno una finestra (main o Expert) è visibile; l'ultima uscita lo spegne. */
 fn q_set_visible(v: bool) {
     let home = std::env::var("HOME").unwrap_or_default();
     let _ = std::fs::create_dir_all(format!("{}/.quinki", home));
@@ -2300,6 +2350,8 @@ fn set_quick_chat_shortcut(app: tauri::AppHandle, shortcut: String) -> Result<St
 }
 
 // === Quick Chat: finestra per domande al volo (31 ago) — TOP-LEVEL per essere accessibile dai comandi ===
+/** La Quick Chat: una finestrella per una domanda al volo, senza aprire l'app
+ *  intera. Se è già aperta si dà il focus; l'hotkey è configurabile. */
 fn quick_chat_open(app: &tauri::AppHandle) {
     // Se la finestra esiste già → focus
     if let Some(win) = app.get_webview_window("win-quick-chat") {
@@ -2742,6 +2794,9 @@ fn running_tunnel_from_state(t: &str) -> Option<String> {
 /// Avvia il tunnel: con hostname -> tunnel CON NOME (dominio Cloudflare dell'utente,
 /// link corto e stabile); senza -> quick tunnel (link casuale).
 /// Se serve, fa il login Cloudflare (apre il browser) e crea/instrada il tunnel.
+/** Avvia il tunnel remoto nella variante classica (cloudflared) e attende che
+ *  l'indirizzo sia raggiungibile, poi salva l'url nello stato del target (main o
+ *  Expert: file separati). La variante Tailscale ha la sua funzione (tsnet). */
 fn tunnel_start_blocking(t: &str, port: u16, hostname: String) -> Result<String, String> {
     // L'Expert ha il SUO link: il suo tunnel punta al suo sidecar (9183),
     // qualunque porta arrivi dalla UI.
@@ -3037,6 +3092,12 @@ fn get_remote_token(target: Option<String>) -> String {
 }
 
 
+/**
+ * L'avvio dell'app: plugin (single-instance, autostart, updater...), il setup con
+ * delegate di quit/notifiche, tray, menu, le finestre (main + eventuali secondarie),
+ * il ciclo degli eventi (finestre chiuse, restore, exit) e la lista dei ~150 comandi
+ * esposti al frontend. Ogni pezzo che tocca il sistema passa di qui.
+ */
 pub fn run() {
     // === Single instance check ===
     // If the app is already running, focus the existing window and exit
