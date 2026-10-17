@@ -72,3 +72,10 @@ fi
 cp tools/tsnet-tunnel/tsnet-tunnel src-tauri/resources/tsnet-tunnel
 python3 scripts/strip-personal-paths.py tools/tsnet-tunnel/tsnet-tunnel src-tauri/resources/tsnet-tunnel 2>/dev/null || true
 npx tauri build
+
+# IGIENE (17 ott): anche il binario Rust dell'app incide i path di compilazione (messaggi di
+# panic/expect delle crate: "/Users/<nome>/.cargo/registry/..."). Il neutralizzatore sostituisce
+# il nome utente con un segnaposto neutro a LUNGHEZZA IDENTICA (layout intatto) e ri-firma;
+# la firma "vera" arriva dopo, in build-dmg.sh. Senza questo passo il DMG pubblico conterrebbe
+# un percorso personale del Mac di build.
+python3 scripts/strip-personal-paths.py src-tauri/target/release/bundle/macos/Quinki.app/Contents/MacOS/quinki 2>/dev/null || true
