@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Architecture · Quinki Docs</title>
+<link rel="icon" href="../favicon.svg"><link rel="stylesheet" href="docs.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="../index.html">Quinki</a><span class="docs-tag">Docs</span>
+  <nav class="topnav">
+    <a href="../index.html">Home</a>
+    <a href="https://github.com/Upward991/Quinki" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+</header>
+<div class="layout">
+  <aside class="sidebar"><details><summary>Start here</summary><ul><li><a href="overview.html">What is Quinki</a></li><li><a href="user-guide.html">User Guide</a></li></ul></details><details><summary>Market</summary><ul><li><a href="market.html">The Quinki Market</a></li></ul></details><details open><summary>Developer Guide</summary><ul><li><a href="developer.html">Build from source</a></li><li><a href="architecture.html" class="active">Architecture</a></li><li><a href="decisions.html">Design decisions</a></li><li><a href="cla.html">Contributor License Agreement</a></li></ul></details><details><summary>Design &amp; roadmap</summary><ul><li><a href="acp.html">ACP mode (editor integration)</a></li><li><a href="agent-api.html">Agent API (OpenAI-compatible)</a></li><li><a href="intelligent-ui.html">Intelligent UI (analysis)</a></li></ul></details><details><summary>Reports</summary><ul><li><a href="report-notion-import.html">Notion/Obsidian import</a></li><li><a href="report-ollama-500.html">Ollama Cloud 500</a></li></ul></details></aside>
+  <main class="content"><div class="crumb">Developer Guide</div><h1>Architecture</h1>
+<blockquote>
+<p>How Quinki works: the three layers, the main flows, and the design decisions behind them.
+This document is written from the source code. Last updated: October 2026.</p>
+</blockquote>
+<h2>The three layers</h2>
+<pre><code>React frontend (src/)  ←──WebSocket + JSON-RPC──▶  sidecar binary (sidecar-src/)  ──▶  engine SDK
+     UI + state                       compiled Bun binary (quinki-sidecar-ws)         agent runtime
+        ▲                                        ▲
+        └──────────── Tauri 2 shell (src-tauri/) ─┘  window mgmt, tray, sidecar lifecycle
+</code></pre>
+<ol>
+<li><strong>Frontend</strong>: React 19 + TypeScript + Vite. All UI and state. Talks to the sidecar over WebSocket with JSON-RPC (calls get a response, notifications are fire-and-forget).</li>
+<li><strong>Tauri shell</strong>: Rust. Native window management (main window + chat windows), tray icon, file dialogs, attachments, export dialogs, autostart, sidecar process lifecycle, app install/update (DMG), App Expert install/sync/rollback.</li>
+<li><strong>Sidecar</strong>: one compiled Bun binary. WebSocket server + JSON-RPC dispatch + the engine SDK bridge (sessions, streaming, delegations) + scheduler + executor + process pool + Market back-end (tab plugin RPC) + notifications. No Node.js required on the user machine.</li>
+</ol>
+<p>The two apps: <strong>Quinki</strong> (main) and <strong>App Expert</strong>: are the same binary run twice with a different role flag. They share one data directory (<code>~/.quinki/</code>), so agents, skills, sessions, API keys and settings are shared by design. Ports: main sidecar <strong>9182</strong>, Expert sidecar <strong>9183</strong>, pool workers <strong>9184+</strong>.</p>
+<h2>Sidecar components (<code>sidecar-src/</code>)</h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Size</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>sidecar-ws.ts</code></td>
+<td>~140</td>
+<td>Entry point of the compiled binary. WebSocket server, HTTP callback server for GitHub OAuth, monkey-patched stdout bridge. Connects to port 9182 (main) or 9183 (Expert via <code>QUINKI_WS_PORT</code>).</td>
+</tr>
+<tr>
+<td><code>sidecar.ts</code></td>
+<td>~1250</td>
+<td>JSON-RPC dispatch. <code>handlers</code> map (~80 methods: sessions, agents, skills, notifications, Market install, executor, pool status). Exposes <code>globalThis.__quinki_handleLine</code>. Runs first-run seed.</td>
+</tr>
+<tr>
+<td><code>quinki-bridge.ts</code></td>
+<td>~7900</td>
+<td>The core. QuinkiBridge class: agent sessions via engine SDK, system prompt builder, Plan/Build mode, per-agent overrides (model/thinking), delegations, skills injection, attachments, timestamp injection, compaction, streaming via <code>fs.writeSync(1)</code> (bypasses Node stream buffering), persistence (<code>#save</code>/<code>#load</code>, <code>quinki-sessions.json</code> + per-session <code>.jsonl</code> trees).</td>
+</tr>
+<tr>
+<td><code>agent-handlers.ts</code></td>
+<td>~720</td>
+<td>CRUD for agents/skills/tools/files. YAML frontmatter parsing, provider config, API keys (OS keychain), Market install/uninstall RPCs.</td>
+</tr>
+<tr>
+<td><code>pool-router.ts</code></td>
+<td>~320</td>
+<td>B4 process pool (main sidecar only): spawn, routing, shrink, respawn. See below.</td>
+</tr>
+<tr>
+<td><code>scheduler.ts</code></td>
+<td>~365</td>
+<td>H24 scheduler: persisted schedules, due checks, triggers <code>runTask</code> executions.</td>
+</tr>
+<tr>
+<td><code>executor.ts</code></td>
+<td>~670</td>
+<td>Task executions engine: start/cancel/resume executions, events, messages (H24).</td>
+</tr>
+<tr>
+<td><code>longhorizon.ts</code></td>
+<td>~740</td>
+<td>Long Horizon: plan → approve → run phases for long-running agent work, with recovery.</td>
+</tr>
+<tr>
+<td><code>mcp.ts</code></td>
+<td>~340</td>
+<td>MCP server registry (add/remove/list), stdio/url servers.</td>
+</tr>
+<tr>
+<td><code>providers.ts</code></td>
+<td>~440</td>
+<td>Provider detection by capability (not by name: Ollama-like detection via <code>/api/tags</code>), model fetch/sync, provider ordering. 6 built-in providers: OpenAI, Anthropic, Ollama, OpenRouter, GitHub Copilot, xAI. Subscription OAuth providers store access/refresh tokens in <code>providers.json</code> (field <code>subscription</code>).</td>
+</tr>
+<tr>
+<td><code>tab-plugins.ts</code></td>
+<td>~120</td>
+<td>Back-end for installed tabs: runs each tab&#39;s <code>server.js</code>, routes RPC <code>&lt;tabId&gt;:&lt;method&gt;</code> with a sandboxed context (data dir access, whitelisted calls, logging).</td>
+</tr>
+<tr>
+<td><code>seed-defaults.ts</code></td>
+<td>:</td>
+<td>First-run bootstrap: default agents (Orchestrator, App Expert) + <code>app-expert</code> skill. Only creates what is missing; never overwrites user data.</td>
+</tr>
+<tr>
+<td><code>vendor/</code></td>
+<td>:</td>
+<td>engine SDK (vendored, patched: see below)</td>
+</tr>
+</tbody></table>
+<h3>Vendor patches (<code>sidecar-src/vendor/</code>)</h3>
+<p>The engine SDK is vendored and patched at specific points (documented in the files):</p>
+<ul>
+<li><code>openai-completions.js</code>: system role always sent as <code>system</code> (required by Ollama)</li>
+<li><code>agent-session.js</code>: filters <code>role: &quot;delegation&quot;</code> before LLM calls (delegations live in the conversation tree at zero context cost)</li>
+<li><code>compaction.js</code>: <code>estimateTokens</code> replaced with a BPE tokenizer (cl100k) for accurate compaction thresholds</li>
+<li><code>model-registry.js</code>: model registry additions</li>
+<li><code>agent-session.js</code> (compaction): <code>estimateTokens</code> patched with BPE counts</li>
+</ul>
+<h2>Communication protocol</h2>
+<p>All events between sidecar and frontend use JSON-RPC 2.0 format: <code>{jsonrpc: &quot;2.0&quot;, method: &quot;...&quot;, params: {...}}</code>.
+The frontend dispatches events by <code>method</code> field only. Raw payloads (<code>{type: &quot;...&quot;}</code> without <code>method</code>) are ignored.
+The <code>#sendToWs</code> method in the sidecar ALWAYS converts payloads to JSON-RPC format before sending (direct WS, pool broadcast, or stdout fallback), ensuring no events are lost.</p>
+<h2>The process pool (B4)</h2>
+<p>Goal: 100+ parallel sessions with no timeouts, without spawning one process per session.</p>
+<p>The <strong>main</strong> sidecar (<code>QUINKI_POOL_INDEX=0</code>, port 9182) manages <strong>N−1 child</strong> sidecars (same binary) on ports 9184+. Children are spawned <strong>lazily</strong> (only when a session needs one; <code>QUINKI_POOL_EAGER=0</code> in <code>start.sh</code>) and shut down after 5 minutes idle.</p>
+<ul>
+<li><strong>Eager spawn</strong>: all children start immediately at boot (~1s). At pool init, any orphaned workers from a previous session are automatically killed (single <code>lsof</code> call on all pool ports)</li>
+<li><strong>Ownership</strong>: every process (main and workers) knows <code>poolN</code> and its own <code>poolIndex</code>. The recovery system, Long Horizon support agent, and event routing all respect this ownership: each process only handles its own sessions</li>
+<li><strong>Routing</strong>: session-bound writes/LLM work (<code>sendMessage</code>, <code>abort</code>, <code>set*</code>, <code>compactSession</code>, …) go to the owning child (djb2 hash of session key → pool index). Reads (<code>getHistory</code>, <code>getSessionMeta</code>, …) stay on the main sidecar: they read from disk/registry in milliseconds</li>
+<li><strong>Events</strong>: worker events go DIRECTLY to the worker&#39;s WebSocket clients via <code>__quinki_broadcast</code> (no router bottleneck). The frontend connects to worker WS ports for streaming</li>
+<li><strong>Recovery</strong>: each worker runs its own recovery driver for its own sessions. On-open recovery is forwarded to the owning worker instantly (<code>recoverOnWorker</code>). Interrupted sessions recover automatically with a visible status pill</li>
+<li><strong>Long Horizon</strong>: every worker has its own Long Horizon instance. Activations are picked up from disk via <code>#rescan()</code> at every tick (cross-process coordination)</li>
+<li><strong>Shrink</strong>: idle children for 5 minutes are shut down; they respawn on demand</li>
+<li><strong>Crash recovery</strong>: a dead child is respawned and the recovery system resumes its interrupted turns</li>
+<li>The Expert app <strong>never</strong> enables the pool (dedicated guard)</li>
+</ul>
+<p>Measured (enduro test on the installed app): 100 parallel sessions, 0 errors, 0 RPC timeouts, stable main-process memory.</p>
+<h2>Frontend structure (<code>src/</code>)</h2>
+<ul>
+<li><code>App.tsx</code>: root: sidecar connection, tab routing (home/chat/expert/agents/calendar/log/settings/market + installed tabs), Expert-mode branch (separate app via <code>?expert=1</code>), onboarding, guard modals</li>
+<li><code>hooks/useSidecarData.ts</code>: the data layer: sessions, agents, providers, messages, streaming, attachments, skill chips, agent overrides, folders, context tokens, notifications. One connection per window (main = 9182, Expert = 9183)</li>
+<li><code>components/chat/</code>: ChatArea (message list, auto-scroll with pin, drag &amp; drop), ChatHeader (agent/model/thinking pickers, mode toggle, export, App Expert modals), Composer (slash menu, @agent tags, skill chips, attachments, status pill), MessageBubble (markdown, thinking/tool toggles, delegation blocks, search highlight)</li>
+<li><code>components/sidebar/Sidebar.tsx</code>: session tree with folders, drag &amp; drop, multi-select, unread badges</li>
+<li><code>components/agents/AgentsPanel.tsx</code>: agents, skills, tools, files, plan-mode toggles</li>
+<li><code>components/settings/SettingsPanel.tsx</code>: providers, models, API keys, themes, notifications, permissions, App Expert sync</li>
+<li><code>components/marketplace/</code>: Market: catalog, item detail, publish panel (picker with per-item version, license picker, rights confirmation), account</li>
+<li><code>components/shared/AppShell.tsx</code>: tab bar + layout; <code>LogPanel</code>, <code>CalendarView</code>, <code>MarketplaceView</code>, <code>InstalledTabPanel</code> for installed tabs</li>
+</ul>
+<p>Design system: CSS variables only (<code>--q-*</code>), no transitions/animations by policy, 12px spacing, per-tab accent colors.</p>
+<h2>Tauri shell (<code>src-tauri/src/lib.rs</code>, ~2000 lines)</h2>
+<p>67 commands covering: sidecar lifecycle (start via <code>start.sh</code>, <code>kill_backend</code>, <code>restart_app</code>), App Expert (install, sync, rollback, restart), permissions (authorized folders), attachments (copy, list, open), export (chat → file via native dialog), autostart, update (<code>apply_update</code>: download DMG → mount → install → optional Expert sync → detached restart), tray, notifications, sessions folders, app icons at boot.</p>
+<p>The main process owns the sidecar lifecycle: launches it via <code>start.sh</code> (env: <code>QUINKI_AGENT_DIR</code>, <code>QUINKI_WS_PORT</code>, …), monitors it, kills it on quit. <code>SHOULD_EXIT</code> + <code>kill_backend()</code> (synchronous) ensure the sidecar and watchdog die with the app.</p>
+<h2>The App Expert</h2>
+<p>The Expert is the same binary with <code>QUINKI_ROLE=expert</code> on port 9183, running as a separate macOS app (<code>/Applications/App Expert.app</code>) whose working directory points to the Quinki source code. Its agent (<code>app-expert</code>) carries the codebase map as a skill.</p>
+<ul>
+<li><strong>Why a separate app</strong>: an agent that rebuilds the app it runs in would kill its own process. As a separate process it can build, install and restart Quinki while staying alive.</li>
+<li><strong>Shared data</strong>: both apps read/write the same <code>~/.quinki/</code>: no sync logic needed</li>
+<li><strong>Sync</strong>: after the Expert updates Quinki, <code>Settings → App Expert → Sync</code> copies the new binary + sidecar into <code>App Expert.app</code>; the Expert shows a restart banner (<code>version.txt</code> compares git hashes)</li>
+<li><strong>Restart is caller-aware</strong>: from the Expert, the app exits itself cleanly and a detached process reopens it; from the Main, a detached script restarts only the Expert</li>
+</ul>
+<h2>Market</h2>
+<p>The Market lives on GitHub: the app is only a client:</p>
+<ul>
+<li><strong>Catalog</strong>: the <code>quinki-market</code> repository holds <code>catalog.json</code> + <code>packages/&lt;category&gt;/&lt;id&gt;/</code> (manifest + files). Multi-source support lets users browse additional repos (skills as <code>SKILL.md</code>, agents as <code>agents/*.md</code>, MCP as <code>*mcp.json</code>)</li>
+<li><strong>Publish</strong>: login with GitHub (browser OAuth flow, token persisted locally in <code>~/.quinki/github-auth.json</code>), pick what you created (tabs/agents/skills/MCP/themes), choose a license and confirm you own the content → fork + pull request</li>
+<li><strong>Auto-merge</strong>: a GitHub Actions workflow validates every PR (structure, static scan, secret detection, VirusTotal for binaries) and merges automatically: no human gatekeeper</li>
+<li><strong>Integrity</strong>: a local registry tracks published packages (hash + origin) to block re-uploading someone else&#39;s work; items removed upstream surface a dismissible &quot;Removed from repo&quot; notice</li>
+<li><strong>Tab back-end</strong>: installed tabs can ship <code>server.js</code>, executed by the sidecar with a restricted context (data directory + whitelisted parent calls + logging)</li>
+</ul>
+<h2>Persistence (<code>~/.quinki/</code>)</h2>
+<table>
+<thead>
+<tr>
+<th>File / dir</th>
+<th>Content</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>quinki-sessions.json</code></td>
+<td>Session entries (key, title, model, thinking, mode, agents, folder, compaction, overrides, skills, attachments)</td>
+</tr>
+<tr>
+<td><code>sessions/&lt;key&gt;.jsonl</code></td>
+<td>Message tree per session (user/assistant/delegation entries, persisted in order)</td>
+</tr>
+<tr>
+<td><code>agents/&lt;id&gt;/</code></td>
+<td><code>config.json</code> + <code>PROMPT.md</code> per agent</td>
+</tr>
+<tr>
+<td><code>skills/&lt;name&gt;/SKILL.md</code></td>
+<td>Skills (YAML frontmatter: name, description, <code>disable-model-invocation</code>, <code>user-invocable</code>)</td>
+</tr>
+<tr>
+<td><code>config.json</code> / <code>auth.json</code></td>
+<td>Providers, models, enabled models, defaults, encrypted API keys</td>
+</tr>
+<tr>
+<td><code>notifications.json</code>, read-state files</td>
+<td>Unread tracking per session/notify mode</td>
+</tr>
+<tr>
+<td><code>attachments/&lt;session-key&gt;/</code></td>
+<td>Chat attachments</td>
+</tr>
+<tr>
+<td><code>github-auth.json</code></td>
+<td>Market login token (local only)</td>
+</tr>
+<tr>
+<td><code>market-registry.json</code>, <code>published.json</code>, <code>tutorial.json</code></td>
+<td>Market registry, publish history, onboarding state</td>
+</tr>
+</tbody></table>
+<h2>Main flows</h2>
+<h3>Send message</h3>
+<p>Composer → <code>sendMessage</code> RPC → (pool: routed to the owning worker) → QuinkiBridge <code>send()</code> → system prompt build (PROMPT.md + skills + mode + timestamp + cwd) → engine SDK stream → <code>stream_event</code> notifications → WebSocket → React state → UI. <code>agent_status</code> events drive the status pill; <code>streaming_stopped</code> (agent_end) clears streaming state.</p>
+<h3>Delegations</h3>
+<p>The Orchestrator delegates via a custom tool → a temporary session is created for the target agent (own system prompt, own model/thinking, same mode rules) → events stream to the UI as a <code>delegation</code> block → the delegation is appended to the conversation tree. Vendor patch: delegation entries are filtered out of LLM context (zero token cost).</p>
+<h3>Recovery</h3>
+<p>Interrupted turns are resumed automatically at boot/respawn (<code>pending-turns-recovered</code> markers). Streaming buffers carry timestamps: a buffer untouched for &gt;45s is considered stuck and re-prompted.</p>
+<h3>Compaction</h3>
+<p>Sessions with auto-compaction enabled compact at 80% of the model context window, using a BPE-accurate token estimate (vendored <code>compaction.js</code> patched). Per-session toggle; Expert sessions are recovered by the main sidecar only when the Expert sidecar is not running.</p>
+<h3>Universal thinking</h3>
+<p>One On/Off toggle for new chats. <code>on</code> maps to the <strong>maximum</strong> thinking level the provider supports: for any provider, with an automatic correction at runtime if the level maps lower than the provider max.</p>
+<h2>Build</h2>
+<p><strong>Important</strong>: <code>BUN_OPTIONS=&quot;--smol&quot;</code> was removed from all sidecar start scripts (01 Sep 2026). It limited Bun&#39;s heap to ~256MB, causing OOM crashes on sessions with large contexts (500K+ tokens). Bun now uses full available memory.</p>
+<h2>Build</h2>
+<ul>
+<li><strong>Frontend</strong>: <code>npm run build</code> (Vite, TypeScript check, sidecar bundle)</li>
+<li><strong>Sidecar binary</strong>: <code>bash scripts/build-sidecar.sh</code>: compiles <code>sidecar-ws.ts</code> with Bun (<code>--compile</code>) injecting the GitHub OAuth secret from <code>~/.quinki/oauth.conf</code> (never stored in the repo) and copies it into <code>src-tauri/resources/sidecar/</code></li>
+<li><strong>Full app</strong>: <code>npx tauri build</code> (frontend + Rust + DMG)</li>
+<li><strong>Install</strong>: <code>bash scripts/install-main.sh</code> (backup → ditto → re-sign → restart sidecar → reopen)</li>
+</ul>
+<p>See <a href="developer.html">DEVELOPER.md</a> for the full developer guide and <a href="decisions.html">DECISIONS.md</a> for why each design decision was made.</p>
+<p class="edit">Found a mistake? Edit <code>docs/ARCHITECTURE.md</code> in the repository and open a pull request.</p></main>
+</div>
+<footer class="foot">Quinki documentation — built from the repository (docs/*.md)</footer>
+</body>
+</html>

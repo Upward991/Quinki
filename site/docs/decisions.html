@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Design Decisions · Quinki Docs</title>
+<link rel="icon" href="../favicon.svg"><link rel="stylesheet" href="docs.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="../index.html">Quinki</a><span class="docs-tag">Docs</span>
+  <nav class="topnav">
+    <a href="../index.html">Home</a>
+    <a href="https://github.com/Upward991/Quinki" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+</header>
+<div class="layout">
+  <aside class="sidebar"><details><summary>Start here</summary><ul><li><a href="overview.html">What is Quinki</a></li><li><a href="user-guide.html">User Guide</a></li></ul></details><details><summary>Market</summary><ul><li><a href="market.html">The Quinki Market</a></li></ul></details><details open><summary>Developer Guide</summary><ul><li><a href="developer.html">Build from source</a></li><li><a href="architecture.html">Architecture</a></li><li><a href="decisions.html" class="active">Design decisions</a></li><li><a href="cla.html">Contributor License Agreement</a></li></ul></details><details><summary>Design &amp; roadmap</summary><ul><li><a href="acp.html">ACP mode (editor integration)</a></li><li><a href="agent-api.html">Agent API (OpenAI-compatible)</a></li><li><a href="intelligent-ui.html">Intelligent UI (analysis)</a></li></ul></details><details><summary>Reports</summary><ul><li><a href="report-notion-import.html">Notion/Obsidian import</a></li><li><a href="report-ollama-500.html">Ollama Cloud 500</a></li></ul></details></aside>
+  <main class="content"><div class="crumb">Developer Guide</div><h1>Design Decisions</h1>
+<blockquote>
+<p>Why Quinki is built the way it is. Each entry: the decision, the context, the alternatives considered, and the consequences accepted. Backed by measured data from the project&#39;s development studies.</p>
+</blockquote>
+<hr>
+<h2>1. Tauri 2 native shell (not Electron)</h2>
+<p><strong>Decision</strong>: Tauri 2 (Rust shell + system webview) instead of Electron.</p>
+<p><strong>Why</strong>: an AI app with a sidecar already carries a Node-compatible runtime: an Electron shell would duplicate a full Chromium <em>and</em> a bundled Node. Tauri keeps the installer at ~35MB, the native shell (Rust) uses a few MB of RAM, and gives us real multi-window management, tray, dialogs and autostart without a framework.</p>
+<p><strong>Trade-off</strong>: two languages (TypeScript + Rust). Accepted: the Rust surface is deliberately thin (~2k lines: windows, files, sidecar lifecycle) while all product logic lives in the sidecar.</p>
+<h2>2. A separate sidecar process (Bun binary), not the UI runtime</h2>
+<p><strong>Decision</strong>: all agent logic runs in one compiled Bun binary (<code>quinki-sidecar-ws</code>), reached over WebSocket.</p>
+<p><strong>Why</strong>: the agent runtime (engine SDK) is JavaScript. Keeping it out of the UI process means: the UI stays responsive at 60fps even while the sidecar burns CPU on a 100k-token stream; the sidecar can crash/restart without losing the UI; the same binary powers main, Expert and every pool worker.</p>
+<p><strong>Measured</strong>: before optimization the sidecar idled at 640MB–2.1GB; after the B0 pass (session load fixes, stale buffers, GC discipline) it sits at <strong>~92MB idle</strong>, ~300MB with an active session.</p>
+<h2>3. WebSocket + JSON-RPC as the app contract</h2>
+<p><strong>Why</strong>: the protocol was born with the first (Dart) client and survived the UI migration untouched: <code>{jsonrpc, method, params}</code> calls with <code>id</code>/result, plus notifications (<code>stream_event</code>, <code>compaction</code>, <code>agent_status</code>, …). NDJSON lines keep streaming trivial. Keeping the contract meant the React frontend swapped in without touching the engine.</p>
+<p><strong>Trade-off</strong>: a WebSocket per app window; the frontend connects directly to <code>ws://127.0.0.1:9182</code> (main) or <code>:9183</code> (Expert).</p>
+<h2>4. Process pool, not worker threads (B4)</h2>
+<p><strong>The problem</strong>: ~100 streaming sessions share one event loop; synchronous work around the agent loop (context, tools, jsonl, hashing) saturates it: RPCs queue and time out, RSS climbs to ~5GB.</p>
+<p><strong>Alternatives considered</strong> (from the concurrency study):</p>
+<ul>
+<li><em>Worker threads</em>: the engine SDK is <strong>not thread-safe</strong>: every worker needs its own copy of the engine (memory × N), and shared files (session jsonl, registries) need locking</li>
+<li><em>Concurrency cap</em>: turns &quot;in queue&quot; = a chat waits behind another chat; unacceptable</li>
+<li><em>Single process, optimized</em>: measured ceiling ~30-40 concurrent streams before timeouts</li>
+</ul>
+<p><strong>Chosen</strong>: a <strong>process pool of the same binary</strong>: the pattern already proven by the Expert (a second sidecar process), generalized to N. Main = router + pool-0; children spawn lazily (ports 9184+), sessions map to workers by djb2 hash; reads stay on the main sidecar (disk/registry reads are ms: routing them would lazy-spawn workers and slow chat opening); writes and LLM work route to the owning worker; idle children shut down after 5 minutes and respawn on demand; crashed children respawn and recovery resumes their turns.</p>
+<p><strong>Consequences</strong>: RAM scales with active sessions (the cost of the work: fine on a modern Mac); 100 parallel sessions measured with 0 RPC timeouts.</p>
+<h2>5. The App Expert is a separate <em>app</em>, not a tab</h2>
+<p><strong>Why</strong>: an agent that rebuilds and restarts Quinki would kill its own host process if it lived inside it. Running the same binary with <code>QUINKI_ROLE=expert</code> on its own port solves it: the Expert stays alive while Quinki restarts into the new build.</p>
+<p><strong>Design</strong>: one binary, two roles (<code>is_expert_mode()</code> checks the executable path). Both apps share <code>~/.quinki/</code>: agents, skills, sessions, keys: so no synchronization layer exists. Sync copies the newest build into <code>App Expert.app</code>; the Expert app can also sync/rollback itself from its own header.</p>
+<h2>6. WebSocket + JSON-RPC between UI and sidecar</h2>
+<p><strong>Context</strong>: the protocol started as NDJSON over stdin/stdout with a Dart client, then the UI moved to React. WebSocket + JSON-RPC was kept deliberately:</p>
+<ul>
+<li>The contract (methods, params, events) is already well-defined and battle-tested</li>
+<li>NDJSON streaming maps 1:1 to LLM token streams</li>
+<li>The frontend talks to the sidecar directly (not through Rust), keeping the Rust shell thin</li>
+</ul>
+<p><strong>Consequence</strong>: the Rust layer never parses chat traffic; it manages windows, files and the sidecar lifecycle only. Clean separation: UI ↔ sidecar is the stable contract; Rust is plumbing.</p>
+<h2>7. The Market lives on GitHub (no backend)</h2>
+<p><strong>Why</strong>: a marketplace normally needs servers, accounts, moderation tooling and money. GitHub provides, for free: hosting, API, accounts (GitHub OAuth), pull requests, CI, binary storage and abuse reporting. Quinki&#39;s Market is <em>the</em> repository; the app is a client of it.</p>
+<p><strong>Consequences</strong>: the catalog is public data on GitHub; browsing works with the public API; publishing uses OAuth (browser flow, token stored locally); multi-source browsing (any GitHub repo can act as a market) falls out of the same API.</p>
+<h2>8. Fork + PR + auto-merge (no human gatekeeper)</h2>
+<p><strong>Why</strong>: classic marketplace review is a bottleneck: one person becomes the gatekeeper, uploads stall, the catalog dies. Quinki validates automatically instead: structure check, static scan, secret detection, VirusTotal for binaries, then auto-merge. A malicious PR fails validation; a good one merges in minutes.</p>
+<p><strong>Consequences</strong>: publishing is instant for honest authors; the anti-theft registry (hash + origin) blocks re-uploading someone else&#39;s package; takedown is an Issue (Safe Harbor process).</p>
+<h2>9. AGPL-3.0 for the app code</h2>
+<p><strong>Why</strong>: MIT would allow a closed commercial fork of the same product with zero contribution back. AGPL-3.0 keeps the app free for everyone <em>and</em> forces any derivative (including services) to open its code. The copyright holder (the project) can still license commercially when monetization arrives. Already-published versions stay AGPL forever; future versions may change license: the standard MongoDB/Elastic pattern.</p>
+<h2>10. Local-first data in <code>~/.quinki/</code></h2>
+<p>Everything: sessions (<code>.jsonl</code> trees), agents (config + PROMPT.md), skills, settings, encrypted keys, attachments, notifications: lives in <code>~/.quinki/</code>. No server exists to receive anything else. Consequences: offline-first, privacy by default, and the two apps (main + Expert) share data because they share the folder.</p>
+<h2>11. Compaction at 80% with BPE-accurate counting</h2>
+<p><strong>Why BPE</strong>: the vendored compaction estimator used naive heuristics and mis-measured context, compacting too late (overflow) or too early. A patched <code>compaction.js</code> uses a real cl100k tokenizer.</p>
+<p><strong>Why 80%</strong>: enough headroom for the largest single turn (a huge tool result) before hitting the hard limit; per-session toggle because some chats (Expert) need different behavior than others.</p>
+<h2>12. Universal thinking</h2>
+<p>One On/Off default for new chats instead of low/medium/high pickers: <code>on</code> maps to the <strong>maximum</strong> thinking level the current provider supports, corrected at runtime if the mapping would resolve lower than the provider max. Rationale: users should not have to know provider-specific level names; the app should always spend the maximum reasoning available unless explicitly off.</p>
+<h2>13. Recovery + stuck-turn detection (H24 correctness)</h2>
+<p>Sessions must survive app restarts, crashes and long absences (scheduler running tasks at night). Interrupted turns are resumed from persisted state at boot/respawn; streaming buffers carry timestamps and a buffer untouched for &gt;45s is treated as stuck and re-prompted. H24 reliability is a product requirement, not an afterthought.</p>
+<h2>14. GitHub OAuth: browser flow + secret injection (not Device Flow)</h2>
+<p>The Market login uses the classic browser redirect (user clicks Authorize, comes back: one click). GitHub requires a client secret for the token exchange; the secret therefore lives in the compiled binary (injected at build time from <code>~/.quinki/oauth.conf</code>, never in the repository). <strong>Trade-off accepted</strong>: the alternative (Device Flow) has zero secrets but makes the user type a code into a web page. We chose the 1-click experience, matching every mainstream desktop app; the residual risk (app impersonation, no data access) has legal remedies (DMCA/takedown).</p>
+<h2>15. React + Tauri over Flutter</h2>
+<p>The original app was Flutter Desktop. The move to React 19 + Tauri 2 happened for three reasons: the engine SDK bridge is JavaScript (one language boundary fewer), the Tauri shell is dramatically lighter than the Flutter desktop shell, and the React prototype (&quot;Deep Cosmos&quot; design system) reached production quality fast. The NDJSON/JSON-RPC contract with the sidecar survived the migration by design.</p>
+<h2>16. Timestamp injection into message metadata</h2>
+<p>Every message carries an injected timestamp (<code>[DD Mon YYYY, HH:MM:SS]</code>) as conversation metadata (via the vendor&#39;s conversation info, not message content): the model knows <em>when</em> things happen without the user repeating dates. Old-format metadata is stripped before the model sees it to avoid duplication.</p>
+<h2>17. Delegations in the conversation tree at zero context cost</h2>
+<p>Delegations are entries in the session tree (parentId chain), rendered by the UI as collapsible blocks. The vendored <code>agent-session.js</code> filters delegation entries out before LLM calls: the orchestrator&#39;s context never pays for delegated sub-conversations, while the UI keeps the full audit trail.</p>
+<h2>18. Per-session compaction toggle + read-state notifications</h2>
+<p>Notifications (All/Messages/Tasks/Muted per chat) and unread markers use persisted read-state files; recovery is event-based (no polling). Compaction is opt-out per session with a global default in Settings.</p>
+<hr>
+<p><em>Decisions live next to their studies: the design/analysis studies that preceded each implementation (performance, virtualization, concurrency, process pool, marketplace) are kept in the project archive.</em></p>
+<p class="edit">Found a mistake? Edit <code>docs/DECISIONS.md</code> in the repository and open a pull request.</p></main>
+</div>
+<footer class="foot">Quinki documentation — built from the repository (docs/*.md)</footer>
+</body>
+</html>

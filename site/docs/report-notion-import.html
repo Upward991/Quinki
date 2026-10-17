@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notion -&gt; Obsidian import via API (working recipe, 9 Oct 2026) · Quinki Docs</title>
+<link rel="icon" href="../favicon.svg"><link rel="stylesheet" href="docs.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="../index.html">Quinki</a><span class="docs-tag">Docs</span>
+  <nav class="topnav">
+    <a href="../index.html">Home</a>
+    <a href="https://github.com/Upward991/Quinki" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+</header>
+<div class="layout">
+  <aside class="sidebar"><details><summary>Start here</summary><ul><li><a href="overview.html">What is Quinki</a></li><li><a href="user-guide.html">User Guide</a></li></ul></details><details><summary>Market</summary><ul><li><a href="market.html">The Quinki Market</a></li></ul></details><details><summary>Developer Guide</summary><ul><li><a href="developer.html">Build from source</a></li><li><a href="architecture.html">Architecture</a></li><li><a href="decisions.html">Design decisions</a></li><li><a href="cla.html">Contributor License Agreement</a></li></ul></details><details><summary>Design &amp; roadmap</summary><ul><li><a href="acp.html">ACP mode (editor integration)</a></li><li><a href="agent-api.html">Agent API (OpenAI-compatible)</a></li><li><a href="intelligent-ui.html">Intelligent UI (analysis)</a></li></ul></details><details open><summary>Reports</summary><ul><li><a href="report-notion-import.html" class="active">Notion/Obsidian import</a></li><li><a href="report-ollama-500.html">Ollama Cloud 500</a></li></ul></details></aside>
+  <main class="content"><div class="crumb">Reports</div><h1>Notion -&gt; Obsidian import via API (working recipe, 9 Oct 2026)</h1>
+<p>What we did, and everything needed to rebuild it (also the base for the future in-app
+&quot;database over files&quot; tab). Nothing was modified in Notion: read-only.</p>
+<h2>Pipeline</h2>
+<ol>
+<li>Notion integration (Access token <code>ntn_...</code>) with &quot;Content access&quot; to the database.
+Token stored locally (never in the repo).</li>
+<li>Fetch rows: <code>POST /v1/databases/{id}/query</code> (Notion-Version 2022-06-28, paginated).</li>
+<li>Resolve relation targets: <code>GET /v1/pages/{id}</code> per id -&gt; titles.</li>
+<li>Generate files in the vault: one <code>.md</code> per row (properties in YAML frontmatter), one
+folder per database. Property names kept verbatim (spaces included).</li>
+<li>Generate the <code>.base</code> file (Obsidian Bases = the database view).</li>
+<li>Verify with the official Obsidian CLI: <code>reload</code>, <code>open ... newtab</code>, <code>base:views</code>,
+<code>base:query</code>, <code>dev:screenshot</code>.</li>
+</ol>
+<h2>Notion Views API (needs Notion-Version 2025-09-03+, current 2026-03-11)</h2>
+<ul>
+<li><code>GET /v1/views?database_id=...</code> returns references only; fetch details with <code>GET /v1/views/{id}</code>.</li>
+<li>Full fidelity: name, type (table/board/calendar/gallery/timeline/list/chart/map/dashboard),
+filter, sorts, quick_filters, configuration (visible columns + widths, group_by, wrap, frozen).</li>
+<li>Property IDs differ between API versions: get the modern short ids via
+<code>GET /v1/databases/{id}</code> (data_sources[].id) then <code>GET /v1/data_sources/{id}</code> (properties).</li>
+</ul>
+<h2>Obsidian Bases mapping (verified)</h2>
+<ul>
+<li>Notion <code>table</code> -&gt; Bases <code>type: table</code>; Notion <code>board</code> -&gt; Bases <code>type: kanban</code> (v1.14+).</li>
+<li>Grouping -&gt; <code>groupBy: {property: X, direction: ASC|DESC}</code>; per-view <code>sort:</code> list of
+<code>{property, direction}</code>; column order -&gt; <code>order:</code> list.</li>
+<li>No calendar layout in Bases (as of 1.14): fall back to a table sorted by date.</li>
+<li>Property references with spaces must be BARE and quoted: <code>&#39;Matrice di Eisenhower&#39;</code>
+(both in <code>order:</code> and <code>properties:</code>). Using <code>note[&quot;...&quot;]</code> shows raw refs and EMPTY values.</li>
+<li><code>properties:</code> keys: bare name for note props; <code>file.name: {displayName: X}</code> works.</li>
+<li>The app NORMALIZES the .base when opening it (rewrites: bare refs, properties section
+moved before views, <code>sort: []</code> added). External writes are safe, but verify after:
+write -&gt; <code>obsidian reload</code> -&gt; open NEW TAB -&gt; screenshot. A tab opened before the change
+can get stuck on &quot;View X not found&quot;: reopen in a new tab.</li>
+</ul>
+<h2>Gotchas</h2>
+<ul>
+<li>Obsidian CLI exists officially (1.12+): Settings -&gt; General -&gt; Command line interface.
+Binary: /usr/local/bin/obsidian. <code>dev:screenshot</code> + Read = visual verification without GUI.</li>
+<li>Clicking an unresolved wikilink creates an EMPTY note (0 bytes) - looked like a stray row.</li>
+<li>macOS filesystems are case-insensitive: dedupe generated filenames case-insensitively.</li>
+<li>Relation targets become <code>[[wikilinks]]</code>; until the target databases are imported they are
+unresolved (a click creates empty notes).</li>
+</ul>
+<p class="edit">Found a mistake? Edit <code>docs/reports/report-notion-obsidian-import.md</code> in the repository and open a pull request.</p></main>
+</div>
+<footer class="foot">Quinki documentation — built from the repository (docs/*.md)</footer>
+</body>
+</html>

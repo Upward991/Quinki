@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Quinki Market · Quinki Docs</title>
+<link rel="icon" href="../favicon.svg"><link rel="stylesheet" href="docs.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="../index.html">Quinki</a><span class="docs-tag">Docs</span>
+  <nav class="topnav">
+    <a href="../index.html">Home</a>
+    <a href="https://github.com/Upward991/Quinki" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+</header>
+<div class="layout">
+  <aside class="sidebar"><details><summary>Start here</summary><ul><li><a href="overview.html">What is Quinki</a></li><li><a href="user-guide.html">User Guide</a></li></ul></details><details open><summary>Market</summary><ul><li><a href="market.html" class="active">The Quinki Market</a></li></ul></details><details><summary>Developer Guide</summary><ul><li><a href="developer.html">Build from source</a></li><li><a href="architecture.html">Architecture</a></li><li><a href="decisions.html">Design decisions</a></li><li><a href="cla.html">Contributor License Agreement</a></li></ul></details><details><summary>Design &amp; roadmap</summary><ul><li><a href="acp.html">ACP mode (editor integration)</a></li><li><a href="agent-api.html">Agent API (OpenAI-compatible)</a></li><li><a href="intelligent-ui.html">Intelligent UI (analysis)</a></li></ul></details><details><summary>Reports</summary><ul><li><a href="report-notion-import.html">Notion/Obsidian import</a></li><li><a href="report-ollama-500.html">Ollama Cloud 500</a></li></ul></details></aside>
+  <main class="content"><div class="crumb">Market</div><h1>The Quinki Market</h1>
+<p>The Market is Quinki&#39;s catalog of community-made content: <strong>agents</strong>, <strong>skills</strong> and <strong>MCP servers</strong> — with <strong>tabs</strong> and <strong>themes</strong> coming later (the catalog does not accept them yet).</p>
+<h2>How it works</h2>
+<ul>
+<li>The Market <strong>lives on GitHub</strong> (this repository). Quinki is just a client: the app reads the catalog through the GitHub API and installs packages straight from it. No servers, no accounts on our side.</li>
+<li>Anyone can <strong>publish</strong>: the app forks this repo, commits your package, and opens a pull request. Continuous integration validates it and merges automatically: no manual review, no waiting for a human.</li>
+<li><strong>Multi-source</strong>: you can also browse your own GitHub repos as additional catalogs (skills as <code>SKILL.md</code>, agents as <code>agents/*.md</code>, MCP configs as <code>*mcp.json</code>).</li>
+</ul>
+<h2>Publishing an item</h2>
+<ol>
+<li>Open <strong>Market → Publish</strong> in Quinki and log in with GitHub (browser OAuth, token stays on your machine)</li>
+<li>Pick <strong>what you created</strong> (the app only lists your own items, per category)</li>
+<li>Set a version for each item</li>
+<li>Choose a <strong>license</strong> (default: MIT; options: Apache-2.0, CC0-1.0, CC BY 4.0)</li>
+<li>Confirm: <em>&quot;I confirm I own this content and release it under the selected license&quot;</em></li>
+<li>Submit → a pull request opens → automatic validation → merge</li>
+</ol>
+<h2>Package format</h2>
+<p>Every package lives in <code>packages/&lt;category&gt;/&lt;id&gt;/</code> with a <code>manifest.json</code>:</p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;my-item&quot;,
+  &quot;name&quot;: &quot;My Item&quot;,
+  &quot;version&quot;: &quot;1.0.0&quot;,
+  &quot;author&quot;: &quot;your-github-handle&quot;,
+  &quot;description&quot;: &quot;What it does&quot;,
+  &quot;icon&quot;: &quot;📦&quot;,
+  &quot;color&quot;: &quot;#888888&quot;,
+  &quot;license&quot;: &quot;MIT&quot;,
+  &quot;category&quot;: &quot;skill&quot;,
+  &quot;downloadUrl&quot;: &quot;https://raw.githubusercontent.com/Upward991/quinki-market/main/packages/skill/my-item/&quot;,
+  &quot;source&quot;: &quot;Upward991/quinki-market&quot;
+}
+</code></pre>
+<h3>Category details</h3>
+<p><strong>tab</strong> <em>(not open for publishing yet — format shown for the future)</em>: an interactive panel inside Quinki</p>
+<pre><code>packages/tab/my-tab/
+├── manifest.json
+├── index.html      # frontend (rendered in the tab runtime)
+├── app.js          # optional extra assets
+└── server.js       # optional back-end (runs in the sidecar; RPC as &quot;&lt;tabId&gt;:&lt;method&gt;&quot;)
+</code></pre>
+<p>The back-end gets a limited context: its own data dir and a whitelist of sidecar calls (agent queries, logging). It cannot touch the filesystem outside its own directory.</p>
+<p><strong>skill</strong>: a single <code>SKILL.md</code> with YAML frontmatter (<code>name</code>, <code>description</code>) and Markdown body. Injected into agent prompts on demand.</p>
+<p><strong>agent</strong>: <code>config.json</code> (name, model, thinking level, tools, skills) + <code>PROMPT.md</code> (the agent&#39;s system prompt).</p>
+<p><strong>mcp</strong>: a <code>*.mcp.json</code> server config (stdio command or url endpoint).</p>
+<p><strong>theme</strong> <em>(not open for publishing yet — format shown for the future)</em>: a JSON with the CSS variables (background, panel, accents, radius).</p>
+<h2>Automatic validation (why your PR merges itself)</h2>
+<p>Every PR runs the market CI:</p>
+<ol>
+<li><strong>Structure</strong>: manifest fields, category path, required files present</li>
+<li><strong>Static scan</strong>: the app&#39;s own safety scanner (dangerous patterns, file operations)</li>
+<li><strong>Secret detection</strong>: leaked API keys/tokens block the merge</li>
+<li><strong>VirusTotal</strong>: binary attachments are scanned</li>
+<li><strong>Merge</strong>: all green → the PR merges itself. No human review needed</li>
+</ol>
+<p>If your PR fails, the check output tells you why; fix and push to the same branch.</p>
+<h2>Licenses and rights</h2>
+<ul>
+<li>Every package declares a license (default <strong>MIT</strong>) chosen by its author at publish time</li>
+<li>By publishing you declare that you own the content: false declarations are your responsibility</li>
+<li>Report abuse or copyright issues by opening an Issue here: content is removed after verification (DMCA-compatible takedown process)</li>
+</ul>
+<h2>Commercial items and author earnings</h2>
+<ul>
+<li><strong>Authors own their items 100%.</strong> Market items are the author&#39;s content, not part of the Quinki source code. The project CLA (<code>docs/CLA.md</code>) applies only to contributions to the app&#39;s source code, <strong>never</strong> to market items.</li>
+<li>Authors may publish <strong>free or paid</strong> items. For paid items, the author sets the price and the license; the purchase is between the buyer and the author.</li>
+<li>The platform applies a <strong>10% fee</strong> on paid transactions (processing costs and market maintenance). The rest is the author&#39;s.</li>
+<li>Paid item mechanics: the buyer purchases a license key from the author (or the author&#39;s checkout link, declared in the manifest); the app verifies the key and unlocks the item. Quinki never holds author money — the app simply checks the license.</li>
+<li>Free items remain the default and the recommended path: they build reputation, installs and followers inside the app.</li>
+</ul>
+<h2>Anti-theft</h2>
+<p>A local registry tracks what you installed and published (hashes + origin). Re-publishing someone else&#39;s package is blocked. If you believe an item infringes your work, open an Issue with the details.</p>
+<h2>Removing your item</h2>
+<p>Market → Publish → <em>Your published</em> → Remove. The app opens a removal PR; auto-merge takes care of it. Installed copies on other machines get a &quot;Removed from repo&quot; notice.</p>
+<p class="edit">Found a mistake? Edit <code>docs/MARKET.md</code> in the repository and open a pull request.</p></main>
+</div>
+<footer class="foot">Quinki documentation — built from the repository (docs/*.md)</footer>
+</body>
+</html>
