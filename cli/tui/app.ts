@@ -2501,6 +2501,10 @@ const readProvidersCfg = (): any => {
   const toggles: ToggleBlock[] = [];
   let selToggle = -1;
   let navMode = false;
+  // NAVIGAZIONE A LIVELLI (modello utente 17 ott): Su/Giu' muovono SOLO i toggle del
+  // livello corrente; "avanti" su un toggle GIA' aperto ENTRA nei suoi toggle interni;
+  // "indietro" esce di un livello. navStack = livelli dentro cui siamo entrati.
+  let navStack: { scope: any; idx: number }[] = [];
   const registerToggle = (t: ToggleBlock) => {
     toggles.push(t);
     return t;
@@ -2562,16 +2566,20 @@ const readProvidersCfg = (): any => {
       if (found >= 0) scroll.scrollTo(Math.max(0, found + inner - 2));
     } catch {}
   };
-  // Flattened toggle tree: a toggle then, when OPEN, its nested children — the
-  // Ctrl+T navigation walks exactly this (nested delegation included).
-  const flatToggles = (): any[] => {
-    const out: any[] = [];
+  const navScopeOf = (): any => (navStack.length ? navStack[navStack.length - 1].scope : null);
+  /** I toggle del LIVELLO corrente: il top-level oppure i figli dello scope attivo. */
+  const navList = (): any[] => {
+    const sc = navScopeOf();
+    if (!sc) return toggles;
+    return ((sc.children || []).filter((c: any) => c && c.t === "toggle").map((c: any) => c.v));
+  };
+  /** Toglie l'evidenziazione OVUNQUE (anche nei figli di toggle chiusi). */
+  const clearAllSelected = () => {
     const walk = (t: any) => {
-      out.push(t);
-      if (t.open) for (const c of t.children || []) if (c && c.t === "toggle") walk(c.v);
+      try { t.selected = false; } catch {}
+      for (const c of t.children || []) if (c && c.t === "toggle") walk(c.v);
     };
     for (const t of toggles) walk(t);
-    return out;
   };
   let qNavTimer: any = null;
   const qTouchNav = () => {
@@ -2583,7 +2591,8 @@ const readProvidersCfg = (): any => {
   };
   const enterToggleNav = () => {
     navMode = true;
-    const fl = flatToggles();
+    navStack = [];
+    const fl = navList();
     if (fl.length > 0) {
       selToggle = fl.length - 1;
       fl.forEach((t, i) => (t.selected = i === selToggle));
@@ -2598,9 +2607,8 @@ const readProvidersCfg = (): any => {
     // REGOLA UTENTE: al rilascio si toglie SOLO l'evidenziazione. I toggle che
     // l'utente ha lasciato APERTI restano aperti; NIENTE scroll automatico
     // (prima si chiudeva tutto e la vista scattava: fastidiosissimo mentre leggi).
-    flatToggles().forEach((t) => {
-      t.selected = false;
-    });
+    navStack = [];
+    clearAllSelected();
     ui.requestRender();
   };
   const toggleNavMode = () => {
@@ -2608,7 +2616,7 @@ const readProvidersCfg = (): any => {
     else enterToggleNav();
   };
   const moveToggleSel = (dir: number) => {
-    const fl = flatToggles();
+    const fl = navList();
     if (fl.length === 0) return;
     if (selToggle < 0) selToggle = fl.length - 1;
     else selToggle = Math.max(0, Math.min(fl.length - 1, selToggle + dir));
@@ -2617,11 +2625,46 @@ const readProvidersCfg = (): any => {
     ui.requestRender();
   };
   const setToggleOpen = (open: boolean) => {
-    const fl = flatToggles();
-    if (selToggle < 0 || !fl[selToggle]) return;
-    fl[selToggle].open = open;
-    scrollToggleIntoView(fl[selToggle]);
-    ui.requestRender();
+    const fl = navList();
+    const cur = selToggle >= 0 ? fl[selToggle] : null;
+    if (open && cur) {
+      if (!cur.open) {
+        // 1a pressione di "avanti": il toggle si APRE (come sempre).
+        cur.open = true;
+        scrollToggleIntoView(cur);
+        ui.requestRender();
+        return;
+      }
+      // 2a pressione: ENTRA nei toggle interni (primo in alto). Ricorsivo per le sotto-deleghe.
+      const kids = (cur.children || []).filter((c: any) => c && c.t === "toggle");
+      if (kids.length > 0) {
+        navStack.push({ scope: cur, idx: selToggle });
+        selToggle = 0;
+        clearAllSelected();
+        kids[0].v.selected = true;
+        scrollToggleIntoView(kids[0].v);
+        ui.requestRender();
+      }
+      return;
+    }
+    if (!open) {
+      if (navStack.length > 0) {
+        // "indietro": esce di un livello e torna sul toggle di provenienza.
+        const e = navStack.pop()!;
+        selToggle = e.idx;
+        clearAllSelected();
+        const list = navList();
+        if (list[selToggle]) list[selToggle].selected = true;
+        scrollToggleIntoView(list[selToggle]);
+        ui.requestRender();
+        return;
+      }
+      if (cur) {
+        cur.open = false;
+        scrollToggleIntoView(cur);
+        ui.requestRender();
+      }
+    }
   };
 
   // Tab = toggle plan/build (app behaviour), intercepted at the TUI level.
