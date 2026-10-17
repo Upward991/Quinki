@@ -82,7 +82,7 @@ Differenze di metodo nel set 1.3.0 (l'upstream ha rifattorizzato):
 - **editor (pi-tui)**: i 3 hunk che non entravano sono stati **riadattati a mano** sul render rifattorizzato
   (blocco dipinto senza bordi, chips row, footer, menu panel, placeholder).
 - **NON riapplicato**: `interactive-mode` (2 hunk) — la NOSTRA CLI ha un TUI proprio e non usa la modalità
-  interattiva dell'SDK. E l'hunk "cursore dentro le chip" dell'editor (cosmetico) → vedi `internal/docs/SALTATI.md`.
+  interattiva dell'SDK. E l'hunk "cursore dentro le chip" dell'editor (cosmetico) → vedi la nota nel changelog dei patch (sezione 'Skipped').
 - Il prompt di sistema: in 1.3.0 `agent.state.systemPrompt` è **solo un getter** → l'override vive nel
   NOSTRO bridge (`quinkiSetSystemPrompt` → proiezione su `transformContext`), non più come patch SDK.
 

@@ -12,7 +12,7 @@
 //
 // INVARIANTI DA NON ROMPERE:
 //   • MAI calcolare le occorrenze a passi fissi di 86400000ms: al cambio d'ora si
-//     slitta di ±1h (bug reale, coperto da internal/harness/dst-test.cjs). Ogni task
+//     slitta di ±1h (bug reale, coperto da un test dedicato sul cambio d'ora). Ogni task
 //     ha il SUO fuso IANA e i conti si fanno in tempo locale con date reali.
 //   • Niente polling: UN timer per la prossima occorrenza + un watchdog lento che
 //     copre cambi di ora/fuso e sleep/wake, senza mai toccare i fire imminenti (<90s).
@@ -24,7 +24,7 @@ import * as path from "node:path";
 import {  } from "node:os";
 import { ExecutionEngine } from "./executor";
 
-// FIX DST + ORARI (16 ott, verificati con test internal/harness/dst-test.cjs — 7/7 casi sbagliati prima):
+// FIX DST + ORARI (16 ott, verificati con test sul cambio d'ora — 7/7 casi sbagliati prima):
 // i calcoli a passi fissi di 86400000ms slittavano di +-1h al cambio d'ora; le monthly
 // tornavano candidateDay (00:00!) perdendo l'orario; le hourly appena create potevano
 // puntare a un'ora gia' passata (fire immediato).

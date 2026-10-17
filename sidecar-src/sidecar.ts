@@ -440,7 +440,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     // Crea l'entry della sessione se non esiste (idempotente: se esiste già, ritorna quella).
     // Usato dall'Expert (chiave fissa __app_expert__) che NON passa da createSession:
     // senza entry, send() esce subito (no msg-in, nessuna risposta).
-    // GUARD (16 ott, ex SALTATI): senza una chiave VALIDA non si crea una cartella "undefined".
+    // GUARD (16 ott): senza una chiave VALIDA non si crea una cartella "undefined".
     // Tutti i chiamanti legittimi passano sessionKey; se manca, ne generiamo una valida
     // (stessa forma di createSession) così la sessione resta tracciabile dalla risposta.
     const rawKey = String(p?.sessionKey ?? '').trim();

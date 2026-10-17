@@ -1573,7 +1573,7 @@ function McpInstallModal({ onClose, onInstalled }) {
       ? React.createElement(FieldInput, { placeholder: 'Command (e.g. /usr/local/bin/mcp-server or bunx some-mcp-server)', value: cmd, onChange: handleCmd, mb: true })
       : React.createElement(FieldInput, { placeholder: type === 'url' ? 'https://example.com/mcp' : 'npm package (e.g. @modelcontextprotocol/server-filesystem)', value: source, onChange: handleSource, mb: true }),
     (type !== 'url') && React.createElement(React.Fragment, { children: [
-      React.createElement(FieldTextarea, { placeholder: 'Args (optional)\nOne per line, or comma separated.\nExample for Filesystem:\n/Users/andrea/Documents\n/tmp', value: args, onChange: setArgs }),
+      React.createElement(FieldTextarea, { placeholder: 'Args (optional)\nOne per line, or comma separated.\nExample for Filesystem:\n~/Documents\n/tmp', value: args, onChange: setArgs }),
       React.createElement('div', { style: { color: 'var(--q-text-tertiary)', fontSize: '11px', fontFamily: 'var(--font-interface)', marginTop: '4px', marginBottom: '12px', lineHeight: 1.4 }, children: 'Args = extra parameters passed to the server when launched. E.g. for the Filesystem server these are the folders it can access.' })
     ]}),
     React.createElement(React.Fragment, { children: [
