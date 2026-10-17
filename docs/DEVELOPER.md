@@ -48,7 +48,7 @@ The code is written and commented for the next developer, not for the compiler:
   you need.
 - **Never invent behaviour**: a comment describes what the code actually does today. When the
   code changes, its comment changes in the same commit.
-- Comments are in English (the code is public); user-facing strings follow the app's language.
+- Comments are written in the voice of the file they live in (the engine's comments are predominantly Italian); everything that ships as *documentation* — docs/, the site — is English. User-facing strings follow the app's language.
 
 ## Feature → files (where things live)
 
