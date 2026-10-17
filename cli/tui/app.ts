@@ -2566,14 +2566,6 @@ const readProvidersCfg = (): any => {
       if (found >= 0) scroll.scrollTo(Math.max(0, found + inner - 2));
     } catch {}
   };
-  const qNavLog = (ev: string, data: any) => {
-    try {
-      const fsL = require("fs");
-      const pL = require("path").join(require("os").homedir(), ".quinki", "cli-nav-debug.log");
-      try { if (fsL.existsSync(pL) && fsL.statSync(pL).size > 262144) fsL.writeFileSync(pL, ""); } catch {}
-      fsL.appendFileSync(pL, JSON.stringify({ t: new Date().toISOString(), ev, ...data }) + "\n");
-    } catch {}
-  };
   const navScopeOf = (): any => (navStack.length ? navStack[navStack.length - 1].scope : null);
   /** I toggle del LIVELLO corrente: il top-level oppure i figli dello scope attivo. */
   const navList = (): any[] => {
@@ -2630,7 +2622,6 @@ const readProvidersCfg = (): any => {
     if (selToggle < 0) selToggle = fl.length - 1;
     else selToggle = Math.max(0, Math.min(fl.length - 1, selToggle + dir));
     fl.forEach((t, i) => (t.selected = i === selToggle));
-    qNavLog("move", { scope: navScopeOf() ? String(navScopeOf().label || "") : "(top)", idx: selToggle, len: fl.length, label: String((fl[selToggle] || {}).label || "") });
     scrollToggleIntoView(fl[selToggle]);
     ui.requestRender();
   };
@@ -2647,18 +2638,15 @@ const readProvidersCfg = (): any => {
       }
       // 2a pressione: ENTRA nei toggle interni (primo in alto). Ricorsivo per le sotto-deleghe.
       const kids = (cur.children || []).filter((c: any) => c && c.t === "toggle");
-      qNavLog("enter", { label: String(cur.label || ""), kids: kids.length, curOpen: !!cur.open, selIdx: selToggle });
       if (kids.length > 0) {
         try {
           navStack.push({ scope: cur, idx: selToggle });
           selToggle = 0;
           clearAllSelected();
           kids[0].v.selected = true;
-          qNavLog("enter-ok", { childLabel: String((kids[0].v || {}).label || "?"), childSelected: !!(kids[0].v || {}).selected, stack: navStack.length });
           scrollToggleIntoView(kids[0].v);
           ui.requestRender();
         } catch (eE: any) {
-          qNavLog("enter-ERROR", { error: String(eE && eE.message || eE), stack: String(eE && eE.stack || "").split("\n").slice(0, 3) });
         }
       }
       return;
@@ -2668,7 +2656,6 @@ const readProvidersCfg = (): any => {
       // solo alla successiva pressione risale di livello. (Prima usciva subito di livello.)
       if (cur && cur.open) {
         cur.open = false;
-        qNavLog("close-selected", { label: String(cur.label || "") });
         scrollToggleIntoView(cur);
         ui.requestRender();
         return;
