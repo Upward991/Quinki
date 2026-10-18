@@ -582,7 +582,19 @@ export function ChatHeader(props: ChatHeaderProps) {
         <div style={panelStyle}>
           <div style={{ position: 'relative' }}>
             <IconBtn icon={Bot} onClick={props.onToggleAgentDropdown} title="Show agents" />
+            {/* NUOVO (18 ott): il tasto Agenti apre il GRAFO a schermo intero, non il menù stretto. */}
             {props.agentDropdownOpen && (
+              <AgentGraphSheet
+                agents={props.agents || []}
+                chatAgentIds={props.selectedAgentIds || []}
+                orchestratorId={effOrch || ''}
+                onClose={() => { props.onToggleAgentDropdown(); setMultiSelect(false); setSelectedForRemoval(new Set()) }}
+                onOpenAgent={(id) => { props.onToggleAgentDropdown(); setConfigModalAgent(id) }}
+                onAddAgent={() => setAddAgentOpen(true)}
+                onRefreshAgents={(props as any).onRefreshAgents}
+              />
+            )}
+            {false && props.agentDropdownOpen && (
 
               <>
                 <div style={overlayStyle} onClick={() => { props.onToggleAgentDropdown(); setMultiSelect(false); setSelectedForRemoval(new Set()) }} />
