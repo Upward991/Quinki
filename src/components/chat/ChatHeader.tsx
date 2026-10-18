@@ -593,15 +593,18 @@ export function ChatHeader(props: ChatHeaderProps) {
                 })()}
                 orchestratorId={((props as any).session?.orchestratorId || effOrch || '')}
                 agentOverrides={(props as any).agentOverrides || {}}
+                selectMode={multiSelect}
+                picked={selectedForRemoval}
                 onClose={() => { props.onToggleAgentDropdown(); setMultiSelect(false); setSelectedForRemoval(new Set()) }}
-                onOpenAgent={(id) => { setConfigModalAgent(id) }}
+                onOpenAgent={(id) => setConfigModalAgent(id)}
                 onAddAgent={() => setAddAgentOpen(true)}
-                onRemoveAgent={(id) => (props as any).onAgentToggle?.(id)}
-                onSetOrchestrator={(id) => (props as any).onSetOrchestrator?.(id)}
+                onContextMenu={(id, x, y) => setCtxMenu({ x, y, agentId: id })}
+                onTogglePick={(id) => setSelectedForRemoval(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })}
+                onRequestRemoveSelected={() => setConfirmDelete('selected')}
+                onCancelSelect={() => { setMultiSelect(false); setSelectedForRemoval(new Set()) }}
                 onPickModel={(id) => setModelPickerFor(id)}
                 onPickThinking={(id) => setThinkingPickerFor(id)}
                 onRefreshAgents={(props as any).onRefreshAgents}
-                onHome={() => { props.onToggleAgentDropdown(); (props as any).onHomeClick?.() }}
               />
             )}
             {false && props.agentDropdownOpen && (
