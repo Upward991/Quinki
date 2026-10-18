@@ -10,6 +10,7 @@ import { useLayout } from '../../platform/layout'
 import { BottomSheet, SheetRow } from './BottomSheet'
 import { invoke } from '@tauri-apps/api/core'
 import { AgentConfigModal } from './AgentConfigModal'
+import { AgentGraphSheet } from '../agents/AgentGraphSheet'
 
 interface ChatHeaderProps {
   session?: Session
