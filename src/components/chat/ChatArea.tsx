@@ -933,8 +933,10 @@ export function ChatArea(props: ChatAreaProps) {
                     chatItems.push({ kind: 'msg', ts, msg, mIdx })
                   })
                   // FASE 1 (16 ott): le task eseguite NON si mostrano più nella conversazione (solo nella sezione)
-                  if (props.longHorizon && props.longHorizonSystemMessage && props.longHorizonStartedAt) {
-                    chatItems.push({ kind: 'sys', ts: props.longHorizonStartedAt || Date.now(), sysMsg: props.longHorizonSystemMessage })
+                  // GUARDIA (18 ott): mai una scatola LH vuota. Serve testo VERO, non solo un flag.
+                  const lhMsg = String(props.longHorizonSystemMessage || '').trim()
+                  if (props.longHorizon && lhMsg.length > 0 && props.longHorizonStartedAt) {
+                    chatItems.push({ kind: 'sys', ts: props.longHorizonStartedAt || Date.now(), sysMsg: lhMsg })
                   }
                   chatItems.sort((a, b) => a.ts - b.ts || (a.kind === 'msg' ? 0 : 1))
                   chatItemsRef.current = chatItems

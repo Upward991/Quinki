@@ -1102,6 +1102,8 @@ class QuinkiBridge {
             content: delegation.content,
             model: delegation.model,
             thinkingLevel: delegation.thinkingLevel,
+            parentDelegationId: delegation.parentDelegationId ?? null,
+            agentId: delegation.agentId ?? null,
           },
         };
         (pi.sessionManager as any)._appendEntry(entry);

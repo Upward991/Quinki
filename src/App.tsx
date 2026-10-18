@@ -120,6 +120,8 @@ export default function App() {
     [taskChatMode, setTaskChatMode] = useState(false),
     [lhSt, setLhSt] = useState(null),
     [lhStExpert, setLhStExpert] = useState(null),
+    // Lo stato LH si usa SOLO per la sessione a cui appartiene: se non combacia è null.
+    lhFor = (k: string) => (lhSt && (lhSt as any).__sk === k ? lhSt : null),
     [globalCompaction, setGlobalCompaction] = useState(true),
     [welcomeCompaction, setWelcomeCompaction] = useState(null)
   let prevSessionRef = useRef(null),
@@ -2028,12 +2030,13 @@ export default function App() {
                     contextWindow: ne,
                     contextInput: e.sessionTokens[o || e.activeSessionId || ``]?.input || 0,
                     contextOutput: e.sessionTokens[o || e.activeSessionId || ``]?.output || 0,
-                    longHorizon: !!lhSt?.active,
-                    longHorizonStatus: lhSt?.status,
-                    longHorizonPhase: lhSt?.phase,
-                    longHorizonSystemMessage: lhSt?.systemMessage || ``,
-                    longHorizonStartedAt: lhSt?.startedAt || 0,
-                    longHorizonStartedAt: lhSt?.startedAt || 0,
+                      // Solo se lo stato appartiene DAVVERO a questa chat (niente stati in prestito).
+                      // SOLO lo stato di QUESTA chat (una chat senza LH non può mostrare nulla).
+                      longHorizon: !!lhFor(o || e.activeSessionId || ``)?.active,
+                      longHorizonStatus: lhFor(o || e.activeSessionId || ``)?.status,
+                      longHorizonPhase: lhFor(o || e.activeSessionId || ``)?.phase,
+                      longHorizonSystemMessage: lhFor(o || e.activeSessionId || ``)?.systemMessage || ``,
+                      longHorizonStartedAt: lhFor(o || e.activeSessionId || ``)?.startedAt || 0,
                     onStartDiscussion: () => {
                       let dsk = o || e.activeSessionId || ``
                       if (dsk) {
@@ -2041,7 +2044,7 @@ export default function App() {
                         e.call(`longHorizonSetPhase`, { sessionKey: dsk, phase: `discussion` })
                           .then(() => {
                             e.call(`getLongHorizonState`, { sessionKey: dsk })
-                              .then((r: any) => setLhSt(r || null))
+                              .then((r: any) => setLhSt({ ...(r || {}), __sk: o || e.activeSessionId || `` }))
                               .catch(() => {})
                           })
                           .catch(() => {})
@@ -2053,7 +2056,7 @@ export default function App() {
                         e.call(`longHorizonSetPhase`, { sessionKey: psk, phase: `planning` })
                           .then(() => {
                             e.call(`getLongHorizonState`, { sessionKey: psk })
-                              .then((r: any) => setLhSt(r || null))
+                              .then((r: any) => setLhSt({ ...(r || {}), __sk: o || e.activeSessionId || `` }))
                               .catch(() => {})
                           })
                           .catch(() => {})
@@ -2065,7 +2068,7 @@ export default function App() {
                         e.call(`longHorizonNewDiscussion`, { sessionKey: ndk })
                           .then(() => {
                             e.call(`getLongHorizonState`, { sessionKey: ndk })
-                              .then((r: any) => setLhSt(r || null))
+                              .then((r: any) => setLhSt({ ...(r || {}), __sk: o || e.activeSessionId || `` }))
                               .catch(() => {})
                           })
                           .catch(() => {})
@@ -2077,7 +2080,7 @@ export default function App() {
                         e.call(`longHorizonSetPhase`, { sessionKey: ssk, phase: `running` })
                           .then(() => {
                             e.call(`getLongHorizonState`, { sessionKey: ssk })
-                              .then((r: any) => setLhSt(r || null))
+                              .then((r: any) => setLhSt({ ...(r || {}), __sk: o || e.activeSessionId || `` }))
                               .catch(() => {})
                           })
                           .catch(() => {})
@@ -2089,7 +2092,7 @@ export default function App() {
                         e.call(`longHorizonDeactivate`, { sessionKey: psk2 })
                           .then(() => {
                             e.call(`getLongHorizonState`, { sessionKey: psk2 })
-                              .then((r: any) => setLhSt(r || null))
+                              .then((r: any) => setLhSt({ ...(r || {}), __sk: o || e.activeSessionId || `` }))
                               .catch(() => {})
                           })
                           .catch(() => {})
@@ -2101,7 +2104,7 @@ export default function App() {
                         e.call(`longHorizonResume`, { sessionKey: rsk3 })
                           .then(() => {
                             e.call(`getLongHorizonState`, { sessionKey: rsk3 })
-                              .then((r: any) => setLhSt(r || null))
+                              .then((r: any) => setLhSt({ ...(r || {}), __sk: o || e.activeSessionId || `` }))
                               .catch(() => {})
                           })
                           .catch(() => {})
@@ -2114,7 +2117,7 @@ export default function App() {
                         e.call(act ? `longHorizonActivate` : `longHorizonDisable`, { sessionKey: lsk })
                           .then(() => {
                             e.call(`getLongHorizonState`, { sessionKey: lsk })
-                              .then((r: any) => setLhSt(r || null))
+                              .then((r: any) => setLhSt({ ...(r || {}), __sk: o || e.activeSessionId || `` }))
                               .catch(() => {})
                             if (act && lsk !== e.activeSessionId) {
                               e.selectSession(lsk).catch(() => {})
