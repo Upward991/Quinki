@@ -820,7 +820,7 @@ export function AgentsPanel(props) {
                       onToggle: () => setExpandedMcpId(expandedMcpId === mcp.id ? null : mcp.id),
                       onAddAgent: () => setAddItemsModal({ title: `Add agent to ${mcp.name}`, items: agents.map(a => ({ name: a.name, description: a.systemPrompt ? a.systemPrompt.substring(0, 80) + (a.systemPrompt.length > 80 ? '...' : '') : a.id })), initialSelected: agents.filter(a => (a.mcpServers || []).includes(mcp.id)).map(a => a.name), onConfirm: (selected) => doAddAgentsToMcp(mcp.id, selected) }),
                       onRemoveAgent: (agentName) => setRemoveTagState({ type: 'mcp-agent', name: agentName, agent: mcp.name }),
-                      onRemoveAllAgents: () => doRemoveAllAgentsFromMcp(mcp.id),
+                      onRemoveAllAgents: () => setRemoveAllState({ type: 'agents', agentName: mcp.name, mcpId: mcp.id }),
                       onDeleteMcp: () => setRemoveTagState({ type: 'mcp-server', name: mcp.id, agent: mcp.name })
                     });
                   })
@@ -919,14 +919,19 @@ export function AgentsPanel(props) {
       React.createElement('div', { style: { color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', marginBottom: '16px' }, children: 'Are you sure you want to disable "' + toolDisableConfirm + '" in plan mode?' }),
       React.createElement(ConfirmButtons, { onCancel: () => setToolDisableConfirm(null), onConfirm: doConfirmToolDisable, confirmLabel: 'Disable', danger: true })
     ]}),
-    removeAllState && Modal({ onClose: () => setRemoveAllState(null), title: `Remove all ${removeAllState.type}`, children: [
+    removeAllState && Modal({ onClose: () => setRemoveAllState(null), title: removeAllState.mcpId ? 'Remove from all agents' : `Remove all ${removeAllState.type}`, children: [
       React.createElement('div', { style: { color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', marginBottom: '20px' }, children: [
-        removeAllState.type === 'agents'
-          ? `Remove all agents from "${removeAllState.agentName}"?`
-          : `Remove all ${removeAllState.type} from agent "${removeAllState.agentName}"?`
+        removeAllState.mcpId
+          ? `Remove this MCP server from all agents? "${removeAllState.agentName}" stays installed, but no agent will be able to use it.`
+          : removeAllState.type === 'agents'
+            ? `Remove all agents from "${removeAllState.agentName}"?`
+            : `Remove all ${removeAllState.type} from agent "${removeAllState.agentName}"?`
       ]}),
       ConfirmButtons({ onCancel: () => setRemoveAllState(null), onConfirm: () => {
-        if (removeAllState.type === 'agents') {
+        if (removeAllState.mcpId) {
+          // MCP server: toglilo da TUTTI gli agenti che lo usano (il server resta installato)
+          doRemoveAllAgentsFromMcp(removeAllState.mcpId);
+        } else if (removeAllState.type === 'agents') {
           // Remove all agents from a skill/tool
           // Determine if it's a skill or tool based on context
           const skill = skills.find(s => s.name === removeAllState.agentName);
