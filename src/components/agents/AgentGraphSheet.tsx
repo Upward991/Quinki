@@ -266,7 +266,7 @@ export function AgentGraphSheet(props: Props) {
                     <span style={{ fontSize: 12.5, fontWeight: 600, color: isPicked ? '#fff' : 'var(--q-text)', fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap' }}>{n.agent.name || n.id}</span>
                   </div>
 
-                  {!n.isOrch && (
+                  {!n.isOrch && chatAgentIds.length > 1 && (
                     <>
                       <div style={{ display: 'flex', marginTop: 7 }}>
                         <Chip picked={isPicked} onClick={(e: any) => { e.stopPropagation(); props.onPickModel(n.id) }} icon={<Cpu size={11} />}>
@@ -278,13 +278,14 @@ export function AgentGraphSheet(props: Props) {
                           {thinking}
                         </Chip>
                       </div>
-                      {/* + sub agent: riga sua, SOTTO le due chip */}
-                      <div style={{ display: 'flex', marginTop: 5 }}>
-                        <span onClick={(e) => { e.stopPropagation(); setSubFor(subFor === n.id ? null : n.id) }}
-                          onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--q-hover)')}
-                          onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
-                          style={{ fontSize: 10.5, color: isPicked ? '#fff' : 'var(--q-text-tertiary)', fontFamily: 'var(--font-interface)', cursor: 'pointer', padding: '1px 6px', borderRadius: 999 }}>+ sub agent</span>
-                      </div>
+                      {/* + sub agent: riga sua, STESSA chip (stesso contorno) */}
+                      {orchId && (
+                        <div style={{ display: 'flex', marginTop: 4 }}>
+                          <Chip picked={isPicked} onClick={(e: any) => { e.stopPropagation(); setSubFor(subFor === n.id ? null : n.id) }} icon={<Plus size={11} />}>
+                            sub agent
+                          </Chip>
+                        </div>
+                      )}
                     </>
                   )}
 

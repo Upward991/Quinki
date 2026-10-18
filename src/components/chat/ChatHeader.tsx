@@ -88,7 +88,8 @@ export function ChatHeader(props: ChatHeaderProps) {
   const [multiSelect, setMultiSelect] = useState(false)
   const [selectedForRemoval, setSelectedForRemoval] = useState<Set<string>>(new Set())
   // Orchestrator come RUOLO (10 ott): il designato di questa chat, o il legacy 'orchestrator' in lista.
-  const effOrch = (props as any).orchestratorId || (props.selectedAgentIds.includes('orchestrator') ? 'orchestrator' : null)
+  // MAI un orchestrator automatico: il ruolo esiste solo se è stato scelto (sessione).
+  const effOrch = (props as any).orchestratorId || null
   const chatHasOneAgent = props.selectedAgentIds.length <= 1
   const agentListRef = useRef<HTMLDivElement>(null)
   const [modelPickerFor, setModelPickerFor] = useState<string | null>(null)
@@ -150,7 +151,7 @@ export function ChatHeader(props: ChatHeaderProps) {
   const ctxOverlayStyle: React.CSSProperties = {
     position: 'fixed',
     inset: 0,
-    zIndex: 200,
+    zIndex: 600,
     backgroundColor: 'transparent',
   }
 
@@ -466,7 +467,7 @@ export function ChatHeader(props: ChatHeaderProps) {
       {ctxMenu && (
         <>
           <div style={ctxOverlayStyle} onClick={() => { setCtxMenu(null) }} onContextMenu={e => { e.preventDefault(); setCtxMenu(null) }} />
-          <div style={{ position: 'fixed', left: Math.min(ctxMenu.x, window.innerWidth - 180), top: Math.min(ctxMenu.y, window.innerHeight - 240), zIndex: 210, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '4px 0', minWidth: '160px' }}>
+          <div style={{ position: 'fixed', left: Math.min(ctxMenu.x, window.innerWidth - 180), top: Math.min(ctxMenu.y, window.innerHeight - 240), zIndex: 601, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '4px 0', minWidth: '160px' }}>
             {!multiSelect && props.selectedAgentIds.length > 1 && ctxMenu.agentId !== effOrch && (props as any).onSetOrchestrator && (
               <button onClick={() => { (props as any).onSetOrchestrator(ctxMenu.agentId); setCtxMenu(null) }} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}>Use as orchestrator</button>
             )}
@@ -487,7 +488,7 @@ export function ChatHeader(props: ChatHeaderProps) {
       )}
 
       {confirmDelete && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setConfirmDelete(null)}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 650, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setConfirmDelete(null)}>
           <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '400px', width: '90%' }} onClick={e => e.stopPropagation()}>
             <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', marginBottom: '20px' }}>{confirmDelete === 'selected' ? `Remove ${selectedForRemoval.size} selected agents?` : 'Remove agent from chat?'}</div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px' }}>
@@ -625,7 +626,7 @@ export function ChatHeader(props: ChatHeaderProps) {
 
 
       {exportOpen && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={(e: any) => { if (e.target === e.currentTarget) setExportOpen(false) }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 650, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={(e: any) => { if (e.target === e.currentTarget) setExportOpen(false) }}>
           <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', overflow: 'hidden', maxWidth: '380px' }} onClick={e => e.stopPropagation()}>
             <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', padding: '14px 18px' }}>Export chat</div>
             <div style={{ color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', lineHeight: 1.4, padding: '14px 18px' }}>Choose export format:</div>
