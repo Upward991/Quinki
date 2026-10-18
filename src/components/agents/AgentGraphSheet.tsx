@@ -179,23 +179,36 @@ export function AgentGraphSheet(props: Props) {
 
   const pct = Math.round(zoom * 100)
 
+  const panelStyle: React.CSSProperties = {
+    backgroundColor: 'var(--q-bg-panel)',
+    borderRadius: 'var(--radius-lg)',
+    boxShadow: 'var(--shadow-floating)',
+    padding: '8px',
+    minHeight: 'var(--spacing-header-min)',
+    display: 'flex',
+    alignItems: 'center',
+  }
+
   return (
     <div style={{ position: 'fixed', top: 25, left: 0, right: 0, bottom: 0, zIndex: 300, backgroundColor: 'var(--q-bg)', display: 'flex', flexDirection: 'column', padding: 8, boxSizing: 'border-box' }}>
-      {/* ── heading standard dell'app (stessa larghezza delle altre schermate) ── */}
-      <div style={{ flexShrink: 0 }}>
-        <div style={{ width: '100%', maxWidth: 'var(--spacing-chat-max)', margin: '0 auto' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, width: '100%' }}>
-            {/* Stessa heading di tutte le tab: tasto a sinistra, icona, titolo. */}
+      {/* ── heading: stessa struttura della testata chat (pannelli flottanti separati) ── */}
+      <div style={{ flexShrink: 0, marginBottom: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', width: '100%', gap: 8 }}>
+          {/* tasto staccato: torna alla chat (chiude il menù) */}
+          <div style={panelStyle}>
             <IconBtn title="Back to chat" onClick={props.onClose}><MessageSquare size={20} /></IconBtn>
+          </div>
+
+          {/* pannello principale: icona + titolo + controlli */}
+          <div style={{ ...panelStyle, flex: 1, minWidth: 0 }}>
             <div style={{ width: 8, flexShrink: 0 }} />
-            <div style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
-              <Bot size={18} style={{ color: 'var(--q-text-secondary)', flexShrink: 0 }} />
-              <div style={{ width: 16, flexShrink: 0 }} />
-              <span style={{ color: 'var(--q-text)', fontSize: 16, fontWeight: 600, fontFamily: 'var(--font-interface)' }}>Agents</span>
-              <span style={{ color: 'var(--q-text-tertiary)', fontSize: 12, fontFamily: 'var(--font-interface)', marginLeft: 10 }}>
-                {laid.nodes.length} {laid.nodes.length === 1 ? 'agent' : 'agents'} · {pct}%
-              </span>
-            </div>
+            <Bot size={18} style={{ color: 'var(--q-text-secondary)', flexShrink: 0 }} />
+            <div style={{ width: 16, flexShrink: 0 }} />
+            <span style={{ color: 'var(--q-text)', fontSize: 16, fontWeight: 600, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap' }}>Agents</span>
+            <span style={{ color: 'var(--q-text-tertiary)', fontSize: 12, fontFamily: 'var(--font-interface)', marginLeft: 10, whiteSpace: 'nowrap' }}>
+              {laid.nodes.length} {laid.nodes.length === 1 ? 'agent' : 'agents'} · {pct}%
+            </span>
+            <div style={{ flex: 1 }} />
 
             {selectMode ? (
               <>
@@ -203,6 +216,7 @@ export function AgentGraphSheet(props: Props) {
                   style={{ height: 28, padding: '0 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'transparent', color: picked.size ? 'var(--q-danger, #e5484d)' : 'var(--q-text-tertiary)', fontSize: 12, fontFamily: 'var(--font-interface)', cursor: picked.size ? 'pointer' : 'default' }}>
                   Remove{picked.size ? ` (${picked.size})` : ''}
                 </button>
+                <div style={{ width: 6 }} />
                 <button onClick={() => { setSelectMode(false); setPicked(new Set()) }}
                   style={{ height: 28, padding: '0 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'transparent', color: 'var(--q-text)', fontSize: 12, fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>
                   Cancel
@@ -214,12 +228,16 @@ export function AgentGraphSheet(props: Props) {
                 Select
               </button>
             )}
-
+            <div style={{ width: 6 }} />
             <IconBtn title="Zoom out" onClick={() => setZoom(z => Math.max(0.12, z * 0.9))}><span style={{ fontSize: 16, lineHeight: 1 }}>−</span></IconBtn>
             <IconBtn title="Zoom in" onClick={() => setZoom(z => Math.min(2, z * 1.1))}><span style={{ fontSize: 15, lineHeight: 1 }}>+</span></IconBtn>
             <IconBtn title="Fit to screen" onClick={fit}><Maximize size={16} /></IconBtn>
-            <button onClick={props.onAddAgent}
-              style={{ height: 28, padding: '0 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'transparent', color: 'var(--q-text)', fontSize: 12, fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>
+          </div>
+
+          {/* tasto staccato a destra: aggiungi agente */}
+          <div style={panelStyle}>
+            <button onClick={props.onAddAgent} title="Add agent"
+              style={{ height: 36, padding: '0 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'transparent', color: 'var(--q-text)', fontSize: 12, fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>
               + Agent
             </button>
           </div>
