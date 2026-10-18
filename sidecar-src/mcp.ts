@@ -301,23 +301,87 @@ export class StdioMcpClient {
   }
 }
 
-// ── Client HTTP (URL remoto): POST JSON-RPC, risposta JSON ──
-async function httpRequest(url: string, method: string, params: any, envVars?: Record<string, string>): Promise<any> {
+// ── Client HTTP (URL remoto): Streamable HTTP MCP ────────────────────────────
+// Un server MCP "Streamable HTTP" (spec 2025-03-26) NON accetta una tools/list
+// secca: pretende il handshake initialize, restituisce un `mcp-session-id` da
+// rimandare su OGNI richiesta successiva, e può rispondere in SSE
+// (text/event-stream) invece che in JSON puro. Questo client fa tutte e tre le
+// cose, con una sessione in cache per URL (una connessione per server, come un
+// client MCP vero). Vale per qualsiasi MCP remoto: BrowserOS neo, Local REST API
+// del vault Obsidian, il server ufficiale di Notion…
+type HttpSession = { sid: string | null; initialized: boolean };
+const httpSessions = new Map<string, HttpSession>();
+
+function sseParse(text: string): any {
+  // Un evento SSE = righe "data:" consecutive fino a riga vuota; il payload è la
+  // loro concatenazione (le risposte JSON lunghe arrivano spezzate su più righe).
+  const frames: string[] = [];
+  let cur: string[] = [];
+  for (const line of text.split(/\r?\n/)) {
+    if (line.startsWith("data:")) cur.push(line.slice(5).replace(/^ /, ""));
+    else if (line.trim() === "" && cur.length) { frames.push(cur.join("\n")); cur = []; }
+  }
+  if (cur.length) frames.push(cur.join("\n"));
+  let last: any = null;
+  for (const f of frames) {
+    try { last = JSON.parse(f); } catch {}
+  }
+  return last;
+}
+
+async function httpPost(
+  url: string,
+  payload: any,
+  sid: string | null,
+  envVars?: Record<string, string>,
+): Promise<{ msg: any; sid: string | null }> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    Accept: "application/json",
+    Accept: "application/json, text/event-stream",
   };
+  if (sid) headers["mcp-session-id"] = sid;
   const hdr = envVars?.headers;
   if (hdr && typeof hdr === "object") Object.assign(headers, hdr);
-  const res = await fetch(url, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ jsonrpc: "2.0", id: Date.now(), method, params }),
-  });
+  const res = await fetch(url, { method: "POST", headers, body: JSON.stringify(payload) });
+  const newSid = res.headers.get("mcp-session-id");
+  const ctype = res.headers.get("content-type") || "";
   if (!res.ok) throw new Error(`MCP HTTP error ${res.status}`);
-  const j: any = await res.json();
-  if (j?.error) throw new Error(JSON.stringify(j.error));
-  return j?.result;
+  const text = await res.text();
+  if (!text.trim()) return { msg: null, sid: newSid }; // 202: notifica accettata
+  const msg = ctype.includes("text/event-stream") ? sseParse(text) : (() => { try { return JSON.parse(text); } catch { return sseParse(text); } })();
+  return { msg, sid: newSid };
+}
+
+async function ensureHttpSession(url: string, envVars?: Record<string, string>): Promise<HttpSession> {
+  const cached = httpSessions.get(url);
+  if (cached?.initialized) return cached;
+  const s: HttpSession = { sid: null, initialized: false };
+  const init = await httpPost(url, {
+    jsonrpc: "2.0", id: 1, method: "initialize",
+    params: { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "quinki", version: "1" } },
+  }, null, envVars);
+  s.sid = init.sid;
+  if (init.msg?.error) throw new Error(JSON.stringify(init.msg.error));
+  // notifica di completamento handshake (202, nessun corpo): obbligatoria per molti server
+  try {
+    await httpPost(url, { jsonrpc: "2.0", method: "notifications/initialized", params: {} }, s.sid, envVars);
+  } catch {}
+  s.initialized = true;
+  httpSessions.set(url, s);
+  return s;
+}
+
+async function httpRequest(url: string, method: string, params: any, envVars?: Record<string, string>): Promise<any> {
+  const session = await ensureHttpSession(url, envVars);
+  let out = await httpPost(url, { jsonrpc: "2.0", id: Date.now(), method, params }, session.sid, envVars);
+  // Sessione scaduta/rifiutata (server riavviato): rifai l'handshake UNA volta.
+  if (!out.msg && !out.sid) {
+    httpSessions.delete(url);
+    const fresh = await ensureHttpSession(url, envVars);
+    out = await httpPost(url, { jsonrpc: "2.0", id: Date.now(), method, params }, fresh.sid, envVars);
+  }
+  if (out.msg?.error) throw new Error(JSON.stringify(out.msg.error));
+  return out.msg?.result;
 }
 
 export async function httpListTools(url: string, envVars?: Record<string, string>): Promise<any[]> {
