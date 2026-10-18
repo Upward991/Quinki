@@ -589,10 +589,16 @@ export function ChatHeader(props: ChatHeaderProps) {
                 agents={props.agents || []}
                 chatAgentIds={props.selectedAgentIds || []}
                 orchestratorId={effOrch || ''}
+                agentOverrides={(props as any).agentOverrides || {}}
                 onClose={() => { props.onToggleAgentDropdown(); setMultiSelect(false); setSelectedForRemoval(new Set()) }}
                 onOpenAgent={(id) => { props.onToggleAgentDropdown(); setConfigModalAgent(id) }}
                 onAddAgent={() => setAddAgentOpen(true)}
+                onRemoveAgent={(id) => (props as any).onAgentToggle?.(id)}
+                onSetOrchestrator={(id) => (props as any).onSetOrchestrator?.(id)}
+                onPickModel={(id) => { props.onToggleAgentDropdown(); setModelPickerFor(id) }}
+                onPickThinking={(id) => { props.onToggleAgentDropdown(); setThinkingPickerFor(id) }}
                 onRefreshAgents={(props as any).onRefreshAgents}
+                onHome={() => { props.onToggleAgentDropdown(); (props as any).onHomeClick?.() }}
               />
             )}
             {false && props.agentDropdownOpen && (
