@@ -27,12 +27,13 @@ type Props = {
   onCancelSelect: () => void
   onPickModel: (id: string) => void
   onPickThinking: (id: string) => void
+  onAddSubAgent: (id: string) => void
   onRefreshAgents?: () => void
   agentOverrides?: Record<string, any>
 }
 
 const NODE_W = 210
-const NODE_H = 100
+const NODE_H = 124
 const ROOT_H = 46
 const GAP_X = 30
 const GAP_Y = 54
@@ -50,6 +51,7 @@ export function AgentGraphSheet(props: Props) {
   }, [agents])
 
   const orchId = (orchestratorId && byId[orchestratorId]) ? orchestratorId : ''
+  const soloUno = chatAgentIds.length <= 1
 
   // ── albero / riga piatta ─────────────────────────────────────────────────
   const laid = useMemo(() => {
@@ -89,20 +91,21 @@ export function AgentGraphSheet(props: Props) {
       }
       const units = measure(root)
       const unitW = NODE_W + GAP_X
-      const yFor = (d: number) => d === 0 ? 0 : ROOT_H + GAP_Y + (d - 1) * (NODE_H + GAP_Y)
+      const H = soloUno ? ROOT_H : NODE_H
+      const yFor = (d: number) => d === 0 ? 0 : ROOT_H + GAP_Y + (d - 1) * (H + GAP_Y)
       const place = (n: TNode, cx: number) => { n.x = cx + n.x * unitW; n.y = yFor(n.depth); nodes.push(n); for (const c of n.children) place(c, n.x) }
       place(root, (units - 1) * unitW / 2)
       const minX = Math.min(...nodes.map(n => n.x))
       for (const n of nodes) n.x -= minX
-      const maxY = Math.max(...nodes.map(n => n.y + (n.isOrch ? ROOT_H : NODE_H)))
+      const maxY = Math.max(...nodes.map(n => n.y + ((n.isOrch || soloUno) ? ROOT_H : NODE_H)))
       return { nodes, width: Math.max(...nodes.map(n => n.x)) + NODE_W, height: maxY }
     }
 
     // Nessun orchestrator: riga piatta, nessun ruolo assegnato.
     for (const id of chatAgentIds) if (byId[id]) flat.push(id)
     flat.forEach((id, i) => { const n = newRoot(id); n.x = i * (NODE_W + GAP_X); n.y = 0; nodes.push(n) })
-    return { nodes, width: flat.length ? flat.length * (NODE_W + GAP_X) - GAP_X : 0, height: NODE_H }
-  }, [orchId, byId, chatAgentIds])
+    return { nodes, width: flat.length ? flat.length * (NODE_W + GAP_X) - GAP_X : 0, height: soloUno ? ROOT_H : NODE_H }
+  }, [orchId, byId, chatAgentIds, soloUno])
 
   // ── zoom 50–300% / pan ───────────────────────────────────────────────────
   const [zoom, setZoom] = useState(1)
@@ -159,7 +162,6 @@ export function AgentGraphSheet(props: Props) {
 
   // ── menu contestuale / selezione / +sub ──────────────────────────────────
   const { selectMode, picked } = props
-  const [subFor, setSubFor] = useState<string | null>(null)
 
 
   const toggleDelegate = async (parentId: string, childId: string) => {
@@ -204,14 +206,6 @@ export function AgentGraphSheet(props: Props) {
             </span>
             <div style={{ flex: 1 }} />
 
-            {selectMode && (
-              <>
-                <TinyBtn danger disabled={picked.size === 0} onClick={props.onRequestRemoveSelected}>Remove{picked.size ? ` (${picked.size})` : ''}</TinyBtn>
-                <TinyBtn onClick={props.onCancelSelect}>Cancel</TinyBtn>
-                <div style={{ width: 6 }} />
-              </>
-            )}
-
             <IconBtn title="Zoom out" onClick={() => setZoom(z => Math.max(MIN_Z, z * 0.9))}><span style={{ fontSize: 16, lineHeight: 1 }}>−</span></IconBtn>
             <span style={{ minWidth: 42, textAlign: 'center', color: 'var(--q-text)', fontSize: 12, fontFamily: 'var(--font-interface)' }}>{pct}%</span>
             <IconBtn title="Zoom in" onClick={() => setZoom(z => Math.min(MAX_Z, z * 1.1))}><span style={{ fontSize: 15, lineHeight: 1 }}>+</span></IconBtn>
@@ -234,7 +228,7 @@ export function AgentGraphSheet(props: Props) {
             <svg width={laid.width} height={laid.height} style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible', pointerEvents: 'none' }}>
               {edges.map((e, i) => {
                 const x1 = e.from.x + NODE_W / 2
-                const y1 = e.from.y + (e.from.isOrch ? ROOT_H : NODE_H)
+                const y1 = e.from.y + ((e.from.isOrch || soloUno) ? ROOT_H : NODE_H)
                 const x2 = e.to.x + NODE_W / 2
                 const y2 = e.to.y
                 const my = (y1 + y2) / 2
@@ -246,6 +240,7 @@ export function AgentGraphSheet(props: Props) {
               const isPicked = picked.has(n.id)
               const ov = agentOverrides?.[n.id] || {}
               const thinking = ov.thinkingLevel === 'off' ? 'off' : ov.thinkingLevel ? ov.thinkingLevel : 'Chat default'
+              const compatta = n.isOrch || soloUno
               return (
                 <div key={n.id} data-node-card
                   onClick={() => { if (selectMode) props.onTogglePick(n.id); else props.onOpenAgent(n.id) }}
@@ -253,11 +248,11 @@ export function AgentGraphSheet(props: Props) {
                   style={{
                     position: 'absolute', left: n.x + NODE_W / 2, top: n.y, transform: 'translateX(-50%)',
                     width: 'max-content', maxWidth: 320,
-                    height: n.isOrch ? ROOT_H : NODE_H,
+                    height: compatta ? ROOT_H : NODE_H,
                     backgroundColor: isPicked ? 'var(--q-danger, #e5484d)' : 'var(--q-bg-panel)',
                     border: '1px solid var(--q-border)',
-                    borderRadius: 'var(--radius-lg)', padding: n.isOrch ? '0 14px' : '9px 13px', cursor: 'pointer',
-                    boxSizing: 'border-box', display: 'flex', flexDirection: 'column', justifyContent: n.isOrch ? 'center' : 'flex-start',
+                    borderRadius: 'var(--radius-lg)', padding: compatta ? '0 14px' : '9px 13px', cursor: 'pointer',
+                    boxSizing: 'border-box', display: 'flex', flexDirection: 'column', justifyContent: compatta ? 'center' : 'flex-start',
                   }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     {n.isOrch
@@ -281,7 +276,7 @@ export function AgentGraphSheet(props: Props) {
                       {/* + sub agent: riga sua, STESSA chip (stesso contorno) */}
                       {orchId && (
                         <div style={{ display: 'flex', marginTop: 4 }}>
-                          <Chip picked={isPicked} onClick={(e: any) => { e.stopPropagation(); setSubFor(subFor === n.id ? null : n.id) }} icon={<Plus size={11} />}>
+                          <Chip picked={isPicked} onClick={(e: any) => { e.stopPropagation(); props.onAddSubAgent(n.id) }} icon={<Plus size={11} />}>
                             sub agent
                           </Chip>
                         </div>
@@ -289,23 +284,6 @@ export function AgentGraphSheet(props: Props) {
                     </>
                   )}
 
-                  {subFor === n.id && !n.isOrch && (
-                    <div onClick={e => e.stopPropagation()}
-                      style={{ position: 'absolute', top: '100%', left: 0, marginTop: 6, width: 236, maxHeight: 250, overflowY: 'auto', zIndex: 10, backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-md)', padding: 6, boxShadow: '0 10px 30px rgba(0,0,0,.22)' }}>
-                      {(agents || []).filter(a => a.id !== n.id).map(a => {
-                        const on = Array.isArray(byId[n.id]?.delegates) && byId[n.id].delegates.includes(a.id)
-                        return (
-                          <div key={a.id} onClick={() => toggleDelegate(n.id, a.id)}
-                            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: 12, fontFamily: 'var(--font-interface)', color: 'var(--q-text)' }}
-                            onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--q-hover)')}
-                            onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}>
-                            <span style={{ width: 12, color: on ? 'var(--q-text)' : 'var(--q-text-tertiary)' }}>{on ? '✓' : ''}</span>
-                            <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.name || a.id}</span>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
                 </div>
               )
             })}

@@ -11,6 +11,7 @@ import { BottomSheet, SheetRow } from './BottomSheet'
 import { invoke } from '@tauri-apps/api/core'
 import { AgentConfigModal } from './AgentConfigModal'
 import { AgentGraphSheet } from '../agents/AgentGraphSheet'
+import { useSidecarContext } from '../shared/AppShell'
 
 interface ChatHeaderProps {
   session?: Session
@@ -93,6 +94,8 @@ export function ChatHeader(props: ChatHeaderProps) {
   const chatHasOneAgent = props.selectedAgentIds.length <= 1
   const agentListRef = useRef<HTMLDivElement>(null)
   const [modelPickerFor, setModelPickerFor] = useState<string | null>(null)
+  const [subAgentFor, setSubAgentFor] = useState<string | null>(null)
+  const { call: rpc } = useSidecarContext()
   const [thinkingPickerFor, setThinkingPickerFor] = useState<string | null>(null)
   const [addAgentOpen, setAddAgentOpen] = useState(false)
   const [agentQuery, setAgentQuery] = useState('')
@@ -605,6 +608,7 @@ export function ChatHeader(props: ChatHeaderProps) {
                 onCancelSelect={() => { setMultiSelect(false); setSelectedForRemoval(new Set()) }}
                 onPickModel={(id) => setModelPickerFor(id)}
                 onPickThinking={(id) => setThinkingPickerFor(id)}
+                onAddSubAgent={(id) => setSubAgentFor(id)}
                 onRefreshAgents={(props as any).onRefreshAgents}
               />
             )}
@@ -648,6 +652,26 @@ export function ChatHeader(props: ChatHeaderProps) {
           onAdd={(ids) => { ids.forEach(id => props.onAgentToggle(id)); setAddAgentOpen(false) }}
         />
       )}
+
+      {/* Sub agent: STESSO picker, con gli agenti già in chat esclusi */}
+      {subAgentFor && (() => {
+        const parent = (props.agents || []).find((a: any) => a.id === subAgentFor)
+        const esclusi = [...(props.selectedAgentIds || []), ...(((parent as any)?.delegates) || [])]
+        return (
+          <AgentPickerModal
+            agents={props.agents || []}
+            initialSelected={esclusi}
+            title={`Add sub agents to ${(parent as any)?.name || subAgentFor}`}
+            onClose={() => setSubAgentFor(null)}
+            onAdd={async (ids: string[]) => {
+              const cur = Array.isArray((parent as any)?.delegates) ? (parent as any).delegates : []
+              try { await rpc('updateAgent', { id: subAgentFor, config: { delegates: [...cur, ...ids] } }) } catch {}
+              ;(props as any).onRefreshAgents?.()
+              setSubAgentFor(null)
+            }}
+          />
+        )
+      })()}
 
       {/* Model picker modal */}
       {modelPickerFor && (
@@ -807,12 +831,13 @@ function IconBtn({ icon: Icon, onClick, title, activeBg }: { icon: React.FC<{ si
 
 
 // ── Agent picker modal — fedele a _AgentPickerDialog Flutter: header, search, checkbox, footer ──
-function AgentPickerModal({ agents, initialSelected, onClose, onAdd, embedded }: {
+function AgentPickerModal({ agents, initialSelected, onClose, onAdd, embedded, title }: {
   agents: Agent[]
   initialSelected?: string[]
   onClose: () => void
   onAdd: (ids: string[]) => void
   embedded?: boolean
+    title?: string
 }) {
   const mob = useLayout().mode === 'mobile'
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -826,7 +851,7 @@ function AgentPickerModal({ agents, initialSelected, onClose, onAdd, embedded }:
       <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '500px', maxHeight: '500px', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div style={{ padding: '16px', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-          <span style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', flex: 1 }}>Add agents to chat</span>
+          <span style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', flex: 1 }}>{title || 'Add agents to chat'}</span>
         </div>
         {/* Search */}
         <div style={{ padding: '8px 16px', flexShrink: 0 }}>
