@@ -310,7 +310,14 @@ export class StdioMcpClient {
 // client MCP vero). Vale per qualsiasi MCP remoto: BrowserOS neo, Local REST API
 // del vault Obsidian, il server ufficiale di Notion…
 type HttpSession = { sid: string | null; initialized: boolean };
+// Chiave = url + identità del chiamante. Perché: il server MCP usa l'identità del
+// client per dare a ognuno la SUA sessione (in BrowserOS neo = il suo gruppo di tab).
+// Con una sessione per solo URL, tutti gli agenti di Quinki finivano nella stessa
+// identità e lavoravano sulle stesse tab.
 const httpSessions = new Map<string, HttpSession>();
+function sessionKey(url: string, clientName?: string): string {
+  return url + "\u0000" + (clientName || "quinki");
+}
 
 function sseParse(text: string): any {
   // Un evento SSE = righe "data:" consecutive fino a riga vuota; il payload è la
@@ -352,13 +359,17 @@ async function httpPost(
   return { msg, sid: newSid };
 }
 
-async function ensureHttpSession(url: string, envVars?: Record<string, string>): Promise<HttpSession> {
-  const cached = httpSessions.get(url);
+async function ensureHttpSession(url: string, envVars?: Record<string, string>, clientName?: string): Promise<HttpSession> {
+  const key = sessionKey(url, clientName);
+  const cached = httpSessions.get(key);
   if (cached?.initialized) return cached;
   const s: HttpSession = { sid: null, initialized: false };
   const init = await httpPost(url, {
     jsonrpc: "2.0", id: 1, method: "initialize",
-    params: { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "quinki", version: "1" } },
+    params: {
+      protocolVersion: "2024-11-05", capabilities: {},
+      clientInfo: { name: clientName || "quinki", version: "1", title: clientName || "Quinki" },
+    },
   }, null, envVars);
   s.sid = init.sid;
   if (init.msg?.error) throw new Error(JSON.stringify(init.msg.error));
@@ -367,30 +378,30 @@ async function ensureHttpSession(url: string, envVars?: Record<string, string>):
     await httpPost(url, { jsonrpc: "2.0", method: "notifications/initialized", params: {} }, s.sid, envVars);
   } catch {}
   s.initialized = true;
-  httpSessions.set(url, s);
+  httpSessions.set(key, s);
   return s;
 }
 
-async function httpRequest(url: string, method: string, params: any, envVars?: Record<string, string>): Promise<any> {
-  const session = await ensureHttpSession(url, envVars);
+async function httpRequest(url: string, method: string, params: any, envVars?: Record<string, string>, clientName?: string): Promise<any> {
+  const session = await ensureHttpSession(url, envVars, clientName);
   let out = await httpPost(url, { jsonrpc: "2.0", id: Date.now(), method, params }, session.sid, envVars);
   // Sessione scaduta/rifiutata (server riavviato): rifai l'handshake UNA volta.
   if (!out.msg && !out.sid) {
-    httpSessions.delete(url);
-    const fresh = await ensureHttpSession(url, envVars);
+    httpSessions.delete(sessionKey(url, clientName));
+    const fresh = await ensureHttpSession(url, envVars, clientName);
     out = await httpPost(url, { jsonrpc: "2.0", id: Date.now(), method, params }, fresh.sid, envVars);
   }
   if (out.msg?.error) throw new Error(JSON.stringify(out.msg.error));
   return out.msg?.result;
 }
 
-export async function httpListTools(url: string, envVars?: Record<string, string>): Promise<any[]> {
-  const r = await httpRequest(url, "tools/list", {}, envVars);
+export async function httpListTools(url: string, envVars?: Record<string, string>, clientName?: string): Promise<any[]> {
+  const r = await httpRequest(url, "tools/list", {}, envVars, clientName);
   return r?.tools || [];
 }
 
-export async function httpCallTool(url: string, name: string, args: any, envVars?: Record<string, string>): Promise<any> {
-  return httpRequest(url, "tools/call", { name, arguments: args || {} }, envVars);
+export async function httpCallTool(url: string, name: string, args: any, envVars?: Record<string, string>, clientName?: string): Promise<any> {
+  return httpRequest(url, "tools/call", { name, arguments: args || {} }, envVars, clientName);
 }
 
 // ── Conversione JSON Schema (inputSchema MCP) → TypeBox (defineTool parameters) ──

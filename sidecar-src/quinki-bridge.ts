@@ -5912,6 +5912,11 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
   async #buildMcpTools(sk: string, agentId: string | null): Promise<any[]> {
     const agentCfg = agentId ? this.#readAgentConfigFile(agentId) : null;
     const ids: string[] = Array.isArray(agentCfg?.mcpServers) ? agentCfg.mcpServers : [];
+    // IDENTITÀ verso gli MCP remoti = il NOME dell'agente. Il server (BrowserOS neo)
+    // usa l'identità del client per dare a ognuno la SUA sessione, quindi il suo
+    // gruppo di tab: con un nome condiviso tutti gli agenti finivano sulle stesse tab.
+    // Fallback: id dell'agente, poi "quinki".
+    const mcpClientName = String(agentCfg?.name || agentId || "quinki").trim() || "quinki";
     this.#mcpToolNames.delete(sk);
     if (ids.length === 0) return [];
     const self = this;
@@ -5926,7 +5931,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
       try {
         let list: any[] = [];
         if (server.type === "url") {
-          list = await httpListTools(server.source, server.env);
+          list = await httpListTools(server.source, server.env, mcpClientName);
         } else {
           const client = this.#getMcpClient(sk, server);
           list = await client.listTools();
@@ -5953,7 +5958,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
               try {
                 let res: any;
                 if (serverRef.type === "url") {
-                  res = await httpCallTool(serverRef.source, rawName, params || {}, serverRef.env);
+                  res = await httpCallTool(serverRef.source, rawName, params || {}, serverRef.env, mcpClientName);
                 } else {
                   res = await self.#getMcpClient(sk, serverRef).callTool(rawName, params || {});
                 }
