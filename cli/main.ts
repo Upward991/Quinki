@@ -64,6 +64,14 @@ const hasTrustFlag = argv.some(
   (a) => a === "--approve" || a === "-a" || a === "--no-approve" || a === "-na"
 );
 const args = hasTrustFlag ? argv : [...argv, "--approve"];
+// TASK (regola utente 18 ott): in queste modalità gira l'SDK nudo, senza motore → le task
+// non esistono. La nota fa sì che l'agente lo DICA invece di improvvisare.
+if (!args.includes("--append-system-prompt")) {
+  args.push("--append-system-prompt",
+    "Tasks and schedules are a feature of the full Quinki app (macOS). This CLI runs without the Quinki " +
+    "engine, so tasks are NOT available here: if the user asks to schedule a task, tell them to install " +
+    "the Quinki app and manage tasks there.");
+}
 
 // --- 5. Quiet startup (no skills listing / conflict clutter) ------------------
 try {

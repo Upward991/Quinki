@@ -646,10 +646,23 @@ export async function runTui(opts: TuiOptions): Promise<void> {
 
   // --- engine (invisible): the same SDK the sidecar/app use -----------------
   const sm = sdk.SessionManager.create(opts.cwd, sessionDirForKey);
+  // TASK / SCHEDULE (regola utente 18 ott): nella CLI la UI delle task NON esiste e non
+  // esisterà. Se questa CLI gira senza il motore (app non installata) le task non sono
+  // disponibili: il modello deve DIRLO, non improvvisare. Col motore, i turni girano di là.
+  const TASKS_NOTE =
+    "Tasks and schedules are a feature of the full Quinki app (macOS). This CLI is running without the " +
+    "Quinki engine, so tasks are NOT available here. If the user asks to schedule a task or a recurring " +
+    "job, do not improvise: tell them to install the Quinki app and manage tasks there.";
   const res: any = await sdk.createAgentSession({
     cwd: opts.cwd,
     agentDir: opts.agentDir,
     sessionManager: sm,
+    // Solo `appendSystemPrompt`: il prompt di sistema resta quello di default dell'SDK.
+    resourceLoader: new (sdk as any).DefaultResourceLoader({
+      cwd: opts.cwd,
+      agentDir: opts.agentDir,
+      appendSystemPrompt: [TASKS_NOTE],
+    }),
   });
   let session: any = res?.session || res;
   // Mutable run state — reset / directory switch / chat switch rebuild these.
@@ -3885,6 +3898,11 @@ const readProvidersCfg = (): any => {
         // The tool call toggle is ALWAYS a plain tool call (delegations included):
         // the delegation toggle is a SEPARATE block, created right below it.
         pushBlock(registerToggle(new ToggleBlock({ label: "Tool call", boldName: name, color: C.toolCall, body })));
+          // TASK: si gestiscono nell'APP (in CLI non c'è una vista) → un rimando, una volta per turno.
+          if (String(name) === "schedule_task" && !qTaskHintShown) {
+            qTaskHintShown = true;
+            try { addRow(fg(C.textTertiary, "Task scheduled — manage and follow it in the Quinki app."), 1); } catch {}
+          }
         if (thinkingRow) { thinkingRow.open = false; }
         // The writing just ENDED: seal its footer NOW, then a NEW writing starts.
         sealWritingFooter();
@@ -3989,6 +4007,7 @@ const readProvidersCfg = (): any => {
   // --- sidecar events -> the same renderer -------------------------------------
   // The sidecar broadcasts the app's flat event shapes; they are mapped onto the
   // SDK events onSessionEvent already handles, so the CLI renders identically.
+  let qTaskHintShown = false; // rimando "gestiscila nell'app" (una volta per turno)
   let wsToolName = "";
   let wsToolArgs = "";
   let wsToolToggle: any = null;
