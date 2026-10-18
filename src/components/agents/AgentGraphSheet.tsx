@@ -1,16 +1,19 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Bot, Network, Plus, Maximize, MessageSquare, Cpu, Brain } from '../icons'
+import { Bot, Network, Plus, Maximize, MessageSquare, Cpu, Brain, RefreshCw } from '../icons'
 import { useSidecarContext } from '../shared/AppShell'
+import { AgentPickerModal } from '../chat/ChatHeader'
 
 /**
  * AgentGraphSheet — il grafo degli agenti della chat, a schermo intero.
  *
  * REGOLE (19 ott):
- * - Nessun orchestrator "automatico": se la chat non ne ha uno, gli agenti sono
- *   mostrati affiancati, ognuno per sé. Il ruolo lo assegni tu.
- * - Il menu del tasto destro è quello originale (Set as orchestrator / Select /
- *   Remove) e vive FUORI dal canvas trasformato: si chiude cliccando ovunque.
- * - Il tasto a sinistra è l'icona della chat: chiude e torna alla chat.
+ * - Nessun orchestrator automatico. Senza orchestrator gli agenti stanno in riga.
+ * - Un solo agente in chat → card con "change agent" e "sub agent".
+ * - Più agenti senza orchestrator → solo modello/thinking (niente change, niente sub).
+ * - Con orchestrator → l'orchestrator ha "sub agent"; gli altri modello/thinking/sub.
+ * - Il menu del tasto destro è quello ORIGINALE (Set as orchestrator / Select /
+ *   Remove) con la conferma originale. Il tasto a sinistra torna alla chat.
+ * - Le card hanno l'altezza del loro contenuto (niente spazio vuoto).
  */
 
 type Props = {
@@ -19,24 +22,21 @@ type Props = {
   orchestratorId: string
   onClose: () => void
   onOpenAgent: (id: string) => void
+  onChangeAgent: (id: string) => void
+  onPickModel: (id: string) => void
+  onPickThinking: (id: string) => void
+  onRefreshAgents?: () => void
+  agentOverrides?: Record<string, any>
   selectMode: boolean
   picked: Set<string>
   onContextMenu: (id: string, x: number, y: number) => void
   onTogglePick: (id: string) => void
-  onRequestRemoveSelected: () => void
-  onCancelSelect: () => void
-  onPickModel: (id: string) => void
-  onPickThinking: (id: string) => void
-  onAddSubAgent: (id: string) => void
-  onRefreshAgents?: () => void
-  agentOverrides?: Record<string, any>
 }
 
 const NODE_W = 210
-const NODE_H = 124 // (solo riferimento storico; l'altezza vera è cardH)
-const H_DUE_CHIP = 84  // nome + modello + thinking
-const H_TRE_CHIP = 107 // + sub agent
-const ROOT_H = 46
+const ROOT_H = 64    // orchestrator: nome + sub agent
+const H_DUE = 88     // nome + 2 chip
+const H_TRE = 111    // nome + 3 chip
 const GAP_X = 30
 const GAP_Y = 54
 
@@ -44,7 +44,7 @@ type TNode = { id: string; agent: any; depth: number; x: number; y: number; chil
 
 export function AgentGraphSheet(props: Props) {
   const { call } = useSidecarContext()
-  const { agents = [], chatAgentIds = [], orchestratorId, agentOverrides = {} } = props
+  const { agents = [], chatAgentIds = [], orchestratorId, agentOverrides = {}, selectMode, picked } = props
 
   const byId = useMemo(() => {
     const m: Record<string, any> = {}
@@ -54,13 +54,14 @@ export function AgentGraphSheet(props: Props) {
 
   const orchId = (orchestratorId && byId[orchestratorId]) ? orchestratorId : ''
   const soloUno = chatAgentIds.length <= 1
-  // Altezza reale di ogni card: compatta (solo nome) oppure con 2 o 3 chip.
-  const cardH = (n: TNode) => (n.isOrch || soloUno) ? ROOT_H : (orchId ? H_TRE_CHIP : H_DUE_CHIP)
+  const [subFor, setSubFor] = useState<string | null>(null)
+  const [changeFor, setChangeFor] = useState(false)
 
-  // ── albero / riga piatta ─────────────────────────────────────────────────
+  // altezza reale della card in base a cosa contiene
+  const cardH = (n: TNode) => n.isOrch ? ROOT_H : (soloUno ? H_DUE : (orchId ? H_TRE : H_DUE))
+
   const laid = useMemo(() => {
     const nodes: TNode[] = []
-    const flat: string[] = []
     const newRoot = (id: string): TNode => ({ id, agent: byId[id], depth: 0, x: 0, y: 0, children: [], isOrch: false })
 
     const build = (id: string, depth: number, chain: Set<string>): TNode | null => {
@@ -95,7 +96,7 @@ export function AgentGraphSheet(props: Props) {
       }
       const units = measure(root)
       const unitW = NODE_W + GAP_X
-      const H = soloUno ? ROOT_H : (orchId ? H_TRE_CHIP : H_DUE_CHIP)
+      const H = soloUno ? H_DUE : (orchId ? H_TRE : H_DUE)
       const yFor = (d: number) => d === 0 ? 0 : ROOT_H + GAP_Y + (d - 1) * (H + GAP_Y)
       const place = (n: TNode, cx: number) => { n.x = cx + n.x * unitW; n.y = yFor(n.depth); nodes.push(n); for (const c of n.children) place(c, n.x) }
       place(root, (units - 1) * unitW / 2)
@@ -105,13 +106,12 @@ export function AgentGraphSheet(props: Props) {
       return { nodes, width: Math.max(...nodes.map(n => n.x)) + NODE_W, height: maxY }
     }
 
-    // Nessun orchestrator: riga piatta, nessun ruolo assegnato.
-    for (const id of chatAgentIds) if (byId[id]) flat.push(id)
+    // Nessun orchestrator → riga piatta, nessun ruolo
+    const flat = chatAgentIds.filter(id => byId[id])
     flat.forEach((id, i) => { const n = newRoot(id); n.x = i * (NODE_W + GAP_X); n.y = 0; nodes.push(n) })
-    return { nodes, width: flat.length ? flat.length * (NODE_W + GAP_X) - GAP_X : 0, height: soloUno ? ROOT_H : (orchId ? H_TRE_CHIP : H_DUE_CHIP) }
+    return { nodes, width: flat.length ? flat.length * (NODE_W + GAP_X) - GAP_X : 0, height: soloUno ? H_DUE : H_DUE }
   }, [orchId, byId, chatAgentIds, soloUno])
 
-  // ── zoom 50–300% / pan ───────────────────────────────────────────────────
   const [zoom, setZoom] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const viewRef = useRef<HTMLDivElement>(null)
@@ -126,9 +126,7 @@ export function AgentGraphSheet(props: Props) {
   }, [laid.width, laid.height])
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { if (selectMode) props.onCancelSelect(); else props.onClose() }
-    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { setSubFor(null); setChangeFor(false); props.onClose() } }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   })
@@ -164,19 +162,6 @@ export function AgentGraphSheet(props: Props) {
   }
   const onPointerUp = () => { dragRef.current = null }
 
-  // ── menu contestuale / selezione / +sub ──────────────────────────────────
-  const { selectMode, picked } = props
-
-
-  const toggleDelegate = async (parentId: string, childId: string) => {
-    const cur: string[] = Array.isArray(byId[parentId]?.delegates) ? [...byId[parentId].delegates] : []
-    const next = cur.includes(childId) ? cur.filter(x => x !== childId) : [...cur, childId]
-    try {
-      await call('updateAgent', { id: parentId, config: { delegates: next } })
-      props.onRefreshAgents?.()
-    } catch {}
-  }
-
   const edges: { from: TNode; to: TNode }[] = []
   for (const n of laid.nodes) for (const c of n.children) edges.push({ from: n, to: c })
   const pct = Math.round(zoom * 100)
@@ -209,15 +194,10 @@ export function AgentGraphSheet(props: Props) {
               {laid.nodes.length} {laid.nodes.length === 1 ? 'agent' : 'agents'}
             </span>
             <div style={{ flex: 1 }} />
-
             <IconBtn title="Zoom out" onClick={() => setZoom(z => Math.max(MIN_Z, z * 0.9))}><span style={{ fontSize: 16, lineHeight: 1 }}>−</span></IconBtn>
             <span style={{ minWidth: 42, textAlign: 'center', color: 'var(--q-text)', fontSize: 12, fontFamily: 'var(--font-interface)' }}>{pct}%</span>
             <IconBtn title="Zoom in" onClick={() => setZoom(z => Math.min(MAX_Z, z * 1.1))}><span style={{ fontSize: 15, lineHeight: 1 }}>+</span></IconBtn>
             <IconBtn title="Fit to screen" onClick={fit}><Maximize size={16} /></IconBtn>
-          </div>
-
-          <div style={panelStyle}>
-            <IconBtn title="Add agent" onClick={() => (props as any).onAddAgent?.()}><Plus size={18} /></IconBtn>
           </div>
         </div>
       </div>
@@ -244,19 +224,19 @@ export function AgentGraphSheet(props: Props) {
               const isPicked = picked.has(n.id)
               const ov = agentOverrides?.[n.id] || {}
               const thinking = ov.thinkingLevel === 'off' ? 'off' : ov.thinkingLevel ? ov.thinkingLevel : 'Chat default'
-              const compatta = n.isOrch || soloUno
+              const bloccato = selectMode ? 'none' : 'auto'
               return (
                 <div key={n.id} data-node-card
                   onClick={() => { if (selectMode) props.onTogglePick(n.id); else props.onOpenAgent(n.id) }}
                   onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); props.onContextMenu(n.id, e.clientX, e.clientY) }}
                   style={{
                     position: 'absolute', left: n.x + NODE_W / 2, top: n.y, transform: 'translateX(-50%)',
-                    width: 'max-content', maxWidth: 320,
-                    height: compatta ? ROOT_H : (orchId ? H_TRE_CHIP : H_DUE_CHIP),
+                    width: 'max-content', maxWidth: 340,
+                    height: cardH(n),
                     backgroundColor: isPicked ? 'var(--q-danger, #e5484d)' : 'var(--q-bg-panel)',
                     border: '1px solid var(--q-border)',
-                    borderRadius: 'var(--radius-lg)', padding: compatta ? '0 14px' : '9px 13px', cursor: 'pointer',
-                    boxSizing: 'border-box', display: 'flex', flexDirection: 'column', justifyContent: compatta ? 'center' : 'flex-start',
+                    borderRadius: 'var(--radius-lg)', padding: '10px 13px 13px 13px', cursor: 'pointer',
+                    boxSizing: 'border-box', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start',
                   }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     {n.isOrch
@@ -265,29 +245,43 @@ export function AgentGraphSheet(props: Props) {
                     <span style={{ fontSize: 12.5, fontWeight: 600, color: isPicked ? '#fff' : 'var(--q-text)', fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap' }}>{n.agent.name || n.id}</span>
                   </div>
 
-                  {!n.isOrch && chatAgentIds.length > 1 && (
+                  {/* UN SOLO agente: change agent ✗ sub agent */}
+                  {soloUno && (
                     <>
-                      <div style={{ display: 'flex', marginTop: 7, pointerEvents: selectMode ? 'none' : 'auto' }}>
+                      <div style={{ display: 'flex', marginTop: 7, pointerEvents: bloccato }}>
+                        <Chip picked={isPicked} onClick={(e: any) => { e.stopPropagation(); setChangeFor(true) }} icon={<RefreshCw size={11} />}>change agent</Chip>
+                      </div>
+                      <div style={{ display: 'flex', marginTop: 4, pointerEvents: bloccato }}>
+                        <Chip picked={isPicked} onClick={(e: any) => { e.stopPropagation(); setSubFor(n.id) }} icon={<Plus size={11} />}>sub agent</Chip>
+                      </div>
+                    </>
+                  )}
+
+                  {/* PIU' agenti, non orchestrator: modello ✗ thinking (+ sub se c'è l'orchestrator) */}
+                  {!soloUno && !n.isOrch && (
+                    <>
+                      <div style={{ display: 'flex', marginTop: 7, pointerEvents: bloccato }}>
                         <Chip picked={isPicked} onClick={(e: any) => { e.stopPropagation(); props.onPickModel(n.id) }} icon={<Cpu size={11} />}>
                           {String(ov.model || n.agent.model || 'Chat default').split('/').pop()}
                         </Chip>
                       </div>
-                      <div style={{ display: 'flex', marginTop: 4, pointerEvents: selectMode ? 'none' : 'auto' }}>
-                        <Chip picked={isPicked} onClick={(e: any) => { e.stopPropagation(); props.onPickThinking(n.id) }} icon={<Brain size={11} />}>
-                          {thinking}
-                        </Chip>
+                      <div style={{ display: 'flex', marginTop: 4, pointerEvents: bloccato }}>
+                        <Chip picked={isPicked} onClick={(e: any) => { e.stopPropagation(); props.onPickThinking(n.id) }} icon={<Brain size={11} />}>{thinking}</Chip>
                       </div>
-                      {/* + sub agent: riga sua, STESSA chip (stesso contorno) */}
                       {orchId && (
-                        <div style={{ display: 'flex', marginTop: 4, pointerEvents: selectMode ? 'none' : 'auto' }}>
-                          <Chip picked={isPicked} onClick={(e: any) => { e.stopPropagation(); props.onAddSubAgent(n.id) }} icon={<Plus size={11} />}>
-                            sub agent
-                          </Chip>
+                        <div style={{ display: 'flex', marginTop: 4, pointerEvents: bloccato }}>
+                          <Chip picked={isPicked} onClick={(e: any) => { e.stopPropagation(); setSubFor(n.id) }} icon={<Plus size={11} />}>sub agent</Chip>
                         </div>
                       )}
                     </>
                   )}
 
+                  {/* ORCHESTRATOR: nome ✗ sub agent */}
+                  {!soloUno && n.isOrch && (
+                    <div style={{ display: 'flex', marginTop: 6, pointerEvents: bloccato }}>
+                      <Chip picked={isPicked} onClick={(e: any) => { e.stopPropagation(); setSubFor(n.id) }} icon={<Plus size={11} />}>sub agent</Chip>
+                    </div>
+                  )}
                 </div>
               )
             })}
@@ -295,6 +289,33 @@ export function AgentGraphSheet(props: Props) {
         )}
       </div>
 
+      {/* sub agent: lo STESSO picker della chat, già in chat esclusi */}
+      {subFor && (
+        <AgentPickerModal
+          agents={agents}
+          initialSelected={[...chatAgentIds, ...((byId[subFor]?.delegates as string[]) || [])]}
+          title={`Add sub agents to ${byId[subFor]?.name || subFor}`}
+          onClose={() => setSubFor(null)}
+          onAdd={async (ids: string[]) => {
+            const cur: string[] = Array.isArray(byId[subFor]?.delegates) ? byId[subFor].delegates : []
+            try { await call('updateAgent', { id: subFor, config: { delegates: [...cur, ...ids] } }) } catch {}
+            props.onRefreshAgents?.()
+            setSubFor(null)
+          }}
+        />
+      )}
+
+      {/* change agent: STESSO picker, selezione singola */}
+      {changeFor && (
+        <AgentPickerModal
+          agents={agents}
+          initialSelected={chatAgentIds}
+          title="Change agent"
+          single
+          onClose={() => setChangeFor(false)}
+          onAdd={(ids: string[]) => { if (ids[0]) props.onChangeAgent(ids[0]); setChangeFor(false) }}
+        />
+      )}
     </div>
   )
 }
@@ -312,26 +333,6 @@ function Chip({ children, icon, onClick, picked }: any) {
       }}>
       {icon}{children}
     </span>
-  )
-}
-
-function TinyBtn({ children, onClick, disabled, danger }: any) {
-  return (
-    <button onClick={onClick} disabled={disabled}
-      onMouseEnter={e => { if (!disabled) e.currentTarget.style.backgroundColor = 'var(--q-hover)' }}
-      onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
-      style={{ height: 28, padding: '0 10px', marginRight: 6, borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'transparent', color: disabled ? 'var(--q-text-tertiary)' : danger ? 'var(--q-danger, #e5484d)' : 'var(--q-text)', fontSize: 12, fontFamily: 'var(--font-interface)', cursor: disabled ? 'default' : 'pointer' }}>
-      {children}
-    </button>
-  )
-}
-
-function MenuItem({ children, onClick, danger }: any) {
-  return (
-    <div onClick={onClick}
-      style={{ padding: '7px 10px', borderRadius: 'var(--radius-sm)', fontSize: 12.5, fontFamily: 'var(--font-interface)', color: danger ? 'var(--q-danger, #e5484d)' : 'var(--q-text)', cursor: 'pointer' }}
-      onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--q-hover)')}
-      onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}>{children}</div>
   )
 }
 

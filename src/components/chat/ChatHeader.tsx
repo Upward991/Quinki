@@ -94,7 +94,6 @@ export function ChatHeader(props: ChatHeaderProps) {
   const chatHasOneAgent = props.selectedAgentIds.length <= 1
   const agentListRef = useRef<HTMLDivElement>(null)
   const [modelPickerFor, setModelPickerFor] = useState<string | null>(null)
-  const [subAgentFor, setSubAgentFor] = useState<string | null>(null)
   const { call: rpc } = useSidecarContext()
   const [thinkingPickerFor, setThinkingPickerFor] = useState<string | null>(null)
   const [addAgentOpen, setAddAgentOpen] = useState(false)
@@ -601,7 +600,6 @@ export function ChatHeader(props: ChatHeaderProps) {
                 picked={selectedForRemoval}
                 onClose={() => { props.onToggleAgentDropdown(); setMultiSelect(false); setSelectedForRemoval(new Set()) }}
                 onOpenAgent={(id) => setConfigModalAgent(id)}
-                onAddAgent={() => setAddAgentOpen(true)}
                 onContextMenu={(id, x, y) => setCtxMenu({ x, y, agentId: id })}
                 onTogglePick={(id) => setSelectedForRemoval(prev => {
                     const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id)
@@ -610,9 +608,13 @@ export function ChatHeader(props: ChatHeaderProps) {
                   })}
                 onRequestRemoveSelected={() => setConfirmDelete('selected')}
                 onCancelSelect={() => { setMultiSelect(false); setSelectedForRemoval(new Set()) }}
+                onChangeAgent={(id) => {
+                  const cur = String((props as any).session?.agentId || '').split(',').filter(Boolean)
+                  if (cur.length === 1) (props as any).onAgentToggle?.(cur[0]) // togli il vecchio
+                  ;(props as any).onAgentToggle?.(id)                      // metti il nuovo
+                }}
                 onPickModel={(id) => setModelPickerFor(id)}
                 onPickThinking={(id) => setThinkingPickerFor(id)}
-                onAddSubAgent={(id) => setSubAgentFor(id)}
                 onRefreshAgents={(props as any).onRefreshAgents}
               />
             )}
@@ -657,25 +659,7 @@ export function ChatHeader(props: ChatHeaderProps) {
         />
       )}
 
-      {/* Sub agent: STESSO picker, con gli agenti già in chat esclusi */}
-      {subAgentFor && (() => {
-        const parent = (props.agents || []).find((a: any) => a.id === subAgentFor)
-        const esclusi = [...(props.selectedAgentIds || []), ...(((parent as any)?.delegates) || [])]
-        return (
-          <AgentPickerModal
-            agents={props.agents || []}
-            initialSelected={esclusi}
-            title={`Add sub agents to ${(parent as any)?.name || subAgentFor}`}
-            onClose={() => setSubAgentFor(null)}
-            onAdd={async (ids: string[]) => {
-              const cur = Array.isArray((parent as any)?.delegates) ? (parent as any).delegates : []
-              try { await rpc('updateAgent', { id: subAgentFor, config: { delegates: [...cur, ...ids] } }) } catch {}
-              ;(props as any).onRefreshAgents?.()
-              setSubAgentFor(null)
-            }}
-          />
-        )
-      })()}
+
 
       {/* Model picker modal */}
       {modelPickerFor && (
@@ -835,13 +819,14 @@ function IconBtn({ icon: Icon, onClick, title, activeBg }: { icon: React.FC<{ si
 
 
 // ── Agent picker modal — fedele a _AgentPickerDialog Flutter: header, search, checkbox, footer ──
-function AgentPickerModal({ agents, initialSelected, onClose, onAdd, embedded, title }: {
+export function AgentPickerModal({ agents, initialSelected, onClose, onAdd, embedded, title, single }: {
   agents: Agent[]
   initialSelected?: string[]
   onClose: () => void
   onAdd: (ids: string[]) => void
   embedded?: boolean
     title?: string
+    single?: boolean
 }) {
   const mob = useLayout().mode === 'mobile'
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -849,7 +834,11 @@ function AgentPickerModal({ agents, initialSelected, onClose, onAdd, embedded, t
   // NASCONDI gli agenti già in chat
   const available = agents.filter(a => !(initialSelected || []).includes(a.id))
   const filtered = available.filter(a => a.name.toLowerCase().includes(query.toLowerCase()))
-  const toggle = (id: string) => setSelected(prev => { const s = new Set(prev); if (s.has(id)) s.delete(id); else s.add(id); return s })
+    // single = "cambia agente": ne scegli UNO e via.
+    const toggle = (id: string) => {
+      if (single) { onAdd([id]); return }
+      setSelected(prev => { const s = new Set(prev); if (s.has(id)) s.delete(id); else s.add(id); return s })
+    }
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 900, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={(e: any) => { if (e.target === e.currentTarget) onClose() }}>
       <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: '500px', maxHeight: '500px', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
