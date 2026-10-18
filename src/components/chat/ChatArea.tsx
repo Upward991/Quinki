@@ -928,6 +928,8 @@ export function ChatArea(props: ChatAreaProps) {
                 {(() => {
                   const chatItems: { kind: 'msg' | 'task' | 'sys'; ts: number; msg?: any; run?: any; sysMsg?: string; mIdx?: number }[] = []
                   props.messages.forEach((msg, mIdx) => {
+                    // I messaggi `system` (voce del prompt) non sono conversazione: fuori dal transcript.
+                    if (msg?.role === 'system') return
                     let ts = 0
                     try { ts = new Date(msg.timestamp).getTime() } catch {}
                     chatItems.push({ kind: 'msg', ts, msg, mIdx })

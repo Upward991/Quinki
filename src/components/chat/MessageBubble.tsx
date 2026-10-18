@@ -68,6 +68,11 @@ export const MessageBubble = memo(function MessageBubble({ message, onCopy, sear
 // È un messaggio di sistema hardcoded che entra nel contesto della conversazione.
 function SystemMessage({ message }: { message: Message }) {
   const text = typeof message.content === 'string' ? message.content : ''
+  // FIX 18 ott: il MOTORE scrive in testa a ogni sessione una voce `system` con `content`
+  // VUOTO (il prompt vero sta in `sections`). La UI la disegnava come scatola
+  // "Long Horizon Mode" vuota sopra il primo messaggio di OGNI chat nuova.
+  // Un messaggio di sistema senza testo non è contenuto: non si mostra.
+  if (!text.trim()) return null
   return (
     <div style={{ maxWidth: 'var(--spacing-chat-max)', minWidth: 0, margin: '8px 0' }}>
       <div style={{ backgroundColor: 'var(--q-bg)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', padding: '12px 16px' }}>
