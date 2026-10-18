@@ -5392,7 +5392,9 @@ Read this file to view it.` }] };
       // Plan mode: remove tools not allowed in plan (but keep custom tools)
       if (m === "plan") {
         const planFlags = globalConfig.planModeTools || {};
-        names = names.filter(n => planFlags[n] !== false || customToolNames.includes(n));
+        // PLAN: si usa ESATTAMENTE ciò che è abilitato nelle impostazioni (planModeTools),
+        // senza eccezioni hardcoded: un tool spento in settings resta spento.
+        names = names.filter((n) => planFlags[n] !== false);
         // bash_readonly: ora è un TOOL REALE e autonomo (registrato tra le custom
         // tools dall'agente che lo ha nel config). Niente piu alias su bash:
         // in plan mode il bash COMPLETO non viene mai assegnato (planFlags.bash=false).
@@ -5932,21 +5934,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
     // "leggeva la pagina" quando gli si chiedeva di leggere un FILE.
     // Qui si prenotano i nomi core: un tool MCP con lo stesso nome viene rinominato
     // (`read` → `read_1`, `grep` → `grep_1`, ...).
-    // NOMI RISERVATI — AUTOMATICO (18 ott): non una lista a mano, ma i tool che la sessione
-    // HA DAVVERO. Così nessun tool futuro (nuovo MCP, nuovo tool nostro) può oscurarne un
-    // altro: se il nome è occupato, il tool MCP viene rinominato (`read` → `read_1`).
-    const used = new Set<string>();
-    try {
-      const live = this.#active.get(sk);
-      for (const t of (live?.getAllTools?.() ?? [])) {
-        const n = typeof t?.name === "string" ? t.name : "";
-        if (n) used.add(n);
-      }
-    } catch {}
-    // fallback: i nostri tool custom, che non sempre compaiono in getAllTools
-    for (const n of ["read", "write", "edit", "bash", "bash_readonly", "grep", "find", "ls", "skill",
-                     "screenshot", "market", "delegate_to_agent", "schedule_task", "cancel_schedule",
-                     "getTaskStatus", "getTaskExecuted", "readHandoff"]) used.add(n);
+    const used = new Set<string>(["skill", "delegate_to_agent", "schedule_task"]);
     for (const sid of ids) {
       const server = readMcpServers().find((s: any) => s.id === sid);
       if (!server) {
