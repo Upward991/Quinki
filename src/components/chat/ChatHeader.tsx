@@ -603,7 +603,11 @@ export function ChatHeader(props: ChatHeaderProps) {
                 onOpenAgent={(id) => setConfigModalAgent(id)}
                 onAddAgent={() => setAddAgentOpen(true)}
                 onContextMenu={(id, x, y) => setCtxMenu({ x, y, agentId: id })}
-                onTogglePick={(id) => setSelectedForRemoval(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })}
+                onTogglePick={(id) => setSelectedForRemoval(prev => {
+                    const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id)
+                    if (n.size === 0) setMultiSelect(false) // deselezionati tutti → si esce dalla selezione
+                    return n
+                  })}
                 onRequestRemoveSelected={() => setConfirmDelete('selected')}
                 onCancelSelect={() => { setMultiSelect(false); setSelectedForRemoval(new Set()) }}
                 onPickModel={(id) => setModelPickerFor(id)}

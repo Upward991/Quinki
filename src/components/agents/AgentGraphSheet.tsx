@@ -33,7 +33,9 @@ type Props = {
 }
 
 const NODE_W = 210
-const NODE_H = 124
+const NODE_H = 124 // (solo riferimento storico; l'altezza vera è cardH)
+const H_DUE_CHIP = 84  // nome + modello + thinking
+const H_TRE_CHIP = 107 // + sub agent
 const ROOT_H = 46
 const GAP_X = 30
 const GAP_Y = 54
@@ -52,6 +54,8 @@ export function AgentGraphSheet(props: Props) {
 
   const orchId = (orchestratorId && byId[orchestratorId]) ? orchestratorId : ''
   const soloUno = chatAgentIds.length <= 1
+  // Altezza reale di ogni card: compatta (solo nome) oppure con 2 o 3 chip.
+  const cardH = (n: TNode) => (n.isOrch || soloUno) ? ROOT_H : (orchId ? H_TRE_CHIP : H_DUE_CHIP)
 
   // ── albero / riga piatta ─────────────────────────────────────────────────
   const laid = useMemo(() => {
@@ -91,20 +95,20 @@ export function AgentGraphSheet(props: Props) {
       }
       const units = measure(root)
       const unitW = NODE_W + GAP_X
-      const H = soloUno ? ROOT_H : NODE_H
+      const H = soloUno ? ROOT_H : (orchId ? H_TRE_CHIP : H_DUE_CHIP)
       const yFor = (d: number) => d === 0 ? 0 : ROOT_H + GAP_Y + (d - 1) * (H + GAP_Y)
       const place = (n: TNode, cx: number) => { n.x = cx + n.x * unitW; n.y = yFor(n.depth); nodes.push(n); for (const c of n.children) place(c, n.x) }
       place(root, (units - 1) * unitW / 2)
       const minX = Math.min(...nodes.map(n => n.x))
       for (const n of nodes) n.x -= minX
-      const maxY = Math.max(...nodes.map(n => n.y + ((n.isOrch || soloUno) ? ROOT_H : NODE_H)))
+      const maxY = Math.max(...nodes.map(n => n.y + cardH(n)))
       return { nodes, width: Math.max(...nodes.map(n => n.x)) + NODE_W, height: maxY }
     }
 
     // Nessun orchestrator: riga piatta, nessun ruolo assegnato.
     for (const id of chatAgentIds) if (byId[id]) flat.push(id)
     flat.forEach((id, i) => { const n = newRoot(id); n.x = i * (NODE_W + GAP_X); n.y = 0; nodes.push(n) })
-    return { nodes, width: flat.length ? flat.length * (NODE_W + GAP_X) - GAP_X : 0, height: soloUno ? ROOT_H : NODE_H }
+    return { nodes, width: flat.length ? flat.length * (NODE_W + GAP_X) - GAP_X : 0, height: soloUno ? ROOT_H : (orchId ? H_TRE_CHIP : H_DUE_CHIP) }
   }, [orchId, byId, chatAgentIds, soloUno])
 
   // ── zoom 50–300% / pan ───────────────────────────────────────────────────
@@ -228,7 +232,7 @@ export function AgentGraphSheet(props: Props) {
             <svg width={laid.width} height={laid.height} style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible', pointerEvents: 'none' }}>
               {edges.map((e, i) => {
                 const x1 = e.from.x + NODE_W / 2
-                const y1 = e.from.y + ((e.from.isOrch || soloUno) ? ROOT_H : NODE_H)
+                const y1 = e.from.y + cardH(e.from)
                 const x2 = e.to.x + NODE_W / 2
                 const y2 = e.to.y
                 const my = (y1 + y2) / 2
@@ -248,7 +252,7 @@ export function AgentGraphSheet(props: Props) {
                   style={{
                     position: 'absolute', left: n.x + NODE_W / 2, top: n.y, transform: 'translateX(-50%)',
                     width: 'max-content', maxWidth: 320,
-                    height: compatta ? ROOT_H : NODE_H,
+                    height: compatta ? ROOT_H : (orchId ? H_TRE_CHIP : H_DUE_CHIP),
                     backgroundColor: isPicked ? 'var(--q-danger, #e5484d)' : 'var(--q-bg-panel)',
                     border: '1px solid var(--q-border)',
                     borderRadius: 'var(--radius-lg)', padding: compatta ? '0 14px' : '9px 13px', cursor: 'pointer',
@@ -263,19 +267,19 @@ export function AgentGraphSheet(props: Props) {
 
                   {!n.isOrch && chatAgentIds.length > 1 && (
                     <>
-                      <div style={{ display: 'flex', marginTop: 7 }}>
+                      <div style={{ display: 'flex', marginTop: 7, pointerEvents: selectMode ? 'none' : 'auto' }}>
                         <Chip picked={isPicked} onClick={(e: any) => { e.stopPropagation(); props.onPickModel(n.id) }} icon={<Cpu size={11} />}>
                           {String(ov.model || n.agent.model || 'Chat default').split('/').pop()}
                         </Chip>
                       </div>
-                      <div style={{ display: 'flex', marginTop: 4 }}>
+                      <div style={{ display: 'flex', marginTop: 4, pointerEvents: selectMode ? 'none' : 'auto' }}>
                         <Chip picked={isPicked} onClick={(e: any) => { e.stopPropagation(); props.onPickThinking(n.id) }} icon={<Brain size={11} />}>
                           {thinking}
                         </Chip>
                       </div>
                       {/* + sub agent: riga sua, STESSA chip (stesso contorno) */}
                       {orchId && (
-                        <div style={{ display: 'flex', marginTop: 4 }}>
+                        <div style={{ display: 'flex', marginTop: 4, pointerEvents: selectMode ? 'none' : 'auto' }}>
                           <Chip picked={isPicked} onClick={(e: any) => { e.stopPropagation(); props.onAddSubAgent(n.id) }} icon={<Plus size={11} />}>
                             sub agent
                           </Chip>
