@@ -193,6 +193,7 @@ export function AgentGraphSheet(props: Props) {
     <div style={{ position: 'fixed', top: 25, left: 0, right: 0, bottom: 0, zIndex: 300, backgroundColor: 'var(--q-bg)', display: 'flex', flexDirection: 'column', padding: 8, boxSizing: 'border-box' }}>
       {/* ── heading: stessa struttura della testata chat (pannelli flottanti separati) ── */}
       <div style={{ flexShrink: 0, marginBottom: 8 }}>
+        <div style={{ width: '100%', maxWidth: 'var(--spacing-chat-max)', margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', width: '100%', gap: 8 }}>
           {/* tasto staccato: torna alla chat (chiude il menù) */}
           <div style={panelStyle}>
@@ -204,7 +205,7 @@ export function AgentGraphSheet(props: Props) {
             <div style={{ width: 8, flexShrink: 0 }} />
             <Bot size={18} style={{ color: 'var(--q-text-secondary)', flexShrink: 0 }} />
             <div style={{ width: 16, flexShrink: 0 }} />
-            <span style={{ color: 'var(--q-text)', fontSize: 16, fontWeight: 600, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap' }}>Agents</span>
+            <span style={{ color: 'var(--q-text)', fontSize: 16, fontWeight: 600, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap' }}>Agents in chat</span>
             <span style={{ color: 'var(--q-text-tertiary)', fontSize: 12, fontFamily: 'var(--font-interface)', marginLeft: 10, whiteSpace: 'nowrap' }}>
               {laid.nodes.length} {laid.nodes.length === 1 ? 'agent' : 'agents'} · {pct}%
             </span>
@@ -237,10 +238,11 @@ export function AgentGraphSheet(props: Props) {
           {/* tasto staccato a destra: aggiungi agente */}
           <div style={panelStyle}>
             <button onClick={props.onAddAgent} title="Add agent"
-              style={{ height: 36, padding: '0 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'transparent', color: 'var(--q-text)', fontSize: 12, fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>
+              style={{ height: 36, padding: '0 8px', border: 'none', background: 'transparent', color: 'var(--q-text)', fontSize: 13, fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>
               + Agent
             </button>
           </div>
+        </div>
         </div>
       </div>
 
@@ -262,42 +264,47 @@ export function AgentGraphSheet(props: Props) {
 
             {laid.nodes.map(n => {
               const isPicked = picked.has(n.id)
+              const ov = agentOverrides?.[n.id] || {}
+              const thinking = ov.thinkingLevel === 'off' ? 'off' : ov.thinkingLevel ? ov.thinkingLevel : 'chat default'
               return (
                 <div key={n.id} data-node-card
                   onClick={() => { if (selectMode) togglePicked(n.id); else props.onOpenAgent(n.id) }}
                   onContextMenu={(e) => { e.preventDefault(); setMenu({ id: n.id, x: e.clientX, y: e.clientY }) }}
                   style={{
-                    position: 'absolute', left: n.x, top: n.y, width: NODE_W, minHeight: NODE_H,
+                    position: 'absolute', left: n.x + NODE_W / 2, top: n.y, transform: 'translateX(-50%)',
+                    width: 'max-content', maxWidth: 260,
                     backgroundColor: 'var(--q-bg-panel)',
                     border: `1px solid ${isPicked ? 'var(--q-danger, #e5484d)' : 'var(--q-border)'}`,
-                    borderRadius: 'var(--radius-lg)', padding: '11px 13px', cursor: 'pointer',
+                    borderRadius: 'var(--radius-lg)', padding: n.isRoot ? '7px 12px' : '10px 12px', cursor: 'pointer',
                     boxSizing: 'border-box',
                   }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+                  {/* nome (+ icona): l'orchestrator è riconoscibile dall'icona e dalla posizione */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     {n.isRoot ? <Network size={14} style={{ color: 'var(--q-text-secondary)', flexShrink: 0 }} /> : <Bot size={14} style={{ color: 'var(--q-text-secondary)', flexShrink: 0 }} />}
-                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--q-text)', fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{n.agent.name || n.id}</span>
-                    {n.isRoot && (
-                      <span style={{ flexShrink: 0, fontSize: 9.5, padding: '0 5px', lineHeight: '15px', borderRadius: 999, border: '1px solid var(--q-border)', color: 'var(--q-text-tertiary)', fontFamily: 'var(--font-interface)' }}>orchestrator</span>
-                    )}
+                    <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--q-text)', fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap' }}>{n.agent.name || n.id}</span>
                   </div>
 
-                  {/* modello / thinking: solo per gli agenti (l'orchestrator usa quelli della chat) */}
+                  {/* modello sopra, thinking sotto: ognuno largo quanto il suo testo */}
                   {!n.isRoot && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
-                      <span onClick={(e) => { e.stopPropagation(); props.onPickModel(n.id) }}
-                        style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', cursor: 'pointer', maxWidth: 110, overflow: 'hidden' }}>
-                        <Cpu size={12} style={{ flexShrink: 0 }} />
-                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{String(n.agent.model || 'chat').split('/').pop()}</span>
-                      </span>
-                      <span onClick={(e) => { e.stopPropagation(); props.onPickThinking(n.id) }}
-                        style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>
-                        <Brain size={12} style={{ flexShrink: 0 }} />
-                        <span>{agentOverrides?.[n.id]?.thinkingLevel === 'off' ? 'Off' : agentOverrides?.[n.id]?.thinkingLevel ? 'On' : 'Chat default'}</span>
-                      </span>
-                      <div style={{ flex: 1 }} />
-                      <span onClick={(e) => { e.stopPropagation(); setSubFor(subFor === n.id ? null : n.id) }}
-                        style={{ fontSize: 10.5, color: 'var(--q-text-tertiary)', fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>+ sub</span>
-                    </div>
+                    <>
+                      <div style={{ display: 'flex', marginTop: 8 }}>
+                        <span onClick={(e) => { e.stopPropagation(); props.onPickModel(n.id) }}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '1px 7px', borderRadius: 999, border: '1px solid var(--q-border)', fontSize: 10.5, color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', cursor: 'pointer', width: 'fit-content' }}>
+                          <Cpu size={11} style={{ flexShrink: 0 }} />
+                          <span style={{ whiteSpace: 'nowrap' }}>{String(n.agent.model || 'chat default').split('/').pop()}</span>
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', marginTop: 4, alignItems: 'center' }}>
+                        <span onClick={(e) => { e.stopPropagation(); props.onPickThinking(n.id) }}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '1px 7px', borderRadius: 999, border: '1px solid var(--q-border)', fontSize: 10.5, color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', cursor: 'pointer', width: 'fit-content' }}>
+                          <Brain size={11} style={{ flexShrink: 0 }} />
+                          <span style={{ whiteSpace: 'nowrap' }}>{thinking}</span>
+                        </span>
+                        <div style={{ flex: 1 }} />
+                        <span onClick={(e) => { e.stopPropagation(); setSubFor(subFor === n.id ? null : n.id) }}
+                          style={{ fontSize: 10.5, color: 'var(--q-text-tertiary)', fontFamily: 'var(--font-interface)', cursor: 'pointer', marginLeft: 8 }}>+ sub</span>
+                      </div>
+                    </>
                   )}
 
                   {/* chi può delegare (solo agenti, mai l'orchestrator) */}
