@@ -5310,6 +5310,9 @@ Read this file to view it.` }] };
   // nome + descrizione + schema parametri, customTool MCP inclusi. Usato dal log system_prompt.
   #activeToolDefs(pi: any, key?: string): any[] {
     const out: any[] = [];
+      const mcpNames = new Set<string>(
+        (key ? (this.#mcpToolNames.get(key) || []) : []).map((e) => e.name),
+      );
     try {
       const names = (pi?.getActiveToolNames?.() || []) as string[];
       for (const name of names) {
@@ -5322,7 +5325,18 @@ Read this file to view it.` }] };
           if (name === "bash" && key && this.#bashReadonlySessions.has(key)) {
             displayName = "bash_readonly";
           }
-          out.push({ name: displayName, description: (d?.description || "").slice(0, 400), params: params.slice(0, 500) });
+          // `mcp`: true se il tool viene DAVVERO da un server MCP → il Log mostra due
+          // elenchi distinti. Attenzione: un MCP può DICHIARARE un nome che è già nostro
+          // (BrowserOS dichiara `read`/`grep`/`screenshot`) ma il tool eseguito resta il
+          // NOSTRO (verificato: legge i file). Quindi i nomi core non sono mai "MCP".
+          const CORE_TOOL_NAMES = new Set([
+            "read", "write", "edit", "bash", "bash_readonly", "grep", "find", "ls", "skill",
+            "screenshot", "market", "delegate_to_agent", "schedule_task", "cancel_schedule",
+            "getTaskStatus", "getTaskExecuted", "readHandoff",
+          ]);
+          const isMcp = !CORE_TOOL_NAMES.has(name)
+            && (mcpNames.has(name) || String(d?.description || "").includes("(MCP server:"));
+          out.push({ name: displayName, description: (d?.description || "").slice(0, 400), params: params.slice(0, 500), mcp: isMcp });
         } catch {}
       }
     } catch {}
@@ -7635,7 +7649,11 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
       // Include le definizioni COMPLETE dei tool attivi inviati al modello (canale tools),
       // customTool MCP inclusi — così il log mostra esattamente tutto ciò che arriva all'agente.
       const activeTools = this.#activeToolDefs(pi, sk);
-      this.logDebug("system_prompt", { sessionKey: sk, len: prompt.length, hasSkills: !!(skillsForPrompt && skillsForPrompt.length > 0), skills: skillsForPrompt ? skillsForPrompt.map((s: any) => s.skillName) : [], agentId: resolvedAgent || "unknown", agentName: agentCfg?.name || resolvedAgent || "unknown", isDelegation: false, isOrchestrator, messageText: (data.text || "").substring(0, 200), activeToolCount: activeTools.length, activeTools, prompt: prompt });
+      // TOOL ATTIVI, DIVISI (18 ott): `activeTools` = tool normali ✗ `mcpTools` = tool dei
+      // server MCP. Prima erano mescolati e un `read`/`grep` dell'MCP sembrava il nostro.
+      const normalTools = activeTools.filter((t: any) => !t?.mcp);
+      const mcpTools = activeTools.filter((t: any) => !!t?.mcp);
+      this.logDebug("system_prompt", { sessionKey: sk, len: prompt.length, hasSkills: !!(skillsForPrompt && skillsForPrompt.length > 0), skills: skillsForPrompt ? skillsForPrompt.map((s: any) => s.skillName) : [], agentId: resolvedAgent || "unknown", agentName: agentCfg?.name || resolvedAgent || "unknown", isDelegation: false, isOrchestrator, messageText: (data.text || "").substring(0, 200), activeToolCount: activeTools.length, activeTools: normalTools, mcpToolCount: mcpTools.length, mcpTools, prompt: prompt });
       // Store skills for delegation — #buildDelegateTool will inject them into the delegated agent's system prompt
       if (skillNames && skillNames.length > 0) {
         this.#pendingDelegationSkills.set(sk, skillNames);

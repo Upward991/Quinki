@@ -635,8 +635,14 @@ export async function runTui(opts: TuiOptions): Promise<void> {
   // The local SDK session is a leftover from the pre-sidecar era: it must NEVER
   // write into the real dir (that polluted the app's files). Throwaway location.
   const sessionDirForKey = path.join(os.homedir(), ".quinki", "cli-local", key);
-  fs.mkdirSync(sessionDirForKey, { recursive: true });
-  fs.mkdirSync(realSessionDir, { recursive: true });
+  // NIENTE cartelle all'avvio (regola utente, 18 ott): la welcome chat NON è una sessione.
+  // Le cartelle (cli-local + sessions/quinki/<key>) si creano al PRIMO MESSAGGIO, quando
+  // la sessione esiste davvero. Prima ogni avvio della CLI lasciava una cartella vuota
+  // (945 trovate su disco). Le crea `ensureSessionDirs()` nel percorso di invio.
+  const ensureSessionDirs = () => {
+    try { require("fs").mkdirSync(sessionDirForKey, { recursive: true }); } catch {}
+    try { require("fs").mkdirSync(currentSessionDir || realSessionDir, { recursive: true }); } catch {}
+  };
 
   // --- engine (invisible): the same SDK the sidecar/app use -----------------
   const sm = sdk.SessionManager.create(opts.cwd, sessionDirForKey);
@@ -7629,6 +7635,7 @@ const applySettingsPatch = (patch: any) => {
       };
       void (async () => {
         try {
+          ensureSessionDirs(); // la sessione nasce ORA: solo adesso servono le cartelle
           await sc.call("ensureSession", { sessionKey: sk, label: "Chat", workingDir: (pendingWorkingDir && pendingWorkingDir !== "undefined" ? pendingWorkingDir : undefined) }, 20000);
           // Now the sidecar knows the session: fetch the real list for the header.
           try { qDirs = null; qDirsKey = ""; qDirsKick(); } catch {}
