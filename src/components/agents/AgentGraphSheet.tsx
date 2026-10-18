@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Bot, Home, Network, Plus, Maximize, X, Cpu, Brain } from '../icons'
+import { Bot, Home, Network, Plus, Maximize, MessageSquare, Cpu, Brain } from '../icons'
 import { useSidecarContext } from '../shared/AppShell'
 
 /**
@@ -180,9 +180,9 @@ export function AgentGraphSheet(props: Props) {
   const pct = Math.round(zoom * 100)
 
   return (
-    <div style={{ position: 'fixed', top: 25, left: 0, right: 0, bottom: 0, zIndex: 400, backgroundColor: 'var(--q-bg)', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ position: 'fixed', top: 25, left: 0, right: 0, bottom: 0, zIndex: 400, backgroundColor: 'var(--q-bg)', display: 'flex', flexDirection: 'column', padding: 8, boxSizing: 'border-box' }}>
       {/* ── heading standard dell'app (stessa larghezza delle altre schermate) ── */}
-      <div style={{ flexShrink: 0, padding: '6px 16px 0 16px' }}>
+      <div style={{ flexShrink: 0 }}>
         <div style={{ width: '100%', maxWidth: 'var(--spacing-chat-max)', margin: '0 auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, width: '100%' }}>
             {props.onHome && <IconBtn title="Home" onClick={props.onHome}><Home size={20} /></IconBtn>}
@@ -219,14 +219,14 @@ export function AgentGraphSheet(props: Props) {
               style={{ height: 28, padding: '0 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'transparent', color: 'var(--q-text)', fontSize: 12, fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>
               + Agent
             </button>
-            <IconBtn title="Close" onClick={props.onClose}><X size={18} /></IconBtn>
+            <IconBtn title="Back to chat" onClick={props.onClose}><MessageSquare size={18} /></IconBtn>
           </div>
         </div>
       </div>
 
       {/* ── tela ── */}
       <div ref={viewRef} onWheel={onWheel} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}
-        style={{ position: 'relative', flex: 1, overflow: 'hidden', cursor: dragRef.current ? 'grabbing' : 'default' }}>
+        style={{ position: 'relative', flex: 1, minHeight: 0, overflow: 'hidden', cursor: dragRef.current ? 'grabbing' : 'default', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)' }}>
         {laid.nodes.length === 0 ? (
           <div style={{ padding: 40, color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)' }}>No agents in this chat.</div>
         ) : (
