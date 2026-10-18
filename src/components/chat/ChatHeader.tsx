@@ -358,8 +358,8 @@ export function ChatHeader(props: ChatHeaderProps) {
         {/* Sync or Rollback choice modal (copy of the Settings App Expert section, without section title/description) */}
       {choiceOpen && (
         <>
-          <div style={{ position: 'fixed', inset: 0, zIndex: 400, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setChoiceOpen(false)} />
-          <div style={{ position: 'fixed', zIndex: 401, inset: 0, margin: 'auto', height: 'fit-content', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '440px', width: '90%' }}>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 950, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setChoiceOpen(false)} />
+          <div style={{ position: 'fixed', zIndex: 951, inset: 0, margin: 'auto', height: 'fit-content', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '440px', width: '90%' }}>
             <div style={{ color: 'var(--q-text)', fontSize: '14px', fontWeight: 600, fontFamily: 'var(--font-interface)' }}>Sync</div>
             <div style={{ color: 'var(--q-text-tertiary)', fontSize: '12px', fontFamily: 'var(--font-interface)', marginTop: '4px' }}>
               Copies the latest Quinki build (binary + sidecar) into the App Expert. Use this after updating Quinki to keep the Expert in sync. The Expert will restart to apply the changes.
@@ -389,8 +389,8 @@ export function ChatHeader(props: ChatHeaderProps) {
       {/* Sync App Expert confirm modal (same flow as Rollback) */}
       {syncConfirm && (
         <>
-          <div style={{ position: 'fixed', inset: 0, zIndex: 400, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setSyncConfirm(false)} />
-          <div style={{ position: 'fixed', zIndex: 401, inset: 0, margin: 'auto', height: 'fit-content', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '440px', width: '90%' }}>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 950, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setSyncConfirm(false)} />
+          <div style={{ position: 'fixed', zIndex: 951, inset: 0, margin: 'auto', height: 'fit-content', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '440px', width: '90%' }}>
             <div style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '12px' }}>Sync App Expert?</div>
             <div style={{ color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', lineHeight: 1.6, marginBottom: '16px' }}>
               This copies the latest Quinki build (binary + sidecar) into the App Expert. The Expert will restart with the new code. Your data is not affected.
@@ -409,8 +409,8 @@ export function ChatHeader(props: ChatHeaderProps) {
       {/* Sync progress / complete modal (same flow as Rollback) */}
       {syncState >= 2 && (
         <>
-          <div style={{ position: 'fixed', inset: 0, zIndex: 400, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => { if (syncState !== 2) setSyncState(0) }} />
-          <div style={{ position: 'fixed', zIndex: 401, inset: 0, margin: 'auto', height: 'fit-content', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '440px', width: '90%' }}>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 950, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => { if (syncState !== 2) setSyncState(0) }} />
+          <div style={{ position: 'fixed', zIndex: 951, inset: 0, margin: 'auto', height: 'fit-content', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '440px', width: '90%' }}>
             <div style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '12px' }}>{syncState === 2 ? 'Syncing...' : (syncMsg.includes('failed') ? 'Sync Failed' : 'Sync Complete')}</div>
             <div style={{ color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', lineHeight: 1.6, marginBottom: '16px' }}>
               {syncState === 2 ? 'Please wait while the Expert app is being synced...' : (syncMsg || 'Expert app synced successfully.') + (expertRunning ? ' Click Restart to apply the changes.' : ' The Expert app will use the new version next time you open it.')}
@@ -427,8 +427,8 @@ export function ChatHeader(props: ChatHeaderProps) {
                 {/* Rollback App Expert modal */}
       {rollbackConfirm && (
         <>
-          <div style={{ position: 'fixed', inset: 0, zIndex: 400, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setRollbackConfirm(false)} />
-          <div style={{ position: 'fixed', zIndex: 401, inset: 0, margin: 'auto', height: 'fit-content', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '440px', width: '90%' }}>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 950, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setRollbackConfirm(false)} />
+          <div style={{ position: 'fixed', zIndex: 951, inset: 0, margin: 'auto', height: 'fit-content', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '440px', width: '90%' }}>
             <div style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '12px' }}>Rollback App Expert?</div>
             <div style={{ color: 'var(--q-text-secondary)', fontSize: '13px', fontFamily: 'var(--font-interface)', lineHeight: 1.6, marginBottom: '16px' }}>
               This restores the App Expert to the previous version (before the last sync). Use this if a sync broke the app or the chat stopped working. The app will restart with the previous code. Your data is not affected.
@@ -447,8 +447,8 @@ export function ChatHeader(props: ChatHeaderProps) {
       {/* Rollback progress / complete modal */}
       {rollbackState >= 2 && (
         <>
-          <div style={{ position: 'fixed', inset: 0, zIndex: 400, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => { if (rollbackState !== 2) setRollbackState(0) }} />
-          <div style={{ position: 'fixed', zIndex: 401, inset: 0, margin: 'auto', height: 'fit-content', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '400px', width: '90%' }}>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 950, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => { if (rollbackState !== 2) setRollbackState(0) }} />
+          <div style={{ position: 'fixed', zIndex: 951, inset: 0, margin: 'auto', height: 'fit-content', backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '400px', width: '90%' }}>
             <div style={{ color: 'var(--q-text)', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-interface)', marginBottom: '12px' }}>{rollbackState === 2 ? 'Rolling back...' : (rollbackMsg.includes('failed') ? 'Rollback Failed' : 'Rollback Complete')}</div>
             <div style={{ color: 'var(--q-text-secondary)', fontSize: '14px', fontFamily: 'var(--font-interface)', lineHeight: 1.5, marginBottom: '16px' }}>
               {rollbackState === 2 ? 'Please wait while the Expert app is being rolled back...' : (rollbackMsg || 'Expert app rolled back successfully.') + (expertRunning ? ' Click Restart to apply the changes.' : ' The Expert app will use the previous version next time you open it.')}
@@ -598,8 +598,8 @@ export function ChatHeader(props: ChatHeaderProps) {
                 onAddAgent={() => setAddAgentOpen(true)}
                 onRemoveAgent={(id) => (props as any).onAgentToggle?.(id)}
                 onSetOrchestrator={(id) => (props as any).onSetOrchestrator?.(id)}
-                onPickModel={(id) => { props.onToggleAgentDropdown(); setModelPickerFor(id) }}
-                onPickThinking={(id) => { props.onToggleAgentDropdown(); setThinkingPickerFor(id) }}
+                onPickModel={(id) => setModelPickerFor(id)}
+                onPickThinking={(id) => setThinkingPickerFor(id)}
                 onRefreshAgents={(props as any).onRefreshAgents}
                 onHome={() => { props.onToggleAgentDropdown(); (props as any).onHomeClick?.() }}
               />

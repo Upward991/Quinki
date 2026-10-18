@@ -3,16 +3,16 @@ import { Bot, Network, Plus, Maximize, MessageSquare, Cpu, Brain } from '../icon
 import { useSidecarContext } from '../shared/AppShell'
 
 /**
- * AgentGraphSheet — il grafo degli agenti, a schermo intero.
+ * AgentGraphSheet — il grafo degli agenti della chat, a schermo intero.
  *
- * Sostituisce il menù a tendina degli agenti nella chat. Mostra l'albero:
- * l'orchestrator in alto, sotto gli agenti che può delegare (con le frecce),
- * poi i loro, senza limiti. La gerarchia viene da `delegates` nel config;
- * per l'orchestrator, se `delegates` non c'è, valgono gli agenti della chat
- * (esattamente come fa il motore).
+ * Sostituisce il menù a tendina: l'orchestrator in alto, sotto gli agenti che
+ * può delegare (frecce), poi i loro, senza limiti. La gerarchia viene da
+ * `delegates`; per l'orchestrator, se non c'è, valgono gli agenti della chat
+ * (come fa il motore).
  *
- * È una schermata come le altre: stessa heading (stessa larghezza), sotto i
- * semafori, e le sezioni degli agenti sono card con lo sfondo della chat.
+ * Heading identica alle altre tab (pannelli flottanti separati, larghezza
+ * standard). Zoom 50–300% con rotella sul puntatore, trascinamento, adatta,
+ * percentuale fra − e +. Tasto a sinistra = icona chat (chiude e torna).
  */
 
 type Props = {
@@ -21,20 +21,19 @@ type Props = {
   orchestratorId: string
   onClose: () => void
   onOpenAgent: (id: string) => void
-  onAddAgent: () => void
   onRemoveAgent: (id: string) => void
   onSetOrchestrator: (id: string) => void
   onPickModel: (id: string) => void
   onPickThinking: (id: string) => void
   onRefreshAgents?: () => void
-  onHome?: () => void
   agentOverrides?: Record<string, any>
 }
 
-const NODE_W = 208
-const NODE_H = 84
-const GAP_X = 28
-const GAP_Y = 56
+const NODE_W = 210        // larghezza di riferimento per il layout
+const NODE_H = 96         // altezza card agente
+const ROOT_H = 46         // altezza card orchestrator (compatta)
+const GAP_X = 30
+const GAP_Y = 54
 
 type TNode = { id: string; agent: any; depth: number; x: number; y: number; children: TNode[]; isRoot: boolean }
 
@@ -48,19 +47,13 @@ export function AgentGraphSheet(props: Props) {
     return m
   }, [agents])
 
-  // ── albero ────────────────────────────────────────────────────────────────
-  // Radice: l'orchestrator della chat. I suoi figli: `delegates` se configurato,
-  // altrimenti GLI AGENTI DELLA CHAT (il fallback che usa anche il motore).
-  // Per gli altri nodi: solo `delegates` (niente esplosione).
   const rootId = (orchestratorId && byId[orchestratorId]) ? orchestratorId : chatAgentIds.find(id => byId[id]) || ''
 
   const tree = useMemo(() => {
     if (!rootId) return null
-    const seen = new Set<string>()
     const build = (id: string, depth: number, chain: Set<string>): TNode | null => {
       const agent = byId[id]
       if (!agent) return null
-      seen.add(id)
       let kidsIds: string[] = []
       if (depth === 0) {
         const declared = Array.isArray(agent.delegates) ? agent.delegates.filter(Boolean) : []
@@ -74,11 +67,12 @@ export function AgentGraphSheet(props: Props) {
         const n = build(k, depth + 1, new Set([...chain, k]))
         if (n) kids.push(n)
       }
-      return { id, agent, depth, x: 0, y: depth * (NODE_H + GAP_Y), children: kids, isRoot: depth === 0 }
+      return { id, agent, depth, x: 0, y: 0, children: kids, isRoot: depth === 0 }
     }
     return build(rootId, 0, new Set([rootId]))
   }, [rootId, byId, chatAgentIds])
 
+  // ── layout: larghezze dei sottoalberi, poi le y in base alle altezze vere ──
   const laid = useMemo(() => {
     const nodes: TNode[] = []
     if (!tree) return { nodes, width: 0, height: 0 }
@@ -92,8 +86,11 @@ export function AgentGraphSheet(props: Props) {
     }
     const units = measure(tree)
     const unitW = NODE_W + GAP_X
+    // y: la radice è più bassa, gli altri hanno altezza piena
+    const yFor = (depth: number) => depth === 0 ? 0 : ROOT_H + GAP_Y + (depth - 1) * (NODE_H + GAP_Y)
     const place = (n: TNode, cx: number) => {
       n.x = cx + n.x * unitW
+      n.y = yFor(n.depth)
       nodes.push(n)
       for (const c of n.children) place(c, n.x)
     }
@@ -101,37 +98,39 @@ export function AgentGraphSheet(props: Props) {
     const minX = Math.min(...nodes.map(n => n.x))
     for (const n of nodes) n.x -= minX
     const maxX = Math.max(...nodes.map(n => n.x))
-    const maxY = Math.max(...nodes.map(n => n.y))
-    return { nodes, width: maxX + NODE_W, height: maxY + NODE_H }
+    const maxY = Math.max(...nodes.map(n => n.y + (n.isRoot ? ROOT_H : NODE_H)))
+    return { nodes, width: maxX + NODE_W, height: maxY }
   }, [tree])
 
-  // ── zoom / pan (base 100%) ────────────────────────────────────────────────
+  // ── zoom (50–300%) / pan ─────────────────────────────────────────────────
   const [zoom, setZoom] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const viewRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ x: number; y: number; px: number; py: number } | null>(null)
+  const MIN_Z = 0.5, MAX_Z = 3
 
-  const center = (z: number) => {
+  useEffect(() => {
     const el = viewRef.current
     if (!el || !laid.width) return
-    setPan({ x: (el.clientWidth - laid.width * z) / 2, y: 32 })
-  }
-  const fit = () => {
-    const el = viewRef.current
-    if (!el || !laid.width) return
-    const pad = 48
-    // "Adatta" riduce solo se serve: NON ingrandisce oltre il 100%.
-    const z = Math.min(1, (el.clientWidth - pad * 2) / laid.width, (el.clientHeight - pad * 2) / laid.height)
-    const zz = Math.max(0.12, z)
-    setZoom(zz)
-    setPan({ x: (el.clientWidth - laid.width * zz) / 2, y: Math.max(24, (el.clientHeight - laid.height * zz) / 2) })
-  }
-  useEffect(() => { center(1) }, [laid.width, laid.height])
+    setZoom(1)
+    setPan({ x: (el.clientWidth - laid.width) / 2, y: 28 })
+  }, [laid.width, laid.height])
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') props.onClose() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
+
+  const fit = () => {
+    const el = viewRef.current
+    if (!el || !laid.width) return
+    const pad = 56
+    const z = Math.min(1, (el.clientWidth - pad * 2) / laid.width, (el.clientHeight - pad * 2) / laid.height)
+    const zz = Math.max(MIN_Z, Math.min(MAX_Z, z))
+    setZoom(zz)
+    setPan({ x: (el.clientWidth - laid.width * zz) / 2, y: Math.max(24, (el.clientHeight - laid.height * zz) / 2) })
+  }
 
   const onWheel = (e: React.WheelEvent) => {
     e.preventDefault()
@@ -139,7 +138,7 @@ export function AgentGraphSheet(props: Props) {
     if (!el) return
     const r = el.getBoundingClientRect()
     const mx = e.clientX - r.left, my = e.clientY - r.top
-    const next = Math.min(2, Math.max(0.12, zoom * (e.deltaY < 0 ? 1.08 : 0.92)))
+    const next = Math.min(MAX_Z, Math.max(MIN_Z, zoom * (e.deltaY < 0 ? 1.08 : 0.92)))
     setPan({ x: mx - (mx - pan.x) * (next / zoom), y: my - (my - pan.y) * (next / zoom) })
     setZoom(next)
   }
@@ -154,15 +153,13 @@ export function AgentGraphSheet(props: Props) {
   }
   const onPointerUp = () => { dragRef.current = null }
 
-  // ── impostazioni: selezione multipla, orchestrator, rimozione ─────────────
+  // ── selezione multipla / menu contestuale / +sub ─────────────────────────
   const [selectMode, setSelectMode] = useState(false)
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null)
   const [subFor, setSubFor] = useState<string | null>(null)
 
-  const togglePicked = (id: string) => {
-    setPicked(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
-  }
+  const togglePicked = (id: string) => setPicked(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
   const removePicked = () => { for (const id of picked) props.onRemoveAgent(id); setPicked(new Set()); setSelectMode(false) }
 
   const toggleDelegate = async (parentId: string, childId: string) => {
@@ -176,7 +173,6 @@ export function AgentGraphSheet(props: Props) {
 
   const edges: { from: TNode; to: TNode }[] = []
   for (const n of laid.nodes) for (const c of n.children) edges.push({ from: n, to: c })
-
   const pct = Math.round(zoom * 100)
 
   const panelStyle: React.CSSProperties = {
@@ -191,62 +187,48 @@ export function AgentGraphSheet(props: Props) {
 
   return (
     <div style={{ position: 'fixed', top: 25, left: 0, right: 0, bottom: 0, zIndex: 300, backgroundColor: 'var(--q-bg)', display: 'flex', flexDirection: 'column', padding: 8, boxSizing: 'border-box' }}>
-      {/* ── heading: stessa struttura della testata chat (pannelli flottanti separati) ── */}
-      <div style={{ flexShrink: 0, marginBottom: 8 }}>
-        <div style={{ width: '100%', maxWidth: 'var(--spacing-chat-max)', margin: '0 auto' }}>
+      {/* ── heading: pannelli flottanti separati, larghezza standard ── */}
+      <div style={{ flexShrink: 0, marginBottom: 8, width: '100%', maxWidth: 'var(--spacing-chat-max)', margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', width: '100%', gap: 8 }}>
-          {/* tasto staccato: torna alla chat (chiude il menù) */}
           <div style={panelStyle}>
             <IconBtn title="Back to chat" onClick={props.onClose}><MessageSquare size={20} /></IconBtn>
           </div>
 
-          {/* pannello principale: icona + titolo + controlli */}
           <div style={{ ...panelStyle, flex: 1, minWidth: 0 }}>
             <div style={{ width: 8, flexShrink: 0 }} />
             <Bot size={18} style={{ color: 'var(--q-text-secondary)', flexShrink: 0 }} />
             <div style={{ width: 16, flexShrink: 0 }} />
             <span style={{ color: 'var(--q-text)', fontSize: 16, fontWeight: 600, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap' }}>Agents in chat</span>
             <span style={{ color: 'var(--q-text-tertiary)', fontSize: 12, fontFamily: 'var(--font-interface)', marginLeft: 10, whiteSpace: 'nowrap' }}>
-              {laid.nodes.length} {laid.nodes.length === 1 ? 'agent' : 'agents'} · {pct}%
+              {laid.nodes.length} {laid.nodes.length === 1 ? 'agent' : 'agents'}
             </span>
             <div style={{ flex: 1 }} />
 
             {selectMode ? (
               <>
-                <button onClick={removePicked} disabled={picked.size === 0}
-                  style={{ height: 28, padding: '0 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'transparent', color: picked.size ? 'var(--q-danger, #e5484d)' : 'var(--q-text-tertiary)', fontSize: 12, fontFamily: 'var(--font-interface)', cursor: picked.size ? 'pointer' : 'default' }}>
-                  Remove{picked.size ? ` (${picked.size})` : ''}
-                </button>
-                <div style={{ width: 6 }} />
-                <button onClick={() => { setSelectMode(false); setPicked(new Set()) }}
-                  style={{ height: 28, padding: '0 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'transparent', color: 'var(--q-text)', fontSize: 12, fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>
-                  Cancel
-                </button>
+                <TinyBtn danger disabled={picked.size === 0} onClick={removePicked}>Remove{picked.size ? ` (${picked.size})` : ''}</TinyBtn>
+                <TinyBtn onClick={() => { setSelectMode(false); setPicked(new Set()) }}>Cancel</TinyBtn>
               </>
             ) : (
-              <button onClick={() => setSelectMode(true)}
-                style={{ height: 28, padding: '0 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'transparent', color: 'var(--q-text)', fontSize: 12, fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>
-                Select
-              </button>
+              <TinyBtn onClick={() => setSelectMode(true)}>Select Agents</TinyBtn>
             )}
-            <div style={{ width: 6 }} />
-            <IconBtn title="Zoom out" onClick={() => setZoom(z => Math.max(0.12, z * 0.9))}><span style={{ fontSize: 16, lineHeight: 1 }}>−</span></IconBtn>
-            <IconBtn title="Zoom in" onClick={() => setZoom(z => Math.min(2, z * 1.1))}><span style={{ fontSize: 15, lineHeight: 1 }}>+</span></IconBtn>
+
+            <IconBtn title="Zoom out" onClick={() => setZoom(z => Math.max(MIN_Z, z * 0.9))}><span style={{ fontSize: 16, lineHeight: 1 }}>−</span></IconBtn>
+            <span style={{ minWidth: 42, textAlign: 'center', color: 'var(--q-text)', fontSize: 12, fontFamily: 'var(--font-interface)' }}>{pct}%</span>
+            <IconBtn title="Zoom in" onClick={() => setZoom(z => Math.min(MAX_Z, z * 1.1))}><span style={{ fontSize: 15, lineHeight: 1 }}>+</span></IconBtn>
             <IconBtn title="Fit to screen" onClick={fit}><Maximize size={16} /></IconBtn>
           </div>
 
-          {/* tasto staccato a destra: aggiungi agente */}
           <div style={panelStyle}>
-            <button onClick={props.onAddAgent} title="Add agent"
-              style={{ height: 36, padding: '0 8px', border: 'none', background: 'transparent', color: 'var(--q-text)', fontSize: 13, fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>
-              + Agent
-            </button>
+            <IconBtn title="Add agent" onClick={() => {
+              // aggiunge un agente alla chat: riusa il picker della chat
+              ;(props as any).onAddAgent?.()
+            }}><Plus size={18} /></IconBtn>
           </div>
-        </div>
         </div>
       </div>
 
-      {/* ── tela ── */}
+      {/* ── tela (stesso sfondo dell'app) ── */}
       <div ref={viewRef} onWheel={onWheel} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}
         style={{ position: 'relative', flex: 1, minHeight: 0, overflow: 'hidden', cursor: dragRef.current ? 'grabbing' : 'default' }}>
         {laid.nodes.length === 0 ? (
@@ -255,8 +237,10 @@ export function AgentGraphSheet(props: Props) {
           <div style={{ position: 'absolute', left: 0, top: 0, transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: '0 0', width: laid.width, height: laid.height }}>
             <svg width={laid.width} height={laid.height} style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible', pointerEvents: 'none' }}>
               {edges.map((e, i) => {
-                const x1 = e.from.x + NODE_W / 2, y1 = e.from.y + NODE_H
-                const x2 = e.to.x + NODE_W / 2, y2 = e.to.y
+                const x1 = e.from.x + NODE_W / 2
+                const y1 = e.from.y + (e.from.isRoot ? ROOT_H : NODE_H)
+                const x2 = e.to.x + NODE_W / 2
+                const y2 = e.to.y
                 const my = (y1 + y2) / 2
                 return <path key={i} d={`M ${x1} ${y1} C ${x1} ${my}, ${x2} ${my}, ${x2} ${y2}`} fill="none" stroke="var(--q-border)" strokeWidth={1.4} />
               })}
@@ -265,49 +249,48 @@ export function AgentGraphSheet(props: Props) {
             {laid.nodes.map(n => {
               const isPicked = picked.has(n.id)
               const ov = agentOverrides?.[n.id] || {}
-              const thinking = ov.thinkingLevel === 'off' ? 'off' : ov.thinkingLevel ? ov.thinkingLevel : 'chat default'
+              const thinking = ov.thinkingLevel === 'off' ? 'off' : ov.thinkingLevel ? ov.thinkingLevel : 'Chat default'
               return (
                 <div key={n.id} data-node-card
                   onClick={() => { if (selectMode) togglePicked(n.id); else props.onOpenAgent(n.id) }}
                   onContextMenu={(e) => { e.preventDefault(); setMenu({ id: n.id, x: e.clientX, y: e.clientY }) }}
                   style={{
                     position: 'absolute', left: n.x + NODE_W / 2, top: n.y, transform: 'translateX(-50%)',
-                    width: 'max-content', maxWidth: 260,
-                    backgroundColor: 'var(--q-bg-panel)',
-                    border: `1px solid ${isPicked ? 'var(--q-danger, #e5484d)' : 'var(--q-border)'}`,
-                    borderRadius: 'var(--radius-lg)', padding: n.isRoot ? '7px 12px' : '10px 12px', cursor: 'pointer',
-                    boxSizing: 'border-box',
+                    width: 'max-content', maxWidth: 320,
+                    height: n.isRoot ? ROOT_H : NODE_H,
+                    backgroundColor: isPicked ? 'var(--q-danger, #e5484d)' : 'var(--q-bg-panel)',
+                    border: '1px solid var(--q-border)',
+                    borderRadius: 'var(--radius-lg)', padding: n.isRoot ? '0 14px' : '10px 13px', cursor: 'pointer',
+                    boxSizing: 'border-box', display: 'flex', flexDirection: 'column', justifyContent: n.isRoot ? 'center' : 'flex-start',
                   }}>
-                  {/* nome (+ icona): l'orchestrator è riconoscibile dall'icona e dalla posizione */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {n.isRoot ? <Network size={14} style={{ color: 'var(--q-text-secondary)', flexShrink: 0 }} /> : <Bot size={14} style={{ color: 'var(--q-text-secondary)', flexShrink: 0 }} />}
-                    <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--q-text)', fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap' }}>{n.agent.name || n.id}</span>
+                    {n.isRoot
+                      ? <Network size={14} style={{ color: isPicked ? '#fff' : 'var(--q-text-secondary)', flexShrink: 0 }} />
+                      : <Bot size={14} style={{ color: isPicked ? '#fff' : 'var(--q-text-secondary)', flexShrink: 0 }} />}
+                    <span style={{ fontSize: 12.5, fontWeight: 600, color: isPicked ? '#fff' : 'var(--q-text)', fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap' }}>{n.agent.name || n.id}</span>
                   </div>
 
-                  {/* modello sopra, thinking sotto: ognuno largo quanto il suo testo */}
                   {!n.isRoot && (
                     <>
+                      {/* modello (nome intero) sopra, thinking sotto */}
                       <div style={{ display: 'flex', marginTop: 8 }}>
-                        <span onClick={(e) => { e.stopPropagation(); props.onPickModel(n.id) }}
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '1px 7px', borderRadius: 999, border: '1px solid var(--q-border)', fontSize: 10.5, color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', cursor: 'pointer', width: 'fit-content' }}>
-                          <Cpu size={11} style={{ flexShrink: 0 }} />
-                          <span style={{ whiteSpace: 'nowrap' }}>{String(n.agent.model || 'chat default').split('/').pop()}</span>
-                        </span>
+                        <Chip picked={isPicked} onClick={(e) => { e.stopPropagation(); props.onPickModel(n.id) }} icon={<Cpu size={11} />}>
+                          {String(ov.model || n.agent.model || 'Chat default').split('/').pop()}
+                        </Chip>
                       </div>
-                      <div style={{ display: 'flex', marginTop: 4, alignItems: 'center' }}>
-                        <span onClick={(e) => { e.stopPropagation(); props.onPickThinking(n.id) }}
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '1px 7px', borderRadius: 999, border: '1px solid var(--q-border)', fontSize: 10.5, color: 'var(--q-text-secondary)', fontFamily: 'var(--font-interface)', cursor: 'pointer', width: 'fit-content' }}>
-                          <Brain size={11} style={{ flexShrink: 0 }} />
-                          <span style={{ whiteSpace: 'nowrap' }}>{thinking}</span>
-                        </span>
+                      <div style={{ display: 'flex', alignItems: 'center', marginTop: 4 }}>
+                        <Chip picked={isPicked} onClick={(e) => { e.stopPropagation(); props.onPickThinking(n.id) }} icon={<Brain size={11} />}>
+                          {thinking}
+                        </Chip>
                         <div style={{ flex: 1 }} />
                         <span onClick={(e) => { e.stopPropagation(); setSubFor(subFor === n.id ? null : n.id) }}
-                          style={{ fontSize: 10.5, color: 'var(--q-text-tertiary)', fontFamily: 'var(--font-interface)', cursor: 'pointer', marginLeft: 8 }}>+ sub</span>
+                          onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--q-hover)')}
+                          onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+                          style={{ fontSize: 10.5, color: isPicked ? '#fff' : 'var(--q-text-tertiary)', fontFamily: 'var(--font-interface)', cursor: 'pointer', marginLeft: 8, padding: '1px 6px', borderRadius: 999 }}>+ sub agent</span>
                       </div>
                     </>
                   )}
 
-                  {/* chi può delegare (solo agenti, mai l'orchestrator) */}
                   {subFor === n.id && !n.isRoot && (
                     <div onClick={e => e.stopPropagation()}
                       style={{ position: 'absolute', top: '100%', left: 0, marginTop: 6, width: 236, maxHeight: 250, overflowY: 'auto', zIndex: 10, backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-md)', padding: 6, boxShadow: '0 10px 30px rgba(0,0,0,.22)' }}>
@@ -331,7 +314,7 @@ export function AgentGraphSheet(props: Props) {
           </div>
         )}
 
-        {/* menu contestuale del nodo */}
+        {/* menu contestuale del nodo (solo azioni che non stanno altrove) */}
         {menu && (
           <>
             <div style={{ position: 'fixed', inset: 0, zIndex: 20 }} onClick={() => setMenu(null)} onContextMenu={(e) => { e.preventDefault(); setMenu(null) }} />
@@ -339,15 +322,39 @@ export function AgentGraphSheet(props: Props) {
               {menu.id !== rootId && (
                 <MenuItem onClick={() => { props.onSetOrchestrator(menu.id); setMenu(null) }}>Set as orchestrator</MenuItem>
               )}
-              <MenuItem onClick={() => { props.onOpenAgent(menu.id); setMenu(null) }}>Agent settings…</MenuItem>
-              {menu.id !== rootId && (
-                <MenuItem danger onClick={() => { props.onRemoveAgent(menu.id); setMenu(null) }}>Remove from chat</MenuItem>
-              )}
+              <MenuItem danger onClick={() => { props.onRemoveAgent(menu.id); setMenu(null) }}>Remove from chat</MenuItem>
             </div>
           </>
         )}
       </div>
     </div>
+  )
+}
+
+function Chip({ children, icon, onClick, picked }: any) {
+  return (
+    <span onClick={onClick}
+      onMouseEnter={(e: any) => (e.currentTarget.style.backgroundColor = 'var(--q-hover)')}
+      onMouseLeave={(e: any) => (e.currentTarget.style.backgroundColor = 'transparent')}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 4, padding: '1px 8px', borderRadius: 999,
+        border: `1px solid ${picked ? 'rgba(255,255,255,.5)' : 'var(--q-border)'}`,
+        fontSize: 10.5, color: picked ? '#fff' : 'var(--q-text-secondary)',
+        fontFamily: 'var(--font-interface)', cursor: 'pointer', whiteSpace: 'nowrap',
+      }}>
+      {icon}{children}
+    </span>
+  )
+}
+
+function TinyBtn({ children, onClick, disabled, danger }: any) {
+  return (
+    <button onClick={onClick} disabled={disabled}
+      onMouseEnter={e => { if (!disabled) e.currentTarget.style.backgroundColor = 'var(--q-hover)' }}
+      onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
+      style={{ height: 28, padding: '0 10px', marginRight: 6, borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'transparent', color: disabled ? 'var(--q-text-tertiary)' : danger ? 'var(--q-danger, #e5484d)' : 'var(--q-text)', fontSize: 12, fontFamily: 'var(--font-interface)', cursor: disabled ? 'default' : 'pointer' }}>
+      {children}
+    </button>
   )
 }
 
