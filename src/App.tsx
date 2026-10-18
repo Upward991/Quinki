@@ -119,6 +119,7 @@ export default function App() {
     [x, S] = useState(!1),
     [taskChatMode, setTaskChatMode] = useState(false),
     [lhSt, setLhSt] = useState(null),
+    [lhStExpert, setLhStExpert] = useState(null),
     [globalCompaction, setGlobalCompaction] = useState(true),
     [welcomeCompaction, setWelcomeCompaction] = useState(null)
   let prevSessionRef = useRef(null),
@@ -522,21 +523,24 @@ export default function App() {
   }, [e.connected, o, e.activeSessionId, e.defaultAgentId, c]),
     useEffect(() => {
       let sk = o || e.activeSessionId || ``
-      if (!sk) {
-        setLhSt(null)
-        return
-      }
+      // FIX 18 ott: reset SUBITO al cambio chat. Prima lo stato LH della chat precedente
+      // restava appiccicato (anche quando la chiamata falliva) → la scatola "Long Horizon
+      // Mode" compariva sopra i messaggi di chat dove non c'entrava nulla.
+      setLhSt(null)
+      if (!sk) return
+      let alive = true
       e.call(`getLongHorizonState`, { sessionKey: sk })
-        .then((r: any) => {
-          setLhSt(r || null)
-        })
+        .then((r: any) => { if (alive) setLhSt({ ...(r || {}), __sk: sk }) })
         .catch(() => {})
+      return () => { alive = false }
     }, [e.connected, o, e.activeSessionId]),
     useEffect(() => {
       if (!e.connected) return
       const unsub = e.subscribe(`longhorizon_update`, (p: any) => {
         let sk = o || e.activeSessionId || ``
-        if (p?.sessionKey && p.sessionKey === sk) {
+        if (p?.sessionKey && p.sessionKey === `__app_expert__`) {
+          setLhStExpert(p || null)
+        } else if (p?.sessionKey && p.sessionKey === sk) {
           setLhSt(p || null)
         }
       })
@@ -1115,15 +1119,15 @@ export default function App() {
                   contextWindow: e.contextWindow,
                   contextInput: e.sessionTokens[`__app_expert__`]?.input || 0,
                   contextOutput: e.sessionTokens[`__app_expert__`]?.output || 0,
-                  longHorizon: !!lhSt?.active,
-                  longHorizonStatus: lhSt?.status,
-                  longHorizonPhase: lhSt?.phase,
+                  longHorizon: !!lhStExpert?.active,
+                  longHorizonStatus: lhStExpert?.status,
+                  longHorizonPhase: lhStExpert?.phase,
                   onStartDiscussion: () => {
                     e.call(`longHorizonSetPhase`, { sessionKey: `__app_expert__`, phase: `discussion` })
                       .then(() => {
                         setTimeout(() => {
                           e.call(`getLongHorizonState`, { sessionKey: `__app_expert__` })
-                            .then((r: any) => setLhSt(r || null))
+                            .then((r: any) => setLhStExpert({ ...(r || {}), __sk: `__app_expert__` }))
                             .catch(() => {})
                         }, 300)
                       })
@@ -1133,7 +1137,7 @@ export default function App() {
                     e.call(`longHorizonSetPhase`, { sessionKey: `__app_expert__`, phase: `planning` })
                       .then(() => {
                         e.call(`getLongHorizonState`, { sessionKey: `__app_expert__` })
-                          .then((r: any) => setLhSt(r || null))
+                          .then((r: any) => setLhStExpert({ ...(r || {}), __sk: `__app_expert__` }))
                           .catch(() => {})
                       })
                       .catch(() => {})
@@ -1142,7 +1146,7 @@ export default function App() {
                     e.call(`longHorizonNewDiscussion`, { sessionKey: `__app_expert__` })
                       .then(() => {
                         e.call(`getLongHorizonState`, { sessionKey: `__app_expert__` })
-                          .then((r: any) => setLhSt(r || null))
+                          .then((r: any) => setLhStExpert({ ...(r || {}), __sk: `__app_expert__` }))
                           .catch(() => {})
                       })
                       .catch(() => {})
@@ -1151,7 +1155,7 @@ export default function App() {
                     e.call(`longHorizonSetPhase`, { sessionKey: `__app_expert__`, phase: `running` })
                       .then(() => {
                         e.call(`getLongHorizonState`, { sessionKey: `__app_expert__` })
-                          .then((r: any) => setLhSt(r || null))
+                          .then((r: any) => setLhStExpert({ ...(r || {}), __sk: `__app_expert__` }))
                           .catch(() => {})
                       })
                       .catch(() => {})
@@ -1160,7 +1164,7 @@ export default function App() {
                     e.call(`longHorizonDeactivate`, { sessionKey: `__app_expert__` })
                       .then(() => {
                         e.call(`getLongHorizonState`, { sessionKey: `__app_expert__` })
-                          .then((r: any) => setLhSt(r || null))
+                          .then((r: any) => setLhStExpert({ ...(r || {}), __sk: `__app_expert__` }))
                           .catch(() => {})
                       })
                       .catch(() => {})
@@ -1169,7 +1173,7 @@ export default function App() {
                     e.call(`longHorizonResume`, { sessionKey: `__app_expert__` })
                       .then(() => {
                         e.call(`getLongHorizonState`, { sessionKey: `__app_expert__` })
-                          .then((r: any) => setLhSt(r || null))
+                          .then((r: any) => setLhStExpert({ ...(r || {}), __sk: `__app_expert__` }))
                           .catch(() => {})
                       })
                       .catch(() => {})
@@ -1199,7 +1203,7 @@ export default function App() {
                     })
                       .then(() => {
                         e.call(`getLongHorizonState`, { sessionKey: `__app_expert__` })
-                          .then((r: any) => setLhSt(r || null))
+                          .then((r: any) => setLhStExpert({ ...(r || {}), __sk: `__app_expert__` }))
                           .catch(() => {})
                       })
                       .catch(() => {})
@@ -2235,8 +2239,8 @@ export default function App() {
                     contextWindow: ne,
                     contextInput: e.sessionTokens[o || e.activeSessionId || ``]?.input || 0,
                     contextOutput: e.sessionTokens[o || e.activeSessionId || ``]?.output || 0,
-                    longHorizon: !!lhSt?.active,
-                    longHorizonStatus: lhSt?.status,
+                    longHorizon: !!lhStExpert?.active,
+                    longHorizonStatus: lhStExpert?.status,
                     onApprovePlan: () => {
                       let lastAsst = (F || [])
                         .slice()
@@ -2250,7 +2254,7 @@ export default function App() {
                         e.call(`longHorizonSetPlan`, { sessionKey: `__app_expert__`, plan: ptext })
                           .then(() => {
                             e.call(`getLongHorizonState`, { sessionKey: `__app_expert__` })
-                              .then((r: any) => setLhSt(r || null))
+                              .then((r: any) => setLhStExpert({ ...(r || {}), __sk: `__app_expert__` }))
                               .catch(() => {})
                           })
                           .catch(() => {})
@@ -2278,7 +2282,7 @@ export default function App() {
                       e.call(`longHorizonDeactivate`, { sessionKey: `__app_expert__` })
                         .then(() => {
                           e.call(`getLongHorizonState`, { sessionKey: `__app_expert__` })
-                            .then((r: any) => setLhSt(r || null))
+                            .then((r: any) => setLhStExpert({ ...(r || {}), __sk: `__app_expert__` }))
                             .catch(() => {})
                         })
                         .catch(() => {})
@@ -2287,7 +2291,7 @@ export default function App() {
                       e.call(`longHorizonResume`, { sessionKey: `__app_expert__` })
                         .then(() => {
                           e.call(`getLongHorizonState`, { sessionKey: `__app_expert__` })
-                            .then((r: any) => setLhSt(r || null))
+                            .then((r: any) => setLhStExpert({ ...(r || {}), __sk: `__app_expert__` }))
                             .catch(() => {})
                         })
                         .catch(() => {})
@@ -2299,7 +2303,7 @@ export default function App() {
                         .then(() => {
                           setTimeout(() => {
                             e.call(`getLongHorizonState`, { sessionKey: `__app_expert__` })
-                              .then((r: any) => setLhSt(r || null))
+                              .then((r: any) => setLhStExpert({ ...(r || {}), __sk: `__app_expert__` }))
                               .catch(() => {})
                           }, 300)
                         })

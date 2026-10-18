@@ -6210,12 +6210,19 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
    * "del-" (multi-finestra); skill e allegati pendenti vengono iniettati nel
    * delegato; a fine corsa le API key del chiamante vengono ripristinate.
    */
-  #buildDelegateTool(sessionKey: string): any {
+  /**
+   * Contesto della delega (sottodeleghe comprese — 18 ott):
+   * - `selfAgentId`: chi sono io (una sessione temporanea non è nelle #entries)
+   * - `roster`: la MIA squadra (config `delegates`), altrimenti gli agenti della chat
+   * - `chain`: chi mi ha chiamato (anti-ciclo; la profondità non ha limiti)
+   * - `parentDelegationId`: il nodo padre, per ricostruire l'albero
+   */
+  #buildDelegateTool(sessionKey: string, opts?: { selfAgentId?: string; roster?: string[]; chain?: string[]; parentDelegationId?: string }): any {
     const self = this;
     return defineTool({
       name: "delegate_to_agent",
       label: "Delegate to agent",
-      description: "Delegate a task to a specific agent in the chat. Use this tool when the user asks something that requires a specific agent's expertise. The agent receives the task, executes it, and returns the response. You then synthesize and report it to the user.",
+      description: "Delegate a task to one of the agents you can delegate to (your team: the chat's agents, or your own sub-agents if configured). Use this tool when the user asks something that requires a specific agent's expertise. The agent receives the task, executes it, and returns the response. You then synthesize and report it to the user.",
       promptSnippet: "delegate_to_agent: delegate a task to a specific agent in the chat",
       promptGuidelines: [
         "When you need to delegate a task to an agent, use the delegate_to_agent tool with the agent's name and the task to perform.",
@@ -6236,8 +6243,15 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
           if (!sessionAgents) {
             return { content: [{ type: "text", text: "Error: no agent found in the chat." }], isError: true };
           }
-          const selfId = self.#resolvePrimaryAgent(sessionKey) || 'orchestrator';
-          const agentIds = String(sessionAgents).split(',').filter((id: string) => id && id !== selfId);
+            // Chi sono io (in una sotto-delega il chiamante lo passa esplicito).
+            const selfId = opts?.selfAgentId || self.#resolvePrimaryAgent(sessionKey) || 'orchestrator';
+            // La MIA squadra: `delegates` se c'è, altrimenti gli agenti della chat (come sempre).
+            // Anti-ciclo: chi mi ha chiamato non lo richiamo. La profondità NON ha limiti.
+            const chain = Array.isArray(opts?.chain) ? opts!.chain! : [];
+            const chatRoster = String(sessionAgents).split(',').filter((id: string) => id && id !== selfId);
+            const agentIds = (opts?.roster ?? chatRoster).filter(
+              (id: string) => id && id !== selfId && !chain.includes(id)
+            );
           // Trova l'agente per nome (case-insensitive)
           let targetId: string | null = null;
           for (const id of agentIds) {
@@ -6250,7 +6264,12 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
             } catch {}
           }
           if (!targetId) {
-            return { content: [{ type: "text", text: `Error: agent "${agent_name}" not found in the chat.` }], isError: true };
+            // Errore UTILE: dire chi c'è davvero (con le sottodeleghe è facile sbagliare nome).
+            {
+              const available: string[] = [];
+              for (const id of agentIds) { try { const n = self.#readAgentConfig(id)?.name; if (n) available.push(n); } catch {} }
+              return { content: [{ type: "text", text: `Error: agent "${agent_name}" is not available to you. You can delegate to: ${available.length ? available.join(", ") : "(nobody)"}.` }], isError: true };
+            }
           }
           // === INIETTA API KEY dell'agente target ===
           const agentConfig = self.#readAgentConfigFile(targetId) || { skills: [] };
@@ -6285,13 +6304,32 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
           );
           // Build skill tool for temp session (so delegated agents can also use skills)
           let tempPiRef: any = null;
-          const tempSkillTool = self.#buildSkillTool(() => tempPiRef);
+            // L'id della delega nasce PRIMA della sessione temporanea: serve al tool
+            // del delegato come `parentDelegationId` (albero delle deleghe).
+          const delegationId = `del-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+            const tempSkillTool = self.#buildSkillTool(() => tempPiRef);
+            // ══ SOTTO-DELEGA: il delegato riceve il SUO delegate_to_agent ══
+            const targetFullCfg = self.#readAgentConfigFile(targetId) as any;
+            const declared = Array.isArray(targetFullCfg?.delegates) ? targetFullCfg.delegates : null;
+            const chatAgentsForTarget = String(sessionAgents).split(',').filter((id: string) => id && id !== targetId);
+            const targetRoster = (declared && declared.length ? declared : chatAgentsForTarget)
+              .filter((id: string) => id && id !== targetId && !chain.includes(id) && id !== selfId);
+            let tempDelegateTool: any = null;
+            if (targetRoster.length > 0) {
+              tempDelegateTool = self.#buildDelegateTool(sessionKey, {
+                selfAgentId: targetId,
+                roster: targetRoster,
+                chain: [...chain, selfId],
+                parentDelegationId: delegationId,
+              });
+              self.logDebug("delegate-subtool-built", { sessionKey, agentId: targetId, roster: targetRoster, depth: chain.length + 1 });
+            }
           const tempResult = await self.#sdk.createAgentSession({
             cwd: tempCwd,
             agentDir: self.#agentDir,
             sessionManager: tempSm,
             resourceLoader: tempLoader,
-            customTools: tempSkillTool ? [tempSkillTool] : undefined,
+            customTools: [tempSkillTool, tempDelegateTool].filter(Boolean) as any[],
           });
           const tempPi = tempResult.session;
           tempPiRef = tempPi;
@@ -6368,7 +6406,8 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
             let tempToolNames: string[] = [];
             try {
               const all = (tempPi.getAllTools?.() ?? []).map((t: any) => t.name) as string[];
-              tempToolNames = mergedTools.filter(n => all.includes(n));
+                tempToolNames = mergedTools.filter(n => all.includes(n));
+                if (tempDelegateTool && !tempToolNames.includes("delegate_to_agent")) tempToolNames.push("delegate_to_agent");
               if (mainMode === "plan") {
                 const planFlags = globalConfig.planModeTools || {};
                 tempToolNames = tempToolNames.filter(n => planFlags[n] !== false);
@@ -6448,9 +6487,8 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
             self.logDebug("delegate-apply-mode", { sessionKey, mode: mainMode, agentId: targetId, toolCount: tempToolNames.length, tools: tempToolNames });
           } catch (e: any) { self.logDebug("delegate-apply-mode-error", { sessionKey, error: e?.message }); }
           // === Multi-window delegation: emit events to main session ===
-          const delegationId = `del-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
           // === Reuse stream_event channel (proven to work) with del- prefix messageId ===
-          self.#sendToWs(self.#wss.get(sessionKey), { type: "stream_event", sessionKey, eventType: "delegation_start", messageId: delegationId, agentName: agent_name, task: task });
+          self.#sendToWs(self.#wss.get(sessionKey), { type: "stream_event", sessionKey, eventType: "delegation_start", messageId: delegationId, agentName: agent_name, task: task, parentDelegationId: opts?.parentDelegationId || null });
           // Yield to event loop: lets the sidecar process the delegation_start before temp session streams
           await new Promise(r => setTimeout(r, 0));
           // Subscribe to temp session events → forward as delegation_stream
@@ -6605,7 +6643,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
       }
       delegationContent = dedup;
     } catch {}
-          self.#appendDelegationToJsonl(sessionKey, { id: delegationId, agentName: agent_name, delegatedMessage: task, content: delegationContent, timestamp: Date.now(), model: delModel, thinkingLevel: delThinking });
+          self.#appendDelegationToJsonl(sessionKey, { id: delegationId, agentName: agent_name, agentId: targetId, delegatedMessage: task, content: delegationContent, timestamp: Date.now(), model: delModel, thinkingLevel: delThinking, parentDelegationId: opts?.parentDelegationId || null });
           // Cleanup: dispose sessione temporanea + remove from #active
           self.#active.delete(tempKey);
           try { (tempPi as any).dispose?.(); } catch {}
