@@ -5398,6 +5398,11 @@ Read this file to view it.` }] };
         // in plan mode il bash COMPLETO non viene mai assegnato (planFlags.bash=false).
       } else {
         this.#bashReadonlySessions.delete(key);
+        // BUILD MODE: esiste `bash`, quindi `bash_readonly` non deve essere disponibile.
+        // Prima restava attivo e il modello lo sceglieva spesso (sembra più "sicuro"),
+        // restando bloccato sui comandi di scrittura. Si toglie SOLO se `bash` c'è:
+        // un agente configurato senza bash deve mantenere il suo read-only.
+        if (names.includes("bash")) names = names.filter((n) => n !== "bash_readonly");
       }
       // MCP: in Build mode tutti i tool dei server assegnati; in Plan mode solo i tool
       // dei server abilitati globalmente nella sezione Plan mode (planModeMcp, vale per tutti gli agenti).
@@ -5921,7 +5926,27 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
     if (ids.length === 0) return [];
     const self = this;
     const tools: any[] = [];
-    const used = new Set<string>(["skill", "delegate_to_agent", "schedule_task"]);
+    // NOMI RISERVATI (bug vero, 18 ott): i tool degli MCP remoti NON devono mai
+    // sovrascrivere i NOSTRI. BrowserOS neo espone `read`, `grep`, `screenshot`:
+    // senza questa lista il suo `read` prendeva il posto del nostro → l'agente
+    // "leggeva la pagina" quando gli si chiedeva di leggere un FILE.
+    // Qui si prenotano i nomi core: un tool MCP con lo stesso nome viene rinominato
+    // (`read` → `read_1`, `grep` → `grep_1`, ...).
+    // NOMI RISERVATI — AUTOMATICO (18 ott): non una lista a mano, ma i tool che la sessione
+    // HA DAVVERO. Così nessun tool futuro (nuovo MCP, nuovo tool nostro) può oscurarne un
+    // altro: se il nome è occupato, il tool MCP viene rinominato (`read` → `read_1`).
+    const used = new Set<string>();
+    try {
+      const live = this.#active.get(sk);
+      for (const t of (live?.getAllTools?.() ?? [])) {
+        const n = typeof t?.name === "string" ? t.name : "";
+        if (n) used.add(n);
+      }
+    } catch {}
+    // fallback: i nostri tool custom, che non sempre compaiono in getAllTools
+    for (const n of ["read", "write", "edit", "bash", "bash_readonly", "grep", "find", "ls", "skill",
+                     "screenshot", "market", "delegate_to_agent", "schedule_task", "cancel_schedule",
+                     "getTaskStatus", "getTaskExecuted", "readHandoff"]) used.add(n);
     for (const sid of ids) {
       const server = readMcpServers().find((s: any) => s.id === sid);
       if (!server) {
@@ -5937,6 +5962,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
           list = await client.listTools();
         }
         if (!Array.isArray(list)) list = [];
+        const finalNames: { name: string; serverId: string }[] = [];
         for (const t of list) {
           const rawName = typeof t?.name === "string" && t.name ? t.name : "";
           if (!rawName) continue;
@@ -5944,6 +5970,9 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
           let i = 1;
           while (used.has(name)) name = `${rawName}_${i++}`;
           used.add(name);
+          // il nome FINALE è quello da attivare: se è stato rinominato per collisione,
+          // attivare `rawName` accenderebbe il tool SBAGLIATO (il nostro)
+          finalNames.push({ name, serverId: sid });
           const desc = `${t?.description || ""} (MCP server: ${server.name})`.trim();
           const parameters = mcpSchemaToTypeBox(t?.inputSchema || {});
           const serverRef = server;
@@ -5971,10 +6000,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
         }
         // Registra i tool per sessione → applyMode li attiva (plan: solo da server in planModeMcp)
         const prev = self.#mcpToolNames.get(sk) || [];
-        for (const t of list) {
-          const nm = typeof t?.name === 'string' && t.name ? t.name : '';
-          if (nm) prev.push({ name: nm, serverId: sid });
-        }
+        for (const fn of finalNames) prev.push(fn);
         self.#mcpToolNames.set(sk, prev);
         // FIX (29 ago): NON salvare più la firma qui — il formato era DIVERSO da
         // quello del confronto in #maybeRefreshMcp → non combaciava MAI → dispose
