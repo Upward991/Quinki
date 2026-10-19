@@ -4390,7 +4390,7 @@ Read this file to view it.` }] };
   }
 
   /** Albero normalizzato { tree, root, members }. Migra le chat vecchie (agentIds+orchestratorId). */
-  #chatTreeOf(key: string): { tree: Record<string, string[]>; root: string; members: string[] } {
+  #chatTreeOf(key: string, opts?: { complete?: boolean }): { tree: Record<string, string[]>; root: string; members: string[] } {
     const m = this.#readChatMetaFile(key) || {};
     const s = this.#entries.get(key) as any;
     const rawIds = String((m as any)?.agentIds ?? s?.agentId ?? "").split(",").map((x: string) => x.trim()).filter(Boolean);
@@ -4431,12 +4431,13 @@ Read this file to view it.` }] };
       tree[root] = members.filter((id) => id !== root);
       try { this.#writeChatMeta(key, { agentIds: members.join(","), orchestratorId: root, delegateTree: tree }); this.#chatMetaCache.delete(key); } catch {}
     } else if (roots.length > 1) {
-      // Nodi dichiarati ma senza padre: si completano SOLO IN MEMORIA (sotto la radice),
-      // MAI su disco: scriverli appiattiva l'albero a ogni lettura (bug: i sub-agent
-      // tornavano tutti sotto la radice dopo un attach).
-      for (const r of roots) if (r !== root) {
-        tree[root] = [...new Set([...(tree[root] || []), r])];
-        seenParent.add(r);
+      // Nodi senza padre: completamento SOLO per la vista (complete !== false).
+      // Le SCRITTURE usano complete:false → non persistono legami sintetici.
+      if (opts?.complete !== false) {
+        for (const r of roots) if (r !== root) {
+          tree[root] = [...new Set([...(tree[root] || []), r])];
+          seenParent.add(r);
+        }
       }
     }
     if (seenParent.has(root)) {
@@ -4647,7 +4648,7 @@ Read this file to view it.` }] };
   setChatAgents(key: string, agentIds: string) {
     // === ALBERO: aggiungere = figlio della radice; rimuovere = il nodo esce e i
     // suoi figli salgono al padre. La lista `agentIds` è solo l'elenco dei nodi. ===
-    const before = this.#chatTreeOf(key);
+    const before = this.#chatTreeOf(key, { complete: false });
     const want = String(agentIds || "").split(",").map((x) => x.trim()).filter(Boolean);
     const tree: Record<string, string[]> = {};
     for (const [pid, kids] of Object.entries(before.tree)) tree[pid] = [...kids];
@@ -4684,7 +4685,7 @@ Read this file to view it.` }] };
   /** Rimuove nodi dalla chat (ATOMICO): un nodo esce, i suoi figli salgono al padre.
    *  La radice non si rimuove (il ruolo resta). È IL modo in cui la UI rimuove. */
   detachNodes(key: string, ids: string[]) {
-    const t = this.#chatTreeOf(key);
+    const t = this.#chatTreeOf(key, { complete: false });
     const del = (Array.isArray(ids) ? ids : []).map(String).map((x) => x.trim()).filter(Boolean);
     if (!del.length) return { ok: true, delegateTree: t.tree, orchestratorId: t.root, agentIds: t.members.join(",") };
     const tree: Record<string, string[]> = {};
@@ -4708,12 +4709,14 @@ Read this file to view it.` }] };
   /** Attacca agenti a UN padre (atomico): li stacca da qualsiasi altro padre e li
    *  mette sotto `parentId`. È IL modo in cui la UI aggiunge un sub-agent. */
   attachToParent(key: string, parentId: string, ids: string[]) {
-    const t = this.#chatTreeOf(key);
+    const t = this.#chatTreeOf(key, { complete: false });
     const parent = String(parentId || "").trim();
     const add = (Array.isArray(ids) ? ids : []).map(String).map((x) => x.trim()).filter(Boolean);
     if (!parent || !add.length) return { ok: false, delegateTree: t.tree, orchestratorId: t.root };
     const tree: Record<string, string[]> = {};
-    for (const [pid, kids] of Object.entries(t.tree)) tree[pid] = kids.filter((x) => !add.includes(x) && x !== parent);
+    // stacca SOLO i nodi che sto attaccando (il PADRE resta dov'è: staccarlo ne
+    // faceva sparire la catena sopra — era il bug dei sub-agent che tornavano su).
+    for (const [pid, kids] of Object.entries(t.tree)) tree[pid] = kids.filter((x) => !add.includes(x));
     tree[parent] = [...new Set([...(tree[parent] || []), ...add])];
     const members = [...new Set([...t.members, parent, ...add])];
     const saved = this.#saveChatTree(key, tree, t.root || parent, members);
@@ -4752,7 +4755,7 @@ Read this file to view it.` }] };
   setSessionOrchestrator(key: string, agentId: string | null) {
     // RADICE = ruolo. Assegnare X: X diventa radice (staccato dal suo padre) e il
     // VECCHIO orchestrator scende come SUO figlio. agentId=null → nessun cambio.
-    const t = this.#chatTreeOf(key);
+    const t = this.#chatTreeOf(key, { complete: false });
     if (!t.members.length) return { ok: false, orchestratorId: null, agentIds: "" };
     const target = agentId && t.members.includes(agentId) ? agentId : null;
     if (!target) return { ok: true, orchestratorId: t.root || null, agentIds: t.members.join(",") };
