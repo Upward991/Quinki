@@ -223,6 +223,13 @@ export function AgentGraphSheet(props: Props) {
     return { nodes, width, height: maxY }
   }, [orchId, byId, chatIds, soloUno])
 
+  // Log del render: cosa la UI ha DAVVERO in mano (solo quando cambia)
+  const lastRenderRef = React.useRef('')
+  try {
+    const snap = JSON.stringify({ chatIds, orch: orchId, tree, nodes: laid?.nodes?.length, agents: localAgents.length })
+    if (snap !== lastRenderRef.current) { lastRenderRef.current = snap; dlog('render', JSON.parse(snap)) }
+  } catch {}
+
   const [zoom, setZoom] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const viewRef = useRef<HTMLDivElement>(null)
