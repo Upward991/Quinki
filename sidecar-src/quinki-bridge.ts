@@ -1259,14 +1259,17 @@ class QuinkiBridge {
       return {
         key: s.key, label: s.label, agentId: s.agentId || "",
         orchestratorId: (s as any).orchestratorId || "",
-        delegateTree: (() => {
+        // UNICA FONTE: chat-meta.json della sessione (agenti, orchestrator, albero)
+        ...(() => {
           try {
             const p = path.join(this.#quinkiSessionDir(s.key), "chat-meta.json");
             const m = JSON.parse(fs.readFileSync(p, "utf8"));
-            const t = m?.delegateTree;
-            if (t && typeof t === "object" && Object.keys(t).length) return t;
-          } catch {}
-          return (s as any).delegateTree || {};
+            const out: any = {};
+            if (typeof m?.agentIds === "string") out.agentId = m.agentIds;
+            if (m?.orchestratorId !== undefined) out.orchestratorId = m.orchestratorId || "";
+            if (m?.delegateTree && typeof m.delegateTree === "object") out.delegateTree = m.delegateTree;
+            return out;
+          } catch { return {}; }
         })(),
         model: s.model, thinkingLevel: s.thinkingLevel, mode: s.mode,
         lastActivity: s.lastActivity,
