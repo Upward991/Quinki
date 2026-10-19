@@ -531,6 +531,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
       return { ok: true };
     } catch (e: any) { return { ok: false, error: e?.message }; }
   },
+  setSessionChatState: async (p) => quinkiBridge!.setSessionChatState(String(p.sessionKey||''), p.state || {}),
   setSessionDelegateTree: async (p) => quinkiBridge!.setSessionDelegateTree(String(p.sessionKey||''), p.tree || {}),
   setSessionOrchestrator: async (p) => {
     const key = String(p?.sessionKey || '');

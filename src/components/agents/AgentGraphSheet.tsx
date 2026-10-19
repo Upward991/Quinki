@@ -105,6 +105,17 @@ export function AgentGraphSheet(props: Props) {
     } catch {} finally { refreshing.current = false }
   }
 
+  /** UNA scrittura per tutta la chat: agenti + orchestrator + albero. */
+  const saveChat = async (st: { agentIds?: string[]; orchestratorId?: string | null; delegateTree?: Record<string, string[]> }) => {
+    const state: any = {}
+    if (st.agentIds) state.agentIds = st.agentIds.join(',')
+    if (st.orchestratorId !== undefined) state.orchestratorId = st.orchestratorId || ''
+    if (st.delegateTree !== undefined) state.delegateTree = st.delegateTree
+    dlog('saveChat', state)
+    try { await rpc('setSessionChatState', { sessionKey: props.sessionKey, state }) } catch (e: any) { dlog('saveChat-error', String(e?.message || e)) }
+    await Promise.all([reloadAgents(), reloadOrch()])
+  }
+
   const saveTree = async (next: Record<string, string[]>) => {
     dlog('saveTree', { next })
     try { await rpc('setSessionDelegateTree', { sessionKey: props.sessionKey, tree: next }) } catch {}
@@ -297,12 +308,10 @@ export function AgentGraphSheet(props: Props) {
     // Le `delegates` sono GLOBALI (condivise da tutte le chat): toccarle qui
     // cambierebbe anche le altre chat!
     // Esce dall'ALBERO e dalla CHAT (sono la stessa cosa: tutti i nodi sono agenti della chat)
-    await mutateTree((t) => { const n2: Record<string, string[]> = {}; for (const [pid, kids] of Object.entries(t)) n2[pid] = (kids || []).filter((x: string) => x !== id); return n2 }, 'remove')
-    try {
-      const next = chatIds.filter((x: string) => x !== id)
-      if (next.length) await rpc('setChatAgents', { sessionKey: props.sessionKey, agentIds: next.join(',') })
-    } catch {}
-    await Promise.all([reloadAgents(), reloadOrch()])
+    const tree2: Record<string, string[]> = {}
+    for (const [pid, kids] of Object.entries(tree)) tree2[pid] = (kids || []).filter((x: string) => x !== id)
+    const nextChat = chatIds.filter((x: string) => x !== id)
+    await saveChat({ agentIds: nextChat.length ? nextChat : chatIds.slice(0, 1), orchestratorId: orchId === id ? '' : orchId, delegateTree: tree2 })
     if (inChat) return
     const kids: string[] = (delegateTree[id] || [])
     // 1) sostituisci il nodo con i suoi figli, in ogni padre che lo contiene
@@ -504,18 +513,16 @@ export function AgentGraphSheet(props: Props) {
             const cur: string[] = (tree[subFor] || [])
             dlog('add-click', { parent: subFor, ids, treeBefore: tree, chatBefore: chatIds })
             try {
-              await mutateTree((t) => ({ ...t, [subFor]: [...new Set([...(t[subFor] || []), ...ids])] }), 'add')
+              await saveChat({
+                agentIds: [...new Set([...chatIds, ...ids])],
+                orchestratorId: orchId || subFor,
+                delegateTree: { ...tree, [subFor]: [...new Set([...(tree[subFor] || []), ...ids])] },
+              })
               // È un agente DELLA CHAT: entra anche nella lista agenti della sessione
               try {
                 const ids2 = [...new Set([...chatIds, ...ids])]
                 await rpc('setChatAgents', { sessionKey: props.sessionKey, agentIds: ids2.join(',') })
             } catch {} finally { setSubFor(null) }
-              // Il ruolo lo scrivo DIRETTAMENTE (non via app): così il grafo non resta piatto
-              if (!orchId && props.sessionKey) {
-                await rpc('setSessionOrchestrator', { sessionKey: props.sessionKey, agentId: subFor })
-                setLocalOrch(subFor)
-              }
-              await Promise.all([reloadAgents(), reloadOrch()])   // ridisegna subito
               dlog('add-done', { parent: subFor, ids, tree, chatIds, orch: orchId })
               setSubFor(null)
             } catch {}

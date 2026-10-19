@@ -4614,6 +4614,30 @@ Read this file to view it.` }] };
   }
 
 
+  /** SCRITTURA ATOMICA dello stato della chat: agenti + orchestrator + albero in UN colpo.
+   *  Evita che scritture separate si sovrascrivano (bug 19 ott: il ruolo spariva). */
+  setSessionChatState(key: string, st: { agentIds?: string; orchestratorId?: string | null; delegateTree?: Record<string, string[]> }) {
+    const s = this.#entries.get(key);
+    const agentIds = typeof st.agentIds === "string" ? st.agentIds : ((s as any)?.agentId || "");
+    const orch = st.orchestratorId === undefined ? ((s as any)?.orchestratorId || "") : (st.orchestratorId || "");
+    const tree = st.delegateTree === undefined ? (((s as any)?.delegateTree) || {}) : (st.delegateTree || {});
+    const clean: Record<string, string[]> = {};
+    for (const [k, v] of Object.entries(tree)) {
+      const ids = (Array.isArray(v) ? v : []).map(String).filter((x) => x && x !== k);
+      if (ids.length) clean[k] = [...new Set(ids)];
+    }
+    if (s) {
+      (s as any).agentId = agentIds;
+      (s as any).orchestratorId = orch || undefined;
+      (s as any).delegateTree = clean;
+      this.#save();
+    }
+    this.#writeChatMeta(key, { agentIds, orchestratorId: orch, delegateTree: clean });
+    this.logDebug("set-chat-state", { sessionKey: key, agentIds, orch, nodes: Object.keys(clean).length });
+    return { ok: true, agentIds, orchestratorId: orch, delegateTree: clean };
+  }
+
+
   setSessionOrchestrator(key: string, agentId: string | null) {
     const s = this.#entries.get(key);
     const ids = String((s as any)?.agentId || "").split(",").map((x) => x.trim()).filter(Boolean);
