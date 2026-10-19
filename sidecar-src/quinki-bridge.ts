@@ -4535,8 +4535,16 @@ Read this file to view it.` }] };
       try {
         const _ids = String(agentIds || '').split(',').map((x) => x.trim()).filter(Boolean);
         const _orch = (s as any).orchestratorId ? String((s as any).orchestratorId) : '';
-        // ruolo perso se il designato esce dalla chat O se resta UN SOLO agente (ruolo inutile, spec 10 ott)
-        if (_orch && (!_ids.includes(_orch) || _ids.length <= 1)) (s as any).orchestratorId = undefined;
+        // Il ruolo si perde se il designato esce dalla chat; se resta UN SOLO agente
+        // si perde SOLO se quell'agente non ha sub-agent (con una squadra il ruolo serve).
+        let _singleNoKids = false;
+        if (_ids.length === 1) {
+          try {
+            const _cfg: any = this.#readAgentConfigFile(_ids[0]);
+            _singleNoKids = !(Array.isArray(_cfg?.delegates) && _cfg.delegates.filter(Boolean).length > 0);
+          } catch { _singleNoKids = true; }
+        }
+        if (_orch && (!_ids.includes(_orch) || _singleNoKids)) (s as any).orchestratorId = undefined;
       } catch {}
       this.#save();
       // === POOL SYNC: la composizione agenti della chat cambia sul worker —
