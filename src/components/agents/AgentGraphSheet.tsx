@@ -80,7 +80,9 @@ export function AgentGraphSheet(props: Props) {
 
   // Ruolo: SOLO quello scelto (ora il motore lo restituisce anche con 1 agente).
   // Niente derivazioni: senza ruolo il grafo resta senza orchestrator.
-  const orchId = (orchestratorId && byId[orchestratorId]) ? orchestratorId : ''
+  const [localOrch, setLocalOrch] = useState(orchestratorId)
+  useEffect(() => { setLocalOrch(orchestratorId) }, [orchestratorId])
+  const orchId = (localOrch && byId[localOrch]) ? localOrch : ''
   // "solo un agente" vale SOLO se in chat c'è un agente e NON ha sub-agent.
   const soloUno = chatAgentIds.length <= 1 && !orchId
   const [subFor, setSubFor] = useState<string | null>(null)
@@ -406,6 +408,7 @@ export function AgentGraphSheet(props: Props) {
               // Il ruolo lo scrivo DIRETTAMENTE (non via app): così il grafo non resta piatto
               if (!orchId && props.sessionKey) {
                 await rpc('setSessionOrchestrator', { sessionKey: props.sessionKey, agentId: subFor })
+                setLocalOrch(subFor)
               }
               await reloadAgents()   // ridisegna subito, senza uscire e rientrare
               setSubFor(null)
