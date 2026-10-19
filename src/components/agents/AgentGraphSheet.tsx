@@ -337,7 +337,7 @@ export function AgentGraphSheet(props: Props) {
                   onClick={() => { if (selectMode) props.onTogglePick(n.id); else props.onOpenAgent(n.id) }}
                   onContextMenu={(e) => {
                     e.preventDefault(); e.stopPropagation()
-                    props.onContextMenu(n.id, e.clientX, e.clientY) // UN SOLO menu, per tutti i nodi
+                    props.onContextMenu(n.id, e.clientX, e.clientY, laid.nodes.length) // menu originale + n. nodi
                   }}
                   style={{
                     position: 'absolute', left: n.x + NODE_W / 2, top: n.y, transform: 'translateX(-50%)',

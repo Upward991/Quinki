@@ -471,10 +471,10 @@ export function ChatHeader(props: ChatHeaderProps) {
         <>
           <div style={ctxOverlayStyle} onClick={() => { setCtxMenu(null) }} onContextMenu={e => { e.preventDefault(); setCtxMenu(null) }} />
           <div style={{ position: 'fixed', left: Math.min(ctxMenu.x, window.innerWidth - 180), top: Math.min(ctxMenu.y, window.innerHeight - 240), zIndex: 601, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '4px 0', minWidth: '160px' }}>
-            {!multiSelect && props.selectedAgentIds.length > 1 && ctxMenu.agentId !== effOrch && (props as any).onSetOrchestrator && (
+            {!multiSelect && ((ctxMenu as any)?.treeSize || props.selectedAgentIds.length) > 1 && ctxMenu.agentId !== effOrch && (props as any).onSetOrchestrator && (
               <button onClick={() => { (props as any).onSetOrchestrator(ctxMenu.agentId); setCtxMenu(null) }} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}>Use as orchestrator</button>
             )}
-            {!multiSelect && props.selectedAgentIds.length > 1 && (
+            {!multiSelect && ((ctxMenu as any)?.treeSize || props.selectedAgentIds.length) > 1 && (
               <button onClick={() => { setMultiSelect(true); setSelectedForRemoval(new Set([ctxMenu.agentId])); setCtxMenu(null) }} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}>Select</button>
             )}
             {!multiSelect && (
@@ -601,7 +601,7 @@ export function ChatHeader(props: ChatHeaderProps) {
                 picked={selectedForRemoval}
                 onClose={() => { props.onToggleAgentDropdown(); setMultiSelect(false); setSelectedForRemoval(new Set()) }}
                 onOpenAgent={(id) => setConfigModalAgent(id)}
-                onContextMenu={(id, x, y) => setCtxMenu({ x, y, agentId: id })}
+                onContextMenu={(id, x, y, treeSize) => setCtxMenu({ x, y, agentId: id, treeSize })}
                 onTogglePick={(id) => setSelectedForRemoval(prev => {
                     const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id)
                     if (n.size === 0) setMultiSelect(false) // deselezionati tutti → si esce dalla selezione
