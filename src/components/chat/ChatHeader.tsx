@@ -95,6 +95,7 @@ export function ChatHeader(props: ChatHeaderProps) {
   const chatHasOneAgent = props.selectedAgentIds.length <= 1
   const agentListRef = useRef<HTMLDivElement>(null)
   const [modelPickerFor, setModelPickerFor] = useState<string | null>(null)
+  const [graphRefresh, setGraphRefresh] = useState(0)
   const { call: rpc } = useSidecarContext()
   const [thinkingPickerFor, setThinkingPickerFor] = useState<string | null>(null)
   const [addAgentOpen, setAddAgentOpen] = useState(false)
@@ -472,7 +473,7 @@ export function ChatHeader(props: ChatHeaderProps) {
           <div style={ctxOverlayStyle} onClick={() => { setCtxMenu(null) }} onContextMenu={e => { e.preventDefault(); setCtxMenu(null) }} />
           <div style={{ position: 'fixed', left: Math.min(ctxMenu.x, window.innerWidth - 180), top: Math.min(ctxMenu.y, window.innerHeight - 240), zIndex: 601, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '4px 0', minWidth: '160px' }}>
             {!multiSelect && ((ctxMenu as any)?.treeSize || props.selectedAgentIds.length) > 1 && ctxMenu.agentId !== effOrch && (props as any).onSetOrchestrator && (
-              <button onClick={() => { (props as any).onSetOrchestrator(ctxMenu.agentId); setCtxMenu(null) }} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}>Use as orchestrator</button>
+              <button onClick={() => { (props as any).onSetOrchestrator(ctxMenu.agentId); setCtxMenu(null); setGraphRefresh(v => v + 1) }} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}>Use as orchestrator</button>
             )}
             {!multiSelect && ((ctxMenu as any)?.treeSize || props.selectedAgentIds.length) > 1 && (
               <button onClick={() => { setMultiSelect(true); setSelectedForRemoval(new Set([ctxMenu.agentId])); setCtxMenu(null) }} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}>Select</button>
@@ -512,7 +513,7 @@ export function ChatHeader(props: ChatHeaderProps) {
                     }
                     // i sub-agent (non in chat) escono dal loro padre
                     try { await (props as any).onRemoveSubAgents?.(ids) } catch {}
-                    setSelectedForRemoval(new Set()); setMultiSelect(false); setConfirmDelete(null)
+                    setSelectedForRemoval(new Set()); setMultiSelect(false); setConfirmDelete(null); setGraphRefresh(v => v + 1)
                   }}
                 onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }}
                 onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }}
@@ -627,6 +628,7 @@ export function ChatHeader(props: ChatHeaderProps) {
                 // Rimozione dalla chat: SEMPRE con il dialogo di conferma originale
                 onRemoveFromChat={(id) => setConfirmDelete(id)}
                 onToggleChatAgent={(id) => props.onAgentToggle(id)}
+                refreshSignal={graphRefresh}
                 onRemoveSubAgents={(ids) => (props as any).onRemoveNodes?.(ids)}
                 sessionKey={String((props as any).session?.id || '')}
                 delegateTree={((props as any).session?.delegateTree || {})}

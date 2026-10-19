@@ -38,6 +38,7 @@ type Props = {
   onContextMenu: (id: string, x: number, y: number) => void
   onTogglePick: (id: string) => void
   delegateTree: Record<string, string[]>
+  refreshSignal?: number
   onRequestRemoveSelected: () => void
   onCancelSelect: () => void
 }
@@ -83,7 +84,7 @@ export function AgentGraphSheet(props: Props) {
   }
 
   useEffect(() => {
-    if (!localAgents.length) reloadAgents()
+    reloadAgents()
     reloadOrch()
     dlog('graph-open', { sessionKey: props.sessionKey, chatIds, orchId, tree, agents: localAgents.length })
   }, [])
@@ -235,6 +236,8 @@ export function AgentGraphSheet(props: Props) {
   }, [orchId, byId, chatIds, soloUno])
 
   // Log del render: cosa la UI ha DAVVERO in mano (solo quando cambia)
+  useEffect(() => { reloadAgents(); reloadOrch() }, [props.refreshSignal])
+
   const lastRenderRef = React.useRef('')
   try {
     const snap = JSON.stringify({ chatIds, orch: orchId, tree, nodes: laid?.nodes?.length, agents: localAgents.length })
@@ -475,6 +478,7 @@ export function AgentGraphSheet(props: Props) {
               for (const id of ids) { if (!chatIds.includes(id)) { try { props.onAddToChat(id) } catch {} } }
               // se non c'era, il padre diventa orchestrator
               if (!orchId && props.sessionKey) { try { await rpc('setSessionOrchestrator', { sessionKey: props.sessionKey, agentId: subFor }) } catch {} }
+              await Promise.all([reloadAgents(), reloadOrch()])
               // È un agente DELLA CHAT: entra anche nella lista agenti della sessione
               try {
                 const ids2 = [...new Set([...chatIds, ...ids])]
