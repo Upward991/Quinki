@@ -260,7 +260,23 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
   return {
     listAgents: async () => ({ agents: listAgents() }),
     createAgent: async (p: any) => {
-      const id = (p.id || `agent-${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g, "-").toLowerCase();
+      // SLUG: id leggibile dal nome ("Web Researcher" -> web-researcher). Solo per i NUOVI
+      // agenti: quelli esistenti tengono il loro id (nessuna migrazione).
+      const slugify = (v: string) => String(v || "")
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
+      let id = p.id ? String(p.id) : slugify(p.name || "");
+      if (!id) id = `agent-${Date.now()}`;
+      // collisione: non riusare un id già esistente
+      if (!p.id && id) {
+        try {
+          const dir = require("node:path").join(process.env.QUINKI_AGENT_DIR || require("node:os").homedir() + "/.quinki", "agents");
+          let cand = id, n = 2;
+          while (require("node:fs").existsSync(require("node:path").join(dir, cand))) { cand = `${id}-${n}`; n++; }
+          id = cand;
+        } catch {}
+      }
+      id = id.replace(/[^a-zA-Z0-9_-]/g, "-").toLowerCase();
       const agent = createAgentDir(id, p.name || "Nuovo agente", p.workspace);
       return { agent };
     },

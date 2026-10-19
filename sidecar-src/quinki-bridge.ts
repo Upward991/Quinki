@@ -777,9 +777,13 @@ class QuinkiBridge {
         });
         // Backup per-sessione COMPLETO (chat-meta.json): agenti, directory, override
         // per-agente (model/thinking), mode, message settings → si ripristinano SEMPRE al boot.
+        // Se la chat ha già un ALBERO, agenti e ruolo vengono da lì: la copia in RAM
+        // può essere stantia e riportava indietro agenti/ruolo (divergenza silenziosa).
+        let _hasTree = false;
+        try { const _m = JSON.parse(fs.readFileSync(path.join(this.#quinkiSessionDir(k), "chat-meta.json"), "utf8")); _hasTree = Object.values(_m?.delegateTree || {}).some((l: any) => Array.isArray(l) && l.length > 0); } catch {}
         this.#writeChatMeta(k, {
-          agentIds: (v as any).agentId || undefined,
-          orchestratorId: (v as any).orchestratorId || undefined,
+          agentIds: _hasTree ? undefined : ((v as any).agentId || undefined),
+          orchestratorId: _hasTree ? undefined : ((v as any).orchestratorId || undefined),
           workingDir: (v as any).workingDir || undefined,
           agentOverrides: (v as any).agentOverrides,
           model: v.model,
@@ -4390,7 +4394,18 @@ Read this file to view it.` }] };
   }
 
   /** Albero normalizzato { tree, root, members }. Migra le chat vecchie (agentIds+orchestratorId). */
-  #graphVersion(key: string): number { try { return Number(this.#readChatMetaFile(key)?.graphVersion || 0); } catch { return 0; } }
+  /** Versione del grafo = HASH dell'albero. Cambia se e solo se cambia la struttura,
+   *  e nessun writer può desincronizzarla (non c'è nessun contatore da aggiornare). */
+  #graphVersion(key: string): string {
+    try {
+      const t = this.#chatTreeOf(key, { complete: false });
+      if (!t.members.length) return "0";
+      const canon = JSON.stringify({ r: t.root, t: t.tree });
+      let h = 5381;
+      for (let i = 0; i < canon.length; i++) h = ((h << 5) + h + canon.charCodeAt(i)) >>> 0;
+      return h.toString(36).padStart(7, "0").slice(0, 7);
+    } catch { return "0"; }
+  }
 
   #chatTreeOf(key: string, opts?: { complete?: boolean }): { tree: Record<string, string[]>; root: string; members: string[] } {
     const m = this.#readChatMetaFile(key) || {};
@@ -4472,8 +4487,7 @@ Read this file to view it.` }] };
     // UN SOLO agente = nessun ruolo di orchestrator (il ruolo esiste con una squadra)
     const roleId = ordered.length > 1 ? root : "";
     if (s) { (s as any).agentId = ordered.join(","); (s as any).orchestratorId = roleId || undefined; (s as any).delegateTree = clean; }
-    const _gv = Number((m as any)?.graphVersion || 0) + 1;
-    this.#writeChatMeta(key, { agentIds: ordered.join(","), orchestratorId: roleId, delegateTree: clean, graphVersion: _gv });
+    this.#writeChatMeta(key, { agentIds: ordered.join(","), orchestratorId: roleId, delegateTree: clean });
     try { this.#chatMetaCache.delete(key); } catch {}
     try { const send = (globalThis as any).__quinki_sendNotification; if (send) send("session_updated", { sessionKey: key, agentId: ordered.join(","), orchestratorId: root, label: s?.label }); } catch {}
     return { tree: clean, root, members: ordered };
@@ -6078,30 +6092,40 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
 
   // True se agentIdOrList E' l'orchestrator della chat (solo per chat con 2+ agenti).
   /** Albero che l'agente deve CONOSCERE: tutto il suo sottoalbero, con i FIGLI DIRETTI
-   *  marcati come delegabili. Formato ESPLICITO (padre dichiarato per ogni nodo):
-   *  con la sola indentazione il modello non capiva chi fosse figlio di chi. */
+   *  marcati come delegabili. Formato ESPLICITO (padre dichiarato per ogni nodo).
+   *  Sempre presente, anche per le foglie: ogni agente sa chi è e da chi dipende. */
   #childrenPromptNote(key: string, agentId: string): string {
     try {
       if (!key || !agentId) return "";
       const t = this.#chatTreeOf(key);
+      if (!t.members.length) return "";
       const kids = (t.tree[agentId] || []).filter(Boolean);
-      if (!kids.length) return "";
       const nameOf = (id: string) => { try { return this.#readAgentConfig(id)?.name || id; } catch { return id; } };
+      const parentId = Object.keys(t.tree).find((p2) => (t.tree[p2] || []).includes(agentId)) || "";
+      const isRoot = !parentId || t.root === agentId;
+
+      // Sottoalbero (tutti i discendenti)
       const lines: string[] = [];
       const seen = new Set<string>([agentId]);
-      let depth = 0;
-      const walk = (id: string, parent: string, direct: boolean, lvl: number) => {
+      const walk = (id: string, parent: string, direct: boolean) => {
         if (seen.has(id)) return; seen.add(id);
-        depth = Math.max(depth, lvl);
         lines.push(`- ${nameOf(id)} — parent: ${nameOf(parent)}${direct ? " — YOU CAN DELEGATE TO THIS ONE" : ""}`);
-        for (const k of (t.tree[id] || [])) if (!seen.has(k)) walk(k, id, false, lvl + 1);
+        for (const k of (t.tree[id] || [])) if (!seen.has(k)) walk(k, id, false);
       };
-      for (const k of kids) walk(k, agentId, true, 0);
-      const youRow = `- ${nameOf(agentId)} — YOU (${t.root === agentId ? "root of the chat: you receive the user's messages" : `child of ${nameOf(Object.keys(t.tree).find((p2) => (t.tree[p2] || []).includes(agentId)) || t.root)}`})`;
-      const gv = this.#graphVersion(key);
-      let out = `\n\n**Organization of this chat — WHO IS WHOSE PARENT (${t.members.length} agents, graph_version ${gv}):**\n`;
-      out += `_(snapshot taken when this turn started; if the graph_version returned by a tool differs, trust the tool)_\n`;
+      for (const k of kids) walk(k, agentId, true);
+
+      const subtreeCount = seen.size - 1;
+      const youRow = isRoot
+        ? `- ${nameOf(agentId)} — YOU (root of the chat: you receive the user's messages)`
+        : `- ${nameOf(agentId)} — YOU (child of ${nameOf(parentId)}${kids.length ? "" : " · you are a leaf: you cannot delegate"})`;
+
+      let out = `\n\n**Organization of this chat — WHO IS WHOSE PARENT**\n`;
+      out += `_(your subtree: ${subtreeCount} of ${t.members.length} agents · graph_version ${this.#graphVersion(key)} · snapshot at turn start: if a tool returns a different graph_version, trust the tool)_\n`;
       out += youRow + "\n" + lines.join("\n");
+      if (!kids.length) {
+        out += `\n\nYou have no agents below you: handle the task yourself and report the result back to the agent that called you.`;
+        return out;
+      }
       out += `\n\nRULES: you can delegate ONLY to the agents marked "YOU CAN DELEGATE TO THIS ONE" (your direct children).`;
       out += `\nTo reach any other agent listed above, delegate to the direct child that leads to it and ask THAT child to delegate further. When the answer comes back, it comes from your child: report it as such.`;
       out += `\nDo not inspect files or logs to discover the organization: this list IS the organization.`;
