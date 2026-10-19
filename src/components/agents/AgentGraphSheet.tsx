@@ -143,29 +143,7 @@ export function AgentGraphSheet(props: Props) {
   const [canRedo, setCanRedo] = useState(false)
   const mob = useLayout().mode === 'mobile'
   const [sheetOpen, setSheetOpen] = useState(false)
-  const zoomRef = useRef(zoom); zoomRef.current = zoom
-  const pinchRef = useRef<{ d0: number; z0: number } | null>(null)
-  const onTouchStart = (e: React.TouchEvent) => {
-    if (e.touches.length === 2) {
-      const [a, b] = [e.touches[0], e.touches[1]]
-      pinchRef.current = { d0: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1, z0: zoomRef.current }
-    }
-  }
-  const onTouchMove = (e: React.TouchEvent) => {
-    if (e.touches.length !== 2 || !pinchRef.current) return
-    e.preventDefault()
-    const [a, b] = [e.touches[0], e.touches[1]]
-    const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1
-    const ratio = d / pinchRef.current.d0
-    const z0 = zoomRef.current
-    const next = Math.min(MAX_Z, Math.max(MIN_Z, pinchRef.current.z0 * ratio))
-    const rect = viewRef.current?.getBoundingClientRect()
-    const mx = (a.clientX + b.clientX) / 2 - (rect?.left || 0)
-    const my = (a.clientY + b.clientY) / 2 - (rect?.top || 0)
-    setPan(p => ({ x: mx - (mx - p.x) * (next / z0), y: my - (my - p.y) * (next / z0) }))
-    setZoom(next)
-  }
-  const onTouchEnd = () => { if (pinchRef.current) pinchRef.current = null }
+
   useEffect(() => { if (Array.isArray(chatAgentIds) && chatAgentIds.length) setLocalChatIds(chatAgentIds) }, [chatAgentIds])
   // FONTE VERA: l'app può avere la lista vecchia; il motore no.
   const chatIds = localChatIds.length ? localChatIds : chatAgentIds
@@ -259,6 +237,29 @@ export function AgentGraphSheet(props: Props) {
 
   const [zoom, setZoom] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
+  const zoomRef = useRef(zoom); zoomRef.current = zoom
+  const pinchRef = useRef<{ d0: number; z0: number } | null>(null)
+  const onTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const [a, b] = [e.touches[0], e.touches[1]]
+      pinchRef.current = { d0: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1, z0: zoomRef.current }
+    }
+  }
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length !== 2 || !pinchRef.current) return
+    e.preventDefault()
+    const [a, b] = [e.touches[0], e.touches[1]]
+    const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1
+    const ratio = d / pinchRef.current.d0
+    const z0 = zoomRef.current
+    const next = Math.min(MAX_Z, Math.max(MIN_Z, pinchRef.current.z0 * ratio))
+    const rect = viewRef.current?.getBoundingClientRect()
+    const mx = (a.clientX + b.clientX) / 2 - (rect?.left || 0)
+    const my = (a.clientY + b.clientY) / 2 - (rect?.top || 0)
+    setPan(p => ({ x: mx - (mx - p.x) * (next / z0), y: my - (my - p.y) * (next / z0) }))
+    setZoom(next)
+  }
+  const onTouchEnd = () => { if (pinchRef.current) pinchRef.current = null }
   const viewRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ x: number; y: number; px: number; py: number } | null>(null)
   const MIN_Z = 0.5, MAX_Z = 3
