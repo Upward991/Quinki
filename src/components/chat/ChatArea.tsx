@@ -797,6 +797,8 @@ export function ChatArea(props: ChatAreaProps) {
           showRollback={props.showRollback}
           agentDropdownOpen={props.agentDropdownOpen}
           onToggleAgentDropdown={props.onToggleAgentDropdown}
+          onSetChatAgents={(props as any).onSetChatAgents}
+          onRefreshAgents={(props as any).onRefreshAgents}
           agents={props.agents}
           selectedAgentIds={props.selectedAgentIds}
           onAgentToggle={props.onAgentToggle}

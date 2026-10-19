@@ -131,11 +131,14 @@ export function AgentGraphSheet(props: Props) {
   const dragRef = useRef<{ x: number; y: number; px: number; py: number } | null>(null)
   const MIN_Z = 0.5, MAX_Z = 3
 
+  // All'apertura deve entrare TUTTO l'albero: zoom dinamico (max 300%, min 50%).
   useEffect(() => {
     const el = viewRef.current
     if (!el || !laid.width) return
-    setZoom(1)
-    setPan({ x: Math.max(16, (el.clientWidth - laid.width) / 2), y: 28 })
+    const pad = 48
+    const z = Math.max(MIN_Z, Math.min(MAX_Z, (el.clientWidth - pad * 2) / laid.width, (el.clientHeight - pad * 2) / laid.height))
+    setZoom(z)
+    setPan({ x: (el.clientWidth - laid.width * z) / 2, y: Math.max(20, (el.clientHeight - laid.height * z) / 2) })
   }, [laid.width, laid.height])
 
   useEffect(() => {
@@ -148,7 +151,7 @@ export function AgentGraphSheet(props: Props) {
     const el = viewRef.current
     if (!el || !laid.width) return
     const pad = 56
-    const z = Math.min(1, (el.clientWidth - pad * 2) / laid.width, (el.clientHeight - pad * 2) / laid.height)
+    const z = Math.min(MAX_Z, (el.clientWidth - pad * 2) / laid.width, (el.clientHeight - pad * 2) / laid.height)
     const zz = Math.max(MIN_Z, Math.min(MAX_Z, z))
     setZoom(zz)
     setPan({ x: (el.clientWidth - laid.width * zz) / 2, y: Math.max(24, (el.clientHeight - laid.height * zz) / 2) })
@@ -192,7 +195,7 @@ export function AgentGraphSheet(props: Props) {
   return (
     <div style={{ position: 'fixed', top: 25, left: 0, right: 0, bottom: 0, zIndex: 300, backgroundColor: 'var(--q-bg)', display: 'flex', flexDirection: 'column', padding: 8, boxSizing: 'border-box' }}>
       {/* heading — pannelli flottanti, larghezza standard */}
-      <div style={{ flexShrink: 0, marginBottom: 8, width: '100%', maxWidth: 'var(--spacing-chat-max)', margin: '0 auto' }}>
+      <div style={{ flexShrink: 0, marginBottom: 8, paddingBottom: 6, width: '100%', maxWidth: 'var(--spacing-chat-max)', margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', width: '100%', gap: 8 }}>
           <div style={panelStyle}>
             <IconBtn title="Back to chat" onClick={props.onClose}><MessageSquare size={20} /></IconBtn>
