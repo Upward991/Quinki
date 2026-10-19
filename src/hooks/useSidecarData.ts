@@ -146,7 +146,6 @@ function mapSession(s: any) {
     compactionThreshold: s.compactionThreshold ?? 80,
     agentId: s.agentId,
     orchestratorId: s.orchestratorId || null,
-    delegateTree: (s as any).delegateTree || {},
     workerPort: s.workerPort || 0,
   }
 }

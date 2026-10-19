@@ -42,6 +42,7 @@ type Props = {
   onCancelSelect: () => void
 }
 
+const EMPTY_TREE: Record<string, string[]> = {}
 const NODE_W = 210
 const ROOT_H = 64    // orchestrator: nome + sub agent
 const H_DUE = 88     // nome + 2 chip
@@ -113,7 +114,7 @@ export function AgentGraphSheet(props: Props) {
   // Il ruolo si legge dal MOTORE (reloadOrch); la prop può essere vecchia e non deve sovrascrivere.
   const [localOrch, setLocalOrch] = useState(orchestratorId)
   const [localChatIds, setLocalChatIds] = useState<string[]>(chatAgentIds)
-  const [tree, setTree] = useState<Record<string, string[]>>(delegateTree || {})
+  const [tree, setTree] = useState<Record<string, string[]>>(delegateTree || EMPTY_TREE)
   useEffect(() => { if (Array.isArray(chatAgentIds) && chatAgentIds.length) setLocalChatIds(chatAgentIds) }, [chatAgentIds])
   // FONTE VERA: l'app può avere la lista vecchia; il motore no.
   const chatIds = localChatIds.length ? localChatIds : chatAgentIds
