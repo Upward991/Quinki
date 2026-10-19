@@ -6104,8 +6104,8 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
 
   // True se agentIdOrList E' l'orchestrator della chat (solo per chat con 2+ agenti).
   /** Albero che l'agente deve CONOSCERE: tutto il suo sottoalbero, con i FIGLI DIRETTI
-   *  marcati come delegabili. Serve a costruire la catena: sa che per arrivare a un
-   *  nipote deve chiedere al figlio di delegare. */
+   *  marcati come delegabili. Formato ESPLICITO (padre dichiarato per ogni nodo):
+   *  con la sola indentazione il modello non capiva chi fosse figlio di chi. */
   #childrenPromptNote(key: string, agentId: string): string {
     try {
       if (!key || !agentId) return "";
@@ -6114,18 +6114,21 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
       if (!kids.length) return "";
       const nameOf = (id: string) => { try { return this.#readAgentConfig(id)?.name || id; } catch { return id; } };
       const lines: string[] = [];
-      const walk = (id: string, depth: number, direct: boolean, seen: Set<string>) => {
-        if (seen.has(id)) return; seen.add(id);
-        lines.push(`${"  ".repeat(depth)}- @${nameOf(id)}${direct ? "   <-- you can delegate to them" : ""}`);
-        for (const k of (t.tree[id] || [])) if (!seen.has(k)) walk(k, depth + 1, false, seen);
-      };
       const seen = new Set<string>([agentId]);
-      for (const k of kids) walk(k, 0, true, seen);
-      let out = `\n\n**Organization of this chat (the whole tree below you):**\n`;
-      out += lines.join("\n");
-      out += `\n\nYou can call ONLY the agents marked "you can delegate to them" (your direct children).`;
-      out += `\nTo reach an agent deeper in the tree, ask your direct child to delegate further down, then report the answer back up the chain.`;
-      out += `\nWhen the user makes a request, pick the right agent and delegate. If the request is simple, answer directly.`;
+      let depth = 0;
+      const walk = (id: string, parent: string, direct: boolean, lvl: number) => {
+        if (seen.has(id)) return; seen.add(id);
+        depth = Math.max(depth, lvl);
+        lines.push(`- ${nameOf(id)} — parent: ${nameOf(parent)}${direct ? " — YOU CAN DELEGATE TO THIS ONE" : ""}`);
+        for (const k of (t.tree[id] || [])) if (!seen.has(k)) walk(k, id, false, lvl + 1);
+      };
+      for (const k of kids) walk(k, agentId, true, 0);
+      const youRow = `- ${nameOf(agentId)} — YOU (${t.root === agentId ? "root of the chat: you receive the user's messages" : `child of ${nameOf(Object.keys(t.tree).find((p2) => (t.tree[p2] || []).includes(agentId)) || t.root)}`})`;
+      let out = `\n\n**Organization of this chat — WHO IS WHOSE PARENT (${t.members.length} agents):**\n`;
+      out += youRow + "\n" + lines.join("\n");
+      out += `\n\nRULES: you can delegate ONLY to the agents marked "YOU CAN DELEGATE TO THIS ONE" (your direct children).`;
+      out += `\nTo reach any other agent listed above, delegate to the direct child that leads to it and ask THAT child to delegate further. When the answer comes back, it comes from your child: report it as such.`;
+      out += `\nDo not inspect files or logs to discover the organization: this list IS the organization.`;
       return out;
     } catch { return ""; }
   }
