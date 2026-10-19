@@ -117,38 +117,7 @@ export function AgentGraphSheet(props: Props) {
   }
 
   /** UNA scrittura per tutta la chat: agenti + orchestrator + albero. */
-  const saveChat = async (st: { agentIds?: string[]; orchestratorId?: string | null; delegateTree?: Record<string, string[]> }) => {
-    const state: any = {}
-    if (st.agentIds) state.agentIds = st.agentIds.join(',')
-    if (st.orchestratorId !== undefined) state.orchestratorId = st.orchestratorId || ''
-    if (st.delegateTree !== undefined) state.delegateTree = st.delegateTree
-    dlog('saveChat', { state, stack: (new Error().stack || '').split('\n').slice(1, 5) })
-    try { await rpc('setSessionChatState', { sessionKey: props.sessionKey, state }) } catch (e: any) { dlog('saveChat-error', String(e?.message || e)) }
-    await Promise.all([reloadAgents(), reloadOrch()])
-  }
-
-  const saveTree = async (next: Record<string, string[]>) => {
-    dlog('saveTree', { next })
-    try { await rpc('setSessionDelegateTree', { sessionKey: props.sessionKey, tree: next }) } catch {}
-    setTree(next)
-    await reloadOrch()
-  }
-
   /** Modifica transazionale: legge l'albero FRESCO dal motore, applica, scrive. */
-  const mutateTree = async (fn: (cur: Record<string, string[]>) => Record<string, string[]>, tag: string) => {
-    let cur: Record<string, string[]> = {}
-    try {
-      const r: any = await rpc('listSessions', {})
-      const s2 = (r?.sessions || []).find((x: any) => x.key === props.sessionKey)
-      cur = (s2?.delegateTree || {}) as Record<string, string[]>
-    } catch {}
-    const next = fn(cur)
-    dlog('mutateTree', { tag, before: cur, after: next })
-    await saveTree(next)
-    return next
-  }
-
-
   // Log diagnostico → ~/.quinki/agent-graph-debug.log (il client lo manda al motore)
   const dlog = (tag: string, data: any) => { try { rpc('clientLog', { tag, data }) } catch {} }
 
@@ -320,22 +289,6 @@ export function AgentGraphSheet(props: Props) {
       try { await (props as any).onRemoveSubAgents?.([id]) } catch {}
       await Promise.all([reloadAgents(), reloadOrch()])
     }
-  }
-
-  /** Porta un agente (di qualsiasi livello) a orchestrator: lo stacca dal padre,
-   *  lo garantisce in chat e gli assegna il ruolo. Il vecchio orchestrator resta
-   *  in chat → scende al primo livello. */
-  const makeOrchestrator = async (id: string) => {
-    for (const pid of Object.keys(byId)) {
-      const cur: string[] = (delegateTree[pid] || [])
-      if (!cur.includes(id)) continue
-      await saveTree({ ...tree, [pid]: cur.filter((x: string) => x !== id) })
-    }
-    const cur = chatAgentIds
-    if (!cur.includes(id)) { try { await rpc('setChatAgents', { sessionKey: props.sessionKey, agentIds: [...cur, id].join(',') }) } catch {} }
-    try { await rpc('setSessionOrchestrator', { sessionKey: props.sessionKey, agentId: id }) } catch {}
-    await reloadAgents()
-    await reloadOrch()
   }
 
   // La conferma ORIGINALE (in ChatHeader) deve usare la rimozione con promozione dei figli.
