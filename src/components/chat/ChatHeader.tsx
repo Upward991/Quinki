@@ -625,7 +625,12 @@ export function ChatHeader(props: ChatHeaderProps) {
           <div style={{ position: 'relative' }}>
             <IconBtn icon={Bot} onClick={props.onToggleAgentDropdown} title="Show agents" />
             {/* NUOVO (18 ott): il tasto Agenti apre il GRAFO a schermo intero, non il menù stretto. */}
-            {props.agentDropdownOpen && (
+          </div>
+        </div>
+        </>)}
+      </div>
+
+      {(props.agentDropdownOpen) && (
               <AgentGraphSheet
                 agents={props.agents || []}
                 chatAgentIds={(() => {
@@ -684,10 +689,6 @@ export function ChatHeader(props: ChatHeaderProps) {
               </div>
               </>
             )}
-          </div>
-        </div>
-        </>)}
-      </div>
 
       {/* Export modal — Flutter AlertDialog: bgElevated, radiusXl, NO border, all TextButtons coral */}
 
