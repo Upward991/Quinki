@@ -92,6 +92,7 @@ export function AgentGraphSheet(props: Props) {
   // Il ruolo va riletto dal motore: quando resta un solo agente il motore lo AZZERA
   // e il grafo deve smettere di mostrare l'orchestrator.
   const refreshing = React.useRef(false)
+  const clearingOrch = React.useRef(false)
   const reloadOrch = async () => {
     if (refreshing.current) return
     refreshing.current = true
@@ -101,7 +102,20 @@ export function AgentGraphSheet(props: Props) {
       setLocalOrch((s?.orchestratorId || '') as string)
       const ids = String(s?.agentId || '').split(',').map((x: string) => x.trim()).filter(Boolean)
       if (ids.length) setLocalChatIds(ids)
-      setTree(((s as any)?.delegateTree || {}) as Record<string, string[]>)
+      const __tree = ((s as any)?.delegateTree || {}) as Record<string, string[]>
+      setTree(__tree)
+      // SOLO UI: se è rimasto un agente senza sub-agent, il ruolo non serve più → lo azzero
+      try {
+        const __ids = String(s?.agentId || '').split(',').map((x: string) => x.trim()).filter(Boolean)
+        const __noKids = Object.keys(__tree).every(k => (__tree[k] || []).filter((x: string) => x && x !== k).length === 0)
+        if (__ids.length <= 1 && __noKids && s?.orchestratorId && !clearingOrch.current) {
+          clearingOrch.current = true
+          await rpc('setSessionOrchestrator', { sessionKey: props.sessionKey, agentId: null })
+          clearingOrch.current = false
+          setLocalOrch('')
+          dlog('orch-cleared', { ids: __ids })
+        }
+      } catch { clearingOrch.current = false }
       dlog('reload-orch', { sessionKey: props.sessionKey, agentId: s?.agentId, orch: s?.orchestratorId, tree: (s as any)?.delegateTree })
     } catch {} finally { refreshing.current = false }
   }
