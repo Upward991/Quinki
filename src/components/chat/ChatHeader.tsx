@@ -505,8 +505,8 @@ export function ChatHeader(props: ChatHeaderProps) {
               </button>
               <button
                 onClick={() => {
-                  if (confirmDelete === 'selected') { const fn = (window as any).__quinkiRemoveNode; selectedForRemoval.forEach(id => fn ? fn(id) : props.onAgentToggle(id)); setSelectedForRemoval(new Set()); setMultiSelect(false) }
-                  else { const fn = (window as any).__quinkiRemoveNode; fn ? fn(confirmDelete) : props.onAgentToggle(confirmDelete) }
+                  if (confirmDelete === 'selected') { selectedForRemoval.forEach(id => props.onAgentToggle(id)); setSelectedForRemoval(new Set()); setMultiSelect(false) }
+                  else { props.onAgentToggle(confirmDelete) }
                   setConfirmDelete(null)
                 }}
                 onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }}
@@ -621,6 +621,7 @@ export function ChatHeader(props: ChatHeaderProps) {
                 }}
                 // Rimozione dalla chat: SEMPRE con il dialogo di conferma originale
                 onRemoveFromChat={(id) => setConfirmDelete(id)}
+                onToggleChatAgent={(id) => props.onAgentToggle(id)}
                 sessionKey={String((props as any).session?.id || '')}
                 onSelectAgent={(id) => {
                   const cur = String((props as any).session?.agentId || '').split(',').filter(Boolean)

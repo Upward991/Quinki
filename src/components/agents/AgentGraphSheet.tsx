@@ -31,6 +31,7 @@ type Props = {
   onSelectAgent: (id: string) => void
   sessionKey: string
   onRemoveFromChat: (id: string) => void
+  onToggleChatAgent: (id: string) => void
   agentOverrides?: Record<string, any>
   selectMode: boolean
   picked: Set<string>
@@ -215,26 +216,14 @@ export function AgentGraphSheet(props: Props) {
       const next = [...new Set([...cur.filter(x => x !== id), ...kids])]
       try { await rpc('updateAgent', { id: pid, config: { delegates: next } }) } catch {}
     }
-    // 2) se era in chat: i figli passano al primo livello
+    // 2) se era in chat: lo toglie con il percorso ORIGINALE dell'app
     if (inChat) {
-      try {
-        if (orchId && orchId !== id) {
-          const ocur: string[] = Array.isArray(byId[orchId]?.delegates) ? byId[orchId].delegates : []
-          const onext = [...new Set([...ocur.filter(x => x !== id), ...kids])]
-          await rpc('updateAgent', { id: orchId, config: { delegates: onext } })
-        }
-        const nextChat = chatAgentIds.filter(x => x !== id)
-        if (nextChat.length) await rpc('setChatAgents', { sessionKey: props.sessionKey, agentIds: nextChat.join(',') })
-      } catch {}
+      try { props.onToggleChatAgent(id) } catch {}
     }
     // 3) se era l'orchestrator: i figli diventano agenti di primo livello e lui
     //    resta senza sub-agent → il ruolo NON viene riassegnato in automatico.
     if (id === orchId) {
       try {
-        if (kids.length) {
-          const nextChat = [...new Set([...chatAgentIds.filter(x => x !== id), ...kids])]
-          await rpc('setChatAgents', { sessionKey: props.sessionKey, agentIds: nextChat.join(',') })
-        }
         await rpc('updateAgent', { id, config: { delegates: [] } })
         await rpc('setSessionOrchestrator', { sessionKey: props.sessionKey, agentId: null })
       } catch {}
