@@ -61,6 +61,7 @@ Every chat is an **agent tree**, and the graph button in the chat header opens i
 - **Use as orchestrator** on any node: that node becomes the root, and the previous orchestrator becomes **its child**.
 - **Remove** a node: its children **move up** to its parent. The **root cannot be removed** — assign the role to another agent first.
 - **Model** and **thinking** are per node **and per chat**: changing them here never affects the same agent in another chat.
+- **Undo / Redo** (⌘Z / ⇧⌘Z, or the buttons in the graph header) step back and forth through the last **10** graph states of that chat — structure, root and membership together.
 
 Inside the chat, each agent knows its own subtree: it sees **every agent below it**, but it can delegate **only to its direct children** — to reach a deeper agent it must ask the child to delegate further and report back. That is how a request travels down the tree and the answer travels back up, one step at a time.
 

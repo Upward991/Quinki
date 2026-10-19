@@ -103,6 +103,7 @@
 <li><strong>Use as orchestrator</strong> on any node: that node becomes the root, and the previous orchestrator becomes <strong>its child</strong>.</li>
 <li><strong>Remove</strong> a node: its children <strong>move up</strong> to its parent. The <strong>root cannot be removed</strong> — assign the role to another agent first.</li>
 <li><strong>Model</strong> and <strong>thinking</strong> are per node <strong>and per chat</strong>: changing them here never affects the same agent in another chat.</li>
+<li><strong>Undo / Redo</strong> (⌘Z / ⇧⌘Z, or the buttons in the graph header) step back and forth through the last <strong>10</strong> graph states of that chat — structure, root and membership together.</li>
 </ul>
 <p>Inside the chat, each agent knows its own subtree: it sees <strong>every agent below it</strong>, but it can delegate <strong>only to its direct children</strong> — to reach a deeper agent it must ask the child to delegate further and report back. That is how a request travels down the tree and the answer travels back up, one step at a time.</p>
 <h2>5. Sessions</h2>
