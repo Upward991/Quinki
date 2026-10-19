@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Bot, Network, Plus, Maximize, MessageSquare, Cpu, Brain, RefreshCw } from '../icons'
 import { useSidecarContext } from '../shared/AppShell'
-import { AgentPickerModal } from '../chat/AgentPickerModal'
 
 /**
  * AgentGraphSheet — il grafo degli agenti della chat, a schermo intero.
@@ -63,6 +62,8 @@ export function AgentGraphSheet(props: Props) {
   const soloUno = chatAgentIds.length <= 1
   const [subFor, setSubFor] = useState<string | null>(null)
   const [changeFor, setChangeFor] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
+  useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 2200); return () => clearTimeout(t) }, [toast])
 
   // altezza reale della card in base a cosa contiene
   const cardH = (n: TNode) => n.isOrch ? ROOT_H : (soloUno ? H_DUE : (orchId ? H_TRE : H_DUE))
@@ -312,43 +313,45 @@ export function AgentGraphSheet(props: Props) {
         )}
       </div>
 
-      {/* sub agent: lo STESSO picker della chat, già in chat esclusi */}
+      {/* PICKER LOCALE (stesso design di quello della chat, zero dipendenze) */}
       {subFor && (
-        <AgentPickerModal
-          agents={agents}
-          initialSelected={[...chatAgentIds, ...((byId[subFor]?.delegates as string[]) || [])]}
+        <PickerOverlay
           title={`Add sub agents to ${byId[subFor]?.name || subFor}`}
+          agents={agents}
+          exclude={[...chatAgentIds, ...((byId[subFor]?.delegates as string[]) || [])]}
           onClose={() => setSubFor(null)}
-          onAdd={async (ids: string[]) => {
+          onConfirm={async (ids) => {
             const cur: string[] = Array.isArray(byId[subFor]?.delegates) ? byId[subFor].delegates : []
             try {
               const res: any = await rpc('updateAgent', { id: subFor, config: { delegates: [...cur, ...ids] } })
-              if (res && res.success === false) alert('Add sub agent failed: ' + (res.error || 'unknown'))
+              if (res && res.success === false) { alert('Add sub agent failed: ' + (res.error || 'unknown')); return }
+              if (!orchId) { try { props.onSetOrchestrator(subFor) } catch {} }
+              props.onRefreshAgents?.()
+              setToast(`Added ${ids.length} sub agent${ids.length > 1 ? 's' : ''}`)
+              setSubFor(null)
             } catch (e: any) { alert('Add sub agent failed: ' + (e?.message || String(e))) }
-            // REGOLA (19 ott): chi riceve un sub-agent diventa l'orchestrator della chat
-            // se non ce n'è ancora uno (poi si può cambiare col tasto destro).
-            if (!orchId) { try { props.onSetOrchestrator(subFor) } catch {} }
-            props.onRefreshAgents?.()
-            setSubFor(null)
           }}
         />
       )}
 
-      {/* change agent: STESSO picker, selezione singola */}
       {changeFor && (
-        <AgentPickerModal
-          agents={agents}
-          initialSelected={chatAgentIds}
+        <PickerOverlay
           title="Change agent"
+          agents={agents}
+          exclude={chatAgentIds}
           single
           onClose={() => setChangeFor(false)}
-          onAdd={(ids: string[]) => {
-            if (ids[0]) {
-              try { props.onChangeAgent(ids[0]) } catch (e: any) { alert('Change agent failed: ' + (e?.message || String(e))) }
-            }
+          onConfirm={(ids) => {
+            if (ids[0]) { try { props.onChangeAgent(ids[0]); setToast('Agent changed') } catch (e: any) { alert('Change failed: ' + (e?.message || String(e))) } }
             setChangeFor(false)
           }}
         />
+      )}
+
+      {toast && (
+        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 950, backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', padding: '10px 16px', color: 'var(--q-text)', fontSize: 12.5, fontFamily: 'var(--font-interface)', boxShadow: '0 10px 30px rgba(0,0,0,.25)' }}>
+          {toast}
+        </div>
       )}
     </div>
   )
@@ -379,5 +382,58 @@ function IconBtn({ children, onClick, title }: any) {
       onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-text-secondary)' }}>
       {children}
     </button>
+  )
+}
+
+/** Picker agenti — stesso design di quello della chat, ma locale al grafo. */
+function PickerOverlay({ title, agents, exclude, single, onClose, onConfirm }: any) {
+  const [sel, setSel] = React.useState<Set<string>>(new Set())
+  const [q, setQ] = React.useState('')
+  const list = (agents || [])
+    .filter((a: any) => !(exclude || []).includes(a.id))
+    .filter((a: any) => String(a.name || '').toLowerCase().includes(q.toLowerCase()))
+  const toggle = (id: string) => {
+    if (single) { setSel(new Set([id])); return }
+    setSel(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  }
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 900, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
+      <div style={{ backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', width: '90%', maxWidth: 520, maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: 16, flexShrink: 0 }}>
+          <span style={{ color: 'var(--q-text)', fontSize: 16, fontWeight: 600, fontFamily: 'var(--font-interface)' }}>{title}</span>
+        </div>
+        <div style={{ padding: '8px 16px', flexShrink: 0 }}>
+          <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Search..."
+            style={{ width: '100%', boxSizing: 'border-box', height: 36, padding: '0 10px', backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-sm)', color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)', outline: 'none' }} />
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0', minHeight: 120 }}>
+          {list.length === 0 && (
+            <div style={{ padding: 24, textAlign: 'center', color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)' }}>No agents available</div>
+          )}
+          {list.map((a: any) => (
+            <div key={a.id} onClick={() => toggle(a.id)}
+              onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--q-hover)')}
+              onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+              style={{ display: 'flex', alignItems: 'center', padding: '8px 16px', cursor: 'pointer' }}>
+              <div style={{ flex: 1, minWidth: 0, color: 'var(--q-text)', fontSize: 14, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.name || a.id}</div>
+              <input type={single ? 'radio' : 'checkbox'} checked={sel.has(a.id)} onChange={() => toggle(a.id)} onClick={e => e.stopPropagation()}
+                style={{ accentColor: 'var(--q-tab-accent)', width: 16, height: 16, cursor: 'pointer' }} />
+            </div>
+          ))}
+        </div>
+        <div style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, borderTop: '1px solid var(--q-border)' }}>
+          <button onClick={() => setSel(new Set(list.map((a: any) => a.id)))} disabled={list.length === 0}
+            style={{ background: 'none', border: 'none', color: list.length ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)', fontSize: 12.5, fontFamily: 'var(--font-interface)', cursor: list.length ? 'pointer' : 'default' }}>Select all</button>
+          <button onClick={() => setSel(new Set())} disabled={sel.size === 0}
+            style={{ background: 'none', border: 'none', color: sel.size ? 'var(--q-text-secondary)' : 'var(--q-text-tertiary)', fontSize: 12.5, fontFamily: 'var(--font-interface)', cursor: sel.size ? 'pointer' : 'default' }}>Select none</button>
+          <div style={{ flex: 1 }} />
+          <button onClick={onClose}
+            style={{ height: 34, padding: '0 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', background: 'transparent', color: 'var(--q-text)', fontSize: 13, fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>Cancel</button>
+          <button onClick={() => onConfirm([...sel])} disabled={sel.size === 0}
+            style={{ height: 34, padding: '0 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', background: sel.size ? 'var(--q-tab-accent)' : 'transparent', color: sel.size ? '#fff' : 'var(--q-tab-accent)', fontSize: 13, fontFamily: 'var(--font-interface)', cursor: sel.size ? 'pointer' : 'default' }}>Add</button>
+        </div>
+      </div>
+    </div>
   )
 }
