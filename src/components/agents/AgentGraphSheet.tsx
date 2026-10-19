@@ -29,6 +29,7 @@ type Props = {
   onSetOrchestrator: (id: string) => void
   onMakeOrchestrator: (id: string) => void
   onSelectAgent: (id: string) => void
+  sessionKey: string
   onRemoveFromChat: (id: string) => void
   agentOverrides?: Record<string, any>
   selectMode: boolean
@@ -62,9 +63,9 @@ export function AgentGraphSheet(props: Props) {
     return m
   }, [agents])
 
-  // Ruolo: se la sessione non lo dice, è orchestrator l'agente della chat che ha sub-agent.
-  const derivedOrch = chatAgentIds.find(id => Array.isArray(byId[id]?.delegates) && byId[id].delegates.length)
-  const orchId = (orchestratorId && byId[orchestratorId]) ? orchestratorId : (derivedOrch || '')
+  // SOLO il ruolo scelto: nessuna assegnazione automatica. Se l'orchestrator viene
+  // rimosso il tree resta senza orchestrator e la chat lo segnala, come deve essere.
+  const orchId = (orchestratorId && byId[orchestratorId]) ? orchestratorId : ''
   // "solo un agente" vale SOLO se in chat c'è un agente e NON ha sub-agent.
   const soloUno = chatAgentIds.length <= 1 && !(chatAgentIds.length === 1 && Array.isArray(byId[chatAgentIds[0]]?.delegates) && byId[chatAgentIds[0]].delegates.length > 0)
   const [subFor, setSubFor] = useState<string | null>(null)
@@ -192,6 +193,61 @@ export function AgentGraphSheet(props: Props) {
     if (d) setPan({ x: d.px + (e.clientX - d.x), y: d.py + (e.clientY - d.y) })
   }
   const onPointerUp = () => { dragRef.current = null }
+
+
+  // ── operazioni strutturali (regole utente) ──────────────────────────────
+  /** Rimuove un nodo a QUALSIASI livello: i suoi figli salgono di un livello.
+   *  - se era un sub-agent: i figli entrano nei delegates del padre
+   *  - se era un agente della chat: i figli salgono al primo livello (delegates dell'orchestrator)
+   *  - se era l'orchestrator: il ruolo si azzera (NESSUN automatismo)
+   */
+  const removeNode = async (id: string) => {
+    const inChat = chatAgentIds.includes(id)
+    const kids: string[] = Array.isArray(byId[id]?.delegates) ? byId[id].delegates : []
+    // 1) sostituisci il nodo con i suoi figli, in ogni padre che lo contiene
+    for (const pid of Object.keys(byId)) {
+      const cur: string[] = Array.isArray(byId[pid]?.delegates) ? byId[pid].delegates : []
+      if (!cur.includes(id)) continue
+      const next = [...new Set([...cur.filter(x => x !== id), ...kids])]
+      try { await rpc('updateAgent', { id: pid, config: { delegates: next } }) } catch {}
+    }
+    // 2) se era in chat: i figli passano al primo livello
+    if (inChat) {
+      try {
+        if (orchId && orchId !== id) {
+          const ocur: string[] = Array.isArray(byId[orchId]?.delegates) ? byId[orchId].delegates : []
+          const onext = [...new Set([...ocur.filter(x => x !== id), ...kids])]
+          await rpc('updateAgent', { id: orchId, config: { delegates: onext } })
+        }
+        const nextChat = chatAgentIds.filter(x => x !== id)
+        if (nextChat.length) await rpc('setChatAgents', { sessionKey: props.sessionKey, agentIds: nextChat.join(',') })
+      } catch {}
+    }
+    // 3) se era l'orchestrator → nessun ruolo (lo sceglierà l'utente)
+    if (id === orchId) { try { await rpc('setSessionOrchestrator', { sessionKey: props.sessionKey, agentId: null }) } catch {} }
+    props.onRefreshAgents?.()
+  }
+
+  /** Porta un agente (di qualsiasi livello) a orchestrator: lo stacca dal padre,
+   *  lo garantisce in chat e gli assegna il ruolo. Il vecchio orchestrator resta
+   *  in chat → scende al primo livello. */
+  const makeOrchestrator = async (id: string) => {
+    for (const pid of Object.keys(byId)) {
+      const cur: string[] = Array.isArray(byId[pid]?.delegates) ? byId[pid].delegates : []
+      if (!cur.includes(id)) continue
+      try { await rpc('updateAgent', { id: pid, config: { delegates: cur.filter(x => x !== id) } }) } catch {}
+    }
+    const cur = chatAgentIds
+    if (!cur.includes(id)) { try { await rpc('setChatAgents', { sessionKey: props.sessionKey, agentIds: [...cur, id].join(',') }) } catch {} }
+    try { await rpc('setSessionOrchestrator', { sessionKey: props.sessionKey, agentId: id }) } catch {}
+    props.onRefreshAgents?.()
+  }
+
+  // La conferma ORIGINALE (in ChatHeader) deve usare la rimozione con promozione dei figli.
+  useEffect(() => {
+    (window as any).__quinkiRemoveNode = removeNode
+    return () => { try { delete (window as any).__quinkiRemoveNode } catch {} }
+  })
 
   const edges: { from: TNode; to: TNode }[] = []
   for (const n of laid.nodes) for (const c of n.children) edges.push({ from: n, to: c })
@@ -372,7 +428,7 @@ export function AgentGraphSheet(props: Props) {
             <div style={{ position: 'fixed', inset: 0, zIndex: 600 }} onClick={() => setSubMenu(null)} onContextMenu={(e) => { e.preventDefault(); setSubMenu(null) }} />
             <div style={{ position: 'fixed', left: Math.min(subMenu.x, window.innerWidth - 180), top: Math.min(subMenu.y, window.innerHeight - 240), zIndex: 601, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: 4, minWidth: 170 }}>
               {item('Set as orchestrator', 'var(--q-text)', () => {
-                try { props.onMakeOrchestrator(subMenu.id) } catch {}
+                makeOrchestrator(subMenu.id)
                 setSubMenu(null)
               })}
               {item('Select', 'var(--q-text)', () => {
@@ -405,9 +461,7 @@ export function AgentGraphSheet(props: Props) {
                   onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
                   style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-text)', fontSize: 13, fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>Cancel</button>
                 <button onClick={async () => {
-                  if (!parentId) { setConfirmSub(null); return }
-                  const cur: string[] = Array.isArray(byId[parentId]?.delegates) ? byId[parentId].delegates : []
-                  try { await rpc('updateAgent', { id: parentId, config: { delegates: cur.filter(x => x !== confirmSub) } }); props.onRefreshAgents?.() } catch {}
+                  await removeNode(confirmSub)
                   setConfirmSub(null)
                 }}
                   onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(217,107,107,0.12)')}
